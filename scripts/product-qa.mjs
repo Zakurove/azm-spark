@@ -1,0 +1,22 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const out='design/product-rework/screenshots';await fs.mkdir(out,{recursive:true});
+const b=await chromium.launch({args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
+const ctx=await b.newContext({viewport:{width:1440,height:1000}});const p=await ctx.newPage();const errors=[],external=[];
+p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith('http://localhost:5205'))external.push(r.url());});
+await p.goto('http://localhost:5205/?lang=en');await p.evaluate(()=>document.fonts.ready);
+assert.equal(await p.locator('video').count(),0);
+await p.locator('.position-option').nth(2).click();assert.match(await p.locator('.athlete-image').getAttribute('src'),/standing/);await p.locator('.next').click();assert.equal(await p.locator('.exercise-option').count(),1);assert.match(await p.locator('.exercise-option').innerText(),/Sit-to-Stand/);
+await p.locator('.actions .cta').click();await p.screenshot({path:`${out}/ready-standing-en.png`,fullPage:true});
+await p.locator('.demo-entry button').click();await p.waitForSelector('.rep-card',{timeout:40000});await p.screenshot({path:`${out}/session-standing-en.png`,fullPage:true});
+await p.locator('.stop').click();await p.waitForSelector('.rpe-grid');await p.locator('.rpe-btn').nth(8).click();assert.equal(await p.locator('.rpe-warn').count(),1);
+await p.keyboard.press('Tab');assert.equal(await p.evaluate(()=>document.activeElement.closest('[role=dialog]')!==null),true);
+await p.locator('.modal-actions .cta').click();await p.waitForSelector('.sum-grid');assert.equal(await p.evaluate(()=>localStorage.getItem('azm5.sessions')),null);await p.screenshot({path:`${out}/demo-summary-en.png`,fullPage:true});
+await p.locator('.modal-actions .cta').click();await p.waitForSelector('.banner');assert.equal(await p.locator('.sum-grid').count(),0);await p.locator('.session-header .text-button').click();
+await p.locator('.app-header nav button').nth(1).click();await p.waitForSelector('.empty-history');
+await p.setViewportSize({width:390,height:844});await p.goto('http://localhost:5205/?lang=ar&demo=1&profile=hemiparesis_right&ex=sit_to_stand&autostart=1&fast=1');await p.waitForSelector('.rep-card',{timeout:40000});await p.screenshot({path:`${out}/session-mobile-ar.png`,fullPage:true});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);await p.locator('.stop').click();await p.screenshot({path:`${out}/effort-mobile-ar.png`,fullPage:true});
+await p.setViewportSize({width:1440,height:1000});await p.goto('http://localhost:5205/?lang=en&demo=0&autostart=1');
+try{await p.waitForFunction(()=>document.querySelector('video')?.videoWidth>0,{timeout:30000});console.log('CAMERA: real local model + browser virtual camera started');await p.evaluate(()=>{window.qaTracks=document.querySelector('video').srcObject.getTracks();});await p.screenshot({path:`${out}/camera-en.png`,fullPage:true});await p.locator('.stop').click();assert.equal(await p.evaluate(()=>window.qaTracks.every(t=>t.readyState==='ended')),true);console.log('CAMERA: tracks ended on stop');}catch(e){console.log('CAMERA CHECK FAILED',e.message);throw e;}
+const denied=await ctx.newPage();await denied.addInitScript(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Denied','NotAllowedError');};});await denied.goto('http://localhost:5205/?lang=en&demo=0&autostart=1');await denied.waitForSelector('.camera-placeholder .cta',{timeout:30000});await denied.screenshot({path:`${out}/camera-denied-en.png`,fullPage:true});await denied.locator('.camera-placeholder .cta').click();await denied.waitForSelector('.demo-reference');
+assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: adaptive setup, isolated demo results, restart, keyboard focus, mobile overflow, camera cleanup, camera fallback, no external asset requests');await b.close();

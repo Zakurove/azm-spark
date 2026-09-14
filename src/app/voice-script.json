@@ -1,0 +1,142 @@
+{
+  "sit_tall": {
+    "ar": "ثبّت جذعك، وعدّل جلستك بهدوء.",
+    "en": "Steady your trunk. Adjust your sitting position."
+  },
+  "even_arms": {
+    "ar": "حاول تحريك ذراعيك معًا، ضمن قدرتك.",
+    "en": "Try moving your arms together, within your ability."
+  },
+  "slow_down": {
+    "ar": "تمهّل قليلًا، وتحكّم بالحركة.",
+    "en": "Slow down a little. Keep the movement controlled."
+  },
+  "fuller_range": {
+    "ar": "حاول إكمال الحركة ضمن مداك المريح.",
+    "en": "Try completing the movement within your comfortable range."
+  },
+  "relax_shoulders": {
+    "ar": "أرخِ كتفيك، وواصل بهدوء.",
+    "en": "Relax your shoulders. Move steadily."
+  },
+  "stand_fully": {
+    "ar": "عدّل استقامتك ضمن المدى المريح لك.",
+    "en": "Adjust your upright position within your comfortable range."
+  },
+  "control_descent": {
+    "ar": "عُد ببطء وتحكّم.",
+    "en": "Return slowly and with control."
+  },
+  "get_in_frame": {
+    "ar": "عدّل موضعك لتظهر المفاصل المطلوبة أمام الكاميرا.",
+    "en": "Adjust your position so the required joints are visible."
+  },
+  "move_back": {
+    "ar": "ابتعد قليلًا عن الكاميرا، إذا كانت المساحة تسمح.",
+    "en": "Move back a little, if space allows."
+  },
+  "great_rep": {
+    "ar": "أحسنت، حركة متحكَّم بها.",
+    "en": "Well done. A controlled movement."
+  },
+  "halfway": {
+    "ar": "وصلت إلى نصف المجموعة. واصل بإيقاعك.",
+    "en": "Halfway through your set. Keep your own pace."
+  },
+  "set_done": {
+    "ar": "أحسنت. انتهت المجموعة، خذ وقتك للراحة.",
+    "en": "Well done. Your set is complete. Take time to rest."
+  },
+  "stop_rest": {
+    "ar": "توقّف الآن واسترح.",
+    "en": "Stop now and rest."
+  },
+  "preview": {
+    "ar": "أهلًا بك في عزم. تحرّك على مهلك، وضمن المدى المريح لك.",
+    "en": "Welcome to Azm. Move at your own pace, within your comfortable range."
+  },
+  "calibration": {
+    "ar": "لنحدّد مداك. كرّر الحركة ببطء وبجهد مريح.",
+    "en": "Let’s find your range. Repeat the movement slowly, at a comfortable effort."
+  },
+  "training": {
+    "ar": "تم تحديد مداك. لنبدأ مجموعتك.",
+    "en": "Your range is ready. Let’s begin your set."
+  },
+  "seated_shoulder_press_0": {
+    "ar": "ابدأ وذراعاك عند مستوى الكتفين، واجعل جذعك ثابتًا.",
+    "en": "Begin with your arms at shoulder level and your trunk steady."
+  },
+  "seated_shoulder_press_1": {
+    "ar": "ارفع ذراعيك فوق الرأس ضمن المدى المريح لك.",
+    "en": "Press your arms overhead within your comfortable range."
+  },
+  "seated_shoulder_press_2": {
+    "ar": "أعد ذراعيك إلى مستوى الكتفين بهدوء وتحكّم.",
+    "en": "Return your arms to shoulder level with a controlled movement."
+  },
+  "seated_biceps_curl_0": {
+    "ar": "ابدأ والمرفق بجانب جسمك. وجّه جانبك إلى الكاميرا.",
+    "en": "Start with your elbow by your side. Turn sideways to the camera."
+  },
+  "seated_biceps_curl_1": {
+    "ar": "اثنِ مرفقك وارفع الوزن نحو كتفك ضمن مداك المريح.",
+    "en": "Bend your elbow, bringing the weight toward your shoulder within your comfortable range."
+  },
+  "seated_biceps_curl_2": {
+    "ar": "أنزل الوزن ببطء، مع إبقاء المرفق بجانب جسمك.",
+    "en": "Lower slowly, keeping your elbow beside your body."
+  },
+  "sit_to_stand_0": {
+    "ar": "ابدأ جالسًا، بحيث تُظهر الكاميرا جسمك كاملًا.",
+    "en": "Begin seated, with your whole body visible to the camera."
+  },
+  "sit_to_stand_1": {
+    "ar": "انهض من الكرسي حتى تصل إلى وضع الوقوف المريح لك.",
+    "en": "Rise from the chair to your comfortable standing position."
+  },
+  "sit_to_stand_2": {
+    "ar": "عُد إلى الجلوس ببطء وتحكّم.",
+    "en": "Return to sitting slowly and with control."
+  },
+  "count_1": {
+    "ar": "واحد",
+    "en": "1"
+  },
+  "count_2": {
+    "ar": "اثنان",
+    "en": "2"
+  },
+  "count_3": {
+    "ar": "ثلاثة",
+    "en": "3"
+  },
+  "count_4": {
+    "ar": "أربعة",
+    "en": "4"
+  },
+  "count_5": {
+    "ar": "خمسة",
+    "en": "5"
+  },
+  "count_6": {
+    "ar": "ستة",
+    "en": "6"
+  },
+  "count_7": {
+    "ar": "سبعة",
+    "en": "7"
+  },
+  "count_8": {
+    "ar": "ثمانية",
+    "en": "8"
+  },
+  "count_9": {
+    "ar": "تسعة",
+    "en": "9"
+  },
+  "count_10": {
+    "ar": "عشرة",
+    "en": "10"
+  }
+}

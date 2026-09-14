@@ -1,0 +1,352 @@
+[
+  {
+    "file": "public/cues/ar/sit_tall.mp3",
+    "seconds": 4.464,
+    "bytes": 26784
+  },
+  {
+    "file": "public/cues/ar/even_arms.mp3",
+    "seconds": 4.824,
+    "bytes": 28944
+  },
+  {
+    "file": "public/cues/ar/slow_down.mp3",
+    "seconds": 4.032,
+    "bytes": 24192
+  },
+  {
+    "file": "public/cues/ar/fuller_range.mp3",
+    "seconds": 4.2,
+    "bytes": 25200
+  },
+  {
+    "file": "public/cues/ar/relax_shoulders.mp3",
+    "seconds": 4.248,
+    "bytes": 25488
+  },
+  {
+    "file": "public/cues/ar/stand_fully.mp3",
+    "seconds": 3.888,
+    "bytes": 23328
+  },
+  {
+    "file": "public/cues/ar/control_descent.mp3",
+    "seconds": 2.856,
+    "bytes": 17136
+  },
+  {
+    "file": "public/cues/ar/get_in_frame.mp3",
+    "seconds": 5.376,
+    "bytes": 32256
+  },
+  {
+    "file": "public/cues/ar/move_back.mp3",
+    "seconds": 5.496,
+    "bytes": 32976
+  },
+  {
+    "file": "public/cues/ar/great_rep.mp3",
+    "seconds": 4.08,
+    "bytes": 24480
+  },
+  {
+    "file": "public/cues/ar/halfway.mp3",
+    "seconds": 5.88,
+    "bytes": 35280
+  },
+  {
+    "file": "public/cues/ar/set_done.mp3",
+    "seconds": 5.904,
+    "bytes": 35424
+  },
+  {
+    "file": "public/cues/ar/stop_rest.mp3",
+    "seconds": 2.664,
+    "bytes": 15984
+  },
+  {
+    "file": "public/cues/ar/preview.mp3",
+    "seconds": 7.128,
+    "bytes": 42768
+  },
+  {
+    "file": "public/cues/ar/calibration.mp3",
+    "seconds": 6.624,
+    "bytes": 39744
+  },
+  {
+    "file": "public/cues/ar/training.mp3",
+    "seconds": 5.4,
+    "bytes": 32400
+  },
+  {
+    "file": "public/cues/ar/seated_shoulder_press_0.mp3",
+    "seconds": 5.928,
+    "bytes": 35568
+  },
+  {
+    "file": "public/cues/ar/seated_shoulder_press_1.mp3",
+    "seconds": 4.44,
+    "bytes": 26640
+  },
+  {
+    "file": "public/cues/ar/seated_shoulder_press_2.mp3",
+    "seconds": 5.184,
+    "bytes": 31104
+  },
+  {
+    "file": "public/cues/ar/seated_biceps_curl_0.mp3",
+    "seconds": 6.552,
+    "bytes": 39312
+  },
+  {
+    "file": "public/cues/ar/seated_biceps_curl_1.mp3",
+    "seconds": 5.496,
+    "bytes": 32976
+  },
+  {
+    "file": "public/cues/ar/seated_biceps_curl_2.mp3",
+    "seconds": 5.328,
+    "bytes": 31968
+  },
+  {
+    "file": "public/cues/ar/sit_to_stand_0.mp3",
+    "seconds": 5.352,
+    "bytes": 32112
+  },
+  {
+    "file": "public/cues/ar/sit_to_stand_1.mp3",
+    "seconds": 5.232,
+    "bytes": 31392
+  },
+  {
+    "file": "public/cues/ar/sit_to_stand_2.mp3",
+    "seconds": 3.624,
+    "bytes": 21744
+  },
+  {
+    "file": "public/cues/ar/count_1.mp3",
+    "seconds": 1.968,
+    "bytes": 11808
+  },
+  {
+    "file": "public/cues/ar/count_2.mp3",
+    "seconds": 1.944,
+    "bytes": 11664
+  },
+  {
+    "file": "public/cues/ar/count_3.mp3",
+    "seconds": 1.8,
+    "bytes": 10800
+  },
+  {
+    "file": "public/cues/ar/count_4.mp3",
+    "seconds": 1.776,
+    "bytes": 10656
+  },
+  {
+    "file": "public/cues/ar/count_5.mp3",
+    "seconds": 1.68,
+    "bytes": 10080
+  },
+  {
+    "file": "public/cues/ar/count_6.mp3",
+    "seconds": 1.656,
+    "bytes": 9936
+  },
+  {
+    "file": "public/cues/ar/count_7.mp3",
+    "seconds": 1.824,
+    "bytes": 10944
+  },
+  {
+    "file": "public/cues/ar/count_8.mp3",
+    "seconds": 1.944,
+    "bytes": 11664
+  },
+  {
+    "file": "public/cues/ar/count_9.mp3",
+    "seconds": 1.608,
+    "bytes": 9648
+  },
+  {
+    "file": "public/cues/ar/count_10.mp3",
+    "seconds": 1.8,
+    "bytes": 10800
+  },
+  {
+    "file": "public/cues/en/sit_tall.mp3",
+    "seconds": 4.752,
+    "bytes": 28512
+  },
+  {
+    "file": "public/cues/en/even_arms.mp3",
+    "seconds": 3.936,
+    "bytes": 23616
+  },
+  {
+    "file": "public/cues/en/slow_down.mp3",
+    "seconds": 4.824,
+    "bytes": 28944
+  },
+  {
+    "file": "public/cues/en/fuller_range.mp3",
+    "seconds": 4.152,
+    "bytes": 24912
+  },
+  {
+    "file": "public/cues/en/relax_shoulders.mp3",
+    "seconds": 4.344,
+    "bytes": 26064
+  },
+  {
+    "file": "public/cues/en/stand_fully.mp3",
+    "seconds": 4.224,
+    "bytes": 25344
+  },
+  {
+    "file": "public/cues/en/control_descent.mp3",
+    "seconds": 3.192,
+    "bytes": 19152
+  },
+  {
+    "file": "public/cues/en/get_in_frame.mp3",
+    "seconds": 4.032,
+    "bytes": 24192
+  },
+  {
+    "file": "public/cues/en/move_back.mp3",
+    "seconds": 3.48,
+    "bytes": 20880
+  },
+  {
+    "file": "public/cues/en/great_rep.mp3",
+    "seconds": 4.08,
+    "bytes": 24480
+  },
+  {
+    "file": "public/cues/en/halfway.mp3",
+    "seconds": 4.872,
+    "bytes": 29232
+  },
+  {
+    "file": "public/cues/en/set_done.mp3",
+    "seconds": 6.432,
+    "bytes": 38592
+  },
+  {
+    "file": "public/cues/en/stop_rest.mp3",
+    "seconds": 2.496,
+    "bytes": 14976
+  },
+  {
+    "file": "public/cues/en/preview.mp3",
+    "seconds": 6.36,
+    "bytes": 38160
+  },
+  {
+    "file": "public/cues/en/calibration.mp3",
+    "seconds": 6.384,
+    "bytes": 38304
+  },
+  {
+    "file": "public/cues/en/training.mp3",
+    "seconds": 4.56,
+    "bytes": 27360
+  },
+  {
+    "file": "public/cues/en/seated_shoulder_press_0.mp3",
+    "seconds": 4.08,
+    "bytes": 24480
+  },
+  {
+    "file": "public/cues/en/seated_shoulder_press_1.mp3",
+    "seconds": 4.032,
+    "bytes": 24192
+  },
+  {
+    "file": "public/cues/en/seated_shoulder_press_2.mp3",
+    "seconds": 4.248,
+    "bytes": 25488
+  },
+  {
+    "file": "public/cues/en/seated_biceps_curl_0.mp3",
+    "seconds": 6.048,
+    "bytes": 36288
+  },
+  {
+    "file": "public/cues/en/seated_biceps_curl_1.mp3",
+    "seconds": 5.616,
+    "bytes": 33696
+  },
+  {
+    "file": "public/cues/en/seated_biceps_curl_2.mp3",
+    "seconds": 4.248,
+    "bytes": 25488
+  },
+  {
+    "file": "public/cues/en/sit_to_stand_0.mp3",
+    "seconds": 4.296,
+    "bytes": 25776
+  },
+  {
+    "file": "public/cues/en/sit_to_stand_1.mp3",
+    "seconds": 4.032,
+    "bytes": 24192
+  },
+  {
+    "file": "public/cues/en/sit_to_stand_2.mp3",
+    "seconds": 3.72,
+    "bytes": 22320
+  },
+  {
+    "file": "public/cues/en/count_1.mp3",
+    "seconds": 1.512,
+    "bytes": 9072
+  },
+  {
+    "file": "public/cues/en/count_2.mp3",
+    "seconds": 1.536,
+    "bytes": 9216
+  },
+  {
+    "file": "public/cues/en/count_3.mp3",
+    "seconds": 1.656,
+    "bytes": 9936
+  },
+  {
+    "file": "public/cues/en/count_4.mp3",
+    "seconds": 1.584,
+    "bytes": 9504
+  },
+  {
+    "file": "public/cues/en/count_5.mp3",
+    "seconds": 1.776,
+    "bytes": 10656
+  },
+  {
+    "file": "public/cues/en/count_6.mp3",
+    "seconds": 1.728,
+    "bytes": 10368
+  },
+  {
+    "file": "public/cues/en/count_7.mp3",
+    "seconds": 1.656,
+    "bytes": 9936
+  },
+  {
+    "file": "public/cues/en/count_8.mp3",
+    "seconds": 1.56,
+    "bytes": 9360
+  },
+  {
+    "file": "public/cues/en/count_9.mp3",
+    "seconds": 1.704,
+    "bytes": 10224
+  },
+  {
+    "file": "public/cues/en/count_10.mp3",
+    "seconds": 1.584,
+    "bytes": 9504
+  }
+]

@@ -1,0 +1,15 @@
+import {describe,it,expect} from 'vitest';
+import {createPlan,validateIntake,scheduleFits,Intake} from '../src/medical/plan';
+export const healthy:Intake={age:35,conditions:['none'],diagnosisNotes:'',medications:'',mobility:'standing',support:'none',pain:[],restrictions:[],symptoms:'no',recentChange:'no',clearance:'no',equipment:['chair','weights'],goal:'strength',days:[0,2,4],time:'09:00',sessionMinutes:30,consent:true};
+describe('medical program gates',()=>{
+ it('requires complete explicit screening and consent',()=>{expect(validateIntake(healthy)).toBe(true);for(const patch of [{consent:false},{symptoms:''},{age:17},{conditions:['none','stroke']},{days:[0,0]},{time:'25:00'}])expect(validateIntake({...healthy,...patch})).toBe(false);});
+ it('does not automatically clear a cardiac condition',()=>{const p=createPlan({...healthy,conditions:['cardiac'],clearance:'yes'});expect(p.status).toBe('review');expect(p.reasons).toContain('cardiac');expect(p.exercises).toEqual([]);});
+ it('gates symptoms, acute changes and medical exercise prohibition',()=>{for(const patch of [{symptoms:'yes' as const},{recentChange:'yes' as const},{restrictions:['no_exercise']}])expect(createPlan({...healthy,...patch}).status).toBe('review');});
+ it('requires clearance for stroke then uses the legacy dosing',()=>{expect(createPlan({...healthy,conditions:['stroke']}).reasons).toContain('clearance');const p=createPlan({...healthy,conditions:['stroke'],clearance:'yes',sessionMinutes:40});expect(p.status).toBe('ready');expect(p.exercises[0]).toMatchObject({sets:3,reps:9,restSeconds:36});});
+ it('filters rather than pretending to implement unsupported pain modifications',()=>{const p=createPlan({...healthy,pain:['shoulder']});expect(p.exercises.map(e=>e.exerciseId)).toEqual(['sit_to_stand']);});
+ it('respects overhead restriction and equipment availability',()=>{const p=createPlan({...healthy,mobility:'seated',restrictions:['no_overhead'],equipment:['chair']});expect(p.status).toBe('review');expect(p.exercises).toHaveLength(0);});
+ it('does not prescribe sit-to-stand to a wheelchair setup',()=>{const p=createPlan({...healthy,mobility:'wheelchair'});expect(p.exercises.every(e=>e.exerciseId!=='sit_to_stand'&&e.setup.position==='wheelchair')).toBe(true);});
+ it('excludes unsupported limb tracking and PEM fixed-dose plans',()=>{expect(createPlan({...healthy,conditions:['upper_limb_unilateral'],mobility:'wheelchair'}).status).toBe('review');expect(createPlan({...healthy,conditions:['cfs_moderate'],clearance:'yes'}).reasons).toContain('pem');});
+ it('checks recovery spacing across the week boundary',()=>{expect(scheduleFits([0,2,4],48)).toBe(true);expect(scheduleFits([0,6],48)).toBe(false);});
+ it('combines multiple conditions conservatively and never exceeds the chosen session time',()=>{const p=createPlan({...healthy,conditions:['stroke','ms'],clearance:'yes',sessionMinutes:40});expect(p.exercises.every(e=>e.reps<=7&&e.restSeconds>=45)).toBe(true);expect(p.estimatedMinutes).toBeLessThanOrEqual(40);});
+});

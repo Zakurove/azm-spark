@@ -6,6 +6,7 @@ import { mkdirSync,chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { IncomingMessage,ServerResponse } from 'node:http';
 import { createPlan,validateIntake,Plan,Prescription } from '../src/medical/plan';
+import { extractReport,validReportBody } from './report';
 const scrypt=promisify(derive);
 const digest=(s:string)=>createHash('sha256').update(s).digest('hex');
 export function createApi(path=process.env.AZM_DATABASE??'.data/azm.sqlite'){
@@ -30,14 +31,26 @@ export function createApi(path=process.env.AZM_DATABASE??'.data/azm.sqlite'){
   if(mutation){const expected=process.env.AZM_ORIGIN??`http://${req.headers.host}`;if(req.headers.origin!==expected||req.headers['x-azm-request']!=='1')return json(403,{error:'ORIGIN'});}
   let body:any={};
   try{
-   if(mutation){if(!req.headers['content-type']?.startsWith('application/json'))return json(415,{error:'JSON_REQUIRED'});let size=0;const parts:Buffer[]=[];for await(const chunk of req){size+=chunk.length;if(size>65536)return json(413,{error:'TOO_LARGE'});parts.push(Buffer.from(chunk));}body=JSON.parse(Buffer.concat(parts).toString()||'{}');if(!body||typeof body!=='object'||Array.isArray(body))return json(400,{error:'INVALID'});}
+   // Session and client identity resolve from headers only, BEFORE any body is buffered:
+   // the large report body cap is granted exclusively to authenticated, rate-limited callers.
    const raw=req.headers.cookie?.split(';').map(x=>x.trim()).find(x=>x.startsWith('azm_session='))?.slice(12)??'';
    const token=digest(raw);const u=db.prepare('SELECT users.* FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.token=? AND sessions.expires>?').get(token,Date.now()) as any;
+   const forwarded=req.headers['x-forwarded-for'];
+   const ip=(typeof forwarded==='string'?forwarded.split(',')[0].trim():'')||req.socket.remoteAddress;
+   if(mutation){
+    if(!req.headers['content-type']?.startsWith('application/json'))return json(415,{error:'JSON_REQUIRED'});
+    let maxBody=65536;
+    if(route==='/api/medical-report'){
+     if(!u)return json(401,{error:'AUTH_REQUIRED'});
+     if(limited(`report:${u.id}`,8)||limited(`report-ip:${ip}`,20))return json(429,{error:'RATE_LIMIT'});
+     maxBody=6*1024*1024;
+    }
+    let size=0;const parts:Buffer[]=[];for await(const chunk of req){size+=chunk.length;if(size>maxBody)return json(413,{error:'TOO_LARGE'});parts.push(Buffer.from(chunk));}body=JSON.parse(Buffer.concat(parts).toString()||'{}');if(!body||typeof body!=='object'||Array.isArray(body))return json(400,{error:'INVALID'});}
    const cookie=(value:string,age:number)=>res.setHeader('Set-Cookie',`azm_session=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${process.env.NODE_ENV==='production'?'; Secure':''}`);
    if(route==='/api/auth/register'||route==='/api/auth/login'){
     if(req.method!=='POST')return json(405,{error:'METHOD'});
     const email=typeof body.email==='string'?body.email.trim().toLowerCase():'';const password=body.password;
-    if(limited(`ip:${req.socket.remoteAddress}`,30)||limited(`email:${email}`))return json(429,{error:'RATE_LIMIT'});
+    if(limited(`ip:${ip}`,30)||limited(`email:${email}`))return json(429,{error:'RATE_LIMIT'});
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||typeof password!=='string'||password.length<10||password.length>128)return json(400,{error:'CREDENTIAL_FORMAT'});
     let account:any;
     if(route.endsWith('register')){
@@ -56,6 +69,13 @@ export function createApi(path=process.env.AZM_DATABASE??'.data/azm.sqlite'){
    if(!u)return json(401,{error:'AUTH_REQUIRED'});
    if(route==='/api/auth/me'&&req.method==='GET')return json(200,{user:userView(u),...profile(u.id)});
    if(route==='/api/auth/logout'&&req.method==='POST'){db.prepare('DELETE FROM sessions WHERE token=?').run(token);cookie('',0);return json(200,{ok:true});}
+   if(route==='/api/medical-report'&&req.method==='POST'){
+    if(!validReportBody(body))return json(400,{error:'REPORT_INVALID'});
+    const key=process.env.OPENAI_API_KEY;
+    if(!key)return json(503,{error:'EXTRACTION_UNAVAILABLE'});
+    try{return json(200,await extractReport(body,key));}
+    catch(err){console.error('AZM report extraction failed',err instanceof Error?err.message:'Error');return json(502,{error:'ENGINE_FAILED'});}
+   }
    if(route==='/api/intake'&&req.method==='PUT'){
     if(!validateIntake(body))return json(400,{error:'INTAKE_INVALID'});
     const plan=createPlan(body);const old=db.prepare('SELECT version FROM profiles WHERE user_id=?').get(u.id) as any;const version=(old?.version??0)+1;

@@ -43,7 +43,8 @@ export class CuePlayer {
   if(typeof speechSynthesis==='undefined'){finish();return false;}
   const voice=speechSynthesis.getVoices().find(v=>v.localService&&v.lang.toLowerCase().startsWith(this.lang));
   if(!voice){finish();return false;}
-  const u=new SpeechSynthesisUtterance(voiceScript[id][this.lang]);u.lang=this.lang==='ar'?'ar-SA':'en-GB';u.voice=voice;u.rate=this.rate;u.onend=finish;u.onerror=finish;speechSynthesis.speak(u);return true;
+  const spoken=(voiceScript[id] as {ar:string;en:string;arTts?:string});
+  const u=new SpeechSynthesisUtterance(this.lang==='ar'?spoken.arTts??spoken.ar:spoken.en);u.lang=this.lang==='ar'?'ar-SA':'en-GB';u.voice=voice;u.rate=this.rate;u.onend=finish;u.onerror=finish;speechSynthesis.speak(u);return true;
  }
  cue(id:CueId,severity:Severity=id==='stop_rest'?'safety':'warn'){return this.line(id,severity);}
  count(n:number){return this.guidanceOnly||n<1||n>10?Promise.resolve(false):this.line(`count_${n}` as VoiceLine,'praise');}

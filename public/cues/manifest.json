@@ -1,150 +1,190 @@
 {
+  "model": "gpt-4o-mini-tts",
   "voices": {
-    "ar": "ar-SA-HamedNeural",
-    "en": "en-GB-RyanNeural"
+    "ar": "ash",
+    "en": "ash"
   },
-  "generationRate": "-8%",
+  "instructions": {
+    "ar": "You are a calm, warm Saudi fitness coach guiding gentle exercises. Speak Modern Standard Arabic with clear, natural delivery. Read the text EXACTLY as written, honoring every diacritic (tashkeel) precisely, including sukun at pause. Slow, unhurried pace; short pauses at commas and periods; low, reassuring, encouraging energy. Never add or repeat words.",
+    "en": "You are a calm, warm fitness coach guiding gentle exercises. Speak British English (en-GB). Unhurried pace, clear articulation, short pauses at punctuation, reassuring and encouraging tone. Read the text exactly as written; never add words.",
+    "count": "Say only this single number, crisply and encouragingly, about one second long."
+  },
   "delivery": "local bundled MP3",
   "script": {
     "sit_tall": {
       "ar": "ثبّت جذعك، وعدّل جلستك بهدوء.",
-      "en": "Steady your trunk. Adjust your sitting position."
+      "en": "Steady your trunk. Adjust your sitting position.",
+      "arTts": "ثَبِّتْ جِذْعَكَ، وَعَدِّلْ جِلْسَتَكَ بِهُدُوء."
     },
     "even_arms": {
       "ar": "حاول تحريك ذراعيك معًا، ضمن قدرتك.",
-      "en": "Try moving your arms together, within your ability."
+      "en": "Try moving your arms together, within your ability.",
+      "arTts": "حَاوِلْ تَحْرِيكَ ذِرَاعَيْكَ مَعًا، ضِمْنَ قُدْرَتِك."
     },
     "slow_down": {
       "ar": "تمهّل قليلًا، وتحكّم بالحركة.",
-      "en": "Slow down a little. Keep the movement controlled."
+      "en": "Slow down a little. Keep the movement controlled.",
+      "arTts": "تَمَهَّلْ قَلِيلًا، وَتَحَكَّمْ بِالْحَرَكَة."
     },
     "fuller_range": {
       "ar": "حاول إكمال الحركة ضمن مداك المريح.",
-      "en": "Try completing the movement within your comfortable range."
+      "en": "Try completing the movement within your comfortable range.",
+      "arTts": "حَاوِلْ إِكْمَالَ الْحَرَكَةِ ضِمْنَ مَدَاكَ الْمُرِيح."
     },
     "relax_shoulders": {
       "ar": "أرخِ كتفيك، وواصل بهدوء.",
-      "en": "Relax your shoulders. Move steadily."
+      "en": "Relax your shoulders. Move steadily.",
+      "arTts": "أَرْخِ كَتِفَيْكَ، وَوَاصِلْ بِهُدُوء."
     },
     "stand_fully": {
       "ar": "عدّل استقامتك ضمن المدى المريح لك.",
-      "en": "Adjust your upright position within your comfortable range."
+      "en": "Adjust your upright position within your comfortable range.",
+      "arTts": "عَدِّلِ اسْتِقَامَتَكَ ضِمْنَ الْمَدَى الْمُرِيحِ لَك."
     },
     "control_descent": {
       "ar": "عُد ببطء وتحكّم.",
-      "en": "Return slowly and with control."
+      "en": "Return slowly and with control.",
+      "arTts": "عُدْ بِبُطْءٍ وَتَحَكُّم."
     },
     "get_in_frame": {
       "ar": "عدّل موضعك لتظهر المفاصل المطلوبة أمام الكاميرا.",
-      "en": "Adjust your position so the required joints are visible."
+      "en": "Adjust your position so the required joints are visible.",
+      "arTts": "عَدِّلْ مَوْضِعَكَ لِتَظْهَرَ الْمَفَاصِلُ الْمَطْلُوبَةُ أَمَامَ الْكَامِيرَا."
     },
     "move_back": {
       "ar": "ابتعد قليلًا عن الكاميرا، إذا كانت المساحة تسمح.",
-      "en": "Move back a little, if space allows."
+      "en": "Move back a little, if space allows.",
+      "arTts": "اِبْتَعِدْ قَلِيلًا عَنِ الْكَامِيرَا، إِذَا كَانَتِ الْمَسَاحَةُ تَسْمَح."
     },
     "great_rep": {
       "ar": "أحسنت، حركة متحكَّم بها.",
-      "en": "Well done. A controlled movement."
+      "en": "Well done. A controlled movement.",
+      "arTts": "أَحْسَنْتَ، حَرَكَةٌ مُتَحَكَّمٌ بِهَا."
     },
     "halfway": {
       "ar": "وصلت إلى نصف المجموعة. واصل بإيقاعك.",
-      "en": "Halfway through your set. Keep your own pace."
+      "en": "Halfway through your set. Keep your own pace.",
+      "arTts": "وَصَلْتَ إِلَى نِصْفِ الْمَجْمُوعَة. وَاصِلْ بِإِيقَاعِك."
     },
     "set_done": {
       "ar": "أحسنت. انتهت المجموعة، خذ وقتك للراحة.",
-      "en": "Well done. Your set is complete. Take time to rest."
+      "en": "Well done. Your set is complete. Take time to rest.",
+      "arTts": "أَحْسَنْت. اِنْتَهَتِ الْمَجْمُوعَةُ، خُذْ وَقْتَكَ لِلرَّاحَة."
     },
     "stop_rest": {
       "ar": "توقّف الآن واسترح.",
-      "en": "Stop now and rest."
+      "en": "Stop now and rest.",
+      "arTts": "تَوَقَّفِ الْآنَ وَاسْتَرِح."
     },
     "preview": {
       "ar": "أهلًا بك في عزم. تحرّك على مهلك، وضمن المدى المريح لك.",
-      "en": "Welcome to Azm. Move at your own pace, within your comfortable range."
+      "en": "Welcome to Azm. Move at your own pace, within your comfortable range.",
+      "arTts": "أَهْلًا بِكَ فِي عَزْم. تَحَرَّكْ عَلَى مَهْلِكَ، وَضِمْنَ الْمَدَى الْمُرِيحِ لَك."
     },
     "calibration": {
       "ar": "لنحدّد مداك. كرّر الحركة ببطء وبجهد مريح.",
-      "en": "Let’s find your range. Repeat the movement slowly, at a comfortable effort."
+      "en": "Let’s find your range. Repeat the movement slowly, at a comfortable effort.",
+      "arTts": "لِنُحَدِّدْ مَدَاك. كَرِّرِ الْحَرَكَةَ بِبُطْءٍ وَبِجُهْدٍ مُرِيح."
     },
     "training": {
       "ar": "تم تحديد مداك. لنبدأ مجموعتك.",
-      "en": "Your range is ready. Let’s begin your set."
+      "en": "Your range is ready. Let’s begin your set.",
+      "arTts": "تَمَّ تَحْدِيدُ مَدَاك. لِنَبْدَأْ مَجْمُوعَتَك."
     },
     "seated_shoulder_press_0": {
       "ar": "ابدأ وذراعاك عند مستوى الكتفين، واجعل جذعك ثابتًا.",
-      "en": "Begin with your arms at shoulder level and your trunk steady."
+      "en": "Begin with your arms at shoulder level and your trunk steady.",
+      "arTts": "اِبْدَأْ وَذِرَاعَاكَ عِنْدَ مُسْتَوَى الْكَتِفَيْنِ، وَاجْعَلْ جِذْعَكَ ثَابِتًا."
     },
     "seated_shoulder_press_1": {
       "ar": "ارفع ذراعيك فوق الرأس ضمن المدى المريح لك.",
-      "en": "Press your arms overhead within your comfortable range."
+      "en": "Press your arms overhead within your comfortable range.",
+      "arTts": "اِرْفَعْ ذِرَاعَيْكَ فَوْقَ الرَّأْسِ ضِمْنَ الْمَدَى الْمُرِيحِ لَك."
     },
     "seated_shoulder_press_2": {
       "ar": "أعد ذراعيك إلى مستوى الكتفين بهدوء وتحكّم.",
-      "en": "Return your arms to shoulder level with a controlled movement."
+      "en": "Return your arms to shoulder level with a controlled movement.",
+      "arTts": "أَعِدْ ذِرَاعَيْكَ إِلَى مُسْتَوَى الْكَتِفَيْنِ بِهُدُوءٍ وَتَحَكُّم."
     },
     "seated_biceps_curl_0": {
       "ar": "ابدأ والمرفق بجانب جسمك. وجّه جانبك إلى الكاميرا.",
-      "en": "Start with your elbow by your side. Turn sideways to the camera."
+      "en": "Start with your elbow by your side. Turn sideways to the camera.",
+      "arTts": "اِبْدَأْ وَالْمِرْفَقُ بِجَانِبِ جِسْمِك. وَجِّهْ جَانِبَكَ إِلَى الْكَامِيرَا."
     },
     "seated_biceps_curl_1": {
       "ar": "اثنِ مرفقك وارفع الوزن نحو كتفك ضمن مداك المريح.",
-      "en": "Bend your elbow, bringing the weight toward your shoulder within your comfortable range."
+      "en": "Bend your elbow, bringing the weight toward your shoulder within your comfortable range.",
+      "arTts": "اِثْنِ مِرْفَقَكَ وَارْفَعِ الْوَزْنَ نَحْوَ كَتِفِكَ ضِمْنَ مَدَاكَ الْمُرِيح."
     },
     "seated_biceps_curl_2": {
       "ar": "أنزل الوزن ببطء، مع إبقاء المرفق بجانب جسمك.",
-      "en": "Lower slowly, keeping your elbow beside your body."
+      "en": "Lower slowly, keeping your elbow beside your body.",
+      "arTts": "أَنْزِلِ الْوَزْنَ بِبُطْءٍ، مَعَ إِبْقَاءِ الْمِرْفَقِ بِجَانِبِ جِسْمِك."
     },
     "sit_to_stand_0": {
       "ar": "ابدأ جالسًا، بحيث تُظهر الكاميرا جسمك كاملًا.",
-      "en": "Begin seated, with your whole body visible to the camera."
+      "en": "Begin seated, with your whole body visible to the camera.",
+      "arTts": "اِبْدَأْ جَالِسًا، بِحَيْثُ تُظْهِرُ الْكَامِيرَا جِسْمَكَ كَامِلًا."
     },
     "sit_to_stand_1": {
       "ar": "انهض من الكرسي حتى تصل إلى وضع الوقوف المريح لك.",
-      "en": "Rise from the chair to your comfortable standing position."
+      "en": "Rise from the chair to your comfortable standing position.",
+      "arTts": "اِنْهَضْ مِنَ الْكُرْسِيِّ حَتَّى تَصِلَ إِلَى وَضْعِ الْوُقُوفِ الْمُرِيحِ لَك."
     },
     "sit_to_stand_2": {
       "ar": "عُد إلى الجلوس ببطء وتحكّم.",
-      "en": "Return to sitting slowly and with control."
+      "en": "Return to sitting slowly and with control.",
+      "arTts": "عُدْ إِلَى الْجُلُوسِ بِبُطْءٍ وَتَحَكُّم."
     },
     "count_1": {
       "ar": "واحد",
-      "en": "1"
+      "en": "1",
+      "arTts": "وَاحِد"
     },
     "count_2": {
       "ar": "اثنان",
-      "en": "2"
+      "en": "2",
+      "arTts": "اِثْنَان"
     },
     "count_3": {
       "ar": "ثلاثة",
-      "en": "3"
+      "en": "3",
+      "arTts": "ثَلَاثَة"
     },
     "count_4": {
       "ar": "أربعة",
-      "en": "4"
+      "en": "4",
+      "arTts": "أَرْبَعَة"
     },
     "count_5": {
       "ar": "خمسة",
-      "en": "5"
+      "en": "5",
+      "arTts": "خَمْسَة"
     },
     "count_6": {
       "ar": "ستة",
-      "en": "6"
+      "en": "6",
+      "arTts": "سِتَّة"
     },
     "count_7": {
       "ar": "سبعة",
-      "en": "7"
+      "en": "7",
+      "arTts": "سَبْعَة"
     },
     "count_8": {
       "ar": "ثمانية",
-      "en": "8"
+      "en": "8",
+      "arTts": "ثَمَانِيَة"
     },
     "count_9": {
       "ar": "تسعة",
-      "en": "9"
+      "en": "9",
+      "arTts": "تِسْعَة"
     },
     "count_10": {
       "ar": "عشرة",
-      "en": "10"
+      "en": "10",
+      "arTts": "عَشَرَة"
     }
   }
 }

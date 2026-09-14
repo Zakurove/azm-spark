@@ -17,6 +17,7 @@ together (`npm run build` → `npm start`, serving `dist/` + API from one origin
 | `NODE_ENV` | `production` | Secure cookies |
 | `AZM_ORIGIN` | `https://web-production-a88aa.up.railway.app` | Exact origin for the same-origin mutation check. **Must be updated when the custom domain is added, or sign-in breaks** |
 | `AZM_DATABASE` | `/data/azm.sqlite` | SQLite on the persistent volume |
+| `OPENAI_API_KEY` | (set, from SocratesAI project key) | Medical-report extraction engine (`/api/medical-report`, gpt-4o). Voice cues are pre-generated at build time with the same provider (`scripts/generate-voice.mjs`), so runtime uses the key only for report analysis. Missing key → the app still works; the upload panel falls back to manual answers |
 
 Volume `web-volume` mounted at `/data` keeps accounts and records across deploys.
 

@@ -77,3 +77,5 @@ export function fmtNum(n: number, lang: Lang): string {
 export function pct(n: number, lang: Lang): string {
   return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", { style: "percent", maximumFractionDigits: 0 }).format(n);
 }
+
+export const fmtTime=(t:string,l:Lang)=>l==='ar'?t.replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)]):t;

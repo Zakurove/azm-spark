@@ -29,12 +29,13 @@ const categoryIcon: Record<string, string> = { flexibility: 'spark', balance: 'r
 function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
  const k = copy[lang], ex = libraryById(item.id);
  if (!ex) return null;
+ const digits = (s: string) => lang === 'ar' ? s.replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)]) : s;
  const dose = item.holdSeconds ? `${fmtNum(item.sets, lang)} × ${fmtNum(item.holdSeconds, lang)} ${k.seconds}` : `${fmtNum(item.sets, lang)} ${k.sets} × ${fmtNum(item.reps ?? 8, lang)} ${k.reps}`;
  return <details className="weekly-item">
   <summary><span className="weekly-item-icon"><Icon name={categoryIcon[ex.category] ?? 'spark'} size={16}/></span><div><b>{ex.name[lang]}</b><small>{dose}</small></div><Icon name="arrow" size={14}/></summary>
   <div className="weekly-item-body">
-   <p>{ex.description[lang]}</p>
-   <ol>{ex.steps[lang].map(s => <li key={s}>{s}</li>)}</ol>
+   <p>{digits(ex.description[lang])}</p>
+   <ol>{ex.steps[lang].map(s => <li key={s}>{digits(s)}</li>)}</ol>
    {item.note && <p className="weekly-note"><Icon name="info" size={14}/>{item.note[lang]}</p>}
   </div>
  </details>;

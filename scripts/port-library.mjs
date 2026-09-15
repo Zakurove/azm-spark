@@ -8,20 +8,22 @@ const src=await readFile(`${homedir()}/Development/Azm2.0/server/seed-exercises.
 const {code}=await transform(src,{loader:'ts',format:'esm'});
 const {exerciseData}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 
+// The app spells tanween on the letter before alif (جالسًا); the source used the older form.
+const fixAr=s=>typeof s==='string'?s.replace(/اً/g,'ًا'):s;
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
 const seen=new Set();
 const library=exerciseData.map(e=>{
  let id=slug(e.name);while(seen.has(id))id+='_2';seen.add(id);
  return {
   id,
-  name:{ar:e.nameAr,en:e.name},
-  description:{ar:e.descriptionAr,en:e.description},
+  name:{ar:fixAr(e.nameAr),en:e.name},
+  description:{ar:fixAr(e.descriptionAr),en:e.description},
   category:e.category,
   muscles:e.targetMuscles??[],
   equipment:e.equipment??[],
   difficulty:e.difficulty,
   minutes:e.duration,
-  steps:{ar:e.instructionsAr??[],en:e.instructions??[]},
+  steps:{ar:(e.instructionsAr??[]).map(fixAr),en:e.instructions??[]},
   tags:e.disabilityTags??[],
   contraindications:e.contraindications??[],
  };

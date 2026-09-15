@@ -216,3 +216,14 @@
 .weekly-today span{color:#7c818b;flex-shrink:0}
 .weekly-card.compact .ghost{align-self:flex-start;background:#fff}
 @media(max-width:760px){.weekly-card{padding:18px 15px;border-radius:16px}.weekly-head h2{font-size:20px}.weekly-day{grid-template-columns:1fr}.weekly-foot{grid-template-columns:1fr;gap:16px}.weekly-skel{grid-template-columns:1fr}.weekly-days button{min-width:112px}.weekly-today{flex-direction:column;align-items:flex-start}}
+[dir=rtl] .weekly-item-body ol{list-style-type:arabic-indic}
+
+/* Today hero: light, per brand direction (no dark surfaces) */
+.next-workout{background:linear-gradient(135deg,#fdf5df 0%,#fbfaf8 64%);color:var(--ink);border:1px solid #f0e7cf}
+.next-workout .section-kicker{color:#a8842a}
+.next-workout p:not(.section-kicker){color:#6a6f79}
+.next-workout .hero-dose{color:#4c515b}
+.next-workout .hero-dose>span+span{border-inline-start-color:#e3dcc8}
+.next-workout .hero-preview{color:#6a6f79;text-decoration:underline;text-underline-offset:5px}
+.next-workout .workout-art{background:transparent}
+.next-workout .workout-art img{mix-blend-mode:multiply}

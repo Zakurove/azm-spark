@@ -8,7 +8,9 @@ const server=createServer((req,res)=>void api.handle(req,res,()=>{
  if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);res.end();return;}
  let name:string;try{name=decodeURIComponent(new URL(req.url??'/', 'http://localhost').pathname);}catch{res.writeHead(400);res.end();return;}
  const target=resolve(root,'.'+name);if(!target.startsWith(root+'/')&&target!==root){res.writeHead(403);res.end();return;}
- const file=existsSync(target)&&statSync(target).isFile()?target:resolve(root,'index.html');
+ let file=target;
+ if(existsSync(file)&&statSync(file).isDirectory())file=resolve(file,'index.html');
+ if(!(existsSync(file)&&statSync(file).isFile()))file=resolve(root,'index.html');
  res.setHeader('Content-Type',mime[extname(file)]??'application/octet-stream');res.setHeader('X-Content-Type-Options','nosniff');
  if(file!==resolve(root,'index.html')&&/^\/(assets|models|wasm|cues|fonts|illustrations|brand)\//.test(name))res.setHeader('Cache-Control',name.startsWith('/assets/')||name.startsWith('/models/')||name.startsWith('/wasm/')?'public, max-age=31536000, immutable':'public, max-age=86400');
  const size=statSync(file).size,range=/^bytes=(\d*)-(\d*)$/.exec(req.headers.range??'');

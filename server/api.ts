@@ -28,7 +28,7 @@ export function createApi(path=process.env.AZM_DATABASE??'.data/azm.sqlite'){
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
   const json=(status:number,value:unknown)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
   const mutation=!['GET','HEAD'].includes(req.method??'GET');
-  if(mutation){const expected=process.env.AZM_ORIGIN??`http://${req.headers.host}`;if(req.headers.origin!==expected||req.headers['x-azm-request']!=='1')return json(403,{error:'ORIGIN'});}
+  if(mutation){const allowed=(process.env.AZM_ORIGIN??`http://${req.headers.host}`).split(',').map(x=>x.trim());if(!allowed.includes(req.headers.origin as string)||req.headers['x-azm-request']!=='1')return json(403,{error:'ORIGIN'});}
   let body:any={};
   try{
    // Session and client identity resolve from headers only, BEFORE any body is buffered:

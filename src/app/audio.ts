@@ -4,6 +4,16 @@ import voiceScript from './voice-script.json';
 export type VoiceLine = keyof typeof voiceScript;
 const priority: Record<Severity,number>={praise:0,info:1,warn:2,safety:3};
 
+// iOS only lets an audio element play sound if a tap started it. One element is started
+// inside the tap that opens the camera, and every later cue plays through it.
+let shared: HTMLAudioElement | null = null;
+export function primeAudio(lang: Lang) {
+ if (typeof Audio === 'undefined') return;
+ shared ??= new Audio();
+ shared.src = `/cues/${lang}/preview.mp3`;
+ void shared.play().catch(() => undefined);
+}
+
 /** Packaged neural recordings. No speech service is contacted during a session. */
 export class CuePlayer {
  private fileCache=new Map<string,Promise<HTMLAudioElement|null>>();
@@ -37,8 +47,10 @@ export class CuePlayer {
   const el=await this.file(id);
   if(this.muted||generation!==this.generation)return false;
   if(el){
-   this.activeAudio=el;el.currentTime=0;el.playbackRate=this.rate;el.onended=finish;el.onerror=finish;
-   try{await el.play();return true;}catch{finish();return false;}
+   const target=shared??el;
+   if(target!==el)target.src=el.src;
+   this.activeAudio=target;try{target.currentTime=0;}catch{/* not seekable yet */}target.playbackRate=this.rate;target.onended=finish;target.onerror=finish;
+   try{await target.play();return true;}catch{finish();return false;}
   }
   if(typeof speechSynthesis==='undefined'){finish();return false;}
   const voice=speechSynthesis.getVoices().find(v=>v.localService&&v.lang.toLowerCase().startsWith(this.lang));

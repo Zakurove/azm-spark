@@ -11,9 +11,23 @@ export interface PoseSource {
   kind: "camera" | "trace";
 }
 
+export type CameraStatus = "model" | "camera";
+
+const coarsePointer = () => typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
+/** Phones get the lite model: roughly 40% smaller and fast enough on mobile GPUs. */
+export const poseModelUrl = () => `/models/pose_landmarker_${coarsePointer() ? "lite" : "full"}.task`;
+
+/** Warms the HTTP cache while the person reads the setup guide, so the session starts quickly. */
+export function preloadPoseAssets() {
+  try { void fetch(poseModelUrl()).catch(() => undefined); } catch { /* offline or unsupported */ }
+}
+
+const emptyFrame = (t: number): Frame => ({ t, lm: Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 })) });
+
 export class CameraPoseSource implements PoseSource {
   kind = "camera" as const;
   video: HTMLVideoElement;
+  onStatus?: (status: CameraStatus) => void;
   private landmarker: PoseLandmarker | null = null;
   private raf = 0;
   private stream: MediaStream | null = null;
@@ -25,15 +39,26 @@ export class CameraPoseSource implements PoseSource {
   }
 
   async start(onFrame: (f: Frame) => void): Promise<void> {
+    // Model first: leaving during the download must never trigger a camera permission prompt.
+    this.onStatus?.("model");
     const vision = await FilesetResolver.forVisionTasks("/wasm");
     if (this.cancelled) return;
-    const landmarker = await PoseLandmarker.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: "/models/pose_landmarker_full.task", delegate: "GPU" },
-      runningMode: "VIDEO",
+    const options = (delegate: "GPU" | "CPU") => ({
+      baseOptions: { modelAssetPath: poseModelUrl(), delegate },
+      runningMode: "VIDEO" as const,
       numPoses: 1,
     });
+    let landmarker: PoseLandmarker;
+    try {
+      landmarker = await PoseLandmarker.createFromOptions(vision, options("GPU"));
+    } catch {
+      if (this.cancelled) return;
+      landmarker = await PoseLandmarker.createFromOptions(vision, options("CPU"));
+    }
     if (this.cancelled) { landmarker.close(); return; }
     this.landmarker = landmarker;
+
+    this.onStatus?.("camera");
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
       audio: false,
@@ -41,7 +66,7 @@ export class CameraPoseSource implements PoseSource {
     if (this.cancelled) { stream.getTracks().forEach(tr => tr.stop()); return; }
     this.stream = stream;
     this.video.srcObject = stream;
-    await this.video.play();
+    try { await this.video.play(); } catch (err) { if (!this.cancelled) throw err; }
     if (this.cancelled) return;
     this.running = true;
 
@@ -52,15 +77,19 @@ export class CameraPoseSource implements PoseSource {
       if (v.currentTime !== lastVideoTime && v.videoWidth > 0) {
         lastVideoTime = v.currentTime;
         const t = performance.now();
-        const res = this.landmarker!.detectForVideo(v, t);
-        if (res.landmarks?.[0]) {
-          onFrame({
-            t,
-            lm: res.landmarks[0].map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
-            world: res.worldLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
-          });
-        } else {
-          onFrame({ t, lm: Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 })) });
+        try {
+          const res = this.landmarker!.detectForVideo(v, t);
+          if (res.landmarks?.[0]) {
+            onFrame({
+              t,
+              lm: res.landmarks[0].map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
+              world: res.worldLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
+            });
+          } else {
+            onFrame(emptyFrame(t));
+          }
+        } catch {
+          onFrame(emptyFrame(t));
         }
       }
       this.raf = requestAnimationFrame(loop);

@@ -11,8 +11,8 @@ export interface Intake {
  equipment:string[];goal:'mobility'|'strength'|'habit';days:number[];time:string;sessionMinutes:number;consent:boolean;
 }
 export interface Prescription {exerciseId:string;setup:Setup;sets:number;reps:number;restSeconds:number;reason:string}
-export interface Plan {status:'ready'|'review';reasons:string[];notes:string[];exclusions:{exerciseId:string;reason:string}[];exercises:Prescription[];days:number[];time:string;warmUpMinutes:number;coolDownMinutes:number;estimatedMinutes:number;recoveryHours:number;version?:number}
-const types:Record<string,DisabilityType>={stroke:'neurological',ms:'neurological',cerebral_palsy:'neurological',parkinsons:'neurological',sci_complete:'mobility',sci_incomplete:'mobility',lower_limb_unilateral:'amputation',upper_limb_unilateral:'amputation',arthritis:'chronic',cfs_moderate:'chronic'};
+export interface Plan {status:'ready'|'review';reasons:string[];notes:string[];exclusions:{exerciseId:string;reason:string}[];exercises:Prescription[];days:number[];time:string;warmUpMinutes:number;coolDownMinutes:number;estimatedMinutes:number;recoveryHours:number;version?:number;weekly?:import('./weekly').WeeklyPlan}
+export const types:Record<string,DisabilityType>={stroke:'neurological',ms:'neurological',cerebral_palsy:'neurological',parkinsons:'neurological',sci_complete:'mobility',sci_incomplete:'mobility',lower_limb_unilateral:'amputation',upper_limb_unilateral:'amputation',arthritis:'chronic',cfs_moderate:'chronic'};
 export function validateIntake(v:unknown):v is Intake {
  if(!v||typeof v!=='object')return false;const x=v as Intake;
  const list=(v:unknown,allowed:readonly unknown[],min=0)=>Array.isArray(v)&&v.length>=min&&v.length<=allowed.length&&new Set(v).size===v.length&&v.every(a=>allowed.includes(a));

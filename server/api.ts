@@ -7,6 +7,7 @@ import { dirname } from 'node:path';
 import type { IncomingMessage,ServerResponse } from 'node:http';
 import { createPlan,validateIntake,Plan,Prescription } from '../src/medical/plan';
 import { extractReport,validReportBody } from './report';
+import { createWeekly } from './weekly-ai';
 const scrypt=promisify(derive);
 const digest=(s:string)=>createHash('sha256').update(s).digest('hex');
 export function createApi(path=process.env.AZM_DATABASE??'.data/azm.sqlite'){
@@ -75,6 +76,18 @@ export function createApi(path=process.env.AZM_DATABASE??'.data/azm.sqlite'){
     if(!key)return json(503,{error:'EXTRACTION_UNAVAILABLE'});
     try{return json(200,await extractReport(body,key));}
     catch(err){console.error('AZM report extraction failed',err instanceof Error?err.message:'Error');return json(502,{error:'ENGINE_FAILED'});}
+   }
+   if(route==='/api/plan/weekly'&&req.method==='POST'){
+    const p=profile(u.id);
+    if(!p.intake||!p.plan||p.plan.status!=='ready')return json(409,{error:'PLAN_REQUIRED'});
+    if(p.plan.weekly&&body.refresh!==true)return json(200,{weekly:p.plan.weekly,version:p.plan.version});
+    if(limited(`weekly:${u.id}`,6))return json(429,{error:'RATE_LIMIT'});
+    const weekly=await createWeekly(p.intake,p.plan,process.env.OPENAI_API_KEY);
+    if(!weekly)return json(409,{error:'PLAN_REQUIRED'});
+    const {version,...stored}=p.plan;
+    // Version-pinned: a profile edited while the plan was being written keeps its newer plan.
+    db.prepare('UPDATE profiles SET plan=? WHERE user_id=? AND version=?').run(JSON.stringify({...stored,weekly}),u.id,version);
+    return json(200,{weekly,version});
    }
    if(route==='/api/intake'&&req.method==='PUT'){
     if(!validateIntake(body))return json(400,{error:'INTAKE_INVALID'});

@@ -1,0 +1,2240 @@
+[
+ {
+  "id": "seated_shoulder_press",
+  "name": {
+   "ar": "ضغط الكتف جالساً",
+   "en": "Seated Shoulder Press"
+  },
+  "description": {
+   "ar": "تمرين ضغط علوي جالساً يستهدف الكتفين مع دعم للظهر.",
+   "en": "A seated overhead press that targets the shoulders while providing back support."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "shoulders",
+   "triceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 8,
+  "steps": {
+   "ar": [
+    "اجلس على مقعد مع دعم للظهر",
+    "أمسك الدمبلز على مستوى الكتف مع توجيه راحتي اليدين للأمام",
+    "ارفع الأوزان للأعلى حتى تمتد الذراعين",
+    "أنزل بتحكم إلى وضع البداية"
+   ],
+   "en": [
+    "Sit on a bench with back support",
+    "Hold dumbbells at shoulder height with palms facing forward",
+    "Press the weights overhead until arms are extended",
+    "Lower back to starting position with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "upper_body_focus"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "resistance_band_rows",
+  "name": {
+   "ar": "سحب الشريط المقاوم",
+   "en": "Resistance Band Rows"
+  },
+  "description": {
+   "ar": "تمرين للظهر باستخدام أحزمة المقاومة يمكن أداؤه جالساً.",
+   "en": "A back exercise using resistance bands that can be done seated."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "back",
+   "biceps"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "ثبت الشريط في نقطة مستقرة",
+    "اجلس مع مد الساقين أو على الكرسي المتحرك",
+    "اسحب الشريط نحو جذعك مع ضغط لوحي الكتف",
+    "أعد ببطء إلى وضع البداية"
+   ],
+   "en": [
+    "Secure the band to a stable anchor point",
+    "Sit with legs extended or in wheelchair",
+    "Pull the band towards your torso, squeezing shoulder blades",
+    "Slowly release back to starting position"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_bicep_curls",
+  "name": {
+   "ar": "ثني الذراع جالساً",
+   "en": "Seated Bicep Curls"
+  },
+  "description": {
+   "ar": "تمرين كلاسيكي للعضلة ذات الرأسين يؤدى جالساً للاستقرار.",
+   "en": "Classic bicep exercise performed while seated for stability."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "biceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس مع وضع القدمين على الأرض أو مسند القدمين",
+    "أمسك الدمبلز على جانبيك مع توجيه راحتي اليدين للأمام",
+    "ثني الأوزان نحو كتفيك",
+    "أنزل بتحكم"
+   ],
+   "en": [
+    "Sit with feet flat on the floor or footrests",
+    "Hold dumbbells at your sides with palms facing forward",
+    "Curl the weights up towards your shoulders",
+    "Lower with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "chest_press",
+  "name": {
+   "ar": "ضغط الصدر",
+   "en": "Chest Press"
+  },
+  "description": {
+   "ar": "تمرين أساسي للصدر يمكن أداؤه مستلقياً أو جالساً.",
+   "en": "A fundamental chest exercise that can be performed lying down or seated."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "chest",
+   "triceps",
+   "shoulders"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 8,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك على مقعد أو سجادة",
+    "أمسك الدمبلز فوق صدرك مع مد الذراعين",
+    "أنزل الأوزان إلى مستوى الصدر",
+    "ارفع مرة أخرى إلى وضع البداية"
+   ],
+   "en": [
+    "Lie on your back on a bench or mat",
+    "Hold dumbbells above your chest with arms extended",
+    "Lower the weights to chest level",
+    "Press back up to starting position"
+   ]
+  },
+  "tags": [
+   "upper_body_focus",
+   "adaptable",
+   "lying_down",
+   "seated"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "seated_tricep_extensions",
+  "name": {
+   "ar": "تمديد العضلة الثلاثية جالساً",
+   "en": "Seated Tricep Extensions"
+  },
+  "description": {
+   "ar": "تمرين عزل للعضلة ثلاثية الرؤوس يؤدى جالساً.",
+   "en": "An isolation exercise for the triceps performed while seated."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "triceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "اجلس مع دعم للظهر، ممسكاً دمبل واحد فوق الرأس بكلتا اليدين",
+    "أنزل الوزن خلف رأسك بثني المرفقين",
+    "مد الذراعين للأعلى إلى وضع البداية",
+    "حافظ على ثبات الذراعين العلويتين طوال التمرين"
+   ],
+   "en": [
+    "Sit with back support, holding one dumbbell overhead with both hands",
+    "Lower the weight behind your head by bending elbows",
+    "Extend arms back up to starting position",
+    "Keep upper arms stationary throughout"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "elbow_injury"
+  ]
+ },
+ {
+  "id": "seated_lateral_raises",
+  "name": {
+   "ar": "رفع جانبي جالساً",
+   "en": "Seated Lateral Raises"
+  },
+  "description": {
+   "ar": "يعزل عضلات الكتف بحركة متحكم بها.",
+   "en": "Isolates the shoulder muscles with controlled movement."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "اجلس مع الدمبلز على جانبيك",
+    "ارفع الذراعين للجانبين حتى مستوى الكتف",
+    "حافظ على انحناء خفيف في المرفقين",
+    "أنزل ببطء مع التحكم"
+   ],
+   "en": [
+    "Sit with dumbbells at your sides",
+    "Raise arms out to sides until shoulder height",
+    "Keep a slight bend in elbows",
+    "Lower slowly with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "seated_front_raises",
+  "name": {
+   "ar": "رفع أمامي جالساً",
+   "en": "Seated Front Raises"
+  },
+  "description": {
+   "ar": "يستهدف العضلة الدالية الأمامية من وضع الجلوس.",
+   "en": "Targets the front deltoids from a seated position."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "اجلس مع الدمبلز أمام الفخذين",
+    "ارفع إحدى الذراعين أو كلتاهما للأمام حتى مستوى الكتف",
+    "حافظ على الذراعين مستقيمتين مع انحناء خفيف عند المرفق",
+    "أنزل بتحكم وكرر"
+   ],
+   "en": [
+    "Sit with dumbbells in front of thighs",
+    "Raise one or both arms forward to shoulder height",
+    "Keep arms straight with slight bend at elbow",
+    "Lower with control and repeat"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "seated_arnold_press",
+  "name": {
+   "ar": "ضغط أرنولد جالساً",
+   "en": "Seated Arnold Press"
+  },
+  "description": {
+   "ar": "تمرين متنوع يعمل على الأجزاء الثلاثة للعضلة الدالية.",
+   "en": "A variation that works all three heads of the deltoid."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "shoulders",
+   "triceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "intermediate",
+  "minutes": 8,
+  "steps": {
+   "ar": [
+    "ابدأ مع توجيه راحتي اليدين نحوك على مستوى الكتف",
+    "دوّر راحتي اليدين للخارج أثناء الضغط للأعلى",
+    "مد الذراعين بالكامل في الأعلى",
+    "اعكس الحركة للعودة"
+   ],
+   "en": [
+    "Start with palms facing you at shoulder height",
+    "Rotate palms outward as you press overhead",
+    "Fully extend arms at the top",
+    "Reverse the motion to return"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "hammer_curls",
+  "name": {
+   "ar": "ثني المطرقة",
+   "en": "Hammer Curls"
+  },
+  "description": {
+   "ar": "تمرين ثني للذراع يستهدف أيضاً الساعدين.",
+   "en": "Bicep curl variation that also targets the forearms."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "biceps",
+   "forearms"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "أمسك الدمبلز مع توجيه راحتي اليدين نحو بعضهما",
+    "ارفع الأوزان نحو الكتفين",
+    "حافظ على ثبات الذراعين العلويتين",
+    "أنزل بتحكم"
+   ],
+   "en": [
+    "Hold dumbbells with palms facing each other",
+    "Curl weights toward shoulders",
+    "Keep upper arms stationary",
+    "Lower with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "concentration_curls",
+  "name": {
+   "ar": "ثني التركيز",
+   "en": "Concentration Curls"
+  },
+  "description": {
+   "ar": "تمرين معزول للعضلة ذات الرأسين بأقصى تركيز.",
+   "en": "Isolated bicep exercise with maximum focus."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "biceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "اجلس واسند المرفق على الفخذ الداخلي",
+    "ارفع الدمبل نحو كتفك",
+    "اضغط في الأعلى",
+    "أنزل ببطء"
+   ],
+   "en": [
+    "Sit and rest elbow against inner thigh",
+    "Curl the dumbbell toward your shoulder",
+    "Squeeze at the top",
+    "Lower slowly"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "overhead_tricep_extension",
+  "name": {
+   "ar": "تمديد ثلاثية الرؤوس العلوي",
+   "en": "Overhead Tricep Extension"
+  },
+  "description": {
+   "ar": "يعزل العضلة ثلاثية الرؤوس بحركة علوية.",
+   "en": "Isolates the triceps with overhead movement."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "triceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "أمسك الدمبل فوق الرأس بكلتا اليدين",
+    "أنزل الوزن خلف الرأس بثني المرفقين",
+    "حافظ على الذراعين العلويتين قريبتين من الأذنين",
+    "مد الذراعين للأعلى مرة أخرى"
+   ],
+   "en": [
+    "Hold dumbbell overhead with both hands",
+    "Lower weight behind head by bending elbows",
+    "Keep upper arms close to ears",
+    "Extend arms back up"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "elbow_injury",
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "tricep_kickbacks",
+  "name": {
+   "ar": "ركلات الترايسبس الخلفية",
+   "en": "Tricep Kickbacks"
+  },
+  "description": {
+   "ar": "يستهدف العضلة ثلاثية الرؤوس بحركة التمديد.",
+   "en": "Targets the triceps with extension movement."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "triceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "انحنِ للأمام قليلاً أثناء الجلوس",
+    "حافظ على الذراع العلوي موازياً للأرض",
+    "مد الساعد للخلف حتى تستقيم الذراع",
+    "عد بتحكم"
+   ],
+   "en": [
+    "Lean forward slightly while seated",
+    "Keep upper arm parallel to floor",
+    "Extend forearm back until arm is straight",
+    "Return with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "elbow_injury"
+  ]
+ },
+ {
+  "id": "seated_dumbbell_row",
+  "name": {
+   "ar": "سحب الدمبل جالساً",
+   "en": "Seated Dumbbell Row"
+  },
+  "description": {
+   "ar": "يقوي عضلات الظهر من وضع الجلوس.",
+   "en": "Strengthens the back muscles from a seated position."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "back",
+   "biceps"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 7,
+  "steps": {
+   "ar": [
+    "انحنِ للأمام من الوركين أثناء الجلوس",
+    "اسحب الدمبل للأعلى نحو الورك",
+    "اضغط لوح الكتف في الأعلى",
+    "أنزل بتحكم"
+   ],
+   "en": [
+    "Lean forward at the hips while seated",
+    "Pull dumbbell up toward hip",
+    "Squeeze shoulder blade at top",
+    "Lower with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "reverse_flys",
+  "name": {
+   "ar": "الطيران العكسي",
+   "en": "Reverse Flys"
+  },
+  "description": {
+   "ar": "يستهدف العضلة الدالية الخلفية والظهر العلوي.",
+   "en": "Targets the rear deltoids and upper back."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "shoulders",
+   "back"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "انحنِ للأمام أثناء الجلوس",
+    "ارفع الذراعين للجانبين مع انحناء خفيف",
+    "اضغط لوحي الكتف معاً",
+    "أنزل ببطء"
+   ],
+   "en": [
+    "Lean forward while seated",
+    "Raise arms out to sides with slight bend",
+    "Squeeze shoulder blades together",
+    "Lower slowly"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "wall_push_ups",
+  "name": {
+   "ar": "تمارين الضغط على الحائط",
+   "en": "Wall Push-Ups"
+  },
+  "description": {
+   "ar": "تمرين ضغط معدل يؤدى على الحائط.",
+   "en": "Modified push-up performed against a wall."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "chest",
+   "triceps",
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "قف مواجهاً للحائط على مسافة ذراع",
+    "ضع اليدين على الحائط على مستوى الكتف",
+    "اثنِ المرفقين وانحنِ نحو الحائط",
+    "ادفع للعودة إلى وضع البداية"
+   ],
+   "en": [
+    "Stand facing a wall at arm's length",
+    "Place hands on wall at shoulder height",
+    "Bend elbows and lean toward wall",
+    "Push back to starting position"
+   ]
+  },
+  "tags": [
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "wrist_injury"
+  ]
+ },
+ {
+  "id": "core_breathing_exercise",
+  "name": {
+   "ar": "تمرين التنفس للجذع",
+   "en": "Core Breathing Exercise"
+  },
+  "description": {
+   "ar": "تمرين تنفس عميق لتفعيل عضلات الجذع.",
+   "en": "Deep breathing exercise to engage core muscles."
+  },
+  "category": "core",
+  "muscles": [
+   "core",
+   "diaphragm"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس أو استلقِ في وضع مريح",
+    "ضع يداً على صدرك والأخرى على بطنك",
+    "تنفس بعمق من أنفك واشعر ببطنك يرتفع",
+    "أخرج الهواء ببطء من فمك مع تفعيل الجذع"
+   ],
+   "en": [
+    "Sit or lie in a comfortable position",
+    "Place one hand on your chest and one on your belly",
+    "Breathe in deeply through your nose, feeling your belly rise",
+    "Exhale slowly through your mouth, engaging your core"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_torso_rotation",
+  "name": {
+   "ar": "دوران الجذع جالساً",
+   "en": "Seated Torso Rotation"
+  },
+  "description": {
+   "ar": "تمرين دوران لطيف لتحسين حركة الجذع.",
+   "en": "A gentle rotation exercise to improve core mobility."
+  },
+  "category": "core",
+  "muscles": [
+   "core",
+   "obliques"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً مع وضع اليدين على الكتفين أو متقاطعتين على الصدر",
+    "دوّر جذعك إلى اليمين مع الحفاظ على ثبات الوركين",
+    "عد إلى المركز ثم دوّر إلى اليسار",
+    "تحرك ببطء وتحكم"
+   ],
+   "en": [
+    "Sit upright with hands on shoulders or crossed on chest",
+    "Rotate your torso to the right, keeping hips stable",
+    "Return to center, then rotate to the left",
+    "Move slowly and with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "seated_crunches",
+  "name": {
+   "ar": "تمارين البطن جالساً",
+   "en": "Seated Crunches"
+  },
+  "description": {
+   "ar": "تمرين للجذع يؤدى من وضع الجلوس.",
+   "en": "Core exercise performed from a seated position."
+  },
+  "category": "core",
+  "muscles": [
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس على حافة الكرسي مع وضع القدمين على الأرض",
+    "ضع اليدين خلف الرأس",
+    "انحنِ للخلف قليلاً ثم اضغط للأمام",
+    "اضغط البطن في الأعلى"
+   ],
+   "en": [
+    "Sit on edge of chair with feet flat",
+    "Place hands behind head",
+    "Lean back slightly then crunch forward",
+    "Squeeze abs at the top"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "seated_bicycle",
+  "name": {
+   "ar": "الدراجة جالساً",
+   "en": "Seated Bicycle"
+  },
+  "description": {
+   "ar": "يستهدف العضلات الجانبية بحركة دورانية.",
+   "en": "Targets obliques with rotational movement."
+  },
+  "category": "core",
+  "muscles": [
+   "core",
+   "obliques"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "اجلس على حافة المقعد",
+    "قرب المرفق المقابل إلى الركبة",
+    "بدّل الجانبين بحركة دائرية",
+    "حافظ على شد الجذع طوال التمرين"
+   ],
+   "en": [
+    "Sit on edge of seat",
+    "Bring opposite elbow to knee",
+    "Alternate sides in cycling motion",
+    "Keep core engaged throughout"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "dead_bug",
+  "name": {
+   "ar": "الحشرة الميتة",
+   "en": "Dead Bug"
+  },
+  "description": {
+   "ar": "تمرين ثبات الجذع يؤدى مستلقياً.",
+   "en": "Core stability exercise performed lying down."
+  },
+  "category": "core",
+  "muscles": [
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك مع مد الذراعين للأعلى",
+    "ارفع الساقين مع ثني الركبتين بزاوية 90 درجة",
+    "أنزل الذراع والساق المتقابلين ببطء",
+    "عد وبدّل الجانبين"
+   ],
+   "en": [
+    "Lie on back with arms extended up",
+    "Raise legs with knees bent at 90 degrees",
+    "Lower opposite arm and leg slowly",
+    "Return and switch sides"
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "pelvic_tilts",
+  "name": {
+   "ar": "إمالة الحوض",
+   "en": "Pelvic Tilts"
+  },
+  "description": {
+   "ar": "تمرين لطيف لتفعيل الجذع.",
+   "en": "Gentle core activation exercise."
+  },
+  "category": "core",
+  "muscles": [
+   "core",
+   "lower_back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك مع ثني الركبتين",
+    "اضغط أسفل الظهر على الأرض",
+    "أمل الحوض للأعلى قليلاً",
+    "استمر لحظة ثم استرخِ"
+   ],
+   "en": [
+    "Lie on back with knees bent",
+    "Flatten lower back against floor",
+    "Tilt pelvis up slightly",
+    "Hold briefly and release"
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_knee_lifts",
+  "name": {
+   "ar": "رفع الركبة جالساً",
+   "en": "Seated Knee Lifts"
+  },
+  "description": {
+   "ar": "تمرين لأسفل البطن من وضع الجلوس.",
+   "en": "Lower abs exercise from seated position."
+  },
+  "category": "core",
+  "muscles": [
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً مع وضع القدمين على الأرض",
+    "ارفع إحدى الركبتين نحو الصدر",
+    "أنزل بتحكم",
+    "بدّل الساقين"
+   ],
+   "en": [
+    "Sit tall with feet flat on floor",
+    "Lift one knee toward chest",
+    "Lower with control",
+    "Alternate legs"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "hip_injury"
+  ]
+ },
+ {
+  "id": "seated_oblique_twist",
+  "name": {
+   "ar": "لف الجانب جالساً",
+   "en": "Seated Oblique Twist"
+  },
+  "description": {
+   "ar": "تمرين دوراني للجذع يستهدف الجوانب.",
+   "en": "Rotational core exercise targeting obliques."
+  },
+  "category": "core",
+  "muscles": [
+   "obliques",
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً مع تقاطع الذراعين على الصدر",
+    "دوّر الجذع لجانب واحد",
+    "حافظ على توجيه الوركين للأمام",
+    "عد للمركز وكرر على الجانب الآخر"
+   ],
+   "en": [
+    "Sit tall with arms crossed on chest",
+    "Rotate torso to one side",
+    "Keep hips facing forward",
+    "Return to center and repeat other side"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "stomach_vacuum",
+  "name": {
+   "ar": "شفط المعدة",
+   "en": "Stomach Vacuum"
+  },
+  "description": {
+   "ar": "تفعيل الجذع العميق من خلال التنفس.",
+   "en": "Deep core activation through breath work."
+  },
+  "category": "core",
+  "muscles": [
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "أخرج كل الهواء من الرئتين",
+    "اسحب السرة نحو العمود الفقري",
+    "استمر 10-15 ثانية",
+    "استرخِ وتنفس بشكل طبيعي"
+   ],
+   "en": [
+    "Exhale all air from lungs",
+    "Pull belly button toward spine",
+    "Hold for 10-15 seconds",
+    "Release and breathe normally"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "side_bend",
+  "name": {
+   "ar": "الانحناء الجانبي",
+   "en": "Side Bend"
+  },
+  "description": {
+   "ar": "يستهدف عضلات الجانب بحركة جانبية.",
+   "en": "Targets the obliques with lateral movement."
+  },
+  "category": "core",
+  "muscles": [
+   "obliques"
+  ],
+  "equipment": [
+   "dumbbells"
+  ],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "أمسك الدمبل على الجانب أثناء الجلوس",
+    "انحنِ جانبياً نحو الوزن",
+    "استخدم الجانب المقابل للرجوع",
+    "كرر على الجانب الآخر"
+   ],
+   "en": [
+    "Hold dumbbell at side while seated",
+    "Bend sideways toward the weight",
+    "Use opposite side to pull back up",
+    "Repeat on other side"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "supine_marching",
+  "name": {
+   "ar": "المشي مستلقياً",
+   "en": "Supine Marching"
+  },
+  "description": {
+   "ar": "تمرين لطيف للجذع مستلقياً على الظهر.",
+   "en": "Gentle core exercise lying on back."
+  },
+  "category": "core",
+  "muscles": [
+   "core",
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك مع ثني الركبتين",
+    "ارفع قدماً واحدة عن الأرض مع ثني الركبة",
+    "أنزل وكرر مع الساق الأخرى",
+    "حافظ على شد الجذع طوال التمرين"
+   ],
+   "en": [
+    "Lie on back with knees bent",
+    "Lift one foot off ground, knee bent",
+    "Lower and repeat with other leg",
+    "Keep core engaged throughout"
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "bird_dog",
+  "name": {
+   "ar": "الكلب الطائر",
+   "en": "Bird Dog"
+  },
+  "description": {
+   "ar": "تمرين ثبات للجذع والظهر.",
+   "en": "Core and back stability exercise."
+  },
+  "category": "core",
+  "muscles": [
+   "core",
+   "back"
+  ],
+  "equipment": [],
+  "difficulty": "intermediate",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "ابدأ على اليدين والركبتين",
+    "مد الذراع والساق المتقابلين",
+    "حافظ على استواء الظهر وشد الجذع",
+    "عد وبدّل الجانبين"
+   ],
+   "en": [
+    "Start on hands and knees",
+    "Extend opposite arm and leg",
+    "Keep back flat and core tight",
+    "Return and switch sides"
+   ]
+  },
+  "tags": [
+   "floor_exercise"
+  ],
+  "contraindications": [
+   "knee_injury",
+   "wrist_injury"
+  ]
+ },
+ {
+  "id": "arm_circles",
+  "name": {
+   "ar": "دوائر الذراع",
+   "en": "Arm Circles"
+  },
+  "description": {
+   "ar": "تمرين إحماء لتحسين حركة الكتف.",
+   "en": "A warmup exercise to improve shoulder mobility."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "مد الذراعين للجانبين على مستوى الكتف",
+    "اصنع دوائر صغيرة للأمام لمدة 15 ثانية",
+    "اعكس الاتجاه لمدة 15 ثانية",
+    "زد حجم الدوائر تدريجياً"
+   ],
+   "en": [
+    "Extend arms out to the sides at shoulder height",
+    "Make small circles forward for 15 seconds",
+    "Reverse direction for 15 seconds",
+    "Gradually increase circle size"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "neck_stretches",
+  "name": {
+   "ar": "تمدد الرقبة",
+   "en": "Neck Stretches"
+  },
+  "description": {
+   "ar": "تمدد لطيف للرقبة لتخفيف التوتر.",
+   "en": "Gentle neck stretches to relieve tension."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "neck"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً مع استرخاء الكتفين",
+    "مل رأسك ببطء إلى اليمين واستمر 15 ثانية",
+    "عد إلى المركز ثم مل إلى اليسار",
+    "انظر للأعلى بلطف ثم للأسفل"
+   ],
+   "en": [
+    "Sit upright with shoulders relaxed",
+    "Slowly tilt your head to the right, holding for 15 seconds",
+    "Return to center, then tilt to the left",
+    "Gently look up, then down"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "neck_injury"
+  ]
+ },
+ {
+  "id": "wrist_circles",
+  "name": {
+   "ar": "دوائر المعصم",
+   "en": "Wrist Circles"
+  },
+  "description": {
+   "ar": "تمرين بسيط لحركة المعصم.",
+   "en": "Simple wrist mobility exercise."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "forearms"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "مد الذراعين أمامك",
+    "اقبض يديك ودوّر المعصمين باتجاه عقارب الساعة 10 مرات",
+    "دوّر عكس عقارب الساعة 10 مرات",
+    "رج اليدين بلطف"
+   ],
+   "en": [
+    "Extend arms in front of you",
+    "Make fists and rotate wrists clockwise 10 times",
+    "Rotate counterclockwise 10 times",
+    "Shake out hands gently"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly",
+   "hand_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "shoulder_stretch",
+  "name": {
+   "ar": "تمدد الكتف",
+   "en": "Shoulder Stretch"
+  },
+  "description": {
+   "ar": "يمدد الكتف والظهر العلوي.",
+   "en": "Stretches the shoulder and upper back."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قرب ذراعاً واحدة عبر جسمك",
+    "استخدم اليد الأخرى لسحب الذراع أقرب",
+    "استمر 15-30 ثانية",
+    "كرر على الجانب الآخر"
+   ],
+   "en": [
+    "Bring one arm across your body",
+    "Use other hand to pull arm closer",
+    "Hold for 15-30 seconds",
+    "Repeat on other side"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "chest_opener",
+  "name": {
+   "ar": "فتح الصدر",
+   "en": "Chest Opener"
+  },
+  "description": {
+   "ar": "يفتح الصدر ويمدد عضلات الصدر.",
+   "en": "Opens the chest and stretches pectoral muscles."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "chest"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "شبك اليدين خلف الظهر",
+    "اضغط لوحي الكتف معاً",
+    "ارفع الذراعين قليلاً أثناء فتح الصدر",
+    "استمر 15-30 ثانية"
+   ],
+   "en": [
+    "Clasp hands behind back",
+    "Squeeze shoulder blades together",
+    "Lift arms slightly while opening chest",
+    "Hold for 15-30 seconds"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "shoulder_injury"
+  ]
+ },
+ {
+  "id": "tricep_stretch",
+  "name": {
+   "ar": "تمدد الترايسبس",
+   "en": "Tricep Stretch"
+  },
+  "description": {
+   "ar": "يمدد الجزء الخلفي من الذراع العلوي.",
+   "en": "Stretches the back of the upper arm."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "triceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "ارفع ذراعاً واحدة فوق الرأس",
+    "اثنِ المرفق مع وصول اليد للظهر",
+    "استخدم اليد الأخرى للضغط برفق على المرفق",
+    "استمر ثم بدّل الذراعين"
+   ],
+   "en": [
+    "Raise one arm overhead",
+    "Bend elbow, hand reaching down back",
+    "Use other hand to gently press elbow",
+    "Hold and switch arms"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "shoulder_injury",
+   "elbow_injury"
+  ]
+ },
+ {
+  "id": "upper_back_stretch",
+  "name": {
+   "ar": "تمدد الظهر العلوي",
+   "en": "Upper Back Stretch"
+  },
+  "description": {
+   "ar": "يمدد الظهر العلوي والكتفين.",
+   "en": "Stretches the upper back and shoulders."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "back",
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "مد الذراعين للأمام على مستوى الكتف",
+    "شبك الأصابع وقوّس الظهر العلوي",
+    "ادفع اليدين بعيداً عن الجسم",
+    "استمر 15-30 ثانية"
+   ],
+   "en": [
+    "Extend arms forward at shoulder height",
+    "Interlace fingers and round upper back",
+    "Push hands away from body",
+    "Hold for 15-30 seconds"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_spinal_twist",
+  "name": {
+   "ar": "لف العمود الفقري جالساً",
+   "en": "Seated Spinal Twist"
+  },
+  "description": {
+   "ar": "لف لطيف لتحسين حركة العمود الفقري.",
+   "en": "Gentle twist to improve spinal mobility."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "back",
+   "obliques"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً مع وضع القدمين على الأرض",
+    "ضع اليد على الركبة المقابلة",
+    "دوّر الجذع وانظر فوق الكتف",
+    "استمر وكرر على الجانب الآخر"
+   ],
+   "en": [
+    "Sit tall with feet flat on floor",
+    "Place hand on opposite knee",
+    "Twist torso and look over shoulder",
+    "Hold and repeat other side"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "back_injury"
+  ]
+ },
+ {
+  "id": "cat_cow_stretch",
+  "name": {
+   "ar": "تمدد القطة والبقرة",
+   "en": "Cat-Cow Stretch"
+  },
+  "description": {
+   "ar": "تناوب ثني وتمديد العمود الفقري.",
+   "en": "Alternating spinal flexion and extension."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "back",
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "ابدأ على اليدين والركبتين",
+    "قوّس الظهر للأعلى مثل القطة",
+    "ثم أنزل البطن وانظر للأعلى",
+    "تدفق بين الوضعيتين"
+   ],
+   "en": [
+    "Start on hands and knees",
+    "Arch back up like a cat",
+    "Then drop belly and look up",
+    "Flow between positions"
+   ]
+  },
+  "tags": [
+   "floor_exercise",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "wrist_injury",
+   "knee_injury"
+  ]
+ },
+ {
+  "id": "seated_hip_flexor_stretch",
+  "name": {
+   "ar": "تمدد ثني الورك جالساً",
+   "en": "Seated Hip Flexor Stretch"
+  },
+  "description": {
+   "ar": "يمدد عضلات ثني الورك أثناء الجلوس.",
+   "en": "Stretches the hip flexor muscles while seated."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس على حافة الكرسي",
+    "ازلق ساقاً واحدة للخلف",
+    "انحنِ للأمام قليلاً لتشعر بالتمدد",
+    "استمر وبدّل الساقين"
+   ],
+   "en": [
+    "Sit on edge of chair",
+    "Slide one leg back",
+    "Lean forward slightly to feel stretch",
+    "Hold and switch legs"
+   ]
+  },
+  "tags": [
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "hip_injury"
+  ]
+ },
+ {
+  "id": "ankle_circles",
+  "name": {
+   "ar": "دوائر الكاحل",
+   "en": "Ankle Circles"
+  },
+  "description": {
+   "ar": "يحسن حركة الكاحل والدورة الدموية.",
+   "en": "Improves ankle mobility and circulation."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "ankles"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "ارفع قدماً واحدة عن الأرض",
+    "دوّر الكاحل باتجاه عقارب الساعة 10 مرات",
+    "دوّر عكس عقارب الساعة 10 مرات",
+    "بدّل القدمين"
+   ],
+   "en": [
+    "Lift one foot off the ground",
+    "Rotate ankle clockwise 10 times",
+    "Rotate counterclockwise 10 times",
+    "Switch feet"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "finger_stretches",
+  "name": {
+   "ar": "تمدد الأصابع",
+   "en": "Finger Stretches"
+  },
+  "description": {
+   "ar": "يحسن مرونة اليد والأصابع.",
+   "en": "Improves hand and finger flexibility."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hands"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "افرد الأصابع بعيداً عن بعضها",
+    "استمر 5 ثوانٍ",
+    "اصنع قبضة واستمر",
+    "كرر عدة مرات"
+   ],
+   "en": [
+    "Spread fingers wide apart",
+    "Hold for 5 seconds",
+    "Make a fist and hold",
+    "Repeat several times"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly",
+   "hand_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "chin_tucks",
+  "name": {
+   "ar": "سحب الذقن",
+   "en": "Chin Tucks"
+  },
+  "description": {
+   "ar": "يحسن وضعية الرقبة ويقلل التوتر.",
+   "en": "Improves neck posture and reduces tension."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "neck"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس أو قف بوضعية جيدة",
+    "اسحب الذقن للخلف مباشرة (اصنع ذقناً مزدوجاً)",
+    "استمر 5 ثوانٍ",
+    "استرخِ وكرر"
+   ],
+   "en": [
+    "Sit or stand with good posture",
+    "Pull chin straight back (make a double chin)",
+    "Hold for 5 seconds",
+    "Release and repeat"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "neck_injury"
+  ]
+ },
+ {
+  "id": "seated_leg_extensions",
+  "name": {
+   "ar": "تمديد الساق جالساً",
+   "en": "Seated Leg Extensions"
+  },
+  "description": {
+   "ar": "يقوي عضلات الفخذ الأمامية من وضع الجلوس.",
+   "en": "Strengthens the quadriceps from a seated position."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "quadriceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس مع الظهر على الكرسي",
+    "مد ساقاً واحدة مستقيمة للخارج",
+    "استمر لحظة في الأعلى",
+    "أنزل بتحكم وبدّل"
+   ],
+   "en": [
+    "Sit with back against chair",
+    "Extend one leg straight out",
+    "Hold briefly at the top",
+    "Lower with control and switch"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "knee_injury"
+  ]
+ },
+ {
+  "id": "seated_marching",
+  "name": {
+   "ar": "المشي جالساً",
+   "en": "Seated Marching"
+  },
+  "description": {
+   "ar": "تمرين لطيف للساق يحسن الدورة الدموية.",
+   "en": "Gentle leg exercise that improves circulation."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hip_flexors",
+   "quadriceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً على الكرسي",
+    "ارفع ركبة واحدة نحو الصدر",
+    "أنزل وارفع الركبة الأخرى",
+    "استمر بالتناوب"
+   ],
+   "en": [
+    "Sit tall in chair",
+    "Lift one knee up toward chest",
+    "Lower and lift other knee",
+    "Continue alternating"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "heel_raises",
+  "name": {
+   "ar": "رفع الكعب",
+   "en": "Heel Raises"
+  },
+  "description": {
+   "ar": "يقوي عضلات الربلة.",
+   "en": "Strengthens the calf muscles."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "calves"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس أو قف مع وضع القدمين على الأرض",
+    "ارفع الكعبين عن الأرض",
+    "استمر في الأعلى لحظة",
+    "أنزل بتحكم"
+   ],
+   "en": [
+    "Sit or stand with feet flat",
+    "Raise heels off the ground",
+    "Hold at the top briefly",
+    "Lower with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "standing",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "toe_raises",
+  "name": {
+   "ar": "رفع أصابع القدم",
+   "en": "Toe Raises"
+  },
+  "description": {
+   "ar": "يقوي عضلات الساق الأمامية.",
+   "en": "Strengthens the shin muscles."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "shins"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس مع وضع القدمين على الأرض",
+    "ارفع أصابع القدم مع إبقاء الكعبين على الأرض",
+    "استمر لحظة",
+    "أنزل بتحكم"
+   ],
+   "en": [
+    "Sit with feet flat on floor",
+    "Lift toes while keeping heels down",
+    "Hold briefly",
+    "Lower with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_hip_abduction",
+  "name": {
+   "ar": "إبعاد الورك جالساً",
+   "en": "Seated Hip Abduction"
+  },
+  "description": {
+   "ar": "يقوي عضلات الورك الخارجية.",
+   "en": "Strengthens the outer hip muscles."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hips"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس مع الحزام حول الفخذين",
+    "ادفع الركبتين للخارج ضد الحزام",
+    "استمر لمدة ثانيتين",
+    "عد بتحكم"
+   ],
+   "en": [
+    "Sit with band around thighs",
+    "Push knees apart against band",
+    "Hold for 2 seconds",
+    "Return with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": [
+   "hip_injury"
+  ]
+ },
+ {
+  "id": "seated_hip_adduction",
+  "name": {
+   "ar": "تقريب الورك جالساً",
+   "en": "Seated Hip Adduction"
+  },
+  "description": {
+   "ar": "يقوي عضلات الفخذ الداخلية.",
+   "en": "Strengthens the inner thigh muscles."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "inner_thighs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس مع كرة صغيرة بين الركبتين",
+    "اضغط الركبتين معاً",
+    "استمر 2-3 ثوانٍ",
+    "استرخِ ببطء"
+   ],
+   "en": [
+    "Sit with small ball between knees",
+    "Squeeze knees together",
+    "Hold for 2-3 seconds",
+    "Release slowly"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "leg_press_with_band",
+  "name": {
+   "ar": "ضغط الساق بالحزام",
+   "en": "Leg Press with Band"
+  },
+  "description": {
+   "ar": "يحاكي ضغط الساق باستخدام حزام المقاومة.",
+   "en": "Simulates leg press using resistance band."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "quadriceps",
+   "glutes"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "اجلس مع الحزام حول القدم",
+    "أمسك مقابض الحزام على الجانبين",
+    "ادفع القدم للأمام ضد الحزام",
+    "عد بتحكم"
+   ],
+   "en": [
+    "Sit with band around foot",
+    "Hold band handles at sides",
+    "Press foot forward against band",
+    "Return with control"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated"
+  ],
+  "contraindications": [
+   "knee_injury"
+  ]
+ },
+ {
+  "id": "glute_squeeze",
+  "name": {
+   "ar": "ضغط المؤخرة",
+   "en": "Glute Squeeze"
+  },
+  "description": {
+   "ar": "يفعّل ويقوي عضلات المؤخرة.",
+   "en": "Activates and strengthens the glute muscles."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "glutes"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس أو استلقِ بوضعية جيدة",
+    "اضغط عضلات المؤخرة معاً بقوة",
+    "استمر 5 ثوانٍ",
+    "استرخِ وكرر"
+   ],
+   "en": [
+    "Sit or lie with good posture",
+    "Squeeze glutes together tightly",
+    "Hold for 5 seconds",
+    "Release and repeat"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "hamstring_curl_with_band",
+  "name": {
+   "ar": "ثني أوتار الركبة بالحزام",
+   "en": "Hamstring Curl with Band"
+  },
+  "description": {
+   "ar": "يستهدف أوتار الركبة باستخدام حزام المقاومة.",
+   "en": "Targets hamstrings using resistance band."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hamstrings"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "ثبت الحزام على جسم ثابت",
+    "لفه حول الكاحل أثناء الجلوس",
+    "اثنِ الكعب نحو المؤخرة",
+    "عد بتحكم"
+   ],
+   "en": [
+    "Secure band to sturdy object",
+    "Loop around ankle while seated",
+    "Curl heel toward buttocks",
+    "Return with control"
+   ]
+  },
+  "tags": [
+   "seated"
+  ],
+  "contraindications": [
+   "knee_injury"
+  ]
+ },
+ {
+  "id": "seated_calf_stretch",
+  "name": {
+   "ar": "تمدد الربلة جالساً",
+   "en": "Seated Calf Stretch"
+  },
+  "description": {
+   "ar": "يمدد عضلات الربلة من وضع الجلوس.",
+   "en": "Stretches the calf muscles from seated position."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "calves"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس مع مد ساق واحدة",
+    "لف منشفة حول القدم",
+    "اسحب أصابع القدم نحوك برفق",
+    "استمر وبدّل الساقين"
+   ],
+   "en": [
+    "Sit with one leg extended",
+    "Loop towel around foot",
+    "Pull toes toward you gently",
+    "Hold and switch legs"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_weight_shifts",
+  "name": {
+   "ar": "تحويل الوزن جالساً",
+   "en": "Seated Weight Shifts"
+  },
+  "description": {
+   "ar": "يحسن التوازن وثبات الجذع أثناء الجلوس.",
+   "en": "Improves balance and core stability while seated."
+  },
+  "category": "balance",
+  "muscles": [
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس بدون استخدام مسند الظهر",
+    "حوّل الوزن لجانب واحد",
+    "استمر لحظة",
+    "حوّل للجانب الآخر"
+   ],
+   "en": [
+    "Sit without using backrest",
+    "Shift weight to one side",
+    "Hold briefly",
+    "Shift to other side"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "seated_reach",
+  "name": {
+   "ar": "الوصول جالساً",
+   "en": "Seated Reach"
+  },
+  "description": {
+   "ar": "يتحدى التوازن أثناء الوصول في اتجاهات مختلفة.",
+   "en": "Challenges balance while reaching in different directions."
+  },
+  "category": "balance",
+  "muscles": [
+   "core",
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس منتصباً بدون دعم مسند الظهر",
+    "مد ذراعاً واحدة للأمام",
+    "عد للمركز",
+    "مد للجانب وفوق الرأس"
+   ],
+   "en": [
+    "Sit tall without backrest support",
+    "Reach one arm forward",
+    "Return to center",
+    "Reach to side and overhead"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ },
+ {
+  "id": "single_leg_balance",
+  "name": {
+   "ar": "التوازن على ساق واحدة",
+   "en": "Single Leg Balance"
+  },
+  "description": {
+   "ar": "تمرين توازن واقف مع خيار الدعم.",
+   "en": "Standing balance exercise with support option."
+  },
+  "category": "balance",
+  "muscles": [
+   "legs",
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "intermediate",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "قف بالقرب من الحائط أو الكرسي للدعم",
+    "ارفع قدماً واحدة قليلاً عن الأرض",
+    "استمر ما دمت مرتاحاً",
+    "بدّل الساقين"
+   ],
+   "en": [
+    "Stand near wall or chair for support",
+    "Lift one foot slightly off ground",
+    "Hold as long as comfortable",
+    "Switch legs"
+   ]
+  },
+  "tags": [
+   "standing",
+   "adaptable"
+  ],
+  "contraindications": [
+   "severe_balance_issues"
+  ]
+ },
+ {
+  "id": "heel_toe_stand",
+  "name": {
+   "ar": "الوقوف كعب-إصبع",
+   "en": "Heel-Toe Stand"
+  },
+  "description": {
+   "ar": "تحدي توازن في وقفة متتابعة.",
+   "en": "Balance challenge in tandem stance."
+  },
+  "category": "balance",
+  "muscles": [
+   "legs",
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "intermediate",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف مع وجود دعم قريب",
+    "ضع قدماً واحدة أمام الأخرى مباشرة",
+    "الكعب يلمس الأصابع",
+    "استمر وبدّل القدم الأمامية"
+   ],
+   "en": [
+    "Stand with support nearby",
+    "Place one foot directly in front of other",
+    "Heel touching toe",
+    "Hold and switch lead foot"
+   ]
+  },
+  "tags": [
+   "standing",
+   "adaptable"
+  ],
+  "contraindications": [
+   "severe_balance_issues"
+  ]
+ },
+ {
+  "id": "eye_tracking_balance",
+  "name": {
+   "ar": "توازن تتبع العين",
+   "en": "Eye Tracking Balance"
+  },
+  "description": {
+   "ar": "يتحدى الجهاز الدهليزي مع الحفاظ على التوازن.",
+   "en": "Challenges vestibular system while maintaining balance."
+  },
+  "category": "balance",
+  "muscles": [
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس أو قف بقاعدة ثابتة",
+    "أمسك الإبهام أمام الوجه",
+    "حرك الإبهام من جانب لجانب أثناء تتبعه بالعينين",
+    "حافظ على ثبات الرأس"
+   ],
+   "en": [
+    "Sit or stand with stable base",
+    "Hold thumb in front of face",
+    "Move thumb side to side while following with eyes",
+    "Keep head still"
+   ]
+  },
+  "tags": [
+   "wheelchair_friendly",
+   "seated",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "contraindications": []
+ }
+]

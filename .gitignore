@@ -4,3 +4,4 @@ dist/
 .runtime/
 .env*
 .DS_Store
+local-docs/

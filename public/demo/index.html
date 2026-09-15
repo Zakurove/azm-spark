@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZM SPARK demo video</title>
+<link rel="stylesheet" href="/fonts/cairo.css">
+<style>
+body{margin:0;background:#fbfaf8;color:#1c2029;font-family:Cairo,system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
+header{display:flex;align-items:center;gap:16px;margin-bottom:22px}
+header img{height:44px}
+h1{font-size:22px;margin:0}
+p{color:#5f6571;line-height:1.6}
+video{width:100%;border-radius:18px;background:#000;box-shadow:0 30px 60px -40px #1c202966}
+.links{display:flex;gap:14px;flex-wrap:wrap;margin-top:18px}
+.links a{color:#1c2029;background:#fff;border:1px solid #ebe5d6;border-radius:99px;padding:8px 18px;text-decoration:none;font-weight:700}
+</style>
+</head>
+<body>
+<main>
+<header><img src="/brand/azm-full.png" alt="Azm"><div><h1>AZM SPARK demo video</h1><p style="margin:0">2 min 40 s. Arabic and English subtitles: use the CC button.</p></div></header>
+<video controls playsinline preload="metadata" crossorigin="anonymous">
+ <source src="/demo/AZM_SPARK_demo.mp4" type="video/mp4">
+ <track kind="subtitles" src="/demo/AZM_SPARK_demo.ar.vtt" srclang="ar" label="العربية" default>
+ <track kind="subtitles" src="/demo/AZM_SPARK_demo.en.vtt" srclang="en" label="English">
+</video>
+<div class="links"><a href="/demo/AZM_SPARK_demo.mp4" download>Download MP4</a><a href="/?lang=en">Open the live app</a><a href="/">افتح التطبيق بالعربية</a></div>
+<p>Camera tracking, repetition counting and coaching run live in the app. In this recording the camera sees an animated 3D athlete.</p>
+</main>
+</body>
+</html>

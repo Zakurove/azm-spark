@@ -1,66 +1,77 @@
-# Azm — guided adaptive exercise
+# AZM SPARK
 
-Updated 8 September 2026. [Documentation index](docs/README.md) · [Operations and verification](docs/OPERATIONS.md)
+**An AI fitness coach that adapts to your medical condition.**
+Smart Personalized Assessment of Range & Kinematics.
 
-React/TypeScript application with a local account service, a structured health history, condition-based program planning, and camera-guided exercise. Camera frames and pose inference stay in the browser. Account profiles and derived exercise records are stored by the application server.
+Live build: **https://azm-spark.gymwise.ai** · Demo video: **https://azm-spark.gymwise.ai/demo**
 
-## Run
+AZM SPARK helps adults with a disability or a medical condition keep the benefits of sport after rehabilitation ends. The person shares a medical report or answers a short health history, receives a weekly plan built around their condition, then props up their phone and trains. The camera counts every repetition, corrects movement against that person's own calibrated range, and coaches by voice in Arabic or English.
 
-Use Node 22.18 or newer.
+Entry of Gymwise.ai (team 25) in the KSCDR AI Hackathon for People with Disabilities 2026, Health & Rehabilitation track.
+
+## What it does
+
+1. **Try it with just a phone.** From the home page, anyone can start a guided camera session with no account: choose seated, wheelchair or standing, prop the phone about two meters away, and train.
+2. **Medical engine.** A pasted or photographed medical report is read once by a language model into the health profile (condition, affected side, mobility, medications). Safety questions such as warning symptoms and medical clearance are always answered by the person, never guessed from the report. The report itself is never stored.
+3. **Plan built on the condition.** Clinical presets set a safe dose (movement, sets, reps, rest) and exclude anything unsafe, with the reason shown. A language model then arranges a weekly plan using only exercises the rules approved, from a library of 55 adaptive exercises.
+4. **Live camera coaching.** On-device pose tracking, personal range calibration before every set, repetition counting, compensation detection (for example trunk lean), voice cues, an effort check after every set, and a session record.
+5. **Safety that can say no.** A heart condition, warning symptoms, a recent change or missing clearance routes the person to a clinical review instead of a workout.
+
+Arabic first with full right to left support, and English.
+
+## Privacy
+
+Camera frames and pose inference never leave the browser. Only derived results (counts, ranges, flags) are stored, with the person's consent, in their own account. The medical report is analysed once for prefilling and is not retained.
+
+## Run locally
+
+Node 22.18 or newer.
 
 ```sh
 npm install
-npm run dev
+npm run dev        # http://localhost:5205
 ```
 
-Open http://localhost:5205. Create an account, complete the four-step health history, and review the resulting program. The independent demonstration on the sign-in screen requires neither an account nor camera access; simulated results never enter personal history.
+Production build and server (client and API from one origin):
 
 ```sh
-npm run check
-npm test
 npm run build
 npm start
 ```
 
-`npm start` serves the compiled application and account API together. Stop the development server first, or set `PORT` to another port. The default listener is local loopback. For an HTTPS deployment behind a reverse proxy, set `NODE_ENV=production` and `AZM_ORIGIN` to the exact HTTPS origin. Set `AZM_DATABASE` to the intended SQLite path. No external deployment has been performed.
+Environment variables:
 
-## Product flow
+| Variable | Purpose |
+|---|---|
+| `PORT`, `HOST` | Listener (defaults: 5205, loopback) |
+| `AZM_DATABASE` | SQLite path (default `.data/azm.sqlite`) |
+| `AZM_ORIGIN` | Comma separated list of allowed origins for state changing requests in production |
+| `NODE_ENV=production` | Secure cookies |
+| `OPENAI_API_KEY` | Medical report reading and weekly plan arrangement (`gpt-4o`). Without it the app still works: the report panel falls back to manual answers and the weekly plan uses the rules engine only |
 
-1. Register or sign in using a server session.
-2. Record age, conditions, movement setup, affected side, pain, restrictions, symptoms, clearance, equipment, goals and availability. Optional diagnosis and medication notes are recorded without automated interpretation.
-3. Review exercise selection, sets, reps, recovery periods and weekly schedule. Unsupported conditions or conflicting restrictions lead to a review screen, without an active exercise program.
-4. Work through preparation, camera framing, personal range calibration, prescribed sets, effort check-ins, timed rests, and cooldown. High reported effort ends the current workout. Unfinished workouts can resume.
-5. Review and export your own recorded sets. Program demonstrations remain separate.
+Checks:
+
+```sh
+npm run check      # TypeScript
+npm test           # 61 automated tests (engine, planner, weekly plan, API)
+```
+
+## Architecture
+
+- `src/app` React 18 + TypeScript client: landing, no account camera trial, account, intake, program, weekly plan, camera session, history.
+- `src/engine` Pose pipeline: MediaPipe Pose Landmarker (vendored in `public/models` and `public/wasm`), One Euro filtering, personal calibration, repetition state machine, form rules and cue orchestration.
+- `src/medical` Condition presets, plan generation with review gates, deterministic safety filter for the weekly plan, exercise library (`src/exercises/library.json`).
+- `server` Dependency free Node server: account sessions (scrypt, HttpOnly cookies, same origin checks, rate limits), health profiles, plans, records, medical report extraction and weekly plan arrangement with strict JSON schemas, SQLite storage.
+- `public/cues` Bundled Arabic and English coaching voice (generated at build time with `scripts/generate-voice.mjs`; the browser never contacts a speech service).
+- `tests` Vitest suites. `scripts` build, voice, screenshot and QA utilities.
 
 ## Medical scope
 
-The condition presets in `src/medical/legacy-config.ts` were ported from Azm 2.0. `src/medical/plan.ts` adapts those settings to the three movements that the current pose engine supports. This is a rules-based adaptation, not diagnosis, a medication-interaction system, a verified medical-clearance service, or a replacement for a clinician. No new clinical validation is claimed. Changes to the original exercise definitions require medical and fitness review.
+AZM SPARK is training guidance for fitness and physical activity adapted to a medical condition. It is not a diagnostic device and does not replace a clinician. Condition presets are adapted from published exercise protocols and were designed by a rehabilitation physician; clearance is self reported. Cardiac conditions and other unsupported profiles are routed to review rather than trained. Evaluation with users is the next step; see the [operations notes](docs/OPERATIONS.md) for the current evidence boundary.
 
-Cardiac conditions, reported warning symptoms, unresolved recent health changes, instructions not to exercise, unlisted conditions, unsupported bed-based exercise, and ME/CFS require review. Required clearance is self-reported. Unsupported limb tracking and conflicting movement restrictions exclude affected exercises. Recovery spacing is checked across the weekly boundary.
+## Team
 
-## Accounts and data
+- Dr. Nasser Alharbi, physical medicine and rehabilitation physician, CEO of Gymwise.ai
+- Chaker Belhaj, fitness professor, COO of Gymwise.ai
 
-`server/api.ts` owns authentication and authorization: salted scrypt passwords, hashed random session tokens, HttpOnly SameSite cookies, same-origin mutation checks, rate limiting, and ownership checks for profiles and records. The server recomputes plans and enforces their versions and set order. Data is in `.data/azm.sqlite` (owner-only permissions), excluded from source control. Medical profiles are not saved in browser localStorage. Voice/display preferences are local browser settings.
-
-These accounts belong to this installation; existing hosted Azm 2.0 accounts have not been connected or migrated. Email verification, password recovery, clinician roles and verified clearance uploads are not implemented. SQLite is not encrypted at rest by the app; host access and deployment security remain operational requirements before use with real participant data.
-
-## Assets and voice
-
-The full Azm wordmark comes from the existing Azm 4.0 brand assets. Stylized reference illustrations adapt to the selected movement setup. They are illustrations, not a live avatar or patient footage. Demonstration landmark playback is separate and frame-synced to the scoring engine; camera mode overlays the real video.
-
-Arabic and English neural voice clips are bundled locally in `public/cues`; runtime speech does not contact an external voice service. See `design/enhancement/README.md` for voice provenance and the build-only generation process. Fonts, pose model and WASM are vendored locally.
-
-## Visual verification
-
-With the development server running:
-
-```sh
-npm run shots
-node scripts/medical-qa.mjs
-```
-
-Screenshots are captured at 3×. The medical QA uses synthetic test accounts and a virtual camera. It checks registration, intake, program generation, Arabic/mobile layouts, camera launch/exit, prescribed demonstration sets, enforced rest, high-effort completion, review gating and logout. Earlier pre-account QA scripts are historical and do not represent the current onboarding flow.
-
-## Verified baseline
-
-52 automated tests across 9 files passed on 8 September 2026, including the original 17 engine tests. Type checking, client/server build, built-server authentication smoke test and synthetic browser workflow checks passed. The dependency audit reported zero vulnerabilities at that verification. These are software checks, not participant or clinical validation.
+Third party components are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

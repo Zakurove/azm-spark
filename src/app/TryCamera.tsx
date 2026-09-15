@@ -30,7 +30,7 @@ export default function TryCamera({ lang, onLanguage, onExit, onSimulate, onRegi
 
  if (step === 'session') {
   return <Session key={run} lang={lang} setup={{ position, support: 'none' }} exerciseId={position === 'rise' ? 'sit_to_stand' : 'seated_shoulder_press'}
-   demo={false} trial preferences={preferences} onPreferences={onPreferences}
+   demo={false} trial targetReps={position === 'rise' ? 4 : 6} preferences={preferences} onPreferences={onPreferences}
    onExit={() => setStep('place')} onRestart={() => setRun(r => r + 1)} onDemo={onSimulate} onRegister={onRegister}/>;
  }
 

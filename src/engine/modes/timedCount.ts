@@ -845,6 +845,9 @@ abstract class TimedCountBase implements TestRunner {
         this.end(t);
         return;
       }
+      // SPEC-GAP: stand-repeat. The one repeat after 2 minutes of rest is the arm curl's rule (spec
+      // 4.2); the chair stand has no rule of its own beyond "repeated" (spec 4.0), so it gets the
+      // same single repeat, the fewer the stands the safer.
       this.repeatOffered = true;
       if (q.cue) this.sink.cue(q.cue, t);
       this.ask("repeat", t);
@@ -858,6 +861,9 @@ abstract class TimedCountBase implements TestRunner {
   }
 
   /** finish() during the trial: the trial ended early, its count is a lower bound (censored). */
+  // SPEC-GAP: timed-censored. The spec defines censoring for the side lean only. For a timed count
+  // `censored` marks a trial that ended before 30.0 s (a lower bound); the stop rules keep such a
+  // count from being stored as a score (status stopped, or not measured with the reason).
   private stopTrial(t: number): void {
     const tr = this.trial!;
     const q = tr.monitor.report();

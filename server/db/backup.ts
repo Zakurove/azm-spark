@@ -5,13 +5,18 @@ import { dirname, join } from "node:path";
 export const BACKUPS_KEPT = 5;
 // azm-<ISO timestamp with ':' and '.' replaced by '-'>-<label>.sqlite, e.g.
 // azm-2026-09-27T19-40-12-345Z-pre-2.sqlite. The fixed width timestamp makes name order time order.
-const BACKUP_FILE = /^azm-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-[a-z0-9-]+\.sqlite$/;
+const BACKUP_FILE = /^azm-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-([a-z0-9-]+)\.sqlite$/;
+// Label of the backup runMigrations writes before applying migration N.
+const MIGRATION_LABEL = /^pre-\d+$/;
 const stamp = (ms: number) => new Date(ms).toISOString().replace(/[:.]/g, "-");
 
 /**
- * Writes a consistent copy of `db` with VACUUM INTO to <dir of dbPath>/backups/, then keeps only
- * the newest BACKUPS_KEPT backups. The directory is 0700 and the file 0600 from the moment it
- * exists. Must be called outside a transaction (SQLite cannot VACUUM inside one). Returns the path.
+ * Writes a consistent copy of `db` with VACUUM INTO to <dir of dbPath>/backups/, then prunes: the
+ * newest BACKUPS_KEPT backups stay, and so does the newest pre-N backup for every migration N. A
+ * migration that fails at every start (a crash loop under a restart policy) writes a new pre-N on
+ * each start; without the second rule those copies would push out the only good copy from before
+ * an earlier migration. The directory is 0700 and the file 0600 from the moment it exists. Must be
+ * called outside a transaction (SQLite cannot VACUUM inside one). Returns the path.
  */
 export function backupDatabase(db: DatabaseSync, dbPath: string, label: string): string {
   if (dbPath === ":memory:") throw new Error("backupDatabase needs a database file");
@@ -56,8 +61,14 @@ export function backupDatabase(db: DatabaseSync, dbPath: string, label: string):
   const backups = readdirSync(dir)
     .filter((f) => BACKUP_FILE.test(f))
     .sort();
+  const keep = new Set(backups.slice(-BACKUPS_KEPT));
+  const newestPerMigration = new Map<string, string>(); // names are in time order: the last wins
+  for (const f of backups) {
+    const label = BACKUP_FILE.exec(f)![2];
+    if (MIGRATION_LABEL.test(label)) newestPerMigration.set(label, f);
+  }
+  for (const f of newestPerMigration.values()) keep.add(f);
   // force: a second process pruning the same folder may have removed it already.
-  for (const old of backups.slice(0, Math.max(0, backups.length - BACKUPS_KEPT)))
-    rmSync(join(dir, old), { force: true });
+  for (const old of backups) if (!keep.has(old)) rmSync(join(dir, old), { force: true });
   return file;
 }

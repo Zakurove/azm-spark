@@ -292,6 +292,30 @@ describe("backupDatabase", () => {
     for (const f of kept) expect(mode(join(dir, "backups", f))).toBe(0o600);
   });
 
+  it("keeps the newest backup before each migration through a crash loop", () => {
+    const file = legacyFile();
+    const second: Migration = { version: 2, name: "second", sql: "CREATE TABLE second(x INTEGER);" };
+    const third: Migration = { version: 3, name: "third", sql: "CREATE TABLE third(x INTEGER);" };
+    const failing: Migration = { ...BAD, version: 4 };
+    const db = openDb(file);
+    runMigrations(db, { dbPath: file }); // pre-1: the untouched legacy data
+    runMigrations(db, { dbPath: file, migrations: [...migrations, second] }); // pre-2
+    const pre3 = runMigrations(db, { dbPath: file, migrations: [...migrations, second, third] }).backup!;
+    // Migration 4 fails at every start and the host keeps restarting the server.
+    for (let i = 0; i < BACKUPS_KEPT + 2; i++) {
+      expect(() =>
+        runMigrations(db, { dbPath: file, migrations: [...migrations, second, third, failing] }),
+      ).toThrow(/missing_table/);
+    }
+    const kept = backupsIn(join(dir, "backups"));
+    const labels = kept.map((f) => f.replace(/^azm-[^Z]+Z-/, "").replace(/\.sqlite$/, ""));
+    expect(labels).toEqual(["pre-1", "pre-2", "pre-3", ...Array(BACKUPS_KEPT).fill("pre-4")]);
+    expect(kept).toContain(basename(pre3));
+    expect(tableNames(openDb(pre3))).toContain("second");
+    expect(tableNames(openDb(pre3))).not.toContain("third");
+    expect(dump(openDb(join(dir, "backups", kept[0])))).toEqual(dump(db));
+  });
+
   it("gives concurrent backups of one database distinct names and never fails", async () => {
     const file = legacyFile();
     const go = new Int32Array(new SharedArrayBuffer(4));

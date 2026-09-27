@@ -26,10 +26,16 @@ export function preloadPoseAssets() {
   }
 }
 
-const emptyFrame = (t: number): Frame => ({
+const emptyFrame = (t: number, aspect?: number): Frame => ({
   t,
   lm: Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 })),
+  aspect,
 });
+
+/** videoWidth ÷ videoHeight of the live video, or undefined while the size is unknown (D-003). */
+export function videoAspect(v: Pick<HTMLVideoElement, "videoWidth" | "videoHeight">): number | undefined {
+  return v.videoWidth > 0 && v.videoHeight > 0 ? v.videoWidth / v.videoHeight : undefined;
+}
 
 export class CameraPoseSource implements PoseSource {
   kind = "camera" as const;
@@ -94,6 +100,8 @@ export class CameraPoseSource implements PoseSource {
       if (v.currentTime !== lastVideoTime && v.videoWidth > 0) {
         lastVideoTime = v.currentTime;
         const t = performance.now();
+        // Read on every frame: the size changes when a phone rotates.
+        const aspect = videoAspect(v);
         try {
           const res = this.landmarker!.detectForVideo(v, t);
           if (res.landmarks?.[0]) {
@@ -106,12 +114,13 @@ export class CameraPoseSource implements PoseSource {
                 z: p.z,
                 visibility: p.visibility ?? 1,
               })),
+              aspect,
             });
           } else {
-            onFrame(emptyFrame(t));
+            onFrame(emptyFrame(t, aspect));
           }
         } catch {
-          onFrame(emptyFrame(t));
+          onFrame(emptyFrame(t, aspect));
         }
       }
       this.raf = requestAnimationFrame(loop);

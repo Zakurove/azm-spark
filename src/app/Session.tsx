@@ -155,7 +155,9 @@ export default function SessionScreen(props: {
   const onFrame = useCallback(
     (raw: Frame) => {
       const P = pipe.current;
-      const sm = { ...raw, lm: P.smoother.smooth(raw.lm, raw.t) };
+      // smoothFrame keeps raw.aspect, so computeMetrics measures in pixel space (D-003);
+      // the overlay below keeps drawing the normalized landmarks.
+      const sm = P.smoother.smoothFrame(raw);
       const mf = computeMetrics(sm, def.metrics, variant.requiredLandmarks);
       setTracking(mf.framingOk);
       const shouldersSeen = raw.lm[LM.l_shoulder].visibility > 0.5 && raw.lm[LM.r_shoulder].visibility > 0.5;

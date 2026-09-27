@@ -12,6 +12,13 @@ export interface Frame {
   t: number;
   lm: Landmark[]; // image-space (normalized)
   world?: Landmark[]; // metric world landmarks when available
+  /**
+   * Source image aspect ratio, videoWidth ÷ videoHeight. Normalized landmarks
+   * divide x by the width and y by the height, so angles and lengths are only
+   * true after x is scaled by this value (see `toPixelSpace` in geometry.ts).
+   * Undefined means 1 (square): synthetic traces and fixtures.
+   */
+  aspect?: number;
 }
 
 // MediaPipe BlazePose landmark indices

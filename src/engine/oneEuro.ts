@@ -1,5 +1,7 @@
 /** One-Euro filter (Casiez et al., CHI 2012) — low-latency jitter smoothing. */
 
+import { Frame } from "./types";
+
 class LowPass {
   private y: number | null = null;
   filter(x: number, alpha: number): number {
@@ -60,5 +62,13 @@ export class PoseSmoother {
       z: p.z,
       visibility: p.visibility,
     }));
+  }
+  /**
+   * Smooths a whole frame. Landmarks stay normalized; every other field,
+   * including `aspect` (D-003), passes through unchanged so geometry can
+   * still convert to pixel space.
+   */
+  smoothFrame(frame: Frame): Frame {
+    return { ...frame, lm: this.smooth(frame.lm, frame.t) };
   }
 }

@@ -397,7 +397,8 @@ describe("referential integrity", () => {
         (D.tests.find((t) => t.id === id) as { variants?: { id: string }[] }).variants?.map((v) => v.id) ??
           [],
       );
-    // SPEC-GAP: variant-modifiers. push_stronger_hand_only (chair stand) and cuff_or_arm_only (arm curl)
+    // SPEC-GAP: variant-modifiers
+    // push_stronger_hand_only (chair stand) and cuff_or_arm_only (arm curl)
     // are set by pre-check actions but are not variant ids of the test; see ActionVariant.
     const modifiers: Record<string, string> = {
       push_stronger_hand_only: "chair_stand_30s",

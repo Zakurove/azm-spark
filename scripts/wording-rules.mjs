@@ -79,6 +79,8 @@ export function dataStrings(value, where = "") {
  * Engineering prose gets the rules that hold for every string anywhere: no dash characters and never
  * the forbidden phrase. A hyphen in prose such as "pre-check" or "ar-SA" is not copy and passes.
  */
+// SPEC-GAP: wording-prose. Kept prose fields hold hyphenated words (pre-check, re-cue, re-check,
+// ar-SA). They are never shown, so only the dash character and phrase rules apply to them.
 export function dataStringProblems({ text, userFacing }) {
   if (userFacing) return isCopyValue(text) || DASH_CHARS.test(text) ? wordingProblems(text) : [];
   return wordingProblems(text).filter((p) => p === DASH_PROBLEM || p === PHRASE_PROBLEM);

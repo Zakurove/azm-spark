@@ -180,6 +180,8 @@ export const POSTPONE_REASON_IDS = [
 export type PostponeReasonId = (typeof POSTPONE_REASON_IDS)[number];
 
 /** Keys of locks.rules: the postpone reasons plus the emergency, AD and stop locks. */
+// SPEC-GAP: stop-symptom-id. The lock for a symptom stop is stop_symptom here, while the reason shown
+// with the stopped test is stopped_symptom (reasons); the two ids are kept apart as in the data.
 export const LOCK_REASON_IDS = [
   "unwell",
   "pain",
@@ -313,6 +315,9 @@ export type StopOptionId = (typeof STOP_OPTION_IDS)[number];
 /** Test variants (tests[].variants[].id). */
 export type ArmCurlVariantId = "held" | "cuff" | "arm_only";
 export type ChairStandVariantId = "standard" | "arms_assisted" | "arms_assisted_steady" | "one_arm_cross";
+// SPEC-GAP: contract-variants. Contract v2 B types ProtocolItem.variant as arm_only, arms_assisted,
+// one_arm_cross, standard or hands_allowed; the data has no hands_allowed (its label for
+// arms_assisted is "Hands allowed") and adds held, cuff and arms_assisted_steady.
 export type VariantId = ArmCurlVariantId | ChairStandVariantId;
 /**
  * Variants set by pre-check actions. Besides test variants these include two modifiers that are not
@@ -320,6 +325,7 @@ export type VariantId = ArmCurlVariantId | ChairStandVariantId;
  * stronger hand, stored as pushHand) and cuff_or_arm_only (the arm curl load is limited to a wrist
  * weight or none).
  */
+// SPEC-GAP: variant-modifiers (push_stronger_hand_only, cuff_or_arm_only are not test variant ids).
 export type ActionVariant = "arm_only" | "arms_assisted" | "push_stronger_hand_only" | "cuff_or_arm_only";
 
 /** Answer values of the pre-check, between tests and after check options. */

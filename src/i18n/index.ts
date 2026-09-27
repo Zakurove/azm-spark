@@ -53,13 +53,10 @@ export type Vars = Record<string, string | number>;
 /* ---------------------------------------------------------------- numbers */
 
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
-/**
- * The emergency (997) and Ministry of Health (937) numbers stay in ASCII digits.
- * SPEC-GAP: digits-tel. The spec (progress.digits) says "tel: links stay 997, 937" while every other
- * ASCII digit in Arabic becomes Arabic Indic. The safest reading keeps these two numbers in ASCII
- * wherever they are shown, so the number on screen always matches the dialled tel: link and the
- * phone keypad.
- */
+// SPEC-GAP: digits-tel. The spec (progress.digits) says "tel: links stay 997, 937" while every other
+// ASCII digit in Arabic becomes Arabic Indic. The safest reading keeps the emergency (997) and
+// Ministry of Health (937) numbers in ASCII wherever they are shown, so the number on screen always
+// matches the dialled tel: link and the phone keypad.
 const ASCII_NUMBERS = new Set(["997", "937"]);
 
 /**
@@ -79,6 +76,8 @@ export function localizeDigits(lang: Lang, text: string): string {
 }
 
 /** A number for copy: fmtNum, never negative (a minus sign is a dash; say the direction in words). */
+// SPEC-GAP: negative-numbers. Copy may not hold a minus sign (rule 4) and the spec does not say how a
+// negative change is written, so a negative number is refused rather than shown with a sign.
 export function formatNumber(lang: Lang, n: number): string {
   if (!Number.isFinite(n)) throw new RangeError(`Cannot show ${n} in copy`);
   if (n < 0) throw new RangeError("Negative numbers cannot be shown in copy: say the direction in words");
@@ -145,6 +144,8 @@ export function interpolate(lang: Lang, template: string, vars: Vars = {}): stri
     const v = vars[name];
     if (v === undefined) return whole;
     if (typeof v === "number") return formatNumber(lang, v);
+    // SPEC-GAP: lone-unit. Every {unit} in the check data follows a number; a {unit} on its own gets
+    // the generic word (Arabic zero form, English other form).
     if (name === "unit" && isUnitFormId(v)) return unitWord(lang, v, 0);
     return v;
   });

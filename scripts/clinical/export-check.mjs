@@ -52,9 +52,14 @@ export const KEEP = [
  * laterBattery and dataMap; note is dropped at every depth. The document date is not in the keep
  * list either (the sign off date lives in signoff.date).
  */
+// SPEC-GAP: export-date. The top level date is in neither list of the contract; it is dropped because
+// only the kept sections are written.
 export const DROP_TOP = ["references", "reviewLog", "laterBattery", "dataMap", "note", "date"];
 
 /** Fields dropped at any depth. */
+// SPEC-GAP: dropped-notes. Some note fields state rules (for example pc_sci_level: warn_sci_t6 before
+// every test; pc_sci_ad_since: yes_cleared stores changeCleared). They are dropped as the contract
+// says; the code that implements them must follow the clinical spec, not this runtime subset.
 export const DROP_ANYWHERE = ["sources", "noiseBandBasis", "note"];
 
 function strip(value) {

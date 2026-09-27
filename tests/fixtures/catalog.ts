@@ -6,8 +6,11 @@
  *
  * Together they cover every profile (chair, wheelchair, standing, weaker left, weaker right), both
  * phone shapes (9:16 and 16:9), a helper beside the person, a helper crossing between the phone and
- * the person, a touch, an occlusion, a moving phone and a fall. Other cases are generated in memory
- * by the tests that need them. Recorded booth fixtures use the same format with source "recorded".
+ * the person, a touch, an occlusion, a moving phone and a fall, plus two whole timed trials: an arm
+ * curl whose ground truth count is its script (truth.reps), and a chair stand in which the hands
+ * start pushing on the thighs. Other cases are generated in memory by the tests that need them
+ * (tests/timed-count.test.ts builds every profile and aspect of both timed tests with ground truth
+ * counts). Recorded booth fixtures use the same format with source "recorded".
  */
 import type { GenSpec } from "./gen";
 
@@ -157,6 +160,63 @@ export const CATALOG: CatalogEntry[] = [
       seed: 110,
       subject: { motions: [{ kind: "fall", at: 1.5 }] },
       notes: "45 degree view from the stronger (left) side. The person slides toward the floor at 1.5 s.",
+    },
+  },
+  {
+    file: "arm_curl_30s/weaker_left/trial-16x9.json",
+    spec: {
+      test: "arm_curl_30s",
+      profile: "weaker_left",
+      aspect: "16:9",
+      fps: 20,
+      durationSec: 45,
+      seed: 111,
+      subject: {
+        motions: [
+          { kind: "curl_rep", side: "left", start: 2, dur: 3 },
+          { kind: "curl_rep", side: "left", start: 5.5, dur: 3 },
+          ...Array.from({ length: 14 }, (_, i) => ({
+            kind: "curl_rep" as const,
+            side: "left" as const,
+            start: 14.4 + 2 * i,
+            dur: 1.6 + 0.1 * (i % 3),
+          })),
+          { kind: "curl_rep", side: "left", start: 42.85, dur: 1.8 },
+        ],
+      },
+      notes:
+        "Weaker left arm, side view, no weight: two slow practice bends, then bends through the whole 30 s trial (runner options: practice rest 2 s, go at about 13.15 s). Ground truth: every bend whose 80 percent point comes before go + 30 s counts; the last one comes about 0.3 s after and does not.",
+    },
+  },
+  {
+    file: "chair_stand_30s/standing/hands-9x16.json",
+    spec: {
+      test: "chair_stand_30s",
+      profile: "standing",
+      aspect: "9:16",
+      fps: 20,
+      durationSec: 30,
+      seed: 112,
+      subject: {
+        arms: {
+          left: { elev: 25, plane: 70, elbow: 115, across: 1 },
+          right: { elev: 25, plane: 70, elbow: 115, across: 1 },
+        },
+        motions: [
+          { kind: "stand_rep", start: 2, rise: 1.5, hold: 1.2, sit: 1.5 },
+          { kind: "stand_rep", start: 7, rise: 1.5, hold: 1.2, sit: 1.5 },
+          ...Array.from({ length: 5 }, (_, i) => ({
+            kind: "stand_rep" as const,
+            start: 17 + 2.6 * i,
+            rise: 0.9,
+            hold: 0.2,
+            sit: 0.9,
+            ...(i >= 3 ? { push: ["left" as const, "right" as const] } : {}),
+          })),
+        ],
+      },
+      notes:
+        "Standard chair stand, arms crossed, 45 degree view: two practice stands, then three trial stands with the arms crossed and two pushing on the thighs with both hands (runner options: practice rest 2 s). Hand use must stop the test at the fourth trial stand.",
     },
   },
 ];

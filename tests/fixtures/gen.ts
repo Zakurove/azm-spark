@@ -22,6 +22,10 @@
  *
  * The subject can also rest the arms in a given pose (hands on the thighs), hold the other arm
  * (an assisted lift), turn, bend forward or slide the pelvis sideways, for the engine mode tests.
+ * For the timed counts, single curl and stand reps (`curl_rep`, `stand_rep`) each have their own
+ * timing and depth, a stand can end bent forward or push on the thighs with the hands, and
+ * `truth.reps` lists them; `curlRepTime` and `standRepTime` give when a rep reaches a share of its
+ * movement, for ground truth counts.
  *
  * Profiles: chair (steady chair), wheelchair (higher seat, footplates, hips mostly hidden unless a
  * front view shows them, wheelchairHips),
@@ -149,6 +153,8 @@ export interface PoseState {
   reach?: { hand: Side; target: V };
   /** The subject's own hand holds the other arm at the elbow (an assisted lift). */
   assist?: { hand: Side };
+  /** Hands pushing on the thighs (a chair stand with the hands). */
+  push?: Side[];
 }
 
 interface Setting {
@@ -176,6 +182,28 @@ export type MotionSpec =
       lower?: number;
     }
   | { kind: "curl"; side: Side; reps: number; repSec?: number; start?: number; top?: number }
+  /**
+   * One elbow bend from rest to `top` degrees of bend (default 140) and back, over `dur` seconds
+   * (default 2), with a cosine profile.
+   */
+  | { kind: "curl_rep"; side: Side; start: number; dur?: number; top?: number }
+  /**
+   * One stand from the seat: up to `peak` of a full stand (default 1) over `rise` s (default 1),
+   * held `hold` s (default 0.4), down over `sit` s (default 1). The trunk bends forward `pitch`
+   * degrees mid rise (default 40) and ends `topPitch` degrees forward at the top (default 0). With
+   * `push`, those hands push on the thighs while the person is off the seat.
+   */
+  | {
+      kind: "stand_rep";
+      start: number;
+      rise?: number;
+      hold?: number;
+      sit?: number;
+      peak?: number;
+      pitch?: number;
+      topPitch?: number;
+      push?: Side[];
+    }
   | {
       kind: "side_lean";
       toward: Side;
@@ -224,6 +252,22 @@ function applyMotion(m: MotionSpec, t: number, s: PoseState): void {
         const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * (t - start)) / rep);
         a.elbow += ((m.top ?? 140) - a.elbow) * k;
       }
+      return;
+    }
+    case "curl_rep": {
+      const k = curlRepShare(m, t);
+      if (k > 0) {
+        const a = s.arms[m.side];
+        a.elbow += ((m.top ?? 140) - a.elbow) * k;
+      }
+      return;
+    }
+    case "stand_rep": {
+      const st = standRepLevel(m, t);
+      if (st <= 0) return;
+      s.stand = Math.max(s.stand, st);
+      s.pitch += (m.pitch ?? 40) * Math.sin(Math.PI * st) + (m.topPitch ?? 0) * st;
+      if (m.push?.length) s.push = [...m.push];
       return;
     }
     case "side_lean": {
@@ -283,6 +327,45 @@ function applyMotion(m: MotionSpec, t: number, s: PoseState): void {
       s.x += m.dx * envelope(t, m.start ?? 0.5, m.rise ?? 1, m.hold ?? 1, m.back ?? 1);
       return;
   }
+}
+
+/** Share of a curl rep's bend at time t (0 at rest, 1 at its top). */
+export function curlRepShare(m: Extract<MotionSpec, { kind: "curl_rep" }>, t: number): number {
+  const dur = m.dur ?? 2;
+  if (t < m.start || t > m.start + dur) return 0;
+  return 0.5 - 0.5 * Math.cos((2 * Math.PI * (t - m.start)) / dur);
+}
+
+/** First time a curl rep reaches `share` of its bend (seconds), null when it never does. */
+export function curlRepTime(m: Extract<MotionSpec, { kind: "curl_rep" }>, share: number): number | null {
+  if (share < 0 || share > 1) return null;
+  return m.start + ((m.dur ?? 2) * Math.acos(1 - 2 * share)) / (2 * Math.PI);
+}
+
+/** Stand level of a stand rep at time t (0 seated, 1 standing fully). */
+export function standRepLevel(m: Extract<MotionSpec, { kind: "stand_rep" }>, t: number): number {
+  const rise = m.rise ?? 1;
+  const hold = m.hold ?? 0.4;
+  const sit = m.sit ?? 1;
+  const peak = m.peak ?? 1;
+  if (t < m.start) return 0;
+  if (t < m.start + rise) return peak * smooth((t - m.start) / rise);
+  if (t < m.start + rise + hold) return peak;
+  return peak * (1 - smooth((t - m.start - rise - hold) / sit));
+}
+
+/** First time a stand rep reaches `level` of a full stand on the way up (seconds), null when it never does. */
+export function standRepTime(m: Extract<MotionSpec, { kind: "stand_rep" }>, level: number): number | null {
+  const peak = m.peak ?? 1;
+  if (level > peak) return null;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    if (peak * smooth(mid) < level) lo = mid;
+    else hi = mid;
+  }
+  return m.start + hi * (m.rise ?? 1);
 }
 
 /* ------------------------------------------------------------------ skeleton */
@@ -353,6 +436,20 @@ function skeleton(s: PoseState, dims: BodyDims, setting: Setting): V[] {
   out[LM.l_hip] = add(pelvis, mul(Lw, dims.hipHalf));
   out[LM.r_hip] = add(pelvis, mul(Lw, -dims.hipHalf));
 
+  // Legs (before the arms, so a pushing hand can reach the thigh): ankles stay on the floor (or
+  // footplates), knees bend forward.
+  for (const side of ["left", "right"] as const) {
+    const sg = side === "left" ? 1 : -1;
+    const H = out[side === "left" ? LM.l_hip : LM.r_hip];
+    const A = W(sg * dims.hipHalf, setting.ankleHeight, setting.footForward);
+    const k = twoBone(H, A, dims.thigh, dims.shank, Fw);
+    const I = side === "left" ? { k: 25, a: 27, h: 29, f: 31 } : { k: 26, a: 28, h: 30, f: 32 };
+    out[I.k] = k.mid;
+    out[I.a] = k.end;
+    out[I.h] = add(k.end, add(mul(Fw, -0.05), [0, -0.05, 0]));
+    out[I.f] = add(k.end, add(mul(Fw, 0.17), [0, -0.06, 0]));
+  }
+
   // Arms. An assisting hand is placed after the arm it holds.
   const armOrder: Side[] = s.assist?.hand === "left" ? ["right", "left"] : ["left", "right"];
   for (const side of armOrder) {
@@ -361,14 +458,21 @@ function skeleton(s: PoseState, dims: BodyDims, setting: Setting): V[] {
     let E: V;
     let Wr: V;
     let fd: V;
+    const knee = out[side === "left" ? LM.l_knee : LM.r_knee];
+    const hipJ = out[side === "left" ? LM.l_hip : LM.r_hip];
+    // A pushing hand rests on top of its own thigh, 40 percent of the way from the knee to the hip.
+    const pushing = !!s.push?.includes(side);
     const target: V | null =
       s.reach && s.reach.hand === side
         ? s.reach.target
         : s.assist && s.assist.hand === side
           ? out[side === "left" ? LM.r_elbow : LM.l_elbow]
-          : null;
+          : pushing
+            ? add(add(knee, mul(sub(hipJ, knee), 0.4)), [0, 0.06, 0])
+            : null;
     if (target) {
-      const k = twoBone(S, target, dims.upperArm, dims.forearm, [0, -1, 0]);
+      const pole: V = pushing ? add(mul(lt, sg), mul(ft, -1)) : [0, -1, 0];
+      const k = twoBone(S, target, dims.upperArm, dims.forearm, pole);
       E = k.mid;
       Wr = k.end;
       fd = unit(sub(Wr, E));
@@ -396,18 +500,6 @@ function skeleton(s: PoseState, dims: BodyDims, setting: Setting): V[] {
     out[I.t] = add(Wr, add(mul(fd, dims.hand * 0.5), mul(n, 0.035 * sg)));
   }
 
-  // Legs: ankles stay on the floor (or footplates), knees bend forward.
-  for (const side of ["left", "right"] as const) {
-    const sg = side === "left" ? 1 : -1;
-    const H = out[side === "left" ? LM.l_hip : LM.r_hip];
-    const A = W(sg * dims.hipHalf, setting.ankleHeight, setting.footForward);
-    const k = twoBone(H, A, dims.thigh, dims.shank, Fw);
-    const I = side === "left" ? { k: 25, a: 27, h: 29, f: 31 } : { k: 26, a: 28, h: 30, f: 32 };
-    out[I.k] = k.mid;
-    out[I.a] = k.end;
-    out[I.h] = add(k.end, add(mul(Fw, -0.05), [0, -0.05, 0]));
-    out[I.f] = add(k.end, add(mul(Fw, 0.17), [0, -0.06, 0]));
-  }
   return out;
 }
 
@@ -491,6 +583,12 @@ export interface GenTruth {
   events: { kind: string; from: number; to: number }[];
   /** Highest arm elevation reached per side, degrees. */
   armPeakDeg: Record<Side, number>;
+  /**
+   * The single curl and stand reps of the script (curl_rep, stand_rep), in time order: `top` is
+   * the curl's bend in degrees or the stand's share of a full stand; `push` when hands pushed.
+   * Only present when the script has such reps.
+   */
+  reps?: { kind: "curl" | "stand"; start: number; end: number; top: number; push?: boolean }[];
 }
 
 /** Test specific camera placement from the spec setups (distance, lens height, turn of the person). */
@@ -498,7 +596,8 @@ function cameraDefaults(spec: GenSpec): { distance: number; height: number; yaw:
   const stronger: Side = spec.profile === "weaker_right" ? "left" : "right";
   switch (spec.test) {
     case "arm_curl_30s": {
-      const curl = spec.subject?.motions?.find((m) => m.kind === "curl") as { side: Side } | undefined;
+      const curl = spec.subject?.motions?.find((m) => m.kind === "curl" || m.kind === "curl_rep") as
+        { side: Side } | undefined;
       const side = curl?.side ?? "right";
       return { distance: 1.75, height: 0.9, yaw: side === "left" ? 90 : -90 };
     }
@@ -600,6 +699,20 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
     events: [],
     armPeakDeg: { left: 0, right: 0 },
   };
+  const reps: NonNullable<GenTruth["reps"]> = [];
+  for (const m of spec.subject?.motions ?? []) {
+    if (m.kind === "curl_rep")
+      reps.push({ kind: "curl", start: m.start, end: m.start + (m.dur ?? 2), top: m.top ?? 140 });
+    if (m.kind === "stand_rep")
+      reps.push({
+        kind: "stand",
+        start: m.start,
+        end: m.start + (m.rise ?? 1) + (m.hold ?? 0.4) + (m.sit ?? 1),
+        top: m.peak ?? 1,
+        ...(m.push?.length ? { push: true } : {}),
+      });
+  }
+  if (reps.length) truth.reps = reps.sort((a, b) => a.start - b.start);
   for (const m of spec.subject?.motions ?? []) {
     if (m.kind === "fall") truth.events.push({ kind: "fall", from: m.at, to: m.at + (m.dur ?? 0.6) });
     if (m.kind === "sway") truth.events.push({ kind: "sway", from: m.at, to: m.at + (m.dur ?? 1) });

@@ -18,7 +18,8 @@ export interface RouteContext {
   body: any;
   params: Record<string, string>;
   json(status: number, v: unknown): void;
-  limited(key: string, max?: number): boolean;
+  /** Counts one call under `key`; true once more than `max` calls fall in the window (default 15 minutes). */
+  limited(key: string, max?: number, windowMs?: number): boolean;
 }
 
 /**

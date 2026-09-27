@@ -1,0 +1,4756 @@
+{
+  "id": "movement_check",
+  "version": 1,
+  "status": "draft",
+  "signoff": {
+    "status": "draft",
+    "medical": null,
+    "fitness": null,
+    "date": null,
+    "reviewers": [
+      "Dr. Nasser Alharbi (PM&R)",
+      "Chaker Belhaj (fitness)"
+    ]
+  },
+  "boundary": {
+    "line": {
+      "ar": "يقيس هذا الفحص حركتك لتتابعها بنفسك. لا يشخص أي حالة، ولا يقيس قوة العضلات أو تيبّسها. تقارن نتائجك بنتائجك السابقة فقط.",
+      "en": "This check measures your movement for your own tracking. It does not diagnose, and it does not measure muscle strength or muscle tightness. Your results are compared only with your own earlier results."
+    },
+    "notMedical": {
+      "ar": "غير مخصص للأغراض الطبية.",
+      "en": "Not intended for medical purposes."
+    },
+    "intro": {
+      "ar": "يستغرق نحو 8 إلى 10 دقائق. ستحتاج إلى كرسي ثابت أو كرسيك المتحرك، ومكان تضع فيه هاتفك واقفًا، وبعض المساحة. يمكنك تخطي أي اختبار.",
+      "en": "It takes about 8 to 10 minutes. You will need a steady chair or your wheelchair, a place to stand your phone, and some space. You can skip any test."
+    },
+    "firstResult": {
+      "ar": "هذه نقطة بدايتك، وسنقارن بها فحوصك القادمة.",
+      "en": "This is your starting point. We will compare your next checks with it."
+    },
+    "consent": {
+      "ar": "أوافق على أن يحتفظ عزم بنتائج فحص الحركة والإجابات اللازمة لمقارنتها، لأرى تغيري بنفسي عبر الوقت.",
+      "en": "I agree that Azm keeps my movement check results, and the answers needed to compare them, so I can see my own change over time."
+    },
+    "precheckNotice": {
+      "ar": "تساعد هذه الأسئلة على أن يكون فحص اليوم آمنًا لك. نحتفظ فقط بما يلزم للمقارنة بين فحوصك، مثل جهتك الأضعف أو الوزن الذي تستخدمه. أما بقية إجاباتك فنستخدمها اليوم فقط.",
+      "en": "These questions help keep today’s check safe. We keep only what is needed to compare your checks, such as your weaker side or the weight you use. Your other answers are used today only."
+    },
+    "resultsFooter": {
+      "ar": "إذا لاحظت أعراضًا جديدة أو تغيرًا في حالتك الطبية، فراجع طبيبك أو فريق رعايتك.",
+      "en": "If you notice new symptoms or a change in your medical condition, check with your doctor or care team."
+    }
+  },
+  "areas": [
+    {
+      "id": "shoulder_right",
+      "label": {
+        "ar": "الكتف الأيمن",
+        "en": "Right shoulder"
+      },
+      "loads": [
+        {
+          "test": "shoulder_abduction",
+          "side": "right"
+        },
+        {
+          "test": "arm_curl_30s",
+          "side": "right"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "variant": "arms_assisted",
+          "action": "push with the left hand only; both sides affected: skip"
+        }
+      ]
+    },
+    {
+      "id": "shoulder_left",
+      "label": {
+        "ar": "الكتف الأيسر",
+        "en": "Left shoulder"
+      },
+      "loads": [
+        {
+          "test": "shoulder_abduction",
+          "side": "left"
+        },
+        {
+          "test": "arm_curl_30s",
+          "side": "left"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "variant": "arms_assisted",
+          "action": "push with the right hand only; both sides affected: skip"
+        }
+      ]
+    },
+    {
+      "id": "elbow_right",
+      "label": {
+        "ar": "المرفق الأيمن",
+        "en": "Right elbow"
+      },
+      "loads": [
+        {
+          "test": "arm_curl_30s",
+          "side": "right"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "variant": "arms_assisted",
+          "action": "push with the left hand only; both sides affected: skip"
+        }
+      ]
+    },
+    {
+      "id": "elbow_left",
+      "label": {
+        "ar": "المرفق الأيسر",
+        "en": "Left elbow"
+      },
+      "loads": [
+        {
+          "test": "arm_curl_30s",
+          "side": "left"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "variant": "arms_assisted",
+          "action": "push with the right hand only; both sides affected: skip"
+        }
+      ]
+    },
+    {
+      "id": "wrist_right",
+      "label": {
+        "ar": "الرسغ أو اليد اليمنى",
+        "en": "Right wrist or hand"
+      },
+      "loads": [
+        {
+          "test": "arm_curl_30s",
+          "side": "right"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "variant": "arms_assisted",
+          "action": "push with the left hand only; both sides affected: skip"
+        }
+      ]
+    },
+    {
+      "id": "wrist_left",
+      "label": {
+        "ar": "الرسغ أو اليد اليسرى",
+        "en": "Left wrist or hand"
+      },
+      "loads": [
+        {
+          "test": "arm_curl_30s",
+          "side": "left"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "variant": "arms_assisted",
+          "action": "push with the right hand only; both sides affected: skip"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": {
+        "ar": "الظهر",
+        "en": "Back"
+      },
+      "loads": [
+        {
+          "test": "trunk_control_seated",
+          "side": "each"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none"
+        }
+      ]
+    },
+    {
+      "id": "hip",
+      "label": {
+        "ar": "الورك",
+        "en": "Hip"
+      },
+      "loads": [
+        {
+          "test": "trunk_control_seated",
+          "side": "each"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none"
+        }
+      ]
+    },
+    {
+      "id": "knee",
+      "label": {
+        "ar": "الركبة",
+        "en": "Knee"
+      },
+      "loads": [
+        {
+          "test": "chair_stand_30s",
+          "side": "none"
+        }
+      ]
+    }
+  ],
+  "surgeryAreas": [
+    {
+      "id": "shoulder_right",
+      "usesArea": "shoulder_right"
+    },
+    {
+      "id": "shoulder_left",
+      "usesArea": "shoulder_left"
+    },
+    {
+      "id": "elbow_right",
+      "usesArea": "elbow_right"
+    },
+    {
+      "id": "elbow_left",
+      "usesArea": "elbow_left"
+    },
+    {
+      "id": "wrist_right",
+      "usesArea": "wrist_right"
+    },
+    {
+      "id": "wrist_left",
+      "usesArea": "wrist_left"
+    },
+    {
+      "id": "spine",
+      "label": {
+        "ar": "العمود الفقري",
+        "en": "Spine"
+      },
+      "usesArea": "back"
+    },
+    {
+      "id": "hip",
+      "usesArea": "hip"
+    },
+    {
+      "id": "knee",
+      "usesArea": "knee"
+    },
+    {
+      "id": "chest_belly",
+      "label": {
+        "ar": "الصدر أو البطن",
+        "en": "Chest or belly"
+      },
+      "loads": [
+        {
+          "test": "arm_curl_30s",
+          "side": "each",
+          "variant": "arm_only"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "action": "skip"
+        },
+        {
+          "test": "trunk_control_seated",
+          "side": "each",
+          "action": "skip"
+        }
+      ]
+    }
+  ],
+  "engine": {
+    "pose": {
+      "numPoses": 2,
+      "subjectLock": "At calibration the subject is the seated (or, for the chair stand, the calibrating) person nearest the frame centre. Each frame, the subject is the pose whose mid hip is nearest the subject’s calibration mid hip, tracked frame to frame. A second pose that stays at the frame edge is ignored.",
+      "pauseWhen": [
+        "a second pose’s bounding box overlaps the subject’s by more than 20 percent",
+        "the subject’s mid hip jumps by more than 0.5 shoulder widths in one frame"
+      ],
+      "onPause": "Pause scoring and cue check_one_person. An attempt with more than 10 percent paused frames fails the quality gate. An attempt in which the second person touches the subject is invalid.",
+      "setupGate": "one person in the chair; a helper may stand at the side (replaces the old one person gate)",
+      "tune_at_booth": true
+    },
+    "model": {
+      "choice": "At the baseline of a series, use Full on a device that sustains 20 fps or more during the setup check, and Lite otherwise. The model is then kept for the series; if a later device cannot sustain the floor with that model, the series changes (range tests: not comparable; timed counts: wide band).",
+      "recorded": [
+        "poseModel (lite, full or heavy)",
+        "median fps",
+        "engineVersion"
+      ],
+      "minFps": {
+        "range_test": 12,
+        "trunk_control": 12,
+        "timed_count": 20
+      },
+      "basis": "The BlazePose GHUM 3D model card reports average PDJ (PCK at 0.2) of 87.0 for Lite, 91.8 for Full and 94.2 for Heavy, and a worst skin tone group of 80.5 for Lite against 85.9 for Full."
+    },
+    "landmarks": "Each test lists gate landmarks and optional landmarks. Only gate landmarks can fail an attempt (visibility at least the test minimum in at least 90 percent of frames, architecture section 5). Optional landmarks feed flags and compensation checks; when not visible the flag is stored as unknown."
+  },
+  "precheck": [
+    {
+      "id": "pc_setting",
+      "group": "system",
+      "type": "system",
+      "showIf": null,
+      "values": [
+        "booth",
+        "home"
+      ],
+      "rule": "Set by the route or by staff, never asked. The guest route (/?check=1) is booth. Signed in is home unless staff switch booth mode on.",
+      "actions": [
+        {
+          "if": {
+            "equals": "booth"
+          },
+          "do": "record"
+        }
+      ]
+    },
+    {
+      "id": "pc_urgent",
+      "group": "every_check",
+      "type": "yes_no",
+      "showIf": null,
+      "ask": {
+        "ar": "هل لديك الآن أي مما يلي؟",
+        "en": "Right now, do you have any of these?"
+      },
+      "list": {
+        "ar": [
+          "ألم أو ضغط أو ضيق في الصدر",
+          "ألم يمتد إلى الذراع أو الفك أو الرقبة أو الظهر",
+          "ضيق تنفس غير معتاد وأنت في راحة",
+          "شعور بأنك قد يغمى عليك",
+          "ضعف أو خدر مفاجئ في الوجه أو الذراع أو الساق",
+          "ارتباك مفاجئ، أو صعوبة مفاجئة في الكلام أو فهم الكلام أو الرؤية أو حفظ التوازن",
+          "صداع شديد مفاجئ"
+        ],
+        "en": [
+          "Chest pain, pressure or tightness",
+          "Pain that spreads to your arm, jaw, neck or back",
+          "Unusual shortness of breath while resting",
+          "Feeling that you might faint",
+          "Sudden weakness or numbness in your face, arm or leg",
+          "Sudden confusion, or sudden trouble speaking, understanding speech, seeing or keeping your balance",
+          "A sudden, severe headache"
+        ]
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم، لدي أحدها الآن",
+            "en": "Yes, I have one of these now"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "emergency",
+          "screen": "scr_emergency",
+          "lock": "next_day",
+          "alsoShowIf": {
+            "anyOf": [
+              {
+                "flag": "sci_t6"
+              },
+              {
+                "conditionsAny": [
+                  "sci_complete",
+                  "sci_incomplete"
+                ]
+              }
+            ],
+            "screen": "scr_ad"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pc_unwell",
+      "group": "every_check",
+      "type": "yes_no",
+      "showIf": null,
+      "contractKey": "unwell",
+      "ask": {
+        "ar": "هل تشعر بتوعك اليوم؟ مثل الحمى، أو الزكام أو الإنفلونزا، أو عدوى، أو قيء، أو دوخة أو خفة في الرأس.",
+        "en": "Do you feel unwell today? For example a fever, a cold or flu, an infection, vomiting, or feeling dizzy or light headed."
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "postpone",
+          "reason": "unwell",
+          "screen": "scr_postpone_unwell",
+          "lock": "next_day"
+        }
+      ]
+    },
+    {
+      "id": "pc_change",
+      "group": "every_check",
+      "type": "yes_no",
+      "showIf": {
+        "noUnresolvedChangeReported": true
+      },
+      "ask": {
+        "ar": "منذ آخر فحص أكملته، أو منذ آخر مرة أخبرتنا فيها بتغير، هل تغير شيء في حالتك الطبية؟ مثل أعراض جديدة أو أسوأ، أو زيارة للمستشفى، أو تشخيص جديد، أو سقوط نتجت عنه إصابة، أو دواء جديد يسبب لك دوخة أو نعاسًا أو عدم ثبات، أو تغيير في أدوية القلب أو ضغط الدم.",
+        "en": "Since your last completed check, or since you last told us about a change, has anything changed in your medical condition? For example new or worse symptoms, a hospital visit, a new diagnosis, a fall with an injury, a new medicine that makes you dizzy, drowsy or unsteady, or a change in heart or blood pressure medicine."
+      },
+      "askFirstCheck": {
+        "ar": "خلال الأشهر الثلاثة الأخيرة، هل تغير شيء في حالتك الطبية؟ مثل أعراض جديدة أو أسوأ، أو زيارة للمستشفى، أو تشخيص جديد، أو سقوط نتجت عنه إصابة، أو دواء جديد يسبب لك دوخة أو نعاسًا أو عدم ثبات، أو تغيير في أدوية القلب أو ضغط الدم.",
+        "en": "In the last 3 months, has anything changed in your medical condition? For example new or worse symptoms, a hospital visit, a new diagnosis, a fall with an injury, a new medicine that makes you dizzy, drowsy or unsteady, or a change in heart or blood pressure medicine."
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "ask",
+          "next": "pc_change_cleared"
+        }
+      ]
+    },
+    {
+      "id": "pc_change_cleared",
+      "group": "every_check",
+      "type": "yes_no",
+      "showIf": {
+        "anyOf": [
+          {
+            "answer": {
+              "id": "pc_change",
+              "equals": "yes"
+            }
+          },
+          {
+            "unresolvedChangeReported": true
+          }
+        ]
+      },
+      "ask": {
+        "ar": "هل تحدثت مع طبيبك أو فريق رعايتك عن هذا التغير، وأخبروك أن النشاط البدني مناسب لك؟",
+        "en": "Have you talked with your doctor or care team about this change, and did they say physical activity is fine for you?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "record",
+          "stores": "changeCleared"
+        },
+        {
+          "if": {
+            "equals": "no"
+          },
+          "do": "postpone",
+          "reason": "recent_change",
+          "screen": "scr_postpone_care",
+          "lock": "next_day",
+          "stores": "changeReported"
+        }
+      ]
+    },
+    {
+      "id": "pc_surgery_recent",
+      "group": "every_check",
+      "type": "yes_no_then_areas",
+      "showIf": null,
+      "ask": {
+        "ar": "خلال الأشهر الثلاثة الأخيرة، هل أجريت جراحة، أو أصبت بكسر في أحد العظام؟",
+        "en": "In the last 3 months, have you had surgery or a broken bone?"
+      },
+      "followUp": {
+        "ar": "في أي منطقة؟",
+        "en": "Which areas?"
+      },
+      "surgeryAreas": true,
+      "clearAsk": {
+        "ar": "هل أخبرك جراحك أو فريق رعايتك أنك تستطيع ممارسة التمرين كاملًا بهذه المنطقة؟",
+        "en": "Has your surgeon or care team said you can do full exercise with this area?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes",
+            "clearedNot": "yes"
+          },
+          "do": "skip",
+          "tests": "surgeryArea.loads",
+          "reason": "recent_surgery"
+        }
+      ]
+    },
+    {
+      "id": "pc_pain_now",
+      "group": "every_check",
+      "type": "scale_0_10",
+      "showIf": null,
+      "contractKey": "painNow",
+      "ask": {
+        "ar": "ما مقدار الألم الذي تشعر به الآن؟ صفر يعني لا ألم، و10 يعني أشد ألم يمكنك تخيله.",
+        "en": "How much pain do you feel right now? 0 means no pain and 10 means the worst pain you can imagine."
+      },
+      "actions": [
+        {
+          "if": {
+            "gte": 9
+          },
+          "do": "postpone",
+          "reason": "pain",
+          "screen": "scr_postpone_pain",
+          "lock": "next_day"
+        },
+        {
+          "if": {
+            "gte": 7
+          },
+          "do": "warn",
+          "screen": "warn_pain_high"
+        }
+      ]
+    },
+    {
+      "id": "pc_pain_worse",
+      "group": "every_check",
+      "type": "yes_no",
+      "showIf": {
+        "answer": {
+          "id": "pc_pain_now",
+          "gte": 1
+        }
+      },
+      "ask": {
+        "ar": "هل أي من هذا الألم جديد عليك، أو أسوأ بوضوح من ألمك المعتاد؟",
+        "en": "Is any of this pain new for you, or clearly worse than your usual pain?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "postpone",
+          "reason": "pain_worse",
+          "screen": "scr_postpone_care",
+          "lock": "next_day"
+        }
+      ]
+    },
+    {
+      "id": "pc_pain_areas",
+      "group": "every_check",
+      "type": "area_scale_0_10",
+      "showIf": {
+        "answer": {
+          "id": "pc_pain_now",
+          "gte": 1
+        }
+      },
+      "ask": {
+        "ar": "أين تشعر بالألم الآن؟ اختر كل منطقة وقيم ألمها من صفر إلى 10.",
+        "en": "Where do you feel pain right now? Choose each area and rate it from 0 to 10."
+      },
+      "areas": "see areas",
+      "actions": [
+        {
+          "if": {
+            "areaScoreGte": 7,
+            "areaLoadsSelectedTest": true
+          },
+          "do": "postpone",
+          "reason": "pain",
+          "screen": "scr_postpone_pain",
+          "lock": "next_day"
+        },
+        {
+          "if": {
+            "areaScoreGte": 6
+          },
+          "do": "skip",
+          "tests": "area.loads",
+          "reason": "pain_today"
+        }
+      ]
+    },
+    {
+      "id": "pc_arm_pain_side",
+      "group": "baseline_setup",
+      "type": "single",
+      "showIf": {
+        "painAny": [
+          "shoulder",
+          "elbow",
+          "wrist"
+        ]
+      },
+      "perArea": [
+        "shoulder",
+        "elbow",
+        "wrist"
+      ],
+      "ask": {
+        "ar": "في أي جهة يكون ألم {area} عادة؟",
+        "en": "Which side is your {area} pain usually on?"
+      },
+      "areaTokens": {
+        "shoulder": {
+          "ar": "الكتف",
+          "en": "shoulder"
+        },
+        "elbow": {
+          "ar": "المرفق",
+          "en": "elbow"
+        },
+        "wrist": {
+          "ar": "الرسغ أو اليد",
+          "en": "wrist or hand"
+        }
+      },
+      "options": [
+        {
+          "value": "right",
+          "label": {
+            "ar": "اليمين",
+            "en": "Right"
+          }
+        },
+        {
+          "value": "left",
+          "label": {
+            "ar": "اليسار",
+            "en": "Left"
+          }
+        },
+        {
+          "value": "both",
+          "label": {
+            "ar": "كلتا الجهتين",
+            "en": "Both"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "any": true
+          },
+          "do": "record",
+          "stores": "setup.painSides"
+        }
+      ]
+    },
+    {
+      "id": "pc_weak_lift",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "supportNot": "none"
+      },
+      "ask": {
+        "ar": "هل تستطيع رفع يدك الأضعف عن حجرك بنفسك؟",
+        "en": "Can you lift your weaker hand off your lap on your own?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "no"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "shoulder_abduction",
+              "side": "weaker"
+            },
+            {
+              "test": "arm_curl_30s",
+              "side": "weaker"
+            }
+          ],
+          "reason": "arm_not_able"
+        }
+      ]
+    },
+    {
+      "id": "pc_weak_shoulder",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "supportNot": "none"
+      },
+      "ask": {
+        "ar": "هل كتفك الأضعف مؤلم، أو تشعر بأن مفصله رخو أو ينزل عن مكانه؟",
+        "en": "Is your weaker shoulder painful, or does the joint feel loose or seem to drop down?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "shoulder_abduction",
+              "side": "weaker"
+            }
+          ],
+          "reason": "weak_shoulder"
+        },
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "variant",
+          "tests": [
+            {
+              "test": "arm_curl_30s",
+              "side": "weaker"
+            }
+          ],
+          "variant": "arm_only"
+        },
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "variant",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ],
+          "variant": "push_stronger_hand_only"
+        }
+      ]
+    },
+    {
+      "id": "pc_limb_arm_side",
+      "group": "baseline_setup",
+      "type": "single",
+      "showIf": {
+        "conditionsAny": [
+          "upper_limb_unilateral"
+        ]
+      },
+      "ask": {
+        "ar": "في أي جهة يوجد فقدان الذراع؟",
+        "en": "Which side is your arm limb loss on?"
+      },
+      "options": [
+        {
+          "value": "right",
+          "label": {
+            "ar": "اليمين",
+            "en": "Right"
+          }
+        },
+        {
+          "value": "left",
+          "label": {
+            "ar": "اليسار",
+            "en": "Left"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "any": true
+          },
+          "do": "record",
+          "stores": "setup.limbLoss.arm"
+        }
+      ]
+    },
+    {
+      "id": "pc_limb_arm_prosthesis",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "conditionsAny": [
+          "upper_limb_unilateral"
+        ]
+      },
+      "ask": {
+        "ar": "هل ترتدي طرفًا صناعيًا للذراع الآن؟",
+        "en": "Are you wearing an arm prosthesis now?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "any": true
+          },
+          "do": "record",
+          "stores": "fingerprint.armProsthesis"
+        }
+      ]
+    },
+    {
+      "id": "pc_limb_leg_side",
+      "group": "baseline_setup",
+      "type": "single",
+      "showIf": {
+        "conditionsAny": [
+          "lower_limb_unilateral"
+        ]
+      },
+      "ask": {
+        "ar": "في أي جهة يوجد فقدان الساق؟",
+        "en": "Which side is your leg limb loss on?"
+      },
+      "options": [
+        {
+          "value": "right",
+          "label": {
+            "ar": "اليمين",
+            "en": "Right"
+          }
+        },
+        {
+          "value": "left",
+          "label": {
+            "ar": "اليسار",
+            "en": "Left"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "any": true
+          },
+          "do": "record",
+          "stores": "setup.limbLoss.leg"
+        }
+      ]
+    },
+    {
+      "id": "pc_limb_leg_prosthesis",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "conditionsAny": [
+          "lower_limb_unilateral"
+        ]
+      },
+      "ask": {
+        "ar": "هل ترتدي طرفك الصناعي المعتاد للساق الآن؟",
+        "en": "Are you wearing your everyday leg prosthesis now?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "any": true
+          },
+          "do": "record",
+          "stores": "fingerprint.legProsthesis"
+        }
+      ]
+    },
+    {
+      "id": "pc_sci_level",
+      "group": "baseline_setup",
+      "type": "yes_no_unsure",
+      "showIf": {
+        "conditionsAny": [
+          "sci_complete",
+          "sci_incomplete"
+        ]
+      },
+      "ask": {
+        "ar": "هل مستوى إصابة الحبل الشوكي لديك T6 أو أعلى، أي عند أسفل عظمة القص أو فوقها؟ اعتمد على مستوى الإصابة الذي أخبرك به فريق رعايتك.",
+        "en": "Is your spinal cord injury level T6 or higher, that is at the bottom of your breastbone or above? Use the injury level your care team gave you."
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "value": "unsure",
+          "label": {
+            "ar": "لست متأكدًا",
+            "en": "Not sure"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "in": [
+              "yes",
+              "unsure"
+            ]
+          },
+          "do": "flag",
+          "flag": "sci_t6"
+        }
+      ]
+    },
+    {
+      "id": "pc_sci_ad_since",
+      "group": "condition",
+      "type": "single",
+      "showIf": {
+        "flag": "sci_t6",
+        "notFirstCheck": true
+      },
+      "ask": {
+        "ar": "منذ فحصك الأخير، هل احتجت إلى رعاية طبية بسبب خلل المنعكسات اللاإرادية؟",
+        "en": "Since your last check, did you need medical care for autonomic dysreflexia?"
+      },
+      "options": [
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "yes_cleared",
+          "label": {
+            "ar": "نعم، وأخبرني فريق رعايتي أنني أستطيع مواصلة التمرين",
+            "en": "Yes, and my care team said I can keep exercising"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "postpone",
+          "reason": "recent_change",
+          "screen": "scr_postpone_care",
+          "lock": "next_day"
+        }
+      ]
+    },
+    {
+      "id": "pc_sci_ad_now",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "flag": "sci_t6"
+      },
+      "ask": {
+        "ar": "هل لديك الآن صداع نابض، أو احمرار أو تعرق فوق مستوى إصابتك، أو قشعريرة في الجلد، أو تشوش في الرؤية، أو انسداد في الأنف؟",
+        "en": "Right now, do you have a pounding headache, flushing or sweating above your injury, goosebumps, blurred vision, or a stuffy nose?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "ad_response",
+          "screen": "scr_ad",
+          "lock": "next_day"
+        }
+      ]
+    },
+    {
+      "id": "pc_sci_ready",
+      "group": "condition",
+      "type": "checklist",
+      "showIf": {
+        "flag": "sci_t6"
+      },
+      "ask": {
+        "ar": "قبل أن تبدأ، يرجى التحقق من هذه الأمور.",
+        "en": "Before you start, please check these."
+      },
+      "list": {
+        "ar": [
+          "مثانتي فارغة، أو القسطرة تصرف البول جيدًا",
+          "روتين الإخراج لدي منتظم كالمعتاد، وأجريته خلال اليوم أو اليومين الأخيرين",
+          "لا شيء ضيق علي، مثل الملابس أو الأحزمة أو كيس الساق",
+          "لا توجد في جلدي مناطق حمراء أو متقرحة جديدة",
+          "الغرفة باردة",
+          "معي ماء بارد أشربه"
+        ],
+        "en": [
+          "My bladder is empty, or my catheter is draining well",
+          "My bowel routine is up to date (done in the last 1 to 2 days, as usual for me)",
+          "Nothing is tight, such as clothes, straps or a leg bag",
+          "My skin has no new red or sore areas",
+          "The room is cool",
+          "I have cool water to drink"
+        ]
+      },
+      "actions": [
+        {
+          "if": {
+            "allChecked": false
+          },
+          "do": "postpone",
+          "reason": "sci_ready",
+          "screen": "scr_postpone_sci",
+          "lock": "none"
+        }
+      ]
+    },
+    {
+      "id": "pc_arm_function",
+      "group": "condition",
+      "type": "single",
+      "showIf": {
+        "conditionsAny": [
+          "sci_complete",
+          "sci_incomplete"
+        ]
+      },
+      "perSide": true,
+      "ask": {
+        "ar": "ماذا تستطيع أن تفعل بذراعك {side}؟",
+        "en": "What can you do with your {side} arm?"
+      },
+      "sideTokens": {
+        "right": {
+          "ar": "اليمنى",
+          "en": "right"
+        },
+        "left": {
+          "ar": "اليسرى",
+          "en": "left"
+        }
+      },
+      "options": [
+        {
+          "value": "bend_hold",
+          "label": {
+            "ar": "أثني مرفقي حتى تصل يدي إلى كتفي، وأمسك شيئًا بيدي",
+            "en": "Bend my elbow to bring my hand to my shoulder, and hold an object"
+          }
+        },
+        {
+          "value": "bend_no_hold",
+          "label": {
+            "ar": "أثني مرفقي هكذا، لكن لا أستطيع الإمساك بشيء",
+            "en": "Bend my elbow that way, but I cannot hold an object"
+          }
+        },
+        {
+          "value": "no_bend",
+          "label": {
+            "ar": "لا أستطيع ثني مرفقي هكذا بنفسي",
+            "en": "I cannot bend my elbow that way on my own"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "bend_no_hold"
+          },
+          "do": "variant",
+          "tests": [
+            {
+              "test": "arm_curl_30s",
+              "side": "same"
+            }
+          ],
+          "variant": "cuff_or_arm_only"
+        },
+        {
+          "if": {
+            "equals": "no_bend"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "arm_curl_30s",
+              "side": "same"
+            }
+          ],
+          "reason": "arm_not_able"
+        }
+      ]
+    },
+    {
+      "id": "pc_pressure_sore",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "testSelected": "trunk_control_seated",
+        "anyOf": [
+          {
+            "positionIn": [
+              "wheelchair"
+            ]
+          },
+          {
+            "conditionsAny": [
+              "sci_complete",
+              "sci_incomplete"
+            ]
+          }
+        ]
+      },
+      "ask": {
+        "ar": "هل لديك الآن قرحة ضغط، أو جرح في الجلد، في منطقة الجلوس أو الوركين أو الظهر؟",
+        "en": "Do you have a pressure sore or broken skin on your bottom, hips or back right now?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "trunk_control_seated",
+              "side": "each"
+            }
+          ],
+          "reason": "pressure_sore",
+          "screen": "scr_note_care"
+        }
+      ]
+    },
+    {
+      "id": "pc_sit_unsupported",
+      "group": "condition",
+      "type": "yes_no_unsure",
+      "showIf": {
+        "testSelected": "trunk_control_seated"
+      },
+      "ask": {
+        "ar": "هل تستطيع الجلوس نحو 30 ثانية دون أن تمسك بشيء، ودون دعامات جانبية أو حزام للصدر؟",
+        "en": "Can you sit for about 30 seconds without holding on, and without side supports or a chest strap?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "value": "unsure",
+          "label": {
+            "ar": "لست متأكدًا",
+            "en": "Not sure"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "in": [
+              "no",
+              "unsure"
+            ]
+          },
+          "do": "booth_only",
+          "tests": [
+            {
+              "test": "trunk_control_seated",
+              "side": "each"
+            }
+          ],
+          "reason": "booth_only_trunk"
+        }
+      ]
+    },
+    {
+      "id": "pc_trunk_armrests",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "testSelected": "trunk_control_seated",
+        "setting": "home"
+      },
+      "ask": {
+        "ar": "هل لكرسيك الآن مسندان للذراعين على الجانبين، أو هل لكرسيك المتحرك واقيان جانبيان أو مسندان للذراعين على الجانبين؟",
+        "en": "Does your chair have armrests on both sides right now, or does your wheelchair have side guards or armrests on both sides in place?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "no"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "trunk_control_seated",
+              "side": "each"
+            }
+          ],
+          "reason": "armrests_needed"
+        }
+      ]
+    },
+    {
+      "id": "pc_fall_sitting",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "testSelected": "trunk_control_seated"
+      },
+      "ask": {
+        "ar": "خلال الأشهر الثلاثة الأخيرة، هل سقطت وأنت جالس، أو من كرسيك أو كرسيك المتحرك؟",
+        "en": "In the last 3 months, have you fallen from sitting, or out of your chair or wheelchair?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "booth_only",
+          "tests": [
+            {
+              "test": "trunk_control_seated",
+              "side": "each"
+            }
+          ],
+          "reason": "booth_only_trunk"
+        }
+      ]
+    },
+    {
+      "id": "pc_stroke_push",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "testSelected": "trunk_control_seated",
+        "conditionsAny": [
+          "stroke"
+        ]
+      },
+      "ask": {
+        "ar": "هل أخبرك أحد المعالجين بأنك تميل أو تدفع جسمك نحو جهة واحدة عند الجلوس؟",
+        "en": "Has a therapist told you that you lean or push to one side when you sit?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "trunk_control_seated",
+              "side": "each"
+            }
+          ],
+          "reason": "pusher"
+        }
+      ]
+    },
+    {
+      "id": "pc_ms_heat",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "conditionsAny": [
+          "ms"
+        ]
+      },
+      "ask": {
+        "ar": "هل تشعر بالحرارة اليوم، أو بتعب أكبر بكثير من المعتاد، أو أن أعراضك أسوأ من المعتاد، مثلًا بعد التعرض للحر أو حمام ساخن أو حمى؟",
+        "en": "Do you feel hot today, much more tired than usual, or are your symptoms worse than usual, for example after heat, a hot shower or a fever?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "postpone",
+          "reason": "ms_heat",
+          "screen": "scr_postpone_cool",
+          "lock": "60_min"
+        }
+      ]
+    },
+    {
+      "id": "pc_ms_one_arm",
+      "group": "condition",
+      "type": "single",
+      "showIf": {
+        "conditionsAny": [
+          "ms"
+        ],
+        "supportNot": "none",
+        "testSelected": "arm_curl_30s"
+      },
+      "ask": {
+        "ar": "في اختبار ثني الذراع، أتريد اختبار الذراعين اليوم، أم ذراعك الأضعف فقط لتوفير طاقتك؟",
+        "en": "For the arm bend test, do you want to test both arms today, or only your weaker arm to save energy?"
+      },
+      "options": [
+        {
+          "value": "both",
+          "label": {
+            "ar": "الذراعين",
+            "en": "Both arms"
+          }
+        },
+        {
+          "value": "weaker",
+          "label": {
+            "ar": "ذراعي الأضعف فقط",
+            "en": "Only my weaker arm"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "weaker"
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "arm_curl_30s",
+              "side": "stronger"
+            }
+          ],
+          "reason": "by_choice"
+        }
+      ]
+    },
+    {
+      "id": "pc_pd_on",
+      "group": "condition",
+      "type": "yes_no_unsure",
+      "showIf": {
+        "conditionsAny": [
+          "parkinsons"
+        ]
+      },
+      "ask": {
+        "ar": "هل يعمل دواء باركنسون بشكل جيد معك الآن؟",
+        "en": "Are your Parkinson’s medicines working well for you right now?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "value": "unsure",
+          "label": {
+            "ar": "لست متأكدًا",
+            "en": "Not sure"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "no"
+          },
+          "do": "postpone",
+          "reason": "pd_off",
+          "screen": "scr_postpone_pd",
+          "lock": "60_min"
+        },
+        {
+          "if": {
+            "equals": "unsure"
+          },
+          "do": "record",
+          "stores": "fingerprint.pdState"
+        }
+      ]
+    },
+    {
+      "id": "pc_pd_dose",
+      "group": "condition",
+      "type": "single",
+      "showIf": {
+        "conditionsAny": [
+          "parkinsons"
+        ]
+      },
+      "ask": {
+        "ar": "منذ متى تقريبًا أخذت آخر جرعة من دواء باركنسون؟",
+        "en": "About how long ago did you take your last dose of Parkinson’s medicine?"
+      },
+      "options": [
+        {
+          "value": "lt1h",
+          "label": {
+            "ar": "أقل من ساعة",
+            "en": "Less than 1 hour"
+          }
+        },
+        {
+          "value": "1to2h",
+          "label": {
+            "ar": "من ساعة إلى ساعتين",
+            "en": "1 to 2 hours"
+          }
+        },
+        {
+          "value": "2to3h",
+          "label": {
+            "ar": "من ساعتين إلى 3 ساعات",
+            "en": "2 to 3 hours"
+          }
+        },
+        {
+          "value": "gt3h",
+          "label": {
+            "ar": "أكثر من 3 ساعات",
+            "en": "More than 3 hours"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "any": true
+          },
+          "do": "record",
+          "stores": "fingerprint.pdDoseBucket"
+        }
+      ],
+      "timingTokens": {
+        "lt1h": {
+          "ar": "بأقل من ساعة",
+          "en": "less than 1 hour"
+        },
+        "1to2h": {
+          "ar": "بساعة إلى ساعتين",
+          "en": "1 to 2 hours"
+        },
+        "2to3h": {
+          "ar": "بساعتين إلى 3 ساعات",
+          "en": "2 to 3 hours"
+        },
+        "gt3h": {
+          "ar": "بأكثر من 3 ساعات",
+          "en": "more than 3 hours"
+        }
+      }
+    },
+    {
+      "id": "pc_arthritis_flare",
+      "group": "condition",
+      "type": "yes_no_then_areas",
+      "showIf": {
+        "conditionsAny": [
+          "arthritis"
+        ]
+      },
+      "ask": {
+        "ar": "هل يوجد اليوم مفصل ساخن، أو متورم، أو في نوبة التهاب؟",
+        "en": "Is any joint hot, swollen, or in a flare today?"
+      },
+      "followUp": {
+        "ar": "أي المناطق؟",
+        "en": "Which areas?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "skip",
+          "tests": "area.loads",
+          "reason": "flare"
+        }
+      ]
+    },
+    {
+      "id": "pc_steadi",
+      "group": "standing",
+      "type": "three_yes_no",
+      "showIf": {
+        "testSelected": "chair_stand_30s"
+      },
+      "items": [
+        {
+          "id": "fell",
+          "ask": {
+            "ar": "هل سقطت منذ فحصك الأخير؟",
+            "en": "Have you fallen since your last check?"
+          },
+          "askFirstCheck": {
+            "ar": "هل سقطت خلال السنة الماضية؟",
+            "en": "Have you fallen in the past year?"
+          }
+        },
+        {
+          "id": "unsteady",
+          "ask": {
+            "ar": "هل تشعر بعدم الثبات عند الوقوف أو المشي؟",
+            "en": "Do you feel unsteady when you stand or walk?"
+          }
+        },
+        {
+          "id": "worry",
+          "ask": {
+            "ar": "هل تقلق من السقوط؟",
+            "en": "Do you worry about falling?"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "anyYes": true
+          },
+          "do": "variant",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ],
+          "variant": "arms_assisted",
+          "alsoDo": "require_helper"
+        }
+      ]
+    },
+    {
+      "id": "pc_walking_aid",
+      "group": "standing",
+      "type": "yes_no",
+      "showIf": {
+        "testSelected": "chair_stand_30s"
+      },
+      "ask": {
+        "ar": "هل تستخدم عادة عصا أو عكازًا أو مشاية؟",
+        "en": "Do you usually use a cane, crutch or walker?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "variant",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ],
+          "variant": "arms_assisted",
+          "alsoDo": "require_helper"
+        }
+      ]
+    },
+    {
+      "id": "pc_stand_no_hands",
+      "group": "standing",
+      "type": "yes_no_unsure",
+      "showIf": {
+        "testSelected": "chair_stand_30s"
+      },
+      "ask": {
+        "ar": "هل تستطيع النهوض من الكرسي دون الاستعانة بيديك، وتشعر بالثبات؟",
+        "en": "Can you stand up from a chair without using your hands, and feel steady?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "value": "unsure",
+          "label": {
+            "ar": "لست متأكدًا",
+            "en": "Not sure"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "in": [
+              "no",
+              "unsure"
+            ]
+          },
+          "do": "variant",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ],
+          "variant": "arms_assisted"
+        }
+      ]
+    },
+    {
+      "id": "pc_pd_dizzy_standing",
+      "group": "standing",
+      "type": "yes_no",
+      "showIf": {
+        "testSelected": "chair_stand_30s",
+        "conditionsAny": [
+          "parkinsons"
+        ]
+      },
+      "ask": {
+        "ar": "هل تشعر غالبًا بدوخة أو خفة في الرأس عندما تقف؟",
+        "en": "Do you often feel dizzy or light headed when you stand up?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "require_helper",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pc_booth_vitals",
+      "group": "system",
+      "type": "system",
+      "showIf": {
+        "setting": "booth",
+        "clearanceIn": [
+          "no",
+          "unsure"
+        ],
+        "testSelected": "chair_stand_30s"
+      },
+      "values": [
+        "restingHeartRate",
+        "systolic",
+        "diastolic"
+      ],
+      "rule": "Staff entered, never asked of the person. Mandatory before a booth chair stand for intake clearance no or unsure, with a validated automated cuff and a trained staff member. Resting heart rate above 120, systolic above 180 or diastolic above 100: no chair stand today. No validated cuff or no trained staff member present: the chair stand is not offered to this group. The values are used today only and never stored.",
+      "actions": [
+        {
+          "if": {
+            "vitalsAbove": {
+              "restingHeartRate": 120,
+              "systolic": 180,
+              "diastolic": 100
+            }
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ],
+          "reason": "booth_vitals"
+        },
+        {
+          "if": {
+            "vitalsUnavailable": true
+          },
+          "do": "skip",
+          "tests": [
+            {
+              "test": "chair_stand_30s",
+              "side": "none"
+            }
+          ],
+          "reason": "clearance"
+        }
+      ]
+    },
+    {
+      "id": "pc_helper",
+      "group": "condition",
+      "type": "yes_no",
+      "showIf": {
+        "flag": "helper_required",
+        "setting": "home"
+      },
+      "perTest": [
+        "chair_stand_30s",
+        "trunk_control_seated"
+      ],
+      "ask": {
+        "ar": "هل يوجد معك الآن شخص بالغ مستعد للبقاء بجانبك أثناء {test}؟",
+        "en": "Is another adult with you now, ready to stay beside you during the {test}?"
+      },
+      "testTokens": {
+        "chair_stand_30s": {
+          "ar": "اختبار الوقوف من الكرسي",
+          "en": "chair stand test"
+        },
+        "trunk_control_seated": {
+          "ar": "اختبار الميل الجانبي",
+          "en": "side lean test"
+        }
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "no"
+          },
+          "do": "skip",
+          "tests": "the test the question was asked for",
+          "reason": "helper_needed"
+        },
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "show",
+          "screenByTest": {
+            "chair_stand_30s": "scr_helper_brief_stand",
+            "trunk_control_seated": "scr_helper_brief_trunk"
+          },
+          "stores": "fingerprint.helperPresent"
+        }
+      ]
+    },
+    {
+      "id": "pc_after_last",
+      "group": "every_check",
+      "type": "yes_no",
+      "showIf": {
+        "previousFollowUp": "lasting_unresolved"
+      },
+      "ask": {
+        "ar": "هل زال الألم أو التعب الإضافي الذي شعرت به بعد فحصك الأخير؟",
+        "en": "Has the extra pain or tiredness from your last check settled?"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "no"
+          },
+          "do": "postpone",
+          "reason": "after_last",
+          "screen": "scr_postpone_care",
+          "lock": "next_day"
+        },
+        {
+          "if": {
+            "equals": "yes"
+          },
+          "do": "record",
+          "stores": "followUpResolved"
+        }
+      ]
+    }
+  ],
+  "betweenTests": [
+    {
+      "id": "bt_pain_after",
+      "type": "single",
+      "when": "after each test, and after each side of a two sided test",
+      "ask": {
+        "ar": "كيف ألمك مقارنة بما قبل هذا الاختبار؟",
+        "en": "How is your pain compared with before this test?"
+      },
+      "options": [
+        {
+          "value": "same",
+          "label": {
+            "ar": "نفسه أو أقل",
+            "en": "Same or less"
+          }
+        },
+        {
+          "value": "more",
+          "label": {
+            "ar": "أكثر قليلًا",
+            "en": "A little more"
+          }
+        },
+        {
+          "value": "much",
+          "label": {
+            "ar": "أكثر بكثير، أو حاد",
+            "en": "Much more, or sharp"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "more"
+          },
+          "do": "skip",
+          "tests": "remaining tests that load the same area",
+          "reason": "pain_today"
+        },
+        {
+          "if": {
+            "equals": "much"
+          },
+          "do": "stop_check",
+          "screen": "scr_stop_pain",
+          "lock": "next_day"
+        }
+      ]
+    }
+  ],
+  "afterCheck": [
+    {
+      "id": "ac_next_day",
+      "type": "single",
+      "when": "first app open at least 12 hours and at most 3 days after a completed check",
+      "ask": {
+        "ar": "كيف شعرت في اليوم التالي لفحص الحركة؟",
+        "en": "How did you feel in the day after your movement check?"
+      },
+      "options": [
+        {
+          "value": "usual",
+          "label": {
+            "ar": "كالمعتاد",
+            "en": "As usual"
+          }
+        },
+        {
+          "value": "settled",
+          "label": {
+            "ar": "ألم أو تعب أكثر زال خلال يوم",
+            "en": "More pain or tiredness that settled within a day"
+          }
+        },
+        {
+          "value": "lasting",
+          "label": {
+            "ar": "ألم أو تعب أكثر استمر أكثر من يوم",
+            "en": "More pain or tiredness that lasted more than a day"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "if": {
+            "equals": "lasting"
+          },
+          "do": "note",
+          "screen": "scr_after_lasting",
+          "stores": "assessment.followUp"
+        }
+      ]
+    }
+  ],
+  "stopRouting": {
+    "ask": {
+      "ar": "ما الذي جعلك تتوقف؟",
+      "en": "What made you stop?"
+    },
+    "options": [
+      {
+        "id": "chest",
+        "label": {
+          "ar": "ألم أو ضغط أو ضيق في الصدر",
+          "en": "Chest pain, pressure or tightness"
+        },
+        "screen": "scr_emergency",
+        "check": "ends",
+        "lock": "next_day"
+      },
+      {
+        "id": "stroke_signs",
+        "label": {
+          "ar": "ضعف أو خدر مفاجئ، أو ارتباك مفاجئ، أو صعوبة مفاجئة في الكلام أو فهمه أو في الرؤية",
+          "en": "Sudden weakness or numbness, sudden confusion, or sudden trouble speaking, understanding or seeing"
+        },
+        "screen": "scr_emergency",
+        "check": "ends",
+        "lock": "next_day"
+      },
+      {
+        "id": "ad_signs",
+        "showIf": {
+          "flag": "sci_t6"
+        },
+        "label": {
+          "ar": "صداع نابض، أو احمرار، أو قشعريرة في الجلد، أو تشوش في الرؤية",
+          "en": "A pounding headache, flushing, goosebumps or blurred vision"
+        },
+        "screen": "scr_ad",
+        "check": "ends",
+        "lock": "next_day"
+      },
+      {
+        "id": "faint",
+        "label": {
+          "ar": "دوخة أو شعور بأنك قد يغمى عليك",
+          "en": "Feeling faint or dizzy"
+        },
+        "screen": "scr_faint",
+        "alsoShowIf": {
+          "flag": "sci_t6",
+          "screen": "scr_faint_sci"
+        },
+        "check": "ends",
+        "lock": "next_day"
+      },
+      {
+        "id": "breath",
+        "label": {
+          "ar": "ضيق تنفس غير معتاد أو تسارع في ضربات القلب",
+          "en": "Unusual shortness of breath or a racing heart"
+        },
+        "screen": "scr_stop_seek_care",
+        "check": "ends",
+        "lock": "next_day"
+      },
+      {
+        "id": "fall",
+        "label": {
+          "ar": "سقطت أو كدت أسقط",
+          "en": "I fell or nearly fell"
+        },
+        "screen": "scr_fall",
+        "screenWhen": {
+          "positionIn": [
+            "chair",
+            "wheelchair"
+          ],
+          "screen": "scr_fall_seated"
+        },
+        "check": "ends",
+        "lock": "next_day"
+      },
+      {
+        "id": "pain",
+        "label": {
+          "ar": "ألم أكثر",
+          "en": "More pain"
+        },
+        "then": "bt_pain_after",
+        "check": "as bt_pain_after"
+      },
+      {
+        "id": "tired",
+        "label": {
+          "ar": "شعرت بالتعب",
+          "en": "I felt tired"
+        },
+        "reason": "stopped_symptom",
+        "check": "may continue with the next test after a rest"
+      },
+      {
+        "id": "choice",
+        "label": {
+          "ar": "أردت التوقف فقط",
+          "en": "I just wanted to stop"
+        },
+        "reason": "by_choice",
+        "check": "may continue with the next test"
+      },
+      {
+        "id": "other",
+        "label": {
+          "ar": "شيء آخر",
+          "en": "Something else"
+        },
+        "reason": "stopped_symptom",
+        "check": "may continue with the next test after a rest"
+      }
+    ],
+    "noAnswerSec": 30,
+    "noAnswer": "No answer to the list within 30 s: run the check in (check_are_you_ok).",
+    "checkIn": {
+      "cue": "check_are_you_ok",
+      "triggers": [
+        "the person leaves the frame",
+        "hips drop toward the floor",
+        "a big sideways sway",
+        "no movement for 10 s during a test",
+        "no answer to the stop list within 30 s"
+      ],
+      "okWhen": [
+        "a wrist held above the same shoulder for 1 s (raised hand)",
+        "a tap anywhere on the screen",
+        "the spoken words أنا بخير or I am OK, only where the browser supports speech recognition"
+      ],
+      "noResponseSec": 15,
+      "noResponse": "A loud repeating tone and the full screen scr_no_response with a 997 tel: link. At the booth, a staff alert as well. Logged.",
+      "tune_at_booth": true
+    },
+    "resultOnStop": "The stopped test stores no score. Results of tests finished earlier in the same check are kept, and a stop that ends the check closes it as ended early, stores nothing more that day and sets the lock shown."
+  },
+  "locks": {
+    "rules": {
+      "unwell": "next_day",
+      "pain": "next_day",
+      "pain_worse": "next_day",
+      "after_last": "next_day",
+      "ad": "next_day",
+      "urgent": "next_day",
+      "stop_symptom": "next_day",
+      "recent_change": "next_day, released at once by a yes to pc_change_cleared (or yes_cleared in pc_sci_ad_since)",
+      "ms_heat": "60_min",
+      "pd_off": "60_min",
+      "sci_ready": "none: allowed as soon as every box is ticked"
+    },
+    "nextDay": "the next calendar day in the person’s time zone",
+    "tune": "The 60 minute locks are starting points (tune in the pilot)",
+    "screen": "scr_paused_today"
+  },
+  "screens": {
+    "scr_emergency": {
+      "ar": "توقف الآن. ما تصفه قد يكون علامة على أنك تحتاج إلى مساعدة طبية عاجلة. اتصل بالرقم 997 لطلب الإسعاف. إذا كان معك أحد فأخبره. وإذا لم تستطع الكلام في الهاتف، فاطلب من أي شخص قريب أن يتصل عنك.",
+      "en": "Stop now. What you describe can be a sign that you need urgent medical help. Call 997 for an ambulance. If someone is with you, tell them. If you cannot speak on the phone, ask anyone nearby to call for you."
+    },
+    "scr_ad": {
+      "ar": "قد تكون هذه علامات على خلل المنعكسات اللاإرادية، وهو ارتفاع مفاجئ في ضغط الدم بعد إصابة الحبل الشوكي. أوقف الفحص الآن. اجلس مستقيمًا وساقاك إلى الأسفل، ولا تستلقِ. أرخِ أي شيء ضيق. تحقق من المثانة وأنبوب القسطرة، ثم من الأمعاء والجلد. إذا كان لديك جهاز لقياس ضغط الدم، فقس ضغطك الآن ثم كل بضع دقائق. اتبع الخطة التي أعطاك إياها فريق رعايتك. إذا لم تزل العلامات بعد ذلك، أو لم تجد السبب، أو بقي ضغطك مرتفعًا، فاتصل بالرقم 997 وأخبرهم أن لديك إصابة في الحبل الشوكي وقد يكون لديك خلل المنعكسات اللاإرادية. أرِهم بطاقة خلل المنعكسات اللاإرادية إن كانت لديك. وإذا عادت العلامات لاحقًا اليوم، فاطلب المساعدة الطبية فورًا.",
+      "en": "These can be signs of autonomic dysreflexia, a sudden rise in blood pressure after a spinal cord injury. Stop the check now. Sit upright with your legs down, and do not lie down. Loosen anything tight. Check your bladder and catheter tubing, then your bowel and skin. If you have a blood pressure monitor, check it now and every few minutes. Follow the plan from your care team. If the signs do not go away once you have done this, if you cannot find the cause, or if your blood pressure stays high, call 997 and tell them that you have a spinal cord injury and may have autonomic dysreflexia. Show your autonomic dysreflexia card if you have one. If the signs come back later today, get medical help straight away."
+    },
+    "scr_stop_ask": {
+      "ar": "ما الذي جعلك تتوقف؟",
+      "en": "What made you stop?"
+    },
+    "scr_faint": {
+      "ar": "إذا كنت واقفًا، فاجلس الآن. وإذا بقي لديك شعور بأنك قد يغمى عليك، فاستلقِ وارفع ساقيك إن استطعت. وإذا لم يزل هذا الشعور، أو شعرت بألم في الصدر، فاتصل بالرقم 997.",
+      "en": "If you are standing, sit down now. If you still feel faint, lie down and raise your legs if you can. If it does not pass, or you have chest pain, call 997."
+    },
+    "scr_faint_sci": {
+      "ar": "إذا كان لديك أيضًا صداع نابض، فاجلس مستقيمًا بدلًا من ذلك، واتبع خطوات خلل المنعكسات اللاإرادية.",
+      "en": "If you also have a pounding headache, sit upright instead and follow the steps for autonomic dysreflexia."
+    },
+    "scr_fall": {
+      "ar": "ابقَ ساكنًا لحظة، وتحقق مما إذا كنت قد أُصبت. إذا ارتطم رأسك، أو كنت تنزف، أو شعرت بألم جديد، أو لم تستطع النهوض، فلا تحاول الوقوف، واتصل بالرقم 997 أو اطلب المساعدة بصوت عالٍ. وإذا لم تُصب، فاستدر على جانبك، ثم ارتكز على يديك وركبتيك، واقترب من كرسي متين وادفع نفسك ببطء. استرح قبل أن تقف.",
+      "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding, have new pain, or cannot get up, do not try to stand. Call 997 or call out for help. If you are not hurt, roll onto your side, get onto your hands and knees, move to a sturdy chair and push up slowly. Rest before you stand."
+    },
+    "scr_fall_seated": {
+      "ar": "ابقَ ساكنًا لحظة، وتحقق مما إذا كنت قد أُصبت. إذا ارتطم رأسك، أو كنت تنزف، أو شعرت بألم جديد، فاتصل بالرقم 997 أو اطلب المساعدة بصوت عالٍ. لا تحاول العودة إلى كرسيك وحدك إلا إذا تعلمت طريقة آمنة لذلك. اطلب من أحد أن يساعدك، وحافظ على دفئك وأنت تنتظر.",
+      "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding or have new pain, call 997 or call out for help. Do not try to get back into your chair alone unless you have learned a safe way to do it. Call someone to help you, and keep warm while you wait."
+    },
+    "scr_no_response": {
+      "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة، فاتصل بالرقم 997. وإذا كان في المنزل أحد، فناده الآن. المس هنا إذا كنت بخير.",
+      "en": "Are you all right? If you need help, call 997. If someone is at home, call them now. Tap here if you are fine."
+    },
+    "scr_stop_seek_care": {
+      "ar": "لنتوقف هنا. استرح في وضع مريح. إذا لم يهدأ ما تشعر به أو أقلقك، فتواصل مع طبيبك أو فريق رعايتك. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة. وإذا اشتد ما تشعر به، فاتصل بالرقم 997.",
+      "en": "Let’s stop here. Rest in a comfortable position. If what you feel does not settle, or it worries you, contact your doctor or care team. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice. If it becomes severe, call 997."
+    },
+    "scr_stop_pain": {
+      "ar": "لنتوقف هنا ونكمل في يوم آخر. استرح، وإذا لم يهدأ الألم، فراجع طبيبك أو فريق رعايتك.",
+      "en": "Let’s stop here and continue on another day. Rest, and if the pain does not settle, check with your doctor or care team."
+    },
+    "scr_postpone_care": {
+      "ar": "لنؤجل فحص الحركة اليوم. هذا ليس تشخيصًا، بل توقف احترازي لسلامتك. يرجى مراجعة طبيبك أو فريق رعايتك قبل الفحص القادم. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة. وفي الحالات الطارئة اتصل بالرقم 997.",
+      "en": "Let’s pause today’s movement check. This is not a diagnosis, just a safety pause. Please check with your doctor or care team before your next check. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice. For an emergency, call 997."
+    },
+    "scr_postpone_unwell": {
+      "ar": "لنُجرِ الفحص في يوم تشعر فيه أنك بخير.",
+      "en": "Let’s do the check on a day when you feel well."
+    },
+    "scr_postpone_pain": {
+      "ar": "ألمك مرتفع اليوم. لنُجرِ الفحص في يوم آخر. إذا لم يهدأ الألم، فراجع طبيبك أو فريق رعايتك.",
+      "en": "Your pain is high today. Let’s do the check on another day. If the pain does not settle, check with your doctor or care team."
+    },
+    "scr_postpone_cool": {
+      "ar": "لنُجرِ الفحص لاحقًا. إذا كنت تشعر بالحرارة، فبرّد جسمك واسترح أولًا، ثم حاول مجددًا في غرفة باردة بعد ساعة على الأقل. وإذا بقيت أعراضك أسوأ من المعتاد بعد يوم، أو أصابتك حمى، فتواصل مع طبيبك أو فريق رعايتك.",
+      "en": "Let’s do the check later. If you feel hot, cool down and rest first, then try again in a cool room after at least an hour. If your symptoms are still worse than usual after a day, or you have a fever, contact your doctor or care team."
+    },
+    "scr_postpone_pd": {
+      "ar": "لنُجرِ الفحص في وقت يعمل فيه دواؤك بشكل جيد.",
+      "en": "Let’s do the check at a time when your medicines work well for you."
+    },
+    "scr_postpone_sci": {
+      "ar": "يرجى الاهتمام بهذه الأمور أولًا، ثم ابدأ الفحص.",
+      "en": "Please take care of these first, then start the check."
+    },
+    "scr_paused_today": {
+      "ar": "أوقفت فحص اليوم حرصًا على سلامتك. يمكنك المحاولة مجددًا {when}.",
+      "en": "You paused today’s check for your safety. You can try again {when}."
+    },
+    "scr_note_care": {
+      "ar": "سنتخطى هذا الاختبار اليوم. يرجى إخبار طبيبك أو فريق رعايتك بشأن القرحة.",
+      "en": "We will skip this test today. Please let your doctor or care team know about the sore."
+    },
+    "scr_after_lasting": {
+      "ar": "شكرًا لإخبارنا. إذا استمر الألم أو التعب، فراجع طبيبك أو فريق رعايتك قبل جلستك القادمة. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة.",
+      "en": "Thank you for telling us. If the pain or tiredness continues, check with your doctor or care team before your next session. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice."
+    },
+    "scr_helper_brief_stand": {
+      "ar": "قف قريبًا بجانبه في جهته الأضعف، خلفه قليلًا. أبقِ يديك قريبتين من خصره دون أن تلمسه. إذا فقد توازنه، فثبّته من الخصر أو الوركين، ولا تمسكه من ذراعه أبدًا، وساعده على الجلوس. يمكن أن تظهر في الصورة، لكن لا تقف بينه وبين الهاتف.",
+      "en": "Stand close beside them on their weaker side, slightly behind. Keep your hands near their waist without touching. If they lose balance, steady them at the waist or hips, never by the arm, and help them sit down. You may be in the picture, but do not stand between them and the phone."
+    },
+    "scr_helper_brief_trunk": {
+      "ar": "اجلس أو قف قريبًا بجانبه في جهته الأضعف، خلفه قليلًا. أبقِ يديك قريبتين من كتفه دون أن تلمسه. إذا بدأ يميل أكثر مما يستطيع، فثبّته من الكتف أو الجذع، ولا تمسكه من ذراعه أبدًا، وساعده على العودة إلى الجلوس المستقيم. يمكن أن تظهر في الصورة، لكن لا تقف بينه وبين الهاتف.",
+      "en": "Sit or stand close beside them on their weaker side, slightly behind. Keep your hands near their shoulder without touching. If they start to tip further than they can manage, steady them at the shoulder or trunk, never by the arm, and help them sit upright again. You may be in the picture, but do not stand between them and the phone."
+    },
+    "warn_sci_t6": {
+      "ar": "قد تكون إصابتك عند المستوى T6 أو أعلى. إذا شعرت بصداع نابض، أو تعرق أو احمرار فوق مستوى إصابتك، أو قشعريرة في الجلد، أو تشوش في الرؤية، أو انسداد في الأنف، فتوقف واجلس مستقيمًا. ثم اتبع خطة فريق رعايتك، أو اتصل بالرقم 997 إذا لم تهدأ الأعراض سريعًا.",
+      "en": "Your injury may be at T6 or higher. If you get a pounding headache, sweating or flushing above your injury, goosebumps, blurred vision or a stuffy nose, stop and sit upright. Then follow your care team’s plan, or call 997 if it does not settle quickly."
+    },
+    "warn_pain_high": {
+      "ar": "ألمك مرتفع اليوم. تحرك بهدوء، وتوقف إذا زاد الألم.",
+      "en": "Your pain is high today. Go gently, and stop if your pain rises."
+    },
+    "warn_weak_shoulder": {
+      "ar": "احمِ كتفك الأضعف. أسنده على حجرك أو على مسند الذراع عندما ترتاح، ولا تسحبه أبدًا.",
+      "en": "Protect your weaker shoulder. Support it on your lap or an armrest when you rest, and never pull on it."
+    },
+    "warn_ms_cool": {
+      "ar": "اختر غرفة باردة، وإن أمكن وقتًا من اليوم قريبًا من وقت فحصك الأخير.",
+      "en": "Use a cool room and, if you can, a similar time of day as your last check."
+    },
+    "warn_pd_timing": {
+      "ar": "في المرة الماضية أجريت الفحص بعد دوائك {x}. التوقيت المشابه يساعد على المقارنة.",
+      "en": "Last time you did the check {x} after your medicine. A similar timing helps comparison."
+    }
+  },
+  "pausedWhenTokens": {
+    "next_day": {
+      "ar": "غدًا",
+      "en": "tomorrow"
+    },
+    "60_min": {
+      "ar": "بعد ساعة تقريبًا",
+      "en": "in about an hour"
+    }
+  },
+  "reasons": {
+    "restriction_overhead": {
+      "ar": "تخطينا هذا الاختبار لأنك أخبرتنا أن عليك تجنب رفع ذراعيك فوق مستوى الكتف.",
+      "en": "Skipped because you told us you need to avoid lifting your arms above shoulder height."
+    },
+    "restriction_weight_bearing": {
+      "ar": "تخطينا هذا الاختبار لأنك أخبرتنا أن عليك تجنب تحميل وزنك على ساقيك.",
+      "en": "Skipped because you told us you need to avoid putting weight on your legs."
+    },
+    "restriction_balance": {
+      "ar": "تخطينا هذا الاختبار لأنك أخبرتنا أنك تحتاج إلى سند للحفاظ على توازنك.",
+      "en": "Skipped because you told us you need support for your balance."
+    },
+    "pain_area": {
+      "ar": "تخطينا هذا الاختبار بسبب الألم في هذه المنطقة.",
+      "en": "Skipped because of pain in this area."
+    },
+    "pain_today": {
+      "ar": "تخطينا هذا الاختبار اليوم لأن هذه المنطقة تؤلمك اليوم أكثر.",
+      "en": "Skipped today because this area hurts more today."
+    },
+    "flare": {
+      "ar": "تخطينا هذا الاختبار اليوم لأن مفصلًا يُستخدم فيه في نوبة التهاب.",
+      "en": "Skipped today because a joint used in this test is in a flare."
+    },
+    "limb_loss_arm": {
+      "ar": "نقيس الذراع الأخرى فقط.",
+      "en": "We measure your other arm only."
+    },
+    "limb_loss_leg": {
+      "ar": "هذا الاختبار غير متاح في هذه النسخة لمن لديهم فقدان في الساق، ونستخدم بدلًا منه اختبار الميل الجانبي أثناء الجلوس.",
+      "en": "This test is not offered in this version for people with leg limb loss. We use the seated side lean instead."
+    },
+    "position_seated": {
+      "ar": "هذا الاختبار لمن يقفون، ويستخدم فحصك اختبار الميل الجانبي أثناء الجلوس.",
+      "en": "This test is for people who stand. Your check uses the seated side lean instead."
+    },
+    "clearance": {
+      "ar": "تخطينا هذا الاختبار في المنزل حتى يؤكد طبيبك أن التمرين مناسب لك.",
+      "en": "Skipped at home until your doctor confirms that exercise is fine for you."
+    },
+    "booth_offer": {
+      "ar": "يمكنك إجراء هذا الاختبار في جناح عزم بوجود الفريق.",
+      "en": "You can do this test at the Azm booth, with our staff beside you."
+    },
+    "helper_needed": {
+      "ar": "حرصًا على سلامتك، أجرِ هذا الاختبار عندما يكون معك شخص بالغ يبقى بجانبك.",
+      "en": "For your safety, do this test when another adult can stay beside you."
+    },
+    "booth_only_trunk": {
+      "ar": "حرصًا على سلامتك، لا يُجرى هذا الاختبار إلا بوجود أحد أفراد الفريق بجانبك، لذلك سنتخطاه في المنزل.",
+      "en": "For your safety, this test is only done with a staff member beside you, so we will skip it at home."
+    },
+    "armrests_needed": {
+      "ar": "يحتاج هذا الاختبار إلى كرسي له مسندان للذراعين على الجانبين، أو إلى الواقيين الجانبيين لكرسيك المتحرك. سنتخطاه اليوم.",
+      "en": "This test needs a chair with armrests on both sides, or the side guards of your wheelchair. We will skip it today."
+    },
+    "pusher": {
+      "ar": "حرصًا على سلامتك، لا نجري هذا الاختبار في هذه النسخة لأنك أخبرتنا أنك تميل أو تدفع جسمك نحو جهة واحدة عند الجلوس.",
+      "en": "For your safety, we do not run this test in this version, because you told us you lean or push to one side when you sit."
+    },
+    "weak_shoulder": {
+      "ar": "تخطينا جهتك الأضعف حماية لكتفك.",
+      "en": "Skipped on your weaker side to protect your shoulder."
+    },
+    "arm_not_able": {
+      "ar": "لم نقِس هذه الذراع اليوم، ولا بأس في ذلك.",
+      "en": "Not measured on this arm today. That is fine."
+    },
+    "pressure_sore": {
+      "ar": "تخطينا هذا الاختبار اليوم حماية لجلدك.",
+      "en": "Skipped today to protect your skin."
+    },
+    "recent_surgery": {
+      "ar": "تخطينا هذا الاختبار بسبب جراحة أو كسر حديث. يرجى مراجعة جراحك أو فريق رعايتك أولًا.",
+      "en": "Skipped because of recent surgery or a broken bone. Please check with your surgeon or care team first."
+    },
+    "booth_vitals": {
+      "ar": "سنتخطى هذا الاختبار اليوم. تحدث مع فريقنا إن أردت.",
+      "en": "We will skip this test today. Please talk with our staff if you like."
+    },
+    "by_choice": {
+      "ar": "تخطيت هذا الاختبار باختيارك.",
+      "en": "Skipped by your choice."
+    },
+    "quality": {
+      "ar": "لم نتمكن من القياس بوضوح اليوم. في المرة القادمة جرب نصائح التجهيز.",
+      "en": "We could not measure this clearly today. Next time, try the setup tips."
+    },
+    "stopped_symptom": {
+      "ar": "توقفنا حرصًا على سلامتك، ولم تُحفظ نتيجة.",
+      "en": "Stopped for your safety. No result was saved."
+    },
+    "needed_arms": {
+      "ar": "احتجت إلى يديك للوقوف، ولا بأس في ذلك. في المرة القادمة نستخدم النسخة التي تسمح باستخدام يديك.",
+      "en": "You needed your hands to stand, which is fine. Next time we will use the version that allows your hands."
+    },
+    "needed_support": {
+      "ar": "أمسكت بالسند الذي أمامك، فأوقفنا الاختبار حرصًا على سلامتك، ولم تُحفظ نتيجة.",
+      "en": "You reached for the support in front of you, so we stopped the test for your safety. No result was saved."
+    }
+  },
+  "postponeReasons": {
+    "unwell": "scr_postpone_unwell",
+    "recent_change": "scr_postpone_care",
+    "pain": "scr_postpone_pain",
+    "pain_worse": "scr_postpone_care",
+    "sci_ready": "scr_postpone_sci",
+    "ms_heat": "scr_postpone_cool",
+    "pd_off": "scr_postpone_pd",
+    "after_last": "scr_postpone_care"
+  },
+  "tests": [
+    {
+      "id": "shoulder_abduction",
+      "version": 1,
+      "status": "draft",
+      "kind": "range_test",
+      "positions": [
+        "chair",
+        "wheelchair",
+        "standing"
+      ],
+      "performedSeated": true,
+      "view": "front",
+      "sides": "each",
+      "sideOrder": "stronger_first",
+      "unit": "deg",
+      "better": "higher",
+      "practice": 1,
+      "attempts": 3,
+      "maxRetries": 2,
+      "best": "max",
+      "holdSec": 0.5,
+      "restSec": {
+        "betweenAttempts": [
+          5,
+          10
+        ],
+        "betweenSides": 20
+      },
+      "metric": {
+        "id": "shoulder_abduction_deg",
+        "definition": "2D angle in pixel space (D-003) between the upper arm vector (shoulder 11 or 12 to elbow 13 or 14) and the downward trunk axis (mid shoulder to mid hip). 0 is arm at the side, 180 is straight overhead. Clamp 0 to 180. An arm that passes the vertical toward the head is clamped at 180 and flagged pastVertical; it is not folded back.",
+        "fallback": "Trunk reference whenever the hips were visible at calibration: the mid hip is then fixed at its median position in the calibration frames (as in 4.3), so hips hidden later by armrests or a lap tray do not matter. Gravity reference only when the hips were never visible at calibration: the vertical comes from the phone orientation sensor, and the measured phone roll is stored per attempt and subtracted. With no orientation reading (iOS permission refused, laptops), gravity mode is not allowed: not measured today (quality). Lean in gravity mode = mid shoulder sideways shift from calibration divided by shoulder width: cue above 0.08, invalid above 0.15 (tune at booth). A person keeps one reference type per series.",
+        "planeCheck": "Runs over the whole ascent, not at the peak. An attempt is valid only if, in the frames where the 2D angle is between 70 and 110 degrees, the upper arm pixel length is at least 0.85 of the reference length for at least 0.3 s. If the 2D angle goes from below 60 to above 120 degrees without such frames, the attempt is invalid (reason plane_flexion) and the cue test_abd_side plays. Reference length = the larger of the hanging calibration length and the longest upper arm length seen between 70 and 110 degrees in the practice lift. Elbow z minus shoulder z at the peak (MediaPipe relative z) is stored as detail.planeZ for booth calibration only and is never used in the angle.",
+        "attemptValue": "Highest angle held for at least 0.5 s: the maximum over time of the rolling 0.5 s window minimum of the angle.",
+        "stored": [
+          "best",
+          "median_of_valid",
+          "nValid",
+          "all_attempts",
+          "reference",
+          "bentElbow",
+          "pastVertical",
+          "planeZ",
+          "flags"
+        ]
+      },
+      "calibration": "Arms relaxed at the sides for at least 1 s before the first attempt of each check: trunk axis (and the fixed mid hip when hips are visible), shoulder width, ear to shoulder distances and each upper arm pixel length.",
+      "requiredLandmarks": {
+        "gate": {
+          "left": [
+            11,
+            12,
+            13
+          ],
+          "right": [
+            11,
+            12,
+            14
+          ]
+        },
+        "gateCalibrationTrunkMode": [
+          23,
+          24
+        ],
+        "optional": [
+          0,
+          7,
+          8,
+          15,
+          16,
+          23,
+          24
+        ],
+        "minVisibility": 0.6
+      },
+      "validity": {
+        "trunkLeanCoachDeg": 5,
+        "trunkLeanInvalidDeg": 10,
+        "planeCheck": "see metric.planeCheck",
+        "upperArmLengthMinRatio": 0.85,
+        "shoulderWidthShrinkInvalid": 0.15,
+        "elbowFlagBelowDeg": 150,
+        "attemptSpreadFlagDeg": 15,
+        "otherHandNearTestedArmInvalid": true,
+        "wrongArmRaisedRetry": true,
+        "shrug": "coaching and logging only (ear to shoulder distance / resting shoulder width)",
+        "tune_at_booth": true
+      },
+      "noiseBand": 16,
+      "noiseBandRules": {
+        "compare": "about the same when |change| <= band",
+        "default": {
+          "abs": 16
+        },
+        "wide": {
+          "abs": 20
+        },
+        "wideWhen": [
+          "position is wheelchair",
+          "conditions include stroke, ms, cerebral_palsy, sci_complete, sci_incomplete or parkinsons",
+          "this side is the declared weaker side",
+          "either check has attempt spread over 15 degrees, gravity reference or bent elbow"
+        ],
+        "noVerdictWhen": [
+          "shoulder pain on this side (setup.painSides): show start and now with the sentence noVerdict.shoulderPain, until Azm has its own MDC (Q1)",
+          "fewer than 2 valid attempts on that side at either check (noVerdict.oneValid)",
+          "poseModel differs between baseline and now: not comparable"
+        ],
+        "agreement": "higher or lower only when both the best and the median of valid attempts differ from baseline by more than the band, in the same direction",
+        "minValidAttempts": 2,
+        "nearFullRangeDeg": 160,
+        "largeDropMultiple": 2,
+        "provisional": true
+      },
+      "exclusions": {
+        "pain": [],
+        "restrictions": [
+          "no_overhead",
+          "no_exercise"
+        ],
+        "conditions": [
+          "cardiac",
+          "other",
+          "cfs_moderate"
+        ],
+        "limbLoss": [
+          "arm"
+        ],
+        "precheck": [
+          "pc_surgery_recent",
+          "pc_pain_areas",
+          "pc_weak_lift",
+          "pc_weak_shoulder",
+          "pc_arthritis_flare",
+          "bt_pain_after"
+        ]
+      },
+      "sideRules": [
+        "Side with arm limb loss: not measured (v1 measures the other side only, never a residual limb, with or without a prosthesis).",
+        "Weaker side: stronger side first; weaker side uses the wide band; pc_weak_lift no or pc_weak_shoulder yes skips it.",
+        "Shoulder pain side (setup.painSides): pain free range; values shown without a verdict; today score 6 skips that side.",
+        "Bent elbow is accepted and recorded when spasticity or tetraplegia requires it (stroke, cerebral_palsy, sci). Keep it the same at later checks."
+      ],
+      "equipment": {
+        "needs": [
+          "steady chair with a backrest, or own wheelchair",
+          "phone stand or a place to prop the phone upright"
+        ],
+        "consistency": "Same chair type and backrest, same wheelchair set up (tilt, cushion), same reference type."
+      },
+      "setup": {
+        "view": "front, square on",
+        "distanceM": [
+          2,
+          3
+        ],
+        "heightM": "chest height of the seated person, about 0.9 to 1.0",
+        "orientation": "portrait",
+        "level": "roll and pitch within 5 degrees",
+        "framing": "head, both hands at full overhead reach, and both hips; at calibration the horizontal distance from each shoulder to the frame edge is at least 1.3 times that side’s shoulder to wrist length, otherwise cue check_move_back",
+        "other": [
+          "light from the front",
+          "fitted or folded sleeves so the elbow shows",
+          "one person in the chair; a helper may be in the picture at the side, never between the phone and the person, and never touching"
+        ]
+      },
+      "stopRules": [
+        {
+          "sign": "sharp or increasing pain",
+          "route": "pain"
+        },
+        {
+          "sign": "shoulder slipping, catching or clunking",
+          "route": "pain"
+        },
+        {
+          "sign": "tingling or numbness spreading down the arm",
+          "route": "stroke_signs when sudden and it does not settle on lowering the arm, otherwise other"
+        },
+        {
+          "sign": "dizziness",
+          "route": "faint"
+        },
+        {
+          "sign": "chest pain",
+          "route": "chest"
+        },
+        {
+          "sign": "unusual shortness of breath",
+          "route": "breath"
+        },
+        {
+          "sign": "sci_t6: autonomic dysreflexia signs",
+          "route": "ad_signs"
+        },
+        {
+          "sign": "the person presses stop or says a stop word",
+          "route": "the person chooses on the stop list"
+        }
+      ],
+      "comparability": {
+        "blocking": [
+          "position (chair or wheelchair)",
+          "angle reference (trunk or gravity)",
+          "bent elbow accepted versus straight",
+          "setup.limbLoss",
+          "setting (booth or home)",
+          "poseModel (lite, full or heavy)",
+          "movement_version major"
+        ],
+        "recorded": [
+          "time of day",
+          "Parkinson dose bucket and on state",
+          "wheelchair armrest state",
+          "sleeve advice followed",
+          "device aspect and model",
+          "median fps",
+          "engineVersion",
+          "faceCovered (yes or no)"
+        ]
+      },
+      "name": {
+        "ar": "رفع الذراع جانبًا",
+        "en": "Arm raise to the side"
+      },
+      "purpose": {
+        "ar": "يُظهر إلى أي ارتفاع ترفع كل ذراع إلى الجانب.",
+        "en": "Shows how high you can raise each arm out to the side."
+      },
+      "steps": {
+        "ar": [
+          "اجلس مستقيمًا على كرسي ثابت له ظهر، وظهرك مستند إليه. إذا كنت تستخدم كرسيًا متحركًا فابقَ عليه وفرامله مقفلة.",
+          "ضع الهاتف أمامك على بعد مترين إلى ثلاثة أمتار، بارتفاع صدرك تقريبًا، وواجهه.",
+          "اترك ذراعيك بجانبك لحظة حتى يتعرف التطبيق على جلستك.",
+          "أبقِ ذراعك مستقيمة، وإبهامك متجهًا إلى الأعلى.",
+          "ارفع ذراعك ببطء إلى الجانب، إلى أعلى ارتفاع مريح لك.",
+          "اثبت في الأعلى لحظة، ثم أنزل ذراعك ببطء.",
+          "أبقِ جسمك ثابتًا، دون أن تميل إلى الجهة الأخرى أو ترفع كتفك نحو أذنك.",
+          "بعد محاولة تجريبية واحدة، ستكرر ذلك 3 مرات لكل ذراع."
+        ],
+        "en": [
+          "Sit tall on a steady chair with a backrest, your back resting against it. If you use a wheelchair, stay in it with the brakes on.",
+          "Place the phone in front of you, 2 to 3 meters away, at about chest height, and face it.",
+          "Rest both arms by your sides for a moment so the app can see how you sit.",
+          "Keep your arm straight, with your thumb pointing up.",
+          "Slowly raise your arm out to the side, as high as is comfortable for you.",
+          "Hold at the top for a moment, then lower your arm slowly.",
+          "Keep your body still. Do not lean to the other side or lift your shoulder toward your ear.",
+          "After one practice lift, you will do this 3 times with each arm."
+        ]
+      },
+      "safety": {
+        "ar": [
+          "تحرك ضمن المدى المريح لك فقط، ولا تتجاوز حد الألم أبدًا.",
+          "ارفع ذراعك بنفسك، دون الاستعانة بيدك الأخرى أو بعصا أو بحبل وبكرة أو بشخص آخر.",
+          "إذا كان كتفك الأضعف مؤلمًا أو تشعر بأنه رخو، فأرح تلك الذراع على حجرك، وسنتخطى تلك الجهة.",
+          "توقف فورًا إذا شعرت بألم حاد أو متزايد، أو أحسست بأن كتفك ينزلق أو يعلق، أو امتد تنميل إلى أسفل ذراعك، أو شعرت بدوخة أو ضيق في التنفس أو ألم في الصدر."
+        ],
+        "en": [
+          "Move only within a comfortable range. Never push into pain.",
+          "Lift your arm on your own. Do not use your other hand, a stick, a pulley or another person to help.",
+          "If your weaker shoulder hurts or feels loose, rest that arm on your lap. We will skip that side.",
+          "Stop at once if you feel sharp or increasing pain, your shoulder slips or catches, tingling spreads down your arm, or you feel dizzy, short of breath or have chest pain."
+        ]
+      },
+      "resultSentence": {
+        "ar": "ارتفعت ذراعك {side} إلى {value} {unit} من جانبك.",
+        "en": "Your {side} arm rose to {value} {unit} from your side."
+      },
+      "resultTokens": {
+        "side": {
+          "right": {
+            "ar": "اليمنى",
+            "en": "right"
+          },
+          "left": {
+            "ar": "اليسرى",
+            "en": "left"
+          }
+        }
+      },
+      "resultUnit": "deg",
+      "cues": [
+        "check_face_phone",
+        "check_sleeves",
+        "test_abd_start",
+        "test_abd_arms_rest",
+        "test_abd_thumb",
+        "test_abd_raise",
+        "test_abd_side",
+        "test_abd_hold",
+        "test_abd_lower",
+        "test_abd_still",
+        "test_abd_relax_shoulder",
+        "check_left_arm",
+        "check_right_arm",
+        "check_saved",
+        "check_try_again",
+        "check_rest_short",
+        "check_move_back"
+      ]
+    },
+    {
+      "id": "arm_curl_30s",
+      "version": 1,
+      "status": "draft",
+      "kind": "timed_count",
+      "positions": [
+        "chair",
+        "wheelchair",
+        "standing"
+      ],
+      "performedSeated": true,
+      "view": "side",
+      "viewAllowance": "anterolateral up to 30 degrees toward the front when a wheelchair part hides the hand",
+      "sides": "each",
+      "sideOrder": "weaker_first",
+      "unit": "count",
+      "better": "higher",
+      "practice": 2,
+      "attempts": 1,
+      "best": "single",
+      "durationSec": 30,
+      "restSec": {
+        "betweenSidesMin": 60,
+        "betweenSidesMax": 120
+      },
+      "variants": [
+        {
+          "id": "held",
+          "label": {
+            "ar": "وزن باليد",
+            "en": "Weight in the hand"
+          }
+        },
+        {
+          "id": "cuff",
+          "label": {
+            "ar": "وزن للمعصم",
+            "en": "Wrist weight"
+          },
+          "stepsReplace": {
+            "2": {
+              "ar": "ثبت وزن المعصم، ثم دع ذراعك تتدلى مستقيمة بجانبك.",
+              "en": "Fasten the wrist weight, then let your arm hang straight down by your side."
+            }
+          }
+        },
+        {
+          "id": "arm_only",
+          "label": {
+            "ar": "دون وزن",
+            "en": "No weight"
+          },
+          "stepsReplace": {
+            "2": {
+              "ar": "دع ذراعك تتدلى مستقيمة بجانبك وراحة يدك نحو جسمك، دون أن تمسك وزنًا.",
+              "en": "Let your arm hang straight down by your side, with your palm facing your body. You will not hold a weight."
+            }
+          }
+        }
+      ],
+      "load": {
+        "ask": {
+          "ar": "ماذا ستمسك في هذا الاختبار؟",
+          "en": "What will you hold for this test?"
+        },
+        "options": [
+          {
+            "value": "dumbbell",
+            "label": {
+              "ar": "ثقل يدوي (دمبل)",
+              "en": "A dumbbell"
+            },
+            "detail": "kg from 0.5 to 5 in 0.5 steps"
+          },
+          {
+            "value": "bottle",
+            "label": {
+              "ar": "قارورة ماء",
+              "en": "A water bottle"
+            },
+            "detail": "0.5, 1 or 1.5 liters, same bottle, filled to the same line, closed"
+          },
+          {
+            "value": "cuff",
+            "label": {
+              "ar": "وزن للمعصم",
+              "en": "A wrist weight"
+            },
+            "detail": "kg"
+          },
+          {
+            "value": "none",
+            "label": {
+              "ar": "لا شيء، ذراعي فقط",
+              "en": "Nothing, my arm only"
+            }
+          }
+        ],
+        "help": {
+          "ar": "اختر شيئًا تستطيع رفعه مرتين رفعًا كاملًا دون ألم وبجهد متوسط. لا بأس بوزن خفيف أو بدون وزن. استخدم الشيء نفسه في كل مرة.",
+          "en": "Choose something you can lift twice, fully and without pain, at a moderate effort. A light weight, or no weight at all, is fine. Use the same one every time."
+        },
+        "helpWeakerArm": {
+          "ar": "لذراعك الأضعف، أجرِ هذا الاختبار دون وزن.",
+          "en": "For your weaker arm, do this test without a weight."
+        },
+        "gripAsk": {
+          "ar": "هل ترتجف هذه اليد، أو قبضتها ضعيفة، أو تشعر فيها بخدر؟",
+          "en": "Does this hand shake, or is your grip weak or numb?"
+        },
+        "practiceCheck": {
+          "ar": "هل كانت الثنيتان التجريبيتان كاملتين، دون ألم، وبجهد لا يزيد على المتوسط؟",
+          "en": "Were both practice bends full, without pain, and no harder than a moderate effort?"
+        },
+        "stepDown": {
+          "ar": "اختر وزنًا أخف، أو بدون وزن.",
+          "en": "Choose a lighter weight, or none."
+        },
+        "staffGuidance": "Booth staff only, never shown in the app: the Senior Fitness Test loads are 5 lb and 8 lb (about 2.3 and 3.6 kg), and 2 and 3.5 kg or 2 and 4 kg were used with wheelchair users and in SCI. Offer less, or none, whenever in doubt.",
+        "rules": [
+          "Offered at the baseline for each arm; locked per arm afterwards. Step down order: chosen load, 1.5 kg, 1 kg, 0.5 kg, none.",
+          "Elastic bands are not allowed for the test.",
+          "arm_only is forced by: restriction no_resistance; clearance no or unsure; shoulder, elbow or wrist pain on that side (setup.painSides); pc_weak_shoulder yes for the weaker arm; a surgery area on that arm without clearance, or chest or belly (pc_surgery_recent).",
+          "Stroke with a declared weaker side: the weaker arm is arm_only in v1 at home and at the booth, whatever the pc_weak_shoulder answer, and the load help shows helpWeakerArm. Subluxation is often painless at first and not reliably self reported, and the hanging start position is when limb weight pulls the humeral head from the glenoid. A held or cuff load on that arm needs setup.weakShoulderCleared, a clinician confirmation that is not collected in v1 (Q8).",
+          "gripAsk is asked per arm at the baseline. Yes: only a wrist weight, a closed plastic bottle, or none. pc_arm_function bend_no_hold: wrist weight or none.",
+          "For parkinsons, ms, cerebral_palsy, sci_complete and sci_incomplete the dumbbell is not offered at home in v1 (a dropped weight on a foot with reduced feeling may go unnoticed, and in SCI a skin injury below the injury is an AD trigger).",
+          "A load change, object change, held versus cuff change, or variant change starts a new series (not comparable)."
+        ]
+      },
+      "metric": {
+        "id": "elbow_flexion_angle_deg",
+        "definition": "Interior elbow angle (tested side shoulder, elbow, wrist) in pixel space (D-003), 2D x and y only, smoothed (One Euro, or about 150 ms Savitzky Golay).",
+        "personalRange": "Baseline: the 2 practice bends give extension angle E (arm hanging) and flexion angle F (top of the bend); F is the more flexed of the two practice bends, and if the two excursions differ by more than 15 percent a third practice bend is added. Excursion X = E minus F. X under 30 degrees after two tries of setup: not measured (quality).",
+        "countLine": "Progress p = (start angle minus current angle) / X, where start angle is today’s resting hanging angle. A rep counts when p rises to 0.80 or more after p was 0.20 or less since the previous counted rep (count line 0.80, return line 0.20).",
+        "d009": "At later checks X comes from the baseline of that series (stored rangeLo and rangeHi), anchored at today’s resting start angle. Practice bends still run; if they do not reach the count line, cue test_curl_full and the phone setup check, then count against the baseline line and flag range_below_baseline. A range_below_baseline result is shown with its values, without a verdict and without the large drop message, because a smaller apparent range can come from the camera (a loose sleeve hiding the elbow, a view change within the same class).",
+        "endRule": "Only reps whose count line crossing happens before 30.0 s after go are counted.",
+        "partial": "A bend that peaks between p 0.50 and 0.80 is partial and not counted; stored in detail.partial.",
+        "compensated": "Counted but flagged when the upper arm moves more than 20 degrees from its start orientation against the trunk line, or trunk pitch changes more than 12 degrees. Stored in detail.compensated. Never used to scold. A verdict is shown only when the share of compensated reps differs by 25 percentage points or less between baseline and now; otherwise noVerdict.movementDifferent.",
+        "occlusion": "Gate landmark visibility under 0.6 pauses scoring and prompts. If over 20 percent of the 30 s is unscored, the attempt fails the quality gate: offer one repeat after 2 minutes of rest, else not measured.",
+        "stored": [
+          "count",
+          "rangeLo",
+          "rangeHi",
+          "partial",
+          "compensated",
+          "first10sCount",
+          "last10sCount",
+          "load",
+          "variant",
+          "armrest",
+          "viewAngle",
+          "poseModel",
+          "medianFps"
+        ],
+        "minFps": 20,
+        "tune_at_booth": true
+      },
+      "requiredLandmarks": {
+        "gate": {
+          "left": [
+            11,
+            13,
+            15
+          ],
+          "right": [
+            12,
+            14,
+            16
+          ]
+        },
+        "optional": [
+          0,
+          23,
+          24
+        ],
+        "minVisibility": 0.6
+      },
+      "noiseBand": 4,
+      "noiseBandRules": {
+        "compare": "about the same when |change| <= band",
+        "default": {
+          "abs": 4,
+          "pctOfBaseline": 0.25,
+          "formula": "max(4, round(0.25 x baseline))"
+        },
+        "wide": {
+          "abs": 5,
+          "pctOfBaseline": 0.3,
+          "formula": "max(5, round(0.30 x baseline))"
+        },
+        "wideWhen": [
+          "conditions include ms or parkinsons",
+          "arthritis with pain on this arm (setup.painSides)"
+        ],
+        "noVerdictWhen": [
+          "range_below_baseline flag",
+          "compensated share differs by more than 25 percentage points",
+          "poseModel differs between baseline and now: wide band instead"
+        ],
+        "largeDropMultiple": 2,
+        "provisional": true,
+        "label": "calc, extrapolated from the Dahlberg 2025 home to supervised ratio"
+      },
+      "exclusions": {
+        "pain": [],
+        "restrictions": [
+          "no_exercise"
+        ],
+        "conditions": [
+          "cardiac",
+          "other",
+          "cfs_moderate"
+        ],
+        "limbLoss": [
+          "arm"
+        ],
+        "precheck": [
+          "pc_surgery_recent",
+          "pc_pain_areas",
+          "pc_weak_lift",
+          "pc_arm_function",
+          "pc_ms_one_arm",
+          "pc_arthritis_flare",
+          "bt_pain_after"
+        ]
+      },
+      "sideRules": [
+        "Order: weaker arm first, then the other; support none: right then left. Keep the order at every check.",
+        "Side with arm limb loss: not measured; the other arm only.",
+        "Weaker arm that cannot lift off the lap (pc_weak_lift no): not measured, never zero.",
+        "Weaker arm with a painful or loose shoulder (pc_weak_shoulder yes): arm_only.",
+        "Stroke with a declared weaker side: the weaker arm is arm_only in v1 (see the load rules).",
+        "ms with a weaker side: may test only the weaker arm (pc_ms_one_arm).",
+        "Each arm is its own series. Never compare the two arms in the UI."
+      ],
+      "equipment": {
+        "needs": [
+          "armless steady chair, or own wheelchair with the test side armrest removed or flipped when that is safe",
+          "the chosen load, or none",
+          "phone stand"
+        ],
+        "consistency": "Same object, same kg, same held or cuff, same chair or wheelchair, same armrest state, same phone side and angle."
+      },
+      "setup": {
+        "view": "side on to the tested arm (sagittal)",
+        "distanceM": [
+          1.5,
+          2
+        ],
+        "heightM": "elbow to chest height",
+        "orientation": "portrait",
+        "framing": "head to hips plus the hanging hand and weight",
+        "other": [
+          "move the phone to the other side for the second arm (or turn the chair)",
+          "plain background, even light",
+          "sleeves that contrast with the background",
+          "a helper may be in the picture, never between the phone and the person, and never touching"
+        ]
+      },
+      "stopRules": [
+        {
+          "sign": "chest pain or pressure",
+          "route": "chest"
+        },
+        {
+          "sign": "dizziness or light headedness",
+          "route": "faint"
+        },
+        {
+          "sign": "unusual breathlessness or palpitations",
+          "route": "breath"
+        },
+        {
+          "sign": "sudden pounding headache (sci_t6: autonomic dysreflexia)",
+          "route": "ad_signs"
+        },
+        {
+          "sign": "new or sharp shoulder, elbow or wrist pain",
+          "route": "pain"
+        },
+        {
+          "sign": "new numbness or tingling",
+          "route": "stroke_signs when sudden, otherwise other"
+        },
+        {
+          "sign": "grip failure",
+          "route": "other"
+        },
+        {
+          "sign": "spasm or cramp that does not settle",
+          "route": "other"
+        },
+        {
+          "sign": "the person presses stop or says a stop word",
+          "route": "the person chooses on the stop list"
+        }
+      ],
+      "comparability": {
+        "blocking": [
+          "load kg, object, held versus cuff, variant",
+          "chair versus wheelchair",
+          "armrest removed versus in place",
+          "tested arm",
+          "side view versus anterolateral view",
+          "setting (booth or home)",
+          "movement_version major"
+        ],
+        "recorded": [
+          "time of day",
+          "Parkinson dose bucket and on state",
+          "rest time between arms",
+          "arm order",
+          "poseModel (a change gives the wide band)",
+          "median fps",
+          "engineVersion",
+          "faceCovered (yes or no)"
+        ]
+      },
+      "name": {
+        "ar": "ثني الذراع خلال 30 ثانية",
+        "en": "Arm bends in 30 seconds"
+      },
+      "purpose": {
+        "ar": "يُظهر كم مرة تثني ذراعك ثنيًا كاملًا خلال 30 ثانية، لكل ذراع.",
+        "en": "Shows how many full arm bends you can do in 30 seconds, with each arm."
+      },
+      "steps": {
+        "ar": [
+          "اجلس مستقيمًا على كرسي ثابت بلا مساند للذراعين، أو على كرسيك المتحرك وفرامله مقفلة. أسند ظهرك إلى ظهر الكرسي، واجعل قدميك مسنودتين.",
+          "استدر حتى تكون الذراع التي تختبرها نحو الهاتف. ضع الهاتف على بعد متر ونصف إلى مترين، بارتفاع صدرك تقريبًا.",
+          "أمسك الوزن وراحة يدك نحو جسمك، ودع ذراعك تتدلى مستقيمة بجانبك.",
+          "أبقِ أعلى ذراعك ثابتًا وقريبًا من جسمك.",
+          "اثنِ مرفقك إلى الأعلى تمامًا، ثم مُدّه إلى الأسفل تمامًا. إذا كان ذلك مريحًا، فأدر راحة يدك إلى الأعلى وأنت ترفع، وافعل ذلك بالطريقة نفسها في كل مرة.",
+          "أولًا، أدِّ ثنيتين تجريبيتين ببطء.",
+          "عندما تسمع كلمة ابدأ، أكمل أكبر عدد من الثنيات الكاملة تستطيعه بأمان خلال 30 ثانية، وتنفس بشكل طبيعي.",
+          "استرح دقيقة على الأقل، ثم كرر ذلك بذراعك الأخرى."
+        ],
+        "en": [
+          "Sit tall on a steady chair without armrests, or in your wheelchair with the brakes on. Rest your back against the backrest and keep your feet supported.",
+          "Turn so the arm you are testing faces the phone. Place the phone 1.5 to 2 meters away, at about chest height.",
+          "Hold your weight with your palm facing your body, and let your arm hang straight down by your side.",
+          "Keep your upper arm still and close to your body.",
+          "Bend your elbow all the way up, then straighten it all the way down. If it is comfortable, turn your palm up as you lift, and do it the same way each time.",
+          "First, do 2 slow practice bends.",
+          "When you hear go, do as many full bends as you safely can in 30 seconds. Breathe normally.",
+          "Rest for at least one minute, then do the same with your other arm."
+        ]
+      },
+      "safety": {
+        "ar": [
+          "استخدم الوزن نفسه والكرسي نفسه في كل مرة. لا بأس بقارورة ماء إذا كانت القارورة نفسها، مملوءة إلى الحد نفسه ومغلقة.",
+          "لا تستخدم شريطًا مطاطيًا في هذا الاختبار.",
+          "أبعد قدميك عن مسار الوزن تحسبًا لانزلاقه. وإذا بدأ الوزن ينزلق من يدك، فتوقف وضعه جانبًا.",
+          "تنفس بشكل طبيعي، ولا تحبس نفسك.",
+          "توقف فورًا إذا شعرت بألم في الصدر، أو دوخة، أو ضيق تنفس غير معتاد، أو صداع نابض، أو خدر جديد، أو ألم حاد في الكتف أو المرفق أو الرسغ."
+        ],
+        "en": [
+          "Use the same weight and the same chair every time. A water bottle is fine if it is the same bottle, filled to the same line and closed.",
+          "Do not use an elastic band for this test.",
+          "Keep your feet clear in case the weight slips. If your grip slips, stop and put the weight down.",
+          "Breathe normally. Do not hold your breath.",
+          "Stop at once if you feel chest pain, dizziness, unusual shortness of breath, a pounding headache, new numbness, or sharp pain in your shoulder, elbow or wrist."
+        ]
+      },
+      "resultSentence": {
+        "ar": "ثنيت ذراعك {side} ثنيًا كاملًا {value} {unit} خلال {seconds} ثانية، {load}.",
+        "en": "With your {side} arm and {load}, you did {value} full {unit} in {seconds} seconds."
+      },
+      "resultUnit": "bends",
+      "resultTokens": {
+        "side": {
+          "right": {
+            "ar": "اليمنى",
+            "en": "right"
+          },
+          "left": {
+            "ar": "اليسرى",
+            "en": "left"
+          }
+        },
+        "load": {
+          "held": {
+            "ar": "بوزن {kg} كغ",
+            "en": "a {kg} kg weight"
+          },
+          "bottle": {
+            "ar": "بقارورة ماء سعتها {l} لتر",
+            "en": "a {l} liter water bottle"
+          },
+          "cuff": {
+            "ar": "بوزن معصم {kg} كغ",
+            "en": "a {kg} kg wrist weight"
+          },
+          "none": {
+            "ar": "دون وزن إضافي",
+            "en": "no added weight"
+          }
+        }
+      },
+      "cues": [
+        "check_left_side_to_phone",
+        "check_right_side_to_phone",
+        "test_curl_start",
+        "test_curl_elbow",
+        "test_curl_full",
+        "check_practice",
+        "check_practice_done",
+        "test_curl_many",
+        "check_breathe",
+        "check_ready",
+        "check_go",
+        "check_ten_left",
+        "check_time_stop",
+        "test_curl_grip",
+        "check_rest_minute",
+        "check_left_arm",
+        "check_right_arm"
+      ]
+    },
+    {
+      "id": "trunk_control_seated",
+      "version": 1,
+      "status": "draft",
+      "kind": "trunk_control",
+      "positions": [
+        "chair",
+        "wheelchair"
+      ],
+      "substituteFor": {
+        "position": "standing",
+        "when": "chair_stand_30s is excluded by an intake level rule"
+      },
+      "performedSeated": true,
+      "view": "front",
+      "sides": "each",
+      "sideOrder": "toward_stronger_first",
+      "unit": "deg",
+      "better": "higher",
+      "practice": 1,
+      "attempts": 3,
+      "maxRetries": 2,
+      "best": "max",
+      "holdSec": 0.5,
+      "restSec": {
+        "betweenAttempts": [
+          5,
+          10
+        ]
+      },
+      "alternateSides": true,
+      "armMode": "light_touch: hands rest on thighs or armrests; the hand on the leaning side slides as a light touch; a weaker arm stays supported on the lap",
+      "metric": {
+        "id": "trunk_lateral_lean_deg",
+        "definition": "Trunk lean L = angle of the vector mid hip to mid shoulder from image vertical, pixel space (D-003), corrected by phone roll when the orientation sensor is available.",
+        "upright": "Upright baseline U = median of L over a 3 s still window (still means SD of L at most 2 degrees). Taken before the first lean of each check. If no still window occurs within 10 s (dyskinesia, athetosis), U = median of the 3 s window with the lowest SD, flagged upright_unsteady, and the wide band applies. If that SD is over 5 degrees, the test is not measured today (quality).",
+        "attemptValue": "For a lean toward side s: the maximum over time of the rolling 0.5 s window minimum of (L minus U) signed toward s. The sign of the lean is defined from the person’s shoulder landmark labels at U and checked against the asked for direction, as in 4.0. If the peak lean goes beyond the centre band toward the opposite side, the attempt is invalid (reason wrong_side): it is not stored as 0, and the asked for side is cued again (test_trunk_lean_left or test_trunk_lean_right).",
+        "pivot": "When hip visibility drops during the lean, the mid hip is fixed at its median position from well visible baseline frames. If hips are not visible at baseline, the test is not measured today (quality) with a setup tip.",
+        "returnBand": "Centre band = U plus or minus max(3 degrees, 2 x SD of the upright window). returnSec = time from the peak until L stays inside the band for 1 s. Stored, never shown. No return within 10 s: cue test_trunk_to_middle and flag no_return.",
+        "secondary": "Shoulder midpoint lateral shift / baseline shoulder width, stored in detail.shoulderShift for every attempt (not shown).",
+        "invalidWhen": [
+          "projected trunk length shrinks more than 15 percent (forward bend instead of side lean)",
+          "apparent shoulder width changes more than 15 percent (rotation)",
+          "mid hip moves sideways more than 0.25 shoulder widths when hips are visible (sliding or hitching)",
+          "peak lean toward the opposite side (wrong_side)"
+        ],
+        "flags": [
+          "head only tilt (ear line tilts, shoulder midpoint barely moves)",
+          "knee or foot movement",
+          "wrist on thigh or armrest (cannot tell touch from push)",
+          "arm_support_likely: leaning side elbow angle over 150 degrees at the peak (tune at booth); a flagged attempt is excluded from verdicts"
+        ],
+        "contactAsk": {
+          "ar": "عند نهاية الميل، هل استند جسمك أو ذراعك إلى مسند الذراع؟",
+          "en": "At the end of the lean, did your body or arm rest on the armrest?"
+        },
+        "contact": "Asked after each side. Yes stores contact: true; that side’s attempts are censored (at least the value) and cannot produce higher. With contact on that side at both checks, show values with noVerdict.chairLimit.",
+        "abort": [
+          "lean speed over 45 degrees per second for more than 0.2 s",
+          "lean more than 15 degrees beyond this side’s best at earlier checks",
+          "at the first check, lean over 30 degrees",
+          "shoulder or hip landmarks lost mid lean",
+          "hip sliding across the seat"
+        ],
+        "abortNature": "The abort rules are coaching cues (voice test_trunk_to_middle), not safeguards: a voice cue cannot stop a fall. Safety comes from the armrests on both sides, the helper rules and the pre-check gates. The first check value of 30 degrees is a conservative starting point until Azm has data (tune at booth).",
+        "censoring": "An aborted attempt is stored with censored: true and value = the abort threshold, and it is never the displayed best. If the best valid attempt is censored, the result shows more than {value} with no lower verdict; a censored value above baseline plus band may show higher. When the baseline best is censored, later checks show values without a verdict.",
+        "stored": [
+          "best",
+          "nValid",
+          "all_attempts",
+          "censored",
+          "contact",
+          "returnSec",
+          "shoulderShift",
+          "flags",
+          "poseModel",
+          "medianFps"
+        ],
+        "tune_at_booth": true
+      },
+      "requiredLandmarks": {
+        "gate": [
+          11,
+          12
+        ],
+        "gateUprightWindow": [
+          23,
+          24
+        ],
+        "optional": [
+          0,
+          7,
+          8,
+          23,
+          24
+        ],
+        "minVisibility": 0.5,
+        "rejectIf": "gate landmarks under 0.5 in more than 20 percent of frames"
+      },
+      "noiseBand": 8,
+      "noiseBandRules": {
+        "compare": "about the same when |change| <= band",
+        "baseline": "Two check baseline: the baseline for each side is the mean of the first two completed checks of the series. The second check shows the startingPointSet sentence instead of a verdict.",
+        "default": {
+          "abs": 8,
+          "pctOfBaseline": 0.3,
+          "formula": "max(8, round(0.30 x baseline side value))"
+        },
+        "wide": {
+          "abs": 10,
+          "pctOfBaseline": 0.35,
+          "formula": "max(10, round(0.35 x baseline side value))"
+        },
+        "wideWhen": [
+          "conditions include parkinsons or cerebral_palsy (involuntary movement)",
+          "upright_unsteady flag at either check"
+        ],
+        "confirmation": "higher or lower only when this check is beyond the band AND the mean of this and the previous check is beyond the band, in the same direction. Otherwise the verdict is about the same with the unconfirmed sentence.",
+        "noVerdictWhen": [
+          "fewer than 2 valid attempts on that side at either check",
+          "censored best at baseline",
+          "contact on that side at both checks (noVerdict.chairLimit)",
+          "arm_support_likely on the best attempt"
+        ],
+        "minValidAttempts": 2,
+        "largeDropMultiple": 2,
+        "provisional": true
+      },
+      "exclusions": {
+        "pain": [
+          "back"
+        ],
+        "restrictions": [
+          "no_exercise"
+        ],
+        "conditions": [
+          "cardiac",
+          "other",
+          "cfs_moderate"
+        ],
+        "limbLoss": [],
+        "precheck": [
+          "pc_surgery_recent",
+          "pc_pain_areas",
+          "pc_pressure_sore",
+          "pc_sit_unsupported",
+          "pc_fall_sitting",
+          "pc_stroke_push",
+          "pc_trunk_armrests",
+          "pc_helper",
+          "pc_arthritis_flare",
+          "bt_pain_after"
+        ],
+        "homeOnlyExclusion": {
+          "restrictions": [
+            "balance_support"
+          ]
+        }
+      },
+      "sideRules": [
+        "Start toward the stronger side (support none: toward the right), then alternate.",
+        "At home, armrests (chair) or armrests or side guards (wheelchair) must be in place on both sides, for every user (pc_trunk_armrests). Without them: armrests_needed.",
+        "Helper at home (pc_helper yes) for sci_complete, sci_incomplete, stroke, cerebral_palsy, parkinsons, ms, and for everyone’s first home side lean. Otherwise the test is skipped today (helper_needed).",
+        "pc_stroke_push yes: excluded in v1 (pusher), at home and at the booth.",
+        "Hip pain: comfort only instructions; today score 6 skips the test.",
+        "Each side is its own series. Never show asymmetry as a score."
+      ],
+      "equipment": {
+        "needs": [
+          "steady chair with a backrest and armrests on both sides, back against a wall, about 1 m clear each side; or own wheelchair with armrests or side guards on both sides",
+          "phone stand"
+        ],
+        "consistency": "Same chair or wheelchair, same armrests or side guards, same cushion, same tilt, same belt, same prosthesis state, same arm mode."
+      },
+      "setup": {
+        "view": "front",
+        "distanceM": [
+          2,
+          2.5
+        ],
+        "heightM": "chest height",
+        "orientation": "portrait",
+        "framing": "head to knees",
+        "other": [
+          "wheelchair: brakes on, casters forward, anti tippers on if fitted, power chair switched off, usual belt fastened, feet on footplates",
+          "light from the front",
+          "blankets or bags off the lap",
+          "one person in the chair; the helper or booth spotter sits or stands close beside the person on the weaker side (support none: the left), a little behind, hands near the shoulder without touching; in the picture if needed, never between the phone and the person"
+        ]
+      },
+      "stopRules": [
+        {
+          "sign": "feels about to fall or grabs for support",
+          "route": "fall"
+        },
+        {
+          "sign": "dizziness or light headedness",
+          "route": "faint"
+        },
+        {
+          "sign": "new or increasing back, hip, shoulder or neck pain",
+          "route": "pain"
+        },
+        {
+          "sign": "spasm",
+          "route": "other"
+        },
+        {
+          "sign": "chest pain",
+          "route": "chest"
+        },
+        {
+          "sign": "unusual breathlessness",
+          "route": "breath"
+        },
+        {
+          "sign": "sci_t6: autonomic dysreflexia signs",
+          "route": "ad_signs"
+        },
+        {
+          "sign": "marked fatigue",
+          "route": "tired"
+        },
+        {
+          "sign": "camera abort rules (see metric.abort)",
+          "route": "attempt ends with a cue; the test continues if the person is fine"
+        },
+        {
+          "sign": "the person presses stop or says a stop word",
+          "route": "the person chooses on the stop list"
+        }
+      ],
+      "comparability": {
+        "blocking": [
+          "chair versus wheelchair",
+          "same chair (yes or no)",
+          "armrests or side guards present",
+          "chest strap or lateral supports (excluded anyway)",
+          "arm mode",
+          "leg prosthesis worn",
+          "pivot method (visible hip versus fixed pivot)",
+          "setting (booth or home)",
+          "poseModel (lite, full or heavy)",
+          "movement_version major"
+        ],
+        "recorded": [
+          "cushion",
+          "tilt",
+          "belt",
+          "time of day",
+          "helper present",
+          "Parkinson dose bucket",
+          "contact per side",
+          "median fps",
+          "engineVersion",
+          "faceCovered (yes or no)"
+        ]
+      },
+      "name": {
+        "ar": "الميل الجانبي أثناء الجلوس",
+        "en": "Seated side lean"
+      },
+      "purpose": {
+        "ar": "يُظهر إلى أي مدى تستطيع الميل إلى كل جانب وأنت جالس ثم العودة بنفسك.",
+        "en": "Shows how far you can lean to each side while sitting, and come back on your own."
+      },
+      "steps": {
+        "ar": [
+          "استخدم كرسيًا ثابتًا له ظهر ومسندان للذراعين على الجانبين، مسنودًا إلى الجدار، مع مساحة على الجانبين. وإذا كنت على كرسي متحرك، فاقفل الفرامل، وأبقِ الواقيين الجانبيين أو مسندي الذراعين في مكانهما، وأبقِ حزامك المعتاد مربوطًا.",
+          "اجلس في عمق المقعد، وقدماك على الأرض أو على مسند القدمين.",
+          "ضع الهاتف أمامك على بعد مترين تقريبًا، بارتفاع صدرك، وواجهه.",
+          "أرح يديك بخفة على فخذيك أو على مساند الذراعين، وأبقِ الذراع الأضعف مرتاحة على حجرك.",
+          "اجلس مستقيمًا وثابتًا بضع ثوانٍ.",
+          "مِل ببطء إلى أحد الجانبين، بقدر ما تستطيع العودة منه بنفسك فقط. ودع يدك تنزلق بخفة على فخذك أو على مسند الذراع، دون ضغط.",
+          "توقف لحظة، ثم عُد واجلس مستقيمًا.",
+          "ابقَ على المقعد وأبقِ قدميك ثابتتين. بعد ميلة تجريبية واحدة لكل جانب، ستميل 3 مرات إلى كل جانب."
+        ],
+        "en": [
+          "Use a steady chair with a backrest and armrests on both sides, placed against a wall, with some space on both sides. In a wheelchair, put the brakes on, keep the side guards or armrests in place, and keep your usual belt fastened.",
+          "Sit back in the seat with your feet flat on the floor or on the footplates.",
+          "Place the phone in front of you, about 2 meters away, at chest height, and face it.",
+          "Rest your hands lightly on your thighs or on the armrests. Keep a weaker arm resting on your lap.",
+          "Sit tall and still for a few seconds.",
+          "Slowly lean to one side, only as far as you can come back from on your own. Let your hand slide lightly along your thigh or the armrest, without pushing.",
+          "Pause for a moment, then come back and sit tall.",
+          "Stay on the seat and keep your feet still. After one practice lean to each side, you will lean 3 times to each side."
+        ]
+      },
+      "safety": {
+        "ar": [
+          "مِل ببطء، وبالقدر الذي تثق أنك تستطيع العودة منه بنفسك فقط.",
+          "استخدم يدك لمسًا خفيفًا للأمان فقط، ولا تسحب ذراعك الأضعف أبدًا.",
+          "ليجلس أو ليقف شخص بالغ آخر بجانبك أثناء هذا الاختبار.",
+          "توقف إذا شعرت بأنك قد تسقط أو تحتاج إلى الإمساك بشيء، أو شعرت بدوخة، أو حدث لك تشنج، أو شعرت بألم جديد أو متزايد في الظهر أو الورك أو الكتف أو الرقبة."
+        ],
+        "en": [
+          "Lean slowly, and only as far as you are sure you can come back on your own.",
+          "Use your hand only as a light touch for safety. Never pull on a weaker arm.",
+          "Have another adult sit or stand beside you for this test.",
+          "Stop if you feel you might fall or need to grab something, feel dizzy, have a spasm, or feel new or increasing pain in your back, hip, shoulder or neck."
+        ]
+      },
+      "resultSentence": {
+        "ar": "ملت إلى {side} بمقدار {value} {unit} عن جلستك المستقيمة.",
+        "en": "You leaned {value} {unit} to your {side} from sitting upright."
+      },
+      "resultTokens": {
+        "side": {
+          "right": {
+            "ar": "يمينك",
+            "en": "right"
+          },
+          "left": {
+            "ar": "يسارك",
+            "en": "left"
+          }
+        }
+      },
+      "resultUnit": "deg",
+      "cues": [
+        "check_face_phone",
+        "test_trunk_start",
+        "test_trunk_still",
+        "test_trunk_lean_left",
+        "test_trunk_lean_right",
+        "test_trunk_light_touch",
+        "test_trunk_pause",
+        "test_trunk_return",
+        "test_trunk_seat",
+        "test_trunk_to_middle",
+        "check_saved",
+        "check_try_again",
+        "check_rest_short"
+      ]
+    },
+    {
+      "id": "chair_stand_30s",
+      "version": 1,
+      "status": "draft",
+      "kind": "timed_count",
+      "positions": [
+        "standing"
+      ],
+      "performedSeated": false,
+      "view": "front",
+      "cameraAngleDeg": 45,
+      "viewNote": "Oblique 45 degree view from the front and the stronger side (support none: right). The helper stands on the weaker side, away from the phone, so the helper is never between the phone and the person, and the stronger arm, the one most likely to push, stays in view. The view gate must accept front or unknown for this test and reject a pure side view.",
+      "sides": "none",
+      "unit": "count",
+      "better": "higher",
+      "practice": 2,
+      "attempts": 1,
+      "best": "single",
+      "durationSec": 30,
+      "restSec": {
+        "afterPractice": 60,
+        "seatedAfterTest": 60
+      },
+      "variants": [
+        {
+          "id": "standard",
+          "label": {
+            "ar": "الذراعان متقاطعتان",
+            "en": "Arms crossed"
+          }
+        },
+        {
+          "id": "arms_assisted",
+          "label": {
+            "ar": "مع الاستعانة باليدين",
+            "en": "Hands allowed"
+          },
+          "stepsReplace": {
+            "4": {
+              "ar": "يمكنك الاستعانة بيديك على مساند الذراعين أو على فخذيك للوقوف والجلوس، واتركهما في كل مرة تقف فيها.",
+              "en": "You may push with your hands on the armrests or your thighs to stand and to sit. Let go each time you are standing."
+            }
+          }
+        },
+        {
+          "id": "arms_assisted_steady",
+          "label": {
+            "ar": "مع الاستعانة باليدين والثبات قبل الترك",
+            "en": "Hands allowed, steady before letting go"
+          },
+          "when": "arms_assisted at home with pc_walking_aid yes (a modifier of arms_assisted, same series)",
+          "stepsReplace": {
+            "4": {
+              "ar": "يمكنك الاستعانة بيديك على مساند الذراعين أو على فخذيك للوقوف والجلوس. قف، ثم اثبت، ثم اترك يديك في كل مرة.",
+              "en": "You may push with your hands on the armrests or your thighs to stand and to sit. Each time, stand up, get steady, then let go."
+            }
+          }
+        },
+        {
+          "id": "one_arm_cross",
+          "label": {
+            "ar": "يد واحدة على الكتف",
+            "en": "One hand on the shoulder"
+          },
+          "when": "upper_limb_unilateral, standard version",
+          "stepsReplace": {
+            "4": {
+              "ar": "ضع يدك على الكتف المقابل، وأبقِ ذراعك الأخرى أو طرفك الصناعي إن كنت ترتديه قريبًا من صدرك.",
+              "en": "Place your hand on the opposite shoulder. Keep your other arm, or your prosthesis if you wear one, close to your chest."
+            }
+          }
+        }
+      ],
+      "variantRules": [
+        "standard unless any of these apply, then arms_assisted: pc_stand_no_hands no or unsure; any pc_steadi yes; pc_walking_aid yes; conditions stroke with a declared weaker side, sci_incomplete or cerebral_palsy.",
+        "The variant is stored and never compared across variants. Moving from arms_assisted to standard is shown as a milestone, not as a change in count.",
+        "Arms used (standard and one_arm_cross): a wrist with visibility 0.7 or more that is at or below mid hip height, or within 0.3 shoulder widths of the thigh line, for 0.3 s or more while rising. Low wrist visibility means unknown, never arms used. In one_arm_cross only the intact side wrist is checked, and it must stay at the opposite shoulder; the limb loss side elbow and wrist are ignored (the model places a missing limb at an average position).",
+        "When arms are used in the standard or one_arm_cross version, the test stops. At home the app first asks pushedAsk. Yes: reason needed_arms, no score, and the next check offers arms_assisted. No: the attempt is a quality failure (not measured today) and the variant is kept.",
+        "arms_assisted with a painful, loose or recently operated shoulder, elbow or wrist on one side (areas map, pc_weak_shoulder, pc_surgery_recent): push with the other hand only (pushHand recorded; a change of pushHand gives the wide band). Both sides affected: skip (pain_today, flare or recent_surgery).",
+        "arms_assisted_steady (walking aid users at home): test_stand_steady plays at each stand, pauses are allowed and the clock keeps running, and reaching for the support in front ends the test (needed_support, no score)."
+      ],
+      "pushedAsk": {
+        "ar": "هل دفعت بيديك لتقف؟",
+        "en": "Did you push with your hands to stand up?"
+      },
+      "helperRules": [
+        "At home another adult must be present (pc_helper yes) for: arms_assisted; any pc_steadi yes; pc_walking_aid yes; parkinsons; stroke; sci_incomplete; cerebral_palsy; pc_pd_dizzy_standing yes.",
+        "Helper position: beside the person on the weaker side (support none: the left), slightly behind, one hand hovering near the waist without touching; in the picture if needed, never between the phone and the person. scr_helper_brief_stand is shown after pc_helper yes.",
+        "Without a helper the chair stand is skipped today (helper_needed). No substitute test is added for a same day skip."
+      ],
+      "metric": {
+        "id": "hip_rise_ratio",
+        "definition": "h = vertical distance from the mid ankle to the mid hip in pixel space (D-003), divided by the seated trunk length (mid shoulder to mid hip) measured in the seated calibration. When ankles are hidden, the seated mid hip height is the zero.",
+        "personalRange": "Seated baseline h_sit = median while still for at least 1 s. Standing reference h_stand = median during each practice stand, held about 1 s, with the trunk upright. Rise R = h_stand minus h_sit, and the baseline R is the larger of the two practice stands. If the two differ by more than 15 percent, a third practice stand is added.",
+        "countLine": "p = (h minus h_sit) / R. A stand counts when p reaches 0.85 or more, with shoulders over hips, after p was 0.15 or less (seated) since the previous counted stand. Shoulders over hips uses the vertical component only, which camera yaw does not change: (mid hip y minus mid shoulder y) is at least 0.9 times the same distance at the standing practice stand. A hover that does not return to 0.15 is not a new stand.",
+        "d009": "At later checks R comes from the baseline of that series; h_sit is measured again today. Count line = h_sit(today) + 0.85 x R(baseline); return line = h_sit(today) + 0.15 x R(baseline). R_today is computed from both practice stands. If R_today stays outside 0.85 to 1.15 times R(baseline) after one re-cue (test_stand_full), the count still runs against the baseline line, the result is flagged range_mismatch and shown without a verdict (noVerdict.setupDiffers). This is the pose based same chair check that Q9 lacked.",
+        "endRule": "At 30.0 s, if the person is rising and p is 0.50 or more, one stand is added (CDC STEADI more than halfway rule).",
+        "armUse": "See variantRules (arms used definition).",
+        "flags": [
+          "sideways lean toward the stronger side (computed only when the view classifier returns front; otherwise stored as unknown, because in a 45 degree view the image horizontal mixes forward and sideways lean)",
+          "large forward trunk swing",
+          "fast uncontrolled sit down",
+          "foot step at the top",
+          "pauses"
+        ],
+        "countSource": "auto, staff or self. auto = the camera count. staff = corrected at the booth by a staff member watching live (allowed, and usable as a baseline). self = confirmed or corrected by the person: stored and shown, never used as a baseline and never given a verdict (self counts read about 1.5 higher than a physiotherapist’s count: Dahlberg 2025).",
+        "stored": [
+          "count",
+          "variant",
+          "pushHand",
+          "hSit",
+          "rise",
+          "riseToday",
+          "halfwayCredited",
+          "stoppedEarly",
+          "secondsCompleted",
+          "countSource",
+          "flags",
+          "poseModel",
+          "medianFps"
+        ],
+        "minFps": 20,
+        "tune_at_booth": true
+      },
+      "requiredLandmarks": {
+        "gate": [
+          11,
+          12,
+          23,
+          24
+        ],
+        "optional": [
+          0,
+          13,
+          14,
+          15,
+          16,
+          25,
+          26,
+          27,
+          28
+        ],
+        "minVisibility": 0.5
+      },
+      "noiseBand": 4,
+      "noiseBandRules": {
+        "compare": "about the same when |change| <= band",
+        "default": {
+          "abs": 4
+        },
+        "byBaseline": [
+          {
+            "max": 6,
+            "abs": 3
+          },
+          {
+            "min": 7,
+            "max": 15,
+            "abs": 4
+          },
+          {
+            "min": 16,
+            "abs": 5
+          }
+        ],
+        "wide": {
+          "add": 1
+        },
+        "wideWhen": [
+          "conditions include ms",
+          "pushHand changed",
+          "poseModel changed"
+        ],
+        "noVerdictWhen": [
+          "range_mismatch flag",
+          "countSource self at either check"
+        ],
+        "largeDropMultiple": 2,
+        "provisional": true,
+        "label": "calc, extrapolated from the Dahlberg 2025 home to supervised ratio"
+      },
+      "exclusions": {
+        "pain": [
+          "hip",
+          "knee",
+          "back"
+        ],
+        "restrictions": [
+          "no_weight_bearing",
+          "balance_support",
+          "no_exercise"
+        ],
+        "conditions": [
+          "cardiac",
+          "other",
+          "cfs_moderate",
+          "sci_complete",
+          "lower_limb_unilateral"
+        ],
+        "limbLoss": [
+          "leg"
+        ],
+        "precheck": [
+          "pc_surgery_recent",
+          "pc_pain_areas",
+          "pc_helper",
+          "pc_booth_vitals",
+          "pc_arthritis_flare",
+          "bt_pain_after"
+        ],
+        "homeOnlyExclusion": {
+          "clearance": [
+            "no",
+            "unsure"
+          ]
+        }
+      },
+      "sideRules": [
+        "No sides. Phone at 45 degrees on the stronger side (support none: right); helper on the weaker side (support none: left), away from the phone."
+      ],
+      "equipment": {
+        "needs": [
+          "firm chair about knee height (about 43 to 46 cm), no wheels, no swivel, no soft cushion, back against a wall",
+          "sturdy support within reach in front (counter or heavy table)",
+          "phone stand"
+        ],
+        "consistency": "Same chair, same variant, same footwear or barefoot, same arm position."
+      },
+      "setup": {
+        "view": "oblique 45 degrees from the front and the stronger side",
+        "distanceM": [
+          2,
+          3
+        ],
+        "heightM": "lens at about seat to hip height",
+        "orientation": "portrait",
+        "framing": "whole body from the head at full stand to the feet",
+        "other": [
+          "clear floor, no rugs",
+          "light from the front",
+          "helper beside the person on the weaker side, slightly behind, one hand hovering near the waist without touching; in the picture if needed, never between the phone and the person"
+        ]
+      },
+      "stopRules": [
+        {
+          "sign": "loss of balance, a stagger or a step",
+          "route": "fall"
+        },
+        {
+          "sign": "dizziness, light headedness or feeling faint",
+          "route": "faint"
+        },
+        {
+          "sign": "chest pain",
+          "route": "chest"
+        },
+        {
+          "sign": "unusual breathlessness or palpitations",
+          "route": "breath"
+        },
+        {
+          "sign": "new or sharp hip, knee or back pain, or pain clearly above usual",
+          "route": "pain"
+        },
+        {
+          "sign": "standard or one_arm_cross version: arms used",
+          "route": "needed_arms after pushedAsk (not a symptom stop)"
+        },
+        {
+          "sign": "arms_assisted_steady: reaching for the support in front",
+          "route": "needed_support (not a symptom stop)"
+        },
+        {
+          "sign": "parkinsons: freezing",
+          "route": "other"
+        },
+        {
+          "sign": "sudden new weakness or numbness",
+          "route": "stroke_signs"
+        },
+        {
+          "sign": "camera: person leaves the frame, hips drop toward the floor, big sideways sway, or no movement for 10 s",
+          "route": "check in (stopRouting.checkIn)"
+        },
+        {
+          "sign": "the person presses stop or says a stop word",
+          "route": "the person chooses on the stop list"
+        }
+      ],
+      "comparability": {
+        "blocking": [
+          "variant (standard, arms_assisted, one_arm_cross)",
+          "chair (same chair yes or no, armrests)",
+          "footwear versus barefoot",
+          "Parkinson on state",
+          "setting (booth or home)",
+          "movement_version major"
+        ],
+        "recorded": [
+          "time of day",
+          "Parkinson dose bucket",
+          "helper present",
+          "pushHand",
+          "arms_assisted_steady modifier",
+          "first stand after the pause (pd)",
+          "countSource",
+          "poseModel (a change gives the wide band)",
+          "median fps",
+          "engineVersion",
+          "faceCovered (yes or no)"
+        ]
+      },
+      "name": {
+        "ar": "الوقوف من الكرسي خلال 30 ثانية",
+        "en": "Chair stands in 30 seconds"
+      },
+      "purpose": {
+        "ar": "يُظهر كم مرة تستطيع الوقوف كاملًا من الكرسي خلال 30 ثانية.",
+        "en": "Shows how many times you can stand up fully from a chair in 30 seconds."
+      },
+      "steps": {
+        "ar": [
+          "استخدم كرسيًا ثابتًا بارتفاع الركبة تقريبًا، دون عجلات أو وسادة لينة، وأسند ظهره إلى الجدار. وإذا كنت ستستعين بمساند الذراعين، فيجب أن تكون متينة.",
+          "ليكن أمامك شيء متين في متناول يدك، مثل طاولة المطبخ أو طاولة ثقيلة.",
+          "ضع الهاتف أمامك بزاوية، مائلًا قليلًا إلى أحد الجانبين، نحو جهتك الأقوى إن وجدت، على بعد مترين إلى ثلاثة أمتار، ليظهر جسمك كاملًا عندما تقف.",
+          "اجلس في منتصف المقعد، وظهرك مستقيم، وقدماك على الأرض.",
+          "ضع ذراعيك متقاطعتين عند الرسغين، وأسندهما إلى صدرك.",
+          "أولًا، أدِّ وقفتين تجريبيتين ببطء. قف مستقيمًا تمامًا، ثم اجلس على المقعد بالكامل.",
+          "استرح دقيقة. وعندما تسمع كلمة ابدأ، قف تمامًا ثم اجلس، أكبر عدد من المرات تستطيعه بأمان خلال 30 ثانية.",
+          "بعد ذلك، ابقَ جالسًا دقيقة، ثم انهض ببطء."
+        ],
+        "en": [
+          "Use a firm chair about knee height, without wheels or a soft cushion, and put its back against a wall. If you will push on armrests, they must be sturdy.",
+          "Have something sturdy within reach in front of you, such as a kitchen counter or a heavy table.",
+          "Place the phone in front of you at an angle, a little to one side, toward your stronger side if you have one, 2 to 3 meters away, so your whole body shows when you stand.",
+          "Sit in the middle of the seat with your back straight and your feet flat on the floor.",
+          "Cross your arms at the wrists and hold them against your chest.",
+          "First, do 2 slow practice stands. Stand up fully, then sit all the way down.",
+          "Rest for a minute. When you hear go, stand up fully and sit down again, as many times as you safely can in 30 seconds.",
+          "Afterwards, stay seated for a minute, then get up slowly."
+        ]
+      },
+      "safety": {
+        "ar": [
+          "أجرِ هذا الاختبار فقط إذا كنت تشعر بالثبات اليوم.",
+          "إذا كان معك أحد، فاطلب منه أن يقف قريبًا بجانبك في جهتك الأضعف، خلفك قليلًا. يمكن أن يظهر في الصورة، لكن لا يقف بينك وبين الهاتف.",
+          "ارتدِ الحذاء نفسه في كل مرة، أو كن حافيًا في كل مرة، على أرضية غير زلقة.",
+          "إذا احتجت إلى يديك للوقوف في النسخة ذات الذراعين المتقاطعتين، فتوقف، ولا بأس في ذلك. في المرة القادمة نستخدم النسخة التي تسمح باستخدام يديك.",
+          "توقف فورًا إذا فقدت توازنك، أو شعرت بدوخة أو بأنك قد يغمى عليك، أو بألم في الصدر، أو بضيق تنفس غير معتاد، أو بتسارع ضربات القلب، أو بألم جديد أو حاد في الورك أو الركبة أو الظهر."
+        ],
+        "en": [
+          "Do this test only if you feel steady today.",
+          "If someone is with you, ask them to stand close beside you on your weaker side, slightly behind you. They may be in the picture, but not between you and the phone.",
+          "Wear the same shoes each time, or be barefoot each time, on a floor that is not slippery.",
+          "If you need your hands to stand up in the version with crossed arms, stop. That is fine. Next time we will use the version that allows your hands.",
+          "Stop at once if you lose your balance, feel dizzy or faint, have chest pain, unusual shortness of breath or a racing heart, or feel new or sharp pain in your hip, knee or back."
+        ]
+      },
+      "resultSentence": {
+        "ar": "وقفت وقوفًا كاملًا {value} {unit} خلال {seconds} ثانية{variant}.",
+        "en": "You did {value} full {unit} in {seconds} seconds{variant}."
+      },
+      "resultUnit": "stands",
+      "resultTokens": {
+        "variant": {
+          "standard": {
+            "ar": "",
+            "en": ""
+          },
+          "arms_assisted": {
+            "ar": "، مع الاستعانة بيديك",
+            "en": ", using your hands to help"
+          },
+          "arms_assisted_steady": {
+            "ar": "، مع الاستعانة بيديك",
+            "en": ", using your hands to help"
+          },
+          "one_arm_cross": {
+            "ar": "",
+            "en": ""
+          }
+        }
+      },
+      "cues": [
+        "check_phone_angle",
+        "check_whole_body",
+        "check_one_person",
+        "test_stand_start",
+        "test_stand_arms_cross",
+        "test_stand_hands_ok",
+        "test_stand_full",
+        "check_practice",
+        "test_stand_steady",
+        "test_stand_dizzy",
+        "check_rest_minute",
+        "test_stand_many",
+        "check_ready",
+        "check_go",
+        "check_ten_left",
+        "check_time_stop",
+        "test_stand_hands_needed",
+        "check_sit_minute",
+        "check_are_you_ok"
+      ]
+    }
+  ],
+  "progress": {
+    "retestDays": 28,
+    "minHoursBetweenChecks": 48,
+    "earlyCheck": "A person may start a check earlier, but at least 48 hours after the last completed check (product rule, tune in the pilot). After a lower, large drop or not comparable result, offer a repeat in 2 to 7 days. Never offer an early repeat while an ac_next_day lasting answer is unresolved.",
+    "trendsFromCheck": 3,
+    "compareLikeWithLike": "same testId, side, position, variant, setting (booth or home), fingerprint blocking fields and movement_version major. Booth checks form a booth series; the first home check starts the home series; the booth result stays visible as a separate point labelled boothPoint.",
+    "values": "whole degrees and whole counts; change computed on the stored whole numbers",
+    "verdicts": {
+      "higher": {
+        "ar": "أعلى من نقطة بدايتك",
+        "en": "Higher than your starting point"
+      },
+      "same": {
+        "ar": "قريب من نقطة بدايتك",
+        "en": "About the same as your starting point"
+      },
+      "lower": {
+        "ar": "أقل من نقطة بدايتك",
+        "en": "Lower than your starting point"
+      }
+    },
+    "labels": {
+      "start": {
+        "ar": "البداية",
+        "en": "Start"
+      },
+      "now": {
+        "ar": "الآن",
+        "en": "Now"
+      },
+      "change": {
+        "ar": "التغير",
+        "en": "Change"
+      },
+      "trend": {
+        "ar": "فحوصك عبر الوقت",
+        "en": "Your checks over time"
+      },
+      "notMeasured": {
+        "ar": "لم يُقَس اليوم",
+        "en": "Not measured today"
+      },
+      "boothPoint": {
+        "ar": "في جناح عزم",
+        "en": "At the booth"
+      }
+    },
+    "bandSentence": {
+      "ar": "التغير حتى {band} {unit} قد يأتي من اختلاف يوم عن يوم ومن طريقة رؤية الكاميرا لك، لذلك نعده قريبًا من نقطة بدايتك.",
+      "en": "A change of up to {band} {unit} can come from day to day differences and from how the camera sees you, so we read it as about the same."
+    },
+    "unitForms": {
+      "deg": {
+        "ar": {
+          "zero": "درجة",
+          "one": "درجة واحدة",
+          "two": "درجتين",
+          "few": "درجات",
+          "many": "درجة",
+          "other": "درجة"
+        },
+        "en": {
+          "one": "degree",
+          "other": "degrees"
+        }
+      },
+      "bends": {
+        "ar": {
+          "zero": "مرة",
+          "one": "مرة واحدة",
+          "two": "مرتين",
+          "few": "مرات",
+          "many": "مرة",
+          "other": "مرة"
+        },
+        "en": {
+          "one": "bend",
+          "other": "bends"
+        }
+      },
+      "stands": {
+        "ar": {
+          "zero": "مرة",
+          "one": "مرة واحدة",
+          "two": "مرتين",
+          "few": "مرات",
+          "many": "مرة",
+          "other": "مرة"
+        },
+        "en": {
+          "one": "stand",
+          "other": "stands"
+        }
+      },
+      "sec": {
+        "ar": {
+          "zero": "ثانية",
+          "one": "ثانية واحدة",
+          "two": "ثانيتين",
+          "few": "ثوانٍ",
+          "many": "ثانية",
+          "other": "ثانية"
+        },
+        "en": {
+          "one": "second",
+          "other": "seconds"
+        }
+      }
+    },
+    "digits": "Arabic copy in this file is authored with ASCII digits for review. At render time every ASCII digit in an Arabic display string, and every {value}, {band}, {seconds}, {kg} or {l} token, goes through the same formatter as fmtNum (ar-SA, Arabic Indic digits), so a sentence never mixes the two systems. Exceptions: tel: links stay 997, 937; Latin codes such as T6 and kg keep their digits. The final choice of digit system is Q30.",
+    "lowerExtra": {
+      "ar": "قد تنخفض النتيجة لأسباب يومية كثيرة، مثل التعب أو الألم أو وقت اليوم أو طريقة التجهيز. يمكنك إعادة الفحص بعد بضعة أيام.",
+      "en": "Many everyday things can lower a result, such as tiredness, pain, the time of day or the setup. You can check again in a few days."
+    },
+    "largeDrop": {
+      "rule": "When the result is lower than baseline by more than 2 x band and no noVerdict condition or quality flag applies (range_below_baseline, range_mismatch, gravity reference, countSource self, more than 10 percent unscored, fewer than 2 valid attempts): no verdict label; show this text and the values, and offer a repeat in 2 to 7 days. If the drop repeats at that re-check without a quality flag, the verdict is lower with lowerExtra. With a quality flag the values are shown with the matching noVerdict sentence and no large drop text.",
+      "text": {
+        "ar": "هذه النتيجة أقل بكثير من نقطة بدايتك. قد تتغير النتيجة كثيرًا بسبب التجهيز أو التعب أو الألم أو وقت اليوم. يمكنك إعادة الفحص بعد بضعة أيام.",
+        "en": "This result is much lower than your starting point. Setup, tiredness, pain or the time of day can change a result a lot. You can check again in a few days."
+      },
+      "oneSidedRule": "For the tests with sides (abduction, arm curl, side lean): when a large drop is on one side only (the other side of the same test is not lower, or only one side was tested today), ask symptomAsk before the results are shown, whatever the quality flags. Yes: scr_emergency (the same symptom route as pc_urgent). No: show the results with the standing footer. The question asks about symptoms; the app never interprets the drop itself as a medical sign.",
+      "symptomAsk": {
+        "ar": "اليوم، هل تشعر بضعف أو خدر مفاجئ في هذه الذراع أو هذه الجهة، أو لاحظت تغيرًا مفاجئًا في وجهك أو كلامك أو رؤيتك أو توازنك؟",
+        "en": "Today, does this arm or side feel suddenly weaker or numb, or have you noticed a sudden change in your face, speech, vision or balance?"
+      }
+    },
+    "noVerdict": {
+      "shoulderPain": {
+        "ar": "يتغير ألم الكتف من يوم إلى آخر، لذلك نعرض أرقامك دون أن نعدها تغيرًا.",
+        "en": "Shoulder pain changes from day to day, so we show your numbers without calling a change."
+      },
+      "setupDiffers": {
+        "ar": "قد يكون التجهيز أو الكرسي مختلفًا هذه المرة، لذلك نعرض أرقامك دون أن نعدها تغيرًا.",
+        "en": "The setup or chair may differ this time, so we show your numbers without calling a change."
+      },
+      "movementDifferent": {
+        "ar": "بدت الحركة مختلفة هذه المرة، لذلك لم نقارن.",
+        "en": "The movement looked different this time, so we did not compare."
+      },
+      "chairLimit": {
+        "ar": "يحدّ الكرسي من مدى ميلك الذي تراه الكاميرا، لذلك نعرض أرقامك دون أن نعدها تغيرًا.",
+        "en": "The chair limits how far the camera can see you lean, so we show your numbers without calling a change."
+      },
+      "oneValid": {
+        "ar": "استطعنا قياس محاولة واحدة فقط هذه المرة، لذلك نعرض رقمك دون أن نعده تغيرًا.",
+        "en": "We could measure only one try this time, so we show your number without calling a change."
+      },
+      "selfCount": {
+        "ar": "عدّلت العدد بنفسك هذه المرة، لذلك نعرضه دون أن نعده تغيرًا.",
+        "en": "You corrected the count yourself this time, so we show it without calling a change."
+      },
+      "censored": {
+        "ar": "أكثر من {value}",
+        "en": "more than {value}"
+      }
+    },
+    "startingPointSet": {
+      "ar": "تم الآن تحديد نقطة بدايتك.",
+      "en": "Your starting point is now set."
+    },
+    "notComparable": {
+      "ar": "لم نقارن هذه المرة لأن طريقة الفحص اختلفت، مثل وزن أو كرسي أو نسخة اختبار مختلفة. تبدأ هذه النتيجة سلسلة مقارنة جديدة.",
+      "en": "Not compared this time, because the setup was different, for example a different weight, chair or test version. This result starts a new line of comparison."
+    },
+    "nearFullRange": {
+      "ar": "قريب من أعلى ما تستطيع الكاميرا قياسه في المرتين، لذلك لا تستطيع إظهار تغير واضح هنا.",
+      "en": "Near the top of what the camera can measure both times, so it cannot show a clear change here."
+    },
+    "unconfirmed": {
+      "ar": "نعدّ هذه النتيجة الآن قريبة من نقطة بدايتك، وسننظر مجددًا في فحصك القادم قبل أن نعدها تغيرًا.",
+      "en": "For now we read this as about the same. We will look again at your next check before we call it a change."
+    },
+    "milestone": {
+      "ar": "أجريت الوقوف من الكرسي هذه المرة دون الاستعانة بيديك.",
+      "en": "This time you did the chair stand without using your hands."
+    },
+    "nextDue": {
+      "ar": "موعد فحصك القادم {date}، ويمكنك إجراؤه قبل ذلك إن أردت.",
+      "en": "Your next check is due on {date}. You can check earlier if you like."
+    },
+    "forbiddenInProgressText": {
+      "matching": "Lower case, strip Arabic diacritics and tatweel, then test each stem as a substring.",
+      "en": [
+        "improv",
+        "recover",
+        "heal",
+        "normal",
+        "declin",
+        "better",
+        "worse",
+        "progress",
+        "deteriorat"
+      ],
+      "ar": [
+        "تحسن",
+        "تعاف",
+        "شفاء",
+        "شفي",
+        "طبيعي",
+        "تدهور",
+        "تراجع",
+        "تقدم",
+        "أفضل",
+        "أسوأ"
+      ]
+    }
+  },
+  "cues": [
+    {
+      "id": "check_intro",
+      "ar": "يقيس هذا الفحص حركتك لتتابعها بنفسك. خذ وقتك.",
+      "arTts": "يَقِيسُ هَذَا الْفَحْصُ حَرَكَتَكَ لِتُتَابِعَهَا بِنَفْسِك. خُذْ وَقْتَك.",
+      "en": "This check measures your movement for your own tracking. Take your time."
+    },
+    {
+      "id": "check_stop_any_time",
+      "ar": "توقف في أي وقت إذا شعرت بألم أو بأنك لست بخير.",
+      "arTts": "تَوَقَّفْ فِي أَيِّ وَقْتٍ إِذَا شَعَرْتَ بِأَلَمٍ أَوْ بِأَنَّكَ لَسْتَ بِخَيْر.",
+      "en": "Stop at any time if you feel pain or feel unwell."
+    },
+    {
+      "id": "check_phone_steady",
+      "ar": "ضع الهاتف واقفًا على شيء ثابت.",
+      "arTts": "ضَعِ الْهَاتِفَ وَاقِفًا عَلَى شَيْءٍ ثَابِت.",
+      "en": "Stand the phone upright on something steady."
+    },
+    {
+      "id": "check_phone_level",
+      "ar": "اجعل الهاتف مستقيمًا وغير مائل.",
+      "arTts": "اِجْعَلِ الْهَاتِفَ مُسْتَقِيمًا وَغَيْرَ مَائِل.",
+      "en": "Keep the phone upright and level."
+    },
+    {
+      "id": "check_phone_still",
+      "ar": "أبقِ الهاتف ثابتًا.",
+      "arTts": "أَبْقِ الْهَاتِفَ ثَابِتًا.",
+      "en": "Keep the phone still."
+    },
+    {
+      "id": "check_whole_body",
+      "ar": "تحرك حتى يظهر جسمك كاملًا في الصورة.",
+      "arTts": "تَحَرَّكْ حَتَّى يَظْهَرَ جِسْمُكَ كَامِلًا فِي الصُّورَة.",
+      "en": "Move until your whole body is in the picture."
+    },
+    {
+      "id": "check_face_phone",
+      "ar": "واجه الهاتف.",
+      "arTts": "وَاجِهِ الْهَاتِف.",
+      "en": "Face the phone."
+    },
+    {
+      "id": "check_left_side_to_phone",
+      "ar": "استدر حتى يكون جانبك الأيسر نحو الهاتف.",
+      "arTts": "اِسْتَدِرْ حَتَّى يَكُونَ جَانِبُكَ الْأَيْسَرُ نَحْوَ الْهَاتِف.",
+      "en": "Turn so your left side faces the phone."
+    },
+    {
+      "id": "check_right_side_to_phone",
+      "ar": "استدر حتى يكون جانبك الأيمن نحو الهاتف.",
+      "arTts": "اِسْتَدِرْ حَتَّى يَكُونَ جَانِبُكَ الْأَيْمَنُ نَحْوَ الْهَاتِف.",
+      "en": "Turn so your right side faces the phone."
+    },
+    {
+      "id": "check_phone_angle",
+      "ar": "ضع الهاتف أمامك بزاوية، مائلًا قليلًا إلى أحد الجانبين.",
+      "arTts": "ضَعِ الْهَاتِفَ أَمَامَكَ بِزَاوِيَةٍ، مَائِلًا قَلِيلًا إِلَى أَحَدِ الْجَانِبَيْن.",
+      "en": "Place the phone in front of you at an angle, a little to one side."
+    },
+    {
+      "id": "check_move_back",
+      "ar": "ابتعد قليلًا عن الهاتف.",
+      "arTts": "اِبْتَعِدْ قَلِيلًا عَنِ الْهَاتِف.",
+      "en": "Move back a little."
+    },
+    {
+      "id": "check_move_closer",
+      "ar": "اقترب قليلًا من الهاتف.",
+      "arTts": "اِقْتَرِبْ قَلِيلًا مِنَ الْهَاتِف.",
+      "en": "Come a little closer."
+    },
+    {
+      "id": "check_light",
+      "ar": "أضف إضاءة أمامك.",
+      "arTts": "أَضِفْ إِضَاءَةً أَمَامَك.",
+      "en": "Add some light in front of you."
+    },
+    {
+      "id": "check_one_person",
+      "ar": "تأكد ألا يقف أحد بينك وبين الهاتف.",
+      "arTts": "تَأَكَّدْ أَلَّا يَقِفَ أَحَدٌ بَيْنَكَ وَبَيْنَ الْهَاتِف.",
+      "en": "Make sure no one stands between you and the phone."
+    },
+    {
+      "id": "check_sleeves",
+      "ar": "الأكمام الضيقة تساعد الكاميرا على رؤية مرفقيك.",
+      "arTts": "الْأَكْمَامُ الضَّيِّقَةُ تُسَاعِدُ الْكَامِيرَا عَلَى رُؤْيَةِ مِرْفَقَيْك.",
+      "en": "Fitted sleeves help the camera see your elbows."
+    },
+    {
+      "id": "check_ready",
+      "ar": "استعد.",
+      "arTts": "اِسْتَعِدّ.",
+      "en": "Get ready."
+    },
+    {
+      "id": "check_go",
+      "ar": "ابدأ.",
+      "arTts": "اِبْدَأْ.",
+      "en": "Go."
+    },
+    {
+      "id": "check_ten_left",
+      "ar": "بقيت عشر ثوانٍ.",
+      "arTts": "بَقِيَتْ عَشْرُ ثَوَان.",
+      "en": "Ten seconds left."
+    },
+    {
+      "id": "check_time_stop",
+      "ar": "توقف. أحسنت.",
+      "arTts": "تَوَقَّفْ. أَحْسَنْت.",
+      "en": "Stop. Well done."
+    },
+    {
+      "id": "check_practice",
+      "ar": "أولًا، حركتان تجريبيتان ببطء.",
+      "arTts": "أَوَّلًا، حَرَكَتَانِ تَجْرِيبِيَّتَانِ بِبُطْء.",
+      "en": "First, two slow practice movements."
+    },
+    {
+      "id": "check_practice_done",
+      "ar": "جيد. استرح لحظة قبل الاختبار.",
+      "arTts": "جَيِّد. اِسْتَرِحْ لَحْظَةً قَبْلَ الِاخْتِبَار.",
+      "en": "Good. Rest a moment before the test."
+    },
+    {
+      "id": "check_rest_short",
+      "ar": "استرح لحظة.",
+      "arTts": "اِسْتَرِحْ لَحْظَة.",
+      "en": "Rest a moment."
+    },
+    {
+      "id": "check_rest_minute",
+      "ar": "استرح دقيقة واحدة.",
+      "arTts": "اِسْتَرِحْ دَقِيقَةً وَاحِدَة.",
+      "en": "Rest for one minute."
+    },
+    {
+      "id": "check_other_side",
+      "ar": "والآن الجهة الأخرى.",
+      "arTts": "وَالْآنَ الْجِهَةُ الْأُخْرَى.",
+      "en": "Now the other side."
+    },
+    {
+      "id": "check_left_arm",
+      "ar": "والآن ذراعك اليسرى.",
+      "arTts": "وَالْآنَ ذِرَاعُكَ الْيُسْرَى.",
+      "en": "Now your left arm."
+    },
+    {
+      "id": "check_right_arm",
+      "ar": "والآن ذراعك اليمنى.",
+      "arTts": "وَالْآنَ ذِرَاعُكَ الْيُمْنَى.",
+      "en": "Now your right arm."
+    },
+    {
+      "id": "check_saved",
+      "ar": "حُفظت نتيجة المحاولة.",
+      "arTts": "حُفِظَتْ نَتِيجَةُ الْمُحَاوَلَة.",
+      "en": "Result saved."
+    },
+    {
+      "id": "check_try_again",
+      "ar": "لنحاول مرة أخرى.",
+      "arTts": "لِنُحَاوِلْ مَرَّةً أُخْرَى.",
+      "en": "Let’s try once more."
+    },
+    {
+      "id": "check_breathe",
+      "ar": "تنفس بشكل طبيعي.",
+      "arTts": "تَنَفَّسْ بِشَكْلٍ طَبِيعِيّ.",
+      "en": "Breathe normally."
+    },
+    {
+      "id": "check_stop_now",
+      "ar": "توقف الآن واسترح.",
+      "arTts": "تَوَقَّفِ الْآنَ وَاسْتَرِحْ.",
+      "en": "Stop now and rest."
+    },
+    {
+      "id": "check_are_you_ok",
+      "ar": "هل أنت بخير؟ إذا كنت بخير، فارفع إحدى يديك أو المس الشاشة.",
+      "arTts": "هَلْ أَنْتَ بِخَيْر؟ إِذَا كُنْتَ بِخَيْرٍ، فَارْفَعْ إِحْدَى يَدَيْكَ أَوِ الْمِسِ الشَّاشَة.",
+      "en": "Are you all right? If you are, raise one hand, or tap the screen."
+    },
+    {
+      "id": "check_urgent_call",
+      "ar": "إذا احتجت إلى مساعدة عاجلة، فاتصل بالرقم 997.",
+      "arTts": "إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ عَاجِلَةٍ، فَاتَّصِلْ بِالرَّقْم، تِسْعَة، تِسْعَة، سَبْعَة.",
+      "en": "If you need urgent help, call 997."
+    },
+    {
+      "id": "check_skip_ok",
+      "ar": "لا بأس، سنتخطى هذا الاختبار.",
+      "arTts": "لَا بَأْسَ، سَنَتَخَطَّى هَذَا الِاخْتِبَار.",
+      "en": "That is fine. We will skip this test."
+    },
+    {
+      "id": "check_postpone",
+      "ar": "لنؤجل الفحص إلى يوم آخر.",
+      "arTts": "لِنُؤَجِّلِ الْفَحْصَ إِلَى يَوْمٍ آخَر.",
+      "en": "Let’s do the check on another day."
+    },
+    {
+      "id": "check_sit_minute",
+      "ar": "ابقَ جالسًا دقيقة واحدة، ثم انهض ببطء.",
+      "arTts": "اِبْقَ جَالِسًا دَقِيقَةً وَاحِدَةً، ثُمَّ انْهَضْ بِبُطْء.",
+      "en": "Stay seated for one minute, then get up slowly."
+    },
+    {
+      "id": "check_done",
+      "ar": "اكتمل الفحص. شكرًا لك.",
+      "arTts": "اِكْتَمَلَ الْفَحْص. شُكْرًا لَك.",
+      "en": "The check is complete. Thank you."
+    },
+    {
+      "id": "test_abd_start",
+      "ar": "اجلس مستقيمًا، وظهرك مستند إلى الكرسي.",
+      "arTts": "اِجْلِسْ مُسْتَقِيمًا، وَظَهْرُكَ مُسْتَنِدٌ إِلَى الْكُرْسِيّ.",
+      "en": "Sit tall with your back against the chair."
+    },
+    {
+      "id": "test_abd_arms_rest",
+      "ar": "اترك ذراعيك بجانبك.",
+      "arTts": "اُتْرُكْ ذِرَاعَيْكَ بِجَانِبِك.",
+      "en": "Rest both arms by your sides."
+    },
+    {
+      "id": "test_abd_thumb",
+      "ar": "ذراعك مستقيمة، وإبهامك إلى الأعلى.",
+      "arTts": "ذِرَاعُكَ مُسْتَقِيمَةٌ، وَإِبْهَامُكَ إِلَى الْأَعْلَى.",
+      "en": "Arm straight, thumb pointing up."
+    },
+    {
+      "id": "test_abd_raise",
+      "ar": "ارفع ذراعك إلى الجانب، إلى أعلى ارتفاع مريح.",
+      "arTts": "اِرْفَعْ ذِرَاعَكَ إِلَى الْجَانِبِ، إِلَى أَعْلَى ارْتِفَاعٍ مُرِيح.",
+      "en": "Raise your arm to the side, as high as is comfortable."
+    },
+    {
+      "id": "test_abd_side",
+      "ar": "ارفع ذراعك إلى الجانب، لا إلى الأمام.",
+      "arTts": "اِرْفَعْ ذِرَاعَكَ إِلَى الْجَانِبِ، لَا إِلَى الْأَمَام.",
+      "en": "Raise your arm out to the side, not in front of you."
+    },
+    {
+      "id": "test_abd_hold",
+      "ar": "اثبت هنا.",
+      "arTts": "اُثْبُتْ هُنَا.",
+      "en": "Hold it there."
+    },
+    {
+      "id": "test_abd_lower",
+      "ar": "والآن أنزلها ببطء.",
+      "arTts": "وَالْآنَ أَنْزِلْهَا بِبُطْء.",
+      "en": "Now lower it slowly."
+    },
+    {
+      "id": "test_abd_still",
+      "ar": "أبقِ جسمك ثابتًا دون أن تميل.",
+      "arTts": "أَبْقِ جِسْمَكَ ثَابِتًا دُونَ أَنْ تَمِيل.",
+      "en": "Keep your body still, without leaning."
+    },
+    {
+      "id": "test_abd_relax_shoulder",
+      "ar": "أرخِ كتفك بعيدًا عن أذنك.",
+      "arTts": "أَرْخِ كَتِفَكَ بَعِيدًا عَنْ أُذُنِك.",
+      "en": "Let your shoulder relax, away from your ear."
+    },
+    {
+      "id": "test_curl_start",
+      "ar": "اجلس مستقيمًا، ودع ذراعك تتدلى إلى الأسفل.",
+      "arTts": "اِجْلِسْ مُسْتَقِيمًا، وَدَعْ ذِرَاعَكَ تَتَدَلَّى إِلَى الْأَسْفَل.",
+      "en": "Sit tall and let your arm hang straight down."
+    },
+    {
+      "id": "test_curl_elbow",
+      "ar": "أبقِ مرفقك قريبًا من جسمك.",
+      "arTts": "أَبْقِ مِرْفَقَكَ قَرِيبًا مِنْ جِسْمِك.",
+      "en": "Keep your elbow close to your body."
+    },
+    {
+      "id": "test_curl_full",
+      "ar": "اثنِ ذراعك إلى الأعلى تمامًا، ثم مُدّها إلى الأسفل تمامًا.",
+      "arTts": "اِثْنِ ذِرَاعَكَ إِلَى الْأَعْلَى تَمَامًا، ثُمَّ مُدَّهَا إِلَى الْأَسْفَلِ تَمَامًا.",
+      "en": "Bend all the way up, then straighten all the way down."
+    },
+    {
+      "id": "test_curl_many",
+      "ar": "عند البدء، أكمل أكبر عدد من الثنيات الكاملة تستطيعه بأمان.",
+      "arTts": "عِنْدَ الْبَدْءِ، أَكْمِلْ أَكْبَرَ عَدَدٍ مِنَ الثَّنَيَاتِ الْكَامِلَةِ تَسْتَطِيعُهُ بِأَمَان.",
+      "en": "On go, do as many full bends as you safely can."
+    },
+    {
+      "id": "test_curl_grip",
+      "ar": "إذا بدأ الوزن ينزلق من يدك، فتوقف وضعه جانبًا.",
+      "arTts": "إِذَا بَدَأَ الْوَزْنُ يَنْزَلِقُ مِنْ يَدِكَ، فَتَوَقَّفْ وَضَعْهُ جَانِبًا.",
+      "en": "If your grip slips, stop and put the weight down."
+    },
+    {
+      "id": "test_trunk_start",
+      "ar": "اجلس مستقيمًا وثابتًا، ويداك على فخذيك.",
+      "arTts": "اِجْلِسْ مُسْتَقِيمًا وَثَابِتًا، وَيَدَاكَ عَلَى فَخِذَيْك.",
+      "en": "Sit tall and still, hands resting on your thighs."
+    },
+    {
+      "id": "test_trunk_still",
+      "ar": "ابقَ ثابتًا لحظة.",
+      "arTts": "اِبْقَ ثَابِتًا لَحْظَة.",
+      "en": "Stay still for a moment."
+    },
+    {
+      "id": "test_trunk_lean_left",
+      "ar": "مِل ببطء إلى يسارك، فقط بقدر ما تستطيع العودة منه.",
+      "arTts": "مِلْ بِبُطْءٍ إِلَى يَسَارِكَ، فَقَطْ بِقَدْرِ مَا تَسْتَطِيعُ الْعَوْدَةَ مِنْه.",
+      "en": "Slowly lean to your left, only as far as you can come back from."
+    },
+    {
+      "id": "test_trunk_lean_right",
+      "ar": "مِل ببطء إلى يمينك، فقط بقدر ما تستطيع العودة منه.",
+      "arTts": "مِلْ بِبُطْءٍ إِلَى يَمِينِكَ، فَقَطْ بِقَدْرِ مَا تَسْتَطِيعُ الْعَوْدَةَ مِنْه.",
+      "en": "Slowly lean to your right, only as far as you can come back from."
+    },
+    {
+      "id": "test_trunk_light_touch",
+      "ar": "دع يدك تنزلق بخفة، دون ضغط.",
+      "arTts": "دَعْ يَدَكَ تَنْزَلِقُ بِخِفَّةٍ، دُونَ ضَغْط.",
+      "en": "Let your hand slide lightly, without pushing."
+    },
+    {
+      "id": "test_trunk_pause",
+      "ar": "توقف هنا لحظة.",
+      "arTts": "تَوَقَّفْ هُنَا لَحْظَة.",
+      "en": "Pause there."
+    },
+    {
+      "id": "test_trunk_return",
+      "ar": "والآن عُد واجلس مستقيمًا.",
+      "arTts": "وَالْآنَ عُدْ وَاجْلِسْ مُسْتَقِيمًا.",
+      "en": "Now come back and sit tall."
+    },
+    {
+      "id": "test_trunk_seat",
+      "ar": "ابقَ على المقعد، وأبقِ قدميك ثابتتين.",
+      "arTts": "اِبْقَ عَلَى الْمَقْعَدِ، وَأَبْقِ قَدَمَيْكَ ثَابِتَتَيْن.",
+      "en": "Stay on the seat and keep your feet still."
+    },
+    {
+      "id": "test_trunk_to_middle",
+      "ar": "بهدوء، عُد إلى المنتصف.",
+      "arTts": "بِهُدُوءٍ، عُدْ إِلَى الْمُنْتَصَف.",
+      "en": "Slowly now, come back to the middle."
+    },
+    {
+      "id": "test_stand_start",
+      "ar": "اجلس في منتصف الكرسي، وقدماك على الأرض.",
+      "arTts": "اِجْلِسْ فِي مُنْتَصَفِ الْكُرْسِيِّ، وَقَدَمَاكَ عَلَى الْأَرْض.",
+      "en": "Sit in the middle of the chair, feet flat on the floor."
+    },
+    {
+      "id": "test_stand_arms_cross",
+      "ar": "ضع ذراعيك متقاطعتين على صدرك.",
+      "arTts": "ضَعْ ذِرَاعَيْكَ مُتَقَاطِعَتَيْنِ عَلَى صَدْرِك.",
+      "en": "Cross your arms on your chest."
+    },
+    {
+      "id": "test_stand_hands_ok",
+      "ar": "يمكنك الاستعانة بيديك للنهوض، ثم اتركهما عندما تقف.",
+      "arTts": "يُمْكِنُكَ الِاسْتِعَانَةُ بِيَدَيْكَ لِلنُّهُوضِ، ثُمَّ اتْرُكْهُمَا عِنْدَمَا تَقِف.",
+      "en": "You may push with your hands, then let go when you are standing."
+    },
+    {
+      "id": "test_stand_full",
+      "ar": "قف مستقيمًا تمامًا، ثم اجلس على المقعد بالكامل.",
+      "arTts": "قِفْ مُسْتَقِيمًا تَمَامًا، ثُمَّ اجْلِسْ عَلَى الْمَقْعَدِ بِالْكَامِل.",
+      "en": "Stand up fully, then sit all the way down."
+    },
+    {
+      "id": "test_stand_many",
+      "ar": "عند البدء، قف واجلس أكبر عدد من المرات تستطيعه بأمان.",
+      "arTts": "عِنْدَ الْبَدْءِ، قِفْ وَاجْلِسْ أَكْبَرَ عَدَدٍ مِنَ الْمَرَّاتِ تَسْتَطِيعُهُ بِأَمَان.",
+      "en": "On go, stand up and sit down as many times as you safely can."
+    },
+    {
+      "id": "test_stand_steady",
+      "ar": "خذ لحظة حتى تشعر بالثبات.",
+      "arTts": "خُذْ لَحْظَةً حَتَّى تَشْعُرَ بِالثَّبَات.",
+      "en": "Take a moment to feel steady."
+    },
+    {
+      "id": "test_stand_dizzy",
+      "ar": "إذا شعرت بدوخة، فاجلس واسترح.",
+      "arTts": "إِذَا شَعَرْتَ بِدَوْخَةٍ، فَاجْلِسْ وَاسْتَرِحْ.",
+      "en": "If you feel light headed, sit and rest."
+    },
+    {
+      "id": "test_stand_hands_needed",
+      "ar": "احتجت إلى يديك، ولا بأس في ذلك. اجلس واسترح.",
+      "arTts": "اِحْتَجْتَ إِلَى يَدَيْكَ، وَلَا بَأْسَ فِي ذَلِك. اِجْلِسْ وَاسْتَرِحْ.",
+      "en": "You needed your hands. That is fine. Sit and rest."
+    }
+  ],
+  "selection": {
+    "gate": "The check is offered only when contextFromIntake returns a context. It returns null for mobility bed and for the clinical plan review reasons: cardiac, symptoms, recent_change, restriction (no_exercise), unknown_condition (other), clearance (stroke, sci_complete, sci_incomplete without clearance yes), pem (cfs_moderate), unsupported_position. Scheduling reasons (recovery, duration, no_exercises) should not block the check (open question Q20).",
+    "basePerPosition": {
+      "chair": [
+        "shoulder_abduction",
+        "trunk_control_seated",
+        "arm_curl_30s"
+      ],
+      "wheelchair": [
+        "shoulder_abduction",
+        "trunk_control_seated",
+        "arm_curl_30s"
+      ],
+      "standing": [
+        "shoulder_abduction",
+        "chair_stand_30s",
+        "arm_curl_30s"
+      ],
+      "bed": []
+    },
+    "substitution": "Standing position: when chair_stand_30s is excluded by an intake level rule (pain hip, knee or back; no_weight_bearing; balance_support; sci_complete; lower_limb_unilateral; clearance no or unsure at home), trunk_control_seated takes its place in the same slot, if it is not excluded itself. Same day skips (helper_needed, pain today, flare) do not trigger a substitute.",
+    "order": "Fixed order as listed in basePerPosition (the substitute keeps the slot). Standing: the 1 minute seated rest after the chair stand runs before the arm curl.",
+    "setting": {
+      "booth": "Staff present. Staff stand within arm’s reach, hands ready and not touching; they may be in the picture but never between the phone and the person. They never lift, guide or steady an arm to help a movement. If the person loses balance they catch at once, at the waist, hips or trunk, never by the arm; that attempt is discarded and the test stops. Allowed only at the booth: trunk_control_seated for balance_support, pc_sit_unsupported no or unsure, pc_fall_sitting yes (not pc_stroke_push yes, which is excluded in v1); chair_stand_30s for clearance no or unsure, only after pc_booth_vitals. Results carry setting booth and form their own series.",
+      "home": "Unsupervised. Home only exclusions apply."
+    },
+    "clearance": "Intake clearance no or unsure (only possible for conditions that do not require clearance): arm curl uses arm_only; chair stand is booth only, after a mandatory resting heart rate and blood pressure check (pc_booth_vitals); abduction and trunk control run as normal. The booth_offer line is shown only while a staffed booth is scheduled.",
+    "guestBooth": "The guest booth flow must also ask conditions (for routing to staff and for the condition questions). cardiac or other: no check, talk to staff. See Q19.",
+    "sessionMinutes": [
+      8,
+      10
+    ],
+    "conditionNotes": {
+      "stroke": "Clearance yes already required by the plan. Weaker side rules; weaker arm arm_only in the arm curl in v1; pc_stroke_push yes excludes the side lean in v1; helper for the side lean at home; arms_assisted default for the chair stand with a helper; warn_weak_shoulder before arm tests.",
+      "ms": "pc_ms_heat; warn_ms_cool; wide bands for abduction and curl; chair stand band plus 1; pc_ms_one_arm; helper for the side lean at home; no dumbbell at home.",
+      "cerebral_palsy": "Wide abduction band; bent elbow accepted; up to 2 extra retries; arms_assisted default and helper for the chair stand; wide trunk band; helper for the side lean at home; no dumbbell at home.",
+      "sci_complete": "Clearance yes already required. pc_sci_level, AD screens (pc_sci_ad_since, pc_sci_ad_now, pc_sci_ready; scr_ad also shown with scr_emergency), pc_arm_function, pc_pressure_sore; thumb up mandatory in abduction; helper for the side lean at home; no dumbbell at home; chair stand excluded.",
+      "sci_incomplete": "As sci_complete; the chair stand is allowed for standing users as arms_assisted with a helper.",
+      "parkinsons": "pc_pd_on, pc_pd_dose, warn_pd_timing; wide bands; helper for the chair stand and for the side lean at home; no dumbbell at home; pc_pd_dizzy_standing; pause after the first practice stand; 1 minute seated after.",
+      "lower_limb_unilateral": "Chair stand excluded in v1 (trunk control substitute); armrest on the limb loss side for trunk control; prosthesis state recorded.",
+      "upper_limb_unilateral": "Abduction and curl on the intact side only; one_arm_cross variant for the chair stand; armrest on the limb loss side for trunk control.",
+      "arthritis": "pc_arthritis_flare; pain free range; wide curl band with arm pain.",
+      "cfs_moderate": "No check in v1: the plan routes cfs_moderate to review (pem), consistent with NICE NG206.",
+      "cardiac": "No check: clinical review.",
+      "other": "No check: clinical review.",
+      "none": "Default rules."
+    }
+  }
+}

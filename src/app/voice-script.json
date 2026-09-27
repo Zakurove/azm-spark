@@ -173,5 +173,340 @@
     "ar": "عشرة",
     "en": "10",
     "arTts": "عَشَرَة"
+  },
+  "check_intro": {
+    "ar": "يقيس هذا الفحص حركتك لتتابعها بنفسك. خذ وقتك.",
+    "en": "This check measures your movement for your own tracking. Take your time.",
+    "arTts": "يَقِيسُ هَذَا الْفَحْصُ حَرَكَتَكَ لِتُتَابِعَهَا بِنَفْسِك. خُذْ وَقْتَك."
+  },
+  "check_stop_any_time": {
+    "ar": "توقف في أي وقت إذا شعرت بألم أو بأنك لست بخير.",
+    "en": "Stop at any time if you feel pain or feel unwell.",
+    "arTts": "تَوَقَّفْ فِي أَيِّ وَقْتٍ إِذَا شَعَرْتَ بِأَلَمٍ أَوْ بِأَنَّكَ لَسْتَ بِخَيْر."
+  },
+  "check_phone_steady": {
+    "ar": "ضع الهاتف واقفًا على شيء ثابت.",
+    "en": "Stand the phone upright on something steady.",
+    "arTts": "ضَعِ الْهَاتِفَ وَاقِفًا عَلَى شَيْءٍ ثَابِت."
+  },
+  "check_phone_level": {
+    "ar": "اجعل الهاتف مستقيمًا وغير مائل.",
+    "en": "Keep the phone upright and level.",
+    "arTts": "اِجْعَلِ الْهَاتِفَ مُسْتَقِيمًا وَغَيْرَ مَائِل."
+  },
+  "check_phone_still": {
+    "ar": "أبقِ الهاتف ثابتًا.",
+    "en": "Keep the phone still.",
+    "arTts": "أَبْقِ الْهَاتِفَ ثَابِتًا."
+  },
+  "check_whole_body": {
+    "ar": "تحرك حتى يظهر جسمك كاملًا في الصورة.",
+    "en": "Move until your whole body is in the picture.",
+    "arTts": "تَحَرَّكْ حَتَّى يَظْهَرَ جِسْمُكَ كَامِلًا فِي الصُّورَة."
+  },
+  "check_face_phone": {
+    "ar": "واجه الهاتف.",
+    "en": "Face the phone.",
+    "arTts": "وَاجِهِ الْهَاتِف."
+  },
+  "check_left_side_to_phone": {
+    "ar": "استدر حتى يكون جانبك الأيسر نحو الهاتف.",
+    "en": "Turn so your left side faces the phone.",
+    "arTts": "اِسْتَدِرْ حَتَّى يَكُونَ جَانِبُكَ الْأَيْسَرُ نَحْوَ الْهَاتِف."
+  },
+  "check_right_side_to_phone": {
+    "ar": "استدر حتى يكون جانبك الأيمن نحو الهاتف.",
+    "en": "Turn so your right side faces the phone.",
+    "arTts": "اِسْتَدِرْ حَتَّى يَكُونَ جَانِبُكَ الْأَيْمَنُ نَحْوَ الْهَاتِف."
+  },
+  "check_phone_angle": {
+    "ar": "ضع الهاتف أمامك بزاوية، مائلًا قليلًا إلى أحد الجانبين.",
+    "en": "Place the phone in front of you at an angle, a little to one side.",
+    "arTts": "ضَعِ الْهَاتِفَ أَمَامَكَ بِزَاوِيَةٍ، مَائِلًا قَلِيلًا إِلَى أَحَدِ الْجَانِبَيْن."
+  },
+  "check_move_back": {
+    "ar": "ابتعد قليلًا عن الهاتف.",
+    "en": "Move back a little.",
+    "arTts": "اِبْتَعِدْ قَلِيلًا عَنِ الْهَاتِف."
+  },
+  "check_move_closer": {
+    "ar": "اقترب قليلًا من الهاتف.",
+    "en": "Come a little closer.",
+    "arTts": "اِقْتَرِبْ قَلِيلًا مِنَ الْهَاتِف."
+  },
+  "check_light": {
+    "ar": "أضف إضاءة أمامك.",
+    "en": "Add some light in front of you.",
+    "arTts": "أَضِفْ إِضَاءَةً أَمَامَك."
+  },
+  "check_one_person": {
+    "ar": "تأكد ألا يقف أحد بينك وبين الهاتف.",
+    "en": "Make sure no one stands between you and the phone.",
+    "arTts": "تَأَكَّدْ أَلَّا يَقِفَ أَحَدٌ بَيْنَكَ وَبَيْنَ الْهَاتِف."
+  },
+  "check_sleeves": {
+    "ar": "الأكمام الضيقة تساعد الكاميرا على رؤية مرفقيك.",
+    "en": "Fitted sleeves help the camera see your elbows.",
+    "arTts": "الْأَكْمَامُ الضَّيِّقَةُ تُسَاعِدُ الْكَامِيرَا عَلَى رُؤْيَةِ مِرْفَقَيْك."
+  },
+  "check_ready": {
+    "ar": "استعد.",
+    "en": "Get ready.",
+    "arTts": "اِسْتَعِدّ."
+  },
+  "check_go": {
+    "ar": "ابدأ.",
+    "en": "Go.",
+    "arTts": "اِبْدَأْ."
+  },
+  "check_ten_left": {
+    "ar": "بقيت عشر ثوانٍ.",
+    "en": "Ten seconds left.",
+    "arTts": "بَقِيَتْ عَشْرُ ثَوَان."
+  },
+  "check_time_stop": {
+    "ar": "توقف. أحسنت.",
+    "en": "Stop. Well done.",
+    "arTts": "تَوَقَّفْ. أَحْسَنْت."
+  },
+  "check_practice": {
+    "ar": "أولًا، حركتان تجريبيتان ببطء.",
+    "en": "First, two slow practice movements.",
+    "arTts": "أَوَّلًا، حَرَكَتَانِ تَجْرِيبِيَّتَانِ بِبُطْء."
+  },
+  "check_practice_done": {
+    "ar": "جيد. استرح لحظة قبل الاختبار.",
+    "en": "Good. Rest a moment before the test.",
+    "arTts": "جَيِّد. اِسْتَرِحْ لَحْظَةً قَبْلَ الِاخْتِبَار."
+  },
+  "check_rest_short": {
+    "ar": "استرح لحظة.",
+    "en": "Rest a moment.",
+    "arTts": "اِسْتَرِحْ لَحْظَة."
+  },
+  "check_rest_minute": {
+    "ar": "استرح دقيقة واحدة.",
+    "en": "Rest for one minute.",
+    "arTts": "اِسْتَرِحْ دَقِيقَةً وَاحِدَة."
+  },
+  "check_other_side": {
+    "ar": "والآن الجهة الأخرى.",
+    "en": "Now the other side.",
+    "arTts": "وَالْآنَ الْجِهَةُ الْأُخْرَى."
+  },
+  "check_left_arm": {
+    "ar": "والآن ذراعك اليسرى.",
+    "en": "Now your left arm.",
+    "arTts": "وَالْآنَ ذِرَاعُكَ الْيُسْرَى."
+  },
+  "check_right_arm": {
+    "ar": "والآن ذراعك اليمنى.",
+    "en": "Now your right arm.",
+    "arTts": "وَالْآنَ ذِرَاعُكَ الْيُمْنَى."
+  },
+  "check_saved": {
+    "ar": "حُفظت نتيجة المحاولة.",
+    "en": "Result saved.",
+    "arTts": "حُفِظَتْ نَتِيجَةُ الْمُحَاوَلَة."
+  },
+  "check_try_again": {
+    "ar": "لنحاول مرة أخرى.",
+    "en": "Let’s try once more.",
+    "arTts": "لِنُحَاوِلْ مَرَّةً أُخْرَى."
+  },
+  "check_breathe": {
+    "ar": "تنفس بشكل طبيعي.",
+    "en": "Breathe normally.",
+    "arTts": "تَنَفَّسْ بِشَكْلٍ طَبِيعِيّ."
+  },
+  "check_stop_now": {
+    "ar": "توقف الآن واسترح.",
+    "en": "Stop now and rest.",
+    "arTts": "تَوَقَّفِ الْآنَ وَاسْتَرِحْ."
+  },
+  "check_are_you_ok": {
+    "ar": "هل أنت بخير؟ إذا كنت بخير، فارفع إحدى يديك أو المس الشاشة.",
+    "en": "Are you all right? If you are, raise one hand, or tap the screen.",
+    "arTts": "هَلْ أَنْتَ بِخَيْر؟ إِذَا كُنْتَ بِخَيْرٍ، فَارْفَعْ إِحْدَى يَدَيْكَ أَوِ الْمِسِ الشَّاشَة."
+  },
+  "check_urgent_call": {
+    "ar": "إذا احتجت إلى مساعدة عاجلة، فاتصل بالرقم 997.",
+    "en": "If you need urgent help, call 997.",
+    "arTts": "إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ عَاجِلَةٍ، فَاتَّصِلْ بِالرَّقْم، تِسْعَة، تِسْعَة، سَبْعَة."
+  },
+  "check_skip_ok": {
+    "ar": "لا بأس، سنتخطى هذا الاختبار.",
+    "en": "That is fine. We will skip this test.",
+    "arTts": "لَا بَأْسَ، سَنَتَخَطَّى هَذَا الِاخْتِبَار."
+  },
+  "check_postpone": {
+    "ar": "لنؤجل الفحص إلى يوم آخر.",
+    "en": "Let’s do the check on another day.",
+    "arTts": "لِنُؤَجِّلِ الْفَحْصَ إِلَى يَوْمٍ آخَر."
+  },
+  "check_sit_minute": {
+    "ar": "ابقَ جالسًا دقيقة واحدة، ثم انهض ببطء.",
+    "en": "Stay seated for one minute, then get up slowly.",
+    "arTts": "اِبْقَ جَالِسًا دَقِيقَةً وَاحِدَةً، ثُمَّ انْهَضْ بِبُطْء."
+  },
+  "check_done": {
+    "ar": "اكتمل الفحص. شكرًا لك.",
+    "en": "The check is complete. Thank you.",
+    "arTts": "اِكْتَمَلَ الْفَحْص. شُكْرًا لَك."
+  },
+  "test_abd_start": {
+    "ar": "اجلس مستقيمًا، وظهرك مستند إلى الكرسي.",
+    "en": "Sit tall with your back against the chair.",
+    "arTts": "اِجْلِسْ مُسْتَقِيمًا، وَظَهْرُكَ مُسْتَنِدٌ إِلَى الْكُرْسِيّ."
+  },
+  "test_abd_arms_rest": {
+    "ar": "اترك ذراعيك بجانبك.",
+    "en": "Rest both arms by your sides.",
+    "arTts": "اُتْرُكْ ذِرَاعَيْكَ بِجَانِبِك."
+  },
+  "test_abd_thumb": {
+    "ar": "ذراعك مستقيمة، وإبهامك إلى الأعلى.",
+    "en": "Arm straight, thumb pointing up.",
+    "arTts": "ذِرَاعُكَ مُسْتَقِيمَةٌ، وَإِبْهَامُكَ إِلَى الْأَعْلَى."
+  },
+  "test_abd_raise": {
+    "ar": "ارفع ذراعك إلى الجانب، إلى أعلى ارتفاع مريح.",
+    "en": "Raise your arm to the side, as high as is comfortable.",
+    "arTts": "اِرْفَعْ ذِرَاعَكَ إِلَى الْجَانِبِ، إِلَى أَعْلَى ارْتِفَاعٍ مُرِيح."
+  },
+  "test_abd_side": {
+    "ar": "ارفع ذراعك إلى الجانب، لا إلى الأمام.",
+    "en": "Raise your arm out to the side, not in front of you.",
+    "arTts": "اِرْفَعْ ذِرَاعَكَ إِلَى الْجَانِبِ، لَا إِلَى الْأَمَام."
+  },
+  "test_abd_hold": {
+    "ar": "اثبت هنا.",
+    "en": "Hold it there.",
+    "arTts": "اُثْبُتْ هُنَا."
+  },
+  "test_abd_lower": {
+    "ar": "والآن أنزلها ببطء.",
+    "en": "Now lower it slowly.",
+    "arTts": "وَالْآنَ أَنْزِلْهَا بِبُطْء."
+  },
+  "test_abd_still": {
+    "ar": "أبقِ جسمك ثابتًا دون أن تميل.",
+    "en": "Keep your body still, without leaning.",
+    "arTts": "أَبْقِ جِسْمَكَ ثَابِتًا دُونَ أَنْ تَمِيل."
+  },
+  "test_abd_relax_shoulder": {
+    "ar": "أرخِ كتفك بعيدًا عن أذنك.",
+    "en": "Let your shoulder relax, away from your ear.",
+    "arTts": "أَرْخِ كَتِفَكَ بَعِيدًا عَنْ أُذُنِك."
+  },
+  "test_curl_start": {
+    "ar": "اجلس مستقيمًا، ودع ذراعك تتدلى إلى الأسفل.",
+    "en": "Sit tall and let your arm hang straight down.",
+    "arTts": "اِجْلِسْ مُسْتَقِيمًا، وَدَعْ ذِرَاعَكَ تَتَدَلَّى إِلَى الْأَسْفَل."
+  },
+  "test_curl_elbow": {
+    "ar": "أبقِ مرفقك قريبًا من جسمك.",
+    "en": "Keep your elbow close to your body.",
+    "arTts": "أَبْقِ مِرْفَقَكَ قَرِيبًا مِنْ جِسْمِك."
+  },
+  "test_curl_full": {
+    "ar": "اثنِ ذراعك إلى الأعلى تمامًا، ثم مُدّها إلى الأسفل تمامًا.",
+    "en": "Bend all the way up, then straighten all the way down.",
+    "arTts": "اِثْنِ ذِرَاعَكَ إِلَى الْأَعْلَى تَمَامًا، ثُمَّ مُدَّهَا إِلَى الْأَسْفَلِ تَمَامًا."
+  },
+  "test_curl_many": {
+    "ar": "عند البدء، أكمل أكبر عدد من الثنيات الكاملة تستطيعه بأمان.",
+    "en": "On go, do as many full bends as you safely can.",
+    "arTts": "عِنْدَ الْبَدْءِ، أَكْمِلْ أَكْبَرَ عَدَدٍ مِنَ الثَّنَيَاتِ الْكَامِلَةِ تَسْتَطِيعُهُ بِأَمَان."
+  },
+  "test_curl_grip": {
+    "ar": "إذا بدأ الوزن ينزلق من يدك، فتوقف وضعه جانبًا.",
+    "en": "If your grip slips, stop and put the weight down.",
+    "arTts": "إِذَا بَدَأَ الْوَزْنُ يَنْزَلِقُ مِنْ يَدِكَ، فَتَوَقَّفْ وَضَعْهُ جَانِبًا."
+  },
+  "test_trunk_start": {
+    "ar": "اجلس مستقيمًا وثابتًا، ويداك على فخذيك.",
+    "en": "Sit tall and still, hands resting on your thighs.",
+    "arTts": "اِجْلِسْ مُسْتَقِيمًا وَثَابِتًا، وَيَدَاكَ عَلَى فَخِذَيْك."
+  },
+  "test_trunk_still": {
+    "ar": "ابقَ ثابتًا لحظة.",
+    "en": "Stay still for a moment.",
+    "arTts": "اِبْقَ ثَابِتًا لَحْظَة."
+  },
+  "test_trunk_lean_left": {
+    "ar": "مِل ببطء إلى يسارك، فقط بقدر ما تستطيع العودة منه.",
+    "en": "Slowly lean to your left, only as far as you can come back from.",
+    "arTts": "مِلْ بِبُطْءٍ إِلَى يَسَارِكَ، فَقَطْ بِقَدْرِ مَا تَسْتَطِيعُ الْعَوْدَةَ مِنْه."
+  },
+  "test_trunk_lean_right": {
+    "ar": "مِل ببطء إلى يمينك، فقط بقدر ما تستطيع العودة منه.",
+    "en": "Slowly lean to your right, only as far as you can come back from.",
+    "arTts": "مِلْ بِبُطْءٍ إِلَى يَمِينِكَ، فَقَطْ بِقَدْرِ مَا تَسْتَطِيعُ الْعَوْدَةَ مِنْه."
+  },
+  "test_trunk_light_touch": {
+    "ar": "دع يدك تنزلق بخفة، دون ضغط.",
+    "en": "Let your hand slide lightly, without pushing.",
+    "arTts": "دَعْ يَدَكَ تَنْزَلِقُ بِخِفَّةٍ، دُونَ ضَغْط."
+  },
+  "test_trunk_pause": {
+    "ar": "توقف هنا لحظة.",
+    "en": "Pause there.",
+    "arTts": "تَوَقَّفْ هُنَا لَحْظَة."
+  },
+  "test_trunk_return": {
+    "ar": "والآن عُد واجلس مستقيمًا.",
+    "en": "Now come back and sit tall.",
+    "arTts": "وَالْآنَ عُدْ وَاجْلِسْ مُسْتَقِيمًا."
+  },
+  "test_trunk_seat": {
+    "ar": "ابقَ على المقعد، وأبقِ قدميك ثابتتين.",
+    "en": "Stay on the seat and keep your feet still.",
+    "arTts": "اِبْقَ عَلَى الْمَقْعَدِ، وَأَبْقِ قَدَمَيْكَ ثَابِتَتَيْن."
+  },
+  "test_trunk_to_middle": {
+    "ar": "بهدوء، عُد إلى المنتصف.",
+    "en": "Slowly now, come back to the middle.",
+    "arTts": "بِهُدُوءٍ، عُدْ إِلَى الْمُنْتَصَف."
+  },
+  "test_stand_start": {
+    "ar": "اجلس في منتصف الكرسي، وقدماك على الأرض.",
+    "en": "Sit in the middle of the chair, feet flat on the floor.",
+    "arTts": "اِجْلِسْ فِي مُنْتَصَفِ الْكُرْسِيِّ، وَقَدَمَاكَ عَلَى الْأَرْض."
+  },
+  "test_stand_arms_cross": {
+    "ar": "ضع ذراعيك متقاطعتين على صدرك.",
+    "en": "Cross your arms on your chest.",
+    "arTts": "ضَعْ ذِرَاعَيْكَ مُتَقَاطِعَتَيْنِ عَلَى صَدْرِك."
+  },
+  "test_stand_hands_ok": {
+    "ar": "يمكنك الاستعانة بيديك للنهوض، ثم اتركهما عندما تقف.",
+    "en": "You may push with your hands, then let go when you are standing.",
+    "arTts": "يُمْكِنُكَ الِاسْتِعَانَةُ بِيَدَيْكَ لِلنُّهُوضِ، ثُمَّ اتْرُكْهُمَا عِنْدَمَا تَقِف."
+  },
+  "test_stand_full": {
+    "ar": "قف مستقيمًا تمامًا، ثم اجلس على المقعد بالكامل.",
+    "en": "Stand up fully, then sit all the way down.",
+    "arTts": "قِفْ مُسْتَقِيمًا تَمَامًا، ثُمَّ اجْلِسْ عَلَى الْمَقْعَدِ بِالْكَامِل."
+  },
+  "test_stand_many": {
+    "ar": "عند البدء، قف واجلس أكبر عدد من المرات تستطيعه بأمان.",
+    "en": "On go, stand up and sit down as many times as you safely can.",
+    "arTts": "عِنْدَ الْبَدْءِ، قِفْ وَاجْلِسْ أَكْبَرَ عَدَدٍ مِنَ الْمَرَّاتِ تَسْتَطِيعُهُ بِأَمَان."
+  },
+  "test_stand_steady": {
+    "ar": "خذ لحظة حتى تشعر بالثبات.",
+    "en": "Take a moment to feel steady.",
+    "arTts": "خُذْ لَحْظَةً حَتَّى تَشْعُرَ بِالثَّبَات."
+  },
+  "test_stand_dizzy": {
+    "ar": "إذا شعرت بدوخة، فاجلس واسترح.",
+    "en": "If you feel light headed, sit and rest.",
+    "arTts": "إِذَا شَعَرْتَ بِدَوْخَةٍ، فَاجْلِسْ وَاسْتَرِحْ."
+  },
+  "test_stand_hands_needed": {
+    "ar": "احتجت إلى يديك، ولا بأس في ذلك. اجلس واسترح.",
+    "en": "You needed your hands. That is fine. Sit and rest.",
+    "arTts": "اِحْتَجْتَ إِلَى يَدَيْكَ، وَلَا بَأْسَ فِي ذَلِك. اِجْلِسْ وَاسْتَرِحْ."
   }
 }

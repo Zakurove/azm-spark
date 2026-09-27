@@ -1,13 +1,52 @@
 import { CueId, Severity } from "../engine/types";
 import { Lang } from "./i18n";
 import voiceScript from "./voice-script.json";
+/** Every spoken line: workout cues, counts and the movement check cues (check_ and test_ ids). */
 export type VoiceLine = keyof typeof voiceScript;
 const priority: Record<Severity, number> = { praise: 0, info: 1, warn: 2, safety: 3 };
+
+/** True for an id with a voice line, such as a cue id from an engine event. */
+export function isVoiceLine(id: string): id is VoiceLine {
+  return Object.prototype.hasOwnProperty.call(voiceScript, id);
+}
+
+/** Language tag of the speech fallback. */
+const SPEECH_LANG: Record<Lang, string> = { ar: "ar-SA", en: "en-GB" };
+
+/**
+ * A voice installed on the device for the language, preferring the exact tag (ar-SA, en-GB).
+ * Remote voices are never used: they would send the text to a speech service.
+ */
+function localVoice(lang: Lang): SpeechSynthesisVoice | undefined {
+  const tag = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
+  const voices = speechSynthesis.getVoices().filter((v) => v.localService);
+  return (
+    voices.find((v) => tag(v) === SPEECH_LANG[lang].toLowerCase()) ??
+    voices.find((v) => tag(v).startsWith(lang))
+  );
+}
+
+/** Some browsers load the voice list after the first request for it: wait briefly for it. */
+function voicesLoaded(timeoutMs = 1000): Promise<void> {
+  if (speechSynthesis.getVoices().length || typeof speechSynthesis.addEventListener !== "function")
+    return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      speechSynthesis.removeEventListener("voiceschanged", done);
+      resolve();
+    };
+    const timer = setTimeout(done, timeoutMs);
+    speechSynthesis.addEventListener("voiceschanged", done);
+  });
+}
 
 // iOS only lets an audio element play sound if a tap started it. One element is started
 // inside the tap that opens the camera, and every later cue plays through it.
 let shared: HTMLAudioElement | null = null;
 export function primeAudio(lang: Lang) {
+  // Asking for the voices early lets the browser load them before a fallback needs one.
+  if (typeof speechSynthesis !== "undefined") speechSynthesis.getVoices();
   if (typeof Audio === "undefined") return;
   shared ??= new Audio();
   shared.src = `/cues/${lang}/preview.mp3`;
@@ -105,20 +144,22 @@ export class CuePlayer {
         return false;
       }
     }
+    // No recording (a missing MP3, such as a check cue before its file is generated): speak the
+    // line with a voice on the device, the vocalized arTts text in Arabic.
     if (typeof speechSynthesis === "undefined") {
       finish();
       return false;
     }
-    const voice = speechSynthesis
-      .getVoices()
-      .find((v) => v.localService && v.lang.toLowerCase().startsWith(this.lang));
+    await voicesLoaded();
+    if (this.muted || generation !== this.generation) return false;
+    const voice = localVoice(this.lang);
     if (!voice) {
       finish();
       return false;
     }
     const spoken = voiceScript[id] as { ar: string; en: string; arTts?: string };
     const u = new SpeechSynthesisUtterance(this.lang === "ar" ? (spoken.arTts ?? spoken.ar) : spoken.en);
-    u.lang = this.lang === "ar" ? "ar-SA" : "en-GB";
+    u.lang = SPEECH_LANG[this.lang];
     u.voice = voice;
     u.rate = this.rate;
     u.onend = finish;

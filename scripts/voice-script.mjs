@@ -55,4 +55,14 @@ const arTts={
  count_6:'سِتَّة',count_7:'سَبْعَة',count_8:'ثَمَانِيَة',count_9:'تِسْعَة',count_10:'عَشَرَة',
 };
 for(const [id,t] of Object.entries(arTts))if(script[id])script[id].arTts=t;
+
+// Movement check cues (check_ and test_ ids) come from the runtime clinical data, written by
+// scripts/clinical/export-check.mjs. They are appended after the workout cues, which stay unchanged.
+const check=JSON.parse(await readFile('src/movements/check-v1.json','utf8'));
+for(const c of check.cues){
+ if(!/^(check|test)_[a-z0-9_]+$/.test(c.id))throw new Error(`Check cue id ${c.id} must start with check_ or test_`);
+ if(script[c.id])throw new Error(`Check cue id ${c.id} is already a workout cue`);
+ for(const k of ['ar','arTts','en'])if(typeof c[k]!=='string'||!c[k].trim())throw new Error(`Check cue ${c.id} has no ${k}`);
+ script[c.id]={ar:c.ar,en:c.en,arTts:c.arTts};
+}
 await writeFile('src/app/voice-script.json',JSON.stringify(script,null,2)+'\n');

@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createServer } from "node:http";
 import { Worker } from "node:worker_threads";
 import { scryptSync } from "node:crypto";
 import { runMigrations } from "../server/db/migrate";
-import { backupDatabase, BACKUPS_KEPT } from "../server/db/backup";
+import { backupDatabase, BACKUPS_KEPT, STALE_PART_MS } from "../server/db/backup";
 import { migrations, type Migration } from "../server/db/migrations";
 import { createApi } from "../server/api";
 
@@ -439,6 +439,42 @@ describe("backupDatabase", () => {
     const kept = backupsIn(join(dir, "backups"));
     expect(kept).toHaveLength(BACKUPS_KEPT);
     for (const f of kept) expect(dump(openDb(join(dir, "backups", f)))).toEqual(dump(openDb(file)));
+  });
+
+  it("never prunes a copy another starter is still writing, and removes one a dead process left", () => {
+    const file = legacyFile();
+    const db = openDb(file);
+    backupDatabase(db, file, "first");
+    const backups = join(dir, "backups");
+    // A copy in progress in another process, and one left by a process that died mid copy.
+    const writing = join(backups, `.azm-${"1".repeat(8)}-1111-4111-8111-${"1".repeat(12)}.part`);
+    const dead = join(backups, `.azm-${"2".repeat(8)}-2222-4222-8222-${"2".repeat(12)}.part`);
+    writeFileSync(writing, "partial copy", { mode: 0o600 });
+    writeFileSync(dead, "partial copy", { mode: 0o600 });
+    const old = (Date.now() - STALE_PART_MS - 60_000) / 1000;
+    utimesSync(dead, old, old);
+    for (let i = 0; i < BACKUPS_KEPT + 2; i++) backupDatabase(db, file, `run-${i}`);
+    expect(existsSync(writing)).toBe(true);
+    expect(existsSync(dead)).toBe(false);
+    const kept = backupsIn(backups).filter((f) => f.endsWith(".sqlite"));
+    expect(kept).toHaveLength(BACKUPS_KEPT);
+    // No part file of this process is left behind, and part files never count as backups.
+    expect(backupsIn(backups).filter((f) => f.endsWith(".part"))).toEqual([basename(writing)]);
+  });
+
+  it("leaves no part file and no backup behind when the copy fails", () => {
+    const file = legacyFile();
+    // A database whose VACUUM INTO fails part way, as on a full disk.
+    const failing = {
+      isTransaction: false,
+      prepare: () => ({
+        run: () => {
+          throw new Error("disk full");
+        },
+      }),
+    } as unknown as Db;
+    expect(() => backupDatabase(failing, file, "full")).toThrow(/disk full/);
+    expect(backupsIn(join(dir, "backups"))).toEqual([]);
   });
 
   it("stores paths with quotes safely and refuses to run inside a transaction", () => {

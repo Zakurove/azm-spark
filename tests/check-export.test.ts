@@ -20,7 +20,7 @@ function sourceLike(): Record<string, unknown> {
     if (v && typeof v === "object") {
       const out: Record<string, unknown> = {};
       for (const [k, x] of Object.entries(v)) out[k] = withNotes(x);
-      return { ...out, note: "Review note — dropped", sources: ["ref2026"], noiseBandBasis: "Basis" };
+      return { ...out, note: "Review note \u2014 dropped", sources: ["ref2026"], noiseBandBasis: "Basis" };
     }
     return v;
   };
@@ -28,7 +28,7 @@ function sourceLike(): Record<string, unknown> {
     date: "2026-09-27",
     note: "Draft pending sign-off",
     dataMap: { persistedWithCheck: ["painNow"] },
-    references: [{ id: "ref2026", cite: "A – B" }],
+    references: [{ id: "ref2026", cite: "A \u2013 B" }],
     reviewLog: { items: [] },
     laterBattery: [{ id: "later" }],
   };
@@ -88,7 +88,7 @@ describe("movement check export", () => {
     expect(
       exportCheck({ ...source, locks: { ...locks, tune: "Tune the pre-check in the pilot" } }).errors,
     ).toBe(undefined);
-    const result = exportCheck({ ...source, locks: { ...locks, tune: "Tune — in the pilot" } });
+    const result = exportCheck({ ...source, locks: { ...locks, tune: "Tune \u2014 in the pilot" } });
     expect(result.errors).toEqual([expect.stringContaining("locks.tune [dash character]")]);
   });
 

@@ -756,6 +756,52 @@ describe("strict validation", () => {
     expect(r.data).toEqual({ error: "RESULT_INVALID", field });
   });
 
+  it("accepts the side details of the engine runners, unknown values included", async () => {
+    const raise = {
+      ...abduction(),
+      detail: {
+        reference: "trunk",
+        bentElbow: "unknown",
+        pastVertical: false,
+        spreadDeg: 4,
+        planeZ: "unknown",
+        elbowDeg: 171,
+        shrug: 0.021,
+        trunkLeanAtPeak: 3.5,
+      },
+      flags: ["planeUnchecked"],
+    };
+    expect((await h.call(`/assessments/${id}/results`, raise, cookie)).data).toEqual({ saved: true });
+    const lean = {
+      ...resultBody(itemOf(protocol, "trunk_control_seated", "right"), 21),
+      median: null,
+      detail: {
+        upright: 1.2,
+        uprightSd: 0.4,
+        band: 3,
+        pivot: "fixed_pivot",
+        contact: "unknown",
+        censored: false,
+        abortLimit: 40,
+        returnSec: "unknown",
+        shoulderShift: 0.12,
+        armSupportLikely: false,
+        wristSupport: "unknown",
+        elbowDeg: 120,
+        abort: "none",
+        sameChair: false,
+      },
+      flags: ["contact_unknown", "fixed_pivot"],
+    };
+    expect((await h.call(`/assessments/${id}/results`, lean, cookie)).data).toEqual({ saved: true });
+    // A person's own choice is never unknown.
+    const curl = { ...curlLeft(), detail: { ...curlLeft().detail, countSource: "unknown" } };
+    expect((await h.call(`/assessments/${id}/results`, curl, cookie)).data).toEqual({
+      error: "RESULT_INVALID",
+      field: "detail.countSource",
+    });
+  });
+
   it("refuses a test side outside the frozen protocol and a skipped protocol item", async () => {
     const base = abduction();
     expect((await h.call(`/assessments/${id}/results`, { ...base, side: "none" }, cookie)).data).toEqual({

@@ -175,6 +175,11 @@ const int =
   (v) =>
     intInRange(v, lo, hi);
 const bool: DetailCheck = (v) => typeof v === "boolean";
+/** A measured value may be "unknown": an optional landmark that was not seen (spec 4.0). */
+const measured =
+  (check: DetailCheck): DetailCheck =>
+  (v) =>
+    v === "unknown" || check(v);
 
 /**
  * The detail keys a result may carry and the check of each value: the setup fingerprint and engine
@@ -185,45 +190,69 @@ const bool: DetailCheck = (v) => typeof v === "boolean";
 // SPEC-GAP: detail-allowlist. The contract types detail as a record; the engine must use these keys
 // (a new key is added here with its check), so free text can never be stored as a detail.
 export const DETAIL_SPEC: Record<string, DetailCheck> = {
-  reference: oneOf("trunk", "gravity"),
+  // Setup fingerprint and the person's choices: never unknown.
   bentElbowAccepted: bool,
   loadKg: num(0, 10),
   loadL: num(0, 2),
   loadObject: oneOf("dumbbell", "bottle", "cuff", "none"),
   armrest: oneOf("removed", "in_place"),
-  view: oneOf("side", "anterolateral"),
   armrests: bool,
   armMode: (v) => isId(v),
   legProsthesis: bool,
-  pivot: oneOf("hip", "fixed"),
   footwear: oneOf("shoes", "barefoot"),
   pdState: oneOf("yes", "unsure"),
   countSource: oneOf("auto", "staff", "self"),
-  compensated: int(0, 60),
-  unscoredShare: num(0, 1),
-  censored: bool,
-  contact: bool,
   pushHand: oneOf("left", "right"),
   sameChair: bool,
-  rangeLo: num(-1000, 1000),
-  rangeHi: num(-1000, 1000),
-  partial: int(0, 100),
-  first10sCount: int(0, 60),
-  last10sCount: int(0, 60),
-  viewAngle: num(0, 90),
-  medianFps: num(0, 240),
-  returnSec: num(0, 300),
-  shoulderShift: num(-1000, 1000),
-  hSit: num(-10, 10),
-  rise: num(-10, 10),
-  riseToday: num(-10, 10),
+  // Measured by the engine (src/engine/modes): a value, or "unknown".
+  reference: measured(oneOf("trunk", "gravity")),
+  view: measured(oneOf("side", "anterolateral")),
+  pivot: measured(oneOf("hip", "fixed", "visible_hip", "fixed_pivot")),
+  compensated: measured(int(0, 60)),
+  unscoredShare: measured(num(0, 1)),
+  censored: bool,
+  contact: measured(bool),
+  rangeLo: measured(num(-1000, 1000)),
+  rangeHi: measured(num(-1000, 1000)),
+  partial: measured(int(0, 100)),
+  first10sCount: measured(int(0, 60)),
+  last10sCount: measured(int(0, 60)),
+  viewAngle: measured(num(0, 90)),
+  medianFps: measured(num(0, 240)),
+  returnSec: measured(num(0, 300)),
+  shoulderShift: measured(num(-1000, 1000)),
+  hSit: measured(num(-10, 10)),
+  rise: measured(num(-10, 10)),
+  riseToday: measured(num(-10, 10)),
   halfwayCredited: bool,
   stoppedEarly: bool,
-  secondsCompleted: num(0, 300),
-  pastVertical: bool,
-  planeZ: (v) => bool(v) || inRange(v, -1000, 1000),
-  trunkLeanAtPeak: num(-180, 180),
-  shoulderHike: num(-1000, 1000),
+  secondsCompleted: measured(num(0, 300)),
+  // Arm raise (rangeTest.ts): best attempt and side details.
+  bentElbow: measured(bool),
+  pastVertical: measured(bool),
+  planeZ: measured((v) => bool(v) || inRange(v, -1000, 1000)),
+  planeOkSec: measured(num(0, 300)),
+  spreadDeg: measured(num(0, 180)),
+  elbowDeg: measured(num(0, 180)),
+  shrug: measured(num(-10, 10)),
+  shoulderShrinkMax: measured(num(0, 10)),
+  trunkLeanAtPeak: measured(num(-180, 180)),
+  trunkLeanMax: measured(num(-180, 180)),
+  leanShiftAtPeak: measured(num(-10, 10)),
+  leanShiftMax: measured(num(-10, 10)),
+  phoneRollDeg: measured(num(-180, 180)),
+  shoulderHike: measured(num(-1000, 1000)),
+  // Seated side lean (trunkControl.ts): upright baseline, band, supports and aborts.
+  upright: measured(num(-180, 180)),
+  uprightSd: measured(num(0, 180)),
+  band: measured(num(0, 180)),
+  abortLimit: measured(num(0, 180)),
+  abort: oneOf("none", "speed", "limit", "loss", "slide"),
+  armSupportLikely: measured(bool),
+  wristSupport: measured(bool),
+  trunkShrinkMax: measured(num(0, 10)),
+  widthChangeMax: measured(num(0, 10)),
+  hipShiftMax: measured(num(-10, 10)),
 };
 /** Detail keys only the server writes. */
 export const SERVER_DETAIL_KEYS = ["chair"] as const;

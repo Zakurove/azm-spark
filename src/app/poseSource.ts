@@ -1,5 +1,5 @@
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
-import { Frame } from "../engine/types";
+import { Frame, Landmark } from "../engine/types";
 import { TRACES, TraceOpts } from "../engine/traces";
 
 /** A source of pose frames: real camera+model, or synthetic trace playback (demo/offline/tests). */
@@ -37,18 +37,34 @@ export function videoAspect(v: Pick<HTMLVideoElement, "videoWidth" | "videoHeigh
   return v.videoWidth > 0 && v.videoHeight > 0 ? v.videoWidth / v.videoHeight : undefined;
 }
 
+export interface CameraPoseOptions {
+  /**
+   * How many people the model looks for. Workouts and the trial keep the default of 1. The
+   * movement check passes 2 (CHECK_DATA.engine.pose.numPoses, spec 4.0) and picks its subject
+   * from `Frame.poses` with SubjectLock.
+   */
+  numPoses?: number;
+}
+
+type RawLandmark = { x: number; y: number; z: number; visibility?: number };
+const toLandmarks = (pose: RawLandmark[]): Landmark[] =>
+  pose.map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 }));
+
 export class CameraPoseSource implements PoseSource {
   kind = "camera" as const;
   video: HTMLVideoElement;
   onStatus?: (status: CameraStatus) => void;
+  readonly numPoses: number;
   private landmarker: PoseLandmarker | null = null;
   private raf = 0;
   private stream: MediaStream | null = null;
   private running = false;
   private cancelled = false;
 
-  constructor(video: HTMLVideoElement) {
+  constructor(video: HTMLVideoElement, opts: CameraPoseOptions = {}) {
     this.video = video;
+    const n = opts.numPoses ?? 1;
+    this.numPoses = Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
   }
 
   async start(onFrame: (f: Frame) => void): Promise<void> {
@@ -59,7 +75,7 @@ export class CameraPoseSource implements PoseSource {
     const options = (delegate: "GPU" | "CPU") => ({
       baseOptions: { modelAssetPath: poseModelUrl(), delegate },
       runningMode: "VIDEO" as const,
-      numPoses: 1,
+      numPoses: this.numPoses,
     });
     let landmarker: PoseLandmarker;
     try {
@@ -104,23 +120,22 @@ export class CameraPoseSource implements PoseSource {
         const aspect = videoAspect(v);
         try {
           const res = this.landmarker!.detectForVideo(v, t);
-          if (res.landmarks?.[0]) {
+          // Every pose the model returned, never more than asked for; lm stays the first one.
+          const poses = (res.landmarks ?? []).slice(0, this.numPoses).map(toLandmarks);
+          if (poses[0]) {
+            const world = res.worldLandmarks?.[0];
             onFrame({
               t,
-              lm: res.landmarks[0].map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
-              world: res.worldLandmarks?.[0]?.map((p) => ({
-                x: p.x,
-                y: p.y,
-                z: p.z,
-                visibility: p.visibility ?? 1,
-              })),
+              lm: poses[0],
+              world: world ? toLandmarks(world) : undefined,
               aspect,
+              poses,
             });
           } else {
-            onFrame(emptyFrame(t, aspect));
+            onFrame({ ...emptyFrame(t, aspect), poses: [] });
           }
         } catch {
-          onFrame(emptyFrame(t, aspect));
+          onFrame({ ...emptyFrame(t, aspect), poses: [] });
         }
       }
       this.raf = requestAnimationFrame(loop);

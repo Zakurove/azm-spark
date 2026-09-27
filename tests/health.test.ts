@@ -3,6 +3,7 @@ import { createServer, Server } from "node:http";
 import { createApi } from "../server/api";
 import { moduleRoutes } from "../server/modules";
 import type { Route } from "../server/http/types";
+import { migrations } from "../server/db/migrations";
 
 // A user route next to the real module routes, to prove the session gate and params for modules.
 const probe: Route = {
@@ -57,7 +58,7 @@ it("answers GET /api/health without a cookie, uncached, with no data beyond the 
   const body = await r.json();
   expect(Object.keys(body).sort()).toEqual(["ok", "schema", "uptimeSec"]);
   expect(body.ok).toBe(true);
-  expect(body.schema).toBe(1);
+  expect(body.schema).toBe(migrations[migrations.length - 1].version);
   expect(Number.isInteger(body.uptimeSec) && body.uptimeSec >= 0).toBe(true);
 });
 

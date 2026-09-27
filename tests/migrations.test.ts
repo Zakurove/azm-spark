@@ -22,6 +22,23 @@ const LEGACY_DDL = `PRAGMA foreign_keys=ON;
  CREATE TABLE IF NOT EXISTS workouts(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),plan TEXT NOT NULL,version INTEGER NOT NULL,demo INTEGER NOT NULL,position INTEGER DEFAULT 0,ended INTEGER DEFAULT 0,created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS results(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),workout_id TEXT NOT NULL,position INTEGER NOT NULL,data TEXT NOT NULL,UNIQUE(workout_id,position));`;
 const TABLES = ["users", "sessions", "profiles", "workouts", "results"];
+/** Tables of 002_movement_check. */
+const CHECK_TABLES = [
+  "assessment_results",
+  "assessments",
+  "check_locks",
+  "check_state",
+  "consents",
+  "safety_events",
+];
+const VERSIONS = migrations.map((m) => m.version);
+const LATEST = VERSIONS[VERSIONS.length - 1];
+/** A migration after every real one, for the tests that add their own. */
+const extra = (offset: number, name: string, sql = `CREATE TABLE ${name}(x INTEGER);`): Migration => ({
+  version: LATEST + offset,
+  name,
+  sql,
+});
 const PASSWORD = "legacy-password-4417";
 const BAD: Migration = {
   version: 99,
@@ -100,9 +117,9 @@ describe("runMigrations", () => {
   it("gives a fresh file database the latest schema without a backup", () => {
     const file = join(dir, "fresh.sqlite");
     const out = runMigrations(openDb(file), { dbPath: file });
-    expect(out).toEqual({ applied: [1], backup: null, schema: 1 });
-    expect(migrations.map((m) => m.version)).toEqual([1]);
-    expect(tableNames(openDb(file))).toEqual([...TABLES, "schema_migrations"].sort());
+    expect(out).toEqual({ applied: VERSIONS, backup: null, schema: LATEST });
+    expect(VERSIONS).toEqual([1, 2]);
+    expect(tableNames(openDb(file))).toEqual([...TABLES, ...CHECK_TABLES, "schema_migrations"].sort());
     expect(existsSync(join(dir, "backups"))).toBe(false);
   });
 
@@ -112,12 +129,12 @@ describe("runMigrations", () => {
     const legacySchema = tableSql(openDb(file));
     const db = openDb(file);
     const out = runMigrations(db, { dbPath: file });
-    expect(out.applied).toEqual([1]);
-    expect(out.schema).toBe(1);
+    expect(out.applied).toEqual(VERSIONS);
+    expect(out.schema).toBe(LATEST);
     expect(dump(db)).toEqual(before);
     for (const t of TABLES) expect(dump(db)[t]).toHaveLength(1);
     // IF NOT EXISTS left the legacy tables alone, and a fresh database gets the very same schema text.
-    expect(tableSql(db).filter((t: any) => t.name !== "schema_migrations")).toEqual(legacySchema);
+    expect(tableSql(db).filter((t: any) => TABLES.includes(t.name))).toEqual(legacySchema);
     const fresh = join(dir, "fresh.sqlite");
     runMigrations(openDb(fresh), { dbPath: fresh });
     expect(tableSql(openDb(fresh))).toEqual(tableSql(db));
@@ -132,6 +149,72 @@ describe("runMigrations", () => {
     expect(tableNames(copy)).not.toContain("schema_migrations"); // taken before any write
   });
 
+  it("brings a legacy database and a schema 1 database to schema 2 with every old row intact", () => {
+    // Straight from the Azm 5.0 file: 001 and 002 in one transaction, after one backup.
+    const legacy = legacyFile();
+    const before = dump(openDb(legacy));
+    const db = openDb(legacy);
+    const out = runMigrations(db, { dbPath: legacy });
+    expect(out.applied).toEqual([1, 2]);
+    expect(out.schema).toBe(2);
+    expect(dump(db)).toEqual(before);
+    for (const t of CHECK_TABLES)
+      expect((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n).toBe(0);
+
+    // A database already at schema 1 (the build before this one) gets only 002, after a pre-2 backup.
+    const one = legacyFile("one.sqlite");
+    const oneDb = openDb(one);
+    runMigrations(oneDb, { dbPath: one, migrations: migrations.filter((m) => m.version === 1) });
+    oneDb.prepare("INSERT INTO users VALUES(?,?,?,?,?)").run("u2", "second@example.test", "Second", "x:y", 2);
+    const atOne = dump(oneDb);
+    const up = runMigrations(oneDb, { dbPath: one });
+    expect(up.applied).toEqual([2]);
+    expect(up.schema).toBe(2);
+    expect(logged(oneDb)).toEqual([1, 2]);
+    expect(dump(oneDb)).toEqual(atOne);
+    expect(basename(up.backup!)).toMatch(/-pre-2\.sqlite$/);
+    expect(dump(openDb(up.backup!))).toEqual(atOne);
+    expect(tableNames(openDb(up.backup!))).not.toContain("assessments");
+    // Both roads give the same schema text as a fresh database.
+    const fresh = join(dir, "fresh.sqlite");
+    runMigrations(openDb(fresh), { dbPath: fresh });
+    expect(tableSql(oneDb)).toEqual(tableSql(openDb(fresh)));
+    expect(tableSql(db)).toEqual(tableSql(openDb(fresh)));
+  });
+
+  it("keeps the safety log free of any user id and cascades results with their check", () => {
+    const db = openDb(":memory:");
+    runMigrations(db, { dbPath: ":memory:" });
+    const columns = (t: string) =>
+      (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+    expect(columns("safety_events")).toEqual(["day", "reason", "setting", "count"]);
+    expect(columns("check_locks")).toEqual(["user_id", "reason", "until"]);
+    db.prepare("INSERT INTO users VALUES('u1','a@example.test','A','x:y',1)").run();
+    db.prepare(
+      "INSERT INTO assessments(id,user_id,kind,setting,series_meta,setup,protocol,precheck,device,started) VALUES('a1','u1','baseline','home','{}','{}','[]','{}','{}',1)",
+    ).run();
+    db.prepare(
+      "INSERT INTO assessment_results(id,assessment_id,user_id,test_id,side,value,unit,band,attempts,quality,detail,flags,n_valid,series_key,pose_model,movement_version,engine_version,created) VALUES('r1','a1','u1','shoulder_abduction','left',90,'deg','default','[]','{}','{}','[]',1,'k','full',1,'e1',1)",
+    ).run();
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO assessment_results(id,assessment_id,user_id,test_id,side,value,unit,band,attempts,quality,detail,flags,n_valid,series_key,pose_model,movement_version,engine_version,created) VALUES('r2','a1','u1','shoulder_abduction','left',95,'deg','default','[]','{}','{}','[]',1,'k','full',1,'e1',1)",
+        )
+        .run(),
+    ).toThrow(/UNIQUE/);
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO assessments(id,user_id,kind,setting,series_meta,setup,protocol,precheck,device,started) VALUES('a2','u1','baseline','home','{}','{}','[]','{}','{}',1)",
+        )
+        .run(),
+    ).not.toThrow();
+    expect(() => db.prepare("UPDATE assessments SET status='done' WHERE id='a2'").run()).toThrow(/CHECK/);
+    db.prepare("DELETE FROM assessments WHERE id='a1'").run();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM assessment_results").get()).toEqual({ n: 0 });
+  });
+
   it("is a no op when re-run and writes no new backup", () => {
     const file = legacyFile();
     expect(runMigrations(openDb(file), { dbPath: file }).backup).not.toBeNull();
@@ -139,17 +222,17 @@ describe("runMigrations", () => {
     expect(backups).toHaveLength(1);
     const db = openDb(file);
     const before = dump(db);
-    expect(runMigrations(db, { dbPath: file })).toEqual({ applied: [], backup: null, schema: 1 });
-    expect(runMigrations(db, { dbPath: file })).toEqual({ applied: [], backup: null, schema: 1 });
+    expect(runMigrations(db, { dbPath: file })).toEqual({ applied: [], backup: null, schema: LATEST });
+    expect(runMigrations(db, { dbPath: file })).toEqual({ applied: [], backup: null, schema: LATEST });
     expect(backupsIn(join(dir, "backups"))).toEqual(backups);
     expect(dump(db)).toEqual(before);
-    expect(logged(db)).toEqual([1]);
+    expect(logged(db)).toEqual(VERSIONS);
   });
 
   it("rolls a failing batch back completely on a fresh database", () => {
     const file = join(dir, "fresh.sqlite");
     const db = openDb(file);
-    const good: Migration = { version: 2, name: "extra", sql: "CREATE TABLE extra(x INTEGER);" };
+    const good = extra(1, "extra");
     expect(() => runMigrations(db, { dbPath: file, migrations: [...migrations, good, BAD] })).toThrow(
       /missing_table/,
     );
@@ -165,7 +248,7 @@ describe("runMigrations", () => {
     const before = dump(db);
     expect(() => runMigrations(db, { dbPath: file, migrations: [...migrations, BAD] })).toThrow();
     expect(tableNames(db)).not.toContain("partial_table");
-    expect(logged(db)).toEqual([1]);
+    expect(logged(db)).toEqual(VERSIONS);
     expect(dump(db)).toEqual(before);
     expect(backupsIn(join(dir, "backups")).some((f) => f.endsWith("-pre-99.sqlite"))).toBe(true);
   });
@@ -181,14 +264,16 @@ describe("runMigrations", () => {
     const file = legacyFile();
     const db = openDb(file);
     runMigrations(db, { dbPath: file });
-    // A later build applied migration 2; this build only knows migration 1 (a rollback).
+    // A later build applied the next migration; this build does not know it (a rollback).
     db.exec("CREATE TABLE future_table(x INTEGER)");
-    db.prepare("INSERT INTO schema_migrations(version,name,applied_at) VALUES(2,'future',1)").run();
+    db.prepare("INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,'future',1)").run(LATEST + 1);
     const backups = backupsIn(join(dir, "backups"));
     const before = dump(db);
-    expect(() => runMigrations(db, { dbPath: file })).toThrow(/schema 2 is newer than this build \(1\)/);
+    expect(() => runMigrations(db, { dbPath: file })).toThrow(
+      new RegExp(`schema ${LATEST + 1} is newer than this build \\(${LATEST}\\)`),
+    );
     expect(dump(db)).toEqual(before);
-    expect(logged(db)).toEqual([1, 2]);
+    expect(logged(db)).toEqual([...VERSIONS, LATEST + 1]);
     expect(backupsIn(join(dir, "backups"))).toEqual(backups);
     db.close();
     expect(() => createApi(file)).toThrow(/newer than this build/);
@@ -197,21 +282,26 @@ describe("runMigrations", () => {
   it("refuses a database that recorded a migration this build does not have", () => {
     const file = join(dir, "fresh.sqlite");
     const db = openDb(file);
-    const second: Migration = { version: 2, name: "second", sql: "CREATE TABLE second(x INTEGER);" };
-    const third: Migration = { version: 3, name: "third", sql: "CREATE TABLE third(x INTEGER);" };
+    const second = extra(1, "second");
+    const third = extra(2, "third");
     runMigrations(db, { dbPath: file, migrations: [...migrations, second] });
-    // A build whose list skips 2 must not treat the database as current and apply 3 on top.
+    // A build whose list skips a recorded migration must not treat the database as current and
+    // apply the next one on top.
     expect(() => runMigrations(db, { dbPath: file, migrations: [...migrations, third] })).toThrow(
-      /unknown migration 2/,
+      new RegExp(`unknown migration ${LATEST + 1}`),
     );
     expect(tableNames(db)).not.toContain("third");
-    expect(logged(db)).toEqual([1, 2]);
+    expect(logged(db)).toEqual([...VERSIONS, LATEST + 1]);
   });
 
   it("never backs up an in memory database", () => {
     const db = openDb(":memory:");
     db.exec(LEGACY_DDL);
-    expect(runMigrations(db, { dbPath: ":memory:" })).toEqual({ applied: [1], backup: null, schema: 1 });
+    expect(runMigrations(db, { dbPath: ":memory:" })).toEqual({
+      applied: VERSIONS,
+      backup: null,
+      schema: LATEST,
+    });
   });
 });
 
@@ -246,12 +336,12 @@ async function holdWriteLock(file: string, sql: string, holdMs: number) {
 describe("runMigrations with a second connection", () => {
   it("waits for another starter's migration and then finds nothing to apply", async () => {
     const file = legacyFile();
-    // The other starter applies migration 1 under its write lock and commits 300 ms later.
+    // The other starter applies every migration under its write lock and commits 300 ms later.
     const other = await holdWriteLock(
       file,
-      `${migrations[0].sql}
+      `${migrations.map((m) => m.sql).join("\n")}
        CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at INTEGER NOT NULL);
-       INSERT INTO schema_migrations(version,name,applied_at) VALUES(1,'baseline',1);`,
+       ${migrations.map((m) => `INSERT INTO schema_migrations(version,name,applied_at) VALUES(${m.version},'${m.name}',1);`).join("\n")}`,
       300,
     );
     const db = openDb(file);
@@ -259,8 +349,8 @@ describe("runMigrations with a second connection", () => {
     const out = runMigrations(db, { dbPath: file });
     await other.done;
     expect(out.applied).toEqual([]);
-    expect(out.schema).toBe(1);
-    expect(logged(db)).toEqual([1]);
+    expect(out.schema).toBe(LATEST);
+    expect(logged(db)).toEqual(VERSIONS);
     expect(dump(db)).toEqual(before);
   });
 
@@ -270,8 +360,8 @@ describe("runMigrations with a second connection", () => {
     const db = openDb(file);
     const out = runMigrations(db, { dbPath: file });
     await other.done;
-    expect(out.applied).toEqual([1]);
-    expect(logged(db)).toEqual([1]);
+    expect(out.applied).toEqual(VERSIONS);
+    expect(logged(db)).toEqual(VERSIONS);
     expect((db.prepare("SELECT name FROM users").get() as { name: string }).name).toBe("Held");
   });
 });
@@ -294,14 +384,14 @@ describe("backupDatabase", () => {
 
   it("keeps the newest backup before each migration through a crash loop", () => {
     const file = legacyFile();
-    const second: Migration = { version: 2, name: "second", sql: "CREATE TABLE second(x INTEGER);" };
-    const third: Migration = { version: 3, name: "third", sql: "CREATE TABLE third(x INTEGER);" };
-    const failing: Migration = { ...BAD, version: 4 };
+    const second = extra(1, "second");
+    const third = extra(2, "third");
+    const failing: Migration = { ...BAD, version: LATEST + 3 };
     const db = openDb(file);
     runMigrations(db, { dbPath: file }); // pre-1: the untouched legacy data
-    runMigrations(db, { dbPath: file, migrations: [...migrations, second] }); // pre-2
+    runMigrations(db, { dbPath: file, migrations: [...migrations, second] }); // pre-(LATEST + 1)
     const pre3 = runMigrations(db, { dbPath: file, migrations: [...migrations, second, third] }).backup!;
-    // Migration 4 fails at every start and the host keeps restarting the server.
+    // The last migration fails at every start and the host keeps restarting the server.
     for (let i = 0; i < BACKUPS_KEPT + 2; i++) {
       expect(() =>
         runMigrations(db, { dbPath: file, migrations: [...migrations, second, third, failing] }),
@@ -309,7 +399,12 @@ describe("backupDatabase", () => {
     }
     const kept = backupsIn(join(dir, "backups"));
     const labels = kept.map((f) => f.replace(/^azm-[^Z]+Z-/, "").replace(/\.sqlite$/, ""));
-    expect(labels).toEqual(["pre-1", "pre-2", "pre-3", ...Array(BACKUPS_KEPT).fill("pre-4")]);
+    expect(labels).toEqual([
+      "pre-1",
+      `pre-${LATEST + 1}`,
+      `pre-${LATEST + 2}`,
+      ...Array(BACKUPS_KEPT).fill(`pre-${LATEST + 3}`),
+    ]);
     expect(kept).toContain(basename(pre3));
     expect(tableNames(openDb(pre3))).toContain("second");
     expect(tableNames(openDb(pre3))).not.toContain("third");
@@ -377,7 +472,7 @@ describe("createApi on a legacy file", () => {
       expect(login.status).toBe(200);
       const data = await login.json();
       expect(data.plan).toMatchObject({ status: "ready", version: 3 });
-      expect(await (await fetch(`${origin}/api/health`)).json()).toMatchObject({ ok: true, schema: 1 });
+      expect(await (await fetch(`${origin}/api/health`)).json()).toMatchObject({ ok: true, schema: LATEST });
     } finally {
       await new Promise<void>((r) => server.close(() => r()));
       service.close();

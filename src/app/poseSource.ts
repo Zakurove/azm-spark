@@ -19,10 +19,17 @@ export const poseModelUrl = () => `/models/pose_landmarker_${coarsePointer() ? "
 
 /** Warms the HTTP cache while the person reads the setup guide, so the session starts quickly. */
 export function preloadPoseAssets() {
-  try { void fetch(poseModelUrl()).catch(() => undefined); } catch { /* offline or unsupported */ }
+  try {
+    void fetch(poseModelUrl()).catch(() => undefined);
+  } catch {
+    /* offline or unsupported */
+  }
 }
 
-const emptyFrame = (t: number): Frame => ({ t, lm: Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 })) });
+const emptyFrame = (t: number): Frame => ({
+  t,
+  lm: Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 })),
+});
 
 export class CameraPoseSource implements PoseSource {
   kind = "camera" as const;
@@ -55,7 +62,10 @@ export class CameraPoseSource implements PoseSource {
       if (this.cancelled) return;
       landmarker = await PoseLandmarker.createFromOptions(vision, options("CPU"));
     }
-    if (this.cancelled) { landmarker.close(); return; }
+    if (this.cancelled) {
+      landmarker.close();
+      return;
+    }
     this.landmarker = landmarker;
 
     this.onStatus?.("camera");
@@ -63,10 +73,17 @@ export class CameraPoseSource implements PoseSource {
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
       audio: false,
     });
-    if (this.cancelled) { stream.getTracks().forEach(tr => tr.stop()); return; }
+    if (this.cancelled) {
+      stream.getTracks().forEach((tr) => tr.stop());
+      return;
+    }
     this.stream = stream;
     this.video.srcObject = stream;
-    try { await this.video.play(); } catch (err) { if (!this.cancelled) throw err; }
+    try {
+      await this.video.play();
+    } catch (err) {
+      if (!this.cancelled) throw err;
+    }
     if (this.cancelled) return;
     this.running = true;
 
@@ -83,7 +100,12 @@ export class CameraPoseSource implements PoseSource {
             onFrame({
               t,
               lm: res.landmarks[0].map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
-              world: res.worldLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })),
+              world: res.worldLandmarks?.[0]?.map((p) => ({
+                x: p.x,
+                y: p.y,
+                z: p.z,
+                visibility: p.visibility ?? 1,
+              })),
             });
           } else {
             onFrame(emptyFrame(t));

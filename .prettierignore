@@ -1,0 +1,13 @@
+dist
+.runtime
+node_modules
+public
+local-docs
+design
+archive
+docs
+scripts
+e2e
+src/exercises/library.json
+src/app/voice-script.json
+package-lock.json

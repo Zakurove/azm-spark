@@ -5,17 +5,25 @@ export const VIS_MIN = 0.5;
 
 function angleAt(a: Landmark, b: Landmark, c: Landmark): number {
   // angle ABC in degrees, 2D image plane
-  const v1x = a.x - b.x, v1y = a.y - b.y;
-  const v2x = c.x - b.x, v2y = c.y - b.y;
+  const v1x = a.x - b.x,
+    v1y = a.y - b.y;
+  const v2x = c.x - b.x,
+    v2y = c.y - b.y;
   const dot = v1x * v2x + v1y * v2y;
-  const m1 = Math.hypot(v1x, v1y), m2 = Math.hypot(v2x, v2y);
+  const m1 = Math.hypot(v1x, v1y),
+    m2 = Math.hypot(v2x, v2y);
   if (m1 < 1e-6 || m2 < 1e-6) return 0;
   const cos = Math.min(1, Math.max(-1, dot / (m1 * m2)));
   return Math.acos(cos) * DEG;
 }
 
 function mid(a: Landmark, b: Landmark): Landmark {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2, visibility: Math.min(a.visibility, b.visibility) };
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    z: (a.z + b.z) / 2,
+    visibility: Math.min(a.visibility, b.visibility),
+  };
 }
 
 export function trunkLength(lm: Landmark[]): number {
@@ -26,7 +34,10 @@ export function trunkLength(lm: Landmark[]): number {
 }
 
 export function shoulderWidth(lm: Landmark[]): number {
-  return Math.max(Math.hypot(lm[LM.l_shoulder].x - lm[LM.r_shoulder].x, lm[LM.l_shoulder].y - lm[LM.r_shoulder].y), 1e-3);
+  return Math.max(
+    Math.hypot(lm[LM.l_shoulder].x - lm[LM.r_shoulder].x, lm[LM.l_shoulder].y - lm[LM.r_shoulder].y),
+    1e-3,
+  );
 }
 
 const vis = (lm: Landmark[], i: number) => lm[i].visibility >= VIS_MIN;
@@ -78,7 +89,8 @@ export function computeMetrics(frame: Frame, wanted: MetricId[], required: numbe
         if (vis(lm, LM.r_elbow)) values[m] = angleAt(lm[LM.r_hip], lm[LM.r_shoulder], lm[LM.r_elbow]);
         break;
       case "trunk_lean": {
-        if (!(vis(lm, LM.l_shoulder) && vis(lm, LM.r_shoulder) && vis(lm, LM.l_hip) && vis(lm, LM.r_hip))) break;
+        if (!(vis(lm, LM.l_shoulder) && vis(lm, LM.r_shoulder) && vis(lm, LM.l_hip) && vis(lm, LM.r_hip)))
+          break;
         const sh = mid(lm[LM.l_shoulder], lm[LM.r_shoulder]);
         const hp = mid(lm[LM.l_hip], lm[LM.r_hip]);
         // angle of trunk axis vs vertical; y grows downward in image space

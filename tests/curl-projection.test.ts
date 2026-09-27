@@ -37,10 +37,17 @@ function realisticCurlTrace(o: RealOpts = {}): Frame[] {
   const frames: Frame[] = [];
   const total = Math.round((leadInSec + reps * repSec + 1) * fps);
   const tanH = Math.tan((60 / 2) * Math.PI) / 180 > 0 ? Math.tan((30 * Math.PI) / 180) : 0.577;
-  const proj = (X: number, Y: number, Z: number) => ({ x: 0.5 + X / Z / (2 * tanH), y: 0.5 + Y / Z / (2 * tanH) });
+  const proj = (X: number, Y: number, Z: number) => ({
+    x: 0.5 + X / Z / (2 * tanH),
+    y: 0.5 + Y / Z / (2 * tanH),
+  });
   // body geometry (m), Y down, camera at chest height
-  const upperArm = 0.3, forearm = 0.26, shoulderHalf = 0.18, hipHalf = 0.14;
-  const shoulderYm = -0.15, hipYm = 0.25;
+  const upperArm = 0.3,
+    forearm = 0.26,
+    shoulderHalf = 0.18,
+    hipHalf = 0.14;
+  const shoulderYm = -0.15,
+    hipYm = 0.25;
 
   for (let f = 0; f < total; f++) {
     const t = (f / fps) * 1000;
@@ -73,7 +80,9 @@ function realisticCurlTrace(o: RealOpts = {}): Frame[] {
 
     for (const side of [-1, 1] as const) {
       const sX = side * shoulderHalf;
-      const eX = sX, eY = shoulderYm + upperArm, eZ = Z0;
+      const eX = sX,
+        eY = shoulderYm + upperArm,
+        eZ = Z0;
       let wX: number, wY: number, wZ: number;
       if (view === "front") {
         // sagittal-plane curl: forearm rotates toward the camera
@@ -96,7 +105,12 @@ function realisticCurlTrace(o: RealOpts = {}): Frame[] {
   return frames;
 }
 
-function runPipeline(exId: string, profileId: string, frames: Frame[], opts: { calibrateWith?: Frame[] } = {}) {
+function runPipeline(
+  exId: string,
+  profileId: string,
+  frames: Frame[],
+  opts: { calibrateWith?: Frame[] } = {},
+) {
   const def = exerciseById(exId);
   const profile = profileById(profileId);
   const variant = variantForProfile(def, profileId);
@@ -127,8 +141,16 @@ describe("VERIFY: frontal-view realism for seated_biceps_curl", () => {
   it("A: full-range frontal curls — what does the pipeline see?", () => {
     const frames = realisticCurlTrace({ reps: 8, view: "front" });
     const { reps, prf, calReady } = runPipeline("seated_biceps_curl", "wheelchair", frames);
-    console.log("A frontal full-range: calReady=", calReady, "prfRange=", prf.range.map((x) => x.toFixed(1)),
-      "reps=", reps.length, "classes=", reps.map((r) => r.cls).join(","));
+    console.log(
+      "A frontal full-range: calReady=",
+      calReady,
+      "prfRange=",
+      prf.range.map((x) => x.toFixed(1)),
+      "reps=",
+      reps.length,
+      "classes=",
+      reps.map((r) => r.cls).join(","),
+    );
     expect(true).toBe(true);
   });
 
@@ -153,8 +175,20 @@ describe("VERIFY: frontal-view realism for seated_biceps_curl", () => {
     const side = realisticCurlTrace({ reps: 8, thetaTop: 110, view: "side" });
     const f = runPipeline("seated_biceps_curl", "wheelchair", front);
     const s = runPipeline("seated_biceps_curl", "wheelchair", side);
-    console.log("C limited ROM 110°: frontal calReady=", f.calReady, "range=", f.prf.range.map((x) => x.toFixed(1)),
-      "reps=", f.reps.length, "| side calReady=", s.calReady, "range=", s.prf.range.map((x) => x.toFixed(1)), "reps=", s.reps.length);
+    console.log(
+      "C limited ROM 110°: frontal calReady=",
+      f.calReady,
+      "range=",
+      f.prf.range.map((x) => x.toFixed(1)),
+      "reps=",
+      f.reps.length,
+      "| side calReady=",
+      s.calReady,
+      "range=",
+      s.prf.range.map((x) => x.toFixed(1)),
+      "reps=",
+      s.reps.length,
+    );
     expect(true).toBe(true);
   });
 

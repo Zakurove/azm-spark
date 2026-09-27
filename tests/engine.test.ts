@@ -9,7 +9,12 @@ import { seatedCurlTrace, seatedPressTrace, sitToStandTrace } from "../src/engin
 import { EngineEvent, Frame, PRF } from "../src/engine/types";
 import { exerciseById, variantForProfile } from "../src/exercises/defs";
 
-function runPipeline(exId: string, profileId: string, frames: Frame[], opts: { calibrateWith?: Frame[] } = {}) {
+function runPipeline(
+  exId: string,
+  profileId: string,
+  frames: Frame[],
+  opts: { calibrateWith?: Frame[] } = {},
+) {
   const def = exerciseById(exId);
   const profile = profileById(profileId);
   const variant = variantForProfile(def, profileId);
@@ -56,7 +61,9 @@ describe("seated shoulder press — wheelchair profile", () => {
   it("flags trunk lean and marks those reps compensated", () => {
     const clean = seatedPressTrace({ reps: 3 });
     const leaning = seatedPressTrace({ reps: 8, leanDeg: 14 });
-    const { reps, flags } = runPipeline("seated_shoulder_press", "wheelchair", leaning, { calibrateWith: clean });
+    const { reps, flags } = runPipeline("seated_shoulder_press", "wheelchair", leaning, {
+      calibrateWith: clean,
+    });
     expect(flags.some((f) => f.ruleId.startsWith("trunk_lean"))).toBe(true);
     expect(reps.filter((r) => r.cls === "compensated").length).toBeGreaterThanOrEqual(1);
   });
@@ -131,7 +138,9 @@ describe("cue orchestrator", () => {
   it("a deferred warning preempts the next rep count instead of starving", () => {
     const o = new CueOrchestrator();
     o.push({ kind: "rep", cls: "valid", count: 1, t: 0, durSec: 2, peakPct: 1 }); // speaks, sets gap
-    expect(o.push({ kind: "flag", ruleId: "trunk_lean", cue: "sit_tall", severity: "warn", value: 10, t: 1200 })).toBeNull(); // deferred
+    expect(
+      o.push({ kind: "flag", ruleId: "trunk_lean", cue: "sit_tall", severity: "warn", value: 10, t: 1200 }),
+    ).toBeNull(); // deferred
     const out = o.push({ kind: "rep", cls: "valid", count: 2, t: 2400, durSec: 2, peakPct: 1 });
     expect(out).not.toBeNull();
     expect(out!.cue).toBe("sit_tall"); // warning preempts the count

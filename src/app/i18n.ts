@@ -15,8 +15,14 @@ export const T = {
   cameraMode: { ar: "التمرين بالكاميرا", en: "With camera" },
   profiles: {
     wheelchair: { ar: "مستخدم كرسي متحرك", en: "Wheelchair user" },
-    hemiparesis_left: { ar: "ضعف في الجانب الأيسر (بعد سكتة دماغية)", en: "Left-side weakness (post-stroke)" },
-    hemiparesis_right: { ar: "ضعف في الجانب الأيمن (بعد سكتة دماغية)", en: "Right-side weakness (post-stroke)" },
+    hemiparesis_left: {
+      ar: "ضعف في الجانب الأيسر (بعد سكتة دماغية)",
+      en: "Left-side weakness (post-stroke)",
+    },
+    hemiparesis_right: {
+      ar: "ضعف في الجانب الأيمن (بعد سكتة دماغية)",
+      en: "Right-side weakness (post-stroke)",
+    },
     standing: { ar: "بدون إعاقة حركية", en: "No mobility impairment" },
   } as Record<string, { ar: string; en: string }>,
   profileNotes: {
@@ -47,7 +53,10 @@ export const T = {
   ofYourRange: { ar: "مقارنةً بمداك عند المعايرة", en: "of your calibrated range" },
   again: { ar: "مرة أخرى", en: "Go again" },
   home: { ar: "الرئيسية", en: "Home" },
-  privacy: { ar: "الفيديو لا يغادر جهازك، وتُحفظ الأرقام فقط", en: "Video never leaves your device. Only numbers are saved" },
+  privacy: {
+    ar: "الفيديو لا يغادر جهازك، وتُحفظ الأرقام فقط",
+    en: "Video never leaves your device. Only numbers are saved",
+  },
   disclaimer: {
     ar: "عَزم مرشد تدريبي وليس جهازًا طبيًا. إذا كنت من مرضى القلب فلا تبدأ التمرين إلا بموافقة طبيبك.",
     en: "Azm is training guidance, not a medical device. Cardiac conditions require medical clearance before exercise.",
@@ -75,7 +84,11 @@ export function fmtNum(n: number, lang: Lang): string {
 }
 
 export function pct(n: number, lang: Lang): string {
-  return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", { style: "percent", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", {
+    style: "percent",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
-export const fmtTime=(t:string,l:Lang)=>l==='ar'?t.replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)]):t;
+export const fmtTime = (t: string, l: Lang) =>
+  l === "ar" ? t.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : t;

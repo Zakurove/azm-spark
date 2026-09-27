@@ -17,14 +17,22 @@ export interface Frame {
 // MediaPipe BlazePose landmark indices
 export const LM = {
   nose: 0,
-  l_eye: 2, r_eye: 5,
-  l_ear: 7, r_ear: 8,
-  l_shoulder: 11, r_shoulder: 12,
-  l_elbow: 13, r_elbow: 14,
-  l_wrist: 15, r_wrist: 16,
-  l_hip: 23, r_hip: 24,
-  l_knee: 25, r_knee: 26,
-  l_ankle: 27, r_ankle: 28,
+  l_eye: 2,
+  r_eye: 5,
+  l_ear: 7,
+  r_ear: 8,
+  l_shoulder: 11,
+  r_shoulder: 12,
+  l_elbow: 13,
+  r_elbow: 14,
+  l_wrist: 15,
+  r_wrist: 16,
+  l_hip: 23,
+  r_hip: 24,
+  l_knee: 25,
+  r_knee: 26,
+  l_ankle: 27,
+  r_ankle: 28,
 } as const;
 
 export type Side = "left" | "right";
@@ -42,9 +50,14 @@ export interface ImpairmentProfile {
 
 /** Metric ids the geometry module can compute. */
 export type MetricId =
-  | "elbow_flex_l" | "elbow_flex_r" | "elbow_flex_mean"
-  | "knee_flex_l" | "knee_flex_r" | "knee_flex_mean"
-  | "shoulder_abd_l" | "shoulder_abd_r"
+  | "elbow_flex_l"
+  | "elbow_flex_r"
+  | "elbow_flex_mean"
+  | "knee_flex_l"
+  | "knee_flex_r"
+  | "knee_flex_mean"
+  | "shoulder_abd_l"
+  | "shoulder_abd_r"
   | "trunk_lean" // deviation of trunk axis from vertical, degrees (signed L/R in image plane)
   | "shoulder_hike" // shoulder line vertical offset, fraction of trunk length (signed: +ve = left higher)
   | "arm_asym" // |elbow_flex_l - elbow_flex_r| degrees
@@ -59,10 +72,18 @@ export interface MetricFrame {
 }
 
 export type CueId =
-  | "sit_tall" | "even_arms" | "slow_down" | "fuller_range" | "relax_shoulders"
-  | "stand_fully" | "control_descent"
-  | "get_in_frame" | "move_back"
-  | "great_rep" | "halfway" | "set_done"
+  | "sit_tall"
+  | "even_arms"
+  | "slow_down"
+  | "fuller_range"
+  | "relax_shoulders"
+  | "stand_fully"
+  | "control_descent"
+  | "get_in_frame"
+  | "move_back"
+  | "great_rep"
+  | "halfway"
+  | "set_done"
   | "stop_rest";
 
 export type Severity = "safety" | "warn" | "info" | "praise";

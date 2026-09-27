@@ -142,9 +142,7 @@ export const DISABILITY_CONFIGS: Record<DisabilityType, DisabilityConfig> = {
  * Research-backed configurations for specific conditions
  * These override the base type configurations when a sub-type is specified
  */
-export const DISABILITY_SUBTYPE_CONFIGS: Partial<
-  Record<DetailedDisabilitySubType, DisabilityConfig>
-> = {
+export const DISABILITY_SUBTYPE_CONFIGS: Partial<Record<DetailedDisabilitySubType, DisabilityConfig>> = {
   // ---------------------------------------------------------------------------
   // Neurological Sub-Types
   // ---------------------------------------------------------------------------
@@ -582,9 +580,7 @@ export const DISABILITY_SUBTYPE_CONFIGS: Partial<
 /**
  * Get disability configuration for a specific type
  */
-export function getDisabilityConfig(
-  disabilityType: DisabilityType,
-): DisabilityConfig {
+export function getDisabilityConfig(disabilityType: DisabilityType): DisabilityConfig {
   return DISABILITY_CONFIGS[disabilityType] || DISABILITY_CONFIGS.other;
 }
 
@@ -608,10 +604,7 @@ export function getDetailedDisabilityConfig(
 /**
  * Calculate adjusted rest time based on disability configuration
  */
-export function calculateRestTime(
-  baseRestSeconds: number,
-  config: DisabilityConfig,
-): number {
+export function calculateRestTime(baseRestSeconds: number, config: DisabilityConfig): number {
   return Math.round(baseRestSeconds * config.restMultiplier);
 }
 
@@ -624,39 +617,26 @@ export function calculateMaxExercises(
   averageExerciseDuration: number = 5,
 ): number {
   // Account for warm-up, cool-down, and rest periods
-  const effectiveSessionTime = Math.min(
-    sessionDuration,
-    config.maxSessionMinutes,
-  );
-  const exerciseTime =
-    effectiveSessionTime - config.warmUpMinutes - config.coolDownMinutes;
+  const effectiveSessionTime = Math.min(sessionDuration, config.maxSessionMinutes);
+  const exerciseTime = effectiveSessionTime - config.warmUpMinutes - config.coolDownMinutes;
 
   // Add ~30% buffer for rest periods
   const adjustedExerciseTime = exerciseTime * 0.7;
 
-  return Math.max(
-    3,
-    Math.floor(adjustedExerciseTime / averageExerciseDuration),
-  );
+  return Math.max(3, Math.floor(adjustedExerciseTime / averageExerciseDuration));
 }
 
 /**
  * Check if a category is recommended for the disability type
  */
-export function isCategoryRecommended(
-  category: ExerciseCategory,
-  config: DisabilityConfig,
-): boolean {
+export function isCategoryRecommended(category: ExerciseCategory, config: DisabilityConfig): boolean {
   return config.recommendedCategories.includes(category);
 }
 
 /**
  * Check if a category should be avoided for the disability type
  */
-export function shouldAvoidCategory(
-  category: ExerciseCategory,
-  config: DisabilityConfig,
-): boolean {
+export function shouldAvoidCategory(category: ExerciseCategory, config: DisabilityConfig): boolean {
   return config.avoidCategories.includes(category);
 }
 
@@ -715,9 +695,7 @@ export function hasThermoregulationRisk(config: DisabilityConfig): boolean {
 /**
  * Check if a configuration has PEM risk (CFS/ME)
  */
-export function hasPostExertionalMalaiseRisk(
-  config: DisabilityConfig,
-): boolean {
+export function hasPostExertionalMalaiseRisk(config: DisabilityConfig): boolean {
   return config.postExertionalMalaiseRisk === true;
 }
 
@@ -731,9 +709,7 @@ export function getMinimumRecoveryHours(config: DisabilityConfig): number {
 /**
  * Get maximum exercise bout duration (for conditions requiring shorter bouts)
  */
-export function getMaxExerciseBoutMinutes(
-  config: DisabilityConfig,
-): number | null {
+export function getMaxExerciseBoutMinutes(config: DisabilityConfig): number | null {
   return config.maxExerciseBoutMinutes || null;
 }
 

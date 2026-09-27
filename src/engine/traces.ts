@@ -58,8 +58,12 @@ function buildTrunk(L: Landmark[], p: Pose): { sh: (s: 1 | -1) => { x: number; y
   const hipY = p.shoulderY + p.trunkLen;
   const hip = { x: p.cx, y: hipY };
   const rot = (x: number, y: number) => {
-    const dx = x - hip.x, dy = y - hip.y;
-    return { x: hip.x + dx * Math.cos(p.lean) - dy * Math.sin(p.lean), y: hip.y + dx * Math.sin(p.lean) + dy * Math.cos(p.lean) };
+    const dx = x - hip.x,
+      dy = y - hip.y;
+    return {
+      x: hip.x + dx * Math.cos(p.lean) - dy * Math.sin(p.lean),
+      y: hip.y + dx * Math.sin(p.lean) + dy * Math.cos(p.lean),
+    };
   };
   const shL = rot(p.cx - p.shoulderHalf, p.shoulderY + p.sway);
   const shR = rot(p.cx + p.shoulderHalf, p.shoulderY + p.sway);
@@ -101,7 +105,16 @@ function placeArm(
 
 const noise = () => (Math.random() - 0.5) * 0.003;
 function addNoise(L: Landmark[]): void {
-  for (const i of [LM.l_shoulder, LM.r_shoulder, LM.l_elbow, LM.r_elbow, LM.l_wrist, LM.r_wrist, LM.l_hip, LM.r_hip]) {
+  for (const i of [
+    LM.l_shoulder,
+    LM.r_shoulder,
+    LM.l_elbow,
+    LM.r_elbow,
+    LM.l_wrist,
+    LM.r_wrist,
+    LM.l_hip,
+    LM.r_hip,
+  ]) {
     if (L[i].visibility > 0) {
       L[i] = { ...L[i], x: L[i].x + noise(), y: L[i].y + noise() };
     }
@@ -121,10 +134,20 @@ function repClock(sec: number, leadInSec: number, repSec: number, reps: number) 
  * Top: arms nearly vertical overhead (elbow ≈ 170°).
  */
 export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
-  const { reps = 8, fps = 30, repSec = 2.4, effort = 1, leanDeg = 0, asymmetry = 0, leadInSec = 1.2, leanFromRep } = o;
+  const {
+    reps = 8,
+    fps = 30,
+    repSec = 2.4,
+    effort = 1,
+    leanDeg = 0,
+    asymmetry = 0,
+    leadInSec = 1.2,
+    leanFromRep,
+  } = o;
   const frames: Frame[] = [];
   const total = Math.round((leadInSec + reps * repSec + 1) * fps);
-  const UA = 0.135, FA = 0.125;
+  const UA = 0.135,
+    FA = 0.125;
 
   for (let f = 0; f < total; f++) {
     const sec = f / fps;
@@ -169,7 +192,8 @@ export function seatedCurlTrace(o: TraceOpts = {}): Frame[] {
   const { reps = 8, fps = 30, repSec = 2.2, effort = 1, leadInSec = 1.2 } = o;
   const frames: Frame[] = [];
   const total = Math.round((leadInSec + reps * repSec + 1) * fps);
-  const UA = 0.135, FA = 0.125;
+  const UA = 0.135,
+    FA = 0.125;
 
   for (let f = 0; f < total; f++) {
     const sec = f / fps;
@@ -219,7 +243,8 @@ export function sitToStandTrace(o: TraceOpts = {}): Frame[] {
   const frames: Frame[] = [];
   const total = Math.round((leadInSec + reps * repSec + 1) * fps);
   const cx = 0.5;
-  const UA = 0.13, FA = 0.12;
+  const UA = 0.13,
+    FA = 0.12;
 
   for (let f = 0; f < total; f++) {
     const sec = f / fps;

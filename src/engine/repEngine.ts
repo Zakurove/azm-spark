@@ -1,4 +1,12 @@
-import { CompensationRule, EngineEvent, ExerciseDef, ImpairmentProfile, MetricFrame, PRF, RepClass } from "./types";
+import {
+  CompensationRule,
+  EngineEvent,
+  ExerciseDef,
+  ImpairmentProfile,
+  MetricFrame,
+  PRF,
+  RepClass,
+} from "./types";
 
 /**
  * Rep state machine + compensation rule evaluator.
@@ -80,7 +88,14 @@ export class RepEngine {
       const last = this.lastFlagT.get(rule.id) ?? -Infinity;
       if (mf.t - last < 4000) continue;
       this.lastFlagT.set(rule.id, mf.t);
-      events.push({ kind: "flag", ruleId: rule.id, cue: rule.cue, severity: rule.severity, value: v, t: mf.t });
+      events.push({
+        kind: "flag",
+        ruleId: rule.id,
+        cue: rule.cue,
+        severity: rule.severity,
+        value: v,
+        t: mf.t,
+      });
     }
 
     // --- FSM ---
@@ -144,7 +159,14 @@ export class RepEngine {
       const last = this.lastFlagT.get("__partial") ?? -Infinity;
       if (t - last >= 8000) {
         this.lastFlagT.set("__partial", t);
-        events.push({ kind: "flag", ruleId: "__partial", cue: "fuller_range", severity: "info", value: this.peakPct, t });
+        events.push({
+          kind: "flag",
+          ruleId: "__partial",
+          cue: "fuller_range",
+          severity: "info",
+          value: this.peakPct,
+          t,
+        });
       }
     }
   }

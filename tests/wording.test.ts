@@ -507,7 +507,9 @@ describe("user facing copy", () => {
     expect(dataJsonCopy().length).toBeGreaterThan(1000);
     expect(dataJsonCopy().filter((c) => !c.prose).length).toBeGreaterThan(500);
     expect(SOURCE_FILES.map((f) => basename(f))).toContain("Landing.tsx");
-    expect(sourceCopy("src/app/Landing.tsx").length).toBeGreaterThan(20);
+    // The landing copy lives in src/i18n/{ar,en}/landing.json (read by 1); App.tsx keeps inline copy.
+    expect(i18nJsonCopy().filter((c) => c.where.includes("/landing.json")).length).toBeGreaterThan(40);
+    expect(sourceCopy("src/app/App.tsx").length).toBeGreaterThan(10);
     // The weekly plan copy is read; its sanitiser matches the forbidden phrase with a regex literal,
     // which is never a string literal and so never part of the scan.
     expect(SOURCE_FILES).toContain("src/medical/weekly.ts");

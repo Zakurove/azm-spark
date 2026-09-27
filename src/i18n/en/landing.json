@@ -1,1 +1,97 @@
-{}
+{
+  "header": {
+    "language": "العربية",
+    "login": "Log in"
+  },
+  "actions": {
+    "tryWorkout": "Try a workout now",
+    "startFree": "Start free",
+    "tryCheck": "Try the movement check"
+  },
+  "hero": {
+    "headline": {
+      "lastSession": "From your last therapy session to an active life",
+      "therapyEnded": "Therapy ended. Your movement goes on.",
+      "stillYours": "Training is still yours, whatever your body has been through"
+    },
+    "body": "Azm measures where you are, prescribes what fits your medical condition, coaches every session through your phone camera, and shows your progress.",
+    "chips": {
+      "video": "Video never leaves your device",
+      "noApp": "No app, no equipment"
+    },
+    "live": {
+      "label": "Live session",
+      "exercise": "Seated shoulder press",
+      "range": "Within your range"
+    }
+  },
+  "example": {
+    "tag": "Example",
+    "test": "Arm raise to the side, right",
+    "start": "Start",
+    "now": "Now",
+    "change": "Change",
+    "verdict": "Higher than your starting point"
+  },
+  "loop": {
+    "title": "How Azm works",
+    "intro": "Four steps that start from your own movement and come back to it with every new check.",
+    "steps": {
+      "measure": {
+        "title": "Measure",
+        "body": "A short movement check with your phone camera measures your movement for your own tracking and sets your own starting point."
+      },
+      "prescribe": {
+        "title": "Prescribe",
+        "body": "Clear medical rules, not AI, choose the movements and the amount that fit your medical condition. You can start from a photo of your medical report."
+      },
+      "coach": {
+        "title": "Coach",
+        "body": "In every session the camera counts your reps and corrects you to your own range, with a calm Arabic voice beside you. The video never leaves your device."
+      },
+      "prove": {
+        "title": "Prove",
+        "body": "Every four weeks you check again and see your own numbers then and now, compared only with yourself."
+      }
+    },
+    "mocks": {
+      "measure": {
+        "label": "Movement check",
+        "test": "Arm raise to the side",
+        "step": "Test {n} of {total}"
+      },
+      "prescribe": {
+        "label": "Your plan this week",
+        "press": "Seated shoulder press",
+        "curl": "Seated biceps curl",
+        "dose": "{sets} × {reps}",
+        "fits": "Fits your medical condition"
+      },
+      "coach": {
+        "title": "Live count and correction",
+        "voice": "In a calm Arabic voice"
+      },
+      "prove": {
+        "label": "Your checks over time"
+      }
+    }
+  },
+  "health": {
+    "title": "It shows up everywhere, even in your sleep",
+    "body": "Regular movement works quietly. Your heart grows stronger at its own pace, your mood clears after a session, even a short one, and within weeks you notice the groceries feel lighter, your stance steadier, your sleep deeper and more restful. Your body has not forgotten how to improve. It was waiting for a start that fits.",
+    "chips": {
+      "heart": "A stronger heart",
+      "sleep": "Deeper sleep",
+      "step": "A steadier step"
+    }
+  },
+  "close": {
+    "title": "Your body changed. Your resolve did not.",
+    "body": "Start free, for yourself or for a parent, and every session records your progress so you can see it build."
+  },
+  "footer": {
+    "notMedical": "Not intended for medical purposes.",
+    "note": "AZM SPARK is a training companion, not a clinic. It does not diagnose or treat, your clearance to exercise is yours to confirm, and if your medical condition sits outside what we cover today, we say so plainly and refer it for review first.",
+    "brandline": "AZM SPARK. Training is still yours."
+  }
+}

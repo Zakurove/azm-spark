@@ -1,81 +1,57 @@
 import { useEffect, useState } from "react";
-import { Lang, fmtNum } from "./i18n";
+import { Lang, fmtNum, pct } from "./i18n";
+import { formatNumber, t, unitWord, type I18nKey } from "../i18n";
 import Brand from "./Brand";
 import Icon from "./Icon";
 
-const copy = {
-  ar: {
-    eyebrow: "لكل جسمٍ طريقته",
-    heroTitle: "الرياضة ما زالت لك،\nمهما تغيّر جسمك",
-    heroBody:
-      "ابدأ بصورة من تقريرك الطبي. يقرؤها عزم سبارك ويعبّئ عنك أغلب الإجابات، ثم يبني تمرينًا يناسب حالتك الطبية، حركةً وعددًا وراحةً. وحين تتمرن، تعدّ الكاميرا تكراراتك مباشرة وتصحح لك على مداك أنت، لا على قالب جاهز، ومعك صوت عربي هادئ في كل مجموعة. كل هذا من متصفحك، جالسًا أو واقفًا أو من كرسيك المتحرك.",
-    ctaDemo: "جرّب تمرينًا الآن",
-    ctaStart: "ابدأ مجانًا",
-    ctaLogin: "تسجيل الدخول",
-    chips: ["بلا تطبيق ولا معدات", "الفيديو لا يغادر جهازك", "تقريرك لا يُحفظ"],
-    howTitle: "من تقريرك إلى أول تكرار",
-    how: [
-      {
-        title: "صورة واحدة تكفي",
-        body: "صوّر تقريرك الطبي بجوالك أو الصق نصّه. يقرؤه عزم سبارك مرة واحدة، يعبّئ منه إجاباتك، ثم يسألك عن الناقص فقط.",
-      },
-      {
-        title: "خطة تحترم حالتك الطبية",
-        body: "قواعد طبية واضحة تختار الحركات التي تناسبك، وتحدد المجموعات والتكرارات والراحة الآمنة لك. وإن كان الأسلم أن تتوقف، توقفت الجلسة من نفسها.",
-      },
-      {
-        title: "الكاميرا تعدّ معك",
-        body: "تحسب تكراراتك لحظة بلحظة، وتصحح لك على مداك الذي قاسته منك، لا على قالب عام، وتنتبه لحركات التعويض إن تسلّلت. وطوال الجلسة يرافقك صوت هادئ بالعربية، مجموعة بعد مجموعة.",
-      },
-    ],
-    healthTitle: "كل جسمك يستفيد، حتى نومك",
-    healthBody:
-      "الحركة المنتظمة تشتغل بهدوء في الخلفية. قلبك يقوى على مهل، ومزاجك يصفو بعد الجلسة ولو كانت قصيرة، وبعد أسابيع تلاحظ أن حمل الأغراض صار أخف، وأن وقفتك أثبت، وأن نومك أعمق وأهنأ. جسمك ما نسي كيف يتحسن، كان فقط ينتظر بداية تناسبه.",
-    healthChips: ["قلبك أقوى", "نومك أعمق", "خطوتك أثبت"],
-    closeTitle: "جسمك تغيّر، وعزمك باقٍ",
-    closeBody:
-      "ابدأ مجانًا، لنفسك أو لأحد أهلك، وسيُسجَّل تقدمك جلسة بعد جلسة، لتراه أنت ويراه معك مدربك أو طبيبك إن أحببت.",
-    note: "عزم سبارك رفيق تمرين، لا عيادة. لا يشخّص ولا يعالج، وجاهزيتك للتمرين أنت من يقرّها. وإن كانت حالتك الطبية خارج ما نغطيه اليوم، نقولها لك بوضوح ونحيلها للمراجعة أولًا.",
-    footer: "عزم سبارك. الرياضة ما زالت لك.",
-  },
-  en: {
-    eyebrow: "Every body has its own way",
-    heroTitle: "Training is still yours,\nwhatever your body has been through",
-    heroBody:
-      "Start with a photo of your medical report. AZM SPARK reads it, prefills your answers, and builds training that fits your medical condition. The camera counts your reps live, correcting to your measured range, not a template, while a calm Arabic voice guides every set. All in your browser, seated, standing, or from a wheelchair.",
-    ctaDemo: "Try a workout now",
-    ctaStart: "Start free",
-    ctaLogin: "Log in",
-    chips: ["No app, no equipment", "Video stays on device", "Report read, never stored"],
-    howTitle: "From your report to your first rep",
-    how: [
-      {
-        title: "One photo is enough",
-        body: "Photograph your medical report with your phone, or paste the text. AZM SPARK reads it once, fills your answers from it, then asks only for what is missing.",
-      },
-      {
-        title: "A plan that respects your medical condition",
-        body: "Clear medical rules choose the movements that fit you and decide safe sets, reps, and rest. When stopping is the safer call, the session stops itself.",
-      },
-      {
-        title: "The camera counts with you",
-        body: "It counts each rep as it happens and corrects you to the range it measured on you, not a generic template, noticing compensation movements when they creep in. Through the whole session, a calm Arabic voice stays with you, set after set.",
-      },
-    ],
-    healthTitle: "It shows up everywhere, even in your sleep",
-    healthBody:
-      "Regular movement works quietly. Your heart grows stronger at its own pace, your mood clears after a session, even a short one, and within weeks you notice the groceries feel lighter, your stance steadier, your sleep deeper and more restful. Your body has not forgotten how to improve. It was waiting for a start that fits.",
-    healthChips: ["A stronger heart", "Deeper sleep", "A steadier step"],
-    closeTitle: "Your body changed. Your resolve did not.",
-    closeBody:
-      "Start free, for yourself or for a parent, and every session records your progress so you can see it build and share it with your coach or doctor when you choose.",
-    note: "AZM SPARK is a training companion, not a clinic. It does not diagnose or treat, your clearance to exercise is yours to confirm, and if your medical condition sits outside what we cover today, we say so plainly and refer it for review first.",
-    footer: "AZM SPARK. Training is still yours.",
-  },
-};
+/*
+ * Landing for people and families (technical plan, "Landing page reimagining", phase 1 part of F15):
+ * the hero and the four step loop. Copy lives in src/i18n/{ar,en}/landing.json.
+ *
+ * Hero headline: option 1 of the plan, the tech lead's default. Nasser may swap it for one of the
+ * other two options, which are in landing.json in both languages:
+ *   const HERO_HEADLINE = "landing.hero.headline.therapyEnded"; // option 2: انتهى العلاج، وحركتك مستمرة
+ *   const HERO_HEADLINE = "landing.hero.headline.stillYours"; // option 3: الرياضة ما زالت لك، مهما تغيّر جسمك
+ */
+export const HERO_HEADLINE: I18nKey = "landing.hero.headline.lastSession";
 
-const chipIcons = ["sound", "shield", "chair"] as const;
-const healthIcons = ["health", "spark", "clock"] as const;
+// SPEC-GAP: landing-progress-word. The spec forbids the stems progress and تقدم in progress copy
+// (spec section 5). The hero line is the plan's supporting line word for word, and the closing text is
+// the one spec Q23 itself gives ("records your progress so you can see it build"), so both keep the
+// word on this marketing page. The then and now card and the prove step, which show results, never
+// use a forbidden stem (tests/landing.test.ts).
+// SPEC-GAP: landing-doctor. The plan's later "proof" section speaks of progress you can show your
+// doctor; until the SFDA opinion of spec Q23 arrives the page never mentions sharing with a doctor.
+// SPEC-GAP: landing-check-name. The Arabic name of the check (فحص الحركة or قياس الحركة) is open
+// (spec Q29); the page uses فحص الحركة, the name the check data uses today.
+// SPEC-GAP: landing-prescribe-ar. The plan names the step Prescribe in English only. The Arabic
+// title is نصمم (we design), not نصف (we prescribe), so it never reads as a medical prescription.
+
+/**
+ * Example values for the then and now card (always shown with the Example tag). They follow the
+ * worked example of the clinical spec (section 5): shoulder abduction, start 100, now 117, band 16,
+ * so the change reads "higher than your starting point". Whole degrees, never a population norm.
+ */
+export const EXAMPLE = { start: 100, now: 117 } as const;
+
+/** Example points of the progress card in the loop (third check onward, spec section 5 trends). */
+const EXAMPLE_POINTS = [100, 108, 117] as const;
+/** The default "about the same" band of shoulder abduction (check data, noiseBandRules.default). */
+export const EXAMPLE_BAND = 16;
+
+export const LOOP_STEPS = ["measure", "prescribe", "coach", "prove"] as const;
+export type LoopStep = (typeof LOOP_STEPS)[number];
+
+/** The guest movement check route (arrives with the check feature), keeping the page language. */
+export function checkHref(lang: Lang): string {
+  return lang === "en" ? "/?check=1&lang=en" : "/?check=1";
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+}
 
 function JointsMark() {
   return (
@@ -96,6 +72,160 @@ function JointsMark() {
   );
 }
 
+/** A seated person raising one arm to the side, with the measured angle at the shoulder. */
+function ArmRaiseMark() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden className="ld-mock-raise">
+      <path
+        d="M32 17v22M24 21h16M24 21l-4 15M40 21l14 -9M26 39h12M26 39l-4 12v10M38 39l4 12v10"
+        stroke="#c9c2ae"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M40 31a10 10 0 0 0 8.4 -15.4" stroke="#f2c33c" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="32" cy="10" r="4.5" fill="#f2c33c" />
+      <circle cx="40" cy="21" r="3.2" fill="#8065ad" />
+      <circle cx="54" cy="12" r="3" fill="#8065ad" />
+      <circle cx="24" cy="21" r="2.8" fill="#c9c2ae" />
+      <circle cx="32" cy="39" r="2.8" fill="#c9c2ae" />
+    </svg>
+  );
+}
+
+/** Where a value sits on the example chart, in percent of its height. */
+const CHART_LO = 76;
+const CHART_HI = 124;
+export function chartPos(v: number): number {
+  return ((v - CHART_LO) / (CHART_HI - CHART_LO)) * 100;
+}
+
+/**
+ * The person's own points over time, with the "about the same" band around the start shaded (spec
+ * section 5, trends). Built with inline positions so it mirrors in RTL and never distorts.
+ */
+function PointsChart() {
+  const start = EXAMPLE_POINTS[0];
+  const last = EXAMPLE_POINTS.length - 1;
+  return (
+    <div className="ld-mock-chart">
+      <span
+        className="ld-chart-band"
+        style={{
+          bottom: `${chartPos(start - EXAMPLE_BAND)}%`,
+          height: `${chartPos(start + EXAMPLE_BAND) - chartPos(start - EXAMPLE_BAND)}%`,
+        }}
+      />
+      <span className="ld-chart-start" style={{ bottom: `${chartPos(start)}%` }} />
+      {EXAMPLE_POINTS.map((v, i) => (
+        <i
+          key={i}
+          className={i === last ? "now" : undefined}
+          style={{ insetInlineStart: `${6 + (i * 88) / last}%`, bottom: `${chartPos(v)}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One value of the then and now card: the number, and its unit word below it. */
+function Degrees({ lang, label, value }: { lang: Lang; label: string; value: number }) {
+  return (
+    <div className="ld-then-cell">
+      <span>{label}</span>
+      <b>{formatNumber(lang, value)}</b>
+      <small>{unitWord(lang, "deg", value)}</small>
+    </div>
+  );
+}
+
+function ExampleCard({ lang }: { lang: Lang }) {
+  return (
+    <div className="ld-card ld-card-then">
+      <div className="ld-then-head">
+        <span className="ld-tag">{t(lang, "landing.example.tag")}</span>
+        <span className="ld-then-test">{t(lang, "landing.example.test")}</span>
+      </div>
+      <div className="ld-then-values">
+        <Degrees lang={lang} label={t(lang, "landing.example.start")} value={EXAMPLE.start} />
+        <Degrees lang={lang} label={t(lang, "landing.example.now")} value={EXAMPLE.now} />
+        <Degrees lang={lang} label={t(lang, "landing.example.change")} value={EXAMPLE.now - EXAMPLE.start} />
+      </div>
+      <div className="ld-then-verdict">{t(lang, "landing.example.verdict")}</div>
+    </div>
+  );
+}
+
+function StepMock({ step, lang }: { step: LoopStep; lang: Lang }) {
+  switch (step) {
+    case "measure":
+      return (
+        <div className="ld-mock-check">
+          <ArmRaiseMark />
+          <div className="ld-mock-lines">
+            <span>{t(lang, "landing.loop.mocks.measure.label")}</span>
+            <b>{t(lang, "landing.loop.mocks.measure.test")}</b>
+            <span className="ld-mock-dots">
+              <i className="on" />
+              <i />
+              <i />
+              {t(lang, "landing.loop.mocks.measure.step", { n: 1, total: 3 })}
+            </span>
+          </div>
+        </div>
+      );
+    case "prescribe":
+      return (
+        <div className="ld-mock-plan">
+          <div className="ld-mock-plan-head">
+            <Icon name="calendar" size={14} />
+            {t(lang, "landing.loop.mocks.prescribe.label")}
+          </div>
+          <div className="ld-mock-plan-row">
+            <span>{t(lang, "landing.loop.mocks.prescribe.press")}</span>
+            <b>{t(lang, "landing.loop.mocks.prescribe.dose", { sets: 3, reps: 8 })}</b>
+          </div>
+          <div className="ld-mock-plan-row">
+            <span>{t(lang, "landing.loop.mocks.prescribe.curl")}</span>
+            <b>{t(lang, "landing.loop.mocks.prescribe.dose", { sets: 2, reps: 10 })}</b>
+          </div>
+          <span className="ld-mock-stamp">
+            <Icon name="check" size={12} />
+            {t(lang, "landing.loop.mocks.prescribe.fits")}
+          </span>
+        </div>
+      );
+    case "coach":
+      return (
+        <div className="ld-mock-cam">
+          <JointsMark />
+          <div className="ld-mock-lines">
+            <b>{t(lang, "landing.loop.mocks.coach.title")}</b>
+            <span>{t(lang, "landing.loop.mocks.coach.voice")}</span>
+          </div>
+          <div className="ld-mock-reps">
+            <b>{fmtNum(5, lang)}</b>
+            <span>/ {fmtNum(8, lang)}</span>
+          </div>
+        </div>
+      );
+    case "prove":
+      return (
+        <div className="ld-mock-prove">
+          <div className="ld-mock-prove-head">
+            <span>{t(lang, "landing.loop.mocks.prove.label")}</span>
+            <span className="ld-tag">{t(lang, "landing.example.tag")}</span>
+          </div>
+          <PointsChart />
+          <div className="ld-mock-prove-axis">
+            <span>{t(lang, "landing.example.start")}</span>
+            <span>{t(lang, "landing.example.now")}</span>
+          </div>
+        </div>
+      );
+  }
+}
+
 export default function Landing({
   lang,
   onLanguage,
@@ -107,26 +237,39 @@ export default function Landing({
   onEnter: (register?: boolean) => void;
   onDemo: () => void;
 }) {
-  const c = copy[lang];
   const [rep, setRep] = useState(3);
   useEffect(() => {
+    // The live card counts reps; with reduced motion it stays on one still frame.
+    if (prefersReducedMotion()) return;
     const id = setInterval(() => setRep((r) => (r % 8) + 1), 1150);
     return () => clearInterval(id);
   }, []);
+  const actions = (
+    <div className="ld-ctas">
+      <button className="cta ld-cta-demo" onClick={onDemo}>
+        <Icon name="play" size={18} />
+        {t(lang, "landing.actions.tryWorkout")}
+      </button>
+      <button className="ghost ld-cta-ghost" onClick={() => onEnter(true)}>
+        {t(lang, "landing.actions.startFree")}
+        <Icon name="arrow" size={16} />
+      </button>
+    </div>
+  );
   return (
     <div className="ld-shell">
       <header className="ld-header">
         <div className="ld-header-inner">
           <Brand />
           <div className="landing-header-actions">
-            <button className="language" onClick={onLanguage}>
-              {lang === "ar" ? "English" : "العربية"}
+            <button className="language" lang={lang === "ar" ? "en" : "ar"} onClick={onLanguage}>
+              {t(lang, "landing.header.language")}
             </button>
             <button className="ghost ld-login" onClick={() => onEnter(false)}>
-              {c.ctaLogin}
+              {t(lang, "landing.header.login")}
             </button>
             <button className="cta ld-start-sm" onClick={() => onEnter(true)}>
-              {c.ctaStart}
+              {t(lang, "landing.actions.startFree")}
             </button>
           </div>
         </div>
@@ -135,27 +278,19 @@ export default function Landing({
         <section className="ld-hero">
           <span className="ld-glow ld-glow-gold" aria-hidden />
           <span className="ld-glow ld-glow-violet" aria-hidden />
-          <div>
-            <span className="ld-eyebrow">{c.eyebrow}</span>
-            <h1>{c.heroTitle}</h1>
-            <p className="ld-hero-body">{c.heroBody}</p>
-            <div className="ld-ctas">
-              <button className="cta ld-cta-demo" onClick={onDemo}>
-                <Icon name="play" size={18} />
-                {c.ctaDemo}
-              </button>
-              <button className="ghost ld-cta-ghost" onClick={() => onEnter(true)}>
-                {c.ctaStart}
-                <Icon name="arrow" size={16} />
-              </button>
-            </div>
+          <div className="ld-hero-copy">
+            <h1>{t(lang, HERO_HEADLINE)}</h1>
+            <p className="ld-hero-body">{t(lang, "landing.hero.body")}</p>
+            {actions}
             <div className="ld-chips">
-              {c.chips.map((chip, i) => (
-                <span className="ld-chip" key={chip}>
-                  <Icon name={chipIcons[i]} size={14} />
-                  {chip}
-                </span>
-              ))}
+              <span className="ld-chip">
+                <Icon name="shield" size={14} />
+                {t(lang, "landing.hero.chips.video")}
+              </span>
+              <span className="ld-chip">
+                <Icon name="camera" size={14} />
+                {t(lang, "landing.hero.chips.noApp")}
+              </span>
             </div>
           </div>
           <div className="ld-stage" aria-hidden>
@@ -165,11 +300,9 @@ export default function Landing({
             <div className="ld-card ld-card-live">
               <div className="ld-live-head">
                 <span className="ld-live-dot" />
-                {lang === "ar" ? "جلسة مباشرة" : "Live session"}
+                {t(lang, "landing.hero.live.label")}
               </div>
-              <div className="ld-live-name">
-                {lang === "ar" ? "ضغط الكتف جالسًا" : "Seated shoulder press"}
-              </div>
+              <div className="ld-live-name">{t(lang, "landing.hero.live.exercise")}</div>
               <div className="ld-live-count">
                 <b>{fmtNum(rep, lang)}</b>
                 <span>/ {fmtNum(8, lang)}</span>
@@ -178,118 +311,82 @@ export default function Landing({
                 <i style={{ width: `${(rep / 8) * 100}%` }} />
               </div>
               <div className="ld-live-range">
-                <span>{lang === "ar" ? "ضمن مداك" : "Within your range"}</span>
-                <b>{fmtNum(96, lang)}٪</b>
+                <span>{t(lang, "landing.hero.live.range")}</span>
+                <b>{pct(0.96, lang)}</b>
               </div>
             </div>
-            <div className="ld-card ld-card-report">
-              <div className="ld-report-head">
-                <Icon name="check" size={17} />
-                {lang === "ar" ? "قرأنا تقريرك الطبي" : "We read your report"}
-              </div>
-              <div className="ld-report-chips">
-                <span>{lang === "ar" ? "سكتة دماغية" : "Stroke"}</span>
-                <span>{lang === "ar" ? "الجانب الأيمن" : "Right side"}</span>
-                <span>
-                  {fmtNum(58, lang)} {lang === "ar" ? "سنة" : "yrs"}
-                </span>
-              </div>
-              <div className="ld-report-foot">
-                {lang === "ar" ? "بقي سؤالان فقط لنكمل خطتك" : "Two questions left to finish your plan"}
-              </div>
-            </div>
+            <ExampleCard lang={lang} />
           </div>
         </section>
 
-        <section className="ld-how">
-          <h2>{c.howTitle}</h2>
-          <div className="ld-how-flow">
-            {c.how.map((step, i) => (
-              <article className="ld-step" key={step.title}>
-                <div className="ld-step-num">
-                  {fmtNum(i + 1, lang).padStart(2, lang === "ar" ? "٠" : "0")}
+        <section className="ld-how" aria-labelledby="ld-how-title">
+          <div className="ld-how-head">
+            <h2 id="ld-how-title">{t(lang, "landing.loop.title")}</h2>
+            <p>{t(lang, "landing.loop.intro")}</p>
+          </div>
+          <ol className="ld-how-flow">
+            {LOOP_STEPS.map((step, i) => (
+              <li className={`ld-step ld-step-${step}`} key={step}>
+                <div className="ld-step-head">
+                  <span className="ld-step-num" aria-hidden>
+                    {fmtNum(i + 1, lang)}
+                  </span>
+                  <h3>{t(lang, `landing.loop.steps.${step}.title`)}</h3>
                 </div>
-                <h3>{step.title}</h3>
-                <p>{step.body}</p>
-                <div className="ld-mock">
-                  {i === 0 && (
-                    <div className="ld-mock-doc">
-                      <i style={{ width: "92%" }} />
-                      <i />
-                      <i />
-                      <span className="ld-mock-stamp">
-                        <Icon name="check" size={12} />
-                        {lang === "ar" ? "قُرئ وفُهم" : "Read and understood"}
-                      </span>
-                    </div>
-                  )}
-                  {i === 1 && (
-                    <div className="ld-mock-dose">
-                      <span>
-                        {fmtNum(3, lang)} {lang === "ar" ? "مجموعات" : "sets"}
-                      </span>
-                      <span>
-                        {fmtNum(8, lang)} {lang === "ar" ? "عدّات" : "reps"}
-                      </span>
-                      <span>
-                        {lang === "ar" ? `راحة ${fmtNum(90, lang)} ث` : `${fmtNum(90, lang)}s rest`}
-                      </span>
-                    </div>
-                  )}
-                  {i === 2 && (
-                    <div className="ld-mock-cam">
-                      <JointsMark />
-                      <div className="ld-mock-cam-lines">
-                        <b>{lang === "ar" ? "عدّ وتصحيح مباشر" : "Live count and correction"}</b>
-                        <span>{lang === "ar" ? "بصوت عربي هادئ" : "In a calm Arabic voice"}</span>
-                      </div>
-                    </div>
-                  )}
+                <p>{t(lang, `landing.loop.steps.${step}.body`)}</p>
+                <div className="ld-mock" aria-hidden>
+                  <StepMock step={step} lang={lang} />
                 </div>
-              </article>
+              </li>
             ))}
+          </ol>
+          <div className="ld-how-action">
+            <a className="cta ld-cta-check" href={checkHref(lang)}>
+              <Icon name="camera" size={18} />
+              {t(lang, "landing.actions.tryCheck")}
+            </a>
           </div>
         </section>
 
         <section className="ld-health">
           <div className="ld-health-inner">
             <div>
-              <h2>{c.healthTitle}</h2>
-              <p className="ld-health-body">{c.healthBody}</p>
+              <h2>{t(lang, "landing.health.title")}</h2>
+              <p className="ld-health-body">{t(lang, "landing.health.body")}</p>
               <div className="ld-health-chips">
-                {c.healthChips.map((chip, i) => (
-                  <span className="ld-chip" key={chip}>
-                    <Icon name={healthIcons[i]} size={14} />
-                    {chip}
-                  </span>
-                ))}
+                <span className="ld-chip">
+                  <Icon name="health" size={14} />
+                  {t(lang, "landing.health.chips.heart")}
+                </span>
+                <span className="ld-chip">
+                  <Icon name="spark" size={14} />
+                  {t(lang, "landing.health.chips.sleep")}
+                </span>
+                <span className="ld-chip">
+                  <Icon name="clock" size={14} />
+                  {t(lang, "landing.health.chips.step")}
+                </span>
               </div>
             </div>
             <div className="ld-health-img" aria-hidden>
-              <img src="/illustrations/landing/standing.webp" alt="" />
+              <img src="/illustrations/landing/standing.webp" alt="" loading="lazy" />
             </div>
           </div>
         </section>
 
         <section className="ld-close">
-          <h2>{c.closeTitle}</h2>
-          <p>{c.closeBody}</p>
-          <div className="ld-ctas">
-            <button className="cta ld-cta-demo" onClick={onDemo}>
-              <Icon name="play" size={18} />
-              {c.ctaDemo}
-            </button>
-            <button className="ghost ld-cta-ghost" onClick={() => onEnter(true)}>
-              {c.ctaStart}
-              <Icon name="arrow" size={16} />
-            </button>
-          </div>
+          <h2>{t(lang, "landing.close.title")}</h2>
+          <p>{t(lang, "landing.close.body")}</p>
+          {actions}
         </section>
       </main>
       <footer className="ld-footer">
         <div className="ld-footer-inner">
-          <p className="ld-note">{c.note}</p>
-          <span className="ld-brandline">{c.footer}</span>
+          <div>
+            <p className="ld-not-medical">{t(lang, "landing.footer.notMedical")}</p>
+            <p className="ld-note">{t(lang, "landing.footer.note")}</p>
+          </div>
+          <span className="ld-brandline">{t(lang, "landing.footer.brandline")}</span>
         </div>
       </footer>
     </div>

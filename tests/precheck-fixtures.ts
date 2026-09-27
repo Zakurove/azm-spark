@@ -21,7 +21,8 @@ export const TODAY = "2026-09-27";
 
 /**
  * Base tests for a context: spec 3.2 order, intake exclusions and the trunk substitute for standing
- * users. A test stand in for baseSelection (src/medical/assessment.ts), which has its own task.
+ * users. Written apart from baseSelection (src/medical/assessment.ts) and kept as an independent
+ * oracle: tests/assessment.test.ts proves the two agree for every context that gets a check.
  */
 export function baseTestsFor(ctx: CheckContext, setting: "home" | "booth" = "home"): TestId[] {
   let tests: TestId[] = [...CHECK_DATA.selection.basePerPosition[ctx.position]];

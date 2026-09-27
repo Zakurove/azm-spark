@@ -8,20 +8,30 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createPlan, validateIntake, Plan, Prescription } from "../src/medical/plan";
 import { extractReport, validReportBody } from "./report";
 import { createWeekly } from "./weekly-ai";
+import { runMigrations } from "./db/migrate";
+import { moduleRoutes } from "./modules";
+import type { Route } from "./http/types";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
-export function createApi(path = process.env.AZM_DATABASE ?? ".data/azm.sqlite") {
+export function createApi(
+  path = process.env.AZM_DATABASE ?? ".data/azm.sqlite",
+  routes: readonly Route[] = moduleRoutes,
+) {
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   }
   const db = new DatabaseSync(path);
   if (path !== ":memory:") chmodSync(path, 0o600);
-  db.exec(`PRAGMA foreign_keys=ON;
- CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,password TEXT NOT NULL,created INTEGER NOT NULL);
- CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires INTEGER NOT NULL);
- CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY REFERENCES users(id),intake TEXT NOT NULL,plan TEXT NOT NULL,version INTEGER NOT NULL);
- CREATE TABLE IF NOT EXISTS workouts(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),plan TEXT NOT NULL,version INTEGER NOT NULL,demo INTEGER NOT NULL,position INTEGER DEFAULT 0,ended INTEGER DEFAULT 0,created INTEGER NOT NULL);
- CREATE TABLE IF NOT EXISTS results(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),workout_id TEXT NOT NULL,position INTEGER NOT NULL,data TEXT NOT NULL,UNIQUE(workout_id,position));`);
+  // Schema lives in server/db/migrations; an existing database is backed up before it changes.
+  let migrated: ReturnType<typeof runMigrations>;
+  try {
+    migrated = runMigrations(db, { dbPath: path });
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+  if (migrated.backup)
+    console.log(`Azm database migrated to schema ${migrated.schema}, backup written before migrating`);
   const rates = new Map<string, { n: number; until: number }>();
   function limited(key: string, max = 12) {
     const now = Date.now();
@@ -94,6 +104,17 @@ export function createApi(path = process.env.AZM_DATABASE ?? ".data/azm.sqlite")
         }
         body = JSON.parse(Buffer.concat(parts).toString() || "{}");
         if (!body || typeof body !== "object" || Array.isArray(body)) return json(400, { error: "INVALID" });
+      }
+      // Module routes (server/modules) come before the legacy chain and its AUTH_REQUIRED gate.
+      const candidates = routes.filter((r) => route.match(r.path));
+      if (candidates.length) {
+        const r = candidates.find((c) => c.method === req.method);
+        if (!r) return json(405, { error: "METHOD" });
+        if (r.auth === "user" && !u) return json(401, { error: "AUTH_REQUIRED" });
+        const params = { ...route.match(r.path)?.groups } as Record<string, string>;
+        await r.handle({ req, res, db, user: u ?? null, body, params, json, limited });
+        if (!res.headersSent) json(500, { error: "SERVER" });
+        return;
       }
       const cookie = (value: string, age: number) =>
         res.setHeader(

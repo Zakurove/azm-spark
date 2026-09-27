@@ -12,3 +12,4 @@ src/exercises/library.json
 src/app/voice-script.json
 package-lock.json
 src/movements/check-v1.json
+tests/fixtures/**/*.json

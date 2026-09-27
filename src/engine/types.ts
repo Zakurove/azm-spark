@@ -19,6 +19,14 @@ export interface Frame {
    * Undefined means 1 (square): synthetic traces and fixtures.
    */
   aspect?: number;
+  /**
+   * Every pose the model found in this frame, in the model's own order, which is not stable from
+   * one frame to the next. At most the source's `numPoses` (the movement check uses 2, spec 4.0).
+   * `lm` stays the first pose (or an empty pose when none was found) for backward compatibility;
+   * the check picks its subject with `SubjectLock` (subject.ts) and never trusts the order.
+   * Undefined for sources that only know one pose (synthetic traces).
+   */
+  poses?: Landmark[][];
 }
 
 // MediaPipe BlazePose landmark indices

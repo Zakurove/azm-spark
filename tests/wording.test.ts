@@ -18,21 +18,29 @@
  *      the exported copy functions (labels, camCopy, ui, copy) are called with "ar" and "en".
  *      src/exercises/defs.ts contributes name, description and camera of every exercise.
  *   5. Data modules: every .ts file under src/movements is imported and its exported values are
- *      walked the same way (test names, purpose, steps and safety, even when computed).
+ *      walked the same way (test names, purpose, steps and safety, even when computed). An export
+ *      that is the whole content of a JSON file under src/movements (CHECK_DATA) is read by 7.
  *   6. Source text of EVERY .ts and .tsx file under src, found by walking the folder (so
  *      src/features/**, src/i18n/index.ts and any new screen are read the moment they exist),
  *      minus EXCLUDED_SOURCES, where each exclusion carries its reason and no screen (.tsx) may be
  *      listed. Read are JSX text, and string or template literal pieces that contain whitespace,
  *      or a capital or Arabic letter, or that are rendered as a JSX child ({ok ? "a" : "b"}).
+ *   7. Clinical data: every JSON file under src/movements (check-v1.json), every string value at
+ *      any depth. Strings under an ar, en or arTts key are user facing and get every rule. The
+ *      other strings are English engineering prose (rule, definition, when, ...) that is never
+ *      shown, and get the rules that hold for any string: no dash character and never the phrase
+ *      (a hyphen in prose such as "pre-check" or "ar-SA" passes). scripts/clinical/export-check.mjs
+ *      applies the same rules (scripts/wording-rules.mjs) before it writes the file.
  *
  * Every string, with or without letters, is checked for dash characters (a): they are never
  * legitimate in copy, so "\u22125" or "1\u20132" fail wherever they appear. The hyphen-minus
  * rules (b) and the phrase (c) only apply to strings with letters.
  *
  * Heuristics that keep false positives near zero
- *   - Values from the data sources (1 to 5) are copy by construction. Only values that are clearly
- *     not copy are skipped: URLs, emails, paths, locale tags, and lowercase ids or keys without
- *     spaces (for example "full", "azm.coach", "sit_to_stand").
+ *   - Values from the data sources (1 to 5, and the user facing strings of 7) are copy by
+ *     construction. Only values that are clearly not copy are skipped: URLs, emails, paths, locale
+ *     tags, and lowercase ids or keys without spaces (for example "full", "azm.coach",
+ *     "sit_to_stand").
  *   - In source text (6), single words that are URLs, emails, paths or locale tags are skipped, and
  *     so are object keys, member names, element access keys and string literal types. Literals
  *     are skipped when they sit inside an attribute that never holds copy (className, style, d,
@@ -62,6 +70,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import * as tsModule from "typescript";
 import voiceScript from "../src/app/voice-script.json";
 import library from "../src/exercises/library.json";
@@ -78,6 +87,8 @@ import {
   LOCALE,
   PATH,
   URL_LIKE,
+  dataStringProblems,
+  dataStrings,
   isCopyValue,
   wordingProblems,
 } from "../scripts/wording-rules.mjs";
@@ -85,7 +96,8 @@ import {
 const ts: typeof tsModule = (tsModule as unknown as { default?: typeof tsModule }).default ?? tsModule;
 
 const ROOT = join(__dirname, "..");
-type Copy = { where: string; text: string };
+/** A piece of copy. prose: engineering prose from clinical data, checked only for dashes and the phrase. */
+type Copy = { where: string; text: string; prose?: boolean };
 
 /* ------------------------------------------- detector and value level filters */
 
@@ -398,15 +410,44 @@ const SOURCE_FILES = sourceFiles();
  */
 const DATA_MODULE_DIRS = ["src/movements"];
 
+/** Parsed content of every clinical data JSON file (source 7). */
+function dataJson(root = ROOT): { file: string; data: unknown }[] {
+  return DATA_MODULE_DIRS.flatMap((d) => filesUnder(root, d, (name) => name.endsWith(".json"))).map(
+    (file) => ({
+      file,
+      data: JSON.parse(readFileSync(join(root, file), "utf8")),
+    }),
+  );
+}
+
 async function dataModuleCopy(root = ROOT): Promise<Copy[]> {
   const out: Copy[] = [];
+  const json = dataJson(root);
   for (const file of DATA_MODULE_DIRS.flatMap((d) => filesUnder(root, d, isSource))) {
     const mod = (await import(pathToFileURL(join(root, file)).href)) as Record<string, unknown>;
     for (const [name, value] of Object.entries(mod)) {
-      if (typeof value !== "function") walk(value, `${file} ${name}`, out);
+      if (typeof value === "function") continue;
+      // A whole JSON file re-exported as is (CHECK_DATA) is read by source 7, which knows which of
+      // its strings are user facing. Anything derived from it is still walked here.
+      if (json.some((j) => isDeepStrictEqual(j.data, value))) continue;
+      walk(value, `${file} ${name}`, out);
     }
   }
   return out;
+}
+
+/**
+ * Clinical data (source 7): every string value of every JSON file under src/movements. User facing
+ * strings (under ar, en or arTts) are read like any copy value; engineering prose is always read and
+ * checked only for dash characters and the phrase.
+ */
+function dataJsonCopy(root = ROOT): Copy[] {
+  return dataJson(root).flatMap(({ file, data }) =>
+    dataStrings(data, relative("src/movements", file)).flatMap((s): Copy[] => {
+      if (!s.userFacing) return [{ where: s.where, text: s.text, prose: true }];
+      return isCopyValue(s.text) || DASH_CHARS.test(s.text) ? [{ where: s.where, text: s.text }] : [];
+    }),
+  );
 }
 
 /* ------------------------------------------------------------------- tests */
@@ -415,7 +456,9 @@ function violations(copy: Copy[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const c of copy) {
-    const problems = wordingProblems(c.text);
+    const problems = c.prose
+      ? dataStringProblems({ text: c.text, userFacing: false })
+      : wordingProblems(c.text);
     const line = `${c.where} [${problems.join(", ")}] ${JSON.stringify(c.text)}`;
     if (problems.length && !seen.has(line)) {
       seen.add(line);
@@ -461,6 +504,8 @@ describe("user facing copy", () => {
     expect(voiceCopy().length).toBeGreaterThan(50);
     expect(libraryCopy().length).toBeGreaterThan(200);
     expect(moduleCopy().length).toBeGreaterThan(300);
+    expect(dataJsonCopy().length).toBeGreaterThan(1000);
+    expect(dataJsonCopy().filter((c) => !c.prose).length).toBeGreaterThan(500);
     expect(SOURCE_FILES.map((f) => basename(f))).toContain("Landing.tsx");
     expect(sourceCopy("src/app/Landing.tsx").length).toBeGreaterThan(20);
     // The weekly plan copy is read; its sanitiser matches the forbidden phrase with a regex literal,
@@ -489,6 +534,9 @@ describe("user facing copy", () => {
   });
   it("has no dashes and never says حالتك الصحية (exported copy modules)", () => {
     expect(violations(moduleCopy())).toEqual([]);
+  });
+  it("has no dashes and never says حالتك الصحية (clinical data, src/movements JSON)", () => {
+    expect(violations(dataJsonCopy())).toEqual([]);
   });
   it("has no dashes and never says حالتك الصحية (data modules such as src/movements)", async () => {
     expect(violations(await dataModuleCopy())).toEqual([]);
@@ -533,8 +581,27 @@ describe("collection pipeline (scratch project)", () => {
       ].join("\n"),
     );
     put(
+      "src/movements/check-v9.json",
+      JSON.stringify({
+        screens: { scr_retry: { ar: "أعد الفحص لاحقًا", en: "Re-check later" } },
+        tests: [
+          {
+            id: "arm_raise",
+            rule: "Ask the pre-check first, then use ar-SA digits",
+            definition: "Angle – in degrees",
+            when: "never says حالتك الصحية",
+            name: { ar: "رفع الذراع حسب حالتك الصحية", en: "Arm raise" },
+            steps: { ar: ["اجلس"], en: ["Sit — tall", "full"] },
+          },
+        ],
+        cues: [{ id: "check_go", ar: "ابدأ", arTts: "اِبْدَأْ", en: "Go-go" }],
+      }),
+    );
+    put(
       "src/movements/assessments.ts",
       [
+        'import data from "./check-v9.json";',
+        "export const CHECK_DATA = data;",
         'const words = ["Arm", "curl"];',
         "export const ASSESSMENT_TESTS = [",
         '  { id: "arm_curl_30s", unit: "count", illustration: "/illustrations/arm-curl.png",',
@@ -575,6 +642,26 @@ describe("collection pipeline (scratch project)", () => {
       { where: "src/movements/assessments.ts ASSESSMENT_TESTS[0].name.en", text: "Arm-curl" },
     ]);
     expect(flagged(await dataModuleCopy(root))).toEqual(['[hyphen between letters] "Arm-curl"']);
+  });
+
+  it("reads every string of clinical data JSON, with every rule for user facing strings", () => {
+    const copy = dataJsonCopy(root);
+    // Prose is always read; user facing lowercase ids such as "full" are not copy.
+    expect(copy.map((c) => c.where)).toContain("check-v9.json.tests[0].rule");
+    expect(copy.map((c) => c.where)).not.toContain("check-v9.json.tests[0].steps.en[1]");
+    expect(flagged(copy)).toEqual([
+      '[hyphen between letters] "Re-check later"',
+      '[dash character] "Angle – in degrees"',
+      '[حالتك الصحية] "never says حالتك الصحية"',
+      '[حالتك الصحية] "رفع الذراع حسب حالتك الصحية"',
+      '[dash character] "Sit — tall"',
+      '[hyphen between letters] "Go-go"',
+    ]);
+  });
+
+  it("leaves a re-exported clinical data file to the JSON scan", async () => {
+    const modules = await dataModuleCopy(root);
+    expect(modules.some((c) => c.where.includes("CHECK_DATA"))).toBe(false);
   });
 
   it("checks letterless values in i18n JSON", () => {

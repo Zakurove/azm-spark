@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { chmodSync, mkdirSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export const BACKUPS_KEPT = 5;
@@ -33,9 +33,19 @@ export function backupDatabase(db: DatabaseSync, dbPath: string, label: string):
     .pop();
   const last = newest ? Date.parse(newest.replace(/T(\d\d)-(\d\d)-(\d\d)-(\d{3})Z$/, "T$1:$2:$3.$4Z")) : NaN;
   const ms = Number.isNaN(last) ? Date.now() : Math.max(Date.now(), last + 1);
-  const file = join(dir, `azm-${stamp(ms)}-${safeLabel}.sqlite`);
-  // VACUUM INTO accepts an existing empty file, so create it 0600 first (no readable window).
-  writeFileSync(file, "", { mode: 0o600, flag: "wx" });
+  // VACUUM INTO accepts an existing empty file, so create it 0600 first (no readable window). The
+  // exclusive create also reserves the name: another process that picked the same millisecond
+  // gets EEXIST and moves on to the next one.
+  let file = "";
+  for (let attempt = 0; ; attempt++) {
+    file = join(dir, `azm-${stamp(ms + attempt)}-${safeLabel}.sqlite`);
+    try {
+      writeFileSync(file, "", { mode: 0o600, flag: "wx" });
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST" || attempt >= 1000) throw error;
+    }
+  }
   try {
     db.prepare("VACUUM INTO ?").run(file); // bound parameter: no quoting of the path needed
     chmodSync(file, 0o600);
@@ -46,6 +56,8 @@ export function backupDatabase(db: DatabaseSync, dbPath: string, label: string):
   const backups = readdirSync(dir)
     .filter((f) => BACKUP_FILE.test(f))
     .sort();
-  for (const old of backups.slice(0, Math.max(0, backups.length - BACKUPS_KEPT))) unlinkSync(join(dir, old));
+  // force: a second process pruning the same folder may have removed it already.
+  for (const old of backups.slice(0, Math.max(0, backups.length - BACKUPS_KEPT)))
+    rmSync(join(dir, old), { force: true });
   return file;
 }

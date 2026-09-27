@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createServer } from "node:http";
+import { Worker } from "node:worker_threads";
 import { scryptSync } from "node:crypto";
 import { runMigrations } from "../server/db/migrate";
 import { backupDatabase, BACKUPS_KEPT } from "../server/db/backup";
@@ -214,6 +215,67 @@ describe("runMigrations", () => {
   });
 });
 
+/**
+ * Opens `file` in a worker thread (a second connection, like a second process starting on the same
+ * database), takes the write lock, runs `sql` inside it, holds the lock for `holdMs` and commits.
+ * Resolves once the worker holds the lock; `done` settles when it has committed.
+ */
+async function holdWriteLock(file: string, sql: string, holdMs: number) {
+  const flag = new Int32Array(new SharedArrayBuffer(4));
+  const worker = new Worker(
+    `const { workerData: w } = require("node:worker_threads");
+     const { DatabaseSync } = require("node:sqlite");
+     const db = new DatabaseSync(w.file);
+     db.exec("BEGIN IMMEDIATE");
+     db.exec(w.sql);
+     Atomics.store(w.flag, 0, 1);
+     Atomics.notify(w.flag, 0);
+     Atomics.wait(w.flag, 0, 1, w.holdMs);
+     db.exec("COMMIT");
+     db.close();`,
+    { eval: true, workerData: { file, sql, flag, holdMs } },
+  );
+  const done = new Promise<void>((resolve, reject) => {
+    worker.once("error", reject);
+    worker.once("exit", (code) => (code === 0 ? resolve() : reject(new Error(`worker exit ${code}`))));
+  });
+  while (Atomics.load(flag, 0) === 0) await new Promise((r) => setTimeout(r, 5));
+  return { done };
+}
+
+describe("runMigrations with a second connection", () => {
+  it("waits for another starter's migration and then finds nothing to apply", async () => {
+    const file = legacyFile();
+    // The other starter applies migration 1 under its write lock and commits 300 ms later.
+    const other = await holdWriteLock(
+      file,
+      `${migrations[0].sql}
+       CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at INTEGER NOT NULL);
+       INSERT INTO schema_migrations(version,name,applied_at) VALUES(1,'baseline',1);`,
+      300,
+    );
+    const db = openDb(file);
+    const before = dump(db);
+    const out = runMigrations(db, { dbPath: file });
+    await other.done;
+    expect(out.applied).toEqual([]);
+    expect(out.schema).toBe(1);
+    expect(logged(db)).toEqual([1]);
+    expect(dump(db)).toEqual(before);
+  });
+
+  it("waits for a plain write lock and then migrates", async () => {
+    const file = legacyFile();
+    const other = await holdWriteLock(file, "UPDATE users SET name='Held' WHERE id='u1';", 300);
+    const db = openDb(file);
+    const out = runMigrations(db, { dbPath: file });
+    await other.done;
+    expect(out.applied).toEqual([1]);
+    expect(logged(db)).toEqual([1]);
+    expect((db.prepare("SELECT name FROM users").get() as { name: string }).name).toBe("Held");
+  });
+});
+
 describe("backupDatabase", () => {
   it("keeps only the newest five backups and leaves other files alone", () => {
     const file = legacyFile();
@@ -228,6 +290,36 @@ describe("backupDatabase", () => {
     expect(kept[4]).toMatch(/-last\.sqlite$/);
     expect(existsSync(join(dir, "backups", "notes.txt"))).toBe(true);
     for (const f of kept) expect(mode(join(dir, "backups", f))).toBe(0o600);
+  });
+
+  it("gives concurrent backups of one database distinct names and never fails", async () => {
+    const file = legacyFile();
+    const go = new Int32Array(new SharedArrayBuffer(4));
+    // Three threads back up the same file at the same moment, as parallel starters would. Node
+    // strips the types of backup.ts, which imports only node builtins.
+    const workers = [0, 1, 2].map(
+      () =>
+        new Worker(
+          `const { workerData: w } = require("node:worker_threads");
+           const { DatabaseSync } = require("node:sqlite");
+           (async () => {
+             const { backupDatabase } = await import(w.backup);
+             const db = new DatabaseSync(w.file, { timeout: 10000 });
+             Atomics.wait(w.go, 0, 0);
+             for (let i = 0; i < 20; i++) backupDatabase(db, w.file, "pre-1");
+             db.close();
+           })().catch((e) => { console.error(e); process.exit(1); });`,
+          { eval: true, workerData: { file, go, backup: join(__dirname, "../server/db/backup.ts") } },
+        ),
+    );
+    const exits = workers.map((w) => new Promise<number>((r) => w.once("exit", r)));
+    await new Promise((r) => setTimeout(r, 200));
+    Atomics.store(go, 0, 1);
+    Atomics.notify(go, 0);
+    expect(await Promise.all(exits)).toEqual([0, 0, 0]);
+    const kept = backupsIn(join(dir, "backups"));
+    expect(kept).toHaveLength(BACKUPS_KEPT);
+    for (const f of kept) expect(dump(openDb(join(dir, "backups", f)))).toEqual(dump(openDb(file)));
   });
 
   it("stores paths with quotes safely and refuses to run inside a transaction", () => {

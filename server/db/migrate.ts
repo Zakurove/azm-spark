@@ -11,6 +11,13 @@ export interface MigrationOutcome {
   schema: number;
 }
 
+/**
+ * How long a connection waits for another connection's lock before SQLite reports "database is
+ * locked". Two processes starting on one file (npm start next to a dev or preview server, or an
+ * overlapping restart) then queue behind each other's migration instead of failing to start.
+ */
+export const BUSY_TIMEOUT_MS = 10_000;
+
 const LOG_DDL =
   "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at INTEGER NOT NULL)";
 
@@ -36,7 +43,9 @@ function assertKnownSchema(logged: ReadonlySet<number>, migrations: readonly Mig
  * schema_migrations table and ALL pending migrations are applied in ONE transaction: on any error
  * everything rolls back, no version is recorded, and the error is rethrown so the server does not
  * start on a half migrated schema. A database that recorded a migration this build does not know
- * (a newer schema) is refused before anything is written.
+ * (a newer schema) is refused before anything is written. The connection gets a busy timeout, so
+ * when another process is migrating the same file this call waits for its lock, re-reads the log
+ * under the lock and applies only what is still pending (often nothing).
  */
 export function runMigrations(
   db: DatabaseSync,
@@ -47,6 +56,9 @@ export function runMigrations(
       throw new Error(`Migration versions must be positive and strictly ascending (at ${m.name})`);
   });
   db.exec("PRAGMA foreign_keys=ON");
+  // Wait for a second starter's write lock rather than failing at once (keeps a longer timeout).
+  const { timeout } = db.prepare("PRAGMA busy_timeout").get() as { timeout: number };
+  if (Number(timeout) < BUSY_TIMEOUT_MS) db.exec(`PRAGMA busy_timeout=${BUSY_TIMEOUT_MS}`);
   const tables = (
     db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'")

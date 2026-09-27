@@ -8,7 +8,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createPlan, validateIntake, Plan, Prescription } from "../src/medical/plan";
 import { extractReport, validReportBody } from "./report";
 import { createWeekly } from "./weekly-ai";
-import { runMigrations } from "./db/migrate";
+import { BUSY_TIMEOUT_MS, runMigrations } from "./db/migrate";
 import { moduleRoutes } from "./modules";
 import type { Route } from "./http/types";
 const scrypt = promisify(derive);
@@ -20,7 +20,7 @@ export function createApi(
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   }
-  const db = new DatabaseSync(path);
+  const db = new DatabaseSync(path, { timeout: BUSY_TIMEOUT_MS });
   if (path !== ":memory:") chmodSync(path, 0o600);
   // Schema lives in server/db/migrations; an existing database is backed up before it changes.
   let migrated: ReturnType<typeof runMigrations>;
@@ -30,8 +30,10 @@ export function createApi(
     db.close();
     throw error;
   }
-  if (migrated.backup)
-    console.log(`Azm database migrated to schema ${migrated.schema}, backup written before migrating`);
+  if (migrated.applied.length)
+    console.log(
+      `Azm database migrated to schema ${migrated.schema}${migrated.backup ? ", backup written before migrating" : ""}`,
+    );
   const rates = new Map<string, { n: number; until: number }>();
   function limited(key: string, max = 12) {
     const now = Date.now();

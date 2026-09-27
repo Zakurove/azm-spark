@@ -1,0 +1,292 @@
+/**
+ * Landing page, phase 1 of F15 (technical plan, "Landing page reimagining"): the hero with the
+ * then and now example card, the four step loop, the "not intended for medical purposes" line and
+ * the closing text without "or doctor" (clinical spec Q23, Appendix B item 15).
+ *
+ * The page is rendered to static markup in both languages, so what is checked is what a visitor
+ * reads. Copy is read from src/i18n/{ar,en}/landing.json through t().
+ */
+import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import Landing, {
+  EXAMPLE,
+  EXAMPLE_BAND,
+  HERO_HEADLINE,
+  LOOP_STEPS,
+  chartPos,
+  checkHref,
+} from "../src/app/Landing";
+import { DICTIONARIES, t } from "../src/i18n";
+import { CHECK_DATA, testDef } from "../src/movements/assessments";
+import { ARABIC_MARKS, wordingProblems } from "../scripts/wording-rules.mjs";
+import type { Lang } from "../src/app/i18n";
+
+const LANGS: Lang[] = ["ar", "en"];
+const noop = () => {};
+const render = (lang: Lang) =>
+  renderToStaticMarkup(createElement(Landing, { lang, onLanguage: noop, onEnter: noop, onDemo: noop }));
+
+/** Decodes the few entities renderToStaticMarkup writes. */
+const decode = (s: string) =>
+  s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+/** The visible text of a piece of markup, one space between elements. */
+const text = (html: string) =>
+  decode(html.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+/** The inner markup of the first element that carries this class. */
+function part(html: string, cls: string): string {
+  const open = new RegExp(`<(\\w+)[^>]*class="[^"]*\\b${cls}\\b[^"]*"[^>]*>`).exec(html);
+  if (!open) throw new Error(`No element with class ${cls}`);
+  const tag = open[1];
+  let depth = 1;
+  const re = new RegExp(`<(/?)${tag}\\b[^>]*>`, "g");
+  re.lastIndex = open.index + open[0].length;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) return html.slice(open.index + open[0].length, m.index);
+  }
+  throw new Error(`Unclosed ${cls}`);
+}
+/** Every string leaf of a dictionary with its dotted key. */
+function leaves(v: unknown, prefix = ""): [string, string][] {
+  if (typeof v === "string") return [[prefix, v]];
+  return Object.entries(v as Record<string, unknown>).flatMap(([k, x]) =>
+    leaves(x, prefix ? `${prefix}.${k}` : k),
+  );
+}
+/** Stems the clinical spec never allows in progress copy (spec section 5, progress.forbiddenInProgressText). */
+function forbiddenStems(s: string): string[] {
+  const { en, ar } = CHECK_DATA.progress.forbiddenInProgressText;
+  const plain = s.toLowerCase().replace(ARABIC_MARKS, "");
+  return [...en, ...ar].filter((stem) => plain.includes(stem));
+}
+
+describe("hero", () => {
+  it("shows headline option 1 by default, in both languages", () => {
+    expect(HERO_HEADLINE).toBe("landing.hero.headline.lastSession");
+    expect(t("ar", HERO_HEADLINE)).toBe("من آخر جلسة علاج إلى حياة نشطة");
+    expect(t("en", HERO_HEADLINE)).toBe("From your last therapy session to an active life");
+    for (const lang of LANGS)
+      expect(text(part(render(lang), "ld-hero-copy"))).toContain(t(lang, HERO_HEADLINE));
+    expect(render("ar")).toMatch(/<h1>من آخر جلسة علاج إلى حياة نشطة<\/h1>/);
+  });
+
+  it("keeps the other two headline options ready in both languages", () => {
+    expect(t("ar", "landing.hero.headline.therapyEnded")).toBe("انتهى العلاج، وحركتك مستمرة");
+    expect(t("en", "landing.hero.headline.therapyEnded")).toBe("Therapy ended. Your movement goes on.");
+    expect(t("ar", "landing.hero.headline.stillYours")).toBe("الرياضة ما زالت لك، مهما تغيّر جسمك");
+    expect(t("en", "landing.hero.headline.stillYours")).toBe(
+      "Training is still yours, whatever your body has been through",
+    );
+  });
+
+  it("uses the supporting line of the plan", () => {
+    expect(t("en", "landing.hero.body")).toBe(
+      "Azm measures where you are, prescribes what fits your medical condition, coaches every session through your phone camera, and shows your progress.",
+    );
+    expect(t("ar", "landing.hero.body")).toContain("حالتك الطبية");
+  });
+
+  it("has no small label above the heading", () => {
+    for (const lang of LANGS) {
+      const html = render(lang);
+      expect(html).not.toContain("ld-eyebrow");
+      expect(part(html, "ld-hero-copy").trim().startsWith("<h1>")).toBe(true);
+    }
+  });
+
+  it("offers the workout trial and registration", () => {
+    const en = text(part(render("en"), "ld-hero-copy"));
+    expect(en).toContain("Try a workout now");
+    expect(en).toContain("Start free");
+    const ar = text(part(render("ar"), "ld-hero-copy"));
+    expect(ar).toContain("جرّب تمرينًا الآن");
+    expect(ar).toContain("ابدأ مجانًا");
+  });
+
+  it("keeps the athlete render and the live session card", () => {
+    for (const lang of LANGS) {
+      const stage = part(render(lang), "ld-stage");
+      expect(stage).toContain("/illustrations/landing/wheelchair-press.webp");
+      expect(text(part(stage, "ld-card-live"))).toContain(t(lang, "landing.hero.live.label"));
+    }
+  });
+});
+
+describe("then and now example card", () => {
+  it("is labelled as an example and shows the example values in degrees", () => {
+    const card = text(part(render("en"), "ld-card-then"));
+    expect(card.startsWith("Example")).toBe(true);
+    expect(card).toContain("Arm raise to the side, right");
+    expect(card).toContain("Start 100 degrees");
+    expect(card).toContain("Now 117 degrees");
+    expect(card).toContain("Change 17 degrees");
+    expect(card).toContain("Higher than your starting point");
+
+    const ar = text(part(render("ar"), "ld-card-then"));
+    expect(ar.startsWith("مثال")).toBe(true);
+    expect(ar).toContain("رفع الذراع جانبًا، اليمنى");
+    expect(ar).toContain("البداية ١٠٠ درجة");
+    expect(ar).toContain("الآن ١١٧ درجة");
+    expect(ar).toContain("التغير ١٧ درجة");
+    expect(ar).toContain("أعلى من نقطة بدايتك");
+  });
+
+  it("uses the wording of the clinical data", () => {
+    const def = testDef("shoulder_abduction");
+    const { labels, verdicts } = CHECK_DATA.progress;
+    for (const lang of LANGS) {
+      expect(t(lang, "landing.example.test")).toBe(
+        `${def.name[lang]}${lang === "ar" ? "، " : ", "}${def.resultTokens.side.right[lang]}`,
+      );
+      expect(t(lang, "landing.example.start")).toBe(labels.start[lang]);
+      expect(t(lang, "landing.example.now")).toBe(labels.now[lang]);
+      expect(t(lang, "landing.example.change")).toBe(labels.change[lang]);
+      expect(t(lang, "landing.example.verdict")).toBe(verdicts.higher[lang]);
+    }
+  });
+
+  it("follows the progress rules of the spec: whole degrees, and higher only beyond the band", () => {
+    const band = testDef("shoulder_abduction").noiseBandRules.default.abs;
+    expect(EXAMPLE_BAND).toBe(band);
+    expect(Number.isInteger(EXAMPLE.start) && Number.isInteger(EXAMPLE.now)).toBe(true);
+    expect(EXAMPLE.now - EXAMPLE.start).toBeGreaterThan(band);
+    // Below the near full range value, where the spec shows no verdict.
+    expect(EXAMPLE.now).toBeLessThan(testDef("shoulder_abduction").noiseBandRules.nearFullRangeDeg);
+  });
+
+  it("never implies treatment or clinical improvement", () => {
+    for (const lang of LANGS) {
+      const card = text(part(render(lang), "ld-card-then"));
+      expect(forbiddenStems(card)).toEqual([]);
+      expect(card).not.toMatch(/treat|therap|clinic|rehab|علاج|تأهيل|عيادة/i);
+    }
+  });
+});
+
+describe("four step loop", () => {
+  it("shows measure, prescribe, coach and prove in order, each with a small screen", () => {
+    expect(LOOP_STEPS).toEqual(["measure", "prescribe", "coach", "prove"]);
+    for (const lang of LANGS) {
+      const flow = part(render(lang), "ld-how-flow");
+      const items = flow.split("<li").slice(1);
+      expect(items).toHaveLength(4);
+      items.forEach((item, i) => {
+        const step = LOOP_STEPS[i];
+        expect(text(item)).toContain(t(lang, `landing.loop.steps.${step}.title`));
+        expect(text(item)).toContain(t(lang, `landing.loop.steps.${step}.body`));
+        expect(item).toContain('class="ld-mock"');
+      });
+    }
+    expect(LOOP_STEPS.map((s) => t("en", `landing.loop.steps.${s}.title`))).toEqual([
+      "Measure",
+      "Prescribe",
+      "Coach",
+      "Prove",
+    ]);
+  });
+
+  it("measures for the person's own tracking, against their own start", () => {
+    expect(t("en", "landing.loop.steps.measure.body")).toContain(
+      "measures your movement for your own tracking",
+    );
+    expect(t("ar", "landing.loop.steps.measure.body")).toContain("يقيس حركتك لتتابعها بنفسك");
+    expect(t("en", "landing.loop.steps.prove.body")).toContain("compared only with yourself");
+    expect(t("ar", "landing.loop.steps.prove.body")).toContain("مقارنة بنفسك فقط");
+  });
+
+  it("re-checks every four weeks, as the spec's 28 day interval", () => {
+    expect(CHECK_DATA.progress.retestDays).toBe(28);
+    expect(t("en", "landing.loop.steps.prove.body")).toContain("Every four weeks");
+    expect(t("ar", "landing.loop.steps.prove.body")).toContain("كل أربعة أسابيع");
+  });
+
+  it("keeps progress wording rules in the prove step and its example chart", () => {
+    for (const lang of LANGS) {
+      const prove = text(part(render(lang), "ld-step-prove"));
+      expect(forbiddenStems(prove)).toEqual([]);
+      expect(prove).toContain(t(lang, "landing.example.tag"));
+    }
+  });
+
+  it("draws the example chart with the start band and the latest point above it", () => {
+    const html = part(render("en"), "ld-mock-chart");
+    expect(html).toContain("ld-chart-band");
+    expect(html.match(/<i /g)).toHaveLength(3);
+    expect(chartPos(116)).toBeLessThan(chartPos(117));
+    expect(chartPos(76)).toBe(0);
+    expect(chartPos(124)).toBe(100);
+  });
+
+  it("offers the movement check on its guest route, keeping the language", () => {
+    expect(checkHref("ar")).toBe("/?check=1");
+    expect(checkHref("en")).toBe("/?check=1&lang=en");
+    const ar = part(render("ar"), "ld-how-action");
+    expect(ar).toContain('href="/?check=1"');
+    expect(text(ar)).toBe("جرّب فحص الحركة");
+    const en = part(render("en"), "ld-how-action");
+    expect(decode(en)).toContain('href="/?check=1&lang=en"');
+    expect(text(en)).toBe("Try the movement check");
+  });
+});
+
+describe("closing and footer", () => {
+  it("shows the not intended for medical purposes line from the clinical data", () => {
+    for (const lang of LANGS) {
+      expect(t(lang, "landing.footer.notMedical")).toBe(CHECK_DATA.boundary.notMedical[lang]);
+      expect(text(render(lang))).toContain(CHECK_DATA.boundary.notMedical[lang]);
+    }
+    expect(t("ar", "landing.footer.notMedical")).toBe("غير مخصص للأغراض الطبية.");
+    expect(t("en", "landing.footer.notMedical")).toBe("Not intended for medical purposes.");
+  });
+
+  it("keeps the closing line and drops the doctor from the closing text (spec Q23)", () => {
+    expect(t("ar", "landing.close.title")).toBe("جسمك تغيّر، وعزمك باقٍ");
+    expect(t("en", "landing.close.title")).toBe("Your body changed. Your resolve did not.");
+    expect(t("en", "landing.close.body").endsWith("so you can see it build.")).toBe(true);
+    expect(t("ar", "landing.close.body").endsWith("لتراه أنت.")).toBe(true);
+    for (const lang of LANGS) {
+      const close = text(part(render(lang), "ld-close"));
+      expect(close).not.toMatch(/doctor|طبيب/i);
+      expect(close).toContain(t(lang, "landing.close.title"));
+    }
+  });
+});
+
+describe("page wide rules", () => {
+  it("every landing string is in both languages and passes the wording rules", () => {
+    const ar = new Map(leaves(DICTIONARIES.ar.landing));
+    const en = new Map(leaves(DICTIONARIES.en.landing));
+    expect([...ar.keys()].sort()).toEqual([...en.keys()].sort());
+    for (const [key, value] of [...ar, ...en]) expect(wordingProblems(value), key).toEqual([]);
+  });
+
+  it("the rendered page has no dash, says حالتك الطبية and never claims to be a rehabilitation app", () => {
+    for (const lang of LANGS) {
+      const page = text(render(lang));
+      expect(wordingProblems(page)).toEqual([]);
+      expect(page).not.toMatch(/rehabilitation app|rehab app|تطبيق تأهيل/i);
+    }
+    expect(text(render("ar"))).toContain("حالتك الطبية");
+    expect(text(render("en"))).toContain("your medical condition");
+  });
+
+  it("renders the full Azm wordmark and a language switch in the other language", () => {
+    const ar = render("ar");
+    expect(ar).toContain('src="/brand/azm.png"');
+    expect(ar).toMatch(/<button class="language" lang="en">English<\/button>/);
+    expect(render("en")).toMatch(/<button class="language" lang="ar">العربية<\/button>/);
+  });
+
+  it("shows Arabic digits in Arabic and ASCII digits in English", () => {
+    expect(text(render("ar"))).not.toMatch(/[0-9]/);
+    expect(text(part(render("en"), "ld-card-then"))).toMatch(/100/);
+  });
+});

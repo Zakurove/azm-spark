@@ -1395,7 +1395,7 @@
   gap: 12px;
 }
 
-/* ——— SPARK landing v2 ——— */
+/* ——— Landing (F15 phase 1: hero and the four step loop) ——— */
 .ld-shell {
   min-height: 100dvh;
   display: flex;
@@ -1420,13 +1420,22 @@
   align-items: center;
   justify-content: space-between;
 }
+.ld-header .language {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 8px 14px;
+  background: #fff;
+  border-color: #e7e3d9;
+  border-radius: 10px;
+}
 .ld-login {
-  background: white;
-  min-height: 42px;
+  background: #fff;
+  min-height: 48px;
   padding: 8px 22px;
+  font-size: 13px;
 }
 .ld-start-sm {
-  min-height: 42px;
+  min-height: 48px;
   padding: 8px 24px;
   font-size: 13px;
 }
@@ -1434,12 +1443,16 @@
   position: relative;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 70px 28px 30px;
+  padding: 72px 28px 36px;
   display: grid;
   grid-template-columns: 1.02fr 0.98fr;
   gap: 54px;
   align-items: center;
   width: 100%;
+}
+/* Content paints above the soft glows (they are positioned too, and come first). */
+.ld-hero > :not(.ld-glow) {
+  position: relative;
 }
 .ld-glow {
   position: absolute;
@@ -1461,25 +1474,26 @@
   bottom: -160px;
   inset-inline-start: -120px;
 }
-.ld-eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  font-weight: 700;
-  color: #a8842a;
-}
 .ld-hero h1 {
-  font-size: 62px;
-  line-height: 1.3;
-  letter-spacing: -1.9px;
-  white-space: pre-line;
-  margin: 18px 0 0;
+  font-size: 58px;
+  line-height: 1.35;
+  margin: 0;
+  color: #1c2029;
+  text-wrap: balance;
+}
+[dir="ltr"] .ld-hero h1 {
+  letter-spacing: -1.6px;
+  line-height: 1.15;
 }
 .ld-hero-body {
-  font-size: 16.5px;
-  line-height: 2.1;
-  color: #5d626d;
-  max-width: 530px;
-  margin-top: 22px;
+  font-size: 17px;
+  line-height: 2.05;
+  color: #4f545e;
+  max-width: 540px;
+  margin: 24px 0 0;
+}
+[dir="ltr"] .ld-hero-body {
+  line-height: 1.75;
 }
 .ld-ctas {
   display: flex;
@@ -1487,7 +1501,8 @@
   margin-top: 34px;
   flex-wrap: wrap;
 }
-.ld-cta-demo {
+.ld-cta-demo,
+.ld-cta-check {
   min-height: 56px;
   padding: 14px 30px;
   font-size: 15px;
@@ -1496,13 +1511,13 @@
 .ld-cta-ghost {
   min-height: 56px;
   padding: 14px 26px;
-  background: white;
+  background: #fff;
   font-size: 14px;
 }
 .ld-chips {
   display: flex;
   gap: 9px;
-  margin-top: 30px;
+  margin-top: 28px;
   flex-wrap: wrap;
 }
 .ld-chip {
@@ -1510,15 +1525,15 @@
   background: #fff;
   border-radius: 99px;
   padding: 9px 15px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  color: #666b75;
+  color: #50555f;
   display: inline-flex;
   gap: 8px;
   align-items: center;
 }
 .ld-chip svg {
-  color: #a8842a;
+  color: #8065ad;
   flex-shrink: 0;
 }
 .ld-stage {
@@ -1575,19 +1590,12 @@
   inset-inline-end: -8px;
   rotate: 2deg;
 }
-.ld-card-report {
-  width: 252px;
-  bottom: 44px;
-  inset-inline-start: -14px;
-  rotate: -2deg;
-  animation-delay: 2.8s;
-}
 .ld-live-head {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: #7c818b;
+  color: #5d626d;
   font-weight: 700;
 }
 .ld-live-dot {
@@ -1617,7 +1625,7 @@
 }
 .ld-live-count span {
   font-size: 13px;
-  color: #9297a0;
+  color: #5d626d;
 }
 .ld-bar {
   height: 6px;
@@ -1639,152 +1647,329 @@
   align-items: center;
   margin-top: 12px;
   font-size: 11.5px;
-  color: #7c818b;
+  color: #5d626d;
 }
 .ld-live-range b {
-  color: #4c8f56;
+  color: #2f6b3a;
   font-weight: 750;
 }
-.ld-report-head {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 13.5px;
-  font-weight: 750;
+/* Then and now card: example values only, always tagged. */
+.ld-card-then {
+  width: 270px;
+  bottom: 28px;
+  inset-inline-start: -14px;
+  rotate: -2deg;
+  animation-delay: 2.8s;
 }
-.ld-report-head svg {
-  color: #4c8f56;
-  flex-shrink: 0;
-}
-.ld-report-chips {
+.ld-then-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 12px;
+  align-items: center;
+  gap: 6px 8px;
 }
-.ld-report-chips span {
-  background: #f5f1e6;
+.ld-tag {
+  display: inline-flex;
+  align-items: center;
   border-radius: 99px;
-  padding: 6px 12px;
+  background: #f1ecf8;
+  color: #5f4690;
   font-size: 11px;
-  font-weight: 650;
-  color: #6d6349;
+  font-weight: 750;
+  padding: 2px 10px;
+  flex-shrink: 0;
 }
-.ld-report-foot {
+.ld-then-test {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #1c2029;
+}
+.ld-then-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
   margin-top: 12px;
-  font-size: 10.5px;
-  color: #9297a0;
 }
+.ld-then-cell {
+  display: flex;
+  flex-direction: column;
+  background: #faf8f3;
+  border: 1px solid #efebe1;
+  border-radius: 11px;
+  padding: 7px 9px 6px;
+}
+.ld-then-cell:nth-child(2) {
+  background: #fff7dc;
+  border-color: #f4e2a4;
+}
+.ld-then-cell span,
+.ld-then-cell small {
+  font-size: 10.5px;
+  color: #5d626d;
+  font-weight: 650;
+}
+.ld-then-cell b {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #1c2029;
+  font-variant-numeric: tabular-nums;
+}
+.ld-then-verdict {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5f4690;
+}
+.ld-then-verdict::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8065ad;
+  flex-shrink: 0;
+}
+/* The four step loop. */
 .ld-how {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 84px 28px 30px;
+  padding: 96px 28px 30px;
   width: 100%;
+}
+.ld-how-head {
+  max-width: 640px;
 }
 .ld-how h2 {
   font-size: 38px;
   line-height: 1.5;
+  margin: 0;
+  color: #1c2029;
+}
+[dir="ltr"] .ld-how h2 {
   letter-spacing: -1.1px;
-  max-width: 600px;
+}
+.ld-how-head p {
+  font-size: 16px;
+  line-height: 2;
+  color: #4f545e;
+  margin: 10px 0 0;
 }
 .ld-how-flow {
-  margin-top: 50px;
+  list-style: none;
+  margin: 44px 0 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
 }
 .ld-step {
-  padding: 6px 30px 10px;
-  border-inline-start: 1px solid #eeeae1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #eeeae1;
+  border-radius: 20px;
+  padding: 22px 20px 20px;
 }
-.ld-step:first-child {
-  border-inline-start: 0;
-  padding-inline-start: 0;
+.ld-step-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 .ld-step-num {
-  font-size: 58px;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f1ecf8;
+  color: #5f4690;
+  font-size: 16px;
   font-weight: 800;
-  color: #efe8d3;
-  line-height: 1;
-  letter-spacing: -2px;
 }
 .ld-step h3 {
-  font-size: 18.5px;
-  margin: 16px 0 10px;
-  letter-spacing: -0.3px;
+  font-size: 21px;
+  margin: 0;
+  color: #1c2029;
 }
 .ld-step p {
   font-size: 13.5px;
-  line-height: 2.1;
-  color: #6a6f79;
+  line-height: 2;
+  color: #50555f;
+  margin: 0;
+  flex: 1;
+}
+[dir="ltr"] .ld-step p {
+  line-height: 1.75;
 }
 .ld-mock {
-  margin-top: 20px;
+  margin-top: 18px;
   border: 1px solid #eeeae1;
   border-radius: 14px;
-  padding: 13px 15px;
+  padding: 13px 14px;
   background: #fdfcf9;
-}
-.ld-mock-doc i {
-  display: block;
-  height: 6px;
-  border-radius: 4px;
-  background: #ece8dd;
-  margin: 7px 0;
-}
-.ld-mock-doc i:nth-child(2) {
-  width: 82%;
-}
-.ld-mock-doc i:nth-child(3) {
-  width: 64%;
-}
-.ld-mock-stamp {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 9px;
-  background: #e9f4ea;
-  color: #4c8f56;
-  border-radius: 99px;
-  padding: 5px 11px;
-  font-size: 10.5px;
-  font-weight: 750;
-}
-.ld-mock-dose {
+  min-height: 118px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
+  flex-direction: column;
+  justify-content: center;
 }
-.ld-mock-dose span {
-  background: #fff;
-  border: 1px solid #ece8dd;
-  border-radius: 9px;
-  padding: 7px 11px;
-  font-size: 11px;
-  font-weight: 650;
-  color: #585d67;
-}
+.ld-mock-check,
 .ld-mock-cam {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+.ld-mock-raise,
 .ld-mock-joints {
   flex-shrink: 0;
 }
-.ld-mock-cam-lines {
+.ld-mock-lines {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
-.ld-mock-cam-lines b {
-  display: block;
-  font-size: 11.5px;
+.ld-mock-lines b {
+  font-size: 12px;
   font-weight: 750;
-  color: #585d67;
+  color: #3f444d;
 }
-.ld-mock-cam-lines span {
-  display: block;
+.ld-mock-lines span {
   font-size: 10.5px;
-  color: #9297a0;
+  color: #5d626d;
+}
+.ld-mock-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+}
+.ld-mock-dots i {
+  width: 14px;
+  height: 4px;
+  border-radius: 4px;
+  background: #e6e1d5;
+  flex-shrink: 0;
+}
+.ld-mock-dots i.on {
+  background: #8065ad;
+}
+.ld-mock-dots i:last-of-type {
+  margin-inline-end: 4px;
+}
+.ld-mock-plan-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #5f4690;
+}
+.ld-mock-plan-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0ece2;
+  font-size: 11.5px;
+  color: #3f444d;
+}
+.ld-mock-plan-row b {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ld-mock-stamp {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin-top: 9px;
+  background: #e9f4ea;
+  color: #2c6337;
+  border-radius: 99px;
+  padding: 4px 11px;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+.ld-mock-reps {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.ld-mock-reps b {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  color: #1c2029;
+}
+.ld-mock-reps span {
+  font-size: 11px;
+  color: #5d626d;
+}
+.ld-mock-prove-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #3f444d;
+}
+.ld-mock-chart {
+  position: relative;
+  height: 64px;
+  margin-top: 10px;
+}
+.ld-chart-band {
+  position: absolute;
+  inset-inline: 0;
+  border-radius: 7px;
+  background: #8065ad1a;
+}
+.ld-chart-start {
+  position: absolute;
+  inset-inline: 0;
+  border-top: 1px dashed #8065ad66;
+}
+.ld-mock-chart i {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin-inline-start: -5px;
+  margin-bottom: -5px;
+  border-radius: 50%;
+  background: #8065ad;
+  box-shadow: 0 0 0 2px #fdfcf9;
+}
+.ld-mock-chart i.now {
+  width: 12px;
+  height: 12px;
+  margin-inline-start: -6px;
+  margin-bottom: -6px;
+  background: #f2c33c;
+}
+.ld-mock-prove-axis {
+  display: flex;
+  justify-content: space-between;
   margin-top: 4px;
+  font-size: 10.5px;
+  color: #5d626d;
+}
+.ld-how-action {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+}
+.ld-cta-check {
+  color: #1c2029;
+  text-decoration: none;
+  gap: 10px;
 }
 .ld-health {
   margin-top: 70px;
@@ -1802,8 +1987,10 @@
 }
 .ld-health h2 {
   font-size: 36px;
-  letter-spacing: -1px;
   line-height: 1.5;
+}
+[dir="ltr"] .ld-health h2 {
+  letter-spacing: -1px;
 }
 .ld-health-body {
   font-size: 18px;
@@ -1838,12 +2025,14 @@
 }
 .ld-close h2 {
   font-size: 42px;
-  letter-spacing: -1.3px;
   line-height: 1.45;
+}
+[dir="ltr"] .ld-close h2 {
+  letter-spacing: -1.3px;
 }
 .ld-close p {
   font-size: 15.5px;
-  color: #6a6f79;
+  color: #50555f;
   margin-top: 16px;
 }
 .ld-close .ld-ctas {
@@ -1862,16 +2051,22 @@
   gap: 26px;
   align-items: center;
 }
+.ld-not-medical {
+  font-size: 13px;
+  font-weight: 750;
+  color: #2f343d;
+  margin: 0 0 6px;
+}
 .ld-note {
-  font-size: 10.5px;
-  color: #8b9097;
+  font-size: 11px;
+  color: #5d626d;
   max-width: 660px;
   line-height: 1.95;
   margin: 0;
 }
 .ld-brandline {
   font-size: 11.5px;
-  color: #6a6f79;
+  color: #50555f;
   font-weight: 650;
   flex-shrink: 0;
 }
@@ -1909,18 +2104,7 @@
     width: 100%;
   }
   .ld-how-flow {
-    grid-template-columns: 1fr;
-    gap: 34px;
-  }
-  .ld-step {
-    border-inline-start: 0;
-    padding: 0;
-    border-top: 1px solid #eeeae1;
-    padding-top: 26px;
-  }
-  .ld-step:first-child {
-    border-top: 0;
-    padding-top: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .ld-health-inner {
     grid-template-columns: 1fr;
@@ -1931,61 +2115,91 @@
 }
 @media (max-width: 640px) {
   .ld-header-inner {
-    padding: 0 18px;
+    padding: 0 16px;
     height: 70px;
   }
   .ld-start-sm {
     display: none;
   }
   .ld-hero {
-    padding: 36px 18px 10px;
+    padding: 34px 16px 10px;
   }
   .ld-hero h1 {
-    font-size: 34px;
-    letter-spacing: -1px;
+    font-size: 33px;
+  }
+  [dir="ltr"] .ld-hero h1 {
+    letter-spacing: -0.8px;
   }
   .ld-hero-body {
-    font-size: 14px;
+    font-size: 15px;
+    margin-top: 18px;
   }
   .ld-ctas {
     margin-top: 26px;
   }
   .ld-cta-demo,
-  .ld-cta-ghost {
+  .ld-cta-ghost,
+  .ld-cta-check {
     width: 100%;
     justify-content: center;
   }
+  /* The athlete and the live card share the top of the stage; the example card follows below. */
   .ld-stage {
-    height: 400px;
+    height: auto;
+    padding-top: 340px;
   }
   .ld-stage-disc,
   .ld-stage-ring {
     width: 330px;
     height: 330px;
   }
+  .ld-stage-img {
+    top: 92px;
+    bottom: auto;
+    width: min(340px, 94%);
+  }
   .ld-card-live {
-    width: 176px;
-    inset-inline-end: -8px;
-    top: 12px;
-    padding: 13px 14px;
+    width: 162px;
+    inset-inline-end: -6px;
+    top: 8px;
+    padding: 12px 13px;
   }
   .ld-card-live .ld-live-count b {
     font-size: 30px;
   }
-  .ld-card-report {
-    width: 196px;
-    inset-inline-start: -8px;
-    bottom: 6px;
+  .ld-card-then {
+    position: relative;
+    inset: auto;
+    width: min(300px, 100%);
+    margin: -34px auto 0;
+    rotate: -1.5deg;
     padding: 13px 14px;
   }
+  .ld-then-cell {
+    padding: 6px 7px 5px;
+  }
+  .ld-then-cell b {
+    font-size: 18px;
+  }
   .ld-how {
-    padding: 54px 18px 10px;
+    padding: 58px 16px 10px;
   }
   .ld-how h2 {
-    font-size: 27px;
+    font-size: 28px;
+  }
+  .ld-how-head p {
+    font-size: 15px;
+  }
+  .ld-how-flow {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-top: 30px;
+  }
+  .ld-step {
+    padding: 20px 18px 18px;
   }
   .ld-health-inner {
-    padding: 54px 18px;
+    padding: 54px 16px;
   }
   .ld-health h2 {
     font-size: 26px;
@@ -1994,12 +2208,16 @@
     font-size: 15px;
   }
   .ld-close {
-    padding: 64px 18px 70px;
+    padding: 64px 16px 70px;
   }
   .ld-close h2 {
     font-size: 29px;
   }
+  [dir="ltr"] .ld-close h2 {
+    letter-spacing: -0.6px;
+  }
   .ld-footer-inner {
+    padding: 24px 16px;
     flex-direction: column;
     align-items: start;
   }

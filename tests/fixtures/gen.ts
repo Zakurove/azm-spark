@@ -7,7 +7,8 @@
  * shank 0.42 m). Joint states (trunk lean and bend, rising from the seat, arm elevation, elbow
  * bend, a pelvis that drops) come from motion specs over time. The mannequin is turned (yaw) and
  * placed in the room, then projected through a level pinhole camera whose short side spans 50
- * degrees (the spec's own assumption, spec 4.0) onto a 720x1280 (9:16) or 1280x720 (16:9) image,
+ * degrees (the spec's own assumption, spec 4.0) onto a 720x1280 (9:16), 1280x720 (16:9) or 960x960
+ * (1:1) image,
  * and normalized as MediaPipe does (x ÷ width, y ÷ height). Angles in the fixtures are therefore
  * only true in pixel space (D-003), as on a real phone.
  *
@@ -19,7 +20,11 @@
  * a moving phone (the whole image jitters, or jolts); dim light; the model's pose order shuffled
  * per frame.
  *
- * Profiles: chair (steady chair), wheelchair (higher seat, footplates, hips mostly hidden),
+ * The subject can also rest the arms in a given pose (hands on the thighs), hold the other arm
+ * (an assisted lift), turn, bend forward or slide the pelvis sideways, for the engine mode tests.
+ *
+ * Profiles: chair (steady chair), wheelchair (higher seat, footplates, hips mostly hidden unless a
+ * front view shows them, wheelchairHips),
  * standing (a chair for the chair stand), weaker_left and weaker_right (that arm reaches 60
  * percent of the asked range and rests a little bent). Clearly synthetic; never shown as a person.
  */
@@ -27,7 +32,7 @@ import { LM, type Landmark } from "../../src/engine/types";
 import type { Fixture } from "./format";
 
 export type Profile = "chair" | "wheelchair" | "standing" | "weaker_left" | "weaker_right";
-export type AspectName = "9:16" | "16:9";
+export type AspectName = "9:16" | "16:9" | "1:1";
 type Side = "left" | "right";
 
 export const PROFILES: readonly Profile[] = [
@@ -40,6 +45,7 @@ export const PROFILES: readonly Profile[] = [
 export const FRAME_SIZE: Record<AspectName, { w: number; h: number }> = {
   "9:16": { w: 720, h: 1280 },
   "16:9": { w: 1280, h: 720 },
+  "1:1": { w: 960, h: 960 },
 };
 export const aspectOf = (a: AspectName) => FRAME_SIZE[a].w / FRAME_SIZE[a].h;
 
@@ -141,6 +147,8 @@ export interface PoseState {
   arms: Record<Side, ArmState>;
   /** A hand that reaches a world point (inverse kinematics), overriding that arm. */
   reach?: { hand: Side; target: V };
+  /** The subject's own hand holds the other arm at the elbow (an assisted lift). */
+  assist?: { hand: Side };
 }
 
 interface Setting {
@@ -181,7 +189,15 @@ export type MotionSpec =
   | { kind: "fall"; at: number; dur?: number }
   | { kind: "sway"; at: number; peak?: number; dur?: number; toward?: Side }
   | { kind: "leave"; at: number; speed?: number; dir?: 1 | -1 }
-  | { kind: "raise_hand"; side: Side; from: number; to: number };
+  | { kind: "raise_hand"; side: Side; from: number; to: number }
+  /** The hand holds the other arm at the elbow between from and to (an assisted lift). */
+  | { kind: "assist"; hand: Side; from: number; to: number }
+  /** The body turns by `deg` (yaw, positive turns the left side toward the camera), then back. */
+  | { kind: "turn"; deg: number; start?: number; rise?: number; hold?: number; back?: number }
+  /** The trunk bends forward by `deg`, then back. */
+  | { kind: "bend"; deg: number; start?: number; rise?: number; hold?: number; back?: number }
+  /** The pelvis slides sideways by `dx` metres (world x, toward the image right), then back. */
+  | { kind: "slide"; dx: number; start?: number; rise?: number; hold?: number; back?: number };
 
 /** 0 → 1 → hold → 0 envelope. */
 function envelope(t: number, start: number, rise: number, hold: number, back: number): number {
@@ -254,6 +270,18 @@ function applyMotion(m: MotionSpec, t: number, s: PoseState): void {
       a.elbow *= 1 - e;
       return;
     }
+    case "assist":
+      if (t >= m.from && t <= m.to) s.assist = { hand: m.hand };
+      return;
+    case "turn":
+      s.yaw += m.deg * envelope(t, m.start ?? 0.5, m.rise ?? 1, m.hold ?? 1, m.back ?? 1);
+      return;
+    case "bend":
+      s.pitch += m.deg * envelope(t, m.start ?? 0.5, m.rise ?? 1, m.hold ?? 1, m.back ?? 1);
+      return;
+    case "slide":
+      s.x += m.dx * envelope(t, m.start ?? 0.5, m.rise ?? 1, m.hold ?? 1, m.back ?? 1);
+      return;
   }
 }
 
@@ -325,15 +353,22 @@ function skeleton(s: PoseState, dims: BodyDims, setting: Setting): V[] {
   out[LM.l_hip] = add(pelvis, mul(Lw, dims.hipHalf));
   out[LM.r_hip] = add(pelvis, mul(Lw, -dims.hipHalf));
 
-  // Arms.
-  for (const side of ["left", "right"] as const) {
+  // Arms. An assisting hand is placed after the arm it holds.
+  const armOrder: Side[] = s.assist?.hand === "left" ? ["right", "left"] : ["left", "right"];
+  for (const side of armOrder) {
     const sg = side === "left" ? 1 : -1;
     const S = out[side === "left" ? LM.l_shoulder : LM.r_shoulder];
     let E: V;
     let Wr: V;
     let fd: V;
-    if (s.reach && s.reach.hand === side) {
-      const k = twoBone(S, s.reach.target, dims.upperArm, dims.forearm, [0, -1, 0]);
+    const target: V | null =
+      s.reach && s.reach.hand === side
+        ? s.reach.target
+        : s.assist && s.assist.hand === side
+          ? out[side === "left" ? LM.r_elbow : LM.l_elbow]
+          : null;
+    if (target) {
+      const k = twoBone(S, target, dims.upperArm, dims.forearm, [0, -1, 0]);
       E = k.mid;
       Wr = k.end;
       fd = unit(sub(Wr, E));
@@ -413,8 +448,15 @@ export interface GenSpec {
     scale?: number;
     /** Shoulder width factor on top of scale (broad or narrow shoulders). */
     shoulderScale?: number;
+    /** Resting arm pose per side, on top of the profile's (for example hands on the thighs). */
+    arms?: Partial<Record<Side, Partial<ArmState>>>;
     motions?: MotionSpec[];
   };
+  /**
+   * Wheelchair hips: "hidden" (default) as in a side view, where the wheel and armrest hide them,
+   * or "visible" as in a front view between the side guards.
+   */
+  wheelchairHips?: "hidden" | "visible";
   helper?: HelperSpec;
   /** Landmark noise, standard deviation as a share of the image height. Default 0.002. */
   noise?: number;
@@ -482,12 +524,18 @@ export function expectedViewOf(yaw: number): GenTruth["expectedView"] {
   return null;
 }
 
-function baseState(profile: Profile, yaw: number, x: number): PoseState {
-  const rest = (weak: boolean): ArmState => ({
+function baseState(
+  profile: Profile,
+  yaw: number,
+  x: number,
+  arms?: Partial<Record<Side, Partial<ArmState>>>,
+): PoseState {
+  const rest = (weak: boolean, side: Side): ArmState => ({
     elev: weak ? 3 : 5,
     plane: 0,
     elbow: weak ? 20 : 5,
     across: 0,
+    ...arms?.[side],
   });
   return {
     x,
@@ -497,7 +545,10 @@ function baseState(profile: Profile, yaw: number, x: number): PoseState {
     lean: 0,
     pitch: 0,
     drop: 0,
-    arms: { left: rest(profile === "weaker_left"), right: rest(profile === "weaker_right") },
+    arms: {
+      left: rest(profile === "weaker_left", "left"),
+      right: rest(profile === "weaker_right", "right"),
+    },
   };
 }
 
@@ -534,6 +585,7 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
   const weak: Side | null =
     spec.profile === "weaker_left" ? "left" : spec.profile === "weaker_right" ? "right" : null;
   const noise = spec.noise ?? 0.002;
+  const hipsHidden = spec.profile === "wheelchair" && (spec.wheelchairHips ?? "hidden") === "hidden";
   const light = Math.min(1, Math.max(0, spec.light ?? 1));
   const n = Math.max(1, Math.round(spec.durationSec * spec.fps));
 
@@ -583,10 +635,10 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
     const tMs = Math.round((i * 1000) / spec.fps);
 
     // Subject.
-    const s = baseState(spec.profile, yaw, spec.subject?.x ?? 0);
+    const s = baseState(spec.profile, yaw, spec.subject?.x ?? 0, spec.subject?.arms);
     for (const m of spec.subject?.motions ?? []) applyMotion(m, t, s);
     if (weak) {
-      const rest = baseState(spec.profile, yaw, 0).arms[weak];
+      const rest = baseState(spec.profile, yaw, 0, spec.subject?.arms).arms[weak];
       const a = s.arms[weak];
       a.elev = rest.elev + (a.elev - rest.elev) * 0.6;
       a.elbow = rest.elbow + (a.elbow - rest.elbow) * 0.6;
@@ -671,7 +723,7 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
         let v = 0.985 - 0.03 * r();
         const sd = SIDE_OF[k];
         if (sd !== 0 && sd * towardCam < 0) v -= (0.5 * Math.max(0, Math.abs(towardCam) - 0.3)) / 0.7;
-        if (pp.role === "subject" && spec.profile === "wheelchair") {
+        if (pp.role === "subject" && hipsHidden) {
           if (k === LM.l_hip || k === LM.r_hip) v = 0.25 + 0.15 * r();
           if (k === 25 || k === 26) v = Math.min(v, 0.55 + 0.1 * r());
         }
@@ -708,7 +760,7 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
         continue;
       }
       const noiseScale = (k: number) =>
-        pp.role === "subject" && spec.profile === "wheelchair" && (k === 23 || k === 24) ? 3 : 1;
+        pp.role === "subject" && hipsHidden && (k === 23 || k === 24) ? 3 : 1;
       const lm: Landmark[] = lmks.map((q, k) => ({
         x: q.x + (ox + gauss(r) * noise * noiseScale(k)) / aspect,
         y: q.y + oy + gauss(r) * noise * noiseScale(k),

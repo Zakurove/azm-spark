@@ -26,6 +26,7 @@ import {
   PROFILES,
   type GenSpec,
   type GenTruth,
+  type MotionSpec,
 } from "./fixtures/gen";
 import { toPixelSpace } from "../src/engine/geometry";
 import { LM, type Landmark } from "../src/engine/types";
@@ -196,6 +197,62 @@ describe("fixture generator", () => {
       expect(Math.abs(armTrunkAngle(f.lm, "right") - 60)).toBeGreaterThan(10);
     });
   }
+
+  it("at 1:1 a known arm angle reads true within 1 degree (the square picture needs no correction)", () => {
+    const fx = generate({
+      ...base,
+      aspect: "1:1",
+      noise: 0,
+      subject: { motions: [{ kind: "arm_raise", side: "left", peak: 110, start: 0, rise: 0.5, hold: 5 }] },
+    });
+    const f = fixtureFrames(fx)[20];
+    expect(f.aspect).toBe(1);
+    expect(Math.abs(armTrunkAngle(toPixelSpace(f.lm, f.aspect), "left") - 110)).toBeLessThan(1);
+  });
+
+  it("shows a wheelchair user's hips in a front view when asked", () => {
+    const visible = fixtureFrames(generate({ ...base, profile: "wheelchair", wheelchairHips: "visible" }));
+    expect(visible.every((f) => f.lm[LM.l_hip].visibility > 0.9 && f.lm[LM.r_hip].visibility > 0.9)).toBe(
+      true,
+    );
+    const hidden = fixtureFrames(generate({ ...base, profile: "wheelchair", wheelchairHips: "hidden" }));
+    expect(hidden.every((f) => f.lm[LM.l_hip].visibility < 0.5)).toBe(true);
+  });
+
+  it("rests the arms in a given pose (hands on the thighs)", () => {
+    const f = fixtureFrames(
+      generate({ ...base, noise: 0, subject: { arms: { right: { elev: 20, plane: 60, elbow: 70 } } } }),
+    )[0];
+    const p = toPixelSpace(f.lm, f.aspect);
+    // The right wrist comes forward and up to the thigh, above the hanging left wrist.
+    expect(p[LM.r_wrist].y).toBeLessThan(p[LM.l_wrist].y);
+    expect(f.lm[LM.r_wrist].z).toBeLessThan(f.lm[LM.l_wrist].z);
+  });
+
+  it("scripts an assisted lift, a turn, a forward bend and a pelvis slide", () => {
+    const at = (motions: MotionSpec[], t: number) => {
+      const fx = generate({ ...base, noise: 0, durationSec: 4, subject: { motions } });
+      const f = fixtureFrames(fx).find((x) => x.t >= t * 1000)!;
+      return toPixelSpace(f.lm, f.aspect);
+    };
+    const still = at([], 2);
+    const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+      Math.hypot(a.x - b.x, a.y - b.y);
+    const assisted = at([{ kind: "assist", hand: "left", from: 1, to: 3 }], 2);
+    expect(dist(assisted[LM.l_wrist], assisted[LM.r_elbow])).toBeLessThan(0.005);
+    const width = (p: typeof still) => dist(p[LM.l_shoulder], p[LM.r_shoulder]);
+    const turned = at([{ kind: "turn", deg: 40, start: 0.5, rise: 0.5, hold: 3 }], 2);
+    expect(width(turned) / width(still)).toBeCloseTo(Math.cos((40 * Math.PI) / 180), 1);
+    const trunk = (p: typeof still) =>
+      dist(
+        { x: (p[11].x + p[12].x) / 2, y: (p[11].y + p[12].y) / 2 },
+        { x: (p[23].x + p[24].x) / 2, y: (p[23].y + p[24].y) / 2 },
+      );
+    const bent = at([{ kind: "bend", deg: 30, start: 0.5, rise: 0.5, hold: 3 }], 2);
+    expect(trunk(bent) / trunk(still)).toBeLessThan(0.9);
+    const slid = at([{ kind: "slide", dx: 0.1, start: 0.5, rise: 0.5, hold: 3 }], 2);
+    expect(slid[LM.l_hip].x - still[LM.l_hip].x).toBeGreaterThan(0.02);
+  });
 
   it("projects body lengths through the phone camera: nearer is bigger, the same in both shapes", () => {
     const trunkPx = (spec: GenSpec) => {

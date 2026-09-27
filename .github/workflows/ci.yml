@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [azm6, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run check
+      - name: Tests
+        run: npm test
+      - name: Formatting
+        run: npm run format:check
+      - name: Build
+        run: npm run build
+      - name: Audit
+        run: npm audit --audit-level=high

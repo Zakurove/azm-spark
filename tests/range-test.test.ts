@@ -595,8 +595,9 @@ describe("createRunner", () => {
     expect(() => createRunner(DEF, "none")).toThrow(/side/);
   });
 
-  it("does not build timed counts yet (timedCount.ts)", () => {
-    expect(() => createRunner(testDef("arm_curl_30s"), "right")).toThrow(/timed count/);
+  it("builds the timed counts from timedCount.ts", () => {
+    expect(createRunner(testDef("arm_curl_30s"), "right").kind).toBe("timed_count");
+    expect(createRunner(testDef("chair_stand_30s"), "none").sides).toEqual(["none"]);
   });
 
   it("ties the runner's numbers to the spec data", () => {

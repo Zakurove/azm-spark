@@ -190,7 +190,7 @@ export const labels = (l: Lang) =>
         warmup: "Get ready",
         cooldown: "Wind down",
         warmupBody:
-          "Use your familiar warm-up or the one your clinician has advised. Move gently within your comfortable range.",
+          "Use your familiar warm up or the one your clinician has advised. Move gently within your comfortable range.",
         cooldownBody: "Your training is finished. Take time to return to rest, without rushing.",
         ready: "I’m ready",
         nextSet: "Next set",
@@ -207,7 +207,7 @@ export const labels = (l: Lang) =>
         saveError: "We could not save this set. Retry before continuing.",
         retry: "Try again",
         reported: "Your reported history",
-        recordNote: "Medical clearance is self-reported, not verification of a clinician’s report.",
+        recordNote: "Medical clearance is self reported, not verification of a clinician’s report.",
         medicalNote:
           "This is exercise guidance. It does not diagnose conditions or replace your clinician’s instructions.",
         session: "session",
@@ -238,8 +238,8 @@ export const optionNames: Record<string, { ar: string; en: string }> = {
   sci_complete: { ar: "إصابة نخاعية كاملة", en: "Complete spinal cord injury" },
   sci_incomplete: { ar: "إصابة نخاعية غير كاملة", en: "Incomplete spinal cord injury" },
   parkinsons: { ar: "باركنسون", en: "Parkinson’s" },
-  lower_limb_unilateral: { ar: "بتر طرف سفلي", en: "Lower-limb amputation" },
-  upper_limb_unilateral: { ar: "بتر طرف علوي", en: "Upper-limb amputation" },
+  lower_limb_unilateral: { ar: "بتر طرف سفلي", en: "Lower limb amputation" },
+  upper_limb_unilateral: { ar: "بتر طرف علوي", en: "Upper limb amputation" },
   arthritis: { ar: "التهاب مفاصل", en: "Arthritis" },
   cfs_moderate: { ar: "متلازمة التعب المزمن / ME", en: "ME / chronic fatigue syndrome" },
   cardiac: { ar: "حالة قلبية", en: "Heart condition" },
@@ -250,7 +250,7 @@ export const optionNames: Record<string, { ar: string; en: string }> = {
     ar: "يمكنني التمرّن واقفًا والنهوض من كرسي",
     en: "I can exercise standing and rise from a chair",
   },
-  bed: { ar: "على السرير / أحتاج دعمًا مستمرًا", en: "Bed-based / continuous support" },
+  bed: { ar: "على السرير / أحتاج دعمًا مستمرًا", en: "In bed / continuous support" },
   left: { ar: "الجانب الأيسر", en: "Left side" },
   right: { ar: "الجانب الأيمن", en: "Right side" },
   shoulder: { ar: "الكتف", en: "Shoulder" },
@@ -273,7 +273,7 @@ export const optionNames: Record<string, { ar: string; en: string }> = {
 export const reasonText: Record<string, { ar: string; en: string }> = {
   cardiac: {
     ar: "الحالات القلبية خارج نطاق التدريب التلقائي في عزم. يلزم برنامج بإشراف مختص.",
-    en: "Cardiac conditions are outside Azm’s automatic training scope. A specialist-supervised program is needed.",
+    en: "Cardiac conditions are outside Azm’s automatic training scope. A program supervised by a specialist is needed.",
   },
   symptoms: {
     ar: "الأعراض المذكورة تستدعي تقييمًا طبيًا قبل التدريب. إذا كانت تحدث الآن، اطلب مساعدة طبية عاجلة.",
@@ -297,11 +297,11 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
   },
   pem: {
     ar: "التعب المتأخر بعد الجهد يحتاج خطة فردية لموازنة النشاط والراحة؛ لن نولّد له جرعة تمرين ثابتة.",
-    en: "Post-exertional symptom worsening needs individualized activity management. A fixed exercise dose will not be generated.",
+    en: "Symptoms that worsen after exertion need individualized activity management. A fixed exercise dose will not be generated.",
   },
   unsupported_position: {
     ar: "التمارين المتاحة حاليًا لا تغطي التدريب على السرير أو الدعم المستمر.",
-    en: "The current exercises do not cover bed-based training or continuous support.",
+    en: "The current exercises do not cover training in bed or continuous support.",
   },
   recovery: {
     ar: "باعد بين أيام التمرين لتستوفي فترة التعافي المطلوبة، بما فيها نهاية الأسبوع.",
@@ -325,7 +325,7 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
   },
   self_reported_clearance: {
     ar: "السماح الطبي مُبلّغ منك، وليس تقريرًا تحقّقنا منه.",
-    en: "Medical clearance is self-reported, not a verified report.",
+    en: "Medical clearance is self reported, not a verified report.",
   },
   medications_recorded: {
     ar: "حُفظت الأدوية للمراجعة. لا يحلل هذا البرنامج تداخلاتها أو يغيّر جرعاتها.",
@@ -337,7 +337,7 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
   },
   pain_upper: {
     ar: "استُبعدت بسبب ألم الجزء العلوي أو الظهر؛ لا نطبّق تعديلًا غير متحقق منه.",
-    en: "Excluded for reported upper-body or back pain; unsupported modifications are not applied.",
+    en: "Excluded for reported upper body or back pain; unsupported modifications are not applied.",
   },
   overhead: {
     ar: "لديك تعليمات بتجنّب الحركة فوق الرأس.",
@@ -350,7 +350,7 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
   chair: { ar: "تتطلب هذه الحركة كرسيًا ثابتًا.", en: "This movement requires a stable chair." },
   standing: {
     ar: "لم تُدرج بسبب وضعيتك أو ألم الساقين أو متطلبات التوازن والتتبّع.",
-    en: "Not included due to position, lower-body pain, balance or tracking requirements.",
+    en: "Not included due to position, lower body pain, balance or tracking requirements.",
   },
   seated_match: {
     ar: "حركة تُؤدّى جلوسًا، متوافقة مع الإعداد والقيود التي أدخلتها.",

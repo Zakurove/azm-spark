@@ -588,11 +588,11 @@
   "id": "wall_push_ups",
   "name": {
    "ar": "تمارين الضغط على الحائط",
-   "en": "Wall Push-Ups"
+   "en": "Wall Push Ups"
   },
   "description": {
    "ar": "تمرين ضغط معدل يؤدى على الحائط.",
-   "en": "Modified push-up performed against a wall."
+   "en": "Modified push up performed against a wall."
   },
   "category": "upper_body",
   "muscles": [
@@ -1441,7 +1441,7 @@
   "id": "cat_cow_stretch",
   "name": {
    "ar": "تمدد القطة والبقرة",
-   "en": "Cat-Cow Stretch"
+   "en": "Cat Cow Stretch"
   },
   "description": {
    "ar": "تناوب ثني وتمديد العمود الفقري.",
@@ -2160,8 +2160,8 @@
  {
   "id": "heel_toe_stand",
   "name": {
-   "ar": "الوقوف كعب-إصبع",
-   "en": "Heel-Toe Stand"
+   "ar": "الوقوف بوضع الكعب أمام الأصابع",
+   "en": "Heel to Toe Stand"
   },
   "description": {
    "ar": "تحدي توازن في وقفة متتابعة.",

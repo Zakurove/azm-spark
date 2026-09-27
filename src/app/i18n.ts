@@ -17,11 +17,11 @@ export const T = {
     wheelchair: { ar: "مستخدم كرسي متحرك", en: "Wheelchair user" },
     hemiparesis_left: {
       ar: "ضعف في الجانب الأيسر (بعد سكتة دماغية)",
-      en: "Left-side weakness (post-stroke)",
+      en: "Left side weakness (after a stroke)",
     },
     hemiparesis_right: {
       ar: "ضعف في الجانب الأيمن (بعد سكتة دماغية)",
-      en: "Right-side weakness (post-stroke)",
+      en: "Right side weakness (after a stroke)",
     },
     standing: { ar: "بدون إعاقة حركية", en: "No mobility impairment" },
   } as Record<string, { ar: string; en: string }>,
@@ -62,7 +62,7 @@ export const T = {
     en: "Azm is training guidance, not a medical device. Cardiac conditions require medical clearance before exercise.",
   },
   onDevice: { ar: "يعمل على جهازك", en: "Runs on your device" },
-  arabicFirst: { ar: "العربية أولًا", en: "Arabic-first" },
+  arabicFirst: { ar: "العربية أولًا", en: "Arabic first" },
   yourBaseline: { ar: "مداك أنت هو المعيار", en: "Your baseline is the standard" },
   legendScored: { ar: "مفاصل مُقيَّمة", en: "Scored joints" },
   legendFlag: { ar: "تنبيه", en: "Flagged" },

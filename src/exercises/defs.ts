@@ -108,7 +108,7 @@ export const EXERCISES: ExerciseDef[] = [
     ],
     targetReps: 10,
     camera: {
-      en: "Face the camera, 1–2 m away, whole upper body in frame.",
+      en: "Face the camera, 1 to 2 m away, whole upper body in frame.",
       ar: "واجه الكاميرا على بعد متر إلى مترين، بحيث يظهر جذعك وذراعاك بالكامل.",
     },
   },
@@ -184,13 +184,13 @@ export const EXERCISES: ExerciseDef[] = [
     ],
     targetReps: 10,
     camera: {
-      en: "Turn your side to the camera (45–90°), 1–2 m away, arm fully visible.",
+      en: "Turn your side to the camera (45 to 90°), 1 to 2 m away, arm fully visible.",
       ar: "وجّه جانبك إلى الكاميرا (بزاوية ٤٥ إلى ٩٠ درجة) على بعد متر إلى مترين، بحيث تظهر ذراعك كاملة.",
     },
   },
   {
     id: "sit_to_stand",
-    name: { en: "Sit-to-Stand", ar: "الوقوف من الجلوس" },
+    name: { en: "Sit to Stand", ar: "الوقوف من الجلوس" },
     description: {
       en: "Stand up fully from the chair, then sit back down with control. A validated functional movement.",
       ar: "انهض من الكرسي حتى تقف باستقامة كاملة، ثم اجلس بتحكّم. تمرين معتمد في برامج إعادة التأهيل.",
@@ -237,7 +237,7 @@ export const EXERCISES: ExerciseDef[] = [
     ],
     targetReps: 5,
     camera: {
-      en: "Turn the chair 45° to the camera, 2–3 m away, whole body in frame.",
+      en: "Turn the chair 45° to the camera, 2 to 3 m away, whole body in frame.",
       ar: "ضع الكرسي بزاوية ٤٥ درجة من الكاميرا على بعد مترين إلى ثلاثة، بحيث يظهر جسمك كاملًا.",
     },
   },

@@ -108,7 +108,9 @@ export function createApi(
       // Module routes (server/modules) come before the legacy chain and its AUTH_REQUIRED gate.
       const candidates = routes.filter((r) => route.match(r.path));
       if (candidates.length) {
-        const r = candidates.find((c) => c.method === req.method);
+        // HEAD is answered by the GET route; Node sends the headers and drops the body.
+        const method = req.method === "HEAD" ? "GET" : req.method;
+        const r = candidates.find((c) => c.method === method);
         if (!r) return json(405, { error: "METHOD" });
         if (r.auth === "user" && !u) return json(401, { error: "AUTH_REQUIRED" });
         const params = { ...route.match(r.path)?.groups } as Record<string, string>;

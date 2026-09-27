@@ -61,6 +61,16 @@ it("answers GET /api/health without a cookie, uncached, with no data beyond the 
   expect(Number.isInteger(body.uptimeSec) && body.uptimeSec >= 0).toBe(true);
 });
 
+it("answers HEAD /api/health like GET, without a body, for uptime monitors", async () => {
+  const r = await fetch(`${origin}/api/health`, { method: "HEAD" });
+  expect(r.status).toBe(200);
+  expect(r.headers.get("content-type")).toBe("application/json");
+  expect(r.headers.get("cache-control")).toBe("no-store");
+  expect(await r.text()).toBe("");
+  // HEAD only borrows GET routes: a POST only module route still answers 405.
+  expect((await fetch(`${origin}/api/probe/abc`, { method: "HEAD", headers: { cookie } })).status).toBe(405);
+});
+
 it("keeps the origin check in front of module routes", async () => {
   const r = await fetch(`${origin}/api/health`, {
     method: "POST",

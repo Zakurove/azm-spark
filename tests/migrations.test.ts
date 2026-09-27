@@ -176,6 +176,37 @@ describe("runMigrations", () => {
     expect(tableNames(db)).toEqual([]);
   });
 
+  it("refuses a database whose schema is newer than this build, without a backup", () => {
+    const file = legacyFile();
+    const db = openDb(file);
+    runMigrations(db, { dbPath: file });
+    // A later build applied migration 2; this build only knows migration 1 (a rollback).
+    db.exec("CREATE TABLE future_table(x INTEGER)");
+    db.prepare("INSERT INTO schema_migrations(version,name,applied_at) VALUES(2,'future',1)").run();
+    const backups = backupsIn(join(dir, "backups"));
+    const before = dump(db);
+    expect(() => runMigrations(db, { dbPath: file })).toThrow(/schema 2 is newer than this build \(1\)/);
+    expect(dump(db)).toEqual(before);
+    expect(logged(db)).toEqual([1, 2]);
+    expect(backupsIn(join(dir, "backups"))).toEqual(backups);
+    db.close();
+    expect(() => createApi(file)).toThrow(/newer than this build/);
+  });
+
+  it("refuses a database that recorded a migration this build does not have", () => {
+    const file = join(dir, "fresh.sqlite");
+    const db = openDb(file);
+    const second: Migration = { version: 2, name: "second", sql: "CREATE TABLE second(x INTEGER);" };
+    const third: Migration = { version: 3, name: "third", sql: "CREATE TABLE third(x INTEGER);" };
+    runMigrations(db, { dbPath: file, migrations: [...migrations, second] });
+    // A build whose list skips 2 must not treat the database as current and apply 3 on top.
+    expect(() => runMigrations(db, { dbPath: file, migrations: [...migrations, third] })).toThrow(
+      /unknown migration 2/,
+    );
+    expect(tableNames(db)).not.toContain("third");
+    expect(logged(db)).toEqual([1, 2]);
+  });
+
   it("never backs up an in memory database", () => {
     const db = openDb(":memory:");
     db.exec(LEGACY_DDL);

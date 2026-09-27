@@ -15,11 +15,28 @@ const LOG_DDL =
   "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at INTEGER NOT NULL)";
 
 /**
+ * Throws when the database recorded a migration this build does not have: a schema newer than the
+ * code (for example after rolling back to an older build) or a version missing from the list.
+ * Running on such a schema could silently break constraints the newer code relies on.
+ */
+function assertKnownSchema(logged: ReadonlySet<number>, migrations: readonly Migration[]) {
+  const latest = migrations.length ? migrations[migrations.length - 1].version : 0;
+  const newest = Math.max(0, ...logged);
+  if (newest > latest)
+    throw new Error(`Database schema ${newest} is newer than this build (${latest}); refusing to start`);
+  const known = new Set(migrations.map((m) => m.version));
+  const unknown = [...logged].filter((v) => !known.has(v)).sort((a, b) => a - b);
+  if (unknown.length)
+    throw new Error(`Database has unknown migration ${unknown.join(", ")} for this build; refusing to start`);
+}
+
+/**
  * Brings `db` up to the latest schema. When migrations are pending and the database already holds
  * user tables, a backup of the untouched database is written first (never for ':memory:'). Then the
  * schema_migrations table and ALL pending migrations are applied in ONE transaction: on any error
  * everything rolls back, no version is recorded, and the error is rethrown so the server does not
- * start on a half migrated schema.
+ * start on a half migrated schema. A database that recorded a migration this build does not know
+ * (a newer schema) is refused before anything is written.
  */
 export function runMigrations(
   db: DatabaseSync,
@@ -43,6 +60,7 @@ export function runMigrations(
     );
   const schema = () => Math.max(0, ...done());
   const logged = tables.includes("schema_migrations") ? done() : new Set<number>();
+  assertKnownSchema(logged, migrations);
   const pending = migrations.filter((m) => !logged.has(m.version));
   if (!pending.length) {
     db.exec(LOG_DDL); // a no-op unless an empty migration list meets a brand new database
@@ -58,6 +76,7 @@ export function runMigrations(
   try {
     db.exec(LOG_DDL);
     const already = done(); // re-read under the write lock
+    assertKnownSchema(already, migrations);
     const record = db.prepare("INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)");
     for (const m of migrations) {
       if (already.has(m.version)) continue;

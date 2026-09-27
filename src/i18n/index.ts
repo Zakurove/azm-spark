@@ -75,9 +75,9 @@ export function localizeDigits(lang: Lang, text: string): string {
   });
 }
 
-/** A number for copy: fmtNum, never negative (a minus sign is a dash; say the direction in words). */
 // SPEC-GAP: negative-numbers. Copy may not hold a minus sign (rule 4) and the spec does not say how a
 // negative change is written, so a negative number is refused rather than shown with a sign.
+/** A number for copy: fmtNum, never negative (a minus sign is a dash; say the direction in words). */
 export function formatNumber(lang: Lang, n: number): string {
   if (!Number.isFinite(n)) throw new RangeError(`Cannot show ${n} in copy`);
   if (n < 0) throw new RangeError("Negative numbers cannot be shown in copy: say the direction in words");

@@ -83,6 +83,13 @@ export interface PrecheckEnv {
   // SPEC-GAP: first-home-side-lean. Missing means not known, and the helper is then required
   // (the safe reading); the server should pass it from the stored results.
   sideLeanDoneAtHome?: boolean;
+  /**
+   * The last chair stand in this setting stopped because the person needed their hands (reason
+   * needed_arms after pushedAsk yes): spec 4.4 "the next check offers arms_assisted".
+   */
+  // SPEC-GAP: needed-arms-env. The contract env has no field for it; missing means no. The server
+  // passes it from the stored results.
+  neededArmsLastStand?: boolean;
 }
 
 export type PrecheckStatus = "proceed" | "postpone" | "emergency" | "ad" | "incomplete";
@@ -874,7 +881,10 @@ function applyStandingRules(st: State, d: Day) {
   const chair: TestId = "chair_stand_30s";
   if (selected(st, chair) && !fullySkipped(d, chair)) {
     const assisted =
-      d.chairAssisted || (stroke && weaker !== undefined) || has(ctx.conditions, ARMS_ASSISTED_CONDITIONS);
+      d.chairAssisted ||
+      st.env.neededArmsLastStand === true ||
+      (stroke && weaker !== undefined) ||
+      has(ctx.conditions, ARMS_ASSISTED_CONDITIONS);
     if (assisted) {
       d.chairAssisted = true;
       const hands = SIDES.filter((s) => !d.pushBlocked.has(s));

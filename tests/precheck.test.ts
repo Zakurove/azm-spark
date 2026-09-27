@@ -1267,3 +1267,36 @@ describe("decision order", () => {
     }
   });
 });
+
+describe("needed_arms at the last chair stand (spec 4.4 variant rules)", () => {
+  it("offers the hands allowed version at the next check, with a helper at home", () => {
+    const env = envOf({ position: "standing" }, { firstCheck: false, setup: {}, neededArmsLastStand: true });
+    const answers = fill(env);
+    expect(visibleQuestions(env, answers)).toContain("pc_helper:chair_stand_30s");
+    const o = run(env);
+    expect(variantsOf(o, "chair_stand_30s", "none")).toEqual(["arms_assisted"]);
+    expect(o.helperRequired).toEqual(["chair_stand_30s"]);
+    // No helper today: the chair stand waits for a day with a helper.
+    expect(skipOf(run(env, { "pc_helper:chair_stand_30s": "no" }), "chair_stand_30s", "none")).toBe(
+      "helper_needed",
+    );
+  });
+
+  it("changes nothing when the last chair stand did not need the hands", () => {
+    for (const neededArmsLastStand of [false, undefined]) {
+      const env = envOf({ position: "standing" }, { firstCheck: false, setup: {}, neededArmsLastStand });
+      const o = run(env);
+      expect(variantsOf(o, "chair_stand_30s", "none")).toEqual([]);
+      expect(o.helperRequired).toEqual([]);
+    }
+  });
+
+  it("gives the booth the hands allowed version without a helper question", () => {
+    const env = envOf(
+      { position: "standing" },
+      { setting: "booth", firstCheck: false, setup: {}, neededArmsLastStand: true },
+    );
+    expect(visibleQuestions(env, fill(env))).not.toContain("pc_helper:chair_stand_30s");
+    expect(variantsOf(run(env), "chair_stand_30s", "none")).toEqual(["arms_assisted"]);
+  });
+});

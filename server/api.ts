@@ -35,10 +35,10 @@ export function createApi(
       `Azm database migrated to schema ${migrated.schema}${migrated.backup ? ", backup written before migrating" : ""}`,
     );
   const rates = new Map<string, { n: number; until: number }>();
-  function limited(key: string, max = 12) {
+  function limited(key: string, max = 12, windowMs = 900000) {
     const now = Date.now();
     for (const [k, v] of rates) if (v.until < now) rates.delete(k);
-    const v = rates.get(key) ?? { n: 0, until: now + 900000 };
+    const v = rates.get(key) ?? { n: 0, until: now + windowMs };
     v.n++;
     rates.set(key, v);
     return v.n > max;

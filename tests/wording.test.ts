@@ -71,48 +71,26 @@ import * as i18n from "../src/app/i18n";
 import * as experience from "../src/app/experience";
 import * as product from "../src/app/product";
 import { EXERCISES } from "../src/exercises/defs";
+import {
+  DASH_CHARS,
+  EMAIL,
+  HAS_LETTER,
+  LOCALE,
+  PATH,
+  URL_LIKE,
+  isCopyValue,
+  wordingProblems,
+} from "../scripts/wording-rules.mjs";
 
 const ts: typeof tsModule = (tsModule as unknown as { default?: typeof tsModule }).default ?? tsModule;
 
 const ROOT = join(__dirname, "..");
 type Copy = { where: string; text: string };
 
-/* ------------------------------------------------------------------ detector */
+/* ------------------------------------------- detector and value level filters */
 
-const LETTER =
-  "A-Za-z\\u00C0-\\u024F\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF";
-const DASH_CHARS = /[\u2010-\u2015\u2212]/;
-const HYPHEN_BETWEEN_LETTERS = new RegExp(`[${LETTER}]-[${LETTER}]`);
-const SPACED_HYPHEN = /(^|\s)-(\s|$)/;
-const ARABIC_MARKS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
-const FORBIDDEN_PHRASE = "حالتك الصحية";
-
-function wordingProblems(text: string): string[] {
-  const problems: string[] = [];
-  if (DASH_CHARS.test(text)) problems.push("dash character");
-  if (HYPHEN_BETWEEN_LETTERS.test(text)) problems.push("hyphen between letters");
-  if (SPACED_HYPHEN.test(text)) problems.push("spaced hyphen");
-  if (text.replace(ARABIC_MARKS, "").includes(FORBIDDEN_PHRASE)) problems.push("حالتك الصحية");
-  return problems;
-}
-
-/* ------------------------------------------------------- value level filters */
-
-const HAS_LETTER = new RegExp(`[${LETTER}]`);
-const URL_LIKE = /^(https?:|mailto:|data:|blob:)/i;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PATH = /^\.{0,2}\/[^\s]*$/;
-const LOCALE = /^[a-z]{2,3}(-[A-Z][A-Za-z]{1,3})?$/;
-const LOWER_ID = /^[a-z0-9_.:#/]+(?:[-_.][a-z0-9_.:#/]+)*$/;
-
-/** True when a value taken from a copy data source could be read by a person. */
-function isCopyValue(s: string): boolean {
-  const t = s.trim();
-  if (!HAS_LETTER.test(t)) return false;
-  if (URL_LIKE.test(t) || EMAIL.test(t) || PATH.test(t) || LOCALE.test(t)) return false;
-  if (!/\s/.test(t) && LOWER_ID.test(t)) return false;
-  return true;
-}
+// The detector (rules a to c above) and the value filters live in scripts/wording-rules.mjs, so the
+// scripts that write copy into src (scripts/clinical/export-check.mjs) apply exactly these rules.
 
 function walk(value: unknown, where: string, out: Copy[]) {
   if (typeof value === "string") {

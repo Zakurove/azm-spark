@@ -957,6 +957,24 @@ describe("Q31 (4) and O5: a spoken check in answer", () => {
     ["I'm fine, no problem", "en", "not_fine"],
     ["help", "en", "not_fine"],
     ["helpful", "en", "no_answer"],
+    // A negated fine phrase is never fine (SPEC-GAP speech-negation): a false fine is the one
+    // dangerous error (O5), so it reads as not fine.
+    ["لست بخير", "ar", "not_fine"],
+    ["لستُ بخير", "ar", "not_fine"],
+    ["أنا لست بخير", "ar", "not_fine"],
+    ["ما أنا بخير", "ar", "not_fine"],
+    ["مو بخير", "ar", "not_fine"],
+    ["أنا مو بخير", "ar", "not_fine"],
+    ["مش بخير", "ar", "not_fine"],
+    ["مب بخير", "ar", "not_fine"],
+    ["ماني بخير", "ar", "not_fine"],
+    ["مانيش بخير", "ar", "not_fine"],
+    ["غير بخير", "ar", "not_fine"],
+    ["أنا مو طيب", "ar", "not_fine"],
+    ["ما شاء الله، أنا بخير", "ar", "fine"],
+    ["I'm not fine", "en", "not_fine"],
+    ["I am not OK", "en", "not_fine"],
+    ["I’m not OK", "en", "not_fine"],
   ];
   it.each(cases)("Q31 (4): %s (%s) reads %s", (text, lang, expected) => {
     expect(spokenCheckInAnswer(text, lang)).toBe(expected);

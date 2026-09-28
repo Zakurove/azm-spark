@@ -2214,15 +2214,65 @@ function containsPhrase(tokens: readonly string[], phrase: readonly string[]): b
 }
 
 /**
+ * Negators that turn a phrase of well being into its opposite when they stand right before it or
+ * inside it («لست بخير», «ما أنا بخير», «أنا مو بخير», “I'm not fine”).
+ */
+// SPEC-GAP: speech-negation. engine.speech has no negators, and the bare «بخير» is a fine phrase, so
+// «مو بخير» read as fine. These lists are sent to the data owner for notFineWords; until then a
+// negated fine phrase reads as not fine (a false fine is the one dangerous error, O5).
+const NEGATORS: Record<Lang, readonly string[]> = {
+  ar: [
+    "لست",
+    "لسنا",
+    "ما",
+    "مو",
+    "مب",
+    "موب",
+    "مهوب",
+    "مش",
+    "مهو",
+    "غير",
+    "ماني",
+    "مانيش",
+    "مني",
+    "ليس",
+    "مانا",
+  ],
+  en: ["not", "never"],
+};
+
+const isNegator = (token: string, lang: Lang) =>
+  NEGATORS[lang].includes(token) || (lang === "en" && /n't$|n’t$/.test(token));
+
+/** The phrase occurs with a negator right before it or between its words. */
+function negatedPhrase(tokens: readonly string[], phrase: readonly string[], lang: Lang): boolean {
+  if (phrase.length === 0) return false;
+  for (let i = 0; i < tokens.length; i++) {
+    // A negator right before the whole phrase.
+    if (isNegator(tokens[i], lang) && phrase.every((w, k) => tokens[i + 1 + k] === w)) return true;
+    // A negator after the first k words of the phrase and before the rest.
+    for (let k = 1; k < phrase.length; k++) {
+      if (!phrase.slice(0, k).every((w, j) => tokens[i + j] === w)) continue;
+      if (!isNegator(tokens[i + k] ?? "", lang)) continue;
+      if (phrase.slice(k).every((w, j) => tokens[i + k + 1 + j] === w)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * A spoken check in answer, where speech recognition runs on the device itself (Q31 (4), O5):
- * whole words only; any not fine word anywhere wins and opens scr_emergency ("not_fine"); fine only
- * as a phrase of well being ("fine"); a bare yes word, الحمد لله alone or unclear speech is no answer,
- * so the check in cue plays once more and the no response timer keeps running.
+ * whole words only; any not fine word anywhere wins and opens scr_emergency ("not_fine"), and so does
+ * a negated phrase of well being; fine only as a phrase of well being ("fine"); a bare yes word,
+ * الحمد لله alone or unclear speech is no answer, so the check in cue plays once more and the no
+ * response timer keeps running.
  */
 export function spokenCheckInAnswer(utterance: string, lang: Lang): "fine" | "not_fine" | "no_answer" {
   const tokens = words(utterance ?? "");
   if (SPEECH.notFineWords[lang].some((w) => containsPhrase(tokens, words(w)))) return "not_fine";
-  if (SPEECH.fineOnlyPhrases[lang].some((p) => containsPhrase(tokens, words(p)))) return "fine";
+  const fine = SPEECH.fineOnlyPhrases[lang].map((p) => words(p));
+  if (fine.some((p) => negatedPhrase(tokens, p, lang))) return "not_fine";
+  if (fine.some((p) => containsPhrase(tokens, p))) return "fine";
   return "no_answer";
 }
 

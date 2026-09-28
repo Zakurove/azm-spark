@@ -156,7 +156,7 @@ export const labels = (l: Lang) =>
         symptoms: "Do you have chest pain, fainting, or unusual breathlessness with exertion?",
         recentChange:
           "Any recent deterioration, new injury, or surgery without permission to return to exercise?",
-        clearance: "Has your clinician cleared you to exercise?",
+        clearance: "Has your doctor cleared you to exercise?",
         yes: "Yes",
         no: "No",
         unsure: "Not sure",

@@ -98,3 +98,12 @@ describe("movement check copy", () => {
     expect(COPY.filter((c) => /[:：]\s*$/.test(c.text)).map((c) => `${c.lang} ${c.key}`)).toEqual([]);
   });
 });
+
+describe("one clearance question in the intake and at the booth (Q19 (2), O39)", () => {
+  it("the intake asks it word for word as the guest flow does, in both languages", async () => {
+    const { labels } = await import("../src/app/platform-copy");
+    const ask = CHECK_DATA.selection.guestBooth.clearance.ask;
+    expect(labels("ar").clearance).toBe(ask.ar);
+    expect(labels("en").clearance).toBe(ask.en);
+  });
+});

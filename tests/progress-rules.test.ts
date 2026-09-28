@@ -1027,3 +1027,25 @@ describe("side lean armrest contact not answered (SPEC-GAP contact-unknown)", ()
     expect(said(lean([20, 20, [10, unknown], 10]))).toBe("same unconfirmed");
   });
 });
+
+describe("a large drop shows no verdict and no unconfirmed sentence (spec 5)", () => {
+  it("side lean 20, 20, 24, 3", () => {
+    const c = compare(
+      "trunk_control_seated",
+      "left",
+      series("trunk_control_seated", "left", [20, 20, 24, 3]),
+    );
+    expect(c).toMatchObject({ verdict: null, largeDrop: true, symptomDrop: true, repeatOffer: true });
+    expect(c.unconfirmed).toBeUndefined();
+  });
+
+  it("with a quality flag the no verdict sentence, still without the unconfirmed sentence", () => {
+    const c = compare(
+      "trunk_control_seated",
+      "left",
+      series("trunk_control_seated", "left", [20, 20, 24, [3, { nValid: 1 }]]),
+    );
+    expect(c.noVerdict).toBeDefined();
+    expect(c.unconfirmed).toBeUndefined();
+  });
+});

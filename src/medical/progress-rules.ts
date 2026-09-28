@@ -574,6 +574,7 @@ function judge(
   }
   // Side lean confirmation (spec 4.3): the mean of this and the previous check must also be beyond
   // the band, in the same direction; otherwise about the same with the unconfirmed sentence.
+  let unconfirmed = false;
   if (verdict !== "same" && def.id === "trunk_control_seated") {
     // SPEC-GAP: censored-previous. A censored previous check is a lower bound, so it never confirms
     // a lower verdict.
@@ -582,18 +583,17 @@ function judge(
       prev.value !== null &&
       beyond(((prev.value as number) + value) / 2 - baseValue, band, verdict) &&
       !(verdict === "lower" && maybeCensored(prev));
-    if (!ok) {
-      verdict = "same";
-      out.unconfirmed = true;
-    }
+    if (!ok) verdict = "same";
+    unconfirmed = !ok;
   }
   if (change < dropLine) {
+    // A large drop shows no verdict label (spec 5), so no unconfirmed sentence either.
     // SPEC-GAP: large-drop-flag-sentence. A quality flag without its own no verdict sentence (gravity
     // reference, more than 10 percent unscored) shows setupDiffers instead of the large drop text.
     if (hasQualityFlag(def, base, cur)) return { ...out, noVerdict: "setupDiffers" };
     return { ...out, largeDrop: true, dropVerdict: verdict };
   }
-  return { ...out, verdict };
+  return { ...out, verdict, ...(unconfirmed ? { unconfirmed: true as const } : {}) };
 }
 
 /**

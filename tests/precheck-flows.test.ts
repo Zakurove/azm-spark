@@ -152,7 +152,7 @@ describe("persona: Noura, 31, incomplete SCI, wheelchair, not sure whether T6 or
   });
 
   it("an unticked box asks her to take care of it first, with no lock", () => {
-    const o = run(env, { pc_sci_level: "unsure", pc_sci_ready: ["0", "1", "2", "4", "5"] });
+    const o = run(env, { pc_sci_level: "unsure", pc_sci_ready: "not_yet" });
     expect(o).toMatchObject({ status: "postpone", reason: "sci_ready", lock: { until: null } });
   });
 
@@ -634,7 +634,10 @@ describe("properties over random people and answers", () => {
       }
       for (const t of o.helperRequired) {
         expect(env.baseTests).toContain(t);
-        expect(["chair_stand_30s", "trunk_control_seated"]).toContain(t);
+        // Any camera test needs a helper when no arm can give the raised hand signal (O34-2).
+        expect(["chair_stand_30s", "trunk_control_seated", "shoulder_abduction", "arm_curl_30s"]).toContain(
+          t,
+        );
       }
       if (env.setting === "booth") {
         expect(o.helperRequired).toEqual([]);
@@ -697,17 +700,17 @@ describe("betweenTests (bt_pain_after, spec 2.3)", () => {
     expect(betweenTests({ bt_pain_after: "worse" }, abdRight, []).status).toBe("incomplete");
   });
 
-  it("a little more after the right arm raise skips the right arm curl only (pain_today)", () => {
+  it("a little more after the right arm raise skips the right arm curl only (pain_more)", () => {
     expect(betweenTests({ bt_pain_after: "more" }, abdRight, [abdLeft, curlRight, curlLeft])).toEqual({
       status: "skip",
-      skips: [{ testId: "arm_curl_30s", side: "right", reason: "pain_today" }],
+      skips: [{ testId: "arm_curl_30s", side: "right", reason: "pain_more" }],
     });
   });
 
   it("a little more after a side lean skips the other side of the lean (back and hip)", () => {
     expect(betweenTests({ bt_pain_after: "more" }, trunkLeft, [trunkRight, curlRight])).toEqual({
       status: "skip",
-      skips: [{ testId: "trunk_control_seated", side: "right", reason: "pain_today" }],
+      skips: [{ testId: "trunk_control_seated", side: "right", reason: "pain_more" }],
     });
   });
 
@@ -725,7 +728,7 @@ describe("betweenTests (bt_pain_after, spec 2.3)", () => {
     expect(betweenTests({ bt_pain_after: "more" }, both, [curlRight, curlLeft]).skips).toHaveLength(2);
     const left: TestInstance = { ...standard, variant: "arms_assisted_steady", pushHand: "left" };
     expect(betweenTests({ bt_pain_after: "more" }, left, [curlRight, curlLeft]).skips).toEqual([
-      { testId: "arm_curl_30s", side: "left", reason: "pain_today" },
+      { testId: "arm_curl_30s", side: "left", reason: "pain_more" },
     ]);
     // An arm curl before a hands allowed chair stand: the stand is skipped when that hand pushes.
     const pushRight: TestInstance = { ...standard, variant: "arms_assisted", pushHand: "right" };

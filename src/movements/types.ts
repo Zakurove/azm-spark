@@ -2,7 +2,7 @@
  * Types for the runtime movement check data, src/movements/check-v1.json (contract v2, section A).
  *
  * The JSON is written by scripts/clinical/export-check.mjs from the clinical spec
- * (local-docs/clinical/movement-check-v1.json). Closed sets in the JSON are literal unions here.
+ * (local-docs/clinical/movement-check-v1.1.json: movement check version 1, revision 1.1). Closed sets in the JSON are literal unions here.
  * The id lists are also exported as values, so tests/movement-data.test.ts can prove that each list
  * equals the ids in the data, in both directions. src/movements/assessments.ts checks the JSON
  * against these types at compile time (see Widen) and exports the typed accessors.
@@ -62,6 +62,7 @@ export const PRECHECK_IDS = [
   "pc_setting",
   "pc_urgent",
   "pc_unwell",
+  "pc_faint_since",
   "pc_change",
   "pc_change_cleared",
   "pc_surgery_recent",
@@ -133,6 +134,10 @@ export const SCREEN_IDS = [
   "warn_weak_shoulder",
   "warn_ms_cool",
   "warn_pd_timing",
+  "scr_booth_no_check",
+  "scr_sound_off",
+  "scr_sound_still_off",
+  "scr_early_start",
 ] as const;
 export type ScreenId = (typeof SCREEN_IDS)[number];
 
@@ -143,15 +148,18 @@ export const REASON_IDS = [
   "restriction_balance",
   "pain_area",
   "pain_today",
+  "pain_more",
   "flare",
   "limb_loss_arm",
   "limb_loss_leg",
   "position_seated",
   "clearance",
+  "clearance_booth",
   "booth_offer",
   "helper_needed",
   "booth_only_trunk",
   "armrests_needed",
+  "chair_needed",
   "pusher",
   "weak_shoulder",
   "arm_not_able",
@@ -163,6 +171,7 @@ export const REASON_IDS = [
   "stopped_symptom",
   "needed_arms",
   "needed_support",
+  "motion_needed",
 ] as const;
 export type ReasonId = (typeof REASON_IDS)[number];
 
@@ -196,13 +205,14 @@ export const LOCK_REASON_IDS = [
   "sci_ready",
 ] as const;
 export type LockReasonId = (typeof LOCK_REASON_IDS)[number];
-/** Lock durations with a pausedWhenTokens line. */
+/** Lock durations (locks.rules). The {when} line of a lock is chosen from pausedWhenTokens. */
 export type LockKind = "next_day" | "60_min";
 /** The lock of an action; none means allowed again at once (pc_sci_ready). */
 export type ActionLock = LockKind | "none";
 
 export const CHECK_CUE_IDS = [
   "check_intro",
+  "check_sound",
   "check_stop_any_time",
   "check_phone_steady",
   "check_phone_level",
@@ -211,16 +221,19 @@ export const CHECK_CUE_IDS = [
   "check_face_phone",
   "check_left_side_to_phone",
   "check_right_side_to_phone",
-  "check_phone_angle",
+  "check_phone_angle_right",
+  "check_phone_angle_left",
   "check_move_back",
   "check_move_closer",
   "check_light",
   "check_one_person",
+  "check_clear_view",
   "check_sleeves",
   "check_ready",
   "check_go",
   "check_ten_left",
-  "check_time_stop",
+  "check_time_up_stand",
+  "check_time_up_curl",
   "check_practice",
   "check_practice_done",
   "check_rest_short",
@@ -232,7 +245,19 @@ export const CHECK_CUE_IDS = [
   "check_try_again",
   "check_breathe",
   "check_stop_now",
+  "check_stop_why",
   "check_are_you_ok",
+  "check_are_you_ok_noraise",
+  "check_are_you_ok_zone",
+  "check_are_you_ok_zone_speech",
+  "check_are_you_ok_helper",
+  "check_are_you_ok_fall",
+  "check_are_you_ok_fall_speech",
+  "check_are_you_ok_fall_noraise",
+  "check_are_you_ok_fall_noraise_speech",
+  "check_answer_zone",
+  "check_fine_practice",
+  "check_faint_loc",
   "check_urgent_call",
   "check_skip_ok",
   "check_postpone",
@@ -350,7 +375,9 @@ export type OptionValue =
   | "much"
   | "usual"
   | "settled"
-  | "lasting";
+  | "lasting"
+  | "done"
+  | "not_yet";
 export type PdDoseBucket = "lt1h" | "1to2h" | "2to3h" | "gt3h";
 
 /* ---------------------------------------------------------------- top level */
@@ -360,11 +387,19 @@ export interface Signoff {
   medical: string | null;
   fitness: string | null;
   date: string | null;
-  reviewers: string[];
+  /** Revision 1.1: approved only when Nasser (medical) and Chaker (fitness) ratify. */
+  approved: boolean;
+  approvers: string[];
+  ratification: string;
+  council: string;
 }
 
 export type BoundaryId =
   "line" | "notMedical" | "intro" | "firstResult" | "consent" | "precheckNotice" | "resultsFooter";
+/** Boundary lines that revision 1.1 added (the storage notice, the adult confirmation, ...). */
+export type BoundaryExtraId = "storageNotice" | "adultConfirm";
+export type Boundary = Record<BoundaryId, Text> &
+  Record<BoundaryExtraId, Text> & { notMedicalPlacement: string };
 
 /** Which tests an area loads (pain areas, flare areas, surgery areas). */
 export interface AreaLoad {
@@ -410,6 +445,10 @@ export interface EngineConfig {
     basis: string;
   };
   landmarks: string;
+  /** S14b sound check (Q31 (1)): the cue and its two answers. */
+  soundCheck: { cue: CheckCueId; options: { value: "yes" | "no"; label: Text }[]; onNo: string };
+  /** Answer zones (Q31 (5)): the questions they answer, the hold time and the most zones on screen. */
+  answerZones: { appliesTo: string[]; rule: string; holdSec: number; maxZones: number; phase: string };
 }
 
 /* ---------------------------------------------------------------- questions */
@@ -423,7 +462,7 @@ export type PrecheckType =
   | "scale_0_10"
   | "area_scale_0_10"
   | "single"
-  | "checklist"
+  | "list_confirm"
   | "three_yes_no";
 
 /**
@@ -445,9 +484,16 @@ export interface ShowIf {
   setting?: Setting;
   clearanceIn?: Clearance[];
   previousFollowUp?: "lasting_unresolved";
+  /** A faint reported at a stop (stores faintReported) that pc_faint_since has not cleared (Q33 (3)). */
+  faintReportedUnresolved?: true;
+  /** Display only (chronicNote): the person declared a weaker side. */
+  weakerSide?: true;
 }
-/** Flags set during the pre-check: sci_t6 (pc_sci_level) and helper_required (per test). */
-export type PrecheckFlag = "sci_t6" | "helper_required";
+/**
+ * Flags set during the pre-check: sci_t6 (pc_sci_level), helper_required (per test) and noArmSignal
+ * (no arm can give the raised hand signal, stopRouting.checkIn.noArmSignal).
+ */
+export type PrecheckFlag = "sci_t6" | "helper_required" | "noArmSignal";
 
 /** When an action applies. Every key present must hold. */
 export interface ActionIf {
@@ -463,14 +509,21 @@ export interface ActionIf {
   /** Any answer. */
   any?: true;
   in?: OptionValue[];
-  /** pc_sci_ready: false means not every box is ticked. */
-  allChecked?: false;
   /** pc_steadi: any of the three answers is yes. */
   anyYes?: true;
-  /** pc_booth_vitals: any value above its limit. */
-  vitalsAbove?: { restingHeartRate: number; systolic: number; diastolic: number };
-  /** pc_booth_vitals: no validated cuff or no trained staff member. */
+  /** pc_booth_vitals: the mean of two readings, or the rate or rhythm, outside these limits (Q21). */
+  vitalsOutside?: VitalsLimits;
+  /** pc_booth_vitals: SCI at T6 or above with a mean systolic this far above the usual one. */
+  sciT6SystolicRiseGte?: number;
+  /** pc_booth_vitals: no validated cuff or no licensed practitioner. */
   vitalsUnavailable?: true;
+}
+export interface VitalsLimits {
+  meanSystolicGte: number;
+  meanSystolicLt: number;
+  meanDiastolicGte: number;
+  restingHeartRateGt: number;
+  irregularHeartbeat: true;
 }
 
 /** Side of a test named by a pre-check action, relative to the person where needed. */
@@ -504,7 +557,9 @@ export type StoreKey =
   | "fingerprint.pdDoseBucket"
   | "fingerprint.helperPresent"
   | "followUpResolved"
-  | "assessment.followUp";
+  | "assessment.followUp"
+  | "faintReported"
+  | "faintReported cleared";
 
 interface ActionBase {
   if: ActionIf;
@@ -518,6 +573,7 @@ export interface EmergencyAction extends ActionBase {
   do: "emergency";
   screen: ScreenId;
   lock: LockKind;
+  stores?: StoreKey;
   /** Also show this screen when the condition holds (scr_ad for SCI). */
   alsoShowIf?: Pick<ShowIf, "anyOf" | "flag" | "conditionsAny"> & { screen: ScreenId };
 }
@@ -568,7 +624,8 @@ export interface RequireHelperAction extends ActionBase {
 }
 export interface ShowAction extends ActionBase {
   do: "show";
-  screenByTest: Partial<Record<TestId, ScreenId>>;
+  /** A briefing screen, or the helper check in line (helperBriefing.checkInLine) for the arm tests. */
+  screenByTest: Partial<Record<TestId, ScreenId | "helperBriefing.checkInLine">>;
   stores?: StoreKey;
 }
 export interface StopCheckAction extends ActionBase {
@@ -602,6 +659,10 @@ export interface AnswerOption {
   value: OptionValue;
   label: Text;
 }
+/** A line with its fully vocalised speech form (revision 1.1 arTts). */
+export interface SpokenText extends Text {
+  arTts?: string;
+}
 
 /** One of the three pc_steadi questions. */
 export interface SubQuestion {
@@ -619,8 +680,16 @@ export interface PrecheckItem {
   ask?: Text;
   /** Asked instead of ask at the first check of a series. */
   askFirstCheck?: Text;
-  /** A list shown with the question (pc_urgent symptoms, pc_sci_ready checklist). */
+  /** A list shown with the question (pc_urgent symptoms, pc_sci_ready list). */
   list?: TextList;
+  /** pc_trunk_armrests: the question by position (chair or wheelchair). */
+  askByPosition?: Partial<Record<CheckPosition, Text>>;
+  /** pc_change_cleared: the direct form of the question. */
+  askDirect?: Text;
+  /** A note shown above the answers for chronic signs (display rules in the data). */
+  chronicNote?: SpokenText & { showIf: ShowIf };
+  /** pc_booth_vitals: the line staff read before the reading. */
+  staffLine?: Text;
   options?: AnswerOption[];
   /** The Precheck field of the contract this answer fills. */
   contractKey?: "unwell" | "painNow";
@@ -655,6 +724,8 @@ export interface PrecheckItem {
 export interface FollowQuestion<I extends BetweenTestId | AfterCheckId = BetweenTestId | AfterCheckId> {
   id: I;
   type: "single";
+  /** bt_pain_after: answered from the chair with the answer zones (Q31 (5)). */
+  answerMode?: string;
   /** Prose: when the question is asked. */
   when: string;
   ask: Text;
@@ -667,6 +738,8 @@ export interface FollowQuestion<I extends BetweenTestId | AfterCheckId = Between
 export interface StopOption {
   id: StopOptionId;
   label: Text;
+  /** The urgent options come first as one group (Q31 (3)). */
+  group: "urgent" | "other";
   showIf?: Pick<ShowIf, "flag">;
   screen?: ScreenId;
   alsoShowIf?: { flag: PrecheckFlag; screen: ScreenId };
@@ -678,11 +751,15 @@ export interface StopOption {
     | "may continue with the next test after a rest"
     | "may continue with the next test";
   lock?: LockKind;
-  then?: BetweenTestId;
+  /** The question after the stop: the pain question, or the faint follow up (sf_faint_loc, O42). */
+  then?: BetweenTestId | StopFollowUpId;
   reason?: ReasonId;
+  stores?: StoreKey;
 }
 export interface StopRouting {
   ask: Text;
+  /** The one cue that asks the list (check_stop_why). */
+  askCue: CheckCueId;
   options: StopOption[];
   noAnswerSec: number;
   noAnswer: string;
@@ -693,6 +770,13 @@ export interface StopRouting {
     noResponseSec: number;
     noResponse: string;
     tune_at_booth: boolean;
+    /** The check in cue per setting and arm signal (O33 (f), O34). */
+    cueSelection: {
+      booth: { raiseAllowed: CheckCueId; raiseNotAllowed: CheckCueId };
+      home: { zones: CheckCueId; zonesWithSpeech: CheckCueId; noArmSignal: CheckCueId };
+      fallWatch: Record<string, CheckCueId>;
+      rule: string;
+    };
   };
   resultOnStop: string;
 }
@@ -847,8 +931,8 @@ export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
     gripAsk: Text;
     practiceCheck: Text;
     stepDown: Text;
-    /** Booth staff only, never shown in the app. */
-    staffGuidance: string;
+    /** Bottle sizes in liters, shown and spoken in words (Q30). */
+    bottleSizes: { value: 0.5 | 1 | 1.5; label: Text }[];
     rules: string[];
   };
   metric: {
@@ -876,7 +960,9 @@ export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
     provisional: boolean;
     label: string;
   };
-  resultTokens: SideTokens & { load: Record<"held" | "bottle" | "cuff" | "none", Text> };
+  resultTokens: SideTokens & {
+    load: Record<"held" | "bottle_half" | "bottle_1" | "bottle_1_5" | "cuff" | "none", Text>;
+  };
 }
 
 export interface TrunkControlDef extends TestDefBase<"trunk_control_seated", "trunk_control"> {
@@ -1009,7 +1095,8 @@ export interface ProgressRules {
   /** Prose: how digits are shown in Arabic (implemented in src/i18n). */
   digits: string;
   lowerExtra: Text;
-  largeDrop: { rule: string; text: Text; oneSidedRule: string; symptomAsk: Text };
+  /** symptomAsk is retired in revision 1.1: the end of check question (endOfCheck) asks everyone. */
+  largeDrop: { rule: string; text: Text; oneSidedRule: string; symptomAsk: string };
   noVerdict: Record<NoVerdictId, Text>;
   startingPointSet: Text;
   notComparable: Text;
@@ -1029,6 +1116,8 @@ export interface CueLine {
   ar: string;
   arTts: string;
   en: string;
+  /** The caption short form, at most 3 words (O24 (1)). */
+  short: Text;
 }
 
 export interface Selection {
@@ -1038,9 +1127,85 @@ export interface Selection {
   order: string;
   setting: Record<Setting, string>;
   clearance: string;
-  guestBooth: string;
-  sessionMinutes: [number, number];
+  guestBooth: GuestBooth;
+  /** Prose and starting estimates for estimateMinutes (S27); the minutes are computed per person. */
+  sessionMinutes: {
+    computed: string;
+    startingEstimatesMinutes: Record<string, [number, number]>;
+  };
   conditionNotes: Record<ConditionId, string>;
+}
+
+/** The guest steps at the booth that revision 1.1 words in the data (Q19). */
+export interface GuestBooth {
+  conditionsStep: { title: Text; helper: Text; noneChip: Text };
+  clearance: { ask: Text; hint: Text; options: { value: Clearance; label: Text }[]; rule: string };
+  routing: string[];
+  afterEachTest: { buttons: { value: "next" | "results"; label: Text }[]; rule: string };
+}
+
+/* --------------------------------------------------- revision 1.1 sections */
+
+/** The 0 to 10 pain scale (Q7): 11 buttons in two rows, and the two anchor labels. */
+export interface PainScale {
+  buttons: number;
+  rows: number[][];
+  minSizePx: number;
+  anchors: { zero: Text; ten: Text };
+}
+export const STOP_FOLLOW_UP_IDS = ["sf_faint_loc"] as const;
+export type StopFollowUpId = (typeof STOP_FOLLOW_UP_IDS)[number];
+export const END_OF_CHECK_IDS = ["ec_symptoms"] as const;
+export type EndOfCheckId = (typeof END_OF_CHECK_IDS)[number];
+/** The faint follow up (S38b) after a faint or a fall stop (O42). */
+export interface StopFollowUp {
+  id: StopFollowUpId;
+  type: "yes_no_unsure";
+  when: string;
+  ask: Text;
+  options: AnswerOption[];
+  noAnswerSec: number;
+}
+/** The end of check symptom question (S49, Q23 (7)): a general form and a side form. */
+export interface EndOfCheckQuestion {
+  id: EndOfCheckId;
+  type: "yes_no";
+  when: string;
+  ask: Text;
+  askSide: Text;
+  sideTokens: Record<Side, Text>;
+  options: AnswerOption[];
+}
+export interface HelperBriefing {
+  heading: Text;
+  checkInLine: SpokenText;
+  confirmButton: Text;
+}
+export interface EmergencyCall {
+  /** The call button: its label (with the number) and the tel: href. */
+  button: Text & { href: string };
+  bigNumberOn: ScreenId[];
+  bigNumberMinPx: number;
+}
+export const SETUP_QUESTION_IDS = ["su_chair_gate", "su_same_chair"] as const;
+export type SetupQuestionId = (typeof SETUP_QUESTION_IDS)[number];
+/** Chair stand setup questions at home (Q9). */
+export interface SetupQuestion {
+  id: SetupQuestionId;
+  test: TestId;
+  type: "yes_no" | "yes_no_unsure";
+  showIf: ShowIf;
+  ask: Text;
+  options: AnswerOption[];
+}
+/** {when} of a lock line (Q33 (4)), chosen by when the lock ends. */
+export interface PausedWhenTokens {
+  min60_start: Text;
+  min60_active: Text;
+  nextDay_midnight: Text;
+  nextDay_clock: Text;
+  sameDay_clock: Text;
+  timeSuffix: { am: Text; pm: Text };
 }
 
 /* -------------------------------------------------------------------- root */
@@ -1048,21 +1213,31 @@ export interface Selection {
 export interface CheckData {
   id: "movement_check";
   version: number;
+  /** "1.1": movement check version 1, revision 1.1 (contract v3 H). */
+  specVersion: string;
   status: SignoffStatus;
   signoff: Signoff;
-  boundary: Record<BoundaryId, Text>;
+  boundary: Boundary;
   areas: Area[];
   surgeryAreas: SurgeryArea[];
   engine: EngineConfig;
+  painScale: PainScale;
   precheck: PrecheckItem[];
   betweenTests: FollowQuestion<BetweenTestId>[];
+  stopFollowUps: StopFollowUp[];
+  endOfCheck: EndOfCheckQuestion[];
   afterCheck: FollowQuestion<AfterCheckId>[];
   stopRouting: StopRouting;
   locks: Locks;
-  screens: Record<ScreenId, Text>;
-  pausedWhenTokens: Record<LockKind, Text>;
+  screens: Record<ScreenId, SpokenText>;
+  earlyStartButtons: { value: "start" | "later"; label: Text }[];
+  helperBriefing: HelperBriefing;
+  emergencyCall: EmergencyCall;
+  pausedWhenTokens: PausedWhenTokens;
   reasons: Record<ReasonId, Text>;
+  reasonSuffixes: { substituteRan: Text & { appendTo: ReasonId[]; rule: string } };
   postponeReasons: Record<PostponeReasonId, ScreenId>;
+  setupQuestions: SetupQuestion[];
   tests: TestDef[];
   progress: ProgressRules;
   cues: CueLine[];

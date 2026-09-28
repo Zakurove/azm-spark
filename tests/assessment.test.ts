@@ -796,7 +796,16 @@ const MATRIX: MatrixRow[] = [
     ctx: { clearance: "unsure" },
     opts: {
       setting: "booth",
-      answers: { pc_booth_vitals: { restingHeartRate: 121, systolic: 130, diastolic: 80 } },
+      answers: {
+        pc_booth_vitals: {
+          systolic1: 130,
+          diastolic1: 80,
+          systolic2: 128,
+          diastolic2: 82,
+          restingHeartRate: 121,
+          irregularHeartbeat: 0,
+        },
+      },
     },
     abd: NONE_AB,
     curl: ["right arm_only", "left arm_only"],
@@ -810,7 +819,7 @@ const MATRIX: MatrixRow[] = [
     abd: NONE_AB,
     curl: ["right arm_only", "left arm_only"],
     trunk: NONE_AB,
-    chair: ["none skip:clearance"],
+    chair: ["none skip:clearance_booth"],
   },
   {
     row: "upper_limb_unilateral, left",

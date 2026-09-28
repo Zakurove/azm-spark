@@ -22,7 +22,7 @@
  * visibility) and, when the device reports its orientation, the phone level within 5 degrees.
  */
 import { CHECK_DATA, cueLine } from "../movements/assessments";
-import type { CheckCueId, CueLine, TestDef, TestId } from "../movements/types";
+import type { CheckCueId, CueLine, Side, TestDef, TestId } from "../movements/types";
 import {
   armPx,
   isPerson,
@@ -491,13 +491,17 @@ export class QualityMonitor {
 
 /* ------------------------------------------------------------ retry cues */
 
-/** The cue that asks the person to turn the right way for a test. */
-export function viewCue(testId: TestId, side: TestSide): CheckCueId {
+/**
+ * The cue that asks the person to turn the right way for a test. The chair stand's phone stands at
+ * 45 degrees toward the stronger side (revision 1.1 check_phone_angle_right and _left); without a
+ * declared weaker side, toward the right (spec 4.4 setup).
+ */
+export function viewCue(testId: TestId, side: TestSide, weaker?: Side | null): CheckCueId {
   switch (testId) {
     case "arm_curl_30s":
       return side === "left" ? "check_left_side_to_phone" : "check_right_side_to_phone";
     case "chair_stand_30s":
-      return "check_phone_angle";
+      return weaker === "right" ? "check_phone_angle_left" : "check_phone_angle_right";
     default:
       return "check_face_phone";
   }
@@ -516,6 +520,7 @@ export function retryCue(
   testId: TestId,
   side: TestSide,
   missing?: readonly number[],
+  weaker?: Side | null,
 ): CheckCueId {
   switch (issue) {
     case "not_visible": {
@@ -526,7 +531,7 @@ export function retryCue(
     case "out_of_frame":
       return "check_whole_body";
     case "wrong_view":
-      return viewCue(testId, side);
+      return viewCue(testId, side, weaker);
     case "too_close":
       return "check_move_back";
     case "too_far":
@@ -590,6 +595,8 @@ export interface SetupConfig {
   tiltWarnDeg: number | null;
   /** Shoulder abduction: room for both arms out to the side and overhead (spec 4.1). */
   armRoom: boolean;
+  /** Chair stand: the declared weaker side, which puts the phone toward the other side (4.4). */
+  weaker?: Side | null;
 }
 
 // SPEC-GAP: stand-headroom. "From the head at full stand" cannot be seen while the person sits
@@ -682,7 +689,12 @@ function lightProxy(lm: Landmark[]): number {
 }
 
 /** Retry cue for a setup issue. */
-export function setupCue(issue: SetupIssue, testId: TestId, side: TestSide): CheckCueId {
+export function setupCue(
+  issue: SetupIssue,
+  testId: TestId,
+  side: TestSide,
+  weaker?: Side | null,
+): CheckCueId {
   switch (issue) {
     case "no_person":
     case "framing":
@@ -697,7 +709,7 @@ export function setupCue(issue: SetupIssue, testId: TestId, side: TestSide): Che
     case "too_far":
       return "check_move_closer";
     case "wrong_view":
-      return viewCue(testId, side);
+      return viewCue(testId, side, weaker);
     case "light":
       return "check_light";
   }
@@ -774,7 +786,7 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
   return {
     ok: issues.length === 0,
     issues,
-    cue: issues.length ? setupCue(issues[0], cfg.testId, cfg.side) : null,
+    cue: issues.length ? setupCue(issues[0], cfg.testId, cfg.side, cfg.weaker) : null,
     warnings,
     view,
     distanceM: distanceM === null ? null : round(distanceM, 2),

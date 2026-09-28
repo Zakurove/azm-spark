@@ -19,6 +19,16 @@ import { AREA_IDS, SURGERY_AREA_IDS, type TestId } from "../src/movements/types"
 export const NOW = Date.UTC(2026, 8, 27, 9, 0, 0); // 2026-09-27 12:00 in Riyadh
 export const TODAY = "2026-09-27";
 
+/** Booth vitals within every limit (Q21): two readings, the resting rate and a regular rhythm. */
+export const VITALS_OK = {
+  systolic1: 120,
+  diastolic1: 80,
+  systolic2: 122,
+  diastolic2: 78,
+  restingHeartRate: 72,
+  irregularHeartbeat: 0,
+};
+
 /**
  * Base tests for a context: spec 3.2 order, intake exclusions and the trunk substitute for standing
  * users. Written apart from baseSelection (src/medical/assessment.ts) and kept as an independent
@@ -90,9 +100,9 @@ export function benign(id: string): AnswerValue {
     case "pc_pain_areas":
       return {};
     case "pc_sci_ready":
-      return true;
+      return "done";
     case "pc_booth_vitals":
-      return { restingHeartRate: 72, systolic: 120, diastolic: 80 };
+      return VITALS_OK;
     case "pc_change_cleared":
     case "pc_trunk_armrests":
     case "pc_helper":
@@ -225,12 +235,21 @@ export function randomAnswer(r: Rng, id: string): AnswerValue {
       for (const a of r.subset(AREA_IDS, 0.2)) out[a] = r.int(11);
       return out;
     }
-    case "checklist":
-      return r.next() < 0.7 ? true : r.subset(["0", "1", "2", "3", "4", "5"], 0.6);
-    case "system":
-      return r.next() < 0.2
-        ? "unavailable"
-        : { restingHeartRate: 50 + r.int(90), systolic: 100 + r.int(100), diastolic: 60 + r.int(50) };
+    case "list_confirm":
+      return r.next() < 0.7 ? "done" : "not_yet";
+    case "system": {
+      if (r.next() < 0.2) return "unavailable";
+      const systolic = 100 + r.int(100);
+      const diastolic = 60 + r.int(50);
+      return {
+        systolic1: systolic,
+        diastolic1: diastolic,
+        systolic2: systolic + r.int(6),
+        diastolic2: diastolic + r.int(4),
+        restingHeartRate: 50 + r.int(90),
+        irregularHeartbeat: r.next() < 0.1 ? 1 : 0,
+      };
+    }
     case "yes_no_then_areas":
       if (parsed.part === "areas") return r.subset(item.surgeryAreas ? SURGERY_AREA_IDS : AREA_IDS, 0.2);
       return r.next() < 0.25 ? "yes" : "no";

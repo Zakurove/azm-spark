@@ -841,14 +841,15 @@ abstract class TimedCountBase implements TestRunner {
   private unscoredPrompt(track: Tracked): CheckCueId {
     const px = track.px;
     const missing = this.gate().filter((i) => !seen(px, i, this.minVis));
-    return retryCue("not_visible", this.testId, this.side, missing);
+    return retryCue("not_visible", this.testId, this.side, missing, this.opts.weakerSide);
   }
 
   private endTrial(t: number): void {
     const tr = this.trial!;
     const R = TIMED_RULES;
     this.sink.push({ kind: "time", remainingSec: 0, t });
-    this.sink.cue("check_time_stop", t);
+    // Revision 1.1 retires check_time_stop («توقف» mid rise or mid bend): each test has its own line.
+    this.sink.cue(this.testId === "chair_stand_30s" ? "check_time_up_stand" : "check_time_up_curl", t);
     const extra = this.atTimeUp(tr);
     const q = tr.monitor.report();
     this.qualities.push(q);
@@ -1689,7 +1690,7 @@ export class ChairStandRunner extends TimedCountBase {
   }
 
   protected setupConfig() {
-    return setupConfig(this.def, "none");
+    return { ...setupConfig(this.def, "none"), weaker: this.opts.weakerSide ?? null };
   }
 
   private newFilter(): OneEuro {
@@ -1805,7 +1806,7 @@ export class ChairStandRunner extends TimedCountBase {
       const oneSide = (a: number[], b: number[]) =>
         !!px && a.every((i) => seen(px, i, this.minVis)) && !b.some((i) => seen(px, i, this.minVis));
       if (oneSide([11, 23], [12, 24]) || oneSide([12, 24], [11, 23]))
-        this.sink.cueEvery(viewCue(this.testId, "none"), t, R.promptEverySec);
+        this.sink.cueEvery(viewCue(this.testId, "none", this.opts.weakerSide), t, R.promptEverySec);
       return;
     }
     this.calBuf.push({
@@ -1830,7 +1831,7 @@ export class ChairStandRunner extends TimedCountBase {
     const ratios = this.calBuf.map((s) => s.ratio).filter((r): r is number => r !== null);
     const view = viewOfRatio(ratios.length ? median(ratios) : null);
     if (!ACCEPTED_VIEWS[this.testId].includes(view)) {
-      this.sink.cueEvery(viewCue(this.testId, "none"), t, R.promptEverySec);
+      this.sink.cueEvery(viewCue(this.testId, "none", this.opts.weakerSide), t, R.promptEverySec);
       return;
     }
     this.calibrate(t);

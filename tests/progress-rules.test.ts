@@ -144,7 +144,7 @@ describe("the prose rules of the data are the ones implemented", () => {
           "either check has attempt spread over 15 degrees, gravity reference or bent elbow",
         ],
         noVerdictWhen: [
-          "shoulder pain on this side (setup.painSides): show start and now with the sentence noVerdict.shoulderPain, until Azm has its own MDC (Q1)",
+          "shoulder pain on this side (setup.painSides): show start and now with the sentence noVerdict.shoulderPain on a normal result card, never a greyed or error state, until Azm has its own MDC (P1, Q1)",
           "fewer than 2 valid attempts on that side at either check (noVerdict.oneValid)",
           "poseModel differs between baseline and now: not comparable",
         ],

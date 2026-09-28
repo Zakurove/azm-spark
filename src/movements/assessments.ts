@@ -13,13 +13,20 @@ import type {
   CheckCueId,
   CheckData,
   CueLine,
+  EndOfCheckId,
+  EndOfCheckQuestion,
   FollowQuestion,
   Lang,
+  PausedWhenTokens,
   PrecheckId,
   PrecheckItem,
   QuestionId,
   ReasonId,
   ScreenId,
+  SetupQuestion,
+  SetupQuestionId,
+  StopFollowUp,
+  StopFollowUpId,
   TestDefById,
   TestId,
   Widen,
@@ -86,4 +93,34 @@ export function reasonText(id: ReasonId, lang: Lang): string {
 /** A check voice cue: ar (display), arTts (fully vocalized, for speech) and en. */
 export function cueLine(id: CheckCueId): CueLine {
   return cuesById.get(id) ?? missing("cue", id);
+}
+
+/* ------------------------------------------------ revision 1.1 sections (O33 (7)) */
+
+/** The faint follow up after a faint or a fall stop (S38b, sf_faint_loc). */
+export function stopFollowUp(id: StopFollowUpId): StopFollowUp {
+  return CHECK_DATA.stopFollowUps.find((q) => q.id === id) ?? missing("stop follow up", id);
+}
+
+/** The end of check symptom question (S49, ec_symptoms): ask, askSide with {side}, sideTokens. */
+export function endOfCheckQuestion(id: EndOfCheckId): EndOfCheckQuestion {
+  return CHECK_DATA.endOfCheck.find((q) => q.id === id) ?? missing("end of check question", id);
+}
+
+/** A chair stand setup question at home (su_chair_gate, su_same_chair; Q9). */
+export function setupQuestion(id: SetupQuestionId): SetupQuestion {
+  return CHECK_DATA.setupQuestions.find((q) => q.id === id) ?? missing("setup question", id);
+}
+
+export type PausedWhenToken = Exclude<keyof PausedWhenTokens, "timeSuffix">;
+
+/** The {when} line of a lock (Q33 (4)), with its {time} token still in place. */
+export function pausedWhenText(token: PausedWhenToken, lang: Lang): string {
+  return (CHECK_DATA.pausedWhenTokens[token] ?? missing("paused when token", token))[lang];
+}
+
+/** The call button of every screen that names 997 (emergencyCall.button, Q22), and its href. */
+export function emergencyCallButton(lang: Lang): { label: string; href: string } {
+  const b = CHECK_DATA.emergencyCall.button;
+  return { label: b[lang], href: b.href };
 }

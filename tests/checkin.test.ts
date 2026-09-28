@@ -68,17 +68,19 @@ describe("check in timing comes from the check data", () => {
     expect(CHECKIN_TIMING.noMovementSec).toBe(10);
     expect(checkIn.okWhen.join(" ")).toMatch(/a wrist held above the same shoulder for 1 s/);
     expect(CHECKIN_TIMING.raisedHandSec).toBe(1);
-    expect(checkIn.triggers).toHaveLength(5);
+    // Revision 1.1 adds the faint follow up without an answer and the phase 2 home fall watch (O42).
+    expect(checkIn.triggers).toHaveLength(8);
     expect(checkIn.tune_at_booth).toBe(true);
   });
 
-  it("asks with check_are_you_ok and falls back to the 997 screen that asks for a tap", () => {
+  it("asks with check_are_you_ok and falls back to the 997 screen with its fine button", () => {
     expect(CHECKIN_CUE).toBe("check_are_you_ok");
     expect(CHECKIN_CUE).toBe(checkIn.cue);
     expect(checkIn.noResponse).toMatch(/scr_no_response/);
     expect(NO_RESPONSE_SCREEN).toBe("scr_no_response");
     expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/997/);
-    expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/Tap here/);
+    // Only the «أنا بخير» button counts as fine (O34-4 (6)).
+    expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/tap “I am fine”/);
   });
 });
 

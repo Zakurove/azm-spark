@@ -21,7 +21,7 @@ import {
   type PrecheckEnv,
   type PrecheckOutcome,
 } from "../src/medical/precheck";
-import { NOW, TODAY, envOf, fill, run, skipOf, variantsOf } from "./precheck-fixtures";
+import { NOW, TODAY, VITALS_OK, envOf, fill, run, skipOf, variantsOf } from "./precheck-fixtures";
 
 const standing = (p: Parameters<typeof envOf>[0] = {}, o: Parameters<typeof envOf>[1] = {}) =>
   envOf({ position: "standing", ...p }, o);
@@ -397,6 +397,28 @@ const CASES: Case[] = [
       }),
   },
   {
+    item: "pc_faint_since",
+    action: 0,
+    name: "yes asks pc_change_cleared: not cleared postpones (recent_change) and clears faintReported",
+    env: envOf({}, { firstCheck: false, faintReportedUnresolved: true }),
+    answers: { pc_faint_since: "yes", pc_change_cleared: "no" },
+    check: (o) => {
+      expect(o).toMatchObject({ status: "postpone", reason: "recent_change", screen: "scr_postpone_care" });
+      expect(o.faintReportedCleared).toBe(true);
+    },
+  },
+  {
+    item: "pc_faint_since",
+    action: 1,
+    name: "either answer clears faintReported; no goes on",
+    env: envOf({}, { firstCheck: false, faintReportedUnresolved: true }),
+    answers: { pc_faint_since: "no" },
+    check: (o) => {
+      expect(o.status).toBe("proceed");
+      expect(o.faintReportedCleared).toBe(true);
+    },
+  },
+  {
     item: "pc_change",
     action: 0,
     name: "yes asks pc_change_cleared, and a cleared change goes ahead",
@@ -686,7 +708,7 @@ const CASES: Case[] = [
     action: 0,
     name: "a box left unticked postpones (sci_ready) without a lock",
     env: sciT6Later(),
-    answers: { pc_sci_ready: ["0", "1", "2", "3", "5"] },
+    answers: { pc_sci_ready: "not_yet" },
     check: (o) =>
       expect(o).toMatchObject({
         status: "postpone",
@@ -892,19 +914,33 @@ const CASES: Case[] = [
   {
     item: "pc_booth_vitals",
     action: 0,
-    name: "a value above its limit skips the booth chair stand (booth_vitals)",
+    name: "a mean of two readings outside its limit skips the booth chair stand (booth_vitals)",
     env: standing({ clearance: "unsure" }, { setting: "booth" }),
-    answers: { pc_booth_vitals: { restingHeartRate: 80, systolic: 181, diastolic: 90 } },
+    answers: { pc_booth_vitals: { ...VITALS_OK, systolic1: 158, systolic2: 164 } },
     check: (o) =>
       expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "booth_vitals" }]),
   },
   {
+    // Defence in depth (O47): pc_booth_vitals is not reached for SCI in v1, but the rule is evaluated
+    // wherever it is.
     item: "pc_booth_vitals",
     action: 1,
-    name: "no validated cuff or trained staff: the chair stand is not offered (clearance)",
+    name: "SCI at T6 or above: a mean systolic 20 above the usual starts the AD response",
+    env: standing({ clearance: "no", conditions: ["sci_incomplete"] }, { setting: "booth" }),
+    answers: {
+      pc_sci_level: "yes",
+      pc_booth_vitals: { ...VITALS_OK, systolic1: 140, systolic2: 142, usualSystolic: 120 },
+    },
+    check: (o) => expect(o).toMatchObject({ status: "ad", screen: "scr_ad", lock: { until: "next_day" } }),
+  },
+  {
+    item: "pc_booth_vitals",
+    action: 2,
+    name: "no validated cuff or licensed practitioner: the chair stand is not offered (clearance_booth)",
     env: standing({ clearance: "no" }, { setting: "booth" }),
     answers: { pc_booth_vitals: "unavailable" },
-    check: (o) => expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance" }]),
+    check: (o) =>
+      expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance_booth" }]),
   },
   {
     item: "pc_helper",
@@ -1153,16 +1189,23 @@ describe("chair stand rules (spec 4.4)", () => {
     );
   });
 
-  it("booth vitals at the limit (not above) allow the chair stand", () => {
+  it("booth vitals use the mean of two readings, the rate and the rhythm (Q21)", () => {
     const env = standing({ clearance: "no" }, { setting: "booth" });
-    const o = run(env, { pc_booth_vitals: { restingHeartRate: 120, systolic: 180, diastolic: 100 } });
-    expect(o.skips).toEqual([]);
-    const hr = run(env, { pc_booth_vitals: { restingHeartRate: 121, systolic: 110, diastolic: 70 } });
-    expect(skipOf(hr, "chair_stand_30s", "none")).toBe("booth_vitals");
-    const dia = run(env, { pc_booth_vitals: { restingHeartRate: 70, systolic: 110, diastolic: 101 } });
-    expect(skipOf(dia, "chair_stand_30s", "none")).toBe("booth_vitals");
-    // Staff must enter the values before the check can start.
-    expect(evaluatePrecheck(env, { ...fill(env), pc_booth_vitals: { systolic: 120 } }, NOW).status).toBe(
+    const at = (v: Partial<typeof VITALS_OK>) =>
+      skipOf(run(env, { pc_booth_vitals: { ...VITALS_OK, ...v } }), "chair_stand_30s", "none");
+    // Inside every limit.
+    expect(
+      at({ systolic1: 158, systolic2: 160, diastolic1: 98, diastolic2: 100, restingHeartRate: 120 }),
+    ).toBe(undefined);
+    expect(at({ systolic1: 90, systolic2: 90 })).toBe(undefined);
+    // Mean systolic 160 or more, or under 90; mean diastolic 100 or more; rate over 120; irregular.
+    expect(at({ systolic1: 160, systolic2: 160 })).toBe("booth_vitals");
+    expect(at({ systolic1: 89, systolic2: 90 })).toBe("booth_vitals");
+    expect(at({ diastolic1: 100, diastolic2: 100 })).toBe("booth_vitals");
+    expect(at({ restingHeartRate: 121 })).toBe("booth_vitals");
+    expect(at({ irregularHeartbeat: 1 })).toBe("booth_vitals");
+    // Staff must enter both readings before the check can start.
+    expect(evaluatePrecheck(env, { ...fill(env), pc_booth_vitals: { systolic1: 120 } }, NOW).status).toBe(
       "incomplete",
     );
   });

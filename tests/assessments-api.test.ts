@@ -303,21 +303,21 @@ describe("postpones, locks and the change question", () => {
     expect((await start(h, cookie)).status).toBe(200);
   });
 
-  it("the SCI checklist postpones without a lock: ticking every box goes ahead at once", async () => {
+  it("the SCI list postpones without a lock: All of these are done goes ahead at once", async () => {
     const cookie = await member(
       h,
       "sci@example.test",
       intakeOf({ conditions: ["sci_incomplete"], mobility: "wheelchair", clearance: "yes" }),
     );
     // The checklist is asked for an injury at T6 or higher, or when the level is not known.
-    const r = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: ["0", "1"] });
+    const r = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: "not_yet" });
     expect(r.data).toMatchObject({
       reason: "sci_ready",
       screen: "scr_postpone_sci",
       lock: { reason: "sci_ready", until: null },
     });
     expect((await h.call("/assessments/context", undefined, cookie)).data.lock).toBeNull();
-    const ok = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: true });
+    const ok = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: "done" });
     expect(ok.status).toBe(200);
     expect(ok.data.warnings).toContain("warn_sci_t6");
   });
@@ -531,13 +531,13 @@ describe("the stop list and the between tests question", () => {
     expect(r.data.status).toBe("skip");
     // The right arm curl loads the right shoulder too.
     expect(r.data.skips).toEqual(
-      expect.arrayContaining([{ testId: "arm_curl_30s", side: "right", reason: "pain_today" }]),
+      expect.arrayContaining([{ testId: "arm_curl_30s", side: "right", reason: "pain_more" }]),
     );
     expect(r.data.skips.every((k: any) => k.side !== "left")).toBe(true);
     const curl = itemOf(protocol, "arm_curl_30s", "right");
     expect((await h.call(`/assessments/${id}/results`, resultBody(curl, 12), cookie)).data).toEqual({
       error: "SKIPPED",
-      reason: "pain_today",
+      reason: "pain_more",
     });
     const same = await h.call(
       `/assessments/${id}/between`,

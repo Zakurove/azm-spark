@@ -3,9 +3,8 @@
  * the copy (src/i18n) or the check data; nothing here is final wording.
  */
 import type { Lang } from "../../../app/i18n";
-import { labels } from "../../../app/platform-copy";
 import { t } from "../../../i18n";
-import { testDef } from "../../../movements/assessments";
+import { CHECK_DATA, testDef } from "../../../movements/assessments";
 import { questionOf, type FlowModel } from "../flowMachine";
 import { stub } from "../shared/ScreenStub";
 
@@ -35,10 +34,9 @@ export const S05 = stub("S05", (l) => t(l, "assessment.guest.title"), { brand: t
 export const S05a = stub("S05a", (l) => t(l, "assessment.adult.title"));
 export const S06 = stub("S06", (l) => t(l, "assessment.guest.position.ask"));
 export const S07 = stub("S07", (l) => t(l, "assessment.guest.support.ask"));
-// SPEC-GAP: guest-conditions-title. The S08 and S08b questions are v1.1 data (selection.guestBooth);
-// until the data is re-exported the stubs show the intake's questions.
-export const S08 = stub("S08", (l) => labels(l).condition);
-export const S08b = stub("S08b", (l) => labels(l).clearance);
+// S08 and S08b are worded in the check data (revision 1.1 selection.guestBooth, Q19).
+export const S08 = stub("S08", (l) => CHECK_DATA.selection.guestBooth.conditionsStep.title[l]);
+export const S08b = stub("S08b", (l) => CHECK_DATA.selection.guestBooth.clearance.ask[l]);
 export const S09 = stub("S09", (l) => t(l, "assessment.guest.staff.titleBooth"));
 export const S10 = stub("S10", (l) => t(l, "assessment.guest.pain.ask"));
 export const S11 = stub("S11", (l) => t(l, "assessment.guest.restrictions.ask"));

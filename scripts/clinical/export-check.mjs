@@ -3,8 +3,8 @@
  *
  *   node scripts/clinical/export-check.mjs [path to the clinical JSON]
  *
- * The input is the clinical source of truth, local-docs/clinical/movement-check-v1.json by default
- * (git ignored). The output, src/movements/check-v1.json, is committed and is the app's source of
+ * The input is the clinical source of truth, local-docs/clinical/movement-check-v1.1.json by default
+ * (git ignored; contract v3 H: movement check version 1, revision 1.1). The output, src/movements/check-v1.json, is committed and is the app's source of
  * truth. It keeps exactly the runtime sections of the contract and drops the review material:
  * references, reviewLog, laterBattery and dataMap, plus every sources, noiseBandBasis and note field
  * at any depth. Prose rule fields stay, they document the item.
@@ -19,28 +19,42 @@ import { fileURLToPath } from "node:url";
 import { dataViolations } from "../wording-rules.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const DEFAULT_INPUT = join(ROOT, "local-docs/clinical/movement-check-v1.json");
+const DEFAULT_INPUT = join(ROOT, "local-docs/clinical/movement-check-v1.1.json");
 const OUTPUT = join(ROOT, "src/movements/check-v1.json");
 
-/** Top level sections kept, in this order (contract v2, section A). */
+/**
+ * Top level sections kept, in this order (contract v2, section A), plus the sections revision 1.1
+ * added that the screens read (UX spec 0.1, O33 (7)): the pain scale, the stop follow up and end of
+ * check questions, the early start buttons, the helper briefing, the emergency call, the reason
+ * suffixes and the setup questions.
+ */
 export const KEEP = [
   "id",
   "version",
+  "specVersion",
   "status",
   "signoff",
   "boundary",
   "areas",
   "surgeryAreas",
   "engine",
+  "painScale",
   "precheck",
   "betweenTests",
+  "stopFollowUps",
+  "endOfCheck",
   "afterCheck",
   "stopRouting",
   "locks",
   "screens",
+  "earlyStartButtons",
+  "helperBriefing",
+  "emergencyCall",
   "pausedWhenTokens",
   "reasons",
+  "reasonSuffixes",
   "postponeReasons",
+  "setupQuestions",
   "tests",
   "progress",
   "cues",
@@ -54,7 +68,33 @@ export const KEEP = [
  */
 // SPEC-GAP: export-date. The top level date is in neither list of the contract; it is dropped because
 // only the kept sections are written.
-export const DROP_TOP = ["references", "reviewLog", "laterBattery", "dataMap", "note", "date"];
+// Revision 1.1 adds review and process material that is not read at run time: the change logs of the
+// copy pass and the council (supersedes, copyPass, copyPassMedicalReview, dataOwnerAdditions,
+// uxRoundApplied, councilDecisions, departures), prose rules the code implements by hand
+// (precheckRules, cueShortRule, reasonIds), retired and pending voice lines (cuesRetired,
+// voicePending), a phase 2 question (addressPreference) and the open questions.
+export const DROP_TOP = [
+  "references",
+  "reviewLog",
+  "laterBattery",
+  "dataMap",
+  "note",
+  "date",
+  "supersedes",
+  "copyPass",
+  "copyPassMedicalReview",
+  "dataOwnerAdditions",
+  "uxRoundApplied",
+  "councilDecisions",
+  "departures",
+  "precheckRules",
+  "cueShortRule",
+  "reasonIds",
+  "cuesRetired",
+  "voicePending",
+  "addressPreference",
+  "openQuestions",
+];
 
 /** Fields dropped at any depth. */
 // SPEC-GAP: dropped-notes. Some note fields state rules (for example pc_sci_level: warn_sci_t6 before

@@ -53,7 +53,7 @@ export function questionScreen(id: string): CheckScreenId {
       return "S20";
     case "single":
       return "S21";
-    case "checklist":
+    case "list_confirm":
       return "S22";
     case "three_yes_no":
       return "S23";

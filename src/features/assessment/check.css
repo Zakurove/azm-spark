@@ -1,0 +1,782 @@
+/*
+ * Movement check and results screens (UX spec v1.1, sections 0.3 to 0.7 and 3.0).
+ *
+ * Every rule here is scoped to .azm-check, the root class of CheckShell, CameraStage, ProgressView
+ * and the entry cards, so nothing global changes (design language 10.3). Feature CSS files of the
+ * parallel streams (camera.css, results.css, ...) use only the custom properties declared below.
+ *
+ * Sizes are in rem (1 rem = 16 px) so browser text zoom and iOS larger text scale them. No mobile
+ * query shrinks type (audit 9.2). Colour never carries meaning alone; red is STOP, the 997 call and
+ * the safety frame only; green is never a verdict.
+ */
+
+/* ------------------------------------------------------------------ tokens (0.3) */
+
+.azm-check {
+  --ink: #1c2029;
+  --muted: #5d626d;
+  --line: #e3e4e9;
+  --field-border: #878c96;
+  --gold: #f8cb44;
+  --gold-hover: #f0c02f;
+  --gold-ink: #8a6d14;
+  --purple: #6c56a5;
+  --purple-tint: #f1edf8;
+  --green-ink: #2f6b3a;
+  --green-tint: #e9f4ea;
+  --warn-ink: #945817;
+  --warn-fill: #e0a022;
+  --warn-tint: #fdf3e1;
+  --red: #aa3e35;
+  --cream: #fdf5df;
+  --page: #fbfaf8;
+  --card: #ffffff;
+  --hud-surface: rgba(255, 255, 255, 0.94);
+  --focus: 0 0 0 3px var(--card), 0 0 0 6px var(--gold-ink);
+
+  /* Spacing on a 4 px grid, radii (0.3). */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s6: 1.5rem;
+  --s8: 2rem;
+  --s12: 3rem;
+  --r-control: 10px;
+  --r-card: 16px;
+  --r-hud: 24px;
+  --r-pill: 999px;
+
+  /* Type scale (0.4). */
+  --t-safety: 2.5rem;
+  --t-question: 1.625rem;
+  --t-h1: 1.75rem;
+  --t-h2: 1.375rem;
+  --t-answer: 1.25rem;
+  --t-body: 1.125rem;
+  --t-meta: 1rem;
+  --t-big: 3.5rem;
+  --t-button: 1.125rem;
+  --lh-body: 1.8;
+
+  /* Targets (0.5). */
+  --h-cta: 56px;
+  --h-ghost: 48px;
+  --h-answer: 64px;
+  --h-icon: 48px;
+  --h-stop: 72px;
+  --h-call: 64px;
+  --topbar: 56px;
+  --column: 560px;
+  --gutter: 16px;
+
+  font-family: Cairo, system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--page);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  letter-spacing: 0;
+  text-align: start;
+}
+.azm-check:lang(en) {
+  --lh-body: 1.6;
+}
+.azm-check *,
+.azm-check *::before,
+.azm-check *::after {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------------ type (0.4) */
+
+.azm-check h1,
+.azm-check .check-h1 {
+  font-size: var(--t-h1);
+  line-height: 1.4;
+  font-weight: 750;
+  margin: 0;
+}
+/* The h1 takes focus on every screen change (tabindex -1) so a screen reader reads it; it is not a
+   control, so it shows no focus ring. */
+.azm-check h1:focus,
+.azm-check h1:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.azm-check h2,
+.azm-check .check-h2 {
+  font-size: var(--t-h2);
+  line-height: 1.45;
+  font-weight: 700;
+  margin: 0;
+}
+.azm-check .check-question {
+  font-size: var(--t-question);
+  line-height: 1.55;
+  font-weight: 700;
+}
+.azm-check .check-safety-heading {
+  font-size: var(--t-safety);
+  line-height: 1.35;
+  font-weight: 800;
+}
+.azm-check p {
+  margin: 0;
+}
+.azm-check .check-body {
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  font-weight: 400;
+}
+.azm-check .check-meta {
+  font-size: var(--t-meta);
+  line-height: 1.6;
+  font-weight: 500;
+  color: var(--muted);
+}
+.azm-check .check-label {
+  font-size: var(--t-meta);
+  line-height: 1.6;
+  font-weight: 500;
+  color: var(--ink);
+}
+.azm-check .check-big {
+  font-size: var(--t-big);
+  line-height: 1.1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.azm-check .check-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------ controls (0.5) */
+
+.azm-check button,
+.azm-check a.cta,
+.azm-check a.ghost,
+.azm-check a.check-call {
+  font: inherit;
+  touch-action: manipulation;
+}
+.azm-check button:focus-visible,
+.azm-check a:focus-visible,
+.azm-check input:focus-visible,
+.azm-check select:focus-visible,
+.azm-check textarea:focus-visible,
+.azm-check summary:focus-visible,
+.azm-check [tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* Primary: gold fill, ink text, 1 px gold ink border, one per screen, never disabled. */
+.azm-check .cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: var(--h-cta);
+  padding: var(--s3) var(--s6);
+  border: 1px solid var(--gold-ink);
+  border-radius: var(--r-control);
+  background: var(--gold);
+  color: var(--ink);
+  font-size: var(--t-button);
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.azm-check .cta:hover {
+  background: var(--gold-hover);
+}
+.azm-check .cta[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Secondary: outlined, 48 px. */
+.azm-check .ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: var(--h-ghost);
+  padding: var(--s2) var(--s4);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--t-button);
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.azm-check .ghost:hover {
+  border-color: var(--ink);
+}
+
+/* Text button: underlined, 48 px tall. */
+.azm-check .check-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--h-ghost);
+  padding: var(--s2) var(--s3);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: var(--t-button);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  cursor: pointer;
+}
+
+/* Icon button: 48 x 48, label in aria-label. */
+.azm-check .check-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-icon);
+  height: var(--h-icon);
+  min-height: var(--h-icon);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.azm-check .check-icon-button:hover {
+  background: var(--purple-tint);
+}
+.azm-check .check-icon-button[aria-pressed="false"] {
+  color: var(--muted);
+}
+
+/* Language switch: 48 px, its text in its own language (lang attribute set by the component). */
+.azm-check .check-language {
+  min-height: var(--h-icon);
+  min-width: var(--h-icon);
+  padding: 0 var(--s3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--t-meta);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Answer rows: full width, 64 px, 12 px apart; selected is purple tint, purple border and a check. */
+.azm-check .check-answers {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.azm-check .check-answer {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: var(--h-answer);
+  padding: var(--s3) var(--s4);
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--t-answer);
+  font-weight: 650;
+  line-height: 1.5;
+  text-align: start;
+  cursor: pointer;
+}
+.azm-check .check-answer:hover {
+  border-color: var(--ink);
+}
+.azm-check .check-answer[aria-pressed="true"],
+.azm-check .check-answer[aria-checked="true"] {
+  border: 2px solid var(--purple);
+  background: var(--purple-tint);
+}
+.azm-check .check-answer-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--field-border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--card);
+}
+.azm-check .check-answer.is-multiple .check-answer-mark {
+  border-radius: 6px;
+}
+.azm-check .check-answer[aria-pressed="true"] .check-answer-mark,
+.azm-check .check-answer[aria-checked="true"] .check-answer-mark {
+  border-color: var(--purple);
+  background: var(--purple);
+}
+.azm-check .check-answer-text {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.azm-check .check-hint {
+  font-size: var(--t-meta);
+  color: var(--muted);
+  line-height: 1.6;
+}
+.azm-check .check-field-error {
+  font-size: var(--t-meta);
+  font-weight: 600;
+  color: var(--warn-ink);
+}
+
+/* Call controls (997 red fill, 937 purple outline), 64 px, always the first action. */
+.azm-check .check-call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: var(--h-call);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-control);
+  font-size: var(--t-answer);
+  font-weight: 800;
+  text-decoration: none;
+}
+.azm-check .check-call.is-997 {
+  background: var(--red);
+  border: 1px solid var(--red);
+  color: #ffffff;
+}
+.azm-check .check-call.is-937 {
+  background: var(--card);
+  border: 2px solid var(--purple);
+  color: var(--purple);
+}
+
+/* STOP on camera screens: full width, red, 72 px (section 4, principle 6). */
+.azm-check .check-stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: var(--h-stop);
+  border: 0;
+  border-radius: 18px;
+  background: var(--red);
+  color: #ffffff;
+  font-size: 1.375rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ shell (3.0) */
+
+.azm-check.check-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.azm-check .check-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding-top: env(safe-area-inset-top);
+}
+.azm-check .check-topbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--topbar);
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--s1) var(--s2);
+}
+.azm-check .check-topbar-counter {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.azm-check .check-topbar-spacer {
+  flex: 1;
+}
+.azm-check .check-booth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 32px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--purple-tint);
+  color: var(--purple);
+  font-size: var(--t-meta);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.azm-check .check-progress {
+  height: 6px;
+  background: var(--line);
+  overflow: hidden;
+}
+.azm-check .check-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--purple);
+  transition: width 180ms ease;
+}
+.azm-check .check-sound-note {
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--s1) var(--gutter);
+  font-size: var(--t-meta);
+  color: var(--muted);
+}
+.azm-check .check-main {
+  flex: 1;
+  width: 100%;
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--s6) var(--gutter) var(--s8);
+  scroll-padding-top: calc(var(--topbar) + 6px);
+  scroll-padding-bottom: 140px;
+}
+.azm-check .check-content {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .check-header-brand .azm-logo {
+  width: 85px;
+  height: 54px;
+  object-fit: contain;
+  display: block;
+}
+.azm-check .check-footer {
+  background: var(--card);
+  box-shadow: 0 -8px 24px -18px rgba(28, 32, 41, 0.5);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.azm-check .check-footer-inner {
+  display: grid;
+  gap: var(--s3);
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--s3) var(--gutter);
+}
+/* The footer is sticky only while the visual viewport is at least 560 CSS px tall (3.0). */
+@media (min-height: 560px) {
+  .azm-check .check-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+  }
+}
+/* Below 400 CSS px of height (landscape phones, 200% zoom) the top bar compacts to Back and Exit;
+   the counter is still read with the h1 (aria-describedby). */
+@media (max-height: 399px) {
+  .azm-check .check-topbar-counter.is-compactable {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+/* Screen change: slide 16 px in the reading direction over 180 ms (none under reduced motion). */
+@keyframes azm-check-enter-ltr {
+  from {
+    transform: translateX(16px);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes azm-check-enter-rtl {
+  from {
+    transform: translateX(-16px);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.azm-check .check-enter {
+  animation: azm-check-enter-ltr 180ms ease-out;
+}
+.azm-check[dir="rtl"] .check-enter,
+[dir="rtl"] .azm-check .check-enter {
+  animation-name: azm-check-enter-rtl;
+}
+
+/* Caption slot: shown while a line plays; tapping replays it. Never a live region. */
+.azm-check .check-caption {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  width: 100%;
+  min-height: var(--h-ghost);
+  padding: var(--s3) var(--s4);
+  border: 0;
+  border-inline-start: 4px solid var(--purple);
+  border-radius: var(--r-control);
+  background: var(--purple-tint);
+  color: var(--ink);
+  font-size: var(--t-body);
+  font-weight: 650;
+  line-height: 1.6;
+  text-align: start;
+  cursor: pointer;
+}
+.azm-check .check-caption.is-warn {
+  border-inline-start-color: var(--warn-fill);
+  background: var(--warn-tint);
+}
+.azm-check .check-caption.is-safety {
+  border-inline-start-color: var(--red);
+  background: var(--cream);
+}
+
+/* ------------------------------------------------------------ cards and states (0.6) */
+
+.azm-check .check-card {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+.azm-check .check-card.is-cream {
+  background: var(--cream);
+  border-color: #f1e3b8;
+}
+.azm-check .check-card.is-info {
+  background: var(--purple-tint);
+  border-color: #dcd3ee;
+}
+.azm-check .check-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--purple);
+}
+.azm-check .check-card.is-cream .check-card-icon {
+  color: var(--ink);
+}
+.azm-check .check-actions {
+  display: grid;
+  gap: var(--s3);
+}
+
+/* Loading: skeleton with the weekly plan shimmer (static under reduced motion). */
+@keyframes azm-check-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+.azm-check .check-skeleton {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .check-skeleton > i {
+  display: block;
+  height: 18px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eceae4 0%, #f7f5f0 50%, #eceae4 100%);
+  background-size: 200% 100%;
+  animation: azm-check-shimmer 1.4s linear infinite;
+}
+.azm-check .check-skeleton > i:nth-child(2) {
+  width: 82%;
+}
+.azm-check .check-skeleton > i:nth-child(3) {
+  width: 64%;
+}
+.azm-check .check-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--line);
+  border-top-color: var(--gold-ink);
+  border-radius: 999px;
+  animation: azm-check-spin 0.9s linear infinite;
+}
+@keyframes azm-check-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Offline banner: purple tint under the top bar, wifi off icon, polite live region. */
+.azm-check .check-offline {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--s3) var(--gutter);
+  background: var(--purple-tint);
+  color: var(--ink);
+  font-size: var(--t-meta);
+  font-weight: 600;
+  line-height: 1.6;
+}
+.azm-check .check-offline-wrap {
+  background: var(--purple-tint);
+}
+.azm-check .check-offline svg {
+  color: var(--purple);
+  margin-top: 2px;
+}
+.azm-check .check-toast {
+  position: fixed;
+  inset-inline: var(--gutter);
+  bottom: calc(var(--s6) + env(safe-area-inset-bottom));
+  z-index: 30;
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-control);
+  background: var(--card);
+  border: 1px solid var(--field-border);
+  box-shadow: 0 16px 40px -24px rgba(28, 32, 41, 0.6);
+  font-size: var(--t-meta);
+  font-weight: 650;
+}
+.azm-check .check-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 32px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 1px solid var(--field-border);
+  font-size: var(--t-meta);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ dialogs */
+
+.azm-check .check-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--gutter);
+  background: rgba(37, 49, 46, 0.4);
+}
+@media (min-width: 600px) {
+  .azm-check .check-dialog-backdrop {
+    align-items: center;
+  }
+}
+.azm-check .check-dialog {
+  width: 100%;
+  max-width: var(--column);
+  max-height: calc(100dvh - 2 * var(--gutter));
+  overflow: auto;
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s6) var(--s4) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: 0 24px 60px -30px rgba(28, 32, 41, 0.5);
+}
+.azm-check .check-dialog:focus {
+  outline: none;
+}
+
+/* ------------------------------------------------------------ stubs (round 3 foundation) */
+
+.azm-check .check-stub {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .check-stub-id {
+  justify-self: start;
+}
+
+/* ------------------------------------------------------------ reduced motion (principle 17) */
+
+@media (prefers-reduced-motion: reduce) {
+  .azm-check *,
+  .azm-check *::before,
+  .azm-check *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Arrows point in the reading direction. */
+[dir="rtl"] .azm-check .check-icon-dir,
+.azm-check[dir="rtl"] .check-icon-dir {
+  transform: scaleX(-1);
+}
+
+/* Overlays over a state (S41, S43, S44, S45): a full layer; the page behind is inert. */
+.azm-check .check-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow: auto;
+  background: var(--page);
+}
+.azm-check .check-base {
+  display: contents;
+}
+.azm-check .check-page-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.azm-check .check-overlay .check-page-inner {
+  min-height: 100%;
+}
+/* Slots inside other pages (Today, My results) keep the page's own background and spacing. */
+.azm-check.check-slot,
+.azm-check.check-results-page {
+  background: transparent;
+  margin-bottom: 18px;
+}

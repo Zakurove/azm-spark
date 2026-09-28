@@ -18,12 +18,35 @@ import Session from "./Session";
 import History from "./History";
 import CoachSettings from "./CoachSettings";
 import Icon from "./Icon";
+import CheckApp from "../features/assessment/CheckApp";
+import type { ExitTarget } from "../features/assessment/flowMachine";
+import { createCheckApi } from "../features/assessment/api";
+import { isBoothMode } from "../features/assessment/boothMode";
+import { BoothStaffPage } from "../features/assessment/booth";
+import { AfterIntakeOffer, ExampleProgress, ResultsPage, TodayCheckSlot } from "../features/progress";
+import { t } from "../i18n";
 const qs = new URLSearchParams(location.search);
+/** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
+const checkEntry = qs.get("check") === "1";
+const boothEntry = qs.get("booth") === "1";
+const exampleEntry = qs.get("example") === "progress";
+type Page = "today" | "program" | "health" | "history" | "results";
+const PAGES: readonly Page[] = ["today", "program", "results", "health", "history"];
+const PAGE_ICONS: Record<Page, string> = {
+  today: "spark",
+  program: "calendar",
+  results: "rise",
+  health: "health",
+  history: "clock",
+};
+/** A full page load that keeps the chosen language (the entries above are read at load). */
+const openUrl = (path: string, lang: Lang) =>
+  location.assign(lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path);
 export default function App() {
   const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar"),
     [account, setAccount] = useState<AccountState | null>(null),
     [loading, setLoading] = useState(true),
-    [page, setPage] = useState<"today" | "program" | "health" | "history">("today"),
+    [page, setPage] = useState<Page>("today"),
     [editing, setEditing] = useState(false),
     [error, setError] = useState("");
   const [preferences, setPreferences] = useState(readPreferences),
@@ -34,8 +57,24 @@ export default function App() {
     [demo, setDemo] = useState(qs.get("demo") === "1" && qs.get("autostart") === "1"),
     [authView, setAuthView] = useState(qs.get("app") === "1"),
     [authRegister, setAuthRegister] = useState(false),
-    [tryCam, setTryCam] = useState(qs.get("try") === "1");
+    [tryCam, setTryCam] = useState(qs.get("try") === "1"),
+    [checkOpen, setCheckOpen] = useState(false),
+    [intakeOffer, setIntakeOffer] = useState(false);
   const c = labels(lang);
+  const pageLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c[key]);
+  const toggleLanguage = () => setLang(lang === "ar" ? "en" : "ar");
+  /** Where the movement check sends a signed in person when it ends or they leave it. */
+  const onCheckExit = (to: ExitTarget) => {
+    setCheckOpen(false);
+    if (to === "example") return openUrl("/?example=progress", lang);
+    if (to === "try") return openUrl("/?try=1", lang);
+    if (to === "healthEdit") {
+      setPage("health");
+      setEditing(true);
+      return;
+    }
+    setPage(to === "results" ? "results" : "today");
+  };
   const updatePreferences = (p: Preferences) => {
     setPreferences(p);
     savePreferences(p);
@@ -73,6 +112,11 @@ export default function App() {
     setAccount((a) => (a ? { ...a, ...s } : null));
     setEditing(false);
     setPage("program");
+    // S02: offered once after the intake, only while home checks are open and the plan is not in review.
+    if (s.plan.status !== "review")
+      void createCheckApi()
+        .getContext()
+        .then((r) => setIntakeOffer(r.ok && r.value.homeOpen === true && !r.value.blocked));
   };
   const start = async (isDemo: boolean) => {
     setBusy(true);
@@ -85,6 +129,36 @@ export default function App() {
       setBusy(false);
     }
   };
+  if (checkEntry)
+    return (
+      <CheckApp
+        lang={lang}
+        onLanguage={toggleLanguage}
+        mode="guest"
+        onExit={(to) =>
+          openUrl(to === "example" ? "/?example=progress" : to === "try" ? "/?try=1" : "/", lang)
+        }
+      />
+    );
+  if (boothEntry)
+    return (
+      <BoothStaffPage
+        lang={lang}
+        onLanguage={toggleLanguage}
+        onExit={() => openUrl("/", lang)}
+        onOpenGuest={() => openUrl("/?check=1", lang)}
+      />
+    );
+  if (exampleEntry)
+    return (
+      <ExampleProgress
+        lang={lang}
+        onLanguage={toggleLanguage}
+        canTryCheck={isBoothMode()}
+        onTryCheck={() => openUrl("/?check=1", lang)}
+        onRegister={() => openUrl("/?app=1", lang)}
+      />
+    );
   if (demo) {
     const ex = EXERCISES.find((e) => e.id === qs.get("ex")) ?? EXERCISES[0];
     const setup: Setup = {
@@ -173,6 +247,8 @@ export default function App() {
         }}
       />
     );
+  if (checkOpen)
+    return <CheckApp lang={lang} onLanguage={toggleLanguage} mode="signedIn" onExit={onCheckExit} />;
   if (run)
     return (
       <Workout
@@ -193,6 +269,19 @@ export default function App() {
   });
   const upcoming = weekdays.find((d) => p?.days.includes(d.getDay())) ?? weekdays[0];
   const reason = (key: string) => reasonText[key]?.[lang] ?? key;
+  // S01 (with S03 above it when due): after the next session card, before the week strip.
+  const todaySlot = (
+    <TodayCheckSlot
+      lang={lang}
+      booth={isBoothMode()}
+      onStart={() => setCheckOpen(true)}
+      onOpenResults={() => setPage("results")}
+      onOpenHealth={() => {
+        setPage("health");
+        setEditing(false);
+      }}
+    />
+  );
   const planDetails = p && (
     <>
       <div className="plan-measures">
@@ -253,7 +342,7 @@ export default function App() {
           <Brand />
         </button>
         <nav>
-          {(["today", "program", "health", "history"] as const).map((key, i) => (
+          {PAGES.map((key) => (
             <button
               key={key}
               className={page === key ? "active" : ""}
@@ -262,8 +351,8 @@ export default function App() {
                 setEditing(false);
               }}
             >
-              <Icon name={["spark", "calendar", "health", "clock"][i]} size={20} />
-              {c[key]}
+              <Icon name={PAGE_ICONS[key]} size={20} />
+              {pageLabel(key)}
             </button>
           ))}
         </nav>
@@ -293,7 +382,7 @@ export default function App() {
       </aside>
       <div className="portal-content">
         <header className="portal-topbar">
-          <span>{c[page]}</span>
+          <span>{pageLabel(page)}</span>
           <div>
             <button className="icon-button" onClick={() => setSettings(true)} aria-label={c.neural}>
               <Icon name="settings" size={19} />
@@ -323,10 +412,10 @@ export default function App() {
                       ? lang === "ar"
                         ? "خطوتك القادمة تبدأ هنا."
                         : "Your next move starts here."
-                      : c[page]}
+                      : pageLabel(page)}
                   </h1>
                 </div>
-                {page !== "history" && (
+                {page !== "history" && page !== "results" && (
                   <button
                     className="ghost"
                     onClick={() => {
@@ -363,6 +452,9 @@ export default function App() {
                         <Icon name="arrow" size={17} />
                       </button>
                     </section>
+                  ) : null}
+                  {p.status === "review" ? (
+                    page === "today" && todaySlot
                   ) : (
                     <>
                       {page === "today" && (
@@ -413,6 +505,7 @@ export default function App() {
                           </div>
                         </section>
                       )}
+                      {page === "today" && todaySlot}
                       {page === "today" && (
                         <WeeklyPlanView
                           lang={lang}
@@ -538,11 +631,32 @@ export default function App() {
               {page === "history" && (
                 <History lang={lang} records={records} onStart={() => setPage("today")} />
               )}
+              {page === "results" && (
+                <ResultsPage
+                  lang={lang}
+                  booth={isBoothMode()}
+                  onStartCheck={() => setCheckOpen(true)}
+                  onOpenProgram={() => setPage("program")}
+                />
+              )}
               <p className="medical-footnote">{c.medicalNote}</p>
             </>
           )}
         </main>
       </div>
+      {intakeOffer && (
+        <AfterIntakeOffer
+          lang={lang}
+          // SPEC-GAP: estimate-minutes. estimateMinutes (S27) belongs to the flow stream; the offer shows
+          // the spec's wireframe range until it exists (and only while home checks are open).
+          minutes={[16, 21]}
+          onStart={() => {
+            setIntakeOffer(false);
+            setCheckOpen(true);
+          }}
+          onLater={() => setIntakeOffer(false)}
+        />
+      )}
       {settings && (
         <CoachSettings
           lang={lang}

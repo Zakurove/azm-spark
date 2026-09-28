@@ -812,6 +812,21 @@ describe("chair_stand_30s counting rules (spec 4.4)", () => {
     expect(run.result.results[0].status).toBe("not_measured");
     expect(run.result.results[0].reason).toBe("quality");
   });
+
+  it("asks for the phone toward the stronger side: left when the right side is weaker (P4, spec 4.4)", () => {
+    const { frames } = framesOf(
+      spec("chair_stand_30s", "standing", "9:16", [...standPractice(), ...standTrial(16, 727)], 50, 727, {
+        fps: 20,
+        subject: { arms: CROSSED, yaw: -90 },
+      }),
+    );
+    const weakRight = drive(new ChairStandRunner(STAND, "none", { ...FAST, weakerSide: "right" }), frames);
+    expect(weakRight.cues).toContain("check_phone_angle_left");
+    expect(weakRight.cues).not.toContain("check_phone_angle_right");
+    const weakLeft = drive(new ChairStandRunner(STAND, "none", { ...FAST, weakerSide: "left" }), frames);
+    expect(weakLeft.cues).toContain("check_phone_angle_right");
+    expect(weakLeft.cues).not.toContain("check_phone_angle_left");
+  });
 });
 
 describe("chair_stand_30s later checks (D-009 fixedRange)", () => {

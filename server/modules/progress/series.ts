@@ -32,7 +32,26 @@ export interface SeriesView extends SeriesComparison {
   notComparable?: true;
   /** Chair stand: the newest result moved from the hands allowed version to the standard one. */
   milestone?: true;
-  labels: { name: Text; side: Text | null; verdict: Text | null; noVerdict: Text | null };
+  /**
+   * noVerdict is the sentence of the no verdict reason; it is null for "censored", whose text is the
+   * value format "more than {value}", not a sentence. moreThan is that format, given when a point
+   * shown (start, now, previous or a trend point) is censored; the page applies it to those points.
+   */
+  labels: {
+    name: Text;
+    side: Text | null;
+    verdict: Text | null;
+    noVerdict: Text | null;
+    moreThan: Text | null;
+  };
+}
+
+/** The "more than {value}" format of censored side lean values (spec 4.3 Censoring). */
+const CENSORED_FORMAT_ID = "censored";
+
+function anyCensored(c: SeriesComparison): boolean {
+  const shown = [c.baseline, c.latest, c.previous, ...(c.points ?? [])];
+  return shown.some((p) => p?.censored === true);
 }
 
 const measured = (r: StoredResult) => typeof r.value === "number" && Number.isFinite(r.value);
@@ -82,7 +101,11 @@ export function seriesViews(
         name: def.name,
         side: sideLabel(def.id, first.side),
         verdict: c.verdict ? CHECK_DATA.progress.verdicts[c.verdict] : null,
-        noVerdict: c.noVerdict ? CHECK_DATA.progress.noVerdict[c.noVerdict] : null,
+        noVerdict:
+          c.noVerdict && c.noVerdict !== CENSORED_FORMAT_ID
+            ? CHECK_DATA.progress.noVerdict[c.noVerdict]
+            : null,
+        moreThan: anyCensored(c) ? CHECK_DATA.progress.noVerdict[CENSORED_FORMAT_ID] : null,
       },
     };
     if (opts.lastCheckLasting) delete view.repeatOffer;

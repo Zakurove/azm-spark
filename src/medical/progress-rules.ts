@@ -478,8 +478,9 @@ function noVerdictFor(
     case "trunk_control_seated":
       if (fewValid) return "oneValid";
       if (base.some(maybeContact) && maybeContact(cur)) return "chairLimit";
-      // SPEC-GAP: baseline-contact-sentence. A baseline censored by armrest contact shows chairLimit,
-      // one censored by an abort shows the censored form ("more than {value}").
+      // SPEC-GAP: baseline-contact-sentence. A baseline censored by armrest contact shows chairLimit;
+      // one censored by an abort gives "censored", which has no sentence: the start value is shown
+      // as "more than {value}" (series labels.moreThan) and no verdict.
       if (base.some(maybeCensored)) return base.some(maybeContact) ? "chairLimit" : "censored";
       // SPEC-GAP: arm-support-sentence. arm_support_likely has no sentence of its own; the movement
       // may have been pushed through the arm, so movementDifferent is shown.

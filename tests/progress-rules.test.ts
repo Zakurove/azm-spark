@@ -31,6 +31,7 @@ import {
   type SeriesContext,
   type StoredResult,
 } from "../src/medical/progress-rules";
+import { seriesViews } from "../server/modules/progress/series";
 import { rng } from "./precheck-fixtures";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -1047,5 +1048,37 @@ describe("a large drop shows no verdict and no unconfirmed sentence (spec 5)", (
     );
     expect(c.noVerdict).toBeDefined();
     expect(c.unconfirmed).toBeUndefined();
+  });
+});
+
+describe("a censored side lean baseline in the progress view (spec 4.3 Censoring, spec 5)", () => {
+  const ctxFor = () => ctxOf();
+
+  it("gives no value format as the no verdict sentence; censored points carry the more than format", () => {
+    const rows = series("trunk_control_seated", "left", [[30, { detail: { censored: true } }], 30, 25, 26]);
+    const [view] = seriesViews(rows, ctxFor, { lastCheckLasting: false });
+    expect(view.verdict).toBeNull();
+    expect(view.noVerdict).toBe("censored");
+    expect(view.baseline?.censored).toBe(true);
+    expect(view.latest.censored).toBeUndefined();
+    expect(view.labels.noVerdict).toBeNull();
+    expect(view.labels.moreThan).toEqual(CHECK_DATA.progress.noVerdict.censored);
+  });
+
+  it("leaves the more than format out when no point shown is censored", () => {
+    const [view] = seriesViews(series("trunk_control_seated", "left", [20, 20, 30, 30]), ctxFor, {
+      lastCheckLasting: false,
+    });
+    expect(view.labels.moreThan).toBeNull();
+  });
+
+  it("keeps real sentences as they are", () => {
+    const rows = series("trunk_control_seated", "left", [
+      [20, { detail: { contact: true } }],
+      20,
+      [21, { detail: { contact: true } }],
+    ]);
+    const [view] = seriesViews(rows, ctxFor, { lastCheckLasting: false });
+    expect(view.labels.noVerdict).toEqual(CHECK_DATA.progress.noVerdict.chairLimit);
   });
 });

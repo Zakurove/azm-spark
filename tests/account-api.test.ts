@@ -130,6 +130,7 @@ it("persists only owned real results, rejects inconsistent counts, resumes and e
       rpe: 8,
       romPct: 90,
       flags: { trunk_lean: 1 },
+      engineVersion: "workout_engine_2",
     },
     moments: [{ cls: "valid", durSec: 2.4, peakPct: 0.9 }],
   };
@@ -139,6 +140,8 @@ it("persists only owned real results, rejects inconsistent counts, resumes and e
   const records = (await call("/sessions", undefined, b)).data.records;
   expect(records).toHaveLength(1);
   expect(records[0].flags.trunk_lean).toBe(1);
+  // The engine version that judged the set is kept (S0 change record).
+  expect(records[0].engineVersion).toBe("workout_engine_2");
   expect((await call(`/workouts/${r.data.id}/sets`, { ...body, index: 1 }, b)).status).toBe(409);
   expect((await call("/workouts", { version: p.version, demo: false }, b)).data.error).toBe("RECOVERY");
 });

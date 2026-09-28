@@ -16,6 +16,8 @@ const script={
  halfway:{ar:'وصلت إلى نصف المجموعة. واصل بإيقاعك.',en:'Halfway through your set. Keep your own pace.'},
  set_done:{ar:'أحسنت. انتهت المجموعة، خذ وقتك للراحة.',en:'Well done. Your set is complete. Take time to rest.'},
  stop_rest:{ar:'توقّف الآن واسترح.',en:'Stop now and rest.'},
+ // S0 pre-set block (council 2026-09-28): the calibrated posture is at or beyond the trunk cap.
+ sit_upright_first:{ar:'اجلس مستقيمًا قدر ما تستطيع براحة، ثم نبدأ.',en:'Sit as upright as you comfortably can, then we will start.'},
  preview:{ar:'أهلًا بك في عزم. تحرّك على مهلك، وضمن المدى المريح لك.',en:'Welcome to Azm. Move at your own pace, within your comfortable range.'},
  calibration:{ar:'لنحدّد مداك. كرّر الحركة ببطء وبجهد مريح.',en:'Let’s find your range. Repeat the movement slowly, at a comfortable effort.'},
  training:{ar:'تم تحديد مداك. لنبدأ مجموعتك.',en:'Your range is ready. Let’s begin your set.'},
@@ -39,6 +41,7 @@ const arTts={
  halfway:'وَصَلْتَ إِلَى نِصْفِ الْمَجْمُوعَة. وَاصِلْ بِإِيقَاعِك.',
  set_done:'أَحْسَنْت. اِنْتَهَتِ الْمَجْمُوعَةُ، خُذْ وَقْتَكَ لِلرَّاحَة.',
  stop_rest:'تَوَقَّفِ الْآنَ وَاسْتَرِح.',
+ sit_upright_first:'اِجْلِسْ مُسْتَقِيمًا قَدْرَ مَا تَسْتَطِيعُ بِرَاحَةْ، ثُمَّ نَبْدَأْ.',
  preview:'أَهْلًا بِكَ فِي عَزْم. تَحَرَّكْ عَلَى مَهْلِكَ، وَضِمْنَ الْمَدَى الْمُرِيحِ لَك.',
  calibration:'لِنُحَدِّدْ مَدَاك. كَرِّرِ الْحَرَكَةَ بِبُطْءٍ وَبِجُهْدٍ مُرِيح.',
  training:'تَمَّ تَحْدِيدُ مَدَاك. لِنَبْدَأْ مَجْمُوعَتَك.',

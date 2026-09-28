@@ -16,6 +16,8 @@ import {
 import { PoseSmoother } from "../src/engine/oneEuro";
 import { Frame, LM, Landmark, MetricId } from "../src/engine/types";
 import { CameraPoseSource, videoAspect } from "../src/app/poseSource";
+import { presetBlock, trunkStopFor, trunkStopLimits } from "../src/engine/trunkSafety";
+import { exerciseById } from "../src/exercises/defs";
 
 /**
  * D-003: angles and length ratios must be measured in pixel space.
@@ -262,6 +264,70 @@ describe("pixel space geometry (D-003)", () => {
     expect(metrics(l.legacy).trunk_lean!).toBeLessThan(4.6); // ≈ 4.5° shown for a true 8°
     expect(Math.abs(metrics(p.fixed).trunk_lean! - 8)).toBeLessThan(1);
     expect(Math.abs(metrics(l.fixed).trunk_lean! - 8)).toBeLessThan(1);
+  });
+});
+
+/**
+ * S0 (council): the trunk stop is 15 degrees from the calibrated posture plus the absolute caps
+ * (press 25 either way; curl 25 forward, 30 backward). With the pixel space fix it fires at those
+ * true angles in portrait and landscape. The full engine cases are in tests/trunk-safety-stop.test.ts.
+ */
+describe("S0 trunk stop firing points in pixel space", () => {
+  const press = exerciseById("seated_shoulder_press");
+  const curl = exerciseById("seated_biceps_curl");
+  /** First true lean (0.1 degree steps from the posture toward dir) at which the stop fires. */
+  const firing = (id: "press" | "curl", w: number, h: number, base: number, dir: 1 | -1, nose = 0.3) => {
+    const def = id === "press" ? press : curl;
+    const measured = metrics(frames(w, h, { leanDeg: base }).fixed).trunk_lean!;
+    const lim = trunkStopLimits(def, {
+      exerciseId: def.id,
+      range: def.defaultRange,
+      baselines: { trunk_lean: measured, nose_offset: nose },
+      capturedAt: 0,
+    })!;
+    for (let i = 0; i <= 600; i++) {
+      const lean = base + dir * i * 0.1;
+      if (trunkStopFor(lim, metrics(frames(w, h, { leanDeg: lean }).fixed).trunk_lean!)) return lean;
+    }
+    return null;
+  };
+  for (const { name, w, h } of SIZES.slice(0, 2)) {
+    it(`${name}: press calibrated upright, at 5, 15 and 20 degrees`, () => {
+      for (const [base, up, down] of [
+        [0, 15, -15],
+        [5, 20, -10],
+        [15, 25, 0],
+        [20, 25, 5],
+      ]) {
+        expect(Math.abs(firing("press", w, h, base, 1)! - up)).toBeLessThan(0.35);
+        expect(Math.abs(firing("press", w, h, base, -1)! - down)).toBeLessThan(0.35);
+      }
+    });
+
+    it(`${name}: curl calibrated 20 degrees forward and 20 degrees backward`, () => {
+      // Nose to the image right: forward is positive.
+      expect(Math.abs(firing("curl", w, h, 20, 1)! - 25)).toBeLessThan(0.35);
+      expect(Math.abs(firing("curl", w, h, 20, -1)! - 5)).toBeLessThan(0.35);
+      expect(Math.abs(firing("curl", w, h, -20, 1)! + 5)).toBeLessThan(0.35);
+      expect(Math.abs(firing("curl", w, h, -20, -1)! + 30)).toBeLessThan(0.35);
+      // Facing the image left, the same postures mirror.
+      expect(Math.abs(firing("curl", w, h, -20, -1, -0.3)! + 25)).toBeLessThan(0.35);
+      expect(Math.abs(firing("curl", w, h, 20, 1, -0.3)! - 30)).toBeLessThan(0.35);
+    });
+  }
+
+  it("blocks the set start when the calibrated posture is at or beyond the cap", () => {
+    const prf = (def: typeof press, lean: number) => ({
+      exerciseId: def.id,
+      range: def.defaultRange,
+      baselines: { trunk_lean: lean, nose_offset: 0.3 },
+      capturedAt: 0,
+    });
+    expect(presetBlock(press, prf(press, 25))).toBe("sit_upright_first");
+    expect(presetBlock(press, prf(press, 24.9))).toBeNull();
+    expect(presetBlock(curl, prf(curl, 25))).toBe("sit_upright_first");
+    expect(presetBlock(curl, prf(curl, -29.9))).toBeNull();
+    expect(presetBlock(curl, prf(curl, -30))).toBe("sit_upright_first");
   });
 });
 

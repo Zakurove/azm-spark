@@ -154,6 +154,14 @@ export function computeMetrics(frame: Frame, wanted: MetricId[], required: numbe
         values[m] = (an.y - hp.y) / tl; // larger = hips higher above ankles
         break;
       }
+      case "nose_offset": {
+        // S0: the side of the mid shoulder the face is on, which gives the forward direction of a
+        // side view at calibration. Horizontal only, as the council wrote it.
+        if (!(vis(lm, LM.nose) && vis(lm, LM.l_shoulder) && vis(lm, LM.r_shoulder))) break;
+        const sh = mid(lm[LM.l_shoulder], lm[LM.r_shoulder]);
+        values[m] = (lm[LM.nose].x - sh.x) / tl;
+        break;
+      }
     }
   }
 

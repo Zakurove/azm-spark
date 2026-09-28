@@ -1,5 +1,6 @@
 import {
   CompensationRule,
+  CueId,
   EngineEvent,
   ExerciseDef,
   ImpairmentProfile,
@@ -7,6 +8,16 @@ import {
   PRF,
   RepClass,
 } from "./types";
+import { presetBlock, PRESET_BLOCK_ID, trunkStopFor, TrunkStopLimits, trunkStopLimits } from "./trunkSafety";
+
+/**
+ * Version of the workout engine, stored with every saved set. Bump on any change to how a rep is
+ * judged or when a safety stop fires.
+ *   1  up to the D-003 aspect fix and the absolute 25 degree trunk stop
+ *   2  S0: the trunk stop 15 degrees from the calibrated posture plus the absolute caps, the stop
+ *      ends the set, and the pre-set block (council 2026-09-28)
+ */
+export const WORKOUT_ENGINE_VERSION = "workout_engine_2";
 
 /**
  * Rep state machine + compensation rule evaluator.
@@ -24,6 +35,11 @@ import {
  * flag events (i.e. how often we nag), never to how reps are judged.
  * Sub-0.4s oscillations that never reach the count line are discarded as
  * tremor/jitter — they are not reps and are not announced.
+ *
+ * Trunk safety stop (S0, trunkSafety.ts): evaluated raw on every frame, in or out of a rep. When it
+ * fires the engine emits the safety flag and a `stop` event and counts nothing more (the rep in
+ * progress is dropped). A calibration whose posture is at or beyond the absolute limit never
+ * starts: the engine only repeats the pre-set block cue.
  */
 const ENTER = 0.5;
 const COUNT = 0.85;
@@ -39,12 +55,28 @@ export class RepEngine {
   private count = 0; // valid + compensated (announced, counts toward the set)
   private lastFlagT = new Map<string, number>();
   private bestRomPct = 0;
+  private readonly limits: TrunkStopLimits | null;
+  private readonly blockCue: CueId | null;
+  private stopId: string | null = null;
 
   constructor(
     private def: ExerciseDef,
     private prf: PRF,
     private profile: ImpairmentProfile,
-  ) {}
+  ) {
+    this.limits = trunkStopLimits(def, prf);
+    this.blockCue = presetBlock(def, prf);
+  }
+
+  /** The pre-set block cue when the calibrated posture does not allow the set to start. */
+  get blocked(): CueId | null {
+    return this.blockCue;
+  }
+
+  /** The rule id of the safety stop that ended the set, or null. */
+  get stoppedBy(): string | null {
+    return this.stopId;
+  }
 
   /** reps that count toward the set (valid + compensated) */
   get repCount(): number {
@@ -66,6 +98,43 @@ export class RepEngine {
 
   step(mf: MetricFrame): EngineEvent[] {
     const events: EngineEvent[] = [];
+    if (this.stopId) return events;
+    if (this.blockCue) {
+      const last = this.lastFlagT.get(PRESET_BLOCK_ID) ?? -Infinity;
+      if (mf.t - last >= 4000) {
+        this.lastFlagT.set(PRESET_BLOCK_ID, mf.t);
+        const base = this.limits?.base ?? 0;
+        events.push({
+          kind: "flag",
+          ruleId: PRESET_BLOCK_ID,
+          cue: this.blockCue,
+          severity: "safety",
+          value: base,
+          t: mf.t,
+        });
+      }
+      return events;
+    }
+
+    // --- trunk safety stop (S0): raw, every frame, in or out of a rep ---
+    const lean = mf.values.trunk_lean;
+    if (this.limits && this.def.trunkSafety && lean !== undefined) {
+      const hit = trunkStopFor(this.limits, lean);
+      if (hit) {
+        this.stopId = hit;
+        events.push({
+          kind: "flag",
+          ruleId: hit,
+          cue: this.def.trunkSafety.cue,
+          severity: "safety",
+          value: lean,
+          t: mf.t,
+        });
+        events.push({ kind: "stop", ruleId: hit, t: mf.t });
+        return events;
+      }
+    }
+
     const pct = this.pct(mf);
     if (pct === undefined) return events;
 

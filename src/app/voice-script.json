@@ -64,6 +64,11 @@
     "en": "Stop now and rest.",
     "arTts": "تَوَقَّفِ الْآنَ وَاسْتَرِح."
   },
+  "sit_upright_first": {
+    "ar": "اجلس مستقيمًا قدر ما تستطيع براحة، ثم نبدأ.",
+    "en": "Sit as upright as you comfortably can, then we will start.",
+    "arTts": "اِجْلِسْ مُسْتَقِيمًا قَدْرَ مَا تَسْتَطِيعُ بِرَاحَةْ، ثُمَّ نَبْدَأْ."
+  },
   "preview": {
     "ar": "أهلًا بك في عزم. تحرّك على مهلك، وضمن المدى المريح لك.",
     "en": "Welcome to Azm. Move at your own pace, within your comfortable range.",

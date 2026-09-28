@@ -7,7 +7,8 @@ import { computeMetrics } from "../engine/geometry";
 import { PoseSmoother } from "../engine/oneEuro";
 import { CueOrchestrator } from "../engine/orchestrator";
 import { unscoredLandmarks } from "../engine/profiles";
-import { RepEngine } from "../engine/repEngine";
+import { RepEngine, WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
+import { presetBlock } from "../engine/trunkSafety";
 import { CueId, EngineEvent, ExerciseDef, Frame, LM, PRF, SessionSummary, Severity } from "../engine/types";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
 import { CuePlayer } from "./audio";
@@ -232,7 +233,17 @@ export default function SessionScreen(props: {
           const prog = P.calibrator!.progress(raw.t, fast ? 60 : 150);
           setCalProgress(prog);
           if (P.calibrator!.ready(raw.t, fast ? 60 : 150)) {
-            P.prf = P.calibrator!.build();
+            const prf = P.calibrator!.build();
+            // S0 pre-set block: a calibrated posture at or beyond the trunk cap never starts the
+            // set. Ask the person to sit as upright as they comfortably can, then calibrate again.
+            const blocked = presetBlock(def, prf);
+            if (blocked) {
+              speakCue(blocked, "safety");
+              P.calibrator = new Calibrator(def);
+              setCalProgress(0);
+              break;
+            }
+            P.prf = prf;
             P.engine = new RepEngine(def, P.prf, profile);
             P.startedAt = Date.now();
             setStageBoth("training");
@@ -245,6 +256,11 @@ export default function SessionScreen(props: {
       }
 
       function handleEvent(ev: EngineEvent) {
+        if (ev.kind === "stop") {
+          // S0: the trunk safety stop ends the set (its stop_rest cue came with the flag).
+          setStageBoth("rpe");
+          return;
+        }
         if (ev.kind === "phase") setPhase(ev.phase);
         if (ev.kind === "progress") setPctNow(ev.pct);
         if (ev.kind === "flag") {
@@ -412,6 +428,7 @@ export default function SessionScreen(props: {
       flags: P.flags,
       rpe: rpeVal ?? undefined,
       romPct: P.engine ? Math.min(100, Math.round(P.engine.bestRom * 100)) : undefined,
+      engineVersion: WORKOUT_ENGINE_VERSION,
     };
     if (props.onSave) {
       try {

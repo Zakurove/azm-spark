@@ -12,6 +12,7 @@
     "format": "prettier --write src server tests",
     "format:check": "prettier --check src server tests",
     "shots": "node scripts/shots.mjs",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
     "start": "node .runtime/server.mjs"
   },
   "dependencies": {

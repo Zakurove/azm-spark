@@ -318,6 +318,18 @@ describe("QualityMonitor", () => {
     expect(s.issues).toContain("wrong_view");
     expect(s.cue).toBe("check_phone_angle_right");
 
+    // P4 (3): the phone goes toward the stronger side, so a declared weaker right turns it left.
+    const frames = fixtureFrames(standSide);
+    const lock = new SubjectLock();
+    lock.lock(posesOf(frames[0]), frames[0].aspect);
+    const weakRight = new QualityMonitor({
+      ...qualityConfig(testDef("chair_stand_30s"), "none"),
+      weaker: "right",
+    });
+    for (const f of frames) weakRight.feedPick(f, lock.pickFrame(f));
+    expect(weakRight.report().issues).toContain("wrong_view");
+    expect(weakRight.report().cue).toBe("check_phone_angle_left");
+
     const standFront = generate(spec({ test: "chair_stand_30s", fps: 20, subject: { yaw: 0 } }));
     expect(gate(standFront, "chair_stand_30s", "none").viewOk).toBe(true);
 

@@ -762,7 +762,11 @@ abstract class TimedCountBase implements TestRunner {
       counter: this.newCounter(),
       // The gate uses the model's labels for the tested side (swapped on a mirrored camera); the
       // retry cues keep the person's own side.
-      monitor: new QualityMonitor({ ...qualityConfig(this.definition(), this.side), gate: this.gate() }),
+      monitor: new QualityMonitor({
+        ...qualityConfig(this.definition(), this.side),
+        gate: this.gate(),
+        weaker: this.opts.weakerSide ?? null,
+      }),
       lastRemaining: -1,
       tenLeft: false,
       lastT: null,

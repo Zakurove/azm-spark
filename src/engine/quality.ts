@@ -237,6 +237,11 @@ export interface QualityConfig {
   minInFrameShare: number;
   margin: number;
   maxPausedShare: number;
+  /**
+   * The declared weaker side: the chair stand's phone goes toward the other side (P4 (3), spec 4.4),
+   * so the view retry cue names that side.
+   */
+  weaker?: Side | null;
 }
 
 export interface QualityOptions {
@@ -484,7 +489,7 @@ export class QualityMonitor {
       distanceM: distanceM === null ? null : round(distanceM, 2),
       issues,
       missing,
-      cue: issues.length ? retryCue(issues[0], c.testId, c.side, missing) : null,
+      cue: issues.length ? retryCue(issues[0], c.testId, c.side, missing, c.weaker) : null,
     };
   }
 }

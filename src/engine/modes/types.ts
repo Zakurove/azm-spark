@@ -243,6 +243,11 @@ export interface RunnerOptions {
    * Chair stand: [hSit, hSit + rise], so R = hi minus lo. Absent at the baseline.
    */
   fixedRange?: readonly [number, number];
+  /**
+   * Arm curl: the end of trial rule (Q4); default TIMED_RULES.armCurlHalfwayCredit, the one config
+   * flag. Given here only to test both rules.
+   */
+  armCurlHalfwayCredit?: boolean;
   /** Arm curl: ask the practice check after the practice bends (default: at the baseline with a load). */
   askPracticeCheck?: boolean;
   /** Chair stand: the person's weaker side (support), for the lean toward the stronger side flag. */

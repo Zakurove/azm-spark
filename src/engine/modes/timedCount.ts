@@ -132,6 +132,13 @@ export const TIMED_RULES = {
   maxUnscoredShare: 0.2,
   /** Spec 4.2: one repeat is offered after 2 minutes of rest. */
   repeatRestSec: 120,
+  /**
+   * Q4, Q28: the arm curl's end of trial rule. False (the default): only bends that cross the count
+   * line before 30.0 s count. True, once Chaker confirms it from the Senior Fitness Test manual before
+   * the Oct 9 freeze: the chair stand's rule (p of 0.50 or more and rising at 30.0 s counts one).
+   * After the freeze it changes only with a movement version major bump (a new series).
+   */
+  armCurlHalfwayCredit: false as boolean,
   /** Spec 4.4: count line 0.85, return line 0.15, the halfway rule at 0.50. */
   standCountLine: 0.85,
   standReturnLine: 0.15,
@@ -1022,8 +1029,21 @@ abstract class TimedCountBase implements TestRunner {
   protected abstract countOk(track: Tracked, roll: number | null): boolean;
   protected abstract onCount(tCross: number, t: number): void;
   protected abstract onTrialFrame(track: Tracked, p: number, roll: number | null, t: number): void;
-  /** Stands added at 30.0 s (the chair stand's halfway rule). */
+  /** Stands or bends added at 30.0 s (the halfway rule). */
   protected abstract atTimeUp(tr: TrialState): number;
+
+  /**
+   * The halfway rule at 30.0 s (spec 4.4, Q4): an uncounted rise or bend in progress, with p at 0.50
+   * or more and still rising (p grew by more than risingMinGain over the last risingWindowSec).
+   */
+  protected halfwayAtTimeUp(tr: TrialState): boolean {
+    const R = TIMED_RULES;
+    const last = tr.history[tr.history.length - 1];
+    if (!last || !tr.counter.rising) return false;
+    const back = [...tr.history].reverse().find((x) => x.t <= last.t - R.risingWindowSec * 1000);
+    if (!back) return false;
+    return last.p >= R.standHalfwayLine && last.p - back.p > R.risingMinGain;
+  }
   protected abstract afterTrial(t: number): void;
   protected abstract trialDetail(tr: TrialState): Detail;
   protected abstract rangeDetail(): Detail;
@@ -1437,6 +1457,7 @@ export class ArmCurlRunner extends TimedCountBase {
     this.rep = null;
     this.pendingRep = null;
     this.repComp = [];
+    this.halfway = false;
   }
 
   private newRepWindow(): CurlRepWindow {
@@ -1500,10 +1521,21 @@ export class ArmCurlRunner extends TimedCountBase {
     this.repComp.push(known ? w.comp : "unknown");
   }
 
-  protected atTimeUp(): number {
+  protected atTimeUp(tr: TrialState): number {
     if (this.pendingRep) this.closeRep(this.pendingRep);
     this.pendingRep = null;
-    return 0;
+    // Q4: only with armCurlHalfwayCredit does a bend past halfway and rising at 30.0 s count one; the
+    // counter on screen stays as it froze, the credit shows with the result.
+    if (!this.halfwayCredit || !this.halfwayAtTimeUp(tr)) return 0;
+    this.halfway = true;
+    return 1;
+  }
+
+  private halfway = false;
+
+  /** The arm curl's end rule for this run (Q4): the config flag, or the option in tests. */
+  private get halfwayCredit(): boolean {
+    return this.opts.armCurlHalfwayCredit ?? TIMED_RULES.armCurlHalfwayCredit;
   }
 
   protected afterTrial(): void {}
@@ -1529,7 +1561,14 @@ export class ArmCurlRunner extends TimedCountBase {
       viewAngle = Math.round(Math.max(0, Math.min(90, fromSide)));
       view = fromSide >= R.anterolateralFromDeg ? "anterolateral" : "side";
     }
-    return { compensated, first10sCount: first10, last10sCount: last10, view, viewAngle };
+    return {
+      compensated,
+      first10sCount: first10,
+      last10sCount: last10,
+      view,
+      viewAngle,
+      ...(this.halfwayCredit ? { halfwayCredited: this.halfway } : {}),
+    };
   }
 
   protected rangeDetail(): Detail {
@@ -2160,18 +2199,10 @@ export class ChairStandRunner extends TimedCountBase {
   }
 
   protected atTimeUp(tr: TrialState): number {
-    const R = TIMED_RULES;
-    const c = tr.counter;
-    const last = tr.history[tr.history.length - 1];
-    if (!last || !c.rising) return 0;
-    const back = [...tr.history].reverse().find((x) => x.t <= last.t - R.risingWindowSec * 1000);
-    if (!back) return 0;
     // Spec 4.4: at 30.0 s, rising with p at 0.50 or more: one stand is added.
-    if (last.p >= R.standHalfwayLine && last.p - back.p > R.risingMinGain) {
-      this.halfway = true;
-      return 1;
-    }
-    return 0;
+    if (!this.halfwayAtTimeUp(tr)) return 0;
+    this.halfway = true;
+    return 1;
   }
 
   protected afterTrial(t: number): void {

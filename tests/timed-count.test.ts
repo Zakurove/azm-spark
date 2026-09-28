@@ -210,6 +210,37 @@ describe("arm_curl_30s counting rules (spec 4.2)", () => {
     expect(stop.t - k.run.go!).toBeGreaterThanOrEqual(30000);
   });
 
+  it("armCurlHalfwayCredit (Q4, Q28): off by default; on, a bend rising past halfway at 30.0 s counts one", () => {
+    expect(TIMED_RULES.armCurlHalfwayCredit).toBe(false);
+    const dur = 1.8;
+    // The last bend is past halfway and rising at 30.0 s, and crosses the count line only after it.
+    const trial = (go: number) => [
+      ...regularCurls("right", go, go + 25),
+      { kind: "curl_rep" as const, side: "right" as const, start: curlStartFor(go + 30.1, dur), dur },
+    ];
+    const off = curlCase("chair", "9:16", "right", 642, { trial });
+    expect(res(off).value).toBe(off.trial.length - 1);
+    expect(res(off).detail.halfwayCredited).toBeUndefined();
+    const on = curlCase("chair", "9:16", "right", 642, {
+      trial,
+      opts: { variant: "arm_only", armCurlHalfwayCredit: true },
+    });
+    expect(res(on).value).toBe(on.trial.length);
+    expect(res(on).detail.halfwayCredited).toBe(true);
+    // The counter on screen froze at 30.0 s: no rep event for the credited bend.
+    expect(ofKind(on.run.events, "rep")).toHaveLength(on.trial.length - 1);
+    // A bend not yet halfway at 30.0 s is not credited.
+    const early = curlCase("chair", "9:16", "right", 642, {
+      trial: (go: number) => [
+        ...regularCurls("right", go, go + 25),
+        { kind: "curl_rep" as const, side: "right" as const, start: curlStartFor(go + 30.8, dur), dur },
+      ],
+      opts: { variant: "arm_only", armCurlHalfwayCredit: true },
+    });
+    expect(res(early).value).toBe(early.trial.length - 1);
+    expect(res(early).detail.halfwayCredited).toBe(false);
+  });
+
   it("counts compensated reps, flags them in detail.compensated and never scolds", () => {
     // Every other rep swings the upper arm 35 degrees forward, or bends the trunk 20 degrees.
     const k = curlCase("chair", "9:16", "right", 643, {

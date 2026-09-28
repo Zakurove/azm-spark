@@ -1536,3 +1536,31 @@ describe("the next day question after the consent is revoked", () => {
     expect(JSON.parse(row.precheck)["assessment.followUp"]).toBeUndefined();
   });
 });
+
+describe("the safety log counts each stop option once per check", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("repeated stops of one option on one check count once", async () => {
+    const cookie = await member(h, "stop-repeat@example.test", WHEELCHAIR_STROKE);
+    const s = await start(h, cookie);
+    for (let i = 0; i < 5; i++) {
+      expect((await h.call(`/assessments/${s.data.id}/stop`, { option: "tired" }, cookie)).status).toBe(200);
+      expect((await h.call(`/assessments/${s.data.id}/stop`, { option: "choice" }, cookie)).status).toBe(200);
+    }
+    const rows = h.inspect().prepare("SELECT reason, count FROM safety_events ORDER BY reason").all();
+    expect(rows).toEqual([
+      { reason: "stop:choice", count: 1 },
+      { reason: "stop:tired", count: 1 },
+    ]);
+    // Another check counts again.
+    const s2 = await start(h, cookie);
+    await h.call(`/assessments/${s2.data.id}/stop`, { option: "tired" }, cookie);
+    const tired = h.inspect().prepare("SELECT count FROM safety_events WHERE reason='stop:tired'").get();
+    expect(tired).toEqual({ count: 2 });
+  });
+});

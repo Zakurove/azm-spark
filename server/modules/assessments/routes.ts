@@ -449,7 +449,7 @@ export const assessmentRoutes: Route[] = [
     path: new RegExp(`^/api/assessments/${ID_PATH}/stop$`),
     auth: "user",
     handle(ctx) {
-      const { db, user, body, json } = ctx;
+      const { db, user, body, json, limited } = ctx;
       const a = openCheck(ctx, { today: false });
       if (!a) return;
       if (unknownKeys(body, ["option"]).length) return json(400, { error: "STOP_INVALID", field: "body" });
@@ -461,8 +461,13 @@ export const assessmentRoutes: Route[] = [
       const route = stopRoute(option, env);
       const now = Date.now();
       const until = route.lock?.until ? lockEndsAt(route.lock.until, now) : null;
+      // SPEC-GAP: stop-count-once. The safety log (Q25) counts a stop option once per check, so a
+      // repeated post cannot inflate the anonymous log. The options counted are held in memory, not
+      // stored with the person's check (data map, spec 2.1); a server restart may count one again.
+      // No rate limit refuses a stop: a safety stop must always reach the check.
+      const firstOfCheck = !limited(`stop-count:${a.id}:${option}`, 1, DAY_MS);
       transaction(db, () => {
-        countSafetyEvent(db, `stop:${option}`, a.setting, now);
+        if (firstOfCheck) countSafetyEvent(db, `stop:${option}`, a.setting, now);
         if (route.endsCheck) setStatus(db, a.id, "ended_early", null, `stop:${option}`);
         if (route.lock && until !== null) setLock(db, user!.id, route.lock.reason, until, now);
       });

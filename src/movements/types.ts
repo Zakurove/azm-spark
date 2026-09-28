@@ -2,7 +2,8 @@
  * Types for the runtime movement check data, src/movements/check-v1.json (contract v2, section A).
  *
  * The JSON is written by scripts/clinical/export-check.mjs from the clinical spec
- * (local-docs/clinical/movement-check-v1.json). Closed sets in the JSON are literal unions here.
+ * (local-docs/clinical/movement-check-v1.1.json: movement check version 1, revision 1.1, contract v3
+ * H). Closed sets in the JSON are literal unions here.
  * The id lists are also exported as values, so tests/movement-data.test.ts can prove that each list
  * equals the ids in the data, in both directions. src/movements/assessments.ts checks the JSON
  * against these types at compile time (see Widen) and exports the typed accessors.
@@ -62,6 +63,7 @@ export const PRECHECK_IDS = [
   "pc_setting",
   "pc_urgent",
   "pc_unwell",
+  "pc_faint_since",
   "pc_change",
   "pc_change_cleared",
   "pc_surgery_recent",
@@ -103,6 +105,15 @@ export const BETWEEN_TEST_IDS = ["bt_pain_after"] as const;
 export type BetweenTestId = (typeof BETWEEN_TEST_IDS)[number];
 export const AFTER_CHECK_IDS = ["ac_next_day"] as const;
 export type AfterCheckId = (typeof AFTER_CHECK_IDS)[number];
+/** The faint follow up after a faint or a fall stop (S38b, Q33 (3), O42). */
+export const STOP_FOLLOW_UP_IDS = ["sf_faint_loc"] as const;
+export type StopFollowUpId = (typeof STOP_FOLLOW_UP_IDS)[number];
+/** The end of check symptom question, asked before results (S49, Q23 (7)). */
+export const END_OF_CHECK_IDS = ["ec_symptoms"] as const;
+export type EndOfCheckId = (typeof END_OF_CHECK_IDS)[number];
+/** The chair stand setup questions at home (Q9). */
+export const SETUP_QUESTION_IDS = ["su_chair_gate", "su_same_chair"] as const;
+export type SetupQuestionId = (typeof SETUP_QUESTION_IDS)[number];
 /** Any question of the check: pre-check, between tests or after the check. */
 export type QuestionId = PrecheckId | BetweenTestId | AfterCheckId;
 
@@ -133,6 +144,10 @@ export const SCREEN_IDS = [
   "warn_weak_shoulder",
   "warn_ms_cool",
   "warn_pd_timing",
+  "scr_booth_no_check",
+  "scr_sound_off",
+  "scr_sound_still_off",
+  "scr_early_start",
 ] as const;
 export type ScreenId = (typeof SCREEN_IDS)[number];
 
@@ -143,15 +158,18 @@ export const REASON_IDS = [
   "restriction_balance",
   "pain_area",
   "pain_today",
+  "pain_more",
   "flare",
   "limb_loss_arm",
   "limb_loss_leg",
   "position_seated",
   "clearance",
+  "clearance_booth",
   "booth_offer",
   "helper_needed",
   "booth_only_trunk",
   "armrests_needed",
+  "chair_needed",
   "pusher",
   "weak_shoulder",
   "arm_not_able",
@@ -163,6 +181,7 @@ export const REASON_IDS = [
   "stopped_symptom",
   "needed_arms",
   "needed_support",
+  "motion_needed",
 ] as const;
 export type ReasonId = (typeof REASON_IDS)[number];
 
@@ -196,13 +215,14 @@ export const LOCK_REASON_IDS = [
   "sci_ready",
 ] as const;
 export type LockReasonId = (typeof LOCK_REASON_IDS)[number];
-/** Lock durations with a pausedWhenTokens line. */
+/** Lock durations (locks.rules). The {when} line of a lock comes from pausedWhenTokens (Q33 (4)). */
 export type LockKind = "next_day" | "60_min";
 /** The lock of an action; none means allowed again at once (pc_sci_ready). */
 export type ActionLock = LockKind | "none";
 
 export const CHECK_CUE_IDS = [
   "check_intro",
+  "check_sound",
   "check_stop_any_time",
   "check_phone_steady",
   "check_phone_level",
@@ -211,16 +231,19 @@ export const CHECK_CUE_IDS = [
   "check_face_phone",
   "check_left_side_to_phone",
   "check_right_side_to_phone",
-  "check_phone_angle",
+  "check_phone_angle_right",
+  "check_phone_angle_left",
   "check_move_back",
   "check_move_closer",
   "check_light",
   "check_one_person",
+  "check_clear_view",
   "check_sleeves",
   "check_ready",
   "check_go",
   "check_ten_left",
-  "check_time_stop",
+  "check_time_up_stand",
+  "check_time_up_curl",
   "check_practice",
   "check_practice_done",
   "check_rest_short",
@@ -232,7 +255,19 @@ export const CHECK_CUE_IDS = [
   "check_try_again",
   "check_breathe",
   "check_stop_now",
+  "check_stop_why",
   "check_are_you_ok",
+  "check_are_you_ok_noraise",
+  "check_are_you_ok_zone",
+  "check_are_you_ok_zone_speech",
+  "check_are_you_ok_helper",
+  "check_are_you_ok_fall",
+  "check_are_you_ok_fall_speech",
+  "check_are_you_ok_fall_noraise",
+  "check_are_you_ok_fall_noraise_speech",
+  "check_answer_zone",
+  "check_fine_practice",
+  "check_faint_loc",
   "check_urgent_call",
   "check_skip_ok",
   "check_postpone",
@@ -271,6 +306,9 @@ export const CHECK_CUE_IDS = [
   "test_stand_hands_needed",
 ] as const;
 export type CheckCueId = (typeof CHECK_CUE_IDS)[number];
+/** Cues retired in revision 1.1 (cuesRetired): never generated, shipped or played. */
+export const RETIRED_CUE_IDS = ["check_time_stop", "check_are_you_ok_speech"] as const;
+export type RetiredCueId = (typeof RETIRED_CUE_IDS)[number];
 
 export const AREA_IDS = [
   "shoulder_right",
@@ -350,21 +388,67 @@ export type OptionValue =
   | "much"
   | "usual"
   | "settled"
-  | "lasting";
+  | "lasting"
+  | "done"
+  | "not_yet";
 export type PdDoseBucket = "lt1h" | "1to2h" | "2to3h" | "gt3h";
 
 /* ---------------------------------------------------------------- top level */
+
+/** A user facing line with its fully vocalized Arabic speech form, when it is spoken. */
+export interface SpokenText extends Text {
+  arTts?: string;
+}
+/** A spoken line whose speech form exists (arTts is required). */
+export interface Spoken extends Text {
+  arTts: string;
+}
+/** A spoken list: display items in both languages and the speech form of each Arabic item. */
+export interface SpokenList extends TextList {
+  arTts?: string[];
+}
 
 export interface Signoff {
   status: SignoffStatus;
   medical: string | null;
   fitness: string | null;
   date: string | null;
-  reviewers: string[];
+  /** Revision 1.1: approved only when Nasser (medical) and Chaker (fitness) ratify. */
+  approved: boolean;
+  approvers: string[];
+  ratification: string;
+  council: string;
 }
 
 export type BoundaryId =
-  "line" | "notMedical" | "intro" | "firstResult" | "consent" | "precheckNotice" | "resultsFooter";
+  | "line"
+  | "notMedical"
+  | "intro"
+  | "firstResult"
+  | "consent"
+  | "storageNotice"
+  | "precheckNotice"
+  | "resultsFooter";
+
+/** Boundary lines, placement rules and the public wording guard (spec 1, Q23, Q29, H5). */
+export type Boundary = Record<BoundaryId, Text> & {
+  /** Where the not intended for medical purposes line sits (Q23 (2)). */
+  notMedicalPlacement: string;
+  /** boundary.intro: {min} and {max} from estimateMinutes, {minutesNoun} by the larger number (O40). */
+  intro: Text & {
+    tokens: {
+      min: string;
+      max: string;
+      minutesNoun: { ar: { maxUpTo10: string; maxFrom11: string }; en: string; rule: string };
+    };
+  };
+  /** The 18 or older confirmation (Q2 (5), Q32 (6), 7.2-6). */
+  adultConfirm: Text & { when: string; status: string };
+  /** The research opt in (phase 2, Q1 (3)). */
+  researchOptIn: Text & { phase: number; rule: string };
+  /** Words no public copy uses (Q23 (6), H2). */
+  bannedPublicWording: { rule: string; enWords: string[]; arWords: string[]; manual: string };
+};
 
 /** Which tests an area loads (pain areas, flare areas, surgery areas). */
 export interface AreaLoad {
@@ -410,6 +494,51 @@ export interface EngineConfig {
     basis: string;
   };
   landmarks: string;
+  /** S14b sound check on the intro of every check (Q31 (1)). */
+  soundCheck: {
+    cue: CheckCueId;
+    options: { value: "yes" | "no"; label: Text }[];
+    onNo: string;
+    audioSession: string;
+  };
+  /** On device spoken answers (Q31 (4), O5): prose rules and the word lists. */
+  speech: {
+    allowedOnlyWhen: string;
+    matching: string;
+    fineOnlyPhrases: TextList;
+    notAnswers: { ar: string[]; en: string[] };
+    notFineWords: { ar: string[]; en: string[] };
+    rule: string;
+  };
+  /** Hands free answers from the chair (Q31 (5), phase 2). */
+  answerZones: { appliesTo: string[]; rule: string; holdSec: number; maxZones: number; phase: string };
+  /** The workout trunk safety stop (S0), for src/exercises/defs.ts and the rep engine. */
+  coachingTrunkStop: CoachingTrunkStop;
+}
+
+/** S0: the relative 15 degree stop and the absolute caps of the seated press and curl. */
+export interface CoachingTrunkStop {
+  appliesTo: string[];
+  keepCoachingValuesAsTrueAngles: {
+    pressSteadyTrunkDeg: number;
+    curlSteadyTrunkDeg: number;
+    sitToStandStandFullyDeg: number;
+    pressEvenArmsDeg: number;
+    curlEvenArmsDeg: number;
+    shoulderHike: number;
+  };
+  replaces: string;
+  relativeDeg: number;
+  relativeRule: string;
+  absoluteCapDeg: { press: { either: number }; curl: { forward: number; backward: number } };
+  curlForward: string;
+  whicheverFirst: boolean;
+  blockStart: string;
+  cue: Spoken & { short: Text; status: string };
+  ship: string;
+  record: string;
+  tests: string;
+  retune: string;
 }
 
 /* ---------------------------------------------------------------- questions */
@@ -423,7 +552,7 @@ export type PrecheckType =
   | "scale_0_10"
   | "area_scale_0_10"
   | "single"
-  | "checklist"
+  | "list_confirm"
   | "three_yes_no";
 
 /**
@@ -445,9 +574,16 @@ export interface ShowIf {
   setting?: Setting;
   clearanceIn?: Clearance[];
   previousFollowUp?: "lasting_unresolved";
+  /** A faint stop stored faintReported and no pc_faint_since answer has cleared it (Q33 (3)). */
+  faintReportedUnresolved?: true;
+  /** The person declared a weaker side (chronicNote display rule, O37). */
+  weakerSide?: true;
 }
-/** Flags set during the pre-check: sci_t6 (pc_sci_level) and helper_required (per test). */
-export type PrecheckFlag = "sci_t6" | "helper_required";
+/**
+ * Flags set during the pre-check: sci_t6 (pc_sci_level), helper_required (per test) and
+ * noArmSignal (no arm can give the camera fine signal, stopRouting.checkIn.noArmSignal, O34-2).
+ */
+export type PrecheckFlag = "sci_t6" | "helper_required" | "noArmSignal";
 
 /** When an action applies. Every key present must hold. */
 export interface ActionIf {
@@ -463,14 +599,26 @@ export interface ActionIf {
   /** Any answer. */
   any?: true;
   in?: OptionValue[];
-  /** pc_sci_ready: false means not every box is ticked. */
-  allChecked?: false;
   /** pc_steadi: any of the three answers is yes. */
   anyYes?: true;
-  /** pc_booth_vitals: any value above its limit. */
-  vitalsAbove?: { restingHeartRate: number; systolic: number; diastolic: number };
-  /** pc_booth_vitals: no validated cuff or no trained staff member. */
+  /** pc_booth_vitals: the mean of two readings, the rate or the rhythm outside these limits (Q21). */
+  vitalsOutside?: VitalsLimits;
+  /** pc_booth_vitals: SCI at T6 or above with a mean systolic this far above the usual one. */
+  sciT6SystolicRiseGte?: number;
+  /** pc_booth_vitals: this pre-check flag holds (the O47 (3) fallback rows). */
+  flag?: PrecheckFlag;
+  /** pc_booth_vitals: one of these holds (O47 (3)). */
+  anyOf?: { meanSystolicGte?: number; adSign?: true }[];
+  /** pc_booth_vitals: no validated cuff or no licensed practitioner. */
   vitalsUnavailable?: true;
+}
+/** Booth vitals limits of Q21: no chair stand when any holds. */
+export interface VitalsLimits {
+  meanSystolicGte: number;
+  meanSystolicLt: number;
+  meanDiastolicGte: number;
+  restingHeartRateGt: number;
+  irregularHeartbeat: true;
 }
 
 /** Side of a test named by a pre-check action, relative to the person where needed. */
@@ -504,7 +652,9 @@ export type StoreKey =
   | "fingerprint.pdDoseBucket"
   | "fingerprint.helperPresent"
   | "followUpResolved"
-  | "assessment.followUp";
+  | "assessment.followUp"
+  | "faintReported"
+  | "faintReported cleared";
 
 interface ActionBase {
   if: ActionIf;
@@ -518,6 +668,8 @@ export interface EmergencyAction extends ActionBase {
   do: "emergency";
   screen: ScreenId;
   lock: LockKind;
+  /** pc_urgent yes also stores changeReported (Q33 (2)). */
+  stores?: StoreKey;
   /** Also show this screen when the condition holds (scr_ad for SCI). */
   alsoShowIf?: Pick<ShowIf, "anyOf" | "flag" | "conditionsAny"> & { screen: ScreenId };
 }
@@ -566,9 +718,12 @@ export interface RequireHelperAction extends ActionBase {
   do: "require_helper";
   tests: TestRef[];
 }
+/** The helper line that is the whole briefing of the two arm tests (O34-2 (2)). */
+export type HelperCheckInLine = "helperBriefing.checkInLine";
 export interface ShowAction extends ActionBase {
   do: "show";
-  screenByTest: Partial<Record<TestId, ScreenId>>;
+  /** A briefing screen, or for the arm tests the helper check in line (helperBriefing). */
+  screenByTest: Partial<Record<TestId, ScreenId | HelperCheckInLine>>;
   stores?: StoreKey;
 }
 export interface StopCheckAction extends ActionBase {
@@ -600,7 +755,31 @@ export type ActionDo = QuestionAction["do"];
 
 export interface AnswerOption {
   value: OptionValue;
-  label: Text;
+  label: SpokenText;
+}
+
+/** Examples under a question at home (O45): the question alone, then a read list. */
+export interface QuestionExamples {
+  heading: Spoken;
+  ask: Spoken;
+  askFirstCheck?: Spoken;
+  list: SpokenList;
+  rule: string;
+}
+/** A line shown above the answers for long standing signs (O37), not shown until tested. */
+export interface ChronicNote extends Spoken {
+  showIf: ShowIf;
+  display: string;
+  status: string;
+  /** endOfCheck: the forms it is shown with. */
+  appliesTo?: string;
+}
+/** A wording change still waiting for another seat (the v1.1 text stands until then). */
+export interface WordingPending {
+  status: string;
+  problem: string;
+  proposal: { ask: Text; listItem: Spoken; why: string };
+  alternatives: string[];
 }
 
 /** One of the three pc_steadi questions. */
@@ -616,11 +795,36 @@ export interface PrecheckItem {
   type: PrecheckType;
   showIf: ShowIf | null;
   actions: QuestionAction[];
-  ask?: Text;
+  ask?: SpokenText & {
+    /** pc_helper: the speech form per {test} token. */
+    arTtsByTest?: Partial<Record<TestId, string>>;
+  };
   /** Asked instead of ask at the first check of a series. */
   askFirstCheck?: Text;
-  /** A list shown with the question (pc_urgent symptoms, pc_sci_ready checklist). */
-  list?: TextList;
+  /** pc_trunk_armrests: the question by position (Q12 (1)); a standing person sits on a chair. */
+  askByPosition?: Record<"chair" | "wheelchair", Text>;
+  /** pc_change_cleared: the form asked directly for an unresolved changeReported (Q33 (2)). */
+  askDirect?: Text;
+  /** A list shown with the question (pc_urgent symptoms, pc_sci_ready items). */
+  list?: SpokenList;
+  /** Display rule of the question (one answer under a list, a read aloud list). */
+  display?: string;
+  /** pc_urgent: the long standing signs line (O37). */
+  chronicNote?: ChronicNote;
+  /** pc_change, pc_unwell: the examples list at home (O45). */
+  examples?: QuestionExamples;
+  /** pc_ms_heat: why it stays one sentence (O45). */
+  examplesNote?: string;
+  /** pc_unwell: the faint wording the medical seat still decides. */
+  faintWordingPending?: WordingPending;
+  /** Prose: the input control (the pain scale, Q7). */
+  input?: string;
+  /** pc_booth_vitals: the line staff read before the reading (Q21 (5)). */
+  staffLine?: Text;
+  /** pc_booth_vitals: why the SCI rows cannot run at the booth in v1 (O47). */
+  noteV1?: string;
+  /** pc_helper: which tests it is asked for (O34-2). */
+  perTestRule?: string;
   options?: AnswerOption[];
   /** The Precheck field of the contract this answer fills. */
   contractKey?: "unwell" | "painNow";
@@ -643,7 +847,7 @@ export interface PrecheckItem {
   perSide?: true;
   sideTokens?: Record<Side, Text>;
   /** pc_pd_dose: the {x} of warn_pd_timing per dose bucket. */
-  timingTokens?: Record<PdDoseBucket, Text>;
+  timingTokens?: Record<PdDoseBucket, SpokenText>;
   /** three_yes_no: the questions. */
   items?: SubQuestion[];
   /** Asked once per test in this list that needs a helper, with {test} from testTokens. */
@@ -657,9 +861,11 @@ export interface FollowQuestion<I extends BetweenTestId | AfterCheckId = Between
   type: "single";
   /** Prose: when the question is asked. */
   when: string;
-  ask: Text;
+  ask: SpokenText;
   options: AnswerOption[];
   actions: QuestionAction[];
+  /** bt_pain_after: answered from the chair (answer zones, Q31 (5)). */
+  answerMode?: "answerZones";
 }
 
 /* ---------------------------------------------------------- stops and locks */
@@ -667,6 +873,8 @@ export interface FollowQuestion<I extends BetweenTestId | AfterCheckId = Between
 export interface StopOption {
   id: StopOptionId;
   label: Text;
+  /** The urgent options come first as one group (Q31 (3)). */
+  group: "urgent" | "other";
   showIf?: Pick<ShowIf, "flag">;
   screen?: ScreenId;
   alsoShowIf?: { flag: PrecheckFlag; screen: ScreenId };
@@ -678,18 +886,79 @@ export interface StopOption {
     | "may continue with the next test after a rest"
     | "may continue with the next test";
   lock?: LockKind;
-  then?: BetweenTestId;
+  /** The question after the stop: bt_pain_after, or the faint follow up (sf_faint_loc, Q33, O42). */
+  then?: BetweenTestId | StopFollowUpId;
   reason?: ReasonId;
+  /** What the stop keeps: changeReported (chest, stroke_signs, breath) or faintReported (Q33). */
+  stores?: StoreKey;
+}
+/** The check in cue by setting, raised hand, arm signal, on device speech and the fall watch. */
+export interface CheckInCueSelection {
+  booth: { raiseAllowed: CheckCueId; raiseNotAllowed: CheckCueId };
+  home: { zones: CheckCueId; zonesWithSpeech: CheckCueId; noArmSignal: CheckCueId };
+  fallWatch: {
+    raiseAllowed: CheckCueId;
+    raiseAllowedWithSpeech: CheckCueId;
+    raiseNotAllowedOrNoArmSignal: CheckCueId;
+    raiseNotAllowedOrNoArmSignalWithSpeech: CheckCueId;
+  };
+  rule: string;
+}
+/** The camera fine signal of phase 2 (FineSignalConfig, O34-1): prose rules and a few numbers. */
+export interface FineSignal {
+  phase: string;
+  config: string;
+  side: string;
+  geometry: {
+    top: string;
+    bottom: string;
+    innerEdge: string;
+    outerEdge: string;
+    never: string;
+    status: string;
+  };
+  holdSec: number;
+  jitterTolerance: string;
+  entryRule: string;
+  neverCounted: string[];
+  cameraFineBlockedWhen: string[];
+  blockedRuleScope: string;
+  commit: string;
+  extraTimer: string;
+  rehearsal: string;
+  benchCheck: string;
+  tally: string;
+  ratification: string;
 }
 export interface StopRouting {
   ask: Text;
+  /** The one cue that asks the list (check_stop_why, Q31 (3)). */
+  askCue: CheckCueId;
+  layout: string;
   options: StopOption[];
   noAnswerSec: number;
   noAnswer: string;
   checkIn: {
-    cue: CheckCueId;
+    cueSelection: CheckInCueSelection;
     triggers: string[];
     okWhen: string[];
+    okFrom: string;
+    tapByOthers: string;
+    /** Prose: when a raised hand may be asked for (O34-4 (3)). */
+    raiseAllowed: string;
+    /** Prose: when no arm can give the fine signal (O34-2 (1)). */
+    noArmSignal: string;
+    fineSignal: FineSignal;
+    afterFine: string;
+    fallWatch: {
+      where: string;
+      camera: string;
+      triggers: string;
+      checkIn: string;
+      afterFine: string;
+      stops: string;
+      line: string;
+    };
     noResponseSec: number;
     noResponse: string;
     tune_at_booth: boolean;
@@ -699,10 +968,21 @@ export interface StopRouting {
 export interface Locks {
   /** Prose per lock reason: next_day, 60_min or none, some with a release rule. */
   rules: Record<LockReasonId, string>;
+  /** The lock record: { until, releasableByClearance }, without the reason id (Q25 (c)). */
+  record: string;
+  /** Next day: the later of local midnight and 8 hours after the start (Q33 (1)). */
   nextDay: string;
+  minHoursBetweenChecks: string;
   tune: string;
+  api: string;
   screen: ScreenId;
 }
+/** {when} of scr_paused_today, chosen by when the lock ends (Q33 (4)). */
+export type PausedWhenId =
+  "min60_start" | "min60_active" | "nextDay_midnight" | "nextDay_clock" | "sameDay_clock";
+export type PausedWhenTokens = Record<PausedWhenId, Text & { when: string }> & {
+  timeSuffix: { am: Text; pm: Text };
+};
 
 /* -------------------------------------------------------------------- tests */
 
@@ -733,6 +1013,10 @@ export interface PhoneSetup {
   level?: string;
   framing: string;
   other: string[];
+  /** Chair stand (P4): the top down setup picture, the clear view cue rule, the booth layout. */
+  picture?: string;
+  clearView?: string;
+  booth?: string;
 }
 export interface Comparability {
   blocking: string[];
@@ -743,8 +1027,25 @@ export interface TestVariant<V extends VariantId> {
   label: Text;
   /** Prose: when this variant applies. */
   when?: string;
-  /** Replaces step i (0 based) of the instruction card. */
-  stepsReplace?: Record<string, Text>;
+  /** Replaces step i (0 based) of the instruction card, with its speech form. */
+  stepsReplace?: Record<string, SpokenText>;
+}
+/** A line on the instruction card (S28) with the safety notes, shown when its condition holds. */
+export interface CardNote<
+  S = string | { variant: VariantId } | { answer: Partial<Record<PrecheckId, OptionValue>> },
+> extends Spoken {
+  id: string;
+  /** Prose, a variant, or a pre-check answer. */
+  showIf: S;
+  rule?: string;
+  /** Pending lines are not shown until the named seat confirms them. */
+  status?: string;
+}
+/** A safety note whose new text waits for confirmation; safety[index] stands until then (7.2-13). */
+export interface SafetyPending extends Spoken {
+  index: number;
+  replaces: Text;
+  status: string;
 }
 /** A band that is a floor or a share of the baseline: max(abs, round(pctOfBaseline x baseline)). */
 export interface Band {
@@ -777,8 +1078,10 @@ interface TestDefBase<I extends TestId, K extends TestKind> {
   comparability: Comparability;
   name: Text;
   purpose: Text;
-  steps: TextList;
-  safety: TextList;
+  /** Instruction steps, with the speech form of each Arabic step (O24-7). */
+  steps: SpokenList;
+  /** Safety notes, spoken with the steps (O24-7). */
+  safety: SpokenList;
   resultSentence: Text;
   resultUnit: UnitFormId;
   cues: CheckCueId[];
@@ -817,6 +1120,10 @@ export interface ShoulderAbductionDef extends TestDefBase<"shoulder_abduction", 
     wrongArmRaisedRetry: boolean;
     shrug: string;
     tune_at_booth: boolean;
+    configurable: string;
+    /** Each coaching cue plays at most this often per attempt (Q14). */
+    cueMaxPerAttempt: Partial<Record<CheckCueId, number>>;
+    verification: string;
   };
   noiseBandRules: {
     compare: string;
@@ -831,6 +1138,7 @@ export interface ShoulderAbductionDef extends TestDefBase<"shoulder_abduction", 
     provisional: boolean;
   };
   resultTokens: SideTokens;
+  safetyPending: SafetyPending[];
 }
 
 export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
@@ -842,14 +1150,17 @@ export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
   load: {
     ask: Text;
     options: { value: "dumbbell" | "bottle" | "cuff" | "none"; label: Text; detail?: string }[];
+    /** Bottle sizes in liters, shown and spoken in words (Q30). */
+    bottleSizes: { value: 0.5 | 1 | 1.5; label: Text }[];
     help: Text;
     helpWeakerArm: Text;
     gripAsk: Text;
-    practiceCheck: Text;
+    practiceCheck: Spoken;
+    practiceCheckAnswerMode: string;
     stepDown: Text;
-    /** Booth staff only, never shown in the app. */
-    staffGuidance: string;
     rules: string[];
+    /** Phase 2: the one step heavier load offer (Q26). */
+    progression: LoadProgression;
   };
   metric: {
     id: "elbow_flexion_angle_deg";
@@ -864,6 +1175,8 @@ export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
     stored: string[];
     minFps: number;
     tune_at_booth: boolean;
+    /** The counter freezes at 30.0 s (Q4). */
+    display: string;
   };
   requiredLandmarks: { gate: Record<Side, number[]>; optional: number[]; minVisibility: number };
   noiseBandRules: {
@@ -875,8 +1188,29 @@ export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
     largeDropMultiple: number;
     provisional: boolean;
     label: string;
+    /** Q27: the band widening at the first re-test of a series, in counts. */
+    firstRetest: string;
+    firstRetestAdd: number;
   };
-  resultTokens: SideTokens & { load: Record<"held" | "bottle" | "cuff" | "none", Text> };
+  resultTokens: SideTokens & {
+    load: Record<"held" | "bottle_half" | "bottle_1" | "bottle_1_5" | "cuff" | "none", Text>;
+  };
+  cardNotes: CardNote<string>[];
+  cardNotesPending: CardNote<string>[];
+  safetyPending: SafetyPending[];
+}
+
+/** Q26: offer, never impose, one load step heavier on an arm (phase 2, home). */
+export interface LoadProgression {
+  phase: number;
+  setting: Setting;
+  triggers: string[];
+  step: string;
+  neverOffered: string[];
+  then: string;
+  offer: Text;
+  buttons: { value: "heavier" | "same"; label: Text }[];
+  buttonRule: string;
 }
 
 export interface TrunkControlDef extends TestDefBase<"trunk_control_seated", "trunk_control"> {
@@ -898,7 +1232,7 @@ export interface TrunkControlDef extends TestDefBase<"trunk_control_seated", "tr
     secondary: string;
     invalidWhen: string[];
     flags: string[];
-    contactAsk: Text;
+    contactAsk: Spoken;
     contact: string;
     abort: string[];
     abortNature: string;
@@ -927,6 +1261,10 @@ export interface TrunkControlDef extends TestDefBase<"trunk_control_seated", "tr
     provisional: boolean;
   };
   resultTokens: SideTokens;
+  /** P3: a large attempt counter readable from 2 m, {n} of 3. */
+  attemptCounter: Text & { rule: string };
+  /** P3: the practice lean can be skipped for fatigue. */
+  practiceSkippableForFatigue: boolean;
 }
 
 export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_count"> {
@@ -936,7 +1274,8 @@ export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_cou
   restSec: { afterPractice: number; seatedAfterTest: number };
   variants: TestVariant<ChairStandVariantId>[];
   variantRules: string[];
-  pushedAsk: Text;
+  pushedAsk: Spoken;
+  pushedAskAnswerMode: string;
   helperRules: string[];
   metric: {
     id: "hip_rise_ratio";
@@ -951,6 +1290,8 @@ export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_cou
     stored: string[];
     minFps: number;
     tune_at_booth: boolean;
+    /** The counter freezes at 30.0 s (Q4). */
+    display: string;
   };
   requiredLandmarks: { gate: number[]; optional: number[]; minVisibility: number };
   noiseBandRules: {
@@ -964,8 +1305,15 @@ export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_cou
     largeDropMultiple: number;
     provisional: boolean;
     label: string;
+    /** Q27: the band widening at the first re-test of a series, in counts. */
+    firstRetest: string;
+    firstRetestAdd: number;
   };
   resultTokens: { variant: Record<ChairStandVariantId, Text> };
+  cardNotes: CardNote<{ variant: VariantId } | { answer: Partial<Record<PrecheckId, OptionValue>> }>[];
+  safetyPending: SafetyPending[];
+  /** Recorded for phase 3 (Q10, P6). */
+  phase3: string[];
 }
 
 export interface TestDefById {
@@ -1009,7 +1357,8 @@ export interface ProgressRules {
   /** Prose: how digits are shown in Arabic (implemented in src/i18n). */
   digits: string;
   lowerExtra: Text;
-  largeDrop: { rule: string; text: Text; oneSidedRule: string; symptomAsk: Text };
+  /** symptomAsk is prose in revision 1.1: the end of check question (endOfCheck) replaced it (Q23). */
+  largeDrop: { rule: string; text: Text; oneSidedRule: string; symptomAsk: string };
   noVerdict: Record<NoVerdictId, Text>;
   startingPointSet: Text;
   notComparable: Text;
@@ -1019,6 +1368,25 @@ export interface ProgressRules {
   nextDue: Text;
   /** Stems that never appear in progress copy. */
   forbiddenInProgressText: { matching: string; en: string[]; ar: string[] };
+  /** Q1: the bands are provisional; the rules for a band of Azm's own. */
+  bandReplacement: {
+    provisional: boolean;
+    mdc: string;
+    replacesOnlyWhen: string;
+    floors: Record<TestId, number>;
+    floorRule: string;
+    dataSource: string;
+  };
+  /** Q12 (2): the side lean only session that sets the second baseline check. */
+  sideLeanSecondBaseline: { window: string; rule: string; offer: Text; ships: string };
+  /** Q27: the band widening at the first re-test of the timed tests. */
+  firstRetest: string;
+  shaddaRule: string;
+  noVerdictDisplay: string;
+  boothExample: string;
+  boothToHome: string;
+  clinicianInterval: string;
+  skippedTests: string;
 }
 
 /* ----------------------------------------------------------- cues, selection */
@@ -1029,6 +1397,18 @@ export interface CueLine {
   ar: string;
   arTts: string;
   en: string;
+  /** The caption short form, display only, at most 3 words (O24-1, cueShortRule). */
+  short: Text;
+}
+/** A retired cue (cuesRetired): kept for the record, never generated, shipped or played. */
+export interface RetiredCue {
+  id: RetiredCueId;
+  ar: string;
+  arTts: string;
+  en: string;
+  replacedBy: CheckCueId[];
+  decision: string;
+  why: string;
 }
 
 export interface Selection {
@@ -1038,9 +1418,172 @@ export interface Selection {
   order: string;
   setting: Record<Setting, string>;
   clearance: string;
-  guestBooth: string;
-  sessionMinutes: [number, number];
+  guestBooth: GuestBooth;
+  /** Q31 (6): home checks open only when every gate is recorded as met. */
+  homeGates: { boothBuild: string; gates: string[]; target: string; cognitiveTestMethod: string };
+  /** O40: the duration is computed per person (estimateMinutes in src/medical/assessment.ts). */
+  sessionMinutes: SessionMinutes;
   conditionNotes: Record<ConditionId, string>;
+}
+
+/** Starting estimates of estimateMinutes, [from, to] in minutes (O40, UX spec S27). */
+export interface SessionMinutes {
+  computed: string;
+  includes: string;
+  startingEstimatesMinutes: {
+    overhead: [number, number];
+    guestSteps: [number, number];
+    precheck: [number, number];
+    precheckWithConditionQuestions: [number, number];
+    shoulder_abduction: [number, number];
+    arm_curl_30s_noLoad: [number, number];
+    arm_curl_30s_withLoad: [number, number];
+    trunk_control_seated: [number, number];
+    helperBriefing: [number, number];
+    chair_stand_30s: [number, number];
+    boothVitals: [number, number];
+  };
+  status: string;
+  target: string;
+  replaces: string;
+}
+
+/** The guest steps at the booth (Q19). */
+export interface GuestBooth {
+  conditionsStep: { title: Text; helper: Text; chips: string; noneChip: Text };
+  clearance: {
+    ask: Text;
+    hint: Text & { status: string };
+    options: { value: Clearance; label: Text }[];
+    rule: string;
+  };
+  answering: string;
+  privacy: string;
+  /** Prose: routing (a) no check, (b) the booth arm raise only, (c) everyone else. */
+  routing: string[];
+  signedIn: string;
+  afterEachTest: { buttons: { value: "next" | "results"; label: Text }[]; rule: string };
+}
+
+/* ---------------------------------------------------- revision 1.1 sections */
+
+/** Pre-check presentation rules (Q18, O11b), prose for the UI. */
+export interface PrecheckRules {
+  interaction: string;
+  timeBudget: string;
+  fixedItems: string;
+  /** Day of items asked at every check they apply to (Q18 (7)). */
+  everyTimeItems: string[];
+  everyTimeRule: string;
+  review: string;
+  interactionStatus: string;
+}
+/** The 0 to 10 pain scale (Q7). */
+export interface PainScale {
+  buttons: number;
+  rows: number[][];
+  minSizePx: number;
+  order: string;
+  anchors: { zero: Text; ten: Text };
+  preselected: "none";
+  never: string;
+}
+/** The faint follow up (S38b): after scr_faint, and after every fall stop (Q33 (3), O42). */
+export interface StopFollowUp {
+  id: StopFollowUpId;
+  type: "yes_no_unsure";
+  when: string;
+  ask: Text;
+  options: AnswerOption[];
+  actions: (
+    | { if: { in: OptionValue[] }; do: "emergency"; screen: ScreenId; stores: StoreKey }
+    | { if: { equals: OptionValue }; do: "record"; lock: LockKind }
+  )[];
+  answerMode: "answerZones";
+  noAnswerSec: number;
+  noAnswer: string;
+}
+/** The end of check symptom question (S49, Q23 (7)): the general form and the side form. */
+export interface EndOfCheckQuestion {
+  id: EndOfCheckId;
+  type: "yes_no";
+  when: string;
+  ask: Spoken;
+  askSide: Text & { arTtsBySide: Record<Side, string> };
+  sideTokens: Record<Side, Spoken>;
+  speech: string;
+  chronicNote: ChronicNote;
+  sideTrigger: string;
+  options: AnswerOption[];
+  actions: { if: { equals: OptionValue }; do: "emergency"; screen: ScreenId; stores: StoreKey }[];
+}
+/** The helper briefing (Q11, O34-2). */
+export interface HelperBriefing {
+  heading: Text;
+  voice: string;
+  picture: string;
+  steadyRule: string;
+  closing: string;
+  checkInLine: Spoken & { rule: string };
+  confirmButton: Text;
+  startGate: string;
+  pronouns: string;
+}
+/** The call button of every screen that names 997 (Q22). */
+export interface EmergencyCall {
+  button: Text & { href: string };
+  firstActionOn: string;
+  bigNumberOn: ScreenId[];
+  bigNumberMinPx: number;
+  bigNumberRule: string;
+  numbers: string;
+}
+/** The chair stand setup questions at home (Q9). */
+export interface SetupQuestion {
+  id: SetupQuestionId;
+  test: TestId;
+  type: "yes_no" | "yes_no_unsure";
+  showIf: ShowIf;
+  screen: string;
+  ask: Text;
+  options: AnswerOption[];
+  actions: (
+    | { if: { equals: OptionValue }; do: "skip"; tests: TestRef[]; reason: ReasonId }
+    | { if: { in: OptionValue[] }; do: "record"; stores: string }
+  )[];
+}
+/** Voice lines still waiting for generation or approval by ear. */
+export interface VoicePending {
+  rule: string;
+  lines: string[];
+  copyPass: string;
+  ttsConvention: string;
+  earCheckFirst: string;
+}
+/** Phase 2: how the person likes to be addressed in Arabic (Q24). */
+export interface AddressPreference {
+  phase: number;
+  ask: Text;
+  options: { value: "masculine" | "feminine"; label: Text }[];
+  v1: string;
+  set: string;
+  storage: string;
+}
+/** A screen or warning: display text, speech form and the extras some screens carry. */
+export interface Screen extends Spoken {
+  /** scr_paused_today: only the first sentence is spoken (O24-2). */
+  arTtsScope?: string;
+  /** warn_pd_timing: where the speech form of {x} comes from. */
+  arTtsTokens?: string;
+  /** scr_ad: the conditional lead of the AD card on S36 (O12 (3)), pending the medical seat. */
+  emergencyLead?: Spoken & { showOn: string; status: string };
+  /** scr_ad: the card after scr_faint_sci for sci_t6 (O24-6). */
+  cardOnFaintSci?: string;
+  /** scr_no_response: the fine button rule and the fall watch bodies (O34-4, O42), pending. */
+  fineButton?: string;
+  fallWatch?: Spoken;
+  fallWatchNoRaise?: Spoken;
+  fallWatchRule?: string;
 }
 
 /* -------------------------------------------------------------------- root */
@@ -1048,24 +1591,41 @@ export interface Selection {
 export interface CheckData {
   id: "movement_check";
   version: number;
+  /** "1.1": movement check version 1, revision 1.1 (contract v3 H). */
+  specVersion: string;
   status: SignoffStatus;
   signoff: Signoff;
-  boundary: Record<BoundaryId, Text>;
+  boundary: Boundary;
   areas: Area[];
   surgeryAreas: SurgeryArea[];
   engine: EngineConfig;
+  precheckRules: PrecheckRules;
+  painScale: PainScale;
   precheck: PrecheckItem[];
   betweenTests: FollowQuestion<BetweenTestId>[];
+  stopFollowUps: StopFollowUp[];
+  endOfCheck: EndOfCheckQuestion[];
   afterCheck: FollowQuestion<AfterCheckId>[];
   stopRouting: StopRouting;
   locks: Locks;
-  screens: Record<ScreenId, Text>;
-  pausedWhenTokens: Record<LockKind, Text>;
-  reasons: Record<ReasonId, Text>;
+  screens: Record<ScreenId, Screen>;
+  earlyStartButtons: { value: "start" | "later"; label: Text }[];
+  helperBriefing: HelperBriefing;
+  emergencyCall: EmergencyCall;
+  pausedWhenTokens: PausedWhenTokens;
+  reasons: Record<ReasonId, Text & { when?: string }>;
+  /** Every reason id, sorted (O33 (m)); equals REASON_IDS as a set. */
+  reasonIds: ReasonId[];
+  reasonSuffixes: { substituteRan: Text & { appendTo: ReasonId[]; rule: string } };
   postponeReasons: Record<PostponeReasonId, ScreenId>;
+  setupQuestions: SetupQuestion[];
   tests: TestDef[];
   progress: ProgressRules;
   cues: CueLine[];
+  cueShortRule: string;
+  cuesRetired: RetiredCue[];
+  voicePending: VoicePending;
+  addressPreference: AddressPreference;
   selection: Selection;
 }
 

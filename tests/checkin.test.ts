@@ -68,17 +68,20 @@ describe("check in timing comes from the check data", () => {
     expect(CHECKIN_TIMING.noMovementSec).toBe(10);
     expect(checkIn.okWhen.join(" ")).toMatch(/a wrist held above the same shoulder for 1 s/);
     expect(CHECKIN_TIMING.raisedHandSec).toBe(1);
-    expect(checkIn.triggers).toHaveLength(5);
+    // Revision 1.1: the five camera and stop list triggers, the faint follow up without an answer, and
+    // the two phase 2 fall watch triggers (O42).
+    expect(checkIn.triggers).toHaveLength(8);
     expect(checkIn.tune_at_booth).toBe(true);
   });
 
   it("asks with check_are_you_ok and falls back to the 997 screen that asks for a tap", () => {
     expect(CHECKIN_CUE).toBe("check_are_you_ok");
-    expect(CHECKIN_CUE).toBe(checkIn.cue);
+    expect(CHECKIN_CUE).toBe(checkIn.cueSelection.booth.raiseAllowed);
     expect(checkIn.noResponse).toMatch(/scr_no_response/);
     expect(NO_RESPONSE_SCREEN).toBe("scr_no_response");
     expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/997/);
-    expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/Tap here/);
+    // O34-4 (6): only the «أنا بخير» button counts as a tap.
+    expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/tap “I am fine”/);
   });
 });
 

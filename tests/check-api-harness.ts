@@ -51,20 +51,39 @@ export interface Harness {
   ): Promise<Reply>;
   /** A second read connection to the API's database file. */
   inspect(): Db;
+  /** Stops the API and starts a new one on the same database file (a server restart). */
+  restart(): Promise<void>;
   close(): Promise<void>;
 }
 
+/**
+ * Home checks are open in these tests (contract v3 I: AZM_CHECK_HOME=1); the tests of the closed flag
+ * delete it for their own requests.
+ */
 export async function startApi(): Promise<Harness> {
+  process.env.AZM_CHECK_HOME = "1";
   const dir = mkdtempSync(join(tmpdir(), "azm-check-api-"));
   const file = join(dir, "azm.sqlite");
-  const service = createApi(file);
-  const server: Server = createServer((req, res) => void service.handle(req, res));
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  let service = createApi(file);
+  let server: Server = createServer((req, res) => void service.handle(req, res));
+  const listen = async () => {
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    return `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  };
+  let origin = await listen();
   const inspectors: Db[] = [];
   return {
-    origin,
+    get origin() {
+      return origin;
+    },
     file,
+    async restart() {
+      await new Promise<void>((r) => server.close(() => r()));
+      service.close();
+      service = createApi(file);
+      server = createServer((req, res) => void service.handle(req, res));
+      origin = await listen();
+    },
     async call(path, body, cookie = "", method = body === undefined ? "GET" : "POST", extra = {}) {
       const r = await fetch(origin + "/api" + path, {
         method,
@@ -136,14 +155,27 @@ export const WHEELCHAIR_STROKE = intakeOf({
   clearance: "yes",
 });
 
-/** A new member with intake saved and the movement check consent accepted. */
-export async function member(h: Harness, email: string, intake: Intake, consent = true): Promise<string> {
+/**
+ * A new member with intake saved, the movement check consent accepted and the adult confirmation
+ * (Q2 (5), Q32 (6)) stored, unless `adult` is false.
+ */
+export async function member(
+  h: Harness,
+  email: string,
+  intake: Intake,
+  consent = true,
+  adult = true,
+): Promise<string> {
   const cookie = await register(h, email);
   const saved = await h.call("/intake", intake, cookie, "PUT");
   if (saved.status !== 200) throw new Error(`intake ${email}: ${saved.status}`);
   if (consent) {
     const ok = await h.call("/consents", { kind: "movement_check", version: 1 }, cookie);
     if (ok.status !== 200) throw new Error(`consent ${email}: ${ok.status}`);
+  }
+  if (adult) {
+    const ok = await h.call("/account/adult", { confirmed: true }, cookie);
+    if (ok.status !== 200) throw new Error(`adult ${email}: ${ok.status}`);
   }
   return cookie;
 }
@@ -163,6 +195,7 @@ export function envFromContext(c: any, setting: Setting = "home"): PrecheckEnv {
     sideLeanDoneAtHome: c.sideLeanDoneAtHome,
     neededArmsLastStand: c.neededArmsLastStand,
     completedBefore: c.completedBefore,
+    faintReportedUnresolved: c.faintReportedUnresolved,
   };
 }
 

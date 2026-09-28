@@ -33,9 +33,13 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   delete process.env.AZM_BOOTH_CODE;
+  delete process.env.AZM_BOOTH_DATES;
 });
 
-/** One check: start at `at`, post the given results (with optional body changes), complete. */
+/**
+ * One check: start at `at`, post the given results (with optional body changes), read the end of
+ * check question (Q23 (7), asked before the results), complete.
+ */
 async function check(
   email: string,
   at: number,
@@ -58,8 +62,9 @@ async function check(
     const r = await h.call(`/assessments/${s.data.id}/results`, body, cookie);
     if (r.status !== 200) throw new Error(`${key}: ${JSON.stringify(r.data)}`);
   }
+  const end = await h.call(`/assessments/${s.data.id}/end`, undefined, cookie);
   const done = await h.call(`/assessments/${s.data.id}/complete`, {}, cookie);
-  return { cookie, id: s.data.id as string, protocol, complete: done.data };
+  return { cookie, id: s.data.id as string, protocol, end: end.data, complete: done.data };
 }
 
 const current = (tests: any[], testId: string, side: string, setting = "home") =>
@@ -102,7 +107,7 @@ describe("series over four checks of one person", () => {
       { "shoulder_abduction:right": 100, "trunk_control_seated:right": 22, "arm_curl_30s:right": 15 },
       { over: { "arm_curl_30s:right": bottle(1.5) } },
     );
-    expect(c2.complete.symptomAsk).toEqual([]);
+    expect(c2.end.side).toBeNull();
     let p = (await h.call("/progress", undefined, c2.cookie)).data;
     expect(current(p.tests, "shoulder_abduction", "right")).toMatchObject({
       verdict: "lower",
@@ -127,8 +132,9 @@ describe("series over four checks of one person", () => {
     expect(curls.find((t: any) => !t.current)).toMatchObject({ firstResult: true, latest: { value: 14 } });
     expect(curls[0].seriesKey).not.toBe(curls[1].seriesKey);
 
-    // A lasting next day answer takes the early repeat offer away until it is resolved.
-    setTime(T0 + 3 * DAY + 13 * HOUR);
+    // A lasting next day answer takes the early repeat offer away until it is resolved (asked from
+    // 24 hours after the check, O38).
+    setTime(T0 + 3 * DAY + 25 * HOUR);
     const after = await login(h, email);
     await h.call("/assessments/after", { answer: "lasting" }, after);
     p = (await h.call("/progress", undefined, after)).data;
@@ -186,7 +192,7 @@ describe("a large drop on one side", () => {
       "shoulder_abduction:right": 80,
       "shoulder_abduction:left": 118,
     });
-    expect(c2.complete.symptomAsk).toEqual([{ testId: "shoulder_abduction", sides: ["right"] }]);
+    expect(c2.end).toEqual({ question: "ec_symptoms", side: "right", chronicNote: false });
     const p = (await h.call("/progress", undefined, c2.cookie)).data;
     expect(current(p.tests, "shoulder_abduction", "right")).toMatchObject({
       verdict: null,
@@ -206,7 +212,7 @@ describe("a large drop on one side", () => {
       "shoulder_abduction:right": 80,
       "shoulder_abduction:left": 76,
     });
-    expect(c2.complete.symptomAsk).toEqual([]);
+    expect(c2.end.side).toBeNull();
   });
 });
 
@@ -220,6 +226,7 @@ describe("booth and home series", () => {
 
   it("keeps the booth point apart from the home series", async () => {
     process.env.AZM_BOOTH_CODE = "staff-code-1177";
+    process.env.AZM_BOOTH_DATES = "2026-10-04";
     const email = "booth-series@example.test";
     await member(h, email, intakeOf());
     await check(

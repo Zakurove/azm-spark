@@ -1,5 +1,4 @@
 import type { Route } from "../../http/types";
-import { earliestNextCheck, retestDue } from "../../../src/medical/assessment";
 import { keptResults } from "../assessments/store";
 import { checkContextOf, personState, seriesContext } from "../assessments/state";
 import { weeklyActivity, type SetRecord } from "./activity";
@@ -35,11 +34,12 @@ export const progressRoutes: Route[] = [
             },
           )
         : [];
-      const last = s?.lastCompleted?.completed ?? null;
+      // H9: the home due date and the 48 hour minimum, as in GET /api/assessments/context.
       json(200, {
         tests,
-        retestDue: retestDue(last),
-        earliestNext: earliestNextCheck(last),
+        retestDue: s?.schedule.retestDue ?? null,
+        earliestNext: s?.schedule.earliestNext ?? null,
+        early: s?.schedule.early ?? false,
         sessions: { weeks: activity.weeks },
         validShare: activity.validShare,
         avgEffort: activity.avgEffort,

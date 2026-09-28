@@ -11,6 +11,11 @@
  *   symptomAskSides  the one sided large drop question (spec 5), asked whatever the quality flags
  *   startsNewSeries  "not comparable": a blocking field changed, a new series starts
  *   checkTimeBand    the band of a protocol item from what is known when the check starts
+ *   loadStepOffer    the offer of one load step heavier on an arm curl arm (Q26, phase 2)
+ *
+ * Council decisions: the bands stay as in v1.1, labelled provisional (Q1); the first re-test of an arm
+ * curl or chair stand series widens the band by 1 count (Q27); the one sided drop feeds the side form
+ * of the end of check question (Q23 (7), endOfCheckForm in src/medical/precheck.ts).
  *
  * Every progress claim is relative to the person's own baseline: no norms anywhere. Numbers (bands,
  * floors, percentages, multiples, the near full range line) come from src/movements/check-v1.json;
@@ -18,9 +23,10 @@
  * tests/progress-rules.test.ts fails when the data lists change, so code and data stay together.
  * Pure TypeScript, no DOM and no window: shared by the client and the server.
  */
-import { CHECK_DATA } from "../movements/assessments";
+import { CHECK_DATA, testDef } from "../movements/assessments";
 import type {
   CheckPosition,
+  Clearance,
   NoVerdictId,
   Setting,
   Side,
@@ -407,6 +413,11 @@ export interface SeriesComparison {
   symptomDrop?: true;
   /** The person's own points, only from the third check of the series (progress.trendsFromCheck). */
   points?: SeriesPoint[];
+  /**
+   * The latest check is the first re-test of an arm curl or chair stand series: its band is widened
+   * by firstRetestAdd (Q27), and `band` is the band actually used.
+   */
+  firstRetest?: true;
 }
 
 /** Side lean: censored by an abort or by armrest contact (shown as "more than {value}"). */
@@ -529,7 +540,18 @@ interface Judgement {
   symptomDrop?: true;
 }
 
-/** One check against the baseline (spec 5 and the rules of each test). */
+/** The widening of the first re-test of a timed test series, in counts (Q27), or 0. */
+function firstRetestAdd(def: TestDef): number {
+  return "firstRetestAdd" in def.noiseBandRules ? def.noiseBandRules.firstRetestAdd : 0;
+}
+
+/**
+ * One check against the baseline (spec 5 and the rules of each test). `firstRetest`: the check is
+ * the first after the baseline check of an arm curl or chair stand series, whose band is widened by 1
+ * count in both directions (Q27).
+ */
+// SPEC-GAP: first-retest-symptom-band. The one sided drop that names a side in the end of check
+// question (symptomDrop) is measured against the normal band, so the widening never hides it.
 function judge(
   def: TestDef,
   side: ResultSide,
@@ -538,14 +560,16 @@ function judge(
   cur: StoredResult,
   prev: StoredResult | undefined,
   ctx: SeriesContext,
+  firstRetest = false,
 ): Judgement {
   const value = cur.value as number;
   const wide = isWide(def, side, base, cur, ctx);
-  const band = bandOf(def, baseValue, wide);
+  const normal = bandOf(def, baseValue, wide);
+  const band = normal + (firstRetest ? firstRetestAdd(def) : 0);
   const change = value - baseValue;
   const out: Judgement = { change, band, bandKind: wide ? "wide" : "default", verdict: null };
   const dropLine = -def.noiseBandRules.largeDropMultiple * band;
-  if (change < dropLine) out.symptomDrop = true;
+  if (change < -def.noiseBandRules.largeDropMultiple * normal) out.symptomDrop = true;
 
   const noVerdict = noVerdictFor(def, side, base, cur, ctx);
   if (noVerdict) return { ...out, noVerdict };
@@ -698,7 +722,10 @@ export function compareSeries(
     return { ...out, baseline: baselinePoint, noVerdict: "selfCount" };
   }
 
-  const j = judge(def, side, base, baseValue, latest, previous, ctx);
+  // Q27: the first check after the baseline check of a timed test series is its first re-test.
+  const isFirstRetest = (r: StoredResult) =>
+    firstRetestAdd(def) > 0 && measured.indexOf(r) === measured.indexOf(base[0]) + 1;
+  const j = judge(def, side, base, baseValue, latest, previous, ctx, isFirstRetest(latest));
   const res: SeriesComparison = {
     ...out,
     baseline: baselinePoint,
@@ -711,11 +738,12 @@ export function compareSeries(
   if (j.unconfirmed) res.unconfirmed = true;
   if (j.nearFullRange) res.nearFullRange = true;
   if (j.symptomDrop) res.symptomDrop = true;
+  if (isFirstRetest(latest)) res.firstRetest = true;
   if (j.largeDrop) {
     const prevIndex = measured.length - 2;
     const prevAfterBase = previous !== undefined && !base.includes(previous);
     const pj = prevAfterBase
-      ? judge(def, side, base, baseValue, previous, measured[prevIndex - 1], ctx)
+      ? judge(def, side, base, baseValue, previous, measured[prevIndex - 1], ctx, isFirstRetest(previous))
       : undefined;
     if (pj?.largeDrop && j.dropVerdict === "lower") {
       res.verdict = "lower";
@@ -774,4 +802,127 @@ export function startsNewSeries(
 export function chairStandMilestone(previousVariant: string | null | undefined, latestVariant: string) {
   const handsAllowed = previousVariant === "arms_assisted" || previousVariant === "arms_assisted_steady";
   return handsAllowed && latestVariant === "standard";
+}
+
+/* ------------------------------------------------------- the load step */
+
+/** Q5: dumbbells 0.5 to 4 kg in 0.5 kg steps, wrist weights up to 2 kg, three bottle sizes. */
+export const LOAD_LIMITS = {
+  dumbbell: { minKg: 0.5, maxKg: 4, stepKg: 0.5 },
+  cuff: { minKg: 0.5, maxKg: 2, stepKg: 0.5 },
+  bottleLiters: testDef("arm_curl_30s").load.bottleSizes.map((b) => b.value) as readonly number[],
+} as const;
+
+/** A load of the arm curl: a dumbbell or a wrist weight in kg, or a bottle in liters. */
+export type LoadStep = { kind: "dumbbell" | "cuff"; kg: number } | { kind: "bottle"; liters: number };
+
+/** Q26: 3 checks in a row with verdict higher, or 2 in a row at this count or more. */
+export const LOAD_STEP_RULES = { higherInARow: 3, highCount: 25, highCountInARow: 2 } as const;
+/** No dumbbell at home for these conditions (Q5), so never a heavier one (Q26). */
+const NO_DUMBBELL_CONDITIONS = ["parkinsons", "ms", "cerebral_palsy", "sci_complete", "sci_incomplete"];
+/** Arm curl variants a rule sets (the load was not the person's choice). */
+const RULE_VARIANTS = ["arm_only", "cuff_or_arm_only"];
+
+function loadOf(r: StoredResult): LoadStep | "none" | undefined {
+  const o = r.detail.loadObject;
+  if (o === "none") return "none";
+  if ((o === "dumbbell" || o === "cuff") && typeof r.detail.loadKg === "number")
+    return { kind: o, kg: r.detail.loadKg };
+  if (o === "bottle" && typeof r.detail.loadL === "number") return { kind: "bottle", liters: r.detail.loadL };
+  return undefined;
+}
+
+const sameLoad = (a: LoadStep | "none" | undefined, b: LoadStep | "none" | undefined) =>
+  a !== undefined && b !== undefined && JSON.stringify(a) === JSON.stringify(b);
+
+/** One step heavier (Q26): plus 0.5 kg up to the limit, or the next bottle size; none has no step. */
+function nextLoad(l: LoadStep): LoadStep | null {
+  const round = (x: number) => Math.round(x * 100) / 100;
+  if (l.kind === "bottle") {
+    const sizes = LOAD_LIMITS.bottleLiters;
+    const next = sizes.find((s) => s > l.liters);
+    return next === undefined ? null : { kind: "bottle", liters: next };
+  }
+  const lim = l.kind === "dumbbell" ? LOAD_LIMITS.dumbbell : LOAD_LIMITS.cuff;
+  const kg = round(l.kg + lim.stepKg);
+  return kg <= lim.maxKg ? { kind: l.kind, kg } : null;
+}
+
+/**
+ * The offer, never imposed, of a new arm curl series one load step heavier on that arm (Q26, home
+ * only, phase 2): 3 checks in a row with verdict higher on the same load, or a count of 25 or more at
+ * 2 checks in a row on the same load. One step only: plus 0.5 kg for a dumbbell (at most 4 kg) or a
+ * wrist weight (at most 2 kg), or the next bottle size. Never offered: for an arm whose load a rule
+ * set (arm_only or cuff_or_arm_only at those checks; after stroke on the weaker arm; no_resistance;
+ * clearance no or not sure; arm pain on that side), for a dumbbell with Parkinson's, MS, CP or SCI or
+ * after a grip yes on that arm, while a lasting ac_next_day answer is unresolved, or when bt_pain_after
+ * was a little more or worse on that arm at any of the qualifying checks. `series` is one arm curl
+ * series of one arm (chronological); `painAfterMore` has one entry per check of it, the last entry
+ * for the latest check, true when bt_pain_after was more or much after that arm.
+ */
+// SPEC-GAP: load-step-at-or-above. "At or above baseline plus band (verdict higher)" is read as the
+// verdict higher (beyond the band), the stricter of the two.
+// SPEC-GAP: load-step-pain-after. bt_pain_after is not in the data map of spec 2.1, so the caller
+// passes it; a qualifying check whose answer is not known gives no offer (the safe reading).
+// SPEC-GAP: load-step-self-count. A self counted check never qualifies (it is never compared).
+export function loadStepOffer(
+  series: readonly StoredResult[],
+  o: {
+    ctx: SeriesContext;
+    restrictions: readonly string[];
+    clearance: Clearance;
+    setting: Setting;
+    lastCheckLasting: boolean;
+    painAfterMore?: readonly boolean[];
+    gripYes?: boolean;
+  },
+): { from: LoadStep; to: LoadStep } | null {
+  const first = series[0];
+  if (!first) return null;
+  for (const r of series) {
+    if (r.testId !== "arm_curl_30s" || r.side !== first.side || r.seriesKey !== first.seriesKey) {
+      throw new RangeError("loadStepOffer takes one series of one arm curl arm");
+    }
+  }
+  const side = first.side;
+  if (o.setting !== "home" || o.lastCheckLasting || side === "none") return null;
+  const ctx = o.ctx;
+  const weaker = ctx.support === "none" ? undefined : ctx.support;
+  if (ctx.conditions.includes("stroke") && weaker === side) return null;
+  if (o.restrictions.includes("no_resistance") || o.clearance !== "yes" || painfulArm(side, ctx)) return null;
+
+  const rows = [...series].sort((a, b) => a.created - b.created);
+  const measured = rows.filter((r) => typeof r.value === "number" && Number.isFinite(r.value));
+  const latest = measured[measured.length - 1];
+  const load = latest ? loadOf(latest) : undefined;
+  if (!latest || load === undefined || load === "none") return null;
+  if (
+    load.kind === "dumbbell" &&
+    (o.gripYes === true || NO_DUMBBELL_CONDITIONS.some((c) => ctx.conditions.includes(c)))
+  )
+    return null;
+  const to = nextLoad(load);
+  if (!to) return null;
+
+  const def = testDef("arm_curl_30s");
+  const pain = o.painAfterMore ?? [];
+  /** The last n measured checks qualify: same load, no rule variant, no self count, no more pain. */
+  const qualifying = (n: number): StoredResult[] | null => {
+    if (measured.length < n) return null;
+    const last = measured.slice(-n);
+    for (const r of last) {
+      if (!sameLoad(loadOf(r), load) || RULE_VARIANTS.includes(r.variant ?? "") || isSelfCount(r))
+        return null;
+      const k = rows.indexOf(r) - rows.length + pain.length;
+      if (k < 0 || k >= pain.length || pain[k] !== false) return null;
+    }
+    return last;
+  };
+  const higher = qualifying(LOAD_STEP_RULES.higherInARow)?.every(
+    (r) => compareSeries(def, side, measured.slice(0, measured.indexOf(r) + 1), ctx)?.verdict === "higher",
+  );
+  const high = qualifying(LOAD_STEP_RULES.highCountInARow)?.every(
+    (r) => (r.value as number) >= LOAD_STEP_RULES.highCount,
+  );
+  return higher || high ? { from: load, to } : null;
 }

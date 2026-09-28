@@ -491,13 +491,19 @@ export class QualityMonitor {
 
 /* ------------------------------------------------------------ retry cues */
 
-/** The cue that asks the person to turn the right way for a test. */
-export function viewCue(testId: TestId, side: TestSide): CheckCueId {
+/**
+ * The cue that asks the person to turn the right way for a test. The chair stand phone stands at 45
+ * degrees toward the stronger side (P4: check_phone_angle_right or _left); with no weaker side known,
+ * toward the right.
+ */
+// SPEC-GAP: phone-angle-side. The runners do not know the weaker side yet (engine round), so the
+// chair stand asks for the right side unless a caller passes `weaker`.
+export function viewCue(testId: TestId, side: TestSide, weaker?: "left" | "right" | null): CheckCueId {
   switch (testId) {
     case "arm_curl_30s":
       return side === "left" ? "check_left_side_to_phone" : "check_right_side_to_phone";
     case "chair_stand_30s":
-      return "check_phone_angle";
+      return weaker === "right" ? "check_phone_angle_left" : "check_phone_angle_right";
     default:
       return "check_face_phone";
   }

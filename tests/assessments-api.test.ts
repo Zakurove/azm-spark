@@ -33,6 +33,15 @@ import {
 
 /** Start of the next calendar day in Asia/Riyadh after T0 (2026-10-05 00:00 +03:00). */
 const NEXT_DAY = Date.UTC(2026, 9, 4, 21, 0, 0);
+/**
+ * A next day lock set at T0 as the client sees it (Q25 (c): no reason id; Q33 (4): {when}).
+ * `releasable` is true for recent_change only.
+ */
+const nextDayLock = (releasable = false) => ({
+  until: NEXT_DAY,
+  releasableByClearance: releasable,
+  when: { token: "nextDay_midnight" },
+});
 const FIRST_VALUES = {
   "shoulder_abduction:right": 100,
   "shoulder_abduction:left": 90,
@@ -52,6 +61,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   delete process.env.AZM_BOOTH_CODE;
+  delete process.env.AZM_BOOTH_DATES;
 });
 
 describe("a wheelchair user after a stroke: consent, context, check, retest, progress", () => {
@@ -129,7 +139,7 @@ describe("a wheelchair user after a stroke: consent, context, check, retest, pro
     setTime(T0 + 20 * 60 * 1000);
     const done1 = await h.call(`/assessments/${s1.data.id}/complete`, {}, cookie);
     expect(done1.status).toBe(200);
-    expect(done1.data).toEqual({ id: s1.data.id, completed: T0 + 20 * 60 * 1000, symptomAsk: [] });
+    expect(done1.data).toEqual({ id: s1.data.id, completed: T0 + 20 * 60 * 1000 });
 
     const list = await h.call("/assessments", undefined, cookie);
     expect(list.data.assessments).toHaveLength(1);
@@ -179,7 +189,13 @@ describe("a wheelchair user after a stroke: consent, context, check, retest, pro
       "arm_curl_30s:left": 11,
       "arm_curl_30s:right": 20,
     });
-    expect((await h.call(`/assessments/${s2.data.id}/complete`, {}, cookie)).data.symptomAsk).toEqual([]);
+    // Q23 (7): the end of check question, general form (no one sided drop), before the results.
+    expect((await h.call(`/assessments/${s2.data.id}/end`, undefined, cookie)).data).toEqual({
+      question: "ec_symptoms",
+      side: null,
+      chronicNote: true,
+    });
+    expect((await h.call(`/assessments/${s2.data.id}/complete`, {}, cookie)).status).toBe(200);
 
     const p2 = await h.call("/progress", undefined, cookie);
     const view = (testId: string, side: string) =>
@@ -197,16 +213,17 @@ describe("a wheelchair user after a stroke: consent, context, check, retest, pro
     });
     expect(view("shoulder_abduction", "left")).toMatchObject({ verdict: "same", change: 5 });
     expect(view("trunk_control_seated", "right")).toMatchObject({ verdict: null, startingPointSet: true });
+    // Q27: the first re-test of an arm curl series widens the band by 1 (4 becomes 5).
     expect(view("arm_curl_30s", "left")).toMatchObject({
       verdict: "same",
       change: 1,
-      band: 4,
+      band: 5,
       variant: "arm_only",
     });
     expect(view("arm_curl_30s", "right")).toMatchObject({
       verdict: "higher",
       change: 8,
-      band: 4,
+      band: 5,
       variant: "held",
     });
     // Verdicts are higher, same or lower, never "better", and no label uses a forbidden stem.
@@ -235,16 +252,13 @@ describe("postpones, locks and the change question", () => {
       reason: "unwell",
       screen: "scr_postpone_unwell",
       alsoShow: [],
-      lock: { reason: "unwell", until: NEXT_DAY },
+      lock: nextDayLock(),
     });
     expect((await h.call("/assessments", undefined, cookie)).data.assessments).toEqual([]);
-    expect((await h.call("/assessments/context", undefined, cookie)).data.lock).toEqual({
-      reason: "unwell",
-      until: NEXT_DAY,
-    });
+    expect((await h.call("/assessments/context", undefined, cookie)).data.lock).toEqual(nextDayLock());
     // Different answers the same day cannot get past the lock.
     const again = await start(h, cookie);
-    expect(again.data).toEqual({ error: "LOCKED", reason: "unwell", until: NEXT_DAY });
+    expect(again.data).toEqual({ error: "LOCKED", ...nextDayLock() });
     setTime(NEXT_DAY - 1);
     expect((await start(h, cookie)).data.error).toBe("LOCKED");
     setTime(NEXT_DAY);
@@ -259,12 +273,12 @@ describe("postpones, locks and the change question", () => {
       error: "POSTPONE",
       reason: "recent_change",
       screen: "scr_postpone_care",
-      lock: { reason: "recent_change", until: NEXT_DAY },
+      lock: nextDayLock(true),
     });
     setTime(T0 + HOUR);
     const c = await h.call("/assessments/context", undefined, cookie);
     expect(c.data.unresolvedChangeReported).toBe(true);
-    expect(c.data.lock.reason).toBe("recent_change");
+    expect(c.data.lock.releasableByClearance).toBe(true);
     // pc_change is no longer asked; pc_change_cleared is asked directly.
     const answers = await answersFor(h, cookie, { pc_change_cleared: "yes" });
     expect(answers.pc_change).toBeUndefined();
@@ -296,28 +310,31 @@ describe("postpones, locks and the change question", () => {
   it("an MS heat postpone locks for 60 minutes", async () => {
     const cookie = await member(h, "ms@example.test", intakeOf({ conditions: ["ms"] }));
     const r = await start(h, cookie, { pc_ms_heat: "yes" });
-    expect(r.data).toMatchObject({ reason: "ms_heat", lock: { reason: "ms_heat", until: T0 + HOUR } });
+    expect(r.data).toMatchObject({
+      reason: "ms_heat",
+      lock: { until: T0 + HOUR, releasableByClearance: false },
+    });
     setTime(T0 + HOUR - 1);
     expect((await start(h, cookie)).data.error).toBe("LOCKED");
     setTime(T0 + HOUR);
     expect((await start(h, cookie)).status).toBe(200);
   });
 
-  it("the SCI checklist postpones without a lock: ticking every box goes ahead at once", async () => {
+  it("7.2-8: the SCI readiness list postpones without a lock on not yet; all done goes ahead at once", async () => {
     const cookie = await member(
       h,
       "sci@example.test",
       intakeOf({ conditions: ["sci_incomplete"], mobility: "wheelchair", clearance: "yes" }),
     );
-    // The checklist is asked for an injury at T6 or higher, or when the level is not known.
-    const r = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: ["0", "1"] });
+    // The list is asked for an injury at T6 or higher, or when the level is not known.
+    const r = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: "not_yet" });
     expect(r.data).toMatchObject({
       reason: "sci_ready",
       screen: "scr_postpone_sci",
-      lock: { reason: "sci_ready", until: null },
+      lock: null,
     });
     expect((await h.call("/assessments/context", undefined, cookie)).data.lock).toBeNull();
-    const ok = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: true });
+    const ok = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: "done" });
     expect(ok.status).toBe(200);
     expect(ok.data.warnings).toContain("warn_sci_t6");
   });
@@ -334,11 +351,13 @@ describe("postpones, locks and the change question", () => {
       "arm_curl_30s:left": 13,
     });
     await h.call(`/assessments/${s.data.id}/complete`, {}, cookie);
-    // Not due before 12 hours.
+    // Not due before 24 hours (O38).
     expect((await h.call("/assessments/after", { answer: "usual" }, cookie)).data).toEqual({
       error: "NOT_DUE",
     });
     setTime(T0 + 13 * HOUR);
+    expect((await h.call("/assessments/context", undefined, cookie)).data.followUpDue).toBe(false);
+    setTime(T0 + 25 * HOUR);
     expect((await h.call("/assessments/context", undefined, cookie)).data.followUpDue).toBe(true);
     expect((await h.call("/assessments/after", { answer: "sore" }, cookie)).data).toEqual({
       error: "AFTER_INVALID",
@@ -385,10 +404,10 @@ describe("emergency and autonomic dysreflexia", () => {
       reason: "urgent",
       screen: "scr_emergency",
       alsoShow: [],
-      lock: { reason: "urgent", until: NEXT_DAY },
+      lock: nextDayLock(),
     });
     expect((await h.call("/assessments", undefined, cookie)).data.assessments).toEqual([]);
-    expect((await start(h, cookie)).data).toEqual({ error: "LOCKED", reason: "urgent", until: NEXT_DAY });
+    expect((await start(h, cookie)).data).toEqual({ error: "LOCKED", ...nextDayLock() });
   });
 
   it("with a spinal cord injury the emergency screen also shows the AD steps", async () => {
@@ -412,7 +431,7 @@ describe("emergency and autonomic dysreflexia", () => {
       status: "ad",
       reason: "ad",
       screen: "scr_ad",
-      lock: { reason: "ad", until: NEXT_DAY },
+      lock: nextDayLock(),
     });
   });
 });
@@ -484,10 +503,11 @@ describe("the stop list and the between tests question", () => {
     expect(r.data).toMatchObject({
       screen: "scr_fall_seated",
       endsCheck: true,
-      lock: { reason: "stop_symptom", until: NEXT_DAY },
+      lock: nextDayLock(),
     });
     const list = (await h.call("/assessments", undefined, cookie)).data.assessments;
-    expect(list[0]).toMatchObject({ status: "ended_early", endedReason: "stop:fall", completed: null });
+    // Q25 (d): the ended reason does not name the stop option.
+    expect(list[0]).toMatchObject({ status: "ended_early", endedReason: "stop", completed: null });
     // Results before the stop are kept; nothing more is stored; no new check today.
     expect(list[0].results).toHaveLength(1);
     const later = itemOf(s.data.protocol, "shoulder_abduction", "left");
@@ -509,7 +529,7 @@ describe("the stop list and the between tests question", () => {
     expect(r.data).toMatchObject({
       screen: "scr_emergency",
       endsCheck: true,
-      lock: { reason: "stop_symptom" },
+      lock: nextDayLock(),
     });
   });
 
@@ -531,13 +551,13 @@ describe("the stop list and the between tests question", () => {
     expect(r.data.status).toBe("skip");
     // The right arm curl loads the right shoulder too.
     expect(r.data.skips).toEqual(
-      expect.arrayContaining([{ testId: "arm_curl_30s", side: "right", reason: "pain_today" }]),
+      expect.arrayContaining([{ testId: "arm_curl_30s", side: "right", reason: "pain_more" }]),
     );
     expect(r.data.skips.every((k: any) => k.side !== "left")).toBe(true);
     const curl = itemOf(protocol, "arm_curl_30s", "right");
     expect((await h.call(`/assessments/${id}/results`, resultBody(curl, 12), cookie)).data).toEqual({
       error: "SKIPPED",
-      reason: "pain_today",
+      reason: "pain_more",
     });
     const same = await h.call(
       `/assessments/${id}/between`,
@@ -573,11 +593,11 @@ describe("the stop list and the between tests question", () => {
       status: "end",
       skips: [],
       screen: "scr_stop_pain",
-      lock: { reason: "stop_symptom", until: NEXT_DAY },
+      lock: nextDayLock(),
     });
     expect((await h.call("/assessments", undefined, cookie)).data.assessments[0]).toMatchObject({
       status: "ended_early",
-      endedReason: "between:much",
+      endedReason: "stop",
     });
   });
 });
@@ -1000,6 +1020,10 @@ describe("staff booth mode", () => {
   beforeAll(async () => {
     h = await startApi();
   });
+  // Booth mode works only on the booth days (O17); these tests run on T0 and 3 days later.
+  beforeEach(() => {
+    process.env.AZM_BOOTH_DATES = "2026-10-04,2026-10-07";
+  });
   afterAll(async () => {
     await h.close();
   });
@@ -1310,10 +1334,12 @@ describe("what reaches the database", () => {
     await h.call(`/assessments/${s.data.id}/stop`, { option: "breath" }, c);
     const db = h.inspect();
     const rows = db.prepare("SELECT * FROM safety_events ORDER BY reason").all();
+    // Q25 (a): by reason, by test id (or precheck) and by setting; a stop without its test side
+    // counts under none.
     expect(rows).toEqual([
-      { day: "2026-10-04", reason: "precheck:unwell", setting: "home", count: 2 },
-      { day: "2026-10-04", reason: "stop:breath", setting: "home", count: 1 },
-      { day: "2026-10-04", reason: "stop:tired", setting: "home", count: 1 },
+      { day: "2026-10-04", reason: "precheck:unwell", test_id: "precheck", setting: "home", count: 2 },
+      { day: "2026-10-04", reason: "stop:breath", test_id: "none", setting: "home", count: 1 },
+      { day: "2026-10-04", reason: "stop:tired", test_id: "none", setting: "home", count: 1 },
     ]);
     const ids = (db.prepare("SELECT id, email FROM users").all() as { id: string; email: string }[]).flatMap(
       (u) => [u.id, u.email],
@@ -1323,7 +1349,7 @@ describe("what reaches the database", () => {
     const columns = (db.prepare("PRAGMA table_info(safety_events)").all() as { name: string }[]).map(
       (c) => c.name,
     );
-    expect(columns).toEqual(["day", "reason", "setting", "count"]);
+    expect(columns).toEqual(["day", "reason", "test_id", "setting", "count"]);
   });
 });
 
@@ -1345,21 +1371,21 @@ describe("locks with several postpone reasons (SPEC-GAP multi-postpone)", () => 
       reason: "pain",
       screen: "scr_postpone_pain",
       alsoShow: ["scr_postpone_care"],
-      lock: { reason: "pain", until: NEXT_DAY },
+      lock: nextDayLock(),
     });
     setTime(T0 + 60 * 1000);
     const again = await start(h, cookie, { pc_change_cleared: "yes", pc_pain_now: 0 });
-    expect(again.data).toEqual({ error: "LOCKED", reason: "pain", until: NEXT_DAY });
+    expect(again.data).toEqual({ error: "LOCKED", ...nextDayLock() });
     expect((await h.call("/assessments", undefined, cookie)).data.assessments).toEqual([]);
   });
 
   it("an MS heat postpone with an uncleared change keeps the next day", async () => {
     const cookie = await member(h, "ms-change@example.test", intakeOf({ conditions: ["ms"] }));
     const r = await start(h, cookie, { pc_change: "yes", pc_change_cleared: "no", pc_ms_heat: "yes" });
-    expect(r.data).toMatchObject({ reason: "ms_heat", lock: { reason: "ms_heat", until: NEXT_DAY } });
+    expect(r.data).toMatchObject({ reason: "ms_heat", lock: nextDayLock() });
     setTime(T0 + 2 * HOUR);
     const again = await start(h, cookie, { pc_change_cleared: "yes", pc_ms_heat: "no" });
-    expect(again.data).toEqual({ error: "LOCKED", reason: "ms_heat", until: NEXT_DAY });
+    expect(again.data).toEqual({ error: "LOCKED", ...nextDayLock() });
   });
 });
 
@@ -1375,34 +1401,38 @@ describe("the same day lock row (setLock)", () => {
     return db;
   }
 
-  it("a later lock that no answer releases replaces recent_change at an equal end", () => {
+  // Q25 (c): the row keeps { until, releasableByClearance } and never the reason id.
+  const releasable = (until: number) => ({ until, releasableByClearance: true });
+  const fixed = (until: number) => ({ until, releasableByClearance: false });
+
+  it("a later lock that no answer releases makes a recent change lock fixed at an equal end", () => {
     const db = lockDb();
-    setLock(db, "u1", "recent_change", NEXT_DAY, T0);
-    setLock(db, "u1", "stop_symptom", NEXT_DAY, T0 + HOUR);
-    expect(currentLock(db, "u1", T0 + HOUR)).toEqual({ reason: "stop_symptom", until: NEXT_DAY });
+    setLock(db, "u1", releasable(NEXT_DAY), T0);
+    setLock(db, "u1", fixed(NEXT_DAY), T0 + HOUR);
+    expect(currentLock(db, "u1", T0 + HOUR)).toEqual(fixed(NEXT_DAY));
   });
 
-  it("recent_change never replaces a lock that no answer releases, and the end is the latest", () => {
+  it("a recent change lock never makes a fixed lock releasable, and the end is the latest", () => {
     const db = lockDb();
-    setLock(db, "u1", "ms_heat", T0 + HOUR, T0);
-    setLock(db, "u1", "recent_change", NEXT_DAY, T0 + 1);
-    expect(currentLock(db, "u1", T0 + 2)).toEqual({ reason: "ms_heat", until: NEXT_DAY });
+    setLock(db, "u1", fixed(T0 + HOUR), T0);
+    setLock(db, "u1", releasable(NEXT_DAY), T0 + 1);
+    expect(currentLock(db, "u1", T0 + 2)).toEqual(fixed(NEXT_DAY));
   });
 
   it("a longer lock replaces a shorter one; a shorter one keeps the longer end", () => {
     const db = lockDb();
-    setLock(db, "u1", "ms_heat", T0 + HOUR, T0);
-    setLock(db, "u1", "pain", NEXT_DAY, T0);
-    expect(currentLock(db, "u1", T0)).toEqual({ reason: "pain", until: NEXT_DAY });
-    setLock(db, "u1", "pd_off", T0 + HOUR, T0);
-    expect(currentLock(db, "u1", T0)).toEqual({ reason: "pain", until: NEXT_DAY });
+    setLock(db, "u1", fixed(T0 + HOUR), T0);
+    setLock(db, "u1", fixed(NEXT_DAY), T0);
+    expect(currentLock(db, "u1", T0)).toEqual(fixed(NEXT_DAY));
+    setLock(db, "u1", fixed(T0 + HOUR), T0);
+    expect(currentLock(db, "u1", T0)).toEqual(fixed(NEXT_DAY));
   });
 
   it("an ended lock is replaced as if there were none", () => {
     const db = lockDb();
-    setLock(db, "u1", "pain", T0 + HOUR, T0);
-    setLock(db, "u1", "recent_change", NEXT_DAY, T0 + 2 * HOUR);
-    expect(currentLock(db, "u1", T0 + 2 * HOUR)).toEqual({ reason: "recent_change", until: NEXT_DAY });
+    setLock(db, "u1", fixed(T0 + HOUR), T0);
+    setLock(db, "u1", releasable(NEXT_DAY), T0 + 2 * HOUR);
+    expect(currentLock(db, "u1", T0 + 2 * HOUR)).toEqual(releasable(NEXT_DAY));
   });
 });
 
@@ -1419,7 +1449,7 @@ describe("an open check after a postpone, an emergency or another day", () => {
     const s = await start(h, cookie);
     expect(s.status).toBe(200);
     const urgent = await start(h, cookie, { pc_urgent: "yes" });
-    expect(urgent.data).toMatchObject({ error: "POSTPONE", status: "emergency", lock: { reason: "urgent" } });
+    expect(urgent.data).toMatchObject({ error: "POSTPONE", status: "emergency", lock: nextDayLock() });
     const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
     expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie)).data).toEqual({
       error: "NOT_OPEN",
@@ -1427,10 +1457,10 @@ describe("an open check after a postpone, an emergency or another day", () => {
     });
     expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).data.error).toBe("NOT_OPEN");
     const list = (await h.call("/assessments", undefined, cookie)).data.assessments;
-    expect(list[0]).toMatchObject({ id: s.data.id, status: "abandoned", endedReason: "postponed" });
+    expect(list[0]).toMatchObject({ id: s.data.id, status: "abandoned", endedReason: "replaced" });
   });
 
-  it("a check started on an earlier day takes no results and cannot be completed", async () => {
+  it("a check started on an earlier day takes no results and ends early with its results kept (O6)", async () => {
     const cookie = await member(h, "open-stale@example.test", WHEELCHAIR_STROKE);
     const s = await start(h, cookie);
     const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
@@ -1442,24 +1472,30 @@ describe("an open check after a postpone, an emergency or another day", () => {
     const late = itemOf(s.data.protocol, "shoulder_abduction", "left");
     expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(late, 90), next)).data).toEqual({
       error: "NOT_OPEN",
-      status: "abandoned",
+      status: "ended_early",
     });
     expect((await h.call(`/assessments/${s.data.id}/complete`, {}, next)).data.error).toBe("NOT_OPEN");
-    expect((await h.call("/assessments", undefined, next)).data.assessments[0]).toMatchObject({
-      status: "abandoned",
-      endedReason: "stale",
-    });
+    const stale = (await h.call("/assessments", undefined, next)).data.assessments[0];
+    expect(stale).toMatchObject({ status: "ended_early", endedReason: "stale" });
+    expect(stale.results).toHaveLength(1);
   });
 
-  it("the same day, before midnight in Riyadh, the check goes on", async () => {
+  it("within 30 minutes of its last activity and the same day in Riyadh, the check goes on", async () => {
     const cookie = await member(h, "open-sameday@example.test", WHEELCHAIR_STROKE);
+    setTime(NEXT_DAY - 40 * 60 * 1000);
     const s = await start(h, cookie);
-    setTime(NEXT_DAY - 1);
+    setTime(NEXT_DAY - 11 * 60 * 1000);
     const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
     expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie)).status).toBe(
       200,
     );
-    expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).status).toBe(200);
+    // SPEC-GAP stale-open-check: midnight in Riyadh closes it too, even inside the 30 minutes.
+    setTime(NEXT_DAY + 5 * 60 * 1000);
+    const late = itemOf(s.data.protocol, "shoulder_abduction", "left");
+    expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(late, 90), cookie)).data).toEqual({
+      error: "NOT_OPEN",
+      status: "ended_early",
+    });
   });
 
   it("a safety stop still reaches a check from an earlier day", async () => {
@@ -1469,7 +1505,7 @@ describe("an open check after a postpone, an emergency or another day", () => {
     const next = await login(h, "open-stop@example.test");
     const stop = await h.call(`/assessments/${s.data.id}/stop`, { option: "chest" }, next);
     expect(stop.status).toBe(200);
-    expect(stop.data).toMatchObject({ endsCheck: true, lock: { reason: "stop_symptom" } });
+    expect(stop.data).toMatchObject({ endsCheck: true, lock: { releasableByClearance: false } });
   });
 });
 
@@ -1479,6 +1515,10 @@ describe("pc_sci_ad_since at the first home check after a booth check", () => {
   });
   afterAll(async () => {
     await h.close();
+  });
+
+  beforeEach(() => {
+    process.env.AZM_BOOTH_DATES = "2026-10-04";
   });
 
   it("is asked, and a yes postpones", async () => {

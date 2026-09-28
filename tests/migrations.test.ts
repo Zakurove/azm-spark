@@ -22,13 +22,16 @@ const LEGACY_DDL = `PRAGMA foreign_keys=ON;
  CREATE TABLE IF NOT EXISTS workouts(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),plan TEXT NOT NULL,version INTEGER NOT NULL,demo INTEGER NOT NULL,position INTEGER DEFAULT 0,ended INTEGER DEFAULT 0,created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS results(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),workout_id TEXT NOT NULL,position INTEGER NOT NULL,data TEXT NOT NULL,UNIQUE(workout_id,position));`;
 const TABLES = ["users", "sessions", "profiles", "workouts", "results"];
-/** Tables of 002_movement_check. */
+/** Tables of 002_movement_check and 003_council. */
 const CHECK_TABLES = [
+  "adult_confirmations",
   "assessment_results",
   "assessments",
+  "booth_passes",
   "check_locks",
   "check_state",
   "consents",
+  "product_counts",
   "safety_events",
 ];
 const VERSIONS = migrations.map((m) => m.version);
@@ -118,7 +121,7 @@ describe("runMigrations", () => {
     const file = join(dir, "fresh.sqlite");
     const out = runMigrations(openDb(file), { dbPath: file });
     expect(out).toEqual({ applied: VERSIONS, backup: null, schema: LATEST });
-    expect(VERSIONS).toEqual([1, 2]);
+    expect(VERSIONS).toEqual([1, 2, 3]);
     expect(tableNames(openDb(file))).toEqual([...TABLES, ...CHECK_TABLES, "schema_migrations"].sort());
     expect(existsSync(join(dir, "backups"))).toBe(false);
   });
@@ -149,28 +152,28 @@ describe("runMigrations", () => {
     expect(tableNames(copy)).not.toContain("schema_migrations"); // taken before any write
   });
 
-  it("brings a legacy database and a schema 1 database to schema 2 with every old row intact", () => {
-    // Straight from the Azm 5.0 file: 001 and 002 in one transaction, after one backup.
+  it("brings a legacy database and a schema 1 database to the latest schema with every old row intact", () => {
+    // Straight from the Azm 5.0 file: 001 to 003 in one transaction, after one backup.
     const legacy = legacyFile();
     const before = dump(openDb(legacy));
     const db = openDb(legacy);
     const out = runMigrations(db, { dbPath: legacy });
-    expect(out.applied).toEqual([1, 2]);
-    expect(out.schema).toBe(2);
+    expect(out.applied).toEqual([1, 2, 3]);
+    expect(out.schema).toBe(3);
     expect(dump(db)).toEqual(before);
     for (const t of CHECK_TABLES)
       expect((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n).toBe(0);
 
-    // A database already at schema 1 (the build before this one) gets only 002, after a pre-2 backup.
+    // A database at schema 1 gets 002 and 003, after a pre-2 backup.
     const one = legacyFile("one.sqlite");
     const oneDb = openDb(one);
     runMigrations(oneDb, { dbPath: one, migrations: migrations.filter((m) => m.version === 1) });
     oneDb.prepare("INSERT INTO users VALUES(?,?,?,?,?)").run("u2", "second@example.test", "Second", "x:y", 2);
     const atOne = dump(oneDb);
     const up = runMigrations(oneDb, { dbPath: one });
-    expect(up.applied).toEqual([2]);
-    expect(up.schema).toBe(2);
-    expect(logged(oneDb)).toEqual([1, 2]);
+    expect(up.applied).toEqual([2, 3]);
+    expect(up.schema).toBe(3);
+    expect(logged(oneDb)).toEqual([1, 2, 3]);
     expect(dump(oneDb)).toEqual(atOne);
     expect(basename(up.backup!)).toMatch(/-pre-2\.sqlite$/);
     expect(dump(openDb(up.backup!))).toEqual(atOne);
@@ -187,8 +190,12 @@ describe("runMigrations", () => {
     runMigrations(db, { dbPath: ":memory:" });
     const columns = (t: string) =>
       (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
-    expect(columns("safety_events")).toEqual(["day", "reason", "setting", "count"]);
-    expect(columns("check_locks")).toEqual(["user_id", "reason", "until"]);
+    // Q25 (a): the safety log and the product counts hold a day, ids and counts, never a user id.
+    expect(columns("safety_events")).toEqual(["day", "reason", "test_id", "setting", "count"]);
+    expect(columns("product_counts")).toEqual(["day", "metric", "key", "setting", "count"]);
+    expect(columns("booth_passes")).toEqual(["token_hash", "kind", "expires", "used"]);
+    // Q25 (c): the lock record keeps no reason id.
+    expect(columns("check_locks")).toEqual(["user_id", "until", "releasable_by_clearance"]);
     db.prepare("INSERT INTO users VALUES('u1','a@example.test','A','x:y',1)").run();
     db.prepare(
       "INSERT INTO assessments(id,user_id,kind,setting,series_meta,setup,protocol,precheck,device,started) VALUES('a1','u1','baseline','home','{}','{}','[]','{}','{}',1)",
@@ -213,6 +220,48 @@ describe("runMigrations", () => {
     expect(() => db.prepare("UPDATE assessments SET status='done' WHERE id='a2'").run()).toThrow(/CHECK/);
     db.prepare("DELETE FROM assessments WHERE id='a1'").run();
     expect(db.prepare("SELECT COUNT(*) AS n FROM assessment_results").get()).toEqual({ n: 0 });
+  });
+
+  it("brings a schema 2 database to schema 3 minimised: locks and ended reasons lose the reason", () => {
+    const file = join(dir, "two.sqlite");
+    const db = openDb(file);
+    runMigrations(db, { dbPath: file, migrations: migrations.filter((m) => m.version <= 2) });
+    db.exec(`INSERT INTO users VALUES('u1','a@example.test','A','x:y',1);
+      INSERT INTO users VALUES('u2','b@example.test','B','x:y',1);
+      INSERT INTO check_locks(user_id,reason,until) VALUES('u1','recent_change',100),('u2','pain',200);
+      INSERT INTO safety_events(day,reason,setting,count) VALUES('2026-09-30','precheck:unwell','home',3),
+        ('2026-09-30','stop:fall','booth',1);
+      INSERT INTO check_state(user_id,change_reported) VALUES('u1','2026-09-30');
+      INSERT INTO assessments(id,user_id,kind,setting,status,series_meta,setup,protocol,precheck,device,started,ended_reason)
+        VALUES('a1','u1','baseline','home','ended_early','{}','{}','[]','{}','{}',1,'stop:chest'),
+        ('a2','u1','baseline','home','ended_early','{}','{}','[]','{}','{}',2,'between:much'),
+        ('a3','u2','baseline','home','abandoned','{}','{}','[]','{}','{}',3,'postponed'),
+        ('a4','u2','baseline','home','abandoned','{}','{}','[]','{}','{}',4,'stale');`);
+    const out = runMigrations(db, { dbPath: file });
+    expect(out.applied).toEqual([3]);
+    expect(basename(out.backup!)).toMatch(/-pre-3\.sqlite$/);
+    expect(db.prepare("SELECT * FROM check_locks ORDER BY user_id").all()).toEqual([
+      { user_id: "u1", until: 100, releasable_by_clearance: 1 },
+      { user_id: "u2", until: 200, releasable_by_clearance: 0 },
+    ]);
+    expect(db.prepare("SELECT * FROM safety_events ORDER BY reason").all()).toEqual([
+      { day: "2026-09-30", reason: "precheck:unwell", test_id: "precheck", setting: "home", count: 3 },
+      { day: "2026-09-30", reason: "stop:fall", test_id: "none", setting: "booth", count: 1 },
+    ]);
+    expect(db.prepare("SELECT id, ended_reason, active FROM assessments ORDER BY id").all()).toEqual([
+      { id: "a1", ended_reason: "stop", active: null },
+      { id: "a2", ended_reason: "stop", active: null },
+      { id: "a3", ended_reason: "replaced", active: null },
+      { id: "a4", ended_reason: "stale", active: null },
+    ]);
+    expect(db.prepare("SELECT change_reported, faint_reported FROM check_state").get()).toEqual({
+      change_reported: "2026-09-30",
+      faint_reported: null,
+    });
+    // Same schema text as a fresh database.
+    const fresh = join(dir, "fresh.sqlite");
+    runMigrations(openDb(fresh), { dbPath: fresh });
+    expect(tableSql(db)).toEqual(tableSql(openDb(fresh)));
   });
 
   it("is a no op when re-run and writes no new backup", () => {

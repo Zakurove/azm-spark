@@ -34,8 +34,15 @@ export const CHECKIN_TIMING = {
   raisedHandSec: 1,
 } as const;
 
-/** The check in cue, `check_are_you_ok`. */
-export const CHECKIN_CUE: CheckCueId = checkIn.cue;
+/**
+ * The check in cue at the booth for a person who may raise a hand, `check_are_you_ok`
+ * (stopRouting.checkIn.cueSelection.booth.raiseAllowed). Revision 1.1 removed the single cue field.
+ */
+// SPEC-GAP: checkin-cue-selection. Revision 1.1 selects the cue by setting, raiseAllowed,
+// noArmSignal, on device speech and the fall watch (cueSelection, O33 (f)); that selection belongs to
+// the engine round (check in fine signal). The booth build asks raise allowed visitors with this
+// form; evaluatePrecheck returns raiseAllowed and noArmSignal for the selection.
+export const CHECKIN_CUE: CheckCueId = checkIn.cueSelection.booth.raiseAllowed;
 /** The full screen after no response. */
 export const NO_RESPONSE_SCREEN: ScreenId = "scr_no_response";
 

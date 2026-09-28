@@ -25,6 +25,25 @@ import { NOW, TODAY, envOf, fill, run, skipOf, variantsOf } from "./precheck-fix
 
 const standing = (p: Parameters<typeof envOf>[0] = {}, o: Parameters<typeof envOf>[1] = {}) =>
   envOf({ position: "standing", ...p }, o);
+/** Booth vitals (Q21): two readings, the heart rate and the cuff's irregular heartbeat flag. */
+const vitals = (v: Record<string, number | boolean> = {}) => ({
+  systolic1: 120,
+  diastolic1: 80,
+  systolic2: 120,
+  diastolic2: 80,
+  restingHeartRate: 70,
+  irregularHeartbeat: false,
+  ...v,
+});
+/**
+ * A booth chair stand for SCI, which the selection never produces (Q19 (5b)): the O47 rows of
+ * pc_booth_vitals are kept for defence in depth and tested here.
+ */
+const sciBoothStand = () =>
+  envOf(
+    { position: "standing", conditions: ["sci_incomplete"], clearance: "unsure" },
+    { setting: "booth", baseTests: ["shoulder_abduction", "chair_stand_30s", "arm_curl_30s"] },
+  );
 
 /* ------------------------------------------------------------------ data */
 
@@ -172,7 +191,7 @@ describe("visibleQuestions", () => {
     const seated = visibleQuestions(envOf(), {});
     expect(seated).not.toContain("pc_walking_aid");
     expect(seated).toEqual(
-      expect.arrayContaining(["pc_sit_unsupported", "pc_fall_sitting", "pc_trunk_armrests"]),
+      expect.arrayContaining(["pc_sit_unsupported", "pc_fall_sitting", "pc_trunk_armrests:chair"]),
     );
     const stand = visibleQuestions(standing(), {});
     expect(stand).toEqual(
@@ -186,7 +205,7 @@ describe("visibleQuestions", () => {
   });
 
   it("setting: pc_trunk_armrests and pc_helper at home only; pc_booth_vitals at the booth only", () => {
-    expect(visibleQuestions(envOf({}, { setting: "booth" }), {})).not.toContain("pc_trunk_armrests");
+    expect(visibleQuestions(envOf({}, { setting: "booth" }), {})).not.toContain("pc_trunk_armrests:chair");
     expect(visibleQuestions(envOf({}, { setting: "booth" }), {})).not.toContain(
       "pc_helper:trunk_control_seated",
     );
@@ -234,7 +253,7 @@ describe("visibleQuestions", () => {
     const unknown = envOf({}, { firstCheck: false });
     expect(visibleQuestions(unknown, fill(unknown))).toContain("pc_helper:trunk_control_seated");
     // Not when the test is already skipped by another answer.
-    const noArmrests = fill(envOf(), { pc_trunk_armrests: "no" });
+    const noArmrests = fill(envOf(), { "pc_trunk_armrests:chair": "no" });
     expect(visibleQuestions(envOf(), noArmrests)).not.toContain("pc_helper:trunk_control_seated");
   });
 
@@ -380,6 +399,29 @@ const CASES: Case[] = [
     env: wheel(["sci_incomplete"]),
     answers: { pc_urgent: "yes" },
     check: (o) => expect(o).toMatchObject({ status: "emergency", alsoShow: ["scr_ad"] }),
+  },
+  {
+    item: "pc_faint_since",
+    action: 0,
+    name: "yes postpones at once with recent_change and stores changeReported (Q33 (3))",
+    env: envOf({}, { firstCheck: false, faintReportedUnresolved: true }),
+    answers: { pc_faint_since: "yes" },
+    check: (o) =>
+      expect(o).toMatchObject({
+        status: "postpone",
+        reason: "recent_change",
+        screen: "scr_postpone_care",
+        stored: { changeReported: TODAY },
+        faintReportedCleared: true,
+      }),
+  },
+  {
+    item: "pc_faint_since",
+    action: 1,
+    name: "either answer clears faintReported (Q33 (3))",
+    env: envOf({}, { firstCheck: false, faintReportedUnresolved: true }),
+    answers: { pc_faint_since: "no" },
+    check: (o) => expect(o).toMatchObject({ status: "proceed", faintReportedCleared: true }),
   },
   {
     item: "pc_unwell",
@@ -684,9 +726,9 @@ const CASES: Case[] = [
   {
     item: "pc_sci_ready",
     action: 0,
-    name: "a box left unticked postpones (sci_ready) without a lock",
+    name: "not yet postpones (sci_ready) without a lock (7.2-8)",
     env: sciT6Later(),
-    answers: { pc_sci_ready: ["0", "1", "2", "3", "5"] },
+    answers: { pc_sci_ready: "not_yet" },
     check: (o) =>
       expect(o).toMatchObject({
         status: "postpone",
@@ -743,7 +785,7 @@ const CASES: Case[] = [
     action: 0,
     name: "no skips the side lean at home (armrests_needed)",
     env: envOf(),
-    answers: { pc_trunk_armrests: "no" },
+    answers: { "pc_trunk_armrests:chair": "no" },
     check: (o) => expect(skipOf(o, "trunk_control_seated", "left")).toBe("armrests_needed"),
   },
   {
@@ -892,19 +934,46 @@ const CASES: Case[] = [
   {
     item: "pc_booth_vitals",
     action: 0,
-    name: "a value above its limit skips the booth chair stand (booth_vitals)",
+    name: "a mean outside the Q21 limits skips the booth chair stand (booth_vitals)",
     env: standing({ clearance: "unsure" }, { setting: "booth" }),
-    answers: { pc_booth_vitals: { restingHeartRate: 80, systolic: 181, diastolic: 90 } },
+    answers: { pc_booth_vitals: vitals({ systolic1: 170, systolic2: 160 }) },
     check: (o) =>
       expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "booth_vitals" }]),
   },
   {
     item: "pc_booth_vitals",
     action: 1,
-    name: "no validated cuff or trained staff: the chair stand is not offered (clearance)",
+    name: "SCI at T6 or above with a systolic 20 above the usual one starts the AD response (O47 fallback)",
+    env: sciBoothStand(),
+    answers: { pc_sci_level: "yes", pc_booth_vitals: vitals({ usualSystolic: 100 }) },
+    check: (o) =>
+      expect(o).toMatchObject({ status: "ad", screen: "scr_ad", lock: { reason: "ad", until: "next_day" } }),
+  },
+  {
+    item: "pc_booth_vitals",
+    action: 2,
+    name: "sci_t6 never gets the booth chair stand (clearance_booth, O47 (3))",
+    env: sciBoothStand(),
+    answers: { pc_sci_level: "yes" },
+    check: (o) =>
+      expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance_booth" }]),
+  },
+  {
+    item: "pc_booth_vitals",
+    action: 3,
+    name: "sci_t6 with a mean systolic of 150 or more starts the AD response (O47 (3))",
+    env: sciBoothStand(),
+    answers: { pc_sci_level: "unsure", pc_booth_vitals: vitals({ systolic1: 148, systolic2: 152 }) },
+    check: (o) => expect(o.status).toBe("ad"),
+  },
+  {
+    item: "pc_booth_vitals",
+    action: 4,
+    name: "no validated cuff or licensed practitioner: the chair stand is not offered (clearance_booth, O47 (4))",
     env: standing({ clearance: "no" }, { setting: "booth" }),
     answers: { pc_booth_vitals: "unavailable" },
-    check: (o) => expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance" }]),
+    check: (o) =>
+      expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance_booth" }]),
   },
   {
     item: "pc_helper",
@@ -1153,13 +1222,21 @@ describe("chair stand rules (spec 4.4)", () => {
     );
   });
 
-  it("booth vitals at the limit (not above) allow the chair stand", () => {
+  it("booth vitals just inside the Q21 limits allow the chair stand", () => {
     const env = standing({ clearance: "no" }, { setting: "booth" });
-    const o = run(env, { pc_booth_vitals: { restingHeartRate: 120, systolic: 180, diastolic: 100 } });
+    const o = run(env, {
+      pc_booth_vitals: vitals({
+        restingHeartRate: 120,
+        systolic1: 159,
+        systolic2: 159,
+        diastolic1: 99,
+        diastolic2: 99,
+      }),
+    });
     expect(o.skips).toEqual([]);
-    const hr = run(env, { pc_booth_vitals: { restingHeartRate: 121, systolic: 110, diastolic: 70 } });
+    const hr = run(env, { pc_booth_vitals: vitals({ restingHeartRate: 121 }) });
     expect(skipOf(hr, "chair_stand_30s", "none")).toBe("booth_vitals");
-    const dia = run(env, { pc_booth_vitals: { restingHeartRate: 70, systolic: 110, diastolic: 101 } });
+    const dia = run(env, { pc_booth_vitals: vitals({ diastolic1: 100, diastolic2: 100 }) });
     expect(skipOf(dia, "chair_stand_30s", "none")).toBe("booth_vitals");
     // Staff must enter the values before the check can start.
     expect(evaluatePrecheck(env, { ...fill(env), pc_booth_vitals: { systolic: 120 } }, NOW).status).toBe(
@@ -1228,7 +1305,7 @@ describe("decision order", () => {
     expect(run(env, { pc_ms_heat: "yes", pc_pd_on: "no" }).reason).toBe("ms_heat");
     expect(run(env, { pc_ms_heat: "yes", pc_unwell: "yes" }).reason).toBe("unwell");
     const t6 = sciT6Later();
-    expect(run(t6, { pc_sci_ready: false, pc_pain_now: 9 }).reason).toBe("pain");
+    expect(run(t6, { pc_sci_ready: "not_yet", pc_pain_now: 9 }).reason).toBe("pain");
     // A postpone keeps changeReported even when another reason is shown.
     const both = run(envOf(), { pc_unwell: "yes", pc_change: "yes", pc_change_cleared: "no" });
     expect(both).toMatchObject({ reason: "unwell", stored: { changeReported: TODAY } });
@@ -1401,7 +1478,7 @@ describe("several postpone reasons at once (SPEC-GAP multi-postpone)", () => {
   });
 
   it("keeps recent_change when it is the only reason that locks", () => {
-    const o = run(sciT6Later(), { pc_change: "yes", pc_change_cleared: "no", pc_sci_ready: false });
+    const o = run(sciT6Later(), { pc_change: "yes", pc_change_cleared: "no", pc_sci_ready: "not_yet" });
     expect(o).toMatchObject({
       reason: "recent_change",
       lock: { reason: "recent_change", until: "next_day" },

@@ -25,7 +25,12 @@ export interface SeriesMeta {
   poseModel: PoseModel;
   /** The intake version (profiles.version) the setup was answered under. */
   intakeVersion: number;
+  /** The side lean only session of Q12 (2); missing means a full check. */
+  session?: CheckSession;
 }
+
+/** A full check, or the side lean only session that sets the second side lean baseline (Q12 (2)). */
+export type CheckSession = "full" | "side_lean_only";
 
 export interface Assessment {
   id: string;
@@ -41,6 +46,8 @@ export interface Assessment {
   started: number;
   completed: number | null;
   endedReason: string | null;
+  /** The last activity of the check (O6): its start, a result, a stop, a between answer, a resume. */
+  active: number;
 }
 
 interface AssessmentRow {
@@ -57,6 +64,7 @@ interface AssessmentRow {
   started: number;
   completed: number | null;
   ended_reason: string | null;
+  active: number | null;
 }
 
 function toAssessment(r: AssessmentRow): Assessment {
@@ -74,6 +82,7 @@ function toAssessment(r: AssessmentRow): Assessment {
     started: Number(r.started),
     completed: r.completed === null ? null : Number(r.completed),
     endedReason: r.ended_reason,
+    active: r.active === null ? Number(r.started) : Number(r.active),
   };
 }
 
@@ -120,6 +129,36 @@ export function lastCompleted(db: DatabaseSync, userId: string, setting?: Settin
   return r ? toAssessment(r) : null;
 }
 
+/** Every completed check of the person with its setting and session, for the schedule (H9, Q12 (2)). */
+export function completedChecks(
+  db: DatabaseSync,
+  userId: string,
+): { completed: number; setting: Setting; session: CheckSession; hadSideLean: boolean }[] {
+  const rows = db
+    .prepare(
+      `SELECT a.completed, a.setting, a.series_meta,
+         EXISTS(SELECT 1 FROM assessment_results r WHERE r.assessment_id=a.id AND r.test_id='trunk_control_seated' AND r.value IS NOT NULL) AS lean
+       FROM assessments a WHERE a.user_id=? AND a.status='completed' ORDER BY a.completed, a.rowid`,
+    )
+    .all(userId) as { completed: number; setting: Setting; series_meta: string; lean: number }[];
+  return rows.map((r) => ({
+    completed: Number(r.completed),
+    setting: r.setting,
+    session: (JSON.parse(r.series_meta) as SeriesMeta).session ?? "full",
+    hadSideLean: Number(r.lean) === 1,
+  }));
+}
+
+/** The person's open check, or null (a person has one open check at a time). */
+export function openAssessment(db: DatabaseSync, userId: string): Assessment | null {
+  const r = db
+    .prepare(
+      "SELECT * FROM assessments WHERE user_id=? AND status='open' ORDER BY started DESC, rowid DESC LIMIT 1",
+    )
+    .get(userId) as AssessmentRow | undefined;
+  return r ? toAssessment(r) : null;
+}
+
 /** The newest check of any status: every stored check passed its pre-check, so its setup holds. */
 export function latestAssessment(db: DatabaseSync, userId: string): Assessment | null {
   const r = db
@@ -140,55 +179,95 @@ export interface NewAssessment {
   started: number;
 }
 
-/** Stores a new open check; any other open check of the person is abandoned. Returns the id. */
-export function createAssessment(db: DatabaseSync, a: NewAssessment): string {
+/**
+ * Stores a new check, open, or ended early when no test runs today (O21: ended reason all_skipped).
+ * Any other open check of the person is closed first (closeOpen, reason replaced). Returns the id.
+ */
+export function createAssessment(
+  db: DatabaseSync,
+  a: NewAssessment,
+  status: "open" | "ended_early" = "open",
+): string {
   const id = randomUUID();
+  closeOpen(db, a.userId, "replaced", a.started);
   db.prepare(
-    "UPDATE assessments SET status='abandoned', ended_reason='replaced' WHERE user_id=? AND status='open'",
-  ).run(a.userId);
-  db.prepare(
-    "INSERT INTO assessments(id,user_id,kind,setting,status,series_meta,setup,protocol,precheck,device,started,completed,ended_reason) VALUES(?,?,?,?,'open',?,?,?,?,?,?,NULL,NULL)",
+    "INSERT INTO assessments(id,user_id,kind,setting,status,series_meta,setup,protocol,precheck,device,started,completed,ended_reason,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,NULL,?,?)",
   ).run(
     id,
     a.userId,
     a.kind,
     a.setting,
+    status,
     JSON.stringify(a.meta),
     JSON.stringify(a.setup),
     JSON.stringify(a.protocol),
     JSON.stringify(a.precheck),
     JSON.stringify(a.device),
     a.started,
+    status === "open" ? null : "all_skipped",
+    a.started,
   );
   return id;
 }
 
-/** Ends every open check of the person (a postponed start, a stale check); results are not kept. */
-export function abandonOpen(db: DatabaseSync, userId: string, reason: string, id?: string) {
-  if (id !== undefined) {
-    db.prepare(
-      "UPDATE assessments SET status='abandoned', ended_reason=? WHERE id=? AND user_id=? AND status='open'",
-    ).run(reason, id, userId);
-  } else {
-    db.prepare(
-      "UPDATE assessments SET status='abandoned', ended_reason=? WHERE user_id=? AND status='open'",
-    ).run(reason, userId);
-  }
+/** Ended reasons of a stored check. None names a stop option or a symptom (Q25 (d)). */
+export type EndedReason = "stop" | "stale" | "replaced" | "all_skipped" | "consent_revoked";
+
+/**
+ * Closes an open check that will take nothing more (O6 (3), (4)): ended early when it has a stored
+ * result or skip, so its finished tests are kept, otherwise abandoned. `until` is when it stopped
+ * (its last activity for an idle check), which ends its minutes in the product counts.
+ */
+export function closeCheck(
+  db: DatabaseSync,
+  a: Assessment,
+  reason: EndedReason,
+  until: number,
+): AssessmentStatus {
+  const status: Exclude<AssessmentStatus, "open"> = resultsOf(db, a.id).length ? "ended_early" : "abandoned";
+  const out = db
+    .prepare("UPDATE assessments SET status=?, completed=NULL, ended_reason=? WHERE id=? AND status='open'")
+    .run(status, reason, a.id);
+  if (Number(out.changes) && status === "ended_early") countClosed(db, a, "ended_early", until);
+  return status;
 }
 
-export function setStatus(
+/** Closes every open check of the person (a new start, a postponed start). */
+export function closeOpen(db: DatabaseSync, userId: string, reason: EndedReason, now: number) {
+  const open = db
+    .prepare("SELECT * FROM assessments WHERE user_id=? AND status='open'")
+    .all(userId) as unknown as AssessmentRow[];
+  for (const r of open) closeCheck(db, toAssessment(r), reason, Math.min(now, toAssessment(r).active));
+}
+
+/**
+ * Ends an open check as completed (`completed` is the time) or ended early by a stop, and adds it to
+ * the product counts. Returns false when the check was no longer open.
+ */
+export function finishCheck(
   db: DatabaseSync,
-  id: string,
-  status: Exclude<AssessmentStatus, "open">,
-  completed: number | null,
-  endedReason: string | null,
-) {
-  db.prepare("UPDATE assessments SET status=?, completed=?, ended_reason=? WHERE id=? AND status='open'").run(
-    status,
-    completed,
-    endedReason,
-    id,
-  );
+  a: Assessment,
+  status: "completed" | "ended_early",
+  now: number,
+  endedReason: EndedReason | null,
+): boolean {
+  const out = db
+    .prepare("UPDATE assessments SET status=?, completed=?, ended_reason=? WHERE id=? AND status='open'")
+    .run(status, status === "completed" ? now : null, endedReason, a.id);
+  if (!Number(out.changes)) return false;
+  countClosed(db, a, status, now);
+  return true;
+}
+
+function countClosed(db: DatabaseSync, a: Assessment, status: "completed" | "ended_early", until: number) {
+  countProduct(db, status === "completed" ? "checks_completed" : "checks_ended_early", "", a.setting, until);
+  const minutes = Math.max(0, Math.round((until - a.started) / 60000));
+  if (minutes > 0) countProduct(db, "check_minutes", "", a.setting, until, minutes);
+}
+
+/** Records activity on an open check (O6: the 30 minute window runs from the last activity). */
+export function touch(db: DatabaseSync, id: string, now: number) {
+  db.prepare("UPDATE assessments SET active=? WHERE id=? AND status='open'").run(now, id);
 }
 
 export function updatePrecheck(db: DatabaseSync, id: string, precheck: Record<string, unknown>) {
@@ -287,8 +366,17 @@ export function resultOf(
   return r ? toResult(r) : null;
 }
 
-/** Inserts the result of one test side, or replaces it (the check is open; UNIQUE per test side). */
-export function saveResult(db: DatabaseSync, userId: string, r: Omit<ResultRecord, "id">) {
+/**
+ * Inserts the result of one test side, or replaces it (the check is open; UNIQUE per test side). A
+ * first score adds one finished test, a first skip one skipped test under its reason (Q2 (6)), so a
+ * re-post counts nothing again. `setting` is the check's.
+ */
+export function saveResult(db: DatabaseSync, userId: string, r: Omit<ResultRecord, "id">, setting: Setting) {
+  const before = resultOf(db, r.assessmentId, r.testId, r.side);
+  if (r.value !== null && (before === null || before.value === null))
+    countProduct(db, "tests_finished", r.testId, setting, r.created);
+  if (r.skippedReason !== null && before === null)
+    countProduct(db, "tests_skipped", r.skippedReason, setting, r.created);
   db.prepare(
     `INSERT INTO assessment_results(id,assessment_id,user_id,test_id,side,value,unit,variant,band,attempts,quality,detail,flags,n_valid,median,skipped_reason,series_key,pose_model,movement_version,engine_version,created)
      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -320,17 +408,27 @@ export function saveResult(db: DatabaseSync, userId: string, r: Omit<ResultRecor
 
 /**
  * Every kept result of the person (completed and ended early checks) as the progress rules read it,
- * chronological. The position, setting and limb loss come from the check the result belongs to.
+ * chronological, plus the results of the check `alsoId` whatever its status (the end of check
+ * question of a check still open). The position, setting and limb loss come from the check the
+ * result belongs to.
  */
-export function keptResults(db: DatabaseSync, userId: string): (StoredResult & { assessmentId: string })[] {
+export function keptResults(
+  db: DatabaseSync,
+  userId: string,
+  alsoId?: string,
+): (StoredResult & { assessmentId: string })[] {
   const rows = db
     .prepare(
       `SELECT r.*, a.setting AS a_setting, a.series_meta AS a_meta, a.setup AS a_setup
        FROM assessment_results r JOIN assessments a ON a.id=r.assessment_id
-       WHERE r.user_id=? AND a.status IN ('completed','ended_early')
+       WHERE r.user_id=? AND (a.status IN ('completed','ended_early') OR a.id=?)
        ORDER BY r.created, r.rowid`,
     )
-    .all(userId) as unknown as (ResultRow & { a_setting: Setting; a_meta: string; a_setup: string })[];
+    .all(userId, alsoId ?? "") as unknown as (ResultRow & {
+    a_setting: Setting;
+    a_meta: string;
+    a_setup: string;
+  })[];
   return rows.map((row) => {
     const r = toResult(row);
     const meta = JSON.parse(row.a_meta) as SeriesMeta;
@@ -419,80 +517,128 @@ export function baselineRanges(results: readonly StoredResult[]): Record<string,
 
 /* ------------------------------------------------------------------ locks */
 
+/**
+ * The lock record per person (Q25 (c)): when it ends and whether a clearance answer releases it at
+ * once, never the reason id. Deleted at expiry.
+ */
 export interface LockRecord {
-  reason: string;
   until: number;
+  releasableByClearance: boolean;
 }
 
 /** The person's same day lock, or null; an ended lock is deleted (spec 2.1 data map). */
 export function currentLock(db: DatabaseSync, userId: string, now: number): LockRecord | null {
   db.prepare("DELETE FROM check_locks WHERE until<=?").run(now);
-  const r = db.prepare("SELECT reason, until FROM check_locks WHERE user_id=?").get(userId) as
-    { reason: string; until: number } | undefined;
-  return r ? { reason: r.reason, until: Number(r.until) } : null;
+  const r = db
+    .prepare("SELECT until, releasable_by_clearance FROM check_locks WHERE user_id=?")
+    .get(userId) as { until: number; releasable_by_clearance: number } | undefined;
+  return r
+    ? { until: Number(r.until), releasableByClearance: Number(r.releasable_by_clearance) === 1 }
+    : null;
 }
-
-/** The lock reason an answer can release at once (spec 2.1 locks: pc_change_cleared yes). */
-export const RELEASABLE_LOCK = "recent_change";
 
 /**
  * Sets a lock at `now`. One row holds the person's lock, so a new lock merges with one in place: the
- * later end wins, and the reason is one no answer releases whenever either lock has such a reason
- * (a yes to pc_change_cleared must never lift a stop or pain lock with it); otherwise the reason of
- * the later end, the new one on a tie. A lock that has ended counts as none.
+ * later end wins, and a clearance answer releases the merged lock only when it releases both (a yes
+ * to pc_change_cleared must never lift a stop or pain lock with it). A lock that has ended counts as
+ * none.
  */
-export function setLock(db: DatabaseSync, userId: string, reason: string, until: number, now: number) {
+export function setLock(db: DatabaseSync, userId: string, lock: LockRecord, now: number) {
   db.prepare("DELETE FROM check_locks WHERE user_id=? AND until<=?").run(userId, now);
   db.prepare(
-    `INSERT INTO check_locks(user_id,reason,until) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET
-       reason=CASE
-         WHEN excluded.reason='${RELEASABLE_LOCK}' AND check_locks.reason<>'${RELEASABLE_LOCK}' THEN check_locks.reason
-         WHEN check_locks.reason='${RELEASABLE_LOCK}' AND excluded.reason<>'${RELEASABLE_LOCK}' THEN excluded.reason
-         WHEN excluded.until>=check_locks.until THEN excluded.reason
-         ELSE check_locks.reason END,
-       until=MAX(check_locks.until, excluded.until)`,
-  ).run(userId, reason, until);
+    `INSERT INTO check_locks(user_id,until,releasable_by_clearance) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET
+       until=MAX(check_locks.until, excluded.until),
+       releasable_by_clearance=MIN(check_locks.releasable_by_clearance, excluded.releasable_by_clearance)`,
+  ).run(userId, lock.until, lock.releasableByClearance ? 1 : 0);
 }
 
 export function clearLock(db: DatabaseSync, userId: string) {
   db.prepare("DELETE FROM check_locks WHERE user_id=?").run(userId);
 }
 
-/* ---------------------------------------------------------- safety events */
+/* ------------------------------------------------- safety log, product counts */
+
+/** The test id of a safety count: a test, "precheck", or "none" when no test was running. */
+export type CountTestId = TestId | "precheck" | "none";
 
 /**
- * Adds one to the anonymous count of a postpone or stop reason for the day in Asia/Riyadh and the
- * setting (spec 2.1 safety log, Q25). No user id, no time of day: nothing links it to a person.
+ * Adds one to the anonymous count of a safety event for the day in Asia/Riyadh, the test id (or
+ * precheck) and the setting (Q25 (a), spec 2.1 safety log). No user id, no check id, no condition, no
+ * time finer than the day: nothing links it to a person.
  */
 // SPEC-GAP: safety-reason-keys. Reasons carry their source, because ids overlap (pain is a postpone
-// reason and a stop option): precheck:<postpone reason, urgent or ad>, stop:<stop option>, and
-// between:much (bt_pain_after ends the check).
-export function countSafetyEvent(db: DatabaseSync, reason: string, setting: Setting, now: number) {
+// reason and a stop option): precheck:<postpone reason, urgent or ad> (the start and the O6 re-ask),
+// stop:<stop option>, between:much (bt_pain_after ends the check), end:symptoms (Q23 (7) yes),
+// faint_loc:<yes, no or unsure> (Q33 (3)) and alarm:<no_response or help_requested> (O34-5).
+export function countSafetyEvent(
+  db: DatabaseSync,
+  reason: string,
+  testId: CountTestId,
+  setting: Setting,
+  now: number,
+) {
   db.prepare(
-    "INSERT INTO safety_events(day,reason,setting,count) VALUES(?,?,?,1) ON CONFLICT(day,reason,setting) DO UPDATE SET count=count+1",
-  ).run(riyadhDate(now), reason, setting);
+    "INSERT INTO safety_events(day,reason,test_id,setting,count) VALUES(?,?,?,?,1) ON CONFLICT(day,reason,test_id,setting) DO UPDATE SET count=count+1",
+  ).run(riyadhDate(now), reason, testId, setting);
+}
+
+/**
+ * The anonymous daily product counts (Q2 (6)) and the denominators of the safety log (Q25 (a)), in
+ * the same form: checks_started, checks_completed, checks_ended_early and check_minutes (key ""),
+ * tests_finished and quality_retries (key: test id), tests_skipped (key: reason id).
+ */
+export type ProductMetric =
+  | "checks_started"
+  | "checks_completed"
+  | "checks_ended_early"
+  | "check_minutes"
+  | "tests_finished"
+  | "tests_skipped"
+  | "quality_retries";
+
+export function countProduct(
+  db: DatabaseSync,
+  metric: ProductMetric,
+  key: string,
+  setting: Setting,
+  now: number,
+  n = 1,
+) {
+  db.prepare(
+    "INSERT INTO product_counts(day,metric,key,setting,count) VALUES(?,?,?,?,?) ON CONFLICT(day,metric,key,setting) DO UPDATE SET count=count+excluded.count",
+  ).run(riyadhDate(now), metric, key, setting, n);
 }
 
 /* ------------------------------------------------------------ check state */
 
 export interface CheckState {
-  /** Date (Asia/Riyadh) of the last pc_change_cleared no; cleared again by a later yes. */
+  /** Date (Asia/Riyadh) of the last reported change (Q33 (2)); cleared again by a later clearance. */
   changeReported: string | null;
   changeCleared: string | null;
   /** Id of the check whose lasting ac_next_day answer was resolved by pc_after_last yes. */
   lastingResolved: string | null;
+  /** Date of the last faint stop (Q33 (3)), until pc_faint_since is answered. */
+  faintReported: string | null;
 }
 
 export function checkState(db: DatabaseSync, userId: string): CheckState {
   const r = db
-    .prepare("SELECT change_reported, change_cleared, lasting_resolved FROM check_state WHERE user_id=?")
+    .prepare(
+      "SELECT change_reported, change_cleared, lasting_resolved, faint_reported FROM check_state WHERE user_id=?",
+    )
     .get(userId) as
-    | { change_reported: string | null; change_cleared: string | null; lasting_resolved: string | null }
+    | {
+        change_reported: string | null;
+        change_cleared: string | null;
+        lasting_resolved: string | null;
+        faint_reported: string | null;
+      }
     | undefined;
   return {
     changeReported: r?.change_reported ?? null,
     changeCleared: r?.change_cleared ?? null,
     lastingResolved: r?.lasting_resolved ?? null,
+    faintReported: r?.faint_reported ?? null,
   };
 }
 
@@ -516,6 +662,18 @@ export function reportChange(db: DatabaseSync, userId: string, date: string) {
 export function clearChange(db: DatabaseSync, userId: string, date: string) {
   ensureState(db, userId);
   db.prepare("UPDATE check_state SET change_cleared=? WHERE user_id=?").run(date, userId);
+}
+
+/** A faint stop (Q33 (3)): the date only, asked about once at the next check (pc_faint_since). */
+export function reportFaint(db: DatabaseSync, userId: string, date: string) {
+  ensureState(db, userId);
+  db.prepare("UPDATE check_state SET faint_reported=? WHERE user_id=?").run(date, userId);
+}
+
+/** Either answer to pc_faint_since clears faintReported (Q33 (3)). */
+export function clearFaint(db: DatabaseSync, userId: string) {
+  ensureState(db, userId);
+  db.prepare("UPDATE check_state SET faint_reported=NULL WHERE user_id=?").run(userId);
 }
 
 export function resolveLasting(db: DatabaseSync, userId: string, assessmentId: string) {

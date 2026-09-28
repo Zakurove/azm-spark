@@ -2,12 +2,18 @@
  * Movement check: setting, context, setup and protocol selection (contract v2, section B; clinical
  * spec 3.1 to 3.4 and 5 "Re-test interval").
  *
- *   contextFromIntake  who gets a check at all (spec 3.1), from the stored intake and plan
- *   guestContext       the same gate for the booth guest steps (Q19), clearance counts as unsure
- *   baseSelection      tests per position in fixed order, intake level exclusions, the trunk
- *                      substitute for standing users, sides and side order (spec 3.2 to 3.4)
- *   finalizeProtocol   today's protocol after the pre-check: skips, variants, helper, band
- *   retestDue          28 days after the last completed check; 48 hours minimum between checks
+ *   contextFromIntake  who gets a check at all (spec 3.1), from the stored intake and plan; at the
+ *                      booth stroke and SCI without clearance yes get the booth arm raise (Q19)
+ *   guestContext       the same gate for the booth guest steps with their clearance answer (Q19)
+ *   baseSelection      tests per position in fixed order, intake level exclusions, the booth rule of
+ *                      Q19 (5b), the trunk substitute for standing users, sides and side order
+ *                      (spec 3.2 to 3.4)
+ *   finalizeProtocol   today's protocol after the pre-check: skips, variants, helper, band, and
+ *                      whether the substitute ran (P6)
+ *   estimateMinutes    the computed duration of a check (O40)
+ *   checkSchedule      due 28 days after the last home check; 48 hours minimum between checks; the
+ *                      booth and the side lean only session (H9, Q12 (2), Q33)
+ *   allowedLoads       the loads an arm may use (Q5)
  *
  * Rules before AI: every decision is a fixed rule. Values (tests per position, exclusion keys, side
  * order, retest days) come from src/movements/check-v1.json; rules the data only describes in prose
@@ -27,14 +33,20 @@ import type {
 } from "../movements/types";
 import { conditions as CONDITION_IDS, painOptions, restrictionOptions } from "./plan";
 import type { Intake, Plan } from "./plan";
-import { dayVariant, type PrecheckOutcome, type TestSide } from "./precheck";
-import { checkTimeBand } from "./progress-rules";
+import {
+  dayVariant,
+  possibleQuestions,
+  type PrecheckEnv,
+  type PrecheckOutcome,
+  type TestSide,
+} from "./precheck";
+import { LOAD_LIMITS, checkTimeBand } from "./progress-rules";
 
 export type { CheckPosition, Setting };
 
 /* ------------------------------------------------------------------ types */
 
-/** From the intake (signed in) or from the guest steps (booth; clearance counts as unsure there). */
+/** From the intake (signed in) or from the guest steps (booth; the guest answers clearance, Q19 (2)). */
 export interface CheckContext {
   position: CheckPosition;
   support: Support;
@@ -108,6 +120,11 @@ export interface ProtocolItem {
   skipped?: ReasonId;
   /** The seated side lean in the chair stand slot of a standing person (spec 3.2). */
   substitute?: true;
+  /**
+   * The excluded chair stand whose slot the side lean actually runs in today (P6): its skip reason
+   * gets reasonSuffixes.substituteRan, for the reasons listed in appendTo only.
+   */
+  substituteRan?: true;
 }
 
 /* -------------------------------------------------------------- the gate */
@@ -140,6 +157,18 @@ export type BlockedReason = ClinicalReviewReason | "review" | "invalid_input" | 
 /** Conditions whose plan requires clearance yes (the plan's requiresMedicalClearance configs). */
 const CLEARANCE_CONDITIONS = ["stroke", "sci_complete", "sci_incomplete"];
 
+/**
+ * The booth rule of Q19 (5b): stroke, sci_complete or sci_incomplete with clearance no or not sure.
+ * At the booth such a person runs the seated arm raise only (active, no load, all its rules, staff
+ * within reach); the side lean, the arm curl and the chair stand are skipped with clearance_booth.
+ * At home the same person gets no check (spec 3.1).
+ */
+export function boothClearanceRule(ctx: Pick<CheckContext, "conditions" | "clearance">): boolean {
+  return ctx.clearance !== "yes" && CLEARANCE_CONDITIONS.some((c) => ctx.conditions.includes(c));
+}
+/** The one test of the Q19 (5b) booth rule. */
+const BOOTH_RULE_TEST: TestId = "shoulder_abduction";
+
 const MOBILITY_TO_POSITION: Record<string, CheckPosition> = {
   seated: "chair",
   wheelchair: "wheelchair",
@@ -155,8 +184,15 @@ interface GateInput {
   recentChange?: "yes" | "no";
 }
 
-/** The clinical review reasons of spec 3.1 that hold for these answers, in report order. */
-function gateReasons(g: GateInput): ClinicalReviewReason[] {
+/**
+ * The clinical review reasons of spec 3.1 that hold for these answers, in report order. At the
+ * booth the clearance reason does not block: the booth rule of Q19 (5b) applies instead (3.1, Q20).
+ */
+function gateReasons(g: GateInput, setting: Setting = "home"): ClinicalReviewReason[] {
+  return gateReasonsAtHome(g).filter((r) => !(setting === "booth" && r === "clearance"));
+}
+
+function gateReasonsAtHome(g: GateInput): ClinicalReviewReason[] {
   const holds: Record<ClinicalReviewReason, boolean> = {
     unsupported_position: g.position === "bed",
     cardiac: g.conditions.includes("cardiac"),
@@ -186,8 +222,14 @@ const CLEARANCES: readonly string[] = ["yes", "no", "unsure"];
  * bed and every clinical review reason; ignores the scheduling reasons (recovery, duration,
  * no_exercises). The clinical reasons are read from the plan and again from the intake, so a plan
  * made before an intake change cannot open the check. Mobility seated maps to the chair position.
+ * At the booth (a signed in visitor runs in booth mode, Q19 (6)) stroke and SCI without clearance yes
+ * are not blocked: baseSelection gives them the booth arm raise only (3.1, Q19 (5b), Q20).
  */
-export function contextFromIntake(intake: Intake, plan: Plan): CheckContext | Blocked {
+export function contextFromIntake(
+  intake: Intake,
+  plan: Plan,
+  setting: Setting = "home",
+): CheckContext | Blocked {
   if (
     !intake ||
     !isList(intake.conditions, CONDITION_IDS) ||
@@ -199,18 +241,25 @@ export function contextFromIntake(intake: Intake, plan: Plan): CheckContext | Bl
     return { blocked: "invalid_input" };
   }
   const position = MOBILITY_TO_POSITION[intake.mobility];
-  const fromIntake = gateReasons({
+  const gate: GateInput = {
     position: position ?? "bed",
     conditions: intake.conditions,
     restrictions: intake.restrictions,
     clearance: intake.clearance,
     symptoms: intake.symptoms,
     recentChange: intake.recentChange,
-  });
+  };
+  const fromIntake = gateReasons(gate, setting);
   const scheduling: readonly string[] = SCHEDULING_REVIEW_REASONS;
+  // At the booth the plan's clearance reason gives way to the booth rule, only when the intake shows
+  // that rule holds (stroke or SCI without clearance yes).
+  const boothRule =
+    setting === "booth" && boothClearanceRule(intake as Pick<CheckContext, "conditions" | "clearance">);
   // SPEC-GAP: unknown-plan-reason. A plan reason that is neither a clinical nor a scheduling reason
   // of spec 3.1 blocks the check (the safe side), and so does a plan in review without a reason.
-  const fromPlan = (plan?.reasons ?? []).filter((r) => !scheduling.includes(r));
+  const fromPlan = (plan?.reasons ?? []).filter(
+    (r) => !scheduling.includes(r) && !(boothRule && r === "clearance"),
+  );
   const found = new Set<string>([...fromIntake, ...fromPlan]);
   const first = [...CLINICAL_REVIEW_REASONS, ...fromPlan].find((r) => found.has(r));
   if (first) return { blocked: first };
@@ -232,37 +281,55 @@ export interface GuestSteps {
   support: Support;
   pain: string[];
   restrictions: string[];
-  /** Empty means no condition (none). */
+  /**
+   * Empty means no condition (none). The guest chip sci_unsure («إصابة في الحبل الشوكي، ولا أعرف
+   * نوعها») maps to sci_complete, the stricter rules (O20).
+   */
   conditions: string[];
+  /**
+   * The intake's clearance question, asked of every guest word for word (Q19 (2)); a skipped
+   * answer (missing or null) counts as not sure.
+   */
+  clearance?: Clearance | null;
 }
 
+/** The guest condition chip that maps to sci_complete (O20). */
+export const GUEST_SCI_UNSURE = "sci_unsure";
+
 /**
- * The check context of a booth guest, or why there is no check. The guest is never asked about
- * clearance, so clearance counts as unsure: arm curls without weight, the chair stand only after the
- * staff vitals, and no check for stroke or SCI (spec 3.1 needs clearance yes for them). cardiac or
- * other: no check, the person talks to the staff (selection.guestBooth).
+ * The check context of a booth guest, or why there is no check (Q19 (5)), evaluated on the device
+ * only: (a) bed, cardiac, other, cfs_moderate or the no_exercise restriction get no movement check
+ * (scr_booth_no_check); (b) stroke, sci_complete or sci_incomplete with clearance no or not sure get a
+ * context, and baseSelection at the booth gives them the seated arm raise only (clearance_booth for
+ * the rest); (c) everyone else follows 3.1 and 3.3, with Q6 and Q21 for clearance no or not sure.
  */
 export function guestContext(steps: GuestSteps): CheckContext | Blocked {
   const positions: readonly string[] = ["chair", "wheelchair", "standing", "bed"];
+  const guestConditions: readonly string[] = [...CONDITION_IDS, GUEST_SCI_UNSURE];
   if (
     !steps ||
     !positions.includes(steps.position) ||
     !SUPPORTS.includes(steps.support) ||
     !isList(steps.pain, painOptions) ||
     !isList(steps.restrictions, restrictionOptions) ||
-    !isList(steps.conditions, CONDITION_IDS) ||
-    (steps.conditions.length > 1 && steps.conditions.includes("none"))
+    !isList(steps.conditions, guestConditions) ||
+    (steps.conditions.length > 1 && steps.conditions.includes("none")) ||
+    (steps.clearance !== undefined && steps.clearance !== null && !CLEARANCES.includes(steps.clearance))
   ) {
     return { blocked: "invalid_input" };
   }
-  const conditions = steps.conditions.length ? [...steps.conditions] : ["none"];
-  const clearance: Clearance = "unsure";
-  const [first] = gateReasons({
-    position: steps.position,
-    conditions,
-    restrictions: steps.restrictions,
-    clearance,
-  });
+  const mapped = steps.conditions.map((c) => (c === GUEST_SCI_UNSURE ? "sci_complete" : c));
+  const conditions = mapped.length ? [...new Set(mapped)] : ["none"];
+  const clearance: Clearance = steps.clearance ?? "unsure";
+  const [first] = gateReasons(
+    {
+      position: steps.position,
+      conditions,
+      restrictions: steps.restrictions,
+      clearance,
+    },
+    "booth",
+  );
   if (first || steps.position === "bed") return { blocked: first ?? "unsupported_position" };
   return {
     position: steps.position,
@@ -297,7 +364,8 @@ const CONDITION_REASON: Record<string, ReasonId> = {
 /**
  * The intake level exclusion of a whole test, read from tests[].exclusions (pain, restrictions,
  * conditions, limb loss leg, home only exclusions), or undefined. With several, the first in the
- * row order of the matrix in spec 3.3 is shown: pain, restrictions, clearance, limb loss, SCI.
+ * row order of the matrix in spec 3.3 is shown: pain, restrictions, clearance, limb loss, SCI. At the
+ * booth the rule of Q19 (5b) comes first: every test but the seated arm raise is clearance_booth.
  */
 export function intakeExclusion(
   test: TestId,
@@ -305,6 +373,7 @@ export function intakeExclusion(
   setting: Setting,
   setup: StoredSetup | null,
 ): ReasonId | undefined {
+  if (setting === "booth" && boothClearanceRule(ctx) && test !== BOOTH_RULE_TEST) return "clearance_booth";
   const ex = testDef(test).exclusions;
   if (ex.pain.some((p) => ctx.pain.includes(p))) return "pain_area";
   const home = setting === "home" ? ex.homeOnlyExclusion : undefined;
@@ -353,8 +422,10 @@ export function baseSelection(
   setting: Setting,
   setup: StoredSetup | null,
 ): SelectionItem[] {
-  // The gate of spec 3.1 again, so a context built by hand cannot open a check either.
-  if (gateReasons(ctx).length > 0 || !(ctx.position in CHECK_DATA.selection.basePerPosition)) return [];
+  // The gate of spec 3.1 again, so a context built by hand cannot open a check either (at the booth
+  // with the rule of Q19 (5b) in place of the clearance reason).
+  if (gateReasons(ctx, setting).length > 0 || !(ctx.position in CHECK_DATA.selection.basePerPosition))
+    return [];
   const out: SelectionItem[] = [];
   const push = (testId: TestId, extra: Pick<SelectionItem, "excluded" | "substitute"> = {}) => {
     const lostArm = ARM_TESTS.includes(testId) ? setup?.limbLoss?.arm : undefined;
@@ -409,7 +480,7 @@ export function finalizeProtocol(
   }
   const s: StoredSetup = { ...setup, ...outcome.setupUpdates };
   const helper = setting === "home" ? outcome.helperRequired : [];
-  return base.map((item) => {
+  const items = base.map((item) => {
     const p: ProtocolItem = {
       testId: item.testId,
       side: item.side,
@@ -435,6 +506,15 @@ export function finalizeProtocol(
     if (helper.includes(item.testId)) p.helperRequired = true;
     return p;
   });
+  // P6: the substitute sentence goes with the chair stand's reason only when the side lean runs.
+  const substituteRuns = items.some((i) => i.substitute && !i.skipped);
+  const appendTo: readonly string[] = CHECK_DATA.reasonSuffixes.substituteRan.appendTo;
+  for (const i of items) {
+    if (i.testId === "chair_stand_30s" && i.skipped && substituteRuns && appendTo.includes(i.skipped)) {
+      i.substituteRan = true;
+    }
+  }
+  return items;
 }
 
 /* ------------------------------------------------------------ re-test */
@@ -467,4 +547,216 @@ export function earliestNextCheck(lastCompleted: number | null | undefined): num
 export function canStartCheck(lastCompleted: number | null | undefined, now: number): boolean {
   const earliest = earliestNextCheck(lastCompleted);
   return earliest === null || now >= earliest;
+}
+
+/**
+ * Whether a check with this protocol runs no test at all today (O21): it closes as ended early and no
+ * clocks start, while any lock set by the skipping answers still applies.
+ */
+export function allSkipped(protocol: readonly Pick<ProtocolItem, "skipped">[]): boolean {
+  return protocol.every((i) => i.skipped !== undefined);
+}
+
+/* ------------------------------------------------------------ schedule */
+
+/** A completed check for the schedule rules (H9, Q12 (2), Q33). */
+export interface CompletedCheck {
+  completed: number;
+  setting: Setting;
+  /** The side lean only session of Q12 (2) (default: a full check). */
+  session?: "full" | "side_lean_only";
+}
+
+/**
+ * When the next check is due and when one may start (H9, Q33):
+ *   retestDue      28 days after the last completed home check (the side lean only session does not
+ *                  move it; a booth check does not set the home due date);
+ *   earliestNext   48 hours after the last completed check of any kind (booth and the side lean only
+ *                  session included);
+ *   canStart       now is at or after earliestNext (locks are checked separately);
+ *   early          a home due date exists and has not come yet: the early start screen is shown
+ *                  (scr_early_start, with no reason asked or stored).
+ */
+export function checkSchedule(
+  checks: readonly CompletedCheck[],
+  now: number,
+): { retestDue: number | null; earliestNext: number | null; canStart: boolean; early: boolean } {
+  const latest = (xs: readonly CompletedCheck[]) =>
+    xs.reduce<number | null>(
+      (m, c) => (Number.isFinite(c.completed) && (m === null || c.completed > m) ? c.completed : m),
+      null,
+    );
+  const lastHome = latest(checks.filter((c) => c.setting === "home" && c.session !== "side_lean_only"));
+  const lastAny = latest(checks);
+  const retest = retestDue(lastHome);
+  const earliest = earliestNextCheck(lastAny);
+  return {
+    retestDue: retest,
+    earliestNext: earliest,
+    canStart: earliest === null || now >= earliest,
+    early: retest !== null && now < retest,
+  };
+}
+
+/** The side lean only session is offered from 48 hours to 7 days after the first home check (Q12 (2)). */
+export const SIDE_LEAN_REPEAT_HOURS: readonly [number, number] = [48, 7 * 24];
+
+/**
+ * The side lean only session that sets the second side lean baseline (Q12 (2), ships with home
+ * checks): offered from 48 hours to 7 days after the first completed home check when that check had a
+ * side lean and no other home check has one yet; never while a lock, an uncleared changeReported or an
+ * unresolved lasting ac_next_day answer is active. It is a full check with one selected test
+ * (sideLeanOnly), counts for the 48 hour minimum and does not move the due date (checkSchedule).
+ * Returns the offer window, or null.
+ */
+export function sideLeanRepeatOffer(o: {
+  firstHomeCheck: number | null;
+  /** Completed home checks with a measured side lean. */
+  homeChecksWithSideLean: number;
+  now: number;
+  lockActive: boolean;
+  unresolvedChangeReported: boolean;
+  lastCheckLasting: boolean;
+}): { from: number; to: number } | null {
+  if (o.firstHomeCheck === null || o.homeChecksWithSideLean !== 1) return null;
+  if (o.lockActive || o.unresolvedChangeReported || o.lastCheckLasting) return null;
+  const from = o.firstHomeCheck + SIDE_LEAN_REPEAT_HOURS[0] * HOUR_MS;
+  const to = o.firstHomeCheck + SIDE_LEAN_REPEAT_HOURS[1] * HOUR_MS;
+  return o.now >= from && o.now <= to ? { from, to } : null;
+}
+
+/** The base selection of the side lean only session: the side lean items only (Q12 (2)). */
+export function sideLeanOnly(base: readonly SelectionItem[]): SelectionItem[] {
+  return base
+    .filter((i) => i.testId === "trunk_control_seated" && !i.excluded)
+    .map((i, k) => {
+      const { substitute: _substitute, ...rest } = i;
+      return { ...rest, order: k + 1 };
+    });
+}
+
+/**
+ * The repeat offered after a lower, large drop or not comparable result (H9): 2 to 7 days after the
+ * check, never while a lasting ac_next_day answer is unresolved.
+ */
+export function repeatOfferWindow(
+  lastCompleted: number,
+  o: { repeat: boolean; lastCheckLasting: boolean },
+): { from: number; to: number } | null {
+  if (!o.repeat || o.lastCheckLasting) return null;
+  return {
+    from: lastCompleted + REPEAT_OFFER_DAYS[0] * DAY_MS,
+    to: lastCompleted + REPEAT_OFFER_DAYS[1] * DAY_MS,
+  };
+}
+
+/* --------------------------------------------------------------- loads */
+
+export type LoadKind = "dumbbell" | "bottle" | "cuff" | "none";
+/** Load kinds in the order of the load question (tests.arm_curl_30s.load.options). */
+export const LOAD_KINDS: readonly LoadKind[] = testDef("arm_curl_30s").load.options.map((o) => o.value);
+/** Q5: dumbbells 0.5 to 4 kg in 0.5 kg steps, wrist weights up to 2 kg, three bottle sizes. */
+export { LOAD_LIMITS };
+/** No dumbbell at home for these conditions (Q5). */
+const NO_DUMBBELL_CONDITIONS = ["parkinsons", "ms", "cerebral_palsy", "sci_complete", "sci_incomplete"];
+
+/**
+ * The loads an arm may use in the arm curl (Q5, 4.2): none at the booth (arm_only for everyone);
+ * none for an arm set to arm_only by a rule; a wrist weight or none for cuff_or_arm_only; no dumbbell
+ * at home for Parkinson's, MS, CP and SCI; after a grip yes on that arm only a wrist weight, a closed
+ * plastic bottle or nothing.
+ */
+export function allowedLoads(o: {
+  ctx: Pick<CheckContext, "conditions">;
+  setting: Setting;
+  variant?: string;
+  gripYes?: boolean;
+}): LoadKind[] {
+  if (o.setting === "booth" || o.variant === "arm_only") return ["none"];
+  if (o.variant === "cuff_or_arm_only") return LOAD_KINDS.filter((k) => k === "cuff" || k === "none");
+  const noDumbbell = o.gripYes === true || NO_DUMBBELL_CONDITIONS.some((c) => o.ctx.conditions.includes(c));
+  return LOAD_KINDS.filter((k) => !(noDumbbell && k === "dumbbell"));
+}
+
+/* ------------------------------------------------------------ duration */
+
+/** Chair stand helper conditions (spec 4.4, Q11), for the estimate before the pre-check. */
+const STAND_HELPER_CONDITIONS = ["parkinsons", "stroke", "sci_incomplete", "cerebral_palsy"];
+
+type Minutes = [number, number];
+const plus = (a: Minutes, b: readonly [number, number]): Minutes => [a[0] + b[0], a[1] + b[1]];
+
+/**
+ * The computed duration of a check in minutes, [from, to] (O40; UX spec S27): overhead (intro, sound
+ * check, results), the guest steps for a guest, the pre-check (longer with condition questions), and
+ * per test that runs today its own minutes, which hold every rest, practice and answer (never cut):
+ * the arm curl with or without a load, a helper briefing for each test with a helper, and the booth
+ * vitals before a booth chair stand for clearance no or not sure. With protocol items the day's
+ * skips, variants and helpers are known; with test ids (before the pre-check) the upper reading is
+ * used: a load at home when no rule forbids it, a helper briefing for the side lean at home.
+ */
+// SPEC-GAP: estimate-helper-stand. The data adds the helper briefing minute to the side lean; a
+// chair stand with a helper briefing gets the same minute (an estimate is never too short).
+export function estimateMinutes(
+  items: readonly ProtocolItem[] | readonly TestId[],
+  ctx: CheckContext | null,
+  setting: Setting,
+  guest = false,
+): Minutes {
+  const E = CHECK_DATA.selection.sessionMinutes.startingEstimatesMinutes;
+  const known = items.length > 0 && typeof items[0] !== "string";
+  const protocol = known ? (items as readonly ProtocolItem[]).filter((i) => !i.skipped) : [];
+  const tests: TestId[] = known
+    ? [...new Set(protocol.map((i) => i.testId))]
+    : [...new Set(items as readonly TestId[])];
+  const helper = (t: TestId): boolean => {
+    if (setting !== "home") return false;
+    if (known) return protocol.some((i) => i.testId === t && i.helperRequired);
+    if (t === "trunk_control_seated") return true;
+    return (
+      t === "chair_stand_30s" &&
+      ctx !== null &&
+      STAND_HELPER_CONDITIONS.some((c) => ctx.conditions.includes(c))
+    );
+  };
+  const withLoad = (): boolean => {
+    if (setting === "booth") return false;
+    if (known) return protocol.some((i) => i.testId === "arm_curl_30s" && i.variant !== "arm_only");
+    if (!ctx) return true;
+    return ctx.clearance === "yes" && !ctx.restrictions.includes("no_resistance");
+  };
+  let m: Minutes = [...E.overhead] as Minutes;
+  if (guest) m = plus(m, E.guestSteps);
+  m = plus(m, conditionQuestions(tests, ctx, setting) ? E.precheckWithConditionQuestions : E.precheck);
+  for (const t of tests) {
+    if (t === "shoulder_abduction") m = plus(m, E.shoulder_abduction);
+    if (t === "arm_curl_30s") m = plus(m, withLoad() ? E.arm_curl_30s_withLoad : E.arm_curl_30s_noLoad);
+    if (t === "trunk_control_seated") m = plus(m, E.trunk_control_seated);
+    if (t === "chair_stand_30s") {
+      m = plus(m, E.chair_stand_30s);
+      if (setting === "booth" && (ctx === null || ctx.clearance !== "yes")) m = plus(m, E.boothVitals);
+    }
+    if (helper(t)) m = plus(m, E.helperBriefing);
+  }
+  return m;
+}
+
+/** Whether the pre-check can ask condition, standing or setup questions (the Q18 time budget). */
+function conditionQuestions(tests: readonly TestId[], ctx: CheckContext | null, setting: Setting): boolean {
+  if (!ctx) return true;
+  const env: PrecheckEnv = {
+    setting,
+    ctx,
+    setup: null,
+    firstCheck: true,
+    unresolvedChangeReported: false,
+    lastCheckLasting: false,
+    baseTests: [...tests],
+  };
+  const groups: readonly string[] = ["condition", "standing", "baseline_setup"];
+  return possibleQuestions(env, {}).some((id) => {
+    const base = id.split(":")[0];
+    const item = CHECK_DATA.precheck.find((q) => q.id === base);
+    return item !== undefined && groups.includes(item.group);
+  });
 }

@@ -58,7 +58,12 @@ const STANDING_QS = [
   "pc_walking_aid",
   "pc_stand_no_hands",
 ];
-const TRUNK_QS = ["pc_sit_unsupported", "pc_trunk_armrests", "pc_fall_sitting"];
+/** The side lean questions; pc_trunk_armrests in the form of the position (Q12 (1)). */
+const trunkQs = (form: "chair" | "wheelchair") => [
+  "pc_sit_unsupported",
+  `pc_trunk_armrests:${form}`,
+  "pc_fall_sitting",
+];
 
 /* ---------------------------------------------------------------- personas */
 
@@ -72,7 +77,7 @@ describe("persona: Faisal, 58, stroke, weaker right side, wheelchair", () => {
       "pc_weak_lift",
       "pc_weak_shoulder",
       "pc_pressure_sore",
-      ...TRUNK_QS,
+      ...trunkQs("wheelchair"),
       "pc_stroke_push",
       "pc_helper:trunk_control_seated",
     ]);
@@ -130,7 +135,7 @@ describe("persona: Noura, 31, incomplete SCI, wheelchair, not sure whether T6 or
       "pc_arm_function:right",
       "pc_arm_function:left",
       "pc_pressure_sore",
-      ...TRUNK_QS,
+      ...trunkQs("wheelchair"),
       "pc_helper:trunk_control_seated",
     ]);
   });
@@ -152,7 +157,7 @@ describe("persona: Noura, 31, incomplete SCI, wheelchair, not sure whether T6 or
   });
 
   it("an unticked box asks her to take care of it first, with no lock", () => {
-    const o = run(env, { pc_sci_level: "unsure", pc_sci_ready: ["0", "1", "2", "4", "5"] });
+    const o = run(env, { pc_sci_level: "unsure", pc_sci_ready: "not_yet" });
     expect(o).toMatchObject({ status: "postpone", reason: "sci_ready", lock: { until: null } });
   });
 
@@ -244,6 +249,8 @@ describe("persona: a person with no condition, standing", () => {
       warnings: [],
       setupUpdates: {},
       stored: { painNow: 0 },
+      checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: "right" },
+      helperBriefing: {},
     });
   });
 
@@ -263,7 +270,7 @@ describe("persona: upper limb loss, left", () => {
       ...EVERY_CHECK,
       "pc_limb_arm_side",
       "pc_limb_arm_prosthesis",
-      ...TRUNK_QS,
+      ...trunkQs("chair"),
       "pc_helper:trunk_control_seated",
     ]);
     const o = evaluatePrecheck(env, answers, NOW);
@@ -300,7 +307,7 @@ describe("persona: lower limb loss, right, with a prosthesis", () => {
       ...EVERY_CHECK,
       "pc_limb_leg_side",
       "pc_limb_leg_prosthesis",
-      ...TRUNK_QS,
+      ...trunkQs("chair"),
       "pc_helper:trunk_control_seated",
     ]);
     const o = evaluatePrecheck(env, answers, NOW);
@@ -315,7 +322,7 @@ describe("persona: lower limb loss, right, with a prosthesis", () => {
   });
 
   it("no armrests on both sides at home skips the side lean", () => {
-    const o = run(env, { pc_trunk_armrests: "no" });
+    const o = run(env, { "pc_trunk_armrests:chair": "no" });
     expect(skipOf(o, "trunk_control_seated", "left")).toBe("armrests_needed");
     expect(o.helperRequired).toEqual([]);
   });
@@ -634,7 +641,9 @@ describe("properties over random people and answers", () => {
       }
       for (const t of o.helperRequired) {
         expect(env.baseTests).toContain(t);
-        expect(["chair_stand_30s", "trunk_control_seated"]).toContain(t);
+        // The arm tests need a helper only when no arm can give the fine signal (O34-2 (2)).
+        if (!["chair_stand_30s", "trunk_control_seated"].includes(t))
+          expect(o.checkIn?.noArmSignal).toBe(true);
       }
       if (env.setting === "booth") {
         expect(o.helperRequired).toEqual([]);
@@ -697,17 +706,17 @@ describe("betweenTests (bt_pain_after, spec 2.3)", () => {
     expect(betweenTests({ bt_pain_after: "worse" }, abdRight, []).status).toBe("incomplete");
   });
 
-  it("a little more after the right arm raise skips the right arm curl only (pain_today)", () => {
+  it("7.2-13: a little more after the right arm raise skips the right arm curl only (pain_more)", () => {
     expect(betweenTests({ bt_pain_after: "more" }, abdRight, [abdLeft, curlRight, curlLeft])).toEqual({
       status: "skip",
-      skips: [{ testId: "arm_curl_30s", side: "right", reason: "pain_today" }],
+      skips: [{ testId: "arm_curl_30s", side: "right", reason: "pain_more" }],
     });
   });
 
-  it("a little more after a side lean skips the other side of the lean (back and hip)", () => {
+  it("7.2-13: a little more after a side lean skips the other side of the lean (back and hip, pain_more)", () => {
     expect(betweenTests({ bt_pain_after: "more" }, trunkLeft, [trunkRight, curlRight])).toEqual({
       status: "skip",
-      skips: [{ testId: "trunk_control_seated", side: "right", reason: "pain_today" }],
+      skips: [{ testId: "trunk_control_seated", side: "right", reason: "pain_more" }],
     });
   });
 
@@ -725,7 +734,7 @@ describe("betweenTests (bt_pain_after, spec 2.3)", () => {
     expect(betweenTests({ bt_pain_after: "more" }, both, [curlRight, curlLeft]).skips).toHaveLength(2);
     const left: TestInstance = { ...standard, variant: "arms_assisted_steady", pushHand: "left" };
     expect(betweenTests({ bt_pain_after: "more" }, left, [curlRight, curlLeft]).skips).toEqual([
-      { testId: "arm_curl_30s", side: "left", reason: "pain_today" },
+      { testId: "arm_curl_30s", side: "left", reason: "pain_more" },
     ]);
     // An arm curl before a hands allowed chair stand: the stand is skipped when that hand pushes.
     const pushRight: TestInstance = { ...standard, variant: "arms_assisted", pushHand: "right" };
@@ -770,10 +779,10 @@ describe("afterCheck (ac_next_day, spec 2.4)", () => {
     }
   });
 
-  it("is asked 12 hours to 3 days after a completed check", () => {
+  it("O38: is asked 24 hours to 3 days after a completed check", () => {
     const done = NOW;
-    expect(afterCheckDue(done, done + 11.9 * HOUR)).toBe(false);
-    expect(afterCheckDue(done, done + 12 * HOUR)).toBe(true);
+    expect(afterCheckDue(done, done + 23.9 * HOUR)).toBe(false);
+    expect(afterCheckDue(done, done + 24 * HOUR)).toBe(true);
     expect(afterCheckDue(done, done + 72 * HOUR)).toBe(true);
     expect(afterCheckDue(done, done + 72.1 * HOUR)).toBe(false);
   });
@@ -877,22 +886,22 @@ describe("locks (spec 2.1)", () => {
     expect(() => lockKind("sneeze" as LockReasonId)).toThrow(RangeError);
   });
 
-  it("next day means the next calendar day in Riyadh (UTC+3, no daylight saving)", () => {
+  it("Q33 (1): next day means the later of the next midnight in Riyadh (UTC+3) and 8 hours later", () => {
     const riyadhMidnight = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d) - 3 * HOUR;
-    // 12:00 in Riyadh on 27 September.
+    // 12:00 in Riyadh on 27 September: midnight is later.
     expect(lockUntil("unwell", NOW)).toBe(riyadhMidnight(2026, 9, 28));
-    // 23:59:59 in Riyadh is still 27 September.
+    // 23:59:59 in Riyadh is still 27 September; 8 hours later is 07:59:59 on the 28th.
     const late = riyadhMidnight(2026, 9, 28) - 1000;
     expect(riyadhDate(late)).toBe("2026-09-27");
-    expect(lockUntil("pain", late)).toBe(riyadhMidnight(2026, 9, 28));
-    // 00:00 in Riyadh (21:00 UTC the evening before) is already the 28th.
+    expect(lockUntil("pain", late)).toBe(late + 8 * HOUR);
+    // 00:00 in Riyadh (21:00 UTC the evening before) is already the 28th: the next midnight.
     expect(riyadhDate(riyadhMidnight(2026, 9, 28))).toBe("2026-09-28");
     expect(lockUntil("pain", riyadhMidnight(2026, 9, 28))).toBe(riyadhMidnight(2026, 9, 29));
-    // Year end.
-    expect(lockUntil("urgent", Date.UTC(2026, 11, 31, 20, 0))).toBe(riyadhMidnight(2027, 1, 1));
+    // Year end: 23:00 in Riyadh on 31 December ends at 07:00 on 1 January.
+    expect(lockUntil("urgent", Date.UTC(2026, 11, 31, 20, 0))).toBe(Date.UTC(2027, 0, 1, 4, 0));
   });
 
-  it("60 minutes, and no lock for the SCI checklist", () => {
+  it("60 minutes, and no lock for the SCI readiness list", () => {
     expect(lockUntil("pd_off", NOW)).toBe(NOW + HOUR);
     expect(lockUntil("sci_ready", NOW)).toBeNull();
   });

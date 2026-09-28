@@ -64,11 +64,15 @@ function framesOfCurl(
 const ofKind = <K extends TestEvent["kind"]>(events: TestEvent[], kind: K) =>
   events.filter((e): e is Extract<TestEvent, { kind: K }> => e.kind === kind);
 
-/** The spoken cues from check_go to check_time_stop, in order (the first trial). */
+/** The end line of a trial (O24-3: check_time_up_stand or check_time_up_curl replace check_time_stop). */
+const END_CUES: readonly string[] = ["check_time_up_stand", "check_time_up_curl"];
+
+/** The spoken cues from check_go to the end line, in order (the first trial). */
 function trialCues(events: TestEvent[]): string[] {
   const cues = ofKind(events, "cue").map((e) => e.cue);
   const go = cues.indexOf("check_go");
-  return cues.slice(go, cues.indexOf("check_time_stop", go) + 1);
+  const end = cues.findIndex((c, i) => i > go && END_CUES.includes(c));
+  return cues.slice(go, end + 1);
 }
 
 /* ------------------------------------------------------------------ arm curl */
@@ -200,7 +204,7 @@ describe("arm_curl_30s counting rules (spec 4.2)", () => {
     expect(r.value).toBe(curlTruth(k.trial, k.goSec));
     expect(r.detail.halfwayCredited).toBeUndefined();
     // The last rep event comes before the stop.
-    const stop = k.run.events.find((e) => e.kind === "cue" && e.cue === "check_time_stop")!;
+    const stop = k.run.events.find((e) => e.kind === "cue" && e.cue === "check_time_up_curl")!;
     const reps = ofKind(k.run.events, "rep");
     expect(reps[reps.length - 1].t).toBeLessThan(stop.t);
     expect(stop.t - k.run.go!).toBeGreaterThanOrEqual(30000);
@@ -242,7 +246,7 @@ describe("arm_curl_30s counting rules (spec 4.2)", () => {
     expect(cues.map((e) => (e as { cue: string }).cue)).toEqual([
       "check_go",
       "check_ten_left",
-      "check_time_stop",
+      "check_time_up_curl",
     ]);
   });
 
@@ -402,7 +406,7 @@ describe("timed trial voice and timer (spec 4.0 D-009)", () => {
     const go = k.run.go!;
     const inTrial = k.run.events.filter((e) => e.t >= go && e.t <= go + 30100);
     const cues = inTrial.filter((e) => e.kind === "cue").map((e) => (e as { cue: string }).cue);
-    expect(cues).toEqual(["check_go", "check_ten_left", "check_time_stop"]);
+    expect(cues).toEqual(["check_go", "check_ten_left", "check_time_up_curl"]);
     const ten = inTrial.find((e) => e.kind === "cue" && e.cue === "check_ten_left")!;
     expect(ten.t - go).toBeGreaterThanOrEqual(20000);
     expect(ten.t - go).toBeLessThan(20000 + 60);
@@ -413,7 +417,7 @@ describe("timed trial voice and timer (spec 4.0 D-009)", () => {
     const countdown = ofKind(k.run.events, "time").filter((e) => e.t >= ready.t && e.t < go);
     expect(countdown.map((e) => e.remainingSec)).toEqual([3, 2, 1]);
     expect(k.run.cues.slice(-4)).toEqual(
-      ["check_ready", "check_go", "check_ten_left", "check_time_stop"].slice(-4),
+      ["check_ready", "check_go", "check_ten_left", "check_time_up_curl"].slice(-4),
     );
   });
 });
@@ -680,7 +684,7 @@ describe("chair_stand_30s: counts within 1 of the ground truth for every profile
         expect(r.flags).not.toContain("arms_used");
         // Filmed at 45 degrees, so the sideways lean cannot be measured (spec 4.4 flags).
         expect(r.flags).toContain("lean_unknown");
-        expect(trialCues(k.run.events)).toEqual(["check_go", "check_ten_left", "check_time_stop"]);
+        expect(trialCues(k.run.events)).toEqual(["check_go", "check_ten_left", "check_time_up_stand"]);
         expect(k.run.cues[k.run.cues.length - 1]).toBe("check_sit_minute");
       });
     }
@@ -804,7 +808,7 @@ describe("chair_stand_30s counting rules (spec 4.4)", () => {
       }),
     );
     const run = drive(new ChairStandRunner(STAND, "none", FAST), frames);
-    expect(run.cues).toContain("check_phone_angle");
+    expect(run.cues).toContain("check_phone_angle_right");
     expect(run.result.results[0].status).toBe("not_measured");
     expect(run.result.results[0].reason).toBe("quality");
   });
@@ -974,7 +978,7 @@ describe("chair_stand_30s arms and variants (spec 4.4)", () => {
     expect(trial.filter((c) => c !== "test_stand_steady")).toEqual([
       "check_go",
       "check_ten_left",
-      "check_time_stop",
+      "check_time_up_stand",
     ]);
 
     // Reaching for the support in front ends the test: needed_support, no score.

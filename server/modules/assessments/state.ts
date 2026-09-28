@@ -8,8 +8,11 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   baseSelection,
   baseTests,
+  checkSchedule,
   contextFromIntake,
   isBlocked,
+  sideLeanOnly,
+  sideLeanRepeatOffer,
   type Blocked,
   type CheckContext,
   type SelectionItem,
@@ -21,11 +24,14 @@ import type { SeriesContext } from "../../../src/medical/progress-rules";
 import type { CheckPosition, Setting } from "../../../src/movements/types";
 import {
   checkState,
+  completedChecks,
+  currentLock,
   lastCompleted,
   latestAssessment,
   profileOf,
   unresolvedChange,
   type Assessment,
+  type CheckSession,
 } from "./store";
 
 export interface PersonState {
@@ -41,6 +47,12 @@ export interface PersonState {
   lastCompleted: Assessment | null;
   /** The last completed check, when its next day follow up (ac_next_day) is due now. */
   followUpDue: Assessment | null;
+  /** A faint stop stored faintReported and pc_faint_since has not been answered yet (Q33 (3)). */
+  faintReportedUnresolved: boolean;
+  /** H9 and Q33: the home due date, the 48 hour minimum and whether a start now is early. */
+  schedule: ReturnType<typeof checkSchedule>;
+  /** Q12 (2): the side lean only session offer window, or null. */
+  sideLeanRepeat: { from: number; to: number } | null;
 }
 
 /**
@@ -68,15 +80,31 @@ export function personState(db: DatabaseSync, userId: string, now: number): Pers
   const last = lastCompleted(db, userId);
   const state = checkState(db, userId);
   const followUp = last?.precheck["assessment.followUp"];
+  const lasting = last && followUp === "lasting" && state.lastingResolved !== last.id ? last : null;
+  const checks = completedChecks(db, userId);
+  const home = checks.filter((c) => c.setting === "home");
   return {
     intake,
     plan,
     context: contextFromIntake(intake, plan),
     setup: storedSetup(latestAssessment(db, userId), plan.version),
     unresolvedChangeReported: unresolvedChange(state),
-    lasting: last && followUp === "lasting" && state.lastingResolved !== last.id ? last : null,
+    lasting,
     lastCompleted: last,
     followUpDue: last && followUp === undefined && afterCheckDue(last.completed!, now) ? last : null,
+    faintReportedUnresolved: state.faintReported !== null,
+    schedule: checkSchedule(checks, now),
+    sideLeanRepeat:
+      home.length && home[0].hadSideLean
+        ? sideLeanRepeatOffer({
+            firstHomeCheck: home[0].completed,
+            homeChecksWithSideLean: home.filter((c) => c.hadSideLean).length,
+            now,
+            lockActive: currentLock(db, userId, now) !== null,
+            unresolvedChangeReported: unresolvedChange(state),
+            lastCheckLasting: lasting !== null,
+          })
+        : null,
   };
 }
 
@@ -118,15 +146,20 @@ export function neededArmsLastStand(db: DatabaseSync, userId: string, setting: S
   return row?.reason === "needed_arms";
 }
 
-/** The pre-check environment and the base selection of a person with a check context. */
+/**
+ * The pre-check environment and the base selection of a person with a check context. The side lean
+ * only session (Q12 (2)) is the full check flow with the side lean as its one selected test.
+ */
 export function precheckEnv(
   db: DatabaseSync,
   userId: string,
   s: PersonState,
   ctx: CheckContext,
   setting: Setting,
+  session: CheckSession = "full",
 ): { env: PrecheckEnv; base: SelectionItem[] } {
-  const base = baseSelection(ctx, setting, s.setup);
+  const full = baseSelection(ctx, setting, s.setup);
+  const base = session === "side_lean_only" ? sideLeanOnly(full) : full;
   return {
     base,
     env: {
@@ -140,6 +173,7 @@ export function precheckEnv(
       sideLeanDoneAtHome: sideLeanDoneAtHome(db, userId),
       neededArmsLastStand: neededArmsLastStand(db, userId, setting),
       completedBefore: s.lastCompleted !== null,
+      faintReportedUnresolved: s.faintReportedUnresolved,
     },
   };
 }

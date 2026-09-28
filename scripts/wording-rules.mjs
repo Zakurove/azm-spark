@@ -82,8 +82,23 @@ export function dataStrings(value, where = "") {
 // SPEC-GAP: wording-prose. Kept prose fields hold hyphenated words (pre-check, re-cue, re-check,
 // ar-SA). They are never shown, so only the dash character and phrase rules apply to them.
 export function dataStringProblems({ text, userFacing }) {
-  if (userFacing) return isCopyValue(text) || DASH_CHARS.test(text) ? wordingProblems(text) : [];
+  if (userFacing)
+    return isCopyValue(text) || DASH_CHARS.test(text) ? [...wordingProblems(text), ...checkWordProblems(text)] : [];
   return wordingProblems(text).filter((p) => p === DASH_PROBLEM || p === PHRASE_PROBLEM);
+}
+
+/**
+ * Words the movement check copy never uses (council Q29 and the copy glossary): the check is قياس
+ * الحركة, never فحص; the lap is never حجر. Diacritics and tatweel are removed before matching, so a
+ * vocalized speech line cannot slip through. Applied to the user facing strings of the clinical data.
+ */
+export const CHECK_WORDS = [
+  { word: "فحص", problem: "Q29 فحص" },
+  { word: "حجر", problem: "glossary حجر" },
+];
+export function checkWordProblems(text) {
+  const bare = text.replace(ARABIC_MARKS, "");
+  return CHECK_WORDS.filter(({ word }) => bare.includes(word)).map(({ problem }) => problem);
 }
 
 /** Readable violation lines for a clinical data file (empty when it is clean). */

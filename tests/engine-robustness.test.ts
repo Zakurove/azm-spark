@@ -5,14 +5,32 @@
  * hand hovers close beside the shoulder (review round 2 of the engine, spec 4.0 to 4.4).
  */
 import { describe, expect, it } from "vitest";
-import { LineCounter, RangeTestRunner, SustainedPeak, type SideResult } from "../src/engine/modes";
+import {
+  LineCounter,
+  RangeTestRunner,
+  SustainedPeak,
+  TrunkControlRunner,
+  type SideResult,
+} from "../src/engine/modes";
 import { SubjectLock } from "../src/engine/subject";
 import { isPerson, visible } from "../src/engine/body";
 import { seen } from "../src/engine/modes/common";
 import { testDef } from "../src/movements/assessments";
 import type { Frame, Landmark } from "../src/engine/types";
 import type { Profile } from "./fixtures/gen";
-import { editSubject, framesOf, mirrorFrames, raises, raiseStarts, run, spec } from "./fixtures/runners";
+import {
+  editSubject,
+  framesOf,
+  HANDS_ON_THIGHS,
+  leanOrder,
+  leans,
+  leanStarts,
+  mirrorFrames,
+  raises,
+  raiseStarts,
+  run,
+  spec,
+} from "./fixtures/runners";
 import {
   CROSSED,
   curlPractice,
@@ -27,6 +45,8 @@ import {
 
 type Side = "left" | "right";
 const ABD = testDef("shoulder_abduction");
+const TRUNK = testDef("trunk_control_seated");
+
 const res = (c: { run: { result: { results: SideResult[] } } }) => c.run.result.results[0];
 
 function curlCase(seed: number, over: Partial<TwoPass> = {}, side: Side = "right") {
@@ -293,6 +313,87 @@ describe("the phone moves after the arm raise calibration (spec 4.1 trunk refere
         expect(Math.abs(a.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(3);
       expect(Math.abs(out.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
       expect(r.cues).toContain("check_phone_still");
+    });
+  }
+});
+
+/* ------------------------------------------ jittered frames at 12 to 60 fps */
+
+describe("jittered and dropped frames at 12 to 60 fps (contract v2 F fixtures)", () => {
+  /** Frame times jitter by up to a quarter of a frame either way; 5 percent of frames dropped. */
+  const JITTER = (fps: number) => ({ jitterMs: Math.round(250 / fps), dropShare: 0.05 });
+  // At the fps floor itself (12 for the range test and the side lean, 20 for the timed tests) the
+  // camera is steady: jitter or a dropped frame there moves the median frame interval to either
+  // side of the floor, and under it the gate rightly fails the attempt (low_fps). The timed tests
+  // at a steady 20 fps are the ground truth suites of tests/timed-count.test.ts.
+  const STEADY = {};
+
+  for (const [fps, timing] of [
+    [24, JITTER(24)],
+    [30, JITTER(30)],
+    [60, JITTER(60)],
+  ] as const) {
+    it(`arm curl counts at ${fps} fps with jittered and dropped frames`, () => {
+      const seed = 640 + fps;
+      const k = curlCase(seed, { extra: { fps, timing } });
+      const r = res(k);
+      expect(r.status).toBe("measured");
+      expect(Math.abs(r.value! - curlTruth(k.trial, k.goSec))).toBeLessThanOrEqual(1);
+    });
+    it(`chair stand counts at ${fps} fps with jittered and dropped frames`, () => {
+      const seed = 740 + fps;
+      const k = standCase(seed, { extra: { subject: { arms: CROSSED }, fps, timing } });
+      const r = res(k);
+      expect(r.status).toBe("measured");
+      expect(Math.abs(r.value! - standTruth(k.trial, k.goSec))).toBeLessThanOrEqual(1);
+    });
+  }
+
+  for (const [fps, timing] of [
+    [12, STEADY],
+    [15, JITTER(15)],
+    [20, JITTER(20)],
+    [30, JITTER(30)],
+    [60, JITTER(60)],
+  ] as const) {
+    const how = "jitterMs" in timing ? "jittered and dropped" : "steady";
+    it(`arm raise peak within 2 degrees at ${fps} fps, ${how} frames`, () => {
+      const starts = raiseStarts(4);
+      const { fx, frames } = framesOf(
+        spec("shoulder_abduction", "chair", "9:16", raises("right", 150, starts), starts[3] + 12, 360 + fps, {
+          fps,
+          timing,
+        }),
+      );
+      const out = run(new RangeTestRunner(ABD, "right"), frames, { rollDeg: 0 }).side("right");
+      expect(out.status).toBe("measured");
+      expect(Math.abs(out.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
+    });
+
+    it(`side lean within 2 degrees at ${fps} fps, ${how} frames`, () => {
+      const order = leanOrder("right");
+      const starts = leanStarts(order.length);
+      const { frames } = framesOf(
+        spec(
+          "trunk_control_seated",
+          "chair",
+          "9:16",
+          leans(order, 20, starts),
+          starts.at(-1)! + 12,
+          380 + fps,
+          {
+            fps,
+            subject: { arms: HANDS_ON_THIGHS },
+            timing,
+          },
+        ),
+      );
+      const r = run(new TrunkControlRunner(TRUNK, "none"), frames, { rollDeg: 0 });
+      for (const s of ["left", "right"] as const) {
+        const out = r.side(s);
+        expect(out.status).toBe("measured");
+        expect(Math.abs(out.value! - 20)).toBeLessThanOrEqual(2);
+      }
     });
   }
 });

@@ -263,6 +263,8 @@ export class RangeTestRunner implements TestRunner {
   private t0 = 0;
   private tLast = 0;
   private calBuf: CalSample[] = [];
+  /** Running median of the tested arm's angle in the calibration window (the stillness rule). */
+  private calMed = new RunningMedian(RANGE_RULES.medianSec * 1000);
   private calStart = 0;
   /** The next calibration frame locks the subject again (spec 4.0: locked at calibration). */
   private relockPending = true;
@@ -439,15 +441,18 @@ export class RangeTestRunner implements TestRunner {
       (other === null || other <= RANGE_RULES.relaxedMaxDeg);
     if (!relaxed) {
       this.calBuf = [];
+      this.calMed.reset();
       return;
     }
+    // The stillness rule reads the running median of the angle, as the attempts do (landmark
+    // jitter alone would otherwise spread the raw angles past the range at a high frame rate).
     this.calBuf.push({
       t,
       px: px!,
       raw: tr.raw!,
       aspect: frame.aspect,
       roll: roll ?? this.lastRoll,
-      angle: angle!,
+      angle: this.calMed.push(t, angle!),
     });
     const from = t - RANGE_RULES.calibrationSec * 1000;
     while (this.calBuf.length > 1 && this.calBuf[1].t <= from) this.calBuf.shift();
@@ -517,6 +522,7 @@ export class RangeTestRunner implements TestRunner {
     const last = buf[buf.length - 1];
     this.checkin.setReference(checkInReference(last.raw, last.aspect));
     this.calBuf = [];
+    this.calMed.reset();
     this.startAttempt(t, this.nextPractice || !this.practiceDone);
   }
 
@@ -524,6 +530,7 @@ export class RangeTestRunner implements TestRunner {
   private recalibrate(t: number): void {
     this.recalAfterRest = false;
     this.calBuf = [];
+    this.calMed.reset();
     this.calStart = t;
     this.relockPending = true;
     this.setPhase("calibrating", t);

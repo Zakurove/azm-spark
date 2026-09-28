@@ -8,7 +8,14 @@ import {
   PRF,
   RepClass,
 } from "./types";
-import { presetBlock, PRESET_BLOCK_ID, trunkStopFor, TrunkStopLimits, trunkStopLimits } from "./trunkSafety";
+import {
+  capStopFor,
+  presetBlock,
+  PRESET_BLOCK_ID,
+  trunkStopFor,
+  TrunkStopLimits,
+  trunkStopLimits,
+} from "./trunkSafety";
 
 /**
  * Version of the workout engine, stored with every saved set. Bump on any change to how a rep is
@@ -96,6 +103,21 @@ export class RepEngine {
     return (v - lo) / (hi - lo);
   }
 
+  /**
+   * The trunk safety stop (S0) alone, for a frame the session does not pass to step() (the framing
+   * gate wants the wrists; the stop needs only both shoulders and both hips). The stop events, or
+   * none; once stopped the set counts nothing more.
+   */
+  safetyStep(mf: MetricFrame): EngineEvent[] {
+    const lean = mf.values.trunk_lean;
+    if (this.stopId || this.blockCue || !this.limits || !this.def.trunkSafety || lean === undefined)
+      return [];
+    const hit = trunkStopFor(this.limits, lean);
+    if (!hit) return [];
+    this.stopId = hit;
+    return stopEvents(this.def, hit, lean, mf.t);
+  }
+
   step(mf: MetricFrame): EngineEvent[] {
     const events: EngineEvent[] = [];
     if (this.stopId) return events;
@@ -117,23 +139,8 @@ export class RepEngine {
     }
 
     // --- trunk safety stop (S0): raw, every frame, in or out of a rep ---
-    const lean = mf.values.trunk_lean;
-    if (this.limits && this.def.trunkSafety && lean !== undefined) {
-      const hit = trunkStopFor(this.limits, lean);
-      if (hit) {
-        this.stopId = hit;
-        events.push({
-          kind: "flag",
-          ruleId: hit,
-          cue: this.def.trunkSafety.cue,
-          severity: "safety",
-          value: lean,
-          t: mf.t,
-        });
-        events.push({ kind: "stop", ruleId: hit, t: mf.t });
-        return events;
-      }
-    }
+    const stop = this.safetyStep(mf);
+    if (stop.length) return [...events, ...stop];
 
     const pct = this.pct(mf);
     if (pct === undefined) return events;
@@ -243,4 +250,25 @@ export class RepEngine {
 
 export function ruleThreshold(rule: CompensationRule, prf: PRF): number {
   return (rule.absolute ? 0 : (prf.baselines[rule.metric] ?? 0)) + rule.delta;
+}
+
+function stopEvents(def: ExerciseDef, hit: string, lean: number, t: number): EngineEvent[] {
+  return [
+    { kind: "flag", ruleId: hit, cue: def.trunkSafety!.cue, severity: "safety", value: lean, t },
+    { kind: "stop", ruleId: hit, t },
+  ];
+}
+
+/**
+ * S0 on every frame the workout session sees, before its framing gate (Session.tsx): "whichever is
+ * reached first stops the set" holds whatever the framing says. In training, the engine's full stop
+ * (relative and absolute, from the calibration); during calibration (`engine` null), the absolute
+ * cap (b), which needs no calibration, so repeated loaded reps beyond it never go on unchecked.
+ */
+export function frameTrunkStop(def: ExerciseDef, mf: MetricFrame, engine: RepEngine | null): EngineEvent[] {
+  if (engine) return engine.safetyStep(mf);
+  const lean = mf.values.trunk_lean;
+  if (lean === undefined) return [];
+  const hit = capStopFor(def, lean, mf.values.nose_offset);
+  return hit ? stopEvents(def, hit, lean, mf.t) : [];
 }

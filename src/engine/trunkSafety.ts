@@ -112,3 +112,27 @@ export function trunkStopFor(lim: TrunkStopLimits, lean: number): TrunkStopId | 
   if (lean >= lim.relHi || lean <= lim.relLo) return "trunk_safety";
   return null;
 }
+
+/**
+ * The absolute limit (b) on its own, before any calibration (S0: it is from vertical and does not
+ * depend on the calibrated posture): press 25 degrees either way; curl 25 forward and 30 backward,
+ * with the forward direction from this frame's face side, or 25 both ways when it cannot be read
+ * (SPEC-GAP S0-direction-unknown). Null when the exercise has no trunk stop or the cap is not reached.
+ */
+export function capStopFor(def: ExerciseDef, lean: number, noseOffset?: number): TrunkStopId | null {
+  const s = def.trunkSafety;
+  if (!s || !Number.isFinite(lean)) return null;
+  let capLo: number;
+  let capHi: number;
+  if (s.cap.view === "front") {
+    capLo = -s.cap.eitherDeg;
+    capHi = s.cap.eitherDeg;
+  } else {
+    const forward = forwardSign(noseOffset);
+    const { forwardDeg, backwardDeg } = s.cap;
+    const strict = Math.min(forwardDeg, backwardDeg);
+    capHi = forward === 1 ? forwardDeg : forward === -1 ? backwardDeg : strict;
+    capLo = forward === 1 ? -backwardDeg : forward === -1 ? -forwardDeg : -strict;
+  }
+  return lean >= capHi || lean <= capLo ? "trunk_safety_cap" : null;
+}

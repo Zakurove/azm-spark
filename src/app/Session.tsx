@@ -7,7 +7,7 @@ import { computeMetrics } from "../engine/geometry";
 import { PoseSmoother } from "../engine/oneEuro";
 import { CueOrchestrator } from "../engine/orchestrator";
 import { unscoredLandmarks } from "../engine/profiles";
-import { RepEngine, WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
+import { frameTrunkStop, RepEngine, WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
 import { presetBlock } from "../engine/trunkSafety";
 import { CueId, EngineEvent, ExerciseDef, Frame, LM, PRF, SessionSummary, Severity } from "../engine/types";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
@@ -212,6 +212,13 @@ export default function SessionScreen(props: {
         }
         case "calibrating":
         case "training": {
+          // S0 first, on every frame whatever the framing gate says: it needs only the shoulders and
+          // hips. During calibration the absolute cap applies (it needs no calibration).
+          const trunkStop = frameTrunkStop(def, mf, P.stage === "training" ? P.engine : null);
+          if (trunkStop.length) {
+            for (const ev of trunkStop) handleEvent(ev);
+            break;
+          }
           // in-session framing guard: hold the pipeline while the user is out of frame
           if (!mf.framingOk) {
             if (!P.frameLostSince) P.frameLostSince = raw.t;

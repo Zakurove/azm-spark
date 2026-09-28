@@ -17,7 +17,7 @@ import { Calibrator } from "../src/engine/calibration";
 import { computeMetrics } from "../src/engine/geometry";
 import { PoseSmoother } from "../src/engine/oneEuro";
 import { profileById } from "../src/engine/profiles";
-import { RepEngine, WORKOUT_ENGINE_VERSION } from "../src/engine/repEngine";
+import { frameTrunkStop, RepEngine, WORKOUT_ENGINE_VERSION } from "../src/engine/repEngine";
 import {
   forwardSign,
   NOSE_SIDE_MIN,
@@ -423,4 +423,59 @@ describe("the demo traces run like the workout screen", () => {
       expect(engine!.repCount).toBeGreaterThanOrEqual(5);
     });
   }
+});
+
+describe("S0 acts on every frame the session sees, framed or not, and during calibration", () => {
+  const { w, h } = SIZES[0];
+  /** The frame with both wrists out of the picture: the press framing gate fails. */
+  const noWrists = (f: Frame): Frame => ({
+    ...f,
+    lm: f.lm.map((p, i) => (i === LM.l_wrist || i === LM.r_wrist ? { ...p, visibility: 0 } : p)),
+  });
+
+  it("training: the stop fires with the wrists out of view (framing not OK), past the cap", () => {
+    const prf = prfAt(PRESS, w, h, 0);
+    const engine = new RepEngine(PRESS, prf, WHEELCHAIR);
+    const mid = (PRESS.defaultRange[0] + PRESS.defaultRange[1]) / 2;
+    const f = noWrists(frame(w, h, { lean: 30, elbow: mid, view: "front" }, 1000));
+    const mf = computeMetrics(f, PRESS.metrics, PRESS.variants[0].requiredLandmarks);
+    expect(mf.framingOk).toBe(false);
+    const ev = frameTrunkStop(PRESS, mf, engine);
+    expect(ev.map((e) => e.kind)).toEqual(["flag", "stop"]);
+    expect(ev[1]).toMatchObject({ kind: "stop", ruleId: "trunk_safety_cap" });
+    // Once stopped the set counts nothing more.
+    expect(engine.step(metrics(PRESS, frame(w, h, { lean: 0, elbow: mid, view: "front" }, 1100)))).toEqual(
+      [],
+    );
+    // Within the limits nothing fires.
+    const calm = new RepEngine(PRESS, prf, WHEELCHAIR);
+    const ok = computeMetrics(
+      noWrists(frame(w, h, { lean: 5, elbow: mid, view: "front" }, 1000)),
+      PRESS.metrics,
+      [],
+    );
+    expect(frameTrunkStop(PRESS, ok, calm)).toEqual([]);
+  });
+
+  it("calibration: the absolute cap (b) needs no calibration and stops the set", () => {
+    const mid = (PRESS.defaultRange[0] + PRESS.defaultRange[1]) / 2;
+    const at = (def: ExerciseDef, s: PoseSpec) => computeMetrics(frame(w, h, s, 500), def.metrics, []);
+    const press = frameTrunkStop(PRESS, at(PRESS, { lean: 35, elbow: mid, view: "front" }), null);
+    expect(press.map((e) => e.kind)).toEqual(["flag", "stop"]);
+    expect(press[0]).toMatchObject({ ruleId: "trunk_safety_cap", cue: "stop_rest", severity: "safety" });
+    expect(frameTrunkStop(PRESS, at(PRESS, { lean: -26, elbow: mid, view: "front" }), null)).toHaveLength(2);
+    // The relative limit needs the calibrated posture: 20 degrees is not stopped yet.
+    expect(frameTrunkStop(PRESS, at(PRESS, { lean: 20, elbow: mid, view: "front" }), null)).toEqual([]);
+    // The curl: 25 forward, 30 backward, from this frame's face side; without it, 25 both ways.
+    const c = (CURL.defaultRange[0] + CURL.defaultRange[1]) / 2;
+    const curl = (lean: number, extra: Partial<PoseSpec> = {}) =>
+      frameTrunkStop(CURL, at(CURL, { lean, elbow: c, view: "side", facing: 1, ...extra }), null).length;
+    expect(curl(26)).toBe(2);
+    expect(curl(-27)).toBe(0);
+    expect(curl(-31)).toBe(2);
+    expect(curl(-27, { noseOnLine: true })).toBe(2);
+    expect(
+      frameTrunkStop(exerciseById("sit_to_stand"), at(PRESS, { lean: 40, elbow: mid, view: "front" }), null),
+    ).toEqual([]);
+  });
 });

@@ -9,6 +9,7 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProtocolItem } from "../src/medical/assessment";
+import { clientAddress } from "../server/api";
 import {
   DAY,
   DEVICE,
@@ -133,6 +134,20 @@ describe("contract v3 I: home checks behind AZM_CHECK_HOME", () => {
   });
 });
 
+describe("clientAddress: the address the trusted proxy saw", () => {
+  it("takes the entry the outermost trusted proxy appended, never one the client wrote", () => {
+    expect(clientAddress("198.51.100.7", "10.0.0.1")).toBe("198.51.100.7");
+    expect(clientAddress("1.2.3.4, 5.6.7.8, 198.51.100.7", "10.0.0.1")).toBe("198.51.100.7");
+    expect(clientAddress(["1.2.3.4", "198.51.100.7"], "10.0.0.1")).toBe("198.51.100.7");
+    expect(clientAddress("1.2.3.4, 198.51.100.7, 172.16.0.2", "10.0.0.1", 2)).toBe("198.51.100.7");
+    expect(clientAddress("198.51.100.7", "10.0.0.1", 3)).toBe("198.51.100.7");
+    // No proxy trusted, or no header: the socket.
+    expect(clientAddress("1.2.3.4", "10.0.0.1", 0)).toBe("10.0.0.1");
+    expect(clientAddress(undefined, "10.0.0.1")).toBe("10.0.0.1");
+    expect(clientAddress(" , ", "10.0.0.1")).toBe("10.0.0.1");
+  });
+});
+
 describe("POST /api/booth/verify (contract v3 I, O17)", () => {
   beforeAll(async () => {
     h = await startApi();
@@ -182,6 +197,32 @@ describe("POST /api/booth/verify (contract v3 I, O17)", () => {
     expect((await verify(CODE, "203.0.113.7")).status).toBe(429);
     setTime(BOOTH_DAY + 15 * MIN + 1000);
     expect((await verify(CODE, "203.0.113.7")).data.ok).toBe(true);
+  });
+
+  it("keys the limit on the address the proxy saw: a spoofed X-Forwarded-For does not reset it", async () => {
+    setTime(BOOTH_DAY + 2 * HOUR);
+    process.env.AZM_BOOTH_CODE = CODE;
+    // The client puts its own entries first; the trusted proxy appends the address it saw last.
+    const spoofed = (i: number) =>
+      h.call("/booth/verify", { code: "000000" }, "", "POST", {
+        "x-forwarded-for": `10.0.${i}.1, 203.0.113.99`,
+      });
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) codes.push((await spoofed(i)).status);
+    expect(codes.slice(0, 10).every((c) => c === 200)).toBe(true);
+    expect(codes.slice(10)).toEqual([429, 429]);
+  });
+
+  it("caps the verify calls of all addresses together in 15 minutes", async () => {
+    setTime(BOOTH_DAY + 4 * HOUR);
+    process.env.AZM_BOOTH_CODE = CODE;
+    const out: number[] = [];
+    for (let i = 0; i < 40; i++) out.push((await verify("000000", `100.64.${i}.1`)).status);
+    expect(out.filter((c) => c === 429).length).toBeGreaterThan(0);
+    // The right code is refused too while the cap holds, so the cap is no oracle either.
+    expect((await verify(CODE, "100.65.0.1")).status).toBe(429);
+    setTime(BOOTH_DAY + 4 * HOUR + 16 * MIN);
+    expect((await verify(CODE, "100.65.0.1")).data.ok).toBe(true);
   });
 
   it("never writes the code to a log", async () => {

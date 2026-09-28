@@ -14,6 +14,35 @@ import type { Route } from "./http/types";
 import { confirmAdult } from "./modules/account/store";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
+
+/**
+ * The client address the rate limits key on. X-Forwarded-For is written left to right: a client may
+ * put any entries first, and each proxy appends the address it saw. So the address is the entry the
+ * outermost trusted proxy appended, counted from the right: AZM_TRUSTED_PROXIES hops (default 1, the
+ * Railway edge). With 0, or without the header, the socket address.
+ */
+export function clientAddress(
+  forwarded: string | string[] | undefined,
+  socket: string | undefined,
+  hops = trustedProxies(),
+): string {
+  const header = Array.isArray(forwarded) ? forwarded.join(",") : (forwarded ?? "");
+  const entries = header
+    .split(",")
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0);
+  if (hops <= 0 || entries.length === 0) return socket ?? "";
+  return entries[Math.max(0, entries.length - hops)];
+}
+
+function trustedProxies(): number {
+  const raw = process.env.AZM_TRUSTED_PROXIES;
+  const n = raw === undefined || raw.trim() === "" ? 1 : Number(raw);
+  return Number.isInteger(n) && n >= 0 && n <= 10 ? n : 1;
+}
+
+/** The rate limit keys kept in memory at most; the oldest go first once it is full. */
+const RATE_KEYS_MAX = 100_000;
 export function createApi(
   path = process.env.AZM_DATABASE ?? ".data/azm.sqlite",
   routes: readonly Route[] = moduleRoutes,
@@ -36,10 +65,21 @@ export function createApi(
       `Azm database migrated to schema ${migrated.schema}${migrated.backup ? ", backup written before migrating" : ""}`,
     );
   const rates = new Map<string, { n: number; until: number }>();
+  let swept = 0;
   function limited(key: string, max = 12, windowMs = 900000) {
     const now = Date.now();
-    for (const [k, v] of rates) if (v.until < now) rates.delete(k);
-    const v = rates.get(key) ?? { n: 0, until: now + windowMs };
+    // Ended windows are removed once a second (not on every call), and the map never grows past
+    // RATE_KEYS_MAX: the oldest keys go first.
+    if (now < swept || now - swept >= 1000 || rates.size >= RATE_KEYS_MAX) {
+      for (const [k, v] of rates) if (v.until < now) rates.delete(k);
+      swept = now;
+    }
+    let v = rates.get(key);
+    if (!v || v.until < now) {
+      v = { n: 0, until: now + windowMs };
+      rates.delete(key);
+      while (rates.size >= RATE_KEYS_MAX) rates.delete(rates.keys().next().value as string);
+    }
     v.n++;
     rates.set(key, v);
     return v.n > max;
@@ -85,9 +125,7 @@ export function createApi(
           "SELECT users.* FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.token=? AND sessions.expires>?",
         )
         .get(token, Date.now()) as any;
-      const forwarded = req.headers["x-forwarded-for"];
-      const ip =
-        (typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "") || req.socket.remoteAddress;
+      const ip = clientAddress(req.headers["x-forwarded-for"], req.socket.remoteAddress);
       if (mutation) {
         if (!req.headers["content-type"]?.startsWith("application/json"))
           return json(415, { error: "JSON_REQUIRED" });

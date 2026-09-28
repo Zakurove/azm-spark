@@ -17,7 +17,10 @@ export interface RouteContext {
   user: UserRow | null;
   body: any;
   params: Record<string, string>;
-  /** The client address the rate limits key on (first X-Forwarded-For entry, else the socket). */
+  /**
+   * The client address the rate limits key on: the X-Forwarded-For entry the trusted proxy appended
+   * (AZM_TRUSTED_PROXIES hops from the right, default 1), else the socket (server/api.ts clientAddress).
+   */
   ip: string;
   json(status: number, v: unknown): void;
   /** Counts one call under `key`; true once more than `max` calls fall in the window (default 15 minutes). */

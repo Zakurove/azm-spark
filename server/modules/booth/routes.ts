@@ -1,7 +1,7 @@
 /**
  * Booth staff mode (contract v3 I, O17, 7.2-11, UX spec S55 and S55b).
  *
- *   POST /api/booth/verify  { code }     public; 10 tries per IP in 15 minutes; → { ok } and, when
+ *   POST /api/booth/verify  { code }     public; 10 tries per IP and 30 in all in 15 minutes; → { ok } and, when
  *                                        ok, the staff device session of the booth day { session,
  *                                        expires }; { ok: false, closed: true } outside the booth
  *                                        days and hours
@@ -19,6 +19,12 @@ import { createPass, PASS, validPass } from "./store";
 const WINDOW_MS = 15 * 60 * 1000;
 /** Contract v3 I: 10 verify calls per IP in 15 minutes. */
 export const VERIFY_PER_IP = 10;
+/**
+ * The verify calls of every address together in 15 minutes. Staff verify a handful of phones a day;
+ * the cap keeps guessing across many addresses to a few thousand codes a day at most. It is checked
+ * before the code, so it refuses the right code too and tells nothing.
+ */
+export const VERIFY_ALL = 30;
 /** Visitor phones share the venue's address, so the token routes allow more per IP. */
 const PASS_CALLS_PER_IP = 60;
 /** A visitor token covers one check and lasts at most 45 minutes (O17, S55b). */
@@ -37,6 +43,7 @@ export const boothRoutes: Route[] = [
     handle({ db, body, ip, json, limited }) {
       // Every call counts, whatever it holds, so the code cannot be guessed faster by bad bodies.
       if (limited(`booth-verify:${ip}`, VERIFY_PER_IP, WINDOW_MS)) return json(429, { error: "RATE_LIMIT" });
+      if (limited("booth-verify:all", VERIFY_ALL, WINDOW_MS)) return json(429, { error: "RATE_LIMIT" });
       const bad = onlyKey(body, "code");
       if (bad) return json(400, { error: "BOOTH_INVALID", field: bad });
       if (typeof body.code !== "string" || body.code.length > 64)

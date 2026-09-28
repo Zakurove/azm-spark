@@ -341,7 +341,6 @@ async function reask(api: CheckApi, given: Answers = {}): Promise<Answers> {
   for (let k = 0; k < 30 && m.state.kind === "question"; k++) {
     const id = m.state.id;
     m = flowReducer(m, { type: "ANSWER", id, value: id in given ? given[id] : benign(id) });
-    if (m.state.kind === "confirmPostpone") m = flowReducer(m, { type: "CONFIRM_YES" });
   }
   const call = m.effects.find((e) => e.type === "resume" || e.type === "resumeBackground");
   if (!call || !("answers" in call)) throw new Error(`no resume call from ${m.state.kind}`);

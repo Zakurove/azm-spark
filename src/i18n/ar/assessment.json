@@ -331,9 +331,7 @@
     },
     "helperReads": "إذا كان معك من يساعدك، فليقرأ لك الأسئلة، وأجب عنها أنت.",
     "canListen": "يمكنك أن تستمع إلى كل سؤال.",
-    "listenQuestion": "استمع إلى السؤال",
-    "confirmAnswer": "اخترت «{answer}». هل هذا صحيح؟",
-    "changeAnswer": "لا، أريد تغييره"
+    "listenQuestion": "استمع إلى السؤال"
   },
   "warnings": {
     "title": "قبل أن تبدأ",

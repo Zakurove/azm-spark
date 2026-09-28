@@ -331,9 +331,7 @@
     },
     "helperReads": "If someone is helping you, they can read the questions to you, and you give the answers.",
     "canListen": "You can listen to every question.",
-    "listenQuestion": "Listen to the question",
-    "confirmAnswer": "You chose “{answer}”. Is that right?",
-    "changeAnswer": "No, I want to change it"
+    "listenQuestion": "Listen to the question"
   },
   "warnings": {
     "title": "Before you start",

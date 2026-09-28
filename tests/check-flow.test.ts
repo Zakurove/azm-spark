@@ -380,7 +380,7 @@ describe("Appendix A: signed in entry, consent, context, intro, sound check", ()
   });
 });
 
-describe("Appendix A: pre-check questions, confirm in place, the start call", () => {
+describe("Appendix A: pre-check questions and the start call", () => {
   const atQuestions = () =>
     play(
       signedAt(),
@@ -390,21 +390,52 @@ describe("Appendix A: pre-check questions, confirm in place, the start call", ()
       { type: "PRECHECK_START" },
     );
 
-  it("an answer that postpones expands the confirm; yes shows S33 and change clears the answer", () => {
+  it("an answer that postpones commits on tap: S33 at once, with its lock (O11a)", () => {
     const m = play(
       atQuestions(),
       { type: "ANSWER", id: "pc_urgent", value: "no" },
       { type: "ANSWER", id: "pc_unwell", value: "yes" },
     );
-    expect(m.state).toEqual({ kind: "confirmPostpone", id: "pc_unwell", value: "yes" });
-    expect(m.effects).toEqual([]);
-    const yes = play(m, { type: "CONFIRM_YES" });
-    expect(kind(yes)).toBe("postponed");
-    expect(yes.state).toMatchObject({ reason: "unwell" });
-    expect(yes.data.lock?.until).toBeGreaterThan(NOW);
-    const change = play(m, { type: "CONFIRM_CHANGE" });
-    expect(change.state).toEqual({ kind: "question", id: "pc_unwell" });
-    expect(change.data.answers.pc_unwell).toBeUndefined();
+    expect(m.state).toMatchObject({ kind: "postponed", reason: "unwell", screen: "scr_postpone_unwell" });
+    expect(m.data.lock?.until).toBeGreaterThan(NOW);
+    expect(m.effects.map((e) => e.type)).toEqual(["startBackground"]);
+    // No confirm events remain: S33 has no Back and no way to change the answer.
+    expect(play(m, { type: "BACK" }).state).toEqual(m.state);
+  });
+
+  it("pain now 9 and pc_sci_ready Not yet go straight to S33 (O11b, O11c, 7.2-8)", () => {
+    const toPain = (x: FlowModel): FlowModel => {
+      let y = x;
+      for (let k = 0; k < 40 && y.state.kind === "question" && y.state.id !== "pc_pain_now"; k++)
+        y = play(y, { type: "ANSWER", id: y.state.id, value: benign(y.state.id) });
+      return y;
+    };
+    const pain = toPain(atQuestions());
+    expect(pain.state).toEqual({ kind: "question", id: "pc_pain_now" });
+    expect(play(pain, { type: "ANSWER", id: "pc_pain_now", value: 9 }).state).toMatchObject({
+      kind: "postponed",
+      reason: "pain",
+    });
+    let sci = play(
+      signedAt({}, contextOf({ conditions: ["sci_complete"], position: "wheelchair" })),
+      { type: "CONTEXT_CONFIRM" },
+      { type: "CONTINUE" },
+      { type: "SOUND_RESULT", mode: "voice" },
+      { type: "PRECHECK_START" },
+    );
+    for (let k = 0; k < 40 && sci.state.kind === "question" && sci.state.id !== "pc_sci_ready"; k++)
+      sci = play(sci, {
+        type: "ANSWER",
+        id: sci.state.id,
+        // At T6 or above: the SCI readiness list is asked.
+        value: sci.state.id === "pc_sci_level" ? "yes" : benign(sci.state.id),
+      });
+    expect(sci.state).toEqual({ kind: "question", id: "pc_sci_ready" });
+    expect(play(sci, { type: "ANSWER", id: "pc_sci_ready", value: "not_yet" }).state).toMatchObject({
+      kind: "postponed",
+      reason: "sci_ready",
+      screen: "scr_postpone_sci",
+    });
   });
 
   it("emergency and AD answers route at once, with no confirm", () => {
@@ -1120,7 +1151,6 @@ function samples(): Record<FlowStateKind, FlowModel> {
     soundCheck: { kind: "soundCheck" },
     precheckNotice: { kind: "precheckNotice" },
     question: { kind: "question", id: "pc_urgent" },
-    confirmPostpone: { kind: "confirmPostpone", id: "pc_unwell", value: "yes" },
     starting: { kind: "starting", lastQuestion: null, error: "network", attempt: 1 },
     warnings: { kind: "warnings" },
     plan: { kind: "plan" },
@@ -1156,7 +1186,7 @@ function samples(): Record<FlowStateKind, FlowModel> {
   };
   const out = {} as Record<FlowStateKind, FlowModel>;
   for (const [k, s] of Object.entries(states) as [FlowStateKind, FlowState][]) {
-    const base = k === "question" || k === "confirmPostpone" ? q : p;
+    const base = k === "question" ? q : p;
     out[k] = withState(base, s);
   }
   return out;
@@ -1177,7 +1207,7 @@ describe("every safety event from every state reaches its safety screen", () => 
 
   it("covers every state kind", () => {
     expect(Object.keys(all).sort()).toEqual(Object.keys(all).sort());
-    expect(Object.keys(all)).toHaveLength(48);
+    expect(Object.keys(all)).toHaveLength(47);
   });
 
   it.each(Object.keys(all))("a safety screen from the server or a stricter answer, from %s", (k) => {
@@ -1345,7 +1375,6 @@ describe("network effects", () => {
       q,
       { type: "ANSWER", id: "pc_urgent", value: "no" },
       { type: "ANSWER", id: "pc_unwell", value: "yes" },
-      { type: "CONFIRM_YES" },
     );
     expect(postponed.effects.map((e) => e.type)).toEqual(["startBackground"]);
     const emergency = play(q, { type: "ANSWER", id: "pc_urgent", value: "yes" });
@@ -1848,40 +1877,25 @@ describe("the camera sequence follows map 2.10, 2.12 and S34j, S34k", () => {
   });
 });
 
-describe("the confirm in place never traps (S17)", () => {
-  const atQuestions = () =>
-    play(
+describe("no confirm in place before a postponing answer (O11a, O33 (j))", () => {
+  it("has no confirm state, no confirm events and no confirm copy keys", async () => {
+    const { default: ar } = await import("../src/i18n/ar/assessment.json");
+    const { default: en } = await import("../src/i18n/en/assessment.json");
+    for (const copy of [ar, en] as { precheck: Record<string, unknown> }[]) {
+      expect(copy.precheck).not.toHaveProperty("confirmAnswer");
+      expect(copy.precheck).not.toHaveProperty("changeAnswer");
+    }
+    const m = play(
       signedAt(),
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
       { type: "PRECHECK_START" },
     );
-
-  it("Back from the confirm clears the answer that postpones, so an earlier answer goes on", () => {
-    const confirm = play(
-      atQuestions(),
-      { type: "ANSWER", id: "pc_urgent", value: "no" },
-      { type: "ANSWER", id: "pc_unwell", value: "yes" },
-    );
-    expect(confirm.state).toMatchObject({ kind: "confirmPostpone", id: "pc_unwell" });
-    const back = play(confirm, { type: "BACK" });
-    expect(back.state).toEqual({ kind: "question", id: "pc_unwell" });
-    expect(back.data.answers.pc_unwell).toBeUndefined();
-    const urgent = play(back, { type: "BACK" }, { type: "ANSWER", id: "pc_urgent", value: "no" });
-    expect(urgent.state).toEqual({ kind: "question", id: "pc_unwell" });
-  });
-
-  it("an answer that does not postpone never opens the confirm on its own question", () => {
-    const m = play(atQuestions(), { type: "ANSWER", id: "pc_urgent", value: "no" });
-    // An earlier postponing answer left in place (for example from a restored draft).
+    // An earlier postponing answer left in place (a restored draft): the next answer postpones at once.
     const withUnwell = { ...m, data: { ...m.data, answers: { ...m.data.answers, pc_unwell: "yes" } } };
-    const at = withState(withUnwell, { kind: "question", id: "pc_urgent" });
-    const next = play(at, { type: "ANSWER", id: "pc_urgent", value: "no" });
-    expect(next.state).toMatchObject({ kind: "confirmPostpone", id: "pc_unwell", value: "yes" });
-    const change = play(next, { type: "CONFIRM_CHANGE" });
-    expect(change.state).toEqual({ kind: "question", id: "pc_unwell" });
-    expect(kind(play(change, { type: "ANSWER", id: "pc_unwell", value: "no" }))).toBe("question");
+    const next = play(withUnwell, { type: "ANSWER", id: "pc_urgent", value: "no" });
+    expect(next.state).toMatchObject({ kind: "postponed", reason: "unwell" });
   });
 });
 

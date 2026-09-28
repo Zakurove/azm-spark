@@ -158,7 +158,6 @@ export type FlowState =
   | { kind: "soundCheck" }
   | { kind: "precheckNotice" }
   | { kind: "question"; id: string }
-  | { kind: "confirmPostpone"; id: string; value: AnswerValue }
   | { kind: "starting"; lastQuestion: string | null; error: StartError | null; attempt: number }
   | { kind: "warnings" }
   | { kind: "plan" }
@@ -477,8 +476,6 @@ export type FlowEvent = At &
     | { type: "SOUND_RESULT"; mode: SoundMode }
     | { type: "PRECHECK_START" }
     | { type: "ANSWER"; id: string; value: AnswerValue }
-    | { type: "CONFIRM_YES" }
-    | { type: "CONFIRM_CHANGE" }
     | { type: "START_RESULT"; result: StartResult }
     | { type: "RESUME_RESULT"; result: ResumeResult }
     | { type: "END_FORM"; side: Side | null; chronicNote: boolean }
@@ -700,7 +697,7 @@ export function currentTest(m: FlowModel): { i: number; side: number } | null {
  */
 export function questionCounter(m: FlowModel): { n: number; total: number } | null {
   const s = m.state;
-  const id = s.kind === "question" || s.kind === "confirmPostpone" ? s.id : null;
+  const id = s.kind === "question" ? s.id : null;
   const d = m.data;
   if (!id || !d.env) return null;
   const visible = questionsNow(d, d.answers);
@@ -740,9 +737,6 @@ export function backTarget(m: FlowModel): FlowState | null {
       if (at > 0) return { kind: "question", id: visible[at - 1] };
       return m.data.resuming ? { kind: "soundCheck" } : { kind: "precheckNotice" };
     }
-    case "confirmPostpone":
-      // Back from the confirm clears the answer that would postpone (stateReducer BACK).
-      return { kind: "question", id: s.id };
     case "cam.problem":
       // S32 Back: to the screen it came from (the camera primer, S31), which asks again.
       return s.returnTo;
@@ -844,8 +838,6 @@ export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
       if (m.overlay) return m;
       const target = backTarget(m);
       if (!target) return m;
-      // Back from the confirm in place drops the answer that would postpone (S17), as "change" does.
-      if (m.state.kind === "confirmPostpone") return go(withoutAnswer(m, m.state.id), target);
       return go(m, target);
     }
   }
@@ -1091,15 +1083,6 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "question":
       if (e.type === "ANSWER" && e.id === s.id) return answer(m, s.id, e.value, now);
-      return m;
-
-    case "confirmPostpone":
-      if (e.type === "CONFIRM_YES") {
-        const outcome = outcomeNow(d, d.answers, now);
-        if (outcome.status !== "postpone") return go(m, { kind: "question", id: s.id });
-        return postpone(m, outcome, now);
-      }
-      if (e.type === "CONFIRM_CHANGE") return go(withoutAnswer(m, s.id), { kind: "question", id: s.id });
       return m;
 
     case "starting":
@@ -1721,13 +1704,6 @@ export function stopEnv(d: FlowData): PrecheckEnv {
   };
 }
 
-/** The pre-check answers without one question (S17 change my answer, Back from the confirm). */
-function withoutAnswer(m: FlowModel, id: string): FlowModel {
-  const answers = { ...m.data.answers };
-  delete answers[id];
-  return { ...m, data: { ...m.data, answers } };
-}
-
 /* ------------------------------------------------------------ pre-check */
 
 /**
@@ -1778,14 +1754,11 @@ function answer(m: FlowModel, id: string, value: AnswerValue, now: number): Flow
   const answers = prune(d, { ...d.answers, [id]: value });
   const next = { ...m, data: { ...d, answers } };
   const outcome = outcomeNow(d, answers, now);
-  // Emergency and AD route at once, with no confirm (S17 exception 2).
+  // Emergency and AD route at once, with no confirm (O11c). A postponing answer commits on tap like
+  // every other answer and opens S33 (O11a: the council took the confirm in place out; the pain
+  // scales confirm with their readout and Next, O11b).
   if (outcome.status === "emergency" || outcome.status === "ad") return terminal(next, outcome, now);
-  if (outcome.status === "postpone") {
-    // The confirm in place opens on the question whose answer postpones: this one when it changed the
-    // outcome, else the earlier answer that still postpones (never a trap on an unrelated question).
-    const culprit = postponingQuestion(d, answers, id, now);
-    return go(next, { kind: "confirmPostpone", id: culprit, value: answers[culprit] });
-  }
+  if (outcome.status === "postpone") return postpone(next, outcome, now);
   const visible = questionsNow(d, answers);
   const at = visible.indexOf(id);
   const following = at >= 0 ? visible[at + 1] : undefined;
@@ -1794,24 +1767,6 @@ function answer(m: FlowModel, id: string, value: AnswerValue, now: number): Flow
   if (missing) return go(next, { kind: "question", id: missing });
   if (outcome.status !== "proceed") return go(next, { kind: "question", id });
   return proceed(next, outcome, id);
-}
-
-/**
- * The question to confirm when the answers postpone: `id` when its answer made the difference,
- * otherwise the first visible answered question without which the check would not postpone.
- */
-function postponingQuestion(d: FlowData, answers: Answers, id: string, now: number): string {
-  const postpones = (a: Answers) => outcomeNow(d, prune(d, a), now).status === "postpone";
-  const without = (q: string) => {
-    const a = { ...answers };
-    delete a[q];
-    return a;
-  };
-  // Only a question with a postpone action can postpone (pc_urgent, for one, never does).
-  const culprit = (q: string) =>
-    q in answers && !!questionOf(q)?.item.actions.some((a) => a.do === "postpone") && !postpones(without(q));
-  if (culprit(id)) return id;
-  return questionsNow(d, answers).find(culprit) ?? id;
 }
 
 /**

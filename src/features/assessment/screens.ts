@@ -100,7 +100,6 @@ export function screenFor(m: FlowModel): CheckScreenId | null {
     case "precheckNotice":
       return "S16";
     case "question":
-    case "confirmPostpone":
       return questionScreen(s.id);
     case "starting":
       return s.lastQuestion ? questionScreen(s.lastQuestion) : "S27";

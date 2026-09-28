@@ -8,15 +8,10 @@ import { CHECK_DATA, testDef } from "../../../movements/assessments";
 import { questionOf, type FlowModel } from "../flowMachine";
 import { stub } from "../shared/ScreenStub";
 
-/** The question of a pre-check state (question, confirm in place, or the start call on the last one). */
+/** The question of a pre-check state (a question, or the start call on the last one). */
 export function questionTitle(lang: Lang, m: FlowModel): string {
   const s = m.state;
-  const id =
-    s.kind === "question" || s.kind === "confirmPostpone"
-      ? s.id
-      : s.kind === "starting"
-        ? s.lastQuestion
-        : null;
+  const id = s.kind === "question" ? s.id : s.kind === "starting" ? s.lastQuestion : null;
   const q = id ? questionOf(id) : null;
   if (q?.item.id === "pc_steadi") return t(lang, "assessment.precheck.steadi.heading");
   return q?.item.ask?.[lang] ?? t(lang, "assessment.precheck.title");

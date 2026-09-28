@@ -492,3 +492,17 @@ describe("the context type follows the server", () => {
     });
   });
 });
+
+describe("the offer after the intake (S02) shows the computed minutes (O40)", () => {
+  it("estimateMinutes of the context's base tests at home, not a fixed range", async () => {
+    const { offerMinutes } = await import("../src/features/assessment/api");
+    const { estimateMinutes } = await import("../src/medical/assessment");
+    const cookie = await member(h, email(), WHEELCHAIR_STROKE);
+    const r = await clientFor(cookie).getContext();
+    if (!r.ok) throw new Error("context");
+    const minutes = offerMinutes(r.value);
+    expect(minutes).toEqual(estimateMinutes(r.value.baseTests as never, r.value.ctx ?? null, "home"));
+    expect(minutes[0]).toBeGreaterThan(0);
+    expect(minutes[1]).toBeGreaterThanOrEqual(minutes[0]);
+  });
+});

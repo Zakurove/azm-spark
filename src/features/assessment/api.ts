@@ -23,7 +23,7 @@
  *
  * The guest flow never calls this client (contract v3 I).
  */
-import type { ProtocolItem } from "../../medical/assessment";
+import { estimateMinutes, type ProtocolItem } from "../../medical/assessment";
 import type { Answers, CheckInConfig, ClockTime, SkipItem, TestSide } from "../../medical/precheck";
 import type { PausedWhenId, ScreenId, Setting, Side, StopOptionId, TestId } from "../../movements/types";
 import type { SeriesView } from "../../../server/modules/progress/series";
@@ -617,6 +617,15 @@ export function resumeCheckOf(open: OpenCheck | null, checks: readonly StoredChe
     outcomes,
     setup: c.setup ?? null,
   };
+}
+
+/**
+ * The minutes of a check at home for the offer after the intake (S02) and the S01 first card: the
+ * computed estimate of the context's base tests (O40), before the pre-check (the upper reading).
+ */
+export function offerMinutes(c: Pick<ContextResponse, "baseTests" | "ctx">): [number, number] {
+  const [from, to] = estimateMinutes(c.baseTests as TestId[], c.ctx ?? null, "home");
+  return [from, to];
 }
 
 /** The app version sent with the device facts (package.json). */

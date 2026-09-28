@@ -20,7 +20,7 @@ import CoachSettings from "./CoachSettings";
 import Icon from "./Icon";
 import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
-import { createCheckApi } from "../features/assessment/api";
+import { createCheckApi, offerMinutes } from "../features/assessment/api";
 import { isBoothMode, redeemVisitorToken } from "../features/assessment/boothMode";
 import { flushPendingCheckCalls, hasSnapshot } from "../features/assessment/useCheckFlow";
 import { CHECK_UI } from "../features/assessment/featureFlag";
@@ -112,7 +112,7 @@ export default function App() {
     [tryCam, setTryCam] = useState(qs.get("try") === "1"),
     // A signed in check reloaded by S32 (camera permission) opens again where it was.
     [checkOpen, setCheckOpen] = useState(() => hasSnapshot("signedIn")),
-    [intakeOffer, setIntakeOffer] = useState(false);
+    [intakeOffer, setIntakeOffer] = useState<[number, number] | null>(null);
   const c = labels(lang);
   const pageLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c[key]);
   const toggleLanguage = () => setLang(lang === "ar" ? "en" : "ar");
@@ -179,7 +179,11 @@ export default function App() {
     if (CHECK_UI && s.plan.status !== "review")
       void createCheckApi()
         .getContext()
-        .then((r) => setIntakeOffer(r.ok && r.value.homeOpen === true && !r.value.blocked));
+        .then((r) =>
+          setIntakeOffer(
+            r.ok && r.value.homeOpen === true && !r.value.blocked ? offerMinutes(r.value) : null,
+          ),
+        );
   };
   const start = async (isDemo: boolean) => {
     setBusy(true);
@@ -727,14 +731,13 @@ export default function App() {
       {intakeOffer && (
         <AfterIntakeOffer
           lang={lang}
-          // SPEC-GAP: estimate-minutes. estimateMinutes (S27) belongs to the flow stream; the offer shows
-          // the spec's wireframe range until it exists (and only while home checks are open).
-          minutes={[16, 21]}
+          // The computed estimate of the base tests at home (O40); offered only while home checks open.
+          minutes={intakeOffer}
           onStart={() => {
-            setIntakeOffer(false);
+            setIntakeOffer(null);
             setCheckOpen(true);
           }}
-          onLater={() => setIntakeOffer(false)}
+          onLater={() => setIntakeOffer(null)}
           // The intake form is gone: focus returns to the Program page heading (5.1).
           returnFocus={() => document.querySelector<HTMLElement>(".page-heading h1")}
         />

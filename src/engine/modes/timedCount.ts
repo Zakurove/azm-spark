@@ -779,10 +779,13 @@ abstract class TimedCountBase implements TestRunner {
     const track = this.track(frame, true);
     tr.monitor.feedPick(frame, track.pick);
     const p = track.pick.paused ? null : this.progress(track, roll, t);
-    // Scored or unscored time, up to the end of the trial.
+    // Scored or unscored time, up to the end of the trial. Time without frames (a camera or model
+    // stall, dropped frames) is unscored whatever the frame that ends it: nothing was seen then, and
+    // a rep in it is lost (spec 4.2: over 20 percent of the 30 s unscored fails the gate).
+    // SPEC-GAP: gap-time. A gap longer than maxGapMs between two frames counts whole as unscored.
     const upTo = Math.min(t, tr.tEnd);
     const dt = tr.lastT === null ? 0 : Math.max(0, upTo - tr.lastT);
-    if (p === null) tr.unscoredMs += dt;
+    if (p === null || dt > TIMED_RULES.maxGapMs) tr.unscoredMs += dt;
     else tr.scoredMs += dt;
     tr.lastT = upTo;
 

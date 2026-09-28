@@ -15,11 +15,12 @@ import {
   type CheckApi,
 } from "../src/features/assessment/api";
 import {
+  DEFAULT_DEVICE,
   POSTABLE_SKIP_REASONS,
   initialModel,
   type ResultPayload,
 } from "../src/features/assessment/flowMachine";
-import { memoryStore, ResultQueue } from "../src/features/assessment/resultQueue";
+import { callOutcome, memoryStore, ResultQueue, retryDelaySec } from "../src/features/assessment/resultQueue";
 import { snapshotOf } from "../src/features/assessment/useCheckFlow";
 import { screenKeyOf } from "../src/features/assessment/CheckApp";
 import { isBoothMode, readBoothCode } from "../src/features/assessment/boothMode";
@@ -29,6 +30,7 @@ import { minutesUnit, parseNumberInput } from "../src/features/assessment/shared
 import { detectPlatform } from "../src/features/assessment/shared/states";
 import { onlineState } from "../src/features/assessment/shared/useOnline";
 import { CLIENT_SKIP_REASONS } from "../server/modules/assessments/validate";
+import { t } from "../src/i18n";
 import { answersFor, intakeOf, member, resultBody, startApi, type Harness } from "./check-api-harness";
 
 let h: Harness;
@@ -293,15 +295,143 @@ describe("result queue", () => {
     };
     const q = new ResultQueue(api, memoryStore());
     const seen: number[] = [];
-    q.onChange((w) => seen.push(w));
+    q.onChange((st) => seen.push(st.waiting));
     await q.enqueue({ type: "result", checkId: "bad", body });
     await q.enqueue({ type: "result", checkId: "a", body });
     await q.enqueue({ type: "complete", checkId: "a" });
-    expect(await q.flush()).toEqual({ sent: 0, dropped: 0, waiting: 3 });
+    expect(await q.flush()).toEqual({ sent: 0, dropped: 0, waiting: 3, auth: false });
     offline = false;
-    expect(await q.flush()).toEqual({ sent: 2, dropped: 1, waiting: 0 });
+    expect(await q.flush()).toEqual({ sent: 2, dropped: 1, waiting: 0, auth: false });
     expect(sent).toEqual(["result bad", "result a", "complete a"]);
     expect(seen.at(-1)).toBe(0);
+  });
+
+  it("sends a call enqueued while a flush is running (no stranded completion)", async () => {
+    const sent: string[] = [];
+    let release: () => void = () => undefined;
+    const first = new Promise<void>((r) => (release = r));
+    const api = {
+      postResult: async (id: string) => {
+        if (id === "slow") await first;
+        sent.push(`result ${id}`);
+        return { ok: true as const, value: { saved: true as const } };
+      },
+      complete: async (id: string) => {
+        sent.push(`complete ${id}`);
+        return { ok: true as const, value: { id, completed: 1, symptomAsk: [] } };
+      },
+    };
+    const q = new ResultQueue(api, memoryStore());
+    await q.enqueue({ type: "result", checkId: "slow", body });
+    const running = q.flush();
+    // Two calls arrive while the first result is still pending, each with its own flush.
+    await q.enqueue({ type: "result", checkId: "next", body });
+    const second = q.flush();
+    await q.enqueue({ type: "complete", checkId: "c" });
+    const third = q.flush();
+    release();
+    await Promise.all([running, second, third]);
+    expect(sent).toEqual(["result slow", "result next", "complete c"]);
+    expect(await q.waiting()).toBe(0);
+  });
+
+  it("keeps stops, pain answers and the background start in order with the results", async () => {
+    const sent: string[] = [];
+    const ok = <T>(value: T) => ({ ok: true as const, value });
+    const api = {
+      postResult: async (_id: string, b: ResultPayload) => {
+        sent.push(`result ${b.side}`);
+        return ok({ saved: true as const });
+      },
+      postStop: async (_id: string, option: string) => {
+        sent.push(`stop ${option}`);
+        return ok({} as never);
+      },
+      postBetween: async (_id: string, _test: string, _side: string, answer: string) => {
+        sent.push(`between ${answer}`);
+        return ok({} as never);
+      },
+      startCheck: async () => {
+        sent.push("start");
+        return {
+          ok: false as const,
+          error: { kind: "http" as const, status: 409, code: "POSTPONE", body: { status: "postpone" } },
+        };
+      },
+    };
+    const q = new ResultQueue(api, memoryStore());
+    const answers: string[] = [];
+    q.onSent((call) => answers.push(call.type));
+    await q.enqueue({ type: "result", checkId: "a", body: { ...body, side: "right" } });
+    await q.enqueue({
+      type: "between",
+      checkId: "a",
+      testId: "shoulder_abduction",
+      side: "right",
+      answer: "same",
+    });
+    await q.enqueue({ type: "result", checkId: "a", body: { ...body, side: "left" } });
+    await q.enqueue({ type: "stop", checkId: "a", option: "chest" });
+    await q.enqueue({
+      type: "startBackground",
+      answers: { pc_unwell: "yes" },
+      device: DEFAULT_DEVICE,
+      setting: "home",
+    });
+    expect(await q.flush()).toMatchObject({ sent: 5, dropped: 0, waiting: 0 });
+    expect(sent).toEqual(["result right", "between same", "result left", "stop chest", "start"]);
+    // 409 POSTPONE is the background start's expected answer: it leaves the outbox as sent.
+    expect(answers).toEqual(["result", "between", "result", "stop", "startBackground"]);
+  });
+
+  it("never writes the background start (raw answers) to storage", async () => {
+    const store = memoryStore();
+    const q = new ResultQueue({}, store);
+    await q.enqueue({
+      type: "startBackground",
+      answers: { pc_urgent: "yes" },
+      device: DEFAULT_DEVICE,
+      setting: "home",
+    });
+    await q.enqueue({ type: "stop", checkId: "a", option: "chest" });
+    expect((await store.all()).map((c) => c.type)).toEqual(["stop"]);
+    expect(await q.waiting()).toBe(2);
+  });
+
+  it("an ended session (401) keeps every call and reports sign in; stops only on network errors", async () => {
+    let auth = true;
+    const api = {
+      postResult: async () =>
+        auth
+          ? {
+              ok: false as const,
+              error: { kind: "http" as const, status: 401, code: "AUTH_REQUIRED", body: {} },
+            }
+          : { ok: true as const, value: { saved: true as const } },
+    };
+    const q = new ResultQueue(api, memoryStore());
+    await q.enqueue({ type: "result", checkId: "a", body });
+    expect(await q.flush()).toEqual({ sent: 0, dropped: 0, waiting: 1, auth: true });
+    auth = false;
+    expect(await q.flush()).toEqual({ sent: 1, dropped: 0, waiting: 0, auth: false });
+  });
+
+  it("drops what the server refuses for good, and waits on busy or slow answers", () => {
+    const http = (status: number, code: string) =>
+      ({ ok: false, error: { kind: "http", status, code, body: {} } }) as const;
+    const result = { type: "result" as const };
+    expect(callOutcome(result, http(400, "RESULT_INVALID"))).toBe("drop");
+    expect(callOutcome(result, http(404, "NOT_FOUND"))).toBe("drop");
+    expect(callOutcome(result, http(409, "NOT_OPEN"))).toBe("drop");
+    expect(callOutcome(result, http(401, "AUTH_REQUIRED"))).toBe("auth");
+    expect(callOutcome(result, http(403, "AUTH_ORIGIN"))).toBe("auth");
+    expect(callOutcome(result, http(429, "RATE_LIMIT"))).toBe("wait");
+    expect(callOutcome(result, http(503, "SERVER"))).toBe("wait");
+    expect(callOutcome(result, { ok: false, error: { kind: "network" } })).toBe("wait");
+    expect(callOutcome({ type: "startBackground" }, http(409, "LOCKED"))).toBe("sent");
+    expect(retryDelaySec(0)).toBe(5);
+    expect(retryDelaySec(1)).toBe(15);
+    expect(retryDelaySec(9)).toBe(60);
   });
 });
 
@@ -333,13 +463,23 @@ describe("shared UI helpers", () => {
     expect(parseNumberInput("−5")).toBeNull();
   });
 
-  it("the minute word follows the Arabic plural of the last number", () => {
-    expect(minutesUnit("ar", 1)).toBe("دقيقة");
-    expect(minutesUnit("ar", 2)).toBe("دقيقتان");
+  it("the minute word follows the Arabic plural of the last number; one and two stand for the number", () => {
+    expect(minutesUnit("ar", 1)).toBe("دقيقة واحدة");
+    expect(minutesUnit("ar", 2)).toBe("دقيقتين");
     expect(minutesUnit("ar", 10)).toBe("دقائق");
     expect(minutesUnit("ar", 21)).toBe("دقيقة");
     expect(minutesUnit("en", 1)).toBe("minute");
     expect(minutesUnit("en", 21)).toBe("minutes");
+    // Durations pass unit "min": the oblique dual after a preposition, never a numeral with it.
+    expect(t("ar", "assessment.guest.quickTry", { minutes: 2, unit: "min" })).toContain("في نحو دقيقتين");
+    expect(t("ar", "assessment.guest.quickTry", { minutes: 1, unit: "min" })).toContain("في نحو دقيقة واحدة");
+    expect(t("ar", "assessment.afterIntake.body", { minutesFrom: 16, minutesTo: 21, unit: "min" })).toContain(
+      "نحو ١٦ إلى ٢١ دقيقة",
+    );
+    expect(t("ar", "assessment.afterIntake.body", { minutesFrom: 8, minutesTo: 10, unit: "min" })).toContain(
+      "نحو ٨ إلى ١٠ دقائق",
+    );
+    expect(t("en", "assessment.guest.quickTry", { minutes: 2, unit: "min" })).toContain("2 minutes");
   });
 
   it("browser families for the camera permission steps", () => {

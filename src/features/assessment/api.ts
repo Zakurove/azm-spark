@@ -10,10 +10,11 @@
  * `conflict(error)` reads the 409 and 403 codes the flow acts on: LOCKED, POSTPONE, HOME_CLOSED,
  * NOT_OPEN, CONSENT_REQUIRED, TOO_SOON, SKIPPED, NO_RESULTS, NOT_DUE, CONSENT_VERSION.
  *
- * Safety answers are never queued: the phone evaluates the pre-check, the stop list and the pain
- * question between tests with the pure modules first and shows the screen at once; the start call
- * (`startCheck`), `postStop` and `postBetween` go out directly or not at all. Only results and the
- * completion of a started check may wait in the ResultQueue for the network (resultQueue.ts).
+ * The phone evaluates the pre-check, the stop list and the pain question between tests with the pure
+ * modules first and shows the screen at once. Only the start call of a check that goes ahead is
+ * awaited (`startCheck`); every other call (results, skips, stops, the pain question, the completion
+ * and the background start of a postponed or emergency pre-check) goes through the ordered outbox of
+ * resultQueue.ts, which keeps it until the server has it.
  *
  * The guest flow never calls this client (contract v3 I).
  */
@@ -360,6 +361,8 @@ export function toStartResult(r: ApiResult<StartOk>): StartResult {
     };
   if (c?.code === "LOCKED") return { ok: false, code: "LOCKED", until: c.until, releasable: c.releasable };
   if (c?.code === "CONSENT_REQUIRED") return { ok: false, code: "CONSENT_REQUIRED" };
+  // The session ended (401 AUTH_REQUIRED, or a 403 AUTH_ code): sign in again, never Try again.
+  if (e.status === 401 || (e.status === 403 && e.code.startsWith("AUTH"))) return { ok: false, code: "AUTH" };
   const code = (START_ERRORS as readonly string[]).includes(e.code) ? (e.code as StartError) : "server";
   return { ok: false, code };
 }
@@ -379,6 +382,7 @@ export function toSignedInContext(c: ContextResponse): SignedInContext {
     ...(c.neededArmsLastStand !== undefined ? { neededArmsLastStand: c.neededArmsLastStand } : {}),
     baseTests: c.baseTests ?? [],
     lock: c.lock ? { until: c.lock.until, releasable: lockReleasable(c.lock) } : null,
+    earliestNext: c.earliestNext ?? null,
     consent: c.consent,
     homeOpen: c.homeOpen === true,
     ...(c.adultConfirmed !== undefined ? { adultConfirmed: c.adultConfirmed } : {}),

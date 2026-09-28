@@ -4,15 +4,18 @@
  * The state machine itself is the pure `flowReducer` of flowMachine.ts (re-exported here); this hook
  * is the thin React side of it:
  *   - it stamps every event with the time (the reducer never reads a clock);
- *   - signed in, it loads GET /api/assessments/context and starts the flow with CONTEXT_LOADED;
- *     guest, it starts the flow with START and never calls the network (contract v3 I);
- *   - it runs the effects the reducer lists: the awaited start call, the background safety posts
- *     (never queued), and the results and completion through the ResultQueue;
+ *   - signed in, it loads GET /api/assessments/context and starts the flow with CONTEXT_LOADED (or
+ *     RESUME for an open check); guest, it starts the flow with START and never calls the network
+ *     (contract v3 I: no API client call, no outbox);
+ *   - it runs the effects the reducer lists: the awaited start call, and every other call through the
+ *     ordered outbox (resultQueue.ts), which it retries with a back off, when the page is shown again
+ *     and when the connection returns;
  *   - it keeps a resumable snapshot for the camera permission reload (S32), without raw answers once
  *     the protocol is frozen, in sessionStorage only.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createCheckApi, toSignedInContext, toStartResult, type CheckApi } from "./api";
+import { clearBoothCode } from "./boothMode";
 import {
   flowReducer,
   initialModel,
@@ -23,7 +26,14 @@ import {
   type FlowModel,
   type ResumeCheck,
 } from "./flowMachine";
-import { indexedDbStore, ResultQueue } from "./resultQueue";
+import {
+  indexedDbStore,
+  memoryStore,
+  ResultQueue,
+  retryDelaySec,
+  type QueueStatus,
+  type QueuedCall,
+} from "./resultQueue";
 import { reportNetwork } from "./shared/useOnline";
 
 export { flowReducer, initialModel } from "./flowMachine";
@@ -38,7 +48,7 @@ export interface CheckFlowOptions {
   boothCode?: string | null;
   api?: CheckApi;
   queue?: ResultQueue;
-  /** Online state from useOnline: the queue is flushed when it turns true. */
+  /** Online state from useOnline: the outbox is flushed when it turns true. */
   online?: boolean;
   /** An open check to continue (S01 resume): sent with the context instead of starting anew. */
   resume?: ResumeCheck | null;
@@ -70,12 +80,15 @@ export function hasSnapshot(mode: FlowConfig["mode"]): boolean {
   }
 }
 
-/** Reads and removes the snapshot; only a snapshot of the same mode and booth state is used. */
+/**
+ * Reads the snapshot without removing it; only a snapshot of the same mode and booth state is used.
+ * Read only, because React (StrictMode in development) may run the reducer initializer twice and keep
+ * the second result: both reads must see it. The hook removes it once mounted (clearSnapshot).
+ */
 export function takeSnapshot(config: FlowConfig): FlowModel | null {
   try {
     const raw = sessionStorage.getItem(SNAPSHOT_KEY);
     if (!raw) return null;
-    sessionStorage.removeItem(SNAPSHOT_KEY);
     const m = JSON.parse(raw) as FlowModel;
     if (m?.data?.config?.mode !== config.mode || m.data.config.booth !== config.booth) return null;
     if (typeof m.state?.kind !== "string") return null;
@@ -85,15 +98,48 @@ export function takeSnapshot(config: FlowConfig): FlowModel | null {
   }
 }
 
+export function clearSnapshot(): void {
+  try {
+    sessionStorage.removeItem(SNAPSHOT_KEY);
+  } catch {
+    /* nothing kept */
+  }
+}
+
+/** An outbox that never sends (the guest flow stores and sends nothing, contract v3 I). */
+function guestQueue(): ResultQueue {
+  return new ResultQueue({}, memoryStore());
+}
+
+/** The outbox of this device (IndexedDB), wired to the online state. */
+export function deviceQueue(api: CheckApi = defaultApi()): ResultQueue {
+  return new ResultQueue(api, indexedDbStore());
+}
+
+function defaultApi(): CheckApi {
+  return createCheckApi({
+    onNetworkError: () => reportNetwork(false),
+    onReachable: () => reportNetwork(true),
+  });
+}
+
+/**
+ * Sends what a signed in check left in the outbox (after the person signs in again, or when the app
+ * opens signed in). Never called for guests.
+ */
+export async function flushPendingCheckCalls(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await deviceQueue().flush();
+}
+
 export function useCheckFlow(opts: CheckFlowOptions) {
   const { config } = opts;
-  const api = useMemo(
-    () =>
-      opts.api ??
-      createCheckApi({ onNetworkError: () => reportNetwork(false), onReachable: () => reportNetwork(true) }),
-    [opts.api],
+  const signedIn = config.mode === "signedIn";
+  const api = useMemo(() => opts.api ?? defaultApi(), [opts.api]);
+  const queue = useMemo(
+    () => opts.queue ?? (signedIn ? deviceQueue(api) : guestQueue()),
+    [opts.queue, api, signedIn],
   );
-  const queue = useMemo(() => opts.queue ?? new ResultQueue(api, indexedDbStore()), [opts.queue, api]);
   const [model, rawDispatch] = useReducer(
     flowReducer,
     undefined,
@@ -103,6 +149,10 @@ export function useCheckFlow(opts: CheckFlowOptions) {
   const started = useRef<Set<number>>(new Set());
   const modelRef = useRef(model);
   modelRef.current = model;
+  const [status, setStatus] = useState<QueueStatus>({ waiting: 0, auth: false });
+
+  // The reload snapshot is used once: removed after the first mount has read it.
+  useEffect(() => clearSnapshot(), []);
 
   // Entry: signed in loads the context, guest starts at once (a restored snapshot needs neither).
   const entryError = model.state.kind === "entry" ? model.state.error : undefined;
@@ -124,6 +174,49 @@ export function useCheckFlow(opts: CheckFlowOptions) {
       active = false;
     };
   }, [model.state.kind, entryError]);
+
+  // The outbox: its status for the screens, and the background start's answer (a stricter screen).
+  useEffect(() => queue.onChange(setStatus), [queue]);
+  useEffect(
+    () =>
+      queue.onSent((call: QueuedCall, r) => {
+        if (call.type !== "startBackground") return;
+        // The phone already shows the safety or postpone screen. If the server answers with a stricter
+        // one, that one is shown (map 2.2).
+        const s = toStartResult(r as Parameters<typeof toStartResult>[0]);
+        if (!s.ok && s.code === "POSTPONE" && s.screen && (s.status === "emergency" || s.status === "ad")) {
+          if (modelRef.current.state.kind !== "safety")
+            dispatch({ type: "SAFETY", screen: s.screen, alsoShow: s.alsoShow });
+        }
+      }),
+    [queue],
+  );
+
+  // Retries while calls wait: a back off timer (5, 15, 30, then every 60 s), and whenever the page is
+  // shown again. A flush that sends anything resets the back off.
+  const attempt = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flush = useCallback(async () => {
+    if (!signedIn) return;
+    clearTimeout(timer.current);
+    const report = await queue.flush();
+    if (report.sent > 0 || report.waiting === 0) attempt.current = 0;
+    if (report.waiting > 0 && !report.auth) {
+      timer.current = setTimeout(() => void flush(), retryDelaySec(attempt.current) * 1000);
+      attempt.current += 1;
+    }
+  }, [queue, signedIn]);
+  useEffect(() => {
+    if (!signedIn) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void flush();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearTimeout(timer.current);
+    };
+  }, [flush, signedIn]);
 
   // Effects: each runs once, then leaves the list.
   useEffect(() => {
@@ -149,43 +242,44 @@ export function useCheckFlow(opts: CheckFlowOptions) {
         dispatch({ type: "START_RESULT", result: toStartResult(r) });
         return;
       }
-      case "startBackground": {
-        // The phone already shows the safety or postpone screen. The server sets the lock and counts
-        // the event; if it answers with a stricter screen, that one is shown (map 2.2).
-        const r = await api.startCheck({
+      case "startBackground":
+        await queue.enqueue({
+          type: "startBackground",
           answers: effect.answers,
           device,
           setting: effect.setting,
-          boothCode: code,
+          ...(code ? { boothCode: code } : {}),
         });
-        const s = toStartResult(r);
-        const shown = modelRef.current.state;
-        if (!s.ok && s.code === "POSTPONE" && s.screen && (s.status === "emergency" || s.status === "ad")) {
-          if (shown.kind !== "safety") dispatch({ type: "SAFETY", screen: s.screen, alsoShow: s.alsoShow });
-        }
-        return;
-      }
+        break;
       case "stop":
-        await api.postStop(effect.checkId, effect.option);
-        return;
+        await queue.enqueue({ type: "stop", checkId: effect.checkId, option: effect.option });
+        break;
       case "between":
-        await api.postBetween(effect.checkId, effect.testId, effect.side, effect.answer);
-        return;
+        await queue.enqueue({
+          type: "between",
+          checkId: effect.checkId,
+          testId: effect.testId,
+          side: effect.side,
+          answer: effect.answer,
+        });
+        break;
       case "result":
         await queue.enqueue({ type: "result", checkId: effect.checkId, body: effect.body });
-        await queue.flush();
-        return;
+        break;
       case "complete":
         await queue.enqueue({ type: "complete", checkId: effect.checkId });
-        await queue.flush();
+        break;
+      case "clearBoothCode":
+        clearBoothCode();
         return;
     }
+    await flush();
   }
 
-  // Back online: send what waits in the queue.
+  // Back online, and on mount: send what waits in the outbox.
   useEffect(() => {
-    if (opts.online) void queue.flush();
-  }, [opts.online, queue]);
+    if (opts.online) void flush();
+  }, [opts.online, flush]);
 
   /** S32 Try again: keep the flow, reload so iOS asks for the camera again (map 2.9). */
   const retryCamera = useCallback(() => {
@@ -194,5 +288,5 @@ export function useCheckFlow(opts: CheckFlowOptions) {
     location.reload();
   }, []);
 
-  return { model, dispatch, api, queue, retryCamera };
+  return { model, dispatch, api, queue, status, retryCamera };
 }

@@ -317,6 +317,47 @@ describe("the phone moves after the arm raise calibration (spec 4.1 trunk refere
   }
 });
 
+/* ------------------------------------------------- a helper's hovering hand */
+
+describe("a helper's hand hovering close beside the shoulder (spec 4.3 helper rules)", () => {
+  it("does not fail the side lean toward the helper", () => {
+    const order = leanOrder("right");
+    const starts = leanStarts(order.length);
+    const hoverSide: Side = "left";
+    const { frames } = framesOf(
+      spec("trunk_control_seated", "chair", "9:16", leans(order, 20, starts), starts.at(-1)! + 12, 350, {
+        subject: { arms: HANDS_ON_THIGHS },
+        helper: {
+          x: 0.55,
+          z: -0.25,
+          yaw: -30,
+          hover: { from: 0, to: 200, shoulder: hoverSide, gapM: 0.05 },
+        },
+      }),
+    );
+    const r = run(new TrunkControlRunner(TRUNK, "none"), frames, { rollDeg: 0 });
+    const left = r.side("left");
+    expect(left.status).toBe("measured");
+    expect(left.retried.some((a) => a.reasons.includes("touched"))).toBe(false);
+  });
+
+  it("a hand resting on the shoulder is still a touch", () => {
+    const starts = raiseStarts(5);
+    const { frames } = framesOf(
+      spec("shoulder_abduction", "chair", "9:16", raises("right", 140, starts), starts[4] + 12, 351, {
+        helper: {
+          x: 0.55,
+          z: -0.2,
+          yaw: -30,
+          touch: { from: starts[1] + 1, to: starts[1] + 3, shoulder: "left" },
+        },
+      }),
+    );
+    const out = run(new RangeTestRunner(ABD, "right"), frames, { rollDeg: 0 }).side("right");
+    expect(out.retried[0].reasons).toContain("touched");
+  });
+});
+
 /* ------------------------------------------ jittered frames at 12 to 60 fps */
 
 describe("jittered and dropped frames at 12 to 60 fps (contract v2 F fixtures)", () => {

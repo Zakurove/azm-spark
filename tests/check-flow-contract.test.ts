@@ -15,6 +15,7 @@ import {
   flowReducer,
   initialModel,
   RETRIES,
+  sameChairAsked,
   type FlowConfig,
   type FlowEvent,
   type FlowModel,
@@ -703,5 +704,78 @@ describe("CheckApp's flow configuration", () => {
       homeOpen: false,
       desktop: true,
     });
+  });
+});
+
+/* ------------------------------------------------------------------ the same chair (Q9 (3), Q12 (2)) */
+
+describe("the same chair answer of the chair stand and the side lean (Q9 (3), note 19 (b))", () => {
+  const bodyFor = (m: FlowModel, i: number) => {
+    const item = m.data.tests[i].sides[0];
+    return {
+      testId: item.testId,
+      side: item.side,
+      value: 12,
+      unit: "count",
+      attempts: [{ value: 12, valid: true }],
+      quality: { ok: true },
+      detail: { footwear: "shoes" } as Record<string, number | boolean | string>,
+      flags: [],
+      nValid: 1,
+      median: 12,
+      skippedReason: null,
+      variant: null,
+      poseModel: "lite" as const,
+      movementVersion: 1,
+      engineVersion: "e",
+    };
+  };
+  const at = (position: "chair" | "standing" | "wheelchair", firstCheck: boolean, testId: string) => {
+    const m = signedAtPlan(contextOf({ position }, { firstCheck }));
+    const i = m.data.tests.findIndex((r) => r.testId === testId);
+    expect(i, `${testId} runs for ${position}`).toBeGreaterThanOrEqual(0);
+    return { m: withState({ ...m, effects: [] }, { kind: "test.instruction", i }), i };
+  };
+  const post = (m: FlowModel, i: number) => {
+    const item = m.data.tests[i].sides[0];
+    const measured = withState(m, cam("cam.saved", i, 0));
+    const x = play(measured, {
+      type: "SIDE_RESULT",
+      testId: item.testId,
+      side: item.side,
+      outcome: { status: "measured", value: 12 },
+      body: bodyFor(m, i),
+    });
+    return x.effects.find((e) => e.type === "result") as { body: { detail: Record<string, unknown> } };
+  };
+
+  it("from the second check the chair stand setup asks it before READY, and the result carries it", () => {
+    const { m, i } = at("standing", false, "chair_stand_30s");
+    expect(sameChairAsked(m.data, i)).toBe(true);
+    expect(play(m, { type: "READY" }).state).toEqual(m.state);
+    const yes = play(m, { type: "SAME_CHAIR", value: "yes" });
+    expect(kind(play(yes, { type: "READY" }))).not.toBe("test.instruction");
+    expect(post(yes, i).body.detail.sameChair).toBe(true);
+    // Not sure is kept as no (Q9 (3)).
+    expect(post(play(m, { type: "SAME_CHAIR", value: "unsure" }), i).body.detail.sameChair).toBe(false);
+  });
+
+  it("the side lean asks it of chair users; a wheelchair is the same chair", () => {
+    const chair = at("chair", false, "trunk_control_seated");
+    expect(sameChairAsked(chair.m.data, chair.i)).toBe(true);
+    expect(post(play(chair.m, { type: "SAME_CHAIR", value: "yes" }), chair.i).body.detail.sameChair).toBe(
+      true,
+    );
+    const wheel = at("wheelchair", false, "trunk_control_seated");
+    expect(sameChairAsked(wheel.m.data, wheel.i)).toBe(false);
+    expect(post(wheel.m, wheel.i).body.detail.sameChair).toBe(true);
+  });
+
+  it("is not asked at the first check, at the booth, or for the other tests", () => {
+    const first = at("standing", true, "chair_stand_30s");
+    expect(sameChairAsked(first.m.data, first.i)).toBe(false);
+    expect(post(first.m, first.i).body.detail.sameChair).toBeUndefined();
+    const other = at("chair", false, "shoulder_abduction");
+    expect(sameChairAsked(other.m.data, other.i)).toBe(false);
   });
 });

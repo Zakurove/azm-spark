@@ -32,6 +32,7 @@ import {
   parseQuestionId,
   possibleQuestions,
   resumeQuestions,
+  setupQuestionsFor,
   stopRoute,
   visibleQuestions,
   type AnswerValue,
@@ -351,6 +352,11 @@ export interface FlowData {
   noResponseAlarm: boolean;
   /** A resumed check is in its re-ask (O6 (2)): the questions and the rules of evaluateResume. */
   resuming: boolean;
+  /**
+   * The same chair answer of a test (su_same_chair, Q9 (3); the side lean reuses it, note 19 (b)):
+   * yes true, no and not sure false. The result carries it; the server keeps the chair id on true.
+   */
+  sameChair: Partial<Record<TestId, boolean>>;
 }
 
 export type FlowEffect =
@@ -483,6 +489,7 @@ export type FlowEvent = At &
     | { type: "PLAN_START" }
     | { type: "READY" }
     | { type: "CHAIR_GATE_NO" }
+    | { type: "SAME_CHAIR"; value: "yes" | "no" | "unsure" }
     | { type: "PREP_NEXT" }
     | { type: "CAMERA_ERROR"; problem: CameraProblem }
     | { type: "SETUP_OK" }
@@ -626,6 +633,7 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
     stopped: null,
     noResponseAlarm: false,
     resuming: false,
+    sameChair: {},
   };
 }
 
@@ -1117,11 +1125,20 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       }
       return m;
 
-    case "test.instruction":
-      if (e.type === "READY") return nextPrep(m, s.i, null);
+    case "test.instruction": {
+      const testId = d.tests[s.i]?.testId;
+      // Q9 (3): from the second check the setup asks whether it is the same chair; the test starts
+      // only once it is answered (not sure is kept as no).
+      if (e.type === "SAME_CHAIR" && testId && sameChairAsked(d, s.i))
+        return { ...m, data: { ...d, sameChair: { ...d.sameChair, [testId]: e.value === "yes" } } };
+      if (e.type === "READY") {
+        if (testId && sameChairAsked(d, s.i) && d.sameChair[testId] === undefined) return m;
+        return nextPrep(m, s.i, null);
+      }
       if (e.type === "CHAIR_GATE_NO") return skipTest(m, s.i, 0, "chair_needed");
       if (e.type === "SKIP") return { ...m, overlay: { kind: "skipDialog" } };
       return m;
+    }
 
     case "test.grip":
     case "test.load":
@@ -2287,7 +2304,11 @@ function recordSide(
   const next = { ...m, data: { ...d, outcomes: { ...d.outcomes, [outcomeKey(testId, side)]: outcome } } };
   if (d.config.mode !== "signedIn" || !d.checkId || !post) return next;
   const retries = d.run.retriesUsed > 0 ? { qualityRetries: d.run.retriesUsed } : {};
-  if (body) return emit(next, { type: "result", checkId: d.checkId, body: { ...retries, ...body } });
+  if (body) {
+    const same = sameChairOf(d, testId);
+    const withChair = same === undefined ? body : { ...body, detail: { ...body.detail, sameChair: same } };
+    return emit(next, { type: "result", checkId: d.checkId, body: { ...retries, ...withChair } });
+  }
   // A side not measured (quality retries used up) is posted like a skip with its reason, so the
   // server keeps the P6 "not measured today" row and can complete the check.
   if (
@@ -2303,6 +2324,30 @@ function recordSide(
     });
   }
   return next;
+}
+
+/**
+ * Whether the setup of test i asks su_same_chair (Q9 (3)): at home from the second check, for the
+ * chair stand (setupQuestionsFor) and, for chair users, the side lean.
+ */
+// SPEC-GAP: side-lean-same-chair. The side lean's blocking same chair field has no question of its
+// own (clinical note 19 (b)); the chair stand's su_same_chair is reused for chair users, and a
+// wheelchair is the same chair.
+export function sameChairAsked(d: FlowData, i: number): boolean {
+  const testId = d.tests[i]?.testId;
+  const env = d.env;
+  if (!testId || !env || d.config.mode !== "signedIn" || env.setting !== "home") return false;
+  if (testId === "chair_stand_30s") return setupQuestionsFor(env).includes("su_same_chair");
+  if (testId === "trunk_control_seated") return !env.firstCheck && env.ctx.position !== "wheelchair";
+  return false;
+}
+
+/** The same chair value a result of this test carries, or undefined (not asked, the first check). */
+function sameChairOf(d: FlowData, testId: TestId): boolean | undefined {
+  if (testId !== "chair_stand_30s" && testId !== "trunk_control_seated") return undefined;
+  if (d.sameChair[testId] !== undefined) return d.sameChair[testId];
+  if (testId === "trunk_control_seated" && d.env?.ctx.position === "wheelchair") return true;
+  return undefined;
 }
 
 /** A skip result: no score and no attempts (spec 4.0; server checkResult). */

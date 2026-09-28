@@ -21,6 +21,7 @@ import {
   prepSteps,
   questionCounter,
   safetyKindOf,
+  sameChairAsked,
   testCounter,
   testsOf,
   type FlowConfig,
@@ -1442,8 +1443,13 @@ describe("network effects", () => {
 function autopilot(m: FlowModel): FlowEvent {
   const s = m.state;
   switch (s.kind) {
-    case "test.instruction":
+    case "test.instruction": {
+      // From the second check the chair stand and the side lean ask whether it is the same chair.
+      const testId = m.data.tests[s.i]?.testId;
+      if (testId && sameChairAsked(m.data, s.i) && m.data.sameChair[testId] === undefined)
+        return { type: "SAME_CHAIR", value: "yes" };
       return { type: "READY" };
+    }
     case "test.grip":
     case "test.load":
     case "test.helper":

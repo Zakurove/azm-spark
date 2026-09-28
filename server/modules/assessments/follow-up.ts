@@ -3,19 +3,22 @@
  *
  *   GET  /api/assessments/:id/end      the form of the end of check question (Q23 (7)): general, or
  *                                      the side form after a one sided large drop; the O37 line
- *   POST /api/assessments/:id/end      { answer: yes | no }: yes opens scr_emergency, stores
- *                                      changeReported, locks the day and closes an open check as
- *                                      completed (its results stay stored)
- *   POST /api/assessments/:id/faint    { answer, afterNoResponse?, testId? }: sf_faint_loc after a
- *                                      faint or fall stop (Q33 (3), O42)
- *   POST /api/assessments/:id/alarm    { kind: no_response | help_requested, testId? }: the anonymous
- *                                      count of a check in alarm or help request (Q25, O34-5)
+ *   POST /api/assessments/:id/answer   one path for three answers, so no URL path shows that a
+ *                                      safety event happened (Q25 (a): reason codes never in URLs or
+ *                                      request logs); the question is in the body:
+ *     { question: "end", answer: yes | no }   the end of check question: yes opens scr_emergency,
+ *                                      stores changeReported, locks the day and closes an open check
+ *                                      as completed (its results stay stored)
+ *     { question: "faint", answer, afterNoResponse?, testId? }   sf_faint_loc after a faint or fall
+ *                                      stop (Q33 (3), O42)
+ *     { question: "alarm", kind: no_response | help_requested, testId? }   the anonymous count of a
+ *                                      check in alarm or help request (Q25, O34-5)
  *   POST /api/assessments/:id/resume   { answers }: the O6 re-ask within 30 minutes
  *
  * Only the dates of the data map are kept (changeReported); every answer itself is used today and
  * discarded (spec 2.1 "Used today only"). Counts carry no user id (Q25 (a)).
  */
-import type { Route } from "../../http/types";
+import type { Route, RouteContext } from "../../http/types";
 import {
   endOfCheck,
   endOfCheckChronicNote,
@@ -73,6 +76,124 @@ const ALARMS_PER_CHECK = 3;
 
 const path = (tail: string) => new RegExp(`^/api/assessments/${ID_PATH}/${tail}$`);
 
+type Handler = (ctx: RouteContext) => void;
+
+/** POST /:id/answer: the end, faint and alarm answers by `question` (see the header). */
+function answerRoute(handlers: Record<"end" | "faint" | "alarm", Handler>): Route {
+  return {
+    method: "POST",
+    path: path("answer"),
+    auth: "user",
+    handle(ctx) {
+      const { question, ...rest } = ctx.body as Record<string, unknown>;
+      if (question !== "end" && question !== "faint" && question !== "alarm")
+        return ctx.json(400, { error: "ANSWER_INVALID", field: "question" });
+      handlers[question]({ ...ctx, body: rest });
+    },
+  };
+}
+
+/** { question: "end" }: the end of check question (Q23 (7)). */
+function endAnswer(ctx: RouteContext): void {
+  const { db, user, body, json, limited } = ctx;
+  if (unknownKeys(body, ["answer"]).length) return json(400, { error: "END_INVALID", field: "body" });
+  if (!(END_ANSWERS as readonly unknown[]).includes(body.answer))
+    return json(400, { error: "END_INVALID", field: "answer" });
+  // Asked whenever the results are first shown (O6 (4)): a stale open check closes first, and a
+  // check the server closed meanwhile (any status) still takes the answer (safetyCheck), so a yes
+  // stores changeReported and the day's lock.
+  const found = safetyCheck(ctx);
+  if (!found) return;
+  const { a } = found;
+  const status = a.status;
+  const now = Date.now();
+  const out = endOfCheck(body.answer, now);
+  if (out.status !== "emergency") return json(200, { status: "proceed" });
+  const env = runningEnv(ctx, a);
+  // SPEC-GAP: end-count-once. Counted once per check by the in memory limiter (a server restart
+  // may count a repeated post again): Q25 keeps no per person record of the answer.
+  const first = !limited(`end-yes:${a.id}`, 1, DAY_MS);
+  const lock = transaction(db, () => {
+    if (typeof out.stored.changeReported === "string") reportChange(db, user!.id, out.stored.changeReported);
+    if (first) countSafetyEvent(db, "end:symptoms", "none", a.setting, now);
+    // SPEC-GAP: ec-yes-status. The check's tests are done and its results stay stored (UX 2.7:
+    // "results held"), so an open check completes; one that ended early stays ended early.
+    // A check without any stored result or skip starts no clock: it is closed, not completed.
+    if (status === "open") {
+      if (resultsOf(db, a.id).length) finishCheck(db, a, "completed", now, null);
+      else closeCheck(db, a, "stop", now);
+    }
+    return applyLock(ctx, out.lock, now);
+  });
+  json(200, {
+    status: "emergency",
+    screen: out.screen ?? "scr_emergency",
+    alsoShow: emergencyAlsoShow(env),
+    lock,
+  });
+}
+
+/** { question: "faint" }: sf_faint_loc after a faint or fall stop (Q33 (3), O42). */
+function faintAnswer(ctx: RouteContext): void {
+  const { db, user, body, json, limited } = ctx;
+  const a = ownCheck(ctx);
+  if (!a) return;
+  if (unknownKeys(body, ["answer", "afterNoResponse", "testId"]).length)
+    return json(400, { error: "FAINT_INVALID", field: "body" });
+  if (!(FAINT_ANSWERS as readonly unknown[]).includes(body.answer))
+    return json(400, { error: "FAINT_INVALID", field: "answer" });
+  if (body.afterNoResponse !== undefined && typeof body.afterNoResponse !== "boolean")
+    return json(400, { error: "FAINT_INVALID", field: "afterNoResponse" });
+  const ref = checkTestRef(body, a.protocol, false);
+  if (!ref.ok) return json(400, { error: "FAINT_INVALID", field: ref.field });
+  const now = Date.now();
+  // sf_faint_loc follows a faint or fall stop, which ends the check (Q33 (3), O42), also a check the
+  // server had closed before the stop reached it (stopClosedCheck), within SAFETY_LATE_MS.
+  // SPEC-GAP: faint-after-stop. Which stop ended the check is not stored (Q25 (d)), so any stop
+  // that ended it in the last day is accepted.
+  const stopped = a.status === "ended_early" || a.status === "abandoned";
+  if (!stopped || a.endedReason !== "stop" || now - a.active > SAFETY_LATE_MS)
+    return json(409, { error: "NOT_STOPPED" });
+  const out = faintFollowUp(body.answer, now, { afterNoResponse: body.afterNoResponse === true });
+  const first = !limited(`faint:${a.id}`, 1, DAY_MS);
+  const lock = transaction(db, () => {
+    if (typeof out.stored.changeReported === "string") reportChange(db, user!.id, out.stored.changeReported);
+    if (first) countSafetyEvent(db, `faint_loc:${body.answer}`, ref.value?.testId ?? "none", a.setting, now);
+    return applyLock(ctx, out.lock, now);
+  });
+  json(200, {
+    status: out.status,
+    screen: out.screen ?? null,
+    alsoShow: out.status === "emergency" ? emergencyAlsoShow(runningEnv(ctx, a)) : [],
+    lock,
+  });
+}
+
+/** { question: "alarm" }: the anonymous count of an alarm or a help request (Q25, O34-5). */
+function alarmAnswer(ctx: RouteContext): void {
+  const { db, body, json, limited } = ctx;
+  const a = ownCheck(ctx);
+  if (!a) return;
+  if (unknownKeys(body, ["kind", "testId"]).length)
+    return json(400, { error: "ALARM_INVALID", field: "body" });
+  if (!(ALARM_KINDS as readonly unknown[]).includes(body.kind))
+    return json(400, { error: "ALARM_INVALID", field: "kind" });
+  const ref = checkTestRef(body, a.protocol, false);
+  if (!ref.ok) return json(400, { error: "ALARM_INVALID", field: ref.field });
+  // The check in runs during the check and in the home fall watch after a stop (O42): a running
+  // check, or one that ended less than a day after its last activity (a late post from the
+  // outbox). Never a completed or an old check, so old checks cannot add to the counts.
+  const now = Date.now();
+  const recent = now - a.active <= SAFETY_LATE_MS;
+  if (a.status === "completed" || !recent) {
+    const status = a.status === "open" ? closeCheck(db, a, "stale", a.active) : a.status;
+    return json(409, { error: "NOT_OPEN", status });
+  }
+  if (!limited(`alarm:${a.id}`, ALARMS_PER_CHECK, DAY_MS))
+    countSafetyEvent(db, `alarm:${body.kind as AlarmKind}`, ref.value?.testId ?? "none", a.setting, now);
+  json(200, { recorded: true });
+}
+
 export const followUpRoutes: Route[] = [
   {
     method: "GET",
@@ -95,119 +216,7 @@ export const followUpRoutes: Route[] = [
       json(200, { question: form.id, side: form.side ?? null, chronicNote: endOfCheckChronicNote(env) });
     },
   },
-  {
-    method: "POST",
-    path: path("end"),
-    auth: "user",
-    handle(ctx) {
-      const { db, user, body, json, limited } = ctx;
-      if (unknownKeys(body, ["answer"]).length) return json(400, { error: "END_INVALID", field: "body" });
-      if (!(END_ANSWERS as readonly unknown[]).includes(body.answer))
-        return json(400, { error: "END_INVALID", field: "answer" });
-      // Asked whenever the results are first shown (O6 (4)): a stale open check closes first, and a
-      // check the server closed meanwhile (any status) still takes the answer (safetyCheck), so a yes
-      // stores changeReported and the day's lock.
-      const found = safetyCheck(ctx);
-      if (!found) return;
-      const { a } = found;
-      const status = a.status;
-      const now = Date.now();
-      const out = endOfCheck(body.answer, now);
-      if (out.status !== "emergency") return json(200, { status: "proceed" });
-      const env = runningEnv(ctx, a);
-      // SPEC-GAP: end-count-once. Counted once per check by the in memory limiter (a server restart
-      // may count a repeated post again): Q25 keeps no per person record of the answer.
-      const first = !limited(`end-yes:${a.id}`, 1, DAY_MS);
-      const lock = transaction(db, () => {
-        if (typeof out.stored.changeReported === "string")
-          reportChange(db, user!.id, out.stored.changeReported);
-        if (first) countSafetyEvent(db, "end:symptoms", "none", a.setting, now);
-        // SPEC-GAP: ec-yes-status. The check's tests are done and its results stay stored (UX 2.7:
-        // "results held"), so an open check completes; one that ended early stays ended early.
-        // A check without any stored result or skip starts no clock: it is closed, not completed.
-        if (status === "open") {
-          if (resultsOf(db, a.id).length) finishCheck(db, a, "completed", now, null);
-          else closeCheck(db, a, "stop", now);
-        }
-        return applyLock(ctx, out.lock, now);
-      });
-      json(200, {
-        status: "emergency",
-        screen: out.screen ?? "scr_emergency",
-        alsoShow: emergencyAlsoShow(env),
-        lock,
-      });
-    },
-  },
-  {
-    method: "POST",
-    path: path("faint"),
-    auth: "user",
-    handle(ctx) {
-      const { db, user, body, json, limited } = ctx;
-      const a = ownCheck(ctx);
-      if (!a) return;
-      if (unknownKeys(body, ["answer", "afterNoResponse", "testId"]).length)
-        return json(400, { error: "FAINT_INVALID", field: "body" });
-      if (!(FAINT_ANSWERS as readonly unknown[]).includes(body.answer))
-        return json(400, { error: "FAINT_INVALID", field: "answer" });
-      if (body.afterNoResponse !== undefined && typeof body.afterNoResponse !== "boolean")
-        return json(400, { error: "FAINT_INVALID", field: "afterNoResponse" });
-      const ref = checkTestRef(body, a.protocol, false);
-      if (!ref.ok) return json(400, { error: "FAINT_INVALID", field: ref.field });
-      const now = Date.now();
-      // sf_faint_loc follows a faint or fall stop, which ends the check (Q33 (3), O42), also a check the
-      // server had closed before the stop reached it (stopClosedCheck), within SAFETY_LATE_MS.
-      // SPEC-GAP: faint-after-stop. Which stop ended the check is not stored (Q25 (d)), so any stop
-      // that ended it in the last day is accepted.
-      const stopped = a.status === "ended_early" || a.status === "abandoned";
-      if (!stopped || a.endedReason !== "stop" || now - a.active > SAFETY_LATE_MS)
-        return json(409, { error: "NOT_STOPPED" });
-      const out = faintFollowUp(body.answer, now, { afterNoResponse: body.afterNoResponse === true });
-      const first = !limited(`faint:${a.id}`, 1, DAY_MS);
-      const lock = transaction(db, () => {
-        if (typeof out.stored.changeReported === "string")
-          reportChange(db, user!.id, out.stored.changeReported);
-        if (first)
-          countSafetyEvent(db, `faint_loc:${body.answer}`, ref.value?.testId ?? "none", a.setting, now);
-        return applyLock(ctx, out.lock, now);
-      });
-      json(200, {
-        status: out.status,
-        screen: out.screen ?? null,
-        alsoShow: out.status === "emergency" ? emergencyAlsoShow(runningEnv(ctx, a)) : [],
-        lock,
-      });
-    },
-  },
-  {
-    method: "POST",
-    path: path("alarm"),
-    auth: "user",
-    handle(ctx) {
-      const { db, body, json, limited } = ctx;
-      const a = ownCheck(ctx);
-      if (!a) return;
-      if (unknownKeys(body, ["kind", "testId"]).length)
-        return json(400, { error: "ALARM_INVALID", field: "body" });
-      if (!(ALARM_KINDS as readonly unknown[]).includes(body.kind))
-        return json(400, { error: "ALARM_INVALID", field: "kind" });
-      const ref = checkTestRef(body, a.protocol, false);
-      if (!ref.ok) return json(400, { error: "ALARM_INVALID", field: ref.field });
-      // The check in runs during the check and in the home fall watch after a stop (O42): a running
-      // check, or one that ended less than a day after its last activity (a late post from the
-      // outbox). Never a completed or an old check, so old checks cannot add to the counts.
-      const now = Date.now();
-      const recent = now - a.active <= SAFETY_LATE_MS;
-      if (a.status === "completed" || !recent) {
-        const status = a.status === "open" ? closeCheck(db, a, "stale", a.active) : a.status;
-        return json(409, { error: "NOT_OPEN", status });
-      }
-      if (!limited(`alarm:${a.id}`, ALARMS_PER_CHECK, DAY_MS))
-        countSafetyEvent(db, `alarm:${body.kind as AlarmKind}`, ref.value?.testId ?? "none", a.setting, now);
-      json(200, { recorded: true });
-    },
-  },
+  answerRoute({ end: endAnswer, faint: faintAnswer, alarm: alarmAnswer }),
   {
     method: "POST",
     path: path("resume"),

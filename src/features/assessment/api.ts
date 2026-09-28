@@ -369,9 +369,11 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
     postBetween: (id, testId, side, answer) =>
       call<BetweenResponse>("POST", check(id, "between"), { testId, side, answer }),
     getEnd: (id) => call<EndForm>("GET", check(id, "end")),
-    postEnd: (id, answer) => call<EndAnswerResponse>("POST", check(id, "end"), { answer }),
-    postFaint: (id, body) => call<FaintResponse>("POST", check(id, "faint"), body),
-    postAlarm: (id, body) => call("POST", check(id, "alarm"), body),
+    // One path for the end, faint and alarm answers, so no URL names a safety event (Q25 (a)).
+    postEnd: (id, answer) =>
+      call<EndAnswerResponse>("POST", check(id, "answer"), { question: "end", answer }),
+    postFaint: (id, body) => call<FaintResponse>("POST", check(id, "answer"), { question: "faint", ...body }),
+    postAlarm: (id, body) => call("POST", check(id, "answer"), { question: "alarm", ...body }),
     resume: (id, answers) => call<ResumeOk>("POST", check(id, "resume"), { answers }),
     complete: (id) => call<CompleteResponse>("POST", check(id, "complete"), {}),
     postAfter: (answer) => call<AfterResponse>("POST", "/assessments/after", { answer }),

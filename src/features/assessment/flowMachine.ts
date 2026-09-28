@@ -1184,7 +1184,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "FAINT_ANSWER") {
         // sf_faint_loc (Q33 (3), O42) with the pure rule the server runs (faintFollowUp): yes or not
         // sure, or any answer after a no response alarm, opens the emergency screen; no returns to
-        // the screen of the stop. The answer is posted (POST /:id/faint) with the stopped test.
+        // the screen of the stop. The answer is posted (POST /:id/answer, faint) with the stopped test.
         const out = faintFollowUp(e.value, now, { afterNoResponse: d.noResponseAlarm });
         let next = m;
         if (!guest && d.checkId) {
@@ -1210,7 +1210,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         return go(m, { kind: "endQuestion", side: e.side, chronicNote: e.chronicNote });
       if (e.type === "END_ANSWER") {
         // ec_symptoms (Q23 (7)) with the pure rule the server runs (endOfCheck). The answer is posted
-        // first (POST /:id/end); a no then completes the check, a yes has the server close it.
+        // first (POST /:id/answer, end); a no then completes the check, a yes has the server close it.
         const answer = e.yes ? "yes" : "no";
         const out = endOfCheck(answer, now);
         let next = m;

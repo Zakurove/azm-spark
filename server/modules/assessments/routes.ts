@@ -535,7 +535,7 @@ export const assessmentRoutes: Route[] = [
       if (resultsOf(db, a.id).length === 0) return json(409, { error: "NO_RESULTS" });
       const now = Date.now();
       transaction(db, () => finishCheck(db, a, "completed", now, null));
-      // Q23 (7): the end of check question (GET and POST /api/assessments/:id/end) replaces the
+      // Q23 (7): the end of check question (GET /api/assessments/:id/end and POST /:id/answer) replaces the
       // one sided symptomAsk of v1; it is asked before the results, so before this call.
       json(200, { id: a.id, completed: now });
     },

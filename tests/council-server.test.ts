@@ -1217,3 +1217,36 @@ describe("the next day question window (O38) and completedBefore", () => {
     expect(await due()).toBe(false);
   });
 });
+
+describe("ownership of the follow up routes", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("never answers or changes another person's check", async () => {
+    const a = await member(h, "own-a@example.test", intakeOf());
+    const b = await member(h, "own-b@example.test", intakeOf());
+    const s = await start(h, a);
+    const id = s.data.id;
+    const calls: [string, unknown][] = [
+      [`/assessments/${id}/end`, undefined],
+      [`/assessments/${id}/end`, { answer: "yes" }],
+      [`/assessments/${id}/faint`, { answer: "yes" }],
+      [`/assessments/${id}/alarm`, { kind: "no_response" }],
+      [`/assessments/${id}/resume`, { answers: { pc_urgent: "yes" } }],
+    ];
+    for (const [path, body] of calls) {
+      const r = await h.call(path, body, b);
+      expect(r.status).toBe(404);
+      expect(r.data).toEqual({ error: "NOT_FOUND" });
+    }
+    for (const [path, body] of calls) expect((await h.call(path, body)).status).toBe(401);
+    // Nothing reached the owner's check, lock or the safety log.
+    expect((await h.call("/assessments", undefined, a)).data.assessments[0].status).toBe("open");
+    expect((await h.call("/assessments/context", undefined, b)).data.lock).toBeNull();
+    expect(safety(h)).toEqual([]);
+  });
+});

@@ -10,24 +10,37 @@
  * stopRoute) on the phone and never waits for the network: a safety screen is the next state of
  * the event that asks for it. The guest flow emits no network effect at all (contract v3 I).
  *
- * Effects are data. `start` is awaited by the `starting` state (its answer comes back as
- * START_RESULT); every other effect is sent in the background through the ordered outbox of the hook
- * (resultQueue.ts): results, skips, stops, the pain question between tests, the completion and the
- * background start of a postponed or emergency pre-check. The screen never waits for any of them:
- * the phone has already decided and shown it (UX spec 0.7), and the outbox keeps retrying until the
- * server has the lock, the stop and the results, in the order they happened.
+ * Effects are data. `start` and `resume` are awaited by the `starting` state (their answers come
+ * back as START_RESULT and RESUME_RESULT), and `endForm` asks the server for the form of the end
+ * question (END_FORM, the general form until it answers); every other effect is sent in the
+ * background through the ordered outbox of the hook (resultQueue.ts): results, skips, stops, the
+ * pain question between tests, the end and faint answers, alarms, the adult confirmation, the
+ * completion and the background start or resume of a postponed or emergency pre-check. The screen
+ * never waits for any of them: the phone has already decided and shown it (UX spec 0.7), and the
+ * outbox keeps retrying until the server has the lock, the stop and the results, in the order they
+ * happened. A check the server closed itself (a stop that ends it, the pain question, an end yes, a
+ * re-ask that postpones, or no test left today, O21) is never completed by the phone.
  */
 import {
   betweenTests,
+  emergencyAlsoShow,
+  endOfCheck,
   evaluatePrecheck,
+  evaluateResume,
+  faintFollowUp,
   lockEndsAt,
   parseQuestionId,
+  possibleQuestions,
+  resumeQuestions,
   stopRoute,
   visibleQuestions,
   type AnswerValue,
   type Answers,
+  type CheckInConfig,
   type PrecheckEnv,
   type PrecheckOutcome,
+  type RemainingTest,
+  type SkipItem,
   type TestInstance,
   type TestSide,
 } from "../../medical/precheck";
@@ -37,6 +50,7 @@ import {
   finalizeProtocol,
   guestContext,
   isBlocked,
+  sideLeanOnly,
   type CheckContext,
   type GuestSteps,
   type ProtocolItem,
@@ -49,10 +63,12 @@ import type {
   LockKind,
   ScreenId as DataScreenId,
   Setting,
+  Side,
   StopOptionId,
   Support,
   TestId,
 } from "../../movements/types";
+import type { AlarmBody, FaintBody, HelperBriefing, LockWhen, TestRef } from "./api";
 
 /* =================================================================== types */
 
@@ -87,7 +103,7 @@ export type BetweenAnswer = "same" | "more" | "much";
  */
 export type ExitTarget =
   "today" | "landing" | "example" | "try" | "demo" | "healthEdit" | "results" | "signIn" | "boothStaff";
-/** Why the start call did not start the check (contract v2 E, v3 I). */
+/** Why the start or resume call did not start the check (contract v2 E, v3 I, round 3). */
 export type StartError =
   | "offline"
   | "network"
@@ -100,7 +116,13 @@ export type StartError =
   | "RATE_LIMIT"
   | "START_INVALID"
   | "PRECHECK_INCOMPLETE"
+  | "ADULT_REQUIRED"
+  | "NOT_OFFERED"
+  | "NOT_OPEN"
   | "AUTH";
+
+/** A full check, or the side lean only session (Q12 (2)). */
+export type CheckSession = "full" | "side_lean_only";
 
 /** Start errors a retry can fix; the others never pass on a retry (they route instead). */
 export const RETRYABLE_START_ERRORS: readonly StartError[] = ["offline", "network", "server", "RATE_LIMIT"];
@@ -130,6 +152,8 @@ export type FlowState =
   | { kind: "guestStaff" }
   | { kind: "consent" }
   | { kind: "context" }
+  /** O6 (2): the line before the re-ask of a resumed check (shown on the notice screen, S16). */
+  | { kind: "resumeNotice" }
   | { kind: "intro" }
   | { kind: "soundCheck" }
   | { kind: "precheckNotice" }
@@ -159,7 +183,8 @@ export type FlowState =
       /** The screen "no" returns to (S38 after a faint stop, S39 after a fall stop); S38 by default. */
       back?: { safety: SafetyKind; screen: DataScreenId; alsoShow: DataScreenId[] };
     }
-  | { kind: "endQuestion" }
+  /** S49: the general form until the server names a side (GET /:id/end, Q23 (7), O37). */
+  | { kind: "endQuestion"; side?: Side | null; chronicNote?: boolean }
   | {
       kind: "safety";
       safety: SafetyKind;
@@ -170,7 +195,7 @@ export type FlowState =
       askFaint?: boolean;
     }
   | { kind: "postponed"; reason: string; screen: DataScreenId | null; alsoShow: DataScreenId[] }
-  | { kind: "paused"; until: number | null; releasable: boolean }
+  | { kind: "paused"; until: number | null; releasable: boolean; when?: LockWhen | null }
   | { kind: "cam.problem"; problem: CameraProblem; returnTo: FlowState }
   | { kind: "results" }
   | { kind: "exit"; to: ExitTarget };
@@ -233,12 +258,14 @@ export interface DeviceInfo {
 /** Everything the flow needs to know before it starts. */
 export interface FlowConfig {
   mode: FlowMode;
-  /** This device is in verified booth mode (S55, contract v3 I). */
+  /** This device is in verified booth mode (S55, S55b, contract v3 I). */
   booth: boolean;
   /** Home checks are open (server flag AZM_CHECK_HOME, contract v3 I). */
   homeOpen: boolean;
   /** No touch and wider than 1024 px: offer the phone first (S04). */
   desktop: boolean;
+  /** The side lean only session from S01 leanRepeat (Q12 (2)); a full check by default. */
+  session?: CheckSession;
 }
 
 /** The signed in context (GET /api/assessments/context), normalised by api.ts. */
@@ -250,17 +277,25 @@ export interface SignedInContext {
   firstCheck: boolean;
   completedBefore: boolean;
   unresolvedChangeReported: boolean;
+  /** Q33 (3): a faint stop is not yet cleared by pc_faint_since (PrecheckEnv.faintReportedUnresolved). */
+  faintReportedUnresolved?: boolean;
   lastCheckLasting: boolean;
   sideLeanDoneAtHome?: boolean;
   neededArmsLastStand?: boolean;
   baseTests: string[];
-  lock: { until: number | null; releasable: boolean } | null;
+  lock: { until: number | null; releasable: boolean; when?: LockWhen | null } | null;
   /** Epoch ms before which no new check may start (48 hours after the last one), or null. */
   earliestNext?: number | null;
+  /** H9: a start now is early (S01 shows scr_early_start before opening the flow). */
+  early?: boolean;
+  /** Q12 (2): the side lean only session offer, or null. */
+  sideLeanRepeat?: { from: number; to: number; baseTests: TestId[] } | null;
+  /** O6: the open check that may still resume, or null. */
+  openCheck?: { id: string; setting: Setting; resumeUntil: number } | null;
   consent: boolean;
   homeOpen: boolean;
-  /** SPEC-GAP: adult-confirmed-field. The context has no adult confirmation yet; missing means ask (S05a). */
-  adultConfirmed?: boolean;
+  /** Q2 (5), Q32 (6): the account holds the adult confirmation; without it S05a asks (and posts it). */
+  adultConfirmed: boolean;
 }
 
 export interface GuestAnswers {
@@ -297,17 +332,38 @@ export interface FlowData {
   run: SideRun;
   /** A lock set on the phone (guest: for this visit only; signed in: until the server confirms). */
   lock: { reason: string; until: number | null } | null;
+  /** The server has closed this check itself: the phone never completes it. */
+  closed: boolean;
+  /** The inputs of the check in from the start or resume answer (O34), or null. */
+  checkIn: CheckInConfig | null;
+  /** The helper briefing of each test that runs with a helper (Q11, O34-2 (2)). */
+  helperBriefing: HelperBriefing;
+  /** The test side the last stop named (the faint answer names its test, Q33 (3)). */
+  stopped: TestRef | null;
+  /** A no response alarm (S45) happened in this check: a faint answer then takes the emergency route. */
+  noResponseAlarm: boolean;
+  /** A resumed check is in its re-ask (O6 (2)): the questions and the rules of evaluateResume. */
+  resuming: boolean;
 }
 
 export type FlowEffect =
-  | { id: number; type: "start"; answers: Answers; setting: Setting }
-  | { id: number; type: "startBackground"; answers: Answers; setting: Setting }
-  | { id: number; type: "stop"; checkId: string; option: StopOptionId }
+  | { id: number; type: "start"; answers: Answers; setting: Setting; session?: CheckSession }
+  | { id: number; type: "startBackground"; answers: Answers; setting: Setting; session?: CheckSession }
+  /** The stop names the test side running, or during a rest the next one (resultOnStop). */
+  | { id: number; type: "stop"; checkId: string; option: StopOptionId; ref: TestRef | null }
   | { id: number; type: "between"; checkId: string; testId: TestId; side: TestSide; answer: BetweenAnswer }
   | { id: number; type: "result"; checkId: string; body: ResultPayload }
+  | { id: number; type: "end"; checkId: string; answer: "yes" | "no" }
+  /** GET /api/assessments/:id/end: the side form of the end question (answered with END_FORM). */
+  | { id: number; type: "endForm"; checkId: string }
+  | { id: number; type: "faint"; checkId: string; body: FaintBody }
+  | { id: number; type: "alarm"; checkId: string; body: AlarmBody }
+  | { id: number; type: "adult" }
+  | { id: number; type: "resume"; checkId: string; answers: Answers }
+  | { id: number; type: "resumeBackground"; checkId: string; answers: Answers }
   | { id: number; type: "complete"; checkId: string }
-  /** The booth code was refused: this tab leaves booth mode until staff enter the new code. */
-  | { id: number; type: "clearBoothCode" };
+  /** The booth pass was refused: this tab leaves booth mode until staff turn it on again. */
+  | { id: number; type: "clearBoothPass" };
 
 /** The body of POST /api/assessments/:id/results (contract v2 E; server validate.ts ResultBody). */
 export interface ResultPayload {
@@ -326,6 +382,8 @@ export interface ResultPayload {
   poseModel: DeviceInfo["model"];
   movementVersion: number;
   engineVersion: string;
+  /** Quality retries used on this test side (0 to 20), counted once by the server (Q2 (6)). */
+  qualityRetries?: number;
 }
 
 export interface FlowModel {
@@ -342,6 +400,10 @@ export interface ResumeCheck {
   kind: "baseline" | "retest";
   protocol: ProtocolItem[];
   outcomes: Record<string, SideOutcome>;
+  /** The check's setting (booth only inside a valid visitor token, O6 (1)); the tab's by default. */
+  setting?: Setting;
+  /** The check's setup with today's updates (the SCI level answered earlier today). */
+  setup?: PrecheckEnv["setup"];
 }
 
 /** A start call result (api.ts maps the HTTP answer to this). */
@@ -350,9 +412,13 @@ export type StartResult =
       ok: true;
       id: string;
       kind: "baseline" | "retest";
+      /** O21: ended_early when no test runs today (the server closed the check). */
+      status?: "open" | "ended_early";
       protocol: ProtocolItem[];
       warnings: string[];
       helperRequired: string[];
+      checkIn?: CheckInConfig | null;
+      helperBriefing?: HelperBriefing;
     }
   | {
       ok: false;
@@ -361,11 +427,22 @@ export type StartResult =
       reason: string;
       screen: DataScreenId | null;
       alsoShow: DataScreenId[];
-      lock: { until: number | null } | null;
+      lock: { until: number | null; when?: LockWhen | null } | null;
     }
-  | { ok: false; code: "LOCKED"; until: number | null; releasable: boolean }
+  | { ok: false; code: "LOCKED"; until: number | null; releasable: boolean; when?: LockWhen | null }
   | { ok: false; code: "CONSENT_REQUIRED" }
   | { ok: false; code: StartError };
+
+/** A resume call result (O6): the new skips of the remaining tests, or why it did not resume. */
+export type ResumeResult =
+  | {
+      ok: true;
+      skips: SkipItem[];
+      warnings: string[];
+      helperRequired: string[];
+      checkIn: CheckInConfig | null;
+    }
+  | Exclude<StartResult, { ok: true }>;
 
 type At = { now?: number };
 
@@ -395,6 +472,8 @@ export type FlowEvent = At &
     | { type: "CONFIRM_YES" }
     | { type: "CONFIRM_CHANGE" }
     | { type: "START_RESULT"; result: StartResult }
+    | { type: "RESUME_RESULT"; result: ResumeResult }
+    | { type: "END_FORM"; side: Side | null; chronicNote: boolean }
     | { type: "RETRY" }
     | { type: "PLAN_START" }
     | { type: "READY" }
@@ -486,6 +565,9 @@ export const POSTABLE_SKIP_REASONS: readonly string[] = [
   "needed_arms",
   "needed_support",
   "armrests_needed",
+  "motion_needed",
+  "chair_needed",
+  "helper_needed",
 ];
 
 const EMPTY_RUN: SideRun = { calibrated: false, practiced: false, saved: 0, retriesUsed: 0 };
@@ -533,6 +615,12 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
     desktopPassed: false,
     run: { ...EMPTY_RUN },
     lock: null,
+    closed: false,
+    checkIn: null,
+    helperBriefing: {},
+    stopped: null,
+    noResponseAlarm: false,
+    resuming: false,
   };
 }
 
@@ -597,16 +685,21 @@ export function currentTest(m: FlowModel): { i: number; side: number } | null {
   return { i: s.i, side: typeof s.side === "number" ? s.side : 0 };
 }
 
-/** The pre-check question counter: n of the questions visible now (O9 asks for possibleQuestions). */
-// SPEC-GAP: possible-questions. The counter total is the number of visible questions, which can grow
-// when a follow up opens; the spec asks for possibleQuestions (O33), not in src/medical yet.
+/**
+ * The pre-check question counter (O9): n of every question that can still appear today
+ * (possibleQuestions), so the total only shrinks as answers come in. The O6 re-ask counts its own
+ * questions.
+ */
 export function questionCounter(m: FlowModel): { n: number; total: number } | null {
   const s = m.state;
   const id = s.kind === "question" || s.kind === "confirmPostpone" ? s.id : null;
-  if (!id || !m.data.env) return null;
-  const visible = visibleQuestions(m.data.env, m.data.answers);
+  const d = m.data;
+  if (!id || !d.env) return null;
+  const visible = questionsNow(d, d.answers);
   const at = visible.indexOf(id);
-  return { n: at < 0 ? visible.length : at + 1, total: visible.length };
+  const n = at < 0 ? visible.length : at + 1;
+  const possible = d.resuming ? visible.length : possibleQuestions(d.env, d.answers).length;
+  return { n, total: Math.max(n, possible) };
 }
 
 /** "Test n of total" (S28 and the camera top bar). */
@@ -629,15 +722,15 @@ export function backTarget(m: FlowModel): FlowState | null {
     case "intro":
       return guest ? { kind: "guestSetup", step: 6 } : { kind: "context" };
     case "soundCheck":
-      return { kind: "intro" };
+      return m.data.resuming ? { kind: "resumeNotice" } : { kind: "intro" };
     case "precheckNotice":
       return { kind: "soundCheck" };
     case "question": {
-      const env = m.data.env;
-      if (!env) return null;
-      const visible = visibleQuestions(env, m.data.answers);
+      if (!m.data.env) return null;
+      const visible = questionsNow(m.data, m.data.answers);
       const at = visible.indexOf(s.id);
-      return at > 0 ? { kind: "question", id: visible[at - 1] } : { kind: "precheckNotice" };
+      if (at > 0) return { kind: "question", id: visible[at - 1] };
+      return m.data.resuming ? { kind: "soundCheck" } : { kind: "precheckNotice" };
     }
     case "confirmPostpone":
       // Back from the confirm clears the answer that would postpone (stateReducer BACK).
@@ -815,7 +908,7 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "WANT_STOP") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
       if (e.type === "NEED_HELP" || e.type === "CHECKIN_TIMEOUT")
         return {
-          ...m,
+          ...alarm(m, e.type === "NEED_HELP" ? "help_requested" : "no_response"),
           overlay: {
             kind: "alarm",
             from: o.from,
@@ -832,7 +925,10 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       }
       if (e.type === "SKIP_TEST") return skipCurrentTest(close(m), "by_choice");
       if (e.type === "NEED_HELP")
-        return { ...m, overlay: { kind: "alarm", from: "test", attempt: o.canRedo } };
+        return {
+          ...alarm(m, "help_requested"),
+          overlay: { kind: "alarm", from: "test", attempt: o.canRedo },
+        };
       if (e.type === "WANT_STOP" || e.type === "STOP_END")
         return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
       return m;
@@ -847,6 +943,22 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
           : { ...m, overlay: { kind: "goOn", afterAlarm: true, canRedo: o.attempt === true } };
       return m;
   }
+}
+
+/**
+ * The alarm opens (S45): a signed in check posts it for the anonymous count (O34-5), during the check
+ * and in the fall watch after a stop. A no response alarm is remembered: a faint answer after it
+ * takes the emergency route (Q33 (3)).
+ */
+// SPEC-GAP: faint-after-alarm-scope. Q33 (3) says a faint stop "after a no response alarm"; any no
+// response alarm earlier in the same check counts (the safer reading).
+function alarm(m: FlowModel, kind: AlarmBody["kind"]): FlowModel {
+  const d = m.data;
+  const next = kind === "no_response" ? { ...m, data: { ...d, noResponseAlarm: true } } : m;
+  if (d.config.mode !== "signedIn" || !d.checkId) return next;
+  const t = currentTest(m);
+  const testId = t ? d.tests[t.i]?.testId : undefined;
+  return emit(next, { type: "alarm", checkId: d.checkId, body: { kind, ...(testId ? { testId } : {}) } });
 }
 
 /* ------------------------------------------------------------ states */
@@ -888,8 +1000,10 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "adultGate":
       if (e.type === "ADULT_YES") {
         if (guest) return go(m, { kind: "guestSetup", step: 1 });
+        // The account keeps the confirmation (POST /api/account/adult); the start needs it (403
+        // ADULT_REQUIRED brings the person back here).
         const si = d.signedIn ? { ...d.signedIn, adultConfirmed: true } : null;
-        return go({ ...m, data: { ...d, signedIn: si } }, { kind: "context" });
+        return emit(go({ ...m, data: { ...d, signedIn: si } }, { kind: "context" }), { type: "adult" });
       }
       if (e.type === "ADULT_NO") return go(m, { kind: "adultEnd" });
       return m;
@@ -931,13 +1045,20 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "CONTEXT_EDIT") return go(m, { kind: "exit", to: "healthEdit" });
       return m;
 
+    case "resumeNotice":
+      if (e.type === "CONTINUE") return go(m, { kind: "soundCheck" });
+      return m;
+
     case "intro":
       if (e.type === "CONTINUE") return go(m, { kind: "soundCheck" });
       return m;
 
     case "soundCheck":
-      if (e.type === "SOUND_RESULT")
-        return go({ ...m, data: { ...d, soundMode: e.mode } }, { kind: "precheckNotice" });
+      if (e.type === "SOUND_RESULT") {
+        const next = { ...m, data: { ...d, soundMode: e.mode } };
+        // O6 (2): after the sound check a resumed check asks its questions again at once.
+        return d.resuming ? firstQuestion(next, now) : go(next, { kind: "precheckNotice" });
+      }
       return m;
 
     case "precheckNotice":
@@ -950,7 +1071,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "confirmPostpone":
       if (e.type === "CONFIRM_YES") {
-        const outcome = evaluatePrecheck(d.env!, d.answers, now);
+        const outcome = outcomeNow(d, d.answers, now);
         if (outcome.status !== "postpone") return go(m, { kind: "question", id: s.id });
         return postpone(m, outcome, now);
       }
@@ -958,7 +1079,8 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
 
     case "starting":
-      if (e.type === "START_RESULT") return startResult(m, e.result, now);
+      if (e.type === "START_RESULT" && !d.resuming) return startResult(m, e.result, now);
+      if (e.type === "RESUME_RESULT" && d.resuming) return resumeResult(m, e.result, now);
       if (e.type === "RETRY" && s.error !== null && RETRYABLE_START_ERRORS.includes(s.error)) {
         const next = go(m, {
           kind: "starting",
@@ -966,7 +1088,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
           error: null,
           attempt: s.attempt + 1,
         });
-        return emit(next, { type: "start", answers: d.answers, setting: d.setting });
+        return emit(next, startEffect(d));
       }
       if (e.type === "EXIT" && s.error !== null) return go(m, { kind: "exit", to: "today" });
       return m;
@@ -977,8 +1099,10 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "plan":
       if (e.type === "PLAN_START") {
-        if (d.tests.length === 0) return leaveFlow(m);
-        return go(m, { kind: "test.instruction", i: 0 });
+        // The first test with a side still to run (a resumed check goes on where it stopped, O6 (3)).
+        const i = nextRunnableTest(m, 0);
+        if (i === null) return leaveFlow(m);
+        return go(m, { kind: "test.instruction", i });
       }
       return m;
 
@@ -1036,7 +1160,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "guestAfterTest":
       if (e.type === "GUEST_NEXT_TEST") return go(m, { kind: "test.instruction", i: s.next });
-      if (e.type === "GUEST_RESULTS") return go(m, { kind: "endQuestion" });
+      if (e.type === "GUEST_RESULTS") return toEndQuestion(m);
       return m;
 
     case "stopDone":
@@ -1047,27 +1171,43 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "faintAsk":
       if (e.type === "FAINT_ANSWER") {
-        // SPEC-GAP: faint-reported. sf_faint_loc yes or not sure stores changeReported, and every faint
-        // stop stores faintReported (Q33); contract E has no route for the answer, so it stays on the
-        // phone (the stop itself is posted). Listed for the tech lead with end-question-lock.
-        if (e.value === "no") {
-          const back = s.back ?? { safety: "faint" as const, screen: "scr_faint" as const, alsoShow: [] };
-          return go(m, { kind: "safety", ...back, faintAnswered: true, askFaint: true });
+        // sf_faint_loc (Q33 (3), O42) with the pure rule the server runs (faintFollowUp): yes or not
+        // sure, or any answer after a no response alarm, opens the emergency screen; no returns to
+        // the screen of the stop. The answer is posted (POST /:id/faint) with the stopped test.
+        const out = faintFollowUp(e.value, now, { afterNoResponse: d.noResponseAlarm });
+        let next = m;
+        if (!guest && d.checkId) {
+          const body: FaintBody = {
+            answer: e.value,
+            ...(d.noResponseAlarm ? { afterNoResponse: true } : {}),
+            ...(d.stopped ? { testId: d.stopped.testId } : {}),
+          };
+          next = emit(next, { type: "faint", checkId: d.checkId, body });
         }
-        return toSafety(m, "emergency", "scr_emergency", []);
+        if (out.lock?.until) next = setLock(next, out.lock.reason, lockEndsAt(out.lock.until, now));
+        if (out.status === "emergency")
+          return toSafety(next, "emergency", out.screen ?? "scr_emergency", emergencyAlsoShow(stopEnv(d)));
+        const back = s.back ?? { safety: "faint" as const, screen: "scr_faint" as const, alsoShow: [] };
+        return go(next, { kind: "safety", ...back, faintAnswered: true, askFaint: true });
       }
       if (e.type === "FAINT_TIMEOUT")
         return { ...m, overlay: { kind: "checkIn", from: "faintAsk", trigger: "no_answer" } };
       return m;
 
     case "endQuestion":
+      if (e.type === "END_FORM")
+        return go(m, { kind: "endQuestion", side: e.side, chronicNote: e.chronicNote });
       if (e.type === "END_ANSWER") {
-        const done = completeCheck(m);
-        if (!e.yes) return go(done, { kind: "results" });
-        // SPEC-GAP: end-question-lock. A yes routes like pc_urgent (next day lock, map 2.7); contract E
-        // has no route for it, so the lock is kept on the phone and the results stay stored.
-        const locked = setLock(done, "urgent", lockEndsAt("next_day", now));
-        return toSafety(locked, "emergency", "scr_emergency", []);
+        // ec_symptoms (Q23 (7)) with the pure rule the server runs (endOfCheck). The answer is posted
+        // first (POST /:id/end); a no then completes the check, a yes has the server close it.
+        const answer = e.yes ? "yes" : "no";
+        const out = endOfCheck(answer, now);
+        let next = m;
+        if (!guest && d.checkId) next = emit(next, { type: "end", checkId: d.checkId, answer });
+        if (out.status !== "emergency") return go(completeCheck(next), { kind: "results" });
+        let closed = closeCheck(next);
+        if (out.lock?.until) closed = setLock(closed, out.lock.reason, lockEndsAt(out.lock.until, now));
+        return toSafety(closed, "emergency", out.screen ?? "scr_emergency", emergencyAlsoShow(stopEnv(d)));
       }
       return m;
 
@@ -1082,7 +1222,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "EXIT") {
         if (ask) return go(m, faintAsk);
         // Map 2.3: after S40b (much more pain) the end question when any result exists.
-        if (s.safety === "pain" && finish(m).to === "endQuestion") return go(m, { kind: "endQuestion" });
+        if (s.safety === "pain" && finish(m).to === "endQuestion") return toEndQuestion(m);
         return guest ? restartGuest(m) : go(m, { kind: "exit", to: "today" });
       }
       return m;
@@ -1147,8 +1287,7 @@ function camReducer(
         return go(m, timed ? { kind: "cam.countdown", i, side } : { kind: "cam.measure", i, side });
       }
       if (e.type === "SKIP") return { ...m, overlay: { kind: "skipDialog" } };
-      // SPEC-GAP: motion-needed. The reason id motion_needed is a data request (O33 (6)); the side and the
-      // rest of the test are skipped with it on the phone and not posted until the server knows it.
+      // O33 (6): without the motion sensor the side and the rest of the test are skipped (posted).
       if (e.type === "MOTION_REFUSED") return skipTest(m, i, side, "motion_needed");
       return m;
     case "cam.calibrate":
@@ -1340,7 +1479,9 @@ function betweenAnswer(
       answer: value,
     });
   if (out.status === "end") {
-    const locked = out.lock?.until ? setLock(next, out.lock.reason, lockEndsAt(out.lock.until, now)) : next;
+    // The server ends the check itself (ended early), so the phone never completes it.
+    const ended = d.config.mode === "signedIn" ? closeCheck(next) : next;
+    const locked = out.lock?.until ? setLock(ended, out.lock.reason, lockEndsAt(out.lock.until, now)) : ended;
     return toSafety(locked, "pain", out.screen ?? "scr_stop_pain", []);
   }
   const then: Continuation =
@@ -1421,7 +1562,7 @@ function continueTo(m: FlowModel, c: Continuation): FlowModel {
     case "guestAfterTest":
       return go({ ...m, data: { ...m.data, run: { ...EMPTY_RUN } } }, { kind: "guestAfterTest", next: c.i });
     case "endQuestion":
-      return go(m, { kind: "endQuestion" });
+      return toEndQuestion(m);
     case "results":
       return go(completeCheck(m), { kind: "results" });
   }
@@ -1462,16 +1603,32 @@ function stopOption(m: FlowModel, option: StopOptionId | "mistake", now: number)
   }
   // Without the context (a resumed check whose context is blocked, for example) the routing never
   // fails open: it reads the most conservative person (stopEnv).
-  const route = stopRoute(option, stopEnv(d));
-  // The stopped test's sides are recorded first, so their skips reach the server before a stop that
-  // ends the check (the outbox sends in order; an ended check refuses later results).
-  let next = t ? markRestOfTest(m, t.i, t.side, route.reason) : m;
-  if (d.config.mode === "signedIn" && d.checkId)
-    next = emit(next, { type: "stop", checkId: d.checkId, option });
+  const env = stopEnv(d);
+  const route = stopRoute(option, env);
+  // The stop names the test side running, or during a rest the next one to run (resultOnStop): the
+  // server writes that side's skip row itself (flag stopped) and refuses a later score for it. The
+  // other sides left in the stopped test are recorded too and their skips posted first, so they
+  // reach the server before a stop that ends the check (the outbox sends in order).
+  const anchor = t ? openSideFrom(m, t.i, t.side) : null;
+  const ref: TestRef | null =
+    t && anchor !== null
+      ? { testId: d.tests[t.i].sides[anchor].testId, side: d.tests[t.i].sides[anchor].side }
+      : null;
+  let next = t ? markRestOfTest(m, t.i, t.side, route.reason, anchor) : m;
+  next = { ...next, data: { ...next.data, stopped: ref ?? (t ? stoppedTestOf(m, t.i) : null) } };
+  if (d.config.mode === "signedIn" && d.checkId) {
+    next = emit(next, { type: "stop", checkId: d.checkId, option, ref });
+    if (route.endsCheck) next = closeCheck(next);
+  }
   if (route.lock?.until) next = setLock(next, route.lock.reason, lockEndsAt(route.lock.until, now));
   const kind = route.screen ? safetyKindOf(route.screen) : null;
   if (route.screen && kind) {
-    const safety = toSafety(next, kind, route.screen, route.alsoShow);
+    // O12 (1): scr_ad joins scr_emergency for SCI, as the server's answer does.
+    const alsoShow =
+      route.screen === "scr_emergency"
+        ? [...new Set([...route.alsoShow, ...emergencyAlsoShow(env)])]
+        : route.alsoShow;
+    const safety = toSafety(next, kind, route.screen, alsoShow);
     // Faint and fall stops ask the faint follow up (S38b) before leaving (O42).
     return route.then === "sf_faint_loc" && safety.state.kind === "safety"
       ? { ...safety, state: { ...safety.state, askFaint: true } }
@@ -1483,14 +1640,36 @@ function stopOption(m: FlowModel, option: StopOptionId | "mistake", now: number)
   return go(next, { kind: "stopDone", i: t.i, restSec: route.afterRest ? 60 : 0, reason: route.reason });
 }
 
-/** The stopped test stores no score: its current and remaining sides get the stop reason. */
-function markRestOfTest(m: FlowModel, i: number, fromSide: number, reason: string): FlowModel {
+/**
+ * The stopped test stores no score: its current and remaining sides get the stop reason. The side the
+ * stop names (`anchor`) is kept on the phone only: the stop itself writes its row on the server.
+ */
+function markRestOfTest(
+  m: FlowModel,
+  i: number,
+  fromSide: number,
+  reason: string,
+  anchor: number | null,
+): FlowModel {
   let next = m;
   m.data.tests[i]?.sides.forEach((item, si) => {
     if (si < fromSide || isDone(next, i, si)) return;
-    next = recordSide(next, item.testId, item.side, { status: "skipped", reason });
+    next = recordSide(next, item.testId, item.side, { status: "skipped", reason }, undefined, si !== anchor);
   });
   return next;
+}
+
+/** The first side of test i from `from` without an outcome today, or null. */
+function openSideFrom(m: FlowModel, i: number, from: number): number | null {
+  const sides = m.data.tests[i]?.sides ?? [];
+  for (let si = from; si < sides.length; si++) if (!isDone(m, i, si)) return si;
+  return null;
+}
+
+/** The test a stop happened in, for the faint answer when the stop named no side (S47 after it). */
+function stoppedTestOf(m: FlowModel, i: number): TestRef | null {
+  const item = m.data.tests[i]?.sides[0];
+  return item ? { testId: item.testId, side: item.side } : null;
 }
 
 /**
@@ -1527,19 +1706,41 @@ function withoutAnswer(m: FlowModel, id: string): FlowModel {
 
 /* ------------------------------------------------------------ pre-check */
 
+/**
+ * The test sides a resumed check still has to run (O6 (2)): not skipped at the start and without an
+ * outcome today, with the helper each requires.
+ */
+function remainingOf(d: FlowData): RemainingTest[] {
+  return d.protocol
+    .filter((i) => !i.skipped && !(outcomeKey(i.testId, i.side) in d.outcomes))
+    .map((i) => ({ testId: i.testId, helperRequired: i.helperRequired === true }));
+}
+
+/** The questions visible now: the pre-check, or while resuming the O6 re-ask (resumeQuestions). */
+export function questionsNow(d: FlowData, answers: Answers): string[] {
+  if (!d.env) return [];
+  return d.resuming ? resumeQuestions(d.env, answers, remainingOf(d)) : visibleQuestions(d.env, answers);
+}
+
+/** The outcome of the answers now: the pre-check, or while resuming evaluateResume (as the server). */
+function outcomeNow(d: FlowData, answers: Answers, now: number): PrecheckOutcome {
+  return d.resuming
+    ? evaluateResume(d.env!, answers, remainingOf(d), now)
+    : evaluatePrecheck(d.env!, answers, now);
+}
+
 function firstQuestion(m: FlowModel, now: number): FlowModel {
-  const env = m.data.env;
-  if (!env) return m;
-  const visible = visibleQuestions(env, m.data.answers);
-  if (visible.length === 0) return proceed(m, evaluatePrecheck(env, m.data.answers, now), null);
+  if (!m.data.env) return m;
+  const visible = questionsNow(m.data, m.data.answers);
+  if (visible.length === 0) return proceed(m, outcomeNow(m.data, m.data.answers, now), null);
   return go(m, { kind: "question", id: visible[0] });
 }
 
 /** Answers that belong to questions no longer visible are dropped (S17 Back rule). */
-function prune(env: PrecheckEnv, answers: Answers): Answers {
+function prune(d: FlowData, answers: Answers): Answers {
   let current = answers;
   for (let round = 0; round < 6; round++) {
-    const visible = new Set(visibleQuestions(env, current));
+    const visible = new Set(questionsNow(d, current));
     const kept: Answers = {};
     for (const [k, v] of Object.entries(current)) if (visible.has(k)) kept[k] = v;
     if (Object.keys(kept).length === Object.keys(current).length) return kept;
@@ -1549,19 +1750,19 @@ function prune(env: PrecheckEnv, answers: Answers): Answers {
 }
 
 function answer(m: FlowModel, id: string, value: AnswerValue, now: number): FlowModel {
-  const env = m.data.env!;
-  const answers = prune(env, { ...m.data.answers, [id]: value });
-  const next = { ...m, data: { ...m.data, answers } };
-  const outcome = evaluatePrecheck(env, answers, now);
+  const d = m.data;
+  const answers = prune(d, { ...d.answers, [id]: value });
+  const next = { ...m, data: { ...d, answers } };
+  const outcome = outcomeNow(d, answers, now);
   // Emergency and AD route at once, with no confirm (S17 exception 2).
   if (outcome.status === "emergency" || outcome.status === "ad") return terminal(next, outcome, now);
   if (outcome.status === "postpone") {
     // The confirm in place opens on the question whose answer postpones: this one when it changed the
     // outcome, else the earlier answer that still postpones (never a trap on an unrelated question).
-    const culprit = postponingQuestion(env, answers, id, now);
+    const culprit = postponingQuestion(d, answers, id, now);
     return go(next, { kind: "confirmPostpone", id: culprit, value: answers[culprit] });
   }
-  const visible = visibleQuestions(env, answers);
+  const visible = questionsNow(d, answers);
   const at = visible.indexOf(id);
   const following = at >= 0 ? visible[at + 1] : undefined;
   if (following) return go(next, { kind: "question", id: following });
@@ -1575,8 +1776,8 @@ function answer(m: FlowModel, id: string, value: AnswerValue, now: number): Flow
  * The question to confirm when the answers postpone: `id` when its answer made the difference,
  * otherwise the first visible answered question without which the check would not postpone.
  */
-function postponingQuestion(env: PrecheckEnv, answers: Answers, id: string, now: number): string {
-  const postpones = (a: Answers) => evaluatePrecheck(env, prune(env, a), now).status === "postpone";
+function postponingQuestion(d: FlowData, answers: Answers, id: string, now: number): string {
+  const postpones = (a: Answers) => outcomeNow(d, prune(d, a), now).status === "postpone";
   const without = (q: string) => {
     const a = { ...answers };
     delete a[q];
@@ -1586,15 +1787,33 @@ function postponingQuestion(env: PrecheckEnv, answers: Answers, id: string, now:
   const culprit = (q: string) =>
     q in answers && !!questionOf(q)?.item.actions.some((a) => a.do === "postpone") && !postpones(without(q));
   if (culprit(id)) return id;
-  return visibleQuestions(env, answers).find(culprit) ?? id;
+  return questionsNow(d, answers).find(culprit) ?? id;
+}
+
+/**
+ * The server is told in the background about a pre-check (or O6 re-ask) that the phone already
+ * postponed or routed to a safety screen: the start call, or for a resumed check the resume call,
+ * which closes it as ended early with its finished results kept (O6 (2)).
+ */
+function tellServer(m: FlowModel): FlowModel {
+  const d = m.data;
+  if (d.config.mode !== "signedIn") return m;
+  if (d.resuming && d.checkId)
+    return closeCheck(emit(m, { type: "resumeBackground", checkId: d.checkId, answers: d.answers }));
+  const session = d.config.session ?? "full";
+  return emit(m, {
+    type: "startBackground",
+    answers: d.answers,
+    setting: d.setting,
+    ...(session !== "full" ? { session } : {}),
+  });
 }
 
 /** Emergency or AD from the pre-check: the safety screen now, the server told in the background. */
 function terminal(m: FlowModel, outcome: PrecheckOutcome, now: number): FlowModel {
   let next = m;
   if (outcome.lock?.until) next = setLock(next, outcome.lock.reason, lockEndsAt(outcome.lock.until, now));
-  if (m.data.config.mode === "signedIn")
-    next = emit(next, { type: "startBackground", answers: m.data.answers, setting: m.data.setting });
+  next = tellServer(next);
   const screen = outcome.screen ?? (outcome.status === "ad" ? "scr_ad" : "scr_emergency");
   return toSafety(next, outcome.status === "ad" ? "ad" : "emergency", screen, outcome.alsoShow ?? []);
 }
@@ -1602,8 +1821,7 @@ function terminal(m: FlowModel, outcome: PrecheckOutcome, now: number): FlowMode
 function postpone(m: FlowModel, outcome: PrecheckOutcome, now: number): FlowModel {
   let next = m;
   if (outcome.lock?.until) next = setLock(next, outcome.lock.reason, lockEndsAt(outcome.lock.until, now));
-  if (m.data.config.mode === "signedIn")
-    next = emit(next, { type: "startBackground", answers: m.data.answers, setting: m.data.setting });
+  next = tellServer(next);
   return go(next, {
     kind: "postponed",
     reason: outcome.reason ?? "unwell",
@@ -1621,12 +1839,24 @@ function proceed(m0: FlowModel, outcome: PrecheckOutcome, lastQuestion: string |
   const d = m.data;
   if (d.config.mode === "signedIn") {
     const next = go(m, { kind: "starting", lastQuestion, error: null, attempt: 1 });
-    // (the start call itself is awaited by the starting state)
-    return emit(next, { type: "start", answers: d.answers, setting: d.setting });
+    // (the start or resume call itself is awaited by the starting state)
+    return emit(next, startEffect(d));
   }
   // The guest check runs the same rules on the phone and stores nothing (contract v3 I).
   const protocol = finalizeProtocol(d.base, outcome, env.ctx, d.setting, null);
   return frozen(m, protocol, outcome.warnings, outcome.helperRequired, null, null);
+}
+
+/** The start (or the resume) call of the answers on the phone. */
+function startEffect(d: FlowData): DistributiveOmit<FlowEffect, "id"> {
+  if (d.resuming && d.checkId) return { type: "resume", checkId: d.checkId, answers: d.answers };
+  const session = d.config.session ?? "full";
+  return {
+    type: "start",
+    answers: d.answers,
+    setting: d.setting,
+    ...(session !== "full" ? { session } : {}),
+  };
 }
 
 /** The protocol is frozen: raw answers are dropped from the phone (spec 5.10). */
@@ -1637,11 +1867,18 @@ function frozen(
   helperRequired: readonly string[],
   checkId: string | null,
   checkKind: FlowData["checkKind"],
+  extra: Partial<FlowData> = {},
 ): FlowModel {
   const before = warnings.filter((w) => !WARNINGS_AT_TEST.includes(w)) as DataScreenId[];
+  // A new check: nothing of an earlier one on this page carries over.
   const data: FlowData = {
     ...m.data,
     answers: {},
+    outcomes: {},
+    closed: false,
+    stopped: null,
+    noResponseAlarm: false,
+    resuming: false,
     protocol,
     tests: testsOf(protocol),
     warnings: warnings as DataScreenId[],
@@ -1649,17 +1886,46 @@ function frozen(
     checkId,
     checkKind,
     run: { ...EMPTY_RUN },
+    ...extra,
   };
   return go({ ...m, data }, before.length ? { kind: "warnings" } : { kind: "plan" });
 }
 
+/** The paused screen (S35) of a lock: when it ends, the care team release and its {when}. */
+function pausedOf(lock: { until: number | null; releasable: boolean; when?: LockWhen | null }): FlowState {
+  return {
+    kind: "paused",
+    until: lock.until,
+    releasable: lock.releasable,
+    ...(lock.when ? { when: lock.when } : {}),
+  };
+}
+
 function startResult(m: FlowModel, r: StartResult, now: number): FlowModel {
   const s = m.state as Extract<FlowState, { kind: "starting" }>;
-  if (r.ok) return frozen(m, r.protocol, r.warnings, r.helperRequired, r.id, r.kind);
+  if (r.ok)
+    return frozen(m, r.protocol, r.warnings, r.helperRequired, r.id, r.kind, {
+      checkIn: r.checkIn ?? null,
+      helperBriefing: r.helperBriefing ?? {},
+      // O21: no test runs today; the server closed the check and started no clock.
+      closed: r.status === "ended_early",
+    });
+  return startFailure(m, s, r, now);
+}
+
+/** A start or resume call that did not go ahead: the stricter screen, a pause, or where to go. */
+function startFailure(
+  m: FlowModel,
+  s: Extract<FlowState, { kind: "starting" }>,
+  r: Exclude<StartResult, { ok: true }>,
+  now: number,
+): FlowModel {
   switch (r.code) {
     case "POSTPONE": {
-      // The server is authoritative; the phone shows the stricter of the two (map 2.2).
-      const withLock = r.lock?.until ? setLock(m, r.reason, r.lock.until) : m;
+      // The server is authoritative; the phone shows the stricter of the two (map 2.2). A resumed
+      // check that postpones is closed as ended early by the server (O6 (2)).
+      const base = m.data.resuming ? closeCheck(m) : m;
+      const withLock = r.lock?.until ? setLock(base, r.reason, r.lock.until) : base;
       if (r.status === "emergency" || r.status === "ad") {
         const screen = r.screen ?? (r.status === "ad" ? "scr_ad" : "scr_emergency");
         return toSafety(withLock, r.status === "ad" ? "ad" : "emergency", screen, r.alsoShow);
@@ -1667,23 +1933,34 @@ function startResult(m: FlowModel, r: StartResult, now: number): FlowModel {
       return go(withLock, { kind: "postponed", reason: r.reason, screen: r.screen, alsoShow: r.alsoShow });
     }
     case "LOCKED":
-      return go(m, { kind: "paused", until: r.until, releasable: r.releasable });
+      return go(m, pausedOf(r));
     case "CONSENT_REQUIRED":
-      return go(m, { kind: "consent" });
-    // Answers a retry cannot change route instead of offering Try again.
+      // A resumed check whose consent was revoked meanwhile is not continued (S01 offers a new one).
+      return go(m, m.data.resuming ? { kind: "exit", to: "today" } : { kind: "consent" });
+    case "ADULT_REQUIRED": {
+      // Q32 (6): the account has no adult confirmation (it was not saved): S05a asks again.
+      const d = m.data;
+      const si = d.signedIn ? { ...d.signedIn, adultConfirmed: false } : null;
+      return go({ ...m, data: { ...d, signedIn: si } }, { kind: "adultGate" });
+    }
+    // Answers a retry cannot change route instead of offering Try again. NOT_OPEN: the resumed check
+    // closed meanwhile (30 minutes idle, O6 (4)); S01 shows its results.
     case "TOO_SOON":
     case "HOME_CLOSED":
     case "REVIEW":
     case "PLAN_REQUIRED":
     case "START_INVALID":
     case "PRECHECK_INCOMPLETE":
+    case "NOT_OFFERED":
+    case "NOT_OPEN":
       // SPEC-GAP: start-final-errors. The spec has no screen for these; Today shows the entry card
-      // variant that explains them (S01 tooSoon, homeSoon, blocked).
+      // variant that explains them (S01 tooSoon, homeSoon, blocked, endedEarly).
       void now;
       return go(m, { kind: "exit", to: "today" });
     case "BOOTH_CODE":
-      // The daily code changed: the staff screen asks for the new one (S55); the effect clears it.
-      return emit(go(m, { kind: "exit", to: "boothStaff" }), { type: "clearBoothCode" });
+      // The booth pass was refused (the day, the hours, a used or ended token): booth mode ends on this
+      // tab and staff turn it on again (S55, S55b); the effect clears the pass.
+      return emit(go(m, { kind: "exit", to: "boothStaff" }), { type: "clearBoothPass" });
     case "AUTH":
       return go(m, { kind: "exit", to: "signIn" });
     default:
@@ -1694,15 +1971,35 @@ function startResult(m: FlowModel, r: StartResult, now: number): FlowModel {
 /* ------------------------------------------------------------ entry routing */
 
 /**
- * Continue an open check at the first test that still has a side to run (Appendix A: resume), after
- * the same gates as a new start: a blocked context or closed home checks leave, a lock pauses, a
- * missing consent asks for it. Nothing runs without the gates.
+ * Continue an open check (Appendix A: resume; O6), after the same gates as a new start: a blocked
+ * context or closed home checks leave, a lock pauses, a missing consent asks for it. Then the O6 line
+ * (S16), the sound check (S14b) and the day of questions again (resumeQuestions), which the server
+ * evaluates on POST /:id/resume; the check goes on at the next unfinished test from its first attempt
+ * (S28, O6 (3)). With nothing left to run, the end question and the results.
  */
 function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
   const gate = entryGate(m, now);
   if (gate) return go(m, gate);
+  const d = m.data;
+  // O6 (1): a booth check resumes only inside booth mode (the visitor token), never at home.
+  if (c.setting === "booth" && !d.config.booth) return go(m, { kind: "exit", to: "today" });
+  // The environment of the running check, as the server builds it (runningEnv): its setting, its
+  // setup with today's updates and its tests; the one time questions are not asked again.
+  const env: PrecheckEnv | null = d.env
+    ? {
+        ...d.env,
+        setting: c.setting ?? d.setting,
+        setup: c.setup !== undefined ? c.setup : d.env.setup,
+        firstCheck: false,
+        unresolvedChangeReported: false,
+        lastCheckLasting: false,
+        baseTests: [...new Set(c.protocol.map((i) => i.testId))],
+      }
+    : null;
   const data: FlowData = {
-    ...m.data,
+    ...d,
+    setting: c.setting ?? d.setting,
+    env,
     protocol: c.protocol,
     tests: testsOf(c.protocol),
     checkId: c.id,
@@ -1710,10 +2007,43 @@ function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
     outcomes: { ...c.outcomes },
     answers: {},
     run: { ...EMPTY_RUN },
+    resuming: true,
   };
   const next = { ...m, data };
-  const i = nextRunnableTest(next, 0);
-  return i === null ? go(next, { kind: "endQuestion" }) : go(next, { kind: "test.instruction", i });
+  if (nextRunnableTest(next, 0) === null)
+    return toEndQuestion({ ...next, data: { ...data, resuming: false } });
+  return go(next, { kind: "resumeNotice" });
+}
+
+/**
+ * The resume call's answer (O6 (2), (3)): the new skips of the remaining tests (the server stored
+ * them), today's warnings and check in inputs, then the next unfinished test from its first attempt.
+ */
+function resumeResult(m: FlowModel, r: ResumeResult, now: number): FlowModel {
+  const s = m.state as Extract<FlowState, { kind: "starting" }>;
+  if (!r.ok) {
+    // Try again repeats the resume call; any other way out leaves the re-ask.
+    const out = startFailure(m, s, r, now);
+    return out.state.kind === "starting" ? out : { ...out, data: { ...out.data, resuming: false } };
+  }
+  let next: FlowModel = m;
+  for (const k of r.skips)
+    next = recordSide(next, k.testId, k.side, { status: "skipped", reason: k.reason }, undefined, false);
+  const d = next.data;
+  const warnings = r.warnings as DataScreenId[];
+  const data: FlowData = {
+    ...d,
+    answers: {},
+    resuming: false,
+    warnings,
+    helperRequired: r.helperRequired as TestId[],
+    checkIn: r.checkIn ?? d.checkIn,
+    run: { ...EMPTY_RUN },
+  };
+  const ready = { ...next, data };
+  if (warnings.some((w) => !WARNINGS_AT_TEST.includes(w))) return go(ready, { kind: "warnings" });
+  const i = nextRunnableTest(ready, 0);
+  return i === null ? toEndQuestion(ready) : go(ready, { kind: "test.instruction", i });
 }
 
 function routeGuestStart(m: FlowModel): FlowModel {
@@ -1727,6 +2057,10 @@ function routeGuestStart(m: FlowModel): FlowModel {
 function withContext(m: FlowModel, c: SignedInContext): FlowModel {
   const d = m.data;
   const setting: Setting = d.config.booth ? "booth" : "home";
+  // The side lean only session asks the questions of its one test (server precheckEnv, Q12 (2)).
+  const leanOnly = (d.config.session ?? "full") === "side_lean_only";
+  const full = c.ctx ? baseSelection(c.ctx, setting, c.setup) : [];
+  const base = leanOnly ? sideLeanOnly(full) : full;
   const env: PrecheckEnv | null = c.ctx
     ? {
         setting,
@@ -1735,13 +2069,15 @@ function withContext(m: FlowModel, c: SignedInContext): FlowModel {
         firstCheck: c.firstCheck,
         unresolvedChangeReported: c.unresolvedChangeReported,
         lastCheckLasting: c.lastCheckLasting,
-        baseTests: c.baseTests,
+        baseTests: leanOnly ? baseTests(base) : c.baseTests,
         completedBefore: c.completedBefore,
         ...(c.sideLeanDoneAtHome !== undefined ? { sideLeanDoneAtHome: c.sideLeanDoneAtHome } : {}),
         ...(c.neededArmsLastStand !== undefined ? { neededArmsLastStand: c.neededArmsLastStand } : {}),
+        ...(c.faintReportedUnresolved !== undefined
+          ? { faintReportedUnresolved: c.faintReportedUnresolved }
+          : {}),
       }
     : null;
-  const base = c.ctx ? baseSelection(c.ctx, setting, c.setup) : [];
   const config = { ...d.config, homeOpen: c.homeOpen };
   return { ...m, data: { ...d, config, setting, signedIn: c, env, base } };
 }
@@ -1758,9 +2094,11 @@ function entryGate(m: FlowModel, now: number): FlowState | null {
   if (c.blocked || !c.ctx) return { kind: "exit", to: "today" };
   // Home checks open only behind the flag; a booth tab runs booth checks (Q31 (6)).
   if (!d.config.homeOpen && !d.config.booth) return { kind: "exit", to: "today" };
+  // The side lean only session runs at home and only inside its offer (Q12 (2), 409 NOT_OFFERED).
+  if ((d.config.session ?? "full") === "side_lean_only" && (d.config.booth || !c.sideLeanRepeat))
+    return { kind: "exit", to: "today" };
   if (c.earliestNext && c.earliestNext > now) return { kind: "exit", to: "today" };
-  if (c.lock && (c.lock.until === null || c.lock.until > now))
-    return { kind: "paused", until: c.lock.until, releasable: c.lock.releasable };
+  if (c.lock && (c.lock.until === null || c.lock.until > now)) return pausedOf(c.lock);
   if (!c.consent) return { kind: "consent" };
   return null;
 }
@@ -1811,25 +2149,21 @@ function guestAdvance(m: FlowModel, step: GuestStep): FlowModel {
 
 /**
  * Guest routing on the phone (map 2.1, Q19 (5)) with guestContext: no check (bed, cardiac, other,
- * cfs_moderate, no_exercise, and in v1 data stroke and SCI) goes to the team (S09); otherwise the
- * base selection for the booth, and the quick path keeps the arm raise only.
+ * cfs_moderate, no_exercise) goes to the team (S09); stroke or SCI without clearance get the seated
+ * arm raise only; otherwise the base selection for the booth, and the quick path keeps the arm raise
+ * only. The guest's clearance answer counts (Q19 (2)); the "SCI, type unknown" chip (sci_unsure) is
+ * passed as it is and takes the sci_complete rules in guestContext (O20).
  */
-// SPEC-GAP: guest-routing-b. v1.1 lets stroke and SCI guests do the seated arm raise only; the v1 data
-// in src/movements blocks them in guestContext, so they talk to the team until the data is re-exported.
-// SPEC-GAP: guest-sci-unsure. "SCI, type unknown" (a v1.1 option) is sent as both SCI types, the
-// stricter reading of each rule.
 export function guestSteps(g: GuestAnswers): GuestSteps | null {
   if (!g.position || !g.support) return null;
   const clean = (v: string[] | undefined) => (v ?? []).filter((x) => x !== "none");
-  const conditions = clean(g.conditions).flatMap((c) =>
-    c === "sci_unsure" ? ["sci_complete", "sci_incomplete"] : [c],
-  );
   return {
     position: g.position,
     support: g.support,
     pain: clean(g.pain),
     restrictions: clean(g.restrictions),
-    conditions: [...new Set(conditions)],
+    conditions: [...new Set(clean(g.conditions))],
+    clearance: g.clearance ?? null,
   };
 }
 
@@ -1900,6 +2234,23 @@ function setLock(m: FlowModel, reason: string, until: number | null): FlowModel 
   return { ...m, data: { ...m.data, lock: { reason, until } } };
 }
 
+/**
+ * The end of check question (S49, Q23 (7)), asked before any result, a check ended early included. A
+ * signed in check asks the server for its form (GET /:id/end: the side after a one sided large drop,
+ * and the O37 line); the general form shows until it answers (END_FORM).
+ */
+function toEndQuestion(m: FlowModel): FlowModel {
+  const next = go(m, { kind: "endQuestion" });
+  const d = m.data;
+  if (d.config.mode !== "signedIn" || !d.checkId) return next;
+  return emit(next, { type: "endForm", checkId: d.checkId });
+}
+
+/** The server has closed the check itself: the phone never completes it. */
+function closeCheck(m: FlowModel): FlowModel {
+  return { ...m, data: { ...m.data, closed: true } };
+}
+
 function toSafety(m: FlowModel, kind: SafetyKind, screen: DataScreenId, alsoShow: DataScreenId[]): FlowModel {
   return {
     ...go(m, { kind: "safety", safety: kind, screen, alsoShow, faintAnswered: false }),
@@ -1907,18 +2258,24 @@ function toSafety(m: FlowModel, kind: SafetyKind, screen: DataScreenId, alsoShow
   };
 }
 
-/** Records a side's outcome; a signed in check posts results and postable skips (queued). */
+/**
+ * Records a side's outcome; a signed in check posts results and postable skips (queued), unless the
+ * server already has the row (`post` false: the side a stop names, the skips of a resume). A result
+ * carries the quality retries used on its side (Q2 (6)).
+ */
 function recordSide(
   m: FlowModel,
   testId: TestId,
   side: TestSide,
   outcome: SideOutcome,
   body?: ResultPayload,
+  post = true,
 ): FlowModel {
   const d = m.data;
   const next = { ...m, data: { ...d, outcomes: { ...d.outcomes, [outcomeKey(testId, side)]: outcome } } };
-  if (d.config.mode !== "signedIn" || !d.checkId) return next;
-  if (body) return emit(next, { type: "result", checkId: d.checkId, body });
+  if (d.config.mode !== "signedIn" || !d.checkId || !post) return next;
+  const retries = d.run.retriesUsed > 0 ? { qualityRetries: d.run.retriesUsed } : {};
+  if (body) return emit(next, { type: "result", checkId: d.checkId, body: { ...retries, ...body } });
   // A side not measured (quality retries used up) is posted like a skip with its reason, so the
   // server keeps the P6 "not measured today" row and can complete the check.
   if (
@@ -1926,10 +2283,11 @@ function recordSide(
     outcome.reason &&
     POSTABLE_SKIP_REASONS.includes(outcome.reason)
   ) {
+    const body = skipBody(d, testId, side, outcome.reason);
     return emit(next, {
       type: "result",
       checkId: d.checkId,
-      body: skipBody(d, testId, side, outcome.reason),
+      body: outcome.reason === "quality" ? { ...body, ...retries } : body,
     });
   }
   return next;
@@ -1958,10 +2316,13 @@ export function skipBody(d: FlowData, testId: TestId, side: TestSide, reason: st
   };
 }
 
-/** Completion of a signed in check that has at least one result or skip (queued). */
+/**
+ * Completion of a signed in check that has at least one result or skip (queued); never for a check
+ * the server closed itself.
+ */
 function completeCheck(m: FlowModel): FlowModel {
   const d = m.data;
-  if (d.config.mode !== "signedIn" || !d.checkId) return m;
+  if (d.config.mode !== "signedIn" || !d.checkId || d.closed) return m;
   if (m.effects.some((x) => x.type === "complete")) return m;
   if (Object.keys(d.outcomes).length === 0) return m;
   return emit(m, { type: "complete", checkId: d.checkId });

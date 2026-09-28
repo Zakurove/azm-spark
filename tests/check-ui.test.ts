@@ -94,8 +94,11 @@ describe("answer lists keep the data order (principle 2)", () => {
   });
 });
 
-describe("booth mode is a verified session (S55)", () => {
-  it("reads only a code kept after a verify, never a value typed into the storage", async () => {
+describe("booth mode is a server pass, never the code (S55, S55b, O17)", () => {
+  const SESSION = "a".repeat(64);
+  const TOKEN = "b".repeat(64);
+
+  async function withStore<T>(run: (store: Map<string, string>) => Promise<T>): Promise<T> {
     const store = new Map<string, string>();
     const fake = {
       getItem: (k: string) => store.get(k) ?? null,
@@ -105,17 +108,80 @@ describe("booth mode is a verified session (S55)", () => {
     const { vi } = await import("vitest");
     vi.stubGlobal("sessionStorage", fake);
     try {
-      const booth = await import("../src/features/assessment/boothMode");
-      store.set("azm.booth", "typed-by-hand");
-      expect(booth.isBoothMode()).toBe(false);
-      booth.saveBoothCode("1234", 1000);
-      expect(JSON.parse(store.get("azm.booth")!)).toEqual({ code: "1234", verifiedAt: 1000 });
-      expect(booth.readBoothCode()).toBe("1234");
-      expect(booth.boothVerifiedSession()).toBe(true);
-      booth.clearBoothCode();
-      expect(booth.isBoothMode()).toBe(false);
+      return await run(store);
     } finally {
       vi.unstubAllGlobals();
     }
-  });
+  }
+
+  it("reads only a pass the server issued, until it ends; never a value typed into the storage", () =>
+    withStore(async (store) => {
+      const booth = await import("../src/features/assessment/boothMode");
+      store.set("azm.booth", "typed-by-hand");
+      expect(booth.isBoothMode()).toBe(false);
+      store.set("azm.booth", JSON.stringify({ kind: "staff", session: "short", expires: 9e15 }));
+      expect(booth.isBoothMode()).toBe(false);
+      booth.saveStaffSession(SESSION, 5000);
+      expect(JSON.parse(store.get("azm.booth")!)).toEqual({ kind: "staff", session: SESSION, expires: 5000 });
+      expect(booth.readBoothPass(4000)).toEqual({ kind: "staff", session: SESSION, expires: 5000 });
+      expect(booth.isBoothMode(4000)).toBe(true);
+      // At closing time the pass ends and is removed.
+      expect(booth.isBoothMode(5000)).toBe(false);
+      expect(store.has("azm.booth")).toBe(false);
+      booth.saveVisitorToken(TOKEN, 9e15);
+      expect(booth.readBoothPass()).toMatchObject({ kind: "visitor", token: TOKEN });
+      booth.clearBoothPass();
+      expect(booth.isBoothMode()).toBe(false);
+    }));
+
+  it("a booth start gets its one check token: the visitor's own, or a new one from the staff session", () =>
+    withStore(async () => {
+      const booth = await import("../src/features/assessment/boothMode");
+      const calls: string[] = [];
+      const api = {
+        boothToken: async (session: string) => {
+          calls.push(session);
+          return { ok: true as const, value: { token: TOKEN, expires: 9e15 } };
+        },
+      };
+      expect(await booth.boothStartToken(api)).toBeNull();
+      booth.saveVisitorToken(TOKEN, 9e15);
+      expect(await booth.boothStartToken(api)).toBe(TOKEN);
+      expect(calls).toEqual([]);
+      booth.saveStaffSession(SESSION, 9e15);
+      expect(await booth.boothStartToken(api)).toBe(TOKEN);
+      expect(calls).toEqual([SESSION]);
+    }));
+
+  it("the pass holds unless the server refuses it; a network error keeps booth mode (O18)", () =>
+    withStore(async () => {
+      const booth = await import("../src/features/assessment/boothMode");
+      const refused = {
+        boothToken: async () => ({
+          ok: false as const,
+          error: { kind: "http" as const, status: 403, code: "BOOTH_SESSION", body: {} },
+        }),
+        boothRedeem: async () => ({ ok: true as const, value: { ok: false as const } }),
+      };
+      const offline = {
+        boothToken: async () => ({ ok: false as const, error: { kind: "network" as const } }),
+        boothRedeem: async () => ({ ok: false as const, error: { kind: "network" as const } }),
+      };
+      booth.saveStaffSession(SESSION, 9e15);
+      expect(await booth.boothPassHolds(offline)).toBe(true);
+      expect(await booth.boothPassHolds(refused)).toBe(false);
+      booth.saveVisitorToken(TOKEN, 9e15);
+      expect(await booth.boothPassHolds(offline)).toBe(true);
+      expect(await booth.boothPassHolds(refused)).toBe(false);
+      // Redeeming keeps the token only when the server accepts it.
+      booth.clearBoothPass();
+      expect(await booth.redeemVisitorToken(refused, TOKEN)).toBe(false);
+      expect(booth.isBoothMode()).toBe(false);
+      const ok = {
+        boothRedeem: async () => ({ ok: true as const, value: { ok: true as const, expires: 9e15 } }),
+      };
+      expect(await booth.redeemVisitorToken(ok, "not-a-token")).toBe(false);
+      expect(await booth.redeemVisitorToken(ok, TOKEN)).toBe(true);
+      expect(booth.readBoothPass()).toMatchObject({ kind: "visitor", token: TOKEN });
+    }));
 });

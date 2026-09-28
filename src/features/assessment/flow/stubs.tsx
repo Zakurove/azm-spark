@@ -44,7 +44,10 @@ export const S12 = stub("S12", (l) => t(l, "assessment.consent.title"), { brand:
 export const S13 = stub("S13", (l) => t(l, "assessment.context.title"));
 export const S14 = stub("S14", (l) => t(l, "assessment.name"), { brand: true });
 export const S14b = stub("S14b", (l) => t(l, "assessment.soundCheck.title"));
-export const S16 = stub("S16", (l) => t(l, "assessment.precheck.title"));
+// S16 also carries the O6 (2) line before the re-ask of a resumed check (resumeNotice).
+export const S16 = stub("S16", (l, m) =>
+  t(l, m.state.kind === "resumeNotice" ? "assessment.resume.notice" : "assessment.precheck.title"),
+);
 export const S17 = stub("S17", questionTitle);
 export const S18 = stub("S18", questionTitle);
 export const S19 = stub("S19", questionTitle);

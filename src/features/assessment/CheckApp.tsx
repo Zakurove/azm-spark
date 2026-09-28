@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
-import { boothVerifiedSession, clearBoothCode, isBoothMode, readBoothCode } from "./boothMode";
+import { boothPassHolds, clearBoothPass, isBoothMode, readBoothPass, watchVisitorHidden } from "./boothMode";
 import {
   canLeave,
   cameraRunning,
@@ -81,7 +81,6 @@ export default function CheckApp({ lang, onLanguage, mode, onExit, booth, deskto
   const { online, backOnline } = useOnline();
   const { model, dispatch, api, status, retryCamera } = useCheckFlow({
     config,
-    boothCode: inBooth ? readBoothCode() : null,
     online,
     resume: resume ?? null,
   });
@@ -110,18 +109,27 @@ export default function CheckApp({ lang, onLanguage, mode, onExit, booth, deskto
     return () => window.removeEventListener("popstate", onPop);
   }, [guardBack, dispatch]);
 
-  // Booth mode is verified again whenever the guest check opens online: a refused code leaves booth
-  // mode and the page shows S05b (a network error keeps it, so a booth phone works offline).
+  // The booth pass is checked again whenever the guest check opens online: a pass the server refuses
+  // (closing time, a used or ended visitor token) leaves booth mode and the page shows S05b; a
+  // network error keeps it, so a booth phone works offline (O18).
   useEffect(() => {
-    if (mode !== "guest" || !config.booth || !boothVerifiedSession() || !online) return;
-    const code = readBoothCode();
-    if (!code) return;
-    void api.boothVerify(code).then((r) => {
-      if (r.ok && r.value.ok === false) {
-        clearBoothCode();
-        location.replace(location.href);
-      }
+    if (mode !== "guest" || !config.booth || !online) return;
+    void boothPassHolds(api).then((holds) => {
+      if (holds) return;
+      clearBoothPass();
+      location.replace(location.href);
     });
+  }, []);
+
+  // S55b: a visitor's token ends when the results show and after the tab stays hidden for 10 minutes;
+  // the page then leaves booth mode, so a home check never runs under booth rules.
+  const atResults = model.state.kind === "results";
+  useEffect(() => {
+    if (atResults && readBoothPass()?.kind === "visitor") clearBoothPass();
+  }, [atResults]);
+  useEffect(() => {
+    if (!config.booth) return;
+    return watchVisitorHidden(() => location.replace(location.href));
   }, []);
 
   // Guests and booth mode: a page restored from the back and forward cache starts again (S57).

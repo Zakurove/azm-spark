@@ -7,15 +7,18 @@
  *   - signed in, it loads GET /api/assessments/context and starts the flow with CONTEXT_LOADED (or
  *     RESUME for an open check); guest, it starts the flow with START and never calls the network
  *     (contract v3 I: no API client call, no outbox);
- *   - it runs the effects the reducer lists: the awaited start call, and every other call through the
- *     ordered outbox (resultQueue.ts), which it retries with a back off, when the page is shown again
- *     and when the connection returns;
+ *   - it runs the effects the reducer lists: the awaited start and resume calls (a booth start first
+ *     gets its one check booth token, O17), the form of the end question (GET /:id/end), and every
+ *     other call through the ordered outbox (resultQueue.ts), which it retries with a back off, when
+ *     the page is shown again and when the connection returns;
+ *   - it remembers on the device the checks that had a safety screen or an alarm, which are never
+ *     resumed (O6 (1));
  *   - it keeps a resumable snapshot for the camera permission reload (S32), without raw answers once
  *     the protocol is frozen, in sessionStorage only.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { createCheckApi, toSignedInContext, toStartResult, type CheckApi } from "./api";
-import { clearBoothCode } from "./boothMode";
+import { createCheckApi, toResumeResult, toSignedInContext, toStartResult, type CheckApi } from "./api";
+import { boothStartToken, clearBoothPass } from "./boothMode";
 import {
   flowReducer,
   initialModel,
@@ -44,8 +47,11 @@ export type Dispatch = (event: FlowEvent) => void;
 export interface CheckFlowOptions {
   config: FlowConfig;
   device?: DeviceInfo;
-  /** The verified booth code of this tab, sent with a signed in booth start (contract G). */
-  boothCode?: string | null;
+  /**
+   * The one check booth token of a signed in booth start (O17): the visitor's token, or a new one from
+   * the staff session (boothMode.ts). Replaceable in tests.
+   */
+  boothToken?: () => Promise<string | null>;
   api?: CheckApi;
   queue?: ResultQueue;
   /** Online state from useOnline: the outbox is flushed when it turns true. */
@@ -104,6 +110,48 @@ export function clearSnapshot(): void {
   } catch {
     /* nothing kept */
   }
+}
+
+/* ------------------------------------------------------------------ no resume (O6 (1)) */
+
+const NO_RESUME_KEY = "azm.check.noResume";
+const NO_RESUME_KEEP = 20;
+
+function noResumeIds(): string[] | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(NO_RESUME_KEY);
+    const ids = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Remembers on this device that a check had a safety screen (S36 to S40) or an alarm (S45): it is
+ * never resumed (O6 (1)). The server keeps no such record for a person (Q25 (d)).
+ */
+export function markNoResume(checkId: string): void {
+  try {
+    const ids = noResumeIds() ?? [];
+    if (ids.includes(checkId)) return;
+    localStorage.setItem(NO_RESUME_KEY, JSON.stringify([...ids, checkId].slice(-NO_RESUME_KEEP)));
+  } catch {
+    /* no storage: resumeAllowed then refuses every resume */
+  }
+}
+
+/**
+ * Whether an open check may be offered to continue (S01 resume, O6 (1)): never after a safety screen or
+ * an alarm on this device. Without storage no resume is offered (the check closes after 30 minutes
+ * and a new one starts), the safer side.
+ */
+// SPEC-GAP: resume-after-alarm-device. The record lives on the device that ran the check; another
+// device of the same person cannot know of an alarm and may offer the resume within the 30 minutes.
+export function resumeAllowed(checkId: string): boolean {
+  const ids = noResumeIds();
+  return ids !== null && !ids.includes(checkId);
 }
 
 /** An outbox that never sends (the guest flow stores and sends nothing, contract v3 I). */
@@ -167,7 +215,11 @@ export function useCheckFlow(opts: CheckFlowOptions) {
       if (!active) return;
       if (!r.ok) return dispatch({ type: "CONTEXT_FAILED" });
       const context = toSignedInContext(r.value);
-      if (opts.resume) dispatch({ type: "RESUME", context, check: opts.resume });
+      // O6 (1): only the check the server still names as open, and never one that had a safety
+      // screen or an alarm; otherwise a new check starts (its start closes the old one).
+      const check = opts.resume;
+      if (check && context.openCheck?.id === check.id && resumeAllowed(check.id))
+        dispatch({ type: "RESUME", context, check });
       else dispatch({ type: "CONTEXT_LOADED", context });
     });
     return () => {
@@ -218,6 +270,13 @@ export function useCheckFlow(opts: CheckFlowOptions) {
     };
   }, [flush, signedIn]);
 
+  // A check with a safety screen or an alarm is never resumed (O6 (1)).
+  const checkId = model.data.checkId;
+  const safetyShown = model.state.kind === "safety" || model.overlay?.kind === "alarm";
+  useEffect(() => {
+    if (signedIn && checkId && safetyShown) markNoResume(checkId);
+  }, [signedIn, checkId, safetyShown]);
+
   // Effects: each runs once, then leaves the list.
   useEffect(() => {
     for (const effect of model.effects) {
@@ -227,19 +286,37 @@ export function useCheckFlow(opts: CheckFlowOptions) {
     }
   }, [model.effects]);
 
+  /** The one check booth token of a booth start (O17), or nothing at home. */
+  async function tokenFor(setting: string): Promise<{ boothToken?: string }> {
+    if (setting !== "booth") return {};
+    const token = await (opts.boothToken ?? (() => boothStartToken(api)))();
+    return token ? { boothToken: token } : {};
+  }
+
   async function runEffect(effect: FlowEffect): Promise<void> {
-    const setting = modelRef.current.data.setting;
     const device = modelRef.current.data.device;
-    const code = setting === "booth" ? (opts.boothCode ?? undefined) : undefined;
     switch (effect.type) {
       case "start": {
         const r = await api.startCheck({
           answers: effect.answers,
           device,
           setting: effect.setting,
-          boothCode: code,
+          ...(await tokenFor(effect.setting)),
+          ...(effect.session ? { session: effect.session } : {}),
         });
         dispatch({ type: "START_RESULT", result: toStartResult(r) });
+        return;
+      }
+      case "resume": {
+        const r = await api.resume(effect.checkId, effect.answers);
+        dispatch({ type: "RESUME_RESULT", result: toResumeResult(r) });
+        return;
+      }
+      case "endForm": {
+        // The general form stays when the server cannot be asked (offline): the question is asked.
+        const r = await api.getEnd(effect.checkId);
+        if (r.ok && modelRef.current.state.kind === "endQuestion")
+          dispatch({ type: "END_FORM", side: r.value.side, chronicNote: r.value.chronicNote });
         return;
       }
       case "startBackground":
@@ -248,11 +325,33 @@ export function useCheckFlow(opts: CheckFlowOptions) {
           answers: effect.answers,
           device,
           setting: effect.setting,
-          ...(code ? { boothCode: code } : {}),
+          ...(await tokenFor(effect.setting)),
+          ...(effect.session ? { session: effect.session } : {}),
         });
         break;
+      case "resumeBackground":
+        await queue.enqueue({ type: "resumeBackground", checkId: effect.checkId, answers: effect.answers });
+        break;
       case "stop":
-        await queue.enqueue({ type: "stop", checkId: effect.checkId, option: effect.option });
+        await queue.enqueue({
+          type: "stop",
+          checkId: effect.checkId,
+          option: effect.option,
+          ref: effect.ref,
+        });
+        break;
+      case "end":
+        await queue.enqueue({ type: "end", checkId: effect.checkId, answer: effect.answer });
+        break;
+      case "faint":
+        await queue.enqueue({ type: "faint", checkId: effect.checkId, body: effect.body });
+        break;
+      case "alarm":
+        markNoResume(effect.checkId);
+        await queue.enqueue({ type: "alarm", checkId: effect.checkId, body: effect.body });
+        break;
+      case "adult":
+        await queue.enqueue({ type: "adult" });
         break;
       case "between":
         await queue.enqueue({
@@ -269,8 +368,8 @@ export function useCheckFlow(opts: CheckFlowOptions) {
       case "complete":
         await queue.enqueue({ type: "complete", checkId: effect.checkId });
         break;
-      case "clearBoothCode":
-        clearBoothCode();
+      case "clearBoothPass":
+        clearBoothPass();
         return;
     }
     await flush();

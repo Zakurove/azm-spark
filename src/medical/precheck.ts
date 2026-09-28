@@ -1776,6 +1776,17 @@ function stopCond(env: PrecheckEnv): CondContext {
   return { env, answer: () => undefined, flag: (f) => f === "sci_t6" && stopSciT6(env) };
 }
 
+/**
+ * scr_ad joins scr_emergency for every SCI condition or an SCI level at T6 or above (O12 (1)): on the
+ * stop list, the faint follow up and the end of check question alike. The phone shows it at once and
+ * the server sends the same list (server/modules/assessments/common.ts).
+ */
+export function emergencyAlsoShow(env: Pick<PrecheckEnv, "ctx" | "setup"> | null): "scr_ad"[] {
+  if (!env) return [];
+  const sci = has(env.ctx.conditions, SCI_CONDITIONS) || env.setup?.sciT6 === true;
+  return sci ? ["scr_ad"] : [];
+}
+
 export function isStopOption(option: string): option is StopOptionId {
   return CHECK_DATA.stopRouting.options.some((o) => o.id === option);
 }

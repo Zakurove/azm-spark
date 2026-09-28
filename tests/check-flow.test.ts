@@ -53,6 +53,7 @@ const withState = (m: FlowModel, state: FlowState): FlowModel => ({ ...m, state,
 function guestAtIntro(
   position: "chair" | "standing" | "wheelchair" = "chair",
   path: "quick" | "full" = "full",
+  clearance: "yes" | "no" | "unsure" = "yes",
 ) {
   return play(
     initialModel(GUEST),
@@ -63,7 +64,7 @@ function guestAtIntro(
     { type: "GUEST_ANSWER", step: 2, value: "none" },
     { type: "GUEST_ANSWER", step: 3, value: ["none"] },
     { type: "GUEST_NEXT" },
-    { type: "GUEST_ANSWER", step: 4, value: "yes" },
+    { type: "GUEST_ANSWER", step: 4, value: clearance },
     { type: "GUEST_ANSWER", step: 5, value: ["none"] },
     { type: "GUEST_NEXT" },
     { type: "GUEST_ANSWER", step: 6, value: ["none"] },
@@ -510,7 +511,7 @@ describe("Appendix A: pre-check questions, confirm in place, the start call", ()
     expect(auth.state).toEqual({ kind: "exit", to: "signIn" });
     const booth = play(m, { type: "START_RESULT", result: { ok: false, code: "BOOTH_CODE" } });
     expect(booth.state).toEqual({ kind: "exit", to: "boothStaff" });
-    expect(booth.effects.some((x) => x.type === "clearBoothCode")).toBe(true);
+    expect(booth.effects.some((x) => x.type === "clearBoothPass")).toBe(true);
   });
 
   it("the guest proceeds on the phone: no start call, the protocol frozen locally", () => {
@@ -1055,9 +1056,9 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     expect(play(home, { type: "STAFF_RESET" }).state).toEqual(home.state);
   });
 
-  it("resume continues an open check at the first test with a side left", () => {
+  it("resume continues an open check at the first test with a side left, after the O6 re-ask", () => {
     const m = signedAtPlan();
-    const resumed = play(initialModel(SIGNED), {
+    let resumed = play(initialModel(SIGNED), {
       type: "RESUME",
       context: contextOf(),
       check: {
@@ -1069,6 +1070,14 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
           "shoulder_abduction:left": { status: "measured" },
         },
       },
+    });
+    // O6 (2): the resume line, the sound check and the day of questions again come first.
+    expect(resumed.state).toEqual({ kind: "resumeNotice" });
+    resumed = answerAll(play(resumed, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }));
+    expect(resumed.effects.map((e) => e.type)).toEqual(["resume"]);
+    resumed = play(resumed, {
+      type: "RESUME_RESULT",
+      result: { ok: true, skips: [], warnings: [], helperRequired: [], checkIn: null },
     });
     expect(resumed.state).toEqual({ kind: "test.instruction", i: 1 });
     expect(resumed.data.checkId).toBe("c1");
@@ -1097,6 +1106,7 @@ function samples(): Record<FlowStateKind, FlowModel> {
     guestStaff: { kind: "guestStaff" },
     consent: { kind: "consent" },
     context: { kind: "context" },
+    resumeNotice: { kind: "resumeNotice" },
     intro: { kind: "intro" },
     soundCheck: { kind: "soundCheck" },
     precheckNotice: { kind: "precheckNotice" },
@@ -1158,7 +1168,7 @@ describe("every safety event from every state reaches its safety screen", () => 
 
   it("covers every state kind", () => {
     expect(Object.keys(all).sort()).toEqual(Object.keys(all).sort());
-    expect(Object.keys(all)).toHaveLength(47);
+    expect(Object.keys(all)).toHaveLength(48);
   });
 
   it.each(Object.keys(all))("a safety screen from the server or a stricter answer, from %s", (k) => {
@@ -1336,8 +1346,9 @@ describe("network effects", () => {
     m = { ...m, effects: [] };
     const measuring = withState(m, cam("cam.measure"));
     const stopped = play(measuring, { type: "STOP" }, { type: "STOP_OPTION", option: "choice" });
-    // The stopped test's skips go before the stop, so an ended check has them (the outbox keeps order).
-    expect(stopped.effects.map((e) => e.type)).toEqual(["result", "result", "stop"]);
+    // The stop names the running side (the server writes its row, resultOnStop); the other side of the
+    // stopped test goes before the stop, so an ended check has it (the outbox keeps order).
+    expect(stopped.effects.map((e) => e.type)).toEqual(["result", "stop"]);
     expect(stopped.effects[0]).toMatchObject({
       type: "result",
       body: { skippedReason: "by_choice", value: null, attempts: [] },
@@ -1372,16 +1383,18 @@ describe("network effects", () => {
     });
     expect(withResult.effects.map((e) => e.type)).toEqual(["result"]);
     const ended = play(withState(withResult, { kind: "endQuestion" }), { type: "END_ANSWER", yes: false });
-    expect(ended.effects.map((e) => e.type)).toEqual(["result", "complete"]);
+    // The end question's answer is posted first (Q23 (7)), then the completion.
+    expect(ended.effects.map((e) => e.type)).toEqual(["result", "end", "complete"]);
     // Completion is sent once.
     expect(
       play(withState(ended, { kind: "endQuestion" }), { type: "END_ANSWER", yes: false }).effects.filter(
         (e) => e.type === "complete",
       ),
     ).toHaveLength(1);
-    // A skip the server does not know (chair_needed) stays on the phone.
+    // chair_needed is a skip reason the server knows now: each side of the test is posted.
     const chair = play(withState(m, { kind: "test.instruction", i: 0 }), { type: "CHAIR_GATE_NO" });
-    expect(chair.effects).toEqual([]);
+    expect(chair.effects.map((e) => e.type)).toEqual(m.data.tests[0].sides.map(() => "result"));
+    expect(chair.effects[0]).toMatchObject({ body: { skippedReason: "chair_needed" } });
     // EFFECT_DONE removes an effect.
     expect(play(between, { type: "EFFECT_DONE", id: between.effects[0].id }).effects).toEqual([]);
   });
@@ -1470,9 +1483,10 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
     expect(m.effects).toEqual([]);
   });
 
-  it("guest booth standing: the chair stand with the staff vitals question (S56)", () => {
+  it("guest booth standing, clearance not sure: the chair stand with the staff vitals question (S56)", () => {
+    // Q21: the staff vitals apply to the group whose clearance is no or not sure (Q19 (2) asks it).
     const q = play(
-      guestAtIntro("standing"),
+      guestAtIntro("standing", "full", "unsure"),
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
       { type: "PRECHECK_START" },
@@ -1713,7 +1727,7 @@ describe("stops never fail open", () => {
       kind: "paused",
     });
     expect(resume({ consent: false }).state).toEqual({ kind: "consent" });
-    expect(resume({}).state).toEqual({ kind: "test.instruction", i: 0 });
+    expect(resume({}).state).toEqual({ kind: "resumeNotice" });
   });
 
   it("the 48 hour minimum is checked at entry (earliestNext)", () => {

@@ -1,7 +1,9 @@
 /**
  * S55 Booth staff mode (/?booth=1), stub. The booth stream builds the code form: POST
- * /api/booth/verify (api.boothVerify), then saveBoothCode (../boothMode.ts) keeps the code in
- * sessionStorage for this tab only (contract v3 I), and the page sets `booth` again so the badge shows.
+ * /api/booth/verify (api.boothVerify) answers the staff device session of the booth day, which
+ * saveStaffSession (../boothMode.ts) keeps in sessionStorage for this tab only (the code itself is
+ * never kept, O17), and the page sets `booth` again so the badge shows. "Show the code for a visitor's
+ * phone" asks api.boothToken(session) and shows /?boothToken=<token> as a QR (S55b).
  *
  * The booth badge tells staff the device's mode at a glance (S57), so it shows only once this tab is
  * in verified booth mode, never before a code is verified. No Sound: nothing plays on this page.
@@ -24,7 +26,7 @@ export interface BoothStaffPageProps {
 
 export function BoothStaffPage({ lang, onLanguage }: BoothStaffPageProps) {
   // Read when the page opens. The code form (booth stream) adds the setter: after a successful verify
-  // and saveBoothCode, it sets booth to isBoothMode() so the badge appears.
+  // and saveStaffSession, it sets booth to isBoothMode() so the badge appears.
   const [booth] = useState(isBoothMode);
   return (
     <CheckRoot ui={{ lang, onLanguage, booth, screenKey: "S55" }}>

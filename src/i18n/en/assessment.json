@@ -121,6 +121,9 @@
     },
     "homeSoon": "The movement check will show here when it opens at home."
   },
+  "resume": {
+    "notice": "Before we continue, we will ask a few short questions again about how you are now."
+  },
   "afterIntake": {
     "title": "Do you want to set your starting point now?",
     "body": "A check of your movement with your phone camera, about {minutesFrom} to {minutesTo} {unit}. You can also do it later from Today.",

@@ -21,7 +21,7 @@ import Icon from "./Icon";
 import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
 import { createCheckApi } from "../features/assessment/api";
-import { isBoothMode } from "../features/assessment/boothMode";
+import { isBoothMode, redeemVisitorToken } from "../features/assessment/boothMode";
 import { flushPendingCheckCalls, hasSnapshot } from "../features/assessment/useCheckFlow";
 import { CHECK_UI } from "../features/assessment/featureFlag";
 import { BoothStaffPage } from "../features/assessment/booth";
@@ -31,6 +31,14 @@ const qs = new URLSearchParams(location.search);
 /** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
 const checkEntry = qs.get("check") === "1";
 const boothEntry = qs.get("booth") === "1";
+/**
+ * S55b: a visitor's own phone opened the staff QR (/?boothToken=<token>). The one check token is
+ * redeemed (POST /api/booth/redeem) and kept for this tab, then the app opens without the token in the
+ * address; a token the server refuses leaves booth mode off.
+ */
+// SPEC-GAP: booth-token-entry. The S55b screen states (loading, tokenEnded, offline) belong to the
+// booth stream; until they exist the entry redirects to "/" whatever the answer.
+const boothTokenEntry = qs.get("boothToken");
 // The example page (S54) is still a stub: shown only where the check UI is on (featureFlag.ts).
 const exampleEntry = CHECK_UI && qs.get("example") === "progress";
 type Page = "today" | "program" | "health" | "history" | "results";
@@ -143,6 +151,11 @@ export default function App() {
       active = false;
     };
   }, []);
+  // S55b: redeem the visitor token once, then open the app without it in the address.
+  useEffect(() => {
+    if (boothTokenEntry === null) return;
+    void redeemVisitorToken(createCheckApi(), boothTokenEntry).finally(() => openUrl("/", lang, true));
+  }, []);
   // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
   useEffect(() => {
     if (account) void flushPendingCheckCalls();
@@ -179,6 +192,7 @@ export default function App() {
       setBusy(false);
     }
   };
+  if (boothTokenEntry !== null) return null;
   if (E2EGallery && galleryEntry)
     return (
       <Suspense fallback={null}>

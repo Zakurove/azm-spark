@@ -23,7 +23,7 @@ import {
 import { callOutcome, memoryStore, ResultQueue, retryDelaySec } from "../src/features/assessment/resultQueue";
 import { snapshotOf } from "../src/features/assessment/useCheckFlow";
 import { screenKeyOf } from "../src/features/assessment/CheckApp";
-import { isBoothMode, readBoothCode } from "../src/features/assessment/boothMode";
+import { isBoothMode, readBoothPass } from "../src/features/assessment/boothMode";
 import { announcementFor } from "../src/features/assessment/shared/CheckUi";
 import { toggleMulti } from "../src/features/assessment/shared/answers";
 import { minutesUnit, parseNumberInput } from "../src/features/assessment/shared/format";
@@ -69,8 +69,8 @@ describe("check API client against the server", () => {
     const c = toSignedInContext(r.value);
     expect(c.ctx).toEqual(r.value.ctx);
     expect(c.lock).toBeNull();
-    // A v2 server has no homeOpen: closed.
-    expect(c.homeOpen).toBe(false);
+    // The harness opens home checks (AZM_CHECK_HOME=1).
+    expect(c.homeOpen).toBe(true);
     const booth = await clientFor(cookie).getContext("booth");
     expect(booth.ok && booth.value.setting).toBe("booth");
   });
@@ -152,13 +152,13 @@ describe("check API client against the server", () => {
     expect(r).toMatchObject({ ok: false, code: "POSTPONE", status: "emergency", screen: "scr_emergency" });
   });
 
-  it("a booth start without the staff code is BOOTH_CODE", async () => {
+  it("a booth start without a valid booth token is BOOTH_CODE", async () => {
     const cookie = await member(h, email(), intakeOf());
     const r = await clientFor(cookie).startCheck({
       answers: await answersFor(h, cookie, {}, "booth"),
       device: deviceInfo(),
       setting: "booth",
-      boothCode: "wrong",
+      boothToken: "f".repeat(64),
     });
     expect(toStartResult(r)).toEqual({ ok: false, code: "BOOTH_CODE" });
   });
@@ -227,30 +227,60 @@ describe("conflicts and adapters", () => {
     });
   });
 
-  it("the lock reason never reaches the flow, only whether the care team can release it", () => {
-    expect(lockReleasable({ reason: "recent_change" })).toBe(true);
-    expect(lockReleasable({ reason: "pain" })).toBe(false);
-    expect(lockReleasable({ reason: "pain", releasableByClearance: true })).toBe(true);
+  it("the lock reaches the flow as when it ends, whether the care team can release it and its {when}", () => {
+    expect(lockReleasable({ releasableByClearance: true })).toBe(true);
+    expect(lockReleasable({ releasableByClearance: false })).toBe(false);
+    expect(lockReleasable({})).toBe(false);
     const c = toSignedInContext({
       setting: "home",
       setup: null,
       firstCheck: true,
       completedBefore: false,
       unresolvedChangeReported: false,
+      faintReportedUnresolved: false,
       lastCheckLasting: false,
       lastPdDoseBucket: null,
-      lock: { reason: "urgent", until: 10 },
+      lock: { until: 10, releasableByClearance: false, when: { token: "nextDay_midnight" } },
       retestDue: null,
       earliestNext: null,
+      early: false,
+      sideLeanRepeat: null,
+      openCheck: null,
       followUpDue: false,
       consent: true,
       consentVersion: 1,
       baselineRanges: {},
       baseTests: [],
       homeOpen: true,
+      adultConfirmed: true,
     });
-    expect(c.lock).toEqual({ until: 10, releasable: false });
-    expect(JSON.stringify(c)).not.toContain("urgent");
+    expect(c.lock).toEqual({ until: 10, releasable: false, when: { token: "nextDay_midnight" } });
+    const locked = conflict(
+      http(409, {
+        error: "LOCKED",
+        until: 7,
+        releasableByClearance: true,
+        when: { token: "sameDay_clock", time: { hour: 3, minute: 5, suffix: "pm" } },
+      }),
+    );
+    expect(locked).toEqual({
+      code: "LOCKED",
+      until: 7,
+      releasable: true,
+      when: { token: "sameDay_clock", time: { hour: 3, minute: 5, suffix: "pm" } },
+    });
+    // A {when} that does not fit is left out, never guessed.
+    expect(conflict(http(409, { error: "LOCKED", until: 7, when: { time: 1 } }))).toEqual({
+      code: "LOCKED",
+      until: 7,
+      releasable: false,
+      when: null,
+    });
+    expect(conflict(http(403, { error: "ADULT_REQUIRED" }))).toEqual({ code: "ADULT_REQUIRED" });
+    expect(conflict(http(409, { error: "STOPPED", reason: "by_choice" }))).toEqual({
+      code: "STOPPED",
+      reason: "by_choice",
+    });
   });
 
   it("device facts stay inside the server's bounds", () => {
@@ -511,7 +541,7 @@ describe("shared UI helpers", () => {
     expect(onlineState(true, false)).toBe(true);
     expect(onlineState(false, false)).toBe(false);
     expect(onlineState(true, true)).toBe(false);
-    expect(readBoothCode()).toBeNull();
+    expect(readBoothPass()).toBeNull();
     expect(isBoothMode()).toBe(false);
   });
 

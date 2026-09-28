@@ -6,6 +6,7 @@
 import type { RouteContext } from "../../http/types";
 import type { ProtocolItem } from "../../../src/medical/assessment";
 import {
+  emergencyAlsoShow,
   lockRecord,
   pausedWhen,
   riyadhDate,
@@ -34,9 +35,6 @@ export const RESUME_WINDOW_MS = 30 * 60 * 1000;
 
 /** The server's flag on the skip row of a test stopped from the stop list (resultOnStop). */
 export const STOPPED_FLAG = "stopped";
-
-/** SCI conditions: the AD steps join the emergency screen for every one of them (O12 (1)). */
-const SCI_CONDITIONS = ["sci_complete", "sci_incomplete"];
 
 export interface LockView extends LockRecord {
   /** {when} of scr_paused_today (Q25 (e), Q33 (4)): the line and, for the clock forms, the time. */
@@ -148,12 +146,8 @@ export function runningEnv(ctx: RouteContext, a: Assessment): PrecheckEnv | null
   };
 }
 
-/** scr_ad joins scr_emergency for every SCI condition or an SCI level at T6 or above (O12 (1)). */
-export function emergencyAlsoShow(env: PrecheckEnv | null): "scr_ad"[] {
-  if (!env) return [];
-  const sci = env.ctx.conditions.some((c) => SCI_CONDITIONS.includes(c)) || env.setup?.sciT6 === true;
-  return sci ? ["scr_ad"] : [];
-}
+/** scr_ad joins scr_emergency for SCI (O12 (1)): the pure rule the phone runs too. */
+export { emergencyAlsoShow };
 
 export function instanceOf(item: ProtocolItem): TestInstance {
   const t: TestInstance = { testId: item.testId, side: item.side };

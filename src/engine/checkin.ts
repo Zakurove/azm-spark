@@ -1,22 +1,39 @@
 /**
- * Check in for the movement check (spec 4.0 "Check in", contract v2 section F). Pure TS, no DOM.
+ * Check in for the movement check (spec 4.0 "Check in", contract v2 section F, and the UX round
+ * council decisions O34-1 to O34-5, O42, O33 and O5). Pure TS, no DOM.
  *
- * Triggers (CHECK_DATA.stopRouting.checkIn.triggers) run the check in, cue `check_are_you_ok`:
- *   - the person leaves the frame;
- *   - the hips drop toward the floor;
- *   - a big sideways sway;
- *   - no movement for 10 s during a test;
- *   - no answer to the stop list within 30 s (`CheckInFlow`).
- * Counts as fine (checkIn.okWhen): a wrist held above the same shoulder for 1 s (`RaisedHandDetector`),
- * a tap anywhere on the screen, or the spoken words where speech recognition exists (both UI).
- * No response within 15 s: a loud repeating tone and the full screen scr_no_response (`CheckInFlow`).
+ * Triggers run the check in (cue chosen by `selectCheckInCue`):
+ *   - the person leaves the frame; the hips drop toward the floor; a big sideways sway; no movement
+ *     for 10 s during a test (`CheckInDetector`, armed by the UI per UX 4.8);
+ *   - no answer to the stop list (S41) or to the faint follow up (S38b) within 30 s (`CheckInFlow`);
+ *   - at home, the fall watch on S39 (phase 2): 60 s still while in view, or not seen seated or
+ *     standing within 3 minutes (`FallWatch`, O42).
+ * Counts as fine, in every state including no_response (O34-4): the «أنا بخير» button, a camera fine
+ * signal (`CameraFine`: the raised hand held 1 s from anyone, and in phase 2 at home the fine zone
+ * held 2 s), or the on device phrase (`phraseCounts`). A tap anywhere else never counts. Every camera
+ * fine is refused while the other hand is at the chest, both hands are in zones, the hips drop is
+ * active or the trunk is outside the sway limit (O34-1 (4)).
+ * The check in escalates at 7 s (chime and the cue again) and at 15 s (the alarm, scr_no_response).
  *
  * These are prompts to ask, never a fall detector (spec 4.3: the app is not a fall detector).
  * Detectors measure in pixel space against a reference taken at calibration.
  */
 import { CHECK_DATA } from "../movements/assessments";
 import type { CheckCueId, ScreenId, TestId } from "../movements/types";
-import { isPerson, leanDeg, midHip, Pt, shoulderPx, trunkPx, visible } from "./body";
+import {
+  armPx,
+  dist,
+  isPerson,
+  leanDeg,
+  midHip,
+  midPoint,
+  midShoulder,
+  Pt,
+  segmentDistance,
+  shoulderPx,
+  trunkPx,
+  visible,
+} from "./body";
 import { toPixelSpace } from "./geometry";
 import { Landmark, LM } from "./types";
 
@@ -32,6 +49,10 @@ export const CHECKIN_TIMING = {
   noMovementSec: 10,
   /** "a wrist held above the same shoulder for 1 s" (checkIn.okWhen; tied to the text by the test). */
   raisedHandSec: 1,
+  /** Escalation inside the 15 s: a soft chime and the cue again at 7 s (O34-3, UX 4.8). */
+  repeatSec: 7,
+  /** One extra no answer timer after a camera fine on S41, S38b or S44 (O34-1 (6)). */
+  extraTimerSec: 30,
 } as const;
 
 /** The check in cue, `check_are_you_ok`. */
@@ -68,7 +89,15 @@ export const CHECKIN_TUNING = {
 } as const;
 
 export type CheckInTuning = { -readonly [K in keyof typeof CHECKIN_TUNING]: number };
-export type CheckInTrigger = "left_frame" | "hips_drop" | "sway" | "no_movement" | "no_answer";
+export type CheckInTrigger =
+  | "left_frame"
+  | "hips_drop"
+  | "sway"
+  | "no_movement"
+  | "no_answer"
+  | "faint_no_answer"
+  | "fall_still"
+  | "fall_timer";
 
 /**
  * What the sway rule measures.
@@ -148,6 +177,12 @@ export interface CheckInFeedOptions {
    * runner decides whether a rest between attempts counts.
    */
   movement?: boolean;
+  /**
+   * Evaluate the left frame rule in this frame (default true). The UX 4.8 arming table turns it off
+   * in setup, rests, side changes and answer states, and on for the first 60 s after the chair
+   * stand ends (O34-6 (3)).
+   */
+  leftFrame?: boolean;
 }
 
 const KEY_POINTS = [LM.nose, 11, 12, 13, 14, 15, 16, 23, 24];
@@ -165,6 +200,8 @@ export class CheckInDetector {
   private clearSince: Record<Timed, number | null> = { left_frame: null, hips_drop: null, sway: null };
   private active = new Set<CheckInTrigger>();
   private track: { t: number; pts: (Pt | null)[] }[] = [];
+  private dropNow = false;
+  private swayNow = false;
   private readonly tuning: CheckInTuning;
   readonly swayMeasure: SwayMeasure;
 
@@ -186,6 +223,20 @@ export class CheckInDetector {
     this.clearSince = { left_frame: null, hips_drop: null, sway: null };
     this.active.clear();
     this.track = [];
+    this.dropNow = false;
+    this.swayNow = false;
+  }
+
+  /**
+   * The conditions that refuse a camera fine (O34-1 (4)) in the last fed frame: the hips drop
+   * trigger is active, or its condition holds now; the trunk is outside the current sway limit, or
+   * the sway trigger is active.
+   */
+  fineBlockers(): { hipsDrop: boolean; swayOut: boolean } {
+    return {
+      hipsDrop: this.dropNow || this.active.has("hips_drop"),
+      swayOut: this.swayNow || this.active.has("sway"),
+    };
   }
 
   /**
@@ -195,31 +246,28 @@ export class CheckInDetector {
   feed(t: number, lm: Landmark[] | null, aspect?: number, opts: CheckInFeedOptions = {}): CheckInTrigger[] {
     const out: CheckInTrigger[] = [];
     const person = isPerson(lm) ? lm : null;
-    const shouldersSeen =
-      !!person &&
-      (visible(person, LM.l_shoulder) || visible(person, LM.r_shoulder)) &&
-      [person[LM.l_shoulder], person[LM.r_shoulder]].some(
-        (q) => q.x >= 0 && q.x <= 1 && q.y >= 0 && q.y <= 1,
-      );
+    const shouldersSeen = inView(person);
     const p = person ? toPixelSpace(person, aspect) : null;
     const ref = this.ref;
     const tu = this.tuning;
 
     const left = !shouldersSeen;
-    this.timed("left_frame", left, t, tu.leftFrameSec, out);
+    this.timed("left_frame", left && opts.leftFrame !== false, t, tu.leftFrameSec, out);
 
     const drop = !left && !!ref && !!p && midHip(p).y - ref.hip.y > tu.hipsDropTrunks * ref.trunk;
     this.timed("hips_drop", drop, t, tu.sustainSec, out);
+    this.dropNow = drop;
 
     const turn = !left && !!ref && !!p && opts.sway !== false ? this.swayTurn(p, ref) : null;
     const sway = turn !== null && turn > (opts.swayDeg ?? tu.swayDeg);
     this.timed("sway", sway, t, tu.sustainSec, out);
+    this.swayNow = sway;
 
     if (left || !p || opts.movement === false) {
       this.track = [];
       this.active.delete("no_movement");
     } else {
-      this.track.push({ t, pts: KEY_POINTS.map((i) => (visible(p, i) ? { x: p[i].x, y: p[i].y } : null)) });
+      this.track.push({ t, pts: keyPointsOf(p) });
       const still = this.stillFor(t, ref?.trunk ?? trunkPx(p));
       if (still && !this.active.has("no_movement")) {
         this.active.add("no_movement");
@@ -259,40 +307,67 @@ export class CheckInDetector {
 
   /** True when the track covers the last 10 s and no key point moved beyond the still band. */
   private stillFor(now: number, trunk: number): boolean {
-    const windowMs = CHECKIN_TIMING.noMovementSec * 1000;
-    const binMs = this.tuning.stillBinSec * 1000;
-    while (this.track.length > 1 && this.track[1].t <= now - windowMs) this.track.shift();
-    if (!this.track.length || this.track[0].t > now - windowMs) return false;
-    const inWindow = this.track.filter((e) => e.t >= now - windowMs);
-    const limit = this.tuning.stillTrunks * trunk;
-    for (let k = 0; k < KEY_POINTS.length; k++) {
-      const bins = new Map<number, { x: number; y: number; n: number }>();
-      for (const e of inWindow) {
-        const q = e.pts[k];
-        if (!q) continue;
-        const b = Math.floor((e.t - (now - windowMs)) / binMs);
-        const acc = bins.get(b) ?? { x: 0, y: 0, n: 0 };
-        acc.x += q.x;
-        acc.y += q.y;
-        acc.n++;
-        bins.set(b, acc);
-      }
-      let x0 = Infinity,
-        x1 = -Infinity,
-        y0 = Infinity,
-        y1 = -Infinity;
-      for (const b of bins.values()) {
-        const x = b.x / b.n;
-        const y = b.y / b.n;
-        x0 = Math.min(x0, x);
-        x1 = Math.max(x1, x);
-        y0 = Math.min(y0, y);
-        y1 = Math.max(y1, y);
-      }
-      if (bins.size && Math.max(x1 - x0, y1 - y0) > limit) return false;
-    }
-    return true;
+    return stillOver(
+      this.track,
+      now,
+      CHECKIN_TIMING.noMovementSec * 1000,
+      this.tuning.stillBinSec * 1000,
+      this.tuning.stillTrunks * trunk,
+    );
   }
+}
+
+type Track = { t: number; pts: (Pt | null)[] }[];
+
+/**
+ * True when `track` covers the last `windowMs` and no key point moved beyond `limit` (pixel space),
+ * measured on `binMs` averages so model jitter is not movement. Drops entries older than the window.
+ */
+function stillOver(track: Track, now: number, windowMs: number, binMs: number, limit: number): boolean {
+  while (track.length > 1 && track[1].t <= now - windowMs) track.shift();
+  if (!track.length || track[0].t > now - windowMs) return false;
+  const inWindow = track.filter((e) => e.t >= now - windowMs);
+  const points = inWindow[0]?.pts.length ?? 0;
+  for (let k = 0; k < points; k++) {
+    const bins = new Map<number, { x: number; y: number; n: number }>();
+    for (const e of inWindow) {
+      const q = e.pts[k];
+      if (!q) continue;
+      const b = Math.floor((e.t - (now - windowMs)) / binMs);
+      const acc = bins.get(b) ?? { x: 0, y: 0, n: 0 };
+      acc.x += q.x;
+      acc.y += q.y;
+      acc.n++;
+      bins.set(b, acc);
+    }
+    let x0 = Infinity,
+      x1 = -Infinity,
+      y0 = Infinity,
+      y1 = -Infinity;
+    for (const b of bins.values()) {
+      const x = b.x / b.n;
+      const y = b.y / b.n;
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+    }
+    if (bins.size && Math.max(x1 - x0, y1 - y0) > limit) return false;
+  }
+  return true;
+}
+
+const keyPointsOf = (p: Landmark[]): (Pt | null)[] =>
+  KEY_POINTS.map((i) => (visible(p, i) ? { x: p[i].x, y: p[i].y } : null));
+
+/** The subject is in view: a person with a shoulder visible inside the picture. */
+function inView(person: Landmark[] | null): person is Landmark[] {
+  return (
+    !!person &&
+    isPerson(person) &&
+    (visible(person, LM.l_shoulder) || visible(person, LM.r_shoulder)) &&
+    [person[LM.l_shoulder], person[LM.r_shoulder]].some((q) => q.x >= 0 && q.x <= 1 && q.y >= 0 && q.y <= 1)
+  );
 }
 
 /** A wrist visibly above the shoulder of the same side (image y grows downward). */
@@ -303,47 +378,120 @@ export function wristAboveShoulder(lm: Landmark[], side: "left" | "right"): bool
 }
 
 /**
- * The raised hand fine signal: a wrist held above the same shoulder for 1 s. `feed` returns true
- * from the frame the hold reaches 1 s. Reset it when the check in starts, so only a hand held
- * after the question counts.
+ * The raised hand fine signal (the council's, accepted from anyone at the booth and at home): a
+ * wrist held above the same shoulder for 1 s. `feed` returns true from the frame the hold reaches
+ * 1 s; `side` says which hand. Reset it when the check in cue starts.
  */
+// SPEC-GAP: raised-hand-entry. O34-1 (3) writes the entry rule (counts only when the hand arrives
+// after the cue starts) for the fine zone. The safest reading applies it to the raised hand too: a
+// wrist already above the shoulder when the check in opens (an arm raise attempt in progress) must
+// first be seen below the shoulder, so a raise in progress is never read as "fine".
 export class RaisedHandDetector {
   private since: { left: number | null; right: number | null } = { left: null, right: null };
+  private seenDown = { left: false, right: false };
+  private raisedSide: "left" | "right" | null = null;
+
+  /** @param requireEntry default true: a hand counts only after it was seen down since reset. */
+  constructor(private readonly requireEntry = true) {}
 
   reset(): void {
     this.since = { left: null, right: null };
+    this.seenDown = { left: false, right: false };
+    this.raisedSide = null;
+  }
+
+  /** The hand that made the last raised hand signal, or null. */
+  get side(): "left" | "right" | null {
+    return this.raisedSide;
   }
 
   feed(t: number, lm: Landmark[] | null): boolean {
     let raised = false;
+    this.raisedSide = null;
     for (const side of ["left", "right"] as const) {
-      if (lm && isPerson(lm) && wristAboveShoulder(lm, side)) {
+      const w = side === "left" ? LM.l_wrist : LM.r_wrist;
+      const up = !!lm && isPerson(lm) && wristAboveShoulder(lm, side);
+      if (!up && lm && isPerson(lm) && visible(lm, w)) this.seenDown[side] = true;
+      if (up && (this.seenDown[side] || !this.requireEntry)) {
         if (this.since[side] === null) this.since[side] = t;
-        if (t - this.since[side]! >= CHECKIN_TIMING.raisedHandSec * 1000) raised = true;
+        if (t - this.since[side]! >= CHECKIN_TIMING.raisedHandSec * 1000) {
+          raised = true;
+          this.raisedSide ??= side;
+        }
       } else this.since[side] = null;
     }
     return raised;
   }
 }
 
-export type CheckInPhase = "idle" | "stop_list" | "asking" | "no_response";
-export type FineSignal = "raised_hand" | "tap" | "speech";
+/* ------------------------------------------------------------------ the check in conversation */
+
+export type CheckInPhase = "idle" | "question" | "asking" | "no_response";
+/** A screen with its own 30 s no answer timer: the stop list, the faint follow up, go on (S44). */
+export type QuestionScreen = "S41" | "S38b" | "S44";
+/** Where a check in was raised from. */
+export type CheckInOrigin = "test" | QuestionScreen | "fall_watch";
+/**
+ * How a person said fine. `tap` is a touch anywhere but the «أنا بخير» button and never counts
+ * (O34-4): the flow refuses it in every state.
+ */
+export type FineSignal = "button" | "raised_hand" | "zone" | "speech" | "tap";
 export type CheckInAction =
-  | { kind: "ask"; cue: CheckCueId; trigger: CheckInTrigger; t: number }
-  | { kind: "fine"; via: FineSignal; trigger: CheckInTrigger; t: number }
-  | { kind: "no_response"; screen: ScreenId; trigger: CheckInTrigger; t: number };
+  | { kind: "ask"; cue: string; trigger: CheckInTrigger; origin: CheckInOrigin; t: number }
+  /** 7 s: a soft chime and the cue again. */
+  | { kind: "repeat"; cue: string; trigger: CheckInTrigger; t: number }
+  | {
+      kind: "fine";
+      via: Exclude<FineSignal, "tap">;
+      trigger: CheckInTrigger | null;
+      origin: CheckInOrigin;
+      /** Fine came on the alarm (scr_no_response); the Q2 tally counts it apart. */
+      afterAlarm: boolean;
+      /** The alarm was the «أحتاج مساعدة» help variant (O34-5). */
+      help: boolean;
+      /** A camera fine started the one extra 30 s timer on the origin screen (O34-1 (6)). */
+      extraTimer: boolean;
+      t: number;
+    }
+  | { kind: "no_response"; screen: ScreenId; trigger: CheckInTrigger; t: number }
+  /** «أحتاج مساعدة»: the alarm at once, logged as help_requested (O34-5). */
+  | { kind: "help"; screen: ScreenId; trigger: CheckInTrigger | null; t: number };
+
+const CAMERA_FINES: ReadonlySet<FineSignal> = new Set(["raised_hand", "zone"]);
+const QUESTION_SCREENS: ReadonlySet<CheckInOrigin> = new Set(["S41", "S38b", "S44"]);
+
+export interface CheckInFlowOptions {
+  /** The check in cue for this person and setting (`selectCheckInCue`); default check_are_you_ok. */
+  cue?: string;
+}
 
 /**
  * The check in conversation, driven by time (ms):
- *   idle → stop_list (STOP opened the one tap list) → idle when answered, or after 30 s the check in;
- *   idle or stop_list → asking on a trigger (play check_are_you_ok);
- *   asking → idle on a fine signal, or after 15 s → no_response (tone and scr_no_response; logged,
- *   and a staff alert at the booth). A tap on the no response screen closes it.
+ *   idle → question (S41 or S38b opened; any input restarts its 30 s) → idle when answered, or after
+ *   30 s the check in (no_answer, or faint_no_answer on S38b);
+ *   idle or question → asking on a trigger (play the cue); 7 s: the cue again (repeat);
+ *   asking → idle on fine, or after 15 s → no_response (the alarm and scr_no_response);
+ *   «أحتاج مساعدة» → no_response at once (help);
+ *   no_response → idle on fine (the button, a camera fine or the phrase; never a tap elsewhere).
+ * After a camera fine on a check in raised from S41, S38b or S44, the flow goes back to that screen
+ * with one extra 30 s no answer timer; when it runs out the check in runs again, and a second camera
+ * fine there ends the timers on that screen. A fine by the button or the phrase sets no new timer
+ * (O14, O34-1 (6)).
  */
 export class CheckInFlow {
   private phaseNow: CheckInPhase = "idle";
   private since = 0;
   private cause: CheckInTrigger | null = null;
+  private from: CheckInOrigin = "test";
+  private screen: QuestionScreen | null = null;
+  private repeated = false;
+  private helpVariant = false;
+  private extraUsed = new Set<QuestionScreen>();
+  private readonly cue: string;
+
+  constructor(opts: CheckInFlowOptions = {}) {
+    this.cue = opts.cue ?? CHECKIN_CUE;
+  }
 
   get phase(): CheckInPhase {
     return this.phaseNow;
@@ -354,56 +502,833 @@ export class CheckInFlow {
     return this.cause;
   }
 
+  /** Where the current check in was raised from. */
+  get origin(): CheckInOrigin {
+    return this.from;
+  }
+
+  /** The question screen whose timer runs, or null. */
+  get question(): QuestionScreen | null {
+    return this.phaseNow === "question" ? this.screen : null;
+  }
+
   reset(): void {
     this.phaseNow = "idle";
     this.since = 0;
     this.cause = null;
+    this.from = "test";
+    this.screen = null;
+    this.repeated = false;
+    this.helpVariant = false;
+    this.extraUsed.clear();
   }
 
-  /** The stop list is shown (STOP pressed, a stop word, or a camera symptom stop). */
-  openStopList(t: number): void {
+  /**
+   * S41 (the stop list: STOP pressed, a stop word, or a camera symptom stop) or S38b is shown. A
+   * screen already open (the flow returned to it after a fine) keeps its timer.
+   */
+  openQuestion(screen: "S41" | "S38b", t: number): void {
     if (this.phaseNow === "no_response") return;
-    this.phaseNow = "stop_list";
+    if (this.phaseNow === "question" && this.screen === screen) return;
+    this.phaseNow = "question";
+    this.screen = screen;
     this.since = t;
     this.cause = null;
+  }
+
+  /** The stop list is shown. */
+  openStopList(t: number): void {
+    this.openQuestion("S41", t);
+  }
+
+  /** A touch, scroll, key press or focus change on the question screen restarts its 30 s. */
+  activity(t: number): void {
+    if (this.phaseNow === "question") this.since = t;
+  }
+
+  /** The question on screen was answered, or the screen was left: its timers end. */
+  answerQuestion(): void {
+    if (this.phaseNow === "question") this.phaseNow = "idle";
+    if (this.phaseNow !== "asking" && this.phaseNow !== "no_response") this.screen = null;
+    this.extraUsed.clear();
   }
 
   /** An option of the stop list was chosen. */
   answerStopList(): void {
-    if (this.phaseNow === "stop_list") this.phaseNow = "idle";
-  }
-
-  /** A trigger from CheckInDetector. Starts the check in unless one is already running. */
-  raise(trigger: CheckInTrigger, t: number): CheckInAction | null {
-    if (this.phaseNow === "asking" || this.phaseNow === "no_response") return null;
-    this.phaseNow = "asking";
-    this.since = t;
-    this.cause = trigger;
-    return { kind: "ask", cue: CHECKIN_CUE, trigger, t };
+    this.answerQuestion();
   }
 
   /**
-   * A fine signal (raised hand, tap, spoken words) ends a check in. The no response screen asks for
-   * a tap ("Tap here if you are fine", scr_no_response), so only a tap closes it.
+   * A trigger from CheckInDetector or FallWatch. Starts the check in unless one is already running.
+   * The origin is the open question screen, else `origin` (default "test"; S44 and the fall watch
+   * pass theirs).
+   */
+  raise(trigger: CheckInTrigger, t: number, origin?: CheckInOrigin): CheckInAction | null {
+    if (this.phaseNow === "asking" || this.phaseNow === "no_response") return null;
+    this.from = this.phaseNow === "question" && this.screen ? this.screen : (origin ?? "test");
+    this.phaseNow = "asking";
+    this.since = t;
+    this.cause = trigger;
+    this.repeated = false;
+    this.helpVariant = false;
+    return { kind: "ask", cue: this.cue, trigger, origin: this.from, t };
+  }
+
+  /** «أحتاج مساعدة» (a zone, the button or a staff tap): the alarm at once, with no read back. */
+  needHelp(t: number, origin?: CheckInOrigin): CheckInAction | null {
+    if (this.phaseNow === "no_response") return null;
+    if (this.phaseNow !== "asking") {
+      this.from = this.phaseNow === "question" && this.screen ? this.screen : (origin ?? "test");
+      this.cause = null;
+    }
+    this.phaseNow = "no_response";
+    this.since = t;
+    this.helpVariant = true;
+    return { kind: "help", screen: NO_RESPONSE_SCREEN, trigger: this.cause, t };
+  }
+
+  /**
+   * A fine signal ends a check in or the alarm: the «أنا بخير» button, a camera fine (raised hand
+   * or zone, already cleared by `CameraFine`) or the on device phrase. A tap elsewhere never counts.
    */
   fine(via: FineSignal, t: number): CheckInAction | null {
+    if (via === "tap") return null;
     if (this.phaseNow !== "asking" && this.phaseNow !== "no_response") return null;
-    if (this.phaseNow === "no_response" && via !== "tap") return null;
-    const trigger = this.cause!;
-    this.phaseNow = "idle";
+    const action = {
+      kind: "fine" as const,
+      via,
+      trigger: this.cause,
+      origin: this.from,
+      afterAlarm: this.phaseNow === "no_response",
+      help: this.helpVariant,
+      extraTimer: false,
+      t,
+    };
+    const screen = QUESTION_SCREENS.has(this.from) ? (this.from as QuestionScreen) : null;
     this.cause = null;
-    return { kind: "fine", via, trigger, t };
+    this.helpVariant = false;
+    this.repeated = false;
+    if (screen && CAMERA_FINES.has(via) && !this.extraUsed.has(screen)) {
+      this.extraUsed.add(screen);
+      this.phaseNow = "question";
+      this.screen = screen;
+      this.since = t;
+      action.extraTimer = true;
+    } else {
+      this.phaseNow = "idle";
+      this.screen = null;
+    }
+    return action;
   }
 
   /** Call regularly (every frame or every second). */
   tick(t: number): CheckInAction | null {
-    if (this.phaseNow === "stop_list" && t - this.since >= CHECKIN_TIMING.noAnswerSec * 1000) {
-      return this.raise("no_answer", t);
+    if (this.phaseNow === "question" && t - this.since >= this.timerSec() * 1000) {
+      return this.raise(this.screen === "S38b" ? "faint_no_answer" : "no_answer", t);
     }
-    if (this.phaseNow === "asking" && t - this.since >= CHECKIN_TIMING.noResponseSec * 1000) {
-      this.phaseNow = "no_response";
-      return { kind: "no_response", screen: NO_RESPONSE_SCREEN, trigger: this.cause!, t };
+    if (this.phaseNow === "asking") {
+      if (t - this.since >= CHECKIN_TIMING.noResponseSec * 1000) {
+        this.phaseNow = "no_response";
+        return { kind: "no_response", screen: NO_RESPONSE_SCREEN, trigger: this.cause!, t };
+      }
+      if (!this.repeated && t - this.since >= CHECKIN_TIMING.repeatSec * 1000) {
+        this.repeated = true;
+        return { kind: "repeat", cue: this.cue, trigger: this.cause!, t };
+      }
     }
     return null;
   }
+
+  private timerSec(): number {
+    return this.screen && this.extraUsed.has(this.screen)
+      ? CHECKIN_TIMING.extraTimerSec
+      : CHECKIN_TIMING.noAnswerSec;
+  }
+}
+
+/* -------------------------------------------- who can signal fine (O34-1 (1), O34-2, O34-4 (3)) */
+
+export type ArmSide = "left" | "right";
+export type ArmFunction = "bend_hold" | "bend_no_hold" | "no_bend";
+export type CheckSetting = "booth" | "home";
+
+/** What the check knows about the arms: the setup and today's answers. */
+export interface ArmAnswers {
+  /** The declared weaker side (intake support). */
+  weaker?: ArmSide | null;
+  /** Upper limb loss (setup.limbLoss.arm). */
+  limbLossArm?: ArmSide | null;
+  /** pc_arm_pain_side answers of any area (setup.painSides); "both" counts for each arm. */
+  painSides?: readonly (ArmSide | "both")[];
+  /** pc_weak_lift: can the weaker hand be lifted off the lap. */
+  weakLift?: "yes" | "no" | null;
+  /** pc_weak_shoulder: the weaker shoulder is painful, loose or drops. */
+  weakShoulder?: "yes" | "no" | null;
+  /** pc_arm_function per arm (SCI). */
+  armFunction?: Partial<Record<ArmSide, ArmFunction>> | null;
+  /** The intake restriction no_overhead. */
+  noOverhead?: boolean;
+}
+
+const SIDES: readonly ArmSide[] = ["left", "right"];
+
+/**
+ * raiseAllowed (O34-4 (3)): false when no_overhead applies, or when no arm is free of all of:
+ * upper limb loss; the weaker side with pc_weak_lift no or pc_weak_shoulder yes; pc_arm_function
+ * no_bend (SCI). It picks the cue; the raised hand itself stays accepted from anyone.
+ */
+export function raiseAllowed(a: ArmAnswers): boolean {
+  if (a.noOverhead) return false;
+  return SIDES.some(
+    (s) =>
+      a.limbLossArm !== s &&
+      !(a.weaker === s && (a.weakLift === "no" || a.weakShoulder === "yes")) &&
+      a.armFunction?.[s] !== "no_bend",
+  );
+}
+
+/**
+ * noArmSignal from the answers (O34-2 (1)): each arm has at least one of: upper limb loss on that
+ * side; the declared weaker side with pc_weak_lift no; pc_arm_function no_bend (SCI). A failed
+ * rehearsal sets it for today as well (`FinePractice`).
+ */
+export function noArmSignal(a: ArmAnswers): boolean {
+  return SIDES.every(
+    (s) => a.limbLossArm === s || (a.weaker === s && a.weakLift === "no") || a.armFunction?.[s] === "no_bend",
+  );
+}
+
+const FUNCTION_RANK: Record<ArmFunction, number> = { bend_hold: 0, bend_no_hold: 1, no_bend: 2 };
+
+/**
+ * fineZoneSide (O34-1 (1)): the stronger arm, not the declared weaker side, not a limb loss side,
+ * not a pc_arm_pain_side; for SCI the arm with the better pc_arm_function answer; on a tie, the
+ * right. Null when both arms are lost.
+ */
+// SPEC-GAP: fine-side-order. When the rules point to different arms (a weaker left and pain on the
+// right), they are applied in this order: limb loss, weaker side, pain side, SCI arm function, then
+// the right. Either way a zone the person cannot reach fails the rehearsal and a helper is needed.
+export function fineZoneSide(a: ArmAnswers): ArmSide | null {
+  const pain = (s: ArmSide) => (a.painSides ?? []).some((p) => p === s || p === "both");
+  const key = (s: ArmSide) => [
+    a.limbLossArm === s ? 1 : 0,
+    a.weaker === s ? 1 : 0,
+    pain(s) ? 1 : 0,
+    a.armFunction?.[s] ? FUNCTION_RANK[a.armFunction[s]!] : 0,
+    s === "right" ? 0 : 1,
+  ];
+  const [l, r] = [key("left"), key("right")];
+  if (l[0] && r[0]) return null;
+  for (let i = 0; i < l.length; i++) if (l[i] !== r[i]) return l[i] < r[i] ? "left" : "right";
+  return "right";
+}
+
+/** FineSignalConfig (O33 (a)): fixed at protocol freeze and passed to the check in. */
+export interface FineSignalConfig {
+  setting: CheckSetting;
+  /** The fine zone: phase 2, at home with answer zones only; never in the booth build (7.2-1). */
+  fineZone: boolean;
+  fineZoneSide: ArmSide | null;
+  zoneHoldSec: number;
+  raiseAllowed: boolean;
+  noArmSignal: boolean;
+  /** On device speech recognition runs (never at the booth, O5). */
+  speech: boolean;
+  limbLossArm: ArmSide | null;
+}
+
+export function fineSignalConfig(
+  a: ArmAnswers,
+  opts: { setting: CheckSetting; answerZones: boolean; speech: boolean; rehearsalFailed?: boolean },
+): FineSignalConfig {
+  const side = fineZoneSide(a);
+  const noArm = noArmSignal(a) || !!opts.rehearsalFailed;
+  return {
+    setting: opts.setting,
+    fineZone: opts.setting === "home" && opts.answerZones && !noArm && side !== null,
+    fineZoneSide: side,
+    zoneHoldSec: FINE_RULES.zoneHoldSec,
+    raiseAllowed: raiseAllowed(a),
+    noArmSignal: noArm,
+    speech: opts.setting === "home" && opts.speech,
+    limbLossArm: a.limbLossArm ?? null,
+  };
+}
+
+/** The check in cue map of revision 1.1 (stopRouting.checkIn.cueSelection). */
+export const CHECKIN_CUE_SELECTION = {
+  booth: { raiseAllowed: "check_are_you_ok", raiseNotAllowed: "check_are_you_ok_noraise" },
+  home: {
+    zones: "check_are_you_ok_zone",
+    zonesWithSpeech: "check_are_you_ok_zone_speech",
+    noArmSignal: "check_are_you_ok_helper",
+  },
+  fallWatch: {
+    raiseAllowed: "check_are_you_ok_fall",
+    raiseAllowedWithSpeech: "check_are_you_ok_fall_speech",
+    raiseNotAllowedOrNoArmSignal: "check_are_you_ok_fall_noraise",
+    raiseNotAllowedOrNoArmSignalWithSpeech: "check_are_you_ok_fall_noraise_speech",
+  },
+} as const;
+
+/**
+ * The check in cue (O33 (f)): at the booth check_are_you_ok or _noraise; at home the zone form, its
+ * speech form, or the helper form with noArmSignal; in the fall watch its forms. No cue asks a
+ * person whose raiseAllowed is false (or with noArmSignal) to raise a hand, and no home cue names
+ * our team. The fall watch runs at home only.
+ */
+export function selectCheckInCue(
+  cfg: Pick<FineSignalConfig, "setting" | "raiseAllowed" | "noArmSignal" | "speech">,
+  fallWatch = false,
+): string {
+  const c = CHECKIN_CUE_SELECTION;
+  if (cfg.setting === "booth") return cfg.raiseAllowed ? c.booth.raiseAllowed : c.booth.raiseNotAllowed;
+  if (fallWatch) {
+    const raise = cfg.raiseAllowed && !cfg.noArmSignal;
+    if (raise) return cfg.speech ? c.fallWatch.raiseAllowedWithSpeech : c.fallWatch.raiseAllowed;
+    return cfg.speech
+      ? c.fallWatch.raiseNotAllowedOrNoArmSignalWithSpeech
+      : c.fallWatch.raiseNotAllowedOrNoArmSignal;
+  }
+  if (cfg.noArmSignal) return c.home.noArmSignal;
+  return cfg.speech ? c.home.zonesWithSpeech : c.home.zones;
+}
+
+/* ---------------------------------------------------- the fine zone and camera fines (O34-1) */
+
+/** Starting values for the O33 (4) bench check. */
+export const FINE_RULES = {
+  /** Hold in the fine zone (O34-1 (3)). */
+  zoneHoldSec: 2,
+  /** Jitter tolerance on the median wrist over the hold, in shoulder widths. */
+  jitterSw: 0.15,
+  /** A wrist within the calibration rest positions plus this many shoulder widths never counts. */
+  restSw: 0.3,
+  /** A camera fine never counts while the other wrist is this close to the sternum. */
+  sternumSw: 0.5,
+  /** The inner edge at least this far lateral of the shoulder; the bench may move it outward only. */
+  innerSw: 0.25,
+  /** Zone width, before clipping to the arm's reach. */
+  widthSw: 0.8,
+  // SPEC-GAP: zone-dropout. The spec does not say what a frame without the wrist does to a hold.
+  // A gap up to this long keeps the hold; a longer one needs a new entry from outside.
+  dropoutSec: 0.3,
+  // SPEC-GAP: side-view-shoulder-width. In a side view the shoulders overlap and their width says
+  // nothing about the body's size; below this share of the trunk, a nominal width is used instead.
+  minShoulderPerTrunk: 0.25,
+  nominalShoulderPerTrunk: 0.7,
+  /** assessment.checkin.practiceSeen and the rehearsal repeat (O34-1 (7)). */
+  practiceRepeatSec: 15,
+} as const;
+
+export interface Rect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+const inRect = (q: Pt, r: Rect, pad = 0) =>
+  q.x >= r.x0 - pad && q.x <= r.x1 + pad && q.y >= r.y0 - pad && q.y <= r.y1 + pad;
+
+/** Shoulder width for the fine rules, pixel space (see minShoulderPerTrunk). */
+function fineShoulderWidth(p: Landmark[]): number {
+  const trunk = trunkPx(p);
+  const sw = shoulderPx(p);
+  return trunk > 1e-6 && sw < FINE_RULES.minShoulderPerTrunk * trunk
+    ? FINE_RULES.nominalShoulderPerTrunk * trunk
+    : sw;
+}
+
+/** The fine zone of a person, in pixel space, from the calibration pose (O34-1 (2)). */
+export interface FineZoneRef {
+  side: ArmSide;
+  zone: Rect;
+  shoulderWidth: number;
+  /** Calibration rest positions of both wrists (pixel space), when seen. */
+  rest: Partial<Record<ArmSide, Pt>>;
+  aspect: number;
+}
+
+/**
+ * The fine zone from the calibration pose (take the median of each landmark over the calibration
+ * window, O35) and the frame's aspect:
+ *   top at chin height (halfway between the nose and the shoulder line); bottom at mid chest
+ *   (halfway from the shoulder line to the hip line); inner edge at least 0.25 shoulder widths
+ *   lateral of that shoulder and wholly outside the torso outline; outer edge 0.8 shoulder widths
+ *   further, clipped to the arm's calibrated reach and to the picture.
+ * `innerSw` is the bench check's inner edge (never less than 0.25). Null when the zone cannot be
+ * placed (no nose or shoulders, or no room inside the picture and the arm's reach).
+ */
+// SPEC-GAP: torso-outline. The landmarks give joints, not the body outline; the outline is taken as
+// the polygon of both shoulders and both hips, so the inner edge is also outside that side's hip.
+// SPEC-GAP: reach-unknown. With the arm not seen at calibration the zone is not clipped to reach; a
+// zone out of reach fails the rehearsal, which sets noArmSignal (a helper is then needed).
+export function fineZoneRef(
+  calibration: Landmark[],
+  aspect: number | undefined,
+  side: ArmSide,
+  opts: { innerSw?: number } = {},
+): FineZoneRef | null {
+  if (!isPerson(calibration)) return null;
+  const p = toPixelSpace(calibration, aspect);
+  const a = aspect !== undefined && Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  if (![LM.nose, LM.l_shoulder, LM.r_shoulder].every((i) => visible(p, i))) return null;
+  const sh = side === "left" ? p[LM.l_shoulder] : p[LM.r_shoulder];
+  const hip = side === "left" ? p[LM.l_hip] : p[LM.r_hip];
+  const mid = midShoulder(p);
+  const dir = Math.sign(sh.x - mid.x);
+  if (dir === 0) return null;
+  const sw = fineShoulderWidth(p);
+  const shoulderLine = mid.y;
+  const hipLine = midHip(p).y;
+  const top = (p[LM.nose].y + shoulderLine) / 2;
+  const bottom = shoulderLine + (hipLine - shoulderLine) / 2;
+  if (!(bottom > top)) return null;
+  const innerSw = Math.max(FINE_RULES.innerSw, opts.innerSw ?? FINE_RULES.innerSw);
+  const lateral = (x: number) => x * dir; // larger is further out on that side
+  let inner = lateral(sh.x) + innerSw * sw;
+  inner = Math.max(inner, lateral(hip.x), lateral(sh.x));
+  let outer = inner + FINE_RULES.widthSw * sw;
+  const w = side === "left" ? LM.l_wrist : LM.r_wrist;
+  const e = side === "left" ? LM.l_elbow : LM.r_elbow;
+  if (visible(p, w) && visible(p, e)) outer = Math.min(outer, lateral(sh.x) + armPx(p, side));
+  // Clip to the picture (x runs 0 to aspect in pixel space).
+  const edge = dir > 0 ? a : 0;
+  outer = Math.min(outer, lateral(edge));
+  if (!(outer > inner)) return null;
+  const xs = [inner * dir, outer * dir].sort((m, n) => m - n);
+  const rest: Partial<Record<ArmSide, Pt>> = {};
+  if (visible(p, LM.l_wrist)) rest.left = { x: p[LM.l_wrist].x, y: p[LM.l_wrist].y };
+  if (visible(p, LM.r_wrist)) rest.right = { x: p[LM.r_wrist].x, y: p[LM.r_wrist].y };
+  return { side, zone: { x0: xs[0], y0: top, x1: xs[1], y1: bottom }, shoulderWidth: sw, rest, aspect: a };
+}
+
+/** The per landmark median of a calibration window of poses (O35: the reference is the median). */
+export function medianPose(poses: readonly Landmark[][]): Landmark[] {
+  const n = poses[0]?.length ?? 0;
+  const med = (xs: number[]) => {
+    const s = [...xs].sort((m, k) => m - k);
+    const h = Math.floor(s.length / 2);
+    return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2;
+  };
+  return Array.from({ length: n }, (_, i) => {
+    const seen = poses.map((p) => p[i]).filter((q) => q && Number.isFinite(q.x) && Number.isFinite(q.y));
+    if (!seen.length) return { x: 0, y: 0, z: 0, visibility: 0 };
+    return {
+      x: med(seen.map((q) => q.x)),
+      y: med(seen.map((q) => q.y)),
+      z: med(seen.map((q) => q.z)),
+      visibility: med(seen.map((q) => q.visibility)),
+    };
+  });
+}
+
+/**
+ * The fine zone hold (O34-1 (3)): the fine side's wrist held 2 s in the zone, judged on the median
+ * wrist position over the hold with a jitter tolerance of 15% of shoulder width. It counts only
+ * after the wrist entered the zone from outside after `arm` (the check in cue start). Never counted:
+ * a wrist already in the zone when the sheet opens, a wrist within a calibration rest position plus
+ * 0.3 shoulder widths, the other hand crossing the body (only the fine side's wrist is read) and a
+ * second person (feed only the locked subject). `feed` returns true while a valid hold lasts.
+ */
+export class FineZoneDetector {
+  private state: "unarmed" | "wait_outside" | "outside" | "holding" = "unarmed";
+  private samples: { t: number; q: Pt }[] = [];
+  private missingSince: number | null = null;
+  private readonly holdMs: number;
+
+  constructor(
+    private readonly ref: FineZoneRef,
+    holdSec: number = FINE_RULES.zoneHoldSec,
+  ) {
+    this.holdMs = holdSec * 1000;
+  }
+
+  /** The zone, pixel space. */
+  get rect(): Rect {
+    return this.ref.zone;
+  }
+
+  /** The check in cue starts (or the rehearsal cue): only an entry after this counts. */
+  arm(): void {
+    this.state = "wait_outside";
+    this.samples = [];
+    this.missingSince = null;
+  }
+
+  disarm(): void {
+    this.state = "unarmed";
+    this.samples = [];
+  }
+
+  feed(t: number, lm: Landmark[] | null, aspect?: number): boolean {
+    if (this.state === "unarmed") return false;
+    const w = this.ref.side === "left" ? LM.l_wrist : LM.r_wrist;
+    if (!lm || !isPerson(lm) || !visible(lm, w)) {
+      this.missingSince ??= t;
+      if (t - this.missingSince > FINE_RULES.dropoutSec * 1000) {
+        this.state = "wait_outside";
+        this.samples = [];
+      }
+      return false;
+    }
+    this.missingSince = null;
+    const p = toPixelSpace(lm, aspect);
+    const q = { x: p[w].x, y: p[w].y };
+    const sw = this.ref.shoulderWidth;
+    const zone = this.ref.zone;
+    const atRest = Object.values(this.ref.rest).some((r) => r && dist(q, r) <= FINE_RULES.restSw * sw);
+    const inside = inRect(q, zone) && !atRest;
+    switch (this.state) {
+      case "wait_outside":
+        if (!inRect(q, zone)) this.state = "outside";
+        return false;
+      case "outside":
+        if (inside) {
+          this.state = "holding";
+          this.samples = [{ t, q }];
+        }
+        return false;
+      case "holding": {
+        if (!inRect(q, zone, FINE_RULES.jitterSw * sw)) {
+          this.state = "outside";
+          this.samples = [];
+          return false;
+        }
+        this.samples.push({ t, q });
+        while (this.samples.length > 1 && this.samples[1].t <= t - this.holdMs) this.samples.shift();
+        if (t - this.samples[0].t < this.holdMs) return false;
+        const m = {
+          x: medianOf(this.samples.map((s) => s.q.x)),
+          y: medianOf(this.samples.map((s) => s.q.y)),
+        };
+        const still = this.samples.every((s) => dist(s.q, m) <= FINE_RULES.jitterSw * sw);
+        const restM = Object.values(this.ref.rest).some((r) => r && dist(m, r) <= FINE_RULES.restSw * sw);
+        return still && inRect(m, zone) && !restM;
+      }
+    }
+    return false;
+  }
+}
+
+function medianOf(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const h = Math.floor(s.length / 2);
+  return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2;
+}
+
+export type CameraFineBlock = "other_hand_chest" | "both_in_zones" | "hips_drop" | "sway";
+
+/**
+ * O34-1 (4): a camera fine (the zone or the raised hand) never counts while the other wrist is
+ * within 0.5 shoulder widths of the sternum (between the shoulder midpoint and mid chest), while both
+ * wrists are in zones, while the hips drop trigger is active, or while the trunk is outside the
+ * current sway limit. Returns the first reason, or null. Never applied to the button or the phrase.
+ */
+// SPEC-GAP: unseen-other-wrist. An other wrist the model does not see may be the hand at the chest;
+// the safest reading refuses the camera fine, except when that arm is a limb loss side.
+export function cameraFineBlocked(
+  lm: Landmark[],
+  aspect: number | undefined,
+  signalling: ArmSide,
+  ctx: { hipsDrop: boolean; swayOut: boolean; zones?: readonly Rect[]; limbLossArm?: ArmSide | null },
+): CameraFineBlock | null {
+  if (ctx.hipsDrop) return "hips_drop";
+  if (ctx.swayOut) return "sway";
+  const p = toPixelSpace(lm, aspect);
+  const other: ArmSide = signalling === "left" ? "right" : "left";
+  const ow = other === "left" ? LM.l_wrist : LM.r_wrist;
+  if (ctx.limbLossArm !== other) {
+    if (!visible(p, ow)) return "other_hand_chest";
+    // Sternum: from the shoulder midpoint down to mid chest, halfway from the shoulder line to the
+    // hip line on the midline (O34-1 (2)).
+    const top = midShoulder(p);
+    const chest = midPoint(top, midHip(p));
+    const q = { x: p[ow].x, y: p[ow].y };
+    if (segmentDistance(q, top, chest) <= FINE_RULES.sternumSw * fineShoulderWidth(p))
+      return "other_hand_chest";
+  }
+  const zones = ctx.zones ?? [];
+  if (zones.length) {
+    const wristIn = (i: number) => visible(p, i) && zones.some((z) => inRect({ x: p[i].x, y: p[i].y }, z));
+    if (wristIn(LM.l_wrist) && wristIn(LM.r_wrist)) return "both_in_zones";
+  }
+  return null;
+}
+
+/**
+ * Camera fines for one person (O34-1, O34-4): the raised hand from anyone, and the fine zone when
+ * the config has it, each cleared by the O34-1 (4) conditions. Call `arm` when the check in cue (or
+ * the rehearsal cue) starts; `feed` returns the signal of the frame, or null, and `lastBlock` says
+ * why a signal was refused.
+ */
+export class CameraFine {
+  private readonly raised = new RaisedHandDetector();
+  private readonly zone: FineZoneDetector | null;
+  private block: CameraFineBlock | null = null;
+
+  constructor(
+    private readonly cfg: FineSignalConfig,
+    zoneRef: FineZoneRef | null,
+    private readonly answerZones: readonly Rect[] = [],
+  ) {
+    this.zone =
+      cfg.fineZone && zoneRef && zoneRef.side === cfg.fineZoneSide
+        ? new FineZoneDetector(zoneRef, cfg.zoneHoldSec)
+        : null;
+  }
+
+  get hasZone(): boolean {
+    return this.zone !== null;
+  }
+
+  get lastBlock(): CameraFineBlock | null {
+    return this.block;
+  }
+
+  arm(): void {
+    this.raised.reset();
+    this.zone?.arm();
+    this.block = null;
+  }
+
+  feed(
+    t: number,
+    lm: Landmark[] | null,
+    aspect: number | undefined,
+    blockers: { hipsDrop: boolean; swayOut: boolean },
+  ): "raised_hand" | "zone" | null {
+    const zoneHeld = this.zone?.feed(t, lm, aspect) ?? false;
+    const hand = this.raised.feed(t, lm);
+    this.block = null;
+    if (!lm || (!zoneHeld && !hand)) return null;
+    const zones = this.zone ? [...this.answerZones, this.zone.rect] : this.answerZones;
+    const ctx = { ...blockers, zones, limbLossArm: this.cfg.limbLossArm };
+    if (zoneHeld) {
+      const b = cameraFineBlocked(lm, aspect, this.cfg.fineZoneSide!, ctx);
+      if (!b) return "zone";
+      this.block = b;
+    }
+    if (hand) {
+      const b = cameraFineBlocked(lm, aspect, this.raised.side!, ctx);
+      if (!b) return "raised_hand";
+      this.block = b;
+    }
+    return null;
+  }
+}
+
+/* -------------------------------------------------------- the fine rehearsal (O34-1 (7), O34-2) */
+
+export type FinePracticeEvent =
+  | { kind: "cue"; cue: "check_fine_practice"; t: number }
+  /** assessment.checkin.practiceSeen */
+  | { kind: "seen"; t: number }
+  /** noArmSignal for today; assessment.checkin.practiceNoSignal, then pc_helper per test */
+  | { kind: "no_signal"; t: number };
+
+/**
+ * Right after the first calibration of every home check: the zone is lit and check_fine_practice
+ * plays. A zone fine (from `CameraFine`, so the same rules apply) is `seen`. Not held within 15 s:
+ * the cue once more; a second 15 s without success sets noArmSignal for today.
+ */
+export class FinePractice {
+  private startT: number | null = null;
+  private repeated = false;
+  private doneNow = false;
+
+  get done(): boolean {
+    return this.doneNow;
+  }
+
+  start(t: number): FinePracticeEvent[] {
+    this.startT = t;
+    this.repeated = false;
+    this.doneNow = false;
+    return [{ kind: "cue", cue: "check_fine_practice", t }];
+  }
+
+  /** `zoneFine` is true in a frame where CameraFine returned "zone". */
+  feed(t: number, zoneFine: boolean): FinePracticeEvent[] {
+    if (this.startT === null || this.doneNow) return [];
+    if (zoneFine) {
+      this.doneNow = true;
+      return [{ kind: "seen", t }];
+    }
+    const repeatMs = FINE_RULES.practiceRepeatSec * 1000;
+    if (t - this.startT >= 2 * repeatMs) {
+      this.doneNow = true;
+      return [{ kind: "no_signal", t }];
+    }
+    if (!this.repeated && t - this.startT >= repeatMs) {
+      this.repeated = true;
+      return [{ kind: "cue", cue: "check_fine_practice", t }];
+    }
+    return [];
+  }
+}
+
+/* ---------------------------------------------------------------- the fall watch (O42, home) */
+
+/** O42 values. */
+export const FALL_WATCH = {
+  /** The camera stays on this long after the S39 speech ends. */
+  watchSec: 300,
+  /** fall_still: no movement while in view, counted from the end of the last spoken line. */
+  stillSec: 60,
+  /** fall_timer: not seen seated or standing for 3 s within this long, and no touch. */
+  notUpSec: 180,
+  /** Seen seated or standing for this long (also re-arms the hips drop). */
+  upHoldSec: 3,
+  // SPEC-GAP: fall-seat-tolerance. "hips at or above the calibration seat height" is read with a
+  // tolerance of this many calibration trunk lengths, so model jitter on a seated person counts.
+  seatToleranceTrunks: 0.1,
+} as const;
+
+export type FallWatchEnd = "fine" | "timeout" | "call" | "phone_moved" | "left_screen";
+export type FallWatchEvent =
+  | { kind: "checkin"; trigger: "fall_still" | "fall_timer" | "hips_drop"; t: number }
+  | { kind: "end"; reason: FallWatchEnd; t: number };
+
+/**
+ * The fall watch on S39 at home (phase 2, O42). Never at the booth (the camera is off on S39 there).
+ * The 10 s no movement trigger, sway and left frame are off. The hips drop arms only after the
+ * person was seen with the hips at or above the calibration seat height for 3 s. fall_still: in
+ * view and still for 60 s from the end of the last spoken line (out of view never starts it).
+ * fall_timer: not seen seated or standing for 3 s and no touch within 3 minutes. It ends on a fine,
+ * 997, the phone moved, leaving S39, or after 5 minutes.
+ */
+export class FallWatch {
+  private startT: number | null = null;
+  private spokeT = 0;
+  private inViewSince: number | null = null;
+  private upSince: number | null = null;
+  private seenUp = false;
+  private hipsArmed = false;
+  private dropSince: number | null = null;
+  private touchedScreen = false;
+  private fired = { still: false, timer: false };
+  private track: Track = [];
+  private readonly tuning: CheckInTuning;
+
+  constructor(
+    readonly setting: CheckSetting,
+    private readonly ref: CheckInReference | null,
+    tuning: Partial<CheckInTuning> = {},
+  ) {
+    this.tuning = { ...CHECKIN_TUNING, ...tuning };
+  }
+
+  get active(): boolean {
+    return this.startT !== null;
+  }
+
+  /** The S39 speech ended: the watch starts (home only). */
+  start(t: number): void {
+    if (this.setting !== "home") return;
+    this.startT = t;
+    this.spokeT = t;
+  }
+
+  /** A spoken line ended: fall_still counts from here. */
+  spoke(t: number): void {
+    this.spokeT = t;
+    this.track = [];
+  }
+
+  /** The person touched the screen (cancels fall_timer). */
+  touched(): void {
+    this.touchedScreen = true;
+  }
+
+  stop(reason: FallWatchEnd, t: number): FallWatchEvent | null {
+    if (this.startT === null) return null;
+    this.startT = null;
+    return { kind: "end", reason, t };
+  }
+
+  feed(t: number, lm: Landmark[] | null, aspect?: number): FallWatchEvent[] {
+    if (this.startT === null) return [];
+    const out: FallWatchEvent[] = [];
+    if (t - this.startT >= FALL_WATCH.watchSec * 1000) {
+      out.push(this.stop("timeout", t)!);
+      return out;
+    }
+    const person = isPerson(lm) ? lm : null;
+    const seen = inView(person);
+    const p = seen ? toPixelSpace(person!, aspect) : null;
+    const ref = this.ref;
+
+    // Seen seated or standing: the hips at or above the calibration seat height.
+    const up = !!p && !!ref && midHip(p).y <= ref.hip.y + FALL_WATCH.seatToleranceTrunks * ref.trunk;
+    if (up) {
+      this.upSince ??= t;
+      if (t - this.upSince >= FALL_WATCH.upHoldSec * 1000) {
+        this.seenUp = true;
+        this.hipsArmed = true;
+      }
+    } else this.upSince = null;
+
+    // Hips drop, only after a new time up (a new collapse).
+    const drop =
+      this.hipsArmed && !!p && !!ref && midHip(p).y - ref.hip.y > this.tuning.hipsDropTrunks * ref.trunk;
+    if (drop) {
+      this.dropSince ??= t;
+      if (t - this.dropSince >= this.tuning.sustainSec * 1000) {
+        this.hipsArmed = false;
+        this.dropSince = null;
+        out.push({ kind: "checkin", trigger: "hips_drop", t });
+      }
+    } else this.dropSince = null;
+
+    // fall_still: in view and still for 60 s, from the end of the last spoken line.
+    if (p) {
+      this.inViewSince ??= t;
+      this.track.push({ t, pts: keyPointsOf(p) });
+      const from = Math.max(this.spokeT, this.inViewSince);
+      const windowMs = FALL_WATCH.stillSec * 1000;
+      if (
+        !this.fired.still &&
+        t - from >= windowMs &&
+        stillOver(
+          this.track,
+          t,
+          windowMs,
+          this.tuning.stillBinSec * 1000,
+          this.tuning.stillTrunks * (ref?.trunk ?? trunkPx(p)),
+        )
+      ) {
+        this.fired.still = true;
+        out.push({ kind: "checkin", trigger: "fall_still", t });
+      }
+    } else {
+      this.inViewSince = null;
+      this.track = [];
+    }
+
+    // fall_timer: 3 minutes without being seen seated or standing, and no touch.
+    if (!this.fired.timer && t - this.startT >= FALL_WATCH.notUpSec * 1000) {
+      this.fired.timer = true;
+      if (!this.seenUp && !this.touchedScreen) out.push({ kind: "checkin", trigger: "fall_timer", t });
+    }
+    return out;
+  }
+}
+
+/* ------------------------------------------------------------ the spoken fine phrase (O5) */
+
+/** The recognizer is paused while app audio plays and for 0.5 s after it ends. */
+export const RECOGNIZER_GUARD_SEC = 0.5;
+
+/**
+ * A fine phrase counts only when it does not overlap app audio playback or the 0.5 s after it
+ * (O5): the phone must not hear its own voice as the person. Times in ms; `end` null = playing.
+ */
+export function phraseCounts(
+  phrase: { start: number; end: number },
+  playback: readonly { start: number; end: number | null }[],
+): boolean {
+  const guard = RECOGNIZER_GUARD_SEC * 1000;
+  return playback.every((a) => phrase.end < a.start || phrase.start > (a.end ?? Infinity) + guard);
 }

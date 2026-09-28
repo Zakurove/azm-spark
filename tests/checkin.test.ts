@@ -283,62 +283,95 @@ describe("RaisedHandDetector", () => {
 });
 
 describe("CheckInFlow", () => {
-  it("asks on a trigger, once, and closes on a fine signal", () => {
+  it("asks on a trigger, once, repeats the cue at 7 s and closes on a fine signal", () => {
     const flow = new CheckInFlow();
-    expect(flow.fine("tap", 0)).toBeNull();
+    expect(flow.fine("button", 0)).toBeNull();
     expect(flow.raise("sway", 1000)).toEqual({
       kind: "ask",
       cue: "check_are_you_ok",
       trigger: "sway",
+      origin: "test",
       t: 1000,
     });
     expect(flow.phase).toBe("asking");
     expect(flow.raise("hips_drop", 1200)).toBeNull();
     expect(flow.trigger).toBe("sway");
-    expect(flow.fine("raised_hand", 3000)).toEqual({
+    expect(flow.tick(7999)).toBeNull();
+    expect(flow.tick(8000)).toEqual({ kind: "repeat", cue: "check_are_you_ok", trigger: "sway", t: 8000 });
+    expect(flow.tick(9000)).toBeNull();
+    expect(flow.fine("raised_hand", 9500)).toEqual({
       kind: "fine",
       via: "raised_hand",
       trigger: "sway",
-      t: 3000,
+      origin: "test",
+      afterAlarm: false,
+      help: false,
+      extraTimer: false,
+      t: 9500,
     });
     expect(flow.phase).toBe("idle");
     expect(flow.trigger).toBeNull();
   });
 
-  it("raises the alarm after 15 s without a response, and only a tap closes that screen", () => {
-    const flow = new CheckInFlow();
-    flow.raise("left_frame", 0);
-    expect(flow.tick(14_999)).toBeNull();
-    expect(flow.tick(15_000)).toEqual({
-      kind: "no_response",
-      screen: "scr_no_response",
-      trigger: "left_frame",
-      t: 15_000,
-    });
-    expect(flow.phase).toBe("no_response");
-    expect(flow.tick(40_000)).toBeNull();
-    expect(flow.raise("sway", 41_000)).toBeNull();
-    flow.openStopList(42_000);
-    expect(flow.phase).toBe("no_response");
-    expect(flow.fine("raised_hand", 43_000)).toBeNull();
-    expect(flow.fine("speech", 43_500)).toBeNull();
-    expect(flow.fine("tap", 44_000)).toEqual({ kind: "fine", via: "tap", trigger: "left_frame", t: 44_000 });
-    expect(flow.phase).toBe("idle");
+  it("plays the cue chosen for the person", () => {
+    const flow = new CheckInFlow({ cue: "check_are_you_ok_zone" });
+    expect(flow.raise("no_movement", 0)).toMatchObject({ cue: "check_are_you_ok_zone" });
+    expect(flow.tick(7000)).toMatchObject({ kind: "repeat", cue: "check_are_you_ok_zone" });
   });
 
-  it("runs the check in when the stop list gets no answer within 30 s", () => {
+  it("never counts a tap elsewhere as fine, in any state (O34-4)", () => {
+    const flow = new CheckInFlow();
+    flow.raise("left_frame", 0);
+    expect(flow.fine("tap", 1000)).toBeNull();
+    expect(flow.phase).toBe("asking");
+    expect(flow.tick(15_000)?.kind).toBe("no_response");
+    expect(flow.fine("tap", 16_000)).toBeNull();
+    expect(flow.phase).toBe("no_response");
+  });
+
+  it("raises the alarm after 15 s without a response; the button, a camera fine or the phrase ends it", () => {
+    for (const via of ["button", "raised_hand", "zone", "speech"] as const) {
+      const flow = new CheckInFlow();
+      flow.raise("left_frame", 0);
+      expect(flow.tick(14_999)?.kind).not.toBe("no_response");
+      expect(flow.tick(15_000)).toEqual({
+        kind: "no_response",
+        screen: "scr_no_response",
+        trigger: "left_frame",
+        t: 15_000,
+      });
+      expect(flow.phase).toBe("no_response");
+      expect(flow.tick(40_000)).toBeNull();
+      expect(flow.raise("sway", 41_000)).toBeNull();
+      flow.openStopList(42_000);
+      expect(flow.phase).toBe("no_response");
+      expect(flow.fine(via, 44_000)).toMatchObject({
+        kind: "fine",
+        via,
+        afterAlarm: true,
+        trigger: "left_frame",
+      });
+      expect(flow.phase).toBe("idle");
+    }
+  });
+
+  it("runs the check in when the stop list gets no answer within 30 s, and any input restarts it", () => {
     const flow = new CheckInFlow();
     flow.openStopList(5000);
-    expect(flow.phase).toBe("stop_list");
+    expect(flow.phase).toBe("question");
+    expect(flow.question).toBe("S41");
     expect(flow.tick(34_999)).toBeNull();
-    expect(flow.tick(35_000)).toEqual({
+    flow.activity(20_000);
+    expect(flow.tick(49_999)).toBeNull();
+    expect(flow.tick(50_000)).toEqual({
       kind: "ask",
       cue: "check_are_you_ok",
       trigger: "no_answer",
-      t: 35_000,
+      origin: "S41",
+      t: 50_000,
     });
-    expect(flow.tick(49_999)).toBeNull();
-    expect(flow.tick(50_000)?.kind).toBe("no_response");
+    expect(flow.tick(64_999)?.kind).toBe("repeat");
+    expect(flow.tick(65_000)?.kind).toBe("no_response");
 
     const answered = new CheckInFlow();
     answered.openStopList(0);
@@ -350,11 +383,81 @@ describe("CheckInFlow", () => {
     expect(answered.phase).toBe("idle");
   });
 
+  it("runs the check in when the faint follow up gets no answer within 30 s", () => {
+    const flow = new CheckInFlow();
+    flow.openQuestion("S38b", 0);
+    expect(flow.tick(30_000)).toMatchObject({ kind: "ask", trigger: "faint_no_answer", origin: "S38b" });
+  });
+
   it("asks from the stop list when a camera trigger comes first", () => {
     const flow = new CheckInFlow();
     flow.openStopList(0);
-    expect(flow.raise("hips_drop", 2000)?.kind).toBe("ask");
-    expect(flow.tick(16_999)).toBeNull();
+    expect(flow.raise("hips_drop", 2000)).toMatchObject({ kind: "ask", origin: "S41" });
+    expect(flow.tick(16_999)?.kind).not.toBe("no_response");
     expect(flow.tick(17_000)?.kind).toBe("no_response");
+  });
+
+  it("after a camera fine on S41, S38b or S44 runs one extra 30 s timer on that screen (O34-1 (6))", () => {
+    const flow = new CheckInFlow();
+    flow.openStopList(0);
+    flow.tick(30_000); // no answer: the check in
+    expect(flow.fine("zone", 32_000)).toMatchObject({ via: "zone", origin: "S41", extraTimer: true });
+    expect(flow.phase).toBe("question");
+    expect(flow.question).toBe("S41");
+    expect(flow.tick(61_999)).toBeNull();
+    expect(flow.tick(62_000)).toMatchObject({ kind: "ask", trigger: "no_answer", origin: "S41" });
+    // A second camera fine on that screen ends its timers.
+    expect(flow.fine("raised_hand", 63_000)).toMatchObject({ extraTimer: false });
+    expect(flow.phase).toBe("idle");
+    expect(flow.tick(200_000)).toBeNull();
+
+    // Reopening the screen the flow returned to keeps its one extra timer; answering it ends it.
+    const again = new CheckInFlow();
+    again.openStopList(0);
+    again.raise("sway", 1000);
+    again.fine("zone", 2000);
+    again.openStopList(2500);
+    again.raise("sway", 10_000);
+    expect(again.fine("zone", 11_000)).toMatchObject({ extraTimer: false });
+    again.answerStopList();
+    again.openStopList(20_000);
+    again.raise("sway", 21_000);
+    expect(again.fine("zone", 22_000)).toMatchObject({ extraTimer: true });
+
+    // A fine by the button (or the phrase) sets no new timer (O14).
+    const button = new CheckInFlow();
+    button.openQuestion("S38b", 0);
+    button.raise("sway", 1000);
+    expect(button.fine("button", 2000)).toMatchObject({ origin: "S38b", extraTimer: false });
+    expect(button.phase).toBe("idle");
+
+    // S44 passes its origin; a check in from a test gets no extra timer.
+    const goOn = new CheckInFlow();
+    goOn.raise("sway", 0, "S44");
+    expect(goOn.fine("raised_hand", 1000)).toMatchObject({ origin: "S44", extraTimer: true });
+    expect(goOn.tick(31_000)).toMatchObject({ kind: "ask", origin: "S44", trigger: "no_answer" });
+    const test = new CheckInFlow();
+    test.raise("sway", 0);
+    expect(test.fine("zone", 1000)).toMatchObject({ origin: "test", extraTimer: false });
+    expect(test.phase).toBe("idle");
+  });
+
+  it("opens the alarm at once for «أحتاج مساعدة», and a fine there is the help variant (O34-5)", () => {
+    const flow = new CheckInFlow();
+    flow.raise("no_movement", 0);
+    expect(flow.needHelp(3000)).toEqual({
+      kind: "help",
+      screen: "scr_no_response",
+      trigger: "no_movement",
+      t: 3000,
+    });
+    expect(flow.phase).toBe("no_response");
+    expect(flow.needHelp(3500)).toBeNull();
+    expect(flow.tick(60_000)).toBeNull();
+    expect(flow.fine("button", 61_000)).toMatchObject({ help: true, afterAlarm: true });
+
+    const fromGoOn = new CheckInFlow();
+    expect(fromGoOn.needHelp(0, "S44")).toMatchObject({ kind: "help", trigger: null });
+    expect(fromGoOn.fine("button", 1000)).toMatchObject({ origin: "S44", help: true });
   });
 });

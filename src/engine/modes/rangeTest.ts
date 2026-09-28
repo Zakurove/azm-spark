@@ -32,6 +32,7 @@ import { SubjectLock } from "../subject";
 import { Frame, Landmark } from "../types";
 import {
   acrossVector,
+  CalibrationRounds,
   dot,
   downVector,
   EventSink,
@@ -83,8 +84,6 @@ export const RANGE_RULES = {
   calibrationStillDeg: 10,
   /** Share of calibration frames with both hips visible for the trunk reference. */
   hipsVisibleShare: 0.9,
-  /** Calibration gives up after this long (engineering): not measured today (quality). */
-  calibrationTimeoutSec: 20,
   /** Spec 4.1 plane check window and the flexion pass (degrees) and the minimum time. */
   planeWindow: [70, 110] as const,
   planeFlexionFrom: 60,
@@ -265,7 +264,10 @@ export class RangeTestRunner implements TestRunner {
   private calBuf: CalSample[] = [];
   /** Running median of the tested arm's angle in the calibration window (the stillness rule). */
   private calMed = new RunningMedian(RANGE_RULES.medianSec * 1000);
-  private calStart = 0;
+  /** The rounds of the calibration (O35): the widened tolerance, the offer, the last round. */
+  private readonly rounds = new CalibrationRounds();
+  /** Waiting for the answer to the calibration offer (O35). */
+  private offerOpen = false;
   /** The next calibration frame locks the subject again (spec 4.0: locked at calibration). */
   private relockPending = true;
   /** The attempt after this rest takes the calibration again first (the picture moved). */
@@ -324,7 +326,7 @@ export class RangeTestRunner implements TestRunner {
   start(t: number): TestEvent[] {
     this.t0 = t;
     this.tLast = t;
-    this.calStart = t;
+    this.rounds.begin(t);
     this.relockPending = true;
     this.setPhase("calibrating", t);
     if (this.opts.intro ?? true) this.sink.cue("test_abd_start", t);
@@ -350,13 +352,38 @@ export class RangeTestRunner implements TestRunner {
       case "rest":
         this.resting(frame, roll);
         break;
+      case "ask":
+        // The calibration offer is open: the check in stays armed.
+        this.track(frame, false);
+        break;
       default:
         break;
     }
     return this.sink.drain();
   }
 
+  /**
+   * «سأحاول مرة أخرى» on the calibration offer (O35): the next round of the calibration, with the
+   * tolerance kept widened. The other answer, skip, is finish(): not measured today (quality).
+   */
+  retryCalibration(t: number): TestEvent[] {
+    if (!this.offerOpen || this.finished) return [];
+    this.offerOpen = false;
+    this.rounds.retry(t);
+    this.calBuf = [];
+    this.calMed.reset();
+    this.setPhase("calibrating", t);
+    this.sink.cue("test_abd_arms_rest", t);
+    return this.sink.drain();
+  }
+
   finish(t: number): TestResult {
+    // The calibration offer was left for skip: no calibration passed, so nothing was measured.
+    if (this.offerOpen && !this.finished) {
+      this.offerOpen = false;
+      this.notMeasured = "quality";
+      this.end(t);
+    }
     const completed = this.finished;
     this.tLast = Math.max(this.tLast, t);
     return {
@@ -414,9 +441,17 @@ export class RangeTestRunner implements TestRunner {
   // after the rest between sides; every stored measure is the same.
   private calibrating(frame: Frame, roll: number | null): void {
     const t = frame.t;
-    if (t - this.calStart > RANGE_RULES.calibrationTimeoutSec * 1000) {
+    // O35: at the end of a round, the offer (try again or skip), or after the last, not measured.
+    const due = this.rounds.due(t);
+    if (due === "give_up") {
       this.notMeasured = "quality";
       this.end(t);
+      return;
+    }
+    if (due === "offer") {
+      this.offerOpen = true;
+      this.setPhase("ask", t);
+      this.sink.push({ kind: "ask", ask: "calibration", side: this.side, t });
       return;
     }
     // Every calibration locks the subject again, also with a lock shared between sides and after
@@ -458,7 +493,9 @@ export class RangeTestRunner implements TestRunner {
     while (this.calBuf.length > 1 && this.calBuf[1].t <= from) this.calBuf.shift();
     if (this.calBuf[0].t > from) return;
     const angles = this.calBuf.map((s) => s.angle);
-    if (Math.max(...angles) - Math.min(...angles) > RANGE_RULES.calibrationStillDeg) return;
+    // O35: the tolerance doubles after 10 s without a still window; the reference stays the median.
+    if (Math.max(...angles) - Math.min(...angles) > this.rounds.tolerance(RANGE_RULES.calibrationStillDeg, t))
+      return;
     this.calibrate(t);
   }
 
@@ -531,7 +568,7 @@ export class RangeTestRunner implements TestRunner {
     this.recalAfterRest = false;
     this.calBuf = [];
     this.calMed.reset();
-    this.calStart = t;
+    this.rounds.begin(t);
     this.relockPending = true;
     this.setPhase("calibrating", t);
     this.sink.cue("test_abd_arms_rest", t);

@@ -98,6 +98,11 @@ export type TestEvent =
   /** The UI asks the contact question for this side and answers with setContact (spec 4.3). */
   | { kind: "ask"; ask: "contact"; side: BodySide; t: number }
   /**
+   * O35: a calibration round passed without a still window. The stage offers «سأحاول مرة أخرى»
+   * (retryCalibration) or skip; finishing instead ends the test, not measured today (quality).
+   */
+  | { kind: "ask"; ask: "calibration"; side: TestSide; t: number }
+  /**
    * Arm curl (spec 4.2): `practice_check` asks the load's practice check (the UI answers with
    * setPracticeCheck); `repeat` offers the one repeat after a trial that failed the quality gate
    * (the UI answers with setRepeat).

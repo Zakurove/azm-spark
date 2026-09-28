@@ -76,6 +76,7 @@ import {
 import { posesOf, SubjectLock } from "../subject";
 import type { Frame, Landmark } from "../types";
 import {
+  CalibrationRounds,
   DEG,
   dot,
   downVector,
@@ -169,8 +170,6 @@ export const TIMED_RULES = {
   // 2.5 cm).
   curlStillDeg: 10,
   standStillTrunks: 0.05,
-  /** Calibration gives up after this long (engineering): not measured today (quality). */
-  calibrationTimeoutSec: 30,
   // SPEC-GAP: rest-guards. The spec assumes the calibration catches the person at rest; two guards
   // keep a wrong calibration from making every rep uncountable.
   /**
@@ -547,7 +546,8 @@ abstract class TimedCountBase implements TestRunner {
   private setupFrames: SetupFrame[] = [];
   private setupStart = 0;
   private setupNext: ((t: number) => void) | null = null;
-  protected calStart = 0;
+  /** The rounds of the calibration (O35): the widened tolerance, the offer, the last round. */
+  protected readonly rounds = new CalibrationRounds();
   private relockPending = true;
 
   /** Locks the subject at the first calibration frame with a person; false until it could. */
@@ -616,6 +616,12 @@ abstract class TimedCountBase implements TestRunner {
   finish(t: number): TestResult {
     // Waiting for the person to sit after a finished trial: the trial is done and stays measured.
     if (this.phaseNow === "settle") this.end(t);
+    // The calibration offer was left for skip: no calibration passed, so nothing was measured.
+    if (this.phaseNow === "ask" && this.asking === "calibration") {
+      this.asking = null;
+      this.notMeasured = "quality";
+      this.end(t);
+    }
     const completed = this.finished;
     this.tLast = Math.max(this.tLast, t);
     if (!completed && this.trial) this.stopTrial(t);
@@ -648,7 +654,43 @@ abstract class TimedCountBase implements TestRunner {
   }
 
   /** The ask the runner waits for, or null. */
-  protected asking: "practice_check" | "repeat" | "pushed" | null = null;
+  protected asking: "practice_check" | "repeat" | "pushed" | "calibration" | null = null;
+
+  /**
+   * O35: at the end of a calibration round, the offer (try again or skip) or, after the last round,
+   * not measured today (quality). True when the frame stops here.
+   */
+  protected calibrationDue(t: number): boolean {
+    const due = this.rounds.due(t);
+    if (due === "give_up") {
+      this.notMeasured = "quality";
+      this.end(t);
+      return true;
+    }
+    if (due === "offer") {
+      this.asking = "calibration";
+      this.setPhase("ask", t);
+      this.sink.push({ kind: "ask", ask: "calibration", side: this.side, t });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * «سأحاول مرة أخرى» on the calibration offer (O35): the next round, with the tolerance kept widened.
+   * The other answer, skip, is finish(): not measured today (quality).
+   */
+  retryCalibration(t: number): TestEvent[] {
+    if (this.phaseNow !== "ask" || this.asking !== "calibration") return [];
+    this.asking = null;
+    this.rounds.retry(t);
+    this.resetCalibrationWindow();
+    this.setPhase("calibrating", t);
+    return this.sink.drain();
+  }
+
+  /** Clears the samples of the calibration window (a new round starts). */
+  protected abstract resetCalibrationWindow(): void;
 
   /* ----------------------------------------------------------- phases */
 
@@ -1217,7 +1259,7 @@ export class ArmCurlRunner extends TimedCountBase {
   start(t: number): TestEvent[] {
     this.t0 = t;
     this.tLast = t;
-    this.calStart = t;
+    this.rounds.begin(t);
     this.setPhase("calibrating", t);
     if (this.opts.intro ?? true) this.sink.cue("test_curl_start", t);
     this.sink.cue(this.side === "left" ? "check_left_arm" : "check_right_arm", t);
@@ -1242,7 +1284,7 @@ export class ArmCurlRunner extends TimedCountBase {
     if (variant) this.variantId = variant;
     this.resetPractice();
     this.afterCal = "practice";
-    this.calStart = t;
+    this.rounds.begin(t);
     this.setPhase("calibrating", t);
     if (this.loaded) this.sink.cue("test_curl_grip", t);
     return this.sink.drain();
@@ -1295,14 +1337,14 @@ export class ArmCurlRunner extends TimedCountBase {
 
   /* ----------------------------------------------------- calibration */
 
+  protected resetCalibrationWindow(): void {
+    this.calBuf = [];
+  }
+
   protected calibrating(frame: Frame, roll: number | null): void {
     const R = TIMED_RULES;
     const t = frame.t;
-    if (t - this.calStart > R.calibrationTimeoutSec * 1000) {
-      this.notMeasured = "quality";
-      this.end(t);
-      return;
-    }
+    if (this.calibrationDue(t)) return;
     if (!this.relockAt(frame)) return;
     const tr = this.track(frame, false);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
@@ -1329,7 +1371,8 @@ export class ArmCurlRunner extends TimedCountBase {
     while (this.calBuf.length > 1 && this.calBuf[1].t <= from) this.calBuf.shift();
     if (this.calBuf[0].t > from) return;
     const angles = this.calBuf.map((s) => s.angle);
-    if (Math.max(...angles) - Math.min(...angles) > R.curlStillDeg) return;
+    // O35: the tolerance doubles after 10 s without a still window; the reference stays the median.
+    if (Math.max(...angles) - Math.min(...angles) > this.rounds.tolerance(R.curlStillDeg, t)) return;
     const ratios = this.calBuf.map((s) => s.ratio).filter((r): r is number => r !== null);
     const view = viewOfRatio(ratios.length ? median(ratios) : null);
     if (!ACCEPTED_VIEWS[this.testId].includes(view)) {
@@ -1363,7 +1406,7 @@ export class ArmCurlRunner extends TimedCountBase {
     this.afterCal = "ready";
     this.cal = null;
     this.calBuf = [];
-    this.calStart = t;
+    this.rounds.begin(t);
     this.setPhase("calibrating", t);
     this.sink.cue("test_curl_start", t);
   }
@@ -1453,7 +1496,7 @@ export class ArmCurlRunner extends TimedCountBase {
           this.afterCal = "practice";
           this.cal = null;
           this.calBuf = [];
-          this.calStart = at;
+          this.rounds.begin(at);
           this.setPhase("calibrating", at);
         });
         return;
@@ -1788,7 +1831,7 @@ export class ChairStandRunner extends TimedCountBase {
   start(t: number): TestEvent[] {
     this.t0 = t;
     this.tLast = t;
-    this.calStart = t;
+    this.rounds.begin(t);
     this.setPhase("calibrating", t);
     if (this.opts.intro ?? true) this.sink.cue("test_stand_start", t);
     // SPEC-GAP: one-arm-cue. No cue fits one_arm_cross (test_stand_arms_cross asks for both arms);
@@ -1874,14 +1917,15 @@ export class ChairStandRunner extends TimedCountBase {
 
   /* ----------------------------------------------------- calibration */
 
+  protected resetCalibrationWindow(): void {
+    this.calBuf = [];
+    this.calFilter = this.newFilter();
+  }
+
   protected calibrating(frame: Frame, roll: number | null): void {
     const R = TIMED_RULES;
     const t = frame.t;
-    if (t - this.calStart > R.calibrationTimeoutSec * 1000) {
-      this.notMeasured = "quality";
-      this.end(t);
-      return;
-    }
+    if (this.calibrationDue(t)) return;
     if (!this.relockAt(frame)) return;
     const tr = this.track(frame, false);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
@@ -1917,7 +1961,8 @@ export class ChairStandRunner extends TimedCountBase {
     if (this.calBuf[0].t > from) return;
     const hips = this.calBuf.map((s) => s.still);
     const trunk = median(this.calBuf.map((s) => s.trunk))!;
-    if (Math.max(...hips) - Math.min(...hips) > R.standStillTrunks * trunk) return;
+    // O35: the tolerance doubles after 10 s without a still window; the reference stays the median.
+    if (Math.max(...hips) - Math.min(...hips) > this.rounds.tolerance(R.standStillTrunks, t) * trunk) return;
     const ratios = this.calBuf.map((s) => s.ratio).filter((r): r is number => r !== null);
     const view = viewOfRatio(ratios.length ? median(ratios) : null);
     if (!ACCEPTED_VIEWS[this.testId].includes(view)) {
@@ -1966,7 +2011,7 @@ export class ChairStandRunner extends TimedCountBase {
     this.cal = null;
     this.calBuf = [];
     this.calFilter = this.newFilter();
-    this.calStart = t;
+    this.rounds.begin(t);
     this.setPhase("calibrating", t);
     this.sink.cue("test_stand_start", t);
   }
@@ -2002,7 +2047,7 @@ export class ChairStandRunner extends TimedCountBase {
         this.cal = null;
         this.calBuf = [];
         this.calFilter = this.newFilter();
-        this.calStart = t;
+        this.rounds.begin(t);
         this.setPhase("calibrating", t);
         this.sink.cue("test_stand_start", t);
         return;

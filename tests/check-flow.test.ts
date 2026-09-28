@@ -1812,7 +1812,13 @@ describe("the camera sequence follows map 2.10, 2.12 and S34j, S34k", () => {
     });
     const rest = play(side0, { type: "BETWEEN_ANSWER", value: "same" });
     expect(rest.state).toEqual(cam("cam.rest", 0, 1, { purpose: "sideChange" }));
-    expect(rest.data.run).toEqual({ calibrated: true, practiced: false, saved: 0, retriesUsed: 0 });
+    expect(rest.data.run).toEqual({
+      calibrated: true,
+      practiced: false,
+      saved: 0,
+      retriesUsed: 0,
+      calibrationRounds: 1,
+    });
     const setup = play(rest, { type: "REST_DONE" });
     expect(setup.state).toEqual(cam("cam.setup", 0, 1));
     // Straight to the practice lift (S34k: no new calibration).
@@ -2140,5 +2146,40 @@ describe("a guest's lock lasts for the visit (Q25 (c), UX spec 2.1)", () => {
     const m = postponed();
     const later = flowReducer(m, { type: "EXIT", now: (m.data.lock?.until ?? 0) + 1 });
     expect(kind(later)).toBe("guestWelcome");
+  });
+});
+
+describe("calibration rounds with tremor or dyskinesia (O35)", () => {
+  it("offers to try again once; after the second round the test is skipped (quality)", () => {
+    const m = withState(guestAtPlan(), cam("cam.calibrate", 0, 0, { offer: false }));
+    const offer = play(m, { type: "CALIBRATION_STILL" });
+    expect(offer.state).toEqual(cam("cam.calibrate", 0, 0, { offer: true }));
+    const round2 = play(offer, { type: "RETRY" });
+    expect(round2.state).toEqual(cam("cam.calibrate", 0, 0, { offer: false }));
+    // RETRY is the answer to the offer only.
+    expect(play(round2, { type: "RETRY" }).state).toEqual(round2.state);
+    const skipped = play(round2, { type: "CALIBRATION_STILL" });
+    expect(skipped.state).toMatchObject({ kind: "skipNotice" });
+    expect(skipped.state.kind === "skipNotice" && skipped.state.rows[0]).toMatchObject({
+      testId: "shoulder_abduction",
+      reason: "quality",
+    });
+    expect(skipped.data.outcomes["shoulder_abduction:right"]).toMatchObject({
+      status: "skipped",
+      reason: "quality",
+    });
+    // Skip at the offer is by choice.
+    expect(play(offer, { type: "SKIP" }).overlay).toEqual({ kind: "skipDialog" });
+  });
+
+  it("a new side or test starts its own two rounds", () => {
+    const m = withState(guestAtPlan(), cam("cam.calibrate", 0, 0, { offer: false }));
+    const once = play(m, { type: "CALIBRATION_STILL" }, { type: "RETRY" }, { type: "CALIBRATED" });
+    expect(once.data.run.calibrationRounds).toBe(2);
+    let next = play(withState(once, { kind: "test.instruction", i: 1 }), { type: "READY" });
+    for (let k = 0; k < 5 && next.state.kind.startsWith("test."); k++)
+      next = play(next, { type: "PREP_NEXT" });
+    expect(next.state.kind).toBe("cam.setup");
+    expect(next.data.run.calibrationRounds).toBe(1);
   });
 });

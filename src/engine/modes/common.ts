@@ -26,6 +26,62 @@ export function sd(xs: readonly number[]): number {
   return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length);
 }
 
+/**
+ * O35: calibration with tremor or dyskinesia (arm raise, arm curl, chair stand). A calibration runs
+ * in rounds of roundSec. After widenAfterSec without a still window the stillness tolerance doubles
+ * (a calibration passed with it is a normal calibration; the reference is still the median over the
+ * window). At the end of a round with another one left the runner asks (ask "calibration"): the
+ * stage offers «سأحاول مرة أخرى» (retryCalibration) or skip; at the end of the last round the test is
+ * not measured today (quality). No attempt is ever scored without a passed calibration.
+ */
+// SPEC-GAP: calibration-tolerance-scale. O35 (1) scales the tolerance with shoulder width: the arm
+// raise and arm curl tolerances are angles (free of scale) and the chair stand's is in seated trunk
+// lengths, so each already follows the body's size. The side lean keeps spec 4.3's own upright
+// search (the lowest SD window after 10 s, flagged), which never needs the offer.
+export const CALIBRATION_ROUNDS = {
+  widenAfterSec: 10,
+  widenFactor: 2,
+  roundSec: 20,
+  maxRounds: 2,
+} as const;
+
+/** The rounds of one calibration (O35): the tolerance now, and what is due at the end of a round. */
+export class CalibrationRounds {
+  private started = 0;
+  private roundStart = 0;
+  private roundNow = 1;
+
+  /** A new calibration (the first, or one taken again): round 1, the default tolerance. */
+  begin(t: number): void {
+    this.started = t;
+    this.roundStart = t;
+    this.roundNow = 1;
+  }
+
+  /** The person chose «سأحاول مرة أخرى»: the next round (the tolerance stays widened). */
+  retry(t: number): void {
+    this.roundStart = t;
+    this.roundNow += 1;
+  }
+
+  get round(): number {
+    return this.roundNow;
+  }
+
+  /** The stillness tolerance at t: the default, doubled after widenAfterSec without a still window. */
+  tolerance(base: number, t: number): number {
+    const R = CALIBRATION_ROUNDS;
+    return t - this.started >= R.widenAfterSec * 1000 ? base * R.widenFactor : base;
+  }
+
+  /** "offer" at the end of a round with another left, "give_up" at the end of the last, else null. */
+  due(t: number): "offer" | "give_up" | null {
+    const R = CALIBRATION_ROUNDS;
+    if (t - this.roundStart < R.roundSec * 1000) return null;
+    return this.roundNow < R.maxRounds ? "offer" : "give_up";
+  }
+}
+
 export const round1 = (x: number) => Math.round(x * 10) / 10;
 export const round3 = (x: number) => Math.round(x * 1000) / 1000;
 

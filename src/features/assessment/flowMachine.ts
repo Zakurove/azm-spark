@@ -252,6 +252,8 @@ export interface SideRun {
   practiced: boolean;
   saved: number;
   retriesUsed: number;
+  /** The calibration round now (O35): 1, or 2 after «سأحاول مرة أخرى». */
+  calibrationRounds: number;
 }
 
 /** The device facts sent with the start call and every result (contract v2 E). */
@@ -582,7 +584,16 @@ export const POSTABLE_SKIP_REASONS: readonly string[] = [
   "helper_needed",
 ];
 
-const EMPTY_RUN: SideRun = { calibrated: false, practiced: false, saved: 0, retriesUsed: 0 };
+const EMPTY_RUN: SideRun = {
+  calibrated: false,
+  practiced: false,
+  saved: 0,
+  retriesUsed: 0,
+  calibrationRounds: 1,
+};
+
+/** O35: calibration rounds of 20 s per side before the test is skipped (quality). */
+export const CALIBRATION_ROUND_LIMIT = 2;
 
 export const DEFAULT_DEVICE: DeviceInfo = {
   model: "lite",
@@ -1328,8 +1339,19 @@ function camReducer(
     case "cam.calibrate":
       if (e.type === "CALIBRATED")
         return go(withRun(m, { calibrated: true }), { kind: "cam.practice", i, side });
-      if (e.type === "CALIBRATION_STILL") return go(m, { kind: "cam.calibrate", i, side, offer: true });
-      if (e.type === "RETRY") return go(m, { kind: "cam.calibrate", i, side, offer: false });
+      // O35: a round without a still window offers «سأحاول مرة أخرى» or skip; after the last round
+      // the test is skipped with reason quality (the S58 tip), never scored without a calibration.
+      if (e.type === "CALIBRATION_STILL") {
+        if (d.run.calibrationRounds >= CALIBRATION_ROUND_LIMIT) return skipTest(m, i, side, "quality");
+        return go(m, { kind: "cam.calibrate", i, side, offer: true });
+      }
+      if (e.type === "RETRY" && s.kind === "cam.calibrate" && s.offer)
+        return go(withRun(m, { calibrationRounds: d.run.calibrationRounds + 1 }), {
+          kind: "cam.calibrate",
+          i,
+          side,
+          offer: false,
+        });
       if (e.type === "SKIP") return { ...m, overlay: { kind: "skipDialog" } };
       return m;
     case "cam.practice": {

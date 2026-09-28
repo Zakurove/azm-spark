@@ -621,3 +621,100 @@ describe("createRunner", () => {
     expect(RANGE_RULES.gravityLeanInvalid).toBe(0.15);
   });
 });
+
+describe("calibration with tremor or dyskinesia (O35)", () => {
+  /**
+   * The tested arm swings `amp` degrees each way around a point `offset` degrees out from where it
+   * hangs, at `hz`, until `until` s (rotated about the shoulder in pixel space).
+   */
+  function tremor(
+    fx: ReturnType<typeof abd>["fx"],
+    frames: ReturnType<typeof abd>["frames"],
+    side: Side,
+    amp: number,
+    hz: number,
+    until: number,
+    offset = 0,
+  ) {
+    const aspect = frames[0].aspect ?? 1;
+    const [S, E, W] = side === "right" ? [12, 14, 16] : [11, 13, 15];
+    return editSubject(fx, frames, (p, t) => {
+      if (t / 1000 > until) return p;
+      const d =
+        (((offset + amp * Math.sin(2 * Math.PI * hz * (t / 1000))) * Math.PI) / 180) *
+        (side === "right" ? 1 : -1);
+      const turn = (k: number) => {
+        const x = (p[k].x - p[S].x) * aspect;
+        const y = p[k].y - p[S].y;
+        p[k] = {
+          ...p[k],
+          x: p[S].x + (x * Math.cos(d) - y * Math.sin(d)) / aspect,
+          y: p[S].y + x * Math.sin(d) + y * Math.cos(d),
+        };
+      };
+      turn(E);
+      turn(W);
+      return p;
+    });
+  }
+  const startsLate = raiseStarts(4, 26);
+
+  it("widens the stillness tolerance after 10 s, and the widened calibration keeps the trunk reference within 3 degrees", () => {
+    const { fx, frames } = abd(
+      "chair",
+      "9:16",
+      raises("right", 150, startsLate),
+      811,
+      {},
+      startsLate[3] + 12,
+    );
+    const still = new RangeTestRunner(DEF, "right");
+    run(still, frames, { rollDeg: 0 });
+    const moving = new RangeTestRunner(DEF, "right");
+    // About 18 degrees of swing (a little less after the running median): more than the default
+    // 10, within the widened 20.
+    const r = run(moving, tremor(fx, frames, "right", 9, 1, 25, 10), { rollDeg: 0 });
+    const calAt = moving.calibration!.t - frames[0].t;
+    expect(still.calibration!.t - frames[0].t).toBeLessThan(3000);
+    expect(calAt).toBeGreaterThanOrEqual(10000);
+    expect(calAt).toBeLessThan(20000);
+    expect(r.events.some((e) => e.kind === "ask")).toBe(false);
+    expect(Math.abs(moving.calibration!.lean - still.calibration!.lean)).toBeLessThanOrEqual(3);
+    expect(r.side("right").status).toBe("measured");
+  });
+
+  it("offers to try again at 20 s, and after a second round of 20 s the test is not measured (quality)", () => {
+    // The arm never rests: a large swing out past the relaxed range every second.
+    const { fx, frames } = abd("chair", "9:16", [], 812, {}, 50);
+    const swinging = tremor(fx, frames, "right", 15, 1, 50, 20);
+    const runner = new RangeTestRunner(DEF, "right");
+    const events = [...runner.start(swinging[0].t)];
+    let offerAt: number | null = null;
+    for (const f of swinging) {
+      const out = runner.feed(f, { rollDeg: 0 });
+      events.push(...out);
+      const ask = out.find((e) => e.kind === "ask");
+      if (ask && offerAt === null) {
+        offerAt = ask.t;
+        expect(ask).toMatchObject({ ask: "calibration", side: "right" });
+        events.push(...runner.retryCalibration(f.t));
+      }
+    }
+    expect(offerAt! - swinging[0].t).toBeGreaterThanOrEqual(20000);
+    expect(offerAt! - swinging[0].t).toBeLessThan(20500);
+    const done = events.find((e) => e.kind === "done")!;
+    expect(done.t - offerAt!).toBeGreaterThanOrEqual(20000);
+    const res = runner.finish(swinging[swinging.length - 1].t).results[0];
+    expect(res).toMatchObject({ status: "not_measured", reason: "quality" });
+    expect(res.attempts).toEqual([]);
+    expect(events.filter((e) => e.kind === "ask")).toHaveLength(1);
+  });
+
+  it("skip at the offer is finish: not measured today (quality), nothing scored", () => {
+    const { fx, frames } = abd("chair", "9:16", [], 813, {}, 25);
+    const runner = new RangeTestRunner(DEF, "right");
+    const r = run(runner, tremor(fx, frames, "right", 15, 1, 25, 20), { rollDeg: 0 });
+    expect(r.events.some((e) => e.kind === "ask" && e.ask === "calibration")).toBe(true);
+    expect(r.side("right")).toMatchObject({ status: "not_measured", reason: "quality" });
+  });
+});

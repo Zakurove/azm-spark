@@ -885,6 +885,26 @@ describe("chair_stand_30s counting rules (spec 4.4)", () => {
     expect(run.cues).toContain("check_phone_angle_right");
     expect(run.result.results[0].status).toBe("not_measured");
     expect(run.result.results[0].reason).toBe("quality");
+    // O35: after 20 s without a calibration the stage offers to try again or skip.
+    const offer = run.events.find((e) => e.kind === "ask");
+    expect(offer).toMatchObject({ ask: "calibration", side: "none" });
+    expect(offer!.t - frames[0].t).toBeGreaterThanOrEqual(20000);
+    expect(offer!.t - frames[0].t).toBeLessThan(20200);
+    // Try again: a second round of 20 s, then not measured (quality) with no second offer.
+    const again = new ChairStandRunner(STAND, "none", FAST);
+    const events = [...again.start(frames[0].t)];
+    for (const f of frames) {
+      const out = again.feed(f, { rollDeg: 0 });
+      events.push(...out);
+      if (out.some((e) => e.kind === "ask")) events.push(...again.retryCalibration(f.t));
+    }
+    expect(events.filter((e) => e.kind === "ask")).toHaveLength(1);
+    const done = events.find((e) => e.kind === "done")!;
+    expect(done.t - offer!.t).toBeGreaterThanOrEqual(20000);
+    expect(again.finish(frames[frames.length - 1].t).results[0]).toMatchObject({
+      status: "not_measured",
+      reason: "quality",
+    });
   });
 
   it("asks for the phone toward the stronger side: left when the right side is weaker (P4, spec 4.4)", () => {

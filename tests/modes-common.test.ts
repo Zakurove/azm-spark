@@ -152,3 +152,28 @@ describe("side labels and the roll convention", () => {
     expect(signedAngle(down, { x: -0.01, y: -1 }, { x: 1, y: 0 })).toBeLessThan(-179);
   });
 });
+
+describe("CalibrationRounds (O35)", () => {
+  it("doubles the tolerance after 10 s, offers at 20 s, gives up at the end of the second round", async () => {
+    const { CalibrationRounds, CALIBRATION_ROUNDS } = await import("../src/engine/modes/common");
+    expect(CALIBRATION_ROUNDS).toEqual({ widenAfterSec: 10, widenFactor: 2, roundSec: 20, maxRounds: 2 });
+    const r = new CalibrationRounds();
+    r.begin(1000);
+    expect(r.tolerance(10, 1000)).toBe(10);
+    expect(r.tolerance(10, 10999)).toBe(10);
+    expect(r.tolerance(10, 11000)).toBe(20);
+    expect(r.due(20999)).toBeNull();
+    expect(r.due(21000)).toBe("offer");
+    r.retry(25000);
+    expect(r.round).toBe(2);
+    // The second round keeps the widened tolerance from its start.
+    expect(r.tolerance(10, 25000)).toBe(20);
+    expect(r.due(44999)).toBeNull();
+    expect(r.due(45000)).toBe("give_up");
+    // A calibration taken again starts over.
+    r.begin(50000);
+    expect(r.round).toBe(1);
+    expect(r.tolerance(10, 50000)).toBe(10);
+    expect(r.due(70000)).toBe("offer");
+  });
+});

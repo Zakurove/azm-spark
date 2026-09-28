@@ -50,6 +50,7 @@ import {
   lockView,
   openCheck,
   runningEnv,
+  safetyCheck,
   skipRecord,
 } from "./common";
 import { firstCheckIn, neededArmsLastStand, personState, precheckEnv, sideLeanDoneAtHome } from "./state";
@@ -66,6 +67,7 @@ import {
   createAssessment,
   currentLock,
   finishCheck,
+  stopClosedCheck,
   keptResults,
   lastCompleted,
   listAssessments,
@@ -416,8 +418,10 @@ export const assessmentRoutes: Route[] = [
     auth: "user",
     handle(ctx) {
       const { db, user, body, json, limited } = ctx;
-      const a = openCheck(ctx, { today: false });
-      if (!a) return;
+      // A safety stop always reaches the check, also one the server closed meanwhile (safetyCheck).
+      const found = safetyCheck(ctx);
+      if (!found) return;
+      const { a, closed } = found;
       if (unknownKeys(body, ["option", "testId", "side"]).length)
         return json(400, { error: "STOP_INVALID", field: "body" });
       const env = runningEnv(ctx, a);
@@ -448,9 +452,11 @@ export const assessmentRoutes: Route[] = [
         // Q33 (2), (3): the dates the next check reads.
         if (route.stores === "changeReported") reportChange(db, user!.id, riyadhDate(now));
         if (route.stores === "faintReported") reportFaint(db, user!.id, riyadhDate(now));
-        if (route.endsCheck) finishCheck(db, a, "ended_early", now, "stop");
-        // A stop that reaches an idle check (a late post from the queue) never keeps it open (O6).
-        else if (!isStale(a, now)) touch(db, a.id, now);
+        // A closed check is never reopened; a stop that ends the check still marks it ended by a stop.
+        if (closed) {
+          if (route.endsCheck) stopClosedCheck(db, a, now);
+        } else if (route.endsCheck) finishCheck(db, a, "ended_early", now, "stop");
+        else touch(db, a.id, now);
         return applyLock(ctx, route.lock, now);
       });
       json(200, {
@@ -474,10 +480,14 @@ export const assessmentRoutes: Route[] = [
     auth: "user",
     handle(ctx) {
       const { db, user, body, json } = ctx;
-      const a = openCheck(ctx, { today: true });
-      if (!a) return;
       if (unknownKeys(body, ["testId", "side", "answer"]).length)
         return json(400, { error: "BETWEEN_INVALID", field: "body" });
+      // Much more pain ends the check with the day's lock, also on a check the server closed meanwhile
+      // or while a lock runs (safetyCheck); the other answers need the open check (openCheck).
+      const ends = body.answer === "much";
+      const found = ends ? safetyCheck(ctx) : null;
+      const a = ends ? (found?.a ?? null) : openCheck(ctx, { today: true });
+      if (!a) return;
       const item = a.protocol.find((i) => i.testId === body.testId && i.side === body.side && !i.skipped);
       if (!item) return json(400, { error: "BETWEEN_INVALID", field: "testId" });
       const done = resultsOf(db, a.id);
@@ -489,9 +499,13 @@ export const assessmentRoutes: Route[] = [
       if (out.status === "incomplete") return json(400, { error: "BETWEEN_INVALID", field: "answer" });
       const now = Date.now();
       if (out.status === "end") {
+        // SPEC-GAP: between-much-count-once. Counted when it ends an open check, or once per closed
+        // check and test by the in memory limiter.
+        const count = !found?.closed || !ctx.limited(`between-much:${a.id}:${item.testId}`, 1, DAY_MS);
         const view = transaction(db, () => {
-          countSafetyEvent(db, "between:much", item.testId, a.setting, now);
-          finishCheck(db, a, "ended_early", now, "stop");
+          if (count) countSafetyEvent(db, "between:much", item.testId, a.setting, now);
+          if (found?.closed) stopClosedCheck(db, a, now);
+          else finishCheck(db, a, "ended_early", now, "stop");
           return applyLock(ctx, out.lock, now);
         });
         return json(200, { status: "end", skips: [], screen: out.screen ?? null, lock: view });

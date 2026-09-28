@@ -794,10 +794,14 @@ describe("the end of check question (Q23 (7))", () => {
       setting: "home",
       count: 1,
     });
-    expect((await h.call(`/assessments/${s.data.id}/end`, { answer: "yes" }, cookie)).data).toEqual({
-      error: "NOT_OPEN",
-      status: "completed",
+    // A second yes (a repeated post) still reaches the check and keeps its lock, counted once.
+    expect((await h.call(`/assessments/${s.data.id}/end`, { answer: "yes" }, cookie)).data).toMatchObject({
+      status: "emergency",
     });
+    expect(safety(h).filter((r) => r.reason === "end:symptoms")).toEqual([
+      { day: "2026-10-04", reason: "end:symptoms", test_id: "none", setting: "home", count: 1 },
+    ]);
+    expect((await h.call("/assessments", undefined, cookie)).data.assessments[0].status).toBe("completed");
     setTime(NEXT_DAY + HOUR);
     expect((await h.call("/assessments/context", undefined, cookie)).data.unresolvedChangeReported).toBe(
       true,
@@ -1337,5 +1341,125 @@ describe("ownership of the follow up routes", () => {
     expect((await h.call("/assessments", undefined, a)).data.assessments[0].status).toBe("open");
     expect((await h.call("/assessments/context", undefined, b)).data.lock).toBeNull();
     expect(safety(h)).toEqual([]);
+  });
+});
+
+describe("safety answers reach a check the server already closed (contract E, Q33 (2), (3), Q25 (a))", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  /** 2026-10-04 23:55 in Riyadh: the check runs over midnight. */
+  const LATE = Date.UTC(2026, 9, 4, 20, 55, 0);
+
+  it("a chest stop after a stale close sets the lock and changeReported, and leaves the check closed", async () => {
+    setTime(LATE);
+    const cookie = await member(h, "late-chest@example.test", intakeOf());
+    const s = await start(h, cookie);
+    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    setTime(LATE + 8 * MIN);
+    // A new Riyadh day: the queued result closes the check as stale and is refused.
+    expect(
+      (await h.call(`/assessments/${s.data.id}/results`, resultBody(right, 100), cookie)).data,
+    ).toMatchObject({
+      error: "NOT_OPEN",
+    });
+    setTime(LATE + 13 * MIN);
+    const stop = await h.call(
+      `/assessments/${s.data.id}/stop`,
+      { option: "chest", testId: right.testId, side: right.side },
+      cookie,
+    );
+    expect(stop.status).toBe(200);
+    expect(stop.data).toMatchObject({ screen: "scr_emergency", endsCheck: true });
+    expect(stop.data.lock).not.toBeNull();
+    const c = await h.call("/assessments/context", undefined, cookie);
+    expect(c.data.lock).not.toBeNull();
+    expect(c.data.unresolvedChangeReported).toBe(true);
+    const list = (await h.call("/assessments", undefined, cookie)).data.assessments;
+    expect(list[0]).toMatchObject({ id: s.data.id, status: "ended_early", endedReason: "stop" });
+    // It takes no result.
+    expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(right, 100), cookie)).status).toBe(
+      409,
+    );
+  });
+
+  it("a faint stop after a stale close is followed by the faint answer", async () => {
+    setTime(LATE);
+    const cookie = await member(h, "late-faint@example.test", intakeOf());
+    const s = await start(h, cookie);
+    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    await h.call(`/assessments/${s.data.id}/results`, resultBody(right, 100), cookie);
+    setTime(LATE + 40 * MIN);
+    const left = itemOf(s.data.protocol, "shoulder_abduction", "left");
+    const stop = await h.call(
+      `/assessments/${s.data.id}/stop`,
+      { option: "faint", testId: left.testId, side: left.side },
+      cookie,
+    );
+    expect(stop.data).toMatchObject({ screen: "scr_faint", then: "sf_faint_loc" });
+    const faint = await h.call(`/assessments/${s.data.id}/faint`, { answer: "yes" }, cookie);
+    expect(faint.data).toMatchObject({ status: "emergency" });
+    expect((await h.call("/assessments/context", undefined, cookie)).data.unresolvedChangeReported).toBe(
+      true,
+    );
+  });
+
+  it("much more pain after an idle close still ends with the day's lock", async () => {
+    setTime(T0);
+    const cookie = await member(h, "late-much@example.test", intakeOf());
+    const s = await start(h, cookie);
+    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    await h.call(`/assessments/${s.data.id}/results`, resultBody(right, 100), cookie);
+    setTime(T0 + 45 * MIN);
+    const much = await h.call(
+      `/assessments/${s.data.id}/between`,
+      { testId: right.testId, side: right.side, answer: "much" },
+      cookie,
+    );
+    expect(much.status).toBe(200);
+    expect(much.data).toMatchObject({ status: "end" });
+    expect(much.data.lock).not.toBeNull();
+    expect((await h.call("/assessments/context", undefined, cookie)).data.lock).not.toBeNull();
+    // An answer that does not end the check is refused on a closed check, as before.
+    const same = await h.call(
+      `/assessments/${s.data.id}/between`,
+      { testId: right.testId, side: right.side, answer: "same" },
+      cookie,
+    );
+    expect(same.data).toMatchObject({ error: "NOT_OPEN" });
+  });
+
+  it("an end yes on a check closed without any result stores changeReported and the lock", async () => {
+    setTime(T0);
+    const cookie = await member(h, "late-end@example.test", intakeOf());
+    const s = await start(h, cookie);
+    setTime(T0 + 31 * MIN);
+    const end = await h.call(`/assessments/${s.data.id}/end`, { answer: "yes" }, cookie);
+    expect(end.status).toBe(200);
+    expect(end.data).toMatchObject({ status: "emergency" });
+    const c = await h.call("/assessments/context", undefined, cookie);
+    expect(c.data.lock).not.toBeNull();
+    expect(c.data.unresolvedChangeReported).toBe(true);
+  });
+
+  it("refuses a safety post for a check closed more than a day ago", async () => {
+    setTime(T0);
+    const cookie = await member(h, "old-check@example.test", intakeOf());
+    const s = await start(h, cookie);
+    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    await h.call(`/assessments/${s.data.id}/results`, resultBody(right, 100), cookie);
+    setTime(T0 + 40 * MIN);
+    // Closed as stale by a late post.
+    expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).data).toMatchObject({
+      error: "NOT_OPEN",
+    });
+    setTime(T0 + DAY + MIN);
+    expect((await h.call(`/assessments/${s.data.id}/stop`, { option: "chest" }, cookie)).data).toMatchObject({
+      error: "NOT_OPEN",
+    });
   });
 });

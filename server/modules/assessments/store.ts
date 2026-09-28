@@ -259,6 +259,23 @@ export function finishCheck(
   return true;
 }
 
+/**
+ * A stop that reaches a check the server already closed (a stale close, a new start) ends it by a stop
+ * all the same, without reopening it: ended early by a stop when it holds a stored row, else abandoned
+ * by a stop. A completed check keeps its status. The faint follow up reads the ended reason.
+ */
+export function stopClosedCheck(db: DatabaseSync, a: Assessment, now: number): void {
+  if (a.status !== "ended_early" && a.status !== "abandoned") return;
+  const status = resultsOf(db, a.id).length ? "ended_early" : "abandoned";
+  db.prepare("UPDATE assessments SET status=?, ended_reason='stop' WHERE id=? AND status=?").run(
+    status,
+    a.id,
+    a.status,
+  );
+  if (a.status === "abandoned" && status === "ended_early")
+    countClosed(db, a, "ended_early", Math.min(now, a.active));
+}
+
 function countClosed(db: DatabaseSync, a: Assessment, status: "completed" | "ended_early", until: number) {
   countProduct(db, status === "completed" ? "checks_completed" : "checks_ended_early", "", a.setting, until);
   const minutes = Math.max(0, Math.round((until - a.started) / 60000));

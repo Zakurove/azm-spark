@@ -22,20 +22,20 @@ import {
   endOfCheckForm,
   evaluateResume,
   faintFollowUp,
-  riyadhDate,
 } from "../../../src/medical/precheck";
 import type { Side } from "../../../src/movements/types";
 import { activeConsent } from "../consents/store";
 import { symptomAsk } from "../progress/series";
 import {
+  SAFETY_LATE_MS,
   STOPPED_FLAG,
   applyLock,
   emergencyAlsoShow,
   homeClosed,
-  isStale,
   openCheck,
   ownCheck,
   runningEnv,
+  safetyCheck,
   skipRecord,
 } from "./common";
 import { ID_PATH, remainingItems } from "./routes";
@@ -96,22 +96,23 @@ export const followUpRoutes: Route[] = [
     auth: "user",
     handle(ctx) {
       const { db, user, body, json, limited } = ctx;
-      const a = ownCheck(ctx);
-      if (!a) return;
       if (unknownKeys(body, ["answer"]).length) return json(400, { error: "END_INVALID", field: "body" });
       if (!(END_ANSWERS as readonly unknown[]).includes(body.answer))
         return json(400, { error: "END_INVALID", field: "answer" });
+      // Asked whenever the results are first shown (O6 (4)): a stale open check closes first, and a
+      // check the server closed meanwhile (any status) still takes the answer (safetyCheck), so a yes
+      // stores changeReported and the day's lock.
+      const found = safetyCheck(ctx);
+      if (!found) return;
+      const { a } = found;
+      const status = a.status;
       const now = Date.now();
-      // Asked whenever the results are first shown (O6 (4)): a stale open check closes first.
-      let status = a.status;
-      if (status === "open" && isStale(a, now)) status = closeCheck(db, a, "stale", a.active);
-      if (status !== "open" && status !== "ended_early") return json(409, { error: "NOT_OPEN", status });
       const out = endOfCheck(body.answer, now);
       if (out.status !== "emergency") return json(200, { status: "proceed" });
       const env = runningEnv(ctx, a);
-      // SPEC-GAP: end-count-once. An open check completes here, so the question cannot be answered
-      // twice; after a check ended early the count is kept once per check by the in memory limiter.
-      const first = status === "open" || !limited(`end-yes:${a.id}`, 1, DAY_MS);
+      // SPEC-GAP: end-count-once. Counted once per check by the in memory limiter (a server restart
+      // may count a repeated post again): Q25 keeps no per person record of the answer.
+      const first = !limited(`end-yes:${a.id}`, 1, DAY_MS);
       const lock = transaction(db, () => {
         if (typeof out.stored.changeReported === "string")
           reportChange(db, user!.id, out.stored.changeReported);
@@ -150,10 +151,12 @@ export const followUpRoutes: Route[] = [
       const ref = checkTestRef(body, a.protocol, false);
       if (!ref.ok) return json(400, { error: "FAINT_INVALID", field: ref.field });
       const now = Date.now();
-      // sf_faint_loc follows a faint or fall stop, which ends the check the same day (Q33 (3), O42).
+      // sf_faint_loc follows a faint or fall stop, which ends the check (Q33 (3), O42), also a check the
+      // server had closed before the stop reached it (stopClosedCheck), within SAFETY_LATE_MS.
       // SPEC-GAP: faint-after-stop. Which stop ended the check is not stored (Q25 (d)), so any stop
-      // that ended it today is accepted.
-      if (a.status !== "ended_early" || a.endedReason !== "stop" || riyadhDate(a.started) !== riyadhDate(now))
+      // that ended it in the last day is accepted.
+      const stopped = a.status === "ended_early" || a.status === "abandoned";
+      if (!stopped || a.endedReason !== "stop" || now - a.active > SAFETY_LATE_MS)
         return json(409, { error: "NOT_STOPPED" });
       const out = faintFollowUp(body.answer, now, { afterNoResponse: body.afterNoResponse === true });
       const first = !limited(`faint:${a.id}`, 1, DAY_MS);

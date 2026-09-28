@@ -33,6 +33,12 @@ import {
 /** O6 (1), (4): a check resumes only within 30 minutes of its last activity; then it closes. */
 export const RESUME_WINDOW_MS = 30 * 60 * 1000;
 
+/**
+ * How long after its last activity a closed check still takes the safety answers of its last minutes
+ * (a stop, much more pain, the faint and end answers), which the phone's outbox may deliver late.
+ */
+export const SAFETY_LATE_MS = 24 * 60 * 60 * 1000;
+
 /** The server's flag on the skip row of a test stopped from the stop list (resultOnStop). */
 export const STOPPED_FLAG = "stopped";
 
@@ -99,7 +105,7 @@ export function isStale(a: Assessment, now: number): boolean {
  *
  * `today` (results, between tests, complete, resume): a stale check (isStale) is closed first and
  * refused with 409 NOT_OPEN and its new status, and a same day lock refuses the check (409 LOCKED).
- * The stop list passes `today: false`, so a safety stop always reaches the check.
+ * Safety answers use safetyCheck instead, which also takes a check the server closed.
  */
 export function openCheck(ctx: RouteContext, { today }: { today: boolean }): Assessment | null {
   const a = ownCheck(ctx);
@@ -122,6 +128,30 @@ export function openCheck(ctx: RouteContext, { today }: { today: boolean }): Ass
     return null;
   }
   return a;
+}
+
+/**
+ * The owner's check for a safety answer (a stop, much more pain, the faint and end answers), or the
+ * error already sent. A safety answer is never refused because the server closed the check first (a
+ * stale close by a late post, a new start): its lock, changeReported, faintReported and count must
+ * still reach the server (contract E, Q33 (2), (3)). So the check is taken when it is open (a stale one
+ * is closed first, and `closed` says so), or when it was closed less than a day after its last
+ * activity (SAFETY_LATE_MS). It is never reopened: the caller writes no result to a closed check.
+ */
+export function safetyCheck(ctx: RouteContext): { a: Assessment; closed: boolean } | null {
+  const a = ownCheck(ctx);
+  if (!a) return null;
+  const now = Date.now();
+  if (a.status === "open") {
+    if (!isStale(a, now)) return { a, closed: false };
+    const status = closeCheck(ctx.db, a, "stale", a.active);
+    return { a: { ...a, status }, closed: true };
+  }
+  if (now - a.active > SAFETY_LATE_MS) {
+    ctx.json(409, { error: "NOT_OPEN", status: a.status });
+    return null;
+  }
+  return { a, closed: true };
 }
 
 /** Contract v3 I: a home check needs AZM_CHECK_HOME=1 (403 HOME_CLOSED is sent otherwise). */

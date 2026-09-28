@@ -516,7 +516,12 @@ describe("the stop list and the between tests question", () => {
       error: "NOT_OPEN",
       status: "ended_early",
     });
-    expect((await h.call(`/assessments/${s.data.id}/stop`, { option: "choice" }, cookie)).status).toBe(409);
+    // A later stop still reaches the ended check (its lock and count would apply), never reopening it.
+    expect((await h.call(`/assessments/${s.data.id}/stop`, { option: "choice" }, cookie)).status).toBe(200);
+    expect((await h.call("/assessments", undefined, cookie)).data.assessments[0]).toMatchObject({
+      status: "ended_early",
+      endedReason: "stop",
+    });
     expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).status).toBe(409);
     expect((await start(h, cookie)).data.error).toBe("LOCKED");
     // Kept results count in progress.

@@ -3,13 +3,21 @@
 // script is sent, and the browser never contacts a speech service at runtime.
 //
 // Usage: node scripts/generate-voice.mjs [--voice-ar NAME] [--voice-en NAME] [--only id1,id2]
-//                                        [--out DIR] [--model ID] [--dry-run]
+//                                        [--out DIR] [--model ID] [--dry-run] [--verify [MODEL]]
 // Needs GEMINI_API_KEY (environment or .env.local) and ffmpeg on PATH. The key is never printed.
 //
 // Pipeline per cue: Gemini returns 24 kHz 16-bit mono WAV → ffmpeg trims leading and trailing
 // silence gently, normalizes loudness (EBU R128, two pass, -16 LUFS integrated, -1.5 dBTP) and
 // encodes MP3 (mono, 44.1 kHz, 64 kbps) under the same file names in <out>/{ar,en}.
-import {readFile,writeFile,mkdir,mkdtemp,rm,rename} from 'node:fs/promises';
+// Input text: arTts ?? ar in Arabic, enTts ?? en in English (a text used only for speech, such as
+// the welcome that says the brand name clearly).
+//
+// --verify is the render gate of the voice audition decision (fix 8): a Gemini text model
+// transcribes every render, and the render is kept only when the words heard equal the words sent
+// (any added, dropped or changed word fails, such as تَسْتَطِيعُهُ) and a long Arabic line is not
+// read faster than 6.3 letters per second. A failed render is tried once more, then reported; the
+// cue already on disk is left as it was. Each verified cue costs one extra transcription call.
+import {readFile,writeFile,mkdir,mkdtemp,rm,rename,copyFile} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {tmpdir} from 'node:os';
@@ -28,8 +36,8 @@ export const DEFAULT_VOICES={ar:'Algieba',en:'Achird'};
 // Delivery notes go in speech_metadata.style; the text field is read verbatim. Google advises
 // keeping style short, so each is a single compact brief.
 export const INSTRUCTIONS={
- ar:'A calm, warm, encouraging Saudi fitness coach guiding gentle exercises. Unhurried pace with soft pauses at commas and full stops. Clear Arabic that follows every diacritic exactly as written; never add words.',
- en:'A calm, warm, encouraging fitness coach guiding gentle exercises. Unhurried pace with soft pauses at punctuation, clear and natural. Read exactly as written; never add words.',
+ ar:'A calm, warm, encouraging Saudi fitness coach guiding gentle exercises. Unhurried, gentle, steady delivery with soft pauses at commas and full stops. Clear Arabic that follows every diacritic exactly as written; never add words.',
+ en:'A calm, warm, encouraging fitness coach guiding gentle exercises. Unhurried, gentle, steady delivery with soft pauses at punctuation, clear and natural. Read exactly as written; never add words.',
  count:'Say only this one number, crisp and encouraging, about one second long.',
 };
 const LOUDNESS={I:-16,TP:-1.5,LRA:11};
@@ -45,7 +53,7 @@ export function styleFor(lang,id){
 }
 export function inputFor(lang,id,line){
  if(lang==='ar')return line.arTts??line.ar;
- return id.startsWith('count_')?NUMBER_WORDS[Number(id.slice(6))-1]:line.en;
+ return id.startsWith('count_')?NUMBER_WORDS[Number(id.slice(6))-1]:line.enTts??line.en;
 }
 
 export async function loadKey(){
@@ -141,8 +149,59 @@ export function paceWarning(lang,text,seconds){
  return rate>4.5?`only ${seconds.toFixed(2)} s for ${words} words, possibly truncated`:rate<0.8?`${seconds.toFixed(2)} s for ${words} words, possibly padded or added words`:'';
 }
 
+// Pace gate (voice audition decision, fix 8): a long Arabic line read faster than about 6.3
+// letters per second is rendered again (today's cues run at about 5.5).
+export const PACE_GATE={maxArLettersPerSec:6.3,minLetters:20};
+export function arLetters(text){return text.replace(DIACRITICS,'').replace(/[^\u0621-\u064A]/g,'').length;}
+export function paceGate(lang,text,seconds){
+ if(lang!=='ar'||!(seconds>0))return '';
+ const letters=arLetters(text);
+ if(letters<PACE_GATE.minLetters)return '';
+ const rate=letters/seconds;
+ return rate>PACE_GATE.maxArLettersPerSec?`${rate.toFixed(1)} letters/s is faster than ${PACE_GATE.maxArLettersPerSec}`:'';
+}
+
+// Transcript gate: the words heard must equal the words sent. Arabic compares the unvocalized
+// skeleton of each word (hamza seats, alef maqsura and ta marbuta folded), so a missing or extra
+// case ending is not a failure but an added pronoun (تستطيعه) or a changed word is. English
+// compares lower case words, digits read as words.
+export const TRANSCRIBE_MODEL='gemini-3.8-flash';
+const TRANSCRIBE_PROMPT={
+ ar:'Transcribe this Arabic speech exactly as spoken, word for word. Write numbers as Arabic words exactly as spoken, never as digits. Do not correct, complete or normalize anything. Output only the transcript.',
+ en:'Transcribe this English speech exactly as spoken, word for word. Write numbers as words. Do not correct, complete or normalize anything. Output only the transcript.',
+};
+export function spokenWords(lang,text){
+ if(lang==='ar')return text.replace(DIACRITICS,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي')
+  .replace(/[^\u0621-\u064A\s]/g,' ').split(/\s+/).filter(Boolean);
+ return text.toLowerCase().replace(/[’']/g,'').replace(/\b(10|[1-9])\b/g,d=>NUMBER_WORDS[Number(d)-1])
+  .replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean);
+}
+export function transcriptGate(lang,sent,heard){
+ if(typeof heard!=='string'||!heard.trim())return 'no transcript';
+ const a=spokenWords(lang,sent),b=spokenWords(lang,heard);
+ return a.length===b.length&&a.every((w,i)=>w===b[i])?'':`heard «${heard.trim()}»`;
+}
+export async function transcribe({key,audio,mime='audio/wav',lang,model=TRANSCRIBE_MODEL,attempts=4}){
+ const body=JSON.stringify({contents:[{role:'user',parts:[{inline_data:{mime_type:mime,data:Buffer.from(audio).toString('base64')}},{text:TRANSCRIBE_PROMPT[lang]}]}],generationConfig:{temperature:0}});
+ for(let attempt=1;;attempt++){
+  let res,raw='',message,fatal=false;
+  try{
+   res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'x-goog-api-key':key,'Content-Type':'application/json'},body,signal:AbortSignal.timeout(90000)});
+   raw=await res.text();
+   if(res.ok){
+    const j=JSON.parse(raw);
+    return (j.candidates?.[0]?.content?.parts??[]).filter(p=>!p.thought).map(p=>p.text??'').join('').trim();
+   }
+   message=`HTTP ${res.status} ${raw.slice(0,300)}`;
+   fatal=!RETRYABLE.has(res.status)||/per day/i.test(raw);
+  }catch(err){message=err.message;}
+  if(fatal||attempt>=attempts)throw new Error(scrub(message,key));
+  await sleep(retryDelayMs(res,raw,attempt));
+ }
+}
+
 function parseArgs(argv){
- const opts={voices:{...DEFAULT_VOICES},only:null,out:join(ROOT,'public/cues'),model:MODEL,dryRun:false};
+ const opts={voices:{...DEFAULT_VOICES},only:null,out:join(ROOT,'public/cues'),model:MODEL,dryRun:false,verify:null};
  for(let i=0;i<argv.length;i++){
   const a=argv[i],next=()=>{const v=argv[++i];if(!v||v.startsWith('--'))throw new Error(`${a} needs a value`);return v;};
   if(a==='--voice-ar')opts.voices.ar=next();
@@ -151,6 +210,7 @@ function parseArgs(argv){
   else if(a==='--out')opts.out=resolve(next());
   else if(a==='--model')opts.model=next();
   else if(a==='--dry-run')opts.dryRun=true;
+  else if(a==='--verify')opts.verify=argv[i+1]&&!argv[i+1].startsWith('--')?argv[++i]:TRANSCRIBE_MODEL;
   else throw new Error(`unknown option ${a}`);
  }
  return opts;
@@ -167,7 +227,7 @@ async function main(){
  const writesManifest=resolve(opts.out)===resolve(ROOT,'public/cues');
 
  if(opts.dryRun){
-  console.log(`${opts.model} via ${ENDPOINT}\nvoices ar=${opts.voices.ar} en=${opts.voices.en}\nout ${opts.out}${writesManifest?' (manifest will be updated)':''}`);
+  console.log(`${opts.model} via ${ENDPOINT}\nvoices ar=${opts.voices.ar} en=${opts.voices.en}\nout ${opts.out}${writesManifest?' (manifest will be updated)':''}${opts.verify?`\nverify with ${opts.verify}`:''}`);
   for(const j of jobs)console.log(`${j.path}  [${j.voice}]  ${j.text}`);
   console.log(`${jobs.length} cues, nothing sent (dry run)`);
   return;
@@ -186,10 +246,26 @@ async function main(){
    while(queue.length&&!halted){
     const job=queue.shift();
     try{
-     const wav=await synthesize({key,model:opts.model,text:job.text,voice:job.voice,style:job.style,label:`${job.lang}/${job.id}`});
-     const seconds=await encodeCue(wav,job.path,work);
-     const warn=paceWarning(job.lang,job.text,seconds);
-     if(warn)console.error(`\nCHECK ${job.lang}/${job.id}: ${warn}`);
+     const label=`${job.lang}/${job.id}`;
+     let ok=false;
+     for(let take=1;take<=(opts.verify?2:1)&&!ok;take++){
+      const wav=await synthesize({key,model:opts.model,text:job.text,voice:job.voice,style:job.style,label});
+      if(!opts.verify){
+       const seconds=await encodeCue(wav,job.path,work);
+       const warn=paceWarning(job.lang,job.text,seconds)||paceGate(job.lang,job.text,seconds);
+       if(warn)console.error(`\nCHECK ${label}: ${warn}`);
+       ok=true;break;
+      }
+      // Gated: encode into the work folder and copy into place only when both gates pass.
+      const staged=join(work,`${job.lang}-${job.id}-${take}.mp3`);
+      const seconds=await encodeCue(wav,staged,work);
+      const heard=await transcribe({key,audio:wav,lang:job.lang,model:opts.verify});
+      const fail=transcriptGate(job.lang,job.text,heard)||paceGate(job.lang,job.text,seconds);
+      if(fail){console.error(`\nREJECTED ${label} take ${take}: ${fail}`);continue;}
+      await copyFile(staged,job.path);
+      ok=true;
+     }
+     if(!ok)throw new Error('failed the render gate twice; the file on disk is unchanged');
      written.push(job);
      process.stdout.write(`\r${written.length}/${jobs.length} rendered`);
     }catch(err){

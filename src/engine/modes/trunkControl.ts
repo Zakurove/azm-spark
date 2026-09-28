@@ -296,6 +296,8 @@ export class TrunkControlRunner implements TestRunner {
   private retries: Record<BodySide, number> = { left: 0, right: 0 };
   private notMeasured: Record<BodySide, ReasonId | null> = { left: null, right: null };
   private contact: Record<BodySide, boolean | null> = { left: null, right: null };
+  /** The next baseline frame locks the subject again (spec 4.0: locked at calibration). */
+  private relockPending = true;
   private asked = new Set<BodySide>();
   /** The next lean's cue was already given (after a wrong side). */
   private cueGiven = false;
@@ -348,6 +350,7 @@ export class TrunkControlRunner implements TestRunner {
   start(t: number): TestEvent[] {
     this.t0 = t;
     this.tLast = t;
+    this.relockPending = true;
     this.setPhase("calibrating", t);
     if (this.opts.intro ?? true) this.sink.cue("test_trunk_start", t);
     this.sink.cue("test_trunk_still", t);
@@ -442,7 +445,12 @@ export class TrunkControlRunner implements TestRunner {
       this.settleBaseline(t);
       return;
     }
-    if (!this.lock.locked && !this.tracker.lockOn(frame)) return;
+    // The upright baseline is this test's calibration: it locks the subject again (spec 4.0), also
+    // with a lock shared with another runner, so the lock's reference is this picture.
+    if (this.relockPending) {
+      if (!this.tracker.lockOn(frame)) return;
+      this.relockPending = false;
+    }
     const tr = this.track(frame, false);
     const px = tr.px;
     const mv = this.minVis;

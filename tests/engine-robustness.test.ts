@@ -229,3 +229,45 @@ describe("a mirrored camera gates the tested arm (spec 4.0 side labelling and qu
     expect(m.quality.issues).toContain("not_visible");
   });
 });
+
+/* ------------------------------------------- the subject lock at calibration */
+
+describe("the subject is locked again at every calibration (spec 4.0)", () => {
+  it("a lock shared by both arm curl runners follows the phone moved between the arms", () => {
+    const lock = new SubjectLock();
+    const seedR = 620;
+    const right = curlCase(seedR, { opts: { variant: "arm_only", subject: lock } });
+    expect(res(right).status).toBe("measured");
+    // The second arm is filmed after the phone moved 0.3 m.
+    const left = curlCase(
+      621,
+      { opts: { variant: "arm_only", subject: lock }, extra: { camera: { x: 0.3 } } },
+      "left",
+    );
+    const fresh = curlCase(621, { extra: { camera: { x: 0.3 } } }, "left");
+    expect(res(left).status).toBe("measured");
+    expect(res(left).value).toBe(res(fresh).value);
+    expect(left.run.cues).not.toContain("check_one_person");
+  });
+});
+
+describe("a phone that slips during the arm raise (spec 4.0 subject lock)", () => {
+  it("locks and calibrates again in the new picture, then measures the side", () => {
+    const starts = raiseStarts(7);
+    const slipAt = starts[0] + 10.5;
+    const { fx, frames } = framesOf(
+      spec("shoulder_abduction", "chair", "9:16", raises("right", 150, starts), starts[6] + 12, 345, {
+        // Far enough that every later frame reads as a jump of the subject.
+        jolts: [{ at: slipAt, dx: 0.1, dy: 0.02 }],
+      }),
+    );
+    const r = run(new RangeTestRunner(ABD, "right"), frames, { rollDeg: 0 });
+    const out = r.side("right");
+    expect(out.status).toBe("measured");
+    expect(out.nValid).toBe(3);
+    expect(Math.abs(out.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
+    expect(r.cues).toContain("check_phone_still");
+    // The one person cue is not repeated for the rest of the test.
+    expect(r.cues.filter((c) => c === "check_one_person").length).toBeLessThanOrEqual(1);
+  });
+});

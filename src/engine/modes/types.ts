@@ -211,7 +211,10 @@ export interface RunnerOptions {
   // the other arm or leaning the other way (the model's labels swap with the picture), so the app
   // must pass what it knows about its camera stream; otherwise every attempt is retried.
   mirrored?: boolean;
-  /** A subject lock to use (the UI can watch it); a new one otherwise. It is locked at calibration. */
+  /**
+   * A subject lock to use (the UI can watch it); a new one otherwise. The runner locks it again at
+   * every calibration (and the side lean at its upright baseline), whatever it held before.
+   */
   subject?: SubjectLock;
   /** Rest between attempts, seconds (default: the lower end of the test's restSec.betweenAttempts). */
   restSec?: number;

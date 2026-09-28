@@ -532,6 +532,15 @@ abstract class TimedCountBase implements TestRunner {
   private setupStart = 0;
   private setupNext: ((t: number) => void) | null = null;
   protected calStart = 0;
+  private relockPending = true;
+
+  /** Locks the subject at the first calibration frame with a person; false until it could. */
+  protected relockAt(frame: Frame): boolean {
+    if (!this.relockPending) return true;
+    if (!this.tracker.lockOn(frame)) return false;
+    this.relockPending = false;
+    return true;
+  }
 
   constructor(
     readonly side: TestSide,
@@ -623,6 +632,10 @@ abstract class TimedCountBase implements TestRunner {
   /* ----------------------------------------------------------- phases */
 
   protected setPhase(phase: RunnerPhase, t: number, attempt?: number): void {
+    // Every calibration (the first, after a practice check, after the repeat's rest) locks the
+    // subject again (spec 4.0), also with a lock shared between runners: its reference must be the
+    // picture the calibration is taken in.
+    if (phase === "calibrating") this.relockPending = true;
     this.phaseNow = phase;
     this.sink.push({
       kind: "phase",
@@ -1221,7 +1234,7 @@ export class ArmCurlRunner extends TimedCountBase {
       this.end(t);
       return;
     }
-    if (!this.lock.locked && !this.tracker.lockOn(frame)) return;
+    if (!this.relockAt(frame)) return;
     const tr = this.track(frame, false);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
     if (!m || !tr.raw) {
@@ -1781,7 +1794,7 @@ export class ChairStandRunner extends TimedCountBase {
       this.end(t);
       return;
     }
-    if (!this.lock.locked && !this.tracker.lockOn(frame)) return;
+    if (!this.relockAt(frame)) return;
     const tr = this.track(frame, false);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
     if (!m || !tr.raw) {

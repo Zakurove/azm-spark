@@ -131,6 +131,10 @@ export const RANGE_RULES = {
   medianSec: 0.3,
   /** The one person cue at most this often while scoring is paused (seconds). */
   onePersonCueEverySec: 5,
+  // SPEC-GAP: relock-after-jump. After a phone slip every frame reads as a jump (spec 4.0) and the
+  // lock waits for a new calibration. With one person in the picture and the jump pause lasting this
+  // long in a rest, the runner takes the calibration again (and the lock with it).
+  relockAfterSec: 1,
 } as const;
 
 interface CalSample {
@@ -246,6 +250,11 @@ export class RangeTestRunner implements TestRunner {
   private t0 = 0;
   private tLast = 0;
   private calBuf: CalSample[] = [];
+  private calStart = 0;
+  /** The next calibration frame locks the subject again (spec 4.0: locked at calibration). */
+  private relockPending = true;
+  /** Since when the subject lock has paused on a jump, null while it follows the subject. */
+  private jumpSince: number | null = null;
   private cal: Calibration | null = null;
   private refLength = 0;
   private att: AttemptState | null = null;
@@ -298,6 +307,8 @@ export class RangeTestRunner implements TestRunner {
   start(t: number): TestEvent[] {
     this.t0 = t;
     this.tLast = t;
+    this.calStart = t;
+    this.relockPending = true;
     this.setPhase("calibrating", t);
     if (this.opts.intro ?? true) this.sink.cue("test_abd_start", t);
     this.sink.cue(this.side === "left" ? "check_left_arm" : "check_right_arm", t);
@@ -363,6 +374,8 @@ export class RangeTestRunner implements TestRunner {
   private track(frame: Frame, movement: boolean): Tracked {
     const tr = this.tracker.track(frame);
     const p = tr.pick;
+    if (p.reason === "jump") this.jumpSince ??= frame.t;
+    else this.jumpSince = null;
     if (p.paused && (p.reason === "overlap" || p.reason === "jump"))
       this.sink.cueEvery("check_one_person", frame.t, RANGE_RULES.onePersonCueEverySec);
     for (const trigger of this.checkin.feed(frame.t, p.lm, frame.aspect, { movement }))
@@ -384,12 +397,17 @@ export class RangeTestRunner implements TestRunner {
   // after the rest between sides; every stored measure is the same.
   private calibrating(frame: Frame, roll: number | null): void {
     const t = frame.t;
-    if (t - this.t0 > RANGE_RULES.calibrationTimeoutSec * 1000) {
+    if (t - this.calStart > RANGE_RULES.calibrationTimeoutSec * 1000) {
       this.notMeasured = "quality";
       this.end(t);
       return;
     }
-    if (!this.lock.locked && !this.tracker.lockOn(frame)) return;
+    // Every calibration locks the subject again, also with a lock shared between sides and after
+    // a phone that moved: the lock's reference must be the picture the calibration is taken in.
+    if (this.relockPending) {
+      if (!this.tracker.lockOn(frame)) return;
+      this.relockPending = false;
+    }
     const tr = this.track(frame, false);
     const px = tr.px;
     const gateOk =
@@ -463,6 +481,13 @@ export class RangeTestRunner implements TestRunner {
           ),
         )
       : 0;
+    // A calibration taken again (the picture moved) keeps the practice's reference length, scaled
+    // by the new upper arm length (a phone moved nearer or further changes every length alike).
+    const before = this.cal;
+    this.refLength =
+      before && this.practiceDone
+        ? Math.max(upperArm, (this.refLength * upperArm) / before.upperArm)
+        : upperArm;
     this.cal = {
       reference: trunk ? "trunk" : "gravity",
       fixedHip,
@@ -474,11 +499,19 @@ export class RangeTestRunner implements TestRunner {
       upperArm,
       t,
     };
-    this.refLength = upperArm;
     const last = buf[buf.length - 1];
     this.checkin.setReference(checkInReference(last.raw, last.aspect));
     this.calBuf = [];
-    this.startAttempt(t, true);
+    this.startAttempt(t, this.nextPractice || !this.practiceDone);
+  }
+
+  /** Takes the calibration again (and the subject lock with it), then goes on with the attempts. */
+  private recalibrate(t: number): void {
+    this.calBuf = [];
+    this.calStart = t;
+    this.relockPending = true;
+    this.setPhase("calibrating", t);
+    this.sink.cue("test_abd_arms_rest", t);
   }
 
   private startAttempt(t: number, practice: boolean): void {
@@ -883,6 +916,16 @@ export class RangeTestRunner implements TestRunner {
   private resting(frame: Frame, roll: number | null): void {
     const t = frame.t;
     const tr = this.track(frame, false);
+    // A phone that slipped: one person in the picture and the lock pausing on a jump for a while.
+    if (
+      this.jumpSince !== null &&
+      t - this.jumpSince >= RANGE_RULES.relockAfterSec * 1000 &&
+      tr.pick.others === 1
+    ) {
+      this.sink.cue("check_phone_still", t);
+      this.recalibrate(t);
+      return;
+    }
     if (t < this.restUntil) {
       const remaining = Math.ceil((this.restUntil - t) / 1000);
       if (remaining !== this.lastRemaining) {

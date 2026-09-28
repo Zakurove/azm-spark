@@ -1409,3 +1409,25 @@ describe("several postpone reasons at once (SPEC-GAP multi-postpone)", () => {
     expect(o.alsoShow ?? []).toEqual([]);
   });
 });
+
+describe("pc_sci_ad_since after a check in the other setting (spec 2.2, SPEC-GAP ad-since-any-setting)", () => {
+  it("is asked at the first home check after a completed booth check", () => {
+    const env = envOf(
+      { position: "wheelchair", conditions: ["sci_complete"] },
+      { firstCheck: true, setup: { sciT6: true }, completedBefore: true },
+    );
+    expect(visibleQuestions(env, {})).toContain("pc_sci_ad_since");
+    expect(run(env, { pc_sci_level: "yes", pc_sci_ad_since: "yes" })).toMatchObject({
+      status: "postpone",
+      reason: "recent_change",
+    });
+  });
+
+  it("is not asked before any completed check", () => {
+    const env = envOf(
+      { position: "wheelchair", conditions: ["sci_complete"] },
+      { firstCheck: true, setup: { sciT6: true }, completedBefore: false },
+    );
+    expect(visibleQuestions(env, {})).not.toContain("pc_sci_ad_since");
+  });
+});

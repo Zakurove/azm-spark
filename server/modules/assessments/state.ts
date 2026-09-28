@@ -139,6 +139,7 @@ export function precheckEnv(
       baseTests: baseTests(base),
       sideLeanDoneAtHome: sideLeanDoneAtHome(db, userId),
       neededArmsLastStand: neededArmsLastStand(db, userId, setting),
+      completedBefore: s.lastCompleted !== null,
     },
   };
 }

@@ -90,6 +90,13 @@ export interface PrecheckEnv {
   // SPEC-GAP: needed-arms-env. The contract env has no field for it; missing means no. The server
   // passes it from the stored results.
   neededArmsLastStand?: boolean;
+  /**
+   * The person has a completed check in any setting (booth or home). `firstCheck` is per series, so
+   * it is true at the first home check after booth checks; pc_sci_ad_since ("since your last check")
+   * is a safety question and is asked whenever there was a last check in any setting.
+   */
+  // SPEC-GAP: ad-since-any-setting. Missing means not known, and then only !firstCheck shows it.
+  completedBefore?: boolean;
 }
 
 export type PrecheckStatus = "proceed" | "postpone" | "emergency" | "ad" | "incomplete";
@@ -447,7 +454,7 @@ const SHOW_IF: ShowIfEvaluators = {
   supportNot: (s, c) => c.env.ctx.support !== s,
   conditionsAny: (ids, c) => has(c.env.ctx.conditions, ids),
   flag: (f, c) => c.flag(f),
-  notFirstCheck: (_, c) => !c.env.firstCheck,
+  notFirstCheck: (_, c) => !c.env.firstCheck || c.env.completedBefore === true,
   testSelected: (t, c) => c.env.baseTests.includes(t),
   positionIn: (ps, c) => ps.includes(c.env.ctx.position),
   setting: (s, c) => c.env.setting === s,

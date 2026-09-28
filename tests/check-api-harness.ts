@@ -162,6 +162,7 @@ export function envFromContext(c: any, setting: Setting = "home"): PrecheckEnv {
     baseTests: c.setting === setting ? c.baseTests : baseTests(baseSelection(ctx, setting, setup)),
     sideLeanDoneAtHome: c.sideLeanDoneAtHome,
     neededArmsLastStand: c.neededArmsLastStand,
+    completedBefore: c.completedBefore,
   };
 }
 

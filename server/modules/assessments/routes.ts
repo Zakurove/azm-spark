@@ -265,6 +265,7 @@ export const assessmentRoutes: Route[] = [
         setting,
         setup: s.setup,
         firstCheck: firstCheckIn(db, u.id, setting),
+        completedBefore: s.lastCompleted !== null,
         unresolvedChangeReported: s.unresolvedChangeReported,
         lastCheckLasting: s.lasting !== null,
         sideLeanDoneAtHome: sideLeanDoneAtHome(db, u.id),

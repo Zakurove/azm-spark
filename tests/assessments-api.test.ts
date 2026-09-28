@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createRequire } from "node:module";
 import { runMigrations } from "../server/db/migrate";
 import { currentLock, setLock } from "../server/modules/assessments/store";
-import { DATA_MAP_KEYS } from "../src/medical/precheck";
+import { DATA_MAP_KEYS, visibleQuestions } from "../src/medical/precheck";
 import type { ProtocolItem } from "../src/medical/assessment";
 import {
   DAY,
@@ -18,6 +18,7 @@ import {
   T0,
   WHEELCHAIR_STROKE,
   answersFor,
+  envFromContext,
   intakeOf,
   itemOf,
   login,
@@ -1469,5 +1470,42 @@ describe("an open check after a postpone, an emergency or another day", () => {
     const stop = await h.call(`/assessments/${s.data.id}/stop`, { option: "chest" }, next);
     expect(stop.status).toBe(200);
     expect(stop.data).toMatchObject({ endsCheck: true, lock: { reason: "stop_symptom" } });
+  });
+});
+
+describe("pc_sci_ad_since at the first home check after a booth check", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("is asked, and a yes postpones", async () => {
+    process.env.AZM_BOOTH_CODE = "booth-code-7731";
+    const intake = intakeOf({ conditions: ["sci_incomplete"], mobility: "wheelchair", clearance: "yes" });
+    const cookie = await member(h, "sci-booth@example.test", intake);
+    const booth = await start(
+      h,
+      cookie,
+      { pc_sci_level: "yes" },
+      { setting: "booth", boothCode: "booth-code-7731" },
+    );
+    expect(booth.status).toBe(200);
+    const item = booth.data.protocol.find((i: ProtocolItem) => !i.skipped);
+    await postResults(h, cookie, booth.data.id, booth.data.protocol, {
+      [`${item.testId}:${item.side}`]: 100,
+    });
+    expect((await h.call(`/assessments/${booth.data.id}/complete`, {}, cookie)).status).toBe(200);
+    setTime(T0 + 3 * DAY);
+    const next = await login(h, "sci-booth@example.test");
+    const c = await h.call("/assessments/context", undefined, next);
+    expect(c.data).toMatchObject({ firstCheck: true, completedBefore: true });
+    // The first home check asks the level again (a new series); the AD since question follows it.
+    const env = envFromContext(c.data);
+    expect(visibleQuestions(env, { pc_sci_level: "yes" })).toContain("pc_sci_ad_since");
+    const answers = await answersFor(h, next, { pc_sci_level: "yes", pc_sci_ad_since: "yes" });
+    const r = await h.call("/assessments", { answers, device: DEVICE }, next);
+    expect(r.data).toMatchObject({ error: "POSTPONE", reason: "recent_change" });
   });
 });

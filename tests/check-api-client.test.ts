@@ -21,6 +21,7 @@ import {
 } from "../src/features/assessment/flowMachine";
 import { memoryStore, ResultQueue } from "../src/features/assessment/resultQueue";
 import { snapshotOf } from "../src/features/assessment/useCheckFlow";
+import { screenKeyOf } from "../src/features/assessment/CheckApp";
 import { isBoothMode, readBoothCode } from "../src/features/assessment/boothMode";
 import { announcementFor } from "../src/features/assessment/shared/CheckUi";
 import { toggleMulti } from "../src/features/assessment/shared/answers";
@@ -362,6 +363,14 @@ describe("shared UI helpers", () => {
     expect(onlineState(true, true)).toBe(false);
     expect(readBoothCode()).toBeNull();
     expect(isBoothMode()).toBe(false);
+  });
+
+  it("the screen key changes with the screen, not with an overlay over it", () => {
+    const m = initialModel({ mode: "guest", booth: true, homeOpen: false, desktop: false });
+    const q = { ...m, state: { kind: "question" as const, id: "pc_urgent" } };
+    expect(screenKeyOf(q)).toBe("question:pc_urgent");
+    expect(screenKeyOf({ ...q, overlay: { kind: "leave" } })).toBe(screenKeyOf(q));
+    expect(screenKeyOf({ ...q, state: { kind: "question", id: "pc_unwell" } })).not.toBe(screenKeyOf(q));
   });
 
   it("the reload snapshot keeps no raw answers once the protocol is frozen", () => {

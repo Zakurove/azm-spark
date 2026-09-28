@@ -22,6 +22,7 @@ import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
 import { createCheckApi } from "../features/assessment/api";
 import { isBoothMode } from "../features/assessment/boothMode";
+import { hasSnapshot } from "../features/assessment/useCheckFlow";
 import { BoothStaffPage } from "../features/assessment/booth";
 import { AfterIntakeOffer, ExampleProgress, ResultsPage, TodayCheckSlot } from "../features/progress";
 import { t } from "../i18n";
@@ -62,7 +63,8 @@ export default function App() {
     [authView, setAuthView] = useState(qs.get("app") === "1"),
     [authRegister, setAuthRegister] = useState(false),
     [tryCam, setTryCam] = useState(qs.get("try") === "1"),
-    [checkOpen, setCheckOpen] = useState(false),
+    // A signed in check reloaded by S32 (camera permission) opens again where it was.
+    [checkOpen, setCheckOpen] = useState(() => hasSnapshot("signedIn")),
     [intakeOffer, setIntakeOffer] = useState(false);
   const c = labels(lang);
   const pageLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c[key]);

@@ -60,6 +60,16 @@ export function saveSnapshot(m: FlowModel): void {
   }
 }
 
+/** Whether a reload snapshot of this mode waits (App reopens the signed in check after S32's reload). */
+export function hasSnapshot(mode: FlowConfig["mode"]): boolean {
+  try {
+    const raw = sessionStorage.getItem(SNAPSHOT_KEY);
+    return !!raw && (JSON.parse(raw) as FlowModel)?.data?.config?.mode === mode;
+  } catch {
+    return false;
+  }
+}
+
 /** Reads and removes the snapshot; only a snapshot of the same mode and booth state is used. */
 export function takeSnapshot(config: FlowConfig): FlowModel | null {
   try {

@@ -100,7 +100,8 @@
 /* The h1 takes focus on every screen change (tabindex -1) so a screen reader reads it; it is not a
    control, so it shows no focus ring. */
 .azm-check h1:focus,
-.azm-check h1:focus-visible {
+.azm-check h1:focus-visible,
+.azm-check h1[tabindex]:focus-visible {
   outline: none;
   box-shadow: none;
 }

@@ -41,12 +41,14 @@ export function isDesktopDevice(): boolean {
   return !touch && window.innerWidth > 1024;
 }
 
-/** Changes when the screen changes (not when the same screen re-renders): focus moves to its h1. */
+/**
+ * Changes when the screen changes (not when the same screen re-renders, and not when an overlay opens
+ * over it, so the screen keeps what the person selected): focus moves to its h1. Overlays focus their
+ * own heading when they mount.
+ */
 export function screenKeyOf(m: FlowModel): string {
   const s = m.state as FlowState & { id?: string; i?: number; side?: number; step?: number; safety?: string };
-  return [s.kind, s.id, s.i, s.side, s.step, s.safety, m.overlay?.kind]
-    .filter((x) => x !== undefined)
-    .join(":");
+  return [s.kind, s.id, s.i, s.side, s.step, s.safety].filter((x) => x !== undefined).join(":");
 }
 
 export default function CheckApp({ lang, onLanguage, mode, onExit, booth, desktop }: CheckAppProps) {

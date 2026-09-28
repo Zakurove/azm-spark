@@ -7,7 +7,6 @@ import {
   sanitizeSelection,
   WeeklyPlan,
 } from "../src/medical/weekly";
-import { optionNames } from "../src/app/platform-copy";
 import { EXERCISES } from "../src/exercises/defs";
 
 /** Weekly plan composer. The rules engine has already filtered for safety and fixed the dose;
@@ -30,6 +29,8 @@ A deterministic medical rules engine has ALREADY removed every unsafe exercise a
 4. summary: two warm sentences addressed to the person, naming their medical condition and their goal, explaining how the week is shaped around them.
 5. why: exactly 3 short reasons, each tied to something concrete in their profile (a restriction, a pain area, their mobility, their condition).
 6. tips: exactly 3 practical tips specific to their condition (warning signs to stop, energy, temperature, consistency).
+
+The person's conditions are enum keys (for example stroke, ms, cerebral_palsy, sci_complete, sci_incomplete, parkinsons, arthritis, cfs_moderate, lower_limb_unilateral, upper_limb_unilateral, none); name them in plain words.
 
 Language rules: Arabic is warm Modern Standard Arabic with Saudi warmth. Always write حالتك الطبية, never حالتك الصحية. English is natural, not a literal translation. Never use dash characters of any kind. Never diagnose, never promise treatment or recovery, never mention doses, never recommend medication. Speak to one person.`;
 
@@ -79,10 +80,12 @@ async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: str
       },
     },
   };
+  // Q32: no identifier and no free text in a model call. The conditions go as enum keys only; the
+  // diagnosis notes (typed, or read from a report, and able to hold a name or an ID number) and the
+  // medications never leave the server.
   const profile = {
     age: h.age,
-    conditions: h.conditions.map((c) => ({ en: optionNames[c]?.en ?? c, ar: optionNames[c]?.ar ?? c })),
-    diagnosisNotes: h.diagnosisNotes.slice(0, 700),
+    conditions: [...h.conditions],
     mobility: h.mobility,
     affectedSide: h.support,
     painAreas: h.pain,

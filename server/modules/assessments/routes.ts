@@ -261,6 +261,7 @@ export const assessmentRoutes: Route[] = [
       const lock = currentLock(db, u.id, now);
       const last = s.lastCompleted?.completed ?? null;
       const dose = s.lastCompleted?.precheck["fingerprint.pdDoseBucket"];
+      const consent = activeConsent(db, u.id, "movement_check") !== null;
       const common = {
         setting,
         setup: s.setup,
@@ -276,8 +277,9 @@ export const assessmentRoutes: Route[] = [
         lock,
         retestDue: retestDue(last),
         earliestNext: earliestNextCheck(last),
-        followUpDue: s.followUpDue !== null,
-        consent: activeConsent(db, u.id, "movement_check") !== null,
+        // The next day question is asked only under the consent (POST /api/assessments/after).
+        followUpDue: consent && s.followUpDue !== null,
+        consent,
         consentVersion: CONSENT_VERSIONS.movement_check,
         baselineRanges: baselineRanges(keptResults(db, u.id)),
       };
@@ -553,6 +555,8 @@ export const assessmentRoutes: Route[] = [
     auth: "user",
     handle({ db, user, body, json }) {
       if (unknownKeys(body, ["answer"]).length) return json(400, { error: "AFTER_INVALID", field: "body" });
+      // ac_next_day is health data kept with the check: it needs the movement check consent.
+      if (!activeConsent(db, user!.id, "movement_check")) return json(403, { error: "CONSENT_REQUIRED" });
       const now = Date.now();
       const s = personState(db, user!.id, now);
       const due = s?.followUpDue;

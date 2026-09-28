@@ -1509,3 +1509,30 @@ describe("pc_sci_ad_since at the first home check after a booth check", () => {
     expect(r.data).toMatchObject({ error: "POSTPONE", reason: "recent_change" });
   });
 });
+
+describe("the next day question after the consent is revoked", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("is not asked and not stored", async () => {
+    const cookie = await member(h, "after-revoked@example.test", WHEELCHAIR_STROKE);
+    const s = await start(h, cookie);
+    await postResults(h, cookie, s.data.id, s.data.protocol, { "shoulder_abduction:right": 100 });
+    expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).status).toBe(200);
+    await h.call("/consents/movement_check", {}, cookie, "DELETE");
+    setTime(T0 + 13 * HOUR);
+    const next = await login(h, "after-revoked@example.test");
+    expect((await h.call("/assessments/context", undefined, next)).data.followUpDue).toBe(false);
+    expect((await h.call("/assessments/after", { answer: "lasting" }, next)).data).toEqual({
+      error: "CONSENT_REQUIRED",
+    });
+    const row = h.inspect().prepare("SELECT precheck FROM assessments WHERE id=?").get(s.data.id) as {
+      precheck: string;
+    };
+    expect(JSON.parse(row.precheck)["assessment.followUp"]).toBeUndefined();
+  });
+});

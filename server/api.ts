@@ -328,6 +328,11 @@ export function createApi(
           rpe: s.rpe,
           romPct: s.romPct,
           flags,
+          // The workout engine version that judged the set (S0 safety stop change record).
+          engineVersion:
+            typeof s.engineVersion === "string" && /^[a-z0-9_]{1,40}$/.test(s.engineVersion)
+              ? s.engineVersion
+              : undefined,
           moments: body.moments.map((m: any) => ({ cls: m.cls, durSec: m.durSec, peakPct: m.peakPct })),
           mode: "camera",
           setup: e.setup,

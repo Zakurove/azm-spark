@@ -145,7 +145,8 @@ export class CuePlayer {
       }
     }
     // No recording (a missing MP3, such as a check cue before its file is generated): speak the
-    // line with a voice on the device, the vocalized arTts text in Arabic.
+    // line with a voice on the device, the vocalized arTts text in Arabic and the enTts text (for
+    // speech only, such as the welcome that names the brand clearly) in English.
     if (typeof speechSynthesis === "undefined") {
       finish();
       return false;
@@ -157,8 +158,10 @@ export class CuePlayer {
       finish();
       return false;
     }
-    const spoken = voiceScript[id] as { ar: string; en: string; arTts?: string };
-    const u = new SpeechSynthesisUtterance(this.lang === "ar" ? (spoken.arTts ?? spoken.ar) : spoken.en);
+    const spoken = voiceScript[id] as { ar: string; en: string; arTts?: string; enTts?: string };
+    const u = new SpeechSynthesisUtterance(
+      this.lang === "ar" ? (spoken.arTts ?? spoken.ar) : (spoken.enTts ?? spoken.en),
+    );
     u.lang = SPEECH_LANG[this.lang];
     u.voice = voice;
     u.rate = this.rate;

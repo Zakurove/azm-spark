@@ -11,7 +11,7 @@
  *
  * Where copy is read from
  *   1. Every JSON file under src/i18n (the folder may not exist yet), all string leaves.
- *   2. src/app/voice-script.json: the ar, en and arTts text of every cue.
+ *   2. src/app/voice-script.json: the ar, en, arTts and enTts text of every cue.
  *   3. src/exercises/library.json: name, description and steps of every exercise.
  *   4. Exported copy of src/app/platform-copy.ts, src/app/camera-copy.ts, src/app/i18n.ts (T),
  *      src/app/experience.ts and src/app/product.ts: exported objects are walked recursively and
@@ -137,7 +137,7 @@ function i18nJsonCopy(root = ROOT): Copy[] {
 function voiceCopy(): Copy[] {
   const out: Copy[] = [];
   for (const [id, cue] of Object.entries(voiceScript as Record<string, Record<string, string>>)) {
-    for (const field of ["ar", "en", "arTts"]) {
+    for (const field of ["ar", "en", "arTts", "enTts"]) {
       if (typeof cue[field] === "string") walk(cue[field], `voice-script.json ${id}.${field}`, out);
     }
   }

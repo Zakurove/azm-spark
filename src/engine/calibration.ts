@@ -30,12 +30,12 @@ export class Calibrator {
         this.spanHistory.push({ t: mf.t, span: hi - lo });
       }
     }
-    for (const rule of this.def.rules) {
-      const v = mf.values[rule.metric];
-      if (v === undefined) continue;
-      const arr = this.baselineSamples.get(rule.metric) ?? [];
+    for (const m of baselineMetrics(this.def)) {
+      const v = mf.values[m];
+      if (v === undefined || !Number.isFinite(v)) continue;
+      const arr = this.baselineSamples.get(m) ?? [];
       arr.push(v);
-      this.baselineSamples.set(rule.metric, arr);
+      this.baselineSamples.set(m, arr);
     }
   }
 
@@ -86,6 +86,19 @@ export class Calibrator {
     for (const [m, arr] of this.baselineSamples) baselines[m] = median(arr);
     return { exerciseId: this.def.id, range, baselines, capturedAt: now };
   }
+}
+
+/**
+ * Metrics whose calibration median is kept in the PRF: every rule metric, plus the trunk angle of
+ * the safety stop and, for a side view, the face side that gives its forward direction (S0).
+ */
+export function baselineMetrics(def: ExerciseDef): MetricId[] {
+  const out = new Set<MetricId>(def.rules.map((r) => r.metric));
+  if (def.trunkSafety) {
+    out.add("trunk_lean");
+    if (def.trunkSafety.cap.view === "side") out.add("nose_offset");
+  }
+  return [...out];
 }
 
 /** 5th–95th percentile — robust to landmark glitches. */

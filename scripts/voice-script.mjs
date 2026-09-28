@@ -3,7 +3,7 @@ import {transform} from 'esbuild';
 const result=await transform(await readFile('src/app/experience.ts','utf8'),{loader:'ts',format:'esm'});
 const {movementSteps}=await import('data:text/javascript;base64,'+Buffer.from(result.code).toString('base64'));
 const script={
- sit_tall:{ar:'ثبّت جذعك، وعدّل جلستك بهدوء.',en:'Steady your trunk. Adjust your sitting position.'},
+ sit_tall:{ar:'ثبّت جذعك، وعدّل وضعية جلوسك بهدوء.',en:'Steady your trunk. Adjust your sitting position.'},
  even_arms:{ar:'حاول تحريك ذراعيك معًا، ضمن قدرتك.',en:'Try moving your arms together, within your ability.'},
  slow_down:{ar:'تمهّل قليلًا، وتحكّم بالحركة.',en:'Slow down a little. Keep the movement controlled.'},
  fuller_range:{ar:'حاول إكمال الحركة ضمن مداك المريح.',en:'Try completing the movement within your comfortable range.'},
@@ -15,7 +15,9 @@ const script={
  great_rep:{ar:'أحسنت، حركة متحكَّم بها.',en:'Well done. A controlled movement.'},
  halfway:{ar:'وصلت إلى نصف المجموعة. واصل بإيقاعك.',en:'Halfway through your set. Keep your own pace.'},
  set_done:{ar:'أحسنت. انتهت المجموعة، خذ وقتك للراحة.',en:'Well done. Your set is complete. Take time to rest.'},
- stop_rest:{ar:'توقّف الآن واسترح.',en:'Stop now and rest.'},
+ stop_rest:{ar:'توقف فورًا واسترح.',en:'Stop now and rest.'},
+ // S0 pre-set block (council 2026-09-28): the calibrated posture is at or beyond the trunk cap.
+ sit_upright_first:{ar:'اجلس مستقيمًا قدر ما تستطيع براحة، ثم نبدأ.',en:'Sit as upright as you comfortably can, then we will start.'},
  preview:{ar:'أهلًا بك في عزم. تحرّك على مهلك، وضمن المدى المريح لك.',en:'Welcome to Azm. Move at your own pace, within your comfortable range.'},
  calibration:{ar:'لنحدّد مداك. كرّر الحركة ببطء وبجهد مريح.',en:'Let’s find your range. Repeat the movement slowly, at a comfortable effort.'},
  training:{ar:'تم تحديد مداك. لنبدأ مجموعتك.',en:'Your range is ready. Let’s begin your set.'},
@@ -26,7 +28,7 @@ const numbers=['واحد','اثنان','ثلاثة','أربعة','خمسة','س�
 // Fully vocalized (tashkeel) variants tuned for TTS pronunciation. Display text stays clean;
 // the generator and the speech fallback read arTts ?? ar.
 const arTts={
- sit_tall:'ثَبِّتْ جِذْعَكَ، وَعَدِّلْ جِلْسَتَكَ بِهُدُوء.',
+ sit_tall:'ثَبِّتْ جِذْعَكَ، وَعَدِّلْ وَضْعِيَّةَ جُلُوسِكَ بِهُدُوء.',
  even_arms:'حَاوِلْ تَحْرِيكَ ذِرَاعَيْكَ مَعًا، ضِمْنَ قُدْرَتِك.',
  slow_down:'تَمَهَّلْ قَلِيلًا، وَتَحَكَّمْ بِالْحَرَكَة.',
  fuller_range:'حَاوِلْ إِكْمَالَ الْحَرَكَةِ ضِمْنَ مَدَاكَ الْمُرِيح.',
@@ -38,7 +40,8 @@ const arTts={
  great_rep:'أَحْسَنْتَ، حَرَكَةٌ مُتَحَكَّمٌ بِهَا.',
  halfway:'وَصَلْتَ إِلَى نِصْفِ الْمَجْمُوعَة. وَاصِلْ بِإِيقَاعِك.',
  set_done:'أَحْسَنْت. اِنْتَهَتِ الْمَجْمُوعَةُ، خُذْ وَقْتَكَ لِلرَّاحَة.',
- stop_rest:'تَوَقَّفِ الْآنَ وَاسْتَرِح.',
+ stop_rest:'تَوَقَّفْ فَوْرًا وَاسْتَرِحْ.',
+ sit_upright_first:'اِجْلِسْ مُسْتَقِيمًا قَدْرَ مَا تَسْتَطِيعُ بِرَاحَةْ، ثُمَّ نَبْدَأْ.',
  preview:'أَهْلًا بِكَ فِي عَزْم. تَحَرَّكْ عَلَى مَهْلِكَ، وَضِمْنَ الْمَدَى الْمُرِيحِ لَك.',
  calibration:'لِنُحَدِّدْ مَدَاك. كَرِّرِ الْحَرَكَةَ بِبُطْءٍ وَبِجُهْدٍ مُرِيح.',
  training:'تَمَّ تَحْدِيدُ مَدَاك. لِنَبْدَأْ مَجْمُوعَتَك.',
@@ -55,6 +58,14 @@ const arTts={
  count_6:'سِتَّة',count_7:'سَبْعَة',count_8:'ثَمَانِيَة',count_9:'تِسْعَة',count_10:'عَشَرَة',
 };
 for(const [id,t] of Object.entries(arTts))if(script[id])script[id].arTts=t;
+
+// English text used only for text to speech, where the display text is misread (voice audition
+// decision, fix 7: every Gemini voice lost "to Azm"). The generator and the speech fallback read
+// enTts ?? en; the display text stays en.
+const enTts={
+ preview:'Welcome. This is Azm. Move at your own pace, within your comfortable range.',
+};
+for(const [id,t] of Object.entries(enTts))if(script[id])script[id].enTts=t;
 
 // Movement check cues (check_ and test_ ids) come from the runtime clinical data, written by
 // scripts/clinical/export-check.mjs. They are appended after the workout cues, which stay unchanged.

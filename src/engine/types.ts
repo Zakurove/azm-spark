@@ -76,7 +76,8 @@ export type MetricId =
   | "trunk_lean" // deviation of trunk axis from vertical, degrees (signed L/R in image plane)
   | "shoulder_hike" // shoulder line vertical offset, fraction of trunk length (signed: +ve = left higher)
   | "arm_asym" // |elbow_flex_l - elbow_flex_r| degrees
-  | "hip_height"; // hip midpoint height above ankle midpoint, fraction of trunk length (sit-to-stand)
+  | "hip_height" // hip midpoint height above ankle midpoint, fraction of trunk length (sit-to-stand)
+  | "nose_offset"; // nose minus mid shoulder, horizontal, fraction of trunk length (+ve = nose to image right)
 
 export interface MetricFrame {
   t: number;
@@ -99,7 +100,8 @@ export type CueId =
   | "great_rep"
   | "halfway"
   | "set_done"
-  | "stop_rest";
+  | "stop_rest"
+  | "sit_upright_first";
 
 export type Severity = "safety" | "warn" | "info" | "praise";
 
@@ -117,6 +119,26 @@ export interface CompensationRule {
   skipIfExpectedAsymmetry?: boolean;
   /** evaluate only while a rep is in progress */
   duringRepOnly?: boolean;
+}
+
+/**
+ * S0 (council 2026-09-28): the workout trunk safety stop. Two limits; whichever is reached first
+ * stops the set:
+ *   (a) the trunk moves `relativeDeg` or more away from the person's own calibrated posture, in
+ *       either direction;
+ *   (b) an absolute limit from vertical, by view. Front view (sideways lean): `eitherDeg` in either
+ *       direction. Side view: `forwardDeg` for a lean away from the backrest and `backwardDeg` for a
+ *       lean toward it, the forward direction taken at calibration from the side of the mid
+ *       shoulder the nose is on.
+ * A calibrated posture already at or beyond limit (b) blocks the set start with `presetCue`.
+ */
+export interface TrunkSafetyStop {
+  relativeDeg: number;
+  cap: { view: "front"; eitherDeg: number } | { view: "side"; forwardDeg: number; backwardDeg: number };
+  /** Spoken when the set stops. */
+  cue: CueId;
+  /** Spoken when the calibrated posture blocks the set start. */
+  presetCue: CueId;
 }
 
 export interface ExerciseVariant {
@@ -141,6 +163,8 @@ export interface ExerciseDef {
   minPhaseSec: number;
   /** compensation rules (evaluated vs PRF baselines) */
   rules: CompensationRule[];
+  /** trunk safety stop (S0); evaluated every frame of the set, in or out of a rep */
+  trunkSafety?: TrunkSafetyStop;
   variants: ExerciseVariant[];
   targetReps: number;
   camera: { en: string; ar: string }; // framing instruction
@@ -162,6 +186,8 @@ export type EngineEvent =
   | { kind: "rep"; cls: RepClass; count: number; t: number; durSec: number; peakPct: number }
   | { kind: "flag"; ruleId: string; cue: CueId; severity: Severity; value: number; t: number }
   | { kind: "phase"; phase: "lifting" | "top" | "lowering" | "idle"; t: number }
+  /** A safety stop ended the set (S0); the engine counts nothing after it. */
+  | { kind: "stop"; ruleId: string; t: number }
   | { kind: "framing"; ok: boolean; t: number }
   | { kind: "progress"; pct: number; t: number };
 
@@ -174,4 +200,6 @@ export interface SessionSummary {
   flags: Record<string, number>;
   rpe?: number;
   romPct?: number; // best rep ROM as % of calibrated range
+  /** WORKOUT_ENGINE_VERSION of the engine that judged the set (repEngine.ts) */
+  engineVersion?: string;
 }

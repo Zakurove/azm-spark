@@ -5,7 +5,8 @@ import { ExerciseDef, LM } from "../engine/types";
  * Authored defaults by the engineering build; REQUIRE review + sign-off by the
  * medical lead (Nasser, PM&R) and fitness lead (Chaker) before any real-user session.
  * Thresholds are deltas vs the user's own calibrated baselines (PRF), in degrees
- * unless stated otherwise.
+ * unless stated otherwise. Every angle is a true angle (pixel space, D-003).
+ * The trunk safety stop of the press and the curl is `trunkSafety` (S0, trunkSafety.ts).
  */
 
 const UPPER_REQ = [
@@ -70,24 +71,6 @@ export const EXERCISES: ExerciseDef[] = [
         duringRepOnly: true,
       },
       {
-        id: "trunk_safety",
-        metric: "trunk_lean",
-        delta: 25,
-        op: ">",
-        cue: "stop_rest",
-        severity: "safety",
-        absolute: true,
-      },
-      {
-        id: "trunk_safety_neg",
-        metric: "trunk_lean",
-        delta: -25,
-        op: "<",
-        cue: "stop_rest",
-        severity: "safety",
-        absolute: true,
-      },
-      {
         id: "arm_asym",
         metric: "arm_asym",
         delta: 18,
@@ -98,6 +81,14 @@ export const EXERCISES: ExerciseDef[] = [
         duringRepOnly: true,
       },
     ],
+    // S0: 15° from the calibrated posture either way, capped at 25° either way (sideways lean with
+    // the arms loaded overhead).
+    trunkSafety: {
+      relativeDeg: 15,
+      cap: { view: "front", eitherDeg: 25 },
+      cue: "stop_rest",
+      presetCue: "sit_upright_first",
+    },
     variants: [
       { profileIds: ["wheelchair"], requiredLandmarks: UPPER_REQ, contextLandmarks: LOWER_CTX },
       {
@@ -123,7 +114,7 @@ export const EXERCISES: ExerciseDef[] = [
     // CAMERA: side/45-degree view is REQUIRED — a frontal view collapses the sagittal-plane
     // elbow angle in 2D projection (verified failure mode); framing text enforces this.
     primaryMetric: "elbow_flex_mean",
-    metrics: ["elbow_flex_mean", "elbow_flex_l", "elbow_flex_r", "trunk_lean", "arm_asym"],
+    metrics: ["elbow_flex_mean", "elbow_flex_l", "elbow_flex_r", "trunk_lean", "arm_asym", "nose_offset"],
     defaultRange: [165, 55], // inverted range: start extended (165°) → curled (55°)
     minPhaseSec: 0.7,
     rules: [
@@ -155,25 +146,16 @@ export const EXERCISES: ExerciseDef[] = [
         skipIfExpectedAsymmetry: true,
         duringRepOnly: true,
       },
-      {
-        id: "trunk_safety",
-        metric: "trunk_lean",
-        delta: 25,
-        op: ">",
-        cue: "stop_rest",
-        severity: "safety",
-        absolute: true,
-      },
-      {
-        id: "trunk_safety_neg",
-        metric: "trunk_lean",
-        delta: -25,
-        op: "<",
-        cue: "stop_rest",
-        severity: "safety",
-        absolute: true,
-      },
     ],
+    // S0: 15° from the calibrated posture either way, capped at 25° forward (away from the
+    // backrest) and 30° backward (a recline or a tilt in space wheelchair), the forward direction
+    // from the side of the mid shoulder the nose is on at calibration.
+    trunkSafety: {
+      relativeDeg: 15,
+      cap: { view: "side", forwardDeg: 25, backwardDeg: 30 },
+      cue: "stop_rest",
+      presetCue: "sit_upright_first",
+    },
     variants: [
       { profileIds: ["wheelchair"], requiredLandmarks: UPPER_REQ, contextLandmarks: LOWER_CTX },
       {

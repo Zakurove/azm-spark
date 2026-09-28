@@ -9,9 +9,10 @@
  *     last trusted mid hip (the calibration mid hip at first). A second person who stays at the
  *     edge of the picture is ignored.
  *   - Scoring pauses (`paused`) when another pose's box overlaps the subject's by more than 20
- *     percent, or when the nearest mid hip jumped more than 0.5 shoulder widths in one frame. After
- *     a jump the pose is not trusted as the subject: no landmarks are returned and the reference
- *     stays where the subject was last seen. A frame without the subject is paused as well.
+ *     percent, or when the nearest mid hip jumped more than 0.5 shoulder widths in one frame (one
+ *     frame of the 20 fps floor: a longer gap between frames allows the distance of the frames it
+ *     spans). After a jump the pose is not trusted as the subject: no landmarks are returned and the
+ *     reference stays where the subject was last seen. A frame without the subject is paused as well.
  *   - A landmark that is not a finite number is never visible (body.ts sanitizePose).
  *   - `pausedShare` covers the frames since `resetAttempt()`. Over 10 percent fails the attempt
  *     (quality.ts). `touched` is true when a second person touched the subject in any of those
@@ -48,6 +49,13 @@ export const SUBJECT_RULES = {
   // equals the pixel reading in a front view. A swap to another person (at least a body width
   // away) still exceeds it.
   minWidthPerTrunk: 0.55,
+  // SPEC-GAP: jump-per-time. "A jump over 0.5 shoulder widths in one frame" is read per frame of the
+  // 20 fps floor of the timed tests (50 ms). A phone that delivers a frame late (a dropped frame, a
+  // slow model step: 150 to 200 ms is common) moves the body several frames' worth between two
+  // frames, so the limit grows with the time since the previous frame, up to jumpMaxFrames frames.
+  // A swap to another person far away still pauses; a person rising from a chair does not.
+  jumpNominalFrameMs: 50,
+  jumpMaxFrames: 4,
   // SPEC-GAP: touch-distance. "The second person touches the subject" has no measure in the spec.
   // A touch is a visible hand point (wrist, pinky, index or thumb) of another pose within this many
   // shoulder widths of a visible segment of the subject's body, in any frame. One camera cannot see
@@ -143,6 +151,8 @@ export function handTouches(other: Landmark[], subject: Landmark[], maxDist: num
 
 interface LockState {
   aspect: number;
+  /** Time of the previous frame (ms), null before the first one after the lock. */
+  lastT: number | null;
   /** Calibration mid hip, pixel space. */
   anchor: Pt;
   /** Last trusted mid hip, pixel space. */
@@ -197,7 +207,7 @@ export class SubjectLock {
       this.rules.minWidthPerTrunk * (Number.isFinite(trunk) ? trunk : 0),
       1e-3,
     );
-    this.state = { aspect: a, anchor: hip, ref: { ...hip }, width };
+    this.state = { aspect: a, lastT: null, anchor: hip, ref: { ...hip }, width };
     return true;
   }
 
@@ -240,8 +250,11 @@ export class SubjectLock {
     return this.run;
   }
 
-  /** Finds the subject among this frame's poses. `aspect` defaults to the one given at lock. */
-  pick(poses: Landmark[][], aspect?: number): SubjectPick {
+  /**
+   * Finds the subject among this frame's poses. `aspect` defaults to the one given at lock; `t`
+   * (ms) is the frame time, which scales the jump limit after a late frame (jump-per-time).
+   */
+  pick(poses: Landmark[][], aspect?: number, t?: number): SubjectPick {
     const s = this.state;
     if (!s) {
       return {
@@ -256,6 +269,10 @@ export class SubjectLock {
       };
     }
     const a = aspect === undefined ? s.aspect : effectiveAspect(aspect);
+    const frames =
+      t !== undefined && s.lastT !== null && t > s.lastT ? (t - s.lastT) / this.rules.jumpNominalFrameMs : 1;
+    if (t !== undefined) s.lastT = t;
+    const jumpLimit = this.rules.jumpShoulderWidths * Math.min(Math.max(1, frames), this.rules.jumpMaxFrames);
     const people: { i: number; raw: Landmark[]; px: Landmark[] }[] = [];
     poses.forEach((pose, i) => {
       const raw = sanitizePose(pose);
@@ -290,7 +307,7 @@ export class SubjectLock {
     const others = people.filter((_, j) => j !== k);
     const jump = best / s.width;
 
-    if (jump > this.rules.jumpShoulderWidths) {
+    if (!(jump <= jumpLimit)) {
       return this.count({
         lm: null,
         index: -1,
@@ -334,9 +351,9 @@ export class SubjectLock {
     return p;
   }
 
-  /** `pick` on a frame's poses, with the frame's aspect. */
+  /** `pick` on a frame's poses, with the frame's aspect and time. */
   pickFrame(frame: Frame): SubjectPick {
-    return this.pick(posesOf(frame), frame.aspect ?? this.state?.aspect);
+    return this.pick(posesOf(frame), frame.aspect ?? this.state?.aspect, frame.t);
   }
 }
 

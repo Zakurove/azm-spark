@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { LineCounter, SustainedPeak, type SideResult } from "../src/engine/modes";
+import { SubjectLock } from "../src/engine/subject";
 import { isPerson, visible } from "../src/engine/body";
 import { seen } from "../src/engine/modes/common";
 import type { Landmark } from "../src/engine/types";
@@ -18,6 +19,7 @@ import {
   curlTruth,
   standPractice,
   standTrial,
+  standTruth,
   twoPass,
   type TwoPass,
 } from "./fixtures/timed";
@@ -95,6 +97,57 @@ describe("time without frames in a timed trial is unscored (spec 4.2 occlusion)"
     // About 2 s of 30 s.
     expect(r.detail.unscoredShare).toBeGreaterThan(0.05);
     expect(r.detail.unscoredShare).toBeLessThan(0.1);
+  });
+});
+
+/* ----------------------------------------------- the subject lock's jump rule */
+
+describe("frame gaps do not read as a jump of the subject (spec 4.0)", () => {
+  for (const [seed, ms] of [
+    [701, 200],
+    [702, 150],
+    [703, 200],
+    [704, 150],
+    [705, 200],
+  ] as const) {
+    it(`a ${ms} ms frame gap every 3 s in a chair stand, seed ${seed}`, () => {
+      const k = standCase(seed, {
+        extra: { subject: { arms: CROSSED }, timing: { gaps: { everySec: 3, ms } } },
+      });
+      const r = res(k);
+      const truth = standTruth(k.trial, k.goSec);
+      expect(r.status).toBe("measured");
+      expect(Math.abs(r.value! - truth)).toBeLessThanOrEqual(1);
+      expect(r.quality.maxPausedShare).toBeLessThanOrEqual(0.02);
+      expect(k.run.cues).not.toContain("check_one_person");
+    });
+  }
+
+  it("a 30 fps camera with a 166 ms gap every second, seed 706", () => {
+    const k = standCase(706, {
+      extra: { subject: { arms: CROSSED }, fps: 30, timing: { gaps: { everySec: 1, ms: 166 } } },
+    });
+    const r = res(k);
+    expect(r.status).toBe("measured");
+    expect(Math.abs(r.value! - standTruth(k.trial, k.goSec))).toBeLessThanOrEqual(1);
+    expect(k.run.cues).not.toContain("check_one_person");
+  });
+
+  it("still pauses when the nearest pose is a second person far from the subject", () => {
+    const lock = new SubjectLock();
+    const at = (x: number): Landmark[] =>
+      Array.from({ length: 33 }, (_, i) => ({
+        x: x + (i % 2 ? 0.02 : -0.02),
+        y: 0.3 + i / 60,
+        z: 0,
+        visibility: 0.9,
+      }));
+    expect(lock.lock([at(0.5)], 1)).toBe(true);
+    expect(lock.pick([at(0.5)], 1, 0).paused).toBe(false);
+    // 200 ms later only another person, far away, is seen.
+    const far = lock.pick([at(0.9)], 1, 200);
+    expect(far.paused).toBe(true);
+    expect(far.reason).toBe("jump");
   });
 });
 

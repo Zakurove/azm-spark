@@ -1343,3 +1343,27 @@ describe("the AD question before an early postpone (spec 2.1 actions, 2.2 pc_sci
     expect(visibleQuestions(envOf(), {}).slice(0, 2)).toEqual(["pc_urgent", "pc_unwell"]);
   });
 });
+
+describe("a recent surgery or a flare outside the listed areas (spec 2.2, SPEC-GAP unlisted-area)", () => {
+  it("skips the chair stand when surgery is yes and no listed area is chosen", () => {
+    const env = standing();
+    const o = run(env, { pc_surgery_recent: "yes", "pc_surgery_recent:areas": [] });
+    expect(o.status).toBe("proceed");
+    expect(skipOf(o, "chair_stand_30s", "none")).toBe("recent_surgery");
+    // The arm tests do not load an unlisted area.
+    expect(skipOf(o, "shoulder_abduction", "left")).toBeUndefined();
+    expect(skipOf(o, "arm_curl_30s", "right")).toBeUndefined();
+  });
+
+  it("skips the chair stand when a flare is yes and no listed area is chosen", () => {
+    const env = standing({ conditions: ["arthritis"] });
+    const o = run(env, { pc_arthritis_flare: "yes", "pc_arthritis_flare:areas": [] });
+    expect(skipOf(o, "chair_stand_30s", "none")).toBe("flare");
+  });
+
+  it("changes nothing for a seated person, whose check has no chair stand", () => {
+    const o = run(envOf(), { pc_surgery_recent: "yes", "pc_surgery_recent:areas": [] });
+    expect(o.status).toBe("proceed");
+    expect(o.skips).toEqual([]);
+  });
+});

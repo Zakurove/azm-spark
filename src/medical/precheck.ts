@@ -627,7 +627,18 @@ interface Match {
   test?: TestId;
   areas?: AreaId[];
   surgeryAreas?: SurgeryAreaId[];
+  /** Yes with none of the listed areas chosen (for example an ankle or a foot). */
+  unlisted?: true;
 }
+
+/**
+ * The tests an area outside the lists loads: the chair stand, the one test that bears weight on the
+ * legs and feet (every arm, back, hip and trunk area is listed).
+ */
+// SPEC-GAP: unlisted-area. The spec maps only the listed areas to tests. Yes with no listed area is
+// read as an area the check cannot place and that is not cleared (no clearance is asked for it), so
+// the weight bearing test is skipped with the question's reason. For sign-off.
+const UNLISTED_AREA_LOADS: readonly TestId[] = ["chair_stand_30s"];
 
 const skipKey = (test: TestId, side: TestSide) => `${test}|${side}`;
 
@@ -732,10 +743,11 @@ function applyVariant(st: State, d: Day, test: TestId, side: TestSide, variant: 
 function applySkipTargets(st: State, d: Day, targets: TestTargets, reason: ReasonId, m: Match) {
   if (Array.isArray(targets)) {
     for (const ref of targets) for (const s of refSides(st, ref, m)) skip(st, d, ref.test, s, reason);
-  } else if (targets === "surgeryArea.loads") {
-    for (const a of m.surgeryAreas ?? []) applyAreaLoads(st, d, a, true, reason);
-  } else if (targets === "area.loads") {
-    for (const a of m.areas ?? []) applyAreaLoads(st, d, a, false, reason);
+  } else if (targets === "surgeryArea.loads" || targets === "area.loads") {
+    const surgery = targets === "surgeryArea.loads";
+    for (const a of (surgery ? m.surgeryAreas : m.areas) ?? []) applyAreaLoads(st, d, a, surgery, reason);
+    if (m.unlisted)
+      for (const t of UNLISTED_AREA_LOADS) for (const s of sidesOf(t)) skip(st, d, t, s, reason);
   } else if (targets === "the test the question was asked for") {
     if (m.test) for (const s of sidesOf(m.test)) skip(st, d, m.test, s, reason);
   }
@@ -793,9 +805,9 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
     case "yes_no_then_areas": {
       if (!scalarHolds(cond, value(st, item.id))) return [];
       const areas = value(st, questionId(item.id, "areas"));
-      // SPEC-GAP: unlisted-area. Yes with none of the listed areas chosen (for example an ankle or a
-      // foot) skips nothing: the spec maps only the listed areas to tests.
       const list = Array.isArray(areas) ? areas : [];
+      // Yes with none of the listed areas chosen: see UNLISTED_AREA_LOADS.
+      if (list.length === 0) return Array.isArray(areas) ? [{ unlisted: true }] : [];
       if (cond.clearedNot !== undefined) {
         // An area whose clearance is not answered counts as not cleared.
         const uncleared = list.filter((a) => value(st, questionId(item.id, a)) !== cond.clearedNot);

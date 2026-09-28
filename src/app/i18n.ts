@@ -83,6 +83,18 @@ export function fmtNum(n: number, lang: Lang): string {
   return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US").format(n);
 }
 
+/**
+ * A date or time for display. Every date uses the Gregorian calendar (Q30): on some browsers ar-SA
+ * defaults to the Umm al-Qura calendar, which would show Hijri dates on one screen and Gregorian ones
+ * on another. Arabic month names and Arabic Indic digits come with the ar-SA locale.
+ */
+export function fmtDate(value: Date | number, lang: Lang, options: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", {
+    ...options,
+    calendar: "gregory",
+  }).format(value);
+}
+
 export function pct(n: number, lang: Lang): string {
   return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", {
     style: "percent",

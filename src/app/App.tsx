@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Lang, fmtNum, fmtTime } from "./i18n";
+import { Lang, fmtDate, fmtNum, fmtTime } from "./i18n";
 import { labels, optionNames, reasonText, errorText } from "./platform-copy";
 import { api, AccountState } from "./api";
 import { Intake, Plan } from "../medical/plan";
@@ -557,12 +557,11 @@ export default function App() {
                             <p className="section-kicker">
                               {c.nextSession}
                               {" · "}
-                              {new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", {
-                                calendar: "gregory",
+                              {fmtDate(upcoming, lang, {
                                 weekday: "long",
                                 day: "numeric",
                                 month: "long",
-                              }).format(upcoming)}
+                              })}
                             </p>
                             <h2>{optionNames[h.goal]?.[lang]}</h2>
                             <p>{h.conditions.map((v) => optionNames[v]?.[lang]).join(" · ")}</p>
@@ -628,9 +627,9 @@ export default function App() {
                                 key={i}
                               >
                                 <span>
-                                  {new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", {
+                                  {fmtDate(d, lang, {
                                     weekday: "short",
-                                  }).format(d)}
+                                  })}
                                 </span>
                                 <b>{fmtNum(d.getDate(), lang)}</b>
                                 <small>{active ? c.workoutDay : c.restDay}</small>

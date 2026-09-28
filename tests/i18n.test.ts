@@ -205,3 +205,34 @@ describe("Arabic unit plural forms (progress.unitForms)", () => {
     expect(interpolate("en", "in {unit}", { unit: "deg" })).toBe("in degrees");
   });
 });
+
+describe("dates always use the Gregorian calendar (Q30)", () => {
+  it("fmtDate gives Gregorian months in Arabic, whatever the default calendar of ar-SA", async () => {
+    const { fmtDate } = await import("../src/app/i18n");
+    const d = new Date(Date.UTC(2026, 9, 11, 9, 0, 0));
+    const ar = fmtDate(d, "ar", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Riyadh" });
+    expect(ar).toContain("أكتوبر");
+    expect(ar).toContain("٢٠٢٦");
+    expect(fmtDate(d, "en", { day: "numeric", month: "long", timeZone: "Asia/Riyadh" })).toBe("11 October");
+  });
+
+  it("no screen formats a date without fmtDate", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(name)) files.push(p);
+      }
+    };
+    walk(join(__dirname, "../src"));
+    const offenders = files.filter(
+      (f) =>
+        !f.endsWith(join("app", "i18n.ts")) &&
+        /new Intl\.DateTimeFormat\(|toLocale(Date)?String\(/.test(readFileSync(f, "utf8")),
+    );
+    expect(offenders).toEqual([]);
+  });
+});

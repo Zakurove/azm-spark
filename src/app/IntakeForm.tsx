@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Intake, conditions, painOptions, restrictionOptions, validateIntake, Plan } from "../medical/plan";
-import { Lang, fmtNum, fmtTime } from "./i18n";
+import { Lang, fmtDate, fmtNum, fmtTime } from "./i18n";
 import { labels, optionNames, errorText } from "./platform-copy";
 import { api } from "./api";
 import Icon from "./Icon";
@@ -182,9 +182,7 @@ export default function IntakeForm({
     }
   };
   const weekdays = Array.from({ length: 7 }, (_, i) =>
-    new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", { weekday: "short" }).format(
-      new Date(2026, 8, 6 + i),
-    ),
+    fmtDate(new Date(2026, 8, 6 + i), lang, { weekday: "short" }),
   );
   return (
     <div className="intake-layout">

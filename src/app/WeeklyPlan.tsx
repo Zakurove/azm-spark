@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plan } from "../medical/plan";
 import { libraryById, WeeklyItem, WeeklyPlan } from "../medical/weekly";
 import { EXERCISES } from "../exercises/defs";
-import { Lang, fmtNum } from "./i18n";
+import { Lang, fmtDate, fmtNum } from "./i18n";
 import { api } from "./api";
 import Icon from "./Icon";
 
@@ -52,10 +52,7 @@ const copy = {
   },
 };
 
-const weekday = (day: number, lang: Lang) =>
-  new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", { weekday: "long" }).format(
-    new Date(2026, 8, 6 + day),
-  );
+const weekday = (day: number, lang: Lang) => fmtDate(new Date(2026, 8, 6 + day), lang, { weekday: "long" });
 const categoryIcon: Record<string, string> = {
   flexibility: "spark",
   balance: "rise",

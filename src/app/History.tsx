@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lang, fmtNum, T } from "./i18n";
+import { Lang, fmtDate, fmtNum, T } from "./i18n";
 import { copy, SavedSession } from "./product";
 import { ui, insight } from "./experience";
 import { EXERCISES } from "../exercises/defs";
@@ -104,10 +104,10 @@ export default function History({
                       }}
                     />
                     <small>
-                      {new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", {
+                      {fmtDate(r.endedAt, lang, {
                         month: "short",
                         day: "numeric",
-                      }).format(r.endedAt)}
+                      })}
                     </small>
                   </div>
                 ))}
@@ -127,10 +127,10 @@ export default function History({
                   <span className="history-record-title">
                     <strong>{EXERCISES.find((e) => e.id === r.exerciseId)?.name[lang]}</strong>
                     <small>
-                      {new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", {
+                      {fmtDate(r.endedAt, lang, {
                         dateStyle: "medium",
                         timeStyle: "short",
-                      }).format(r.endedAt)}
+                      })}
                     </small>
                   </span>
                   <span>

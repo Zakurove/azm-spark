@@ -300,7 +300,7 @@ export const assessmentRoutes: Route[] = [
         const until = outcome.lock?.until ? lockEndsAt(outcome.lock.until, now) : null;
         transaction(db, () => {
           if (released) clearLock(db, u.id);
-          if (outcome.lock && until !== null) setLock(db, u.id, outcome.lock.reason, until);
+          if (outcome.lock && until !== null) setLock(db, u.id, outcome.lock.reason, until, now);
           if (typeof outcome.stored.changeReported === "string")
             reportChange(db, u.id, outcome.stored.changeReported);
           countSafetyEvent(db, `precheck:${outcome.reason}`, setting, now);
@@ -435,7 +435,7 @@ export const assessmentRoutes: Route[] = [
       transaction(db, () => {
         countSafetyEvent(db, `stop:${option}`, a.setting, now);
         if (route.endsCheck) setStatus(db, a.id, "ended_early", null, `stop:${option}`);
-        if (route.lock && until !== null) setLock(db, user!.id, route.lock.reason, until);
+        if (route.lock && until !== null) setLock(db, user!.id, route.lock.reason, until, now);
       });
       json(200, {
         option,
@@ -474,7 +474,7 @@ export const assessmentRoutes: Route[] = [
         transaction(db, () => {
           countSafetyEvent(db, "between:much", a.setting, now);
           setStatus(db, a.id, "ended_early", null, "between:much");
-          if (out.lock && until !== null) setLock(db, user!.id, out.lock.reason, until);
+          if (out.lock && until !== null) setLock(db, user!.id, out.lock.reason, until, now);
         });
         return json(200, {
           status: "end",

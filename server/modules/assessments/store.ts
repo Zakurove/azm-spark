@@ -419,10 +419,25 @@ export function currentLock(db: DatabaseSync, userId: string, now: number): Lock
   return r ? { reason: r.reason, until: Number(r.until) } : null;
 }
 
-/** Sets a lock; a longer lock already in place is kept. */
-export function setLock(db: DatabaseSync, userId: string, reason: string, until: number) {
+/** The lock reason an answer can release at once (spec 2.1 locks: pc_change_cleared yes). */
+export const RELEASABLE_LOCK = "recent_change";
+
+/**
+ * Sets a lock at `now`. One row holds the person's lock, so a new lock merges with one in place: the
+ * later end wins, and the reason is one no answer releases whenever either lock has such a reason
+ * (a yes to pc_change_cleared must never lift a stop or pain lock with it); otherwise the reason of
+ * the later end, the new one on a tie. A lock that has ended counts as none.
+ */
+export function setLock(db: DatabaseSync, userId: string, reason: string, until: number, now: number) {
+  db.prepare("DELETE FROM check_locks WHERE user_id=? AND until<=?").run(userId, now);
   db.prepare(
-    "INSERT INTO check_locks(user_id,reason,until) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET reason=excluded.reason, until=excluded.until WHERE excluded.until>check_locks.until",
+    `INSERT INTO check_locks(user_id,reason,until) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET
+       reason=CASE
+         WHEN excluded.reason='${RELEASABLE_LOCK}' AND check_locks.reason<>'${RELEASABLE_LOCK}' THEN check_locks.reason
+         WHEN check_locks.reason='${RELEASABLE_LOCK}' AND excluded.reason<>'${RELEASABLE_LOCK}' THEN excluded.reason
+         WHEN excluded.until>=check_locks.until THEN excluded.reason
+         ELSE check_locks.reason END,
+       until=MAX(check_locks.until, excluded.until)`,
   ).run(userId, reason, until);
 }
 

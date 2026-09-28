@@ -6,6 +6,9 @@
  * safety log without any user id).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createRequire } from "node:module";
+import { runMigrations } from "../server/db/migrate";
+import { currentLock, setLock } from "../server/modules/assessments/store";
 import { DATA_MAP_KEYS } from "../src/medical/precheck";
 import type { ProtocolItem } from "../src/medical/assessment";
 import {
@@ -1356,5 +1359,48 @@ describe("locks with several postpone reasons (SPEC-GAP multi-postpone)", () => 
     setTime(T0 + 2 * HOUR);
     const again = await start(h, cookie, { pc_change_cleared: "yes", pc_ms_heat: "no" });
     expect(again.data).toEqual({ error: "LOCKED", reason: "ms_heat", until: NEXT_DAY });
+  });
+});
+
+describe("the same day lock row (setLock)", () => {
+  const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
+
+  function lockDb() {
+    const db = new DatabaseSync(":memory:");
+    runMigrations(db, { dbPath: ":memory:" });
+    db.prepare(
+      "INSERT INTO users(id,email,name,password,created) VALUES('u1','u1@example.test','U','x',0)",
+    ).run();
+    return db;
+  }
+
+  it("a later lock that no answer releases replaces recent_change at an equal end", () => {
+    const db = lockDb();
+    setLock(db, "u1", "recent_change", NEXT_DAY, T0);
+    setLock(db, "u1", "stop_symptom", NEXT_DAY, T0 + HOUR);
+    expect(currentLock(db, "u1", T0 + HOUR)).toEqual({ reason: "stop_symptom", until: NEXT_DAY });
+  });
+
+  it("recent_change never replaces a lock that no answer releases, and the end is the latest", () => {
+    const db = lockDb();
+    setLock(db, "u1", "ms_heat", T0 + HOUR, T0);
+    setLock(db, "u1", "recent_change", NEXT_DAY, T0 + 1);
+    expect(currentLock(db, "u1", T0 + 2)).toEqual({ reason: "ms_heat", until: NEXT_DAY });
+  });
+
+  it("a longer lock replaces a shorter one; a shorter one keeps the longer end", () => {
+    const db = lockDb();
+    setLock(db, "u1", "ms_heat", T0 + HOUR, T0);
+    setLock(db, "u1", "pain", NEXT_DAY, T0);
+    expect(currentLock(db, "u1", T0)).toEqual({ reason: "pain", until: NEXT_DAY });
+    setLock(db, "u1", "pd_off", T0 + HOUR, T0);
+    expect(currentLock(db, "u1", T0)).toEqual({ reason: "pain", until: NEXT_DAY });
+  });
+
+  it("an ended lock is replaced as if there were none", () => {
+    const db = lockDb();
+    setLock(db, "u1", "pain", T0 + HOUR, T0);
+    setLock(db, "u1", "recent_change", NEXT_DAY, T0 + 2 * HOUR);
+    expect(currentLock(db, "u1", T0 + 2 * HOUR)).toEqual({ reason: "recent_change", until: NEXT_DAY });
   });
 });

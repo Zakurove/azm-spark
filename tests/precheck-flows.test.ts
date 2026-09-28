@@ -120,10 +120,12 @@ describe("persona: Noura, 31, incomplete SCI, wheelchair, not sure whether T6 or
   const env = envOf({ position: "wheelchair", conditions: ["sci_incomplete"] });
 
   it("first check: level question, then the AD questions (not the since last check one), arm function per arm", () => {
+    // The AD gate comes straight after pc_urgent (SPEC-GAP ad-before-postpone).
     expect(visibleQuestions(env, fill(env, { pc_sci_level: "unsure" }))).toEqual([
-      ...EVERY_CHECK,
+      EVERY_CHECK[0],
       "pc_sci_level",
       "pc_sci_ad_now",
+      ...EVERY_CHECK.slice(1),
       "pc_sci_ready",
       "pc_arm_function:right",
       "pc_arm_function:left",

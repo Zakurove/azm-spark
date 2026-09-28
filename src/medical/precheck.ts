@@ -547,13 +547,35 @@ function buildState(env: PrecheckEnv, raw: Answers): State {
     // pc_helper depends on the helper rules, which depend on the other answers of the day.
     st.helperTests = computeDay(st).helperTests;
     addItem(st, helperItem);
-    const order = (i: Instance) => PRECHECK_INDEX.get(i.base) ?? 0;
-    st.instances = st.instances
-      .map((inst, pos) => ({ inst, pos }))
-      .sort((a, b) => order(a.inst) - order(b.inst) || a.pos - b.pos)
-      .map((x) => x.inst);
   }
+  st.instances = st.instances
+    .map((inst, pos) => ({ inst, pos }))
+    .sort((a, b) => askOrder(a.inst.base) - askOrder(b.inst.base) || a.pos - b.pos)
+    .map((x) => x.inst);
   return st;
+}
+
+/**
+ * The questions that end the check at once with their own steps (spec 2.1 actions: emergency and
+ * the AD response), in the order they are asked: pc_urgent, then for SCI the level question that
+ * opens the AD question, then the AD question itself.
+ */
+// SPEC-GAP: ad-before-postpone. The data asks pc_sci_ad_now after the pain questions, and a postpone
+// ends the questions early; a person with autonomic dysreflexia signs would then see a postpone screen
+// instead of the AD steps. The AD gate is asked straight after pc_urgent, and no postpone ends the
+// questions before it is answered (evaluatePrecheck).
+const TERMINAL_GATE: readonly PrecheckId[] = ["pc_urgent", "pc_sci_level", "pc_sci_ad_now"];
+
+/** Data order, with the terminal gate first (after pc_setting, which is never asked). */
+function askOrder(base: PrecheckId): number {
+  const gate = TERMINAL_GATE.indexOf(base);
+  if (gate >= 0) return (PRECHECK_INDEX.get("pc_urgent") ?? 0) + gate / TERMINAL_GATE.length;
+  return PRECHECK_INDEX.get(base) ?? 0;
+}
+
+/** Every visible question of the terminal gate has an answer. */
+function terminalGateAnswered(st: State): boolean {
+  return st.instances.every((i) => !TERMINAL_GATE.includes(i.base) || st.values.has(i.id));
 }
 
 /**
@@ -1065,7 +1087,8 @@ function storedFields(st: State, d: Day, date: string): StoredPrecheck {
  * Today's go or no go decision (spec 2.1, 2.2, 2.7). The first decision that applies:
  *   emergency   pc_urgent yes (always wins);
  *   ad          pc_sci_ad_now yes;
- *   postpone    any postpone action, once pc_urgent is answered;
+ *   postpone    any postpone action, once the terminal gate (pc_urgent and, for SCI, pc_sci_level
+ *               and pc_sci_ad_now) is answered; with several, see pickPostpone;
  *   incomplete  a visible question has no valid answer;
  *   proceed     with today's skips, variants, helpers, warnings, setup updates and stored fields.
  * `now` (epoch ms) dates changeCleared and changeReported.
@@ -1101,8 +1124,9 @@ export function evaluatePrecheck(
       stored: terminalStored,
     };
   }
-  // A postpone ends the questions early, but never before the emergency question is answered.
-  if (d.postpones.length > 0 && st.values.has("pc_urgent")) {
+  // A postpone ends the questions early, but never before the emergency and AD questions that are
+  // shown are answered (TERMINAL_GATE).
+  if (d.postpones.length > 0 && terminalGateAnswered(st)) {
     const p = pickPostpone(d.postpones);
     return {
       ...emptyOutcome("postpone"),

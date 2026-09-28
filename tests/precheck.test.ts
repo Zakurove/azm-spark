@@ -1300,3 +1300,46 @@ describe("needed_arms at the last chair stand (spec 4.4 variant rules)", () => {
     expect(variantsOf(run(env), "chair_stand_30s", "none")).toEqual(["arms_assisted"]);
   });
 });
+
+/* ------------------------------------------------- review round 2 fixes */
+
+describe("the AD question before an early postpone (spec 2.1 actions, 2.2 pc_sci_ad_now)", () => {
+  it("does not postpone while pc_sci_ad_now is visible and not answered", () => {
+    const env = sciT6Later();
+    const o = evaluatePrecheck(env, { pc_urgent: "no", pc_unwell: "yes" }, NOW);
+    expect(o.status).toBe("incomplete");
+    expect(
+      evaluatePrecheck(env, { pc_urgent: "no", pc_unwell: "yes", pc_sci_ad_now: "yes" }, NOW),
+    ).toMatchObject({ status: "ad", reason: "ad", screen: "scr_ad" });
+    expect(
+      evaluatePrecheck(env, { pc_urgent: "no", pc_unwell: "yes", pc_sci_ad_now: "no" }, NOW),
+    ).toMatchObject({ status: "postpone", reason: "unwell" });
+  });
+
+  it("waits for pc_sci_level at the first check of a person with SCI", () => {
+    const env = envOf({ position: "wheelchair", conditions: ["sci_incomplete"] });
+    expect(evaluatePrecheck(env, { pc_urgent: "no", pc_unwell: "yes" }, NOW).status).toBe("incomplete");
+    // Level below T6: no AD question, the postpone ends the questions.
+    expect(evaluatePrecheck(env, { pc_urgent: "no", pc_unwell: "yes", pc_sci_level: "no" }, NOW).status).toBe(
+      "postpone",
+    );
+    // Not sure counts as yes: the AD question comes first.
+    const unsure = { pc_urgent: "no", pc_unwell: "yes", pc_sci_level: "unsure" };
+    expect(evaluatePrecheck(env, unsure, NOW).status).toBe("incomplete");
+    expect(evaluatePrecheck(env, { ...unsure, pc_sci_ad_now: "yes" }, NOW).status).toBe("ad");
+  });
+
+  it("asks the AD questions straight after pc_urgent", () => {
+    const later = visibleQuestions(sciT6Later(), {});
+    expect(later.slice(0, 2)).toEqual(["pc_urgent", "pc_sci_ad_now"]);
+    const first = envOf({ position: "wheelchair", conditions: ["sci_complete"] });
+    expect(visibleQuestions(first, {}).slice(0, 2)).toEqual(["pc_urgent", "pc_sci_level"]);
+    expect(visibleQuestions(first, { pc_sci_level: "yes" }).slice(0, 3)).toEqual([
+      "pc_urgent",
+      "pc_sci_level",
+      "pc_sci_ad_now",
+    ]);
+    // Without SCI nothing moves.
+    expect(visibleQuestions(envOf(), {}).slice(0, 2)).toEqual(["pc_urgent", "pc_unwell"]);
+  });
+});

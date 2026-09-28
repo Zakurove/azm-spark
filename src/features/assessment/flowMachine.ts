@@ -222,7 +222,15 @@ export type Overlay =
     }
   /** canRedo: redo only after a check in during an attempt; never re-measure a finished side. */
   | { kind: "goOn"; afterAlarm: boolean; canRedo: boolean }
-  | { kind: "alarm"; from: CheckInFrom; attempt?: boolean };
+  | {
+      kind: "alarm";
+      from: CheckInFrom;
+      attempt?: boolean;
+      /** «أحتاج مساعدة» opened it (the S45 help variant, O34-5): "fine" goes to the stop list (S41). */
+      help?: true;
+      /** The check in trigger it escalated from (a hips drop keeps its S41 route after "fine", O42). */
+      trigger?: string;
+    };
 
 /** One test of today's protocol with the sides that run (skipped sides left out). */
 export interface TestRun {
@@ -897,24 +905,34 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
     case "checkIn":
       if (e.type === "FINE") {
-        // Back to what the trigger replaced (S44 or the skip dialog), or by origin: the stop list with
-        // "Take your time", the question it opened over (S38b, S49), "go on" (S44) after an attempt,
-        // or simply the state (a rest, S47, S48, a saved attempt: nothing is measured again).
-        if (o.resume) return { ...m, overlay: o.resume };
-        if (o.from === "stopList") return { ...m, overlay: { kind: "stopList", takeYourTime: true } };
+        // The question it opened over (S38b, S49) takes the answer. A hips drop during a test goes to
+        // the stop list (S41), so a slide to the floor is declared and routed to S39 with its lock
+        // (O42, O33 (b)). Otherwise back to what the trigger replaced (S44 or the skip dialog), or by
+        // origin: the stop list with "Take your time", "go on" (S44) after an attempt, or simply the
+        // state (a rest, S47, S48, a saved attempt: nothing is measured again).
+        // SPEC-GAP: hips-drop-fine-question. O42 names "every test"; on S38b and S49 no test runs and
+        // the question itself routes (faint to S36 or back to S39, symptoms to S36), so fine returns
+        // to the question there.
         if (o.from === "faintAsk" || o.from === "endQuestion") return close(m);
+        if (o.from === "stopList") return { ...m, overlay: { kind: "stopList", takeYourTime: true } };
+        if (o.trigger === "hips_drop") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
+        if (o.resume) return { ...m, overlay: o.resume };
         return o.attempt ? { ...m, overlay: { kind: "goOn", afterAlarm: false, canRedo: true } } : close(m);
       }
       if (e.type === "WANT_STOP") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
-      if (e.type === "NEED_HELP" || e.type === "CHECKIN_TIMEOUT")
+      if (e.type === "NEED_HELP" || e.type === "CHECKIN_TIMEOUT") {
+        const help = e.type === "NEED_HELP";
         return {
-          ...alarm(m, e.type === "NEED_HELP" ? "help_requested" : "no_response"),
+          ...alarm(m, help ? "help_requested" : "no_response"),
           overlay: {
             kind: "alarm",
             from: o.from,
             ...(o.from === "test" ? { attempt: o.attempt === true } : {}),
+            ...(help ? { help: true as const } : {}),
+            trigger: o.trigger,
           },
         };
+      }
       return m;
     case "goOn": {
       if (e.type === "REDO") {
@@ -927,7 +945,7 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "NEED_HELP")
         return {
           ...alarm(m, "help_requested"),
-          overlay: { kind: "alarm", from: "test", attempt: o.canRedo },
+          overlay: { kind: "alarm", from: "test", attempt: o.canRedo, help: true },
         };
       if (e.type === "WANT_STOP" || e.type === "STOP_END")
         return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
@@ -935,12 +953,18 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     }
     case "alarm":
       // Only "I am fine" (button, zone or raised hand) leaves the alarm; a call keeps it (S45). Over a
-      // question (the faint follow up S38b, the end question S49) "fine" returns to it; otherwise to
-      // "go on" in its after alarm form (S44), with a redo only after an attempt.
-      if (e.type === "FINE")
-        return o.from === "faintAsk" || o.from === "endQuestion"
-          ? close(m)
-          : { ...m, overlay: { kind: "goOn", afterAlarm: true, canRedo: o.attempt === true } };
+      // question (the faint follow up S38b, the end question S49) "fine" returns to it. Over the stop
+      // list it returns to the stop list, which is the triage of every stop (O43, Q31 (3)). After a
+      // help request (O34-5) or a hips drop (O42) it goes to the stop list (S41), so the reason decides
+      // the route. Only an alarm reached by no response goes to "go on" in its after alarm form (S44),
+      // with a redo only after an attempt.
+      if (e.type === "FINE") {
+        if (o.from === "faintAsk" || o.from === "endQuestion") return close(m);
+        if (o.from === "stopList") return { ...m, overlay: { kind: "stopList", takeYourTime: true } };
+        if (o.help || o.trigger === "hips_drop")
+          return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
+        return { ...m, overlay: { kind: "goOn", afterAlarm: true, canRedo: o.attempt === true } };
+      }
       return m;
   }
 }

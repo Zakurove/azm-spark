@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Lang, fmtNum, fmtTime } from "./i18n";
 import { labels, optionNames, reasonText, errorText } from "./platform-copy";
 import { api, AccountState } from "./api";
@@ -39,6 +39,10 @@ const PAGE_ICONS: Record<Page, string> = {
   health: "health",
   history: "clock",
 };
+/** Foundation gallery of the check (review screenshots, Playwright): VITE_E2E builds only (contract v3 K). */
+const E2EGallery =
+  import.meta.env.VITE_E2E === "1" ? lazy(() => import("../features/assessment/e2e/Gallery")) : null;
+const galleryEntry = E2EGallery ? qs.get("e2eGallery") : null;
 /** A full page load that keeps the chosen language (the entries above are read at load). */
 const openUrl = (path: string, lang: Lang) =>
   location.assign(lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path);
@@ -129,6 +133,12 @@ export default function App() {
       setBusy(false);
     }
   };
+  if (E2EGallery && galleryEntry)
+    return (
+      <Suspense fallback={null}>
+        <E2EGallery name={galleryEntry} lang={lang} onLanguage={toggleLanguage} />
+      </Suspense>
+    );
   if (checkEntry)
     return (
       <CheckApp

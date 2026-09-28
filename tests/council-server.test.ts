@@ -337,7 +337,24 @@ describe("booth passes (O17): staff session, one check visitor token, redeem, st
     expect((await h.call("/booth/token", { session })).data).toEqual({ error: "BOOTH_SESSION" });
   });
 
-  it("starts a signed in booth check with boothCode on a booth day, never on another day", async () => {
+  it("never takes the staff code on the start, so the start tells nothing about a code", async () => {
+    process.env.AZM_BOOTH_CODE = CODE;
+    setTime(BOOTH_DAY);
+    // A fresh account: no intake, consent or adult confirmation.
+    const cookie = await register(h, "oracle@example.test");
+    const answers = {};
+    const tries = await Promise.all(
+      ["000001", "000002", CODE].map((boothCode) =>
+        h.call("/assessments", { answers, device: DEVICE, setting: "booth", boothCode }, cookie),
+      ),
+    );
+    for (const r of tries) {
+      expect(r.status).toBe(400);
+      expect(r.data).toEqual({ error: "START_INVALID", field: "boothCode" });
+    }
+  });
+
+  it("starts a signed in booth check with a token from the staff code on a booth day only", async () => {
     process.env.AZM_BOOTH_CODE = CODE;
     setTime(T0);
     const cookie = await member(h, "code-visitor@example.test", intakeOf());

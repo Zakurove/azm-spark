@@ -215,6 +215,26 @@ export async function answersFor(
   return fill(envFromContext(c.data, setting), given);
 }
 
+let boothAddress = 0;
+
+/**
+ * A one check booth token the way a staff phone gets one (O17, 7.2-11): the staff code is verified
+ * (POST /api/booth/verify, from an address of its own so the per address limit never interferes) and
+ * the staff session asks for a visitor token. Null when the code or the day is refused.
+ */
+export async function boothTokenFor(h: Harness, code: string): Promise<string | null> {
+  boothAddress += 1;
+  const ip = `198.18.${(boothAddress >> 8) & 255}.${boothAddress & 255}`;
+  const v = await h.call("/booth/verify", { code }, "", "POST", { "x-forwarded-for": ip });
+  if (v.data?.ok !== true) return null;
+  const t = await h.call("/booth/token", { session: v.data.session });
+  return typeof t.data?.token === "string" ? t.data.token : null;
+}
+
+/**
+ * POST /api/assessments with benign answers. A `boothCode` in `extra` is exchanged for a booth token
+ * first (boothTokenFor), as a staff phone does: the start itself never takes the code.
+ */
 export async function start(
   h: Harness,
   cookie: string,
@@ -223,7 +243,12 @@ export async function start(
 ): Promise<Reply> {
   const setting = (extra.setting as Setting | undefined) ?? "home";
   const answers = await answersFor(h, cookie, given, setting);
-  return h.call("/assessments", { answers, device: DEVICE, ...extra }, cookie);
+  const { boothCode, ...rest } = extra;
+  if (typeof boothCode === "string") {
+    const token = await boothTokenFor(h, boothCode);
+    if (token) rest.boothToken = token;
+  }
+  return h.call("/assessments", { answers, device: DEVICE, ...rest }, cookie);
 }
 
 export const QUALITY = {

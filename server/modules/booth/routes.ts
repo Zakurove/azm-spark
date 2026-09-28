@@ -9,7 +9,7 @@
  *                                        closing: { token, expires }; 403 BOOTH_SESSION
  *   POST /api/booth/redeem  { token }    the visitor's phone checks its token: { ok, expires? }
  *
- * A signed in booth check starts with boothCode (contract v3 I) or boothToken (O17), see
+ * A signed in booth check starts with a boothToken only (O17; the code stays on staff devices), see
  * POST /api/assessments. Codes, sessions and tokens are never logged or stored in the clear.
  */
 import type { Route } from "../../http/types";

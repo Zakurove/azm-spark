@@ -18,6 +18,7 @@ import {
   T0,
   WHEELCHAIR_STROKE,
   answersFor,
+  boothTokenFor,
   envFromContext,
   intakeOf,
   itemOf,
@@ -1109,9 +1110,10 @@ describe("staff booth mode", () => {
     expect(boothCtx.baseTests).toContain("chair_stand_30s");
     // The first booth check asks the baseline setup questions again; home answers would be incomplete.
     const homeAnswers = await answersFor(h, cookie);
+    const boothToken = await boothTokenFor(h, "staff-code-3302");
     const refused = await h.call(
       "/assessments",
-      { answers: homeAnswers, device: DEVICE, setting: "booth", boothCode: "staff-code-3302" },
+      { answers: homeAnswers, device: DEVICE, setting: "booth", boothToken },
       cookie,
     );
     expect(refused.data).toEqual({ error: "PRECHECK_INCOMPLETE" });

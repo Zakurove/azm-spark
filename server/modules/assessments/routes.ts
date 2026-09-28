@@ -36,7 +36,7 @@ import {
 import { seriesKey } from "../../../src/medical/progress-rules";
 import type { Setting, TestId } from "../../../src/movements/types";
 import { adultConfirmedAt } from "../account/store";
-import { boothCodeMatches, boothWindow, homeChecksOpen } from "../booth/config";
+import { boothWindow, homeChecksOpen } from "../booth/config";
 import { usePass, validPass } from "../booth/store";
 import { activeConsent, CONSENT_VERSIONS, type ConsentRecord } from "../consents/store";
 import {
@@ -106,19 +106,19 @@ export function storedPrecheck(
 }
 
 /**
- * The booth credential of a signed in booth start (contract v3 I, O17): today's staff code, or an
- * unused visitor token, and only inside the booth days and hours. Returns the token to use once the
- * start is evaluated, or false when refused.
+ * The booth credential of a signed in booth start (O17): an unused visitor token, only inside the
+ * booth days and hours. Returns the token to use once the start is evaluated, or false when refused.
  */
-// SPEC-GAP: booth-code-and-token. Contract v3 I starts a signed in booth check with boothCode; O17
-// and 7.2-11 add the one check boothToken. Both are accepted.
-// SPEC-GAP: booth-code-refused. Contract E says booth needs the code, "otherwise home". A wrong or
-// missing code or token is refused (403 BOOTH_CODE) rather than silently run with the home rules
-// while the person stands at the booth, so staff see the mistake.
-function boothPass(ctx: RouteContext, code: string | undefined, token: string | undefined, now: number) {
-  if (!boothWindow(now).open) return false;
-  if (token !== undefined) return validPass(ctx.db, token, "visitor", now) !== null ? { token } : false;
-  return boothCodeMatches(code, now) ? { token: null } : false;
+// SPEC-GAP: booth-code-and-token. Contract v3 I started a signed in booth check with boothCode; O17
+// and 7.2-11 keep the code on staff devices, which swap it for a one check boothToken. The start takes
+// only the token (a boothCode is an unknown field, 400 START_INVALID), so it is never a second way to
+// test codes next to the rate limited POST /api/booth/verify.
+// SPEC-GAP: booth-code-refused. Contract E says booth needs the code, "otherwise home". A missing or
+// refused token is refused (403 BOOTH_CODE) rather than silently run with the home rules while the
+// person stands at the booth, so staff see the mistake.
+function boothPass(ctx: RouteContext, token: string | undefined, now: number) {
+  if (!boothWindow(now).open || token === undefined) return false;
+  return validPass(ctx.db, token, "visitor", now) !== null ? { token } : false;
 }
 
 /** A stored result as the owner sees it in the list (row ids and the quality report left out). */
@@ -222,8 +222,7 @@ export const assessmentRoutes: Route[] = [
       if (!parsed.ok) return json(400, { error: "START_INVALID", field: parsed.field });
       const { answers, device, setting, session } = parsed.value;
       if (homeClosed(rc, setting)) return;
-      const pass =
-        setting === "booth" ? boothPass(rc, parsed.value.boothCode, parsed.value.boothToken, now) : null;
+      const pass = setting === "booth" ? boothPass(rc, parsed.value.boothToken, now) : null;
       if (pass === false) return json(403, { error: "BOOTH_CODE" });
       const s = personState(db, u.id, now);
       if (!s) return json(409, { error: "PLAN_REQUIRED" });

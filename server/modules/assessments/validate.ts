@@ -119,23 +119,17 @@ export interface StartBody {
   answers: Answers;
   device: Device;
   setting: Setting;
-  boothCode?: string;
-  /** The one check visitor token of O17 (POST /api/booth/token), in place of the code. */
+  /**
+   * The one check booth token of O17 (POST /api/booth/token). The staff code itself never reaches the
+   * start: it stays on staff devices (7.2-11), so the start cannot be used to test codes.
+   */
   boothToken?: string;
   faceCovered?: boolean;
   /** Q12 (2): the side lean only session; default a full check. */
   session: CheckSession;
 }
 
-const START_KEYS = [
-  "answers",
-  "device",
-  "setting",
-  "boothCode",
-  "boothToken",
-  "faceCovered",
-  "session",
-] as const;
+const START_KEYS = ["answers", "device", "setting", "boothToken", "faceCovered", "session"] as const;
 
 export function checkStart(body: Record<string, unknown>): Check<StartBody> {
   if (unknownKeys(body, START_KEYS).length) return fail(unknownKeys(body, START_KEYS)[0]);
@@ -145,15 +139,12 @@ export function checkStart(body: Record<string, unknown>): Check<StartBody> {
   if (!device.ok) return device;
   const setting = body.setting ?? "home";
   if (setting !== "home" && setting !== "booth") return fail("setting");
-  if (body.boothCode !== undefined && (typeof body.boothCode !== "string" || body.boothCode.length > 64))
-    return fail("boothCode");
   if (body.boothToken !== undefined && (typeof body.boothToken !== "string" || body.boothToken.length > 128))
     return fail("boothToken");
   if (body.faceCovered !== undefined && typeof body.faceCovered !== "boolean") return fail("faceCovered");
   const session = body.session ?? "full";
   if (session !== "full" && session !== "side_lean_only") return fail("session");
   const out: StartBody = { answers: answers.value, device: device.value, setting, session };
-  if (typeof body.boothCode === "string") out.boothCode = body.boothCode;
   if (typeof body.boothToken === "string") out.boothToken = body.boothToken;
   if (typeof body.faceCovered === "boolean") out.faceCovered = body.faceCovered;
   return { ok: true, value: out };

@@ -10,7 +10,10 @@
  * check_time_stop. Counts are shown (`rep` events), never spoken: inside the trial the only cues are
  * check_go, check_ten_left (10 s before the end) and check_time_stop (spec 4.0); the lines of a
  * paused trial are `prompt` events, shown and not spoken. A `time` event comes once per whole second
- * of every timer (rest, countdown, trial).
+ * of every timer (rest, countdown, trial). Revision 1.1 replaces check_time_stop with each test's
+ * end cue (check_time_up_curl, check_time_up_stand); after the chair stand's end cue the runner waits
+ * up to 10 s for the person to sit, and plays the end cue once more if they do not (`settle`,
+ * O34-6 (5)).
  *
  * Counting (spec 4.2 and 4.4, `LineCounter`): progress p through the personal range; a rep counts
  * when p reaches the count line after p was at or under the return line since the previous counted
@@ -202,6 +205,12 @@ export const TIMED_RULES = {
   practiceRiseTrunks: 0.25,
   practiceSeatedTrunks: 0.1,
   standTopShare: 0.1,
+  /**
+   * O34-6 (5): after the chair stand's end cue, if the person is not seen seated (p at the return
+   * line or under) within 10 s, the end cue plays once more. The runner ends when they sit, or after
+   * the second cue.
+   */
+  settleSec: 10,
   /** A practice gives up after this long without its bends or stands (engineering). */
   practiceTimeoutSec: 30,
   /**
@@ -592,6 +601,9 @@ abstract class TimedCountBase implements TestRunner {
       case "ask":
         this.track(frame, false);
         break;
+      case "settle":
+        this.settleFrame(frame, roll ?? this.lastRoll);
+        break;
       case "attempt":
         this.trialFrame(frame, roll ?? this.lastRoll);
         break;
@@ -602,6 +614,8 @@ abstract class TimedCountBase implements TestRunner {
   }
 
   finish(t: number): TestResult {
+    // Waiting for the person to sit after a finished trial: the trial is done and stays measured.
+    if (this.phaseNow === "settle") this.end(t);
     const completed = this.finished;
     this.tLast = Math.max(this.tLast, t);
     if (!completed && this.trial) this.stopTrial(t);
@@ -876,7 +890,7 @@ abstract class TimedCountBase implements TestRunner {
       if (this.repeatOffered) {
         this.notMeasured = "quality";
         this.afterTrial(t);
-        this.end(t);
+        this.settleThenEnd(t);
         return;
       }
       // SPEC-GAP: stand-repeat. The one repeat after 2 minutes of rest is the arm curl's rule (spec
@@ -891,7 +905,37 @@ abstract class TimedCountBase implements TestRunner {
     this.scored.push(rec);
     this.sink.push(this.attemptEvent(rec, t));
     this.afterTrial(t);
-    this.end(t);
+    this.settleThenEnd(t);
+  }
+
+  /** The time the settle watch began (the end cue), while it runs. */
+  private settleStart: number | null = null;
+
+  /** Ends the test; the chair stand first waits up to settleSec for the person to sit (O34-6 (5)). */
+  private settleThenEnd(t: number): void {
+    if (this.testId !== "chair_stand_30s") {
+      this.end(t);
+      return;
+    }
+    this.settleStart = t;
+    this.setPhase("settle", t);
+  }
+
+  private settleFrame(frame: Frame, roll: number | null): void {
+    const t = frame.t;
+    const track = this.track(frame, false);
+    const raw = track.pick.paused ? null : this.progress(track, roll, t);
+    const seated = raw !== null && Number.isFinite(raw) && raw <= TIMED_RULES.standReturnLine;
+    if (seated) {
+      this.settleStart = null;
+      this.end(t);
+      return;
+    }
+    if (this.settleStart !== null && t - this.settleStart >= TIMED_RULES.settleSec * 1000) {
+      this.settleStart = null;
+      this.sink.cue("check_time_up_stand", t);
+      this.end(t);
+    }
   }
 
   /** finish() during the trial: the trial ended early, its count is a lower bound (censored). */

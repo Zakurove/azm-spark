@@ -49,6 +49,8 @@ export type RunnerPhase =
   | "ready"
   | "ask"
   | "setup"
+  /** Chair stand: up to 10 s after the end cue, watching for the person seated again (O34-6 (5)). */
+  | "settle"
   | "done";
 
 /**

@@ -831,6 +831,32 @@ describe("chair_stand_30s counting rules (spec 4.4)", () => {
     expect(r.value).toBe(standTruth(k.trial, k.goSec));
   });
 
+  it("plays the end cue once more when the person is not seen seated 10 s after it (O34-6 (5))", () => {
+    const standing = standCase("standing", "9:16", 740, {
+      durationSec: 72,
+      trial: (go) => [
+        ...regularStands(go, go + 24),
+        { kind: "stand_rep", start: go + 27.5, rise: 0.9, hold: 20, sit: 0.9 },
+      ],
+    });
+    const ends = standing.run.events.filter((e) => e.kind === "cue" && e.cue === "check_time_up_stand");
+    expect(ends).toHaveLength(2);
+    expect(ends[1].t - ends[0].t).toBeGreaterThanOrEqual(10000);
+    expect(ends[1].t - ends[0].t).toBeLessThan(10500);
+    expect(res(standing).status).toBe("measured");
+    expect(res(standing).value).toBe(standTruth(standing.trial, standing.goSec));
+    // Seated again in time: the end cue plays once.
+    const seated = standCase("standing", "9:16", 741, { durationSec: 72 });
+    expect(seated.run.cues.filter((c) => c === "check_time_up_stand")).toHaveLength(1);
+    expect(res(seated).status).toBe("measured");
+    // A stop while waiting keeps the finished trial measured.
+    const stopped = new ChairStandRunner(STAND, "none", FAST);
+    const cut = standing.frames.filter((f) => f.t <= ends[0].t + 3000);
+    const early = drive(stopped, cut);
+    expect(early.result.results[0].status).toBe("measured");
+    expect(early.result.completed).toBe(true);
+  });
+
   it("asks for a clear view when something hides both hips at calibration (P4 (5))", () => {
     // A kitchen counter between the person and the phone: both shoulders seen, both hips hidden.
     const { frames } = framesOf(

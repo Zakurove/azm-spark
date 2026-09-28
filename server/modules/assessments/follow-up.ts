@@ -62,9 +62,14 @@ import {
   type AlarmKind,
 } from "./validate";
 
-/** Alarm posts counted per check and day: an alarm can fire more than once, never without bound. */
-// SPEC-GAP: alarm-count-bound. Q25 gives no bound; 20 alarm counts per check and day, in memory.
-const ALARMS_PER_CHECK = 20;
+/**
+ * Alarm posts counted per check: an alarm can fire more than once in a check, never without bound.
+ * Every serious count is reviewed by the medical lead (Q25 (b)), so a repeated post must not add to it.
+ */
+// SPEC-GAP: alarm-count-bound. Q25 gives no bound; 3 alarm counts per check, kept by the in memory
+// limiter: Q25 (d) keeps no per person record of an alarm, so a server restart may count a repeated
+// post of the same check again, only while the check is recent (SAFETY_LATE_MS).
+const ALARMS_PER_CHECK = 3;
 
 const path = (tail: string) => new RegExp(`^/api/assessments/${ID_PATH}/${tail}$`);
 
@@ -189,10 +194,15 @@ export const followUpRoutes: Route[] = [
         return json(400, { error: "ALARM_INVALID", field: "kind" });
       const ref = checkTestRef(body, a.protocol, false);
       if (!ref.ok) return json(400, { error: "ALARM_INVALID", field: ref.field });
-      // The check in runs during the check and in the home fall watch after a stop (O42).
-      if (a.status !== "open" && a.status !== "ended_early")
-        return json(409, { error: "NOT_OPEN", status: a.status });
+      // The check in runs during the check and in the home fall watch after a stop (O42): a running
+      // check, or one that ended less than a day after its last activity (a late post from the
+      // outbox). Never a completed or an old check, so old checks cannot add to the counts.
       const now = Date.now();
+      const recent = now - a.active <= SAFETY_LATE_MS;
+      if (a.status === "completed" || !recent) {
+        const status = a.status === "open" ? closeCheck(db, a, "stale", a.active) : a.status;
+        return json(409, { error: "NOT_OPEN", status });
+      }
       if (!limited(`alarm:${a.id}`, ALARMS_PER_CHECK, DAY_MS))
         countSafetyEvent(db, `alarm:${body.kind as AlarmKind}`, ref.value?.testId ?? "none", a.setting, now);
       json(200, { recorded: true });

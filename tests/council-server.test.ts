@@ -696,6 +696,28 @@ describe("the safety log and product counts (Q25 (a), Q2 (6))", () => {
     ]);
   });
 
+  it("counts alarms only for a running or recently closed check, a few per check (Q25 (a), (b))", async () => {
+    await h.close();
+    h = await startApi();
+    const cookie = await member(h, "alarm-bound@example.test", intakeOf());
+    const s = await start(h, cookie);
+    const id = s.data.id;
+    for (let i = 0; i < 12; i++) await h.call(`/assessments/${id}/alarm`, { kind: "no_response" }, cookie);
+    const counted = () =>
+      safety(h)
+        .filter((r) => String(r.reason).startsWith("alarm:"))
+        .reduce((n, r) => n + Number(r.count), 0);
+    expect(counted()).toBe(3);
+    // A check that ended more than a day ago takes no alarm.
+    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    await h.call(`/assessments/${id}/results`, resultBody(right, 100), cookie);
+    await h.call(`/assessments/${id}/stop`, { option: "tired" }, cookie);
+    setTime(T0 + 2 * DAY);
+    const late = await h.call(`/assessments/${id}/alarm`, { kind: "help_requested" }, cookie);
+    expect(late.data).toMatchObject({ error: "NOT_OPEN" });
+    expect(counted()).toBe(3);
+  });
+
   it("never stores a user id, an email, a check id or a condition key in any counter row", async () => {
     const ids: string[] = [];
     const emails = ["anon-a@example.test", "anon-b@example.test"];

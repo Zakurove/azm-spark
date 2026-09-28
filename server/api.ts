@@ -11,6 +11,7 @@ import { createWeekly } from "./weekly-ai";
 import { BUSY_TIMEOUT_MS, runMigrations } from "./db/migrate";
 import { moduleRoutes } from "./modules";
 import type { Route } from "./http/types";
+import { confirmAdult } from "./modules/account/store";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 export function createApi(
@@ -116,7 +117,7 @@ export function createApi(
         if (!r) return json(405, { error: "METHOD" });
         if (r.auth === "user" && !u) return json(401, { error: "AUTH_REQUIRED" });
         const params = { ...route.match(r.path)?.groups } as Record<string, string>;
-        await r.handle({ req, res, db, user: u ?? null, body, params, json, limited });
+        await r.handle({ req, res, db, user: u ?? null, body, params, ip: ip ?? "", json, limited });
         if (!res.headersSent) json(500, { error: "SERVER" });
         return;
       }
@@ -154,6 +155,8 @@ export function createApi(
             `${salt}:${hash.toString("hex")}`,
             Date.now(),
           );
+          // The adult confirmation may be given at account creation (Q2 (5), Q32 (6)).
+          if (body.adultConfirmed === true) confirmAdult(db, id, Date.now());
           account = db.prepare("SELECT * FROM users WHERE id=?").get(id);
         } else {
           account = db.prepare("SELECT * FROM users WHERE email=?").get(email) as any;

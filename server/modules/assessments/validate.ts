@@ -11,6 +11,7 @@ import type { ProtocolItem } from "../../../src/medical/assessment";
 import { parseQuestionId, type Answers } from "../../../src/medical/precheck";
 import { DETAIL_KEYS } from "../../../src/medical/progress-rules";
 import { type ReasonId, type Setting, type TestId, type TestUnit } from "../../../src/movements/types";
+import type { CheckSession } from "./store";
 
 export type Check<T> = { ok: true; value: T } | { ok: false; field: string };
 const fail = (field: string) => ({ ok: false, field }) as const;
@@ -119,10 +120,22 @@ export interface StartBody {
   device: Device;
   setting: Setting;
   boothCode?: string;
+  /** The one check visitor token of O17 (POST /api/booth/token), in place of the code. */
+  boothToken?: string;
   faceCovered?: boolean;
+  /** Q12 (2): the side lean only session; default a full check. */
+  session: CheckSession;
 }
 
-const START_KEYS = ["answers", "device", "setting", "boothCode", "faceCovered"] as const;
+const START_KEYS = [
+  "answers",
+  "device",
+  "setting",
+  "boothCode",
+  "boothToken",
+  "faceCovered",
+  "session",
+] as const;
 
 export function checkStart(body: Record<string, unknown>): Check<StartBody> {
   if (unknownKeys(body, START_KEYS).length) return fail(unknownKeys(body, START_KEYS)[0]);
@@ -134,9 +147,14 @@ export function checkStart(body: Record<string, unknown>): Check<StartBody> {
   if (setting !== "home" && setting !== "booth") return fail("setting");
   if (body.boothCode !== undefined && (typeof body.boothCode !== "string" || body.boothCode.length > 64))
     return fail("boothCode");
+  if (body.boothToken !== undefined && (typeof body.boothToken !== "string" || body.boothToken.length > 128))
+    return fail("boothToken");
   if (body.faceCovered !== undefined && typeof body.faceCovered !== "boolean") return fail("faceCovered");
-  const out: StartBody = { answers: answers.value, device: device.value, setting };
+  const session = body.session ?? "full";
+  if (session !== "full" && session !== "side_lean_only") return fail("session");
+  const out: StartBody = { answers: answers.value, device: device.value, setting, session };
   if (typeof body.boothCode === "string") out.boothCode = body.boothCode;
+  if (typeof body.boothToken === "string") out.boothToken = body.boothToken;
   if (typeof body.faceCovered === "boolean") out.faceCovered = body.faceCovered;
   return { ok: true, value: out };
 }
@@ -153,7 +171,9 @@ export const UNIT_BOUNDS: Record<TestUnit, [number, number]> = { deg: [0, 180], 
  */
 // SPEC-GAP: client-skip-reasons. Contract E says "skip reasons enum" without the list; these are
 // the reasons of spec 3.6 that arise during a test (stop list, quality, pushedAsk, steady support,
-// armrests at setup).
+// armrests at setup), the chair gate at the chair stand setup (Q9: chair_needed), the orientation
+// sensor gate (O10, O33 (m): motion_needed) and pc_helper no when a helper becomes required during
+// the check (O34-2 (3): helper_needed). A skip is always the safe side.
 export const CLIENT_SKIP_REASONS = [
   "by_choice",
   "quality",
@@ -161,6 +181,9 @@ export const CLIENT_SKIP_REASONS = [
   "needed_arms",
   "needed_support",
   "armrests_needed",
+  "chair_needed",
+  "motion_needed",
+  "helper_needed",
 ] as const satisfies readonly ReasonId[];
 
 const ARM_CURL_VARIANTS = ["held", "cuff", "arm_only"] as const;
@@ -349,7 +372,14 @@ export interface ResultBody {
   poseModel: PoseModel;
   movementVersion: number;
   engineVersion: string;
+  /** Attempts repeated after a quality gate (Q2 (6) product count only, never stored). */
+  // SPEC-GAP: quality-retries-field. Q2 (6) counts quality retries, which only the phone sees; the
+  // result body carries the number (0 to 20, default 0) for the anonymous count.
+  qualityRetries: number;
 }
+
+/** The most quality retries one result may report. */
+export const MAX_QUALITY_RETRIES = 20;
 
 const RESULT_KEYS = [
   "testId",
@@ -367,6 +397,7 @@ const RESULT_KEYS = [
   "poseModel",
   "movementVersion",
   "engineVersion",
+  "qualityRetries",
 ] as const;
 
 /** What the check needs to know about the person and the check to validate a result. */
@@ -391,6 +422,8 @@ export function checkResult(body: Record<string, unknown>, scope: ResultScope): 
   if (body.movementVersion !== item.version) return fail("movementVersion");
   if (!isId(body.engineVersion)) return fail("engineVersion");
   if (!(POSE_MODELS as readonly unknown[]).includes(body.poseModel)) return fail("poseModel");
+  const qualityRetries = body.qualityRetries ?? 0;
+  if (!intInRange(qualityRetries, 0, MAX_QUALITY_RETRIES)) return fail("qualityRetries");
   const [lo, hi] = UNIT_BOUNDS[def.unit];
 
   const skippedReason = body.skippedReason ?? null;
@@ -431,7 +464,10 @@ export function checkResult(body: Record<string, unknown>, scope: ResultScope): 
   if (!variant.ok) return variant;
 
   const d = detail.value;
+  // Staff correct a count only at the booth; the person's own count check (S48) is never shown at
+  // the booth (O22).
   if (d.countSource === "staff" && scope.setting !== "booth") return fail("detail.countSource");
+  if (d.countSource === "self" && scope.setting === "booth") return fail("detail.countSource");
   if (d.pushHand !== undefined) {
     const handsAllowed = variant.value === "arms_assisted" || variant.value === "arms_assisted_steady";
     if (!handsAllowed || (item.pushHand !== undefined && d.pushHand !== item.pushHand))
@@ -476,6 +512,7 @@ export function checkResult(body: Record<string, unknown>, scope: ResultScope): 
       poseModel: body.poseModel as PoseModel,
       movementVersion: item.version,
       engineVersion: body.engineVersion as string,
+      qualityRetries,
     },
   };
 }
@@ -504,3 +541,31 @@ function checkVariant(raw: unknown, skipped: boolean, item: ProtocolItem): Check
       return raw === item.variant ? { ok: true, value: raw } : fail("variant");
   }
 }
+
+/* ------------------------------------------------- stop, end, faint, alarm */
+
+/**
+ * The test side a stop, a faint answer or an alarm belongs to: absent, or a test side of the frozen
+ * protocol that runs today (not skipped at the start). `side` defaults to none for a test without
+ * sides. Returns the field that failed, or the item (null when absent).
+ */
+export function checkTestRef(
+  body: Record<string, unknown>,
+  protocol: readonly ProtocolItem[],
+  withSide: boolean,
+): Check<ProtocolItem | null> {
+  if (body.testId === undefined && body.side === undefined) return { ok: true, value: null };
+  if (typeof body.testId !== "string") return fail("testId");
+  if (!withSide) {
+    const any = protocol.find((i) => i.testId === body.testId && !i.skipped);
+    return any ? { ok: true, value: any } : fail("testId");
+  }
+  const side = body.side ?? "none";
+  const item = protocol.find((i) => i.testId === body.testId && i.side === side && !i.skipped);
+  return item ? { ok: true, value: item } : fail("testId");
+}
+
+export const END_ANSWERS = ["yes", "no"] as const;
+export const FAINT_ANSWERS = ["yes", "no", "unsure"] as const;
+export const ALARM_KINDS = ["no_response", "help_requested"] as const;
+export type AlarmKind = (typeof ALARM_KINDS)[number];

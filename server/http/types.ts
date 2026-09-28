@@ -17,6 +17,8 @@ export interface RouteContext {
   user: UserRow | null;
   body: any;
   params: Record<string, string>;
+  /** The client address the rate limits key on (first X-Forwarded-For entry, else the socket). */
+  ip: string;
   json(status: number, v: unknown): void;
   /** Counts one call under `key`; true once more than `max` calls fall in the window (default 15 minutes). */
   limited(key: string, max?: number, windowMs?: number): boolean;

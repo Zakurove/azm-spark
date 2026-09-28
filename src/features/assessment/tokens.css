@@ -1,0 +1,76 @@
+/*
+ * Tokens of the movement check and results screens (UX spec 0.3), scoped to .azm-check, the root of
+ * CheckShell, CameraStage, ProgressView and the entry cards. Imported once by CheckRoot for both
+ * features (src/features/assessment and src/features/progress). Feature CSS files use only these
+ * custom properties: no colour literal in a component rule.
+ *
+ * Named tokens beyond the 0.3 table (to confirm with the UX owner): --gold-hover, --cream-border,
+ * --purple-border, --skeleton-a, --skeleton-b, --on-red, --scrim and the two shadow inks. The scrim is
+ * a neutral ink, not the retired sage palette.
+ */
+.azm-check {
+  --ink: #1c2029;
+  --muted: #5d626d;
+  --line: #e3e4e9;
+  --field-border: #878c96;
+  --gold: #f8cb44;
+  --gold-ink: #8a6d14;
+  --purple: #6c56a5;
+  --purple-tint: #f1edf8;
+  --green-ink: #2f6b3a;
+  --green-tint: #e9f4ea;
+  --warn-ink: #945817;
+  --warn-fill: #e0a022;
+  --warn-tint: #fdf3e1;
+  --red: #aa3e35;
+  --cream: #fdf5df;
+  --page: #fbfaf8;
+  --card: #ffffff;
+  --hud-surface: rgba(255, 255, 255, 0.94);
+  --gold-hover: #f0c02f;
+  --cream-border: #f1e3b8;
+  --purple-border: #dcd3ee;
+  --skeleton-a: #eceae4;
+  --skeleton-b: #f7f5f0;
+  --on-red: #ffffff;
+  --scrim: rgba(28, 32, 41, 0.32);
+  --shadow-soft: rgba(28, 32, 41, 0.5);
+  --shadow-strong: rgba(28, 32, 41, 0.6);
+  --focus: 0 0 0 3px var(--card), 0 0 0 6px var(--gold-ink);
+
+  /* Spacing on a 4 px grid, radii (0.3). */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s6: 1.5rem;
+  --s8: 2rem;
+  --s12: 3rem;
+  --r-control: 10px;
+  --r-card: 16px;
+  --r-hud: 24px;
+  --r-pill: 999px;
+
+  /* Type scale (0.4). */
+  --t-safety: 2.5rem;
+  --t-question: 1.625rem;
+  --t-h1: 1.75rem;
+  --t-h2: 1.375rem;
+  --t-answer: 1.25rem;
+  --t-body: 1.125rem;
+  --t-meta: 1rem;
+  --t-big: 3.5rem;
+  --t-button: 1.125rem;
+  --lh-body: 1.8;
+
+  /* Targets (0.5). */
+  --h-cta: 56px;
+  --h-ghost: 48px;
+  --h-answer: 64px;
+  --h-icon: 48px;
+  --h-stop: 72px;
+  --h-call: 64px;
+  --topbar: 56px;
+  --column: 560px;
+  --gutter: 16px;
+}

@@ -22,31 +22,70 @@ import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
 import { createCheckApi } from "../features/assessment/api";
 import { isBoothMode } from "../features/assessment/boothMode";
-import { hasSnapshot } from "../features/assessment/useCheckFlow";
+import { flushPendingCheckCalls, hasSnapshot } from "../features/assessment/useCheckFlow";
+import { CHECK_UI } from "../features/assessment/featureFlag";
 import { BoothStaffPage } from "../features/assessment/booth";
 import { AfterIntakeOffer, ExampleProgress, ResultsPage, TodayCheckSlot } from "../features/progress";
-import { t } from "../i18n";
+import { countPhrase, t } from "../i18n";
 const qs = new URLSearchParams(location.search);
 /** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
 const checkEntry = qs.get("check") === "1";
 const boothEntry = qs.get("booth") === "1";
-const exampleEntry = qs.get("example") === "progress";
+// The example page (S54) is still a stub: shown only where the check UI is on (featureFlag.ts).
+const exampleEntry = CHECK_UI && qs.get("example") === "progress";
 type Page = "today" | "program" | "health" | "history" | "results";
-const PAGES: readonly Page[] = ["today", "program", "results", "health", "history"];
+const PAGES: readonly Page[] = CHECK_UI
+  ? ["today", "program", "results", "health", "history"]
+  : ["today", "program", "health", "history"];
 const PAGE_ICONS: Record<Page, string> = {
   today: "spark",
   program: "calendar",
-  results: "rise",
+  results: "chart",
   health: "health",
   history: "clock",
 };
+/** A count with its noun in the right Arabic plural form (one and two replace the number). */
+function countOf(
+  lang: Lang,
+  n: number,
+  ar: { one: string; two: string; few: string; many: string },
+  en: [string, string],
+) {
+  if (lang === "en") return `${fmtNum(n, lang)} ${n === 1 ? en[0] : en[1]}`;
+  const form = new Intl.PluralRules("ar").select(n);
+  if (form === "one") return ar.one;
+  if (form === "two") return ar.two;
+  return `${fmtNum(n, lang)} ${form === "few" ? ar.few : ar.many}`;
+}
+/**
+ * The Arabic noun under a stat tile's number (the number stands above it): the plural after 2 to 10,
+ * the singular after 1 and after 11 and more («٣ جلسات في الأسبوع», «٢٠ دقيقة»).
+ */
+function tileNoun(n: number, plural: string, singular: string) {
+  const form = new Intl.PluralRules("ar").select(n);
+  return form === "few" || form === "two" ? plural : singular;
+}
 /** Foundation gallery of the check (review screenshots, Playwright): VITE_E2E builds only (contract v3 K). */
 const E2EGallery =
   import.meta.env.VITE_E2E === "1" ? lazy(() => import("../features/assessment/e2e/Gallery")) : null;
 const galleryEntry = E2EGallery ? qs.get("e2eGallery") : null;
-/** A full page load that keeps the chosen language (the entries above are read at load). */
-const openUrl = (path: string, lang: Lang) =>
-  location.assign(lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path);
+/**
+ * A full page load that keeps the chosen language (the entries above are read at load). replace: the
+ * page is replaced in the history, so Back cannot return to it (booth and guest exits, S57).
+ */
+const openUrl = (path: string, lang: Lang, replace = false) => {
+  const url = lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path;
+  if (replace) location.replace(url);
+  else location.assign(url);
+};
+/** The pages the movement check leaves to, outside the signed in portal. */
+const EXIT_URLS: Partial<Record<ExitTarget, string>> = {
+  example: "/?example=progress",
+  try: "/?try=1",
+  demo: "/?demo=1&autostart=1",
+  boothStaff: "/?booth=1",
+  signIn: "/?app=1",
+};
 export default function App() {
   const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar"),
     [account, setAccount] = useState<AccountState | null>(null),
@@ -72,8 +111,9 @@ export default function App() {
   /** Where the movement check sends a signed in person when it ends or they leave it. */
   const onCheckExit = (to: ExitTarget) => {
     setCheckOpen(false);
-    if (to === "example") return openUrl("/?example=progress", lang);
-    if (to === "try") return openUrl("/?try=1", lang);
+    const url = EXIT_URLS[to];
+    // In booth mode every exit replaces the page (S57); at home a page change keeps Back.
+    if (url) return openUrl(url, lang, isBoothMode());
     if (to === "healthEdit") {
       setPage("health");
       setEditing(true);
@@ -103,6 +143,10 @@ export default function App() {
       active = false;
     };
   }, []);
+  // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
+  useEffect(() => {
+    if (account) void flushPendingCheckCalls();
+  }, [!!account]);
   useEffect(() => {
     if (account && !run)
       api<{ records: SavedSession[] }>("/sessions")
@@ -119,7 +163,7 @@ export default function App() {
     setEditing(false);
     setPage("program");
     // S02: offered once after the intake, only while home checks are open and the plan is not in review.
-    if (s.plan.status !== "review")
+    if (CHECK_UI && s.plan.status !== "review")
       void createCheckApi()
         .getContext()
         .then((r) => setIntakeOffer(r.ok && r.value.homeOpen === true && !r.value.blocked));
@@ -147,9 +191,8 @@ export default function App() {
         lang={lang}
         onLanguage={toggleLanguage}
         mode="guest"
-        onExit={(to) =>
-          openUrl(to === "example" ? "/?example=progress" : to === "try" ? "/?try=1" : "/", lang)
-        }
+        // A guest never goes Back into a previous visitor's screens: every exit replaces the page (S57).
+        onExit={(to) => openUrl(EXIT_URLS[to] ?? "/", lang, true)}
       />
     );
   if (boothEntry)
@@ -157,7 +200,7 @@ export default function App() {
       <BoothStaffPage
         lang={lang}
         onLanguage={toggleLanguage}
-        onExit={() => openUrl("/", lang)}
+        onExit={() => openUrl("/", lang, true)}
         onOpenGuest={() => openUrl("/?check=1", lang)}
       />
     );
@@ -282,7 +325,7 @@ export default function App() {
   const upcoming = weekdays.find((d) => p?.days.includes(d.getDay())) ?? weekdays[0];
   const reason = (key: string) => reasonText[key]?.[lang] ?? key;
   // S01 (with S03 above it when due): after the next session card, before the week strip.
-  const todaySlot = (
+  const todaySlot = CHECK_UI && (
     <TodayCheckSlot
       lang={lang}
       booth={isBoothMode()}
@@ -300,12 +343,16 @@ export default function App() {
         <div>
           <b>{fmtNum(p.days.length, lang)}</b>
           <span>
-            {c.session} / {lang === "ar" ? "أسبوع" : "week"}
+            {lang === "ar"
+              ? tileNoun(p.days.length, "جلسات في الأسبوع", "جلسة في الأسبوع")
+              : p.days.length === 1
+                ? "session a week"
+                : "sessions a week"}
           </span>
         </div>
         <div>
           <b>{fmtNum(p.estimatedMinutes, lang)}</b>
-          <span>{c.minutes}</span>
+          <span>{lang === "ar" ? tileNoun(p.estimatedMinutes, "دقائق", "دقيقة") : c.minutes}</span>
         </div>
         <div>
           <b>
@@ -416,9 +463,12 @@ export default function App() {
             <>
               <div className="page-heading">
                 <div>
-                  <p className="section-kicker">
-                    {page === "today" ? `${c.welcome}، ${account.user.name}` : c.reported}
-                  </p>
+                  {/* My results (S53) has no kicker: its results are measured, not reported. */}
+                  {page !== "results" && (
+                    <p className="section-kicker">
+                      {page === "today" ? `${c.welcome}، ${account.user.name}` : c.reported}
+                    </p>
+                  )}
                   <h1>
                     {page === "today"
                       ? lang === "ar"
@@ -486,11 +536,14 @@ export default function App() {
                             <p>{h.conditions.map((v) => optionNames[v]?.[lang]).join(" · ")}</p>
                             <div className="hero-dose">
                               <span>
-                                {fmtNum(p.exercises.length, lang)} {lang === "ar" ? "حركات" : "movements"}
+                                {countOf(
+                                  lang,
+                                  p.exercises.length,
+                                  { one: "حركة واحدة", two: "حركتان", few: "حركات", many: "حركة" },
+                                  ["movement", "movements"],
+                                )}
                               </span>
-                              <span>
-                                {fmtNum(p.estimatedMinutes, lang)} {c.minutes}
-                              </span>
+                              <span>{countPhrase(lang, "min", p.estimatedMinutes)}</span>
                               <span>
                                 <bdi>{fmtTime(p.time, lang)}</bdi>
                               </span>
@@ -564,10 +617,10 @@ export default function App() {
                         <div className="preparation-row">
                           <span>
                             <Icon name="clock" size={17} />
-                            {c.warmup}: {fmtNum(p.warmUpMinutes, lang)} {c.minutes}
+                            {c.warmup} {countPhrase(lang, "min", p.warmUpMinutes)}
                           </span>
                           <span>
-                            {c.cooldown}: {fmtNum(p.coolDownMinutes, lang)} {c.minutes}
+                            {c.cooldown} {countPhrase(lang, "min", p.coolDownMinutes)}
                           </span>
                         </div>
                         {page === "program" && (
@@ -651,7 +704,8 @@ export default function App() {
                   onOpenProgram={() => setPage("program")}
                 />
               )}
-              <p className="medical-footnote">{c.medicalNote}</p>
+              {/* My results carries its own footer (S53) at 16 px; the portal note stays elsewhere. */}
+              {page !== "results" && <p className="medical-footnote">{c.medicalNote}</p>}
             </>
           )}
         </main>
@@ -667,6 +721,8 @@ export default function App() {
             setCheckOpen(true);
           }}
           onLater={() => setIntakeOffer(false)}
+          // The intake form is gone: focus returns to the Program page heading (5.1).
+          returnFocus={() => document.querySelector<HTMLElement>(".page-heading h1")}
         />
       )}
       {settings && (

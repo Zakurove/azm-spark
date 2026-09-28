@@ -48,10 +48,20 @@ export const GALLERY_PAGES = [
 
 const noop = () => undefined;
 
-export default function Gallery({ name, lang, onLanguage }: { name: string; lang: Lang; onLanguage(): void }) {
+export default function Gallery({
+  name,
+  lang,
+  onLanguage,
+}: {
+  name: string;
+  lang: Lang;
+  onLanguage(): void;
+}) {
   const [sound, setSound] = useState(name !== "soundOff");
   const caption: Caption | null =
-    name === "question" ? { text: precheckItem("pc_urgent").ask![lang], severity: "info", speaking: false } : null;
+    name === "question"
+      ? { text: precheckItem("pc_urgent").ask![lang], severity: "info", speaking: false }
+      : null;
   return (
     <CheckRoot
       ui={{
@@ -72,16 +82,11 @@ export default function Gallery({ name, lang, onLanguage }: { name: string; lang
 }
 
 function Page({ name, lang }: { name: string; lang: Lang }) {
-  if (name === "question" || name === "booth" || name === "soundOff" || name === "offline") return <QuestionPage lang={lang} />;
+  if (name === "question" || name === "booth" || name === "soundOff" || name === "offline")
+    return <QuestionPage lang={lang} />;
   if (name === "multi") return <MultiPage lang={lang} />;
   if (name === "fixture") return <FixturePage />;
-  if (name === "offer")
-    return (
-      <>
-        <QuestionPage lang={lang} />
-        <AfterIntakeOffer lang={lang} minutes={[16, 21]} onStart={noop} onLater={noop} />
-      </>
-    );
+  if (name === "offer") return <OfferPage lang={lang} />;
   if (name.startsWith("leave-"))
     return (
       <>
@@ -92,13 +97,22 @@ function Page({ name, lang }: { name: string; lang: Lang }) {
   if (name.startsWith("camera-")) {
     const [, kind, platform] = name.split("-") as [string, "denied" | "none" | "busy" | "stopped", Platform?];
     return (
-      <CheckShell>
-        <CameraProblemCard kind={kind} platform={platform ?? "other"} onRetry={noop} onLater={noop} onDemo={noop} />
+      <CheckShell onBack={noop}>
+        <CameraProblemCard
+          kind={kind}
+          platform={platform ?? "other"}
+          onRetry={noop}
+          onLater={noop}
+          onDemo={noop}
+        />
       </CheckShell>
     );
   }
   return (
-    <CheckShell counter={{ text: t(lang, "assessment.common.testOf", { n: 2, total: 3 }), value: 2, max: 3 }} onBack={noop}>
+    <CheckShell
+      counter={{ text: t(lang, "assessment.common.testOf", { n: 2, total: 3 }), value: 2, max: 3 }}
+      onBack={noop}
+    >
       {name === "loading" && (
         <>
           <h1>{t(lang, "assessment.name")}</h1>
@@ -117,13 +131,32 @@ function Page({ name, lang }: { name: string; lang: Lang }) {
       {name === "error" && (
         <ErrorState
           level={1}
-          title={t(lang, "assessment.state.error.title")}
+          title={t(lang, "assessment.state.error.titleStart")}
           body={t(lang, "assessment.state.error.bodyStart")}
           onRetry={noop}
           secondary={{ label: t(lang, "assessment.camera.later"), onClick: noop }}
         />
       )}
     </CheckShell>
+  );
+}
+
+/** S02 over a page: "Later" closes it and focus returns to the page's h1 (5.1 returnFocus). */
+function OfferPage({ lang }: { lang: Lang }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <QuestionPage lang={lang} />
+      {open && (
+        <AfterIntakeOffer
+          lang={lang}
+          minutes={[16, 21]}
+          onStart={() => setOpen(false)}
+          onLater={() => setOpen(false)}
+          returnFocus={() => document.querySelector<HTMLElement>("main h1")}
+        />
+      )}
+    </>
   );
 }
 
@@ -134,12 +167,13 @@ function QuestionPage({ lang }: { lang: Lang }) {
     <CheckShell
       counter={{ text: t(lang, "assessment.common.questionOf", { n: 1, total: 9 }), value: 1, max: 9 }}
       onBack={noop}
+      sound
     >
       <h1 id="gallery-q" className="check-question">
         {q.ask![lang]}
       </h1>
       {q.list && (
-        <ul className="check-card is-cream check-body">
+        <ul className="check-card is-cream check-body check-list">
           {q.list[lang].map((line) => (
             <li key={line}>{line}</li>
           ))}
@@ -163,18 +197,21 @@ function MultiPage({ lang }: { lang: Lang }) {
     <CheckShell
       counter={{ text: t(lang, "assessment.common.stepOf", { n: 5, total: 6 }), value: 5, max: 6 }}
       onBack={noop}
-      footer={next}
+      footer={{ primary: next.primary }}
     >
       <h1 id="gallery-m" className="check-question">
         {t(lang, "assessment.guest.pain.ask")}
       </h1>
       <p className="check-hint">{t(lang, "assessment.guest.chooseAll")}</p>
+      {next.hint}
       <MultiAnswerList
         labelledBy="gallery-m"
         options={areas.map((a) => ({ value: a, label: t(lang, `assessment.options.pain.${a}`) }))}
         value={value}
         exclusive="none"
         onChange={setValue}
+        describedBy={next.describedBy}
+        groupRef={next.groupRef}
       />
     </CheckShell>
   );

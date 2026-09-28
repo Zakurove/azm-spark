@@ -60,12 +60,22 @@ const EMPTY = (): Landmark[] => Array.from({ length: 33 }, () => ({ x: 0, y: 0, 
 /** The frames of a fixture as the engine sees them (lm is the first pose, as the camera sets it). */
 export function fixtureFrames(name: string): Frame[] {
   if (name === "empty") {
-    return Array.from({ length: 90 }, (_, i) => ({ t: (i * 1000) / 15, lm: EMPTY(), poses: [], aspect: 0.5625 }));
+    return Array.from({ length: 90 }, (_, i) => ({
+      t: (i * 1000) / 15,
+      lm: EMPTY(),
+      poses: [],
+      aspect: 0.5625,
+    }));
   }
   const spec = fixtureSpec(name);
   if (!spec) throw new RangeError(`Unknown e2e fixture ${name}`);
   const fx = generate(spec);
-  return fx.frames.map((f) => ({ t: f.t, lm: f.poses[0] ?? EMPTY(), poses: f.poses, aspect: fx.meta.aspect }));
+  return fx.frames.map((f) => ({
+    t: f.t,
+    lm: f.poses[0] ?? EMPTY(),
+    poses: f.poses,
+    aspect: fx.meta.aspect,
+  }));
 }
 
 export interface FixtureClock {

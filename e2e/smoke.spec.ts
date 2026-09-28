@@ -18,7 +18,8 @@ const COPY = {
 } as const;
 type Lang = keyof typeof COPY;
 const LANGS: Lang[] = ["ar", "en"];
-const url = (path: string, lang: Lang) => (lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path);
+const url = (path: string, lang: Lang) =>
+  lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path;
 
 /** Console errors, except the expected 401 of /api/auth/me for a visitor who is not signed in. */
 function watchConsole(page: Page): string[] {
@@ -56,7 +57,8 @@ for (const lang of LANGS) {
       await expect(h1).toBeFocused();
       await expect(page.locator(".azm-check")).toHaveAttribute("dir", lang === "ar" ? "rtl" : "ltr");
       await expect(page.getByRole("button", { name: COPY[lang].a.guest.boothOnly.example })).toBeVisible();
-      await expect(page.getByRole("button", { name: COPY[lang].l.actions.tryWorkout })).toBeVisible();
+      // "Watch a demo" names where it goes (UX spec S05b, WCAG 2.4.4).
+      await expect(page.getByRole("button", { name: COPY[lang].a.camera.demo })).toBeVisible();
       // Targets are at least 48 px.
       for (const b of await page.locator(".azm-check button").all()) {
         const box = (await b.boundingBox())!;
@@ -74,7 +76,10 @@ for (const lang of LANGS) {
       await page.goto(url("/?check=1", lang));
       // A desktop without touch gets the phone interstitial first (S04), with the booth badge.
       await expect(page.locator("h1")).toHaveText(COPY[lang].a.desktop.title);
-      await expect(page.getByText(COPY[lang].a.guest.boothBadge)).toBeVisible();
+      await expect(page.locator(".check-topbar .check-booth-badge")).toContainText(
+        COPY[lang].a.guest.boothBadge,
+      );
+      await expect(page.locator(".check-topbar .check-booth-badge")).toBeVisible();
       await page.getByRole("button", { name: COPY[lang].a.common.exit }).click();
       const dialog = page.getByRole("dialog", { name: COPY[lang].a.exit.title });
       await expect(dialog).toBeVisible();
@@ -95,17 +100,24 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("/?booth=1 staff stub", async ({ page }) => {
+    test("/?booth=1 staff stub: the booth badge only once booth mode is on (S55, S57)", async ({ page }) => {
       const errors = watchConsole(page);
       await page.goto(url("/?booth=1", lang));
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(COPY[lang].a.booth.title);
-      await expect(page.getByText(COPY[lang].a.guest.boothBadge)).toBeVisible();
+      // Before a code is verified the device is not in booth mode, so no badge and no Sound.
+      await expect(page.locator(".check-booth-badge")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: COPY[lang].a.common.sound })).toHaveCount(0);
+      await page.evaluate(() => sessionStorage.setItem("azm.booth", "e2e-booth"));
+      await page.reload();
+      await expect(page.locator(".check-topbar .check-booth-badge")).toBeVisible();
       expect(errors).toEqual([]);
     });
 
     test("the results page is in the portal nav, and Today holds the check slot", async ({ page }) => {
       const errors = watchConsole(page);
-      const headers = { Origin: new URL(page.url() === "about:blank" ? "http://127.0.0.1" : page.url()).origin };
+      const headers = {
+        Origin: new URL(page.url() === "about:blank" ? "http://127.0.0.1" : page.url()).origin,
+      };
       await page.goto(url("/", lang));
       headers.Origin = new URL(page.url()).origin;
       const email = `e2e-${lang}-${Date.now()}@example.test`;
@@ -159,6 +171,8 @@ test("the fixture pose source plays frames on the E2E build (contract v3 K)", as
   await page.goto("/?e2eGallery=fixture&e2eFixture=seated-raise&lang=en");
   const meter = page.locator("[data-frames]");
   await expect(meter).toHaveAttribute("data-source", "FixturePoseSource");
-  await expect.poll(async () => Number(await meter.getAttribute("data-frames")), { timeout: 5000 }).toBeGreaterThan(20);
+  await expect
+    .poll(async () => Number(await meter.getAttribute("data-frames")), { timeout: 5000 })
+    .toBeGreaterThan(20);
   expect(errors).toEqual([]);
 });

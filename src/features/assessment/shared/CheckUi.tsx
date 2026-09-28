@@ -24,6 +24,8 @@ export interface CheckUi {
   backOnline: boolean;
   /** A signed in check with results waiting in the queue (offline.savedLater). */
   savedLater: boolean;
+  /** The session ended while results wait: results screens show the save error with sign in (0.7). */
+  saveAuth: boolean;
   sound: { on: boolean; toggle(): void };
   caption: Caption | null;
   showCaption(text: string, severity?: CaptionSeverity, speaking?: boolean): void;
@@ -46,6 +48,7 @@ export const DEFAULT_UI: CheckUi = {
   online: true,
   backOnline: false,
   savedLater: false,
+  saveAuth: false,
   sound: { on: true, toggle: noop },
   caption: null,
   showCaption: noop,

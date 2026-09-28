@@ -3,73 +3,16 @@
  *
  * Every rule here is scoped to .azm-check, the root class of CheckShell, CameraStage, ProgressView
  * and the entry cards, so nothing global changes (design language 10.3). Feature CSS files of the
- * parallel streams (camera.css, results.css, ...) use only the custom properties declared below.
+ * parallel streams (camera.css, results.css, ...) use only the custom properties of tokens.css.
  *
  * Sizes are in rem (1 rem = 16 px) so browser text zoom and iOS larger text scale them. No mobile
  * query shrinks type (audit 9.2). Colour never carries meaning alone; red is STOP, the 997 call and
  * the safety frame only; green is never a verdict.
  */
 
-/* ------------------------------------------------------------------ tokens (0.3) */
+/* ------------------------------------------------------------------ root (tokens in tokens.css) */
 
 .azm-check {
-  --ink: #1c2029;
-  --muted: #5d626d;
-  --line: #e3e4e9;
-  --field-border: #878c96;
-  --gold: #f8cb44;
-  --gold-hover: #f0c02f;
-  --gold-ink: #8a6d14;
-  --purple: #6c56a5;
-  --purple-tint: #f1edf8;
-  --green-ink: #2f6b3a;
-  --green-tint: #e9f4ea;
-  --warn-ink: #945817;
-  --warn-fill: #e0a022;
-  --warn-tint: #fdf3e1;
-  --red: #aa3e35;
-  --cream: #fdf5df;
-  --page: #fbfaf8;
-  --card: #ffffff;
-  --hud-surface: rgba(255, 255, 255, 0.94);
-  --focus: 0 0 0 3px var(--card), 0 0 0 6px var(--gold-ink);
-
-  /* Spacing on a 4 px grid, radii (0.3). */
-  --s1: 0.25rem;
-  --s2: 0.5rem;
-  --s3: 0.75rem;
-  --s4: 1rem;
-  --s6: 1.5rem;
-  --s8: 2rem;
-  --s12: 3rem;
-  --r-control: 10px;
-  --r-card: 16px;
-  --r-hud: 24px;
-  --r-pill: 999px;
-
-  /* Type scale (0.4). */
-  --t-safety: 2.5rem;
-  --t-question: 1.625rem;
-  --t-h1: 1.75rem;
-  --t-h2: 1.375rem;
-  --t-answer: 1.25rem;
-  --t-body: 1.125rem;
-  --t-meta: 1rem;
-  --t-big: 3.5rem;
-  --t-button: 1.125rem;
-  --lh-body: 1.8;
-
-  /* Targets (0.5). */
-  --h-cta: 56px;
-  --h-ghost: 48px;
-  --h-answer: 64px;
-  --h-icon: 48px;
-  --h-stop: 72px;
-  --h-call: 64px;
-  --topbar: 56px;
-  --column: 560px;
-  --gutter: 16px;
-
   font-family: Cairo, system-ui, sans-serif;
   color: var(--ink);
   background: var(--page);
@@ -97,11 +40,10 @@
   font-weight: 750;
   margin: 0;
 }
-/* The h1 takes focus on every screen change (tabindex -1) so a screen reader reads it; it is not a
-   control, so it shows no focus ring. */
-.azm-check h1:focus,
-.azm-check h1:focus-visible,
-.azm-check h1[tabindex]:focus-visible {
+/* A heading takes focus when a screen or a dialog opens (tabindex -1) so a screen reader reads it; it
+   is not a control, so it never shows the focus ring (the ring is for controls only). */
+.azm-check :is(h1, h2, h3):focus,
+.azm-check :is(h1, h2, h3)[tabindex="-1"]:focus-visible {
   outline: none;
   box-shadow: none;
 }
@@ -370,7 +312,7 @@
 .azm-check .check-call.is-997 {
   background: var(--red);
   border: 1px solid var(--red);
-  color: #ffffff;
+  color: var(--on-red);
 }
 .azm-check .check-call.is-937 {
   background: var(--card);
@@ -389,7 +331,7 @@
   border: 0;
   border-radius: 18px;
   background: var(--red);
-  color: #ffffff;
+  color: var(--on-red);
   font-size: 1.375rem;
   font-weight: 800;
   cursor: pointer;
@@ -419,21 +361,31 @@
   margin: 0 auto;
   padding: var(--s1) var(--s2);
 }
+/* No top bar control ever shrinks below 48 x 48 px (0.5), whatever the width. */
+.azm-check .check-topbar-row > button,
+.azm-check .check-topbar-row > .check-booth-badge {
+  flex: none;
+  min-width: var(--h-icon);
+  min-height: var(--h-icon);
+}
+/* The counter stays on one line; below 480 px it moves above the h1 (inline bar). */
 .azm-check .check-topbar-counter {
-  flex: 1;
-  min-width: 0;
+  flex: none;
+  white-space: nowrap;
   font-size: var(--t-meta);
   font-weight: 600;
   line-height: 1.4;
 }
 .azm-check .check-topbar-spacer {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
 }
 .azm-check .check-booth-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--s1);
-  min-height: 32px;
+  min-height: var(--h-icon);
   padding: 0 var(--s3);
   border-radius: var(--r-pill);
   background: var(--purple-tint);
@@ -441,6 +393,48 @@
   font-size: var(--t-meta);
   font-weight: 700;
   white-space: nowrap;
+}
+/* The narrow and short forms of the top bar parts, above the screen's content (CheckShell). */
+.azm-check .check-inline-bar {
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.azm-check .check-inline-bar > * {
+  display: none;
+}
+@media (max-width: 479.98px) {
+  .azm-check .check-inline-bar {
+    display: flex;
+  }
+  /* A block, never a flex box: the spaces between its words and isolated numbers must stay. */
+  .azm-check .check-inline-bar > .check-inline-counter {
+    display: block;
+  }
+  .azm-check .check-topbar-counter {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+/* Below 420 px the badge is an icon; its words stay its accessible name. */
+@media (max-width: 419.98px) {
+  .azm-check .check-badge-top {
+    width: var(--h-icon);
+    padding: 0;
+  }
+  .azm-check .check-badge-top .check-booth-badge-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 .azm-check .check-progress {
   height: 6px;
@@ -466,8 +460,23 @@
   max-width: calc(var(--column) + 2 * var(--gutter));
   margin: 0 auto;
   padding: var(--s6) var(--gutter) var(--s8);
-  scroll-padding-top: calc(var(--topbar) + 6px);
-  scroll-padding-bottom: 140px;
+}
+/* Focus is never hidden under a bar (WCAG 2.4.11): the scroll padding sits on the real scrollers, the
+   page and the overlay layer, from the heights CheckShell measures (--check-topbar-h, --check-footer-h).
+   The bottom padding applies only while the footer is sticky. */
+html:has(.azm-check.check-page) {
+  scroll-padding-top: calc(var(--check-topbar-h, 64px) + 8px);
+}
+.azm-check .check-overlay {
+  scroll-padding-top: calc(var(--check-topbar-h, 64px) + 8px);
+}
+@media (min-height: 560px) {
+  html:has(.azm-check.check-page) {
+    scroll-padding-bottom: calc(var(--check-footer-h, 0px) + 8px);
+  }
+  .azm-check .check-overlay {
+    scroll-padding-bottom: calc(var(--check-footer-h, 0px) + 8px);
+  }
 }
 .azm-check .check-content {
   display: grid;
@@ -481,7 +490,7 @@
 }
 .azm-check .check-footer {
   background: var(--card);
-  box-shadow: 0 -8px 24px -18px rgba(28, 32, 41, 0.5);
+  box-shadow: 0 -8px 24px -18px var(--shadow-soft);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .azm-check .check-footer-inner {
@@ -499,15 +508,31 @@
     z-index: 4;
   }
 }
-/* Below 400 CSS px of height (landscape phones, 200% zoom) the top bar compacts to Back and Exit;
-   the counter is still read with the h1 (aria-describedby). */
-@media (max-height: 399px) {
-  .azm-check .check-topbar-counter.is-compactable {
+/* Below 400 CSS px of height (landscape phones, 200% zoom, iOS larger text) the top bar compacts to
+   Back and Exit (3.0): the counter, the badge and Sound move into the content (inline bar); the counter
+   is still read with the h1 (aria-describedby). */
+@media (max-height: 399.98px) {
+  .azm-check .check-topbar-counter {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .azm-check .check-topbar-row > .check-booth-badge,
+  .azm-check .check-topbar-row > .check-sound-top {
+    display: none;
+  }
+  .azm-check .check-inline-bar {
+    display: flex;
+  }
+  .azm-check .check-inline-bar > .check-inline-counter {
+    display: block;
+  }
+  .azm-check .check-inline-bar > .check-booth-badge,
+  .azm-check .check-inline-bar > .check-sound-inline {
+    display: inline-flex;
   }
 }
 
@@ -540,7 +565,9 @@
   animation-name: azm-check-enter-rtl;
 }
 
-/* Caption slot: shown while a line plays; tapping replays it. Never a live region. */
+/* Caption slot: shown while a line plays; tapping replays it. Never a live region. The bar colour is
+   never the only signal: each severity has its icon (info, triangle, stop square) and a safety caption
+   is written in red (4.3, principle 10). */
 .azm-check .check-caption {
   display: flex;
   align-items: flex-start;
@@ -559,13 +586,25 @@
   text-align: start;
   cursor: pointer;
 }
+.azm-check .check-caption-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--purple);
+}
 .azm-check .check-caption.is-warn {
   border-inline-start-color: var(--warn-fill);
   background: var(--warn-tint);
 }
+.azm-check .check-caption.is-warn .check-caption-icon {
+  color: var(--warn-ink);
+}
 .azm-check .check-caption.is-safety {
   border-inline-start-color: var(--red);
   background: var(--cream);
+  color: var(--red);
+}
+.azm-check .check-caption.is-safety .check-caption-icon {
+  color: var(--red);
 }
 
 /* ------------------------------------------------------------ cards and states (0.6) */
@@ -580,11 +619,11 @@
 }
 .azm-check .check-card.is-cream {
   background: var(--cream);
-  border-color: #f1e3b8;
+  border-color: var(--cream-border);
 }
 .azm-check .check-card.is-info {
   background: var(--purple-tint);
-  border-color: #dcd3ee;
+  border-color: var(--purple-border);
 }
 .azm-check .check-card-icon {
   display: inline-flex;
@@ -602,6 +641,23 @@
 .azm-check .check-actions {
   display: grid;
   gap: var(--s3);
+}
+/* Steps to follow (S32 permission steps): one step per line, 20 px, numbered in the page's digits. */
+.azm-check .check-steps {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding-inline-start: var(--s6);
+  font-size: var(--t-answer);
+  line-height: 1.6;
+}
+.azm-check:lang(ar) .check-steps {
+  list-style-type: arabic-indic;
+}
+/* A bulleted list in a card (the pc_urgent signs): the bullets stay inside the card. */
+.azm-check .check-card.check-list {
+  margin: 0;
+  padding-inline-start: var(--s8);
 }
 
 /* Loading: skeleton with the weekly plan shimmer (static under reduced motion). */
@@ -621,7 +677,7 @@
   display: block;
   height: 18px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #eceae4 0%, #f7f5f0 50%, #eceae4 100%);
+  background: linear-gradient(90deg, var(--skeleton-a) 0%, var(--skeleton-b) 50%, var(--skeleton-a) 100%);
   background-size: 200% 100%;
   animation: azm-check-shimmer 1.4s linear infinite;
 }
@@ -677,7 +733,7 @@
   border-radius: var(--r-control);
   background: var(--card);
   border: 1px solid var(--field-border);
-  box-shadow: 0 16px 40px -24px rgba(28, 32, 41, 0.6);
+  box-shadow: 0 16px 40px -24px var(--shadow-strong);
   font-size: var(--t-meta);
   font-weight: 650;
 }
@@ -704,7 +760,7 @@
   align-items: flex-end;
   justify-content: center;
   padding: var(--gutter);
-  background: rgba(37, 49, 46, 0.4);
+  background: var(--scrim);
 }
 @media (min-width: 600px) {
   .azm-check .check-dialog-backdrop {
@@ -721,10 +777,14 @@
   padding: var(--s6) var(--s4) var(--s4);
   border-radius: var(--r-card);
   background: var(--card);
-  box-shadow: 0 24px 60px -30px rgba(28, 32, 41, 0.5);
+  box-shadow: 0 24px 60px -30px var(--shadow-soft);
 }
 .azm-check .check-dialog:focus {
   outline: none;
+}
+/* The portal root of a dialog (CheckDialog): only a carrier of the tokens, language and direction. */
+.azm-check.check-dialog-host {
+  background: none;
 }
 
 /* ------------------------------------------------------------ stubs (round 3 foundation) */
@@ -774,6 +834,25 @@
 }
 .azm-check .check-overlay .check-page-inner {
   min-height: 100%;
+}
+/* The online toast (0.7): shown for about 3 s inside the always present offline status region. */
+.azm-check .check-online-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.azm-check .check-online-toast svg {
+  color: var(--green-ink);
+}
+/* The example banner of S54 rides in the sticky top bar area (never scrolls away, D-008). */
+.azm-check .check-topbar > .check-example-banner {
+  border-bottom: 1px solid var(--purple-border);
+}
+/* The footer of My results (S53): its own lines at 16 px, in the muted ink. */
+.azm-check .check-results-footer {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s6);
 }
 /* Slots inside other pages (Today, My results) keep the page's own background and spacing. */
 .azm-check.check-slot,

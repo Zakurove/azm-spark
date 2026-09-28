@@ -69,6 +69,7 @@ describe("FixturePoseSource in the bundles", () => {
     expect(prod).not.toContain(FIXTURE_SOURCE_NAME);
     expect(prod).not.toContain("e2eFixture");
     expect(prod).not.toContain("e2eGallery");
+    expect(prod).not.toContain("e2eDispatch");
   }, 60_000);
 
   it("the E2E build contains it (the search finds the marker when the code is there)", async () => {

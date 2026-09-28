@@ -180,6 +180,7 @@
     "boothOnly": {
       "title": "For now, the movement check is available only at the Azm booth",
       "body": "You can see an example of the results page, or watch a demo.",
+      "bodyDemo": "You can watch a demo of Azm.",
       "example": "See an example of the results"
     },
     "afterTest": {

@@ -5,6 +5,7 @@
  * voice is not already saying them (5.2), so nothing is announced twice.
  */
 import { t } from "../../../i18n";
+import { bidiText } from "../../../i18n/rich";
 import CheckIcon from "./CheckIcon";
 import { announcementFor, useCheckUi, type CaptionSeverity } from "./CheckUi";
 
@@ -13,6 +14,17 @@ export interface CaptionBarProps {
   severity: CaptionSeverity;
   onReplay(): void;
 }
+
+/**
+ * The icon of each severity (4.3, principle 10): the bar colour is never the only signal.
+ * info: the info circle in purple; warn: a triangle in warn ink; safety: a stop square, with the
+ * caption text itself in red (5.6:1 on cream).
+ */
+export const SEVERITY_ICON: Record<CaptionSeverity, string> = {
+  info: "info",
+  warn: "alert-triangle",
+  safety: "stop-square",
+};
 
 export function CaptionBar({ text, severity, onReplay }: CaptionBarProps) {
   const { lang } = useCheckUi();
@@ -23,8 +35,10 @@ export function CaptionBar({ text, severity, onReplay }: CaptionBarProps) {
       onClick={onReplay}
       aria-label={`${text} ${t(lang, "assessment.hud.replay")}`}
     >
-      <CheckIcon name="captions" />
-      <span>{text}</span>
+      <span className="check-caption-icon" data-severity={severity}>
+        <CheckIcon name={SEVERITY_ICON[severity]} />
+      </span>
+      <span className="check-caption-text">{bidiText(lang, text)}</span>
     </button>
   );
 }
@@ -36,8 +50,9 @@ export function CaptionBar({ text, severity, onReplay }: CaptionBarProps) {
 export function HiddenAnnouncer() {
   const ui = useCheckUi();
   const text = announcementFor(ui.caption, ui.sound.on);
+  // data-keep-live: a modal dialog never makes the one live region inert (CheckDialog).
   return (
-    <div className="check-visually-hidden" aria-live="polite" aria-atomic="true">
+    <div className="check-visually-hidden" aria-live="polite" aria-atomic="true" data-keep-live="">
       {text ?? ""}
     </div>
   );

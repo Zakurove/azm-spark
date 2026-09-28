@@ -1,16 +1,18 @@
 /**
  * Stubs of the progress stream's screens: the Today slot (S03 above S01), the offer after the intake
  * (S02), the results page (S53, nav "My results") and the example page (S54, /?example=progress).
- * Each is a real slot with its final props; the progress stream fills the bodies.
+ * Each is a real slot with its final props; the progress stream fills the bodies. The screen id chips
+ * show in development and E2E builds only (ScreenIdChip).
  */
+import { useId } from "react";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
-import { precheckItem } from "../../movements/assessments";
-import { minutesUnit } from "../assessment/shared/format";
+import { bidiText } from "../../i18n/rich";
+import { CHECK_DATA, precheckItem } from "../../movements/assessments";
 import { CheckDialog } from "../assessment/shared/CheckDialog";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
-import { ScreenStubView } from "../assessment/shared/ScreenStub";
+import { ScreenIdChip, ScreenStubView } from "../assessment/shared/ScreenStub";
 
 /* ---------------------------------------------------------------- S01 and S03 on Today */
 
@@ -39,9 +41,7 @@ export function TodayCheckSlot({ lang }: TodayCheckSlotProps) {
         </span>
         <h2 id="check-today-title">{t(lang, "assessment.name")}</h2>
         <p className="check-body">{t(lang, "assessment.entry.homeSoon")}</p>
-        <span className="check-chip check-stub-id" lang="en" dir="ltr">
-          S01
-        </span>
+        <ScreenIdChip id="S01" />
       </section>
     </CheckRoot>
   );
@@ -55,26 +55,32 @@ export interface AfterIntakeOfferProps {
   minutes: [number, number];
   onStart(): void;
   onLater(): void;
+  /** Where focus goes when the offer closes (5.1): the Program page h1, since the intake is gone. */
+  returnFocus?: () => HTMLElement | null;
 }
 
 /** S02: offered once after the intake is saved, only while home checks are open. */
-export function AfterIntakeOffer({ lang, minutes, onStart, onLater }: AfterIntakeOfferProps) {
+export function AfterIntakeOffer({ lang, minutes, onStart, onLater, returnFocus }: AfterIntakeOfferProps) {
   return (
     <CheckRoot ui={{ lang }} page={false}>
       <CheckDialog
         titleId="check-after-intake-title"
         onClose={onLater}
         initialFocus="#check-after-intake-title"
+        returnFocus={returnFocus}
       >
         <h2 id="check-after-intake-title" tabIndex={-1}>
           {t(lang, "assessment.afterIntake.title")}
         </h2>
         <p className="check-body">
-          {t(lang, "assessment.afterIntake.body", {
-            minutesFrom: minutes[0],
-            minutesTo: minutes[1],
-            unit: minutesUnit(lang, minutes[1]),
-          })}
+          {bidiText(
+            lang,
+            t(lang, "assessment.afterIntake.body", {
+              minutesFrom: minutes[0],
+              minutesTo: minutes[1],
+              unit: "min",
+            }),
+          )}
         </p>
         <div className="check-actions">
           <button type="button" className="cta" onClick={onStart}>
@@ -84,9 +90,7 @@ export function AfterIntakeOffer({ lang, minutes, onStart, onLater }: AfterIntak
             {t(lang, "assessment.afterIntake.later")}
           </button>
         </div>
-        <span className="check-chip check-stub-id" lang="en" dir="ltr">
-          S02
-        </span>
+        <ScreenIdChip id="S02" />
       </CheckDialog>
     </CheckRoot>
   );
@@ -104,7 +108,7 @@ export function NextDayQuestion({ lang }: NextDayQuestionProps) {
   return (
     <CheckRoot ui={{ lang }} page={false}>
       <section className="check-card" data-screen="S03">
-        <h2>{precheckItem("ac_next_day").ask[lang]}</h2>
+        <h2>{bidiText(lang, precheckItem("ac_next_day").ask[lang])}</h2>
       </section>
     </CheckRoot>
   );
@@ -119,17 +123,24 @@ export interface ResultsPageProps {
   onOpenProgram(): void;
 }
 
-/** S53, the nav page نتائجي · My results (the name avoids "progress", O7). */
+/**
+ * S53, the nav page نتائجي · My results (the name avoids "progress", O7). It ends with its own footer
+ * (S53): the results footer, the boundary line and the not medical line, at 16 px in the muted ink.
+ */
 export function ResultsPage({ lang }: ResultsPageProps) {
+  const b = CHECK_DATA.boundary;
   return (
     <CheckRoot ui={{ lang, screenKey: "S53" }} page={false} className="check-results-page">
       <section className="check-card" data-screen="S53" aria-labelledby="check-results-heading">
         <h2 id="check-results-heading">{t(lang, "progress.checks.heading")}</h2>
         <p className="check-body">{t(lang, "progress.empty.body")}</p>
-        <span className="check-chip check-stub-id" lang="en" dir="ltr">
-          S53
-        </span>
+        <ScreenIdChip id="S53" />
       </section>
+      <footer className="check-results-footer">
+        <p className="check-meta">{bidiText(lang, b.resultsFooter[lang])}</p>
+        <p className="check-meta">{bidiText(lang, b.line[lang])}</p>
+        <p className="check-label">{b.notMedical[lang]}</p>
+      </footer>
     </CheckRoot>
   );
 }
@@ -145,17 +156,35 @@ export interface ExampleProgressProps {
   onRegister(): void;
 }
 
-/** S54, /?example=progress: read only, bundled, labelled as an example on every card (D-008). */
+/**
+ * S54, /?example=progress: read only, bundled, labelled as an example on every card (D-008). The
+ * banner sits in the sticky top bar area, so it never scrolls away and is never dismissible, and it
+ * is read first: the h1 that takes focus on load is described by it.
+ */
 export function ExampleProgress({ lang, onLanguage }: ExampleProgressProps) {
+  const bannerId = useId();
+  const banner = (
+    <section
+      className="check-offline-wrap check-example-banner"
+      role="region"
+      aria-label={t(lang, "progress.example.tag")}
+    >
+      <p className="check-offline">
+        <CheckIcon name="info" />
+        <span id={bannerId}>{t(lang, "progress.example.banner")}</span>
+      </p>
+    </section>
+  );
   return (
     <CheckRoot ui={{ lang, onLanguage, screenKey: "S54" }}>
-      <section className="check-offline-wrap" role="region" aria-label={t(lang, "progress.example.tag")}>
-        <p className="check-offline">
-          <CheckIcon name="info" />
-          <span>{t(lang, "progress.example.banner")}</span>
-        </p>
-      </section>
-      <ScreenStubView id="S54" title={t(lang, "progress.example.title")} brand exit={false} />
+      <ScreenStubView
+        id="S54"
+        title={t(lang, "progress.example.title")}
+        brand
+        exit={false}
+        notice={banner}
+        describedBy={bannerId}
+      />
     </CheckRoot>
   );
 }

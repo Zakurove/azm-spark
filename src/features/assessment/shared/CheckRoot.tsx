@@ -4,6 +4,7 @@
  * Today slot) render it with defaults. It never changes the document's own lang or dir.
  */
 import type { ReactNode } from "react";
+import "../tokens.css";
 import "../check.css";
 import { CheckUiContext, DEFAULT_UI, type CheckUi } from "./CheckUi";
 import { HiddenAnnouncer } from "./CaptionBar";

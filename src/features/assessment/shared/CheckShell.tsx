@@ -1,18 +1,28 @@
 /**
  * CheckShell (UX spec 3.0, 5.2): every non camera screen of the check.
  *
- *   top bar     Back, the step counter, the booth badge, Sound, the language switch, Exit
- *   bar         6 px progress bar (role progressbar, aria-valuetext = the visible counter)
+ *   top bar     Back, the step counter, the booth badge, Sound, Exit (the language switch only on the
+ *               entry screens S05, S05b, S12, S14, S54, S55)
+ *   bar         6 px progress bar (role progressbar, labelled by the counter, aria-valuetext)
  *   banners     the sound off line, the offline banner (0.7)
  *   content     caption slot, optional wordmark header, the screen, 16 px gutters, 560 px column
  *   footer      call controls first, one gold primary, one secondary; sticky from 560 CSS px tall
  *
+ * Fit at phone width (0.5): every top bar control keeps 48 x 48 px and never shrinks. Below 420 CSS px
+ * wide the booth badge is an icon (its words stay its accessible name) and the counter moves from the
+ * top bar to a meta line above the screen's h1 (the top bar keeps it for assistive technology). Below
+ * 400 CSS px tall the top bar compacts to Back and Exit, and the badge and Sound move into the content.
+ *
+ * Focus is never hidden under a bar (WCAG 2.4.11): the shell measures the sticky top bar and footer
+ * and sets them as scroll padding on the real scroller (the page, or the overlay layer).
+ *
  * DOM order equals visual order. On every screen change focus moves to the h1 (tabindex -1), which is
  * described by the counter, so "Question 3 of 9" is read with the question.
  */
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Brand from "../../../app/Brand";
 import { t } from "../../../i18n";
+import { bidiText } from "../../../i18n/rich";
 import { CaptionBar } from "./CaptionBar";
 import CheckIcon from "./CheckIcon";
 import { useCheckUi } from "./CheckUi";
@@ -46,12 +56,44 @@ export interface CheckShellProps {
   exit?: boolean;
   /** The full Azm wordmark in the content header (S05, S12, S14, S50 to S54). */
   brand?: boolean;
-  /** Hides the language switch (it stays on every screen by default). */
+  /** The language switch: only on the entry screens (S05, S05b, S12, S14, S54, S55). */
   language?: boolean;
-  /** The Sound control, on every screen that plays a line (3.0); false where nothing plays. */
+  /** The Sound control: only on screens that play a line (3.0). */
   sound?: boolean;
   footer?: { primary?: ButtonSpec; secondary?: ButtonSpec; call?: CallLinkProps[] };
+  /** A notice at the top of the sticky header, above the top bar (S54: the example banner). */
+  notice?: ReactNode;
   children: ReactNode;
+}
+
+/**
+ * Measures the sticky top bar and footer and sets them as scroll padding on the element that scrolls:
+ * the page (html) or the overlay layer (.check-overlay). The bottom padding applies only while the
+ * footer is sticky (check.css, min-height 560 px).
+ */
+function useScrollPadding(top: React.RefObject<HTMLElement>, bottom: React.RefObject<HTMLElement>) {
+  useLayoutEffect(() => {
+    const bar = top.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const scroller = (bar.closest(".check-overlay") as HTMLElement | null) ?? document.documentElement;
+    const set = () => {
+      scroller.style.setProperty("--check-topbar-h", `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+      const foot = bottom.current;
+      scroller.style.setProperty(
+        "--check-footer-h",
+        `${foot ? Math.ceil(foot.getBoundingClientRect().height) : 0}px`,
+      );
+    };
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(bar);
+    if (bottom.current) ro.observe(bottom.current);
+    return () => {
+      ro.disconnect();
+      scroller.style.removeProperty("--check-topbar-h");
+      scroller.style.removeProperty("--check-footer-h");
+    };
+  });
 }
 
 export function CheckShell({
@@ -59,23 +101,30 @@ export function CheckShell({
   onBack,
   exit = true,
   brand,
-  language = true,
-  sound = true,
+  language = false,
+  sound = false,
   footer,
+  notice,
   children,
 }: CheckShellProps) {
   const ui = useCheckUi();
   const { lang } = ui;
   const counterId = useId();
   const mainRef = useRef<HTMLElement>(null);
+  const topRef = useRef<HTMLElement>(null);
+  const footRef = useRef<HTMLElement>(null);
   const [toast, setToast] = useState<string | null>(null);
+  useScrollPadding(topRef, footRef);
 
   // Focus moves to the h1 on every screen change (3.0, definition of done).
   useEffect(() => {
     const h1 = mainRef.current?.querySelector<HTMLElement>("h1");
     if (!h1) return;
     h1.tabIndex = -1;
-    if (counter) h1.setAttribute("aria-describedby", counterId);
+    if (counter) {
+      const own = (h1.getAttribute("aria-describedby") ?? "").split(" ").filter((x) => x && x !== counterId);
+      h1.setAttribute("aria-describedby", [counterId, ...own].join(" "));
+    }
     h1.focus({ preventScroll: false });
     // Only a new screen moves focus; a re-render of the same screen never does.
   }, [ui.screenKey]);
@@ -93,15 +142,34 @@ export function CheckShell({
   };
   const other = lang === "ar" ? "en" : "ar";
   const pct = counter && counter.max > 0 ? Math.min(100, Math.round((counter.value / counter.max) * 100)) : 0;
+  const soundButton = (where: "top" | "inline") => (
+    <button
+      type="button"
+      className={`check-icon-button check-sound-${where}`}
+      onClick={toggleSound}
+      aria-pressed={ui.sound.on}
+      aria-label={t(lang, "assessment.common.sound")}
+    >
+      <CheckIcon name={ui.sound.on ? "speaker" : "speaker-off"} />
+    </button>
+  );
+  const badge = (where: "top" | "inline") => (
+    <span className={`check-booth-badge check-badge-${where}`}>
+      <CheckIcon name="badge" size={18} />
+      <span className="check-booth-badge-text">{t(lang, "assessment.guest.boothBadge")}</span>
+      <span className="check-visually-hidden">{` ${t(lang, "assessment.booth.badgeHint")}`}</span>
+    </span>
+  );
 
   return (
     <div className="check-page-inner">
-      <header className="check-topbar">
+      <header className="check-topbar" ref={topRef}>
+        {notice}
         <div className="check-topbar-row">
           {onBack && (
             <button
               type="button"
-              className="check-icon-button"
+              className="check-icon-button check-back"
               onClick={onBack}
               aria-label={t(lang, "assessment.common.back")}
             >
@@ -109,29 +177,13 @@ export function CheckShell({
             </button>
           )}
           {counter ? (
-            <span id={counterId} className="check-topbar-counter is-compactable">
-              {counter.text}
+            <span id={counterId} className="check-topbar-counter">
+              {bidiText(lang, counter.text)}
             </span>
-          ) : (
-            <span className="check-topbar-spacer" />
-          )}
-          {ui.booth && (
-            <span className="check-booth-badge">
-              <CheckIcon name="badge" size={18} />
-              {t(lang, "assessment.guest.boothBadge")}
-            </span>
-          )}
-          {sound && (
-            <button
-              type="button"
-              className="check-icon-button"
-              onClick={toggleSound}
-              aria-pressed={ui.sound.on}
-              aria-label={t(lang, "assessment.common.sound")}
-            >
-              <CheckIcon name={ui.sound.on ? "speaker" : "speaker-off"} />
-            </button>
-          )}
+          ) : null}
+          <span className="check-topbar-spacer" />
+          {ui.booth && badge("top")}
+          {sound && soundButton("top")}
           {language && (
             <button type="button" className="check-language" onClick={ui.onLanguage} lang={other}>
               {t(lang, "assessment.common.language")}
@@ -140,7 +192,7 @@ export function CheckShell({
           {exit && ui.requestLeave && (
             <button
               type="button"
-              className="check-icon-button"
+              className="check-icon-button check-exit"
               onClick={ui.requestLeave}
               aria-label={t(lang, "assessment.common.exit")}
             >
@@ -156,7 +208,7 @@ export function CheckShell({
             aria-valuemax={counter.max}
             aria-valuenow={counter.value}
             aria-valuetext={counter.text}
-            aria-label={counter.text}
+            aria-labelledby={counterId}
           >
             <span style={{ width: `${pct}%` }} />
           </div>
@@ -166,6 +218,19 @@ export function CheckShell({
       <OfflineBanner />
       <main className="check-main" ref={mainRef}>
         <div className="check-content check-enter" key={ui.screenKey}>
+          {(counter || ui.booth || sound) && (
+            // The narrow and short screen forms of the top bar parts (check.css): the counter above the
+            // h1 (read with it through aria-describedby, so hidden here), the badge and Sound.
+            <div className="check-inline-bar">
+              {counter && (
+                <p className="check-meta check-inline-counter" aria-hidden="true">
+                  {bidiText(lang, counter.text)}
+                </p>
+              )}
+              {ui.booth && badge("inline")}
+              {sound && soundButton("inline")}
+            </div>
+          )}
           {ui.caption && (
             <CaptionBar text={ui.caption.text} severity={ui.caption.severity} onReplay={ui.replayCaption} />
           )}
@@ -178,7 +243,7 @@ export function CheckShell({
         </div>
       </main>
       {footer && (footer.primary || footer.secondary || footer.call?.length) && (
-        <footer className="check-footer">
+        <footer className="check-footer" ref={footRef}>
           <div className="check-footer-inner">
             {footer.call?.map((c) => (
               <CallLink key={c.number} {...c} />
@@ -213,7 +278,11 @@ function ShellButton({ spec, kind }: { spec: ButtonSpec; kind: "primary" | "seco
   );
 }
 
-/** A tel: call control, 64 px, 997 red fill or 937 purple outline, digits read one by one (Q22). */
+/**
+ * A tel: call control, 64 px, 997 red fill or 937 purple outline. The label shows the number in the
+ * page's digits (٩٩٧ in Arabic, Q30); only the href stays ASCII. The accessible name reads the
+ * digits one by one (Q22).
+ */
 export function CallLink({ number, label }: CallLinkProps) {
   const { lang } = useCheckUi();
   const digits = number.split("").join(" ");
@@ -226,7 +295,7 @@ export function CallLink({ number, label }: CallLinkProps) {
       })}
     >
       <CheckIcon name="phone-call" />
-      <span>{label}</span>
+      <span>{bidiText(lang, label)}</span>
     </a>
   );
 }

@@ -4,7 +4,7 @@
  *
  *   AZM_SHOTS_DIR=../Azm6.0/local-docs/screens/round3-foundation npm run e2e -- shots
  *
- * Files are <lang>-<m|d>-<name>.png (m 375 x 812 at 2x, d 1440 x 900).
+ * Files are <lang>-<m|s|d>-<name>.png (m 375 x 812 at 2x, s 320 x 640 at 2x, d 1440 x 900).
  */
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -37,16 +37,31 @@ const GALLERY = [
 ];
 const SIZES = [
   { tag: "m", width: 375, height: 812, scale: 2 },
+  { tag: "s", width: 320, height: 640, scale: 2 },
   { tag: "d", width: 1440, height: 900, scale: 1 },
 ] as const;
 const LANGS = ["ar", "en"] as const;
-const q = (path: string, lang: string) => (lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path);
+const q = (path: string, lang: string) =>
+  lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path;
 
-async function shot(page: Page, lang: string, tag: string, name: string) {
+/**
+ * A whole page shot: the viewport is made as tall as the page for the shot, so the sticky top bar and
+ * footer are drawn where a person sees them (a plain full page capture draws them where the viewport
+ * was). A dialog is shot at the viewport size, as the person sees it (its scrim covers the viewport).
+ */
+async function shot(page: Page, lang: string, tag: string, name: string, fullPage = true) {
   await page.evaluate(() => document.fonts.ready);
+  const viewport = page.viewportSize()!;
+  if (fullPage) {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    if (height > viewport.height) await page.setViewportSize({ width: viewport.width, height });
+  }
   await page.waitForTimeout(150);
-  await page.screenshot({ path: join(OUT, `${lang}-${tag}-${name}.png`), fullPage: true, animations: "disabled" });
+  await page.screenshot({ path: join(OUT, `${lang}-${tag}-${name}.png`), animations: "disabled" });
+  await page.setViewportSize(viewport);
 }
+const DIALOGS = new Set(["leave-before", "leave-during", "leave-guest", "offer"]);
 
 for (const size of SIZES) {
   for (const lang of LANGS) {
@@ -55,8 +70,8 @@ for (const size of SIZES) {
       const context = await browser.newContext({
         viewport: { width: size.width, height: size.height },
         deviceScaleFactor: size.scale,
-        hasTouch: size.tag === "m",
-        isMobile: size.tag === "m",
+        hasTouch: size.tag !== "d",
+        isMobile: size.tag !== "d",
       });
       const page = await context.newPage();
 
@@ -65,7 +80,7 @@ for (const size of SIZES) {
         await page.goto(q(`/?e2eGallery=${page_}`, lang));
         await expect(page.locator(".azm-check").first()).toBeVisible();
         if (name === "multi-hint") await page.locator(".check-footer .cta").click();
-        await shot(page, lang, size.tag, `gallery-${name}`);
+        await shot(page, lang, size.tag, `gallery-${name}`, !DIALOGS.has(name));
       }
 
       await page.goto(q("/?check=1", lang));
@@ -79,6 +94,12 @@ for (const size of SIZES) {
       await page.goto(q("/?booth=1", lang));
       await expect(page.locator("h1")).toBeVisible();
       await shot(page, lang, size.tag, "S55-booth-stub");
+      // Once booth mode is on (after a verify), the badge shows on the staff page (S57).
+      await page.evaluate(() => sessionStorage.setItem("azm.booth", "e2e-booth"));
+      await page.reload();
+      await expect(page.locator(".check-topbar .check-booth-badge")).toBeVisible();
+      await shot(page, lang, size.tag, "S55-booth-on-stub");
+      await page.evaluate(() => sessionStorage.removeItem("azm.booth"));
 
       // Booth mode on this tab: the guest check opens (S04 on a desktop, else S05).
       await page.evaluate(() => sessionStorage.setItem("azm.booth", "e2e-booth"));
@@ -92,7 +113,11 @@ for (const size of SIZES) {
       const headers = { Origin: origin, "X-Azm-Request": "1" };
       const reg = await page.request.post("/api/auth/register", {
         headers,
-        data: { name: "Sara", email: `shots-${lang}-${size.tag}-${Date.now()}@example.test`, password: `${crypto.randomUUID()}Aa1` },
+        data: {
+          name: "Sara",
+          email: `shots-${lang}-${size.tag}-${Date.now()}@example.test`,
+          password: `${crypto.randomUUID()}Aa1`,
+        },
       });
       expect(reg.status()).toBe(200);
       const intake = await page.request.put("/api/intake", {

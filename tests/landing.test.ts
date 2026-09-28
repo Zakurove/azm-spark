@@ -7,6 +7,8 @@
  * reads. Copy is read from src/i18n/{ar,en}/landing.json through t().
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import Landing, {
@@ -254,6 +256,19 @@ describe("closing and footer", () => {
     }
     expect(t("ar", "landing.footer.notMedical")).toBe("غير مخصص للأغراض الطبية.");
     expect(t("en", "landing.footer.notMedical")).toBe("Not intended for medical purposes.");
+  });
+
+  it("sets the line at body size, never fine print, under the action and in the footer (Q23 (2), H1)", () => {
+    const css = readFileSync(join(__dirname, "../src/app/platform.css"), "utf8");
+    // Every rule that sizes the line, in the order of the file, as the cascade applies them.
+    const sizes = [...css.matchAll(/([^{}]*\.ld(?:-check)?-not-medical[^{}]*)\{([^}]*)\}/g)]
+      .map(([, selector, body]) => ({
+        selector: selector.trim(),
+        size: /font-size:\s*(\d+)px/.exec(body)?.[1],
+      }))
+      .filter((r) => r.size !== undefined);
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const r of sizes) expect(Number(r.size), r.selector).toBeGreaterThanOrEqual(16);
   });
 
   it("keeps the closing line and uses the council's closing text, without the doctor (spec Q23)", () => {

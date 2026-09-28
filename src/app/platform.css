@@ -2062,8 +2062,9 @@
   gap: 26px;
   align-items: center;
 }
+/* Q23 (2), H1: the wellness label is body size (16 px, AA contrast), never fine print, here too. */
 .ld-not-medical {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 750;
   color: #2f343d;
   margin: 0 0 6px;

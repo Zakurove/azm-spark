@@ -18,7 +18,9 @@
  * or it is mostly hidden. Optional: a second person (helper) who stands, walks between the phone
  * and the subject, hovers a hand near the subject or touches the subject; Gaussian landmark noise;
  * a moving phone (the whole image jitters, or jolts); dim light; the model's pose order shuffled
- * per frame.
+ * per frame; the camera's timing (jittered frame times, dropped frames, short gaps at a steady
+ * rhythm and stalls), as a phone delivers frames, with the body always drawn at the frame's own
+ * time.
  *
  * The subject can also rest the arms in a given pose (hands on the thighs), hold the other arm
  * (an assisted lift), turn, bend forward or slide the pelvis sideways, for the engine mode tests.
@@ -561,6 +563,20 @@ export interface GenSpec {
   /** Shuffle the pose order every frame, as the model does not keep it. */
   shuffle?: boolean;
   /**
+   * Camera timing. By default frames come every 1000 ÷ fps ms exactly. `jitterMs` moves each frame
+   * time by up to that many ms either way (uniform, seeded apart from the landmarks, so the same
+   * frames get the same times); `dropShare` leaves out that share of frames at random; `gaps` leaves
+   * out the frames after every `everySec` seconds so that the next frame comes `ms` later; `stalls`
+   * leaves out every frame between `from` and `to` (seconds). The body is drawn at each frame's own
+   * time, so the landmarks and the time stamp always agree.
+   */
+  timing?: {
+    jitterMs?: number;
+    dropShare?: number;
+    gaps?: { everySec: number; ms: number; fromSec?: number };
+    stalls?: { from: number; to: number }[];
+  };
+  /**
    * Light on the scene, 1 good (default) down to about 0.5 dim: every visibility the model reports
    * is scaled by it, as dim light lowers the model's confidence everywhere.
    */
@@ -743,9 +759,11 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
   };
 
   const frames: Fixture<GenTruth>["frames"] = [];
+  const times = frameTimes(spec, n);
   for (let i = 0; i < n; i++) {
-    const t = i / spec.fps;
-    const tMs = Math.round((i * 1000) / spec.fps);
+    const tMs = times[i].tMs;
+    // Without jitter the body is drawn at the exact frame time (the fixture files on disk).
+    const t = spec.timing?.jitterMs ? tMs / 1000 : i / spec.fps;
 
     // Subject.
     const s = baseState(spec.profile, yaw, spec.subject?.x ?? 0, spec.subject?.arms);
@@ -884,6 +902,8 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
     }
 
     if (spec.shuffle && poses.length > 1 && r() < 0.5) poses.reverse();
+    // A frame the camera did not deliver is drawn (the random stream stays aligned) but not kept.
+    if (!times[i].kept) continue;
     truth.subjectIndex.push(poses.findIndex((p) => p.role === "subject"));
     truth.helperIndex.push(poses.findIndex((p) => p.role === "helper"));
     frames.push({ t: tMs, poses: poses.map((p) => p.lm) });
@@ -904,6 +924,35 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
     truth,
     frames,
   };
+}
+
+/**
+ * Frame times (ms) of a spec and whether the camera delivers each frame (GenSpec.timing). The
+ * timing has its own random stream, so the landmarks of a frame do not depend on it.
+ */
+function frameTimes(spec: GenSpec, n: number): { tMs: number; kept: boolean }[] {
+  const tm = spec.timing ?? {};
+  const r = rng((spec.seed ^ 0x5bd1e995) >>> 0);
+  const out: { tMs: number; kept: boolean }[] = [];
+  let prev = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const base = (i * 1000) / spec.fps;
+    const jitter = i > 0 && tm.jitterMs ? (2 * r() - 1) * tm.jitterMs : 0;
+    // Times stay in order and at least 1 ms apart, as a camera's do.
+    const tMs = Math.max(Math.round(base + jitter), prev + 1);
+    prev = tMs;
+    let kept = !(tm.dropShare && i > 0 && r() < tm.dropShare);
+    const sec = tMs / 1000;
+    const g = tm.gaps;
+    if (g && sec > (g.fromSec ?? 0)) {
+      const k = Math.floor(sec / g.everySec);
+      const into = sec - k * g.everySec;
+      if (k >= 1 && into > 1e-6 && into < g.ms / 1000 - 1e-6) kept = false;
+    }
+    if ((tm.stalls ?? []).some((st) => sec >= st.from && sec < st.to)) kept = false;
+    out.push({ tMs, kept });
+  }
+  return out;
 }
 
 /** Frames (index) whose time in seconds falls inside an event of a kind, with a margin. */

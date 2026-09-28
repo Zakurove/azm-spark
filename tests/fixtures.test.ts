@@ -398,3 +398,54 @@ describe("fixture generator", () => {
     expect(fx.truth.events.find((e) => e.kind === "fall")).toEqual({ kind: "fall", from: 1, to: 1.5 });
   });
 });
+
+describe("camera timing (GenSpec.timing)", () => {
+  const base: GenSpec = {
+    test: "shoulder_abduction",
+    profile: "chair",
+    aspect: "9:16",
+    fps: 20,
+    durationSec: 10,
+    seed: 90,
+    subject: { motions: [{ kind: "arm_raise", side: "right", peak: 150, start: 1 }] },
+  };
+  const gaps = (fx: ReturnType<typeof generate>) => fx.frames.slice(1).map((f, i) => f.t - fx.frames[i].t);
+
+  it("keeps frames every 1000 ÷ fps ms by default", () => {
+    expect(new Set(gaps(generate(base)))).toEqual(new Set([50]));
+  });
+
+  it("jitters frame times within the bound, in order, and draws the body at each frame's own time", () => {
+    const fx = generate({ ...base, timing: { jitterMs: 12 } });
+    const plain = generate(base);
+    expect(fx.frames).toHaveLength(plain.frames.length);
+    fx.frames.forEach((f, i) => expect(Math.abs(f.t - i * 50)).toBeLessThanOrEqual(12));
+    expect(gaps(fx).every((g) => g >= 1)).toBe(true);
+    expect(new Set(gaps(fx)).size).toBeGreaterThan(5);
+    // The raise is drawn at the jittered time: a frame that came later shows the arm higher.
+    const k = fx.frames.findIndex((f, i) => i > 30 && f.t > i * 50 + 5 && i * 50 < 2000);
+    expect(fx.frames[k].poses[0][LM.r_wrist].y).toBeLessThan(plain.frames[k].poses[0][LM.r_wrist].y);
+  });
+
+  it("drops a share of frames and leaves the kept ones as they were", () => {
+    const fx = generate({ ...base, noise: 0, timing: { dropShare: 0.2 } });
+    const plain = generate({ ...base, noise: 0 });
+    const share = 1 - fx.frames.length / plain.frames.length;
+    expect(share).toBeGreaterThan(0.1);
+    expect(share).toBeLessThan(0.3);
+    for (const f of fx.frames) {
+      const same = plain.frames.find((p) => p.t === f.t)!;
+      expect(f.poses[0][LM.nose].x).toBeCloseTo(same.poses[0][LM.nose].x, 12);
+    }
+  });
+
+  it("leaves a gap of the given length at a steady rhythm, and removes every frame in a stall", () => {
+    const g = generate({ ...base, timing: { gaps: { everySec: 3, ms: 200 } } });
+    expect(gaps(g).filter((x) => x === 200)).toHaveLength(3);
+    expect(gaps(g).filter((x) => x !== 50 && x !== 200)).toEqual([]);
+    const s = generate({ ...base, timing: { stalls: [{ from: 4, to: 6 }] } });
+    expect(s.frames.some((f) => f.t >= 4000 && f.t < 6000)).toBe(false);
+    expect(Math.max(...gaps(s))).toBe(2050);
+    expect(s.truth.subjectIndex).toHaveLength(s.frames.length);
+  });
+});

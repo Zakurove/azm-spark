@@ -823,7 +823,9 @@ export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
     }
     case "STAFF_RESET":
       if (!m.data.config.booth || m.state.kind === "exit") return m;
-      return m.data.config.mode === "guest" ? restartGuest(m) : go(m, { kind: "exit", to: "today" });
+      return m.data.config.mode === "guest"
+        ? restartGuest(m, now, true)
+        : go(m, { kind: "exit", to: "today" });
     case "SIDE_RESULT":
       return recordSide(m, e.testId, e.side, e.outcome, e.body);
     case "LEAVE":
@@ -987,7 +989,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
   const guest = d.config.mode === "guest";
   switch (s.kind) {
     case "entry":
-      if (e.type === "START") return guest ? routeGuestStart(m) : m;
+      if (e.type === "START") return guest ? routeGuestStart(m, now) : m;
       if (e.type === "CONTEXT_LOADED") return routeSignedInStart(withContext(m, e.context), now);
       if (e.type === "CONTEXT_FAILED") return go(m, { kind: "entry", error: "context" });
       if (e.type === "RESUME" && !guest) return resume(withContext(m, e.context), e.check, now);
@@ -1005,7 +1007,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "desktopGate":
       if (e.type === "CONTINUE") {
         const passed = { ...m, data: { ...d, desktopPassed: true } };
-        return guest ? routeGuestStart(passed) : routeSignedInStart(passed, now);
+        return guest ? routeGuestStart(passed, now) : routeSignedInStart(passed, now);
       }
       return m;
 
@@ -1027,7 +1029,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
 
     case "adultEnd":
-      if (e.type === "RESTART" && guest) return restartGuest(m);
+      if (e.type === "RESTART" && guest) return restartGuest(m, now);
       if (e.type === "EXIT") return go(m, { kind: "exit", to: guest ? "landing" : "today" });
       return m;
 
@@ -1045,7 +1047,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
 
     case "guestStaff":
-      if (e.type === "RESTART") return restartGuest(m);
+      if (e.type === "RESTART") return restartGuest(m, now);
       if (e.type === "EXAMPLE") return go(m, { kind: "exit", to: "example" });
       return m;
 
@@ -1232,7 +1234,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         if (ask) return go(m, faintAsk);
         // Map 2.3: after S40b (much more pain) the end question when any result exists.
         if (s.safety === "pain" && finish(m).to === "endQuestion") return toEndQuestion(m);
-        return guest ? restartGuest(m) : go(m, { kind: "exit", to: "today" });
+        return guest ? restartGuest(m, now) : go(m, { kind: "exit", to: "today" });
       }
       return m;
     }
@@ -1243,15 +1245,22 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         delete answers.pc_sci_ready;
         return go({ ...m, data: { ...d, answers } }, { kind: "question", id: "pc_sci_ready" });
       }
-      if (e.type === "EXIT") return guest ? restartGuest(m) : go(m, { kind: "exit", to: "today" });
+      if (e.type === "EXIT") return guest ? restartGuest(m, now) : go(m, { kind: "exit", to: "today" });
       return m;
 
     case "paused":
       // SPEC-GAP: release-question. The care team release opens the pre-check at pc_change_cleared
       // (Appendix A); whether that question is visible for this person is decided by src/medical.
-      if (e.type === "RELEASE" && s.releasable && d.env)
+      if (e.type === "RELEASE" && s.releasable && d.env && !guest)
         return go({ ...m, data: { ...d, answers: {} } }, { kind: "question", id: "pc_change_cleared" });
-      if (e.type === "EXIT") return go(m, { kind: "exit", to: guest ? "landing" : "today" });
+      // A guest's lock lasts for the visit (Q25 (c)): only the staff reset, New visitor or the idle
+      // reset (S57) end it, so S35 has no way back into a check for this visitor.
+      // SPEC-GAP: booth-visit-lock-exit. The spec has no booth form of S35; its exit is ignored for a
+      // guest while the lock runs, and the booth badge's staff reset starts the next visit.
+      if (e.type === "EXIT") {
+        if (!guest) return go(m, { kind: "exit", to: "today" });
+        return lockActive(d, now) ? m : restartGuest(m, now);
+      }
       return m;
 
     case "cam.problem":
@@ -1264,7 +1273,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "results":
       if (e.type === "EXIT") return go(m, { kind: "exit", to: guest ? "landing" : "today" });
       if (e.type === "PROGRESS" && !guest) return go(m, { kind: "exit", to: "results" });
-      if (e.type === "NEW_VISITOR" && guest) return restartGuest(m);
+      if (e.type === "NEW_VISITOR" && guest) return restartGuest(m, now, true);
       return m;
 
     case "exit":
@@ -2032,10 +2041,13 @@ function resumeResult(m: FlowModel, r: ResumeResult, now: number): FlowModel {
   return i === null ? toEndQuestion(ready) : go(ready, { kind: "test.instruction", i });
 }
 
-function routeGuestStart(m: FlowModel): FlowModel {
+function routeGuestStart(m: FlowModel, now: number): FlowModel {
   const c = m.data.config;
   // /?check=1 runs only on a device in verified booth mode (contract v3 I, S05b).
   if (!c.booth) return go(m, { kind: "boothOnly" });
+  // The visit's lock (a postpone or a safety stop earlier in this visit) pauses it (S35).
+  const lock = m.data.lock;
+  if (lock && lockActive(m.data, now)) return go(m, { kind: "paused", until: lock.until, releasable: false });
   if (c.desktop && !m.data.desktopPassed) return go(m, { kind: "desktopGate" });
   return go(m, { kind: "guestWelcome" });
 }
@@ -2174,10 +2186,24 @@ function guestRouting(m: FlowModel): FlowModel {
   return go({ ...m, data: { ...d, env, base, answers: {} } }, { kind: "intro" });
 }
 
-/** A new visitor: everything the last one entered is cleared (Q19 (4)); booth mode stays. */
-function restartGuest(m: FlowModel): FlowModel {
+/**
+ * The guest flow starts again. A new visitor (New visitor, the staff reset, the idle reset: S57) clears
+ * everything the last one entered (Q19 (4)); booth mode stays. The same visitor going back to the
+ * start (the exit of S33 or a safety screen) keeps the visit's lock in memory, so the answers cannot
+ * be given again to get past it (Q25 (c), UX spec 2.1).
+ */
+function restartGuest(m: FlowModel, now: number, newVisitor = false): FlowModel {
   const fresh = initialModel(m.data.config, m.data.device);
-  return routeGuestStart({ ...fresh, data: { ...fresh.data, desktopPassed: m.data.desktopPassed } });
+  const lock = !newVisitor && lockActive(m.data, now) ? m.data.lock : null;
+  return routeGuestStart(
+    { ...fresh, data: { ...fresh.data, desktopPassed: m.data.desktopPassed, lock } },
+    now,
+  );
+}
+
+/** The lock on the phone still runs (a guest's visit lock; signed in, until the server has it). */
+function lockActive(d: FlowData, now: number): boolean {
+  return !!d.lock && (d.lock.until === null || d.lock.until > now);
 }
 
 /* ------------------------------------------------------------ helpers */

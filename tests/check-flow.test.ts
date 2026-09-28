@@ -1006,7 +1006,8 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     });
     const no = play(ask, { type: "FAINT_ANSWER", value: "no" });
     expect(no.state).toMatchObject({ kind: "safety", safety: "faint", faintAnswered: true });
-    expect(kind(play(no, { type: "EXIT" }))).toBe("guestWelcome");
+    // The guest's next day lock lasts for the visit: S35, not a new check (Q25 (c)).
+    expect(kind(play(no, { type: "EXIT" }))).toBe("paused");
     const quiet = play(ask, { type: "FAINT_TIMEOUT" });
     expect(quiet.overlay).toEqual({ kind: "checkIn", from: "faintAsk", trigger: "no_answer" });
     expect(play(quiet, { type: "FINE", via: "button" }).state).toMatchObject({ kind: "faintAsk" });
@@ -1865,12 +1866,12 @@ describe("the camera sequence follows map 2.10, 2.12 and S34j, S34k", () => {
     });
     expect(pain.state).toMatchObject({ kind: "safety", safety: "pain" });
     expect(kind(play(pain, { type: "EXIT" }))).toBe("endQuestion");
-    // Nothing measured: the flow leaves.
     const none = play(withState(planned, cam("between", 0, 0, { scope: "side", via: "test" })), {
       type: "BETWEEN_ANSWER",
       value: "much",
     });
-    expect(kind(play(none, { type: "EXIT" }))).toBe("guestWelcome");
+    // Nothing measured: the flow leaves; the guest's lock pauses the visit (Q25 (c)).
+    expect(kind(play(none, { type: "EXIT" }))).toBe("paused");
   });
 });
 
@@ -2072,5 +2073,66 @@ describe("no way back into a stopped test (O43)", () => {
     const { default: en } = await import("../src/i18n/en/assessment.json");
     for (const copy of [ar, en] as { stop: Record<string, unknown> }[])
       expect(copy.stop).not.toHaveProperty("mistake");
+  });
+});
+
+describe("a guest's lock lasts for the visit (Q25 (c), UX spec 2.1)", () => {
+  const atQuestions = () =>
+    play(
+      guestAtIntro(),
+      { type: "CONTINUE" },
+      { type: "SOUND_RESULT", mode: "voice" },
+      { type: "PRECHECK_START" },
+    );
+  const postponed = () => {
+    let m = atQuestions();
+    for (let k = 0; k < 40 && m.state.kind === "question"; k++) {
+      const id = m.state.id;
+      m = play(m, { type: "ANSWER", id, value: id === "pc_unwell" ? "yes" : benign(id) });
+    }
+    return m;
+  };
+
+  it("EXIT from S33 keeps the lock: the same visitor sees S35, never a new check", () => {
+    const m = postponed();
+    expect(m.state).toMatchObject({ kind: "postponed", reason: "unwell" });
+    const until = m.data.lock?.until;
+    expect(until).toBeGreaterThan(NOW);
+    const out = play(m, { type: "EXIT" });
+    expect(out.state).toMatchObject({ kind: "paused", until, releasable: false });
+    expect(out.data.lock?.until).toBe(until);
+    // Nothing on S35 leads back into a check for this visitor.
+    for (const e of [
+      { type: "EXIT" },
+      { type: "START" },
+      { type: "GUEST_PATH", path: "full" },
+      { type: "RELEASE" },
+    ] as FlowEvent[])
+      expect(play(out, e).state.kind, e.type).toBe("paused");
+    expect(out.effects).toEqual([]);
+  });
+
+  it("EXIT from a chest stop (S36) keeps the lock too", () => {
+    const measuring = withState(guestAtPlan(), cam("cam.measure"));
+    const chest = play(measuring, { type: "STOP" }, { type: "STOP_OPTION", option: "chest" });
+    expect(chest.data.lock?.until).toBeGreaterThan(NOW);
+    expect(kind(play(chest, { type: "EXIT" }))).toBe("paused");
+  });
+
+  it("the staff reset and New visitor clear it for the next visitor", () => {
+    const paused = play(postponed(), { type: "EXIT" });
+    const reset = play(paused, { type: "STAFF_RESET" });
+    expect(kind(reset)).toBe("guestWelcome");
+    expect(reset.data.lock).toBeNull();
+    const results = { ...withState(guestAtPlan(), { kind: "results" }), data: { ...paused.data } };
+    const fresh = play(results, { type: "NEW_VISITOR" });
+    expect(kind(fresh)).toBe("guestWelcome");
+    expect(fresh.data.lock).toBeNull();
+  });
+
+  it("an ended lock no longer pauses the visitor", () => {
+    const m = postponed();
+    const later = flowReducer(m, { type: "EXIT", now: (m.data.lock?.until ?? 0) + 1 });
+    expect(kind(later)).toBe("guestWelcome");
   });
 });

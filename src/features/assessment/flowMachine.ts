@@ -1960,6 +1960,9 @@ function startFailure(
     case "BOOTH_CODE":
       // The booth pass was refused (the day, the hours, a used or ended token): booth mode ends on this
       // tab and staff turn it on again (S55, S55b); the effect clears the pass.
+      // SPEC-GAP: booth-token-ended-exit. S55b shows booth.tokenEnded on a visitor's phone; the flow does
+      // not know the pass kind, so both kinds leave for the staff screen (S55) until the booth stream
+      // builds S55b.
       return emit(go(m, { kind: "exit", to: "boothStaff" }), { type: "clearBoothPass" });
     case "AUTH":
       return go(m, { kind: "exit", to: "signIn" });

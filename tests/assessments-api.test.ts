@@ -1404,3 +1404,70 @@ describe("the same day lock row (setLock)", () => {
     expect(currentLock(db, "u1", T0 + 2 * HOUR)).toEqual({ reason: "recent_change", until: NEXT_DAY });
   });
 });
+
+describe("an open check after a postpone, an emergency or another day", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("an emergency answer at a new start ends the open check: no results, no completion", async () => {
+    const cookie = await member(h, "open-emergency@example.test", WHEELCHAIR_STROKE);
+    const s = await start(h, cookie);
+    expect(s.status).toBe(200);
+    const urgent = await start(h, cookie, { pc_urgent: "yes" });
+    expect(urgent.data).toMatchObject({ error: "POSTPONE", status: "emergency", lock: { reason: "urgent" } });
+    const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie)).data).toEqual({
+      error: "NOT_OPEN",
+      status: "abandoned",
+    });
+    expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).data.error).toBe("NOT_OPEN");
+    const list = (await h.call("/assessments", undefined, cookie)).data.assessments;
+    expect(list[0]).toMatchObject({ id: s.data.id, status: "abandoned", endedReason: "postponed" });
+  });
+
+  it("a check started on an earlier day takes no results and cannot be completed", async () => {
+    const cookie = await member(h, "open-stale@example.test", WHEELCHAIR_STROKE);
+    const s = await start(h, cookie);
+    const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie)).status).toBe(
+      200,
+    );
+    setTime(T0 + 5 * DAY);
+    const next = await login(h, "open-stale@example.test");
+    const late = itemOf(s.data.protocol, "shoulder_abduction", "left");
+    expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(late, 90), next)).data).toEqual({
+      error: "NOT_OPEN",
+      status: "abandoned",
+    });
+    expect((await h.call(`/assessments/${s.data.id}/complete`, {}, next)).data.error).toBe("NOT_OPEN");
+    expect((await h.call("/assessments", undefined, next)).data.assessments[0]).toMatchObject({
+      status: "abandoned",
+      endedReason: "stale",
+    });
+  });
+
+  it("the same day, before midnight in Riyadh, the check goes on", async () => {
+    const cookie = await member(h, "open-sameday@example.test", WHEELCHAIR_STROKE);
+    const s = await start(h, cookie);
+    setTime(NEXT_DAY - 1);
+    const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
+    expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie)).status).toBe(
+      200,
+    );
+    expect((await h.call(`/assessments/${s.data.id}/complete`, {}, cookie)).status).toBe(200);
+  });
+
+  it("a safety stop still reaches a check from an earlier day", async () => {
+    const cookie = await member(h, "open-stop@example.test", WHEELCHAIR_STROKE);
+    const s = await start(h, cookie);
+    setTime(NEXT_DAY + HOUR);
+    const next = await login(h, "open-stop@example.test");
+    const stop = await h.call(`/assessments/${s.data.id}/stop`, { option: "chest" }, next);
+    expect(stop.status).toBe(200);
+    expect(stop.data).toMatchObject({ endsCheck: true, lock: { reason: "stop_symptom" } });
+  });
+});

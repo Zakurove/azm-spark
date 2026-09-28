@@ -163,6 +163,19 @@ export function createAssessment(db: DatabaseSync, a: NewAssessment): string {
   return id;
 }
 
+/** Ends every open check of the person (a postponed start, a stale check); results are not kept. */
+export function abandonOpen(db: DatabaseSync, userId: string, reason: string, id?: string) {
+  if (id !== undefined) {
+    db.prepare(
+      "UPDATE assessments SET status='abandoned', ended_reason=? WHERE id=? AND user_id=? AND status='open'",
+    ).run(reason, id, userId);
+  } else {
+    db.prepare(
+      "UPDATE assessments SET status='abandoned', ended_reason=? WHERE user_id=? AND status='open'",
+    ).run(reason, userId);
+  }
+}
+
 export function setStatus(
   db: DatabaseSync,
   id: string,

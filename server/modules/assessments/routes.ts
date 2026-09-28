@@ -55,6 +55,7 @@ import {
 } from "./state";
 import {
   DAY_MS,
+  abandonOpen,
   baselineRanges,
   chairId,
   clearChange,
@@ -116,12 +117,35 @@ export function storedPrecheck(
   return out;
 }
 
-/** The owner's open check, or the error already sent (404 for another person's check). */
-function openCheck(ctx: RouteContext): Assessment | null {
-  const a = ownAssessment(ctx.db, ctx.params.id, ctx.user!.id);
+/**
+ * The owner's open check, or the error already sent (404 for another person's check).
+ *
+ * `today` (results, between tests, complete): the pre-check is today's go or no go decision (spec
+ * 2.1), so a check that started on an earlier calendar day in Riyadh is abandoned, and a same day
+ * lock refuses the check (409 LOCKED). The stop list passes `today: false`, so a safety stop always
+ * reaches the check.
+ */
+// SPEC-GAP: stale-open-check. The spec has no lifetime for an open check; it ends with the Riyadh day
+// of its pre-check (a check started at 23:50 ends at midnight: the safe side).
+function openCheck(ctx: RouteContext, { today }: { today: boolean }): Assessment | null {
+  const u = ctx.user!;
+  const a = ownAssessment(ctx.db, ctx.params.id, u.id);
   if (!a) {
     ctx.json(404, { error: "NOT_FOUND" });
     return null;
+  }
+  if (a.status === "open" && today) {
+    const now = Date.now();
+    if (riyadhDate(a.started) !== riyadhDate(now)) {
+      abandonOpen(ctx.db, u.id, "stale", a.id);
+      ctx.json(409, { error: "NOT_OPEN", status: "abandoned" });
+      return null;
+    }
+    const lock = currentLock(ctx.db, u.id, now);
+    if (lock) {
+      ctx.json(409, { error: "LOCKED", reason: lock.reason, until: lock.until });
+      return null;
+    }
   }
   if (a.status !== "open") {
     ctx.json(409, { error: "NOT_OPEN", status: a.status });
@@ -300,6 +324,8 @@ export const assessmentRoutes: Route[] = [
         const until = outcome.lock?.until ? lockEndsAt(outcome.lock.until, now) : null;
         transaction(db, () => {
           if (released) clearLock(db, u.id);
+          // Today's answers overrule a check left open: it takes no more results (spec 2.1).
+          abandonOpen(db, u.id, "postponed");
           if (outcome.lock && until !== null) setLock(db, u.id, outcome.lock.reason, until, now);
           if (typeof outcome.stored.changeReported === "string")
             reportChange(db, u.id, outcome.stored.changeReported);
@@ -353,7 +379,7 @@ export const assessmentRoutes: Route[] = [
     handle(ctx) {
       const { db, user, body, json } = ctx;
       const u = user!;
-      const a = openCheck(ctx);
+      const a = openCheck(ctx, { today: true });
       if (!a) return;
       if (!activeConsent(db, u.id, "movement_check")) return json(403, { error: "CONSENT_REQUIRED" });
       const item = a.protocol.find((i) => i.testId === body.testId && i.side === body.side);
@@ -421,7 +447,7 @@ export const assessmentRoutes: Route[] = [
     auth: "user",
     handle(ctx) {
       const { db, user, body, json } = ctx;
-      const a = openCheck(ctx);
+      const a = openCheck(ctx, { today: false });
       if (!a) return;
       if (unknownKeys(body, ["option"]).length) return json(400, { error: "STOP_INVALID", field: "body" });
       const env = runningEnv(ctx, a);
@@ -455,7 +481,7 @@ export const assessmentRoutes: Route[] = [
     auth: "user",
     handle(ctx) {
       const { db, user, body, json } = ctx;
-      const a = openCheck(ctx);
+      const a = openCheck(ctx, { today: true });
       if (!a) return;
       if (unknownKeys(body, ["testId", "side", "answer"]).length)
         return json(400, { error: "BETWEEN_INVALID", field: "body" });
@@ -501,7 +527,7 @@ export const assessmentRoutes: Route[] = [
     handle(ctx) {
       const { db, user, json } = ctx;
       const u = user!;
-      const a = openCheck(ctx);
+      const a = openCheck(ctx, { today: true });
       if (!a) return;
       // SPEC-GAP: complete-needs-row. "At least one result or skip" counts stored rows (a score or a
       // skip, including the between tests skips); protocol skips alone do not complete a check.

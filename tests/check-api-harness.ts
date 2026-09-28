@@ -112,9 +112,23 @@ export async function startApi(): Promise<Harness> {
 }
 
 export async function register(h: Harness, email: string, name = "Check Member"): Promise<string> {
-  const r = await h.call("/auth/register", { name, email, password: PASSWORD });
+  const r = await h.call("/auth/register", { name, email, password: PASSWORD, adultConfirmed: true });
   if (r.status !== 200) throw new Error(`register ${email}: ${r.status}`);
   return r.cookie;
+}
+
+/**
+ * An account made before registration asked for the adult confirmation (Q2 (5), Q32 (6)): its
+ * confirmation row is removed, so S05a asks for it before the check.
+ */
+export async function withoutAdultConfirmation(h: Harness, cookie: string): Promise<void> {
+  const me = await h.call("/auth/me", undefined, cookie);
+  const db = new DatabaseSync(h.file, { timeout: 2000 });
+  try {
+    db.prepare("DELETE FROM adult_confirmations WHERE user_id=?").run(me.data.user.id);
+  } finally {
+    db.close();
+  }
 }
 
 export async function login(h: Harness, email: string): Promise<string> {
@@ -157,7 +171,8 @@ export const WHEELCHAIR_STROKE = intakeOf({
 
 /**
  * A new member with intake saved, the movement check consent accepted and the adult confirmation
- * (Q2 (5), Q32 (6)) stored, unless `adult` is false.
+ * (Q2 (5), Q32 (6)) stored. With `adult` false the account is one made before registration asked
+ * for it (withoutAdultConfirmation).
  */
 export async function member(
   h: Harness,
@@ -173,10 +188,7 @@ export async function member(
     const ok = await h.call("/consents", { kind: "movement_check", version: 1 }, cookie);
     if (ok.status !== 200) throw new Error(`consent ${email}: ${ok.status}`);
   }
-  if (adult) {
-    const ok = await h.call("/account/adult", { confirmed: true }, cookie);
-    if (ok.status !== 200) throw new Error(`adult ${email}: ${ok.status}`);
-  }
+  if (!adult) await withoutAdultConfirmation(h, cookie);
   return cookie;
 }
 

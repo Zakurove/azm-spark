@@ -69,7 +69,12 @@ it("rejects unauthenticated report posts before buffering large bodies, and keep
   const reg = await fetch(`${origin}/api/auth/register`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ name: "Cap Test", email: "cap@example.test", password: "test-password-9281" }),
+    body: JSON.stringify({
+      name: "Cap Test",
+      email: "cap@example.test",
+      password: "test-password-9281",
+      adultConfirmed: true,
+    }),
   });
   const cookie = reg.headers.get("set-cookie")!.split(";")[0];
   const r2 = await fetch(`${origin}/api/intake`, {

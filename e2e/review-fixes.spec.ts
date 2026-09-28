@@ -42,6 +42,7 @@ async function signIn(page: Page, lang: Lang) {
       name: "E2E Member",
       email: `fix-${lang}-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.test`,
       password: `${crypto.randomUUID()}Aa1`,
+      adultConfirmed: true,
     },
   });
   expect(reg.status()).toBe(200);

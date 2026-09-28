@@ -4,6 +4,18 @@ import { labels, errorText } from "./platform-copy";
 import { api, AccountState } from "./api";
 import Brand from "./Brand";
 import Icon from "./Icon";
+import { CHECK_DATA } from "../movements/assessments";
+import { bidiText } from "../i18n/rich";
+
+/**
+ * The body of the register or sign in call. Registering needs the adult confirmation (Q2 (5), Q32
+ * (6)): the row is sent as adultConfirmed true only when it was ticked.
+ */
+export function authBody(data: FormData, register: boolean): Record<string, unknown> {
+  const out: Record<string, unknown> = { email: data.get("email"), password: data.get("password") };
+  if (!register) return out;
+  return { ...out, name: data.get("name"), adultConfirmed: data.get("adultConfirmed") === "on" };
+}
 export default function Auth({
   lang,
   onLanguage,
@@ -95,7 +107,7 @@ export default function Auth({
               setBusy(true);
               setError("");
               try {
-                onSuccess(await api(`/auth/${register ? "register" : "login"}`, Object.fromEntries(data)));
+                onSuccess(await api(`/auth/${register ? "register" : "login"}`, authBody(data, register)));
               } catch (err) {
                 setError((err as Error).message);
               } finally {
@@ -126,6 +138,13 @@ export default function Auth({
               />
               <small>{c.passwordHint}</small>
             </label>
+            {register && (
+              // Accounts are for adults 18 or older only (Q2 (5), Q32 (6)): unticked, required.
+              <label className="consent">
+                <input name="adultConfirmed" type="checkbox" required />
+                <span>{bidiText(lang, CHECK_DATA.boundary.adultConfirm[lang])}</span>
+              </label>
+            )}
             {error && (
               <p className="form-error" role="alert">
                 {errorText(error, lang)}

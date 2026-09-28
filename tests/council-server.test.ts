@@ -429,19 +429,19 @@ describe("the adult confirmation (Q2 (5), Q32 (6), UX S05a)", () => {
     expect((await start(h, cookie)).data).toEqual({ error: "CONSENT_REQUIRED" });
   });
 
-  it("can be given at account creation", async () => {
-    const r = await h.call("/auth/register", {
-      name: "Adult Member",
-      email: "adult3@example.test",
-      password: "test-password-5531",
-      adultConfirmed: true,
-    });
+  it("is required at account creation: accounts are for adults 18 or older only", async () => {
+    const base = { name: "Adult Member", password: "test-password-5531" };
+    for (const adultConfirmed of [undefined, false, "yes", 1]) {
+      const r = await h.call("/auth/register", { ...base, email: "minor@example.test", adultConfirmed });
+      expect(r.status, String(adultConfirmed)).toBe(400);
+      expect(r.data).toEqual({ error: "ADULT_REQUIRED" });
+    }
+    // Nothing was created.
+    expect(rows(h, "SELECT id FROM users WHERE email=?", "minor@example.test")).toEqual([]);
+    const r = await h.call("/auth/register", { ...base, email: "adult3@example.test", adultConfirmed: true });
     expect(r.status).toBe(200);
     await h.call("/intake", intakeOf(), r.cookie, "PUT");
     expect((await h.call("/assessments/context", undefined, r.cookie)).data.adultConfirmed).toBe(true);
-    const plain = await register(h, "adult4@example.test");
-    await h.call("/intake", intakeOf(), plain, "PUT");
-    expect((await h.call("/assessments/context", undefined, plain)).data.adultConfirmed).toBe(false);
   });
 });
 

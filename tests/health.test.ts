@@ -41,6 +41,7 @@ beforeAll(async () => {
       name: "Health Probe",
       email: "health@example.test",
       password: "test-password-5530",
+      adultConfirmed: true,
     }),
   });
   cookie = r.headers.get("set-cookie")!.split(";")[0];

@@ -181,6 +181,9 @@ export function createApi(
         if (route.endsWith("register")) {
           if (typeof body.name !== "string" || body.name.trim().length < 2 || body.name.trim().length > 80)
             return json(400, { error: "NAME" });
+          // Q2 (5), Q32 (6): accounts are for adults 18 or older only; the confirmation is given at
+          // account creation (boundary.adultConfirm.when) and stored with the account.
+          if (body.adultConfirmed !== true) return json(400, { error: "ADULT_REQUIRED" });
           if (db.prepare("SELECT id FROM users WHERE email=?").get(email))
             return json(409, { error: "ACCOUNT_EXISTS" });
           const salt = randomBytes(16).toString("hex");
@@ -193,8 +196,7 @@ export function createApi(
             `${salt}:${hash.toString("hex")}`,
             Date.now(),
           );
-          // The adult confirmation may be given at account creation (Q2 (5), Q32 (6)).
-          if (body.adultConfirmed === true) confirmAdult(db, id, Date.now());
+          confirmAdult(db, id, Date.now());
           account = db.prepare("SELECT * FROM users WHERE id=?").get(id);
         } else {
           account = db.prepare("SELECT * FROM users WHERE email=?").get(email) as any;

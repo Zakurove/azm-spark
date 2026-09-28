@@ -368,6 +368,10 @@ export function errorText(code: string, l: Lang) {
       "تحقّق من البريد وكلمة المرور (١٠ أحرف على الأقل).",
       "Check your email and password (at least 10 characters).",
     ],
+    ADULT_REQUIRED: [
+      "حسابات عزم لمن عمرهم ١٨ سنة أو أكثر. أكّد عمرك لإنشاء الحساب.",
+      "Azm accounts are for people aged 18 or older. Confirm your age to create the account.",
+    ],
     ACCOUNT_EXISTS: [
       "يوجد حساب بهذا البريد. سجّل الدخول.",
       "An account already uses this email. Please sign in.",

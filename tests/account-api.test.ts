@@ -62,6 +62,7 @@ it("requires authentication and sets a real HttpOnly session with a server-assig
     email: "a@example.test",
     password: "test-password-9281",
     role: "admin",
+    adultConfirmed: true,
   });
   a = r.cookie;
   expect(r.status).toBe(200);
@@ -72,6 +73,7 @@ it("requires authentication and sets a real HttpOnly session with a server-assig
     name: "Second Athlete",
     email: "b@example.test",
     password: "test-password-7719",
+    adultConfirmed: true,
   });
   b = r2.cookie;
 });
@@ -144,4 +146,49 @@ it("persists only owned real results, rejects inconsistent counts, resumes and e
   expect(records[0].engineVersion).toBe("workout_engine_2");
   expect((await call(`/workouts/${r.data.id}/sets`, { ...body, index: 1 }, b)).status).toBe(409);
   expect((await call("/workouts", { version: p.version, demo: false }, b)).data.error).toBe("RECOVERY");
+});
+it("asks for the adult confirmation at registration (Q2 (5), Q32 (6))", async () => {
+  const body = { name: "Young Athlete", email: "young@example.test", password: "test-password-4410" };
+  const refused = await call("/auth/register", body);
+  expect(refused.status).toBe(400);
+  expect(refused.data).toEqual({ error: "ADULT_REQUIRED" });
+  expect((await call("/auth/register", { ...body, adultConfirmed: "on" })).status).toBe(400);
+  expect((await call("/auth/register", { ...body, adultConfirmed: true })).status).toBe(200);
+});
+it("the register form sends the adult row only when ticked, and never on sign in", async () => {
+  const { authBody } = await import("../src/app/Auth");
+  const form = (entries: [string, string][]) => {
+    const f = new FormData();
+    for (const [k, v] of entries) f.append(k, v);
+    return f;
+  };
+  const base: [string, string][] = [
+    ["name", "Sara"],
+    ["email", "s@example.test"],
+    ["password", "p"],
+  ];
+  expect(authBody(form(base), true)).toMatchObject({ adultConfirmed: false });
+  expect(authBody(form([...base, ["adultConfirmed", "on"]]), true)).toMatchObject({ adultConfirmed: true });
+  expect(authBody(form([...base, ["adultConfirmed", "on"]]), false)).toEqual({
+    email: "s@example.test",
+    password: "p",
+  });
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { createElement } = await import("react");
+  const { default: Auth } = await import("../src/app/Auth");
+  const { CHECK_DATA } = await import("../src/movements/assessments");
+  const noop = () => {};
+  const html = renderToStaticMarkup(
+    createElement(Auth, {
+      lang: "en",
+      onLanguage: noop,
+      onSuccess: noop,
+      onDemo: noop,
+      onBack: noop,
+      initialRegister: true,
+    }),
+  );
+  expect(html).toContain('name="adultConfirmed" type="checkbox" required=""');
+  expect(html).not.toMatch(/name="adultConfirmed"[^>]*checked/);
+  expect(html).toContain(CHECK_DATA.boundary.adultConfirm.en);
 });

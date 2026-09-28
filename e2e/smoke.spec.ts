@@ -124,7 +124,7 @@ for (const lang of LANGS) {
       const secret = `${crypto.randomUUID()}Aa1`;
       const reg = await page.request.post("/api/auth/register", {
         headers: { ...headers, "X-Azm-Request": "1" },
-        data: { name: "E2E Member", email, password: secret },
+        data: { name: "E2E Member", email, password: secret, adultConfirmed: true },
       });
       expect(reg.status()).toBe(200);
       const intake = await page.request.put("/api/intake", {

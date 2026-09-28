@@ -117,6 +117,7 @@ for (const size of SIZES) {
           name: "Sara",
           email: `shots-${lang}-${size.tag}-${Date.now()}@example.test`,
           password: `${crypto.randomUUID()}Aa1`,
+          adultConfirmed: true,
         },
       });
       expect(reg.status()).toBe(200);

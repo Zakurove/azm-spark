@@ -684,3 +684,24 @@ describe("the guest steps follow Q19 (2) and O20; the counter follows O9", () =>
     }
   });
 });
+
+describe("CheckApp's flow configuration", () => {
+  it("opens the side lean only session from S01 leanRepeat; a full check carries no session", async () => {
+    const { checkConfig } = await import("../src/features/assessment/CheckApp");
+    expect(
+      checkConfig({ mode: "signedIn", booth: false, desktop: false, session: "side_lean_only" }),
+    ).toEqual({
+      mode: "signedIn",
+      booth: false,
+      homeOpen: false,
+      desktop: false,
+      session: "side_lean_only",
+    });
+    expect(checkConfig({ mode: "guest", booth: true, desktop: true, session: "full" })).toEqual({
+      mode: "guest",
+      booth: true,
+      homeOpen: false,
+      desktop: true,
+    });
+  });
+});

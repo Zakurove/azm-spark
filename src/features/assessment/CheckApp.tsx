@@ -21,7 +21,9 @@ import { boothPassHolds, clearBoothPass, isBoothMode, readBoothPass, watchVisito
 import {
   canLeave,
   cameraRunning,
+  type CheckSession,
   type ExitTarget,
+  type FlowConfig,
   type FlowModel,
   type FlowState,
   type ResumeCheck,
@@ -45,8 +47,10 @@ export interface CheckAppProps {
   booth?: boolean;
   /** No touch and wider than 1024 px (S04); by default detected. */
   desktop?: boolean;
-  /** An open check to continue (S01 resume, Appendix A entry: resume). */
+  /** An open check to continue (S01 resume, O6): build it with api.resumeCheckOf. */
   resume?: ResumeCheck | null;
+  /** The side lean only session (S01 leanRepeat, Q12 (2)); a full check by default. */
+  session?: CheckSession;
 }
 
 /** A device without touch and wider than 1024 px gets the phone interstitial first (S04). */
@@ -66,15 +70,44 @@ export function screenKeyOf(m: FlowModel): string {
   return [s.kind, s.id, s.i, s.side, s.step, s.safety].filter((x) => x !== undefined).join(":");
 }
 
+/**
+ * The flow's configuration, fixed for the life of the check: guest or signed in, booth mode, the
+ * desktop interstitial and the session (the side lean only session from S01 leanRepeat, Q12 (2)).
+ * Home checks count as closed until the context says otherwise (contract v3 I).
+ */
+export function checkConfig(o: {
+  mode: FlowConfig["mode"];
+  booth: boolean;
+  desktop: boolean;
+  session?: CheckSession;
+}): FlowConfig {
+  return {
+    mode: o.mode,
+    booth: o.booth,
+    homeOpen: false,
+    desktop: o.desktop,
+    ...(o.session && o.session !== "full" ? { session: o.session } : {}),
+  };
+}
+
 /** The history entry a signed in check pushes, so the system Back asks before leaving (S15). */
 const SENTINEL = { azmCheck: 1 };
 const isSentinel = (state: unknown) =>
   !!state && typeof state === "object" && (state as { azmCheck?: number }).azmCheck === 1;
 
-export default function CheckApp({ lang, onLanguage, mode, onExit, booth, desktop, resume }: CheckAppProps) {
+export default function CheckApp({
+  lang,
+  onLanguage,
+  mode,
+  onExit,
+  booth,
+  desktop,
+  resume,
+  session,
+}: CheckAppProps) {
   const inBooth = booth ?? isBoothMode();
   const config = useMemo(
-    () => ({ mode, booth: inBooth, homeOpen: false, desktop: desktop ?? isDesktopDevice() }),
+    () => checkConfig({ mode, booth: inBooth, desktop: desktop ?? isDesktopDevice(), session }),
     // The configuration is fixed for the life of the check.
     [],
   );

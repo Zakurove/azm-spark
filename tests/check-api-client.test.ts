@@ -479,6 +479,16 @@ describe("shared UI helpers", () => {
     expect(t("ar", "assessment.afterIntake.body", { minutesFrom: 8, minutesTo: 10, unit: "min" })).toContain(
       "نحو ٨ إلى ١٠ دقائق",
     );
+    // A range that starts at one or two minutes writes the word, not ١ or ٢, in Arabic.
+    expect(t("ar", "assessment.intro.duration", { minutesFrom: 1, minutesTo: 2, unit: "min" })).toContain(
+      "نحو دقيقة واحدة إلى دقيقتين",
+    );
+    expect(t("ar", "assessment.intro.duration", { minutesFrom: 2, minutesTo: 3, unit: "min" })).toContain(
+      "نحو دقيقتين إلى ٣ دقائق",
+    );
+    expect(t("en", "assessment.intro.duration", { minutesFrom: 1, minutesTo: 2, unit: "min" })).toContain(
+      "1 to 2 minutes",
+    );
     expect(t("en", "assessment.guest.quickTry", { minutes: 2, unit: "min" })).toContain("2 minutes");
   });
 

@@ -1,0 +1,109 @@
+/*
+ * Results screens S50 to S52 (UX spec 3, S50 to S52): per test cards, value rows, the skip groups,
+ * the next step, the guest's register block with its QR, and the footer lines. Scoped to .azm-check,
+ * tokens only. Nothing under 16 px; values at 56 px with the unit word at 22 px beside them. Cards
+ * appear without animation.
+ */
+.azm-check .rs-head {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .rs-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.azm-check .rs-card {
+  gap: 0;
+}
+.azm-check .rs-test {
+  padding-bottom: var(--s2);
+}
+.azm-check .rs-row {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3) 0;
+}
+.azm-check .rs-row + .rs-row {
+  border-top: 1px solid var(--line);
+}
+.azm-check .rs-row:last-child {
+  padding-bottom: 0;
+}
+.azm-check .rs-side {
+  font-size: var(--t-meta);
+  line-height: 1.6;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0;
+}
+.azm-check .rs-not {
+  font-size: var(--t-h2);
+  line-height: 1.45;
+  font-weight: 700;
+}
+.azm-check .rs-skips {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .rs-group {
+  font-size: var(--t-h2);
+  margin: 0;
+}
+.azm-check .rs-skip-list {
+  margin: 0;
+  padding: var(--s4);
+  list-style: none;
+  background: var(--page);
+}
+.azm-check .rs-skip-list > li {
+  display: grid;
+  gap: var(--s1);
+}
+.azm-check .rs-skip-list > li + li {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.azm-check .rs-skip-name {
+  font-size: var(--t-answer);
+  line-height: 1.5;
+  font-weight: 700;
+}
+.azm-check .rs-next {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .rs-keep {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .rs-qr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s4);
+}
+.azm-check .rs-qr svg {
+  flex: none;
+  width: 160px;
+  height: 160px;
+  border-radius: 8px;
+  background: var(--card);
+}
+.azm-check .rs-qr-dark {
+  fill: var(--ink);
+}
+.azm-check .rs-qr-light {
+  fill: var(--card);
+}
+.azm-check .rs-qr-text {
+  display: grid;
+  gap: var(--s1);
+  min-width: 0;
+}
+.azm-check .rs-url {
+  font-size: 1.125rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}

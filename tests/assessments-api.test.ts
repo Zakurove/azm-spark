@@ -1322,3 +1322,39 @@ describe("what reaches the database", () => {
     expect(columns).toEqual(["day", "reason", "setting", "count"]);
   });
 });
+
+/* ------------------------------------------------- review round 2 fixes */
+
+describe("locks with several postpone reasons (SPEC-GAP multi-postpone)", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("a pain of 9 with an uncleared change is not released by a later clearance", async () => {
+    const cookie = await member(h, "pain9-change@example.test", intakeOf());
+    const r = await start(h, cookie, { pc_change: "yes", pc_change_cleared: "no", pc_pain_now: 9 });
+    expect(r.data).toMatchObject({
+      error: "POSTPONE",
+      reason: "pain",
+      screen: "scr_postpone_pain",
+      alsoShow: ["scr_postpone_care"],
+      lock: { reason: "pain", until: NEXT_DAY },
+    });
+    setTime(T0 + 60 * 1000);
+    const again = await start(h, cookie, { pc_change_cleared: "yes", pc_pain_now: 0 });
+    expect(again.data).toEqual({ error: "LOCKED", reason: "pain", until: NEXT_DAY });
+    expect((await h.call("/assessments", undefined, cookie)).data.assessments).toEqual([]);
+  });
+
+  it("an MS heat postpone with an uncleared change keeps the next day", async () => {
+    const cookie = await member(h, "ms-change@example.test", intakeOf({ conditions: ["ms"] }));
+    const r = await start(h, cookie, { pc_change: "yes", pc_change_cleared: "no", pc_ms_heat: "yes" });
+    expect(r.data).toMatchObject({ reason: "ms_heat", lock: { reason: "ms_heat", until: NEXT_DAY } });
+    setTime(T0 + 2 * HOUR);
+    const again = await start(h, cookie, { pc_change_cleared: "yes", pc_ms_heat: "no" });
+    expect(again.data).toEqual({ error: "LOCKED", reason: "ms_heat", until: NEXT_DAY });
+  });
+});

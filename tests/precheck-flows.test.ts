@@ -651,7 +651,11 @@ describe("properties over random people and answers", () => {
       if (o.status !== "postpone") continue;
       const reason = o.reason as keyof typeof CHECK_DATA.postponeReasons;
       expect(CHECK_DATA.postponeReasons[reason]).toBe(o.screen);
-      expect(o.lock).toEqual({ reason, until: lockKind(reason) });
+      // The lock is the reason shown, at least as long as that reason's own lock (the longest of
+      // all the reasons of the day, SPEC-GAP multi-postpone).
+      const rank = (k: string | null) => (k === "next_day" ? 2 : k === "60_min" ? 1 : 0);
+      expect(o.lock?.reason).toBe(reason);
+      expect(rank(o.lock!.until)).toBeGreaterThanOrEqual(rank(lockKind(reason)));
     }
   });
 

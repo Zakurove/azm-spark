@@ -1367,3 +1367,45 @@ describe("a recent surgery or a flare outside the listed areas (spec 2.2, SPEC-G
     expect(o.skips).toEqual([]);
   });
 });
+
+describe("several postpone reasons at once (SPEC-GAP multi-postpone)", () => {
+  it("never keeps the releasable recent_change lock when another reason locks", () => {
+    const o = run(envOf(), { pc_change: "yes", pc_change_cleared: "no", pc_pain_now: 9 });
+    expect(o).toMatchObject({
+      status: "postpone",
+      reason: "pain",
+      screen: "scr_postpone_pain",
+      lock: { reason: "pain", until: "next_day" },
+      stored: { changeReported: TODAY },
+    });
+    expect(o.alsoShow).toEqual(["scr_postpone_care"]);
+  });
+
+  it("keeps the longest lock of all the reasons, under a reason no answer releases", () => {
+    const env = envOf({ conditions: ["ms"] });
+    const o = run(env, { pc_change: "yes", pc_change_cleared: "no", pc_ms_heat: "yes" });
+    expect(o).toMatchObject({ reason: "ms_heat", lock: { reason: "ms_heat", until: "next_day" } });
+    expect(o.alsoShow).toEqual(["scr_postpone_care"]);
+  });
+
+  it("prefers the care advice screen when the locks tie", () => {
+    const o = run(envOf(), { pc_unwell: "yes", pc_pain_now: 3, pc_pain_worse: "yes" });
+    expect(o).toMatchObject({
+      reason: "pain_worse",
+      screen: "scr_postpone_care",
+      lock: { reason: "pain_worse", until: "next_day" },
+    });
+    const change = run(envOf(), { pc_unwell: "yes", pc_change: "yes", pc_change_cleared: "no" });
+    expect(change).toMatchObject({ reason: "unwell", lock: { reason: "unwell", until: "next_day" } });
+    expect(change.alsoShow).toEqual(["scr_postpone_care"]);
+  });
+
+  it("keeps recent_change when it is the only reason that locks", () => {
+    const o = run(sciT6Later(), { pc_change: "yes", pc_change_cleared: "no", pc_sci_ready: false });
+    expect(o).toMatchObject({
+      reason: "recent_change",
+      lock: { reason: "recent_change", until: "next_day" },
+    });
+    expect(o.alsoShow ?? []).toEqual([]);
+  });
+});

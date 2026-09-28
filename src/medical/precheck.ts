@@ -180,8 +180,9 @@ export interface PrecheckOutcome {
   /** The screen to show. */
   screen?: ScreenId;
   /**
-   * Screens shown with `screen` (scr_ad with scr_emergency for SCI, spec 2.6). Contract addition:
-   * the contract outcome has one screen.
+   * Screens shown with `screen`: scr_ad with scr_emergency for SCI (spec 2.6), and the care advice
+   * screens of the other reasons of a postpone with several reasons (pickPostpone). Contract
+   * addition: the contract outcome has one screen.
    */
   // SPEC-GAP: emergency-also-show.
   alsoShow?: ScreenId[];
@@ -1001,10 +1002,44 @@ function emptyOutcome(status: PrecheckStatus): PrecheckOutcome {
   return { status, skips: [], variants: [], helperRequired: [], warnings: [], setupUpdates: {}, stored: {} };
 }
 
-function pickPostpone(list: Postpone[]): Postpone {
-  // SPEC-GAP: multi-postpone. With several postpone reasons the longest lock wins (next day, then
-  // 60 minutes, then none); on a tie the first in question order.
-  return list.reduce((best, p) => (LOCK_RANK[p.lock] > LOCK_RANK[best.lock] ? p : best));
+/** The reason whose lock an answer can release at once (locks.rules: pc_change_cleared yes). */
+const RELEASABLE_REASONS: readonly PostponeReasonId[] = ["recent_change"];
+/** Postpone screens that route to a doctor, the care team, 937 or 997 (spec 2.5). */
+const CARE_SCREENS: readonly ScreenId[] = ["scr_postpone_care", "scr_postpone_pain"];
+
+/** The rank of a postpone for the lock and the screen shown; higher wins. */
+function postponeRank(p: Postpone): number {
+  const locks = p.lock !== "none";
+  const releasable = RELEASABLE_REASONS.includes(p.reason);
+  // A lock no answer releases, by length; then a releasable lock; then no lock (sci_ready).
+  const lockRank = locks && !releasable ? 2 + LOCK_RANK[p.lock] : locks ? 1 : 0;
+  const careRank = CARE_SCREENS.includes(p.screen) ? CARE_SCREENS.length - CARE_SCREENS.indexOf(p.screen) : 0;
+  return lockRank * 10 + careRank;
+}
+
+/**
+ * The postpone shown and locked when one pre-check has several postpone reasons.
+ *
+ * The lock keeps the longest lock of all the reasons, under a reason no answer releases whenever one
+ * of them locks: a yes to pc_change_cleared at a later attempt then releases nothing, so it cannot
+ * lift a pain, ms_heat or pd_off lock with it (spec 2.1 same day locks). The screen is the one of
+ * that reason; on a tie the care advice screens (scr_postpone_care, then scr_postpone_pain) win over
+ * the others, then question order. The other care advice screens are shown with it (alsoShow).
+ */
+// SPEC-GAP: multi-postpone. The spec has one reason per postpone. The one lock row cannot hold every
+// reason, so a releasable recent_change with a shorter fixed lock (ms_heat, pd_off) keeps the next day
+// under the fixed reason: the safe side (it waits until tomorrow even after the change is cleared).
+function pickPostpone(list: Postpone[]): { shown: Postpone; lock: CheckLock; alsoShow: ScreenId[] } {
+  const shown = list.reduce((best, p) => (postponeRank(p) > postponeRank(best) ? p : best));
+  const longest = list.reduce(
+    (kind, p) => (LOCK_RANK[p.lock] > LOCK_RANK[kind] ? p.lock : kind),
+    "none" as Postpone["lock"],
+  );
+  const alsoShow: ScreenId[] = [];
+  for (const screen of CARE_SCREENS) {
+    if (screen !== shown.screen && list.some((p) => p.screen === screen)) alsoShow.push(screen);
+  }
+  return { shown, lock: { reason: shown.reason, until: longest === "none" ? null : longest }, alsoShow };
 }
 
 function sortedSkips(st: State, d: Day): SkipItem[] {
@@ -1139,12 +1174,13 @@ export function evaluatePrecheck(
   // A postpone ends the questions early, but never before the emergency and AD questions that are
   // shown are answered (TERMINAL_GATE).
   if (d.postpones.length > 0 && terminalGateAnswered(st)) {
-    const p = pickPostpone(d.postpones);
+    const { shown, lock, alsoShow } = pickPostpone(d.postpones);
     return {
       ...emptyOutcome("postpone"),
-      reason: p.reason,
-      screen: p.screen,
-      lock: { reason: p.reason, until: p.lock === "none" ? null : p.lock },
+      reason: shown.reason,
+      screen: shown.screen,
+      ...(alsoShow.length ? { alsoShow } : {}),
+      lock,
       stored: terminalStored,
     };
   }
@@ -1202,12 +1238,17 @@ export function lockKind(reason: LockReasonId): LockKind | null {
  */
 export function lockUntil(reason: LockReasonId, now: number): number | null {
   const kind = lockKind(reason);
+  return kind === null ? null : lockEndsAt(kind, now);
+}
+
+/**
+ * When a lock of this kind set at `now` ends, as epoch ms. A pre-check outcome's lock carries its
+ * kind, which can be longer than its reason's own (pickPostpone), so the server reads the kind.
+ */
+export function lockEndsAt(kind: LockKind, now: number): number {
   if (kind === "60_min") return now + 60 * 60 * 1000;
-  if (kind === "next_day") {
-    const localDayStart = Math.floor((now + RIYADH_OFFSET_MS) / DAY_MS) * DAY_MS;
-    return localDayStart + DAY_MS - RIYADH_OFFSET_MS;
-  }
-  return null;
+  const localDayStart = Math.floor((now + RIYADH_OFFSET_MS) / DAY_MS) * DAY_MS;
+  return localDayStart + DAY_MS - RIYADH_OFFSET_MS;
 }
 
 /**

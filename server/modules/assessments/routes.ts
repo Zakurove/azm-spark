@@ -30,7 +30,7 @@ import {
   betweenTests,
   evaluatePrecheck,
   isStopOption,
-  lockUntil,
+  lockEndsAt,
   releasesLock,
   riyadhDate,
   stopOptions,
@@ -115,8 +115,6 @@ export function storedPrecheck(
   out["consent.version"] = consent.version;
   return out;
 }
-
-const lockAt = (reason: string, now: number) => lockUntil(reason as Parameters<typeof lockUntil>[0], now);
 
 /** The owner's open check, or the error already sent (404 for another person's check). */
 function openCheck(ctx: RouteContext): Assessment | null {
@@ -298,7 +296,8 @@ export const assessmentRoutes: Route[] = [
       const outcome = evaluatePrecheck(env, answers, now);
       if (outcome.status === "incomplete") return json(400, { error: "PRECHECK_INCOMPLETE" });
       if (outcome.status !== "proceed") {
-        const until = outcome.lock?.until ? lockAt(outcome.lock.reason, now) : null;
+        // The lock's kind can be longer than its reason's own (several postpone reasons).
+        const until = outcome.lock?.until ? lockEndsAt(outcome.lock.until, now) : null;
         transaction(db, () => {
           if (released) clearLock(db, u.id);
           if (outcome.lock && until !== null) setLock(db, u.id, outcome.lock.reason, until);
@@ -432,7 +431,7 @@ export const assessmentRoutes: Route[] = [
         return json(400, { error: "STOP_INVALID", field: "option" });
       const route = stopRoute(option, env);
       const now = Date.now();
-      const until = route.lock ? lockAt(route.lock.reason, now) : null;
+      const until = route.lock?.until ? lockEndsAt(route.lock.until, now) : null;
       transaction(db, () => {
         countSafetyEvent(db, `stop:${option}`, a.setting, now);
         if (route.endsCheck) setStatus(db, a.id, "ended_early", null, `stop:${option}`);
@@ -471,7 +470,7 @@ export const assessmentRoutes: Route[] = [
       if (out.status === "incomplete") return json(400, { error: "BETWEEN_INVALID", field: "answer" });
       const now = Date.now();
       if (out.status === "end") {
-        const until = out.lock?.until ? lockAt(out.lock.reason, now) : null;
+        const until = out.lock?.until ? lockEndsAt(out.lock.until, now) : null;
         transaction(db, () => {
           countSafetyEvent(db, "between:much", a.setting, now);
           setStatus(db, a.id, "ended_early", null, "between:much");

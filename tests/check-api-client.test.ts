@@ -21,7 +21,7 @@ import {
   type ResultPayload,
 } from "../src/features/assessment/flowMachine";
 import { callOutcome, memoryStore, ResultQueue, retryDelaySec } from "../src/features/assessment/resultQueue";
-import { snapshotOf } from "../src/features/assessment/useCheckFlow";
+import { queuedCallOf, snapshotOf } from "../src/features/assessment/useCheckFlow";
 import { screenKeyOf } from "../src/features/assessment/CheckApp";
 import { isBoothMode, readBoothPass } from "../src/features/assessment/boothMode";
 import { announcementFor } from "../src/features/assessment/shared/CheckUi";
@@ -444,6 +444,63 @@ describe("result queue", () => {
     expect(await q.flush()).toEqual({ sent: 0, dropped: 0, waiting: 1, auth: true });
     auth = false;
     expect(await q.flush()).toEqual({ sent: 1, dropped: 0, waiting: 0, auth: false });
+  });
+
+  it("never sends one account's calls under another account signed in on the same phone", async () => {
+    const store = memoryStore();
+    const sent: string[] = [];
+    const api = (who: string) => ({
+      postStop: async (id: string) => {
+        sent.push(`${who} stop ${id}`);
+        return { ok: true as const, value: {} as never };
+      },
+      confirmAdult: async () => {
+        sent.push(`${who} adult`);
+        return { ok: true as const, value: { adultConfirmed: true as const, confirmedAt: 1 } };
+      },
+    });
+    // Visitor A's calls wait (the network failed): A signs out.
+    const a = new ResultQueue(
+      { postStop: async () => ({ ok: false as const, error: { kind: "network" as const } }) },
+      store,
+      "user-a",
+    );
+    await a.enqueue({ type: "stop", checkId: "check-a", option: "chest" });
+    await a.enqueue({ type: "adult" });
+    expect((await a.flush()).waiting).toBe(2);
+    // Visitor B signs in on the same phone: nothing of A's is sent with B's session.
+    const b = new ResultQueue(api("b"), store, "user-b");
+    expect(await b.waiting()).toBe(0);
+    expect(await b.flush()).toEqual({ sent: 0, dropped: 0, waiting: 0, auth: false });
+    expect(sent).toEqual([]);
+    // A queue that knows no account sends nothing.
+    expect((await new ResultQueue(api("x"), store).flush()).sent).toBe(0);
+    expect(sent).toEqual([]);
+    // A signs in again: A's calls go out under A.
+    expect((await new ResultQueue(api("a"), store, "user-a").flush()).sent).toBe(2);
+    expect(sent).toEqual(["a stop check-a", "a adult"]);
+  });
+
+  it("never queues the adult confirmation: it goes out at once with the session that gave it", () => {
+    expect(queuedCallOf({ id: 1, type: "adult" })).toBeNull();
+    expect(queuedCallOf({ id: 2, type: "stop", checkId: "c", option: "chest", ref: null })).toEqual({
+      type: "stop",
+      checkId: "c",
+      option: "chest",
+      ref: null,
+    });
+    expect(queuedCallOf({ id: 3, type: "complete", checkId: "c" })).toEqual({
+      type: "complete",
+      checkId: "c",
+    });
+  });
+
+  it("drops calls older than two days, which the server could no longer take", async () => {
+    const store = memoryStore();
+    await store.put({ seq: 1, type: "stop", checkId: "old", option: "chest", owner: "u", at: 1 } as never);
+    const q = new ResultQueue({}, store, "u");
+    expect(await q.waiting()).toBe(0);
+    expect(await store.all()).toEqual([]);
   });
 
   it("drops what the server refuses for good, and waits on busy or slow answers", () => {

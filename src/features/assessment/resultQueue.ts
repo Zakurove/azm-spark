@@ -28,6 +28,12 @@
  * confirmation and completions are kept in IndexedDB so they survive a reload (`indexedDbStore`); the
  * background start and resume carry raw pre-check answers, which are never written to storage, so
  * they wait in memory only for the life of the page (spec 5.10).
+ *
+ * Owner: every call carries the account that made it (`owner`, the user id), and a queue sends only
+ * its own account's calls, so a call left by one person is never sent with the session of another
+ * person signed in on the same phone (signed in visitors share the staff phone at the booth, O17). A
+ * call waits for its own account to sign in again, for two days at most (MAX_AGE_MS): the server
+ * takes no answer for a check closed longer ago.
  * Memory in tests and wherever IndexedDB is missing (`memoryStore`).
  */
 import type { Answers, TestSide } from "../../medical/precheck";
@@ -55,7 +61,18 @@ export type QueuedCall =
     }
   | { seq: number; type: "resumeBackground"; checkId: string; answers: Answers };
 
+/** The account and the time of a stored call (added by the queue). */
+interface Stamp {
+  /** The user id of the account that made the call; none in a queue that knows no account. */
+  owner?: string;
+  /** When it was queued (epoch ms). */
+  at?: number;
+}
+
 export type NewCall = QueuedCall extends infer C ? (C extends QueuedCall ? Omit<C, "seq"> : never) : never;
+
+/** Calls older than this are dropped unsent: the server no longer takes them (SAFETY_LATE_MS). */
+export const MAX_AGE_MS = 2 * 24 * 60 * 60 * 1000;
 
 /** Calls that may be written to storage; the background start and resume (raw answers) never are. */
 const DURABLE: readonly QueuedCall["type"][] = [
@@ -205,10 +222,23 @@ export class ResultQueue {
   constructor(
     private api: Partial<OutboxApi>,
     private store: QueueStore = memoryStore(),
+    /** The signed in account (user id): only its calls are sent. */
+    private owner?: string,
   ) {}
 
+  /** This account's calls, oldest first; calls too old for the server are removed on the way. */
   private async all(): Promise<QueuedCall[]> {
-    return [...(await this.store.all()), ...this.volatile.values()].sort((a, b) => a.seq - b.seq);
+    const now = Date.now();
+    const out: QueuedCall[] = [];
+    for (const call of [...(await this.store.all()), ...this.volatile.values()]) {
+      const stamp = call as QueuedCall & Stamp;
+      if (now - (stamp.at ?? stamp.seq) > MAX_AGE_MS) {
+        await this.remove(call);
+        continue;
+      }
+      if (stamp.owner === this.owner) out.push(call);
+    }
+    return out.sort((a, b) => a.seq - b.seq);
   }
 
   /** Number of calls waiting, for the "Not saved yet" chip and `offline.savedLater`. */
@@ -230,7 +260,8 @@ export class ResultQueue {
 
   async enqueue(call: NewCall): Promise<void> {
     this.seq += 1;
-    const full = { ...call, seq: this.seq } as QueuedCall;
+    const stamp: Stamp = { at: Date.now(), ...(this.owner !== undefined ? { owner: this.owner } : {}) };
+    const full = { ...call, ...stamp, seq: this.seq } as QueuedCall;
     if (DURABLE.includes(full.type)) await this.store.put(full);
     else this.volatile.set(full.seq, full);
     this.emit();

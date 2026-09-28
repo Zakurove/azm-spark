@@ -36,6 +36,7 @@ import {
   retryDelaySec,
   type QueueStatus,
   type QueuedCall,
+  type NewCall,
 } from "./resultQueue";
 import { reportNetwork } from "./shared/useOnline";
 
@@ -54,6 +55,8 @@ export interface CheckFlowOptions {
   boothToken?: () => Promise<string | null>;
   api?: CheckApi;
   queue?: ResultQueue;
+  /** The signed in account (its user id): the outbox sends only its calls. */
+  owner?: string;
   /** Online state from useOnline: the outbox is flushed when it turns true. */
   online?: boolean;
   /** An open check to continue (S01 resume): sent with the context instead of starting anew. */
@@ -159,9 +162,12 @@ function guestQueue(): ResultQueue {
   return new ResultQueue({}, memoryStore());
 }
 
-/** The outbox of this device (IndexedDB), wired to the online state. */
-export function deviceQueue(api: CheckApi = defaultApi()): ResultQueue {
-  return new ResultQueue(api, indexedDbStore());
+/**
+ * The outbox of this device (IndexedDB), wired to the online state, for the signed in account
+ * `owner` (its user id): it sends only that account's calls.
+ */
+export function deviceQueue(api: CheckApi = defaultApi(), owner?: string): ResultQueue {
+  return new ResultQueue(api, indexedDbStore(), owner);
 }
 
 function defaultApi(): CheckApi {
@@ -172,12 +178,48 @@ function defaultApi(): CheckApi {
 }
 
 /**
- * Sends what a signed in check left in the outbox (after the person signs in again, or when the app
- * opens signed in). Never called for guests.
+ * Sends what a signed in check of this account (`owner`, the user id) left in the outbox: after the
+ * person signs in again, when the app opens signed in, and before signing out. Another account's calls
+ * stay unsent. Never called for guests.
  */
-export async function flushPendingCheckCalls(): Promise<void> {
+export async function flushPendingCheckCalls(owner: string): Promise<void> {
   if (typeof indexedDB === "undefined") return;
-  await deviceQueue().flush();
+  await deviceQueue(defaultApi(), owner).flush();
+}
+
+/**
+ * The outbox call of a background effect, or null for an effect sent some other way. The adult
+ * confirmation is never queued: it is sent at once with the session of the person who gave it (the
+ * start needs it anyway, and a refused start asks again, 403 ADULT_REQUIRED), so it can never reach
+ * another account signed in later on the same phone.
+ */
+export function queuedCallOf(effect: FlowEffect): NewCall | null {
+  switch (effect.type) {
+    case "resumeBackground":
+      return { type: "resumeBackground", checkId: effect.checkId, answers: effect.answers };
+    case "stop":
+      return { type: "stop", checkId: effect.checkId, option: effect.option, ref: effect.ref };
+    case "end":
+      return { type: "end", checkId: effect.checkId, answer: effect.answer };
+    case "faint":
+      return { type: "faint", checkId: effect.checkId, body: effect.body };
+    case "alarm":
+      return { type: "alarm", checkId: effect.checkId, body: effect.body };
+    case "between":
+      return {
+        type: "between",
+        checkId: effect.checkId,
+        testId: effect.testId,
+        side: effect.side,
+        answer: effect.answer,
+      };
+    case "result":
+      return { type: "result", checkId: effect.checkId, body: effect.body };
+    case "complete":
+      return { type: "complete", checkId: effect.checkId };
+    default:
+      return null;
+  }
 }
 
 export function useCheckFlow(opts: CheckFlowOptions) {
@@ -185,8 +227,8 @@ export function useCheckFlow(opts: CheckFlowOptions) {
   const signedIn = config.mode === "signedIn";
   const api = useMemo(() => opts.api ?? defaultApi(), [opts.api]);
   const queue = useMemo(
-    () => opts.queue ?? (signedIn ? deviceQueue(api) : guestQueue()),
-    [opts.queue, api, signedIn],
+    () => opts.queue ?? (signedIn ? deviceQueue(api, opts.owner) : guestQueue()),
+    [opts.queue, api, signedIn, opts.owner],
   );
   const [model, rawDispatch] = useReducer(
     flowReducer,
@@ -329,48 +371,18 @@ export function useCheckFlow(opts: CheckFlowOptions) {
           ...(effect.session ? { session: effect.session } : {}),
         });
         break;
-      case "resumeBackground":
-        await queue.enqueue({ type: "resumeBackground", checkId: effect.checkId, answers: effect.answers });
-        break;
-      case "stop":
-        await queue.enqueue({
-          type: "stop",
-          checkId: effect.checkId,
-          option: effect.option,
-          ref: effect.ref,
-        });
-        break;
-      case "end":
-        await queue.enqueue({ type: "end", checkId: effect.checkId, answer: effect.answer });
-        break;
-      case "faint":
-        await queue.enqueue({ type: "faint", checkId: effect.checkId, body: effect.body });
-        break;
-      case "alarm":
-        markNoResume(effect.checkId);
-        await queue.enqueue({ type: "alarm", checkId: effect.checkId, body: effect.body });
-        break;
       case "adult":
-        await queue.enqueue({ type: "adult" });
-        break;
-      case "between":
-        await queue.enqueue({
-          type: "between",
-          checkId: effect.checkId,
-          testId: effect.testId,
-          side: effect.side,
-          answer: effect.answer,
-        });
-        break;
-      case "result":
-        await queue.enqueue({ type: "result", checkId: effect.checkId, body: effect.body });
-        break;
-      case "complete":
-        await queue.enqueue({ type: "complete", checkId: effect.checkId });
-        break;
+        // Sent at once, never queued (queuedCallOf).
+        await api.confirmAdult();
+        return;
       case "clearBoothPass":
         clearBoothPass();
         return;
+      default: {
+        if (effect.type === "alarm") markNoResume(effect.checkId);
+        const call = queuedCallOf(effect);
+        if (call) await queue.enqueue(call);
+      }
     }
     await flush();
   }

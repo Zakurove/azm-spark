@@ -158,8 +158,8 @@ export default function App() {
   }, []);
   // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
   useEffect(() => {
-    if (account) void flushPendingCheckCalls();
-  }, [!!account]);
+    if (account) void flushPendingCheckCalls(account.user.id);
+  }, [account?.user.id]);
   useEffect(() => {
     if (account && !run)
       api<{ records: SavedSession[] }>("/sessions")
@@ -321,7 +321,15 @@ export default function App() {
       />
     );
   if (checkOpen)
-    return <CheckApp lang={lang} onLanguage={toggleLanguage} mode="signedIn" onExit={onCheckExit} />;
+    return (
+      <CheckApp
+        lang={lang}
+        onLanguage={toggleLanguage}
+        mode="signedIn"
+        onExit={onCheckExit}
+        owner={account.user.id}
+      />
+    );
   if (run)
     return (
       <Workout
@@ -444,6 +452,12 @@ export default function App() {
           className="logout"
           onClick={async () => {
             try {
+              // Send this account's waiting check calls while its session holds (best effort, 3 s);
+              // what stays waits for this account and is never sent under another (resultQueue.ts).
+              await Promise.race([
+                flushPendingCheckCalls(account.user.id).catch(() => undefined),
+                new Promise((done) => setTimeout(done, 3000)),
+              ]);
               await api("/auth/logout", {});
               setAccount(null);
               setRecords([]);

@@ -51,6 +51,8 @@ export interface CheckAppProps {
   resume?: ResumeCheck | null;
   /** The side lean only session (S01 leanRepeat, Q12 (2)); a full check by default. */
   session?: CheckSession;
+  /** The signed in account's user id: the outbox sends only this account's calls. */
+  owner?: string;
 }
 
 /** A device without touch and wider than 1024 px gets the phone interstitial first (S04). */
@@ -104,6 +106,7 @@ export default function CheckApp({
   desktop,
   resume,
   session,
+  owner,
 }: CheckAppProps) {
   const inBooth = booth ?? isBoothMode();
   const config = useMemo(
@@ -116,6 +119,7 @@ export default function CheckApp({
     config,
     online,
     resume: resume ?? null,
+    ...(owner ? { owner } : {}),
   });
 
   const [soundOn, setSoundOn] = useState(true);

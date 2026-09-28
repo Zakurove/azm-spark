@@ -504,6 +504,36 @@ describe("resume after an interruption (O6)", () => {
     return play(initialModel(SIGNED), { type: "RESUME", context: ctx, check });
   }
 
+  it("re-asks with the running check's environment, exactly as the server builds it (runningEnv)", () => {
+    const { check } = openCheck();
+    const ctx = contextOf(
+      {},
+      {
+        completedBefore: true,
+        faintReportedUnresolved: true,
+        neededArmsLastStand: true,
+        sideLeanDoneAtHome: true,
+        unresolvedChangeReported: true,
+        lastCheckLasting: true,
+        firstCheck: true,
+      },
+    );
+    const m = play(initialModel(SIGNED), {
+      type: "RESUME",
+      context: ctx,
+      check: { ...check, setup: { sciT6: false } },
+    });
+    expect(m.data.env).toEqual({
+      setting: "home",
+      ctx: ctx.ctx,
+      setup: { sciT6: false },
+      firstCheck: false,
+      unresolvedChangeReported: false,
+      lastCheckLasting: false,
+      baseTests: [...new Set(check.protocol.map((i) => i.testId))],
+    });
+  });
+
   it("shows the O6 line, runs the sound check, then asks only the re-ask questions", () => {
     let m = resumed();
     expect(kind(m)).toBe("resumeNotice");

@@ -1986,12 +1986,13 @@ function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
   const d = m.data;
   // O6 (1): a booth check resumes only inside booth mode (the visitor token), never at home.
   if (c.setting === "booth" && !d.config.booth) return go(m, { kind: "exit", to: "today" });
-  // The environment of the running check, as the server builds it (runningEnv): its setting, its
-  // setup with today's updates and its tests; the one time questions are not asked again.
+  // The environment of the running check, exactly as the server builds it (runningEnv), so the phone
+  // and POST /:id/resume ask and evaluate the same questions: its setting, its setup with today's
+  // updates and its tests; nothing of the start's history (the one time questions are not asked).
   const env: PrecheckEnv | null = d.env
     ? {
-        ...d.env,
         setting: c.setting ?? d.setting,
+        ctx: d.env.ctx,
         setup: c.setup !== undefined ? c.setup : d.env.setup,
         firstCheck: false,
         unresolvedChangeReported: false,

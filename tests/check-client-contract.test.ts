@@ -15,19 +15,23 @@ import {
   createCheckApi,
   deviceInfo,
   lockReleasable,
+  resumeCheckOf,
   toSignedInContext,
   toStartResult,
   type CheckApi,
   type ContextResponse,
 } from "../src/features/assessment/api";
 import { callOutcome, memoryStore, ResultQueue } from "../src/features/assessment/resultQueue";
-import type { ResultPayload } from "../src/features/assessment/flowMachine";
-import type { ProtocolItem } from "../src/medical/assessment";
-import { resumeQuestions, riyadhDate, type Answers } from "../src/medical/precheck";
+import {
+  flowReducer,
+  initialModel,
+  type FlowEvent,
+  type ResultPayload,
+} from "../src/features/assessment/flowMachine";
+import { riyadhDate, type Answers } from "../src/medical/precheck";
 import { benign } from "./precheck-fixtures";
 import {
   answersFor,
-  envFromContext,
   intakeOf,
   member,
   resultBody,
@@ -315,27 +319,33 @@ describe("end, faint, alarm and complete", () => {
   });
 });
 
-/** The O6 re-ask as the phone asks it (resumeQuestions, benign answers unless given). */
-async function reask(api: CheckApi, protocol: ProtocolItem[], done: string[], given: Answers = {}) {
+/**
+ * The O6 re-ask as the phone asks it: the flow machine resumes the open check from the server's
+ * context and list (resumeCheckOf), runs the line and the sound check, answers each re-ask question
+ * (benign unless given) and returns the answers of its resume call.
+ */
+async function reask(api: CheckApi, given: Answers = {}): Promise<Answers> {
   const c = await api.getContext();
-  if (!c.ok) throw new Error("context");
-  const env = {
-    ...envFromContext(c.value),
-    firstCheck: false,
-    unresolvedChangeReported: false,
-    lastCheckLasting: false,
-    baseTests: [...new Set(protocol.map((p) => p.testId))],
-  };
-  const remaining = protocol
-    .filter((p) => !p.skipped && !done.includes(`${p.testId}:${p.side}`))
-    .map((p) => ({ testId: p.testId, helperRequired: p.helperRequired === true }));
-  const answers: Answers = { ...given };
-  for (let k = 0; k < 30; k++) {
-    const next = resumeQuestions(env, answers, remaining).find((q) => !(q in answers));
-    if (!next) break;
-    answers[next] = benign(next);
+  const list = await api.listChecks();
+  if (!c.ok || !list.ok) throw new Error("context");
+  const check = resumeCheckOf(c.value.openCheck, list.value.assessments);
+  if (!check) throw new Error("no open check");
+  let m = [
+    { type: "RESUME", context: toSignedInContext(c.value), check },
+    { type: "CONTINUE" },
+    { type: "SOUND_RESULT", mode: "voice" },
+  ].reduce(
+    (acc, e) => flowReducer(acc, e as FlowEvent),
+    initialModel({ mode: "signedIn", booth: false, homeOpen: true, desktop: false }),
+  );
+  for (let k = 0; k < 30 && m.state.kind === "question"; k++) {
+    const id = m.state.id;
+    m = flowReducer(m, { type: "ANSWER", id, value: id in given ? given[id] : benign(id) });
+    if (m.state.kind === "confirmPostpone") m = flowReducer(m, { type: "CONFIRM_YES" });
   }
-  return answers;
+  const call = m.effects.find((e) => e.type === "resume" || e.type === "resumeBackground");
+  if (!call || !("answers" in call)) throw new Error(`no resume call from ${m.state.kind}`);
+  return call.answers;
 }
 
 describe("resume (O6)", () => {
@@ -344,13 +354,9 @@ describe("resume (O6)", () => {
     const { api, check } = await started(cookie);
     const item = check.protocol.find((p) => !p.skipped)!;
     await api.postResult(check.id, resultBody(item, 120) as unknown as ResultPayload);
-    const done = [`${item.testId}:${item.side}`];
-    const ok = await api.resume(check.id, await reask(api, check.protocol, done));
+    const ok = await api.resume(check.id, await reask(api));
     expect(ok.ok && ok.value).toMatchObject({ status: "proceed", skips: [], warnings: expect.any(Array) });
-    const postponed = await api.resume(
-      check.id,
-      await reask(api, check.protocol, done, { pc_unwell: "yes" }),
-    );
+    const postponed = await api.resume(check.id, await reask(api, { pc_unwell: "yes" }));
     expect(!postponed.ok && conflict(postponed.error)).toMatchObject({
       code: "POSTPONE",
       status: "postpone",
@@ -364,6 +370,22 @@ describe("resume (O6)", () => {
     });
     const incomplete = await api.resume(check.id, {});
     expect(!incomplete.ok && conflict(incomplete.error)).toMatchObject({ code: "NOT_OPEN" });
+  });
+
+  it("the phone's re-ask is the server's for SCI in a wheelchair (the SCI and helper questions)", async () => {
+    const cookie = await member(
+      h,
+      email(),
+      intakeOf({ conditions: ["sci_complete"], mobility: "wheelchair", clearance: "yes" }),
+    );
+    // SCI at T6 or above: the level is kept with the check's setup, which the re-ask reads.
+    const { api, check } = await started(cookie, { pc_sci_level: "yes" });
+    const item = check.protocol.find((p) => !p.skipped)!;
+    await api.postResult(check.id, resultBody(item, 100) as unknown as ResultPayload);
+    const answers = await reask(api);
+    expect(Object.keys(answers)).toContain("pc_sci_ad_now");
+    const ok = await api.resume(check.id, answers);
+    expect(ok.ok && ok.value.status).toBe("proceed");
   });
 
   it("the background resume (raw answers) never touches storage and treats POSTPONE as sent", async () => {

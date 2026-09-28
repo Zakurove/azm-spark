@@ -3,6 +3,9 @@ import { Lang } from "./i18n";
 import { labels, errorText } from "./platform-copy";
 import { api } from "./api";
 import Icon from "./Icon";
+import { t } from "../i18n";
+import { bidiText } from "../i18n/rich";
+import { privacyHref } from "./Privacy";
 
 export interface ReportResult {
   document: string;
@@ -24,8 +27,21 @@ export interface ReportResult {
   confidence: string;
 }
 
+/**
+ * The body of POST /api/medical-report: the report with the separate consent of Q32 (2), which the
+ * server needs before it sends anything to the model.
+ */
+export function reportRequest(
+  body: { kind: "text"; text: string } | { kind: "image"; image: string },
+  lang: Lang,
+): Record<string, unknown> {
+  return { ...body, lang, reportConsent: true };
+}
+
 /** Optional medical-report analysis panel shown at the top of a fresh intake.
- * The image is downscaled client-side; on any failure the form continues manually. */
+ * The image is downscaled client-side; on any failure the form continues manually.
+ * Nothing can be sent until the person ticks the separate report consent (Q32 (2)); skipping and
+ * answering by hand stays open at all times. */
 export default function ReportUpload({
   lang,
   onExtracted,
@@ -37,7 +53,8 @@ export default function ReportUpload({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [open, setOpen] = useState(true),
-    [text, setText] = useState("");
+    [text, setText] = useState(""),
+    [consent, setConsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   if (!open) return null;
 
@@ -45,7 +62,8 @@ export default function ReportUpload({
     setBusy(true);
     setError("");
     try {
-      const result = await api<ReportResult>("/medical-report", { ...body, lang });
+      if (!consent) return;
+      const result = await api<ReportResult>("/medical-report", reportRequest(body, lang));
       if (result.document === "not_medical" || result.document === "unreadable") {
         setError("NOT_MEDICAL");
         return;
@@ -86,8 +104,23 @@ export default function ReportUpload({
         </div>
       ) : (
         <>
+          <div className="report-consent">
+            <p>{bidiText(lang, c.reportConsentBody)}</p>
+            <label className="consent">
+              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>{c.reportConsentCheck}</span>
+            </label>
+            <a className="report-privacy-link" href={privacyHref(lang)} target="_blank" rel="noreferrer">
+              {t(lang, "privacy.link")}
+            </a>
+          </div>
           <div className="report-actions">
-            <button type="button" className="ghost" onClick={() => fileRef.current?.click()}>
+            <button
+              type="button"
+              className="ghost"
+              disabled={!consent}
+              onClick={() => fileRef.current?.click()}
+            >
               <Icon name="camera" size={16} />
               {c.reportUpload}
             </button>
@@ -105,12 +138,19 @@ export default function ReportUpload({
           </div>
           <label className="field report-paste">
             <span>{c.reportPaste}</span>
-            <textarea rows={3} maxLength={20000} value={text} onChange={(e) => setText(e.target.value)} />
+            <textarea
+              rows={3}
+              maxLength={20000}
+              value={text}
+              disabled={!consent}
+              onChange={(e) => setText(e.target.value)}
+            />
           </label>
           {text.trim().length > 0 && (
             <button
               type="button"
               className="cta report-analyze"
+              disabled={!consent}
               onClick={() => void analyze({ kind: "text", text: text.trim() })}
             >
               {c.reportAnalyze}

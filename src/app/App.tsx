@@ -27,6 +27,7 @@ import { CHECK_UI } from "../features/assessment/featureFlag";
 import { BoothStaffPage } from "../features/assessment/booth";
 import { AfterIntakeOffer, ExampleProgress, ResultsPage, TodayCheckSlot } from "../features/progress";
 import { countPhrase, t } from "../i18n";
+import Privacy from "./Privacy";
 const qs = new URLSearchParams(location.search);
 /** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
 const checkEntry = qs.get("check") === "1";
@@ -41,6 +42,8 @@ const boothEntry = qs.get("booth") === "1";
 const boothTokenEntry = qs.get("boothToken");
 // The example page (S54) is still a stub: shown only where the check UI is on (featureFlag.ts).
 const exampleEntry = CHECK_UI && qs.get("example") === "progress";
+/** The privacy notice (Q32 (1), H5), open to everyone. */
+const privacyEntry = qs.get("privacy") === "1";
 type Page = "today" | "program" | "health" | "history" | "results";
 const PAGES: readonly Page[] = CHECK_UI
   ? ["today", "program", "results", "health", "history"]
@@ -197,6 +200,14 @@ export default function App() {
     }
   };
   if (boothTokenEntry !== null) return null;
+  if (privacyEntry)
+    return (
+      <Privacy
+        lang={lang}
+        onLanguage={toggleLanguage}
+        onBack={() => (history.length > 1 ? history.back() : openUrl("/", lang, true))}
+      />
+    );
   if (E2EGallery && galleryEntry)
     return (
       <Suspense fallback={null}>

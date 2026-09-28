@@ -35,9 +35,11 @@ export const consentRoutes: Route[] = [
       db.exec("BEGIN IMMEDIATE");
       try {
         revokeConsent(db, user!.id, params.kind, now);
-        db.prepare(
-          "UPDATE assessments SET status='abandoned', ended_reason='consent_revoked' WHERE user_id=? AND status='open'",
-        ).run(user!.id);
+        // Only the movement check consent holds the checks.
+        if (params.kind === "movement_check")
+          db.prepare(
+            "UPDATE assessments SET status='abandoned', ended_reason='consent_revoked' WHERE user_id=? AND status='open'",
+          ).run(user!.id);
         db.exec("COMMIT");
       } catch (error) {
         if (db.isTransaction) db.exec("ROLLBACK");

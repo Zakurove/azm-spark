@@ -9,7 +9,9 @@ import { CHECK_DATA } from "../../../src/movements/assessments";
  */
 // SPEC-GAP: consent-version. The spec names a consent version without a scheme; it is the check data
 // version, and a consent to an older version does not count.
-export const CONSENT_VERSIONS = { movement_check: CHECK_DATA.version } as const;
+// report_reading (Q32 (2)): the separate consent to send a medical report to the model that reads it,
+// version 1 of its text (platform-copy.ts reportConsentBody).
+export const CONSENT_VERSIONS = { movement_check: CHECK_DATA.version, report_reading: 1 } as const;
 export type ConsentKind = keyof typeof CONSENT_VERSIONS;
 
 export function isConsentKind(kind: unknown): kind is ConsentKind {

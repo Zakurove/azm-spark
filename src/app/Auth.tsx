@@ -6,6 +6,8 @@ import Brand from "./Brand";
 import Icon from "./Icon";
 import { CHECK_DATA } from "../movements/assessments";
 import { bidiText } from "../i18n/rich";
+import { t } from "../i18n";
+import { privacyHref } from "./Privacy";
 
 /**
  * The body of the register or sign in call. Registering needs the adult confirmation (Q2 (5), Q32
@@ -155,6 +157,11 @@ export default function Auth({
               <Icon name="arrow" size={18} />
             </button>
           </form>
+          {register && (
+            <a className="auth-privacy" href={privacyHref(lang)}>
+              {t(lang, "privacy.link")}
+            </a>
+          )}
           <button className="auth-demo text-button" onClick={onDemo}>
             <Icon name="play" size={16} />
             {c.demo}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { privacyHref } from "./Privacy";
 import { Lang, fmtNum, pct } from "./i18n";
 import { formatNumber, t, unitWord, type I18nKey } from "../i18n";
 import Brand from "./Brand";
@@ -367,6 +368,9 @@ export default function Landing({
           <div>
             <p className="ld-not-medical">{t(lang, "landing.footer.notMedical")}</p>
             <p className="ld-note">{t(lang, "landing.footer.note")}</p>
+            <a className="ld-privacy" href={privacyHref(lang)}>
+              {t(lang, "privacy.link")}
+            </a>
           </div>
           <span className="ld-brandline">{t(lang, "landing.footer.brandline")}</span>
         </div>

@@ -1,0 +1,54 @@
+{
+  "title": "Privacy and your data",
+  "intro": "Here we explain in plain words what we keep about you, why we keep it, where it is stored, who receives it and what your rights are.",
+  "controller": {
+    "heading": "Who is responsible for your data",
+    "body": "{controller}, the company that owns Azm, is responsible for your data."
+  },
+  "purposes": {
+    "heading": "Why we keep your data",
+    "plan": "To build an exercise plan that fits your medical condition and your goals.",
+    "check": "To measure how you move in the movement check, so you can see for yourself how your movement changes over time.",
+    "sessions": "To keep your exercise sessions and their results in your account.",
+    "safety": "To keep you safe during the check. We count safety events by day, without your name or any link to you."
+  },
+  "kept": {
+    "heading": "What we keep",
+    "account": "Your name, your email and your password, which is stored in a form that cannot be read back.",
+    "profile": "The answers of your health profile: your medical condition, the areas that hurt, your movement limits, how you move, and the notes and medicines you choose to write.",
+    "check": "Movement check results as numbers only, with the setup and the dates needed to compare them. The answers of the day before a check are used that day and not kept.",
+    "sessions": "Your exercise sessions and their results.",
+    "consents": "Your consents and your confirmation that you are 18 or older, with their dates."
+  },
+  "notKept": {
+    "heading": "What we never keep",
+    "video": "Video and pictures from the camera. The video never leaves your phone.",
+    "report": "Your medical report. We read it only when you ask us to, and then we do not keep it."
+  },
+  "where": {
+    "heading": "Where your data is stored"
+  },
+  "receivers": {
+    "heading": "Who receives your data",
+    "railway": "Railway, the company that runs our servers in the Netherlands.",
+    "openai": "OpenAI, a company outside Saudi Arabia, reads your medical report when you choose to send it and agree to it, and prepares your weekly plan. We never send it your name, your email or any contact details, and your medical condition reaches the weekly plan as codes only."
+  },
+  "retention": {
+    "heading": "How long we keep your data",
+    "account": "We keep your account, your answers and your results while your account exists. When you ask us to delete your account, we delete it within 30 days, backups included.",
+    "report": "Azm does not keep your medical report. OpenAI may keep it for up to 30 days for safety checks only, and does not use it to train its models.",
+    "pause": "When a check is paused for your safety, the pause is deleted as soon as it ends."
+  },
+  "rights": {
+    "heading": "Your rights",
+    "access": "To know what we keep about you and to get a copy of it.",
+    "correct": "To correct what is wrong.",
+    "delete": "To ask us to delete your data.",
+    "withdraw": "To withdraw your consent at any time. What was done before you withdraw it stays valid.",
+    "contactEmail": "Write to us at {email}. We answer within 30 days.",
+    "contactTeam": "Ask the Azm team. We answer within 30 days."
+  },
+  "adults": "Azm is for people aged 18 or older.",
+  "back": "Back",
+  "link": "Privacy"
+}

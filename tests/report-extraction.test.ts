@@ -1,4 +1,4 @@
-import { it, expect } from "vitest";
+import { it, expect, vi } from "vitest";
 import { sanitizeExtraction, validReportBody } from "../server/report";
 
 it("sanitizes model output against the app enums and never trusts free values", () => {
@@ -83,16 +83,91 @@ it("rejects unauthenticated report posts before buffering large bodies, and keep
     body: JSON.stringify({ pad: "x".repeat(100_000) }),
   });
   expect(r2.status).toBe(413);
-  // Authenticated report post without a key configured degrades to 503, not a crash.
+  // Q32 (2): report reading needs its own explicit consent; without it nothing is sent anywhere,
+  // even with a key configured.
   const prev = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "test-key-never-used";
+  const fetchSpy = vi.spyOn(globalThis, "fetch");
+  for (const reportConsent of [undefined, false, "yes"]) {
+    const r = await fetch(`${origin}/api/medical-report`, {
+      method: "POST",
+      headers: { ...headers, cookie },
+      body: JSON.stringify({ kind: "text", text: "تقرير", reportConsent }),
+    });
+    expect(r.status).toBe(403);
+    expect(await r.json()).toEqual({ error: "CONSENT_REQUIRED" });
+  }
+  // Only the test's own calls went out: none to the model.
+  expect(fetchSpy.mock.calls.every(([u]) => String(u).startsWith(origin))).toBe(true);
+  fetchSpy.mockRestore();
+  // Authenticated report post with the consent and without a key configured degrades to 503.
   delete process.env.OPENAI_API_KEY;
   const r3 = await fetch(`${origin}/api/medical-report`, {
     method: "POST",
     headers: { ...headers, cookie },
-    body: JSON.stringify({ kind: "text", text: "تقرير" }),
+    body: JSON.stringify({ kind: "text", text: "تقرير", reportConsent: true }),
   });
   expect(r3.status).toBe(503);
   if (prev) process.env.OPENAI_API_KEY = prev;
   await new Promise<void>((r) => server.close(() => r()));
   service.close();
+});
+
+it("asks the separate report consent before anything can be sent (Q32 (2))", async () => {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { createElement } = await import("react");
+  const { default: ReportUpload, reportRequest } = await import("../src/app/ReportUpload");
+  const { labels } = await import("../src/app/platform-copy");
+  for (const lang of ["ar", "en"] as const) {
+    const html = renderToStaticMarkup(createElement(ReportUpload, { lang, onExtracted: () => {} }));
+    const c = labels(lang);
+    const plain = html.replace(/<[^>]+>/g, "");
+    expect(plain).toContain(c.reportConsentCheck);
+    // The consent text is shown in full (digits and Latin runs isolated in Arabic).
+    expect(plain.replace(/\s+/g, " ")).toContain(lang === "ar" ? "مدة أقصاها ٣٠ يومًا" : "up to 30 days");
+    // Unticked, and the upload and paste controls wait for it; skipping stays open.
+    expect(html).toMatch(/<input type="checkbox"\/>/);
+    expect(html).toMatch(/<button type="button" class="ghost" disabled="">/);
+    expect(html).toMatch(/<textarea[^>]*disabled=""/);
+    expect(html).toContain(`<button type="button" class="text-button">${c.reportSkip}</button>`);
+    expect(html).toContain('href="/?privacy=1');
+    expect(plain).not.toMatch(/medical engine|محرك عزم/);
+  }
+  expect(reportRequest({ kind: "text", text: "x" }, "ar")).toEqual({
+    kind: "text",
+    text: "x",
+    lang: "ar",
+    reportConsent: true,
+  });
+});
+
+it("publishes a bilingual privacy notice, linked from the landing and the sign up screen (Q32 (1), H5)", async () => {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { createElement } = await import("react");
+  const { default: Privacy, PRIVACY_OWNER } = await import("../src/app/Privacy");
+  const { default: Landing } = await import("../src/app/Landing");
+  const { default: Auth } = await import("../src/app/Auth");
+  const { CHECK_DATA } = await import("../src/movements/assessments");
+  const noop = () => {};
+  for (const lang of ["ar", "en"] as const) {
+    const html = renderToStaticMarkup(createElement(Privacy, { lang, onLanguage: noop, onBack: noop }));
+    const plain = html.replace(/<[^>]+>/g, "");
+    expect(plain).toContain(CHECK_DATA.boundary.storageNotice[lang]);
+    for (const name of ["Railway", "OpenAI", PRIVACY_OWNER.controller]) expect(plain).toContain(name);
+    const landing = renderToStaticMarkup(
+      createElement(Landing, { lang, onLanguage: noop, onEnter: noop, onDemo: noop }),
+    );
+    expect(landing).toContain(lang === "en" ? 'href="/?privacy=1&amp;lang=en"' : 'href="/?privacy=1"');
+    const signUp = renderToStaticMarkup(
+      createElement(Auth, {
+        lang,
+        onLanguage: noop,
+        onSuccess: noop,
+        onDemo: noop,
+        onBack: noop,
+        initialRegister: true,
+      }),
+    );
+    expect(signUp).toContain("?privacy=1");
+  }
 });

@@ -5,6 +5,9 @@ import { labels, optionNames, errorText } from "./platform-copy";
 import { api } from "./api";
 import Icon from "./Icon";
 import ReportUpload, { ReportResult } from "./ReportUpload";
+import { CHECK_DATA } from "../movements/assessments";
+import { t } from "../i18n";
+import { privacyHref } from "./Privacy";
 type Draft = Omit<Intake, "symptoms" | "recentChange" | "clearance" | "mobility"> & {
   symptoms: Intake["symptoms"] | "";
   recentChange: Intake["recentChange"] | "";
@@ -462,6 +465,13 @@ export default function IntakeForm({
               />
               <span>{c.consent}</span>
             </label>
+            {/* H5: the health data consent names where the data is stored, and links the notice (Q32 (1)). */}
+            <p className="field-help intake-storage">
+              {CHECK_DATA.boundary.storageNotice[lang]}{" "}
+              <a href={privacyHref(lang)} target="_blank" rel="noreferrer">
+                {t(lang, "privacy.link")}
+              </a>
+            </p>
           </>
         )}
         {error && (

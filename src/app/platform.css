@@ -3171,3 +3171,49 @@
 .next-workout .workout-art img {
   mix-blend-mode: multiply;
 }
+
+/* The privacy notice (Q32 (1), H5) and its links from the landing footer and the sign up screen. */
+.privacy-page {
+  min-height: 100dvh;
+  background: #fafafb;
+}
+.privacy-main {
+  width: min(760px, calc(100% - 32px));
+  margin: 32px auto 64px;
+  font-size: 16px;
+  line-height: 1.9;
+  color: #1c2029;
+}
+.privacy-main h1 {
+  font-size: 30px;
+  margin: 0 0 12px;
+}
+.privacy-section h2 {
+  font-size: 19px;
+  margin: 28px 0 8px;
+}
+.privacy-section ul {
+  margin: 0;
+  padding-inline-start: 22px;
+}
+.privacy-section li + li {
+  margin-top: 6px;
+}
+.privacy-adults {
+  margin-top: 28px;
+  font-weight: 700;
+}
+.ld-privacy,
+.auth-privacy {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2029;
+}
+.auth-privacy {
+  justify-content: center;
+  width: 100%;
+  margin-top: 12px;
+}

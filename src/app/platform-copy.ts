@@ -99,8 +99,11 @@ export const labels = (l: Lang) =>
         resume: "متابعة الجلسة",
         signOutError: "تعذّر الخروج. حاول مرة أخرى.",
         reportTitle: "عندك تقرير طبي؟",
-        reportBody:
-          "صوّر صفحة التقرير أو الصق نصه، وسيحلّله محرك عزم الطبي ليعبّئ إجاباتك مسبقًا، ثم يسألك عمّا تبقّى فقط.",
+        reportBody: "صوّر صفحة التقرير أو الصق نصه، فنعبّئ منه إجاباتك مسبقًا، ثم نسألك عمّا تبقّى فقط.",
+        // Q32 (2), word for word: the separate consent before a report is sent to be read.
+        reportConsentBody:
+          "نرسل تقريرك الطبي إلى نظام ذكاء اصطناعي تقدّمه شركة خارج المملكة ليقرأه. لا يحتفظ عزم بالتقرير. وقد تحتفظ به الشركة مدة أقصاها ٣٠ يومًا لأغراض الأمان فقط، ولا تستخدمه لتدريب نماذجها. إن استطعت، غطِّ اسمك ورقم هويتك قبل التصوير. ويمكنك بدلًا من ذلك أن تُدخل حالتك الطبية بنفسك.",
+        reportConsentCheck: "أوافق على إرسال تقريري لقراءته بهذه الطريقة.",
         reportUpload: "ارفع صورة التقرير",
         reportPaste: "أو الصق نص التقرير هنا",
         reportAnalyze: "حلّل التقرير",
@@ -217,7 +220,11 @@ export const labels = (l: Lang) =>
         signOutError: "Could not sign out. Please try again.",
         reportTitle: "Have a medical report?",
         reportBody:
-          "Photograph the report page or paste its text. Azm’s medical engine analyzes it, prefills your answers, then asks only what is still missing.",
+          "Photograph the report page or paste its text. We prefill your answers from it, then ask only what is still missing.",
+        // Q32 (2), word for word: the separate consent before a report is sent to be read.
+        reportConsentBody:
+          "We send your medical report to an AI service from a company outside Saudi Arabia, which reads it. Azm does not keep the report. The company may keep it for up to 30 days for safety checks only, and does not use it to train its models. If you can, cover your name and ID number before taking the photo. You can enter your medical condition yourself instead.",
+        reportConsentCheck: "I agree to send my report to be read this way.",
         reportUpload: "Upload a report photo",
         reportPaste: "Or paste the report text here",
         reportAnalyze: "Analyze report",

@@ -20,16 +20,18 @@ import { progress } from "../movements/check-v1.json";
 import { UNIT_FORM_IDS, type UnitFormId, type UnitForms } from "../movements/types";
 import arAssessment from "./ar/assessment.json";
 import arLanding from "./ar/landing.json";
+import arPrivacy from "./ar/privacy.json";
 import arProgress from "./ar/progress.json";
 import enAssessment from "./en/assessment.json";
 import enLanding from "./en/landing.json";
+import enPrivacy from "./en/privacy.json";
 import enProgress from "./en/progress.json";
 
 export type { Lang };
 
 const DICTS = {
-  ar: { assessment: arAssessment, progress: arProgress, landing: arLanding },
-  en: { assessment: enAssessment, progress: enProgress, landing: enLanding },
+  ar: { assessment: arAssessment, progress: arProgress, landing: arLanding, privacy: arPrivacy },
+  en: { assessment: enAssessment, progress: enProgress, landing: enLanding, privacy: enPrivacy },
 };
 
 // Compile time key parity: each language must have every key of the other.

@@ -12,6 +12,7 @@ import { BUSY_TIMEOUT_MS, runMigrations } from "./db/migrate";
 import { moduleRoutes } from "./modules";
 import type { Route } from "./http/types";
 import { confirmAdult } from "./modules/account/store";
+import { acceptConsent } from "./modules/consents/store";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -224,11 +225,18 @@ export function createApi(
         return json(200, { ok: true });
       }
       if (route === "/api/medical-report" && req.method === "POST") {
-        if (!validReportBody(body)) return json(400, { error: "REPORT_INVALID" });
+        // Q32 (2): report reading sends health data to a model outside the Kingdom, so it needs its
+        // own explicit consent, ticked on the report panel and sent with every report. Without it
+        // nothing is sent anywhere. The acceptance is kept with its time, like every consent.
+        if (body.reportConsent !== true) return json(403, { error: "CONSENT_REQUIRED" });
+        const { reportConsent: _consent, ...report } = body;
+        void _consent;
+        if (!validReportBody(report)) return json(400, { error: "REPORT_INVALID" });
+        acceptConsent(db, u.id, "report_reading", Date.now());
         const key = process.env.OPENAI_API_KEY;
         if (!key) return json(503, { error: "EXTRACTION_UNAVAILABLE" });
         try {
-          return json(200, await extractReport(body, key));
+          return json(200, await extractReport(report, key));
         } catch (err) {
           console.error("AZM report extraction failed", err instanceof Error ? err.message : "Error");
           return json(502, { error: "ENGINE_FAILED" });

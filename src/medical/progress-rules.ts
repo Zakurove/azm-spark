@@ -409,8 +409,19 @@ export interface SeriesComparison {
   points?: SeriesPoint[];
 }
 
+/** Side lean: censored by an abort or by armrest contact (shown as "more than {value}"). */
 const isCensored = (r: StoredResult) => r.detail.censored === true || r.detail.contact === true;
-const hasContact = (r: StoredResult) => r.detail.contact === true;
+/**
+ * Side lean armrest contact that may have happened: yes, or not answered. The engine stores an
+ * unanswered contactAsk as "unknown" (flag contact_unknown), never as no.
+ */
+// SPEC-GAP: contact-unknown. Spec 4.3 censors a side on a yes to contactAsk. Not answered is read as
+// possible contact for the rules (no higher, no lower, no verdict from a baseline with it, the
+// chairLimit sentence), but the value is not shown as "more than", which only a yes establishes.
+const maybeContact = (r: StoredResult) =>
+  r.detail.contact === true || r.detail.contact === "unknown" || r.flags.includes("contact_unknown");
+/** Censored for the rules: an abort, or possible armrest contact. */
+const maybeCensored = (r: StoredResult) => r.detail.censored === true || maybeContact(r);
 const isSelfCount = (r: StoredResult) => r.detail.countSource === "self";
 const COMPENSATION_LIMIT_PCT = 25;
 const UNSCORED_LIMIT = 0.1;
@@ -466,10 +477,10 @@ function noVerdictFor(
     }
     case "trunk_control_seated":
       if (fewValid) return "oneValid";
-      if (base.some(hasContact) && hasContact(cur)) return "chairLimit";
+      if (base.some(maybeContact) && maybeContact(cur)) return "chairLimit";
       // SPEC-GAP: baseline-contact-sentence. A baseline censored by armrest contact shows chairLimit,
       // one censored by an abort shows the censored form ("more than {value}").
-      if (base.some(isCensored)) return base.some(hasContact) ? "chairLimit" : "censored";
+      if (base.some(maybeCensored)) return base.some(maybeContact) ? "chairLimit" : "censored";
       // SPEC-GAP: arm-support-sentence. arm_support_likely has no sentence of its own; the movement
       // may have been pushed through the arm, so movementDifferent is shown.
       if (rows.some((r) => hasFlag(r, RESULT_FLAGS.armSupportLikely))) return "movementDifferent";
@@ -549,8 +560,10 @@ function judge(
   // Side lean censoring (spec 4.3): armrest contact now cannot give higher; a censored best (contact
   // or abort) cannot give lower. Within the band it reads about the same, shown as "more than".
   if (def.id === "trunk_control_seated") {
-    if (verdict === "higher" && hasContact(cur)) return { ...out, noVerdict: "chairLimit" };
-    if (verdict === "lower" && isCensored(cur)) return { ...out, noVerdict: "censored" };
+    if (verdict === "higher" && maybeContact(cur)) return { ...out, noVerdict: "chairLimit" };
+    if (verdict === "lower" && maybeCensored(cur)) {
+      return { ...out, noVerdict: isCensored(cur) ? "censored" : "chairLimit" };
+    }
   }
   // Abduction agreement (spec 4.1): the median of valid attempts must also differ from the
   // baseline by more than the band, in the same direction.
@@ -568,7 +581,7 @@ function judge(
       prev !== undefined &&
       prev.value !== null &&
       beyond(((prev.value as number) + value) / 2 - baseValue, band, verdict) &&
-      !(verdict === "lower" && isCensored(prev));
+      !(verdict === "lower" && maybeCensored(prev));
     if (!ok) {
       verdict = "same";
       out.unconfirmed = true;

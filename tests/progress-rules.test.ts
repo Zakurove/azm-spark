@@ -994,3 +994,36 @@ describe("property: verdicts", () => {
     expect(judged).toBeGreaterThan(300);
   });
 });
+
+/* ------------------------------------------------- review round 2 fixes */
+
+describe("side lean armrest contact not answered (SPEC-GAP contact-unknown)", () => {
+  const lean = (points: (number | [number | null, Over])[]) =>
+    compare("trunk_control_seated", "left", series("trunk_control_seated", "left", points));
+  const unknown: Over = { detail: { contact: "unknown" }, flags: ["contact_unknown"] };
+
+  it("a baseline with unknown contact is possibly censored: values only", () => {
+    expect(said(lean([[16, unknown], [16, unknown], 30, 30]))).toBe("noVerdict:chairLimit");
+    expect(said(lean([20, [16, unknown], 30, 30]))).toBe("noVerdict:chairLimit");
+  });
+
+  it("unknown contact today cannot read higher or lower", () => {
+    expect(said(lean([20, 20, [30, unknown], [30, unknown]]))).toBe("noVerdict:chairLimit");
+    expect(said(lean([30, 30, [16, unknown], [16, unknown]]))).toBe("noVerdict:chairLimit");
+    // Not the large drop text either, nor lower with the extra line.
+    const drop = lean([30, 30, [8, unknown], [8, unknown]]);
+    expect(said(drop)).toBe("noVerdict:chairLimit");
+    expect(drop.largeDrop).toBeUndefined();
+    expect(drop.lowerExtra).toBeUndefined();
+  });
+
+  it("within the band it reads about the same, and the values are not shown as more than", () => {
+    const c = lean([20, 20, [22, unknown]]);
+    expect(said(c)).toBe("same");
+    expect(c.latest.censored).toBeUndefined();
+  });
+
+  it("an unknown previous check never confirms a lower verdict", () => {
+    expect(said(lean([20, 20, [10, unknown], 10]))).toBe("same unconfirmed");
+  });
+});

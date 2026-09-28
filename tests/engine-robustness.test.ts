@@ -5,13 +5,14 @@
  * hand hovers close beside the shoulder (review round 2 of the engine, spec 4.0 to 4.4).
  */
 import { describe, expect, it } from "vitest";
-import { LineCounter, SustainedPeak, type SideResult } from "../src/engine/modes";
+import { LineCounter, RangeTestRunner, SustainedPeak, type SideResult } from "../src/engine/modes";
 import { SubjectLock } from "../src/engine/subject";
 import { isPerson, visible } from "../src/engine/body";
 import { seen } from "../src/engine/modes/common";
-import type { Landmark } from "../src/engine/types";
+import { testDef } from "../src/movements/assessments";
+import type { Frame, Landmark } from "../src/engine/types";
 import type { Profile } from "./fixtures/gen";
-import { editSubject } from "./fixtures/runners";
+import { editSubject, framesOf, mirrorFrames, raises, raiseStarts, run, spec } from "./fixtures/runners";
 import {
   CROSSED,
   curlPractice,
@@ -25,6 +26,7 @@ import {
 } from "./fixtures/timed";
 
 type Side = "left" | "right";
+const ABD = testDef("shoulder_abduction");
 const res = (c: { run: { result: { results: SideResult[] } } }) => c.run.result.results[0];
 
 function curlCase(seed: number, over: Partial<TwoPass> = {}, side: Side = "right") {
@@ -197,4 +199,33 @@ describe("a landmark the model returns as NaN (spec 4.2 counting rules)", () => 
       expect(res(k).value).toBe(res(clean).value);
     });
   }
+});
+
+/* ------------------------------------------------------- mirrored camera */
+
+describe("a mirrored camera gates the tested arm (spec 4.0 side labelling and quality gate)", () => {
+  it("the tested elbow hidden in 40 percent of frames is not measured, mirrored or not", () => {
+    const starts = raiseStarts(6);
+    const hide = (fx: ReturnType<typeof framesOf>["fx"], frames: Frame[], k: number) =>
+      editSubject(fx, frames, (p, t) => {
+        // After calibration, 4 frames in 10 (40 percent) show the tested (left) elbow poorly.
+        const i = Math.round(t / (1000 / 15));
+        if (t > 1500 && i % 10 < 4) p[k] = { ...p[k], visibility: 0.3 };
+        return p;
+      });
+    const { fx, frames } = framesOf(
+      spec("shoulder_abduction", "chair", "9:16", raises("left", 150, starts), starts[5] + 12, 330),
+    );
+    const plain = run(new RangeTestRunner(ABD, "left"), hide(fx, frames, 13), { rollDeg: 0 }).side("left");
+    expect(plain.status).toBe("not_measured");
+    expect(plain.reason).toBe("quality");
+    // A mirrored stream: the model labels the person's left elbow as its right one (14).
+    const mirrored = mirrorFrames(hide(fx, frames, 13));
+    const m = run(new RangeTestRunner(ABD, "left", { mirrored: true }), mirrored, { rollDeg: 0 }).side(
+      "left",
+    );
+    expect(m.status).toBe("not_measured");
+    expect(m.reason).toBe("quality");
+    expect(m.quality.issues).toContain("not_visible");
+  });
 });

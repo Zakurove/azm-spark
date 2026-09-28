@@ -233,6 +233,8 @@ export class RangeTestRunner implements TestRunner {
 
   private readonly L: SideLandmarks;
   private readonly O: SideLandmarks;
+  /** Gate landmarks of the tested side with the model's labels (swapped on a mirrored camera). */
+  private readonly gateIds: number[];
   private readonly minVis: number;
   private readonly restSec: number;
   private readonly tracker: SubjectTracker;
@@ -271,6 +273,9 @@ export class RangeTestRunner implements TestRunner {
     this.sides = [side];
     this.L = sideLandmarks(side, !!opts.mirrored);
     this.O = sideLandmarks(otherSide(side), !!opts.mirrored);
+    // The gate of spec 4.1 (both shoulders and the tested elbow) with the landmarks the runner
+    // measures: on a mirrored camera the model labels the tested arm with the other side's ids.
+    this.gateIds = [11, 12, this.L.elbow];
     this.minVis = def.requiredLandmarks.minVisibility;
     this.restSec = opts.restSec ?? def.restSec.betweenAttempts[0];
     this.lock = opts.subject ?? new SubjectLock();
@@ -482,9 +487,12 @@ export class RangeTestRunner implements TestRunner {
       practice,
       index,
       t0: t,
-      monitor: new QualityMonitor(
-        qualityConfig(this.def, this.side, { trunkReference: this.cal!.reference === "trunk" }),
-      ),
+      // The gate uses the model's labels for the tested side (swapped on a mirrored camera); the
+      // retry cues keep the person's own side.
+      monitor: new QualityMonitor({
+        ...qualityConfig(this.def, this.side, { trunkReference: this.cal!.reference === "trunk" }),
+        gate: [...this.gateIds],
+      }),
       peak: new SustainedPeak(this.def.holdSec * 1000, RANGE_RULES.maxGapMs),
       otherPeak: new SustainedPeak(this.def.holdSec * 1000, RANGE_RULES.maxGapMs),
       angleMed: new RunningMedian(RANGE_RULES.medianSec * 1000),

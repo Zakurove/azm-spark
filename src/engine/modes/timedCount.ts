@@ -1850,6 +1850,9 @@ export class ChairStandRunner extends TimedCountBase {
         !!px && a.every((i) => seen(px, i, this.minVis)) && !b.some((i) => seen(px, i, this.minVis));
       if (oneSide([11, 23], [12, 24]) || oneSide([12, 24], [11, 23]))
         this.sink.cueEvery(viewCue(this.testId, "none", this.opts.weakerSide), t, R.promptEverySec);
+      // Both shoulders seen and both hips hidden: something stands between the person and the phone,
+      // such as a table or a counter (P4 (5), tests[].clearView).
+      else if (oneSide([11, 12], [23, 24])) this.sink.cueEvery("check_clear_view", t, R.promptEverySec);
       return;
     }
     this.calBuf.push({

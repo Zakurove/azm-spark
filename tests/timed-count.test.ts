@@ -831,6 +831,23 @@ describe("chair_stand_30s counting rules (spec 4.4)", () => {
     expect(r.value).toBe(standTruth(k.trial, k.goSec));
   });
 
+  it("asks for a clear view when something hides both hips at calibration (P4 (5))", () => {
+    // A kitchen counter between the person and the phone: both shoulders seen, both hips hidden.
+    const { frames } = framesOf(
+      spec("chair_stand_30s", "standing", "9:16", [...standPractice(), ...standTrial(16, 728)], 50, 728, {
+        fps: 20,
+        subject: { arms: CROSSED },
+        occlusions: [{ landmarks: [23, 24], from: 0, to: 50 }],
+      }),
+    );
+    const run = drive(new ChairStandRunner(STAND, "none", FAST), frames);
+    expect(run.cues).toContain("check_clear_view");
+    expect(run.cues).not.toContain("check_phone_angle_right");
+    // With the hips in view it is never played.
+    const clear = standCase("standing", "9:16", 729);
+    expect(clear.run.cues).not.toContain("check_clear_view");
+  });
+
   it("never measures a pure side view (the view gate of the chair stand)", () => {
     const { frames } = framesOf(
       spec("chair_stand_30s", "standing", "9:16", [...standPractice(), ...standTrial(16, 727)], 50, 727, {

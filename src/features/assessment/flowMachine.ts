@@ -11,10 +11,11 @@
  * the event that asks for it. The guest flow emits no network effect at all (contract v3 I).
  *
  * Effects are data. `start` is awaited by the `starting` state (its answer comes back as
- * START_RESULT); every other effect is sent in the background. Safety answers (a postponed or
- * emergency pre-check, a stop, the pain question between tests) are sent directly and never queued
- * offline: the phone has already decided and shown the screen (task rule; UX spec 0.7 is narrowed
- * here). Results and the completion of a check may be queued (api.ts, ResultQueue).
+ * START_RESULT); every other effect is sent in the background through the ordered outbox of the hook
+ * (resultQueue.ts): results, skips, stops, the pain question between tests, the completion and the
+ * background start of a postponed or emergency pre-check. The screen never waits for any of them:
+ * the phone has already decided and shown it (UX spec 0.7), and the outbox keeps retrying until the
+ * server has the lock, the stop and the results, in the order they happened.
  */
 import {
   betweenTests,
@@ -71,10 +72,21 @@ export type CamKind =
   | "cam.saved"
   | "cam.retry"
   | "cam.rest";
-export type RestPurpose = "attempt" | "practice" | "seated" | "redo" | "sideChange";
+/**
+ * Why a rest runs (S34j): between attempts, after the practice (chair stand), the seated minute after
+ * the chair stand, before a redo (S44), between the sides of the arm raise and the arm curl (S34k),
+ * and before the one repeat of a timed test after a quality failure (S34i, 120 s).
+ */
+export type RestPurpose = "attempt" | "practice" | "seated" | "redo" | "sideChange" | "retryRest";
 export type AfterKind = "contact" | "pushed" | "count";
 export type BetweenAnswer = "same" | "more" | "much";
-export type ExitTarget = "today" | "landing" | "example" | "try" | "healthEdit" | "results";
+/**
+ * Where the person goes when the flow ends: Today, the landing, the example page (S54), a workout to
+ * try, the demo (/demo), the health profile, My results (S53), sign in (the session ended) or the
+ * booth staff screen (S55, the booth code is no longer valid).
+ */
+export type ExitTarget =
+  "today" | "landing" | "example" | "try" | "demo" | "healthEdit" | "results" | "signIn" | "boothStaff";
 /** Why the start call did not start the check (contract v2 E, v3 I). */
 export type StartError =
   | "offline"
@@ -87,7 +99,11 @@ export type StartError =
   | "BOOTH_CODE"
   | "RATE_LIMIT"
   | "START_INVALID"
-  | "PRECHECK_INCOMPLETE";
+  | "PRECHECK_INCOMPLETE"
+  | "AUTH";
+
+/** Start errors a retry can fix; the others never pass on a retry (they route instead). */
+export const RETRYABLE_START_ERRORS: readonly StartError[] = ["offline", "network", "server", "RATE_LIMIT"];
 
 /** Where the flow goes after a skip notice or a stop: computed when the skip happens. */
 export type Continuation =
@@ -138,7 +154,11 @@ export type FlowState =
   | { kind: "skipNotice"; rows: SkipRow[]; then: Continuation }
   | { kind: "guestAfterTest"; next: number }
   | { kind: "stopDone"; i: number; restSec: 0 | 60; reason: string }
-  | { kind: "faintAsk" }
+  | {
+      kind: "faintAsk";
+      /** The screen "no" returns to (S38 after a faint stop, S39 after a fall stop); S38 by default. */
+      back?: { safety: SafetyKind; screen: DataScreenId; alsoShow: DataScreenId[] };
+    }
   | { kind: "endQuestion" }
   | {
       kind: "safety";
@@ -146,6 +166,8 @@ export type FlowState =
       screen: DataScreenId;
       alsoShow: DataScreenId[];
       faintAnswered: boolean;
+      /** The faint follow up (S38b, sf_faint_loc) is asked before leaving: faint and fall stops (O42). */
+      askFaint?: boolean;
     }
   | { kind: "postponed"; reason: string; screen: DataScreenId | null; alsoShow: DataScreenId[] }
   | { kind: "paused"; until: number | null; releasable: boolean }
@@ -155,13 +177,27 @@ export type FlowState =
 
 export type FlowStateKind = FlowState["kind"];
 
+/** What a check in (S43) or the alarm (S45) opened over. */
+export type CheckInFrom = "test" | "stopList" | "faintAsk" | "endQuestion";
+/** Overlays a camera trigger replaces and gives back after "I am fine" (section 4.8). */
+export type ResumableOverlay =
+  { kind: "skipDialog" } | { kind: "goOn"; afterAlarm: boolean; canRedo: boolean };
+
 export type Overlay =
   | { kind: "leave" }
   | { kind: "skipDialog" }
   | { kind: "stopList"; takeYourTime: boolean }
-  | { kind: "checkIn"; from: "test" | "stopList" | "faintAsk"; trigger: string }
-  | { kind: "goOn"; afterAlarm: boolean }
-  | { kind: "alarm"; from: "test" | "stopList" | "faintAsk" };
+  | {
+      kind: "checkIn";
+      from: CheckInFrom;
+      trigger: string;
+      /** From a test: the state was an attempt, so "go on" (S44) and its redo apply. */
+      attempt?: boolean;
+      resume?: ResumableOverlay;
+    }
+  /** canRedo: redo only after a check in during an attempt; never re-measure a finished side. */
+  | { kind: "goOn"; afterAlarm: boolean; canRedo: boolean }
+  | { kind: "alarm"; from: CheckInFrom; attempt?: boolean };
 
 /** One test of today's protocol with the sides that run (skipped sides left out). */
 export interface TestRun {
@@ -219,6 +255,8 @@ export interface SignedInContext {
   neededArmsLastStand?: boolean;
   baseTests: string[];
   lock: { until: number | null; releasable: boolean } | null;
+  /** Epoch ms before which no new check may start (48 hours after the last one), or null. */
+  earliestNext?: number | null;
   consent: boolean;
   homeOpen: boolean;
   /** SPEC-GAP: adult-confirmed-field. The context has no adult confirmation yet; missing means ask (S05a). */
@@ -267,7 +305,9 @@ export type FlowEffect =
   | { id: number; type: "stop"; checkId: string; option: StopOptionId }
   | { id: number; type: "between"; checkId: string; testId: TestId; side: TestSide; answer: BetweenAnswer }
   | { id: number; type: "result"; checkId: string; body: ResultPayload }
-  | { id: number; type: "complete"; checkId: string };
+  | { id: number; type: "complete"; checkId: string }
+  /** The booth code was refused: this tab leaves booth mode until staff enter the new code. */
+  | { id: number; type: "clearBoothCode" };
 
 /** The body of POST /api/assessments/:id/results (contract v2 E; server validate.ts ResultBody). */
 export interface ResultPayload {
@@ -338,6 +378,7 @@ export type FlowEvent = At &
     | { type: "CONTINUE" }
     | { type: "EXAMPLE" }
     | { type: "TRY_WORKOUT" }
+    | { type: "DEMO" }
     | { type: "GUEST_PATH"; path: GuestPath }
     | { type: "ADULT_YES" }
     | { type: "ADULT_NO" }
@@ -511,6 +552,29 @@ export function cameraRunning(s: FlowState): boolean {
   );
 }
 
+/** States of an attempt in progress: a check in over them may lead to "go on" and a redo (S44). */
+const ATTEMPT_KINDS: readonly FlowStateKind[] = [
+  "cam.setup",
+  "cam.calibrate",
+  "cam.practice",
+  "cam.countdown",
+  "cam.measure",
+  "cam.retry",
+  "test.practiceCheck",
+];
+export function isAttemptState(s: FlowState): boolean {
+  return ATTEMPT_KINDS.includes(s.kind);
+}
+
+/**
+ * States on which the camera check in triggers are armed (section 4.8): every state with the camera
+ * running, and the answer zone questions after a faint (S38b) and at the end (S49). STOP keeps its
+ * own set (cameraRunning).
+ */
+export function armedForCheckIn(s: FlowState): boolean {
+  return cameraRunning(s) || s.kind === "faintAsk" || s.kind === "endQuestion";
+}
+
 /** Safety screens: no Back, no Exit, no idle reset (S36 to S45). */
 export function isSafetyState(s: FlowState): boolean {
   return s.kind === "safety" || s.kind === "faintAsk";
@@ -576,7 +640,11 @@ export function backTarget(m: FlowModel): FlowState | null {
       return at > 0 ? { kind: "question", id: visible[at - 1] } : { kind: "precheckNotice" };
     }
     case "confirmPostpone":
+      // Back from the confirm clears the answer that would postpone (stateReducer BACK).
       return { kind: "question", id: s.id };
+    case "cam.problem":
+      // S32 Back: to the screen it came from (the camera primer, S31), which asks again.
+      return s.returnTo;
     case "test.grip":
     case "test.load":
     case "test.helper":
@@ -666,10 +734,7 @@ export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
     case "LEAVE":
       return canLeave(m) ? { ...m, overlay: { kind: "leave" } } : m;
     case "TRIGGER":
-      // Check in triggers are armed per state by the camera screens (section 4.8); the flow opens S43
-      // over any state with the camera running, unless another overlay is already open.
-      if (!cameraRunning(m.state) || m.overlay) return m;
-      return { ...m, overlay: { kind: "checkIn", from: "test", trigger: e.trigger } };
+      return trigger(m, e.trigger);
     case "STOP":
       if (!cameraRunning(m.state) || m.overlay?.kind === "stopList") return m;
       if (m.overlay?.kind === "alarm") return m; // the alarm is left only with "I am fine" (S45)
@@ -677,7 +742,10 @@ export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
     case "BACK": {
       if (m.overlay) return m;
       const target = backTarget(m);
-      return target ? go(m, target) : m;
+      if (!target) return m;
+      // Back from the confirm in place drops the answer that would postpone (S17), as "change" does.
+      if (m.state.kind === "confirmPostpone") return go(withoutAnswer(m, m.state.id), target);
+      return go(m, target);
     }
   }
   if (m.overlay) return overlayReducer(m, e, now);
@@ -685,6 +753,37 @@ export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
 }
 
 /* ------------------------------------------------------------ overlays */
+
+/**
+ * A camera check in trigger (section 4.8), armed per state by the camera screens. S43 opens over any
+ * armed state, also over the stop list (fine returns to it), and over S44 or the skip dialog, which it
+ * replaces and gives back after "I am fine". It is ignored only while S43 or the alarm is open.
+ */
+function trigger(m: FlowModel, name: string): FlowModel {
+  if (!armedForCheckIn(m.state)) return m;
+  const o = m.overlay;
+  if (o && (o.kind === "checkIn" || o.kind === "alarm" || o.kind === "leave")) return m;
+  const from: CheckInFrom =
+    m.state.kind === "faintAsk"
+      ? "faintAsk"
+      : m.state.kind === "endQuestion"
+        ? "endQuestion"
+        : o?.kind === "stopList"
+          ? "stopList"
+          : "test";
+  const resume: ResumableOverlay | undefined =
+    o?.kind === "goOn" || o?.kind === "skipDialog" ? (o as ResumableOverlay) : undefined;
+  return {
+    ...m,
+    overlay: {
+      kind: "checkIn",
+      from,
+      trigger: name,
+      ...(from === "test" ? { attempt: isAttemptState(m.state) } : {}),
+      ...(resume ? { resume } : {}),
+    },
+  };
+}
 
 function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
   const o = m.overlay!;
@@ -705,31 +804,47 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
     case "checkIn":
       if (e.type === "FINE") {
+        // Back to what the trigger replaced (S44 or the skip dialog), or by origin: the stop list with
+        // "Take your time", the question it opened over (S38b, S49), "go on" (S44) after an attempt,
+        // or simply the state (a rest, S47, S48, a saved attempt: nothing is measured again).
+        if (o.resume) return { ...m, overlay: o.resume };
         if (o.from === "stopList") return { ...m, overlay: { kind: "stopList", takeYourTime: true } };
-        if (o.from === "faintAsk") return close(m);
-        return { ...m, overlay: { kind: "goOn", afterAlarm: false } };
+        if (o.from === "faintAsk" || o.from === "endQuestion") return close(m);
+        return o.attempt ? { ...m, overlay: { kind: "goOn", afterAlarm: false, canRedo: true } } : close(m);
       }
       if (e.type === "WANT_STOP") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
       if (e.type === "NEED_HELP" || e.type === "CHECKIN_TIMEOUT")
-        return { ...m, overlay: { kind: "alarm", from: o.from } };
+        return {
+          ...m,
+          overlay: {
+            kind: "alarm",
+            from: o.from,
+            ...(o.from === "test" ? { attempt: o.attempt === true } : {}),
+          },
+        };
       return m;
     case "goOn": {
       if (e.type === "REDO") {
         const t = currentTest(m);
-        if (!t) return close(m);
+        // Redo only repeats an attempt in progress; after a finished side it just goes on (M23).
+        if (!t || !o.canRedo) return close(m);
         return go(close(m), { kind: "cam.rest", i: t.i, side: t.side, purpose: "redo" });
       }
       if (e.type === "SKIP_TEST") return skipCurrentTest(close(m), "by_choice");
-      if (e.type === "NEED_HELP") return { ...m, overlay: { kind: "alarm", from: "test" } };
+      if (e.type === "NEED_HELP")
+        return { ...m, overlay: { kind: "alarm", from: "test", attempt: o.canRedo } };
       if (e.type === "WANT_STOP" || e.type === "STOP_END")
         return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
       return m;
     }
     case "alarm":
-      // Only "I am fine" (button, zone or raised hand) leaves the alarm; a call keeps it (S45). After a
-      // faint the check has ended, so "fine" returns to the faint question (S38b) instead of S44.
+      // Only "I am fine" (button, zone or raised hand) leaves the alarm; a call keeps it (S45). Over a
+      // question (the faint follow up S38b, the end question S49) "fine" returns to it; otherwise to
+      // "go on" in its after alarm form (S44), with a redo only after an attempt.
       if (e.type === "FINE")
-        return o.from === "faintAsk" ? close(m) : { ...m, overlay: { kind: "goOn", afterAlarm: true } };
+        return o.from === "faintAsk" || o.from === "endQuestion"
+          ? close(m)
+          : { ...m, overlay: { kind: "goOn", afterAlarm: true, canRedo: o.attempt === true } };
       return m;
   }
 }
@@ -745,12 +860,14 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "START") return guest ? routeGuestStart(m) : m;
       if (e.type === "CONTEXT_LOADED") return routeSignedInStart(withContext(m, e.context), now);
       if (e.type === "CONTEXT_FAILED") return go(m, { kind: "entry", error: "context" });
-      if (e.type === "RESUME" && !guest) return resume(withContext(m, e.context), e.check);
+      if (e.type === "RESUME" && !guest) return resume(withContext(m, e.context), e.check, now);
       if (e.type === "RETRY") return go(m, { kind: "entry", error: null });
       return m;
 
     case "boothOnly":
       if (e.type === "EXAMPLE") return go(m, { kind: "exit", to: "example" });
+      // "Watch a demo" (UX spec S05b, map 2.1); a workout to try stays available to the landing.
+      if (e.type === "DEMO") return go(m, { kind: "exit", to: "demo" });
       if (e.type === "TRY_WORKOUT") return go(m, { kind: "exit", to: "try" });
       if (e.type === "EXIT") return go(m, { kind: "exit", to: "landing" });
       return m;
@@ -837,16 +954,12 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         if (outcome.status !== "postpone") return go(m, { kind: "question", id: s.id });
         return postpone(m, outcome, now);
       }
-      if (e.type === "CONFIRM_CHANGE") {
-        const answers = { ...d.answers };
-        delete answers[s.id];
-        return go({ ...m, data: { ...d, answers } }, { kind: "question", id: s.id });
-      }
+      if (e.type === "CONFIRM_CHANGE") return go(withoutAnswer(m, s.id), { kind: "question", id: s.id });
       return m;
 
     case "starting":
       if (e.type === "START_RESULT") return startResult(m, e.result, now);
-      if (e.type === "RETRY" && s.error !== null) {
+      if (e.type === "RETRY" && s.error !== null && RETRYABLE_START_ERRORS.includes(s.error)) {
         const next = go(m, {
           kind: "starting",
           lastQuestion: s.lastQuestion,
@@ -934,14 +1047,13 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "faintAsk":
       if (e.type === "FAINT_ANSWER") {
-        if (e.value === "no")
-          return go(m, {
-            kind: "safety",
-            safety: "faint",
-            screen: "scr_faint",
-            alsoShow: [],
-            faintAnswered: true,
-          });
+        // SPEC-GAP: faint-reported. sf_faint_loc yes or not sure stores changeReported, and every faint
+        // stop stores faintReported (Q33); contract E has no route for the answer, so it stays on the
+        // phone (the stop itself is posted). Listed for the tech lead with end-question-lock.
+        if (e.value === "no") {
+          const back = s.back ?? { safety: "faint" as const, screen: "scr_faint" as const, alsoShow: [] };
+          return go(m, { kind: "safety", ...back, faintAnswered: true, askFaint: true });
+        }
         return toSafety(m, "emergency", "scr_emergency", []);
       }
       if (e.type === "FAINT_TIMEOUT")
@@ -959,14 +1071,22 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       }
       return m;
 
-    case "safety":
-      if (e.type === "FAINT_ASK" && s.safety === "faint" && !s.faintAnswered)
-        return go(m, { kind: "faintAsk" });
+    case "safety": {
+      // The faint follow up (S38b) comes after every faint and fall stop (O42), before leaving.
+      const ask = (s.askFaint === true || s.safety === "faint") && !s.faintAnswered;
+      const faintAsk: FlowState = {
+        kind: "faintAsk",
+        back: { safety: s.safety, screen: s.screen, alsoShow: s.alsoShow },
+      };
+      if (e.type === "FAINT_ASK" && ask) return go(m, faintAsk);
       if (e.type === "EXIT") {
-        if (s.safety === "faint" && !s.faintAnswered) return go(m, { kind: "faintAsk" });
+        if (ask) return go(m, faintAsk);
+        // Map 2.3: after S40b (much more pain) the end question when any result exists.
+        if (s.safety === "pain" && finish(m).to === "endQuestion") return go(m, { kind: "endQuestion" });
         return guest ? restartGuest(m) : go(m, { kind: "exit", to: "today" });
       }
       return m;
+    }
 
     case "postponed":
       if (e.type === "RECHECK" && s.reason === "sci_ready") {
@@ -988,7 +1108,8 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "cam.problem":
       if (e.type === "RETRY") return go(m, s.returnTo);
       if (e.type === "LATER") return go(m, { kind: "exit", to: guest ? "landing" : "today" });
-      if (e.type === "TRY_WORKOUT") return go(m, { kind: "exit", to: "try" });
+      // "Watch a demo" for guests (map 2.9).
+      if (e.type === "DEMO" && guest) return go(m, { kind: "exit", to: "demo" });
       return m;
 
     case "results":
@@ -1054,9 +1175,13 @@ function camReducer(
         return go(withRun(m, { saved: d.run.saved + 1 }), { kind: "cam.saved", i, side });
       if (e.type === "QUALITY_FAIL") return qualityFail(m, i, side, testId, e.issue);
       if (e.type === "PHONE_MOVED") {
-        // A moved phone discards the attempt without using a retry; in a timed trial it ends the trial,
-        // which is repeated once as a quality failure (map 2.12).
-        return timed ? qualityFail(m, i, side, testId, "phone_moved") : go(m, { kind: "cam.setup", i, side });
+        // A moved phone discards the attempt without using a retry and calibrates again from the new
+        // picture (map 2.12, engine c472e9c); in a timed trial it ends the trial, which is repeated once
+        // as a quality failure, also after a new calibration.
+        const recal = withRun(m, { calibrated: false });
+        return timed
+          ? qualityFail(recal, i, side, testId, "phone_moved")
+          : go(recal, { kind: "cam.setup", i, side });
       }
       if (e.type === "ARMS_USED") return go(m, { kind: "after.pushed", i, side });
       return m;
@@ -1067,7 +1192,12 @@ function camReducer(
       }
       return m;
     case "cam.retry":
-      if (e.type === "RETRY" && !s.exhausted) return go(m, { kind: "cam.setup", i, side });
+      // A timed test repeats once after a 2 minute rest (S34i, map 2.10); the others set up again.
+      if (e.type === "RETRY" && !s.exhausted)
+        return go(
+          m,
+          timed ? { kind: "cam.rest", i, side, purpose: "retryRest" } : { kind: "cam.setup", i, side },
+        );
       if (e.type === "CONTINUE" && s.exhausted) {
         const marked = recordSide(m, testId, d.tests[i].sides[side].side, {
           status: "notMeasured",
@@ -1087,6 +1217,7 @@ function camReducer(
         case "practice":
         case "redo":
         case "sideChange":
+        case "retryRest":
           return go(m, { kind: "cam.setup", i, side });
       }
   }
@@ -1154,8 +1285,25 @@ function hasNextSide(m: FlowModel, i: number, side: number): boolean {
 }
 
 function nextSide(m: FlowModel, i: number, side: number): FlowModel {
-  const reset = { ...m, data: { ...m.data, run: { ...EMPTY_RUN } } };
-  return go(reset, { kind: "cam.setup", i, side: side + 1 });
+  return toSide(m, i, side + 1);
+}
+
+/** Tests with a rest between their sides (S34j side change: abduction 20 s, arm curl at least 60 s). */
+const SIDE_CHANGE_REST: readonly TestId[] = ["shoulder_abduction", "arm_curl_30s"];
+
+/**
+ * The next side of test i (S34k). The arm raise calibrates once per check, so its second side goes
+ * straight to the practice lift; the other tests calibrate for each side. Tests with a side change
+ * rest (S34j) rest first, then set up.
+ */
+function toSide(m: FlowModel, i: number, side: number): FlowModel {
+  const testId = m.data.tests[i]?.testId;
+  const keep = testId === "shoulder_abduction" && m.data.run.calibrated;
+  const run: SideRun = { ...EMPTY_RUN, calibrated: keep };
+  const next = { ...m, data: { ...m.data, run } };
+  if (testId && SIDE_CHANGE_REST.includes(testId))
+    return go(next, { kind: "cam.rest", i, side, purpose: "sideChange" });
+  return go(next, { kind: "cam.setup", i, side });
 }
 
 /** A side already has an outcome today (skipped by the pain question, for example). */
@@ -1264,10 +1412,8 @@ function finish(m: FlowModel): Continuation {
 
 function continueTo(m: FlowModel, c: Continuation): FlowModel {
   switch (c.to) {
-    case "side": {
-      const reset = { ...m, data: { ...m.data, run: { ...EMPTY_RUN } } };
-      return go(reset, { kind: "cam.setup", i: c.i, side: c.side });
-    }
+    case "side":
+      return toSide(m, c.i, c.side);
     case "test": {
       const reset = { ...m, data: { ...m.data, run: { ...EMPTY_RUN } } };
       return go(reset, { kind: "test.instruction", i: c.i });
@@ -1314,25 +1460,27 @@ function stopOption(m: FlowModel, option: StopOptionId | "mistake", now: number)
     if (isCamKind(s.kind) && t) return go(m, { kind: "cam.setup", i: t.i, side: t.side });
     return m;
   }
-  const env = stopEnv(d);
-  if (!env) return m;
-  const route = stopRoute(option, env);
-  let next = m;
+  // Without the context (a resumed check whose context is blocked, for example) the routing never
+  // fails open: it reads the most conservative person (stopEnv).
+  const route = stopRoute(option, stopEnv(d));
+  // The stopped test's sides are recorded first, so their skips reach the server before a stop that
+  // ends the check (the outbox sends in order; an ended check refuses later results).
+  let next = t ? markRestOfTest(m, t.i, t.side, route.reason) : m;
   if (d.config.mode === "signedIn" && d.checkId)
     next = emit(next, { type: "stop", checkId: d.checkId, option });
   if (route.lock?.until) next = setLock(next, route.lock.reason, lockEndsAt(route.lock.until, now));
   const kind = route.screen ? safetyKindOf(route.screen) : null;
   if (route.screen && kind) {
-    if (t) next = markRestOfTest(next, t.i, t.side, route.reason);
-    return toSafety(next, kind, route.screen, route.alsoShow);
+    const safety = toSafety(next, kind, route.screen, route.alsoShow);
+    // Faint and fall stops ask the faint follow up (S38b) before leaving (O42).
+    return route.then === "sf_faint_loc" && safety.state.kind === "safety"
+      ? { ...safety, state: { ...safety.state, askFaint: true } }
+      : safety;
   }
   if (!t) return next;
-  if (route.then === "bt_pain_after") {
-    const marked = markRestOfTest(next, t.i, t.side, route.reason);
-    return go(marked, { kind: "between", i: t.i, side: t.side, scope: "test", via: "stop" });
-  }
-  const marked = markRestOfTest(next, t.i, t.side, route.reason);
-  return go(marked, { kind: "stopDone", i: t.i, restSec: route.afterRest ? 60 : 0, reason: route.reason });
+  if (route.then === "bt_pain_after")
+    return go(next, { kind: "between", i: t.i, side: t.side, scope: "test", via: "stop" });
+  return go(next, { kind: "stopDone", i: t.i, restSec: route.afterRest ? 60 : 0, reason: route.reason });
 }
 
 /** The stopped test stores no score: its current and remaining sides get the stop reason. */
@@ -1345,9 +1493,36 @@ function markRestOfTest(m: FlowModel, i: number, fromSide: number, reason: strin
   return next;
 }
 
-/** The environment of the stop routing: the context with today's setup. */
-function stopEnv(d: FlowData): PrecheckEnv | null {
-  return d.env;
+/**
+ * The environment of the stop routing: the context with today's setup. Without one (the context is
+ * blocked or was never loaded) the most conservative reading: seated (the seated fall screen), SCI at
+ * T6 or above (the SCI faint line and the AD option), so no symptom stop is ever left unrouted.
+ */
+export function stopEnv(d: FlowData): PrecheckEnv {
+  if (d.env) return d.env;
+  return {
+    setting: d.setting,
+    ctx: {
+      position: "chair",
+      support: "none",
+      pain: [],
+      restrictions: [],
+      conditions: ["sci_complete"],
+      clearance: "unsure",
+    },
+    setup: { sciT6: true },
+    firstCheck: false,
+    unresolvedChangeReported: false,
+    lastCheckLasting: false,
+    baseTests: [],
+  };
+}
+
+/** The pre-check answers without one question (S17 change my answer, Back from the confirm). */
+function withoutAnswer(m: FlowModel, id: string): FlowModel {
+  const answers = { ...m.data.answers };
+  delete answers[id];
+  return { ...m, data: { ...m.data, answers } };
 }
 
 /* ------------------------------------------------------------ pre-check */
@@ -1380,7 +1555,12 @@ function answer(m: FlowModel, id: string, value: AnswerValue, now: number): Flow
   const outcome = evaluatePrecheck(env, answers, now);
   // Emergency and AD route at once, with no confirm (S17 exception 2).
   if (outcome.status === "emergency" || outcome.status === "ad") return terminal(next, outcome, now);
-  if (outcome.status === "postpone") return go(next, { kind: "confirmPostpone", id, value });
+  if (outcome.status === "postpone") {
+    // The confirm in place opens on the question whose answer postpones: this one when it changed the
+    // outcome, else the earlier answer that still postpones (never a trap on an unrelated question).
+    const culprit = postponingQuestion(env, answers, id, now);
+    return go(next, { kind: "confirmPostpone", id: culprit, value: answers[culprit] });
+  }
   const visible = visibleQuestions(env, answers);
   const at = visible.indexOf(id);
   const following = at >= 0 ? visible[at + 1] : undefined;
@@ -1389,6 +1569,24 @@ function answer(m: FlowModel, id: string, value: AnswerValue, now: number): Flow
   if (missing) return go(next, { kind: "question", id: missing });
   if (outcome.status !== "proceed") return go(next, { kind: "question", id });
   return proceed(next, outcome, id);
+}
+
+/**
+ * The question to confirm when the answers postpone: `id` when its answer made the difference,
+ * otherwise the first visible answered question without which the check would not postpone.
+ */
+function postponingQuestion(env: PrecheckEnv, answers: Answers, id: string, now: number): string {
+  const postpones = (a: Answers) => evaluatePrecheck(env, prune(env, a), now).status === "postpone";
+  const without = (q: string) => {
+    const a = { ...answers };
+    delete a[q];
+    return a;
+  };
+  // Only a question with a postpone action can postpone (pc_urgent, for one, never does).
+  const culprit = (q: string) =>
+    q in answers && !!questionOf(q)?.item.actions.some((a) => a.do === "postpone") && !postpones(without(q));
+  if (culprit(id)) return id;
+  return visibleQuestions(env, answers).find(culprit) ?? id;
 }
 
 /** Emergency or AD from the pre-check: the safety screen now, the server told in the background. */
@@ -1423,6 +1621,7 @@ function proceed(m0: FlowModel, outcome: PrecheckOutcome, lastQuestion: string |
   const d = m.data;
   if (d.config.mode === "signedIn") {
     const next = go(m, { kind: "starting", lastQuestion, error: null, attempt: 1 });
+    // (the start call itself is awaited by the starting state)
     return emit(next, { type: "start", answers: d.answers, setting: d.setting });
   }
   // The guest check runs the same rules on the phone and stores nothing (contract v3 I).
@@ -1471,16 +1670,37 @@ function startResult(m: FlowModel, r: StartResult, now: number): FlowModel {
       return go(m, { kind: "paused", until: r.until, releasable: r.releasable });
     case "CONSENT_REQUIRED":
       return go(m, { kind: "consent" });
-    default:
+    // Answers a retry cannot change route instead of offering Try again.
+    case "TOO_SOON":
+    case "HOME_CLOSED":
+    case "REVIEW":
+    case "PLAN_REQUIRED":
+    case "START_INVALID":
+    case "PRECHECK_INCOMPLETE":
+      // SPEC-GAP: start-final-errors. The spec has no screen for these; Today shows the entry card
+      // variant that explains them (S01 tooSoon, homeSoon, blocked).
       void now;
+      return go(m, { kind: "exit", to: "today" });
+    case "BOOTH_CODE":
+      // The daily code changed: the staff screen asks for the new one (S55); the effect clears it.
+      return emit(go(m, { kind: "exit", to: "boothStaff" }), { type: "clearBoothCode" });
+    case "AUTH":
+      return go(m, { kind: "exit", to: "signIn" });
+    default:
       return go(m, { kind: "starting", lastQuestion: s.lastQuestion, error: r.code, attempt: s.attempt });
   }
 }
 
 /* ------------------------------------------------------------ entry routing */
 
-/** Continue an open check at the first test that still has a side to run (Appendix A: resume). */
-function resume(m: FlowModel, c: ResumeCheck): FlowModel {
+/**
+ * Continue an open check at the first test that still has a side to run (Appendix A: resume), after
+ * the same gates as a new start: a blocked context or closed home checks leave, a lock pauses, a
+ * missing consent asks for it. Nothing runs without the gates.
+ */
+function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
+  const gate = entryGate(m, now);
+  if (gate) return go(m, gate);
   const data: FlowData = {
     ...m.data,
     protocol: c.protocol,
@@ -1526,17 +1746,34 @@ function withContext(m: FlowModel, c: SignedInContext): FlowModel {
   return { ...m, data: { ...d, config, setting, signedIn: c, env, base } };
 }
 
+/**
+ * The gates every signed in start and resume passes, in order: a blocked context or closed home
+ * checks leave, the 48 hour minimum leaves (S01 shows when), a lock pauses (S35), a missing consent
+ * asks for it (S12). Null when the check may go on.
+ */
+function entryGate(m: FlowModel, now: number): FlowState | null {
+  const d = m.data;
+  const c = d.signedIn;
+  if (!c) return { kind: "exit", to: "today" };
+  if (c.blocked || !c.ctx) return { kind: "exit", to: "today" };
+  // Home checks open only behind the flag; a booth tab runs booth checks (Q31 (6)).
+  if (!d.config.homeOpen && !d.config.booth) return { kind: "exit", to: "today" };
+  if (c.earliestNext && c.earliestNext > now) return { kind: "exit", to: "today" };
+  if (c.lock && (c.lock.until === null || c.lock.until > now))
+    return { kind: "paused", until: c.lock.until, releasable: c.lock.releasable };
+  if (!c.consent) return { kind: "consent" };
+  return null;
+}
+
 function routeSignedInStart(m: FlowModel, now: number): FlowModel {
   const d = m.data;
   const c = d.signedIn;
   if (!c) return m;
-  if (c.blocked || !c.ctx) return go(m, { kind: "exit", to: "today" });
-  // Home checks open only behind the flag; a booth tab runs booth checks (Q31 (6)).
-  if (!d.config.homeOpen && !d.config.booth) return go(m, { kind: "exit", to: "today" });
+  // Closed and blocked leave before the desktop interstitial; a lock or consent after it.
+  const gate = entryGate(m, now);
+  if (gate?.kind === "exit") return go(m, gate);
   if (d.config.desktop && !d.desktopPassed) return go(m, { kind: "desktopGate" });
-  if (c.lock && (c.lock.until === null || c.lock.until > now))
-    return go(m, { kind: "paused", until: c.lock.until, releasable: c.lock.releasable });
-  if (!c.consent) return go(m, { kind: "consent" });
+  if (gate) return go(m, gate);
   if (!c.adultConfirmed) return go(m, { kind: "adultGate" });
   return go(m, { kind: "context" });
 }
@@ -1682,7 +1919,13 @@ function recordSide(
   const next = { ...m, data: { ...d, outcomes: { ...d.outcomes, [outcomeKey(testId, side)]: outcome } } };
   if (d.config.mode !== "signedIn" || !d.checkId) return next;
   if (body) return emit(next, { type: "result", checkId: d.checkId, body });
-  if (outcome.status === "skipped" && outcome.reason && POSTABLE_SKIP_REASONS.includes(outcome.reason)) {
+  // A side not measured (quality retries used up) is posted like a skip with its reason, so the
+  // server keeps the P6 "not measured today" row and can complete the check.
+  if (
+    (outcome.status === "skipped" || outcome.status === "notMeasured") &&
+    outcome.reason &&
+    POSTABLE_SKIP_REASONS.includes(outcome.reason)
+  ) {
     return emit(next, {
       type: "result",
       checkId: d.checkId,

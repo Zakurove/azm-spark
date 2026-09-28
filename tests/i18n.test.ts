@@ -124,12 +124,13 @@ describe("numbers and digits", () => {
     expect(() => formatNumber("ar", Number.NaN)).toThrow(RangeError);
   });
 
-  it("localizes ASCII digits in Arabic, except Latin codes and the 997 and 937 numbers", () => {
+  it("localizes ASCII digits in Arabic (997 and 937 too, Q30), except Latin codes", () => {
     expect(localizeDigits("ar", "يستغرق نحو 8 إلى 10 دقائق")).toBe("يستغرق نحو ٨ إلى ١٠ دقائق");
     expect(localizeDigits("ar", "قارورة 1.5 لتر")).toBe("قارورة ١٫٥ لتر");
     expect(localizeDigits("ar", "عام 2026")).toBe("عام ٢٠٢٦");
     expect(localizeDigits("ar", "المستوى T6 أو أعلى")).toBe("المستوى T6 أو أعلى");
-    expect(localizeDigits("ar", "اتصل بالرقم 997 أو 937")).toBe("اتصل بالرقم 997 أو 937");
+    expect(localizeDigits("ar", "اتصل بالرقم 997 أو 937")).toBe("اتصل بالرقم ٩٩٧ أو ٩٣٧");
+    expect(t("ar", "assessment.common.call937")).toContain("٩٣٧");
     expect(localizeDigits("en", "8 to 10 minutes")).toBe("8 to 10 minutes");
   });
 

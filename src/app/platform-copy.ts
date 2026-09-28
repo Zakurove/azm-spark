@@ -90,7 +90,7 @@ export const labels = (l: Lang) =>
         exit: "العودة للبرنامج",
         saveError: "لم نتمكّن من حفظ المجموعة. حاول مجددًا قبل المتابعة.",
         retry: "إعادة المحاولة",
-        reported: "المعلومات التي أدخلتها",
+        reported: "ما أخبرتنا به",
         recordNote: "إقرار السماح الطبي صادر منك، وليس تحققًا من تقرير الطبيب.",
         medicalNote: "البرنامج إرشاد تدريبي؛ لا يُشخّص حالة ولا يستبدل تعليمات مختصّك.",
         session: "جلسة",
@@ -206,7 +206,7 @@ export const labels = (l: Lang) =>
         exit: "Back to program",
         saveError: "We could not save this set. Retry before continuing.",
         retry: "Try again",
-        reported: "Your reported history",
+        reported: "What you told us",
         recordNote: "Medical clearance is self reported, not verification of a clinician’s report.",
         medicalNote:
           "This is exercise guidance. It does not diagnose conditions or replace your clinician’s instructions.",

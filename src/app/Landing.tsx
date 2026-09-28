@@ -15,17 +15,11 @@ import Icon from "./Icon";
  */
 export const HERO_HEADLINE: I18nKey = "landing.hero.headline.lastSession";
 
-// SPEC-GAP: landing-progress-word. The spec forbids the stems progress and تقدم in progress copy
-// (spec section 5). The hero line is the plan's supporting line word for word, and the closing text is
-// the one spec Q23 itself gives ("records your progress so you can see it build"), so both keep the
-// word on this marketing page. The then and now card and the prove step, which show results, never
-// use a forbidden stem (tests/landing.test.ts).
-// SPEC-GAP: landing-doctor. The plan's later "proof" section speaks of progress you can show your
+// Council wording (Q23 (6), Q29, H1, H2): the hero line and the closing text are the council's texts,
+// with no prescribe, prove or progress; the check is قياس الحركة (never فحص); the loop is Measure,
+// Plan, Coach, Measure again; Arabic says عزم, never عزم سبارك; the phone is هاتفك.
+// SPEC-GAP: landing-doctor. The plan's later "proof" section speaks of results you can show your
 // doctor; until the SFDA opinion of spec Q23 arrives the page never mentions sharing with a doctor.
-// SPEC-GAP: landing-check-name. The Arabic name of the check (فحص الحركة or قياس الحركة) is open
-// (spec Q29); the page uses فحص الحركة, the name the check data uses today.
-// SPEC-GAP: landing-prescribe-ar. The plan names the step Prescribe in English only. The Arabic
-// title is نصمم (we design), not نصف (we prescribe), so it never reads as a medical prescription.
 
 /**
  * Example values for the then and now card (always shown with the Example tag). They follow the
@@ -345,6 +339,8 @@ export default function Landing({
               <Icon name="camera" size={18} />
               {t(lang, "landing.actions.tryCheck")}
             </a>
+            {/* Q23 (2): the not intended for medical purposes line directly under the check action. */}
+            <p className="ld-not-medical ld-check-not-medical">{t(lang, "landing.footer.notMedical")}</p>
           </div>
         </section>
 
@@ -353,20 +349,6 @@ export default function Landing({
             <div>
               <h2>{t(lang, "landing.health.title")}</h2>
               <p className="ld-health-body">{t(lang, "landing.health.body")}</p>
-              <div className="ld-health-chips">
-                <span className="ld-chip">
-                  <Icon name="health" size={14} />
-                  {t(lang, "landing.health.chips.heart")}
-                </span>
-                <span className="ld-chip">
-                  <Icon name="spark" size={14} />
-                  {t(lang, "landing.health.chips.sleep")}
-                </span>
-                <span className="ld-chip">
-                  <Icon name="clock" size={14} />
-                  {t(lang, "landing.health.chips.step")}
-                </span>
-              </div>
             </div>
             <div className="ld-health-img" aria-hidden>
               <img src="/illustrations/landing/standing.webp" alt="" loading="lazy" />

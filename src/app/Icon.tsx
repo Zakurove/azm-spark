@@ -61,6 +61,12 @@ export default function Icon({ name, size = 24 }: { name: string; size?: number 
         <path d="M10 8v6h7l3 6M10 10h6M7 12a6 6 0 1 0 8 8" />
       </>
     ),
+    // A neutral results glyph (My results): bars of unequal height, no rising arrow (O7, principle 15).
+    chart: (
+      <>
+        <path d="M4 20h16M7 17v-5m5 5V7m5 10v-3" />
+      </>
+    ),
     rise: (
       <>
         <path d="M4 14v6h8m-8-6h6v6m7-1V5m-4 4 4-4 4 4" />

@@ -87,6 +87,7 @@ import {
   LOCALE,
   PATH,
   URL_LIKE,
+  checkWordProblems,
   dataStringProblems,
   dataStrings,
   isCopyValue,
@@ -97,7 +98,8 @@ const ts: typeof tsModule = (tsModule as unknown as { default?: typeof tsModule 
 
 const ROOT = join(__dirname, "..");
 /** A piece of copy. prose: engineering prose from clinical data, checked only for dashes and the phrase. */
-type Copy = { where: string; text: string; prose?: boolean };
+/** prose: engineering prose of the clinical data; data: a user facing string of the clinical data. */
+type Copy = { where: string; text: string; prose?: boolean; data?: boolean };
 
 /* ------------------------------------------- detector and value level filters */
 
@@ -445,7 +447,9 @@ function dataJsonCopy(root = ROOT): Copy[] {
   return dataJson(root).flatMap(({ file, data }) =>
     dataStrings(data, relative("src/movements", file)).flatMap((s): Copy[] => {
       if (!s.userFacing) return [{ where: s.where, text: s.text, prose: true }];
-      return isCopyValue(s.text) || DASH_CHARS.test(s.text) ? [{ where: s.where, text: s.text }] : [];
+      return isCopyValue(s.text) || DASH_CHARS.test(s.text)
+        ? [{ where: s.where, text: s.text, data: true }]
+        : [];
     }),
   );
 }
@@ -458,7 +462,9 @@ function violations(copy: Copy[]): string[] {
   for (const c of copy) {
     const problems = c.prose
       ? dataStringProblems({ text: c.text, userFacing: false })
-      : wordingProblems(c.text);
+      : c.data
+        ? dataStringProblems({ text: c.text, userFacing: true })
+        : wordingProblems(c.text);
     const line = `${c.where} [${problems.join(", ")}] ${JSON.stringify(c.text)}`;
     if (problems.length && !seen.has(line)) {
       seen.add(line);
@@ -539,6 +545,15 @@ describe("user facing copy", () => {
   });
   it("has no dashes and never says حالتك الصحية (clinical data, src/movements JSON)", () => {
     expect(violations(dataJsonCopy())).toEqual([]);
+  });
+  it("never calls the check فحص and never says حجر (clinical data, Q29 and the glossary)", () => {
+    const data = dataJsonCopy().filter((c) => c.data);
+    expect(data.length).toBeGreaterThan(500);
+    expect(data.filter((c) => checkWordProblems(c.text).length).map((c) => c.where)).toEqual([]);
+    // The rule reads vocalized speech lines too.
+    expect(checkWordProblems("يَقِيسُ هَذَا الْفَحْصُ حَرَكَتَك")).toEqual(["Q29 فحص"]);
+    expect(checkWordProblems("ضع يديك في حجرك")).toEqual(["glossary حجر"]);
+    expect(checkWordProblems("يقيس هذا القياس حركتك")).toEqual([]);
   });
   it("has no dashes and never says حالتك الصحية (data modules such as src/movements)", async () => {
     expect(violations(await dataModuleCopy())).toEqual([]);
@@ -652,6 +667,8 @@ describe("collection pipeline (scratch project)", () => {
     expect(copy.map((c) => c.where)).toContain("check-v9.json.tests[0].rule");
     expect(copy.map((c) => c.where)).not.toContain("check-v9.json.tests[0].steps.en[1]");
     expect(flagged(copy)).toEqual([
+      // Q29: the user facing Arabic of the clinical data never calls the check فحص.
+      '[Q29 فحص] "أعد الفحص لاحقًا"',
       '[hyphen between letters] "Re-check later"',
       '[dash character] "Angle – in degrees"',
       '[حالتك الصحية] "never says حالتك الصحية"',

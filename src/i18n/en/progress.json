@@ -1,1 +1,76 @@
-{}
+{
+  "nav": {
+    "label": "My results"
+  },
+  "title": "My results",
+  "loading": "Loading your results",
+  "checks": {
+    "heading": "Your check results"
+  },
+  "change": {
+    "up": "{value} {unit} above your start",
+    "down": "{value} {unit} below your start",
+    "upCount": "{value} more than at your start",
+    "downCount": "{value} fewer than at your start",
+    "none": "Exactly the same as your start"
+  },
+  "verdictIconHigher": "Higher",
+  "verdictIconSame": "About the same",
+  "verdictIconLower": "Lower",
+  "numberLine": {
+    "label": "From {start} {unit} at the start to {now} {unit} now. The shaded zone means ‘about the same as your starting point’.",
+    "legendBand": "The shaded zone means ‘about the same as your starting point’"
+  },
+  "trend": {
+    "table": "Show as a table",
+    "chart": "Show as a chart",
+    "colDate": "Date",
+    "colValue": "Result",
+    "colWhere": "Place",
+    "home": "At home",
+    "summary": "Your checks from {first} to {last}."
+  },
+  "series": {
+    "newLine": "A new line of comparison since {date}",
+    "earlier": "An earlier line of comparison",
+    "showEarlier": "Show the earlier line"
+  },
+  "sessions": {
+    "heading": "Your sessions",
+    "weeks": "The last {weeks} weeks",
+    "thisWeek": "This week, {done} of {planned}",
+    "weekLabel": "Week of {date}, {done} of {planned}",
+    "minutes": "Active minutes per week",
+    "minutesHint": "Average of the last {weeks} weeks",
+    "inRange": "Reps within your range",
+    "inRangeValue": "{n} of every {total}",
+    "effort": "Average effort",
+    "effortValue": "{n} of {max}",
+    "none": "No sessions yet.",
+    "toProgram": "Go to your program"
+  },
+  "history": {
+    "heading": "All your checks",
+    "completed": "Completed",
+    "endedEarly": "Ended early"
+  },
+  "empty": {
+    "title": "Your check results will show here",
+    "body": "Do the movement check to set your starting point.",
+    "cta": "Start the check"
+  },
+  "error": {
+    "title": "We could not load your results",
+    "body": "Make sure you are connected to the internet, then try again."
+  },
+  "offline": {
+    "none": "You are offline, and this phone has no copy of your results. Connect to the internet to see them."
+  },
+  "example": {
+    "banner": "An example to show how it works. These are not a real person’s results.",
+    "title": "Example of the results page",
+    "tag": "Example",
+    "tryCheck": "Try the movement check",
+    "register": "Create a free account"
+  }
+}

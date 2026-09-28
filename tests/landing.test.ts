@@ -87,11 +87,13 @@ describe("hero", () => {
     );
   });
 
-  it("uses the supporting line of the plan", () => {
+  it("uses the council's supporting line (Q23 (6), H1): no prescribe, prove or progress", () => {
     expect(t("en", "landing.hero.body")).toBe(
-      "Azm measures where you are, prescribes what fits your medical condition, coaches every session through your phone camera, and shows your progress.",
+      "Azm measures how you move today, builds an exercise plan that fits your medical condition, coaches every session through your phone camera, then measures again so you can see for yourself how your movement changes.",
     );
-    expect(t("ar", "landing.hero.body")).toContain("حالتك الطبية");
+    expect(t("ar", "landing.hero.body")).toBe(
+      "عزم يقيس حركتك اليوم، ويبني لك خطة تمارين تناسب حالتك الطبية، ويدرّبك في كل جلسة عبر كاميرا هاتفك، ثم يقيس حركتك مجددًا لترى بنفسك كيف تتغير.",
+    );
   });
 
   it("has no small label above the heading", () => {
@@ -172,7 +174,7 @@ describe("then and now example card", () => {
 });
 
 describe("four step loop", () => {
-  it("shows measure, prescribe, coach and prove in order, each with a small screen", () => {
+  it("shows measure, plan, coach and measure again in order, each with a small screen", () => {
     expect(LOOP_STEPS).toEqual(["measure", "prescribe", "coach", "prove"]);
     for (const lang of LANGS) {
       const flow = part(render(lang), "ld-how-flow");
@@ -187,9 +189,15 @@ describe("four step loop", () => {
     }
     expect(LOOP_STEPS.map((s) => t("en", `landing.loop.steps.${s}.title`))).toEqual([
       "Measure",
-      "Prescribe",
+      "Plan",
       "Coach",
-      "Prove",
+      "Measure again",
+    ]);
+    expect(LOOP_STEPS.map((s) => t("ar", `landing.loop.steps.${s}.title`))).toEqual([
+      "نقيس",
+      "نخطط",
+      "ندرّب",
+      "نقيس مجددًا",
     ]);
   });
 
@@ -230,28 +238,33 @@ describe("four step loop", () => {
     expect(checkHref("en")).toBe("/?check=1&lang=en");
     const ar = part(render("ar"), "ld-how-action");
     expect(ar).toContain('href="/?check=1"');
-    expect(text(ar)).toBe("جرّب فحص الحركة");
+    expect(text(ar)).toBe("جرّب قياس الحركة غير مخصص للأغراض الطبية.");
     const en = part(render("en"), "ld-how-action");
     expect(decode(en)).toContain('href="/?check=1&lang=en"');
-    expect(text(en)).toBe("Try the movement check");
+    expect(text(en)).toBe("Try the movement check Not intended for medical purposes.");
   });
 });
 
 describe("closing and footer", () => {
-  it("shows the not intended for medical purposes line from the clinical data", () => {
+  it("shows the not intended for medical purposes line from the clinical data, also under the check action", () => {
     for (const lang of LANGS) {
       expect(t(lang, "landing.footer.notMedical")).toBe(CHECK_DATA.boundary.notMedical[lang]);
       expect(text(render(lang))).toContain(CHECK_DATA.boundary.notMedical[lang]);
+      expect(text(part(render(lang), "ld-how-action"))).toContain(CHECK_DATA.boundary.notMedical[lang]);
     }
     expect(t("ar", "landing.footer.notMedical")).toBe("غير مخصص للأغراض الطبية.");
     expect(t("en", "landing.footer.notMedical")).toBe("Not intended for medical purposes.");
   });
 
-  it("keeps the closing line and drops the doctor from the closing text (spec Q23)", () => {
+  it("keeps the closing line and uses the council's closing text, without the doctor (spec Q23)", () => {
     expect(t("ar", "landing.close.title")).toBe("جسمك تغيّر، وعزمك باقٍ");
     expect(t("en", "landing.close.title")).toBe("Your body changed. Your resolve did not.");
-    expect(t("en", "landing.close.body").endsWith("so you can see it build.")).toBe(true);
-    expect(t("ar", "landing.close.body").endsWith("لتراه أنت.")).toBe(true);
+    expect(t("en", "landing.close.body")).toBe(
+      "Start free, for yourself or for someone in your family. Every session is saved so you can follow your training yourself.",
+    );
+    expect(t("ar", "landing.close.body")).toBe(
+      "ابدأ مجانًا، لنفسك أو لأحد أهلك، وتُحفظ كل جلسة لتتابع تمرينك بنفسك.",
+    );
     for (const lang of LANGS) {
       const close = text(part(render(lang), "ld-close"));
       expect(close).not.toMatch(/doctor|طبيب/i);
@@ -266,6 +279,14 @@ describe("page wide rules", () => {
     const en = new Map(leaves(DICTIONARIES.en.landing));
     expect([...ar.keys()].sort()).toEqual([...en.keys()].sort());
     for (const [key, value] of [...ar, ...en]) expect(wordingProblems(value), key).toEqual([]);
+  });
+
+  it("Arabic says عزم (never عزم سبارك), هاتفك (never جوالك) and never calls the check فحص", () => {
+    const page = text(render("ar"));
+    for (const word of ["سبارك", "جوالك", "فحص", "تقدم", "يصف", "نصمم", "نُثبت"])
+      expect(page).not.toContain(word);
+    // No group of three slogan chips (rule 4).
+    expect(render("ar")).not.toContain("ld-health-chips");
   });
 
   it("the rendered page has no dash, says حالتك الطبية and never claims to be a rehabilitation app", () => {

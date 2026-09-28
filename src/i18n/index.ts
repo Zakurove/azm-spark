@@ -8,7 +8,8 @@
  * Numbers passed in vars are written with fmtNum (Arabic Indic digits in Arabic). ASCII digits in
  * Arabic text are shown in Arabic Indic digits too, so a sentence never mixes the two systems
  * (localizeDigits). A number followed by {unit}, where unit is a unit form id of the check data
- * (deg, bends, stands, sec), is written with the right Arabic plural form (countPhrase).
+ * (deg, bends, stands, sec) or "min" (minutes, assessment.units.min), is written with the right
+ * Arabic plural form (countPhrase): «دقيقة واحدة», «دقيقتين», «٥ دقائق», «٢١ دقيقة».
  *
  * To add a namespace: create the JSON file in both folders and add it to DICTS below. The key sets
  * of Arabic and English must be identical; tests/i18n.test.ts and the compile time check below
@@ -53,24 +54,19 @@ export type Vars = Record<string, string | number>;
 /* ---------------------------------------------------------------- numbers */
 
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
-// SPEC-GAP: digits-tel. The spec (progress.digits) says "tel: links stay 997, 937" while every other
-// ASCII digit in Arabic becomes Arabic Indic. The safest reading keeps the emergency (997) and
-// Ministry of Health (937) numbers in ASCII wherever they are shown, so the number on screen always
-// matches the dialled tel: link and the phone keypad.
-const ASCII_NUMBERS = new Set(["997", "937"]);
 
 /**
- * Shows the ASCII digits of Arabic text in Arabic Indic digits (progress.digits in the check data).
- * Digits attached to a Latin letter stay as they are (codes such as T6), and so do 997 and 937.
- * Digits are mapped one by one (with ٫ as the decimal mark), so a year or a code is never grouped.
- * English text is returned unchanged.
+ * Shows the ASCII digits of Arabic text in Arabic Indic digits (council Q30, progress.digits in the
+ * check data), 997 and 937 included (٩٩٧ and ٩٣٧): only the tel: href of a call link stays ASCII.
+ * Digits attached to a Latin letter stay as they are (codes such as T6). Digits are mapped one by one
+ * (with ٫ as the decimal mark), so a year or a code is never grouped. English text is unchanged.
  */
 export function localizeDigits(lang: Lang, text: string): string {
   if (lang !== "ar") return text;
   return text.replace(/\d+(?:\.\d+)?/g, (run, offset: number) => {
     const before = text[offset - 1] ?? "";
     const after = text[offset + run.length] ?? "";
-    if (/[A-Za-z]/.test(before) || /[A-Za-z]/.test(after) || ASCII_NUMBERS.has(run)) return run;
+    if (/[A-Za-z]/.test(before) || /[A-Za-z]/.test(after)) return run;
     return run.replace(/\d/g, (d) => ARABIC_DIGITS[Number(d)]).replace(".", "٫");
   });
 }
@@ -86,14 +82,26 @@ export function formatNumber(lang: Lang, n: number): string {
 
 /* ---------------------------------------------------------------- plurals */
 
-const UNIT_FORMS: Record<UnitFormId, UnitForms> = progress.unitForms;
+/** Minutes for durations (UX spec 3.0): assessment.units.min, as a unit of countPhrase. */
+function minuteForms(): UnitForms {
+  const ar = arAssessment.units.min;
+  const en = enAssessment.units.min;
+  return {
+    ar: { zero: ar.many, one: ar.one, two: ar.two, few: ar.few, many: ar.many, other: ar.many },
+    en: { one: en.one, other: en.many },
+  };
+}
+
+/** Unit form ids of countPhrase: the check data's, and min for durations. */
+export type CountUnit = UnitFormId | "min";
+const UNIT_FORMS: Record<CountUnit, UnitForms> = { ...progress.unitForms, min: minuteForms() };
 const PLURAL_RULES: Record<Lang, Intl.PluralRules> = {
   ar: new Intl.PluralRules("ar"),
   en: new Intl.PluralRules("en"),
 };
 
-export function isUnitFormId(x: unknown): x is UnitFormId {
-  return typeof x === "string" && (UNIT_FORM_IDS as readonly string[]).includes(x);
+export function isUnitFormId(x: unknown): x is CountUnit {
+  return typeof x === "string" && (x === "min" || (UNIT_FORM_IDS as readonly string[]).includes(x));
 }
 
 /** The plural category of n: Arabic zero, one, two, few (3 to 10), many (11 to 99), other (100 and up). */
@@ -102,7 +110,7 @@ export function pluralForm(lang: Lang, n: number): Intl.LDMLPluralRule {
 }
 
 /** The unit word that goes with n, for example درجات for 5 and degree for 1. */
-export function unitWord(lang: Lang, unit: UnitFormId, n: number): string {
+export function unitWord(lang: Lang, unit: CountUnit, n: number): string {
   const forms = UNIT_FORMS[unit];
   const form = pluralForm(lang, n);
   return lang === "ar" ? forms.ar[form] : forms.en[form === "one" ? "one" : "other"];
@@ -113,7 +121,7 @@ export function unitWord(lang: Lang, unit: UnitFormId, n: number): string {
  * together (درجة واحدة, درجتين); every other form follows the number (٥ درجات, ١١ درجة).
  * English: 1 degree, 16 degrees.
  */
-export function countPhrase(lang: Lang, unit: UnitFormId, n: number): string {
+export function countPhrase(lang: Lang, unit: CountUnit, n: number): string {
   const number = formatNumber(lang, n);
   const word = unitWord(lang, unit, n);
   if (lang === "ar") {
@@ -135,10 +143,21 @@ export function interpolate(lang: Lang, template: string, vars: Vars = {}): stri
   const unit = vars.unit;
   const text = localizeDigits(lang, template);
   const paired = isUnitFormId(unit)
-    ? text.replace(/\{(\w+)\} \{unit\}/g, (whole, name: string) => {
-        const n = vars[name];
-        return typeof n === "number" ? countPhrase(lang, unit, n) : whole;
-      })
+    ? text
+        // A range in Arabic: a first number of the one or two form takes its word too («نحو دقيقة
+        // واحدة إلى ٣ دقائق», «دقيقتين إلى ٣ دقائق»); Arabic never writes ١ or ٢ with the noun.
+        .replace(/\{(\w+)\} إلى \{(\w+)\} \{unit\}/g, (whole, from: string, to: string) => {
+          const a = vars[from];
+          if (lang !== "ar" || typeof a !== "number") return whole;
+          const form = pluralForm(lang, a);
+          return form === "one" || form === "two"
+            ? `${countPhrase(lang, unit, a)} إلى {${to}} {unit}`
+            : whole;
+        })
+        .replace(/\{(\w+)\} \{unit\}/g, (whole, name: string) => {
+          const n = vars[name];
+          return typeof n === "number" ? countPhrase(lang, unit, n) : whole;
+        })
     : text;
   return paired.replace(/\{(\w+)\}/g, (whole, name: string) => {
     const v = vars[name];

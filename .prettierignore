@@ -7,7 +7,6 @@ design
 archive
 docs
 scripts
-e2e
 src/exercises/library.json
 src/app/voice-script.json
 package-lock.json

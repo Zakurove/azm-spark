@@ -1,1 +1,712 @@
-{}
+{
+  "name": "Movement check",
+  "common": {
+    "back": "Go back",
+    "exit": "Leave the check",
+    "soundOn": "Sound is on",
+    "soundOff": "Sound is off",
+    "questionOf": "Question {n} of {total}",
+    "testOf": "Test {n} of {total}",
+    "tryOf": "Try {n} of {total}",
+    "practice": "Practice, not counted",
+    "stepOf": "Step {n} of {total}",
+    "next": "Next",
+    "continue": "Continue",
+    "start": "Start",
+    "retry": "Try again",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "skipTest": "Skip this test",
+    "backToToday": "Return to Today",
+    "listen": "Listen again",
+    "chooseToContinue": "Choose an answer to continue.",
+    "call937": "Call the Ministry of Health on 937",
+    "notSavedYet": "Not saved yet",
+    "videoStays": "Video stays on your phone",
+    "language": "العربية",
+    "noneClears": "Clears the other choices",
+    "sound": "Sound",
+    "notSure": "Not sure",
+    "callAria": "Call {digits}",
+    "alertStillSounds": "The alert tone still sounds"
+  },
+  "state": {
+    "loading": {
+      "default": "One moment, please",
+      "check": "Getting your check ready",
+      "camera": "Asking for camera access",
+      "model": "Getting movement tracking ready",
+      "saving": "Saving your results"
+    },
+    "error": {
+      "title": "We could not finish that",
+      "body": "Make sure you are connected to the internet, then try again. Nothing you finished will be lost.",
+      "bodyStart": "Your answers are still here, so you can try again.",
+      "titleStart": "The check did not start"
+    },
+    "offline": {
+      "banner": "You are offline. The check keeps running on this phone.",
+      "startBlocked": "Starting the check needs an internet connection. Connect, then try again.",
+      "back": "You are back online",
+      "lastLoaded": "Last updated {date}",
+      "savedLater": "We will save your results when you are back online."
+    }
+  },
+  "camera": {
+    "denied": {
+      "title": "Camera access is off",
+      "body": "Azm needs the camera to see how you move. The video stays on your phone. It is never recorded or sent.",
+      "ios": "In Safari, open the page menu next to the address, then Website Settings, then Camera, and choose Allow. Or open Settings, then Safari, then Camera. Then come back here and tap “Try again”.",
+      "android": "In Chrome, tap the View site information icon next to the address, then Permissions, and turn on Camera. Then come back here and tap “Try again”.",
+      "other": "Open your browser settings for this site and allow the camera. Then come back here and tap “Try again”.",
+      "samsung": "In Samsung Internet, tap the lock icon in the address bar, then Site permissions, and allow the camera. Then come back here and tap “Try again”.",
+      "askHelp": "Ask someone to help you with this step."
+    },
+    "none": {
+      "title": "No camera found",
+      "body": "Use a phone with a front camera, and open the check on it."
+    },
+    "busy": {
+      "title": "The camera is in use",
+      "body": "Close any other app that uses the camera, then try again."
+    },
+    "stopped": {
+      "title": "The camera stopped",
+      "body": "The screen may have locked, or you switched to another app. We will start this try again from the beginning."
+    },
+    "later": "I will do the check later",
+    "demo": "Watch a demo",
+    "motionOff": "Motion access is off, so we cannot check that the phone is level. Please make sure it stands upright and level."
+  },
+  "entry": {
+    "first": {
+      "body": "Set your starting point in about {minutesFrom} to {minutesTo} {unit}, then check again every {weeks} weeks to follow how your movement changes.",
+      "cta": "Start the check"
+    },
+    "due": {
+      "title": "Your check is due",
+      "body": "Check again to compare your movement today with your starting point."
+    },
+    "error": "We could not load your check details. Make sure you are connected to the internet, then try again.",
+    "repeatOffer": {
+      "body": "You can check again over the next few days, between {from} and {to}.",
+      "cta": "Check again"
+    },
+    "upcoming": {
+      "early": "Do the check now, before it is due"
+    },
+    "tooSoon": {
+      "body": "You can check again from {date}."
+    },
+    "locked": {
+      "title": "Today’s check is postponed",
+      "cleared": "My doctor or care team told me physical activity is fine for me"
+    },
+    "resume": {
+      "title": "Continue your check",
+      "body": "You stopped at test {n} of {total}.",
+      "cta": "Continue"
+    },
+    "endedEarly": "Today’s check ended early. The results of what you finished are kept.",
+    "endedEarlyLink": "See the results",
+    "blocked": {
+      "title": "The movement check is not available yet",
+      "body": "The movement check opens when your program is ready. See your medical condition answers to find out what is needed.",
+      "link": "See your medical condition answers"
+    },
+    "leanRepeat": {
+      "title": "A more accurate starting point for the side lean",
+      "cta": "Start the side lean"
+    },
+    "homeSoon": "The movement check will show here when it opens at home."
+  },
+  "afterIntake": {
+    "title": "Do you want to set your starting point now?",
+    "body": "A check of your movement with your phone camera, about {minutesFrom} to {minutesTo} {unit}. You can also do it later from Today.",
+    "start": "Start now",
+    "later": "I will do it later"
+  },
+  "after": {
+    "send": "Send",
+    "notNow": "I will answer later",
+    "thanks": "Thank you for telling us."
+  },
+  "desktop": {
+    "title": "The movement check works best on a phone",
+    "body": "You will stand the phone upright {metersFrom} to {metersTo} meters from you. Scan the code with your phone to open the check there.",
+    "qrAlt": "QR code that opens the movement check on your phone",
+    "continue": "Continue on this device",
+    "orOpen": "Or open {url} on your phone"
+  },
+  "guest": {
+    "title": "Try the movement check",
+    "notSaved": "This is a trial. Nothing from your answers or results is saved.",
+    "start": "Start",
+    "boothBadge": "Azm booth",
+    "offlineNoModel": "Movement tracking cannot be prepared without an internet connection this time. Connect, then try again.",
+    "position": {
+      "ask": "Which of these fits you best?",
+      "hint": "Everyone does the arm tests sitting down."
+    },
+    "support": {
+      "ask": "Is one side of your body weaker than the other?"
+    },
+    "pain": {
+      "ask": "Do you have ongoing pain in any of these areas?"
+    },
+    "restrictions": {
+      "ask": "Do any of these apply to you?"
+    },
+    "chooseAll": "Choose all that apply.",
+    "staff": {
+      "titleBooth": "Our team is here at the booth",
+      "titleHome": "We will not run the movement check for you for now",
+      "bodyHome": "For your safety, with your medical condition we only run this check under supervision. Talk with your doctor or care team about the physical activity that suits you.",
+      "restart": "Go back to the start"
+    },
+    "resultsTitle": "Your results today",
+    "keepTitle": "Keep your own starting point",
+    "keepBody": "Create a free account, then set your starting point at home and check again every {weeks} weeks to see how your movement changes.",
+    "scan": "Scan the code with your own phone",
+    "qrAlt": "QR code that opens the Azm sign up page",
+    "register": "Create a free account",
+    "newVisitor": "Start for a new visitor",
+    "keepBodySoon": "Create a free account to start your program. The movement check will appear on Today when it opens at home.",
+    "orOpen": "Or open {url}",
+    "quickTry": "Try one test, in about {minutes} {unit}",
+    "fullCheck": "The full check, in about {minutesFrom} to {minutesTo} {unit}",
+    "seeExample": "No time? See an example",
+    "boothOnly": {
+      "title": "For now, the movement check is available only at the Azm booth",
+      "body": "You can see an example of the results page, or watch a demo.",
+      "bodyDemo": "You can watch a demo of Azm.",
+      "example": "See an example of the results"
+    },
+    "afterTest": {
+      "title": "This test is done",
+      "upNext": "The next test is “{test}”."
+    }
+  },
+  "adult": {
+    "title": "The movement check is for adults",
+    "body": "The movement check is for people aged {age} or older. Thank you for your interest in Azm.",
+    "under": "I am under {age}"
+  },
+  "options": {
+    "position": {
+      "chair": "I sit on a chair",
+      "wheelchair": "I use a wheelchair",
+      "standing": "I can stand and get up from a chair",
+      "bed": "I spend most of the day in bed, or I cannot sit without someone supporting me"
+    },
+    "support": {
+      "right": "Yes, my right side is weaker",
+      "left": "Yes, my left side is weaker",
+      "none": "No, both sides are about the same"
+    },
+    "condition": {
+      "stroke": "Stroke",
+      "ms": "Multiple sclerosis",
+      "cerebral_palsy": "Cerebral palsy",
+      "sci_complete": "Complete spinal cord injury",
+      "sci_incomplete": "Incomplete spinal cord injury",
+      "sci_unsure": "Spinal cord injury, I do not know which type",
+      "parkinsons": "Parkinson’s",
+      "upper_limb_unilateral": "Loss of all or part of one arm",
+      "lower_limb_unilateral": "Loss of all or part of one leg",
+      "arthritis": "Arthritis",
+      "cfs_moderate": "Chronic fatigue syndrome",
+      "cardiac": "A heart condition",
+      "other": "Another condition not listed here"
+    },
+    "pain": {
+      "shoulder": "Shoulder",
+      "elbow": "Elbow",
+      "wrist": "Wrist or hand",
+      "back": "Back",
+      "hip": "Hip",
+      "knee": "Knee",
+      "none": "No ongoing pain"
+    },
+    "restriction": {
+      "no_overhead": "I need to avoid lifting my arms above shoulder height",
+      "no_resistance": "I need to avoid weights and resistance",
+      "no_weight_bearing": "I need to avoid putting weight on my legs",
+      "balance_support": "I need support to keep my balance",
+      "no_exercise": "My doctor told me not to exercise for now",
+      "none": "None of these"
+    }
+  },
+  "consent": {
+    "title": "Before we keep your results",
+    "body": "To show how your movement changes over time, we need to keep your check results in your account.",
+    "pointVideo": "The video stays on your phone. It is never recorded or sent. We keep numbers only.",
+    "pointWithdraw": "You can withdraw your consent at any time from your Health profile.",
+    "privacyLink": "Read how we use your data",
+    "continue": "Continue",
+    "notNow": "I will decide later",
+    "required": "Tick the consent box to continue.",
+    "withdraw": "Withdraw your consent to keep movement check results",
+    "withdrawConfirm": "After you withdraw, we will not keep new checks. Your earlier checks stay until you ask us to delete them.",
+    "withdrawYes": "Yes, withdraw my consent",
+    "withdrawKeep": "Keep my consent"
+  },
+  "context": {
+    "title": "Is this still right?",
+    "body": "We use it to choose the tests that suit you.",
+    "position": "Sitting or standing",
+    "support": "Weaker side",
+    "pain": "Pain areas",
+    "restrictions": "Things to avoid",
+    "none": "None",
+    "sideLeft": "Left",
+    "sideRight": "Right",
+    "confirm": "Yes, this is still right",
+    "edit": "Update your medical condition answers"
+  },
+  "intro": {
+    "testsHeading": "Today’s tests",
+    "sound": "Turn your volume up to hear the instructions. They also appear as text.",
+    "stop": "The Stop button is always on screen, and anyone with you can press it.",
+    "illustrationAlt": "A person sitting on a chair, with a phone standing about two meters in front of them.",
+    "start": "Start the questions",
+    "welcomeBack": "Welcome back. We will compare the results of this check with your starting point.",
+    "howToStop": "If you want to stop during a test, stop moving. After a few moments we will ask you, and you can answer from where you are.",
+    "allSeated": "All the tests in your check are done sitting.",
+    "duration": "Today’s check takes about {minutesFrom} to {minutesTo} {unit}.",
+    "need": {
+      "heading": "What you need today",
+      "chairSteady": "A steady chair with a back",
+      "chairArmrests": "A steady chair with no wheels and no swivel, with armrests on both sides, for the side lean",
+      "chairArmless": "A steady chair without armrests, for the arm bends",
+      "chairStand": "A firm chair about knee height against a wall, with something sturdy in front such as a kitchen counter, for the chair stands",
+      "wheelchair": "Your wheelchair with the brakes on, and its side guards for the side lean",
+      "phone": "A place where the phone can stand steady at chest height, such as a shelf, or books against a wall",
+      "space": "About three big steps of space between you and the phone",
+      "helper": "Another adult beside you for {tests}",
+      "loadFirst": "Something light to hold for the arm bends, such as a closed water bottle, or nothing",
+      "loadSame": "The same weight or bottle you used last time",
+      "shoes": "The same shoes at every check, or bare feet every time",
+      "booth": "Everything you need is ready at the booth."
+    },
+    "skipAny": "You can skip any test."
+  },
+  "soundCheck": {
+    "title": "Let’s make sure you can hear the sound",
+    "play": "Play the sound again",
+    "continueWithout": "Continue without sound",
+    "screenReader": "I use a screen reader"
+  },
+  "exit": {
+    "title": "Leave the check now?",
+    "bodyBefore": "Your answers will not be kept.",
+    "bodyDuring": "Results of the tests you finished are kept.",
+    "bodyGuest": "Nothing is saved in this trial.",
+    "stay": "Stay in the check",
+    "leave": "Yes, leave the check"
+  },
+  "precheck": {
+    "title": "A few questions first",
+    "howToAnswer": "Answer each question as you feel right now.",
+    "scale": {
+      "chosen": "You chose {value}",
+      "cellLabel": "{value} out of {max}"
+    },
+    "areas": {
+      "none": "None of these areas hurts",
+      "hint": "You can choose more than one area.",
+      "subOf": "Area {n} of {total}",
+      "rate": "How much does it hurt right now, from {min} to {max}?",
+      "pickOne": "Choose at least one area."
+    },
+    "checklist": {
+      "hint": "Go through each item on the list."
+    },
+    "steadi": {
+      "heading": "About standing and balance"
+    },
+    "helperReads": "If someone is helping you, they can read the questions to you, and you give the answers.",
+    "canListen": "You can listen to every question.",
+    "listenQuestion": "Listen to the question",
+    "confirmAnswer": "You chose “{answer}”. Is that right?",
+    "changeAnswer": "No, I want to change it"
+  },
+  "warnings": {
+    "title": "Before you start",
+    "continue": "I understand, continue",
+    "skippedTest": "We will skip “{test}” today."
+  },
+  "tone": {
+    "warn": "Caution",
+    "info": "Good to know"
+  },
+  "helper": {
+    "askToRead": "Ask your helper to read this.",
+    "weakerSide": "Their weaker side is the {side}.",
+    "noWeakerSide": "If neither side is weaker, stand on their left.",
+    "sideLeft": "left",
+    "sideRight": "right",
+    "altStand": "Top view. The chair is against a wall. The phone is halfway between straight ahead of the person and their stronger side. The support is in front, away from the phone side. The helper is beside the weaker side, slightly behind.",
+    "altTrunk": "Top view. The phone is in front of the seated person. The helper is beside the weaker side, slightly behind."
+  },
+  "plan": {
+    "title": "Your tests today",
+    "meta": "About {minutesFrom} to {minutesTo} {unit}. You can skip any test.",
+    "eachArm": "Each arm",
+    "eachSide": "Each side",
+    "withHelper": "With a helper",
+    "notToday": "Not today",
+    "sideLine": "{side}. {reason}",
+    "sideArmLeft": "Your left arm",
+    "sideArmRight": "Your right arm",
+    "sideLeanLeft": "Leaning to your left",
+    "sideLeanRight": "Leaning to your right",
+    "start": "Start the first test",
+    "noneTitle": "We will not run any test today",
+    "noneBody": "Every test was skipped today for the reasons shown. You can try again on another day.",
+    "notPart": "Not part of your check",
+    "vitalsNote": "Before this test, a staff member measures your blood pressure and pulse after five minutes of sitting.",
+    "variantWhy": {
+      "booth": "At the booth, everyone does this test without a weight.",
+      "painArm": "No weight, because you told us about pain in this arm.",
+      "noResistance": "No weight, because you told us you need to avoid weights.",
+      "safety": "No weight today, for your safety.",
+      "handsAllowed": "You may use your hands in this test."
+    }
+  },
+  "test": {
+    "stepsHeading": "Steps",
+    "safetyHeading": "For your safety",
+    "ready": "Let’s start",
+    "skipPractice": "Skip the practice",
+    "answerBooth": "Say your answer from where you are. A staff member will tap it for you.",
+    "illustrationAlt": {
+      "shoulder_abduction": {
+        "chair": "A person on a chair raising a straight arm out to the side, thumb up, with the phone two to three meters in front.",
+        "wheelchair": "A person in a wheelchair raising a straight arm out to the side, thumb up, with the phone two to three meters in front."
+      },
+      "arm_curl_30s": {
+        "chair": "A person on an armless chair bending the elbow {load}, side on to the phone, one and a half to two meters away.",
+        "wheelchair": "A person in a wheelchair bending the elbow {load}, side on to the phone, one and a half to two meters away."
+      },
+      "trunk_control_seated": {
+        "chair": "A person on a chair with armrests leaning a little to one side, with the phone about two meters in front.",
+        "wheelchair": "A person in a wheelchair leaning a little to one side, side guards in place, with the phone about two meters in front."
+      },
+      "chair_stand_30s": {
+        "standard": "A person standing up from a chair set against a wall, arms crossed on the chest, with a sturdy support in front and the phone at an angle between straight ahead and the stronger side.",
+        "arms_assisted": "A person standing up from a chair set against a wall, pushing on the armrests, with a sturdy support in front and the phone at an angle between straight ahead and the stronger side.",
+        "one_arm_cross": "A person standing up from a chair set against a wall, one hand on the opposite shoulder, with a sturdy support in front and the phone at an angle between straight ahead and the stronger side."
+      }
+    },
+    "altLoad": {
+      "weight": "holding a weight",
+      "cuff": "with a wrist weight",
+      "none": "without a weight"
+    }
+  },
+  "skip": {
+    "title": "Skip this test?",
+    "body": "That is fine. This test will have no result today.",
+    "confirm": "Yes, skip it",
+    "cancel": "No, I will do it"
+  },
+  "load": {
+    "kg": "Weight in kilograms",
+    "kgValue": "{kg} kg",
+    "decrease": "Make it lighter",
+    "increase": "Make it heavier",
+    "bottleSize": "Bottle size",
+    "bottleHint": "Use the same bottle every time, filled to the same line and closed.",
+    "armOnly": "You will do this test with this arm without a weight.",
+    "sameTitle": "Do you have the same one as last time?",
+    "sameYes": "Yes, I have the same one",
+    "sameNo": "I cannot use it today",
+    "newLine": "Today this arm will not be compared with its starting point, because the weight is different."
+  },
+  "primer": {
+    "title": "Let’s turn on the camera",
+    "body": "Azm sees your movement through your phone camera. The video stays on your phone. It is never recorded or sent.",
+    "motion": "Your phone will also ask for motion access, so we can check that it stands level.",
+    "place": "Stand the phone upright on something steady, then go back to your place. We start when we can see you.",
+    "allow": "Turn on the camera",
+    "placeBooth": "The phone is already in place. Sit in the marked chair, and we start when we can see you.",
+    "motionWheelchair": "In a wheelchair, we need motion access to measure the arm raise. Tap Allow when your phone asks.",
+    "promptLine": "Your phone will ask you now. Tap Allow.",
+    "promptAlt": "Picture of the phone’s camera permission prompt, with the Allow button circled."
+  },
+  "postpone": {
+    "title": "Let’s postpone today’s check",
+    "titleSci": "Before you start",
+    "sciAgain": "Done, go through the list again"
+  },
+  "setup": {
+    "ready": "Ready",
+    "holdStill": "All set. Stay still.",
+    "issue": {
+      "no_person": "We cannot see you yet",
+      "second_person": "Someone else in the middle",
+      "tilt": "The phone is tilted",
+      "too_close": "Too close",
+      "too_far": "Too far",
+      "framing": "Not fully in view",
+      "arm_room": "Too little arm room",
+      "wrong_view": "The angle is not right",
+      "light": "The light is low",
+      "blocked": "Something blocks the view",
+      "motion": "We need motion access for the phone"
+    },
+    "chip": {
+      "level": "Phone level",
+      "distance": "Distance",
+      "framing": "In the picture",
+      "light": "Light",
+      "people": "People in view",
+      "view": "Angle"
+    },
+    "chipOk": "Good",
+    "chipFix": "Needs adjusting",
+    "chipNA": "Not available",
+    "chipLabel": "{chip}, {state}",
+    "helperOk": "We can see someone beside you. That is fine.",
+    "turnUpright": "Turn the phone upright",
+    "stillNoOne": "We still cannot see you. Make sure the front camera faces you.",
+    "tipsLink": "See setup tips",
+    "skipAfterWait": "Skip this test",
+    "viewDiagramAlt": "Top view showing where the phone goes relative to you",
+    "allowMotion": "Allow motion access",
+    "fixed": "Good",
+    "stillness": {
+      "body": "It is fine if staying still is hard. You can skip this test today.",
+      "tryAgain": "I will try again"
+    }
+  },
+  "hud": {
+    "phase": {
+      "still": "Stay still",
+      "ready": "Get ready",
+      "go": "Go",
+      "raise": "Raise slowly",
+      "hold": "Hold it there",
+      "lower": "Lower slowly",
+      "upright": "Sit tall",
+      "leanLeft": "Lean to your left",
+      "leanRight": "Lean to your right",
+      "pause": "Hold there a moment",
+      "return": "Come back to the middle",
+      "centred": "In the middle",
+      "timeUp": "Time is up",
+      "rest": "Rest",
+      "paused": "On hold",
+      "saved": "Saved"
+    },
+    "armLeft": "Your left arm",
+    "armRight": "Your right arm",
+    "sideLeft": "Left",
+    "sideRight": "Right",
+    "timeLeft": "Ends in {s} {unit}",
+    "countLabel": "Count",
+    "cameraOn": "Camera on. The video stays on your phone.",
+    "helperChip": "Helper beside you",
+    "dotSaved": "Try {n}, saved",
+    "dotRetry": "Try {n}, to be repeated",
+    "dotPending": "Try {n}, not started yet",
+    "tryShort": "{n} of {total}",
+    "replay": "Hear the instructions again",
+    "tapForSound": "Tap to turn on the sound",
+    "largeCaptions": "Large captions",
+    "sideChangeWheelchair": "Turn your chair, or move the phone to your other side."
+  },
+  "retry": {
+    "fix": {
+      "paused": "Someone else was in the picture",
+      "touched": "Someone touched you during the try",
+      "out_of_frame": "Part of you left the picture",
+      "wrong_view": "The angle changed",
+      "not_visible_arm": "We could not see your arm clearly",
+      "not_visible": "We could not see you clearly",
+      "too_close": "Too close to the phone",
+      "too_far": "Too far from the phone",
+      "low_fps": "Your phone is running slowly",
+      "plane": "Raise it out to the side",
+      "lean": "Your body leaned",
+      "wrong_side": "The other side moved",
+      "phone_moved": "The phone moved",
+      "lean_form": "Lean to the side only"
+    },
+    "touchedHelper": "We ask your helper not to touch you during the test, unless you lose your balance.",
+    "lowFpsBody": "Close other apps, then try again.",
+    "left": {
+      "two": "Two more tries",
+      "one": "One more try"
+    },
+    "restartIn": "Starting in {s} {unit}",
+    "now": "Try now",
+    "after2min": "We will try again after two minutes of rest."
+  },
+  "rest": {
+    "after": "After the rest, {next}",
+    "nextTest": "the next test",
+    "nextNow": "Start the next test now"
+  },
+  "safety": {
+    "emergency": {
+      "title": "Get help now"
+    },
+    "adCard": "What to do for autonomic dysreflexia",
+    "ad": {
+      "title": "Stop the check and sit upright"
+    },
+    "faint": {
+      "title": "Sit down and rest now"
+    },
+    "fall": {
+      "title": "Stay still for a moment"
+    },
+    "seekCare": {
+      "title": "Let’s stop here"
+    },
+    "pain": {
+      "title": "Let’s stop here"
+    },
+    "kept": "Results of the tests you finished are kept.",
+    "keptGuest": "Nothing is saved in this trial.",
+    "boothStaff": "Our team is close by at the booth.",
+    "ambulanceNumber": "Ambulance number"
+  },
+  "stop": {
+    "button": "Stop",
+    "buttonLabel": "Stop now",
+    "hint": "Choose what applies to you.",
+    "takeYourTime": "Take your time.",
+    "groupUrgent": "Symptoms or a fall",
+    "groupOther": "Other reasons",
+    "listen": "Listen to the choices",
+    "mistake": "I pressed Stop by mistake",
+    "stayPut": "Take your time. Do not get up to come to the phone if you feel dizzy or unsteady."
+  },
+  "stopDone": {
+    "title": "That is fine",
+    "rest": "Rest for a minute before the next test.",
+    "next": "Go on to the next test",
+    "end": "End today’s check",
+    "finish": "Finish and see your results",
+    "changeReason": "Change my reason"
+  },
+  "checkin": {
+    "fine": "I am fine",
+    "seenHand": "We saw your hand.",
+    "wantStop": "I want to stop",
+    "needHelp": "I need help",
+    "short": "Raise your hand or tap the screen"
+  },
+  "goOn": {
+    "title": "Do you want to go on?",
+    "redo": "Redo the test after a rest",
+    "skip": "Skip this test",
+    "stop": "I need to stop"
+  },
+  "alarm": {
+    "fine": "I am fine",
+    "staff": "Staff, please check on this visitor now."
+  },
+  "skipNotice": {
+    "painTitle": "Today we skip the tests that use the area that hurts",
+    "handsTitle": "You needed your hands, which is fine"
+  },
+  "between": {
+    "sideDone": "{side} is done"
+  },
+  "count": {
+    "ask": "Is this count about right?",
+    "yes": "Yes",
+    "no": "No, my count is different",
+    "howMany": "How many did you count?",
+    "note": "We will show this count without comparing it with your starting point."
+  },
+  "symptom": {
+    "kicker": "One last question"
+  },
+  "results": {
+    "startTitle": "Your starting point",
+    "nowTitle": "Your results now",
+    "nextHeading": "Next step",
+    "keepProgram": "Carry on with your program as usual.",
+    "seeOverTime": "See your checks over time",
+    "endedEarlyTitle": "Today’s check ended early",
+    "endedEarlyBody": "These are the results of what you finished.",
+    "noneMeasured": "We could not measure any test today. You can check again on another day."
+  },
+  "booth": {
+    "title": "Booth staff mode",
+    "codeLabel": "Staff code",
+    "turnOn": "Turn on booth mode",
+    "wrong": "That code is not right. Check it and try again.",
+    "on": "Booth mode is on for this phone.",
+    "turnOff": "Turn off booth mode",
+    "openGuest": "Open the visitor check",
+    "offlineReady": "This phone is ready to work offline.",
+    "offlinePreparing": "Getting this phone ready to work offline",
+    "correct": "Correct the count",
+    "staffCount": "The count our staff made",
+    "resetConfirm": "We will clear these results for the next visitor.",
+    "resetYes": "Clear and start",
+    "idleTitle": "Are you still here?",
+    "idleBody": "These results will be cleared in {s} {unit} for the next visitor.",
+    "stillHere": "I am still here",
+    "showVisitorQr": "Show the code for a visitor’s phone",
+    "visitorQrTitle": "Booth mode code for a visitor’s phone",
+    "visitorQrBody": "Ask the visitor to scan this code with their phone. It works for one check only.",
+    "tokenOn": "Booth mode is on for this phone for this check only.",
+    "tokenEnded": "Booth mode has ended on this phone. Please ask a staff member to turn it on again.",
+    "badgeHint": "Staff can press and hold here to start again for a new visitor."
+  },
+  "vitals": {
+    "handoff": "Please ask a staff member to come to the phone",
+    "staffOnly": "Staff only",
+    "title": "Resting pulse and blood pressure",
+    "method": "Take two readings after at least five minutes seated, one minute apart, out of view of other visitors.",
+    "arm": "After a stroke, use the stronger arm. Never use an arm with a fistula or lymphoedema.",
+    "reading1": "First reading",
+    "reading2": "Second reading",
+    "mean": "Average of the two readings",
+    "irregular": "Did the cuff flag an irregular heartbeat?",
+    "hr": "Pulse per minute",
+    "sys": "Systolic",
+    "dia": "Diastolic",
+    "notStored": "These values are not stored.",
+    "unavailable": "No validated cuff or licensed practitioner now",
+    "range": "Enter a number between {min} and {max}.",
+    "usualSys": "The visitor’s usual systolic",
+    "usualSysHint": "Only for a spinal cord injury at {level} or above. Ask the visitor for their usual reading.",
+    "usualUnknown": "Not known"
+  },
+  "tips": {
+    "title": "Setup tips",
+    "light": "Have the light in front of you, not behind you.",
+    "sleeves": "Fitted or folded sleeves help the camera see your elbows.",
+    "background": "A plain background behind you helps the camera.",
+    "height": "Place the phone upright and level, at about chest height.",
+    "distance": "Move {metersFrom} to {metersTo} meters from the phone, about three big steps, so your whole body shows.",
+    "people": "Your helper may be in the picture beside you, but not between you and the phone.",
+    "wheelchair": "If you use a wheelchair, place the phone a little lower and a little further back, and keep your lap clear.",
+    "back": "Go back"
+  },
+  "units": {
+    "min": {
+      "one": "minute",
+      "two": "minutes",
+      "few": "minutes",
+      "many": "minutes"
+    }
+  },
+  "zones": {
+    "label": "Answer boxes",
+    "confirm": "You chose “{answer}”",
+    "changeHint": "To change your answer, hold your hand in another box.",
+    "twoHands": "We see two hands. Keep one hand in the box.",
+    "unclear": "Put your hand inside one box.",
+    "noPerson": "We cannot see you right now. You can tap your answer on the screen."
+  }
+}

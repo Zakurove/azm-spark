@@ -374,7 +374,7 @@ export class QualityMonitor {
     const c = this.config;
     const lm = frame.lm && isPerson(frame.lm) ? frame.lm : null;
     const aspect = effectiveAspect(frame.aspect);
-    const vis = (i: number) => !!lm && (lm[i]?.visibility ?? 0) >= c.minVisibility;
+    const vis = (i: number) => !!lm && visible(lm, i, c.minVisibility);
     const inWindow = !!flags.gateWindow;
     const px = lm ? toPixelSpace(lm, aspect) : null;
     const trunk = px ? trunkRef(px) : null;

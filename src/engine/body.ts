@@ -56,7 +56,23 @@ export const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
 export const midHip = (p: Landmark[]): Pt => midPoint(p[LM.l_hip], p[LM.r_hip]);
 export const midShoulder = (p: Landmark[]): Pt => midPoint(p[LM.l_shoulder], p[LM.r_shoulder]);
 
-export const visible = (p: Landmark[], i: number, min = VIS_MIN): boolean => (p[i]?.visibility ?? 0) >= min;
+/** A landmark with finite coordinates: the model can return NaN for a point (a delegate glitch). */
+export const finitePoint = (q: Landmark | undefined): q is Landmark =>
+  !!q && Number.isFinite(q.x) && Number.isFinite(q.y);
+
+/** Visible at `min`, with finite coordinates: a point that is not a number is never seen. */
+export const visible = (p: Landmark[], i: number, min = VIS_MIN): boolean =>
+  finitePoint(p[i]) && (p[i].visibility ?? 0) >= min;
+
+/**
+ * A pose as the engine may use it: a landmark whose coordinates or visibility are not finite numbers
+ * gets visibility 0 (never seen, never a count or a peak), so one glitch frame can only make that
+ * point unseen. Returns the pose itself when every landmark is finite.
+ */
+export function sanitizePose(p: Landmark[]): Landmark[] {
+  if (p.every((q) => finitePoint(q) && Number.isFinite(q.visibility))) return p;
+  return p.map((q) => (finitePoint(q) && Number.isFinite(q.visibility) ? q : { ...q, visibility: 0 }));
+}
 
 /** Landmarks that show a person is there: nose, shoulders, hips. */
 const CORE = [LM.nose, LM.l_shoulder, LM.r_shoulder, LM.l_hip, LM.r_hip];

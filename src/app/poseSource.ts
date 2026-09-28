@@ -1,4 +1,5 @@
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
+import { sanitizePose } from "../engine/body";
 import { Frame, Landmark } from "../engine/types";
 import { TRACES, TraceOpts } from "../engine/traces";
 
@@ -47,8 +48,9 @@ export interface CameraPoseOptions {
 }
 
 type RawLandmark = { x: number; y: number; z: number; visibility?: number };
+/** The model's landmarks; a point that is not a finite number is marked unseen (sanitizePose). */
 const toLandmarks = (pose: RawLandmark[]): Landmark[] =>
-  pose.map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 }));
+  sanitizePose(pose.map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 1 })));
 
 export class CameraPoseSource implements PoseSource {
   kind = "camera" as const;

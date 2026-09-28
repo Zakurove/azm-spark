@@ -133,8 +133,16 @@ export class SustainedPeak {
     readonly maxGapMs = 250,
   ) {}
 
-  /** Adds a sample; returns the current window minimum, or null while the window is not full. */
+  /**
+   * Adds a sample; returns the current window minimum, or null while the window is not full. A
+   * sample that is not a finite number is a gap (it never holds a window, and never becomes the
+   * best).
+   */
   push(t: number, v: number): number | null {
+    if (!Number.isFinite(v)) {
+      this.gap();
+      return null;
+    }
     if (this.last !== null && t - this.last > this.maxGapMs) this.gap();
     this.last = t;
     this.buf.push({ t, v });
@@ -264,9 +272,9 @@ export class EventSink {
   }
 }
 
-/** Visible at the test's minimum. */
+/** Visible at the test's minimum, with finite coordinates (a NaN point is never seen). */
 export const seen = (p: Landmark[] | null, i: number, min: number): boolean =>
-  !!p && (p[i]?.visibility ?? 0) >= min;
+  !!p && Number.isFinite(p[i]?.x) && Number.isFinite(p[i]?.y) && (p[i]?.visibility ?? 0) >= min;
 
 /** Inside the picture (normalized landmarks). */
 export const inPicture = (q: Landmark | undefined): boolean =>

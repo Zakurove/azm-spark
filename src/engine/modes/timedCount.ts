@@ -296,9 +296,14 @@ export class LineCounter {
 
   /**
    * One scored frame. `ok` is the extra condition of this frame; a crossing at or after `until`
-   * (ms) is not counted. Returns the crossing when this frame completed a rep, otherwise null.
+   * (ms) is not counted. Returns the crossing when this frame completed a rep, otherwise null. A p
+   * that is not a finite number is a gap, never a crossing.
    */
   push(t: number, p: number, ok = true, until = Infinity): LineCross | null {
+    if (!Number.isFinite(p)) {
+      this.gap();
+      return null;
+    }
     const prev = this.prev;
     this.prev = { t, p };
     if (p <= this.returnLine) {
@@ -778,7 +783,8 @@ abstract class TimedCountBase implements TestRunner {
     const t = frame.t;
     const track = this.track(frame, true);
     tr.monitor.feedPick(frame, track.pick);
-    const p = track.pick.paused ? null : this.progress(track, roll, t);
+    const raw = track.pick.paused ? null : this.progress(track, roll, t);
+    const p = raw !== null && Number.isFinite(raw) ? raw : null;
     // Scored or unscored time, up to the end of the trial. Time without frames (a camera or model
     // stall, dropped frames) is unscored whatever the frame that ends it: nothing was seen then, and
     // a rep in it is lost (spec 4.2: over 20 percent of the 30 s unscored fails the gate).
@@ -1184,6 +1190,7 @@ export class ArmCurlRunner extends TimedCountBase {
     const S = px[L.shoulder];
     const E = px[L.elbow];
     const angle = jointAngle(S, E, px[L.wrist]);
+    if (!Number.isFinite(angle)) return null;
     let armTrunk: number | null = null;
     let pitch: number | null = null;
     if (seen(px, L.hip, mv)) {

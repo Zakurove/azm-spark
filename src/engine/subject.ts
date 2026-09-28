@@ -12,12 +12,24 @@
  *     percent, or when the nearest mid hip jumped more than 0.5 shoulder widths in one frame. After
  *     a jump the pose is not trusted as the subject: no landmarks are returned and the reference
  *     stays where the subject was last seen. A frame without the subject is paused as well.
+ *   - A landmark that is not a finite number is never visible (body.ts sanitizePose).
  *   - `pausedShare` covers the frames since `resetAttempt()`. Over 10 percent fails the attempt
  *     (quality.ts). `touched` is true when a second person touched the subject in any of those
  *     frames, which makes the attempt invalid.
  * All thresholds are marked tune at booth in the spec.
  */
-import { isPerson, midHip, midShoulder, overlapShare, poseBox, Pt, dist, segmentDistance } from "./body";
+import {
+  dist,
+  finitePoint,
+  isPerson,
+  midHip,
+  midShoulder,
+  overlapShare,
+  poseBox,
+  Pt,
+  sanitizePose,
+  segmentDistance,
+} from "./body";
 import { effectiveAspect, toPixelSpace, VIS_MIN } from "./geometry";
 import { Frame, Landmark, LM } from "./types";
 
@@ -169,17 +181,22 @@ export class SubjectLock {
    */
   lock(poses: Landmark[][], aspect?: number): boolean {
     const a = effectiveAspect(aspect);
-    const i = nearestCentre(poses, a);
+    const clean = poses.map(sanitizePose);
+    const i = nearestCentre(clean, a);
     this.resetAttempt();
-    if (i < 0) {
+    const p = i < 0 ? null : toPixelSpace(clean[i], a);
+    const hip = p ? trackPoint(p) : null;
+    if (!p || !hip) {
       this.state = null;
       return false;
     }
-    const p = toPixelSpace(poses[i], a);
-    const hip = midHip(p);
     const shoulders = dist(p[LM.l_shoulder], p[LM.r_shoulder]);
     const trunk = dist(midShoulder(p), hip);
-    const width = Math.max(shoulders, this.rules.minWidthPerTrunk * trunk, 1e-3);
+    const width = Math.max(
+      Number.isFinite(shoulders) ? shoulders : 0,
+      this.rules.minWidthPerTrunk * (Number.isFinite(trunk) ? trunk : 0),
+      1e-3,
+    );
     this.state = { aspect: a, anchor: hip, ref: { ...hip }, width };
     return true;
   }
@@ -240,7 +257,8 @@ export class SubjectLock {
     }
     const a = aspect === undefined ? s.aspect : effectiveAspect(aspect);
     const people: { i: number; raw: Landmark[]; px: Landmark[] }[] = [];
-    poses.forEach((raw, i) => {
+    poses.forEach((pose, i) => {
+      const raw = sanitizePose(pose);
       if (isPerson(raw)) people.push({ i, raw, px: toPixelSpace(raw, a) });
     });
 
@@ -261,7 +279,8 @@ export class SubjectLock {
     let k = 0;
     let best = Infinity;
     people.forEach((p, j) => {
-      const d = dist(midHip(p.px), s.ref);
+      const hip = trackPoint(p.px);
+      const d = hip ? dist(hip, s.ref) : Infinity;
       if (d < best) {
         best = d;
         k = j;
@@ -284,7 +303,7 @@ export class SubjectLock {
       });
     }
 
-    s.ref = midHip(subject.px);
+    s.ref = trackPoint(subject.px)!;
     const box = poseBox(subject.px);
     let overlap = 0;
     for (const o of others) {
@@ -319,6 +338,19 @@ export class SubjectLock {
   pickFrame(frame: Frame): SubjectPick {
     return this.pick(posesOf(frame), frame.aspect ?? this.state?.aspect);
   }
+}
+
+/**
+ * The point the lock follows: the mid hip (whatever the hips' visibility, see body.ts midHip), or
+ * one hip when the other is not a finite number, or null when neither is.
+ */
+function trackPoint(p: Landmark[]): Pt | null {
+  const l = finitePoint(p[LM.l_hip]);
+  const r = finitePoint(p[LM.r_hip]);
+  if (l && r) return midHip(p);
+  if (l) return { x: p[LM.l_hip].x, y: p[LM.l_hip].y };
+  if (r) return { x: p[LM.r_hip].x, y: p[LM.r_hip].y };
+  return null;
 }
 
 /** An empty pose (every landmark invisible), what a source sends when nobody was found. */

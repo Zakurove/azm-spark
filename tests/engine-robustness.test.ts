@@ -271,3 +271,28 @@ describe("a phone that slips during the arm raise (spec 4.0 subject lock)", () =
     expect(r.cues.filter((c) => c === "check_one_person").length).toBeLessThanOrEqual(1);
   });
 });
+
+describe("the phone moves after the arm raise calibration (spec 4.1 trunk reference)", () => {
+  for (const [dx, seed] of [
+    [0.02, 340],
+    [0.05, 341],
+  ] as const) {
+    it(`an image shift of ${dx * 100} percent of the width never biases a stored angle`, () => {
+      const starts = raiseStarts(7);
+      const shiftAt = starts[0] + 10.5;
+      const { fx, frames } = framesOf(
+        spec("shoulder_abduction", "chair", "9:16", raises("right", 150, starts), starts[6] + 12, seed, {
+          // dx is a share of the image height (gen.ts); the width is 0.5625 of it at 9:16.
+          jolts: [{ at: shiftAt, dx: dx * 0.5625, dy: 0 }],
+        }),
+      );
+      const r = run(new RangeTestRunner(ABD, "right"), frames, { rollDeg: 0 });
+      const out = r.side("right");
+      expect(out.status).toBe("measured");
+      for (const a of out.attempts.filter((x) => x.outcome === "valid"))
+        expect(Math.abs(a.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(3);
+      expect(Math.abs(out.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
+      expect(r.cues).toContain("check_phone_still");
+    });
+  }
+});

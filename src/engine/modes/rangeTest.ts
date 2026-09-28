@@ -131,6 +131,13 @@ export const RANGE_RULES = {
   medianSec: 0.3,
   /** The one person cue at most this often while scoring is paused (seconds). */
   onePersonCueEverySec: 5,
+  // SPEC-GAP: camera-moved. Spec 4.1 fixes the mid hip at calibration (trunk reference), so a
+  // picture that shifts afterwards (a bumped stand, a sliding phone, front camera auto framing)
+  // tilts the axis and biases every angle while the lean check stays quiet. When both hips are
+  // seen, their mid point (running median) more than this many calibration shoulder widths from the
+  // fixed mid hip, for persistSec, means the picture moved (or the pelvis slid on the seat): the
+  // attempt is repeated with check_phone_still and the calibration is taken again. Tune at booth.
+  cameraMovedShoulderWidths: 0.1,
   // SPEC-GAP: relock-after-jump. After a phone slip every frame reads as a jump (spec 4.0) and the
   // lock waits for a new calibration. With one person in the picture and the jump pause lasting this
   // long in a rest, the runner takes the calibration again (and the lock with it).
@@ -214,10 +221,16 @@ interface AttemptState {
   assist: Persist;
   pastVertical: Persist;
   wrongArm: boolean;
+  /** The picture moved during the attempt (camera-moved). */
+  cameraMoved: boolean;
   said: Set<CheckCueId>;
   lastLive: number | null;
   lastPeakShown: number;
   rolls: number[];
+  /** Live mid hip (running median per axis) and the camera moved rule (trunk reference). */
+  hipMedX: RunningMedian;
+  hipMedY: RunningMedian;
+  moved: Persist;
 }
 
 const clampDeg = (x: number) => Math.max(0, Math.min(180, x));
@@ -253,6 +266,8 @@ export class RangeTestRunner implements TestRunner {
   private calStart = 0;
   /** The next calibration frame locks the subject again (spec 4.0: locked at calibration). */
   private relockPending = true;
+  /** The attempt after this rest takes the calibration again first (the picture moved). */
+  private recalAfterRest = false;
   /** Since when the subject lock has paused on a jump, null while it follows the subject. */
   private jumpSince: number | null = null;
   private cal: Calibration | null = null;
@@ -507,6 +522,7 @@ export class RangeTestRunner implements TestRunner {
 
   /** Takes the calibration again (and the subject lock with it), then goes on with the attempts. */
   private recalibrate(t: number): void {
+    this.recalAfterRest = false;
     this.calBuf = [];
     this.calStart = t;
     this.relockPending = true;
@@ -546,10 +562,14 @@ export class RangeTestRunner implements TestRunner {
       assist: new Persist(RANGE_RULES.persistSec),
       pastVertical: new Persist(RANGE_RULES.persistSec),
       wrongArm: false,
+      cameraMoved: false,
       said: new Set(),
       lastLive: null,
       lastPeakShown: -1,
       rolls: [],
+      hipMedX: new RunningMedian(RANGE_RULES.medianSec * 1000),
+      hipMedY: new RunningMedian(RANGE_RULES.medianSec * 1000),
+      moved: new Persist(RANGE_RULES.persistSec),
     };
     this.setPhase(practice ? "practice" : "attempt", t, index);
     if (practice && !this.practiceDone) this.sink.cue("test_abd_thumb", t);
@@ -710,6 +730,20 @@ export class RangeTestRunner implements TestRunner {
         this.cueOnce("test_abd_side", t);
       }
 
+      // The picture moved since the calibration (camera-moved): the live mid hip, when both hips
+      // are seen, away from the fixed one.
+      const px = tr.px!;
+      if (!gravity && seen(px, 23, this.minVis) && seen(px, 24, this.minVis)) {
+        const hx = a.hipMedX.push(t, (px[23].x + px[24].x) / 2);
+        const hy = a.hipMedY.push(t, (px[23].y + px[24].y) / 2);
+        const off = Math.hypot(hx - c.fixedHip!.x, hy - c.fixedHip!.y) / c.shoulderWidth;
+        if (a.moved.update(t, off > R.cameraMovedShoulderWidths)) {
+          a.cameraMoved = true;
+          this.endAttempt(t);
+          return;
+        }
+      }
+
       // Trunk lean from calibration (spec 4.1 validity).
       const leanAbs = Math.abs(m.lean);
       a.leanMax = Math.max(a.leanMax, leanAbs);
@@ -838,7 +872,7 @@ export class RangeTestRunner implements TestRunner {
       t1: t,
     };
 
-    if (a.practice && !a.wrongArm) {
+    if (a.practice && !a.wrongArm && !a.cameraMoved) {
       // Reference length: the larger of the hanging length and the longest upper arm seen between
       // 70 and 110 degrees in the practice lift (spec 4.1).
       const inWindow = a.samples.filter((s) => s.angle >= R.planeWindow[0] && s.angle <= R.planeWindow[1]);
@@ -850,9 +884,9 @@ export class RangeTestRunner implements TestRunner {
       return;
     }
 
-    if (a.wrongArm || !q.ok) {
+    if (a.wrongArm || a.cameraMoved || !q.ok) {
       rec.outcome = "retry";
-      rec.reasons = a.wrongArm ? ["wrong_arm"] : [...q.issues];
+      rec.reasons = a.wrongArm ? ["wrong_arm"] : a.cameraMoved ? ["camera_moved"] : [...q.issues];
       this.retried.push(rec);
       this.sink.push(this.attemptEvent(rec, t));
       // SPEC-GAP: retry-budget. The wrong arm (and a wrong arm practice lift) uses the same 2 extra
@@ -865,7 +899,11 @@ export class RangeTestRunner implements TestRunner {
         return;
       }
       this.retries++;
-      if (!a.wrongArm && q.cue && q.cue !== "check_try_again") this.sink.cue(q.cue, t);
+      if (a.cameraMoved) {
+        // The calibration is taken again in the new picture before the next attempt.
+        this.sink.cue("check_phone_still", t);
+        this.recalAfterRest = true;
+      } else if (!a.wrongArm && q.cue && q.cue !== "check_try_again") this.sink.cue(q.cue, t);
       this.sink.cue("check_try_again", t);
       this.rest(t, a.practice);
       return;
@@ -944,6 +982,10 @@ export class RangeTestRunner implements TestRunner {
       tested !== null &&
       tested <= RANGE_RULES.relaxedMaxDeg &&
       (other === null || other <= RANGE_RULES.relaxedMaxDeg);
+    if (this.recalAfterRest) {
+      this.recalibrate(t);
+      return;
+    }
     if (down || t - this.restEnded >= RANGE_RULES.restWaitMaxSec * 1000)
       this.startAttempt(t, this.nextPractice || !this.practiceDone);
   }

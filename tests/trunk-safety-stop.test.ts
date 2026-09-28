@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import voiceScript from "../src/app/voice-script.json";
 import { Calibrator } from "../src/engine/calibration";
 import { computeMetrics } from "../src/engine/geometry";
+import { PoseSmoother } from "../src/engine/oneEuro";
 import { profileById } from "../src/engine/profiles";
 import { RepEngine, WORKOUT_ENGINE_VERSION } from "../src/engine/repEngine";
 import {
@@ -25,6 +26,7 @@ import {
   trunkStopFor,
   trunkStopLimits,
 } from "../src/engine/trunkSafety";
+import { TRACES } from "../src/engine/traces";
 import { EngineEvent, ExerciseDef, Frame, Landmark, LM, PRF } from "../src/engine/types";
 import { exerciseById } from "../src/exercises/defs";
 
@@ -386,4 +388,39 @@ describe("the stop ends the set", () => {
     const stop = events.filter((e) => e.kind === "stop");
     expect(stop).toHaveLength(1);
   });
+});
+
+describe("the demo traces run like the workout screen", () => {
+  // Session.tsx: smoothing, calibration until ready, the pre-set block check, then the engine.
+  for (const [id, opts] of [
+    ["seated_shoulder_press", { leanDeg: 12, leanFromRep: 4 }],
+    ["seated_biceps_curl", {}],
+    ["sit_to_stand", {}],
+  ] as const) {
+    it(`${id}: calibrates, is not blocked, counts reps and never stops`, () => {
+      const def = exerciseById(id);
+      const frames = TRACES[id]({ reps: 14, ...opts });
+      const smoother = new PoseSmoother();
+      let cal: Calibrator | null = new Calibrator(def);
+      let engine: RepEngine | null = null;
+      const events: EngineEvent[] = [];
+      for (const f of frames) {
+        const mf = computeMetrics(smoother.smoothFrame(f), def.metrics, []);
+        if (engine) {
+          events.push(...engine.step(mf));
+          continue;
+        }
+        cal!.feed(mf);
+        if (cal!.ready(f.t, 150)) {
+          const prf = cal!.build(0);
+          expect(presetBlock(def, prf)).toBeNull();
+          engine = new RepEngine(def, prf, WHEELCHAIR);
+          cal = null;
+        }
+      }
+      expect(engine).not.toBeNull();
+      expect(events.some((e) => e.kind === "stop")).toBe(false);
+      expect(engine!.repCount).toBeGreaterThanOrEqual(5);
+    });
+  }
 });

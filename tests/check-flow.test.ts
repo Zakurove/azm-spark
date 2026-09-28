@@ -882,7 +882,7 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     expect(play(withState(planned, { kind: "plan" }), { type: "STOP" }).overlay).toBeNull();
   });
 
-  it("stop list: pain asks S47, tired and other rest a minute (S42), choice goes on, mistake back to setup", () => {
+  it("stop list: pain asks S47, tired and other rest a minute (S42), choice goes on (S42)", () => {
     const open = play(measuring, { type: "STOP" });
     const pain = play(open, { type: "STOP_OPTION", option: "pain" });
     expect(pain.state).toMatchObject({ kind: "between", scope: "test", via: "stop" });
@@ -903,9 +903,6 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
       restSec: 0,
       reason: "by_choice",
     });
-    const mistake = play(open, { type: "STOP_OPTION", option: "mistake" });
-    expect(mistake.state).toEqual(cam("cam.setup"));
-    expect(mistake.data.outcomes).toEqual({});
     expect(play(open, { type: "STOP_NO_INPUT" }).overlay).toEqual({
       kind: "checkIn",
       from: "stopList",
@@ -2047,5 +2044,33 @@ describe("the alarm over the stop list goes back to the stop list (O43, Q31 (3))
     const chest = play(fine, { type: "STOP_OPTION", option: "chest" });
     expect(chest.state).toMatchObject({ kind: "safety", safety: "emergency" });
     expect(chest.effects.filter((x) => x.type === "stop")).toHaveLength(1);
+  });
+});
+
+describe("no way back into a stopped test (O43)", () => {
+  it("«أردت التوقف فقط» goes to S42 with the stop posted and the test not measured today", () => {
+    const measuring = withState(signedAtPlan(), cam("cam.measure"));
+    const choice = play(measuring, { type: "STOP" }, { type: "STOP_OPTION", option: "choice" });
+    expect(choice.state).toMatchObject({ kind: "stopDone", restSec: 0, reason: "by_choice" });
+    expect(choice.effects.filter((x) => x.type === "stop")).toEqual([
+      expect.objectContaining({ option: "choice", ref: { testId: "shoulder_abduction", side: "right" } }),
+    ]);
+    expect(choice.data.outcomes["shoulder_abduction:right"]).toMatchObject({
+      status: "skipped",
+      reason: "by_choice",
+    });
+  });
+
+  it("the rejected option «ضغطت «توقف» دون قصد» is refused, and its copy key is gone", async () => {
+    const measuring = withState(signedAtPlan(), cam("cam.measure"));
+    const open = play(measuring, { type: "STOP" });
+    const mistake = play(open, { type: "STOP_OPTION", option: "mistake" as StopOptionId });
+    expect(mistake.state).toEqual(open.state);
+    expect(mistake.overlay).toEqual(open.overlay);
+    expect(mistake.effects).toEqual(open.effects);
+    const { default: ar } = await import("../src/i18n/ar/assessment.json");
+    const { default: en } = await import("../src/i18n/en/assessment.json");
+    for (const copy of [ar, en] as { stop: Record<string, unknown> }[])
+      expect(copy.stop).not.toHaveProperty("mistake");
   });
 });

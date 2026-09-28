@@ -56,7 +56,7 @@ import {
   type ProtocolItem,
   type SelectionItem,
 } from "../../medical/assessment";
-import { precheckItem, testDef } from "../../movements/assessments";
+import { CHECK_DATA, precheckItem, testDef } from "../../movements/assessments";
 import { ENGINE_VERSION } from "../../engine/modes";
 import type {
   CheckPosition,
@@ -509,7 +509,7 @@ export type FlowEvent = At &
     | { type: "GUEST_NEXT_TEST" }
     | { type: "GUEST_RESULTS" }
     | { type: "STOP" }
-    | { type: "STOP_OPTION"; option: StopOptionId | "mistake" }
+    | { type: "STOP_OPTION"; option: StopOptionId }
     | { type: "STOP_NO_INPUT" }
     | { type: "STOP_NEXT" }
     | { type: "STOP_END" }
@@ -891,7 +891,9 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "SKIP_CONFIRM") return skipCurrentTest(close(m), "by_choice");
       return m;
     case "stopList":
-      if (e.type === "STOP_OPTION") return stopOption(close(m), e.option, now);
+      // Only the options of the data (Q31 (3)); O43 rejected a "pressed by mistake" way back.
+      if (e.type === "STOP_OPTION")
+        return STOP_OPTIONS.has(e.option) ? stopOption(close(m), e.option, now) : m;
       if (e.type === "STOP_NO_INPUT")
         return { ...m, overlay: { kind: "checkIn", from: "stopList", trigger: "no_answer" } };
       return m;
@@ -1599,15 +1601,16 @@ function skipCurrentTest(m: FlowModel, reason: string): FlowModel {
 
 /* ------------------------------------------------------------ stop list (S41) */
 
-function stopOption(m: FlowModel, option: StopOptionId | "mistake", now: number): FlowModel {
+/** The stop list's options (v1.1 stopRouting, Q31 (3)). */
+const STOP_OPTIONS: ReadonlySet<string> = new Set(CHECK_DATA.stopRouting.options.map((o) => o.id));
+
+/**
+ * An option of the stop list (S41). Every stop is logged with its reason and the stopped test stores
+ * no score (resultOnStop); there is no way back into a stopped test (O43).
+ */
+function stopOption(m: FlowModel, option: StopOptionId, now: number): FlowModel {
   const d = m.data;
   const t = currentTest(m);
-  if (option === "mistake") {
-    // "I pressed Stop by mistake": back to the setup check, same attempt, no retry used, not logged.
-    const s = m.state;
-    if (isCamKind(s.kind) && t) return go(m, { kind: "cam.setup", i: t.i, side: t.side });
-    return m;
-  }
   // Without the context (a resumed check whose context is blocked, for example) the routing never
   // fails open: it reads the most conservative person (stopEnv).
   const env = stopEnv(d);

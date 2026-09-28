@@ -440,7 +440,15 @@ describe("booth (O17)", () => {
     expect(token.ok && token.value.token).toMatch(/^[0-9a-f]{64}$/);
     if (!token.ok) return;
     expect(token.value.expires).toBeLessThanOrEqual(Date.now() + 45 * 60 * 1000);
-    expect(await api.boothRedeem(token.value.token)).toEqual({
+    const redeemed = await api.boothRedeem(token.value.token);
+    expect(redeemed).toEqual({
+      ok: true,
+      value: { ok: true, token: expect.stringMatching(/^[0-9a-f]{64}$/), expires: token.value.expires },
+    });
+    // Single use: the QR token is spent; the phone's own pass checks without being used.
+    expect(await api.boothRedeem(token.value.token)).toEqual({ ok: true, value: { ok: false } });
+    if (!redeemed.ok || !redeemed.value.ok) return;
+    expect(await api.boothCheck(redeemed.value.token)).toEqual({
       ok: true,
       value: { ok: true, expires: token.value.expires },
     });

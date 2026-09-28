@@ -162,10 +162,12 @@ describe("booth mode is a server pass, never the code (S55, S55b, O17)", () => {
           error: { kind: "http" as const, status: 403, code: "BOOTH_SESSION", body: {} },
         }),
         boothRedeem: async () => ({ ok: true as const, value: { ok: false as const } }),
+        boothCheck: async () => ({ ok: true as const, value: { ok: false as const } }),
       };
       const offline = {
         boothToken: async () => ({ ok: false as const, error: { kind: "network" as const } }),
         boothRedeem: async () => ({ ok: false as const, error: { kind: "network" as const } }),
+        boothCheck: async () => ({ ok: false as const, error: { kind: "network" as const } }),
       };
       booth.saveStaffSession(SESSION, 9e15);
       expect(await booth.boothPassHolds(offline)).toBe(true);
@@ -177,11 +179,32 @@ describe("booth mode is a server pass, never the code (S55, S55b, O17)", () => {
       booth.clearBoothPass();
       expect(await booth.redeemVisitorToken(refused, TOKEN)).toBe(false);
       expect(booth.isBoothMode()).toBe(false);
+      // The QR token is spent on redeem: the phone keeps its own pass from the answer, never the QR's.
+      const PHONE = "c".repeat(64);
+      const redeemed: string[] = [];
       const ok = {
-        boothRedeem: async () => ({ ok: true as const, value: { ok: true as const, expires: 9e15 } }),
+        boothRedeem: async (token: string) => {
+          redeemed.push(token);
+          return { ok: true as const, value: { ok: true as const, token: PHONE, expires: 9e15 } };
+        },
       };
       expect(await booth.redeemVisitorToken(ok, "not-a-token")).toBe(false);
       expect(await booth.redeemVisitorToken(ok, TOKEN)).toBe(true);
-      expect(booth.readBoothPass()).toMatchObject({ kind: "visitor", token: TOKEN });
+      expect(redeemed).toEqual([TOKEN]);
+      expect(booth.readBoothPass()).toMatchObject({ kind: "visitor", token: PHONE });
+      // The phone checks its pass without redeeming (which would spend it).
+      const checked: string[] = [];
+      const probe = {
+        boothToken: refused.boothToken,
+        boothRedeem: async () => {
+          throw new Error("a probe never redeems");
+        },
+        boothCheck: async (token: string) => {
+          checked.push(token);
+          return { ok: true as const, value: { ok: true as const, expires: 9e15 } };
+        },
+      };
+      expect(await booth.boothPassHolds(probe)).toBe(true);
+      expect(checked).toEqual([PHONE]);
     }));
 });

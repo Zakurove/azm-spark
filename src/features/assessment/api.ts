@@ -277,7 +277,13 @@ export interface AdultResponse {
 export type BoothVerifyResponse =
   { ok: true; session: string; expires: number } | { ok: false; closed?: true };
 
-export type BoothRedeemResponse = { ok: true; expires: number } | { ok: false };
+/**
+ * POST /api/booth/redeem: the QR token is spent and swapped for this phone's own pass (O17, S55b), so
+ * the link turns booth mode on for one phone only.
+ */
+export type BoothRedeemResponse = { ok: true; token: string; expires: number } | { ok: false };
+/** POST /api/booth/check: this phone's pass still holds (checked, not used). */
+export type BoothCheckResponse = { ok: true; expires: number } | { ok: false };
 
 /* ------------------------------------------------------------------ the client */
 
@@ -308,6 +314,7 @@ export interface CheckApi {
   boothVerify(code: string): Promise<ApiResult<BoothVerifyResponse>>;
   boothToken(session: string): Promise<ApiResult<{ token: string; expires: number }>>;
   boothRedeem(token: string): Promise<ApiResult<BoothRedeemResponse>>;
+  boothCheck(token: string): Promise<ApiResult<BoothCheckResponse>>;
 }
 
 export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
@@ -377,6 +384,7 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
     boothVerify: (code) => call<BoothVerifyResponse>("POST", "/booth/verify", { code }),
     boothToken: (session) => call("POST", "/booth/token", { session }),
     boothRedeem: (token) => call<BoothRedeemResponse>("POST", "/booth/redeem", { token }),
+    boothCheck: (token) => call<BoothCheckResponse>("POST", "/booth/check", { token }),
   };
 }
 

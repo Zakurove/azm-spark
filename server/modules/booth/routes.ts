@@ -7,14 +7,17 @@
  *                                        days and hours
  *   POST /api/booth/token   { session }  a one check visitor token for 45 minutes at most, never past
  *                                        closing: { token, expires }; 403 BOOTH_SESSION
- *   POST /api/booth/redeem  { token }    the visitor's phone checks its token: { ok, expires? }
+ *   POST /api/booth/redeem  { token }    the visitor's phone redeems the QR token once: it is spent
+ *                                        and swapped for the phone's own pass { ok, token, expires };
+ *                                        { ok: false } for a spent, used or ended token
+ *   POST /api/booth/check   { token }    the phone checks its pass without using it: { ok, expires? }
  *
  * A signed in booth check starts with a boothToken only (O17; the code stays on staff devices), see
  * POST /api/assessments. Codes, sessions and tokens are never logged or stored in the clear.
  */
 import type { Route } from "../../http/types";
 import { boothCodeMatches, boothWindow } from "./config";
-import { createPass, PASS, validPass } from "./store";
+import { createPass, PASS, swapPass, validPass } from "./store";
 
 const WINDOW_MS = 15 * 60 * 1000;
 /** Contract v3 I: 10 verify calls per IP in 15 minutes. */
@@ -78,6 +81,20 @@ export const boothRoutes: Route[] = [
   {
     method: "POST",
     path: /^\/api\/booth\/redeem$/,
+    auth: "public",
+    handle({ db, body, ip, json, limited }) {
+      if (limited(`booth-redeem:${ip}`, PASS_CALLS_PER_IP, WINDOW_MS))
+        return json(429, { error: "RATE_LIMIT" });
+      if (onlyKey(body, "token")) return json(400, { error: "BOOTH_INVALID", field: "body" });
+      const now = Date.now();
+      // Single use: a QR link passed on to other phones turns booth mode on for the first one only.
+      const pass = boothWindow(now).open ? swapPass(db, body.token, now) : null;
+      json(200, pass === null ? { ok: false } : { ok: true, token: pass.token, expires: pass.expires });
+    },
+  },
+  {
+    method: "POST",
+    path: /^\/api\/booth\/check$/,
     auth: "public",
     handle({ db, body, ip, json, limited }) {
       if (limited(`booth-redeem:${ip}`, PASS_CALLS_PER_IP, WINDOW_MS))

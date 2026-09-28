@@ -7,7 +7,8 @@
  *   staff     a booth owned phone: staff typed the daily code on /?booth=1 and POST /api/booth/verify
  *             answered the device session of the booth day { session, expires } (S55);
  *   visitor   a visitor's own phone: it opened /?boothToken=<token> from the staff QR and
- *             POST /api/booth/redeem accepted the one check token { expires } (S55b).
+ *             POST /api/booth/redeem spent that token and gave this phone its own one check pass
+ *             { token, expires } (S55b), so the link works on one phone only.
  *
  * Either pass turns booth mode on for this tab until it expires (closing time, or 45 minutes for a
  * visitor token). A signed in booth start sends a one check `boothToken`: the visitor's own token, or
@@ -123,12 +124,13 @@ export async function boothStartToken(api: Pick<CheckApi, "boothToken">): Promis
  */
 // SPEC-GAP: booth-session-probe. The server has no route that only checks a staff session; the probe
 // asks for a visitor token (45 minutes at most, unused) and discards it.
-export async function boothPassHolds(api: Pick<CheckApi, "boothToken" | "boothRedeem">): Promise<boolean> {
+export async function boothPassHolds(api: Pick<CheckApi, "boothToken" | "boothCheck">): Promise<boolean> {
   const pass = readBoothPass();
   if (!pass) return false;
   if (pass.kind === "e2e") return true;
   if (pass.kind === "visitor") {
-    const r = await api.boothRedeem(pass.token);
+    // Checked, never redeemed: a redeem would spend the pass.
+    const r = await api.boothCheck(pass.token);
     return !(r.ok && r.value.ok === false);
   }
   const r = await api.boothToken(pass.session);
@@ -136,8 +138,8 @@ export async function boothPassHolds(api: Pick<CheckApi, "boothToken" | "boothRe
 }
 
 /**
- * Redeems a visitor token from the staff QR (/?boothToken=, S55b) and keeps it. Returns whether booth
- * mode is now on for this tab.
+ * Redeems a visitor token from the staff QR (/?boothToken=, S55b) and keeps the pass the server gives
+ * this phone in its place (the QR token is spent). Returns whether booth mode is now on for this tab.
  */
 export async function redeemVisitorToken(
   api: Pick<CheckApi, "boothRedeem">,
@@ -145,8 +147,8 @@ export async function redeemVisitorToken(
 ): Promise<boolean> {
   if (!PASS.test(token)) return false;
   const r = await api.boothRedeem(token);
-  if (!r.ok || !r.value.ok) return false;
-  saveVisitorToken(token, r.value.expires);
+  if (!r.ok || !r.value.ok || !PASS.test(r.value.token)) return false;
+  saveVisitorToken(r.value.token, r.value.expires);
   return true;
 }
 

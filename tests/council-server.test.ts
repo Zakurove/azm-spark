@@ -298,25 +298,56 @@ describe("booth passes (O17): staff session, one check visitor token, redeem, st
     expect(t.status).toBe(200);
     expect(t.data).toEqual({ token: expect.stringMatching(/^[0-9a-f]{64}$/), expires: BOOTH_DAY + 45 * MIN });
 
-    // The visitor's phone redeems it (it stays valid until a check starts with it).
-    expect((await h.call("/booth/redeem", { token: t.data.token })).data).toEqual({
+    // The visitor's phone redeems the QR token once: it is swapped for this phone's own pass, which
+    // stays valid until a check starts with it.
+    const redeemed = await h.call("/booth/redeem", { token: t.data.token });
+    expect(redeemed.data).toEqual({
+      ok: true,
+      token: expect.stringMatching(/^[0-9a-f]{64}$/),
+      expires: BOOTH_DAY + 45 * MIN,
+    });
+    const pass = redeemed.data.token as string;
+    expect(pass).not.toBe(t.data.token);
+    expect((await h.call("/booth/redeem", { token: "0".repeat(64) })).data).toEqual({ ok: false });
+    // The phone checks its pass without using it.
+    expect((await h.call("/booth/check", { token: pass })).data).toEqual({
       ok: true,
       expires: BOOTH_DAY + 45 * MIN,
     });
-    expect((await h.call("/booth/redeem", { token: "0".repeat(64) })).data).toEqual({ ok: false });
+    expect((await h.call("/booth/check", { token: pass })).data).toEqual({
+      ok: true,
+      expires: BOOTH_DAY + 45 * MIN,
+    });
 
-    // A signed in visitor starts a booth check with it, once.
+    // A signed in visitor starts a booth check with the phone's pass, once; the QR token is spent.
     const cookie = await member(h, "visitor@example.test", intakeOf());
-    const s = await start(h, cookie, {}, { setting: "booth", boothToken: t.data.token });
+    expect((await start(h, cookie, {}, { setting: "booth", boothToken: t.data.token })).data).toEqual({
+      error: "BOOTH_CODE",
+    });
+    const s = await start(h, cookie, {}, { setting: "booth", boothToken: pass });
     expect(s.status).toBe(200);
     expect(s.data.setting).toBe("booth");
-    const again = await start(h, cookie, {}, { setting: "booth", boothToken: t.data.token });
+    const again = await start(h, cookie, {}, { setting: "booth", boothToken: pass });
     expect(again.data).toEqual({ error: "BOOTH_CODE" });
-    expect((await h.call("/booth/redeem", { token: t.data.token })).data).toEqual({ ok: false });
+    expect((await h.call("/booth/redeem", { token: pass })).data).toEqual({ ok: false });
+    expect((await h.call("/booth/check", { token: pass })).data).toEqual({ ok: false });
     // Only hashes are stored, never a token.
     const stored = rows(h, "SELECT * FROM booth_passes");
-    expect(JSON.stringify(stored)).not.toContain(t.data.token);
-    expect(JSON.stringify(stored)).not.toContain(session);
+    for (const secret of [t.data.token, pass, session]) expect(JSON.stringify(stored)).not.toContain(secret);
+  });
+
+  it("redeems a QR token on one phone only: a second phone is refused (O17, S55b)", async () => {
+    process.env.AZM_BOOTH_CODE = CODE;
+    setTime(BOOTH_DAY);
+    const session = await staffSession("192.0.2.42");
+    const qr = (await h.call("/booth/token", { session })).data.token as string;
+    const first = await h.call("/booth/redeem", { token: qr });
+    expect(first.data.ok).toBe(true);
+    for (let phone = 2; phone <= 5; phone++)
+      expect((await h.call("/booth/redeem", { token: qr })).data, `phone ${phone}`).toEqual({ ok: false });
+    expect((await h.call("/booth/check", { token: qr })).data).toEqual({ ok: false });
+    // Bodies that do not fit are refused.
+    expect((await h.call("/booth/check", { token: first.data.token, extra: 1 })).status).toBe(400);
   });
 
   it("ends a visitor token after 45 minutes and a staff session at the end of the booth day", async () => {

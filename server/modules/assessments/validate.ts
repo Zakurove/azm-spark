@@ -431,6 +431,11 @@ export function checkResult(body: Record<string, unknown>, scope: ResultScope): 
     if (!handsAllowed || (item.pushHand !== undefined && d.pushHand !== item.pushHand))
       return fail("detail.pushHand");
   }
+  // Spec 4.2 load rules. A scored arm curl names its load object, so the rules below cannot be
+  // skipped by leaving it out: kilograms go with a dumbbell or a wrist weight (cuff), litres with a
+  // bottle, and no load with arm_only.
+  const scoredCurl = item.testId === "arm_curl_30s" && skippedReason === null;
+  if (scoredCurl && d.loadObject === undefined) return fail("detail.loadObject");
   if (item.testId === "arm_curl_30s" && d.loadObject !== undefined) {
     const v = variant.value;
     const fits =
@@ -443,6 +448,9 @@ export function checkResult(body: Record<string, unknown>, scope: ResultScope): 
     if (d.loadObject === "dumbbell" && scope.setting === "home" && noDumbbell)
       return fail("detail.loadObject");
   }
+  if (d.loadKg !== undefined && d.loadObject !== "dumbbell" && d.loadObject !== "cuff")
+    return fail("detail.loadKg");
+  if (d.loadL !== undefined && d.loadObject !== "bottle") return fail("detail.loadL");
 
   return {
     ok: true,

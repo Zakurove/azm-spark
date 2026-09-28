@@ -1564,3 +1564,58 @@ describe("the safety log counts each stop option once per check", () => {
     expect(tired).toEqual({ count: 2 });
   });
 });
+
+describe("the arm curl load of a result (spec 4.2 load rules)", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  it("needs the load object for a scored arm curl, so the no dumbbell rule cannot be skipped", async () => {
+    const cookie = await member(h, "pd-load@example.test", intakeOf({ conditions: ["parkinsons"] }));
+    const s = await start(h, cookie);
+    const curl = itemOf(s.data.protocol, "arm_curl_30s", "right");
+    const post = (detail: Record<string, unknown>, variant = "held") =>
+      h.call(`/assessments/${s.data.id}/results`, resultBody(curl, 12, { variant, detail }), cookie);
+    const base = { compensated: 0, countSource: "auto" };
+    expect((await post({ ...base, loadKg: 3 })).data).toEqual({
+      error: "RESULT_INVALID",
+      field: "detail.loadObject",
+    });
+    expect((await post({ ...base, loadObject: "bottle", loadKg: 3 })).data).toEqual({
+      error: "RESULT_INVALID",
+      field: "detail.loadKg",
+    });
+    expect((await post({ ...base, loadObject: "bottle", loadL: 1, loadKg: 1 })).data).toEqual({
+      error: "RESULT_INVALID",
+      field: "detail.loadKg",
+    });
+    expect((await post({ ...base, loadObject: "cuff", loadL: 1 }, "cuff")).data).toEqual({
+      error: "RESULT_INVALID",
+      field: "detail.loadL",
+    });
+    expect((await post({ ...base, loadObject: "none", loadKg: 1 }, "arm_only")).data).toEqual({
+      error: "RESULT_INVALID",
+      field: "detail.loadKg",
+    });
+    expect((await post({ ...base, loadObject: "cuff", loadKg: 1 }, "cuff")).data).toEqual({ saved: true });
+    expect((await post({ ...base, loadObject: "bottle", loadL: 1 })).data).toEqual({ saved: true });
+    // A skipped arm curl has no load.
+    const skipped = await h.call(
+      `/assessments/${s.data.id}/results`,
+      resultBody(curl, 0, {
+        value: null,
+        attempts: [],
+        nValid: 0,
+        median: null,
+        skippedReason: "by_choice",
+        variant: null,
+        detail: {},
+      }),
+      cookie,
+    );
+    expect(skipped.data).toEqual({ saved: true });
+  });
+});

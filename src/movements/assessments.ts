@@ -13,18 +13,27 @@ import type {
   CheckCueId,
   CheckData,
   CueLine,
+  EndOfCheckId,
+  EndOfCheckQuestion,
   FollowQuestion,
   Lang,
+  PausedWhenId,
   PrecheckId,
   PrecheckItem,
   QuestionId,
   ReasonId,
+  RetiredCue,
+  RetiredCueId,
   ScreenId,
+  SetupQuestion,
+  SetupQuestionId,
+  StopFollowUp,
+  StopFollowUpId,
   TestDefById,
   TestId,
   Widen,
 } from "./types";
-import { CHECK_CUE_IDS, TEST_ID_LIST } from "./types";
+import { CHECK_CUE_IDS, RETIRED_CUE_IDS, TEST_ID_LIST } from "./types";
 
 // Compile time check that the JSON has every field of CheckData with the right nesting and
 // primitive types. Literal values (ids, kinds, units) are checked by tests/movement-data.test.ts.
@@ -83,7 +92,60 @@ export function reasonText(id: ReasonId, lang: Lang): string {
   return (CHECK_DATA.reasons[id] ?? missing("reason", id))[lang];
 }
 
-/** A check voice cue: ar (display), arTts (fully vocalized, for speech) and en. */
+/** A check voice cue: ar (display), arTts (fully vocalized, for speech), en and the short form. */
 export function cueLine(id: CheckCueId): CueLine {
   return cuesById.get(id) ?? missing("cue", id);
+}
+
+/** The caption short form of a cue (O24-1): display only, never spoken, at most 3 words. */
+export function cueShort(id: CheckCueId, lang: Lang): string {
+  return cueLine(id).short[lang];
+}
+
+export function isRetiredCueId(id: string): id is RetiredCueId {
+  return (RETIRED_CUE_IDS as readonly string[]).includes(id);
+}
+
+/** A retired cue (cuesRetired): never generated, shipped or played; replacedBy names its successors. */
+export function retiredCue(id: RetiredCueId): RetiredCue {
+  return CHECK_DATA.cuesRetired.find((c) => c.id === id) ?? missing("retired cue", id);
+}
+
+/**
+ * The reason text shown for a skipped test (3.6), with the substitute sentence when the side lean
+ * actually ran in the chair stand slot (P6, reasonSuffixes.substituteRan): only for the reasons its
+ * appendTo lists; limb_loss_leg and position_seated already carry the sentence.
+ */
+export function skipReasonText(id: ReasonId, lang: Lang, o: { substituteRan?: boolean } = {}): string {
+  const text = reasonText(id, lang);
+  const suffix = CHECK_DATA.reasonSuffixes.substituteRan;
+  return o.substituteRan && suffix.appendTo.includes(id) ? `${text} ${suffix[lang]}` : text;
+}
+
+/* ------------------------------------------------ revision 1.1 sections */
+
+/** The faint follow up after a faint or a fall stop (S38b, sf_faint_loc). */
+export function stopFollowUp(id: StopFollowUpId): StopFollowUp {
+  return CHECK_DATA.stopFollowUps.find((q) => q.id === id) ?? missing("stop follow up", id);
+}
+
+/** The end of check symptom question (S49, ec_symptoms): ask, askSide with {side}, sideTokens. */
+export function endOfCheckQuestion(id: EndOfCheckId): EndOfCheckQuestion {
+  return CHECK_DATA.endOfCheck.find((q) => q.id === id) ?? missing("end of check question", id);
+}
+
+/** A chair stand setup question at home (su_chair_gate, su_same_chair; Q9). */
+export function setupQuestion(id: SetupQuestionId): SetupQuestion {
+  return CHECK_DATA.setupQuestions.find((q) => q.id === id) ?? missing("setup question", id);
+}
+
+/** The {when} line of a lock (Q33 (4)), with its {time} token still in place. */
+export function pausedWhenText(id: PausedWhenId, lang: Lang): string {
+  return (CHECK_DATA.pausedWhenTokens[id] ?? missing("paused when token", id))[lang];
+}
+
+/** The call button of every screen that names 997 (emergencyCall.button, Q22), and its href. */
+export function emergencyCallButton(lang: Lang): { label: string; href: string } {
+  const b = CHECK_DATA.emergencyCall.button;
+  return { label: b[lang], href: b.href };
 }

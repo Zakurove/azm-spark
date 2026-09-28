@@ -4,19 +4,31 @@
  *   2. every closed set value (kinds, units, groups, actions, answer values, ...) is one the types allow;
  *   3. referential integrity: every test, cue, screen, reason, question and variant id referenced
  *      anywhere in the data exists, including ids named inside prose;
- *   4. every text has Arabic and English, with the same {tokens};
+ *   4. every text has Arabic and English, with the same {tokens}; speech lines match their display
+ *      text word for word and sentence for sentence (7.2-12); cue short forms (O24-1);
  *   5. the typed accessors of src/movements/assessments.ts.
+ * Revision 1.1 sections are covered too: stopFollowUps, endOfCheck, setupQuestions, reasonIds,
+ * reasonSuffixes, cuesRetired, emergencyCall, helperBriefing, pausedWhenTokens and the check in cues.
  */
 import { describe, expect, it } from "vitest";
 import {
   CHECK_DATA,
   TEST_IDS,
   cueLine,
+  cueShort,
+  emergencyCallButton,
+  endOfCheckQuestion,
   isCheckCueId,
+  isRetiredCueId,
   isTestId,
+  pausedWhenText,
   precheckItem,
   reasonText,
+  retiredCue,
   screenText,
+  setupQuestion,
+  skipReasonText,
+  stopFollowUp,
   testDef,
 } from "../src/movements/assessments";
 import {
@@ -24,11 +36,15 @@ import {
   AREA_IDS,
   BETWEEN_TEST_IDS,
   CHECK_CUE_IDS,
+  END_OF_CHECK_IDS,
   LOCK_REASON_IDS,
   POSTPONE_REASON_IDS,
   PRECHECK_IDS,
   REASON_IDS,
+  RETIRED_CUE_IDS,
   SCREEN_IDS,
+  SETUP_QUESTION_IDS,
+  STOP_FOLLOW_UP_IDS,
   STOP_OPTION_IDS,
   SURGERY_AREA_IDS,
   TEST_ID_LIST,
@@ -72,6 +88,9 @@ const ALL_SHOW_IFS = [
   ...QUESTIONS.flatMap((q) => ("showIf" in q ? showIfs(q.showIf) : [])),
   ...D.stopRouting.options.flatMap((o) => showIfs(o.showIf)),
   ...ACTIONS.flatMap(({ a }) => (a.do === "emergency" ? showIfs(a.alsoShowIf) : [])),
+  ...D.precheck.flatMap((q) => (q.chronicNote ? showIfs(q.chronicNote.showIf) : [])),
+  ...D.endOfCheck.flatMap((q) => showIfs(q.chronicNote.showIf)),
+  ...D.setupQuestions.flatMap((q) => showIfs(q.showIf)),
 ];
 const testRefs = (a: QuestionAction): TestRef[] => ("tests" in a && Array.isArray(a.tests) ? a.tests : []);
 const tokens = (s: string) => sorted(new Set([...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1])));
@@ -91,13 +110,29 @@ describe("id lists in src/movements/types.ts equal the data", () => {
     ["surgeryAreas", SURGERY_AREA_IDS, D.surgeryAreas.map((a) => a.id)],
     ["stopRouting.options", STOP_OPTION_IDS, D.stopRouting.options.map((o) => o.id)],
     ["progress.unitForms", UNIT_FORM_IDS, Object.keys(D.progress.unitForms)],
+    ["stopFollowUps", STOP_FOLLOW_UP_IDS, D.stopFollowUps.map((q) => q.id)],
+    ["endOfCheck", END_OF_CHECK_IDS, D.endOfCheck.map((q) => q.id)],
+    ["setupQuestions", SETUP_QUESTION_IDS, D.setupQuestions.map((q) => q.id)],
+    ["cuesRetired", RETIRED_CUE_IDS, D.cuesRetired.map((c) => c.id)],
   ];
   it.each(cases)("%s", (_name, list, data) => {
     expect(data).toEqual([...list]);
     expect(new Set(data).size).toBe(data.length);
   });
-  it("has the 67 check cues and the 4 tests of v1", () => {
-    expect(D.cues).toHaveLength(67);
+  it("O33 (m): reasonIds lists every reason id, sorted, including pain_more, clearance_booth, chair_needed and motion_needed", () => {
+    expect(D.reasonIds).toEqual(sorted(REASON_IDS));
+    for (const r of ["pain_more", "clearance_booth", "chair_needed", "motion_needed"])
+      expect(REASON_IDS).toContain(r);
+  });
+  it("O24-3, O33 (j): the retired cues are gone from the cue list, and their successors exist", () => {
+    for (const c of D.cuesRetired) {
+      expect(CHECK_CUE_IDS as readonly string[]).not.toContain(c.id);
+      for (const n of c.replacedBy) expect(CHECK_CUE_IDS as readonly string[], `${c.id} ${n}`).toContain(n);
+    }
+  });
+  it("has the 83 check cues of revision 1.1 and the 4 tests of v1", () => {
+    expect(D.specVersion).toBe("1.1");
+    expect(D.cues).toHaveLength(83);
     expect(TEST_IDS).toEqual([
       "shoulder_abduction",
       "arm_curl_30s",
@@ -121,7 +156,7 @@ describe("closed sets hold only the values the types allow", () => {
       "scale_0_10",
       "area_scale_0_10",
       "single",
-      "checklist",
+      "list_confirm",
       "three_yes_no",
     ]);
     for (const q of D.precheck) {
@@ -151,8 +186,10 @@ describe("closed sets hold only the values the types allow", () => {
       "usual",
       "settled",
       "lasting",
+      "done",
+      "not_yet",
     ]);
-    for (const q of QUESTIONS)
+    for (const q of [...QUESTIONS, ...D.stopFollowUps, ...D.endOfCheck, ...D.setupQuestions])
       for (const o of ("options" in q && q.options) || [])
         expect(values.has(o.value), `${q.id} ${o.value}`).toBe(true);
   });
@@ -182,9 +219,11 @@ describe("closed sets hold only the values the types allow", () => {
       "areaLoadsSelectedTest",
       "any",
       "in",
-      "allChecked",
       "anyYes",
-      "vitalsAbove",
+      "vitalsOutside",
+      "sciT6SystolicRiseGte",
+      "flag",
+      "anyOf",
       "vitalsUnavailable",
     ]);
     const stores = set([
@@ -200,6 +239,8 @@ describe("closed sets hold only the values the types allow", () => {
       "fingerprint.helperPresent",
       "followUpResolved",
       "assessment.followUp",
+      "faintReported",
+      "faintReported cleared",
     ]);
     const locks = set(["next_day", "60_min", "none"]);
     const sides = set(["weaker", "stronger", "same", "each", "none"]);
@@ -220,7 +261,9 @@ describe("closed sets hold only the values the types allow", () => {
       for (const t of testRefs(a)) expect(sides.has(t.side), `${q} ${t.side}`).toBe(true);
       if (a.do === "variant") expect(variants.has(a.variant), `${q} ${a.variant}`).toBe(true);
       if (a.do === "flag") expect(a.flag).toBe("sci_t6");
+      if (a.if.flag) expect(["sci_t6"]).toContain(a.if.flag);
     }
+    for (const o of D.stopRouting.options) if (o.stores) expect(stores.has(o.stores), o.id).toBe(true);
   });
 
   it("show conditions", () => {
@@ -239,6 +282,8 @@ describe("closed sets hold only the values the types allow", () => {
       "setting",
       "clearanceIn",
       "previousFollowUp",
+      "faintReportedUnresolved",
+      "weakerSide",
       // alsoShowIf carries the screen to show with its condition
       "screen",
     ]);
@@ -248,7 +293,7 @@ describe("closed sets hold only the values the types allow", () => {
       for (const c of s.conditionsAny ?? []) expect(conditions).toContain(c);
       for (const p of s.positionIn ?? []) expect(["chair", "wheelchair", "standing"]).toContain(p);
       for (const c of s.clearanceIn ?? []) expect(["yes", "no", "unsure"]).toContain(c);
-      if (s.flag) expect(["sci_t6", "helper_required"]).toContain(s.flag);
+      if (s.flag) expect(["sci_t6", "helper_required", "noArmSignal"]).toContain(s.flag);
       if (s.setting) expect(["booth", "home"]).toContain(s.setting);
       if (s.supportNot) expect(s.supportNot).toBe("none");
       if (s.previousFollowUp) expect(s.previousFollowUp).toBe("lasting_unresolved");
@@ -305,7 +350,14 @@ describe("referential integrity", () => {
   const REASONS = set(REASON_IDS);
   const POSTPONE = set(POSTPONE_REASON_IDS);
   const CUES = set(CHECK_CUE_IDS);
-  const QIDS = set([...PRECHECK_IDS, ...BETWEEN_TEST_IDS, ...AFTER_CHECK_IDS]);
+  const QIDS = set([
+    ...PRECHECK_IDS,
+    ...BETWEEN_TEST_IDS,
+    ...AFTER_CHECK_IDS,
+    ...STOP_FOLLOW_UP_IDS,
+    ...END_OF_CHECK_IDS,
+    ...SETUP_QUESTION_IDS,
+  ]);
 
   it("every referenced test id exists", () => {
     const refs: string[] = [
@@ -316,18 +368,34 @@ describe("referential integrity", () => {
       ...ALL_SHOW_IFS.flatMap((s) => (s.testSelected ? [s.testSelected] : [])),
       ...D.precheck.flatMap((q) => [...(q.perTest ?? []), ...Object.keys(q.testTokens ?? {})]),
       ...Object.values(D.selection.basePerPosition).flat(),
+      ...D.setupQuestions.flatMap((q) => [
+        q.test,
+        ...q.actions.flatMap((a) => ("tests" in a ? a.tests.map((t) => t.test) : [])),
+      ]),
+      ...Object.keys(D.progress.bandReplacement.floors),
     ];
     expect(refs.length).toBeGreaterThan(40);
     expect(refs.filter((r) => !TESTS.has(r))).toEqual([]);
   });
 
   it("every referenced cue id exists, including cue ids named in prose", () => {
-    const refs = [...D.tests.flatMap((t) => t.cues), D.stopRouting.checkIn.cue];
+    const sel = D.stopRouting.checkIn.cueSelection;
+    const refs = [
+      ...D.tests.flatMap((t) => t.cues),
+      D.stopRouting.askCue,
+      D.engine.soundCheck.cue,
+      ...Object.values(sel.booth),
+      ...Object.values(sel.home),
+      ...Object.values(sel.fallWatch),
+      ...Object.keys(testDef("shoulder_abduction").validity.cueMaxPerAttempt),
+    ];
+    expect(refs.filter((r) => !CUES.has(r))).toEqual([]);
+    // Prose may also name a retired cue (cuesRetired), never an unknown one.
     const prose = strings(D).flatMap(({ path, text }) =>
       path.endsWith(".id") ? [] : [...text.matchAll(/\b(?:check|test)_[a-z0-9_]+\b/g)].map((m) => m[0]),
     );
     expect(prose.length).toBeGreaterThan(20);
-    expect([...refs, ...prose].filter((r) => !CUES.has(r))).toEqual([]);
+    expect(prose.filter((r) => !CUES.has(r) && !isRetiredCueId(r))).toEqual([]);
     for (const t of D.tests) expect(new Set(t.cues).size, t.id).toBe(t.cues.length);
   });
 
@@ -335,7 +403,14 @@ describe("referential integrity", () => {
     const refs: string[] = [
       ...ACTIONS.flatMap(({ a }) => ("screen" in a && a.screen ? [a.screen] : [])),
       ...ACTIONS.flatMap(({ a }) => (a.do === "emergency" && a.alsoShowIf ? [a.alsoShowIf.screen] : [])),
-      ...ACTIONS.flatMap(({ a }) => (a.do === "show" ? Object.values(a.screenByTest) : [])),
+      ...ACTIONS.flatMap(({ a }) =>
+        a.do === "show"
+          ? Object.values(a.screenByTest).filter((x) => x !== "helperBriefing.checkInLine")
+          : [],
+      ),
+      ...D.stopFollowUps.flatMap((q) => q.actions.flatMap((a) => ("screen" in a ? [a.screen] : []))),
+      ...D.endOfCheck.flatMap((q) => q.actions.map((a) => a.screen)),
+      ...D.emergencyCall.bigNumberOn,
       ...D.stopRouting.options.flatMap((o) =>
         [o.screen, o.alsoShowIf?.screen, o.screenWhen?.screen].filter((s): s is NonNullable<typeof s> => !!s),
       ),
@@ -356,6 +431,9 @@ describe("referential integrity", () => {
         expect(REASONS.has(a.reason), `${q} ${a.reason}`).toBe(true);
     }
     for (const o of D.stopRouting.options) if (o.reason) expect(REASONS.has(o.reason), o.id).toBe(true);
+    for (const q of D.setupQuestions)
+      for (const a of q.actions) if (a.do === "skip") expect(REASONS.has(a.reason), q.id).toBe(true);
+    for (const r of D.reasonSuffixes.substituteRan.appendTo) expect(REASONS.has(r), r).toBe(true);
   });
 
   it("every referenced question id exists, including questions named in prose", () => {
@@ -366,7 +444,9 @@ describe("referential integrity", () => {
       ...D.stopRouting.options.flatMap((o) => (o.then ? [o.then] : [])),
     ];
     const prose = strings(D).flatMap(({ path, text }) =>
-      path.endsWith(".id") ? [] : [...text.matchAll(/\b(?:pc|bt|ac)_[a-z0-9_]+\b/g)].map((m) => m[0]),
+      path.endsWith(".id")
+        ? []
+        : [...text.matchAll(/\b(?:pc|bt|ac|sf|ec|su)_[a-z0-9_]+\b/g)].map((m) => m[0]),
     );
     expect(refs.length).toBeGreaterThan(20);
     expect([...refs, ...prose].filter((r) => !QIDS.has(r))).toEqual([]);
@@ -386,9 +466,15 @@ describe("referential integrity", () => {
     expect(ad.lock).toBe(lockOf(D.locks.rules.ad));
     for (const o of D.stopRouting.options.filter((o) => o.check === "ends"))
       expect(o.lock, o.id).toBe(lockOf(D.locks.rules.stop_symptom));
-    // Every lock with a duration has its "try again" line.
+    // Every lock with a duration has its "try again" lines (Q33 (4)).
+    const lines: Record<string, string[]> = {
+      next_day: ["nextDay_midnight", "nextDay_clock", "sameDay_clock"],
+      "60_min": ["min60_start", "min60_active"],
+    };
     for (const { a } of ACTIONS)
-      if ("lock" in a && a.lock && a.lock !== "none") expect(D.pausedWhenTokens[a.lock]).toBeDefined();
+      if ("lock" in a && a.lock && a.lock !== "none")
+        for (const k of lines[a.lock])
+          expect(D.pausedWhenTokens[k as keyof typeof D.pausedWhenTokens]).toBeDefined();
   });
 
   it("every variant id exists on its test, apart from the two documented modifiers", () => {
@@ -454,7 +540,15 @@ describe("referential integrity", () => {
     }
     const armCurl = testDef("arm_curl_30s");
     expect(tokens(armCurl.resultTokens.load.held.en)).toEqual(["kg"]);
-    expect(tokens(armCurl.resultTokens.load.bottle.en)).toEqual(["l"]);
+    // Bottle sizes are words, never digits (Q30).
+    for (const b of ["bottle_half", "bottle_1", "bottle_1_5"] as const)
+      expect(tokens(armCurl.resultTokens.load[b].en), b).toEqual([]);
+    expect(tokens(D.endOfCheck[0].askSide.en)).toEqual(["side"]);
+    expect(Object.keys(D.endOfCheck[0].sideTokens).sort()).toEqual(["left", "right"]);
+    expect(tokens(D.boundary.intro.en)).toEqual(["max", "min"]);
+    expect(tokens(D.boundary.intro.ar)).toEqual(["max", "min", "minutesNoun"]);
+    for (const k of ["min60_active", "nextDay_clock", "sameDay_clock"] as const)
+      expect(tokens(D.pausedWhenTokens[k].en), k).toEqual(["time"]);
     expect(tokens(D.screens.scr_paused_today.en)).toEqual(["when"]);
     expect(tokens(D.screens.warn_pd_timing.en)).toEqual(["x"]);
     expect(precheckItem("pc_pd_dose").timingTokens).toBeDefined();
@@ -474,7 +568,16 @@ describe("Arabic and English", () => {
     ".tests[3].resultTokens.variant.standard",
     ".tests[3].resultTokens.variant.one_arm_cross",
   ];
-  const BILINGUAL = objects(D).filter(({ obj }) => "ar" in obj || "en" in obj || "arTts" in obj);
+  // Word lists and rules keyed by language, not translations of one text.
+  const NOT_TEXT = [
+    ".boundary.intro.tokens.minutesNoun",
+    ".engine.speech.fineOnlyPhrases",
+    ".engine.speech.notAnswers",
+    ".engine.speech.notFineWords",
+  ];
+  const BILINGUAL = objects(D).filter(
+    ({ path, obj }) => ("ar" in obj || "en" in obj || "arTts" in obj) && !NOT_TEXT.includes(path),
+  );
 
   it("every text has both ar and en, of the same kind", () => {
     expect(BILINGUAL.length).toBeGreaterThan(300);
@@ -506,9 +609,59 @@ describe("Arabic and English", () => {
   });
 
   it("Arabic and English use the same {tokens}", () => {
+    // O40: {minutesNoun} is the Arabic noun for the larger number; English says minutes itself.
+    const ARABIC_ONLY: Record<string, string[]> = { ".boundary.intro": ["minutesNoun"] };
     for (const { path, obj } of BILINGUAL)
-      if (typeof obj.ar === "string" && typeof obj.en === "string")
-        expect(tokens(obj.ar), path).toEqual(tokens(obj.en as string));
+      if (typeof obj.ar === "string" && typeof obj.en === "string") {
+        const ar = tokens(obj.ar).filter((t) => !(ARABIC_ONLY[path] ?? []).includes(t));
+        expect(ar, path).toEqual(tokens(obj.en as string));
+      }
+  });
+
+  /** Display and speech words: marks, tatweel and punctuation removed, alef forms joined. */
+  const MARKS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
+  const words = (s: string) =>
+    s
+      .replace(MARKS, "")
+      .replace(/[ٱإأآ]/g, "ا")
+      .replace(/[«»"“”،,.؟?!:;]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .join(" ");
+  /** Sentences end at a full stop or question mark outside a quotation (7.2-12). */
+  const sentences = (s: string) => {
+    let depth = 0;
+    let n = 0;
+    let open = false;
+    for (const ch of s.replace(MARKS, "")) {
+      if (ch === "«" || ch === "“") depth++;
+      else if (ch === "»" || ch === "”") depth = Math.max(0, depth - 1);
+      else if (depth === 0 && ".؟?!".includes(ch)) {
+        if (open) n++;
+        open = false;
+        continue;
+      }
+      if (!/\s/.test(ch)) open = true;
+    }
+    return n + (open ? 1 : 0);
+  };
+
+  it("7.2-12: every speech line has the sentences of its display text", () => {
+    const pairs: { path: string; ar: string; tts: string }[] = [];
+    for (const { path, obj } of objects(D)) {
+      if (typeof obj.ar === "string" && typeof obj.arTts === "string")
+        pairs.push({ path, ar: obj.ar, tts: obj.arTts });
+      if (Array.isArray(obj.ar) && Array.isArray(obj.arTts))
+        (obj.ar as string[]).forEach((a, i) =>
+          pairs.push({ path: `${path}[${i}]`, ar: a, tts: (obj.arTts as string[])[i] }),
+        );
+    }
+    expect(pairs.length).toBeGreaterThan(150);
+    for (const p of pairs) {
+      // scr_paused_today speaks its first sentence only (arTtsScope, O24-2).
+      const expected = p.path === ".screens.scr_paused_today" ? 1 : sentences(p.ar);
+      expect(sentences(p.tts), p.path).toBe(expected);
+    }
   });
 
   it("unit words have every Arabic plural form and the English one and other", () => {
@@ -521,20 +674,64 @@ describe("Arabic and English", () => {
   });
 
   it("every cue has display Arabic, vocalized Arabic for speech and English", () => {
-    const MARKS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
-    const bare = (s: string) =>
-      s
-        .replace(MARKS, "")
-        .replace(/[ٱإأآ]/g, "ا")
-        .trim();
-    // Digits are spelled out for speech; everything else in arTts is the display text with marks.
+    // Digits are spelled out for speech; everything else in arTts is the display text with marks,
+    // a quoted phrase spoken with a pause on each side (voicePending.ttsConvention).
     const SPOKEN_DIGITS = ["check_urgent_call"];
     for (const c of D.cues) {
       expect(c.arTts, c.id).not.toBe(c.ar);
       expect(c.arTts, c.id).not.toMatch(/\d/);
-      if (!SPOKEN_DIGITS.includes(c.id)) expect(bare(c.arTts), c.id).toBe(bare(c.ar));
+      if (!SPOKEN_DIGITS.includes(c.id)) expect(words(c.arTts), c.id).toBe(words(c.ar));
     }
-    expect(bare(cueLine("check_urgent_call").arTts)).toContain("تسعة، تسعة، سبعة");
+    expect(words(cueLine("check_urgent_call").arTts)).toContain("تسعة تسعة سبعة");
+  });
+
+  it("O24-1: every cue has a short form of at most 3 words, no punctuation but a question mark, digits Arabic Indic", () => {
+    // The exceptions the panel decided (cueShortRule): the O34-1 zone form and three English twins.
+    const LONGER = new Set([
+      "ضع يدك في المربع",
+      "Hand in the box",
+      "Answer from where you are",
+      "Lower your arm slowly",
+      "Did you pass out?",
+    ]);
+    for (const c of D.cues) {
+      for (const lang of ["ar", "en"] as const) {
+        const t = c.short[lang];
+        expect(t.trim(), `${c.id} ${lang}`).not.toBe("");
+        if (!LONGER.has(t)) expect(t.split(/\s+/).length, `${c.id} ${lang} ${t}`).toBeLessThanOrEqual(3);
+        expect(t, `${c.id} ${lang}`).not.toMatch(/[.,،!:;«»"]/);
+      }
+      expect(c.short.ar, c.id).not.toMatch(/[0-9]/);
+    }
+    expect(cueShort("check_urgent_call", "ar")).toContain("٩٩٧");
+  });
+
+  it("Q30: no speech line holds a digit", () => {
+    for (const { path, obj } of objects(D)) {
+      const tts = obj.arTts;
+      for (const t of typeof tts === "string" ? [tts] : Array.isArray(tts) ? (tts as string[]) : [])
+        expect(t, path).not.toMatch(/[0-9٠-٩]/);
+    }
+  });
+
+  it("Q23 (6) and H2: no user facing data string uses a banned public word", () => {
+    const banned = D.boundary.bannedPublicWording;
+    const hits: string[] = [];
+    const visit = (v: unknown, path: string, facing: boolean) => {
+      if (typeof v === "string") {
+        if (!facing || path.includes("forbiddenInProgressText")) return;
+        const low = v.toLowerCase();
+        for (const w of banned.enWords)
+          if (new RegExp(`\\b${w.toLowerCase()}\\b`).test(low)) hits.push(`${path} ${w}`);
+        const bare = v.replace(MARKS, "");
+        for (const w of banned.arWords) if (bare.includes(w)) hits.push(`${path} ${w}`);
+      } else if (Array.isArray(v)) v.forEach((x, i) => visit(x, `${path}[${i}]`, facing));
+      else if (v && typeof v === "object")
+        for (const [k, x] of Object.entries(v))
+          visit(x, `${path}.${k}`, facing || ["ar", "en", "arTts"].includes(k));
+    };
+    visit(D, "", false);
+    expect(hits).toEqual([]);
   });
 });
 
@@ -563,10 +760,27 @@ describe("typed accessors", () => {
       ar: expect.any(String),
       arTts: expect.any(String),
       en: "Go.",
+      short: { ar: expect.any(String), en: expect.any(String) },
     });
     expect(() => screenText("scr_missing" as never, "en")).toThrow(/Unknown movement check screen/);
     expect(() => reasonText("missing" as never, "en")).toThrow(/Unknown movement check reason/);
     expect(() => cueLine("check_missing" as never)).toThrow(/Unknown movement check cue/);
+  });
+
+  it("the revision 1.1 accessors return the data", () => {
+    expect(stopFollowUp("sf_faint_loc").options.map((o) => o.value)).toEqual(["yes", "no", "unsure"]);
+    expect(endOfCheckQuestion("ec_symptoms").askSide.en).toContain("{side}");
+    expect(setupQuestion("su_chair_gate").test).toBe("chair_stand_30s");
+    expect(pausedWhenText("nextDay_clock", "en")).toBe("tomorrow after {time}");
+    expect(emergencyCallButton("en")).toEqual({ label: "Call 997", href: "tel:997" });
+    expect(retiredCue("check_time_stop").replacedBy).toEqual(["check_time_up_stand", "check_time_up_curl"]);
+    expect(isRetiredCueId("check_are_you_ok_speech")).toBe(true);
+    expect(isCheckCueId("check_time_stop")).toBe(false);
+    expect(skipReasonText("clearance", "en", { substituteRan: true })).toBe(
+      `${reasonText("clearance", "en")} We use the seated side lean instead.`,
+    );
+    expect(skipReasonText("clearance", "en")).toBe(reasonText("clearance", "en"));
+    expect(() => stopFollowUp("sf_missing" as never)).toThrow(/Unknown movement check/);
   });
 
   it("guards narrow strings from the engine or the network", () => {

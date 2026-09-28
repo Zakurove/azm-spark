@@ -127,8 +127,9 @@ describe("series over four checks of one person", () => {
     expect(curls.find((t: any) => !t.current)).toMatchObject({ firstResult: true, latest: { value: 14 } });
     expect(curls[0].seriesKey).not.toBe(curls[1].seriesKey);
 
-    // A lasting next day answer takes the early repeat offer away until it is resolved.
-    setTime(T0 + 3 * DAY + 13 * HOUR);
+    // A lasting next day answer takes the early repeat offer away until it is resolved (asked from
+    // 24 hours after the check, O38).
+    setTime(T0 + 3 * DAY + 25 * HOUR);
     const after = await login(h, email);
     await h.call("/assessments/after", { answer: "lasting" }, after);
     p = (await h.call("/progress", undefined, after)).data;

@@ -68,7 +68,7 @@ describe("check cues in the voice script", () => {
   it("has every check cue with the text of the check data, after the unchanged workout cues", () => {
     const ids = Object.keys(voiceScript);
     expect(ids.slice(0, 35)).toContain("stop_rest");
-    expect(ids.slice(-67)).toEqual(CHECK_DATA.cues.map((c) => c.id));
+    expect(ids.slice(-CHECK_DATA.cues.length)).toEqual(CHECK_DATA.cues.map((c) => c.id));
     for (const c of CHECK_DATA.cues) {
       expect(isVoiceLine(c.id), c.id).toBe(true);
       expect(voiceScript[c.id as keyof typeof voiceScript]).toEqual({ ar: c.ar, en: c.en, arTts: c.arTts });

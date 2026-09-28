@@ -144,7 +144,7 @@ describe("the prose rules of the data are the ones implemented", () => {
           "either check has attempt spread over 15 degrees, gravity reference or bent elbow",
         ],
         noVerdictWhen: [
-          "shoulder pain on this side (setup.painSides): show start and now with the sentence noVerdict.shoulderPain, until Azm has its own MDC (Q1)",
+          "shoulder pain on this side (setup.painSides): show start and now with the sentence noVerdict.shoulderPain on a normal result card, never a greyed or error state, until Azm has its own MDC (P1, Q1)",
           "fewer than 2 valid attempts on that side at either check (noVerdict.oneValid)",
           "poseModel differs between baseline and now: not comparable",
         ],
@@ -204,6 +204,14 @@ describe("the prose rules of the data are the ones implemented", () => {
     expect(stand.wide.add).toBe(1);
     for (const t of CHECK_DATA.tests) expect(t.noiseBandRules.largeDropMultiple).toBe(2);
     expect(CHECK_DATA.progress.trendsFromCheck).toBe(3);
+    // Q27: the timed tests widen the band by 1 at the first re-test; the others keep theirs.
+    expect(curl.firstRetestAdd).toBe(1);
+    expect(stand.firstRetestAdd).toBe(1);
+    expect("firstRetestAdd" in abd).toBe(false);
+    expect("firstRetestAdd" in trunk).toBe(false);
+    // Q1: every band is provisional.
+    for (const t of CHECK_DATA.tests) expect(t.noiseBandRules.provisional).toBe(true);
+    expect(CHECK_DATA.progress.bandReplacement.provisional).toBe(true);
   });
 
   it("verdict keys are higher, same and lower, never better", () => {
@@ -611,19 +619,30 @@ describe("compareSeries: arm_curl_30s", () => {
   const curl = (points: (number | [number | null, Over])[], ctx = ctxOf(), common: Over = {}) =>
     compare("arm_curl_30s", "left", series("arm_curl_30s", "left", points, common), ctx);
 
-  it("band max(4, 25%) at the boundary", () => {
-    expect(said(curl([12, 16]))).toBe("same");
-    expect(said(curl([12, 17]))).toBe("higher");
-    expect(said(curl([12, 8]))).toBe("same");
-    expect(said(curl([12, 7]))).toBe("lower");
+  // From the second re-test on, the normal band applies (Q27): these series repeat the baseline once.
+  it("Q27: band max(4, 25%) at the boundary, from the second re-test", () => {
+    expect(said(curl([12, 12, 16]))).toBe("same");
+    expect(said(curl([12, 12, 17]))).toBe("higher");
+    expect(said(curl([12, 12, 8]))).toBe("same");
+    expect(said(curl([12, 12, 7]))).toBe("lower");
     // 25% of 20 is 5.
-    expect(curl([20, 25])).toMatchObject({ band: 5, verdict: "same" });
-    expect(said(curl([20, 26]))).toBe("higher");
+    expect(curl([20, 20, 25])).toMatchObject({ band: 5, verdict: "same" });
+    expect(said(curl([20, 20, 26]))).toBe("higher");
   });
 
-  it("worked examples of spec 5", () => {
-    expect(said(curl([12, 15]))).toBe("same");
-    expect(said(curl([12, 17]))).toBe("higher");
+  it("Q27: at the first re-test the band is 1 wider, and the band shown is the band used", () => {
+    expect(curl([12, 17])).toMatchObject({ band: 5, verdict: "same", firstRetest: true });
+    expect(said(curl([12, 18]))).toBe("higher");
+    expect(said(curl([12, 7]))).toBe("same");
+    expect(said(curl([12, 6]))).toBe("lower");
+    expect(curl([20, 26])).toMatchObject({ band: 6, verdict: "same" });
+  });
+
+  it("Q27: worked examples of spec 5 (start 12: first re-test 17 same, 18 higher; later 15 same, 17 higher)", () => {
+    expect(said(curl([12, 17]))).toBe("same");
+    expect(said(curl([12, 18]))).toBe("higher");
+    expect(said(curl([12, 12, 15]))).toBe("same");
+    expect(said(curl([12, 12, 17]))).toBe("higher");
   });
 
   it("wide max(5, 30%) for MS, Parkinson's, arthritis with pain on this arm, and a pose model change", () => {
@@ -632,14 +651,17 @@ describe("compareSeries: arm_curl_30s", () => {
       ctxOf({ conditions: ["parkinsons"] }),
       ctxOf({ conditions: ["arthritis"], setup: { painSides: ["left"] } }),
     ]) {
-      expect(curl([12, 17], ctx)).toMatchObject({ band: 5, verdict: "same" });
-      expect(said(curl([12, 18], ctx))).toBe("higher");
+      expect(curl([12, 12, 17], ctx)).toMatchObject({ band: 5, verdict: "same" });
+      expect(said(curl([12, 12, 18], ctx))).toBe("higher");
+      // Q27: plus 1 on top of the wide band at the first re-test.
+      expect(curl([12, 18], ctx)).toMatchObject({ band: 6, verdict: "same" });
     }
-    expect(curl([12, 17], ctxOf({ conditions: ["arthritis"], setup: { painSides: ["right"] } })).band).toBe(
-      4,
-    );
+    expect(
+      curl([12, 12, 17], ctxOf({ conditions: ["arthritis"], setup: { painSides: ["right"] } })).band,
+    ).toBe(4);
     const model = curl([
       [12, { poseModel: "lite" }],
+      [12, { poseModel: "full" }],
       [17, { poseModel: "full" }],
     ]);
     expect(model).toMatchObject({ band: 5, verdict: "same", bandKind: "wide" });
@@ -655,6 +677,7 @@ describe("compareSeries: arm_curl_30s", () => {
     expect(
       said(
         curl([
+          [20, { detail: { compensated: 0 } }],
           [20, { detail: { compensated: 0 } }],
           [26, { detail: { compensated: 6.5 } }],
         ]),
@@ -691,19 +714,26 @@ describe("compareSeries: arm_curl_30s", () => {
     expect(said(curl([12, [20, { detail: { compensated: 0, countSource: "self" } }]]))).toBe(
       "noVerdict:selfCount",
     );
-    const c = curl([[10, { detail: { compensated: 0, countSource: "self" } }], 12, 17]);
+    const c = curl([[10, { detail: { compensated: 0, countSource: "self" } }], 12, 12, 17]);
     expect(c).toMatchObject({ baseline: { value: 12 }, verdict: "higher", change: 5 });
   });
 
   it("large drop beyond twice the band", () => {
-    expect(said(curl([12, 4]))).toBe("lower");
-    expect(curl([12, 3])).toMatchObject({ largeDrop: true, verdict: null, symptomDrop: true });
-    expect(curl([12, 3, 2])).toMatchObject({ verdict: "lower", lowerExtra: true });
+    expect(said(curl([12, 12, 4]))).toBe("lower");
+    expect(curl([12, 12, 3])).toMatchObject({ largeDrop: true, verdict: null, symptomDrop: true });
+    expect(curl([12, 12, 3, 2])).toMatchObject({ verdict: "lower", lowerExtra: true });
     // More than 10 percent of the trial unscored: a quality flag.
-    expect(said(curl([12, [3, { detail: { compensated: 0, unscoredShare: 0.15 } }]]))).toBe(
+    expect(said(curl([12, 12, [3, { detail: { compensated: 0, unscoredShare: 0.15 } }]]))).toBe(
       "noVerdict:setupDiffers",
     );
-    expect(said(curl([12, [3, { detail: { compensated: 0, unscoredShare: 0.1 } }]]))).toBe("largeDrop");
+    expect(said(curl([12, 12, [3, { detail: { compensated: 0, unscoredShare: 0.1 } }]]))).toBe("largeDrop");
+  });
+
+  it("Q27: at the first re-test the large drop line is twice the widened band; the side question uses the normal band", () => {
+    // Band 4, widened to 5: a drop of 9 is lower, not a large drop, but still names the side (Q23).
+    expect(curl([12, 3])).toMatchObject({ verdict: "lower", symptomDrop: true });
+    expect(curl([12, 3]).largeDrop).toBeUndefined();
+    expect(curl([12, 1])).toMatchObject({ largeDrop: true, verdict: null });
   });
 });
 
@@ -831,27 +861,37 @@ describe("compareSeries: chair_stand_30s", () => {
   const stand = (points: (number | [number | null, Over])[], ctx = ctxOf(), common: Over = {}) =>
     compare("chair_stand_30s", "none", series("chair_stand_30s", "none", points, common), ctx);
 
-  it("worked examples of spec 5", () => {
-    expect(said(stand([12, 15]))).toBe("same");
-    expect(said(stand([12, 17]))).toBe("higher");
+  it("Q27: worked examples of spec 5 (start 12: first re-test 17 same, 18 higher; later 15 same, 17 higher)", () => {
+    expect(said(stand([12, 17]))).toBe("same");
+    expect(said(stand([12, 18]))).toBe("higher");
+    expect(said(stand([12, 12, 15]))).toBe("same");
+    expect(said(stand([12, 12, 17]))).toBe("higher");
   });
 
-  it("bands by baseline bucket, each at the boundary", () => {
-    expect(stand([6, 9])).toMatchObject({ band: 3, verdict: "same" });
-    expect(said(stand([6, 10]))).toBe("higher");
-    expect(stand([7, 11])).toMatchObject({ band: 4, verdict: "same" });
-    expect(said(stand([7, 12]))).toBe("higher");
-    expect(stand([15, 11])).toMatchObject({ band: 4, verdict: "same" });
-    expect(said(stand([15, 10]))).toBe("lower");
-    expect(stand([16, 21])).toMatchObject({ band: 5, verdict: "same" });
-    expect(said(stand([16, 22]))).toBe("higher");
+  it("Q27: bands by baseline bucket, each at the boundary, from the second re-test", () => {
+    expect(stand([6, 6, 9])).toMatchObject({ band: 3, verdict: "same" });
+    expect(said(stand([6, 6, 10]))).toBe("higher");
+    expect(stand([7, 7, 11])).toMatchObject({ band: 4, verdict: "same" });
+    expect(said(stand([7, 7, 12]))).toBe("higher");
+    expect(stand([15, 15, 11])).toMatchObject({ band: 4, verdict: "same" });
+    expect(said(stand([15, 15, 10]))).toBe("lower");
+    expect(stand([16, 16, 21])).toMatchObject({ band: 5, verdict: "same" });
+    expect(said(stand([16, 16, 22]))).toBe("higher");
+  });
+
+  it("Q27: each bucket is 1 wider at the first re-test", () => {
+    expect(stand([6, 10])).toMatchObject({ band: 4, verdict: "same", firstRetest: true });
+    expect(stand([7, 12])).toMatchObject({ band: 5, verdict: "same" });
+    expect(stand([16, 22])).toMatchObject({ band: 6, verdict: "same" });
+    expect(said(stand([16, 23]))).toBe("higher");
   });
 
   it("wide adds 1: MS, a push hand change, a pose model change", () => {
-    expect(stand([12, 17], ctxOf({ conditions: ["ms"] }))).toMatchObject({ band: 5, verdict: "same" });
-    expect(said(stand([12, 18], ctxOf({ conditions: ["ms"] })))).toBe("higher");
+    expect(stand([12, 12, 17], ctxOf({ conditions: ["ms"] }))).toMatchObject({ band: 5, verdict: "same" });
+    expect(said(stand([12, 12, 18], ctxOf({ conditions: ["ms"] })))).toBe("higher");
     const push = stand(
       [
+        [12, { detail: { pushHand: "left" } }],
         [12, { detail: { pushHand: "left" } }],
         [17, { detail: { pushHand: "right" } }],
       ],
@@ -861,9 +901,10 @@ describe("compareSeries: chair_stand_30s", () => {
       },
     );
     expect(push).toMatchObject({ band: 5, verdict: "same" });
-    expect(stand([[12, { poseModel: "lite" }], 17])).toMatchObject({ band: 5, verdict: "same" });
+    expect(stand([[12, { poseModel: "lite" }], 12, 17])).toMatchObject({ band: 5, verdict: "same" });
     expect(
       stand([
+        [12, { detail: { pushHand: "left" } }],
         [12, { detail: { pushHand: "left" } }],
         [17, { detail: { pushHand: "left" } }],
       ]).band,
@@ -891,9 +932,12 @@ describe("compareSeries: chair_stand_30s", () => {
   });
 
   it("large drop beyond twice the band", () => {
-    expect(said(stand([20, 10]))).toBe("lower");
-    expect(said(stand([20, 9]))).toBe("largeDrop");
-    expect(said(stand([20, 9, 9]))).toBe("lower lowerExtra");
+    expect(said(stand([20, 20, 10]))).toBe("lower");
+    expect(said(stand([20, 20, 9]))).toBe("largeDrop");
+    expect(said(stand([20, 20, 9, 9]))).toBe("lower lowerExtra");
+    // Q27: at the first re-test the line is twice the widened band (6): 9 is lower, 7 a large drop.
+    expect(said(stand([20, 9]))).toBe("lower");
+    expect(said(stand([20, 7]))).toBe("largeDrop");
   });
 });
 

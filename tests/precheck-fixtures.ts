@@ -25,6 +25,12 @@ export const TODAY = "2026-09-27";
  * oracle: tests/assessment.test.ts proves the two agree for every context that gets a check.
  */
 export function baseTestsFor(ctx: CheckContext, setting: "home" | "booth" = "home"): TestId[] {
+  // Q19 (5b): at the booth stroke or SCI without clearance yes runs the seated arm raise only.
+  const boothOnlyArmRaise =
+    setting === "booth" &&
+    ctx.clearance !== "yes" &&
+    ctx.conditions.some((c) => ["stroke", "sci_complete", "sci_incomplete"].includes(c));
+  if (boothOnlyArmRaise) return ctx.restrictions.includes("no_overhead") ? [] : ["shoulder_abduction"];
   let tests: TestId[] = [...CHECK_DATA.selection.basePerPosition[ctx.position]];
   const pain = (a: string) => ctx.pain.includes(a);
   const restr = (r: string) => ctx.restrictions.includes(r);
@@ -90,9 +96,16 @@ export function benign(id: string): AnswerValue {
     case "pc_pain_areas":
       return {};
     case "pc_sci_ready":
-      return true;
+      return "done";
     case "pc_booth_vitals":
-      return { restingHeartRate: 72, systolic: 120, diastolic: 80 };
+      return {
+        systolic1: 120,
+        diastolic1: 80,
+        systolic2: 122,
+        diastolic2: 80,
+        restingHeartRate: 72,
+        irregularHeartbeat: false,
+      };
     case "pc_change_cleared":
     case "pc_trunk_armrests":
     case "pc_helper":
@@ -225,12 +238,21 @@ export function randomAnswer(r: Rng, id: string): AnswerValue {
       for (const a of r.subset(AREA_IDS, 0.2)) out[a] = r.int(11);
       return out;
     }
-    case "checklist":
-      return r.next() < 0.7 ? true : r.subset(["0", "1", "2", "3", "4", "5"], 0.6);
-    case "system":
-      return r.next() < 0.2
-        ? "unavailable"
-        : { restingHeartRate: 50 + r.int(90), systolic: 100 + r.int(100), diastolic: 60 + r.int(50) };
+    case "list_confirm":
+      return r.next() < 0.7 ? "done" : "not_yet";
+    case "system": {
+      if (r.next() < 0.2) return "unavailable";
+      const systolic = 85 + r.int(90);
+      const diastolic = 60 + r.int(50);
+      return {
+        systolic1: systolic,
+        diastolic1: diastolic,
+        systolic2: systolic + r.int(9) - 4,
+        diastolic2: diastolic + r.int(9) - 4,
+        restingHeartRate: 50 + r.int(90),
+        irregularHeartbeat: r.next() < 0.1,
+      };
+    }
     case "yes_no_then_areas":
       if (parsed.part === "areas") return r.subset(item.surgeryAreas ? SURGERY_AREA_IDS : AREA_IDS, 0.2);
       return r.next() < 0.25 ? "yes" : "no";

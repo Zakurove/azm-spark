@@ -197,16 +197,17 @@ describe("a wheelchair user after a stroke: consent, context, check, retest, pro
     });
     expect(view("shoulder_abduction", "left")).toMatchObject({ verdict: "same", change: 5 });
     expect(view("trunk_control_seated", "right")).toMatchObject({ verdict: null, startingPointSet: true });
+    // Q27: the first re-test of an arm curl series widens the band by 1 (4 becomes 5).
     expect(view("arm_curl_30s", "left")).toMatchObject({
       verdict: "same",
       change: 1,
-      band: 4,
+      band: 5,
       variant: "arm_only",
     });
     expect(view("arm_curl_30s", "right")).toMatchObject({
       verdict: "higher",
       change: 8,
-      band: 4,
+      band: 5,
       variant: "held",
     });
     // Verdicts are higher, same or lower, never "better", and no label uses a forbidden stem.
@@ -303,21 +304,21 @@ describe("postpones, locks and the change question", () => {
     expect((await start(h, cookie)).status).toBe(200);
   });
 
-  it("the SCI checklist postpones without a lock: ticking every box goes ahead at once", async () => {
+  it("7.2-8: the SCI readiness list postpones without a lock on not yet; all done goes ahead at once", async () => {
     const cookie = await member(
       h,
       "sci@example.test",
       intakeOf({ conditions: ["sci_incomplete"], mobility: "wheelchair", clearance: "yes" }),
     );
-    // The checklist is asked for an injury at T6 or higher, or when the level is not known.
-    const r = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: ["0", "1"] });
+    // The list is asked for an injury at T6 or higher, or when the level is not known.
+    const r = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: "not_yet" });
     expect(r.data).toMatchObject({
       reason: "sci_ready",
       screen: "scr_postpone_sci",
       lock: { reason: "sci_ready", until: null },
     });
     expect((await h.call("/assessments/context", undefined, cookie)).data.lock).toBeNull();
-    const ok = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: true });
+    const ok = await start(h, cookie, { pc_sci_level: "unsure", pc_sci_ready: "done" });
     expect(ok.status).toBe(200);
     expect(ok.data.warnings).toContain("warn_sci_t6");
   });
@@ -334,11 +335,13 @@ describe("postpones, locks and the change question", () => {
       "arm_curl_30s:left": 13,
     });
     await h.call(`/assessments/${s.data.id}/complete`, {}, cookie);
-    // Not due before 12 hours.
+    // Not due before 24 hours (O38).
     expect((await h.call("/assessments/after", { answer: "usual" }, cookie)).data).toEqual({
       error: "NOT_DUE",
     });
     setTime(T0 + 13 * HOUR);
+    expect((await h.call("/assessments/context", undefined, cookie)).data.followUpDue).toBe(false);
+    setTime(T0 + 25 * HOUR);
     expect((await h.call("/assessments/context", undefined, cookie)).data.followUpDue).toBe(true);
     expect((await h.call("/assessments/after", { answer: "sore" }, cookie)).data).toEqual({
       error: "AFTER_INVALID",
@@ -531,13 +534,13 @@ describe("the stop list and the between tests question", () => {
     expect(r.data.status).toBe("skip");
     // The right arm curl loads the right shoulder too.
     expect(r.data.skips).toEqual(
-      expect.arrayContaining([{ testId: "arm_curl_30s", side: "right", reason: "pain_today" }]),
+      expect.arrayContaining([{ testId: "arm_curl_30s", side: "right", reason: "pain_more" }]),
     );
     expect(r.data.skips.every((k: any) => k.side !== "left")).toBe(true);
     const curl = itemOf(protocol, "arm_curl_30s", "right");
     expect((await h.call(`/assessments/${id}/results`, resultBody(curl, 12), cookie)).data).toEqual({
       error: "SKIPPED",
-      reason: "pain_today",
+      reason: "pain_more",
     });
     const same = await h.call(
       `/assessments/${id}/between`,

@@ -848,7 +848,9 @@ abstract class TimedCountBase implements TestRunner {
     const tr = this.trial!;
     const R = TIMED_RULES;
     this.sink.push({ kind: "time", remainingSec: 0, t });
-    this.sink.cue("check_time_stop", t);
+    // Revision 1.1 retires check_time_stop («توقف» mid rise or mid bend): each test has its own end
+    // line with the same praise (O24-3).
+    this.sink.cue(this.testId === "chair_stand_30s" ? "check_time_up_stand" : "check_time_up_curl", t);
     const extra = this.atTimeUp(tr);
     const q = tr.monitor.report();
     this.qualities.push(q);

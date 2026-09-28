@@ -282,7 +282,7 @@ describe("guestContext (booth guest steps, Q19)", () => {
     ...p,
   });
 
-  it("clearance counts as unsure; no condition is none", () => {
+  it("Q19 (2): a skipped clearance answer counts as not sure; no condition is none", () => {
     expect(guestContext(steps({ position: "standing", support: "right", pain: ["knee"] }))).toEqual({
       position: "standing",
       support: "right",
@@ -297,14 +297,20 @@ describe("guestContext (booth guest steps, Q19)", () => {
     [{ conditions: ["cardiac"] }, "cardiac"],
     [{ conditions: ["other"] }, "unknown_condition"],
     [{ conditions: ["cfs_moderate"] }, "pem"],
-    [{ conditions: ["stroke"] }, "clearance"],
-    [{ conditions: ["sci_complete"] }, "clearance"],
-    [{ conditions: ["sci_incomplete"] }, "clearance"],
     [{ restrictions: ["no_exercise"] }, "restriction"],
     [{ position: "bed" }, "unsupported_position"],
-  ] as [Partial<GuestSteps>, string][])("blocks %o: %s", (over, reason) => {
+  ] as [Partial<GuestSteps>, string][])("Q19 (5a): blocks %o: %s", (over, reason) => {
     expect(guestContext(steps(over))).toEqual({ blocked: reason });
   });
+
+  it.each([["stroke"], ["sci_complete"], ["sci_incomplete"]])(
+    "Q19 (5b): %s without clearance yes is not blocked: the booth arm raise only",
+    (condition) => {
+      const ctx = guestContext(steps({ conditions: [condition] }));
+      expect(ctx).toMatchObject({ conditions: [condition], clearance: "unsure" });
+      expect(baseTests(baseSelection(ctx as CheckContext, "booth", null))).toEqual(["shoulder_abduction"]);
+    },
+  );
 
   it("refuses answers outside the allowed values", () => {
     for (const over of [
@@ -758,11 +764,11 @@ const MATRIX: MatrixRow[] = [
     chair: ["none skip:restriction_balance"],
   },
   {
-    row: "balance_support at the booth (side lean staff guarded, substitute at the booth only)",
+    row: "balance_support at the booth (side lean staff guarded, substitute at the booth only; Q5 no weight)",
     ctx: { restrictions: ["balance_support"] },
     opts: { setting: "booth" },
     abd: NONE_AB,
-    curl: NONE_AB,
+    curl: ["right arm_only", "left arm_only"],
     trunk: NONE_AB,
     chair: ["none skip:restriction_balance", "right substitute", "left substitute"],
   },
@@ -792,11 +798,20 @@ const MATRIX: MatrixRow[] = [
     chair: ["none standard"],
   },
   {
-    row: "clearance unsure at the booth, vitals above the limits",
+    row: "clearance unsure at the booth, vitals above the Q21 limits",
     ctx: { clearance: "unsure" },
     opts: {
       setting: "booth",
-      answers: { pc_booth_vitals: { restingHeartRate: 121, systolic: 130, diastolic: 80 } },
+      answers: {
+        pc_booth_vitals: {
+          systolic1: 130,
+          diastolic1: 80,
+          systolic2: 130,
+          diastolic2: 80,
+          restingHeartRate: 121,
+          irregularHeartbeat: false,
+        },
+      },
     },
     abd: NONE_AB,
     curl: ["right arm_only", "left arm_only"],
@@ -804,13 +819,31 @@ const MATRIX: MatrixRow[] = [
     chair: ["none skip:booth_vitals"],
   },
   {
-    row: "clearance unsure at the booth, no validated cuff",
+    row: "clearance unsure at the booth, no validated cuff (O47 (4): clearance_booth)",
     ctx: { clearance: "unsure" },
     opts: { setting: "booth", answers: { pc_booth_vitals: "unavailable" } },
     abd: NONE_AB,
     curl: ["right arm_only", "left arm_only"],
     trunk: NONE_AB,
-    chair: ["none skip:clearance"],
+    chair: ["none skip:clearance_booth"],
+  },
+  {
+    row: "Q19 (5b): booth, stroke with clearance no: the seated arm raise only",
+    ctx: { conditions: ["stroke"], clearance: "no" },
+    opts: { setting: "booth" },
+    abd: ["right wide", "left wide"],
+    curl: ["right skip:clearance_booth", "left skip:clearance_booth"],
+    trunk: ["right skip:clearance_booth", "left skip:clearance_booth"],
+    chair: ["none skip:clearance_booth"],
+  },
+  {
+    row: "Q19 (5b): booth, SCI with clearance not sure: the seated arm raise only",
+    ctx: { conditions: ["sci_incomplete"], clearance: "unsure" },
+    opts: { setting: "booth", answers: { pc_sci_level: "no" } },
+    abd: ["right wide", "left wide"],
+    curl: ["right skip:clearance_booth", "left skip:clearance_booth"],
+    trunk: ["right skip:clearance_booth", "left skip:clearance_booth"],
+    chair: ["none skip:clearance_booth"],
   },
   {
     row: "upper_limb_unilateral, left",
@@ -996,7 +1029,7 @@ const MATRIX: MatrixRow[] = [
     ctx: { conditions: ["ms"] },
     opts: { setting: "booth", answers: { pc_sit_unsupported: "no", pc_fall_sitting: "yes" } },
     abd: ["right wide", "left wide"],
-    curl: ["right wide", "left wide"],
+    curl: ["right arm_only wide", "left arm_only wide"],
     trunk: NONE_AB,
     chair: ["none standard wide"],
   },
@@ -1005,7 +1038,7 @@ const MATRIX: MatrixRow[] = [
     ctx: { conditions: ["stroke"], support: "left" },
     opts: { setting: "booth", answers: { pc_stroke_push: "yes" } },
     abd: ["right wide", "left wide"],
-    curl: ["left arm_only", "right"],
+    curl: ["left arm_only", "right arm_only"],
     trunk: ["right skip:pusher", "left skip:pusher"],
     chair: ["none arms_assisted"],
   },

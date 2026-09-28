@@ -20,12 +20,23 @@
  *   pc_arm_function:<right|left>         'bend_hold' | 'bend_no_hold' | 'no_bend'
  *   pc_steadi:<fell|unsteady|worry>      'yes' | 'no'
  *   pc_helper:<test id>                  'yes' | 'no'
+ *   pc_trunk_armrests:<chair|wheelchair> 'yes' | 'no', the form of the person's position (Q12 (1);
+ *                                        a standing person does the side lean on a chair)
  * Answer formats: option values as strings; pc_pain_now an integer 0 to 10; pc_pain_areas an object
  * { <area id>: integer 0 to 10 } (only the chosen areas; {} when none of the listed areas hurts);
- * pc_sci_ready true when every box is ticked, or the list of ticked item indexes as strings
- * ("0" to "5"); pc_booth_vitals (staff entry) { restingHeartRate, systolic, diastolic } or
- * 'unavailable' (no validated cuff or no trained staff member). An answer that does not fit is
+ * pc_sci_ready 'done' or 'not_yet' (the list is read, then one of two buttons: 7.2-8, Q18 (2));
+ * pc_booth_vitals (staff entry, Q21) { systolic1, diastolic1, systolic2, diastolic2 (two readings
+ * 1 minute apart, the mean is used), restingHeartRate, irregularHeartbeat (the cuff's flag: true or
+ * false, 1 or 0), usualSystolic? (SCI at T6 or above), adSign? (true when staff see an AD sign) }, or
+ * 'unavailable' (no validated cuff or no licensed practitioner). An answer that does not fit is
  * treated as not answered. Answers to questions that are not visible are ignored.
+ *
+ * Revision 1.1 adds, around the pre-check: the chair stand setup questions (setupQuestionsFor, Q9),
+ * the faint follow up (faintFollowUp, Q33 (3)), the end of check question (endOfCheckForm, endOfCheck,
+ * Q23 (7)), the resume re-ask (resumeQuestions, evaluateResume, O6), the question counter
+ * (possibleQuestions, O9), the wording of a question (questionForm, Q18, Q33, O45), the {when} of a
+ * lock (pausedWhen, Q33 (4)), the lock record (lockRecord, Q25 (c)) and the spoken check in answer
+ * (spokenCheckInAnswer, Q31 (4)).
  */
 import { CHECK_DATA, testDef } from "../movements/assessments";
 import {
@@ -35,8 +46,11 @@ import {
   type ActionVariant,
   type AreaId,
   type AreaLoad,
+  type HelperCheckInLine,
+  type Lang,
   type LockKind,
   type LockReasonId,
+  type PausedWhenId,
   type PdDoseBucket,
   type PostponeReasonId,
   type PrecheckFlag,
@@ -45,8 +59,10 @@ import {
   type QuestionAction,
   type ReasonId,
   type ScreenId,
+  type SetupQuestionId,
   type ShowIf,
   type Side,
+  type StopFollowUpId,
   type StopOptionId,
   type StoreKey,
   type SurgeryAreaId,
@@ -58,7 +74,7 @@ import type { CheckContext, Setting, StoredSetup } from "./assessment";
 
 /* ------------------------------------------------------------------ types */
 
-export type AnswerValue = boolean | number | string | string[] | Record<string, number>;
+export type AnswerValue = boolean | number | string | string[] | Record<string, number | boolean>;
 export type Answers = Record<string, AnswerValue>;
 export type TestSide = Side | "none";
 
@@ -97,6 +113,16 @@ export interface PrecheckEnv {
    */
   // SPEC-GAP: ad-since-any-setting. Missing means not known, and then only !firstCheck shows it.
   completedBefore?: boolean;
+  /**
+   * A faint stop stored faintReported (date only) and no pc_faint_since answer has cleared it yet:
+   * pc_faint_since is asked once, before pc_change (Q33 (3)). Missing means no.
+   */
+  faintReportedUnresolved?: boolean;
+  /**
+   * The fine rehearsal after the first calibration failed twice today: noArmSignal holds for today
+   * and every camera test left needs pc_helper yes at home (O34-1 (7), O34-2 (1), (3)).
+   */
+  fineRehearsalFailed?: boolean;
 }
 
 export type PrecheckStatus = "proceed" | "postpone" | "emergency" | "ad" | "incomplete";
@@ -140,9 +166,10 @@ export interface VariantItem {
 }
 
 /**
- * The data map of spec 2.1, "Kept with the check". Nothing else from the pre-check may be stored.
- * The pre-check fills the first eleven; faceCovered comes from the setup check, followUp from
- * ac_next_day and the consent from the consent record.
+ * The data map of spec 2.1, "Kept with the check" (updated by Q32). Nothing else from the pre-check
+ * may be stored. The pre-check fills painNow to changeReported; faintReported comes from a faint
+ * stop (stopRoute), faceCovered from the setup check, sameChair from su_same_chair
+ * (evaluateSetupQuestions), followUp from ac_next_day and the consent from the consent record.
  */
 export const DATA_MAP_KEYS = [
   "painNow",
@@ -156,7 +183,9 @@ export const DATA_MAP_KEYS = [
   "fingerprint.helperPresent",
   "changeCleared",
   "changeReported",
+  "faintReported",
   "fingerprint.faceCovered",
+  "fingerprint.sameChair",
   "assessment.followUp",
   "consent.acceptedAt",
   "consent.version",
@@ -178,6 +207,17 @@ export interface StoredPrecheck {
   "fingerprint.helperPresent"?: TestId[];
   changeCleared?: string;
   changeReported?: string;
+}
+
+/**
+ * What the check in needs from the pre-check (stopRouting.checkIn, O33 (a)): whether a raised hand
+ * may be asked for (O34-4 (3)), whether no arm can give the camera fine signal (O34-2 (1)), and the
+ * arm of the phase 2 fine zone (O34-1 (1)); null when no arm qualifies.
+ */
+export interface CheckInConfig {
+  raiseAllowed: boolean;
+  noArmSignal: boolean;
+  fineZoneSide: Side | null;
 }
 
 export interface PrecheckOutcome {
@@ -208,6 +248,16 @@ export interface PrecheckOutcome {
   // SPEC-GAP: followup-resolved. The action stores followUpResolved, which is not in the data map of
   // spec 2.1; it is kept out of `stored` and returned here so the server can clear lastCheckLasting.
   followUpResolved?: boolean;
+  /** pc_faint_since was answered: either answer clears the faintReported date (Q33 (3)). */
+  faintReportedCleared?: true;
+  /** Proceed only: the inputs of the check in (O34). */
+  checkIn?: CheckInConfig;
+  /**
+   * Proceed only: the helper briefing of each test that runs with a helper (Q11, O34-2 (2)): the
+   * briefing screen of the chair stand or the side lean, or for the two arm tests the helper check in
+   * line on one screen with the confirm button. The test starts only after the confirm tap.
+   */
+  helperBriefing?: Partial<Record<TestId, ScreenId | HelperCheckInLine>>;
 }
 
 /* ----------------------------------------------------------- question ids */
@@ -303,30 +353,61 @@ function areaScores(raw: unknown): Record<string, number> | undefined {
   return out;
 }
 
-function checklist(raw: unknown, size: number): boolean | string[] | undefined {
-  if (typeof raw === "boolean") return raw;
-  const indexes = Array.from({ length: size }, (_, i) => String(i));
-  return idList(raw, indexes);
+/**
+ * Booth vitals (Q21 (3), O47): two readings 1 minute apart (their mean is used), the resting heart
+ * rate, the cuff's irregular heartbeat flag, and two optional entries for SCI at T6 or above: the
+ * person's usual systolic (the booth build does not render it, O47 (2)) and an AD sign seen by staff.
+ */
+const READING_KEYS = ["systolic1", "diastolic1", "systolic2", "diastolic2", "restingHeartRate"] as const;
+interface Vitals {
+  systolic1: number;
+  diastolic1: number;
+  systolic2: number;
+  diastolic2: number;
+  restingHeartRate: number;
+  irregularHeartbeat: boolean;
+  usualSystolic?: number;
+  adSign?: boolean;
 }
+const VITAL_FIELDS: readonly string[] = [...READING_KEYS, "irregularHeartbeat", "usualSystolic", "adSign"];
 
-// SPEC-GAP: booth-sci-bp. Spec 2.7 also starts the AD response at the booth for SCI at T6 or above
-// when systolic rises 20 or more above the person's usual value. pc_booth_vitals is shown only for
-// clearance no or unsure (SCI needs clearance yes) and no usual value is collected, so that staff
-// rule stays a staff procedure and is not evaluated here.
-const VITAL_KEYS = ["restingHeartRate", "systolic", "diastolic"] as const;
-type Vitals = Record<(typeof VITAL_KEYS)[number], number>;
+const reading = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0 && v < 400;
+/** true, false, 1 or 0; anything else is not an answer. */
+function flagOf(v: unknown): boolean | undefined {
+  if (v === true || v === 1) return true;
+  if (v === false || v === 0) return false;
+  return undefined;
+}
 
 function vitals(raw: unknown): "unavailable" | Vitals | undefined {
   if (raw === "unavailable") return raw;
   if (!isPlainObject(raw)) return undefined;
-  const keys = Object.keys(raw);
-  if (keys.length !== VITAL_KEYS.length || !VITAL_KEYS.every((k) => keys.includes(k))) return undefined;
-  const ok = VITAL_KEYS.every((k) => {
-    const v = raw[k];
-    return typeof v === "number" && Number.isFinite(v) && v > 0 && v < 400;
-  });
-  return ok ? (raw as Vitals) : undefined;
+  if (Object.keys(raw).some((k) => !VITAL_FIELDS.includes(k))) return undefined;
+  if (!READING_KEYS.every((k) => reading(raw[k]))) return undefined;
+  const irregular = flagOf(raw.irregularHeartbeat);
+  if (irregular === undefined) return undefined;
+  const out: Vitals = {
+    systolic1: raw.systolic1 as number,
+    diastolic1: raw.diastolic1 as number,
+    systolic2: raw.systolic2 as number,
+    diastolic2: raw.diastolic2 as number,
+    restingHeartRate: raw.restingHeartRate as number,
+    irregularHeartbeat: irregular,
+  };
+  if (raw.usualSystolic !== undefined) {
+    if (!reading(raw.usualSystolic)) return undefined;
+    out.usualSystolic = raw.usualSystolic;
+  }
+  if (raw.adSign !== undefined) {
+    const ad = flagOf(raw.adSign);
+    if (ad === undefined) return undefined;
+    out.adSign = ad;
+  }
+  return out;
 }
+
+const meanSystolic = (v: Vitals) => (v.systolic1 + v.systolic2) / 2;
+const meanDiastolic = (v: Vitals) => (v.diastolic1 + v.diastolic2) / 2;
 
 /** The answer of one question instance, normalised, or undefined when missing or not valid. */
 function normalizeAnswer(
@@ -350,10 +431,10 @@ function normalizeAnswer(
       return score(raw);
     case "area_scale_0_10":
       return areaScores(raw);
-    case "checklist":
-      return checklist(raw, item.list?.en.length ?? 0);
+    case "list_confirm":
+      return oneOf(raw, options);
     case "system":
-      return item.id === "pc_booth_vitals" ? vitals(raw) : undefined;
+      return item.id === "pc_booth_vitals" ? (vitals(raw) as AnswerValue | undefined) : undefined;
   }
 }
 
@@ -415,12 +496,72 @@ function painSides(st: State): Side[] | undefined {
   return SIDES.filter((s) => sides.has(s));
 }
 
+/* ------------------------------------------------------- arms and signals */
+
+const ARM_FUNCTION_RANK: Record<string, number> = { bend_hold: 2, bend_no_hold: 1, no_bend: 0 };
+
+function armFunction(st: State, side: Side): string | undefined {
+  const v = value(st, questionId("pc_arm_function", side));
+  return typeof v === "string" ? v : undefined;
+}
+
+/**
+ * An arm that cannot give the camera fine signal (stopRouting.checkIn.noArmSignal, O34-2 (1)): upper
+ * limb loss on that side, the declared weaker side with pc_weak_lift no, or pc_arm_function no_bend.
+ */
+function armWithoutSignal(st: State, side: Side): boolean {
+  if (limbArm(st) === side) return true;
+  if (st.env.ctx.support === side && value(st, "pc_weak_lift") === "no") return true;
+  return armFunction(st, side) === "no_bend";
+}
+
+/**
+ * noArmSignal (O34-2 (1)): each arm cannot signal, or the fine rehearsal failed twice today. At home
+ * every camera test left then needs pc_helper yes; at the booth nothing changes (O34-2 (7)).
+ */
+function noArmSignal(st: State): boolean {
+  return st.env.fineRehearsalFailed === true || SIDES.every((s) => armWithoutSignal(st, s));
+}
+
+/**
+ * raiseAllowed (O34-4 (3)): false with the no_overhead restriction, or when no arm is free of all of:
+ * upper limb loss, the weaker side with pc_weak_lift no or pc_weak_shoulder yes, pc_arm_function
+ * no_bend. No cue ever asks a person with raiseAllowed false to raise a hand.
+ */
+function raiseAllowed(st: State): boolean {
+  if (st.env.ctx.restrictions.includes("no_overhead")) return false;
+  const weakShoulder = value(st, "pc_weak_shoulder") === "yes";
+  return SIDES.some((s) => !armWithoutSignal(st, s) && !(st.env.ctx.support === s && weakShoulder));
+}
+
+/**
+ * The arm of the phase 2 fine zone (O34-1 (1)): the stronger arm, never the declared weaker side, a
+ * limb loss side or a pc_arm_pain_side; for SCI the arm with the better pc_arm_function answer; on a
+ * tie the right.
+ */
+// SPEC-GAP: fine-zone-no-side. When every arm is ruled out (for example a weaker left arm and pain in
+// the right), there is no fine zone (null): fine then comes from the button or the phrase only.
+function fineZoneSide(st: State): Side | null {
+  const pain = painSides(st) ?? [];
+  const lost = limbArm(st);
+  const weaker = st.env.ctx.support === "none" ? undefined : st.env.ctx.support;
+  const ok = (["right", "left"] as const).filter(
+    (s) => s !== lost && s !== weaker && !pain.includes(s) && armFunction(st, s) !== "no_bend",
+  );
+  if (ok.length === 0) return null;
+  const rank = (s: Side) => ARM_FUNCTION_RANK[armFunction(st, s) ?? "bend_hold"] ?? 2;
+  // Right first, so a tie keeps the right.
+  return ok.reduce((best, s) => (rank(s) > rank(best) ? s : best));
+}
+
 /** painNow for the rules and for storage: raised to the highest area score (spec 2.1). */
 function effectivePain(st: State): number | undefined {
   const now = value(st, "pc_pain_now");
   if (typeof now !== "number") return undefined;
   const areas = value(st, "pc_pain_areas");
-  const scores = isPlainObject(areas) ? Object.values(areas).filter((v) => typeof v === "number") : [];
+  const scores = isPlainObject(areas)
+    ? Object.values(areas).filter((v): v is number => typeof v === "number")
+    : [];
   return Math.max(now, ...scores);
 }
 
@@ -432,6 +573,11 @@ interface CondContext {
   env: PrecheckEnv;
   answer(id: string): AnswerValue | undefined;
   flag(flag: PrecheckFlag): boolean;
+  /**
+   * possibleQuestions only: a question with no answer yet that can still appear. Its answer may
+   * still make an answer condition hold.
+   */
+  pending?(id: string): boolean;
 }
 
 type ShowIfEvaluators = {
@@ -443,7 +589,7 @@ const SHOW_IF: ShowIfEvaluators = {
   anyOf: (list, c) => list.some((s) => showIfHolds(s, c)),
   answer: (a, c) => {
     const v = c.answer(a.id);
-    if (v === undefined) return false;
+    if (v === undefined) return c.pending?.(a.id) ?? false;
     if (a.equals !== undefined && v !== a.equals) return false;
     if (a.gte !== undefined && !(typeof v === "number" && v >= a.gte)) return false;
     return true;
@@ -460,6 +606,8 @@ const SHOW_IF: ShowIfEvaluators = {
   setting: (s, c) => c.env.setting === s,
   clearanceIn: (cs, c) => cs.includes(c.env.ctx.clearance),
   previousFollowUp: (f, c) => f === "lasting_unresolved" && c.env.lastCheckLasting,
+  faintReportedUnresolved: (_, c) => c.env.faintReportedUnresolved === true,
+  weakerSide: (_, c) => c.env.ctx.support !== "none",
 };
 
 export const SHOW_IF_KEYS = Object.keys(SHOW_IF) as (keyof ShowIf)[];
@@ -481,7 +629,12 @@ function stateCond(st: State, test?: TestId): CondContext {
   return {
     env: st.env,
     answer: (id) => value(st, id),
-    flag: (f) => (f === "sci_t6" ? sciT6(st) : test !== undefined && st.helperTests.has(test)),
+    flag: (f) =>
+      f === "sci_t6"
+        ? sciT6(st)
+        : f === "noArmSignal"
+          ? st.env.setting === "home" && noArmSignal(st)
+          : test !== undefined && st.helperTests.has(test),
   };
 }
 
@@ -534,13 +687,40 @@ function addItem(st: State, item: PrecheckItem) {
     const lost = limbArm(st);
     for (const side of ["right", "left"] as const) if (side !== lost) push(side);
   } else if (item.perTest) {
-    for (const test of item.perTest) if (st.helperTests.has(test)) push(test, test);
+    // In the order the tests run (baseTests), so each helper question sits with its test.
+    for (const test of perTestOrder(st.env, item)) if (st.helperTests.has(test)) push(test, test);
+  } else if (item.askByPosition) {
+    push(positionForm(st.env));
   } else {
     push();
   }
 }
 
-function buildState(env: PrecheckEnv, raw: Answers): State {
+/** The tests a per test question is asked for, in the order the check runs them. */
+function perTestOrder(env: PrecheckEnv, item: PrecheckItem): TestId[] {
+  const listed = item.perTest ?? [];
+  const inBase = env.baseTests.filter((t): t is TestId => (listed as readonly string[]).includes(t));
+  return [...inBase, ...listed.filter((t) => !inBase.includes(t))];
+}
+
+/**
+ * The form of a question asked by position (pc_trunk_armrests, Q12 (1)): the wheelchair form in a
+ * wheelchair, the chair form otherwise (a standing person does the side lean on a chair).
+ */
+export function positionForm(env: Pick<PrecheckEnv, "ctx">): "chair" | "wheelchair" {
+  return env.ctx.position === "wheelchair" ? "wheelchair" : "chair";
+}
+
+/**
+ * The visible questions and their valid answers. `only` limits the questions asked (the resume
+ * re-ask, O6); the others count as not shown.
+ */
+function buildState(
+  env: PrecheckEnv,
+  raw: Answers,
+  only?: ReadonlySet<PrecheckId>,
+  extraHelpers: readonly TestId[] = [],
+): State {
   const st: State = {
     env,
     raw: isPlainObject(raw) ? raw : {},
@@ -549,16 +729,21 @@ function buildState(env: PrecheckEnv, raw: Answers): State {
     shown: new Set(),
     helperTests: new Set(),
   };
+  const asked = (item: PrecheckItem) => !only || only.has(item.id);
   const helperItem = CHECK_DATA.precheck.find((q) => q.perTest);
-  for (const item of CHECK_DATA.precheck) if (item !== helperItem) addItem(st, item);
-  if (helperItem) {
+  for (const item of CHECK_DATA.precheck) if (item !== helperItem && asked(item)) addItem(st, item);
+  if (helperItem && asked(helperItem)) {
     // pc_helper depends on the helper rules, which depend on the other answers of the day.
-    st.helperTests = computeDay(st).helperTests;
+    const day = computeDay(st);
+    st.helperTests = day.helperTests;
+    // The resume re-ask also keeps the helpers of the frozen protocol (O6 (2)).
+    if (env.setting === "home")
+      for (const t of extraHelpers) if (selected(st, t) && !fullySkipped(day, t)) st.helperTests.add(t);
     addItem(st, helperItem);
   }
   st.instances = st.instances
     .map((inst, pos) => ({ inst, pos }))
-    .sort((a, b) => askOrder(a.inst.base) - askOrder(b.inst.base) || a.pos - b.pos)
+    .sort((a, b) => askOrder(env, a.inst.base) - askOrder(env, b.inst.base) || a.pos - b.pos)
     .map((x) => x.inst);
   return st;
 }
@@ -574,10 +759,20 @@ function buildState(env: PrecheckEnv, raw: Answers): State {
 // questions before it is answered (evaluatePrecheck).
 const TERMINAL_GATE: readonly PrecheckId[] = ["pc_urgent", "pc_sci_level", "pc_sci_ad_now"];
 
-/** Data order, with the terminal gate first (after pc_setting, which is never asked). */
-function askOrder(base: PrecheckId): number {
+/**
+ * Data order, with the terminal gate first (after pc_setting, which is never asked). With an
+ * unresolved changeReported the check goes straight to pc_change_cleared (Q33 (2)): right after the
+ * terminal gate, before the other day of questions.
+ */
+// SPEC-GAP: change-cleared-first. "Goes straight to pc_change_cleared" is read as first after the
+// emergency and AD questions, which are always asked first.
+function askOrder(env: Pick<PrecheckEnv, "unresolvedChangeReported">, base: PrecheckId): number {
   const gate = TERMINAL_GATE.indexOf(base);
-  if (gate >= 0) return (PRECHECK_INDEX.get("pc_urgent") ?? 0) + gate / TERMINAL_GATE.length;
+  const urgent = PRECHECK_INDEX.get("pc_urgent") ?? 0;
+  if (gate >= 0) return urgent + gate / (TERMINAL_GATE.length + 1);
+  if (base === "pc_change_cleared" && env.unresolvedChangeReported) {
+    return urgent + TERMINAL_GATE.length / (TERMINAL_GATE.length + 1);
+  }
   return PRECHECK_INDEX.get(base) ?? 0;
 }
 
@@ -627,6 +822,7 @@ interface Day {
   helperFrom: Set<TestId>;
   helperTests: Set<TestId>;
   helperPresent: TestId[];
+  helperBriefing: Partial<Record<TestId, ScreenId | HelperCheckInLine>>;
   warnings: ScreenId[];
 }
 
@@ -771,8 +967,49 @@ function scalarHolds(cond: ActionIf, v: AnswerValue | undefined): boolean {
   return true;
 }
 
-function allChecked(v: AnswerValue | undefined, size: number): boolean {
-  return v === true || (Array.isArray(v) && v.length === size);
+/**
+ * The booth vitals rows of pc_booth_vitals (Q21 (4), O47). Every key present must hold:
+ *   vitalsUnavailable       no validated cuff or no licensed practitioner;
+ *   vitalsOutside           the mean systolic 160 or more or below 90, the mean diastolic 100 or
+ *                           more, the heart rate above 120, or the irregular heartbeat flag;
+ *   sciT6SystolicRiseGte    SCI at T6 or above with the mean systolic this far above the usual one;
+ *   flag                    the pre-check flag holds (with a reading or unavailable: O47 (3), the
+ *                           chair stand is not offered to sci_t6 whether or not the value is known);
+ *   anyOf                   a mean systolic at or above the value, or an AD sign.
+ */
+function vitalsMatch(st: State, cond: ActionIf, v: AnswerValue | undefined): boolean {
+  if (v === undefined) return false;
+  if (cond.vitalsUnavailable) return v === "unavailable";
+  if (cond.flag !== undefined && !stateCond(st).flag(cond.flag)) return false;
+  const measured = isPlainObject(v) ? (v as unknown as Vitals) : undefined;
+  if (cond.vitalsOutside) {
+    if (!measured) return false;
+    const lim = cond.vitalsOutside;
+    const sys = meanSystolic(measured);
+    const dia = meanDiastolic(measured);
+    if (!(
+      sys >= lim.meanSystolicGte ||
+      sys < lim.meanSystolicLt ||
+      dia >= lim.meanDiastolicGte ||
+      measured.restingHeartRate > lim.restingHeartRateGt ||
+      (lim.irregularHeartbeat && measured.irregularHeartbeat)
+    ))
+      return false;
+  }
+  if (cond.sciT6SystolicRiseGte !== undefined) {
+    if (!measured || measured.usualSystolic === undefined || !sciT6(st)) return false;
+    if (meanSystolic(measured) - measured.usualSystolic < cond.sciT6SystolicRiseGte) return false;
+  }
+  if (cond.anyOf) {
+    if (!measured) return false;
+    const any = cond.anyOf.some(
+      (a) =>
+        (a.meanSystolicGte !== undefined && meanSystolic(measured) >= a.meanSystolicGte) ||
+        (a.adSign === true && measured.adSign === true),
+    );
+    if (!any) return false;
+  }
+  return true;
 }
 
 /** The places where an action's condition holds (one per side, test or area group). */
@@ -786,7 +1023,8 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
     case "area_scale_0_10": {
       const scores = value(st, item.id);
       if (!isPlainObject(scores) || cond.areaScoreGte === undefined) return [];
-      let areas = AREA_IDS.filter((a) => (scores[a] ?? 0) >= (cond.areaScoreGte ?? Infinity));
+      const score = (a: AreaId) => (typeof scores[a] === "number" ? (scores[a] as number) : 0);
+      let areas = AREA_IDS.filter((a) => score(a) >= (cond.areaScoreGte ?? Infinity));
       if (cond.areaLoadsSelectedTest) {
         // SPEC-GAP: area7-loads. "An area a selected test loads" counts every load of the area,
         // on any side and in any variant (the safe reading: more postpones).
@@ -794,22 +1032,8 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
       }
       return areas.length ? [{ areas }] : [];
     }
-    case "checklist": {
-      const v = value(st, item.id);
-      if (v === undefined) return [];
-      return cond.allChecked === false && !allChecked(v, item.list?.en.length ?? 0) ? [{}] : [];
-    }
-    case "system": {
-      const v = value(st, item.id);
-      if (cond.vitalsUnavailable) return v === "unavailable" ? [{}] : [];
-      if (cond.vitalsAbove) {
-        if (!isPlainObject(v)) return [];
-        const lim = cond.vitalsAbove;
-        const above = VITAL_KEYS.some((k) => (v[k] as number) > lim[k]);
-        return above ? [{}] : [];
-      }
-      return [];
-    }
+    case "system":
+      return vitalsMatch(st, cond, value(st, item.id)) ? [{}] : [];
     case "yes_no_then_areas": {
       if (!scalarHolds(cond, value(st, item.id))) return [];
       const areas = value(st, questionId(item.id, "areas"));
@@ -837,12 +1061,14 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
   }
 }
 
-function applyAction(st: State, d: Day, a: QuestionAction, m: Match) {
+function applyAction(st: State, d: Day, a: QuestionAction, m: Match, from: PrecheckId) {
   switch (a.do) {
     case "record":
       if (a.stores) d.recorded.add(a.stores);
       break;
     case "emergency": {
+      // pc_urgent yes also stores changeReported (Q33 (2)).
+      if (a.stores) d.recorded.add(a.stores);
       const alsoShow: ScreenId[] = [];
       if (a.alsoShowIf) {
         const { screen, ...when } = a.alsoShowIf;
@@ -856,7 +1082,20 @@ function applyAction(st: State, d: Day, a: QuestionAction, m: Match) {
       if (a.stores) d.recorded.add(a.stores);
       break;
     case "ask":
-      // The follow up question's showIf makes it visible.
+      // The follow up question's showIf makes it visible, except for pc_faint_since below.
+      if (from === "pc_faint_since") {
+        // SPEC-GAP: faint-since-route. The data asks pc_change_cleared after a yes; Q33 (3) reads
+        // "yes postpones with recent_change and goes to pc_change_cleared", the interaction rule routes
+        // a pc_faint_since yes at once, and the UX spec postpones and asks pc_change_cleared at the
+        // next check. The safest reading is used: postpone at once (recent_change, next day, released
+        // by a later yes to pc_change_cleared) and store changeReported so that question comes next.
+        d.postpones.push({
+          reason: "recent_change",
+          screen: CHECK_DATA.postponeReasons.recent_change,
+          lock: "next_day",
+        });
+        d.recorded.add("changeReported");
+      }
       break;
     case "skip":
       applySkipTargets(st, d, a.tests, a.reason, m);
@@ -888,7 +1127,11 @@ function applyAction(st: State, d: Day, a: QuestionAction, m: Match) {
       break;
     case "show":
       if (m.test) {
-        warn(d, a.screenByTest[m.test]);
+        const briefing = a.screenByTest[m.test];
+        // The two arm tests show the helper check in line with the confirm button (O34-2 (2)), not
+        // a screen of their own.
+        if (briefing && briefing !== "helperBriefing.checkInLine") warn(d, briefing);
+        if (briefing) d.helperBriefing[m.test] = briefing;
         if (a.stores) d.recorded.add(a.stores);
         if (!d.helperPresent.includes(m.test)) d.helperPresent.push(m.test);
       }
@@ -907,8 +1150,9 @@ function applyStandingRules(st: State, d: Day) {
   const stroke = ctx.conditions.includes("stroke");
 
   // Spec 4.2 load rules: arm_only is forced by no_resistance, clearance no or unsure, pain on that
-  // side (setup.painSides) and, after stroke, the weaker arm whatever pc_weak_shoulder says.
-  if (ctx.restrictions.includes("no_resistance") || ctx.clearance !== "yes") {
+  // side (setup.painSides) and, after stroke, the weaker arm whatever pc_weak_shoulder says. At the
+  // booth the arm curl runs without weight for everyone (Q5).
+  if (ctx.restrictions.includes("no_resistance") || ctx.clearance !== "yes" || setting === "booth") {
     for (const s of SIDES) d.armOnly.add(s);
   }
   const sides = painSides(st) ?? [];
@@ -962,6 +1206,11 @@ function applyStandingRules(st: State, d: Day) {
     ) {
       d.helperTests.add(trunk);
     }
+    // O34-2 (2): with no arm that can signal, every camera test left needs another adult.
+    if (noArmSignal(st)) {
+      for (const test of CHECK_DATA.tests.map((t) => t.id))
+        if (selected(st, test) && !fullySkipped(d, test)) d.helperTests.add(test);
+    }
   }
 }
 
@@ -978,6 +1227,7 @@ function computeDay(st: State): Day {
     helperFrom: new Set(),
     helperTests: new Set(),
     helperPresent: [],
+    helperBriefing: {},
     warnings: [],
   };
   // Limb loss first, so "we measure your other arm only" is the reason shown for that side.
@@ -988,7 +1238,8 @@ function computeDay(st: State): Day {
   }
   for (const item of CHECK_DATA.precheck) {
     if (!st.shown.has(item.id)) continue;
-    for (const a of item.actions) for (const m of matchesOf(st, item, a.if)) applyAction(st, d, a, m);
+    for (const a of item.actions)
+      for (const m of matchesOf(st, item, a.if)) applyAction(st, d, a, m, item.id);
   }
   // Spec 2.2 pc_sci_ad_since note: yes_cleared proceeds and stores changeCleared (date only).
   // SPEC-GAP: sci-ad-since-cleared. The data has no action for it; the note is implemented here.
@@ -1152,12 +1403,18 @@ export function evaluatePrecheck(
   answers: Answers,
   now: number = Date.now(),
 ): PrecheckOutcome {
-  const st = buildState(env, answers);
+  return outcomeOf(buildState(env, answers), now);
+}
+
+/** The outcome of a built state (evaluatePrecheck, evaluateResume). */
+function outcomeOf(st: State, now: number): PrecheckOutcome {
   const d = computeDay(st);
   const date = riyadhDate(now);
   // SPEC-GAP: change-reported-on-postpone. changeReported is kept even though the check is not
   // stored, so an uncleared change cannot be bypassed after the lock ends (spec 2.2 pc_change note).
   const terminalStored: StoredPrecheck = d.recorded.has("changeReported") ? { changeReported: date } : {};
+  // Either answer to pc_faint_since clears faintReported (Q33 (3)); an emergency keeps it.
+  const faintCleared = d.recorded.has("faintReported cleared") ? { faintReportedCleared: true as const } : {};
 
   if (d.emergency) {
     return {
@@ -1189,19 +1446,30 @@ export function evaluatePrecheck(
       ...(alsoShow.length ? { alsoShow } : {}),
       lock,
       stored: terminalStored,
+      ...faintCleared,
     };
   }
   if (st.instances.some((i) => !st.values.has(i.id))) return emptyOutcome("incomplete");
 
   conditionWarnings(st, d);
+  const helperRequired = [...d.helperTests].filter((t) => !fullySkipped(d, t));
+  const helperBriefing: PrecheckOutcome["helperBriefing"] = {};
+  for (const t of helperRequired) if (d.helperBriefing[t]) helperBriefing[t] = d.helperBriefing[t];
   const outcome: PrecheckOutcome = {
     status: "proceed",
     skips: sortedSkips(st, d),
     variants: dayVariants(st, d),
-    helperRequired: [...d.helperTests].filter((t) => !fullySkipped(d, t)),
+    helperRequired,
     warnings: d.warnings,
     setupUpdates: setupUpdates(st),
     stored: storedFields(st, d, date),
+    ...faintCleared,
+    checkIn: {
+      raiseAllowed: raiseAllowed(st),
+      noArmSignal: st.env.setting === "home" && noArmSignal(st),
+      fineZoneSide: fineZoneSide(st),
+    },
+    helperBriefing,
   };
   if (d.recorded.has("followUpResolved")) outcome.followUpResolved = true;
   return outcome;
@@ -1248,24 +1516,98 @@ export function lockUntil(reason: LockReasonId, now: number): number | null {
   return kind === null ? null : lockEndsAt(kind, now);
 }
 
-/**
- * When a lock of this kind set at `now` ends, as epoch ms. A pre-check outcome's lock carries its
- * kind, which can be longer than its reason's own (pickPostpone), so the server reads the kind.
- */
-export function lockEndsAt(kind: LockKind, now: number): number {
-  if (kind === "60_min") return now + 60 * 60 * 1000;
+/** The next local midnight in Asia/Riyadh after `now`, as epoch ms. */
+function nextRiyadhMidnight(now: number): number {
   const localDayStart = Math.floor((now + RIYADH_OFFSET_MS) / DAY_MS) * DAY_MS;
   return localDayStart + DAY_MS - RIYADH_OFFSET_MS;
 }
 
+/** A next day lock lasts at least this long (Q33 (1)). */
+export const NEXT_DAY_MIN_HOURS = 8;
+
 /**
- * Whether today's answers release a lock at once: recent_change is released by a yes to
- * pc_change_cleared, or yes_cleared in pc_sci_ad_since (locks.rules).
+ * When a lock of this kind set at `now` ends, as epoch ms. A pre-check outcome's lock carries its
+ * kind, which can be longer than its reason's own (pickPostpone), so the server reads the kind.
+ * A next day lock ends at whichever comes later: midnight in Asia/Riyadh (the default time zone) or
+ * 8 hours after it started (Q33 (1)); a 60 minute lock 60 minutes later.
  */
-export function releasesLock(lock: { reason: string }, env: PrecheckEnv, answers: Answers): boolean {
-  if (lock.reason !== "recent_change") return false;
+// SPEC-GAP: lock-time-zone. Q33 (1) names the person's time zone with Asia/Riyadh by default; no time
+// zone is kept for a person yet, so every lock uses Asia/Riyadh (UTC+3 all year).
+export function lockEndsAt(kind: LockKind, now: number): number {
+  if (kind === "60_min") return now + 60 * 60 * 1000;
+  return Math.max(nextRiyadhMidnight(now), now + NEXT_DAY_MIN_HOURS * HOUR_MS);
+}
+
+/** Lock reasons whose lock a clearance answer releases at once (locks.rules: releasableByClearance). */
+const RELEASABLE_LOCKS: readonly string[] = ["recent_change"];
+
+/**
+ * The lock record kept per user (Q25 (c)): the time it ends and whether a clearance answer releases
+ * it, never the reason id. Null for a reason without a lock (sci_ready). Deleted at expiry.
+ */
+export function lockRecord(
+  lock: CheckLock,
+  now: number,
+): { until: number; releasableByClearance: boolean } | null {
+  if (lock.until === null) return null;
+  return {
+    until: lockEndsAt(lock.until, now),
+    releasableByClearance: RELEASABLE_LOCKS.includes(lock.reason),
+  };
+}
+
+/**
+ * Whether today's answers release a lock at once: a releasable lock (recent_change) is released by
+ * a yes to pc_change_cleared, or yes_cleared in pc_sci_ad_since (locks.rules). Takes the lock record
+ * of Q25 (c) ({ releasableByClearance }) or a lock with its reason.
+ */
+export function releasesLock(
+  lock: { reason?: string; releasableByClearance?: boolean },
+  env: PrecheckEnv,
+  answers: Answers,
+): boolean {
+  const releasable =
+    lock.releasableByClearance ?? (lock.reason !== undefined && RELEASABLE_LOCKS.includes(lock.reason));
+  if (!releasable) return false;
   const st = buildState(env, answers);
   return value(st, "pc_change_cleared") === "yes" || value(st, "pc_sci_ad_since") === "yes_cleared";
+}
+
+/** A clock time on the 12 hour clock in Asia/Riyadh ({time} of Q33 (4)). */
+export interface ClockTime {
+  hour: number;
+  minute: number;
+  suffix: "am" | "pm";
+}
+
+function clockOf(t: number): ClockTime {
+  const local = new Date(t + RIYADH_OFFSET_MS);
+  const h = local.getUTCHours();
+  return { hour: h % 12 === 0 ? 12 : h % 12, minute: local.getUTCMinutes(), suffix: h < 12 ? "am" : "pm" };
+}
+
+/**
+ * {when} of scr_paused_today (Q33 (4), pausedWhenTokens): which line and, for the clock forms, the
+ * time in Asia/Riyadh. `shown` is "start" on the screen of the postpone itself and "return" when the
+ * person comes back while the lock is active. A 60 minute lock reads in about an hour at the start,
+ * then after {time}; a next day lock reads tomorrow when it ends at midnight, tomorrow after {time}
+ * when it ends at a clock time tomorrow, and after {time} on the day it ends.
+ */
+export function pausedWhen(
+  lock: { kind: LockKind; until: number },
+  now: number,
+  shown: "start" | "return",
+): { token: PausedWhenId; time?: ClockTime } {
+  if (lock.kind === "60_min") {
+    return shown === "start"
+      ? { token: "min60_start" }
+      : { token: "min60_active", time: clockOf(lock.until) };
+  }
+  if (riyadhDate(now) === riyadhDate(lock.until))
+    return { token: "sameDay_clock", time: clockOf(lock.until) };
+  const t = clockOf(lock.until);
+  if (t.hour === 12 && t.minute === 0 && t.suffix === "am") return { token: "nextDay_midnight" };
+  return { token: "nextDay_clock", time: t };
 }
 
 /* ---------------------------------------------------------- between tests */
@@ -1306,9 +1648,19 @@ function loadsArea(t: TestInstance, areaId: AreaId): boolean {
 }
 
 /**
- * bt_pain_after, asked after each test and after each side of a two sided test (spec 2.3).
- * A little more pain skips the remaining tests that load an area the finished test loads
- * (pain_today); much more or sharp pain ends the check for today.
+ * Whether bt_pain_after is asked after this test side (spec 2.3, O31): after each test and after each
+ * side of a two sided test, except the side lean, where it is asked once when both sides are done.
+ * `remaining` lists the test sides still to run today.
+ */
+export function painAfterDue(done: TestInstance, remaining: readonly TestInstance[]): boolean {
+  if (done.testId !== "trunk_control_seated") return true;
+  return !remaining.some((t) => t.testId === "trunk_control_seated");
+}
+
+/**
+ * bt_pain_after, asked after each test and after each side of a two sided test, and once after both
+ * sides of the side lean (spec 2.3, O31). A little more pain skips the remaining tests that load an
+ * area the finished test loads (pain_more); much more or a sudden sharp pain ends the check for today.
  */
 export function betweenTests(
   answers: Answers,
@@ -1342,12 +1694,15 @@ export function betweenTests(
 
 /* ---------------------------------------------------------- after the check */
 
-/** ac_next_day is asked at the first app open 12 hours to 3 days after a completed check. */
-export const AFTER_CHECK_WINDOW_HOURS: readonly [number, number] = [12, 72];
+/** ac_next_day is asked at the first app open 24 hours to 72 hours after a completed check (O38). */
+export const AFTER_CHECK_WINDOW_HOURS: readonly [number, number] = [24, 72];
+/** ...and never before this local hour (O38). */
+export const AFTER_CHECK_EARLIEST_HOUR = 6;
 
 export function afterCheckDue(completedAt: number, now: number): boolean {
   const hours = (now - completedAt) / HOUR_MS;
-  return hours >= AFTER_CHECK_WINDOW_HOURS[0] && hours <= AFTER_CHECK_WINDOW_HOURS[1];
+  if (hours < AFTER_CHECK_WINDOW_HOURS[0] || hours > AFTER_CHECK_WINDOW_HOURS[1]) return false;
+  return new Date(now + RIYADH_OFFSET_MS).getUTCHours() >= AFTER_CHECK_EARLIEST_HOUR;
 }
 
 export interface AfterCheckOutcome {
@@ -1394,8 +1749,16 @@ export interface StopRoute {
   lock: CheckLock | null;
   /** Reason id stored with the stopped test (spec 3.6); the stopped test stores no score. */
   reason: ReasonId;
-  /** Ask this question next (pain: bt_pain_after decides the rest). */
-  then?: "bt_pain_after";
+  /**
+   * Ask this question next: bt_pain_after decides the rest after a pain stop; sf_faint_loc follows
+   * every faint and fall stop (Q33 (3), O42), see faintFollowUp.
+   */
+  then?: "bt_pain_after" | StopFollowUpId;
+  /**
+   * What the stop keeps (dates only): changeReported after chest, stroke_signs and breath (Q33 (2)),
+   * faintReported after every faint stop (Q33 (3)).
+   */
+  stores?: "changeReported" | "faintReported";
   /** The next test starts only after a rest. */
   afterRest: boolean;
 }
@@ -1442,8 +1805,414 @@ export function stopRoute(option: string, env: PrecheckEnv): StopRoute {
     lock: o.lock ? { reason: o.id === "ad_signs" ? "ad" : "stop_symptom", until: o.lock } : null,
     reason: o.reason ?? "stopped_symptom",
     ...(o.then ? { then: o.then } : {}),
+    ...(o.stores === "changeReported" || o.stores === "faintReported" ? { stores: o.stores } : {}),
     afterRest: o.check === "may continue with the next test after a rest",
   };
+}
+
+/* ------------------------------------------------------- the faint follow up */
+
+export interface FollowUpOutcome {
+  status: "emergency" | "recorded" | "incomplete";
+  screen?: ScreenId;
+  lock?: CheckLock;
+  /** changeReported (date only) on the emergency route (Q33 (2), (3)). */
+  stored: Pick<StoredPrecheck, "changeReported">;
+}
+
+/**
+ * sf_faint_loc, «هل فقدت الوعي، ولو للحظة؟» · Did you pass out, even for a moment? (Q33 (3), O42),
+ * asked after scr_faint and after every fall stop once the person is seated, lying or settled. Yes or
+ * not sure opens scr_emergency and stores changeReported; no keeps the next day lock of the stop. A
+ * faint stop that followed a no response alarm takes the emergency route whatever the answer. No
+ * answer within 30 s runs the check in (the UI's timer): here that is incomplete.
+ */
+// SPEC-GAP: faint-after-no-response. Q33 (3) says a faint stop after a no response alarm "is handled
+// the same way"; its engineering impact lists changeReported for it, so it is read as a yes.
+export function faintFollowUp(
+  answer: string | undefined,
+  now: number,
+  opts: { afterNoResponse?: boolean } = {},
+): FollowUpOutcome {
+  const q = CHECK_DATA.stopFollowUps[0];
+  const v = oneOf(
+    answer,
+    q.options.map((o) => o.value as string),
+  );
+  const emergency = (): FollowUpOutcome => {
+    const a = q.actions.find((x) => x.do === "emergency");
+    return {
+      status: "emergency",
+      screen: a?.do === "emergency" ? a.screen : "scr_emergency",
+      lock: { reason: "stop_symptom", until: "next_day" },
+      stored: { changeReported: riyadhDate(now) },
+    };
+  };
+  if (opts.afterNoResponse) return emergency();
+  if (v === undefined) return { status: "incomplete", stored: {} };
+  for (const a of q.actions) {
+    if (a.do === "emergency" && (a.if.in as string[]).includes(v)) return emergency();
+    if (a.do === "record" && a.if.equals === v) {
+      return { status: "recorded", lock: { reason: "stop_symptom", until: a.lock }, stored: {} };
+    }
+  }
+  return { status: "recorded", lock: { reason: "stop_symptom", until: "next_day" }, stored: {} };
+}
+
+/* -------------------------------------------- the end of check question */
+
+/**
+ * The form of the end of check symptom question (ec_symptoms, Q23 (7)), asked of everyone before any
+ * result is shown, a check ended early included. `sides` are the one sided drops found today
+ * (symptomAskSides of src/medical/progress-rules.ts, over every test with sides): one side names it
+ * in the side form; none, or drops on both sides (in different tests), asks the general form.
+ */
+// SPEC-GAP: ec-side-conflict. The side form names one side; with one sided drops on different sides
+// in different tests the general form is asked, which covers either side of the body.
+export function endOfCheckForm(sides: readonly Side[]): { id: "ec_symptoms"; side?: Side } {
+  const unique = [...new Set(sides)];
+  return unique.length === 1 ? { id: "ec_symptoms", side: unique[0] } : { id: "ec_symptoms" };
+}
+
+/**
+ * The answer to the end of check question (Q23 (7)): yes opens scr_emergency, the same route as
+ * pc_urgent, and stores changeReported (Q33 (2)); no shows the results.
+ */
+// SPEC-GAP: ec-lock. The data action names no lock; "the same route as pc_urgent" is read with the
+// pc_urgent next day lock, so a check ended early cannot be restarted at once.
+export function endOfCheck(
+  answer: string | undefined,
+  now: number,
+): {
+  status: "emergency" | "proceed" | "incomplete";
+  screen?: ScreenId;
+  lock?: CheckLock;
+  stored: Pick<StoredPrecheck, "changeReported">;
+} {
+  const q = CHECK_DATA.endOfCheck[0];
+  const v = oneOf(
+    answer,
+    q.options.map((o) => o.value as string),
+  );
+  if (v === undefined) return { status: "incomplete", stored: {} };
+  const a = q.actions.find((x) => x.if.equals === v);
+  if (!a) return { status: "proceed", stored: {} };
+  return {
+    status: "emergency",
+    screen: a.screen,
+    lock: { reason: "urgent", until: lockKind("urgent") ?? "next_day" },
+    stored: { changeReported: riyadhDate(now) },
+  };
+}
+
+/* --------------------------------------------- the chair stand setup (Q9) */
+
+function setupCond(env: PrecheckEnv): CondContext {
+  return { env, answer: () => undefined, flag: () => false };
+}
+
+/**
+ * The chair stand setup questions on its setup screen at home (Q9): su_chair_gate whenever the chair
+ * stand runs, su_same_chair from the second check of the series.
+ */
+export function setupQuestionsFor(env: PrecheckEnv): SetupQuestionId[] {
+  return CHECK_DATA.setupQuestions.filter((q) => showIfHolds(q.showIf, setupCond(env))).map((q) => q.id);
+}
+
+/**
+ * The chair stand setup answers (Q9): su_chair_gate no skips the chair stand today with chair_needed
+ * (a same day skip, no substitute); su_same_chair yes keeps the chair, no and not sure are stored as
+ * no (fingerprint.sameChair false), so a blocking difference starts a new series.
+ */
+export function evaluateSetupQuestions(
+  env: PrecheckEnv,
+  answers: Answers,
+): { status: "proceed" | "incomplete"; skips: SkipItem[]; sameChair?: boolean } {
+  const ids = setupQuestionsFor(env);
+  const skips: SkipItem[] = [];
+  let sameChair: boolean | undefined;
+  for (const q of CHECK_DATA.setupQuestions) {
+    if (!ids.includes(q.id)) continue;
+    const v = oneOf(
+      answers?.[q.id],
+      q.options.map((o) => o.value as string),
+    );
+    if (v === undefined) return { status: "incomplete", skips: [] };
+    for (const a of q.actions) {
+      if (a.do === "skip" && a.if.equals === v) {
+        for (const t of a.tests) skips.push({ testId: t.test, side: "none", reason: a.reason });
+      }
+    }
+    if (q.id === "su_same_chair") sameChair = v === "yes";
+  }
+  return { status: "proceed", skips, ...(sameChair === undefined ? {} : { sameChair }) };
+}
+
+/* ----------------------------------------------------- the wording (Q18) */
+
+/** Which text of a question the person sees (Q18, Q33 (2), Q12 (1), O45, O37). */
+export interface QuestionForm {
+  /** The data field of the question text: ask, askFirstCheck, askDirect or askByPosition. */
+  text: "ask" | "askFirstCheck" | "askDirect" | "askByPosition";
+  /** askByPosition: the form of the person's position. */
+  position?: "chair" | "wheelchair";
+  /** Home only: the question alone, then the examples list (pc_change, pc_unwell; O45). */
+  examples: boolean;
+  /**
+   * The long standing signs line applies to this person (O37: a weaker side or the listed
+   * conditions). Its data status holds it back until the Q18 (6) testing of the line is complete.
+   */
+  chronicNote: boolean;
+}
+
+/**
+ * The wording of a question instance for this person: askFirstCheck at the first check of a series
+ * (pc_change, the fell question of pc_steadi), askDirect for pc_change_cleared with an unresolved
+ * changeReported (Q33 (2)), the position form of pc_trunk_armrests (Q12 (1)), the examples list at
+ * home (O45) and whether the chronic line applies (O37). The text itself always comes from the data.
+ */
+export function questionForm(env: PrecheckEnv, answers: Answers, id: string): QuestionForm {
+  const parsed = parseQuestionId(id);
+  if (!parsed) throw new RangeError(`Unknown question ${id}`);
+  const item = PRECHECK_BY_ID.get(parsed.base)!;
+  const st = buildState(env, answers);
+  const sub = item.items?.find((x) => x.id === parsed.part);
+  let text: QuestionForm["text"] = "ask";
+  if (item.askByPosition) text = "askByPosition";
+  else if (item.askDirect && env.unresolvedChangeReported && value(st, "pc_change") !== "yes")
+    text = "askDirect";
+  else if (env.firstCheck && (sub ? sub.askFirstCheck : item.askFirstCheck)) text = "askFirstCheck";
+  return {
+    text,
+    ...(text === "askByPosition" ? { position: positionForm(env) } : {}),
+    examples: item.examples !== undefined && env.setting === "home",
+    chronicNote: item.chronicNote !== undefined && showIfHolds(item.chronicNote.showIf, stateCond(st)),
+  };
+}
+
+/** Whether the end of check question's chronic line applies to this person (O37). */
+export function endOfCheckChronicNote(env: Pick<PrecheckEnv, "ctx"> & Partial<PrecheckEnv>): boolean {
+  const cond: CondContext = { env: env as PrecheckEnv, answer: () => undefined, flag: () => false };
+  return showIfHolds(CHECK_DATA.endOfCheck[0].chronicNote.showIf, cond);
+}
+
+/* ------------------------------------------------- the counter (O9) */
+
+/** Questions whose answers can make the chair stand run hands allowed or need a helper (4.4, Q11). */
+const CHAIR_HELPER_TRIGGERS: readonly PrecheckId[] = CHECK_DATA.precheck
+  .filter((q) =>
+    q.actions.some(
+      (a) =>
+        (a.do === "variant" &&
+          a.tests.some((t) => t.test === "chair_stand_30s") &&
+          (a.variant === "arms_assisted" || a.alsoDo === "require_helper")) ||
+        (a.do === "require_helper" && a.tests.some((t) => t.test === "chair_stand_30s")),
+    ),
+  )
+  .map((q) => q.id);
+
+/**
+ * Every question instance that can still appear for this person, given the answers so far (O9, the
+ * S17 counter): the visible questions, and every question whose condition an unanswered question
+ * can still make true (an unanswered question that can appear counts as any answer; a sub question
+ * whose count is not known yet counts at its most, such as a clearance question per surgery area).
+ * It starts at its upper bound and only shrinks as answers come in.
+ */
+export function possibleQuestions(env: PrecheckEnv, answers: Answers): string[] {
+  const st = buildState(env, answers);
+  // Skips that can still be lifted are not counted: a surgery area whose clearance is not answered
+  // yet counts as cleared here (it counts as not cleared for the decision itself).
+  const hopeful: Answers = { ...(isPlainObject(answers) ? answers : {}) };
+  const chosen = value(st, questionId("pc_surgery_recent", "areas"));
+  if (Array.isArray(chosen))
+    for (const a of chosen) {
+      const id = questionId("pc_surgery_recent", a);
+      if (!st.values.has(id)) hopeful[id] = "yes";
+    }
+  const day = computeDay(buildState(env, hopeful));
+  const pending = new Set<string>();
+  const out: Instance[] = [];
+  const add = (base: PrecheckId, part?: string) => {
+    const id = questionId(base, part);
+    out.push({ id, base, part });
+    if (!st.values.has(id)) {
+      pending.add(id);
+      if (part === undefined) pending.add(base);
+    }
+  };
+  const isPending = (id: string) => pending.has(id);
+  const sciMaybe = () => {
+    const v = value(st, "pc_sci_level");
+    if (v !== undefined) return v === "yes" || v === "unsure";
+    return isPending("pc_sci_level") || env.setup?.sciT6 === true;
+  };
+  const sideMaybeWithoutSignal = (s: Side) =>
+    armWithoutSignal(st, s) ||
+    (limbArm(st) === undefined && isPending("pc_limb_arm_side")) ||
+    (env.ctx.support === s && isPending("pc_weak_lift")) ||
+    isPending(questionId("pc_arm_function", s));
+  const noArmMaybe = () =>
+    env.setting === "home" && (noArmSignal(st) || SIDES.every((s) => sideMaybeWithoutSignal(s)));
+  const helperMaybe = (test: TestId) => {
+    if (env.setting !== "home" || !selected(st, test) || fullySkipped(day, test)) return false;
+    if (day.helperTests.has(test) || noArmMaybe()) return true;
+    return (
+      test === "chair_stand_30s" &&
+      CHAIR_HELPER_TRIGGERS.some((id) => [...pending].some((p) => p.split(PART_SEPARATOR)[0] === id))
+    );
+  };
+  const cond = (test?: TestId): CondContext => ({
+    env,
+    answer: (id) => value(st, id),
+    pending: isPending,
+    flag: (f) =>
+      f === "sci_t6"
+        ? sciMaybe()
+        : f === "noArmSignal"
+          ? noArmMaybe()
+          : test !== undefined && helperMaybe(test),
+  });
+
+  let helperItem: PrecheckItem | undefined;
+  for (const item of CHECK_DATA.precheck) {
+    if (item.id === "pc_setting") continue;
+    if (item.perTest) {
+      helperItem = item;
+      continue;
+    }
+    if (!showIfHolds(item.showIf, cond())) continue;
+    if (item.group === "baseline_setup" && !env.firstCheck && !setupMissing(st, item.id)) continue;
+    if (item.type === "yes_no_then_areas") {
+      add(item.id);
+      const base = value(st, item.id);
+      if (base !== "yes" && base !== undefined) continue;
+      add(item.id, "areas");
+      if (item.surgeryAreas) {
+        const chosen = value(st, questionId(item.id, "areas"));
+        for (const a of Array.isArray(chosen) ? chosen : SURGERY_AREA_IDS) add(item.id, a);
+      }
+    } else if (item.items) {
+      for (const sub of item.items) add(item.id, sub.id);
+    } else if (item.perArea) {
+      for (const area of item.perArea) if (env.ctx.pain.includes(area)) add(item.id, area);
+    } else if (item.perSide) {
+      const lost = limbArm(st);
+      for (const side of ["right", "left"] as const) if (side !== lost) add(item.id, side);
+    } else if (item.askByPosition) {
+      add(item.id, positionForm(env));
+    } else {
+      add(item.id);
+    }
+  }
+  if (helperItem) {
+    for (const test of perTestOrder(env, helperItem))
+      if (helperMaybe(test) && showIfHolds(helperItem.showIf, cond(test))) add(helperItem.id, test);
+  }
+  const ids = new Map<string, Instance>();
+  for (const i of [...st.instances, ...out]) if (!ids.has(i.id)) ids.set(i.id, i);
+  return [...ids.values()]
+    .map((inst, pos) => ({ inst, pos }))
+    .sort((a, b) => askOrder(env, a.inst.base) - askOrder(env, b.inst.base) || a.pos - b.pos)
+    .map((x) => x.inst.id);
+}
+
+/* ------------------------------------------------------ the resume (O6) */
+
+/**
+ * The questions asked again when a check resumes within 30 minutes (O6 (2)): pc_urgent, pc_unwell,
+ * pc_pain_now (and pc_pain_areas when pain now is 1 or more); pc_sci_ad_now and pc_sci_ready for
+ * sci_t6; pc_pd_on for Parkinson's; pc_ms_heat for MS; and at home pc_helper for every remaining test
+ * that requires a helper.
+ */
+export const RESUME_QUESTION_IDS: readonly PrecheckId[] = [
+  "pc_urgent",
+  "pc_unwell",
+  "pc_pain_now",
+  "pc_pain_areas",
+  "pc_sci_ad_now",
+  "pc_sci_ready",
+  "pc_pd_on",
+  "pc_ms_heat",
+  "pc_helper",
+];
+const RESUME_SET: ReadonlySet<PrecheckId> = new Set(RESUME_QUESTION_IDS);
+
+/** A remaining test: its id, or its frozen protocol item with the helper it requires. */
+export type RemainingTest = TestId | { testId: TestId; helperRequired?: boolean };
+
+function resumeState(env: PrecheckEnv, answers: Answers, remaining: readonly RemainingTest[]): State {
+  const ids = remaining.map((r) => (typeof r === "string" ? r : r.testId));
+  const helpers = remaining.flatMap((r) => (typeof r !== "string" && r.helperRequired ? [r.testId] : []));
+  const baseTests = [
+    ...env.baseTests.filter((t) => ids.includes(t as TestId)),
+    ...ids.filter((t) => !env.baseTests.includes(t)),
+  ];
+  return buildState({ ...env, baseTests }, answers, RESUME_SET, helpers);
+}
+
+/**
+ * The questions to ask again on resume, in order, for the tests still to run (O6 (2)). `env.setup`
+ * must include today's setup updates (the SCI level answered earlier today).
+ */
+export function resumeQuestions(
+  env: PrecheckEnv,
+  answers: Answers,
+  remaining: readonly RemainingTest[],
+): string[] {
+  return resumeState(env, answers, remaining).instances.map((i) => i.id);
+}
+
+/**
+ * The resume answers routed as usual (O6 (2)): an emergency, AD response or postpone closes the
+ * check as ended early, with the finished results kept; a proceed carries the new skips of the
+ * remaining tests (pain today, a helper not there).
+ */
+export function evaluateResume(
+  env: PrecheckEnv,
+  answers: Answers,
+  remaining: readonly RemainingTest[],
+  now: number = Date.now(),
+): PrecheckOutcome {
+  return outcomeOf(resumeState(env, answers, remaining), now);
+}
+
+/* ------------------------------------------- the spoken answer (Q31 (4)) */
+
+const SPEECH = CHECK_DATA.engine.speech;
+const ALEF = /[أإآٱ]/g;
+
+/** Lower case words: Arabic marks and tatweel removed, alef forms joined, punctuation as spaces. */
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, "")
+    .replace(ALEF, "ا")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[^\p{L}\p{N}']+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function containsPhrase(tokens: readonly string[], phrase: readonly string[]): boolean {
+  if (phrase.length === 0) return false;
+  for (let i = 0; i + phrase.length <= tokens.length; i++)
+    if (phrase.every((w, k) => tokens[i + k] === w)) return true;
+  return false;
+}
+
+/**
+ * A spoken check in answer, where speech recognition runs on the device itself (Q31 (4), O5):
+ * whole words only; any not fine word anywhere wins and opens scr_emergency ("not_fine"); fine only
+ * as a phrase of well being ("fine"); a bare yes word, الحمد لله alone or unclear speech is no answer,
+ * so the check in cue plays once more and the no response timer keeps running.
+ */
+export function spokenCheckInAnswer(utterance: string, lang: Lang): "fine" | "not_fine" | "no_answer" {
+  const tokens = words(utterance ?? "");
+  if (SPEECH.notFineWords[lang].some((w) => containsPhrase(tokens, words(w)))) return "not_fine";
+  if (SPEECH.fineOnlyPhrases[lang].some((p) => containsPhrase(tokens, words(p)))) return "fine";
+  return "no_answer";
 }
 
 /* ------------------------------------------------------------ data checks */
@@ -1456,8 +2225,7 @@ export function unsupportedConditions(): string[] {
   const supported: Record<string, readonly string[]> = {
     three_yes_no: ["anyYes"],
     area_scale_0_10: ["areaScoreGte", "areaLoadsSelectedTest"],
-    checklist: ["allChecked"],
-    system: ["vitalsAbove", "vitalsUnavailable", "equals"],
+    system: ["vitalsOutside", "sciT6SystolicRiseGte", "flag", "anyOf", "vitalsUnavailable", "equals"],
     yes_no_then_areas: ["equals", "in", "gte", "clearedNot"],
   };
   const scalar = ["equals", "in", "gte", "any"];

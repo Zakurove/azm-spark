@@ -316,7 +316,7 @@ describe("QualityMonitor", () => {
     const s = gate(standSide, "chair_stand_30s", "none");
     expect(s.view).toBe("side");
     expect(s.issues).toContain("wrong_view");
-    expect(s.cue).toBe("check_phone_angle");
+    expect(s.cue).toBe("check_phone_angle_right");
 
     const standFront = generate(spec({ test: "chair_stand_30s", fps: 20, subject: { yaw: 0 } }));
     expect(gate(standFront, "chair_stand_30s", "none").viewOk).toBe(true);
@@ -587,7 +587,7 @@ describe("setupCheck", () => {
     );
     expect(turned.view).toBe("side");
     expect(turned.issues).toContain("wrong_view");
-    expect(turned.cue).toBe("check_phone_angle");
+    expect(turned.cue).toBe("check_phone_angle_right");
     const dim = check(spec({ test: "trunk_control_seated", light: 0.6 }), "trunk_control_seated", "none");
     expect(dim.issues).toEqual(["light"]);
     expect(dim.cue).toBe("check_light");

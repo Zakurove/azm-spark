@@ -103,7 +103,13 @@ function answerShaped(raw: unknown): boolean {
   if (Array.isArray(raw)) return raw.length <= 20 && raw.every((x) => isId(x));
   if (isPlainObject(raw)) {
     const e = Object.entries(raw);
-    return e.length <= 20 && e.every(([k, x]) => isId(k) && typeof x === "number" && Number.isFinite(x));
+    // Numbers (pain areas, vitals readings) and booleans (the vitals flags, Q21, O47).
+    return (
+      e.length <= 20 &&
+      e.every(
+        ([k, x]) => isId(k) && ((typeof x === "number" && Number.isFinite(x)) || typeof x === "boolean"),
+      )
+    );
   }
   return false;
 }

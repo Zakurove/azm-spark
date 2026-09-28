@@ -24,3 +24,5 @@ export interface DataString {
 export declare function dataStrings(value: unknown, where?: string): DataString[];
 export declare function dataStringProblems(s: Pick<DataString, "text" | "userFacing">): string[];
 export declare function dataViolations(value: unknown, where?: string): string[];
+export declare const CHECK_WORDS: { word: string; problem: string }[];
+export declare function checkWordProblems(text: string): string[];

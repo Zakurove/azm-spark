@@ -42,7 +42,8 @@
     "error": {
       "title": "We could not finish that",
       "body": "Make sure you are connected to the internet, then try again. Nothing you finished will be lost.",
-      "bodyStart": "We could not start the check. Your answers are still here, so you can try again."
+      "bodyStart": "Your answers are still here, so you can try again.",
+      "titleStart": "The check did not start"
     },
     "offline": {
       "banner": "You are offline. The check keeps running on this phone.",
@@ -85,7 +86,7 @@
     },
     "due": {
       "title": "Your check is due",
-      "body": "It is time for your next check. Check again to compare your movement today with your starting point."
+      "body": "Check again to compare your movement today with your starting point."
     },
     "error": "We could not load your check details. Make sure you are connected to the internet, then try again.",
     "repeatOffer": {
@@ -122,7 +123,7 @@
   },
   "afterIntake": {
     "title": "Do you want to set your starting point now?",
-    "body": "A short check of your movement with your phone camera, about {minutesFrom} to {minutesTo} {unit}. You can also do it later from Today.",
+    "body": "A check of your movement with your phone camera, about {minutesFrom} to {minutesTo} {unit}. You can also do it later from Today.",
     "start": "Start now",
     "later": "I will do it later"
   },
@@ -145,7 +146,7 @@
     "boothBadge": "Azm booth",
     "offlineNoModel": "Movement tracking cannot be prepared without an internet connection this time. Connect, then try again.",
     "position": {
-      "ask": "How will you do the check?",
+      "ask": "Which of these fits you best?",
       "hint": "Everyone does the arm tests sitting down."
     },
     "support": {
@@ -161,7 +162,7 @@
     "staff": {
       "titleBooth": "Our team is here at the booth",
       "titleHome": "We will not run the movement check for you for now",
-      "bodyHome": "For your safety, we do not run this check without supervision with your medical condition. Talk with your doctor or care team about the physical activity that suits you.",
+      "bodyHome": "For your safety, with your medical condition we only run this check under supervision. Talk with your doctor or care team about the physical activity that suits you.",
       "restart": "Go back to the start"
     },
     "resultsTitle": "Your results today",
@@ -177,8 +178,8 @@
     "fullCheck": "The full check, in about {minutesFrom} to {minutesTo} {unit}",
     "seeExample": "No time? See an example",
     "boothOnly": {
-      "title": "The movement check is available only at the Azm booth for now",
-      "body": "For now, you can see an example of the results page or watch a demo.",
+      "title": "For now, the movement check is available only at the Azm booth",
+      "body": "You can see an example of the results page, or watch a demo.",
       "example": "See an example of the results"
     },
     "afterTest": {
@@ -453,7 +454,7 @@
       "wrong_view": "The angle is not right",
       "light": "The light is low",
       "blocked": "Something blocks the view",
-      "motion": "We need motion access"
+      "motion": "We need motion access for the phone"
     },
     "chip": {
       "level": "Phone level",
@@ -496,7 +497,7 @@
       "centred": "In the middle",
       "timeUp": "Time is up",
       "rest": "Rest",
-      "paused": "Paused",
+      "paused": "On hold",
       "saved": "Saved"
     },
     "armLeft": "Your left arm",
@@ -601,7 +602,7 @@
   },
   "goOn": {
     "title": "Do you want to go on?",
-    "redo": "Redo it after a rest",
+    "redo": "Redo the test after a rest",
     "skip": "Skip this test",
     "stop": "I need to stop"
   },
@@ -658,7 +659,7 @@
     "visitorQrBody": "Ask the visitor to scan this code with their phone. It works for one check only.",
     "tokenOn": "Booth mode is on for this phone for this check only.",
     "tokenEnded": "Booth mode has ended on this phone. Please ask a staff member to turn it on again.",
-    "badgeHint": "Staff can press and hold here to start for a new visitor."
+    "badgeHint": "Staff can press and hold here to start again for a new visitor."
   },
   "vitals": {
     "handoff": "Please ask a staff member to come to the phone",

@@ -14,7 +14,7 @@
       "therapyEnded": "Therapy ended. Your movement goes on.",
       "stillYours": "Training is still yours, whatever your body has been through"
     },
-    "body": "Azm measures where you are, prescribes what fits your medical condition, coaches every session through your phone camera, and shows your progress.",
+    "body": "Azm measures how you move today, builds an exercise plan that fits your medical condition, coaches every session through your phone camera, then measures again so you can see for yourself how your movement changes.",
     "chips": {
       "video": "Video never leaves your device",
       "noApp": "No app, no equipment"
@@ -39,10 +39,10 @@
     "steps": {
       "measure": {
         "title": "Measure",
-        "body": "A short movement check with your phone camera measures your movement for your own tracking and sets your own starting point."
+        "body": "Azm measures your movement for your own tracking, with a short check through your phone camera that sets your own starting point."
       },
       "prescribe": {
-        "title": "Prescribe",
+        "title": "Plan",
         "body": "Clear medical rules, not AI, choose the movements and the amount that fit your medical condition. You can start from a photo of your medical report."
       },
       "coach": {
@@ -50,8 +50,8 @@
         "body": "In every session the camera counts your reps and corrects you to your own range, with a calm Arabic voice beside you. The video never leaves your device."
       },
       "prove": {
-        "title": "Prove",
-        "body": "Every four weeks you check again and see your own numbers then and now, compared only with yourself."
+        "title": "Measure again",
+        "body": "Every four weeks we measure again so you can see the change, compared only with yourself."
       }
     },
     "mocks": {
@@ -63,7 +63,7 @@
       "prescribe": {
         "label": "Your plan this week",
         "press": "Seated shoulder press",
-        "curl": "Seated biceps curl",
+        "curl": "Seated arm bend",
         "dose": "{sets} × {reps}",
         "fits": "Fits your medical condition"
       },
@@ -78,16 +78,11 @@
   },
   "health": {
     "title": "It shows up everywhere, even in your sleep",
-    "body": "Regular movement works quietly. Your heart grows stronger at its own pace, your mood clears after a session, even a short one, and within weeks you notice the groceries feel lighter, your stance steadier, your sleep deeper and more restful. Your body has not forgotten how to improve. It was waiting for a start that fits.",
-    "chips": {
-      "heart": "A stronger heart",
-      "sleep": "Deeper sleep",
-      "step": "A steadier step"
-    }
+    "body": "Regular movement works quietly throughout your body. Your heart grows stronger at its own pace, your mood clears after a session, even a short one, and within weeks you may notice the groceries feel lighter, your stance steadier and your sleep deeper. All your body needs is a start that fits."
   },
   "close": {
     "title": "Your body changed. Your resolve did not.",
-    "body": "Start free, for yourself or for a parent, and every session records your progress so you can see it build."
+    "body": "Start free, for yourself or for someone in your family. Every session is saved so you can follow your training yourself."
   },
   "footer": {
     "notMedical": "Not intended for medical purposes.",

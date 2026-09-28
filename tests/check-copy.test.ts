@@ -6,7 +6,10 @@
  *     progress.forbiddenInProgressText (Arabic diacritics and tatweel removed, lower case);
  *   - no key holds a Q23 (6) banned word;
  *   - no UX string says فحص (Q29 renamed the check قياس الحركة);
+ *   - no verb stands directly before عزم as its subject (copy rule 12, Q29: unvowelled, «يحتاج عزم»
+ *     reads as the noun عَزْم, determination), so عزم comes first («عزم يحتاج»);
  *   - no label ends with a colon.
+ * The landing namespace follows the same rules (council Q23 (6), Q29, H1, H2).
  * A failure here is reported to the copy owner; the rule is never weakened to pass.
  */
 import { describe, expect, it } from "vitest";
@@ -27,7 +30,7 @@ function leaves(v: unknown, prefix: string): [string, string][] {
 const normalise = (s: string) => s.replace(/[ً-ْٰـ]/g, "").toLowerCase();
 
 const COPY = (["ar", "en"] as const).flatMap((lang) =>
-  (["assessment", "progress"] as const).flatMap((ns) =>
+  (["assessment", "progress", "landing"] as const).flatMap((ns) =>
     leaves(read(lang, ns), ns).map(([key, text]) => ({ lang, key, text })),
   ),
 );
@@ -79,6 +82,16 @@ describe("movement check copy", () => {
     expect(
       COPY.filter((c) => c.lang === "ar" && normalise(c.text).includes("فحص")).map((c) => c.key),
     ).toEqual([]);
+  });
+
+  it("never puts a verb directly before عزم as its subject (rule 12)", () => {
+    const VERB_BEFORE_AZM = /(?:^|[\s،.])(?:ي|ت)[\u0621-\u064A]{2,}\s+عزم(?:$|[\s،.])/;
+    const bad = COPY.filter((c) => c.lang === "ar" && VERB_BEFORE_AZM.test(normalise(c.text)));
+    expect(bad.map((c) => `${c.key}: ${c.text}`)).toEqual([]);
+    // The rule reads the cases of the Arabic review.
+    expect(VERB_BEFORE_AZM.test("يحتاج عزم إلى الكاميرا")).toBe(true);
+    expect(VERB_BEFORE_AZM.test("يقيس عزم حركتك")).toBe(true);
+    expect(VERB_BEFORE_AZM.test("عزم يقيس حركتك")).toBe(false);
   });
 
   it("no label ends with a colon", () => {

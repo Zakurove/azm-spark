@@ -15,7 +15,7 @@
     "none": "مثل البداية تمامًا"
   },
   "verdictIconHigher": "أعلى",
-  "verdictIconSame": "قريب",
+  "verdictIconSame": "قريب من البداية",
   "verdictIconLower": "أقل",
   "numberLine": {
     "label": "من {start} {unit} عند البداية إلى {now} {unit} الآن. المنطقة المظللة تعني «قريب من نقطة بدايتك».",

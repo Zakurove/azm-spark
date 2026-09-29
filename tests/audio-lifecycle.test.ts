@@ -99,3 +99,39 @@ it("omits counts in guidance-only mode while retaining correction cues", async (
   await warning;
   expect(pending[0].play).toHaveBeenCalledOnce();
 });
+it("says when a line ends (onEnd): at its end, when it is cut off, never for a line that did not start", async () => {
+  const player = new CuePlayer("ar");
+  const ends: string[] = [];
+  const run = player.line("count_1", "info", () => ends.push("one"));
+  pending[0].oncanplaythrough();
+  expect(await run).toBe(true);
+  (pending[0] as unknown as { onended: () => void }).onended();
+  expect(ends).toEqual(["one"]);
+  // Cut off by stop: a paused element fires no ended event, the player says it ended.
+  const second = player.line("count_2", "info", () => ends.push("two"));
+  pending[1].oncanplaythrough();
+  await second;
+  player.stop();
+  expect(ends).toEqual(["one", "two"]);
+  // Did not start (muted): no end.
+  player.muted = true;
+  expect(await player.line("count_3", "info", () => ends.push("three"))).toBe(false);
+  expect(ends).toEqual(["one", "two"]);
+});
+it("unlocks audio with silence inside a tap (S01, S02)", () => {
+  const made: { src: string; play: ReturnType<typeof vi.fn> }[] = [];
+  vi.stubGlobal(
+    "Audio",
+    class {
+      src = "";
+      play = vi.fn().mockResolvedValue(undefined);
+      constructor() {
+        made.push(this);
+      }
+    },
+  );
+  CuePlayer.unlock();
+  // One shared element plays a silent data URI; nothing is fetched and nothing is heard.
+  const silent = made.find((a) => a.src.startsWith("data:audio/wav"));
+  expect(silent?.play).toHaveBeenCalled();
+});

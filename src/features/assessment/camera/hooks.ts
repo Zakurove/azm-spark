@@ -249,11 +249,15 @@ export function useCameraCues(active: boolean): CameraCues {
       // it (sound off, a prompt of a timed trial, or a failed play), so nothing is announced twice.
       if (line) show(line, speak);
       if (!speak) return;
-      void player.line(cue as Parameters<CuePlayer["line"]>[0], "safety").then((ok) => {
-        failures.current = ok ? 0 : failures.current + 1;
-        setBlocked(failures.current >= 2);
-        if (!ok && line) showRef.current(line.text, line.severity, false);
-      });
+      // The line lasts until its voice ends (CuePlayer onEnd), not an estimate.
+      void player
+        .line(cue as Parameters<CuePlayer["line"]>[0], "safety", () => queue.heardEnd(cue, performance.now()))
+        .then((ok) => {
+          failures.current = ok ? 0 : failures.current + 1;
+          setBlocked(failures.current >= 2);
+          if (ok) queue.spoken(cue);
+          if (!ok && line) showRef.current(line.text, line.severity, false);
+        });
     }, 100);
     return () => clearInterval(id);
   }, [active, queue, player, show]);

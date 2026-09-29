@@ -6,7 +6,13 @@
 import { describe, expect, it } from "vitest";
 import { DETAIL_SPEC } from "../server/modules/assessments/validate";
 import { armingFor, camPart, type ArmingInput } from "../src/features/assessment/camera/arming";
-import { captionOf, cueClass, CueQueue, cueSeverity } from "../src/features/assessment/camera/cues";
+import {
+  captionOf,
+  cueClass,
+  CueQueue,
+  cueSeverity,
+  SPOKEN_EXTRA_MS,
+} from "../src/features/assessment/camera/cues";
 import { RESULT_DETAIL_KEYS } from "../src/features/assessment/camera/payload";
 import {
   fixOf,
@@ -133,6 +139,27 @@ describe("cues and captions (UX spec 4.3)", () => {
     q.push({ id: "check_move_back", cls: "setup", speak: true, at: 1 });
     q.push({ id: "check_move_closer", cls: "setup", speak: true, at: 2 });
     expect(q.next(q.busyUntil + 1)?.id).toBe("check_move_closer");
+  });
+
+  it("a spoken line lasts until its voice ends (CuePlayer onEnd), at most a little past the estimate", () => {
+    const q = new CueQueue(() => "en");
+    q.push({ id: "check_stop_now", cls: "safety", speak: true, at: 0 });
+    q.push({ id: "check_move_back", cls: "setup", speak: true, at: 0 });
+    q.next(0);
+    const estimate = q.busyUntil;
+    q.spoken("check_stop_now");
+    expect(q.busyUntil).toBe(estimate + SPOKEN_EXTRA_MS);
+    // Still playing past the estimate: the next line waits.
+    expect(q.next(estimate + 100)).toBeNull();
+    q.heardEnd("check_stop_now", estimate + 200);
+    expect(q.next(estimate + 201)?.id).toBe("check_move_back");
+    // An end heard before the voice was marked as started (a very short line) is kept.
+    const q2 = new CueQueue(() => "en");
+    q2.push({ id: "check_go", cls: "phase", speak: true, at: 0 });
+    q2.next(0);
+    q2.heardEnd("check_go", 50);
+    q2.spoken("check_go");
+    expect(q2.busyUntil).toBe(50);
   });
 
   it("classes by source", () => {

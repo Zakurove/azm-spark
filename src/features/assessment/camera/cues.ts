@@ -104,9 +104,13 @@ export function captionOf(id: CheckCueId, lang: Lang): CaptionLine {
   };
 }
 
-// SPEC-GAP: cue-length. CuePlayer does not say when a line ends; a line is taken to last about as
-// long as a calm voice needs for its display text (Arabic about 13 characters a second, English
-// about 15), plus half a second. The no movement grace (4.8) and the queue use this estimate.
+/**
+ * How long a line is taken to last before its voice starts: about as long as a calm voice needs for
+ * its display text (Arabic about 13 characters a second, English about 15), plus half a second. Once
+ * the voice plays, its end (CuePlayer onEnd) ends the line in the queue (spoken, heardEnd), so the no
+ * movement grace (4.8) and the queue follow the real line; a line never heard to its end is held at
+ * most SPOKEN_EXTRA_MS past the estimate.
+ */
 export function cueDurationMs(id: CheckCueId | string, lang: Lang): number {
   let text = "";
   try {
@@ -143,13 +147,16 @@ export interface CueStart {
 /** Lines older than this are dropped rather than played late. */
 const STALE_MS = 8000;
 
+/** A spoken line whose end is never heard is taken to have ended this long after its estimate. */
+export const SPOKEN_EXTRA_MS = 5000;
+
 /**
  * The cue queue of 4.3. `push` adds lines, `next(now)` returns the line to start now (or null).
  * One line of the setup class waits at a time: a newer setup issue replaces the waiting one.
  */
 export class CueQueue {
   private waiting: CueRequest[] = [];
-  private current: { req: CueRequest; endsAt: number } | null = null;
+  private current: { req: CueRequest; endsAt: number; spoken?: boolean; heardAt?: number } | null = null;
 
   constructor(private readonly lang: () => Lang) {}
 
@@ -173,6 +180,23 @@ export class CueQueue {
   /** When the current line is expected to end (ms), or 0. */
   get busyUntil(): number {
     return this.current?.endsAt ?? 0;
+  }
+
+  /** The voice started the current line: it lasts until its end is heard (heardEnd). */
+  spoken(id: CheckCueId | string): void {
+    const c = this.current;
+    if (!c || c.req.id !== id || c.spoken) return;
+    c.spoken = true;
+    // Its end may already have been heard (a very short line).
+    c.endsAt = c.heardAt !== undefined ? Math.min(c.endsAt, c.heardAt) : c.endsAt + SPOKEN_EXTRA_MS;
+  }
+
+  /** The voice said the line to its end (or it was cut off): the queue moves on from now. */
+  heardEnd(id: CheckCueId | string, now: number): void {
+    const c = this.current;
+    if (!c || c.req.id !== id) return;
+    c.heardAt = now;
+    if (c.spoken) c.endsAt = Math.min(c.endsAt, now);
   }
 
   next(now: number): CueStart | null {

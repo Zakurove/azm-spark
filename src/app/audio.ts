@@ -53,8 +53,30 @@ export function primeAudio(lang: Lang) {
   void shared.play().catch(() => undefined);
 }
 
+/** A 0.1 s silent WAV: played inside a tap so iOS lets the shared element play later lines. */
+const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+
 /** Packaged neural recordings. No speech service is contacted during a session. */
 export class CuePlayer {
+  /**
+   * A silent unlock inside a tap (UX spec S01, S02, 4.6): the shared element starts with silence, so
+   * the first spoken line of the check can play later without a tap, and the audio session is set to
+   * playback where the browser allows it (the iOS silent switch does not mute the voice).
+   */
+  static unlock(): void {
+    try {
+      const nav = navigator as Navigator & { audioSession?: { type: string } };
+      if (nav.audioSession) nav.audioSession.type = "playback";
+    } catch {
+      /* not supported */
+    }
+    if (typeof speechSynthesis !== "undefined") speechSynthesis.getVoices();
+    if (typeof Audio === "undefined") return;
+    shared ??= new Audio();
+    shared.src = SILENCE;
+    void shared.play().catch(() => undefined);
+  }
+
   private fileCache = new Map<string, Promise<HTMLAudioElement | null>>();
   private activeAudio?: HTMLAudioElement;
   private generation = 0;
@@ -84,7 +106,13 @@ export class CuePlayer {
     this.activeAudio = undefined;
     this.activePriority = -1;
     if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+    // A line cut off here has ended too (a paused element fires no ended event).
+    const end = this.endActive;
+    this.endActive = undefined;
+    end?.();
   }
+  /** The end callback of the line playing now. */
+  private endActive?: () => void;
   private file(id: VoiceLine): Promise<HTMLAudioElement | null> {
     const key = `${this.lang}/${id}`;
     if (!this.fileCache.has(key))
@@ -110,16 +138,27 @@ export class CuePlayer {
       );
     return this.fileCache.get(key)!;
   }
-  async line(id: VoiceLine, severity: Severity = "info"): Promise<boolean> {
+  /**
+   * Plays a line; true when it started. `onEnd` is called once when it has been said to its end or
+   * was cut off (a stop, a line of higher priority, an error), never for a line that did not start.
+   */
+  async line(id: VoiceLine, severity: Severity = "info", onEnd?: () => void): Promise<boolean> {
     const rank = priority[severity];
     if (this.muted || this.activePriority > rank || (this.activePriority === rank && rank < 3)) return false;
     this.stop();
     const generation = this.generation;
     this.activePriority = rank;
+    let started = false;
+    let ended = false;
     const finish = () => {
       if (generation === this.generation) {
         this.activePriority = -1;
         this.activeAudio = undefined;
+        if (this.endActive === finish) this.endActive = undefined;
+      }
+      if (started && !ended) {
+        ended = true;
+        onEnd?.();
       }
     };
     const el = await this.file(id);
@@ -138,6 +177,9 @@ export class CuePlayer {
       target.onerror = finish;
       try {
         await target.play();
+        started = true;
+        if (generation === this.generation) this.endActive = finish;
+        else finish();
         return true;
       } catch {
         finish();
@@ -167,6 +209,8 @@ export class CuePlayer {
     u.rate = this.rate;
     u.onend = finish;
     u.onerror = finish;
+    started = true;
+    this.endActive = finish;
     speechSynthesis.speak(u);
     return true;
   }

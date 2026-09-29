@@ -8,6 +8,7 @@
  * Copy from t() and the check data only. One gold action per card; primaries are never disabled.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { CuePlayer } from "../../app/audio";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
 import { bidiText, tx } from "../../i18n/rich";
@@ -33,12 +34,11 @@ export type { CheckStartOptions };
 const WEEKS = Math.round(CHECK_DATA.progress.retestDays / 7);
 
 /**
- * A start from a card: the tap asks for the screen wake lock, then the check opens (S01 interactions).
+ * A start from a card: the tap unlocks audio with silence (CuePlayer.unlock) and asks for the screen
+ * wake lock, then the check opens (S01, S02 interactions).
  */
-// SPEC-GAP: silent-unlock. S01 asks the tap to unlock audio with a silent CuePlayer.unlock(); the
-// CuePlayer has none yet (primeAudio plays a preview line), so the check unlocks audio on its own
-// first tap (see the foundation requests).
 export function startFromTap(start: () => void): void {
+  CuePlayer.unlock();
   const lock = (navigator as Navigator & { wakeLock?: { request(kind: "screen"): Promise<unknown> } })
     .wakeLock;
   void lock?.request("screen").catch(() => undefined);

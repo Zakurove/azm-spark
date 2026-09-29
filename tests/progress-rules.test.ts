@@ -31,7 +31,7 @@ import {
   type SeriesContext,
   type StoredResult,
 } from "../src/medical/progress-rules";
-import { seriesViews } from "../server/modules/progress/series";
+import { seriesViews } from "../src/medical/series";
 import { rng } from "./precheck-fixtures";
 
 const DAY = 24 * 60 * 60 * 1000;

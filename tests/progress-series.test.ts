@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { seriesKey, type StoredResult } from "../src/medical/progress-rules";
 import { testDef } from "../src/movements/assessments";
 import type { Setting, TestId } from "../src/movements/types";
-import { seriesViews } from "../server/modules/progress/series";
+import { seriesViews } from "../src/medical/series";
 import {
   fraction,
   numberLineRange,

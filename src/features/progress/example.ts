@@ -7,7 +7,7 @@ import type { CheckContext, StoredSetup } from "../../medical/assessment";
 import { seriesKey, type StoredResult } from "../../medical/progress-rules";
 import { testDef } from "../../movements/assessments";
 import type { CheckPosition, Setting, Side, TestId } from "../../movements/types";
-import { seriesViews } from "../../../server/modules/progress/series";
+import { seriesViews } from "../../medical/series";
 import type { ProgressResponse } from "../assessment/api";
 import fixture from "./example-fixture.json";
 import { seriesContextOf } from "./local";

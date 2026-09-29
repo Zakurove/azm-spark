@@ -26,7 +26,7 @@
 import { estimateMinutes, type ProtocolItem } from "../../medical/assessment";
 import type { Answers, CheckInConfig, ClockTime, SkipItem, TestSide } from "../../medical/precheck";
 import type { PausedWhenId, ScreenId, Setting, Side, StopOptionId, TestId } from "../../movements/types";
-import type { SeriesView } from "../../../server/modules/progress/series";
+import type { SeriesView } from "../../medical/series";
 import { ENGINE_VERSION } from "../../engine/modes";
 import type {
   BetweenAnswer,

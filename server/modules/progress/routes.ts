@@ -2,7 +2,7 @@ import type { Route } from "../../http/types";
 import { keptResults } from "../assessments/store";
 import { checkContextOf, personState, seriesContext } from "../assessments/state";
 import { weeklyActivity, type SetRecord } from "./activity";
-import { seriesViews } from "./series";
+import { seriesViews } from "../../../src/medical/series";
 
 /**
  * GET /api/progress (contract v2 E): each movement check series against its own starting point, when

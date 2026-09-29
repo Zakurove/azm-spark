@@ -9,7 +9,7 @@
 import type { CheckContext, StoredSetup } from "../../medical/assessment";
 import type { SeriesContext, StoredResult } from "../../medical/progress-rules";
 import type { CheckPosition, TestUnit } from "../../movements/types";
-import { seriesViews } from "../../../server/modules/progress/series";
+import { seriesViews } from "../../medical/series";
 import type { StoredCheck } from "../assessment/api";
 import type { SeriesViewLike } from "./series";
 

@@ -14,7 +14,7 @@ import { sideOrder } from "../../medical/assessment";
 import type { SeriesComparison, SeriesPoint } from "../../medical/progress-rules";
 import { CHECK_DATA, TEST_IDS } from "../../movements/assessments";
 import type { CheckPosition, Setting, Side, Support, TestId, UnitFormId } from "../../movements/types";
-import type { SeriesView } from "../../../server/modules/progress/series";
+import type { SeriesView } from "../../medical/series";
 
 export type { SeriesView };
 export type { SeriesPoint };

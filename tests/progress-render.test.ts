@@ -23,7 +23,7 @@ import type { ProtocolItem } from "../src/medical/assessment";
 import { seriesKey, type StoredResult } from "../src/medical/progress-rules";
 import { testDef } from "../src/movements/assessments";
 import type { TestId } from "../src/movements/types";
-import { seriesViews } from "../server/modules/progress/series";
+import { seriesViews } from "../src/medical/series";
 import { CheckUiContext, DEFAULT_UI } from "../src/features/assessment/shared/CheckUi";
 import { initialModel, type FlowModel, type SideOutcome } from "../src/features/assessment/flowMachine";
 import { createCheckApi } from "../src/features/assessment/api";

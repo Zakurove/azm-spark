@@ -231,7 +231,7 @@ export async function buildStored(
   return page.evaluate(
     async ({ specs, ended }) => {
       const day = 24 * 60 * 60 * 1000;
-      const series = await import("/server/modules/progress/series.ts" as string);
+      const series = await import("/src/medical/series.ts" as string);
       const rules = await import("/src/medical/progress-rules.ts" as string);
       const data = await import("/src/movements/assessments.ts" as string);
       const now = Date.now();

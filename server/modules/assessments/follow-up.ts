@@ -28,7 +28,7 @@ import {
 } from "../../../src/medical/precheck";
 import type { Side } from "../../../src/movements/types";
 import { activeConsent } from "../consents/store";
-import { symptomAsk } from "../progress/series";
+import { symptomAsk } from "../../../src/medical/series";
 import {
   SAFETY_LATE_MS,
   STOPPED_FLAG,

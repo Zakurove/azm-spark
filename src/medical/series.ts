@@ -1,10 +1,11 @@
 /**
  * Movement check progress per series (contract v2, D and E; clinical spec 5). Pure: rows in, views
- * out. Every comparison is the person's own series against its own starting point (compareSeries);
+ * out, shared by the server (GET /api/progress) and the client (the S54 example, the read only check
+ * view of S53). Every comparison is the person's own series against its own starting point (compareSeries);
  * nothing here knows any population value.
  */
-import { CHECK_DATA, TEST_IDS, testDef } from "../../../src/movements/assessments";
-import type { CheckPosition, Setting, Side, Text, TestId } from "../../../src/movements/types";
+import { CHECK_DATA, TEST_IDS, testDef } from "../movements/assessments";
+import type { CheckPosition, Setting, Side, Text, TestId } from "../movements/types";
 import {
   chairStandMilestone,
   compareSeries,
@@ -14,7 +15,7 @@ import {
   type SeriesComparison,
   type SeriesContext,
   type StoredResult,
-} from "../../../src/medical/progress-rules";
+} from "./progress-rules";
 
 export type ContextFor = (position: CheckPosition) => SeriesContext;
 

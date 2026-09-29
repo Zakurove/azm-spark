@@ -567,6 +567,32 @@ describe("flow and events", () => {
     expect(res.quality.medianFps).toBeCloseTo(15, 0);
   });
 
+  it("skipPractice at runtime drops the practice without a second baseline (S34e)", () => {
+    const runner = new TrunkControlRunner(DEF, "none");
+    const events = [...runner.start(frames[0].t)];
+    let skipped = false;
+    for (const f of frames) {
+      events.push(...runner.feed(f, { rollDeg: 0 }));
+      if (!skipped && runner.phase === "practice") {
+        skipped = true;
+        events.push(...runner.skipPractice(f.t));
+        // The first recorded lean starts at once.
+        expect(runner.phase).toBe("attempt");
+      }
+    }
+    const result = runner.finish(frames[frames.length - 1].t);
+    expect(skipped).toBe(true);
+    const phases = events.flatMap((e) => (e.kind === "phase" ? [e.phase] : []));
+    expect(phases.filter((p) => p === "calibrating")).toHaveLength(1);
+    expect(phases.filter((p) => p === "practice")).toHaveLength(1);
+    for (const side of result.results) expect(side.practice ?? []).toHaveLength(0);
+    // Skipped before the baseline: no practice lean is ever queued.
+    const early = new TrunkControlRunner(DEF, "none");
+    const e2 = [...early.start(frames[0].t), ...early.skipPractice(frames[0].t)];
+    for (const f of frames) e2.push(...early.feed(f, { rollDeg: 0 }));
+    expect(e2.some((e) => e.kind === "phase" && e.phase === "practice")).toBe(false);
+  });
+
   it("skipPractice and sides narrow the run", () => {
     const x = measure(frames, "left", { sides: ["left"], skipPractice: true });
     expect(x.result.results.map((s) => s.side)).toEqual(["left"]);

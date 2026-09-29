@@ -347,6 +347,27 @@ export class TrunkControlRunner implements TestRunner {
     this.contact[side] = contact;
   }
 
+  /**
+   * Skip the practice (S34e "Skip the practice", for fatigue) while the runner runs: before the
+   * baseline the practice leans are never queued; during a practice lean (or its return) the lean is
+   * dropped and the first recorded lean starts at once; during a rest the practice leans left are
+   * dropped. The baseline is kept, so nothing is calibrated again.
+   */
+  skipPractice(t: number): TestEvent[] {
+    if (this.finished) return [];
+    this.practiceSkipped = true;
+    this.queue = this.queue.filter((q) => !q.practice);
+    const p = this.phaseNow;
+    if (this.lean?.item.practice && (p === "practice" || p === "return")) {
+      this.lean = null;
+      this.nextLean(t);
+    }
+    return this.sink.drain();
+  }
+
+  /** The practice was skipped while the runner ran (skipPractice). */
+  private practiceSkipped = false;
+
   start(t: number): TestEvent[] {
     this.t0 = t;
     this.tLast = t;
@@ -537,7 +558,8 @@ export class TrunkControlRunner implements TestRunner {
     if (unsteady) this.sink.push({ kind: "flag", flag: "upright_unsteady", t });
 
     const order = this.sides;
-    if (!this.opts.skipPractice) for (const s of order) this.queue.push({ side: s, practice: true });
+    if (!this.opts.skipPractice && !this.practiceSkipped)
+      for (const s of order) this.queue.push({ side: s, practice: true });
     for (let k = 0; k < this.def.attempts; k++)
       for (const s of order) this.queue.push({ side: s, practice: false });
     this.sink.cue("test_trunk_seat", t);

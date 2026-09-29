@@ -500,12 +500,9 @@ export class CameraController {
   skipPractice(t: number): CamOutput {
     if (this.test.testId !== "trunk_control_seated" || this.practiceSkipped) return this.drain();
     this.practiceSkipped = true;
-    const p = this.runnerPhase;
-    if (
-      this.runner &&
-      (p === null || p === "idle" || p === "calibrating" || p === "practice" || p === "return")
-    )
-      this.startRunner(t);
+    // The runner drops its practice where it is (TrunkControlRunner.skipPractice): the baseline is
+    // kept, so the 3 s calibration is not repeated.
+    if (this.runner instanceof TrunkControlRunner) this.handle(this.runner.skipPractice(t), t);
     this.reconcile(t);
     return this.drain();
   }

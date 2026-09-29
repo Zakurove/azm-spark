@@ -133,7 +133,7 @@ test("the S50 QR encoder writes codes the browser reads, for every length up to 
     "0123456789".repeat(21),
   ];
   const read = await page.evaluate(async (all) => {
-    const { encodeQr } = await import("/src/features/assessment/results/qr.ts" as string);
+    const { encodeQr } = await import("/src/features/assessment/shared/qr.ts" as string);
     type Reader = { detect(c: HTMLCanvasElement): Promise<{ rawValue: string }[]> };
     const Detector = (window as unknown as { BarcodeDetector: new (o: object) => Reader }).BarcodeDetector;
     const out: string[] = [];
@@ -215,10 +215,13 @@ for (const lang of LANGS) {
       await page.setViewportSize({ width: 375, height: 812 });
       // A new visitor leaves this visitor's results, after the S57 confirm.
       await page.locator(".check-footer").getByRole("button", { name: a.guest.newVisitor }).click();
+      // The next visitor starts on a fresh page (location.replace while online, S57).
+      const reloaded = page.waitForEvent("load");
       await page
         .getByRole("dialog", { name: a.booth.resetConfirm })
         .getByRole("button", { name: a.booth.resetYes })
         .click();
+      await reloaded;
       await expect(s50).toHaveCount(0);
       // Create a free account opens the account page on this phone, replacing the visit.
       await openSnapshot(
@@ -263,9 +266,12 @@ for (const lang of LANGS) {
       await page.getByRole("button", { name: a.results.seeOverTime }).click();
       await expect(page.locator('[data-screen="S53"]')).toBeVisible();
       await expect(page.locator(".portal-topbar")).toContainText(p.nav.label);
-      // Return to Today from a fresh copy of the results.
+      // Return to Today from a fresh copy of the results: the top bar ✕ and the footer both say it.
       await openSnapshot(page, lang, snap, false);
-      await page.getByRole("button", { name: a.common.backToToday }).click();
+      await expect(
+        page.locator(".check-topbar").getByRole("button", { name: a.common.backToToday }),
+      ).toBeVisible();
+      await page.locator(".check-footer").getByRole("button", { name: a.common.backToToday }).click();
       await expect(page.locator('.check-slot [data-screen="S01"]')).toBeVisible();
       expect(errors).toEqual([]);
     });
@@ -364,11 +370,20 @@ for (const lang of LANGS) {
       await expect(page.locator(".rs-next")).toContainText(
         a.entry.repeatOffer.body.split("{from}")[0].trim().slice(0, 12),
       );
-      // Q26: two equal buttons, none selected; a choice is pressed.
+      // Q26: two equal buttons, none selected; a choice is pressed and kept for the next check.
       const offer = page.locator('.rs-card[data-test="arm_curl_30s"] .pg-offer');
       await expect(offer.locator('button[aria-pressed="false"]')).toHaveCount(2);
+      await page.route("**/api/progress/load-step", (r) =>
+        r.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ side: "right", choice: "heavier", next: { kind: "dumbbell", kg: 3 } }),
+        }),
+      );
+      const chosen = page.waitForRequest("**/api/progress/load-step");
       await offer.locator("button").first().click();
       await expect(offer.locator('button[aria-pressed="true"]')).toHaveCount(1);
+      expect((await chosen).postDataJSON()).toEqual({ side: "right", choice: "heavier" });
       // The side lean side skipped today stays named in its card.
       await expect(
         page.locator('.rs-card[data-test="trunk_control_seated"] .rs-row[data-side="right"]'),

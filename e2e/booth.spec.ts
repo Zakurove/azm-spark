@@ -484,8 +484,14 @@ for (const lang of LANGS) {
       await input.fill(digits(lang, 99));
       await dialog.getByRole("button", { name: c.common.continue }).click();
       await expect(dialog.getByRole("alert")).toHaveText(
-        fill(c.vitals.range, { min: digits(lang, 0), max: digits(lang, 60) }),
+        fill(c.count.range, { min: digits(lang, 0), max: digits(lang, 60) }),
       );
+      // The S48 stepper: one fewer and one more, in the page's digits.
+      await input.fill(digits(lang, 13));
+      await dialog.getByRole("button", { name: c.count.increase }).click();
+      await expect(input).toHaveValue(digits(lang, 14));
+      await dialog.getByRole("button", { name: c.count.decrease }).click();
+      await expect(input).toHaveValue(digits(lang, 13));
       await input.fill(digits(lang, 14));
       await dialog.getByRole("button", { name: c.common.continue }).click();
       await expect(dialog).toHaveCount(0);

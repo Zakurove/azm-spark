@@ -322,6 +322,9 @@
   color: var(--muted);
   cursor: default;
 }
+.azm-check .check-stepper-input[aria-invalid="true"] {
+  border-color: var(--warn-ink);
+}
 .azm-check .check-stepper-input {
   width: 6rem;
   min-height: 56px;

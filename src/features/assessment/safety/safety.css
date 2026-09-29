@@ -240,21 +240,9 @@
   display: grid;
   gap: var(--s3);
 }
-.azm-check .safety-count-field {
-  width: 100%;
-  min-height: 72px;
-  padding: var(--s2) var(--s4);
-  border: 2px solid var(--field-border);
-  border-radius: var(--r-control);
-  background: var(--card);
-  color: var(--ink);
-  font: inherit;
-  font-size: 2.5rem;
-  font-weight: 800;
-  text-align: center;
-}
-.azm-check .safety-count-field[aria-invalid="true"] {
-  border-color: var(--warn-ink);
+/* The count stepper at the phone (CountStepper, the S30 stepper look) sits centred on the stage. */
+.azm-check .safety-count-input .check-stepper-row {
+  justify-content: center;
 }
 
 /* STOP on the answer screens and in the overlays: full width, red, 72 px, sticky at the bottom. */

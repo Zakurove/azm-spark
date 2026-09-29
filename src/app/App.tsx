@@ -165,13 +165,14 @@ export default function App() {
       active = false;
     };
   }, []);
-  // S54: "Try the movement check" also shows while home checks are open (the context, signed in only).
+  // S54: "Try the movement check" also shows while home checks are open (the context, signed in only,
+  // so a visitor who is not signed in never calls it).
   useEffect(() => {
-    if (!exampleEntry) return;
+    if (!exampleEntry || !account) return;
     void createCheckApi()
       .getContext()
       .then((r) => setHomeChecksOpen(r.ok && r.value.homeOpen === true));
-  }, []);
+  }, [account?.user.id]);
   // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
   useEffect(() => {
     if (account) void flushPendingCheckCalls(account.user.id);

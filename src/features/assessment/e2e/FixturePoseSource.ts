@@ -9,12 +9,15 @@
  *
  * Fixtures are the generator specs of tests/fixtures/catalog.ts, selected by ?e2eFixture=<name>
  * where the name is the catalogue file without .json (for example
- * shoulder_abduction/chair/raise-right-9x16), or one of the presets below.
+ * shoulder_abduction/chair/raise-right-9x16), one of the presets below, or one of the S34 camera
+ * scripts of camera/e2e/fixtures.ts (abd, lean, curl, stand, leave and crowd, each as -9x16 and
+ * -16x9: a person who sits still, then moves, lap after lap).
  */
 import type { PoseSource } from "../../../app/poseSource";
 import type { Frame, Landmark } from "../../../engine/types";
 import { CATALOG } from "../../../../tests/fixtures/catalog";
 import { generate, type GenSpec } from "../../../../tests/fixtures/gen";
+import { CAM_FIXTURES } from "../camera/e2e/fixtures";
 
 /** The marker the bundle test looks for. */
 export const FIXTURE_SOURCE_NAME = "FixturePoseSource";
@@ -44,6 +47,7 @@ const PRESETS: Record<string, GenSpec> = {
 
 export const FIXTURE_NAMES: readonly string[] = [
   ...Object.keys(PRESETS),
+  ...Object.keys(CAM_FIXTURES),
   ...CATALOG.map((c) => c.file.replace(/\.json$/, "")),
   "empty",
 ];
@@ -51,6 +55,7 @@ export const FIXTURE_NAMES: readonly string[] = [
 /** The generator spec of a fixture name, or null ("empty" plays frames without a person). */
 export function fixtureSpec(name: string): GenSpec | null {
   if (PRESETS[name]) return PRESETS[name];
+  if (CAM_FIXTURES[name]) return CAM_FIXTURES[name];
   const entry = CATALOG.find((c) => c.file.replace(/\.json$/, "") === name);
   return entry ? entry.spec : null;
 }
@@ -96,12 +101,16 @@ export class FixturePoseSource implements PoseSource {
   readonly sourceName = FIXTURE_SOURCE_NAME;
   private cancel: (() => void) | null = null;
   readonly frames: Frame[];
+  /** One lap (ms): the spec's duration when it has one, else the last frame plus one frame time. */
+  private readonly lapMs: number | null;
 
   constructor(
     readonly fixture: string,
     private opts: { loop?: boolean; clock?: FixtureClock } = {},
   ) {
     this.frames = fixtureFrames(fixture);
+    const spec = fixtureSpec(fixture);
+    this.lapMs = spec ? spec.durationSec * 1000 : null;
   }
 
   /** Delivers every frame whose time has come, in order; loops unless told not to. */
@@ -110,7 +119,7 @@ export class FixturePoseSource implements PoseSource {
     const loop = this.opts.loop ?? true;
     const frames = this.frames;
     if (frames.length === 0) return;
-    const duration = frames[frames.length - 1].t + 1000 / 15;
+    const duration = Math.max(this.lapMs ?? 0, frames[frames.length - 1].t + 1000 / 15);
     const t0 = clock.now();
     let next = 0;
     let lap = 0;

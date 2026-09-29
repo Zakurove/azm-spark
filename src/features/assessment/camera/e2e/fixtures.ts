@@ -3,12 +3,11 @@
  * session imports this module inside an `import.meta.env.VITE_E2E === "1"` branch, which the
  * production build removes.
  *
- * `?e2eCamFixture=<name>` plays one of the scripts below through the real camera screen, runner and
- * flow, in real time and in a loop, as a person who repeats the movement: every lap starts with a
- * few seconds of sitting still (the setup check and the calibration), then the movement. Each test
- * kind comes in both phone shapes (9:16 and 16:9).
+ * The scripts below are presets of the foundation FixturePoseSource: `?e2eFixture=<name>` plays one
+ * through the real camera screen, runner and flow, in real time and in a loop, as a person who
+ * repeats the movement: every lap starts with a few seconds of sitting still (the setup check and
+ * the calibration), then the movement. Each test kind comes in both phone shapes (9:16 and 16:9).
  */
-import type { PoseSource } from "../../../../app/poseSource";
 import type { Frame, Landmark } from "../../../../engine/types";
 import { generate, type AspectName, type GenSpec } from "../../../../../tests/fixtures/gen";
 
@@ -121,46 +120,4 @@ export function camFixtureFrames(name: string): { frames: Frame[]; durationMs: n
     })),
     durationMs: spec.durationSec * 1000,
   };
-}
-
-/** Plays a camera fixture in real time and in a loop (E2E builds only). */
-export class CamFixtureSource implements PoseSource {
-  readonly kind = "trace" as const;
-  readonly sourceName = "CamFixtureSource";
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private readonly frames: Frame[];
-  private readonly durationMs: number;
-
-  constructor(readonly fixture: string) {
-    const fx = camFixtureFrames(fixture);
-    this.frames = fx.frames;
-    this.durationMs = fx.durationMs;
-  }
-
-  async start(onFrame: (f: Frame) => void): Promise<void> {
-    const frames = this.frames;
-    if (!frames.length) return;
-    const t0 = performance.now();
-    let next = 0;
-    let lap = 0;
-    this.timer = setInterval(() => {
-      const elapsed = performance.now() - t0;
-      for (let guard = 0; guard < 200; guard++) {
-        const f = frames[next];
-        const at = lap * this.durationMs + f.t;
-        if (at > elapsed) break;
-        onFrame({ ...f, t: t0 + at });
-        next += 1;
-        if (next === frames.length) {
-          next = 0;
-          lap += 1;
-        }
-      }
-    }, 1000 / 60);
-  }
-
-  stop(): void {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-  }
 }

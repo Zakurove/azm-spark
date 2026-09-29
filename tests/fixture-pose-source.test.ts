@@ -138,3 +138,19 @@ describe("FixturePoseSource playback", () => {
     expect(looped.length).toBeGreaterThan(loop.frames.length * 2);
   });
 });
+
+describe("the S34 camera scripts are presets of the fixture source", () => {
+  it("plays every camera script by name with its aspect, in laps as long as the script", () => {
+    for (const kind of ["abd", "lean", "curl", "stand", "leave", "crowd"])
+      for (const shape of ["9x16", "16x9"]) {
+        const name = `${kind}-${shape}`;
+        expect(FIXTURE_NAMES).toContain(name);
+        const spec = fixtureSpec(name);
+        expect(spec, name).not.toBeNull();
+        const frames = fixtureFrames(name);
+        expect(frames.length).toBeGreaterThan(0);
+        expect(frames[0].aspect).toBeCloseTo(shape === "9x16" ? 9 / 16 : 16 / 9, 2);
+      }
+    expect(fixtureFrames("crowd-9x16").some((f) => (f.poses?.length ?? 0) >= 2)).toBe(true);
+  });
+});

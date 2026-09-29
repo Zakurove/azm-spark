@@ -1,8 +1,8 @@
 /**
  * Helpers of the camera specs (e2e/camera.spec.ts, e2e/camera-shots.spec.ts): a guest check at the
  * booth restored at a camera state of one test (useCheckFlow takes the reload snapshot), with the
- * camera fixture scripts of src/features/assessment/camera/e2e/fixtures.ts (?e2eCamFixture=), the
- * foundation fixture source (?e2eFixture=) or the static previews (?e2eCamPreview=).
+ * foundation fixture source (?e2eFixture=, whose presets include the camera scripts of
+ * src/features/assessment/camera/e2e/fixtures.ts) or the static previews (?e2eCamPreview=).
  */
 import { expect, type Page } from "@playwright/test";
 

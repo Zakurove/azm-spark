@@ -86,7 +86,7 @@ for (const size of SIZES) {
       await expect(page.locator(".s34-band.is-none")).toBeVisible({ timeout: 15_000 });
       await shot(page, lang, size.tag, "S34-live-setup-empty");
       const shape = size.tag === "d" ? "16x9" : "9x16";
-      await page.goto(url(`/?check=1&e2eCamFixture=abd-${shape}&e2eCamFast=1`, lang));
+      await page.goto(url(`/?check=1&e2eFixture=abd-${shape}&e2eCamFast=1`, lang));
       await expect(
         page.locator(".check-base[data-state='cam.practice'], .check-base[data-state='cam.measure']"),
       ).toBeVisible({

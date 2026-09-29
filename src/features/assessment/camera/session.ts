@@ -6,8 +6,9 @@
  *
  * Video never leaves the phone: the frames go to the engine in memory and nothing is recorded.
  *
- *   createCheckPoseSource (poseSourceFactory.ts)   the camera with numPoses 2, or ?e2eFixture=
- *   ?e2eCamFixture=<name>                          E2E builds only: the camera scripts of e2e/fixtures.ts
+ *   createCheckPoseSource (poseSourceFactory.ts)   the camera with numPoses 2, or on E2E builds
+ *                                                  ?e2eFixture= (the camera scripts of e2e/fixtures.ts
+ *                                                  are its presets)
  */
 import { useEffect, useRef, useState } from "react";
 import type { CameraPoseSource, PoseSource } from "../../../app/poseSource";
@@ -30,13 +31,6 @@ export function cameraErrorOf(err: unknown): CamError {
 }
 
 async function createSource(video: HTMLVideoElement): Promise<PoseSource> {
-  if (import.meta.env.VITE_E2E === "1") {
-    const name = new URLSearchParams(location.search).get("e2eCamFixture");
-    if (name) {
-      const { CamFixtureSource } = await import("./e2e/fixtures");
-      return new CamFixtureSource(name);
-    }
-  }
   return createCheckPoseSource(video);
 }
 

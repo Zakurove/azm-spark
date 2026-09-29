@@ -4,9 +4,10 @@
  * phone shapes (9:16 on a phone, 16:9 on a desktop), in Arabic and English, then the setup check,
  * STOP, the retry and the rests are driven through their own controls.
  *
- *   ?e2eCamFixture=<kind>-<9x16|16x9>   the camera scripts of camera/e2e/fixtures.ts (a person who
- *                                        sits still, then moves, in a loop)
- *   ?e2eFixture=empty | seated-still     the foundation fixture source
+ *   ?e2eFixture=<kind>-<9x16|16x9>       the camera scripts of camera/e2e/fixtures.ts, presets of the
+ *                                        foundation fixture source (a person who sits still, then
+ *                                        moves, in a loop)
+ *   ?e2eFixture=empty | seated-still     the foundation fixture source's own presets
  *   ?e2eCamFast=1                        short rests between attempts (E2E builds only)
  */
 import { expect, test, type Browser, type Page } from "@playwright/test";
@@ -59,7 +60,7 @@ for (const run of RUNS) {
     test(`${run.testId}: a whole side with fixture poses, ${shape}, ${lang}`, async ({ browser }) => {
       test.setTimeout(180_000);
       const page = await newPage(browser, shape);
-      await openCamera(page, lang as Lang, run.testId, `e2eCamFixture=${run.fixture}-${shape}&e2eCamFast=1`, {
+      await openCamera(page, lang as Lang, run.testId, `e2eFixture=${run.fixture}-${shape}&e2eCamFast=1`, {
         side: run.side,
         ...(run.position ? { position: run.position } : {}),
       });
@@ -125,7 +126,7 @@ test("setup check with nobody in the picture: the title, the chips and the offer
 
 test("a second person in the middle keeps the test from starting (English)", async ({ browser }) => {
   const page = await newPage(browser, "9x16");
-  await openCamera(page, "en", "shoulder_abduction", "e2eCamFixture=crowd-9x16&e2eCamFast=1");
+  await openCamera(page, "en", "shoulder_abduction", "e2eFixture=crowd-9x16&e2eCamFast=1");
   await expect(page.locator(".s34-band")).toContainText("Someone else in the middle", { timeout: 15_000 });
   await expect(page.locator(".s34-chip[aria-label='People in view, Needs adjusting']")).toBeVisible();
   await expect(page.locator(".s34-caption")).toContainText(
@@ -138,7 +139,7 @@ test("a second person in the middle keeps the test from starting (English)", asy
 
 test("STOP opens the stop list over the stage during a test (Arabic)", async ({ browser }) => {
   const page = await newPage(browser, "9x16");
-  await openCamera(page, "ar", "shoulder_abduction", "e2eCamFixture=abd-9x16&e2eCamFast=1");
+  await openCamera(page, "ar", "shoulder_abduction", "e2eFixture=abd-9x16&e2eCamFast=1");
   await reach(page, "cam.practice", 60_000);
   await page.locator(".s34-stop").click();
   await expect(page.locator(".check-overlay[data-overlay='S41']")).toBeVisible();
@@ -197,7 +198,7 @@ test("a phone held sideways shows turn the phone upright and pauses (Arabic)", a
     hasTouch: true,
   });
   const page = await context.newPage();
-  await openCamera(page, "ar", "shoulder_abduction", "e2eCamFixture=abd-9x16&e2eCamFast=1");
+  await openCamera(page, "ar", "shoulder_abduction", "e2eFixture=abd-9x16&e2eCamFast=1");
   await expect(page.locator(".s34-upright")).toContainText("أدر الهاتف ليكون واقفًا", { timeout: 15_000 });
   await page.waitForTimeout(3000);
   await expect(page.locator(".check-base")).toHaveAttribute("data-state", "cam.setup");

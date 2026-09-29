@@ -139,10 +139,16 @@ export async function seed(page: Page, snapshot: string, booth: boolean) {
   );
 }
 
+/**
+ * The camera states under the overlays (S41, S43 to S45 over S34) take their frames from the fixture
+ * source (a person sitting still), never from a real camera, which a headless browser does not have.
+ */
+const CAMERA = "e2eFixture=seated-still";
+
 /** Opens a guest (booth) check at the snapshot's state. */
 export async function openGuest(page: Page, lang: Lang, o: ModelOptions) {
   await seed(page, model({ ...o, mode: "guest" }), true);
-  await page.goto(url("/?check=1", lang));
+  await page.goto(url(`/?check=1&${CAMERA}`, lang));
   await expect(page.locator(".azm-check").first()).toBeVisible();
 }
 
@@ -184,7 +190,7 @@ export async function openSignedIn(page: Page, lang: Lang, o: ModelOptions) {
   });
   expect(intake.status()).toBe(200);
   await seed(page, model({ ...o, mode: "signedIn", booth: false }), false);
-  await page.goto(url("/", lang));
+  await page.goto(url(`/?${CAMERA}`, lang));
   await expect(page.locator(".azm-check").first()).toBeVisible();
 }
 

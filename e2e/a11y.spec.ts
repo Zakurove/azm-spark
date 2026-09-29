@@ -117,7 +117,7 @@ async function flowStates(page: Page): Promise<string[]> {
 }
 
 /** Opens a named state of e2e/flow-models.ts through the check's reload snapshot. */
-async function openFlowState(page: Page, name: string, lang: Lang): Promise<string> {
+async function openFlowState(page: Page, name: string, lang: Lang, attempt = 1): Promise<string> {
   await page.goto("/?e2eGallery=loading");
   const info = await page.evaluate(async (name) => {
     const path = "/e2e/flow-models.ts";
@@ -130,8 +130,15 @@ async function openFlowState(page: Page, name: string, lang: Lang): Promise<stri
     return { mode: s.mode as string, screen: s.screen as string };
   }, name);
   await page.goto(url(info.mode === "guest" ? "/?check=1" : "/", lang));
-  // The first state waits for the dev server to compile the check (a cold start).
-  await expect(page.locator(`[data-screen="${info.screen}"]`).first()).toBeVisible({ timeout: 20_000 });
+  // The dev server may compile or optimise modules on first use and reload the page, which drops the
+  // snapshot: the state is opened once more before it counts as missing.
+  const screen = page.locator(`[data-screen="${info.screen}"]`).first();
+  try {
+    await expect(screen).toBeVisible({ timeout: attempt === 1 ? 10_000 : 20_000 });
+  } catch (e) {
+    if (attempt > 1) throw e;
+    return openFlowState(page, name, lang, attempt + 1);
+  }
   await page.waitForTimeout(300);
   return info.screen;
 }
@@ -230,7 +237,8 @@ for (const lang of LANGS) {
       else if (first) await openSignedIn(page, lang, s.open);
       else {
         await seed(page, model({ ...s.open, mode: "signedIn", booth: false }), false);
-        await page.goto(url("/", lang));
+        // The camera under the overlays plays the fixture person (no camera in a headless browser).
+        await page.goto(url("/?e2eFixture=seated-still", lang));
         await expect(page.locator(".azm-check").first()).toBeVisible();
       }
       await expect(page.locator("[data-screen]").first()).toBeVisible();

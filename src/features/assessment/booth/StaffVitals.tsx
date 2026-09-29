@@ -74,6 +74,10 @@ export function StaffVitalsView({
   const questionId = s.kind === "question" ? s.id : QUESTION;
   // A visitor's own phone never takes the staff code (S55, 7.2-11).
   const [visitorPhone] = useState(() => readBoothPass()?.kind === "visitor");
+  const [staffSession] = useState(() => {
+    const pass = readBoothPass();
+    return pass?.kind === "staff" ? pass.session : undefined;
+  });
   const [unlocked, setUnlocked] = useState(initialUnlocked);
   const [input, setInput] = useState<VitalsInput>(EMPTY_VITALS);
   const [shown, setShown] = useState<Set<VitalField>>(new Set());
@@ -177,7 +181,9 @@ export function StaffVitalsView({
 
         {!unlocked && !visitorPhone && (
           <BoothCodeForm
-            api={api}
+            // On a booth phone the device's staff session goes with the code, so the unlocks of
+            // the phones behind one venue address never share a limit.
+            api={{ boothVerify: (code) => api.boothVerify(code, staffSession) }}
             submitLabel={t(lang, "assessment.common.continue")}
             onVerified={() => setUnlocked(true)}
           />

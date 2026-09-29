@@ -4,7 +4,10 @@
  *   POST /api/booth/verify  { code }     public; 10 tries per IP and 30 in all in 15 minutes; → { ok } and, when
  *                                        ok, the staff device session of the booth day { session,
  *                                        expires }; { ok: false, closed: true } outside the booth
- *                                        days and hours
+ *                                        days and hours. With the staff { session } of the device (the
+ *                                        S56 unlock on a booth phone) it counts 10 per session instead
+ *                                        of per IP, since booth phones share the venue's address, and
+ *                                        answers with that same session
  *   POST /api/booth/token   { session }  a one check visitor token for 45 minutes at most, never past
  *                                        closing: { token, expires }; 403 BOOTH_SESSION
  *   POST /api/booth/redeem  { token }    the visitor's phone redeems the QR token once: it is spent
@@ -44,18 +47,32 @@ export const boothRoutes: Route[] = [
     path: /^\/api\/booth\/verify$/,
     auth: "public",
     handle({ db, body, ip, json, limited }) {
+      const now = Date.now();
+      // S56 on a booth phone: a valid staff session of this device is counted on its own, so the
+      // phones behind one venue address never share a limit; it is no way to guess faster, since a
+      // session exists only after the right code.
+      const staff =
+        typeof body.session === "string" && PASS.test(body.session) && boothWindow(now).open
+          ? validPass(db, body.session, "staff", now)
+          : null;
       // Every call counts, whatever it holds, so the code cannot be guessed faster by bad bodies.
-      if (limited(`booth-verify:${ip}`, VERIFY_PER_IP, WINDOW_MS)) return json(429, { error: "RATE_LIMIT" });
-      if (limited("booth-verify:all", VERIFY_ALL, WINDOW_MS)) return json(429, { error: "RATE_LIMIT" });
-      const bad = onlyKey(body, "code");
-      if (bad) return json(400, { error: "BOOTH_INVALID", field: bad });
+      if (staff !== null) {
+        if (limited(`booth-unlock:${body.session as string}`, VERIFY_PER_IP, WINDOW_MS))
+          return json(429, { error: "RATE_LIMIT" });
+      } else {
+        if (limited(`booth-verify:${ip}`, VERIFY_PER_IP, WINDOW_MS))
+          return json(429, { error: "RATE_LIMIT" });
+        if (limited("booth-verify:all", VERIFY_ALL, WINDOW_MS)) return json(429, { error: "RATE_LIMIT" });
+      }
+      const extra = Object.keys(body).filter((k) => k !== "code" && k !== "session");
+      if (extra.length) return json(400, { error: "BOOTH_INVALID", field: "body" });
       if (typeof body.code !== "string" || body.code.length > 64)
         return json(400, { error: "BOOTH_INVALID", field: "code" });
-      const now = Date.now();
       const ok = boothCodeMatches(body.code, now);
       const window = boothWindow(now);
       if (!window.open) return json(200, { ok: false, closed: true });
       if (!ok) return json(200, { ok: false });
+      if (staff !== null) return json(200, { ok: true, session: body.session, expires: staff });
       const session = createPass(db, "staff", window.closes, now);
       json(200, { ok: true, session, expires: window.closes });
     },

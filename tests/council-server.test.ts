@@ -226,6 +226,37 @@ describe("POST /api/booth/verify (contract v3 I, O17)", () => {
     expect((await verify(CODE, "100.65.0.1")).data.ok).toBe(true);
   });
 
+  it("counts S56 unlocks per staff session, so booth phones behind one address never share a limit", async () => {
+    setTime(BOOTH_DAY + 6 * HOUR);
+    process.env.AZM_BOOTH_CODE = CODE;
+    const venue = "198.51.100.77";
+    const phoneA = (await verify(CODE, venue)).data.session as string;
+    const phoneB = (await verify(CODE, venue)).data.session as string;
+    const unlock = (session: string, code: string) =>
+      h.call("/booth/verify", { code, session }, "", "POST", { "x-forwarded-for": venue });
+    // 12 unlocks of phone A from the venue address: 10 answered, then that session is limited.
+    const a: number[] = [];
+    for (let i = 0; i < 12; i++) a.push((await unlock(phoneA, i === 0 ? CODE : "000000")).status);
+    expect(a.slice(0, 10).every((c) => c === 200)).toBe(true);
+    expect(a.slice(10)).toEqual([429, 429]);
+    // Phone B at the same address keeps its own, and the right code answers with its own session.
+    const b = await unlock(phoneB, CODE);
+    expect(b.data).toMatchObject({ ok: true, session: phoneB });
+    expect((await unlock(phoneB, "000000")).data).toEqual({ ok: false });
+    // A made up session is no way around the address limit.
+    const fake = "f".repeat(64);
+    const out: number[] = [];
+    for (let i = 0; i < 12; i++)
+      out.push(
+        (
+          await h.call("/booth/verify", { code: "000000", session: fake }, "", "POST", {
+            "x-forwarded-for": "198.51.100.78",
+          })
+        ).status,
+      );
+    expect(out.slice(10)).toEqual([429, 429]);
+  });
+
   it("never writes the code to a log", async () => {
     setTime(BOOTH_DAY);
     process.env.AZM_BOOTH_CODE = CODE;

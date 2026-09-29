@@ -319,7 +319,8 @@ export interface CheckApi {
   acceptConsent(version: number): Promise<ApiResult<ConsentResponse>>;
   revokeConsent(): Promise<ApiResult<{ kind: string; revoked: true }>>;
   confirmAdult(): Promise<ApiResult<AdultResponse>>;
-  boothVerify(code: string): Promise<ApiResult<BoothVerifyResponse>>;
+  /** The staff code; with the device's staff session (the S56 unlock) it is counted per session. */
+  boothVerify(code: string, session?: string): Promise<ApiResult<BoothVerifyResponse>>;
   boothToken(session: string): Promise<ApiResult<{ token: string; expires: number }>>;
   boothRedeem(token: string): Promise<ApiResult<BoothRedeemResponse>>;
   boothCheck(token: string): Promise<ApiResult<BoothCheckResponse>>;
@@ -392,7 +393,8 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
       call<ConsentResponse>("POST", "/consents", { kind: "movement_check", version }),
     revokeConsent: () => call("DELETE", "/consents/movement_check"),
     confirmAdult: () => call<AdultResponse>("POST", "/account/adult", { confirmed: true }),
-    boothVerify: (code) => call<BoothVerifyResponse>("POST", "/booth/verify", { code }),
+    boothVerify: (code, session) =>
+      call<BoothVerifyResponse>("POST", "/booth/verify", session ? { code, session } : { code }),
     boothToken: (session) => call("POST", "/booth/token", { session }),
     boothRedeem: (token) => call<BoothRedeemResponse>("POST", "/booth/redeem", { token }),
     boothCheck: (token) => call<BoothCheckResponse>("POST", "/booth/check", { token }),

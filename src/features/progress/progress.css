@@ -186,15 +186,15 @@
   display: grid;
   gap: var(--s2);
 }
-.azm-check .pg-line svg,
-.azm-check .pg-trend svg {
+.azm-check .pg-line > svg,
+.azm-check .pg-trend > svg {
   display: block;
   width: 100%;
   max-width: 343px;
   height: auto;
   overflow: visible;
 }
-.azm-check .pg-trend svg {
+.azm-check .pg-trend > svg {
   max-width: 520px;
 }
 .azm-check .pg-axis {
@@ -404,6 +404,9 @@
   font-weight: 800;
 }
 .azm-check .pg-tile .pg-date {
+  font-size: var(--t-meta);
+  line-height: 1.5;
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -418,7 +421,6 @@
 }
 .azm-check .pg-history-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--s2);
   width: 100%;
@@ -440,8 +442,16 @@
 .azm-check .pg-history-row .pg-dot {
   color: var(--muted);
 }
+.azm-check .pg-history-text {
+  flex: 1;
+  min-width: 0;
+}
 .azm-check .pg-history-row svg {
-  margin-inline-start: auto;
+  flex: none;
+}
+/* The next check card of My results sits apart from the results heading. */
+.azm-check.check-results-page > .pg-entry {
+  margin-bottom: var(--s6);
 }
 .azm-check .pg-back {
   justify-self: start;
@@ -449,6 +459,12 @@
 }
 
 /* ------------------------------------------------------------ entry card (S01) */
+
+/* The Today slot: S03 above S01, a card gap apart. */
+.azm-check.check-slot {
+  display: grid;
+  gap: var(--s4);
+}
 
 .azm-check .pg-entry {
   position: relative;

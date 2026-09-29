@@ -229,10 +229,15 @@ export function TrendChart({
   const right = 12;
   const top = 12;
   const bottom = 34;
+  // The plot area: the value labels sit at the inline start (the right in Arabic), dates run in the
+  // reading direction (O23).
+  const plotL = rtl ? right : left;
+  const plotR = rtl ? TREND_W - left : TREND_W - right;
   const px = (d: number) => {
     const f = last > first ? (d - first) / (last - first) : 0.5;
-    const w = TREND_W - left - right;
-    return rtl ? TREND_W - left - f * w : left + f * w;
+    const inset = 14;
+    const w = plotR - plotL - 2 * inset;
+    return rtl ? plotR - inset - f * w : plotL + inset + f * w;
   };
   const py = (v: number) => top + (1 - fraction(v, lo, hi)) * (TREND_H - top - bottom);
   const dayOpts = { weekday: false, year: dates?.year };
@@ -297,19 +302,19 @@ export function TrendChart({
             <defs>
               <Hatch id={`${hatchId}t`} />
             </defs>
-            <line className="pg-grid" x1={left} y1={py(hi)} x2={TREND_W - right} y2={py(hi)} />
-            <line className="pg-axis" x1={left} y1={py(lo)} x2={TREND_W - right} y2={py(lo)} />
+            <line className="pg-grid" x1={plotL} y1={py(hi)} x2={plotR} y2={py(hi)} />
+            <line className="pg-axis" x1={plotL} y1={py(lo)} x2={plotR} y2={py(lo)} />
             <rect
               className="pg-band"
-              x={left}
+              x={plotL}
               y={py(Math.min(hi, start + band))}
-              width={TREND_W - left - right}
+              width={plotR - plotL}
               height={Math.max(2, py(Math.max(lo, start - band)) - py(Math.min(hi, start + band)))}
             />
             <rect
-              x={left}
+              x={plotL}
               y={py(Math.min(hi, start + band))}
-              width={TREND_W - left - right}
+              width={plotR - plotL}
               height={Math.max(2, py(Math.max(lo, start - band)) - py(Math.min(hi, start + band)))}
               fill={`url(#${hatchId}t)`}
               className="pg-hatch"
@@ -513,7 +518,7 @@ export function SeriesHeading({
   return (
     <div className="pg-card-head">
       <div>
-        <Heading className="pg-h3">{testDef(view.testId).name[lang]}</Heading>
+        <Heading className="pg-h3">{bidiText(lang, testDef(view.testId).name[lang])}</Heading>
         {side && <p className="check-meta">{side}</p>}
       </div>
       {chips && <div className="pg-chips">{chips}</div>}

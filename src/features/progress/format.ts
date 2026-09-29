@@ -162,14 +162,22 @@ export function resultSentence(
   }
   if (tokens.variant)
     vars.variant = (tokens.variant[o.variant ?? "standard"] ?? tokens.variant.standard)[lang];
-  return interpolate(lang, def.resultSentence[lang], vars);
+  // A unit word that does not follow its number («you did {value} full {unit}») agrees with the
+  // value («1 full bend», "12 full bends"); a {value} {unit} pair is phrased by interpolate.
+  let template = def.resultSentence[lang];
+  if (!template.includes("{value} {unit}"))
+    template = template.replaceAll("{unit}", unitWord(lang, def.resultUnit, Math.round(Math.abs(value))));
+  return interpolate(lang, template, vars);
 }
 
 /** {time} of a clock form of a lock end: «٧:٥٠ صباحًا», "7:50 am". */
 function clockText(lang: Lang, time: NonNullable<LockWhen["time"]>): string {
   const suffix = CHECK_DATA.pausedWhenTokens.timeSuffix[time.suffix][lang];
   const minute = String(Math.max(0, Math.min(59, Math.round(time.minute)))).padStart(2, "0");
-  return interpolate(lang, `{hour}:${minute} {suffix}`, { hour: time.hour, suffix });
+  // A clock time reads hour then minutes from the left in both languages: in Arabic the time is an
+  // isolated left to right run (LRI ... PDI), so the colon never flips it («٧:٥٠» not «٥٠:٧»).
+  const clock = interpolate(lang, `{hour}:${minute}`, { hour: time.hour });
+  return `${lang === "ar" ? `\u2066${clock}\u2069` : clock} ${suffix}`;
 }
 
 /** The {when} line of a lock (Q33 (4), data:pausedWhen.*), or null when the server sent none. */

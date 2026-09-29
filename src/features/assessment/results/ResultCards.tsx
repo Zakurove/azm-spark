@@ -96,7 +96,7 @@ export function ResultCard({
   const Heading = level === 2 ? "h2" : "h3";
   return (
     <section className="check-card rs-card" data-test={card.testId}>
-      <Heading className="rs-test">{testDef(card.testId).name[lang]}</Heading>
+      <Heading className="rs-test">{bidiText(lang, testDef(card.testId).name[lang])}</Heading>
       {card.rows.map((row) => {
         const view = views?.get(`${card.testId}:${row.side}`);
         return (
@@ -136,7 +136,7 @@ function SkipGroup({
           const same = e.sides.every((s) => s.reason === e.sides[0].reason);
           return (
             <li key={e.testId} data-test={e.testId}>
-              <p className="rs-skip-name">{testDef(e.testId).name[lang]}</p>
+              <p className="rs-skip-name">{bidiText(lang, testDef(e.testId).name[lang])}</p>
               {same ? (
                 <p className="check-body">
                   <ReasonText reason={e.sides[0].reason} substituteRan={e.sides[0].substituteRan} />

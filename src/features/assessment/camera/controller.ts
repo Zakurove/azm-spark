@@ -472,7 +472,10 @@ export class CameraController {
   watch(f: Frame, t: number = f.t): CamOutput {
     this.lastT = Math.max(this.lastT, t);
     const s = this.model.state as FlowState & { i?: number; side?: number };
-    if (s.i !== this.test.i || s.side !== this.test.sideIndex || this.state) return this.drain();
+    // S38 and S38b after a stop in this test: only a raised hand over the check in or the alarm counts
+    // (fine, O30); no trigger is armed there, whatever the person's position after a faint.
+    const faint = s.kind === "faintAsk" || (s.kind === "safety" && s.safety === "faint" && !s.faintAnswered);
+    if (!faint && (s.i !== this.test.i || s.side !== this.test.sideIndex || this.state)) return this.drain();
     const poses = posesOf(f);
     const k = nearestCentre(poses, f.aspect);
     const lm = this.lock.locked ? this.lock.pickFrame(f).lm : k >= 0 ? poses[k] : null;
@@ -483,6 +486,7 @@ export class CameraController {
       return this.drain();
     }
     this.fineArmed = false;
+    if (faint) return this.drain();
     if (this.detector.reference)
       for (const trigger of this.detector.feed(t, lm, f.aspect, {
         sway: true,

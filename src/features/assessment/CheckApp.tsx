@@ -122,12 +122,34 @@ export default function CheckApp({
     [],
   );
   const { online, backOnline } = useOnline();
-  const { model, dispatch, api, status, retryCamera, retrySave } = useCheckFlow({
+  const {
+    model,
+    dispatch: flowDispatch,
+    api,
+    status,
+    retryCamera,
+    retrySave,
+  } = useCheckFlow({
     config,
     online,
     resume: resume ?? null,
     ...(owner ? { owner } : {}),
   });
+
+  // S43, S45: a raised hand taken as "fine" shows "We saw your hand." for a second (O34-1).
+  const [seenHand, setSeenHand] = useState(0);
+  const dispatch = useCallback(
+    (e: Parameters<typeof flowDispatch>[0]) => {
+      if (e.type === "FINE" && e.via === "raisedHand") setSeenHand(Date.now());
+      flowDispatch(e);
+    },
+    [flowDispatch],
+  );
+  useEffect(() => {
+    if (!seenHand) return;
+    const timer = setTimeout(() => setSeenHand(0), 1000);
+    return () => clearTimeout(timer);
+  }, [seenHand]);
 
   const [soundOn, setSoundOn] = useState(true);
   const [caption, setCaption] = useState<Caption | null>(null);
@@ -302,6 +324,11 @@ export default function CheckApp({
         <div className="check-overlay" data-overlay={overlayId}>
           <Overlay {...props} />
         </div>
+      )}
+      {seenHand > 0 && (
+        <p className="check-toast" role="status" data-seen-hand="">
+          {t(lang, "assessment.checkin.seenHand")}
+        </p>
       )}
       {/* S57: the staff reset and the idle reset over every screen, in booth mode only. */}
       {config.booth && <BoothLayer model={model} dispatch={dispatch} />}

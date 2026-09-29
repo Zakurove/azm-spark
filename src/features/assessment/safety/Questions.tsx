@@ -28,6 +28,7 @@ import {
   testDef,
 } from "../../../movements/assessments";
 import type { ScreenId } from "../../../movements/types";
+import { useCameraWatch } from "../camera/watch";
 import { cameraRunning, outcomeKey } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { CheckShell } from "../shared/CheckShell";
@@ -71,6 +72,8 @@ function yesNo(lang: "ar" | "en", yesAtOnce = false): ZoneOption[] {
 // fine one extra 30 s timer (O34-1 (6)), as the flow records it (fineVia).
 export function FaintAsk({ model, dispatch }: ScreenProps) {
   const { lang, booth } = useCheckUi();
+  // The camera stays on until the question is answered: a raised hand is "fine" in its check in (O30).
+  useCameraWatch(model, dispatch);
   const s = model.state.kind === "faintAsk" ? model.state : null;
   const q = stopFollowUp("sf_faint_loc");
   const back: ScreenId = s?.back?.screen ?? "scr_faint";
@@ -150,6 +153,8 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
  */
 export function Between({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
+  // The camera behind the question keeps the check in armed (4.8 answer zone states).
+  useCameraWatch(model, dispatch);
   const s = model.state.kind === "between" ? model.state : null;
   const q = precheckItem("bt_pain_after");
   const headingId = useId();
@@ -202,6 +207,8 @@ export function Between({ model, dispatch }: ScreenProps) {
  */
 export function AfterTest({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
+  // The camera behind the question keeps the check in armed (4.8 answer zone states).
+  useCameraWatch(model, dispatch);
   const kind = model.state.kind;
   const headingId = useId();
   const at = sideOfState(model);

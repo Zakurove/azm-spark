@@ -21,6 +21,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { kgRange, loadArms, loadChoices, loadSummary, sideLabel, stepDownChoices, type Load } from "./copy";
 import { KgStepper, SamePress } from "./parts";
+import { useCameraWatch } from "../camera/watch";
 import { useEntryLines, useVoice } from "./voice";
 
 function useCounter(model: ScreenProps["model"]) {
@@ -89,6 +90,8 @@ function GripQuestion({ model, dispatch }: ScreenProps) {
  */
 function PracticeCheck({ model, dispatch }: ScreenProps) {
   const { lang, booth } = useCheckUi();
+  // The camera behind the question keeps the check in armed (4.8 answer zone states).
+  useCameraWatch(model, dispatch);
   const voice = useVoice(model.data.soundMode);
   const s = model.state as { i: number; side: number };
   const item = model.data.tests[s.i]?.sides[s.side];

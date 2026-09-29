@@ -30,6 +30,7 @@ import type { ScreenProps } from "../screenTypes";
 import { CheckShell, type CallLinkProps } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
+import { useCameraWatch } from "../camera/watch";
 import { safetyView } from "./content";
 import { useSpeechSequence, useWakeLock } from "./hooks";
 import { BigNumber, SafetyHeading, SentenceStack, TextWithTimes } from "./parts";
@@ -44,6 +45,8 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
   const key = view ? `${view.id}:${state.kind === "safety" ? state.screen : ""}:${lang}` : "none";
   const seq = useSpeechSequence(view?.speech ?? [], { key });
   useWakeLock(true);
+  // S38: the camera stays on until the faint question is answered (a raised hand in its check in).
+  useCameraWatch(model, dispatch);
 
   // S38: the faint question once the speech has ended and 20 s have passed (spec S38b "When").
   const [elapsed, setElapsed] = useState(false);

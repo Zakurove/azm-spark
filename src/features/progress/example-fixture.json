@@ -1,0 +1,262 @@
+{
+  "about": "Bundled example of the results page (UX spec S54, decision D 008): stored results only, no person, no name. Verdicts are computed by compareSeries on the phone, like the real page. Dates sit in a fixed past example year.",
+  "person": {
+    "position": "chair",
+    "support": "none",
+    "conditions": [],
+    "pain": ["shoulder"],
+    "setup": {
+      "painSides": ["right"]
+    }
+  },
+  "results": [
+    {
+      "testId": "shoulder_abduction",
+      "side": "left",
+      "setting": "booth",
+      "date": "2025-01-12",
+      "value": 96,
+      "median": 94,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "shoulder_abduction",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-02-02",
+      "value": 95,
+      "median": 93,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "shoulder_abduction",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-04-27",
+      "value": 104,
+      "median": 101,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "shoulder_abduction",
+      "side": "left",
+      "setting": "home",
+      "date": "2025-02-02",
+      "value": 100,
+      "median": 97,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "shoulder_abduction",
+      "side": "left",
+      "setting": "home",
+      "date": "2025-03-02",
+      "value": 108,
+      "median": 105,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "shoulder_abduction",
+      "side": "left",
+      "setting": "home",
+      "date": "2025-03-30",
+      "value": 112,
+      "median": 110,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "shoulder_abduction",
+      "side": "left",
+      "setting": "home",
+      "date": "2025-04-27",
+      "value": 124,
+      "median": 121,
+      "nValid": 3,
+      "detail": {
+        "reference": "trunk",
+        "bentElbowAccepted": false
+      }
+    },
+    {
+      "testId": "trunk_control_seated",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-03-02",
+      "value": 18,
+      "median": 17,
+      "nValid": 3,
+      "detail": {
+        "chair": "example",
+        "armrests": true,
+        "armMode": "crossed",
+        "pivot": "hip",
+        "contact": false
+      }
+    },
+    {
+      "testId": "trunk_control_seated",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-03-30",
+      "value": 20,
+      "median": 19,
+      "nValid": 3,
+      "detail": {
+        "chair": "example",
+        "armrests": true,
+        "armMode": "crossed",
+        "pivot": "hip",
+        "contact": false
+      }
+    },
+    {
+      "testId": "trunk_control_seated",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-04-27",
+      "value": 21,
+      "median": 20,
+      "nValid": 3,
+      "detail": {
+        "chair": "example",
+        "armrests": true,
+        "armMode": "crossed",
+        "pivot": "hip",
+        "contact": false
+      }
+    },
+    {
+      "testId": "trunk_control_seated",
+      "side": "left",
+      "setting": "home",
+      "date": "2025-03-30",
+      "value": 16,
+      "median": 15,
+      "nValid": 3,
+      "detail": {
+        "chair": "example",
+        "armrests": true,
+        "armMode": "crossed",
+        "pivot": "hip",
+        "contact": false
+      }
+    },
+    {
+      "testId": "trunk_control_seated",
+      "side": "left",
+      "setting": "home",
+      "date": "2025-04-27",
+      "value": 17,
+      "median": 16,
+      "nValid": 3,
+      "detail": {
+        "chair": "example",
+        "armrests": true,
+        "armMode": "crossed",
+        "pivot": "hip",
+        "contact": false
+      }
+    },
+    {
+      "testId": "arm_curl_30s",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-02-02",
+      "value": 12,
+      "nValid": 1,
+      "detail": {
+        "loadObject": "bottle",
+        "loadL": 1,
+        "view": "side",
+        "armrest": "removed",
+        "compensated": 0
+      }
+    },
+    {
+      "testId": "arm_curl_30s",
+      "side": "right",
+      "setting": "home",
+      "date": "2025-04-27",
+      "value": 13,
+      "nValid": 1,
+      "detail": {
+        "loadObject": "bottle",
+        "loadL": 1,
+        "view": "side",
+        "armrest": "removed",
+        "compensated": 0
+      }
+    }
+  ],
+  "sessions": {
+    "weeks": [
+      {
+        "start": "2025-03-02",
+        "done": 2,
+        "planned": 3
+      },
+      {
+        "start": "2025-03-09",
+        "done": 3,
+        "planned": 3
+      },
+      {
+        "start": "2025-03-16",
+        "done": 1,
+        "planned": 3
+      },
+      {
+        "start": "2025-03-23",
+        "done": 3,
+        "planned": 3
+      },
+      {
+        "start": "2025-03-30",
+        "done": 3,
+        "planned": 3
+      },
+      {
+        "start": "2025-04-06",
+        "done": 2,
+        "planned": 3
+      },
+      {
+        "start": "2025-04-13",
+        "done": 3,
+        "planned": 3
+      },
+      {
+        "start": "2025-04-20",
+        "done": 2,
+        "planned": 3
+      }
+    ],
+    "validShare": 0.8,
+    "avgEffort": 5,
+    "activeMinutesPerWeek": 45
+  }
+}

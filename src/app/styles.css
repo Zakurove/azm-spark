@@ -1108,6 +1108,29 @@ img {
   border-radius: 50%;
   margin-bottom: 22px;
 }
+/* S0: after the trunk safety stop the dialogs keep "Stop now and rest" on screen (never a check). */
+.safety-stop-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border: 1px solid #e9d9b0;
+  border-inline-start: 6px solid var(--red);
+  border-radius: 14px;
+  background: #fbf3df;
+  color: var(--ink);
+  font-weight: 700;
+}
+.safety-stop-card svg {
+  flex: none;
+  color: var(--red);
+}
+.safety-stop-card p {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
 .rpe-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

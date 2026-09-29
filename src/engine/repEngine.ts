@@ -272,3 +272,15 @@ export function frameTrunkStop(def: ExerciseDef, mf: MetricFrame, engine: RepEng
   const hit = capStopFor(def, lean, mf.values.nose_offset);
   return hit ? stopEvents(def, hit, lean, mf.t) : [];
 }
+
+/**
+ * S0 while the workout calibrates (Session.tsx, stage "calibrating"): a posture at or beyond the
+ * absolute cap before the set has started is the pre-set block (council S0: the set does not start;
+ * "Sit as upright as you comfortably can, then we will start"), never a stop with its RPE. Returns the
+ * block's cue, or null. The stop with stop_rest stays for the set itself (training).
+ */
+export function calibrationBlock(def: ExerciseDef, mf: MetricFrame): CueId | null {
+  const lean = mf.values.trunk_lean;
+  if (lean === undefined || !def.trunkSafety) return null;
+  return capStopFor(def, lean, mf.values.nose_offset) ? def.trunkSafety.presetCue : null;
+}

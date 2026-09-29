@@ -7,7 +7,7 @@ import { computeMetrics } from "../engine/geometry";
 import { PoseSmoother } from "../engine/oneEuro";
 import { CueOrchestrator } from "../engine/orchestrator";
 import { unscoredLandmarks } from "../engine/profiles";
-import { frameTrunkStop, RepEngine, WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
+import { calibrationBlock, frameTrunkStop, RepEngine, WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
 import { presetBlock } from "../engine/trunkSafety";
 import { CueId, EngineEvent, ExerciseDef, Frame, LM, PRF, SessionSummary, Severity } from "../engine/types";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
@@ -116,8 +116,12 @@ export default function SessionScreen(props: {
     moments: [] as RepMoment[],
     frameLostSince: 0,
     lastFramingCueT: 0,
+    lastPresetCueT: -Infinity,
+    stoppedBy: null as string | null,
     stopSource: null as null | (() => void),
   });
+  // S0: the set ended on the trunk safety stop (the RPE and summary dialogs say so).
+  const [safetyStop, setSafetyStop] = useState(false);
   const player = useMemo(() => new CuePlayer(lang), [lang]);
   const fast = qs.get("fast") === "1";
 
@@ -213,11 +217,26 @@ export default function SessionScreen(props: {
         case "calibrating":
         case "training": {
           // S0 first, on every frame whatever the framing gate says: it needs only the shoulders and
-          // hips. During calibration the absolute cap applies (it needs no calibration).
-          const trunkStop = frameTrunkStop(def, mf, P.stage === "training" ? P.engine : null);
-          if (trunkStop.length) {
-            for (const ev of trunkStop) handleEvent(ev);
-            break;
+          // hips. During calibration the absolute cap (it needs no calibration) is the pre-set block:
+          // the set has not started, so it never stops with an RPE; the person is asked to sit as
+          // upright as they comfortably can (at most every 4 s) and the calibration starts again.
+          if (P.stage === "calibrating") {
+            const block = calibrationBlock(def, mf);
+            if (block) {
+              if (raw.t - P.lastPresetCueT > PRESET_CUE_EVERY_MS) {
+                P.lastPresetCueT = raw.t;
+                speakCue(block, "safety");
+              }
+              P.calibrator = new Calibrator(def);
+              setCalProgress(0);
+              break;
+            }
+          } else {
+            const trunkStop = frameTrunkStop(def, mf, P.engine);
+            if (trunkStop.length) {
+              for (const ev of trunkStop) handleEvent(ev);
+              break;
+            }
           }
           // in-session framing guard: hold the pipeline while the user is out of frame
           if (!mf.framingOk) {
@@ -264,7 +283,10 @@ export default function SessionScreen(props: {
 
       function handleEvent(ev: EngineEvent) {
         if (ev.kind === "stop") {
-          // S0: the trunk safety stop ends the set (its stop_rest cue came with the flag).
+          // S0: the trunk safety stop ends the set (its stop_rest cue came with the flag). The RPE and
+          // summary dialogs keep "Stop now and rest" on screen, since the caption goes behind them.
+          P.stoppedBy = ev.ruleId;
+          setSafetyStop(true);
           setStageBoth("rpe");
           return;
         }
@@ -462,9 +484,13 @@ export default function SessionScreen(props: {
     <>
       {stage === "rpe" && (
         <Dialog titleId="rpe-title">
-          <div className="result-symbol">
-            <Icon name="check" size={30} />
-          </div>
+          {safetyStop ? (
+            <SafetyStopCard lang={lang} />
+          ) : (
+            <div className="result-symbol">
+              <Icon name="check" size={30} />
+            </div>
+          )}
           <p className="eyebrow">{demo ? c.demoSummary : c.resultIntro}</p>
           <h2 id="rpe-title">{t("rpeTitle")}</h2>
           {demo && <p>{c.demoNotSaved}</p>}
@@ -506,9 +532,13 @@ export default function SessionScreen(props: {
       )}
       {stage === "summary" && summary && (
         <Dialog titleId="sum-title">
-          <div className="result-symbol">
-            <Icon name="check" size={30} />
-          </div>
+          {safetyStop ? (
+            <SafetyStopCard lang={lang} />
+          ) : (
+            <div className="result-symbol">
+              <Icon name="check" size={30} />
+            </div>
+          )}
           <p className="eyebrow">{demo ? c.demoSummary : c.resultIntro}</p>
           <h2 id="sum-title">{t("summaryTitle")}</h2>
           <p>{def.name[lang]}</p>
@@ -554,9 +584,25 @@ export default function SessionScreen(props: {
                   {k.register}
                   <Icon name="arrow" size={16} />
                 </button>
-                <button className="ghost" onClick={onRestart}>
-                  {k.tryAgain}
+                {/* After a safety stop the set is not offered again at once (S0). */}
+                {!safetyStop && (
+                  <button className="ghost" onClick={onRestart}>
+                    {k.tryAgain}
+                  </button>
+                )}
+              </>
+            ) : safetyStop ? (
+              <>
+                {/* After a safety stop: rest first. Leaving is the primary; going on is secondary and
+                    a repeat of the same set is not offered at once (S0). */}
+                <button className="cta" onClick={onExit}>
+                  {c.newSession}
                 </button>
+                {props.onContinue && (
+                  <button className="ghost" onClick={props.onContinue}>
+                    {lang === "ar" ? "متابعة البرنامج" : "Continue program"}
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -975,6 +1021,23 @@ export default function SessionScreen(props: {
         </span>
       </footer>
       {dialogs}
+    </div>
+  );
+}
+
+/** S0: at most one pre-set block line every 4 s while the person settles (council S0). */
+const PRESET_CUE_EVERY_MS = 4000;
+
+/**
+ * The line that stays on the RPE and summary dialogs after the trunk safety stop (S0): a cream card
+ * with the info icon and «توقف الآن واسترح.» · Stop now and rest., since the 4 s caption goes behind
+ * the dialog and is the only signal with the voice off. Never the check mark of a finished set.
+ */
+function SafetyStopCard({ lang }: { lang: Lang }) {
+  return (
+    <div className="safety-stop-card" role="status">
+      <Icon name="info" size={24} />
+      <p>{CUE_TEXT.stop_rest[lang]}</p>
     </div>
   );
 }

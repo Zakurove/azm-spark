@@ -113,6 +113,8 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
           <CheckIcon name={noraise ? "people" : "hand-raise"} size={96} />
           <span>{bidiText(lang, view.short)}</span>
         </p>
+        {/* The caption at the top of the stage, near the lens (4.3): the full sentence under its short form. */}
+        <StageCaption lang={lang} />
         <h1 id={titleId} ref={heading} className="safety-stage-title">
           {bidiText(lang, view.question)}
         </h1>
@@ -149,7 +151,6 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
             )
           }
         />
-        <StageCaption lang={lang} />
         <CountdownRing leftMs={left} totalMs={SAFETY_TIMING.checkInAlarmMs} size={72} />
       </div>
       {cameraRunning(model.state) && <StopButton gap onPress={() => dispatch({ type: "STOP" })} />}

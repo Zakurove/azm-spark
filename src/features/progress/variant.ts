@@ -15,10 +15,11 @@
  *  10 tooSoon      less than 48 hours since the last completed check
  *  11 upcoming     otherwise, with the H9 early start
  */
-import { estimateMinutes, REPEAT_OFFER_DAYS } from "../../medical/assessment";
+import { REPEAT_OFFER_DAYS } from "../../medical/assessment";
 import { riyadhDate } from "../../medical/precheck";
 import type { TestId } from "../../movements/types";
 import {
+  offerMinutes,
   resumeCheckOf,
   type ContextResponse,
   type LockWhen,
@@ -164,7 +165,7 @@ export function entryState(i: EntryInputs): EntryState {
   // 6: no completed home check yet, and 48 hours since any booth check.
   if (c.firstCheck && canStart) {
     out.variant = "first";
-    out.minutes = estimateMinutes(c.baseTests as TestId[], c.ctx ?? null, "home");
+    out.minutes = offerMinutes(c);
     return out;
   }
   // 7: the side lean only session (Q12 (2)); the server offers it only inside its window.

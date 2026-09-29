@@ -51,7 +51,7 @@ function testsOf(protocol: typeof PROTOCOL) {
 /** A guest flow model (flowMachine FlowModel) at `state`, as JSON for the reload snapshot. */
 export function camModel(
   state: Record<string, unknown>,
-  o: { position?: string; soundMode?: string } = {},
+  o: { position?: string; soundMode?: string; run?: Record<string, unknown> } = {},
 ): string {
   return JSON.stringify({
     state,
@@ -93,7 +93,7 @@ export function camModel(
       outcomes: {},
       cameraUsed: true,
       desktopPassed: true,
-      run: { calibrated: false, practiced: false, saved: 0, retriesUsed: 0, calibrationRounds: 1 },
+      run: { calibrated: false, practiced: false, saved: 0, retriesUsed: 0, calibrationRounds: 1, ...o.run },
       lock: null,
       closed: false,
       checkIn: null,
@@ -129,7 +129,13 @@ export async function openCamera(
   lang: Lang,
   testId: CamTestId,
   extra: string,
-  o: { side?: number; state?: Record<string, unknown>; position?: string; soundMode?: string } = {},
+  o: {
+    side?: number;
+    state?: Record<string, unknown>;
+    position?: string;
+    soundMode?: string;
+    run?: Record<string, unknown>;
+  } = {},
 ) {
   const i = TEST_INDEX[testId];
   await seed(page, camModel(o.state ?? { kind: "cam.setup", i, side: o.side ?? 0 }, o));
@@ -139,3 +145,29 @@ export async function openCamera(
 
 /** The flow state kind CheckApp renders now. */
 export const stateOf = (page: Page) => page.locator(".check-base").getAttribute("data-state");
+
+/** Records every flow state the page shows (CheckApp's data-state), so short states are not missed. */
+export async function watchStates(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __states: string[] };
+    w.__states = [];
+    const note = () => {
+      const s = document.querySelector(".check-base")?.getAttribute("data-state");
+      if (s && w.__states[w.__states.length - 1] !== s) w.__states.push(s);
+    };
+    new MutationObserver(note).observe(document, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["data-state"],
+    });
+  });
+}
+
+export const statesSeen = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __states: string[] }).__states);
+
+/** Waits for the flow to reach `state` (the camera sequence of a whole side can take a while). */
+export async function reach(page: Page, state: string, timeout = 120_000) {
+  await expect(page.locator(".check-base")).toHaveAttribute("data-state", state, { timeout });
+}

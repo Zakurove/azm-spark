@@ -86,6 +86,8 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
   const { lang } = ui;
   const timing: CamTiming = useMemo(() => camTiming(e2eFastTiming()), []);
   const ctrl = controllerFor(model, timing)!;
+  // E2E builds only: the specs read the controller's snapshot (VITE_E2E is replaced at build time).
+  if (import.meta.env.VITE_E2E === "1") (window as unknown as { __s34?: unknown }).__s34 = ctrl;
   const orientation = useOrientation();
   const viewport = useViewport();
   const reduced = useReducedMotion();
@@ -94,6 +96,10 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
   const cues = useCameraCues(true);
   const cuesRef = useRef(cues);
   cuesRef.current = cues;
+  const langRef = useRef(lang);
+  langRef.current = lang;
+  const soundRef = useRef(ui.sound.on);
+  soundRef.current = ui.sound.on;
   const [snap, setSnap] = useState<CamSnapshot>(() => ctrl.snapshot(performance.now()));
   const [tips, setTips] = useState(false);
   const lastFrame = useRef<Frame | null>(null);
@@ -110,7 +116,10 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
     (out: CamOutput) => {
       for (const e of out.events) dispatch(e);
       if (out.cues.length) cuesRef.current.push(out.cues);
-      for (const n of out.notes) cuesRef.current.note(n);
+      for (const n of out.notes) {
+        cuesRef.current.note(n);
+        if (n.speak) speakText(t(langRef.current, n.key), langRef.current, soundRef.current);
+      }
     },
     [dispatch],
   );
@@ -352,7 +361,8 @@ export function CameraView(p: CameraViewProps) {
               test={test}
               issue={s.issue}
               exhausted={s.exhausted}
-              triesLeft={triesLeft(test.testId, model.data.run.retriesUsed)}
+              // The retry being offered is one of the extra tries: at the first failure two remain.
+              triesLeft={triesLeft(test.testId, Math.max(0, model.data.run.retriesUsed - 1))}
               onNow={() => dispatch({ type: "RETRY" })}
               onSkip={() => dispatch({ type: "SKIP" })}
               onTips={() => p.onTips(true)}

@@ -108,6 +108,8 @@ export interface CamNote {
   severity: CueSeverity;
   /** Cleared after this long (the "Good" line of a fixed issue). */
   clearAfterMs?: number;
+  /** Also said with a voice on the device (a line the spec asks to hear that has no recording). */
+  speak?: boolean;
 }
 
 export interface CamOutput {
@@ -1189,7 +1191,9 @@ export class CameraController {
       const waitRunner = this.timed && !!this.runner && this.model.data.run.practiced;
       if (!waitRunner) {
         this.setupSent = true;
-        if (this.test.first) this.noteOnce("assessment.intro.howToStop", "info");
+        // SPEC-GAP: how-to-stop-booth. B2 gives the booth its own line (intro.howToStopBooth), which
+        // the copy files do not have yet; the home line is said at the booth until it lands.
+        if (this.test.first) this.noteOnce("assessment.intro.howToStop", "info", true);
         this.emit({ type: "SETUP_OK" }, t);
       }
     }
@@ -1272,14 +1276,14 @@ export class CameraController {
     this.pushCue(id, source, t, true, undefined, true);
   }
 
-  private note(key: I18nKey, severity: CueSeverity): void {
-    this.out.notes.push({ key, severity });
+  private note(key: I18nKey, severity: CueSeverity, speak = false): void {
+    this.out.notes.push({ key, severity, ...(speak ? { speak } : {}) });
   }
 
-  private noteOnce(key: I18nKey, severity: CueSeverity): void {
+  private noteOnce(key: I18nKey, severity: CueSeverity, speak = false): void {
     if (this.said.has(key)) return;
     this.said.add(key);
-    this.note(key, severity);
+    this.note(key, severity, speak);
   }
 }
 

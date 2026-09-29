@@ -62,7 +62,8 @@ export function useOrientation(): OrientationState {
       .then((r) => tracker.permission(r, performance.now()))
       .catch(() => tracker.permission("denied", performance.now()));
   }, [tracker]);
-  return { tilt, gate: tracker.status(performance.now(), screen?.orientation?.angle ?? 0), askAgain };
+  const angle = typeof screen === "undefined" ? 0 : (screen.orientation?.angle ?? 0);
+  return { tilt, gate: tracker.status(performance.now(), angle), askAgain };
 }
 
 /* ------------------------------------------------------------ viewport (4.1, 4.2) */

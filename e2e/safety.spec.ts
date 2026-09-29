@@ -349,5 +349,46 @@ for (const lang of LANGS) {
       if (lang === "ar") expect(await s36.locator(".safety-paused").innerText()).not.toMatch(/[0-9]/);
       await expect(page.getByRole("button", { name: a.common.backToToday })).toBeVisible();
     });
+
+    test("every other safety screen keeps its targets at 48 px or more, STOP at 72 and zones at 120", async ({
+      browser,
+    }) => {
+      const states: { state: Record<string, unknown>; overlay?: Record<string, unknown>; screen: string }[] =
+        [
+          { state: { kind: "faintAsk" }, screen: "S38b" },
+          { state: { kind: "stopDone", i: 0, restSec: 60, reason: "stopped_symptom" }, screen: "S42" },
+          {
+            state: MEASURE,
+            overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
+            screen: "S43",
+          },
+          { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: true }, screen: "S44" },
+          { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true }, screen: "S45" },
+          {
+            state: {
+              kind: "skipNotice",
+              rows: [{ testId: "shoulder_abduction", side: "left", reason: "by_choice" }],
+              then: { to: "test", i: 1 },
+            },
+            screen: "S46",
+          },
+          { state: { kind: "guestAfterTest", next: 1 }, screen: "S46b" },
+          { state: { kind: "between", i: 0, side: 0, scope: "side", via: "test" }, screen: "S47" },
+          { state: { kind: "after.contact", i: 2, side: 0 }, screen: "S48" },
+          { state: { kind: "endQuestion" }, screen: "S49" },
+        ];
+      for (const o of states) {
+        const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
+        const page = await context.newPage();
+        await openGuest(page, lang, { state: o.state, overlay: o.overlay ?? null });
+        await expect(page.locator(`[data-screen="${o.screen}"]`), o.screen).toBeVisible();
+        await expectTargets(page);
+        for (const zone of await page.locator(".safety-zone:visible").all())
+          expect((await zone.boundingBox())!.height, o.screen).toBeGreaterThanOrEqual(120);
+        for (const stop of await page.locator(".safety-stop:visible").all())
+          expect((await stop.boundingBox())!.height, o.screen).toBeGreaterThanOrEqual(72);
+        await context.close();
+      }
+    });
   });
 }

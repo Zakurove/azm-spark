@@ -425,6 +425,24 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-question="pc_pain_areas"]')).toHaveCount(0);
     });
 
+    test("the skip dialog opens on its title with the way back first; Escape keeps the test (S28)", async ({
+      page,
+    }) => {
+      const t = COPY[lang];
+      await openState(page, "S28-arm-raise-booth", lang);
+      await page.getByRole("button", { name: t.common.skipTest }).click();
+      const dialog = page.getByRole("dialog", { name: t.skip.title });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: t.skip.title })).toBeFocused();
+      await expect(dialog.getByRole("button").first()).toHaveText(t.skip.cancel);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(screen(page, "S28")).toBeVisible();
+      await page.getByRole("button", { name: t.common.skipTest }).click();
+      await dialog.getByRole("button", { name: t.skip.confirm }).click();
+      await expect(page.locator('.check-base[data-state="skipNotice"]')).toBeVisible();
+    });
+
     test("camera refused: S32 names the fix, Try again reloads back to the primer", async ({ page }) => {
       const t = COPY[lang];
       await page.addInitScript(() => {

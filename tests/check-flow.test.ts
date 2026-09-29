@@ -679,7 +679,9 @@ describe("Appendix A: the camera states", () => {
     expect(ok.state).toEqual({ kind: "cam.setup", i: curl, side: 0 });
     expect(kind(play(ok, { type: "SETUP_OK" }))).toBe("cam.countdown");
     const heavy = play(at(cam("test.practiceCheck", curl), { calibrated: true }), { type: "PRACTICE_HEAVY" });
-    expect(heavy.state).toEqual({ kind: "test.load", i: curl, stepDown: true });
+    // The step down names the arm of the practice (S30).
+    const arm = at(cam("test.practiceCheck", curl)).data.tests[curl].sides[0].side;
+    expect(heavy.state).toEqual({ kind: "test.load", i: curl, stepDown: true, arm });
     const back = play(heavy, { type: "PREP_NEXT" });
     expect(back.state).toEqual({ kind: "cam.setup", i: curl, side: 0 });
     expect(kind(play(back, { type: "SETUP_OK" }))).toBe("cam.practice");
@@ -787,9 +789,13 @@ describe("Appendix A: the camera states", () => {
       kind: "skipNotice",
       rows: [{ reason: "needed_arms" }],
     });
-    expect(play(standAt, { type: "AFTER_ANSWER", value: false }).state).toMatchObject({
-      kind: "cam.rest",
-      purpose: "seated",
+    // No: a quality failure of the trial, not measured today, with its S46 notice (S48).
+    const no = play(standAt, { type: "AFTER_ANSWER", value: false });
+    expect(no.state).toMatchObject({ kind: "skipNotice", rows: [{ reason: "quality" }] });
+    const standItem = standing.data.tests[stand].sides[0];
+    expect(no.data.outcomes[`${standItem.testId}:${standItem.side}`]).toEqual({
+      status: "notMeasured",
+      reason: "quality",
     });
     expect(play(at(cam("after.count", curl)), { type: "AFTER_ANSWER", value: 12 }).state).toMatchObject({
       kind: "between",
@@ -940,9 +946,11 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
       trigger: "left_frame",
     });
     const fromList = play(measuring, { type: "STOP" }, { type: "STOP_NO_INPUT" });
+    // The list keeps how fine was given (a camera fine allows one more 30 s timer, O34-1 (6)).
     expect(play(fromList, { type: "FINE", via: "zone" }).overlay).toEqual({
       kind: "stopList",
       takeYourTime: true,
+      fineVia: "zone",
     });
   });
 
@@ -1675,7 +1683,10 @@ describe("the check in is armed on every camera state, S38b and S49 (section 4.8
     expect(kind(faint)).toBe("faintAsk");
     const onFaint = play(faint, { type: "TRIGGER", trigger: "hips_drop" });
     expect(onFaint.overlay).toEqual({ kind: "checkIn", from: "faintAsk", trigger: "hips_drop" });
-    expect(play(onFaint, { type: "FINE", via: "button" }).state).toEqual(faint.state);
+    expect(play(onFaint, { type: "FINE", via: "button" }).state).toEqual({
+      ...faint.state,
+      fineVia: "button",
+    });
     expect(overlayFor(play(onFaint, { type: "CHECKIN_TIMEOUT" }))).toBe("S45");
 
     const end = withState(planned, { kind: "endQuestion" });
@@ -1698,6 +1709,7 @@ describe("the check in is armed on every camera state, S38b and S49 (section 4.8
     expect(play(list, { type: "FINE", via: "button" }).overlay).toEqual({
       kind: "stopList",
       takeYourTime: true,
+      fineVia: "button",
     });
   });
 
@@ -2048,11 +2060,11 @@ describe("the alarm over the stop list goes back to the stop list (O43, Q31 (3))
     const alarm = play(measuring, { type: "STOP" }, { type: "STOP_NO_INPUT" }, { type: "CHECKIN_TIMEOUT" });
     expect(alarm.overlay).toMatchObject({ kind: "alarm", from: "stopList" });
     const fine = play(alarm, { type: "FINE", via: "button" });
-    expect(fine.overlay).toEqual({ kind: "stopList", takeYourTime: true });
+    expect(fine.overlay).toEqual({ kind: "stopList", takeYourTime: true, fineVia: "button" });
     // Without a stop option nothing returns to a camera state.
     for (const e of [{ type: "REDO" }, { type: "SKIP_TEST" }, { type: "STOP_END" }] as FlowEvent[]) {
       const n = play(fine, e);
-      expect(n.overlay, e.type).toEqual({ kind: "stopList", takeYourTime: true });
+      expect(n.overlay, e.type).toEqual({ kind: "stopList", takeYourTime: true, fineVia: "button" });
     }
     const chest = play(fine, { type: "STOP_OPTION", option: "chest" });
     expect(chest.state).toMatchObject({ kind: "safety", safety: "emergency" });

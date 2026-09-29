@@ -53,12 +53,13 @@ import {
   isBlocked,
   sideLeanOnly,
   type CheckContext,
+  type LoadKind,
   type GuestSteps,
   type ProtocolItem,
   type SelectionItem,
 } from "../../medical/assessment";
 import { CHECK_DATA, precheckItem, testDef } from "../../movements/assessments";
-import { ENGINE_VERSION } from "../../engine/modes";
+import { ENGINE_VERSION, TIMED_RULES } from "../../engine/modes";
 import type {
   CheckPosition,
   LockKind,
@@ -80,6 +81,16 @@ export type GuestStep = 1 | 2 | 3 | 4 | 5 | 6;
 export type SafetyKind = "emergency" | "ad" | "faint" | "fall" | "seekCare" | "pain";
 export type CameraProblem = "denied" | "none" | "busy" | "stopped";
 export type PrepKind = "grip" | "load" | "helper" | "primer";
+/** The load of one arm of the arm curl (S30, Q5): the object, with its kilograms or litres. */
+export interface CurlLoad {
+  kind: LoadKind;
+  kg?: number;
+  liters?: 0.5 | 1 | 1.5;
+}
+/** Where a safety screen was routed from: the pre-check, a test (stop, check in), the end question. */
+export type SafetyFrom = "precheck" | "test" | "end";
+/** How "I am fine" was given (the check in and the alarm): a tap, the zone, a raised hand, speech. */
+export type FineVia = "zone" | "raisedHand" | "button" | "speech";
 export type CamKind =
   | "cam.setup"
   | "cam.calibrate"
@@ -163,7 +174,13 @@ export type FlowState =
   | { kind: "warnings" }
   | { kind: "plan" }
   | { kind: "test.instruction"; i: number }
-  | { kind: "test.grip" | "test.load" | "test.helper" | "test.primer"; i: number; stepDown?: boolean }
+  | {
+      kind: "test.grip" | "test.load" | "test.helper" | "test.primer";
+      i: number;
+      /** test.load after a practice that was too heavy: lighter choices for `arm` only (Q5). */
+      stepDown?: boolean;
+      arm?: Side;
+    }
   | { kind: "test.practiceCheck"; i: number; side: number }
   | { kind: "cam.setup"; i: number; side: number }
   | { kind: "cam.calibrate"; i: number; side: number; offer: boolean }
@@ -182,9 +199,11 @@ export type FlowState =
       kind: "faintAsk";
       /** The screen "no" returns to (S38 after a faint stop, S39 after a fall stop); S38 by default. */
       back?: { safety: SafetyKind; screen: DataScreenId; alsoShow: DataScreenId[] };
+      /** "I am fine" was given over it (a check in or the alarm), and how. */
+      fineVia?: FineVia;
     }
   /** S49: the general form until the server names a side (GET /:id/end, Q23 (7), O37). */
-  | { kind: "endQuestion"; side?: Side | null; chronicNote?: boolean }
+  | { kind: "endQuestion"; side?: Side | null; chronicNote?: boolean; fineVia?: FineVia }
   | {
       kind: "safety";
       safety: SafetyKind;
@@ -193,6 +212,8 @@ export type FlowState =
       faintAnswered: boolean;
       /** The faint follow up (S38b, sf_faint_loc) is asked before leaving: faint and fall stops (O42). */
       askFaint?: boolean;
+      /** Where the route started (O12 (5): no check_stop_now from the pre-check or the end question). */
+      from?: SafetyFrom;
     }
   | { kind: "postponed"; reason: string; screen: DataScreenId | null; alsoShow: DataScreenId[] }
   | { kind: "paused"; until: number | null; releasable: boolean; when?: LockWhen | null }
@@ -211,7 +232,12 @@ export type ResumableOverlay =
 export type Overlay =
   | { kind: "leave" }
   | { kind: "skipDialog" }
-  | { kind: "stopList"; takeYourTime: boolean }
+  | {
+      kind: "stopList";
+      takeYourTime: boolean;
+      /** Back after "I am fine" over the list, and how it was given (O14, O34-1 (6) timers). */
+      fineVia?: FineVia;
+    }
   | {
       kind: "checkIn";
       from: CheckInFrom;
@@ -306,6 +332,8 @@ export interface SignedInContext {
   homeOpen: boolean;
   /** Q2 (5), Q32 (6): the account holds the adult confirmation; without it S05a asks (and posts it). */
   adultConfirmed: boolean;
+  /** The last check's Parkinson's dose bucket (warn_pd_timing {x} on S25), or null. */
+  lastPdDoseBucket?: string | null;
 }
 
 export interface GuestAnswers {
@@ -359,6 +387,15 @@ export interface FlowData {
    * yes true, no and not sure false. The result carries it; the server keeps the chair id on true.
    */
   sameChair: Partial<Record<TestId, boolean>>;
+  /** The arm curl preparation (S29 grip, S30 load), per arm: the result carries the load (Q5). */
+  armCurl: { grip: Partial<Record<Side, boolean>>; load: Partial<Record<Side, CurlLoad>> };
+  /** The armrest contact answer of each side lean side (S48, by outcomeKey): true censors it. */
+  contact: Record<string, boolean>;
+  /**
+   * Measured results waiting for their S48 answer (the side lean contact, the O22 count check), by
+   * outcomeKey: posted with the answer, or as they are when the flow moves on without one.
+   */
+  held: Record<string, ResultPayload>;
 }
 
 export type FlowEffect =
@@ -493,6 +530,8 @@ export type FlowEvent = At &
     | { type: "CHAIR_GATE_NO" }
     | { type: "SAME_CHAIR"; value: "yes" | "no" | "unsure" }
     | { type: "PREP_NEXT" }
+    | { type: "GRIP_ANSWER"; side: Side; yes: boolean }
+    | { type: "LOAD_CHOSEN"; side: Side; load: CurlLoad }
     | { type: "CAMERA_ERROR"; problem: CameraProblem }
     | { type: "SETUP_OK" }
     | { type: "MOTION_REFUSED" }
@@ -645,7 +684,19 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
     noResponseAlarm: false,
     resuming: false,
     sameChair: {},
+    armCurl: { grip: {}, load: {} },
+    contact: {},
+    held: {},
   };
+}
+
+/**
+ * A model restored from a reload snapshot: fields added after it was saved get their empty values,
+ * so an older snapshot never breaks the flow.
+ */
+export function restoredModel(m: FlowModel): FlowModel {
+  const fresh = emptyData(m.data.config, m.data.device);
+  return { ...m, data: { ...fresh, ...m.data } };
 }
 
 /* ================================================================ selectors */
@@ -759,6 +810,11 @@ export function backTarget(m: FlowModel): FlowState | null {
     case "cam.problem":
       // S32 Back: to the screen it came from (the camera primer, S31), which asks again.
       return s.returnTo;
+    case "test.instruction":
+      // S28: Back to the plan (S27) only before the first test, while nothing of today has run.
+      return s.i === firstRunnableTest(m) && Object.keys(m.data.outcomes).length === 0 && !m.data.resuming
+        ? { kind: "plan" }
+        : null;
     case "test.grip":
     case "test.load":
     case "test.helper":
@@ -829,6 +885,10 @@ export function safetyKindOf(screen: string): SafetyKind | null {
 /* ================================================================ reducer */
 
 export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
+  return flushHeld(m, reduce(m, e));
+}
+
+function reduce(m: FlowModel, e: FlowEvent): FlowModel {
   const now = e.now ?? 0;
   // Events that apply in every state.
   switch (e.type) {
@@ -838,7 +898,9 @@ export function flowReducer(m: FlowModel, e: FlowEvent): FlowModel {
       const kind = safetyKindOf(e.screen);
       if (!kind || m.state.kind === "exit") return m;
       const withLock = e.lock ? setLock(m, "server", lockEndsAt(e.lock, now)) : m;
-      return toSafety(withLock, kind, e.screen, e.alsoShow ?? []);
+      const from: SafetyFrom =
+        m.data.tests.length === 0 ? "precheck" : m.state.kind === "endQuestion" ? "end" : "test";
+      return toSafety(withLock, kind, e.screen, e.alsoShow ?? [], from);
     }
     case "STAFF_RESET":
       if (!m.data.config.booth || m.state.kind === "exit") return m;
@@ -928,8 +990,9 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         // SPEC-GAP: hips-drop-fine-question. O42 names "every test"; on S38b and S49 no test runs and
         // the question itself routes (faint to S36 or back to S39, symptoms to S36), so fine returns
         // to the question there.
-        if (o.from === "faintAsk" || o.from === "endQuestion") return close(m);
-        if (o.from === "stopList") return { ...m, overlay: { kind: "stopList", takeYourTime: true } };
+        if (o.from === "faintAsk" || o.from === "endQuestion") return fineBack(close(m), e.via);
+        if (o.from === "stopList")
+          return { ...m, overlay: { kind: "stopList", takeYourTime: true, fineVia: e.via } };
         if (o.trigger === "hips_drop") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
         if (o.resume) return { ...m, overlay: o.resume };
         return o.attempt ? { ...m, overlay: { kind: "goOn", afterAlarm: false, canRedo: true } } : close(m);
@@ -974,14 +1037,22 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       // the route. Only an alarm reached by no response goes to "go on" in its after alarm form (S44),
       // with a redo only after an attempt.
       if (e.type === "FINE") {
-        if (o.from === "faintAsk" || o.from === "endQuestion") return close(m);
-        if (o.from === "stopList") return { ...m, overlay: { kind: "stopList", takeYourTime: true } };
+        if (o.from === "faintAsk" || o.from === "endQuestion") return fineBack(close(m), e.via);
+        if (o.from === "stopList")
+          return { ...m, overlay: { kind: "stopList", takeYourTime: true, fineVia: e.via } };
         if (o.help || o.trigger === "hips_drop")
           return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
         return { ...m, overlay: { kind: "goOn", afterAlarm: true, canRedo: o.attempt === true } };
       }
       return m;
   }
+}
+
+/** Back on the question (S38b, S49) after "I am fine": the question keeps how it was given. */
+function fineBack(m: FlowModel, via: FineVia): FlowModel {
+  const s = m.state;
+  if (s.kind === "faintAsk" || s.kind === "endQuestion") return go(m, { ...s, fineVia: via });
+  return m;
 }
 
 /**
@@ -1155,12 +1226,19 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "test.load":
     case "test.helper":
     case "test.primer": {
+      // S29 and S30 keep their answers per arm in the flow (the result carries the load, Q5).
+      if (e.type === "GRIP_ANSWER" && s.kind === "test.grip")
+        return withArmCurl(m, { grip: { ...d.armCurl.grip, [e.side]: e.yes } });
+      if (e.type === "LOAD_CHOSEN" && s.kind === "test.load")
+        return withArmCurl(m, { load: { ...d.armCurl.load, [e.side]: e.load } });
       if (e.type === "PREP_NEXT") {
-        const used = s.kind === "test.primer" ? { ...m, data: { ...d, cameraUsed: true } } : m;
         if (s.kind === "test.load" && s.stepDown) {
-          return go(used, { kind: "cam.setup", i: s.i, side: sideOf(m) });
+          return go(m, { kind: "cam.setup", i: s.i, side: sideOf(m) });
         }
-        return nextPrep(used, s.i, s.kind.slice(5) as PrepKind);
+        // The next step is found before the camera counts as used, so the primer never leads back to
+        // an earlier preparation step of the same test.
+        const next = nextPrep(m, s.i, s.kind.slice(5) as PrepKind);
+        return s.kind === "test.primer" ? { ...next, data: { ...next.data, cameraUsed: true } } : next;
       }
       if (e.type === "CAMERA_ERROR") return go(m, { kind: "cam.problem", problem: e.problem, returnTo: s });
       return m;
@@ -1169,8 +1247,17 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "test.practiceCheck":
       if (e.type === "PRACTICE_OK")
         return go(withRun(m, { practiced: true }), { kind: "cam.setup", i: s.i, side: s.side });
-      if (e.type === "PRACTICE_HEAVY")
-        return go(withRun(m, { practiced: false }), { kind: "test.load", i: s.i, stepDown: true });
+      if (e.type === "PRACTICE_HEAVY") {
+        // The lighter choices are for the arm of this practice (S30 step down).
+        const item = d.tests[s.i]?.sides[s.side];
+        const arm = item?.side === "left" || item?.side === "right" ? item.side : undefined;
+        return go(withRun(m, { practiced: false }), {
+          kind: "test.load",
+          i: s.i,
+          stepDown: true,
+          ...(arm ? { arm } : {}),
+        });
+      }
       return m;
 
     case "cam.setup":
@@ -1225,7 +1312,13 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         }
         if (out.lock?.until) next = setLock(next, out.lock.reason, lockEndsAt(out.lock.until, now));
         if (out.status === "emergency")
-          return toSafety(next, "emergency", out.screen ?? "scr_emergency", emergencyAlsoShow(stopEnv(d)));
+          return toSafety(
+            next,
+            "emergency",
+            out.screen ?? "scr_emergency",
+            emergencyAlsoShow(stopEnv(d)),
+            "test",
+          );
         const back = s.back ?? { safety: "faint" as const, screen: "scr_faint" as const, alsoShow: [] };
         return go(next, { kind: "safety", ...back, faintAnswered: true, askFaint: true });
       }
@@ -1246,7 +1339,13 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         if (out.status !== "emergency") return go(completeCheck(next), { kind: "results" });
         let closed = closeCheck(next);
         if (out.lock?.until) closed = setLock(closed, out.lock.reason, lockEndsAt(out.lock.until, now));
-        return toSafety(closed, "emergency", out.screen ?? "scr_emergency", emergencyAlsoShow(stopEnv(d)));
+        return toSafety(
+          closed,
+          "emergency",
+          out.screen ?? "scr_emergency",
+          emergencyAlsoShow(stopEnv(d)),
+          "end",
+        );
       }
       return m;
 
@@ -1324,6 +1423,8 @@ function camReducer(
   const timed = def.kind === "timed_count";
   if (e.type === "CAMERA_ERROR")
     return go(m, { kind: "cam.problem", problem: e.problem, returnTo: { kind: "cam.setup", i, side } });
+  // A model that did not load offers "later" on the camera screen itself (S34 error state), as S32 does.
+  if (e.type === "LATER") return go(m, { kind: "exit", to: d.config.mode === "guest" ? "landing" : "today" });
   switch (s.kind) {
     case "cam.setup":
       if (e.type === "SETUP_OK") {
@@ -1409,6 +1510,7 @@ function camReducer(
         case "attempt":
           return go(m, { kind: "cam.measure", i, side });
         case "seated":
+          if (countWaiting(m, i, side)) return go(m, { kind: "after.count", i, side });
           return go(m, { kind: "between", i, side, scope: "test", via: "test" });
         case "practice":
         case "redo":
@@ -1448,32 +1550,193 @@ function sideComplete(
         ? nextSide(m, i, side)
         : go(m, { kind: "between", i, side, scope: "test", via: "test" });
     case "chair_stand_30s":
+      // The count check (O22) comes after the seated minute (cam.rest seated).
       return measured
         ? go(m, { kind: "cam.rest", i, side, purpose: "seated" })
         : go(m, { kind: "between", i, side, scope: "test", via: "test" });
     default:
+      if (measured && countWaiting(m, i, side)) return go(m, { kind: "after.count", i, side });
       return go(m, { kind: "between", i, side, scope: "side", via: "test" });
   }
 }
 
+/**
+ * S48 answers (spec S48, 4.3, 4.4, O22):
+ *   pushed     yes: needed_arms (no score, the next check offers arms_assisted); no: a quality failure
+ *              of the trial, not measured today; both show S46;
+ *   contact    yes stores contact true for the side (its values read "more than"), then the next side
+ *              or S47; the held side lean result is posted with the answer;
+ *   count      a count confirmed or changed by the person is stored with countSource self, then S47.
+ */
 function afterAnswer(
   m: FlowModel,
   s: Extract<FlowState, { kind: `after.${AfterKind}` }>,
   value: boolean | number,
 ): FlowModel {
   const { i, side } = s;
-  if (s.kind === "after.pushed" && value === true) {
-    // Pushed with the hands: the stand stops with needed_arms, which is fine (spec 4.4).
-    return skipTest(m, i, side, "needed_arms");
+  const item = m.data.tests[i]?.sides[side];
+  if (!item) return m;
+  const key = outcomeKey(item.testId, item.side);
+  if (s.kind === "after.pushed") {
+    return value === true
+      ? skipTest(m, i, side, "needed_arms")
+      : skipTest(m, i, side, "quality", { tried: true });
   }
   if (s.kind === "after.contact") {
-    return hasNextSide(m, i, side)
-      ? nextSide(m, i, side)
-      : go(m, { kind: "between", i, side, scope: "test", via: "test" });
+    const contact = value === true;
+    const answered = answerHeld(
+      { ...m, data: { ...m.data, contact: { ...m.data.contact, [key]: contact } } },
+      key,
+      (b) => withContact(b, contact),
+      (o) => ({
+        ...o,
+        payload: withDetail(o.payload, { contact, censored: censoredOf(o.payload) || contact }),
+      }),
+    );
+    return hasNextSide(answered, i, side)
+      ? nextSide(answered, i, side)
+      : go(answered, { kind: "between", i, side, scope: "test", via: "test" });
   }
-  const testId = m.data.tests[i].testId;
-  if (testId === "chair_stand_30s") return go(m, { kind: "cam.rest", i, side, purpose: "seated" });
-  return go(m, { kind: "between", i, side, scope: "side", via: "test" });
+  const count = typeof value === "number" ? value : null;
+  const answered = answerHeld(
+    m,
+    key,
+    (b) => withSelfCount(b, count),
+    (o) => ({
+      ...o,
+      ...(count !== null ? { value: count } : {}),
+      payload: withDetail(o.payload, { countSource: "self" }),
+    }),
+  );
+  if (item.testId === "chair_stand_30s")
+    return go(answered, { kind: "between", i, side, scope: "test", via: "test" });
+  return go(answered, { kind: "between", i, side, scope: "side", via: "test" });
+}
+
+/* ------------------------------------------------------------ results held for S48 */
+
+/** O22: the count check follows a timed test that passed quality with 10 to 20% of the 30 s unscored. */
+export const COUNT_CHECK_SHARE: readonly [number, number] = [0.1, TIMED_RULES.maxUnscoredShare];
+
+/** Whether a measured result asks the count check (O22): signed in at home only, never at the booth. */
+export function countCheckDue(d: FlowData, testId: TestId, body: ResultPayload): boolean {
+  if (d.config.mode !== "signedIn" || d.config.booth || d.setting !== "home") return false;
+  if (testDef(testId).kind !== "timed_count" || body.skippedReason !== null) return false;
+  const share = body.detail.unscoredShare;
+  return typeof share === "number" && share >= COUNT_CHECK_SHARE[0] && share <= COUNT_CHECK_SHARE[1];
+}
+
+/** A measured result that waits for its S48 answer before it is posted: contact or the count check. */
+function holdsFor(d: FlowData, testId: TestId, body: ResultPayload): boolean {
+  if (body.skippedReason !== null) return false;
+  return testId === "trunk_control_seated" || countCheckDue(d, testId, body);
+}
+
+/** Test i's side waits for the count check (its result is held). */
+function countWaiting(m: FlowModel, i: number, side: number): boolean {
+  const item = m.data.tests[i]?.sides[side];
+  if (!item || testDef(item.testId).kind !== "timed_count") return false;
+  return outcomeKey(item.testId, item.side) in m.data.held;
+}
+
+/** Applies an S48 answer: the outcome on the phone, and the held result posted with it. */
+function answerHeld(
+  m: FlowModel,
+  key: string,
+  body: (b: ResultPayload) => ResultPayload,
+  outcome: (o: SideOutcome) => SideOutcome,
+): FlowModel {
+  const d = m.data;
+  const o = d.outcomes[key];
+  let next: FlowModel = o ? { ...m, data: { ...d, outcomes: { ...d.outcomes, [key]: outcome(o) } } } : m;
+  const held = next.data.held[key];
+  if (!held) return next;
+  const rest = { ...next.data.held };
+  delete rest[key];
+  next = { ...next, data: { ...next.data, held: rest } };
+  return next.data.checkId
+    ? emit(next, { type: "result", checkId: next.data.checkId, body: body(held) })
+    : next;
+}
+
+/** The side lean result with the contact answer (true censors it: "more than", spec 4.3). */
+export function withContact(b: ResultPayload, contact: boolean): ResultPayload {
+  const flags = b.flags.filter((f) => f !== "contact_unknown");
+  return {
+    ...b,
+    detail: { ...b.detail, contact, censored: b.detail.censored === true || contact },
+    flags: contact ? [...new Set([...flags, "contact", "censored"])] : flags,
+  };
+}
+
+/** A timed result confirmed (null) or changed (a count) by the person: countSource self (O22). */
+export function withSelfCount(b: ResultPayload, count: number | null): ResultPayload {
+  const detail = { ...b.detail, countSource: "self" };
+  if (count === null || count === b.value) return { ...b, detail };
+  return {
+    ...b,
+    value: count,
+    median: b.median === null ? null : count,
+    attempts: b.attempts.map((a) => (a.valid ? { ...a, value: count } : a)),
+    detail,
+  };
+}
+
+function censoredOf(payload: unknown): boolean {
+  const detail = (payload as { detail?: Record<string, unknown> } | null)?.detail;
+  return detail?.censored === true;
+}
+
+/** An outcome payload (the engine's side result) with detail fields added, for the results screens. */
+function withDetail(payload: unknown, extra: Record<string, unknown>): unknown {
+  if (!payload || typeof payload !== "object") return { detail: extra };
+  const p = payload as { detail?: Record<string, unknown> };
+  return { ...p, detail: { ...(p.detail ?? {}), ...extra } };
+}
+
+/**
+ * Held results are posted as they are when the flow moves on without their answer (a stop, leaving,
+ * a safety screen). They go before the effects of the event that moved on, so the server has the
+ * measured side before a stop that names the next one.
+ */
+function flushHeld(prev: FlowModel, next: FlowModel): FlowModel {
+  const held = next.data.held;
+  const keys = Object.keys(held);
+  if (keys.length === 0) return next;
+  const out = keys.filter((k) => !heldWaiting(next, k));
+  if (out.length === 0) return next;
+  const keep: Record<string, ResultPayload> = {};
+  for (const k of keys) if (!out.includes(k)) keep[k] = held[k];
+  const fresh = next.effects.filter((x) => x.id >= prev.nextEffectId);
+  let m: FlowModel = {
+    ...next,
+    effects: next.effects.filter((x) => x.id < prev.nextEffectId),
+    nextEffectId: prev.nextEffectId,
+    data: { ...next.data, held: keep },
+  };
+  const checkId = next.data.checkId;
+  if (checkId) for (const k of out) m = emit(m, { type: "result", checkId, body: held[k] });
+  for (const x of fresh) {
+    const { id: _id, ...effect } = x;
+    m = emit(m, effect as DistributiveOmit<FlowEffect, "id">);
+  }
+  return m;
+}
+
+/** The states in which a held result still waits: the camera parts and S48 of its own test side. */
+const HELD_STATES: readonly FlowStateKind[] = [
+  "cam.measure",
+  "cam.saved",
+  "cam.rest",
+  "after.contact",
+  "after.count",
+];
+
+function heldWaiting(m: FlowModel, key: string): boolean {
+  if (!HELD_STATES.includes(m.state.kind)) return false;
+  const t = currentTest(m);
+  const item = t ? m.data.tests[t.i]?.sides[t.side] : undefined;
+  return !!item && outcomeKey(item.testId, item.side) === key;
 }
 
 function hasNextSide(m: FlowModel, i: number, side: number): boolean {
@@ -1539,7 +1802,7 @@ function betweenAnswer(
     // The server ends the check itself (ended early), so the phone never completes it.
     const ended = d.config.mode === "signedIn" ? closeCheck(next) : next;
     const locked = out.lock?.until ? setLock(ended, out.lock.reason, lockEndsAt(out.lock.until, now)) : ended;
-    return toSafety(locked, "pain", out.screen ?? "scr_stop_pain", []);
+    return toSafety(locked, "pain", out.screen ?? "scr_stop_pain", [], "test");
   }
   const then: Continuation =
     s.via === "test" && s.scope === "side" && hasNextSide(next, s.i, s.side)
@@ -1593,6 +1856,11 @@ function afterTest(m: FlowModel, i: number): Continuation {
   return { to: "test", i: next };
 }
 
+/** The first test of today with a side still to run, or null. */
+function firstRunnableTest(m: FlowModel): number | null {
+  return nextRunnableTest(m, 0);
+}
+
 function nextRunnableTest(m: FlowModel, from: number): number | null {
   for (let j = from; j < m.data.tests.length; j++) {
     if (m.data.tests[j].sides.some((_, si) => !isDone(m, j, si))) return j;
@@ -1627,8 +1895,17 @@ function continueTo(m: FlowModel, c: Continuation): FlowModel {
 
 /* ------------------------------------------------------------ skips */
 
-/** Skips the current side and the rest of test i with a reason, then shows S46. */
-function skipTest(m: FlowModel, i: number, fromSide: number, reason: string): FlowModel {
+/**
+ * Skips the current side and the rest of test i with a reason, then shows S46. `tried`: the current
+ * side was tried and is not measured today (a quality failure), so the end question is asked.
+ */
+function skipTest(
+  m: FlowModel,
+  i: number,
+  fromSide: number,
+  reason: string,
+  opts: { tried?: boolean } = {},
+): FlowModel {
   const run = m.data.tests[i];
   if (!run) return m;
   let next = m;
@@ -1636,7 +1913,8 @@ function skipTest(m: FlowModel, i: number, fromSide: number, reason: string): Fl
   run.sides.forEach((item, si) => {
     if (si < fromSide || isDone(next, i, si)) return;
     rows.push({ testId: item.testId, side: item.side, reason });
-    next = recordSide(next, item.testId, item.side, { status: "skipped", reason });
+    const status = opts.tried && si === fromSide ? "notMeasured" : "skipped";
+    next = recordSide(next, item.testId, item.side, { status, reason });
   });
   return go(next, { kind: "skipNotice", rows, then: afterTest(next, i) });
 }
@@ -1686,7 +1964,7 @@ function stopOption(m: FlowModel, option: StopOptionId, now: number): FlowModel 
       route.screen === "scr_emergency"
         ? [...new Set([...route.alsoShow, ...emergencyAlsoShow(env)])]
         : route.alsoShow;
-    const safety = toSafety(next, kind, route.screen, alsoShow);
+    const safety = toSafety(next, kind, route.screen, alsoShow, "test");
     // Faint and fall stops ask the faint follow up (S38b) before leaving (O42).
     return route.then === "sf_faint_loc" && safety.state.kind === "safety"
       ? { ...safety, state: { ...safety.state, askFaint: true } }
@@ -1845,7 +2123,13 @@ function terminal(m: FlowModel, outcome: PrecheckOutcome, now: number): FlowMode
   if (outcome.lock?.until) next = setLock(next, outcome.lock.reason, lockEndsAt(outcome.lock.until, now));
   next = tellServer(next);
   const screen = outcome.screen ?? (outcome.status === "ad" ? "scr_ad" : "scr_emergency");
-  return toSafety(next, outcome.status === "ad" ? "ad" : "emergency", screen, outcome.alsoShow ?? []);
+  return toSafety(
+    next,
+    outcome.status === "ad" ? "ad" : "emergency",
+    screen,
+    outcome.alsoShow ?? [],
+    "precheck",
+  );
 }
 
 function postpone(m: FlowModel, outcome: PrecheckOutcome, now: number): FlowModel {
@@ -1874,7 +2158,11 @@ function proceed(m0: FlowModel, outcome: PrecheckOutcome, lastQuestion: string |
   }
   // The guest check runs the same rules on the phone and stores nothing (contract v3 I).
   const protocol = finalizeProtocol(d.base, outcome, env.ctx, d.setting, null);
-  return frozen(m, protocol, outcome.warnings, outcome.helperRequired, null, null);
+  // The check in inputs come from the same pre-check (O34): a guest who may raise a hand hears it.
+  return frozen(m, protocol, outcome.warnings, outcome.helperRequired, null, null, {
+    checkIn: outcome.checkIn ?? null,
+    helperBriefing: outcome.helperBriefing ?? {},
+  });
 }
 
 /** The start (or the resume) call of the answers on the phone. */
@@ -1916,6 +2204,9 @@ function frozen(
     checkId,
     checkKind,
     run: { ...EMPTY_RUN },
+    armCurl: { grip: {}, load: {} },
+    contact: {},
+    held: {},
     ...extra,
   };
   return go({ ...m, data }, before.length ? { kind: "warnings" } : { kind: "plan" });
@@ -1958,7 +2249,7 @@ function startFailure(
       const withLock = r.lock?.until ? setLock(base, r.reason, r.lock.until) : base;
       if (r.status === "emergency" || r.status === "ad") {
         const screen = r.screen ?? (r.status === "ad" ? "scr_ad" : "scr_emergency");
-        return toSafety(withLock, r.status === "ad" ? "ad" : "emergency", screen, r.alsoShow);
+        return toSafety(withLock, r.status === "ad" ? "ad" : "emergency", screen, r.alsoShow, "precheck");
       }
       return go(withLock, { kind: "postponed", reason: r.reason, screen: r.screen, alsoShow: r.alsoShow });
     }
@@ -2262,6 +2553,10 @@ function withRun(m: FlowModel, run: Partial<SideRun>): FlowModel {
   return { ...m, data: { ...m.data, run: { ...m.data.run, ...run } } };
 }
 
+function withArmCurl(m: FlowModel, part: Partial<FlowData["armCurl"]>): FlowModel {
+  return { ...m, data: { ...m.data, armCurl: { ...m.data.armCurl, ...part } } };
+}
+
 function sideOf(m: FlowModel): number {
   return currentTest(m)?.side ?? 0;
 }
@@ -2302,9 +2597,15 @@ function closeCheck(m: FlowModel): FlowModel {
   return { ...m, data: { ...m.data, closed: true } };
 }
 
-function toSafety(m: FlowModel, kind: SafetyKind, screen: DataScreenId, alsoShow: DataScreenId[]): FlowModel {
+function toSafety(
+  m: FlowModel,
+  kind: SafetyKind,
+  screen: DataScreenId,
+  alsoShow: DataScreenId[],
+  from: SafetyFrom,
+): FlowModel {
   return {
-    ...go(m, { kind: "safety", safety: kind, screen, alsoShow, faintAnswered: false }),
+    ...go(m, { kind: "safety", safety: kind, screen, alsoShow, faintAnswered: false, from }),
     overlay: null,
   };
 }
@@ -2327,9 +2628,14 @@ function recordSide(
   if (d.config.mode !== "signedIn" || !d.checkId || !post) return next;
   const retries = d.run.retriesUsed > 0 ? { qualityRetries: d.run.retriesUsed } : {};
   if (body) {
-    const same = sameChairOf(d, testId);
-    const withChair = same === undefined ? body : { ...body, detail: { ...body.detail, sameChair: same } };
-    return emit(next, { type: "result", checkId: d.checkId, body: { ...retries, ...withChair } });
+    const full: ResultPayload = { ...retries, ...body, detail: resultDetail(d, testId, side, body) };
+    // The side lean waits for its contact answer and a timed test for its count check (S48).
+    if (holdsFor(d, testId, full))
+      return {
+        ...next,
+        data: { ...next.data, held: { ...next.data.held, [outcomeKey(testId, side)]: full } },
+      };
+    return emit(next, { type: "result", checkId: d.checkId, body: full });
   }
   // A side not measured (quality retries used up) is posted like a skip with its reason, so the
   // server keeps the P6 "not measured today" row and can complete the check.
@@ -2346,6 +2652,34 @@ function recordSide(
     });
   }
   return next;
+}
+
+/**
+ * The detail a result carries from the flow: the same chair answer (Q9 (3)) and, for a measured arm
+ * curl, the load chosen on S30 for that arm (Q5; the server needs loadObject on a scored curl).
+ */
+function resultDetail(
+  d: FlowData,
+  testId: TestId,
+  side: TestSide,
+  body: ResultPayload,
+): ResultPayload["detail"] {
+  let detail = body.detail;
+  const same = sameChairOf(d, testId);
+  if (same !== undefined) detail = { ...detail, sameChair: same };
+  if (testId === "arm_curl_30s" && body.skippedReason === null && detail.loadObject === undefined) {
+    const load = side === "left" || side === "right" ? d.armCurl.load[side] : undefined;
+    if (load) detail = { ...detail, ...curlLoadDetail(load) };
+  }
+  return detail;
+}
+
+/** The result detail fields of a load (spec 4.2): the object, with kilograms or litres. */
+export function curlLoadDetail(load: CurlLoad): Record<string, string | number> {
+  const out: Record<string, string | number> = { loadObject: load.kind };
+  if ((load.kind === "dumbbell" || load.kind === "cuff") && load.kg !== undefined) out.loadKg = load.kg;
+  if (load.kind === "bottle" && load.liters !== undefined) out.loadL = load.liters;
+  return out;
 }
 
 /**

@@ -30,3 +30,9 @@ export const SAFETY_TIMING = {
   /** S42: the rest after a stop for tiredness or something else (check_rest_minute). */
   stopRestSec: 60,
 } as const;
+
+/**
+ * A fine given to the camera (the zone, a raised hand) rather than by a tap or speech: one extra 30 s
+ * no answer timer follows it (O34-1 (6)); after a tap none does (O14).
+ */
+export const cameraFine = (via: string | undefined): boolean => via === "zone" || via === "raisedHand";

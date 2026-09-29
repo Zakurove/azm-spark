@@ -22,6 +22,7 @@ import { boothStartToken, clearBoothPass } from "./boothMode";
 import {
   flowReducer,
   initialModel,
+  restoredModel,
   type DeviceInfo,
   type FlowConfig,
   type FlowEffect,
@@ -101,7 +102,8 @@ export function takeSnapshot(config: FlowConfig): FlowModel | null {
     const m = JSON.parse(raw) as FlowModel;
     if (m?.data?.config?.mode !== config.mode || m.data.config.booth !== config.booth) return null;
     if (typeof m.state?.kind !== "string") return null;
-    return m;
+    // Fields added after the snapshot was saved get their empty values.
+    return restoredModel(m);
   } catch {
     return null;
   }

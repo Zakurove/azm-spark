@@ -10,7 +10,6 @@ import { desktopLink } from "../src/features/assessment/flow/Entry";
 import { introFacts } from "../src/features/assessment/flow/Intro";
 import { warningText, weakerSide } from "../src/features/assessment/flow/Plan";
 import { questionIdOf } from "../src/features/assessment/flow/Question";
-import { chosenLoad, clearPrep, setLoad } from "../src/features/assessment/flow/prepMemory";
 import { audible, captionMs } from "../src/features/assessment/flow/voice";
 import { initialModel, type FlowModel, type FlowState } from "../src/features/assessment/flowMachine";
 import { screenFor } from "../src/features/assessment/screens";
@@ -508,15 +507,5 @@ describe("small rules", () => {
     expect(captionMs("short")).toBe(2500);
     expect(captionMs("x".repeat(100))).toBe(7000);
     expect(captionMs("x".repeat(1000))).toBe(12000);
-  });
-
-  it("keeps the chosen load per arm for the result detail, in memory only", () => {
-    clearPrep();
-    const m = M.S28;
-    expect(chosenLoad(m, "left")).toBeNull();
-    setLoad(m, "left", { kind: "cuff", kg: 1 });
-    expect(chosenLoad(m, "left")).toEqual({ loadObject: "cuff", loadKg: 1 });
-    clearPrep();
-    expect(chosenLoad(m, "left")).toBeNull();
   });
 });

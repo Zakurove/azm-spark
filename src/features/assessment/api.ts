@@ -599,6 +599,7 @@ export function toSignedInContext(c: ContextResponse): SignedInContext {
     consent: c.consent,
     homeOpen: c.homeOpen === true,
     adultConfirmed: c.adultConfirmed === true,
+    lastPdDoseBucket: c.lastPdDoseBucket ?? null,
   };
 }
 

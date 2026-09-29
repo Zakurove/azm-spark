@@ -671,18 +671,8 @@ export class CameraController {
           );
         }
         if (purpose === "seated") {
-          if (this.asking === "pushed" && this.runner && "setPushed" in this.runner) {
-            // The pushed question (S48) was answered no: a quality failure of the trial (spec 4.4).
-            this.asking = null;
-            this.handle(
-              (this.runner as unknown as { setPushed(p: boolean, t: number): TestEvent[] }).setPushed(
-                false,
-                t,
-              ),
-              t,
-            );
-            this.post(t);
-          }
+          // A pushed answer of no is the flow's (S48: a quality failure of the trial, S46); the seated
+          // minute follows only a finished stand.
           this.startRest(this.timing.seatedSec, t);
           this.pushCue("check_sit_minute", "runner", t);
         }
@@ -1080,8 +1070,8 @@ export class CameraController {
     const item = run?.sides[this.test.sideIndex];
     if (!item) return;
     const extra: Record<string, string> = {};
-    // SPEC-GAP: curl-load-object. The load chosen on S30 is not in the flow data yet; the booth runs
-    // arm_only, which carries no load.
+    // The load chosen on S30 is added by the flow from its data (FlowData.armCurl); arm_only carries
+    // no load.
     if (this.test.testId === "arm_curl_30s" && (item.variant ?? "held") === "arm_only")
       extra.loadObject = "none";
     this.emit(sideResultEvent(sideRecord(r, item, this.model.data.device, extra)), t);

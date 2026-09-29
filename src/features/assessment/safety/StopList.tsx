@@ -25,15 +25,13 @@ import { useCheckUi } from "../shared/CheckUi";
 import { stopListView, type StopRow } from "./content";
 import { useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
 import { copyLine, cueSpeech, type SpeechLine } from "./speech";
-import { SAFETY_TIMING } from "./timing";
+import { cameraFine, SAFETY_TIMING } from "./timing";
 
 /**
- * The one extra 30 s timer after a fine on the stop list (the list unmounts while the check in shows,
- * so the flag lives here): reset when the list opens fresh.
+ * The one extra 30 s timer after a camera fine on the stop list (O34-1 (6); after a tap no new timer
+ * runs, O14). The list unmounts while the check in shows, so the flag lives here: reset when the list
+ * opens fresh.
  */
-// SPEC-GAP: stoplist-extra-timer. After "I am fine" O14 runs no new timer for a tap and O34-1 (6) one
-// extra timer for a camera fine; the flow does not say which it was, so the safer reading runs one
-// extra 30 s timer after any fine, and none after the next.
 let extraTimerUsed = false;
 
 export function StopList({ model, dispatch }: ScreenProps) {
@@ -71,7 +69,7 @@ export function StopList({ model, dispatch }: ScreenProps) {
   useEffect(() => {
     if (!takeYourTime) extraTimerUsed = false;
   }, [takeYourTime]);
-  const timerOn = !takeYourTime || !extraTimerUsed;
+  const timerOn = !takeYourTime || (cameraFine(o?.fineVia) && !extraTimerUsed);
   const timer = useNoAnswerTimer(
     SAFETY_TIMING.stopListNoAnswerMs,
     () => {

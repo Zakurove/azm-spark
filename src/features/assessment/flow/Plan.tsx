@@ -4,7 +4,6 @@
  *   S27  Your tests today: the frozen protocol, its duration and every skip with its reason (P6)
  *   S26  Helper briefing (home, Q11, O34-2): read aloud sentence by sentence, the P4 picture
  */
-import { useEffect, useState } from "react";
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA, screenText, testDef } from "../../../movements/assessments";
@@ -34,38 +33,17 @@ import { useEntryLines, useVoice } from "./voice";
 export function warningText(id: ScreenId, lang: "ar" | "en", pdBucket: string | null): string | null {
   const text = screenText(id, lang);
   if (id !== "warn_pd_timing") return text;
-  // SPEC-GAP: pd-timing-last. {x} is the last check's dose bucket (read from the context by S25); the
-  // card shows only when the bucket is known, never with a raw token.
+  // {x} is the last check's dose bucket (from the context); the card shows only when the bucket is
+  // known, never with a raw token.
   const x = pdTimingToken(pdBucket, lang);
   return x ? fillTokens(text, { x }) : null;
 }
 
-/**
- * The dose bucket of the person's last check for warn_pd_timing {x}. The flow's context does not carry
- * it (foundationRequests), so a signed in check reads it from the context once, when the card applies.
- */
-function useLastPdDoseBucket(model: ScreenProps["model"], api: ScreenProps["api"]): string | null {
-  const needed =
-    model.data.config.mode === "signedIn" && model.data.warnings.includes("warn_pd_timing" as ScreenId);
-  const [bucket, setBucket] = useState<string | null>(null);
-  useEffect(() => {
-    if (!needed) return;
-    let live = true;
-    void api.getContext(model.data.setting).then((r) => {
-      if (live && r.ok) setBucket(r.value.lastPdDoseBucket ?? null);
-    });
-    return () => {
-      live = false;
-    };
-    // Once per screen.
-  }, []);
-  return bucket;
-}
-
-export function Warnings({ model, dispatch, api }: ScreenProps) {
+export function Warnings({ model, dispatch }: ScreenProps) {
   const { lang, booth } = useCheckUi();
   const voice = useVoice(model.data.soundMode);
-  const pdBucket = useLastPdDoseBucket(model, api);
+  // The last check's dose bucket comes with the context (warn_pd_timing {x}).
+  const pdBucket = model.data.signedIn?.lastPdDoseBucket ?? null;
   const ids = checkWarnings(model.data.warnings);
   const skippedForSore = model.data.protocol
     .filter((i) => i.skipped === "pressure_sore")

@@ -38,7 +38,7 @@ import { EMPHASIS, emphasise, endQuestionView, sideOfState, sideWords } from "./
 import { playChime, useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
 import { AnswerZones, StopButton, type ZoneOption } from "./parts";
 import { copyLine, cueSpeech, dataLine, screenLines, splitSentences, type SpeechLine } from "./speech";
-import { SAFETY_TIMING } from "./timing";
+import { cameraFine, SAFETY_TIMING } from "./timing";
 
 /** The line under the zones: at the booth staff tap the spoken answer; after STOP, stay put (4.3). */
 function ZoneLine({ afterStop }: { afterStop?: boolean }) {
@@ -67,9 +67,8 @@ function yesNo(lang: "ar" | "en", yesAtOnce = false): ZoneOption[] {
 // SPEC-GAP: s38-camera. S38 and S38b should keep the camera on for a camera fine and a check in from
 // the chair (O30); the camera belongs to the camera stream and does not run here yet, so S38b is
 // answered by tap (the spec's Cam state) and its 30 s timer is the check in's trigger.
-// SPEC-GAP: faint-extra-timer. After "I am fine" the question stays with "Take your time". The flow
-// does not say whether that fine was a tap (no new timer, O14) or a camera fine (one extra 30 s timer,
-// O34-1 (6)); the safer reading runs the one extra timer after any fine, then none.
+// After "I am fine" the question stays with "Take your time": a tap runs no new timer (O14), a camera
+// fine one extra 30 s timer (O34-1 (6)), as the flow records it (fineVia).
 export function FaintAsk({ model, dispatch }: ScreenProps) {
   const { lang, booth } = useCheckUi();
   const s = model.state.kind === "faintAsk" ? model.state : null;
@@ -94,7 +93,10 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
   useNoAnswerTimer(
     SAFETY_TIMING.faintNoAnswerMs,
     () => dispatch({ type: "FAINT_TIMEOUT" }),
-    !fallAtBooth && !answered && overlay === null && returns <= 1,
+    !fallAtBooth &&
+      !answered &&
+      overlay === null &&
+      (returns === 0 || (returns === 1 && cameraFine(s?.fineVia))),
   );
 
   const options: ZoneOption[] = q.options.map((o) => ({

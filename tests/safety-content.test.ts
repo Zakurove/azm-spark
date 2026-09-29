@@ -209,6 +209,10 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
     const done = model({ data: { outcomes } }).data;
     expect(allDone(done)).toBe(true);
     expect(stopCueOf("emergency", done)).toBeNull();
+    // The flow records the route's source: a stop on the last test still says check_stop_now.
+    expect(stopCueOf("emergency", done, "test")).toBe("check_stop_now");
+    expect(stopCueOf("emergency", running, "precheck")).toBeNull();
+    expect(stopCueOf("emergency", running, "end")).toBeNull();
   });
 
   it("the way out: Continue toward S38b or the end question, else Today or the booth start", () => {
@@ -388,7 +392,7 @@ describe("S43, S44, S45: the check in and the alarm (O34-4, O34-5, O42)", () => 
     expect(overlayFor(run(m, { type: "STOP" }))).toBe("S45");
     expect(overlayFor(run(m, { type: "CALL" }))).toBe("S45");
     m = run(m, { type: "FINE", via: "button" });
-    expect(m.overlay).toEqual({ kind: "stopList", takeYourTime: true });
+    expect(m.overlay).toEqual({ kind: "stopList", takeYourTime: true, fineVia: "button" });
   });
 
   it("a test trigger: fine goes on to S44; no response and fine gives S44 after the alarm; help to S41", () => {

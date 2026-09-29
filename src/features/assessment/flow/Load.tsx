@@ -21,7 +21,6 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { kgRange, loadArms, loadChoices, loadSummary, sideLabel, stepDownChoices, type Load } from "./copy";
 import { KgStepper, SamePress } from "./parts";
-import { prepOf, setGrip, setLoad, setPracticeSide } from "./prepMemory";
 import { useEntryLines, useVoice } from "./voice";
 
 function useCounter(model: ScreenProps["model"]) {
@@ -50,6 +49,7 @@ function GripQuestion({ model, dispatch }: ScreenProps) {
   const side = arms[at] ?? "right";
   const counter = useCounter(model);
   const q = testDef("arm_curl_30s").load.gripAsk;
+  const grip = model.data.armCurl.grip[side];
   const titleId = `flow-grip-${side}`;
   const onBack =
     at > 0 ? () => setAt(at - 1) : backTarget(model) ? () => dispatch({ type: "BACK" }) : undefined;
@@ -67,9 +67,9 @@ function GripQuestion({ model, dispatch }: ScreenProps) {
               { value: "yes", label: t(lang, "assessment.common.yes") },
               { value: "no", label: t(lang, "assessment.common.no") },
             ]}
-            value={prepOf(model).grip[side] === undefined ? null : prepOf(model).grip[side] ? "yes" : "no"}
+            value={grip === undefined ? null : grip ? "yes" : "no"}
             onSubmit={(v) => {
-              setGrip(model, side, v === "yes");
+              dispatch({ type: "GRIP_ANSWER", side, yes: v === "yes" });
               if (at + 1 < arms.length) setAt(at + 1);
               else dispatch({ type: "PREP_NEXT" });
             }}
@@ -93,7 +93,6 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
   const s = model.state as { i: number; side: number };
   const item = model.data.tests[s.i]?.sides[s.side];
   const side = (item?.side === "left" || item?.side === "right" ? item.side : "right") as Side;
-  setPracticeSide(model, side);
   const q = testDef("arm_curl_30s").load.practiceCheck;
   // At home the answer zones need the camera (AnswerZones, 4.7), which this screen does not run, so
   // the zone line (check_answer_zone) is not shown: the answers are taps. At the booth staff tap the
@@ -149,13 +148,12 @@ function previousLoad(): Load | undefined {
 }
 
 export function LoadChoice({ model, dispatch }: ScreenProps) {
-  const s = model.state as { i: number; stepDown?: boolean };
+  const s = model.state as { i: number; stepDown?: boolean; arm?: Side };
   const run = model.data.tests[s.i];
-  const prep = prepOf(model);
+  const prep = model.data.armCurl;
   const stepDown = s.stepDown === true;
-  const arms = stepDown
-    ? [prep.practiceSide ?? loadArms(run?.sides ?? [])[0] ?? "right"]
-    : loadArms(run?.sides ?? []);
+  // The step down names the arm of the practice that was too heavy (the flow keeps it, S30).
+  const arms = stepDown ? [s.arm ?? loadArms(run?.sides ?? [])[0] ?? "right"] : loadArms(run?.sides ?? []);
   const [at, setAt] = useState(0);
   const side = (arms[at] ?? "right") as Side;
   const item = run?.sides.find((x) => x.side === side);
@@ -168,7 +166,7 @@ export function LoadChoice({ model, dispatch }: ScreenProps) {
         ? () => dispatch({ type: "BACK" })
         : undefined;
   const done = (load: Load) => {
-    setLoad(model, side, load);
+    dispatch({ type: "LOAD_CHOSEN", side, load });
     if (at + 1 < arms.length) setAt(at + 1);
     else dispatch({ type: "PREP_NEXT" });
   };

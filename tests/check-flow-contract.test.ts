@@ -739,13 +739,16 @@ describe("the same chair answer of the chair stand and the side lean (Q9 (3), no
   const post = (m: FlowModel, i: number) => {
     const item = m.data.tests[i].sides[0];
     const measured = withState(m, cam("cam.saved", i, 0));
-    const x = play(measured, {
+    let x = play(measured, {
       type: "SIDE_RESULT",
       testId: item.testId,
       side: item.side,
       outcome: { status: "measured", value: 12 },
       body: bodyFor(m, i),
     });
+    // The side lean's result waits for its contact answer (S48), then is posted with it.
+    if (!x.effects.some((e) => e.type === "result"))
+      x = play(withState(x, cam("after.contact", i, 0)), { type: "AFTER_ANSWER", value: false });
     return x.effects.find((e) => e.type === "result") as { body: { detail: Record<string, unknown> } };
   };
 

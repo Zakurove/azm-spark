@@ -62,6 +62,3 @@ export const FLOW_SCREENS: Record<FlowScreenId, ScreenComponent> = {
 
 /** The skip dialog of S28 (also opened from S34c and S34i). */
 export { SkipDialog } from "./SkipDialog";
-
-/** The load chosen per arm in this check, for the arm curl result detail (camera stream). */
-export { chosenLoad } from "./prepMemory";

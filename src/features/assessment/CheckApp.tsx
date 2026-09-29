@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
+import { BoothLayer } from "./booth";
 import { boothPassHolds, clearBoothPass, isBoothMode, readBoothPass, watchVisitorHidden } from "./boothMode";
 import {
   canLeave,
@@ -51,6 +52,11 @@ export interface CheckAppProps {
   resume?: ResumeCheck | null;
   /** The side lean only session (S01 leanRepeat, Q12 (2)); a full check by default. */
   session?: CheckSession;
+  /**
+   * The care team release of a lock (S01 locked, releasable): once the paused screen shows, the
+   * pre-check opens at pc_change_cleared (the RELEASE of S35).
+   */
+  release?: boolean;
   /** The signed in account's user id: the outbox sends only this account's calls. */
   owner?: string;
 }
@@ -106,6 +112,7 @@ export default function CheckApp({
   desktop,
   resume,
   session,
+  release,
   owner,
 }: CheckAppProps) {
   const inBooth = booth ?? isBoothMode();
@@ -178,6 +185,15 @@ export default function CheckApp({
     window.addEventListener("pageshow", onShow);
     return () => window.removeEventListener("pageshow", onShow);
   }, []);
+
+  // S01 "the care team cleared me": the release is asked once, when the lock's paused screen shows.
+  const released = useRef(false);
+  useEffect(() => {
+    const s = model.state;
+    if (!release || released.current || s.kind !== "paused" || !s.releasable) return;
+    released.current = true;
+    dispatch({ type: "RELEASE" });
+  }, [release, model.state, dispatch]);
 
   // Leaving the flow: the pushed entry goes first (it is the current one), then the exit.
   useEffect(() => {
@@ -287,6 +303,8 @@ export default function CheckApp({
           <Overlay {...props} />
         </div>
       )}
+      {/* S57: the staff reset and the idle reset over every screen, in booth mode only. */}
+      {config.booth && <BoothLayer model={model} dispatch={dispatch} />}
       {overlayId === "S15" && (
         <LeaveDialog
           variant={mode === "guest" ? "guest" : model.data.checkId ? "during" : "before"}

@@ -27,6 +27,7 @@ import {
   type FlowData,
   type FlowModel,
   type FlowState,
+  type SafetyFrom,
   type SafetyKind,
 } from "../flowMachine";
 import type { SafetyScreenId } from "../screenTypes";
@@ -180,11 +181,11 @@ const BIG_NUMBER: ReadonlySet<string> = new Set(CHECK_DATA.emergencyCall.bigNumb
  * The entry cue of a safety screen (S36): check_stop_now when a test was running, check_urgent_call on
  * S39; none on routes from the pre-check or the end question, where nothing was running (O12 (5)).
  */
-// SPEC-GAP: safety-route-source. The safety state does not record where it came from. The pre-check
-// route has no frozen protocol; every test done today reads as the end question (a stop on the last
-// test also reads so, and there check_stop_now already played when STOP was pressed, S41).
-export function stopCueOf(kind: SafetyKind, d: FlowData): CheckCueId | null {
+export function stopCueOf(kind: SafetyKind, d: FlowData, from?: SafetyFrom): CheckCueId | null {
   if (kind === "fall") return "check_urgent_call";
+  // The flow records where the route started; an older state without it reads as before: no protocol
+  // is the pre-check, every test done is the end question.
+  if (from) return from === "test" ? "check_stop_now" : null;
   if (d.tests.length === 0 || allDone(d)) return null;
   return "check_stop_now";
 }
@@ -236,7 +237,7 @@ export function safetyView(
   // What is said: the entry cue, then every sentence of the body and of each open card (a card's
   // heading before its body, O12 (1)), then the paused line's first sentence (its {when} is display
   // only, O24-2) or at the booth the staff line.
-  const cue = stopCueOf(kind, d);
+  const cue = stopCueOf(kind, d, state.from);
   const said: SpeechLine[] = cue ? [cueSpeech(cue, lang, "safety")] : [];
   const listen: SpeechLine[] = [...said];
   for (const b of blocks) {

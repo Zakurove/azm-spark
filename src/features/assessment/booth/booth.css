@@ -1,0 +1,307 @@
+/*
+ * Booth screens S55 to S58 (UX spec v1.1 S55, S55b, S56, S57, S58). Scoped to .azm-check and built
+ * only from the custom properties of ../tokens.css (no colour literal). Sizes in rem so text zoom
+ * scales them; nothing under 16 px, body 18 px, targets 48 px (inputs 56 px, answers 64 px).
+ */
+
+/* ------------------------------------------------------------------ layout */
+
+.azm-check .booth-screen {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .booth-screen > h1:focus {
+  outline: none;
+}
+.azm-check .booth-section {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .booth-actions {
+  display: grid;
+  gap: var(--s3);
+}
+
+/* ------------------------------------------------------------------ fields (0.5, 0.2) */
+
+.azm-check .booth-form {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .booth-field {
+  display: grid;
+  gap: var(--s2);
+}
+.azm-check .booth-field-label {
+  font-size: var(--t-body);
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--ink);
+}
+.azm-check .booth-input {
+  width: 100%;
+  min-height: 56px;
+  padding: var(--s2) var(--s4);
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.azm-check .booth-input[aria-invalid="true"] {
+  border: 2px solid var(--warn-ink);
+  background: var(--warn-tint);
+}
+.azm-check .booth-code {
+  letter-spacing: 0.3em;
+}
+
+/* A primary that is busy keeps its label and shows a small spinner (never disabled, 0.3). */
+.azm-check .booth-busy {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--gold-ink);
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: azm-check-spin 0.9s linear infinite;
+}
+
+.azm-check .booth-note {
+  font-size: var(--t-meta);
+  line-height: 1.6;
+  font-weight: 500;
+  color: var(--muted);
+}
+.azm-check .booth-alert {
+  font-size: var(--t-meta);
+  line-height: 1.6;
+  font-weight: 650;
+  color: var(--warn-ink);
+}
+
+/* ------------------------------------------------------------------ S55 status */
+
+.azm-check .booth-status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--r-card);
+  background: var(--purple-tint);
+  font-size: var(--t-body);
+  font-weight: 650;
+  line-height: 1.6;
+}
+.azm-check .booth-status svg {
+  flex: none;
+  margin-top: 4px;
+  color: var(--purple);
+}
+.azm-check .booth-offline-line {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: var(--t-meta);
+  font-weight: 600;
+  color: var(--ink);
+}
+.azm-check .booth-offline-line .check-spinner {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+.azm-check .booth-offline-line svg {
+  color: var(--green-ink);
+}
+
+/* ------------------------------------------------------------------ QR (S55, S50) */
+
+.azm-check .booth-qr {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  margin: 0;
+}
+.azm-check .booth-qr-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+}
+.azm-check .booth-qr-light {
+  fill: var(--card);
+}
+.azm-check .booth-qr-dark {
+  fill: var(--ink);
+}
+.azm-check .booth-qr-panel {
+  display: grid;
+  gap: var(--s3);
+  justify-items: stretch;
+}
+
+/* ------------------------------------------------------------------ S56 staff vitals */
+
+/* The line for the visitor, readable from the side desk (30 px, S56 wireframe). */
+.azm-check .booth-handoff {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--cream-border);
+  border-radius: var(--r-card);
+  background: var(--cream);
+  font-size: 1.875rem;
+  line-height: 1.45;
+  font-weight: 750;
+}
+.azm-check .booth-handoff svg {
+  flex: none;
+  margin-top: 8px;
+  color: var(--purple);
+}
+.azm-check .booth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--h-ghost);
+  padding: var(--s1) var(--s4);
+  border-radius: var(--r-pill);
+  background: var(--purple-tint);
+  color: var(--purple);
+}
+.azm-check h1.booth-pill-heading {
+  display: flex;
+}
+.azm-check .booth-reading {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+.azm-check .booth-reading > legend {
+  padding: 0 var(--s2);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.azm-check .booth-vital-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.azm-check .booth-vital-row > .booth-alert {
+  grid-column: 1 / -1;
+}
+.azm-check .booth-means {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: var(--s4);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--r-card);
+  background: var(--purple-tint);
+}
+.azm-check .booth-means-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+}
+.azm-check .booth-means-row dt {
+  font-size: var(--t-body);
+  font-weight: 500;
+}
+.azm-check .booth-means-row dd {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ S57 badge, sheets */
+
+/* The badge takes a press and hold (staff reset): no callout, no text selection. */
+.azm-check .check-booth-badge {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.azm-check .check-booth-badge.booth-pressing {
+  box-shadow: 0 0 0 3px var(--purple);
+}
+
+/* "Are you still here?": a sheet at the bottom, with no scrim, so the QR above stays scannable. */
+.azm-check.booth-sheet-host {
+  background: none;
+}
+.azm-check .booth-sheet {
+  position: fixed;
+  inset-inline: var(--gutter);
+  bottom: calc(var(--gutter) + env(safe-area-inset-bottom));
+  z-index: 45;
+  display: grid;
+  gap: var(--s3);
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: var(--s6) var(--s4) var(--s4);
+  border: 2px solid var(--purple);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: 0 24px 60px -30px var(--shadow-soft);
+}
+.azm-check .booth-sheet:focus {
+  outline: none;
+}
+.azm-check .booth-still {
+  min-height: 64px;
+  font-size: 1.25rem;
+}
+.azm-check .booth-count-row {
+  display: grid;
+  gap: var(--s2);
+}
+
+/* ------------------------------------------------------------------ S58 setup tips */
+
+.azm-check .booth-tips {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.azm-check .booth-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--card);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+}
+.azm-check .booth-tip-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--purple-tint);
+  color: var(--purple);
+}

@@ -7,6 +7,14 @@
  * animation (results must not feel like a reward game).
  */
 
+/* ------------------------------------------------------------ page column */
+
+/* My results reads as one column on wide screens too (0.3: at most 560 px of content), from the
+   inline start under the portal heading. */
+.azm-check.check-results-page {
+  max-width: 592px;
+}
+
 /* ------------------------------------------------------------ section headings */
 
 .azm-check .pg-section {
@@ -195,7 +203,7 @@
   overflow: visible;
 }
 .azm-check .pg-trend > svg {
-  max-width: 520px;
+  max-width: 440px;
 }
 .azm-check .pg-axis {
   stroke: var(--field-border);
@@ -521,6 +529,9 @@
 .azm-check .pg-next-day legend {
   padding: 0;
   margin-bottom: var(--s3);
+}
+.azm-check .pg-next-day .check-chip {
+  justify-self: start;
 }
 
 /* ------------------------------------------------------------ offer dialog (S02) */

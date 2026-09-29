@@ -32,7 +32,7 @@ import {
 
 const OUT = process.env.AZM_SHOTS_DIR ? resolve(process.env.AZM_SHOTS_DIR) : "";
 test.skip(!OUT, "set AZM_SHOTS_DIR to write the review screenshots");
-test.describe.configure({ timeout: 240_000 });
+test.describe.configure({ timeout: 120_000 });
 
 const SIZES = [
   { tag: "m", width: 375, height: 812, scale: 2 },
@@ -356,6 +356,7 @@ for (const size of SIZES) {
       await expect(page.locator('[data-screen="S03"][data-sent="usual"]')).toBeVisible();
       await part(page, slot, name("S03-thanks"));
       await page.goto(url("/", lang));
+      await expect(s03).toBeVisible();
       await ctx.setOffline(true);
       await s03.locator(".check-answer").first().click();
       await s03.locator(".cta").click();

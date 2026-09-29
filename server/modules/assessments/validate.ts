@@ -224,6 +224,8 @@ export const DETAIL_SPEC: Record<string, DetailCheck> = {
   countSource: oneOf("auto", "staff", "self"),
   pushHand: oneOf("left", "right"),
   sameChair: bool,
+  // The S29 grip answer of the arm (Q5, Q26: no heavier dumbbell after a grip yes).
+  gripYes: bool,
   // Measured by the engine (src/engine/modes): a value, or "unknown".
   reference: measured(oneOf("trunk", "gravity")),
   view: measured(oneOf("side", "anterolateral")),
@@ -274,8 +276,11 @@ export const DETAIL_SPEC: Record<string, DetailCheck> = {
   widthChangeMax: measured(num(0, 10)),
   hipShiftMax: measured(num(-10, 10)),
 };
-/** Detail keys only the server writes. */
-export const SERVER_DETAIL_KEYS = ["chair"] as const;
+/**
+ * Detail keys only the server writes: the chair id, the pain answer after the test (bt_pain_after,
+ * arm curl) and the Q26 choice of the next load (loads.ts).
+ */
+export const SERVER_DETAIL_KEYS = ["chair", "painAfter", "nextLoad"] as const;
 // Every key the progress rules read is either accepted from the client or written by the server.
 for (const k of DETAIL_KEYS)
   if (!(k in DETAIL_SPEC) && !(SERVER_DETAIL_KEYS as readonly string[]).includes(k))

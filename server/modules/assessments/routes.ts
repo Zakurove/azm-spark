@@ -53,6 +53,7 @@ import {
   safetyCheck,
   skipRecord,
 } from "./common";
+import { keepPainAfter, lastLoads } from "./loads";
 import { firstCheckIn, neededArmsLastStand, personState, precheckEnv, sideLeanDoneAtHome } from "./state";
 import {
   DAY_MS,
@@ -168,6 +169,7 @@ export const assessmentRoutes: Route[] = [
       const open = openAssessment(db, u.id);
       const dose = s.lastCompleted?.precheck["fingerprint.pdDoseBucket"];
       const consent = activeConsent(db, u.id, "movement_check") !== null;
+      const kept = keptResults(db, u.id);
       const common = {
         setting,
         homeOpen: homeChecksOpen(),
@@ -202,7 +204,10 @@ export const assessmentRoutes: Route[] = [
         followUpDue: consent && s.followUpDue !== null,
         consent,
         consentVersion: CONSENT_VERSIONS.movement_check,
-        baselineRanges: baselineRanges(keptResults(db, u.id)),
+        baselineRanges: baselineRanges(kept),
+        // Q5: the load of each arm's current home arm curl series (or the heavier one chosen, Q26),
+        // for the S30 re-test form; null before the first home arm curl.
+        lastLoads: lastLoads(kept),
       };
       if (isBlocked(s.context)) return json(200, { blocked: s.context.blocked, ...common, baseTests: [] });
       const { env } = precheckEnv(db, u.id, s, s.context, setting);
@@ -517,6 +522,9 @@ export const assessmentRoutes: Route[] = [
             saveResult(db, user!.id, skipRecord(a, skipped, k.reason, now), a.setting);
           }
         }
+        // Q26: the load step is never offered after more pain on that arm, so the answer is kept on
+        // the arm curl result of that side (painAfter).
+        keepPainAfter(db, a.id, item.testId, item.side, String(body.answer));
         touch(db, a.id, now);
       });
       json(200, { status: out.status, skips: out.skips, screen: null, lock: null });

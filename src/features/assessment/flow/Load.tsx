@@ -140,11 +140,15 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
 
 /* ------------------------------------------------------------------ S30 load */
 
-/** The previous load of an arm for the re-test form; the context does not carry it yet. */
-// SPEC-GAP: retest-load. GET /context has no last load per arm (foundationRequests), so the re-test form
-// ("the same as last time") shows only when the load is known; otherwise the first check picker shows.
-function previousLoad(): Load | undefined {
-  return undefined;
+/**
+ * The load of an arm at its last home check (Q5, from the context; or the heavier one chosen, Q26),
+ * for the re-test form ("Do you have the same one as last time?"); the first check has none.
+ */
+function previousLoad(model: ScreenProps["model"], side: Side): Load | undefined {
+  const si = model.data.signedIn;
+  if (!si || si.firstCheck || model.data.setting !== "home") return undefined;
+  const load = si.lastLoads?.[side];
+  return load ? ({ ...load } as Load) : undefined;
 }
 
 export function LoadChoice({ model, dispatch }: ScreenProps) {
@@ -157,7 +161,7 @@ export function LoadChoice({ model, dispatch }: ScreenProps) {
   const [at, setAt] = useState(0);
   const side = (arms[at] ?? "right") as Side;
   const item = run?.sides.find((x) => x.side === side);
-  const previous = previousLoad();
+  const previous = previousLoad(model, side);
   const counter = useCounter(model);
   const onBack =
     at > 0
@@ -185,7 +189,8 @@ export function LoadChoice({ model, dispatch }: ScreenProps) {
       side={side}
       allowed={allowed}
       stepDownFrom={stepDown ? prep.load[side] : undefined}
-      previous={stepDown ? undefined : previous}
+      // The same as last time only when that load is still allowed today (Q5).
+      previous={stepDown || !previous || !allowed.includes(previous.kind) ? undefined : previous}
       onDone={done}
       shell={{ counter, onBack }}
     />

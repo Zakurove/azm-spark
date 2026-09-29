@@ -24,7 +24,7 @@ import { useCheckUi } from "../assessment/shared/CheckUi";
 import { ScreenIdChip } from "../assessment/shared/ScreenStub";
 import { OfflineBanner } from "../assessment/shared/states";
 import { resumeAllowed } from "../assessment/useCheckFlow";
-import { useCheckData } from "./data";
+import { progressApi, useCheckData } from "./data";
 import { canStartFrom, entryState, type CheckStartOptions } from "./variant";
 import { useBoothMode } from "../assessment/booth";
 import { EntryCard, EntrySkeleton, startFromTap } from "./EntryCards";
@@ -186,7 +186,11 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }:
     view.loadStep && view.setting === "home"
       ? {
           chosen: chosen[view.seriesKey] ?? null,
-          onChoose: (c) => setChosen((x) => ({ ...x, [view.seriesKey]: c })),
+          onChoose: (c) => {
+            setChosen((x) => ({ ...x, [view.seriesKey]: c }));
+            // Kept for the next check of that arm (POST /api/progress/load-step, Q26).
+            if (view.side === "left" || view.side === "right") void progressApi().postLoadStep(view.side, c);
+          },
         }
       : undefined;
 

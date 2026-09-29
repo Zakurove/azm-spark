@@ -29,6 +29,7 @@ export const RESULT_DETAIL_KEYS: readonly string[] = [
   "countSource",
   "pushHand",
   "sameChair",
+  "gripYes",
   "reference",
   "view",
   "pivot",

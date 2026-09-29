@@ -503,6 +503,34 @@ describe("small rules", () => {
     expect(audible(true, "screenReader")).toBe(false);
   });
 
+  it("S30 asks for the same load as last time at a re-test, from the context (Q5)", () => {
+    const started = signedStarted(contextOf({ position: "chair" }));
+    const plan = started.state.kind === "warnings" ? play(started, { type: "CONTINUE" }) : started;
+    const curl = plan.data.tests.findIndex((x) => x.testId === "arm_curl_30s");
+    expect(curl).toBeGreaterThanOrEqual(0);
+    const arm = plan.data.tests[curl].sides[0].side as "left" | "right";
+    const retest = {
+      ...plan,
+      data: {
+        ...plan.data,
+        signedIn: {
+          ...plan.data.signedIn!,
+          firstCheck: false,
+          lastLoads: { [arm]: { kind: "bottle" as const, liters: 1 as const } },
+        },
+      },
+    };
+    const load = withState(retest, { kind: "test.load", i: curl });
+    for (const lang of ["ar", "en"] as const) {
+      const { text } = screen(load, lang);
+      expect(text).toContain(t(lang, "assessment.load.sameTitle"));
+      expect(text).toContain(t(lang, "assessment.load.sameYes"));
+    }
+    // The first check: the picker, never the question.
+    const first = withState(plan, { kind: "test.load", i: curl });
+    expect(screen(first, "en").text).not.toContain(t("en", "assessment.load.sameTitle"));
+  });
+
   it("keeps a caption for its reading time, between 2.5 and 12 seconds", () => {
     expect(captionMs("short")).toBe(2500);
     expect(captionMs("x".repeat(100))).toBe(7000);

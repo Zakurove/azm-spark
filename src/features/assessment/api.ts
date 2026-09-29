@@ -31,6 +31,7 @@ import { ENGINE_VERSION } from "../../engine/modes";
 import type {
   BetweenAnswer,
   CheckSession,
+  CurlLoad,
   DeviceInfo,
   ResultPayload,
   ResumeCheck,
@@ -129,6 +130,8 @@ export interface ContextResponse {
   homeOpen: boolean;
   /** Q2 (5), Q32 (6): the account holds the adult confirmation (S05a). */
   adultConfirmed: boolean;
+  /** Q5, Q26: the load of each arm's current home arm curl series (or the heavier one chosen). */
+  lastLoads?: Partial<Record<"left" | "right", CurlLoad>> | null;
 }
 
 export interface StartBody {
@@ -306,6 +309,11 @@ export interface CheckApi {
   resume(id: string, answers: Answers): Promise<ApiResult<ResumeOk>>;
   complete(id: string): Promise<ApiResult<CompleteResponse>>;
   postAfter(answer: "usual" | "settled" | "lasting"): Promise<ApiResult<AfterResponse>>;
+  /** Q26: the choice of the heavier load offer of one arm (kept for its next check's S30). */
+  postLoadStep(
+    side: "left" | "right",
+    choice: "heavier" | "same",
+  ): Promise<ApiResult<{ side: string; choice: string; next: unknown }>>;
   listChecks(): Promise<ApiResult<{ assessments: StoredCheck[] }>>;
   getProgress(): Promise<ApiResult<ProgressResponse>>;
   acceptConsent(version: number): Promise<ApiResult<ConsentResponse>>;
@@ -377,6 +385,7 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
     resume: (id, answers) => call<ResumeOk>("POST", check(id, "resume"), { answers }),
     complete: (id) => call<CompleteResponse>("POST", check(id, "complete"), {}),
     postAfter: (answer) => call<AfterResponse>("POST", "/assessments/after", { answer }),
+    postLoadStep: (side, choice) => call("POST", "/progress/load-step", { side, choice }),
     listChecks: () => call("GET", "/assessments"),
     getProgress: () => call<ProgressResponse>("GET", "/progress"),
     acceptConsent: (version) =>
@@ -600,6 +609,7 @@ export function toSignedInContext(c: ContextResponse): SignedInContext {
     homeOpen: c.homeOpen === true,
     adultConfirmed: c.adultConfirmed === true,
     lastPdDoseBucket: c.lastPdDoseBucket ?? null,
+    lastLoads: c.lastLoads ?? null,
   };
 }
 

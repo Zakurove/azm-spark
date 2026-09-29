@@ -139,7 +139,11 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
     view.loadStep && !guest
       ? {
           chosen: chosen[view.seriesKey] ?? null,
-          onChoose: (c) => setChosen((x) => ({ ...x, [view.seriesKey]: c })),
+          onChoose: (c) => {
+            setChosen((x) => ({ ...x, [view.seriesKey]: c }));
+            // Kept for the next check of that arm (POST /api/progress/load-step, Q26).
+            if (view.side === "left" || view.side === "right") void api.postLoadStep(view.side, c);
+          },
         }
       : undefined;
 

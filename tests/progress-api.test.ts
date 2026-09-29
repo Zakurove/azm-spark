@@ -176,6 +176,81 @@ describe("series over four checks of one person", () => {
   });
 });
 
+describe("the arm curl load across checks (Q5, Q26)", () => {
+  beforeAll(async () => {
+    h = await startApi();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+
+  /** A home check with the arm curl on the right (bottle 1 L), the pain answer after it, complete. */
+  async function curlCheck(email: string, at: number, count: number, painAfter: string | null) {
+    setTime(at);
+    const cookie = await login(h, email);
+    const s = await start(h, cookie, {} as never);
+    if (s.status !== 200) throw new Error(`start: ${JSON.stringify(s.data)}`);
+    const protocol: ProtocolItem[] = s.data.protocol;
+    const item = itemOf(protocol, "arm_curl_30s", "right");
+    const body = resultBody(item, count, {
+      detail: { ...resultBody(item, count).detail, gripYes: false },
+    });
+    const r = await h.call(`/assessments/${s.data.id}/results`, body, cookie);
+    if (r.status !== 200) throw new Error(JSON.stringify(r.data));
+    if (painAfter) {
+      const b = await h.call(
+        `/assessments/${s.data.id}/between`,
+        { testId: "arm_curl_30s", side: "right", answer: painAfter },
+        cookie,
+      );
+      if (b.status !== 200) throw new Error(JSON.stringify(b.data));
+    }
+    await h.call(`/assessments/${s.data.id}/end`, undefined, cookie);
+    await h.call(`/assessments/${s.data.id}/complete`, {}, cookie);
+    return cookie;
+  }
+
+  it("offers one step heavier after two checks at 25 or more with no more pain, and keeps the choice", async () => {
+    const email = "load@example.test";
+    await member(h, email, intakeOf());
+    await curlCheck(email, T0, 25, "same");
+    const cookie = await curlCheck(email, T0 + 3 * DAY, 26, "same");
+    let p = (await h.call("/progress", undefined, cookie)).data;
+    expect(current(p.tests, "arm_curl_30s", "right").loadStep).toEqual({
+      from: { kind: "bottle", liters: 1 },
+      to: { kind: "bottle", liters: 1.5 },
+    });
+    // The context names the load of the series for the S30 re-test form.
+    let ctx = (await h.call("/assessments/context", undefined, cookie)).data;
+    expect(ctx.lastLoads).toEqual({ right: { kind: "bottle", liters: 1 } });
+    // Only a real offer can be chosen, with a side and a choice.
+    expect((await h.call("/progress/load-step", { side: "left", choice: "heavier" }, cookie)).status).toBe(
+      409,
+    );
+    expect((await h.call("/progress/load-step", { side: "right", choice: "more" }, cookie)).status).toBe(400);
+    const chose = await h.call("/progress/load-step", { side: "right", choice: "heavier" }, cookie);
+    expect(chose.status).toBe(200);
+    expect(chose.data.next).toEqual({ kind: "bottle", liters: 1.5 });
+    ctx = (await h.call("/assessments/context", undefined, cookie)).data;
+    expect(ctx.lastLoads).toEqual({ right: { kind: "bottle", liters: 1.5 } });
+    // Answered: not offered again.
+    p = (await h.call("/progress", undefined, cookie)).data;
+    expect(current(p.tests, "arm_curl_30s", "right").loadStep).toBeNull();
+  });
+
+  it("never offers it when the pain after the test is not known or was more", async () => {
+    const email = "load-pain@example.test";
+    await member(h, email, intakeOf());
+    await curlCheck(email, T0 + 20 * DAY, 25, null);
+    let cookie = await curlCheck(email, T0 + 23 * DAY, 27, "same");
+    let p = (await h.call("/progress", undefined, cookie)).data;
+    expect(current(p.tests, "arm_curl_30s", "right").loadStep).toBeNull();
+    cookie = await curlCheck(email, T0 + 26 * DAY, 28, "more");
+    p = (await h.call("/progress", undefined, cookie)).data;
+    expect(current(p.tests, "arm_curl_30s", "right").loadStep).toBeNull();
+  });
+});
+
 describe("a large drop on one side", () => {
   beforeAll(async () => {
     h = await startApi();

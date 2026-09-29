@@ -334,6 +334,8 @@ export interface SignedInContext {
   adultConfirmed: boolean;
   /** The last check's Parkinson's dose bucket (warn_pd_timing {x} on S25), or null. */
   lastPdDoseBucket?: string | null;
+  /** Q5: the load of each arm's current home arm curl series, for the S30 re-test form, or null. */
+  lastLoads?: Partial<Record<Side, CurlLoad>> | null;
 }
 
 export interface GuestAnswers {
@@ -2716,7 +2718,8 @@ function recordSide(
 
 /**
  * The detail a result carries from the flow: the same chair answer (Q9 (3)) and, for a measured arm
- * curl, the load chosen on S30 for that arm (Q5; the server needs loadObject on a scored curl).
+ * curl, the load chosen on S30 for that arm (Q5; the server needs loadObject on a scored curl) and
+ * its S29 grip answer.
  */
 function resultDetail(
   d: FlowData,
@@ -2727,9 +2730,12 @@ function resultDetail(
   let detail = body.detail;
   const same = sameChairOf(d, testId);
   if (same !== undefined) detail = { ...detail, sameChair: same };
-  if (testId === "arm_curl_30s" && body.skippedReason === null && detail.loadObject === undefined) {
-    const load = side === "left" || side === "right" ? d.armCurl.load[side] : undefined;
-    if (load) detail = { ...detail, ...curlLoadDetail(load) };
+  if (testId === "arm_curl_30s" && body.skippedReason === null && (side === "left" || side === "right")) {
+    const load = d.armCurl.load[side];
+    if (load && detail.loadObject === undefined) detail = { ...detail, ...curlLoadDetail(load) };
+    // The S29 grip answer of the arm (Q26: no heavier dumbbell after a grip yes).
+    const grip = d.armCurl.grip[side];
+    if (grip !== undefined) detail = { ...detail, gripYes: grip };
   }
   return detail;
 }

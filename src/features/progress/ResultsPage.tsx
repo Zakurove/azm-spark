@@ -26,6 +26,7 @@ import { OfflineBanner } from "../assessment/shared/states";
 import { resumeAllowed } from "../assessment/useCheckFlow";
 import { useCheckData } from "./data";
 import { canStartFrom, entryState, type CheckStartOptions } from "./variant";
+import { useBoothMode } from "../assessment/booth";
 import { EntryCard, EntrySkeleton, startFromTap } from "./EntryCards";
 import { dayLabel } from "./format";
 import { seriesContextOf, storedResultsOf, viewsAsOf } from "./local";
@@ -148,6 +149,7 @@ function CheckDetail({
 }
 
 export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }: ResultsPageProps) {
+  const { tokenEnded } = useBoothMode();
   const { data, reload, online } = useCheckData(owner);
   const [now] = useState(() => Date.now());
   const [open, setOpen] = useState<string | null>(null);
@@ -284,7 +286,15 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }:
       ) : (
         <>
           {data.context.status === "loading" && <EntrySkeleton />}
-          {showEntry && entry && <EntryCard compact state={entry} offline={!online} onStart={onStartCheck} />}
+          {showEntry && entry && (
+            <EntryCard
+              compact
+              state={entry}
+              offline={!online}
+              onStart={onStartCheck}
+              tokenEnded={tokenEnded}
+            />
+          )}
           <section className="pg-section" data-screen="S53" aria-labelledby={headingId}>
             <h2 id={headingId}>{t(lang, "progress.checks.heading")}</h2>
             {checksBody}

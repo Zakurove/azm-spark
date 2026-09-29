@@ -17,6 +17,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { guestMinutes, localLabels } from "./copy";
 import { QrCode, SamePress } from "./parts";
+import { TokenEndedCard, useBoothMode } from "../booth";
 
 /* ------------------------------------------------------------------ S04 */
 
@@ -95,27 +96,33 @@ export function DesktopGate({ dispatch }: ScreenProps) {
 
 export function GuestWelcome({ dispatch, model }: ScreenProps) {
   const { lang, online } = useCheckUi();
+  // S55b: a visitor token that ended while this screen showed: booth.tokenEnded in place of the start.
+  const { tokenEnded } = useBoothMode();
   const minutes = guestMinutes();
   void model;
   return (
     <CheckShell
       brand
       language
-      footer={{
-        primary: {
-          label: t(lang, "assessment.guest.quickTry", { minutes: minutes.quick, unit: "min" }),
-          onClick: () => dispatch({ type: "GUEST_PATH", path: "quick" }),
-        },
-        secondary: {
-          label: t(lang, "assessment.guest.fullCheck", {
-            minutesFrom: minutes.full[0],
-            minutesTo: minutes.full[1],
-            unit: "min",
-          }),
-          onClick: () => dispatch({ type: "GUEST_PATH", path: "full" }),
-          kind: "primary",
-        },
-      }}
+      footer={
+        tokenEnded
+          ? undefined
+          : {
+              primary: {
+                label: t(lang, "assessment.guest.quickTry", { minutes: minutes.quick, unit: "min" }),
+                onClick: () => dispatch({ type: "GUEST_PATH", path: "quick" }),
+              },
+              secondary: {
+                label: t(lang, "assessment.guest.fullCheck", {
+                  minutesFrom: minutes.full[0],
+                  minutesTo: minutes.full[1],
+                  unit: "min",
+                }),
+                onClick: () => dispatch({ type: "GUEST_PATH", path: "full" }),
+                kind: "primary",
+              },
+            }
+      }
     >
       <div className="flow-stack" data-screen="S05">
         <h1>{t(lang, "assessment.guest.title")}</h1>
@@ -132,6 +139,7 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
         </p>
         <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
         {!online && <p className="check-field-error">{t(lang, "assessment.guest.offlineNoModel")}</p>}
+        {tokenEnded && <TokenEndedCard onContinue={() => dispatch({ type: "EXIT" })} />}
         <button
           type="button"
           className="check-text-button flow-example-link"

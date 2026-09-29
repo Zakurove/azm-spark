@@ -170,6 +170,35 @@ describe("S01 entry card", () => {
     });
   }
 
+  it("shows booth.tokenEnded in place of the start once a visitor token has ended (S55b)", () => {
+    for (const lang of LANGS) {
+      const m = html(
+        lang,
+        createElement(EntryCard, {
+          state: entry({ variant: "first" }),
+          offline: false,
+          onStart: noop,
+          onResults: noop,
+          tokenEnded: true,
+        }),
+      );
+      expect(m).toContain("data-token-ended");
+      expect(text(m)).toContain(t(lang, "assessment.booth.tokenEnded"));
+      expect(text(m)).not.toContain(t(lang, "assessment.entry.first.cta"));
+      // No start action to replace: the card is as it was.
+      const soon = html(
+        lang,
+        createElement(EntryCard, {
+          state: entry({ variant: "homeSoon" }),
+          offline: false,
+          onStart: noop,
+          tokenEnded: true,
+        }),
+      );
+      expect(soon).not.toContain("data-token-ended");
+    }
+  });
+
   it("writes the first body with the minutes and the 4 weeks", () => {
     const m = card("en", { variant: "first", minutes: [16, 21] });
     expect(text(m)).toContain("about 16 to 21 minutes, then check again every 4 weeks");

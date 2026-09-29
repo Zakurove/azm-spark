@@ -1105,6 +1105,8 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "GUEST_PATH")
         return go({ ...m, data: { ...d, guestPath: e.path } }, { kind: "adultGate" });
       if (e.type === "EXAMPLE") return go(m, { kind: "exit", to: "example" });
+      // S55b: the visitor token ended on S05; its Continue leaves to the start page.
+      if (e.type === "EXIT") return go(m, { kind: "exit", to: "landing" });
       return m;
 
     case "adultGate":

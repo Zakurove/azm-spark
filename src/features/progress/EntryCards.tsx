@@ -13,6 +13,7 @@ import { t } from "../../i18n";
 import { bidiText, tx } from "../../i18n/rich";
 import { CHECK_DATA, precheckItem, screenText } from "../../movements/assessments";
 import type { AfterResponse, ApiResult } from "../assessment/api";
+import { TokenEndedCard, useBoothMode } from "../assessment/booth";
 import { CheckDialog } from "../assessment/shared/CheckDialog";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
@@ -77,6 +78,11 @@ export interface EntryCardProps {
   onStart(options?: CheckStartOptions): void;
   onResults?(): void;
   onOpenHealth?(): void;
+  /**
+   * S55b: this tab's visitor token has ended, so booth.tokenEnded shows in place of the start action
+   * (a home check never runs under booth rules); its Continue opens the results.
+   */
+  tokenEnded?: boolean;
 }
 
 const ICON: Record<NonNullable<EntryState["variant"]>, string> = {
@@ -92,7 +98,15 @@ const ICON: Record<NonNullable<EntryState["variant"]>, string> = {
   upcoming: "calendar",
 };
 
-export function EntryCard({ state, compact, offline, onStart, onResults, onOpenHealth }: EntryCardProps) {
+export function EntryCard({
+  state,
+  compact,
+  offline,
+  onStart,
+  onResults,
+  onOpenHealth,
+  tokenEnded,
+}: EntryCardProps) {
   const { lang } = useCheckUi();
   const [early, setEarly] = useState(false);
   const titleId = useId();
@@ -199,7 +213,9 @@ export function EntryCard({ state, compact, offline, onStart, onResults, onOpenH
         </span>
       </div>
       {body && <p className="check-body">{bidiText(lang, body)}</p>}
-      {offline && startable ? (
+      {tokenEnded && startable ? (
+        <TokenEndedCard onContinue={() => onResults?.()} />
+      ) : offline && startable ? (
         <p className="check-meta">{t(lang, "assessment.state.offline.startBlocked")}</p>
       ) : (
         <>
@@ -530,6 +546,7 @@ export function TodayCheckSlot({
   owner,
 }: TodayCheckSlotProps) {
   const { data, reload, online } = useCheckData(owner);
+  const { tokenEnded } = useBoothMode();
   const [laterNow, setLaterNow] = useState(nextDayHidden());
   const [now] = useState(() => Date.now());
   const ctx = data.context;
@@ -555,6 +572,7 @@ export function TodayCheckSlot({
         onStart={onStart}
         onResults={onOpenResults}
         onOpenHealth={onOpenHealth}
+        tokenEnded={tokenEnded}
       />
     );
   }

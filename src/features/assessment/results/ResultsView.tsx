@@ -57,11 +57,8 @@ export function saveStateOf(o: {
 
 /**
  * The register link of the booth QR (S50, S57): the public site's sign up, never this visit's data.
- * `app=1` opens the account page App.tsx has today; `register=1` names the sign up (UX spec S50).
+ * App.tsx opens the account page on its register tab from `register=1` (UX spec S50).
  */
-// SPEC-GAP: register-entry. App.tsx opens the account page from ?app=1 and has no ?register=1 entry
-// yet; the link carries both, so it works now and opens the sign up once App reads register=1 (see
-// the foundation requests).
 export function registerLink(origin: string): { url: string; short: string } {
   const u = new URL("/?app=1&register=1", origin);
   return { url: u.toString(), short: u.host };

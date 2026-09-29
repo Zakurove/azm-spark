@@ -21,11 +21,17 @@ import Icon from "./Icon";
 import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
 import { createCheckApi, offerMinutes } from "../features/assessment/api";
-import { isBoothMode, redeemVisitorToken } from "../features/assessment/boothMode";
+import { isBoothMode } from "../features/assessment/boothMode";
 import { flushPendingCheckCalls, hasSnapshot } from "../features/assessment/useCheckFlow";
 import { CHECK_UI } from "../features/assessment/featureFlag";
-import { BoothStaffPage } from "../features/assessment/booth";
-import { AfterIntakeOffer, ExampleProgress, ResultsPage, TodayCheckSlot } from "../features/progress";
+import { BoothStaffPage, VisitorTokenPage } from "../features/assessment/booth";
+import {
+  AfterIntakeOffer,
+  ExampleProgress,
+  ResultsPage,
+  TodayCheckSlot,
+  type CheckStartOptions,
+} from "../features/progress";
 import { countPhrase, t } from "../i18n";
 import Privacy from "./Privacy";
 const qs = new URLSearchParams(location.search);
@@ -33,14 +39,14 @@ const qs = new URLSearchParams(location.search);
 const checkEntry = qs.get("check") === "1";
 const boothEntry = qs.get("booth") === "1";
 /**
- * S55b: a visitor's own phone opened the staff QR (/?boothToken=<token>). The one check token is
- * redeemed (POST /api/booth/redeem) and kept for this tab, then the app opens without the token in the
- * address; a token the server refuses leaves booth mode off.
+ * S55b: a visitor's own phone opened the staff QR (/?boothToken=<token>). VisitorTokenPage redeems the
+ * one check token (POST /api/booth/redeem) and keeps this phone's own pass; its Continue opens the
+ * guest check for a visitor who is not signed in and Today for one who is, replacing the page.
  */
-// SPEC-GAP: booth-token-entry. The S55b screen states (loading, tokenEnded, offline) belong to the
-// booth stream; until they exist the entry redirects to "/" whatever the answer.
 const boothTokenEntry = qs.get("boothToken");
-// The example page (S54) is still a stub: shown only where the check UI is on (featureFlag.ts).
+/** The account page opened on its register tab (S50 QR, the Create a free account button). */
+const registerEntry = qs.get("register") === "1";
+// The example page (S54): shown only where the check UI is on (featureFlag.ts).
 const exampleEntry = CHECK_UI && qs.get("example") === "progress";
 /** The privacy notice (Q32 (1), H5), open to everyone. */
 const privacyEntry = qs.get("privacy") === "1";
@@ -110,18 +116,23 @@ export default function App() {
     [run, setRun] = useState<WorkoutRun | null>(null),
     [busy, setBusy] = useState(false),
     [demo, setDemo] = useState(qs.get("demo") === "1" && qs.get("autostart") === "1"),
-    [authView, setAuthView] = useState(qs.get("app") === "1"),
-    [authRegister, setAuthRegister] = useState(false),
+    [authView, setAuthView] = useState(qs.get("app") === "1" || registerEntry),
+    [authRegister, setAuthRegister] = useState(registerEntry),
     [tryCam, setTryCam] = useState(qs.get("try") === "1"),
-    // A signed in check reloaded by S32 (camera permission) opens again where it was.
-    [checkOpen, setCheckOpen] = useState(() => hasSnapshot("signedIn")),
+    // A signed in check reloaded by S32 (camera permission) opens again where it was. The options
+    // name a resume (O6), the side lean only session (Q12 (2)) or the care team release (S01).
+    [checkOpen, setCheckOpen] = useState<CheckStartOptions | null>(() =>
+      hasSnapshot("signedIn") ? {} : null,
+    ),
+    // S54: home checks are open (the context says so for a signed in person; closed otherwise).
+    [homeChecksOpen, setHomeChecksOpen] = useState(false),
     [intakeOffer, setIntakeOffer] = useState<[number, number] | null>(null);
   const c = labels(lang);
   const pageLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c[key]);
   const toggleLanguage = () => setLang(lang === "ar" ? "en" : "ar");
   /** Where the movement check sends a signed in person when it ends or they leave it. */
   const onCheckExit = (to: ExitTarget) => {
-    setCheckOpen(false);
+    setCheckOpen(null);
     const url = EXIT_URLS[to];
     // In booth mode every exit replaces the page (S57); at home a page change keeps Back.
     if (url) return openUrl(url, lang, isBoothMode());
@@ -154,10 +165,12 @@ export default function App() {
       active = false;
     };
   }, []);
-  // S55b: redeem the visitor token once, then open the app without it in the address.
+  // S54: "Try the movement check" also shows while home checks are open (the context, signed in only).
   useEffect(() => {
-    if (boothTokenEntry === null) return;
-    void redeemVisitorToken(createCheckApi(), boothTokenEntry).finally(() => openUrl("/", lang, true));
+    if (!exampleEntry) return;
+    void createCheckApi()
+      .getContext()
+      .then((r) => setHomeChecksOpen(r.ok && r.value.homeOpen === true));
   }, []);
   // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
   useEffect(() => {
@@ -199,7 +212,17 @@ export default function App() {
       setBusy(false);
     }
   };
-  if (boothTokenEntry !== null) return null;
+  if (boothTokenEntry !== null)
+    return (
+      <VisitorTokenPage
+        lang={lang}
+        onLanguage={toggleLanguage}
+        token={boothTokenEntry}
+        // Booth mode on: a signed in visitor opens Today (S01 starts the booth check), a visitor who is
+        // not signed in the guest check (S05); the address loses the token either way.
+        onContinue={(on) => openUrl(on && !account ? "/?check=1" : "/", lang, true)}
+      />
+    );
   if (privacyEntry)
     return (
       <Privacy
@@ -238,9 +261,10 @@ export default function App() {
       <ExampleProgress
         lang={lang}
         onLanguage={toggleLanguage}
-        canTryCheck={isBoothMode()}
-        onTryCheck={() => openUrl("/?check=1", lang)}
-        onRegister={() => openUrl("/?app=1", lang)}
+        canTryCheck={isBoothMode() || homeChecksOpen}
+        // At the booth the guest check; at home the signed in check starts from Today (S01).
+        onTryCheck={() => openUrl(isBoothMode() ? "/?check=1" : "/", lang)}
+        onRegister={() => openUrl("/?app=1&register=1", lang)}
       />
     );
   if (demo) {
@@ -339,6 +363,9 @@ export default function App() {
         mode="signedIn"
         onExit={onCheckExit}
         owner={account.user.id}
+        {...(checkOpen.resume ? { resume: checkOpen.resume } : {})}
+        {...(checkOpen.session ? { session: checkOpen.session } : {})}
+        {...(checkOpen.release ? { release: true } : {})}
       />
     );
   if (run)
@@ -366,7 +393,8 @@ export default function App() {
     <TodayCheckSlot
       lang={lang}
       booth={isBoothMode()}
-      onStart={() => setCheckOpen(true)}
+      owner={account.user.id}
+      onStart={(options) => setCheckOpen(options ?? {})}
       onOpenResults={() => setPage("results")}
       onOpenHealth={() => {
         setPage("health");
@@ -742,7 +770,8 @@ export default function App() {
                 <ResultsPage
                   lang={lang}
                   booth={isBoothMode()}
-                  onStartCheck={() => setCheckOpen(true)}
+                  owner={account.user.id}
+                  onStartCheck={(options) => setCheckOpen(options ?? {})}
                   onOpenProgram={() => setPage("program")}
                 />
               )}
@@ -759,7 +788,7 @@ export default function App() {
           minutes={intakeOffer}
           onStart={() => {
             setIntakeOffer(null);
-            setCheckOpen(true);
+            setCheckOpen({});
           }}
           onLater={() => setIntakeOffer(null)}
           // The intake form is gone: focus returns to the Program page heading (5.1).

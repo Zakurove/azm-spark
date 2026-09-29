@@ -50,6 +50,7 @@ function renderMarkup(
     dispatch: () => undefined,
     api: NO_API,
     retryCamera: () => undefined,
+    retrySave: () => undefined,
   });
   return renderToStaticMarkup(
     createElement(CheckRoot, {

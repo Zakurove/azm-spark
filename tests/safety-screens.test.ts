@@ -84,6 +84,7 @@ function render(
     dispatch: () => undefined,
     api: {} as ScreenProps["api"],
     retryCamera: () => undefined,
+    retrySave: () => undefined,
   };
   return renderToStaticMarkup(createElement(CheckRoot, { ui, children: createElement(Screen, props) }));
 }

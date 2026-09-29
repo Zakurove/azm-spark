@@ -94,6 +94,8 @@ export interface ScreenProps {
   api: CheckApi;
   /** S32 Try again: keeps the flow and reloads so the browser asks for the camera again. */
   retryCamera(): void;
+  /** The save error's Try again (S50 to S52): sends what waits in the check's outbox now. */
+  retrySave(): void;
 }
 
 export type ScreenComponent = ComponentType<ScreenProps>;

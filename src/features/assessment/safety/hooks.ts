@@ -59,7 +59,8 @@ export function useSpeechSequence(
       onLine(i, speaking) {
         const line = list[i];
         setIndex(i);
-        if (line) uiRef.current.showCaption(line.display, line.severity, speaking);
+        // The caption's tap plays this line again (3.0).
+        if (line) uiRef.current.showCaption(line.display, line.severity, speaking, () => start([line]));
       },
       onEnd() {
         setIndex(null);

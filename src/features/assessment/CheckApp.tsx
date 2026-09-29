@@ -115,7 +115,7 @@ export default function CheckApp({
     [],
   );
   const { online, backOnline } = useOnline();
-  const { model, dispatch, api, status, retryCamera } = useCheckFlow({
+  const { model, dispatch, api, status, retryCamera, retrySave } = useCheckFlow({
     config,
     online,
     resume: resume ?? null,
@@ -196,8 +196,8 @@ export default function CheckApp({
   useEffect(() => setCaption(null), [screenKey]);
 
   const showCaption = useCallback(
-    (text: string, severity: CaptionSeverity = "info", speaking = false) =>
-      setCaption({ text, severity, speaking }),
+    (text: string, severity: CaptionSeverity = "info", speaking = false, replay?: () => void) =>
+      setCaption({ text, severity, speaking, ...(replay ? { replay } : {}) }),
     [],
   );
   const ui: CheckUi = {
@@ -212,7 +212,12 @@ export default function CheckApp({
     caption,
     showCaption,
     clearCaption: () => setCaption(null),
-    replayCaption: () => caption && setCaption({ ...caption }),
+    // The caption's tap plays the line again (its audio), else shows the text again.
+    replayCaption: () => {
+      if (!caption) return;
+      if (caption.replay) caption.replay();
+      else setCaption({ ...caption });
+    },
     onLanguage,
     requestLeave: canLeave(model) ? () => dispatch({ type: "LEAVE" }) : undefined,
     screenKey,
@@ -222,7 +227,7 @@ export default function CheckApp({
   const overlayId = overlayFor(model);
   const Screen = screenId ? SCREENS[screenId] : null;
   const Overlay = overlayId && overlayId !== "S15" ? OVERLAYS[overlayId] : null;
-  const props = { model, dispatch, api, retryCamera };
+  const props = { model, dispatch, api, retryCamera, retrySave };
 
   // The page behind an overlay is inert (5.6: "the stage content is inert"). A layout effect, declared
   // before the focus return below, so the base is live again before focus moves into it.

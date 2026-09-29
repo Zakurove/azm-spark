@@ -68,7 +68,7 @@ export function StaffVitalsView({
   dispatch,
   api,
   initialUnlocked = false,
-}: Omit<ScreenProps, "retryCamera"> & { initialUnlocked?: boolean }) {
+}: Omit<ScreenProps, "retryCamera" | "retrySave"> & { initialUnlocked?: boolean }) {
   const { lang } = useCheckUi();
   const s = model.state;
   const questionId = s.kind === "question" ? s.id : QUESTION;

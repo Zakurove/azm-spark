@@ -273,7 +273,13 @@ const OUTCOMES: Record<string, SideOutcome> = {
 function screen(lang: Lang, model: FlowModel, ui: Partial<typeof DEFAULT_UI> = {}) {
   return html(
     lang,
-    createElement(ResultsScreen, { model, dispatch: noop, api: createCheckApi(), retryCamera: noop }),
+    createElement(ResultsScreen, {
+      model,
+      dispatch: noop,
+      api: createCheckApi(),
+      retryCamera: noop,
+      retrySave: noop,
+    }),
     { booth: model.data.config.booth, guest: model.data.config.mode === "guest", ...ui },
   );
 }

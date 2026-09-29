@@ -79,7 +79,7 @@ function StartStatus({ model, dispatch }: ScreenProps) {
   );
 }
 
-function QuestionBody({ id, model, dispatch, api, retryCamera }: ScreenProps & { id: string }) {
+function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: ScreenProps & { id: string }) {
   const { lang, booth } = useCheckUi();
   const voice = useVoice(model.data.soundMode);
   const env = model.data.env!;
@@ -129,7 +129,13 @@ function QuestionBody({ id, model, dispatch, api, retryCamera }: ScreenProps & {
         )}
         {view.list && <QuestionList view={view} />}
         {control.render(titleId)}
-        <StartStatus model={model} dispatch={dispatch} api={api} retryCamera={retryCamera} />
+        <StartStatus
+          model={model}
+          dispatch={dispatch}
+          api={api}
+          retryCamera={retryCamera}
+          retrySave={retrySave}
+        />
       </div>
     </CheckShell>
   );

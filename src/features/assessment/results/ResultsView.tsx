@@ -56,16 +56,6 @@ export function saveStateOf(o: {
 }
 
 /**
- * Try again of a save: the outbox of the check (useCheckFlow) sends what waits whenever the page is
- * shown again, so the same signal asks it to send now.
- */
-// SPEC-GAP: retry-save. Screens get no call to flush the outbox; the page shown signal is the one
-// useCheckFlow listens to (see the foundation requests: a retrySave in the screen props).
-export function requestOutboxFlush(): void {
-  if (typeof document !== "undefined") document.dispatchEvent(new Event("visibilitychange"));
-}
-
-/**
  * The register link of the booth QR (S50, S57): the public site's sign up, never this visit's data.
  * `app=1` opens the account page App.tsx has today; `register=1` names the sign up (UX spec S50).
  */
@@ -109,7 +99,7 @@ function useEntryCue(play: boolean) {
   }, [play]);
 }
 
-export function ResultsScreen({ model, dispatch, api }: ScreenProps) {
+export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) {
   const ui = useCheckUi();
   const { lang } = ui;
   const d = model.data;
@@ -181,6 +171,12 @@ export function ResultsScreen({ model, dispatch, api }: ScreenProps) {
     <CheckShell
       brand
       sound
+      // S51 and S52: the top bar ✕ returns to Today (the check is over, so it is not Exit).
+      close={
+        guest
+          ? undefined
+          : { label: t(lang, "assessment.common.backToToday"), onClick: () => dispatch({ type: "EXIT" }) }
+      }
       footer={
         guest
           ? booth
@@ -223,7 +219,7 @@ export function ResultsScreen({ model, dispatch, api }: ScreenProps) {
           <ErrorState
             title={t(lang, "assessment.state.error.title")}
             body={t(lang, "assessment.state.error.body")}
-            onRetry={requestOutboxFlush}
+            onRetry={retrySave}
           />
         )}
         <ScreenIdChip id={screen} />

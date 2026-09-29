@@ -186,7 +186,8 @@ export function useVoice(mode: SoundMode | null): Voice {
         const hear = audible(u.sound.on, mode);
         setCurrent(i);
         opts.onLine?.(i);
-        u.showCaption(line.display, severity, hear);
+        // The caption's tap plays this line again (3.0).
+        u.showCaption(line.display, severity, hear, () => void play([item], opts));
         let played = false;
         if (hear) {
           if ("cue" in item) played = await playFile(`/cues/${u.lang}/${item.cue}.mp3`, run);

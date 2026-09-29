@@ -399,5 +399,8 @@ export function useCheckFlow(opts: CheckFlowOptions) {
     location.reload();
   }, []);
 
-  return { model, dispatch, api, queue, status, retryCamera };
+  /** The save error's Try again (S50 to S52): send what waits in the outbox now. */
+  const retrySave = useCallback(() => void flush(), [flush]);
+
+  return { model, dispatch, api, queue, status, retryCamera, retrySave };
 }

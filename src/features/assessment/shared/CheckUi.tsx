@@ -14,6 +14,8 @@ export interface Caption {
   severity: CaptionSeverity;
   /** True while the audio of this line plays (the hidden announcer stays silent, 9.5). */
   speaking: boolean;
+  /** Plays the line's audio again (the caption's tap, 3.0); without it the text shows again. */
+  replay?: () => void;
 }
 
 export interface CheckUi {
@@ -28,8 +30,10 @@ export interface CheckUi {
   saveAuth: boolean;
   sound: { on: boolean; toggle(): void };
   caption: Caption | null;
-  showCaption(text: string, severity?: CaptionSeverity, speaking?: boolean): void;
+  /** Shows the line being spoken; `replay` plays it again when the caption is tapped. */
+  showCaption(text: string, severity?: CaptionSeverity, speaking?: boolean, replay?: () => void): void;
   clearCaption(): void;
+  /** The caption's tap: replays the line's audio (its `replay`), or shows the text again. */
   replayCaption(): void;
   onLanguage(): void;
   /** Opens the leave dialog (S15); undefined where leaving is not offered. */

@@ -1,8 +1,9 @@
 /**
  * CheckShell (UX spec 3.0, 5.2): every non camera screen of the check.
  *
- *   top bar     Back, the step counter, the booth badge, Sound, Exit (the language switch only on the
- *               entry screens S05, S05b, S12, S14, S54, S55)
+ *   top bar     Back, the step counter, the booth badge, Sound, Exit or a screen's own close control
+ *               (S51, S52); the language switch only on the entry screens S05, S05b, S12, S14, S54, S55
+ *   content     an optional line above the caption (S41), then the caption slot
  *   bar         6 px progress bar (role progressbar, labelled by the counter, aria-valuetext)
  *   banners     the sound off line, the offline banner (0.7)
  *   content     caption slot, optional wordmark header, the screen, 16 px gutters, 560 px column
@@ -63,6 +64,13 @@ export interface CheckShellProps {
   footer?: { primary?: ButtonSpec; secondary?: ButtonSpec; call?: CallLinkProps[] };
   /** A notice at the top of the sticky header, above the top bar (S54: the example banner). */
   notice?: ReactNode;
+  /** A line that sits above the caption strip (S41: the stay put line, as the spec draws it). */
+  aboveCaption?: ReactNode;
+  /**
+   * A top bar close control (✕) with its own action and name, where the screen offers one that is not
+   * leaving the check (S51, S52: Return to Today). It takes the Exit position.
+   */
+  close?: { label: string; onClick(): void };
   children: ReactNode;
 }
 
@@ -105,6 +113,8 @@ export function CheckShell({
   sound = false,
   footer,
   notice,
+  aboveCaption,
+  close,
   children,
 }: CheckShellProps) {
   const ui = useCheckUi();
@@ -189,15 +199,27 @@ export function CheckShell({
               {t(lang, "assessment.common.language")}
             </button>
           )}
-          {exit && ui.requestLeave && (
+          {close ? (
             <button
               type="button"
-              className="check-icon-button check-exit"
-              onClick={ui.requestLeave}
-              aria-label={t(lang, "assessment.common.exit")}
+              className="check-icon-button check-exit check-close"
+              onClick={close.onClick}
+              aria-label={close.label}
             >
               <CheckIcon name="close" />
             </button>
+          ) : (
+            exit &&
+            ui.requestLeave && (
+              <button
+                type="button"
+                className="check-icon-button check-exit"
+                onClick={ui.requestLeave}
+                aria-label={t(lang, "assessment.common.exit")}
+              >
+                <CheckIcon name="close" />
+              </button>
+            )
           )}
         </div>
         {counter && (
@@ -231,6 +253,7 @@ export function CheckShell({
               {sound && soundButton("inline")}
             </div>
           )}
+          {aboveCaption}
           {ui.caption && (
             <CaptionBar text={ui.caption.text} severity={ui.caption.severity} onReplay={ui.replayCaption} />
           )}

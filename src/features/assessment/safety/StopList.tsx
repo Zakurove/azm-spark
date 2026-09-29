@@ -111,12 +111,18 @@ export function StopList({ model, dispatch }: ScreenProps) {
       onKeyDown={() => setTouched(true)}
       onScrollCapture={() => setTouched(true)}
     >
-      <CheckShell exit={false} sound>
-        {!touched && !takeYourTime && (
-          <p className="safety-stay-put">
-            {bidiText(lang, t(lang, booth ? "assessment.test.answerBooth" : "assessment.stop.stayPut"))}
-          </p>
-        )}
+      <CheckShell
+        exit={false}
+        sound
+        aboveCaption={
+          !touched &&
+          !takeYourTime && (
+            <p className="safety-stay-put">
+              {bidiText(lang, t(lang, booth ? "assessment.test.answerBooth" : "assessment.stop.stayPut"))}
+            </p>
+          )
+        }
+      >
         <h1 id={titleId} className="safety-list-title">
           {bidiText(lang, view.ask)}
         </h1>

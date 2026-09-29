@@ -41,6 +41,7 @@ function render(name: string, lang: Lang): string {
     dispatch: () => undefined,
     api: {} as never,
     retryCamera: () => undefined,
+    retrySave: () => undefined,
   });
   return renderToStaticMarkup(
     createElement(CheckRoot, { ui: { lang, booth: true, guest: true }, children: screen }),

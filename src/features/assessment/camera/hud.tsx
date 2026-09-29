@@ -86,8 +86,10 @@ export function Dots({ dots, lang, physical }: { dots: AttemptDot[]; lang: Lang;
 /** "2 of 3" at 56 px, readable from 2 m (P3, hud.tryShort). */
 export function TryCounter({ n, total, lang }: { n: number; total: number; lang: Lang }) {
   return (
-    <span className="s34-try" aria-label={t(lang, "assessment.common.tryOf", { n, total })}>
+    // A span takes no aria-label (no role): the full words are read, the short form is shown.
+    <span className="s34-try">
       <span aria-hidden="true">{bidiText(lang, t(lang, "assessment.hud.tryShort", { n, total }))}</span>
+      <span className="check-visually-hidden">{t(lang, "assessment.common.tryOf", { n, total })}</span>
     </span>
   );
 }

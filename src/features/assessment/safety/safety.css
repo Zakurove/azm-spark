@@ -1,0 +1,478 @@
+/*
+ * Safety screens S36 to S49 and the stop, check in and alarm overlays (UX spec S36 to S49, 0.3 to 0.5,
+ * 4.1, 4.4). Scoped to .azm-check and built only from the check tokens (tokens.css): no colour literal.
+ *
+ * Sizes are in rem so text zoom scales them, and no query shrinks them. Red is STOP, the 997 call and
+ * the static safety frame only; nothing flashes or pulses; the reading highlight and the rings move in
+ * steps, never by animation.
+ */
+
+/* ------------------------------------------------------------------ S36 to S40b */
+
+.azm-check .safety-screen {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .safety-card {
+  position: relative;
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s4);
+  border: 1px solid var(--cream-border);
+  border-radius: var(--r-card);
+  background: var(--cream);
+}
+/* S36, S37: a 4 px red band at the inline start (decoration; the heading carries the meaning). */
+.azm-check .safety-card.has-band {
+  border-inline-start: 4px solid var(--red);
+}
+.azm-check .safety-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin: 0;
+}
+.azm-check .safety-heading-icon {
+  display: inline-flex;
+  flex: none;
+  margin-block-start: 0.35rem;
+}
+.azm-check .safety-screen.is-emergency .safety-heading-icon,
+.azm-check .safety-screen.is-ad .safety-heading-icon {
+  color: var(--red);
+}
+/* The ambulance number: a label and the number as text of at least 64 px (Q22). */
+.azm-check .safety-number {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+  margin: 0;
+}
+.azm-check .safety-number-label {
+  font-size: var(--t-body);
+  font-weight: 700;
+}
+.azm-check .safety-number-value {
+  font-size: 4rem;
+  line-height: 1.1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* The sentence stack: 22 px at line height 1.8; the sentence being read has a 4 px purple bar. */
+.azm-check .safety-sentences {
+  display: grid;
+  gap: var(--s2);
+}
+.azm-check .safety-sentences p {
+  margin: 0;
+  padding-inline-start: var(--s3);
+  border-inline-start: 4px solid transparent;
+  line-height: 1.8;
+}
+.azm-check .safety-sentences.is-18 p {
+  font-size: var(--t-body);
+}
+.azm-check .safety-sentences.is-22 p {
+  font-size: 1.375rem;
+}
+.azm-check .safety-sentences.is-26 p {
+  font-size: 1.625rem;
+  font-weight: 600;
+}
+.azm-check .safety-sentences p.is-current,
+.azm-check .safety-extra h2.is-current {
+  border-inline-start-color: var(--purple);
+}
+.azm-check .safety-extra {
+  display: grid;
+  gap: var(--s2);
+  padding-block-start: var(--s3);
+  border-block-start: 1px solid var(--cream-border);
+}
+.azm-check .safety-extra h2 {
+  padding-inline-start: var(--s3);
+  border-inline-start: 4px solid transparent;
+}
+/* The AD card on S38 (O24-6): its heading and first sentence, opening on tap. */
+.azm-check .safety-collapsed {
+  border-block-start: 1px solid var(--cream-border);
+  padding-block-start: var(--s3);
+}
+.azm-check .safety-collapsed summary {
+  display: grid;
+  gap: var(--s1);
+  min-height: var(--h-ghost);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.azm-check .safety-collapsed-heading {
+  font-size: var(--t-h2);
+  font-weight: 700;
+}
+.azm-check .safety-collapsed-first {
+  font-size: 1.375rem;
+  line-height: 1.8;
+}
+.azm-check .safety-listen {
+  min-height: var(--h-cta);
+}
+.azm-check .safety-listen.is-inline {
+  width: auto;
+  min-height: var(--h-ghost);
+}
+.azm-check .safety-kept,
+.azm-check .safety-paused {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ answer screens (S38b, S47 to S49) */
+
+.azm-check .safety-question {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .safety-kicker {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+/* The question read from the chair: 40 px (4.1). */
+.azm-check .safety-stage-question {
+  font-size: 2.5rem;
+  line-height: 1.35;
+  font-weight: 800;
+}
+.azm-check .safety-take-time {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--purple);
+}
+.azm-check .safety-intro {
+  color: var(--ink);
+}
+/* Answer zones in their tap form: 120 px, in data order, number and icon at 40 px (4.7, 7.2-1). */
+.azm-check .safety-zones {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .safety-zone {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 120px;
+  padding: var(--s3) var(--s4);
+  border: 3px solid var(--purple);
+  border-radius: var(--r-hud);
+  background: var(--card);
+  color: var(--ink);
+  text-align: start;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.azm-check .safety-zone:hover {
+  background: var(--purple-tint);
+}
+.azm-check .safety-zone[aria-pressed="true"] {
+  background: var(--purple-tint);
+  box-shadow: inset 0 0 0 3px var(--purple);
+}
+.azm-check .safety-zone.is-large {
+  min-height: 160px;
+  border-color: var(--gold-ink);
+  background: var(--gold);
+}
+.azm-check .safety-zone.is-large:hover {
+  background: var(--gold-hover);
+}
+.azm-check .safety-zone-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s1);
+  color: var(--purple);
+}
+.azm-check .safety-zone.is-large .safety-zone-mark {
+  color: var(--ink);
+}
+.azm-check .safety-zone-number {
+  font-size: 2.5rem;
+  line-height: 1;
+  font-weight: 800;
+}
+.azm-check .safety-zone-label {
+  flex: 1;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.azm-check .safety-zone-label.is-40 {
+  font-size: 2.5rem;
+  line-height: 1.25;
+}
+.azm-check .safety-zone-label.is-28 {
+  font-size: 1.75rem;
+  line-height: 1.35;
+}
+.azm-check .safety-zone-line {
+  font-size: 1.75rem;
+  line-height: 1.5;
+  font-weight: 700;
+}
+.azm-check .safety-count {
+  font-size: 6rem;
+  line-height: 1.1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.azm-check .safety-count-input {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .safety-count-field {
+  width: 100%;
+  min-height: 72px;
+  padding: var(--s2) var(--s4);
+  border: 2px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-align: center;
+}
+.azm-check .safety-count-field[aria-invalid="true"] {
+  border-color: var(--warn-ink);
+}
+
+/* STOP on the answer screens and in the overlays: full width, red, 72 px, sticky at the bottom. */
+.azm-check .safety-stop-zone {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  padding: var(--s3) var(--gutter) calc(var(--s3) + env(safe-area-inset-bottom));
+  background: var(--page);
+}
+/* S43 and S44: a 24 px inert gap between STOP and the controls above it (0.5). */
+.azm-check .safety-stop-zone.has-gap {
+  margin-block-start: var(--s6);
+}
+.azm-check .safety-stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  min-height: var(--h-stop);
+  margin: 0 auto;
+  border: 0;
+  border-radius: 18px;
+  background: var(--red);
+  color: var(--on-red);
+  font-size: 1.625rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+html:has(.azm-check .safety-stop-zone) {
+  scroll-padding-bottom: 112px;
+}
+
+/* ------------------------------------------------------------------ S41, S44 (dialogs over the stage) */
+
+.azm-check .safety-overlay {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+}
+.azm-check .safety-overlay > .check-page-inner {
+  flex: 1;
+}
+.azm-check .safety-stay-put {
+  font-size: 1.75rem;
+  line-height: 1.5;
+  font-weight: 700;
+}
+.azm-check .safety-list-title {
+  font-size: 1.875rem;
+  line-height: 1.4;
+  font-weight: 800;
+}
+.azm-check .safety-list-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.azm-check .safety-stop-group {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .safety-stop-group + .safety-stop-group {
+  margin-block-start: var(--s6);
+}
+.azm-check .safety-stop-row {
+  min-height: var(--h-answer);
+}
+.azm-check .safety-stop-row-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--purple);
+}
+.azm-check .safety-call-first {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .safety-need-stop {
+  justify-self: start;
+}
+
+/* ------------------------------------------------------------------ S43, S45 (the safety stage) */
+
+/* The whole stage turns cream with a static 8 px red frame: visible from 3 m, never flashing (4.4). */
+.azm-check .safety-stage {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+}
+.azm-check .safety-stage::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  border: 8px solid var(--red);
+  pointer-events: none;
+}
+.azm-check .safety-stage-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--topbar);
+  padding: calc(var(--s2) + env(safe-area-inset-top)) calc(var(--gutter) + 8px) 0;
+}
+.azm-check .safety-stage-body {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: var(--s4);
+  width: 100%;
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--s3) calc(var(--gutter) + 8px) var(--s8);
+}
+/* The short form (at most 3 words) with its 160 px pictogram, 56 px (4.1). */
+.azm-check .safety-short {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  margin: 0;
+  font-size: 3.5rem;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--ink);
+}
+.azm-check .safety-short svg {
+  flex: none;
+  width: 6rem;
+  height: 6rem;
+  color: var(--purple);
+}
+/* The check in question and the alarm heading: 56 px, weight 800 (4.1). */
+.azm-check .safety-stage-title {
+  font-size: 3.5rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+.azm-check .safety-stage-caption {
+  cursor: default;
+}
+/* The ring of the 15 s (no numbers, aria-hidden), centred under the answers. */
+.azm-check .safety-stage-body > .safety-ring {
+  justify-self: center;
+}
+/* S45: the 120 px «أنا بخير» button, the only touch that silences the tone. */
+.azm-check .safety-fine {
+  min-height: 120px;
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+.azm-check .safety-staff {
+  font-size: 1.375rem;
+  font-weight: 800;
+}
+.azm-check .safety-still {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ rings */
+
+.azm-check .safety-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.azm-check .safety-ring svg {
+  transform: rotate(-90deg);
+}
+.azm-check .safety-ring-track,
+.azm-check .safety-ring-fill {
+  fill: none;
+  stroke-width: 8;
+}
+.azm-check .safety-ring-track {
+  stroke: var(--line);
+}
+.azm-check .safety-ring-fill {
+  stroke: var(--purple);
+}
+.azm-check .safety-ring-label {
+  position: absolute;
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ S42, S46, S46b */
+
+.azm-check .safety-notice {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .safety-rest {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+.azm-check .safety-skip-rows {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+  padding: var(--s4);
+  list-style: none;
+}
+.azm-check .safety-skip-rows li + li {
+  padding-block-start: var(--s3);
+  border-block-start: 1px solid var(--line);
+}
+.azm-check .safety-skip-side {
+  font-weight: 600;
+}
+/* S46b: two equally prominent buttons, stacked 16 px apart (Q19 (7)). */
+.azm-check .safety-equal {
+  display: grid;
+  gap: var(--s4);
+}
+
+/* The caption on the safety stage: the full sentence at 34 px, never cut (4.1, 4.3). */
+.azm-check .safety-stage-caption .check-caption-text {
+  font-size: 2.125rem;
+  line-height: 1.35;
+  font-weight: 750;
+}

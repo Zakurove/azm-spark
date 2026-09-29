@@ -33,7 +33,7 @@ import {
   signIn,
   type Outcome,
 } from "./results-data";
-import { openGuest, openSignedIn, SAFETY_STATES } from "./safety-fixtures";
+import { model, openGuest, openSignedIn, SAFETY_STATES, seed } from "./safety-fixtures";
 
 type Lang = "ar" | "en";
 const LANGS: Lang[] = ["ar", "en"];
@@ -43,14 +43,21 @@ const url = (path: string, lang: Lang) =>
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
 /**
  * Reduced motion: the screen entry fade (0.5 check-enter) would be measured half way, which lowers
- * every contrast axe reads; the rules are about the screen at rest.
+ * every contrast axe reads; the rules are about the screen at rest. Each context comes from its own
+ * address (X-Forwarded-For, which the server reads from its one trusted hop), so the accounts this
+ * pass makes never use up the sign up limit of the other specs' address.
  */
-const PHONE = {
-  viewport: { width: 375, height: 812 },
-  isMobile: true,
-  hasTouch: true,
-  reducedMotion: "reduce" as const,
-};
+let address = 0;
+function phoneOptions() {
+  address += 1;
+  return {
+    viewport: { width: 375, height: 812 },
+    isMobile: true,
+    hasTouch: true,
+    reducedMotion: "reduce" as const,
+    extraHTTPHeaders: { "x-forwarded-for": `198.18.${address % 250}.${1 + Math.floor(address / 250)}` },
+  };
+}
 
 /**
  * Runs axe on the page as it is now and keeps every serious or critical violation. `within` limits it
@@ -72,7 +79,7 @@ async function audit(page: Page, where: string, problems: string[], within?: str
 }
 
 async function phone(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext(PHONE);
+  const context = await browser.newContext(phoneOptions());
   const page = await context.newPage();
   // No voices: every caption steps at its reading time (as in the shots specs).
   await page.addInitScript(() => {
@@ -210,19 +217,33 @@ for (const lang of LANGS) {
   test(`axe ${lang}: safety screens S36 to S49`, async ({ browser }) => {
     test.setTimeout(20 * 60_000);
     const problems: string[] = [];
+    // One account for every signed in state (a new tab each), so the run stays within the server's
+    // sign up limit of 30 an hour per address.
+    let signed: BrowserContext | null = null;
     for (const s of SAFETY_STATES) {
-      const context = await browser.newContext(PHONE);
-      const page = await context.newPage();
+      const own = s.signedIn ? null : await browser.newContext(phoneOptions());
+      const first = s.signedIn && !signed;
+      if (s.signedIn && !signed) signed = await browser.newContext(phoneOptions());
+      const page = await (own ?? signed!).newPage();
       await page.clock.install();
-      if (s.signedIn) await openSignedIn(page, lang, s.open);
-      else await openGuest(page, lang, s.open);
+      if (!s.signedIn) await openGuest(page, lang, s.open);
+      else if (first) await openSignedIn(page, lang, s.open);
+      else {
+        await seed(page, model({ ...s.open, mode: "signedIn", booth: false }), false);
+        await page.goto(url("/", lang));
+        await expect(page.locator(".azm-check").first()).toBeVisible();
+      }
       await expect(page.locator("[data-screen]").first()).toBeVisible();
       await page.clock.runFor(1_000);
       if (s.act) await s.act(page, lang);
       if (s.runMs) await page.clock.runFor(s.runMs);
       await audit(page, s.name, problems);
-      await context.close();
+      // An act may have taken the shared tab set offline.
+      await page.context().setOffline(false);
+      await page.close();
+      await own?.close();
     }
+    await signed?.close();
     expect(problems).toEqual([]);
   });
 

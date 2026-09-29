@@ -308,6 +308,7 @@
 .azm-check .flow-scale {
   display: grid;
   gap: var(--s2);
+  container-type: inline-size;
 }
 .azm-check .flow-scale-rows {
   display: grid;
@@ -352,6 +353,23 @@
 .azm-check .flow-scale-anchors > :last-child {
   grid-column: 3 / span 3;
   text-align: end;
+}
+/* Below about 360 px of room (320 px screens, 200 and 400 percent zoom) the scale takes three rows,
+   0 to 3, 4 to 7 and 8 to 10, with the same 52 x 64 targets, so nothing scrolls sideways (WCAG 1.4.10). */
+@container (max-width: 359.98px) {
+  .azm-check .flow-scale-rows,
+  .azm-check .flow-scale-anchors {
+    grid-template-columns: repeat(4, minmax(48px, 52px));
+  }
+  .azm-check .flow-scale-row {
+    display: contents;
+  }
+  .azm-check .flow-scale-anchors > :first-child {
+    grid-column: 1 / span 2;
+  }
+  .azm-check .flow-scale-anchors > :last-child {
+    grid-column: 3 / span 2;
+  }
 }
 .azm-check .flow-readout {
   min-height: 1.6em;
@@ -523,8 +541,13 @@
 }
 .azm-check .flow-practice-top {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   gap: var(--s3);
+}
+.azm-check .flow-practice-top .check-icon-button {
+  margin-inline-start: auto;
 }
 .azm-check .flow-practice-question {
   font-size: 2.5rem;
@@ -574,4 +597,16 @@
 }
 .azm-check .flow-release {
   min-height: var(--h-cta);
+}
+
+/* The Sound toast on a question (S17 to S24) sits under the top bar, never over an answer row near
+   the footer (the answers must stay readable and tappable while it shows). */
+.azm-check .check-page-inner:has([data-question]) > .check-toast {
+  top: calc(var(--check-topbar-h, 64px) + var(--s2));
+  bottom: auto;
+}
+
+/* Headings on the check screens break into even lines (never a lone «١٠.» or a ragged third line). */
+.azm-check :is(h1, h2) {
+  text-wrap: balance;
 }

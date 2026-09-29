@@ -275,7 +275,9 @@
 /* S41: STOP stays in its place, visible but inert while the list is open. The zone is not a control,
    so a second tap on the STOP point lands on nothing. */
 .azm-check .safety-stop-zone.is-inert .safety-stop {
-  opacity: 0.45;
+  border: 2px solid var(--red);
+  background: var(--page);
+  color: var(--red);
   cursor: default;
 }
 /* Keyboard focus is never hidden under the pinned STOP zone of an overlay. */

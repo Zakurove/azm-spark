@@ -20,17 +20,24 @@ export function SentenceStack({
   sentences,
   current,
   size = 22,
+  skipFirst = false,
 }: {
   block: string;
   sentences: readonly string[];
   /** The mark of the sentence being read ("<block>:<index>"), or null. */
   current: string | null;
   size?: 18 | 22 | 26;
+  /**
+   * The first sentence is the heading's own words («لنتوقف هنا»): it is spoken but not printed again
+   * under the heading (the marks keep their numbers).
+   */
+  skipFirst?: boolean;
 }) {
   const { lang } = useCheckUi();
   return (
     <div className={`safety-sentences is-${size}`}>
       {sentences.map((s, i) => {
+        if (skipFirst && i === 0) return null;
         const on = current === `${block}:${i}`;
         return (
           <p key={i} className={on ? "is-current" : undefined} aria-current={on ? "true" : undefined}>

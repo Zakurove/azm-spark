@@ -31,6 +31,7 @@ import { CheckShell, type CallLinkProps } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { CameraOnLine } from "../camera/CameraOnLine";
+import { sameWords } from "../camera/cues";
 import { useCameraWatch } from "../camera/watch";
 import { safetyView } from "./content";
 import { useSpeechSequence, useWakeLock } from "./hooks";
@@ -131,7 +132,13 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
                 <SentenceStack block={b.screen} sentences={b.sentences} current={seq.mark} />
               </section>
             ) : (
-              <SentenceStack key={b.screen} block={b.screen} sentences={b.sentences} current={seq.mark} />
+              <SentenceStack
+                key={b.screen}
+                block={b.screen}
+                sentences={b.sentences}
+                current={seq.mark}
+                skipFirst={b === view.blocks[0] && sameWords(b.sentences[0] ?? "", view.heading)}
+              />
             ),
           )}
         </section>

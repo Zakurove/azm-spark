@@ -7,7 +7,7 @@
  *                stepper), re-test (the same as last time), or lighter choices after a practice that
  *                was not easy (the step down)
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import type { LoadKind } from "../../../medical/assessment";
@@ -21,7 +21,9 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { kgRange, loadArms, loadChoices, loadSummary, sideLabel, stepDownChoices, type Load } from "./copy";
 import { KgStepper, SamePress } from "./parts";
+import { CameraOnLine } from "../camera/CameraOnLine";
 import { useCameraWatch } from "../camera/watch";
+import { CaptionBar } from "../shared/CaptionBar";
 import { useEntryLines, useVoice } from "./voice";
 
 function useCounter(model: ScreenProps["model"]) {
@@ -89,9 +91,16 @@ function GripQuestion({ model, dispatch }: ScreenProps) {
  * STOP stays at the bottom, first in the focus order, as on every camera state.
  */
 function PracticeCheck({ model, dispatch }: ScreenProps) {
-  const { lang, booth } = useCheckUi();
-  // The camera behind the question keeps the check in armed (4.8 answer zone states).
-  useCameraWatch(model, dispatch);
+  const ui = useCheckUi();
+  const { lang, booth } = ui;
+  // The camera behind the question keeps the check in armed (4.8 answer zone states); the screen says
+  // it is on while it runs (principle 13).
+  const cameraOn = useCameraWatch(model, dispatch);
+  // STOP first: it takes focus when the screen opens, as on every camera state (principle 6).
+  const stopRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    stopRef.current?.focus({ preventScroll: true });
+  }, []);
   const voice = useVoice(model.data.soundMode);
   const s = model.state as { i: number; side: number };
   const item = model.data.tests[s.i]?.sides[s.side];
@@ -104,9 +113,10 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
   useEntryLines(voice, [lang === "ar" ? { display: q.ar, speech: q.arTts } : { display: q.en }], true);
   const counter = useCounter(model);
   return (
-    <div className="flow-practice" data-screen="S29" data-variant="practice">
+    <main className="flow-practice" data-screen="S29" data-variant="practice">
       <button
         type="button"
+        ref={stopRef}
         className="check-stop flow-practice-stop"
         data-stop=""
         aria-label={t(lang, "assessment.stop.buttonLabel")}
@@ -118,7 +128,21 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
       <div className="flow-practice-top">
         {counter && <p className="check-meta">{bidiText(lang, counter.text)}</p>}
         <p className="check-meta">{sideLabel("arm_curl_30s", side, lang)}</p>
+        <button
+          type="button"
+          className="check-icon-button"
+          onClick={ui.sound.toggle}
+          aria-pressed={ui.sound.on}
+          aria-label={t(lang, "assessment.common.sound")}
+        >
+          <CheckIcon name={ui.sound.on ? "speaker" : "speaker-off"} />
+        </button>
       </div>
+      <CameraOnLine on={cameraOn} />
+      {/* The line being spoken, with its replay (3.0): every spoken line is captioned. */}
+      {ui.caption && (
+        <CaptionBar text={ui.caption.text} severity={ui.caption.severity} onReplay={ui.replayCaption} />
+      )}
       <h1 id="flow-practice-q" className="flow-practice-question">
         {bidiText(lang, q[lang])}
       </h1>
@@ -137,7 +161,7 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
           {t(lang, "assessment.common.no")}
         </button>
       </div>
-    </div>
+    </main>
   );
 }
 

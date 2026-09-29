@@ -142,6 +142,12 @@ export interface PlayOptions {
   severity?: CaptionSeverity;
   /** Called with the index of the line that starts (the SentenceStack highlight). */
   onLine?: (i: number | null) => void;
+  /**
+   * The lines are the screen's own text, already shown in its body (the question, the helper line,
+   * the postpone text): they are spoken and highlighted there, and the caption strip stays empty
+   * rather than repeating them above themselves.
+   */
+  onScreen?: boolean;
 }
 
 export interface Voice {
@@ -186,8 +192,9 @@ export function useVoice(mode: SoundMode | null): Voice {
         const hear = audible(u.sound.on, mode);
         setCurrent(i);
         opts.onLine?.(i);
-        // The caption's tap plays this line again (3.0).
-        u.showCaption(line.display, severity, hear, () => void play([item], opts));
+        // The caption's tap plays this line again (3.0); a line already in the body is not repeated.
+        if (opts.onScreen) u.clearCaption();
+        else u.showCaption(line.display, severity, hear, () => void play([item], opts));
         let played = false;
         if (hear) {
           if ("cue" in item) played = await playFile(`/cues/${u.lang}/${item.cue}.mp3`, run);
@@ -196,7 +203,7 @@ export function useVoice(mode: SoundMode | null): Voice {
         if (run.stopped) return;
         if (!played) {
           // Nothing heard: the caption stays for its reading time and the announcer reads it.
-          uiRef.current.showCaption(line.display, severity, false);
+          if (!opts.onScreen) uiRef.current.showCaption(line.display, severity, false);
           await sleep(captionMs(line.display), run);
         }
       }

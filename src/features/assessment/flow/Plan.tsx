@@ -240,7 +240,8 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
     : t(lang, "assessment.helper.noWeakerSide");
   // The arm tests' briefing (O34-2 (2)) is the check in line and the confirm only.
   const all: SpeechLine[] = screen ? [...lines, { display: sideLine }, checkInLine] : [checkInLine];
-  useEntryLines(voice, all, true);
+  // The helper briefing is the screen's body (the sentence being read is highlighted there).
+  useEntryLines(voice, all, true, { onScreen: true });
   const current = voice.current !== null && voice.current < lines.length && screen ? voice.current : null;
   return (
     <CheckShell
@@ -287,7 +288,7 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
             {bidiText(lang, checkInLine.display)}
           </p>
         </div>
-        <ListenButton onClick={() => void voice.play(all)} />
+        <ListenButton onClick={() => void voice.play(all, { onScreen: true })} />
       </div>
     </CheckShell>
   );

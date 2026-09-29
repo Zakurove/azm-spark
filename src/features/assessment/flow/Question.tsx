@@ -89,9 +89,10 @@ function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: Scre
   const titleId = useId();
   const back = !starting && backTarget(model) ? () => dispatch({ type: "BACK" }) : undefined;
   const autoplay = model.data.setting === "home" && !booth && model.data.soundMode === "voice";
-  useEntryLines(voice, view.speech, autoplay);
+  // The question and its answers are on the screen: spoken, never repeated in the caption strip.
+  useEntryLines(voice, view.speech, autoplay, { onScreen: true });
   const answer = (value: AnswerValue) => dispatch({ type: "ANSWER", id, value });
-  const listen = () => void voice.play(view.speech);
+  const listen = () => void voice.play(view.speech, { onScreen: true });
   const control = useControl(view, model.data.answers[id], answer);
 
   return (

@@ -34,7 +34,8 @@ export function Postponed({ model, dispatch }: ScreenProps) {
   const calls = callsFor(body);
   const when = sci ? null : whenOfLock(model.data.lock, Date.now(), "start");
   const list = sci ? ((precheckItem("pc_sci_ready") as PrecheckItem).list?.[lang] ?? []) : [];
-  useEntryLines(voice, sci ? [] : [{ cue: "check_postpone" }], !sci);
+  // check_postpone says what the title and the body already show: spoken, not captioned again.
+  useEntryLines(voice, sci ? [] : [{ cue: "check_postpone" }], !sci, { onScreen: true });
   const exit = {
     label: t(lang, guest ? "assessment.guest.staff.restart" : "assessment.common.backToToday"),
     onClick: () => dispatch({ type: "EXIT" }),
@@ -78,7 +79,9 @@ export function Postponed({ model, dispatch }: ScreenProps) {
             label={n === "997" ? CHECK_DATA.emergencyCall.button[lang] : t(lang, "assessment.common.call937")}
           />
         ))}
-        {!sci && <ListenButton onClick={() => void voice.play([{ cue: "check_postpone" }])} />}
+        {!sci && (
+          <ListenButton onClick={() => void voice.play([{ cue: "check_postpone" }], { onScreen: true })} />
+        )}
         {/* A booth visitor has no account and the lock ends with the visit: the staff line, as the
             safety screens show it for guests, never "try again tomorrow after ...". */}
         {!sci && (

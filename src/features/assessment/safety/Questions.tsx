@@ -28,10 +28,10 @@ import {
   testDef,
 } from "../../../movements/assessments";
 import type { ScreenId } from "../../../movements/types";
-import { parseNumberInput } from "../shared/format";
 import { cameraRunning, outcomeKey } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { CheckShell } from "../shared/CheckShell";
+import { CountStepper, parseCount } from "../shared/CountStepper";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { EMPHASIS, emphasise, endQuestionView, sideOfState, sideWords } from "./content";
@@ -198,8 +198,6 @@ export function Between({ model, dispatch }: ScreenProps) {
  * read back for 3 s. A different count is typed at the phone (0 to 60, Arabic Indic and Persian digits
  * accepted).
  */
-// SPEC-GAP: count-self. The flow keeps the typed count as AFTER_ANSWER's value; storing it as the
-// result with countSource self (O22) is the flow's and the camera stream's.
 export function AfterTest({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
   const kind = model.state.kind;
@@ -267,45 +265,30 @@ const COUNT_MIN = 0;
 const COUNT_MAX = 60;
 
 /**
- * The count typed at the phone (S48 count check), 0 to 60. Arabic Indic and Persian digits are read
- * as numbers (parseNumberInput) and the value is shown back in the page's digits (Q30).
+ * The count at the phone (S48 count check), 0 to 60, with the S30 stepper look (CountStepper): minus
+ * and plus, or typed with Arabic Indic and Persian digits read as numbers, shown back in the page's
+ * digits (Q30). The flow stores it with countSource 'self' (O22).
  */
-// SPEC-GAP: count-stepper. S48 asks for the S30 stepper look; its minus and plus controls need labels
-// the copy does not have yet (asked for in the result), so the count is typed in one large field.
 export function CountInput({ initial, onDone }: { initial: number; onDone(n: number): void }) {
   const { lang } = useCheckUi();
   const [text, setText] = useState(localDigits(lang, initial));
   const [error, setError] = useState(false);
-  const fieldId = useId();
-  const errorId = useId();
-  const value = parseNumberInput(text);
-  const valid = value !== null && Number.isInteger(value) && value >= COUNT_MIN && value <= COUNT_MAX;
+  const value = parseCount(text, COUNT_MIN, COUNT_MAX);
   return (
     <div className="safety-count-input">
-      <label htmlFor={fieldId} className="check-h2">
-        {t(lang, "assessment.count.howMany")}
-      </label>
-      <input
-        id={fieldId}
-        className="safety-count-field"
-        inputMode="numeric"
-        autoComplete="off"
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
+      <CountStepper
+        label={t(lang, "assessment.count.howMany")}
+        text={text}
+        onText={(v) => {
+          setText(v);
           setError(false);
         }}
-        onBlur={() => valid && setText(localDigits(lang, value!))}
-        aria-invalid={error || undefined}
-        aria-describedby={error ? errorId : undefined}
+        min={COUNT_MIN}
+        max={COUNT_MAX}
+        invalid={error}
       />
       <p className="check-hint">{t(lang, "assessment.count.note")}</p>
-      {error && (
-        <p id={errorId} className="check-field-error" role="alert">
-          {bidiText(lang, t(lang, "assessment.vitals.range", { min: COUNT_MIN, max: COUNT_MAX }))}
-        </p>
-      )}
-      <button type="button" className="cta" onClick={() => (valid ? onDone(value!) : setError(true))}>
+      <button type="button" className="cta" onClick={() => (value !== null ? onDone(value) : setError(true))}>
         {t(lang, "assessment.common.continue")}
       </button>
     </div>

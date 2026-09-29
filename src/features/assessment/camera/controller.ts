@@ -1191,9 +1191,13 @@ export class CameraController {
       const waitRunner = this.timed && !!this.runner && this.model.data.run.practiced;
       if (!waitRunner) {
         this.setupSent = true;
-        // SPEC-GAP: how-to-stop-booth. B2 gives the booth its own line (intro.howToStopBooth), which
-        // the copy files do not have yet; the home line is said at the booth until it lands.
-        if (this.test.first) this.noteOnce("assessment.intro.howToStop", "info", true);
+        // B2: the booth has its own line (it names the team), the home line says how to answer.
+        if (this.test.first)
+          this.noteOnce(
+            this.test.setting === "booth" ? "assessment.intro.howToStopBooth" : "assessment.intro.howToStop",
+            "info",
+            true,
+          );
         this.emit({ type: "SETUP_OK" }, t);
       }
     }

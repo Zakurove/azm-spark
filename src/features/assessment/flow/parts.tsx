@@ -152,10 +152,23 @@ export function NoticeCard({
 }
 
 /** Listen control (48 px, ghost): plays the screen's lines again, each captioned. */
-export function ListenButton({ onClick, label }: { onClick(): void; label?: string }) {
+export function ListenButton({
+  onClick,
+  label,
+  size,
+}: {
+  onClick(): void;
+  label?: string;
+  /** large: the 64 px button of S22 at the booth (B16). */
+  size?: "large";
+}) {
   const { lang } = useCheckUi();
   return (
-    <button type="button" className="ghost flow-listen" onClick={onClick}>
+    <button
+      type="button"
+      className={`ghost flow-listen${size === "large" ? " is-large" : ""}`}
+      onClick={onClick}
+    >
       <CheckIcon name="speaker" />
       {label ?? t(lang, "assessment.common.listen")}
     </button>

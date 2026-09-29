@@ -88,7 +88,7 @@ for (const size of SIZES) {
 
       verify = { ok: false, closed: true };
       await turnOn.click();
-      await expect(page.getByRole("alert")).toHaveText(c.state.error.title);
+      await expect(page.getByRole("alert")).toHaveText(c.booth.closed);
       await shot(page, lang, size, "s55-error-closed");
 
       let release: () => void = () => undefined;

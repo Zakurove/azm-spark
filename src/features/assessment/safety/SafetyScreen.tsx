@@ -22,7 +22,7 @@
  * ended and 20 s have passed; on S39 when the screen is touched (at the booth, staff touch it once
  * the person is settled); and from the footer's Continue.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { emergencyCallButton } from "../../../movements/assessments";
@@ -98,6 +98,7 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
       >
         <section className={`check-card is-cream safety-card${view.band ? " has-band" : ""}`}>
           <SafetyHeading icon={view.icon} text={view.heading} />
+          {view.kind === "emergency" && <AdJump blocks={view.blocks} />}
           {view.bigNumber && <BigNumber />}
           {view.blocks.map((b) =>
             b.collapsed ? (
@@ -137,5 +138,51 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
         {view.boothStaff && <p className="check-body safety-paused">{view.boothStaff}</p>}
       </div>
     </CheckShell>
+  );
+}
+
+/**
+ * O12 (2): on S36 for SCI the AD card's heading and first action must be visible without scrolling.
+ * When a larger text setting pushes them below the fold, a 48 px link under the h1 moves focus to the
+ * card (assessment.safety.adJump). It is measured after layout and again on resize.
+ */
+function AdJump({
+  blocks,
+}: {
+  blocks: readonly { screen: string; heading?: string; collapsed?: boolean }[];
+}) {
+  const { lang } = useCheckUi();
+  const ad = blocks.find((b) => b.screen === "scr_ad" && b.heading && !b.collapsed);
+  const [below, setBelow] = useState(false);
+  useLayoutEffect(() => {
+    if (!ad) return;
+    const measure = () => {
+      const card = document.getElementById("safety-h-scr_ad")?.parentElement;
+      const first = card?.querySelector("h2 + *") ?? card?.querySelector("h2");
+      if (!first) return setBelow(false);
+      const footer = document.querySelector<HTMLElement>(".check-footer");
+      const fold = Math.min(window.innerHeight, footer?.getBoundingClientRect().top ?? window.innerHeight);
+      setBelow(first.getBoundingClientRect().bottom > fold);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [ad?.screen, lang]);
+  if (!ad || !below) return null;
+  return (
+    <a
+      className="safety-ad-jump"
+      href="#safety-h-scr_ad"
+      onClick={(e) => {
+        e.preventDefault();
+        const h = document.getElementById("safety-h-scr_ad");
+        if (!h) return;
+        h.tabIndex = -1;
+        h.scrollIntoView({ block: "start" });
+        h.focus();
+      }}
+    >
+      {t(lang, "assessment.safety.adJump")}
+    </a>
   );
 }

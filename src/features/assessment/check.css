@@ -295,6 +295,46 @@
   color: var(--warn-ink);
 }
 
+/* The count stepper (S48 self count, S57 staff count): the S30 stepper look, whole numbers. */
+.azm-check .check-stepper {
+  display: grid;
+  gap: var(--s2);
+}
+.azm-check .check-stepper-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.azm-check .check-stepper-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.azm-check .check-stepper-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.azm-check .check-stepper-input {
+  width: 6rem;
+  min-height: 56px;
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-h1);
+  font-weight: 700;
+  text-align: center;
+}
+
 /* Call controls (997 red fill, 937 purple outline), 64 px, always the first action. */
 .azm-check .check-call {
   display: flex;

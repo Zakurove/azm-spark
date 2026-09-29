@@ -90,7 +90,7 @@ for (const lang of LANGS) {
       const verify = page.waitForRequest("**/api/booth/verify");
       await turnOn.click();
       expect((await verify).postDataJSON()).toEqual({ code: "482913" });
-      await expect(page.getByRole("alert")).toHaveText(c.state.error.title);
+      await expect(page.getByRole("alert")).toHaveText(c.booth.closed);
       expect(await boothPass(page)).toBeNull();
 
       await page.route("**/api/booth/verify", (r) => json(r, { ok: false }));
@@ -100,7 +100,7 @@ for (const lang of LANGS) {
       await page.unroute("**/api/booth/verify");
       await page.route("**/api/booth/verify", (r) => json(r, { error: "RATE_LIMIT" }, 429));
       await turnOn.click();
-      await expect(page.getByRole("alert")).toHaveText(c.state.error.title);
+      await expect(page.getByRole("alert")).toHaveText(c.booth.limited);
 
       await context.setOffline(true);
       await turnOn.click();

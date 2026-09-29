@@ -50,7 +50,8 @@
       "startBlocked": "Starting the check needs an internet connection. Connect, then try again.",
       "back": "You are back online",
       "lastLoaded": "Last updated {date}",
-      "savedLater": "We will save your results when you are back online."
+      "savedLater": "We will save your results when you are back online.",
+      "pill": "Offline"
     }
   },
   "camera": {
@@ -275,7 +276,7 @@
     "illustrationAlt": "A person sitting on a chair, with a phone standing about two meters in front of them.",
     "start": "Start the questions",
     "welcomeBack": "Welcome back. We will compare the results of this check with your starting point.",
-    "howToStop": "If you want to stop during a test, stop moving. After a few moments we will ask you, and you can answer from where you are.",
+    "howToStop": "If you want to stop during a test, sit down if you are standing, lower your arms and stay still. After a few moments we will ask whether you are all right, and you can answer from where you are.",
     "allSeated": "All the tests in your check are done sitting.",
     "duration": "Today’s check takes about {minutesFrom} to {minutesTo} {unit}.",
     "need": {
@@ -293,7 +294,8 @@
       "shoes": "The same shoes at every check, or bare feet every time",
       "booth": "Everything you need is ready at the booth."
     },
-    "skipAny": "You can skip any test."
+    "skipAny": "You can skip any test.",
+    "howToStopBooth": "If you want to stop during a test, say Stop to one of our team, or sit down if you are standing, lower your arms and stay still."
   },
   "soundCheck": {
     "title": "Let’s make sure you can hear the sound",
@@ -331,7 +333,8 @@
     },
     "helperReads": "If someone is helping you, they can read the questions to you, and you give the answers.",
     "canListen": "You can listen to every question.",
-    "listenQuestion": "Listen to the question"
+    "listenQuestion": "Listen to the question",
+    "listenEarphones": "Listen to the list with the earphones"
   },
   "warnings": {
     "title": "Before you start",
@@ -574,7 +577,8 @@
     "kept": "Results of the tests you finished are kept.",
     "keptGuest": "Nothing is saved in this trial.",
     "boothStaff": "Our team is close by at the booth.",
-    "ambulanceNumber": "Ambulance number"
+    "ambulanceNumber": "Ambulance number",
+    "adJump": "Go to the steps for autonomic dysreflexia"
   },
   "stop": {
     "button": "Stop",
@@ -623,7 +627,10 @@
     "yes": "Yes",
     "no": "No, my count is different",
     "howMany": "How many did you count?",
-    "note": "We will show this count without comparing it with your starting point."
+    "note": "We will show this count without comparing it with your starting point.",
+    "decrease": "One fewer",
+    "increase": "One more",
+    "range": "Enter a number between {min} and {max}."
   },
   "symptom": {
     "kicker": "One last question"
@@ -636,7 +643,8 @@
     "seeOverTime": "See your checks over time",
     "endedEarlyTitle": "Today’s check ended early",
     "endedEarlyBody": "These are the results of what you finished.",
-    "noneMeasured": "We could not measure any test today. You can check again on another day."
+    "noneMeasured": "We could not measure any test today. You can check again on another day.",
+    "notReached": "We did not reach this test today."
   },
   "booth": {
     "title": "Booth staff mode",
@@ -660,7 +668,9 @@
     "visitorQrBody": "Ask the visitor to scan this code with their phone. It works for one check only.",
     "tokenOn": "Booth mode is on for this phone for this check only.",
     "tokenEnded": "Booth mode has ended on this phone. Please ask a staff member to turn it on again.",
-    "badgeHint": "Staff can press and hold here to start again for a new visitor."
+    "badgeHint": "Staff can press and hold here to start again for a new visitor.",
+    "closed": "Booth mode works only on booth days and during booth hours.",
+    "limited": "Too many tries. Wait a little, then try again."
   },
   "vitals": {
     "handoff": "Please ask a staff member to come to the phone",

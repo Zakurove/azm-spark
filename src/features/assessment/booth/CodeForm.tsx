@@ -21,11 +21,10 @@ export function codeErrorText(lang: Lang, e: CodeError): string {
       return t(lang, "assessment.state.offline.startBlocked");
     case "error":
       return t(lang, "assessment.state.error.body");
-    // SPEC-GAP: booth-closed-copy. No key says the booth is closed or that there were too many tries
-    // (asked of the copy owner); the general error title shows until one lands.
     case "closed":
+      return t(lang, "assessment.booth.closed");
     case "limited":
-      return t(lang, "assessment.state.error.title");
+      return t(lang, "assessment.booth.limited");
   }
 }
 

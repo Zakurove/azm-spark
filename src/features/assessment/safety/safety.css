@@ -95,6 +95,16 @@
   padding-inline-start: var(--s3);
   border-inline-start: 4px solid transparent;
 }
+/* O12 (2): the jump link to the AD card on S36, shown when the card is below the fold. */
+.azm-check .safety-ad-jump {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--purple);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
 /* The AD card on S38 (O24-6): its heading and first sentence, opening on tap. */
 .azm-check .safety-collapsed {
   border-block-start: 1px solid var(--cream-border);

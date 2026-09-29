@@ -10,6 +10,7 @@ import type { ReasonId, TestId } from "../src/movements/types";
 import type { StoredCheck } from "../src/features/assessment/api";
 import {
   buildResults,
+  NOT_REACHED,
   resultsMode,
   sharedReason,
   storedCheckModel,
@@ -131,12 +132,15 @@ describe("results cards (S50 to S52)", () => {
       {
         testId: "arm_curl_30s",
         sides: [
-          { side: "right", reason: "by_choice" },
-          { side: "left", reason: "by_choice" },
+          { side: "right", reason: NOT_REACHED },
+          { side: "left", reason: NOT_REACHED },
         ],
       },
     ]);
-    expect(build(facts, { mode: "guest" }).endedEarly).toBe(false);
+    const guest = build(facts, { mode: "guest" });
+    expect(guest.endedEarly).toBe(false);
+    // The guest chose "See my results now" (S46b): by choice, never "not reached".
+    expect(guest.notToday[0].sides.map((x) => x.reason)).toEqual(["by_choice", "by_choice"]);
   });
 
   it("says nothing was measured when every side is skipped or not measured (E state)", () => {

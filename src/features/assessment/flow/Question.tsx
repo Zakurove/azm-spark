@@ -116,8 +116,17 @@ function QuestionBody({ id, model, dispatch, api, retryCamera }: ScreenProps & {
         <h1 id={titleId} className={`check-question${view.question.length > 140 ? " is-long" : ""}`}>
           <Emphasized text={view.question} words={view.emphasis} />
         </h1>
-        {/* B16: at the booth nothing plays by itself; Listen comes first, above any list. */}
-        <ListenButton label={t(lang, "assessment.precheck.listenQuestion")} onClick={listen} />
+        {/* B16: at the booth nothing plays by itself; Listen comes first, above any list. On S22 at the
+            booth it is the 64 px earphones button (staff offer the desk earphones to everyone). */}
+        {booth && view.kind === "listConfirm" ? (
+          <ListenButton
+            label={t(lang, "assessment.precheck.listenEarphones")}
+            onClick={listen}
+            size="large"
+          />
+        ) : (
+          <ListenButton label={t(lang, "assessment.precheck.listenQuestion")} onClick={listen} />
+        )}
         {view.list && <QuestionList view={view} />}
         {control.render(titleId)}
         <StartStatus model={model} dispatch={dispatch} api={api} retryCamera={retryCamera} />

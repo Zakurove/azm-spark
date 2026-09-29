@@ -8,7 +8,7 @@
  *   - tests that did not run are listed under "Not today" and "Not part of your check" with their
  *     reasons in plain words, in neutral words, never styled as a miss (S27 groups).
  */
-import { t } from "../../../i18n";
+import { t, type Lang } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA, skipReasonText, testDef } from "../../../movements/assessments";
 import type { TestId } from "../../../movements/types";
@@ -16,13 +16,27 @@ import { isReasonId, resultSentence, resultUnitOf, sideLabel } from "../../progr
 import type { SeriesViewLike } from "../../progress/series";
 import { ThenNow, ValueNumber, type HeavierOfferState } from "../../progress/ThenNow";
 import { useCheckUi } from "../shared/CheckUi";
-import type { ResultCardModel, ResultRow, ResultsModel, SkipEntry } from "./model";
+import {
+  NOT_REACHED,
+  type ResultCardModel,
+  type ResultRow,
+  type ResultsModel,
+  type SkipEntry,
+} from "./model";
 
-/** A reason in plain words (data:reasons), with the substitute sentence when it ran (P6). */
+/**
+ * A reason in plain words (data:reasons), with the substitute sentence when it ran (P6); a test left
+ * when a signed in check ended early reads assessment.results.notReached.
+ */
+function reasonWords(lang: Lang, reason: string, substituteRan?: boolean): string {
+  if (reason === NOT_REACHED) return t(lang, "assessment.results.notReached");
+  return isReasonId(reason) ? skipReasonText(reason, lang, { substituteRan }) : "";
+}
+
 function ReasonText({ reason, substituteRan }: { reason: string; substituteRan?: boolean }) {
   const { lang } = useCheckUi();
-  if (!isReasonId(reason)) return null;
-  return <>{bidiText(lang, skipReasonText(reason, lang, { substituteRan }))}</>;
+  const words = reasonWords(lang, reason, substituteRan);
+  return words ? <>{bidiText(lang, words)}</> : null;
 }
 
 function Row({
@@ -144,9 +158,7 @@ function SkipGroup({
               ) : (
                 e.sides.map((s) => {
                   const side = sideLabel(lang, e.testId, s.side);
-                  const reason = isReasonId(s.reason)
-                    ? skipReasonText(s.reason, lang, { substituteRan: s.substituteRan })
-                    : "";
+                  const reason = reasonWords(lang, s.reason, s.substituteRan);
                   return (
                     <p key={s.side} className="check-body">
                       {bidiText(lang, side ? t(lang, "assessment.plan.sideLine", { side, reason }) : reason)}

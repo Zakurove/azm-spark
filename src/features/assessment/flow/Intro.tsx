@@ -55,7 +55,8 @@ export function Intro({ model, dispatch }: ScreenProps) {
   const helperTests = ctx ? introHelperTests(tests, ctx, setting) : [];
   const loadPossible = !!ctx && ctx.clearance === "yes" && !ctx.restrictions.includes("no_resistance");
   const needs = introNeeds({ tests, position, setting, retest, helperTests, loadPossible });
-  const howToStop = t(lang, "assessment.intro.howToStop");
+  // B2: the booth line names the team; the home line says how to answer from where you are.
+  const howToStop = t(lang, booth ? "assessment.intro.howToStopBooth" : "assessment.intro.howToStop");
   const lines: SpeechItem[] = [
     { cue: "check_intro" },
     { cue: "check_stop_any_time" },

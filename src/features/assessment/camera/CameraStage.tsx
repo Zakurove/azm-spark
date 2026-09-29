@@ -122,7 +122,7 @@ export function CameraStage(p: CameraStageProps) {
           {!ui.online && (
             <span className="s34-pill is-offline" role="status">
               <CheckIcon name="wifi-off" size={20} />
-              <span className="check-visually-hidden">{t(lang, "assessment.state.offline.banner")}</span>
+              <span>{t(lang, "assessment.state.offline.pill")}</span>
             </span>
           )}
           <span className="s34-camera-on" role="img" aria-label={t(lang, "assessment.hud.cameraOn")}>

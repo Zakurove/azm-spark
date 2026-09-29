@@ -91,6 +91,12 @@
   justify-self: start;
   width: auto;
 }
+/* B16: the earphones button of S22 at the booth, 64 px, first above the list. */
+.azm-check .flow-listen.is-large {
+  min-height: 64px;
+  justify-self: stretch;
+  width: 100%;
+}
 
 /* S04: the text and the code side by side on a desk, stacked on a phone. */
 .azm-check .flow-desktop {

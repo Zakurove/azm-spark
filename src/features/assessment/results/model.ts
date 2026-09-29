@@ -18,6 +18,12 @@ import { outcomeKey, type FlowModel, type ResultPayload, type SideOutcome } from
 
 export type ResultsMode = "guest" | "first" | "retest";
 
+/**
+ * The reason of a test left when a signed in check ended early (not a data reason id): shown as
+ * assessment.results.notReached.
+ */
+export const NOT_REACHED = "not_reached";
+
 export interface ResultRow {
   side: TestSide;
   status: "measured" | "notMeasured";
@@ -131,12 +137,13 @@ export function buildResults(o: {
         break;
       case "notReached":
         // The guest chose "See my results now" (S46b, by_choice), or a signed in check ended before
-        // this test.
-        // SPEC-GAP: ended-early-reason. A test left when a signed in check ends early has no reason of
-        // its own; it is named with by_choice, the reason of the S42 "end" and of the guest's early
-        // results.
+        // this test (assessment.results.notReached).
         notReached = true;
-        states.set(key, { kind: "skip", reason: "by_choice", dayLevel: true });
+        states.set(key, {
+          kind: "skip",
+          reason: o.mode === "guest" ? "by_choice" : NOT_REACHED,
+          dayLevel: true,
+        });
         break;
     }
   }

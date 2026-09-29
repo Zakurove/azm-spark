@@ -13,7 +13,7 @@
  */
 import { useId, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
-import { formatNumber, t } from "../../../i18n";
+import { formatNumber, localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA } from "../../../movements/assessments";
 import type { CheckPosition, Side, TestId } from "../../../movements/types";
@@ -63,6 +63,29 @@ export function Emphasized({ text, words }: { text: string; words: readonly stri
           <strong key={i}>{bidiText(lang, p.text)}</strong>
         ) : (
           <span key={i}>{bidiText(lang, p.text)}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * A text holding a clock time («بعد الساعة ٣:١٥ مساءً»): the time is one left to right unit, so its
+ * hours never swap with its minutes inside right to left text; the rest reads as bidiText.
+ */
+export function TimeText({ text }: { text: string }) {
+  const { lang } = useCheckUi();
+  const parts = text.split(/(\d{1,2}:\d{2})/);
+  if (parts.length === 1) return <>{bidiText(lang, text)}</>;
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 === 1 ? (
+          <bdi key={i} dir="ltr" className="flow-time">
+            {localizeDigits(lang, p)}
+          </bdi>
+        ) : (
+          <span key={i}>{bidiText(lang, p)}</span>
         ),
       )}
     </>
@@ -516,6 +539,25 @@ export function TopDownDrawing({ alt, weaker, stand }: { alt: string; weaker: Si
         )}
         <rect x={phoneX - 9} y="160" width="18" height="28" rx="4" className="flow-draw-accent" />
         <path d={`M160 66L${phoneX} 158`} className="flow-draw-dash" />
+      </svg>
+    </figure>
+  );
+}
+
+/**
+ * The Q9 chair picture (S28 chair stand at home, Appendix B): a firm dining chair against a wall with
+ * the support in front. Decorative: the gate question itself names what it shows.
+ */
+export function ChairGateDrawing() {
+  return (
+    <figure className="flow-drawing is-small" aria-hidden="true">
+      <svg viewBox="0 0 320 150">
+        <rect x="0" y="0" width="320" height="150" rx="14" className="flow-draw-bg" />
+        <line x1="60" y1="20" x2="60" y2="130" className="flow-draw-line" />
+        <line x1="20" y1="130" x2="300" y2="130" className="flow-draw-line" />
+        <path d="M72 130V58M72 88h52v42M72 88v42" className="flow-draw-stroke" />
+        <rect x="190" y="72" width="80" height="12" rx="4" className="flow-draw-accent" />
+        <path d="M200 84v46M260 84v46" className="flow-draw-stroke" />
       </svg>
     </figure>
   );

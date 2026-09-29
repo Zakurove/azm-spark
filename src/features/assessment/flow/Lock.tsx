@@ -20,7 +20,7 @@ import { CallLink, CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { callsFor, pausedLine, postponeScreen, whenOfLock } from "./copy";
-import { ListenButton, SentenceStack } from "./parts";
+import { ListenButton, SentenceStack, TimeText } from "./parts";
 import { useEntryLines, useVoice } from "./voice";
 
 export function Postponed({ model, dispatch }: ScreenProps) {
@@ -79,7 +79,11 @@ export function Postponed({ model, dispatch }: ScreenProps) {
           />
         ))}
         {!sci && <ListenButton onClick={() => void voice.play([{ cue: "check_postpone" }])} />}
-        {!sci && <p className="check-body">{bidiText(lang, pausedLine(lang, when))}</p>}
+        {!sci && (
+          <p className="check-body">
+            <TimeText text={pausedLine(lang, when)} />
+          </p>
+        )}
       </div>
     </CheckShell>
   );
@@ -120,7 +124,9 @@ export function PausedToday({ model, dispatch }: ScreenProps) {
             <CheckIcon name="pause" />
           </span>
           <h1 id="flow-paused-title">{t(lang, "assessment.entry.locked.title")}</h1>
-          <p className="check-body">{bidiText(lang, pausedLine(lang, when))}</p>
+          <p className="check-body">
+            <TimeText text={pausedLine(lang, when)} />
+          </p>
         </section>
         {s?.releasable && !guest && (
           <button type="button" className="ghost flow-release" onClick={() => dispatch({ type: "RELEASE" })}>

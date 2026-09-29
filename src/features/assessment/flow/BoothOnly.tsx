@@ -46,7 +46,7 @@ export function BoothOnly({ dispatch }: ScreenProps) {
             }
       }
     >
-      <section className="check-card is-info" aria-labelledby="check-booth-only-title">
+      <section className="check-card is-info" aria-labelledby="check-booth-only-title" data-screen="S05b">
         <span className="check-card-icon">
           <CheckIcon name="info" />
         </span>

@@ -11,7 +11,7 @@ import { useState } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import type { LoadKind } from "../../../medical/assessment";
-import { cueLine, testDef } from "../../../movements/assessments";
+import { testDef } from "../../../movements/assessments";
 import type { Side } from "../../../movements/types";
 import { backTarget, testCounter } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
@@ -95,7 +95,10 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
   const side = (item?.side === "left" || item?.side === "right" ? item.side : "right") as Side;
   setPracticeSide(model, side);
   const q = testDef("arm_curl_30s").load.practiceCheck;
-  const zoneLine = booth ? t(lang, "assessment.test.answerBooth") : cueLine("check_answer_zone")[lang];
+  // At home the answer zones need the camera (AnswerZones, 4.7), which this screen does not run, so
+  // the zone line (check_answer_zone) is not shown: the answers are taps. At the booth staff tap the
+  // spoken answer (7.2-1), though the booth never asks this question (Q5).
+  const zoneLine = booth ? t(lang, "assessment.test.answerBooth") : null;
   useEntryLines(voice, [lang === "ar" ? { display: q.ar, speech: q.arTts } : { display: q.en }], true);
   const counter = useCounter(model);
   return (
@@ -117,7 +120,7 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
       <h1 id="flow-practice-q" className="flow-practice-question">
         {bidiText(lang, q[lang])}
       </h1>
-      <p className="flow-practice-line">{bidiText(lang, zoneLine)}</p>
+      {zoneLine && <p className="flow-practice-line">{bidiText(lang, zoneLine)}</p>}
       <div className="flow-practice-zones" role="group" aria-labelledby="flow-practice-q">
         <button type="button" className="flow-zone" onClick={() => dispatch({ type: "PRACTICE_OK" })}>
           <span className="flow-zone-n" aria-hidden="true">

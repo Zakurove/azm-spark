@@ -20,13 +20,15 @@ export function CameraProblem({ model, dispatch, retryCamera }: ScreenProps) {
   const guest = model.data.config.mode === "guest";
   return (
     <CheckShell onBack={backTarget(model) ? () => dispatch({ type: "BACK" }) : undefined}>
-      <CameraProblemCard
-        kind={kind}
-        platform={platform}
-        onRetry={kind === "denied" ? retryCamera : () => dispatch({ type: "RETRY" })}
-        onLater={() => dispatch({ type: "LATER" })}
-        onDemo={guest ? () => dispatch({ type: "DEMO" }) : undefined}
-      />
+      <div data-screen="S32" data-variant={kind} data-platform={platform}>
+        <CameraProblemCard
+          kind={kind}
+          platform={platform}
+          onRetry={kind === "denied" ? retryCamera : () => dispatch({ type: "RETRY" })}
+          onLater={() => dispatch({ type: "LATER" })}
+          onDemo={guest ? () => dispatch({ type: "DEMO" }) : undefined}
+        />
+      </div>
     </CheckShell>
   );
 }

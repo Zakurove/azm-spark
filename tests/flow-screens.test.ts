@@ -484,6 +484,18 @@ describe("postponed and paused (S33, S35)", () => {
 });
 
 describe("small rules", () => {
+  it("keeps a clock time one left to right unit in Arabic, so hours never swap with minutes", () => {
+    const m = withState(signedAt(), {
+      kind: "paused",
+      until: null,
+      releasable: false,
+      when: { token: "sameDay_clock", time: { hour: 3, minute: 15, suffix: "pm" } },
+    });
+    const ar = screen(m, "ar").html;
+    expect(ar).toContain('<bdi dir="ltr" class="flow-time">٣:١٥</bdi>');
+    expect(screen(m, "en").text).toContain("You can try again after 3:15 pm.");
+  });
+
   it("hears lines only with the sound on in voice mode", () => {
     expect(audible(true, null)).toBe(true);
     expect(audible(true, "voice")).toBe(true);

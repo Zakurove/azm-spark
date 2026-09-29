@@ -26,7 +26,7 @@ import {
   testWarnings,
   type SpeechItem,
 } from "./copy";
-import { ListenButton, NoticeCard, SamePress, TestDrawing } from "./parts";
+import { ChairGateDrawing, ListenButton, NoticeCard, SamePress, TestDrawing } from "./parts";
 import { useEntryLines, useVoice } from "./voice";
 
 export function Instruction({ model, dispatch }: ScreenProps) {
@@ -184,6 +184,7 @@ function ChairGate({ onYes, onNo }: { onYes(): void; onNo(): void }) {
   const q = setupQuestion("su_chair_gate");
   return (
     <section className="flow-section flow-gate" aria-labelledby="flow-chair-gate">
+      <ChairGateDrawing />
       <p id="flow-chair-gate" className="check-question">
         {bidiText(lang, q.ask[lang])}
       </p>

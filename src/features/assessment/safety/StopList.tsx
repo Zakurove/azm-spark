@@ -55,8 +55,10 @@ export function StopList({ model, dispatch }: ScreenProps) {
     opening.push(cueSpeech("check_stop_why", lang, "info"));
     if (!booth) opening.push(copyLine(lang, t(lang, "assessment.stop.stayPut")));
   }
+  // The question is the council cue check_stop_why (same words, vocalised); the group headings and
+  // the option labels have no vocalised form yet, so in Arabic they are captioned without a voice.
   const listen: SpeechLine[] = [
-    copyLine(lang, view.ask),
+    cueSpeech("check_stop_why", lang, "info"),
     copyLine(lang, t(lang, "assessment.stop.groupUrgent")),
     ...view.urgent.map((r) => copyLine(lang, r.label)),
     copyLine(lang, t(lang, "assessment.stop.groupOther")),

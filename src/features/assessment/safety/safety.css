@@ -470,7 +470,9 @@ html:has(.azm-check .safety-stop-zone) {
   gap: var(--s4);
 }
 
-/* The caption on the safety stage: the full sentence at 34 px, never cut (4.1, 4.3). */
+/* The caption on the safety stage and over the questions asked where the person sits: the full
+   sentence at 34 px, never cut (4.1, 4.3), since it is read from 2 m. */
+.azm-check .check-content:has(.safety-question.is-stage) .check-caption-text,
 .azm-check .safety-stage-caption .check-caption-text {
   font-size: 2.125rem;
   line-height: 1.35;

@@ -512,6 +512,55 @@ for (const lang of LANGS) {
   });
 }
 
+test.describe("booth targets", () => {
+  test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+
+  /** Every visible control of the page is 48 px or more each way (0.5). */
+  async function smallControls(page: Page): Promise<string[]> {
+    return page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("button, input, a[href], [role=button]")]
+        .filter((el) => el.offsetParent !== null || el.getClientRects().length > 0)
+        .map((el) => ({ el, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && (r.height < 48 || r.width < 48))
+        .map(({ el, r }) => `${el.tagName} ${el.textContent?.trim().slice(0, 30)} ${r.width}x${r.height}`),
+    );
+  }
+
+  for (const lang of LANGS) {
+    test(`every booth control is 48 px or more (${lang})`, async ({ page }) => {
+      await page.route("**/api/booth/verify", (r) =>
+        json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
+      );
+      await page.route("**/api/booth/token", (r) => json(r, { token: QR_TOKEN, expires: Date.now() + HOUR }));
+      const c = COPY[lang];
+      await page.goto(url("/?booth=1", lang));
+      expect(await smallControls(page)).toEqual([]);
+      await page.getByLabel(c.booth.codeLabel).fill("1");
+      await page.getByRole("button", { name: c.booth.turnOn }).click();
+      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
+      await expect(page.locator("[data-visitor-qr]")).toBeVisible();
+      expect(await smallControls(page)).toEqual([]);
+
+      await page.goto(url("/?booth=1&e2eBooth=vitals-flow", lang));
+      await expect(page.locator('[data-screen="S56"]')).toBeVisible();
+      await page.getByLabel(c.booth.codeLabel).fill("1");
+      await page.getByRole("button", { name: c.common.continue }).click();
+      await expect(page.locator('[data-unlocked="yes"]')).toBeVisible();
+      expect(await smallControls(page)).toEqual([]);
+
+      for (const part of ["tips", "count", "layer-results", "token&phase=on", "token&phase=ended"]) {
+        await page.goto(url(`/?booth=1&e2eBooth=${part}`, lang));
+        await expect(page.locator("h1")).toBeVisible();
+        expect(await smallControls(page), part).toEqual([]);
+      }
+      await page.goto(url("/?booth=1&e2eBooth=count", lang));
+      await page.getByRole("button", { name: c.booth.correct }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      expect(await smallControls(page)).toEqual([]);
+    });
+  }
+});
+
 test.describe("booth mode never leaks home", () => {
   test("no pass: the landing and the check have no booth badge, and /?check=1 stays closed", async ({
     page,

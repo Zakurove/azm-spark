@@ -16,6 +16,7 @@ import {
 } from "../src/features/assessment/booth/passes";
 import {
   BOOTH_CACHE,
+  isPageFallback,
   boothAssets,
   offlineStatus,
   precacheBooth,
@@ -188,6 +189,27 @@ describe("offline preparation of a booth phone (O18)", () => {
       assets: ["/c"],
     });
     expect(r2).toEqual({ cached: [], missing: ["/c"] });
+  });
+
+  it("never keeps the app page that the server sends for a file that does not exist yet", async () => {
+    const { caches, stored } = fakeCaches([]);
+    const typed = (type: string) =>
+      ({ ok: true, headers: new Headers({ "content-type": type }) }) as Response;
+    const fetch = vi.fn(async (u: RequestInfo | URL) =>
+      String(u).endsWith(".mp3") && String(u).includes("check_")
+        ? typed("text/html; charset=utf-8")
+        : typed("audio/mpeg"),
+    );
+    const r = await precacheBooth({
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      caches,
+      assets: ["/cues/ar/check_x.mp3", "/cues/alarm.mp3"],
+    });
+    expect(r.missing).toEqual(["/cues/ar/check_x.mp3"]);
+    expect(r.cached).toEqual(["/cues/alarm.mp3"]);
+    expect(stored.has("/cues/ar/check_x.mp3")).toBe(false);
+    expect(isPageFallback("/x.html", typed("text/html"))).toBe(false);
+    expect(isPageFallback("/x.task", { headers: new Headers() } as Response)).toBe(false);
   });
 
   it("says ready only with every file kept and a service worker in control", () => {

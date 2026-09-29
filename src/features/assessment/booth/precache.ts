@@ -56,7 +56,9 @@ export async function precacheBooth(deps: PrecacheDeps): Promise<PrecacheResult>
           continue;
         }
         const res = await deps.fetch(url, { cache: "reload" });
-        if (!res.ok) {
+        // A file that does not exist yet comes back as the app page (the server's page fallback):
+        // that is missing, never kept in place of the file.
+        if (!res.ok || isPageFallback(url, res)) {
           missing.push(url);
           continue;
         }
@@ -69,6 +71,13 @@ export async function precacheBooth(deps: PrecacheDeps): Promise<PrecacheResult>
   };
   await Promise.all(Array.from({ length: Math.max(1, deps.parallel ?? 4) }, worker));
   return { cached, missing };
+}
+
+/** The server answers an unknown path with the app page (index.html); a booth file is never HTML. */
+export function isPageFallback(url: string, res: Pick<Response, "headers">): boolean {
+  if (url.endsWith(".html")) return false;
+  const type = res.headers?.get?.("content-type") ?? "";
+  return type.toLowerCase().startsWith("text/html");
 }
 
 export type OfflineStatus = "preparing" | "ready" | "notReady";

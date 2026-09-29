@@ -9,19 +9,33 @@
  *   token&phase=<redeeming|on|ended|offline|error>    S55b in that phase; token&t=<token> redeems
  *   tips, tips-wheelchair                             S58
  *   count                                             S34h with the staff count correction
- *   new-visitor                                       S50 with New visitor
+ *   vitals-flow[&pass=visitor]                        opens the real check (/?check=1) at S56: the
+ *                                                     guest booth flow driven by the real reducer,
+ *                                                     kept as the reload snapshot
+ *   vitals-starting[&error=<StartError>]              S56 while a signed in booth check starts
  */
-import { useCallback, useReducer, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useReducer, useState, type ReactNode } from "react";
 import type { Lang } from "../../../../app/i18n";
 import { t } from "../../../../i18n";
-import { flowReducer, initialModel, type FlowEvent, type FlowModel, type FlowState } from "../../flowMachine";
+import {
+  flowReducer,
+  initialModel,
+  type FlowEvent,
+  type FlowModel,
+  type FlowState,
+  type StartError,
+} from "../../flowMachine";
+import { saveSnapshot } from "../../useCheckFlow";
 import { CheckRoot } from "../../shared/CheckRoot";
 import { CheckShell } from "../../shared/CheckShell";
 import { useOnline } from "../../shared/useOnline";
 import { BoothLayer, NewVisitorButton, startNextVisitor } from "../BoothLayer";
 import { SetupTipsView } from "../SetupTips";
 import { StaffCountCorrection } from "../StaffCountCorrection";
+import { StaffVitalsView } from "../StaffVitals";
+import { guestAtVitals } from "./drive";
 import { VisitorTokenPage, type TokenPhase } from "../VisitorTokenPage";
+import type { ScreenProps } from "../../screenTypes";
 
 const LAYER_STATES: Record<string, FlowState> = {
   results: { kind: "results" },
@@ -59,6 +73,15 @@ export default function BoothHarness({
       />
     );
   }
+  if (name === "vitals-flow") return <VitalsFlow lang={lang} visitor={params.get("pass") === "visitor"} />;
+  if (name === "vitals-starting")
+    return (
+      <VitalsStarting
+        lang={lang}
+        onLanguage={onLanguage}
+        error={(params.get("error") as StartError | null) ?? null}
+      />
+    );
   if (name.startsWith("layer-"))
     return <LayerPage state={name.slice(6)} lang={lang} onLanguage={onLanguage} />;
   return <PartPage name={name} lang={lang} onLanguage={onLanguage} />;
@@ -184,3 +207,58 @@ function PartPage({ name, lang, onLanguage }: { name: string; lang: Lang; onLang
     </Root>
   );
 }
+
+/** A visitor's own pass (S55b) as boothMode.ts keeps it: a server token of 64 hex characters. */
+const VISITOR_PASS = () =>
+  JSON.stringify({ kind: "visitor", token: "b".repeat(64), expires: Date.now() + 45 * 60_000 });
+
+/** Opens the real check at S56 (see the file comment). */
+function VitalsFlow({ lang, visitor }: { lang: Lang; visitor: boolean }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const m = guestAtVitals();
+    if (!m) return setFailed(true);
+    sessionStorage.setItem("azm.booth", visitor ? VISITOR_PASS() : "e2e-booth");
+    saveSnapshot(m);
+    location.replace(lang === "en" ? "/?check=1&lang=en" : "/?check=1");
+  }, []);
+  return <p data-vitals-flow={failed ? "failed" : "opening"} />;
+}
+
+/** S56 on the last question while a signed in booth check starts: busy, or the start error. */
+function VitalsStarting({
+  lang,
+  onLanguage,
+  error,
+}: {
+  lang: Lang;
+  onLanguage(): void;
+  error: StartError | null;
+}) {
+  const [model, raw] = useReducer(
+    (m: FlowModel, e: FlowEvent) => flowReducer(m, e),
+    undefined,
+    (): FlowModel => {
+      const m =
+        guestAtVitals() ?? initialModel({ mode: "guest", booth: true, homeOpen: false, desktop: false });
+      return { ...m, state: { kind: "starting", lastQuestion: "pc_booth_vitals", error, attempt: 1 } };
+    },
+  );
+  const [log, setLog] = useState<string[]>([]);
+  const dispatch = useCallback((e: FlowEvent) => {
+    setLog((l) => [...l, e.type]);
+    raw({ now: Date.now(), ...e });
+  }, []);
+  return (
+    <Root lang={lang} onLanguage={onLanguage} screenKey={`S56:starting:${error ?? "busy"}`}>
+      <div className="check-base" data-state={model.state.kind} data-events={log.join(" ")}>
+        <StaffVitalsView model={model} dispatch={dispatch} api={noApi} />
+      </div>
+    </Root>
+  );
+}
+
+/** The screen makes no call while the check starts; any call fails as offline. */
+const noApi = new Proxy({} as ScreenProps["api"], {
+  get: () => async () => ({ ok: false, error: { kind: "offline" } }),
+});

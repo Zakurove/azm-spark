@@ -17,6 +17,7 @@ import {
 import { SAFETY_SCREENS } from "../src/features/assessment/safety";
 import { SAFETY_SCREEN_IDS, type ScreenProps } from "../src/features/assessment/screenTypes";
 import { OVERLAYS, SCREENS, overlayFor, screenFor } from "../src/features/assessment/screens";
+import { TextWithTimes } from "../src/features/assessment/safety/parts";
 import { CheckRoot } from "../src/features/assessment/shared/CheckRoot";
 import type { CheckUi } from "../src/features/assessment/shared/CheckUi";
 import type { ProtocolItem } from "../src/medical/assessment";
@@ -132,6 +133,36 @@ describe("S36 to S40b", () => {
       expect(html).toContain("check-booth-badge");
     });
   }
+
+  it("keeps a clock time whole in the paused line (Arabic: one left to right run, never ٠٦:٩)", () => {
+    const html = renderToStaticMarkup(
+      createElement(CheckRoot, {
+        ui: { lang: "ar" },
+        children: createElement(TextWithTimes, { text: "يمكنك المحاولة غدًا بعد الساعة 9:06 صباحًا." }),
+      }),
+    );
+    expect(html).toContain('<bdi dir="ltr">٩:٠٦</bdi>');
+    expect(html).not.toContain("<bdi>٩</bdi>");
+    const en = renderToStaticMarkup(
+      createElement(CheckRoot, {
+        ui: { lang: "en" },
+        children: createElement(TextWithTimes, { text: "Try again tomorrow after 9:06 am." }),
+      }),
+    );
+    expect(en).toContain('<bdi dir="ltr">9:06</bdi>');
+  });
+
+  it("S36 signed in shows the kept line and the paused line with its {when}", () => {
+    const base = model(safety("scr_emergency", "emergency"), null, false);
+    const m: FlowModel = {
+      ...base,
+      data: { ...base.data, lock: { reason: "stop_symptom", until: Date.now() + 14 * 3600e3 } },
+    };
+    const html = render(SCREENS.S36, m, { lang: "en" });
+    expect(html).toContain("Results of the tests you finished are kept.");
+    expect(html).toMatch(/<bdi dir="ltr">\d{1,2}:\d{2}<\/bdi>/);
+    expect(html).toContain("Return to Today");
+  });
 
   it("S40a has 997 then 937; S40b has no call and Continue toward the end question", () => {
     const seek = render(SCREENS.S40a, model(safety("scr_stop_seek_care", "seekCare")), { lang: "en" });

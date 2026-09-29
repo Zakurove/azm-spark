@@ -32,7 +32,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { safetyView } from "./content";
 import { useSpeechSequence, useWakeLock } from "./hooks";
-import { BigNumber, SafetyHeading, SentenceStack } from "./parts";
+import { BigNumber, SafetyHeading, SentenceStack, TextWithTimes } from "./parts";
 import { SAFETY_TIMING } from "./timing";
 
 export function SafetyScreen({ model, dispatch }: ScreenProps) {
@@ -129,7 +129,11 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
           {t(lang, "assessment.common.listen")}
         </button>
         {view.kept && <p className="check-body safety-kept">{view.kept}</p>}
-        {view.paused && <p className="check-body safety-paused">{bidiText(lang, view.paused)}</p>}
+        {view.paused && (
+          <p className="check-body safety-paused">
+            <TextWithTimes text={view.paused} />
+          </p>
+        )}
         {view.boothStaff && <p className="check-body safety-paused">{view.boothStaff}</p>}
       </div>
     </CheckShell>

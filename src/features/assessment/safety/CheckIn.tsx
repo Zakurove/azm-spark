@@ -41,7 +41,7 @@ import {
   StopButton,
   useFocusOnMount,
 } from "./parts";
-import { cueSpeech } from "./speech";
+import { copyLine, cueSpeech } from "./speech";
 import { SAFETY_TIMING } from "./timing";
 
 /** The top row of a stage overlay: the booth badge (every screen in booth mode, S57) and Sound. */
@@ -167,6 +167,9 @@ export function GoOn({ model, dispatch }: ScreenProps) {
   const afterAlarm = o?.afterAlarm === true;
   const titleId = useId();
   useWakeLock(true);
+  // The question is captioned, and said where it has a voice, as every question asked where the person
+  // sits (principle 4).
+  useSpeechSequence([copyLine(lang, t(lang, "assessment.goOn.title"))], { key: `S44:${lang}` });
   const options = [
     ...(o?.canRedo
       ? [{ value: "redo", label: t(lang, "assessment.goOn.redo"), icon: "refresh", commitAtOnce: true }]

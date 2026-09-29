@@ -461,7 +461,9 @@ html:has(.azm-check .safety-stop-zone) {
   padding-block-start: var(--s3);
   border-block-start: 1px solid var(--line);
 }
+/* The side under the test name, on its own line so the two names never run together. */
 .azm-check .safety-skip-side {
+  display: block;
   font-weight: 600;
 }
 /* S46b: two equally prominent buttons, stacked 16 px apart (Q19 (7)). */

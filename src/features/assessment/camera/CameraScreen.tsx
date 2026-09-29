@@ -17,9 +17,11 @@ import { usesWheelchair } from "../booth/SetupTips";
 import { StaffCountCorrection } from "../booth/StaffCountCorrection";
 import { outcomeKey, testCounter, type FlowEvent, type FlowModel } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
+import { noteFine } from "../safety/timing";
 import { useCheckUi, type CaptionSeverity } from "../shared/CheckUi";
 import { CameraStage, type StageCaption } from "./CameraStage";
 import { CameraVideo } from "./CameraVideo";
+import { sameWords } from "./cues";
 import {
   IDLE_ENV,
   triesLeft,
@@ -119,7 +121,11 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
 
   const apply = useCallback(
     (out: CamOutput) => {
-      for (const e of out.events) dispatch(e);
+      for (const e of out.events) {
+        // A camera fine is noted for S44's extra timer (O34-1 (6)).
+        if (e.type === "FINE") noteFine(e.via);
+        dispatch(e);
+      }
       if (out.cues.length) cuesRef.current.push(out.cues);
       for (const n of out.notes) {
         cuesRef.current.note(n);
@@ -226,6 +232,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
           cues.replay();
         },
         skipPractice: () => apply(ctrl.skipPractice(performance.now())),
+        practiceFixNow: () => apply(ctrl.practiceFixNow(performance.now())),
         retryModel: () => cameraSession.restart(),
       }}
     />
@@ -256,25 +263,43 @@ export interface CameraViewProps {
   picture?: ReactNode;
   motion: { onAllow(): void } | null;
   practiceSkippable: boolean;
-  on: { stop(): void; replay(): void; unblock(): void; skipPractice(): void; retryModel(): void };
+  on: {
+    stop(): void;
+    replay(): void;
+    unblock(): void;
+    skipPractice(): void;
+    practiceFixNow(): void;
+    retryModel(): void;
+  };
   /** The Large captions choice, when the person made one (E2E previews set it). */
   largeCaptions?: boolean;
 }
+
+/** The last fit level of the stage (CameraStage onOverflow). */
+const FIT_MAX = 3;
 
 export function CameraView(p: CameraViewProps) {
   const ui = useCheckUi();
   const { lang } = ui;
   const { model, dispatch, snap, test, session, device } = p;
   const [largeChoice, setLargeChoice] = useState<boolean | null>(p.largeCaptions ?? null);
-  // The compact sizes of 4.2 on short screens, and whenever the content does not fit the screen.
-  const [fitCompact, setFitCompact] = useState(false);
-  const compact = device.compact || fitCompact;
+  // Fitting a short screen (4.2): level 1 the compact sizes and the video strip, level 2 no picture
+  // while measuring, resting or on the retry card and the main value first in the card, level 3 the
+  // caption's short form without its sentence (camera.css). Levels only go up while the screen is open.
+  const [fit, setFit] = useState(0);
+  const compact = device.compact || fit >= 1;
   const stopRef = useRef<HTMLButtonElement>(null);
 
-  // STOP takes focus when the screen opens (it is first in the focus order, principle 6).
+  // STOP takes focus when the screen opens (it is first in the focus order, principle 6), unless the
+  // tips sheet opens with it (its title has focus); focus returns to STOP when the sheet closes.
+  const tipsWereOpen = useRef(p.tips);
   useEffect(() => {
-    stopRef.current?.focus({ preventScroll: true });
+    if (!p.tips) stopRef.current?.focus({ preventScroll: true });
   }, []);
+  useEffect(() => {
+    if (tipsWereOpen.current && !p.tips) stopRef.current?.focus({ preventScroll: true });
+    tipsWereOpen.current = p.tips;
+  }, [p.tips]);
 
   const s = model.state;
   const def = testDef(test.testId);
@@ -416,6 +441,26 @@ export function CameraView(p: CameraViewProps) {
         };
       }
       default:
+        // S34e: the practice failed again: its specific fix, as S34i (no retry is used).
+        if (s.kind === "cam.practice" && snap.practiceFix)
+          return {
+            kind: "retry",
+            card: (
+              <RetryPanel
+                snap={{ ...snap, retry: { ...snap.practiceFix, counting: true } }}
+                lang={lang}
+                test={test}
+                issue={snap.practiceFix.issue}
+                exhausted={false}
+                practice
+                triesLeft={0}
+                onNow={p.on.practiceFixNow}
+                onSkip={() => dispatch({ type: "SKIP" })}
+                onTips={() => p.onTips(true)}
+                reducedMotion={device.reduced}
+              />
+            ),
+          };
         return hud();
     }
   };
@@ -491,10 +536,31 @@ export function CameraView(p: CameraViewProps) {
       </button>
     ) : null;
 
+  // S34i and the practice fix: the card's fix title carries the sentence, so the caption keeps only
+  // its short form (the sentence is its name).
+  const retrying = s.kind === "cam.retry" || (s.kind === "cam.practice" && !!snap.practiceFix);
+  // On a screen too short for both (fit 2), the retry card alone says the fix; a safety line stays.
+  // On the countdown the card's state word «استعد» is the caption's line: it is shown once.
+  const readyWord = t(lang, "assessment.hud.phase.ready");
+  const countingDown = typeof snap.countdown === "number";
   const caption =
     device.phoneLandscape && running
       ? { text: t(lang, "assessment.setup.turnUpright"), severity: "warn" as const }
-      : p.caption;
+      : p.caption && retrying && fit >= 2 && p.caption.severity !== "safety"
+        ? null
+        : p.caption && countingDown && sameWords(p.caption.short ?? p.caption.text, readyWord)
+          ? null
+          : p.caption && retrying && p.caption.short
+            ? { ...p.caption, shortOnly: true }
+            : p.caption;
+  const videoMode =
+    large && measuring
+      ? "thumb"
+      : fit >= 2 && !setupPart
+        ? "none"
+        : device.compact || fit >= 1
+          ? "strip"
+          : "full";
 
   return (
     <>
@@ -506,15 +572,17 @@ export function CameraView(p: CameraViewProps) {
         caption={caption}
         onReplay={p.on.replay}
         video={video}
-        videoMode={large && measuring ? "thumb" : fitCompact && measuring ? "strip" : "full"}
+        videoMode={videoMode}
         card={card}
         actions={skipPractice ?? staffCount}
         compact={compact}
+        fit={fit}
         scale={device.scale}
-        onOverflow={() => setFitCompact(true)}
+        onOverflow={() => setFit((f) => Math.min(FIT_MAX, f + 1))}
         kind={kind}
         onStop={p.on.stop}
         stopRef={stopRef}
+        inertBehind={p.tips}
       />
       {p.tips && (
         <TipsSheet

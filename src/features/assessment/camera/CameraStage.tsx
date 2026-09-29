@@ -26,6 +26,11 @@ export interface StageCaption {
   severity: CueSeverity;
   /** Changes with every line, so a repeated line is drawn again. */
   n?: number;
+  /**
+   * Only the short form is drawn (S34i and the practice fix: the value card's fix title already
+   * carries the sentence); the sentence stays the caption's name.
+   */
+  shortOnly?: boolean;
 }
 
 export interface CameraStageProps {
@@ -40,23 +45,29 @@ export interface CameraStageProps {
   video: ReactNode;
   /**
    * full: the video fills the space between the cards; thumb: a small picture (Large captions,
-   * measuring); strip: measuring on a screen too short for everything, the video takes only the
-   * space left, down to nothing (the video shrinks first, 4.2).
+   * measuring); strip: a screen too short for everything, the video takes only the space left, down
+   * to nothing (the video shrinks first, 4.2); none: no picture on a short screen while the person is
+   * measured, resting or reading the retry card (the camera keeps running under it).
    */
-  videoMode: "full" | "thumb" | "strip";
+  videoMode: "full" | "thumb" | "strip" | "none";
   card: ReactNode;
   /** Buttons at the phone under the card (tips, skip), stacked 16 px apart. */
   actions?: ReactNode;
   compact: boolean;
+  /** How far the stage has stepped down to fit a short screen (0: not at all; CameraView). */
+  fit?: number;
   /** Scales the 2 m sizes up on taller screens, never down (4.1). */
   scale: number;
   /** A test kind class for the value card sizes (range, timed, lean, setup, rest). */
   kind: string;
   onStop(): void;
   stopRef?: Ref<HTMLButtonElement>;
+  /** A sheet is open over the stage (S58 tips): everything but STOP is inert under it. */
+  inertBehind?: boolean;
   /**
-   * Called when the stage content does not fit the screen: the view then switches to the compact
-   * sizes of 4.2 (the video has already shrunk to its strip). Captions and STOP never shrink.
+   * Called when the stage content does not fit the screen: the view then steps down one fit level
+   * (the compact sizes of 4.2 and the video strip, then no picture while measuring). Captions and
+   * STOP never shrink.
    */
   onOverflow?(): void;
 }
@@ -79,20 +90,39 @@ export function CameraStage(p: CameraStageProps) {
   const large = p.largeCaptions.on;
   const stageRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLElement>(null);
+  const helperRef = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    for (const el of [topRef.current, helperRef.current, mainRef.current]) {
+      if (!el) continue;
+      if (p.inertBehind) el.setAttribute("inert", "");
+      else el.removeAttribute("inert");
+    }
+  }, [p.inertBehind]);
   const onOverflow = p.onOverflow;
   useLayoutEffect(() => {
-    if (!onOverflow || p.compact) return;
+    if (!onOverflow) return;
     const main = mainRef.current;
     const stage = stageRef.current;
     const over = (el: HTMLElement | null) => !!el && el.scrollHeight > el.clientHeight + 1;
     if (over(main) || over(stage)) onOverflow();
   });
+  // The web font changes every height once it has loaded: measure again then.
+  const [, setFonts] = useState(0);
+  useEffect(() => {
+    let live = true;
+    void document.fonts?.ready.then(() => live && setFonts((n) => n + 1));
+    return () => {
+      live = false;
+    };
+  }, []);
   return (
     <div
       ref={stageRef}
       className={`s34-stage${p.compact ? " is-compact" : ""}${large ? " is-large" : ""} is-${p.kind}`}
       style={{ ["--s34-scale" as string]: String(p.scale) }}
       data-s34-kind={p.kind}
+      data-fit={p.fit ?? 0}
     >
       {/* STOP first in the DOM: the first focusable element (principle 6); the grid draws it last. */}
       <div className="s34-stop-zone">
@@ -103,7 +133,7 @@ export function CameraStage(p: CameraStageProps) {
         </button>
       </div>
 
-      <header className="s34-top">
+      <header className="s34-top" ref={topRef}>
         <p className="s34-title">
           {p.title.map((part, k) => (
             <span key={k} className="s34-title-part">
@@ -117,12 +147,6 @@ export function CameraStage(p: CameraStageProps) {
             <span className="check-booth-badge s34-badge">
               <CheckIcon name="badge" size={18} />
               <span className="check-booth-badge-text">{t(lang, "assessment.guest.boothBadge")}</span>
-            </span>
-          )}
-          {!ui.online && (
-            <span className="s34-pill is-offline" role="status">
-              <CheckIcon name="wifi-off" size={20} />
-              <span>{t(lang, "assessment.state.offline.pill")}</span>
             </span>
           )}
           <span className="s34-camera-on" role="img" aria-label={t(lang, "assessment.hud.cameraOn")}>
@@ -153,13 +177,22 @@ export function CameraStage(p: CameraStageProps) {
             <CheckIcon name="captions" />
           </button>
         </div>
+        {/* Offline: a pill on its own row under the title, so the title row keeps to one line. */}
+        {!ui.online && (
+          <p className="s34-top-note">
+            <span className="s34-pill is-offline" role="status">
+              <CheckIcon name="wifi-off" size={20} />
+              <span>{t(lang, "assessment.state.offline.pill")}</span>
+            </span>
+          </p>
+        )}
         {!ui.sound.on && (
           <p className="check-sound-note s34-sound-note">{t(lang, "assessment.common.alertStillSounds")}</p>
         )}
       </header>
 
       {p.helperChip && (
-        <p className="s34-helper">
+        <p className="s34-helper" ref={helperRef}>
           <CheckIcon name="people" size={22} />
           <span>{t(lang, "assessment.hud.helperChip")}</span>
         </p>
@@ -182,7 +215,7 @@ export function CameraStage(p: CameraStageProps) {
                     </span>
                     {bidiText(lang, c.short)}
                   </span>
-                  <span className="s34-caption-text">{bidiText(lang, c.text)}</span>
+                  {!c.shortOnly && <span className="s34-caption-text">{bidiText(lang, c.text)}</span>}
                 </>
               ) : (
                 <span className="s34-caption-text">

@@ -34,6 +34,7 @@ import {
   CheckInDetector,
   checkInReference,
   FINE_RULES,
+  shouldersInView,
   swayMeasureFor,
   type FineSignalConfig,
 } from "../../../engine/checkin";
@@ -54,6 +55,7 @@ import {
   type Tilt,
 } from "../../../engine/quality";
 import { nearestCentre, posesOf, SubjectLock } from "../../../engine/subject";
+import { ANSWER_ZONES } from "../../../medical/gates";
 import type { Frame, Landmark } from "../../../engine/types";
 import { testDef } from "../../../movements/assessments";
 import type { CheckCueId, CheckPosition, Side, TestDef, TestId } from "../../../movements/types";
@@ -163,6 +165,8 @@ export interface CamSnapshot {
   paused: PausedWhy;
   rest: { remaining: number; total: number } | null;
   retry: { remaining: number; total: number; counting: boolean } | null;
+  /** S34e: the practice failed again: its fix, shown as S34i (last: then the scored attempts). */
+  practiceFix: { issue: string; remaining: number; total: number; last: boolean } | null;
 }
 
 /** The test side the controller runs, from the flow data. */
@@ -300,7 +304,17 @@ export class CameraController {
   private readonly fine: CameraFine | null;
   private fineArmed = false;
   private lostWhileArmed = false;
+  /** The last frame of a part with left frame armed (practice, attempt, hold), for the carry. */
+  private armedAt = -Infinity;
   private practiceSkipped = false;
+  /** S34e: failed practice lifts or leans of this side (the runner repeats them at no retry cost). */
+  private practiceFails = 0;
+  /**
+   * S34e after PRACTICE_FIX_AFTER failed practices: the specific fix shows as S34i does, for 6 s or
+   * until Try now, and the runner waits; after the PRACTICE_FAIL_LIMIT-th, the side goes on to its
+   * scored attempts (or the person skips the test).
+   */
+  private practiceFix: { issue: string; until: number | null; last: boolean } | null = null;
   private lockPending = true;
   private refPending = false;
   private lastLm: Landmark[] | null = null;
@@ -356,8 +370,8 @@ export class CameraController {
     const raise = ci ? ci.raiseAllowed && !ci.noArmSignal : true;
     const cfg: FineSignalConfig = {
       setting: test.setting,
-      // The fine zone ships with the answer zones (phase 2, never the booth build, 4.7).
-      fineZone: false,
+      // The fine zone ships with the answer zones (phase 2, home gate 2; never the booth build, 4.7).
+      fineZone: ANSWER_ZONES && test.setting === "home",
       fineZoneSide: ci?.fineZoneSide ?? null,
       zoneHoldSec: FINE_RULES.zoneHoldSec,
       raiseAllowed: raise,
@@ -448,6 +462,11 @@ export class CameraController {
         // stands in when the subject lock has lost the subject.
         const k = nearestCentre(poses, f.aspect);
         this.fineFrame(t, lm ?? (k >= 0 ? poses[k] : null), f.aspect);
+      } else if (ANSWER_OVERLAYS.has(overlay.kind)) {
+        // S41, S44 and the skip dialog are answer states (4.8, O34-6 (3)): sway and hips drop stay
+        // armed, so a second collapse while the person answers opens the check in over them.
+        this.fineArmed = false;
+        this.answerFrame(t, lm, f.aspect);
       }
       if (s.kind === "cam.retry") this.retryTimer(t, env);
       this.timers(t);
@@ -458,6 +477,7 @@ export class CameraController {
     this.checkInFrame(t, lm, f.aspect, env);
     if (s.kind === "cam.setup") this.setupFrame(t, poses, f.aspect, env);
     if (s.kind === "cam.retry") this.retryTimer(t, env);
+    if (this.practiceFix) this.practiceFixTimer(t, env);
     if (this.shouldFeed(env, phoneMoved)) this.feed(f, env, t);
     this.timers(t);
     this.reconcile(t);
@@ -483,17 +503,16 @@ export class CameraController {
     if (overlay) {
       if (overlay.kind === "checkIn" || overlay.kind === "alarm")
         this.fineFrame(t, lm ?? (k >= 0 ? poses[k] : null), f.aspect);
+      else if (!faint && ANSWER_OVERLAYS.has(overlay.kind)) {
+        // The stop list over S47 or S48 is an answer state too (4.8).
+        this.fineArmed = false;
+        this.answerFrame(t, lm, f.aspect);
+      }
       return this.drain();
     }
     this.fineArmed = false;
     if (faint) return this.drain();
-    if (this.detector.reference)
-      for (const trigger of this.detector.feed(t, lm, f.aspect, {
-        sway: true,
-        movement: false,
-        leftFrame: false,
-      }))
-        this.emit({ type: "TRIGGER", trigger }, t);
+    this.answerFrame(t, lm, f.aspect);
     return this.drain();
   }
 
@@ -539,6 +558,15 @@ export class CameraController {
           : { remaining: Math.max(0, Math.ceil((this.retryUntil - t) / 1000)), total, counting: true };
     }
     const saved = this.dots.filter((d) => d === "saved").length;
+    const pf = this.practiceFix;
+    const practiceFix: CamSnapshot["practiceFix"] = pf
+      ? {
+          issue: pf.issue,
+          total: this.timing.retrySec,
+          remaining: pf.until === null ? this.timing.retrySec : Math.max(0, Math.ceil((pf.until - t) / 1000)),
+          last: pf.last,
+        }
+      : null;
     return {
       kind: s?.kind ?? null,
       part: this.part(),
@@ -561,7 +589,15 @@ export class CameraController {
       paused: this.paused,
       rest,
       retry,
+      practiceFix,
     };
+  }
+
+  /** S34e: Try now on the practice fix (the next practice, or the scored attempts after the last). */
+  practiceFixNow(t: number): CamOutput {
+    if (this.practiceFix) this.endPracticeFix(t);
+    this.reconcile(t);
+    return this.drain();
   }
 
   /** The screen was left for good (another test, the results): nothing is kept. */
@@ -755,6 +791,14 @@ export class CameraController {
     this.rest = { until: t + sec * 1000, total: sec };
   }
 
+  /** The practice fix counts its 6 s like S34i: held while a finger is on the screen or a dialog shows. */
+  private practiceFixTimer(t: number, env: CamEnv): void {
+    const pf = this.practiceFix!;
+    const counting = !this.model.overlay && !env.touching;
+    if (!counting) pf.until = null;
+    else if (pf.until === null) pf.until = t + this.timing.retrySec * 1000;
+  }
+
   private retryTimer(t: number, env: CamEnv): void {
     const counting = !this.model.overlay && !env.touching;
     if (!counting) this.retryUntil = null;
@@ -769,6 +813,10 @@ export class CameraController {
     if (s.kind === "cam.saved" && this.savedUntil !== null && t >= this.savedUntil) {
       this.savedUntil = null;
       this.emit({ type: "SAVED_NEXT" }, t);
+      return;
+    }
+    if (this.practiceFix?.until != null && t >= this.practiceFix.until) {
+      this.endPracticeFix(t);
       return;
     }
     if (s.kind === "cam.retry" && this.retryUntil !== null && t >= this.retryUntil) {
@@ -835,6 +883,8 @@ export class CameraController {
   private shouldFeed(env: CamEnv, phoneMoved: boolean): boolean {
     const s = this.state;
     if (!s || !this.runner || this.runner.done || env.landscape) return false;
+    // The practice fix is showing: the runner waits (its rest starts again after it).
+    if (this.practiceFix) return false;
     const part = this.part();
     // SPEC-GAP: phone-moved-sensor. A phone tilted more than 5 degrees from where it was at the
     // calibration pauses scoring (map 2.12); the engine's own picture shift check discards and
@@ -1017,8 +1067,13 @@ export class CameraController {
     const s = this.state;
     if (e.outcome === "practice") return;
     if (e.outcome === "retry") {
-      // A practice lift or lean with the wrong arm or side is repeated by the runner (no retry used).
-      if (e.attempt === 0 || s?.kind === "cam.practice") return;
+      // A practice lift or lean that failed (quality, the wrong arm or side) is repeated by the runner
+      // at no retry cost. The flow does not count them, so the screen does: after two the specific
+      // fix shows (S34i), and after the third the side goes on to its scored attempts (S34e).
+      if (e.attempt === 0 || s?.kind === "cam.practice") {
+        if (!this.timed) this.onPracticeFail(e.reasons, t);
+        return;
+      }
       if (e.attempt >= 1 && e.attempt <= this.dots.length) this.dots[e.attempt - 1] = "retry";
       if (e.reasons.includes("camera_moved")) {
         // Map 2.12: a moved picture discards the attempt without using a retry (the range test sets
@@ -1035,6 +1090,28 @@ export class CameraController {
     this.lastScoredValid = true;
     if (this.runner?.done) this.post(t);
     this.emit({ type: "ATTEMPT_OK" }, t);
+  }
+
+  private onPracticeFail(reasons: readonly string[], t: number): void {
+    this.practiceFails++;
+    if (this.practiceFails < PRACTICE_FIX_AFTER) return;
+    const issue = retryIssueOf(reasons);
+    this.practiceFix = {
+      issue,
+      until: t + this.timing.retrySec * 1000,
+      last: this.practiceFails >= PRACTICE_FAIL_LIMIT,
+    };
+    const fix = fixOf(issue, this.test.testId, this.test.side, this.test.weaker);
+    this.pushCue(fix.cue, "retry", t, true, undefined, true);
+  }
+
+  private endPracticeFix(t: number): void {
+    const last = this.practiceFix?.last === true;
+    this.practiceFix = null;
+    if (!last || !this.runner) return;
+    // The third failed practice: on to the scored attempts, with the calibration's reference.
+    const r = this.runner as unknown as { skipPractice?(t: number): TestEvent[] };
+    if (r.skipPractice) this.handle(r.skipPractice(t), t);
   }
 
   private onAsk(ask: string, t: number): void {
@@ -1162,7 +1239,15 @@ export class CameraController {
       this.lastIssueCueAt = t;
       const cue = setupIssueCue(first, testId, side, weaker, res.cue);
       if (cue) this.pushCue(cue, "setup", t, true, undefined, true);
-      else if (first === "motion") this.note("assessment.tips.wheelchair", "warn");
+      // The motion permission is the problem, not the placement: say what is needed and why (the
+      // wheelchair tip is on the S58 tips).
+      else if (first === "motion")
+        this.note(
+          this.test.position === "wheelchair"
+            ? "assessment.primer.motionWheelchair"
+            : "assessment.setup.issue.motion",
+          "warn",
+        );
     }
     if (first === "no_person") this.noPersonSince ??= t;
     else this.noPersonSince = null;
@@ -1222,12 +1307,27 @@ export class CameraController {
     });
     // SPEC-GAP: left-frame-carry. A person who leaves the picture during an armed part keeps the
     // left frame rule armed until they are seen again, even when the runner ends that attempt at once
-    // and rests (a rest is not armed, 4.8): otherwise leaving mid attempt would never ask.
-    const seen = !!lm && isPerson(lm);
-    if (opts.leftFrame && !seen) this.lostWhileArmed = true;
+    // and rests (a rest is not armed, 4.8): otherwise leaving mid attempt would never ask. A walk out
+    // is gradual: the runner ends the attempt (quality, a lost subject) while the person is still
+    // partly in view, and the flow falls back to the setup check or a rest. So a subject lost within
+    // LEFT_FRAME_CARRY_MS of the last armed frame counts as lost while armed, whatever part the flow
+    // has moved to since.
+    const seen = shouldersInView(lm);
+    if (opts.leftFrame) this.armedAt = t;
+    if (!seen && (opts.leftFrame || t - this.armedAt <= LEFT_FRAME_CARRY_MS)) this.lostWhileArmed = true;
     if (seen) this.lostWhileArmed = false;
     const feedOpts = this.lostWhileArmed ? { ...opts, leftFrame: true } : opts;
     for (const trigger of this.detector.feed(t, lm, aspect, feedOpts))
+      this.emit({ type: "TRIGGER", trigger }, t);
+  }
+
+  /**
+   * The answer zone arming of 4.8 (S29, S41, S44, S47, S48, the skip dialog): no movement and left
+   * frame off, sway on; hips drop is always evaluated by the detector.
+   */
+  private answerFrame(t: number, lm: Landmark[] | null, aspect: number | undefined): void {
+    if (!this.detector.reference) return;
+    for (const trigger of this.detector.feed(t, lm, aspect, ANSWER_ARMING))
       this.emit({ type: "TRIGGER", trigger }, t);
   }
 
@@ -1288,6 +1388,15 @@ export class CameraController {
 }
 
 /* ================================================================ helpers */
+
+/** Overlays over a camera state that are answered from the chair: sway and hips drop stay armed. */
+const ANSWER_OVERLAYS: ReadonlySet<string> = new Set(["stopList", "goOn", "skipDialog"]);
+const ANSWER_ARMING = { sway: true, movement: false, leftFrame: false } as const;
+/** S34e: the specific fix shows after this many failed practices, and the side goes on after the last. */
+const PRACTICE_FIX_AFTER = 2;
+const PRACTICE_FAIL_LIMIT = 3;
+/** How long after the last armed frame a lost subject still counts as lost while armed. */
+const LEFT_FRAME_CARRY_MS = 3000;
 
 function tiltMoved(now: Tilt, ref: Tilt): boolean {
   return Math.abs(now.rollDeg - ref.rollDeg) > 5 || Math.abs(now.pitchDeg - ref.pitchDeg) > 5;

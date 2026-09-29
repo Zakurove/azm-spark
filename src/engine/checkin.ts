@@ -369,6 +369,11 @@ const keyPointsOf = (p: Landmark[]): (Pt | null)[] =>
 
 /** The subject is in view: a person with a shoulder visible inside the picture. */
 function inView(person: Landmark[] | null): person is Landmark[] {
+  return shouldersInView(person);
+}
+
+/** The subject's shoulders are in the picture (the left frame rule's own view test). */
+export function shouldersInView(person: Landmark[] | null): person is Landmark[] {
   return (
     !!person &&
     isPerson(person) &&
@@ -785,11 +790,21 @@ export const CHECKIN_CUE_SELECTION = {
  * our team. The fall watch runs at home only.
  */
 export function selectCheckInCue(
-  cfg: Pick<FineSignalConfig, "setting" | "raiseAllowed" | "noArmSignal" | "speech">,
+  cfg: Pick<FineSignalConfig, "setting" | "raiseAllowed" | "noArmSignal" | "speech"> & {
+    /**
+     * Whether the answer zones are drawn over the video (phase 2). Without them no home cue may name
+     * the «أنا بخير» box: the home check in then asks as the fall watch does (a raised hand where it
+     * may be asked for, never getting up), and the button answers at the phone.
+     */
+    zones?: boolean;
+  },
   fallWatch = false,
 ): string {
   const c = CHECKIN_CUE_SELECTION;
   if (cfg.setting === "booth") return cfg.raiseAllowed ? c.booth.raiseAllowed : c.booth.raiseNotAllowed;
+  // SPEC-GAP: home-cue-without-zones. The data has no home tap form yet (a check_are_you_ok_tap data
+  // request); the fall watch forms name only the raised hand, and the helper form only speech.
+  if (!fallWatch && cfg.zones === false && !cfg.noArmSignal) fallWatch = true;
   if (fallWatch) {
     const raise = cfg.raiseAllowed && !cfg.noArmSignal;
     if (raise) return cfg.speech ? c.fallWatch.raiseAllowedWithSpeech : c.fallWatch.raiseAllowed;

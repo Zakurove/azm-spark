@@ -120,12 +120,28 @@
     white-space: nowrap;
   }
 }
-.azm-check .s34-top:has(.s34-sound-note) {
+.azm-check .s34-top:has(.s34-sound-note, .s34-top-note) {
   flex-wrap: wrap;
 }
-.azm-check .s34-sound-note {
+.azm-check .s34-sound-note,
+.azm-check .s34-top-note {
   flex-basis: 100%;
   margin: 0;
+}
+/* Below 420 px the title row keeps to one line: the counter only («الاختبار ٣ من ٤»); the test name
+   stays in its accessible name and is said in the caption and the steps. */
+@media (max-width: 419.98px) {
+  .azm-check .s34-title {
+    white-space: nowrap;
+  }
+  .azm-check .s34-title-part + .s34-title-part {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 .azm-check .s34-toast {
   position: absolute;
@@ -253,6 +269,61 @@
   min-height: 0;
   border-width: 0;
 }
+/* No picture on a short screen while measuring, resting or on the retry card (4.2 amended): the video
+   element stays in the page at no height, so the camera keeps running under the HUD. */
+.azm-check .s34-video-area.is-none {
+  flex: none;
+  height: 0;
+  min-height: 0;
+  border-width: 0;
+}
+.azm-check .s34-video-area.is-none + .s34-card {
+  margin-top: 0;
+}
+/* Fit level 2: the main number or word first in the value card; the side and dots row (read at the
+   phone) after it, then only the at phone buttons. */
+.azm-check
+  .s34-stage:is([data-fit="2"], [data-fit="3"])
+  :is(.s34-range, .s34-timed, .s34-lean-panel)
+  > :is(.s34-row, .s34-side):first-child {
+  order: 5;
+}
+/* Fit level 3: the caption keeps its 56 px short form (the voice says the sentence, and Large
+   captions shows it whole); the sentence is kept as the caption's name. Safety captions and Large
+   captions never lose their sentence. The setup video keeps a 96 px strip (4.2). */
+.azm-check
+  .s34-stage[data-fit="3"]:not(.is-large)
+  .s34-caption:not(.is-safety)
+  .s34-caption-short
+  + .s34-caption-text {
+  display: none;
+}
+/* The at phone buttons side by side (Try now and Skip, Tips and Skip), 56 px each. */
+.azm-check .s34-stage[data-fit="3"] .s34-at-phone:has(> :nth-child(2)) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s2);
+}
+.azm-check .s34-stage[data-fit="3"] .s34-at-phone > * {
+  padding-inline: var(--s2);
+}
+/* Motion access is answered at the phone: its state line under Allow, read there (32 px). */
+.azm-check .s34-setup.is-motion .s34-word {
+  font-size: calc(2rem * var(--s34-scale));
+}
+/* Setup at fit level 3: the state word at the 40 px tier (the caption's 56 px short form says what to
+   do from 2 m), and the six chips in three columns (two rows). */
+.azm-check .s34-stage[data-fit="3"] .s34-setup .s34-word {
+  font-size: calc(2.5rem * var(--s34-scale));
+}
+.azm-check .s34-stage[data-fit="3"] .s34-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.azm-check .s34-stage[data-fit="3"] .s34-chip {
+  padding-inline: var(--s2);
+  font-size: 0.8125rem;
+}
 .azm-check .s34-video-area.is-strip + .s34-card {
   margin-top: 0;
 }
@@ -362,10 +433,12 @@
   left: var(--s2);
   flex-direction: row-reverse;
 }
+/* The side swatch is a dot, never a bar (a bar reads as a dash beside Arabic). */
 .azm-check .s34-arm-marker-bar {
-  width: 28px;
-  height: 6px;
-  border-radius: 3px;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
   background: var(--ink);
 }
 .azm-check .s34-replay {
@@ -591,6 +664,12 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+/* The go word is Arabic text at 96 px: room above it for the alif and hamza, so they clear the side
+   and load line above (a line height of 1 cuts into it). */
+.azm-check .s34-go {
+  line-height: 1.3;
+  padding-block-start: 0.2em;
+}
 @keyframes s34-count-in {
   from {
     transform: scale(1.15);
@@ -715,17 +794,33 @@
 }
 
 /* Top view diagrams (S34c, S34j). */
+/* The top view diagram: 160 px, 3 px strokes, read at the phone (S34c, S34j). */
 .azm-check .s34-topview {
-  width: 120px;
-  height: 120px;
+  width: 160px;
+  height: 160px;
   flex: none;
   fill: none;
   stroke: var(--ink);
-  stroke-width: 2;
+  stroke-width: 3;
+}
+.azm-check .s34-topview * {
+  vector-effect: non-scaling-stroke;
 }
 .azm-check .s34-top-person circle {
   fill: var(--purple-tint);
   stroke: var(--purple);
+}
+.azm-check .s34-top-nose {
+  fill: var(--purple);
+  stroke: var(--purple);
+}
+.azm-check .s34-top-lens {
+  fill: var(--ink);
+  stroke: none;
+}
+.azm-check .s34-top-sight {
+  stroke: var(--purple);
+  stroke-dasharray: 5 4;
 }
 .azm-check .s34-top-phone rect {
   fill: var(--gold);
@@ -757,6 +852,13 @@
    tries left (S34i). */
 .azm-check .s34-retry .s34-word {
   font-size: calc(2.5rem * var(--s34-scale));
+}
+/* While a try is left the band title ("Let's try once more") is the 22 px row 1 of the value card
+   table (4.2); the fix title under it is the 40 px line. When no try is left the band word is the fix
+   title itself, at 40 px. */
+.azm-check .s34-retry:not([data-exhausted]) .s34-word {
+  font-size: calc(1.375rem * var(--s34-scale));
+  line-height: 1.35;
 }
 .azm-check .s34-restart {
   display: flex;
@@ -796,9 +898,10 @@
 
 /* ------------------------------------------------------------ setup tips over the stage */
 
+/* The sheet ends above the STOP zone (96 px and the safe area): STOP stays visible (principle 6). */
 .azm-check .s34-sheet {
   position: fixed;
-  inset: 0;
+  inset: 0 0 calc(var(--h-stop) + 2 * var(--s3) + env(safe-area-inset-bottom));
   z-index: 25;
   display: flex;
   align-items: flex-end;

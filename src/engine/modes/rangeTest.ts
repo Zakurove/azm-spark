@@ -408,6 +408,22 @@ export class RangeTestRunner implements TestRunner {
     });
   }
 
+  /**
+   * Goes on to the scored attempts without a valid practice lift (S34e: the practice failed three
+   * times and the person goes on). The reference length stays the calibration's upper arm; a practice
+   * lift in progress is dropped and the rest before the first scored attempt starts.
+   */
+  skipPractice(t: number): TestEvent[] {
+    if (this.finished || this.practiceDone) return this.sink.drain();
+    this.practiceDone = true;
+    this.nextPractice = false;
+    if (this.att?.practice) {
+      this.att = null;
+      this.rest(t);
+    }
+    return this.sink.drain();
+  }
+
   private end(t: number): void {
     this.finished = true;
     this.phaseNow = "done";
@@ -947,7 +963,10 @@ export class RangeTestRunner implements TestRunner {
         // The calibration is taken again in the new picture before the next attempt.
         this.sink.cue("check_phone_still", t);
         this.recalAfterRest = true;
-      } else if (!a.wrongArm && q.cue && q.cue !== "check_try_again") this.sink.cue(q.cue, t);
+      } else if (a.wrongArm) {
+        // Name the arm to use (the other arm moved): "Now your left arm" or "Now your right arm".
+        this.sink.cue(this.side === "left" ? "check_left_arm" : "check_right_arm", t);
+      } else if (q.cue && q.cue !== "check_try_again") this.sink.cue(q.cue, t);
       this.sink.cue("check_try_again", t);
       this.rest(t, a.practice);
       return;

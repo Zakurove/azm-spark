@@ -7,19 +7,25 @@
  */
 import { useEffect, useRef } from "react";
 import type { FlowEvent, FlowModel } from "../flowMachine";
+import { noteFine } from "../safety/timing";
 import { existingController } from "./registry";
 import { useCameraSession } from "./session";
 
-export function useCameraWatch(model: FlowModel, dispatch: (e: FlowEvent) => void): void {
+/** Returns whether the camera runs for this screen (the video stays on the phone: say so, principle 13). */
+export function useCameraWatch(model: FlowModel, dispatch: (e: FlowEvent) => void): boolean {
   const ctrl = existingController(model);
   const ref = useRef({ ctrl, dispatch });
   ref.current = { ctrl, dispatch };
   useEffect(() => {
     ctrl?.sync(model, performance.now());
   }, [model, ctrl]);
-  useCameraSession((f) => {
+  const session = useCameraSession((f) => {
     const { ctrl: c, dispatch: d } = ref.current;
     if (!c) return;
-    for (const e of c.watch(f, f.t).events) d(e);
+    for (const e of c.watch(f, f.t).events) {
+      if (e.type === "FINE") noteFine(e.via);
+      d(e);
+    }
   }, !!ctrl);
+  return !!ctrl && session.status !== "error";
 }

@@ -96,12 +96,27 @@ export interface CaptionLine {
 
 export function captionOf(id: CheckCueId, lang: Lang): CaptionLine {
   const line = cueLine(id);
+  const text = lang === "ar" ? line.ar : line.en;
+  const short = line.short?.[lang] || undefined;
   return {
     cue: id,
-    short: line.short?.[lang] || undefined,
-    text: lang === "ar" ? line.ar : line.en,
+    // A short form that is the sentence itself («ابدأ» and «ابدأ.») is not printed twice.
+    short: short && sameWords(short, text) ? undefined : short,
+    text,
     severity: cueSeverity(id),
   };
+}
+
+/** The same words, whatever the punctuation, the tashkeel and the case. */
+export function sameWords(a: string, b: string): boolean {
+  const bare = (s: string) =>
+    s
+      .normalize("NFC")
+      .replace(/[\u064B-\u0652\u0670]/g, "")
+      .replace(/[\p{P}\s]+/gu, " ")
+      .trim()
+      .toLowerCase();
+  return bare(a) === bare(b);
 }
 
 /**

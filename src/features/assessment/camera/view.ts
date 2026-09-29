@@ -77,8 +77,10 @@ export function setupChips(
     if (chip === "level" && i === "motion") continue;
     out[chip] = "fix";
   }
-  // Without a person nothing else can be judged yet: only the framing chip asks for a fix.
-  if (issues.includes("no_person")) for (const c of ["distance", "light", "view"] as const) out[c] = "ok";
+  // Without a person nothing else can be judged yet: the framing chip asks for a fix and the others
+  // (all but the phone level, read from the phone itself) are not available, never a green tick.
+  if (issues.includes("no_person"))
+    for (const c of ["distance", "light", "people", "view"] as const) out[c] = "na";
   return out;
 }
 
@@ -91,7 +93,7 @@ export function setupIssueCue(
   engineCue: CheckCueId | null,
 ): CheckCueId | null {
   if (issue === "blocked") return "check_clear_view";
-  // The motion issue is captioned with the wheelchair tip (copy), never a cue.
+  // The motion issue is captioned with the motion access line (copy), never a cue.
   if (issue === "motion") return null;
   if (issue === "wrong_view") return viewCue(testId, side, weaker);
   return engineCue;

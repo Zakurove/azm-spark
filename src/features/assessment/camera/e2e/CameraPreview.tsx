@@ -62,6 +62,7 @@ function snapshotOf(p: Preview, state: FlowState): CamSnapshot {
     paused: null,
     rest: null,
     retry: null,
+    practiceFix: null,
     ...rest,
   };
 }
@@ -187,6 +188,7 @@ export default function CameraPreview({ name, model, dispatch }: ScreenProps & {
         replay: noop,
         unblock: noop,
         skipPractice: noop,
+        practiceFixNow: noop,
         retryModel: noop,
       }}
       {...(p.large ? { largeCaptions: true } : {})}

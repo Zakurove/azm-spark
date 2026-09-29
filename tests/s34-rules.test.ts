@@ -178,13 +178,14 @@ describe("setup check words (S34c)", () => {
     expect(setupChips([], { rollDeg: 1, pitchDeg: 0 }).level).toBe("ok");
   });
 
-  it("each issue marks its chip; nobody seen marks only the picture", () => {
+  it("each issue marks its chip; nobody seen marks the picture and judges nothing else", () => {
     expect(setupChips(["too_close"], null).distance).toBe("fix");
     expect(setupChips(["second_person"], null).people).toBe("fix");
     expect(setupChips(["wrong_view"], null).view).toBe("fix");
     expect(setupChips(["tilt"], { rollDeg: 9, pitchDeg: 0 }).level).toBe("fix");
     const none = setupChips(["no_person", "light", "too_far"], null);
-    expect(none).toMatchObject({ framing: "fix", light: "ok", distance: "ok" });
+    // Without a person no distance, light, people or view can be judged: never a green tick (review).
+    expect(none).toMatchObject({ framing: "fix", light: "na", distance: "na", people: "na", view: "na" });
   });
 
   it("issue order follows the S34c table", () => {

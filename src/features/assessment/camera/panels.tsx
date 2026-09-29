@@ -4,7 +4,7 @@
  * dimmed (the paused HUD shows the frozen value in muted ink, with the pause icon). Buttons marked
  * "at the phone" are full width and stacked 16 px apart.
  */
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
 import { countPhrase, formatNumber, t, unitWord } from "../../../i18n";
 import { bidiText, tx } from "../../../i18n/rich";
@@ -111,6 +111,19 @@ export function SetupPanel({
   const word = s.ok ? t(lang, "assessment.setup.ready") : t(lang, SETUP_TITLE[first ?? "no_person"]);
   const diagram = first === "wrong_view" ? viewDiagramFor(test.testId, test.side, test.weaker) : null;
   const waiting = !s.ok && s.issues.length > 0;
+  // Motion access (map 2.9) is answered at the phone: Allow comes first, the state under it, and no
+  // chips (nothing else can be checked until the phone may read its tilt). The caption says why.
+  if (motion && first === "motion")
+    return (
+      <div className="s34-panel s34-setup is-motion">
+        <div className="s34-at-phone">
+          <button type="button" className="cta" onClick={motion.onAllow}>
+            {t(lang, "assessment.setup.allowMotion")}
+          </button>
+        </div>
+        <StateBand band={band} word={word} />
+      </div>
+    );
   return (
     <div className="s34-panel s34-setup">
       <div className="s34-row">
@@ -130,23 +143,17 @@ export function SetupPanel({
           });
           return (
             <li key={c} className={`s34-chip is-${state}`} aria-label={label}>
-              <CheckIcon
-                name={state === "ok" ? "check" : state === "fix" ? "alert-triangle" : "minus"}
-                size={18}
-              />
+              {state === "na" ? (
+                <NotAvailableMark />
+              ) : (
+                <CheckIcon name={state === "ok" ? "check" : "alert-triangle"} size={18} />
+              )}
               <span aria-hidden="true">{t(lang, CHIP_KEY[c])}</span>
             </li>
           );
         })}
       </ul>
       {diagram && <TopView kind={diagram} label={t(lang, "assessment.setup.viewDiagramAlt")} />}
-      {motion && first === "motion" && (
-        <div className="s34-at-phone">
-          <button type="button" className="cta" onClick={motion.onAllow}>
-            {t(lang, "assessment.setup.allowMotion")}
-          </button>
-        </div>
-      )}
       {waiting && s.waitedSec >= tipsAfterSec && (
         <div className="s34-at-phone">
           <button type="button" className="ghost" onClick={onTips}>
@@ -160,6 +167,18 @@ export function SetupPanel({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The mark of a chip that cannot be judged yet: a dotted ring, never a bar (a bar reads as a dash
+ * beside Arabic). The chip's words carry the state.
+ */
+function NotAvailableMark() {
+  return (
+    <svg className="s34-chip-na" width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
+    </svg>
   );
 }
 
@@ -421,7 +440,11 @@ export function LeanPanel({
         </span>
       </div>
       <div className="s34-main-row">
-        <LeanArrow direction={snap.leanDirection} centred={centred} />
+        <LeanArrow
+          direction={snap.leanDirection}
+          centred={centred}
+          phase={word === "return" ? "back" : word === "pause" ? "hold" : "out"}
+        />
         {snap.practice ? (
           <span className="s34-badge-practice">{t(lang, "assessment.common.practice")}</span>
         ) : (
@@ -463,6 +486,7 @@ export function RetryPanel({
   issue,
   exhausted,
   triesLeft,
+  practice = false,
   onNow,
   onSkip,
   onTips,
@@ -474,6 +498,8 @@ export function RetryPanel({
   issue: string;
   exhausted: boolean;
   triesLeft: number;
+  /** S34e: a practice that failed again (no retry is used, so no tries left line). */
+  practice?: boolean;
   onNow(): void;
   onSkip(): void;
   onTips(): void;
@@ -482,11 +508,16 @@ export function RetryPanel({
   const fix = fixOf(issue, test.testId, test.side, test.weaker);
   const retry = snap.retry ?? { remaining: 6, total: 6, counting: false };
   const timed = test.testId === "arm_curl_30s" || test.testId === "chair_stand_30s";
-  const title = stripStop(cueLine("check_try_again")[lang]);
+  const fixTitle = t(lang, FIX_KEY[fix.fix]);
+  // When no try is left nothing starts again: the band names what went wrong, never "try again",
+  // and no "we start in" line runs beside it (the ring counts to the next step).
+  const title = exhausted ? fixTitle : stripStop(cueLine("check_try_again")[lang]);
+  // A timed test repeats after the two minute rest (S34j), not after the 6 s ring: only that line.
+  const restartLine = !exhausted && !timed;
   return (
-    <div className="s34-panel s34-retry">
-      <StateBand band="adjust" icon="refresh" word={bidiText(lang, title)} />
-      <p className="s34-line40">{t(lang, FIX_KEY[fix.fix])}</p>
+    <div className="s34-panel s34-retry" data-exhausted={exhausted || undefined}>
+      <StateBand band="adjust" icon={exhausted ? "alert-triangle" : "refresh"} word={bidiText(lang, title)} />
+      {!exhausted && <p className="s34-line40">{fixTitle}</p>}
       {exhausted && <p className="s34-meta">{bidiText(lang, reasonText("quality", lang))}</p>}
       {!exhausted && fix.fix === "touched" && (
         <p className="s34-meta">{t(lang, "assessment.retry.touchedHelper")}</p>
@@ -504,7 +535,7 @@ export function RetryPanel({
           <span className="s34-ring-num">{bidiText(lang, String(retry.remaining))}</span>
         </Ring>
         <span className="s34-restart-lines">
-          {!exhausted && (
+          {!exhausted && !practice && (
             <span className="s34-meta">
               {timed
                 ? t(lang, "assessment.retry.after2min")
@@ -513,9 +544,11 @@ export function RetryPanel({
                   : t(lang, "assessment.retry.left.one")}
             </span>
           )}
-          <span className="s34-meta">
-            {tx(lang, "assessment.retry.restartIn", { s: retry.remaining, unit: "sec" })}
-          </span>
+          {restartLine && (
+            <span className="s34-meta">
+              {tx(lang, "assessment.retry.restartIn", { s: retry.remaining, unit: "sec" })}
+            </span>
+          )}
         </span>
       </div>
       <div className="s34-at-phone">
@@ -647,16 +680,22 @@ export function TipsSheet({
   wheelchair: boolean;
   onBack(): void;
 }) {
+  // Focus goes to the title, so the sheet opens at its top with the first tips in view (never to Back
+  // at its bottom). The sheet ends above the STOP zone: STOP stays visible and reachable.
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    title.current?.focus({ preventScroll: true });
+  }, []);
   return (
     <div className="s34-sheet" role="dialog" aria-modal="true" aria-labelledby="s34-tips-title">
       <div className="s34-sheet-card">
-        <h2 id="s34-tips-title" className="s34-sheet-title" tabIndex={-1}>
+        <h2 id="s34-tips-title" className="s34-sheet-title" tabIndex={-1} ref={title}>
           {t(lang, "assessment.tips.title")}
         </h2>
         <div className="s34-tips">
           <SetupTipsList wheelchair={wheelchair} meters={{ metersFrom: meters[0], metersTo: meters[1] }} />
         </div>
-        <button type="button" className="cta" onClick={onBack} autoFocus>
+        <button type="button" className="cta" onClick={onBack}>
           {t(lang, "assessment.tips.back")}
         </button>
       </div>

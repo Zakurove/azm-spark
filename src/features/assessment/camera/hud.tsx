@@ -100,15 +100,29 @@ export function TryCounter({ n, total, lang }: { n: number; total: number; lang:
  * The lean guide: the direction to lean and a centre mark, never a magnitude (O4). The arrow points
  * to the person's side in the mirrored picture: their left is the screen's left.
  */
-export function LeanArrow({ direction, centred }: { direction: "left" | "right"; centred: boolean }) {
+export function LeanArrow({
+  direction,
+  centred,
+  phase = "out",
+}: {
+  direction: "left" | "right";
+  centred: boolean;
+  /**
+   * out: lean toward `direction`; back: the return phase, the arrow points back toward the centre
+   * mark (it never contradicts «عُد إلى المنتصف»); hold: the pause there, no arrow.
+   */
+  phase?: "out" | "back" | "hold";
+}) {
+  const pointsLeft = phase === "back" ? direction === "right" : direction === "left";
   return (
     <span className="s34-lean" dir="ltr" aria-hidden="true">
       <svg
-        className={`s34-lean-arrow is-${direction}${centred ? " is-idle" : ""}`}
+        className={`s34-lean-arrow is-${direction}${centred ? " is-idle" : ""}${phase === "hold" ? " is-hold" : ""}`}
         viewBox="0 0 120 60"
         focusable="false"
+        data-phase={phase}
       >
-        {direction === "left" ? (
+        {phase === "hold" ? null : pointsLeft ? (
           <path d="M8 30h104M8 30l26-22M8 30l26 22" />
         ) : (
           <path d="M112 30H8M112 30 86 8M112 30 86 52" />
@@ -185,37 +199,56 @@ export function TopView({
   kind: "side_left" | "side_right" | "oblique_left" | "oblique_right" | "side_change_wheelchair";
   label: string;
 }) {
+  // Seen from above: the person faces the top of the picture (a nose wedge says which way), so their
+  // left is the picture's left. Each phone shows its lens (a dot on the side facing the person) and a
+  // dashed line of sight to the person.
+  const P = { x: 50, y: 58 };
   const person = (
     <g className="s34-top-person">
-      <circle cx="50" cy="60" r="12" />
-      <path d="M38 60h24" />
+      <circle cx={P.x} cy={P.y} r="13" />
+      <path
+        className="s34-top-nose"
+        d={`M${P.x - 6} ${P.y - 12}L${P.x} ${P.y - 22}L${P.x + 6} ${P.y - 12}Z`}
+      />
+      <path d={`M${P.x - 13} ${P.y}h26`} />
     </g>
   );
-  const phone = (x: number, y: number, rot: number) => (
-    <g className="s34-top-phone" transform={`rotate(${rot} ${x} ${y})`}>
-      <rect x={x - 5} y={y - 9} width="10" height="18" rx="2" />
-    </g>
-  );
+  const phone = (x: number, y: number, rot: number) => {
+    const dx = P.x - x;
+    const dy = P.y - y;
+    const d = Math.hypot(dx, dy) || 1;
+    const lens = { x: x + (dx / d) * 7, y: y + (dy / d) * 7 };
+    const sight = { x: P.x - (dx / d) * 16, y: P.y - (dy / d) * 16 };
+    return (
+      <g key={`${x}:${y}`}>
+        <path className="s34-top-sight" d={`M${lens.x} ${lens.y}L${sight.x} ${sight.y}`} />
+        <g className="s34-top-phone" transform={`rotate(${rot} ${x} ${y})`}>
+          <rect x={x - 5} y={y - 9} width="10" height="18" rx="2" />
+        </g>
+        <circle className="s34-top-lens" cx={lens.x} cy={lens.y} r="2.2" />
+      </g>
+    );
+  };
   let content: ReactNode;
   switch (kind) {
     case "side_left":
-      content = phone(12, 60, 90);
+      content = phone(10, 58, 90);
       break;
     case "side_right":
-      content = phone(88, 60, 90);
+      content = phone(90, 58, 90);
       break;
     case "oblique_left":
-      content = phone(22, 22, -45);
+      content = phone(16, 20, -45);
       break;
     case "oblique_right":
-      content = phone(78, 22, 45);
+      content = phone(84, 20, 45);
       break;
     default:
       content = (
         <>
-          {phone(12, 60, 90)}
-          {phone(88, 60, 90)}
-          <path className="s34-top-arrow" d="M30 88a26 26 0 0 0 40 0" />
+          {phone(10, 58, 90)}
+          {phone(90, 58, 90)}
+          <path className="s34-top-arrow" d="M30 90a26 26 0 0 0 40 0" />
         </>
       );
   }
@@ -225,10 +258,11 @@ export function TopView({
       viewBox="0 0 100 100"
       role="img"
       aria-label={label}
+      data-kind={kind}
       style={{ direction: "ltr" }}
     >
-      {person}
       {content}
+      {person}
     </svg>
   );
 }

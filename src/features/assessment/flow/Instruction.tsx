@@ -104,9 +104,10 @@ export function Instruction({ model, dispatch }: ScreenProps) {
       <div className="flow-stack" data-screen="S28" data-test={testId}>
         {warnings.map((id) =>
           id === "warn_sci_t6" ? (
+            // S28: warn_sci_t6 is an info card led by the red 997 call control (Q22, 7.2-10).
             <NoticeCard
               key={id}
-              tone="warn"
+              tone="info"
               lead={<CallLink number="997" label={CHECK_DATA.emergencyCall.button[lang]} />}
             >
               <p className="check-body">{bidiText(lang, screenText(id, lang))}</p>

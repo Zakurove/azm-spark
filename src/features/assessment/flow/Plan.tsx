@@ -4,6 +4,7 @@
  *   S27  Your tests today: the frozen protocol, its duration and every skip with its reason (P6)
  *   S26  Helper briefing (home, Q11, O34-2): read aloud sentence by sentence, the P4 picture
  */
+import { useEffect, useState } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA, screenText, testDef } from "../../../movements/assessments";
@@ -33,21 +34,44 @@ import { useEntryLines, useVoice } from "./voice";
 export function warningText(id: ScreenId, lang: "ar" | "en", pdBucket: string | null): string | null {
   const text = screenText(id, lang);
   if (id !== "warn_pd_timing") return text;
-  // SPEC-GAP: pd-timing-last. {x} is the last check's dose bucket; the flow does not receive it yet
-  // (foundationRequests), so the card shows only when the bucket is known, never with a raw token.
+  // SPEC-GAP: pd-timing-last. {x} is the last check's dose bucket (read from the context by S25); the
+  // card shows only when the bucket is known, never with a raw token.
   const x = pdTimingToken(pdBucket, lang);
   return x ? fillTokens(text, { x }) : null;
 }
 
-export function Warnings({ model, dispatch }: ScreenProps) {
+/**
+ * The dose bucket of the person's last check for warn_pd_timing {x}. The flow's context does not carry
+ * it (foundationRequests), so a signed in check reads it from the context once, when the card applies.
+ */
+function useLastPdDoseBucket(model: ScreenProps["model"], api: ScreenProps["api"]): string | null {
+  const needed =
+    model.data.config.mode === "signedIn" && model.data.warnings.includes("warn_pd_timing" as ScreenId);
+  const [bucket, setBucket] = useState<string | null>(null);
+  useEffect(() => {
+    if (!needed) return;
+    let live = true;
+    void api.getContext(model.data.setting).then((r) => {
+      if (live && r.ok) setBucket(r.value.lastPdDoseBucket ?? null);
+    });
+    return () => {
+      live = false;
+    };
+    // Once per screen.
+  }, []);
+  return bucket;
+}
+
+export function Warnings({ model, dispatch, api }: ScreenProps) {
   const { lang, booth } = useCheckUi();
   const voice = useVoice(model.data.soundMode);
+  const pdBucket = useLastPdDoseBucket(model, api);
   const ids = checkWarnings(model.data.warnings);
   const skippedForSore = model.data.protocol
     .filter((i) => i.skipped === "pressure_sore")
     .map((i) => i.testId);
   const cards = ids
-    .map((id) => ({ id, text: warningText(id, lang, null) }))
+    .map((id) => ({ id, text: warningText(id, lang, pdBucket) }))
     .filter((c): c is { id: ScreenId; text: string } => c.text !== null);
   const lines: SpeechLine[] = cards.flatMap((c) => {
     const out: SpeechLine[] = [{ display: c.text }];
@@ -100,7 +124,15 @@ export function Plan({ model, dispatch }: ScreenProps) {
     <CheckShell
       footer={{
         primary: {
-          label: t(lang, none ? "assessment.common.backToToday" : "assessment.plan.start"),
+          // Every test skipped (O21): the way out; a guest has no Today, so the booth start instead.
+          label: t(
+            lang,
+            !none
+              ? "assessment.plan.start"
+              : guest
+                ? "assessment.guest.staff.restart"
+                : "assessment.common.backToToday",
+          ),
           onClick: () => dispatch({ type: "PLAN_START" }),
         },
       }}
@@ -222,7 +254,8 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
         side: t(lang, weaker === "left" ? "assessment.helper.sideLeft" : "assessment.helper.sideRight"),
       })
     : t(lang, "assessment.helper.noWeakerSide");
-  const all: SpeechLine[] = [...(screen ? lines : []), { display: sideLine }, checkInLine];
+  // The arm tests' briefing (O34-2 (2)) is the check in line and the confirm only.
+  const all: SpeechLine[] = screen ? [...lines, { display: sideLine }, checkInLine] : [checkInLine];
   useEntryLines(voice, all, true);
   const current = voice.current !== null && voice.current < lines.length && screen ? voice.current : null;
   return (
@@ -261,7 +294,7 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
           />
         )}
         {screen && <SentenceStack text={body} current={current} size={20} />}
-        <p className="flow-strong flow-side-line">{bidiText(lang, sideLine)}</p>
+        {screen && <p className="flow-strong flow-side-line">{bidiText(lang, sideLine)}</p>}
         <div className="flow-sentences is-20">
           <p
             aria-current={voice.current === all.length - 1 ? "true" : undefined}

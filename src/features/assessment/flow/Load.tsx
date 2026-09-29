@@ -179,31 +179,37 @@ export function LoadChoice({ model, dispatch }: ScreenProps) {
       })
     : ["none"];
   return (
-    <CheckShell counter={counter} onBack={onBack}>
-      <LoadPicker
-        key={`${side}:${stepDown}`}
-        side={side}
-        allowed={allowed}
-        stepDownFrom={stepDown ? prep.load[side] : undefined}
-        previous={stepDown ? undefined : previous}
-        onDone={done}
-      />
-    </CheckShell>
+    <LoadPicker
+      key={`${side}:${stepDown}`}
+      side={side}
+      allowed={allowed}
+      stepDownFrom={stepDown ? prep.load[side] : undefined}
+      previous={stepDown ? undefined : previous}
+      onDone={done}
+      shell={{ counter, onBack }}
+    />
   );
 }
 
+/**
+ * The load of one arm (S30), inside its own shell so the primary sits in the sticky footer: the same
+ * as last time (re-test), or the allowed loads with their detail (bottle size, kilograms). The rows
+ * keep select, then Next, because a row holds detail controls (S30).
+ */
 function LoadPicker({
   side,
   allowed,
   stepDownFrom,
   previous,
   onDone,
+  shell,
 }: {
   side: Side;
   allowed: LoadKind[];
   stepDownFrom?: Load;
   previous?: Load;
   onDone(l: Load): void;
+  shell: { counter?: { text: string; value: number; max: number }; onBack?: () => void };
 }) {
   const { lang } = useCheckUi();
   const load = testDef("arm_curl_30s").load;
@@ -220,19 +226,19 @@ function LoadPicker({
   // Re-test: the same as last time (Q5 locked load).
   if (previous && same === null)
     return (
-      <div className="flow-stack" data-screen="S30" data-variant="same">
-        <p className="check-meta">{sideLabel("arm_curl_30s", side, lang)}</p>
-        <h1 className="check-question">{t(lang, "assessment.load.sameTitle")}</h1>
-        <p className="check-card flow-load-summary">{bidiText(lang, loadSummary(previous, lang))}</p>
-        <div className="check-actions">
-          <button type="button" className="cta" onClick={() => onDone(previous)}>
-            {t(lang, "assessment.load.sameYes")}
-          </button>
-          <button type="button" className="ghost" onClick={() => setSame(false)}>
-            {t(lang, "assessment.load.sameNo")}
-          </button>
+      <CheckShell
+        {...shell}
+        footer={{
+          primary: { label: t(lang, "assessment.load.sameYes"), onClick: () => onDone(previous) },
+          secondary: { label: t(lang, "assessment.load.sameNo"), onClick: () => setSame(false) },
+        }}
+      >
+        <div className="flow-stack" data-screen="S30" data-variant="same">
+          <p className="check-meta">{sideLabel("arm_curl_30s", side, lang)}</p>
+          <h1 className="check-question">{t(lang, "assessment.load.sameTitle")}</h1>
+          <p className="check-card flow-load-summary">{bidiText(lang, loadSummary(previous, lang))}</p>
         </div>
-      </div>
+      </CheckShell>
     );
 
   const bottleSizes = load.bottleSizes.filter((b) => !down?.bottles || down.bottles.includes(b.value));
@@ -260,63 +266,65 @@ function LoadPicker({
   };
   const label = (k: LoadKind) => load.options.find((o) => o.value === k)?.label[lang] ?? k;
   return (
-    <div className="flow-stack" data-screen="S30" data-variant={lighter ? "stepDown" : "first"}>
-      <p className="check-meta">{sideLabel("arm_curl_30s", side, lang)}</p>
-      <h1 id={titleId} className="check-question">
-        {bidiText(lang, load.ask[lang])}
-      </h1>
-      <p className="check-body">{bidiText(lang, (stepDownFrom ? load.stepDown : load.help)[lang])}</p>
-      {previous && same === false && <p className="check-meta">{t(lang, "assessment.load.newLine")}</p>}
-      {tried && !complete && (
-        <p className="check-field-error">{t(lang, "assessment.common.chooseToContinue")}</p>
-      )}
-      <div className="check-answers" role="group" aria-labelledby={titleId}>
-        {kinds.map((k) => {
-          const on = kind === k;
-          return (
-            <div key={k} className={`flow-load-row${on ? " is-on" : ""}`}>
-              <button type="button" className="check-answer" aria-pressed={on} onClick={() => pick(k)}>
-                <span className="check-answer-mark" aria-hidden="true">
-                  <CheckIcon name="check" size={18} />
-                </span>
-                <span className="check-answer-text">{bidiText(lang, label(k))}</span>
-              </button>
-              {on && k === "bottle" && (
-                <div className="flow-load-detail">
-                  <p id={`${titleId}-bottle`} className="check-label">
-                    {t(lang, "assessment.load.bottleSize")}
-                  </p>
-                  <div className="flow-segments" role="radiogroup" aria-labelledby={`${titleId}-bottle`}>
-                    {bottleSizes.map((b) => (
-                      <button
-                        key={b.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={liters === b.value}
-                        className="flow-segment"
-                        onClick={() => setLiters(b.value)}
-                      >
-                        {capitalFirst(lang, b.label[lang])}
-                      </button>
-                    ))}
+    <CheckShell
+      {...shell}
+      footer={{ primary: { label: t(lang, "assessment.common.next"), onClick: submit } }}
+    >
+      <div className="flow-stack" data-screen="S30" data-variant={lighter ? "stepDown" : "first"}>
+        <p className="check-meta">{sideLabel("arm_curl_30s", side, lang)}</p>
+        <h1 id={titleId} className="check-question">
+          {bidiText(lang, load.ask[lang])}
+        </h1>
+        <p className="check-body">{bidiText(lang, (stepDownFrom ? load.stepDown : load.help)[lang])}</p>
+        {previous && same === false && <p className="check-meta">{t(lang, "assessment.load.newLine")}</p>}
+        {tried && !complete && (
+          <p className="check-field-error">{t(lang, "assessment.common.chooseToContinue")}</p>
+        )}
+        <div className="check-answers" role="group" aria-labelledby={titleId}>
+          {kinds.map((k) => {
+            const on = kind === k;
+            return (
+              <div key={k} className={`flow-load-row${on ? " is-on" : ""}`}>
+                <button type="button" className="check-answer" aria-pressed={on} onClick={() => pick(k)}>
+                  <span className="check-answer-mark" aria-hidden="true">
+                    <CheckIcon name="check" size={18} />
+                  </span>
+                  <span className="check-answer-text">{bidiText(lang, label(k))}</span>
+                </button>
+                {on && k === "bottle" && (
+                  <div className="flow-load-detail">
+                    <p id={`${titleId}-bottle`} className="check-label">
+                      {t(lang, "assessment.load.bottleSize")}
+                    </p>
+                    <div className="flow-segments" role="radiogroup" aria-labelledby={`${titleId}-bottle`}>
+                      {bottleSizes.map((b) => (
+                        <button
+                          key={b.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={liters === b.value}
+                          className="flow-segment"
+                          onClick={() => setLiters(b.value)}
+                        >
+                          {capitalFirst(lang, b.label[lang])}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="check-meta">{t(lang, "assessment.load.bottleHint")}</p>
                   </div>
-                  <p className="check-meta">{t(lang, "assessment.load.bottleHint")}</p>
-                </div>
-              )}
-              {on && (k === "dumbbell" || k === "cuff") && (
-                <div className="flow-load-detail">
-                  <KgStepper kind={k} value={kg} max={down?.maxKg} onChange={setKg} />
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+                {on && (k === "dumbbell" || k === "cuff") && (
+                  <div className="flow-load-detail">
+                    <KgStepper kind={k} value={kg} max={down?.maxKg} onChange={setKg} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="check-meta">{bidiText(lang, testDef("arm_curl_30s").safety[lang][1])}</p>
       </div>
-      <p className="check-meta">{bidiText(lang, testDef("arm_curl_30s").safety[lang][1])}</p>
-      <button type="button" className="cta" onClick={submit}>
-        {t(lang, "assessment.common.next")}
-      </button>
-    </div>
+    </CheckShell>
   );
 }
 

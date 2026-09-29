@@ -2,8 +2,9 @@
  * S14 Intro, S14b Sound check and S16 Pre-check notice (with the O6 resume line).
  *
  * S14 plays check_intro, check_stop_any_time and the how to stop line on entry, 800 ms after focus
- * moves to the h1, each captioned. The duration is computed from the tests of this person
- * (estimateMinutes, O40), not the data's fixed "8 to 10 minutes" (SPEC-GAP intro-duration).
+ * moves to the h1, each captioned. The time, the needs and "you can skip any test" come from
+ * boundary.intro filled with this person's computed range (estimateMinutes, O40), since the data
+ * carries {min} and {max}; the need list below it is personal.
  *
  * S14b plays check_sound on entry and on replay (Q31 (1)). No shows scr_sound_off and asks again; a
  * second No shows scr_sound_still_off with Try again and Continue without sound (captionsOnly). "I use
@@ -21,7 +22,7 @@ import { AnswerButtons } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import { allSeated, introHelperTests, introNeeds, joinAnd, rangeVars, type SpeechItem } from "./copy";
+import { allSeated, introBoundary, introHelperTests, introNeeds, joinAnd, type SpeechItem } from "./copy";
 import { IntroDrawing, SamePress } from "./parts";
 import { unlockAudio, useEntryLines, useVoice } from "./voice";
 
@@ -77,8 +78,9 @@ export function Intro({ model, dispatch }: ScreenProps) {
           {retest ? t(lang, "assessment.intro.welcomeBack") : bidiText(lang, CHECK_DATA.boundary.line[lang])}
         </p>
         <IntroDrawing alt={t(lang, "assessment.intro.illustrationAlt")} position={position} />
-        <p className="check-body">{t(lang, "assessment.intro.duration", rangeVars(minutes))}</p>
-        <p className="check-body">{t(lang, "assessment.intro.skipAny")}</p>
+        <p className="check-body" data-part="duration">
+          {bidiText(lang, introBoundary(lang, minutes))}
+        </p>
         {tests.length > 0 && (
           <section className="flow-section" aria-labelledby="flow-intro-tests">
             <h2 id="flow-intro-tests">{t(lang, "assessment.intro.testsHeading")}</h2>

@@ -408,6 +408,19 @@ export function introHelperTests(tests: readonly TestId[], ctx: CheckContext, se
   );
 }
 
+/**
+ * boundary.intro with the person's computed range (O40, S14): the data turned its fixed "8 to 10
+ * minutes" into {min} and {max} from estimateMinutes, with the Arabic minutes noun chosen by the
+ * larger number (دقائق up to 10, دقيقة from 11). S14 shows it in place of intro.duration and
+ * intro.skipAny, as the spec asks once the data carries the tokens.
+ */
+export function introBoundary(lang: Lang, [from, to]: readonly [number, number]): string {
+  const intro = CHECK_DATA.boundary.intro;
+  const nouns = intro.tokens.minutesNoun;
+  const noun = lang === "ar" ? (to <= 10 ? nouns.ar.maxUpTo10 : nouns.ar.maxFrom11) : nouns.en;
+  return fillTokens(intro[lang], { min: String(from), max: String(to), minutesNoun: noun });
+}
+
 /** Whether every test of the check is done seated (S14 allSeated: chair and wheelchair users). */
 export function allSeated(position: CheckPosition): boolean {
   return position === "chair" || position === "wheelchair";

@@ -30,6 +30,11 @@ export interface SpeechLine {
   severity: CaptionSeverity;
   /** The sentence this line highlights, as "<block>:<index>" (the SentenceStack of that block). */
   mark?: string;
+  /**
+   * The line is already on the screen as its heading (the question of S38b, S47, S48, S49): it is
+   * spoken, and the caption strip stays empty rather than repeating it above itself.
+   */
+  onScreen?: boolean;
 }
 
 /**

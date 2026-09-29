@@ -23,7 +23,7 @@ import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { stopListView, type StopRow } from "./content";
-import { useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
+import { useArmedPress, useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
 import { copyLine, cueSpeech, type SpeechLine } from "./speech";
 import { cameraFine, SAFETY_TIMING } from "./timing";
 
@@ -79,6 +79,10 @@ export function StopList({ model, dispatch }: ScreenProps) {
     timerOn,
   );
 
+  // A double tap on STOP must never pick a reason (the faint row can sit under the STOP point): a row
+  // counts only for a new press that started after the list opened, and not in its first 600 ms when
+  // a press opened it (useArmedPress).
+  const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
   const choose = (r: StopRow) => dispatch({ type: "STOP_OPTION", option: r.id });
   const rows = (list: StopRow[]) =>
     list.map((r) => (
@@ -87,7 +91,9 @@ export function StopList({ model, dispatch }: ScreenProps) {
         type="button"
         className="check-answer safety-stop-row"
         data-option={r.id}
-        onClick={() => choose(r)}
+        onClick={(e) => {
+          if (armed(e)) choose(r);
+        }}
       >
         <span className="safety-stop-row-icon" aria-hidden="true">
           <CheckIcon name={r.icon} size={28} />
@@ -148,6 +154,16 @@ export function StopList({ model, dispatch }: ScreenProps) {
           <div className="check-answers">{rows(view.other)}</div>
         </section>
       </CheckShell>
+      {/* STOP stays where it was, visible but inert while the list is open (spec S41): the bottom zone
+          under the STOP point is never a row, so a second tap there lands on nothing. */}
+      {cameraRunning(model.state) && (
+        <div className="safety-stop-zone is-inert" aria-hidden="true">
+          <span className="safety-stop">
+            <CheckIcon name="stop-square" size={28} />
+            <span>{t(lang, "assessment.stop.button")}</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

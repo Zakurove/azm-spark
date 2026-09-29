@@ -9,6 +9,8 @@
 import type { Lang } from "../../../app/i18n";
 import { selectCheckInCue } from "../../../engine/checkin";
 import { localizeDigits, t, type I18nKey } from "../../../i18n";
+import { ANSWER_ZONES } from "../../../medical/gates";
+import { sameWords } from "../camera/cues";
 import { pausedWhen, stopOptions } from "../../../medical/precheck";
 import {
   CHECK_DATA,
@@ -324,6 +326,9 @@ export function stopListView(d: FlowData, lang: Lang): { ask: string; urgent: St
 // The check in inputs come from the start answer (signed in) or the guest pre-check (guests); without
 // them the no raise form is used, the safer one: it never asks a person who must not lift an arm to
 // raise a hand (O34-4 (3)).
+// At home the zone forms («ضع يدك في مربع «أنا بخير»») are used only when the zones are drawn over the
+// video (ANSWER_ZONES, phase 2); until then S43 is a sheet of tap buttons and no box exists to hold a
+// hand in, so the cue names only what works (engine selectCheckInCue, zones false).
 export function checkInCueId(d: FlowData): CheckCueId {
   const cfg = d.checkIn;
   return selectCheckInCue({
@@ -331,15 +336,28 @@ export function checkInCueId(d: FlowData): CheckCueId {
     raiseAllowed: cfg?.raiseAllowed ?? false,
     noArmSignal: cfg?.noArmSignal ?? false,
     speech: false,
+    zones: ANSWER_ZONES,
   }) as CheckCueId;
 }
 
-/** S43: the 56 px question (the cue's first question) and the full instruction, its short form. */
+/**
+ * S43: the cue split after its first question (spec S43): the 56 px question, and the instruction
+ * that follows it for the caption card, under the short form. The question is never repeated in it.
+ */
 export function checkInView(d: FlowData, lang: Lang) {
   const id = checkInCueId(d);
   const full = cueLine(id)[lang];
-  const [question] = splitSentences(full);
-  return { cue: id, question: question ?? full, full, short: cueShort(id, lang) };
+  const [question, ...rest] = splitSentences(full);
+  const short = cueShort(id, lang);
+  // A first sentence that is the short form itself («لا تنهض لتجيب») is not printed twice.
+  if (rest.length > 1 && sameWords(rest[0], short)) rest.shift();
+  return {
+    cue: id,
+    question: question ?? full,
+    instruction: rest.join(" "),
+    full,
+    short,
+  };
 }
 
 /**

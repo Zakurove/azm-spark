@@ -4,12 +4,10 @@
  * stage caption and the heading icon. They use only the check tokens (safety.css).
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Lang } from "../../../app/i18n";
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import { SEVERITY_ICON } from "../shared/CaptionBar";
 import type { SpeechLine } from "./speech";
 import { SAFETY_TIMING } from "./timing";
 
@@ -110,12 +108,15 @@ export function AnswerZones({
   options,
   onAnswer,
   say,
+  fold = false,
 }: {
   labelledBy: string;
   options: readonly ZoneOption[];
   onAnswer(value: string): void;
   /** Reads a line with its caption (the screen's speech sequence). */
   say?: (line: SpeechLine) => void;
+  /** The zones must end above the fold (useFoldFit): answered from the chair, never scrolled to. */
+  fold?: boolean;
 }) {
   const { lang } = useCheckUi();
   const [chosen, setChosen] = useState<string | null>(null);
@@ -142,7 +143,7 @@ export function AnswerZones({
   };
 
   return (
-    <div className="safety-zones" role="group" aria-labelledby={labelledBy}>
+    <div className="safety-zones" role="group" aria-labelledby={labelledBy} data-fold={fold ? "" : undefined}>
       {options.map((o, i) => (
         <button
           key={o.value}
@@ -198,24 +199,6 @@ export function CountdownRing({
   );
 }
 
-/**
- * The caption strip of a stage that is not a CheckShell (S43, S45): the line being spoken, with its
- * severity icon. Not a button (on S45 no touch but the fine button may do anything) and not a live
- * region (the one hidden announcer reads captions).
- */
-export function StageCaption({ lang }: { lang: Lang }) {
-  const { caption } = useCheckUi();
-  if (!caption) return null;
-  return (
-    <p className={`check-caption is-${caption.severity} safety-stage-caption`}>
-      <span className="check-caption-icon" data-severity={caption.severity}>
-        <CheckIcon name={SEVERITY_ICON[caption.severity]} />
-      </span>
-      <span className="check-caption-text">{bidiText(lang, caption.text)}</span>
-    </p>
-  );
-}
-
 /** The heading of a safety screen: an icon and the words (never colour alone, principle 10). */
 export function SafetyHeading({ id, icon, text }: { id?: string; icon: string; text: string }) {
   const { lang } = useCheckUi();
@@ -229,14 +212,18 @@ export function SafetyHeading({ id, icon, text }: { id?: string; icon: string; t
   );
 }
 
-/** Focuses the element once when it mounts (the heading of an overlay: 5.7, O34-4 (2)). */
+/**
+ * Focuses the element once when it mounts (the heading of an overlay: 5.7, O34-4 (2)). The heading is
+ * at the top of its dialog, so focus never scrolls the layer (a scroll there would hide the top rows
+ * while the answers are fitted to the screen, useFoldFit).
+ */
 export function useFocusOnMount<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.tabIndex = -1;
-    el.focus({ preventScroll: false });
+    el.focus({ preventScroll: true });
   }, []);
   return ref;
 }

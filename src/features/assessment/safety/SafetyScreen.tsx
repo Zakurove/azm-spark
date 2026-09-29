@@ -30,6 +30,7 @@ import type { ScreenProps } from "../screenTypes";
 import { CheckShell, type CallLinkProps } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
+import { CameraOnLine } from "../camera/CameraOnLine";
 import { useCameraWatch } from "../camera/watch";
 import { safetyView } from "./content";
 import { useSpeechSequence, useWakeLock } from "./hooks";
@@ -45,19 +46,24 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
   const key = view ? `${view.id}:${state.kind === "safety" ? state.screen : ""}:${lang}` : "none";
   const seq = useSpeechSequence(view?.speech ?? [], { key });
   useWakeLock(true);
-  // S38: the camera stays on until the faint question is answered (a raised hand in its check in).
-  useCameraWatch(model, dispatch);
+  // S38: the camera stays on until the faint question is answered (a raised hand in its check in), and
+  // the screen says so while it runs (principle 13).
+  const cameraOn = useCameraWatch(model, dispatch);
 
-  // S38: the faint question once the speech has ended and 20 s have passed (spec S38b "When").
-  const [elapsed, setElapsed] = useState(false);
+  // S38: the faint question 20 s after S38 opened, whatever the speech is doing (spec S38b "When": after
+  // the speech ends and the person is seen seated, or at 20 s, whichever comes first). The sequence
+  // stops, so the question's own cue takes over. SPEC-GAP: seen-seated. The camera gives no seated
+  // signal yet, so the earlier trigger (speech ended and seen seated) is not built.
+  const seqRef = useRef(seq);
+  seqRef.current = seq;
   useEffect(() => {
     if (!view?.askFaint || view.kind !== "faint") return;
-    const timer = setTimeout(() => setElapsed(true), SAFETY_TIMING.faintAskAfterMs);
+    const timer = setTimeout(() => {
+      seqRef.current.stop();
+      dispatch({ type: "FAINT_ASK" });
+    }, SAFETY_TIMING.faintAskAfterMs);
     return () => clearTimeout(timer);
   }, [view?.askFaint, view?.kind]);
-  useEffect(() => {
-    if (view?.kind === "faint" && view.askFaint && elapsed && seq.done) dispatch({ type: "FAINT_ASK" });
-  }, [elapsed, seq.done]);
 
   // S39: a touch on the screen opens the faint question (O42), except on the call control.
   const root = useRef<HTMLDivElement>(null);
@@ -101,6 +107,7 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
       >
         <section className={`check-card is-cream safety-card${view.band ? " has-band" : ""}`}>
           <SafetyHeading icon={view.icon} text={view.heading} />
+          {view.kind === "faint" && <CameraOnLine on={cameraOn} />}
           {view.kind === "emergency" && <AdJump blocks={view.blocks} />}
           {view.bigNumber && <BigNumber />}
           {view.blocks.map((b) =>

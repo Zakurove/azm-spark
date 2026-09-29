@@ -28,6 +28,7 @@ import {
   testDef,
 } from "../../../movements/assessments";
 import type { ScreenId } from "../../../movements/types";
+import { CameraOnLine } from "../camera/CameraOnLine";
 import { useCameraWatch } from "../camera/watch";
 import { cameraRunning, outcomeKey } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
@@ -36,7 +37,7 @@ import { CountStepper, parseCount } from "../shared/CountStepper";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { EMPHASIS, emphasise, endQuestionView, sideOfState, sideWords } from "./content";
-import { playChime, useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
+import { playChime, useFoldFit, useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
 import { AnswerZones, StopButton, type ZoneOption } from "./parts";
 import { copyLine, cueSpeech, dataLine, screenLines, splitSentences, type SpeechLine } from "./speech";
 import { cameraFine, SAFETY_TIMING } from "./timing";
@@ -72,14 +73,19 @@ function yesNo(lang: "ar" | "en", yesAtOnce = false): ZoneOption[] {
 // fine one extra 30 s timer (O34-1 (6)), as the flow records it (fineVia).
 export function FaintAsk({ model, dispatch }: ScreenProps) {
   const { lang, booth } = useCheckUi();
-  // The camera stays on until the question is answered: a raised hand is "fine" in its check in (O30).
-  useCameraWatch(model, dispatch);
+  // The camera stays on until the question is answered: a raised hand is "fine" in its check in (O30);
+  // the screen says so while it runs (principle 13).
+  const cameraOn = useCameraWatch(model, dispatch);
   const s = model.state.kind === "faintAsk" ? model.state : null;
   const q = stopFollowUp("sf_faint_loc");
   const back: ScreenId = s?.back?.screen ?? "scr_faint";
   const headingId = useId();
-  const seq = useSpeechSequence([cueSpeech("check_faint_loc", lang, "info")], { key: `S38b:${lang}` });
+  const seq = useSpeechSequence([{ ...cueSpeech("check_faint_loc", lang, "info"), onScreen: true }], {
+    key: `S38b:${lang}`,
+  });
   useWakeLock(true);
+  const root = useRef<HTMLDivElement>(null);
+  const fit = useFoldFit(root, 5, `S38b:${lang}:${booth}`);
 
   // Back from the check in (the overlay closed over this screen): "Take your time".
   const overlay = model.overlay?.kind ?? null;
@@ -119,13 +125,15 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
       sound
       footer={{ call: [{ number: "997", label: emergencyCallButton(lang).label }] }}
     >
-      <div className="safety-question is-stage" data-screen="S38b">
+      <div className="safety-question is-stage" data-screen="S38b" ref={root} data-fit={fit}>
         <h1 id={headingId} className="safety-stage-question">
           {bidiText(lang, q.ask[lang])}
         </h1>
         {returns > 0 && <p className="safety-take-time">{t(lang, "assessment.stop.takeYourTime")}</p>}
+        <CameraOnLine on={cameraOn} />
         <AnswerZones
           labelledBy={headingId}
+          fold
           options={options}
           say={(line) => seq.replay([line])}
           onAnswer={(v) => {
@@ -158,8 +166,10 @@ export function Between({ model, dispatch }: ScreenProps) {
   const s = model.state.kind === "between" ? model.state : null;
   const q = precheckItem("bt_pain_after");
   const headingId = useId();
-  const seq = useSpeechSequence([dataLine(q.ask, lang)], { key: `S47:${lang}` });
+  const seq = useSpeechSequence([{ ...dataLine(q.ask, lang), onScreen: true }], { key: `S47:${lang}` });
   const ui = useCheckUi();
+  const root = useRef<HTMLDivElement>(null);
+  const fit = useFoldFit(root, 5, `S47:${lang}:${ui.booth}:${s?.scope}:${s?.via}`);
   useEffect(() => playChime(ui.sound.on), []);
   const at = sideOfState(model);
   const side =
@@ -174,7 +184,7 @@ export function Between({ model, dispatch }: ScreenProps) {
   return (
     <>
       <CheckShell sound>
-        <div className="safety-question is-stage" data-screen="S47">
+        <div className="safety-question is-stage" data-screen="S47" ref={root} data-fit={fit}>
           {side && (
             <p className="safety-kicker">
               {bidiText(lang, t(lang, "assessment.between.sideDone", { side }))}
@@ -185,6 +195,7 @@ export function Between({ model, dispatch }: ScreenProps) {
           </h1>
           <AnswerZones
             labelledBy={headingId}
+            fold
             options={options}
             say={(line) => seq.replay([line])}
             onAnswer={(v) => dispatch({ type: "BETWEEN_ANSWER", value: v as "same" | "more" | "much" })}
@@ -220,9 +231,13 @@ export function AfterTest({ model, dispatch }: ScreenProps) {
     if (at && at.side !== "none") group = sideWords(at.testId, at.side, lang);
   } else if (kind === "after.pushed") ask = testDef("chair_stand_30s").pushedAsk;
   else ask = { ar: t("ar", "assessment.count.ask"), en: t("en", "assessment.count.ask") };
-  const seq = useSpeechSequence([kind === "after.count" ? copyLine(lang, ask[lang]) : dataLine(ask, lang)], {
-    key: `S48:${kind}:${lang}`,
-  });
+  const seq = useSpeechSequence(
+    [{ ...(kind === "after.count" ? copyLine(lang, ask[lang]) : dataLine(ask, lang)), onScreen: true }],
+    { key: `S48:${kind}:${lang}` },
+  );
+  const { booth } = useCheckUi();
+  const root = useRef<HTMLDivElement>(null);
+  const fit = useFoldFit(root, 5, `S48:${kind}:${lang}:${booth}:${typing}`);
   const count = at ? model.data.outcomes[outcomeKey(at.testId, at.side)]?.value : undefined;
   const options: ZoneOption[] =
     kind === "after.count"
@@ -234,7 +249,13 @@ export function AfterTest({ model, dispatch }: ScreenProps) {
   return (
     <>
       <CheckShell sound>
-        <div className="safety-question is-stage" data-screen="S48" data-kind={kind}>
+        <div
+          className="safety-question is-stage"
+          data-screen="S48"
+          data-kind={kind}
+          ref={root}
+          data-fit={fit}
+        >
           {group && <p className="safety-kicker">{group}</p>}
           <h1 id={headingId} className="safety-stage-question">
             {bidiText(lang, ask[lang])}
@@ -252,6 +273,7 @@ export function AfterTest({ model, dispatch }: ScreenProps) {
           ) : (
             <AnswerZones
               labelledBy={headingId}
+              fold
               options={options}
               say={(line) => seq.replay([line])}
               onAnswer={(v) => {
@@ -283,9 +305,16 @@ export function CountInput({ initial, onDone }: { initial: number; onDone(n: num
   const [text, setText] = useState(localDigits(lang, initial));
   const [error, setError] = useState(false);
   const value = parseCount(text, COUNT_MIN, COUNT_MAX);
+  // The answer that opened this field unmounts with the zones: focus moves to the field, so keyboard,
+  // switch and screen reader users keep their place (it is labelled «كم عددت؟»).
+  const inputId = useId();
+  useEffect(() => {
+    document.getElementById(inputId)?.focus();
+  }, []);
   return (
     <div className="safety-count-input">
       <CountStepper
+        inputId={inputId}
         label={t(lang, "assessment.count.howMany")}
         text={text}
         onText={(v) => {
@@ -323,7 +352,12 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
   const view = endQuestionView(s?.side ?? null, lang);
   const headingId = useId();
   const line = dataLine({ ar: view.text, en: view.text, arTts: view.arTts ?? undefined }, lang);
-  const seq = useSpeechSequence([{ ...line, display: view.text }], { key: `S49:${s?.side ?? ""}:${lang}` });
+  const seq = useSpeechSequence([{ ...line, display: view.text, onScreen: true }], {
+    key: `S49:${s?.side ?? ""}:${lang}`,
+  });
+  const { booth } = useCheckUi();
+  const root = useRef<HTMLDivElement>(null);
+  const fit = useFoldFit(root, 5, `S49:${s?.side ?? ""}:${lang}:${booth}`);
   const options: ZoneOption[] = CHECK_DATA.endOfCheck[0].options.map((o) => ({
     value: o.value,
     label: o.label[lang],
@@ -332,7 +366,7 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
   }));
   return (
     <CheckShell sound>
-      <div className="safety-question" data-screen="S49">
+      <div className="safety-question" data-screen="S49" ref={root} data-fit={fit}>
         <p className="safety-kicker">{t(lang, "assessment.symptom.kicker")}</p>
         <h1 id={headingId} className="check-question">
           {emphasise(view.text, EMPHASIS.ec_symptoms[lang]).map((p, i) =>
@@ -343,17 +377,19 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
             ),
           )}
         </h1>
-        <button type="button" className="ghost safety-listen" onClick={() => seq.replay()}>
-          <CheckIcon name="speaker" />
-          {t(lang, "assessment.precheck.listenQuestion")}
-        </button>
         <AnswerZones
           labelledBy={headingId}
+          fold
           options={options}
           say={(l) => seq.replay([l])}
           onAnswer={(v) => dispatch({ type: "END_ANSWER", yes: v === "yes" })}
         />
         <ZoneLine />
+        {/* Listen again after the answers, so the answers stay on screen with the long question. */}
+        <button type="button" className="ghost safety-listen" onClick={() => seq.replay()}>
+          <CheckIcon name="speaker" />
+          {t(lang, "assessment.precheck.listenQuestion")}
+        </button>
       </div>
     </CheckShell>
   );

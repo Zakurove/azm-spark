@@ -43,7 +43,12 @@ export function StopDone({ model, dispatch }: ScreenProps) {
     : resting
       ? t(lang, "assessment.rest.nextNow")
       : t(lang, "assessment.stopDone.next");
-  const reason = s.reason in CHECK_DATA.reasons ? reasonText(s.reason as ReasonId, lang) : null;
+  // S42 follows only a stop the person chose (tired, something else, just wanted to stop). The data
+  // stores tired and something else as stopped_symptom, whose text says we stopped for safety; here the
+  // person stopped, so the line is the by_choice text. SPEC-GAP: s42-reason-line (a data request for a
+  // stopped_tired reason: «توقفت لتستريح، ولم تُحفظ نتيجة هذا الاختبار.»). The stored reason is unchanged.
+  const shownReason = s.reason === "stopped_symptom" ? "by_choice" : s.reason;
+  const reason = shownReason in CHECK_DATA.reasons ? reasonText(shownReason as ReasonId, lang) : null;
   const seconds = Math.ceil(left / 1000);
   return (
     <CheckShell

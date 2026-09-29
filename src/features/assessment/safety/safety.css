@@ -137,6 +137,20 @@
   color: var(--ink);
 }
 
+/* The camera on line where the camera runs under a screen that is not the stage (S29, S38, S38b). */
+.azm-check .check-camera-on {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+.azm-check .check-camera-on svg {
+  flex: none;
+  color: var(--purple);
+}
+
 /* ------------------------------------------------------------------ answer screens (S38b, S47 to S49) */
 
 .azm-check .safety-question {
@@ -253,9 +267,20 @@
   padding: var(--s3) var(--gutter) calc(var(--s3) + env(safe-area-inset-bottom));
   background: var(--page);
 }
-/* S43 and S44: a 24 px inert gap between STOP and the controls above it (0.5). */
+/* S43 and S44: a 24 px inert gap between STOP and the controls above it (0.5), inside the sticky zone,
+   so the gap stays when the zone is pinned to the bottom of the dialog. */
 .azm-check .safety-stop-zone.has-gap {
-  margin-block-start: var(--s6);
+  padding-block-start: var(--s6);
+}
+/* S41: STOP stays in its place, visible but inert while the list is open. The zone is not a control,
+   so a second tap on the STOP point lands on nothing. */
+.azm-check .safety-stop-zone.is-inert .safety-stop {
+  opacity: 0.45;
+  cursor: default;
+}
+/* Keyboard focus is never hidden under the pinned STOP zone of an overlay. */
+.azm-check .check-overlay:has(.safety-stop-zone) {
+  scroll-padding-bottom: 128px;
 }
 .azm-check .safety-stop {
   display: flex;
@@ -324,6 +349,9 @@ html:has(.azm-check .safety-stop-zone) {
   display: grid;
   gap: var(--s3);
 }
+.azm-check .safety-call-wrap {
+  display: grid;
+}
 .azm-check .safety-need-stop {
   justify-self: start;
 }
@@ -390,22 +418,155 @@ html:has(.azm-check .safety-stop-zone) {
 .azm-check .safety-stage-caption {
   cursor: default;
 }
-/* The ring of the 15 s (no numbers, aria-hidden), centred under the answers. */
-.azm-check .safety-stage-body > .safety-ring {
-  justify-self: center;
+/* The ring of the 15 s (no numbers, aria-hidden), in the top row so the answers stay on screen. */
+.azm-check .safety-stage-top .safety-ring {
+  margin-inline-end: var(--s2);
 }
-/* S45: the 120 px «أنا بخير» button, the only touch that silences the tone. */
+/* S43: the caption card near the lens (4.3): the short form at 56 px with its pictogram inline, then
+   the instruction after the question at 34 px. The question is the heading under it. */
+.azm-check .safety-checkin-cue {
+  display: grid;
+  gap: var(--s2);
+  cursor: default;
+}
+.azm-check .safety-checkin-cue .safety-short {
+  flex-wrap: nowrap;
+}
+.azm-check .safety-checkin-instruction {
+  margin: 0;
+}
+/* S45: the 120 px «أنا بخير» button, the only touch that silences the tone, with 24 px of nothing
+   around it, so no nearby press is snapped onto it. */
 .azm-check .safety-fine {
   min-height: 120px;
+  margin-block: var(--s6);
   font-size: 2.5rem;
   font-weight: 800;
 }
-.azm-check .safety-staff {
-  font-size: 1.375rem;
-  font-weight: 800;
+
+/* ------------------------------------------------------------------ fitting the fold (useFoldFit)
+
+   The answers of S43, S44, S45, S38b, S47, S48 and S49 and STOP are read and answered from the chair,
+   so they must be on screen without scrolling (principles 6 and 7). Each level is taken only while
+   they still end below the fold (the sticky STOP zone or footer). Text never goes under the 2 m sizes
+   of 4.1, and zones stay at 120 px or more (4.7) except in compact mode (under 700 px tall, 4.2),
+   where zones 2 and 3 may take 96 px and then 80 px (the fine zone stays at 120 px, the largest). */
+
+/* Level 1: tighter spacing, the pictogram at 64 px, the fine zone at 128 px (still the largest). */
+.azm-check :where([data-fit]:not([data-fit="0"])) .safety-zones {
+  gap: var(--s2);
 }
-.azm-check .safety-still {
-  color: var(--ink);
+.azm-check :where([data-fit]:not([data-fit="0"])) .safety-zone.is-large {
+  min-height: 128px;
+}
+.azm-check :where([data-fit]:not([data-fit="0"])) .safety-short svg {
+  width: 4rem;
+  height: 4rem;
+}
+.azm-check :where([data-fit]:not([data-fit="0"])) .safety-stage-body {
+  gap: var(--s3);
+  padding-block-end: var(--s3);
+}
+.azm-check :where([data-fit]:not([data-fit="0"])) .safety-fine {
+  margin-block: var(--s4);
+}
+.azm-check :where([data-fit]:not([data-fit="0"])) .check-content,
+.azm-check .check-content:has(> :where([data-fit]:not([data-fit="0"]))) {
+  gap: var(--s3);
+}
+.azm-check :where([data-fit]:not([data-fit="0"])) .check-main,
+.azm-check .check-main:has(:where([data-fit]:not([data-fit="0"]))) {
+  padding-block-start: var(--s3);
+}
+
+/* Level 2: S43's instruction moves below the answers (the voice says it; the short form keeps the 2 m
+   instruction at the top); the side kicker goes (the question names the part); the number and icon of
+   a zone at 32 px; on S45 «أنا بخير» comes straight after the 997 call, before the body (the focus
+   order of the spec: heading, 997, I am fine; the sentences are not focusable). */
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-stage-body {
+  display: flex;
+  flex-direction: column;
+}
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-cue {
+  display: contents;
+}
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-instruction {
+  order: 9;
+  padding: var(--s3) var(--s4);
+  border-inline-start: 4px solid var(--red);
+  border-radius: var(--r-control);
+  background: var(--cream);
+}
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-kicker {
+  display: none;
+}
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone-number {
+  font-size: 2rem;
+}
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone-mark svg {
+  width: 32px;
+  height: 32px;
+}
+.azm-check
+  .is-alarm:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"])
+  :is(.safety-sentences, .safety-staff, .safety-still) {
+  order: 1;
+}
+
+/* Level 3: S43's short form drops its pictogram (the fine zone keeps the hand) and takes the 40 px
+   tier, so it keeps to one line above the question; the 64 px number sits beside the 997 call. */
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-cue .safety-short {
+  font-size: 2.5rem;
+}
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-cue .safety-short svg {
+  display: none;
+}
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone.is-large {
+  min-height: 120px;
+}
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-stage-body {
+  padding-block-start: var(--s2);
+}
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-call-first {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-call-first .safety-number {
+  display: grid;
+  gap: 0;
+}
+
+/* Level 4, compact only: zones 2 and 3 at 96 px, a label of up to three words at 32 px. */
+.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone:not(.is-large) {
+  min-height: 96px;
+  padding-block: var(--s2);
+}
+.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone.is-large {
+  min-height: 120px;
+}
+.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone-label.is-40 {
+  font-size: 2rem;
+}
+
+/* Level 5, compact only: zones 2 and 3 at 80 px (the tap form, 4.7), with less space between parts;
+   S43's short form goes (the fine zone's hand and the instruction under the answers stay). */
+.azm-check [data-fit="5"] .safety-checkin-cue .safety-short {
+  display: none;
+}
+.azm-check [data-fit="5"] .safety-zone:not(.is-large) {
+  min-height: 80px;
+  padding-block: var(--s1);
+}
+.azm-check [data-fit="5"] .safety-zones {
+  gap: var(--s1);
+}
+.azm-check [data-fit="5"] .check-content,
+.azm-check .check-content:has(> [data-fit="5"]) {
+  gap: var(--s2);
+}
+.azm-check [data-fit="5"] .check-main,
+.azm-check .check-main:has([data-fit="5"]) {
+  padding-block-start: var(--s2);
 }
 
 /* ------------------------------------------------------------------ rings */

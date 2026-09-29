@@ -3,7 +3,8 @@
  * the wake lock and the no answer timers (UX spec S36 to S49, 4.3, 4.6, 5.10 useCues, useAlarm,
  * useWakeLock). Every timer runs on the phone and never waits for the network.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { localizeDigits } from "../../../i18n";
 import { useCheckUi } from "../shared/CheckUi";
 import { SequencePlayer } from "./speechPlayer";
 import type { SpeechLine } from "./speech";
@@ -59,8 +60,18 @@ export function useSpeechSequence(
       onLine(i, speaking) {
         const line = list[i];
         setIndex(i);
-        // The caption's tap plays this line again (3.0).
-        if (line) uiRef.current.showCaption(line.display, line.severity, speaking, () => start([line]));
+        // The caption's tap plays this line again (3.0). A line already on the screen as its heading
+        // is not repeated in the strip above it.
+        // The caption is kept in the page's digits, so its replay name never reads «997» inside
+        // Arabic (Q30).
+        if (line?.onScreen) uiRef.current.clearCaption();
+        else if (line)
+          uiRef.current.showCaption(
+            localizeDigits(uiRef.current.lang, line.display),
+            line.severity,
+            speaking,
+            () => start([line]),
+          );
       },
       onEnd() {
         setIndex(null);
@@ -340,4 +351,118 @@ export function useCountdown(totalMs: number, running = true): number {
     return () => clearInterval(id);
   }, [totalMs, running]);
   return left;
+}
+
+/* ------------------------------------------------------------------ armed presses */
+
+type Down = { x: number; y: number; t: number };
+
+/** The last pointerdown anywhere in the page, recorded before any handler runs. */
+let lastDown: Down | null = null;
+if (typeof document !== "undefined")
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      lastDown = { x: e.clientX, y: e.clientY, t: performance.now() };
+    },
+    true,
+  );
+
+/** A pointerdown this recent when a screen opens is the press that opened it (STOP, «أحتاج مساعدة»). */
+const OPENER_MS = 1000;
+
+/**
+ * Answers of a screen opened by a press arm only for a new, deliberate press (S41, S45). A double tap
+ * on STOP or «أحتاج مساعدة» sends its second tap to whatever now sits under the finger, and a tremor or
+ * an anxious press is enough for that. So a press counts only when its pointerdown started on the same
+ * control after the screen opened and, when the screen was opened by a press, not within `minMs` of
+ * opening at a point within `radius` px of that press (Infinity: anywhere). Keyboard, switch and
+ * screen reader activation (a click with no pointer) always counts.
+ *
+ * Returns a check for a control's click handler: `if (!armed(e)) return;`.
+ */
+export function useArmedPress(minMs: number, radius = Infinity) {
+  const openedAt = useRef(0);
+  const opener = useRef<Down | null>(null);
+  const down = useRef<(Down & { target: EventTarget | null }) | null>(null);
+  useLayoutEffect(() => {
+    const now = performance.now();
+    openedAt.current = now;
+    opener.current = lastDown && now - lastDown.t < OPENER_MS ? lastDown : null;
+    const onDown = (e: PointerEvent) => {
+      down.current = { x: e.clientX, y: e.clientY, t: performance.now(), target: e.target };
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, []);
+  return useCallback(
+    (e: { detail: number; currentTarget: EventTarget | null }): boolean => {
+      if (e.detail === 0) return true;
+      const d = down.current;
+      const own = e.currentTarget;
+      if (!d || !(d.target instanceof Node) || !(own instanceof Node) || !own.contains(d.target))
+        return false;
+      const o = opener.current;
+      if (!o) return true;
+      const early = d.t - openedAt.current < minMs;
+      const near = Math.hypot(d.x - o.x, d.y - o.y) <= radius;
+      return !(early && near);
+    },
+    [minMs, radius],
+  );
+}
+
+/* ------------------------------------------------------------------ fitting the fold */
+
+/**
+ * Steps a screen answered from the chair through its fit levels (data-fit, safety.css) until every
+ * element marked data-fold (the answers, the fine button) ends above the fold: the sticky STOP zone or
+ * footer, or the bottom of the viewport. A person 2 m away cannot scroll (principles 6 and 7). Starts
+ * again at level 0 when `key` (the text) or the viewport changes, and measures again once the fonts
+ * have loaded.
+ */
+export function useFoldFit(ref: RefObject<HTMLElement>, max: number, key: string): number {
+  const [size, setSize] = useState(() => viewportKey());
+  // Levels 4 and 5 shrink zones under 120 px: compact mode only (under 700 px tall, 4.2).
+  const top = typeof window !== "undefined" && window.innerHeight < COMPACT_HEIGHT ? max : Math.min(max, 3);
+  const [fonts, setFonts] = useState(0);
+  const k = `${key}|${size}|${fonts}`;
+  const [fit, setFit] = useState({ k, level: 0 });
+  const level = fit.k === k ? fit.level : 0;
+  useEffect(() => {
+    const on = () => setSize(viewportKey());
+    window.addEventListener("resize", on);
+    let live = true;
+    void document.fonts?.ready.then(() => live && setFonts((n) => n + 1));
+    return () => {
+      live = false;
+      window.removeEventListener("resize", on);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (level < top && belowFold(el)) setFit({ k, level: level + 1 });
+    else if (fit.k !== k) setFit({ k, level });
+  });
+  return level;
+}
+
+/** Compact mode: a viewport under 700 px tall (the 375 x 667 phones, 4.2). */
+const COMPACT_HEIGHT = 700;
+
+const viewportKey = () => (typeof window === "undefined" ? "" : `${window.innerWidth}x${window.innerHeight}`);
+
+/** Whether any data-fold element of `root` ends below the fold, measured as if scrolled to the top. */
+export function belowFold(root: HTMLElement): boolean {
+  const scroller = (root.closest(".check-overlay") as HTMLElement | null) ?? document.scrollingElement;
+  const scrollTop = scroller?.scrollTop ?? 0;
+  const layer = root.closest(".check-overlay") ?? document;
+  const sticky = [...layer.querySelectorAll<HTMLElement>(".safety-stop-zone, .check-footer")]
+    .map((z) => z.getBoundingClientRect().height)
+    .reduce((a, b) => a + b, 0);
+  const fold = window.innerHeight - sticky;
+  return [...root.querySelectorAll<HTMLElement>("[data-fold]")].some(
+    (el) => el.getBoundingClientRect().bottom + scrollTop > fold + 1,
+  );
 }

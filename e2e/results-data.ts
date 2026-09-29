@@ -351,6 +351,49 @@ export const HISTORY: StoredSpec[] = [
   { testId: "arm_curl_30s", side: "left", daysAgo: 2, value: 7, detail: CURL },
 ];
 
+/**
+ * An open check that may still resume (O6): the arm raise done, stopped before the side lean, with
+ * the context's openCheck naming it for the next 20 minutes.
+ */
+export function openCheck(now: number) {
+  const result = (side: "left" | "right", value: number) => ({
+    testId: "shoulder_abduction",
+    side,
+    value,
+    unit: "deg",
+    attempts: [],
+    quality: {},
+    detail: RAISE,
+    flags: [],
+    nValid: 3,
+    median: value,
+    skippedReason: null,
+    variant: null,
+    poseModel: "lite",
+    movementVersion: 1,
+    engineVersion: "e2e",
+    band: "default",
+    seriesKey: "e2e",
+    created: now - 5 * 60 * 1000,
+  });
+  return {
+    context: { openCheck: { id: "e2e-open", setting: "home", resumeUntil: now + 20 * 60 * 1000 } },
+    check: {
+      id: "e2e-open",
+      kind: "baseline",
+      setting: "home",
+      session: "full",
+      status: "open",
+      started: now - 10 * 60 * 1000,
+      completed: null,
+      endedReason: null,
+      setup: null,
+      protocol: SEATED.map((it, i) => ({ ...it, version: 1, order: i + 1, band: "default" })),
+      results: [result("right", 120), result("left", 112)],
+    },
+  };
+}
+
 /* ------------------------------------------------------------ the check API, mocked */
 
 /** GET /api/assessments/context of a chair user with home checks open and nothing done yet. */

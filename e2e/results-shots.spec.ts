@@ -19,6 +19,7 @@ import {
   LANGS,
   LEAN,
   mockApi,
+  openCheck,
   openSnapshot,
   progress,
   queueCompletion,
@@ -238,6 +239,8 @@ for (const size of SIZES) {
         },
       });
       await today("due", { firstCheck: false, completedBefore: true, retestDue: now - DAY });
+      const open = openCheck(now);
+      await today("resume", open.context, { checks: { assessments: [open.check] } });
       await today("leanRepeat", {
         firstCheck: false,
         completedBefore: true,

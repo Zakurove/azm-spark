@@ -32,6 +32,7 @@ import {
   LANGS,
   LEAN,
   mockApi,
+  openCheck,
   openSnapshot,
   progress,
   queueCompletion,
@@ -500,6 +501,13 @@ for (const lang of LANGS) {
       await expect(slot.locator('[data-variant="leanRepeat"] .cta')).toHaveText(a.entry.leanRepeat.cta);
       await today({ firstCheck: false, completedBefore: true, earliestNext: now + DAY });
       await expect(slot.locator('[data-variant="tooSoon"] button')).toHaveCount(0);
+      // An open check within its 30 minutes: where it stopped, and Continue (O6).
+      const open = openCheck(now);
+      await today(open.context, { checks: { assessments: [open.check] } });
+      const resume = slot.locator('[data-variant="resume"]');
+      await expect(resume.locator("h2")).toHaveText(a.entry.resume.title);
+      await expect(resume).toContainText(lang === "ar" ? "الاختبار ٢ من ٣" : "test 2 of 3");
+      await expect(resume.locator(".cta")).toHaveText(a.entry.resume.cta);
 
       // Upcoming: the early start asks first (H9), Later closes, Start now opens the check.
       await today({ firstCheck: false, completedBefore: true, retestDue: now + 20 * DAY });

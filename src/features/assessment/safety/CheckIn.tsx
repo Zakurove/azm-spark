@@ -4,19 +4,25 @@
  * questions; each is a modal dialog with the stage behind it inert.
  *
  * S43  The stage turns cream with a static 8 px red frame (visible from 3 m, no flashing). The check in
- *      cue for this person is spoken and captioned (check_are_you_ok, or _noraise at the booth when a
- *      raised hand must not be asked for); its question is set at 56 px under its short form. Three
- *      answers as tap buttons, «أنا بخير» the largest (7.2-1): only that button counts as a tap for
- *      fine (O34-4); a camera fine (the raised hand) comes from the camera. At 7 s a soft chime and the
- *      cue again; at 15 s the alarm (S45). Initial focus on the question, never on a button.
+ *      cue for this person is spoken (check_are_you_ok, or _noraise at the booth when a raised hand
+ *      must not be asked for; at home without the zones the fall watch forms, which name no box). The
+ *      cue is split after its question: the caption card holds the 56 px short form with its pictogram
+ *      and the instruction, the 56 px question is the heading. Three answers as tap buttons, «أنا بخير»
+ *      the largest (7.2-1): only that button counts as a tap for fine (O34-4); a camera fine (the raised
+ *      hand) comes from the camera. At 7 s a soft chime and the cue again; at 15 s the alarm (S45). The
+ *      15 s ring sits in the top row. Initial focus on the question, never on a button.
  * S44  After "I am fine" from a test, or after the alarm (then 997 comes first, with the 64 px number):
  *      redo after a rest (only after an attempt in progress), skip this test, I need help (the alarm),
- *      and at the phone "I need to stop" (the stop list). Answers commit at once.
+ *      and at the phone "I need to stop" (the stop list). Answers commit at once. One 30 s no answer
+ *      timer after a camera fine (O34-1 (6)) or after the alarm runs the check in again over it.
  * S45  A loud repeating tone at full element volume whatever the Sound setting, faded in over 3 s,
  *      vibration on Android; the heading is the first sentence of scr_no_response (help variant: "Get
  *      help now", O34-5); 997 first with the 64 px number; the body; the 120 px «أنا بخير» button, the
- *      only touch that silences it. Any other touch does nothing. 997 stops the tone and opens the
- *      dialer; the screen stays. At the booth the staff line shows; the tone is the staff alert.
+ *      only touch that silences it (never the second tap of a double tap that opened the alarm). Any
+ *      other touch does nothing. 997 stops the tone and opens the dialer; the screen stays. At the
+ *      booth the staff line shows; the tone is the staff alert.
+ *
+ * Every answer and STOP stays on screen without scrolling (useFoldFit): a person 2 m away cannot scroll.
  *
  * States: L, E, Er, Cam not applicable; Off works (all local, the alarm post is queued).
  */
@@ -50,7 +56,7 @@ import { cameraFine, lastFineVia, noteFine, SAFETY_TIMING } from "./timing";
  * The top row of a stage overlay: the booth badge (every screen in booth mode, S57), the check in's
  * 15 s ring (no numbers, aria-hidden) and Sound. The ring sits here so the answers stay on screen.
  */
-function StageTop({ ring }: { ring?: ReactNode }) {
+function StageTop({ ring, camera }: { ring?: ReactNode; camera: boolean }) {
   const ui = useCheckUi();
   const { lang } = ui;
   return (
@@ -63,6 +69,12 @@ function StageTop({ ring }: { ring?: ReactNode }) {
       )}
       <span className="check-topbar-spacer" />
       {ring}
+      {/* The camera keeps watching for a raised hand under S43 and S45: say it is on (principle 13). */}
+      {camera && (
+        <span className="safety-camera-icon" role="img" aria-label={t(lang, "assessment.hud.cameraOn")}>
+          <CheckIcon name="camera" size={24} />
+        </span>
+      )}
       <button
         type="button"
         className="check-icon-button"
@@ -75,6 +87,9 @@ function StageTop({ ring }: { ring?: ReactNode }) {
     </div>
   );
 }
+
+/** The camera runs under the overlay: a camera state, S47, S48, or the faint question (O30). */
+const watching = (s: ScreenProps["model"]["state"]) => cameraRunning(s) || s.kind === "faintAsk";
 
 /* ------------------------------------------------------------------ S43 */
 
@@ -128,7 +143,10 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
       data-screen="S43"
       data-fit={fit}
     >
-      <StageTop ring={<CountdownRing leftMs={left} totalMs={SAFETY_TIMING.checkInAlarmMs} size={48} />} />
+      <StageTop
+        camera={watching(model.state)}
+        ring={<CountdownRing leftMs={left} totalMs={SAFETY_TIMING.checkInAlarmMs} size={48} />}
+      />
       <OfflineBanner compact />
       <div className="safety-stage-body">
         {/* The caption card near the lens (4.3, spec S43): the short form at 56 px with its pictogram,
@@ -301,7 +319,7 @@ export function Alarm({ model, dispatch }: ScreenProps) {
       data-help={help || undefined}
       data-fit={fit}
     >
-      <StageTop />
+      <StageTop camera={watching(model.state)} />
       <OfflineBanner compact />
       <div className="safety-stage-body">
         <h1 id={titleId} ref={heading} className="safety-stage-title">

@@ -18,9 +18,9 @@
  * (posts retry in the background); Off works (banner); Cam not applicable (the camera is off here;
  * the faint question S38b is answered by tap in this build).
  *
- * The faint follow up (S38b) comes after S38 and every fall stop (O42): on S38 once its speech has
- * ended and 20 s have passed; on S39 when the screen is touched (at the booth, staff touch it once
- * the person is settled); and from the footer's Continue.
+ * The faint follow up (S38b) comes after S38 and every fall stop (O42): on S38 20 s after it opened,
+ * whatever the speech; on S39 when the screen is touched (at the booth, staff touch it once the person
+ * is settled); and from the footer's Continue. S38 says the camera is on while it runs.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../i18n";

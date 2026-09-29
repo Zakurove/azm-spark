@@ -420,6 +420,14 @@ html:has(.azm-check .safety-stop-zone) {
 .azm-check .safety-stage-caption {
   cursor: default;
 }
+.azm-check .safety-camera-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: var(--h-icon);
+  color: var(--ink);
+}
 /* The ring of the 15 s (no numbers, aria-hidden), in the top row so the answers stay on screen. */
 .azm-check .safety-stage-top .safety-ring {
   margin-inline-end: var(--s2);

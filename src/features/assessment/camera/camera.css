@@ -1,0 +1,888 @@
+/*
+ * The camera stage of S34 (UX spec 4.1 to 4.4, 5.6), scoped to .azm-check and its tokens only.
+ * Sizes are the 2 m minimums of 4.1 at 375 px, in rem, scaled up on taller screens by
+ * --s34-scale (min(1.6, height / 812), never down). The prefix s34- keeps clear of the workout
+ * camera's global .cam- classes (platform.css).
+ */
+
+.azm-check .s34-stage {
+  --s34-scale: 1;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "top" "helper" "main" "stop";
+  background: var(--page);
+  color: var(--ink);
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+
+/* ------------------------------------------------------------ top bar */
+
+.azm-check .s34-top {
+  grid-area: top;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  min-height: var(--topbar);
+  padding: calc(env(safe-area-inset-top) + var(--s1)) var(--s3) var(--s1);
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.azm-check .s34-title {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--t-body);
+  font-weight: 700;
+  line-height: 1.35;
+}
+/* The counter and the test name are drawn apart by a short rule, never a dot (a dot reads as ٠). */
+.azm-check .s34-parts {
+  display: inline;
+}
+/* Parts are drawn apart by a short upright rule, never a dot (a middle dot reads as ٠). */
+.azm-check .s34-part + .s34-part::before,
+.azm-check .s34-title-part + .s34-title-part::before {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-inline: var(--s2);
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  background: var(--field-border);
+}
+.azm-check .s34-top-tools {
+  flex: none;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s1);
+  margin-inline-start: auto;
+}
+.azm-check .s34-tool {
+  flex: none;
+}
+.azm-check .s34-camera-on {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: var(--h-icon);
+  color: var(--ink);
+}
+.azm-check .s34-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 36px;
+  padding: var(--s1) var(--s3);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--r-pill);
+  background: var(--purple-tint);
+  color: var(--purple);
+  font-size: var(--t-meta);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.azm-check .s34-pill.is-offline {
+  min-width: 36px;
+  justify-content: center;
+  padding: var(--s1);
+}
+.azm-check .s34-pill.is-button {
+  min-height: var(--h-icon);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-meta);
+  font-weight: 700;
+}
+.azm-check .s34-badge {
+  min-height: 36px;
+}
+/* Below 420 px the booth badge is an icon; its words stay its accessible name (as CheckShell). */
+@media (max-width: 419.98px) {
+  .azm-check .s34-badge {
+    width: 40px;
+    padding: 0;
+  }
+  .azm-check .s34-badge .check-booth-badge-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+.azm-check .s34-top:has(.s34-sound-note) {
+  flex-wrap: wrap;
+}
+.azm-check .s34-sound-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+.azm-check .s34-toast {
+  position: absolute;
+  inset-inline: var(--gutter);
+  top: calc(var(--topbar) + env(safe-area-inset-top) + var(--s2));
+  z-index: 3;
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  font-size: var(--t-meta);
+  font-weight: 700;
+}
+
+/* The helper reminder under the top bar (4.5): the test counts on the helper. */
+.azm-check .s34-helper {
+  grid-area: helper;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  padding: var(--s1) var(--s3);
+  background: var(--purple-tint);
+  color: var(--purple);
+  font-size: var(--t-meta);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------ main column */
+
+.azm-check .s34-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s2);
+}
+
+/* Caption card: close to the front camera lens, never truncated (4.3). The icon sits inline with
+   the first line so the full sentence uses the whole width. */
+.azm-check .s34-caption {
+  flex: none;
+  display: block;
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  border: 0;
+  border-inline-start: 8px solid var(--purple);
+  border-radius: var(--r-hud);
+  background: var(--hud-surface);
+  box-shadow: 0 10px 28px -22px var(--shadow-strong);
+  color: var(--ink);
+  text-align: start;
+  cursor: pointer;
+}
+.azm-check .s34-caption-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-inline-end: var(--s2);
+  color: var(--purple);
+}
+.azm-check .s34-caption.is-warn {
+  border-inline-start-color: var(--warn-fill);
+}
+.azm-check .s34-caption.is-warn .s34-caption-icon {
+  color: var(--warn-ink);
+}
+.azm-check .s34-caption.is-safety {
+  border-inline-start-color: var(--red);
+  color: var(--red);
+}
+.azm-check .s34-caption.is-safety .s34-caption-icon {
+  color: var(--red);
+}
+.azm-check .s34-caption-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.azm-check .s34-caption-short {
+  font-size: calc(3.5rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1.2;
+}
+.azm-check .s34-caption-text {
+  font-size: calc(2.125rem * var(--s34-scale));
+  font-weight: 750;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.azm-check .s34-stage.is-large .s34-caption-text {
+  font-size: calc(3.5rem * var(--s34-scale));
+  line-height: 1.2;
+}
+
+/* Video: fills what is left between the cards and shrinks first (4.2). */
+.azm-check .s34-video-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 96px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-hud);
+  background: var(--page);
+  overflow: hidden;
+}
+.azm-check .s34-video-area:empty {
+  display: none;
+}
+.azm-check .s34-video-area.is-thumb {
+  flex: none;
+  align-self: flex-end;
+  width: 96px;
+  height: 128px;
+  min-height: 0;
+  margin-bottom: calc(-128px - var(--s2));
+  margin-inline-end: var(--s3);
+  z-index: 2;
+}
+.azm-check .s34-video-area.is-strip {
+  flex: 1 1 0;
+  min-height: 0;
+  border-width: 0;
+}
+.azm-check .s34-video-area.is-strip + .s34-card {
+  margin-top: 0;
+}
+.azm-check .s34-video {
+  position: absolute;
+  inset: 0;
+}
+.azm-check .s34-mirror {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(-1);
+}
+.azm-check .s34-video-holder,
+.azm-check .s34-picture {
+  position: absolute;
+  inset: 0;
+}
+.azm-check .s34-video-holder video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.azm-check .s34-skeleton {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.azm-check .s34-preview-picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: var(--field-border);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  fill: var(--field-border);
+  opacity: 0.4;
+}
+.azm-check .s34-guide {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.azm-check .s34-frame {
+  height: 92%;
+  max-width: 92%;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.azm-check .s34-frame-outer {
+  stroke: var(--ink);
+  stroke-width: 5;
+}
+.azm-check .s34-frame-inner {
+  stroke: var(--card);
+  stroke-width: 2.5;
+  stroke-dasharray: 5 4;
+}
+.azm-check .s34-frame.is-none .s34-frame-outer {
+  stroke: var(--field-border);
+}
+.azm-check .s34-frame.is-adjust .s34-frame-inner {
+  stroke: var(--gold);
+}
+.azm-check .s34-frame.is-ready .s34-frame-outer {
+  stroke: var(--green-ink);
+  stroke-width: 4;
+}
+.azm-check .s34-frame.is-ready .s34-frame-inner {
+  stroke: var(--green-ink);
+  stroke-dasharray: none;
+  stroke-width: 4;
+}
+.azm-check .s34-frame-badge circle {
+  fill: var(--green-ink);
+  stroke: none;
+}
+.azm-check .s34-frame-badge path {
+  stroke: var(--card);
+  stroke-width: 2.5;
+}
+/* The arm marker sits on the arm's own side of the mirrored picture (LTR box, never flipped). */
+.azm-check .s34-arm-marker {
+  position: absolute;
+  top: 35%;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--hud-surface);
+  font-size: 1.375rem;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1;
+}
+.azm-check .s34-arm-marker.is-right {
+  right: var(--s2);
+  flex-direction: row;
+}
+.azm-check .s34-arm-marker.is-left {
+  left: var(--s2);
+  flex-direction: row-reverse;
+}
+.azm-check .s34-arm-marker-bar {
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ink);
+}
+.azm-check .s34-replay {
+  position: absolute;
+  inset: 0;
+  min-width: 48px;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ value card */
+
+.azm-check .s34-card {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin-top: calc(-1 * var(--s6));
+  padding: var(--s3);
+  border-radius: var(--r-hud);
+  background: var(--hud-surface);
+  box-shadow: 0 -8px 30px -24px var(--shadow-strong);
+}
+.azm-check .s34-video-area:empty + .s34-card,
+.azm-check .s34-video-area.is-thumb + .s34-card {
+  margin-top: 0;
+}
+.azm-check .s34-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.azm-check .s34-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2) var(--s3);
+}
+.azm-check .s34-main-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s4);
+}
+.azm-check .s34-side {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.azm-check .s34-meta {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.azm-check .s34-line40 {
+  margin: 0;
+  font-size: calc(2.5rem * var(--s34-scale));
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+/* State band: a 12 px bar at the inline start, an icon and a 56 px word (4.4). */
+.azm-check .s34-band {
+  min-width: 0;
+  padding-inline-start: var(--s3);
+  border-inline-start: 12px solid var(--line);
+  border-radius: 4px;
+}
+.azm-check .s34-band-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-inline-end: var(--s2);
+  color: var(--muted);
+}
+.azm-check .s34-word {
+  display: block;
+  font-size: calc(3.5rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.azm-check .s34-band.is-adjust {
+  border-inline-start-color: var(--warn-fill);
+}
+.azm-check .s34-band.is-adjust .s34-band-icon {
+  color: var(--warn-ink);
+}
+.azm-check .s34-band.is-ready,
+.azm-check .s34-band.is-saved {
+  border-inline-start-color: var(--green-ink);
+}
+.azm-check .s34-band.is-ready .s34-band-icon,
+.azm-check .s34-band.is-ready .s34-word,
+.azm-check .s34-band.is-saved .s34-band-icon,
+.azm-check .s34-band.is-saved .s34-word {
+  color: var(--green-ink);
+}
+.azm-check .s34-band.is-info,
+.azm-check .s34-band.is-paused {
+  border-inline-start-color: var(--purple);
+}
+.azm-check .s34-band.is-info .s34-band-icon,
+.azm-check .s34-band.is-paused .s34-band-icon {
+  color: var(--purple);
+}
+
+/* Setup chips: always six, icon and word, never colour alone (S34c). */
+.azm-check .s34-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.azm-check .s34-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 32px;
+  padding: 2px var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  font-size: var(--t-meta);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.azm-check .s34-chip.is-ok {
+  border-color: var(--green-ink);
+  color: var(--green-ink);
+  background: var(--green-tint);
+}
+.azm-check .s34-chip.is-fix {
+  border-color: var(--warn-fill);
+  color: var(--warn-ink);
+  background: var(--warn-tint);
+}
+.azm-check .s34-chip.is-na {
+  color: var(--muted);
+}
+
+/* Rings: track in line colour, time and rest in purple, a hold in green ink, a number inside. */
+.azm-check .s34-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.azm-check .s34-ring > svg {
+  position: absolute;
+  inset: 0;
+}
+.azm-check .s34-ring-track {
+  stroke: var(--line);
+}
+.azm-check .s34-ring-value {
+  stroke: var(--purple);
+  transition: stroke-dashoffset 120ms linear;
+}
+.azm-check .s34-ring.is-hold .s34-ring-value {
+  stroke: var(--green-ink);
+}
+.azm-check .s34-ring.is-frozen .s34-ring-value {
+  stroke: var(--muted);
+}
+.azm-check .s34-ring.is-hold .s34-ring-inner {
+  color: var(--green-ink);
+}
+.azm-check .s34-ring-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.azm-check .s34-ring-num {
+  font-size: 1.375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The big numbers (4.1): count 160, degrees 128, countdown 200, go and rest seconds 96. */
+.azm-check .s34-count {
+  font-size: calc(10rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.azm-check .s34-stage.is-compact .s34-card {
+  padding: var(--s3);
+}
+.azm-check .s34-stage.is-compact .s34-panel {
+  gap: var(--s1);
+}
+.azm-check .s34-stage.is-compact .s34-count {
+  font-size: calc(8rem * var(--s34-scale));
+}
+.azm-check .s34-degrees {
+  font-size: calc(8rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.azm-check .s34-stage.is-compact .s34-degrees {
+  font-size: calc(7rem * var(--s34-scale));
+}
+.azm-check .s34-countdown {
+  font-size: calc(12.5rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  animation: s34-count-in 900ms ease-out;
+}
+.azm-check .s34-go,
+.azm-check .s34-rest-num {
+  font-size: calc(6rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes s34-count-in {
+  from {
+    transform: scale(1.15);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.azm-check .s34-phase {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  margin: 0;
+  font-size: calc(3.5rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+.azm-check .s34-phase.is-paused {
+  color: var(--muted);
+}
+.azm-check .s34-panel.is-paused .s34-count,
+.azm-check .s34-panel.is-paused .s34-degrees {
+  color: var(--muted);
+}
+.azm-check .s34-badge-practice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--purple-tint);
+  color: var(--purple);
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+.azm-check .s34-saved-icon {
+  display: inline-flex;
+  color: var(--green-ink);
+}
+
+/* Attempt dots and the try counter (P3): "2 of 3" at 56 px. */
+.azm-check .s34-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.azm-check .s34-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--field-border);
+  border-radius: 50%;
+  background: var(--card);
+}
+.azm-check .s34-dot.is-saved {
+  border-color: var(--green-ink);
+  background: var(--green-ink);
+  color: var(--card);
+}
+.azm-check .s34-dot.is-retry {
+  border-color: var(--warn-ink);
+  color: var(--warn-ink);
+}
+.azm-check .s34-try {
+  font-size: calc(3.5rem * var(--s34-scale));
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.azm-check .s34-row-top {
+  justify-content: flex-start;
+}
+.azm-check .s34-row-top .s34-try {
+  margin-inline-start: auto;
+}
+
+/* Side lean: direction and centre only, never a magnitude (O4). */
+.azm-check .s34-sides {
+  width: 100%;
+  flex-wrap: nowrap;
+}
+.azm-check .s34-side-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.azm-check .s34-lean {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.azm-check .s34-lean-arrow {
+  width: 120px;
+  height: 60px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.azm-check .s34-lean-arrow.is-idle {
+  stroke: var(--field-border);
+}
+.azm-check .s34-lean-centre {
+  display: inline-flex;
+  gap: 10px;
+}
+.azm-check .s34-lean-centre i {
+  display: block;
+  width: 6px;
+  height: 48px;
+  border-radius: 3px;
+  background: var(--field-border);
+}
+.azm-check .s34-lean-centre.is-centred i {
+  background: var(--green-ink);
+}
+.azm-check .s34-lean-panel .s34-main-row {
+  gap: var(--s3);
+}
+
+/* Top view diagrams (S34c, S34j). */
+.azm-check .s34-topview {
+  width: 120px;
+  height: 120px;
+  flex: none;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.azm-check .s34-top-person circle {
+  fill: var(--purple-tint);
+  stroke: var(--purple);
+}
+.azm-check .s34-top-phone rect {
+  fill: var(--gold);
+  stroke: var(--gold-ink);
+}
+.azm-check .s34-top-arrow {
+  stroke: var(--purple);
+  stroke-dasharray: 4 3;
+}
+
+/* Buttons at the phone: full width, stacked 16 px apart. */
+.azm-check .s34-at-phone,
+.azm-check .s34-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.azm-check .s34-at-phone .cta,
+.azm-check .s34-at-phone .ghost {
+  min-height: var(--h-cta);
+}
+.azm-check .s34-zone-button {
+  min-height: 88px;
+  font-size: calc(2.5rem * var(--s34-scale));
+  font-weight: 750;
+  line-height: 1.2;
+}
+/* The retry card is the tallest: its band word is the 40 px fix size, the restart ring beside the
+   tries left (S34i). */
+.azm-check .s34-retry .s34-word {
+  font-size: calc(2.5rem * var(--s34-scale));
+}
+.azm-check .s34-restart {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.azm-check .s34-restart-lines {
+  display: flex;
+  flex-direction: column;
+}
+.azm-check .s34-text-button {
+  justify-content: center;
+  min-height: var(--h-ghost);
+  border: 0;
+  background: transparent;
+  font-size: var(--t-body);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.azm-check .s34-loading {
+  align-items: center;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------ STOP */
+
+.azm-check .s34-stop-zone {
+  grid-area: stop;
+  padding: var(--s3) var(--s3) calc(var(--s3) + env(safe-area-inset-bottom));
+  background: var(--page);
+}
+.azm-check .s34-stop {
+  min-height: var(--h-stop);
+  font-size: 1.625rem;
+}
+
+/* ------------------------------------------------------------ setup tips over the stage */
+
+.azm-check .s34-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--s3);
+  background: var(--scrim);
+}
+.azm-check .s34-sheet-card {
+  width: 100%;
+  max-width: var(--column);
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: var(--s6);
+  border-radius: var(--r-hud);
+  background: var(--card);
+}
+.azm-check .s34-sheet-title {
+  margin: 0 0 var(--s3);
+  font-size: var(--t-h1);
+  font-weight: 750;
+}
+.azm-check .s34-tips {
+  margin: 0 0 var(--s6);
+  padding-inline-start: var(--s6);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+}
+
+/* ------------------------------------------------------------ larger screens and landscape */
+
+/* A tablet or desktop in landscape: the video at the inline end two thirds, the cards and STOP in
+   the inline start third (4.2). */
+@media (min-width: 900px) and (orientation: landscape) {
+  .azm-check .s34-stage {
+    grid-template-columns: minmax(360px, 1fr) 2fr;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top top"
+      "helper helper"
+      "cap video"
+      "card video"
+      "act video"
+      "stop video";
+    column-gap: var(--s4);
+  }
+  .azm-check .s34-main {
+    display: contents;
+  }
+  .azm-check .s34-caption {
+    grid-area: cap;
+    margin: var(--s3) 0 0;
+    margin-inline-start: var(--s3);
+    width: auto;
+  }
+  .azm-check .s34-video-area {
+    grid-area: video;
+    margin: var(--s3);
+    margin-inline-start: 0;
+  }
+  .azm-check .s34-video-area.is-thumb {
+    align-self: start;
+    justify-self: end;
+    margin-bottom: var(--s3);
+  }
+  .azm-check .s34-card {
+    grid-area: card;
+    margin: var(--s3) 0 0;
+    margin-inline-start: var(--s3);
+  }
+  .azm-check .s34-actions {
+    grid-area: act;
+    margin-inline-start: var(--s3);
+    padding-top: var(--s3);
+  }
+  .azm-check .s34-stop-zone {
+    padding-inline-end: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .azm-check .s34-countdown {
+    animation: none;
+  }
+  .azm-check .s34-ring-value {
+    transition: none;
+  }
+}

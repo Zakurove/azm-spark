@@ -10,6 +10,7 @@
  *   faint             the faint follow up after a faint or fall stop (sf_faint_loc, Q33 (3))
  *   alarm             a check in alarm or help request, counted without a user id (O34-5)
  *   adult             the adult confirmation of the account (S05a, Q32 (6))
+ *   after             the next day question on Today (S03, ac_next_day), answered offline
  *   complete          the end of the check
  *   startBackground   the start call of a pre-check the phone already postponed or routed to a
  *                     safety screen (the server confirms it and sets the lock)
@@ -50,6 +51,7 @@ export type QueuedCall =
   | { seq: number; type: "faint"; checkId: string; body: FaintBody }
   | { seq: number; type: "alarm"; checkId: string; body: AlarmBody }
   | { seq: number; type: "adult" }
+  | { seq: number; type: "after"; answer: "usual" | "settled" | "lasting" }
   | {
       seq: number;
       type: "startBackground";
@@ -84,6 +86,7 @@ const DURABLE: readonly QueuedCall["type"][] = [
   "faint",
   "alarm",
   "adult",
+  "after",
 ];
 
 export interface QueueStore {
@@ -206,6 +209,7 @@ type OutboxApi = Pick<
   | "postFaint"
   | "postAlarm"
   | "confirmAdult"
+  | "postAfter"
   | "startCheck"
   | "resume"
 >;
@@ -297,6 +301,8 @@ export class ResultQueue {
         return this.api.postAlarm?.(call.checkId, call.body) ?? missing;
       case "adult":
         return this.api.confirmAdult?.() ?? missing;
+      case "after":
+        return this.api.postAfter?.(call.answer) ?? missing;
       case "startBackground":
         return (
           this.api.startCheck?.({

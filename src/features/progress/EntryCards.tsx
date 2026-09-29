@@ -21,7 +21,7 @@ import { CallLink } from "../assessment/shared/CheckShell";
 import { useCheckUi } from "../assessment/shared/CheckUi";
 import { ScreenIdChip } from "../assessment/shared/ScreenStub";
 import { useOnline } from "../assessment/shared/useOnline";
-import { resumeAllowed } from "../assessment/useCheckFlow";
+import { queueNextDayAnswer, resumeAllowed } from "../assessment/useCheckFlow";
 import { progressApi, useCheckData } from "./data";
 import { entryState, type CheckStartOptions, type EntryState } from "./variant";
 import { dayLabel, nextDueText, whenText } from "./format";
@@ -518,18 +518,23 @@ export interface TodayCheckSlotProps {
   owner?: string;
 }
 
-/** A next day answer that waits for the connection (offline), for this page's life only. */
-async function sendAfter(value: NextDayAnswer): Promise<void | "queued"> {
+/**
+ * A next day answer: sent now, or (offline) kept in this account's outbox (resultQueue.ts, type
+ * after), which survives a reload and sends it when the connection returns or the app opens again.
+ */
+async function sendAfter(value: NextDayAnswer, owner?: string): Promise<void | "queued"> {
   const r: ApiResult<AfterResponse> = await progressApi().postAfter(value);
   if (r.ok) return;
   if (r.error.kind === "http") throw new Error(r.error.code);
-  // SPEC-GAP: after-outbox. The check outbox (resultQueue.ts) has no type for the next day answer;
-  // offline it waits here and is sent when the connection returns while the page is open.
-  const retry = () => {
-    window.removeEventListener("online", retry);
-    void progressApi().postAfter(value);
-  };
-  window.addEventListener("online", retry);
+  if (owner) await queueNextDayAnswer(owner, value);
+  else {
+    // No account to keep it for (tests): it waits for the connection while the page is open.
+    const retry = () => {
+      window.removeEventListener("online", retry);
+      void progressApi().postAfter(value);
+    };
+    window.addEventListener("online", retry);
+  }
   return "queued";
 }
 
@@ -579,7 +584,7 @@ export function TodayCheckSlot({
   return (
     <CheckRoot ui={{ lang, booth, online }} page={false} className="check-slot">
       {followUp && !laterNow && (
-        <NextDayQuestion lang={lang} onSend={sendAfter} onNotNow={() => setLaterNow(true)} />
+        <NextDayQuestion lang={lang} onSend={(v) => sendAfter(v, owner)} onNotNow={() => setLaterNow(true)} />
       )}
       {body}
     </CheckRoot>

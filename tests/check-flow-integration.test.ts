@@ -25,6 +25,7 @@ import {
   type ResultPayload,
 } from "../src/features/assessment/flowMachine";
 import { toSignedInContext, type ContextResponse } from "../src/features/assessment/api";
+import { memoryStore, ResultQueue } from "../src/features/assessment/resultQueue";
 import { contextOf, guestAtPlan, play, signedStarted, withState } from "./flow-walks";
 
 const cam = (kind: FlowState["kind"], i = 0, side = 0, extra: Record<string, unknown> = {}) =>
@@ -349,3 +350,37 @@ function signedStartedAt(position: "standing" | "chair"): FlowModel {
   const m = signedStarted(contextOf({ position }));
   return m.state.kind === "warnings" ? play(m, { type: "CONTINUE" }) : m;
 }
+
+describe("the next day answer in the outbox (S03, 0.7)", () => {
+  it("is kept in storage for its account and sent with postAfter when the server can be reached", async () => {
+    const store = memoryStore();
+    let online = false;
+    const sent: string[] = [];
+    const q = new ResultQueue(
+      {
+        postAfter: async (answer) => {
+          if (!online) return { ok: false, error: { kind: "network" } };
+          sent.push(answer);
+          return { ok: true, value: {} as never };
+        },
+      },
+      store,
+      "user-1",
+    );
+    await q.enqueue({ type: "after", answer: "settled" });
+    expect(await store.all()).toHaveLength(1);
+    expect(await q.flush()).toMatchObject({ sent: 0, waiting: 1 });
+    online = true;
+    expect(await q.flush()).toMatchObject({ sent: 1, waiting: 0 });
+    expect(sent).toEqual(["settled"]);
+    // Another account never sends it.
+    await q.enqueue({ type: "after", answer: "usual" });
+    const other = new ResultQueue(
+      { postAfter: async () => ({ ok: true, value: {} as never }) },
+      store,
+      "user-2",
+    );
+    expect(await other.flush()).toMatchObject({ sent: 0, waiting: 0 });
+    expect(await store.all()).toHaveLength(1);
+  });
+});

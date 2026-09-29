@@ -190,6 +190,25 @@ export async function flushPendingCheckCalls(owner: string): Promise<void> {
 }
 
 /**
+ * The next day answer (S03) given while the phone could not reach the server: it waits in this
+ * account's outbox (it survives a reload) and is sent when the connection returns, when the app opens
+ * signed in again, or before signing out.
+ */
+export async function queueNextDayAnswer(
+  owner: string,
+  answer: "usual" | "settled" | "lasting",
+): Promise<void> {
+  const queue = deviceQueue(defaultApi(), owner);
+  await queue.enqueue({ type: "after", answer });
+  if (typeof window === "undefined") return;
+  const retry = () => {
+    window.removeEventListener("online", retry);
+    void queue.flush();
+  };
+  window.addEventListener("online", retry);
+}
+
+/**
  * The outbox call of a background effect, or null for an effect sent some other way. The adult
  * confirmation is never queued: it is sent at once with the session of the person who gave it (the
  * start needs it anyway, and a refused start asks again, 403 ADULT_REQUIRED), so it can never reach

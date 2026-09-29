@@ -162,7 +162,7 @@ describe("S01 entry card", () => {
       ];
       for (const v of variants) {
         const m = card(lang, v);
-        expect(countTag(m, /class="cta"/g), v.variant).toBeLessThanOrEqual(1);
+        expect(countTag(m, /class="cta"/g), String(v.variant)).toBeLessThanOrEqual(1);
         expect(m).not.toContain("disabled");
         expect(m).toContain('data-screen="S01"');
         expectCleanCopy(lang, m);

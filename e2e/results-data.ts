@@ -478,3 +478,33 @@ export function watchConsole(page: Page): string[] {
   });
   return errors;
 }
+
+/**
+ * The smallest text on screen inside the check root, in CSS pixels (UX spec 0.4: nothing under 16 px):
+ * HTML text at its computed size, SVG text at its size times the drawing's scale. The development
+ * screen id chip and visually hidden text are left out.
+ */
+export async function smallestText(page: Page): Promise<{ px: number; text: string }> {
+  return page.evaluate(() => {
+    let min = { px: Infinity, text: "" };
+    const visible = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 1 && r.height > 1 && !el.closest(".check-visually-hidden, .check-stub-id");
+    };
+    for (const root of document.querySelectorAll(".azm-check")) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const el = n.parentElement;
+        if (!el || !n.textContent?.trim() || !visible(el)) continue;
+        let px = parseFloat(getComputedStyle(el).fontSize);
+        const svg = el.closest("svg");
+        if (svg) {
+          const box = svg.viewBox.baseVal;
+          if (box && box.width > 0) px *= svg.getBoundingClientRect().width / box.width;
+        }
+        if (px < min.px) min = { px, text: n.textContent.trim().slice(0, 40) };
+      }
+    }
+    return min;
+  });
+}

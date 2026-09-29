@@ -282,7 +282,7 @@ describe("where the save stands (0.7, S50 to S52 states)", () => {
 describe("the booth QR (S50, S57)", () => {
   it("opens the public sign up, never anything of this visit, with its short address", () => {
     expect(registerLink("https://azm-spark.gymwise.ai")).toEqual({
-      url: "https://azm-spark.gymwise.ai/?register=1",
+      url: "https://azm-spark.gymwise.ai/?app=1&register=1",
       short: "azm-spark.gymwise.ai",
     });
   });

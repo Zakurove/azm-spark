@@ -355,6 +355,13 @@ for (const size of SIZES) {
       await s03.locator(".cta").click();
       await expect(page.locator('[data-screen="S03"][data-sent="usual"]')).toBeVisible();
       await part(page, slot, name("S03-thanks"));
+      await page.goto(url("/", lang));
+      await ctx.setOffline(true);
+      await s03.locator(".check-answer").first().click();
+      await s03.locator(".cta").click();
+      await expect(page.locator('[data-screen="S03"][data-sent="usual"] .check-chip')).toBeVisible();
+      await part(page, slot, name("S03-offline"));
+      await ctx.setOffline(false);
 
       // S02, the offer after the intake (the foundation gallery shows it over a page).
       await page.goto(url("/?e2eGallery=offer", lang));

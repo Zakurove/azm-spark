@@ -229,10 +229,12 @@
   stroke: var(--purple);
   stroke-width: 2.5;
 }
+/* 18 user units: the charts draw at about 0.9 of their 343 unit width in a 375 px column, so their
+   labels stay at 16 px or more on screen (0.4). */
 .azm-check .pg-svg-text {
   fill: var(--ink);
   font-family: Cairo, system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
 }
 .azm-check .pg-svg-text.is-muted {

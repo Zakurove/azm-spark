@@ -39,6 +39,7 @@ import {
   resultsSnapshot,
   SEATED,
   signIn,
+  smallestText,
   url,
   watchConsole,
   type Lang,
@@ -104,6 +105,13 @@ async function readQr(page: Page, selector: string): Promise<string[]> {
     const codes = await new Detector({ formats: ["qr_code"] }).detect(canvas);
     return codes.map((c) => c.rawValue);
   }, selector);
+}
+
+/** Nothing on the screen is under 16 px at 375 px wide (UX spec 0.4), charts included. */
+async function expectReadable(page: Page) {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const small = await smallestText(page);
+  expect(small.px, `«${small.text}»`).toBeGreaterThanOrEqual(15.9);
 }
 
 async function noSideScroll(page: Page, width: number) {
@@ -191,7 +199,7 @@ for (const lang of LANGS) {
       await expect(page.locator(".rs-keep h2")).toHaveText(a.guest.keepTitle);
       await expect(page.locator(".rs-keep")).toContainText(a.guest.keepBodySoon);
       const origin = new URL(page.url()).origin;
-      expect(await readQr(page, "svg[data-qr]")).toEqual([`${origin}/?register=1`]);
+      expect(await readQr(page, "svg[data-qr]")).toEqual([`${origin}/?app=1&register=1`]);
       await expect(page.locator("svg[data-qr]")).toHaveAttribute("aria-label", a.guest.qrAlt);
       // The footer, in order, at 16 px or more.
       const footer = page.locator(".check-results-footer p");
@@ -201,11 +209,22 @@ for (const lang of LANGS) {
         els.map((e) => parseFloat(getComputedStyle(e).fontSize)),
       ))
         expect(size).toBeGreaterThanOrEqual(16);
+      await expectReadable(page);
       await noSideScroll(page, 320);
       await page.setViewportSize({ width: 375, height: 812 });
       // A new visitor leaves this visitor's results.
       await page.locator(".check-footer").getByRole("button", { name: a.guest.newVisitor }).click();
       await expect(s50).toHaveCount(0);
+      // Create a free account opens the account page on this phone, replacing the visit.
+      await openSnapshot(
+        page,
+        lang,
+        resultsSnapshot({ mode: "guest", booth: true, homeOpen: false, items: SEATED, outcomes: GUEST }),
+        true,
+      );
+      await page.locator(".rs-keep").getByRole("button", { name: a.guest.register }).click();
+      await expect(page).toHaveURL(/app=1&register=1/);
+      await expect(page.locator(".azm-check")).toHaveCount(0);
       expect(errors).toEqual([]);
     });
 
@@ -349,6 +368,7 @@ for (const lang of LANGS) {
       await expect(
         page.locator('.rs-card[data-test="trunk_control_seated"] .rs-row[data-side="right"]'),
       ).toContainText(DATA.progress.labels.notMeasured[lang]);
+      await expectReadable(page);
       await noSideScroll(page, 320);
       expect(errors).toEqual([]);
     });
@@ -408,6 +428,7 @@ for (const lang of LANGS) {
       await expect(page.locator(`[data-detail="${id}"] .pg-pill`).first()).toBeVisible();
       await page.getByRole("button", { name: a.common.back }).click();
       await expect(page.locator(`[data-check="${id}"]`)).toBeFocused();
+      await expectReadable(page);
       await noSideScroll(page, 320);
       await page.setViewportSize({ width: 375, height: 812 });
 
@@ -434,6 +455,7 @@ for (const lang of LANGS) {
 
     test("S01 and S03: the Today card variants, the early start and the next day question", async ({
       page,
+      context: browser,
     }) => {
       const errors = watchConsole(page);
       await signIn(page, lang, "s01");
@@ -511,6 +533,15 @@ for (const lang of LANGS) {
       await slot.getByRole("button", { name: a.after.notNow }).click();
       await expect(slot.locator('[data-screen="S03"]')).toHaveCount(0);
       await expect(slot.locator('[data-screen="S01"]')).toBeVisible();
+      // Offline: the answer waits for the connection and the thanks says it is not saved yet.
+      await today(due);
+      await browser.setOffline(true);
+      await answers.first().click();
+      await s03.getByRole("button", { name: a.after.send }).click();
+      const sent = slot.locator('[data-screen="S03"][data-sent="usual"]');
+      await expect(sent).toContainText(a.after.thanks);
+      await expect(sent).toContainText(a.common.notSavedYet);
+      await browser.setOffline(false);
       expect(errors).toEqual([]);
     });
 
@@ -545,6 +576,7 @@ for (const lang of LANGS) {
       // The banner stays in view while the page scrolls.
       await page.mouse.wheel(0, 2000);
       await expect(banner).toBeInViewport();
+      await expectReadable(page);
       await noSideScroll(page, 320);
       // At the booth: Try the movement check opens the guest check.
       await page.evaluate(() => sessionStorage.setItem("azm.booth", "e2e-booth"));

@@ -296,8 +296,11 @@ export type NextDayAnswer = "usual" | "settled" | "lasting";
 
 export interface NextDayQuestionProps {
   lang: Lang;
-  /** Resolves when the answer is saved or kept to send later (offline); rejects on a server error. */
-  onSend(value: NextDayAnswer): Promise<void>;
+  /**
+   * Resolves when the answer is saved, or with "queued" when it waits for the connection (offline);
+   * rejects on a server error.
+   */
+  onSend(value: NextDayAnswer): Promise<void | "queued">;
   onNotNow(): void;
 }
 
@@ -360,11 +363,10 @@ export function NextDayQuestion({ lang, onSend, onNotNow }: NextDayQuestionProps
       return;
     }
     setPhase("sending");
-    const offline = !ui.online;
     try {
-      await onSend(value);
-      answeredThisSession = { value, queued: offline };
-      setQueued(offline);
+      const queuedNow = (await onSend(value)) === "queued" || !ui.online;
+      answeredThisSession = { value, queued: queuedNow };
+      setQueued(queuedNow);
       setPhase("sent");
     } catch {
       setPhase("error");
@@ -501,7 +503,7 @@ export interface TodayCheckSlotProps {
 }
 
 /** A next day answer that waits for the connection (offline), for this page's life only. */
-async function sendAfter(value: NextDayAnswer): Promise<void> {
+async function sendAfter(value: NextDayAnswer): Promise<void | "queued"> {
   const r: ApiResult<AfterResponse> = await progressApi().postAfter(value);
   if (r.ok) return;
   if (r.error.kind === "http") throw new Error(r.error.code);
@@ -512,6 +514,7 @@ async function sendAfter(value: NextDayAnswer): Promise<void> {
     void progressApi().postAfter(value);
   };
   window.addEventListener("online", retry);
+  return "queued";
 }
 
 /**

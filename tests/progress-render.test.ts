@@ -288,7 +288,7 @@ describe("S50 to S52 results", () => {
       expect(m).toContain(t(lang, "assessment.guest.keepTitle"));
       expect(m).toContain(t(lang, "assessment.guest.keepBodySoon"));
       expect(m).toContain('role="img"');
-      expect(m).toContain("?register=1");
+      expect(m).toContain("register=1");
       expect(m).toContain(t(lang, "assessment.guest.newVisitor"));
       expect(m).not.toContain(t(lang, "assessment.results.nextHeading"));
       expect(m).toContain(CHECK_DATA.progress.labels.notMeasured[lang]);

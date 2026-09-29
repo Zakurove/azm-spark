@@ -6,7 +6,7 @@
  */
 import type { ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
-import { countPhrase, t, unitWord } from "../../../i18n";
+import { countPhrase, formatNumber, t, unitWord } from "../../../i18n";
 import { bidiText, tx } from "../../../i18n/rich";
 import { cueLine, reasonText, testDef } from "../../../movements/assessments";
 import CheckIcon from "../shared/CheckIcon";
@@ -353,7 +353,7 @@ export function TimedPanel({
             <span
               className="s34-count"
               role="img"
-              aria-label={`${t(lang, "assessment.hud.countLabel")} ${count}`}
+              aria-label={`${t(lang, "assessment.hud.countLabel")} ${formatNumber(lang, count)}`}
             >
               <span aria-hidden="true">{bidiText(lang, String(count))}</span>
             </span>

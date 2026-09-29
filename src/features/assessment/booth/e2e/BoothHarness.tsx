@@ -16,7 +16,7 @@
  */
 import { useCallback, useEffect, useReducer, useState, type ReactNode } from "react";
 import type { Lang } from "../../../../app/i18n";
-import { t } from "../../../../i18n";
+import { formatNumber, t } from "../../../../i18n";
 import {
   flowReducer,
   initialModel,
@@ -193,7 +193,7 @@ function PartPage({ name, lang, onLanguage }: { name: string; lang: Lang; onLang
         <CheckShell exit={false}>
           <div className="booth-screen" data-saved={saved ?? ""}>
             <h1>{t(lang, "assessment.hud.phase.saved")}</h1>
-            <p className="check-big">{saved ?? 12}</p>
+            <p className="check-big">{formatNumber(lang, saved ?? 12)}</p>
             <StaffCountCorrection autoCount={12} onSave={setSaved} />
           </div>
         </CheckShell>

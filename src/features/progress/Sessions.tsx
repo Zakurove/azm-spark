@@ -177,19 +177,13 @@ export function CheckHistoryList({
         <li key={c.id}>
           <button type="button" className="pg-history-row" data-check={c.id} onClick={() => onOpen(c.id)}>
             <span className="pg-history-text">
-              <span>{dayLabel(lang, c.completed ?? c.started)}</span>
-              <span className="pg-dot" aria-hidden="true">
-                {" · "}
-              </span>
-              <span>
+              <span className="pg-meta-part">{dayLabel(lang, c.completed ?? c.started)}</span>{" "}
+              <span className="pg-meta-part">
                 {c.setting === "booth"
                   ? CHECK_DATA.progress.labels.boothPoint[lang]
                   : t(lang, "progress.trend.home")}
-              </span>
-              <span className="pg-dot" aria-hidden="true">
-                {" · "}
-              </span>
-              <span>
+              </span>{" "}
+              <span className="pg-meta-part">
                 {t(
                   lang,
                   c.status === "completed" ? "progress.history.completed" : "progress.history.endedEarly",

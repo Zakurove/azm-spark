@@ -411,9 +411,10 @@
   stroke-width: 2.5;
 }
 /* The arm marker sits on the arm's own side of the mirrored picture (LTR box, never flipped). */
+/* Kept inside the visible picture: never under the value card, which overlaps the video's last 24 px. */
 .azm-check .s34-arm-marker {
   position: absolute;
-  top: 35%;
+  top: clamp(var(--s2), 35%, calc(100% - var(--s6) - 52px));
   display: inline-flex;
   align-items: center;
   gap: var(--s2);

@@ -240,8 +240,8 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
           {repeat && (
             <p className="check-body">
               {tx(lang, "assessment.entry.repeatOffer.body", {
-                from: dayLabel(lang, now + REPEAT_OFFER_DAYS[0] * DAY_MS),
-                to: dayLabel(lang, now + REPEAT_OFFER_DAYS[1] * DAY_MS),
+                from: dayLabel(lang, now + REPEAT_OFFER_DAYS[0] * DAY_MS, { weekday: false }),
+                to: dayLabel(lang, now + REPEAT_OFFER_DAYS[1] * DAY_MS, { weekday: false }),
               })}
             </p>
           )}

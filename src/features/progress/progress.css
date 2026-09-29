@@ -352,6 +352,12 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--s3);
 }
+/* Below 420 px the two choices stack full width, so «أبقِ الوزن نفسه» never breaks inside a button. */
+@media (max-width: 419.98px) {
+  .azm-check .pg-offer-buttons {
+    grid-template-columns: 1fr;
+  }
+}
 .azm-check .pg-offer-buttons .ghost[aria-pressed="true"] {
   border: 2px solid var(--purple);
   background: var(--card);
@@ -450,6 +456,14 @@
   border-color: var(--ink);
 }
 .azm-check .pg-history-row .pg-dot {
+  color: var(--muted);
+}
+/* The parts of a meta line are drawn apart by a dot that starts the next part, so a line never ends
+   on a dangling dot. */
+.azm-check .pg-meta-part + .pg-meta-part::before {
+  content: "·";
+  content: "·" / "";
+  margin-inline: 0.4em;
   color: var(--muted);
 }
 .azm-check .pg-history-text {

@@ -88,7 +88,9 @@ export function changeText(lang: Lang, change: number, unit: UnitFormId): string
   const value = Math.round(Math.abs(change));
   if (value === 0) return t(lang, "progress.change.none");
   const up = change > 0;
-  if (isCountUnit(unit))
+  // O8: counts without their unit, except one and two in Arabic, which are never a bare digit with a
+  // count (0.2): the unit's one and two forms stand for the number («مرة واحدة»، «مرتين»).
+  if (isCountUnit(unit) && !(lang === "ar" && value <= 2))
     return t(lang, up ? "progress.change.upCount" : "progress.change.downCount", { value });
   return t(lang, up ? "progress.change.up" : "progress.change.down", { value, unit });
 }

@@ -178,9 +178,10 @@ export function EntryCard({
       primary = { label: t(lang, "assessment.entry.first.cta"), run: () => start() };
       break;
     case "repeatOffer":
+      // Inside «بين … و…» the weekday's comma would read as a list: the range names days and months only.
       body = t(lang, "assessment.entry.repeatOffer.body", {
-        from: date(state.dates.from),
-        to: date(state.dates.to),
+        from: state.dates.from === undefined ? "" : dayLabel(lang, state.dates.from, { weekday: false }),
+        to: state.dates.to === undefined ? "" : dayLabel(lang, state.dates.to, { weekday: false }),
       });
       primary = { label: t(lang, "assessment.entry.repeatOffer.cta"), run: () => start() };
       break;

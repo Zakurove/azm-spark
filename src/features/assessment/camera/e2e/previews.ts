@@ -196,6 +196,20 @@ export const PREVIEWS: Record<string, Preview> = {
     fixture: "abd",
     at: 5,
   },
+  // S34e: the practice of the left arm lifted the right arm twice; its fix shows (no retry is used).
+  "practice-fix": {
+    test: "shoulder_abduction",
+    state: practice,
+    snap: {
+      part: "rest",
+      runnerPhase: "rest",
+      practice: true,
+      practiceFix: { issue: "wrong_arm", remaining: 4, total: 6, last: false },
+    },
+    caption: { cue: "check_left_arm" },
+    fixture: "abd",
+    at: 1,
+  },
   "practice-curl": {
     test: "arm_curl_30s",
     state: practice,

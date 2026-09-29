@@ -10,6 +10,7 @@
  *   - the home check in names no answer box while the zones are not drawn.
  * Timers run on Playwright's fake clock where they matter.
  */
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
@@ -348,4 +349,123 @@ for (const lang of LANGS) {
       await context.close();
     });
   }
+}
+
+/* ------------------------------------------------------------------ flow */
+
+const INTAKE = {
+  age: 45,
+  conditions: ["none"],
+  diagnosisNotes: "",
+  medications: "",
+  mobility: "seated",
+  support: "none",
+  pain: [],
+  restrictions: [],
+  symptoms: "no",
+  recentChange: "no",
+  clearance: "yes",
+  equipment: ["chair"],
+  goal: "habit",
+  days: [0, 2, 4],
+  time: "09:00",
+  sessionMinutes: 30,
+  consent: true,
+};
+
+/**
+ * Opens a named state of e2e/flow-models.ts. Signed in states get a throwaway account whose intake
+ * is done, so the app opens the check rather than the intake page.
+ */
+async function openFlowNamed(page: Page, lang: Lang, name: string, signedIn: boolean) {
+  await page.goto("/?e2eGallery=loading");
+  if (signedIn) {
+    const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
+    const reg = await page.request.post("/api/auth/register", {
+      headers,
+      data: {
+        name: "Sara",
+        email: `fixes-flow-${lang}-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.test`,
+        password: `${crypto.randomUUID()}Aa1`,
+        adultConfirmed: true,
+      },
+    });
+    expect(reg.status()).toBe(200);
+    expect((await page.request.put("/api/intake", { headers, data: INTAKE })).status()).toBe(200);
+  }
+  await page.evaluate(
+    async ({ n, guest }) => {
+      const mod = await import(/* @vite-ignore */ String("/e2e/flow-models.ts"));
+      mod.setWalkClock(Date.now());
+      sessionStorage.setItem("azm.check.snapshot", JSON.stringify(mod.FLOW_STATES[n].build()));
+      if (guest) sessionStorage.setItem("azm.booth", "e2e-booth");
+      else sessionStorage.removeItem("azm.booth");
+    },
+    { n: name, guest: !signedIn },
+  );
+  const path = signedIn ? "/" : "/?check=1";
+  await page.goto(lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path);
+}
+
+for (const lang of LANGS) {
+  test.describe(`review fixes, flow (${lang})`, () => {
+    test("S19: the pain scale reflows at 320 x 256 with 52 x 64 targets (WCAG 1.4.10)", async ({
+      browser,
+    }) => {
+      const page = await phone(browser, 320, 256);
+      await openFlowNamed(page, lang, "S19-pain-now", false);
+      await expect(page.locator('[data-screen="S19"]')).toBeVisible();
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: innerWidth,
+        cells: [...document.querySelectorAll(".flow-scale-cell")].map((c) => {
+          const b = c.getBoundingClientRect();
+          return [b.left, b.right, b.width, b.height];
+        }),
+      }));
+      expect(r.sw).toBeLessThanOrEqual(r.iw);
+      expect(r.cells).toHaveLength(11);
+      for (const [left, right, width, height] of r.cells) {
+        expect(left).toBeGreaterThanOrEqual(0);
+        expect(right).toBeLessThanOrEqual(r.iw);
+        expect(width).toBeGreaterThanOrEqual(48);
+        expect(height).toBeGreaterThanOrEqual(56);
+      }
+      await page.context().close();
+    });
+
+    test("S29: STOP has focus, one main landmark, Sound and the camera line; axe moderate too", async ({
+      browser,
+    }) => {
+      const page = await phone(browser, 375, 812);
+      await openFlowNamed(page, lang, "S29-practice-check", true);
+      const s29 = page.locator('main[data-screen="S29"]');
+      await expect(s29).toBeVisible();
+      await expect(page.locator(".flow-practice-stop")).toBeFocused();
+      await expect(s29.getByRole("button", { name: COPY[lang].common.sound })).toBeVisible();
+      const r = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa", "best-practice"])
+        .analyze();
+      const found = r.violations
+        .filter((v) => v.impact === "serious" || v.impact === "critical" || v.impact === "moderate")
+        .map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`);
+      expect(found).toEqual([]);
+      await page.context().close();
+    });
+
+    for (const name of ["busy", "error", "offline"] as const)
+      test(`S17 start ${name}: the state stays on screen (never the portal)`, async ({ browser }) => {
+        const page = await phone(browser, 375, 812);
+        await page.route("**/api/assessments", (route) => {
+          if (route.request().method() !== "POST") return route.continue();
+          if (name === "busy") return;
+          return route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+        });
+        await openFlowNamed(page, lang, `S17-start-${name}`, true);
+        await expect(page.locator('[data-screen="S17"]')).toBeVisible();
+        await page.waitForTimeout(1200);
+        await expect(page.locator('[data-screen="S17"]')).toBeVisible();
+        await page.context().close();
+      });
+  });
 }

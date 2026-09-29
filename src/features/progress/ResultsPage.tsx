@@ -137,11 +137,17 @@ function CheckDetail({
         {dayLabel(lang, check.completed ?? check.started)}
       </h2>
       <p className="check-meta">
-        {check.setting === "booth"
-          ? CHECK_DATA.progress.labels.boothPoint[lang]
-          : t(lang, "progress.trend.home")}
-        <span aria-hidden="true"> · </span>
-        {t(lang, check.status === "completed" ? "progress.history.completed" : "progress.history.endedEarly")}
+        <span className="pg-meta-part">
+          {check.setting === "booth"
+            ? CHECK_DATA.progress.labels.boothPoint[lang]
+            : t(lang, "progress.trend.home")}
+        </span>{" "}
+        <span className="pg-meta-part">
+          {t(
+            lang,
+            check.status === "completed" ? "progress.history.completed" : "progress.history.endedEarly",
+          )}
+        </span>
       </p>
       <ResultCards model={model} views={views} level={3} />
     </section>

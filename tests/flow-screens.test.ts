@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { Lang } from "../src/app/i18n";
 import { FLOW_SCREENS } from "../src/features/assessment/flow";
 import { desktopLink } from "../src/features/assessment/flow/Entry";
-import { introFacts } from "../src/features/assessment/flow/Intro";
+import { introFacts, precheckNotice } from "../src/features/assessment/flow/Intro";
 import { warningText, weakerSide } from "../src/features/assessment/flow/Plan";
 import { questionIdOf } from "../src/features/assessment/flow/Question";
 import { audible, captionMs } from "../src/features/assessment/flow/voice";
@@ -235,7 +235,12 @@ describe("intro, sound check and notice (S14, S14b, S16)", () => {
     const { ctx, tests } = introFacts(M.S14);
     expect(ctx).not.toBeNull();
     expect(tests.length).toBeGreaterThan(0);
-    expect(text).toMatch(/The check takes about \d+ to \d+ minutes\./);
+    // At the booth only the time is said (the chair, the stand and the space are ready), and neither
+    // the phone's sound nor who may press STOP (the phone and the check are the team's).
+    expect(text).toMatch(/Today’s check takes about \d+ to \d+ minutes\./);
+    expect(text).not.toContain("You will need a steady chair");
+    expect(text).not.toContain(t("en", "assessment.intro.sound"));
+    expect(text).not.toContain(t("en", "assessment.intro.stop"));
     expect(text).toContain(t("en", "assessment.intro.need.booth"));
     expect(text).toContain(t("en", "assessment.intro.allSeated"));
     for (const id of tests) expect(text).toContain(testDef(id).name.en);
@@ -258,10 +263,14 @@ describe("intro, sound check and notice (S14, S14b, S16)", () => {
 
   it("S16 shows the notice, the helper line at home only, and the O6 resume line", () => {
     const booth = screen(M.S16, "en");
-    expect(booth.text).toContain(CHECK_DATA.boundary.precheckNotice.en);
+    // A booth guest keeps nothing (S05, S50): no retention sentence, the guest line of the data.
+    expect(booth.text).toContain(precheckNotice("en", true));
+    expect(booth.text).not.toContain("We keep only what is needed");
+    expect(booth.text).toContain("Your answers stay on this device for this try only");
     expect(booth.text).not.toContain(t("en", "assessment.precheck.helperReads"));
     const home = play(M.S14signed, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" });
     expect(screen(home, "en").text).toContain(t("en", "assessment.precheck.helperReads"));
+    expect(screen(home, "en").text).toContain(CHECK_DATA.boundary.precheckNotice.en);
     expect(screen(M.S16resume, "en").text).toContain(t("en", "assessment.resume.notice"));
   });
 });
@@ -469,7 +478,9 @@ describe("postponed and paused (S33, S35)", () => {
   it("S35 never names the reason and offers the care team release only when allowed", () => {
     const { text } = screen(M.S35, "en");
     expect(text).toContain(t("en", "assessment.entry.locked.title"));
-    expect(text).toContain("You can try again tomorrow.");
+    // A booth guest has no account: the staff line, never a time to come back.
+    expect(text).toContain(t("en", "assessment.safety.boothStaff"));
+    expect(text).not.toContain("You can try again tomorrow.");
     const signed = withState(signedAt(), {
       kind: "paused",
       until: null,

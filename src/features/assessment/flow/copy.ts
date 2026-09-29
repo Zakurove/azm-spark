@@ -974,6 +974,10 @@ export function instructionSteps(
   const v = def.variants?.find((x) => x.id === variant);
   for (const [k, text] of Object.entries(v?.stepsReplace ?? {})) steps[Number(k)] = text[lang];
   if (booth) steps[PHONE_STEP[testId]] = t(lang, "assessment.primer.placeBooth");
+  // SPEC-GAP: booth-stand-steps. At the booth our team sets up the chair and the support in front, so
+  // the chair stand's two home setup steps are left out (a data request for booth steps of
+  // tests.chair_stand_30s); the steps start at the phone step, already the booth line.
+  if (booth && testId === "chair_stand_30s") return steps.slice(PHONE_STEP.chair_stand_30s);
   return steps;
 }
 

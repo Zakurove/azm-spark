@@ -34,6 +34,19 @@ import {
 import { IntroDrawing, SamePress } from "./parts";
 import { unlockAudio, useEntryLines, useVoice } from "./voice";
 
+/**
+ * S16's notice. A guest at the booth keeps nothing (S05, S50): the data's first sentence, then the
+ * guest line of the data (its second sentence: answers stay on this device for this try only), never
+ * the retention sentence, which names comparisons a guest never gets.
+ */
+export function precheckNotice(lang: "ar" | "en", guest: boolean): string {
+  const full = CHECK_DATA.boundary.precheckNotice[lang];
+  if (!guest) return full;
+  const sentences = (x: string) => x.split(/(?<=[.!?؟])\s+/u);
+  const guestLine = sentences(CHECK_DATA.selection.guestBooth.conditionsStep.helper[lang])[1] ?? "";
+  return `${sentences(full)[0]} ${guestLine}`.trim();
+}
+
 /** The context and the base tests the intro is about (guest steps or the signed in context). */
 export function introFacts(m: FlowModel): {
   ctx: CheckContext | null;
@@ -88,7 +101,17 @@ export function Intro({ model, dispatch }: ScreenProps) {
         </p>
         <IntroDrawing alt={t(lang, "assessment.intro.illustrationAlt")} position={position} />
         <p className="check-body" data-part="duration">
-          {bidiText(lang, introBoundary(lang, minutes))}
+          {/* At the booth the chair, the stand and the space are ready: only the time is said. */}
+          {bidiText(
+            lang,
+            booth
+              ? t(lang, "assessment.intro.duration", {
+                  minutesFrom: minutes[0],
+                  minutesTo: minutes[1],
+                  unit: "min",
+                })
+              : introBoundary(lang, minutes),
+          )}
         </p>
         {tests.length > 0 && (
           <section className="flow-section" aria-labelledby="flow-intro-tests">
@@ -129,11 +152,14 @@ export function Intro({ model, dispatch }: ScreenProps) {
           <CheckIcon name="stop-square" size={22} />
           <span className="check-body">{howToStop}</span>
         </p>
-        <p className="check-meta">{t(lang, "assessment.intro.stop")}</p>
-        <p className="flow-note">
-          <CheckIcon name="speaker" size={20} />
-          <span className="check-meta">{t(lang, "assessment.intro.sound")}</span>
-        </p>
+        {/* At the booth the phone and its sound are the team's, and howToStopBooth covers stopping. */}
+        {!booth && <p className="check-meta">{t(lang, "assessment.intro.stop")}</p>}
+        {!booth && (
+          <p className="flow-note">
+            <CheckIcon name="speaker" size={20} />
+            <span className="check-meta">{t(lang, "assessment.intro.sound")}</span>
+          </p>
+        )}
         <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
       </div>
     </CheckShell>
@@ -219,7 +245,7 @@ export function SoundCheck({ model, dispatch }: ScreenProps) {
 /* ------------------------------------------------------------------ S16 */
 
 export function PrecheckNotice({ model, dispatch }: ScreenProps) {
-  const { lang, booth } = useCheckUi();
+  const { lang, booth, guest } = useCheckUi();
   const resume = model.state.kind === "resumeNotice";
   const back = backTarget(model) ? () => dispatch({ type: "BACK" }) : undefined;
   const home = model.data.setting === "home";
@@ -262,7 +288,7 @@ export function PrecheckNotice({ model, dispatch }: ScreenProps) {
           <span className="check-card-icon">
             <CheckIcon name="shield" />
           </span>
-          <p className="check-body">{bidiText(lang, CHECK_DATA.boundary.precheckNotice[lang])}</p>
+          <p className="check-body">{bidiText(lang, precheckNotice(lang, guest))}</p>
         </section>
         <p className="check-body">{t(lang, "assessment.precheck.howToAnswer")}</p>
         {home && !booth && <p className="check-body">{t(lang, "assessment.precheck.helperReads")}</p>}

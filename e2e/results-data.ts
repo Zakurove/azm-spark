@@ -134,13 +134,21 @@ export function resultsSnapshot(o: {
     ...(it.skipped ? { skipped: it.skipped } : {}),
   }));
   const outcomes: Record<string, unknown> = {};
+  // A booth guest does the arm curl without a weight (the booth protocol): no load in the detail.
+  const guestBooth = o.mode === "guest" && o.booth;
   for (const [key, out] of Object.entries(o.outcomes)) {
+    let detail: Record<string, unknown> = out.status === "measured" ? (out.detail ?? {}) : {};
+    if (guestBooth && key.startsWith("arm_curl_30s:")) {
+      const { loadKg: _kg, ...rest } = detail;
+      void _kg;
+      detail = { ...rest, loadObject: "none" };
+    }
     outcomes[key] =
       out.status === "measured"
         ? {
             status: "measured",
             value: out.value,
-            payload: { value: out.value, detail: out.detail ?? {}, variant: out.variant ?? null },
+            payload: { value: out.value, detail, variant: out.variant ?? null },
           }
         : { status: out.status, reason: out.reason };
   }

@@ -79,9 +79,11 @@ export function Postponed({ model, dispatch }: ScreenProps) {
           />
         ))}
         {!sci && <ListenButton onClick={() => void voice.play([{ cue: "check_postpone" }])} />}
+        {/* A booth visitor has no account and the lock ends with the visit: the staff line, as the
+            safety screens show it for guests, never "try again tomorrow after ...". */}
         {!sci && (
           <p className="check-body">
-            <TimeText text={pausedLine(lang, when)} />
+            {guest ? t(lang, "assessment.safety.boothStaff") : <TimeText text={pausedLine(lang, when)} />}
           </p>
         )}
       </div>
@@ -125,7 +127,7 @@ export function PausedToday({ model, dispatch }: ScreenProps) {
           </span>
           <h1 id="flow-paused-title">{t(lang, "assessment.entry.locked.title")}</h1>
           <p className="check-body">
-            <TimeText text={pausedLine(lang, when)} />
+            {guest ? t(lang, "assessment.safety.boothStaff") : <TimeText text={pausedLine(lang, when)} />}
           </p>
         </section>
         {s?.releasable && !guest && (

@@ -155,7 +155,9 @@ function QuestionList({ view }: { view: QuestionView }) {
   return (
     <div className="flow-question-list">
       {readAloud && <p className="check-meta">{t(lang, "assessment.precheck.checklist.hint")}</p>}
-      {view.listHeading && <p className="check-label flow-list-heading">{view.listHeading}</p>}
+      {view.listHeading && (
+        <p className="check-label flow-list-heading">{bidiText(lang, view.listHeading)}</p>
+      )}
       <ul className={`check-card check-list flow-bullets${readAloud ? " is-read" : " is-cream"}`}>
         {view.list!.map((item, i) => (
           <li key={i}>

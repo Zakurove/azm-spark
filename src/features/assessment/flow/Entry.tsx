@@ -15,7 +15,7 @@ import { AnswerButtons } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import { guestMinutes } from "./copy";
+import { guestMinutes, localLabels } from "./copy";
 import { QrCode, SamePress } from "./parts";
 
 /* ------------------------------------------------------------------ S04 */
@@ -185,7 +185,7 @@ export function AdultGate({ model, dispatch }: ScreenProps) {
         <SamePress>
           <AnswerButtons
             labelledBy="flow-adult-title"
-            options={options.map((o) => ({ ...o, label: o.label }))}
+            options={localLabels(lang, options)}
             value={null}
             onSubmit={(v) => dispatch({ type: v === "yes" ? "ADULT_YES" : "ADULT_NO" })}
           />

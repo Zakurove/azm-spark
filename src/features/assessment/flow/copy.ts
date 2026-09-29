@@ -7,7 +7,7 @@
  * Nothing here writes a user facing sentence of its own.
  */
 import type { Lang } from "../../../app/i18n";
-import { t, type I18nKey, type Vars } from "../../../i18n";
+import { localizeDigits, t, type I18nKey, type Vars } from "../../../i18n";
 import {
   allowedLoads,
   estimateMinutes,
@@ -71,6 +71,14 @@ export function cueSpeech(id: CheckCueId, lang: Lang): SpeechLine {
 /** Only cue ids the data has; anything else is dropped (never a missing line at runtime). */
 export function knownCues(ids: readonly string[]): CheckCueId[] {
   return ids.filter((id): id is CheckCueId => isCheckCueId(id));
+}
+
+/**
+ * Answer labels for the shared answer rows, which show their label as plain text: the digits of an
+ * Arabic label in Arabic Indic digits (Q30), as t() and bidiText show every other number.
+ */
+export function localLabels<T extends { label: string }>(lang: Lang, options: readonly T[]): T[] {
+  return options.map((o) => ({ ...o, label: localizeDigits(lang, o.label) }));
 }
 
 /** A list of labels in running text: «الكتف، الركبة» · "Shoulder, Knee". */
@@ -504,7 +512,10 @@ export function questionView(env: PrecheckEnv, answers: Answers, id: string, lan
   const part = parsed.part;
   const form = questionForm(env, answers, id);
   const optionsOf = (): { value: string; label: string }[] =>
-    (item.options ?? []).map((o) => ({ value: String(o.value), label: o.label[lang] }));
+    localLabels(
+      lang,
+      (item.options ?? []).map((o) => ({ value: String(o.value), label: o.label[lang] })),
+    );
   const optionSpeech = (): SpeechLine[] =>
     (item.options ?? []).map((o) => ({
       display: o.label[lang],

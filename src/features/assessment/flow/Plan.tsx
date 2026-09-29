@@ -5,7 +5,7 @@
  *   S26  Helper briefing (home, Q11, O34-2): read aloud sentence by sentence, the P4 picture
  */
 import { useEffect, useState } from "react";
-import { t } from "../../../i18n";
+import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA, screenText, testDef } from "../../../movements/assessments";
 import type { ScreenId, Side, TestId } from "../../../movements/types";
@@ -102,7 +102,10 @@ export function Warnings({ model, dispatch, api }: ScreenProps) {
             {c.id === "scr_note_care" &&
               [...new Set(skippedForSore)].map((testId) => (
                 <p key={testId} className="check-body flow-strong">
-                  {t(lang, "assessment.warnings.skippedTest", { test: testDef(testId).name[lang] })}
+                  {bidiText(
+                    lang,
+                    t(lang, "assessment.warnings.skippedTest", { test: testDef(testId).name[lang] }),
+                  )}
                 </p>
               ))}
           </NoticeCard>
@@ -152,7 +155,7 @@ export function Plan({ model, dispatch }: ScreenProps) {
                   {bidiText(lang, String(i + 1))}
                 </span>
                 <div className="flow-plan-body">
-                  <h2>{row.name}</h2>
+                  <h2>{bidiText(lang, row.name)}</h2>
                   <p className="check-meta">{bidiText(lang, row.purpose)}</p>
                   {(row.perSide || row.helper || row.variant) && (
                     <p className="flow-chips">
@@ -214,7 +217,7 @@ function SkipGroup({
       <ul className="check-card flow-skip-list">
         {items.map((s) => (
           <li key={s.testId}>
-            <p className="flow-strong">{s.name}</p>
+            <p className="flow-strong">{bidiText(lang, s.name)}</p>
             <p className="check-meta">{bidiText(lang, s.reason)}</p>
             {s.boothOffer && (
               <p className="check-meta">{bidiText(lang, CHECK_DATA.reasons.booth_offer[lang])}</p>
@@ -273,13 +276,13 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
       onBack={() => dispatch({ type: "BACK" })}
       footer={{
         primary: {
-          label: CHECK_DATA.helperBriefing.confirmButton[lang],
+          label: localizeDigits(lang, CHECK_DATA.helperBriefing.confirmButton[lang]),
           onClick: () => dispatch({ type: "PREP_NEXT" }),
         },
       }}
     >
       <div className="flow-stack" data-screen="S26">
-        <h1>{CHECK_DATA.helperBriefing.heading[lang]}</h1>
+        <h1>{bidiText(lang, CHECK_DATA.helperBriefing.heading[lang])}</h1>
         <p className="check-meta">{t(lang, "assessment.helper.askToRead")}</p>
         {screen && (
           <TopDownDrawing

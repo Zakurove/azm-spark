@@ -322,7 +322,7 @@ export function AreaPicker({
           <span className="check-answer-mark" aria-hidden="true">
             <CheckIcon name="check" size={18} />
           </span>
-          <span className="check-answer-text">{noneLabel}</span>
+          <span className="check-answer-text">{bidiText(lang, noneLabel)}</span>
         </button>
       )}
     </div>

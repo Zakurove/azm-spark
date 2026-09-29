@@ -22,7 +22,15 @@ import { AnswerButtons } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import { allSeated, introBoundary, introHelperTests, introNeeds, joinAnd, type SpeechItem } from "./copy";
+import {
+  allSeated,
+  introBoundary,
+  localLabels,
+  introHelperTests,
+  introNeeds,
+  joinAnd,
+  type SpeechItem,
+} from "./copy";
 import { IntroDrawing, SamePress } from "./parts";
 import { unlockAudio, useEntryLines, useVoice } from "./voice";
 
@@ -101,12 +109,15 @@ export function Intro({ model, dispatch }: ScreenProps) {
               {needs.map((n) => (
                 <li key={n}>
                   {n === "helper"
-                    ? t(lang, "assessment.intro.need.helper", {
-                        tests: joinAnd(
-                          lang,
-                          helperTests.map((id) => testDef(id).name[lang]),
-                        ),
-                      })
+                    ? bidiText(
+                        lang,
+                        t(lang, "assessment.intro.need.helper", {
+                          tests: joinAnd(
+                            lang,
+                            helperTests.map((id) => testDef(id).name[lang]),
+                          ),
+                        }),
+                      )
                     : t(lang, `assessment.intro.need.${n}`)}
                 </li>
               ))}
@@ -139,7 +150,10 @@ export function SoundCheck({ model, dispatch }: ScreenProps) {
   const noteRef = useRef<HTMLDivElement>(null);
   const playSound = () => void voice.play([{ cue: "check_sound" }]);
   useEntryLines(voice, [{ cue: "check_sound" }], true);
-  const options = CHECK_DATA.engine.soundCheck.options.map((o) => ({ value: o.value, label: o.label[lang] }));
+  const options = localLabels(
+    lang,
+    CHECK_DATA.engine.soundCheck.options.map((o) => ({ value: o.value, label: o.label[lang] })),
+  );
   const back = backTarget(model) ? () => dispatch({ type: "BACK" }) : undefined;
   const question = CHECK_DATA.cues.find((c) => c.id === "check_sound");
   const onAnswer = (v: string) => {

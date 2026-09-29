@@ -19,6 +19,7 @@ import { useCheckUi } from "../shared/CheckUi";
 import {
   cardNotes,
   illustrationAlt,
+  localLabels,
   instructionSteps,
   sideLabel,
   summaryCues,
@@ -118,7 +119,7 @@ export function Instruction({ model, dispatch }: ScreenProps) {
             </NoticeCard>
           ),
         )}
-        <h1>{def.name[lang]}</h1>
+        <h1>{bidiText(lang, def.name[lang])}</h1>
         <p className="check-body">{bidiText(lang, def.purpose[lang])}</p>
         <TestDrawing
           alt={illustrationAlt(testId, position, variant, lang)}
@@ -129,10 +130,14 @@ export function Instruction({ model, dispatch }: ScreenProps) {
           <p key={side} className="flow-note">
             <CheckIcon name="info" size={20} />
             <span className="check-body">
-              {t(lang, "assessment.plan.sideLine", {
-                side: sideLabel(testId, side, lang),
-                reason: strokeWeaker === side ? load.helpWeakerArm[lang] : t(lang, "assessment.load.armOnly"),
-              })}
+              {bidiText(
+                lang,
+                t(lang, "assessment.plan.sideLine", {
+                  side: sideLabel(testId, side, lang),
+                  reason:
+                    strokeWeaker === side ? load.helpWeakerArm[lang] : t(lang, "assessment.load.armOnly"),
+                }),
+              )}
             </span>
           </p>
         ))}
@@ -185,7 +190,10 @@ function ChairGate({ onYes, onNo }: { onYes(): void; onNo(): void }) {
       <SamePress>
         <AnswerButtons
           labelledBy="flow-chair-gate"
-          options={q.options.map((o) => ({ value: String(o.value), label: o.label[lang] }))}
+          options={localLabels(
+            lang,
+            q.options.map((o) => ({ value: String(o.value), label: o.label[lang] })),
+          )}
           value={null}
           onSubmit={(v) => (v === "yes" ? onYes() : onNo())}
         />
@@ -213,7 +221,10 @@ function SameChair({
       <SamePress>
         <AnswerButtons
           labelledBy="flow-same-chair"
-          options={q.options.map((o) => ({ value: String(o.value), label: o.label[lang] }))}
+          options={localLabels(
+            lang,
+            q.options.map((o) => ({ value: String(o.value), label: o.label[lang] })),
+          )}
           value={picked}
           onSubmit={(v) => {
             setPicked(v);

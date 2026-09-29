@@ -13,7 +13,7 @@ import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons, MultiAnswerList, useNextWithHint } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import { useCheckUi } from "../shared/CheckUi";
-import { guestStepView, type GuestStepNo } from "./copy";
+import { guestStepView, localLabels, type GuestStepNo } from "./copy";
 import { ListenButton, SamePress } from "./parts";
 import { useVoice } from "./voice";
 
@@ -30,7 +30,8 @@ export function GuestStep({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
   const voice = useVoice(model.data.soundMode);
   const step = (model.state.kind === "guestSetup" ? model.state.step : 1) as GuestStepNo;
-  const view = guestStepView(lang, step);
+  const raw0 = guestStepView(lang, step);
+  const view = { ...raw0, options: localLabels(lang, raw0.options) };
   const raw = model.data.guest[KEYS[step]];
   const values = Array.isArray(raw) ? raw : [];
   const single = typeof raw === "string" ? raw : null;

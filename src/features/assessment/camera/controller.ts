@@ -296,6 +296,7 @@ export class CameraController {
   private readonly fine: CameraFine | null;
   private fineArmed = false;
   private lostWhileArmed = false;
+  private practiceSkipped = false;
   private lockPending = true;
   private refPending = false;
   private lastLm: Landmark[] | null = null;
@@ -454,6 +455,62 @@ export class CameraController {
     this.timers(t);
     this.reconcile(t);
     return this.drain();
+  }
+
+  /**
+   * The answer states over the camera (S29 practice check, S47, S48): the check in keeps watching
+   * with the answer zone arming of 4.8 (sway and hips drop on, no movement and left frame off), and
+   * the raised hand counts as fine while S43 or S45 is open.
+   */
+  watch(f: Frame, t: number = f.t): CamOutput {
+    this.lastT = Math.max(this.lastT, t);
+    const s = this.model.state as FlowState & { i?: number; side?: number };
+    if (s.i !== this.test.i || s.side !== this.test.sideIndex || this.state) return this.drain();
+    const poses = posesOf(f);
+    const k = nearestCentre(poses, f.aspect);
+    const lm = this.lock.locked ? this.lock.pickFrame(f).lm : k >= 0 ? poses[k] : null;
+    const overlay = this.model.overlay;
+    if (overlay) {
+      if (overlay.kind === "checkIn" || overlay.kind === "alarm")
+        this.fineFrame(t, lm ?? (k >= 0 ? poses[k] : null), f.aspect);
+      return this.drain();
+    }
+    this.fineArmed = false;
+    if (this.detector.reference)
+      for (const trigger of this.detector.feed(t, lm, f.aspect, {
+        sway: true,
+        movement: false,
+        leftFrame: false,
+      }))
+        this.emit({ type: "TRIGGER", trigger }, t);
+    return this.drain();
+  }
+
+  /**
+   * Side lean only: the at the phone "Skip the practice" (spec 4.3, fatigue, P3). The runner starts
+   * again without its practice leans; a calibration in progress starts again with it.
+   */
+  skipPractice(t: number): CamOutput {
+    if (this.test.testId !== "trunk_control_seated" || this.practiceSkipped) return this.drain();
+    this.practiceSkipped = true;
+    const p = this.runnerPhase;
+    if (
+      this.runner &&
+      (p === null || p === "idle" || p === "calibrating" || p === "practice" || p === "return")
+    )
+      this.startRunner(t);
+    this.reconcile(t);
+    return this.drain();
+  }
+
+  /** The tracked person's landmarks in the last frame (the skeleton of setup and calibration). */
+  subject(): Landmark[] | null {
+    return this.lastLm;
+  }
+
+  /** The side lean practice was skipped (the button hides). */
+  get practiceWasSkipped(): boolean {
+    return this.practiceSkipped;
   }
 
   snapshot(t: number = this.lastT): CamSnapshot {
@@ -750,6 +807,7 @@ export class CameraController {
     const t = this.test;
     const o: RunnerOptions = { ...this.timing.runner, intro: t.sideIndex === 0, firstCheck: t.firstCheck };
     if (t.testId === "trunk_control_seated" && t.side !== "none") o.sides = [t.side];
+    if (t.testId === "trunk_control_seated" && this.practiceSkipped) o.skipPractice = true;
     if (t.testId === "arm_curl_30s") {
       o.variant = (t.variant ?? "held") as RunnerOptions["variant"];
       o.askPracticeCheck = t.withLoad;
@@ -1201,7 +1259,11 @@ export class CameraController {
       id === "check_go" || id === "check_ten_left" || id.startsWith("check_time_up")
         ? "timer"
         : cueClass(id, source);
-    this.out.cues.push({ id, cls, speak, at: t, ...(staleMs ? { staleMs } : {}) });
+    // D-009: during the 30 s of a timed test the voice says only go, ten seconds left and the end
+    // cue; every other line is shown, not spoken (safety and the check in still speak).
+    const trial = this.timed && this.runnerPhase === "attempt" && this.endCueAt === null;
+    const quiet = trial && cls !== "timer" && cls !== "safety" && cls !== "checkin";
+    this.out.cues.push({ id, cls, speak: speak && !quiet, at: t, ...(staleMs ? { staleMs } : {}) });
   }
 
   private cueEvery(id: string, source: "setup", t: number): void {

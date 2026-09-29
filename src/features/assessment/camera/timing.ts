@@ -51,9 +51,10 @@ export function camTiming(fast = false): CamTiming {
       setupWindowSec: 1,
       cueRepeatSec: 6,
       fixedSec: 1.5,
-      tipsAfterSec: 60,
-      skipAfterSec: 90,
-      stillNoOneSec: 60,
+      // The at the phone offers of a long setup come after seconds instead of minutes.
+      tipsAfterSec: 4,
+      skipAfterSec: 6,
+      stillNoOneSec: 5,
       savedSec: 1.5,
       retrySec: 6,
       sideChangeSec: { shoulder_abduction: 2, arm_curl_30s: 2 },

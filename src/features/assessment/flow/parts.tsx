@@ -13,7 +13,7 @@
  */
 import { useId, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
-import { formatNumber, localizeDigits, t } from "../../../i18n";
+import { formatNumber, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA } from "../../../movements/assessments";
 import type { CheckPosition, Side, TestId } from "../../../movements/types";
@@ -75,21 +75,8 @@ export function Emphasized({ text, words }: { text: string; words: readonly stri
  */
 export function TimeText({ text }: { text: string }) {
   const { lang } = useCheckUi();
-  const parts = text.split(/(\d{1,2}:\d{2})/);
-  if (parts.length === 1) return <>{bidiText(lang, text)}</>;
-  return (
-    <>
-      {parts.map((p, i) =>
-        i % 2 === 1 ? (
-          <bdi key={i} dir="ltr" className="flow-time">
-            {localizeDigits(lang, p)}
-          </bdi>
-        ) : (
-          <span key={i}>{bidiText(lang, p)}</span>
-        ),
-      )}
-    </>
-  );
+  // bidiText keeps a clock time as one left to right run (src/i18n/rich.tsx).
+  return <>{bidiText(lang, text)}</>;
 }
 
 /**

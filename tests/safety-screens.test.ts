@@ -149,7 +149,8 @@ describe("S36 to S40b", () => {
         children: createElement(TextWithTimes, { text: "Try again tomorrow after 9:06 am." }),
       }),
     );
-    expect(en).toContain('<bdi dir="ltr">9:06</bdi>');
+    // English is left to right already: the time is plain text.
+    expect(en).toContain("after 9:06 am.");
   });
 
   it("S36 signed in shows the kept line and the paused line with its {when}", () => {
@@ -160,7 +161,7 @@ describe("S36 to S40b", () => {
     };
     const html = render(SCREENS.S36, m, { lang: "en" });
     expect(html).toContain("Results of the tests you finished are kept.");
-    expect(html).toMatch(/<bdi dir="ltr">\d{1,2}:\d{2}<\/bdi>/);
+    expect(html).toMatch(/after \d{1,2}:\d{2}/);
     expect(html).toContain("Return to Today");
   });
 

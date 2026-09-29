@@ -29,10 +29,10 @@ describe("parseCount", () => {
 
 const render = (lang: Lang, invalid: boolean) =>
   renderToStaticMarkup(
-    createElement(
-      CheckRoot,
-      { ui: { lang }, page: false },
-      createElement(CountStepper, {
+    createElement(CheckRoot, {
+      ui: { lang },
+      page: false,
+      children: createElement(CountStepper, {
         label: t(lang, "assessment.count.howMany"),
         text: lang === "ar" ? "١٢" : "12",
         onText: () => undefined,
@@ -40,7 +40,7 @@ const render = (lang: Lang, invalid: boolean) =>
         max: 60,
         invalid,
       }),
-    ),
+    }),
   );
 
 describe("CountStepper", () => {

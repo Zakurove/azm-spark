@@ -3,7 +3,7 @@
  * time, the 64 px ambulance number, STOP, the answer zones in their tap form, the countdown ring, the
  * stage caption and the heading icon. They use only the check tokens (safety.css).
  */
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
@@ -44,30 +44,10 @@ export function SentenceStack({
   );
 }
 
-/** A clock time in Latin or Arabic Indic digits (9:06, ٩:٠٦). */
-const CLOCK = /[0-9\u0660-\u0669]{1,2}:[0-9\u0660-\u0669]{2}/g;
-
-/**
- * A text with clock times kept whole: bidiText isolates each digit run on its own, so in right to left
- * text «٩:٠٦» would show as «٠٦:٩»; a time is isolated as one left to right run instead (Q30).
- */
+/** A text with clock times kept whole: bidiText isolates a time as one left to right run (Q30). */
 export function TextWithTimes({ text }: { text: string }) {
   const { lang } = useCheckUi();
-  const shown = localizeDigits(lang, text);
-  const out: ReactNode[] = [];
-  let at = 0;
-  for (const m of shown.matchAll(CLOCK)) {
-    const start = m.index ?? 0;
-    if (start > at) out.push(<Fragment key={at}>{bidiText(lang, shown.slice(at, start))}</Fragment>);
-    out.push(
-      <bdi key={`t${start}`} dir="ltr">
-        {m[0]}
-      </bdi>,
-    );
-    at = start + m[0].length;
-  }
-  if (at < shown.length) out.push(<Fragment key={at}>{bidiText(lang, shown.slice(at))}</Fragment>);
-  return <>{out}</>;
+  return <>{bidiText(lang, text)}</>;
 }
 
 /** The ambulance number as text of at least 64 px with its label (Q22), readable from the floor. */

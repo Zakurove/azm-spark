@@ -33,6 +33,20 @@ describe("bidirectional isolation of copy (UX spec 0.2)", () => {
     expect(bidiSegments("en", "In Safari, open 3 menus")).toEqual(["In Safari, open 3 menus"]);
   });
 
+  it("keeps a clock time as one left to right run, so hours never swap with minutes (Q30)", () => {
+    expect(bidiSegments("ar", "بعد الساعة ٣:١٥ مساءً")).toEqual(["بعد الساعة ", { time: "٣:١٥" }, " مساءً"]);
+    expect(bidiSegments("ar", "حتى 12:05 أو ٢ ساعة")).toEqual([
+      "حتى ",
+      { time: "12:05" },
+      " أو ",
+      { number: "٢" },
+      " ساعة",
+    ]);
+    expect(html(bidiText("ar", "بعد الساعة 3:15"))).toContain('<bdi dir="ltr">٣:١٥</bdi>');
+    // Not a time: three digits before the colon stay numbers.
+    expect(bidiSegments("ar", "123:45")).toEqual([{ number: "123" }, ":", { number: "45" }]);
+  });
+
   it("renders the camera steps with the browser names isolated and read in English", () => {
     const ios = html(tx("ar", "assessment.camera.denied.ios"));
     expect(ios).toContain('<bdi lang="en">Safari</bdi>');

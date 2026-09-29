@@ -8,9 +8,11 @@
  *                      "Choose an answer to continue." under the question and moves focus to the first
  *                      answer row.
  * The group is labelled by the question (aria-labelledby); each row is a button with aria-pressed.
+ * Labels go through bidiText, so data labels with ASCII digits show the page's digits (Q30).
  */
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { t } from "../../../i18n";
+import { bidiText } from "../../../i18n/rich";
 import CheckIcon from "./CheckIcon";
 import { useCheckUi } from "./CheckUi";
 
@@ -39,6 +41,7 @@ export function AnswerButtons<T extends string>({
   describedBy,
   groupRef,
 }: AnswerButtonsProps<T>) {
+  const { lang } = useCheckUi();
   return (
     <div
       className="check-answers"
@@ -59,7 +62,7 @@ export function AnswerButtons<T extends string>({
           <span className="check-answer-mark" aria-hidden="true">
             <CheckIcon name="check" size={18} />
           </span>
-          <span className="check-answer-text">{o.label}</span>
+          <span className="check-answer-text">{bidiText(lang, o.label)}</span>
         </button>
       ))}
     </div>
@@ -138,7 +141,7 @@ export function MultiAnswerList<T extends string>({
           <span className="check-answer-mark" aria-hidden="true">
             <CheckIcon name="check" size={18} />
           </span>
-          <span className="check-answer-text">{o.label}</span>
+          <span className="check-answer-text">{bidiText(lang, o.label)}</span>
         </button>
       ))}
     </div>

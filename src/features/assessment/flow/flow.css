@@ -201,11 +201,6 @@
   max-width: 320px;
   aspect-ratio: 32 / 15;
 }
-/* A clock time stays one left to right unit inside Arabic text. */
-.azm-check .flow-time {
-  unicode-bidi: isolate;
-  direction: ltr;
-}
 .azm-check .flow-draw-bg {
   fill: var(--cream);
 }

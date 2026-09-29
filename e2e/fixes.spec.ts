@@ -16,7 +16,7 @@ import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
 import { PREVIEW_NAMES } from "../src/features/assessment/camera/e2e/previews";
-import { camModel } from "./camera-fixtures";
+import { camModel, openCamera } from "./camera-fixtures";
 import { MEASURE, openGuest, openSignedIn, type Lang, type ModelOptions } from "./safety-fixtures";
 
 const COPY = { ar, en } as const;
@@ -469,3 +469,19 @@ for (const lang of LANGS) {
       });
   });
 }
+
+/* ------------------------------------------------------------------ left frame */
+
+test("a person who walks out of the picture during the practice gets the check in, then the alarm (English)", async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const page = await phone(browser, 375, 812);
+  // Seated still for 7 s, then out of the picture (the fixture loops every 12 s).
+  await openCamera(page, "en", "shoulder_abduction", "e2eFixture=leave-9x16&e2eCamFast=1");
+  const checkIn = page.locator('[data-screen="S43"]');
+  await expect(checkIn).toBeVisible({ timeout: 90_000 });
+  // No answer within 15 s: the alarm.
+  await expect(page.locator('[data-screen="S45"]')).toBeVisible({ timeout: 20_000 });
+  await page.context().close();
+});

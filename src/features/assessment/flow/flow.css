@@ -1,0 +1,575 @@
+/*
+ * Flow screens S04 to S33 and S35 (UX spec section 3). Scoped to .azm-check and built only from the
+ * tokens of tokens.css (0.3): no colour literal. Type never goes under 16 px, body text never under
+ * 18 px, targets are 48 px or more, answer rows 64 px, pain cells 52 x 64 (Q7). No mobile query
+ * shrinks type; reduced motion removes every animation (check.css).
+ */
+
+.azm-check .flow-stack {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .flow-section {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .flow-strong {
+  font-weight: 700;
+}
+.azm-check .flow-with-icon {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.azm-check .check-question.is-long {
+  font-size: var(--t-h2);
+}
+.azm-check .flow-group-heading {
+  margin-bottom: calc(-1 * var(--s2));
+}
+
+/* A line with a leading icon (notes, the how to stop line). */
+.azm-check .flow-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  font-size: var(--t-meta);
+}
+.azm-check .flow-note > svg {
+  flex: none;
+  margin-top: 4px;
+  color: var(--purple);
+}
+.azm-check .flow-note.is-stop > svg {
+  color: var(--red);
+}
+.azm-check .flow-chip-line {
+  display: flex;
+}
+.azm-check .flow-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+/* Lists (18 px, 1.8 in Arabic). */
+.azm-check .flow-list,
+.azm-check .flow-points {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding-inline-start: var(--s6);
+  font-size: var(--t-body);
+}
+.azm-check .flow-steps {
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+}
+.azm-check .flow-bullets {
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  gap: var(--s2);
+}
+.azm-check .flow-bullets.is-cream {
+  background: var(--cream);
+  border-color: var(--cream-border);
+}
+.azm-check .flow-list-heading {
+  margin-bottom: calc(-1 * var(--s2));
+}
+.azm-check .flow-question-list {
+  display: grid;
+  gap: var(--s3);
+}
+
+/* The links and text buttons of the flow (the example link, the privacy link). */
+.azm-check .flow-link,
+.azm-check .flow-example-link {
+  justify-self: center;
+}
+.azm-check .flow-listen {
+  justify-self: start;
+  width: auto;
+}
+
+/* S04: the text and the code side by side on a desk, stacked on a phone. */
+.azm-check .flow-desktop {
+  display: grid;
+  gap: var(--s6);
+  align-items: center;
+}
+@media (min-width: 760px) {
+  .azm-check .flow-desktop {
+    grid-template-columns: 1fr auto;
+  }
+}
+.azm-check .flow-desktop-text {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .flow-url {
+  font-size: var(--t-body);
+}
+.azm-check .flow-url-link {
+  font-weight: 700;
+  unicode-bidi: isolate;
+}
+.azm-check .flow-qr {
+  justify-self: center;
+  border-radius: var(--r-control);
+  border: 1px solid var(--line);
+}
+.azm-check .flow-qr-bg {
+  fill: var(--card);
+}
+.azm-check .flow-qr-ink {
+  fill: var(--ink);
+}
+
+/* S05: the two equal path buttons sit 16 px apart. */
+.azm-check .check-page-inner:has([data-screen="S05"]) .check-footer-inner {
+  gap: var(--s4);
+}
+
+/* S12: the whole consent row toggles its native checkbox (24 px box, purple when ticked). */
+.azm-check .flow-consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  min-height: var(--h-answer);
+  padding: var(--s3) var(--s4);
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  font-size: var(--t-answer);
+  font-weight: 650;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.azm-check .flow-consent-row.is-checked {
+  border: 2px solid var(--purple);
+  background: var(--purple-tint);
+}
+.azm-check .flow-consent-row input {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 4px 0 0;
+  accent-color: var(--purple);
+}
+.azm-check .flow-inline-error {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-control);
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+}
+
+/* S13: the summary as a definition list. */
+.azm-check .flow-summary {
+  margin: 0;
+  gap: var(--s3);
+}
+.azm-check .flow-summary-row {
+  display: grid;
+  gap: var(--s1);
+}
+.azm-check .flow-summary-row dd {
+  margin: 0;
+  font-size: var(--t-body);
+  font-weight: 650;
+}
+
+/* Drawings (Appendix B stand ins): a fixed box, no layout shift, tokens only. */
+.azm-check .flow-drawing {
+  margin: 0;
+}
+.azm-check .flow-drawing svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+.azm-check .flow-draw-bg {
+  fill: var(--cream);
+}
+.azm-check .flow-draw-card {
+  fill: var(--card);
+  stroke: var(--field-border);
+  stroke-width: 1.5;
+}
+.azm-check .flow-draw-line {
+  stroke: var(--field-border);
+  stroke-width: 2;
+}
+.azm-check .flow-draw-ink {
+  fill: var(--ink);
+}
+.azm-check .flow-draw-stroke {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.azm-check .flow-draw-accent-stroke {
+  fill: none;
+  stroke: var(--purple);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.azm-check .flow-draw-soft {
+  fill: var(--line);
+  stroke: var(--field-border);
+  stroke-width: 1.5;
+}
+.azm-check .flow-draw-accent {
+  fill: var(--purple);
+}
+.azm-check .flow-draw-dash {
+  fill: none;
+  stroke: var(--purple);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+.azm-check .flow-draw-ring {
+  fill: none;
+  stroke: var(--gold-ink);
+  stroke-width: 4;
+}
+
+/* Notice cards (S25, S28): warn tint with a 4 px band and a triangle, or purple tint with info. */
+.azm-check .flow-notice {
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  border: 1px solid var(--purple-border);
+  background: var(--purple-tint);
+}
+.azm-check .flow-notice.is-warn {
+  background: var(--warn-tint);
+  border-color: var(--cream-border);
+  border-inline-start: 4px solid var(--warn-fill);
+}
+.azm-check .flow-notice-lead {
+  display: grid;
+  padding-bottom: var(--s6);
+}
+.azm-check .flow-notice-row {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+}
+.azm-check .flow-notice-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--purple);
+  margin-top: 4px;
+}
+.azm-check .flow-notice.is-warn .flow-notice-icon {
+  color: var(--warn-ink);
+}
+.azm-check .flow-notice-body {
+  display: grid;
+  gap: var(--s2);
+}
+
+/* SentenceStack: one sentence per paragraph, 12 px apart, the one being read with a purple bar. */
+.azm-check .flow-sentences {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .flow-sentences p {
+  padding-inline-start: var(--s3);
+  border-inline-start: 4px solid transparent;
+  line-height: var(--lh-body);
+}
+.azm-check .flow-sentences.is-18 p {
+  font-size: var(--t-body);
+}
+.azm-check .flow-sentences.is-20 p {
+  font-size: var(--t-answer);
+}
+.azm-check .flow-sentences.is-22 p {
+  font-size: var(--t-h2);
+}
+.azm-check .flow-sentences p.is-current {
+  border-inline-start-color: var(--purple);
+}
+.azm-check .flow-side-line {
+  font-size: var(--t-answer);
+}
+
+/* The pain scale (Q7): two rows, 52 x 64 cells 6 px apart, 0 at the reading start. */
+.azm-check .flow-scale {
+  display: grid;
+  gap: var(--s2);
+}
+.azm-check .flow-scale-rows {
+  display: grid;
+  gap: 6px;
+}
+.azm-check .flow-scale-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(48px, 52px));
+  gap: 6px;
+}
+.azm-check .flow-scale-cell {
+  min-width: 48px;
+  min-height: 64px;
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--t-h1);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.azm-check .flow-scale-cell:hover {
+  border-color: var(--ink);
+}
+.azm-check .flow-scale-cell[aria-checked="true"] {
+  border: 2px solid var(--purple);
+  background: var(--purple-tint);
+}
+.azm-check .flow-scale.is-compact .flow-scale-cell {
+  min-height: 56px;
+  font-size: var(--t-h2);
+}
+.azm-check .flow-scale-anchors {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(48px, 52px));
+  gap: 6px;
+}
+.azm-check .flow-scale-anchors > :first-child {
+  grid-column: 1 / span 3;
+}
+.azm-check .flow-scale-anchors > :last-child {
+  grid-column: 3 / span 3;
+  text-align: end;
+}
+.azm-check .flow-readout {
+  min-height: 1.6em;
+  font-size: var(--t-body);
+  font-weight: 700;
+}
+
+/* Area chips with their own scale (S20). */
+.azm-check .flow-area {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .flow-area.is-on {
+  padding-bottom: var(--s2);
+}
+.azm-check .flow-area-scale {
+  display: grid;
+  gap: var(--s2);
+  padding-inline-start: var(--s2);
+}
+
+/* The load rows (S30): the selected row opens its detail (bottle sizes, the kg stepper). */
+.azm-check .flow-load-row {
+  display: grid;
+  gap: var(--s3);
+}
+.azm-check .flow-load-row.is-on {
+  padding: var(--s2);
+  border-radius: var(--r-card);
+  background: var(--purple-tint);
+}
+.azm-check .flow-load-detail {
+  display: grid;
+  gap: var(--s3);
+  padding: 0 var(--s2) var(--s2);
+}
+.azm-check .flow-segments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--s2);
+}
+.azm-check .flow-segment {
+  min-height: 56px;
+  padding: var(--s2);
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--t-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+.azm-check .flow-segment[aria-checked="true"] {
+  border: 2px solid var(--purple);
+}
+.azm-check .flow-load-summary {
+  font-size: var(--t-h2);
+  font-weight: 700;
+}
+.azm-check .flow-kg {
+  display: grid;
+  gap: var(--s2);
+}
+.azm-check .flow-kg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.azm-check .flow-kg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.azm-check .flow-kg-input {
+  width: 6rem;
+  min-height: 56px;
+  border: 1.5px solid var(--field-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-h1);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* The plan (S27): numbered tests, chips, side lines and two skip groups. */
+.azm-check .flow-plan {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.azm-check .flow-plan-row {
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+.azm-check .flow-plan-n {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--purple-tint);
+  color: var(--purple);
+  font-size: var(--t-body);
+  font-weight: 800;
+}
+.azm-check .flow-plan-body {
+  display: grid;
+  gap: var(--s2);
+  min-width: 0;
+}
+.azm-check .flow-side-lines {
+  display: grid;
+  gap: var(--s1);
+  margin: 0;
+  padding-inline-start: var(--s6);
+  font-size: var(--t-meta);
+  color: var(--muted);
+}
+.azm-check .flow-skip-list {
+  margin: 0;
+  list-style: none;
+  background: var(--page);
+}
+.azm-check .flow-skip-list li {
+  display: grid;
+  gap: var(--s1);
+}
+.azm-check .flow-skip-list li + li {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+
+/* The chair gate and the same chair question on the card (S28, Q9). */
+.azm-check .flow-gate {
+  padding-top: var(--s2);
+}
+
+/* The practice check (S29), read from the chair: 40 px question, two answer buttons laid out like the
+   answer zones, STOP first in the focus order and drawn at the bottom. */
+.azm-check .flow-practice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  min-height: 100dvh;
+  padding: var(--s4) var(--gutter) calc(var(--s4) + env(safe-area-inset-bottom));
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin: 0 auto;
+}
+.azm-check .flow-practice-stop {
+  order: 9;
+  margin-top: auto;
+}
+.azm-check .flow-practice-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.azm-check .flow-practice-question {
+  font-size: 2.5rem;
+  line-height: 1.35;
+  font-weight: 750;
+}
+.azm-check .flow-practice-line {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.azm-check .flow-practice-zones {
+  display: grid;
+  gap: var(--s4);
+}
+.azm-check .flow-zone {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  min-height: 120px;
+  padding: var(--s4) var(--s6);
+  border: 3px solid var(--purple);
+  border-radius: var(--r-hud);
+  background: var(--hud-surface);
+  color: var(--ink);
+  font-size: 2.5rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.azm-check .flow-zone-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--purple-tint);
+  color: var(--purple);
+}
+
+/* S33, S35: the postpone and paused cards (cream, the pause icon in ink). */
+.azm-check .flow-lock-card h1 {
+  font-size: var(--t-h1);
+}
+.azm-check .flow-read-list {
+  font-size: var(--t-answer);
+}
+.azm-check .flow-release {
+  min-height: var(--h-cta);
+}

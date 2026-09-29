@@ -21,7 +21,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { parseNumberInput } from "../shared/format";
 import { emphasize, samePress, SCALE_ROWS, snapKg, splitSentences, type Tone } from "./copy";
-import { qrMatrix, qrPath } from "./qr";
+import { QrCode as SharedQrCode } from "../shared/QrCode";
 
 /* ------------------------------------------------------------------ the same press rule */
 
@@ -424,26 +424,9 @@ export function KgStepper({
 
 /* ------------------------------------------------------------------ QR (S04) */
 
-/** A QR code drawn on the device (nothing sent), dark modules in ink on white with a quiet zone. */
+/** The S04 phone link as a QR code drawn on the device (the shared encoder; nothing sent). */
 export function QrCode({ text, alt, size = 176 }: { text: string; alt: string; size?: number }) {
-  const matrix = qrMatrix(text);
-  if (!matrix) return null;
-  const n = matrix.length + 8;
-  return (
-    <svg
-      className="flow-qr"
-      role="img"
-      aria-label={alt}
-      width={size}
-      height={size}
-      viewBox={`0 0 ${n} ${n}`}
-      shapeRendering="crispEdges"
-      data-qr={text}
-    >
-      <rect width={n} height={n} className="flow-qr-bg" />
-      <path d={qrPath(matrix)} className="flow-qr-ink" />
-    </svg>
-  );
+  return <SharedQrCode text={text} label={alt} size={size} showText className="flow-qr" />;
 }
 
 /* ------------------------------------------------------------------ drawings */

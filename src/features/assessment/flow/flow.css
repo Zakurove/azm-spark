@@ -122,14 +122,6 @@
 }
 .azm-check .flow-qr {
   justify-self: center;
-  border-radius: var(--r-control);
-  border: 1px solid var(--line);
-}
-.azm-check .flow-qr-bg {
-  fill: var(--card);
-}
-.azm-check .flow-qr-ink {
-  fill: var(--ink);
 }
 
 /* S05: the two equal path buttons sit 16 px apart. */

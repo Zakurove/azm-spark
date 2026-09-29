@@ -213,8 +213,12 @@ for (const lang of LANGS) {
       await expectReadable(page);
       await noSideScroll(page, 320);
       await page.setViewportSize({ width: 375, height: 812 });
-      // A new visitor leaves this visitor's results.
+      // A new visitor leaves this visitor's results, after the S57 confirm.
       await page.locator(".check-footer").getByRole("button", { name: a.guest.newVisitor }).click();
+      await page
+        .getByRole("dialog", { name: a.booth.resetConfirm })
+        .getByRole("button", { name: a.booth.resetYes })
+        .click();
       await expect(s50).toHaveCount(0);
       // Create a free account opens the account page on this phone, replacing the visit.
       await openSnapshot(

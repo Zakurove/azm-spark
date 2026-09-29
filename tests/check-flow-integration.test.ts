@@ -271,6 +271,42 @@ describe("S48 answers and the results that wait for them", () => {
   });
 });
 
+describe("S57: our staff correct a timed count at the booth", () => {
+  const home = signedPlan();
+  const booth: FlowModel = {
+    ...home,
+    effects: [],
+    data: { ...home.data, config: { ...home.data.config, booth: true }, setting: "booth" },
+  };
+  const curl = booth.data.tests.findIndex((t) => t.testId === "arm_curl_30s");
+
+  it("the result waits on S34h and is posted with the staff count and countSource staff", () => {
+    const saved = measured(lastSaved(withState(booth, cam("cam.saved", curl, 0))), curl, 0);
+    expect(results(saved)).toHaveLength(0);
+    const corrected = play(saved, { type: "STAFF_COUNT", count: 14 });
+    const item = booth.data.tests[curl].sides[0];
+    const key = `${item.testId}:${item.side}`;
+    expect(corrected.data.staffCount[key]).toBe(14);
+    expect(corrected.data.outcomes[key].value).toBe(14);
+    const next = play(corrected, { type: "SAVED_NEXT" });
+    const posted = results(next);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].body).toMatchObject({ value: 14, detail: { countSource: "staff" } });
+  });
+
+  it("a count given before the result arrives goes into it; never at home or out of range", () => {
+    const early = play(withState(booth, cam("cam.saved", curl, 0)), { type: "STAFF_COUNT", count: 9 });
+    const arrived = measured(lastSaved(early), curl, 0);
+    const posted = results(play(arrived, { type: "SAVED_NEXT" }));
+    expect(posted[0].body).toMatchObject({ value: 9, detail: { countSource: "staff" } });
+    const atHome = withState({ ...home, effects: [] }, cam("cam.saved", curl, 0));
+    expect(play(atHome, { type: "STAFF_COUNT", count: 9 }).data.staffCount).toEqual({});
+    expect(
+      play(withState(booth, cam("cam.saved", curl, 0)), { type: "STAFF_COUNT", count: 61 }).data.staffCount,
+    ).toEqual({});
+  });
+});
+
 describe("the guest check in inputs, the context and the safety source", () => {
   it("a guest's check in inputs come from the guest pre-check (O34)", () => {
     const guest = guestAtPlan();

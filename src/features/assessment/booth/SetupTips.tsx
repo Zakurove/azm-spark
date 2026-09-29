@@ -35,6 +35,39 @@ export function tipOrder(wheelchair: boolean): TipId[] {
   return wheelchair ? ["wheelchair", ...rest] : [...rest, "wheelchair"];
 }
 
+/**
+ * The seven tips in their order (the list of S58). The camera screen (S34c, S34i) shows the same list
+ * in its sheet over the stage, with the test's own distance from the phone.
+ */
+export function SetupTipsList({
+  wheelchair,
+  meters = TIP_METERS,
+}: {
+  wheelchair: boolean;
+  meters?: { metersFrom: number; metersTo: number };
+}) {
+  const { lang } = useCheckUi();
+  return (
+    <ul className="booth-tips">
+      {tipOrder(wheelchair).map((id) => (
+        <li key={id} className="booth-tip" data-tip={id}>
+          <span className="booth-tip-icon">
+            <CheckIcon name={TIP_ICON[id]} />
+          </span>
+          <span>
+            {bidiText(
+              lang,
+              id === "distance"
+                ? t(lang, "assessment.tips.distance", meters)
+                : t(lang, `assessment.tips.${id}`),
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function SetupTipsView({ wheelchair, onBack }: { wheelchair: boolean; onBack(): void }) {
   const { lang } = useCheckUi();
   return (
@@ -45,23 +78,7 @@ export function SetupTipsView({ wheelchair, onBack }: { wheelchair: boolean; onB
     >
       <div className="booth-screen" data-screen="S58">
         <h1>{t(lang, "assessment.tips.title")}</h1>
-        <ul className="booth-tips">
-          {tipOrder(wheelchair).map((id) => (
-            <li key={id} className="booth-tip" data-tip={id}>
-              <span className="booth-tip-icon">
-                <CheckIcon name={TIP_ICON[id]} />
-              </span>
-              <span>
-                {bidiText(
-                  lang,
-                  id === "distance"
-                    ? t(lang, "assessment.tips.distance", TIP_METERS)
-                    : t(lang, `assessment.tips.${id}`),
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <SetupTipsList wheelchair={wheelchair} />
       </div>
     </CheckShell>
   );

@@ -98,6 +98,8 @@ export interface CamEnv {
   touching: boolean;
   /** When the cue playing now is expected to end (ms), or 0 (the 4.8 grace). */
   cueEndsAt: number;
+  /** Our staff are correcting the count on S34h (S57): the saved screen stays until they finish. */
+  holdSaved?: boolean;
 }
 
 export const IDLE_ENV: CamEnv = { tilt: null, landscape: false, touching: false, cueEndsAt: 0 };
@@ -394,6 +396,9 @@ export class CameraController {
   tick(t: number, env: CamEnv = IDLE_ENV): CamOutput {
     this.lastT = Math.max(this.lastT, t);
     if (this.state && this.state.kind === "cam.retry") this.retryTimer(t, env);
+    // S57: the saved screen waits while our staff correct the count, then shows its last second.
+    if (env.holdSaved && this.state?.kind === "cam.saved" && this.savedUntil !== null)
+      this.savedUntil = Math.max(this.savedUntil, t + 1000);
     this.timers(t);
     this.reconcile(t);
     return this.drain();

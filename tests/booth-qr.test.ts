@@ -23,7 +23,7 @@ import {
   versionBits,
   type QrEcc,
   type QrMatrix,
-} from "../src/features/assessment/booth/qr";
+} from "../src/features/assessment/shared/qr";
 import { visitorLink } from "../src/features/assessment/booth/passes";
 
 describe("tables and codes (ISO/IEC 18004)", () => {

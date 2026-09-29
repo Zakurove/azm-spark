@@ -91,12 +91,6 @@
   border-radius: 8px;
   background: var(--card);
 }
-.azm-check .rs-qr-dark {
-  fill: var(--ink);
-}
-.azm-check .rs-qr-light {
-  fill: var(--card);
-}
 .azm-check .rs-qr-text {
   display: grid;
   gap: var(--s1);

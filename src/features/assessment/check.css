@@ -335,6 +335,28 @@
   text-align: center;
 }
 
+/* QR codes drawn on the phone (S04, S50, S55; shared/QrCode.tsx). */
+.azm-check .check-qr {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+}
+.azm-check .check-qr-light {
+  fill: var(--card);
+}
+.azm-check .check-qr-dark {
+  fill: var(--ink);
+}
+.azm-check .check-qr-link {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  margin: 0;
+}
+
 /* Call controls (997 red fill, 937 purple outline), 64 px, always the first action. */
 .azm-check .check-call {
   display: flex;

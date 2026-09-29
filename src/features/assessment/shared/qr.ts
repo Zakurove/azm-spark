@@ -1,7 +1,7 @@
 /**
- * QR code encoder for the booth links (UX spec S55 visitor token, 5.9 QrLinkProps: "generated on
- * device"). Nothing is sent anywhere to draw a code, so a visitor token never leaves the staff phone
- * except as the picture the visitor scans.
+ * The one QR code encoder of the check (UX spec 5.9 QrLinkProps: "generated on device"): the S04 phone
+ * link, the S50 register code and the S55 visitor token. Nothing is sent anywhere to draw a code, so a
+ * visitor token never leaves the staff phone except as the picture the visitor scans.
  *
  * Byte mode (UTF-8), versions 1 to 40, error correction L, M, Q or H, the mask with the lowest penalty
  * (ISO/IEC 18004). The matrix is `modules[y][x]`, true for a dark module, without the quiet zone.

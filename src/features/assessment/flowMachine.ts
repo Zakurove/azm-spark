@@ -396,6 +396,8 @@ export interface FlowData {
    * outcomeKey: posted with the answer, or as they are when the flow moves on without one.
    */
   held: Record<string, ResultPayload>;
+  /** Counts corrected by our staff at the booth (S57, countSource staff), by outcomeKey. */
+  staffCount: Record<string, number>;
 }
 
 export type FlowEffect =
@@ -531,6 +533,8 @@ export type FlowEvent = At &
     | { type: "SAME_CHAIR"; value: "yes" | "no" | "unsure" }
     | { type: "PREP_NEXT" }
     | { type: "GRIP_ANSWER"; side: Side; yes: boolean }
+    /** S57: our staff corrected the count of the timed test just saved (booth only). */
+    | { type: "STAFF_COUNT"; count: number }
     | { type: "LOAD_CHOSEN"; side: Side; load: CurlLoad }
     | { type: "CAMERA_ERROR"; problem: CameraProblem }
     | { type: "SETUP_OK" }
@@ -687,6 +691,7 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
     armCurl: { grip: {}, load: {} },
     contact: {},
     held: {},
+    staffCount: {},
   };
 }
 
@@ -1427,6 +1432,12 @@ function camReducer(
     return go(m, { kind: "cam.problem", problem: e.problem, returnTo: { kind: "cam.setup", i, side } });
   // A model that did not load offers "later" on the camera screen itself (S34 error state), as S32 does.
   if (e.type === "LATER") return go(m, { kind: "exit", to: d.config.mode === "guest" ? "landing" : "today" });
+  // S57: at the booth our staff correct the count of a timed test on S34h (and during its seated rest).
+  if (e.type === "STAFF_COUNT") {
+    if (!d.config.booth || !timed || (s.kind !== "cam.saved" && s.kind !== "cam.rest")) return m;
+    if (!Number.isInteger(e.count) || e.count < 0 || e.count > STAFF_COUNT_MAX) return m;
+    return staffCount(m, i, side, e.count);
+  }
   switch (s.kind) {
     case "cam.setup":
       if (e.type === "SETUP_OK") {
@@ -1631,14 +1642,47 @@ export function countCheckDue(d: FlowData, testId: TestId, body: ResultPayload):
 /** A measured result that waits for its S48 answer before it is posted: contact or the count check. */
 function holdsFor(d: FlowData, testId: TestId, body: ResultPayload): boolean {
   if (body.skippedReason !== null) return false;
-  return testId === "trunk_control_seated" || countCheckDue(d, testId, body);
+  // At the booth a timed result waits while S34h shows, so our staff can correct its count (S57).
+  const staffCorrects = d.config.booth && testDef(testId).kind === "timed_count";
+  return testId === "trunk_control_seated" || countCheckDue(d, testId, body) || staffCorrects;
 }
 
-/** Test i's side waits for the count check (its result is held). */
+/** The highest count our staff can enter (S57, a whole count from 0 to 60). */
+export const STAFF_COUNT_MAX = 60;
+
+/** S57: the staff count of test i's side, on the phone and in its result (countSource staff). */
+function staffCount(m: FlowModel, i: number, side: number, count: number): FlowModel {
+  const item = m.data.tests[i]?.sides[side];
+  if (!item) return m;
+  const key = outcomeKey(item.testId, item.side);
+  const d = m.data;
+  let next: FlowModel = { ...m, data: { ...d, staffCount: { ...d.staffCount, [key]: count } } };
+  const o = next.data.outcomes[key];
+  if (o)
+    next = {
+      ...next,
+      data: {
+        ...next.data,
+        outcomes: {
+          ...next.data.outcomes,
+          [key]: { ...o, value: count, payload: withDetail(o.payload, { countSource: "staff" }) },
+        },
+      },
+    };
+  const held = next.data.held[key];
+  if (held)
+    next = {
+      ...next,
+      data: { ...next.data, held: { ...next.data.held, [key]: withCount(held, count, "staff") } },
+    };
+  return next;
+}
+
+/** Test i's side waits for the count check (its held result asks it, O22). */
 function countWaiting(m: FlowModel, i: number, side: number): boolean {
   const item = m.data.tests[i]?.sides[side];
-  if (!item || testDef(item.testId).kind !== "timed_count") return false;
-  return outcomeKey(item.testId, item.side) in m.data.held;
+  const held = item ? m.data.held[outcomeKey(item.testId, item.side)] : undefined;
+  return !!item && !!held && countCheckDue(m.data, item.testId, held);
 }
 
 /** Applies an S48 answer: the outcome on the phone, and the held result posted with it. */
@@ -1673,7 +1717,12 @@ export function withContact(b: ResultPayload, contact: boolean): ResultPayload {
 
 /** A timed result confirmed (null) or changed (a count) by the person: countSource self (O22). */
 export function withSelfCount(b: ResultPayload, count: number | null): ResultPayload {
-  const detail = { ...b.detail, countSource: "self" };
+  return withCount(b, count, "self");
+}
+
+/** A timed result with a count from the person (self, O22) or our staff (staff, S57). */
+export function withCount(b: ResultPayload, count: number | null, source: "self" | "staff"): ResultPayload {
+  const detail = { ...b.detail, countSource: source };
   if (count === null || count === b.value) return { ...b, detail };
   return {
     ...b,
@@ -2209,6 +2258,7 @@ function frozen(
     armCurl: { grip: {}, load: {} },
     contact: {},
     held: {},
+    staffCount: {},
     ...extra,
   };
   return go({ ...m, data }, before.length ? { kind: "warnings" } : { kind: "plan" });
@@ -2626,11 +2676,19 @@ function recordSide(
   post = true,
 ): FlowModel {
   const d = m.data;
-  const next = { ...m, data: { ...d, outcomes: { ...d.outcomes, [outcomeKey(testId, side)]: outcome } } };
+  const key = outcomeKey(testId, side);
+  // A count our staff corrected before the result came (S57) is the one shown and stored.
+  const staff = outcome.status === "measured" ? d.staffCount[key] : undefined;
+  const shown: SideOutcome =
+    staff === undefined
+      ? outcome
+      : { ...outcome, value: staff, payload: withDetail(outcome.payload, { countSource: "staff" }) };
+  const next = { ...m, data: { ...d, outcomes: { ...d.outcomes, [key]: shown } } };
   if (d.config.mode !== "signedIn" || !d.checkId || !post) return next;
   const retries = d.run.retriesUsed > 0 ? { qualityRetries: d.run.retriesUsed } : {};
   if (body) {
-    const full: ResultPayload = { ...retries, ...body, detail: resultDetail(d, testId, side, body) };
+    const base: ResultPayload = { ...retries, ...body, detail: resultDetail(d, testId, side, body) };
+    const full = staff !== undefined && base.skippedReason === null ? withCount(base, staff, "staff") : base;
     // The side lean waits for its contact answer and a timed test for its count check (S48).
     if (holdsFor(d, testId, full))
       return {

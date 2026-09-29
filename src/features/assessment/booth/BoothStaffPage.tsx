@@ -28,7 +28,7 @@ import { reportNetwork, useOnline } from "../shared/useOnline";
 import { BoothCodeForm } from "./CodeForm";
 import { tokenOutcome, visitorLink, wasVisitorPhone } from "./passes";
 import { offlineStatus, precacheBooth, type OfflineStatus, type PrecacheResult } from "./precache";
-import { QrCode } from "./QrCode";
+import { QrCode } from "../shared/QrCode";
 import { TokenEndedCard } from "./VisitorTokenPage";
 import "./booth.css";
 

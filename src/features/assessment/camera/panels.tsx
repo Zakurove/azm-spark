@@ -9,6 +9,7 @@ import type { Lang } from "../../../app/i18n";
 import { countPhrase, formatNumber, t, unitWord } from "../../../i18n";
 import { bidiText, tx } from "../../../i18n/rich";
 import { cueLine, reasonText, testDef } from "../../../movements/assessments";
+import { SetupTipsList } from "../booth/SetupTips";
 import CheckIcon from "../shared/CheckIcon";
 import type { CamSnapshot, CamTest } from "./controller";
 import { Dots, LeanArrow, Ring, TopView, TryCounter } from "./hud";
@@ -630,25 +631,20 @@ export function UprightPanel({ lang }: { lang: Lang }) {
 
 /* ------------------------------------------------------------ setup tips (S58 on the stage) */
 
-const TIP_KEYS = [
-  "assessment.tips.light",
-  "assessment.tips.sleeves",
-  "assessment.tips.background",
-  "assessment.tips.height",
-  "assessment.tips.distance",
-  "assessment.tips.people",
-  "assessment.tips.wheelchair",
-] as const;
-
-/** The setup tips over the stage (the tips link of S34c and S34i), with Go back. */
+/**
+ * The setup tips over the stage (the tips link of S34c and S34i), with Go back: the S58 list of the
+ * booth stream (the wheelchair tip first for a wheelchair user), with the test's own distance.
+ */
 export function TipsSheet({
   lang,
   meters,
+  wheelchair,
   onBack,
 }: {
   lang: Lang;
   /** The test's distance from the phone (its setup.distanceM). */
   meters: readonly [number, number];
+  wheelchair: boolean;
   onBack(): void;
 }) {
   return (
@@ -657,11 +653,9 @@ export function TipsSheet({
         <h2 id="s34-tips-title" className="s34-sheet-title" tabIndex={-1}>
           {t(lang, "assessment.tips.title")}
         </h2>
-        <ul className="s34-tips">
-          {TIP_KEYS.map((k) => (
-            <li key={k}>{tx(lang, k, { metersFrom: meters[0], metersTo: meters[1] })}</li>
-          ))}
-        </ul>
+        <div className="s34-tips">
+          <SetupTipsList wheelchair={wheelchair} meters={{ metersFrom: meters[0], metersTo: meters[1] }} />
+        </div>
         <button type="button" className="cta" onClick={onBack} autoFocus>
           {t(lang, "assessment.tips.back")}
         </button>

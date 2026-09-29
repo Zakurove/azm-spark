@@ -27,7 +27,8 @@ import { useCheckUi } from "../shared/CheckUi";
 import { ErrorState } from "../shared/states";
 import { ScreenIdChip } from "../shared/ScreenStub";
 import { resultsModel, type ResultsModel } from "./model";
-import { QrCode } from "./QrCode";
+import { ResetDialog, startNextVisitor } from "../booth/BoothLayer";
+import { QrCode } from "../shared/QrCode";
 import { ResultCards } from "./ResultCards";
 import "./results.css";
 
@@ -106,6 +107,7 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
   );
   const guest = r.mode === "guest";
   const [now] = useState(() => Date.now());
+  const [newVisitor, setNewVisitor] = useState(false);
   const effectsPending = model.effects.some((e) => e.type === "complete" || e.type === "result");
   const save = saveStateOf({
     guest,
@@ -178,9 +180,10 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
         guest
           ? booth
             ? {
+                // S57: New visitor asks first, then clears the visit and loads the page again.
                 secondary: {
                   label: t(lang, "assessment.guest.newVisitor"),
-                  onClick: () => dispatch({ type: "NEW_VISITOR" }),
+                  onClick: () => setNewVisitor(true),
                 },
               }
             : undefined
@@ -249,6 +252,15 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
         <p className="check-meta">{bidiText(lang, b.line[lang])}</p>
         <p className="check-label">{b.notMedical[lang]}</p>
       </footer>
+      {newVisitor && (
+        <ResetDialog
+          onConfirm={() => {
+            setNewVisitor(false);
+            startNextVisitor(dispatch, { guest: true, online: ui.online });
+          }}
+          onStay={() => setNewVisitor(false)}
+        />
+      )}
     </CheckShell>
   );
 }
@@ -276,7 +288,7 @@ function KeepBlock({ homeOpen, booth }: { homeOpen: boolean; booth: boolean }) {
       </p>
       {booth && (
         <div className="rs-qr">
-          <QrCode text={link.url} label={t(lang, "assessment.guest.qrAlt")} />
+          <QrCode text={link.url} label={t(lang, "assessment.guest.qrAlt")} showText />
           <div className="rs-qr-text">
             <p className="check-body">{t(lang, "assessment.guest.scan")}</p>
             <p className="check-body">

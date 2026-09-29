@@ -13,6 +13,8 @@ import type { Lang } from "../../../app/i18n";
 import { countPhrase, t } from "../../../i18n";
 import type { Frame, Landmark } from "../../../engine/types";
 import { testDef } from "../../../movements/assessments";
+import { usesWheelchair } from "../booth/SetupTips";
+import { StaffCountCorrection } from "../booth/StaffCountCorrection";
 import { outcomeKey, testCounter, type FlowEvent, type FlowModel } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { useCheckUi, type CaptionSeverity } from "../shared/CheckUi";
@@ -102,6 +104,8 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
   soundRef.current = ui.sound.on;
   const [snap, setSnap] = useState<CamSnapshot>(() => ctrl.snapshot(performance.now()));
   const [tips, setTips] = useState(false);
+  // S57: our staff correct a timed count on S34h; the saved screen waits while the dialog is open.
+  const [staffCounting, setStaffCounting] = useState(false);
   const lastFrame = useRef<Frame | null>(null);
   const envRef = useRef<CamEnv>(IDLE_ENV);
   envRef.current = {
@@ -110,6 +114,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
     // A dialog over the stage (the tips) holds the retry count like a finger on the screen (S34i).
     touching: touching || tips,
     cueEndsAt: cues.busyUntil(),
+    holdSaved: staffCounting,
   };
 
   const apply = useCallback(
@@ -206,6 +211,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
       timing={timing}
       tips={tips}
       onTips={setTips}
+      onStaffCount={setStaffCounting}
       video={{ frame: lastFrame, subject: () => ctrl.subject() }}
       motion={motionFirst ? { onAllow: orientation.askAgain } : null}
       practiceSkippable={!ctrl.practiceWasSkipped}
@@ -243,6 +249,8 @@ export interface CameraViewProps {
   timing: Pick<CamTiming, "tipsAfterSec" | "skipAfterSec">;
   tips: boolean;
   onTips(open: boolean): void;
+  /** S57: the staff count dialog opened or closed (booth, S34h of a timed test). */
+  onStaffCount?: (open: boolean) => void;
   video: { frame: { current: Frame | null }; subject(): Landmark[] | null };
   /** A stand in for the camera picture (the E2E previews have no camera). */
   picture?: ReactNode;
@@ -277,6 +285,8 @@ export function CameraView(p: CameraViewProps) {
   const large = largeChoice ?? (!ui.sound.on || (model.data.soundMode ?? "voice") !== "voice");
   const running = session.status === "running";
   const setupPart = s.kind === "cam.setup" || s.kind === "cam.calibrate" || snap.part === "calibrate";
+  const item = model.data.tests[test.i]?.sides[test.sideIndex];
+  const staffShown = item ? (model.data.staffCount[outcomeKey(item.testId, item.side)] ?? null) : null;
   const side: "left" | "right" = test.side === "left" ? "left" : "right";
 
   const hud = (): { kind: StageKind; card: ReactNode } => {
@@ -350,7 +360,16 @@ export function CameraView(p: CameraViewProps) {
           ),
         };
       case "cam.saved":
-        return { kind: "saved", card: <SavedPanel snap={snap} lang={lang} timed={p.timed} /> };
+        return {
+          kind: "saved",
+          card: (
+            <SavedPanel
+              snap={staffShown === null ? snap : { ...snap, count: staffShown }}
+              lang={lang}
+              timed={p.timed}
+            />
+          ),
+        };
       case "cam.retry":
         return {
           kind: "retry",
@@ -455,6 +474,16 @@ export function CameraView(p: CameraViewProps) {
       />
     ) : null;
 
+  // S57: at the booth our staff may correct the count of a timed test on S34h (countSource staff).
+  const staffCount =
+    ui.booth && p.timed && s.kind === "cam.saved" ? (
+      <StaffCountCorrection
+        autoCount={staffShown ?? snap.count}
+        onSave={(n) => dispatch({ type: "STAFF_COUNT", count: n })}
+        onOpenChange={(open) => p.onStaffCount?.(open)}
+      />
+    ) : null;
+
   const skipPractice =
     test.testId === "trunk_control_seated" && s.kind === "cam.practice" && p.practiceSkippable ? (
       <button type="button" className="check-text-button s34-text-button" onClick={p.on.skipPractice}>
@@ -479,7 +508,7 @@ export function CameraView(p: CameraViewProps) {
         video={video}
         videoMode={large && measuring ? "thumb" : fitCompact && measuring ? "strip" : "full"}
         card={card}
-        actions={skipPractice}
+        actions={skipPractice ?? staffCount}
         compact={compact}
         scale={device.scale}
         onOverflow={() => setFitCompact(true)}
@@ -487,7 +516,14 @@ export function CameraView(p: CameraViewProps) {
         onStop={p.on.stop}
         stopRef={stopRef}
       />
-      {p.tips && <TipsSheet lang={lang} meters={def.setup.distanceM} onBack={() => p.onTips(false)} />}
+      {p.tips && (
+        <TipsSheet
+          lang={lang}
+          meters={def.setup.distanceM}
+          wheelchair={usesWheelchair(model)}
+          onBack={() => p.onTips(false)}
+        />
+      )}
     </>
   );
 }

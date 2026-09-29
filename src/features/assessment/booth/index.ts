@@ -7,7 +7,8 @@
  *   S56   StaffVitals          pc_booth_vitals in the pre-check: staff code, two readings, the means
  *   S57   BoothLayer           staff reset (badge press, shortcut) and idle reset over every screen;
  *         NewVisitorButton     S50; StaffCountCorrection on S34h; startNextVisitor
- *   S58   SetupTipsView        the setup tips, opened in place (SetupTipsScreen in the registry)
+ *   S58   SetupTipsView        the setup tips, opened in place (SetupTipsScreen in the registry);
+ *         SetupTipsList        the same tips in the camera screen's sheet (S34c, S34i)
  *   5.9   QrCode, QrLink       QR codes drawn on the phone (S55 visitor token, S50 register code)
  *   5.10  useBoothMode         this tab's booth mode, its end, and the ended visitor token
  */
@@ -35,6 +36,6 @@ export {
   type BoothLayerProps,
 } from "./BoothLayer";
 export { StaffCountCorrection, type StaffCountCorrectionProps } from "./StaffCountCorrection";
-export { SetupTipsView, SetupTipsScreen, tipOrder } from "./SetupTips";
-export { QrCode, QrLink, type QrCodeProps, type QrLinkProps } from "./QrCode";
+export { SetupTipsList, SetupTipsView, SetupTipsScreen, tipOrder, usesWheelchair } from "./SetupTips";
+export { QrCode, QrLink, type QrCodeProps, type QrLinkProps } from "../shared/QrCode";
 export { useBoothMode, boothModeState, type BoothModeState } from "./useBoothMode";

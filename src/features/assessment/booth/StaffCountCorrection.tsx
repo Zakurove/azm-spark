@@ -23,11 +23,22 @@ export interface StaffCountCorrectionProps {
   /** The staff count, saved by the camera screen with countSource 'staff'. */
   onSave(count: number): void;
   onCancel?: () => void;
+  /** The dialog opened or closed (S34h keeps the saved screen while it is open). */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function StaffCountCorrection({ autoCount, onSave, onCancel }: StaffCountCorrectionProps) {
+export function StaffCountCorrection({
+  autoCount,
+  onSave,
+  onCancel,
+  onOpenChange,
+}: StaffCountCorrectionProps) {
   const { lang, booth } = useCheckUi();
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    onOpenChange?.(v);
+  };
   if (!booth) return null;
   return (
     <>
@@ -51,7 +62,11 @@ export function StaffCountCorrection({ autoCount, onSave, onCancel }: StaffCount
   );
 }
 
-export function StaffCountDialog({ autoCount, onSave, onCancel }: Required<StaffCountCorrectionProps>) {
+export function StaffCountDialog({
+  autoCount,
+  onSave,
+  onCancel,
+}: Required<Omit<StaffCountCorrectionProps, "onOpenChange">>) {
   const { lang } = useCheckUi();
   const titleId = useId();
   const inputId = useId();

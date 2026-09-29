@@ -129,19 +129,6 @@
   gap: var(--s2);
   margin: 0;
 }
-.azm-check .booth-qr-svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--r-control);
-}
-.azm-check .booth-qr-light {
-  fill: var(--card);
-}
-.azm-check .booth-qr-dark {
-  fill: var(--ink);
-}
 .azm-check .booth-qr-panel {
   display: grid;
   gap: var(--s3);

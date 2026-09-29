@@ -604,8 +604,8 @@ async function decodeQr(page: Page): Promise<string | "unsupported"> {
     const xml = new XMLSerializer().serializeToString(svg);
     // Inline the fills (the stylesheet colours do not travel with the serialised picture).
     const src = xml
-      .replace('class="booth-qr-light"', 'fill="#ffffff"')
-      .replace('class="booth-qr-dark"', 'fill="#000000"');
+      .replace('class="check-qr-light"', 'fill="#ffffff"')
+      .replace('class="check-qr-dark"', 'fill="#000000"');
     const img = new Image(400, 400);
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
     await img.decode();

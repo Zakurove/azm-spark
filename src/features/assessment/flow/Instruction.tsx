@@ -67,7 +67,11 @@ export function Instruction({ model, dispatch }: ScreenProps) {
   };
   const lines: SpeechItem[] = [
     ...summaryCues(testId, variant).map((cue) => ({ cue })),
-    ...safety.map((s) => ({ display: s })),
+    // Each safety note with its vocalised Arabic line where the data has one (O24-7).
+    ...safety.map((s, k) => {
+      const speech = lang === "ar" ? def.safety.arTts?.[k] : undefined;
+      return speech ? { display: s, speech } : { display: s };
+    }),
     ...notes,
     ...warnings.map(warningLine),
   ];

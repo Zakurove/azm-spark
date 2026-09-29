@@ -74,7 +74,10 @@ export function Warnings({ model, dispatch, api }: ScreenProps) {
     .map((id) => ({ id, text: warningText(id, lang, pdBucket) }))
     .filter((c): c is { id: ScreenId; text: string } => c.text !== null);
   const lines: SpeechLine[] = cards.flatMap((c) => {
-    const out: SpeechLine[] = [{ display: c.text }];
+    // The vocalised Arabic line of the card (O24-2), unless {x} was filled into the display text.
+    const data = CHECK_DATA.screens[c.id];
+    const speech = lang === "ar" && c.id !== "warn_pd_timing" ? data?.arTts : undefined;
+    const out: SpeechLine[] = [speech ? { display: c.text, speech } : { display: c.text }];
     if (c.id === "scr_note_care")
       for (const testId of new Set(skippedForSore))
         out.push({

@@ -321,9 +321,9 @@ export function stopListView(d: FlowData, lang: Lang): { ask: string; urgent: St
  * The check in cue for this person and setting (stopRouting.checkIn.cueSelection, O33 (f)). At the
  * booth: check_are_you_ok, or check_are_you_ok_noraise when a raised hand must not be asked for.
  */
-// SPEC-GAP: checkin-config-missing. The guest flow keeps no check in inputs (FlowData.checkIn is set
-// only from the signed in start answer); without them the no raise form is used, the safer one: it
-// never asks a person who must not lift an arm to raise a hand (O34-4 (3)).
+// The check in inputs come from the start answer (signed in) or the guest pre-check (guests); without
+// them the no raise form is used, the safer one: it never asks a person who must not lift an arm to
+// raise a hand (O34-4 (3)).
 export function checkInCueId(d: FlowData): CheckCueId {
   const cfg = d.checkIn;
   return selectCheckInCue({

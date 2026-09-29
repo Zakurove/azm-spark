@@ -65,9 +65,9 @@ function yesNo(lang: "ar" | "en", yesAtOnce = false): ZoneOption[] {
  * 30 s runs the check in (S43), except after a fall stop at the booth, where staff tap the answer the
  * person says and no timer runs (O42). The 997 call stays the first action.
  */
-// SPEC-GAP: s38-camera. S38 and S38b should keep the camera on for a camera fine and a check in from
-// the chair (O30); the camera belongs to the camera stream and does not run here yet, so S38b is
-// answered by tap (the spec's Cam state) and its 30 s timer is the check in's trigger.
+// The camera of the stopped test stays on (useCameraWatch): a raised hand counts as "fine" in the check
+// in of S38b; the question itself is answered by tap (the zones come with phase 2), and its 30 s timer
+// is the check in's trigger.
 // After "I am fine" the question stays with "Take your time": a tap runs no new timer (O14), a camera
 // fine one extra 30 s timer (O34-1 (6)), as the flow records it (fineVia).
 export function FaintAsk({ model, dispatch }: ScreenProps) {

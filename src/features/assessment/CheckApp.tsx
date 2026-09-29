@@ -160,7 +160,9 @@ export default function CheckApp({
   const guardBack = !config.booth && mode === "signedIn";
   const pushed = useRef(false);
   const leaving = useRef(false);
-  useEffect(() => {
+  // A layout effect: the entry is there before the first paint, so even a Back pressed the moment the
+  // check shows asks to leave.
+  useLayoutEffect(() => {
     if (!guardBack) return;
     if (!isSentinel(window.history.state)) window.history.pushState(SENTINEL, "");
     pushed.current = true;

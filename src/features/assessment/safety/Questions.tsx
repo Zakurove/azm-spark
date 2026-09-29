@@ -90,10 +90,8 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
   }, [overlay]);
 
   const fallAtBooth = s?.back?.safety === "fall" && (booth || model.data.setting === "booth");
-  const root = useRef<HTMLDivElement>(null);
   const [answered, setAnswered] = useState(false);
   useNoAnswerTimer(
-    root,
     SAFETY_TIMING.faintNoAnswerMs,
     () => dispatch({ type: "FAINT_TIMEOUT" }),
     !fallAtBooth && !answered && overlay === null && returns <= 1,
@@ -116,7 +114,7 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
       sound
       footer={{ call: [{ number: "997", label: emergencyCallButton(lang).label }] }}
     >
-      <div ref={root} className="safety-question is-stage" data-screen="S38b">
+      <div className="safety-question is-stage" data-screen="S38b">
         <h1 id={headingId} className="safety-stage-question">
           {bidiText(lang, q.ask[lang])}
         </h1>

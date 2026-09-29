@@ -14,7 +14,7 @@
  *
  * States: L, E, Er, Cam not applicable (all local); Off works (local routing, the stop is queued).
  */
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { cameraRunning } from "../flowMachine";
@@ -66,13 +66,11 @@ export function StopList({ model, dispatch }: ScreenProps) {
 
   // The line at the top until the first touch: stay put at home, the staff line at the booth.
   const [touched, setTouched] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!takeYourTime) extraTimerUsed = false;
   }, [takeYourTime]);
   const timerOn = !takeYourTime || !extraTimerUsed;
   const timer = useNoAnswerTimer(
-    root,
     SAFETY_TIMING.stopListNoAnswerMs,
     () => {
       if (takeYourTime) extraTimerUsed = true;
@@ -100,14 +98,16 @@ export function StopList({ model, dispatch }: ScreenProps) {
 
   return (
     <div
-      ref={root}
       className="safety-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       data-screen="S41"
-      onPointerDown={() => setTouched(true)}
+      // The line goes after the first touch has done its work: hiding it on pointerdown would move the
+      // rows under the finger before the click lands, so a tap could choose the row below.
+      onClickCapture={() => setTimeout(() => setTouched(true), 0)}
       onKeyDown={() => setTouched(true)}
+      onScrollCapture={() => setTouched(true)}
     >
       <CheckShell exit={false} sound>
         {!touched && !takeYourTime && (

@@ -3,7 +3,7 @@
  * the wake lock and the no answer timers (UX spec S36 to S49, 4.3, 4.6, 5.10 useCues, useAlarm,
  * useWakeLock). Every timer runs on the phone and never waits for the network.
  */
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCheckUi } from "../shared/CheckUi";
 import { SequencePlayer } from "./speechPlayer";
 import type { SpeechLine } from "./speech";
@@ -290,15 +290,10 @@ export function useWakeLock(active = true): void {
 
 /**
  * A no answer timer (S41 30 s, S38b 30 s): `onExpire` runs once `ms` pass with no touch, scroll, key
- * press or focus change inside `root` (each restarts it, Q31 (2)). `restart()` restarts it (Listen to
+ * press or focus change by the person (each restarts it, Q31 (2)). `restart()` restarts it (Listen to
  * the choices). Off while `enabled` is false.
  */
-export function useNoAnswerTimer(
-  root: RefObject<HTMLElement>,
-  ms: number,
-  onExpire: () => void,
-  enabled: boolean,
-): { restart(): void } {
+export function useNoAnswerTimer(ms: number, onExpire: () => void, enabled: boolean): { restart(): void } {
   const expire = useLatest(onExpire);
   const enabledRef = useLatest(enabled);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -314,18 +309,15 @@ export function useNoAnswerTimer(
       return;
     }
     restart();
-    const el = root.current;
-    const events = ["pointerdown", "keydown", "focusin", "scroll", "wheel", "touchmove"] as const;
-    for (const e of events) el?.addEventListener(e, restart, { capture: true, passive: true });
-    // The overlay layer itself scrolls (check-overlay), so its scroll counts too.
-    const scroller = el?.closest(".check-overlay");
-    scroller?.addEventListener("scroll", restart, { passive: true });
-    window.addEventListener("scroll", restart, { passive: true });
+    // Any input on the page counts (the list is the page, or the overlay layer over the inert stage).
+    // A scroll by the person is a wheel, a touch move, a key or a press on the scroll bar; a bare
+    // "scroll" event is not listened to, because the page also scrolls by itself when a caption comes
+    // or goes, and that must never hold the check in back.
+    const events = ["pointerdown", "keydown", "focusin", "wheel", "touchmove"] as const;
+    for (const e of events) window.addEventListener(e, restart, { capture: true, passive: true });
     return () => {
       clearTimeout(timer.current);
-      for (const e of events) el?.removeEventListener(e, restart, { capture: true });
-      scroller?.removeEventListener("scroll", restart);
-      window.removeEventListener("scroll", restart);
+      for (const e of events) window.removeEventListener(e, restart, { capture: true });
     };
   }, [enabled, restart]);
 

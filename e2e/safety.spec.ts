@@ -85,8 +85,8 @@ for (const lang of LANGS) {
         await expect(page.locator(".check-overlay")).toHaveCount(0);
         if (screen.startsWith("S3") || screen.startsWith("S40")) {
           // Safety screens: no Back, no Exit; the heading takes focus.
-          await expect(page.getByRole("button", { name: a.common.exit })).toHaveCount(0);
-          await expect(page.getByRole("button", { name: a.common.back })).toHaveCount(0);
+          await expect(page.getByRole("button", { name: a.common.exit, exact: true })).toHaveCount(0);
+          await expect(page.getByRole("button", { name: a.common.back, exact: true })).toHaveCount(0);
           await expect(page.locator("h1")).toBeFocused();
         }
         expect(errors, option).toEqual([]);
@@ -148,7 +148,9 @@ for (const lang of LANGS) {
       await expect(checkIn).toBeVisible();
       // The booth form without check in inputs: the no raise cue (O34-4 (3)).
       await expect(
-        checkIn.getByText(data.cues.find((c) => c.id === "check_are_you_ok_noraise")!.short[lang]),
+        checkIn.getByText(data.cues.find((c) => c.id === "check_are_you_ok_noraise")!.short[lang], {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(checkIn.locator(".safety-zone")).toHaveCount(3);
       const fine = checkIn.locator('[data-value="fine"]');

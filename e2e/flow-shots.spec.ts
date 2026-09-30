@@ -63,7 +63,10 @@ async function openState(page: Page, name: string, lang: Lang) {
     const mod = await import(/* @vite-ignore */ path);
     mod.setWalkClock(Date.now());
     const s = mod.FLOW_STATES[name];
-    sessionStorage.setItem("azm.check.snapshot", JSON.stringify(s.build()));
+    // As a reload snapshot is saved (snapshotOf): no effects. A built state still lists the start
+    // call it was waiting on; sent on mount, the E2E server's answer (home checks closed) would take
+    // a signed in S17 state to Today before it is read.
+    sessionStorage.setItem("azm.check.snapshot", JSON.stringify({ ...s.build(), effects: [] }));
     if (s.mode === "guest" && s.booth !== false) sessionStorage.setItem("azm.booth", "e2e-booth");
     else sessionStorage.removeItem("azm.booth");
     return { mode: s.mode as string, screen: s.screen as string };

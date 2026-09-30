@@ -21,8 +21,10 @@ export const SAFETY_TIMING = {
   alarmStartVolume: 0.3,
   /** Android: vibrate 600 ms on, 300 ms off, repeating (S45). */
   vibration: [600, 300] as const,
-  /** S38: the faint question 20 s after S38 opened, or when its speech ends, whichever is first. */
+  /** S38: the faint question 20 s after S38 opened (R3C-07 (1)). */
   faintAskAfterMs: 20_000,
+  /** S38: a sentence being spoken at 20 s is finished first, at most this long (R3C-07 (2)). */
+  faintAskSentenceMs: 5_000,
   /** Answer zones: the chosen answer is read back for 3 s, then commits (4.7). */
   readBackMs: 3000,
   /** The speech of a screen starts 800 ms after focus moves to its heading (S36, 4.3). */

@@ -30,6 +30,11 @@ export interface PlayOptions {
   /** A line starts; `speaking` is true when a voice reads it. */
   onLine(index: number, speaking: boolean): void;
   onEnd(): void;
+  /**
+   * Asked before every line after the first: false ends the sequence there, at the end of the line
+   * before it (a sentence is never cut mid word, S38b "When", R3C-07). onEnd is not called then.
+   */
+  beforeLine?(index: number): boolean;
 }
 
 const SPEECH_LANG: Record<Lang, string> = { ar: "ar-SA", en: "en-GB" };
@@ -126,6 +131,10 @@ export class SequencePlayer {
     if (generation !== this.generation) return;
     if (i >= lines.length) {
       opts.onEnd();
+      return;
+    }
+    if (i > 0 && opts.beforeLine && !opts.beforeLine(i)) {
+      this.generation++;
       return;
     }
     const line = lines[i];

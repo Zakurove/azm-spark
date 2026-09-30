@@ -25,6 +25,8 @@ export interface SequenceState {
   index: number | null;
   /** True once every line has been shown. */
   done: boolean;
+  /** Whether a voice is reading the line being shown now (read at the moment of the call). */
+  speaking(): boolean;
   /** Listen again: from the first line (of `lines`, or of other lines such as a longer Listen form). */
   replay(other?: readonly SpeechLine[]): void;
   stop(): void;
@@ -38,12 +40,21 @@ export interface SequenceState {
  */
 export function useSpeechSequence(
   lines: readonly SpeechLine[],
-  opts: { key: string; autoplay?: boolean; delayMs?: number; onEnd?: () => void },
+  opts: {
+    key: string;
+    autoplay?: boolean;
+    delayMs?: number;
+    onEnd?: () => void;
+    /** Asked before each line after the first: false ends the sequence at the end of the line before. */
+    beforeLine?: () => boolean;
+  },
 ): SequenceState {
   const ui = useCheckUi();
   const uiRef = useLatest(ui);
   const linesRef = useLatest(lines);
   const onEndRef = useLatest(opts.onEnd);
+  const beforeRef = useLatest(opts.beforeLine);
+  const speakingNow = useRef(false);
   const player = useRef<SequencePlayer | null>(null);
   const playing = useRef<readonly SpeechLine[]>(lines);
   const [index, setIndex] = useState<number | null>(null);
@@ -57,8 +68,14 @@ export function useSpeechSequence(
     player.current.play(list, {
       lang: uiRef.current.lang,
       soundOn: () => uiRef.current.sound.on,
+      beforeLine() {
+        const go = beforeRef.current?.() ?? true;
+        if (!go) speakingNow.current = false;
+        return go;
+      },
       onLine(i, speaking) {
         const line = list[i];
+        speakingNow.current = speaking;
         setIndex(i);
         // The caption's tap plays this line again (3.0). A line already on the screen as its heading
         // is not repeated in the strip above it.
@@ -74,6 +91,7 @@ export function useSpeechSequence(
           );
       },
       onEnd() {
+        speakingNow.current = false;
         setIndex(null);
         setDone(true);
         uiRef.current.clearCaption();
@@ -108,14 +126,17 @@ export function useSpeechSequence(
 
   const stop = useCallback(() => {
     player.current?.stop();
+    speakingNow.current = false;
     setIndex(null);
     uiRef.current.clearCaption();
   }, []);
+  const speaking = useCallback(() => speakingNow.current && uiRef.current.sound.on, []);
 
   return {
     mark: index === null ? null : (playing.current[index]?.mark ?? null),
     index,
     done,
+    speaking,
     replay: start,
     stop,
   };

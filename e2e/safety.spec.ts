@@ -260,6 +260,27 @@ for (const lang of LANGS) {
       ).toBeVisible();
     });
 
+    test("S38: a touch opens the faint question only once the speech has ended (R3C-07)", async ({
+      page,
+    }) => {
+      await page.clock.install();
+      await openGuest(page, lang, {
+        state: { kind: "safety", safety: "faint", screen: "scr_faint", alsoShow: [], faintAnswered: false },
+      });
+      const s38 = page.locator('[data-screen="S38"]');
+      await expect(s38).toBeVisible();
+      // While the positioning and 997 sentences are being read, a touch never cuts them.
+      await page.clock.runFor(2_000);
+      await s38.locator(".safety-sentences p").first().click();
+      await expect(s38).toBeVisible();
+      await expect(page.locator('[data-screen="S38b"]')).toHaveCount(0);
+      // Once the speech has ended (before 20 s), a touch outside the controls opens S38b.
+      await page.clock.runFor(14_000);
+      await expect(page.locator(".safety-sentences p[aria-current]")).toHaveCount(0);
+      await s38.locator(".safety-sentences p").first().click();
+      await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
+    });
+
     test("S38b: 30 s with no answer runs the check in; fine returns with Take your time; Not sure opens S36", async ({
       page,
     }) => {

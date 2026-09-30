@@ -19,8 +19,10 @@
  * the faint question S38b is answered by tap in this build).
  *
  * The faint follow up (S38b) comes after S38 and every fall stop (O42): on S38 20 s after it opened,
- * whatever the speech; on S39 when the screen is touched (at the booth, staff touch it once the person
- * is settled); and from the footer's Continue. S38 says the camera is on while it runs.
+ * once the sentence then being spoken has ended (at most 5 s more), or earlier on a touch outside the
+ * controls once the S38 speech has ended (R3C-07); on S39 when the screen is touched (at the booth,
+ * staff touch it once the person is settled); and from the footer's Continue. S38 says the camera is
+ * on while it runs; no camera trigger is armed on S38 or S38b (R3C-06).
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../i18n";
@@ -34,7 +36,7 @@ import { CameraOnLine } from "../camera/CameraOnLine";
 import { sameWords } from "../camera/cues";
 import { useCameraWatch } from "../camera/watch";
 import { safetyView } from "./content";
-import { useSpeechSequence, useWakeLock } from "./hooks";
+import { useLatest, useSpeechSequence, useWakeLock } from "./hooks";
 import { BigNumber, SafetyHeading, SentenceStack, TextWithTimes } from "./parts";
 import { SAFETY_TIMING } from "./timing";
 
@@ -45,37 +47,67 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
   const [openedAt] = useState(() => Date.now());
   const view = state.kind === "safety" ? safetyView(state, model.data, lang, openedAt) : null;
   const key = view ? `${view.id}:${state.kind === "safety" ? state.screen : ""}:${lang}` : "none";
-  const seq = useSpeechSequence(view?.speech ?? [], { key });
+  // S38: the faint question is due (20 s passed) while a sentence was being spoken: it opens at the
+  // end of that sentence (R3C-07 (2)).
+  const askDue = useRef(false);
+  const asked = useRef(false);
+  const askFaint = () => {
+    if (asked.current) return;
+    asked.current = true;
+    seqRef.current.stop();
+    dispatch({ type: "FAINT_ASK" });
+  };
+  const seq = useSpeechSequence(view?.speech ?? [], {
+    key,
+    beforeLine: () => {
+      if (!askDue.current) return true;
+      askFaint();
+      return false;
+    },
+    onEnd: () => {
+      if (askDue.current) askFaint();
+    },
+  });
   useWakeLock(true);
   // S38: the camera stays on until the faint question is answered (a raised hand in its check in), and
   // the screen says so while it runs (principle 13).
   const cameraOn = useCameraWatch(model, dispatch);
 
-  // S38: the faint question 20 s after S38 opened, whatever the speech is doing (spec S38b "When": after
-  // the speech ends and the person is seen seated, or at 20 s, whichever comes first). The sequence
-  // stops, so the question's own cue takes over. SPEC-GAP: seen-seated. The camera gives no seated
-  // signal yet, so the earlier trigger (speech ended and seen seated) is not built.
+  // S38 (R3C-07): the faint question 20 s after S38 opened. A sentence being spoken then is finished
+  // first, at most 5 s more, so no safety sentence is cut mid word; with no voice playing (Sound off,
+  // blocked, an error) it opens at 20 s. The "seen seated" camera trigger is not part of the rule. The
+  // sequence stops, so the question's own cue takes over.
   const seqRef = useRef(seq);
   seqRef.current = seq;
   useEffect(() => {
     if (!view?.askFaint || view.kind !== "faint") return;
+    let wait: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      seqRef.current.stop();
-      dispatch({ type: "FAINT_ASK" });
+      if (!seqRef.current.speaking()) return askFaint();
+      askDue.current = true;
+      wait = setTimeout(askFaint, SAFETY_TIMING.faintAskSentenceMs);
     }, SAFETY_TIMING.faintAskAfterMs);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(wait);
+    };
   }, [view?.askFaint, view?.kind]);
 
-  // S39: a touch on the screen opens the faint question (O42), except on the call control.
+  // A touch on the screen opens the faint question (O42), except on a control: on S39 at any time, on
+  // S38 once its speech has ended, so the positioning and 997 sentences are never cut (R3C-07 (1)).
   const root = useRef<HTMLDivElement>(null);
+  const spoken = useLatest(seq.done);
   useEffect(() => {
-    if (view?.kind !== "fall" || !view.askFaint) return;
+    if (!view?.askFaint || (view.kind !== "fall" && view.kind !== "faint")) return;
+    const faint = view.kind === "faint";
     const el = root.current?.closest(".check-page") ?? document;
     const onDown = (e: Event) => {
       const target = e.target as HTMLElement | null;
       // Controls keep their own action (the call, Listen again, Sound); a touch elsewhere is the cue.
       if (target?.closest("a, button, summary, .check-topbar, .check-footer")) return;
-      dispatch({ type: "FAINT_ASK" });
+      if (faint && !spoken.current) return;
+      if (faint) askFaint();
+      else dispatch({ type: "FAINT_ASK" });
     };
     el.addEventListener("pointerdown", onDown);
     return () => el.removeEventListener("pointerdown", onDown);

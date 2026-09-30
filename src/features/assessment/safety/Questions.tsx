@@ -114,7 +114,10 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
     icon: o.value === "yes" ? "check" : o.value === "no" ? "close" : "help",
     commitAtOnce: o.value !== "no",
   }));
+  // The collapsed S38 text keeps its first sentence visible, and for SCI the scr_faint_sci sentence
+  // too (sit upright instead with a pounding headache, the AD rule): never collapsed away (R3C-07 (4)).
   const intro = splitSentences(screenText(back, lang))[0] ?? "";
+  const sci = s?.back?.alsoShow.includes("scr_faint_sci") ? screenText("scr_faint_sci", lang) : null;
   const listen: SpeechLine[] = [
     cueSpeech("check_faint_loc", lang),
     ...screenLines(back, lang, { block: back }),
@@ -143,6 +146,7 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
         />
         <ZoneLine />
         <p className="check-body safety-intro">{bidiText(lang, intro)}</p>
+        {sci && <p className="check-body safety-intro">{bidiText(lang, sci)}</p>}
         <button type="button" className="ghost safety-listen" onClick={() => seq.replay(listen)}>
           <CheckIcon name="speaker" />
           {t(lang, "assessment.common.listen")}

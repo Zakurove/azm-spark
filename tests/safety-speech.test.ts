@@ -294,6 +294,31 @@ describe("the sequence player", () => {
   });
 });
 
+describe("ending a sequence at a line boundary (S38b When, R3C-07)", () => {
+  it("finishes the line being spoken, then starts no further line and does not call onEnd", async () => {
+    const f = fakeDeps({ voice: true });
+    const shown: number[] = [];
+    let ended = false;
+    let due = false;
+    new SequencePlayer(f.deps).play(LINES, {
+      lang: "en",
+      soundOn: () => true,
+      onLine: (i) => shown.push(i),
+      onEnd: () => (ended = true),
+      beforeLine: () => !due,
+    });
+    await f.advance(0);
+    expect(shown).toEqual([0]);
+    // The question is due while "Stop now." is being spoken: the sentence is never cut.
+    due = true;
+    expect(f.spoken).toEqual(["Stop now."]);
+    await f.endLine();
+    await f.advance(20_000);
+    expect(shown).toEqual([0]);
+    expect(ended).toBe(false);
+  });
+});
+
 describe("the alarm and chime tones (S45, S43, S47)", () => {
   it("writes a 16 bit mono PCM WAV", () => {
     const bytes = wavBytes(toneSamples(ALARM_SEGMENTS));

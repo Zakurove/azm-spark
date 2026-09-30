@@ -7,22 +7,20 @@
  *         the count check (a timed test with 10 to 20% unscored)
  *   S49   the end of check symptom question (ec_symptoms), general or side form
  *
- * Each is spoken and captioned on arrival and answered by tap: the answer zones render as big tap
- * buttons in data order (answerZones is off in this build, 7.2-1), and at the booth staff tap the
- * answer the person says (the booth line under the zones). A chosen answer is read back for 3 s and
- * then commits; the safe answers commit at once (much more pain, yes or not sure on S38b, yes on S49).
- * On S47 and S48 the camera part of the test is still on, so STOP stays at the bottom.
+ * Each is spoken and captioned on arrival and answered by tap on big answer buttons in data order
+ * (AnswerZones), and at the booth staff tap the answer the person says (the booth line under them). A
+ * chosen answer is read back for 3 s and then commits; the safe answers commit at once (much more
+ * pain, yes or not sure on S38b, yes on S49). On S47 and S48 the test is still running, so STOP stays
+ * at the bottom.
  *
  * States: L, E, Er not applicable (all local); Off works (answers are routed on the phone and posted
- * later); Cam: tap only (no zones in this build).
+ * later); Cam not applicable.
  */
 import { useEffect, useId, useRef, useState } from "react";
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA, precheckItem, screenText, stopFollowUp, testDef } from "../../../movements/assessments";
 import type { ScreenId } from "../../../movements/types";
-import { CameraOnLine } from "../camera/CameraOnLine";
-import { useCameraWatch } from "../camera/watch";
 import { cameraRunning, outcomeKey } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { CheckShell } from "../shared/CheckShell";
@@ -30,12 +28,11 @@ import { CountStepper, parseCount } from "../shared/CountStepper";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { EMPHASIS, emphasise, endQuestionView, sideOfState, sideWords } from "./content";
-import { playChime, useFoldFit, useNoAnswerTimer, useSpeechSequence, useWakeLock } from "./hooks";
+import { playChime, useFoldFit, useSpeechSequence, useWakeLock } from "./hooks";
 import { AnswerZones, StopButton, type ZoneOption } from "./parts";
 import { copyLine, cueSpeech, dataLine, screenLines, splitSentences, type SpeechLine } from "./speech";
-import { cameraFine, SAFETY_TIMING } from "./timing";
 
-/** The line under the zones: at the booth staff tap the spoken answer; after STOP, stay put (4.3). */
+/** The line under the answers: at the booth staff tap the spoken answer; after STOP, stay put (4.3). */
 function ZoneLine({ afterStop }: { afterStop?: boolean }) {
   const { lang, booth } = useCheckUi();
   if (booth) return <p className="safety-zone-line">{t(lang, "assessment.test.answerBooth")}</p>;
@@ -55,21 +52,12 @@ function yesNo(lang: "ar" | "en", yesAtOnce = false): ZoneOption[] {
 
 /**
  * S38b, the faint follow up (Q33 (3), O42): «هل فقدت الوعي، ولو للحظة؟», spoken as check_faint_loc.
- * Yes or Not sure open S36 at once; No returns to the stop's screen with its lock. No answer within
- * 30 s runs the check in (S43), except after a fall stop at the booth, where staff tap the answer the
- * person says and no timer runs (O42). There is no call control here: 997 is on the emergency
- * screens only (D-016), and a yes opens S36.
+ * Yes or Not sure open S36 at once; No returns to the stop's screen with its lock. It waits for the
+ * answer: there is no timer (D-016), and at the booth staff tap the answer the person says. There is
+ * no call control here: 997 is on the emergency screens only (D-016), and a yes opens S36.
  */
-// The camera of the stopped test stays on (useCameraWatch): a raised hand counts as "fine" in the check
-// in of S38b; the question itself is answered by tap (the zones come with phase 2), and its 30 s timer
-// is the check in's trigger.
-// After "I am fine" the question stays with "Take your time": a tap runs no new timer (O14), a camera
-// fine one extra 30 s timer (O34-1 (6)), as the flow records it (fineVia).
 export function FaintAsk({ model, dispatch }: ScreenProps) {
   const { lang, booth } = useCheckUi();
-  // The camera stays on until the question is answered: a raised hand is "fine" in its check in (O30);
-  // the screen says so while it runs (principle 13).
-  const cameraOn = useCameraWatch(model, dispatch);
   const s = model.state.kind === "faintAsk" ? model.state : null;
   const q = stopFollowUp("sf_faint_loc");
   const back: ScreenId = s?.back?.screen ?? "scr_faint";
@@ -80,27 +68,6 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
   useWakeLock(true);
   const root = useRef<HTMLDivElement>(null);
   const fit = useFoldFit(root, 5, `S38b:${lang}:${booth}`);
-
-  // Back from the check in (the overlay closed over this screen): "Take your time".
-  const overlay = model.overlay?.kind ?? null;
-  const [returns, setReturns] = useState(0);
-  const last = useRef(overlay);
-  useEffect(() => {
-    if ((last.current === "checkIn" || last.current === "alarm") && overlay === null)
-      setReturns((n) => n + 1);
-    last.current = overlay;
-  }, [overlay]);
-
-  const fallAtBooth = s?.back?.safety === "fall" && (booth || model.data.setting === "booth");
-  const [answered, setAnswered] = useState(false);
-  useNoAnswerTimer(
-    SAFETY_TIMING.faintNoAnswerMs,
-    () => dispatch({ type: "FAINT_TIMEOUT" }),
-    !fallAtBooth &&
-      !answered &&
-      overlay === null &&
-      (returns === 0 || (returns === 1 && cameraFine(s?.fineVia))),
-  );
 
   const options: ZoneOption[] = q.options.map((o) => ({
     value: o.value as string,
@@ -122,17 +89,12 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
         <h1 id={headingId} className="safety-stage-question">
           {bidiText(lang, q.ask[lang])}
         </h1>
-        {returns > 0 && <p className="safety-take-time">{t(lang, "assessment.stop.takeYourTime")}</p>}
-        <CameraOnLine on={cameraOn} />
         <AnswerZones
           labelledBy={headingId}
           fold
           options={options}
           say={(line) => seq.replay([line])}
-          onAnswer={(v) => {
-            setAnswered(true);
-            dispatch({ type: "FAINT_ANSWER", value: v as "yes" | "no" | "unsure" });
-          }}
+          onAnswer={(v) => dispatch({ type: "FAINT_ANSWER", value: v as "yes" | "no" | "unsure" })}
         />
         <ZoneLine />
         <p className="check-body safety-intro">{bidiText(lang, intro)}</p>
@@ -155,8 +117,6 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
  */
 export function Between({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
-  // The camera behind the question keeps the check in armed (4.8 answer zone states).
-  useCameraWatch(model, dispatch);
   const s = model.state.kind === "between" ? model.state : null;
   const q = precheckItem("bt_pain_after");
   const headingId = useId();
@@ -212,8 +172,6 @@ export function Between({ model, dispatch }: ScreenProps) {
  */
 export function AfterTest({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
-  // The camera behind the question keeps the check in armed (4.8 answer zone states).
-  useCameraWatch(model, dispatch);
   const kind = model.state.kind;
   const headingId = useId();
   const at = sideOfState(model);

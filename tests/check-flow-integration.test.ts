@@ -308,11 +308,9 @@ describe("S57: our staff correct a timed count at the booth", () => {
   });
 });
 
-describe("the guest check in inputs, the context and the safety source", () => {
-  it("a guest's check in inputs come from the guest pre-check (O34)", () => {
-    const guest = guestAtPlan();
-    expect(guest.data.checkIn).not.toBeNull();
-    expect(typeof guest.data.checkIn?.raiseAllowed).toBe("boolean");
+describe("the guest check in, the context and the safety source", () => {
+  it("a guest at the booth never has the check in on (D-016)", () => {
+    expect(guestAtPlan().data.checkIn).toBe(false);
   });
 
   it("the context carries the last check's dose bucket (warn_pd_timing)", () => {

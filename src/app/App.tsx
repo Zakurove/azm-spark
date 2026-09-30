@@ -144,6 +144,8 @@ export default function App() {
   /** Where the movement check sends a signed in person when it ends or they leave it. */
   const onCheckExit = (to: ExitTarget) => {
     setCheckOpen(null);
+    // The check can change the check in setting (S14): the settings dialog shows it as stored.
+    setPreferences(readPreferences());
     const url = EXIT_URLS[to];
     // In booth mode every exit replaces the page (S57); at home a page change keeps Back.
     if (url) return openUrl(url, lang, isBoothMode());

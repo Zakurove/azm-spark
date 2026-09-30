@@ -153,11 +153,11 @@ function fakeCaches(pre: string[] = []) {
 }
 
 describe("offline preparation of a booth phone (O18)", () => {
-  it("lists the model, the runtime, the alarm, the chime and the check cues in both languages", () => {
+  it("lists the model, the runtime, the chime and the check cues in both languages (no alarm, D-016)", () => {
     const a = boothAssets();
     expect(a).toContain("/models/pose_landmarker_lite.task");
     expect(a).toContain("/wasm/vision_wasm_internal.wasm");
-    expect(a).toContain("/cues/alarm.mp3");
+    expect(a).not.toContain("/cues/alarm.mp3");
     expect(a).toContain("/cues/chime.mp3");
     expect(a).toContain("/cues/ar/check_are_you_ok.mp3");
     expect(a).toContain("/cues/en/check_are_you_ok.mp3");

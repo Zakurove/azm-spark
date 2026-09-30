@@ -254,6 +254,21 @@ describe("intro, sound check and notice (S14, S14b, S16)", () => {
     expect(screen(retest, "en").text).toContain(t("en", "assessment.intro.welcomeBack"));
   });
 
+  it("S14 at home carries the check in switch, off by default; the booth never shows it (D-016)", () => {
+    for (const lang of LANGS) {
+      const home = screen(M.S14signed, lang);
+      expect(home.html).toContain('role="switch"');
+      expect(home.html).toContain('aria-checked="false"');
+      expect(home.text).toContain(t(lang, "assessment.checkin.setting"));
+      expect(home.text).toContain(t(lang, "assessment.checkin.settingNote"));
+      const on = screen({ ...M.S14signed, data: { ...M.S14signed.data, checkIn: true } }, lang);
+      expect(on.html).toContain('aria-checked="true"');
+      const booth = screen(M.S14, lang);
+      expect(booth.html).not.toContain('role="switch"');
+      expect(booth.text).not.toContain(t(lang, "assessment.checkin.setting"));
+    }
+  });
+
   it("S14b asks with the data cue and answers, and offers the screen reader mode", () => {
     const { text } = screen(M.S14b, "ar");
     expect(text).toContain(CHECK_DATA.cues.find((c) => c.id === "check_sound")!.ar);
@@ -401,7 +416,6 @@ describe("after the pre-check (S25, S26, S27)", () => {
     expect(weakerSide(m)).toBe("right");
     const { text } = screen(m, "en");
     expect(text).toContain(CHECK_DATA.helperBriefing.heading.en);
-    expect(text).toContain(CHECK_DATA.helperBriefing.checkInLine.en);
     expect(text).toContain(CHECK_DATA.helperBriefing.confirmButton.en);
   });
 });

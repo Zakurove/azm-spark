@@ -33,14 +33,7 @@ const CLASS_RANK: Record<CueClass, number> = {
   phase: 1,
 };
 
-const SAFETY_CUES: ReadonlySet<string> = new Set([
-  "check_stop_now",
-  "check_are_you_ok",
-  "check_are_you_ok_noraise",
-  "check_are_you_ok_zone",
-  "check_are_you_ok_zone_speech",
-  "check_are_you_ok_helper",
-]);
+const SAFETY_CUES: ReadonlySet<string> = new Set(["check_stop_now", "check_are_you_ok"]);
 
 /** Coaching lines and setup fixes: the warn bar and triangle (4.3, S34g). */
 const WARN_CUES: ReadonlySet<string> = new Set([
@@ -112,7 +105,7 @@ export const ALWAYS_SENTENCE: ReadonlySet<CheckCueId> = new Set<CheckCueId>([
  * Fit level 3 of the camera screen (R3C-16): a caption's full sentence may be hidden, leaving its 56 px
  * short form, only while all of these hold: it has a short form; its voice is actually playing (the
  * Sound on, voice mode, and the player started it: not blocked, not failed); it is not a safety caption
- * (safety severity: check_stop_now and the check in cues); Large captions is
+ * (safety severity: check_stop_now and the check in cue); Large captions is
  * off; and it is not one of the ALWAYS_SENTENCE cues. When the voice is not heard the caption is the
  * only channel, so "never truncated" (4.3) holds for exactly those people.
  */

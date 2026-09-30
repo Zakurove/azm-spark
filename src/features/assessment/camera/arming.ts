@@ -1,18 +1,15 @@
 /**
- * Check in arming on the camera screens (UX spec 4.8 as amended by the council, O34-6). Pure.
+ * When the optional check in watches on the camera screens (D-016; UX spec 4.8). Pure.
  *
- *   part                           no movement   sway   left frame   hips drop
- *   setup, calibrate, countdown    off           on     off          on
- *   practice                       on            on     on           on
- *   scored attempt, moving         on            on     on           on
- *   hold, pause there, a cue       paused        on     on           on
- *   saved, retry, rests            off           on     off (1)      on
+ *   part                           no movement   left frame
+ *   setup, calibrate, countdown    off           off
+ *   practice                       on            on
+ *   scored attempt, moving         on            on
+ *   hold, pause there              off           on
+ *   saved, retry, rests            off           off
  *
- *   (1) on for the first 60 s after the chair stand ends (O34-6 (3)).
- *
- * No movement counts 10 s from the end of the current cue plus a 3 s grace; in the timed tests from
- * check_go plus 3 s, and never from the end cue until the next cue has ended plus 3 s (O34-6 (4)).
- * Hips drop has no switch: the detector always evaluates it (on in every camera state).
+ * No movement counts from the end of the current cue plus a 3 s grace; in the timed tests from
+ * check_go plus 3 s, and never after the end cue.
  */
 import type { CheckInFeedOptions } from "../../../engine/checkin";
 import type { RunnerPhase } from "../../../engine/modes";
@@ -33,53 +30,24 @@ export interface ArmingInput {
   goAt: number | null;
   /** Timed tests: when the end cue started, or null. */
   endCueAt: number | null;
-  /** When the chair stand trial ended, or null. */
-  standEndedAt: number | null;
-  /** The side lean's own sway limit during a lean (its abort limit plus the margin), if any. */
-  leanSwayDeg?: number;
   graceSec: number;
-  standLeftFrameSec: number;
 }
 
-export function armingFor(a: ArmingInput): CheckInFeedOptions {
-  const grace = a.graceSec * 1000;
-  const cueClear = a.now >= a.cueEndsAt + grace;
+export function armingFor(a: ArmingInput): Required<CheckInFeedOptions> {
+  const cueClear = a.now >= a.cueEndsAt + a.graceSec * 1000;
   const timed = a.testId === "arm_curl_30s" || a.testId === "chair_stand_30s";
-  let movement = false;
-  let leftFrame = false;
   switch (a.part) {
-    case "setup":
-    case "calibrate":
-    case "countdown":
-      break;
     case "practice":
-      movement = cueClear;
-      leftFrame = true;
-      break;
-    case "attempt":
-      if (timed) {
-        const afterGo = a.goAt !== null && a.now >= a.goAt + grace;
-        const ended = a.endCueAt !== null;
-        movement = afterGo && !ended && cueClear;
-      } else movement = cueClear;
-      leftFrame = true;
-      break;
+      return { movement: cueClear, leftFrame: true };
+    case "attempt": {
+      const afterGo = a.goAt !== null && a.now >= a.goAt + a.graceSec * 1000;
+      return { movement: cueClear && (!timed || (afterGo && a.endCueAt === null)), leftFrame: true };
+    }
     case "hold":
-      leftFrame = true;
-      break;
-    case "saved":
-    case "retry":
-    case "rest":
-      leftFrame =
-        a.testId === "chair_stand_30s" &&
-        a.standEndedAt !== null &&
-        a.now - a.standEndedAt <= a.standLeftFrameSec * 1000;
-      break;
+      return { movement: false, leftFrame: true };
+    default:
+      return { movement: false, leftFrame: false };
   }
-  const sway: CheckInFeedOptions = { sway: true };
-  if (a.leanSwayDeg !== undefined && (a.part === "attempt" || a.part === "practice" || a.part === "hold"))
-    sway.swayDeg = a.leanSwayDeg;
-  return { ...sway, movement, leftFrame };
 }
 
 /** The part of the sequence for a flow state kind and the runner's phase. */

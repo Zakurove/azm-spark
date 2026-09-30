@@ -235,7 +235,6 @@ export function CheckShell({
             <span style={{ width: `${pct}%` }} />
           </div>
         )}
-        {!ui.sound.on && <p className="check-sound-note">{t(lang, "assessment.common.alertStillSounds")}</p>}
       </header>
       <OfflineBanner />
       <main className="check-main" ref={mainRef}>

@@ -17,8 +17,8 @@
  *     a rest (REST_DONE), and the finished side (SIDE_RESULT, derived numbers only).
  *   - The screen's own timers: saved 1.5 s (SAVED_NEXT), the retry restart 6 s (RETRY, CONTINUE),
  *     and the rests the runner does not run (side change, the seated minute, before a redo).
- *   - The check in triggers of 4.8 (its own SubjectLock and CheckInDetector, armed by arming.ts) and,
- *     while S43 or S45 is open over the stage, the raised hand fine signal (CameraFine) as FINE.
+ *   - The optional check in (D-016): with the setting on, its two triggers (its own SubjectLock and
+ *     CheckInDetector, armed by arming.ts) as TRIGGER.
  *   - Cues: the runner's cues and prompts, the setup issue cues (replayed at most every 6 s), the
  *     retry fix cue, the countdown numbers; interface lines (Good, helper beside you) as notes.
  *
@@ -29,18 +29,9 @@
  */
 import type { I18nKey } from "../../../i18n";
 import { isPerson } from "../../../engine/body";
-import {
-  CameraFine,
-  CheckInDetector,
-  checkInReference,
-  FINE_RULES,
-  shouldersInView,
-  swayMeasureFor,
-  type FineSignalConfig,
-} from "../../../engine/checkin";
+import { CheckInDetector, shouldersInView } from "../../../engine/checkin";
 import {
   createRunner,
-  TRUNK_RULES,
   TrunkControlRunner,
   type RunnerOptions,
   type RunnerPhase,
@@ -55,7 +46,6 @@ import {
   type Tilt,
 } from "../../../engine/quality";
 import { nearestCentre, posesOf, SubjectLock } from "../../../engine/subject";
-import { ANSWER_ZONES } from "../../../medical/gates";
 import type { Frame, Landmark } from "../../../engine/types";
 import { testDef } from "../../../movements/assessments";
 import type { CheckCueId, CheckPosition, Side, TestDef, TestId } from "../../../movements/types";
@@ -187,7 +177,8 @@ export interface CamTest {
   limbLossArm?: Side;
   setting: "booth" | "home";
   position: CheckPosition;
-  checkIn: { raiseAllowed: boolean; noArmSignal: boolean; fineZoneSide: Side | null } | null;
+  /** The optional check in is on (D-016). */
+  checkIn: boolean;
   /** The first test side of the check (intro.howToStop is shown once there). */
   first: boolean;
 }
@@ -303,18 +294,13 @@ export class CameraController {
   private snapshotRunner: TestRunner | null = null;
   private asking: Asking = null;
   private posted = false;
-  /** A timed redo waits for its rest (S44, R3C-04): the runner repeats the trial at the next setup. */
+  /** A timed redo waits for its rest (after the check in): the runner repeats the trial at the next setup. */
   private redoPending = false;
-  /** The answer state being watched (state and overlay) and when it opened (R3C-05). */
-  private answerKey = "";
-  private answerSince = 0;
   private lastScoredValid = false;
 
   // Subject and check in (the screen's own, 4.8).
   private readonly lock = new SubjectLock();
-  private readonly detector: CheckInDetector;
-  private readonly fine: CameraFine | null;
-  private fineArmed = false;
+  private readonly detector = new CheckInDetector();
   private lostWhileArmed = false;
   /** The last frame of a part with left frame armed (practice, attempt, hold), for the carry. */
   private armedAt = -Infinity;
@@ -363,7 +349,6 @@ export class CameraController {
   private countdown: number | "go" | null = null;
   private goAt: number | null = null;
   private endCueAt: number | null = null;
-  private standEndedAt: number | null = null;
   private leanDirection: "left" | "right";
   private dots: AttemptDot[];
   private practiceNow = false;
@@ -375,23 +360,8 @@ export class CameraController {
     this.test = test;
     this.def = testDef(test.testId);
     this.timing = opts.timing ?? camTiming();
-    this.detector = new CheckInDetector({}, { swayMeasure: swayMeasureFor(test.testId) });
     this.leanDirection = test.side === "left" ? "left" : "right";
     this.dots = Array.from({ length: this.def.attempts }, () => "pending" as AttemptDot);
-    const ci = test.checkIn;
-    const raise = ci ? ci.raiseAllowed && !ci.noArmSignal : true;
-    const cfg: FineSignalConfig = {
-      setting: test.setting,
-      // The fine zone ships with the answer zones (phase 2, home gate 2; never the booth build, 4.7).
-      fineZone: ANSWER_ZONES && test.setting === "home",
-      fineZoneSide: ci?.fineZoneSide ?? null,
-      zoneHoldSec: FINE_RULES.zoneHoldSec,
-      raiseAllowed: raise,
-      noArmSignal: ci?.noArmSignal ?? false,
-      speech: false,
-      limbLossArm: test.limbLossArm ?? null,
-    };
-    this.fine = raise ? new CameraFine(cfg, null) : null;
   }
 
   /* -------------------------------------------------------------- public */
@@ -466,25 +436,14 @@ export class CameraController {
             : null;
     if (this.paused === "phone") this.cueEvery("check_phone_still", "setup", t);
 
-    const overlay = this.model.overlay;
-    if (overlay) {
-      // Scoring is paused under every overlay; the camera keeps watching for the fine signal.
-      if (overlay.kind === "checkIn" || overlay.kind === "alarm") {
-        // The raised hand counts from anyone in the picture (booth, O34-1), so the central person
-        // stands in when the subject lock has lost the subject.
-        const k = nearestCentre(poses, f.aspect);
-        this.fineFrame(t, lm ?? (k >= 0 ? poses[k] : null), f.aspect);
-      } else if (ANSWER_OVERLAYS.has(overlay.kind)) {
-        // S41, S44 and the skip dialog are answer states (4.8, O34-6 (3)): sway and hips drop stay
-        // armed, so a second collapse while the person answers opens the check in over them.
-        this.fineArmed = false;
-        this.answerFrame(t, lm, f.aspect);
-      }
+    if (this.model.overlay) {
+      // Scoring and the check in are paused under every overlay; the check in starts afresh after it.
+      this.detector.reset();
+      this.lostWhileArmed = false;
       if (s.kind === "cam.retry") this.retryTimer(t, env);
       this.timers(t);
       return this.drain();
     }
-    this.fineArmed = false;
 
     this.checkInFrame(t, lm, f.aspect, env);
     if (s.kind === "cam.setup") this.setupFrame(t, poses, f.aspect, env);
@@ -493,38 +452,6 @@ export class CameraController {
     if (this.shouldFeed(env, phoneMoved)) this.feed(f, env, t);
     this.timers(t);
     this.reconcile(t);
-    return this.drain();
-  }
-
-  /**
-   * The answer states over the camera (S29 practice check, S47, S48): the check in keeps watching
-   * with the answer zone arming of 4.8 (sway and hips drop on, no movement and left frame off), and
-   * the raised hand counts as fine while S43 or S45 is open.
-   */
-  watch(f: Frame, t: number = f.t): CamOutput {
-    this.lastT = Math.max(this.lastT, t);
-    const s = this.model.state as FlowState & { i?: number; side?: number };
-    // S38 and S38b after a stop in this test: only a raised hand over the check in or the alarm counts
-    // (fine, O30); no trigger is armed there, whatever the person's position after a faint.
-    const faint = s.kind === "faintAsk" || (s.kind === "safety" && s.safety === "faint" && !s.faintAnswered);
-    if (!faint && (s.i !== this.test.i || s.side !== this.test.sideIndex || this.state)) return this.drain();
-    const poses = posesOf(f);
-    const k = nearestCentre(poses, f.aspect);
-    const lm = this.lock.locked ? this.lock.pickFrame(f).lm : k >= 0 ? poses[k] : null;
-    const overlay = this.model.overlay;
-    if (overlay) {
-      if (overlay.kind === "checkIn" || overlay.kind === "alarm")
-        this.fineFrame(t, lm ?? (k >= 0 ? poses[k] : null), f.aspect);
-      else if (!faint && ANSWER_OVERLAYS.has(overlay.kind)) {
-        // The stop list over S47 or S48 is an answer state too (4.8).
-        this.fineArmed = false;
-        this.answerFrame(t, lm, f.aspect);
-      }
-      return this.drain();
-    }
-    this.fineArmed = false;
-    if (faint) return this.drain();
-    this.answerFrame(t, lm, f.aspect);
     return this.drain();
   }
 
@@ -953,7 +880,6 @@ export class CameraController {
     }
     this.handle(runner.feed(f, { rollDeg: env.tilt ? env.tilt.rollDeg : null }), t);
     if (this.refPending && this.lastLm) {
-      this.detector.setReference(checkInReference(this.lastLm, f.aspect));
       this.tiltRef = env.tilt;
       this.refPending = false;
     }
@@ -1032,7 +958,6 @@ export class CameraController {
         if (this.endCueAt === null) {
           this.endCueAt = t;
           this.phaseWord = "timeUp";
-          if (cue === "check_time_up_stand") this.standEndedAt = t;
         }
         break;
       default:
@@ -1357,12 +1282,7 @@ export class CameraController {
   /* -------------------------------------------------------------- check in */
 
   private checkInFrame(t: number, lm: Landmark[] | null, aspect: number | undefined, env: CamEnv): void {
-    if (!this.detector.reference) return;
-    const trunk = this.runner instanceof TrunkControlRunner ? this.runner : null;
-    const leanSwayDeg =
-      trunk && this.test.side !== "none"
-        ? trunk.abortLimit(this.test.side) + TRUNK_RULES.swayMarginDeg
-        : undefined;
+    if (!this.test.checkIn) return;
     const opts = armingFor({
       part: this.part(),
       testId: this.test.testId,
@@ -1370,18 +1290,12 @@ export class CameraController {
       cueEndsAt: env.cueEndsAt,
       goAt: this.goAt,
       endCueAt: this.endCueAt,
-      standEndedAt: this.standEndedAt,
-      ...(leanSwayDeg !== undefined ? { leanSwayDeg } : {}),
       graceSec: this.timing.cueGraceSec,
-      standLeftFrameSec: this.timing.standLeftFrameSec,
     });
-    // R3C-11 (left-frame-carry, confirmed 2026-09-30). A person who leaves the picture during an armed part keeps the
-    // left frame rule armed until they are seen again, even when the runner ends that attempt at once
-    // and rests (a rest is not armed, 4.8): otherwise leaving mid attempt would never ask. A walk out
-    // is gradual: the runner ends the attempt (quality, a lost subject) while the person is still
-    // partly in view, and the flow falls back to the setup check or a rest. So a subject lost within
-    // LEFT_FRAME_CARRY_MS of the last armed frame counts as lost while armed, whatever part the flow
-    // has moved to since.
+    // A person who leaves the picture during an armed part keeps the left frame rule armed until they
+    // are seen again, even when the runner ends that attempt at once and rests (a rest is not armed):
+    // otherwise leaving mid attempt would never ask. So a subject lost within LEFT_FRAME_CARRY_MS of
+    // the last armed frame counts as lost while armed, whatever part the flow has moved to since.
     const seen = shouldersInView(lm);
     if (opts.leftFrame) this.armedAt = t;
     if (!seen && (opts.leftFrame || t - this.armedAt <= LEFT_FRAME_CARRY_MS)) this.lostWhileArmed = true;
@@ -1389,49 +1303,6 @@ export class CameraController {
     const feedOpts = this.lostWhileArmed ? { ...opts, leftFrame: true } : opts;
     for (const trigger of this.detector.feed(t, lm, aspect, feedOpts))
       this.emit({ type: "TRIGGER", trigger }, t);
-  }
-
-  /**
-   * The answer zone arming of 4.8 (S29, S41, S44, S47, S48, the skip dialog): no movement and left
-   * frame off, sway on; hips drop is always evaluated by the detector. At home with the answer zones
-   * (phase 2, R3C-05), the no movement rule with its 60 s window as well (trigger answer_still), from
-   * the 3 s grace after the answer state opened; the booth row is unchanged.
-   */
-  private answerFrame(t: number, lm: Landmark[] | null, aspect: number | undefined): void {
-    if (!this.detector.reference) return;
-    const key = `${this.model.state.kind}:${this.model.overlay?.kind ?? ""}`;
-    if (key !== this.answerKey) {
-      this.answerKey = key;
-      this.answerSince = t;
-      this.detector.resetAnswerStill();
-    }
-    const home = ANSWER_ZONES && this.test.setting === "home";
-    const answerStill = home && t >= this.answerSince + this.timing.cueGraceSec * 1000;
-    // SPEC-GAP: answer-still-zones. R3C-05 counts from the end of the question's speech and pauses
-    // while a zone hold ring fills; both come with the answer zones (phase 2, home gate 2), so until
-    // then the window counts from the state's opening plus the grace, and a touch restarts it.
-    for (const trigger of this.detector.feed(t, lm, aspect, { ...ANSWER_ARMING, answerStill }))
-      this.emit({ type: "TRIGGER", trigger }, t);
-  }
-
-  /** A touch on an answer screen at home: the answer stillness window starts again (R3C-05). */
-  answerTouched(t: number): void {
-    this.answerSince = t;
-    this.detector.resetAnswerStill();
-  }
-
-  /** While S43 or S45 is open: the raised hand held 1 s counts as «أنا بخير» (O34-1). */
-  private fineFrame(t: number, lm: Landmark[] | null, aspect: number | undefined): void {
-    if (!this.fine) return;
-    if (!this.fineArmed) {
-      this.fine.arm();
-      this.fineArmed = true;
-    }
-    const got = this.fine.feed(t, lm, aspect, this.detector.fineBlockers());
-    if (got === "raised_hand") {
-      this.fineArmed = false;
-      this.emit({ type: "FINE", via: "raisedHand" }, t);
-    }
   }
 
   /* -------------------------------------------------------------- cues */
@@ -1485,9 +1356,6 @@ function oneArmCrossLine(): { ar: string; en: string } | null {
   return step ? { ar: step.ar, en: step.en } : null;
 }
 
-/** Overlays over a camera state that are answered from the chair: sway and hips drop stay armed. */
-const ANSWER_OVERLAYS: ReadonlySet<string> = new Set(["stopList", "goOn", "skipDialog"]);
-const ANSWER_ARMING = { sway: true, movement: false, leftFrame: false } as const;
 /** S34e: the specific fix shows after this many failed practices, and the side goes on after the last. */
 const PRACTICE_FIX_AFTER = 2;
 const PRACTICE_FAIL_LIMIT = 3;

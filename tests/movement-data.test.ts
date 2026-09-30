@@ -130,10 +130,11 @@ describe("id lists in src/movements/types.ts equal the data", () => {
       for (const n of c.replacedBy) expect(CHECK_CUE_IDS as readonly string[], `${c.id} ${n}`).toContain(n);
     }
   });
-  it("has the 82 check cues of revision 1.1 and the 4 tests of v1", () => {
+  it("has the 72 check cues of revision 1.1 after D-016 and the 4 tests of v1", () => {
     expect(D.specVersion).toBe("1.1");
-    // D-016 removed check_urgent_call.
-    expect(D.cues).toHaveLength(82);
+    // D-016 removed check_urgent_call, then the nine check in forms, the answer zone cue and the fine
+    // rehearsal (one check in cue remains).
+    expect(D.cues).toHaveLength(72);
     expect(TEST_IDS).toEqual([
       "shoulder_abduction",
       "arm_curl_30s",
@@ -371,14 +372,11 @@ describe("referential integrity", () => {
   });
 
   it("every referenced cue id exists, including cue ids named in prose", () => {
-    const sel = D.stopRouting.checkIn.cueSelection;
     const refs = [
       ...D.tests.flatMap((t) => t.cues),
       D.stopRouting.askCue,
+      D.stopRouting.checkIn.cue,
       D.engine.soundCheck.cue,
-      ...Object.values(sel.booth),
-      ...Object.values(sel.home),
-      ...Object.values(sel.fallWatch),
       ...Object.keys(testDef("shoulder_abduction").validity.cueMaxPerAttempt),
     ];
     expect(refs.filter((r) => !CUES.has(r))).toEqual([]);
@@ -395,11 +393,7 @@ describe("referential integrity", () => {
     const refs: string[] = [
       ...ACTIONS.flatMap(({ a }) => ("screen" in a && a.screen ? [a.screen] : [])),
       ...ACTIONS.flatMap(({ a }) => (a.do === "emergency" && a.alsoShowIf ? [a.alsoShowIf.screen] : [])),
-      ...ACTIONS.flatMap(({ a }) =>
-        a.do === "show"
-          ? Object.values(a.screenByTest).filter((x) => x !== "helperBriefing.checkInLine")
-          : [],
-      ),
+      ...ACTIONS.flatMap(({ a }) => (a.do === "show" ? Object.values(a.screenByTest) : [])),
       ...D.stopFollowUps.flatMap((q) => q.actions.flatMap((a) => ("screen" in a ? [a.screen] : []))),
       ...D.endOfCheck.flatMap((q) => q.actions.map((a) => a.screen)),
       ...D.emergencyCall.bigNumberOn,
@@ -789,7 +783,8 @@ describe("typed accessors", () => {
     expect(pausedWhenText("nextDay_clock", "en")).toBe("tomorrow after {time}");
     expect(emergencyCallButton("en")).toEqual({ label: "Call 997", href: "tel:997" });
     expect(retiredCue("check_time_stop").replacedBy).toEqual(["check_time_up_stand", "check_time_up_curl"]);
-    expect(isRetiredCueId("check_are_you_ok_speech")).toBe(true);
+    expect(isRetiredCueId("check_time_stop")).toBe(true);
+    expect(isRetiredCueId("check_are_you_ok")).toBe(false);
     expect(isCheckCueId("check_time_stop")).toBe(false);
     expect(skipReasonText("clearance", "en", { substituteRan: true })).toBe(
       `${reasonText("clearance", "en")} We use the seated side lean instead.`,

@@ -10,7 +10,7 @@
  * still shows for about the time the line takes, and the hidden announcer reads it (the caption is
  * marked as not speaking). A new screen, a Sound toggle to off or a new sequence stops the voice.
  *
- * Alarm and chime are not here: the alarm ignores every sound setting and belongs to S45 (safety).
+ * The chime is not here: it belongs to the safety screens (S43, S47).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Lang } from "../../../app/i18n";

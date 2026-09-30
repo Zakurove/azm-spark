@@ -680,72 +680,17 @@ describe("the safety log and product counts (Q25 (a), Q2 (6))", () => {
       });
   });
 
-  it("counts the no response alarm and a help request apart, by test id (O34-5)", async () => {
+  it("takes no alarm answer (D-016): the check in posts nothing, and nothing is counted for it", async () => {
     const cookie = await member(h, "count-alarm@example.test", intakeOf());
     const s = await start(h, cookie);
-    const id = s.data.id;
-    expect(
-      (
-        await h.call(
-          `/assessments/${id}/answer`,
-          { question: "alarm", kind: "no_response", testId: "arm_curl_30s" },
-          cookie,
-        )
-      ).data,
-    ).toEqual({
-      recorded: true,
-    });
-    await h.call(`/assessments/${id}/answer`, { question: "alarm", kind: "help_requested" }, cookie);
-    expect(
-      (await h.call(`/assessments/${id}/answer`, { question: "alarm", kind: "fine" }, cookie)).data,
-    ).toEqual({
-      error: "ALARM_INVALID",
-      field: "kind",
-    });
-    expect(
-      (
-        await h.call(
-          `/assessments/${id}/answer`,
-          { question: "alarm", kind: "no_response", testId: "jump" },
-          cookie,
-        )
-      ).data,
-    ).toEqual({
-      error: "ALARM_INVALID",
-      field: "testId",
-    });
-    const alarms = safety(h).filter((r) => String(r.reason).startsWith("alarm:"));
-    expect(alarms).toEqual([
-      { day: "2026-10-04", reason: "alarm:help_requested", test_id: "none", setting: "home", count: 1 },
-      { day: "2026-10-04", reason: "alarm:no_response", test_id: "arm_curl_30s", setting: "home", count: 1 },
-    ]);
-  });
-
-  it("counts alarms only for a running or recently closed check, a few per check (Q25 (a), (b))", async () => {
-    await h.close();
-    h = await startApi();
-    const cookie = await member(h, "alarm-bound@example.test", intakeOf());
-    const s = await start(h, cookie);
-    const id = s.data.id;
-    for (let i = 0; i < 12; i++)
-      await h.call(`/assessments/${id}/answer`, { question: "alarm", kind: "no_response" }, cookie);
-    const counted = () =>
-      safety(h)
-        .filter((r) => String(r.reason).startsWith("alarm:"))
-        .reduce((n, r) => n + Number(r.count), 0);
-    expect(counted()).toBe(3);
-    // A check that ended more than a day ago takes no alarm.
-    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
-    await h.call(`/assessments/${id}/results`, resultBody(right, 100), cookie);
-    await h.call(`/assessments/${id}/stop`, { option: "tired" }, cookie);
-    setTime(T0 + 2 * DAY);
-    const late = await h.call(
-      `/assessments/${id}/answer`,
-      { question: "alarm", kind: "help_requested" },
+    const r = await h.call(
+      `/assessments/${s.data.id}/answer`,
+      { question: "alarm", kind: "no_response" },
       cookie,
     );
-    expect(late.data).toMatchObject({ error: "NOT_OPEN" });
-    expect(counted()).toBe(3);
+    expect(r.status).toBe(400);
+    expect(r.data).toEqual({ error: "ANSWER_INVALID", field: "question" });
+    expect(safety(h).filter((x) => String(x.reason).startsWith("alarm:"))).toEqual([]);
   });
 
   it("never stores a user id, an email, a check id or a condition key in any counter row", async () => {
@@ -758,7 +703,7 @@ describe("the safety log and product counts (Q25 (a), Q2 (6))", () => {
       ids.push(s.data.id);
       const item = itemOf(s.data.protocol, "shoulder_abduction", "right");
       await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie);
-      await h.call(`/assessments/${s.data.id}/answer`, { question: "alarm", kind: "no_response" }, cookie);
+      await h.call(`/assessments/${s.data.id}/stop`, { option: "tired" }, cookie);
       await h.call(`/assessments/${s.data.id}/answer`, { question: "end", answer: "yes" }, cookie);
       await start(h, cookie);
     }
@@ -955,7 +900,7 @@ describe("the faint follow up (Q33 (3), O42)", () => {
     ]);
   });
 
-  it("no keeps the next day lock; after a no response alarm it is the emergency route; a fall stop asks it too", async () => {
+  it("no keeps the next day lock; a fall stop asks it too", async () => {
     const { cookie, id } = await stopped("faint-no@example.test", "faint");
     expect(
       (await h.call(`/assessments/${id}/answer`, { question: "faint", answer: "no" }, cookie)).data,
@@ -970,16 +915,6 @@ describe("the faint follow up (Q33 (3), O42)", () => {
       false,
     );
     setTime(T0);
-    const alarm = await stopped("faint-alarm@example.test", "faint");
-    expect(
-      (
-        await h.call(
-          `/assessments/${alarm.id}/answer`,
-          { question: "faint", answer: "no", afterNoResponse: true },
-          alarm.cookie,
-        )
-      ).data.status,
-    ).toBe("emergency");
     const fall = await stopped("fall-loc@example.test", "fall");
     expect(
       (await h.call(`/assessments/${fall.id}/answer`, { question: "faint", answer: "yes" }, fall.cookie)).data
@@ -1000,7 +935,8 @@ describe("the faint follow up (Q33 (3), O42)", () => {
       { answer: "maybe" },
       {},
       { answer: "no", note: "x" },
-      { answer: "no", afterNoResponse: 1 },
+      // The alarm route went with D-016: the old flag is an unknown key.
+      { answer: "no", afterNoResponse: true },
     ])
       expect((await h.call(`/assessments/${id}/answer`, { question: "faint", ...body }, c2)).status).toBe(
         400,
@@ -1168,77 +1104,6 @@ describe("the resume window and the re-ask (O6)", () => {
     });
     setTime(T0 + 31 * MIN);
     expect((await h.call("/assessments/context", undefined, cookie)).data.openCheck).toBeNull();
-  });
-
-  it("an alarm post closes the resume window on every device, keeping only resumable false (R3C-22)", async () => {
-    for (const kind of ["no_response", "help_requested"]) {
-      const cookie = await member(h, `r3c22-${kind}@example.test`, intakeOf());
-      const s = await start(h, cookie);
-      const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
-      await h.call(`/assessments/${s.data.id}/results`, resultBody(right, 100), cookie);
-      expect((await h.call("/assessments/context", undefined, cookie)).data.openCheck).not.toBeNull();
-      expect(
-        (await h.call(`/assessments/${s.data.id}/answer`, { question: "alarm", kind }, cookie)).data,
-      ).toEqual({
-        recorded: true,
-      });
-      expect((await h.call("/assessments/context", undefined, cookie)).data.openCheck).toBeNull();
-      expect((await h.call(`/assessments/${s.data.id}/resume`, { answers: RESUME }, cookie)).data).toEqual({
-        error: "NOT_OPEN",
-        status: "open",
-      });
-      // The check goes on on the device that runs it; nothing about the alarm is kept with it.
-      const left = itemOf(s.data.protocol, "shoulder_abduction", "left");
-      expect((await h.call(`/assessments/${s.data.id}/results`, resultBody(left, 90), cookie)).data).toEqual({
-        saved: true,
-      });
-      const row = rows(h, "SELECT * FROM assessments WHERE id=?", s.data.id)[0];
-      expect(row).toMatchObject({ status: "open", resumable: 0, ended_reason: null });
-      expect(JSON.stringify(row)).not.toContain(kind);
-    }
-  });
-
-  it("a second no response alarm ends the check with the stop_symptom next day lock (R3C-02)", async () => {
-    const cookie = await member(h, "r3c02-second@example.test", intakeOf());
-    const s = await start(h, cookie);
-    const id = s.data.id;
-    const right = itemOf(s.data.protocol, "shoulder_abduction", "right");
-    await h.call(`/assessments/${id}/results`, resultBody(right, 100), cookie);
-    expect(
-      (
-        await h.call(
-          `/assessments/${id}/answer`,
-          { question: "alarm", kind: "help_requested", endsCheck: true },
-          cookie,
-        )
-      ).data,
-    ).toEqual({ error: "ALARM_INVALID", field: "endsCheck" });
-    expect(
-      (
-        await h.call(
-          `/assessments/${id}/answer`,
-          { question: "alarm", kind: "no_response", endsCheck: 1 },
-          cookie,
-        )
-      ).data,
-    ).toEqual({ error: "ALARM_INVALID", field: "endsCheck" });
-    const r = await h.call(
-      `/assessments/${id}/answer`,
-      { question: "alarm", kind: "no_response", endsCheck: true },
-      cookie,
-    );
-    expect(r.data).toEqual({ recorded: true, lock: LOCK_NEXT_DAY });
-    expect((await h.call("/assessments/context", undefined, cookie)).data.lock).toEqual(LOCK_NEXT_DAY);
-    const list = (await h.call("/assessments", undefined, cookie)).data.assessments;
-    expect(list[0]).toMatchObject({ status: "ended_early", endedReason: "stop" });
-    expect(list[0].results).toHaveLength(1);
-    // The stop the person then chooses and the end question still reach the closed check.
-    expect((await h.call(`/assessments/${id}/stop`, { option: "choice" }, cookie)).status).toBe(200);
-    expect(
-      (await h.call(`/assessments/${id}/answer`, { question: "end", answer: "no" }, cookie)).data,
-    ).toEqual({
-      status: "proceed",
-    });
   });
 
   it("a late stop reaches an idle check but never keeps it open", async () => {
@@ -1474,7 +1339,6 @@ describe("ownership of the follow up routes", () => {
       [`/assessments/${id}/end`, undefined],
       [`/assessments/${id}/answer`, { question: "end", answer: "yes" }],
       [`/assessments/${id}/answer`, { question: "faint", answer: "yes" }],
-      [`/assessments/${id}/answer`, { question: "alarm", kind: "no_response" }],
       [`/assessments/${id}/resume`, { answers: { pc_urgent: "yes" } }],
     ];
     for (const [path, body] of calls) {
@@ -1622,7 +1486,7 @@ describe("no URL path names a safety event (Q25 (a))", () => {
     await h.close();
   });
 
-  it("the end, faint and alarm answers share one path that every check with results calls", async () => {
+  it("the end and faint answers share one path that every check with results calls", async () => {
     for (const r of moduleRoutes)
       expect(r.path.source, r.path.source).not.toMatch(/faint|alarm|fall|chest|emergency|help|symptom/);
     const cookie = await member(h, "one-path@example.test", intakeOf());
@@ -1631,15 +1495,16 @@ describe("no URL path names a safety event (Q25 (a))", () => {
     expect((await h.call(`/assessments/${id}/faint`, { answer: "yes" }, cookie)).status).toBe(404);
     expect((await h.call(`/assessments/${id}/alarm`, { kind: "no_response" }, cookie)).status).toBe(404);
     expect((await h.call(`/assessments/${id}/end`, { answer: "no" }, cookie)).status).toBe(405);
-    for (const body of [{}, { question: "stop" }, { question: 1 }])
+    // D-016: the alarm answer is gone.
+    for (const body of [
+      {},
+      { question: "stop" },
+      { question: 1 },
+      { question: "alarm", kind: "no_response" },
+    ])
       expect((await h.call(`/assessments/${id}/answer`, body, cookie)).data).toEqual({
         error: "ANSWER_INVALID",
         field: "question",
       });
-    expect(
-      (await h.call(`/assessments/${id}/answer`, { question: "alarm", kind: "help_requested" }, cookie)).data,
-    ).toEqual({
-      recorded: true,
-    });
   });
 });

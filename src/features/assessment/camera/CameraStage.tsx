@@ -195,9 +195,6 @@ export function CameraStage(p: CameraStageProps) {
             </span>
           </p>
         )}
-        {!ui.sound.on && (
-          <p className="check-sound-note s34-sound-note">{t(lang, "assessment.common.alertStillSounds")}</p>
-        )}
       </header>
 
       {p.helperChip && (

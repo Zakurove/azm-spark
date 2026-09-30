@@ -9,9 +9,8 @@
  * With AZM_FLOW_SHOTS_DIR set as well, the three S17 start states are also written there under the
  * flow stream's names (they replace the flow shots that showed the intake page instead).
  *
- *   safety   S43 (booth raise and no raise, home), S44 (plain and after the alarm), S45 (booth and
- *            help), S41 with STOP inert, S38b, S47, S48 (contact, count, count field), S49, S38 with
- *            the camera on line
+ *   safety   S43 (the optional check in at home, D-016), S41 with STOP inert, S38b, S47, S48
+ *            (contact, count, count field), S49
  *   camera   the S34e practice fix, and the landscape screen in a landscape viewport (812 x 375)
  *   flow     S17 start busy, error and offline on a signed in check with an intake (the start call
  *            held or failed), the unanswered guest steps S06 to S11, and the pain scale at 320 px
@@ -65,52 +64,14 @@ async function shot(page: Page, dir: string, lang: Lang, tag: string, name: stri
 
 const SAFETY: { name: string; open: ModelOptions; screen: string; signedIn?: boolean }[] = [
   {
-    name: "S43-check-in-booth-raise",
-    open: {
-      state: MEASURE,
-      overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
-      checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: null },
-    },
-    screen: "S43",
-  },
-  {
-    name: "S43-check-in-booth-noraise",
-    open: { state: MEASURE, overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true } },
-    screen: "S43",
-  },
-  {
-    name: "S43-check-in-home-raise",
+    name: "S43-check-in-home",
     signedIn: true,
-    open: {
-      state: MEASURE,
-      overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
-      checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: null },
-    },
+    open: { state: MEASURE, overlay: { kind: "checkIn" }, checkIn: true },
     screen: "S43",
-  },
-  {
-    name: "S44-go-on",
-    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: false, canRedo: true } },
-    screen: "S44",
-  },
-  {
-    name: "S44-go-on-after-alarm",
-    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true } },
-    screen: "S44",
-  },
-  {
-    name: "S45-alarm-booth",
-    open: { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true } },
-    screen: "S45",
-  },
-  {
-    name: "S45-alarm-help",
-    open: { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true, help: true } },
-    screen: "S45",
   },
   {
     name: "S41-stop-list-stop-inert",
-    open: { state: MEASURE, overlay: { kind: "stopList", takeYourTime: false } },
+    open: { state: MEASURE, overlay: { kind: "stopList" } },
     screen: "S41",
   },
   { name: "S38b-faint-question", open: { state: { kind: "faintAsk" } }, screen: "S38b" },
@@ -142,15 +103,6 @@ for (const size of SIZES)
         }
         await page.context().close();
       }
-      // S38 after a faint stop in a running test: the camera stays on and says so.
-      const page = await newPage(browser, size);
-      await openGuest(page, lang, { state: MEASURE });
-      await page.locator(".s34-stop").click();
-      await page.waitForTimeout(700);
-      await page.locator('[data-option="faint"]').click();
-      await expect(page.locator('[data-screen="S38"] [data-camera-on]')).toBeVisible();
-      await shot(page, dir, lang, size.tag, "S38-faint-camera-on");
-      await page.context().close();
     });
 
 /* ------------------------------------------------------------------ camera */

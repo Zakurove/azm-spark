@@ -1,14 +1,14 @@
 /**
  * Booth phones work offline (council O18, UX spec S55, 0.7): when booth mode turns on, the phone keeps
- * the pose model, the check's cue files in both languages, the alarm and the chime in a named cache.
+ * the pose model, the check's cue files in both languages and the chime in a named cache.
  *
  * "This phone is ready to work offline" (booth.offlineReady) is shown only when it is true: every
  * file is in the cache AND a service worker controls the page, so a reload without a connection can
  * still open the app and serve those files. Without both, staff are never told the phone is ready;
  * the preparing line shows only while the files are fetched.
  */
-// SPEC-GAP: booth-offline-service-worker. The app has no service worker yet, and the alarm and chime
-// files (Appendix B) and the check cue recordings (O24) do not exist yet, so booth.offlineReady never
+// SPEC-GAP: booth-offline-service-worker. The app has no service worker yet, and the chime file
+// (Appendix B) and the check cue recordings (O24) do not exist yet, so booth.offlineReady never
 // shows until they land; the files that exist are kept in the cache meanwhile.
 import voiceScript from "../../../app/voice-script.json";
 
@@ -17,8 +17,8 @@ export const BOOTH_CACHE = "azm-booth-v1";
 /** Phones take the lite model (src/app/poseSource.ts, coarse pointer). */
 const MODEL = "/models/pose_landmarker_lite.task";
 const WASM = ["/wasm/vision_wasm_internal.js", "/wasm/vision_wasm_internal.wasm"];
-/** Appendix B: the alarm (S45) and the check in chime (S43, S47, S48). */
-const TONES = ["/cues/alarm.mp3", "/cues/chime.mp3"];
+/** Appendix B: the chime (S47; the check in S43 never runs at the booth). */
+const TONES = ["/cues/chime.mp3"];
 
 /** Every file a booth phone needs offline (O18): model, runtime, check cues in ar and en, tones. */
 export function boothAssets(): string[] {

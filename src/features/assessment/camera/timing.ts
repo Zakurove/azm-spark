@@ -31,10 +31,9 @@ export interface CamTiming {
   /** S34j rests the screen times itself (the runner times the others). */
   sideChangeSec: Partial<Record<TestId, number>>;
   seatedSec: number;
+  /** The rest before an attempt the check in paused runs again (D-016). */
   redoSec: Record<"range" | "timed", number>;
-  /** O34-6 (3): left frame is armed for this long after the chair stand ends. */
-  standLeftFrameSec: number;
-  /** 4.8: the no movement count starts this long after a cue ends. */
+  /** 4.8: the check in's no movement count starts this long after a cue ends. */
   cueGraceSec: number;
   /** The runner options of every test (rests and the countdown). */
   runner: Pick<RunnerOptions, "restSec" | "practiceRestSec" | "repeatRestSec" | "countdownSec">;
@@ -60,7 +59,6 @@ export function camTiming(fast = false): CamTiming {
       sideChangeSec: { shoulder_abduction: 2, arm_curl_30s: 2 },
       seatedSec: 2,
       redoSec: { range: 2, timed: 2 },
-      standLeftFrameSec: 60,
       cueGraceSec: 3,
       runner: { restSec: 1, practiceRestSec: 1, repeatRestSec: 2 },
     };
@@ -80,10 +78,9 @@ export function camTiming(fast = false): CamTiming {
       arm_curl_30s: curl.restSec.betweenSidesMin,
     },
     seatedSec: stand.restSec.seatedAfterTest,
-    // R3C-04 (1): the rest before a redo is 60 s for the arm raise and the side lean (the S44 table,
-    // S34j), and 120 s for the timed tests, their repeat rest (spec 4.2).
+    // The rest before a redo is 60 s for the arm raise and the side lean (S34j), and 120 s for the
+    // timed tests, their repeat rest (spec 4.2).
     redoSec: { range: 60, timed: 120 },
-    standLeftFrameSec: 60,
     cueGraceSec: 3,
     runner: {},
   };

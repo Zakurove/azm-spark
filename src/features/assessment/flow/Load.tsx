@@ -21,8 +21,6 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { kgRange, loadArms, loadChoices, loadSummary, sideLabel, stepDownChoices, type Load } from "./copy";
 import { KgStepper, SamePress } from "./parts";
-import { CameraOnLine } from "../camera/CameraOnLine";
-import { useCameraWatch } from "../camera/watch";
 import { CaptionBar } from "../shared/CaptionBar";
 import { useEntryLines, useVoice } from "./voice";
 
@@ -87,15 +85,12 @@ function GripQuestion({ model, dispatch }: ScreenProps) {
 
 /**
  * The practice check (Q5 wording), asked where the person sits: spoken from its arTts line, shown at
- * 40 px, answered by a tap (the booth build answers by tap; the zones come with phase 2, Q31 (5)).
+ * 40 px, answered by a tap.
  * STOP stays at the bottom, first in the focus order, as on every camera state.
  */
 function PracticeCheck({ model, dispatch }: ScreenProps) {
   const ui = useCheckUi();
   const { lang, booth } = ui;
-  // The camera behind the question keeps the check in armed (4.8 answer zone states); the screen says
-  // it is on while it runs (principle 13).
-  const cameraOn = useCameraWatch(model, dispatch);
   // STOP first: it takes focus when the screen opens, as on every camera state (principle 6).
   const stopRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -106,12 +101,8 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
   const item = model.data.tests[s.i]?.sides[s.side];
   const side = (item?.side === "left" || item?.side === "right" ? item.side : "right") as Side;
   const q = testDef("arm_curl_30s").load.practiceCheck;
-  // At home the answer zones need the camera (AnswerZones, 4.7), which this screen does not run, so
-  // the zone line (check_answer_zone) is not shown: the answers are taps. At the booth staff tap the
-  // spoken answer (7.2-1), though the booth never asks this question (Q5).
-  // SPEC-GAP: s29-zones. R3C-18 makes S29 at home a camera state in the S47 pattern (zones on the
-  // FineSignalConfig side, Yes read back, No at once, 1.5 s holds); it ships with the answer zones as
-  // part of home gate 2, and until then this tap screen is reached only in tests and previews.
+  // The answers are taps. At the booth staff tap the spoken answer (7.2-1), though the booth never
+  // asks this question (Q5).
   const zoneLine = booth ? t(lang, "assessment.test.answerBooth") : null;
   // R3C-18 (3): with a held load (a dumbbell or a bottle, not a wrist weight) the person first rests it
   // on the lap: no loaded hold while answering, and no dropped weight.
@@ -153,7 +144,6 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
           <CheckIcon name={ui.sound.on ? "speaker" : "speaker-off"} />
         </button>
       </div>
-      <CameraOnLine on={cameraOn} />
       {/* The line being spoken, with its replay (3.0): every spoken line is captioned. */}
       {ui.caption && (
         <CaptionBar text={ui.caption.text} severity={ui.caption.severity} onReplay={ui.replayCaption} />

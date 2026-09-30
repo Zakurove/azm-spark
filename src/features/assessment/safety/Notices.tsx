@@ -37,8 +37,7 @@ export function StopDone({ model, dispatch }: ScreenProps) {
   const left = useCountdown(totalMs, rest);
   useSpeechSequence(rest ? [cueSpeech("check_rest_minute", lang)] : [], { key: `S42:${rest}:${lang}` });
   if (!s) return null;
-  // Testing ended for today (a second no response alarm): the check ends through S49 (R3C-02 (2)).
-  const last = isLastTest(model.data, s.i) || model.data.testingEnded;
+  const last = isLastTest(model.data, s.i);
   const resting = rest && left > 0;
   const primary = last
     ? t(lang, "assessment.stopDone.finish")

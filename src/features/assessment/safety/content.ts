@@ -1,21 +1,17 @@
 /**
  * What each safety screen shows and says, computed from the flow model (UX spec S36 to S49, map 2.7,
- * council O12, O24-6, O34-4, O34-5, O42). Pure: no DOM, so every rule here is unit tested in both
+ * council O12, O24-6, O42; D-016). Pure: no DOM, so every rule here is unit tested in both
  * languages. The components only lay these out.
  *
  * Clinical texts come from the check data (screenText, cueLine, stopFollowUp, endOfCheckQuestion,
  * precheckItem, testDef, reasonText); interface words from t(). Nothing is worded here.
  */
 import type { Lang } from "../../../app/i18n";
-import { selectCheckInCue } from "../../../engine/checkin";
 import { localizeDigits, t, type I18nKey } from "../../../i18n";
-import { ANSWER_ZONES } from "../../../medical/gates";
-import { sameWords } from "../camera/cues";
 import { pausedWhen, stopOptions } from "../../../medical/precheck";
 import {
   CHECK_DATA,
   cueLine,
-  cueShort,
   endOfCheckQuestion,
   pausedWhenText,
   reasonText,
@@ -318,62 +314,22 @@ export function stopListView(d: FlowData, lang: Lang): { ask: string; urgent: St
   return { ask: CHECK_DATA.stopRouting.ask[lang], urgent: group("urgent"), other: group("other") };
 }
 
-/* ------------------------------------------------------------------ S43 and S45 */
+/* ------------------------------------------------------------------ S43 */
 
 /**
- * The check in cue for this person and setting (stopRouting.checkIn.cueSelection, O33 (f)). At the
- * booth: check_are_you_ok, or check_are_you_ok_noraise when a raised hand must not be asked for.
+ * S43, the optional check in (D-016): its cue split after the question, which is the heading, and the
+ * instruction that follows it; and the line shown when nobody answered (scr_no_response).
  */
-// The check in inputs come from the start answer (signed in) or the guest pre-check (guests); without
-// them the no raise form is used, the safer one: it never asks a person who must not lift an arm to
-// raise a hand (O34-4 (3)).
-// At home the zone forms («ضع يدك في مربع «أنا بخير»») are used only when the zones are drawn over the
-// video (ANSWER_ZONES, phase 2); until then S43 is a sheet of tap buttons and no box exists to hold a
-// hand in, so the cue names only what works (engine selectCheckInCue, zones false).
-export function checkInCueId(d: FlowData): CheckCueId {
-  const cfg = d.checkIn;
-  return selectCheckInCue({
-    setting: d.setting,
-    raiseAllowed: cfg?.raiseAllowed ?? false,
-    noArmSignal: cfg?.noArmSignal ?? false,
-    speech: false,
-    zones: ANSWER_ZONES,
-  }) as CheckCueId;
-}
-
-/**
- * S43: the cue split after its first question (spec S43): the 56 px question, and the instruction
- * that follows it for the caption card, under the short form. The question is never repeated in it.
- */
-export function checkInView(d: FlowData, lang: Lang) {
-  const id = checkInCueId(d);
+export function checkInView(lang: Lang) {
+  const id = CHECK_DATA.stopRouting.checkIn.cue;
   const full = cueLine(id)[lang];
   const [question, ...rest] = splitSentences(full);
-  const short = cueShort(id, lang);
-  // A first sentence that is the short form itself («لا تنهض لتجيب») is not printed twice.
-  if (rest.length > 1 && sameWords(rest[0], short)) rest.shift();
   return {
     cue: id,
     question: question ?? full,
     instruction: rest.join(" "),
-    full,
-    short,
+    noAnswer: screenText("scr_no_response", lang),
   };
-}
-
-/**
- * S45: the heading is the first sentence of scr_no_response, the body the rest; the help variant
- * (O34-5) heads with "Get help now" and keeps the body from the second sentence on.
- */
-export function alarmView(help: boolean, lang: Lang) {
-  const all = screenLines("scr_no_response", lang, { block: "alarm" });
-  const heading = help ? t(lang, "assessment.safety.emergency.title") : all[0].display;
-  // The body's sentences are marked from 0 for its own sentence stack.
-  const body = all.slice(1).map((l, i) => ({ ...l, mark: `alarm:${i}` }));
-  const speech: SpeechLine[] = help
-    ? [{ ...copyLine(lang, heading, "safety"), mark: "alarm:h" }, ...body]
-    : [{ ...all[0], mark: "alarm:h" }, ...body];
-  return { heading, body, speech };
 }
 
 /* ------------------------------------------------------------------ S46 skip notice */

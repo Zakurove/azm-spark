@@ -4,13 +4,15 @@
  * S14 plays check_intro, check_stop_any_time and the how to stop line on entry, 800 ms after focus
  * moves to the h1, each captioned. The time, the needs and "you can skip any test" come from
  * boundary.intro filled with this person's computed range (estimateMinutes, O40), since the data
- * carries {min} and {max}; the need list below it is personal.
+ * carries {min} and {max}; the need list below it is personal. At home, under the sound line, the
+ * switch of the optional check in (D-016), the same per device setting as the coach settings.
  *
  * S14b plays check_sound on entry and on replay (Q31 (1)). No shows scr_sound_off and asks again; a
  * second No shows scr_sound_still_off with Try again and Continue without sound (captionsOnly). "I use
  * a screen reader" continues in screen reader mode. The mode is kept for this check only.
  */
 import { useRef, useState } from "react";
+import { readPreferences, savePreferences } from "../../../app/experience";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { estimateMinutes, type CheckContext } from "../../../medical/assessment";
@@ -160,9 +162,42 @@ export function Intro({ model, dispatch }: ScreenProps) {
             <span className="check-meta">{t(lang, "assessment.intro.sound")}</span>
           </p>
         )}
+        {!booth && (
+          <CheckInSwitch
+            on={model.data.checkIn}
+            onChange={(on) => {
+              savePreferences({ ...readPreferences(), safetyCheckIn: on });
+              dispatch({ type: "CHECKIN_SETTING", on });
+            }}
+          />
+        )}
         <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
       </div>
     </CheckShell>
+  );
+}
+
+/** The optional check in (D-016): a switch with its line, stored on this device. */
+function CheckInSwitch({ on, onChange }: { on: boolean; onChange(on: boolean): void }) {
+  const { lang } = useCheckUi();
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      className="flow-switch"
+      data-setting="safety-check-in"
+      onClick={() => onChange(!on)}
+    >
+      <CheckIcon name="shield" size={24} />
+      <span className="flow-switch-text">
+        <span className="flow-strong">{t(lang, "assessment.checkin.setting")}</span>
+        <span className="check-meta">{t(lang, "assessment.checkin.settingNote")}</span>
+      </span>
+      <span className="flow-switch-track" aria-hidden="true">
+        <span />
+      </span>
+    </button>
   );
 }
 

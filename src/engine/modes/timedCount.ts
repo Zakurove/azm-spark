@@ -56,7 +56,6 @@ import type {
   VariantId,
 } from "../../movements/types";
 import { midHip, midShoulder, segmentDistance, type Pt } from "../body";
-import { CheckInDetector, checkInReference, swayMeasureFor } from "../checkin";
 import { OneEuro } from "../oneEuro";
 import {
   ACCEPTED_VIEWS,
@@ -524,7 +523,6 @@ abstract class TimedCountBase implements TestRunner {
 
   protected readonly tracker: SubjectTracker;
   protected readonly sink = new EventSink();
-  protected abstract readonly checkin: CheckInDetector;
   protected abstract readonly minVis: number;
 
   protected phaseNow: RunnerPhase = "idle";
@@ -592,15 +590,15 @@ abstract class TimedCountBase implements TestRunner {
         break;
       case "rest":
       case "ready":
-        this.track(frame, false);
+        this.track(frame);
         this.timing(t);
         break;
       case "setup":
-        this.track(frame, false);
+        this.track(frame);
         this.setupFrame(frame);
         break;
       case "ask":
-        this.track(frame, false);
+        this.track(frame);
         break;
       case "settle":
         this.settleFrame(frame, roll ?? this.lastRoll);
@@ -655,7 +653,7 @@ abstract class TimedCountBase implements TestRunner {
   }
 
   /**
-   * A redo after a check in (S44, R3C-04 (2), (3)): the trial in progress is dropped and the side's one
+   * A redo after the check in (S43, D-016): the trial in progress is dropped and the side's one
    * repeat is used, so no quality repeat follows it. The resting reference is taken again, then the
    * setup check, the countdown and the trial against today's range from the practice: no new practice
    * and no new practice check. Null while the practice has not set today's range (the caller starts
@@ -744,16 +742,14 @@ abstract class TimedCountBase implements TestRunner {
     this.sink.push({ kind: "flag", flag, t, side: this.side });
   }
 
-  /** Subject lock and check in for a frame; the one person line is a prompt inside the trial. */
-  protected track(frame: Frame, movement: boolean): Tracked {
+  /** Subject lock for a frame; the one person line is a prompt inside the trial. */
+  protected track(frame: Frame): Tracked {
     const tr = this.tracker.track(frame);
     const p = tr.pick;
     if (p.paused && (p.reason === "overlap" || p.reason === "jump")) {
       if (this.trial) this.prompt("check_one_person", frame.t);
       else this.sink.cueEvery("check_one_person", frame.t, TIMED_RULES.promptEverySec);
     }
-    for (const trigger of this.checkin.feed(frame.t, p.lm, frame.aspect, { movement }))
-      this.sink.push({ kind: "checkin", trigger, t: frame.t });
     return tr;
   }
 
@@ -882,7 +878,7 @@ abstract class TimedCountBase implements TestRunner {
   private trialFrame(frame: Frame, roll: number | null): void {
     const tr = this.trial!;
     const t = frame.t;
-    const track = this.track(frame, true);
+    const track = this.track(frame);
     tr.monitor.feedPick(frame, track.pick);
     const raw = track.pick.paused ? null : this.progress(track, roll, t);
     const p = raw !== null && Number.isFinite(raw) ? raw : null;
@@ -986,7 +982,7 @@ abstract class TimedCountBase implements TestRunner {
 
   private settleFrame(frame: Frame, roll: number | null): void {
     const t = frame.t;
-    const track = this.track(frame, false);
+    const track = this.track(frame);
     const raw = track.pick.paused ? null : this.progress(track, roll, t);
     const seated = raw !== null && Number.isFinite(raw) && raw <= TIMED_RULES.standReturnLine;
     if (seated) {
@@ -1202,7 +1198,6 @@ export class ArmCurlRunner extends TimedCountBase {
   readonly testId = "arm_curl_30s" as const;
   readonly sides: readonly BodySide[];
   declare readonly side: BodySide;
-  protected readonly checkin = new CheckInDetector();
   protected readonly minVis: number;
   protected variantId: ArmCurlVariantId;
 
@@ -1371,7 +1366,7 @@ export class ArmCurlRunner extends TimedCountBase {
     const t = frame.t;
     if (this.calibrationDue(t)) return;
     if (!this.relockAt(frame)) return;
-    const tr = this.track(frame, false);
+    const tr = this.track(frame);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
     if (!m || !tr.raw) {
       this.calBuf = [];
@@ -1417,8 +1412,6 @@ export class ArmCurlRunner extends TimedCountBase {
       pitch: hipKnown ? median(withHip.map((s) => s.pitch!))! : null,
       t,
     };
-    const last = buf[buf.length - 1];
-    this.checkin.setReference(checkInReference(last.raw, last.aspect));
     this.calBuf = [];
     if (this.afterCal === "ready") {
       this.getReady(t);
@@ -1454,7 +1447,7 @@ export class ArmCurlRunner extends TimedCountBase {
   protected practicing(frame: Frame, roll: number | null): void {
     const R = TIMED_RULES;
     const t = frame.t;
-    const tr = this.track(frame, true);
+    const tr = this.track(frame);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
     if (m) {
       const done = this.bends.push(t, this.filtered(t, m.angle));
@@ -1752,7 +1745,6 @@ interface StandCalibration {
 export class ChairStandRunner extends TimedCountBase {
   readonly testId = "chair_stand_30s" as const;
   readonly sides: readonly TestSide[] = ["none"];
-  protected readonly checkin = new CheckInDetector({}, { swayMeasure: swayMeasureFor("chair_stand_30s") });
   protected readonly minVis: number;
   protected readonly variantId: ChairStandVariantId;
 
@@ -1955,7 +1947,7 @@ export class ChairStandRunner extends TimedCountBase {
     const t = frame.t;
     if (this.calibrationDue(t)) return;
     if (!this.relockAt(frame)) return;
-    const tr = this.track(frame, false);
+    const tr = this.track(frame);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
     if (!m || !tr.raw) {
       this.calBuf = [];
@@ -2021,8 +2013,6 @@ export class ChairStandRunner extends TimedCountBase {
       ankles: withAnkles.length / buf.length >= 0.5 ? [anklesAt(0), anklesAt(1)] : null,
       t,
     };
-    const last = buf[buf.length - 1];
-    this.checkin.setReference(checkInReference(last.raw, last.aspect));
     this.calBuf = [];
     // The filter restarts from the seated h.
     this.filter = this.newFilter();
@@ -2063,7 +2053,7 @@ export class ChairStandRunner extends TimedCountBase {
   protected practicing(frame: Frame, roll: number | null): void {
     const R = TIMED_RULES;
     const t = frame.t;
-    const tr = this.track(frame, true);
+    const tr = this.track(frame);
     const m = tr.pick.paused ? null : this.measure(tr.px, roll);
     const st = this.stands!;
     if (m) {

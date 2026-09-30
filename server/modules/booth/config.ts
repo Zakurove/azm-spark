@@ -11,7 +11,7 @@
  * Nothing here logs, and a code never leaves this module.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
-import { HOME_GATE2_READY } from "../../../src/medical/gates";
+import { HOME_CHECKS_READY } from "../../../src/medical/gates";
 import { riyadhDate } from "../../../src/medical/precheck";
 
 /** The booth days of the UX spec (S55): 11 to 13 October 2026. */
@@ -26,13 +26,13 @@ const DAY_MINUTES = 24 * 60;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Contract v3 I: home checks open only with AZM_CHECK_HOME=1, and only once home gate 2 is built
- * (HOME_GATE2_READY: the answer zones, the fine zone and the fall watch, Q31 (5) (6)). The unit tests
- * of the home contract (vitest) run it with the flag alone; no deployed server does.
+ * Contract v3 I: home checks open only with AZM_CHECK_HOME=1, and only once the build releases them
+ * (HOME_CHECKS_READY, the home gates of Q31 (6)). The unit tests of the home contract (vitest) run it
+ * with the flag alone; no deployed server does.
  */
 export function homeChecksOpen(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.AZM_CHECK_HOME !== "1") return false;
-  return HOME_GATE2_READY || (env.VITEST === "true" && env.NODE_ENV === "test");
+  return HOME_CHECKS_READY || (env.VITEST === "true" && env.NODE_ENV === "test");
 }
 
 function boothDates(): readonly string[] {

@@ -1,98 +1,16 @@
 /**
- * The round 3 closeout panel in the pure pre-check and check in rules (council R3C-09, R3C-12,
- * R3C-19, R3C-27, R3C-30):
- *   R3C-09  the fine zone is never null at home while an arm can signal;
- *   R3C-12  a spoken answer is fine only with a fine phrase and no negator or not fine word anywhere;
+ * The round 3 closeout panel in the pure pre-check rules (council R3C-19, R3C-27, R3C-30; R3C-09 and
+ * R3C-12, the fine zone and the spoken answer, went with D-016):
  *   R3C-27  Ankle or foot, and Another area, for a recent surgery;
  *   R3C-30  a missing completedBefore asks pc_sci_ad_since.
  */
 import { describe, expect, it } from "vitest";
-import { fineZoneSide } from "../src/engine/checkin";
 import { CHECK_DATA } from "../src/movements/assessments";
-import { spokenCheckInAnswer, visibleQuestions } from "../src/medical/precheck";
+import { visibleQuestions } from "../src/medical/precheck";
 import { envOf, fill, run, skipOf, variantsOf } from "./precheck-fixtures";
 
 const standing = (p: Parameters<typeof envOf>[0] = {}, o: Parameters<typeof envOf>[1] = {}) =>
   envOf({ position: "standing", ...p }, o);
-
-describe("R3C-09: the fine zone when every arm is excluded", () => {
-  it("keeps the order limb loss, weaker side, pain side, SCI arm function, then the right", () => {
-    expect(fineZoneSide({})).toBe("right");
-    expect(fineZoneSide({ weaker: "right" })).toBe("left");
-    expect(fineZoneSide({ painSides: ["left"] })).toBe("right");
-    expect(fineZoneSide({ armFunction: { right: "bend_no_hold", left: "bend_hold" } })).toBe("left");
-  });
-
-  it("falls back to the side excluded only by pain, then the weaker arm that lifts, then the SCI arm", () => {
-    // A weaker left arm that can lift and pain in the right: the side excluded only by pain.
-    expect(fineZoneSide({ weaker: "left", weakLift: "yes", painSides: ["right"] })).toBe("right");
-    // The right arm lost: the weaker left arm with pc_weak_lift yes.
-    expect(fineZoneSide({ weaker: "left", weakLift: "yes", limbLossArm: "right" })).toBe("left");
-    // The right arm cannot bend: never the arm that cannot signal.
-    expect(fineZoneSide({ weaker: "left", weakLift: "yes", armFunction: { right: "no_bend" } })).toBe("left");
-    // Pain in both: the better SCI arm function.
-    expect(
-      fineZoneSide({ painSides: ["both"], armFunction: { right: "bend_no_hold", left: "bend_hold" } }),
-    ).toBe("left");
-    // Null only when no arm can signal (noArmSignal).
-    expect(fineZoneSide({ weaker: "left", weakLift: "no", limbLossArm: "right" })).toBeNull();
-    expect(fineZoneSide({ armFunction: { right: "no_bend", left: "no_bend" } })).toBeNull();
-  });
-
-  it("the pre-check gives a fine zone side whenever noArmSignal is false", () => {
-    const env = envOf(
-      { conditions: ["stroke"], support: "left" },
-      { firstCheck: false, sideLeanDoneAtHome: true, setup: { painSides: ["right"] } },
-    );
-    const o = run(env, { pc_weak_lift: "yes" });
-    expect(o.checkIn).toMatchObject({ noArmSignal: false, fineZoneSide: "right" });
-    const lost = envOf(
-      { conditions: ["stroke", "upper_limb_unilateral"], support: "left" },
-      { firstCheck: false, sideLeanDoneAtHome: true, setup: { limbLoss: { arm: "right" } } },
-    );
-    expect(run(lost, { pc_weak_lift: "yes" }).checkIn).toMatchObject({
-      noArmSignal: false,
-      fineZoneSide: "left",
-    });
-    expect(run(lost, { pc_weak_lift: "no" }).checkIn).toMatchObject({
-      noArmSignal: true,
-      fineZoneSide: null,
-    });
-  });
-});
-
-describe("R3C-12: the spoken fine and negation (whole utterance)", () => {
-  const cases: [string, "ar" | "en", string][] = [
-    ["أنا بخير", "ar", "fine"],
-    ["مو بخير", "ar", "not_fine"],
-    ["ما أنا بخير", "ar", "not_fine"],
-    // A negator anywhere in the utterance: not fine, the safe error.
-    ["بخير ما فيني شي", "ar", "not_fine"],
-    ["لا لا أنا بخير", "ar", "not_fine"],
-    ["مب بخير", "ar", "not_fine"],
-    ["لست بخير", "ar", "not_fine"],
-    ["ماني بخير", "ar", "not_fine"],
-    ["مش بخير", "ar", "not_fine"],
-    ["I'm fine", "en", "fine"],
-    ["I’m not fine", "en", "not_fine"],
-    ["I'm fine, don't worry", "en", "not_fine"],
-    ["never been better, I'm fine", "en", "not_fine"],
-    ["no I'm fine", "en", "not_fine"],
-  ];
-  it.each(cases)("%s (%s) reads %s", (text, lang, expected) => {
-    expect(spokenCheckInAnswer(text, lang)).toBe(expected);
-  });
-
-  it("the negators are data (engine.speech.negators) and the negated phrases are not fine words", () => {
-    const speech = CHECK_DATA.engine.speech as typeof CHECK_DATA.engine.speech & {
-      negators: { ar: string[]; en: string[] };
-    };
-    for (const w of ["لا", "مو", "مب", "ما", "مش", "لست", "ماني"]) expect(speech.negators.ar).toContain(w);
-    for (const w of ["not", "never", "no"]) expect(speech.negators.en).toContain(w);
-    expect(speech.notFineWords.ar).toContain("مو بخير");
-    expect(speech.notFineWords.en).toContain("I’m not fine");
-  });
-});
 
 describe("R3C-27: a recent surgery with no listed area", () => {
   it("lists Ankle or foot in the areas and the surgery areas, loading the chair stand", () => {

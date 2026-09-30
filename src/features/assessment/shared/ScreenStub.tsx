@@ -27,8 +27,8 @@ export const SHOW_SCREEN_IDS = import.meta.env.DEV || import.meta.env.VITE_E2E =
 /**
  * Screens that play a line (3.0 caption slot: entry and intro cues, the sound check, Listen on the
  * questions and warnings, the helper briefing, spoken instruction cards, the camera primer, postpone,
- * paused and safety screens, the stop list and check in, the rest and skip lines, the answer zone
- * questions, the results' check_done). Only these carry the Sound control.
+ * paused and safety screens, the stop list and check in, the rest and skip lines, the questions asked
+ * where the person sits, the results' check_done). Only these carry the Sound control.
  */
 export const SOUND_SCREENS: ReadonlySet<string> = new Set([
   "S14",
@@ -59,8 +59,6 @@ export const SOUND_SCREENS: ReadonlySet<string> = new Set([
   "S41",
   "S42",
   "S43",
-  "S44",
-  "S45",
   "S46",
   "S47",
   "S48",

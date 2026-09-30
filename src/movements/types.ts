@@ -255,16 +255,6 @@ export const CHECK_CUE_IDS = [
   "check_stop_now",
   "check_stop_why",
   "check_are_you_ok",
-  "check_are_you_ok_noraise",
-  "check_are_you_ok_zone",
-  "check_are_you_ok_zone_speech",
-  "check_are_you_ok_helper",
-  "check_are_you_ok_fall",
-  "check_are_you_ok_fall_speech",
-  "check_are_you_ok_fall_noraise",
-  "check_are_you_ok_fall_noraise_speech",
-  "check_answer_zone",
-  "check_fine_practice",
   "check_faint_loc",
   "check_skip_ok",
   "check_postpone",
@@ -304,7 +294,7 @@ export const CHECK_CUE_IDS = [
 ] as const;
 export type CheckCueId = (typeof CHECK_CUE_IDS)[number];
 /** Cues retired in revision 1.1 (cuesRetired): never generated, shipped or played. */
-export const RETIRED_CUE_IDS = ["check_time_stop", "check_are_you_ok_speech"] as const;
+export const RETIRED_CUE_IDS = ["check_time_stop"] as const;
 export type RetiredCueId = (typeof RETIRED_CUE_IDS)[number];
 
 export const AREA_IDS = [
@@ -505,19 +495,6 @@ export interface EngineConfig {
     onNo: string;
     audioSession: string;
   };
-  /** On device spoken answers (Q31 (4), O5): prose rules and the word lists. */
-  speech: {
-    allowedOnlyWhen: string;
-    matching: string;
-    fineOnlyPhrases: TextList;
-    notAnswers: { ar: string[]; en: string[] };
-    notFineWords: { ar: string[]; en: string[] };
-    /** R3C-12: whole word negators; in English any word ending in n't as well. */
-    negators: { ar: string[]; en: string[]; rule: string };
-    rule: string;
-  };
-  /** Hands free answers from the chair (Q31 (5), phase 2). */
-  answerZones: { appliesTo: string[]; rule: string; holdSec: number; maxZones: number; phase: string };
   /** The workout trunk safety stop (S0), for src/exercises/defs.ts and the rep engine. */
   coachingTrunkStop: CoachingTrunkStop;
 }
@@ -584,11 +561,8 @@ export interface ShowIf {
   /** The person declared a weaker side (chronicNote display rule, O37). */
   weakerSide?: true;
 }
-/**
- * Flags set during the pre-check: sci_t6 (pc_sci_level), helper_required (per test) and
- * noArmSignal (no arm can give the camera fine signal, stopRouting.checkIn.noArmSignal, O34-2).
- */
-export type PrecheckFlag = "sci_t6" | "helper_required" | "noArmSignal";
+/** Flags set during the pre-check: sci_t6 (pc_sci_level) and helper_required (per test). */
+export type PrecheckFlag = "sci_t6" | "helper_required";
 
 /** When an action applies. Every key present must hold. */
 export interface ActionIf {
@@ -705,12 +679,10 @@ export interface RequireHelperAction extends ActionBase {
   do: "require_helper";
   tests: TestRef[];
 }
-/** The helper line that is the whole briefing of the two arm tests (O34-2 (2)). */
-export type HelperCheckInLine = "helperBriefing.checkInLine";
 export interface ShowAction extends ActionBase {
   do: "show";
-  /** A briefing screen, or for the arm tests the helper check in line (helperBriefing). */
-  screenByTest: Partial<Record<TestId, ScreenId | HelperCheckInLine>>;
+  /** The helper briefing screen of each test (helperBriefing). */
+  screenByTest: Partial<Record<TestId, ScreenId>>;
   stores?: StoreKey;
 }
 export interface StopCheckAction extends ActionBase {
@@ -847,8 +819,6 @@ export interface FollowQuestion<I extends BetweenTestId | AfterCheckId = Between
   ask: SpokenText;
   options: AnswerOption[];
   actions: QuestionAction[];
-  /** bt_pain_after: answered from the chair (answer zones, Q31 (5)). */
-  answerMode?: "answerZones";
 }
 
 /* ---------------------------------------------------------- stops and locks */
@@ -875,43 +845,22 @@ export interface StopOption {
   /** What the stop keeps: changeReported (chest, stroke_signs, breath) or faintReported (Q33). */
   stores?: StoreKey;
 }
-/** The check in cue by setting, raised hand, arm signal, on device speech and the fall watch. */
-export interface CheckInCueSelection {
-  booth: { raiseAllowed: CheckCueId; raiseNotAllowed: CheckCueId };
-  home: { zones: CheckCueId; zonesWithSpeech: CheckCueId; noArmSignal: CheckCueId };
-  fallWatch: {
-    raiseAllowed: CheckCueId;
-    raiseAllowedWithSpeech: CheckCueId;
-    raiseNotAllowedOrNoArmSignal: CheckCueId;
-    raiseNotAllowedOrNoArmSignalWithSpeech: CheckCueId;
-  };
-  rule: string;
-}
-/** The camera fine signal of phase 2 (FineSignalConfig, O34-1): prose rules and a few numbers. */
-export interface FineSignal {
-  phase: string;
-  config: string;
-  side: string;
-  geometry: {
-    top: string;
-    bottom: string;
-    innerEdge: string;
-    outerEdge: string;
-    never: string;
-    status: string;
-  };
-  holdSec: number;
-  jitterTolerance: string;
-  entryRule: string;
-  neverCounted: string[];
-  cameraFineBlockedWhen: string[];
-  blockedRuleScope: string;
-  commit: string;
-  extraTimer: string;
-  rehearsal: string;
-  benchCheck: string;
-  tally: string;
-  ratification: string;
+/**
+ * The optional check in (D-016): off by default, a per device setting, never at the booth. During a
+ * camera test the person out of the picture for leftFrameSec, or no movement for noMovementSec, pauses
+ * the test and asks with `cue`; no answer within noAnswerSec plays one chime.
+ */
+export interface CheckIn {
+  decision: string;
+  setting: string;
+  triggers: string[];
+  leftFrameSec: number;
+  noMovementSec: number;
+  cue: CheckCueId;
+  answers: string;
+  noAnswerSec: number;
+  noAnswer: string;
+  off: string;
 }
 export interface StopRouting {
   ask: Text;
@@ -919,33 +868,7 @@ export interface StopRouting {
   askCue: CheckCueId;
   layout: string;
   options: StopOption[];
-  noAnswerSec: number;
-  noAnswer: string;
-  checkIn: {
-    cueSelection: CheckInCueSelection;
-    triggers: string[];
-    okWhen: string[];
-    okFrom: string;
-    tapByOthers: string;
-    /** Prose: when a raised hand may be asked for (O34-4 (3)). */
-    raiseAllowed: string;
-    /** Prose: when no arm can give the fine signal (O34-2 (1)). */
-    noArmSignal: string;
-    fineSignal: FineSignal;
-    afterFine: string;
-    fallWatch: {
-      where: string;
-      camera: string;
-      triggers: string;
-      checkIn: string;
-      afterFine: string;
-      stops: string;
-      line: string;
-    };
-    noResponseSec: number;
-    noResponse: string;
-    tune_at_booth: boolean;
-  };
+  checkIn: CheckIn;
   resultOnStop: string;
 }
 export interface Locks {
@@ -1143,7 +1066,6 @@ export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
     helpWeakerArm: Text;
     gripAsk: Text;
     practiceCheck: Spoken;
-    practiceCheckAnswerMode: string;
     stepDown: Text;
     rules: string[];
     /** Phase 2: the one step heavier load offer (Q26). */
@@ -1265,7 +1187,6 @@ export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_cou
   variants: TestVariant<ChairStandVariantId>[];
   variantRules: string[];
   pushedAsk: Spoken;
-  pushedAskAnswerMode: string;
   helperRules: string[];
   metric: {
     id: "hip_rise_ratio";
@@ -1488,9 +1409,6 @@ export interface StopFollowUp {
     | { if: { in: OptionValue[] }; do: "emergency"; screen: ScreenId; stores: StoreKey }
     | { if: { equals: OptionValue }; do: "record"; lock: LockKind }
   )[];
-  answerMode: "answerZones";
-  noAnswerSec: number;
-  noAnswer: string;
 }
 /** The end of check symptom question (S49, Q23 (7)): the general form and the side form. */
 export interface EndOfCheckQuestion {
@@ -1506,14 +1424,13 @@ export interface EndOfCheckQuestion {
   options: AnswerOption[];
   actions: { if: { equals: OptionValue }; do: "emergency"; screen: ScreenId; stores: StoreKey }[];
 }
-/** The helper briefing (Q11, O34-2). */
+/** The helper briefing (Q11). */
 export interface HelperBriefing {
   heading: Text;
   voice: string;
   picture: string;
   steadyRule: string;
   closing: string;
-  checkInLine: Spoken & { rule: string };
   confirmButton: Text;
   startGate: string;
   pronouns: string;
@@ -1568,11 +1485,6 @@ export interface Screen extends Spoken {
   emergencyLead?: Spoken & { showOn: string; status: string };
   /** scr_ad: the card after scr_faint_sci for sci_t6 (O24-6). */
   cardOnFaintSci?: string;
-  /** scr_no_response: the fine button rule and the fall watch bodies (O34-4, O42), pending. */
-  fineButton?: string;
-  fallWatch?: Spoken;
-  fallWatchNoRaise?: Spoken;
-  fallWatchRule?: string;
 }
 
 /* -------------------------------------------------------------------- root */

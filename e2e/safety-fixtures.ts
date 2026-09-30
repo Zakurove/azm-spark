@@ -1,16 +1,12 @@
 /**
  * Flow snapshots for the safety specs (e2e/safety.spec.ts, e2e/safety-shots.spec.ts): a check model in
  * a given state, restored by the flow on load (useCheckFlow takeSnapshot), so a spec opens S36 to S49
- * and the stop, check in and alarm overlays directly and then drives them through their own controls.
+ * and the stop list and check in overlays directly and then drives them through their own controls.
  * Guest snapshots run in booth mode (/?check=1); signed in snapshots open from the portal after a
  * throwaway account and intake are made.
  */
 import { expect, type Page } from "@playwright/test";
-import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
-import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import { signUpAddress } from "./sign-up";
-
-const COPY = { ar, en } as const;
 
 export type Lang = "ar" | "en";
 export const url = (path: string, lang: Lang) =>
@@ -56,7 +52,10 @@ export interface ModelOptions {
   outcomes?: Record<string, { status: string; reason?: string; value?: number | null }>;
   lock?: { reason: string; until: number } | null;
   checkId?: string | null;
-  checkIn?: { raiseAllowed: boolean; noArmSignal: boolean; fineZoneSide: "left" | "right" | null } | null;
+  /** The optional check in is on (D-016): a signed in check at home only. */
+  checkIn?: boolean;
+  /** The side's run (calibrated, practiced, attempts saved); a side past its practice by default. */
+  run?: Record<string, unknown>;
   noProtocol?: boolean;
 }
 
@@ -106,13 +105,12 @@ export function model(o: ModelOptions): string {
       outcomes: o.outcomes ?? {},
       cameraUsed: true,
       desktopPassed: true,
-      run: { calibrated: true, practiced: true, saved: 1, retriesUsed: 0, calibrationRounds: 1 },
+      run: { calibrated: true, practiced: true, saved: 1, retriesUsed: 0, calibrationRounds: 1, ...o.run },
       lock: o.lock ?? null,
       closed: false,
-      checkIn: o.checkIn ?? null,
+      checkIn: o.checkIn === true && !booth,
       helperBriefing: {},
       stopped: null,
-      noResponseAlarm: false,
       resuming: false,
       sameChair: {},
     },
@@ -141,7 +139,7 @@ export async function seed(page: Page, snapshot: string, booth: boolean) {
 }
 
 /**
- * The camera states under the overlays (S41, S43 to S45 over S34) take their frames from the fixture
+ * The camera states under the overlays (S41, S43 over S34) take their frames from the fixture
  * source (a person sitting still), never from a real camera, which a headless browser does not have.
  */
 const CAMERA = "e2eFixture=seated-still";
@@ -153,8 +151,11 @@ export async function openGuest(page: Page, lang: Lang, o: ModelOptions) {
   await expect(page.locator(".azm-check").first()).toBeVisible();
 }
 
-/** A throwaway signed in account with a saved intake, then the check at the snapshot's state. */
-export async function openSignedIn(page: Page, lang: Lang, o: ModelOptions) {
+/**
+ * A throwaway signed in account with a saved intake, then the check at the snapshot's state, with the
+ * fixture camera `camera` (a person sitting still by default).
+ */
+export async function openSignedIn(page: Page, lang: Lang, o: ModelOptions, camera: string = CAMERA) {
   await page.goto(url("/", lang));
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
   const reg = await page.request.post("/api/auth/register", {
@@ -191,7 +192,7 @@ export async function openSignedIn(page: Page, lang: Lang, o: ModelOptions) {
   });
   expect(intake.status()).toBe(200);
   await seed(page, model({ ...o, mode: "signedIn", booth: false }), false);
-  await page.goto(url(`/?${CAMERA}`, lang));
+  await page.goto(url(`/?${camera}`, lang));
   await expect(page.locator(".azm-check").first()).toBeVisible();
 }
 
@@ -255,19 +256,6 @@ export const SAFETY_STATES: SafetyState[] = [
   },
   { name: "S38b-faint-question", open: { state: { kind: "faintAsk" } } },
   {
-    name: "S38b-faint-question-take-your-time",
-    open: {
-      state: { kind: "faintAsk" },
-      overlay: { kind: "checkIn", from: "faintAsk", trigger: "no_answer" },
-    },
-    act: async (page) => {
-      // «أنا بخير» counts only from a press 800 ms or more after S43 appeared (R3C-03).
-      await page.waitForTimeout(900);
-      await page.locator('[data-screen="S43"] [data-value="fine"]').click();
-      await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
-    },
-  },
-  {
     name: "S39-fall-standing",
     open: { state: safety("fall", "scr_fall", { askFaint: true }), position: "standing" },
   },
@@ -287,20 +275,16 @@ export const SAFETY_STATES: SafetyState[] = [
   // S41 the stop list, S42 that is fine.
   {
     name: "S41-stop-list-booth-sci",
-    open: { state: MEASURE, overlay: { kind: "stopList", takeYourTime: false }, sciT6: true },
+    open: { state: MEASURE, overlay: { kind: "stopList" }, sciT6: true },
   },
   {
     name: "S41-stop-list-home",
     signedIn: true,
-    open: { state: MEASURE, overlay: { kind: "stopList", takeYourTime: false } },
-  },
-  {
-    name: "S41-stop-list-take-your-time",
-    open: { state: MEASURE, overlay: { kind: "stopList", takeYourTime: true } },
+    open: { state: MEASURE, overlay: { kind: "stopList" } },
   },
   {
     name: "S41-stop-list-offline",
-    open: { state: MEASURE, overlay: { kind: "stopList", takeYourTime: false } },
+    open: { state: MEASURE, overlay: { kind: "stopList" } },
     act: (page) => page.context().setOffline(true),
   },
   {
@@ -322,54 +306,22 @@ export const SAFETY_STATES: SafetyState[] = [
     },
   },
 
-  // S43 check in, S44 go on, S45 the alarm.
+  // S43, the optional check in (D-016): signed in at home with the setting on.
   {
-    name: "S43-check-in-booth",
-    open: {
-      state: MEASURE,
-      overlay: { kind: "checkIn", from: "test", trigger: "no_movement", attempt: true },
-    },
-  },
-  {
-    name: "S43-check-in-home-raise",
+    name: "S43-check-in",
     signedIn: true,
-    open: {
-      state: MEASURE,
-      overlay: { kind: "checkIn", from: "test", trigger: "no_movement", attempt: true },
-      checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: "right" },
-    },
+    open: { state: MEASURE, overlay: { kind: "checkIn" }, checkIn: true },
   },
   {
-    name: "S44-go-on",
-    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: false, canRedo: true } },
-  },
-  {
-    name: "S44-go-on-after-alarm",
-    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true } },
-  },
-  {
-    name: "S45-alarm-booth",
-    open: { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true, trigger: "no_movement" } },
-  },
-  {
-    name: "S45-alarm-help",
-    open: { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true, help: true } },
-  },
-  {
-    name: "S45-alarm-home-sound-off",
+    name: "S43-check-in-no-answer",
     signedIn: true,
-    open: { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true, trigger: "sway" } },
-    act: async (page, lang) => {
-      await page
-        .locator('[data-screen="S45"]')
-        .getByRole("button", { name: COPY[lang].common.sound, exact: true })
-        .click();
-      await expect(page.locator(".safety-still")).toHaveText(COPY[lang].common.alertStillSounds);
-    },
+    open: { state: MEASURE, overlay: { kind: "checkIn" }, checkIn: true },
+    runMs: 30_500,
   },
   {
-    name: "S45-alarm-offline",
-    open: { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true, trigger: "sway" } },
+    name: "S43-check-in-offline",
+    signedIn: true,
+    open: { state: MEASURE, overlay: { kind: "checkIn" }, checkIn: true },
     act: (page) => page.context().setOffline(true),
   },
 

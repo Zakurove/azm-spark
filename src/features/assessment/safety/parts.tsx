@@ -95,13 +95,6 @@ export interface ZoneOption {
   commitAtOnce?: boolean;
   /** What the voice says when the answer is read back (the data's vocalised answer). */
   speech?: SpeechLine;
-  /** The largest zone (the fine zone of S43). */
-  large?: boolean;
-  /**
-   * A press guard (useArmedPress): a press it refuses does nothing visible (the «أنا بخير» of S43,
-   * R3C-03; the answers of S44 opened by a press).
-   */
-  guard?: (e: { detail: number; currentTarget: EventTarget | null }) => boolean;
 }
 
 /** Up to three words: the zone label at 40 px; longer data labels at 28 px, wrapping (4.7). */
@@ -110,10 +103,10 @@ export function zoneLabelSize(label: string): 40 | 28 {
 }
 
 /**
- * Answer zones in their tap form (the booth build and every build until answerZones ships, 7.2-1):
- * up to three buttons of at least 120 px, in data order, each with its number, icon and label. A tap
- * selects at once; the answer is read back for 3 s ("You chose ...") and then commits, and a tap on
- * another zone within those 3 s replaces it. Safe answers commit at once (4.7).
+ * The answers of a question asked where the person sits (S29, S38b, S47 to S49): up to three buttons
+ * of at least 120 px, in data order, each with its number, icon and label. A tap selects at once; the
+ * answer is read back for 3 s ("You chose ...") and then commits, and a tap on another answer within
+ * those 3 s replaces it. Safe answers commit at once (4.7).
  */
 export function AnswerZones({
   labelledBy,
@@ -136,9 +129,8 @@ export function AnswerZones({
   const committed = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const pick = (o: ZoneOption, e: { detail: number; currentTarget: EventTarget | null }) => {
+  const pick = (o: ZoneOption) => {
     if (committed.current) return;
-    if (o.guard && !o.guard(e)) return;
     clearTimeout(timer.current);
     if (o.commitAtOnce) {
       committed.current = true;
@@ -161,10 +153,10 @@ export function AnswerZones({
         <button
           key={o.value}
           type="button"
-          className={`safety-zone${o.large ? " is-large" : ""}`}
+          className="safety-zone"
           aria-pressed={chosen === o.value}
           data-value={o.value}
-          onClick={(e) => pick(o, e)}
+          onClick={() => pick(o)}
         >
           <span className="safety-zone-mark" aria-hidden="true">
             <span className="safety-zone-number">{localizeDigits(lang, String(i + 1))}</span>
@@ -177,7 +169,7 @@ export function AnswerZones({
   );
 }
 
-/** A ring that empties over `total` ms, with no number (S43) or with the seconds inside (S42). */
+/** A ring that empties over `total` ms, with the seconds inside (S42). */
 export function CountdownRing({
   leftMs,
   totalMs,
@@ -187,7 +179,7 @@ export function CountdownRing({
   leftMs: number;
   totalMs: number;
   size?: number;
-  /** Shown inside the ring (the seconds of a rest); none on S43, where time pressure is not shown. */
+  /** Shown inside the ring (the seconds of a rest). */
   label?: ReactNode;
 }) {
   const r = 42;
@@ -226,7 +218,7 @@ export function SafetyHeading({ id, icon, text }: { id?: string; icon: string; t
 }
 
 /**
- * Focuses the element once when it mounts (the heading of an overlay: 5.7, O34-4 (2)). The heading is
+ * Focuses the element once when it mounts (the heading of an overlay: 5.7). The heading is
  * at the top of its dialog, so focus never scrolls the layer (a scroll there would hide the top rows
  * while the answers are fitted to the screen, useFoldFit).
  */

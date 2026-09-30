@@ -28,8 +28,7 @@
     "noneClears": "Clears the other choices",
     "sound": "Sound",
     "notSure": "Not sure",
-    "callAria": "Call {digits}",
-    "alertStillSounds": "The alert tone still sounds"
+    "callAria": "Call {digits}"
   },
   "state": {
     "loading": {
@@ -584,7 +583,6 @@
     "button": "Stop",
     "buttonLabel": "Stop now",
     "hint": "Choose what applies to you.",
-    "takeYourTime": "Take your time.",
     "groupUrgent": "Symptoms or a fall",
     "groupOther": "Other reasons",
     "listen": "Listen to the choices",
@@ -602,20 +600,9 @@
   },
   "checkin": {
     "fine": "I am fine",
-    "seenHand": "We saw your hand.",
     "wantStop": "I want to stop",
-    "needHelp": "I need help",
-    "short": "Raise your hand or tap the screen"
-  },
-  "goOn": {
-    "title": "Do you want to go on?",
-    "redo": "Redo the test after a rest",
-    "skip": "Skip this test",
-    "stop": "I want to stop"
-  },
-  "alarm": {
-    "fine": "I am fine",
-    "staff": "Staff, please check on this visitor now."
+    "setting": "Check on me during tests",
+    "settingNote": "If you leave the picture or stop moving for a few seconds during a test, we pause it and ask if you are all right."
   },
   "skipNotice": {
     "painTitle": "Today we skip the tests that use the area that hurts",
@@ -695,11 +682,6 @@
     }
   },
   "zones": {
-    "label": "Answer boxes",
-    "confirm": "You chose “{answer}”",
-    "changeHint": "To change your answer, hold your hand in another box.",
-    "twoHands": "We see two hands. Keep one hand in the box.",
-    "unclear": "Put your hand inside one box.",
-    "noPerson": "We cannot see you right now. You can tap your answer on the screen."
+    "confirm": "You chose “{answer}”"
   }
 }

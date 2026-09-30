@@ -67,10 +67,13 @@ for (const size of SIZES) {
         await shot(page, lang, size.tag, `S34-${name}`);
       }
 
-      // Sound off: Large captions turn on by default and the alert line shows (4.3).
+      // Sound off: Large captions turn on by default (4.3).
       await page.goto(url(`/?check=1&e2eCamPreview=timed-curl`, lang));
       await page.locator(".s34-top button[aria-pressed]").first().click();
-      await expect(page.locator(".s34-sound-note")).toBeVisible();
+      await expect(page.locator(".s34-top button[aria-pressed]").first()).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
       await shot(page, lang, size.tag, "S34-state-sound-off");
 
       // Offline: the check keeps running; a small pill in the top bar (S34 Off).

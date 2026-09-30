@@ -1,15 +1,14 @@
 /**
- * Safety stream (UX spec S36 to S49, maps 2.6 and 2.7; council O12, O34-4, O34-5, O42), in Arabic and
- * English, driven through the screens' own controls from a flow snapshot (safety-fixtures.ts):
- *   - every stop list option reaches its screen with one tap;
- *   - the stop list runs the check in after 30 s with no input, the check in chimes again at 7 s and
- *     opens the alarm at 15 s; the alarm sounds whatever the Sound setting and only «أنا بخير» ends it;
- *   - a camera trigger during a test runs the check in; no response, then fine, gives S44 after the
- *     alarm with no redo (R3C-02); «أحتاج مساعدة» opens the help alarm, whose fine goes to the stop
- *     list; «أنا بخير» counts only 800 ms or more after S43 or S45 appeared (R3C-03);
+ * Safety stream (UX spec S36 to S49, maps 2.6 and 2.7; council O12, O42; D-016), in Arabic and English,
+ * driven through the screens' own controls from a flow snapshot (safety-fixtures.ts):
+ *   - every stop list option reaches its screen with one tap, and the list waits for its answer;
+ *   - the optional check in (D-016), on at home only: a trigger pauses the test with a calm S43;
+ *     after 30 s with no answer one chime and the line to call someone nearby; «أنا بخير» redoes the
+ *     attempt after its rest, «أريد التوقف» opens the stop list; at the booth a trigger does nothing;
  *   - 997 is on the emergency screens only (D-016): S36 puts the call first as a tel: link, shows the
- *     number at 64 px or more, and captions every sentence in turn; S39, S44 and S45 have no call;
- *   - the faint question follows S38 and a touch on S39; S47 reads an answer back.
+ *     number at 64 px or more, and captions every sentence in turn; S39 has no call;
+ *   - the faint question follows S38 and a touch on S39, and waits for its answer; S47 reads an
+ *     answer back.
  * Timers run on Playwright's fake clock (page.clock), never on shortened values.
  */
 import { expect, test, type Page } from "@playwright/test";
@@ -24,7 +23,7 @@ const toArabic = (s: string) => s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[N
 const shown = (lang: Lang, s: string) => (lang === "ar" ? toArabic(s) : s);
 const sentences = (s: string) => s.split(/(?<=[.!?؟])\s+/u);
 
-// The alarm tone plays without a tap in these runs (a real phone primes it on the first tap, 4.6).
+// The chime plays without a tap in these runs.
 test.use({ launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] } });
 
 function watchErrors(page: Page): string[] {
@@ -73,7 +72,7 @@ for (const lang of LANGS) {
         const errors = watchErrors(page);
         await openGuest(page, lang, {
           state: MEASURE,
-          overlay: { kind: "stopList", takeYourTime: false },
+          overlay: { kind: "stopList" },
           sciT6: true,
         });
         const list = page.locator('.check-overlay [data-screen="S41"]');
@@ -96,99 +95,77 @@ for (const lang of LANGS) {
       }
     });
 
-    test("no answer: the check in after 30 s, a chime at 7 s, the alarm at 15 s; only fine ends it", async ({
-      page,
-    }) => {
+    test("the stop list waits for its answer: nothing opens over it (D-016)", async ({ page }) => {
+      // The fixture camera runs on the fake clock too: a minute of frames takes a while.
+      test.setTimeout(150_000);
       const errors = watchErrors(page);
       await page.clock.install();
-      await openGuest(page, lang, { state: MEASURE, overlay: { kind: "stopList", takeYourTime: false } });
+      await openGuest(page, lang, { state: MEASURE, overlay: { kind: "stopList" } });
       await expect(page.locator('[data-screen="S41"]')).toBeVisible();
-      // A touch restarts the 30 s (Q31 (2)).
-      await page.clock.runFor(20_000);
-      await page.locator('[data-screen="S41"] h1').click();
-      await page.clock.runFor(20_000);
+      await page.clock.runFor(45_000);
       await expect(page.locator('[data-screen="S41"]')).toBeVisible();
-      await page.clock.runFor(10_500);
+      await expect(page.locator('[data-screen="S43"]')).toHaveCount(0);
+      expect(errors).toEqual([]);
+    });
+
+    test("the check in at home: a calm S43, one chime and the help line after 30 s, then the redo", async ({
+      page,
+    }) => {
+      test.setTimeout(150_000);
+      const errors = watchErrors(page);
+      await page.clock.install();
+      await openSignedIn(page, lang, { state: MEASURE, checkIn: true });
+      await expect(page.locator(".check-base")).toHaveAttribute("data-state", "cam.measure");
+      await dispatch(page, { type: "TRIGGER", trigger: "no_movement" });
       const checkIn = page.locator('[data-screen="S43"]');
       await expect(checkIn).toBeVisible();
       await expect(checkIn).toHaveAttribute("role", "alertdialog");
       await expect(checkIn.locator("h1")).toBeFocused();
-      // At 7 s the cue again; before 15 s still the check in.
-      await page.clock.runFor(14_000);
-      await expect(checkIn).toBeVisible();
+      const [question, instruction] = sentences(data.cues.find((c) => c.id === "check_are_you_ok")![lang]);
+      await expect(checkIn.locator("h1")).toHaveText(question);
+      const line = checkIn.locator(".safety-checkin-line");
+      await expect(line).toHaveText(instruction);
+      await expect(checkIn.locator('a[href^="tel:"]')).toHaveCount(0);
+      await expectTargets(page);
+      const fine = checkIn.getByRole("button", { name: a.checkin.fine, exact: true });
+      expect((await fine.boundingBox())!.height).toBeGreaterThanOrEqual(120);
+      // Nobody answers: at 30 s one chime and the line to call someone nearby; nothing else happens.
+      await page.clock.runFor(29_000);
+      await expect(line).toHaveText(instruction);
       await page.clock.runFor(1_500);
-      const alarm = page.locator('[data-screen="S45"]');
-      await expect(alarm).toBeVisible();
-      await expect(alarm).toHaveAttribute("data-alarm", "sounding");
-      await expect(alarm.locator("h1")).toBeFocused();
-      await expect(alarm.locator('a[href^="tel:"]')).toHaveCount(0);
-      await expect(alarm.locator(".safety-staff")).toHaveText(a.alarm.staff);
-      // The Sound setting does not silence it, and says so.
-      await alarm.getByRole("button", { name: a.common.sound }).click();
-      await expect(alarm.getByText(a.common.alertStillSounds)).toBeVisible();
-      await expect(alarm).toHaveAttribute("data-alarm", "sounding");
-      // Any other touch does nothing.
-      await alarm.locator("h1").click();
-      await alarm.locator(".safety-sentences").click();
-      await page.clock.runFor(5_000);
-      await expect(alarm).toHaveAttribute("data-alarm", "sounding");
-      // «أنا بخير» ends it; from the stop list, back to the list with "Take your time".
-      await alarm.getByRole("button", { name: a.alarm.fine }).click();
-      await expect(page.locator('[data-screen="S45"]')).toHaveCount(0);
-      await expect(page.locator('[data-screen="S41"]')).toBeVisible();
-      await expect(page.getByText(a.stop.takeYourTime)).toBeVisible();
+      await expect(checkIn).toHaveAttribute("data-unanswered", "true");
+      await expect(line).toHaveText(data.screens.scr_no_response[lang]);
+      await expect(line).toHaveAttribute("data-help", "true");
+      await page.clock.runFor(15_000);
+      await expect(checkIn).toBeVisible();
+      await expect(page.locator('[data-screen="S45"], [data-screen="S44"]')).toHaveCount(0);
+      // «أنا بخير»: the paused attempt runs again after its rest.
+      await fine.click();
+      await expect(checkIn).toHaveCount(0);
+      await expect(page.locator(".check-base")).toHaveAttribute("data-state", "cam.rest");
       expect(errors).toEqual([]);
     });
 
-    test("a trigger in a test: no response, then fine, gives S44 after the alarm, with no call", async ({
-      page,
-    }) => {
+    test("the check in: «أريد التوقف» opens the stop list", async ({ page }) => {
+      await page.clock.install();
+      await openSignedIn(page, lang, { state: MEASURE, checkIn: true });
+      await dispatch(page, { type: "TRIGGER", trigger: "left_frame" });
+      await page
+        .locator('[data-screen="S43"]')
+        .getByRole("button", { name: a.checkin.wantStop, exact: true })
+        .click();
+      const list = page.locator('[data-screen="S41"]');
+      await expect(list).toBeVisible();
+      await expect(list.getByRole("heading", { level: 1 })).toHaveText(data.stopRouting.ask[lang]);
+    });
+
+    test("at the booth the check in is off: a trigger does nothing", async ({ page }) => {
       await page.clock.install();
       await openGuest(page, lang, { state: MEASURE });
       await dispatch(page, { type: "TRIGGER", trigger: "no_movement" });
-      const checkIn = page.locator('[data-screen="S43"]');
-      await expect(checkIn).toBeVisible();
-      // The booth form without check in inputs: the no raise cue (O34-4 (3)).
-      await expect(
-        checkIn.getByText(data.cues.find((c) => c.id === "check_are_you_ok_noraise")!.short[lang], {
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(checkIn.locator(".safety-zone")).toHaveCount(3);
-      const fine = checkIn.locator('[data-value="fine"]');
-      expect((await fine.boundingBox())!.height).toBeGreaterThanOrEqual(120);
-      await page.clock.runFor(15_500);
-      await expect(page.locator('[data-screen="S45"]')).toBeVisible();
-      await page.clock.runFor(800);
-      await page.locator('[data-screen="S45"]').getByRole("button", { name: a.alarm.fine }).click();
-      const goOn = page.locator('[data-screen="S44"]');
-      await expect(goOn).toBeVisible();
-      await expect(goOn.getByRole("heading", { level: 1 })).toBeVisible();
-      await expect(goOn.locator('a[href^="tel:"]')).toHaveCount(0);
-      // No redo after a no response alarm (R3C-02); S44 opened by a tap arms its answers after 600 ms.
-      await expect(goOn.locator('[data-value="redo"]')).toHaveCount(0);
-      await page.clock.runFor(600);
-      await goOn.locator('[data-value="skip"]').click();
-      await expect(page.locator('[data-screen="S46"]')).toBeVisible();
-    });
-
-    test("I need help opens the help alarm at once; its fine goes to the stop list (O34-5)", async ({
-      page,
-    }) => {
-      await page.clock.install();
-      await openGuest(page, lang, {
-        state: MEASURE,
-        overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
-      });
-      await page.locator('[data-screen="S43"] [data-value="help"]').click();
-      const alarm = page.locator('[data-screen="S45"]');
-      await expect(alarm).toHaveAttribute("data-help", "true");
-      await expect(alarm.locator("h1")).toHaveText(a.safety.emergency.title);
-      // «أنا بخير» counts only from a press 800 ms or more after S45 appeared (R3C-03).
-      await page.clock.runFor(800);
-      await alarm.getByRole("button", { name: a.alarm.fine }).click();
-      await expect(page.locator('[data-screen="S41"]')).toBeVisible();
-      await expect(page.getByText(a.stop.takeYourTime)).toHaveCount(0);
+      await page.clock.runFor(1_000);
+      await expect(page.locator('[data-screen="S43"]')).toHaveCount(0);
+      await expect(page.locator(".check-base")).toHaveAttribute("data-state", "cam.measure");
     });
 
     test("a visitor pass ending over S37 clears the pass and keeps the screen until it is left (R3C-35)", async ({
@@ -321,18 +298,13 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
     });
 
-    test("S38b: 30 s with no answer runs the check in; fine returns with Take your time; Not sure opens S36", async ({
-      page,
-    }) => {
+    test("S38b waits for its answer with no timer (D-016); Not sure opens S36", async ({ page }) => {
       await page.clock.install();
       await openGuest(page, lang, { state: { kind: "faintAsk" } });
       await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
-      await page.clock.runFor(30_500);
-      await expect(page.locator('[data-screen="S43"]')).toBeVisible();
-      await page.clock.runFor(800);
-      await page.locator('[data-screen="S43"] [data-value="fine"]').click();
+      await page.clock.runFor(60_000);
       await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
-      await expect(page.getByText(a.stop.takeYourTime)).toBeVisible();
+      await expect(page.locator('[data-screen="S43"]')).toHaveCount(0);
       await page.locator('[data-screen="S38b"] [data-value="unsure"]').click();
       await expect(page.locator('[data-screen="S36"]')).toBeVisible();
     });
@@ -385,7 +357,7 @@ for (const lang of LANGS) {
       page,
     }) => {
       await page.clock.install();
-      await openGuest(page, lang, { state: MEASURE, overlay: { kind: "stopList", takeYourTime: false } });
+      await openGuest(page, lang, { state: MEASURE, overlay: { kind: "stopList" } });
       const label = data.stopRouting.options.find((o) => o.id === "tired")!.label[lang];
       await page.getByRole("button", { name: label }).click();
       const done = page.locator('[data-screen="S42"]');
@@ -431,17 +403,6 @@ for (const lang of LANGS) {
         [
           { state: { kind: "faintAsk" }, screen: "S38b" },
           { state: { kind: "stopDone", i: 0, restSec: 60, reason: "stopped_symptom" }, screen: "S42" },
-          {
-            state: MEASURE,
-            overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
-            screen: "S43",
-          },
-          {
-            state: MEASURE,
-            overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true },
-            screen: "S44",
-          },
-          { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true }, screen: "S45" },
           {
             state: {
               kind: "skipNotice",

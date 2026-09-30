@@ -1,7 +1,7 @@
 /**
- * React side of the safety screens: the spoken sequence with its captions, the alarm tone, the chime,
- * the wake lock and the no answer timers (UX spec S36 to S49, 4.3, 4.6, 5.10 useCues, useAlarm,
- * useWakeLock). Every timer runs on the phone and never waits for the network.
+ * React side of the safety screens: the spoken sequence with its captions, the chime, the wake lock,
+ * the double tap guard and fitting the answers above the fold (UX spec S36 to S49, 4.3, 4.6, 5.10
+ * useCues, useWakeLock). Every timer runs on the phone and never waits for the network.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { localizeDigits } from "../../../i18n";
@@ -9,7 +9,7 @@ import { useCheckUi } from "../shared/CheckUi";
 import { SequencePlayer } from "./speechPlayer";
 import type { SpeechLine } from "./speech";
 import { SAFETY_TIMING } from "./timing";
-import { alarmUri, chimeUri } from "./tones";
+import { chimeUri } from "./tones";
 
 /** The latest value of `v`, for callbacks that outlive a render. */
 export function useLatest<T>(v: T) {
@@ -142,138 +142,11 @@ export function useSpeechSequence(
   };
 }
 
-/* ------------------------------------------------------------------ alarm and chime */
-
-export type AlarmStatus = "sounding" | "blocked" | "stopped";
-
-let primed: HTMLAudioElement | null = null;
-
-/**
- * The alarm element is primed by the first tap in the check (4.6), so it can sound later without a
- * tap (iOS lets an element play only when a tap started it once). Installed once when the safety
- * screens load; the element stays silent until the alarm.
- */
-export function installAlarmPrimer(doc: Document | undefined = globalThis.document): void {
-  if (!doc || typeof Audio === "undefined") return;
-  const prime = () => {
-    doc.removeEventListener("pointerdown", prime, true);
-    doc.removeEventListener("keydown", prime, true);
-    if (primed) return;
-    const el = new Audio(alarmUri());
-    el.muted = true;
-    el.loop = true;
-    primed = el;
-    void el
-      .play()
-      .then(() => {
-        if (el !== primed || !el.muted) return;
-        el.pause();
-        el.currentTime = 0;
-      })
-      .catch(() => undefined);
-  };
-  doc.addEventListener("pointerdown", prime, true);
-  doc.addEventListener("keydown", prime, true);
-}
-
-function alarmElement(): HTMLAudioElement {
-  primed ??= new Audio(alarmUri());
-  return primed;
-}
-
-/**
- * The no response alarm (S45, 5.10 useAlarm): a looped tone at full element volume whatever the Sound
- * setting, captionsOnly or screen reader mode, faded in from 30% over 3 s, with vibration on Android.
- * If the browser refuses to start it (no tap yet), it starts on the next touch anywhere. `stop()`
- * silences it (the fine button).
- */
-export function useAlarmTone(active: boolean): { status: AlarmStatus; stop(): void } {
-  const [status, setStatus] = useState<AlarmStatus>("stopped");
-  const stopRef = useRef<() => void>(() => undefined);
-
-  useEffect(() => {
-    if (!active || typeof Audio === "undefined") return;
-    const el = alarmElement();
-    const nav = navigator as Navigator & { audioSession?: { type: string } };
-    try {
-      if (nav.audioSession) nav.audioSession.type = "playback";
-    } catch {
-      /* not supported */
-    }
-    let stopped = false;
-    let fade: ReturnType<typeof setInterval> | undefined;
-    let buzz: ReturnType<typeof setInterval> | undefined;
-    const vibrate = (p: number | number[]) => {
-      // Browsers refuse vibration before the first tap in the page (and log it): wait for it.
-      const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } })
-        .userActivation;
-      if (activation && !activation.hasBeenActive) return;
-      try {
-        if (typeof navigator.vibrate === "function") navigator.vibrate(p);
-      } catch {
-        /* not supported */
-      }
-    };
-    const begin = () => {
-      if (stopped) return;
-      el.muted = false;
-      el.loop = true;
-      el.volume = SAFETY_TIMING.alarmStartVolume;
-      try {
-        el.currentTime = 0;
-      } catch {
-        /* not seekable yet */
-      }
-      void el
-        .play()
-        .then(() => {
-          if (stopped) return el.pause();
-          setStatus("sounding");
-          const t0 = Date.now();
-          clearInterval(fade);
-          fade = setInterval(() => {
-            const k = Math.min(1, (Date.now() - t0) / SAFETY_TIMING.alarmFadeMs);
-            el.volume = SAFETY_TIMING.alarmStartVolume + (1 - SAFETY_TIMING.alarmStartVolume) * k;
-            if (k >= 1) clearInterval(fade);
-          }, 100);
-        })
-        .catch(() => {
-          if (stopped) return;
-          setStatus("blocked");
-          // Starts on the next touch or key press anywhere (the touch itself is not a fine).
-          const retry = () => {
-            document.removeEventListener("pointerdown", retry, true);
-            document.removeEventListener("keydown", retry, true);
-            begin();
-          };
-          document.addEventListener("pointerdown", retry, true);
-          document.addEventListener("keydown", retry, true);
-        });
-      const [on, off] = SAFETY_TIMING.vibration;
-      vibrate([on, off]);
-      clearInterval(buzz);
-      buzz = setInterval(() => vibrate([on, off]), on + off);
-    };
-    const stop = () => {
-      if (stopped) return;
-      stopped = true;
-      clearInterval(fade);
-      clearInterval(buzz);
-      vibrate(0);
-      el.pause();
-      setStatus("stopped");
-    };
-    stopRef.current = stop;
-    begin();
-    return stop;
-  }, [active]);
-
-  return { status, stop: useCallback(() => stopRef.current(), []) };
-}
+/* ------------------------------------------------------------------ chime */
 
 let chimeEl: HTMLAudioElement | null = null;
 
-/** The soft two note chime (S43 at 7 s, S47 on arrival). It follows the Sound setting. */
+/** The soft two note chime (S43 after 30 s with no answer, S47 on arrival). It follows the Sound setting. */
 export function playChime(soundOn: boolean): void {
   if (!soundOn || typeof Audio === "undefined") return;
   chimeEl ??= new Audio(chimeUri());
@@ -321,63 +194,6 @@ export function useWakeLock(active = true): void {
 
 /* ------------------------------------------------------------------ timers */
 
-/**
- * A no answer timer (S41 30 s, S38b 30 s, S44 30 s): `onExpire` runs once `ms` pass with no touch,
- * scroll, key press or focus change by the person (each restarts it, Q31 (2)). `restart()` restarts it
- * (Listen to the choices). Off while `enabled` is false. With `pauseHidden` it pauses while the page is
- * hidden and resumes with the time left (the S44 timer, R3C-01 (7)).
- */
-export function useNoAnswerTimer(
-  ms: number,
-  onExpire: () => void,
-  enabled: boolean,
-  opts: { pauseHidden?: boolean } = {},
-): { restart(): void } {
-  const expire = useLatest(onExpire);
-  const enabledRef = useLatest(enabled);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  /** When the running timer ends (epoch ms), and the time left while the page is hidden. */
-  const endsAt = useRef(0);
-  const left = useRef<number | null>(null);
-  const start = useCallback((after: number) => {
-    clearTimeout(timer.current);
-    left.current = null;
-    if (!enabledRef.current) return;
-    endsAt.current = Date.now() + after;
-    timer.current = setTimeout(() => expire.current(), after);
-  }, []);
-  const restart = useCallback(() => start(ms), [ms, start]);
-
-  useEffect(() => {
-    if (!enabled) {
-      clearTimeout(timer.current);
-      return;
-    }
-    restart();
-    // Any input on the page counts (the list is the page, or the overlay layer over the inert stage).
-    // A scroll by the person is a wheel, a touch move, a key or a press on the scroll bar; a bare
-    // "scroll" event is not listened to, because the page also scrolls by itself when a caption comes
-    // or goes, and that must never hold the check in back.
-    const events = ["pointerdown", "keydown", "focusin", "wheel", "touchmove"] as const;
-    for (const e of events) window.addEventListener(e, restart, { capture: true, passive: true });
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        if (left.current !== null) return;
-        clearTimeout(timer.current);
-        left.current = Math.max(0, endsAt.current - Date.now());
-      } else if (left.current !== null) start(left.current);
-    };
-    if (opts.pauseHidden) document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      clearTimeout(timer.current);
-      for (const e of events) window.removeEventListener(e, restart, { capture: true });
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [enabled, restart]);
-
-  return { restart };
-}
-
 /** Seconds left of a countdown that started when `running` turned true (rings, rests). */
 export function useCountdown(totalMs: number, running = true): number {
   const [left, setLeft] = useState(totalMs);
@@ -410,24 +226,19 @@ if (typeof document !== "undefined")
     true,
   );
 
-/** A pointerdown this recent when a screen opens is the press that opened it (STOP, «أحتاج مساعدة»). */
+/** A pointerdown this recent when a screen opens is the press that opened it (STOP, a tap on S43). */
 const OPENER_MS = 1000;
 
 /**
- * Answers arm only for a new, deliberate press. A double tap on STOP or «أحتاج مساعدة» sends its second
- * tap to whatever now sits under the finger, and a tremor or an anxious press is enough for that; a
- * screen that appears under a finger already moving toward a control does the same. So a press counts
- * only when its pointerdown started on the same control after the screen appeared, and not within
- * `minMs` of it appearing, anywhere on the control:
- *   - `always` (the «أنا بخير» of S43 and S45, R3C-03): whatever opened the screen (a press, the 15 s
- *     timeout, a camera trigger);
- *   - otherwise (S41, and S44 when a fine tap opened it): only when a press opened the screen.
- * Keyboard, switch and screen reader activation (a click with no pointer) always counts. An ignored
- * press does nothing visible.
+ * The guard against a double tap. A double tap on STOP sends its second tap to whatever now sits under
+ * the finger, and a tremor or an anxious press is enough for that. So a press counts only when its
+ * pointerdown started on the same control after the screen appeared, and, when a press opened the
+ * screen, not within `minMs` of it appearing. Keyboard, switch and screen reader activation (a click
+ * with no pointer) always counts. An ignored press does nothing visible.
  *
  * Returns a check for a control's click handler: `if (!armed(e)) return;`.
  */
-export function useArmedPress(minMs: number, opts: { always?: boolean } = {}) {
+export function useArmedPress(minMs: number) {
   const openedAt = useRef(0);
   const byPress = useRef(false);
   const down = useRef<(Down & { target: EventTarget | null }) | null>(null);
@@ -441,7 +252,6 @@ export function useArmedPress(minMs: number, opts: { always?: boolean } = {}) {
     document.addEventListener("pointerdown", onDown, true);
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, []);
-  const always = opts.always === true;
   return useCallback(
     (e: { detail: number; currentTarget: EventTarget | null }): boolean => {
       if (e.detail === 0) return true;
@@ -449,10 +259,10 @@ export function useArmedPress(minMs: number, opts: { always?: boolean } = {}) {
       const own = e.currentTarget;
       if (!d || !(d.target instanceof Node) || !(own instanceof Node) || !own.contains(d.target))
         return false;
-      if (!always && !byPress.current) return true;
+      if (!byPress.current) return true;
       return d.t - openedAt.current >= minMs;
     },
-    [minMs, always],
+    [minMs],
   );
 }
 

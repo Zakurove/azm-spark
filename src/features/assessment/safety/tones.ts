@@ -1,15 +1,12 @@
 /**
- * The alarm tone of S45 and the soft chime of S43 and S47 (UX spec S45, S43, S47, Appendix B), made on
- * the phone as WAV sound: no file to fetch, so both play offline and never wait for the network
- * (UX 0.7, O18). Pure: bytes and a data URI, no DOM.
+ * The soft chime of S43 and S47 (UX spec S43, S47, Appendix B), made on the phone as WAV sound: no file
+ * to fetch, so it plays offline and never waits for the network (UX 0.7, O18). Pure: bytes and a data
+ * URI, no DOM. A soft two note chime under 1 s, with a gentle decay (every tone starts and ends at
+ * zero with a short ramp, so there is no click).
  *
- *   alarm   two alternating tones, about 880 and 660 Hz, 0.5 s each, loud and loopable without a
- *           click (every tone starts and ends at zero with a short ramp)
- *   chime   a soft two note chime under 1 s, quieter, with a gentle decay
- *
- * They play through HTML media elements (never Web Audio, which iOS mutes with the silent switch).
- * Appendix B still asks for the produced /cues/alarm.mp3 and /cues/chime.mp3 (loudness normalised);
- * these tones stand in until those files exist.
+ * It plays through an HTML media element (never Web Audio, which iOS mutes with the silent switch).
+ * Appendix B still asks for a produced /cues/chime.mp3 (loudness normalised); this tone stands in
+ * until that file exists.
  */
 
 export const TONE_RATE = 22050;
@@ -87,28 +84,16 @@ export function base64(bytes: Uint8Array): string {
   return out;
 }
 
-/** The S45 alarm: 880 Hz then 660 Hz, 0.5 s each, looped by the player. */
-export const ALARM_SEGMENTS: readonly ToneSegment[] = [
-  { freq: 880, ms: 500, gain: 0.95 },
-  { freq: 660, ms: 500, gain: 0.95 },
-];
-
 /** The S43 and S47 chime: two soft notes, under 1 s in all. */
 export const CHIME_SEGMENTS: readonly ToneSegment[] = [
   { freq: 660, ms: 320, gain: 0.35, envelope: "bell" },
   { freq: 880, ms: 480, gain: 0.35, envelope: "bell" },
 ];
 
-const cache = new Map<string, string>();
+let chime: string | null = null;
 
-function uri(key: string, segments: readonly ToneSegment[]): string {
-  let v = cache.get(key);
-  if (!v) {
-    v = `data:audio/wav;base64,${base64(wavBytes(toneSamples(segments)))}`;
-    cache.set(key, v);
-  }
-  return v;
+/** The chime as a data URI, made once. */
+export function chimeUri(): string {
+  chime ??= `data:audio/wav;base64,${base64(wavBytes(toneSamples(CHIME_SEGMENTS)))}`;
+  return chime;
 }
-
-export const alarmUri = () => uri("alarm", ALARM_SEGMENTS);
-export const chimeUri = () => uri("chime", CHIME_SEGMENTS);

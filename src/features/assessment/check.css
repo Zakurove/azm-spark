@@ -512,13 +512,6 @@
   background: var(--purple);
   transition: width 180ms ease;
 }
-.azm-check .check-sound-note {
-  max-width: calc(var(--column) + 2 * var(--gutter));
-  margin: 0 auto;
-  padding: var(--s1) var(--gutter);
-  font-size: var(--t-meta);
-  color: var(--muted);
-}
 .azm-check .check-main {
   flex: 1;
   width: 100%;
@@ -880,7 +873,7 @@ html:has(.azm-check.check-page) {
   transform: scaleX(-1);
 }
 
-/* Overlays over a state (S41, S43, S44, S45): a full layer; the page behind is inert. */
+/* Overlays over a state (S41, S43): a full layer; the page behind is inert. */
 .azm-check .check-overlay {
   position: fixed;
   inset: 0;

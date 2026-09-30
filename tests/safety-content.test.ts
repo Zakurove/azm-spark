@@ -1,8 +1,8 @@
 /**
  * What the safety screens show and say (UX spec S36 to S49, map 2.6 and 2.7; council O12, O24-6,
- * O34-4, O34-5, O42, O43), in Arabic and English: the call controls and the 64 px number, the extra
- * cards, the paused line, the ways out, the stop list, the check in cue, the alarm text, the skip
- * notice and the end question. Pure (content.ts); no DOM.
+ * O42, O43; D-016), in Arabic and English: the call controls and the 64 px number, the extra cards,
+ * the paused line, the ways out, the stop list, the check in, the skip notice and the end question.
+ * Pure (content.ts); no DOM.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -16,10 +16,8 @@ import {
 } from "../src/features/assessment/flowMachine";
 import { overlayFor, screenFor } from "../src/features/assessment/screens";
 import {
-  alarmView,
   allDone,
   anyTried,
-  checkInCueId,
   checkInView,
   emphasise,
   endQuestionView,
@@ -332,95 +330,50 @@ describe("S41 the stop list (Q31 (3), O43)", () => {
   };
   for (const [option, screen] of Object.entries(expected))
     it(`one tap on ${option} routes to ${screen}`, () => {
-      const m = model({ sciT6: true, overlay: { kind: "stopList", takeYourTime: false } });
+      const m = model({ sciT6: true, overlay: { kind: "stopList" } });
       const next = flowReducer(m, { type: "STOP_OPTION", option: option as StopOptionId, now: NOW });
       expect(next.overlay).toBeNull();
       expect(screenFor(next)).toBe(screen);
     });
 
   it("a seated person's fall shows the seated fall text (screenWhen)", () => {
-    const m = model({ position: "wheelchair", overlay: { kind: "stopList", takeYourTime: false } });
+    const m = model({ position: "wheelchair", overlay: { kind: "stopList" } });
     const next = flowReducer(m, { type: "STOP_OPTION", option: "fall", now: NOW });
     expect(next.state).toMatchObject({ kind: "safety", screen: "scr_fall_seated", askFaint: true });
-    const standing = flowReducer(
-      model({ position: "standing", overlay: { kind: "stopList", takeYourTime: false } }),
-      {
-        type: "STOP_OPTION",
-        option: "fall",
-        now: NOW,
-      },
-    );
+    const standing = flowReducer(model({ position: "standing", overlay: { kind: "stopList" } }), {
+      type: "STOP_OPTION",
+      option: "fall",
+      now: NOW,
+    });
     expect(standing.state).toMatchObject({ screen: "scr_fall" });
   });
 });
 
-describe("S43, S44, S45: the check in and the alarm (O34-4, O34-5, O42)", () => {
-  it("asks at the booth with check_are_you_ok, or the no raise form when a hand must not be raised", () => {
-    const d = model().data;
-    expect(
-      checkInCueId({ ...d, checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: "right" } }),
-    ).toBe("check_are_you_ok");
-    expect(
-      checkInCueId({ ...d, checkIn: { raiseAllowed: false, noArmSignal: false, fineZoneSide: "right" } }),
-    ).toBe("check_are_you_ok_noraise");
-    // No inputs kept (the guest flow): the safer no raise form.
-    expect(checkInCueId({ ...d, checkIn: null })).toBe("check_are_you_ok_noraise");
-    const v = checkInView(
-      { ...d, checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: null } },
-      "ar",
-    );
-    expect(v.question).toBe("هل أنت بخير؟");
-    expect(v.short).toBe("ارفع يدك");
-    expect(checkInView({ ...d, checkIn: null }, "en")).toMatchObject({
-      question: "Are you all right?",
-      short: "Tell our team",
+describe("S43, the optional check in (D-016)", () => {
+  it("heads with the cue's question, then its instruction; the line after 30 s is scr_no_response", () => {
+    expect(checkInView("ar")).toEqual({
+      cue: "check_are_you_ok",
+      question: "هل أنت بخير؟",
+      instruction: "إذا كنت بخير، فالمس «أنا بخير».",
+      noAnswer: screenText("scr_no_response", "ar"),
     });
-  });
-
-  it("S45 heads with the first sentence of scr_no_response; the help variant with Get help now", () => {
-    for (const lang of LANGS) {
-      const plain = alarmView(false, lang);
-      const all = screenText("scr_no_response", lang).split(/(?<=[.!?؟])\s+/u);
-      expect(plain.heading).toBe(all[0]);
-      expect(plain.body.map((l) => l.display)).toEqual(all.slice(1));
-      expect(plain.body.map((l) => l.mark)).toEqual(all.slice(1).map((_, i) => `alarm:${i}`));
-      const help = alarmView(true, lang);
-      expect(help.heading).toBe(lang === "ar" ? "اطلب المساعدة الآن" : "Get help now");
-      expect(help.body.map((l) => l.display)).toEqual(all.slice(1));
-    }
+    expect(checkInView("en")).toMatchObject({
+      question: "Are you all right?",
+      instruction: "If you are fine, tap “I am fine”.",
+    });
   });
 
   const run = (m: FlowModel, ...events: FlowEvent[]) =>
     events.reduce((x, e) => flowReducer(x, { now: NOW, ...e }), m);
 
-  it("the stop list's 30 s runs the check in; 15 s more opens the alarm; only fine leaves it", () => {
-    let m = run(model({ overlay: { kind: "stopList", takeYourTime: false } }), { type: "STOP_NO_INPUT" });
-    expect(overlayFor(m)).toBe("S43");
-    m = run(m, { type: "CHECKIN_TIMEOUT" });
-    expect(overlayFor(m)).toBe("S45");
-    expect(overlayFor(run(m, { type: "STOP" }))).toBe("S45");
-    expect(overlayFor(run(m, { type: "CALL" }))).toBe("S45");
-    m = run(m, { type: "FINE", via: "button" });
-    expect(m.overlay).toEqual({ kind: "stopList", takeYourTime: true, fineVia: "button" });
-  });
-
-  it("a test trigger: fine goes on to S44; no response and fine gives S44 after the alarm; help to S41", () => {
-    const at = model();
-    const asked = run(at, { type: "TRIGGER", trigger: "no_movement" });
+  it("opens over a test only when on; I am fine redoes the attempt; I want to stop is S41", () => {
+    const off = model();
+    expect(run(off, { type: "TRIGGER", trigger: "no_movement" }).overlay).toBeNull();
+    const on = { ...off, data: { ...off.data, checkIn: true } };
+    const asked = run(on, { type: "TRIGGER", trigger: "no_movement" });
     expect(overlayFor(asked)).toBe("S43");
-    expect(run(asked, { type: "FINE", via: "button" }).overlay).toEqual({
-      kind: "goOn",
-      afterAlarm: false,
-      canRedo: true,
-    });
-    const alarmed = run(asked, { type: "CHECKIN_TIMEOUT" }, { type: "FINE", via: "button" });
-    expect(alarmed.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false, timer: true });
-    const help = run(asked, { type: "NEED_HELP" });
-    expect(help.overlay).toMatchObject({ kind: "alarm", help: true });
-    expect(run(help, { type: "FINE", via: "button" }).overlay).toEqual({
-      kind: "stopList",
-      takeYourTime: false,
-    });
+    expect(run(asked, { type: "FINE" }).state).toMatchObject({ kind: "cam.rest", purpose: "redo" });
+    expect(overlayFor(run(asked, { type: "WANT_STOP" }))).toBe("S41");
   });
 });
 

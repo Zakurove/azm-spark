@@ -5,11 +5,17 @@ import { SavedSession } from "../src/app/product";
 afterEach(() => vi.unstubAllGlobals());
 it("recovers from malformed or unavailable stored preferences", () => {
   vi.stubGlobal("localStorage", { getItem: () => "{broken" });
-  expect(readPreferences()).toEqual({ voice: "full", pace: 1, focus: false });
+  expect(readPreferences()).toEqual({ voice: "full", pace: 1, focus: false, safetyCheckIn: false });
   vi.stubGlobal("localStorage", {
-    getItem: () => JSON.stringify({ voice: "remote", pace: 8, focus: "yes" }),
+    getItem: () => JSON.stringify({ voice: "remote", pace: 8, focus: "yes", safetyCheckIn: "yes" }),
   });
-  expect(readPreferences()).toEqual({ voice: "full", pace: 1, focus: false });
+  expect(readPreferences()).toEqual({ voice: "full", pace: 1, focus: false, safetyCheckIn: false });
+});
+it("keeps the movement check's optional check in per device, off by default (D-016)", () => {
+  vi.stubGlobal("localStorage", { getItem: () => null });
+  expect(readPreferences().safetyCheckIn).toBe(false);
+  vi.stubGlobal("localStorage", { getItem: () => JSON.stringify({ safetyCheckIn: true }) });
+  expect(readPreferences().safetyCheckIn).toBe(true);
 });
 it("exports partial attempts separately and preserves unknown effort", () => {
   const s = {

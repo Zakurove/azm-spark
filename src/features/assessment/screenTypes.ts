@@ -4,7 +4,7 @@
  * Each folder owns its screens and exports them from its index.ts as a record keyed by screen id:
  *   flow/     S04 to S33 and S35 (guest steps, consent, intro, pre-check, preparation, postponed)
  *   camera/   S34 (the camera sequence of one test)
- *   safety/   S36 to S49 (safety screens, stop list, check in, alarm, skip notice, S47 to S49)
+ *   safety/   S36 to S49 (safety screens, stop list, check in, skip notice, S47 to S49)
  *   results/  S50 to S52
  *   booth/    S55 to S58
  * src/features/progress/ exports S01, S02, S03, S53 and S54 for App.tsx.
@@ -63,8 +63,6 @@ export const SAFETY_SCREEN_IDS = [
   "S41",
   "S42",
   "S43",
-  "S44",
-  "S45",
   "S46",
   "S46b",
   "S47",
@@ -84,8 +82,8 @@ export type ProgressScreenId = (typeof PROGRESS_SCREEN_IDS)[number];
 /** Screens rendered by CheckApp from the flow state. */
 export type CheckScreenId = FlowScreenId | CameraScreenId | SafetyScreenId | ResultsScreenId | BoothScreenId;
 
-/** Overlays rendered over a state: S15 (shared), the skip dialog (flow, S28), S41 S43 S44 S45 (safety). */
-export type OverlayId = "S15" | "skipDialog" | "S41" | "S43" | "S44" | "S45";
+/** Overlays rendered over a state: S15 (shared), the skip dialog (flow, S28), S41 and S43 (safety). */
+export type OverlayId = "S15" | "skipDialog" | "S41" | "S43";
 
 /** What CheckApp passes to every screen of the flow. Language, booth mode and sound come from useCheckUi. */
 export interface ScreenProps {

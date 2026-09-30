@@ -2,7 +2,7 @@
  * The spoken side of the safety screens (UX spec S36, 3.0, 4.3; council O12 (4), O24-2, 7.2-12): the
  * sentence split of display and speech lines, the O12 interim gate on Arabic synthesis, the sequence
  * player (every line shown in order, spoken when a voice may read it, never stuck on a voice that does
- * not end), and the alarm and chime tones made on the phone.
+ * not end), and the chime made on the phone.
  */
 import { describe, expect, it } from "vitest";
 import { CHECK_DATA, cueLine } from "../src/movements/assessments";
@@ -24,8 +24,6 @@ import {
   type SpeechDeps,
 } from "../src/features/assessment/safety/speechPlayer";
 import {
-  ALARM_SEGMENTS,
-  alarmUri,
   base64,
   CHIME_SEGMENTS,
   chimeUri,
@@ -319,9 +317,9 @@ describe("ending a sequence at a line boundary (S38b When, R3C-07)", () => {
   });
 });
 
-describe("the alarm and chime tones (S45, S43, S47)", () => {
+describe("the chime (S43, S47)", () => {
   it("writes a 16 bit mono PCM WAV", () => {
-    const bytes = wavBytes(toneSamples(ALARM_SEGMENTS));
+    const bytes = wavBytes(toneSamples(CHIME_SEGMENTS));
     const text = (at: number, n: number) => String.fromCharCode(...bytes.slice(at, at + n));
     const v = new DataView(bytes.buffer);
     expect(text(0, 4)).toBe("RIFF");
@@ -333,32 +331,20 @@ describe("the alarm and chime tones (S45, S43, S47)", () => {
     expect(v.getUint32(40, true)).toBe(bytes.length - 44);
   });
 
-  it("alarm: 880 then 660 Hz, 0.5 s each, loud, starting and ending at zero (loops without a click)", () => {
-    expect(ALARM_SEGMENTS.map((s) => [s.freq, s.ms])).toEqual([
-      [880, 500],
-      [660, 500],
-    ]);
-    const s = toneSamples(ALARM_SEGMENTS);
-    expect(s.length).toBe(TONE_RATE);
-    expect(Math.abs(s[0])).toBeLessThan(100);
-    expect(Math.abs(s[s.length - 1])).toBeLessThan(100);
-    const peak = Math.max(...Array.from(s, Math.abs));
-    expect(peak).toBeGreaterThan(0.8 * 32767);
-  });
-
-  it("chime: two soft notes under 1 s, quieter than the alarm", () => {
+  it("two soft notes under 1 s, gentle, starting and ending at zero (no click)", () => {
     const s = toneSamples(CHIME_SEGMENTS);
     expect(s.length / TONE_RATE).toBeLessThan(1);
     expect(Math.max(...Array.from(s, Math.abs))).toBeLessThan(0.4 * 32767);
+    expect(Math.abs(s[0])).toBeLessThan(100);
+    expect(Math.abs(s[s.length - 1])).toBeLessThan(100);
   });
 
-  it("encodes base64 like the platform and serves both as data URIs (no network)", () => {
+  it("encodes base64 like the platform and serves the chime as a data URI (no network)", () => {
     const bytes = wavBytes(toneSamples(CHIME_SEGMENTS));
     expect(base64(bytes)).toBe(Buffer.from(bytes).toString("base64"));
     expect(base64(new Uint8Array([1, 2]))).toBe("AQI=");
     expect(base64(new Uint8Array([1]))).toBe("AQ==");
-    expect(alarmUri()).toMatch(/^data:audio\/wav;base64,UklGR/);
-    expect(chimeUri()).toMatch(/^data:audio\/wav;base64,/);
-    expect(alarmUri()).toBe(alarmUri());
+    expect(chimeUri()).toMatch(/^data:audio\/wav;base64,UklGR/);
+    expect(chimeUri()).toBe(chimeUri());
   });
 });

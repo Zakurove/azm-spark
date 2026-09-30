@@ -59,6 +59,9 @@ export function guestPlan(position: "chair" | "standing" | "wheelchair" = "chair
   return m;
 }
 
+/** The optional check in switched on (D-016), as a person's setting would at home. */
+export const checkInOn = (m: FlowModel): FlowModel => ({ ...m, data: { ...m.data, checkIn: true } });
+
 /** The flow at the setup check of `testId` (its first side), the camera primer passed. */
 export function atSetup(testId: TestId, position: "chair" | "standing" | "wheelchair" = "chair"): FlowModel {
   const m = guestPlan(position);

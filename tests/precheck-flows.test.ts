@@ -249,7 +249,6 @@ describe("persona: a person with no condition, standing", () => {
       warnings: [],
       setupUpdates: {},
       stored: { painNow: 0 },
-      checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: "right" },
       helperBriefing: {},
     });
   });
@@ -638,9 +637,8 @@ describe("properties over random people and answers", () => {
       }
       for (const t of o.helperRequired) {
         expect(env.baseTests).toContain(t);
-        // The arm tests need a helper only when no arm can give the fine signal (O34-2 (2)).
-        if (!["chair_stand_30s", "trunk_control_seated"].includes(t))
-          expect(o.checkIn?.noArmSignal).toBe(true);
+        // Only the chair stand and the side lean ever need a helper (D-016).
+        expect(["chair_stand_30s", "trunk_control_seated"]).toContain(t);
       }
       if (env.setting === "booth") {
         expect(o.helperRequired).toEqual([]);

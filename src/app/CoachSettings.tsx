@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { t } from "../i18n";
 import { Lang } from "./i18n";
 import { Preferences, ui } from "./experience";
 import { CuePlayer } from "./audio";
@@ -107,6 +108,22 @@ export default function CoachSettings({
         <span>
           <strong>{c.focus}</strong>
           <small>{c.focusNote}</small>
+        </span>
+        <span className="toggle">
+          <i />
+        </span>
+      </button>
+      {/* The movement check's optional check in (D-016): per device, off by default. */}
+      <button
+        className={`focus-option ${value.safetyCheckIn ? "selected" : ""}`}
+        aria-pressed={value.safetyCheckIn}
+        data-setting="safety-check-in"
+        onClick={() => onChange({ ...value, safetyCheckIn: !value.safetyCheckIn })}
+      >
+        <Icon name="shield" />
+        <span>
+          <strong>{t(lang, "assessment.checkin.setting")}</strong>
+          <small>{t(lang, "assessment.checkin.settingNote")}</small>
         </span>
         <span className="toggle">
           <i />

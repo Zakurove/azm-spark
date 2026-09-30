@@ -33,51 +33,38 @@ const base = (o: Partial<ArmingInput>): ArmingInput => ({
   cueEndsAt: 0,
   goAt: null,
   endCueAt: null,
-  standEndedAt: null,
   graceSec: 3,
-  standLeftFrameSec: 60,
   ...o,
 });
 
-describe("check in arming (UX spec 4.8, O34-6)", () => {
-  it("setup, calibration and the countdown: no movement and left frame off, sway on", () => {
-    for (const part of ["setup", "calibrate", "countdown"] as const)
-      expect(armingFor(base({ part }))).toEqual({ sway: true, movement: false, leftFrame: false });
+describe("when the optional check in watches (UX spec 4.8, D-016)", () => {
+  it("setup, calibration, the countdown, saved, retry and rests: nothing", () => {
+    for (const part of ["setup", "calibrate", "countdown", "saved", "retry", "rest"] as const)
+      expect(armingFor(base({ part }))).toEqual({ movement: false, leftFrame: false });
+    // Also after the chair stand ends (the 60 s rule went with D-016).
+    expect(armingFor(base({ part: "rest", testId: "chair_stand_30s" }))).toEqual({
+      movement: false,
+      leftFrame: false,
+    });
   });
 
-  it("practice and a scored attempt: all on once the cue ended plus 3 s", () => {
+  it("practice and a scored attempt: both, no movement once the cue ended plus 3 s", () => {
     for (const part of ["practice", "attempt"] as const) {
-      expect(armingFor(base({ part }))).toEqual({ sway: true, movement: true, leftFrame: true });
-      expect(armingFor(base({ part, cueEndsAt: 98_000 }))).toMatchObject({
-        movement: false,
-        leftFrame: true,
-      });
+      expect(armingFor(base({ part }))).toEqual({ movement: true, leftFrame: true });
+      expect(armingFor(base({ part, cueEndsAt: 98_000 }))).toEqual({ movement: false, leftFrame: true });
     }
   });
 
-  it("hold and pause there: no movement paused, left frame on", () => {
-    expect(armingFor(base({ part: "hold" }))).toEqual({ sway: true, movement: false, leftFrame: true });
-  });
-
-  it("saved, retry and rests: left frame off, except the first 60 s after the chair stand", () => {
-    for (const part of ["saved", "retry", "rest"] as const)
-      expect(armingFor(base({ part }))).toEqual({ sway: true, movement: false, leftFrame: false });
-    const stand = { testId: "chair_stand_30s" as const, part: "rest" as const };
-    expect(armingFor(base({ ...stand, standEndedAt: 50_000 })).leftFrame).toBe(true);
-    expect(armingFor(base({ ...stand, standEndedAt: 30_000 })).leftFrame).toBe(false);
+  it("hold and pause there: left frame only", () => {
+    expect(armingFor(base({ part: "hold" }))).toEqual({ movement: false, leftFrame: true });
   });
 
   it("timed tests: no movement from go plus 3 s, and off from the end cue", () => {
     const curl = { testId: "arm_curl_30s" as const };
+    expect(armingFor(base({ ...curl })).movement).toBe(false);
     expect(armingFor(base({ ...curl, goAt: 98_000 })).movement).toBe(false);
     expect(armingFor(base({ ...curl, goAt: 90_000 })).movement).toBe(true);
     expect(armingFor(base({ ...curl, goAt: 60_000, endCueAt: 95_000 })).movement).toBe(false);
-  });
-
-  it("the side lean passes its own sway limit while leaning", () => {
-    const lean = { testId: "trunk_control_seated" as const, leanSwayDeg: 40 };
-    expect(armingFor(base({ ...lean, part: "attempt" })).swayDeg).toBe(40);
-    expect(armingFor(base({ ...lean, part: "rest" })).swayDeg).toBeUndefined();
   });
 
   it("maps the flow state and the runner phase to a part", () => {

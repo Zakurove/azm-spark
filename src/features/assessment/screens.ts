@@ -24,8 +24,6 @@ export const OVERLAYS: Record<Exclude<OverlayId, "S15">, ScreenComponent> = {
   skipDialog: SkipDialog,
   S41: SAFETY_SCREENS.S41,
   S43: SAFETY_SCREENS.S43,
-  S44: SAFETY_SCREENS.S44,
-  S45: SAFETY_SCREENS.S45,
 };
 
 const GUEST_STEP_SCREENS = ["S06", "S07", "S08", "S08b", "S10", "S11"] as const;
@@ -167,9 +165,5 @@ export function overlayFor(m: FlowModel): OverlayId | null {
       return "S41";
     case "checkIn":
       return "S43";
-    case "goOn":
-      return "S44";
-    case "alarm":
-      return "S45";
   }
 }

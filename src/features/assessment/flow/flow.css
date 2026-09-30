@@ -43,6 +43,59 @@
 .azm-check .flow-note.is-stop > svg {
   color: var(--red);
 }
+
+/* S14: the switch of the optional check in (D-016), the same setting as the coach settings. */
+.azm-check .flow-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.azm-check .flow-switch > svg {
+  flex: none;
+  color: var(--purple);
+}
+.azm-check .flow-switch-text {
+  display: grid;
+  gap: var(--s1);
+  flex: 1;
+}
+.azm-check .flow-switch-track {
+  flex: none;
+  display: flex;
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--field-border);
+  direction: ltr;
+}
+.azm-check .flow-switch-track > span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--card);
+}
+.azm-check .flow-switch[aria-checked="true"] {
+  background: var(--purple-tint);
+}
+.azm-check .flow-switch[aria-checked="true"] .flow-switch-track {
+  justify-content: flex-end;
+  background: var(--purple);
+}
+.azm-check .flow-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
 .azm-check .flow-chip-line {
   display: flex;
 }

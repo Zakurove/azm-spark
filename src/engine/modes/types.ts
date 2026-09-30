@@ -14,14 +14,13 @@
  *     section 4 called AttemptResult (value, unit, detail, quality, durationSec) plus the stored
  *     fields of contract v2 E (median, nValid, attempts, flags). The seated side lean alternates
  *     sides (spec 4.3), so one trunk runner measures both sides.
- *   - Events add `flag`, `checkin` (contract v2 F), `attempt` (an attempt ended), `ask` (the side
+ *   - Events add `flag`, `attempt` (an attempt ended), `ask` (the side
  *     lean's contact question, spec 4.3; the arm curl's practice check and repeat offer, spec 4.2;
  *     the chair stand's pushed question, spec 4.4) and `prompt` (a line shown on screen and not
  *     spoken, because the voice of a timed trial gives only go, ten seconds left and stop, spec 4.0).
  *   - The chair stand has no sides: its result and events carry the side "none".
  */
 import type { CheckCueId, ReasonId, TestDef, TestId, VariantId } from "../../movements/types";
-import type { CheckInTrigger } from "../checkin";
 import type { QualityIssue, QualityReport } from "../quality";
 import type { SubjectLock } from "../subject";
 import type { Frame } from "../types";
@@ -82,8 +81,6 @@ export type TestEvent =
   | { kind: "prompt"; cue: CheckCueId; t: number }
   /** A flag raised in this attempt (stored, never a verdict by itself). */
   | { kind: "flag"; flag: string; t: number; side?: TestSide }
-  /** A camera trigger of the check in (spec 4.0); the UI runs CheckInFlow. */
-  | { kind: "checkin"; trigger: CheckInTrigger; t: number }
   /** An attempt ended. `attempt` is 0 for the practice, 1 to 3 for scored attempts. */
   | {
       kind: "attempt";

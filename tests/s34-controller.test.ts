@@ -19,7 +19,7 @@ import {
 } from "../src/features/assessment/camera/controller";
 import { camTiming } from "../src/features/assessment/camera/timing";
 import type { TestId } from "../src/movements/types";
-import { atSetup, framesOf, NOW, play, runFixture } from "./s34-harness";
+import { atSetup, checkInOn, framesOf, NOW, play, runFixture } from "./s34-harness";
 
 const camKind = (m: FlowModel) => m.state.kind.startsWith("cam.");
 
@@ -295,9 +295,9 @@ describe("S34 pauses, STOP and check in triggers", () => {
     expect(run.model.state.kind).toBe("cam.measure");
   });
 
-  it("the person vanishing from the picture during the practice opens the check in (left frame)", () => {
+  it("the person vanishing from the picture during the practice opens the check in when on (left frame)", () => {
     let goneAt: number | null = null;
-    const run = runFixture(atSetup("shoulder_abduction"), "abd-9x16", 12, {
+    const run = runFixture(checkInOn(atSetup("shoulder_abduction")), "abd-9x16", 16, {
       stopWhen: (m) => m.overlay?.kind === "checkIn",
       before: (m, t) => {
         if (goneAt === null && m.state.kind === "cam.practice") goneAt = t + 500;
@@ -308,15 +308,23 @@ describe("S34 pauses, STOP and check in triggers", () => {
           ? { ...f, poses: [], lm: f.lm.map((p) => ({ ...p, visibility: 0 })) }
           : f,
     });
-    expect(run.model.overlay).toMatchObject({ kind: "checkIn", from: "test", trigger: "left_frame" });
+    expect(run.model.overlay).toEqual({ kind: "checkIn" });
+    expect(run.events).toContainEqual({ type: "TRIGGER", trigger: "left_frame" });
   });
 
-  it("no movement for 10 s during the practice opens the check in (no movement)", () => {
-    const run = runFixture(atSetup("shoulder_abduction"), "fx:seated-still", 30, {
+  it("no movement for 10 s during the practice opens the check in when on (no movement)", () => {
+    const run = runFixture(checkInOn(atSetup("shoulder_abduction")), "fx:seated-still", 30, {
       stopWhen: (m) => m.overlay?.kind === "checkIn",
     });
     expect(run.model.state.kind).toBe("cam.practice");
-    expect(run.model.overlay).toMatchObject({ kind: "checkIn", trigger: "no_movement", attempt: true });
+    expect(run.model.overlay).toEqual({ kind: "checkIn" });
+    expect(run.events).toContainEqual({ type: "TRIGGER", trigger: "no_movement" });
+  });
+
+  it("with the check in off (the default, and always at the booth) nothing asks", () => {
+    const run = runFixture(atSetup("shoulder_abduction"), "fx:seated-still", 30);
+    expect(run.events.filter((e) => e.type === "TRIGGER")).toEqual([]);
+    expect(run.model.overlay).toBeNull();
   });
 
   it("the setup check and the rests never ask about movement (4.8)", () => {
@@ -384,23 +392,17 @@ describe("the fixtures of the browser flows", () => {
   });
 });
 
-describe("S44 redo rests (R3C-04)", () => {
+describe("the redo rests after the check in paused an attempt (D-016)", () => {
   it("a timed redo rests 120 s with the repeat line, then repeats the trial with no new practice", () => {
     let redoAt: number | null = null;
     let restTotal: number | null = null;
     const phases: string[] = [];
-    const run = runFixture(atSetup("arm_curl_30s"), "curl-9x16", 400, {
+    const run = runFixture(checkInOn(atSetup("arm_curl_30s")), "curl-9x16", 400, {
       fast: false,
       before: (m, t) => {
         if (redoAt === null && m.state.kind === "cam.measure" && m.overlay === null) {
-          const trigger = play(
-            m,
-            { type: "TRIGGER", trigger: "no_movement" },
-            { type: "FINE", via: "button" },
-          );
-          if (trigger.overlay?.kind !== "goOn" || !trigger.overlay.canRedo) return m;
           redoAt = t;
-          return play(trigger, { type: "REDO" });
+          return play(m, { type: "TRIGGER", trigger: "no_movement" }, { type: "FINE" });
         }
         return m;
       },
@@ -425,17 +427,12 @@ describe("S44 redo rests (R3C-04)", () => {
   it("a range test redo rests 60 s with check_rest_minute", () => {
     let redone = false;
     let restTotal: number | null = null;
-    const run = runFixture(atSetup("shoulder_abduction"), "abd-9x16", 90, {
+    const run = runFixture(checkInOn(atSetup("shoulder_abduction")), "abd-9x16", 90, {
       fast: false,
       before: (m) => {
         if (!redone && m.state.kind === "cam.measure" && m.overlay === null) {
           redone = true;
-          return play(
-            m,
-            { type: "TRIGGER", trigger: "left_frame" },
-            { type: "FINE", via: "button" },
-            { type: "REDO" },
-          );
+          return play(m, { type: "TRIGGER", trigger: "left_frame" }, { type: "FINE" });
         }
         return m;
       },

@@ -74,13 +74,9 @@ describe("where the idle reset may run (S57, O15)", () => {
       { kind: "desktopGate" },
     ];
     for (const s of never) expect(idleWaitMs(guest(s)), s.kind).toBeNull();
-    for (const o of [
-      { kind: "stopList", takeYourTime: false },
-      { kind: "checkIn", from: "test", trigger: "no_movement" },
-      { kind: "goOn", afterAlarm: false, canRedo: true },
-      { kind: "alarm", from: "test" },
-    ] as Overlay[])
-      expect(idleWaitMs(guest({ kind: "test.instruction", i: 0 }, o)), o.kind).toBeNull();
+    // The stop list (the check in never runs at the booth, D-016).
+    const list: Overlay = { kind: "stopList" };
+    expect(idleWaitMs(guest({ kind: "test.instruction", i: 0 }, list))).toBeNull();
   });
 
   it("only for the guest check in booth mode (never at home, never on a visitor's own signed in phone)", () => {
@@ -235,12 +231,7 @@ describe("a visitor pass ending over a safety screen (R3C-35)", () => {
     ])
       expect(reloadWaits(guest(s)), JSON.stringify(s)).toBe(true);
     const measuring = { kind: "cam.measure", i: 0, side: 0 } as FlowState;
-    for (const o of [
-      { kind: "stopList", takeYourTime: false },
-      { kind: "checkIn", from: "test", trigger: "sway" },
-      { kind: "alarm", from: "test" },
-    ] as Overlay[])
-      expect(reloadWaits(guest(measuring, o)), o.kind).toBe(true);
+    expect(reloadWaits(guest(measuring, { kind: "stopList" }))).toBe(true);
   });
 
   it("reloads at once anywhere else", () => {

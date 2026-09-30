@@ -178,14 +178,15 @@ describe("start (round 3)", () => {
     expect(ok.ok).toBe(true);
   });
 
-  it("the start answers status, checkIn and helperBriefing, and the flow result keeps them", async () => {
+  it("the start answers status and helperBriefing, and no check in inputs (D-016)", async () => {
     const cookie = await member(h, email(), intakeOf());
     const { check } = await started(cookie);
     expect(check.status).toBe("open");
-    expect(check.checkIn).toMatchObject({ raiseAllowed: expect.any(Boolean) });
     expect(check.helperBriefing).toEqual(expect.any(Object));
+    expect(check).not.toHaveProperty("checkIn");
     const s = toStartResult({ ok: true, value: check });
-    expect(s).toMatchObject({ ok: true, status: "open", checkIn: check.checkIn });
+    expect(s).toMatchObject({ ok: true, status: "open" });
+    expect(s).not.toHaveProperty("checkIn");
   });
 
   it("403 HOME_CLOSED while home checks are closed", async () => {
@@ -301,21 +302,6 @@ describe("end, faint, alarm and complete", () => {
     const yes = await api.postFaint(check.id, { answer: "yes", testId: item.testId });
     expect(yes.ok && yes.value).toMatchObject({ status: "emergency", screen: "scr_emergency" });
     expect(yes.ok && yes.value.lock?.until).toBeGreaterThan(Date.now());
-    // The alarm is still recorded on a check that ended early (the fall watch).
-    expect(await api.postAlarm(check.id, { kind: "no_response" })).toEqual({
-      ok: true,
-      value: { recorded: true },
-    });
-  });
-
-  it("the alarm records a no response or a help request on an open check", async () => {
-    const cookie = await member(h, email(), intakeOf());
-    const { api, check } = await started(cookie);
-    const item = check.protocol.find((p) => !p.skipped)!;
-    expect(await api.postAlarm(check.id, { kind: "help_requested", testId: item.testId })).toEqual({
-      ok: true,
-      value: { recorded: true },
-    });
   });
 });
 

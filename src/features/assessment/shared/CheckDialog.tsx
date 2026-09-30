@@ -16,7 +16,7 @@ import { useCheckUi } from "./CheckUi";
 export interface CheckDialogProps {
   titleId: string;
   role?: "dialog" | "alertdialog";
-  /** Escape; undefined means Escape does nothing (alarm, safety). */
+  /** Escape; undefined means Escape does nothing (safety). */
   onClose?: () => void;
   /** CSS selector of the element that takes focus on open (default: the dialog itself). */
   initialFocus?: string;

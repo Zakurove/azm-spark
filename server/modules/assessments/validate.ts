@@ -533,10 +533,10 @@ function checkVariant(raw: unknown, skipped: boolean, item: ProtocolItem): Check
   }
 }
 
-/* ------------------------------------------------- stop, end, faint, alarm */
+/* ------------------------------------------------- stop, end, faint */
 
 /**
- * The test side a stop, a faint answer or an alarm belongs to: absent, or a test side of the frozen
+ * The test side a stop or a faint answer belongs to: absent, or a test side of the frozen
  * protocol that runs today (not skipped at the start). `side` defaults to none for a test without
  * sides. Returns the field that failed, or the item (null when absent).
  */
@@ -558,5 +558,3 @@ export function checkTestRef(
 
 export const END_ANSWERS = ["yes", "no"] as const;
 export const FAINT_ANSWERS = ["yes", "no", "unsure"] as const;
-export const ALARM_KINDS = ["no_response", "help_requested"] as const;
-export type AlarmKind = (typeof ALARM_KINDS)[number];

@@ -25,27 +25,3 @@ export function controllerFor(model: FlowModel, timing: CamTiming): CameraContro
   current = ctrl;
   return ctrl;
 }
-
-/**
- * The controller of the model's test side if one runs already (the answer screens never start one).
- * On the faint screens after a stop (S38 until its question is answered, S38b) it is the controller
- * of the stopped test, so the check in there can take a raised hand (O30, Q33 (3)).
- */
-export function existingController(model: FlowModel): CameraController | null {
-  const test = camTestOf(model);
-  if (!test) return faintScreen(model) ? faintController(model) : null;
-  const found = entries.get(model.data.tests[test.i]);
-  return found && found.side === test.sideIndex ? found.ctrl : null;
-}
-
-/** S38 before its question is answered, and S38b: the camera stays on (UX spec S38, O30). */
-export function faintScreen(model: FlowModel): boolean {
-  const s = model.state;
-  return s.kind === "faintAsk" || (s.kind === "safety" && s.safety === "faint" && !s.faintAnswered);
-}
-
-function faintController(model: FlowModel): CameraController | null {
-  const stopped = model.data.stopped;
-  if (!current) return null;
-  return !stopped || current.test.testId === stopped.testId ? current : null;
-}

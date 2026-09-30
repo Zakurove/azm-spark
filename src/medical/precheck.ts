@@ -32,8 +32,7 @@
  * the faint follow up (faintFollowUp, Q33 (3)), the end of check question (endOfCheckForm, endOfCheck,
  * Q23 (7)), the resume re-ask (resumeQuestions, evaluateResume, O6), the question counter
  * (possibleQuestions, O9), the wording of a question (questionForm, Q18, Q33, O45), the {when} of a
- * lock (pausedWhen, Q33 (4)), the lock record (lockRecord, Q25 (c)) and the spoken check in answer
- * (spokenCheckInAnswer, Q31 (4)).
+ * lock (pausedWhen, Q33 (4)) and the lock record (lockRecord, Q25 (c)).
  */
 import { CHECK_DATA, testDef } from "../movements/assessments";
 import {
@@ -43,8 +42,6 @@ import {
   type ActionVariant,
   type AreaId,
   type AreaLoad,
-  type HelperCheckInLine,
-  type Lang,
   type LockKind,
   type LockReasonId,
   type PausedWhenId,
@@ -115,11 +112,6 @@ export interface PrecheckEnv {
    * pc_faint_since is asked once, before pc_change (Q33 (3)). Missing means no.
    */
   faintReportedUnresolved?: boolean;
-  /**
-   * The fine rehearsal after the first calibration failed twice today: noArmSignal holds for today
-   * and every camera test left needs pc_helper yes at home (O34-1 (7), O34-2 (1), (3)).
-   */
-  fineRehearsalFailed?: boolean;
 }
 
 export type PrecheckStatus = "proceed" | "postpone" | "emergency" | "ad" | "incomplete";
@@ -206,17 +198,6 @@ export interface StoredPrecheck {
   changeReported?: string;
 }
 
-/**
- * What the check in needs from the pre-check (stopRouting.checkIn, O33 (a)): whether a raised hand
- * may be asked for (O34-4 (3)), whether no arm can give the camera fine signal (O34-2 (1)), and the
- * arm of the phase 2 fine zone (O34-1 (1)); null when no arm qualifies.
- */
-export interface CheckInConfig {
-  raiseAllowed: boolean;
-  noArmSignal: boolean;
-  fineZoneSide: Side | null;
-}
-
 export interface PrecheckOutcome {
   status: PrecheckStatus;
   /** Postpone reason id (spec 2.1), or urgent (emergency) or ad (AD response). */
@@ -247,14 +228,11 @@ export interface PrecheckOutcome {
   followUpResolved?: boolean;
   /** pc_faint_since was answered: either answer clears the faintReported date (Q33 (3)). */
   faintReportedCleared?: true;
-  /** Proceed only: the inputs of the check in (O34). */
-  checkIn?: CheckInConfig;
   /**
-   * Proceed only: the helper briefing of each test that runs with a helper (Q11, O34-2 (2)): the
-   * briefing screen of the chair stand or the side lean, or for the two arm tests the helper check in
-   * line on one screen with the confirm button. The test starts only after the confirm tap.
+   * Proceed only: the helper briefing screen of each test that runs with a helper (Q11): the chair
+   * stand or the side lean. The test starts only after the confirm tap.
    */
-  helperBriefing?: Partial<Record<TestId, ScreenId | HelperCheckInLine>>;
+  helperBriefing?: Partial<Record<TestId, ScreenId>>;
 }
 
 /* ----------------------------------------------------------- question ids */
@@ -438,68 +416,6 @@ function painSides(st: State): Side[] | undefined {
   return SIDES.filter((s) => sides.has(s));
 }
 
-/* ------------------------------------------------------- arms and signals */
-
-const ARM_FUNCTION_RANK: Record<string, number> = { bend_hold: 2, bend_no_hold: 1, no_bend: 0 };
-
-function armFunction(st: State, side: Side): string | undefined {
-  const v = value(st, questionId("pc_arm_function", side));
-  return typeof v === "string" ? v : undefined;
-}
-
-/**
- * An arm that cannot give the camera fine signal (stopRouting.checkIn.noArmSignal, O34-2 (1)): upper
- * limb loss on that side, the declared weaker side with pc_weak_lift no, or pc_arm_function no_bend.
- */
-function armWithoutSignal(st: State, side: Side): boolean {
-  if (limbArm(st) === side) return true;
-  if (st.env.ctx.support === side && value(st, "pc_weak_lift") === "no") return true;
-  return armFunction(st, side) === "no_bend";
-}
-
-/**
- * noArmSignal (O34-2 (1)): each arm cannot signal, or the fine rehearsal failed twice today. At home
- * every camera test left then needs pc_helper yes; at the booth nothing changes (O34-2 (7)).
- */
-function noArmSignal(st: State): boolean {
-  return st.env.fineRehearsalFailed === true || SIDES.every((s) => armWithoutSignal(st, s));
-}
-
-/**
- * raiseAllowed (O34-4 (3)): false with the no_overhead restriction, or when no arm is free of all of:
- * upper limb loss, the weaker side with pc_weak_lift no or pc_weak_shoulder yes, pc_arm_function
- * no_bend. No cue ever asks a person with raiseAllowed false to raise a hand.
- */
-function raiseAllowed(st: State): boolean {
-  if (st.env.ctx.restrictions.includes("no_overhead")) return false;
-  const weakShoulder = value(st, "pc_weak_shoulder") === "yes";
-  return SIDES.some((s) => !armWithoutSignal(st, s) && !(st.env.ctx.support === s && weakShoulder));
-}
-
-/**
- * The arm of the phase 2 fine zone (O34-1 (1), R3C-09): the stronger arm, never the declared weaker
- * side, a limb loss side or a pc_arm_pain_side; for SCI the arm with the better pc_arm_function
- * answer; on a tie the right. At home it is never null while an arm can signal (noArmSignal false):
- * when every arm is excluded, the side excluded only by pain, then the weaker side with pc_weak_lift
- * yes, then the SCI arm with the better pc_arm_function; the rehearsal (O34-1 (7)) decides reach, and
- * two failures set noArmSignal with the helper path (O34-2).
- */
-function fineZoneSide(st: State): Side | null {
-  const pain = painSides(st) ?? [];
-  const weaker = st.env.ctx.support === "none" ? undefined : st.env.ctx.support;
-  const rank = (s: Side) => ARM_FUNCTION_RANK[armFunction(st, s) ?? "bend_hold"] ?? 2;
-  // Right first, so a tie keeps the right.
-  const best = (sides: Side[]) => (sides.length ? sides.reduce((b, s) => (rank(s) > rank(b) ? s : b)) : null);
-  const arms = (["right", "left"] as const).filter((s) => !armWithoutSignal(st, s));
-  return (
-    best(arms.filter((s) => s !== weaker && !pain.includes(s))) ??
-    best(arms.filter((s) => s !== weaker)) ??
-    best(arms.filter((s) => s === weaker && value(st, "pc_weak_lift") === "yes")) ??
-    best(arms.filter((s) => armFunction(st, s) !== undefined)) ??
-    best(arms)
-  );
-}
-
 /** painNow for the rules and for storage: raised to the highest area score (spec 2.1). */
 function effectivePain(st: State): number | undefined {
   const now = value(st, "pc_pain_now");
@@ -575,12 +491,7 @@ function stateCond(st: State, test?: TestId): CondContext {
   return {
     env: st.env,
     answer: (id) => value(st, id),
-    flag: (f) =>
-      f === "sci_t6"
-        ? sciT6(st)
-        : f === "noArmSignal"
-          ? st.env.setting === "home" && noArmSignal(st)
-          : test !== undefined && st.helperTests.has(test),
+    flag: (f) => (f === "sci_t6" ? sciT6(st) : test !== undefined && st.helperTests.has(test)),
   };
 }
 
@@ -768,7 +679,7 @@ interface Day {
   helperFrom: Set<TestId>;
   helperTests: Set<TestId>;
   helperPresent: TestId[];
-  helperBriefing: Partial<Record<TestId, ScreenId | HelperCheckInLine>>;
+  helperBriefing: Partial<Record<TestId, ScreenId>>;
   warnings: ScreenId[];
 }
 
@@ -1030,10 +941,10 @@ function applyAction(st: State, d: Day, a: QuestionAction, m: Match, from: Prech
     case "show":
       if (m.test) {
         const briefing = a.screenByTest[m.test];
-        // The two arm tests show the helper check in line with the confirm button (O34-2 (2)), not
-        // a screen of their own.
-        if (briefing && briefing !== "helperBriefing.checkInLine") warn(d, briefing);
-        if (briefing) d.helperBriefing[m.test] = briefing;
+        if (briefing) {
+          warn(d, briefing);
+          d.helperBriefing[m.test] = briefing;
+        }
         if (a.stores) d.recorded.add(a.stores);
         if (!d.helperPresent.includes(m.test)) d.helperPresent.push(m.test);
       }
@@ -1107,11 +1018,6 @@ function applyStandingRules(st: State, d: Day) {
       (has(ctx.conditions, SIDE_LEAN_HELPER_CONDITIONS) || firstHomeSideLean)
     ) {
       d.helperTests.add(trunk);
-    }
-    // O34-2 (2): with no arm that can signal, every camera test left needs another adult.
-    if (noArmSignal(st)) {
-      for (const test of CHECK_DATA.tests.map((t) => t.id))
-        if (selected(st, test) && !fullySkipped(d, test)) d.helperTests.add(test);
     }
   }
 }
@@ -1366,11 +1272,6 @@ function outcomeOf(st: State, now: number): PrecheckOutcome {
     setupUpdates: setupUpdates(st),
     stored: storedFields(st, d, date),
     ...faintCleared,
-    checkIn: {
-      raiseAllowed: raiseAllowed(st),
-      noArmSignal: st.env.setting === "home" && noArmSignal(st),
-      fineZoneSide: fineZoneSide(st),
-    },
     helperBriefing,
   };
   if (d.recorded.has("followUpResolved")) outcome.followUpResolved = true;
@@ -1736,17 +1637,10 @@ export interface FollowUpOutcome {
 /**
  * sf_faint_loc, «هل فقدت الوعي، ولو للحظة؟» · Did you pass out, even for a moment? (Q33 (3), O42),
  * asked after scr_faint and after every fall stop once the person is seated, lying or settled. Yes or
- * not sure opens scr_emergency and stores changeReported; no keeps the next day lock of the stop. A
- * faint stop that followed a no response alarm takes the emergency route whatever the answer. No
- * answer within 30 s runs the check in (the UI's timer): here that is incomplete.
+ * not sure opens scr_emergency and stores changeReported; no keeps the next day lock of the stop. No
+ * answer yet is incomplete.
  */
-// R3C-23 (faint-after-no-response, confirmed 2026-09-30). Q33 (3) says a faint stop after a no response alarm "is handled
-// the same way"; its engineering impact lists changeReported for it, so it is read as a yes.
-export function faintFollowUp(
-  answer: string | undefined,
-  now: number,
-  opts: { afterNoResponse?: boolean } = {},
-): FollowUpOutcome {
+export function faintFollowUp(answer: string | undefined, now: number): FollowUpOutcome {
   const q = CHECK_DATA.stopFollowUps[0];
   const v = oneOf(
     answer,
@@ -1761,7 +1655,6 @@ export function faintFollowUp(
       stored: { changeReported: riyadhDate(now) },
     };
   };
-  if (opts.afterNoResponse) return emergency();
   if (v === undefined) return { status: "incomplete", stored: {} };
   for (const a of q.actions) {
     if (a.do === "emergency" && (a.if.in as string[]).includes(v)) return emergency();
@@ -1959,16 +1852,9 @@ export function possibleQuestions(env: PrecheckEnv, answers: Answers): string[] 
     if (v !== undefined) return v === "yes" || v === "unsure";
     return isPending("pc_sci_level") || env.setup?.sciT6 === true;
   };
-  const sideMaybeWithoutSignal = (s: Side) =>
-    armWithoutSignal(st, s) ||
-    (limbArm(st) === undefined && isPending("pc_limb_arm_side")) ||
-    (env.ctx.support === s && isPending("pc_weak_lift")) ||
-    isPending(questionId("pc_arm_function", s));
-  const noArmMaybe = () =>
-    env.setting === "home" && (noArmSignal(st) || SIDES.every((s) => sideMaybeWithoutSignal(s)));
   const helperMaybe = (test: TestId) => {
     if (env.setting !== "home" || !selected(st, test) || fullySkipped(day, test)) return false;
-    if (day.helperTests.has(test) || noArmMaybe()) return true;
+    if (day.helperTests.has(test)) return true;
     return (
       test === "chair_stand_30s" &&
       CHAIR_HELPER_TRIGGERS.some((id) => [...pending].some((p) => p.split(PART_SEPARATOR)[0] === id))
@@ -1978,12 +1864,7 @@ export function possibleQuestions(env: PrecheckEnv, answers: Answers): string[] 
     env,
     answer: (id) => value(st, id),
     pending: isPending,
-    flag: (f) =>
-      f === "sci_t6"
-        ? sciMaybe()
-        : f === "noArmSignal"
-          ? noArmMaybe()
-          : test !== undefined && helperMaybe(test),
+    flag: (f) => (f === "sci_t6" ? sciMaybe() : test !== undefined && helperMaybe(test)),
   });
 
   let helperItem: PrecheckItem | undefined;
@@ -2087,68 +1968,6 @@ export function evaluateResume(
   now: number = Date.now(),
 ): PrecheckOutcome {
   return outcomeOf(resumeState(env, answers, remaining), now);
-}
-
-/* ------------------------------------------- the spoken answer (Q31 (4)) */
-
-const SPEECH = CHECK_DATA.engine.speech;
-const ALEF = /[أإآٱ]/g;
-
-/** Lower case words: Arabic marks and tatweel removed, alef forms joined, punctuation as spaces. */
-function words(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, "")
-    .replace(ALEF, "ا")
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[^\p{L}\p{N}']+/gu, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function containsPhrase(tokens: readonly string[], phrase: readonly string[]): boolean {
-  if (phrase.length === 0) return false;
-  for (let i = 0; i + phrase.length <= tokens.length; i++)
-    if (phrase.every((w, k) => tokens[i + k] === w)) return true;
-  return false;
-}
-
-/** A whole word negator of the data (engine.speech.negators); in English any word ending in n't too. */
-const isNegator = (token: string, lang: Lang) =>
-  SPEECH.negators[lang].some((w) => words(w)[0] === token) || (lang === "en" && /n't$|n’t$/.test(token));
-
-/**
- * A spoken check in answer, where speech recognition runs on the device itself (Q31 (4), O5), read on
- * the whole utterance (R3C-12): whole words only; any not fine word anywhere wins and opens
- * scr_emergency ("not_fine"); a fine phrase counts as fine only when the utterance has no negator
- * anywhere, so «مو بخير», «ما أنا بخير» and “I'm not fine” read as not fine, and so does «لا لا أنا
- * بخير» (the safe error: the tone sounds and a tap ends it); a bare yes word, الحمد لله alone or
- * unclear speech is no answer, so the check in cue plays once more and the no response timer keeps
- * running.
- */
-export function spokenCheckInAnswer(utterance: string, lang: Lang): "fine" | "not_fine" | "no_answer" {
-  const tokens = words(utterance ?? "");
-  if (SPEECH.notFineWords[lang].some((w) => containsPhrase(tokens, words(w)))) return "not_fine";
-  const fine = SPEECH.fineOnlyPhrases[lang].map((p) => words(p));
-  // A fine phrase with a negator inside it («أنا مو طيب», “I am not OK”) is a negated fine phrase.
-  if (fine.some((p) => negatedPhrase(tokens, p, lang))) return "not_fine";
-  if (!fine.some((p) => containsPhrase(tokens, p))) return "no_answer";
-  return tokens.some((t) => isNegator(t, lang)) ? "not_fine" : "fine";
-}
-
-/** The phrase occurs with a negator right before it or between its words. */
-function negatedPhrase(tokens: readonly string[], phrase: readonly string[], lang: Lang): boolean {
-  for (let i = 0; i < tokens.length; i++) {
-    if (isNegator(tokens[i], lang) && phrase.every((w, k) => tokens[i + 1 + k] === w)) return true;
-    for (let k = 1; k < phrase.length; k++) {
-      if (!phrase.slice(0, k).every((w, j) => tokens[i + j] === w)) continue;
-      if (!isNegator(tokens[i + k] ?? "", lang)) continue;
-      if (phrase.slice(k).every((w, j) => tokens[i + k + 1 + j] === w)) return true;
-    }
-  }
-  return false;
 }
 
 /* ------------------------------------------------------------ data checks */

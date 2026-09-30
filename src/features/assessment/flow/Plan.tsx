@@ -229,16 +229,12 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
   const body = data ? (lang === "ar" ? data.ar : data.en) : "";
   const speech = data ? (lang === "ar" ? data.arTts : data.en) : undefined;
   const { lines } = alignedSentences(body, speech);
-  const checkIn = CHECK_DATA.helperBriefing.checkInLine;
-  const checkInLine: SpeechLine =
-    lang === "ar" ? { display: checkIn.ar, speech: checkIn.arTts } : { display: checkIn.en };
   const sideLine = weaker
     ? t(lang, "assessment.helper.weakerSide", {
         side: t(lang, weaker === "left" ? "assessment.helper.sideLeft" : "assessment.helper.sideRight"),
       })
     : t(lang, "assessment.helper.noWeakerSide");
-  // The arm tests' briefing (O34-2 (2)) is the check in line and the confirm only.
-  const all: SpeechLine[] = screen ? [...lines, { display: sideLine }, checkInLine] : [checkInLine];
+  const all: SpeechLine[] = [...lines, { display: sideLine }];
   // The helper briefing is the screen's body (the sentence being read is highlighted there).
   useEntryLines(voice, all, true, { onScreen: true });
   const current = voice.current !== null && voice.current < lines.length && screen ? voice.current : null;
@@ -277,16 +273,8 @@ export function HelperBrief({ model, dispatch }: ScreenProps) {
             stand={screen === "scr_helper_brief_stand"}
           />
         )}
-        {screen && <SentenceStack text={body} current={current} size={20} />}
-        {screen && <p className="flow-strong flow-side-line">{bidiText(lang, sideLine)}</p>}
-        <div className="flow-sentences is-20">
-          <p
-            aria-current={voice.current === all.length - 1 ? "true" : undefined}
-            className={voice.current === all.length - 1 ? "is-current" : undefined}
-          >
-            {bidiText(lang, checkInLine.display)}
-          </p>
-        </div>
+        <SentenceStack text={body} current={current} size={20} />
+        <p className="flow-strong flow-side-line">{bidiText(lang, sideLine)}</p>
         <ListenButton onClick={() => void voice.play(all, { onScreen: true })} />
       </div>
     </CheckShell>

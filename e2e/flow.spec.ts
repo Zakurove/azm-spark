@@ -571,7 +571,6 @@ for (const lang of LANGS) {
       await page.getByRole("button", { name: t.test.ready }).click();
       await expectScreen(page, "S26", lang);
       await expect(page.getByText(fill(t.helper.weakerSide, { side: t.helper.sideLeft }))).toBeVisible();
-      await expect(page.getByText(data.helperBriefing.checkInLine[lang])).toBeVisible();
       await page.getByRole("button", { name: t.common.back }).click();
       await expectScreen(page, "S28", lang);
       await page.getByRole("button", { name: t.common.skipTest }).click();

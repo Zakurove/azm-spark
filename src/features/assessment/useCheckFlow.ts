@@ -11,8 +11,8 @@
  *     gets its one check booth token, O17), the form of the end question (GET /:id/end), and every
  *     other call through the ordered outbox (resultQueue.ts), which it retries with a back off, when
  *     the page is shown again and when the connection returns;
- *   - it remembers on the device the checks that had a safety screen or an alarm, which are never
- *     resumed (O6 (1));
+ *   - it remembers on the device the checks that had a safety screen, which are never resumed
+ *     (O6 (1));
  *   - it keeps a resumable snapshot for the camera permission reload (S32), without raw answers once
  *     the protocol is frozen, in sessionStorage only.
  */
@@ -124,8 +124,8 @@ function noResumeIds(): string[] | null {
 }
 
 /**
- * Remembers on this device that a check had a safety screen (S36 to S40) or an alarm (S45): it is
- * never resumed (O6 (1)). The server keeps no such record for a person (Q25 (d)).
+ * Remembers on this device that a check had a safety screen (S36 to S40): it is never resumed
+ * (O6 (1)). The server keeps no such record for a person (Q25 (d)).
  */
 export function markNoResume(checkId: string): void {
   try {
@@ -138,10 +138,9 @@ export function markNoResume(checkId: string): void {
 }
 
 /**
- * Whether an open check may be offered to continue (S01 resume, O6 (1)): never after a safety screen or
- * an alarm on this device. Without storage no resume is offered (the check closes after 30 minutes
- * and a new one starts), the safer side. Other devices learn of an alarm from the server, which closes
- * the check's resume window when the alarm is posted (R3C-22): the context then gives no openCheck.
+ * Whether an open check may be offered to continue (S01 resume, O6 (1)): never after a safety screen on
+ * this device. Without storage no resume is offered (the check closes after 30 minutes and a new one
+ * starts), the safer side.
  */
 export function resumeAllowed(checkId: string): boolean {
   const ids = noResumeIds();
@@ -213,8 +212,6 @@ export function queuedCallOf(effect: FlowEffect): NewCall | null {
       return { type: "end", checkId: effect.checkId, answer: effect.answer };
     case "faint":
       return { type: "faint", checkId: effect.checkId, body: effect.body };
-    case "alarm":
-      return { type: "alarm", checkId: effect.checkId, body: effect.body };
     case "between":
       return {
         type: "between",
@@ -268,7 +265,7 @@ export function useCheckFlow(opts: CheckFlowOptions) {
       if (!r.ok) return dispatch({ type: "CONTEXT_FAILED" });
       const context = toSignedInContext(r.value);
       // O6 (1): only the check the server still names as open, and never one that had a safety
-      // screen or an alarm; otherwise a new check starts (its start closes the old one).
+      // screen; otherwise a new check starts (its start closes the old one).
       const check = opts.resume;
       if (check && context.openCheck?.id === check.id && resumeAllowed(check.id))
         dispatch({ type: "RESUME", context, check });
@@ -322,9 +319,9 @@ export function useCheckFlow(opts: CheckFlowOptions) {
     };
   }, [flush, signedIn]);
 
-  // A check with a safety screen or an alarm is never resumed (O6 (1)).
+  // A check with a safety screen is never resumed (O6 (1)).
   const checkId = model.data.checkId;
-  const safetyShown = model.state.kind === "safety" || model.overlay?.kind === "alarm";
+  const safetyShown = model.state.kind === "safety";
   useEffect(() => {
     if (signedIn && checkId && safetyShown) markNoResume(checkId);
   }, [signedIn, checkId, safetyShown]);
@@ -389,7 +386,6 @@ export function useCheckFlow(opts: CheckFlowOptions) {
         clearBoothPass();
         return;
       default: {
-        if (effect.type === "alarm") markNoResume(effect.checkId);
         const call = queuedCallOf(effect);
         if (call) await queue.enqueue(call);
       }

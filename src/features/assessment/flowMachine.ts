@@ -4,8 +4,8 @@
  *   flowReducer(model, event) -> model      no DOM, no network, no clock: `now` comes in the event
  *
  * The model holds one screen state at a time (`state`), an optional overlay over it (`overlay`:
- * the leave dialog S15, the skip dialog, the stop list S41, the check in S43, "go on" S44 and the
- * no response alarm S45), the flow data (`data`) and a list of network effects for the hook to run
+ * the leave dialog S15, the skip dialog, the stop list S41 and the optional check in S43, D-016), the
+ * flow data (`data`) and a list of network effects for the hook to run
  * (`effects`). Safety routing uses the pure modules of src/medical (evaluatePrecheck, betweenTests,
  * stopRoute) on the phone and never waits for the network: a safety screen is the next state of
  * the event that asks for it. The guest flow emits no network effect at all (contract v3 I).
@@ -14,7 +14,7 @@
  * back as START_RESULT and RESUME_RESULT), and `endForm` asks the server for the form of the end
  * question (END_FORM, the general form until it answers); every other effect is sent in the
  * background through the ordered outbox of the hook (resultQueue.ts): results, skips, stops, the
- * pain question between tests, the end and faint answers, alarms, the adult confirmation, the
+ * pain question between tests, the end and faint answers, the adult confirmation, the
  * completion and the background start or resume of a postponed or emergency pre-check. The screen
  * never waits for any of them: the phone has already decided and shown it (UX spec 0.7), and the
  * outbox keeps retrying until the server has the lock, the stop and the results, in the order they
@@ -37,7 +37,6 @@ import {
   visibleQuestions,
   type AnswerValue,
   type Answers,
-  type CheckInConfig,
   type PrecheckEnv,
   type PrecheckOutcome,
   type RemainingTest,
@@ -70,7 +69,7 @@ import type {
   Support,
   TestId,
 } from "../../movements/types";
-import type { AlarmBody, FaintBody, HelperBriefing, LockWhen, TestRef } from "./api";
+import type { FaintBody, HelperBriefing, LockWhen, TestRef } from "./api";
 
 /* =================================================================== types */
 
@@ -87,10 +86,8 @@ export interface CurlLoad {
   kg?: number;
   liters?: 0.5 | 1 | 1.5;
 }
-/** Where a safety screen was routed from: the pre-check, a test (stop, check in), the end question. */
+/** Where a safety screen was routed from: the pre-check, a test (a stop), the end question. */
 export type SafetyFrom = "precheck" | "test" | "end";
-/** How "I am fine" was given (the check in and the alarm): a tap, the zone, a raised hand, speech. */
-export type FineVia = "zone" | "raisedHand" | "button" | "speech";
 export type CamKind =
   | "cam.setup"
   | "cam.calibrate"
@@ -102,7 +99,8 @@ export type CamKind =
   | "cam.rest";
 /**
  * Why a rest runs (S34j): between attempts, after the practice (chair stand), the seated minute after
- * the chair stand, before a redo (S44), between the sides of the arm raise and the arm curl (S34k),
+ * the chair stand, before a redo (an attempt the check in paused), between the sides of the arm raise
+ * and the arm curl (S34k),
  * and before the one repeat of a timed test after a quality failure (S34i, 120 s).
  */
 export type RestPurpose = "attempt" | "practice" | "seated" | "redo" | "sideChange" | "retryRest";
@@ -200,11 +198,9 @@ export type FlowState =
       kind: "faintAsk";
       /** The screen "no" returns to (S38 after a faint stop, S39 after a fall stop); S38 by default. */
       back?: { safety: SafetyKind; screen: DataScreenId; alsoShow: DataScreenId[] };
-      /** "I am fine" was given over it (a check in or the alarm), and how. */
-      fineVia?: FineVia;
     }
   /** S49: the general form until the server names a side (GET /:id/end, Q23 (7), O37). */
-  | { kind: "endQuestion"; side?: Side | null; chronicNote?: boolean; fineVia?: FineVia }
+  | { kind: "endQuestion"; side?: Side | null; chronicNote?: boolean }
   | {
       kind: "safety";
       safety: SafetyKind;
@@ -224,45 +220,12 @@ export type FlowState =
 
 export type FlowStateKind = FlowState["kind"];
 
-/** What a check in (S43) or the alarm (S45) opened over. */
-export type CheckInFrom = "test" | "stopList" | "faintAsk" | "endQuestion";
-/**
- * S44 "go on" (R3C-01, R3C-02, R3C-04): `canRedo` only after a check in during an attempt, never after
- * sway or a no response alarm, and for a timed test only while its one repeat is unused; `timer` when
- * this S44 runs the one extra 30 s no answer timer (after the alarm, or after a camera fine).
- */
-export type GoOnOverlay = { kind: "goOn"; afterAlarm: boolean; canRedo: boolean; timer?: true };
-/** Overlays a camera trigger replaces and gives back after "I am fine" (section 4.8). */
-export type ResumableOverlay = { kind: "skipDialog" } | GoOnOverlay;
-
 export type Overlay =
   | { kind: "leave" }
   | { kind: "skipDialog" }
-  | {
-      kind: "stopList";
-      takeYourTime: boolean;
-      /** Back after "I am fine" over the list, and how it was given (O14, O34-1 (6) timers). */
-      fineVia?: FineVia;
-    }
-  | {
-      kind: "checkIn";
-      from: CheckInFrom;
-      trigger: string;
-      /** From a test: the state was an attempt, so "go on" (S44) and its redo apply. */
-      attempt?: boolean;
-      resume?: ResumableOverlay;
-    }
-  /** canRedo: redo only after a check in during an attempt; never re-measure a finished side. */
-  | GoOnOverlay
-  | {
-      kind: "alarm";
-      from: CheckInFrom;
-      attempt?: boolean;
-      /** «أحتاج مساعدة» opened it (the S45 help variant, O34-5): "fine" goes to the stop list (S41). */
-      help?: true;
-      /** The check in trigger it escalated from (a hips drop keeps its S41 route after "fine", O42). */
-      trigger?: string;
-    };
+  | { kind: "stopList" }
+  /** S43, the optional check in (D-016): a camera test paused to ask «هل أنت بخير؟». */
+  | { kind: "checkIn" };
 
 /** One test of today's protocol with the sides that run (skipped sides left out). */
 export interface TestRun {
@@ -308,6 +271,8 @@ export interface FlowConfig {
   desktop: boolean;
   /** The side lean only session from S01 leanRepeat (Q12 (2)); a full check by default. */
   session?: CheckSession;
+  /** The person's check in setting when the check opens (D-016); never on at the booth. */
+  checkIn?: boolean;
 }
 
 /** The signed in context (GET /api/assessments/context), normalised by api.ts. */
@@ -380,22 +345,14 @@ export interface FlowData {
   lock: { reason: string; until: number | null } | null;
   /** The server has closed this check itself: the phone never completes it. */
   closed: boolean;
-  /** The inputs of the check in from the start or resume answer (O34), or null. */
-  checkIn: CheckInConfig | null;
-  /** The helper briefing of each test that runs with a helper (Q11, O34-2 (2)). */
+  /** The optional check in is on (D-016): the setting, which S14 can change; never at the booth. */
+  checkIn: boolean;
+  /** The helper briefing of each test that runs with a helper (Q11). */
   helperBriefing: HelperBriefing;
   /** The test side the last stop named (the faint answer names its test, Q33 (3)). */
   stopped: TestRef | null;
-  /** A no response alarm (S45) happened in this check: a faint answer then takes the emergency route. */
-  noResponseAlarm: boolean;
-  /** No response alarms in this check (the help form not counted): a second one ends testing (R3C-02). */
-  noResponseAlarms: number;
-  /** Testing ended for today (a second no response alarm, R3C-02): no next test, S49, the results. */
-  testingEnded: boolean;
   /** A test of today reached the camera (R3C-21: the end question is then asked). */
   started: boolean;
-  /** S41 was opened over S49 (a hips drop, R3C-08): S49 is asked again unless the route is S36. */
-  endPending: boolean;
   /** A resumed check is in its re-ask (O6 (2)): the questions and the rules of evaluateResume. */
   resuming: boolean;
   /**
@@ -427,7 +384,6 @@ export type FlowEffect =
   /** GET /api/assessments/:id/end: the side form of the end question (answered with END_FORM). */
   | { id: number; type: "endForm"; checkId: string }
   | { id: number; type: "faint"; checkId: string; body: FaintBody }
-  | { id: number; type: "alarm"; checkId: string; body: AlarmBody }
   | { id: number; type: "adult" }
   | { id: number; type: "resume"; checkId: string; answers: Answers }
   | { id: number; type: "resumeBackground"; checkId: string; answers: Answers }
@@ -487,7 +443,6 @@ export type StartResult =
       protocol: ProtocolItem[];
       warnings: string[];
       helperRequired: string[];
-      checkIn?: CheckInConfig | null;
       helperBriefing?: HelperBriefing;
     }
   | {
@@ -510,7 +465,6 @@ export type ResumeResult =
       skips: SkipItem[];
       warnings: string[];
       helperRequired: string[];
-      checkIn: CheckInConfig | null;
     }
   | Exclude<StartResult, { ok: true }>;
 
@@ -578,20 +532,15 @@ export type FlowEvent = At &
     | { type: "GUEST_RESULTS" }
     | { type: "STOP" }
     | { type: "STOP_OPTION"; option: StopOptionId }
-    | { type: "STOP_NO_INPUT" }
     | { type: "STOP_NEXT" }
     | { type: "STOP_END" }
     | { type: "CHANGE_REASON" }
-    | { type: "FINE"; via: "zone" | "raisedHand" | "button" | "speech" }
+    /** S43: «أنا بخير» and «أريد التوقف»; S14: the check in setting (D-016). */
+    | { type: "FINE" }
     | { type: "WANT_STOP" }
-    | { type: "NEED_HELP" }
-    | { type: "CHECKIN_TIMEOUT" }
-    | { type: "REDO" }
-    | { type: "SKIP_TEST" }
-    | { type: "CALL" }
+    | { type: "CHECKIN_SETTING"; on: boolean }
     | { type: "FAINT_ASK" }
     | { type: "FAINT_ANSWER"; value: "yes" | "no" | "unsure" }
-    | { type: "FAINT_TIMEOUT" }
     | { type: "END_ANSWER"; yes: boolean }
     | { type: "RECHECK" }
     | { type: "RELEASE" }
@@ -698,14 +647,10 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
     run: { ...EMPTY_RUN },
     lock: null,
     closed: false,
-    checkIn: null,
+    checkIn: config.checkIn === true && !config.booth,
     helperBriefing: {},
     stopped: null,
-    noResponseAlarm: false,
-    noResponseAlarms: 0,
-    testingEnded: false,
     started: false,
-    endPending: false,
     resuming: false,
     sameChair: {},
     armCurl: { grip: {}, load: {} },
@@ -740,30 +685,7 @@ export function cameraRunning(s: FlowState): boolean {
   );
 }
 
-/** States of an attempt in progress: a check in over them may lead to "go on" and a redo (S44). */
-const ATTEMPT_KINDS: readonly FlowStateKind[] = [
-  "cam.setup",
-  "cam.calibrate",
-  "cam.practice",
-  "cam.countdown",
-  "cam.measure",
-  "cam.retry",
-  "test.practiceCheck",
-];
-export function isAttemptState(s: FlowState): boolean {
-  return ATTEMPT_KINDS.includes(s.kind);
-}
-
-/**
- * States on which the camera check in triggers are armed (section 4.8): every state with the camera
- * running, and the answer zone questions after a faint (S38b) and at the end (S49). STOP keeps its
- * own set (cameraRunning).
- */
-export function armedForCheckIn(s: FlowState): boolean {
-  return cameraRunning(s) || s.kind === "faintAsk" || s.kind === "endQuestion";
-}
-
-/** Safety screens: no Back, no Exit, no idle reset (S36 to S45). */
+/** Safety screens: no Back, no Exit, no idle reset (S36 to S40, S38b). */
 export function isSafetyState(s: FlowState): boolean {
   return s.kind === "safety" || s.kind === "faintAsk";
 }
@@ -937,11 +859,14 @@ function reduce(m: FlowModel, e: FlowEvent): FlowModel {
     case "LEAVE":
       return canLeave(m) ? { ...m, overlay: { kind: "leave" } } : m;
     case "TRIGGER":
-      return trigger(m, e.trigger);
+      // The optional check in (D-016): a camera test with the setting on and nothing open over it.
+      if (!m.data.checkIn || !cameraRunning(m.state) || m.overlay) return m;
+      return { ...m, overlay: { kind: "checkIn" } };
     case "STOP":
       if (!cameraRunning(m.state) || m.overlay?.kind === "stopList") return m;
-      if (m.overlay?.kind === "alarm") return m; // the alarm is left only with "I am fine" (S45)
-      return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
+      return { ...m, overlay: { kind: "stopList" } };
+    case "CHECKIN_SETTING":
+      return m.data.config.booth ? m : { ...m, data: { ...m.data, checkIn: e.on } };
     case "BACK": {
       if (m.overlay) return m;
       const target = backTarget(m);
@@ -954,38 +879,6 @@ function reduce(m: FlowModel, e: FlowEvent): FlowModel {
 }
 
 /* ------------------------------------------------------------ overlays */
-
-/**
- * A camera check in trigger (section 4.8), armed per state by the camera screens. S43 opens over any
- * armed state, also over the stop list (fine returns to it), and over S44 or the skip dialog, which it
- * replaces and gives back after "I am fine". It is ignored only while S43 or the alarm is open.
- */
-function trigger(m: FlowModel, name: string): FlowModel {
-  if (!armedForCheckIn(m.state)) return m;
-  const o = m.overlay;
-  if (o && (o.kind === "checkIn" || o.kind === "alarm" || o.kind === "leave")) return m;
-  // The stop list first: it can be open over S49 after a hips drop there (R3C-08).
-  const from: CheckInFrom =
-    o?.kind === "stopList"
-      ? "stopList"
-      : m.state.kind === "faintAsk"
-        ? "faintAsk"
-        : m.state.kind === "endQuestion"
-          ? "endQuestion"
-          : "test";
-  const resume: ResumableOverlay | undefined =
-    o?.kind === "goOn" || o?.kind === "skipDialog" ? (o as ResumableOverlay) : undefined;
-  return {
-    ...m,
-    overlay: {
-      kind: "checkIn",
-      from,
-      trigger: name,
-      ...(from === "test" ? { attempt: isAttemptState(m.state) } : {}),
-      ...(resume ? { resume } : {}),
-    },
-  };
-}
 
 function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
   const o = m.overlay!;
@@ -1003,169 +896,36 @@ function overlayReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       // Only the options of the data (Q31 (3)); O43 rejected a "pressed by mistake" way back.
       if (e.type === "STOP_OPTION")
         return STOP_OPTIONS.has(e.option) ? stopOption(close(m), e.option, now) : m;
-      if (e.type === "STOP_NO_INPUT")
-        return { ...m, overlay: { kind: "checkIn", from: "stopList", trigger: "no_answer" } };
       return m;
     case "checkIn":
-      if (e.type === "FINE") {
-        // A hips drop on S49 opens the stop list, so a slide to the floor is declared and routed (a
-        // fall to S39 with its lock and the faint question), and S49 is asked again (R3C-08 (2)).
-        if (o.from === "endQuestion" && o.trigger === "hips_drop") return endStopList(m);
-        // Otherwise the question it opened over (S38b, S49) takes the answer (R3C-08 (1), (3)). A hips
-        // drop during a test goes to the stop list (S41), so a slide to the floor is declared and routed
-        // to S39 with its lock (O42, O33 (b)). Otherwise back to what the trigger replaced (S44, with no
-        // further timer in that episode, R3C-01 (3), or the skip dialog), or by origin: the stop list
-        // with "Take your time", "go on" (S44) after an attempt, or simply the state (a rest, S47, S48,
-        // a saved attempt: nothing is measured again).
-        if (o.from === "faintAsk" || o.from === "endQuestion") return fineBack(close(m), e.via);
-        if (o.from === "stopList")
-          return { ...m, overlay: { kind: "stopList", takeYourTime: true, fineVia: e.via } };
-        if (o.trigger === "hips_drop") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
-        if (o.resume) return { ...m, overlay: o.resume.kind === "goOn" ? untimed(o.resume) : o.resume };
-        return o.attempt
-          ? { ...m, overlay: goOnOverlay(m, { afterAlarm: false, trigger: o.trigger, via: e.via }) }
-          : close(m);
-      }
-      if (e.type === "WANT_STOP") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
-      if (e.type === "NEED_HELP" || e.type === "CHECKIN_TIMEOUT") {
-        const help = e.type === "NEED_HELP";
-        return {
-          ...alarm(m, help ? "help_requested" : "no_response", now),
-          overlay: {
-            kind: "alarm",
-            from: o.from,
-            ...(o.from === "test" ? { attempt: o.attempt === true } : {}),
-            ...(help ? { help: true as const } : {}),
-            trigger: o.trigger,
-          },
-        };
-      }
-      return m;
-    case "goOn": {
-      if (e.type === "REDO") {
-        const t = currentTest(m);
-        // Redo only repeats an attempt in progress; after a finished side it just goes on (M23).
-        if (!t || !o.canRedo) return close(m);
-        // A redo of a timed test is that side's one repeat (R3C-04 (2)): no quality repeat follows.
-        const testId = m.data.tests[t.i]?.testId;
-        const timed = !!testId && testDef(testId).kind === "timed_count";
-        const next = timed ? withRun(close(m), { retriesUsed: RETRIES[testId] }) : close(m);
-        return go(next, { kind: "cam.rest", i: t.i, side: t.side, purpose: "redo" });
-      }
-      if (e.type === "SKIP_TEST") return skipCurrentTest(close(m), "by_choice");
-      if (e.type === "NEED_HELP")
-        return {
-          ...alarm(m, "help_requested", now),
-          overlay: { kind: "alarm", from: "test", attempt: o.canRedo, help: true },
-        };
-      if (e.type === "WANT_STOP" || e.type === "STOP_END")
-        return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
-      return m;
-    }
-    case "alarm":
-      // Only "I am fine" (button, zone or raised hand) leaves the alarm; a call keeps it (S45). Over a
-      // question (the faint follow up S38b, the end question S49) "fine" returns to it, except after a
-      // hips drop on S49 (R3C-08). Over the stop list it returns to the stop list, which is the triage
-      // of every stop (O43, Q31 (3)). After a help request (O34-5), a hips drop (O42) or a second no
-      // response alarm (R3C-02 (2)) it goes to the stop list (S41), so the reason decides the route.
-      // Only an alarm reached by no response goes to "go on" in its after alarm form (S44): never a
-      // redo (R3C-02 (1)), and one 30 s no answer timer (R3C-01).
-      if (e.type === "FINE") {
-        if (o.from === "endQuestion" && o.trigger === "hips_drop") return endStopList(m);
-        if (o.from === "faintAsk" || o.from === "endQuestion") return fineBack(close(m), e.via);
-        if (o.from === "stopList")
-          return { ...m, overlay: { kind: "stopList", takeYourTime: true, fineVia: e.via } };
-        if (o.help || o.trigger === "hips_drop" || m.data.testingEnded)
-          return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
-        return { ...m, overlay: goOnOverlay(m, { afterAlarm: true, via: e.via }) };
-      }
+      if (e.type === "FINE") return goOn(close(m));
+      if (e.type === "WANT_STOP") return { ...m, overlay: { kind: "stopList" } };
       return m;
   }
 }
 
 /**
- * S44 after "I am fine" (R3C-01, R3C-02, R3C-04). The redo only after a check in during an attempt,
- * never after sway (a near loss of balance) or a no response alarm, and for a timed test only while
- * that side's one repeat is unused. The one extra 30 s no answer timer after the alarm and after a
- * camera fine (O34-1 (6)); none after a tap (O14).
+ * «أنا بخير» on the check in (D-016): the test goes on. An attempt or a practice it paused is not
+ * counted and runs again after the rest before a repeat (60 s, a timed test 120 s); for a timed test
+ * that is the side's one repeat, and a timed side whose repeat is already used is not measured today.
+ * Over any other part (a rest, the setup check, a retry) the test simply goes on.
  */
-function goOnOverlay(m: FlowModel, o: { afterAlarm: boolean; trigger?: string; via: FineVia }): GoOnOverlay {
-  const canRedo = !o.afterAlarm && o.trigger !== "sway" && repeatUnused(m);
-  const timer = o.afterAlarm || o.via === "zone" || o.via === "raisedHand";
-  return { kind: "goOn", afterAlarm: o.afterAlarm, canRedo, ...(timer ? { timer: true as const } : {}) };
-}
-
-/** S44 given back after a check in over it: no further timer in that episode (R3C-01 (3), (4)). */
-function untimed(o: GoOnOverlay): GoOnOverlay {
-  const { timer: _timer, ...rest } = o;
-  return rest;
-}
-
-/** The side running has its one repeat left (a timed test, R3C-04 (2)); the range tests always do. */
-function repeatUnused(m: FlowModel): boolean {
-  const t = currentTest(m);
-  const testId = t ? m.data.tests[t.i]?.testId : undefined;
-  if (!testId) return false;
-  return testDef(testId).kind !== "timed_count" || m.data.run.retriesUsed < RETRIES[testId];
-}
-
-/** S41 over S49 after a hips drop (R3C-08 (2)): S49 is asked again unless the route is S36. */
-function endStopList(m: FlowModel): FlowModel {
-  return {
-    ...m,
-    data: { ...m.data, endPending: true },
-    overlay: { kind: "stopList", takeYourTime: false },
-  };
-}
-
-/** Back on the question (S38b, S49) after "I am fine": the question keeps how it was given. */
-function fineBack(m: FlowModel, via: FineVia): FlowModel {
+function goOn(m: FlowModel): FlowModel {
   const s = m.state;
-  if (s.kind === "faintAsk" || s.kind === "endQuestion") return go(m, { ...s, fineVia: via });
-  return m;
-}
-
-/**
- * The alarm opens (S45): a signed in check posts it for the anonymous count (O34-5), during the check
- * and in the fall watch after a stop; the server then offers no resume of the check (R3C-22). A no
- * response alarm is remembered: any one earlier in the same check makes a faint answer take the
- * emergency route (Q33 (3), R3C-23). A second one ends testing for today (R3C-02 (2)): the check takes
- * the stop_symptom next day lock and the server closes it, as a stop that ends it; the held results
- * go first, so the server has them before it closes the check.
- */
-function alarm(m: FlowModel, kind: AlarmBody["kind"], now: number): FlowModel {
-  const d = m.data;
-  let next = m;
-  let ends = false;
-  if (kind === "no_response") {
-    const count = d.noResponseAlarms + 1;
-    ends = count >= 2 && !d.testingEnded;
-    next = { ...m, data: { ...d, noResponseAlarm: true, noResponseAlarms: count } };
-    if (ends) {
-      next = postHeld({ ...next, data: { ...next.data, testingEnded: true } });
-      next = setLock(next, "stop_symptom", lockEndsAt("next_day", now));
-    }
+  if (s.kind !== "cam.practice" && s.kind !== "cam.measure") return m;
+  const testId = m.data.tests[s.i]?.testId;
+  if (!testId) return m;
+  if (testDef(testId).kind !== "timed_count")
+    return go(m, { kind: "cam.rest", i: s.i, side: s.side, purpose: "redo" });
+  if (m.data.run.retriesUsed >= RETRIES[testId]) {
+    const marked = recordSide(m, testId, m.data.tests[s.i].sides[s.side].side, {
+      status: "notMeasured",
+      reason: "quality",
+    });
+    return sideComplete(marked, s.i, s.side, false);
   }
-  if (d.config.mode !== "signedIn" || !d.checkId) return next;
-  const t = currentTest(m);
-  const testId = t ? d.tests[t.i]?.testId : undefined;
-  next = emit(next, {
-    type: "alarm",
-    checkId: d.checkId,
-    body: { kind, ...(testId ? { testId } : {}), ...(ends ? { endsCheck: true as const } : {}) },
-  });
-  return ends ? closeCheck(next) : next;
-}
-
-/** Every held result posted as it is (testing ends before its S48 answer). */
-function postHeld(m: FlowModel): FlowModel {
-  const held = m.data.held;
-  const keys = Object.keys(held);
-  if (keys.length === 0) return m;
-  let next: FlowModel = { ...m, data: { ...m.data, held: {} } };
-  const checkId = m.data.checkId;
-  if (checkId) for (const k of keys) next = emit(next, { type: "result", checkId, body: held[k] });
-  return next;
+  const used = withRun(m, { retriesUsed: RETRIES[testId] });
+  return go(used, { kind: "cam.rest", i: s.i, side: s.side, purpose: "redo" });
 }
 
 /* ------------------------------------------------------------ states */
@@ -1391,20 +1151,19 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
     case "stopDone":
       if (e.type === "STOP_NEXT") return continueTo(m, afterTest(m, s.i));
       if (e.type === "STOP_END") return continueTo(m, finish(m));
-      if (e.type === "CHANGE_REASON") return { ...m, overlay: { kind: "stopList", takeYourTime: false } };
+      if (e.type === "CHANGE_REASON") return { ...m, overlay: { kind: "stopList" } };
       return m;
 
     case "faintAsk":
       if (e.type === "FAINT_ANSWER") {
         // sf_faint_loc (Q33 (3), O42) with the pure rule the server runs (faintFollowUp): yes or not
-        // sure, or any answer after a no response alarm, opens the emergency screen; no returns to
-        // the screen of the stop. The answer is posted (POST /:id/answer, faint) with the stopped test.
-        const out = faintFollowUp(e.value, now, { afterNoResponse: d.noResponseAlarm });
+        // sure opens the emergency screen; no returns to the screen of the stop. The answer is posted
+        // (POST /:id/answer, faint) with the stopped test.
+        const out = faintFollowUp(e.value, now);
         let next = m;
         if (!guest && d.checkId) {
           const body: FaintBody = {
             answer: e.value,
-            ...(d.noResponseAlarm ? { afterNoResponse: true } : {}),
             ...(d.stopped ? { testId: d.stopped.testId } : {}),
           };
           next = emit(next, { type: "faint", checkId: d.checkId, body });
@@ -1421,8 +1180,6 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         const back = s.back ?? { safety: "faint" as const, screen: "scr_faint" as const, alsoShow: [] };
         return go(next, { kind: "safety", ...back, faintAnswered: true, askFaint: true });
       }
-      if (e.type === "FAINT_TIMEOUT")
-        return { ...m, overlay: { kind: "checkIn", from: "faintAsk", trigger: "no_answer" } };
       return m;
 
     case "endQuestion":
@@ -1458,8 +1215,6 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "FAINT_ASK" && ask) return go(m, faintAsk);
       if (e.type === "EXIT") {
         if (ask) return go(m, faintAsk);
-        // R3C-08 (2): a stop declared over S49 asks S49 again, unless its route ended at S36.
-        if (d.endPending && s.safety !== "emergency") return toEndQuestion(m);
         // Map 2.3: after S40b (much more pain) the end question when any result exists.
         if (s.safety === "pain" && finish(m).to === "endQuestion") return toEndQuestion(m);
         return guest ? restartGuest(m, now) : go(m, { kind: "exit", to: "today" });
@@ -1989,9 +1744,8 @@ function remainingInstances(m: FlowModel, i: number, side: number): TestInstance
 
 /* ------------------------------------------------------------ continuations */
 
-/** Where the flow goes once test i is over (map 2.3); no next test once testing ended (R3C-02). */
+/** Where the flow goes once test i is over (map 2.3). */
 function afterTest(m: FlowModel, i: number): Continuation {
-  if (m.data.testingEnded) return finish(m);
   const next = nextRunnableTest(m, i + 1);
   if (next === null) return finish(m);
   const finished = m.data.tests[i]?.sides.some(
@@ -2317,9 +2071,7 @@ function proceed(m0: FlowModel, outcome: PrecheckOutcome, lastQuestion: string |
   }
   // The guest check runs the same rules on the phone and stores nothing (contract v3 I).
   const protocol = finalizeProtocol(d.base, outcome, env.ctx, d.setting, null);
-  // The check in inputs come from the same pre-check (O34): a guest who may raise a hand hears it.
   return frozen(m, protocol, outcome.warnings, outcome.helperRequired, null, null, {
-    checkIn: outcome.checkIn ?? null,
     helperBriefing: outcome.helperBriefing ?? {},
   });
 }
@@ -2354,11 +2106,7 @@ function frozen(
     outcomes: {},
     closed: false,
     stopped: null,
-    noResponseAlarm: false,
-    noResponseAlarms: 0,
-    testingEnded: false,
     started: false,
-    endPending: false,
     resuming: false,
     protocol,
     tests: testsOf(protocol),
@@ -2390,7 +2138,6 @@ function startResult(m: FlowModel, r: StartResult, now: number): FlowModel {
   const s = m.state as Extract<FlowState, { kind: "starting" }>;
   if (r.ok)
     return frozen(m, r.protocol, r.warnings, r.helperRequired, r.id, r.kind, {
-      checkIn: r.checkIn ?? null,
       helperBriefing: r.helperBriefing ?? {},
       // O21: no test runs today; the server closed the check and started no clock.
       closed: r.status === "ended_early",
@@ -2506,7 +2253,7 @@ function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
 
 /**
  * The resume call's answer (O6 (2), (3)): the new skips of the remaining tests (the server stored
- * them), today's warnings and check in inputs, then the next unfinished test from its first attempt.
+ * them) and today's warnings, then the next unfinished test from its first attempt.
  */
 function resumeResult(m: FlowModel, r: ResumeResult, now: number): FlowModel {
   const s = m.state as Extract<FlowState, { kind: "starting" }>;
@@ -2526,7 +2273,6 @@ function resumeResult(m: FlowModel, r: ResumeResult, now: number): FlowModel {
     resuming: false,
     warnings,
     helperRequired: r.helperRequired as TestId[],
-    checkIn: r.checkIn ?? d.checkIn,
     run: { ...EMPTY_RUN },
   };
   const ready = { ...next, data };
@@ -2752,9 +2498,7 @@ function setLock(m: FlowModel, reason: string, until: number | null): FlowModel 
  * and the O37 line); the general form shows until it answers (END_FORM).
  */
 function toEndQuestion(m: FlowModel): FlowModel {
-  const next = go(m.data.endPending ? { ...m, data: { ...m.data, endPending: false } } : m, {
-    kind: "endQuestion",
-  });
+  const next = go(m, { kind: "endQuestion" });
   const d = m.data;
   if (d.config.mode !== "signedIn" || !d.checkId) return next;
   return emit(next, { type: "endForm", checkId: d.checkId });

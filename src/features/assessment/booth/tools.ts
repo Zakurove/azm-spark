@@ -3,8 +3,8 @@
  *
  *   idle reset      idle means no touch (and nobody seen by the camera when it runs). S50 asks after
  *                   3 minutes, the other screens that allow it after 5 minutes; a 30 s countdown then
- *                   starts the next visitor. Never on camera, check in, alarm, stop list, safety
- *                   screens (S33, S35 to S45, S38b) or the end question.
+ *                   starts the next visitor. Never on camera, stop list, safety screens (S33, S35
+ *                   to S42, S38b) or the end question.
  *   staff reset     a 1.5 s press on the booth badge or the staff shortcut key asks to start for the
  *                   next visitor from any screen, camera screens included, and logs no stop.
  *
@@ -51,17 +51,17 @@ const IDLE_STATES: ReadonlySet<FlowStateKind> = new Set<FlowStateKind>([
 ]);
 
 /** Overlays that are part of the safety path: no idle reset while one is open. */
-const SAFETY_OVERLAYS = new Set(["stopList", "checkIn", "goOn", "alarm"]);
+const SAFETY_OVERLAYS = new Set(["stopList"]);
 
 /**
  * A visitor pass that ends (10 minutes hidden, S55b) clears the pass, but the page does not reload
- * over a safety screen (S36 to S40, S38b), S33, or the check in, alarm or stop list overlay: wiping
+ * over a safety screen (S36 to S40, S38b), S33, or the stop list: wiping
  * emergency or AD instructions off the phone as the person returns to it is a safety failure. The
  * reload runs once the person has left the screen (R3C-35).
  */
 export function reloadWaits(m: FlowModel): boolean {
   const o = m.overlay?.kind;
-  if (o === "stopList" || o === "checkIn" || o === "alarm") return true;
+  if (o === "stopList") return true;
   const k = m.state.kind;
   return k === "safety" || k === "faintAsk" || k === "postponed";
 }

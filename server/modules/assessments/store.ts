@@ -48,8 +48,6 @@ export interface Assessment {
   endedReason: string | null;
   /** The last activity of the check (O6): its start, a result, a stop, a between answer, a resume. */
   active: number;
-  /** False once an alarm was posted for the check: no device offers its resume (O6 (1), R3C-22). */
-  resumable: boolean;
 }
 
 interface AssessmentRow {
@@ -67,7 +65,6 @@ interface AssessmentRow {
   completed: number | null;
   ended_reason: string | null;
   active: number | null;
-  resumable?: number | null;
 }
 
 function toAssessment(r: AssessmentRow): Assessment {
@@ -86,7 +83,6 @@ function toAssessment(r: AssessmentRow): Assessment {
     completed: r.completed === null ? null : Number(r.completed),
     endedReason: r.ended_reason,
     active: r.active === null ? Number(r.started) : Number(r.active),
-    resumable: r.resumable === undefined || r.resumable === null || Number(r.resumable) === 1,
   };
 }
 
@@ -289,11 +285,6 @@ function countClosed(db: DatabaseSync, a: Assessment, status: "completed" | "end
 /** Records activity on an open check (O6: the 30 minute window runs from the last activity). */
 export function touch(db: DatabaseSync, id: string, now: number) {
   db.prepare("UPDATE assessments SET active=? WHERE id=? AND status='open'").run(now, id);
-}
-
-/** An alarm was posted for the check: no device may resume it (O6 (1), R3C-22). Nothing else is kept. */
-export function closeResume(db: DatabaseSync, id: string) {
-  db.prepare("UPDATE assessments SET resumable=0 WHERE id=?").run(id);
 }
 
 export function updatePrecheck(db: DatabaseSync, id: string, precheck: Record<string, unknown>) {
@@ -594,8 +585,8 @@ export type CountTestId = TestId | "precheck" | "none";
  */
 // SPEC-GAP: safety-reason-keys. Reasons carry their source, because ids overlap (pain is a postpone
 // reason and a stop option): precheck:<postpone reason, urgent or ad> (the start and the O6 re-ask),
-// stop:<stop option>, between:much (bt_pain_after ends the check), end:symptoms (Q23 (7) yes),
-// faint_loc:<yes, no or unsure> (Q33 (3)) and alarm:<no_response or help_requested> (O34-5).
+// stop:<stop option>, between:much (bt_pain_after ends the check), end:symptoms (Q23 (7) yes) and
+// faint_loc:<yes, no or unsure> (Q33 (3)).
 export function countSafetyEvent(
   db: DatabaseSync,
   reason: string,

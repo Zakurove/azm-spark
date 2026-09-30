@@ -3,8 +3,8 @@
  *
  *   1. every transition of Appendix A, state by state;
  *   2. every safety event from every state reaches its safety screen (server SAFETY, the stop list,
- *      the check in and the alarm, the pre-check, the pain question, the end question, the faint
- *      follow up), and the alarm can only be left with "I am fine";
+ *      the pre-check, the pain question, the end question, the faint follow up), and the optional
+ *      check in (D-016) opens only where it is on;
  *   3. the guest flow never produces a network effect; the signed in flow sends the start, the safety
  *      answers directly and results and completion (queued by the hook);
  *   4. whole walks: guest booth, signed in first check, re-test, postponed, locked, stop and check in,
@@ -15,7 +15,6 @@ import {
   backTarget,
   canLeave,
   cameraRunning,
-  isAttemptState,
   flowReducer,
   initialModel,
   prepSteps,
@@ -49,6 +48,8 @@ function play(m: FlowModel, ...events: FlowEvent[]): FlowModel {
 }
 const kind = (m: FlowModel) => m.state.kind;
 const withState = (m: FlowModel, state: FlowState): FlowModel => ({ ...m, state, overlay: null });
+/** The optional check in switched on (D-016), as the person's setting would at home. */
+const checkInOn = (m: FlowModel): FlowModel => ({ ...m, data: { ...m.data, checkIn: true } });
 
 /** A guest at the booth through the six steps (chair, no weaker side, nothing else) to the intro. */
 function guestAtIntro(
@@ -691,7 +692,7 @@ describe("Appendix A: the camera states", () => {
     expect(kind(play(at(cam("cam.countdown", curl)), { type: "GO" }))).toBe("cam.measure");
   });
 
-  it("cam.measure: ok saves, a quality failure retries, used arms ask, an armed trigger opens the check in", () => {
+  it("cam.measure: ok saves, a quality failure retries, used arms ask, a trigger opens the check in when on", () => {
     expect(kind(play(at(cam("cam.measure")), { type: "ATTEMPT_OK" }))).toBe("cam.saved");
     expect(play(at(cam("cam.measure")), { type: "QUALITY_FAIL", issue: "out_of_frame" }).state).toMatchObject(
       {
@@ -701,12 +702,10 @@ describe("Appendix A: the camera states", () => {
       },
     );
     expect(kind(play(at(cam("cam.measure")), { type: "ARMS_USED" }))).toBe("after.pushed");
-    expect(play(at(cam("cam.measure")), { type: "TRIGGER", trigger: "no_movement" }).overlay).toEqual({
-      kind: "checkIn",
-      from: "test",
-      trigger: "no_movement",
-      attempt: true,
-    });
+    expect(play(at(cam("cam.measure")), { type: "TRIGGER", trigger: "no_movement" }).overlay).toBeNull();
+    expect(
+      play(checkInOn(at(cam("cam.measure"))), { type: "TRIGGER", trigger: "no_movement" }).overlay,
+    ).toEqual({ kind: "checkIn" });
     // A moved phone discards the attempt without a retry; in a timed trial it is a quality failure.
     expect(play(at(cam("cam.measure")), { type: "PHONE_MOVED" }).state).toEqual(cam("cam.setup"));
     expect(play(at(cam("cam.measure", curl)), { type: "PHONE_MOVED" }).state).toMatchObject({
@@ -858,7 +857,7 @@ describe("Appendix A: the camera states", () => {
   });
 });
 
-describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end", () => {
+describe("Appendix A: stop list, stop done, check in, faint, end", () => {
   const planned = guestAtPlan();
   const measuring = withState(planned, cam("cam.measure"));
 
@@ -880,10 +879,7 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     ];
     for (const s of kinds) {
       expect(cameraRunning(s)).toBe(true);
-      expect(play(withState(planned, s), { type: "STOP" }).overlay, s.kind).toEqual({
-        kind: "stopList",
-        takeYourTime: false,
-      });
+      expect(play(withState(planned, s), { type: "STOP" }).overlay, s.kind).toEqual({ kind: "stopList" });
     }
     // Not on the other states.
     expect(play(withState(planned, { kind: "plan" }), { type: "STOP" }).overlay).toBeNull();
@@ -910,11 +906,9 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
       restSec: 0,
       reason: "by_choice",
     });
-    expect(play(open, { type: "STOP_NO_INPUT" }).overlay).toEqual({
-      kind: "checkIn",
-      from: "stopList",
-      trigger: "no_answer",
-    });
+    // The list waits for its answer: nothing else closes it (D-016, no timer).
+    for (const e of [{ type: "FINE" }, { type: "WANT_STOP" }, { type: "BACK" }] as FlowEvent[])
+      expect(play(open, e).overlay, e.type).toEqual({ kind: "stopList" });
   });
 
   it("stopDone: next test, end, or change the reason", () => {
@@ -922,83 +916,90 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     expect(play(done, { type: "STOP_NEXT" }).state).toEqual({ kind: "test.instruction", i: 1 });
     // R3C-21: the end question after a stop, also with nothing measured.
     expect(kind(play(done, { type: "STOP_END" }))).toBe("endQuestion");
-    expect(play(done, { type: "CHANGE_REASON" }).overlay).toEqual({ kind: "stopList", takeYourTime: false });
+    expect(play(done, { type: "CHANGE_REASON" }).overlay).toEqual({ kind: "stopList" });
   });
 
-  it("check in: fine returns by origin; want to stop opens the list; help and 15 s sound the alarm", () => {
-    const fromTest = play(measuring, { type: "TRIGGER", trigger: "left_frame" });
-    // A camera fine: one extra 30 s no answer timer on S44 (O34-1 (6), R3C-01).
-    expect(play(fromTest, { type: "FINE", via: "raisedHand" }).overlay).toEqual({
-      kind: "goOn",
-      afterAlarm: false,
-      canRedo: true,
-      timer: true,
-    });
-    expect(play(fromTest, { type: "WANT_STOP" }).overlay).toEqual({ kind: "stopList", takeYourTime: false });
-    expect(play(fromTest, { type: "NEED_HELP" }).overlay).toEqual({
-      kind: "alarm",
-      from: "test",
-      attempt: true,
-      help: true,
-      trigger: "left_frame",
-    });
-    expect(play(fromTest, { type: "CHECKIN_TIMEOUT" }).overlay).toEqual({
-      kind: "alarm",
-      from: "test",
-      attempt: true,
-      trigger: "left_frame",
-    });
-    const fromList = play(measuring, { type: "STOP" }, { type: "STOP_NO_INPUT" });
-    // The list keeps how fine was given (a camera fine allows one more 30 s timer, O34-1 (6)).
-    expect(play(fromList, { type: "FINE", via: "zone" }).overlay).toEqual({
-      kind: "stopList",
-      takeYourTime: true,
-      fineVia: "zone",
-    });
+  it("check in (D-016): off by default and never at the booth, so a trigger does nothing", () => {
+    expect(initialModel(SIGNED).data.checkIn).toBe(false);
+    expect(initialModel({ ...SIGNED, checkIn: true }).data.checkIn).toBe(true);
+    expect(initialModel({ ...GUEST, checkIn: true }).data.checkIn).toBe(false);
+    expect(play(measuring, { type: "TRIGGER", trigger: "left_frame" }).overlay).toBeNull();
+    // The setting switch (S14) works at home and never at the booth.
+    expect(play(signedAtPlan(), { type: "CHECKIN_SETTING", on: true }).data.checkIn).toBe(true);
+    expect(play(checkInOn(signedAtPlan()), { type: "CHECKIN_SETTING", on: false }).data.checkIn).toBe(false);
+    expect(play(measuring, { type: "CHECKIN_SETTING", on: true }).data.checkIn).toBe(false);
   });
 
-  it("go on: redo rests then sets up, skip notices, help alarms, stop lists", () => {
-    const goOn = play(
-      measuring,
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "FINE", via: "button" },
-    );
-    const redo = play(goOn, { type: "REDO" });
-    expect(redo.state).toMatchObject({ kind: "cam.rest", purpose: "redo" });
-    expect(kind(play(redo, { type: "REST_DONE" }))).toBe("cam.setup");
-    expect(kind(play(goOn, { type: "SKIP_TEST" }))).toBe("skipNotice");
-    expect(play(goOn, { type: "NEED_HELP" }).overlay).toEqual({
-      kind: "alarm",
-      from: "test",
-      attempt: true,
-      help: true,
+  it("check in on: a trigger pauses the test with S43; I am fine redoes the attempt after its rest", () => {
+    const on = checkInOn(measuring);
+    const asked = play(on, { type: "TRIGGER", trigger: "left_frame" });
+    expect(asked.overlay).toEqual({ kind: "checkIn" });
+    expect(overlayFor(asked)).toBe("S43");
+    const fine = play(asked, { type: "FINE" });
+    expect(fine.overlay).toBeNull();
+    expect(fine.state).toMatchObject({ kind: "cam.rest", i: 0, side: 0, purpose: "redo" });
+    // The range tests keep their retries: the paused attempt uses none.
+    expect(fine.data.run.retriesUsed).toBe(0);
+    expect(kind(play(fine, { type: "REST_DONE" }))).toBe("cam.setup");
+    expect(play(asked, { type: "WANT_STOP" }).overlay).toEqual({ kind: "stopList" });
+    // The practice is redone the same way.
+    const practice = play(checkInOn(withState(planned, cam("cam.practice"))), {
+      type: "TRIGGER",
+      trigger: "no_movement",
     });
-    expect(play(goOn, { type: "STOP" }).overlay).toEqual({ kind: "stopList", takeYourTime: false });
+    expect(play(practice, { type: "FINE" }).state).toMatchObject({ kind: "cam.rest", purpose: "redo" });
   });
 
-  it("alarm: only I am fine leaves it (to go on, after alarm); a call, a stray tap or STOP keeps it", () => {
-    const alarm = play(measuring, { type: "TRIGGER", trigger: "no_movement" }, { type: "CHECKIN_TIMEOUT" });
-    const open = { kind: "alarm", from: "test", attempt: true, trigger: "no_movement" };
-    expect(alarm.overlay).toEqual(open);
-    for (const e of [
-      { type: "CALL" },
-      { type: "STOP" },
-      { type: "SKIP_CANCEL" },
-      { type: "LEAVE" },
-      { type: "BACK" },
-      { type: "WANT_STOP" },
-    ] as FlowEvent[])
-      expect(play(alarm, e).overlay, e.type).toEqual(open);
-    // After a no response alarm: no redo (R3C-02), one 30 s no answer timer (R3C-01).
-    expect(play(alarm, { type: "FINE", via: "button" }).overlay).toEqual({
-      kind: "goOn",
-      afterAlarm: true,
-      canRedo: false,
-      timer: true,
-    });
+  it("check in on: over a rest, the setup check, a retry or a saved attempt, I am fine just goes on", () => {
+    for (const s of [
+      cam("cam.rest", 0, 0, { purpose: "attempt" }),
+      cam("cam.setup"),
+      cam("cam.retry", 0, 0, { issue: "x", exhausted: false }),
+      cam("cam.saved"),
+      cam("between", 0, 0, { scope: "side", via: "test" }),
+    ]) {
+      const fine = play(
+        checkInOn(withState(planned, s)),
+        { type: "TRIGGER", trigger: "left_frame" },
+        {
+          type: "FINE",
+        },
+      );
+      expect(fine.overlay, s.kind).toBeNull();
+      expect(fine.state, s.kind).toEqual(s);
+    }
   });
 
-  it("faint: S38 then S38b; yes or not sure is an emergency, no keeps S38; 30 s opens the check in", () => {
+  it("check in on: a timed test's redo is its one repeat; with the repeat used the side is not measured", () => {
+    const curl = planned.data.tests.findIndex((t) => t.testId === "arm_curl_30s");
+    const timed = checkInOn(withState(planned, cam("cam.measure", curl)));
+    const redo = play(timed, { type: "TRIGGER", trigger: "no_movement" }, { type: "FINE" });
+    expect(redo.state).toMatchObject({ kind: "cam.rest", i: curl, purpose: "redo" });
+    expect(redo.data.run.retriesUsed).toBe(1);
+    const used = { ...timed, data: { ...timed.data, run: { ...timed.data.run, retriesUsed: 1 } } };
+    const ended = play(used, { type: "TRIGGER", trigger: "no_movement" }, { type: "FINE" });
+    expect(ended.data.outcomes["arm_curl_30s:right"]).toMatchObject({
+      status: "notMeasured",
+      reason: "quality",
+    });
+    expect(kind(ended)).not.toBe("cam.rest");
+  });
+
+  it("check in on: a trigger is ignored under any overlay and off the camera states", () => {
+    const on = checkInOn(measuring);
+    const list = play(on, { type: "STOP" });
+    expect(play(list, { type: "TRIGGER", trigger: "left_frame" }).overlay).toEqual({ kind: "stopList" });
+    const asked = play(on, { type: "TRIGGER", trigger: "left_frame" });
+    expect(play(asked, { type: "TRIGGER", trigger: "no_movement" })).toEqual(asked);
+    const skip = play(checkInOn(withState(planned, cam("cam.setup"))), { type: "SKIP" });
+    expect(play(skip, { type: "TRIGGER", trigger: "left_frame" }).overlay).toEqual({ kind: "skipDialog" });
+    for (const s of [{ kind: "plan" }, { kind: "endQuestion" }] as FlowState[])
+      expect(
+        play(checkInOn(withState(planned, s)), { type: "TRIGGER", trigger: "left_frame" }).overlay,
+      ).toBeNull();
+  });
+
+  it("faint: S38 then S38b; yes or not sure is an emergency, no keeps S38", () => {
     const faint = play(measuring, { type: "STOP" }, { type: "STOP_OPTION", option: "faint" });
     expect(faint.state).toMatchObject({
       kind: "safety",
@@ -1022,13 +1023,8 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     expect(no.state).toMatchObject({ kind: "safety", safety: "faint", faintAnswered: true });
     // The guest's next day lock lasts for the visit: S35, not a new check (Q25 (c)).
     expect(kind(play(no, { type: "EXIT" }))).toBe("paused");
-    const quiet = play(ask, { type: "FAINT_TIMEOUT" });
-    expect(quiet.overlay).toEqual({ kind: "checkIn", from: "faintAsk", trigger: "no_answer" });
-    expect(play(quiet, { type: "FINE", via: "button" }).state).toMatchObject({ kind: "faintAsk" });
-    // After a faint, "fine" at the alarm returns to the faint question, not to "go on".
-    const alarm = play(quiet, { type: "NEED_HELP" });
-    expect(play(alarm, { type: "FINE", via: "button" }).overlay).toBeNull();
-    expect(kind(play(alarm, { type: "FINE", via: "button" }))).toBe("faintAsk");
+    // The question waits for its answer: no check in opens over it, even with the setting on.
+    expect(play(checkInOn(ask), { type: "TRIGGER", trigger: "no_movement" }).overlay).toBeNull();
   });
 
   it("endQuestion: yes is an emergency with a next day lock, no shows the results", () => {
@@ -1129,7 +1125,7 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
     expect(resumed.effects.map((e) => e.type)).toEqual(["resume"]);
     resumed = play(resumed, {
       type: "RESUME_RESULT",
-      result: { ok: true, skips: [], warnings: [], helperRequired: [], checkIn: null },
+      result: { ok: true, skips: [], warnings: [], helperRequired: [] },
     });
     expect(resumed.state).toEqual({ kind: "test.instruction", i: 1 });
     expect(resumed.data.checkId).toBe("c1");
@@ -1240,8 +1236,8 @@ describe("every safety event from every state reaches its safety screen", () => 
     const m = all[k as FlowStateKind];
     if (k === "exit") return;
     for (const overlay of [
-      { kind: "alarm", from: "test" },
-      { kind: "stopList", takeYourTime: false },
+      { kind: "checkIn" },
+      { kind: "stopList" },
       { kind: "leave" },
     ] as FlowModel["overlay"][]) {
       const n = play({ ...m, overlay }, { type: "SAFETY", screen: "scr_emergency" });
@@ -1288,25 +1284,11 @@ describe("every safety event from every state reaches its safety screen", () => 
     }
   });
 
-  it.each(running)("the check in reaches the alarm, and help from go on too, from %s", (k) => {
-    const checkIn = play(all[k], { type: "TRIGGER", trigger: "no_movement" });
+  it.each(running)("with the setting on, the check in and its stop list, from %s", (k) => {
+    const checkIn = play(checkInOn(all[k]), { type: "TRIGGER", trigger: "no_movement" });
     expect(overlayFor(checkIn)).toBe("S43");
-    expect(overlayFor(play(checkIn, { type: "NEED_HELP" }))).toBe("S45");
-    expect(overlayFor(play(checkIn, { type: "CHECKIN_TIMEOUT" }))).toBe("S45");
-    // After an attempt "I am fine" asks whether to go on (S44), whose help sounds the alarm; after a
-    // finished side, a rest or a question it simply returns to the state (nothing is measured again).
-    const fine = play(checkIn, { type: "FINE", via: "zone" });
-    if (isAttemptState(all[k].state)) {
-      expect(overlayFor(fine)).toBe("S44");
-      expect(overlayFor(play(fine, { type: "NEED_HELP" }))).toBe("S45");
-    } else {
-      expect(fine.overlay).toBeNull();
-      expect(fine.state).toEqual(all[k].state);
-    }
-    // From the stop list too: no answer in 30 s opens the check in, which alarms after 15 s.
-    expect(
-      overlayFor(play(all[k], { type: "STOP" }, { type: "STOP_NO_INPUT" }, { type: "CHECKIN_TIMEOUT" })),
-    ).toBe("S45");
+    expect(overlayFor(play(checkIn, { type: "WANT_STOP" }))).toBe("S41");
+    expect(play(checkIn, { type: "FINE" }).overlay).toBeNull();
   });
 
   it("pc_urgent yes is an emergency whenever it is answered, also after going back", () => {
@@ -1625,7 +1607,7 @@ describe("screen registry", () => {
       if (k === "entry" || k === "exit") expect(id).toBeNull();
       else expect(SCREENS[id!], k).toBeTypeOf("function");
     }
-    for (const id of ["skipDialog", "S41", "S43", "S44", "S45"] as const) expect(OVERLAYS[id]).toBeDefined();
+    for (const id of ["skipDialog", "S41", "S43"] as const) expect(OVERLAYS[id]).toBeDefined();
   });
 
   it("maps the pre-check types to S17 to S24", () => {
@@ -1650,96 +1632,6 @@ describe("screen registry", () => {
 });
 
 /* ------------------------------------------------------------------ review fixes (round 3) */
-
-describe("the check in is armed on every camera state, S38b and S49 (section 4.8)", () => {
-  const planned = guestAtPlan();
-  const measuring = withState(planned, cam("cam.measure"));
-
-  it("a trigger under S44 or the skip dialog replaces it, and I am fine gives it back", () => {
-    const goOn = play(
-      measuring,
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "FINE", via: "button" },
-    );
-    expect(goOn.overlay).toEqual({ kind: "goOn", afterAlarm: false, canRedo: true });
-    const again = play(goOn, { type: "TRIGGER", trigger: "big_sway" });
-    expect(again.overlay).toMatchObject({ kind: "checkIn", trigger: "big_sway", resume: goOn.overlay });
-    expect(play(again, { type: "FINE", via: "button" }).overlay).toEqual(goOn.overlay);
-    // S44 has no timer of its own: silence after the second trigger still ends in the alarm.
-    expect(overlayFor(play(again, { type: "CHECKIN_TIMEOUT" }))).toBe("S45");
-
-    const skip = play(withState(planned, cam("cam.setup")), { type: "SKIP" });
-    expect(skip.overlay).toEqual({ kind: "skipDialog" });
-    const overSkip = play(skip, { type: "TRIGGER", trigger: "left_frame" });
-    expect(overSkip.overlay).toMatchObject({ kind: "checkIn", resume: { kind: "skipDialog" } });
-    expect(play(overSkip, { type: "FINE", via: "zone" }).overlay).toEqual({ kind: "skipDialog" });
-  });
-
-  it("a trigger on S38b (faint follow up) or S49 (end question) opens the check in over the question", () => {
-    const faint = play(
-      measuring,
-      { type: "STOP" },
-      { type: "STOP_OPTION", option: "faint" },
-      { type: "EXIT" },
-    );
-    expect(kind(faint)).toBe("faintAsk");
-    const onFaint = play(faint, { type: "TRIGGER", trigger: "hips_drop" });
-    expect(onFaint.overlay).toEqual({ kind: "checkIn", from: "faintAsk", trigger: "hips_drop" });
-    expect(play(onFaint, { type: "FINE", via: "button" }).state).toEqual({
-      ...faint.state,
-      fineVia: "button",
-    });
-    expect(overlayFor(play(onFaint, { type: "CHECKIN_TIMEOUT" }))).toBe("S45");
-
-    const end = withState(planned, { kind: "endQuestion" });
-    const onEnd = play(end, { type: "TRIGGER", trigger: "big_sway" });
-    expect(onEnd.overlay).toEqual({ kind: "checkIn", from: "endQuestion", trigger: "big_sway" });
-    const fine = play(onEnd, { type: "FINE", via: "button" });
-    expect(fine.overlay).toBeNull();
-    expect(kind(fine)).toBe("endQuestion");
-    // After the alarm, fine also returns to the question, never to "go on".
-    expect(play(onEnd, { type: "NEED_HELP" }, { type: "FINE", via: "button" }).overlay).toBeNull();
-  });
-
-  it("is ignored only while the check in or the alarm is open; over the stop list fine returns to it", () => {
-    const checkIn = play(measuring, { type: "TRIGGER", trigger: "no_movement" });
-    expect(play(checkIn, { type: "TRIGGER", trigger: "hips_drop" }).overlay).toEqual(checkIn.overlay);
-    const alarm = play(checkIn, { type: "NEED_HELP" });
-    expect(play(alarm, { type: "TRIGGER", trigger: "hips_drop" }).overlay).toEqual(alarm.overlay);
-    const list = play(measuring, { type: "STOP" }, { type: "TRIGGER", trigger: "hips_drop" });
-    expect(list.overlay).toMatchObject({ kind: "checkIn", from: "stopList" });
-    expect(play(list, { type: "FINE", via: "button" }).overlay).toEqual({
-      kind: "stopList",
-      takeYourTime: true,
-      fineVia: "button",
-    });
-  });
-
-  it("after a finished side, a rest or S47, fine returns to the state and never re-measures", () => {
-    const between = withState(planned, cam("between", 0, 0, { scope: "side", via: "test" }));
-    const onBetween = play(between, { type: "TRIGGER", trigger: "no_movement" });
-    expect(onBetween.overlay).toMatchObject({ kind: "checkIn", from: "test", attempt: false });
-    const fine = play(onBetween, { type: "FINE", via: "button" });
-    expect(fine.overlay).toBeNull();
-    expect(fine.state).toEqual(between.state);
-    // After the alarm S44 opens without a redo; redo just returns to the state.
-    const goOn = play(onBetween, { type: "CHECKIN_TIMEOUT" }, { type: "FINE", via: "button" });
-    expect(goOn.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false, timer: true });
-    const redo = play(goOn, { type: "REDO" });
-    expect(redo.overlay).toBeNull();
-    expect(redo.state).toEqual(between.state);
-    for (const k of ["cam.saved", "cam.rest", "after.contact"] as const) {
-      const s = k === "cam.rest" ? cam(k, 0, 0, { purpose: "attempt" }) : cam(k);
-      const done = play(
-        withState(planned, s),
-        { type: "TRIGGER", trigger: "left_frame" },
-        { type: "FINE", via: "zone" },
-      );
-      expect(done.overlay, k).toBeNull();
-      expect(done.state, k).toEqual(s);
-    }
-  });
-});
 
 describe("stops never fail open", () => {
   const planned = signedAtPlan();
@@ -1939,138 +1831,18 @@ describe("an overlay that closes onto the same screen (5.6, 5.7)", () => {
 
 /* ------------------------------------------------------------------ council review (round 3) */
 
-describe("I am fine after a help request goes to the stop list, never S44 (O34-5, O33 (b))", () => {
-  const signed = signedAtPlan();
-  const measuring = withState(signed, cam("cam.measure"));
-  const stopList = { kind: "stopList", takeYourTime: false };
-
-  it("help from the check in, then fine: S41, and REDO never reaches a camera state", () => {
-    const help = play(measuring, { type: "TRIGGER", trigger: "left_frame" }, { type: "NEED_HELP" });
-    expect(help.overlay).toMatchObject({ kind: "alarm", from: "test", help: true });
-    const fine = play(help, { type: "FINE", via: "button" });
-    expect(fine.overlay).toEqual(stopList);
-    expect(overlayFor(fine)).toBe("S41");
-    // REDO belongs to S44 only: on the stop list it changes nothing.
-    expect(play(fine, { type: "REDO" }).overlay).toEqual(stopList);
-    // The reason decides the route: chest pain reaches S36 with the stop posted.
-    const chest = play(fine, { type: "STOP_OPTION", option: "chest" });
+describe("«أريد التوقف» on the check in is the stop list, posted and counted like STOP (D-016)", () => {
+  it("the reason decides the route, and the stop goes to the server for its anonymous count (Q25)", () => {
+    const measuring = checkInOn(withState(signedAtPlan(), cam("cam.measure")));
+    const list = play(measuring, { type: "TRIGGER", trigger: "left_frame" }, { type: "WANT_STOP" });
+    expect(list.overlay).toEqual({ kind: "stopList" });
+    const chest = play(list, { type: "STOP_OPTION", option: "chest" });
     expect(chest.state).toMatchObject({ kind: "safety", safety: "emergency" });
-    expect(chest.effects.some((x) => x.type === "stop" && x.option === "chest")).toBe(true);
-  });
-
-  it("help from go on (S44) and from a finished side, then fine: S41", () => {
-    const goOn = play(
-      measuring,
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "FINE", via: "button" },
-    );
-    expect(goOn.overlay).toMatchObject({ kind: "goOn" });
-    expect(play(goOn, { type: "NEED_HELP" }, { type: "FINE", via: "zone" }).overlay).toEqual(stopList);
-    const rest = withState(signed, cam("cam.rest", 0, 0, { purpose: "attempt" }));
-    expect(
-      play(
-        rest,
-        { type: "TRIGGER", trigger: "no_movement" },
-        { type: "NEED_HELP" },
-        { type: "FINE", via: "button" },
-      ).overlay,
-    ).toEqual(stopList);
-  });
-
-  it("help over the stop list, then fine: back to the stop list", () => {
-    const help = play(measuring, { type: "STOP" }, { type: "STOP_NO_INPUT" }, { type: "NEED_HELP" });
-    expect(help.overlay).toMatchObject({ kind: "alarm", from: "stopList", help: true });
-    expect(play(help, { type: "FINE", via: "button" }).overlay).toMatchObject({ kind: "stopList" });
-  });
-
-  it("the questions (S38b, S49) keep their question after a help request", () => {
-    const end = withState(signed, { kind: "endQuestion" });
-    const fine = play(
-      end,
-      { type: "TRIGGER", trigger: "big_sway" },
-      { type: "NEED_HELP" },
-      { type: "FINE", via: "button" },
-    );
-    expect(fine.overlay).toBeNull();
-    expect(kind(fine)).toBe("endQuestion");
-  });
-
-  it("an alarm reached by no response keeps S44 in its after alarm form", () => {
-    const quiet = play(
-      measuring,
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "CHECKIN_TIMEOUT" },
-      { type: "FINE", via: "button" },
-    );
-    expect(quiet.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false, timer: true });
-  });
-});
-
-describe("I am fine after a hips drop check in goes to the stop list (O42, O33 (b))", () => {
-  const signed = signedAtPlan();
-
-  it("during an attempt and outside one (a rest, S47, a saved attempt)", () => {
-    for (const s of [
-      cam("cam.measure"),
-      cam("cam.calibrate", 0, 0, { offer: false }),
-      cam("cam.rest", 0, 0, { purpose: "attempt" }),
-      cam("cam.saved"),
-      cam("between", 0, 0, { scope: "side", via: "test" }),
-    ]) {
-      const fine = play(
-        withState(signed, s),
-        { type: "TRIGGER", trigger: "hips_drop" },
-        { type: "FINE", via: "raisedHand" },
-      );
-      expect(fine.overlay, s.kind).toEqual({ kind: "stopList", takeYourTime: false });
-      // A slide to the floor is declared: the fall option reaches S39 with its lock.
-      const fall = play(fine, { type: "STOP_OPTION", option: "fall" });
-      expect(fall.state, s.kind).toMatchObject({ kind: "safety", safety: "fall" });
-      expect(fall.data.lock?.until, s.kind).toBeGreaterThan(NOW);
-    }
-  });
-
-  it("over S44 or the skip dialog the hips drop fine still goes to S41, not back to them", () => {
-    const measuring = withState(signed, cam("cam.measure"));
-    const goOn = play(
-      measuring,
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "FINE", via: "button" },
-    );
-    expect(
-      play(goOn, { type: "TRIGGER", trigger: "hips_drop" }, { type: "FINE", via: "button" }).overlay,
-    ).toEqual({ kind: "stopList", takeYourTime: false });
-  });
-
-  it("a hips drop, then no response, then fine at the alarm: S41", () => {
-    const alarm = play(
-      withState(signed, cam("cam.measure")),
-      { type: "TRIGGER", trigger: "hips_drop" },
-      { type: "CHECKIN_TIMEOUT" },
-    );
-    expect(alarm.overlay).toMatchObject({ kind: "alarm", trigger: "hips_drop" });
-    expect(play(alarm, { type: "FINE", via: "button" }).overlay).toEqual({
-      kind: "stopList",
-      takeYourTime: false,
-    });
-  });
-});
-
-describe("the alarm over the stop list goes back to the stop list (O43, Q31 (3))", () => {
-  it("STOP, no answer, no response, fine: the stop list, and the stop is posted with its reason", () => {
-    const measuring = withState(signedAtPlan(), cam("cam.measure"));
-    const alarm = play(measuring, { type: "STOP" }, { type: "STOP_NO_INPUT" }, { type: "CHECKIN_TIMEOUT" });
-    expect(alarm.overlay).toMatchObject({ kind: "alarm", from: "stopList" });
-    const fine = play(alarm, { type: "FINE", via: "button" });
-    expect(fine.overlay).toEqual({ kind: "stopList", takeYourTime: true, fineVia: "button" });
-    // Without a stop option nothing returns to a camera state.
-    for (const e of [{ type: "REDO" }, { type: "SKIP_TEST" }, { type: "STOP_END" }] as FlowEvent[]) {
-      const n = play(fine, e);
-      expect(n.overlay, e.type).toEqual({ kind: "stopList", takeYourTime: true, fineVia: "button" });
-    }
-    const chest = play(fine, { type: "STOP_OPTION", option: "chest" });
-    expect(chest.state).toMatchObject({ kind: "safety", safety: "emergency" });
-    expect(chest.effects.filter((x) => x.type === "stop")).toHaveLength(1);
+    expect(chest.effects.filter((x) => x.type === "stop")).toEqual([
+      expect.objectContaining({ option: "chest", ref: { testId: "shoulder_abduction", side: "right" } }),
+    ]);
+    // Nothing of the check in itself is sent.
+    expect(list.effects).toEqual(measuring.effects);
   });
 });
 

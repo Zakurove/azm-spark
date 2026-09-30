@@ -137,20 +137,6 @@
   color: var(--ink);
 }
 
-/* The camera on line where the camera runs under a screen that is not the stage (S29, S38, S38b). */
-.azm-check .check-camera-on {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  margin: 0;
-  color: var(--ink);
-  font-weight: 700;
-}
-.azm-check .check-camera-on svg {
-  flex: none;
-  color: var(--purple);
-}
-
 /* ------------------------------------------------------------------ answer screens (S38b, S47 to S49) */
 
 .azm-check .safety-question {
@@ -168,15 +154,10 @@
   line-height: 1.35;
   font-weight: 800;
 }
-.azm-check .safety-take-time {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--purple);
-}
 .azm-check .safety-intro {
   color: var(--ink);
 }
-/* Answer zones in their tap form: 120 px, in data order, number and icon at 40 px (4.7, 7.2-1). */
+/* The answers asked where the person sits: 120 px, in data order, number and icon at 40 px (4.7). */
 .azm-check .safety-zones {
   display: grid;
   gap: var(--s3);
@@ -203,23 +184,12 @@
   background: var(--purple-tint);
   box-shadow: inset 0 0 0 3px var(--purple);
 }
-.azm-check .safety-zone.is-large {
-  min-height: 160px;
-  border-color: var(--gold-ink);
-  background: var(--gold);
-}
-.azm-check .safety-zone.is-large:hover {
-  background: var(--gold-hover);
-}
 .azm-check .safety-zone-mark {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: var(--s1);
   color: var(--purple);
-}
-.azm-check .safety-zone.is-large .safety-zone-mark {
-  color: var(--ink);
 }
 .azm-check .safety-zone-number {
   font-size: 2.5rem;
@@ -347,13 +317,10 @@ html:has(.azm-check .safety-stop-zone) {
   flex: none;
   color: var(--purple);
 }
-.azm-check .safety-need-stop {
-  justify-self: start;
-}
 
-/* ------------------------------------------------------------------ S43, S45 (the safety stage) */
+/* ------------------------------------------------------------------ S43, the optional check in (D-016) */
 
-/* The whole stage turns cream with a static 8 px red frame: visible from 3 m, never flashing (4.4). */
+/* A calm stage: cream, no frame and no motion, read from 2 m (4.1). */
 .azm-check .safety-stage {
   position: relative;
   min-height: 100%;
@@ -361,20 +328,12 @@ html:has(.azm-check .safety-stop-zone) {
   flex-direction: column;
   background: var(--cream);
 }
-.azm-check .safety-stage::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 6;
-  border: 8px solid var(--red);
-  pointer-events: none;
-}
 .azm-check .safety-stage-top {
   display: flex;
   align-items: center;
   gap: var(--s2);
   min-height: var(--topbar);
-  padding: calc(var(--s2) + env(safe-area-inset-top)) calc(var(--gutter) + 8px) 0;
+  padding: calc(var(--s2) + env(safe-area-inset-top)) var(--gutter) 0;
 }
 .azm-check .safety-stage-body {
   flex: 1;
@@ -384,94 +343,74 @@ html:has(.azm-check .safety-stop-zone) {
   width: 100%;
   max-width: calc(var(--column) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: var(--s3) calc(var(--gutter) + 8px) var(--s8);
+  padding: var(--s3) var(--gutter) var(--s8);
 }
-/* The short form (at most 3 words) with its 160 px pictogram, 56 px (4.1). */
-.azm-check .safety-short {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s3);
-  margin: 0;
-  font-size: 3.5rem;
-  line-height: 1.2;
-  font-weight: 800;
-  color: var(--ink);
-}
-.azm-check .safety-short svg {
-  flex: none;
-  width: 6rem;
-  height: 6rem;
-  color: var(--purple);
-}
-/* The check in question and the alarm heading: 56 px, weight 800 (4.1). */
+/* The question: 56 px, weight 800 (4.1). */
 .azm-check .safety-stage-title {
   font-size: 3.5rem;
   line-height: 1.25;
   font-weight: 800;
 }
-.azm-check .safety-stage-caption {
-  cursor: default;
-}
-.azm-check .safety-camera-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: var(--h-icon);
-  color: var(--ink);
-}
-/* The ring of the 15 s (no numbers, aria-hidden), in the top row so the answers stay on screen. */
-.azm-check .safety-stage-top .safety-ring {
-  margin-inline-end: var(--s2);
-}
-/* S43: the caption card near the lens (4.3): the short form at 56 px with its pictogram inline, then
-   the instruction after the question at 34 px. The question is the heading under it. */
-.azm-check .safety-checkin-cue {
-  display: grid;
-  gap: var(--s2);
-  cursor: default;
-}
-.azm-check .safety-checkin-cue .safety-short {
-  flex-wrap: nowrap;
-}
-.azm-check .safety-checkin-instruction {
+/* The instruction after the question, 26 px; after 30 s with no answer, the line to call someone
+   nearby in its place, on a card with a purple edge. */
+.azm-check .safety-checkin-line {
   margin: 0;
+  font-size: 1.625rem;
+  line-height: 1.4;
 }
-/* S45: the 120 px «أنا بخير» button, the only touch that silences the tone, with 24 px of nothing
-   around it, so no nearby press is snapped onto it. */
+.azm-check .safety-checkin-line[data-help] {
+  padding: var(--s3) var(--s4);
+  border-inline-start: 4px solid var(--purple);
+  border-radius: var(--r-control);
+  background: var(--card);
+  font-weight: 700;
+}
+/* «أنا بخير»: the large gold action, 120 px, then «أريد التوقف» at 64 px. */
 .azm-check .safety-fine {
   min-height: 120px;
-  margin-block: var(--s6);
+  margin-block-start: var(--s4);
   font-size: 2.5rem;
   font-weight: 800;
+}
+.azm-check .safety-want-stop {
+  min-height: 64px;
+  font-size: 1.75rem;
+}
+/* Offline: one word with its icon in the top row. */
+.azm-check .safety-stage-top :is(.check-offline-wrap, .check-offline) {
+  margin: 0;
+  padding: 0 var(--s2);
+  border-radius: var(--r-control);
+  line-height: 2;
+}
+/* Compact phones (under 700 px tall, 4.2): the 40 px tier and tighter spaces, never smaller actions. */
+@media (max-height: 699.98px) {
+  .azm-check .safety-stage-body {
+    gap: var(--s3);
+    padding-block: var(--s2) var(--s4);
+  }
+  .azm-check .safety-stage-title {
+    font-size: 2.5rem;
+  }
+  .azm-check .safety-checkin-line {
+    font-size: 1.375rem;
+  }
+  .azm-check .safety-fine {
+    margin-block-start: var(--s2);
+  }
 }
 
 /* ------------------------------------------------------------------ fitting the fold (useFoldFit)
 
-   The answers of S43, S44, S45, S38b, S47, S48 and S49 and STOP are read and answered from the chair,
-   so they must be on screen without scrolling (principles 6 and 7). Each level is taken only while
-   they still end below the fold (the sticky STOP zone or footer). Text never goes under the 2 m sizes
-   of 4.1, and zones stay at 120 px or more (4.7) except in compact mode (under 700 px tall, 4.2),
-   where zones 2 and 3 may take 96 px and then 80 px (the fine zone stays at 120 px, the largest). */
+   The answers of S38b, S47, S48 and S49 and STOP are read and answered from the chair, so they must be
+   on screen without scrolling (principles 6 and 7). Each level is taken only while they still end
+   below the fold (the sticky STOP zone or footer). Text never goes under the 2 m sizes of 4.1, and
+   answers stay at 120 px or more (4.7) except in compact mode (under 700 px tall, 4.2), where they
+   may take 96 px and then 80 px. */
 
-/* Level 1: tighter spacing, the pictogram at 64 px, the fine zone at 128 px (still the largest). */
+/* Level 1: tighter spacing. */
 .azm-check :where([data-fit]:not([data-fit="0"])) .safety-zones {
   gap: var(--s2);
-}
-.azm-check :where([data-fit]:not([data-fit="0"])) .safety-zone.is-large {
-  min-height: 128px;
-}
-.azm-check :where([data-fit]:not([data-fit="0"])) .safety-short svg {
-  width: 4rem;
-  height: 4rem;
-}
-.azm-check :where([data-fit]:not([data-fit="0"])) .safety-stage-body {
-  gap: var(--s3);
-  padding-block-end: var(--s3);
-}
-.azm-check :where([data-fit]:not([data-fit="0"])) .safety-fine {
-  margin-block: var(--s4);
 }
 .azm-check :where([data-fit]:not([data-fit="0"])) .check-content,
 .azm-check .check-content:has(> :where([data-fit]:not([data-fit="0"]))) {
@@ -482,150 +421,43 @@ html:has(.azm-check .safety-stop-zone) {
   padding-block-start: var(--s3);
 }
 
-/* Level 2: S43's instruction moves below the answers (the voice says it; the short form keeps the 2 m
-   instruction at the top); the side kicker goes (the question names the part); the number and icon of
-   a zone at 32 px; on S45 «أنا بخير» comes straight after the heading, before the body (the focus
-   order of the spec: heading, I am fine; the sentences are not focusable). */
-.azm-check
-  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-stage-body {
-  display: flex;
-  flex-direction: column;
-}
-.azm-check
-  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-checkin-cue {
-  display: contents;
-}
-.azm-check
-  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-checkin-instruction {
-  order: 9;
-  padding: var(--s3) var(--s4);
-  border-inline-start: 4px solid var(--red);
-  border-radius: var(--r-control);
-  background: var(--cream);
-}
-.azm-check
-  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-kicker {
+/* Level 2: the side kicker goes (the question names the part); the number and icon of an answer at
+   32 px. */
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-kicker {
   display: none;
 }
-.azm-check
-  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-zone-number {
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone-number {
   font-size: 2rem;
 }
-.azm-check
-  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-zone-mark
-  svg {
+.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone-mark svg {
   width: 32px;
   height: 32px;
 }
-.azm-check
-  .is-alarm:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  :is(.safety-sentences, .safety-staff, .safety-still) {
-  order: 1;
-}
-
-/* Level 3: S43's short form drops its pictogram (the fine zone keeps the hand) and takes the 40 px
-   tier, so it keeps to one line above the question. */
-.azm-check
-  :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-checkin-cue
-  .safety-short {
-  font-size: 2.5rem;
-}
-.azm-check
-  :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-checkin-cue
-  .safety-short
-  svg {
-  display: none;
-}
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone.is-large {
-  min-height: 120px;
-}
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-stage-body {
-  padding-block-start: var(--s2);
-}
-
-/* Level 4, compact only: zones 2 and 3 at 96 px, a label of up to three words at 32 px. */
-.azm-check :is([data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone:not(.is-large) {
+/* Level 4, compact only: answers at 96 px, a label of up to three words at 32 px. */
+.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone {
   min-height: 96px;
   padding-block: var(--s2);
 }
-.azm-check :is([data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone.is-large {
-  min-height: 120px;
-}
-.azm-check :is([data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone-label.is-40 {
+.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone-label.is-40 {
   font-size: 2rem;
 }
 
-/* Level 5, compact only: zones 2 and 3 at 80 px (the tap form, 4.7), with less space between parts.
-   S43 never hides its short form (R3C-15: for a person who cannot hear the voice it is the only
-   standing instruction, and on the fall watch the safety line «لا تنهض لتجيب»): its question moves to
-   the 40 px tier instead, and the short form stays at 40 px. */
-.azm-check [data-fit="5"] .safety-zone:not(.is-large) {
+/* Level 5, compact only: answers at 80 px, with less space between parts. */
+.azm-check [data-fit="5"] .safety-zone {
   min-height: 80px;
   padding-block: var(--s1);
 }
-.azm-check :is([data-fit="5"], [data-fit="6"]) .safety-zones {
+.azm-check :is([data-fit="5"]) .safety-zones {
   gap: var(--s1);
 }
-.azm-check :is([data-fit="5"], [data-fit="6"]) .check-content,
-.azm-check .check-content:has(> :is([data-fit="5"], [data-fit="6"])) {
+.azm-check :is([data-fit="5"]) .check-content,
+.azm-check .check-content:has(> :is([data-fit="5"])) {
   gap: var(--s2);
 }
-.azm-check :is([data-fit="5"], [data-fit="6"]) .check-main,
-.azm-check .check-main:has(:is([data-fit="5"], [data-fit="6"])) {
+.azm-check :is([data-fit="5"]) .check-main,
+.azm-check .check-main:has(:is([data-fit="5"])) {
   padding-block-start: var(--s2);
 }
-.azm-check .is-alert:is([data-fit="5"], [data-fit="6"]) .safety-stage-title {
-  font-size: 2.5rem;
-}
-
-/* Level 6, S43 in compact mode only (the 320 x 568 phones, R3C-15): «أنا بخير» stays full width at
-   120 px, the largest; «أريد التوقف» and «أحتاج مساعدة» sit side by side under it in data order, in
-   the reading direction, each at least 96 px tall and 48% of the width. */
-.azm-check .is-alert[data-fit="6"] .safety-zones {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.azm-check .is-alert[data-fit="6"] .safety-zone.is-large {
-  grid-column: 1 / -1;
-}
-.azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) {
-  min-height: 96px;
-  gap: var(--s1);
-  padding: var(--s1) var(--s2);
-}
-/* The two answers side by side keep their words: their number and icon step aside (the words carry
-   the answer; «أنا بخير» keeps its hand). */
-.azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) .safety-zone-mark {
-  display: none;
-}
-.azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) .safety-zone-label {
-  font-size: 1.75rem;
-  line-height: 1.15;
-  overflow-wrap: normal;
-}
-/* The offline state in the top row, one word with its icon. */
-.azm-check .safety-stage-top :is(.check-offline-wrap, .check-offline) {
-  margin: 0;
-  padding: 0 var(--s2);
-  border-radius: var(--r-control);
-  line-height: 2;
-}
-/* The rest of the space comes from the gaps and the line height, never from the sizes of 4.1. */
-.azm-check .is-alert[data-fit="6"] .safety-stage-body {
-  gap: var(--s1);
-  padding-block-start: var(--s1);
-}
-.azm-check .is-alert[data-fit="6"] :is(.safety-stage-title, .safety-checkin-cue .safety-short) {
-  line-height: 1.05;
-}
-
 /* ------------------------------------------------------------------ rings */
 
 .azm-check .safety-ring {
@@ -688,10 +520,9 @@ html:has(.azm-check .safety-stop-zone) {
   gap: var(--s4);
 }
 
-/* The caption on the safety stage and over the questions asked where the person sits: the full
-   sentence at 34 px, never cut (4.1, 4.3), since it is read from 2 m. */
-.azm-check .check-content:has(.safety-question.is-stage) .check-caption-text,
-.azm-check .safety-stage-caption .check-caption-text {
+/* The caption over the questions asked where the person sits: the full sentence at 34 px, never cut
+   (4.1, 4.3), since it is read from 2 m. */
+.azm-check .check-content:has(.safety-question.is-stage) .check-caption-text {
   font-size: 2.125rem;
   line-height: 1.35;
   font-weight: 750;

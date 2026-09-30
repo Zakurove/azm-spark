@@ -35,7 +35,6 @@
  */
 import type { CheckCueId, ReasonId, TrunkControlDef } from "../../movements/types";
 import type { Pt } from "../body";
-import { CheckInDetector, checkInReference } from "../checkin";
 import { QualityMonitor, qualityConfig, type QualityIssue, type QualityReport } from "../quality";
 import { SubjectLock } from "../subject";
 import { Frame, Landmark, LM } from "../types";
@@ -273,7 +272,6 @@ export class TrunkControlRunner implements TestRunner {
   private readonly restSec: number;
   private readonly mirrored: boolean;
   private readonly tracker: SubjectTracker;
-  private readonly checkin = new CheckInDetector();
   private readonly sink = new EventSink();
 
   private phaseNow: RunnerPhase = "idle";
@@ -434,16 +432,11 @@ export class TrunkControlRunner implements TestRunner {
     this.sink.push({ kind: "done", t });
   }
 
-  private track(frame: Frame, movement: boolean, swayDeg?: number): Tracked {
+  private track(frame: Frame): Tracked {
     const tr = this.tracker.track(frame);
     const p = tr.pick;
     if (p.paused && (p.reason === "overlap" || p.reason === "jump"))
       this.sink.cueEvery("check_one_person", frame.t, TRUNK_RULES.onePersonCueEverySec);
-    for (const trigger of this.checkin.feed(frame.t, p.lm, frame.aspect, {
-      movement,
-      ...(swayDeg !== undefined ? { swayDeg } : {}),
-    }))
-      this.sink.push({ kind: "checkin", trigger, t: frame.t });
     return tr;
   }
 
@@ -472,7 +465,7 @@ export class TrunkControlRunner implements TestRunner {
       if (!this.tracker.lockOn(frame)) return;
       this.relockPending = false;
     }
-    const tr = this.track(frame, false);
+    const tr = this.track(frame);
     const px = tr.px;
     const mv = this.minVis;
     const ok =
@@ -552,8 +545,6 @@ export class TrunkControlRunner implements TestRunner {
       dir: { left: dirLeft, right: -dirLeft },
       roll: median(rolls),
     };
-    const last = samples[samples.length - 1];
-    this.checkin.setReference(checkInReference(last.raw, last.aspect));
     this.baseBuf = [];
     if (unsteady) this.sink.push({ kind: "flag", flag: "upright_unsteady", t });
 
@@ -676,7 +667,7 @@ export class TrunkControlRunner implements TestRunner {
     const t = frame.t;
     const s = a.item.side;
     const limit = this.abortLimit(s);
-    const tr = this.track(frame, true, limit + R.swayMarginDeg);
+    const tr = this.track(frame);
     a.monitor.feedPick(frame, tr.pick);
     const m = tr.pick.paused ? null : this.measureLean(tr.px, tr.raw, roll);
     // Mid lean: still leaning out beyond the band, on the way out or on the way back.
@@ -996,7 +987,7 @@ export class TrunkControlRunner implements TestRunner {
 
   private resting(frame: Frame, roll: number | null): void {
     const t = frame.t;
-    const tr = this.track(frame, false);
+    const tr = this.track(frame);
     if (t < this.restUntil) {
       const remaining = Math.ceil((this.restUntil - t) / 1000);
       if (remaining !== this.lastRemaining) {

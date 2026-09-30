@@ -27,7 +27,6 @@ import {
   releasesLock,
   resumeQuestions,
   setupQuestionsFor,
-  spokenCheckInAnswer,
   stopRoute,
   visibleQuestions,
   type Answers,
@@ -400,12 +399,7 @@ describe("Q33 (3) and O42: sf_faint_loc, did you pass out", () => {
     });
   });
 
-  it("Q33 (3): a faint stop after a no response alarm is handled as a yes, whatever the answer", () => {
-    for (const a of ["no", "yes", "unsure", undefined])
-      expect(faintFollowUp(a, NOW, { afterNoResponse: true }).status, String(a)).toBe("emergency");
-  });
-
-  it("Q33 (3): no answer yet is incomplete (the 30 s check in is the UI's)", () => {
+  it("Q33 (3): no answer yet is incomplete", () => {
     expect(faintFollowUp(undefined, NOW).status).toBe("incomplete");
     expect(faintFollowUp("maybe", NOW).status).toBe("incomplete");
   });
@@ -486,7 +480,7 @@ describe("O38: ac_next_day", () => {
 
 /* ------------------------------------------------- helpers and the arms */
 
-describe("Q11 and O34-2: pc_helper, the self declared hard gate at home", () => {
+describe("Q11: pc_helper, the self declared hard gate at home", () => {
   it("Q11: the chair stand needs a helper for the listed groups, the side lean for SCI, stroke, CP, PD, MS and the first home side lean", () => {
     const stand = standing({ conditions: ["parkinsons"] });
     expect(visibleQuestions(stand, fill(stand))).toContain("pc_helper:chair_stand_30s");
@@ -527,94 +521,28 @@ describe("Q11 and O34-2: pc_helper, the self declared hard gate at home", () => 
     expect(visibleQuestions(env, fill(env)).filter((q) => q.startsWith("pc_helper"))).toEqual([]);
   });
 
-  it("O34-2 (1), (2): with no arm that can signal, every camera test left needs a helper at home, the arm tests with the check in line", () => {
-    // A weaker left arm that cannot lift, and the right arm lost.
+  it("D-016: an arm that cannot signal needs no helper; only the chair stand and side lean rules ask", () => {
+    // A weaker left arm that cannot lift, and the right arm lost: the arm tests lose both sides.
     const env = envOf(
       { conditions: ["stroke", "upper_limb_unilateral"], support: "left" },
       { firstCheck: false, sideLeanDoneAtHome: true, setup: { limbLoss: { arm: "right" } } },
     );
     const answers = fill(env, { pc_weak_lift: "no" });
-    const helpers = visibleQuestions(env, answers).filter((q) => q.startsWith("pc_helper"));
-    // Both arm tests lose both sides (limb loss right, weaker left cannot lift): only the side lean is left.
-    expect(helpers).toEqual(["pc_helper:trunk_control_seated"]);
-    const o = run(env, { pc_weak_lift: "no" });
-    expect(o.checkIn).toEqual({ raiseAllowed: false, noArmSignal: true, fineZoneSide: null });
-  });
-
-  it("O34-2 (2): an SCI person whose arms cannot bend needs a helper for the arm raise too, with the check in line briefing", () => {
-    const env = sci({}, { firstCheck: false, setup: { sciT6: false }, sideLeanDoneAtHome: true });
-    const given = { "pc_arm_function:right": "no_bend", "pc_arm_function:left": "no_bend" };
-    const answers = fill(env, given);
-    const helpers = visibleQuestions(env, answers).filter((q) => q.startsWith("pc_helper"));
-    expect(helpers).toEqual(["pc_helper:shoulder_abduction", "pc_helper:trunk_control_seated"]);
-    const o = run(env, given);
-    expect(o.checkIn?.noArmSignal).toBe(true);
-    expect(o.helperBriefing).toEqual({
-      shoulder_abduction: "helperBriefing.checkInLine",
-      trunk_control_seated: "scr_helper_brief_trunk",
-    });
-    expect(
-      skipOf(run(env, { ...given, "pc_helper:shoulder_abduction": "no" }), "shoulder_abduction", "left"),
-    ).toBe("helper_needed");
-  });
-
-  it("O34-2 (1): a failed fine rehearsal sets noArmSignal for today", () => {
-    const env = envOf({}, { firstCheck: false, sideLeanDoneAtHome: true, fineRehearsalFailed: true });
-    const helpers = visibleQuestions(env, fill(env)).filter((q) => q.startsWith("pc_helper"));
-    expect(helpers).toEqual([
-      "pc_helper:shoulder_abduction",
+    expect(visibleQuestions(env, answers).filter((q) => q.startsWith("pc_helper"))).toEqual([
       "pc_helper:trunk_control_seated",
-      "pc_helper:arm_curl_30s",
     ]);
-    expect(run(env).checkIn?.noArmSignal).toBe(true);
+    // An SCI person whose arms cannot bend runs the arm raise with no helper asked for it.
+    const spinal = sci({}, { firstCheck: false, setup: { sciT6: false }, sideLeanDoneAtHome: true });
+    const given = { "pc_arm_function:right": "no_bend", "pc_arm_function:left": "no_bend" };
+    expect(visibleQuestions(spinal, fill(spinal, given)).filter((q) => q.startsWith("pc_helper"))).toEqual([
+      "pc_helper:trunk_control_seated",
+    ]);
+    expect(run(spinal, given).helperBriefing).toEqual({ trunk_control_seated: "scr_helper_brief_trunk" });
   });
 
-  it("O34-2 (7): nothing changes at the booth", () => {
-    const env = envOf(
-      { conditions: ["sci_complete"], position: "wheelchair" },
-      { setting: "booth", fineRehearsalFailed: true },
-    );
+  it("Q11: nothing is asked at the booth", () => {
+    const env = envOf({ conditions: ["sci_complete"], position: "wheelchair" }, { setting: "booth" });
     expect(visibleQuestions(env, fill(env)).filter((q) => q.startsWith("pc_helper"))).toEqual([]);
-  });
-});
-
-describe("O34-4 (3) and O34-1 (1): raiseAllowed and the fine zone side", () => {
-  it("O34-4 (3): no_overhead forbids asking for a raised hand", () => {
-    expect(run(envOf({ restrictions: ["no_overhead"] })).checkIn?.raiseAllowed).toBe(false);
-  });
-
-  it("O34-4 (3): a free arm allows it; pc_weak_shoulder yes or pc_weak_lift no take the weaker arm out", () => {
-    expect(run(envOf()).checkIn?.raiseAllowed).toBe(true);
-    const weak = envOf({ support: "left", conditions: ["stroke"] });
-    expect(run(weak, { pc_weak_shoulder: "yes" }).checkIn?.raiseAllowed).toBe(true);
-    const lost = envOf(
-      { support: "left", conditions: ["stroke", "upper_limb_unilateral"] },
-      { firstCheck: false, setup: { limbLoss: { arm: "right" } } },
-    );
-    expect(run(lost, { pc_weak_shoulder: "yes" }).checkIn?.raiseAllowed).toBe(false);
-    expect(run(lost, { pc_weak_lift: "no" }).checkIn?.raiseAllowed).toBe(false);
-    expect(run(lost).checkIn?.raiseAllowed).toBe(true);
-  });
-
-  it("O34-1 (1): the fine zone sits on the stronger arm, never the weaker, lost or painful one; on a tie the right", () => {
-    expect(run(envOf()).checkIn?.fineZoneSide).toBe("right");
-    expect(run(envOf({ support: "right" })).checkIn?.fineZoneSide).toBe("left");
-    const pain = envOf({ pain: ["shoulder"] });
-    expect(run(pain, { "pc_arm_pain_side:shoulder": "right" }).checkIn?.fineZoneSide).toBe("left");
-    const lost = envOf({ conditions: ["upper_limb_unilateral"] });
-    expect(run(lost, { pc_limb_arm_side: "right" }).checkIn?.fineZoneSide).toBe("left");
-  });
-
-  it("O34-1 (1): for SCI, the arm with the better pc_arm_function answer", () => {
-    const env = sci({}, { setup: { sciT6: false }, firstCheck: false });
-    expect(
-      run(env, { "pc_arm_function:right": "bend_no_hold", "pc_arm_function:left": "bend_hold" }).checkIn
-        ?.fineZoneSide,
-    ).toBe("left");
-    expect(
-      run(env, { "pc_arm_function:right": "bend_hold", "pc_arm_function:left": "bend_hold" }).checkIn
-        ?.fineZoneSide,
-    ).toBe("right");
   });
 });
 
@@ -813,60 +741,6 @@ describe("O6: resume re-asks the day of questions", () => {
     );
     expect(skip.status).toBe("proceed");
     expect(skipOf(skip, "arm_curl_30s", "left")).toBe("pain_today");
-  });
-});
-
-/* -------------------------------------------------------- Q31 (4) speech */
-
-describe("Q31 (4) and O5: a spoken check in answer", () => {
-  const cases: [string, "ar" | "en", "fine" | "not_fine" | "no_answer"][] = [
-    ["أنا بخير", "ar", "fine"],
-    ["انا بخير", "ar", "fine"],
-    ["بخير", "ar", "fine"],
-    ["أنا طيب", "ar", "fine"],
-    ["نعم، أنا بخير", "ar", "fine"],
-    ["نعم", "ar", "no_answer"],
-    ["تمام", "ar", "no_answer"],
-    ["إيه", "ar", "no_answer"],
-    ["الحمد لله", "ar", "no_answer"],
-    ["نعم، ساعدني", "ar", "not_fine"],
-    ["أنا بخير لا", "ar", "not_fine"],
-    ["إسعاف", "ar", "not_fine"],
-    ["الحقوني", "ar", "not_fine"],
-    ["", "ar", "no_answer"],
-    ["I'm fine", "en", "fine"],
-    ["I’m OK", "en", "fine"],
-    ["i am ok", "en", "fine"],
-    ["Yes, I'm fine.", "en", "fine"],
-    ["yes", "en", "no_answer"],
-    ["okay", "en", "no_answer"],
-    ["I know", "en", "no_answer"],
-    ["no", "en", "not_fine"],
-    ["I'm fine, no problem", "en", "not_fine"],
-    ["help", "en", "not_fine"],
-    ["helpful", "en", "no_answer"],
-    // A negated fine phrase is never fine (R3C-12): a false fine is the one dangerous error (O5), so it
-    // reads as not fine.
-    ["لست بخير", "ar", "not_fine"],
-    ["لستُ بخير", "ar", "not_fine"],
-    ["أنا لست بخير", "ar", "not_fine"],
-    ["ما أنا بخير", "ar", "not_fine"],
-    ["مو بخير", "ar", "not_fine"],
-    ["أنا مو بخير", "ar", "not_fine"],
-    ["مش بخير", "ar", "not_fine"],
-    ["مب بخير", "ar", "not_fine"],
-    ["ماني بخير", "ar", "not_fine"],
-    ["مانيش بخير", "ar", "not_fine"],
-    ["غير بخير", "ar", "not_fine"],
-    ["أنا مو طيب", "ar", "not_fine"],
-    // R3C-12: a negator anywhere in the utterance («ما») reads as not fine, the safe error.
-    ["ما شاء الله، أنا بخير", "ar", "not_fine"],
-    ["I'm not fine", "en", "not_fine"],
-    ["I am not OK", "en", "not_fine"],
-    ["I’m not OK", "en", "not_fine"],
-  ];
-  it.each(cases)("Q31 (4): %s (%s) reads %s", (text, lang, expected) => {
-    expect(spokenCheckInAnswer(text, lang)).toBe(expected);
   });
 });
 

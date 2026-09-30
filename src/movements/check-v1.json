@@ -427,94 +427,6 @@
       "onNo": "scr_sound_off, then the sound check again; if the answer is still no, scr_sound_still_off and the check may continue",
       "audioSession": "Set the audio session to playback where the browser allows it (iOS mutes Web Audio on the silent switch otherwise)."
     },
-    "speech": {
-      "allowedOnlyWhen": "A spoken answer is accepted only where Arabic speech recognition runs on the device itself. Audio is never sent to a server or a cloud speech service; the microphone is optional; the check intro never implies audio processing that does not happen. Otherwise the answers are a raised hand or a tap.",
-      "matching": "Whole words only.",
-      "fineOnlyPhrases": {
-        "ar": [
-          "أنا بخير",
-          "أنا طيب",
-          "بخير"
-        ],
-        "en": [
-          "I'm fine",
-          "I'm OK",
-          "I am OK"
-        ]
-      },
-      "notAnswers": {
-        "ar": [
-          "نعم",
-          "إيه",
-          "أيوه",
-          "تمام",
-          "زين",
-          "الحمد لله (on its own)"
-        ],
-        "en": [
-          "yes",
-          "yeah",
-          "okay"
-        ]
-      },
-      "notFineWords": {
-        "ar": [
-          "لا",
-          "ساعدني",
-          "ساعدوني",
-          "الحقوني",
-          "إسعاف",
-          "مو بخير",
-          "ما أنا بخير"
-        ],
-        "en": [
-          "no",
-          "help",
-          "I’m not fine",
-          "not fine"
-        ]
-      },
-      "negators": {
-        "ar": [
-          "لا",
-          "لست",
-          "لسنا",
-          "ما",
-          "مو",
-          "مب",
-          "موب",
-          "مهوب",
-          "مش",
-          "مهو",
-          "غير",
-          "ماني",
-          "مانيش",
-          "مني",
-          "ليس",
-          "مانا"
-        ],
-        "en": [
-          "not",
-          "never",
-          "no"
-        ],
-        "rule": "Whole words. In English any word ending in n't is a negator as well. The Arabic seat completes the Saudi forms (R3C-12)."
-      },
-      "rule": "A spoken answer counts as fine only when it contains a fine phrase and has no negator and no not fine word anywhere in the utterance (R3C-12, whole utterance). A not fine word anywhere wins over a fine word and opens scr_emergency (for example «نعم، ساعدني»); a negated fine phrase («مو بخير», «ما أنا بخير», “I’m not fine”) is a not fine word. «لا لا أنا بخير» therefore reads as not fine, the safe error: the tone sounds and a tap ends it. A bare yes word, الحمد لله on its own, or unclear speech counts as no answer: the check in cue plays once more and the no response timer keeps running. Speech is off at the booth (O5). At home, where spoken answers are on, the check in plays check_are_you_ok_zone_speech (or check_are_you_ok_fall_speech and check_are_you_ok_fall_noraise_speech in the fall watch), which names the phrase to say; where they are off, the zone form, the helper form or the fall watch form (stopRouting.checkIn.cueSelection; O34-4 (4)). The phrase never replaces a helper required by noArmSignal (O34-2 (6))."
-    },
-    "answerZones": {
-      "appliesTo": [
-        "bt_pain_after",
-        "trunk_control_seated.metric.contactAsk",
-        "chair_stand_30s.pushedAsk",
-        "arm_curl_30s.load.practiceCheck",
-        "sf_faint_loc"
-      ],
-      "rule": "Spoken and shown in large type; answered from the chair by holding a hand inside one of up to three on screen answer zones for 1.5 s (the zones sit on the stronger side, at or below shoulder height), or by a tap. The first such question of a home check plays check_answer_zone. The fine zone of the check in uses its own rules (stopRouting.checkIn.fineSignal, 2 s). At the booth the zones are tap buttons in the same place and order, staff tap only the answer the person says, and check_answer_zone never plays (7.2-1).",
-      "holdSec": 1.5,
-      "maxZones": 3,
-      "phase": "built before home checks open (a Q31 (6) gate); the booth build answers by tap, with staff tapping the spoken answer"
-    },
     "coachingTrunkStop": {
       "appliesTo": [
         "seated shoulder press",
@@ -2543,30 +2455,19 @@
       "group": "condition",
       "type": "yes_no",
       "showIf": {
-        "anyOf": [
-          {
-            "flag": "helper_required"
-          },
-          {
-            "flag": "noArmSignal"
-          }
-        ],
+        "flag": "helper_required",
         "setting": "home"
       },
       "perTest": [
         "chair_stand_30s",
-        "trunk_control_seated",
-        "shoulder_abduction",
-        "arm_curl_30s"
+        "trunk_control_seated"
       ],
       "ask": {
         "ar": "هل يوجد معك الآن شخص بالغ مستعد للبقاء بجانبك أثناء {test}؟",
         "en": "Is another adult with you now, ready to stay beside you during the {test}?",
         "arTtsByTest": {
           "chair_stand_30s": "هَلْ يُوجَدُ مَعَكَ الْآنَ شَخْصٌ بَالِغٌ مُسْتَعِدٌّ لِلْبَقَاءِ بِجَانِبِكَ أَثْنَاءَ اخْتِبَارِ الْوُقُوفِ مِنَ الْكُرْسِيّ؟",
-          "trunk_control_seated": "هَلْ يُوجَدُ مَعَكَ الْآنَ شَخْصٌ بَالِغٌ مُسْتَعِدٌّ لِلْبَقَاءِ بِجَانِبِكَ أَثْنَاءَ اخْتِبَارِ الْمَيْلِ الْجَانِبِيّ؟",
-          "shoulder_abduction": "هَلْ يُوجَدُ مَعَكَ الْآنَ شَخْصٌ بَالِغٌ مُسْتَعِدٌّ لِلْبَقَاءِ بِجَانِبِكَ أَثْنَاءَ اخْتِبَارِ رَفْعِ الذِّرَاعِ جَانِبًا؟",
-          "arm_curl_30s": "هَلْ يُوجَدُ مَعَكَ الْآنَ شَخْصٌ بَالِغٌ مُسْتَعِدٌّ لِلْبَقَاءِ بِجَانِبِكَ أَثْنَاءَ اخْتِبَارِ ثَنْيِ الذِّرَاعْ؟"
+          "trunk_control_seated": "هَلْ يُوجَدُ مَعَكَ الْآنَ شَخْصٌ بَالِغٌ مُسْتَعِدٌّ لِلْبَقَاءِ بِجَانِبِكَ أَثْنَاءَ اخْتِبَارِ الْمَيْلِ الْجَانِبِيّ؟"
         }
       },
       "testTokens": {
@@ -2577,14 +2478,6 @@
         "trunk_control_seated": {
           "ar": "اختبار الميل الجانبي",
           "en": "side lean test"
-        },
-        "shoulder_abduction": {
-          "ar": "اختبار رفع الذراع جانبًا",
-          "en": "arm raise test"
-        },
-        "arm_curl_30s": {
-          "ar": "اختبار ثني الذراع",
-          "en": "arm bend test"
         }
       },
       "options": [
@@ -2621,14 +2514,12 @@
           "do": "show",
           "screenByTest": {
             "chair_stand_30s": "scr_helper_brief_stand",
-            "trunk_control_seated": "scr_helper_brief_trunk",
-            "shoulder_abduction": "helperBriefing.checkInLine",
-            "arm_curl_30s": "helperBriefing.checkInLine"
+            "trunk_control_seated": "scr_helper_brief_trunk"
           },
           "stores": "fingerprint.helperPresent"
         }
       ],
-      "perTestRule": "chair_stand_30s and trunk_control_seated when their helper rules require it (4.3, 4.4); every camera test left in the check, the arm raise and the arm curl included, when noArmSignal is set (stopRouting.checkIn.noArmSignal, O34-2 (2)). When noArmSignal is set by the fine rehearsal (after the first calibration, so after the pre-check), assessment.checkin.practiceNoSignal is shown and spoken, then pc_helper is asked at once for the current test, before it starts, and again before each later camera test; yes shows that test’s helper briefing (screenByTest) and the test starts only after helperBriefing.confirmButton; no skips that test with helper_needed (O34-2 (3))."
+      "perTestRule": "chair_stand_30s and trunk_control_seated when their helper rules require it (4.3, 4.4)."
     },
     {
       "id": "pc_after_last",
@@ -2730,15 +2621,14 @@
           "screen": "scr_stop_pain",
           "lock": "next_day"
         }
-      ],
-      "answerMode": "answerZones"
+      ]
     }
   ],
   "stopFollowUps": [
     {
       "id": "sf_faint_loc",
       "type": "yes_no_unsure",
-      "when": "after scr_faint (with scr_faint_sci when sci_t6), once the person is seated or lying; also after a faint stop that followed a no response alarm; and after every fall stop (fell or nearly fell), once the person is seen seated, touches the screen, or at the booth staff judge them settled (O42)",
+      "when": "after scr_faint (with scr_faint_sci when sci_t6), once the person is seated or lying; and after every fall stop (fell or nearly fell), once the person touches the screen, or at the booth staff judge them settled (O42)",
       "ask": {
         "ar": "هل فقدت الوعي، ولو للحظة؟",
         "en": "Did you pass out, even for a moment?"
@@ -2785,10 +2675,7 @@
           "do": "record",
           "lock": "next_day"
         }
-      ],
-      "answerMode": "answerZones",
-      "noAnswerSec": 30,
-      "noAnswer": "No answer within 30 s: run the check in (stopRouting.checkIn.cueSelection), as on the stop list. After a fall stop at the booth there is no timer: staff tap the answer the person says (O42)."
+      ]
     }
   ],
   "endOfCheck": [
@@ -3055,95 +2942,20 @@
         "check": "may continue with the next test after a rest"
       }
     ],
-    "noAnswerSec": 30,
-    "noAnswer": "No answer to the list within 30 s: run the check in (the cue for the setting, checkIn.cueSelection). The 30 s timer restarts on any touch or scroll (Q31 (2)). After a fine by tap no new timer runs; after a camera fine one extra 30 s timer runs on that screen (O34-1 (6)).",
     "checkIn": {
-      "cueSelection": {
-        "booth": {
-          "raiseAllowed": "check_are_you_ok",
-          "raiseNotAllowed": "check_are_you_ok_noraise"
-        },
-        "home": {
-          "zones": "check_are_you_ok_zone",
-          "zonesWithSpeech": "check_are_you_ok_zone_speech",
-          "noArmSignal": "check_are_you_ok_helper"
-        },
-        "fallWatch": {
-          "raiseAllowed": "check_are_you_ok_fall",
-          "raiseAllowedWithSpeech": "check_are_you_ok_fall_speech",
-          "raiseNotAllowedOrNoArmSignal": "check_are_you_ok_fall_noraise",
-          "raiseNotAllowedOrNoArmSignalWithSpeech": "check_are_you_ok_fall_noraise_speech"
-        },
-        "rule": "Booth: zones and speech are off (7.2-1, O5). Home opens only with the answer zones (gate 2), so home always uses a zone form, the helper form with noArmSignal, or the fall watch forms (O33 (f), O34-1 (8), O34-2 (5), O34-4 (3), O42 (5)). check_are_you_ok_speech is retired (cuesRetired). No cue anywhere asks a person whose raiseAllowed is false to raise a hand (O34-1 (5)). There is no default check in cue: the single checkIn.cue field (check_are_you_ok) is removed, so a regenerated check-v1.json fails the type check until src/engine/checkin.ts selects the cue from this map by setting, raiseAllowed, noArmSignal, on device speech and the fall watch; check_are_you_ok is the booth form for raiseAllowed true only, and never plays at home. The check in cues are not listed in tests.<id>.cues; voice generation and precaching take every id of this map. Engine test (tech lead): for every combination of setting, raiseAllowed, noArmSignal, speech and fall watch, the selected cue exists in cues; when raiseAllowed is false, no selected cue contains «ارفع» (en: raise); at home, no selected cue names «فريقنا» (en: our team)."
-      },
+      "decision": "D-016 (Nasser, 2026-09-30): a simple check in, off by default. It replaces the council's check in, no response alarm and fall watch (O34, O42, Q31 (2) (4) (5) (6), R3C-01 to R3C-05).",
+      "setting": "An optional per device setting, «التحقق من سلامتك أثناء الاختبار» · Check on me during tests, off by default, in the coach settings and on the check intro (S14). At the booth it is off and not shown, because staff watch.",
       "triggers": [
-        "the person leaves the frame",
-        "hips drop toward the floor",
-        "a big sideways sway",
-        "no movement for 10 s during a test",
-        "no answer to the stop list within 30 s",
-        "no answer to the faint follow up within 30 s",
-        "home fall watch on scr_fall or scr_fall_seated (phase 2): fall_still, no movement for 60 s while in view, counted from the end of the last spoken line (O42 (3))",
-        "home fall watch: fall_timer, not seen seated or standing for 3 s within 3 minutes of the speech ending and no touch on the screen (O42 (4))"
+        "during a camera test, the person leaves the picture for 5 s",
+        "during a camera test, no movement for 10 s"
       ],
-      "okWhen": [
-        "a wrist held above the same shoulder for 1 s (raised hand), under the O34-1 (4) conditions",
-        "a tap on the «أنا بخير» · I am fine button (S43, S45) by the person, or by booth staff or a home helper only after the person says they are fine; a touch anywhere else does nothing",
-        "phase 2: a wrist held for 2 s in the fine zone (FineSignalConfig: stronger side, lateral, chin to mid chest, trunk upright)",
-        "a spoken phrase of well being, only where Arabic speech recognition runs on the device itself (engine.speech)"
-      ],
-      "okFrom": "The check in accepts fine only from the button, the camera fine signal (fineSignal) and the on device phrase, never from a tap elsewhere, in every state including no_response. On S43 and S45 the initial focus is on the heading, never on the button (O34-4 (2)).",
-      "tapByOthers": "Booth staff tap «أنا بخير» on S43 or S45 only after speaking with the person face to face and seeing that they are well; otherwise they act (first aid, 997, the incident form) (O34-4 (5)). A home helper taps it only when the person says they are fine (helperBriefing.checkInLine, O34-2 (4)).",
-      "raiseAllowed": "false when the no_overhead restriction applies, or when no arm is free of all of: upper limb loss; the weaker side with pc_weak_lift no or pc_weak_shoulder yes; pc_arm_function no_bend (SCI). Otherwise true (O34-4 (3)).",
-      "noArmSignal": "Set when each arm has at least one of: upper limb loss on that side; the declared weaker side with pc_weak_lift no; pc_arm_function no_bend (SCI). Also set for today when the fine rehearsal fails twice (fineSignal.rehearsal). At home every camera test left in the check then requires pc_helper yes (helper_required per test); a head gesture is never accepted; the on device phrase stays accepted where recognition runs but never replaces the helper. At the booth nothing changes: staff within arm’s reach tap «أنا بخير» only on the person’s own word (O34-2).",
-      "fineSignal": {
-        "phase": "Phase 2 only: ships with engine.answerZones as part of home gate 2 (Q31 (5), (6)); never on in the booth build (7.2-1). The only camera fine at the booth is the raised hand.",
-        "config": "FineSignalConfig, fixed at protocol freeze and passed to checkin.ts (O33 (a)).",
-        "side": "fineZoneSide is the stronger arm: not the declared weaker side, not a limb loss side, not the pc_arm_pain_side; for SCI, the arm with the better pc_arm_function answer; on a tie, the right. The fine zone is the top zone of the answer column on that side, drawn on the mirrored image and shown to everyone at home.",
-        "geometry": {
-          "top": "chin height: halfway between the nose and the shoulder line",
-          "bottom": "mid chest: halfway from the shoulder line to the hip line",
-          "innerEdge": "at least 0.25 shoulder widths lateral of that shoulder landmark and wholly outside the torso outline; the bench check may move it outward, never inward",
-          "outerEdge": "the inner edge plus 0.8 shoulder widths, clipped to that arm’s calibrated reach",
-          "never": "nothing above the head, nothing at the midline, over the chest or near the face",
-          "status": "starting values for the O33 (4) bench check"
-        },
-        "holdSec": 2,
-        "jitterTolerance": "15% of shoulder width, on the median wrist position over the hold",
-        "entryRule": "counts only when the wrist enters the zone from outside after the check in cue starts",
-        "neverCounted": [
-          "a wrist already in the zone when the sheet opens",
-          "a wrist within the calibration rest positions plus 0.3 shoulder widths",
-          "a hand crossing the body",
-          "any wrist of a second person (only the calibrated subject’s wrists are read)"
-        ],
-        "cameraFineBlockedWhen": [
-          "the other wrist is within 0.5 shoulder widths of the sternum (between the shoulder midpoint and mid chest)",
-          "both wrists are in zones",
-          "the hips drop trigger is active",
-          "the trunk is outside the current sway limit"
-        ],
-        "blockedRuleScope": "The blocked conditions apply to every camera fine, the zone and the raised hand; never to the fine button or the on device phrase.",
-        "commit": "A camera fine commits at once, with assessment.checkin.seenHand for 1 s and no 3 s read back.",
-        "extraTimer": "After a camera fine (not a tap) on a check in raised from S41, S38b or S44, one extra 30 s no answer timer runs on that screen; if it expires, the check in runs again; a second camera fine ends the timers on that screen. This amends the O14 reading for camera fines only.",
-        "rehearsal": "Right after the first calibration of every home check the fine zone is lit and check_fine_practice plays; on success assessment.checkin.practiceSeen. If the zone has not been held within 15 s the cue plays once more; a second 15 s without success sets noArmSignal for today and shows assessment.checkin.practiceNoSignal (O34-1 (7), O34-2 (3)). pc_helper is then asked at once for the current test, before it starts, and before each later camera test (precheck.pc_helper.perTestRule, O34-2 (3)).",
-        "benchCheck": "Before home opens the O33 (4) bench check must pass on deliberate and accidental entries, including a person slumping or sliding in the chair, a hand drifting in dyskinesia and a hand clutching the chest.",
-        "tally": "The Q2 safety system tally counts fines by zone, by raised hand, by button and by staff tap separately; a fine after an alarm is counted apart.",
-        "ratification": "The new cue texts amend the Q31 (4) and (5) wording; Nasser ratifies them on the sign off page and approves them by ear with voicePending.earCheckFirst (O34-1 (10), O34-4 (7))."
-      },
-      "afterFine": "When a hips drop trigger raised the check in and the person answers «أنا بخير», the next screen is S41 (the stop list), not S44, so a slide to the floor is declared and routed to scr_fall with its lock (O42).",
-      "fallWatch": {
-        "where": "Home only (phase 2; ships with the answer zones as part of home gate 2), on scr_fall and scr_fall_seated (S39). Booth: the camera is off on S39 and no timed check in runs.",
-        "camera": "On for 5 minutes after the S39 speech ends, with assessment.hud.cameraOn under the heading; the wake lock is kept while S39 is open.",
-        "triggers": "The 10 s no movement trigger, sway and left frame are off. Hips drop arms only after the person has been seen with hips at or above the calibration seat height for 3 s. fall_still and fall_timer as in triggers; being out of view never starts fall_still.",
-        "checkIn": "S43 with two answers, «أنا بخير» and «أحتاج مساعدة» (no «أريد التوقف»), escalating as every check in (a chime at 7 s, S45 at 15 s), with the fall watch cues of cueSelection.",
-        "afterFine": "A fine ends the watch, stops the camera and returns to S39. «أحتاج مساعدة» or no response opens S45; a fine there returns to S39 and ends the watch. S45 reached from S39 shows the fall watch body of scr_no_response (fallWatch, or fallWatchNoRaise with raiseAllowed false or noArmSignal): «لا تنهض لتجيب» and a way to answer from the floor, not a tap on the phone. Pending the medical seat and the panel (screens.scr_no_response.fallWatchRule); until then S45 keeps the v1.1 body.",
-        "stops": "The watch stops at once when the phone is picked up or moved (the S34c phone moved signal), when the person leaves S39, or after 5 minutes.",
-        "line": "assessment.safety.fall.watch, spoken last on S39 (UX copy)."
-      },
-      "noResponseSec": 15,
-      "noResponse": "A loud repeating tone and the full screen scr_no_response with the full width call button and the 64 px number (emergencyCall), and the 120 px «أنا بخير» button under its last sentence. At the booth, a staff alert as well. Logged. In no_response, fine counts only from that button, the camera fine signal or the on device phrase (O34-4 (2)).",
-      "tune_at_booth": true
+      "leftFrameSec": 5,
+      "noMovementSec": 10,
+      "cue": "check_are_you_ok",
+      "answers": "The test pauses and the screen asks «هل أنت بخير؟» · Are you all right? «أنا بخير» · I am fine (the large button) goes on with the test: an attempt it paused is not counted and runs again after the rest before a repeat (60 s, a timed test 120 s and its one repeat); a timed test whose repeat is already used is not measured today. «أريد التوقف» · I want to stop opens the stop list (S41). The only press rule is a guard against a double tap.",
+      "noAnswerSec": 30,
+      "noAnswer": "No answer within 30 s: one gentle chime (it follows the Sound setting), and the paused screen stays with the line of scr_no_response to call someone nearby. There is no alarm, no repeat and no escalation, and nothing is sent.",
+      "off": "When the setting is off there is no automatic check in: the STOP button, always on the camera screens, and the stop list are the way to stop."
     },
     "resultOnStop": "The stopped test stores no score. Results of tests finished earlier in the same check are kept, and a stop that ends the check closes it as ended early, stores nothing more that day and sets the lock shown."
   },
@@ -3213,21 +3025,9 @@
       "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding or have new pain, call out for help. Do not try to get back into your chair alone unless you have learned a safe way to do it. Call someone to help you, and keep warm while you wait."
     },
     "scr_no_response": {
-      "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن. إذا كنت بخير، فالمس «أنا بخير».",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. إِذَا كُنْتَ بِخَيْرْ، فَالْمِسْ، أَنَا بِخَيْرْ.",
-      "en": "Are you all right? If you need help and anyone is near you, call out to them now. If you are fine, tap “I am fine”.",
-      "fineButton": "The 120 px «أنا بخير» button sits directly under the last sentence; only that button, the camera fine signal or the on device phrase counts as fine (O34-4 (2), (6)).",
-      "fallWatch": {
-        "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن. لا تنهض لتجيب. إذا كنت بخير، فارفع إحدى يديك، أو اطلب ممن معك أن يلمس «أنا بخير».",
-        "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ، أَوِ اطْلُبْ مِمَّنْ مَعَكَ أَنْ يَلْمِسْ، أَنَا بِخَيْرْ.",
-        "en": "Are you all right? If you need help and anyone is near you, call out to them now. Do not get up to answer. If you are fine, raise one hand, or ask the person with you to tap “I am fine”."
-      },
-      "fallWatchNoRaise": {
-        "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن. لا تنهض لتجيب. إذا كنت بخير، فاطلب ممن معك أن يلمس «أنا بخير».",
-        "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَاطْلُبْ مِمَّنْ مَعَكَ أَنْ يَلْمِسْ، أَنَا بِخَيْرْ.",
-        "en": "Are you all right? If you need help and anyone is near you, call out to them now. Do not get up to answer. If you are fine, ask the person with you to tap “I am fine”."
-      },
-      "fallWatchRule": "Pending: the medical seat and the panel confirm it (review fixes, 2026-09-28; O42 (6), O34-4 (6)). When S45 is reached from S39 (the home fall watch), its body is fallWatch, or fallWatchNoRaise when raiseAllowed is false or noArmSignal is set, so no line asks that person to raise a hand (O34-1 (5)). The heading, the tone and the 120 px «أنا بخير» button stay as on every S45; where on device speech runs the phrase still counts (okFrom), as on every S45. Why: the v1.1 body tells a person on the floor, with the phone on its stand 2 to 3 m away, to tap the phone to stop the tone, with no «لا تنهض» and no mention of the raised hand that counts on S45, against scr_fall and the fall watch cue. Until confirmed, S45 keeps the v1.1 body on every route. Open for the panel: with raiseAllowed false or noArmSignal and speech off, check_are_you_ok_fall_noraise offers no answer that can be given from the floor (the zones cannot be reached, O42), so every watch check in for these people ends in the alarm unless a helper is there; the panel decides whether that is the intended safe default."
+      "ar": "إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن.",
+      "arTts": "إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ.",
+      "en": "If you need help and anyone is near you, call out to them now."
     },
     "scr_stop_seek_care": {
       "ar": "لنتوقف هنا. استرح في وضع مريح. إذا لم يهدأ ما تشعر به أو أقلقك، فتواصل مع طبيبك أو فريق رعايتك. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة. وإذا اشتد ما تشعر به، فاطلب المساعدة الطبية فورًا.",
@@ -3367,12 +3167,6 @@
     "picture": "The top down picture from P4 (chair stand setup), with the helper's place marked: the weaker side, slightly behind; for the side lean the same layout around the chair.",
     "steadyRule": "Steady at the waist or hips (chair stand) or the shoulder or trunk (side lean), never by the arm.",
     "closing": "Both briefings end with the sentence: You may be in the picture, but do not stand between them and the phone. The video is not recorded or sent, and nothing about you is saved.",
-    "checkInLine": {
-      "ar": "إذا سأل الهاتف «هل أنت بخير؟»، فاسأله أنت، ولا تلمس «أنا بخير» إلا إذا قال لك إنه بخير. وإذا لم يُجب، أو لم يكن بخير، فالمس «أحتاج مساعدة».",
-      "arTts": "إِذَا سَأَلَ الْهَاتِفْ، هَلْ أَنْتَ بِخَيْرْ، فَاسْأَلْهُ أَنْتْ، وَلَا تَلْمِسْ، أَنَا بِخَيْرْ، إِلَّا إِذَا قَالَ لَكَ إِنَّهُ بِخَيْرْ. وَإِذَا لَمْ يُجِبْ، أَوْ لَمْ يَكُنْ بِخَيْرْ، فَالْمِسْ، أَحْتَاجُ مُسَاعَدَةْ.",
-      "en": "If the phone asks “Are you all right?”, ask them yourself, and tap “I am fine” only if they tell you they are. If they do not answer, or they are not fine, tap “I need help”.",
-      "rule": "For everyone at home: shown and read under every helper briefing (scr_helper_brief_stand, scr_helper_brief_trunk and the arm test briefing), after the closing sentence and before confirmButton. For the two arm tests (noArmSignal) the helper briefing is this line and confirmButton only. It joins the Q18 (6) cognitive testing of both briefings (O34-2 (4)). Phase 2 (Q24): the pronouns switch with the feminine address (قال لك إنه / قالت لك إنها; يُجب / تُجب; يكن / تكن)."
-    },
     "confirmButton": {
       "ar": "المساعد بجانبي وقرأ التعليمات",
       "en": "My helper is beside me and has read this"
@@ -4175,7 +3969,6 @@
           "en": "Were both practice bends full and easy, without pain?",
           "arTts": "هَلْ كَانَتِ الثَّنْيَتَانِ التَّجْرِيبِيَّتَانِ كَامِلَتَيْنِ وَسَهْلَتَيْنْ، دُونَ أَلَمْ؟"
         },
-        "practiceCheckAnswerMode": "answerZones (Q31 (5))",
         "stepDown": {
           "ar": "اختر وزنًا أخف، أو بدون وزن.",
           "en": "Choose a lighter weight, or none."
@@ -4645,7 +4438,7 @@
           "en": "At the end of the lean, did your body or arm rest on the armrest?",
           "arTts": "عِنْدَ نِهَايَةِ الْمَيْلْ، هَلِ اسْتَنَدَ جِسْمُكَ أَوْ ذِرَاعُكَ إِلَى مِسْنَدِ الذِّرَاعْ؟"
         },
-        "contact": "Asked after each side, answerable from the chair (answer zones, Q31 (5)). Yes stores contact: true; that side’s attempts are censored (at least the value) and cannot produce higher. With contact on that side at both checks, show values with noVerdict.chairLimit.",
+        "contact": "Asked after each side, answered by a tap. Yes stores contact: true; that side’s attempts are censored (at least the value) and cannot produce higher. With contact on that side at both checks, show values with noVerdict.chairLimit.",
         "abort": [
           "lean speed over 45 degrees per second for more than 0.2 s",
           "lean more than 15 degrees beyond this side’s best at earlier checks",
@@ -5034,7 +4827,6 @@
         "en": "Did you push with your hands to stand up?",
         "arTts": "هَلِ اسْتَعَنْتَ بِيَدَيْكَ لِتَقِفْ؟"
       },
-      "pushedAskAnswerMode": "answerZones (Q31 (5))",
       "helperRules": [
         "At home another adult must be present (pc_helper yes) for: arms_assisted; any pc_steadi yes; pc_walking_aid yes; parkinsons; stroke; sci_incomplete; cerebral_palsy; pc_pd_dizzy_standing yes.",
         "Helper position: beside the person on the weaker side (support none: the left), slightly behind, one hand hovering near the waist without touching; in the picture if needed, never between the phone and the person. scr_helper_brief_stand is shown after pc_helper yes.",
@@ -5239,7 +5031,7 @@
           "route": "stroke_signs"
         },
         {
-          "sign": "camera: person leaves the frame, hips drop toward the floor, big sideways sway, or no movement for 10 s",
+          "sign": "camera, with the check in on: the person leaves the picture for 5 s, or no movement for 10 s",
           "route": "check in (stopRouting.checkIn)"
         },
         {
@@ -5620,7 +5412,7 @@
     },
     "sideLeanSecondBaseline": {
       "window": "48 hours to 7 days after the first completed home check",
-      "rule": "The app offers a side lean only session. It is a full movement check with one selected test, never a shortcut: the whole pre-check (the every check items including pc_after_last and pc_faint_since when due; the SCI items pc_sci_ad_since, pc_sci_ad_now, pc_sci_ready and warn_sci_t6; the side lean items pc_pressure_sore, pc_sit_unsupported, pc_fall_sitting, pc_stroke_push, the split pc_trunk_armrests, and pc_helper with scr_helper_brief_trunk), then the sound check, the stop list and the check in, bt_pain_after, the end of check symptom question, and ac_next_day afterwards. It is not offered while a lock, an uncleared changeReported or an unresolved lasting ac_next_day answer is active. It counts as a completed check for the 48 hour minimum and does not move the due date of the next full check; the series logic treats it as the second baseline check. If it is not done within 7 days, the next scheduled check becomes the second baseline check as in v1.",
+      "rule": "The app offers a side lean only session. It is a full movement check with one selected test, never a shortcut: the whole pre-check (the every check items including pc_after_last and pc_faint_since when due; the SCI items pc_sci_ad_since, pc_sci_ad_now, pc_sci_ready and warn_sci_t6; the side lean items pc_pressure_sore, pc_sit_unsupported, pc_fall_sitting, pc_stroke_push, the split pc_trunk_armrests, and pc_helper with scr_helper_brief_trunk), then the sound check, the stop list and, when it is on, the check in, bt_pain_after, the end of check symptom question, and ac_next_day afterwards. It is not offered while a lock, an uncleared changeReported or an unresolved lasting ac_next_day answer is active. It counts as a completed check for the 48 hour minimum and does not move the due date of the next full check; the series logic treats it as the second baseline check. If it is not done within 7 days, the next scheduled check becomes the second baseline check as in v1.",
       "offer": {
         "ar": "لتكون نقطة بدايتك في الميل الجانبي أدق، نعيد هذا الاختبار وحده مرة واحدة بعد يومين إلى سبعة أيام. يستغرق بضع دقائق، على الكرسي نفسه ومع مساعدك إن كنت تحتاج إليه.",
         "en": "To make your side lean starting point more accurate, we repeat this test on its own once, 2 to 7 days from now. It takes a few minutes, on the same chair and with your helper if you need one."
@@ -6007,112 +5799,12 @@
     },
     {
       "id": "check_are_you_ok",
-      "ar": "هل أنت بخير؟ إذا كنت بخير، فارفع إحدى يديك، أو قل ذلك لفريقنا.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ، أَوْ قُلْ ذَلِكَ لِفَرِيقِنَا.",
-      "en": "Are you all right? If you are, raise one hand, or tell our team.",
+      "ar": "هل أنت بخير؟ إذا كنت بخير، فالمس «أنا بخير».",
+      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَالْمِسْ، أَنَا بِخَيْرْ.",
+      "en": "Are you all right? If you are fine, tap “I am fine”.",
       "short": {
-        "ar": "ارفع يدك",
-        "en": "Raise your hand"
-      }
-    },
-    {
-      "id": "check_are_you_ok_noraise",
-      "ar": "هل أنت بخير؟ إذا كنت بخير، فقل ذلك لفريقنا.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ ذَلِكَ لِفَرِيقِنَا.",
-      "en": "Are you all right? If you are, tell our team.",
-      "short": {
-        "ar": "أخبر فريقنا",
-        "en": "Tell our team"
-      }
-    },
-    {
-      "id": "check_are_you_ok_zone",
-      "ar": "هل أنت بخير؟ إذا كنت بخير، فضع يدك في مربع «أنا بخير» وأبقِها لحظة، أو المسه.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَضَعْ يَدَكَ فِي مُرَبَّعْ، أَنَا بِخَيْرْ، وَأَبْقِهَا لَحْظَةْ، أَوِ الْمِسْهْ.",
-      "en": "Are you all right? If you are, put your hand in the “I am fine” box and keep it there a moment, or tap it.",
-      "short": {
-        "ar": "ضع يدك في المربع",
-        "en": "Hand in the box"
-      }
-    },
-    {
-      "id": "check_are_you_ok_zone_speech",
-      "ar": "هل أنت بخير؟ إذا كنت بخير، فقل «أنا بخير»، أو ضع يدك في مربع «أنا بخير» وأبقِها لحظة، أو المسه.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ، أَوْ ضَعْ يَدَكَ فِي مُرَبَّعْ، أَنَا بِخَيْرْ، وَأَبْقِهَا لَحْظَةْ، أَوِ الْمِسْهْ.",
-      "en": "Are you all right? If you are, say I’m fine, put your hand in the “I am fine” box and keep it there a moment, or tap it.",
-      "short": {
-        "ar": "ضع يدك في المربع",
-        "en": "Hand in the box"
-      }
-    },
-    {
-      "id": "check_are_you_ok_helper",
-      "ar": "هل أنت بخير؟ إذا كنت بخير، فقل «أنا بخير» بصوت واضح، ليسمعك من معك.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ، بِصَوْتٍ وَاضِحْ، لِيَسْمَعَكَ مَنْ مَعَكْ.",
-      "en": "Are you all right? If you are, say I’m fine out loud, so the person with you can hear you.",
-      "short": {
-        "ar": "قل أنا بخير",
-        "en": "Say I’m fine"
-      }
-    },
-    {
-      "id": "check_are_you_ok_fall",
-      "ar": "هل أنت بخير؟ لا تنهض لتجيب. إذا كنت بخير، فارفع إحدى يديك.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ.",
-      "en": "Are you all right? Do not get up to answer. If you are, raise one hand.",
-      "short": {
-        "ar": "لا تنهض لتجيب",
-        "en": "Do not get up"
-      }
-    },
-    {
-      "id": "check_are_you_ok_fall_speech",
-      "ar": "هل أنت بخير؟ لا تنهض لتجيب. إذا كنت بخير، فقل «أنا بخير»، أو ارفع إحدى يديك.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ، أَوِ ارْفَعْ إِحْدَى يَدَيْكْ.",
-      "en": "Are you all right? Do not get up to answer. If you are, say I’m fine, or raise one hand.",
-      "short": {
-        "ar": "لا تنهض لتجيب",
-        "en": "Do not get up"
-      }
-    },
-    {
-      "id": "check_are_you_ok_fall_noraise",
-      "ar": "هل أنت بخير؟ لا تنهض لتجيب.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ.",
-      "en": "Are you all right? Do not get up to answer.",
-      "short": {
-        "ar": "لا تنهض لتجيب",
-        "en": "Do not get up"
-      }
-    },
-    {
-      "id": "check_are_you_ok_fall_noraise_speech",
-      "ar": "هل أنت بخير؟ لا تنهض لتجيب. إذا كنت بخير، فقل «أنا بخير».",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ.",
-      "en": "Are you all right? Do not get up to answer. If you are, say I’m fine.",
-      "short": {
-        "ar": "لا تنهض لتجيب",
-        "en": "Do not get up"
-      }
-    },
-    {
-      "id": "check_answer_zone",
-      "ar": "لتجيب من مكانك، ضع يدك داخل مربع إجابتك وأبقِها لحظة، أو المس إجابتك على الشاشة.",
-      "arTts": "لِتُجِيبَ مِنْ مَكَانِكْ، ضَعْ يَدَكَ دَاخِلَ مُرَبَّعِ إِجَابَتِكَ وَأَبْقِهَا لَحْظَةْ، أَوِ الْمِسْ إِجَابَتَكَ عَلَى الشَّاشَةْ.",
-      "en": "To answer from where you are, hold your hand inside the box of your answer for a moment, or tap your answer on the screen.",
-      "short": {
-        "ar": "أجب من مكانك",
-        "en": "Answer from where you are"
-      }
-    },
-    {
-      "id": "check_fine_practice",
-      "ar": "قبل أن نبدأ، ضع يدك في مربع «أنا بخير» وأبقِها لحظة، لتعرف كيف تخبرنا أنك بخير.",
-      "arTts": "قَبْلَ أَنْ نَبْدَأْ، ضَعْ يَدَكَ فِي مُرَبَّعْ، أَنَا بِخَيْرْ، وَأَبْقِهَا لَحْظَةْ، لِتَعْرِفَ كَيْفَ تُخْبِرُنَا أَنَّكَ بِخَيْرْ.",
-      "en": "Before we start, hold your hand in the I am fine box for a moment, so you know how to tell us you are fine.",
-      "short": {
-        "ar": "ضع يدك في المربع",
-        "en": "Hand in the box"
+        "ar": "هل أنت بخير؟",
+        "en": "Are you OK?"
       }
     },
     {
@@ -6489,19 +6181,6 @@
       ],
       "decision": "O24-3, O33 (j)",
       "why": "«توقف» mid rise or mid bend; «توقف» is kept for stopping for safety."
-    },
-    {
-      "id": "check_are_you_ok_speech",
-      "ar": "هل أنت بخير؟ إذا كنت بخير، فقل «أنا بخير»، أو ارفع إحدى يديك، أو المس الشاشة.",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ أَنَا بِخَيْرْ، أَوِ ارْفَعْ إِحْدَى يَدَيْكْ، أَوِ الْمِسِ الشَّاشَةْ.",
-      "en": "Are you all right? If you are, say I’m fine, raise one hand, or tap the screen.",
-      "replacedBy": [
-        "check_are_you_ok_zone_speech",
-        "check_are_you_ok_fall_speech",
-        "check_are_you_ok_fall_noraise_speech"
-      ],
-      "decision": "O34-4 (4), O33 (j)",
-      "why": "Speech is off at the booth; at home the zone and fall watch speech forms replace it. It named a tap anywhere on the screen, which no longer counts as fine."
     }
   ],
   "voicePending": {
@@ -6509,22 +6188,21 @@
     "lines": [
       "helperBriefing: fully vocalised speech lines for scr_helper_brief_stand and scr_helper_brief_trunk, written by the Arabic seat (Q11) · done in the Arabic copy pass (2026-09-28)",
       "pc_sci_ready: the six list items read aloud, vocalised by the Arabic seat (Q18) · done in the Arabic copy pass (2026-09-28)",
-      "answer zone questions spoken after the phone is placed: bt_pain_after, contactAsk, pushedAsk and the practice check (Q31 (5)) · done in the Arabic copy pass (2026-09-28)",
-      "check_are_you_ok_speech: retired (O34-4 (4); cuesRetired), never generated or shipped; replaced by check_are_you_ok_zone_speech, check_are_you_ok_fall_speech and check_are_you_ok_fall_noraise_speech",
+      "questions spoken after the phone is placed: bt_pain_after, contactAsk, pushedAsk and the practice check · done in the Arabic copy pass (2026-09-28)",
       "check_faint_loc: the speech line in this file is the council's draft, confirmed by the Arabic seat (Q33) · done in the Arabic copy pass (2026-09-28)",
       "engine.coachingTrunkStop.cue: the speech line is the editor's draft, written or confirmed by the Arabic seat (S0) · done in the Arabic copy pass (2026-09-28)",
       "safety screens and warnings: arTts on every entry of screens (the council’s lines of O24-2 and O24-6, the rest by the Arabic seat) · done in the data owner additions (2026-09-28)",
       "high risk items (Q18 (6)): pc_urgent, pc_sci_level, pc_sci_ad_now and pc_helper (four test tokens) with their answers; warn_sci_t6 · done in the data owner additions (2026-09-28)",
-      "check in cues by setting, the fine rehearsal, the fall watch cues, the two end cues, the pause and hold cues and check_answer_zone (O24-3, O24-4, O34-1, O34-2, O34-4, O42). New ids (11): check_time_up_stand, check_time_up_curl, check_are_you_ok_noraise, check_are_you_ok_zone, check_are_you_ok_zone_speech, check_are_you_ok_helper, check_are_you_ok_fall, check_are_you_ok_fall_speech, check_are_you_ok_fall_noraise, check_are_you_ok_fall_noraise_speech, check_fine_practice. Reworded: check_are_you_ok, check_answer_zone, test_trunk_pause, test_abd_hold · done in the data owner additions (2026-09-28)",
-      "helperBriefing.checkInLine, the pc_urgent and ec_symptoms chronic line, the arm curl and chair stand card lines, and the AD card lead (pending its medical confirmation) · done in the data owner additions (2026-09-28)",
+      "the check in cue, the two end cues and the pause and hold cues (O24-3, O24-4). New ids: check_time_up_stand, check_time_up_curl. Reworded: check_are_you_ok (D-016), test_trunk_pause, test_abd_hold · done in the data owner additions (2026-09-28)",
+      "the pc_urgent and ec_symptoms chronic line, the arm curl and chair stand card lines, and the AD card lead (pending its medical confirmation) · done in the data owner additions (2026-09-28)",
       "spoken instruction steps and safety notes of the four tests (O24-7): tests.<id>.steps.arTts, variants[].stepsReplace.<n>.arTts, safety.arTts · done in the data owner additions (2026-09-28); the exercise physiologist checks them, and they go through the Q18 (6) testing before home opens",
       "ec_symptoms, its ask and both side forms (S49, O37), and the O45 examples of pc_change and pc_unwell (heading, ask, askFirstCheck and list), read by Listen with the question: endOfCheck.ec_symptoms.ask.arTts, askSide.arTtsBySide, sideTokens.*.arTts, precheck.pc_change.examples.*.arTts, precheck.pc_unwell.examples.*.arTts · done in the review fixes of the data owner additions (2026-09-28)",
       "tests.chair_stand_30s.variants.one_arm_cross.stepsReplace.4: the arm position line spoken in the camera part in place of test_stand_arms_cross (R3C-26); Nasser approves it by ear before it is spoken; until then it is shown only",
       "assessment.retry.touchedHelper and assessment.load.practiceRestLoad: interface lines spoken with the device voice until a recording is approved by ear (R3C-24, R3C-18); the Arabic seat writes their arTts"
     ],
-    "copyPass": "Arabic copy pass of 2026-09-28: every pending speech line above is written or confirmed (arTts on screens.scr_helper_brief_stand, screens.scr_helper_brief_trunk, pc_sci_ready ask, list and options, bt_pain_after ask and options, tests.trunk_control_seated.metric.contactAsk, tests.chair_stand_30s.pushedAsk, tests.arm_curl_30s.load.practiceCheck, engine.coachingTrunkStop.cue; check_faint_loc confirmed). check_are_you_ok_speech, confirmed in that pass, was retired afterwards (O34-4 (4)) and is never generated. Nasser still approves the regenerated Arabic voice by ear before release.",
+    "copyPass": "Arabic copy pass of 2026-09-28: every pending speech line above is written or confirmed (arTts on screens.scr_helper_brief_stand, screens.scr_helper_brief_trunk, pc_sci_ready ask, list and options, bt_pain_after ask and options, tests.trunk_control_seated.metric.contactAsk, tests.chair_stand_30s.pushedAsk, tests.arm_curl_30s.load.practiceCheck, engine.coachingTrunkStop.cue; check_faint_loc confirmed). Nasser still approves the regenerated Arabic voice by ear before release.",
     "ttsConvention": "arTts is fully vocalised and matches the display text word for word (numbers spelled out). Every word before a pause (comma, full stop, question mark) takes its pausal form: sukun on the last letter (also on ة), tanween fath with alif kept as written, a final long vowel or shadda left as is. A word that starts a breath group after a comma carries the vowel of its hamzat al wasl (اِرْفَعْ). A quoted phrase in the display text («أنا بخير») is spoken with a short pause on each side, written as a comma in arTts, and the word before the pause takes its pausal form; a question mark or full stop inside quotation marks is not a sentence end. The UI splits the display text and its arTts at the same full stops and question marks outside quotation marks; a split never falls inside a sentence, and a sentence naming 997 is never truncated in the caption. A build lint checks that the arTts sentence count equals the display sentence count for every text and fails the build on a mismatch, which goes back to the Arabic seat; a mismatch that reaches runtime plays the line whole with no highlight (7.2-12). Codes are spoken as letters and numbers (T6: تِي سِتَّةْ).",
-    "earCheckFirst": "Listen first to check_are_you_ok and check_faint_loc (medical review of the Arabic copy pass, 2026-09-28): the pausal sukun on ة may be clipped or heard as /t/. If it is, drop the sukun on the digits of 997 only (تِسْعَة، تِسْعَة، سَبْعَة, spoken on scr_emergency and scr_ad) and regenerate. Then the safety screens in this order, before Oct 9 where possible: scr_emergency, scr_no_response, scr_ad, scr_fall, scr_fall_seated, scr_faint, scr_faint_sci (O24-2); then ec_symptoms, its ask and both side forms (S49, O37), and the pc_change and pc_unwell examples (O45); then the check in cues and the two end cues. Before generation the medical lead checks each safety line word for word against its display text. Until a line is approved, speech synthesis may read a safety screen only after Nasser has approved that screen on the booth devices’ ar-SA voice; otherwise the screen is shown without speech and booth staff read the heading and the first action aloud (O12 (4)). At the booth none of the pre-check lines plays by itself (B16)."
+    "earCheckFirst": "Listen first to check_are_you_ok and check_faint_loc (medical review of the Arabic copy pass, 2026-09-28): the pausal sukun on ة may be clipped or heard as /t/. If it is, drop the sukun on the digits of 997 only (تِسْعَة، تِسْعَة، سَبْعَة, spoken on scr_emergency and scr_ad) and regenerate. Then the safety screens in this order, before Oct 9 where possible: scr_emergency, scr_ad, scr_fall, scr_fall_seated, scr_faint, scr_faint_sci (O24-2); then ec_symptoms, its ask and both side forms (S49, O37), and the pc_change and pc_unwell examples (O45); then the check in cue and the two end cues. Before generation the medical lead checks each safety line word for word against its display text. Until a line is approved, speech synthesis may read a safety screen only after Nasser has approved that screen on the booth devices’ ar-SA voice; otherwise the screen is shown without speech and booth staff read the heading and the first action aloud (O12 (4)). At the booth none of the pre-check lines plays by itself (B16)."
   },
   "addressPreference": {
     "phase": 2,
@@ -6661,9 +6339,8 @@
     "homeGates": {
       "boothBuild": "The Oct 9 booth build runs the movement check in booth mode only: guests, and signed in visitors after staff enter the booth code. A feature flag keeps it in booth mode only until every gate below is recorded as met.",
       "gates": [
-        "the stop list and check in values (15 s check in, 30 s stop list, raised hand, alarm tone) and the Q14 arm raise thresholds have been tuned from the booth safety system tally (Q2, Q14, Q31)",
-        "hands free answers (engine.answerZones, Q31 (5)) are built, with the fine zone, the fine rehearsal and the fall watch (O34-1, O42) after the O33 (4) bench check",
-        "formal cognitive testing of the high risk screens is complete and its fixes have been re-read by ear (Q18 (6)): pc_urgent, pc_sci_level, warn_sci_t6, pc_sci_ad_now, pc_sci_ready, scr_ad, scr_emergency, the stop list, scr_faint, scr_fall, scr_fall_seated, pc_helper, scr_helper_brief_stand and scr_helper_brief_trunk, helperBriefing.checkInLine (O34-2 (4)), ec_symptoms with its side form and their speech lines (S49, O37), the chronic line of pc_urgent and ec_symptoms (O37), and the pc_change and pc_unwell examples lists with their speech lines (O45)",
+        "the Q14 arm raise thresholds have been tuned from the booth safety system tally (Q2, Q14)",
+        "formal cognitive testing of the high risk screens is complete and its fixes have been re-read by ear (Q18 (6)): pc_urgent, pc_sci_level, warn_sci_t6, pc_sci_ad_now, pc_sci_ready, scr_ad, scr_emergency, the stop list, scr_faint, scr_fall, scr_fall_seated, pc_helper, scr_helper_brief_stand and scr_helper_brief_trunk, ec_symptoms with its side form and their speech lines (S49, O37), the chronic line of pc_urgent and ec_symptoms (O37), and the pc_change and pc_unwell examples lists with their speech lines (O45)",
         "the read aloud of every Arabic screen and voice line by a person living with a disability (H8) is done, as an extra gate, never a substitute for the cognitive testing",
         "every speech line of the safety screens and high risk items (O24-2) and every new line of the UX round (O6, O12, O24-3, O24-4, O24-6, O34, O37, O42) is generated and approved by ear by Nasser, and the spoken instruction steps (O24-7) have passed the Q18 (6) testing (Q18 (6))"
       ],

@@ -1,7 +1,7 @@
 /**
- * Review screenshots of the safety stream (UX spec definition of done): S36 to S49 and the S41, S43,
- * S44 and S45 overlays, with their variants and the states that apply to them (offline, sound off,
- * booth and home), at 375 x 812 and 1440 x 900, in Arabic and English. Runs only with AZM_SHOTS_DIR:
+ * Review screenshots of the safety stream (UX spec definition of done): S36 to S49 and the S41 and S43
+ * overlays, with their variants and the states that apply to them (offline, booth and home), at
+ * 375 x 812 and 1440 x 900, in Arabic and English. Runs only with AZM_SHOTS_DIR:
  *
  *   AZM_SHOTS_DIR=../Azm6.0/local-docs/screens/round3/safety npm run e2e -- safety-shots
  *

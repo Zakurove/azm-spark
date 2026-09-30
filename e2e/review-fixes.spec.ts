@@ -312,7 +312,7 @@ for (const lang of LANGS) {
       const model = JSON.parse(
         snapshot("guest", { kind: "between", i: 0, side: 0, scope: "test", via: "stop" }, true),
       ) as Record<string, unknown>;
-      model.overlay = { kind: "stopList", takeYourTime: false };
+      model.overlay = { kind: "stopList" };
       await page.addInitScript(
         ([m]) => {
           if (!sessionStorage.getItem("azm.e2e.once")) {

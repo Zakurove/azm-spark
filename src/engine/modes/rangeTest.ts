@@ -26,7 +26,6 @@
  */
 import type { CheckCueId, ReasonId, ShoulderAbductionDef } from "../../movements/types";
 import { segmentDistance, type Pt } from "../body";
-import { CheckInDetector, checkInReference } from "../checkin";
 import { QualityMonitor, qualityConfig, type QualityIssue, type QualityReport } from "../quality";
 import { SubjectLock } from "../subject";
 import { Frame, Landmark } from "../types";
@@ -291,7 +290,6 @@ export class RangeTestRunner implements TestRunner {
   private readonly minVis: number;
   private readonly restSec: number;
   private readonly tracker: SubjectTracker;
-  private readonly checkin = new CheckInDetector();
   private readonly sink = new EventSink();
 
   private phaseNow: RunnerPhase = "idle";
@@ -391,7 +389,7 @@ export class RangeTestRunner implements TestRunner {
         break;
       case "ask":
         // The calibration offer is open: the check in stays armed.
-        this.track(frame, false);
+        this.track(frame);
         break;
       default:
         break;
@@ -468,15 +466,13 @@ export class RangeTestRunner implements TestRunner {
     this.sink.push({ kind: "done", t });
   }
 
-  private track(frame: Frame, movement: boolean): Tracked {
+  private track(frame: Frame): Tracked {
     const tr = this.tracker.track(frame);
     const p = tr.pick;
     if (p.reason === "jump") this.jumpSince ??= frame.t;
     else this.jumpSince = null;
     if (p.paused && (p.reason === "overlap" || p.reason === "jump"))
       this.sink.cueEvery("check_one_person", frame.t, RANGE_RULES.onePersonCueEverySec);
-    for (const trigger of this.checkin.feed(frame.t, p.lm, frame.aspect, { movement }))
-      this.sink.push({ kind: "checkin", trigger, t: frame.t });
     return tr;
   }
 
@@ -513,7 +509,7 @@ export class RangeTestRunner implements TestRunner {
       if (!this.tracker.lockOn(frame)) return;
       this.relockPending = false;
     }
-    const tr = this.track(frame, false);
+    const tr = this.track(frame);
     const px = tr.px;
     const gateOk =
       !!px &&
@@ -616,8 +612,6 @@ export class RangeTestRunner implements TestRunner {
       upperArm,
       t,
     };
-    const last = buf[buf.length - 1];
-    this.checkin.setReference(checkInReference(last.raw, last.aspect));
     this.calBuf = [];
     this.calMed.reset();
     this.startAttempt(t, this.nextPractice || !this.practiceDone);
@@ -761,7 +755,7 @@ export class RangeTestRunner implements TestRunner {
   private attempting(frame: Frame, roll: number | null): void {
     const a = this.att!;
     const t = frame.t;
-    const tr = this.track(frame, true);
+    const tr = this.track(frame);
     a.monitor.feedPick(frame, tr.pick);
     const raw = tr.pick.paused ? null : this.measure(tr.px, roll);
     const R = RANGE_RULES;
@@ -1078,7 +1072,7 @@ export class RangeTestRunner implements TestRunner {
 
   private resting(frame: Frame, roll: number | null): void {
     const t = frame.t;
-    const tr = this.track(frame, false);
+    const tr = this.track(frame);
     // A phone that slipped: one person in the picture and the lock pausing on a jump for a while.
     if (
       this.jumpSince !== null &&

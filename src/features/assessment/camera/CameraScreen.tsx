@@ -120,7 +120,6 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
 
   const apply = useCallback(
     (out: CamOutput) => {
-      // A camera fine carries how it was given: the flow sets S44's extra timer (O34-1 (6)).
       for (const e of out.events) dispatch(e);
       if (out.cues.length) cuesRef.current.push(out.cues);
       for (const n of out.notes) {

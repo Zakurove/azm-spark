@@ -550,7 +550,6 @@ export function startResponse(ctx: Partial<CheckContext>, answers: Answers): Sta
     protocol: r.protocol as ProtocolItem[],
     warnings: r.warnings,
     helperRequired: r.helperRequired,
-    checkIn: null,
     helperBriefing: {},
   };
 }

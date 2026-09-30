@@ -8,7 +8,6 @@
  *   between           the pain question between tests (bt_pain_after)
  *   end               the end of check question (ec_symptoms, Q23 (7)); a yes closes the check
  *   faint             the faint follow up after a faint or fall stop (sf_faint_loc, Q33 (3))
- *   alarm             a check in alarm or help request, counted without a user id (O34-5)
  *   adult             the adult confirmation of the account (S05a, Q32 (6))
  *   after             the next day question on Today (S03, ac_next_day), answered offline
  *   complete          the end of the check
@@ -25,7 +24,7 @@
  * session (401) keeps it, and the hook retries on a back off timer, when the page is shown again, when
  * the connection returns and after the person signs in again.
  *
- * Storage: never video. Results, stops, pain answers, the end and faint answers, alarms, the adult
+ * Storage: never video. Results, stops, pain answers, the end and faint answers, the adult
  * confirmation and completions are kept in IndexedDB so they survive a reload (`indexedDbStore`); the
  * background start and resume carry raw pre-check answers, which are never written to storage, so
  * they wait in memory only for the life of the page (spec 5.10).
@@ -39,7 +38,7 @@
  */
 import type { Answers, TestSide } from "../../medical/precheck";
 import type { Setting, StopOptionId, TestId } from "../../movements/types";
-import type { AlarmBody, ApiResult, CheckApi, FaintBody, TestRef } from "./api";
+import type { ApiResult, CheckApi, FaintBody, TestRef } from "./api";
 import type { BetweenAnswer, CheckSession, DeviceInfo, ResultPayload } from "./flowMachine";
 
 export type QueuedCall =
@@ -49,7 +48,6 @@ export type QueuedCall =
   | { seq: number; type: "between"; checkId: string; testId: TestId; side: TestSide; answer: BetweenAnswer }
   | { seq: number; type: "end"; checkId: string; answer: "yes" | "no" }
   | { seq: number; type: "faint"; checkId: string; body: FaintBody }
-  | { seq: number; type: "alarm"; checkId: string; body: AlarmBody }
   | { seq: number; type: "adult" }
   | { seq: number; type: "after"; answer: "usual" | "settled" | "lasting" }
   | {
@@ -84,7 +82,6 @@ const DURABLE: readonly QueuedCall["type"][] = [
   "between",
   "end",
   "faint",
-  "alarm",
   "adult",
   "after",
 ];
@@ -207,7 +204,6 @@ type OutboxApi = Pick<
   | "postBetween"
   | "postEnd"
   | "postFaint"
-  | "postAlarm"
   | "confirmAdult"
   | "postAfter"
   | "startCheck"
@@ -297,8 +293,6 @@ export class ResultQueue {
         return this.api.postEnd?.(call.checkId, call.answer) ?? missing;
       case "faint":
         return this.api.postFaint?.(call.checkId, call.body) ?? missing;
-      case "alarm":
-        return this.api.postAlarm?.(call.checkId, call.body) ?? missing;
       case "adult":
         return this.api.confirmAdult?.() ?? missing;
       case "after":
@@ -315,6 +309,9 @@ export class ResultQueue {
         );
       case "resumeBackground":
         return this.api.resume?.(call.checkId, call.answers) ?? missing;
+      default:
+        // A call of a kind this build no longer sends (an alarm stored before D-016): dropped.
+        return Promise.resolve({ ok: false, error: { kind: "http", status: 410, code: "GONE", body: {} } });
     }
   }
 

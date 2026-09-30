@@ -6,7 +6,7 @@
  *   flow     every named state of e2e/flow-models.ts (S04 to S33, S35), opened by the reload snapshot
  *   camera   every static preview of S34 (camera/e2e/previews.ts) and the live screen with the
  *            fixture camera and the stop list over it
- *   safety   every named state of e2e/safety-fixtures.ts (S36 to S49 and the S41, S43, S44, S45
+ *   safety   every named state of e2e/safety-fixtures.ts (S36 to S49 and the S41 and S43
  *            overlays), guest and signed in
  *   results  S50 to S52, the Today cards S01 and S03, the offer S02, My results S53 and the example
  *            S54, with the answers of e2e/results-data.ts

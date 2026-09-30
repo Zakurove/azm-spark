@@ -15,6 +15,7 @@
  * It never forks Session.tsx and changes nothing outside its .azm-check root.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { readPreferences } from "../../app/experience";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
 import { BoothLayer } from "./booth";
@@ -81,14 +82,16 @@ export function screenKeyOf(m: FlowModel): string {
 
 /**
  * The flow's configuration, fixed for the life of the check: guest or signed in, booth mode, the
- * desktop interstitial and the session (the side lean only session from S01 leanRepeat, Q12 (2)).
- * Home checks count as closed until the context says otherwise (contract v3 I).
+ * desktop interstitial, the session (the side lean only session from S01 leanRepeat, Q12 (2)) and the
+ * person's check in setting (D-016), which the booth never uses. Home checks count as closed until
+ * the context says otherwise (contract v3 I).
  */
 export function checkConfig(o: {
   mode: FlowConfig["mode"];
   booth: boolean;
   desktop: boolean;
   session?: CheckSession;
+  checkIn?: boolean;
 }): FlowConfig {
   return {
     mode: o.mode,
@@ -96,6 +99,7 @@ export function checkConfig(o: {
     homeOpen: false,
     desktop: o.desktop,
     ...(o.session && o.session !== "full" ? { session: o.session } : {}),
+    ...(o.checkIn && !o.booth && o.mode === "signedIn" ? { checkIn: true } : {}),
   };
 }
 
@@ -118,39 +122,24 @@ export default function CheckApp({
 }: CheckAppProps) {
   const inBooth = booth ?? isBoothMode();
   const config = useMemo(
-    () => checkConfig({ mode, booth: inBooth, desktop: desktop ?? isDesktopDevice(), session }),
+    () =>
+      checkConfig({
+        mode,
+        booth: inBooth,
+        desktop: desktop ?? isDesktopDevice(),
+        session,
+        checkIn: readPreferences().safetyCheckIn,
+      }),
     // The configuration is fixed for the life of the check.
     [],
   );
   const { online, backOnline } = useOnline();
-  const {
-    model,
-    dispatch: flowDispatch,
-    api,
-    status,
-    retryCamera,
-    retrySave,
-  } = useCheckFlow({
+  const { model, dispatch, api, status, retryCamera, retrySave } = useCheckFlow({
     config,
     online,
     resume: resume ?? null,
     ...(owner ? { owner } : {}),
   });
-
-  // S43, S45: a raised hand taken as "fine" shows "We saw your hand." for a second (O34-1).
-  const [seenHand, setSeenHand] = useState(0);
-  const dispatch = useCallback(
-    (e: Parameters<typeof flowDispatch>[0]) => {
-      if (e.type === "FINE" && e.via === "raisedHand") setSeenHand(Date.now());
-      flowDispatch(e);
-    },
-    [flowDispatch],
-  );
-  useEffect(() => {
-    if (!seenHand) return;
-    const timer = setTimeout(() => setSeenHand(0), 1000);
-    return () => clearTimeout(timer);
-  }, [seenHand]);
 
   const [soundOn, setSoundOn] = useState(true);
   const [caption, setCaption] = useState<Caption | null>(null);
@@ -202,8 +191,8 @@ export default function CheckApp({
   useEffect(() => {
     if (atResults && readBoothPass()?.kind === "visitor") clearBoothPass();
   }, [atResults]);
-  // Never over a safety screen, S33, or the check in, alarm or stop list: the pass is cleared, and the
-  // page reloads once the person has left that screen (R3C-35).
+  // Never over a safety screen, S33 or the stop list: the pass is cleared, and the page reloads once
+  // the person has left that screen (R3C-35).
   const reloadPending = useRef(false);
   useEffect(() => {
     if (!config.booth) return;
@@ -297,7 +286,7 @@ export default function CheckApp({
     else el.removeAttribute("inert");
   }, [overlayId]);
 
-  // An overlay layer (S41, S43, S44, S45) that closes onto the same screen gives focus back to it
+  // An overlay layer (S41, S43) that closes onto the same screen gives focus back to it
   // (5.6, 5.7): STOP on camera screens, else the screen's h1. A new screen moves focus itself
   // (CheckShell); the dialogs (S15, the skip dialog) return focus themselves (CheckDialog).
   const layered = overlayId && overlayId !== "S15" && overlayId !== "skipDialog" ? overlayId : null;
@@ -344,11 +333,6 @@ export default function CheckApp({
         <div className="check-overlay" data-overlay={overlayId}>
           <Overlay {...props} />
         </div>
-      )}
-      {seenHand > 0 && (
-        <p className="check-toast" role="status" data-seen-hand="">
-          {t(lang, "assessment.checkin.seenHand")}
-        </p>
       )}
       {/* S57: the staff reset and the idle reset over every screen, in booth mode only. */}
       {config.booth && <BoothLayer model={model} dispatch={dispatch} />}

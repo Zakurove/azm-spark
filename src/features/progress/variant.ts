@@ -77,7 +77,7 @@ export interface EntryInputs {
   /** This tab is in verified booth mode. */
   booth: boolean;
   now: number;
-  /** O6 (1): never resume a check that had a safety screen or an alarm on this device. */
+  /** O6 (1): never resume a check that had a safety screen on this device. */
   resumeAllowed(checkId: string): boolean;
 }
 

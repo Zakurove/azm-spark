@@ -530,19 +530,12 @@ describe("repeatability (F1 criterion)", () => {
   }
 });
 
-describe("check in triggers (spec 4.0)", () => {
-  it("no movement for 10 s during an attempt, and leaving the frame, raise the check in", () => {
+describe("an attempt with no lift (the check in is the camera screen's, D-016)", () => {
+  it("ends at its timeout and is measured as is", () => {
     // The practice lift only, then the person sits still through attempt 1 and leaves later.
     const motions: MotionSpec[] = [...raises("right", 140, [1.5]), { kind: "leave", at: 34 }];
     const { frames } = abd("chair", "9:16", motions, 330, {}, 38);
-    const { events, res } = measure(frames, "right");
-    const triggers = events.flatMap((e) => (e.kind === "checkin" ? [{ trigger: e.trigger, t: e.t }] : []));
-    const still = triggers.find((x) => x.trigger === "no_movement");
-    const attempt1 = events.find((e) => e.kind === "phase" && e.phase === "attempt")!.t;
-    expect(still).toBeDefined();
-    expect(still!.t - attempt1).toBeGreaterThanOrEqual(10_000);
-    expect(triggers.some((x) => x.trigger === "left_frame" && x.t > 34_000)).toBe(true);
-    // An attempt with no lift ends at its timeout and is measured as is.
+    const { res } = measure(frames, "right");
     expect(res.attempts[0].value!).toBeLessThan(RANGE_RULES.relaxedMaxDeg);
   });
 });

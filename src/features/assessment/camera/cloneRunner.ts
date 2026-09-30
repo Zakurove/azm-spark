@@ -2,7 +2,7 @@
  * A deep copy of a runner that keeps every prototype, shared reference and cycle, so the copy runs
  * on as the original would. The camera screen keeps a copy of a range or side lean runner at every
  * rest, and puts it back when an attempt in progress must be discarded (a redo after the check in,
- * the camera stopping): the same attempt number then starts again from the rest (UX spec 2.12, S44,
+ * the camera stopping): the same attempt number then starts again from the rest (UX spec 2.12, S43,
  * S34 errors). Pure.
  *
  * The range and side lean runners hold only data and class instances (no closures), which is what

@@ -120,10 +120,9 @@
     white-space: nowrap;
   }
 }
-.azm-check .s34-top:has(.s34-sound-note, .s34-top-note) {
+.azm-check .s34-top:has(.s34-top-note) {
   flex-wrap: wrap;
 }
-.azm-check .s34-sound-note,
 .azm-check .s34-top-note {
   flex-basis: 100%;
   margin: 0;

@@ -497,22 +497,6 @@ describe("repeatability (F1 criterion)", () => {
   }
 });
 
-describe("check in triggers (spec 4.0)", () => {
-  it("a lean far beyond the abort limit is a big sway; a pelvis dropping toward the floor is a hips drop", () => {
-    const starts = leanStarts(3);
-    const motions: MotionSpec[] = [
-      ...leans(["right"], 20, [starts[0]]),
-      { kind: "sway", at: starts[1] + 1, peak: 50, dur: 3, toward: "left" },
-      { kind: "fall", at: starts[2] + 1 },
-    ];
-    const { frames } = trunk("chair", "9:16", motions, 540, {}, starts[2] + 5);
-    const r = measure(frames, "right", { sides: ["right", "left"] });
-    const triggers = r.events.flatMap((e) => (e.kind === "checkin" ? [e.trigger] : []));
-    expect(triggers).toContain("sway");
-    expect(triggers).toContain("hips_drop");
-  });
-});
-
 describe("flow and events", () => {
   const { frames } = trunk("chair", "9:16", leans(ORDER_R, 20), 530);
   const r = measure(frames);

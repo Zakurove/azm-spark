@@ -1,6 +1,6 @@
 /**
  * Typed client for the movement check endpoints (contract v2 E, v3 I, the round 3 server contract):
- * assessments, the follow up routes (end, faint, alarm, resume), consents, the adult confirmation,
+ * assessments, the follow up routes (end, faint, resume), consents, the adult confirmation,
  * progress and the booth passes (O17).
  *
  * Every call returns an ApiResult instead of throwing, so a screen always has a typed way forward:
@@ -24,20 +24,20 @@
  * The guest flow never calls this client (contract v3 I).
  */
 import { estimateMinutes, type ProtocolItem } from "../../medical/assessment";
-import type { Answers, CheckInConfig, ClockTime, SkipItem, TestSide } from "../../medical/precheck";
+import type { Answers, ClockTime, SkipItem, TestSide } from "../../medical/precheck";
 import type { PausedWhenId, ScreenId, Setting, Side, StopOptionId, TestId } from "../../movements/types";
 import type { SeriesView } from "../../medical/series";
 import { ENGINE_VERSION } from "../../engine/modes";
-import { HOME_GATE2_READY } from "../../medical/gates";
+import { HOME_CHECKS_READY } from "../../medical/gates";
 
 /**
- * The client guard of home gate 2 (R3C-10 (7)): home checks are open only when the server says so
- * and the client has built gate 2 (the answer zones, the fine zone and the fall watch), so a server
- * flag alone never opens a home check with the interim cue that names no box. As on the server
- * (homeChecksOpen), the unit tests and the E2E builds render the home screens with the flag alone;
- * neither mode exists in a production build (MODE and VITE_E2E are replaced at build time).
+ * The client guard of the home gate (R3C-10 (7)): home checks are open only when the server says so
+ * and the build releases them (HOME_CHECKS_READY), so a server flag alone never opens a home check.
+ * As on the server (homeChecksOpen), the unit tests and the E2E builds render the home screens with
+ * the flag alone; neither mode exists in a production build (MODE and VITE_E2E are replaced at build
+ * time).
  */
-const HOME_READY = HOME_GATE2_READY || import.meta.env.VITE_E2E === "1" || import.meta.env.MODE === "test";
+const HOME_READY = HOME_CHECKS_READY || import.meta.env.VITE_E2E === "1" || import.meta.env.MODE === "test";
 export const homeOpenOf = (c: { homeOpen?: boolean | null }, ready: boolean = HOME_READY): boolean =>
   c.homeOpen === true && ready;
 import type {
@@ -157,7 +157,7 @@ export interface StartBody {
   faceCovered?: boolean;
 }
 
-/** The helper briefing of each test that runs with a helper (Q11, O34-2 (2)). */
+/** The helper briefing of each test that runs with a helper (Q11). */
 export type HelperBriefing = Partial<Record<TestId, string | Record<string, unknown>>>;
 
 export interface StartOk {
@@ -169,12 +169,10 @@ export interface StartOk {
   protocol: ProtocolItem[];
   warnings: string[];
   helperRequired: string[];
-  /** The inputs of the check in (O34): raised hand allowed, no arm signal, the fine zone side. */
-  checkIn: CheckInConfig | null;
   helperBriefing: HelperBriefing;
 }
 
-/** The test side a stop, a faint answer or an alarm is about (resultOnStop, O43). */
+/** The test side a stop or a faint answer is about (resultOnStop, O43). */
 export interface TestRef {
   testId: TestId;
   side: TestSide;
@@ -218,8 +216,6 @@ export type FaintAnswer = "yes" | "no" | "unsure";
 
 export interface FaintBody {
   answer: FaintAnswer;
-  /** The faint stop followed a no response alarm (Q33 (3)): the emergency route whatever the answer. */
-  afterNoResponse?: boolean;
   testId?: TestId;
 }
 
@@ -230,24 +226,11 @@ export interface FaintResponse {
   lock: LockView | null;
 }
 
-export type AlarmKind = "no_response" | "help_requested";
-
-export interface AlarmBody {
-  kind: AlarmKind;
-  testId?: TestId;
-  /**
-   * A second no response alarm in the check ends testing for today (R3C-02 (2)): the server closes the
-   * check as a stop that ends it would, with the stop_symptom next day lock.
-   */
-  endsCheck?: true;
-}
-
 export interface ResumeOk {
   status: "proceed";
   skips: SkipItem[];
   warnings: string[];
   helperRequired: string[];
-  checkIn: CheckInConfig | null;
 }
 
 export interface AfterResponse {
@@ -322,7 +305,6 @@ export interface CheckApi {
   getEnd(id: string): Promise<ApiResult<EndForm>>;
   postEnd(id: string, answer: "yes" | "no"): Promise<ApiResult<EndAnswerResponse>>;
   postFaint(id: string, body: FaintBody): Promise<ApiResult<FaintResponse>>;
-  postAlarm(id: string, body: AlarmBody): Promise<ApiResult<{ recorded: true }>>;
   resume(id: string, answers: Answers): Promise<ApiResult<ResumeOk>>;
   complete(id: string): Promise<ApiResult<CompleteResponse>>;
   postAfter(answer: "usual" | "settled" | "lasting"): Promise<ApiResult<AfterResponse>>;
@@ -394,11 +376,10 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
     postBetween: (id, testId, side, answer) =>
       call<BetweenResponse>("POST", check(id, "between"), { testId, side, answer }),
     getEnd: (id) => call<EndForm>("GET", check(id, "end")),
-    // One path for the end, faint and alarm answers, so no URL names a safety event (Q25 (a)).
+    // One path for the end and faint answers, so no URL names a safety event (Q25 (a)).
     postEnd: (id, answer) =>
       call<EndAnswerResponse>("POST", check(id, "answer"), { question: "end", answer }),
     postFaint: (id, body) => call<FaintResponse>("POST", check(id, "answer"), { question: "faint", ...body }),
-    postAlarm: (id, body) => call("POST", check(id, "answer"), { question: "alarm", ...body }),
     resume: (id, answers) => call<ResumeOk>("POST", check(id, "resume"), { answers }),
     complete: (id) => call<CompleteResponse>("POST", check(id, "complete"), {}),
     postAfter: (answer) => call<AfterResponse>("POST", "/assessments/after", { answer }),
@@ -576,7 +557,6 @@ export function toStartResult(r: ApiResult<StartOk>): StartResult {
     protocol: r.value.protocol,
     warnings: r.value.warnings,
     helperRequired: r.value.helperRequired,
-    checkIn: r.value.checkIn ?? null,
     helperBriefing: r.value.helperBriefing ?? {},
   };
 }
@@ -588,7 +568,6 @@ export function toResumeResult(r: ApiResult<ResumeOk>):
       skips: SkipItem[];
       warnings: string[];
       helperRequired: string[];
-      checkIn: CheckInConfig | null;
     }
   | Exclude<StartResult, { ok: true }> {
   if (!r.ok) return failureOf(r.error);
@@ -597,7 +576,6 @@ export function toResumeResult(r: ApiResult<ResumeOk>):
     skips: r.value.skips ?? [],
     warnings: r.value.warnings ?? [],
     helperRequired: r.value.helperRequired ?? [],
-    checkIn: r.value.checkIn ?? null,
   };
 }
 

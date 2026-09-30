@@ -1,9 +1,9 @@
 /**
- * The safety screens as rendered markup (UX spec S36 to S49, 0.5, 3.0, 5.7; Q22, O34-4, 7.2-1), in
+ * The safety screens as rendered markup (UX spec S36 to S49, 0.5, 3.0, 5.7; Q22, 7.2-1; D-016), in
  * Arabic and English: every screen is registered, safety screens have no Back and no Exit, the 997
  * call is a tel: link with the spaced digits as its name and comes first, the ambulance number is text
- * in the page's digits, S43 and S45 are alert dialogs whose only fine control is the fine button, the
- * answer zones keep the data order, and booth and sound off lines show where they apply.
+ * in the page's digits, S43 is a calm alert dialog with two answers, the answers keep the data order,
+ * and the booth lines show where they apply.
  */
 import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -93,18 +93,13 @@ const safety = (screen: string, kind: string, extra = {}) =>
   ({ kind: "safety", safety: kind, screen, alsoShow: [], faintAnswered: false, ...extra }) as FlowState;
 
 describe("the registry (screens.ts reads only safety/index.ts)", () => {
-  it("registers a real screen for every safety id, and the four overlays", () => {
+  it("registers a real screen for every safety id, and the two safety overlays", () => {
     for (const id of SAFETY_SCREEN_IDS) {
       expect(SAFETY_SCREENS[id], id).toBeTypeOf("function");
       expect((SAFETY_SCREENS[id] as { displayName?: string }).displayName ?? "").not.toMatch(/^Stub/);
       expect(SCREENS[id]).toBe(SAFETY_SCREENS[id]);
     }
-    expect([OVERLAYS.S41, OVERLAYS.S43, OVERLAYS.S44, OVERLAYS.S45]).toEqual([
-      SAFETY_SCREENS.S41,
-      SAFETY_SCREENS.S43,
-      SAFETY_SCREENS.S44,
-      SAFETY_SCREENS.S45,
-    ]);
+    expect([OVERLAYS.S41, OVERLAYS.S43]).toEqual([SAFETY_SCREENS.S41, SAFETY_SCREENS.S43]);
   });
 });
 
@@ -198,9 +193,9 @@ describe("S36 to S40b", () => {
   });
 });
 
-describe("S41 to S45", () => {
+describe("S41 and S43", () => {
   it("S41 is a modal dialog with the two groups and one button per option, urgent first", () => {
-    const m = model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "stopList", takeYourTime: false });
+    const m = model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "stopList" });
     const html = render(OVERLAYS[overlayFor(m) as "S41"], m, { lang: "en", booth: true });
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
@@ -220,62 +215,23 @@ describe("S41 to S45", () => {
     expect(html).not.toContain("check-exit");
   });
 
-  it("S43 is an alert dialog: three answers, the fine one largest, STOP inside after a gap", () => {
-    const m = model(
-      { kind: "cam.measure", i: 0, side: 0 },
-      { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
-    );
-    const html = render(OVERLAYS.S43, m, { lang: "ar", booth: true });
-    expect(html).toContain('role="alertdialog"');
-    expect([...html.matchAll(/data-value="([a-z]+)"/g)].map((x) => x[1])).toEqual(["fine", "stop", "help"]);
-    expect(html).toContain('class="safety-zone is-large"');
-    expect(html).toContain("safety-stop-zone has-gap");
-    expect(html).toContain("هل أنت بخير؟");
-  });
-
-  it("S44 has no 997, after the alarm too (D-016); redo only after an attempt", () => {
-    const m = model(
-      { kind: "cam.measure", i: 0, side: 0 },
-      { kind: "goOn", afterAlarm: true, canRedo: false },
-    );
-    const html = render(OVERLAYS.S44, m, { lang: "en" });
-    expect(html).toContain("Do you want to go on?");
-    expect(html).not.toContain("tel:");
-    expect(html).not.toContain("safety-number-value");
-    expect(html).not.toContain('data-value="redo"');
-    const redo = render(
-      OVERLAYS.S44,
-      model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "goOn", afterAlarm: false, canRedo: true }),
-      {
-        lang: "en",
-      },
-    );
-    expect(redo).toContain('data-value="redo"');
-    expect(redo).not.toContain("tel:997");
-  });
-
-  it("S45: the heading, the body, the 120 px fine button, no 997 (D-016); staff and sound off lines", () => {
-    const m = model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "alarm", from: "test", attempt: true });
-    const off = { on: false, toggle: () => undefined };
-    const html = render(OVERLAYS.S45, m, { lang: "en", booth: true, sound: off });
-    expect(html).toContain('role="alertdialog"');
-    expect(html).toContain(">Are you all right?</h1>");
-    expect(html).not.toContain("tel:");
-    expect(html).not.toContain("safety-number-value");
-    expect(html).toContain("safety-fine");
-    expect(html).toContain("Staff, please check on this visitor now.");
-    expect(html).toContain("The alert tone still sounds");
-    // The only buttons: Sound and I am fine (the call is a link).
-    expect([...html.matchAll(/<button/g)]).toHaveLength(2);
-    const help = render(
-      OVERLAYS.S45,
-      model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "alarm", from: "test", help: true }),
-      {
-        lang: "ar",
-      },
-    );
-    expect(help).toContain(">اطلب المساعدة الآن</h1>");
-    expect(help).not.toContain("نرجو من الفريق");
+  it("S43 is a calm alert dialog: the question, the instruction, I am fine, then I want to stop", () => {
+    const m = model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "checkIn" }, false);
+    for (const lang of ["ar", "en"] as const) {
+      const html = render(OVERLAYS.S43, m, { lang });
+      expect(html).toContain('role="alertdialog"');
+      expect(html).toContain('aria-modal="true"');
+      expect(html).toContain(lang === "ar" ? ">هل أنت بخير؟</h1>" : ">Are you all right?</h1>");
+      expect(html).toContain(lang === "ar" ? "فالمس «أنا بخير»" : "tap “I am fine”");
+      // Sound, «أنا بخير» and «أريد التوقف»: nothing else to press, no call, no ring, no STOP.
+      const buttons = [...html.matchAll(/<button[^>]*class="([^"]+)"/g)].map((x) => x[1]);
+      expect(buttons).toEqual(["check-icon-button", "cta safety-fine", "ghost safety-want-stop"]);
+      expect(html).not.toContain("tel:");
+      expect(html).not.toContain("safety-ring");
+      // The instruction until 30 s pass with no answer; then the line to call someone nearby.
+      expect(html).toContain('<p class="check-body safety-checkin-line" role="status">');
+      expect(html).not.toContain("data-help");
+    }
   });
 });
 

@@ -356,59 +356,9 @@
     "arTts": "مَا الَّذِي جَعَلَكَ تَتَوَقَّفْ؟"
   },
   "check_are_you_ok": {
-    "ar": "هل أنت بخير؟ إذا كنت بخير، فارفع إحدى يديك، أو قل ذلك لفريقنا.",
-    "en": "Are you all right? If you are, raise one hand, or tell our team.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ، أَوْ قُلْ ذَلِكَ لِفَرِيقِنَا."
-  },
-  "check_are_you_ok_noraise": {
-    "ar": "هل أنت بخير؟ إذا كنت بخير، فقل ذلك لفريقنا.",
-    "en": "Are you all right? If you are, tell our team.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ ذَلِكَ لِفَرِيقِنَا."
-  },
-  "check_are_you_ok_zone": {
-    "ar": "هل أنت بخير؟ إذا كنت بخير، فضع يدك في مربع «أنا بخير» وأبقِها لحظة، أو المسه.",
-    "en": "Are you all right? If you are, put your hand in the “I am fine” box and keep it there a moment, or tap it.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَضَعْ يَدَكَ فِي مُرَبَّعْ، أَنَا بِخَيْرْ، وَأَبْقِهَا لَحْظَةْ، أَوِ الْمِسْهْ."
-  },
-  "check_are_you_ok_zone_speech": {
-    "ar": "هل أنت بخير؟ إذا كنت بخير، فقل «أنا بخير»، أو ضع يدك في مربع «أنا بخير» وأبقِها لحظة، أو المسه.",
-    "en": "Are you all right? If you are, say I’m fine, put your hand in the “I am fine” box and keep it there a moment, or tap it.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ، أَوْ ضَعْ يَدَكَ فِي مُرَبَّعْ، أَنَا بِخَيْرْ، وَأَبْقِهَا لَحْظَةْ، أَوِ الْمِسْهْ."
-  },
-  "check_are_you_ok_helper": {
-    "ar": "هل أنت بخير؟ إذا كنت بخير، فقل «أنا بخير» بصوت واضح، ليسمعك من معك.",
-    "en": "Are you all right? If you are, say I’m fine out loud, so the person with you can hear you.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ، بِصَوْتٍ وَاضِحْ، لِيَسْمَعَكَ مَنْ مَعَكْ."
-  },
-  "check_are_you_ok_fall": {
-    "ar": "هل أنت بخير؟ لا تنهض لتجيب. إذا كنت بخير، فارفع إحدى يديك.",
-    "en": "Are you all right? Do not get up to answer. If you are, raise one hand.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ."
-  },
-  "check_are_you_ok_fall_speech": {
-    "ar": "هل أنت بخير؟ لا تنهض لتجيب. إذا كنت بخير، فقل «أنا بخير»، أو ارفع إحدى يديك.",
-    "en": "Are you all right? Do not get up to answer. If you are, say I’m fine, or raise one hand.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ، أَوِ ارْفَعْ إِحْدَى يَدَيْكْ."
-  },
-  "check_are_you_ok_fall_noraise": {
-    "ar": "هل أنت بخير؟ لا تنهض لتجيب.",
-    "en": "Are you all right? Do not get up to answer.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ."
-  },
-  "check_are_you_ok_fall_noraise_speech": {
-    "ar": "هل أنت بخير؟ لا تنهض لتجيب. إذا كنت بخير، فقل «أنا بخير».",
-    "en": "Are you all right? Do not get up to answer. If you are, say I’m fine.",
-    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَقُلْ، أَنَا بِخَيْرْ."
-  },
-  "check_answer_zone": {
-    "ar": "لتجيب من مكانك، ضع يدك داخل مربع إجابتك وأبقِها لحظة، أو المس إجابتك على الشاشة.",
-    "en": "To answer from where you are, hold your hand inside the box of your answer for a moment, or tap your answer on the screen.",
-    "arTts": "لِتُجِيبَ مِنْ مَكَانِكْ، ضَعْ يَدَكَ دَاخِلَ مُرَبَّعِ إِجَابَتِكَ وَأَبْقِهَا لَحْظَةْ، أَوِ الْمِسْ إِجَابَتَكَ عَلَى الشَّاشَةْ."
-  },
-  "check_fine_practice": {
-    "ar": "قبل أن نبدأ، ضع يدك في مربع «أنا بخير» وأبقِها لحظة، لتعرف كيف تخبرنا أنك بخير.",
-    "en": "Before we start, hold your hand in the I am fine box for a moment, so you know how to tell us you are fine.",
-    "arTts": "قَبْلَ أَنْ نَبْدَأْ، ضَعْ يَدَكَ فِي مُرَبَّعْ، أَنَا بِخَيْرْ، وَأَبْقِهَا لَحْظَةْ، لِتَعْرِفَ كَيْفَ تُخْبِرُنَا أَنَّكَ بِخَيْرْ."
+    "ar": "هل أنت بخير؟ إذا كنت بخير، فالمس «أنا بخير».",
+    "en": "Are you all right? If you are fine, tap “I am fine”.",
+    "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا كُنْتَ بِخَيْرْ، فَالْمِسْ، أَنَا بِخَيْرْ."
   },
   "check_faint_loc": {
     "ar": "هل فقدت الوعي، ولو للحظة؟",

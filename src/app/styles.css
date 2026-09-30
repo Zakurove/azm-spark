@@ -1852,6 +1852,9 @@ img {
 .focus-option.selected .toggle i {
   margin-left: 15px;
 }
+.focus-option + .focus-option {
+  margin-top: 10px;
+}
 .coach-customize {
   display: flex;
   align-items: center;

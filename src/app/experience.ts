@@ -4,8 +4,13 @@ export interface Preferences {
   voice: "full" | "essential" | "off";
   pace: number;
   focus: boolean;
+  /**
+   * The movement check's optional check in (D-016): during a camera test, «هل أنت بخير؟» after 5 s out
+   * of the picture or 10 s without movement. Per device, off by default, never used at the booth.
+   */
+  safetyCheckIn: boolean;
 }
-export const defaults: Preferences = { voice: "full", pace: 1, focus: false };
+export const defaults: Preferences = { voice: "full", pace: 1, focus: false, safetyCheckIn: false };
 export function readPreferences(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem("azm.coach") ?? "{}");
@@ -13,6 +18,7 @@ export function readPreferences(): Preferences {
       voice: ["full", "essential", "off"].includes(p.voice) ? p.voice : "full",
       pace: [0.85, 1, 1.15].includes(p.pace) ? p.pace : 1,
       focus: p.focus === true,
+      safetyCheckIn: p.safetyCheckIn === true,
     };
   } catch {
     return { ...defaults };

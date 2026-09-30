@@ -1,20 +1,15 @@
 /**
- * The movement check routes that follow a test or a stop (council decisions Q23, Q33, O34-5, O6):
+ * The movement check routes that follow a test or a stop (council decisions Q23, Q33, O6):
  *
  *   GET  /api/assessments/:id/end      the form of the end of check question (Q23 (7)): general, or
  *                                      the side form after a one sided large drop; the O37 line
- *   POST /api/assessments/:id/answer   one path for three answers, so no URL path shows that a
+ *   POST /api/assessments/:id/answer   one path for two answers, so no URL path shows that a
  *                                      safety event happened (Q25 (a): reason codes never in URLs or
  *                                      request logs); the question is in the body:
  *     { question: "end", answer: yes | no }   the end of check question: yes opens scr_emergency,
  *                                      stores changeReported, locks the day and closes an open check
  *                                      as completed (its results stay stored)
- *     { question: "faint", answer, afterNoResponse?, testId? }   sf_faint_loc after a faint or fall
- *                                      stop (Q33 (3), O42)
- *     { question: "alarm", kind: no_response | help_requested, testId?, endsCheck? }   the anonymous
- *                                      count of a check in alarm or help request (Q25, O34-5); the check
- *                                      can no longer be resumed on any device (R3C-22), and a second no
- *                                      response alarm (endsCheck) ends it with the day's lock (R3C-02)
+ *     { question: "faint", answer, testId? }   sf_faint_loc after a faint or fall stop (Q33 (3), O42)
  *   POST /api/assessments/:id/resume   { answers }: the O6 re-ask within 30 minutes
  *
  * Only the dates of the data map are kept (changeReported); every answer itself is used today and
@@ -48,49 +43,30 @@ import { checkContextOf, personState, seriesContext } from "./state";
 import {
   DAY_MS,
   closeCheck,
-  closeResume,
   countSafetyEvent,
   finishCheck,
   keptResults,
   reportChange,
   resultsOf,
   saveResult,
-  stopClosedCheck,
   touch,
   transaction,
 } from "./store";
-import {
-  ALARM_KINDS,
-  END_ANSWERS,
-  FAINT_ANSWERS,
-  checkAnswers,
-  checkTestRef,
-  unknownKeys,
-  type AlarmKind,
-} from "./validate";
-
-/**
- * Alarm posts counted per check: an alarm can fire more than once in a check, never without bound.
- * Every serious count is reviewed by the medical lead (Q25 (b)), so a repeated post must not add to it.
- */
-// SPEC-GAP: alarm-count-bound. Q25 gives no bound; 3 alarm counts per check, kept by the in memory
-// limiter: Q25 (d) keeps no per person record of an alarm, so a server restart may count a repeated
-// post of the same check again, only while the check is recent (SAFETY_LATE_MS).
-const ALARMS_PER_CHECK = 3;
+import { END_ANSWERS, FAINT_ANSWERS, checkAnswers, checkTestRef, unknownKeys } from "./validate";
 
 const path = (tail: string) => new RegExp(`^/api/assessments/${ID_PATH}/${tail}$`);
 
 type Handler = (ctx: RouteContext) => void;
 
-/** POST /:id/answer: the end, faint and alarm answers by `question` (see the header). */
-function answerRoute(handlers: Record<"end" | "faint" | "alarm", Handler>): Route {
+/** POST /:id/answer: the end and faint answers by `question` (see the header). */
+function answerRoute(handlers: Record<"end" | "faint", Handler>): Route {
   return {
     method: "POST",
     path: path("answer"),
     auth: "user",
     handle(ctx) {
       const { question, ...rest } = ctx.body as Record<string, unknown>;
-      if (question !== "end" && question !== "faint" && question !== "alarm")
+      if (question !== "end" && question !== "faint")
         return ctx.json(400, { error: "ANSWER_INVALID", field: "question" });
       handlers[question]({ ...ctx, body: rest });
     },
@@ -142,12 +118,10 @@ function faintAnswer(ctx: RouteContext): void {
   const { db, user, body, json, limited } = ctx;
   const a = ownCheck(ctx);
   if (!a) return;
-  if (unknownKeys(body, ["answer", "afterNoResponse", "testId"]).length)
+  if (unknownKeys(body, ["answer", "testId"]).length)
     return json(400, { error: "FAINT_INVALID", field: "body" });
   if (!(FAINT_ANSWERS as readonly unknown[]).includes(body.answer))
     return json(400, { error: "FAINT_INVALID", field: "answer" });
-  if (body.afterNoResponse !== undefined && typeof body.afterNoResponse !== "boolean")
-    return json(400, { error: "FAINT_INVALID", field: "afterNoResponse" });
   const ref = checkTestRef(body, a.protocol, false);
   if (!ref.ok) return json(400, { error: "FAINT_INVALID", field: ref.field });
   const now = Date.now();
@@ -158,7 +132,7 @@ function faintAnswer(ctx: RouteContext): void {
   const stopped = a.status === "ended_early" || a.status === "abandoned";
   if (!stopped || a.endedReason !== "stop" || now - a.active > SAFETY_LATE_MS)
     return json(409, { error: "NOT_STOPPED" });
-  const out = faintFollowUp(body.answer, now, { afterNoResponse: body.afterNoResponse === true });
+  const out = faintFollowUp(body.answer, now);
   const first = !limited(`faint:${a.id}`, 1, DAY_MS);
   const lock = transaction(db, () => {
     if (typeof out.stored.changeReported === "string") reportChange(db, user!.id, out.stored.changeReported);
@@ -171,46 +145,6 @@ function faintAnswer(ctx: RouteContext): void {
     alsoShow: out.status === "emergency" ? emergencyAlsoShow(runningEnv(ctx, a)) : [],
     lock,
   });
-}
-
-/**
- * { question: "alarm" }: the anonymous count of an alarm or a help request (Q25, O34-5). The check's
- * resume window closes (R3C-22): only resumable false is stored, the state a stop leaves, with no
- * reason, time or alarm kind. A second no response alarm in the check (endsCheck, R3C-02 (2)) ends it
- * as a stop that ends it does: ended early, with the stop_symptom next day lock.
- */
-function alarmAnswer(ctx: RouteContext): void {
-  const { db, body, json, limited } = ctx;
-  const a = ownCheck(ctx);
-  if (!a) return;
-  if (unknownKeys(body, ["kind", "testId", "endsCheck"]).length)
-    return json(400, { error: "ALARM_INVALID", field: "body" });
-  if (!(ALARM_KINDS as readonly unknown[]).includes(body.kind))
-    return json(400, { error: "ALARM_INVALID", field: "kind" });
-  if (body.endsCheck !== undefined && (body.endsCheck !== true || body.kind !== "no_response"))
-    return json(400, { error: "ALARM_INVALID", field: "endsCheck" });
-  const ref = checkTestRef(body, a.protocol, false);
-  if (!ref.ok) return json(400, { error: "ALARM_INVALID", field: ref.field });
-  // The check in runs during the check and in the home fall watch after a stop (O42): a running
-  // check, or one that ended less than a day after its last activity (a late post from the
-  // outbox). Never a completed or an old check, so old checks cannot add to the counts.
-  const now = Date.now();
-  const recent = now - a.active <= SAFETY_LATE_MS;
-  if (a.status === "completed" || !recent) {
-    const status = a.status === "open" ? closeCheck(db, a, "stale", a.active) : a.status;
-    return json(409, { error: "NOT_OPEN", status });
-  }
-  const count = !limited(`alarm:${a.id}`, ALARMS_PER_CHECK, DAY_MS);
-  const lock = transaction(db, () => {
-    if (count)
-      countSafetyEvent(db, `alarm:${body.kind as AlarmKind}`, ref.value?.testId ?? "none", a.setting, now);
-    closeResume(db, a.id);
-    if (body.endsCheck !== true) return null;
-    if (a.status === "open") finishCheck(db, a, "ended_early", now, "stop");
-    else stopClosedCheck(db, a, now);
-    return applyLock(ctx, { reason: "stop_symptom", until: "next_day" }, now);
-  });
-  json(200, { recorded: true, ...(lock ? { lock } : {}) });
 }
 
 export const followUpRoutes: Route[] = [
@@ -235,7 +169,7 @@ export const followUpRoutes: Route[] = [
       json(200, { question: form.id, side: form.side ?? null, chronicNote: endOfCheckChronicNote(env) });
     },
   },
-  answerRoute({ end: endAnswer, faint: faintAnswer, alarm: alarmAnswer }),
+  answerRoute({ end: endAnswer, faint: faintAnswer }),
   {
     method: "POST",
     path: path("resume"),
@@ -247,11 +181,9 @@ export const followUpRoutes: Route[] = [
       if (!answers.ok) return json(400, { error: "RESUME_INVALID", field: "answers" });
       const own = ownCheck(ctx);
       if (!own || homeClosed(ctx, own.setting)) return;
-      // O6 (1): no resume after a safety screen (S36 to S40) or an alarm (S45). Stops and postpones end
-      // the check here; an alarm post closes its resume window on every device (R3C-22).
+      // O6 (1): no resume after a safety screen (S36 to S40): stops and postpones end the check here.
       const a = openCheck(ctx, { today: true });
       if (!a) return;
-      if (!a.resumable) return json(409, { error: "NOT_OPEN", status: a.status });
       if (!activeConsent(db, user!.id, "movement_check")) return json(403, { error: "CONSENT_REQUIRED" });
       const env = runningEnv(ctx, a);
       if (!env) return json(409, { error: "PLAN_REQUIRED" });
@@ -299,7 +231,6 @@ export const followUpRoutes: Route[] = [
         skips,
         warnings: outcome.warnings,
         helperRequired: outcome.helperRequired,
-        checkIn: outcome.checkIn ?? null,
       });
     },
   },

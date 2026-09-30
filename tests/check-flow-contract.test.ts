@@ -206,14 +206,12 @@ describe("the start answer (round 3)", () => {
     expect(types(left)).not.toContain("complete");
   });
 
-  it("keeps the check in inputs and the helper briefing of the start answer", () => {
+  it("keeps the helper briefing of the start answer", () => {
     const m = signedAtStarting();
-    const checkIn = { raiseAllowed: true, noArmSignal: false, fineZoneSide: "right" as const };
     const x = play(m, {
       type: "START_RESULT",
-      result: { ...okStart(m), status: "open", checkIn, helperBriefing: { chair_stand_30s: "x" } },
+      result: { ...okStart(m), status: "open", helperBriefing: { chair_stand_30s: "x" } },
     });
-    expect(x.data.checkIn).toEqual(checkIn);
     expect(x.data.helperBriefing).toEqual({ chair_stand_30s: "x" });
   });
 
@@ -307,7 +305,7 @@ describe("the stop names its test side (resultOnStop)", () => {
 
 /* ------------------------------------------------------------------ faint, alarm, end */
 
-describe("the faint follow up, the alarm and the end question", () => {
+describe("the faint follow up, the check in and the end question", () => {
   function afterFaintStop(ctx?: SignedInContext): FlowModel {
     const m = measuring(ctx);
     const x = play(m, { type: "STOP" }, { type: "STOP_OPTION", option: "faint" }, { type: "FAINT_ASK" });
@@ -334,47 +332,25 @@ describe("the faint follow up, the alarm and the end question", () => {
     expect(sci.state).toMatchObject({ kind: "safety", screen: "scr_emergency", alsoShow: ["scr_ad"] });
   });
 
-  it("no returns to the faint screen and is posted; after a no response alarm it is an emergency", () => {
+  it("no returns to the faint screen and is posted", () => {
     const m = afterFaintStop();
     const no = play(m, { type: "FAINT_ANSWER", value: "no" });
     expect(no.state).toMatchObject({ kind: "safety", safety: "faint", faintAnswered: true });
     expect(no.effects[0]).toMatchObject({ type: "faint", body: { answer: "no" } });
-
-    // A no response alarm earlier in the check (Q33 (3)).
-    const alarmed = play(
-      measuring(),
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "CHECKIN_TIMEOUT" },
-      { type: "FINE", via: "button" },
-      { type: "WANT_STOP" },
-      { type: "STOP_OPTION", option: "faint" },
-      { type: "FAINT_ASK" },
-    );
-    expect(kind(alarmed)).toBe("faintAsk");
-    const after = play({ ...alarmed, effects: [] }, { type: "FAINT_ANSWER", value: "no" });
-    expect(after.state).toMatchObject({ kind: "safety", screen: "scr_emergency" });
-    expect(after.effects[0]).toMatchObject({ type: "faint", body: { answer: "no", afterNoResponse: true } });
   });
 
-  it("the alarm is posted: no response on the check in timeout, help requested on the button", () => {
+  it("the optional check in posts nothing (D-016): only a stop chosen from it is posted", () => {
     const m = measuring();
-    const run = m.data.tests[0];
-    const timeout = play(m, { type: "TRIGGER", trigger: "no_movement" }, { type: "CHECKIN_TIMEOUT" });
-    expect(timeout.overlay?.kind).toBe("alarm");
-    expect(timeout.effects).toEqual([
-      expect.objectContaining({ type: "alarm", body: { kind: "no_response", testId: run.testId } }),
-    ]);
-    expect(timeout.data.noResponseAlarm).toBe(true);
-    const help = play(m, { type: "TRIGGER", trigger: "raised_hand" }, { type: "NEED_HELP" });
-    expect(help.effects).toEqual([
-      expect.objectContaining({ type: "alarm", body: { kind: "help_requested", testId: run.testId } }),
-    ]);
-    const guest = play(
-      withState(initialModel(GUEST), cam("cam.measure")),
-      { type: "TRIGGER", trigger: "no_movement" },
-      { type: "CHECKIN_TIMEOUT" },
-    );
-    expect(guest.effects).toEqual([]);
+    const on = { ...m, data: { ...m.data, checkIn: true } };
+    const asked = play(on, { type: "TRIGGER", trigger: "no_movement" });
+    expect(asked.overlay).toEqual({ kind: "checkIn" });
+    expect(asked.effects).toEqual([]);
+    expect(play(asked, { type: "FINE" }).effects).toEqual([]);
+    // The stop list posts as after STOP: the stopped side's row and the stop itself.
+    const stop = play(asked, { type: "WANT_STOP" }, { type: "STOP_OPTION", option: "tired" });
+    const direct = play(m, { type: "STOP" }, { type: "STOP_OPTION", option: "tired" });
+    expect(types(stop)).toEqual(types(direct));
+    expect(types(stop)).toContain("stop");
   });
 
   it("the end question: no posts no, then completes; yes posts yes, locks and never completes", () => {
@@ -573,7 +549,6 @@ describe("resume after an interruption (O6)", () => {
         skips: [{ testId: skip.testId, side: skip.side, reason: "pain_today" }],
         warnings: [],
         helperRequired: [],
-        checkIn: null,
       },
     });
     expect(x.state).toEqual({ kind: "test.instruction", i: 0 });

@@ -186,10 +186,9 @@ export const assessmentRoutes: Route[] = [
         // src/medical/precheck.ts), or null: the warning is then left out.
         lastPdDoseBucket: typeof dose === "string" ? dose : null,
         lock: lock ? lockView(lock, now, "return") : null,
-        // O6: the open check that may still resume (within 30 minutes of its last activity, and with no
-        // alarm posted for it, R3C-22), or null.
+        // O6: the open check that may still resume (within 30 minutes of its last activity), or null.
         openCheck:
-          open && open.resumable && !isStale(open, now)
+          open && !isStale(open, now)
             ? { id: open.id, setting: open.setting, resumeUntil: open.active + RESUME_WINDOW_MS }
             : null,
         // H9: due 28 days after the last completed home check (a booth check sets no home due date);
@@ -327,7 +326,6 @@ export const assessmentRoutes: Route[] = [
         protocol,
         warnings: outcome.warnings,
         helperRequired: outcome.helperRequired,
-        checkIn: outcome.checkIn ?? null,
         helperBriefing: outcome.helperBriefing ?? {},
       });
     },

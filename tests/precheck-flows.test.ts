@@ -125,7 +125,7 @@ describe("persona: Noura, 31, incomplete SCI, wheelchair, not sure whether T6 or
   const env = envOf({ position: "wheelchair", conditions: ["sci_incomplete"] });
 
   it("first check: level question, then the AD questions (not the since last check one), arm function per arm", () => {
-    // The AD gate comes straight after pc_urgent (SPEC-GAP ad-before-postpone).
+    // The AD gate comes straight after pc_urgent (R3C-28 (ad-before-postpone, confirmed 2026-09-30)).
     expect(visibleQuestions(env, fill(env, { pc_sci_level: "unsure" }))).toEqual([
       EVERY_CHECK[0],
       "pc_sci_level",
@@ -661,7 +661,7 @@ describe("properties over random people and answers", () => {
       const reason = o.reason as keyof typeof CHECK_DATA.postponeReasons;
       expect(CHECK_DATA.postponeReasons[reason]).toBe(o.screen);
       // The lock is the reason shown, at least as long as that reason's own lock (the longest of
-      // all the reasons of the day, SPEC-GAP multi-postpone).
+      // all the reasons of the day, R3C-29 (4) (multi-postpone, confirmed 2026-09-30)).
       const rank = (k: string | null) => (k === "next_day" ? 2 : k === "60_min" ? 1 : 0);
       expect(o.lock?.reason).toBe(reason);
       expect(rank(o.lock!.until)).toBeGreaterThanOrEqual(rank(lockKind(reason)));

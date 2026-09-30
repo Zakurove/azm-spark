@@ -96,14 +96,14 @@ export interface PrecheckEnv {
    * helper for "everyone's first home side lean", which the contract env cannot tell apart from a
    * later one.
    */
-  // SPEC-GAP: first-home-side-lean. Missing means not known, and the helper is then required
+  // R3C-30 (1) (first-home-side-lean, confirmed 2026-09-30). Missing means not known, and the helper is then required
   // (the safe reading); the server should pass it from the stored results.
   sideLeanDoneAtHome?: boolean;
   /**
    * The last chair stand in this setting stopped because the person needed their hands (reason
    * needed_arms after pushedAsk yes): spec 4.4 "the next check offers arms_assisted".
    */
-  // SPEC-GAP: needed-arms-env. The contract env has no field for it; missing means no. The server
+  // R3C-30 (1) (needed-arms-env, confirmed 2026-09-30). The contract env has no field for it; missing means no. The server
   // passes it from the stored results.
   neededArmsLastStand?: boolean;
   /**
@@ -231,7 +231,7 @@ export interface PrecheckOutcome {
    * screens of the other reasons of a postpone with several reasons (pickPostpone). Contract
    * addition: the contract outcome has one screen.
    */
-  // SPEC-GAP: emergency-also-show.
+  // R3C-29 (15) (emergency-also-show, confirmed 2026-09-30).
   alsoShow?: ScreenId[];
   lock?: CheckLock;
   skips: SkipItem[];
@@ -480,7 +480,7 @@ function limbLeg(st: State): Side | undefined {
 }
 
 /** setup.painSides: the union of today's pc_arm_pain_side answers, else the stored setup. */
-// SPEC-GAP: pain-sides-union. pc_arm_pain_side is asked per area (shoulder, elbow, wrist) but the
+// R3C-29 (14) (pain-sides-union, confirmed 2026-09-30). pc_arm_pain_side is asked per area (shoulder, elbow, wrist) but the
 // contract keeps one painSides list, so the sides of all three areas are merged. Every pre-check rule
 // treats the three areas alike (arm curl arm_only, no push in the hands allowed chair stand); only the
 // progress rule "no verdict on a side with shoulder pain" is widened to elbow and wrist sides.
@@ -646,7 +646,7 @@ function stateCond(st: State, test?: TestId): CondContext {
 /* ----------------------------------------------------------- visibility */
 
 /** Baseline setup questions: asked at the first check, or when the setup lacks the answer. */
-// SPEC-GAP: setup-intake-change. The spec asks them again "when the intake changes"; the env has no
+// R3C-30 (2) (setup-intake-change, confirmed 2026-09-30). The spec asks them again "when the intake changes"; the env has no
 // intake history, so the server must drop the affected setup fields when the intake pain areas or
 // conditions change (then the question is asked again here).
 function setupMissing(st: State, id: PrecheckId): boolean {
@@ -758,7 +758,7 @@ function buildState(
  * the AD response), in the order they are asked: pc_urgent, then for SCI the level question that
  * opens the AD question, then the AD question itself.
  */
-// SPEC-GAP: ad-before-postpone. The data asks pc_sci_ad_now after the pain questions, and a postpone
+// R3C-28 (ad-before-postpone, confirmed 2026-09-30). The data asks pc_sci_ad_now after the pain questions, and a postpone
 // ends the questions early; a person with autonomic dysreflexia signs would then see a postpone screen
 // instead of the AD steps. The AD gate is asked straight after pc_urgent, and no postpone ends the
 // questions before it is answered (evaluatePrecheck).
@@ -769,7 +769,7 @@ const TERMINAL_GATE: readonly PrecheckId[] = ["pc_urgent", "pc_sci_level", "pc_s
  * unresolved changeReported the check goes straight to pc_change_cleared (Q33 (2)): right after the
  * terminal gate, before the other day of questions.
  */
-// SPEC-GAP: change-cleared-first. "Goes straight to pc_change_cleared" is read as first after the
+// R3C-29 (2) (change-cleared-first, confirmed 2026-09-30). "Goes straight to pc_change_cleared" is read as first after the
 // emergency and AD questions, which are always asked first.
 function askOrder(env: Pick<PrecheckEnv, "unresolvedChangeReported">, base: PrecheckId): number {
   const gate = TERMINAL_GATE.indexOf(base);
@@ -1032,7 +1032,7 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
       const score = (a: AreaId) => (typeof scores[a] === "number" ? (scores[a] as number) : 0);
       let areas = AREA_IDS.filter((a) => score(a) >= (cond.areaScoreGte ?? Infinity));
       if (cond.areaLoadsSelectedTest) {
-        // SPEC-GAP: area7-loads. "An area a selected test loads" counts every load of the area,
+        // R3C-29 (5) (area7-loads, confirmed 2026-09-30). "An area a selected test loads" counts every load of the area,
         // on any side and in any variant (the safe reading: more postpones).
         areas = areas.filter((a) => areaLoads(a, false).loads.some((l) => selected(st, l.test)));
       }
@@ -1090,7 +1090,7 @@ function applyAction(st: State, d: Day, a: QuestionAction, m: Match, from: Prech
     case "ask":
       // The follow up question's showIf makes it visible, except for pc_faint_since below.
       if (from === "pc_faint_since") {
-        // SPEC-GAP: faint-since-route. The data asks pc_change_cleared after a yes; Q33 (3) reads
+        // R3C-29 (1) (faint-since-route, confirmed 2026-09-30). The data asks pc_change_cleared after a yes; Q33 (3) reads
         // "yes postpones with recent_change and goes to pc_change_cleared", the interaction rule routes
         // a pc_faint_since yes at once, and the UX spec postpones and asks pc_change_cleared at the
         // next check. The safest reading is used: postpone at once (recent_change, next day, released
@@ -1166,7 +1166,7 @@ function applyStandingRules(st: State, d: Day) {
   if (stroke && weaker) d.armOnly.add(weaker);
 
   // Spec 3.3 pain shoulder, elbow or wrist: the hands allowed chair stand pushes with the other hand.
-  // SPEC-GAP: push-intake-pain. Spec 4.4 lists only today's causes; 3.3 adds the intake pain side.
+  // R3C-29 (6) (push-intake-pain, confirmed 2026-09-30). Spec 4.4 lists only today's causes; 3.3 adds the intake pain side.
   for (const s of sides) blockPush(d, s, "pain_area");
 
   // Spec 4.4 variant rules and pushing arm.
@@ -1248,7 +1248,7 @@ function computeDay(st: State): Day {
       for (const m of matchesOf(st, item, a.if)) applyAction(st, d, a, m, item.id);
   }
   // Spec 2.2 pc_sci_ad_since note: yes_cleared proceeds and stores changeCleared (date only).
-  // SPEC-GAP: sci-ad-since-cleared. The data has no action for it; the note is implemented here.
+  // R3C-29 (7) (sci-ad-since-cleared, confirmed 2026-09-30). The data has no action for it; the note is implemented here.
   if (value(st, "pc_sci_ad_since") === "yes_cleared") d.changeCleared = true;
   if (d.recorded.has("changeCleared")) d.changeCleared = true;
   applyStandingRules(st, d);
@@ -1290,7 +1290,7 @@ function postponeRank(p: Postpone): number {
  * that reason; on a tie the care advice screens (scr_postpone_care, then scr_postpone_pain) win over
  * the others, then question order. The other care advice screens are shown with it (alsoShow).
  */
-// SPEC-GAP: multi-postpone. The spec has one reason per postpone. The one lock row cannot hold every
+// R3C-29 (4) (multi-postpone, confirmed 2026-09-30). The spec has one reason per postpone. The one lock row cannot hold every
 // reason, so a releasable recent_change with a shorter fixed lock (ms_heat, pd_off) keeps the next day
 // under the fixed reason: the safe side (it waits until tomorrow even after the change is cleared).
 function pickPostpone(list: Postpone[]): { shown: Postpone; lock: CheckLock; alsoShow: ScreenId[] } {
@@ -1340,7 +1340,7 @@ function conditionWarnings(st: State, d: Day) {
   }
   if (ctx.conditions.includes("ms")) warn(d, "warn_ms_cool");
   // {x} of warn_pd_timing is the dose bucket of the last check, so it needs a last check.
-  // SPEC-GAP: pd-timing-last. The env has no last dose bucket; the client fills {x} from the last
+  // R3C-30 (4) (pd-timing-last, confirmed 2026-09-30). The env has no last dose bucket; the client fills {x} from the last
   // stored fingerprint.pdDoseBucket and leaves the warning out when there is none.
   if (ctx.conditions.includes("parkinsons") && !firstCheck) warn(d, "warn_pd_timing");
 }
@@ -1416,7 +1416,7 @@ export function evaluatePrecheck(
 function outcomeOf(st: State, now: number): PrecheckOutcome {
   const d = computeDay(st);
   const date = riyadhDate(now);
-  // SPEC-GAP: change-reported-on-postpone. changeReported is kept even though the check is not
+  // R3C-29 (3) (change-reported-on-postpone, confirmed 2026-09-30). changeReported is kept even though the check is not
   // stored, so an uncleared change cannot be bypassed after the lock ends (spec 2.2 pc_change note).
   const terminalStored: StoredPrecheck = d.recorded.has("changeReported") ? { changeReported: date } : {};
   // Either answer to pc_faint_since clears faintReported (Q33 (3)); an emergency keeps it.
@@ -1537,7 +1537,7 @@ export const NEXT_DAY_MIN_HOURS = 8;
  * A next day lock ends at whichever comes later: midnight in Asia/Riyadh (the default time zone) or
  * 8 hours after it started (Q33 (1)); a 60 minute lock 60 minutes later.
  */
-// SPEC-GAP: lock-time-zone. Q33 (1) names the person's time zone with Asia/Riyadh by default; no time
+// R3C-30 (3) (lock-time-zone, confirmed 2026-09-30). Q33 (1) names the person's time zone with Asia/Riyadh by default; no time
 // zone is kept for a person yet, so every lock uses Asia/Riyadh (UTC+3 all year).
 export function lockEndsAt(kind: LockKind, now: number): number {
   if (kind === "60_min") return now + 60 * 60 * 1000;
@@ -1644,7 +1644,7 @@ function loadsArea(t: TestInstance, areaId: AreaId): boolean {
     if (l.test !== t.testId) return false;
     if ((l.side === "left" || l.side === "right") && t.side !== l.side) return false;
     if (l.variant === "arms_assisted") {
-      // SPEC-GAP: bt-standard-stand. No variant means the default (standard, arms crossed), which does
+      // R3C-29 (9) (bt-standard-stand, confirmed 2026-09-30). No variant means the default (standard, arms crossed), which does
       // not push; hands allowed without a known push hand loads both arms (the safe reading).
       if (!isHandsAllowed(t.variant)) return false;
       if (t.pushHand && side && side !== t.pushHand) return false;
@@ -1682,11 +1682,11 @@ export function betweenTests(
   for (const a of q.actions) {
     if (!scalarHolds(a.if, v)) continue;
     if (a.do === "stop_check") {
-      // SPEC-GAP: bt-lock-reason. The lock table has no own reason for this stop; it is a symptom stop.
+      // R3C-29 (11) (bt-lock-reason, confirmed 2026-09-30). The lock table has no own reason for this stop; it is a symptom stop.
       return { status: "end", skips: [], screen: a.screen, lock: { reason: "stop_symptom", until: a.lock } };
     }
     if (a.do === "skip") {
-      // SPEC-GAP: bt-area-unknown. bt_pain_after does not ask where the pain rose, so every area the
+      // R3C-29 (10) (bt-area-unknown, confirmed 2026-09-30). bt_pain_after does not ask where the pain rose, so every area the
       // finished test loads counts as "the same area" (the safe reading: more skips).
       const areas = AREA_IDS.filter((area) => loadsArea(done, area));
       const skips = remaining
@@ -1772,7 +1772,7 @@ export interface StopRoute {
 /**
  * sci_t6 for the stop list: the setup flag. env.setup must include today's setupUpdates.
  */
-// SPEC-GAP: stop-sci-unknown. SCI with an unknown level counts as T6 or higher (as "not sure" does).
+// R3C-29 (8) (stop-sci-unknown, confirmed 2026-09-30). SCI with an unknown level counts as T6 or higher (as "not sure" does).
 function stopSciT6(env: PrecheckEnv): boolean {
   const flag = env.setup?.sciT6;
   return flag === true || (flag === undefined && has(env.ctx.conditions, SCI_CONDITIONS));
@@ -1818,7 +1818,7 @@ export function stopRoute(option: string, env: PrecheckEnv): StopRoute {
     screen,
     alsoShow,
     endsCheck,
-    // SPEC-GAP: bt-lock-reason. Ending stops lock with stop_symptom; AD signs with ad (spec 2.1).
+    // R3C-29 (11) (bt-lock-reason, confirmed 2026-09-30). Ending stops lock with stop_symptom; AD signs with ad (spec 2.1).
     lock: o.lock ? { reason: o.id === "ad_signs" ? "ad" : "stop_symptom", until: o.lock } : null,
     reason: o.reason ?? "stopped_symptom",
     ...(o.then ? { then: o.then } : {}),
@@ -1844,7 +1844,7 @@ export interface FollowUpOutcome {
  * faint stop that followed a no response alarm takes the emergency route whatever the answer. No
  * answer within 30 s runs the check in (the UI's timer): here that is incomplete.
  */
-// SPEC-GAP: faint-after-no-response. Q33 (3) says a faint stop after a no response alarm "is handled
+// R3C-23 (faint-after-no-response, confirmed 2026-09-30). Q33 (3) says a faint stop after a no response alarm "is handled
 // the same way"; its engineering impact lists changeReported for it, so it is read as a yes.
 export function faintFollowUp(
   answer: string | undefined,
@@ -1884,7 +1884,7 @@ export function faintFollowUp(
  * (symptomAskSides of src/medical/progress-rules.ts, over every test with sides): one side names it
  * in the side form; none, or drops on both sides (in different tests), asks the general form.
  */
-// SPEC-GAP: ec-side-conflict. The side form names one side; with one sided drops on different sides
+// R3C-29 (12) (ec-side-conflict, confirmed 2026-09-30). The side form names one side; with one sided drops on different sides
 // in different tests the general form is asked, which covers either side of the body.
 export function endOfCheckForm(sides: readonly Side[]): { id: "ec_symptoms"; side?: Side } {
   const unique = [...new Set(sides)];
@@ -1895,7 +1895,7 @@ export function endOfCheckForm(sides: readonly Side[]): { id: "ec_symptoms"; sid
  * The answer to the end of check question (Q23 (7)): yes opens scr_emergency, the same route as
  * pc_urgent, and stores changeReported (Q33 (2)); no shows the results.
  */
-// SPEC-GAP: ec-lock. The data action names no lock; "the same route as pc_urgent" is read with the
+// R3C-29 (13) (ec-lock, confirmed 2026-09-30). The data action names no lock; "the same route as pc_urgent" is read with the
 // pc_urgent next day lock, so a check ended early cannot be restarted at once.
 export function endOfCheck(
   answer: string | undefined,

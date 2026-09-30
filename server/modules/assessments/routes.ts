@@ -182,8 +182,8 @@ export const assessmentRoutes: Route[] = [
         lastCheckLasting: s.lasting !== null,
         sideLeanDoneAtHome: sideLeanDoneAtHome(db, u.id),
         neededArmsLastStand: neededArmsLastStand(db, u.id, setting),
-        // The {x} of warn_pd_timing: the dose bucket kept with the last completed check (SPEC-GAP
-        // pd-timing-last in src/medical/precheck.ts), or null.
+        // The {x} of warn_pd_timing: the dose bucket kept with the last completed check (R3C-30 (4),
+        // src/medical/precheck.ts), or null: the warning is then left out.
         lastPdDoseBucket: typeof dose === "string" ? dose : null,
         lock: lock ? lockView(lock, now, "return") : null,
         // O6: the open check that may still resume (within 30 minutes of its last activity, and with no
@@ -250,7 +250,7 @@ export const assessmentRoutes: Route[] = [
       // A releasable lock (recent_change) is released at once by a yes to pc_change_cleared.
       const released = lock !== null && releasesLock(lock, env, answers);
       if (lock && !released) return json(409, { error: "LOCKED", ...lockView(lock, now, "return") });
-      // SPEC-GAP: min-hours-all-settings. The 48 hour minimum (spec 5, H9) counts from the last
+      // R3C-39 (min-hours-all-settings, confirmed 2026-09-30). The 48 hour minimum (spec 5, H9) counts from the last
       // completed check in either setting, the side lean only session included.
       const earliest = s.schedule.earliestNext;
       if (earliest !== null && now < earliest) return json(409, { error: "TOO_SOON", until: earliest });

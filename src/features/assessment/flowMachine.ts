@@ -1477,7 +1477,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
 
     case "paused":
-      // SPEC-GAP: release-question. The care team release opens the pre-check at pc_change_cleared
+      // R3C-29 (16) (release-question, confirmed 2026-09-30). The care team release opens the pre-check at pc_change_cleared
       // (Appendix A); whether that question is visible for this person is decided by src/medical.
       if (e.type === "RELEASE" && s.releasable && d.env && !guest)
         return go({ ...m, data: { ...d, answers: {} } }, { kind: "question", id: "pc_change_cleared" });

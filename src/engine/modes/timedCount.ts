@@ -181,13 +181,13 @@ export const TIMED_RULES = {
    */
   belowSeatTrunks: 0.3,
   belowSeatSec: 0.5,
-  // SPEC-GAP: curl-practice-rest. Spec 4.2 gives no rest between the practice bends and the trial;
+  // R3C-36 (2) (curl-practice-rest, confirmed 2026-09-30). Spec 4.2 gives no rest between the practice bends and the trial;
   // check_practice_done says "rest a moment", read as 10 s.
   curlPracticeRestSec: 10,
-  // SPEC-GAP: pd-pause. "A pause after the first practice stand for Parkinson's" has no length;
+  // R3C-36 (1) (pd-pause, confirmed 2026-09-30). "A pause after the first practice stand for Parkinson's" has no length;
   // 30 s seated, with test_stand_dizzy, before the second practice stand.
   pausePracticeSec: 30,
-  // SPEC-GAP: countdown. "A countdown and a spoken go" has no length: 3 s, shown and not spoken.
+  // R3C-36 (3) (countdown, confirmed 2026-09-30). "A countdown and a spoken go" has no length: 3 s, shown and not spoken.
   countdownSec: 3,
   /** The phone setup check between practice and trial: 1 s windows, at most 10 s (engineering). */
   setupWindowSec: 1,
@@ -956,7 +956,7 @@ abstract class TimedCountBase implements TestRunner {
         this.settleThenEnd(t);
         return;
       }
-      // SPEC-GAP: stand-repeat. The one repeat after 2 minutes of rest is the arm curl's rule (spec
+      // R3C-04 (2) (stand-repeat, confirmed 2026-09-30). The one repeat after 2 minutes of rest is the arm curl's rule (spec
       // 4.2); the chair stand has no rule of its own beyond "repeated" (spec 4.0), so it gets the
       // same single repeat, the fewer the stands the safer.
       this.repeatOffered = true;
@@ -2084,7 +2084,7 @@ export class ChairStandRunner extends TimedCountBase {
       const off = h > this.cal!.hSit + R.practiceSeatedTrunks;
       this.riseTop = off ? Math.max(this.riseTop, h) : -Infinity;
       const rising = off && h >= this.riseTop - R.risingNearTop;
-      // SPEC-GAP: arms-practice. Arms used stop the test in the practice stands too (spec 4.4
+      // R3C-36 (4) (arms-practice, confirmed 2026-09-30). Arms used stop the test in the practice stands too (spec 4.4
       // "when arms are used the test stops"): a person who needs the hands stops before the trial.
       if (this.armCheck(m, rising, t)) return;
       const done = st.push(t, h, v);
@@ -2106,7 +2106,7 @@ export class ChairStandRunner extends TimedCountBase {
       }
     }
     if (t - this.practiceStart > R.practiceTimeoutSec * 1000 && !st.standing) {
-      // SPEC-GAP: no-stand. Without the practice stands within 30 s the test is not measured today.
+      // R3C-36 (5) (no-stand, confirmed 2026-09-30). Without the practice stands within 30 s the test is not measured today.
       this.notMeasured = "quality";
       this.end(t);
     }
@@ -2150,7 +2150,7 @@ export class ChairStandRunner extends TimedCountBase {
     const [lo, hi] = R.riseMatch;
     const matches = today >= lo * base && today <= hi * base;
     if (!matches && !this.recued) {
-      // SPEC-GAP: stand-recue. "After one re-cue" runs one more practice stand after
+      // R3C-36 (6) (stand-recue, confirmed 2026-09-30). "After one re-cue" runs one more practice stand after
       // test_stand_full (fewer stands than a second full practice), and today's rise is that
       // stand's rise.
       this.recued = true;
@@ -2216,7 +2216,7 @@ export class ChairStandRunner extends TimedCountBase {
       return false;
     }
     // Spec 4.4: when arms are used the test stops; at home pushedAsk comes first.
-    // SPEC-GAP: arms-stop-cue. The spec names no cue that stops the person; check_stop_now plays,
+    // R3C-36 (8) (arms-stop-cue, confirmed 2026-09-30). The spec names no cue that stops the person; check_stop_now plays,
     // then pushedAsk is shown.
     this.stopEarly(t);
     this.flag("arms_used", t);
@@ -2307,7 +2307,7 @@ export class ChairStandRunner extends TimedCountBase {
       if (Math.max(...ps) - Math.min(...ps) <= R.pauseBand) this.flag("pause", t);
     }
     // arms_assisted_steady: test_stand_steady at each stand (spec 4.4).
-    // SPEC-GAP: steady-cue. The timed trial's voice gives only go, ten seconds left and stop (spec
+    // R3C-36 (7) (steady-cue, confirmed 2026-09-30). The timed trial's voice gives only go, ten seconds left and stop (spec
     // 4.0), but the walking aid modifier plays test_stand_steady at each stand (spec 4.4); the
     // specific safety rule is kept and the cue plays once per stand when it reaches the count line.
     if (this.variantId === "arms_assisted_steady") {

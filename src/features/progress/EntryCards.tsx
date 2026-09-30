@@ -419,7 +419,7 @@ export function NextDayQuestion({ lang, onSend, onNotNow }: NextDayQuestionProps
               <span className="check-answer-mark" aria-hidden="true">
                 <CheckIcon name="check" size={18} />
               </span>
-              <span className="check-answer-text">{o.label[lang]}</span>
+              <span className="check-answer-text">{bidiText(lang, o.label[lang])}</span>
             </button>
           ))}
         </div>

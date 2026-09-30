@@ -289,7 +289,7 @@ const ARM_PAIN = ["shoulder", "elbow", "wrist"];
  * Whether a side has arm pain: setup.painSides (shoulder, elbow or wrist, spec 2.2). When the side
  * is not known yet, arm pain in the intake counts for both sides.
  */
-// SPEC-GAP: pain-side-unknown. Without setup.painSides an intake arm pain covers both sides (the safe
+// R3C-38 (3) (pain-side-unknown, confirmed 2026-09-30). Without setup.painSides an intake arm pain covers both sides (the safe
 // reading: no verdict and the wide band on either side rather than on neither).
 export function painfulArm(side: ResultSide, ctx: SeriesContext): boolean {
   if (side === "none") return false;
@@ -426,7 +426,7 @@ const isCensored = (r: StoredResult) => r.detail.censored === true || r.detail.c
  * Side lean armrest contact that may have happened: yes, or not answered. The engine stores an
  * unanswered contactAsk as "unknown" (flag contact_unknown), never as no.
  */
-// SPEC-GAP: contact-unknown. Spec 4.3 censors a side on a yes to contactAsk. Not answered is read as
+// R3C-38 (4) (contact-unknown, confirmed 2026-09-30). Spec 4.3 censors a side on a yes to contactAsk. Not answered is read as
 // possible contact for the rules (no higher, no lower, no verdict from a baseline with it, the
 // chairLimit sentence), but the value is not shown as "more than", which only a yes establishes.
 const maybeContact = (r: StoredResult) =>
@@ -480,7 +480,7 @@ function noVerdictFor(
       if (b !== undefined && n !== undefined && Math.abs(n - b) > COMPENSATION_LIMIT_PCT + 1e-9) {
         return "movementDifferent";
       }
-      // SPEC-GAP: compensation-unknown. A verdict needs the compensated share within 25 points; when
+      // R3C-38 (5) (compensation-unknown, confirmed 2026-09-30). A verdict needs the compensated share within 25 points; when
       // it is not known (hips hidden in a wheelchair side view) the rule cannot hold, so no verdict,
       // with the sentence that the setup may differ.
       if (b === undefined || n === undefined) return "setupDiffers";
@@ -550,7 +550,7 @@ function firstRetestAdd(def: TestDef): number {
  * the first after the baseline check of an arm curl or chair stand series, whose band is widened by 1
  * count in both directions (Q27).
  */
-// SPEC-GAP: first-retest-symptom-band. The one sided drop that names a side in the end of check
+// R3C-38 (1) (first-retest-symptom-band, confirmed 2026-09-30). The one sided drop that names a side in the end of check
 // question (symptomDrop) is measured against the normal band, so the widening never hides it.
 function judge(
   def: TestDef,
@@ -601,7 +601,7 @@ function judge(
   // the band, in the same direction; otherwise about the same with the unconfirmed sentence.
   let unconfirmed = false;
   if (verdict !== "same" && def.id === "trunk_control_seated") {
-    // SPEC-GAP: censored-previous. A censored previous check is a lower bound, so it never confirms
+    // R3C-38 (6) (censored-previous, confirmed 2026-09-30). A censored previous check is a lower bound, so it never confirms
     // a lower verdict.
     const ok =
       prev !== undefined &&
@@ -636,7 +636,7 @@ function judge(
  */
 // SPEC-GAP: two-check-baseline-rounding. The side lean baseline is the mean of two checks; it is
 // rounded half up so start, now and change add up in whole degrees (spec 5 "Values").
-// SPEC-GAP: large-drop-repeat-window. Any next check after a large drop counts as "that re-check".
+// R3C-38 (7) (large-drop-repeat-window, confirmed 2026-09-30). Any next check after a large drop counts as "that re-check".
 export function compareSeries(
   def: TestDef,
   side: ResultSide,
@@ -703,7 +703,7 @@ export function compareSeries(
   if (inBase === 1) {
     // Side lean, second check: the starting point is now set. The first check stands in as the
     // starting point for the one sided symptom question only.
-    // SPEC-GAP: trunk-second-check-drop. A large drop against the first check still feeds
+    // R3C-38 (2) (trunk-second-check-drop, confirmed 2026-09-30). A large drop against the first check still feeds
     // symptomAskSides, so a sudden one sided loss is asked about before the starting point is set.
     provisional(base, baseValue);
     const first = base[0].value as number;
@@ -860,11 +860,11 @@ function nextLoad(l: LoadStep): LoadStep | null {
  * series of one arm (chronological); `painAfterMore` has one entry per check of it, the last entry
  * for the latest check, true when bt_pain_after was more or much after that arm.
  */
-// SPEC-GAP: load-step-at-or-above. "At or above baseline plus band (verdict higher)" is read as the
+// R3C-38 (8) (load-step-at-or-above, confirmed 2026-09-30). "At or above baseline plus band (verdict higher)" is read as the
 // verdict higher (beyond the band), the stricter of the two.
-// SPEC-GAP: load-step-pain-after. bt_pain_after is not in the data map of spec 2.1, so the caller
+// R3C-38 (8) (load-step-pain-after, confirmed 2026-09-30). bt_pain_after is not in the data map of spec 2.1, so the caller
 // passes it; a qualifying check whose answer is not known gives no offer (the safe reading).
-// SPEC-GAP: load-step-self-count. A self counted check never qualifies (it is never compared).
+// R3C-38 (8) (load-step-self-count, confirmed 2026-09-30). A self counted check never qualifies (it is never compared).
 export function loadStepOffer(
   series: readonly StoredResult[],
   o: {

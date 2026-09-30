@@ -1362,7 +1362,7 @@ describe("what reaches the database", () => {
 
 /* ------------------------------------------------- review round 2 fixes */
 
-describe("locks with several postpone reasons (SPEC-GAP multi-postpone)", () => {
+describe("locks with several postpone reasons (R3C-29 (4) (multi-postpone, confirmed 2026-09-30))", () => {
   beforeAll(async () => {
     h = await startApi();
   });

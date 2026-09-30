@@ -60,7 +60,7 @@ export interface PersonState {
  * intake changes. The server keeps no intake history, so any saved intake after the setup was
  * answered drops those answers (painSides, limbLoss, sciT6) and the pre-check asks them again.
  */
-// SPEC-GAP: setup-intake-change (see src/medical/precheck.ts). Any new intake version counts as a
+// R3C-30 (2) (setup-intake-change, confirmed 2026-09-30) (see src/medical/precheck.ts). Any new intake version counts as a
 // change: asking a baseline setup question again is the safe side.
 export function storedSetup(latest: Assessment | null, intakeVersion: number): StoredSetup | null {
   if (!latest) return null;
@@ -113,7 +113,7 @@ export function personState(db: DatabaseSync, userId: string, now: number): Pers
  * series). The first home check after booth checks asks the baseline setup questions again, asks
  * about changes over the last 3 months and needs a helper for the side lean: the safe side.
  */
-// SPEC-GAP: first-check-per-setting. PrecheckEnv.firstCheck is "first check of the series"; a
+// R3C-39 (first-check-per-setting, confirmed 2026-09-30). PrecheckEnv.firstCheck is "first check of the series"; a
 // series is per setting, and a check that ended early is not a completed check.
 export function firstCheckIn(db: DatabaseSync, userId: string, setting: Setting): boolean {
   return lastCompleted(db, userId, setting) === null;

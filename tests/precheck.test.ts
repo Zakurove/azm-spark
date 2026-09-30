@@ -1448,7 +1448,7 @@ describe("a recent surgery or a flare outside the listed areas (spec 2.2, R3C-27
   });
 });
 
-describe("several postpone reasons at once (SPEC-GAP multi-postpone)", () => {
+describe("several postpone reasons at once (R3C-29 (4) (multi-postpone, confirmed 2026-09-30))", () => {
   it("never keeps the releasable recent_change lock when another reason locks", () => {
     const o = run(envOf(), { pc_change: "yes", pc_change_cleared: "no", pc_pain_now: 9 });
     expect(o).toMatchObject({
@@ -1490,7 +1490,7 @@ describe("several postpone reasons at once (SPEC-GAP multi-postpone)", () => {
   });
 });
 
-describe("pc_sci_ad_since after a check in the other setting (spec 2.2, SPEC-GAP ad-since-any-setting)", () => {
+describe("pc_sci_ad_since after a check in the other setting (spec 2.2, R3C-30 (1) (ad-since-any-setting, confirmed 2026-09-30))", () => {
   it("is asked at the first home check after a completed booth check", () => {
     const env = envOf(
       { position: "wheelchair", conditions: ["sci_complete"] },

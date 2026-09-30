@@ -17,7 +17,7 @@ import { CueId, ExerciseDef, PRF } from "./types";
  */
 
 /** Below this |nose_offset| (trunk lengths) the face side is not trusted. */
-// SPEC-GAP: S0-direction-unknown. The council gives no rule when the nose is not seen at
+// R3C-37 (4) (S0-direction-unknown, confirmed 2026-09-30). The council gives no rule when the nose is not seen at
 // calibration or sits on the mid shoulder line. Safest reading: the forward cap (the lower one)
 // applies in both directions.
 export const NOSE_SIDE_MIN = 0.02;
@@ -55,7 +55,7 @@ export function trunkStopLimits(def: ExerciseDef, prf: PRF): TrunkStopLimits | n
   const s = def.trunkSafety;
   if (!s) return null;
   const b = prf.baselines.trunk_lean;
-  // SPEC-GAP: S0-no-baseline. The framing gate needs both shoulders and hips, so calibration always
+  // R3C-37 (5) (S0-no-baseline, confirmed 2026-09-30). The framing gate needs both shoulders and hips, so calibration always
   // sees the trunk; if it did not, the posture is taken as upright, so the relative stop acts at
   // 15 degrees from vertical, stricter than either cap.
   const base = b !== undefined && Number.isFinite(b) ? b : 0;
@@ -117,7 +117,7 @@ export function trunkStopFor(lim: TrunkStopLimits, lean: number): TrunkStopId | 
  * The absolute limit (b) on its own, before any calibration (S0: it is from vertical and does not
  * depend on the calibrated posture): press 25 degrees either way; curl 25 forward and 30 backward,
  * with the forward direction from this frame's face side, or 25 both ways when it cannot be read
- * (SPEC-GAP S0-direction-unknown). Null when the exercise has no trunk stop or the cap is not reached.
+ * (R3C-37 (4) (S0-direction-unknown, confirmed 2026-09-30)). Null when the exercise has no trunk stop or the cap is not reached.
  */
 export function capStopFor(def: ExerciseDef, lean: number, noseOffset?: number): TrunkStopId | null {
   const s = def.trunkSafety;

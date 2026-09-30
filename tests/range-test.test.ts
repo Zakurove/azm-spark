@@ -93,7 +93,7 @@ describe("shoulder_abduction: the known true peak is recovered within 2 degrees"
       const { res } = measure(frames, "right");
       expect(Math.abs(res.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
       expect(res.nValid).toBe(3);
-      // Below 70 degrees the plane window is never reached: the check cannot run (SPEC-GAP).
+      // Below 70 degrees the plane window is never reached: the check cannot run (R3C-36 (9)).
       expect(res.attempts[0].flags.includes("planeUnchecked")).toBe(peak < 70);
     });
   }

@@ -1042,7 +1042,7 @@ describe("property: verdicts", () => {
 
 /* ------------------------------------------------- review round 2 fixes */
 
-describe("side lean armrest contact not answered (SPEC-GAP contact-unknown)", () => {
+describe("side lean armrest contact not answered (R3C-38 (4) (contact-unknown, confirmed 2026-09-30))", () => {
   const lean = (points: (number | [number | null, Over])[]) =>
     compare("trunk_control_seated", "left", series("trunk_control_seated", "left", points));
   const unknown: Over = { detail: { contact: "unknown" }, flags: ["contact_unknown"] };

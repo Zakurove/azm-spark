@@ -492,7 +492,7 @@ function HeavierOffer({ state }: { state: HeavierOfferState; step: LoadStepView 
             aria-pressed={state.chosen === b.value}
             onClick={() => state.onChoose(b.value)}
           >
-            {b.label[lang]}
+            {bidiText(lang, b.label[lang])}
           </button>
         ))}
       </div>

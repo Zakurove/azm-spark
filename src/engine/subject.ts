@@ -56,12 +56,12 @@ export const SUBJECT_RULES = {
   // A swap to another person far away still pauses; a person rising from a chair does not.
   jumpNominalFrameMs: 50,
   jumpMaxFrames: 4,
-  // SPEC-GAP: touch-distance. "The second person touches the subject" has no measure in the spec.
+  // R3C-25 (1) (touch-distance, confirmed 2026-09-30). "The second person touches the subject" has no measure in the spec.
   // A touch is a visible hand point (wrist, pinky, index or thumb) of another pose within this many
   // shoulder widths of a visible segment of the subject's body, in any frame. One camera cannot see
   // depth, so a hand passing in front of or behind the subject also counts (the safer reading).
   // Tune at booth.
-  // SPEC-GAP: touch-hover. The helper rules (spec 4.3, 4.4) ask for hands near the shoulder or waist
+  // R3C-25 (1) (touch-hover, confirmed 2026-09-30). The helper rules (spec 4.3, 4.4) ask for hands near the shoulder or waist
   // without touching. A hand that hovers within this distance of the body in the picture, or behind
   // it, reads as a touch; whether that happens with real spotting, and the distance and persistence
   // that tell it from a steadying catch (which must invalidate the attempt, spec 2.7), need the booth

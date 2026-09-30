@@ -64,10 +64,8 @@ export const CHECKIN_TIMING = {
  * The check in cue at the booth for a person who may raise a hand, `check_are_you_ok`
  * (stopRouting.checkIn.cueSelection.booth.raiseAllowed). Revision 1.1 removed the single cue field.
  */
-// SPEC-GAP: checkin-cue-selection. Revision 1.1 selects the cue by setting, raiseAllowed,
-// noArmSignal, on device speech and the fall watch (cueSelection, O33 (f)); that selection belongs to
-// the engine round (check in fine signal). The booth build asks raise allowed visitors with this
-// form; evaluatePrecheck returns raiseAllowed and noArmSignal for the selection.
+// Revision 1.1 selects the cue by setting, raiseAllowed, noArmSignal, on device speech and the fall
+// watch (cueSelection, O33 (f)): selectCheckInCue below. This is the default of CheckInFlow.
 export const CHECKIN_CUE: CheckCueId = checkIn.cueSelection.booth.raiseAllowed;
 /** The full screen after no response. */
 export const NO_RESPONSE_SCREEN: ScreenId = "scr_no_response";
@@ -77,19 +75,19 @@ export const NO_RESPONSE_SCREEN: ScreenId = "scr_no_response";
  * a starting point to tune at booth.
  */
 export const CHECKIN_TUNING = {
-  // SPEC-GAP: leave-time. The subject is missing (or both shoulders unseen) for this long.
+  // R3C-11 (leave-time, confirmed 2026-09-30). The subject is missing (or both shoulders unseen) for this long.
   leftFrameSec: 1,
-  // SPEC-GAP: hips-drop. The mid hip is lower than at calibration by this many calibration trunk
+  // R3C-11 (hips-drop, confirmed 2026-09-30). The mid hip is lower than at calibration by this many calibration trunk
   // lengths (about 17 cm for an adult). A seated pelvis stays on the seat, and a chair stand only
   // returns to the seat, so only a slide or a fall goes this low.
   hipsDropTrunks: 0.35,
-  // SPEC-GAP: sway. A big sideways sway is a turn of this many degrees away from the calibration
+  // R3C-11 (sway, confirmed 2026-09-30). A big sideways sway is a turn of this many degrees away from the calibration
   // angle, of the trunk line or of the shoulder line (see SwayMeasure). The side lean, where leaning
   // is the task, passes its own larger limit per frame (feed option swayDeg).
   swayDeg: 25,
-  // SPEC-GAP: trigger-sustain. A hips drop or sway must last this long, so one bad frame is not a trigger.
+  // R3C-11 (trigger-sustain, confirmed 2026-09-30). A hips drop or sway must last this long, so one bad frame is not a trigger.
   sustainSec: 0.3,
-  // SPEC-GAP: no-movement. Still means every visible key point stays within this many trunk lengths
+  // R3C-11 (no-movement, confirmed 2026-09-30). Still means every visible key point stays within this many trunk lengths
   // (about 5 cm) over the 10 s, measured on 0.5 s averages so model jitter is not movement.
   stillTrunks: 0.1,
   stillBinSec: 0.5,
@@ -124,7 +122,7 @@ export type CheckInTrigger =
  */
 export type SwayMeasure = "trunk" | "shoulders";
 
-// SPEC-GAP: sway-oblique. The spec lists a big sideways sway among the chair stand's camera
+// R3C-11 (sway-oblique, confirmed 2026-09-30). The spec lists a big sideways sway among the chair stand's camera
 // triggers but the trunk line cannot separate sideways from forward lean in its 45 degree view;
 // the shoulder line is used there so the trigger stays on through every stand.
 /** The sway measure of each test (the chair stand is filmed at 45 degrees). */
@@ -431,7 +429,7 @@ export function wristAboveShoulder(lm: Landmark[], side: "left" | "right"): bool
  * wrist held above the same shoulder for 1 s. `feed` returns true from the frame the hold reaches
  * 1 s; `side` says which hand. Reset it when the check in cue starts.
  */
-// SPEC-GAP: raised-hand-entry. O34-1 (3) writes the entry rule (counts only when the hand arrives
+// R3C-10 (1) (raised-hand-entry, confirmed 2026-09-30). O34-1 (3) writes the entry rule (counts only when the hand arrives
 // after the cue starts) for the fine zone. The safest reading applies it to the raised hand too: a
 // wrist already above the shoulder when the check in opens (an arm raise attempt in progress) must
 // first be seen below the shoulder, so a raise in progress is never read as "fine".
@@ -843,8 +841,9 @@ export function selectCheckInCue(
 ): string {
   const c = CHECKIN_CUE_SELECTION;
   if (cfg.setting === "booth") return cfg.raiseAllowed ? c.booth.raiseAllowed : c.booth.raiseNotAllowed;
-  // SPEC-GAP: home-cue-without-zones. The data has no home tap form yet (a check_are_you_ok_tap data
-  // request); the fall watch forms name only the raised hand, and the helper form only speech.
+  // R3C-10 (7): no tap only home cue is added. This fall watch fallback names only the raised hand (the
+  // helper form only speech) and stays as a guard: it is never a shipped home path, since home checks
+  // open only with the zones (HOME_GATE2_READY, the client guard homeOpenOf).
   if (!fallWatch && cfg.zones === false && !cfg.noArmSignal) fallWatch = true;
   if (fallWatch) {
     const raise = cfg.raiseAllowed && !cfg.noArmSignal;
@@ -873,7 +872,7 @@ export const FINE_RULES = {
   innerSw: 0.25,
   /** Zone width, before clipping to the arm's reach. */
   widthSw: 0.8,
-  // SPEC-GAP: zone-dropout. The spec does not say what a frame without the wrist does to a hold.
+  // R3C-10 (3) (zone-dropout, confirmed 2026-09-30). The spec does not say what a frame without the wrist does to a hold.
   // A gap up to this long keeps the hold; a longer one needs a new entry from outside.
   dropoutSec: 0.3,
   // SPEC-GAP: side-view-shoulder-width. In a side view the shoulders overlap and their width says
@@ -923,9 +922,9 @@ export interface FineZoneRef {
  * `innerSw` is the bench check's inner edge (never less than 0.25). Null when the zone cannot be
  * placed (no nose or shoulders, or no room inside the picture and the arm's reach).
  */
-// SPEC-GAP: torso-outline. The landmarks give joints, not the body outline; the outline is taken as
+// R3C-10 (4) (torso-outline, confirmed 2026-09-30). The landmarks give joints, not the body outline; the outline is taken as
 // the polygon of both shoulders and both hips, so the inner edge is also outside that side's hip.
-// SPEC-GAP: reach-unknown. With the arm not seen at calibration the zone is not clipped to reach; a
+// R3C-10 (5) (reach-unknown, confirmed 2026-09-30). With the arm not seen at calibration the zone is not clipped to reach; a
 // zone out of reach fails the rehearsal, which sets noArmSignal (a helper is then needed).
 export function fineZoneRef(
   calibration: Landmark[],
@@ -1081,6 +1080,11 @@ function medianOf(xs: number[]): number {
   return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2;
 }
 
+// SPEC-GAP: q2-tally. R3C-01 (9), R3C-05, R3C-10 (8) and R3C-25 (3) add lines to the Q2 safety tally:
+// check ins after the S44 no answer timer, answer_still check ins, refused camera fines by reason and by
+// test, touched retries by test and by whether a spotter was present. No tally recorder exists yet (the
+// server keeps only the anonymous alarm, stop and answer counts, and a booth guest sends nothing,
+// contract v3 I), so these counts wait for the tally's design before the booth study.
 export type CameraFineBlock = "other_hand_chest" | "both_in_zones" | "hips_drop" | "sway";
 
 /**
@@ -1089,7 +1093,7 @@ export type CameraFineBlock = "other_hand_chest" | "both_in_zones" | "hips_drop"
  * wrists are in zones, while the hips drop trigger is active, or while the trunk is outside the
  * current sway limit. Returns the first reason, or null. Never applied to the button or the phrase.
  */
-// SPEC-GAP: unseen-other-wrist. An other wrist the model does not see may be the hand at the chest;
+// R3C-10 (2) (unseen-other-wrist, confirmed 2026-09-30). An other wrist the model does not see may be the hand at the chest;
 // the safest reading refuses the camera fine, except when that arm is a limb loss side.
 export function cameraFineBlocked(
   lm: Landmark[],
@@ -1244,7 +1248,7 @@ export const FALL_WATCH = {
   notUpSec: 180,
   /** Seen seated or standing for this long (also re-arms the hips drop). */
   upHoldSec: 3,
-  // SPEC-GAP: fall-seat-tolerance. "hips at or above the calibration seat height" is read with a
+  // R3C-10 (6) (fall-seat-tolerance, confirmed 2026-09-30). "hips at or above the calibration seat height" is read with a
   // tolerance of this many calibration trunk lengths, so model jitter on a seated person counts.
   seatToleranceTrunks: 0.1,
 } as const;

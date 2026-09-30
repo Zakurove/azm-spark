@@ -1369,7 +1369,7 @@ export class CameraController {
       graceSec: this.timing.cueGraceSec,
       standLeftFrameSec: this.timing.standLeftFrameSec,
     });
-    // SPEC-GAP: left-frame-carry. A person who leaves the picture during an armed part keeps the
+    // R3C-11 (left-frame-carry, confirmed 2026-09-30). A person who leaves the picture during an armed part keeps the
     // left frame rule armed until they are seen again, even when the runner ends that attempt at once
     // and rests (a rest is not armed, 4.8): otherwise leaving mid attempt would never ask. A walk out
     // is gradual: the runner ends the attempt (quality, a lost subject) while the person is still

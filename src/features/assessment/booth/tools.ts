@@ -71,7 +71,7 @@ export function reloadWaits(m: FlowModel): boolean {
  * applies. Only the guest check at the booth resets itself: a visitor's own phone (a signed in check
  * with a booth token) is theirs, so staff use the staff reset there.
  */
-// SPEC-GAP: idle-signed-in. S57 names the booth screens; a signed in visitor's own phone is not reset
+// R3C-31 (2) (idle-signed-in, confirmed 2026-09-30). S57 names the booth screens; a signed in visitor's own phone is not reset
 // by the idle timer (the staff reset still works there), the reading that never clears a person's own
 // check without them.
 export function idleWaitMs(m: FlowModel): number | null {
@@ -119,7 +119,7 @@ export function secondsLeft(deadline: number, now: number): number {
  * The staff shortcut key (S57): Alt and Shift with N (for a New visitor), by the physical key so it
  * works on Arabic and English keyboards alike.
  */
-// SPEC-GAP: staff-shortcut-key. S57 asks for "a staff shortcut key" without naming it.
+// R3C-34 (staff-shortcut-key, confirmed 2026-09-30). S57 asks for "a staff shortcut key" without naming it.
 export function isStaffShortcut(e: {
   code?: string;
   altKey: boolean;

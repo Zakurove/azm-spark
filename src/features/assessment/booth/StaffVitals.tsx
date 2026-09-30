@@ -23,9 +23,9 @@
  * States: error (validation, the staff code); loading (the code check, the start call on a signed in
  * booth check); offline: the code cannot be checked, "unavailable" stays; empty and camera do not apply.
  */
-// SPEC-GAP: s56-visitor-phone. S56 asks for the staff code on "the booth phone"; a signed in visitor's
+// R3C-32 (s56-visitor-phone, confirmed 2026-09-30). S56 asks for the staff code on "the booth phone"; a signed in visitor's
 // own phone is not one, so the staff code is not asked there and the chair stand is not offered.
-// SPEC-GAP: s56-offline-gate. Offline the staff code cannot be checked (the server holds the daily
+// R3C-32 (s56-offline-gate, confirmed 2026-09-30). Offline the staff code cannot be checked (the server holds the daily
 // code); staff then choose "unavailable", the safe side, so the chair stand is not offered.
 import { useId, useRef, useState } from "react";
 import { fmtNum, type Lang } from "../../../app/i18n";

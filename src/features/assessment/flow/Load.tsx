@@ -109,6 +109,9 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
   // At home the answer zones need the camera (AnswerZones, 4.7), which this screen does not run, so
   // the zone line (check_answer_zone) is not shown: the answers are taps. At the booth staff tap the
   // spoken answer (7.2-1), though the booth never asks this question (Q5).
+  // SPEC-GAP: s29-zones. R3C-18 makes S29 at home a camera state in the S47 pattern (zones on the
+  // FineSignalConfig side, Yes read back, No at once, 1.5 s holds); it ships with the answer zones as
+  // part of home gate 2, and until then this tap screen is reached only in tests and previews.
   const zoneLine = booth ? t(lang, "assessment.test.answerBooth") : null;
   // R3C-18 (3): with a held load (a dumbbell or a bottle, not a wrist weight) the person first rests it
   // on the lap: no loaded hold while answering, and no dropped weight.

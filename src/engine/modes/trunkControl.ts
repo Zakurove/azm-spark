@@ -142,7 +142,7 @@ export const TRUNK_RULES = {
   maxGapMs: 250,
   /** L is the running median over this window (s) before the lean rules use it (as in rangeTest.ts). */
   medianSec: 0.3,
-  // SPEC-GAP: trunk-sway. Leaning is the task, so the check in's big sway limit during a lean is
+  // R3C-37 (2) (trunk-sway, confirmed 2026-09-30). Leaning is the task, so the check in's big sway limit during a lean is
   // the abort limit of that side plus this margin.
   swayMarginDeg: 15,
   onePersonCueEverySec: 5,
@@ -336,7 +336,7 @@ export class TrunkControlRunner implements TestRunner {
   /** The abort limit of a side (spec 4.3): 30 at the first check, else the earlier best plus 15. */
   abortLimit(side: BodySide): number {
     const prev = this.opts.previousBest?.[side];
-    // SPEC-GAP: abort-no-best. A later check with no earlier best for this side (it was skipped
+    // R3C-37 (1) (abort-no-best, confirmed 2026-09-30). A later check with no earlier best for this side (it was skipped
     // before) uses the first check limit, the more conservative one.
     if ((this.opts.firstCheck ?? true) || prev === undefined) return TRUNK_RULES.abortFirstCheckDeg;
     return prev + TRUNK_RULES.abortBeyondBestDeg;
@@ -738,7 +738,7 @@ export class TrunkControlRunner implements TestRunner {
     let outward = false;
     if (prev && t - prev.t <= R.speedSpanMs + R.maxGapMs) {
       const v = (L - prev.L) / ((t - prev.t) / 1000);
-      // SPEC-GAP: speed-direction. The speed abort counts moving away from the middle before the
+      // R3C-37 (3) (speed-direction, confirmed 2026-09-30). The speed abort counts moving away from the middle before the
       // return: a quick return to the middle is what the abort cue asks for.
       outward = Math.abs(v) > R.abortSpeedDegPerSec && Math.sign(v) === Math.sign(L - b.U) && !a.back;
     }

@@ -152,7 +152,7 @@ export function GuestAfterTest({ model, dispatch }: ScreenProps) {
         <h1>{t(lang, "assessment.guest.afterTest.title")}</h1>
         <div className="safety-equal">
           <button type="button" className="cta" onClick={() => dispatch({ type: "GUEST_NEXT_TEST" })}>
-            {next.label[lang]}
+            {bidiText(lang, next.label[lang])}
           </button>
           {run && (
             <p className="check-meta">
@@ -163,7 +163,7 @@ export function GuestAfterTest({ model, dispatch }: ScreenProps) {
             </p>
           )}
           <button type="button" className="cta" onClick={() => dispatch({ type: "GUEST_RESULTS" })}>
-            {results.label[lang]}
+            {bidiText(lang, results.label[lang])}
           </button>
         </div>
       </div>

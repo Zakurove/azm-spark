@@ -255,7 +255,7 @@ export function contextFromIntake(
   // that rule holds (stroke or SCI without clearance yes).
   const boothRule =
     setting === "booth" && boothClearanceRule(intake as Pick<CheckContext, "conditions" | "clearance">);
-  // SPEC-GAP: unknown-plan-reason. A plan reason that is neither a clinical nor a scheduling reason
+  // R3C-29 (17) (unknown-plan-reason, confirmed 2026-09-30). A plan reason that is neither a clinical nor a scheduling reason
   // of spec 3.1 blocks the check (the safe side), and so does a plan in review without a reason.
   const fromPlan = (plan?.reasons ?? []).filter(
     (r) => !scheduling.includes(r) && !(boothRule && r === "clearance"),

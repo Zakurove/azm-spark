@@ -893,7 +893,7 @@ export class RangeTestRunner implements TestRunner {
     if (a.pastVertical.hit) flags.push("pastVertical");
     const ref = a.practice ? this.cal!.upperArm : this.refLength;
     const planeSec = this.planeOkSec(a, ref, best ? best.t : t);
-    // SPEC-GAP: plane-below-window. Read literally, an attempt whose angle never reaches 70 degrees
+    // R3C-36 (9) (plane-below-window, confirmed 2026-09-30). Read literally, an attempt whose angle never reaches 70 degrees
     // has no frames in the window and would always be invalid, so a person with less range could
     // never be measured. The check needs the window: when the held value is below 70 the attempt
     // stays valid and is flagged planeUnchecked (a lift in front of the body reads lower in 2D, not

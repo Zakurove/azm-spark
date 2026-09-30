@@ -103,6 +103,8 @@ export interface OfflineBannerProps {
   compact?: boolean;
   /** Forces the banner (screenshots, tests); by default it follows the online state. */
   show?: boolean;
+  /** The one word form («غير متصل» · Offline), where a screen has no room for the sentence (S43). */
+  pill?: boolean;
 }
 
 /**
@@ -110,7 +112,7 @@ export interface OfflineBannerProps {
  * while offline. Back online, a short visible toast says so for about 3 s (useOnline.backOnline), so
  * nobody is left wondering whether their results will now save.
  */
-export function OfflineBanner({ compact, show }: OfflineBannerProps) {
+export function OfflineBanner({ compact, show, pill }: OfflineBannerProps) {
   const ui = useCheckUi();
   const offline = show ?? !ui.online;
   return (
@@ -124,8 +126,14 @@ export function OfflineBanner({ compact, show }: OfflineBannerProps) {
         <p className={`check-offline${compact ? " is-compact" : ""}`}>
           <CheckIcon name="wifi-off" />
           <span>
-            {t(ui.lang, "assessment.state.offline.banner")}
-            {ui.savedLater && !ui.guest ? ` ${t(ui.lang, "assessment.state.offline.savedLater")}` : ""}
+            {pill ? (
+              t(ui.lang, "assessment.state.offline.pill")
+            ) : (
+              <>
+                {t(ui.lang, "assessment.state.offline.banner")}
+                {ui.savedLater && !ui.guest ? ` ${t(ui.lang, "assessment.state.offline.savedLater")}` : ""}
+              </>
+            )}
           </span>
         </p>
       ) : ui.backOnline ? (

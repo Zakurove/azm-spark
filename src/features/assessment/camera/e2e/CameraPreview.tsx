@@ -67,10 +67,15 @@ function snapshotOf(p: Preview, state: FlowState): CamSnapshot {
   };
 }
 
+/**
+ * The preview's caption. `?e2eHeard=1` draws it as the voice says it (R3C-16: at fit level 3 its
+ * sentence may then give way); without it, as when no voice is heard (the sentence always stays).
+ */
 function captionText(c: Caption | undefined, lang: Lang) {
   if (!c) return null;
-  if ("cue" in c) return captionOf(c.cue, lang);
-  return { text: t(lang, c.key), severity: c.severity };
+  const heard = new URLSearchParams(location.search).get("e2eHeard") === "1";
+  if ("cue" in c) return { ...captionOf(c.cue, lang), heard };
+  return { text: t(lang, c.key), severity: c.severity, heard };
 }
 
 /** One frame of the preview's fixture script, in the page's shape (at < 0: nobody). */

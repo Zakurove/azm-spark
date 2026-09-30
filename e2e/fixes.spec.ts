@@ -15,7 +15,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
-import { PREVIEW_NAMES } from "../src/features/assessment/camera/e2e/previews";
+import { PREVIEW_NAMES, PREVIEWS } from "../src/features/assessment/camera/e2e/previews";
 import { camModel, openCamera } from "./camera-fixtures";
 import {
   MEASURE,
@@ -460,6 +460,23 @@ const KEY_VALUES = [
   ".s34-at-phone button",
 ];
 
+/** The cues whose sentence always stays, whatever the fit level (R3C-16 (2) (e)). */
+const ALWAYS_SENTENCE = [
+  "check_stop_any_time",
+  "check_sit_minute",
+  "test_trunk_lean_left",
+  "test_trunk_lean_right",
+  "test_curl_grip",
+  "test_stand_dizzy",
+];
+
+/**
+ * R3C-16: every preview keeps its 2 m values inside the stage with the voice heard (fit level 3 may
+ * then hide a caption's sentence), and without a voice at 375 x 812 (the sentence always stays). On
+ * the compact phones a caption whose sentence must stay (no voice heard, or one of ALWAYS_SENTENCE)
+ * keeps it in full; where that pushes a value out, the cue is listed for the Arabic seat to shorten
+ * (C10: every sentence must fit 3 lines at 34 px), since the fit level is a safety net, not the layout.
+ */
 for (const lang of LANGS) {
   for (const [w, h] of [
     [375, 812],
@@ -468,7 +485,7 @@ for (const lang of LANGS) {
     test(`S34: every preview keeps its 2 m values inside the stage at ${w} x ${h} (${lang})`, async ({
       browser,
     }) => {
-      test.setTimeout(180_000);
+      test.setTimeout(360_000);
       const context = await browser.newContext({
         viewport: { width: w, height: h },
         hasTouch: true,
@@ -485,25 +502,56 @@ for (const lang of LANGS) {
         [camModel({ kind: "cam.setup", i: 0, side: 0 })],
       );
       const problems: string[] = [];
+      const shorten: string[] = [];
+      const compact = h < 700;
       for (const name of PREVIEW_NAMES) {
-        await page.goto(`/?check=1&e2eCamPreview=${name}${lang === "en" ? "&lang=en" : ""}`);
-        await expect(page.locator(".s34-stage")).toBeVisible();
-        await page.evaluate(() => document.fonts.ready);
-        await page.waitForTimeout(100);
-        const out = await page.evaluate((keys) => {
-          const main = document.querySelector(".s34-main")!.getBoundingClientRect();
-          const top = document.querySelector(".s34-top")!.getBoundingClientRect();
-          const bad: string[] = [];
-          if (top.height > 64) bad.push(`top bar ${Math.round(top.height)} px`);
-          for (const k of keys)
-            for (const el of document.querySelectorAll(k)) {
-              const b = el.getBoundingClientRect();
-              if (b.height === 0) continue;
-              if (b.top < main.top - 1 || b.bottom > main.bottom + 1) bad.push(k);
-            }
-          return bad;
-        }, KEY_VALUES);
-        if (out.length) problems.push(`${name}: ${out.join(", ")}`);
+        const cue = (PREVIEWS[name].caption as { cue?: string } | undefined)?.cue;
+        for (const heard of [true, false]) {
+          await page.goto(
+            `/?check=1&e2eCamPreview=${name}${heard ? "&e2eHeard=1" : ""}${lang === "en" ? "&lang=en" : ""}`,
+          );
+          await expect(page.locator(".s34-stage")).toBeVisible();
+          await page.evaluate(() => document.fonts.ready);
+          await page.waitForTimeout(100);
+          const r = await page.evaluate((keys) => {
+            const main = document.querySelector(".s34-main")!.getBoundingClientRect();
+            const top = document.querySelector(".s34-top")!.getBoundingClientRect();
+            const bad: string[] = [];
+            if (top.height > 64) bad.push(`top bar ${Math.round(top.height)} px`);
+            for (const k of keys)
+              for (const el of document.querySelectorAll(k)) {
+                const b = el.getBoundingClientRect();
+                if (b.height === 0) continue;
+                if (b.top < main.top - 1 || b.bottom > main.bottom + 1) bad.push(k);
+              }
+            const caption = document.querySelector(".s34-caption");
+            const text = caption?.querySelector(".s34-caption-text");
+            return {
+              bad,
+              fit: Number((document.querySelector(".s34-stage") as HTMLElement).dataset.fit ?? 0),
+              sentence: caption?.getAttribute("data-sentence") ?? null,
+              // A retry caption draws only its short form (the card's fix title carries the sentence).
+              textShown: !text || text.getBoundingClientRect().height > 0,
+              short: !!caption?.querySelector(".s34-caption-short"),
+            };
+          }, KEY_VALUES);
+          // Without the voice, a caption never loses its sentence (4.3; R3C-16 (2) (b)); nor does a
+          // cue whose sentence carries a safety limit.
+          if (r.short && (!heard || (cue && ALWAYS_SENTENCE.includes(cue))) && !r.textShown)
+            problems.push(`${name}${heard ? "" : " no voice"}: the sentence is hidden`);
+          const kept = r.sentence === "keep" && r.short;
+          if (r.bad.length && compact && kept)
+            shorten.push(`${name}${heard ? "" : " no voice"} (${cue ?? "copy"})`);
+          else if (r.bad.length) problems.push(`${name}${heard ? "" : " no voice"}: ${r.bad.join(", ")}`);
+          // C10: the cues that need level 3 at 375 x 812 without a voice go to the Arabic seat too.
+          if (!compact && !heard && r.fit >= 3 && cue) shorten.push(`${name} level 3 (${cue})`);
+        }
+      }
+      if (shorten.length) {
+        test
+          .info()
+          .annotations.push({ type: "C10 cues to shorten (R3C-16 (6))", description: shorten.join("; ") });
+        console.log(`C10 ${lang} ${w}x${h}: ${shorten.join("; ")}`);
       }
       expect(problems).toEqual([]);
       await context.close();

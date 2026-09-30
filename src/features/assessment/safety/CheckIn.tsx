@@ -58,7 +58,7 @@ import { SAFETY_TIMING } from "./timing";
  * The top row of a stage overlay: the booth badge (every screen in booth mode, S57), the check in's
  * 15 s ring (no numbers, aria-hidden) and Sound. The ring sits here so the answers stay on screen.
  */
-function StageTop({ ring, camera }: { ring?: ReactNode; camera: boolean }) {
+function StageTop({ ring, camera, note }: { ring?: ReactNode; camera: boolean; note?: ReactNode }) {
   const ui = useCheckUi();
   const { lang } = ui;
   return (
@@ -70,6 +70,7 @@ function StageTop({ ring, camera }: { ring?: ReactNode; camera: boolean }) {
         </span>
       )}
       <span className="check-topbar-spacer" />
+      {note}
       {ring}
       {/* The camera keeps watching for a raised hand under S43 and S45: say it is on (principle 13). */}
       {camera && (
@@ -138,11 +139,14 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
       data-screen="S43"
       data-fit={fit}
     >
+      {/* Level 6 (the smallest phones, R3C-15): the offline state is one word in the top row, as on
+          S34, so the answers keep their room. */}
       <StageTop
         camera={watching(model.state)}
         ring={<CountdownRing leftMs={left} totalMs={SAFETY_TIMING.checkInAlarmMs} size={48} />}
+        note={fit >= 6 ? <OfflineBanner compact pill /> : undefined}
       />
-      <OfflineBanner compact />
+      {fit < 6 && <OfflineBanner compact />}
       <div className="safety-stage-body">
         {/* The caption card near the lens (4.3, spec S43): the short form at 56 px with its pictogram,
             then the instruction that follows the question; the question itself is the heading below,

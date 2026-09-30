@@ -615,11 +615,33 @@ html:has(.azm-check .safety-stop-zone) {
 }
 .azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) {
   min-height: 96px;
-  flex-direction: column;
-  justify-content: center;
   gap: var(--s1);
-  padding: var(--s2);
-  text-align: center;
+  padding: var(--s1) var(--s2);
+}
+/* The two answers side by side keep their words: their number and icon step aside (the words carry
+   the answer; «أنا بخير» keeps its hand). */
+.azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) .safety-zone-mark {
+  display: none;
+}
+.azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) .safety-zone-label {
+  font-size: 1.75rem;
+  line-height: 1.15;
+  overflow-wrap: normal;
+}
+/* The offline state in the top row, one word with its icon. */
+.azm-check .safety-stage-top :is(.check-offline-wrap, .check-offline) {
+  margin: 0;
+  padding: 0 var(--s2);
+  border-radius: var(--r-control);
+  line-height: 2;
+}
+/* The rest of the space comes from the gaps and the line height, never from the sizes of 4.1. */
+.azm-check .is-alert[data-fit="6"] .safety-stage-body {
+  gap: var(--s1);
+  padding-block-start: var(--s1);
+}
+.azm-check .is-alert[data-fit="6"] :is(.safety-stage-title, .safety-checkin-cue .safety-short) {
+  line-height: 1.05;
 }
 
 /* ------------------------------------------------------------------ rings */

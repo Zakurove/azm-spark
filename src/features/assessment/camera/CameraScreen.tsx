@@ -17,7 +17,6 @@ import { usesWheelchair } from "../booth/SetupTips";
 import { StaffCountCorrection } from "../booth/StaffCountCorrection";
 import { outcomeKey, testCounter, type FlowEvent, type FlowModel } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
-import { noteFine } from "../safety/timing";
 import { useCheckUi, type CaptionSeverity } from "../shared/CheckUi";
 import { CameraStage, type StageCaption } from "./CameraStage";
 import { CameraVideo } from "./CameraVideo";
@@ -121,11 +120,8 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
 
   const apply = useCallback(
     (out: CamOutput) => {
-      for (const e of out.events) {
-        // A camera fine is noted for S44's extra timer (O34-1 (6)).
-        if (e.type === "FINE") noteFine(e.via);
-        dispatch(e);
-      }
+      // A camera fine carries how it was given: the flow sets S44's extra timer (O34-1 (6)).
+      for (const e of out.events) dispatch(e);
       if (out.cues.length) cuesRef.current.push(out.cues);
       for (const n of out.notes) {
         cuesRef.current.note(n);

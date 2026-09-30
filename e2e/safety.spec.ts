@@ -5,7 +5,8 @@
  *   - the stop list runs the check in after 30 s with no input, the check in chimes again at 7 s and
  *     opens the alarm at 15 s; the alarm sounds whatever the Sound setting and only «أنا بخير» ends it;
  *   - a camera trigger during a test runs the check in; no response, then fine, gives S44 after the
- *     alarm with 997 first; «أحتاج مساعدة» opens the help alarm, whose fine goes to the stop list;
+ *     alarm with 997 first and no redo (R3C-02); «أحتاج مساعدة» opens the help alarm, whose fine goes
+ *     to the stop list; «أنا بخير» counts only 800 ms or more after S43 or S45 appeared (R3C-03);
  *   - S36 puts the 997 call first as a tel: link, shows the number at 64 px or more, and captions every
  *     sentence in turn; the faint question follows S38 and a touch on S39; S47 reads an answer back.
  * Timers run on Playwright's fake clock (page.clock), never on shortened values.
@@ -157,13 +158,16 @@ for (const lang of LANGS) {
       expect((await fine.boundingBox())!.height).toBeGreaterThanOrEqual(120);
       await page.clock.runFor(15_500);
       await expect(page.locator('[data-screen="S45"]')).toBeVisible();
+      await page.clock.runFor(800);
       await page.locator('[data-screen="S45"]').getByRole("button", { name: a.alarm.fine }).click();
       const goOn = page.locator('[data-screen="S44"]');
       await expect(goOn).toBeVisible();
       const call = goOn.locator("a.check-call.is-997");
       const title = goOn.getByRole("heading", { level: 1 });
       expect((await call.boundingBox())!.y).toBeLessThan((await title.boundingBox())!.y);
-      await expect(goOn.locator('[data-value="redo"]')).toBeVisible();
+      // No redo after a no response alarm (R3C-02); S44 opened by a tap arms its answers after 600 ms.
+      await expect(goOn.locator('[data-value="redo"]')).toHaveCount(0);
+      await page.clock.runFor(600);
       await goOn.locator('[data-value="skip"]').click();
       await expect(page.locator('[data-screen="S46"]')).toBeVisible();
     });
@@ -171,6 +175,7 @@ for (const lang of LANGS) {
     test("I need help opens the help alarm at once; its fine goes to the stop list (O34-5)", async ({
       page,
     }) => {
+      await page.clock.install();
       await openGuest(page, lang, {
         state: MEASURE,
         overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
@@ -179,6 +184,8 @@ for (const lang of LANGS) {
       const alarm = page.locator('[data-screen="S45"]');
       await expect(alarm).toHaveAttribute("data-help", "true");
       await expect(alarm.locator("h1")).toHaveText(a.safety.emergency.title);
+      // «أنا بخير» counts only from a press 800 ms or more after S45 appeared (R3C-03).
+      await page.clock.runFor(800);
       await alarm.getByRole("button", { name: a.alarm.fine }).click();
       await expect(page.locator('[data-screen="S41"]')).toBeVisible();
       await expect(page.getByText(a.stop.takeYourTime)).toHaveCount(0);
@@ -261,6 +268,7 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
       await page.clock.runFor(30_500);
       await expect(page.locator('[data-screen="S43"]')).toBeVisible();
+      await page.clock.runFor(800);
       await page.locator('[data-screen="S43"] [data-value="fine"]').click();
       await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
       await expect(page.getByText(a.stop.takeYourTime)).toBeVisible();
@@ -318,6 +326,8 @@ for (const lang of LANGS) {
       await page.getByRole("button", { name: label }).click();
       const done = page.locator('[data-screen="S42"]');
       await expect(done.locator("h1")).toHaveText(a.stopDone.title);
+      // The tired line of its own (R3C-20), never the safety stop line.
+      await expect(done.getByText(a.stopDone.tired)).toBeVisible();
       await expect(page.getByRole("button", { name: a.rest.nextNow })).toBeVisible();
       await page.clock.runFor(61_000);
       await expect(page.getByRole("button", { name: a.stopDone.next })).toBeVisible();
@@ -362,7 +372,11 @@ for (const lang of LANGS) {
             overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
             screen: "S43",
           },
-          { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: true }, screen: "S44" },
+          {
+            state: MEASURE,
+            overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true },
+            screen: "S44",
+          },
           { state: MEASURE, overlay: { kind: "alarm", from: "test", attempt: true }, screen: "S45" },
           {
             state: {

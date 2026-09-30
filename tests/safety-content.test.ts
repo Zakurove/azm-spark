@@ -405,7 +405,7 @@ describe("S43, S44, S45: the check in and the alarm (O34-4, O34-5, O42)", () => 
       canRedo: true,
     });
     const alarmed = run(asked, { type: "CHECKIN_TIMEOUT" }, { type: "FINE", via: "button" });
-    expect(alarmed.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: true });
+    expect(alarmed.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false, timer: true });
     const help = run(asked, { type: "NEED_HELP" });
     expect(help.overlay).toMatchObject({ kind: "alarm", help: true });
     expect(run(help, { type: "FINE", via: "button" }).overlay).toEqual({

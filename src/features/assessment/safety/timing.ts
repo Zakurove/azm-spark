@@ -29,12 +29,16 @@ export const SAFETY_TIMING = {
   speechDelayMs: 800,
   /** S42: the rest after a stop for tiredness or something else (check_rest_minute). */
   stopRestSec: 60,
-  /** S41: a row press within 600 ms of a list opened by a press (a double tap on STOP) is ignored. */
+  /**
+   * S41, and S44 opened by a fine tap: a press within 600 ms of a screen opened by a press (a double
+   * tap) is ignored (R3C-03 (6)).
+   */
   stopArmMs: 600,
-  /** S45: «أنا بخير» within 800 ms of an alarm opened by a press, near that press, is ignored (DoD). */
+  /**
+   * S43 and S45: «أنا بخير» pressed before, or within 800 ms after, the screen appeared is ignored,
+   * whatever opened it, anywhere on the control (R3C-03; choice reaction takes longer).
+   */
   fineArmMs: 800,
-  /** How near the opening press a second press counts as the same double tap (a finger, a tremor). */
-  armRadiusPx: 32,
 } as const;
 
 /**
@@ -42,16 +46,3 @@ export const SAFETY_TIMING = {
  * no answer timer follows it (O34-1 (6)); after a tap none does (O14).
  */
 export const cameraFine = (via: string | undefined): boolean => via === "zone" || via === "raisedHand";
-
-/**
- * How the last "I am fine" was given (the button, the zone, a raised hand), noted where FINE is sent:
- * the check in and alarm buttons, and the camera screens for a camera fine. S44 reads it when it opens,
- * because the flow's "go on" overlay does not keep it (O34-1 (6)).
- */
-let lastFine: string | null = null;
-export function noteFine(via: string): void {
-  lastFine = via;
-}
-export function lastFineVia(): string | null {
-  return lastFine;
-}

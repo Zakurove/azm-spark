@@ -48,6 +48,13 @@ async function centre(page: Page, selector: string): Promise<{ x: number; y: num
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+/** A point as the arguments of touchscreen.tap. */
+const xy = (p: { x: number; y: number }) => [p.x, p.y] as const;
+
+async function dispatch(page: Page, event: Record<string, unknown>) {
+  await page.evaluate((e) => (window as unknown as { e2eDispatch(e: unknown): void }).e2eDispatch(e), event);
+}
+
 /** Two taps at the same point, 120 ms apart: a double tap, as a tremor or an anxious press gives. */
 async function doubleTap(page: Page, p: { x: number; y: number }) {
   await page.touchscreen.tap(p.x, p.y);
@@ -137,6 +144,68 @@ for (const lang of LANGS) {
       });
     }
 
+    test("a second tap 150 ms later and 60 px away never counts as fine on S45 or S43 (R3C-03)", async ({
+      browser,
+    }) => {
+      const page = await phone(browser, 375, 812);
+      await openGuest(page, lang, {
+        state: MEASURE,
+        overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
+      });
+      // S45: «أحتاج مساعدة», then 150 ms later a tap 60 px from the centre of «أنا بخير».
+      await page.touchscreen.tap(...xy(await centre(page, '[data-screen="S43"] [data-value="help"]')));
+      const alarm = page.locator('[data-screen="S45"]');
+      await expect(alarm).toBeVisible();
+      await page.waitForTimeout(150);
+      const fine = await centre(page, '[data-screen="S45"] .safety-fine');
+      await page.touchscreen.tap(fine.x + 60, fine.y);
+      await page.waitForTimeout(1200);
+      await expect(alarm).toHaveAttribute("data-alarm", "sounding");
+      await expect(page.locator('[data-screen="S41"]')).toHaveCount(0);
+      await page.context().close();
+
+      // S43: raised by the camera; a tap 150 ms after it appeared, 60 px from the centre of fine.
+      const second = await phone(browser, 375, 812);
+      await openGuest(second, lang, { state: MEASURE });
+      await dispatch(second, { type: "TRIGGER", trigger: "no_movement" });
+      const checkIn = second.locator('[data-screen="S43"]');
+      await expect(checkIn).toBeVisible();
+      await second.waitForTimeout(150);
+      const zone = await centre(second, '[data-screen="S43"] [data-value="fine"]');
+      await second.touchscreen.tap(zone.x + 60, zone.y);
+      await second.waitForTimeout(1000);
+      await expect(checkIn).toBeVisible();
+      await expect(second.locator('[data-screen="S44"]')).toHaveCount(0);
+      // Pressed on purpose afterwards, it answers.
+      await second.touchscreen.tap(zone.x, zone.y);
+      await expect(second.locator('[data-screen="S44"]')).toBeVisible();
+      await second.context().close();
+    });
+
+    test("a tap that lands as S43 or S45 appears over S34 never counts as fine (R3C-03)", async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.clock.install();
+      await openGuest(page, lang, { state: MEASURE });
+      // The clock stands still: every tap below lands the moment the screen appeared.
+      await page.clock.pauseAt(Date.now() + 2_000);
+      await dispatch(page, { type: "TRIGGER", trigger: "left_frame" });
+      const checkIn = page.locator('[data-screen="S43"]');
+      await expect(checkIn).toBeVisible();
+      await checkIn.locator('[data-value="fine"]').click();
+      await expect(checkIn).toBeVisible();
+      await expect(page.locator('[data-screen="S44"]')).toHaveCount(0);
+      await page.clock.runFor(15_100);
+      const alarm = page.locator('[data-screen="S45"]');
+      await expect(alarm).toBeVisible();
+      await alarm.getByRole("button", { name: a.alarm.fine }).click();
+      await expect(alarm).toHaveAttribute("data-alarm", /sounding|blocked/);
+      await page.clock.runFor(800);
+      await alarm.getByRole("button", { name: a.alarm.fine }).click();
+      await expect(page.locator('[data-screen="S44"]')).toBeVisible();
+    });
+
     const FOLD: { name: string; open: ModelOptions; screen: string }[] = [
       {
         name: "S43 booth",
@@ -159,7 +228,7 @@ for (const lang of LANGS) {
       },
       {
         name: "S44 after the alarm",
-        open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: true } },
+        open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true } },
         screen: "S44",
       },
       {
@@ -248,7 +317,8 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-screen="S44"]')).toBeVisible();
       await page.clock.runFor(1_500);
       await expect(page.locator('[data-screen="S43"]')).toBeVisible();
-      // Fine by tap gives S44 back, with no second timer (O14).
+      // Fine by tap gives S44 back, with no further timer in that episode (O14, R3C-01).
+      await page.clock.runFor(800);
       await page.locator('[data-screen="S43"] [data-value="fine"]').click();
       await expect(page.locator('[data-screen="S44"]')).toBeVisible();
       await page.clock.runFor(45_000);
@@ -263,7 +333,7 @@ for (const lang of LANGS) {
         state: MEASURE,
         overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
       });
-      await page.clock.runFor(500);
+      await page.clock.runFor(800);
       await page.locator('[data-screen="S43"] [data-value="fine"]').click();
       await expect(page.locator('[data-screen="S44"]')).toBeVisible();
       await page.clock.runFor(45_000);

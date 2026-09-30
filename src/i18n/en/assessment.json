@@ -596,7 +596,9 @@
     "next": "Go on to the next test",
     "end": "End today’s check",
     "finish": "Finish and see your results",
-    "changeReason": "Change my reason"
+    "changeReason": "Change my reason",
+    "tired": "You stopped to rest. This test’s result was not saved.",
+    "restLast": "Rest for one minute."
   },
   "checkin": {
     "fine": "I am fine",
@@ -609,7 +611,7 @@
     "title": "Do you want to go on?",
     "redo": "Redo the test after a rest",
     "skip": "Skip this test",
-    "stop": "I need to stop"
+    "stop": "I want to stop"
   },
   "alarm": {
     "fine": "I am fine",

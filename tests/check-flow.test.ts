@@ -920,16 +920,19 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
   it("stopDone: next test, end, or change the reason", () => {
     const done = play(measuring, { type: "STOP" }, { type: "STOP_OPTION", option: "choice" });
     expect(play(done, { type: "STOP_NEXT" }).state).toEqual({ kind: "test.instruction", i: 1 });
-    expect(kind(play(done, { type: "STOP_END" }))).toBe("results");
+    // R3C-21: the end question after a stop, also with nothing measured.
+    expect(kind(play(done, { type: "STOP_END" }))).toBe("endQuestion");
     expect(play(done, { type: "CHANGE_REASON" }).overlay).toEqual({ kind: "stopList", takeYourTime: false });
   });
 
   it("check in: fine returns by origin; want to stop opens the list; help and 15 s sound the alarm", () => {
     const fromTest = play(measuring, { type: "TRIGGER", trigger: "left_frame" });
+    // A camera fine: one extra 30 s no answer timer on S44 (O34-1 (6), R3C-01).
     expect(play(fromTest, { type: "FINE", via: "raisedHand" }).overlay).toEqual({
       kind: "goOn",
       afterAlarm: false,
       canRedo: true,
+      timer: true,
     });
     expect(play(fromTest, { type: "WANT_STOP" }).overlay).toEqual({ kind: "stopList", takeYourTime: false });
     expect(play(fromTest, { type: "NEED_HELP" }).overlay).toEqual({
@@ -986,10 +989,12 @@ describe("Appendix A: stop list, stop done, check in, go on, alarm, faint, end",
       { type: "WANT_STOP" },
     ] as FlowEvent[])
       expect(play(alarm, e).overlay, e.type).toEqual(open);
+    // After a no response alarm: no redo (R3C-02), one 30 s no answer timer (R3C-01).
     expect(play(alarm, { type: "FINE", via: "button" }).overlay).toEqual({
       kind: "goOn",
       afterAlarm: true,
-      canRedo: true,
+      canRedo: false,
+      timer: true,
     });
   });
 
@@ -1722,7 +1727,7 @@ describe("the check in is armed on every camera state, S38b and S49 (section 4.8
     expect(fine.state).toEqual(between.state);
     // After the alarm S44 opens without a redo; redo just returns to the state.
     const goOn = play(onBetween, { type: "CHECKIN_TIMEOUT" }, { type: "FINE", via: "button" });
-    expect(goOn.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false });
+    expect(goOn.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false, timer: true });
     const redo = play(goOn, { type: "REDO" });
     expect(redo.overlay).toBeNull();
     expect(redo.state).toEqual(between.state);
@@ -2000,7 +2005,7 @@ describe("I am fine after a help request goes to the stop list, never S44 (O34-5
       { type: "CHECKIN_TIMEOUT" },
       { type: "FINE", via: "button" },
     );
-    expect(quiet.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: true });
+    expect(quiet.overlay).toEqual({ kind: "goOn", afterAlarm: true, canRedo: false, timer: true });
   });
 });
 

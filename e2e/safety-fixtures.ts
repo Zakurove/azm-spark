@@ -260,6 +260,8 @@ export const SAFETY_STATES: SafetyState[] = [
       overlay: { kind: "checkIn", from: "faintAsk", trigger: "no_answer" },
     },
     act: async (page) => {
+      // «أنا بخير» counts only from a press 800 ms or more after S43 appeared (R3C-03).
+      await page.waitForTimeout(900);
       await page.locator('[data-screen="S43"] [data-value="fine"]').click();
       await expect(page.locator('[data-screen="S38b"]')).toBeVisible();
     },
@@ -302,7 +304,7 @@ export const SAFETY_STATES: SafetyState[] = [
   },
   {
     name: "S42-rest-after-tired",
-    open: { state: { kind: "stopDone", i: 0, restSec: 60, reason: "stopped_symptom" } },
+    open: { state: { kind: "stopDone", i: 0, restSec: 60, reason: "stopped_symptom", option: "tired" } },
     runMs: 5_000,
   },
   { name: "S42-by-choice", open: { state: { kind: "stopDone", i: 0, restSec: 0, reason: "by_choice" } } },
@@ -342,7 +344,7 @@ export const SAFETY_STATES: SafetyState[] = [
   },
   {
     name: "S44-go-on-after-alarm",
-    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: true } },
+    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true } },
   },
   {
     name: "S45-alarm-booth",

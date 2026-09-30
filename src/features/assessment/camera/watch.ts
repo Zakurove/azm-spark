@@ -7,7 +7,6 @@
  */
 import { useEffect, useRef } from "react";
 import type { FlowEvent, FlowModel } from "../flowMachine";
-import { noteFine } from "../safety/timing";
 import { existingController } from "./registry";
 import { useCameraSession } from "./session";
 
@@ -22,10 +21,7 @@ export function useCameraWatch(model: FlowModel, dispatch: (e: FlowEvent) => voi
   const session = useCameraSession((f) => {
     const { ctrl: c, dispatch: d } = ref.current;
     if (!c) return;
-    for (const e of c.watch(f, f.t).events) {
-      if (e.type === "FINE") noteFine(e.via);
-      d(e);
-    }
+    for (const e of c.watch(f, f.t).events) d(e);
   }, !!ctrl);
   return !!ctrl && session.status !== "error";
 }

@@ -12,14 +12,16 @@
  *      hand) comes from the camera. At 7 s a soft chime and the cue again; at 15 s the alarm (S45). The
  *      15 s ring sits in the top row. Initial focus on the question, never on a button.
  * S44  After "I am fine" from a test, or after the alarm (then 997 comes first, with the 64 px number):
- *      redo after a rest (only after an attempt in progress), skip this test, I need help (the alarm),
- *      and at the phone "I need to stop" (the stop list). Answers commit at once. One 30 s no answer
- *      timer after a camera fine (O34-1 (6)) or after the alarm runs the check in again over it.
+ *      redo after a rest (only after an attempt in progress, never after sway or the alarm, R3C-02,
+ *      R3C-04), skip this test, I need help (the alarm), and at the phone "I want to stop" (the stop
+ *      list). Answers commit at once. One silent 30 s no answer timer after a camera fine (O34-1 (6))
+ *      or after the alarm (R3C-01) runs the check in again over it; a 997 press ends it, and it pauses
+ *      while the page is hidden.
  * S45  A loud repeating tone at full element volume whatever the Sound setting, faded in over 3 s,
  *      vibration on Android; the heading is the first sentence of scr_no_response (help variant: "Get
  *      help now", O34-5); 997 first with the 64 px number; the body; the 120 px «أنا بخير» button, the
- *      only touch that silences it (never the second tap of a double tap that opened the alarm). Any
- *      other touch does nothing. 997 stops the tone and opens the dialer; the screen stays. At the
+ *      only touch that silences it, and only from a press that began 800 ms or more after the screen
+ *      appeared (R3C-03), as on the «أنا بخير» of S43. Any other touch does nothing. 997 stops the tone and opens the dialer; the screen stays. At the
  *      booth the staff line shows; the tone is the staff alert.
  *
  * Every answer and STOP stays on screen without scrolling (useFoldFit): a person 2 m away cannot scroll.
@@ -50,7 +52,7 @@ import {
 } from "./hooks";
 import { AnswerZones, BigNumber, CountdownRing, SentenceStack, StopButton, useFocusOnMount } from "./parts";
 import { copyLine, cueSpeech } from "./speech";
-import { cameraFine, lastFineVia, noteFine, SAFETY_TIMING } from "./timing";
+import { SAFETY_TIMING } from "./timing";
 
 /**
  * The top row of a stage overlay: the booth badge (every screen in booth mode, S57), the check in's
@@ -93,14 +95,6 @@ const watching = (s: ScreenProps["model"]["state"]) => cameraRunning(s) || s.kin
 
 /* ------------------------------------------------------------------ S43 */
 
-/**
- * The S44 timer after a check in or an alarm (O34-1 (6)): one extra 30 s no answer timer after a camera
- * fine, and (SPEC-GAP: go-on-after-alarm) one after the alarm, as the person was unresponsive a moment
- * ago. When it runs out the check in runs again over S44 and gives it back after "I am fine"; it runs
- * once per check in episode (reset when a check in opens over the test, not over S44, or the alarm).
- */
-let goOnTimerUsed = false;
-
 export function CheckIn({ model, dispatch }: ScreenProps) {
   const ui = useCheckUi();
   const { lang } = ui;
@@ -112,10 +106,9 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
   const seq = useSpeechSequence([cueSpeech(view.cue, lang, "safety")], { key: `S43:${lang}`, delayMs: 0 });
   useWakeLock(true);
   const left = useCountdown(SAFETY_TIMING.checkInAlarmMs);
-  const o = model.overlay?.kind === "checkIn" ? model.overlay : null;
-  useEffect(() => {
-    if (o?.resume?.kind !== "goOn") goOnTimerUsed = false;
-  }, []);
+  // «أنا بخير» counts only from a press that began 800 ms or more after S43 appeared, whatever opened
+  // it: a check in can appear under a finger already moving toward a control of S34 (R3C-03).
+  const armed = useArmedPress(SAFETY_TIMING.fineArmMs, { always: true });
 
   // 7 s: a soft chime (Sound setting) and the cue again; 15 s: the alarm (S45), 4.8.
   const seqRef = useLatest(seq);
@@ -176,6 +169,7 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
               icon: "hand-raise",
               commitAtOnce: true,
               large: true,
+              guard: armed,
             },
             {
               value: "stop",
@@ -191,7 +185,6 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
             },
           ]}
           onAnswer={(v) => {
-            if (v === "fine") noteFine("button");
             dispatch(
               v === "fine"
                 ? { type: "FINE", via: "button" }
@@ -217,29 +210,51 @@ export function GoOn({ model, dispatch }: ScreenProps) {
   const titleId = useId();
   const root = useRef<HTMLDivElement>(null);
   const fit = useFoldFit(root, 5, `S44:${lang}:${afterAlarm}:${o?.canRedo}:${ui.online}`);
+  // Opened by a fine tap on S43 or S45: a press within 600 ms is ignored, as on S41 (R3C-03 (6)).
+  const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
   useWakeLock(true);
   // The question is captioned, and said where it has a voice, as every question asked where the person
   // sits (principle 4). It is the heading, so the caption strip does not repeat it.
   useSpeechSequence([{ ...copyLine(lang, t(lang, "assessment.goOn.title")), onScreen: true }], {
     key: `S44:${lang}`,
   });
-  // O34-1 (6): one extra 30 s no answer timer after a camera fine, and one after the alarm; when it runs
-  // out the check in runs again over S44 (the flow gives S44 back after "I am fine").
-  const [timerOn] = useState(() => !goOnTimerUsed && (afterAlarm || cameraFine(lastFineVia() ?? undefined)));
+  // O34-1 (6), R3C-01: one extra 30 s no answer timer after a camera fine and after the alarm (the flow
+  // sets `timer`, once per episode). When it runs out the check in runs again over S44, which the flow
+  // gives back after "I am fine" with no further timer. It restarts on any input, pauses while the page
+  // is hidden, shows no ring and announces nothing; a press on 997 ends it (O30: no alarm over a call).
+  const [called, setCalled] = useState(false);
   useNoAnswerTimer(
     SAFETY_TIMING.stopListNoAnswerMs,
-    () => {
-      goOnTimerUsed = true;
-      dispatch({ type: "TRIGGER", trigger: "no_answer" });
-    },
-    timerOn,
+    () => dispatch({ type: "TRIGGER", trigger: "no_answer" }),
+    o?.timer === true && !called,
+    { pauseHidden: true },
   );
   const options = [
     ...(o?.canRedo
-      ? [{ value: "redo", label: t(lang, "assessment.goOn.redo"), icon: "refresh", commitAtOnce: true }]
+      ? [
+          {
+            value: "redo",
+            label: t(lang, "assessment.goOn.redo"),
+            icon: "refresh",
+            commitAtOnce: true,
+            guard: armed,
+          },
+        ]
       : []),
-    { value: "skip", label: t(lang, "assessment.goOn.skip"), icon: "arrow-forward", commitAtOnce: true },
-    { value: "help", label: t(lang, "assessment.checkin.needHelp"), icon: "phone-call", commitAtOnce: true },
+    {
+      value: "skip",
+      label: t(lang, "assessment.goOn.skip"),
+      icon: "arrow-forward",
+      commitAtOnce: true,
+      guard: armed,
+    },
+    {
+      value: "help",
+      label: t(lang, "assessment.checkin.needHelp"),
+      icon: "phone-call",
+      commitAtOnce: true,
+      guard: armed,
+    },
   ];
   return (
     <div
@@ -253,7 +268,7 @@ export function GoOn({ model, dispatch }: ScreenProps) {
     >
       <CheckShell exit={false} sound>
         {afterAlarm && (
-          <div className="safety-call-first">
+          <div className="safety-call-first" onClickCapture={() => setCalled(true)}>
             <BigNumber />
             <CallLink number="997" label={emergencyCallButton(lang).label} />
           </div>
@@ -274,7 +289,9 @@ export function GoOn({ model, dispatch }: ScreenProps) {
         <button
           type="button"
           className="check-text-button safety-need-stop"
-          onClick={() => dispatch({ type: "WANT_STOP" })}
+          onClick={(e) => {
+            if (armed(e)) dispatch({ type: "WANT_STOP" });
+          }}
         >
           {t(lang, "assessment.goOn.stop")}
         </button>
@@ -300,13 +317,10 @@ export function Alarm({ model, dispatch }: ScreenProps) {
   const [called, setCalled] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const fit = useFoldFit(stage, 5, `S45:${lang}:${help}:${ui.booth}:${ui.sound.on}:${ui.online}`);
-  // A double tap on «أحتاج مساعدة» (S43) must never count as fine here: a press on «أنا بخير» within
-  // 800 ms of opening, near the press that opened the alarm, is ignored (DoD; touch adjustment can
-  // snap that second tap onto this button).
-  const armed = useArmedPress(SAFETY_TIMING.fineArmMs, SAFETY_TIMING.armRadiusPx);
-  useEffect(() => {
-    goOnTimerUsed = false;
-  }, []);
+  // A double tap on «أحتاج مساعدة» (S43) must never count as fine here, nor a press that was already
+  // on its way when the alarm appeared: «أنا بخير» counts only from a press that began 800 ms or more
+  // after S45 appeared, anywhere on the button, whatever opened it (R3C-03; the DoD).
+  const armed = useArmedPress(SAFETY_TIMING.fineArmMs, { always: true });
   return (
     <div
       ref={stage}
@@ -352,7 +366,6 @@ export function Alarm({ model, dispatch }: ScreenProps) {
           onClick={(e) => {
             if (!armed(e)) return;
             tone.stop();
-            noteFine("button");
             dispatch({ type: "FINE", via: "button" });
           }}
         >

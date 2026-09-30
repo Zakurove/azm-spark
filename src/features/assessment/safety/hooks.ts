@@ -301,19 +301,31 @@ export function useWakeLock(active = true): void {
 /* ------------------------------------------------------------------ timers */
 
 /**
- * A no answer timer (S41 30 s, S38b 30 s): `onExpire` runs once `ms` pass with no touch, scroll, key
- * press or focus change by the person (each restarts it, Q31 (2)). `restart()` restarts it (Listen to
- * the choices). Off while `enabled` is false.
+ * A no answer timer (S41 30 s, S38b 30 s, S44 30 s): `onExpire` runs once `ms` pass with no touch,
+ * scroll, key press or focus change by the person (each restarts it, Q31 (2)). `restart()` restarts it
+ * (Listen to the choices). Off while `enabled` is false. With `pauseHidden` it pauses while the page is
+ * hidden and resumes with the time left (the S44 timer, R3C-01 (7)).
  */
-export function useNoAnswerTimer(ms: number, onExpire: () => void, enabled: boolean): { restart(): void } {
+export function useNoAnswerTimer(
+  ms: number,
+  onExpire: () => void,
+  enabled: boolean,
+  opts: { pauseHidden?: boolean } = {},
+): { restart(): void } {
   const expire = useLatest(onExpire);
   const enabledRef = useLatest(enabled);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const restart = useCallback(() => {
+  /** When the running timer ends (epoch ms), and the time left while the page is hidden. */
+  const endsAt = useRef(0);
+  const left = useRef<number | null>(null);
+  const start = useCallback((after: number) => {
     clearTimeout(timer.current);
+    left.current = null;
     if (!enabledRef.current) return;
-    timer.current = setTimeout(() => expire.current(), ms);
-  }, [ms]);
+    endsAt.current = Date.now() + after;
+    timer.current = setTimeout(() => expire.current(), after);
+  }, []);
+  const restart = useCallback(() => start(ms), [ms, start]);
 
   useEffect(() => {
     if (!enabled) {
@@ -327,9 +339,18 @@ export function useNoAnswerTimer(ms: number, onExpire: () => void, enabled: bool
     // or goes, and that must never hold the check in back.
     const events = ["pointerdown", "keydown", "focusin", "wheel", "touchmove"] as const;
     for (const e of events) window.addEventListener(e, restart, { capture: true, passive: true });
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        if (left.current !== null) return;
+        clearTimeout(timer.current);
+        left.current = Math.max(0, endsAt.current - Date.now());
+      } else if (left.current !== null) start(left.current);
+    };
+    if (opts.pauseHidden) document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearTimeout(timer.current);
       for (const e of events) window.removeEventListener(e, restart, { capture: true });
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [enabled, restart]);
 
@@ -372,29 +393,34 @@ if (typeof document !== "undefined")
 const OPENER_MS = 1000;
 
 /**
- * Answers of a screen opened by a press arm only for a new, deliberate press (S41, S45). A double tap
- * on STOP or «أحتاج مساعدة» sends its second tap to whatever now sits under the finger, and a tremor or
- * an anxious press is enough for that. So a press counts only when its pointerdown started on the same
- * control after the screen opened and, when the screen was opened by a press, not within `minMs` of
- * opening at a point within `radius` px of that press (Infinity: anywhere). Keyboard, switch and
- * screen reader activation (a click with no pointer) always counts.
+ * Answers arm only for a new, deliberate press. A double tap on STOP or «أحتاج مساعدة» sends its second
+ * tap to whatever now sits under the finger, and a tremor or an anxious press is enough for that; a
+ * screen that appears under a finger already moving toward a control does the same. So a press counts
+ * only when its pointerdown started on the same control after the screen appeared, and not within
+ * `minMs` of it appearing, anywhere on the control:
+ *   - `always` (the «أنا بخير» of S43 and S45, R3C-03): whatever opened the screen (a press, the 15 s
+ *     timeout, a camera trigger);
+ *   - otherwise (S41, and S44 when a fine tap opened it): only when a press opened the screen.
+ * Keyboard, switch and screen reader activation (a click with no pointer) always counts. An ignored
+ * press does nothing visible.
  *
  * Returns a check for a control's click handler: `if (!armed(e)) return;`.
  */
-export function useArmedPress(minMs: number, radius = Infinity) {
+export function useArmedPress(minMs: number, opts: { always?: boolean } = {}) {
   const openedAt = useRef(0);
-  const opener = useRef<Down | null>(null);
+  const byPress = useRef(false);
   const down = useRef<(Down & { target: EventTarget | null }) | null>(null);
   useLayoutEffect(() => {
     const now = performance.now();
     openedAt.current = now;
-    opener.current = lastDown && now - lastDown.t < OPENER_MS ? lastDown : null;
+    byPress.current = !!lastDown && now - lastDown.t < OPENER_MS;
     const onDown = (e: PointerEvent) => {
       down.current = { x: e.clientX, y: e.clientY, t: performance.now(), target: e.target };
     };
     document.addEventListener("pointerdown", onDown, true);
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, []);
+  const always = opts.always === true;
   return useCallback(
     (e: { detail: number; currentTarget: EventTarget | null }): boolean => {
       if (e.detail === 0) return true;
@@ -402,13 +428,10 @@ export function useArmedPress(minMs: number, radius = Infinity) {
       const own = e.currentTarget;
       if (!d || !(d.target instanceof Node) || !(own instanceof Node) || !own.contains(d.target))
         return false;
-      const o = opener.current;
-      if (!o) return true;
-      const early = d.t - openedAt.current < minMs;
-      const near = Math.hypot(d.x - o.x, d.y - o.y) <= radius;
-      return !(early && near);
+      if (!always && !byPress.current) return true;
+      return d.t - openedAt.current >= minMs;
     },
-    [minMs, radius],
+    [minMs, always],
   );
 }
 

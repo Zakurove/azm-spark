@@ -95,7 +95,7 @@ const SAFETY: { name: string; open: ModelOptions; screen: string; signedIn?: boo
   },
   {
     name: "S44-go-on-after-alarm",
-    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: true } },
+    open: { state: MEASURE, overlay: { kind: "goOn", afterAlarm: true, canRedo: false, timer: true } },
     screen: "S44",
   },
   {

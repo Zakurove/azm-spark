@@ -97,6 +97,11 @@ export interface ZoneOption {
   speech?: SpeechLine;
   /** The largest zone (the fine zone of S43). */
   large?: boolean;
+  /**
+   * A press guard (useArmedPress): a press it refuses does nothing visible (the «أنا بخير» of S43,
+   * R3C-03; the answers of S44 opened by a press).
+   */
+  guard?: (e: { detail: number; currentTarget: EventTarget | null }) => boolean;
 }
 
 /** Up to three words: the zone label at 40 px; longer data labels at 28 px, wrapping (4.7). */
@@ -131,8 +136,9 @@ export function AnswerZones({
   const committed = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const pick = (o: ZoneOption) => {
+  const pick = (o: ZoneOption, e: { detail: number; currentTarget: EventTarget | null }) => {
     if (committed.current) return;
+    if (o.guard && !o.guard(e)) return;
     clearTimeout(timer.current);
     if (o.commitAtOnce) {
       committed.current = true;
@@ -158,7 +164,7 @@ export function AnswerZones({
           className={`safety-zone${o.large ? " is-large" : ""}`}
           aria-pressed={chosen === o.value}
           data-value={o.value}
-          onClick={() => pick(o)}
+          onClick={(e) => pick(o, e)}
         >
           <span className="safety-zone-mark" aria-hidden="true">
             <span className="safety-zone-number">{localizeDigits(lang, String(i + 1))}</span>

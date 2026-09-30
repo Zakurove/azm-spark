@@ -223,6 +223,11 @@ export type AlarmKind = "no_response" | "help_requested";
 export interface AlarmBody {
   kind: AlarmKind;
   testId?: TestId;
+  /**
+   * A second no response alarm in the check ends testing for today (R3C-02 (2)): the server closes the
+   * check as a stop that ends it would, with the stop_symptom next day lock.
+   */
+  endsCheck?: true;
 }
 
 export interface ResumeOk {

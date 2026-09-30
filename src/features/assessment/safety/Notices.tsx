@@ -2,11 +2,12 @@
  * S42 "That is fine" after a stop, S46 the skip notice and S46b next test or results now (UX spec S42,
  * S46, S46b; council O43, Q19 (7), P6). Screens at the phone, in the check shell.
  *
- * S42  After a stop for tiredness, choice or something else: the reason in plain words; after tired
- *      and other a one minute rest (check_rest_minute) with a ring, during which "Start the next test
- *      now" stays enabled (primaries are never disabled). End today's check goes to the end question.
- *      "Change my reason" returns to the stop list. The stopped test is measured again at the next
- *      check (O43: no same day redo).
+ * S42  After a stop for tiredness, choice or something else: the reason in plain words (after tired its
+ *      own line, R3C-20); after tired and other a one minute rest (check_rest_minute) with a ring,
+ *      during which "Start the next test now" stays enabled (primaries are never disabled). End
+ *      today's check goes to the end question. "Change my reason" returns to the stop list. The
+ *      stopped test is measured again at the next check (O43: no same day redo). After a second no
+ *      response alarm no next test is offered (R3C-02 (2)).
  * S46  Confirms a skip in plain words: the title by what skipped it, one row per skipped test and side
  *      with its reason. Continue goes on (the flow's continuation).
  * S46b A guest after each test: two equally prominent buttons, the next test's name under the first.
@@ -36,7 +37,8 @@ export function StopDone({ model, dispatch }: ScreenProps) {
   const left = useCountdown(totalMs, rest);
   useSpeechSequence(rest ? [cueSpeech("check_rest_minute", lang)] : [], { key: `S42:${rest}:${lang}` });
   if (!s) return null;
-  const last = isLastTest(model.data, s.i);
+  // Testing ended for today (a second no response alarm): the check ends through S49 (R3C-02 (2)).
+  const last = isLastTest(model.data, s.i) || model.data.testingEnded;
   const resting = rest && left > 0;
   const primary = last
     ? t(lang, "assessment.stopDone.finish")
@@ -45,10 +47,15 @@ export function StopDone({ model, dispatch }: ScreenProps) {
       : t(lang, "assessment.stopDone.next");
   // S42 follows only a stop the person chose (tired, something else, just wanted to stop). The data
   // stores tired and something else as stopped_symptom, whose text says we stopped for safety; here the
-  // person stopped, so the line is the by_choice text. SPEC-GAP: s42-reason-line (a data request for a
-  // stopped_tired reason: «توقفت لتستريح، ولم تُحفظ نتيجة هذا الاختبار.»). The stored reason is unchanged.
+  // person stopped. After tired the display only line stopped_tired (R3C-20); after something else the
+  // by_choice text. The stored reason is unchanged.
   const shownReason = s.reason === "stopped_symptom" ? "by_choice" : s.reason;
-  const reason = shownReason in CHECK_DATA.reasons ? reasonText(shownReason as ReasonId, lang) : null;
+  const reason =
+    s.option === "tired"
+      ? t(lang, "assessment.stopDone.tired")
+      : shownReason in CHECK_DATA.reasons
+        ? reasonText(shownReason as ReasonId, lang)
+        : null;
   const seconds = Math.ceil(left / 1000);
   return (
     <CheckShell
@@ -76,7 +83,9 @@ export function StopDone({ model, dispatch }: ScreenProps) {
               size={96}
               label={<bdi>{bidiText(lang, String(seconds))}</bdi>}
             />
-            <p className="check-body">{t(lang, "assessment.stopDone.rest")}</p>
+            <p className="check-body">
+              {t(lang, last ? "assessment.stopDone.restLast" : "assessment.stopDone.rest")}
+            </p>
           </section>
         )}
         <button

@@ -62,7 +62,7 @@ npm test           # 61 automated tests (engine, planner, weekly plan, API)
 - `src/engine` Pose pipeline: MediaPipe Pose Landmarker (vendored in `public/models` and `public/wasm`), One Euro filtering, personal calibration, repetition state machine, form rules and cue orchestration.
 - `src/medical` Condition presets, plan generation with review gates, deterministic safety filter for the weekly plan, exercise library (`src/exercises/library.json`).
 - `server` Dependency free Node server: account sessions (scrypt, HttpOnly cookies, same origin checks, rate limits), health profiles, plans, records, medical report extraction and weekly plan arrangement with strict JSON schemas, SQLite storage.
-- `public/cues` Bundled Arabic and English coaching voice (generated at build time with `scripts/generate-voice.mjs`; the browser never contacts a speech service).
+- `public/cues/packs` Bundled Arabic and English coaching voice packs, chosen in the coach settings (rendered ahead of time with `scripts/generate-voice.mjs`, see `scripts/VOICE.md`; the browser never contacts a speech service).
 - `tests` Vitest suites. `scripts` build, voice, screenshot and QA utilities.
 
 ## Medical scope

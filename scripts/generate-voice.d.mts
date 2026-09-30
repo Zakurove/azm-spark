@@ -6,7 +6,42 @@ export interface VoiceLine {
   enTts?: string;
 }
 export declare const MODEL: string;
-export declare const DEFAULT_VOICES: { ar: string; en: string };
+export declare const PACK_PROVIDER: string;
+export interface Voices {
+  ar: string;
+  en: string;
+}
+export interface PackEntry {
+  id: string;
+  label: string;
+  provider: string;
+  voices: Voices;
+  cueCount: number;
+  complete: boolean;
+}
+export interface PackIndex {
+  default: string;
+  packs: PackEntry[];
+}
+export declare function parseArgs(argv: string[]): {
+  pack: string;
+  voices: { ar: string | null; en: string | null };
+  only: string[] | null;
+  model: string;
+  dryRun: boolean;
+  verify: string | null;
+};
+export declare function packVoices(
+  existing: Pick<PackEntry, "id" | "provider" | "voices"> | undefined,
+  voices: { ar: string | null; en: string | null },
+): Voices;
+export declare function packEntry(
+  id: string,
+  voices: Voices,
+  ids: string[],
+  has: (lang: "ar" | "en", id: string) => boolean,
+): PackEntry;
+export declare function withPack(index: PackIndex | null, entry: PackEntry): PackIndex;
 export declare const INSTRUCTIONS: { ar: string; en: string; count: string };
 export declare function styleFor(lang: "ar" | "en", id: string): string;
 export declare function inputFor(lang: "ar" | "en", id: string, line: VoiceLine): string;

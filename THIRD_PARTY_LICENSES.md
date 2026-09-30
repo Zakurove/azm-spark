@@ -8,10 +8,10 @@
 
 ## Packaged speech recordings
 
-The MP3 cues in `public/cues` are synthetic speech generated at build time from the public AZM coaching script in `src/app/voice-script.json`. They are not recordings of participants or of any real person, and the browser never contacts a speech service at runtime. Provenance, including the provider, model and voice of every cue, is recorded in `public/cues/manifest.json`.
+The MP3 cues in `public/cues/packs` are synthetic speech generated at build time from the public AZM coaching script in `src/app/voice-script.json`. They are not recordings of participants or of any real person, and the browser never contacts a speech service at runtime. Each voice pack records its provenance, including the provider, model and voice of its cues, in `public/cues/packs/<pack>/manifest.json`; `public/cues/packs/index.json` lists the installed packs.
 
-- **Current cues:** generated with the OpenAI speech API (`gpt-4o-mini-tts`, voice `ash`).
-- **Generator from Azm 6.0 on:** `scripts/generate-voice.mjs` now uses Google's Gemini API text to speech (`gemini-3.8-flash-tts`, prebuilt voices), subject to the Gemini API Additional Terms of Service (https://ai.google.dev/gemini-api/terms). Only the coaching script text is sent. The returned audio is trimmed, loudness normalized and encoded to MP3 locally with ffmpeg. This applies to each cue once it is regenerated; until then the cue keeps its OpenAI provenance, and the manifest records which provider produced each file.
+- **Pack `openai-ash`:** generated with the OpenAI speech API (`gpt-4o-mini-tts`, voice `ash`).
+- **Generator from Azm 6.0 on:** `scripts/generate-voice.mjs` renders new packs with Google's Gemini API text to speech (`gemini-3.8-flash-tts`, prebuilt voices), subject to the Gemini API Additional Terms of Service (https://ai.google.dev/gemini-api/terms). Only the coaching script text is sent. The returned audio is trimmed, loudness normalized and encoded to MP3 locally with ffmpeg.
 
 ## Demo video
 

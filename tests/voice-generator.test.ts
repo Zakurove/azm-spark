@@ -5,16 +5,22 @@
  * the pace gate and the transcript gate). No audio is rendered here.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { existsSync, readdirSync } from "node:fs";
 import {
   arLetters,
   INSTRUCTIONS,
   inputFor,
   PACE_GATE,
   paceGate,
+  packEntry,
+  packVoices,
+  parseArgs,
   spokenWords,
   styleFor,
   transcriptGate,
+  withPack,
 } from "../scripts/generate-voice.mjs";
+import index from "../public/cues/packs/index.json";
 import { CuePlayer } from "../src/app/audio";
 import voiceScript from "../src/app/voice-script.json";
 
@@ -159,5 +165,84 @@ describe("speech fallback", () => {
     pending[0].onerror();
     expect(await run).toBe(true);
     expect(spoken).toEqual([script.preview.enTts]);
+  });
+});
+
+describe("voice packs from the generator (D-016 item 5)", () => {
+  it("renders into a named pack, with voices, a subset and a dry run", () => {
+    expect(
+      parseArgs(["--pack", "gemini-achird", "--voice-ar", "Achird", "--voice-en", "Achird", "--dry-run"]),
+    ).toMatchObject({
+      pack: "gemini-achird",
+      voices: { ar: "Achird", en: "Achird" },
+      dryRun: true,
+      only: null,
+    });
+    expect(parseArgs(["--pack", "gemini-charon", "--only", "preview, check_go"]).only).toEqual([
+      "preview",
+      "check_go",
+    ]);
+    expect(() => parseArgs(["--voice-ar", "Achird"])).toThrow(/--pack/);
+    expect(() => parseArgs(["--pack", "Gemini Achird"])).toThrow(/pack id/);
+    expect(() => parseArgs(["--pack", "x", "--out", "public/cues"])).toThrow(/unknown option/);
+  });
+
+  it("keeps one voice per pack: a new pack names both, an existing pack keeps its own", () => {
+    expect(packVoices(undefined, { ar: "Charon", en: "Charon" })).toEqual({ ar: "Charon", en: "Charon" });
+    expect(() => packVoices(undefined, { ar: "Charon", en: null })).toThrow(/--voice-ar and --voice-en/);
+    const achird = {
+      id: "gemini-achird",
+      label: "Achird",
+      provider: "Google Gemini",
+      voices: { ar: "Achird", en: "Achird" },
+    };
+    expect(packVoices(achird, { ar: null, en: null })).toEqual({ ar: "Achird", en: "Achird" });
+    expect(() => packVoices(achird, { ar: "Charon", en: null })).toThrow(/new --pack/);
+    expect(() => packVoices(index.packs[0], { ar: null, en: null })).toThrow(/new --pack/);
+  });
+
+  it("lists a pack with its count of lines in both languages and whether it is complete", () => {
+    const has = (lang: string, id: string) => id !== "b" || lang === "ar";
+    expect(packEntry("gemini-schedar", { ar: "Schedar", en: "Schedar" }, ["a", "b", "c"], has)).toEqual({
+      id: "gemini-schedar",
+      label: "Schedar",
+      provider: "Google Gemini",
+      voices: { ar: "Schedar", en: "Schedar" },
+      cueCount: 2,
+      complete: false,
+    });
+    expect(packEntry("mix", { ar: "Algieba", en: "Achird" }, ["a"], () => true)).toMatchObject({
+      label: "Algieba / Achird",
+      complete: true,
+    });
+  });
+
+  it("adds a pack to the index, replaces it in place, and keeps the default", () => {
+    const entry = (id: string, cueCount: number) => ({ id, cueCount }) as never;
+    const once = withPack(index, entry("gemini-achird", 1));
+    expect(once.default).toBe("openai-ash");
+    expect(once.packs.map((p) => p.id)).toEqual(["openai-ash", "gemini-achird"]);
+    const twice = withPack(once, entry("gemini-achird", 108));
+    expect(twice.packs.map((p) => [p.id, p.cueCount])).toEqual([
+      ["openai-ash", 35],
+      ["gemini-achird", 108],
+    ]);
+    expect(withPack(null, entry("gemini-charon", 1)).default).toBe("gemini-charon");
+  });
+
+  it("the installed index matches the packs on disk", () => {
+    const ids = Object.keys(script);
+    expect(index.packs.map((p) => p.id)).toContain(index.default);
+    for (const pack of index.packs) {
+      const dir = `public/cues/packs/${pack.id}`;
+      const files = (lang: string) => new Set(readdirSync(`${dir}/${lang}`));
+      const [ar, en] = [files("ar"), files("en")];
+      // Every pack carries the welcome, the coach settings sample.
+      expect(ar.has("preview.mp3") && en.has("preview.mp3"), pack.id).toBe(true);
+      expect(existsSync(`${dir}/manifest.json`), pack.id).toBe(true);
+      const count = ids.filter((id) => ar.has(`${id}.mp3`) && en.has(`${id}.mp3`)).length;
+      expect(pack.cueCount, pack.id).toBe(count);
+      expect(pack.complete, pack.id).toBe(count === ids.length);
+    }
   });
 });

@@ -1,14 +1,20 @@
-// Regenerates the bundled coaching cues with Google's Gemini text to speech (gemini-3.8-flash-tts).
+// Renders a voice pack of the coaching cues with Google's Gemini text to speech (gemini-3.8-flash-tts).
 // Build-time only: the key comes from the environment or .env.local, only the public coaching
-// script is sent, and the browser never contacts a speech service at runtime.
+// script is sent, and the browser never contacts a speech service at runtime. How to: scripts/VOICE.md.
 //
-// Usage: node scripts/generate-voice.mjs [--voice-ar NAME] [--voice-en NAME] [--only id1,id2]
-//                                        [--out DIR] [--model ID] [--dry-run] [--verify [MODEL]]
+// Usage: node scripts/generate-voice.mjs --pack ID [--voice-ar NAME --voice-en NAME] [--only id1,id2]
+//                                        [--model ID] [--dry-run] [--verify [MODEL]]
 // Needs GEMINI_API_KEY (environment or .env.local) and ffmpeg on PATH. The key is never printed.
+//
+// A pack is one voice per language: public/cues/packs/<pack>/{ar,en}/<cue>.mp3 with its provenance in
+// <pack>/manifest.json. A new pack names both voices; a later run on the same pack keeps them. Every
+// pack carries the welcome (preview), the sample the coach settings play. After a run the pack is
+// listed in public/cues/packs/index.json (its line count and whether it is complete); the "default"
+// there is edited by hand. The app plays a line missing from a pack from the default pack.
 //
 // Pipeline per cue: Gemini returns 24 kHz 16-bit mono WAV → ffmpeg trims leading and trailing
 // silence gently, normalizes loudness (EBU R128, two pass, -16 LUFS integrated, -1.5 dBTP) and
-// encodes MP3 (mono, 44.1 kHz, 64 kbps) under the same file names in <out>/{ar,en}.
+// encodes MP3 (mono, 44.1 kHz, 64 kbps).
 // Input text: arTts ?? ar in Arabic, enTts ?? en in English (a text used only for speech, such as
 // the welcome that says the brand name clearly).
 //
@@ -18,6 +24,7 @@
 // read faster than 6.3 letters per second. A failed render is tried once more, then reported; the
 // cue already on disk is left as it was. Each verified cue costs one extra transcription call.
 import {readFile,writeFile,mkdir,mkdtemp,rm,rename,copyFile} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {tmpdir} from 'node:os';
@@ -30,9 +37,9 @@ const ROOT=fileURLToPath(new URL('..',import.meta.url));
 export const PROVIDER='Google Gemini API text to speech';
 export const MODEL='gemini-3.8-flash-tts';
 export const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/interactions';
-// Featured prebuilt voices (both male, low pitch in Google's voice library). Provisional until
-// the voice audition is signed off; override per run with --voice-ar / --voice-en.
-export const DEFAULT_VOICES={ar:'Algieba',en:'Achird'};
+export const PACKS_DIR=join(ROOT,'public/cues/packs');
+// The provider named in the pack index (the manifest records PROVIDER in full).
+export const PACK_PROVIDER='Google Gemini';
 // Delivery notes go in speech_metadata.style; the text field is read verbatim. Google advises
 // keeping style short, so each is a single compact brief.
 export const INSTRUCTIONS={
@@ -200,34 +207,74 @@ export async function transcribe({key,audio,mime='audio/wav',lang,model=TRANSCRI
  }
 }
 
-function parseArgs(argv){
- const opts={voices:{...DEFAULT_VOICES},only:null,out:join(ROOT,'public/cues'),model:MODEL,dryRun:false,verify:null};
+export function parseArgs(argv){
+ const opts={pack:null,voices:{ar:null,en:null},only:null,model:MODEL,dryRun:false,verify:null};
  for(let i=0;i<argv.length;i++){
   const a=argv[i],next=()=>{const v=argv[++i];if(!v||v.startsWith('--'))throw new Error(`${a} needs a value`);return v;};
-  if(a==='--voice-ar')opts.voices.ar=next();
+  if(a==='--pack')opts.pack=next();
+  else if(a==='--voice-ar')opts.voices.ar=next();
   else if(a==='--voice-en')opts.voices.en=next();
   else if(a==='--only')opts.only=next().split(',').map(s=>s.trim()).filter(Boolean);
-  else if(a==='--out')opts.out=resolve(next());
   else if(a==='--model')opts.model=next();
   else if(a==='--dry-run')opts.dryRun=true;
   else if(a==='--verify')opts.verify=argv[i+1]&&!argv[i+1].startsWith('--')?argv[++i]:TRANSCRIBE_MODEL;
   else throw new Error(`unknown option ${a}`);
  }
+ if(!opts.pack)throw new Error('--pack ID is required, such as --pack gemini-achird');
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(opts.pack))throw new Error('a pack id is lower case letters and digits joined by single hyphens');
  return opts;
 }
+
+// One voice per pack: a new pack names both voices; an existing pack keeps its own, and only a
+// pack this generator made can be added to.
+export function packVoices(existing,voices){
+ if(!existing){
+  if(!voices.ar||!voices.en)throw new Error('a new pack needs --voice-ar and --voice-en');
+  return {ar:voices.ar,en:voices.en};
+ }
+ const v=existing.voices;
+ if(existing.provider!==PACK_PROVIDER||(voices.ar&&voices.ar!==v.ar)||(voices.en&&voices.en!==v.en))
+  throw new Error(`pack ${existing.id} is ${existing.provider} ar=${v.ar} en=${v.en}; use a new --pack id for other voices`);
+ return {ar:v.ar,en:v.en};
+}
+
+// The pack's line in the index: cueCount counts the script lines it has in both languages.
+export function packEntry(id,voices,ids,has){
+ const cueCount=ids.filter(line=>has('ar',line)&&has('en',line)).length;
+ return {id,label:voices.ar===voices.en?voices.ar:`${voices.ar} / ${voices.en}`,provider:PACK_PROVIDER,voices,cueCount,complete:cueCount===ids.length};
+}
+
+// The index with the pack added (or replaced where it was). The default stays; a first pack is it.
+export function withPack(index,entry){
+ const packs=[...(index?.packs??[])];
+ const at=packs.findIndex(p=>p.id===entry.id);
+ if(at<0)packs.push(entry);else packs[at]=entry;
+ return {default:index?.default??entry.id,packs};
+}
+
+async function readJson(path){try{return JSON.parse(await readFile(path,'utf8'));}catch{return null;}}
 
 async function main(){
  let opts;
  try{opts=parseArgs(process.argv.slice(2));}catch(err){console.error(err.message);process.exit(2);}
  const script=JSON.parse(await readFile(join(ROOT,'src/app/voice-script.json'),'utf8'));
+ const indexPath=join(PACKS_DIR,'index.json');
+ const index=await readJson(indexPath);
+ let voices;
+ try{voices=packVoices(index?.packs?.find(p=>p.id===opts.pack),opts.voices);}catch(err){console.error(err.message);process.exit(2);}
+ const dir=join(PACKS_DIR,opts.pack);
+ const has=(lang,id)=>existsSync(join(dir,lang,`${id}.mp3`));
  const ids=opts.only??Object.keys(script);
  const unknown=ids.filter(id=>!script[id]);
  if(unknown.length){console.error(`unknown cue ids: ${unknown.join(', ')}`);process.exit(2);}
- const jobs=ids.flatMap(id=>['ar','en'].map(lang=>({id,lang,voice:opts.voices[lang],text:inputFor(lang,id,script[id]),style:styleFor(lang,id),path:join(opts.out,lang,`${id}.mp3`)})));
- const writesManifest=resolve(opts.out)===resolve(ROOT,'public/cues');
+ if(!ids.includes('preview')&&!(has('ar','preview')&&has('en','preview'))){
+  ids.unshift('preview');
+  console.log('adding preview: every pack carries the welcome the coach settings play');
+ }
+ const jobs=ids.flatMap(id=>['ar','en'].map(lang=>({id,lang,voice:voices[lang],text:inputFor(lang,id,script[id]),style:styleFor(lang,id),path:join(dir,lang,`${id}.mp3`)})));
 
  if(opts.dryRun){
-  console.log(`${opts.model} via ${ENDPOINT}\nvoices ar=${opts.voices.ar} en=${opts.voices.en}\nout ${opts.out}${writesManifest?' (manifest will be updated)':''}${opts.verify?`\nverify with ${opts.verify}`:''}`);
+  console.log(`${opts.model} via ${ENDPOINT}\npack ${opts.pack}: voices ar=${voices.ar} en=${voices.en}\nout ${dir} (index.json will list it)${opts.verify?`\nverify with ${opts.verify}`:''}`);
   for(const j of jobs)console.log(`${j.path}  [${j.voice}]  ${j.text}`);
   console.log(`${jobs.length} cues, nothing sent (dry run)`);
   return;
@@ -236,8 +283,8 @@ async function main(){
  if(!key){console.error('GEMINI_API_KEY is required (environment or .env.local)');process.exit(1);}
  try{await run('ffmpeg',['-version']);}catch{console.error('ffmpeg is required on PATH');process.exit(1);}
 
- await mkdir(join(opts.out,'ar'),{recursive:true});
- await mkdir(join(opts.out,'en'),{recursive:true});
+ await mkdir(join(dir,'ar'),{recursive:true});
+ await mkdir(join(dir,'en'),{recursive:true});
  const work=await mkdtemp(join(tmpdir(),'azm-voice-'));
  const written=[];let failed=0,halted=false;
  const queue=[...jobs];
@@ -277,22 +324,17 @@ async function main(){
  }finally{await rm(work,{recursive:true,force:true});}
  console.log(`\n${written.length} rendered, ${failed} failed${halted?`, ${queue.length} not attempted`:''}`);
 
- if(writesManifest&&written.length){
+ if(written.length){
   // Per cue provenance survives partial (--only) runs; cues not rendered here keep their record.
-  let prev={};
-  try{prev=JSON.parse(await readFile(join(opts.out,'manifest.json'),'utf8'));}catch{}
-  const cues={};
-  for(const id of Object.keys(script))for(const lang of ['ar','en']){
-   const rec=prev.cues?.[id]?.[lang]??(prev.model?{provider:prev.provider??'OpenAI speech API',model:prev.model,voice:prev.voices?.[lang]}:null);
-   if(rec)(cues[id]??={})[lang]=rec;
-  }
+  const cues=(await readJson(join(dir,'manifest.json')))?.cues??{};
   const generatedAt=new Date().toISOString();
-  for(const j of written)(cues[j.id]??={})[j.lang]={provider:PROVIDER,model:opts.model,voice:j.voice,generatedAt};
-  await writeFile(join(opts.out,'manifest.json'),JSON.stringify({
-   provider:PROVIDER,model:opts.model,endpoint:ENDPOINT,voices:opts.voices,instructions:INSTRUCTIONS,
-   delivery:DELIVERY,generatedAt,cues,script,
+  for(const j of written)(cues[j.id]??={})[j.lang]={model:opts.model,voice:j.voice,generatedAt,text:j.text};
+  await writeFile(join(dir,'manifest.json'),JSON.stringify({
+   provider:PROVIDER,endpoint:ENDPOINT,voices,instructions:INSTRUCTIONS,delivery:DELIVERY,generatedAt,cues,
   },null,2)+'\n');
-  console.log('manifest updated');
+  const entry=packEntry(opts.pack,voices,Object.keys(script),has);
+  await writeFile(indexPath,JSON.stringify(withPack(index,entry),null,2)+'\n');
+  console.log(`pack ${opts.pack}: ${entry.cueCount} of ${Object.keys(script).length} lines${entry.complete?' (complete)':''}; index.json updated`);
  }
  if(failed||halted)process.exit(1);
 }

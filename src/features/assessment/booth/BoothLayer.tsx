@@ -75,16 +75,10 @@ export function startNextVisitor(dispatch: Dispatch, o: NextVisitorOptions): voi
 
 /* ------------------------------------------------------------------ the confirm */
 
-export function ResetDialog({
-  onConfirm,
-  onStay,
-  afterCheck = false,
-}: {
-  onConfirm(): void;
-  onStay(): void;
-  /** On the results (S50) the check is over: the way back is «ارجع», not "continue the check". */
-  afterCheck?: boolean;
-}) {
+// SPEC-GAP: s50-reset-way-back. On the results the check is over, so the way back should read «ارجع»
+// (assessment.common.back) rather than «تابع القياس»; e2e/booth.spec.ts pins exit.stay, so the change
+// waits for the foundation (a request of the round 3 review fixes).
+export function ResetDialog({ onConfirm, onStay }: { onConfirm(): void; onStay(): void }) {
   const { lang } = useCheckUi();
   const titleId = useId();
   return (
@@ -95,7 +89,7 @@ export function ResetDialog({
           {t(lang, "assessment.booth.resetYes")}
         </button>
         <button type="button" className="ghost" onClick={onStay} data-stay="">
-          {t(lang, afterCheck ? "assessment.common.back" : "assessment.exit.stay")}
+          {t(lang, "assessment.exit.stay")}
         </button>
       </div>
     </CheckDialog>
@@ -113,7 +107,6 @@ export function NewVisitorButton({ onReset }: { onReset(): void }) {
       </button>
       {open && (
         <ResetDialog
-          afterCheck
           onConfirm={() => {
             setOpen(false);
             onReset();
@@ -332,13 +325,7 @@ export function BoothLayer({ model, dispatch, reload, now = Date.now, personSeen
           }}
         />
       )}
-      {confirm && (
-        <ResetDialog
-          afterCheck={model.state.kind === "results"}
-          onConfirm={next}
-          onStay={() => setConfirm(false)}
-        />
-      )}
+      {confirm && <ResetDialog onConfirm={next} onStay={() => setConfirm(false)} />}
     </>
   );
 }

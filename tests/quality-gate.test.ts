@@ -381,6 +381,7 @@ describe("QualityMonitor", () => {
     );
     expect(touch.touched).toBe(true);
     expect(touch.issues).toEqual(["touched"]);
+    expect(touch.cue).toBeNull();
     expect(touch.ok).toBe(false);
   });
 
@@ -424,6 +425,7 @@ describe("retry messages", () => {
     for (const id of TEST_IDS) {
       for (const side of ["left", "right", "none"] as const) {
         for (const issue of issues) {
+          if (issue === "touched") continue; // R3C-24: the helper line of the UI, not a check cue
           const cue = retryCue(issue, id, side);
           expect(isCheckCueId(cue)).toBe(true);
           const line = retryLine(issue, id, side);
@@ -443,7 +445,8 @@ describe("retry messages", () => {
     expect(retryCue("not_visible", "arm_curl_30s", "left")).toBe("check_sleeves");
     expect(retryCue("not_visible", "arm_curl_30s", "left", [11])).toBe("check_whole_body");
     expect(retryCue("wrong_view", "shoulder_abduction", "left")).toBe("check_face_phone");
-    expect(retryCue("touched", "chair_stand_30s", "none")).toBe("check_one_person");
+    // R3C-24: no check cue for a touch (the UI speaks the helper line).
+    expect(retryCue("touched", "chair_stand_30s", "none")).toBeNull();
     expect(cueLine("check_one_person").en).toMatch(/no one stands between you and the phone/);
   });
 });

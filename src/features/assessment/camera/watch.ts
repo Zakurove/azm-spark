@@ -18,6 +18,13 @@ export function useCameraWatch(model: FlowModel, dispatch: (e: FlowEvent) => voi
   useEffect(() => {
     ctrl?.sync(model, performance.now());
   }, [model, ctrl]);
+  // A touch restarts the answer stillness window at home (R3C-05).
+  useEffect(() => {
+    if (!ctrl) return;
+    const touched = () => ctrl.answerTouched(performance.now());
+    window.addEventListener("pointerdown", touched, true);
+    return () => window.removeEventListener("pointerdown", touched, true);
+  }, [ctrl]);
   const session = useCameraSession((f) => {
     const { ctrl: c, dispatch: d } = ref.current;
     if (!c) return;

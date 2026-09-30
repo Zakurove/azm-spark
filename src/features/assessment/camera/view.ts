@@ -199,13 +199,14 @@ export function fixOf(
   testId: TestId,
   side: "left" | "right" | "none",
   weaker: Side | null,
-): { fix: FixId; cue: CheckCueId } {
+): { fix: FixId; cue: CheckCueId | null } {
   const arm = testId === "shoulder_abduction" || testId === "arm_curl_30s";
   switch (issue) {
     case "paused":
       return { fix: "paused", cue: "check_one_person" };
     case "touched":
-      return { fix: "touched", cue: "check_one_person" };
+      // R3C-24: the controller speaks and captions assessment.retry.touchedHelper instead.
+      return { fix: "touched", cue: null };
     case "out_of_frame":
       return { fix: "out_of_frame", cue: "check_whole_body" };
     case "wrong_view":

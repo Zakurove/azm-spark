@@ -211,6 +211,36 @@ describe("CheckInDetector", () => {
     expect(detect(still, "trunk", { movement: false })).toEqual([]);
   });
 
+  it("at home in an answer state, sees no movement for 60 s as answer_still, and only when armed (R3C-05)", () => {
+    const still = generate(spec({ fps: 5, durationSec: 62 }));
+    const answer = { movement: false, leftFrame: false, answerStill: true };
+    const events = detect(still, "trunk", answer);
+    expect(events.map((e) => e.trigger)).toEqual(["answer_still"]);
+    expect(events[0].t).toBeGreaterThanOrEqual(60);
+    expect(events[0].t).toBeLessThan(61);
+    // Off by default (the booth row, and the answer states before the grace has passed).
+    expect(detect(still, "trunk", { movement: false, leftFrame: false })).toEqual([]);
+    const moved = generate(
+      spec({
+        fps: 5,
+        durationSec: 62,
+        subject: { motions: [{ kind: "arm_raise", side: "left", peak: 60, start: 30 }] },
+      }),
+    );
+    expect(detect(moved, "trunk", answer)).toEqual([]);
+    // A touch or a zone entry starts the window again.
+    const frames = fixtureFrames(still);
+    const d = new CheckInDetector();
+    d.setReference(checkInReference(frames[0].lm, frames[0].aspect));
+    const out: CheckInTrigger[] = [];
+    for (const f of frames) {
+      if (f.t === 30_000) d.resetAnswerStill();
+      out.push(...d.feed(f.t, f.lm, f.aspect, answer));
+    }
+    expect(out).toEqual([]);
+    expect(CHECKIN_TIMING.answerStillSec).toBe(60);
+  });
+
   it("needs a reference for the hips and sway rules", () => {
     const fx = generate(spec({ subject: { motions: [{ kind: "fall", at: 1 }] } }));
     const d = new CheckInDetector();

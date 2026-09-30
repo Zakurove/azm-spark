@@ -518,15 +518,30 @@ const ARM_POINTS: readonly number[] = [LM.l_elbow, LM.r_elbow, LM.l_wrist, LM.r_
  * The one retry message for a quality issue: a check cue (display text, TTS and English in the
  * check data). On the arm tests an elbow or wrist the camera cannot see usually means a loose
  * sleeve (spec 4.1 and 4.2 setup); any other missing gate landmark means a body part out of the
- * picture. `missing` is the report's list; without it the arm tests assume a sleeve.
+ * picture. `missing` is the report's list; without it the arm tests assume a sleeve. A touch has no
+ * check cue: the UI speaks assessment.retry.touchedHelper to the helper (R3C-24), so it is null.
  */
+export function retryCue(
+  issue: Exclude<QualityIssue, "touched">,
+  testId: TestId,
+  side: TestSide,
+  missing?: readonly number[],
+  weaker?: Side | null,
+): CheckCueId;
 export function retryCue(
   issue: QualityIssue,
   testId: TestId,
   side: TestSide,
   missing?: readonly number[],
   weaker?: Side | null,
-): CheckCueId {
+): CheckCueId | null;
+export function retryCue(
+  issue: QualityIssue,
+  testId: TestId,
+  side: TestSide,
+  missing?: readonly number[],
+  weaker?: Side | null,
+): CheckCueId | null {
   switch (issue) {
     case "not_visible": {
       if (testId !== "shoulder_abduction" && testId !== "arm_curl_30s") return "check_whole_body";
@@ -547,8 +562,9 @@ export function retryCue(
     case "paused":
       return "check_one_person";
     case "touched":
-      // SPEC-GAP: touch-cue. No cue asks a helper not to touch; the one person cue is the closest.
-      return "check_one_person";
+      // R3C-24: the touched retry speaks and captions assessment.retry.touchedHelper, which keeps the
+      // helper's permission to catch a loss of balance; check_one_person is never used for a touch.
+      return null;
   }
 }
 
@@ -559,7 +575,7 @@ export function retryLine(
   side: TestSide,
   missing?: readonly number[],
 ): CueLine {
-  return cueLine(retryCue(issue, testId, side, missing));
+  return cueLine(retryCue(issue, testId, side, missing) ?? "check_try_again");
 }
 
 /* ------------------------------------------------------------- setup check */

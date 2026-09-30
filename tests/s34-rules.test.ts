@@ -223,7 +223,8 @@ describe("retry fixes (S34i)", () => {
       fix: "paused",
       cue: "check_one_person",
     });
-    expect(fixOf("touched", "shoulder_abduction", "left", null).fix).toBe("touched");
+    // R3C-24: a touch speaks the helper line (the UI), never check_one_person.
+    expect(fixOf("touched", "shoulder_abduction", "left", null)).toEqual({ fix: "touched", cue: null });
     expect(fixOf("not_visible", "arm_curl_30s", "left", null)).toEqual({
       fix: "not_visible_arm",
       cue: "check_sleeves",

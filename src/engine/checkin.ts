@@ -53,6 +53,11 @@ export const CHECKIN_TIMING = {
   repeatSec: 7,
   /** One extra no answer timer after a camera fine on S41, S38b or S44 (O34-1 (6)). */
   extraTimerSec: 30,
+  /**
+   * R3C-05: at home, the no movement window of the answer zone states answered from the chair (S29,
+   * S44, S47, S48, S49), the O42 (3) stillness value.
+   */
+  answerStillSec: 60,
 } as const;
 
 /**
@@ -101,6 +106,8 @@ export type CheckInTrigger =
   | "hips_drop"
   | "sway"
   | "no_movement"
+  /** R3C-05: no movement for 60 s in an answer zone state at home. */
+  | "answer_still"
   | "no_answer"
   | "faint_no_answer"
   | "fall_still"
@@ -190,6 +197,12 @@ export interface CheckInFeedOptions {
    * stand ends (O34-6 (3)).
    */
   leftFrame?: boolean;
+  /**
+   * R3C-05, home only: the no movement rule of the answer zone states, with its 60 s window (feed it
+   * from the end of the question's speech plus the 3 s grace; off otherwise, and resetAnswerStill on
+   * a touch or a zone entry).
+   */
+  answerStill?: boolean;
 }
 
 const KEY_POINTS = [LM.nose, 11, 12, 13, 14, 15, 16, 23, 24];
@@ -207,6 +220,7 @@ export class CheckInDetector {
   private clearSince: Record<Timed, number | null> = { left_frame: null, hips_drop: null, sway: null };
   private active = new Set<CheckInTrigger>();
   private track: { t: number; pts: (Pt | null)[] }[] = [];
+  private answerTrack: { t: number; pts: (Pt | null)[] }[] = [];
   private dropNow = false;
   private swayNow = false;
   private readonly tuning: CheckInTuning;
@@ -230,8 +244,15 @@ export class CheckInDetector {
     this.clearSince = { left_frame: null, hips_drop: null, sway: null };
     this.active.clear();
     this.track = [];
+    this.answerTrack = [];
     this.dropNow = false;
     this.swayNow = false;
+  }
+
+  /** A touch or a zone entry: the 60 s of the answer stillness rule start again (R3C-05). */
+  resetAnswerStill(): void {
+    this.answerTrack = [];
+    this.active.delete("answer_still");
   }
 
   /**
@@ -280,6 +301,22 @@ export class CheckInDetector {
         this.active.add("no_movement");
         out.push("no_movement");
       } else if (!still) this.active.delete("no_movement");
+    }
+
+    if (left || !p || opts.answerStill !== true) this.resetAnswerStill();
+    else {
+      this.answerTrack.push({ t, pts: keyPointsOf(p) });
+      const still = stillOver(
+        this.answerTrack,
+        t,
+        CHECKIN_TIMING.answerStillSec * 1000,
+        this.tuning.stillBinSec * 1000,
+        this.tuning.stillTrunks * (ref?.trunk ?? trunkPx(p)),
+      );
+      if (still && !this.active.has("answer_still")) {
+        this.active.add("answer_still");
+        out.push("answer_still");
+      } else if (!still) this.active.delete("answer_still");
     }
     return out;
   }

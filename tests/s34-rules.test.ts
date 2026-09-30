@@ -7,10 +7,12 @@ import { describe, expect, it } from "vitest";
 import { DETAIL_SPEC } from "../server/modules/assessments/validate";
 import { armingFor, camPart, type ArmingInput } from "../src/features/assessment/camera/arming";
 import {
+  ALWAYS_SENTENCE,
   captionOf,
   cueClass,
   CueQueue,
   cueSeverity,
+  sentenceMayHide,
   SPOKEN_EXTRA_MS,
 } from "../src/features/assessment/camera/cues";
 import { RESULT_DETAIL_KEYS } from "../src/features/assessment/camera/payload";
@@ -274,5 +276,35 @@ describe("retry fixes (S34i)", () => {
 describe("the result payload (contract v2 E)", () => {
   it("sends only the detail keys the server checks", () => {
     expect([...RESULT_DETAIL_KEYS].sort()).toEqual(Object.keys(DETAIL_SPEC).sort());
+  });
+});
+
+describe("fit level 3 caption sentence (R3C-16)", () => {
+  const line = (id: Parameters<typeof captionOf>[0], heard = true) => ({ ...captionOf(id, "en"), heard });
+  const on = { voiceMode: true, soundOn: true, large: false };
+
+  it("hides the sentence only while its voice is heard, with a short form, Large captions off", () => {
+    expect(sentenceMayHide(line("test_abd_raise"), on)).toBe(true);
+    expect(sentenceMayHide(line("test_abd_raise", false), on)).toBe(false);
+    expect(sentenceMayHide(line("test_abd_raise"), { ...on, soundOn: false })).toBe(false);
+    expect(sentenceMayHide(line("test_abd_raise"), { ...on, voiceMode: false })).toBe(false);
+    expect(sentenceMayHide(line("test_abd_raise"), { ...on, large: true })).toBe(false);
+    expect(sentenceMayHide({ text: "No short form", severity: "info", heard: true }, on)).toBe(false);
+  });
+
+  it("never hides a safety caption, or a sentence that carries a safety limit its short form lacks", () => {
+    for (const id of ["check_stop_now", "check_urgent_call"] as const)
+      expect(sentenceMayHide(line(id), on), id).toBe(false);
+    for (const id of ALWAYS_SENTENCE) expect(sentenceMayHide(line(id), on), id).toBe(false);
+    expect([...ALWAYS_SENTENCE].sort()).toEqual(
+      [
+        "check_sit_minute",
+        "check_stop_any_time",
+        "test_curl_grip",
+        "test_stand_dizzy",
+        "test_trunk_lean_left",
+        "test_trunk_lean_right",
+      ].sort(),
+    );
   });
 });

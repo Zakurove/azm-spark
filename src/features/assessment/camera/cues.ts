@@ -92,6 +92,36 @@ export interface CaptionLine {
   /** The full display sentence (never the vocalised speech text). */
   text: string;
   severity: CueSeverity;
+  /** The line's voice is playing now (CuePlayer started it and it has not ended). */
+  heard?: boolean;
+}
+
+/**
+ * Cues whose sentence carries a safety limit its short form lacks (R3C-16 (2) (e)): their sentence is
+ * always shown, at every fit level ("Lean left slowly" would lose "only as far as you are sure you
+ * can come back from on your own", "Sit one minute" would lose "then get up slowly").
+ */
+export const ALWAYS_SENTENCE: ReadonlySet<CheckCueId> = new Set<CheckCueId>([
+  "check_stop_any_time",
+  "check_sit_minute",
+  "test_trunk_lean_left",
+  "test_trunk_lean_right",
+  "test_curl_grip",
+  "test_stand_dizzy",
+]);
+
+/**
+ * Fit level 3 of the camera screen (R3C-16): a caption's full sentence may be hidden, leaving its 56 px
+ * short form, only while all of these hold: it has a short form; its voice is actually playing (the
+ * Sound on, voice mode, and the player started it: not blocked, not failed); it is not a safety caption
+ * (safety severity: check_stop_now, check_urgent_call and the check in cues); Large captions is
+ * off; and it is not one of the ALWAYS_SENTENCE cues. When the voice is not heard the caption is the
+ * only channel, so "never truncated" (4.3) holds for exactly those people.
+ */
+export function sentenceMayHide(c: CaptionLine, o: { voiceMode: boolean; soundOn: boolean; large: boolean }) {
+  if (!c.short || c.heard !== true || !o.soundOn || !o.voiceMode || o.large) return false;
+  if (c.severity === "safety") return false;
+  return !(c.cue && (ALWAYS_SENTENCE.has(c.cue) || SAFETY_CUES.has(c.cue)));
 }
 
 export function captionOf(id: CheckCueId, lang: Lang): CaptionLine {

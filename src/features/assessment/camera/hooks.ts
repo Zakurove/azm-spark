@@ -249,13 +249,24 @@ export function useCameraCues(active: boolean): CameraCues {
       // it (sound off, a prompt of a timed trial, or a failed play), so nothing is announced twice.
       if (line) show(line, speak);
       if (!speak) return;
+      const shown = counter.current;
+      // Whether the voice of the caption on screen is playing (R3C-16: its sentence may then give way
+      // at fit level 3), from the moment the player started it until it ends.
+      const heard = (on: boolean) =>
+        setCaption((c) => (c && c.n === shown && c.heard !== on ? { ...c, heard: on } : c));
       // The line lasts until its voice ends (CuePlayer onEnd), not an estimate.
       void player
-        .line(cue as Parameters<CuePlayer["line"]>[0], "safety", () => queue.heardEnd(cue, performance.now()))
+        .line(cue as Parameters<CuePlayer["line"]>[0], "safety", () => {
+          heard(false);
+          queue.heardEnd(cue, performance.now());
+        })
         .then((ok) => {
           failures.current = ok ? 0 : failures.current + 1;
           setBlocked(failures.current >= 2);
-          if (ok) queue.spoken(cue);
+          if (ok) {
+            queue.spoken(cue);
+            heard(true);
+          }
           if (!ok && line) showRef.current(line.text, line.severity, false);
         });
     }, 100);

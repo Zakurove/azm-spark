@@ -288,14 +288,29 @@
   > :is(.s34-row, .s34-side):first-child {
   order: 5;
 }
-/* Fit level 3: the caption keeps its 56 px short form (the voice says the sentence, and Large
-   captions shows it whole); the sentence is kept as the caption's name. Safety captions and Large
-   captions never lose their sentence. The setup video keeps a 96 px strip (4.2). */
+/* Fit level 3 (R3C-16, spec 4.2 and 4.3): the caption keeps its 56 px short form and its sentence may
+   give way only while the voice says it (data-sentence="hide": sentenceMayHide, never a safety
+   caption, never with Large captions, never a cue whose sentence carries a safety limit); the
+   sentence stays the caption's name and a tap replays it. When the sentence stays, the value card's
+   secondary lines give way instead: the side label row, the dots and try text and the time left
+   line. The 2 m values (count, degrees, rings, phase word, go word) and STOP never give way. The
+   setup video keeps a 96 px strip (4.2). */
 .azm-check
   .s34-stage[data-fit="3"]:not(.is-large)
-  .s34-caption:not(.is-safety)
+  .s34-caption[data-sentence="hide"]:not(.is-safety)
   .s34-caption-short
   + .s34-caption-text {
+  display: none;
+}
+.azm-check
+  .s34-stage[data-fit="3"]:has(.s34-caption[data-sentence="keep"] .s34-caption-short + .s34-caption-text)
+  :is(
+    .s34-range > .s34-row-top,
+    .s34-timed > .s34-side,
+    .s34-timed > .s34-line40,
+    .s34-lean-panel > .s34-sides,
+    .s34-try
+  ) {
   display: none;
 }
 /* The at phone buttons side by side (Try now and Skip, Tips and Skip), 56 px each. */

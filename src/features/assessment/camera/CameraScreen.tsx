@@ -566,6 +566,7 @@ export function CameraView(p: CameraViewProps) {
         sound={{ blocked: p.blocked, onUnblock: p.on.unblock }}
         largeCaptions={{ on: large, onToggle: () => setLargeChoice(!large) }}
         caption={caption}
+        voiceMode={model.data.soundMode !== "captionsOnly" && model.data.soundMode !== "screenReader"}
         onReplay={p.on.replay}
         video={video}
         videoMode={videoMode}

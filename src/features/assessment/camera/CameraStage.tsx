@@ -17,13 +17,17 @@ import { bidiText } from "../../../i18n/rich";
 import { SEVERITY_ICON } from "../shared/CaptionBar";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import type { CueSeverity } from "./cues";
+import type { CheckCueId } from "../../../movements/types";
+import { sentenceMayHide, type CueSeverity } from "./cues";
 import "./camera.css";
 
 export interface StageCaption {
   short?: string;
   text: string;
   severity: CueSeverity;
+  /** The cue of the line, and whether its voice is playing now (R3C-16). */
+  cue?: CheckCueId;
+  heard?: boolean;
   /** Changes with every line, so a repeated line is drawn again. */
   n?: number;
   /**
@@ -40,6 +44,8 @@ export interface CameraStageProps {
   sound: { blocked: boolean; onUnblock(): void };
   largeCaptions: { on: boolean; onToggle(): void };
   caption: StageCaption | null;
+  /** The person chose voice (not captions only or the screen reader) at the sound check. */
+  voiceMode: boolean;
   onReplay(): void;
   /** The video with its overlays, or null (loading, errors, the phone held sideways). */
   video: ReactNode;
@@ -88,6 +94,9 @@ export function CameraStage(p: CameraStageProps) {
   };
   const c = p.caption;
   const large = p.largeCaptions.on;
+  // Fit level 3 may hide the sentence under the short form only while the voice says it (R3C-16).
+  const sentence =
+    c && sentenceMayHide(c, { voiceMode: p.voiceMode, soundOn: ui.sound.on, large }) ? "hide" : "keep";
   const stageRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
@@ -203,6 +212,7 @@ export function CameraStage(p: CameraStageProps) {
             type="button"
             key={c.n}
             className={`s34-caption is-${c.severity}`}
+            data-sentence={sentence}
             onClick={p.onReplay}
             aria-label={`${c.text} ${t(lang, "assessment.hud.replay")}`}
           >

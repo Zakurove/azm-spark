@@ -333,6 +333,8 @@ for (const lang of LANGS) {
       await audit(page, `S01 ${label}`, problems, slot);
     };
     await today("first", {});
+    // The Today page outside the check as well (the week strip, the weekly card, the footnote), once.
+    await audit(page, "Today page", problems);
     await today("homeSoon", { homeOpen: false });
     await today("blocked", { blocked: "clinical_review" });
     await today("locked", {

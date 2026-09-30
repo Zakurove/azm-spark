@@ -507,6 +507,10 @@
   background: #f4f1fa;
   border-color: #e5dcf2;
 }
+/* The day name and date on the tinted training days keep 4.5:1 (WCAG 1.4.3). */
+.week-strip .training-day :is(span, small) {
+  color: #5f6670;
+}
 .week-strip .current-day {
   border: 1px solid #aa93c9;
 }
@@ -619,9 +623,10 @@
   min-height: 36px;
 }
 .medical-footnote {
-  font-size: 10px;
-  line-height: 1.9;
-  color: #79808b;
+  font-size: 12px;
+  line-height: 1.8;
+  /* 4.5:1 on the page (WCAG 1.4.3). */
+  color: #5f6670;
   margin: 27px 0;
 }
 .medical-review {
@@ -3105,7 +3110,8 @@
   font-size: 13px;
 }
 .weekly-today span {
-  color: #7c818b;
+  /* 4.5:1 on the warm card (WCAG 1.4.3). */
+  color: var(--muted);
   flex-shrink: 0;
 }
 .weekly-card.compact .ghost {

@@ -415,11 +415,6 @@
     "en": "Did you pass out, even for a moment?",
     "arTts": "هَلْ فَقَدْتَ الْوَعْيْ، وَلَوْ لِلَحْظَةْ؟"
   },
-  "check_urgent_call": {
-    "ar": "إذا احتجت إلى مساعدة عاجلة، فاتصل بالرقم 997.",
-    "en": "If you need urgent help, call 997.",
-    "arTts": "إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ عَاجِلَةْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ."
-  },
   "check_skip_ok": {
     "ar": "لا بأس، سنتخطى هذا الاختبار.",
     "en": "That is fine. We will skip this test.",

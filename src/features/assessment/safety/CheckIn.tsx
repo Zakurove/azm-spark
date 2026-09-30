@@ -11,30 +11,28 @@
  *      the largest (7.2-1): only that button counts as a tap for fine (O34-4); a camera fine (the raised
  *      hand) comes from the camera. At 7 s a soft chime and the cue again; at 15 s the alarm (S45). The
  *      15 s ring sits in the top row. Initial focus on the question, never on a button.
- * S44  After "I am fine" from a test, or after the alarm (then 997 comes first, with the 64 px number):
- *      redo after a rest (only after an attempt in progress, never after sway or the alarm, R3C-02,
- *      R3C-04), skip this test, I need help (the alarm), and at the phone "I want to stop" (the stop
- *      list). Answers commit at once. One silent 30 s no answer timer after a camera fine (O34-1 (6))
- *      or after the alarm (R3C-01) runs the check in again over it; a 997 press ends it, and it pauses
- *      while the page is hidden.
+ * S44  After "I am fine" from a test, or after the alarm: redo after a rest (only after an attempt in
+ *      progress, never after sway or the alarm, R3C-02, R3C-04), skip this test, I need help (the
+ *      alarm), and at the phone "I want to stop" (the stop list). Answers commit at once. One silent
+ *      30 s no answer timer after a camera fine (O34-1 (6)) or after the alarm (R3C-01) runs the check
+ *      in again over it; it pauses while the page is hidden. No 997 here (D-016).
  * S45  A loud repeating tone at full element volume whatever the Sound setting, faded in over 3 s,
  *      vibration on Android; the heading is the first sentence of scr_no_response (help variant: "Get
- *      help now", O34-5); 997 first with the 64 px number; the body; the 120 px «أنا بخير» button, the
- *      only touch that silences it, and only from a press that began 800 ms or more after the screen
- *      appeared (R3C-03), as on the «أنا بخير» of S43. Any other touch does nothing. 997 stops the tone and opens the dialer; the screen stays. At the
- *      booth the staff line shows; the tone is the staff alert.
+ *      help now", O34-5); the body; the 120 px «أنا بخير» button, the only touch that silences it, and
+ *      only from a press that began 800 ms or more after the screen appeared (R3C-03), as on the «أنا
+ *      بخير» of S43. Any other touch does nothing. No 997 here (D-016). At the booth the staff line
+ *      shows; the tone is the staff alert.
  *
  * Every answer and STOP stays on screen without scrolling (useFoldFit): a person 2 m away cannot scroll.
  *
  * States: L, E, Er, Cam not applicable; Off works (all local, the alarm post is queued).
  */
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
-import { emergencyCallButton } from "../../../movements/assessments";
 import { cameraRunning } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
-import { CallLink, CheckShell } from "../shared/CheckShell";
+import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { OfflineBanner } from "../shared/states";
@@ -50,7 +48,7 @@ import {
   useSpeechSequence,
   useWakeLock,
 } from "./hooks";
-import { AnswerZones, BigNumber, CountdownRing, SentenceStack, StopButton, useFocusOnMount } from "./parts";
+import { AnswerZones, CountdownRing, SentenceStack, StopButton, useFocusOnMount } from "./parts";
 import { copyLine, cueSpeech } from "./speech";
 import { SAFETY_TIMING } from "./timing";
 
@@ -212,10 +210,9 @@ export function GoOn({ model, dispatch }: ScreenProps) {
   const ui = useCheckUi();
   const { lang } = ui;
   const o = model.overlay?.kind === "goOn" ? model.overlay : null;
-  const afterAlarm = o?.afterAlarm === true;
   const titleId = useId();
   const root = useRef<HTMLDivElement>(null);
-  const fit = useFoldFit(root, 5, `S44:${lang}:${afterAlarm}:${o?.canRedo}:${ui.online}`);
+  const fit = useFoldFit(root, 5, `S44:${lang}:${o?.canRedo}:${ui.online}`);
   // Opened by a fine tap on S43 or S45: a press within 600 ms is ignored, as on S41 (R3C-03 (6)).
   const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
   useWakeLock(true);
@@ -227,12 +224,11 @@ export function GoOn({ model, dispatch }: ScreenProps) {
   // O34-1 (6), R3C-01: one extra 30 s no answer timer after a camera fine and after the alarm (the flow
   // sets `timer`, once per episode). When it runs out the check in runs again over S44, which the flow
   // gives back after "I am fine" with no further timer. It restarts on any input, pauses while the page
-  // is hidden, shows no ring and announces nothing; a press on 997 ends it (O30: no alarm over a call).
-  const [called, setCalled] = useState(false);
+  // is hidden, shows no ring and announces nothing.
   useNoAnswerTimer(
     SAFETY_TIMING.stopListNoAnswerMs,
     () => dispatch({ type: "TRIGGER", trigger: "no_answer" }),
-    o?.timer === true && !called,
+    o?.timer === true,
     { pauseHidden: true },
   );
   const options = [
@@ -273,12 +269,6 @@ export function GoOn({ model, dispatch }: ScreenProps) {
       data-fit={fit}
     >
       <CheckShell exit={false} sound>
-        {afterAlarm && (
-          <div className="safety-call-first" onClickCapture={() => setCalled(true)}>
-            <BigNumber />
-            <CallLink number="997" label={emergencyCallButton(lang).label} />
-          </div>
-        )}
         <h1 id={titleId} className="safety-stage-question">
           {t(lang, "assessment.goOn.title")}
         </h1>
@@ -320,7 +310,6 @@ export function Alarm({ model, dispatch }: ScreenProps) {
   const tone = useAlarmTone(true);
   const seq = useSpeechSequence(view.speech, { key: `S45:${help}:${lang}`, delayMs: 0 });
   useWakeLock(true);
-  const [called, setCalled] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const fit = useFoldFit(stage, 5, `S45:${lang}:${help}:${ui.booth}:${ui.sound.on}:${ui.online}`);
   // A double tap on «أحتاج مساعدة» (S43) must never count as fine here, nor a press that was already
@@ -345,19 +334,6 @@ export function Alarm({ model, dispatch }: ScreenProps) {
         <h1 id={titleId} ref={heading} className="safety-stage-title">
           {bidiText(lang, view.heading)}
         </h1>
-        <div className="safety-call-first">
-          <BigNumber />
-          <div
-            className="safety-call-wrap"
-            onClickCapture={() => {
-              // 997: the tone stops and the dialer opens; this screen stays with "I am fine".
-              tone.stop();
-              setCalled(true);
-            }}
-          >
-            <CallLink number="997" label={emergencyCallButton(lang).label} />
-          </div>
-        </div>
         <SentenceStack
           block="alarm"
           sentences={view.body.map((l) => l.display)}
@@ -368,7 +344,6 @@ export function Alarm({ model, dispatch }: ScreenProps) {
           type="button"
           className="cta safety-fine"
           data-fold=""
-          data-called={called || undefined}
           onClick={(e) => {
             if (!armed(e)) return;
             tone.stop();

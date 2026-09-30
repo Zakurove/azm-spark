@@ -35,7 +35,6 @@ const CLASS_RANK: Record<CueClass, number> = {
 
 const SAFETY_CUES: ReadonlySet<string> = new Set([
   "check_stop_now",
-  "check_urgent_call",
   "check_are_you_ok",
   "check_are_you_ok_noraise",
   "check_are_you_ok_zone",
@@ -77,8 +76,7 @@ export function cueSeverity(id: CheckCueId | string): CueSeverity {
 
 /** The priority class of a cue by its source. */
 export function cueClass(id: CheckCueId | string, source: "runner" | "setup" | "retry"): CueClass {
-  if (SAFETY_CUES.has(id))
-    return id === "check_stop_now" || id === "check_urgent_call" ? "safety" : "checkin";
+  if (SAFETY_CUES.has(id)) return id === "check_stop_now" ? "safety" : "checkin";
   if (source === "setup") return "setup";
   if (source === "retry") return "retry";
   return "phase";
@@ -114,7 +112,7 @@ export const ALWAYS_SENTENCE: ReadonlySet<CheckCueId> = new Set<CheckCueId>([
  * Fit level 3 of the camera screen (R3C-16): a caption's full sentence may be hidden, leaving its 56 px
  * short form, only while all of these hold: it has a short form; its voice is actually playing (the
  * Sound on, voice mode, and the player started it: not blocked, not failed); it is not a safety caption
- * (safety severity: check_stop_now, check_urgent_call and the check in cues); Large captions is
+ * (safety severity: check_stop_now and the check in cues); Large captions is
  * off; and it is not one of the ALWAYS_SENTENCE cues. When the voice is not heard the caption is the
  * only channel, so "never truncated" (4.3) holds for exactly those people.
  */

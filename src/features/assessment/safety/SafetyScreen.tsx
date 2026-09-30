@@ -5,12 +5,13 @@
  *
  *   top bar     the booth badge and Sound only: no Back and no Exit (the footer is the only way out)
  *   caption     the sentence being spoken
- *   card        cream, a 4 px red band on S36 and S37; the 40 px heading with its icon; on S36 and S39
- *               the ambulance number as 64 px text; every sentence of the data text, the one being read
+ *   card        cream, a 4 px red band on S36 and S37; the 40 px heading with its icon; on S36 the
+ *               ambulance number as 64 px text; every sentence of the data text, the one being read
  *               highlighted; the extra cards (the AD card for SCI, scr_faint_sci and the collapsed AD
  *               card on S38); Listen again; the kept line; the paused line with {when}, or at the booth
  *               the staff line
- *   footer      the 997 call first (937 after it on S40a), then the way out
+ *   footer      the 997 call first on S36 and S37 (the only screens that name it, D-016), the 937
+ *               call on S40a, then the way out
  *
  * Every sentence is spoken on entry, 800 ms after the heading takes focus (speech.ts: the O12 (4)
  * interim gate for the Arabic body). Nothing waits for the network: the lock is set on the phone and
@@ -94,7 +95,7 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
   }, [view?.askFaint, view?.kind]);
 
   // A touch on the screen opens the faint question (O42), except on a control: on S39 at any time, on
-  // S38 once its speech has ended, so the positioning and 997 sentences are never cut (R3C-07 (1)).
+  // S38 once its speech has ended, so its sentences are never cut (R3C-07 (1)).
   const root = useRef<HTMLDivElement>(null);
   const spoken = useLatest(seq.done);
   useEffect(() => {

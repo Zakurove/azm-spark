@@ -103,12 +103,13 @@ const safety = (screen: ScreenId, kind: string, alsoShow: ScreenId[] = [], extra
 
 describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
   const rows: [ScreenId, string, ("997" | "937")[], boolean, boolean][] = [
+    // D-016: 997 only on the emergency screens (S36, and S37 for autonomic dysreflexia).
     ["scr_emergency", "S36", ["997"], true, true],
     ["scr_ad", "S37", ["997"], false, true],
-    ["scr_faint", "S38", ["997"], false, false],
-    ["scr_fall", "S39", ["997"], true, false],
-    ["scr_fall_seated", "S39", ["997"], true, false],
-    ["scr_stop_seek_care", "S40a", ["997", "937"], false, false],
+    ["scr_faint", "S38", [], false, false],
+    ["scr_fall", "S39", [], false, false],
+    ["scr_fall_seated", "S39", [], false, false],
+    ["scr_stop_seek_care", "S40a", ["937"], false, false],
     ["scr_stop_pain", "S40b", [], false, false],
   ];
   const kinds: Record<string, string> = {
@@ -122,7 +123,7 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
   };
   for (const lang of LANGS)
     for (const [screen, id, calls, big, band] of rows)
-      it(`${id} ${screen} (${lang}): 997 first where the text names it, the 64 px number on S36 and S39`, () => {
+      it(`${id} ${screen} (${lang}): 997 only on S36 and S37, the 64 px number on S36 only`, () => {
         const v = safetyView(safety(screen, kinds[screen]), model().data, lang, NOW);
         expect(v.id).toBe(id);
         expect(v.calls).toEqual(calls);
@@ -136,9 +137,17 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
         expect(v.heading.length).toBeGreaterThan(0);
       });
 
-  it("names997 follows the texts: scr_stop_pain and scr_faint_sci name no number", () => {
+  it("names997 follows the texts: only scr_emergency and scr_ad name the number (D-016)", () => {
     expect(names997("scr_emergency")).toBe(true);
-    expect(names997("scr_no_response")).toBe(true);
+    expect(names997("scr_ad")).toBe(true);
+    for (const s of [
+      "scr_no_response",
+      "scr_faint",
+      "scr_fall",
+      "scr_fall_seated",
+      "scr_stop_seek_care",
+    ] as const)
+      expect(names997(s), s).toBe(false);
     expect(names997("scr_faint_sci")).toBe(false);
     expect(names997("scr_stop_pain")).toBe(false);
   });
@@ -196,10 +205,10 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
     expect(v.speech.filter((l) => l.speech).every((l) => !/\b997\b/.test(l.speech!))).toBe(true);
   });
 
-  it("plays check_stop_now only when a test was running, check_urgent_call on S39 (O12 (5))", () => {
+  it("plays check_stop_now only when a test was running, and no call cue on S39 (O12 (5), D-016)", () => {
     const running = model().data;
     expect(stopCueOf("emergency", running)).toBe("check_stop_now");
-    expect(stopCueOf("fall", running)).toBe("check_urgent_call");
+    expect(stopCueOf("fall", running)).toBeNull();
     // From the pre-check: no protocol yet.
     expect(stopCueOf("emergency", model({ protocol: [] }).data)).toBeNull();
     // From the end question: every test has an outcome.

@@ -1164,7 +1164,7 @@ function emptyOutcome(status: PrecheckStatus): PrecheckOutcome {
 
 /** The reason whose lock an answer can release at once (locks.rules: pc_change_cleared yes). */
 const RELEASABLE_REASONS: readonly PostponeReasonId[] = ["recent_change"];
-/** Postpone screens that route to a doctor, the care team, 937 or 997 (spec 2.5). */
+/** Postpone screens that route to a doctor, the care team or 937 (spec 2.5; no 997, D-016). */
 const CARE_SCREENS: readonly ScreenId[] = ["scr_postpone_care", "scr_postpone_pain"];
 
 /** The rank of a postpone for the lock and the screen shown; higher wins. */

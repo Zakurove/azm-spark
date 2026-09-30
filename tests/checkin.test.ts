@@ -74,12 +74,12 @@ describe("check in timing comes from the check data", () => {
     expect(checkIn.tune_at_booth).toBe(true);
   });
 
-  it("asks with check_are_you_ok and falls back to the 997 screen that asks for a tap", () => {
+  it("asks with check_are_you_ok and falls back to the screen that asks for a tap, with no 997 (D-016)", () => {
     expect(CHECKIN_CUE).toBe("check_are_you_ok");
     expect(CHECKIN_CUE).toBe(checkIn.cueSelection.booth.raiseAllowed);
     expect(checkIn.noResponse).toMatch(/scr_no_response/);
     expect(NO_RESPONSE_SCREEN).toBe("scr_no_response");
-    expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/997/);
+    expect(screenText(NO_RESPONSE_SCREEN, "en")).not.toMatch(/997/);
     // O34-4 (6): only the «أنا بخير» button counts as a tap.
     expect(screenText(NO_RESPONSE_SCREEN, "en")).toMatch(/tap “I am fine”/);
   });

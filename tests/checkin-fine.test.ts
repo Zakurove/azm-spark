@@ -623,14 +623,14 @@ describe("the fall watch at home (O42)", () => {
     expect(drops[0].t).toBeGreaterThanOrEqual(30_000);
   });
 
-  it("stops at 5 minutes, on 997, a moved phone, leaving S39 or a fine; never runs at the booth", () => {
+  it("stops at 5 minutes, a moved phone, leaving S39 or a fine; never runs at the booth", () => {
     const w = new FallWatch("home", seated);
     w.start(0);
     expect(w.active).toBe(true);
     const ev = run(w, 0, 301_000, () => pose(b), 1000);
     expect(ev.at(-1)).toEqual({ kind: "end", reason: "timeout", t: 300_000 });
     expect(w.active).toBe(false);
-    for (const reason of ["fine", "call", "phone_moved", "left_screen"] as const) {
+    for (const reason of ["fine", "phone_moved", "left_screen"] as const) {
       const s = new FallWatch("home", seated);
       s.start(0);
       expect(s.stop(reason, 5000)).toEqual({ kind: "end", reason, t: 5000 });

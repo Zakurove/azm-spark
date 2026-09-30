@@ -168,7 +168,7 @@ describe("cues and captions (UX spec 4.3)", () => {
     expect(cueClass("check_whole_body", "setup")).toBe("setup");
     expect(cueClass("check_whole_body", "retry")).toBe("retry");
     expect(cueClass("check_are_you_ok", "runner")).toBe("checkin");
-    expect(cueClass("check_urgent_call", "runner")).toBe("safety");
+    expect(cueClass("check_stop_now", "runner")).toBe("safety");
   });
 });
 
@@ -293,8 +293,7 @@ describe("fit level 3 caption sentence (R3C-16)", () => {
   });
 
   it("never hides a safety caption, or a sentence that carries a safety limit its short form lacks", () => {
-    for (const id of ["check_stop_now", "check_urgent_call"] as const)
-      expect(sentenceMayHide(line(id), on), id).toBe(false);
+    expect(sentenceMayHide(line("check_stop_now"), on)).toBe(false);
     for (const id of ALWAYS_SENTENCE) expect(sentenceMayHide(line(id), on), id).toBe(false);
     expect([...ALWAYS_SENTENCE].sort()).toEqual(
       [

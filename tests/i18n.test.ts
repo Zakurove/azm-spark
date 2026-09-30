@@ -134,6 +134,12 @@ describe("numbers and digits", () => {
     expect(localizeDigits("en", "8 to 10 minutes")).toBe("8 to 10 minutes");
   });
 
+  it("D-016: no interface copy names 997 (the emergency screens take it from the check data)", () => {
+    for (const lang of ["ar", "en"])
+      for (const file of files(lang))
+        expect(JSON.stringify(read(lang, file)), `${lang}/${file}`).not.toMatch(/997|٩٩٧/);
+  });
+
   it("leaves no ASCII digit in the Arabic boundary intro", () => {
     expect(localizeDigits("ar", CHECK_DATA.boundary.intro.ar)).not.toMatch(/[0-9]/);
   });

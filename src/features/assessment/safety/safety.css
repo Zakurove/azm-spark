@@ -347,13 +347,6 @@ html:has(.azm-check .safety-stop-zone) {
   flex: none;
   color: var(--purple);
 }
-.azm-check .safety-call-first {
-  display: grid;
-  gap: var(--s3);
-}
-.azm-check .safety-call-wrap {
-  display: grid;
-}
 .azm-check .safety-need-stop {
   justify-self: start;
 }
@@ -491,8 +484,8 @@ html:has(.azm-check .safety-stop-zone) {
 
 /* Level 2: S43's instruction moves below the answers (the voice says it; the short form keeps the 2 m
    instruction at the top); the side kicker goes (the question names the part); the number and icon of
-   a zone at 32 px; on S45 «أنا بخير» comes straight after the 997 call, before the body (the focus
-   order of the spec: heading, 997, I am fine; the sentences are not focusable). */
+   a zone at 32 px; on S45 «أنا بخير» comes straight after the heading, before the body (the focus
+   order of the spec: heading, I am fine; the sentences are not focusable). */
 .azm-check
   :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
   .safety-stage-body {
@@ -537,7 +530,7 @@ html:has(.azm-check .safety-stop-zone) {
 }
 
 /* Level 3: S43's short form drops its pictogram (the fine zone keeps the hand) and takes the 40 px
-   tier, so it keeps to one line above the question; the 64 px number sits beside the 997 call. */
+   tier, so it keeps to one line above the question. */
 .azm-check
   :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
   .safety-checkin-cue
@@ -556,17 +549,6 @@ html:has(.azm-check .safety-stop-zone) {
 }
 .azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-stage-body {
   padding-block-start: var(--s2);
-}
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-call-first {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-}
-.azm-check
-  :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
-  .safety-call-first
-  .safety-number {
-  display: grid;
-  gap: 0;
 }
 
 /* Level 4, compact only: zones 2 and 3 at 96 px, a label of up to three words at 32 px. */

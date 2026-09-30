@@ -113,21 +113,11 @@ export function SentenceStack({
  * NoticeCard (S25, S28): warn (warn tint, a 4 px band at the inline start, triangle) or info (purple
  * tint, info icon). The card is a section named by its tone word, so the tone is never colour alone.
  */
-export function NoticeCard({
-  tone,
-  children,
-  lead,
-}: {
-  tone: Tone;
-  children: ReactNode;
-  /** A control that leads the card (the 997 call control of warn_sci_t6, Q22). */
-  lead?: ReactNode;
-}) {
+export function NoticeCard({ tone, children }: { tone: Tone; children: ReactNode }) {
   const { lang } = useCheckUi();
   const word = t(lang, tone === "warn" ? "assessment.tone.warn" : "assessment.tone.info");
   return (
     <section className={`flow-notice is-${tone}`} aria-label={word}>
-      {lead && <div className="flow-notice-lead">{lead}</div>}
       <div className="flow-notice-row">
         <span className="flow-notice-icon">
           <CheckIcon name={tone === "warn" ? "alert-triangle" : "info"} />

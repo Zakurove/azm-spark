@@ -125,7 +125,7 @@ export interface SafetyView {
   icon: string;
   /** The 4 px red band at the inline start of the card (S36, S37 only; decoration). */
   band: boolean;
-  /** The 997 number as 64 px text with its label (S36, S39, Q22). */
+  /** The 997 number as 64 px text with its label (S36 only, Q22, D-016). */
   bigNumber: boolean;
   calls: ("997" | "937")[];
   blocks: TextBlock[];
@@ -170,8 +170,8 @@ const ICONS: Record<SafetyKind, string> = {
 };
 
 /**
- * A screen that names 997 (emergencyCall.firstActionOn, prose in the data: "every screen that names
- * 997"): its text holds the number, so the call control comes first.
+ * A screen that names 997 (emergencyCall.firstActionOn): its text holds the number, so the call
+ * control comes first. Only the emergency screens name it, scr_emergency and scr_ad (D-016).
  */
 export function names997(id: ScreenId): boolean {
   return screenText(id, "en").includes("997");
@@ -180,11 +180,12 @@ export function names997(id: ScreenId): boolean {
 const BIG_NUMBER: ReadonlySet<string> = new Set(CHECK_DATA.emergencyCall.bigNumberOn);
 
 /**
- * The entry cue of a safety screen (S36): check_stop_now when a test was running, check_urgent_call on
- * S39; none on routes from the pre-check or the end question, where nothing was running (O12 (5)).
+ * The entry cue of a safety screen (S36): check_stop_now when a test was running; none on S39, whose
+ * own sentences are spoken (D-016 removed its call cue), and none on routes from the pre-check or the
+ * end question, where nothing was running (O12 (5)).
  */
 export function stopCueOf(kind: SafetyKind, d: FlowData, from?: SafetyFrom): CheckCueId | null {
-  if (kind === "fall") return "check_urgent_call";
+  if (kind === "fall") return null;
   // The flow records where the route started; an older state without it reads as before: no protocol
   // is the pre-check, every test done is the end question.
   if (from) return from === "test" ? "check_stop_now" : null;

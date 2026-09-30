@@ -185,7 +185,7 @@ function alarmElement(): HTMLAudioElement {
  * The no response alarm (S45, 5.10 useAlarm): a looped tone at full element volume whatever the Sound
  * setting, captionsOnly or screen reader mode, faded in from 30% over 3 s, with vibration on Android.
  * If the browser refuses to start it (no tap yet), it starts on the next touch anywhere. `stop()`
- * silences it (the fine button, the 997 call).
+ * silences it (the fine button).
  */
 export function useAlarmTone(active: boolean): { status: AlarmStatus; stop(): void } {
   const [status, setStatus] = useState<AlarmStatus>("stopped");

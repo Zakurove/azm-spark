@@ -421,13 +421,14 @@ describe("test preparation (S28, S31, S32)", () => {
     }
   });
 
-  it("S28 leads with the 997 call control when warn_sci_t6 applies (Q22)", () => {
+  it("S28 shows warn_sci_t6 with no call control (D-016: 997 only on the emergency screens)", () => {
     const m = { ...M.S28, data: { ...M.S28.data, warnings: ["warn_sci_t6" as never] } };
-    const { html } = screen(m, "ar");
-    const call = html.indexOf('href="tel:997"');
-    expect(call).toBeGreaterThan(-1);
-    expect(call).toBeLessThan(html.indexOf("<h1"));
-    expect(html).toContain("٩٩٧");
+    for (const lang of LANGS) {
+      const { html, text } = screen(m, lang);
+      expect(text).toContain(textOf(screenText("warn_sci_t6", lang)));
+      expect(html).not.toContain("tel:");
+      expect(html).not.toContain(lang === "ar" ? "٩٩٧" : "997");
+    }
   });
 
   it("S31 asks for the camera with the booth placement line", () => {
@@ -460,11 +461,11 @@ describe("postponed and paused (S33, S35)", () => {
     }
   });
 
-  it("S33 care: 997 first, then 937 (Q22)", () => {
+  it("S33 care: the 937 advice line only, no 997 (D-016)", () => {
     const m = withState(M.S33, { kind: "postponed", reason: "recent_change", screen: null, alsoShow: [] });
     const { html } = screen(m, "en");
-    expect(html.indexOf("tel:997")).toBeGreaterThan(-1);
-    expect(html.indexOf("tel:997")).toBeLessThan(html.indexOf("tel:937"));
+    expect(html).not.toContain("tel:997");
+    expect(html).toContain('href="tel:937"');
   });
 
   it("S33 SCI readiness: the list again and Done, with no paused line", () => {

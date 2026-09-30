@@ -2,7 +2,7 @@
  * S33 Postponed and S35 Paused today.
  *
  * S33: today's check is postponed after a pre-check answer: why in plain words (the reason's data
- * screen, as a SentenceStack), the call controls the text names (997 first, then 937, Q22), and when to
+ * screen, as a SentenceStack), the 937 advice call when the text names it (Q22, D-016), and when to
  * try again (scr_paused_today with {when}, Q33 (4)). No Back: the answers cannot be changed to get past
  * a postpone. check_postpone plays on entry (not for sci_ready). The body itself is not read by the
  * device voice until its speech line is approved (O12 interim, O24-2): it is shown in full.
@@ -17,13 +17,13 @@
  */
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
-import { CHECK_DATA, precheckItem, screenText } from "../../../movements/assessments";
+import { precheckItem, screenText } from "../../../movements/assessments";
 import type { PrecheckItem } from "../../../movements/types";
 import type { ScreenProps } from "../screenTypes";
 import { CallLink, CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import { callsFor, pausedLine, postponeScreen, whenOfLock } from "./copy";
+import { names937, pausedLine, postponeScreen, whenOfLock } from "./copy";
 import { ListenButton, SentenceStack, TimeText } from "./parts";
 import { useEntryLines, useVoice } from "./voice";
 
@@ -35,7 +35,6 @@ export function Postponed({ model, dispatch }: ScreenProps) {
   const sci = reason === "sci_ready";
   const screen = postponeScreen(reason, s?.screen ?? null);
   const body = screenText(screen, lang);
-  const calls = callsFor(body);
   const when = sci ? null : whenOfLock(model.data.lock, Date.now(), "start");
   const list = sci ? ((precheckItem("pc_sci_ready") as PrecheckItem).list?.[lang] ?? []) : [];
   // check_postpone says what the title and the body already show: spoken, not captioned again.
@@ -77,13 +76,7 @@ export function Postponed({ model, dispatch }: ScreenProps) {
             </ul>
           )}
         </section>
-        {calls.map((n) => (
-          <CallLink
-            key={n}
-            number={n}
-            label={n === "997" ? CHECK_DATA.emergencyCall.button[lang] : t(lang, "assessment.common.call937")}
-          />
-        ))}
+        {names937(body) && <CallLink number="937" label={t(lang, "assessment.common.call937")} />}
         {!sci && (
           <ListenButton onClick={() => void voice.play([{ cue: "check_postpone" }], { onScreen: true })} />
         )}

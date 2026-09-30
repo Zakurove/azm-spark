@@ -1,8 +1,8 @@
 /**
  * S28 Instruction card (one per test): what the test shows, the steps with today's variant, the
  * safety notes (never collapsed), spoken on entry and on Listen again, and the last chance to skip
- * before the camera. warn_sci_t6 and warn_weak_shoulder come first; warn_sci_t6 leads with the 997
- * call control (Q22, 7.2-10). For the chair stand at home the card holds the chair gate (Q9) in place
+ * before the camera. warn_sci_t6 (an info card, with no call control: D-016) and warn_weak_shoulder
+ * come first. For the chair stand at home the card holds the chair gate (Q9) in place
  * of "Let's start", and from the second check the same chair question (su_same_chair).
  */
 import { useState } from "react";
@@ -13,7 +13,7 @@ import type { Side, TestId } from "../../../movements/types";
 import { sameChairAsked, testCounter } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons } from "../shared/answers";
-import { CallLink, CheckShell } from "../shared/CheckShell";
+import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import {
@@ -107,22 +107,11 @@ export function Instruction({ model, dispatch }: ScreenProps) {
       }}
     >
       <div className="flow-stack" data-screen="S28" data-test={testId}>
-        {warnings.map((id) =>
-          id === "warn_sci_t6" ? (
-            // S28: warn_sci_t6 is an info card led by the red 997 call control (Q22, 7.2-10).
-            <NoticeCard
-              key={id}
-              tone="info"
-              lead={<CallLink number="997" label={CHECK_DATA.emergencyCall.button[lang]} />}
-            >
-              <p className="check-body">{bidiText(lang, screenText(id, lang))}</p>
-            </NoticeCard>
-          ) : (
-            <NoticeCard key={id} tone="warn">
-              <p className="check-body">{bidiText(lang, screenText(id, lang))}</p>
-            </NoticeCard>
-          ),
-        )}
+        {warnings.map((id) => (
+          <NoticeCard key={id} tone={id === "warn_sci_t6" ? "info" : "warn"}>
+            <p className="check-body">{bidiText(lang, screenText(id, lang))}</p>
+          </NoticeCard>
+        ))}
         <h1>{bidiText(lang, def.name[lang])}</h1>
         <p className="check-body">{bidiText(lang, def.purpose[lang])}</p>
         <TestDrawing

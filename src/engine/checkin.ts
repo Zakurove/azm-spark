@@ -1253,7 +1253,7 @@ export const FALL_WATCH = {
   seatToleranceTrunks: 0.1,
 } as const;
 
-export type FallWatchEnd = "fine" | "timeout" | "call" | "phone_moved" | "left_screen";
+export type FallWatchEnd = "fine" | "timeout" | "phone_moved" | "left_screen";
 export type FallWatchEvent =
   | { kind: "checkin"; trigger: "fall_still" | "fall_timer" | "hips_drop"; t: number }
   | { kind: "end"; reason: FallWatchEnd; t: number };
@@ -1264,7 +1264,7 @@ export type FallWatchEvent =
  * person was seen with the hips at or above the calibration seat height for 3 s. fall_still: in
  * view and still for 60 s from the end of the last spoken line (out of view never starts it).
  * fall_timer: not seen seated or standing for 3 s and no touch within 3 minutes. It ends on a fine,
- * 997, the phone moved, leaving S39, or after 5 minutes.
+ * the phone moved, leaving S39, or after 5 minutes (S39 has no 997 call: D-016).
  */
 export class FallWatch {
   private startT: number | null = null;

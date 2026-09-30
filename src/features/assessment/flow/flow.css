@@ -255,10 +255,6 @@
   border-color: var(--cream-border);
   border-inline-start: 4px solid var(--warn-fill);
 }
-.azm-check .flow-notice-lead {
-  display: grid;
-  padding-bottom: var(--s6);
-}
 .azm-check .flow-notice-row {
   display: flex;
   gap: var(--s3);

@@ -166,25 +166,35 @@ describe("S36 to S40b", () => {
     expect(html).toContain("Return to Today");
   });
 
-  it("S40a has 997 then 937; S40b has no call and Continue toward the end question", () => {
+  it("S40a has the 937 advice call and no 997 (D-016); S40b has no call and Continue toward the end question", () => {
     const seek = render(SCREENS.S40a, model(safety("scr_stop_seek_care", "seekCare")), { lang: "en" });
-    expect(seek.indexOf("tel:997")).toBeGreaterThan(0);
-    expect(seek.indexOf("tel:937")).toBeGreaterThan(seek.indexOf("tel:997"));
+    expect(seek).not.toContain("tel:997");
+    expect(seek).toContain('href="tel:937"');
     const pain = render(SCREENS.S40b, model(safety("scr_stop_pain", "pain")), { lang: "en" });
     expect(pain).not.toContain("tel:");
     expect(pain).toContain(">Continue</button>");
   });
 
-  it("S38 and S39 show no camera line (the camera is off here) and continue to the faint question", () => {
+  it("S38 and S39 show no camera line (the camera is off here), no 997 (D-016), and continue to the faint question", () => {
     const faint = render(SCREENS.S38, model(safety("scr_faint", "faint")), { lang: "en" });
     expect(faint).toContain('data-screen="S38"');
     expect(faint).not.toContain("Camera on");
     expect(faint).toContain(">Continue</button>");
+    expect(faint).not.toContain("tel:");
     const fall = render(SCREENS.S39, model(safety("scr_fall_seated", "fall", { askFaint: true })), {
       lang: "ar",
     });
     expect(fall).toContain('data-safety-screen="scr_fall_seated"');
-    expect(fall).toContain("safety-number-value");
+    expect(fall).not.toContain("safety-number-value");
+    expect(fall).not.toContain("tel:");
+    expect(fall).not.toContain("٩٩٧");
+  });
+
+  it("S38b asks the faint question with no 997 call (D-016)", () => {
+    const m = model({ kind: "faintAsk", back: { safety: "faint", screen: "scr_faint", alsoShow: [] } });
+    const html = render(SCREENS.S38b, m, { lang: "en" });
+    expect(html).toContain('data-screen="S38b"');
+    expect(html).not.toContain("tel:");
   });
 });
 
@@ -223,13 +233,15 @@ describe("S41 to S45", () => {
     expect(html).toContain("هل أنت بخير؟");
   });
 
-  it("S44 after the alarm puts 997 and the number first; redo only after an attempt", () => {
+  it("S44 has no 997, after the alarm too (D-016); redo only after an attempt", () => {
     const m = model(
       { kind: "cam.measure", i: 0, side: 0 },
       { kind: "goOn", afterAlarm: true, canRedo: false },
     );
     const html = render(OVERLAYS.S44, m, { lang: "en" });
-    expect(html.indexOf("tel:997")).toBeLessThan(html.indexOf("Do you want to go on?"));
+    expect(html).toContain("Do you want to go on?");
+    expect(html).not.toContain("tel:");
+    expect(html).not.toContain("safety-number-value");
     expect(html).not.toContain('data-value="redo"');
     const redo = render(
       OVERLAYS.S44,
@@ -242,13 +254,14 @@ describe("S41 to S45", () => {
     expect(redo).not.toContain("tel:997");
   });
 
-  it("S45: the heading, 997 first, the body, the 120 px fine button; staff and sound off lines", () => {
+  it("S45: the heading, the body, the 120 px fine button, no 997 (D-016); staff and sound off lines", () => {
     const m = model({ kind: "cam.measure", i: 0, side: 0 }, { kind: "alarm", from: "test", attempt: true });
     const off = { on: false, toggle: () => undefined };
     const html = render(OVERLAYS.S45, m, { lang: "en", booth: true, sound: off });
     expect(html).toContain('role="alertdialog"');
     expect(html).toContain(">Are you all right?</h1>");
-    expect(html.indexOf("tel:997")).toBeLessThan(html.indexOf("safety-sentences"));
+    expect(html).not.toContain("tel:");
+    expect(html).not.toContain("safety-number-value");
     expect(html).toContain("safety-fine");
     expect(html).toContain("Staff, please check on this visitor now.");
     expect(html).toContain("The alert tone still sounds");

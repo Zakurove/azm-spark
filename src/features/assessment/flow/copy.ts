@@ -120,17 +120,11 @@ export function alignedSentences(
   return { lines: shown.map((d, i) => ({ display: d, speech: spoken[i] })), aligned: true };
 }
 
-/** Whether a data text names an emergency or advice number (Q22: its call control shows first). */
-export const names997 = (text: string) => /997|٩٩٧/.test(text);
+/**
+ * Whether a data text names the 937 advice line: its call control follows the text (Q22). 997 is on
+ * the emergency screens only (D-016), never on the postpone screens.
+ */
 export const names937 = (text: string) => /937|٩٣٧/.test(text);
-
-/** The call controls a text needs, 997 always first (Q22). */
-export function callsFor(text: string): ("997" | "937")[] {
-  const out: ("997" | "937")[] = [];
-  if (names997(text)) out.push("997");
-  if (names937(text)) out.push("937");
-  return out;
-}
 
 /* ================================================================ emphasis (0.2) */
 

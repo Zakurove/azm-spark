@@ -5,10 +5,11 @@
  *   - the stop list runs the check in after 30 s with no input, the check in chimes again at 7 s and
  *     opens the alarm at 15 s; the alarm sounds whatever the Sound setting and only «أنا بخير» ends it;
  *   - a camera trigger during a test runs the check in; no response, then fine, gives S44 after the
- *     alarm with 997 first and no redo (R3C-02); «أحتاج مساعدة» opens the help alarm, whose fine goes
- *     to the stop list; «أنا بخير» counts only 800 ms or more after S43 or S45 appeared (R3C-03);
- *   - S36 puts the 997 call first as a tel: link, shows the number at 64 px or more, and captions every
- *     sentence in turn; the faint question follows S38 and a touch on S39; S47 reads an answer back.
+ *     alarm with no redo (R3C-02); «أحتاج مساعدة» opens the help alarm, whose fine goes to the stop
+ *     list; «أنا بخير» counts only 800 ms or more after S43 or S45 appeared (R3C-03);
+ *   - 997 is on the emergency screens only (D-016): S36 puts the call first as a tel: link, shows the
+ *     number at 64 px or more, and captions every sentence in turn; S39, S44 and S45 have no call;
+ *   - the faint question follows S38 and a touch on S39; S47 reads an answer back.
  * Timers run on Playwright's fake clock (page.clock), never on shortened values.
  */
 import { expect, test, type Page } from "@playwright/test";
@@ -120,7 +121,7 @@ for (const lang of LANGS) {
       await expect(alarm).toBeVisible();
       await expect(alarm).toHaveAttribute("data-alarm", "sounding");
       await expect(alarm.locator("h1")).toBeFocused();
-      await expect(alarm.locator("a.check-call")).toHaveAttribute("href", "tel:997");
+      await expect(alarm.locator('a[href^="tel:"]')).toHaveCount(0);
       await expect(alarm.locator(".safety-staff")).toHaveText(a.alarm.staff);
       // The Sound setting does not silence it, and says so.
       await alarm.getByRole("button", { name: a.common.sound }).click();
@@ -139,7 +140,7 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("a trigger in a test: no response, then fine, gives S44 after the alarm with 997 first", async ({
+    test("a trigger in a test: no response, then fine, gives S44 after the alarm, with no call", async ({
       page,
     }) => {
       await page.clock.install();
@@ -162,9 +163,8 @@ for (const lang of LANGS) {
       await page.locator('[data-screen="S45"]').getByRole("button", { name: a.alarm.fine }).click();
       const goOn = page.locator('[data-screen="S44"]');
       await expect(goOn).toBeVisible();
-      const call = goOn.locator("a.check-call.is-997");
-      const title = goOn.getByRole("heading", { level: 1 });
-      expect((await call.boundingBox())!.y).toBeLessThan((await title.boundingBox())!.y);
+      await expect(goOn.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(goOn.locator('a[href^="tel:"]')).toHaveCount(0);
       // No redo after a no response alarm (R3C-02); S44 opened by a tap arms its answers after 600 ms.
       await expect(goOn.locator('[data-value="redo"]')).toHaveCount(0);
       await page.clock.runFor(600);
@@ -287,7 +287,7 @@ for (const lang of LANGS) {
       const ask = page.locator('[data-screen="S38b"]');
       await expect(ask).toBeVisible();
       await expect(ask.locator("h1")).toHaveText(data.stopFollowUps[0].ask[lang]);
-      await expect(page.locator(".check-footer a.check-call")).toHaveAttribute("href", "tel:997");
+      await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
       // No is read back for 3 s, then S38 again with the question answered.
       await ask.locator('[data-value="no"]').click();
       await expect(ask.locator('[data-value="no"]')).toHaveAttribute("aria-pressed", "true");
@@ -309,7 +309,7 @@ for (const lang of LANGS) {
       });
       const s38 = page.locator('[data-screen="S38"]');
       await expect(s38).toBeVisible();
-      // While the positioning and 997 sentences are being read, a touch never cuts them.
+      // While the positioning sentences are being read, a touch never cuts them.
       await page.clock.runFor(2_000);
       await s38.locator(".safety-sentences p").first().click();
       await expect(s38).toBeVisible();
@@ -337,7 +337,9 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-screen="S36"]')).toBeVisible();
     });
 
-    test("S39 at the booth: a touch opens the faint question, with no timer (O42)", async ({ page }) => {
+    test("S39 at the booth: no 997 (D-016); a touch opens the faint question, with no timer (O42)", async ({
+      page,
+    }) => {
       await page.clock.install();
       await openGuest(page, lang, {
         state: {
@@ -351,7 +353,8 @@ for (const lang of LANGS) {
       });
       const fall = page.locator('[data-screen="S39"]');
       await expect(fall).toBeVisible();
-      await expect(fall.locator(".safety-number-value")).toHaveText(shown(lang, "997"));
+      await expect(fall.locator(".safety-number-value")).toHaveCount(0);
+      await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
       await page.clock.runFor(60_000);
       await expect(fall).toBeVisible();
       await fall.locator(".safety-card").click();

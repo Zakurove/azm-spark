@@ -19,14 +19,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
-import {
-  CHECK_DATA,
-  emergencyCallButton,
-  precheckItem,
-  screenText,
-  stopFollowUp,
-  testDef,
-} from "../../../movements/assessments";
+import { CHECK_DATA, precheckItem, screenText, stopFollowUp, testDef } from "../../../movements/assessments";
 import type { ScreenId } from "../../../movements/types";
 import { CameraOnLine } from "../camera/CameraOnLine";
 import { useCameraWatch } from "../camera/watch";
@@ -64,7 +57,8 @@ function yesNo(lang: "ar" | "en", yesAtOnce = false): ZoneOption[] {
  * S38b, the faint follow up (Q33 (3), O42): «هل فقدت الوعي، ولو للحظة؟», spoken as check_faint_loc.
  * Yes or Not sure open S36 at once; No returns to the stop's screen with its lock. No answer within
  * 30 s runs the check in (S43), except after a fall stop at the booth, where staff tap the answer the
- * person says and no timer runs (O42). The 997 call stays the first action.
+ * person says and no timer runs (O42). There is no call control here: 997 is on the emergency
+ * screens only (D-016), and a yes opens S36.
  */
 // The camera of the stopped test stays on (useCameraWatch): a raised hand counts as "fine" in the check
 // in of S38b; the question itself is answered by tap (the zones come with phase 2), and its 30 s timer
@@ -123,11 +117,7 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
     ...screenLines(back, lang, { block: back }),
   ];
   return (
-    <CheckShell
-      exit={false}
-      sound
-      footer={{ call: [{ number: "997", label: emergencyCallButton(lang).label }] }}
-    >
+    <CheckShell exit={false} sound>
       <div className="safety-question is-stage" data-screen="S38b" ref={root} data-fit={fit}>
         <h1 id={headingId} className="safety-stage-question">
           {bidiText(lang, q.ask[lang])}

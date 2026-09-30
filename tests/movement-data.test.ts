@@ -130,9 +130,10 @@ describe("id lists in src/movements/types.ts equal the data", () => {
       for (const n of c.replacedBy) expect(CHECK_CUE_IDS as readonly string[], `${c.id} ${n}`).toContain(n);
     }
   });
-  it("has the 83 check cues of revision 1.1 and the 4 tests of v1", () => {
+  it("has the 82 check cues of revision 1.1 and the 4 tests of v1", () => {
     expect(D.specVersion).toBe("1.1");
-    expect(D.cues).toHaveLength(83);
+    // D-016 removed check_urgent_call.
+    expect(D.cues).toHaveLength(82);
     expect(TEST_IDS).toEqual([
       "shoulder_abduction",
       "arm_curl_30s",
@@ -666,15 +667,35 @@ describe("Arabic and English", () => {
   });
 
   it("every cue has display Arabic, vocalized Arabic for speech and English", () => {
-    // Digits are spelled out for speech; everything else in arTts is the display text with marks,
-    // a quoted phrase spoken with a pause on each side (voicePending.ttsConvention).
-    const SPOKEN_DIGITS = ["check_urgent_call"];
+    // arTts is the display text with marks, a quoted phrase spoken with a pause on each side
+    // (voicePending.ttsConvention); no cue holds a number.
     for (const c of D.cues) {
       expect(c.arTts, c.id).not.toBe(c.ar);
       expect(c.arTts, c.id).not.toMatch(/\d/);
-      if (!SPOKEN_DIGITS.includes(c.id)) expect(words(c.arTts), c.id).toBe(words(c.ar));
+      expect(words(c.arTts), c.id).toBe(words(c.ar));
     }
-    expect(words(cueLine("check_urgent_call").arTts)).toContain("تسعة تسعة سبعة");
+  });
+
+  it("D-016: 997 appears only on the emergency screens, scr_emergency and scr_ad", () => {
+    const named = (v: unknown) =>
+      strings(v)
+        .filter(({ text }) => /997|٩٩٧/.test(text))
+        .map(({ path }) => path);
+    expect(named(D.screens)).toEqual([".scr_emergency.ar", ".scr_emergency.en", ".scr_ad.ar", ".scr_ad.en"]);
+    for (const section of [
+      D.cues,
+      D.reasons,
+      D.precheck,
+      D.betweenTests,
+      D.stopFollowUps,
+      D.endOfCheck,
+      D.afterCheck,
+      D.helperBriefing,
+      D.tests,
+    ])
+      expect(named(section)).toEqual([]);
+    expect(D.emergencyCall.bigNumberOn).toEqual(["scr_emergency"]);
+    expect(D.cues.map((c) => c.id)).not.toContain("check_urgent_call");
   });
 
   it("O24-1: every cue has a short form of at most 3 words, no punctuation but a question mark, digits Arabic Indic", () => {
@@ -697,7 +718,7 @@ describe("Arabic and English", () => {
       }
       expect(c.short.ar, c.id).not.toMatch(/[0-9]/);
     }
-    expect(cueShort("check_urgent_call", "ar")).toContain("٩٩٧");
+    expect(cueShort("check_stop_now", "ar")).toBe("توقف واسترح");
   });
 
   it("Q30: no speech line holds a digit", () => {

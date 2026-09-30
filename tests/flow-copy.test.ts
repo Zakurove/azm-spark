@@ -8,7 +8,7 @@ import {
   alignedSentences,
   allSeated,
   areaChoices,
-  callsFor,
+  names937,
   cameraProblemOf,
   cardNotes,
   checkWarnings,
@@ -106,11 +106,13 @@ describe("text helpers", () => {
     }
   });
 
-  it("names the call controls a text needs, 997 always first (Q22)", () => {
-    expect(callsFor(screenText("scr_postpone_care", "en"))).toEqual(["997", "937"]);
-    expect(callsFor(screenText("scr_postpone_care", "ar"))).toEqual(["997", "937"]);
-    expect(callsFor(screenText("scr_postpone_unwell", "en"))).toEqual([]);
-    expect(callsFor("call ٩٩٧ now")).toEqual(["997"]);
+  it("finds the 937 advice line of a postpone text; no postpone text names 997 (Q22, D-016)", () => {
+    for (const lang of ["ar", "en"] as const) {
+      expect(names937(screenText("scr_postpone_care", lang))).toBe(true);
+      expect(screenText("scr_postpone_care", lang)).not.toMatch(/997|٩٩٧/);
+    }
+    expect(names937(screenText("scr_postpone_unwell", "en"))).toBe(false);
+    expect(names937("call ٩٣٧ now")).toBe(true);
   });
 
   it("fills known tokens and leaves unknown ones in place", () => {

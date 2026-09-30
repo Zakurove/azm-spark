@@ -3137,8 +3137,8 @@
         "camera": "On for 5 minutes after the S39 speech ends, with assessment.hud.cameraOn under the heading; the wake lock is kept while S39 is open.",
         "triggers": "The 10 s no movement trigger, sway and left frame are off. Hips drop arms only after the person has been seen with hips at or above the calibration seat height for 3 s. fall_still and fall_timer as in triggers; being out of view never starts fall_still.",
         "checkIn": "S43 with two answers, «أنا بخير» and «أحتاج مساعدة» (no «أريد التوقف»), escalating as every check in (a chime at 7 s, S45 at 15 s), with the fall watch cues of cueSelection.",
-        "afterFine": "A fine ends the watch, stops the camera and returns to S39 with its 997 control and 64 px number. «أحتاج مساعدة» or no response opens S45; a fine there returns to S39 and ends the watch. S45 reached from S39 shows the fall watch body of scr_no_response (fallWatch, or fallWatchNoRaise with raiseAllowed false or noArmSignal): «لا تنهض لتجيب» and a way to answer from the floor, not a tap on the phone. Pending the medical seat and the panel (screens.scr_no_response.fallWatchRule); until then S45 keeps the v1.1 body.",
-        "stops": "The watch stops at once when 997 is tapped, when the phone is picked up or moved (the S34c phone moved signal), when the person leaves S39, or after 5 minutes.",
+        "afterFine": "A fine ends the watch, stops the camera and returns to S39. «أحتاج مساعدة» or no response opens S45; a fine there returns to S39 and ends the watch. S45 reached from S39 shows the fall watch body of scr_no_response (fallWatch, or fallWatchNoRaise with raiseAllowed false or noArmSignal): «لا تنهض لتجيب» and a way to answer from the floor, not a tap on the phone. Pending the medical seat and the panel (screens.scr_no_response.fallWatchRule); until then S45 keeps the v1.1 body.",
+        "stops": "The watch stops at once when the phone is picked up or moved (the S34c phone moved signal), when the person leaves S39, or after 5 minutes.",
         "line": "assessment.safety.fall.watch, spoken last on S39 (UX copy)."
       },
       "noResponseSec": 15,
@@ -3193,9 +3193,9 @@
       "en": "What made you stop?"
     },
     "scr_faint": {
-      "ar": "إذا كنت واقفًا، فاجلس الآن. وإذا بقي لديك شعور بأنك على وشك الإغماء، فاستلقِ وارفع ساقيك إن استطعت. وإذا لم يزل هذا الشعور، أو شعرت بألم في الصدر، فاتصل بالرقم 997.",
-      "arTts": "إِذَا كُنْتَ وَاقِفًا، فَاجْلِسِ الْآنْ. وَإِذَا بَقِيَ لَدَيْكَ شُعُورٌ بِأَنَّكَ عَلَى وَشْكِ الْإِغْمَاءْ، فَاسْتَلْقِ وَارْفَعْ سَاقَيْكَ إِنِ اسْتَطَعْتْ. وَإِذَا لَمْ يَزُلْ هَذَا الشُّعُورْ، أَوْ شَعَرْتَ بِأَلَمٍ فِي الصَّدْرْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ.",
-      "en": "If you are standing, sit down now. If you still feel faint, lie down and raise your legs if you can. If it does not pass, or you have chest pain, call 997."
+      "ar": "إذا كنت واقفًا، فاجلس الآن. وإذا بقي لديك شعور بأنك على وشك الإغماء، فاستلقِ وارفع ساقيك إن استطعت. وإذا لم يزل هذا الشعور، أو شعرت بألم في الصدر، فاطلب المساعدة الطبية فورًا.",
+      "arTts": "إِذَا كُنْتَ وَاقِفًا، فَاجْلِسِ الْآنْ. وَإِذَا بَقِيَ لَدَيْكَ شُعُورٌ بِأَنَّكَ عَلَى وَشْكِ الْإِغْمَاءْ، فَاسْتَلْقِ وَارْفَعْ سَاقَيْكَ إِنِ اسْتَطَعْتْ. وَإِذَا لَمْ يَزُلْ هَذَا الشُّعُورْ، أَوْ شَعَرْتَ بِأَلَمٍ فِي الصَّدْرْ، فَاطْلُبِ الْمُسَاعَدَةَ الطِّبِّيَّةَ فَوْرًا.",
+      "en": "If you are standing, sit down now. If you still feel faint, lie down and raise your legs if you can. If it does not pass, or you have chest pain, get medical help straight away."
     },
     "scr_faint_sci": {
       "ar": "إذا كان لديك أيضًا صداع نابض، فاجلس مستقيمًا بدلًا من ذلك، واتبع خطوات التعامل مع خلل المنعكسات اللاإرادية.",
@@ -3203,36 +3203,36 @@
       "en": "If you also have a pounding headache, sit upright instead and follow the steps for dealing with autonomic dysreflexia."
     },
     "scr_fall": {
-      "ar": "ابقَ ساكنًا لحظة، وتأكد هل أصابك أذى. إذا اصطدم رأسك بشيء، أو كنت تنزف، أو شعرت بألم جديد، أو لم تستطع النهوض، فلا تحاول الوقوف، واتصل بالرقم 997 أو اطلب المساعدة بصوت عالٍ. وإذا لم تُصب، فانقلب على جانبك، ثم ارتكز على يديك وركبتيك، ثم تحرك نحو كرسي متين، واستند إليه لتنهض ببطء. استرح قبل أن تقف.",
-      "arTts": "اِبْقَ سَاكِنًا لَحْظَةْ، وَتَأَكَّدْ هَلْ أَصَابَكَ أَذَى. إِذَا اصْطَدَمَ رَأْسُكَ بِشَيْءْ، أَوْ كُنْتَ تَنْزِفْ، أَوْ شَعَرْتَ بِأَلَمٍ جَدِيدْ، أَوْ لَمْ تَسْتَطِعِ النُّهُوضْ، فَلَا تُحَاوِلِ الْوُقُوفْ، وَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ، أَوِ اطْلُبِ الْمُسَاعَدَةَ بِصَوْتٍ عَالْ. وَإِذَا لَمْ تُصَبْ، فَانْقَلِبْ عَلَى جَانِبِكْ، ثُمَّ ارْتَكِزْ عَلَى يَدَيْكَ وَرُكْبَتَيْكْ، ثُمَّ تَحَرَّكْ نَحْوَ كُرْسِيٍّ مَتِينْ، وَاسْتَنِدْ إِلَيْهِ لِتَنْهَضَ بِبُطْءْ. اِسْتَرِحْ قَبْلَ أَنْ تَقِفْ.",
-      "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding, have new pain, or cannot get up, do not try to stand. Call 997 or call out for help. If you are not hurt, roll onto your side, get onto your hands and knees, then move to a sturdy chair and lean on it to push up slowly. Rest before you stand."
+      "ar": "ابقَ ساكنًا لحظة، وتأكد هل أصابك أذى. إذا اصطدم رأسك بشيء، أو كنت تنزف، أو شعرت بألم جديد، أو لم تستطع النهوض، فلا تحاول الوقوف، واطلب المساعدة بصوت عالٍ. وإذا لم تُصب، فانقلب على جانبك، ثم ارتكز على يديك وركبتيك، ثم تحرك نحو كرسي متين، واستند إليه لتنهض ببطء. استرح قبل أن تقف.",
+      "arTts": "اِبْقَ سَاكِنًا لَحْظَةْ، وَتَأَكَّدْ هَلْ أَصَابَكَ أَذَى. إِذَا اصْطَدَمَ رَأْسُكَ بِشَيْءْ، أَوْ كُنْتَ تَنْزِفْ، أَوْ شَعَرْتَ بِأَلَمٍ جَدِيدْ، أَوْ لَمْ تَسْتَطِعِ النُّهُوضْ، فَلَا تُحَاوِلِ الْوُقُوفْ، وَاطْلُبِ الْمُسَاعَدَةَ بِصَوْتٍ عَالْ. وَإِذَا لَمْ تُصَبْ، فَانْقَلِبْ عَلَى جَانِبِكْ، ثُمَّ ارْتَكِزْ عَلَى يَدَيْكَ وَرُكْبَتَيْكْ، ثُمَّ تَحَرَّكْ نَحْوَ كُرْسِيٍّ مَتِينْ، وَاسْتَنِدْ إِلَيْهِ لِتَنْهَضَ بِبُطْءْ. اِسْتَرِحْ قَبْلَ أَنْ تَقِفْ.",
+      "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding, have new pain, or cannot get up, do not try to stand. Call out for help. If you are not hurt, roll onto your side, get onto your hands and knees, then move to a sturdy chair and lean on it to push up slowly. Rest before you stand."
     },
     "scr_fall_seated": {
-      "ar": "ابقَ ساكنًا لحظة، وتأكد هل أصابك أذى. إذا اصطدم رأسك بشيء، أو كنت تنزف، أو شعرت بألم جديد، فاتصل بالرقم 997 أو اطلب المساعدة بصوت عالٍ. لا تحاول العودة إلى كرسيك وحدك إلا إذا تعلمت طريقة آمنة لذلك. اطلب من أحد أن يساعدك، وحافظ على دفئك وأنت تنتظر.",
-      "arTts": "اِبْقَ سَاكِنًا لَحْظَةْ، وَتَأَكَّدْ هَلْ أَصَابَكَ أَذَى. إِذَا اصْطَدَمَ رَأْسُكَ بِشَيْءْ، أَوْ كُنْتَ تَنْزِفْ، أَوْ شَعَرْتَ بِأَلَمٍ جَدِيدْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ، أَوِ اطْلُبِ الْمُسَاعَدَةَ بِصَوْتٍ عَالْ. لَا تُحَاوِلِ الْعَوْدَةَ إِلَى كُرْسِيِّكَ وَحْدَكَ إِلَّا إِذَا تَعَلَّمْتَ طَرِيقَةً آمِنَةً لِذَلِكْ. اُطْلُبْ مِنْ أَحَدٍ أَنْ يُسَاعِدَكْ، وَحَافِظْ عَلَى دِفْئِكَ وَأَنْتَ تَنْتَظِرْ.",
-      "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding or have new pain, call 997 or call out for help. Do not try to get back into your chair alone unless you have learned a safe way to do it. Call someone to help you, and keep warm while you wait."
+      "ar": "ابقَ ساكنًا لحظة، وتأكد هل أصابك أذى. إذا اصطدم رأسك بشيء، أو كنت تنزف، أو شعرت بألم جديد، فاطلب المساعدة بصوت عالٍ. لا تحاول العودة إلى كرسيك وحدك إلا إذا تعلمت طريقة آمنة لذلك. اطلب من أحد أن يساعدك، وحافظ على دفئك وأنت تنتظر.",
+      "arTts": "اِبْقَ سَاكِنًا لَحْظَةْ، وَتَأَكَّدْ هَلْ أَصَابَكَ أَذَى. إِذَا اصْطَدَمَ رَأْسُكَ بِشَيْءْ، أَوْ كُنْتَ تَنْزِفْ، أَوْ شَعَرْتَ بِأَلَمٍ جَدِيدْ، فَاطْلُبِ الْمُسَاعَدَةَ بِصَوْتٍ عَالْ. لَا تُحَاوِلِ الْعَوْدَةَ إِلَى كُرْسِيِّكَ وَحْدَكَ إِلَّا إِذَا تَعَلَّمْتَ طَرِيقَةً آمِنَةً لِذَلِكْ. اُطْلُبْ مِنْ أَحَدٍ أَنْ يُسَاعِدَكْ، وَحَافِظْ عَلَى دِفْئِكَ وَأَنْتَ تَنْتَظِرْ.",
+      "en": "Stay still for a moment and check whether you are hurt. If you hit your head, are bleeding or have new pain, call out for help. Do not try to get back into your chair alone unless you have learned a safe way to do it. Call someone to help you, and keep warm while you wait."
     },
     "scr_no_response": {
-      "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة، فاتصل بالرقم 997. وإذا كان بالقرب منك أحد، فنادِه الآن. إذا كنت بخير، فالمس «أنا بخير».",
-      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ. وَإِذَا كَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. إِذَا كُنْتَ بِخَيْرْ، فَالْمِسْ، أَنَا بِخَيْرْ.",
-      "en": "Are you all right? If you need help, call 997. If anyone is near you, call out to them now. If you are fine, tap “I am fine”.",
+      "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن. إذا كنت بخير، فالمس «أنا بخير».",
+      "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. إِذَا كُنْتَ بِخَيْرْ، فَالْمِسْ، أَنَا بِخَيْرْ.",
+      "en": "Are you all right? If you need help and anyone is near you, call out to them now. If you are fine, tap “I am fine”.",
       "fineButton": "The 120 px «أنا بخير» button sits directly under the last sentence; only that button, the camera fine signal or the on device phrase counts as fine (O34-4 (2), (6)).",
       "fallWatch": {
-        "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة، فاتصل بالرقم 997. وإذا كان بالقرب منك أحد، فنادِه الآن. لا تنهض لتجيب. إذا كنت بخير، فارفع إحدى يديك، أو اطلب ممن معك أن يلمس «أنا بخير».",
-        "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ. وَإِذَا كَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ، أَوِ اطْلُبْ مِمَّنْ مَعَكَ أَنْ يَلْمِسْ، أَنَا بِخَيْرْ.",
-        "en": "Are you all right? If you need help, call 997. If anyone is near you, call out to them now. Do not get up to answer. If you are fine, raise one hand, or ask the person with you to tap “I am fine”."
+        "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن. لا تنهض لتجيب. إذا كنت بخير، فارفع إحدى يديك، أو اطلب ممن معك أن يلمس «أنا بخير».",
+        "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَارْفَعْ إِحْدَى يَدَيْكْ، أَوِ اطْلُبْ مِمَّنْ مَعَكَ أَنْ يَلْمِسْ، أَنَا بِخَيْرْ.",
+        "en": "Are you all right? If you need help and anyone is near you, call out to them now. Do not get up to answer. If you are fine, raise one hand, or ask the person with you to tap “I am fine”."
       },
       "fallWatchNoRaise": {
-        "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة، فاتصل بالرقم 997. وإذا كان بالقرب منك أحد، فنادِه الآن. لا تنهض لتجيب. إذا كنت بخير، فاطلب ممن معك أن يلمس «أنا بخير».",
-        "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ. وَإِذَا كَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَاطْلُبْ مِمَّنْ مَعَكَ أَنْ يَلْمِسْ، أَنَا بِخَيْرْ.",
-        "en": "Are you all right? If you need help, call 997. If anyone is near you, call out to them now. Do not get up to answer. If you are fine, ask the person with you to tap “I am fine”."
+        "ar": "هل أنت بخير؟ إذا احتجت إلى مساعدة وكان بالقرب منك أحد، فنادِه الآن. لا تنهض لتجيب. إذا كنت بخير، فاطلب ممن معك أن يلمس «أنا بخير».",
+        "arTts": "هَلْ أَنْتَ بِخَيْرْ؟ إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ وَكَانَ بِالْقُرْبِ مِنْكَ أَحَدْ، فَنَادِهِ الْآنْ. لَا تَنْهَضْ لِتُجِيبْ. إِذَا كُنْتَ بِخَيْرْ، فَاطْلُبْ مِمَّنْ مَعَكَ أَنْ يَلْمِسْ، أَنَا بِخَيْرْ.",
+        "en": "Are you all right? If you need help and anyone is near you, call out to them now. Do not get up to answer. If you are fine, ask the person with you to tap “I am fine”."
       },
-      "fallWatchRule": "Pending: the medical seat and the panel confirm it (review fixes, 2026-09-28; O42 (6), O34-4 (6)). When S45 is reached from S39 (the home fall watch), its body is fallWatch, or fallWatchNoRaise when raiseAllowed is false or noArmSignal is set, so no line asks that person to raise a hand (O34-1 (5)). The heading, the 997 control, the 64 px number, the tone and the 120 px «أنا بخير» button stay as on every S45; where on device speech runs the phrase still counts (okFrom), as on every S45. Why: the v1.1 body tells a person on the floor, with the phone on its stand 2 to 3 m away, to tap the phone to stop the tone, with no «لا تنهض» and no mention of the raised hand that counts on S45, against scr_fall and the fall watch cue. Until confirmed, S45 keeps the v1.1 body on every route. Open for the panel: with raiseAllowed false or noArmSignal and speech off, check_are_you_ok_fall_noraise offers no answer that can be given from the floor (the zones cannot be reached, O42), so every watch check in for these people ends in the alarm unless a helper is there; the panel decides whether that is the intended safe default."
+      "fallWatchRule": "Pending: the medical seat and the panel confirm it (review fixes, 2026-09-28; O42 (6), O34-4 (6)). When S45 is reached from S39 (the home fall watch), its body is fallWatch, or fallWatchNoRaise when raiseAllowed is false or noArmSignal is set, so no line asks that person to raise a hand (O34-1 (5)). The heading, the tone and the 120 px «أنا بخير» button stay as on every S45; where on device speech runs the phrase still counts (okFrom), as on every S45. Why: the v1.1 body tells a person on the floor, with the phone on its stand 2 to 3 m away, to tap the phone to stop the tone, with no «لا تنهض» and no mention of the raised hand that counts on S45, against scr_fall and the fall watch cue. Until confirmed, S45 keeps the v1.1 body on every route. Open for the panel: with raiseAllowed false or noArmSignal and speech off, check_are_you_ok_fall_noraise offers no answer that can be given from the floor (the zones cannot be reached, O42), so every watch check in for these people ends in the alarm unless a helper is there; the panel decides whether that is the intended safe default."
     },
     "scr_stop_seek_care": {
-      "ar": "لنتوقف هنا. استرح في وضع مريح. إذا لم يهدأ ما تشعر به أو أقلقك، فتواصل مع طبيبك أو فريق رعايتك. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة. وإذا اشتد ما تشعر به، فاتصل بالرقم 997.",
-      "arTts": "لِنَتَوَقَّفْ هُنَا. اِسْتَرِحْ فِي وَضْعٍ مُرِيحْ. إِذَا لَمْ يَهْدَأْ مَا تَشْعُرُ بِهِ أَوْ أَقْلَقَكْ، فَتَوَاصَلْ مَعَ طَبِيبِكَ أَوْ فَرِيقِ رِعَايَتِكْ. وَإِذَا لَمْ يَكُنْ لَدَيْكَ طَبِيبٌ تَسْأَلُهْ، فَيُمْكِنُكَ الِاتِّصَالُ بِوِزَارَةِ الصِّحَّةِ عَلَى الرَّقْمْ، تِسْعَةْ، ثَلَاثَةْ، سَبْعَةْ، لِلِاسْتِشَارَةْ. وَإِذَا اشْتَدَّ مَا تَشْعُرُ بِهْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ.",
-      "en": "Let’s stop here. Rest in a comfortable position. If what you feel does not settle, or it worries you, contact your doctor or care team. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice. If it becomes severe, call 997."
+      "ar": "لنتوقف هنا. استرح في وضع مريح. إذا لم يهدأ ما تشعر به أو أقلقك، فتواصل مع طبيبك أو فريق رعايتك. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة. وإذا اشتد ما تشعر به، فاطلب المساعدة الطبية فورًا.",
+      "arTts": "لِنَتَوَقَّفْ هُنَا. اِسْتَرِحْ فِي وَضْعٍ مُرِيحْ. إِذَا لَمْ يَهْدَأْ مَا تَشْعُرُ بِهِ أَوْ أَقْلَقَكْ، فَتَوَاصَلْ مَعَ طَبِيبِكَ أَوْ فَرِيقِ رِعَايَتِكْ. وَإِذَا لَمْ يَكُنْ لَدَيْكَ طَبِيبٌ تَسْأَلُهْ، فَيُمْكِنُكَ الِاتِّصَالُ بِوِزَارَةِ الصِّحَّةِ عَلَى الرَّقْمْ، تِسْعَةْ، ثَلَاثَةْ، سَبْعَةْ، لِلِاسْتِشَارَةْ. وَإِذَا اشْتَدَّ مَا تَشْعُرُ بِهْ، فَاطْلُبِ الْمُسَاعَدَةَ الطِّبِّيَّةَ فَوْرًا.",
+      "en": "Let’s stop here. Rest in a comfortable position. If what you feel does not settle, or it worries you, contact your doctor or care team. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice. If it becomes severe, get medical help straight away."
     },
     "scr_stop_pain": {
       "ar": "لنتوقف هنا ونكمل في يوم آخر. استرح، وإذا لم يهدأ الألم، فراجع طبيبك أو فريق رعايتك.",
@@ -3240,9 +3240,9 @@
       "en": "Let’s stop here and continue on another day. Rest, and if the pain does not settle, check with your doctor or care team."
     },
     "scr_postpone_care": {
-      "ar": "لنؤجل قياس الحركة اليوم. هذا ليس تشخيصًا، بل تأجيل حرصًا على سلامتك. يرجى مراجعة طبيبك أو فريق رعايتك قبل القياس القادم. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة. وفي الحالات الطارئة، اتصل بالرقم 997.",
-      "arTts": "لِنُؤَجِّلْ قِيَاسَ الْحَرَكَةِ الْيَوْمْ. هَذَا لَيْسَ تَشْخِيصًا، بَلْ تَأْجِيلٌ حِرْصًا عَلَى سَلَامَتِكْ. يُرْجَى مُرَاجَعَةُ طَبِيبِكَ أَوْ فَرِيقِ رِعَايَتِكَ قَبْلَ الْقِيَاسِ الْقَادِمْ. وَإِذَا لَمْ يَكُنْ لَدَيْكَ طَبِيبٌ تَسْأَلُهْ، فَيُمْكِنُكَ الِاتِّصَالُ بِوِزَارَةِ الصِّحَّةِ عَلَى الرَّقْمْ، تِسْعَةْ، ثَلَاثَةْ، سَبْعَةْ، لِلِاسْتِشَارَةْ. وَفِي الْحَالَاتِ الطَّارِئَةْ، اِتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ.",
-      "en": "Let’s pause today’s movement check. This is not a diagnosis, just a safety pause. Please check with your doctor or care team before your next check. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice. For an emergency, call 997."
+      "ar": "لنؤجل قياس الحركة اليوم. هذا ليس تشخيصًا، بل تأجيل حرصًا على سلامتك. يرجى مراجعة طبيبك أو فريق رعايتك قبل القياس القادم. وإذا لم يكن لديك طبيب تسأله، فيمكنك الاتصال بوزارة الصحة على الرقم 937 للاستشارة.",
+      "arTts": "لِنُؤَجِّلْ قِيَاسَ الْحَرَكَةِ الْيَوْمْ. هَذَا لَيْسَ تَشْخِيصًا، بَلْ تَأْجِيلٌ حِرْصًا عَلَى سَلَامَتِكْ. يُرْجَى مُرَاجَعَةُ طَبِيبِكَ أَوْ فَرِيقِ رِعَايَتِكَ قَبْلَ الْقِيَاسِ الْقَادِمْ. وَإِذَا لَمْ يَكُنْ لَدَيْكَ طَبِيبٌ تَسْأَلُهْ، فَيُمْكِنُكَ الِاتِّصَالُ بِوِزَارَةِ الصِّحَّةِ عَلَى الرَّقْمْ، تِسْعَةْ، ثَلَاثَةْ، سَبْعَةْ، لِلِاسْتِشَارَةْ.",
+      "en": "Let’s pause today’s movement check. This is not a diagnosis, just a safety pause. Please check with your doctor or care team before your next check. If you do not have a doctor to ask, you can call the Ministry of Health on 937 for advice."
     },
     "scr_postpone_unwell": {
       "ar": "لنُجرِ القياس في يوم تشعر فيه أنك بخير.",
@@ -3296,9 +3296,9 @@
       "arTts": "اِجْلِسْ أَوْ قِفْ قَرِيبًا بِجَانِبِهِ فِي جِهَتِهِ الْأَضْعَفْ، خَلْفَهُ قَلِيلًا. أَبْقِ يَدَيْكَ قَرِيبَتَيْنِ مِنْ كَتِفِهِ دُونَ أَنْ تَلْمِسَهْ. إِذَا بَدَأَ يَمِيلُ أَكْثَرَ مِمَّا يَسْتَطِيعُ التَّحَكُّمَ فِيهْ، فَثَبِّتْهُ مِنَ الْكَتِفِ أَوِ الْجِذْعْ، وَلَا تُمْسِكْهُ مِنْ ذِرَاعِهِ أَبَدًا، وَسَاعِدْهُ عَلَى الْعَوْدَةِ إِلَى الْجُلُوسِ الْمُسْتَقِيمْ. لَا بَأْسَ أَنْ تَظْهَرَ فِي الصُّورَةْ، لَكِنْ لَا تَقِفْ بَيْنَهُ وَبَيْنَ الْهَاتِفْ. لَا يُسَجَّلُ الْفِيدْيُو وَلَا يُرْسَلْ، وَلَا نَحْفَظُ أَيَّ شَيْءٍ عَنْكْ."
     },
     "warn_sci_t6": {
-      "ar": "قد تكون إصابتك عند المستوى T6 أو أعلى. إذا شعرت بصداع نابض، أو تعرق أو احمرار فوق مستوى إصابتك، أو قشعريرة في الجلد، أو تشوش في الرؤية، أو انسداد في الأنف، فتوقف واجلس مستقيمًا. ثم اتبع خطة فريق رعايتك، أو اتصل بالرقم 997 إذا لم تهدأ الأعراض سريعًا.",
-      "arTts": "قَدْ تَكُونُ إِصَابَتُكَ عِنْدَ الْمُسْتَوَى تِي سِتَّةْ أَوْ أَعْلَى. إِذَا شَعَرْتَ بِصُدَاعٍ نَابِضْ، أَوْ تَعَرُّقٍ أَوِ احْمِرَارٍ فَوْقَ مُسْتَوَى إِصَابَتِكْ، أَوْ قُشَعْرِيرَةٍ فِي الْجِلْدْ، أَوْ تَشَوُّشٍ فِي الرُّؤْيَةْ، أَوِ انْسِدَادٍ فِي الْأَنْفْ، فَتَوَقَّفْ وَاجْلِسْ مُسْتَقِيمًا. ثُمَّ اتَّبِعْ خُطَّةَ فَرِيقِ رِعَايَتِكْ، أَوِ اتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ، إِذَا لَمْ تَهْدَأِ الْأَعْرَاضُ سَرِيعًا.",
-      "en": "Your injury may be at T6 or higher. If you get a pounding headache, sweating or flushing above your injury, goosebumps, blurred vision or a stuffy nose, stop and sit upright. Then follow your care team’s plan, or call 997 if it does not settle quickly."
+      "ar": "قد تكون إصابتك عند المستوى T6 أو أعلى. إذا شعرت بصداع نابض، أو تعرق أو احمرار فوق مستوى إصابتك، أو قشعريرة في الجلد، أو تشوش في الرؤية، أو انسداد في الأنف، فتوقف واجلس مستقيمًا. ثم اتبع خطة فريق رعايتك، واطلب المساعدة الطبية فورًا إذا لم تهدأ الأعراض سريعًا.",
+      "arTts": "قَدْ تَكُونُ إِصَابَتُكَ عِنْدَ الْمُسْتَوَى تِي سِتَّةْ أَوْ أَعْلَى. إِذَا شَعَرْتَ بِصُدَاعٍ نَابِضْ، أَوْ تَعَرُّقٍ أَوِ احْمِرَارٍ فَوْقَ مُسْتَوَى إِصَابَتِكْ، أَوْ قُشَعْرِيرَةٍ فِي الْجِلْدْ، أَوْ تَشَوُّشٍ فِي الرُّؤْيَةْ، أَوِ انْسِدَادٍ فِي الْأَنْفْ، فَتَوَقَّفْ وَاجْلِسْ مُسْتَقِيمًا. ثُمَّ اتَّبِعْ خُطَّةَ فَرِيقِ رِعَايَتِكْ، وَاطْلُبِ الْمُسَاعَدَةَ الطِّبِّيَّةَ فَوْرًا إِذَا لَمْ تَهْدَأِ الْأَعْرَاضُ سَرِيعًا.",
+      "en": "Your injury may be at T6 or higher. If you get a pounding headache, sweating or flushing above your injury, goosebumps, blurred vision or a stuffy nose, stop and sit upright. Then follow your care team’s plan, and get medical help straight away if it does not settle quickly."
     },
     "warn_pain_high": {
       "ar": "ألمك مرتفع اليوم. تحرك بهدوء، وتوقف إذا زاد الألم.",
@@ -3386,12 +3386,9 @@
       "en": "Call 997",
       "href": "tel:997"
     },
-    "firstActionOn": "every screen that names 997 (scr_emergency, scr_ad, scr_faint, scr_fall, scr_fall_seated, scr_no_response, scr_stop_seek_care, scr_postpone_care, warn_sci_t6): the first action is this full width button",
+    "firstActionOn": "the two emergency screens, which are the only screens that name 997 (scr_emergency, and scr_ad for autonomic dysreflexia; D-016): the first action is this full width button",
     "bigNumberOn": [
-      "scr_emergency",
-      "scr_no_response",
-      "scr_fall",
-      "scr_fall_seated"
+      "scr_emergency"
     ],
     "bigNumberMinPx": 64,
     "bigNumberRule": "The number is also shown as text at least 64 px tall, so it can be read from 2 to 3 m or from the floor and dialled from another phone when this device cannot call (laptops, tablets).",
@@ -6129,16 +6126,6 @@
       }
     },
     {
-      "id": "check_urgent_call",
-      "ar": "إذا احتجت إلى مساعدة عاجلة، فاتصل بالرقم 997.",
-      "arTts": "إِذَا احْتَجْتَ إِلَى مُسَاعَدَةٍ عَاجِلَةْ، فَاتَّصِلْ بِالرَّقْمْ، تِسْعَةْ، تِسْعَةْ، سَبْعَةْ.",
-      "en": "If you need urgent help, call 997.",
-      "short": {
-        "ar": "اتصل بالرقم ٩٩٧",
-        "en": "Call 997"
-      }
-    },
-    {
       "id": "check_skip_ok",
       "ar": "لا بأس، سنتخطى هذا الاختبار.",
       "arTts": "لَا بَأْسْ، سَنَتَخَطَّى هَذَا الِاخْتِبَارْ.",
@@ -6537,7 +6524,7 @@
     ],
     "copyPass": "Arabic copy pass of 2026-09-28: every pending speech line above is written or confirmed (arTts on screens.scr_helper_brief_stand, screens.scr_helper_brief_trunk, pc_sci_ready ask, list and options, bt_pain_after ask and options, tests.trunk_control_seated.metric.contactAsk, tests.chair_stand_30s.pushedAsk, tests.arm_curl_30s.load.practiceCheck, engine.coachingTrunkStop.cue; check_faint_loc confirmed). check_are_you_ok_speech, confirmed in that pass, was retired afterwards (O34-4 (4)) and is never generated. Nasser still approves the regenerated Arabic voice by ear before release.",
     "ttsConvention": "arTts is fully vocalised and matches the display text word for word (numbers spelled out). Every word before a pause (comma, full stop, question mark) takes its pausal form: sukun on the last letter (also on ة), tanween fath with alif kept as written, a final long vowel or shadda left as is. A word that starts a breath group after a comma carries the vowel of its hamzat al wasl (اِرْفَعْ). A quoted phrase in the display text («أنا بخير») is spoken with a short pause on each side, written as a comma in arTts, and the word before the pause takes its pausal form; a question mark or full stop inside quotation marks is not a sentence end. The UI splits the display text and its arTts at the same full stops and question marks outside quotation marks; a split never falls inside a sentence, and a sentence naming 997 is never truncated in the caption. A build lint checks that the arTts sentence count equals the display sentence count for every text and fails the build on a mismatch, which goes back to the Arabic seat; a mismatch that reaches runtime plays the line whole with no highlight (7.2-12). Codes are spoken as letters and numbers (T6: تِي سِتَّةْ).",
-    "earCheckFirst": "Listen first to check_urgent_call, check_are_you_ok and check_faint_loc (medical review of the Arabic copy pass, 2026-09-28): the pausal sukun on ة may be clipped or heard as /t/. If it is, drop the sukun on the digits of 997 only (تِسْعَة، تِسْعَة، سَبْعَة) and regenerate. Then the safety screens in this order, before Oct 9 where possible: scr_emergency, scr_no_response, scr_ad, scr_fall, scr_fall_seated, scr_faint, scr_faint_sci (O24-2); then ec_symptoms, its ask and both side forms (S49, O37), and the pc_change and pc_unwell examples (O45); then the check in cues and the two end cues. Before generation the medical lead checks each safety line word for word against its display text. Until a line is approved, speech synthesis may read a safety screen only after Nasser has approved that screen on the booth devices’ ar-SA voice; otherwise the screen is shown without speech and booth staff read the heading and the first action aloud (O12 (4)). At the booth none of the pre-check lines plays by itself (B16)."
+    "earCheckFirst": "Listen first to check_are_you_ok and check_faint_loc (medical review of the Arabic copy pass, 2026-09-28): the pausal sukun on ة may be clipped or heard as /t/. If it is, drop the sukun on the digits of 997 only (تِسْعَة، تِسْعَة، سَبْعَة, spoken on scr_emergency and scr_ad) and regenerate. Then the safety screens in this order, before Oct 9 where possible: scr_emergency, scr_no_response, scr_ad, scr_fall, scr_fall_seated, scr_faint, scr_faint_sci (O24-2); then ec_symptoms, its ask and both side forms (S49, O37), and the pc_change and pc_unwell examples (O45); then the check in cues and the two end cues. Before generation the medical lead checks each safety line word for word against its display text. Until a line is approved, speech synthesis may read a safety screen only after Nasser has approved that screen on the booth devices’ ar-SA voice; otherwise the screen is shown without speech and booth staff read the heading and the first action aloud (O12 (4)). At the booth none of the pre-check lines plays by itself (B16)."
   },
   "addressPreference": {
     "phase": 2,

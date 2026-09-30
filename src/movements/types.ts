@@ -266,7 +266,6 @@ export const CHECK_CUE_IDS = [
   "check_answer_zone",
   "check_fine_practice",
   "check_faint_loc",
-  "check_urgent_call",
   "check_skip_ok",
   "check_postpone",
   "check_sit_minute",

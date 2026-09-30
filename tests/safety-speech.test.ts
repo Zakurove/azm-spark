@@ -104,7 +104,7 @@ describe("the O12 (4) interim gate on Arabic speech synthesis", () => {
 
   it("speaks check cues from their arTts, and never voices unvocalised Arabic copy", () => {
     expect(cueSpeech("check_stop_now", "ar").speech).toBe(cueLine("check_stop_now").arTts);
-    expect(cueSpeech("check_urgent_call", "en").speech).toBe("If you need urgent help, call 9 9 7.");
+    expect(cueSpeech("check_stop_now", "en").speech).toBe("Stop now and rest.");
     expect(copyLine("ar", "خذ وقتك.").speech).toBeNull();
     expect(copyLine("en", "Take your time.").speech).toBe("Take your time.");
   });

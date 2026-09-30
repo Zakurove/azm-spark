@@ -23,10 +23,8 @@ export const PRIVACY_OWNER: { controller: string; email: string | null } = {
   email: null,
 };
 
-/** The link to the notice, keeping the language. */
-export function privacyHref(lang: Lang): string {
-  return lang === "en" ? "/?privacy=1&lang=en" : "/?privacy=1";
-}
+/** The link to the notice, keeping the language (privacyHref.ts). */
+export { privacyHref } from "./privacyHref";
 
 function Section({ heading, children }: { heading: ReactNode; children: ReactNode }) {
   return (

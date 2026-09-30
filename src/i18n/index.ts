@@ -16,7 +16,8 @@
  * enforce it.
  */
 import { fmtNum, type Lang } from "../app/i18n";
-import { progress } from "../movements/check-v1.json";
+// Only the unit forms of the check data (vite.config.ts), so the landing does not load all of it.
+import unitForms from "virtual:check-unit-forms";
 import { UNIT_FORM_IDS, type UnitFormId, type UnitForms } from "../movements/types";
 import arAssessment from "./ar/assessment.json";
 import arLanding from "./ar/landing.json";
@@ -96,7 +97,7 @@ function minuteForms(): UnitForms {
 
 /** Unit form ids of countPhrase: the check data's, and min for durations. */
 export type CountUnit = UnitFormId | "min";
-const UNIT_FORMS: Record<CountUnit, UnitForms> = { ...progress.unitForms, min: minuteForms() };
+const UNIT_FORMS: Record<CountUnit, UnitForms> = { ...unitForms, min: minuteForms() };
 const PLURAL_RULES: Record<Lang, Intl.PluralRules> = {
   ar: new Intl.PluralRules("ar"),
   en: new Intl.PluralRules("en"),

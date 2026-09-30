@@ -5,7 +5,7 @@ import { api } from "./api";
 import Icon from "./Icon";
 import { t } from "../i18n";
 import { bidiText } from "../i18n/rich";
-import { privacyHref } from "./Privacy";
+import { privacyHref } from "./privacyHref";
 
 export interface ReportResult {
   document: string;

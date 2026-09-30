@@ -7,7 +7,7 @@ import Icon from "./Icon";
 import ReportUpload, { ReportResult } from "./ReportUpload";
 import { CHECK_DATA } from "../movements/assessments";
 import { t } from "../i18n";
-import { privacyHref } from "./Privacy";
+import { privacyHref } from "./privacyHref";
 type Draft = Omit<Intake, "symptoms" | "recentChange" | "clearance" | "mobility"> & {
   symptoms: Intake["symptoms"] | "";
   recentChange: Intake["recentChange"] | "";

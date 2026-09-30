@@ -40,7 +40,9 @@ import {
   type NewCall,
 } from "./resultQueue";
 import { reportNetwork } from "./shared/useOnline";
+import { SNAPSHOT_KEY } from "./snapshot";
 
+export { hasSnapshot } from "./snapshot";
 export { flowReducer, initialModel } from "./flowMachine";
 export type { FlowEvent, FlowModel, FlowState } from "./flowMachine";
 
@@ -64,8 +66,6 @@ export interface CheckFlowOptions {
   resume?: ResumeCheck | null;
 }
 
-const SNAPSHOT_KEY = "azm.check.snapshot";
-
 /** What survives a reload: no effects, and no raw answers once the protocol is frozen. */
 export function snapshotOf(m: FlowModel): FlowModel {
   const frozen = m.data.protocol.length > 0;
@@ -77,16 +77,6 @@ export function saveSnapshot(m: FlowModel): void {
     sessionStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshotOf(m)));
   } catch {
     /* no storage: the check starts again after the reload */
-  }
-}
-
-/** Whether a reload snapshot of this mode waits (App reopens the signed in check after S32's reload). */
-export function hasSnapshot(mode: FlowConfig["mode"]): boolean {
-  try {
-    const raw = sessionStorage.getItem(SNAPSHOT_KEY);
-    return !!raw && (JSON.parse(raw) as FlowModel)?.data?.config?.mode === mode;
-  } catch {
-    return false;
   }
 }
 

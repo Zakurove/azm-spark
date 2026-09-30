@@ -10,3 +10,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** The check data's unit forms on their own (vite.config.ts, checkUnitForms). */
+declare module "virtual:check-unit-forms" {
+  const unitForms: (typeof import("./movements/check-v1.json"))["progress"]["unitForms"];
+  export default unitForms;
+}

@@ -7,7 +7,7 @@ import Icon from "./Icon";
 import { CHECK_DATA } from "../movements/assessments";
 import { bidiText } from "../i18n/rich";
 import { t } from "../i18n";
-import { privacyHref } from "./Privacy";
+import { privacyHref } from "./privacyHref";
 
 /**
  * The body of the register or sign in call. Registering needs the adult confirmation (Q2 (5), Q32

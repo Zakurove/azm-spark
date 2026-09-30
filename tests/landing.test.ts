@@ -316,7 +316,8 @@ describe("page wide rules", () => {
 
   it("renders the full Azm wordmark and a language switch in the other language", () => {
     const ar = render("ar");
-    expect(ar).toContain('src="/brand/azm.png"');
+    // The wordmark at the size it shows (acceptance F-4: the 1596 px PNG cost 50 KB on the landing).
+    expect(ar).toContain('src="/brand/azm-logo.webp"');
     expect(ar).toMatch(/<button class="language" lang="en">English<\/button>/);
     expect(render("en")).toMatch(/<button class="language" lang="ar">العربية<\/button>/);
   });

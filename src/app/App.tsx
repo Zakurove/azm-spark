@@ -8,32 +8,43 @@ import { EXERCISES } from "../exercises/defs";
 import { SavedSession, Setup } from "./product";
 import Brand from "./Brand";
 import Landing from "./Landing";
-import Auth from "./Auth";
-import TryCamera from "./TryCamera";
-import WeeklyPlanView from "./WeeklyPlan";
-import { WeeklyPlan } from "../medical/weekly";
-import IntakeForm from "./IntakeForm";
-import Workout, { WorkoutRun } from "./Workout";
-import Session from "./Session";
-import History from "./History";
-import CoachSettings from "./CoachSettings";
+import type { WeeklyPlan } from "../medical/weekly";
+import type { WorkoutRun } from "./Workout";
 import Icon from "./Icon";
-import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
-import { createCheckApi, homeOpenOf, offerMinutes } from "../features/assessment/api";
 import { isBoothMode } from "../features/assessment/boothMode";
-import { flushPendingCheckCalls, hasSnapshot } from "../features/assessment/useCheckFlow";
+import { hasSnapshot } from "../features/assessment/snapshot";
 import { CHECK_UI } from "../features/assessment/featureFlag";
-import { BoothStaffPage, VisitorTokenPage } from "../features/assessment/booth";
-import {
-  AfterIntakeOffer,
-  ExampleProgress,
-  ResultsPage,
-  TodayCheckSlot,
-  type CheckStartOptions,
-} from "../features/progress";
+import type { CheckStartOptions } from "../features/progress";
 import { countPhrase, t } from "../i18n";
-import Privacy from "./Privacy";
+import { LazyPage, LazyPart } from "./LazyPage";
+/**
+ * Loaded on demand (acceptance F-4): the landing's first script carries the app shell, the landing
+ * and the copy; the check, the camera and pose runtime, the booth, the portal pages and the workout
+ * each come when they open. The signed in portal fetches the check's code ahead (below).
+ */
+const CheckApp = lazy(() => import("../features/assessment/CheckApp"));
+const loadBooth = () => import("../features/assessment/booth");
+const BoothStaffPage = lazy(() => loadBooth().then((m) => ({ default: m.BoothStaffPage })));
+const VisitorTokenPage = lazy(() => loadBooth().then((m) => ({ default: m.VisitorTokenPage })));
+const loadProgress = () => import("../features/progress");
+const AfterIntakeOffer = lazy(() => loadProgress().then((m) => ({ default: m.AfterIntakeOffer })));
+const ExampleProgress = lazy(() => loadProgress().then((m) => ({ default: m.ExampleProgress })));
+const ResultsPage = lazy(() => loadProgress().then((m) => ({ default: m.ResultsPage })));
+const TodayCheckSlot = lazy(() => loadProgress().then((m) => ({ default: m.TodayCheckSlot })));
+const Auth = lazy(() => import("./Auth"));
+const TryCamera = lazy(() => import("./TryCamera"));
+const WeeklyPlanView = lazy(() => import("./WeeklyPlan"));
+const IntakeForm = lazy(() => import("./IntakeForm"));
+const Workout = lazy(() => import("./Workout"));
+const Session = lazy(() => import("./Session"));
+const History = lazy(() => import("./History"));
+const CoachSettings = lazy(() => import("./CoachSettings"));
+const Privacy = lazy(() => import("./Privacy"));
+const checkApi = () => import("../features/assessment/api");
+/** Sends what a movement check left in its outbox (loads the flow's code first). */
+const flushPendingCheckCalls = (owner: string) =>
+  import("../features/assessment/useCheckFlow").then((m) => m.flushPendingCheckCalls(owner));
 const qs = new URLSearchParams(location.search);
 /** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
 const checkEntry = qs.get("check") === "1";
@@ -169,13 +180,19 @@ export default function App() {
   // so a visitor who is not signed in never calls it).
   useEffect(() => {
     if (!exampleEntry || !account) return;
-    void createCheckApi()
-      .getContext()
-      .then((r) => setHomeChecksOpen(r.ok && homeOpenOf(r.value)));
+    void checkApi().then(({ createCheckApi, homeOpenOf }) =>
+      createCheckApi()
+        .getContext()
+        .then((r) => setHomeChecksOpen(r.ok && homeOpenOf(r.value))),
+    );
   }, [account?.user.id]);
   // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
   useEffect(() => {
-    if (account) void flushPendingCheckCalls(account.user.id);
+    if (!account) return;
+    void flushPendingCheckCalls(account.user.id);
+    // The check's code, fetched ahead while the portal is open, so the check still opens after the
+    // connection drops (0.7).
+    void import("../features/assessment/CheckApp").catch(() => undefined);
   }, [account?.user.id]);
   useEffect(() => {
     if (account && !run)
@@ -194,11 +211,13 @@ export default function App() {
     setPage("program");
     // S02: offered once after the intake, only while home checks are open and the plan is not in review.
     if (CHECK_UI && s.plan.status !== "review")
-      void createCheckApi()
-        .getContext()
-        .then((r) =>
-          setIntakeOffer(r.ok && homeOpenOf(r.value) && !r.value.blocked ? offerMinutes(r.value) : null),
-        );
+      void checkApi().then(({ createCheckApi, homeOpenOf, offerMinutes }) =>
+        createCheckApi()
+          .getContext()
+          .then((r) =>
+            setIntakeOffer(r.ok && homeOpenOf(r.value) && !r.value.blocked ? offerMinutes(r.value) : null),
+          ),
+      );
   };
   const start = async (isDemo: boolean) => {
     setBusy(true);
@@ -213,22 +232,26 @@ export default function App() {
   };
   if (boothTokenEntry !== null)
     return (
-      <VisitorTokenPage
-        lang={lang}
-        onLanguage={toggleLanguage}
-        token={boothTokenEntry}
-        // Booth mode on: a signed in visitor opens Today (S01 starts the booth check), a visitor who is
-        // not signed in the guest check (S05); the address loses the token either way.
-        onContinue={(on) => openUrl(on && !account ? "/?check=1" : "/", lang, true)}
-      />
+      <LazyPage lang={lang}>
+        <VisitorTokenPage
+          lang={lang}
+          onLanguage={toggleLanguage}
+          token={boothTokenEntry}
+          // Booth mode on: a signed in visitor opens Today (S01 starts the booth check), a visitor who
+          // is not signed in the guest check (S05); the address loses the token either way.
+          onContinue={(on) => openUrl(on && !account ? "/?check=1" : "/", lang, true)}
+        />
+      </LazyPage>
     );
   if (privacyEntry)
     return (
-      <Privacy
-        lang={lang}
-        onLanguage={toggleLanguage}
-        onBack={() => (history.length > 1 ? history.back() : openUrl("/", lang, true))}
-      />
+      <LazyPage lang={lang}>
+        <Privacy
+          lang={lang}
+          onLanguage={toggleLanguage}
+          onBack={() => (history.length > 1 ? history.back() : openUrl("/", lang, true))}
+        />
+      </LazyPage>
     );
   if (E2EGallery && galleryEntry)
     return (
@@ -238,33 +261,39 @@ export default function App() {
     );
   if (checkEntry)
     return (
-      <CheckApp
-        lang={lang}
-        onLanguage={toggleLanguage}
-        mode="guest"
-        // A guest never goes Back into a previous visitor's screens: every exit replaces the page (S57).
-        onExit={(to) => openUrl(EXIT_URLS[to] ?? "/", lang, true)}
-      />
+      <LazyPage lang={lang}>
+        <CheckApp
+          lang={lang}
+          onLanguage={toggleLanguage}
+          mode="guest"
+          // A guest never goes Back into a previous visitor's screens: every exit replaces the page (S57).
+          onExit={(to) => openUrl(EXIT_URLS[to] ?? "/", lang, true)}
+        />
+      </LazyPage>
     );
   if (boothEntry)
     return (
-      <BoothStaffPage
-        lang={lang}
-        onLanguage={toggleLanguage}
-        onExit={() => openUrl("/", lang, true)}
-        onOpenGuest={() => openUrl("/?check=1", lang)}
-      />
+      <LazyPage lang={lang}>
+        <BoothStaffPage
+          lang={lang}
+          onLanguage={toggleLanguage}
+          onExit={() => openUrl("/", lang, true)}
+          onOpenGuest={() => openUrl("/?check=1", lang)}
+        />
+      </LazyPage>
     );
   if (exampleEntry)
     return (
-      <ExampleProgress
-        lang={lang}
-        onLanguage={toggleLanguage}
-        canTryCheck={isBoothMode() || homeChecksOpen}
-        // At the booth the guest check; at home the signed in check starts from Today (S01).
-        onTryCheck={() => openUrl(isBoothMode() ? "/?check=1" : "/", lang)}
-        onRegister={() => openUrl("/?app=1&register=1", lang)}
-      />
+      <LazyPage lang={lang}>
+        <ExampleProgress
+          lang={lang}
+          onLanguage={toggleLanguage}
+          canTryCheck={isBoothMode() || homeChecksOpen}
+          // At the booth the guest check; at home the signed in check starts from Today (S01).
+          onTryCheck={() => openUrl(isBoothMode() ? "/?check=1" : "/", lang)}
+          onRegister={() => openUrl("/?app=1&register=1", lang)}
+        />
+      </LazyPage>
     );
   if (demo) {
     const ex = EXERCISES.find((e) => e.id === qs.get("ex")) ?? EXERCISES[0];
@@ -279,47 +308,51 @@ export default function App() {
             : "none",
     };
     return (
-      <Session
-        lang={lang}
-        setup={setup}
-        exerciseId={ex.id}
-        demo
-        preferences={preferences}
-        onPreferences={updatePreferences}
-        onExit={() => {
-          setDemo(false);
-          history.replaceState({}, "", "/");
-        }}
-        onRestart={() => {
-          setDemo(false);
-          setTimeout(() => setDemo(true), 0);
-        }}
-        onDemo={() => {}}
-      />
+      <LazyPage lang={lang}>
+        <Session
+          lang={lang}
+          setup={setup}
+          exerciseId={ex.id}
+          demo
+          preferences={preferences}
+          onPreferences={updatePreferences}
+          onExit={() => {
+            setDemo(false);
+            history.replaceState({}, "", "/");
+          }}
+          onRestart={() => {
+            setDemo(false);
+            setTimeout(() => setDemo(true), 0);
+          }}
+          onDemo={() => {}}
+        />
+      </LazyPage>
     );
   }
   if (tryCam)
     return (
-      <TryCamera
-        lang={lang}
-        onLanguage={() => setLang(lang === "ar" ? "en" : "ar")}
-        preferences={preferences}
-        onPreferences={updatePreferences}
-        onExit={() => {
-          setTryCam(false);
-          history.replaceState({}, "", "/");
-        }}
-        onSimulate={() => {
-          setTryCam(false);
-          setDemo(true);
-        }}
-        onRegister={() => {
-          setTryCam(false);
-          setAuthRegister(true);
-          setAuthView(true);
-          history.replaceState({}, "", "/");
-        }}
-      />
+      <LazyPage lang={lang}>
+        <TryCamera
+          lang={lang}
+          onLanguage={() => setLang(lang === "ar" ? "en" : "ar")}
+          preferences={preferences}
+          onPreferences={updatePreferences}
+          onExit={() => {
+            setTryCam(false);
+            history.replaceState({}, "", "/");
+          }}
+          onSimulate={() => {
+            setTryCam(false);
+            setDemo(true);
+          }}
+          onRegister={() => {
+            setTryCam(false);
+            setAuthRegister(true);
+            setAuthView(true);
+            history.replaceState({}, "", "/");
+          }}
+        />
+      </LazyPage>
     );
   if (loading)
     return (
@@ -342,40 +375,46 @@ export default function App() {
     );
   if (!account)
     return (
-      <Auth
-        lang={lang}
-        onLanguage={() => setLang(lang === "ar" ? "en" : "ar")}
-        onSuccess={setAccount}
-        onDemo={() => setTryCam(true)}
-        initialRegister={authRegister}
-        onBack={() => {
-          setAuthView(false);
-          history.replaceState({}, "", "/");
-        }}
-      />
+      <LazyPage lang={lang}>
+        <Auth
+          lang={lang}
+          onLanguage={() => setLang(lang === "ar" ? "en" : "ar")}
+          onSuccess={setAccount}
+          onDemo={() => setTryCam(true)}
+          initialRegister={authRegister}
+          onBack={() => {
+            setAuthView(false);
+            history.replaceState({}, "", "/");
+          }}
+        />
+      </LazyPage>
     );
   if (checkOpen)
     return (
-      <CheckApp
-        lang={lang}
-        onLanguage={toggleLanguage}
-        mode="signedIn"
-        onExit={onCheckExit}
-        owner={account.user.id}
-        {...(checkOpen.resume ? { resume: checkOpen.resume } : {})}
-        {...(checkOpen.session ? { session: checkOpen.session } : {})}
-        {...(checkOpen.release ? { release: true } : {})}
-      />
+      <LazyPage lang={lang}>
+        <CheckApp
+          lang={lang}
+          onLanguage={toggleLanguage}
+          mode="signedIn"
+          onExit={onCheckExit}
+          owner={account.user.id}
+          {...(checkOpen.resume ? { resume: checkOpen.resume } : {})}
+          {...(checkOpen.session ? { session: checkOpen.session } : {})}
+          {...(checkOpen.release ? { release: true } : {})}
+        />
+      </LazyPage>
     );
   if (run)
     return (
-      <Workout
-        run={run}
-        lang={lang}
-        preferences={preferences}
-        onPreferences={updatePreferences}
-        onExit={() => setRun(null)}
-      />
+      <LazyPage lang={lang}>
+        <Workout
+          run={run}
+          lang={lang}
+          preferences={preferences}
+          onPreferences={updatePreferences}
+          onExit={() => setRun(null)}
+        />
+      </LazyPage>
     );
   const h = account.intake,
     p = account.plan;
@@ -389,17 +428,19 @@ export default function App() {
   const reason = (key: string) => reasonText[key]?.[lang] ?? key;
   // S01 (with S03 above it when due): after the next session card, before the week strip.
   const todaySlot = CHECK_UI && (
-    <TodayCheckSlot
-      lang={lang}
-      booth={isBoothMode()}
-      owner={account.user.id}
-      onStart={(options) => setCheckOpen(options ?? {})}
-      onOpenResults={() => setPage("results")}
-      onOpenHealth={() => {
-        setPage("health");
-        setEditing(false);
-      }}
-    />
+    <LazyPart lang={lang}>
+      <TodayCheckSlot
+        lang={lang}
+        booth={isBoothMode()}
+        owner={account.user.id}
+        onStart={(options) => setCheckOpen(options ?? {})}
+        onOpenResults={() => setPage("results")}
+        onOpenHealth={() => {
+          setPage("health");
+          setEditing(false);
+        }}
+      />
+    </LazyPart>
   );
   const planDetails = p && (
     <>
@@ -523,12 +564,14 @@ export default function App() {
         </header>
         <main className="portal-main">
           {intake ? (
-            <IntakeForm
-              lang={lang}
-              initial={h}
-              onSaved={onSaved}
-              onCancel={h ? () => setEditing(false) : undefined}
-            />
+            <LazyPart lang={lang}>
+              <IntakeForm
+                lang={lang}
+                initial={h}
+                onSaved={onSaved}
+                onCancel={h ? () => setEditing(false) : undefined}
+              />
+            </LazyPart>
           ) : (
             <>
               <div className="page-heading">
@@ -641,13 +684,15 @@ export default function App() {
                       )}
                       {page === "today" && todaySlot}
                       {page === "today" && (
-                        <WeeklyPlanView
-                          lang={lang}
-                          plan={p}
-                          compact
-                          onLoaded={onWeekly}
-                          onOpen={() => setPage("program")}
-                        />
+                        <LazyPart lang={lang}>
+                          <WeeklyPlanView
+                            lang={lang}
+                            plan={p}
+                            compact
+                            onLoaded={onWeekly}
+                            onOpen={() => setPage("program")}
+                          />
+                        </LazyPart>
                       )}
                       <section className="schedule-card">
                         <div className="card-heading">
@@ -704,7 +749,11 @@ export default function App() {
                           </div>
                         )}
                       </section>
-                      {page === "program" && <WeeklyPlanView lang={lang} plan={p} onLoaded={onWeekly} />}
+                      {page === "program" && (
+                        <LazyPart lang={lang}>
+                          <WeeklyPlanView lang={lang} plan={p} onLoaded={onWeekly} />
+                        </LazyPart>
+                      )}
                     </>
                   )}
                   {(p.notes.length > 0 || p.exclusions.length > 0) && (
@@ -763,16 +812,20 @@ export default function App() {
                 </section>
               )}
               {page === "history" && (
-                <History lang={lang} records={records} onStart={() => setPage("today")} />
+                <LazyPart lang={lang}>
+                  <History lang={lang} records={records} onStart={() => setPage("today")} />
+                </LazyPart>
               )}
               {page === "results" && (
-                <ResultsPage
-                  lang={lang}
-                  booth={isBoothMode()}
-                  owner={account.user.id}
-                  onStartCheck={(options) => setCheckOpen(options ?? {})}
-                  onOpenProgram={() => setPage("program")}
-                />
+                <LazyPart lang={lang}>
+                  <ResultsPage
+                    lang={lang}
+                    booth={isBoothMode()}
+                    owner={account.user.id}
+                    onStartCheck={(options) => setCheckOpen(options ?? {})}
+                    onOpenProgram={() => setPage("program")}
+                  />
+                </LazyPart>
               )}
               {/* My results carries its own footer (S53) at 16 px; the portal note stays elsewhere. */}
               {page !== "results" && <p className="medical-footnote">{c.medicalNote}</p>}
@@ -781,26 +834,30 @@ export default function App() {
         </main>
       </div>
       {intakeOffer && (
-        <AfterIntakeOffer
-          lang={lang}
-          // The computed estimate of the base tests at home (O40); offered only while home checks open.
-          minutes={intakeOffer}
-          onStart={() => {
-            setIntakeOffer(null);
-            setCheckOpen({});
-          }}
-          onLater={() => setIntakeOffer(null)}
-          // The intake form is gone: focus returns to the Program page heading (5.1).
-          returnFocus={() => document.querySelector<HTMLElement>(".page-heading h1")}
-        />
+        <LazyPart lang={lang}>
+          <AfterIntakeOffer
+            lang={lang}
+            // The computed estimate of the base tests at home (O40); offered only while home checks open.
+            minutes={intakeOffer}
+            onStart={() => {
+              setIntakeOffer(null);
+              setCheckOpen({});
+            }}
+            onLater={() => setIntakeOffer(null)}
+            // The intake form is gone: focus returns to the Program page heading (5.1).
+            returnFocus={() => document.querySelector<HTMLElement>(".page-heading h1")}
+          />
+        </LazyPart>
       )}
       {settings && (
-        <CoachSettings
-          lang={lang}
-          value={preferences}
-          onChange={updatePreferences}
-          onClose={() => setSettings(false)}
-        />
+        <LazyPart lang={lang}>
+          <CoachSettings
+            lang={lang}
+            value={preferences}
+            onChange={updatePreferences}
+            onClose={() => setSettings(false)}
+          />
+        </LazyPart>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { privacyHref } from "./Privacy";
+import { privacyHref } from "./privacyHref";
 import { Lang, fmtNum, pct } from "./i18n";
 import { formatNumber, t, unitWord, type I18nKey } from "../i18n";
 import Brand from "./Brand";

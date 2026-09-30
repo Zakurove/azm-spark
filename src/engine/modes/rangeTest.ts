@@ -132,11 +132,20 @@ export const RANGE_RULES = {
   onePersonCueEverySec: 5,
   // SPEC-GAP: camera-moved. Spec 4.1 fixes the mid hip at calibration (trunk reference), so a
   // picture that shifts afterwards (a bumped stand, a sliding phone, front camera auto framing)
-  // tilts the axis and biases every angle while the lean check stays quiet. When both hips are
-  // seen, their mid point (running median) more than this many calibration shoulder widths from the
-  // fixed mid hip, for persistSec, means the picture moved (or the pelvis slid on the seat): the
-  // attempt is repeated with check_phone_still and the calibration is taken again. Tune at booth.
+  // tilts the axis and biases every angle while the lean check stays quiet. UX map 2.12 reads it as
+  // "the whole picture shifts", so the rule needs two parts of the body far apart to move together:
+  // the mid hip and the face (nose and eyes), each a running median, each more than this many
+  // calibration shoulder widths from where the calibration fixed it, in about the same direction
+  // (cameraMovedSameWay), for persistSec. Then the picture moved (or the whole body slid on the
+  // seat): the attempt is repeated with check_phone_still and the calibration is taken again.
+  // The hips alone are not enough: with the real model at booth distance the mid hip estimate sinks
+  // as the arm rises (0.18 shoulder widths at 120 to 150 degrees, 0.23 at most) while the face
+  // stays within 0.05 (acceptance F-1), and a lean moves the face sideways while the hips stay.
+  // Without the face at calibration the picture rule is off (the orientation sensor still reads a
+  // phone that turns). Tune at booth.
   cameraMovedShoulderWidths: 0.1,
+  /** Cosine of the largest angle between the hip's and the face's shift that still reads as one move (45 degrees). */
+  cameraMovedSameWay: Math.SQRT1_2,
   // SPEC-GAP: relock-after-jump. After a phone slip every frame reads as a jump (spec 4.0) and the
   // lock waits for a new calibration. With one person in the picture and the jump pause lasting this
   // long in a rest, the runner takes the calibration again (and the lock with it).
@@ -156,6 +165,8 @@ interface Calibration {
   reference: "trunk" | "gravity";
   /** Fixed mid hip, pixel space (trunk reference). */
   fixedHip: Pt | null;
+  /** The face (nose and eyes) at calibration, pixel space; null when it was not seen (camera-moved). */
+  fixedFace: Pt | null;
   midShoulder: Pt;
   shoulderWidth: number;
   /** Trunk lean at calibration (trunk reference), degrees. */
@@ -226,13 +237,39 @@ interface AttemptState {
   lastLive: number | null;
   lastPeakShown: number;
   rolls: number[];
-  /** Live mid hip (running median per axis) and the camera moved rule (trunk reference). */
+  /** Live mid hip and face (running median per axis) and the camera moved rule (trunk reference). */
   hipMedX: RunningMedian;
   hipMedY: RunningMedian;
+  faceMedX: RunningMedian;
+  faceMedY: RunningMedian;
   moved: Persist;
 }
 
 const clampDeg = (x: number) => Math.max(0, Math.min(180, x));
+
+/** The face landmarks of the camera moved rule: the nose and both eyes. */
+const FACE: readonly number[] = [0, 2, 5];
+
+/** The mean of the nose and both eyes, or null when one of them is not seen. */
+function faceOf(px: Landmark[], minVis: number): Pt | null {
+  if (!FACE.every((i) => seen(px, i, minVis))) return null;
+  return {
+    x: FACE.reduce((sum: number, i) => sum + px[i].x, 0) / FACE.length,
+    y: FACE.reduce((sum: number, i) => sum + px[i].y, 0) / FACE.length,
+  };
+}
+
+/**
+ * How far the whole picture moved (camera-moved): the smaller of the hip's and the face's shift when
+ * the two point about the same way, else 0 (one part of the body moved, or the model's estimate of
+ * it did, not the picture). Same unit as the shifts.
+ */
+export function pictureShift(hip: Pt, face: Pt): number {
+  const h = norm(hip);
+  const f = norm(face);
+  if (h === 0 || f === 0) return 0;
+  return dot(hip, face) / (h * f) >= RANGE_RULES.cameraMovedSameWay ? Math.min(h, f) : 0;
+}
 
 /** The latest sample at or before `at`, or null. */
 function sampleBefore<S extends { t: number }>(samples: readonly S[], at: number): S | null {
@@ -540,6 +577,12 @@ export class RangeTestRunner implements TestRunner {
       y: med((s) => (s.px[11].y + s.px[12].y) / 2),
     };
     const shoulderWidth = med((s) => norm(sub(s.px[11], s.px[12])));
+    // The face for the camera moved rule, from the frames that saw it (at least half of them).
+    const faces = buf.map((s) => faceOf(s.px, mv)).filter((f): f is Pt => f !== null);
+    const fixedFace =
+      trunk && faces.length * 2 >= buf.length
+        ? { x: median(faces.map((f) => f.x))!, y: median(faces.map((f) => f.y))! }
+        : null;
     const earSeen = buf.filter((s) => seen(s.px, this.L.ear, mv));
     const earToShoulder = earSeen.length
       ? med((s) => norm(sub(s.px[this.L.ear], s.px[this.L.shoulder])), earSeen)
@@ -564,6 +607,7 @@ export class RangeTestRunner implements TestRunner {
     this.cal = {
       reference: trunk ? "trunk" : "gravity",
       fixedHip,
+      fixedFace,
       midShoulder,
       shoulderWidth,
       lean,
@@ -629,6 +673,8 @@ export class RangeTestRunner implements TestRunner {
       rolls: [],
       hipMedX: new RunningMedian(RANGE_RULES.medianSec * 1000),
       hipMedY: new RunningMedian(RANGE_RULES.medianSec * 1000),
+      faceMedX: new RunningMedian(RANGE_RULES.medianSec * 1000),
+      faceMedY: new RunningMedian(RANGE_RULES.medianSec * 1000),
       moved: new Persist(RANGE_RULES.persistSec),
     };
     this.setPhase(practice ? "practice" : "attempt", t, index);
@@ -790,13 +836,23 @@ export class RangeTestRunner implements TestRunner {
         this.cueOnce("test_abd_side", t);
       }
 
-      // The picture moved since the calibration (camera-moved): the live mid hip, when both hips
-      // are seen, away from the fixed one.
+      // The picture moved since the calibration (camera-moved): the live mid hip and the live face,
+      // when both hips and the face are seen, away from their calibration places the same way.
       const px = tr.px!;
       if (!gravity && seen(px, 23, this.minVis) && seen(px, 24, this.minVis)) {
         const hx = a.hipMedX.push(t, (px[23].x + px[24].x) / 2);
         const hy = a.hipMedY.push(t, (px[23].y + px[24].y) / 2);
-        const off = Math.hypot(hx - c.fixedHip!.x, hy - c.fixedHip!.y) / c.shoulderWidth;
+        const face = c.fixedFace ? faceOf(px, this.minVis) : null;
+        let off = 0;
+        if (face) {
+          const fx = a.faceMedX.push(t, face.x);
+          const fy = a.faceMedY.push(t, face.y);
+          off =
+            pictureShift(
+              { x: hx - c.fixedHip!.x, y: hy - c.fixedHip!.y },
+              { x: fx - c.fixedFace!.x, y: fy - c.fixedFace!.y },
+            ) / c.shoulderWidth;
+        }
         if (a.moved.update(t, off > R.cameraMovedShoulderWidths)) {
           a.cameraMoved = true;
           this.endAttempt(t);

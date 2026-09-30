@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createRunner,
+  pictureShift,
   RANGE_RULES,
   RangeTestRunner,
   type SideResult,
@@ -374,6 +375,74 @@ describe("references and occlusion", () => {
     const unaware = measure(frames, "left", {}, { rollDeg: 0 }).res;
     expect(Math.abs(unaware.value! - truth)).toBeGreaterThan(2.5);
   });
+});
+
+/**
+ * Phase 1 acceptance F-1: with the real pose model at booth distance, the model's mid hip estimate
+ * sinks as the arm rises (0.14 shoulder widths at 90 to 120 degrees, 0.18 median and 0.23 at most
+ * at 120 to 150), while the head stays within 0.05. The hips alone read that as a moved picture on
+ * every lift and no value was ever saved. A moved picture moves the whole body, the head too.
+ */
+describe("the model's mid hip sinks as the arm rises (acceptance F-1)", () => {
+  /** Sinks the hips by up to `most` shoulder widths with the tested (right) arm's elevation. */
+  const sinkingHips = (
+    fx: Parameters<typeof editSubject>[0],
+    frames: Parameters<typeof editSubject>[1],
+    wh: number,
+    most: number,
+  ) =>
+    editSubject(fx, frames, (p) => {
+      // Pixel geometry in units of the image height: x is scaled by width over height.
+      const sw = Math.hypot((p[11].x - p[12].x) * wh, p[11].y - p[12].y);
+      const ax = (p[14].x - p[12].x) * wh;
+      const ay = p[14].y - p[12].y;
+      const elev = (Math.acos(ay / Math.hypot(ax, ay)) * 180) / Math.PI;
+      const sink = most * sw * Math.min(1, Math.max(0, (elev - 60) / 60));
+      for (const k of [23, 24]) p[k] = { ...p[k], x: p[k].x + (0.2 * sink) / wh, y: p[k].y + sink };
+      return p;
+    });
+
+  it("a moved picture is the hip and the face shifting together, about the same way", () => {
+    expect(pictureShift({ x: 3, y: 4 }, { x: 3, y: 4 })).toBeCloseTo(5, 6);
+    // The smaller shift counts: the two must both be past the threshold.
+    expect(pictureShift({ x: 0, y: 10 }, { x: 0, y: 2 })).toBeCloseTo(2, 6);
+    // The hip down and the face sideways (a sinking hip estimate under a lean): not the picture.
+    expect(pictureShift({ x: 0, y: 10 }, { x: 10, y: 0 })).toBe(0);
+    expect(pictureShift({ x: 0, y: 10 }, { x: 0, y: -10 })).toBe(0);
+    expect(pictureShift({ x: 0, y: 10 }, { x: 0, y: 0 })).toBe(0);
+    // Up to 45 degrees apart still reads as one move.
+    expect(pictureShift({ x: 0, y: 10 }, { x: 9, y: 10 })).toBeGreaterThan(0);
+    expect(pictureShift({ x: 0, y: 10 }, { x: 11, y: 10 })).toBe(0);
+  });
+
+  for (const [aspect, wh, seed, leanDeg] of [
+    ["9:16", 9 / 16, 290, 0],
+    ["16:9", 16 / 9, 291, 0],
+    ["9:16", 9 / 16, 292, 7.5],
+  ] as const) {
+    it(`${aspect}${leanDeg ? `, with a ${leanDeg} degree lean` : ""}: not a moved picture, and the side is measured`, () => {
+      const leans: MotionSpec[] = leanDeg
+        ? FOUR.slice(1).map((start) => ({
+            kind: "side_lean",
+            toward: "left",
+            peak: leanDeg,
+            start: start + 1,
+            rise: 1.5,
+            hold: 3,
+            back: 1.5,
+          }))
+        : [];
+      const base = abd("chair", aspect, [...raises("right", 150, FOUR), ...leans], seed);
+      const frames = sinkingHips(base.fx, base.frames, wh, 0.25);
+      const { res, cues } = measure(frames, "right");
+      expect(res.detail.reference).toBe("trunk");
+      expect(cues).not.toContain("check_phone_still");
+      expect(res.attempts.flatMap((a) => a.reasons)).not.toContain("camera_moved");
+      expect(res.status).toBe("measured");
+      expect(res.nValid).toBe(3);
+      expect(Math.abs(res.value! - base.fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
+    });
+  }
 });
 
 describe("a second person", () => {

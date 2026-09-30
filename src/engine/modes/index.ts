@@ -16,7 +16,7 @@ import { TrunkControlRunner } from "./trunkControl";
 import type { RunnerOptions, TestRunner, TestSide } from "./types";
 
 export * from "./types";
-export { RangeTestRunner, RANGE_RULES } from "./rangeTest";
+export { pictureShift, RangeTestRunner, RANGE_RULES } from "./rangeTest";
 export { TrunkControlRunner, TRUNK_RULES } from "./trunkControl";
 export {
   applyCountSource,

@@ -659,7 +659,35 @@
     "tokenEnded": "Booth mode has ended on this phone. Please ask a staff member to turn it on again.",
     "badgeHint": "Staff can press and hold here to start again for a new visitor.",
     "closed": "Booth mode works only on booth days and during booth hours.",
-    "limited": "Too many tries. Wait a little, then try again."
+    "limited": "Too many tries. Wait a little, then try again.",
+    "settings": {
+      "title": "Staff settings",
+      "note": "They apply on this phone in booth mode only. Visitors do not see them.",
+      "tests": "Tests at the booth",
+      "testsNote": "Turn a test off if it does not work well here. It then does not appear in the visitor’s tests.",
+      "testOn": "On at the booth",
+      "testOff": "Off at the booth",
+      "plane": "Fallback side lift rule",
+      "planeNote": "A lift counts when the upper arm shows at least {fallback} of its reference length, in place of {standard}. The rule is saved with each result.",
+      "readout": "Staff readout during the arm raise",
+      "readoutNote": "Shows the upper arm ratio, the side lift check, quality issues and frames per second on the screen. None of it is saved."
+    },
+    "readout": {
+      "title": "Staff readout",
+      "ratio": "Upper arm ratio",
+      "rule": "Rule",
+      "plane": "Side lift check",
+      "pass": "Passes now",
+      "fail": "Fails now",
+      "outside": "Outside the check angles",
+      "seconds": "Seconds passing",
+      "of": "{a} of {b}",
+      "issues": "Quality issues",
+      "fps": "Frames per second",
+      "last": "Last lift",
+      "none": "None",
+      "notYet": "Not started yet"
+    }
   },
   "tips": {
     "title": "Setup tips",

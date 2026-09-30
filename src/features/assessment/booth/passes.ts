@@ -7,6 +7,7 @@
  * dropped. Only the server's pass is kept, by boothMode.ts (sessionStorage `azm.booth`, this tab only).
  */
 import type { ApiResult, BoothRedeemResponse, BoothVerifyResponse } from "../api";
+import { visitorQuery, type BoothSettings } from "./settings";
 
 /** A booth session or token as the server issues it (server/modules/booth/store.ts). */
 export const PASS_FORMAT = /^[0-9a-f]{64}$/;
@@ -90,11 +91,13 @@ export function redeemOutcome(r: ApiResult<BoothRedeemResponse>): RedeemOutcome 
 }
 
 /**
- * The link of the visitor QR (S55): this site with the one check token. It is shown only as a QR
- * code, never as text (S55). Arabic first: the visitor's phone opens in Arabic and can switch.
+ * The link of the visitor QR (S55): this site with the one check token, and the booth staff settings
+ * the visitor's phone runs with (the tests switched off and the plane check fallback, never the
+ * readout; nothing at the defaults). It is shown only as a QR code, never as text (S55). Arabic first:
+ * the visitor's phone opens in Arabic and can switch.
  */
-export function visitorLink(origin: string, token: string): string {
-  return `${origin.replace(/\/+$/, "")}/?boothToken=${token}`;
+export function visitorLink(origin: string, token: string, settings?: BoothSettings): string {
+  return `${origin.replace(/\/+$/, "")}/?boothToken=${token}${settings ? visitorQuery(settings) : ""}`;
 }
 
 /* ------------------------------------------------------------------ the ended mark (S55b) */

@@ -19,6 +19,7 @@ import { readPreferences } from "../../app/experience";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
 import { BoothLayer } from "./booth";
+import { isDefault, readBoothSettings, type BoothSettings } from "./booth/settings";
 import { reloadWaits } from "./booth/tools";
 import { boothPassHolds, clearBoothPass, isBoothMode, readBoothPass, watchVisitorHidden } from "./boothMode";
 import {
@@ -82,9 +83,10 @@ export function screenKeyOf(m: FlowModel): string {
 
 /**
  * The flow's configuration, fixed for the life of the check: guest or signed in, booth mode, the
- * desktop interstitial, the session (the side lean only session from S01 leanRepeat, Q12 (2)) and the
- * person's check in setting (D-016), which the booth never uses. Home checks count as closed until
- * the context says otherwise (contract v3 I).
+ * desktop interstitial, the session (the side lean only session from S01 leanRepeat, Q12 (2)), the
+ * person's check in setting (D-016), which the booth never uses, and the booth staff settings of this
+ * device (D-016 item 4), which only the booth uses. Home checks count as closed until the context says
+ * otherwise (contract v3 I).
  */
 export function checkConfig(o: {
   mode: FlowConfig["mode"];
@@ -92,6 +94,7 @@ export function checkConfig(o: {
   desktop: boolean;
   session?: CheckSession;
   checkIn?: boolean;
+  boothSettings?: BoothSettings;
 }): FlowConfig {
   return {
     mode: o.mode,
@@ -100,6 +103,7 @@ export function checkConfig(o: {
     desktop: o.desktop,
     ...(o.session && o.session !== "full" ? { session: o.session } : {}),
     ...(o.checkIn && !o.booth && o.mode === "signedIn" ? { checkIn: true } : {}),
+    ...(o.booth && o.boothSettings && !isDefault(o.boothSettings) ? { boothSettings: o.boothSettings } : {}),
   };
 }
 
@@ -129,6 +133,7 @@ export default function CheckApp({
         desktop: desktop ?? isDesktopDevice(),
         session,
         checkIn: readPreferences().safetyCheckIn,
+        ...(inBooth ? { boothSettings: readBoothSettings() } : {}),
       }),
     // The configuration is fixed for the life of the check.
     [],

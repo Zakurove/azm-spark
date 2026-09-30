@@ -199,3 +199,39 @@
   background: var(--purple-tint);
   color: var(--purple);
 }
+
+/* ------------------------------------------------------------------ S55 staff settings (D-016 item 4) */
+
+.azm-check .booth-settings {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+.azm-check .booth-settings-summary {
+  min-height: 56px;
+  padding: var(--s3) var(--s4);
+  cursor: pointer;
+}
+.azm-check .booth-settings-summary::marker {
+  color: var(--purple);
+}
+.azm-check .booth-settings-summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-card);
+}
+.azm-check .booth-settings-summary > h2 {
+  display: inline;
+}
+.azm-check .booth-settings-body {
+  display: grid;
+  gap: var(--s3);
+  padding: 0 var(--s4) var(--s4);
+}
+.azm-check .booth-settings-h3 {
+  margin: var(--s2) 0 0;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--ink);
+}

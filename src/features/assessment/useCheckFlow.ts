@@ -352,6 +352,7 @@ export function useCheckFlow(opts: CheckFlowOptions) {
           setting: effect.setting,
           ...(await tokenFor(effect.setting)),
           ...(effect.session ? { session: effect.session } : {}),
+          ...(effect.testsOff ? { testsOff: effect.testsOff } : {}),
         });
         dispatch({ type: "START_RESULT", result: toStartResult(r) });
         return;
@@ -376,6 +377,7 @@ export function useCheckFlow(opts: CheckFlowOptions) {
           setting: effect.setting,
           ...(await tokenFor(effect.setting)),
           ...(effect.session ? { session: effect.session } : {}),
+          ...(effect.testsOff ? { testsOff: effect.testsOff } : {}),
         });
         break;
       case "adult":

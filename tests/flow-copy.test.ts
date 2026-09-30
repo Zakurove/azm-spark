@@ -19,7 +19,6 @@ import {
   EMPHASIS,
   fillTokens,
   firstAreaWithoutScore,
-  guestMinutes,
   guestStepView,
   helperBriefScreen,
   illustrationAlt,
@@ -163,22 +162,6 @@ describe("durations (O40)", () => {
     for (const lang of LANGS) expect(introBoundary(lang, [16, 21])).not.toMatch(/\{\w+\}/);
     // The rest of the boundary text is unchanged, including "you can skip any test".
     expect(introBoundary("en", [9, 11])).toContain("You can skip any test.");
-  });
-
-  it("offers the guest the quick path at the arm raise's upper estimate and the widest full range", () => {
-    const { quick, full } = guestMinutes();
-    expect(quick).toBe(estimateMinutes(["shoulder_abduction"], null, "booth", true)[1]);
-    for (const position of ["chair", "wheelchair", "standing"] as const) {
-      const [a, b] = estimateMinutes(
-        CHECK_DATA.selection.basePerPosition[position] as never,
-        null,
-        "booth",
-        true,
-      );
-      expect(full[0]).toBeLessThanOrEqual(a);
-      expect(full[1]).toBeGreaterThanOrEqual(b);
-    }
-    expect(quick).toBeLessThan(full[1]);
   });
 });
 

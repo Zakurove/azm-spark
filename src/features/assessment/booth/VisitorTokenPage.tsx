@@ -26,6 +26,7 @@ import { useCheckUi } from "../shared/CheckUi";
 import { ErrorState, LoadingState } from "../shared/states";
 import { reportNetwork, useOnline } from "../shared/useOnline";
 import { markVisitorPhone, PASS_FORMAT, redeemOutcome } from "./passes";
+import { DEFAULT_BOOTH_SETTINGS, saveBoothSettings, settingsFromQuery, type BoothSettings } from "./settings";
 import "./booth.css";
 
 export type TokenPhase = "redeeming" | "on" | "ended" | "offline" | "error";
@@ -41,14 +42,32 @@ export interface VisitorTokenPageProps {
   api?: Pick<CheckApi, "boothRedeem">;
   /** Tests and screenshots: start in this phase without redeeming. */
   initialPhase?: TokenPhase;
+  /** The booth staff settings of the QR link; read from this page's address by default. */
+  settings?: BoothSettings;
 }
 
-/** Redeems a visitor token and keeps this phone's own pass: the phase that follows. */
-export async function redeemToken(api: Pick<CheckApi, "boothRedeem">, token: string): Promise<TokenPhase> {
+/** The booth staff settings the staff QR link carries (visitorLink). */
+function linkSettings(): BoothSettings {
+  return typeof location === "undefined"
+    ? DEFAULT_BOOTH_SETTINGS
+    : settingsFromQuery(new URLSearchParams(location.search));
+}
+
+/**
+ * Redeems a visitor token and keeps this phone's own pass, with the booth staff settings of the QR
+ * link (the tests switched off, the plane check fallback), so this phone runs what the booth runs:
+ * the phase that follows.
+ */
+export async function redeemToken(
+  api: Pick<CheckApi, "boothRedeem">,
+  token: string,
+  settings: BoothSettings = DEFAULT_BOOTH_SETTINGS,
+): Promise<TokenPhase> {
   if (!PASS_FORMAT.test(token)) return "ended";
   const out = redeemOutcome(await api.boothRedeem(token));
   if (out.kind !== "on") return out.kind;
   saveVisitorToken(out.token, out.expires);
+  saveBoothSettings({ ...settings, readout: false });
   markVisitorPhone();
   return "on";
 }
@@ -60,6 +79,7 @@ export function VisitorTokenPage({
   onContinue,
   api: given,
   initialPhase,
+  settings,
 }: VisitorTokenPageProps) {
   const api = useMemo(
     () =>
@@ -83,7 +103,7 @@ export function VisitorTokenPage({
     setPhase("redeeming");
     let call = calls.current.get(attempt);
     if (!call) {
-      call = redeemToken(api, token);
+      call = redeemToken(api, token, settings ?? linkSettings());
       calls.current.set(attempt, call);
     }
     void call.then((p) => alive && setPhase(p));

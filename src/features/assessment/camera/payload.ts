@@ -66,6 +66,7 @@ export const RESULT_DETAIL_KEYS: readonly string[] = [
   "leanShiftMax",
   "phoneRollDeg",
   "shoulderHike",
+  "planeRatio",
   "upright",
   "uprightSd",
   "band",

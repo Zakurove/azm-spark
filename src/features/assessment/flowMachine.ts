@@ -70,6 +70,7 @@ import type {
   TestId,
 } from "../../movements/types";
 import type { FaintBody, HelperBriefing, LockWhen, TestRef } from "./api";
+import { oneTest, type BoothSettings } from "./booth/settings";
 
 /* =================================================================== types */
 
@@ -273,6 +274,8 @@ export interface FlowConfig {
   session?: CheckSession;
   /** The person's check in setting when the check opens (D-016); never on at the booth. */
   checkIn?: boolean;
+  /** The booth staff settings of this device (D-016 item 4, council F-1); booth mode only. */
+  boothSettings?: BoothSettings;
 }
 
 /** The signed in context (GET /api/assessments/context), normalised by api.ts. */
@@ -374,8 +377,23 @@ export interface FlowData {
 }
 
 export type FlowEffect =
-  | { id: number; type: "start"; answers: Answers; setting: Setting; session?: CheckSession }
-  | { id: number; type: "startBackground"; answers: Answers; setting: Setting; session?: CheckSession }
+  | {
+      id: number;
+      type: "start";
+      answers: Answers;
+      setting: Setting;
+      session?: CheckSession;
+      /** The tests switched off at the booth (D-016 item 4); the server takes them out too. */
+      testsOff?: TestId[];
+    }
+  | {
+      id: number;
+      type: "startBackground";
+      answers: Answers;
+      setting: Setting;
+      session?: CheckSession;
+      testsOff?: TestId[];
+    }
   /** The stop names the test side running, or during a rest the next one (resultOnStop). */
   | { id: number; type: "stop"; checkId: string; option: StopOptionId; ref: TestRef | null }
   | { id: number; type: "between"; checkId: string; testId: TestId; side: TestSide; answer: BetweenAnswer }
@@ -2033,6 +2051,7 @@ function tellServer(m: FlowModel): FlowModel {
     answers: d.answers,
     setting: d.setting,
     ...(session !== "full" ? { session } : {}),
+    ...startOff(d),
   });
 }
 
@@ -2091,7 +2110,22 @@ function startEffect(d: FlowData): DistributiveOmit<FlowEffect, "id"> {
     answers: d.answers,
     setting: d.setting,
     ...(session !== "full" ? { session } : {}),
+    ...startOff(d),
   };
+}
+
+/**
+ * The tests switched off on this booth device (D-016 item 4, council F-1 D): none outside booth
+ * mode, so they never touch a home check.
+ */
+export function testsOff(d: Pick<FlowData, "config">): TestId[] {
+  return d.config.booth ? (d.config.boothSettings?.testsOff ?? []) : [];
+}
+
+/** A booth start names the tests switched off, so the server freezes the same protocol. */
+function startOff(d: FlowData): { testsOff?: TestId[] } {
+  const off = d.setting === "booth" ? testsOff(d) : [];
+  return off.length ? { testsOff: off } : {};
 }
 
 /** The protocol is frozen: raw answers are dropped from the phone (spec 5.10). */
@@ -2303,7 +2337,9 @@ function withContext(m: FlowModel, c: SignedInContext): FlowModel {
   const setting: Setting = d.config.booth ? "booth" : "home";
   // The side lean only session asks the questions of its one test (server precheckEnv, Q12 (2)).
   const leanOnly = (d.config.session ?? "full") === "side_lean_only";
-  const full = c.ctx ? baseSelection(c.ctx, setting, c.setup) : [];
+  // The tests switched off at the booth never appear (D-016 item 4); the start sends them too.
+  const off = setting === "booth" ? testsOff(d) : [];
+  const full = c.ctx ? baseSelection(c.ctx, setting, c.setup).filter((i) => !off.includes(i.testId)) : [];
   const base = leanOnly ? sideLeanOnly(full) : full;
   const env: PrecheckEnv | null = c.ctx
     ? {
@@ -2313,7 +2349,7 @@ function withContext(m: FlowModel, c: SignedInContext): FlowModel {
         firstCheck: c.firstCheck,
         unresolvedChangeReported: c.unresolvedChangeReported,
         lastCheckLasting: c.lastCheckLasting,
-        baseTests: leanOnly ? baseTests(base) : c.baseTests,
+        baseTests: leanOnly ? baseTests(base) : c.baseTests.filter((t) => !off.includes(t as TestId)),
         completedBefore: c.completedBefore,
         ...(c.sideLeanDoneAtHome !== undefined ? { sideLeanDoneAtHome: c.sideLeanDoneAtHome } : {}),
         ...(c.neededArmsLastStand !== undefined ? { neededArmsLastStand: c.neededArmsLastStand } : {}),
@@ -2394,9 +2430,11 @@ function guestAdvance(m: FlowModel, step: GuestStep): FlowModel {
 /**
  * Guest routing on the phone (map 2.1, Q19 (5)) with guestContext: no check (bed, cardiac, other,
  * cfs_moderate, no_exercise) goes to the team (S09); stroke or SCI without clearance get the seated
- * arm raise only; otherwise the base selection for the booth, and the quick path keeps the arm raise
- * only. The guest's clearance answer counts (Q19 (2)); the "SCI, type unknown" chip (sci_unsure) is
- * passed as it is and takes the sci_complete rules in guestContext (O20).
+ * arm raise only; otherwise the base selection for the booth, and the quick path keeps its one test
+ * only (the arm raise, or the first test still on, F-1 D). Tests switched off at the booth are taken
+ * out first, so they never appear; a guest left with no test goes to the team (S09). The guest's
+ * clearance answer counts (Q19 (2)); the "SCI, type unknown" chip (sci_unsure) is passed as it is and
+ * takes the sci_complete rules in guestContext (O20).
  */
 export function guestSteps(g: GuestAnswers): GuestSteps | null {
   if (!g.position || !g.support) return null;
@@ -2416,8 +2454,9 @@ function guestRouting(m: FlowModel): FlowModel {
   const steps = guestSteps(d.guest);
   const ctx = steps ? guestContext(steps) : ({ blocked: "invalid_input" } as const);
   if (isBlocked(ctx)) return go(m, { kind: "guestStaff" });
-  let base = baseSelection(ctx, "booth", null);
-  if (d.guestPath === "quick") base = base.filter((b) => b.testId === "shoulder_abduction");
+  const off = testsOff(d);
+  let base = baseSelection(ctx, "booth", null).filter((b) => !off.includes(b.testId));
+  if (d.guestPath === "quick") base = base.filter((b) => b.testId === oneTest(off));
   const tests = baseTests(base);
   if (tests.length === 0) return go(m, { kind: "guestStaff" });
   const env: PrecheckEnv = {

@@ -116,6 +116,15 @@ for (const size of SIZES) {
       await expect(page.locator("[data-visitor-qr] svg")).toBeVisible();
       await shot(page, lang, size, "s55-visitor-qr");
 
+      // The staff settings (D-016 item 4, F-1): open, with the arm raise switched off.
+      await page.locator("[data-visitor-qr]").getByRole("button", { name: c.common.close }).click();
+      await page.locator("[data-booth-settings] summary").click();
+      const raise = page.locator('[data-setting="test:shoulder_abduction"]');
+      await raise.click();
+      await expect(raise).toHaveAttribute("aria-checked", "false");
+      await shot(page, lang, size, "s55-staff-settings");
+      await raise.click();
+
       await page.getByRole("button", { name: c.booth.turnOff }).click();
       await expect(code).toBeVisible();
       // Offline last, so the back online note of the other shots never covers a control.

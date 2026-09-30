@@ -7,7 +7,9 @@
  *         this tab only, and the code is dropped at once.
  *   on    "Booth mode is on for this phone", open the visitor check (/?check=1), the one check QR for
  *         a signed in visitor's own phone (POST /api/booth/token, 45 minutes at most, shown only as a
- *         QR, never as text), the offline preparation line (O18) and "Turn off booth mode".
+ *         QR, never as text), the offline preparation line (O18), the staff settings (D-016 item 4,
+ *         council F-1: a switch per test, the plane check fallback, the staff readout; open while any
+ *         of them differs from the defaults) and "Turn off booth mode".
  *
  * The session ends at closing time: the page turns back to the code form by itself. The badge shows
  * only while booth mode is on (S57). Not linked from any user screen. No Sound: nothing plays here.
@@ -17,7 +19,7 @@
  */
 import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Lang } from "../../../app/i18n";
-import { t } from "../../../i18n";
+import { localizeDigits, t } from "../../../i18n";
 import { createCheckApi, type CheckApi } from "../api";
 import { clearBoothPass, readBoothPass, saveStaffSession, type BoothPass } from "../boothMode";
 import { CheckRoot } from "../shared/CheckRoot";
@@ -30,6 +32,17 @@ import { tokenOutcome, visitorLink, wasVisitorPhone } from "./passes";
 import { offlineStatus, precacheBooth, type OfflineStatus, type PrecacheResult } from "./precache";
 import { QrCode } from "../shared/QrCode";
 import { TokenEndedCard } from "./VisitorTokenPage";
+import {
+  isDefault,
+  PLANE_RATIOS,
+  readBoothSettings,
+  saveBoothSettings,
+  SWITCHABLE_TESTS,
+  type BoothSettings,
+} from "./settings";
+import { CheckSwitch } from "../shared/CheckSwitch";
+import { testDef } from "../../../movements/assessments";
+import type { TestId } from "../../../movements/types";
 import "./booth.css";
 
 export interface BoothStaffPageProps {
@@ -166,6 +179,8 @@ function BoothOn({
 }) {
   const lang = useLang();
   const offline = useOfflinePreparation(pass.kind === "staff", precache);
+  // Staff settings are typed on staff devices only; a visitor's phone takes them from the QR (S55b).
+  const staff = pass.kind !== "visitor";
   return (
     <>
       <p className="booth-status" role="status">
@@ -195,10 +210,79 @@ function BoothOn({
           </span>
         </p>
       )}
+      {staff && <StaffSettings />}
       <button type="button" className="check-text-button" onClick={onTurnOff}>
         {t(lang, "assessment.booth.turnOff")}
       </button>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ staff settings (D-016 item 4) */
+
+/**
+ * The booth staff settings of this device (settings.ts): a switch per test (on by default; a test
+ * that is off never appears in the visitor's tests, and its switch says so, for staff only), the arm
+ * raise plane check fallback of F-1 and the staff readout for the team's phone sessions. Folded away
+ * at the defaults, so the page stays short; open whenever something differs.
+ */
+function StaffSettings() {
+  const lang = useLang();
+  const [settings, setSettings] = useState<BoothSettings>(() => readBoothSettings());
+  const [open] = useState(() => !isDefault(settings));
+  const update = (next: BoothSettings) => {
+    saveBoothSettings(next);
+    setSettings(readBoothSettings());
+  };
+  const setTest = (id: TestId, on: boolean) =>
+    update({
+      ...settings,
+      testsOff: on ? settings.testsOff.filter((x) => x !== id) : [...settings.testsOff, id],
+    });
+  return (
+    <details className="booth-settings" open={open} data-booth-settings="">
+      <summary className="booth-settings-summary">
+        <h2 className="check-h2">{t(lang, "assessment.booth.settings.title")}</h2>
+      </summary>
+      <div className="booth-settings-body">
+        <p className="check-meta">{t(lang, "assessment.booth.settings.note")}</p>
+        <h3 className="booth-settings-h3">{t(lang, "assessment.booth.settings.tests")}</h3>
+        <p className="check-meta">{t(lang, "assessment.booth.settings.testsNote")}</p>
+        {SWITCHABLE_TESTS.map((id) => {
+          const on = !settings.testsOff.includes(id);
+          return (
+            <CheckSwitch
+              key={id}
+              on={on}
+              onChange={(v) => setTest(id, v)}
+              setting={`test:${id}`}
+              title={localizeDigits(lang, testDef(id).name[lang])}
+              note={t(lang, on ? "assessment.booth.settings.testOn" : "assessment.booth.settings.testOff")}
+            />
+          );
+        })}
+        <h3 className="booth-settings-h3">
+          {localizeDigits(lang, testDef("shoulder_abduction").name[lang])}
+        </h3>
+        <CheckSwitch
+          on={settings.planeFallback}
+          onChange={(v) => update({ ...settings, planeFallback: v })}
+          setting="planeFallback"
+          title={t(lang, "assessment.booth.settings.plane")}
+          note={t(lang, "assessment.booth.settings.planeNote", {
+            fallback: PLANE_RATIOS.fallback,
+            standard: PLANE_RATIOS.standard,
+          })}
+        />
+        <CheckSwitch
+          on={settings.readout}
+          onChange={(v) => update({ ...settings, readout: v })}
+          setting="readout"
+          title={t(lang, "assessment.booth.settings.readout")}
+          note={t(lang, "assessment.booth.settings.readoutNote")}
+        />
+      </div>
+    </details>
   );
 }
 
@@ -263,7 +347,11 @@ function VisitorQr({
   }, [state]);
 
   if (state.kind === "qr") {
-    const link = visitorLink(origin ?? (typeof location !== "undefined" ? location.origin : ""), state.token);
+    const link = visitorLink(
+      origin ?? (typeof location !== "undefined" ? location.origin : ""),
+      state.token,
+      readBoothSettings(),
+    );
     return (
       <section className="check-card booth-qr-panel" aria-labelledby={titleId} data-visitor-qr="">
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className="check-h2">

@@ -185,6 +185,95 @@ for (const lang of LANGS) {
     });
   });
 
+  test.describe(`booth S55 staff settings (${lang})`, () => {
+    // A phone: the guest check opens on S05 (no desktop interstitial, O10).
+    test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+
+    test("a test switched off, the plane fallback and the readout: kept on the phone, followed by S05 and the visitor QR", async ({
+      page,
+    }) => {
+      const errors = watchConsole(page);
+      await page.route("**/api/booth/verify", (r) =>
+        json(r, { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR }),
+      );
+      await page.route("**/api/booth/token", (r) =>
+        json(r, { token: QR_TOKEN, expires: Date.now() + 45 * 60 * 1000 }),
+      );
+      await page.goto(url("/?booth=1", lang));
+      await page.getByLabel(c.booth.codeLabel).fill("777111");
+      await page.getByRole("button", { name: c.booth.turnOn }).click();
+
+      // Folded away at the defaults: the page stays short.
+      const settings = page.locator("[data-booth-settings]");
+      await expect(settings).not.toHaveAttribute("open", "");
+      const raise = page.locator('[data-setting="test:shoulder_abduction"]');
+      await expect(raise).toBeHidden();
+      await settings.getByRole("heading", { name: c.booth.settings.title }).click();
+      await expect(raise).toBeVisible();
+      for (const id of ["shoulder_abduction", "arm_curl_30s", "trunk_control_seated", "chair_stand_30s"])
+        await expect(page.locator(`[data-setting="test:${id}"]`)).toHaveAttribute("aria-checked", "true");
+      await expect(page.locator('[data-setting="planeFallback"]')).toHaveAttribute("aria-checked", "false");
+      await expect(page.locator('[data-setting="readout"]')).toHaveAttribute("aria-checked", "false");
+      // The approved ratios of F-1, from the check data.
+      await expect(page.locator('[data-setting="planeFallback"]')).toContainText(
+        lang === "ar" ? "٠٫٧٥" : "0.75",
+      );
+      await expect(page.locator('[data-setting="planeFallback"]')).toContainText(
+        lang === "ar" ? "٠٫٨٥" : "0.85",
+      );
+
+      // The arm raise off: its switch says so, for staff only.
+      await raise.click();
+      await expect(raise).toHaveAttribute("aria-checked", "false");
+      await expect(raise).toContainText(c.booth.settings.testOff);
+      await page.locator('[data-setting="planeFallback"]').click();
+      await page.locator('[data-setting="readout"]').click();
+      const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("azm.boothSettings") ?? "null"));
+      expect(kept).toEqual({ testsOff: ["shoulder_abduction"], planeFallback: true, readout: true });
+
+      // The visitor QR carries the tests and the plane rule, never the readout.
+      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
+      await expect(page.locator("[data-visitor-qr] svg")).toBeVisible();
+      const decoded = await decodeQr(page);
+      if (decoded !== "unsupported")
+        expect(decoded).toMatch(
+          new RegExp(`/\\?boothToken=${QR_TOKEN}&off=shoulder_abduction&plane=fallback$`),
+        );
+      await page.locator("[data-visitor-qr]").getByRole("button", { name: c.common.close }).click();
+
+      // A reload keeps them, and the page opens on them while they differ from the defaults.
+      await page.reload();
+      await expect(page.locator("[data-booth-settings]")).toHaveAttribute("open", "");
+      await expect(page.locator('[data-setting="test:shoulder_abduction"]')).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+
+      // S05: the one test is the arm curl now, with its own minutes (F-1 D: 13 as built).
+      await page.getByRole("button", { name: c.booth.openGuest }).click();
+      await expect(page.locator('[data-screen="S05"]')).toBeVisible();
+      const paths = page.locator(".check-footer .cta");
+      await expect(paths).toHaveCount(2);
+      await expect(paths.first()).toContainText(c.guest.quickTry.split("{")[0].trim());
+      await expect(paths.first()).toContainText(lang === "ar" ? "١٣" : "13");
+
+      // Back on the staff page, both arm tests off: no one test path is offered.
+      await page.goto(url("/?booth=1", lang));
+      await page.locator('[data-setting="test:arm_curl_30s"]').click();
+      await page.goto(url("/?check=1", lang));
+      await expect(page.locator('[data-screen="S05"]')).toBeVisible();
+      await expect(paths).toHaveCount(1);
+      await expect(paths.first()).toContainText(c.guest.fullCheck.split("{")[0].trim());
+
+      // Turning booth mode off leaves the settings on the phone, but home never reads them.
+      await page.goto(url("/?booth=1", lang));
+      await page.getByRole("button", { name: c.booth.turnOff }).click();
+      await page.goto(url("/?check=1", lang));
+      await expect(page.locator("h1")).toHaveText(c.guest.boothOnly.title);
+      expect(errors).toEqual([]);
+    });
+  });
+
   test.describe(`booth S55b visitor token (${lang})`, () => {
     const tokenPage = (t: string) => url(`/?booth=1&e2eBooth=token&t=${t}`, lang);
 
@@ -429,6 +518,12 @@ test.describe("booth targets", () => {
       await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
       await expect(page.locator("[data-visitor-qr]")).toBeVisible();
       expect(await smallControls(page)).toEqual([]);
+      // The staff settings, open: every switch is 48 px or more too.
+      await page.locator("[data-booth-settings] summary").click();
+      await expect(page.locator('[data-setting="readout"]')).toBeVisible();
+      expect(await smallControls(page)).toEqual([]);
+      const summary = await page.locator("[data-booth-settings] summary").boundingBox();
+      expect(summary!.height).toBeGreaterThanOrEqual(48);
 
       for (const part of ["tips", "count", "layer-results", "token&phase=on", "token&phase=ended"]) {
         await page.goto(url(`/?booth=1&e2eBooth=${part}`, lang));

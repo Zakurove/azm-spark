@@ -31,6 +31,7 @@ import {
   startApi,
   type Harness,
 } from "./check-api-harness";
+import { fill } from "./precheck-fixtures";
 
 /** Start of the next calendar day in Asia/Riyadh after T0 (2026-10-05 00:00 +03:00). */
 const NEXT_DAY = Date.UTC(2026, 9, 4, 21, 0, 0);
@@ -1129,6 +1130,102 @@ describe("staff booth mode", () => {
       error: "RESULT_INVALID",
       field: "detail.countSource",
     });
+  });
+
+  it("takes the tests switched off at the booth out of the protocol, never at home (D-016 item 4)", async () => {
+    process.env.AZM_BOOTH_CODE = "staff-code-5510";
+    const cookie = await member(
+      h,
+      "booth-off@example.test",
+      intakeOf({ mobility: "standing", clearance: "yes" }),
+    );
+    const c = await h.call("/assessments/context?setting=booth", undefined, cookie);
+    const env = envFromContext(c.data, "booth");
+    expect(env.baseTests).toContain("chair_stand_30s");
+    // The phone asks nothing for the chair stand once it is off.
+    const answers = fill({ ...env, baseTests: env.baseTests.filter((t) => t !== "chair_stand_30s") });
+    const call = async (extra: Record<string, unknown>) =>
+      h.call("/assessments", { answers, device: DEVICE, ...extra }, cookie);
+    const boothToken = await boothTokenFor(h, "staff-code-5510");
+    // Never at home, and only tests of the check, once each.
+    expect((await call({ testsOff: ["chair_stand_30s"] })).data).toEqual({
+      error: "START_INVALID",
+      field: "testsOff",
+    });
+    for (const testsOff of [["walk_6min"], ["chair_stand_30s", "chair_stand_30s"], "chair_stand_30s"])
+      expect((await call({ setting: "booth", boothToken, testsOff })).data).toEqual({
+        error: "START_INVALID",
+        field: "testsOff",
+      });
+    // Without the switch the server asks the chair stand questions, so these answers are incomplete.
+    expect((await call({ setting: "booth", boothToken })).data).toEqual({ error: "PRECHECK_INCOMPLETE" });
+    const ok = await call({ setting: "booth", boothToken, testsOff: ["chair_stand_30s"] });
+    expect(ok.status).toBe(200);
+    const tests = (ok.data.protocol as ProtocolItem[]).map((i) => i.testId);
+    expect(tests).not.toContain("chair_stand_30s");
+    expect(tests).toContain("shoulder_abduction");
+    expect(tests).toContain("arm_curl_30s");
+    // A result for the test that is off is not part of the check.
+    const body = { ...resultBody({ ...itemOf(ok.data.protocol, "arm_curl_30s", "right") }, 10) };
+    const stand = { ...body, testId: "chair_stand_30s", side: "none" };
+    expect((await h.call(`/assessments/${ok.data.id}/results`, stand, cookie)).data).toEqual({
+      error: "NOT_IN_PROTOCOL",
+    });
+  });
+
+  it("stores the plane check ratio of each arm raise, the fallback at the booth only (F-1)", async () => {
+    process.env.AZM_BOOTH_CODE = "staff-code-5511";
+    const cookie = await member(
+      h,
+      "booth-plane@example.test",
+      intakeOf({ mobility: "seated", clearance: "yes" }),
+    );
+    const booth = await start(h, cookie, {}, { setting: "booth", boothCode: "staff-code-5511" });
+    const raise = itemOf(booth.data.protocol, "shoulder_abduction", "right");
+    const post = (id: string, item: ProtocolItem, planeRatio: unknown, value = 120) =>
+      h.call(
+        `/assessments/${id}/results`,
+        resultBody(item, value, { detail: { reference: "trunk", trunkLeanAtPeak: 3, planeRatio } }),
+        cookie,
+      );
+    for (const bad of [0.7, 0.8, "0.75", true])
+      expect((await post(booth.data.id, raise, bad)).data).toEqual({
+        error: "RESULT_INVALID",
+        field: "detail.planeRatio",
+      });
+    expect((await post(booth.data.id, raise, 0.75)).data).toEqual({ saved: true });
+    const stored = h
+      .inspect()
+      .prepare("SELECT detail FROM assessment_results WHERE assessment_id=? AND test_id='shoulder_abduction'")
+      .get(booth.data.id) as { detail: string };
+    expect(JSON.parse(stored.detail)).toMatchObject({ planeRatio: 0.75 });
+    // Only the arm raise has a plane check.
+    const curl = itemOf(booth.data.protocol, "arm_curl_30s", "right");
+    const curlBody = resultBody(curl, 11);
+    expect(
+      (
+        await h.call(
+          `/assessments/${booth.data.id}/results`,
+          { ...curlBody, detail: { ...curlBody.detail, planeRatio: 0.85 } },
+          cookie,
+        )
+      ).data,
+    ).toEqual({ error: "RESULT_INVALID", field: "detail.planeRatio" });
+    await h.call(`/assessments/${booth.data.id}/complete`, {}, cookie);
+
+    // At home the arm raise always measures with the standard ratio.
+    setTime(T0 + 3 * DAY);
+    const again = await login(h, "booth-plane@example.test");
+    const home = await start(h, again);
+    const homeRaise = itemOf(home.data.protocol, "shoulder_abduction", "right");
+    const homePost = (planeRatio: number) =>
+      h.call(
+        `/assessments/${home.data.id}/results`,
+        resultBody(homeRaise, 118, { detail: { reference: "trunk", trunkLeanAtPeak: 2, planeRatio } }),
+        again,
+      );
+    expect((await homePost(0.75)).data).toEqual({ error: "RESULT_INVALID", field: "detail.planeRatio" });
+    expect((await homePost(0.85)).data).toEqual({ saved: true });
   });
 
   it("refuses a dumbbell at home for the conditions that must not use one", async () => {

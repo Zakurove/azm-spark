@@ -49,6 +49,7 @@ import type {
   TestId,
 } from "../../../movements/types";
 import type { LockWhen } from "../api";
+import { oneTest } from "../booth/settings";
 
 /* ================================================================ general */
 
@@ -169,21 +170,29 @@ export function rangeVars([from, to]: readonly [number, number]): Vars {
 const POSITIONS: readonly CheckPosition[] = ["chair", "wheelchair", "standing"];
 
 /**
- * The guest's two paths on S05 (O40): the quick path is the arm raise alone (its upper estimate, so it
- * is never too short), and until the position is known the full check shows the widest range of the
- * three positions' base selections at the booth, the guest steps included.
+ * The guest's two paths on S05 (O40, F-2), from the tests that run at this booth (D-016 item 4): the
+ * one test path is its one test alone (the arm raise, or the first test still on, F-1 D), at its upper
+ * estimate so it is never too short; until the position is known the full check shows the widest
+ * range of the three positions' base selections at the booth, the guest steps included. A path with
+ * no test to run is null, and S05 does not offer it.
  */
-export function guestMinutes(): { quick: number; full: [number, number] } {
-  const quick = estimateMinutes(["shoulder_abduction"], null, "booth", true)[1];
+export function guestMinutes(testsOff: readonly TestId[]): {
+  quick: number | null;
+  full: [number, number] | null;
+} {
+  const one = oneTest(testsOff);
+  const quick = one ? estimateMinutes([one], null, "booth", true)[1] : null;
   let from = Infinity;
   let to = 0;
   for (const position of POSITIONS) {
-    const tests = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
+    const all = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
+    const tests = all.filter((t) => !testsOff.includes(t));
+    if (!tests.length) continue;
     const [a, b] = estimateMinutes(tests, null, "booth", true);
     from = Math.min(from, a);
     to = Math.max(to, b);
   }
-  return { quick, full: [from, to] };
+  return { quick, full: to > 0 ? [from, to] : null };
 }
 
 /* ================================================================ guest steps (S06 to S11) */

@@ -41,6 +41,12 @@ export interface CameraStageProps {
   /** The test counter and the test name ("Test 1 of 3", "Arm raise to the side"), drawn apart. */
   title: string[];
   helperChip: boolean;
+  /**
+   * The staff readout of the arm raise (booth staff settings, council F-1), in the helper row above
+   * the picture, so it never covers the caption, the card or STOP. A helper chip is home only and the
+   * readout booth only, so the two never share the row.
+   */
+  staff?: ReactNode;
   sound: { blocked: boolean; onUnblock(): void };
   largeCaptions: { on: boolean; onToggle(): void };
   caption: StageCaption | null;
@@ -197,6 +203,7 @@ export function CameraStage(p: CameraStageProps) {
         )}
       </header>
 
+      {p.staff}
       {p.helperChip && (
         <p className="s34-helper" ref={helperRef}>
           <CheckIcon name="people" size={22} />

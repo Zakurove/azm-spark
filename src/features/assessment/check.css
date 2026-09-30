@@ -918,3 +918,59 @@ html:has(.azm-check.check-page) {
   background: transparent;
   margin-bottom: 18px;
 }
+
+/* A setting switch (CheckSwitch): S14's optional check in (D-016) and the booth staff settings (S55). */
+.azm-check .check-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--r-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.azm-check .check-switch > svg {
+  flex: none;
+  color: var(--purple);
+}
+.azm-check .check-switch-text {
+  display: grid;
+  gap: var(--s1);
+  flex: 1;
+}
+.azm-check .check-switch-title {
+  font-weight: 700;
+}
+.azm-check .check-switch-track {
+  flex: none;
+  display: flex;
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--field-border);
+  direction: ltr;
+}
+.azm-check .check-switch-track > span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--card);
+}
+.azm-check .check-switch[aria-checked="true"] {
+  background: var(--purple-tint);
+}
+.azm-check .check-switch[aria-checked="true"] .check-switch-track {
+  justify-content: flex-end;
+  background: var(--purple);
+}
+.azm-check .check-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}

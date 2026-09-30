@@ -23,6 +23,7 @@ import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
+import { CheckSwitch } from "../shared/CheckSwitch";
 import { useCheckUi } from "../shared/CheckUi";
 import {
   allSeated,
@@ -181,23 +182,14 @@ export function Intro({ model, dispatch }: ScreenProps) {
 function CheckInSwitch({ on, onChange }: { on: boolean; onChange(on: boolean): void }) {
   const { lang } = useCheckUi();
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      className="flow-switch"
-      data-setting="safety-check-in"
-      onClick={() => onChange(!on)}
-    >
-      <CheckIcon name="shield" size={24} />
-      <span className="flow-switch-text">
-        <span className="flow-strong">{t(lang, "assessment.checkin.setting")}</span>
-        <span className="check-meta">{t(lang, "assessment.checkin.settingNote")}</span>
-      </span>
-      <span className="flow-switch-track" aria-hidden="true">
-        <span />
-      </span>
-    </button>
+    <CheckSwitch
+      on={on}
+      onChange={onChange}
+      setting="safety-check-in"
+      icon={<CheckIcon name="shield" size={24} />}
+      title={t(lang, "assessment.checkin.setting")}
+      note={t(lang, "assessment.checkin.settingNote")}
+    />
   );
 }
 

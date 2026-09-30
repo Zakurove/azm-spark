@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { t } from "../../../i18n";
 import { bidiText, tx } from "../../../i18n/rich";
 import { CHECK_DATA, screenText } from "../../../movements/assessments";
-import { backTarget } from "../flowMachine";
+import { backTarget, testsOff } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
@@ -98,31 +98,34 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
   const { lang, online } = useCheckUi();
   // S55b: a visitor token that ended while this screen showed: booth.tokenEnded in place of the start.
   const { tokenEnded } = useBoothMode();
-  const minutes = guestMinutes();
-  void model;
+  // F-2: the one test path first, the full check after it, each with the minutes of what runs at this
+  // booth; a path with no test switched on is not offered (D-016 item 4, F-1 D).
+  const minutes = guestMinutes(testsOff(model.data));
+  const quick =
+    minutes.quick === null
+      ? undefined
+      : {
+          label: t(lang, "assessment.guest.quickTry", { minutes: minutes.quick, unit: "min" }),
+          onClick: () => dispatch({ type: "GUEST_PATH", path: "quick" }),
+        };
+  const full =
+    minutes.full === null
+      ? undefined
+      : {
+          label: t(lang, "assessment.guest.fullCheck", {
+            minutesFrom: minutes.full[0],
+            minutesTo: minutes.full[1],
+            unit: "min",
+          }),
+          onClick: () => dispatch({ type: "GUEST_PATH", path: "full" }),
+        };
+  const primary = quick ?? full;
+  const secondary = quick && full ? { ...full, kind: "primary" as const } : undefined;
   return (
     <CheckShell
       brand
       language
-      footer={
-        tokenEnded
-          ? undefined
-          : {
-              primary: {
-                label: t(lang, "assessment.guest.quickTry", { minutes: minutes.quick, unit: "min" }),
-                onClick: () => dispatch({ type: "GUEST_PATH", path: "quick" }),
-              },
-              secondary: {
-                label: t(lang, "assessment.guest.fullCheck", {
-                  minutesFrom: minutes.full[0],
-                  minutesTo: minutes.full[1],
-                  unit: "min",
-                }),
-                onClick: () => dispatch({ type: "GUEST_PATH", path: "full" }),
-                kind: "primary",
-              },
-            }
-      }
+      footer={tokenEnded || !primary ? undefined : { primary, ...(secondary ? { secondary } : {}) }}
     >
       <div className="flow-stack" data-screen="S05">
         <h1>{t(lang, "assessment.guest.title")}</h1>

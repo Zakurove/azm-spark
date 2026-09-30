@@ -32,7 +32,9 @@ import { isPerson } from "../../../engine/body";
 import { CheckInDetector, shouldersInView } from "../../../engine/checkin";
 import {
   createRunner,
+  RangeTestRunner,
   TrunkControlRunner,
+  type PlaneReadout,
   type RunnerOptions,
   type RunnerPhase,
   type TestEvent,
@@ -51,6 +53,7 @@ import { testDef } from "../../../movements/assessments";
 import type { CheckCueId, CheckPosition, Side, TestDef, TestId } from "../../../movements/types";
 import { flowReducer, RETRIES, type FlowEvent, type FlowModel, type FlowState } from "../flowMachine";
 import { armingFor, camPart, type CamPart } from "./arming";
+import { PLANE_RATIOS } from "../booth/settings";
 import { cloneDeep } from "./cloneRunner";
 import { cueClass, type CueClass, type CueRequest, type CueSeverity } from "./cues";
 import { sideRecord, sideResultEvent } from "./payload";
@@ -113,6 +116,12 @@ export interface CamOutput {
   events: FlowEvent[];
   cues: CueRequest[];
   notes: CamNote[];
+}
+
+/** The staff readout of the arm raise (council F-1 test sessions): never stored or sent. */
+export interface StaffReadout {
+  live: PlaneReadout | null;
+  last: { outcome: string; value: number | null; reasons: string[] } | null;
 }
 
 /** Why scoring is paused (the paused HUD state): another person, the phone, or nobody seen. */
@@ -181,6 +190,13 @@ export interface CamTest {
   checkIn: boolean;
   /** The first test side of the check (intro.howToStop is shown once there). */
   first: boolean;
+  /**
+   * The arm raise plane check ratio (spec 4.1): the standard one, or at the booth the fallback staff
+   * chose (council F-1 outcome W, D-016 item 4). The runner measures with it and stores it.
+   */
+  planeRatio: number;
+  /** The staff readout over the arm raise is on (booth staff settings, F-1 test sessions). */
+  readout: boolean;
 }
 
 /** The test side of a flow state, from its data (null outside the camera states). */
@@ -193,6 +209,7 @@ export function camTestOf(m: FlowModel): CamTest | null {
   const d = m.data;
   const ctx = d.env?.ctx ?? null;
   const support = ctx?.support ?? "none";
+  const staff = d.config.booth ? d.config.boothSettings : undefined;
   const pushHand = (item as { pushHand?: Side }).pushHand;
   const limb = d.env?.setup?.limbLoss?.arm;
   return {
@@ -215,6 +232,8 @@ export function camTestOf(m: FlowModel): CamTest | null {
     position: ctx?.position ?? "chair",
     checkIn: d.checkIn,
     first: s.i === 0 && s.side === 0,
+    planeRatio: staff?.planeFallback ? PLANE_RATIOS.fallback : PLANE_RATIOS.standard,
+    readout: staff?.readout === true && run.testId === "shoulder_abduction",
   };
 }
 
@@ -354,6 +373,9 @@ export class CameraController {
   private practiceNow = false;
   private recent = new Map<string, number>();
   private lastT = 0;
+  // The staff readout (F-1): the last live plane check and the last lift.
+  private lastReadout: PlaneReadout | null = null;
+  private lastLift: StaffReadout["last"] = null;
 
   constructor(model: FlowModel, test: CamTest, opts: ControllerOptions = {}) {
     this.model = model;
@@ -472,6 +494,18 @@ export class CameraController {
   /** The tracked person's landmarks in the last frame (the skeleton of setup and calibration). */
   subject(): Landmark[] | null {
     return this.lastLm;
+  }
+
+  /**
+   * The staff readout of the arm raise (booth staff settings, council F-1): the live plane check of
+   * the lift in progress (kept from the last lift between lifts) and the last lift's outcome with its
+   * reasons. Null when the readout is off. Read by the screen only; nothing is stored or sent.
+   */
+  readout(): StaffReadout | null {
+    if (!this.test.readout) return null;
+    const now = this.runner instanceof RangeTestRunner ? this.runner.readout() : null;
+    if (now) this.lastReadout = now;
+    return { live: this.lastReadout, last: this.lastLift };
   }
 
   /** The side lean practice was skipped (the button hides). */
@@ -827,7 +861,10 @@ export class CameraController {
   private startRunner(t: number, repeatUsed = false): void {
     // SPEC-GAP: flow-retry-budget. The flow counts the quality retries of a side (RETRIES, map 2.10);
     // the range and side lean runners get a budget they never reach, so the two never disagree.
-    const def = "maxRetries" in this.def ? ({ ...this.def, maxRetries: 99 } as TestDef) : this.def;
+    let def = "maxRetries" in this.def ? ({ ...this.def, maxRetries: 99 } as TestDef) : this.def;
+    // The arm raise plane check measures with the ratio of this check (F-1 outcome W at the booth).
+    if (def.kind === "range_test")
+      def = { ...def, validity: { ...def.validity, upperArmLengthMinRatio: this.test.planeRatio } };
     const opts = this.runnerOptions();
     this.runner = createRunner(def, this.test.side, repeatUsed ? { ...opts, repeatUsed: true } : opts);
     this.runnerPhase = null;
@@ -1029,6 +1066,7 @@ export class CameraController {
   }
 
   private onAttempt(e: Extract<TestEvent, { kind: "attempt" }>, t: number): void {
+    if (this.test.readout) this.lastLift = { outcome: e.outcome, value: e.value, reasons: [...e.reasons] };
     const s = this.state;
     if (e.outcome === "practice") return;
     if (e.outcome === "retry") {

@@ -21,7 +21,7 @@ import {
 import type { Intake, Plan } from "../../../src/medical/plan";
 import { afterCheckDue, type PrecheckEnv } from "../../../src/medical/precheck";
 import type { SeriesContext } from "../../../src/medical/progress-rules";
-import type { CheckPosition, Setting } from "../../../src/movements/types";
+import type { CheckPosition, Setting, TestId } from "../../../src/movements/types";
 import {
   checkState,
   completedChecks,
@@ -157,8 +157,11 @@ export function precheckEnv(
   ctx: CheckContext,
   setting: Setting,
   session: CheckSession = "full",
+  testsOff: readonly TestId[] = [],
 ): { env: PrecheckEnv; base: SelectionItem[] } {
-  const full = baseSelection(ctx, setting, s.setup);
+  // The tests switched off at the booth (D-016 item 4) are taken out before anything reads them.
+  const off = setting === "booth" ? testsOff : [];
+  const full = baseSelection(ctx, setting, s.setup).filter((i) => !off.includes(i.testId));
   const base = session === "side_lean_only" ? sideLeanOnly(full) : full;
   return {
     base,

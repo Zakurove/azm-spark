@@ -155,6 +155,8 @@ export interface StartBody {
   /** Q12 (2): the side lean only session; a full check by default. */
   session?: CheckSession;
   faceCovered?: boolean;
+  /** The tests switched off on this booth device (D-016 item 4); booth starts only. */
+  testsOff?: TestId[];
 }
 
 /** The helper briefing of each test that runs with a helper (Q11). */

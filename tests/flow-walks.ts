@@ -43,12 +43,14 @@ export interface GuestChoices {
   pain?: string[];
   restrictions?: string[];
   path?: "quick" | "full";
+  /** The flow configuration (the booth staff settings, D-016 item 4); GUEST by default. */
+  config?: FlowConfig;
 }
 
 /** A guest at the booth through the six steps to the intro (or S09 when routed there). */
 export function guestAtIntro(c: GuestChoices = {}): FlowModel {
   return play(
-    initialModel(GUEST),
+    initialModel(c.config ?? GUEST),
     { type: "START" },
     { type: "GUEST_PATH", path: c.path ?? "full" },
     { type: "ADULT_YES" },
@@ -69,11 +71,15 @@ export function toQuestions(m: FlowModel): FlowModel {
   return play(m, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }, { type: "PRECHECK_START" });
 }
 
-/** Answers every question (benignly unless given) until the flow leaves the pre-check. */
-export function answerAll(m: FlowModel, given: Answers = {}): FlowModel {
+/**
+ * Answers every question (benignly unless given) until the flow leaves the pre-check; `seen` collects
+ * the question ids asked.
+ */
+export function answerAll(m: FlowModel, given: Answers = {}, seen: string[] = []): FlowModel {
   let x = m;
   for (let k = 0; k < 80 && x.state.kind === "question"; k++) {
     const id = x.state.id;
+    seen.push(id);
     x = play(x, { type: "ANSWER", id, value: id in given ? given[id] : benign(id) });
   }
   return x;

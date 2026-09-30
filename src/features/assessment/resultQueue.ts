@@ -58,6 +58,7 @@ export type QueuedCall =
       setting: Setting;
       boothToken?: string;
       session?: CheckSession;
+      testsOff?: TestId[];
     }
   | { seq: number; type: "resumeBackground"; checkId: string; answers: Answers };
 
@@ -305,6 +306,7 @@ export class ResultQueue {
             setting: call.setting,
             ...(call.boothToken ? { boothToken: call.boothToken } : {}),
             ...(call.session && call.session !== "full" ? { session: call.session } : {}),
+            ...(call.testsOff?.length ? { testsOff: call.testsOff } : {}),
           }) ?? missing
         );
       case "resumeBackground":

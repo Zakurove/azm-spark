@@ -374,6 +374,84 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
+    /** From S05 through the guest steps and the pre-check to S27, with plain answers. */
+    async function guestToPlan(page: Page, path: "quick" | "full") {
+      const t = COPY[lang];
+      await expectScreen(page, "S05", lang);
+      await page
+        .locator(".check-footer .cta")
+        .nth(path === "quick" ? 0 : 1)
+        .click();
+      await answer(page, shown(lang, data.boundary.adultConfirm[lang])).click();
+      await answer(page, t.options.position.chair).click();
+      await answer(page, t.options.support.none).click();
+      await answer(page, data.selection.guestBooth.conditionsStep.noneChip[lang]).click();
+      await next(page).click();
+      await answer(page, data.selection.guestBooth.clearance.options[0].label[lang]).click();
+      for (const step of ["S10", "S11"]) {
+        await expectScreen(page, step, lang);
+        await answer(page, step === "S10" ? t.options.pain.none : t.options.restriction.none).click();
+        await next(page).click();
+      }
+      await expectScreen(page, "S14", lang);
+      await next(page).click();
+      await expectScreen(page, "S14b", lang);
+      await answer(page, data.engine.soundCheck.options.find((o) => o.value === "yes")!.label[lang]).click();
+      await expectScreen(page, "S16", lang);
+      await next(page).click();
+      // A pain score of 3 (0 would also match the label of 10 out of 10).
+      await answerQuestions(page, lang, 3);
+      await expectScreen(page, "S27", lang);
+    }
+
+    test("a test switched off by staff never appears: the one test is the arm curl (D-016 item 4)", async ({
+      page,
+    }) => {
+      const t = COPY[lang];
+      const errors = watchConsole(page);
+      await page.addInitScript(() => {
+        sessionStorage.setItem("azm.booth", "e2e-booth");
+        localStorage.setItem("azm.boothSettings", JSON.stringify({ testsOff: ["shoulder_abduction"] }));
+      });
+      await page.goto(url("/?check=1", lang));
+      await guestToPlan(page, "quick");
+      const plan = screen(page, "S27");
+      await expect(plan.locator(".flow-plan-row")).toHaveCount(1);
+      await expect(plan.locator(".flow-plan-row h2")).toHaveText(shown(lang, data.tests[1].name[lang]));
+      await expect(plan).not.toContainText(shown(lang, data.tests[0].name[lang]));
+      await expect(plan.getByText(t.plan.variantWhy.booth)).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+
+    test("the staff readout shows over the arm raise camera only while staff turned it on (F-1)", async ({
+      page,
+    }) => {
+      const t = COPY[lang];
+      const errors = watchConsole(page);
+      await page.addInitScript(() => {
+        sessionStorage.setItem("azm.booth", "e2e-booth");
+        localStorage.setItem("azm.boothSettings", JSON.stringify({ readout: true, planeFallback: true }));
+      });
+      await page.goto(url("/?check=1&e2eFixture=seated-raise", lang));
+      await guestToPlan(page, "quick");
+      await page.getByRole("button", { name: t.plan.start }).click();
+      await page.getByRole("button", { name: t.test.ready }).click();
+      await page.getByRole("button", { name: t.primer.allow }).click();
+      const panel = page.locator("[data-staff-readout]");
+      await expect(panel).toBeVisible();
+      await expect(panel).toContainText(t.booth.readout.title);
+      await expect(panel).toContainText(t.booth.readout.ratio);
+      // It sits above the picture: the caption, the card and STOP stay clear of it.
+      const box = (await panel.boundingBox())!;
+      for (const other of [".s34-caption", ".s34-card", "[data-stop]"]) {
+        const o = page.locator(other).first();
+        if (!(await o.isVisible())) continue;
+        const b = (await o.boundingBox())!;
+        expect(b.y >= box.y + box.height - 1 || b.y + b.height <= box.y + 1, other).toBe(true);
+      }
+      expect(errors).toEqual([]);
+    });
+
     test("a postponing answer commits on tap: S33 with no Back, and the visit stays paused (S35)", async ({
       page,
     }) => {

@@ -1004,3 +1004,56 @@
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------ staff readout (booth, council F-1) */
+
+/* In the helper row above the picture (a helper chip is home only, so the two never meet): it never
+   covers the caption, the card or STOP. Compact, for the team only. */
+.azm-check .s34-staff-readout {
+  grid-area: helper;
+  display: grid;
+  gap: 2px;
+  padding: var(--s1) var(--s3);
+  border-bottom: 1px solid var(--purple-border);
+  background: var(--purple-tint);
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.3;
+}
+.azm-check .s34-staff-readout-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--purple);
+}
+.azm-check .s34-staff-readout dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px var(--s3);
+  margin: 0;
+}
+.azm-check .s34-staff-readout dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s2);
+  min-width: 0;
+}
+.azm-check .s34-staff-readout dt {
+  color: var(--muted);
+}
+.azm-check .s34-staff-readout dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.azm-check .s34-staff-readout [data-plane] {
+  grid-column: 1 / -1;
+}
+.azm-check .s34-staff-readout [data-plane="pass"] dd {
+  color: var(--green-ink);
+}
+.azm-check .s34-staff-readout [data-plane="fail"] dd {
+  color: var(--warn-ink);
+}
+.azm-check .s34-staff-readout [data-wide] {
+  grid-column: 1 / -1;
+}

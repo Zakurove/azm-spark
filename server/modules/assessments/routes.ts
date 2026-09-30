@@ -243,7 +243,7 @@ export const assessmentRoutes: Route[] = [
       if (session === "side_lean_only" && (setting !== "home" || !s.sideLeanRepeat))
         return json(409, { error: "NOT_OFFERED" });
       const ctx = s.context;
-      const { env, base } = precheckEnv(db, u.id, s, ctx, setting, session);
+      const { env, base } = precheckEnv(db, u.id, s, ctx, setting, session, parsed.value.testsOff);
 
       const lock = currentLock(db, u.id, now);
       // A releasable lock (recent_change) is released at once by a yes to pc_change_cleared.

@@ -28,6 +28,7 @@ import {
   type CamOutput,
   type CamSnapshot,
   type CamTest,
+  type StaffReadout,
 } from "./controller";
 import {
   speakText,
@@ -53,6 +54,7 @@ import {
   UprightPanel,
 } from "./panels";
 import { controllerFor } from "./registry";
+import { StaffReadoutPanel } from "./StaffReadout";
 import { cameraSession, useCameraSession, type CamError, type CamStatus } from "./session";
 import { camTiming, e2eFastTiming, type CamTiming } from "./timing";
 import { ARM_KEY, framingViewOf, PHASE_KEY, SETUP_TITLE, type AttemptDot } from "./view";
@@ -104,6 +106,8 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
   const soundRef = useRef(ui.sound.on);
   soundRef.current = ui.sound.on;
   const [snap, setSnap] = useState<CamSnapshot>(() => ctrl.snapshot(performance.now()));
+  // The staff readout of the arm raise (booth staff settings, F-1): redrawn with the HUD.
+  const [readout, setReadout] = useState<StaffReadout | null>(null);
   const [tips, setTips] = useState(false);
   // S57: our staff correct a timed count on S34h; the saved screen waits while the dialog is open.
   const [staffCounting, setStaffCounting] = useState(false);
@@ -147,6 +151,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
       const now = performance.now();
       apply(ctrl.tick(now, envRef.current));
       setSnap(ctrl.snapshot(now));
+      if (ctrl.test.readout) setReadout(ctrl.readout());
       // No frame for a while although the camera runs: it stopped (S34 errors).
       if (cameraSession.stalled(now)) dispatch({ type: "CAMERA_ERROR", problem: "stopped" });
     }, 100);
@@ -230,6 +235,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
         practiceFixNow: () => apply(ctrl.practiceFixNow(performance.now())),
         retryModel: () => cameraSession.restart(),
       }}
+      staff={readout ? <StaffReadoutPanel readout={readout} lang={lang} /> : undefined}
     />
   );
 }
@@ -268,6 +274,8 @@ export interface CameraViewProps {
   };
   /** The Large captions choice, when the person made one (E2E previews set it). */
   largeCaptions?: boolean;
+  /** The staff readout of the arm raise (booth staff settings, F-1), above the picture. */
+  staff?: ReactNode;
 }
 
 /** The last fit level of the stage (CameraStage onOverflow). */
@@ -562,6 +570,7 @@ export function CameraView(p: CameraViewProps) {
       <CameraStage
         title={title}
         helperChip={model.data.helperRequired.includes(test.testId)}
+        staff={p.staff}
         sound={{ blocked: p.blocked, onUnblock: p.on.unblock }}
         largeCaptions={{ on: large, onToggle: () => setLargeChoice(!large) }}
         caption={caption}

@@ -467,7 +467,7 @@ export function useArmedPress(minMs: number, opts: { always?: boolean } = {}) {
  */
 export function useFoldFit(ref: RefObject<HTMLElement>, max: number, key: string): number {
   const [size, setSize] = useState(() => viewportKey());
-  // Levels 4 and 5 shrink zones under 120 px: compact mode only (under 700 px tall, 4.2).
+  // Levels 4 to 6 shrink zones under 120 px: compact mode only (under 700 px tall, 4.2).
   const top = typeof window !== "undefined" && window.innerHeight < COMPACT_HEIGHT ? max : Math.min(max, 3);
   const [fonts, setFonts] = useState(0);
   const k = `${key}|${size}|${fonts}`;

@@ -6172,7 +6172,7 @@
       "en": "Are you all right? Do not get up to answer. If you are, raise one hand.",
       "short": {
         "ar": "لا تنهض لتجيب",
-        "en": "Answer from there"
+        "en": "Do not get up"
       }
     },
     {
@@ -6182,7 +6182,7 @@
       "en": "Are you all right? Do not get up to answer. If you are, say I’m fine, or raise one hand.",
       "short": {
         "ar": "لا تنهض لتجيب",
-        "en": "Answer from there"
+        "en": "Do not get up"
       }
     },
     {
@@ -6192,7 +6192,7 @@
       "en": "Are you all right? Do not get up to answer.",
       "short": {
         "ar": "لا تنهض لتجيب",
-        "en": "Answer from there"
+        "en": "Do not get up"
       }
     },
     {
@@ -6202,7 +6202,7 @@
       "en": "Are you all right? Do not get up to answer. If you are, say I’m fine.",
       "short": {
         "ar": "لا تنهض لتجيب",
-        "en": "Answer from there"
+        "en": "Do not get up"
       }
     },
     {
@@ -6596,7 +6596,7 @@
       }
     }
   ],
-  "cueShortRule": "Every cue carries short {ar, en} (O24-1): the caption short form, set at 56 px beside its icon above the full sentence at 34 px, readable from 2 m, never truncated (the video shrinks instead). At most 3 words, an imperative or a noun, no punctuation except a question mark, Arabic Indic digits in Arabic (٩٩٧). A safety short form keeps its action verb and never drops a negation. Exceptions decided by the panel: «ضع يدك في المربع» (4 words, O34-1) and the English twins Answer from where you are, Lower your arm slowly and Did you pass out? (O24-1). Short forms are display only: never spoken, no arTts, and they never replace the full sentence, which stays in the caption. A short form never turns a condition or a qualifier of its full cue into an absolute order, and keeps the cue’s mood, so permission stays permission: «لا تنهض لتجيب» · Answer from there, «ينزلق؟ ضعه جانبًا» · Slipping? Put down, «يمكنك الاستعانة بيديك» · Hands may help (Arabic seat, review fixes of 2026-09-28).",
+  "cueShortRule": "Every cue carries short {ar, en} (O24-1): the caption short form, set at 56 px beside its icon above the full sentence at 34 px, readable from 2 m, never truncated (the video shrinks instead). At most 3 words, an imperative or a noun, no punctuation except a question mark, Arabic Indic digits in Arabic (٩٩٧). A safety short form keeps its action verb and never drops a negation. Exceptions decided by the panel: «ضع يدك في المربع» (4 words, O34-1) and the English twins Answer from where you are, Lower your arm slowly and Did you pass out? (O24-1), and Do not get up (R3C-15). Short forms are display only: never spoken, no arTts, and they never replace the full sentence, which stays in the caption. A short form never turns a condition or a qualifier of its full cue into an absolute order, and keeps the cue’s mood, so permission stays permission: «لا تنهض لتجيب» · Do not get up (the English form proposed by council R3C-15 so it carries the safety meaning; the Arabic seat confirms), «ينزلق؟ ضعه جانبًا» · Slipping? Put down, «يمكنك الاستعانة بيديك» · Hands may help (Arabic seat, review fixes of 2026-09-28).",
   "cuesRetired": [
     {
       "id": "check_time_stop",

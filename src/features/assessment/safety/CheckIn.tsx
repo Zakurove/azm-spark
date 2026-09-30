@@ -102,7 +102,9 @@ export function CheckIn({ model, dispatch }: ScreenProps) {
   const titleId = useId();
   const heading = useFocusOnMount<HTMLHeadingElement>();
   const stage = useRef<HTMLDivElement>(null);
-  const fit = useFoldFit(stage, 5, `S43:${lang}:${view.cue}:${ui.booth}:${ui.online}`);
+  // Up to level 6 in compact mode (R3C-15): the short form, the question, every answer and STOP stay on
+  // screen; the space comes from the heading size and the zone layout, never from the instruction.
+  const fit = useFoldFit(stage, 6, `S43:${lang}:${view.cue}:${ui.booth}:${ui.online}`);
   const seq = useSpeechSequence([cueSpeech(view.cue, lang, "safety")], { key: `S43:${lang}`, delayMs: 0 });
   useWakeLock(true);
   const left = useCountdown(SAFETY_TIMING.checkInAlarmMs);

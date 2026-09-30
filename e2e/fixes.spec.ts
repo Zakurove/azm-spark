@@ -17,7 +17,15 @@ import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
 import { PREVIEW_NAMES } from "../src/features/assessment/camera/e2e/previews";
 import { camModel, openCamera } from "./camera-fixtures";
-import { MEASURE, openGuest, openSignedIn, type Lang, type ModelOptions } from "./safety-fixtures";
+import {
+  MEASURE,
+  model,
+  openGuest,
+  openSignedIn,
+  seed,
+  type Lang,
+  type ModelOptions,
+} from "./safety-fixtures";
 
 const COPY = { ar, en } as const;
 const LANGS: Lang[] = ["ar", "en"];
@@ -47,6 +55,13 @@ async function centre(page: Page, selector: string): Promise<{ x: number; y: num
   const box = (await page.locator(selector).first().boundingBox())!;
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
+
+/** S43 raised over a measuring test, for a person with these check in inputs. */
+const checkInOver = (checkIn: { raiseAllowed: boolean; noArmSignal: boolean }): ModelOptions => ({
+  state: MEASURE,
+  overlay: { kind: "checkIn", from: "test", trigger: "no_movement", attempt: true },
+  checkIn: { ...checkIn, fineZoneSide: checkIn.noArmSignal ? null : "right" },
+});
 
 /** A point as the arguments of touchscreen.tap. */
 const xy = (p: { x: number; y: number }) => [p.x, p.y] as const;
@@ -271,6 +286,72 @@ for (const lang of LANGS) {
           await expectAboveFold(page, `${f.name} ${w}x${h}`);
           await page.context().close();
         }
+      });
+    }
+
+    // R3C-15 (6): on the compact phones the short form, the question, every answer and STOP of S43 are
+    // inside the viewport for every cue form this build can show (the zone and spoken forms come with
+    // home gate 2), with and without the offline banner.
+    const FORMS: { name: string; open: ModelOptions; home: boolean }[] = [
+      { name: "booth raise", home: false, open: checkInOver({ raiseAllowed: true, noArmSignal: false }) },
+      { name: "booth noraise", home: false, open: checkInOver({ raiseAllowed: false, noArmSignal: false }) },
+      { name: "home helper", home: true, open: checkInOver({ raiseAllowed: false, noArmSignal: true }) },
+      { name: "home fall raise", home: true, open: checkInOver({ raiseAllowed: true, noArmSignal: false }) },
+      {
+        name: "home fall noraise",
+        home: true,
+        open: checkInOver({ raiseAllowed: false, noArmSignal: false }),
+      },
+    ];
+    for (const [w, h] of [
+      [375, 667],
+      [320, 568],
+    ] as const) {
+      test(`S43 keeps its short form, question, answers and STOP in view at ${w} x ${h} (R3C-15)`, async ({
+        browser,
+      }) => {
+        test.setTimeout(240_000);
+        let home: Page | null = null;
+        for (const f of FORMS) {
+          for (const offline of [false, true]) {
+            let page: Page;
+            if (!f.home) {
+              page = await phone(browser, w, h);
+              await openGuest(page, lang, f.open);
+            } else if (!home) {
+              page = home = await phone(browser, w, h);
+              await openSignedIn(page, lang, { ...f.open, booth: false });
+            } else {
+              // The same signed in account in a new tab: its own snapshot.
+              page = await home.context().newPage();
+              await seed(page, model({ ...f.open, mode: "signedIn", booth: false }), false);
+              await page.goto(
+                lang === "en" ? "/?e2eFixture=seated-still&lang=en" : "/?e2eFixture=seated-still",
+              );
+            }
+            const s43 = page.locator('[data-screen="S43"]');
+            await expect(s43, f.name).toBeVisible();
+            if (offline) await page.context().setOffline(true);
+            await page.evaluate(() => document.fonts.ready);
+            await page.waitForTimeout(300);
+            const what = `${f.name}${offline ? " offline" : ""} ${w}x${h}`;
+            await expectAboveFold(page, what);
+            for (const sel of [".safety-short", "h1"]) {
+              const box = await s43.locator(sel).first().boundingBox();
+              expect(box, `${what}: ${sel}`).not.toBeNull();
+              expect(box!.y, `${what}: ${sel} top`).toBeGreaterThanOrEqual(0);
+              expect(box!.y + box!.height, `${what}: ${sel} bottom`).toBeLessThanOrEqual(h + 1);
+            }
+            // «أنا بخير» stays the largest, never under 120 px.
+            expect((await s43.locator('[data-value="fine"]').boundingBox())!.height).toBeGreaterThanOrEqual(
+              120,
+            );
+            if (offline) await page.context().setOffline(false);
+            if (!f.home) await page.context().close();
+            else if (page !== home) await page.close();
+          }
+        }
+        await home?.context().close();
       });
     }
 

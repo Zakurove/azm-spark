@@ -694,6 +694,8 @@ describe("Arabic and English", () => {
       "Answer from where you are",
       "Lower your arm slowly",
       "Did you pass out?",
+      // R3C-15 (7): the English fall form carries the safety meaning of «لا تنهض لتجيب».
+      "Do not get up",
     ]);
     for (const c of D.cues) {
       for (const lang of ["ar", "en"] as const) {

@@ -493,90 +493,133 @@ html:has(.azm-check .safety-stop-zone) {
    instruction at the top); the side kicker goes (the question names the part); the number and icon of
    a zone at 32 px; on S45 «أنا بخير» comes straight after the 997 call, before the body (the focus
    order of the spec: heading, 997, I am fine; the sentences are not focusable). */
-.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-stage-body {
+.azm-check
+  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-stage-body {
   display: flex;
   flex-direction: column;
 }
-.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-cue {
+.azm-check
+  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-checkin-cue {
   display: contents;
 }
-.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-instruction {
+.azm-check
+  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-checkin-instruction {
   order: 9;
   padding: var(--s3) var(--s4);
   border-inline-start: 4px solid var(--red);
   border-radius: var(--r-control);
   background: var(--cream);
 }
-.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-kicker {
+.azm-check
+  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-kicker {
   display: none;
 }
-.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone-number {
+.azm-check
+  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-zone-number {
   font-size: 2rem;
 }
-.azm-check :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone-mark svg {
+.azm-check
+  :is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-zone-mark
+  svg {
   width: 32px;
   height: 32px;
 }
 .azm-check
-  .is-alarm:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"])
+  .is-alarm:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
   :is(.safety-sentences, .safety-staff, .safety-still) {
   order: 1;
 }
 
 /* Level 3: S43's short form drops its pictogram (the fine zone keeps the hand) and takes the 40 px
    tier, so it keeps to one line above the question; the 64 px number sits beside the 997 call. */
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-cue .safety-short {
+.azm-check
+  :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-checkin-cue
+  .safety-short {
   font-size: 2.5rem;
 }
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-checkin-cue .safety-short svg {
+.azm-check
+  :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-checkin-cue
+  .safety-short
+  svg {
   display: none;
 }
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-zone.is-large {
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone.is-large {
   min-height: 120px;
 }
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-stage-body {
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-stage-body {
   padding-block-start: var(--s2);
 }
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-call-first {
+.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-call-first {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
 }
-.azm-check :is([data-fit="3"], [data-fit="4"], [data-fit="5"]) .safety-call-first .safety-number {
+.azm-check
+  :is([data-fit="3"], [data-fit="4"], [data-fit="5"], [data-fit="6"])
+  .safety-call-first
+  .safety-number {
   display: grid;
   gap: 0;
 }
 
 /* Level 4, compact only: zones 2 and 3 at 96 px, a label of up to three words at 32 px. */
-.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone:not(.is-large) {
+.azm-check :is([data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone:not(.is-large) {
   min-height: 96px;
   padding-block: var(--s2);
 }
-.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone.is-large {
+.azm-check :is([data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone.is-large {
   min-height: 120px;
 }
-.azm-check :is([data-fit="4"], [data-fit="5"]) .safety-zone-label.is-40 {
+.azm-check :is([data-fit="4"], [data-fit="5"], [data-fit="6"]) .safety-zone-label.is-40 {
   font-size: 2rem;
 }
 
-/* Level 5, compact only: zones 2 and 3 at 80 px (the tap form, 4.7), with less space between parts;
-   S43's short form goes (the fine zone's hand and the instruction under the answers stay). */
-.azm-check [data-fit="5"] .safety-checkin-cue .safety-short {
-  display: none;
-}
+/* Level 5, compact only: zones 2 and 3 at 80 px (the tap form, 4.7), with less space between parts.
+   S43 never hides its short form (R3C-15: for a person who cannot hear the voice it is the only
+   standing instruction, and on the fall watch the safety line «لا تنهض لتجيب»): its question moves to
+   the 40 px tier instead, and the short form stays at 40 px. */
 .azm-check [data-fit="5"] .safety-zone:not(.is-large) {
   min-height: 80px;
   padding-block: var(--s1);
 }
-.azm-check [data-fit="5"] .safety-zones {
+.azm-check :is([data-fit="5"], [data-fit="6"]) .safety-zones {
   gap: var(--s1);
 }
-.azm-check [data-fit="5"] .check-content,
-.azm-check .check-content:has(> [data-fit="5"]) {
+.azm-check :is([data-fit="5"], [data-fit="6"]) .check-content,
+.azm-check .check-content:has(> :is([data-fit="5"], [data-fit="6"])) {
   gap: var(--s2);
 }
-.azm-check [data-fit="5"] .check-main,
-.azm-check .check-main:has([data-fit="5"]) {
+.azm-check :is([data-fit="5"], [data-fit="6"]) .check-main,
+.azm-check .check-main:has(:is([data-fit="5"], [data-fit="6"])) {
   padding-block-start: var(--s2);
+}
+.azm-check .is-alert:is([data-fit="5"], [data-fit="6"]) .safety-stage-title {
+  font-size: 2.5rem;
+}
+
+/* Level 6, S43 in compact mode only (the 320 x 568 phones, R3C-15): «أنا بخير» stays full width at
+   120 px, the largest; «أريد التوقف» and «أحتاج مساعدة» sit side by side under it in data order, in
+   the reading direction, each at least 96 px tall and 48% of the width. */
+.azm-check .is-alert[data-fit="6"] .safety-zones {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.azm-check .is-alert[data-fit="6"] .safety-zone.is-large {
+  grid-column: 1 / -1;
+}
+.azm-check .is-alert[data-fit="6"] .safety-zone:not(.is-large) {
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s1);
+  padding: var(--s2);
+  text-align: center;
 }
 
 /* ------------------------------------------------------------------ rings */

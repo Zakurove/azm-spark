@@ -5,13 +5,12 @@
  * default pack named in index.json). A line missing from the chosen pack plays from the default pack,
  * then with a voice on the device.
  */
-import index from "../../public/cues/packs/index.json";
+import index from "virtual:voice-packs";
 import type { Lang } from "./i18n";
 
 export interface VoicePack {
   id: string;
   label: string;
-  provider: string;
 }
 
 export const VOICE_PACKS: readonly VoicePack[] = index.packs;

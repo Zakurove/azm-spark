@@ -7,7 +7,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../public/cues/packs/index.json", () => ({
+vi.mock("virtual:voice-packs", () => ({
   default: {
     default: "openai-ash",
     packs: [
@@ -197,7 +197,7 @@ describe("the voice choice in the coach settings", () => {
 
   it("is not shown while a single pack is installed", async () => {
     vi.resetModules();
-    vi.doMock("../public/cues/packs/index.json", () => ({
+    vi.doMock("virtual:voice-packs", () => ({
       default: { default: "openai-ash", packs: [{ id: "openai-ash", label: "Ash", provider: "OpenAI" }] },
     }));
     const { default: Single } = await import("../src/app/CoachSettings");

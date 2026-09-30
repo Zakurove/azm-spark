@@ -16,3 +16,12 @@ declare module "virtual:check-unit-forms" {
   const unitForms: (typeof import("./movements/check-v1.json"))["progress"]["unitForms"];
   export default unitForms;
 }
+
+/** The installed voice packs, public/cues/packs/index.json (vite.config.ts, voicePacks). */
+declare module "virtual:voice-packs" {
+  const index: {
+    default: string;
+    packs: { id: string; label: string; provider: string; voices: { ar: string; en: string } }[];
+  };
+  export default index;
+}

@@ -412,3 +412,23 @@ describe("S44 redo rests (R3C-04)", () => {
     expect(run.cues).toContain("check_rest_minute");
   });
 });
+
+describe("the one_arm_cross arm line (R3C-26)", () => {
+  it("shows the variant's own step line where test_stand_arms_cross would play, and speaks no arm cue", () => {
+    const m = atSetup("chair_stand_30s", "standing");
+    const i = m.data.tests.findIndex((t) => t.testId === "chair_stand_30s");
+    const tests = m.data.tests.map((t, k) =>
+      k === i ? { ...t, sides: t.sides.map((s) => ({ ...s, variant: "one_arm_cross" })) } : t,
+    );
+    const env = {
+      ...m.data.env!,
+      setup: { ...(m.data.env!.setup ?? {}), limbLoss: { arm: "left" as const } },
+    };
+    const start = { ...m, data: { ...m.data, tests, env } } as typeof m;
+    const run = runFixture(start, "stand-9x16", 12);
+    expect(run.notes).toContain(
+      "text:Place your hand on the opposite shoulder. Keep your other arm, or your prosthesis if you wear one, close to your chest.",
+    );
+    expect(run.cues.filter((c) => c.includes("test_stand_arms_cross"))).toEqual([]);
+  });
+});

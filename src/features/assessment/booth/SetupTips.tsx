@@ -7,6 +7,7 @@
  */
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
+import { testDef } from "../../../movements/assessments";
 import { backTarget } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import CheckIcon from "../shared/CheckIcon";
@@ -68,8 +69,35 @@ export function SetupTipsList({
   );
 }
 
-export function SetupTipsView({ wheelchair, onBack }: { wheelchair: boolean; onBack(): void }) {
+/**
+ * At the booth our team sets up the chair and the support in front before each chair stand, so the
+ * visitor's steps start at the phone step (R3C-33): the two home setup steps of the data are here.
+ */
+export function BoothStandSetup() {
   const { lang } = useCheckUi();
+  const def = testDef("chair_stand_30s");
+  const setup = def.steps[lang].slice(0, def.boothStepsFrom);
+  return (
+    <section className="booth-stand-setup" aria-labelledby="booth-stand-setup">
+      <h2 id="booth-stand-setup" className="check-h2">
+        {t(lang, "assessment.tips.boothStand")}
+      </h2>
+      <ul className="booth-tips">
+        {setup.map((line, k) => (
+          <li key={k} className="booth-tip">
+            <span className="booth-tip-icon">
+              <CheckIcon name="badge" />
+            </span>
+            <span>{bidiText(lang, line)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function SetupTipsView({ wheelchair, onBack }: { wheelchair: boolean; onBack(): void }) {
+  const { lang, booth } = useCheckUi();
   return (
     <CheckShell
       onBack={onBack}
@@ -79,6 +107,7 @@ export function SetupTipsView({ wheelchair, onBack }: { wheelchair: boolean; onB
       <div className="booth-screen" data-screen="S58">
         <h1>{t(lang, "assessment.tips.title")}</h1>
         <SetupTipsList wheelchair={wheelchair} />
+        {booth && <BoothStandSetup />}
       </div>
     </CheckShell>
   );

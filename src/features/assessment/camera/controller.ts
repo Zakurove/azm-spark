@@ -108,7 +108,10 @@ export const IDLE_ENV: CamEnv = { tilt: null, landscape: false, touching: false,
 
 /** An interface line shown in the caption card (never a cue of the check data). */
 export interface CamNote {
-  key: I18nKey;
+  /** The interface line, or none for a data line (`text`). */
+  key?: I18nKey;
+  /** A data line shown as the caption (the one_arm_cross arm line, R3C-26). */
+  text?: { ar: string; en: string };
   severity: CueSeverity;
   /** Cleared after this long (the "Good" line of a fixed issue). */
   clearAfterMs?: number;
@@ -209,8 +212,12 @@ export function camTestOf(m: FlowModel): CamTest | null {
     variant: item.variant ?? null,
     weaker: support === "none" ? null : support,
     firstCheck: d.env?.firstCheck ?? true,
+    // R3C-19: the practice check whenever this arm holds a load, at every check; never with no load.
     withLoad:
-      run.testId === "arm_curl_30s" && d.setting === "home" && (item.variant ?? "held") !== "arm_only",
+      run.testId === "arm_curl_30s" &&
+      d.setting === "home" &&
+      (item.variant ?? "held") !== "arm_only" &&
+      d.armCurl.load[item.side as Side]?.kind !== "none",
     ...(pushHand ? { pushHand } : {}),
     ...(limb ? { limbLossArm: limb } : {}),
     setting: d.setting,
@@ -901,6 +908,16 @@ export class CameraController {
     this.posted = false;
     this.lockPending = true;
     this.handle(this.runner.start(t), t);
+    // R3C-26: where test_stand_arms_cross would play, one_arm_cross has its own step line (stepsReplace
+    // 4). It is captioned only: spoken once Nasser approves it by ear (voicePending).
+    if (
+      this.test.testId === "chair_stand_30s" &&
+      this.test.variant === "one_arm_cross" &&
+      opts.intro !== false
+    ) {
+      const line = oneArmCrossLine();
+      if (line) this.out.notes.push({ text: line, severity: "info" });
+    }
   }
 
   private shouldFeed(env: CamEnv, phoneMoved: boolean): boolean {
@@ -1454,6 +1471,13 @@ export class CameraController {
 }
 
 /* ================================================================ helpers */
+
+/** The arm position line of the chair stand's one_arm_cross variant (its step 5), from the data. */
+function oneArmCrossLine(): { ar: string; en: string } | null {
+  const def = testDef("chair_stand_30s");
+  const step = def.variants.find((v) => v.id === "one_arm_cross")?.stepsReplace?.["4"];
+  return step ? { ar: step.ar, en: step.en } : null;
+}
 
 /** Overlays over a camera state that are answered from the chair: sway and hips drop stay armed. */
 const ANSWER_OVERLAYS: ReadonlySet<string> = new Set(["stopList", "goOn", "skipDialog"]);

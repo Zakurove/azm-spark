@@ -602,7 +602,8 @@ describe("the instruction card (S28)", () => {
     expect(summaryCues("shoulder_abduction")).toEqual(["test_abd_start", "test_abd_thumb", "test_abd_raise"]);
     expect(summaryCues("chair_stand_30s", "arms_assisted")).toContain("test_stand_hands_ok");
     expect(summaryCues("chair_stand_30s", "standard")).toContain("test_stand_arms_cross");
-    expect(summaryCues("chair_stand_30s", "one_arm_cross")).toContain("test_stand_arms_cross");
+    // R3C-26: no arm cue asks for both arms when one arm is lost; the card's step line says it.
+    expect(summaryCues("chair_stand_30s", "one_arm_cross")).toEqual(["test_stand_start", "test_stand_full"]);
   });
 
   it("applies zero based step replacements and the booth phone step", () => {

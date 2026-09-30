@@ -703,7 +703,8 @@
     "distance": "Move {metersFrom} to {metersTo} meters from the phone, about three big steps, so your whole body shows.",
     "people": "Your helper may be in the picture beside you, but not between you and the phone.",
     "wheelchair": "If you use a wheelchair, place the phone a little lower and a little further back, and keep your lap clear.",
-    "back": "Go back"
+    "back": "Go back",
+    "boothStand": "For the booth team, before each chair stand"
   },
   "units": {
     "min": {

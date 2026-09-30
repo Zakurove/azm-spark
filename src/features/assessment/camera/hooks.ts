@@ -269,7 +269,9 @@ export function useCameraCues(active: boolean): CameraCues {
       for (const r of reqs) queue.push(r);
     },
     note: (n) => {
-      show({ text: translate(langRef.current, n.key), severity: n.severity }, false, n.clearAfterMs);
+      const text = n.text ? n.text[langRef.current] : n.key ? translate(langRef.current, n.key) : "";
+      if (!text) return;
+      show({ text, severity: n.severity }, false, n.clearAfterMs);
     },
     silence: () => {
       queue.clear();

@@ -1536,10 +1536,9 @@ export class ArmCurlRunner extends TimedCountBase {
   }
 
   private afterPractice(t: number): void {
-    // SPEC-GAP: practice-check-when. The practice check belongs to the load selection at the
-    // baseline (its "no" steps the load down), so it is asked at the baseline with a held or cuff
-    // load unless the UI says otherwise.
-    const askCheck = this.opts.askPracticeCheck ?? (!this.opts.fixedRange && this.loaded);
+    // R3C-19: the practice check is asked at every check in which the arm holds a load (a dumbbell, a
+    // bottle or a wrist weight), baseline and re-test alike; its "no" steps the load down.
+    const askCheck = this.opts.askPracticeCheck ?? this.loaded;
     if (askCheck) {
       this.ask("practice_check", t);
       return;
@@ -1863,8 +1862,8 @@ export class ChairStandRunner extends TimedCountBase {
     this.rounds.begin(t);
     this.setPhase("calibrating", t);
     if (this.opts.intro ?? true) this.sink.cue("test_stand_start", t);
-    // SPEC-GAP: one-arm-cue. No cue fits one_arm_cross (test_stand_arms_cross asks for both arms);
-    // its instruction card replaces step 5, so no arm cue is spoken for it.
+    // R3C-26: no check cue fits one_arm_cross (test_stand_arms_cross asks for both arms); the camera
+    // part shows the variant's own step line in its place (CameraController), spoken once approved.
     if (this.variantId === "standard") this.sink.cue("test_stand_arms_cross", t);
     if (this.assisted) this.sink.cue("test_stand_hands_ok", t);
     return this.sink.drain();

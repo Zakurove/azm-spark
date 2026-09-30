@@ -125,7 +125,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
       if (out.cues.length) cuesRef.current.push(out.cues);
       for (const n of out.notes) {
         cuesRef.current.note(n);
-        if (n.speak) speakText(t(langRef.current, n.key), langRef.current, soundRef.current);
+        if (n.speak && n.key) speakText(t(langRef.current, n.key), langRef.current, soundRef.current);
       }
     },
     [dispatch],

@@ -218,6 +218,9 @@ export function LoadChoice({ model, dispatch }: ScreenProps) {
       stepDownFrom={stepDown ? prep.load[side] : undefined}
       // The same as last time only when that load is still allowed today (Q5).
       previous={stepDown || !previous || !allowed.includes(previous.kind) ? undefined : previous}
+      // A re-test on another load than the series' (a step down after the practice check, R3C-19, or
+      // the last load not allowed today) says that this arm is not compared today (load.newLine).
+      series={previous}
       onDone={done}
       shell={{ counter, onBack }}
     />
@@ -234,6 +237,7 @@ function LoadPicker({
   allowed,
   stepDownFrom,
   previous,
+  series,
   onDone,
   shell,
 }: {
@@ -241,6 +245,8 @@ function LoadPicker({
   allowed: LoadKind[];
   stepDownFrom?: Load;
   previous?: Load;
+  /** The load of this arm's current home series, when there is one (a re-test). */
+  series?: Load;
   onDone(l: Load): void;
   shell: { counter?: { text: string; value: number; max: number }; onBack?: () => void };
 }) {
@@ -309,7 +315,9 @@ function LoadPicker({
           {bidiText(lang, load.ask[lang])}
         </h1>
         <p className="check-body">{bidiText(lang, (stepDownFrom ? load.stepDown : load.help)[lang])}</p>
-        {previous && same === false && <p className="check-meta">{t(lang, "assessment.load.newLine")}</p>}
+        {series && (same === false || !previous) && (
+          <p className="check-meta">{t(lang, "assessment.load.newLine")}</p>
+        )}
         {tried && !complete && (
           <p className="check-field-error">{t(lang, "assessment.common.chooseToContinue")}</p>
         )}

@@ -114,7 +114,7 @@ export function runFixture(
       if (run.kinds[run.kinds.length - 1] !== k) run.kinds.push(k);
     }
     run.cues.push(...out.cues.map((c) => (c.speak ? c.id : `(${c.id})`)));
-    run.notes.push(...out.notes.map((n) => n.key));
+    run.notes.push(...out.notes.map((n) => n.key ?? `text:${n.text?.en ?? ""}`));
     if (out.events.length) apply(ctrl.sync(model, lastT));
   };
   const T0 = 10_000;

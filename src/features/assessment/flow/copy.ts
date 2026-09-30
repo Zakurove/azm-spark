@@ -934,11 +934,17 @@ export function summaryCues(testId: TestId, variant?: string): CheckCueId[] {
     case "trunk_control_seated":
       return knownCues(["test_trunk_start", "test_trunk_light_touch", "test_trunk_seat"]);
     case "chair_stand_30s":
+      // one_arm_cross has no arm cue (test_stand_arms_cross asks for both arms): its step line on the
+      // card says where the hand goes (R3C-26).
       return knownCues([
         "test_stand_start",
-        variant === "arms_assisted" || variant === "arms_assisted_steady"
-          ? "test_stand_hands_ok"
-          : "test_stand_arms_cross",
+        ...(variant === "one_arm_cross"
+          ? []
+          : [
+              variant === "arms_assisted" || variant === "arms_assisted_steady"
+                ? ("test_stand_hands_ok" as const)
+                : ("test_stand_arms_cross" as const),
+            ]),
         "test_stand_full",
       ]);
   }
@@ -956,8 +962,8 @@ export const PHONE_STEP: Record<TestId, number> = {
  * The steps of a test with today's variant applied (S28): stepsReplace keys are zero based step
  * indexes, and at the booth the phone step becomes primer.placeBooth (the phone is already mounted).
  */
-// SPEC-GAP: booth-curl-turn. The arm curl's phone step also says to turn side on to the phone; at the
-// booth the whole step is replaced as the spec says, and the setup check's side view cue asks for it.
+// R3C-33 (2): the arm curl's phone step also says to turn side on to the phone; at the booth the whole
+// step is replaced as the spec says, and the setup check's side view cue asks for the turn.
 export function instructionSteps(
   testId: TestId,
   variant: string | undefined,
@@ -967,6 +973,7 @@ export function instructionSteps(
   const def = testDef(testId) as {
     steps: { ar: string[]; en: string[] };
     variants?: { id: string; stepsReplace?: Record<string, { ar: string; en: string }> }[];
+    boothStepsFrom?: number;
   };
   const steps = [...def.steps[lang]];
   // The arm curl variant is the load kind: a cuff_or_arm_only arm still lists the held steps until
@@ -974,10 +981,10 @@ export function instructionSteps(
   const v = def.variants?.find((x) => x.id === variant);
   for (const [k, text] of Object.entries(v?.stepsReplace ?? {})) steps[Number(k)] = text[lang];
   if (booth) steps[PHONE_STEP[testId]] = t(lang, "assessment.primer.placeBooth");
-  // SPEC-GAP: booth-stand-steps. At the booth our team sets up the chair and the support in front, so
-  // the chair stand's two home setup steps are left out (a data request for booth steps of
-  // tests.chair_stand_30s); the steps start at the phone step, already the booth line.
-  if (booth && testId === "chair_stand_30s") return steps.slice(PHONE_STEP.chair_stand_30s);
+  // R3C-33: at the booth our team sets up the chair and the support in front (the staff brief and the
+  // S58 staff tips), so the chair stand's two home setup steps are left out: the steps start at the
+  // phone step, already the booth line (tests.chair_stand_30s.boothStepsFrom).
+  if (booth && def.boothStepsFrom !== undefined) return steps.slice(def.boothStepsFrom);
   return steps;
 }
 
@@ -996,8 +1003,8 @@ export function cardNotes(
     if (id === "fixed_armrest") return position !== "wheelchair";
     // The steady support note goes with the arms_assisted_steady variant; the walking aid note is shown
     // with it too, since that variant is set by pc_walking_aid yes.
-    // SPEC-GAP: walking-aid-note. The pc_walking_aid answer is cleared at the protocol freeze, so the
-    // walking aid note shows only where arms_assisted_steady tells that the answer was yes.
+    // R3C-33 (3): the pc_walking_aid answer is cleared at the protocol freeze, so the walking aid note
+    // shows where arms_assisted_steady tells that the answer was yes.
     if (id === "steady_support" || id === "walking_aid") return variant === "arms_assisted_steady";
     return false;
   };

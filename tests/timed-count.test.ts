@@ -429,6 +429,17 @@ describe("arm_curl_30s load practice check (spec 4.2)", () => {
     expect(k.run.asks).toEqual([]);
     expect(k.run.cues).not.toContain("test_curl_grip");
   });
+
+  it("asks it at a re-test with a load as well (R3C-19), never with no load", () => {
+    const base = res(curlCase("chair", "9:16", "right", 663));
+    const range = [Number(base.detail.rangeLo), Number(base.detail.rangeHi)] as [number, number];
+    const loaded = curlCase("chair", "9:16", "right", 664, { opts: { variant: "held", fixedRange: range } });
+    expect(loaded.run.asks).toEqual(["practice_check"]);
+    const none = curlCase("chair", "9:16", "right", 665, {
+      opts: { variant: "arm_only", fixedRange: range },
+    });
+    expect(none.run.asks).toEqual([]);
+  });
 });
 
 describe("timed trial voice and timer (spec 4.0 D-009)", () => {

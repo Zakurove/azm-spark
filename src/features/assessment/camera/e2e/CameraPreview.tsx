@@ -73,7 +73,8 @@ function snapshotOf(p: Preview, state: FlowState): CamSnapshot {
  */
 function captionText(c: Caption | undefined, lang: Lang) {
   if (!c) return null;
-  const heard = new URLSearchParams(location.search).get("e2eHeard") === "1";
+  const heard =
+    typeof location !== "undefined" && new URLSearchParams(location.search).get("e2eHeard") === "1";
   if ("cue" in c) return { ...captionOf(c.cue, lang), heard };
   return { text: t(lang, c.key), severity: c.severity, heard };
 }

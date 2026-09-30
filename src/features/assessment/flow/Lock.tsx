@@ -10,6 +10,10 @@
  *
  * S35: a start refused by a lock: the lock line only, never its reason (Q25 (c)), and the care team
  * release when the lock allows it (releasableByClearance).
+ *
+ * The way out (R3C-17): signed in, the top bar ✕ is Return to Today, the same as the footer (EXIT, the
+ * lock kept), and the system Back does the same (CheckApp); S15 never opens here. A booth guest gets no
+ * ✕: on S33 «ارجع إلى البداية» keeps the visit lock and shows S35, which offers nothing while it runs.
  */
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
@@ -43,6 +47,7 @@ export function Postponed({ model, dispatch }: ScreenProps) {
   return (
     <CheckShell
       sound={!sci}
+      {...(guest ? {} : { close: exit })}
       footer={
         sci
           ? {
@@ -101,13 +106,17 @@ export function PausedToday({ model, dispatch }: ScreenProps) {
   const when =
     s?.when ??
     whenOfLock(model.data.lock ?? (s?.until ? { reason: "", until: s.until } : null), now, "return");
-  // A guest's visit lock: only the staff reset or a new visitor ends it (S57), so no way back in here.
-  // SPEC-GAP: booth-visit-lock-exit. The spec has no booth form of S35: no primary is offered while the
-  // lock runs; the booth badge's staff reset starts the next visit.
+  // A guest's visit lock: only the staff reset, New visitor or the idle reset end it (S57), so no way
+  // back in here: no primary, no ✕ and no Back while it runs (R3C-31 (1)).
   const guestLocked = guest && !!s?.until && s.until > now;
+  const toToday = {
+    label: t(lang, "assessment.common.backToToday"),
+    onClick: () => dispatch({ type: "EXIT" }),
+  };
   return (
     <CheckShell
-      exit={!guest}
+      exit={false}
+      {...(guest ? {} : { close: toToday })}
       footer={
         guestLocked
           ? undefined

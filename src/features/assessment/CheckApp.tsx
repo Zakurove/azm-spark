@@ -18,6 +18,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
 import { BoothLayer } from "./booth";
+import { reloadWaits } from "./booth/tools";
 import { boothPassHolds, clearBoothPass, isBoothMode, readBoothPass, watchVisitorHidden } from "./boothMode";
 import {
   canLeave,
@@ -169,8 +170,14 @@ export default function CheckApp({
     const onPop = () => {
       if (leaving.current) return;
       // The pushed entry was popped: ask to leave where leaving is offered (camera and safety screens
-      // stay put), and push the entry again so the next Back is caught too.
-      if (canLeave(modelRef.current)) dispatch({ type: "LEAVE" });
+      // stay put), and push the entry again so the next Back is caught too. On S33 and S35 Back does
+      // what Return to Today does, the lock kept: never a pre-check question, never S15 (R3C-17 (3)).
+      const m = modelRef.current;
+      if (!m.overlay && (m.state.kind === "postponed" || m.state.kind === "paused")) {
+        dispatch({ type: "EXIT" });
+        return;
+      }
+      if (canLeave(m)) dispatch({ type: "LEAVE" });
       window.history.pushState(SENTINEL, "");
     };
     window.addEventListener("popstate", onPop);
@@ -195,10 +202,21 @@ export default function CheckApp({
   useEffect(() => {
     if (atResults && readBoothPass()?.kind === "visitor") clearBoothPass();
   }, [atResults]);
+  // Never over a safety screen, S33, or the check in, alarm or stop list: the pass is cleared, and the
+  // page reloads once the person has left that screen (R3C-35).
+  const reloadPending = useRef(false);
   useEffect(() => {
     if (!config.booth) return;
-    return watchVisitorHidden(() => location.replace(location.href));
+    return watchVisitorHidden(() => {
+      if (reloadWaits(modelRef.current)) reloadPending.current = true;
+      else location.replace(location.href);
+    });
   }, []);
+  useEffect(() => {
+    if (!reloadPending.current || reloadWaits(model)) return;
+    reloadPending.current = false;
+    location.replace(location.href);
+  }, [model]);
 
   // Guests and booth mode: a page restored from the back and forward cache starts again (S57).
   useEffect(() => {

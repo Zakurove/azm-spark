@@ -630,5 +630,31 @@ for (const lang of LANGS) {
       await page.getByRole("button", { name: t.entry.locked.cleared }).click();
       await expect(page.locator('[data-question="pc_change_cleared"]')).toBeVisible();
     });
+
+    test("S35 signed in: the ✕ and the system Back both return to Today, never S15 (R3C-17)", async ({
+      page,
+    }) => {
+      const t = COPY[lang];
+      await signIn(page);
+      const lock = {
+        until: Date.now() + 6 * 3_600_000,
+        releasableByClearance: false,
+        when: { token: "nextDay_midnight" },
+      };
+      await mockHome(page, { position: "chair" }, { lock });
+      await openSignedIn(page, lang);
+      await expectScreen(page, "S35", lang);
+      const close = page.locator(".check-topbar .check-close");
+      await expect(close).toHaveAttribute("aria-label", t.common.backToToday);
+      await close.click();
+      await expect(screen(page, "S35")).toHaveCount(0);
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      // The system Back does the same.
+      await openSignedIn(page, lang);
+      await expectScreen(page, "S35", lang);
+      await page.goBack();
+      await expect(screen(page, "S35")).toHaveCount(0);
+      await expect(page.getByRole("dialog", { name: t.exit.title })).toHaveCount(0);
+    });
   });
 }

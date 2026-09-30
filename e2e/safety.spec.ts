@@ -15,7 +15,7 @@ import { expect, test, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
-import { MEASURE, openGuest, openSignedIn, type Lang } from "./safety-fixtures";
+import { MEASURE, model, openGuest, openSignedIn, seed, type Lang } from "./safety-fixtures";
 
 const COPY = { ar, en } as const;
 const LANGS: Lang[] = ["ar", "en"];
@@ -189,6 +189,46 @@ for (const lang of LANGS) {
       await alarm.getByRole("button", { name: a.alarm.fine }).click();
       await expect(page.locator('[data-screen="S41"]')).toBeVisible();
       await expect(page.getByText(a.stop.takeYourTime)).toHaveCount(0);
+    });
+
+    test("a visitor pass ending over S37 clears the pass and keeps the screen until it is left (R3C-35)", async ({
+      page,
+    }) => {
+      await page.clock.install();
+      // A visitor's own phone in booth mode: the pass the server gave it (never checked for real here).
+      await page.route("**/api/booth/check", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+      );
+      const pass = JSON.stringify({ kind: "visitor", token: "c".repeat(64), expires: Date.now() + 3600e3 });
+      await page.addInitScript((p) => {
+        if (!sessionStorage.getItem("azm.e2e.visitor")) {
+          sessionStorage.setItem("azm.e2e.visitor", "1");
+          sessionStorage.setItem("azm.booth", p);
+        }
+      }, pass);
+      await seed(
+        page,
+        model({
+          state: { kind: "safety", safety: "ad", screen: "scr_ad", alsoShow: [], faintAnswered: false },
+        }),
+        false,
+      );
+      await page.goto(lang === "en" ? "/?check=1&lang=en" : "/?check=1");
+      const s37 = page.locator('[data-screen="S37"]');
+      await expect(s37).toBeVisible();
+      // Eleven minutes with the tab hidden, then back.
+      const visibility = (state: "hidden" | "visible") =>
+        page.evaluate((v) => {
+          Object.defineProperty(document, "visibilityState", { get: () => v, configurable: true });
+          document.dispatchEvent(new Event("visibilitychange"));
+        }, state);
+      await visibility("hidden");
+      await page.clock.runFor(11 * 60 * 1000);
+      await visibility("visible");
+      await page.clock.runFor(1_000);
+      // The AD steps stay on the phone; the pass is gone.
+      await expect(s37).toBeVisible();
+      expect(await page.evaluate(() => sessionStorage.getItem("azm.booth"))).toBeNull();
     });
 
     test("S36: 997 first as a tel: link, the number at 64 px, every sentence captioned in turn", async ({

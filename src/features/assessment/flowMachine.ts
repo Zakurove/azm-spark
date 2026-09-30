@@ -1481,10 +1481,9 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       // (Appendix A); whether that question is visible for this person is decided by src/medical.
       if (e.type === "RELEASE" && s.releasable && d.env && !guest)
         return go({ ...m, data: { ...d, answers: {} } }, { kind: "question", id: "pc_change_cleared" });
-      // A guest's lock lasts for the visit (Q25 (c)): only the staff reset, New visitor or the idle
-      // reset (S57) end it, so S35 has no way back into a check for this visitor.
-      // SPEC-GAP: booth-visit-lock-exit. The spec has no booth form of S35; its exit is ignored for a
-      // guest while the lock runs, and the booth badge's staff reset starts the next visit.
+      // A guest's lock lasts for the visit (Q25 (c), R3C-31 (1)): only the staff reset, New visitor or
+      // the idle reset (S57) end it, so S35 has no way back into a check for this visitor: its exit is
+      // ignored while the lock runs.
       if (e.type === "EXIT") {
         if (!guest) return go(m, { kind: "exit", to: "today" });
         return lockActive(d, now) ? m : restartGuest(m, now);

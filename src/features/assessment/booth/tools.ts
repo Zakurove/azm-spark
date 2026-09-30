@@ -54,6 +54,19 @@ const IDLE_STATES: ReadonlySet<FlowStateKind> = new Set<FlowStateKind>([
 const SAFETY_OVERLAYS = new Set(["stopList", "checkIn", "goOn", "alarm"]);
 
 /**
+ * A visitor pass that ends (10 minutes hidden, S55b) clears the pass, but the page does not reload
+ * over a safety screen (S36 to S40, S38b), S33, or the check in, alarm or stop list overlay: wiping
+ * emergency or AD instructions off the phone as the person returns to it is a safety failure. The
+ * reload runs once the person has left the screen (R3C-35).
+ */
+export function reloadWaits(m: FlowModel): boolean {
+  const o = m.overlay?.kind;
+  if (o === "stopList" || o === "checkIn" || o === "alarm") return true;
+  const k = m.state.kind;
+  return k === "safety" || k === "faintAsk" || k === "postponed";
+}
+
+/**
  * How long this screen waits before asking "Are you still here?", or null where the idle reset never
  * applies. Only the guest check at the booth resets itself: a visitor's own phone (a signed in check
  * with a booth token) is theirs, so staff use the staff reset there.

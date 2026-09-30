@@ -75,10 +75,20 @@ export function startNextVisitor(dispatch: Dispatch, o: NextVisitorOptions): voi
 
 /* ------------------------------------------------------------------ the confirm */
 
-// SPEC-GAP: s50-reset-way-back. On the results the check is over, so the way back should read «ارجع»
-// (assessment.common.back) rather than «تابع القياس»; e2e/booth.spec.ts pins exit.stay, so the change
-// waits for the foundation (a request of the round 3 review fixes).
-export function ResetDialog({ onConfirm, onStay }: { onConfirm(): void; onStay(): void }) {
+/**
+ * The S57 reset confirm. Its way back reads «تابع القياس» during a check, and «ارجع» · Go back on the
+ * results (S50), where the check is over and "Stay in the check" would be untrue (R3C-31 (3)).
+ */
+export function ResetDialog({
+  onConfirm,
+  onStay,
+  over = false,
+}: {
+  onConfirm(): void;
+  onStay(): void;
+  /** The check is over (the results). */
+  over?: boolean;
+}) {
   const { lang } = useCheckUi();
   const titleId = useId();
   return (
@@ -89,7 +99,7 @@ export function ResetDialog({ onConfirm, onStay }: { onConfirm(): void; onStay()
           {t(lang, "assessment.booth.resetYes")}
         </button>
         <button type="button" className="ghost" onClick={onStay} data-stay="">
-          {t(lang, "assessment.exit.stay")}
+          {t(lang, over ? "assessment.common.back" : "assessment.exit.stay")}
         </button>
       </div>
     </CheckDialog>
@@ -112,6 +122,7 @@ export function NewVisitorButton({ onReset }: { onReset(): void }) {
             onReset();
           }}
           onStay={() => setOpen(false)}
+          over
         />
       )}
     </>
@@ -325,7 +336,13 @@ export function BoothLayer({ model, dispatch, reload, now = Date.now, personSeen
           }}
         />
       )}
-      {confirm && <ResetDialog onConfirm={next} onStay={() => setConfirm(false)} />}
+      {confirm && (
+        <ResetDialog
+          onConfirm={next}
+          onStay={() => setConfirm(false)}
+          over={model.state.kind === "results"}
+        />
+      )}
     </>
   );
 }

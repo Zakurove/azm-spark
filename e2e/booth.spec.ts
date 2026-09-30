@@ -468,7 +468,9 @@ for (const lang of LANGS) {
       await page.goto(layer("results"));
       await page.getByRole("button", { name: c.guest.newVisitor }).click();
       const dialog = page.getByRole("dialog", { name: c.booth.resetConfirm });
-      await expect(dialog.getByRole("button", { name: c.exit.stay })).toBeFocused();
+      // The check is over: the way back reads Go back, never Stay in the check (R3C-31 (3)).
+      await expect(dialog.getByRole("button", { name: c.common.back, exact: true })).toBeFocused();
+      await expect(dialog.getByRole("button", { name: c.exit.stay })).toHaveCount(0);
       await dialog.getByRole("button", { name: c.booth.resetYes }).click();
       await expect(page.locator(".check-base")).toHaveAttribute("data-state", "guestWelcome");
       expect(await events(page)).toContain("STAFF_RESET");

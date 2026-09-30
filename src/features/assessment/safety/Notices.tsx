@@ -6,8 +6,7 @@
  *      own line, R3C-20); after tired and other a one minute rest (check_rest_minute) with a ring,
  *      during which "Start the next test now" stays enabled (primaries are never disabled). End
  *      today's check goes to the end question. "Change my reason" returns to the stop list. The
- *      stopped test is measured again at the next check (O43: no same day redo). After a second no
- *      response alarm no next test is offered (R3C-02 (2)).
+ *      stopped test is measured again at the next check (O43: no same day redo).
  * S46  Confirms a skip in plain words: the title by what skipped it, one row per skipped test and side
  *      with its reason. Continue goes on (the flow's continuation).
  * S46b A guest after each test: two equally prominent buttons, the next test's name under the first.

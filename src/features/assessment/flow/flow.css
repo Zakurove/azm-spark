@@ -573,8 +573,8 @@
   padding-top: var(--s2);
 }
 
-/* The practice check (S29), read from the chair: 40 px question, two answer buttons laid out like the
-   answer zones, STOP first in the focus order and drawn at the bottom. */
+/* The practice check (S29), read from the chair: 40 px question, two big answer buttons, STOP first
+   in the focus order and drawn at the bottom. */
 .azm-check .flow-practice {
   display: flex;
   flex-direction: column;

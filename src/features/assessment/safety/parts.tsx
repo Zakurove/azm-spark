@@ -1,6 +1,6 @@
 /**
  * Parts shared by the safety screens (UX spec 5.3, 5.6, 5.7): the sentence stack read one sentence at a
- * time, the 64 px ambulance number, STOP, the answer zones in their tap form, the countdown ring, the
+ * time, the 64 px ambulance number, STOP, the big answer buttons (AnswerZones), the countdown ring, the
  * stage caption and the heading icon. They use only the check tokens (safety.css).
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -70,10 +70,10 @@ export function BigNumber({ number = "997" }: { number?: "997" }) {
  * STOP (principle 6, 4.2): full width, red, 72 px, a stop square and the word; its accessible name is
  * "Stop now". Never disabled. On the answer screens it sits in a sticky zone at the bottom.
  */
-export function StopButton({ onPress, gap = false }: { onPress(): void; gap?: boolean }) {
+export function StopButton({ onPress }: { onPress(): void }) {
   const { lang } = useCheckUi();
   return (
-    <div className={`safety-stop-zone${gap ? " has-gap" : ""}`}>
+    <div className="safety-stop-zone">
       <button
         type="button"
         className="safety-stop"

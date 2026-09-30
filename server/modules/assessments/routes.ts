@@ -10,7 +10,7 @@
  *   POST /api/assessments/:id/complete   closes the check
  *   POST /api/assessments/after          ac_next_day (spec 2.4, O38)
  *   GET  /api/assessments                the person's own checks with their results
- * The end of check question, the faint follow up, the alarm counts and the resume are in
+ * The end of check question, the faint follow up and the resume are in
  * follow-up.ts.
  *
  * Rules before AI: every decision comes from the pure modules (src/medical/assessment.ts,

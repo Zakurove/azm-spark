@@ -17,8 +17,8 @@ export interface ToneSegment {
   ms: number;
   /** Peak level, 0 to 1. */
   gain: number;
-  /** "flat" holds the level (alarm); "bell" decays from the start (chime). */
-  envelope?: "flat" | "bell";
+  /** "bell" decays from the start (the chime); without it the level holds. */
+  envelope?: "bell";
 }
 
 /** Samples of the segments, as 16 bit mono PCM values (ramps of 8 ms at each edge, no click). */

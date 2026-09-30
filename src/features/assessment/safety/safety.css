@@ -1,10 +1,10 @@
 /*
- * Safety screens S36 to S49 and the stop, check in and alarm overlays (UX spec S36 to S49, 0.3 to 0.5,
+ * Safety screens S36 to S49 and the stop list and check in overlays (UX spec S36 to S49, 0.3 to 0.5,
  * 4.1, 4.4). Scoped to .azm-check and built only from the check tokens (tokens.css): no colour literal.
  *
- * Sizes are in rem so text zoom scales them, and no query shrinks them. Red is STOP, the 997 call and
- * the static safety frame only; nothing flashes or pulses; the reading highlight and the rings move in
- * steps, never by animation.
+ * Sizes are in rem so text zoom scales them; only the compact query of S43 steps its heading down to
+ * the 40 px tier. Red is STOP and the 997 call only; nothing flashes or pulses; the reading highlight
+ * and the rings move in steps, never by animation.
  */
 
 /* ------------------------------------------------------------------ S36 to S40b */
@@ -237,11 +237,6 @@
   padding: var(--s3) var(--gutter) calc(var(--s3) + env(safe-area-inset-bottom));
   background: var(--page);
 }
-/* S43 and S44: a 24 px inert gap between STOP and the controls above it (0.5), inside the sticky zone,
-   so the gap stays when the zone is pinned to the bottom of the dialog. */
-.azm-check .safety-stop-zone.has-gap {
-  padding-block-start: var(--s6);
-}
 /* S41: STOP stays in its place, visible but inert while the list is open. The zone is not a control,
    so a second tap on the STOP point lands on nothing. */
 .azm-check .safety-stop-zone.is-inert .safety-stop {
@@ -275,7 +270,7 @@ html:has(.azm-check .safety-stop-zone) {
   scroll-padding-bottom: 112px;
 }
 
-/* ------------------------------------------------------------------ S41, S44 (dialogs over the stage) */
+/* ------------------------------------------------------------------ S41 (a dialog over the stage) */
 
 .azm-check .safety-overlay {
   min-height: 100%;

@@ -1,8 +1,8 @@
 /**
  * The arm curl preparation at home (never at the booth, Q5; never for an arm set to arm_only, P2):
  *   S29 grip     the grip question per arm at the first check of a series, before S30
- *   S29 practice the practice check after the two practice bends, from the chair (large type, answer
- *                buttons laid out as the answer zones, STOP always there)
+ *   S29 practice the practice check after the two practice bends, from the chair (large type, big
+ *                answer buttons, STOP always there)
  *   S30 load     what the person holds, per arm: first check (the allowed loads, bottle sizes, a kg
  *                stepper), re-test (the same as last time), or lighter choices after a practice that
  *                was not easy (the step down)

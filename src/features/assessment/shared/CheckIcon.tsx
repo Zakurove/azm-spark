@@ -107,9 +107,6 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   sleeve: <path d="M8 3h8l4 7-3 2-2-3v12H9V9l-2 3-3-2z" />,
-  "hand-raise": (
-    <path d="M8 13V6a1.5 1.5 0 0 1 3 0v5m0-6.5a1.5 1.5 0 0 1 3 0V11m0-4.5a1.5 1.5 0 0 1 3 0V12m0-3a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2.5-4.5a1.5 1.5 0 0 1 2.5-1.6L8 14" />
-  ),
   "lean-left": (
     <>
       <circle cx="9" cy="5" r="2" />

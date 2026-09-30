@@ -26,7 +26,7 @@ export function BoothOnly({ dispatch }: ScreenProps) {
       exit={false}
       language
       footer={
-        // The example page is still a stub: it is offered only where the check UI is on.
+        // The example page is offered wherever the check UI is on (every build unless VITE_CHECK_UI=0).
         CHECK_UI
           ? {
               primary: {

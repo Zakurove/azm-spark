@@ -46,7 +46,7 @@ const boothEntry = qs.get("booth") === "1";
 const boothTokenEntry = qs.get("boothToken");
 /** The account page opened on its register tab (S50 QR, the Create a free account button). */
 const registerEntry = qs.get("register") === "1";
-// The example page (S54): shown only where the check UI is on (featureFlag.ts).
+// The example page (S54): shown wherever the check UI is on (featureFlag.ts, every build by default).
 const exampleEntry = CHECK_UI && qs.get("example") === "progress";
 /** The privacy notice (Q32 (1), H5), open to everyone. */
 const privacyEntry = qs.get("privacy") === "1";

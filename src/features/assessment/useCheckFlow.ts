@@ -150,10 +150,9 @@ export function markNoResume(checkId: string): void {
 /**
  * Whether an open check may be offered to continue (S01 resume, O6 (1)): never after a safety screen or
  * an alarm on this device. Without storage no resume is offered (the check closes after 30 minutes
- * and a new one starts), the safer side.
+ * and a new one starts), the safer side. Other devices learn of an alarm from the server, which closes
+ * the check's resume window when the alarm is posted (R3C-22): the context then gives no openCheck.
  */
-// SPEC-GAP: resume-after-alarm-device. The record lives on the device that ran the check; another
-// device of the same person cannot know of an alarm and may offer the resume within the 30 minutes.
 export function resumeAllowed(checkId: string): boolean {
   const ids = noResumeIds();
   return ids !== null && !ids.includes(checkId);

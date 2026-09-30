@@ -11,8 +11,10 @@
  *                                      as completed (its results stay stored)
  *     { question: "faint", answer, afterNoResponse?, testId? }   sf_faint_loc after a faint or fall
  *                                      stop (Q33 (3), O42)
- *     { question: "alarm", kind: no_response | help_requested, testId? }   the anonymous count of a
- *                                      check in alarm or help request (Q25, O34-5)
+ *     { question: "alarm", kind: no_response | help_requested, testId?, endsCheck? }   the anonymous
+ *                                      count of a check in alarm or help request (Q25, O34-5); the check
+ *                                      can no longer be resumed on any device (R3C-22), and a second no
+ *                                      response alarm (endsCheck) ends it with the day's lock (R3C-02)
  *   POST /api/assessments/:id/resume   { answers }: the O6 re-ask within 30 minutes
  *
  * Only the dates of the data map are kept (changeReported); every answer itself is used today and
@@ -46,12 +48,14 @@ import { checkContextOf, personState, seriesContext } from "./state";
 import {
   DAY_MS,
   closeCheck,
+  closeResume,
   countSafetyEvent,
   finishCheck,
   keptResults,
   reportChange,
   resultsOf,
   saveResult,
+  stopClosedCheck,
   touch,
   transaction,
 } from "./store";
@@ -169,15 +173,22 @@ function faintAnswer(ctx: RouteContext): void {
   });
 }
 
-/** { question: "alarm" }: the anonymous count of an alarm or a help request (Q25, O34-5). */
+/**
+ * { question: "alarm" }: the anonymous count of an alarm or a help request (Q25, O34-5). The check's
+ * resume window closes (R3C-22): only resumable false is stored, the state a stop leaves, with no
+ * reason, time or alarm kind. A second no response alarm in the check (endsCheck, R3C-02 (2)) ends it
+ * as a stop that ends it does: ended early, with the stop_symptom next day lock.
+ */
 function alarmAnswer(ctx: RouteContext): void {
   const { db, body, json, limited } = ctx;
   const a = ownCheck(ctx);
   if (!a) return;
-  if (unknownKeys(body, ["kind", "testId"]).length)
+  if (unknownKeys(body, ["kind", "testId", "endsCheck"]).length)
     return json(400, { error: "ALARM_INVALID", field: "body" });
   if (!(ALARM_KINDS as readonly unknown[]).includes(body.kind))
     return json(400, { error: "ALARM_INVALID", field: "kind" });
+  if (body.endsCheck !== undefined && (body.endsCheck !== true || body.kind !== "no_response"))
+    return json(400, { error: "ALARM_INVALID", field: "endsCheck" });
   const ref = checkTestRef(body, a.protocol, false);
   if (!ref.ok) return json(400, { error: "ALARM_INVALID", field: ref.field });
   // The check in runs during the check and in the home fall watch after a stop (O42): a running
@@ -189,9 +200,17 @@ function alarmAnswer(ctx: RouteContext): void {
     const status = a.status === "open" ? closeCheck(db, a, "stale", a.active) : a.status;
     return json(409, { error: "NOT_OPEN", status });
   }
-  if (!limited(`alarm:${a.id}`, ALARMS_PER_CHECK, DAY_MS))
-    countSafetyEvent(db, `alarm:${body.kind as AlarmKind}`, ref.value?.testId ?? "none", a.setting, now);
-  json(200, { recorded: true });
+  const count = !limited(`alarm:${a.id}`, ALARMS_PER_CHECK, DAY_MS);
+  const lock = transaction(db, () => {
+    if (count)
+      countSafetyEvent(db, `alarm:${body.kind as AlarmKind}`, ref.value?.testId ?? "none", a.setting, now);
+    closeResume(db, a.id);
+    if (body.endsCheck !== true) return null;
+    if (a.status === "open") finishCheck(db, a, "ended_early", now, "stop");
+    else stopClosedCheck(db, a, now);
+    return applyLock(ctx, { reason: "stop_symptom", until: "next_day" }, now);
+  });
+  json(200, { recorded: true, ...(lock ? { lock } : {}) });
 }
 
 export const followUpRoutes: Route[] = [
@@ -228,11 +247,11 @@ export const followUpRoutes: Route[] = [
       if (!answers.ok) return json(400, { error: "RESUME_INVALID", field: "answers" });
       const own = ownCheck(ctx);
       if (!own || homeClosed(ctx, own.setting)) return;
-      // SPEC-GAP: resume-after-safety. O6 (1) allows no resume after a safety screen (S36 to S40) or
-      // an alarm (S45). Stops and postpones end the check here; an alarm is only counted (Q25 (d)
-      // keeps no per person record), so the client must not offer the resume after one.
+      // O6 (1): no resume after a safety screen (S36 to S40) or an alarm (S45). Stops and postpones end
+      // the check here; an alarm post closes its resume window on every device (R3C-22).
       const a = openCheck(ctx, { today: true });
       if (!a) return;
+      if (!a.resumable) return json(409, { error: "NOT_OPEN", status: a.status });
       if (!activeConsent(db, user!.id, "movement_check")) return json(403, { error: "CONSENT_REQUIRED" });
       const env = runningEnv(ctx, a);
       if (!env) return json(409, { error: "PLAN_REQUIRED" });

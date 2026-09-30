@@ -226,6 +226,14 @@ export function sanitizeSelection(
   };
 }
 
+/** Arabic counted days: the singular, the dual, then the plural of 3 to 10 and the singular accusative from 11. */
+function arabicDays(n: number): string {
+  if (n === 1) return "يوم واحد";
+  if (n === 2) return "يومين";
+  if (n >= 3 && n <= 10) return `${n} أيام`;
+  return `${n} يومًا`;
+}
+
 export function buildWeekly(
   h: Intake,
   plan: Plan,
@@ -269,7 +277,7 @@ export function buildWeekly(
   const n = plan.days.length;
   const summary: L = selection.summary ?? {
     ar: toArabicDigits(
-      `خطة من ${n} أيام في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين مختارة من مكتبة عزم، وينتهي بتهدئة.`,
+      `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين مختارة من مكتبة عزم، وينتهي بتهدئة.`,
     ),
     en: `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, moves into a camera session that counts and corrects, adds exercises chosen from the Azm library, and closes with a cool down.`,
   };

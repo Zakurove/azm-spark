@@ -87,6 +87,22 @@ it("composes one day per training day from the safe pool, with clean copy", () =
   expect(weekly.summary.ar).toContain("حالتك الطبية");
 });
 
+it("names the number of days in Arabic with the singular, the dual and the plural", () => {
+  const summary = (days: number[]) => {
+    const h: Intake = { ...base, days };
+    const plan = createPlan(h);
+    expect(plan.days).toEqual(days);
+    return engineWeekly(h, plan)!.summary;
+  };
+  expect(summary([2]).ar).toContain("خطة من يوم واحد في الأسبوع");
+  expect(summary([0, 3]).ar).toContain("خطة من يومين في الأسبوع");
+  expect(summary([0, 2, 4]).ar).toContain("خطة من ٣ أيام في الأسبوع");
+  for (const days of [[2], [0, 3], [0, 2, 4]]) {
+    expect(summary(days).ar).not.toMatch(/[١٢] أيام/);
+    expect(summary(days).en).toContain(`A ${days.length} day weekly plan`);
+  }
+});
+
 it("discards model ids outside the safe pool and cleans its wording", () => {
   const plan = createPlan(base);
   const pool = eligibleExercises(base, plan);

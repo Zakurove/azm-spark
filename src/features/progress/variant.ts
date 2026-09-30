@@ -19,6 +19,7 @@ import { REPEAT_OFFER_DAYS } from "../../medical/assessment";
 import { riyadhDate } from "../../medical/precheck";
 import type { TestId } from "../../movements/types";
 import {
+  homeOpenOf,
   offerMinutes,
   resumeCheckOf,
   type ContextResponse,
@@ -134,7 +135,7 @@ export function entryState(i: EntryInputs): EntryState {
     return out;
   }
   // 2: home checks closed and not in booth mode (Q31 (6)).
-  if (!c.homeOpen && !i.booth) {
+  if (!homeOpenOf(c) && !i.booth) {
     out.variant = "homeSoon";
     out.endedEarlyToday = false;
     return out;

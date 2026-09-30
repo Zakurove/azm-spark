@@ -20,7 +20,7 @@ import CoachSettings from "./CoachSettings";
 import Icon from "./Icon";
 import CheckApp from "../features/assessment/CheckApp";
 import type { ExitTarget } from "../features/assessment/flowMachine";
-import { createCheckApi, offerMinutes } from "../features/assessment/api";
+import { createCheckApi, homeOpenOf, offerMinutes } from "../features/assessment/api";
 import { isBoothMode } from "../features/assessment/boothMode";
 import { flushPendingCheckCalls, hasSnapshot } from "../features/assessment/useCheckFlow";
 import { CHECK_UI } from "../features/assessment/featureFlag";
@@ -171,7 +171,7 @@ export default function App() {
     if (!exampleEntry || !account) return;
     void createCheckApi()
       .getContext()
-      .then((r) => setHomeChecksOpen(r.ok && r.value.homeOpen === true));
+      .then((r) => setHomeChecksOpen(r.ok && homeOpenOf(r.value)));
   }, [account?.user.id]);
   // Signed in (again): send what a movement check left in its outbox (0.7; a 401 kept it there).
   useEffect(() => {
@@ -197,9 +197,7 @@ export default function App() {
       void createCheckApi()
         .getContext()
         .then((r) =>
-          setIntakeOffer(
-            r.ok && r.value.homeOpen === true && !r.value.blocked ? offerMinutes(r.value) : null,
-          ),
+          setIntakeOffer(r.ok && homeOpenOf(r.value) && !r.value.blocked ? offerMinutes(r.value) : null),
         );
   };
   const start = async (isDemo: boolean) => {

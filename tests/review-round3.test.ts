@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { homeChecksOpen } from "../server/modules/booth/config";
 import { selectCheckInCue } from "../src/engine/checkin";
 import { captionOf, sameWords } from "../src/features/assessment/camera/cues";
+import { homeOpenOf } from "../src/features/assessment/api";
 import { setupChips } from "../src/features/assessment/camera/view";
 import { precheckNotice } from "../src/features/assessment/flow/Intro";
 import { instructionSteps } from "../src/features/assessment/flow/copy";
@@ -31,6 +32,14 @@ describe("home gate 2 in code (Q31 (5) (6))", () => {
 
   it("the unit tests of the home contract still run it with the flag (vitest only)", () => {
     expect(homeChecksOpen({ AZM_CHECK_HOME: "1", VITEST: "true", NODE_ENV: "test" })).toBe(true);
+  });
+
+  it("the client guard: homeOpen only with the server's flag and gate 2 built (R3C-10 (7))", () => {
+    expect(homeOpenOf({ homeOpen: true }, HOME_GATE2_READY)).toBe(HOME_GATE2_READY);
+    expect(homeOpenOf({ homeOpen: true }, false)).toBe(false);
+    expect(homeOpenOf({ homeOpen: false }, true)).toBe(false);
+    expect(homeOpenOf({}, true)).toBe(false);
+    expect(homeOpenOf({ homeOpen: true }, true)).toBe(true);
   });
 });
 

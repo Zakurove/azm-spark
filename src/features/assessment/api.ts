@@ -28,6 +28,18 @@ import type { Answers, CheckInConfig, ClockTime, SkipItem, TestSide } from "../.
 import type { PausedWhenId, ScreenId, Setting, Side, StopOptionId, TestId } from "../../movements/types";
 import type { SeriesView } from "../../medical/series";
 import { ENGINE_VERSION } from "../../engine/modes";
+import { HOME_GATE2_READY } from "../../medical/gates";
+
+/**
+ * The client guard of home gate 2 (R3C-10 (7)): home checks are open only when the server says so
+ * and the client has built gate 2 (the answer zones, the fine zone and the fall watch), so a server
+ * flag alone never opens a home check with the interim cue that names no box. As on the server
+ * (homeChecksOpen), the unit tests and the E2E builds render the home screens with the flag alone;
+ * neither mode exists in a production build (MODE and VITE_E2E are replaced at build time).
+ */
+const HOME_READY = HOME_GATE2_READY || import.meta.env.VITE_E2E === "1" || import.meta.env.MODE === "test";
+export const homeOpenOf = (c: { homeOpen?: boolean | null }, ready: boolean = HOME_READY): boolean =>
+  c.homeOpen === true && ready;
 import type {
   BetweenAnswer,
   CheckSession,
@@ -613,7 +625,7 @@ export function toSignedInContext(c: ContextResponse): SignedInContext {
     sideLeanRepeat: c.sideLeanRepeat ?? null,
     openCheck: c.openCheck ?? null,
     consent: c.consent,
-    homeOpen: c.homeOpen === true,
+    homeOpen: homeOpenOf(c),
     adultConfirmed: c.adultConfirmed === true,
     lastPdDoseBucket: c.lastPdDoseBucket ?? null,
     lastLoads: c.lastLoads ?? null,

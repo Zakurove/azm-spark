@@ -2539,105 +2539,6 @@
       ]
     },
     {
-      "id": "pc_booth_vitals",
-      "group": "system",
-      "type": "system",
-      "showIf": {
-        "setting": "booth",
-        "clearanceIn": [
-          "no",
-          "unsure"
-        ],
-        "testSelected": "chair_stand_30s"
-      },
-      "values": [
-        "systolic1",
-        "diastolic1",
-        "systolic2",
-        "diastolic2",
-        "restingHeartRate",
-        "irregularHeartbeat (cuff flag, yes or no)",
-        "usualSystolic (SCI at T6 or above only)"
-      ],
-      "rule": "Staff entered in a PIN protected staff mode, never asked of the person, never stored, cleared before the next visitor and never written down elsewhere. Mandatory before a booth chair stand for intake clearance no or not sure. Device: a validated automated upper arm cuff of the right size, listed on STRIDE BP or validatebp.org, with SFDA marketing authorisation. Person: a licensed healthcare practitioner registered with the SCFHS (Nasser, or a licensed nurse or physiotherapist) takes the readings and applies the thresholds. Method: after at least 5 minutes seated (the pre-check fills this time), two readings 1 minute apart, and the mean is used; on the stronger arm after stroke, never on an arm with a fistula or lymphoedema. The reading is taken with the person's verbal agreement, out of view of other visitors, after staffLine. Without the cuff or without a licensed practitioner present, the chair stand is not offered to this group (Q21).",
-      "staffLine": {
-        "ar": "هل تسمح لنا بقياس ضغط دمك ونبضك قبل هذا الاختبار؟ نستخدم القراءة اليوم فقط، ولا نحفظها.",
-        "en": "May we measure your blood pressure and pulse before this test? We use the reading today only and do not save it."
-      },
-      "actions": [
-        {
-          "if": {
-            "vitalsOutside": {
-              "meanSystolicGte": 160,
-              "meanSystolicLt": 90,
-              "meanDiastolicGte": 100,
-              "restingHeartRateGt": 120,
-              "irregularHeartbeat": true
-            }
-          },
-          "do": "skip",
-          "tests": [
-            {
-              "test": "chair_stand_30s",
-              "side": "none"
-            }
-          ],
-          "reason": "booth_vitals"
-        },
-        {
-          "if": {
-            "sciT6SystolicRiseGte": 20
-          },
-          "do": "ad_response",
-          "screen": "scr_ad",
-          "lock": "next_day"
-        },
-        {
-          "if": {
-            "flag": "sci_t6"
-          },
-          "do": "skip",
-          "tests": [
-            {
-              "test": "chair_stand_30s",
-              "side": "none"
-            }
-          ],
-          "reason": "clearance_booth"
-        },
-        {
-          "if": {
-            "flag": "sci_t6",
-            "anyOf": [
-              {
-                "meanSystolicGte": 150
-              },
-              {
-                "adSign": true
-              }
-            ]
-          },
-          "do": "ad_response",
-          "screen": "scr_ad",
-          "lock": "next_day"
-        },
-        {
-          "if": {
-            "vitalsUnavailable": true
-          },
-          "do": "skip",
-          "tests": [
-            {
-              "test": "chair_stand_30s",
-              "side": "none"
-            }
-          ],
-          "reason": "clearance_booth"
-        }
-      ],
-      "noteV1": "In v1 the SCI at T6 or above rows cannot run at the booth (Q19 (5b)); they are kept for defence in depth (O47). Engine invariant, with a test: pc_booth_vitals is never shown when the conditions include sci_complete, sci_incomplete or sci_unsure (mapped to sci_complete, O20); a rule change that makes the case reachable fails the test and comes back to the council. The booth build does not render the usual systolic field. If S56 ever opens for a visitor with sci_t6, the chair stand is not offered (reason clearance_booth), whether or not the usual value is known; a mean systolic of 150 or more, or any AD sign, starts the AD response (scr_ad, next day lock), and the practitioner completes the incident form. No population range ever stands in for the person’s own value."
-    },
-    {
       "id": "pc_helper",
       "group": "condition",
       "type": "yes_no",
@@ -3575,8 +3476,8 @@
       "en": "This test is for people who stand, so we use the seated side lean instead."
     },
     "clearance": {
-      "ar": "تخطينا هذا الاختبار في المنزل حتى يؤكد طبيبك أن التمرين مناسب لك.",
-      "en": "Skipped at home until your doctor confirms that exercise is fine for you."
+      "ar": "تخطينا هذا الاختبار حتى يؤكد طبيبك أن التمرين مناسب لك.",
+      "en": "Skipped until your doctor confirms that exercise is fine for you."
     },
     "clearance_booth": {
       "ar": "حرصًا على سلامتك، لا نجري هذا الاختبار في الجناح قبل أن يؤكد طبيبك أن التمرين مناسب لك.",
@@ -3622,10 +3523,6 @@
       "ar": "تخطينا هذا الاختبار بسبب عملية جراحية أو كسر حديث. يرجى مراجعة جرّاحك أو فريق رعايتك أولًا.",
       "en": "Skipped because of recent surgery or a broken bone. Please check with your surgeon or care team first."
     },
-    "booth_vitals": {
-      "ar": "سنتخطى هذا الاختبار اليوم. تحدث مع فريقنا إن أردت.",
-      "en": "We will skip this test today. Please talk with our staff if you like."
-    },
     "by_choice": {
       "ar": "تخطيت هذا الاختبار باختيارك.",
       "en": "Skipped by your choice."
@@ -3657,7 +3554,6 @@
     "armrests_needed",
     "booth_offer",
     "booth_only_trunk",
-    "booth_vitals",
     "by_choice",
     "chair_needed",
     "clearance",
@@ -5257,6 +5153,10 @@
           "balance_support",
           "no_exercise"
         ],
+        "clearance": [
+          "no",
+          "unsure"
+        ],
         "conditions": [
           "cardiac",
           "other",
@@ -5271,16 +5171,9 @@
           "pc_surgery_recent",
           "pc_pain_areas",
           "pc_helper",
-          "pc_booth_vitals",
           "pc_arthritis_flare",
           "bt_pain_after"
-        ],
-        "homeOnlyExclusion": {
-          "clearance": [
-            "no",
-            "unsure"
-          ]
-        }
+        ]
       },
       "sideRules": [
         "No sides. Phone at 45 degrees on the stronger side (support none: right); helper on the weaker side (support none: left), away from the phone."
@@ -6692,13 +6585,13 @@
       ],
       "bed": []
     },
-    "substitution": "Standing position: when chair_stand_30s is excluded by an intake level rule (pain hip, knee or back; no_weight_bearing; balance_support; sci_complete; lower_limb_unilateral; clearance no or unsure at home), trunk_control_seated takes its place in the same slot, if it is not excluded itself. Whenever the substitute actually runs, the chair stand's skip reason gets reasonSuffixes.substituteRan (P6). Same day skips (helper_needed, chair_needed, pain today, flare) do not trigger a substitute.",
+    "substitution": "Standing position: when chair_stand_30s is excluded by an intake level rule (pain hip, knee or back; no_weight_bearing; balance_support; sci_complete; lower_limb_unilateral; clearance no or unsure), trunk_control_seated takes its place in the same slot, if it is not excluded itself. Whenever the substitute actually runs, the chair stand's skip reason gets reasonSuffixes.substituteRan (P6). Same day skips (helper_needed, chair_needed, pain today, flare) do not trigger a substitute.",
     "order": "Fixed order as listed in basePerPosition (the substitute keeps the slot). Standing: the 1 minute seated rest after the chair stand runs before the arm curl.",
     "setting": {
-      "booth": "Staff present. Staff stand within arm’s reach, hands ready and not touching; they may be in the picture but never between the phone and the person. They never lift, guide or steady an arm to help a movement. If the person loses balance they catch at once, at the waist, hips or trunk, never by the arm; that attempt is discarded and the test stops. Allowed only at the booth: trunk_control_seated for balance_support, pc_sit_unsupported no or unsure, pc_fall_sitting yes (not pc_stroke_push yes, which is excluded in v1); chair_stand_30s for clearance no or unsure, only after pc_booth_vitals. At the booth the arm curl runs arm_only for everyone and the load screens are not shown (Q5); stroke or SCI with clearance no or not sure runs the seated arm raise only (Q19); the phone, support and staff positions of the chair stand are fixed once for every visitor (P4); staff may read questions aloud and tap the answer the person says, never answering for them and never overriding a block (Q18, Q19). A signed in visitor always runs in booth mode after staff enter the booth code, so results carry setting booth and form their own series; the home series starts at home (Q19).",
+      "booth": "Staff present. Staff stand within arm’s reach, hands ready and not touching; they may be in the picture but never between the phone and the person. They never lift, guide or steady an arm to help a movement. If the person loses balance they catch at once, at the waist, hips or trunk, never by the arm; that attempt is discarded and the test stops. Allowed only at the booth: trunk_control_seated for balance_support, pc_sit_unsupported no or unsure, pc_fall_sitting yes (not pc_stroke_push yes, which is excluded in v1). At the booth the arm curl runs arm_only for everyone and the load screens are not shown (Q5); stroke or SCI with clearance no or not sure runs the seated arm raise only (Q19); the phone, support and staff positions of the chair stand are fixed once for every visitor (P4); staff may read questions aloud and tap the answer the person says, never answering for them and never overriding a block (Q18, Q19). A signed in visitor always runs in booth mode after staff enter the booth code, so results carry setting booth and form their own series; the home series starts at home (Q19).",
       "home": "Unsupervised. Home only exclusions apply."
     },
-    "clearance": "Intake clearance no or unsure (only possible for conditions that do not require clearance): arm curl uses arm_only; chair stand is booth only, after the mandatory booth blood pressure and heart rate check (pc_booth_vitals, Q21); abduction and trunk control run as normal (Q6). Stroke and SCI without clearance yes follow 3.1, with the booth rule of Q19. The booth_offer line is shown only while a staffed booth is scheduled.",
+    "clearance": "Intake clearance no or unsure (only possible for conditions that do not require clearance): arm curl uses arm_only; the chair stand is not offered, at home or at the booth (reason clearance), and the seated side lean takes its slot as for the other intake level exclusions (3.2); abduction and trunk control run as normal (Q6). Stroke and SCI without clearance yes follow 3.1, with the booth rule of Q19. D-016 (Nasser, 2026-09-30) replaces the booth blood pressure and heart rate check of Q21 and O47: there is no cuff and no staff vitals screen.",
     "guestBooth": {
       "conditionsStep": {
         "title": {
@@ -6755,7 +6648,7 @@
       "routing": [
         "cardiac, other, cfs_moderate, bed, or the no_exercise restriction: no movement check; show scr_booth_no_check. Staff then show the labelled example progress view (progress.boothExample) and the demo video, never a camera test.",
         "stroke, sci_complete or sci_incomplete with clearance no or not sure (booth only rule): the seated arm raise only, active movement only and without load, with all its rules (pc_weak_lift, pc_weak_shoulder, thumb up) and staff within arm's reach. The side lean, the arm curl and the chair stand are skipped with reason clearance_booth.",
-        "Everyone else follows 3.1 and 3.3, including Q6 and Q21 for clearance no or not sure (arm curl without weight; chair stand only after pc_booth_vitals)."
+        "Everyone else follows 3.1 and 3.3, including Q6 and D-016 for clearance no or not sure (arm curl without weight; no chair stand, the seated side lean in its slot)."
       ],
       "signedIn": "A signed in visitor at the booth always runs in booth mode (staff enter the booth code), so results carry setting booth and the home series starts at home.",
       "afterEachTest": {
@@ -6791,7 +6684,7 @@
       "cognitiveTestMethod": "5 to 8 users in each group whose screens are tested, never fewer than 5, including at least 5 people living with SCI for the AD screens (pc_sci_level, warn_sci_t6, pc_sci_ad_now, pc_sci_ready, scr_ad); each group includes women, adults over 60 and at least one person who reads little or uses a screen reader; screens are also tested by ear; scripted scenarios, not the participant's own health answers; a written paid participation agreement; no names in notes; no audio or video recording without separate consent; ethics approval if the findings will be published. The co-designers (H8) may take part. The other new questions go through the same testing before the first pilot participant (Q18 (6)). At least 5 people living with aphasia after stroke join the testing of pc_urgent and ec_symptoms (O37); the examples lists of pc_change and pc_unwell, with their speech lines, and the clearance question with its O39 hint are tested before the first pilot participant (O45, O39)."
     },
     "sessionMinutes": {
-      "computed": "estimateMinutes (UX spec S27): a per person range [min, max] from the tests selected today, the setting, the helper briefings, the booth vitals and the guest steps. It fills boundary.intro {min} and {max} and every duration shown (S01, S02, S05, S14, S27).",
+      "computed": "estimateMinutes (UX spec S27): a per person range [min, max] from the tests selected today, the setting, the helper briefings and the guest steps. It fills boundary.intro {min} and {max} and every duration shown (S01, S02, S05, S14, S27).",
       "includes": "Every estimate includes every rest (the 60 s side change, the seated minute after the chair stand, rests after stops), practice, the answers and the pre-check; none of these is ever shortened to meet a time target (O40).",
       "startingEstimatesMinutes": {
         "overhead": [
@@ -6833,10 +6726,6 @@
         "chair_stand_30s": [
           5,
           6
-        ],
-        "boothVitals": [
-          2,
-          2
         ]
       },
       "status": "Estimates until the booth build is timed with the two H8 co-designers; the measured medians then replace them here and in S27.",

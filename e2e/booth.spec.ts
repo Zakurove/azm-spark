@@ -1,18 +1,15 @@
 /**
- * The booth stream in the browser (UX spec S55 to S58, contract v3 I, council O15, O17, O18, O47, Q21),
- * in Arabic and English:
+ * The booth stream in the browser (UX spec S55, S55b, S57 and S58, contract v3 I, council O15, O17,
+ * O18), in Arabic and English:
  *
  *   S55   /?booth=1: the staff code against the real server (the booth days rule: no code works
  *         outside the booth days), then the verify answers (wrong, too many tries, offline, on), the
  *         visitor QR, the end of the staff session, and turning booth mode off (it never leaks home).
  *   S55b  the visitor token page: redeem, used or ended, offline then Try again, and the phone that
  *         keeps only its own pass.
- *   S56   inside the real check (/?check=1, reached by the real reducer): the staff code, two
- *         readings in any digits, the means, the ranges, Continue, "unavailable", and a visitor's own
- *         phone where the staff code is never asked. The usual systolic is never shown (O47 (2)).
  *   S57   the staff reset (a press and hold on the badge, the shortcut key) from a question, a camera
  *         and a safety screen; the idle reset on S50 (3 minutes, then 30 s) and before the camera
- *         (5 minutes), never on camera, safety or S56 screens; the staff count; New visitor.
+ *         (5 minutes), never on camera or safety screens; the staff count; New visitor.
  *   S58   the setup tips, the wheelchair tip first for a wheelchair user.
  *
  * The booth server answers are routed (page.route) where the real server cannot give them before the
@@ -253,114 +250,6 @@ for (const lang of LANGS) {
     });
   });
 
-  test.describe(`booth S56 staff vitals in the check (${lang})`, () => {
-    test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
-
-    async function openVitals(page: Page, pass: "staff" | "visitor" = "staff") {
-      await page.goto(
-        url(`/?booth=1&e2eBooth=vitals-flow${pass === "visitor" ? "&pass=visitor" : ""}`, lang),
-      );
-      await expect(page).toHaveURL(/check=1/);
-      await expect(page.locator('[data-screen="S56"]')).toBeVisible();
-    }
-
-    test("the staff code opens the staff part; two readings in any digits, their means, Continue", async ({
-      page,
-    }) => {
-      const errors = watchConsole(page);
-      await page.route("**/api/booth/verify", (r) =>
-        json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
-      );
-      await openVitals(page);
-      await expect(page.locator(".booth-handoff")).toHaveText(c.vitals.handoff);
-      await expect(page.locator("h1")).toHaveText(c.vitals.staffOnly);
-      await expect(page.getByRole("heading", { level: 2 })).toHaveText(c.vitals.title);
-      // Locked: the readings are not on the page before the staff code.
-      await expect(page.getByLabel(c.vitals.sys)).toHaveCount(0);
-      await expect(page.getByRole("button", { name: c.vitals.unavailable })).toBeVisible();
-      await page.getByLabel(c.booth.codeLabel).fill("777111");
-      await page.getByRole("button", { name: c.common.continue }).click();
-
-      await expect(page.locator("[data-staff-line]")).toBeVisible();
-      await expect(page.getByText(c.vitals.method)).toBeVisible();
-      await expect(page.getByText(c.vitals.arm)).toBeVisible();
-      await expect(page.getByText(c.vitals.notStored)).toBeVisible();
-      // O47 (2): the usual systolic is never rendered at the booth.
-      await expect(page.getByText(c.vitals.usualSys)).toHaveCount(0);
-
-      // Continue with nothing typed: every field says its range, focus on the first.
-      await page.getByRole("button", { name: c.common.continue }).click();
-      const first = page.locator('[data-field="hr1"]');
-      await expect(first).toBeFocused();
-      await expect(first).toHaveAttribute("aria-invalid", "true");
-      await expect(page.getByText(c.common.chooseToContinue)).toBeVisible();
-
-      const type = async (field: string, v: number | string) =>
-        page.locator(`[data-field="${field}"]`).fill(digits(lang, v));
-      await type("hr1", 300);
-      await page.locator('[data-field="sys1"]').focus();
-      await expect(page.locator('[data-field="hr1"]')).toHaveAttribute("aria-invalid", "true");
-      const hrError = await page.locator('[data-field="hr1"]').getAttribute("aria-describedby");
-      await expect(page.locator(`[id="${hrError}"]`)).toHaveText(
-        fill(c.vitals.range, { min: digits(lang, 30), max: digits(lang, 250) }),
-      );
-      await type("hr1", 72);
-      await type("sys1", 128);
-      await type("dia1", 82);
-      await type("hr2", 68);
-      await type("sys2", 124);
-      await type("dia2", 78);
-      await page.locator('[data-field="dia2"]').blur();
-      const means = page.locator("[data-means]");
-      await expect(means.locator('[data-mean="sys"]')).toHaveText(digits(lang, 126));
-      await expect(means.locator('[data-mean="dia"]')).toHaveText(digits(lang, 80));
-      await expect(means.locator('[data-mean="hr"]')).toHaveText(digits(lang, 70));
-
-      await page.getByRole("button", { name: c.common.no, exact: true }).click();
-      await page.getByRole("button", { name: c.common.continue }).click();
-      // The flow takes the answer: the check goes on to the warnings or the protocol (S25, S27).
-      await expect(page.locator(".check-base")).toHaveAttribute("data-state", /^(warnings|plan)$/);
-      expect(errors).toEqual([]);
-    });
-
-    test("no validated cuff or licensed practitioner: the check goes on without the staff part", async ({
-      page,
-    }) => {
-      await openVitals(page);
-      await page.getByRole("button", { name: c.vitals.unavailable }).click();
-      await expect(page.locator(".check-base")).toHaveAttribute("data-state", /^(warnings|plan)$/);
-    });
-
-    test("a wrong staff code keeps the staff part closed", async ({ page }) => {
-      await page.route("**/api/booth/verify", (r) => json(r, { ok: false }));
-      await openVitals(page);
-      await page.getByLabel(c.booth.codeLabel).fill("000000");
-      await page.getByRole("button", { name: c.common.continue }).click();
-      await expect(page.getByRole("alert")).toHaveText(c.booth.wrong);
-      await expect(page.getByLabel(c.vitals.sys)).toHaveCount(0);
-    });
-
-    test("a visitor's own phone never asks for the staff code", async ({ page }) => {
-      await page.route("**/api/booth/check", (r) => json(r, { ok: true, expires: Date.now() + HOUR }));
-      await openVitals(page, "visitor");
-      await expect(page.getByLabel(c.booth.codeLabel)).toHaveCount(0);
-      await expect(page.getByRole("button", { name: c.common.continue })).toHaveCount(0);
-      await page.getByRole("button", { name: c.vitals.unavailable }).click();
-      await expect(page.locator(".check-base")).toHaveAttribute("data-state", /^(warnings|plan)$/);
-    });
-
-    test("while a signed in booth check starts: busy, then the start error with Try again", async ({
-      page,
-    }) => {
-      await page.goto(url("/?booth=1&e2eBooth=vitals-starting", lang));
-      await expect(page.getByText(c.state.loading.check)).toBeVisible();
-      await page.goto(url("/?booth=1&e2eBooth=vitals-starting&error=offline", lang));
-      await expect(page.getByRole("alert")).toContainText(c.state.offline.startBlocked);
-      await page.getByRole("button", { name: c.common.retry }).click();
-      await expect(page.locator(".check-base")).toHaveAttribute("data-events", "RETRY");
-    });
-  });
-
   test.describe(`booth S57 tools (${lang})`, () => {
     const layer = (state: string) => url(`/?booth=1&e2eBooth=layer-${state}`, lang);
     const events = (page: Page) => page.locator(".check-base").getAttribute("data-events");
@@ -415,14 +304,6 @@ for (const lang of LANGS) {
         expect(await events(page)).toBe("STAFF_RESET reload");
       });
     }
-
-    test("no idle reset on the staff vitals (S56)", async ({ page }) => {
-      await page.clock.install();
-      await page.goto(layer("vitals"));
-      await expect(page.locator(".check-base")).toBeVisible();
-      await page.clock.runFor(10 * 60 * 1000);
-      await expect(page.locator("[data-idle-sheet]")).toHaveCount(0);
-    });
 
     test("idle on S50: asked after 3 minutes, I am still here, then cleared after 30 s", async ({ page }) => {
       await page.clock.install();
@@ -547,13 +428,6 @@ test.describe("booth targets", () => {
       await page.getByRole("button", { name: c.booth.turnOn }).click();
       await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
       await expect(page.locator("[data-visitor-qr]")).toBeVisible();
-      expect(await smallControls(page)).toEqual([]);
-
-      await page.goto(url("/?booth=1&e2eBooth=vitals-flow", lang));
-      await expect(page.locator('[data-screen="S56"]')).toBeVisible();
-      await page.getByLabel(c.booth.codeLabel).fill("1");
-      await page.getByRole("button", { name: c.common.continue }).click();
-      await expect(page.locator('[data-unlocked="yes"]')).toBeVisible();
       expect(await smallControls(page)).toEqual([]);
 
       for (const part of ["tips", "count", "layer-results", "token&phase=on", "token&phase=ended"]) {

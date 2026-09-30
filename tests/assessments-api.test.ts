@@ -1052,21 +1052,11 @@ describe("staff booth mode", () => {
     const ok = await start(h, cookie, {}, { setting: "booth", boothCode: "staff-code-8841" });
     expect(ok.status).toBe(200);
     expect(ok.data).toMatchObject({ setting: "booth", kind: "baseline" });
-    // At the booth the chair stand runs for clearance unsure (after the staff vitals); at home it does not.
-    const stand = itemOf(ok.data.protocol, "chair_stand_30s", "none");
-    expect(stand.skipped).toBeUndefined();
-    expect(stand.helperRequired).toBeUndefined();
+    // D-016: at the booth, as at home, the chair stand is not offered for clearance unsure.
+    expect(itemOf(ok.data.protocol, "chair_stand_30s", "none").skipped).toBe("clearance");
     // A staff corrected count is allowed at the booth only.
-    const body = resultBody(stand, 11, {
-      detail: {
-        countSource: "staff",
-        hSit: 0.5,
-        rise: 0.3,
-        footwear: "shoes",
-        sameChair: false,
-        armrests: false,
-      },
-    });
+    const curl = resultBody(itemOf(ok.data.protocol, "arm_curl_30s", "right"), 11);
+    const body = { ...curl, detail: { ...curl.detail, countSource: "staff" } };
     expect((await h.call(`/assessments/${ok.data.id}/results`, body, cookie)).data).toEqual({ saved: true });
     await h.call(`/assessments/${ok.data.id}/complete`, {}, cookie);
     // The booth check is its own series: the home check is still a first check of the home series.
@@ -1090,7 +1080,7 @@ describe("staff booth mode", () => {
     process.env.AZM_BOOTH_CODE = "staff-code-3302";
     const intake = intakeOf({
       mobility: "standing",
-      clearance: "unsure",
+      clearance: "yes",
       conditions: ["upper_limb_unilateral"],
     });
     let cookie = await member(h, "booth-ctx@example.test", intake);
@@ -1111,8 +1101,6 @@ describe("staff booth mode", () => {
       setup: { limbLoss: { arm: "left" } },
     });
     expect(boothCtx).toMatchObject({ setting: "booth", firstCheck: true });
-    expect(homeCtx.baseTests).not.toContain("chair_stand_30s");
-    expect(boothCtx.baseTests).toContain("chair_stand_30s");
     // The first booth check asks the baseline setup questions again; home answers would be incomplete.
     const homeAnswers = await answersFor(h, cookie);
     const boothToken = await boothTokenFor(h, "staff-code-3302");

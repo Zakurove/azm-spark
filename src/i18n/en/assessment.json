@@ -370,7 +370,6 @@
     "noneTitle": "We will not run any test today",
     "noneBody": "Every test was skipped today for the reasons shown. You can try again on another day.",
     "notPart": "Not part of your check",
-    "vitalsNote": "Before this test, a staff member measures your blood pressure and pulse after five minutes of sitting.",
     "variantWhy": {
       "booth": "At the booth, everyone does this test without a weight.",
       "painArm": "No weight, because you told us about pain in this arm.",
@@ -674,26 +673,6 @@
     "badgeHint": "Staff can press and hold here to start again for a new visitor.",
     "closed": "Booth mode works only on booth days and during booth hours.",
     "limited": "Too many tries. Wait a little, then try again."
-  },
-  "vitals": {
-    "handoff": "Please ask a staff member to come to the phone",
-    "staffOnly": "Staff only",
-    "title": "Resting pulse and blood pressure",
-    "method": "Take two readings after at least five minutes seated, one minute apart, out of view of other visitors.",
-    "arm": "After a stroke, use the stronger arm. Never use an arm with a fistula or lymphoedema.",
-    "reading1": "First reading",
-    "reading2": "Second reading",
-    "mean": "Average of the two readings",
-    "irregular": "Did the cuff flag an irregular heartbeat?",
-    "hr": "Pulse per minute",
-    "sys": "Systolic",
-    "dia": "Diastolic",
-    "notStored": "These values are not stored.",
-    "unavailable": "No validated cuff or licensed practitioner now",
-    "range": "Enter a number between {min} and {max}.",
-    "usualSys": "The visitor’s usual systolic",
-    "usualSysHint": "Only for a spinal cord injury at {level} or above. Ask the visitor for their usual reading.",
-    "usualUnknown": "Not known"
   },
   "tips": {
     "title": "Setup tips",

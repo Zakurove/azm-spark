@@ -96,7 +96,6 @@ export const PRECHECK_IDS = [
   "pc_walking_aid",
   "pc_stand_no_hands",
   "pc_pd_dizzy_standing",
-  "pc_booth_vitals",
   "pc_helper",
   "pc_after_last",
 ] as const;
@@ -175,7 +174,6 @@ export const REASON_IDS = [
   "arm_not_able",
   "pressure_sore",
   "recent_surgery",
-  "booth_vitals",
   "by_choice",
   "quality",
   "stopped_symptom",
@@ -581,7 +579,6 @@ export interface ShowIf {
   testSelected?: TestId;
   positionIn?: CheckPosition[];
   setting?: Setting;
-  clearanceIn?: Clearance[];
   previousFollowUp?: "lasting_unresolved";
   /** A faint stop stored faintReported and no pc_faint_since answer has cleared it (Q33 (3)). */
   faintReportedUnresolved?: true;
@@ -610,24 +607,6 @@ export interface ActionIf {
   in?: OptionValue[];
   /** pc_steadi: any of the three answers is yes. */
   anyYes?: true;
-  /** pc_booth_vitals: the mean of two readings, the rate or the rhythm outside these limits (Q21). */
-  vitalsOutside?: VitalsLimits;
-  /** pc_booth_vitals: SCI at T6 or above with a mean systolic this far above the usual one. */
-  sciT6SystolicRiseGte?: number;
-  /** pc_booth_vitals: this pre-check flag holds (the O47 (3) fallback rows). */
-  flag?: PrecheckFlag;
-  /** pc_booth_vitals: one of these holds (O47 (3)). */
-  anyOf?: { meanSystolicGte?: number; adSign?: true }[];
-  /** pc_booth_vitals: no validated cuff or no licensed practitioner. */
-  vitalsUnavailable?: true;
-}
-/** Booth vitals limits of Q21: no chair stand when any holds. */
-export interface VitalsLimits {
-  meanSystolicGte: number;
-  meanSystolicLt: number;
-  meanDiastolicGte: number;
-  restingHeartRateGt: number;
-  irregularHeartbeat: true;
 }
 
 /** Side of a test named by a pre-check action, relative to the person where needed. */
@@ -828,10 +807,6 @@ export interface PrecheckItem {
   faintWordingPending?: WordingPending;
   /** Prose: the input control (the pain scale, Q7). */
   input?: string;
-  /** pc_booth_vitals: the line staff read before the reading (Q21 (5)). */
-  staffLine?: Text;
-  /** pc_booth_vitals: why the SCI rows cannot run at the booth in v1 (O47). */
-  noteV1?: string;
   /** pc_helper: which tests it is asked for (O34-2). */
   perTestRule?: string;
   options?: AnswerOption[];
@@ -1007,8 +982,10 @@ export interface Exclusions {
   limbLoss: ("arm" | "leg")[];
   /** Questions that can skip or change this test on the day. */
   precheck: QuestionId[];
+  /** Intake clearance answers that exclude this test at home and at the booth (D-016). */
+  clearance?: Clearance[];
   /** Exclusions that apply at home only (the booth allows them with staff). */
-  homeOnlyExclusion?: { restrictions?: Restriction[]; clearance?: Clearance[] };
+  homeOnlyExclusion?: { restrictions?: Restriction[] };
 }
 export interface Equipment {
   needs: string[];
@@ -1455,7 +1432,6 @@ export interface SessionMinutes {
     trunk_control_seated: [number, number];
     helperBriefing: [number, number];
     chair_stand_30s: [number, number];
-    boothVitals: [number, number];
   };
   status: string;
   target: string;

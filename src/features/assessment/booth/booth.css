@@ -1,5 +1,5 @@
 /*
- * Booth screens S55 to S58 (UX spec v1.1 S55, S55b, S56, S57, S58). Scoped to .azm-check and built
+ * Booth screens S55 to S58 (UX spec v1.1 S55, S55b, S57, S58). Scoped to .azm-check and built
  * only from the custom properties of ../tokens.css (no colour literal). Sizes in rem so text zoom
  * scales them; nothing under 16 px, body 18 px, targets 48 px (inputs 56 px, answers 64 px).
  */
@@ -12,10 +12,6 @@
 }
 .azm-check .booth-screen > h1:focus {
   outline: none;
-}
-.azm-check .booth-section {
-  display: grid;
-  gap: var(--s3);
 }
 .azm-check .booth-actions {
   display: grid;
@@ -72,12 +68,6 @@
   animation: azm-check-spin 0.9s linear infinite;
 }
 
-.azm-check .booth-note {
-  font-size: var(--t-meta);
-  line-height: 1.6;
-  font-weight: 500;
-  color: var(--muted);
-}
 .azm-check .booth-alert {
   font-size: var(--t-meta);
   line-height: 1.6;
@@ -133,89 +123,6 @@
   display: grid;
   gap: var(--s3);
   justify-items: stretch;
-}
-
-/* ------------------------------------------------------------------ S56 staff vitals */
-
-/* The line for the visitor, readable from the side desk (30 px, S56 wireframe). */
-.azm-check .booth-handoff {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s3);
-  padding: var(--s4);
-  border: 1px solid var(--cream-border);
-  border-radius: var(--r-card);
-  background: var(--cream);
-  font-size: 1.875rem;
-  line-height: 1.45;
-  font-weight: 750;
-}
-.azm-check .booth-handoff svg {
-  flex: none;
-  margin-top: 8px;
-  color: var(--purple);
-}
-.azm-check .booth-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-  min-height: var(--h-ghost);
-  padding: var(--s1) var(--s4);
-  border-radius: var(--r-pill);
-  background: var(--purple-tint);
-  color: var(--purple);
-}
-.azm-check h1.booth-pill-heading {
-  display: flex;
-}
-.azm-check .booth-reading {
-  display: grid;
-  gap: var(--s3);
-  margin: 0;
-  padding: var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  background: var(--card);
-}
-.azm-check .booth-reading > legend {
-  padding: 0 var(--s2);
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.5;
-}
-.azm-check .booth-vital-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 7.5rem;
-  align-items: center;
-  gap: var(--s2) var(--s3);
-}
-.azm-check .booth-vital-row > .booth-alert {
-  grid-column: 1 / -1;
-}
-.azm-check .booth-means {
-  display: grid;
-  gap: var(--s2);
-  margin: 0;
-  padding: var(--s4);
-  border: 1px solid var(--purple-border);
-  border-radius: var(--r-card);
-  background: var(--purple-tint);
-}
-.azm-check .booth-means-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--s3);
-}
-.azm-check .booth-means-row dt {
-  font-size: var(--t-body);
-  font-weight: 500;
-}
-.azm-check .booth-means-row dd {
-  margin: 0;
-  font-size: 1.375rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------------ S57 badge, sheets */

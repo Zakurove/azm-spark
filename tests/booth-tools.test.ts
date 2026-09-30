@@ -11,7 +11,6 @@ import {
   IDLE_RESULTS_MS,
   idleStep,
   idleWaitMs,
-  isStaffEntry,
   isStaffShortcut,
   parseStaffCount,
   reloadWaits,
@@ -57,7 +56,7 @@ describe("where the idle reset may run (S57, O15)", () => {
       expect(idleWaitMs(guest(s)), s.kind).toBe(IDLE_OTHER_MS);
   });
 
-  it("never runs on camera, check in, alarm, stop list, safety, postponed, paused, end question or S56", () => {
+  it("never runs on camera, check in, alarm, stop list, safety, postponed, paused or end question", () => {
     const never: FlowState[] = [
       { kind: "cam.setup", i: 0, side: 0 },
       { kind: "cam.measure", i: 0, side: 0 },
@@ -73,8 +72,6 @@ describe("where the idle reset may run (S57, O15)", () => {
       { kind: "endQuestion" },
       { kind: "cam.problem", problem: "denied", returnTo: { kind: "test.primer", i: 0 } },
       { kind: "desktopGate" },
-      { kind: "question", id: "pc_booth_vitals" },
-      { kind: "starting", lastQuestion: "pc_booth_vitals", error: null, attempt: 1 },
     ];
     for (const s of never) expect(idleWaitMs(guest(s)), s.kind).toBeNull();
     for (const o of [
@@ -93,12 +90,6 @@ describe("where the idle reset may run (S57, O15)", () => {
     const signedIn = { ...guest({ kind: "results" }) };
     signedIn.data = { ...signedIn.data, config: { ...signedIn.data.config, mode: "signedIn" } };
     expect(idleWaitMs(signedIn)).toBeNull();
-  });
-
-  it("knows the staff entry question (S56) by its data type", () => {
-    expect(isStaffEntry("pc_booth_vitals")).toBe(true);
-    expect(isStaffEntry("pc_urgent")).toBe(false);
-    expect(isStaffEntry("pc_steadi:fell")).toBe(false);
   });
 });
 
@@ -194,8 +185,10 @@ describe("starting for the next visitor (S57, Q19 (4))", () => {
   });
 
   it("the flow's staff reset starts the guest check again with nothing of the last visitor", () => {
-    const answered = precheckUntil(guestAfterSteps({ position: "standing", clearance: "unsure" }), (id) =>
-      id.startsWith("pc_booth_vitals"),
+    let asked = 0;
+    const answered = precheckUntil(
+      guestAfterSteps({ position: "standing", clearance: "unsure" }),
+      () => ++asked > 3,
     ).model;
     expect(Object.keys(answered.data.answers).length).toBeGreaterThan(0);
     const m = step(answered, { type: "STAFF_RESET" });

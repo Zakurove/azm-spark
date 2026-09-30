@@ -301,7 +301,8 @@ export const GUEST_SCI_UNSURE = "sci_unsure";
  * only: (a) bed, cardiac, other, cfs_moderate or the no_exercise restriction get no movement check
  * (scr_booth_no_check); (b) stroke, sci_complete or sci_incomplete with clearance no or not sure get a
  * context, and baseSelection at the booth gives them the seated arm raise only (clearance_booth for
- * the rest); (c) everyone else follows 3.1 and 3.3, with Q6 and Q21 for clearance no or not sure.
+ * the rest); (c) everyone else follows 3.1 and 3.3, with Q6 and D-016 for clearance no or not sure
+ * (the arm curl without weight, no chair stand).
  */
 export function guestContext(steps: GuestSteps): CheckContext | Blocked {
   const positions: readonly string[] = ["chair", "wheelchair", "standing", "bed"];
@@ -363,7 +364,7 @@ const CONDITION_REASON: Record<string, ReasonId> = {
 };
 /**
  * The intake level exclusion of a whole test, read from tests[].exclusions (pain, restrictions,
- * conditions, limb loss leg, home only exclusions), or undefined. With several, the first in the
+ * clearance, conditions, limb loss leg, home only exclusions), or undefined. With several, the first in the
  * row order of the matrix in spec 3.3 is shown: pain, restrictions, clearance, limb loss, SCI. At the
  * booth the rule of Q19 (5b) comes first: every test but the seated arm raise is clearance_booth.
  */
@@ -382,7 +383,8 @@ export function intakeExclusion(
     const reason = RESTRICTION_REASON[r];
     if (reason && restrictions.includes(r) && ctx.restrictions.includes(r)) return reason;
   }
-  if (home?.clearance?.includes(ctx.clearance)) return "clearance";
+  // D-016: the chair stand is not offered for clearance no or not sure, at home or at the booth.
+  if (ex.clearance?.includes(ctx.clearance)) return "clearance";
   const legLoss = ctx.conditions.includes("lower_limb_unilateral") || setup?.limbLoss?.leg !== undefined;
   if (ex.limbLoss.includes("leg") && legLoss) return "limb_loss_leg";
   for (const c of ex.conditions) {
@@ -690,10 +692,10 @@ const plus = (a: Minutes, b: readonly [number, number]): Minutes => [a[0] + b[0]
  * The computed duration of a check in minutes, [from, to] (O40; UX spec S27): overhead (intro, sound
  * check, results), the guest steps for a guest, the pre-check (longer with condition questions), and
  * per test that runs today its own minutes, which hold every rest, practice and answer (never cut):
- * the arm curl with or without a load, a helper briefing for each test with a helper, and the booth
- * vitals before a booth chair stand for clearance no or not sure. With protocol items the day's
- * skips, variants and helpers are known; with test ids (before the pre-check) the upper reading is
- * used: a load at home when no rule forbids it, a helper briefing for the side lean at home.
+ * the arm curl with or without a load, and a helper briefing for each test with a helper. With
+ * protocol items the day's skips, variants and helpers are known; with test ids (before the
+ * pre-check) the upper reading is used: a load at home when no rule forbids it, a helper briefing for
+ * the side lean at home.
  */
 // SPEC-GAP: estimate-helper-stand. The data adds the helper briefing minute to the side lean; a
 // chair stand with a helper briefing gets the same minute (an estimate is never too short).
@@ -732,10 +734,7 @@ export function estimateMinutes(
     if (t === "shoulder_abduction") m = plus(m, E.shoulder_abduction);
     if (t === "arm_curl_30s") m = plus(m, withLoad() ? E.arm_curl_30s_withLoad : E.arm_curl_30s_noLoad);
     if (t === "trunk_control_seated") m = plus(m, E.trunk_control_seated);
-    if (t === "chair_stand_30s") {
-      m = plus(m, E.chair_stand_30s);
-      if (setting === "booth" && (ctx === null || ctx.clearance !== "yes")) m = plus(m, E.boothVitals);
-    }
+    if (t === "chair_stand_30s") m = plus(m, E.chair_stand_30s);
     if (helper(t)) m = plus(m, E.helperBriefing);
   }
   return m;

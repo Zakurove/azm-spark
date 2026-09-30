@@ -39,7 +39,7 @@ const SAFETY_SCREEN: Record<SafetyKind, CheckScreenId> = {
   pain: "S40b",
 };
 
-/** The question screen of a pre-check question id, by its data type (S17 to S24; S56 for vitals). */
+/** The question screen of a pre-check question id, by its data type (S17 to S24). */
 export function questionScreen(id: string): CheckScreenId {
   const q = questionOf(id);
   switch (q?.item.type) {
@@ -59,8 +59,6 @@ export function questionScreen(id: string): CheckScreenId {
       return "S23";
     case "yes_no_then_areas":
       return "S24";
-    case "system":
-      return "S56";
     default:
       return "S17";
   }

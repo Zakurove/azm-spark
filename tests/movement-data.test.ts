@@ -220,11 +220,6 @@ describe("closed sets hold only the values the types allow", () => {
       "any",
       "in",
       "anyYes",
-      "vitalsOutside",
-      "sciT6SystolicRiseGte",
-      "flag",
-      "anyOf",
-      "vitalsUnavailable",
     ]);
     const stores = set([
       "changeCleared",
@@ -261,7 +256,6 @@ describe("closed sets hold only the values the types allow", () => {
       for (const t of testRefs(a)) expect(sides.has(t.side), `${q} ${t.side}`).toBe(true);
       if (a.do === "variant") expect(variants.has(a.variant), `${q} ${a.variant}`).toBe(true);
       if (a.do === "flag") expect(a.flag).toBe("sci_t6");
-      if (a.if.flag) expect(["sci_t6"]).toContain(a.if.flag);
     }
     for (const o of D.stopRouting.options) if (o.stores) expect(stores.has(o.stores), o.id).toBe(true);
   });
@@ -280,7 +274,6 @@ describe("closed sets hold only the values the types allow", () => {
       "testSelected",
       "positionIn",
       "setting",
-      "clearanceIn",
       "previousFollowUp",
       "faintReportedUnresolved",
       "weakerSide",
@@ -292,7 +285,6 @@ describe("closed sets hold only the values the types allow", () => {
       for (const p of s.painAny ?? []) expect(painOptions).toContain(p);
       for (const c of s.conditionsAny ?? []) expect(conditions).toContain(c);
       for (const p of s.positionIn ?? []) expect(["chair", "wheelchair", "standing"]).toContain(p);
-      for (const c of s.clearanceIn ?? []) expect(["yes", "no", "unsure"]).toContain(c);
       if (s.flag) expect(["sci_t6", "helper_required", "noArmSignal"]).toContain(s.flag);
       if (s.setting) expect(["booth", "home"]).toContain(s.setting);
       if (s.supportNot) expect(s.supportNot).toBe("none");
@@ -321,8 +313,7 @@ describe("closed sets hold only the values the types allow", () => {
         expect(restrictionOptions).toContain(r);
       for (const c of t.exclusions.conditions) expect(conditions).toContain(c);
       for (const l of t.exclusions.limbLoss) expect(["arm", "leg"]).toContain(l);
-      for (const c of t.exclusions.homeOnlyExclusion?.clearance ?? [])
-        expect(["yes", "no", "unsure"]).toContain(c);
+      for (const c of t.exclusions.clearance ?? []) expect(["no", "unsure"]).toContain(c);
       expect(t.setup.orientation).toBe("portrait");
       expect(t.setup.distanceM).toHaveLength(2);
       // The single noise band of the contract is the default band of the rules.

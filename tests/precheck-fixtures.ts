@@ -45,7 +45,7 @@ export function baseTestsFor(ctx: CheckContext, setting: "home" | "booth" = "hom
       restr("balance_support") ||
       cond("sci_complete") ||
       cond("lower_limb_unilateral") ||
-      (ctx.clearance !== "yes" && setting === "home");
+      ctx.clearance !== "yes";
     if (chairExcluded) {
       tests = tests.flatMap((t) =>
         t !== "chair_stand_30s" ? [t] : trunkExcluded ? [] : ["trunk_control_seated" as const],
@@ -103,15 +103,6 @@ export function benign(id: string): AnswerValue {
       return {};
     case "pc_sci_ready":
       return "done";
-    case "pc_booth_vitals":
-      return {
-        systolic1: 120,
-        diastolic1: 80,
-        systolic2: 122,
-        diastolic2: 80,
-        restingHeartRate: 72,
-        irregularHeartbeat: false,
-      };
     case "pc_change_cleared":
     case "pc_trunk_armrests":
     case "pc_helper":

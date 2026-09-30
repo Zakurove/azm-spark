@@ -140,19 +140,12 @@ describe("Q19: the guest booth context", () => {
     expect(contextOf(guest({ clearance: null })).clearance).toBe("unsure");
   });
 
-  it("Q19 (5c) with Q6 and Q21: clearance no without stroke or SCI runs the full check, the arm curl without weight", () => {
+  it("Q19 (5c) with Q6 and D-016: clearance no without stroke or SCI, the arm curl without weight and no chair stand", () => {
     const ctx = contextOf(guest({ conditions: ["ms"], clearance: "no", position: "standing" }));
-    expect(runs(ctx)).toEqual(["shoulder_abduction", "chair_stand_30s", "arm_curl_30s"]);
-    const p = protocolOf(ctx, "booth", {
-      pc_booth_vitals: {
-        systolic1: 120,
-        diastolic1: 80,
-        systolic2: 120,
-        diastolic2: 80,
-        restingHeartRate: 70,
-        irregularHeartbeat: false,
-      },
-    });
+    expect(runs(ctx)).toEqual(["shoulder_abduction", "trunk_control_seated", "arm_curl_30s"]);
+    expect(reasonOf(ctx, "chair_stand_30s")).toBe("clearance");
+    expect(reasonOf(ctx, "chair_stand_30s", "home")).toBe("clearance");
+    const p = protocolOf(ctx, "booth");
     for (const s of ["left", "right"])
       expect(p.find((i) => i.testId === "arm_curl_30s" && i.side === s)?.variant).toBe("arm_only");
   });
@@ -289,7 +282,7 @@ describe("O40: estimateMinutes, the computed duration", () => {
     );
   });
 
-  it("O40: a load adds the load minutes; a guest adds the guest steps; the booth vitals add their minutes", () => {
+  it("O40: a load adds the load minutes; a guest adds the guest steps", () => {
     const ctx = ctxOf({ position: "standing" });
     const home = protocolOf(ctx, "home");
     expect(estimateMinutes(home, ctx, "home")).toEqual(
@@ -301,25 +294,17 @@ describe("O40: estimateMinutes, the computed duration", () => {
         EST.arm_curl_30s_withLoad,
       ),
     );
+    // D-016: a guest who is not cleared gets the side lean in the chair stand slot, with no staff
+    // measurement minutes.
     const g = ctxOf({ position: "standing", clearance: "unsure" });
-    const booth = protocolOf(g, "booth", {
-      pc_booth_vitals: {
-        systolic1: 120,
-        diastolic1: 80,
-        systolic2: 120,
-        diastolic2: 80,
-        restingHeartRate: 70,
-        irregularHeartbeat: false,
-      },
-    });
+    const booth = protocolOf(g, "booth");
     expect(estimateMinutes(booth, g, "booth", true)).toEqual(
       add(
         EST.overhead,
         EST.guestSteps,
         EST.precheckWithConditionQuestions,
         EST.shoulder_abduction,
-        EST.chair_stand_30s,
-        EST.boothVitals,
+        EST.trunk_control_seated,
         EST.arm_curl_30s_noLoad,
       ),
     );

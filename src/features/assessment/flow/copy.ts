@@ -760,7 +760,6 @@ const NOT_TODAY: readonly string[] = [
   "arm_not_able",
   "pressure_sore",
   "recent_surgery",
-  "booth_vitals",
   "clearance_booth",
   "motion_needed",
   "by_choice",
@@ -816,7 +815,6 @@ export interface PlanRow {
   variantWhy: VariantWhy | null;
   /** One line per side skipped while another side runs: {side}. {reason}. */
   sideLines: string[];
-  vitals: boolean;
 }
 
 export interface PlanSkip {
@@ -886,7 +884,8 @@ export function planView(
         testId,
         name: def.name[lang],
         reason: skipReasonText(reason, lang, { substituteRan: items.some((i) => i.substituteRan) }),
-        boothOffer: offerNow && (reason === "booth_only_trunk" || reason === "clearance"),
+        // D-016: a test skipped for clearance is not offered at the booth either.
+        boothOffer: offerNow && reason === "booth_only_trunk",
       };
       (skipGroup(reason) === "notToday" ? notToday : notPart).push(skip);
       continue;
@@ -910,7 +909,6 @@ export function planView(
             reason: skipReasonText(i.skipped as ReasonId, lang),
           }),
         ),
-      vitals: testId === "chair_stand_30s" && env.setting === "booth" && env.ctx.clearance !== "yes",
     });
   }
   const runnable = protocol.filter((i) => !i.skipped);

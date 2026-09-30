@@ -160,7 +160,6 @@ export function Plan({ model, dispatch }: ScreenProps) {
                   {row.variantWhy && (
                     <p className="check-meta">{t(lang, `assessment.plan.variantWhy.${row.variantWhy}`)}</p>
                   )}
-                  {row.vitals && <p className="check-meta">{t(lang, "assessment.plan.vitalsNote")}</p>}
                   {row.sideLines.length > 0 && (
                     <ul className="flow-side-lines">
                       {row.sideLines.map((line) => (

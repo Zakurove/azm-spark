@@ -1538,8 +1538,7 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
     expect(m.effects).toEqual([]);
   });
 
-  it("guest booth standing, clearance not sure: the chair stand with the staff vitals question (S56)", () => {
-    // Q21: the staff vitals apply to the group whose clearance is no or not sure (Q19 (2) asks it).
+  it("guest booth standing, clearance not sure: no chair stand, the seated side lean in its slot (D-016)", () => {
     const q = play(
       guestAtIntro("standing", "full", "unsure"),
       { type: "CONTINUE" },
@@ -1547,15 +1546,14 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
       { type: "PRECHECK_START" },
     );
     let x = q;
-    const screens: string[] = [];
-    for (let k = 0; k < 40 && x.state.kind === "question"; k++) {
-      screens.push(screenFor(x)!);
+    for (let k = 0; k < 40 && x.state.kind === "question"; k++)
       x = play(x, { type: "ANSWER", id: x.state.id, value: benign(x.state.id) });
-    }
-    expect(screens).toContain("S56");
     const done = runTests(x);
     expect(kind(done)).toBe("results");
-    expect(done.data.outcomes["chair_stand_30s:none"]).toMatchObject({ status: "measured" });
+    expect(done.data.outcomes["chair_stand_30s:none"]).toBeUndefined();
+    for (const side of ["right", "left"])
+      expect(done.data.outcomes[`trunk_control_seated:${side}`]).toMatchObject({ status: "measured" });
+    expect(done.data.protocol.find((i) => i.testId === "chair_stand_30s")?.skipped).toBe("clearance");
   });
 
   it("signed in first check: consent, context, questions, start, tests, end question, S51", () => {
@@ -1630,7 +1628,7 @@ describe("screen registry", () => {
     for (const id of ["skipDialog", "S41", "S43", "S44", "S45"] as const) expect(OVERLAYS[id]).toBeDefined();
   });
 
-  it("maps the pre-check types to S17 to S24 and the staff vitals to S56", () => {
+  it("maps the pre-check types to S17 to S24", () => {
     const q = (id: string) => screenFor({ ...all.question, state: { kind: "question", id } });
     expect(q("pc_urgent")).toBe("S17");
     expect(q("pc_sci_level")).toBe("S18");
@@ -1640,7 +1638,6 @@ describe("screen registry", () => {
     expect(q("pc_sci_ready")).toBe("S22");
     expect(q("pc_steadi:fell")).toBe("S23");
     expect(q("pc_surgery_recent")).toBe("S24");
-    expect(q("pc_booth_vitals")).toBe("S56");
   });
 
   it("counters: question n of the visible questions, test n of total", () => {

@@ -406,17 +406,16 @@ describe("persona: arthritis with a knee flare", () => {
 });
 
 describe("booth", () => {
-  it("guest (clearance counts as unsure): staff enter the vitals, no home only or helper questions", () => {
+  it("guest (clearance counts as unsure): no chair stand (D-016), no home only or helper questions", () => {
     const env = envOf({ position: "standing", clearance: "unsure" }, { setting: "booth" });
+    expect(env.baseTests).toEqual(["shoulder_abduction", "trunk_control_seated", "arm_curl_30s"]);
     const ids = visibleQuestions(env, fill(env));
-    expect(ids).toContain("pc_booth_vitals");
     expect(ids.some((id) => id.startsWith("pc_helper"))).toBe(false);
     const o = run(env);
     expect(o.status).toBe("proceed");
     expect(o.skips).toEqual([]);
     // Clearance not yes: both arms curl without weight.
     expect(variantsOf(o, "arm_curl_30s", "left")).toEqual(["arm_only"]);
-    expect(JSON.stringify(o.stored)).not.toMatch(/120|systolic|restingHeartRate/);
   });
 
   it("booth only answers are allowed with staff; pusher is not", () => {
@@ -543,14 +542,13 @@ describe("properties over random people and answers", () => {
   });
 
   it("stored keys are a subset of the data map, with data map shapes (raw answers never appear)", () => {
-    for (const { o, answers } of all) {
+    for (const { o } of all) {
       expect(storedProblems(o.stored as Record<string, unknown>)).toEqual([]);
       const text = JSON.stringify(o.stored);
       expect(text).not.toMatch(/pc_|bt_|ac_/);
-      // Used today only: surgery, flare and pain areas, vitals, checklist, STEADI, AD answers.
+      // Used today only: surgery, flare and pain areas, checklist, STEADI, AD answers.
       for (const id of [...AREA_IDS, ...SURGERY_AREA_IDS]) expect(text).not.toContain(id);
       expect(text).not.toMatch(/"(yes|no|yes_cleared|bend_hold|bend_no_hold|no_bend|weaker|both)"/);
-      if (typeof answers.pc_booth_vitals === "object") expect(text).not.toContain("systolic");
     }
   });
 
@@ -597,7 +595,6 @@ describe("properties over random people and answers", () => {
           if (part === ":areas") extra[id] = ["knee", "hip", "chest_belly"];
           else if (q.id === "pc_pain_areas") extra[id] = { knee: 10, hip: 10 };
           else if (q.id === "pc_sci_ready") extra[id] = false;
-          else if (q.id === "pc_booth_vitals") extra[id] = "unavailable";
           else extra[id] = NO_IS_WORSE.has(q.id) ? "no" : "yes";
         }
       }

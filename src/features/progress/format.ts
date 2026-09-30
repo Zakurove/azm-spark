@@ -208,7 +208,7 @@ const NOT_PART: readonly string[] = [
 /**
  * The S27 group of a skip reason: day level reasons are "Not today", intake level reasons that hold
  * at every check are "Not part of your check". The trigger decides when it is known: an intake level
- * reason set on the day (clearance from S56 "unavailable") is "Not today" (`dayLevel`).
+ * reason set on the day is "Not today" (`dayLevel`).
  */
 export function reasonGroup(reason: string, dayLevel?: boolean): "notToday" | "notPart" {
   if (dayLevel === true) return "notToday";

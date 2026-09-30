@@ -1,6 +1,6 @@
 /**
- * The booth screens as the check's screen registry holds them (screens.ts reads BOOTH_SCREENS). Only
- * S56 has a flow state (the pc_booth_vitals question); the others are reached outside the flow:
+ * The booth screens as the check's screen registry holds them (screens.ts reads BOOTH_SCREENS). None
+ * has a flow state; each is reached outside the flow:
  *   S55   the staff page /?booth=1 (BoothStaffPage, rendered by App)
  *   S55b  the visitor token page /?boothToken= (VisitorTokenPage) and the ended card
  *   S57   the booth tools over every screen (BoothLayer, NewVisitorButton, StaffCountCorrection)

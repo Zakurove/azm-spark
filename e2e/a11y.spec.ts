@@ -10,7 +10,7 @@
  *            overlays), guest and signed in
  *   results  S50 to S52, the Today cards S01 and S03, the offer S02, My results S53 and the example
  *            S54, with the answers of e2e/results-data.ts
- *   booth    S55 (code, errors, on, the visitor QR), S55b (every phase), S56, S57 and S58
+ *   booth    S55 (code, errors, on, the visitor QR), S55b (every phase), S57 and S58
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from "@playwright/test";
@@ -427,15 +427,8 @@ for (const lang of LANGS) {
     await expect(page.locator('[data-phase="offline"]')).toBeVisible();
     await audit(page, "S55b offline", problems);
 
-    // S56, the staff vitals; S57, the layer and the staff count; S58, the tips.
-    for (const name of [
-      "vitals-flow",
-      "vitals-starting",
-      "count",
-      "tips",
-      "tips-wheelchair",
-      "layer-results",
-    ]) {
+    // S57, the layer and the staff count; S58, the tips.
+    for (const name of ["count", "tips", "tips-wheelchair", "layer-results"]) {
       await page.goto(url(`/?booth=1&e2eBooth=${name}`, lang));
       await expect(page.locator(".azm-check").first()).toBeVisible();
       await page.waitForTimeout(300);

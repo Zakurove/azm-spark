@@ -1,7 +1,7 @@
 /**
- * The staff code (UX spec S55, S56; contract v3 I, O17, Q21 (5)): S55 turns booth mode on with it, S56
- * opens its staff part with it (PIN protected staff mode). The code is typed masked, with the numeric
- * keypad, digits normalised (0.2); it goes to POST /api/booth/verify and is dropped, never stored.
+ * The staff code (UX spec S55; contract v3 I, O17): S55 turns booth mode on with it. The code is typed
+ * masked, with the numeric keypad, digits normalised (0.2); it goes to POST /api/booth/verify and is
+ * dropped, never stored.
  */
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { Lang } from "../../../app/i18n";
@@ -29,18 +29,15 @@ export function codeErrorText(lang: Lang, e: CodeError): string {
 }
 
 /**
- * The staff code form: S55 turns booth mode on with it, S56 opens its staff part with it (PIN
- * protected staff mode, Q21 (5)). The code goes to POST /api/booth/verify and is dropped.
+ * The staff code form: S55 turns booth mode on with it. The code goes to POST /api/booth/verify and is
+ * dropped.
  */
 export function BoothCodeForm({
   api,
   onVerified,
-  submitLabel,
 }: {
   api: Pick<CheckApi, "boothVerify">;
   onVerified(session: string, expires: number): void;
-  /** The primary's label: booth.turnOn on S55. */
-  submitLabel?: string;
 }) {
   const { lang } = useCheckUi();
   const [code, setCode] = useState("");
@@ -109,7 +106,7 @@ export function BoothCodeForm({
       )}
       <button type="submit" className="cta" aria-busy={busy || undefined} data-primary="">
         {busy && <span className="booth-busy" aria-hidden="true" />}
-        {submitLabel ?? t(lang, "assessment.booth.turnOn")}
+        {t(lang, "assessment.booth.turnOn")}
       </button>
     </form>
   );

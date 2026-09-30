@@ -9,7 +9,7 @@
  *                 the other screens that allow it (tools.ts idleWaitMs). "Are you still here?" is
  *                 spoken with the phone's own voice and shown, with a 30 s countdown and a 64 px
  *                 "I am still here"; at 0 the next visitor starts without a confirm. Never on camera,
- *                 check in, alarm, stop list, safety screens or S56.
+ *                 check in, alarm, stop list or safety screens.
  *   new visitor   NewVisitorButton (S50) asks the same confirm.
  *
  * Starting for the next visitor (startNextVisitor): the flow clears everything of the visit

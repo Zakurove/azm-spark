@@ -1,5 +1,5 @@
 /**
- * Review screenshots of the booth stream (UX spec definition of done): S55, S55b, S56, S57 and S58
+ * Review screenshots of the booth stream (UX spec definition of done): S55, S55b, S57 and S58
  * in every state that applies, at 375 x 812 and 1440 x 900, in Arabic and English. Runs only with
  * AZM_SHOTS_DIR set:
  *
@@ -165,59 +165,6 @@ for (const size of SIZES) {
       await page.goto(url(`/?booth=1&e2eBooth=token&phase=offline&t=${QR_TOKEN}`, lang));
       await expect(page.locator('[data-phase="offline"]')).toBeVisible();
       await shot(page, lang, size, "s55b-offline");
-      await context.close();
-    });
-
-    test(`booth shots S56 ${lang} ${size.tag}`, async ({ browser }) => {
-      mkdirSync(OUT, { recursive: true });
-      const { context, page } = await fresh(browser, size);
-      let verify: unknown = { ok: false };
-      await page.route("**/api/booth/verify", (r) => json(r, verify));
-      await page.route("**/api/booth/check", (r) => json(r, { ok: true, expires: Date.now() + HOUR }));
-      const open = async (visitor = false) => {
-        await page.goto(url(`/?booth=1&e2eBooth=vitals-flow${visitor ? "&pass=visitor" : ""}`, lang));
-        await expect(page.locator('[data-screen="S56"]')).toBeVisible();
-      };
-      await open();
-      await shot(page, lang, size, "s56-locked");
-      await page.getByLabel(c.booth.codeLabel).fill("000000");
-      await page.getByRole("button", { name: c.common.continue }).click();
-      await expect(page.getByRole("alert")).toHaveText(c.booth.wrong);
-      await shot(page, lang, size, "s56-error-code");
-
-      verify = { ok: true, session: SESSION, expires: Date.now() + HOUR };
-      await page.getByRole("button", { name: c.common.continue }).click();
-      await expect(page.locator('[data-unlocked="yes"]')).toBeVisible();
-      await page.locator("h1").focus();
-      await shot(page, lang, size, "s56-open");
-
-      await page.getByRole("button", { name: c.common.continue }).click();
-      await page.locator('[data-field="hr1"]').fill(digits(lang, 300));
-      await page.locator('[data-field="sys1"]').fill(digits(lang, 128));
-      await page.locator('[data-field="dia1"]').fill(digits(lang, 82));
-      await page.locator('[data-field="dia1"]').blur();
-      await shot(page, lang, size, "s56-error-validation");
-
-      const values: Record<string, number> = { hr1: 72, sys1: 128, dia1: 82, hr2: 68, sys2: 124, dia2: 78 };
-      for (const [f, v] of Object.entries(values))
-        await page.locator(`[data-field="${f}"]`).fill(digits(lang, v));
-      await page.locator('[data-field="dia2"]').blur();
-      await page.getByRole("button", { name: c.common.no, exact: true }).click();
-      await expect(page.locator('[data-mean="sys"]')).toHaveText(digits(lang, 126));
-      await shot(page, lang, size, "s56-filled");
-
-      await open(true);
-      await shot(page, lang, size, "s56-visitor-phone");
-
-      await page.goto(url("/?booth=1&e2eBooth=vitals-starting", lang));
-      await expect(page.getByText(c.state.loading.check)).toBeVisible();
-      await shot(page, lang, size, "s56-loading");
-      await page.goto(url("/?booth=1&e2eBooth=vitals-starting&error=offline", lang));
-      await expect(page.getByRole("alert")).toBeVisible();
-      await shot(page, lang, size, "s56-offline");
-      await page.goto(url("/?booth=1&e2eBooth=vitals-starting&error=network", lang));
-      await expect(page.getByRole("alert")).toBeVisible();
-      await shot(page, lang, size, "s56-error-start");
       await context.close();
     });
 

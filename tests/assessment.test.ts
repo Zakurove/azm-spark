@@ -325,8 +325,22 @@ describe("guestContext (booth guest steps, Q19)", () => {
     }
   });
 
-  it("a standing guest gets the chair stand at the booth (after the staff vitals), arm curls without weight", () => {
+  it("D-016: a standing guest not cleared gets no chair stand at the booth; the side lean takes its slot", () => {
     const ctx = guestContext(steps({ position: "standing" })) as CheckContext;
+    const r = pipeline(ctx, { setting: "booth", setup: null, firstCheck: true });
+    expect(lines(r)).toEqual([
+      "1 shoulder_abduction right",
+      "2 shoulder_abduction left",
+      "3 chair_stand_30s none skip:clearance",
+      "4 trunk_control_seated right substitute",
+      "5 trunk_control_seated left substitute",
+      "6 arm_curl_30s right arm_only",
+      "7 arm_curl_30s left arm_only",
+    ]);
+  });
+
+  it("a standing guest cleared by a doctor gets the chair stand at the booth, arm curls without weight", () => {
+    const ctx = guestContext(steps({ position: "standing", clearance: "yes" })) as CheckContext;
     const r = pipeline(ctx, { setting: "booth", setup: null, firstCheck: true });
     expect(lines(r)).toEqual([
       "1 shoulder_abduction right",
@@ -413,9 +427,18 @@ describe("baseSelection (spec 3.2 to 3.4)", () => {
     expect(intakeExclusion("chair_stand_30s", { ...ctx, pain: [], restrictions: [] }, "home", null)).toBe(
       "clearance",
     );
+    // D-016: clearance no or not sure excludes the chair stand at the booth too.
     expect(intakeExclusion("chair_stand_30s", { ...ctx, pain: [], restrictions: [] }, "booth", null)).toBe(
-      "limb_loss_leg",
+      "clearance",
     );
+    expect(
+      intakeExclusion(
+        "chair_stand_30s",
+        { ...ctx, pain: [], restrictions: [], clearance: "yes" },
+        "booth",
+        null,
+      ),
+    ).toBe("limb_loss_leg");
   });
 
   it("every intake exclusion key of the data has a reason here (no key without a reason)", () => {
@@ -427,7 +450,7 @@ describe("baseSelection (spec 3.2 to 3.4)", () => {
         ...ex.restrictions.filter((r) => !blocked.includes(r)).map((r) => ({ restrictions: [r] })),
         ...ex.conditions.filter((c) => !blocked.includes(c)).map((c) => ({ conditions: [c] })),
         ...(ex.homeOnlyExclusion?.restrictions ?? []).map((r) => ({ restrictions: [r] })),
-        ...(ex.homeOnlyExclusion?.clearance ?? []).map((c) => ({ clearance: c })),
+        ...(ex.clearance ?? []).map((c) => ({ clearance: c })),
       ];
       for (const over of cases) {
         expect(intakeExclusion(t.id, ctxOf({ position: "standing", ...over }), "home", null)).toBeDefined();
@@ -789,43 +812,13 @@ const MATRIX: MatrixRow[] = [
     chair: ["none skip:clearance", "right substitute", "left substitute"],
   },
   {
-    row: "clearance unsure at the booth (after the staff vitals)",
+    row: "clearance unsure at the booth (D-016: no chair stand, the side lean in its slot)",
     ctx: { clearance: "unsure" },
     opts: { setting: "booth" },
     abd: NONE_AB,
     curl: ["right arm_only", "left arm_only"],
     trunk: NONE_AB,
-    chair: ["none standard"],
-  },
-  {
-    row: "clearance unsure at the booth, vitals above the Q21 limits",
-    ctx: { clearance: "unsure" },
-    opts: {
-      setting: "booth",
-      answers: {
-        pc_booth_vitals: {
-          systolic1: 130,
-          diastolic1: 80,
-          systolic2: 130,
-          diastolic2: 80,
-          restingHeartRate: 121,
-          irregularHeartbeat: false,
-        },
-      },
-    },
-    abd: NONE_AB,
-    curl: ["right arm_only", "left arm_only"],
-    trunk: NONE_AB,
-    chair: ["none skip:booth_vitals"],
-  },
-  {
-    row: "clearance unsure at the booth, no validated cuff (O47 (4): clearance_booth)",
-    ctx: { clearance: "unsure" },
-    opts: { setting: "booth", answers: { pc_booth_vitals: "unavailable" } },
-    abd: NONE_AB,
-    curl: ["right arm_only", "left arm_only"],
-    trunk: NONE_AB,
-    chair: ["none skip:clearance_booth"],
+    chair: ["none skip:clearance", "right substitute", "left substitute"],
   },
   {
     row: "Q19 (5b): booth, stroke with clearance no: the seated arm raise only",

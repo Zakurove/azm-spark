@@ -31,13 +31,11 @@ import {
   stopRoute,
   visibleQuestions,
   type Answers,
-  type PrecheckEnv,
   type TestInstance,
 } from "../src/medical/precheck";
 import {
   NOW,
   TODAY,
-  baseTestsFor,
   envOf,
   fill,
   randomAnswer,
@@ -128,116 +126,6 @@ describe("Q12 (1): pc_trunk_armrests is asked in the form of the person's positi
       text: "askByPosition",
       position: "chair",
     });
-  });
-});
-
-describe("Q21 and O47: booth vitals by the mean of two readings", () => {
-  const booth = (p: Parameters<typeof envOf>[0] = {}) =>
-    standing({ clearance: "unsure", ...p }, { setting: "booth" });
-  const vitals = (v: Partial<Record<string, number | boolean>> = {}) => ({
-    systolic1: 120,
-    diastolic1: 80,
-    systolic2: 124,
-    diastolic2: 82,
-    restingHeartRate: 72,
-    irregularHeartbeat: false,
-    ...v,
-  });
-  const stand = (v: unknown) =>
-    skipOf(run(booth(), { pc_booth_vitals: v as never }), "chair_stand_30s", "none");
-
-  it("Q21: is entered by staff at the booth for clearance no or not sure with the chair stand", () => {
-    expect(visibleQuestions(booth(), {})).toContain("pc_booth_vitals");
-    expect(visibleQuestions(booth({ clearance: "yes" }), {})).not.toContain("pc_booth_vitals");
-    expect(visibleQuestions(envOf({ clearance: "no" }, { setting: "booth" }), {})).not.toContain(
-      "pc_booth_vitals",
-    );
-  });
-
-  it("Q21 (4): readings inside every limit keep the chair stand", () => {
-    expect(stand(vitals())).toBeUndefined();
-    expect(run(booth(), { pc_booth_vitals: vitals() }).status).toBe("proceed");
-  });
-
-  it("Q21 (4): a mean systolic of 160 or more skips the chair stand, a mean of 159 does not", () => {
-    expect(stand(vitals({ systolic1: 158, systolic2: 162 }))).toBe("booth_vitals");
-    expect(stand(vitals({ systolic1: 158, systolic2: 160 }))).toBeUndefined();
-    // One reading over the limit is not enough: the mean is used (Q21 (3)).
-    expect(stand(vitals({ systolic1: 170, systolic2: 140 }))).toBeUndefined();
-  });
-
-  it("Q21 (4): a mean systolic below 90 skips, 90 does not", () => {
-    expect(stand(vitals({ systolic1: 88, systolic2: 91 }))).toBe("booth_vitals");
-    expect(stand(vitals({ systolic1: 90, systolic2: 90 }))).toBeUndefined();
-  });
-
-  it("Q21 (4): a mean diastolic of 100 or more skips, 99 does not", () => {
-    expect(stand(vitals({ diastolic1: 100, diastolic2: 100 }))).toBe("booth_vitals");
-    expect(stand(vitals({ diastolic1: 98, diastolic2: 100 }))).toBeUndefined();
-  });
-
-  it("Q21 (4): a resting heart rate above 120 skips, 120 does not", () => {
-    expect(stand(vitals({ restingHeartRate: 121 }))).toBe("booth_vitals");
-    expect(stand(vitals({ restingHeartRate: 120 }))).toBeUndefined();
-  });
-
-  it("Q21 (4): an irregular heartbeat flag skips the chair stand", () => {
-    expect(stand(vitals({ irregularHeartbeat: true }))).toBe("booth_vitals");
-    expect(stand(vitals({ irregularHeartbeat: 1 }))).toBe("booth_vitals");
-    expect(stand(vitals({ irregularHeartbeat: 0 }))).toBeUndefined();
-  });
-
-  it("Q21 (6) and O47 (4): no cuff or no licensed practitioner skips with clearance_booth", () => {
-    expect(stand("unavailable")).toBe("clearance_booth");
-  });
-
-  it("Q21: the v1 single reading format is not an answer", () => {
-    const env = booth();
-    const answers = fill(env);
-    answers.pc_booth_vitals = { restingHeartRate: 72, systolic: 120, diastolic: 80 };
-    expect(evaluatePrecheck(env, answers, NOW).status).toBe("incomplete");
-  });
-
-  it("O47 (1): pc_booth_vitals is never shown with an SCI condition, whatever the context", () => {
-    const r = rng(4701);
-    let reachedSci = 0;
-    for (let i = 0; i < 3000; i++) {
-      const e = randomEnv(r);
-      const conditions = [
-        ...e.ctx.conditions.filter((c) => c !== "none"),
-        r.pick(["sci_complete", "sci_incomplete"]),
-      ];
-      const ctx = { ...e.ctx, conditions, clearance: r.pick(["yes", "no", "unsure"] as const) };
-      const setting = r.next() < 0.7 ? "booth" : "home";
-      const env: PrecheckEnv = { ...e, ctx, setting, baseTests: baseTestsFor(ctx, setting) };
-      if (setting === "booth") reachedSci++;
-      const answers: Answers = {};
-      for (let k = 0; k < 6; k++)
-        for (const id of visibleQuestions(env, answers))
-          if (!(id in answers)) answers[id] = randomAnswer(r, id);
-      expect(visibleQuestions(env, answers), JSON.stringify(ctx)).not.toContain("pc_booth_vitals");
-      expect(possibleQuestions(env, {}), JSON.stringify(ctx)).not.toContain("pc_booth_vitals");
-    }
-    expect(reachedSci).toBeGreaterThan(1500);
-  });
-
-  it("O47 (3): if the invariant ever broke, sci_t6 never gets the chair stand, and 150 or an AD sign starts the AD response", () => {
-    // A hand made environment that the selection never produces (sci with a chair stand at the booth).
-    const env = envOf(
-      { position: "standing", conditions: ["sci_incomplete"], clearance: "unsure" },
-      { setting: "booth", baseTests: ["shoulder_abduction", "chair_stand_30s", "arm_curl_30s"] },
-    );
-    const given = { pc_sci_level: "yes", pc_booth_vitals: vitals() };
-    expect(skipOf(run(env, given), "chair_stand_30s", "none")).toBe("clearance_booth");
-    const high = run(env, { ...given, pc_booth_vitals: vitals({ systolic1: 150, systolic2: 152 }) });
-    expect(high).toMatchObject({ status: "ad", screen: "scr_ad", lock: { reason: "ad", until: "next_day" } });
-    const sign = run(env, { ...given, pc_booth_vitals: vitals({ adSign: true }) });
-    expect(sign.status).toBe("ad");
-    const rise = run(env, {
-      ...given,
-      pc_booth_vitals: vitals({ systolic1: 140, systolic2: 142, usualSystolic: 110 }),
-    });
-    expect(rise.status).toBe("ad");
   });
 });
 

@@ -572,16 +572,16 @@ describe("the plan (S27, P6)", () => {
     expect(v.minutes).toEqual(estimateMinutes(protocol, env.ctx, "home", false));
   });
 
-  it("notes the booth vitals on a chair stand without clearance, and the booth offer only on booth days", () => {
-    const env = envOf({ position: "standing", clearance: "unsure" }, { setting: "booth" });
-    const v = planView([item({ testId: "chair_stand_30s" })], env, "en", NOW, true);
-    expect(v.rows[0].vitals).toBe(true);
+  it("offers the booth only on booth days, and never for a test skipped for clearance (D-016)", () => {
+    const env = envOf({ position: "standing", clearance: "unsure" });
     const skip = [item({ testId: "trunk_control_seated", skipped: "booth_only_trunk" })];
     const boothDay = Date.UTC(2026, 9, 11, 9);
     expect(boothDaysNow(boothDay)).toBe(true);
     expect(riyadhDay(boothDay)).toBe("2026-10-11");
-    expect(planView(skip, env, "en", boothDay, true).notPart[0].boothOffer).toBe(true);
-    expect(planView(skip, env, "en", NOW, true).notPart[0].boothOffer).toBe(false);
+    expect(planView(skip, env, "en", boothDay, false).notPart[0].boothOffer).toBe(true);
+    expect(planView(skip, env, "en", NOW, false).notPart[0].boothOffer).toBe(false);
+    const stand = [item({ testId: "chair_stand_30s", skipped: "clearance" })];
+    expect(planView(stand, env, "en", boothDay, false).notPart[0].boothOffer).toBe(false);
   });
 
   it("has no rows when every test is skipped (O21)", () => {

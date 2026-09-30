@@ -4,14 +4,14 @@
  *   idle reset      idle means no touch (and nobody seen by the camera when it runs). S50 asks after
  *                   3 minutes, the other screens that allow it after 5 minutes; a 30 s countdown then
  *                   starts the next visitor. Never on camera, check in, alarm, stop list, safety
- *                   screens (S33, S35 to S45, S38b), the end question, or the staff vitals (S56).
+ *                   screens (S33, S35 to S45, S38b) or the end question.
  *   staff reset     a 1.5 s press on the booth badge or the staff shortcut key asks to start for the
  *                   next visitor from any screen, camera screens included, and logs no stop.
  *
  * The flow itself clears the visit (flowMachine STAFF_RESET: the guest flow starts again with nothing
  * of the last visitor, booth mode stays); these rules only decide when that is offered.
  */
-import { cameraRunning, questionOf, type FlowModel, type FlowStateKind } from "../flowMachine";
+import { cameraRunning, type FlowModel, type FlowStateKind } from "../flowMachine";
 import { parseNumberInput } from "../shared/format";
 
 /** O15: S50 (guest results) asks after 3 minutes idle. */
@@ -36,7 +36,7 @@ const IDLE_STATES: ReadonlySet<FlowStateKind> = new Set<FlowStateKind>([
   "intro", // S14
   "soundCheck", // S14b
   "precheckNotice", // S16
-  "question", // S17 to S24 (not S56, below)
+  "question", // S17 to S24
   "starting", // the last question, busy
   "warnings", // S25
   "plan", // S27
@@ -80,15 +80,7 @@ export function idleWaitMs(m: FlowModel): number | null {
   if (m.overlay && SAFETY_OVERLAYS.has(m.overlay.kind)) return null;
   const s = m.state;
   if (!IDLE_STATES.has(s.kind) || cameraRunning(s)) return null;
-  // S56, the staff vitals (pc_booth_vitals), is excluded (O15).
-  if (s.kind === "question" && isStaffEntry(s.id)) return null;
-  if (s.kind === "starting" && s.lastQuestion && isStaffEntry(s.lastQuestion)) return null;
   return s.kind === "results" ? IDLE_RESULTS_MS : IDLE_OTHER_MS;
-}
-
-/** The staff entry question of the pre-check (pc_booth_vitals, the system type): S56. */
-export function isStaffEntry(questionId: string): boolean {
-  return questionOf(questionId)?.item.type === "system";
 }
 
 export type IdlePhase =

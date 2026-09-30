@@ -24,12 +24,9 @@
  *                                        a standing person does the side lean on a chair)
  * Answer formats: option values as strings; pc_pain_now an integer 0 to 10; pc_pain_areas an object
  * { <area id>: integer 0 to 10 } (only the chosen areas; {} when none of the listed areas hurts);
- * pc_sci_ready 'done' or 'not_yet' (the list is read, then one of two buttons: 7.2-8, Q18 (2));
- * pc_booth_vitals (staff entry, Q21) { systolic1, diastolic1, systolic2, diastolic2 (two readings
- * 1 minute apart, the mean is used), restingHeartRate, irregularHeartbeat (the cuff's flag: true or
- * false, 1 or 0), usualSystolic? (SCI at T6 or above), adSign? (true when staff see an AD sign) }, or
- * 'unavailable' (no validated cuff or no licensed practitioner). An answer that does not fit is
- * treated as not answered. Answers to questions that are not visible are ignored.
+ * pc_sci_ready 'done' or 'not_yet' (the list is read, then one of two buttons: 7.2-8, Q18 (2)). An
+ * answer that does not fit is treated as not answered. Answers to questions that are not visible
+ * are ignored.
  *
  * Revision 1.1 adds, around the pre-check: the chair stand setup questions (setupQuestionsFor, Q9),
  * the faint follow up (faintFollowUp, Q33 (3)), the end of check question (endOfCheckForm, endOfCheck,
@@ -353,62 +350,6 @@ function areaScores(raw: unknown): Record<string, number> | undefined {
   return out;
 }
 
-/**
- * Booth vitals (Q21 (3), O47): two readings 1 minute apart (their mean is used), the resting heart
- * rate, the cuff's irregular heartbeat flag, and two optional entries for SCI at T6 or above: the
- * person's usual systolic (the booth build does not render it, O47 (2)) and an AD sign seen by staff.
- */
-const READING_KEYS = ["systolic1", "diastolic1", "systolic2", "diastolic2", "restingHeartRate"] as const;
-interface Vitals {
-  systolic1: number;
-  diastolic1: number;
-  systolic2: number;
-  diastolic2: number;
-  restingHeartRate: number;
-  irregularHeartbeat: boolean;
-  usualSystolic?: number;
-  adSign?: boolean;
-}
-const VITAL_FIELDS: readonly string[] = [...READING_KEYS, "irregularHeartbeat", "usualSystolic", "adSign"];
-
-const reading = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0 && v < 400;
-/** true, false, 1 or 0; anything else is not an answer. */
-function flagOf(v: unknown): boolean | undefined {
-  if (v === true || v === 1) return true;
-  if (v === false || v === 0) return false;
-  return undefined;
-}
-
-function vitals(raw: unknown): "unavailable" | Vitals | undefined {
-  if (raw === "unavailable") return raw;
-  if (!isPlainObject(raw)) return undefined;
-  if (Object.keys(raw).some((k) => !VITAL_FIELDS.includes(k))) return undefined;
-  if (!READING_KEYS.every((k) => reading(raw[k]))) return undefined;
-  const irregular = flagOf(raw.irregularHeartbeat);
-  if (irregular === undefined) return undefined;
-  const out: Vitals = {
-    systolic1: raw.systolic1 as number,
-    diastolic1: raw.diastolic1 as number,
-    systolic2: raw.systolic2 as number,
-    diastolic2: raw.diastolic2 as number,
-    restingHeartRate: raw.restingHeartRate as number,
-    irregularHeartbeat: irregular,
-  };
-  if (raw.usualSystolic !== undefined) {
-    if (!reading(raw.usualSystolic)) return undefined;
-    out.usualSystolic = raw.usualSystolic;
-  }
-  if (raw.adSign !== undefined) {
-    const ad = flagOf(raw.adSign);
-    if (ad === undefined) return undefined;
-    out.adSign = ad;
-  }
-  return out;
-}
-
-const meanSystolic = (v: Vitals) => (v.systolic1 + v.systolic2) / 2;
-const meanDiastolic = (v: Vitals) => (v.diastolic1 + v.diastolic2) / 2;
-
 /** The answer of one question instance, normalised, or undefined when missing or not valid. */
 function normalizeAnswer(
   item: PrecheckItem,
@@ -434,7 +375,8 @@ function normalizeAnswer(
     case "list_confirm":
       return oneOf(raw, options);
     case "system":
-      return item.id === "pc_booth_vitals" ? (vitals(raw) as AnswerValue | undefined) : undefined;
+      // pc_setting is set by the route, never answered.
+      return undefined;
   }
 }
 
@@ -609,7 +551,6 @@ const SHOW_IF: ShowIfEvaluators = {
   testSelected: (t, c) => c.env.baseTests.includes(t),
   positionIn: (ps, c) => ps.includes(c.env.ctx.position),
   setting: (s, c) => c.env.setting === s,
-  clearanceIn: (cs, c) => cs.includes(c.env.ctx.clearance),
   previousFollowUp: (f, c) => f === "lasting_unresolved" && c.env.lastCheckLasting,
   faintReportedUnresolved: (_, c) => c.env.faintReportedUnresolved === true,
   weakerSide: (_, c) => c.env.ctx.support !== "none",
@@ -788,7 +729,7 @@ function terminalGateAnswered(st: State): boolean {
 
 /**
  * The pre-check questions to show, in order, as question ids (instance ids for questions asked per
- * area, side, test or sub question). pc_booth_vitals is a staff entry screen at the booth.
+ * area, side, test or sub question).
  * Recompute after every answer: answers open follow up questions.
  */
 export function visibleQuestions(env: PrecheckEnv, answers: Answers): string[] {
@@ -973,51 +914,6 @@ function scalarHolds(cond: ActionIf, v: AnswerValue | undefined): boolean {
   return true;
 }
 
-/**
- * The booth vitals rows of pc_booth_vitals (Q21 (4), O47). Every key present must hold:
- *   vitalsUnavailable       no validated cuff or no licensed practitioner;
- *   vitalsOutside           the mean systolic 160 or more or below 90, the mean diastolic 100 or
- *                           more, the heart rate above 120, or the irregular heartbeat flag;
- *   sciT6SystolicRiseGte    SCI at T6 or above with the mean systolic this far above the usual one;
- *   flag                    the pre-check flag holds (with a reading or unavailable: O47 (3), the
- *                           chair stand is not offered to sci_t6 whether or not the value is known);
- *   anyOf                   a mean systolic at or above the value, or an AD sign.
- */
-function vitalsMatch(st: State, cond: ActionIf, v: AnswerValue | undefined): boolean {
-  if (v === undefined) return false;
-  if (cond.vitalsUnavailable) return v === "unavailable";
-  if (cond.flag !== undefined && !stateCond(st).flag(cond.flag)) return false;
-  const measured = isPlainObject(v) ? (v as unknown as Vitals) : undefined;
-  if (cond.vitalsOutside) {
-    if (!measured) return false;
-    const lim = cond.vitalsOutside;
-    const sys = meanSystolic(measured);
-    const dia = meanDiastolic(measured);
-    if (!(
-      sys >= lim.meanSystolicGte ||
-      sys < lim.meanSystolicLt ||
-      dia >= lim.meanDiastolicGte ||
-      measured.restingHeartRate > lim.restingHeartRateGt ||
-      (lim.irregularHeartbeat && measured.irregularHeartbeat)
-    ))
-      return false;
-  }
-  if (cond.sciT6SystolicRiseGte !== undefined) {
-    if (!measured || measured.usualSystolic === undefined || !sciT6(st)) return false;
-    if (meanSystolic(measured) - measured.usualSystolic < cond.sciT6SystolicRiseGte) return false;
-  }
-  if (cond.anyOf) {
-    if (!measured) return false;
-    const any = cond.anyOf.some(
-      (a) =>
-        (a.meanSystolicGte !== undefined && meanSystolic(measured) >= a.meanSystolicGte) ||
-        (a.adSign === true && measured.adSign === true),
-    );
-    if (!any) return false;
-  }
-  return true;
-}
-
 /** The places where an action's condition holds (one per side, test or area group). */
 function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
   const insts = st.instances.filter((i) => i.base === item.id);
@@ -1039,7 +935,7 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
       return areas.length ? [{ areas }] : [];
     }
     case "system":
-      return vitalsMatch(st, cond, value(st, item.id)) ? [{}] : [];
+      return [];
     case "yes_no_then_areas": {
       if (!scalarHolds(cond, value(st, item.id))) return [];
       const areas = value(st, questionId(item.id, "areas"));
@@ -2265,7 +2161,7 @@ export function unsupportedConditions(): string[] {
   const supported: Record<string, readonly string[]> = {
     three_yes_no: ["anyYes"],
     area_scale_0_10: ["areaScoreGte", "areaLoadsSelectedTest"],
-    system: ["vitalsOutside", "sciT6SystolicRiseGte", "flag", "anyOf", "vitalsUnavailable", "equals"],
+    system: ["equals"],
     yes_no_then_areas: ["equals", "in", "gte", "clearedNot"],
   };
   const scalar = ["equals", "in", "gte", "any"];

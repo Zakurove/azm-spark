@@ -4,7 +4,7 @@
  *   2. visibility: one test per showIf form, the baseline setup gating, order, hidden answers;
  *   3. one table case per pre-check action of the data (the coverage test proves every action has one);
  *   4. the pain rules (storage, 9, 7 or 8, areas at 6 and at 7);
- *   5. the chair stand rules: hands allowed, pushing arm, helper rules, booth vitals.
+ *   5. the chair stand rules: hands allowed, pushing arm, helper rules.
  */
 import { describe, expect, it } from "vitest";
 import { CHECK_DATA } from "../src/movements/assessments";
@@ -25,26 +25,6 @@ import { NOW, TODAY, envOf, fill, run, skipOf, variantsOf } from "./precheck-fix
 
 const standing = (p: Parameters<typeof envOf>[0] = {}, o: Parameters<typeof envOf>[1] = {}) =>
   envOf({ position: "standing", ...p }, o);
-/** Booth vitals (Q21): two readings, the heart rate and the cuff's irregular heartbeat flag. */
-const vitals = (v: Record<string, number | boolean> = {}) => ({
-  systolic1: 120,
-  diastolic1: 80,
-  systolic2: 120,
-  diastolic2: 80,
-  restingHeartRate: 70,
-  irregularHeartbeat: false,
-  ...v,
-});
-/**
- * A booth chair stand for SCI, which the selection never produces (Q19 (5b)): the O47 rows of
- * pc_booth_vitals are kept for defence in depth and tested here.
- */
-const sciBoothStand = () =>
-  envOf(
-    { position: "standing", conditions: ["sci_incomplete"], clearance: "unsure" },
-    { setting: "booth", baseTests: ["shoulder_abduction", "chair_stand_30s", "arm_curl_30s"] },
-  );
-
 /* ------------------------------------------------------------------ data */
 
 describe("data the pre-check evaluates", () => {
@@ -87,7 +67,6 @@ describe("data the pre-check evaluates", () => {
       "setting",
       "noUnresolvedChangeReported",
       "unresolvedChangeReported",
-      "clearanceIn",
       "previousFollowUp",
     ]) {
       expect(SHOW_IF_KEYS).toContain(k);
@@ -204,22 +183,10 @@ describe("visibleQuestions", () => {
     expect(sub).not.toContain("pc_walking_aid");
   });
 
-  it("setting: pc_trunk_armrests and pc_helper at home only; pc_booth_vitals at the booth only", () => {
+  it("setting: pc_trunk_armrests and pc_helper at home only", () => {
     expect(visibleQuestions(envOf({}, { setting: "booth" }), {})).not.toContain("pc_trunk_armrests:chair");
     expect(visibleQuestions(envOf({}, { setting: "booth" }), {})).not.toContain(
       "pc_helper:trunk_control_seated",
-    );
-    const booth = standing({ clearance: "unsure" }, { setting: "booth" });
-    expect(visibleQuestions(booth, {})).toContain("pc_booth_vitals");
-    expect(visibleQuestions(standing({ clearance: "unsure" }), {})).not.toContain("pc_booth_vitals");
-  });
-
-  it("clearanceIn: pc_booth_vitals only for intake clearance no or unsure", () => {
-    expect(visibleQuestions(standing({ clearance: "yes" }, { setting: "booth" }), {})).not.toContain(
-      "pc_booth_vitals",
-    );
-    expect(visibleQuestions(standing({ clearance: "no" }, { setting: "booth" }), {})).toContain(
-      "pc_booth_vitals",
     );
   });
 
@@ -932,50 +899,6 @@ const CASES: Case[] = [
       expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "helper_needed" }]),
   },
   {
-    item: "pc_booth_vitals",
-    action: 0,
-    name: "a mean outside the Q21 limits skips the booth chair stand (booth_vitals)",
-    env: standing({ clearance: "unsure" }, { setting: "booth" }),
-    answers: { pc_booth_vitals: vitals({ systolic1: 170, systolic2: 160 }) },
-    check: (o) =>
-      expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "booth_vitals" }]),
-  },
-  {
-    item: "pc_booth_vitals",
-    action: 1,
-    name: "SCI at T6 or above with a systolic 20 above the usual one starts the AD response (O47 fallback)",
-    env: sciBoothStand(),
-    answers: { pc_sci_level: "yes", pc_booth_vitals: vitals({ usualSystolic: 100 }) },
-    check: (o) =>
-      expect(o).toMatchObject({ status: "ad", screen: "scr_ad", lock: { reason: "ad", until: "next_day" } }),
-  },
-  {
-    item: "pc_booth_vitals",
-    action: 2,
-    name: "sci_t6 never gets the booth chair stand (clearance_booth, O47 (3))",
-    env: sciBoothStand(),
-    answers: { pc_sci_level: "yes" },
-    check: (o) =>
-      expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance_booth" }]),
-  },
-  {
-    item: "pc_booth_vitals",
-    action: 3,
-    name: "sci_t6 with a mean systolic of 150 or more starts the AD response (O47 (3))",
-    env: sciBoothStand(),
-    answers: { pc_sci_level: "unsure", pc_booth_vitals: vitals({ systolic1: 148, systolic2: 152 }) },
-    check: (o) => expect(o.status).toBe("ad"),
-  },
-  {
-    item: "pc_booth_vitals",
-    action: 4,
-    name: "no validated cuff or licensed practitioner: the chair stand is not offered (clearance_booth, O47 (4))",
-    env: standing({ clearance: "no" }, { setting: "booth" }),
-    answers: { pc_booth_vitals: "unavailable" },
-    check: (o) =>
-      expect(o.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "clearance_booth" }]),
-  },
-  {
     item: "pc_helper",
     action: 0,
     name: "no skips the test it was asked for (helper_needed)",
@@ -1219,28 +1142,6 @@ describe("chair stand rules (spec 4.4)", () => {
     expect(o.helperRequired).toEqual([]);
     expect(visibleQuestions(env, fill(env, { pc_walking_aid: "yes" }))).not.toContain(
       "pc_helper:chair_stand_30s",
-    );
-  });
-
-  it("booth vitals just inside the Q21 limits allow the chair stand", () => {
-    const env = standing({ clearance: "no" }, { setting: "booth" });
-    const o = run(env, {
-      pc_booth_vitals: vitals({
-        restingHeartRate: 120,
-        systolic1: 159,
-        systolic2: 159,
-        diastolic1: 99,
-        diastolic2: 99,
-      }),
-    });
-    expect(o.skips).toEqual([]);
-    const hr = run(env, { pc_booth_vitals: vitals({ restingHeartRate: 121 }) });
-    expect(skipOf(hr, "chair_stand_30s", "none")).toBe("booth_vitals");
-    const dia = run(env, { pc_booth_vitals: vitals({ diastolic1: 100, diastolic2: 100 }) });
-    expect(skipOf(dia, "chair_stand_30s", "none")).toBe("booth_vitals");
-    // Staff must enter the values before the check can start.
-    expect(evaluatePrecheck(env, { ...fill(env), pc_booth_vitals: { systolic: 120 } }, NOW).status).toBe(
-      "incomplete",
     );
   });
 });

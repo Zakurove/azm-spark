@@ -72,7 +72,7 @@ export const SAFETY_SCREEN_IDS = [
   "S49",
 ] as const;
 export const RESULTS_SCREEN_IDS = ["S50", "S51", "S52"] as const;
-export const BOOTH_SCREEN_IDS = ["S55", "S55b", "S56", "S57", "S58"] as const;
+export const BOOTH_SCREEN_IDS = ["S55", "S55b", "S57", "S58"] as const;
 export const PROGRESS_SCREEN_IDS = ["S01", "S02", "S03", "S53", "S54"] as const;
 
 export type FlowScreenId = (typeof FLOW_SCREEN_IDS)[number];

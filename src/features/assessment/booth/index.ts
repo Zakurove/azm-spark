@@ -3,6 +3,8 @@
  * O15, O17, O18; S56, the staff vitals, was removed by D-016).
  *
  *   S55   BoothStaffPage       /?booth=1: the staff code, booth mode on, the visitor QR, offline, off
+ *         settings.ts          the staff settings of the device (D-016 item 4, F-1): tests off, the
+ *                              plane check fallback, the staff readout; booth mode only
  *   S55b  VisitorTokenPage     /?boothToken=: redeem the one check token; TokenEndedCard after it ends
  *   S57   BoothLayer           staff reset (badge press, shortcut) and idle reset over every screen;
  *         NewVisitorButton     S50; StaffCountCorrection on S34h; startNextVisitor

@@ -2124,7 +2124,7 @@ export function testsOff(d: Pick<FlowData, "config">): TestId[] {
 
 /** A booth start names the tests switched off, so the server freezes the same protocol. */
 function startOff(d: FlowData): { testsOff?: TestId[] } {
-  const off = d.setting === "booth" ? testsOff(d) : [];
+  const off = testsOff(d);
   return off.length ? { testsOff: off } : {};
 }
 
@@ -2338,7 +2338,7 @@ function withContext(m: FlowModel, c: SignedInContext): FlowModel {
   // The side lean only session asks the questions of its one test (server precheckEnv, Q12 (2)).
   const leanOnly = (d.config.session ?? "full") === "side_lean_only";
   // The tests switched off at the booth never appear (D-016 item 4); the start sends them too.
-  const off = setting === "booth" ? testsOff(d) : [];
+  const off = testsOff(d);
   const full = c.ctx ? baseSelection(c.ctx, setting, c.setup).filter((i) => !off.includes(i.testId)) : [];
   const base = leanOnly ? sideLeanOnly(full) : full;
   const env: PrecheckEnv | null = c.ctx

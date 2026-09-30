@@ -6395,7 +6395,7 @@
         ]
       },
       "status": "Estimates until the booth build is timed with the two H8 co-designers; the measured medians then replace them here and in S27.",
-      "target": "The F1 “under 10 minutes” target and the booth quick path are the product lead’s calls after booth day one, informed by that median (O40).",
+      "target": "Council F-2 (30 September 2026): the booth default is the one test path, which staff offer first; the full check stays optional and is never hidden. F1: a wheelchair user finishes the booth one test path, from the tap on S05 to the results (S50), in a median of 12 minutes or less, in Arabic and in English, with no rest, practice, attempt, side, answer or pre-check item cut; for both booth paths the measured median falls inside the range the app states on S05 and S27. Before the booth freeze a median above a stated range lengthens these estimates; it never shortens them (O40).",
       "replaces": "the fixed [8, 10] of v1.1"
     },
     "conditionNotes": {

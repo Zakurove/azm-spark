@@ -25,12 +25,19 @@ const LANGS: Lang[] = ["ar", "en"];
 // The alarm tone plays without a tap in these runs (a real phone primes it on the first tap, 4.6).
 test.use({ launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] } });
 
+/**
+ * Each context comes from its own address (X-Forwarded-For, read from the server's one trusted hop),
+ * so the accounts this spec makes never use up the sign up limit of the other specs' address.
+ */
+let address = 0;
 async function phone(browser: Browser, width: number, height: number): Promise<Page> {
+  address += 1;
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: 1,
     hasTouch: true,
     isMobile: true,
+    extraHTTPHeaders: { "x-forwarded-for": `198.19.${address % 250}.${1 + Math.floor(address / 250)}` },
   });
   return context.newPage();
 }
@@ -264,7 +271,8 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-screen="S43"]')).toHaveCount(0);
     });
 
-    test("the home check in names no answer box while the zones are not drawn", async ({ page }) => {
+    test("the home check in names no answer box while the zones are not drawn", async ({ browser }) => {
+      const page = await phone(browser, 1280, 720);
       await openSignedIn(page, lang, {
         state: MEASURE,
         overlay: { kind: "checkIn", from: "test", trigger: "sway", attempt: true },
@@ -279,6 +287,7 @@ for (const lang of LANGS) {
       await expect(checkIn.locator(".safety-checkin-cue")).not.toContainText(
         lang === "ar" ? "هل أنت بخير؟" : "Are you all right?",
       );
+      await page.context().close();
     });
   });
 }

@@ -37,9 +37,13 @@ type Size = (typeof SIZES)[number];
 
 test.use({ launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] } });
 
+/** Each context from its own address, so the accounts made here keep within the sign up limit. */
+let address = 0;
 async function newPage(browser: Browser, size: Size | { width: number; height: number; tag: string }) {
   const mobile = "mobile" in size ? size.mobile : true;
+  address += 1;
   const context = await browser.newContext({
+    extraHTTPHeaders: { "x-forwarded-for": `198.20.${address % 250}.${1 + Math.floor(address / 250)}` },
     viewport: { width: size.width, height: size.height },
     deviceScaleFactor: "scale" in size ? size.scale : 2,
     hasTouch: mobile,

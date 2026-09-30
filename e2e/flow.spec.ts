@@ -235,15 +235,23 @@ async function mockHome(
       },
       { fn, args },
     );
-  await page.route("**/api/assessments/context*", async (route: Route) =>
-    route.fulfill({ json: await build("contextResponse", [ctx, over]) }),
+  // The answers are built in the page. A request the page makes just before a test navigates away
+  // (Today's slot asks for the context after the check closes) loses its page while the answer is
+  // built; that request is gone with the page, so it is dropped instead of failing the test.
+  const answer = async (route: Route, fn: string, args: unknown[], status = 200) => {
+    const json = await build(fn, args).catch(() => undefined);
+    if (json === undefined) return route.abort().catch(() => undefined);
+    return route.fulfill({ status, json });
+  };
+  await page.route("**/api/assessments/context*", (route: Route) =>
+    answer(route, "contextResponse", [ctx, over]),
   );
   await page.route("**/api/consents", (route) => route.fulfill({ status: 201, json: { ok: true } }));
   await page.route("**/api/assessments", async (route) => {
     if (route.request().method() !== "POST") return route.fallback();
     const body = route.request().postDataJSON() as { answers: Record<string, unknown> };
     starts.push(body);
-    return route.fulfill({ status: 201, json: await build("startResponse", [ctx, body.answers]) });
+    return answer(route, "startResponse", [ctx, body.answers], 201);
   });
   await page.route("**/api/assessments/*/**", (route) =>
     route.request().method() === "POST" ? route.fulfill({ json: { saved: true } }) : route.fallback(),

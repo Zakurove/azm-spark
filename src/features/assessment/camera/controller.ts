@@ -1118,8 +1118,14 @@ export class CameraController {
       if (e.reasons.includes("camera_moved")) {
         // Map 2.12: a moved picture discards the attempt without using a retry (the range test sets
         // up and calibrates again); a timed trial is repeated once as a quality failure.
-        if (this.def.kind === "range_test") this.emit({ type: "PHONE_MOVED" }, t);
-        else this.emit({ type: "QUALITY_FAIL", issue: "phone_moved" }, t);
+        if (this.def.kind === "range_test") {
+          // The runner has discarded the attempt itself, with no retry used, and takes the
+          // calibration again in the new picture after its rest. Its copy from the last rest holds
+          // the calibration of the old picture: bringing it back on the setup check would read every
+          // later attempt as moved again (acceptance F-1).
+          this.snapshotRunner = null;
+          this.emit({ type: "PHONE_MOVED" }, t);
+        } else this.emit({ type: "QUALITY_FAIL", issue: "phone_moved" }, t);
         return;
       }
       this.emit({ type: "QUALITY_FAIL", issue: retryIssueOf(e.reasons) }, t);

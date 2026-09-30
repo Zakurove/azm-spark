@@ -334,6 +334,44 @@ describe("S34 pauses, STOP and check in triggers", () => {
   });
 });
 
+/**
+ * Map 2.12: a whole picture that moves during an attempt discards it without using a retry, goes back
+ * to the setup check, calibrates again in the new picture and repeats the same attempt number. With
+ * the real model the audit saw the flow loop setup, calibrate, practice, measure (acceptance F-1):
+ * the discarded attempt brought back the copy of the runner from before the move, with the old
+ * calibration, so every later attempt read the new picture as moved again.
+ */
+describe("map 2.12: the picture moves during a scored attempt", () => {
+  it("calibrates once in the new picture, then saves the side's three attempts", () => {
+    let shiftAt: number | null = null;
+    const moved = (t: number) => shiftAt !== null && t >= shiftAt;
+    const run = runFixture(atSetup("shoulder_abduction"), "abd-9x16", 240, {
+      stopWhen: (m) => !camKind(m),
+      after: (_ctrl, m, t) => {
+        // One second into the first scored attempt, the phone slides: every landmark moves the same.
+        if (shiftAt === null && m.state.kind === "cam.measure") shiftAt = t + 1000;
+      },
+      frames: (t, f) => {
+        if (!moved(t)) return f;
+        const shift = (p: (typeof f.lm)[number]) => ({ ...p, x: p.x + 0.08, y: p.y + 0.02 });
+        const poses = (f.poses ?? [f.lm]).map((pose) => pose.map(shift));
+        return { ...f, lm: poses[0], poses };
+      },
+    });
+    expect(shiftAt).not.toBeNull();
+    const phoneMoved = run.events.filter((e) => e.type === "PHONE_MOVED");
+    expect(phoneMoved).toHaveLength(1);
+    expect(run.events.filter((e) => e.type === "QUALITY_FAIL")).toHaveLength(0);
+    expect(run.events.filter((e) => e.type === "ATTEMPT_OK")).toHaveLength(3);
+    // The move used no retry: the value is there, with no quality retry counted.
+    const body = bodyOf(run.events)!;
+    expect(body.value).toBeGreaterThan(0);
+    expect(body.nValid).toBe(3);
+    expect(body.qualityRetries ?? 0).toBe(0);
+    expect(run.cues).toContain("check_phone_still");
+  });
+});
+
 describe("the fixtures of the browser flows", () => {
   it("every test kind has a camera script in both phone shapes", () => {
     for (const k of ["abd", "lean", "curl", "stand", "leave", "crowd"])

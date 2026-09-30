@@ -317,6 +317,32 @@ describe("the phone moves after the arm raise calibration (spec 4.1 trunk refere
   }
 });
 
+describe("a moved picture uses no retry (map 2.12)", () => {
+  it("three moves in three attempts still leave the side its three scored attempts", () => {
+    const starts = raiseStarts(12);
+    // Each jolt lands while the arm is up, in three attempts in a row (the one after each move).
+    const jolts = [2, 3, 4].map((k, n) => ({
+      at: starts[k] + 2,
+      dx: (n % 2 ? -0.03 : 0.03) * 0.5625,
+      dy: 0,
+    }));
+    const { fx, frames } = framesOf(
+      spec("shoulder_abduction", "chair", "9:16", raises("right", 150, starts), starts[11] + 12, 347, {
+        jolts,
+      }),
+    );
+    const r = run(new RangeTestRunner(ABD, "right"), frames, { rollDeg: 0 });
+    const out = r.side("right");
+    const moved = r.events.filter(
+      (e) => e.kind === "attempt" && e.outcome === "retry" && e.reasons.includes("camera_moved"),
+    );
+    expect(moved.length).toBeGreaterThanOrEqual(3);
+    expect(out.status).toBe("measured");
+    expect(out.nValid).toBe(3);
+    expect(Math.abs(out.value! - fx.truth.armPeakDeg.right)).toBeLessThanOrEqual(2);
+  });
+});
+
 /* ------------------------------------------------- a helper's hovering hand */
 
 describe("a helper's hand hovering close beside the shoulder (spec 4.3 helper rules)", () => {

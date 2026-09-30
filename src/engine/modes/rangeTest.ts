@@ -1005,6 +1005,16 @@ export class RangeTestRunner implements TestRunner {
       rec.reasons = a.wrongArm ? ["wrong_arm"] : a.cameraMoved ? ["camera_moved"] : [...q.issues];
       this.retried.push(rec);
       this.sink.push(this.attemptEvent(rec, t));
+      if (a.cameraMoved) {
+        // Map 2.12: a moved picture is not the person's quality failure and uses no retry. The
+        // calibration is taken again in the new picture after the rest, and the same attempt number
+        // follows.
+        this.sink.cue("check_phone_still", t);
+        this.recalAfterRest = true;
+        this.sink.cue("check_try_again", t);
+        this.rest(t, a.practice);
+        return;
+      }
       // SPEC-GAP: retry-budget. The wrong arm (and a wrong arm practice lift) uses the same 2 extra
       // attempts as a failed quality gate. Once they are used, the side is not measured today even
       // when earlier attempts were valid (the literal "then not measured today").
@@ -1015,11 +1025,7 @@ export class RangeTestRunner implements TestRunner {
         return;
       }
       this.retries++;
-      if (a.cameraMoved) {
-        // The calibration is taken again in the new picture before the next attempt.
-        this.sink.cue("check_phone_still", t);
-        this.recalAfterRest = true;
-      } else if (a.wrongArm) {
+      if (a.wrongArm) {
         // Name the arm to use (the other arm moved): "Now your left arm" or "Now your right arm".
         this.sink.cue(this.side === "left" ? "check_left_arm" : "check_right_arm", t);
       } else if (q.cue && q.cue !== "check_try_again") this.sink.cue(q.cue, t);

@@ -427,7 +427,8 @@
     "sameTitle": "Do you have the same one as last time?",
     "sameYes": "Yes, I have the same one",
     "sameNo": "I cannot use it today",
-    "newLine": "Today this arm will not be compared with its starting point, because the weight is different."
+    "newLine": "Today this arm will not be compared with its starting point, because the weight is different.",
+    "practiceRestLoad": "Rest what you are holding on your lap, then answer."
   },
   "primer": {
     "title": "Let’s turn on the camera",

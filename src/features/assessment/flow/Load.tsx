@@ -110,7 +110,19 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
   // the zone line (check_answer_zone) is not shown: the answers are taps. At the booth staff tap the
   // spoken answer (7.2-1), though the booth never asks this question (Q5).
   const zoneLine = booth ? t(lang, "assessment.test.answerBooth") : null;
-  useEntryLines(voice, [lang === "ar" ? { display: q.ar, speech: q.arTts } : { display: q.en }], true);
+  // R3C-18 (3): with a held load (a dumbbell or a bottle, not a wrist weight) the person first rests it
+  // on the lap: no loaded hold while answering, and no dropped weight.
+  const held = model.data.armCurl.load[side]?.kind;
+  const restLine =
+    held === "dumbbell" || held === "bottle" ? t(lang, "assessment.load.practiceRestLoad") : null;
+  useEntryLines(
+    voice,
+    [
+      ...(restLine ? [{ display: restLine }] : []),
+      lang === "ar" ? { display: q.ar, speech: q.arTts } : { display: q.en },
+    ],
+    true,
+  );
   const counter = useCounter(model);
   return (
     <main className="flow-practice" data-screen="S29" data-variant="practice">
@@ -143,6 +155,7 @@ function PracticeCheck({ model, dispatch }: ScreenProps) {
       {ui.caption && (
         <CaptionBar text={ui.caption.text} severity={ui.caption.severity} onReplay={ui.replayCaption} />
       )}
+      {restLine && <p className="flow-practice-line">{bidiText(lang, restLine)}</p>}
       <h1 id="flow-practice-q" className="flow-practice-question">
         {bidiText(lang, q[lang])}
       </h1>

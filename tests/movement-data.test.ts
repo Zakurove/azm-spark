@@ -574,6 +574,7 @@ describe("Arabic and English", () => {
     ".engine.speech.fineOnlyPhrases",
     ".engine.speech.notAnswers",
     ".engine.speech.notFineWords",
+    ".engine.speech.negators",
   ];
   const BILINGUAL = objects(D).filter(
     ({ path, obj }) => ("ar" in obj || "en" in obj || "arTts" in obj) && !NOT_TEXT.includes(path),

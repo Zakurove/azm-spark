@@ -750,26 +750,30 @@ export function noArmSignal(a: ArmAnswers): boolean {
 const FUNCTION_RANK: Record<ArmFunction, number> = { bend_hold: 0, bend_no_hold: 1, no_bend: 2 };
 
 /**
- * fineZoneSide (O34-1 (1)): the stronger arm, not the declared weaker side, not a limb loss side,
- * not a pc_arm_pain_side; for SCI the arm with the better pc_arm_function answer; on a tie, the
- * right. Null when both arms are lost.
+ * fineZoneSide (O34-1 (1), R3C-09): the stronger arm, not the declared weaker side, not a limb loss
+ * side, not a pc_arm_pain_side; for SCI the arm with the better pc_arm_function answer; on a tie, the
+ * right (the order: limb loss, weaker side, pain side, SCI arm function, then the right). It is never
+ * null while an arm can signal (noArmSignal false): when every arm is excluded, the side excluded only
+ * by pain, then the weaker side with pc_weak_lift yes, then the SCI arm with the better function, and
+ * the rehearsal (O34-1 (7)) decides whether the zone is reached.
  */
-// SPEC-GAP: fine-side-order. When the rules point to different arms (a weaker left and pain on the
-// right), they are applied in this order: limb loss, weaker side, pain side, SCI arm function, then
-// the right. Either way a zone the person cannot reach fails the rehearsal and a helper is needed.
 export function fineZoneSide(a: ArmAnswers): ArmSide | null {
   const pain = (s: ArmSide) => (a.painSides ?? []).some((p) => p === s || p === "both");
-  const key = (s: ArmSide) => [
-    a.limbLossArm === s ? 1 : 0,
-    a.weaker === s ? 1 : 0,
-    pain(s) ? 1 : 0,
-    a.armFunction?.[s] ? FUNCTION_RANK[a.armFunction[s]!] : 0,
-    s === "right" ? 0 : 1,
-  ];
-  const [l, r] = [key("left"), key("right")];
-  if (l[0] && r[0]) return null;
-  for (let i = 0; i < l.length; i++) if (l[i] !== r[i]) return l[i] < r[i] ? "left" : "right";
-  return "right";
+  // An arm that can signal at all: not lost, not no_bend, not the weaker arm that cannot lift.
+  const can = (s: ArmSide) =>
+    a.limbLossArm !== s && a.armFunction?.[s] !== "no_bend" && !(a.weaker === s && a.weakLift === "no");
+  const rank = (s: ArmSide) => (a.armFunction?.[s] ? FUNCTION_RANK[a.armFunction[s]!] : 0);
+  // Right first, so a tie keeps the right.
+  const best = (sides: ArmSide[]) =>
+    sides.length ? sides.reduce((b, s) => (rank(s) < rank(b) ? s : b)) : null;
+  const arms = (["right", "left"] as const).filter(can);
+  return (
+    best(arms.filter((s) => a.weaker !== s && !pain(s))) ??
+    best(arms.filter((s) => a.weaker !== s)) ??
+    best(arms.filter((s) => a.weaker === s && a.weakLift === "yes")) ??
+    best(arms.filter((s) => a.armFunction?.[s] !== undefined)) ??
+    best(arms)
+  );
 }
 
 /** FineSignalConfig (O33 (a)): fixed at protocol freeze and passed to the check in. */

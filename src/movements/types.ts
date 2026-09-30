@@ -320,6 +320,8 @@ export const AREA_IDS = [
   "back",
   "hip",
   "knee",
+  /** R3C-27: loads the chair stand. */
+  "ankle_foot",
 ] as const;
 export type AreaId = (typeof AREA_IDS)[number];
 export const SURGERY_AREA_IDS = [
@@ -332,7 +334,10 @@ export const SURGERY_AREA_IDS = [
   "spine",
   "hip",
   "knee",
+  "ankle_foot",
   "chest_belly",
+  /** R3C-27: an area the check cannot place, with the widest listed restriction. */
+  "other",
 ] as const;
 export type SurgeryAreaId = (typeof SURGERY_AREA_IDS)[number];
 
@@ -476,6 +481,8 @@ export interface SurgeryArea {
   usesArea?: AreaId;
   label?: Text;
   loads?: SurgeryLoad[];
+  /** Prose (Another area, R3C-27). */
+  rule?: string;
 }
 
 export interface EngineConfig {
@@ -508,6 +515,8 @@ export interface EngineConfig {
     fineOnlyPhrases: TextList;
     notAnswers: { ar: string[]; en: string[] };
     notFineWords: { ar: string[]; en: string[] };
+    /** R3C-12: whole word negators; in English any word ending in n't as well. */
+    negators: { ar: string[]; en: string[]; rule: string };
     rule: string;
   };
   /** Hands free answers from the chair (Q31 (5), phase 2). */
@@ -1027,8 +1036,10 @@ export interface TestVariant<V extends VariantId> {
   label: Text;
   /** Prose: when this variant applies. */
   when?: string;
-  /** Replaces step i (0 based) of the instruction card, with its speech form. */
-  stepsReplace?: Record<string, SpokenText>;
+  /** Replaces step i (0 based) of the instruction card, with its speech form (and a short form). */
+  stepsReplace?: Record<string, SpokenText & { short?: Text }>;
+  /** Prose: the arm cue of the camera part (one_arm_cross, R3C-26). */
+  armCue?: string;
 }
 /** A line on the instruction card (S28) with the safety notes, shown when its condition holds. */
 export interface CardNote<
@@ -1268,6 +1279,9 @@ export interface TrunkControlDef extends TestDefBase<"trunk_control_seated", "tr
 }
 
 export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_count"> {
+  /** At the booth the steps start at this step, the phone step (R3C-33). */
+  boothStepsFrom: number;
+  boothStepsRule: string;
   cameraAngleDeg: number;
   viewNote: string;
   durationSec: number;

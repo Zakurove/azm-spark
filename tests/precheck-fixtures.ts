@@ -70,17 +70,23 @@ export function ctxOf(p: Partial<CheckContext> = {}): CheckContext {
   };
 }
 
+/**
+ * A pre-check environment as the server builds it: completedBefore follows firstCheck unless given
+ * (the server always passes it, R3C-30 (1); a missing value asks pc_sci_ad_since).
+ */
 export function envOf(ctx: Partial<CheckContext> = {}, over: Partial<PrecheckEnv> = {}): PrecheckEnv {
   const c = ctxOf(ctx);
   const setting = over.setting ?? "home";
+  const firstCheck = over.firstCheck ?? true;
   return {
     setting,
     ctx: c,
     setup: null,
-    firstCheck: true,
+    firstCheck,
     unresolvedChangeReported: false,
     lastCheckLasting: false,
     baseTests: baseTestsFor(c, setting),
+    completedBefore: !firstCheck,
     ...over,
   };
 }

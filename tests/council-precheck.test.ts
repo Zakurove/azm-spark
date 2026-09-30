@@ -957,8 +957,8 @@ describe("Q31 (4) and O5: a spoken check in answer", () => {
     ["I'm fine, no problem", "en", "not_fine"],
     ["help", "en", "not_fine"],
     ["helpful", "en", "no_answer"],
-    // A negated fine phrase is never fine (SPEC-GAP speech-negation): a false fine is the one
-    // dangerous error (O5), so it reads as not fine.
+    // A negated fine phrase is never fine (R3C-12): a false fine is the one dangerous error (O5), so it
+    // reads as not fine.
     ["لست بخير", "ar", "not_fine"],
     ["لستُ بخير", "ar", "not_fine"],
     ["أنا لست بخير", "ar", "not_fine"],
@@ -971,7 +971,8 @@ describe("Q31 (4) and O5: a spoken check in answer", () => {
     ["مانيش بخير", "ar", "not_fine"],
     ["غير بخير", "ar", "not_fine"],
     ["أنا مو طيب", "ar", "not_fine"],
-    ["ما شاء الله، أنا بخير", "ar", "fine"],
+    // R3C-12: a negator anywhere in the utterance («ما») reads as not fine, the safe error.
+    ["ما شاء الله، أنا بخير", "ar", "not_fine"],
     ["I'm not fine", "en", "not_fine"],
     ["I am not OK", "en", "not_fine"],
     ["I’m not OK", "en", "not_fine"],

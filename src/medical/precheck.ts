@@ -109,9 +109,9 @@ export interface PrecheckEnv {
   /**
    * The person has a completed check in any setting (booth or home). `firstCheck` is per series, so
    * it is true at the first home check after booth checks; pc_sci_ad_since ("since your last check")
-   * is a safety question and is asked whenever there was a last check in any setting.
+   * is a safety question and is asked whenever there was a last check in any setting. The server
+   * always passes it; missing means not known, and the question is then asked (R3C-30 (1)).
    */
-  // SPEC-GAP: ad-since-any-setting. Missing means not known, and then only !firstCheck shows it.
   completedBefore?: boolean;
   /**
    * A faint stop stored faintReported (date only) and no pc_faint_since answer has cleared it yet:
@@ -535,23 +535,27 @@ function raiseAllowed(st: State): boolean {
 }
 
 /**
- * The arm of the phase 2 fine zone (O34-1 (1)): the stronger arm, never the declared weaker side, a
- * limb loss side or a pc_arm_pain_side; for SCI the arm with the better pc_arm_function answer; on a
- * tie the right.
+ * The arm of the phase 2 fine zone (O34-1 (1), R3C-09): the stronger arm, never the declared weaker
+ * side, a limb loss side or a pc_arm_pain_side; for SCI the arm with the better pc_arm_function
+ * answer; on a tie the right. At home it is never null while an arm can signal (noArmSignal false):
+ * when every arm is excluded, the side excluded only by pain, then the weaker side with pc_weak_lift
+ * yes, then the SCI arm with the better pc_arm_function; the rehearsal (O34-1 (7)) decides reach, and
+ * two failures set noArmSignal with the helper path (O34-2).
  */
-// SPEC-GAP: fine-zone-no-side. When every arm is ruled out (for example a weaker left arm and pain in
-// the right), there is no fine zone (null): fine then comes from the button or the phrase only.
 function fineZoneSide(st: State): Side | null {
   const pain = painSides(st) ?? [];
-  const lost = limbArm(st);
   const weaker = st.env.ctx.support === "none" ? undefined : st.env.ctx.support;
-  const ok = (["right", "left"] as const).filter(
-    (s) => s !== lost && s !== weaker && !pain.includes(s) && armFunction(st, s) !== "no_bend",
-  );
-  if (ok.length === 0) return null;
   const rank = (s: Side) => ARM_FUNCTION_RANK[armFunction(st, s) ?? "bend_hold"] ?? 2;
   // Right first, so a tie keeps the right.
-  return ok.reduce((best, s) => (rank(s) > rank(best) ? s : best));
+  const best = (sides: Side[]) => (sides.length ? sides.reduce((b, s) => (rank(s) > rank(b) ? s : b)) : null);
+  const arms = (["right", "left"] as const).filter((s) => !armWithoutSignal(st, s));
+  return (
+    best(arms.filter((s) => s !== weaker && !pain.includes(s))) ??
+    best(arms.filter((s) => s !== weaker)) ??
+    best(arms.filter((s) => s === weaker && value(st, "pc_weak_lift") === "yes")) ??
+    best(arms.filter((s) => armFunction(st, s) !== undefined)) ??
+    best(arms)
+  );
 }
 
 /** painNow for the rules and for storage: raised to the highest area score (spec 2.1). */
@@ -600,7 +604,8 @@ const SHOW_IF: ShowIfEvaluators = {
   supportNot: (s, c) => c.env.ctx.support !== s,
   conditionsAny: (ids, c) => has(c.env.ctx.conditions, ids),
   flag: (f, c) => c.flag(f),
-  notFirstCheck: (_, c) => !c.env.firstCheck || c.env.completedBefore === true,
+  // R3C-30 (1): completedBefore missing is the safe reading, a check before (pc_sci_ad_since asked).
+  notFirstCheck: (_, c) => !c.env.firstCheck || c.env.completedBefore !== false,
   testSelected: (t, c) => c.env.baseTests.includes(t),
   positionIn: (ps, c) => ps.includes(c.env.ctx.position),
   setting: (s, c) => c.env.setting === s,
@@ -836,12 +841,12 @@ interface Match {
 }
 
 /**
- * The tests an area outside the lists loads: the chair stand, the one test that bears weight on the
- * legs and feet (every arm, back, hip and trunk area is listed).
+ * A yes with no listed area (from stored or resumed answers): an area the check cannot place, not
+ * cleared (no clearance is asked for it). After a recent surgery it takes the Another area set, the
+ * widest listed restriction (R3C-27 (3)); after a flare the weight bearing test is skipped with the
+ * question's reason (R3C-27 (4)).
  */
-// SPEC-GAP: unlisted-area. The spec maps only the listed areas to tests. Yes with no listed area is
-// read as an area the check cannot place and that is not cleared (no clearance is asked for it), so
-// the weight bearing test is skipped with the question's reason. For sign-off.
+const UNLISTED_SURGERY_AREA: SurgeryAreaId = "other";
 const UNLISTED_AREA_LOADS: readonly TestId[] = ["chair_stand_30s"];
 
 const skipKey = (test: TestId, side: TestSide) => `${test}|${side}`;
@@ -950,7 +955,8 @@ function applySkipTargets(st: State, d: Day, targets: TestTargets, reason: Reaso
   } else if (targets === "surgeryArea.loads" || targets === "area.loads") {
     const surgery = targets === "surgeryArea.loads";
     for (const a of (surgery ? m.surgeryAreas : m.areas) ?? []) applyAreaLoads(st, d, a, surgery, reason);
-    if (m.unlisted)
+    if (m.unlisted && surgery) applyAreaLoads(st, d, UNLISTED_SURGERY_AREA, true, reason);
+    else if (m.unlisted)
       for (const t of UNLISTED_AREA_LOADS) for (const s of sidesOf(t)) skip(st, d, t, s, reason);
   } else if (targets === "the test the question was asked for") {
     if (m.test) for (const s of sidesOf(m.test)) skip(st, d, m.test, s, reason);
@@ -1038,7 +1044,7 @@ function matchesOf(st: State, item: PrecheckItem, cond: ActionIf): Match[] {
       if (!scalarHolds(cond, value(st, item.id))) return [];
       const areas = value(st, questionId(item.id, "areas"));
       const list = Array.isArray(areas) ? areas : [];
-      // Yes with none of the listed areas chosen: see UNLISTED_AREA_LOADS.
+      // Yes with none of the listed areas chosen: see UNLISTED_SURGERY_AREA.
       if (list.length === 0) return Array.isArray(areas) ? [{ unlisted: true }] : [];
       if (cond.clearedNot !== undefined) {
         // An area whose clearance is not answered counts as not cleared.
@@ -2213,44 +2219,33 @@ function containsPhrase(tokens: readonly string[], phrase: readonly string[]): b
   return false;
 }
 
-/**
- * Negators that turn a phrase of well being into its opposite when they stand right before it or
- * inside it («لست بخير», «ما أنا بخير», «أنا مو بخير», “I'm not fine”).
- */
-// SPEC-GAP: speech-negation. engine.speech has no negators, and the bare «بخير» is a fine phrase, so
-// «مو بخير» read as fine. These lists are sent to the data owner for notFineWords; until then a
-// negated fine phrase reads as not fine (a false fine is the one dangerous error, O5).
-const NEGATORS: Record<Lang, readonly string[]> = {
-  ar: [
-    "لست",
-    "لسنا",
-    "ما",
-    "مو",
-    "مب",
-    "موب",
-    "مهوب",
-    "مش",
-    "مهو",
-    "غير",
-    "ماني",
-    "مانيش",
-    "مني",
-    "ليس",
-    "مانا",
-  ],
-  en: ["not", "never"],
-};
-
+/** A whole word negator of the data (engine.speech.negators); in English any word ending in n't too. */
 const isNegator = (token: string, lang: Lang) =>
-  NEGATORS[lang].includes(token) || (lang === "en" && /n't$|n’t$/.test(token));
+  SPEECH.negators[lang].some((w) => words(w)[0] === token) || (lang === "en" && /n't$|n’t$/.test(token));
+
+/**
+ * A spoken check in answer, where speech recognition runs on the device itself (Q31 (4), O5), read on
+ * the whole utterance (R3C-12): whole words only; any not fine word anywhere wins and opens
+ * scr_emergency ("not_fine"); a fine phrase counts as fine only when the utterance has no negator
+ * anywhere, so «مو بخير», «ما أنا بخير» and “I'm not fine” read as not fine, and so does «لا لا أنا
+ * بخير» (the safe error: the tone sounds and a tap ends it); a bare yes word, الحمد لله alone or
+ * unclear speech is no answer, so the check in cue plays once more and the no response timer keeps
+ * running.
+ */
+export function spokenCheckInAnswer(utterance: string, lang: Lang): "fine" | "not_fine" | "no_answer" {
+  const tokens = words(utterance ?? "");
+  if (SPEECH.notFineWords[lang].some((w) => containsPhrase(tokens, words(w)))) return "not_fine";
+  const fine = SPEECH.fineOnlyPhrases[lang].map((p) => words(p));
+  // A fine phrase with a negator inside it («أنا مو طيب», “I am not OK”) is a negated fine phrase.
+  if (fine.some((p) => negatedPhrase(tokens, p, lang))) return "not_fine";
+  if (!fine.some((p) => containsPhrase(tokens, p))) return "no_answer";
+  return tokens.some((t) => isNegator(t, lang)) ? "not_fine" : "fine";
+}
 
 /** The phrase occurs with a negator right before it or between its words. */
 function negatedPhrase(tokens: readonly string[], phrase: readonly string[], lang: Lang): boolean {
-  if (phrase.length === 0) return false;
   for (let i = 0; i < tokens.length; i++) {
-    // A negator right before the whole phrase.
     if (isNegator(tokens[i], lang) && phrase.every((w, k) => tokens[i + 1 + k] === w)) return true;
-    // A negator after the first k words of the phrase and before the rest.
     for (let k = 1; k < phrase.length; k++) {
       if (!phrase.slice(0, k).every((w, j) => tokens[i + j] === w)) continue;
       if (!isNegator(tokens[i + k] ?? "", lang)) continue;
@@ -2258,22 +2253,6 @@ function negatedPhrase(tokens: readonly string[], phrase: readonly string[], lan
     }
   }
   return false;
-}
-
-/**
- * A spoken check in answer, where speech recognition runs on the device itself (Q31 (4), O5):
- * whole words only; any not fine word anywhere wins and opens scr_emergency ("not_fine"), and so does
- * a negated phrase of well being; fine only as a phrase of well being ("fine"); a bare yes word,
- * الحمد لله alone or unclear speech is no answer, so the check in cue plays once more and the no
- * response timer keeps running.
- */
-export function spokenCheckInAnswer(utterance: string, lang: Lang): "fine" | "not_fine" | "no_answer" {
-  const tokens = words(utterance ?? "");
-  if (SPEECH.notFineWords[lang].some((w) => containsPhrase(tokens, words(w)))) return "not_fine";
-  const fine = SPEECH.fineOnlyPhrases[lang].map((p) => words(p));
-  if (fine.some((p) => negatedPhrase(tokens, p, lang))) return "not_fine";
-  if (fine.some((p) => containsPhrase(tokens, p))) return "fine";
-  return "no_answer";
 }
 
 /* ------------------------------------------------------------ data checks */

@@ -269,6 +269,19 @@
           "side": "none"
         }
       ]
+    },
+    {
+      "id": "ankle_foot",
+      "label": {
+        "ar": "الكاحل أو القدم",
+        "en": "Ankle or foot"
+      },
+      "loads": [
+        {
+          "test": "chair_stand_30s",
+          "side": "none"
+        }
+      ]
     }
   ],
   "surgeryAreas": [
@@ -313,6 +326,10 @@
       "usesArea": "knee"
     },
     {
+      "id": "ankle_foot",
+      "usesArea": "ankle_foot"
+    },
+    {
       "id": "chest_belly",
       "label": {
         "ar": "الصدر أو البطن",
@@ -335,6 +352,31 @@
           "action": "skip"
         }
       ]
+    },
+    {
+      "id": "other",
+      "label": {
+        "ar": "منطقة أخرى",
+        "en": "Another area"
+      },
+      "loads": [
+        {
+          "test": "arm_curl_30s",
+          "side": "each",
+          "variant": "arm_only"
+        },
+        {
+          "test": "chair_stand_30s",
+          "side": "none",
+          "action": "skip"
+        },
+        {
+          "test": "trunk_control_seated",
+          "side": "each",
+          "action": "skip"
+        }
+      ],
+      "rule": "An area the check cannot place takes the widest listed restriction, the chest_belly load set (R3C-27); its clearance question is asked as for every area. A yes to pc_surgery_recent with no listed area applies the same set."
     }
   ],
   "engine": {
@@ -421,14 +463,44 @@
           "ساعدني",
           "ساعدوني",
           "الحقوني",
-          "إسعاف"
+          "إسعاف",
+          "مو بخير",
+          "ما أنا بخير"
         ],
         "en": [
           "no",
-          "help"
+          "help",
+          "I’m not fine",
+          "not fine"
         ]
       },
-      "rule": "A not fine word anywhere in the utterance wins over a fine word and opens scr_emergency (for example «نعم، ساعدني»). A bare yes word, الحمد لله on its own, or unclear speech counts as no answer: the check in cue plays once more and the no response timer keeps running. Speech is off at the booth (O5). At home, where spoken answers are on, the check in plays check_are_you_ok_zone_speech (or check_are_you_ok_fall_speech and check_are_you_ok_fall_noraise_speech in the fall watch), which names the phrase to say; where they are off, the zone form, the helper form or the fall watch form (stopRouting.checkIn.cueSelection; O34-4 (4)). The phrase never replaces a helper required by noArmSignal (O34-2 (6))."
+      "negators": {
+        "ar": [
+          "لا",
+          "لست",
+          "لسنا",
+          "ما",
+          "مو",
+          "مب",
+          "موب",
+          "مهوب",
+          "مش",
+          "مهو",
+          "غير",
+          "ماني",
+          "مانيش",
+          "مني",
+          "ليس",
+          "مانا"
+        ],
+        "en": [
+          "not",
+          "never",
+          "no"
+        ],
+        "rule": "Whole words. In English any word ending in n't is a negator as well. The Arabic seat completes the Saudi forms (R3C-12)."
+      },
+      "rule": "A spoken answer counts as fine only when it contains a fine phrase and has no negator and no not fine word anywhere in the utterance (R3C-12, whole utterance). A not fine word anywhere wins over a fine word and opens scr_emergency (for example «نعم، ساعدني»); a negated fine phrase («مو بخير», «ما أنا بخير», “I’m not fine”) is a not fine word. «لا لا أنا بخير» therefore reads as not fine, the safe error: the tone sounds and a tap ends it. A bare yes word, الحمد لله on its own, or unclear speech counts as no answer: the check in cue plays once more and the no response timer keeps running. Speech is off at the booth (O5). At home, where spoken answers are on, the check in plays check_are_you_ok_zone_speech (or check_are_you_ok_fall_speech and check_are_you_ok_fall_noraise_speech in the fall watch), which names the phrase to say; where they are off, the zone form, the helper form or the fall watch form (stopRouting.checkIn.cueSelection; O34-4 (4)). The phrase never replaces a helper required by noArmSignal (O34-2 (6))."
     },
     "answerZones": {
       "appliesTo": [
@@ -5046,9 +5118,14 @@
             "4": {
               "ar": "ضع يدك على الكتف المقابل، وأبقِ ذراعك الأخرى، أو طرفك الصناعي إن كنت ترتديه، قريبة من صدرك.",
               "en": "Place your hand on the opposite shoulder. Keep your other arm, or your prosthesis if you wear one, close to your chest.",
-              "arTts": "ضَعْ يَدَكَ عَلَى الْكَتِفِ الْمُقَابِلْ، وَأَبْقِ ذِرَاعَكَ الْأُخْرَى، أَوْ طَرَفَكَ الصِّنَاعِيَّ إِنْ كُنْتَ تَرْتَدِيهْ، قَرِيبَةً مِنْ صَدْرِكْ."
+              "arTts": "ضَعْ يَدَكَ عَلَى الْكَتِفِ الْمُقَابِلْ، وَأَبْقِ ذِرَاعَكَ الْأُخْرَى، أَوْ طَرَفَكَ الصِّنَاعِيَّ إِنْ كُنْتَ تَرْتَدِيهْ، قَرِيبَةً مِنْ صَدْرِكْ.",
+              "short": {
+                "ar": "يد على الكتف",
+                "en": "Hand on your shoulder"
+              }
             }
-          }
+          },
+          "armCue": "Where test_stand_arms_cross would play, the camera part plays this variant's step line (stepsReplace 4, display and arTts): spoken only once Nasser approves it by ear (voicePending), captioned until then with its short form (R3C-26). The short form is proposed by the UI/UX seat; the Arabic seat confirms it."
         }
       ],
       "variantRules": [
@@ -5343,6 +5420,8 @@
           "بَعْدَ ذَلِكْ، اِبْقَ جَالِسًا دَقِيقَةْ، ثُمَّ انْهَضْ بِبُطْءْ."
         ]
       },
+      "boothStepsFrom": 2,
+      "boothStepsRule": "At the booth the steps start at the phone step (the booth line), leaving out the two home setup steps: staff set up the chair and the support in front before each chair stand, as the booth staff brief and the S58 staff setup tips say (R3C-33).",
       "safety": {
         "ar": [
           "أجرِ هذا الاختبار فقط إذا كنت تشعر بالثبات اليوم.",
@@ -6559,7 +6638,9 @@
       "check in cues by setting, the fine rehearsal, the fall watch cues, the two end cues, the pause and hold cues and check_answer_zone (O24-3, O24-4, O34-1, O34-2, O34-4, O42). New ids (11): check_time_up_stand, check_time_up_curl, check_are_you_ok_noraise, check_are_you_ok_zone, check_are_you_ok_zone_speech, check_are_you_ok_helper, check_are_you_ok_fall, check_are_you_ok_fall_speech, check_are_you_ok_fall_noraise, check_are_you_ok_fall_noraise_speech, check_fine_practice. Reworded: check_are_you_ok, check_answer_zone, test_trunk_pause, test_abd_hold · done in the data owner additions (2026-09-28)",
       "helperBriefing.checkInLine, the pc_urgent and ec_symptoms chronic line, the arm curl and chair stand card lines, and the AD card lead (pending its medical confirmation) · done in the data owner additions (2026-09-28)",
       "spoken instruction steps and safety notes of the four tests (O24-7): tests.<id>.steps.arTts, variants[].stepsReplace.<n>.arTts, safety.arTts · done in the data owner additions (2026-09-28); the exercise physiologist checks them, and they go through the Q18 (6) testing before home opens",
-      "ec_symptoms, its ask and both side forms (S49, O37), and the O45 examples of pc_change and pc_unwell (heading, ask, askFirstCheck and list), read by Listen with the question: endOfCheck.ec_symptoms.ask.arTts, askSide.arTtsBySide, sideTokens.*.arTts, precheck.pc_change.examples.*.arTts, precheck.pc_unwell.examples.*.arTts · done in the review fixes of the data owner additions (2026-09-28)"
+      "ec_symptoms, its ask and both side forms (S49, O37), and the O45 examples of pc_change and pc_unwell (heading, ask, askFirstCheck and list), read by Listen with the question: endOfCheck.ec_symptoms.ask.arTts, askSide.arTtsBySide, sideTokens.*.arTts, precheck.pc_change.examples.*.arTts, precheck.pc_unwell.examples.*.arTts · done in the review fixes of the data owner additions (2026-09-28)",
+      "tests.chair_stand_30s.variants.one_arm_cross.stepsReplace.4: the arm position line spoken in the camera part in place of test_stand_arms_cross (R3C-26); Nasser approves it by ear before it is spoken; until then it is shown only",
+      "assessment.retry.touchedHelper and assessment.load.practiceRestLoad: interface lines spoken with the device voice until a recording is approved by ear (R3C-24, R3C-18); the Arabic seat writes their arTts"
     ],
     "copyPass": "Arabic copy pass of 2026-09-28: every pending speech line above is written or confirmed (arTts on screens.scr_helper_brief_stand, screens.scr_helper_brief_trunk, pc_sci_ready ask, list and options, bt_pain_after ask and options, tests.trunk_control_seated.metric.contactAsk, tests.chair_stand_30s.pushedAsk, tests.arm_curl_30s.load.practiceCheck, engine.coachingTrunkStop.cue; check_faint_loc confirmed). check_are_you_ok_speech, confirmed in that pass, was retired afterwards (O34-4 (4)) and is never generated. Nasser still approves the regenerated Arabic voice by ear before release.",
     "ttsConvention": "arTts is fully vocalised and matches the display text word for word (numbers spelled out). Every word before a pause (comma, full stop, question mark) takes its pausal form: sukun on the last letter (also on ة), tanween fath with alif kept as written, a final long vowel or shadda left as is. A word that starts a breath group after a comma carries the vowel of its hamzat al wasl (اِرْفَعْ). A quoted phrase in the display text («أنا بخير») is spoken with a short pause on each side, written as a comma in arTts, and the word before the pause takes its pausal form; a question mark or full stop inside quotation marks is not a sentence end. The UI splits the display text and its arTts at the same full stops and question marks outside quotation marks; a split never falls inside a sentence, and a sentence naming 997 is never truncated in the caption. A build lint checks that the arTts sentence count equals the display sentence count for every text and fails the build on a mismatch, which goes back to the Arabic seat; a mismatch that reaches runtime plays the line whole with no highlight (7.2-12). Codes are spoken as letters and numbers (T6: تِي سِتَّةْ).",

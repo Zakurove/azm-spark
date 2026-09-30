@@ -1421,13 +1421,13 @@ describe("the AD question before an early postpone (spec 2.1 actions, 2.2 pc_sci
   });
 });
 
-describe("a recent surgery or a flare outside the listed areas (spec 2.2, SPEC-GAP unlisted-area)", () => {
-  it("skips the chair stand when surgery is yes and no listed area is chosen", () => {
+describe("a recent surgery or a flare outside the listed areas (spec 2.2, R3C-27)", () => {
+  it("takes the Another area set when surgery is yes and no listed area is chosen", () => {
     const env = standing();
     const o = run(env, { pc_surgery_recent: "yes", "pc_surgery_recent:areas": [] });
     expect(o.status).toBe("proceed");
     expect(skipOf(o, "chair_stand_30s", "none")).toBe("recent_surgery");
-    // The arm tests do not load an unlisted area.
+    // The arm raise is not loaded; the arm curl runs arm_only on both arms (the chest_belly set).
     expect(skipOf(o, "shoulder_abduction", "left")).toBeUndefined();
     expect(skipOf(o, "arm_curl_30s", "right")).toBeUndefined();
   });
@@ -1438,10 +1438,13 @@ describe("a recent surgery or a flare outside the listed areas (spec 2.2, SPEC-G
     expect(skipOf(o, "chair_stand_30s", "none")).toBe("flare");
   });
 
-  it("changes nothing for a seated person, whose check has no chair stand", () => {
+  it("skips the side lean of a seated person, whose check has no chair stand (the Another area set)", () => {
     const o = run(envOf(), { pc_surgery_recent: "yes", "pc_surgery_recent:areas": [] });
     expect(o.status).toBe("proceed");
-    expect(o.skips).toEqual([]);
+    expect(o.skips.map((k) => `${k.testId}:${k.side}:${k.reason}`).sort()).toEqual([
+      "trunk_control_seated:left:recent_surgery",
+      "trunk_control_seated:right:recent_surgery",
+    ]);
   });
 });
 

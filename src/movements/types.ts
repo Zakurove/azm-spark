@@ -1023,6 +1023,9 @@ export interface ShoulderAbductionDef extends TestDefBase<"shoulder_abduction", 
     trunkLeanInvalidDeg: number;
     planeCheck: string;
     upperArmLengthMinRatio: number;
+    /** Council F-1 outcome W: the ratio booth staff may switch the plane check to (never at home). */
+    upperArmLengthMinRatioBoothFallback: number;
+    boothFallback: string;
     shoulderWidthShrinkInvalid: number;
     elbowFlagBelowDeg: number;
     attemptSpreadFlagDeg: number;

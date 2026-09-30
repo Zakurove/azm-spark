@@ -3571,6 +3571,8 @@
         "trunkLeanInvalidDeg": 10,
         "planeCheck": "see metric.planeCheck",
         "upperArmLengthMinRatio": 0.85,
+        "upperArmLengthMinRatioBoothFallback": 0.75,
+        "boothFallback": "Council F-1 (outcome W) and D-016 item 4: at the booth only, staff may switch the plane check to upperArmLengthMinRatioBoothFallback in place of upperArmLengthMinRatio (booth staff settings, off by default, never at home). The ratio that measured is stored with each arm raise result as detail.planeRatio. 0.75 is the floor F-1 set; the plane check never uses a lower ratio.",
         "shoulderWidthShrinkInvalid": 0.15,
         "elbowFlagBelowDeg": 150,
         "attemptSpreadFlagDeg": 15,

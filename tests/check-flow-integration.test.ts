@@ -341,6 +341,23 @@ describe("the guest check in, the context and the safety source", () => {
     expect(back.data.armCurl).toEqual({ grip: {}, load: {} });
     expect(back.data.protocol).toEqual(plan.data.protocol);
   });
+
+  it("a snapshot saved before D-016 drops the old check in inputs and the S44 and S45 overlays", () => {
+    const plan = signedPlan();
+    const legacy = {
+      ...plan,
+      overlay: { kind: "alarm", from: "test" },
+      data: { ...plan.data, checkIn: { raiseAllowed: true, noArmSignal: false, fineZoneSide: "right" } },
+    } as unknown as FlowModel;
+    const back = restoredModel(legacy);
+    expect(back.data.checkIn).toBe(false);
+    expect(back.overlay).toBeNull();
+    const goOn = restoredModel({ ...plan, overlay: { kind: "goOn" } } as unknown as FlowModel);
+    expect(goOn.overlay).toBeNull();
+    // Current snapshots keep what they hold.
+    const on = { ...plan, overlay: { kind: "checkIn" }, data: { ...plan.data, checkIn: true } } as FlowModel;
+    expect(restoredModel(on)).toMatchObject({ overlay: { kind: "checkIn" }, data: { checkIn: true } });
+  });
 });
 
 /** A signed in first check at home for a person in the given position, at its plan. */

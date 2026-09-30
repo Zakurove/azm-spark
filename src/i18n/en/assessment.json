@@ -275,7 +275,7 @@
     "illustrationAlt": "A person sitting on a chair, with a phone standing about two meters in front of them.",
     "start": "Start the questions",
     "welcomeBack": "Welcome back. We will compare the results of this check with your starting point.",
-    "howToStop": "If you want to stop during a test, sit down if you are standing, lower your arms and stay still. After a few moments we will ask whether you are all right, and you can answer from where you are.",
+    "howToStop": "If you want to stop during a test, sit down if you are standing, lower your arms, then tap Stop on the screen.",
     "allSeated": "All the tests in your check are done sitting.",
     "duration": "Today’s check takes about {minutesFrom} to {minutesTo} {unit}.",
     "need": {

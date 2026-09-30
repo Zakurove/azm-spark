@@ -660,13 +660,19 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
   };
 }
 
+/** The overlays this build knows: an older snapshot's S44 or S45 (removed by D-016) is dropped. */
+const OVERLAY_KINDS: ReadonlySet<string> = new Set(["leave", "skipDialog", "stopList", "checkIn"]);
+
 /**
  * A model restored from a reload snapshot: fields added after it was saved get their empty values,
- * so an older snapshot never breaks the flow.
+ * so an older snapshot never breaks the flow. The check in is the boolean setting of D-016 (an older
+ * snapshot held its inputs there), never on at the booth.
  */
 export function restoredModel(m: FlowModel): FlowModel {
   const fresh = emptyData(m.data.config, m.data.device);
-  return { ...m, data: { ...fresh, ...m.data } };
+  const data: FlowData = { ...fresh, ...m.data, checkIn: m.data.checkIn === true && !m.data.config.booth };
+  const overlay = m.overlay && OVERLAY_KINDS.has(m.overlay.kind) ? m.overlay : null;
+  return { ...m, overlay, data };
 }
 
 /* ================================================================ selectors */

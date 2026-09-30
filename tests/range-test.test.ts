@@ -210,6 +210,61 @@ describe("validity rules (spec 4.1)", () => {
     }
   });
 
+  it("measures with the plane check ratio of its definition and stores it (F-1 booth fallback)", () => {
+    // A lift forward of the side that the standard 0.85 refuses and the fallback 0.75 accepts.
+    const { frames } = abd("chair", "9:16", raises("right", 130, FOUR, 50), 259);
+    const strict = measure(frames, "right").res;
+    expect(strict.nValid).toBe(0);
+    for (const a of strict.attempts)
+      expect(a.reasons.some((r) => r === "plane_flexion" || r === "plane_unconfirmed")).toBe(true);
+    const fallback = { ...DEF, validity: { ...DEF.validity, upperArmLengthMinRatio: 0.75 } };
+    const res = run(new RangeTestRunner(fallback, "right"), frames, { rollDeg: 0 }).side("right");
+    expect(res.nValid).toBe(3);
+    expect(res.detail.planeRatio).toBe(0.75);
+    // The standard rule is stored the same way.
+    const clean = measure(abd("chair", "9:16", raises("right", 130, FOUR), 260).frames, "right").res;
+    expect(clean.detail.planeRatio).toBe(0.85);
+  });
+
+  it("reads out the plane check live for the staff readout (F-1), and only during a lift", () => {
+    const readouts = (frames: ReturnType<typeof abd>["frames"], def = DEF) => {
+      const r = new RangeTestRunner(def, "right");
+      r.start(frames[0].t);
+      const seen: NonNullable<ReturnType<RangeTestRunner["readout"]>>[] = [];
+      let idle = 0;
+      for (const f of frames) {
+        r.feed(f, { rollDeg: 0 });
+        const x = r.readout();
+        if (x) seen.push(x);
+        else idle++;
+      }
+      return { seen, idle };
+    };
+    const side = readouts(abd("chair", "9:16", raises("right", 130, FOUR), 261).frames);
+    // Nothing between lifts (calibration, rests).
+    expect(side.idle).toBeGreaterThan(0);
+    expect(side.seen.length).toBeGreaterThan(0);
+    for (const x of side.seen) {
+      expect(x.min).toBe(0.85);
+      expect(x.needSec).toBe(RANGE_RULES.planeMinSec);
+    }
+    // The quality gate and the frame rate of the lift so far: a clean lift ends with no issue.
+    const end = side.seen[side.seen.length - 1];
+    expect(end.issues).toEqual([]);
+    expect(end.fps).toBeGreaterThan(10);
+    // A lift to the side passes in the window; a lift forward of the side fails there.
+    const inWindow = (xs: typeof side.seen) => xs.filter((x) => x.plane !== "outside");
+    expect(inWindow(side.seen).every((x) => x.plane === "pass" && x.ratio! >= 0.85)).toBe(true);
+    expect(Math.max(...side.seen.map((x) => x.okSec))).toBeGreaterThanOrEqual(RANGE_RULES.planeMinSec);
+    const forward = readouts(abd("chair", "9:16", raises("right", 130, FOUR, 50), 259).frames);
+    expect(inWindow(forward.seen).some((x) => x.plane === "fail" && x.ratio! < 0.85)).toBe(true);
+    // The fallback reads against its own rule.
+    const fallback = { ...DEF, validity: { ...DEF.validity, upperArmLengthMinRatio: 0.75 } };
+    const withFallback = readouts(abd("chair", "9:16", raises("right", 130, FOUR, 50), 259).frames, fallback);
+    expect(withFallback.seen.every((x) => x.min === 0.75)).toBe(true);
+    expect(inWindow(withFallback.seen).some((x) => x.plane === "pass")).toBe(true);
+  });
+
   it("the other hand holding the tested arm is an assisted lift: invalid", () => {
     const assist: MotionSpec[] = FOUR.slice(1).map((start) => ({
       kind: "assist",

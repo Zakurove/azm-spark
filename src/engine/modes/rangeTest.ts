@@ -68,6 +68,25 @@ import type {
 } from "./types";
 
 /**
+ * The staff readout of the plane check during a lift (council F-1, the team's real phone sessions):
+ * read on the screen only, never stored or sent.
+ */
+export interface PlaneReadout {
+  /** The upper arm length over the reference length in the last frame (2 decimals), or null. */
+  ratio: number | null;
+  /** The ratio the plane check needs (validity.upperArmLengthMinRatio of this runner). */
+  min: number;
+  /** The last frame against the plane check, in the 70 to 110 degree window; outside it otherwise. */
+  plane: "pass" | "fail" | "outside";
+  /** Seconds of this lift with the plane check met so far, and the seconds it needs (spec 4.1). */
+  okSec: number;
+  needSec: number;
+  /** The quality gate issues of this lift so far, and its median frame rate. */
+  issues: string[];
+  fps: number;
+}
+
+/**
  * Timing and geometry of the runner. Values quoted from the spec are marked; the rest are
  * engineering choices (timeouts) or SPEC-GAP readings, each explained where it is defined.
  */
@@ -356,6 +375,28 @@ export class RangeTestRunner implements TestRunner {
   /** The calibration, once taken (for the record and the UI). */
   get calibration(): Readonly<Calibration> | null {
     return this.cal;
+  }
+
+  /** The plane check of the lift in progress, for the staff readout (F-1); null between lifts. */
+  readout(): PlaneReadout | null {
+    const a = this.att;
+    if (!a || !this.cal) return null;
+    const R = RANGE_RULES;
+    const ref = a.practice ? this.cal.upperArm : this.refLength;
+    const last = a.samples[a.samples.length - 1];
+    const min = this.def.validity.upperArmLengthMinRatio;
+    const ratio = last && ref > 0 ? last.len / ref : null;
+    const inWindow = !!last && last.angle >= R.planeWindow[0] && last.angle <= R.planeWindow[1];
+    const q = a.monitor.report();
+    return {
+      ratio: ratio === null ? null : Math.round(ratio * 100) / 100,
+      min,
+      plane: ratio === null || !inWindow ? "outside" : ratio >= min ? "pass" : "fail",
+      okSec: round1(this.planeOkSec(a, ref, this.tLast)),
+      needSec: R.planeMinSec,
+      issues: [...q.issues],
+      fps: q.fps,
+    };
   }
 
   start(t: number): TestEvent[] {
@@ -1137,6 +1178,8 @@ export class RangeTestRunner implements TestRunner {
           : false,
       pastVertical: flags.includes("pastVertical"),
       spreadDeg: spread,
+      // The plane check ratio that measured this side (spec 4.1; the booth fallback of council F-1).
+      planeRatio: this.def.validity.upperArmLengthMinRatio,
     };
     if (bestRec) {
       for (const k of ["planeZ", "elbowDeg", "shrug", "trunkLeanAtPeak", "leanShiftAtPeak", "phoneRollDeg"]) {

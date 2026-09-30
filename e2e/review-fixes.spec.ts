@@ -15,6 +15,7 @@ import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import arProgress from "../src/i18n/ar/progress.json" with { type: "json" };
 import enProgress from "../src/i18n/en/progress.json" with { type: "json" };
+import { signUpAddress } from "./sign-up";
 
 const COPY = { ar: { a: ar, p: arProgress }, en: { a: en, p: enProgress } } as const;
 type Lang = keyof typeof COPY;
@@ -37,7 +38,7 @@ async function signIn(page: Page, lang: Lang) {
   await page.goto(url("/", lang));
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
   const reg = await page.request.post("/api/auth/register", {
-    headers,
+    headers: { ...headers, ...signUpAddress() },
     data: {
       name: "E2E Member",
       email: `fix-${lang}-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.test`,

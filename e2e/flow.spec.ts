@@ -21,6 +21,7 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
+import { signUpAddress } from "./sign-up";
 
 const COPY = { ar, en } as const;
 type Lang = keyof typeof COPY;
@@ -180,7 +181,7 @@ async function signIn(page: Page) {
   await page.goto("/?e2eGallery=loading");
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
   const reg = await page.request.post("/api/auth/register", {
-    headers,
+    headers: { ...headers, ...signUpAddress() },
     data: {
       name: "Sara",
       email: `flow-${Date.now()}-${Math.random().toString(36).slice(2)}@example.test`,

@@ -8,6 +8,7 @@
 import { expect, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
+import { signUpAddress } from "./sign-up";
 
 const COPY = { ar, en } as const;
 
@@ -157,7 +158,7 @@ export async function openSignedIn(page: Page, lang: Lang, o: ModelOptions) {
   await page.goto(url("/", lang));
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
   const reg = await page.request.post("/api/auth/register", {
-    headers,
+    headers: { ...headers, ...signUpAddress() },
     data: {
       name: "E2E Safety",
       email: `safety-${lang}-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.test`,

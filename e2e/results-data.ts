@@ -9,6 +9,7 @@
  *     there, contract v3 I): each S01 variant, a populated My results, errors, delays.
  */
 import { expect, type Page, type Route } from "@playwright/test";
+import { signUpAddress } from "./sign-up";
 
 export type Lang = "ar" | "en";
 export const LANGS: Lang[] = ["ar", "en"];
@@ -22,7 +23,7 @@ export async function signIn(page: Page, lang: Lang, tag: string): Promise<strin
   await page.goto(url("/?e2eGallery=empty", lang));
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
   const reg = await page.request.post("/api/auth/register", {
-    headers,
+    headers: { ...headers, ...signUpAddress() },
     data: {
       name: "E2E Results",
       email: `results-${tag}-${lang}-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.test`,

@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
+import { signUpAddress } from "./sign-up";
 
 const OUT = process.env.AZM_SHOTS_DIR ? resolve(process.env.AZM_SHOTS_DIR) : "";
 test.skip(!OUT, "set AZM_SHOTS_DIR to write the review screenshots");
@@ -88,7 +89,7 @@ async function signIn(page: Page, tag: string) {
   await page.goto("/?e2eGallery=loading");
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
   const reg = await page.request.post("/api/auth/register", {
-    headers,
+    headers: { ...headers, ...signUpAddress() },
     data: {
       name: "Sara",
       email: `flow-shots-${tag}-${Date.now()}@example.test`,

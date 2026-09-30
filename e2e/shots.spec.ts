@@ -9,6 +9,7 @@
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { signUpAddress } from "./sign-up";
 
 const OUT = process.env.AZM_SHOTS_DIR ? resolve(process.env.AZM_SHOTS_DIR) : "";
 test.skip(!OUT, "set AZM_SHOTS_DIR to write the review screenshots");
@@ -112,7 +113,7 @@ for (const size of SIZES) {
       const origin = new URL(page.url()).origin;
       const headers = { Origin: origin, "X-Azm-Request": "1" };
       const reg = await page.request.post("/api/auth/register", {
-        headers,
+        headers: { ...headers, ...signUpAddress() },
         data: {
           name: "Sara",
           email: `shots-${lang}-${size.tag}-${Date.now()}@example.test`,
@@ -145,8 +146,10 @@ for (const size of SIZES) {
       });
       expect(intake.status()).toBe(200);
       await page.goto(q("/", lang));
-      await expect(page.locator('[data-screen="S01"]')).toBeVisible();
-      await page.locator('[data-screen="S01"]').scrollIntoViewIfNeeded();
+      // The loading card (aria-busy) carries S01 too; wait for the loaded one, which stays.
+      const today = page.locator('[data-screen="S01"]:not([aria-busy="true"])');
+      await expect(today).toBeVisible();
+      await today.scrollIntoViewIfNeeded();
       await shot(page, lang, size.tag, "S01-today-slot");
       await page.locator(".portal-sidebar nav button").nth(2).click();
       await expect(page.locator('[data-screen="S53"]')).toBeVisible();

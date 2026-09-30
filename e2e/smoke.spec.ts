@@ -11,6 +11,7 @@ import arProgress from "../src/i18n/ar/progress.json" with { type: "json" };
 import enProgress from "../src/i18n/en/progress.json" with { type: "json" };
 import arLanding from "../src/i18n/ar/landing.json" with { type: "json" };
 import enLanding from "../src/i18n/en/landing.json" with { type: "json" };
+import { signUpAddress } from "./sign-up";
 
 const COPY = {
   ar: { a: ar, p: arProgress, l: arLanding },
@@ -123,7 +124,7 @@ for (const lang of LANGS) {
       const email = `e2e-${lang}-${Date.now()}@example.test`;
       const secret = `${crypto.randomUUID()}Aa1`;
       const reg = await page.request.post("/api/auth/register", {
-        headers: { ...headers, "X-Azm-Request": "1" },
+        headers: { ...headers, "X-Azm-Request": "1", ...signUpAddress() },
         data: { name: "E2E Member", email, password: secret, adultConfirmed: true },
       });
       expect(reg.status()).toBe(200);

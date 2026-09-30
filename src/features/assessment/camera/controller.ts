@@ -296,6 +296,11 @@ export class CameraController {
   private snapshotRunner: TestRunner | null = null;
   private asking: Asking = null;
   private posted = false;
+  /** A timed redo waits for its rest (S44, R3C-04): the runner repeats the trial at the next setup. */
+  private redoPending = false;
+  /** The answer state being watched (state and overlay) and when it opened (R3C-05). */
+  private answerKey = "";
+  private answerSince = 0;
   private lastScoredValid = false;
 
   // Subject and check in (the screen's own, 4.8).
@@ -651,8 +656,13 @@ export class CameraController {
         this.lastIssueCueAt = -Infinity;
         this.noPersonSince = null;
         this.practiceNow = false;
+        // A timed redo after its rest: the side's one repeat with today's practice (R3C-04 (2), (3)).
+        if (this.redoPending) {
+          this.redoPending = false;
+          this.redoTimed(t);
+        }
         // Back after a camera stop or a check in: the attempt that was running starts again (S34 Er).
-        if (this.midAttempt()) this.discardAttempt(t);
+        else if (this.midAttempt()) this.discardAttempt(t);
         // The arm curl practice check (S29) was answered at the phone: the flow says which answer.
         if (this.asking === "practice_check" && this.runner && "setPracticeCheck" in this.runner) {
           const ok = this.model.data.run.practiced;
@@ -685,7 +695,10 @@ export class CameraController {
         this.retryUntil = t + this.timing.retrySec * 1000;
         const x = s as { issue: string };
         const fix = fixOf(x.issue, this.test.testId, this.test.side, this.test.weaker);
-        this.pushCue(fix.cue, "retry", t);
+        // R3C-24: a touch speaks to the helper with the device voice (until its recording is approved
+        // by ear) and shows the line as the caption.
+        if (fix.fix === "touched") this.note("assessment.retry.touchedHelper", "info", true);
+        else if (fix.cue) this.pushCue(fix.cue, "retry", t);
         break;
       }
       case "cam.rest": {
@@ -719,9 +732,18 @@ export class CameraController {
           this.pushCue("check_sit_minute", "runner", t);
         }
         if (purpose === "redo") {
-          this.discardAttempt(t);
-          this.startRest(this.timed ? this.timing.redoSec.timed : this.timing.redoSec.range, t);
-          this.pushCue(this.timed ? "check_rest_minute" : "check_rest_short", "runner", t);
+          // R3C-04 (1): 60 s for the range tests and the side lean (check_rest_minute); 120 s for the
+          // timed tests, the repeat rest of spec 4.2, with the line the timed repeat shows. No
+          // "Start now": the rest runs to its end.
+          if (this.timed) {
+            this.redoPending = true;
+            this.startRest(this.timing.redoSec.timed, t);
+            this.note("assessment.retry.after2min", "info");
+          } else {
+            this.discardAttempt(t);
+            this.startRest(this.timing.redoSec.range, t);
+            this.pushCue("check_rest_minute", "runner", t);
+          }
         }
         break;
       }
@@ -868,11 +890,12 @@ export class CameraController {
     return o;
   }
 
-  private startRunner(t: number): void {
+  private startRunner(t: number, repeatUsed = false): void {
     // SPEC-GAP: flow-retry-budget. The flow counts the quality retries of a side (RETRIES, map 2.10);
     // the range and side lean runners get a budget they never reach, so the two never disagree.
     const def = "maxRetries" in this.def ? ({ ...this.def, maxRetries: 99 } as TestDef) : this.def;
-    this.runner = createRunner(def, this.test.side, this.runnerOptions());
+    const opts = this.runnerOptions();
+    this.runner = createRunner(def, this.test.side, repeatUsed ? { ...opts, repeatUsed: true } : opts);
     this.runnerPhase = null;
     this.asking = null;
     this.posted = false;
@@ -1102,7 +1125,8 @@ export class CameraController {
       last: this.practiceFails >= PRACTICE_FAIL_LIMIT,
     };
     const fix = fixOf(issue, this.test.testId, this.test.side, this.test.weaker);
-    this.pushCue(fix.cue, "retry", t, true, undefined, true);
+    if (fix.fix === "touched") this.note("assessment.retry.touchedHelper", "info", true);
+    else if (fix.cue) this.pushCue(fix.cue, "retry", t, true, undefined, true);
   }
 
   private endPracticeFix(t: number): void {
@@ -1188,6 +1212,29 @@ export class CameraController {
       this.endCueAt = null;
       this.startRunner(t);
     }
+  }
+
+  /**
+   * The timed redo (R3C-04 (2), (3)): the runner drops the trial and repeats it with today's range once
+   * the setup check passes, with no new practice. Before the practice set today's range, the runner
+   * starts again, with its one repeat already used.
+   */
+  private redoTimed(t: number): void {
+    this.count = 0;
+    this.trialRemaining = null;
+    this.goAt = null;
+    this.endCueAt = null;
+    this.live = null;
+    const n = this.dots.findIndex((d) => d !== "saved");
+    if (n >= 0) this.dots[n] = "pending";
+    const r = this.runner as (TestRunner & { redo?(t: number): TestEvent[] | null }) | null;
+    const events = r?.redo?.(t) ?? null;
+    if (events) {
+      this.runnerPhase = this.runner!.phase;
+      this.handle(events, t);
+      return;
+    }
+    this.startRunner(t, true);
   }
 
   /* -------------------------------------------------------------- setup check */
@@ -1323,12 +1370,31 @@ export class CameraController {
 
   /**
    * The answer zone arming of 4.8 (S29, S41, S44, S47, S48, the skip dialog): no movement and left
-   * frame off, sway on; hips drop is always evaluated by the detector.
+   * frame off, sway on; hips drop is always evaluated by the detector. At home with the answer zones
+   * (phase 2, R3C-05), the no movement rule with its 60 s window as well (trigger answer_still), from
+   * the 3 s grace after the answer state opened; the booth row is unchanged.
    */
   private answerFrame(t: number, lm: Landmark[] | null, aspect: number | undefined): void {
     if (!this.detector.reference) return;
-    for (const trigger of this.detector.feed(t, lm, aspect, ANSWER_ARMING))
+    const key = `${this.model.state.kind}:${this.model.overlay?.kind ?? ""}`;
+    if (key !== this.answerKey) {
+      this.answerKey = key;
+      this.answerSince = t;
+      this.detector.resetAnswerStill();
+    }
+    const home = ANSWER_ZONES && this.test.setting === "home";
+    const answerStill = home && t >= this.answerSince + this.timing.cueGraceSec * 1000;
+    // SPEC-GAP: answer-still-zones. R3C-05 counts from the end of the question's speech and pauses
+    // while a zone hold ring fills; both come with the answer zones (phase 2, home gate 2), so until
+    // then the window counts from the state's opening plus the grace, and a touch restarts it.
+    for (const trigger of this.detector.feed(t, lm, aspect, { ...ANSWER_ARMING, answerStill }))
       this.emit({ type: "TRIGGER", trigger }, t);
+  }
+
+  /** A touch on an answer screen at home: the answer stillness window starts again (R3C-05). */
+  answerTouched(t: number): void {
+    this.answerSince = t;
+    this.detector.resetAnswerStill();
   }
 
   /** While S43 or S45 is open: the raised hand held 1 s counts as «أنا بخير» (O34-1). */

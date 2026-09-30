@@ -80,9 +80,9 @@ export function camTiming(fast = false): CamTiming {
       arm_curl_30s: curl.restSec.betweenSidesMin,
     },
     seatedSec: stand.restSec.seatedAfterTest,
-    // SPEC-GAP: redo-rest. S44 "redo after a rest" names no length; the range tests and the side lean
-    // rest the longest rest between attempts, the timed tests a minute (S34j "after a stop").
-    redoSec: { range: abd.restSec.betweenAttempts[1], timed: 60 },
+    // R3C-04 (1): the rest before a redo is 60 s for the arm raise and the side lean (the S44 table,
+    // S34j), and 120 s for the timed tests, their repeat rest (spec 4.2).
+    redoSec: { range: 60, timed: 120 },
     standLeftFrameSec: 60,
     cueGraceSec: 3,
     runner: {},

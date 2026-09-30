@@ -564,6 +564,7 @@ abstract class TimedCountBase implements TestRunner {
   ) {
     this.lock = opts.subject ?? new SubjectLock();
     this.tracker = new SubjectTracker(this.lock);
+    this.repeatOffered = opts.repeatUsed === true;
   }
 
   get phase(): RunnerPhase {
@@ -652,6 +653,26 @@ abstract class TimedCountBase implements TestRunner {
     );
     return this.sink.drain();
   }
+
+  /**
+   * A redo after a check in (S44, R3C-04 (2), (3)): the trial in progress is dropped and the side's one
+   * repeat is used, so no quality repeat follows it. The resting reference is taken again, then the
+   * setup check, the countdown and the trial against today's range from the practice: no new practice
+   * and no new practice check. Null while the practice has not set today's range (the caller starts
+   * the runner again).
+   */
+  redo(t: number): TestEvent[] | null {
+    if (this.finished || !this.rangeReady()) return null;
+    this.trial = null;
+    this.timer = null;
+    this.asking = null;
+    this.repeatOffered = true;
+    this.recalibrate(t);
+    return this.sink.drain();
+  }
+
+  /** Today's range is set by the practice (the arm curl's X, the chair stand's rise). */
+  protected abstract rangeReady(): boolean;
 
   /** The ask the runner waits for, or null. */
   protected asking: "practice_check" | "repeat" | "pushed" | "calibration" | null = null;
@@ -1201,6 +1222,10 @@ export class ArmCurlRunner extends TimedCountBase {
   private afterCal: "practice" | "ready" = "practice";
   /** Excursion X used for counting and the stored range. */
   private X: number | null = null;
+
+  protected rangeReady(): boolean {
+    return this.X !== null;
+  }
   private range: { lo: number; hi: number } | null = null;
   private rep: CurlRepWindow | null = null;
   private pendingRep: CurlRepWindow | null = null;
@@ -1749,6 +1774,10 @@ export class ChairStandRunner extends TimedCountBase {
   private afterCal: "practice" | "ready" = "practice";
   /** Rise used for counting, today's rise, and the standing vertical hip to shoulder reference. */
   private R: number | null = null;
+
+  protected rangeReady(): boolean {
+    return this.R !== null;
+  }
   private riseToday: number | null = null;
   private vStand: number | null = null;
   /** Wrists checked for arm use (spec 4.4): both, or the intact one in one_arm_cross. */

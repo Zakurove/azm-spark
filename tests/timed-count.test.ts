@@ -1440,3 +1440,50 @@ describe("chair_stand_30s stopped early", () => {
     expect(Math.abs(r.value! - counted.length)).toBeLessThanOrEqual(1);
   });
 });
+
+describe("a redo after a check in is the side's one repeat (R3C-04 (2), (3))", () => {
+  it("drops the trial, takes the resting reference again and runs the trial with today's range", () => {
+    const seed = 1504;
+    const first = twoPass({
+      test: "arm_curl_30s",
+      profile: "chair",
+      aspect: "9:16",
+      seed,
+      side: "right",
+      practice: curlPractice("right"),
+      trial: () => [],
+      opts: { variant: "arm_only" },
+    });
+    const go = first.goSec;
+    const { frames } = framesOfCurl(
+      [...curlPractice("right"), ...curlTrial("right", go, seed, 140, 8)],
+      seed,
+      "chair",
+      "9:16",
+      110,
+    );
+    const runner = new ArmCurlRunner(CURL, "right", { ...FAST, variant: "arm_only" });
+    const events: TestEvent[] = [...runner.start(frames[0].t)];
+    // Before the practice has set today's range there is nothing to reuse.
+    expect(runner.redo(frames[0].t)).toBeNull();
+    let redoAt: number | null = null;
+    for (const f of frames) {
+      if (redoAt === null && runner.phase === "attempt" && f.t >= (go + 5) * 1000) {
+        redoAt = f.t;
+        events.push(...runner.redo(f.t)!);
+        expect(runner.phase).toBe("calibrating");
+      }
+      events.push(...runner.feed(f, { rollDeg: 0 }));
+    }
+    expect(redoAt).not.toBeNull();
+    const after = events.filter((e) => e.t >= redoAt!);
+    const cues = after.flatMap((e) => (e.kind === "cue" ? [e.cue] : []));
+    // No new practice bends and no practice check; the trial runs again after a new setup check.
+    expect(cues).not.toContain("check_practice");
+    expect(after.some((e) => e.kind === "ask")).toBe(false);
+    expect(cues).toContain("check_go");
+    // The repeat is used: a failed redo is not measured today, with no quality repeat offered.
+    const r = runner.finish(frames[frames.length - 1].t).results[0];
+    expect(r.status === "measured" || r.reason === "quality").toBe(true);
+  });
+});

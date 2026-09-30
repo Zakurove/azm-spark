@@ -269,6 +269,11 @@ export interface RunnerOptions {
   practiceRestSec?: number;
   /** Seconds of the rest before the one repeat of a trial that failed the quality gate (120). */
   repeatRestSec?: number;
+  /**
+   * Timed tests: the side's one repeat is already used (a redo after a check in before the practice
+   * set today's range, R3C-04 (2)): a trial that fails the quality gate is not measured today.
+   */
+  repeatUsed?: boolean;
   /** Seconds of the Parkinson's pause after the first practice stand (30). */
   pausePracticeSec?: number;
   /** Seconds of the countdown between check_ready and check_go (3). */

@@ -345,3 +345,70 @@ describe("the fixtures of the browser flows", () => {
       }
   });
 });
+
+describe("S44 redo rests (R3C-04)", () => {
+  it("a timed redo rests 120 s with the repeat line, then repeats the trial with no new practice", () => {
+    let redoAt: number | null = null;
+    let restTotal: number | null = null;
+    const phases: string[] = [];
+    const run = runFixture(atSetup("arm_curl_30s"), "curl-9x16", 400, {
+      fast: false,
+      before: (m, t) => {
+        if (redoAt === null && m.state.kind === "cam.measure" && m.overlay === null) {
+          const trigger = play(
+            m,
+            { type: "TRIGGER", trigger: "no_movement" },
+            { type: "FINE", via: "button" },
+          );
+          if (trigger.overlay?.kind !== "goOn" || !trigger.overlay.canRedo) return m;
+          redoAt = t;
+          return play(trigger, { type: "REDO" });
+        }
+        return m;
+      },
+      after: (ctrl, m, t) => {
+        const s = ctrl.snapshot();
+        if (redoAt !== null && m.state.kind === "cam.rest" && restTotal === null)
+          restTotal = s.rest?.total ?? null;
+        if (redoAt !== null && t > redoAt && s.runnerPhase && phases[phases.length - 1] !== s.runnerPhase)
+          phases.push(s.runnerPhase);
+      },
+      stopWhen: (m) => redoAt !== null && m.state.kind === "cam.measure" && m.overlay === null,
+    });
+    expect(redoAt).not.toBeNull();
+    expect(restTotal).toBe(120);
+    expect(run.notes).toContain("assessment.retry.after2min");
+    expect(run.model.data.run.retriesUsed).toBe(1);
+    // After the rest: the resting reference and the setup check again, never a new practice.
+    expect(phases).not.toContain("practice");
+    expect(run.model.state.kind).toBe("cam.measure");
+  });
+
+  it("a range test redo rests 60 s with check_rest_minute", () => {
+    let redone = false;
+    let restTotal: number | null = null;
+    const run = runFixture(atSetup("shoulder_abduction"), "abd-9x16", 90, {
+      fast: false,
+      before: (m) => {
+        if (!redone && m.state.kind === "cam.measure" && m.overlay === null) {
+          redone = true;
+          return play(
+            m,
+            { type: "TRIGGER", trigger: "left_frame" },
+            { type: "FINE", via: "button" },
+            { type: "REDO" },
+          );
+        }
+        return m;
+      },
+      after: (ctrl, m) => {
+        if (m.state.kind === "cam.rest" && restTotal === null)
+          restTotal = ctrl.snapshot().rest?.total ?? null;
+      },
+      stopWhen: (m) => redone && m.state.kind === "cam.rest",
+    });
+    expect(redone).toBe(true);
+    expect(restTotal).toBe(60);
+    expect(run.cues).toContain("check_rest_minute");
+  });
+});

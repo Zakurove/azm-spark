@@ -1,6 +1,8 @@
 import { CueId, Severity } from "../engine/types";
+import { readPreferences } from "./experience";
 import { Lang } from "./i18n";
 import voiceScript from "./voice-script.json";
+import { cueUrls } from "./voicePacks";
 /** Every spoken line: workout cues, counts and the movement check cues (check_ and test_ ids). */
 export type VoiceLine = keyof typeof voiceScript;
 const priority: Record<Severity, number> = { praise: 0, info: 1, warn: 2, safety: 3 };
@@ -49,14 +51,18 @@ export function primeAudio(lang: Lang) {
   if (typeof speechSynthesis !== "undefined") speechSynthesis.getVoices();
   if (typeof Audio === "undefined") return;
   shared ??= new Audio();
-  shared.src = `/cues/${lang}/preview.mp3`;
+  // Every pack carries the welcome (scripts/generate-voice.mjs), so the chosen pack's file exists.
+  shared.src = cueUrls(lang, "preview", readPreferences().voicePack)[0];
   void shared.play().catch(() => undefined);
 }
 
 /** A 0.1 s silent WAV: played inside a tap so iOS lets the shared element play later lines. */
 const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
-/** Packaged neural recordings. No speech service is contacted during a session. */
+/**
+ * Packaged neural recordings from the chosen voice pack, then the default pack (src/app/voicePacks.ts).
+ * No speech service is contacted during a session.
+ */
 export class CuePlayer {
   /**
    * A silent unlock inside a tap (UX spec S01, S02, 4.6): the shared element starts with silence, so
@@ -84,6 +90,8 @@ export class CuePlayer {
   private activePriority = -1;
   private rate = 1;
   guidanceOnly = false;
+  /** A pack played instead of the stored choice: the coach settings' sample of a pack being chosen. */
+  voicePack?: string;
   constructor(private lang: Lang) {}
   get muted() {
     return this.isMuted;
@@ -113,27 +121,33 @@ export class CuePlayer {
   }
   /** The end callback of the line playing now. */
   private endActive?: () => void;
+  /** The first recording of the line that can play (chosen pack, then default pack), or null. */
   private file(id: VoiceLine): Promise<HTMLAudioElement | null> {
-    const key = `${this.lang}/${id}`;
+    const urls = cueUrls(this.lang, id, this.voicePack ?? readPreferences().voicePack);
+    const key = urls[0];
     if (!this.fileCache.has(key))
       this.fileCache.set(
         key,
         new Promise((resolve) => {
-          const el = new Audio(`/cues/${key}.mp3`);
-          const timeout = setTimeout(() => {
-            this.fileCache.delete(key);
-            resolve(null);
-          }, 5000);
+          let settled = false;
           const done = (value: HTMLAudioElement | null) => {
+            if (settled) return;
+            settled = true;
             clearTimeout(timeout);
+            // A line that did not load is asked for again next time.
+            if (!value) this.fileCache.delete(key);
             resolve(value);
           };
-          el.oncanplaythrough = () => done(el);
-          el.onerror = () => {
-            this.fileCache.delete(key);
-            done(null);
+          const timeout = setTimeout(() => done(null), 5000);
+          const load = (i: number) => {
+            if (settled) return;
+            if (i >= urls.length) return done(null);
+            const el = new Audio(urls[i]);
+            el.oncanplaythrough = () => done(el);
+            el.onerror = () => load(i + 1);
+            el.load();
           };
-          el.load();
+          load(0);
         }),
       );
     return this.fileCache.get(key)!;

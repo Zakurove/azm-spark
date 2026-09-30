@@ -1,6 +1,7 @@
 /**
  * Booth phones work offline (council O18, UX spec S55, 0.7): when booth mode turns on, the phone keeps
- * the pose model, the check's cue files in both languages and the chime in a named cache.
+ * the pose model, the check's cue files of its chosen voice pack in both languages and the chime in a
+ * named cache.
  *
  * "This phone is ready to work offline" (booth.offlineReady) is shown only when it is true: every
  * file is in the cache AND a service worker controls the page, so a reload without a connection can
@@ -10,7 +11,9 @@
 // SPEC-GAP: booth-offline-service-worker. The app has no service worker yet, and the chime file
 // (Appendix B) and the check cue recordings (O24) do not exist yet, so booth.offlineReady never
 // shows until they land; the files that exist are kept in the cache meanwhile.
+import { readPreferences } from "../../../app/experience";
 import voiceScript from "../../../app/voice-script.json";
+import { cueUrls } from "../../../app/voicePacks";
 
 export const BOOTH_CACHE = "azm-booth-v1";
 
@@ -20,10 +23,14 @@ const WASM = ["/wasm/vision_wasm_internal.js", "/wasm/vision_wasm_internal.wasm"
 /** Appendix B: the chime (S47; the check in S43 never runs at the booth). */
 const TONES = ["/cues/chime.mp3"];
 
-/** Every file a booth phone needs offline (O18): model, runtime, check cues in ar and en, tones. */
+/**
+ * Every file a booth phone needs offline (O18): model, runtime, check cues in ar and en, tones. The cues
+ * are those of the phone's chosen voice pack: a line that pack lacks is reported missing.
+ */
 export function boothAssets(): string[] {
   const cues = Object.keys(voiceScript).filter((id) => id.startsWith("check_") || id.startsWith("test_"));
-  const perLang = (lang: "ar" | "en") => cues.map((id) => `/cues/${lang}/${id}.mp3`);
+  const pack = readPreferences().voicePack;
+  const perLang = (lang: "ar" | "en") => cues.map((id) => cueUrls(lang, id, pack)[0]);
   return [MODEL, ...WASM, ...TONES, ...perLang("ar"), ...perLang("en")];
 }
 

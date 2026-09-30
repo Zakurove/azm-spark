@@ -1,0 +1,16 @@
+{
+  "default": "openai-ash",
+  "packs": [
+    {
+      "id": "openai-ash",
+      "label": "Ash",
+      "provider": "OpenAI",
+      "voices": {
+        "ar": "ash",
+        "en": "ash"
+      },
+      "cueCount": 35,
+      "complete": false
+    }
+  ]
+}

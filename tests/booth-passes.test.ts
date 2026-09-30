@@ -159,10 +159,10 @@ describe("offline preparation of a booth phone (O18)", () => {
     expect(a).toContain("/wasm/vision_wasm_internal.wasm");
     expect(a).not.toContain("/cues/alarm.mp3");
     expect(a).toContain("/cues/chime.mp3");
-    expect(a).toContain("/cues/ar/check_are_you_ok.mp3");
-    expect(a).toContain("/cues/en/check_are_you_ok.mp3");
-    expect(a.filter((u) => u.startsWith("/cues/ar/")).length).toBe(
-      a.filter((u) => u.startsWith("/cues/en/")).length,
+    expect(a).toContain("/cues/packs/openai-ash/ar/check_are_you_ok.mp3");
+    expect(a).toContain("/cues/packs/openai-ash/en/check_are_you_ok.mp3");
+    expect(a.filter((u) => u.startsWith("/cues/packs/openai-ash/ar/")).length).toBe(
+      a.filter((u) => u.startsWith("/cues/packs/openai-ash/en/")).length,
     );
     expect(new Set(a).size).toBe(a.length);
   });
@@ -203,11 +203,11 @@ describe("offline preparation of a booth phone (O18)", () => {
     const r = await precacheBooth({
       fetch: fetch as unknown as typeof globalThis.fetch,
       caches,
-      assets: ["/cues/ar/check_x.mp3", "/cues/alarm.mp3"],
+      assets: ["/cues/packs/openai-ash/ar/check_x.mp3", "/cues/alarm.mp3"],
     });
-    expect(r.missing).toEqual(["/cues/ar/check_x.mp3"]);
+    expect(r.missing).toEqual(["/cues/packs/openai-ash/ar/check_x.mp3"]);
     expect(r.cached).toEqual(["/cues/alarm.mp3"]);
-    expect(stored.has("/cues/ar/check_x.mp3")).toBe(false);
+    expect(stored.has("/cues/packs/openai-ash/ar/check_x.mp3")).toBe(false);
     expect(isPageFallback("/x.html", typed("text/html"))).toBe(false);
     expect(isPageFallback("/x.task", { headers: new Headers() } as Response)).toBe(false);
   });

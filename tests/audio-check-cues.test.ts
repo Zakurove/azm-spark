@@ -82,7 +82,7 @@ describe("speech fallback for a missing recording", () => {
   it("asks for the MP3 first, then speaks the arTts text with an Arabic Saudi voice", async () => {
     const player = new CuePlayer("ar");
     const run = player.line("check_are_you_ok", "safety");
-    expect(pending[0].src).toBe("/cues/ar/check_are_you_ok.mp3");
+    expect(pending[0].src).toBe("/cues/packs/openai-ash/ar/check_are_you_ok.mp3");
     pending[0].onerror();
     expect(await run).toBe(true);
     expect(spoken).toHaveLength(1);
@@ -95,7 +95,7 @@ describe("speech fallback for a missing recording", () => {
   it("speaks the English text with an English voice in English", async () => {
     const player = new CuePlayer("en");
     const run = player.line("test_trunk_to_middle");
-    expect(pending[0].src).toBe("/cues/en/test_trunk_to_middle.mp3");
+    expect(pending[0].src).toBe("/cues/packs/openai-ash/en/test_trunk_to_middle.mp3");
     pending[0].onerror();
     await run;
     expect(spoken).toEqual([

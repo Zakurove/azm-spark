@@ -2,8 +2,9 @@
  * The voice of the flow screens (UX spec principle 4, 3.0 caption slot, 4.3): every line the app
  * speaks shows its exact display text in the caption slot while it plays, then the slot collapses.
  *
- *   cue lines     the generated recording /cues/<lang>/<id>.mp3, or, until it exists, the device's
- *                 own voice reading the vocalised arTts line (never a remote speech service)
+ *   cue lines     the recording of the chosen voice pack, then of the default pack
+ *                 (src/app/voicePacks.ts), or, until one exists, the device's own voice reading the
+ *                 vocalised arTts line (never a remote speech service)
  *   data texts    the device's voice reading the speech form (arTts) or the display text
  *
  * When the sound is off, in captionsOnly or screen reader mode, or when nothing can play, the caption
@@ -13,7 +14,9 @@
  * The chime is not here: it belongs to the safety screens (S43, S47).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readPreferences } from "../../../app/experience";
 import type { Lang } from "../../../app/i18n";
+import { cueUrls } from "../../../app/voicePacks";
 import type { CheckCueId } from "../../../movements/types";
 import type { SoundMode } from "../flowMachine";
 import { useCheckUi, type CaptionSeverity } from "../shared/CheckUi";
@@ -197,7 +200,11 @@ export function useVoice(mode: SoundMode | null): Voice {
         else u.showCaption(line.display, severity, hear, () => void play([item], opts));
         let played = false;
         if (hear) {
-          if ("cue" in item) played = await playFile(`/cues/${u.lang}/${item.cue}.mp3`, run);
+          if ("cue" in item)
+            for (const url of cueUrls(u.lang, item.cue, readPreferences().voicePack)) {
+              played = await playFile(url, run);
+              if (played || run.stopped) break;
+            }
           if (!played && !run.stopped) played = await speakText(line.speech ?? line.display, u.lang, run);
         }
         if (run.stopped) return;

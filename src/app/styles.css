@@ -1765,6 +1765,14 @@ img {
 .settings-field {
   margin: 24px 0;
 }
+.voice-packs .segmented {
+  flex-wrap: wrap;
+}
+.voice-packs .segmented button {
+  flex: 1 1 30%;
+  min-height: 48px;
+  font-size: 13px;
+}
 .voice-preview {
   padding: 24px;
   margin-top: 22px;

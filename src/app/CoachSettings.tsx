@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n";
 import { Lang } from "./i18n";
 import { Preferences, ui } from "./experience";
 import { CuePlayer } from "./audio";
+import { installedPack, VOICE_PACKS } from "./voicePacks";
 import Dialog from "./Dialog";
 import Icon from "./Icon";
 export default function CoachSettings({
@@ -20,6 +21,19 @@ export default function CoachSettings({
     player = useMemo(() => new CuePlayer(lang), [lang]);
   const [blocked, setBlocked] = useState(false),
     [playing, setPlaying] = useState(false);
+  const pack = installedPack(value.voicePack),
+    sampleRun = useRef(0);
+  /** Plays a pack's welcome; a newer sample (another voice tapped) takes over the status. */
+  const sample = async (id: string) => {
+    const run = ++sampleRun.current;
+    player.stop();
+    player.voicePack = id;
+    setPlaying(true);
+    const ok = await player.line("preview");
+    if (run !== sampleRun.current) return;
+    setBlocked(!ok);
+    setPlaying(false);
+  };
   useEffect(() => () => player.stop(), [player]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
@@ -44,6 +58,27 @@ export default function CoachSettings({
       <p className="eyebrow">AZM COACH</p>
       <h2 id="coach-settings-title">{c.coachSettings}</h2>
       <p>{c.settingsIntro}</p>
+      {/* D-016 item 5: the installed voice packs, per device; choosing one plays its welcome. */}
+      {VOICE_PACKS.length > 1 && (
+        <fieldset className="settings-field voice-packs" data-setting="voice-pack">
+          <legend>{c.voiceChoice}</legend>
+          <div className="segmented">
+            {VOICE_PACKS.map((p) => (
+              <button
+                key={p.id}
+                aria-pressed={pack === p.id}
+                className={pack === p.id ? "selected" : ""}
+                onClick={() => {
+                  onChange({ ...value, voicePack: p.id });
+                  void sample(p.id);
+                }}
+              >
+                <bdi>{p.label}</bdi>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <div className="voice-preview">
         <div className={`voice-wave ${playing ? "playing" : ""}`} aria-hidden="true">
           {Array.from({ length: 17 }, (_, i) => (
@@ -53,17 +88,7 @@ export default function CoachSettings({
             />
           ))}
         </div>
-        <button
-          className="ghost"
-          disabled={playing}
-          onClick={async () => {
-            player.stop();
-            setPlaying(true);
-            const ok = await player.line("preview");
-            setBlocked(!ok);
-            setPlaying(false);
-          }}
-        >
+        <button className="ghost" disabled={playing} onClick={() => void sample(pack)}>
           <Icon name="play" size={17} />
           {c.preview}
         </button>

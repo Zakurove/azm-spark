@@ -274,7 +274,7 @@
       "wheelchair": "Your wheelchair with the brakes on, and its side guards for the side lean",
       "phone": "A place where the phone can stand steady at chest height, such as a shelf, or books against a wall",
       "space": "About three big steps of space between you and the phone",
-      "helper": "Another adult beside you for {tests}",
+      "helper": "Another adult beside you for these tests: {tests}",
       "loadFirst": "Something light to hold for the arm bends, such as a closed water bottle, or nothing",
       "loadSame": "The same weight or bottle you used last time",
       "shoes": "The same shoes at every check, or bare feet every time"

@@ -252,6 +252,12 @@ describe("intro and sound check at home (S14, S14b)", () => {
     }
   });
 
+  it("S14 (English): the helper line names its tests after a colon, so a test name keeps its capital", () => {
+    const { text } = screen(M.S14, "en");
+    expect(text).toMatch(/Another adult beside you for these tests:\s+Seated side lean/);
+    expect(text).not.toMatch(/beside you for Seated/);
+  });
+
   it("S14b asks with the data cue and answers, and offers the screen reader mode", () => {
     const { text } = screen(M.S14b, "ar");
     expect(text).toContain(CHECK_DATA.cues.find((c) => c.id === "check_sound")!.ar);

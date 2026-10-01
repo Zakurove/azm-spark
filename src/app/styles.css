@@ -49,7 +49,7 @@ p {
   margin: 0;
 }
 button {
-  min-height: 44px;
+  min-height: 48px;
 }
 svg {
   flex-shrink: 0;
@@ -150,7 +150,7 @@ img {
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  min-height: 36px;
+  min-height: 48px;
 }
 .product-main {
   width: min(1280px, calc(100% - 64px));
@@ -1052,7 +1052,7 @@ img {
 .ghost {
   border: 1px solid var(--line);
   border-radius: 9px;
-  min-height: 46px;
+  min-height: 48px;
   padding: 10px 15px;
   font-size: 12px;
   display: inline-flex;
@@ -1292,7 +1292,7 @@ img {
   .language {
     font-size: 10px;
     padding: 4px 8px;
-    min-height: 32px;
+    min-height: 48px;
   }
   .product-main {
     width: calc(100% - 40px);
@@ -1747,14 +1747,14 @@ img {
 .icon-button {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: white;
 }
 .header-tools .language {
-  min-height: 44px;
+  min-height: 48px;
 }
 .settings-top {
   display: flex;
@@ -2211,12 +2211,12 @@ img {
     gap: 7px;
   }
   .header-tools .icon-button {
-    width: 36px;
-    height: 36px;
-    min-height: 36px;
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
   }
   .header-tools .language {
-    min-height: 36px;
+    min-height: 48px;
   }
   .app-header {
     gap: 9px;

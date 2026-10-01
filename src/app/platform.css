@@ -154,9 +154,6 @@
   font-weight: 700;
   color: var(--ink);
 }
-.auth-form-panel h2 {
-  font-size: 29px;
-}
 .auth-form-panel > p {
   font-size: 13px;
   color: var(--muted);
@@ -350,9 +347,9 @@
   gap: 10px;
 }
 .portal-topbar .icon-button {
-  height: 36px;
-  width: 36px;
-  min-height: 36px;
+  height: 48px;
+  width: 48px;
+  min-height: 48px;
   border: 0;
   background: transparent;
 }
@@ -616,7 +613,7 @@
 .plan-notes summary {
   cursor: pointer;
   font-weight: 600;
-  min-height: 36px;
+  min-height: 48px;
 }
 .medical-footnote {
   font-size: 12px;
@@ -779,7 +776,7 @@
   padding: 11px 13px;
   font-size: 12px;
   text-align: start;
-  min-height: 44px;
+  min-height: 48px;
 }
 .intake-choices button.selected {
   background: #f1edf8;
@@ -1064,9 +1061,6 @@
     width: 100%;
     border-radius: 16px;
   }
-  .auth-form-panel h2 {
-    font-size: 25px;
-  }
   .auth-tabs {
     margin-bottom: 23px;
   }
@@ -1144,7 +1138,7 @@
   .page-heading .ghost {
     font-size: 10px;
     padding: 8px 10px;
-    min-height: 38px;
+    min-height: 48px;
   }
   .page-heading .ghost svg {
     display: none;
@@ -1185,11 +1179,11 @@
     width: 100%;
     font-size: 11px;
     padding: 10px;
-    min-height: 44px;
+    min-height: 48px;
   }
   .hero-preview {
     font-size: 10px;
-    min-height: 36px;
+    min-height: 48px;
     margin: 8px 0 0;
   }
   .schedule-card,

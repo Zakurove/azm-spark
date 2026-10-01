@@ -145,17 +145,13 @@ describe("movement check copy", () => {
     // SPEC-GAP: legacy-banned-words. The workout app's own copy (phase 1 leaves it as it is) still has
     // these Q23 (6) words; they are reported to the copy owner, and any new one fails here.
     const KNOWN = [
-      'platform-copy.ts labels("ar").authFoot: تقدم',
-      'platform-copy.ts labels("en").authFoot: progress',
       'platform-copy.ts labels("en").intakeBody: recovery',
       "platform-copy.ts reasonText.recovery.en: recovery",
       "platform-copy.ts reasonText.duration.en: recovery",
       'experience.ts ui("ar").noneYet: تقدم',
       'experience.ts ui("en").noneYet: progress',
       'product.ts copy("ar").progress: تقدم',
-      'product.ts copy("ar").noHistoryBody: تقدم',
       'product.ts copy("en").progress: progress',
-      'product.ts copy("en").noHistoryBody: progress',
       // Q32 (2) word for word: «تقدّمه شركة» means a company provides it, not progress.
       'platform-copy.ts labels("ar").reportConsentBody: تقدم',
     ];

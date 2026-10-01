@@ -191,4 +191,10 @@ it("the register form sends the adult row only when ticked, and never on sign in
   expect(html).toContain('name="adultConfirmed" type="checkbox" required=""');
   expect(html).not.toMatch(/name="adultConfirmed"[^>]*checked/);
   expect(html).toContain(CHECK_DATA.boundary.adultConfirm.en);
+  // C50 and C51: no English kicker, «Create account» once as the tab and once as the button, the foot
+  // line about what the account keeps, and the demo link.
+  expect(html).not.toContain("PERSONAL MOVEMENT");
+  expect(html.match(/>Create account</g)).toHaveLength(2);
+  expect(html).toContain("Your account keeps your program and your results.");
+  expect(html).toContain("Explore a demo session");
 });

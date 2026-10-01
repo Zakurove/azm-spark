@@ -119,8 +119,14 @@ it("asks the separate report consent before anything can be sent (Q32 (2))", asy
   const { default: ReportUpload, reportRequest } = await import("../src/app/ReportUpload");
   const { labels } = await import("../src/app/platform-copy");
   for (const lang of ["ar", "en"] as const) {
-    const html = renderToStaticMarkup(createElement(ReportUpload, { lang, onExtracted: () => {} }));
     const c = labels(lang);
+    // C47: a fresh intake shows a link first; the notice and the consent come when it is chosen.
+    const link = renderToStaticMarkup(createElement(ReportUpload, { lang, onExtracted: () => {} }));
+    expect(link.replace(/<[^>]+>/g, "")).toBe(c.reportTitle);
+    expect(link).not.toContain('type="checkbox"');
+    const html = renderToStaticMarkup(
+      createElement(ReportUpload, { lang, onExtracted: () => {}, opened: true }),
+    );
     const plain = html.replace(/<[^>]+>/g, "");
     expect(plain).toContain(c.reportConsentCheck);
     // The consent text is shown in full (digits and Latin runs isolated in Arabic).

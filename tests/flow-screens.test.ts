@@ -228,7 +228,7 @@ describe("signed in entry (S12, S13)", () => {
     const ctx = contextOf({ position: "chair", support: "left", conditions: ["stroke"] });
     const { html, text } = screen(signedAt(ctx), "en");
     expect(count(html, "<dt")).toBe(4);
-    expect(text).toContain(t("en", "assessment.context.sideLeft"));
+    expect(text).toContain(t("en", "assessment.options.support.left"));
     expect(text).not.toContain(t("en", "assessment.options.condition.stroke"));
   });
 });

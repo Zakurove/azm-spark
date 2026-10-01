@@ -241,7 +241,7 @@
     "title": "Before we keep your results",
     "body": "To show how your movement changes over time, we need to keep your check results in your account.",
     "pointVideo": "The video stays on your phone. It is never recorded or sent. We keep numbers only.",
-    "pointWithdraw": "You can withdraw your consent at any time from your Health profile.",
+    "pointWithdraw": "You can withdraw your consent at any time from Your medical condition.",
     "privacyLink": "Read how we use your data",
     "continue": "Continue",
     "notNow": "I will decide later",
@@ -259,8 +259,6 @@
     "pain": "Pain areas",
     "restrictions": "Things to avoid",
     "none": "None",
-    "sideLeft": "Left",
-    "sideRight": "Right",
     "confirm": "Yes, this is still right",
     "edit": "Update your medical condition answers"
   },

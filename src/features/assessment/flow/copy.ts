@@ -349,15 +349,8 @@ export function contextRows(lang: Lang, ctx: CheckContext): ContextRow[] {
   const restrictions = labelsOf("restriction", ctx.restrictions);
   return [
     { label: t(lang, "assessment.context.position"), value: opt(lang, `position.${ctx.position}`) },
-    {
-      label: t(lang, "assessment.context.support"),
-      value:
-        ctx.support === "left"
-          ? t(lang, "assessment.context.sideLeft")
-          : ctx.support === "right"
-            ? t(lang, "assessment.context.sideRight")
-            : none,
-    },
+    // C45: the answer in the words of its own option («لا، الجهتان متقاربتان»), never «لا شيء».
+    { label: t(lang, "assessment.context.support"), value: opt(lang, `support.${ctx.support}`) },
     { label: t(lang, "assessment.context.pain"), value: pain.length ? joinList(lang, pain) : none },
     {
       label: t(lang, "assessment.context.restrictions"),

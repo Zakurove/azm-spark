@@ -285,7 +285,11 @@ describe("S13 context summary", () => {
       t("en", "assessment.context.restrictions"),
     ]);
     expect(rows[0].value).toBe(t("en", "assessment.options.position.wheelchair"));
-    expect(rows[1].value).toBe(t("en", "assessment.context.sideLeft"));
+    expect(rows[1].value).toBe(t("en", "assessment.options.support.left"));
+    // C45: both sides about the same reads in its own words, never «لا شيء».
+    expect(contextRows("ar", ctxOf({ support: "none" }))[1].value).toBe(
+      t("ar", "assessment.options.support.none"),
+    );
     expect(rows[2].value).toBe(
       `${t("en", "assessment.options.pain.shoulder")}, ${t("en", "assessment.options.pain.knee")}`,
     );
@@ -293,9 +297,9 @@ describe("S13 context summary", () => {
     expect(JSON.stringify(rows)).not.toContain(t("en", "assessment.options.condition.stroke"));
   });
 
-  it("shows none for no weaker side and leaves out values that have no label", () => {
+  it("says both sides are about the same in its own words, and leaves out values that have no label (C45)", () => {
     const rows = contextRows("ar", ctxOf({ support: "none", pain: ["none", "not_a_label"] }));
-    expect(rows[1].value).toBe(t("ar", "assessment.context.none"));
+    expect(rows[1].value).toBe(t("ar", "assessment.options.support.none"));
     expect(rows[2].value).toBe(t("ar", "assessment.context.none"));
   });
 });

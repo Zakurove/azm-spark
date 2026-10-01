@@ -260,7 +260,6 @@ export default function IntakeForm({
         <h2>{c.steps[step]}</h2>
         {step === 0 && (
           <>
-            {initial === null && !reportInfo && <ReportUpload lang={lang} onExtracted={applyExtraction} />}
             <label className="field age-field">
               <span>
                 {c.age}
@@ -308,6 +307,8 @@ export default function IntakeForm({
                 onChange={(e) => set("medications", e.target.value)}
               />
             </label>
+            {/* C47: the questions come first; the report is a secondary link under them. */}
+            {initial === null && !reportInfo && <ReportUpload lang={lang} onExtracted={applyExtraction} />}
           </>
         )}
         {step === 1 && (

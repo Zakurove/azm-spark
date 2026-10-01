@@ -38,25 +38,35 @@ export function reportRequest(
   return { ...body, lang, reportConsent: true };
 }
 
-/** Optional medical-report analysis panel shown at the top of a fresh intake.
- * The image is downscaled client-side; on any failure the form continues manually.
+/** Optional medical report analysis of a fresh intake (C47): a secondary link «عندك تقرير طبي؟» under
+ * the first questions; choosing it opens the panel with the transfer notice before any upload.
+ * The image is downscaled on the phone; on any failure the form continues by hand.
  * Nothing can be sent until the person ticks the separate report consent (Q32 (2)); skipping and
  * answering by hand stays open at all times. */
 export default function ReportUpload({
   lang,
   onExtracted,
+  opened = false,
 }: {
   lang: Lang;
   onExtracted: (r: ReportResult) => void;
+  /** Starts with the panel open (tests); the intake starts with the link. */
+  opened?: boolean;
 }) {
   const c = labels(lang);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [open, setOpen] = useState(true),
+    [open, setOpen] = useState(opened),
     [text, setText] = useState(""),
     [consent, setConsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  if (!open) return null;
+  if (!open)
+    return (
+      <button type="button" className="text-button report-open" onClick={() => setOpen(true)}>
+        <Icon name="health" size={17} />
+        {c.reportTitle}
+      </button>
+    );
 
   const analyze = async (body: { kind: "text"; text: string } | { kind: "image"; image: string }) => {
     setBusy(true);

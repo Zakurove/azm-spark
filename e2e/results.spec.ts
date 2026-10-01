@@ -507,6 +507,14 @@ for (const lang of LANGS) {
       await expect(first.locator("h2")).toHaveText(a.name);
       await expect(first.locator(".ghost")).toHaveText(a.entry.first.cta);
       await expect(slot.locator(".cta")).toHaveCount(0);
+      // C52: every button and link of the portal is 48 px tall or more, as in the check.
+      const small = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>(".portal-shell button, .portal-shell a")]
+          .filter((el) => el.getClientRects().length > 0)
+          .map((el) => ({ name: el.textContent?.trim().slice(0, 30), h: el.getBoundingClientRect().height }))
+          .filter((x) => x.h < 48),
+      );
+      expect(small).toEqual([]);
       await today({ firstCheck: false, completedBefore: true, retestDue: now - DAY });
       await expect(slot.locator('[data-variant="due"] h2')).toHaveText(a.entry.due.title);
       await today({

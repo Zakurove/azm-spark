@@ -590,7 +590,8 @@ for (const lang of LANGS) {
       // S13: the intake in the person's words, never the conditions.
       await expectScreen(page, "S13", lang);
       await expect(page.locator("dt")).toHaveCount(4);
-      await expect(page.getByText(t.context.sideLeft)).toBeVisible();
+      // C45: the answer in its own option's words.
+      await expect(page.getByText(t.options.support.left)).toBeVisible();
       await next(page).click();
 
       // S14: the personal needs with the helper for the side lean, no time and no tests (C11, C38).

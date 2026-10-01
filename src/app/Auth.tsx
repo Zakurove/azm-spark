@@ -60,7 +60,6 @@ export default function Auth({
       </header>
       <main className="auth-grid">
         <section className="auth-editorial">
-          <span className="section-kicker">AZM / PERSONAL MOVEMENT</span>
           <h1>{c.authTitle}</h1>
           <p>{c.authBody}</p>
           <div className="auth-athlete">
@@ -100,7 +99,7 @@ export default function Auth({
               {c.register}
             </button>
           </div>
-          <h2>{register ? c.register : c.login}</h2>
+          {/* C50: «إنشاء حساب» is said once, as the tab and the button; no heading repeats it. */}
           <p>{c.authFoot}</p>
           <form
             onSubmit={async (e) => {

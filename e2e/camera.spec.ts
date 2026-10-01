@@ -123,6 +123,12 @@ test("setup check with nobody in the picture: one line and the offers at the pho
   // After a long wait: the setup tips, then skipping (the fast E2E timing: 4 s and 6 s).
   await page.getByRole("button", { name: "اعرض نصائح التجهيز" }).click();
   await expect(page.getByRole("dialog", { name: "نصائح التجهيز" })).toBeVisible();
+  // The sheet opens at its top on a small phone too: the title is in view, never above the screen.
+  for (const height of [812, 667]) {
+    await page.setViewportSize({ width: 375, height });
+    const title = (await page.getByRole("heading", { name: "نصائح التجهيز" }).boundingBox())!;
+    expect(title.y, `title at ${height} px`).toBeGreaterThanOrEqual(0);
+  }
   await page.getByRole("button", { name: "ارجع" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "تخطَّ هذا الاختبار" }).click();

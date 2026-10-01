@@ -817,7 +817,8 @@
 .azm-check .s34-sheet-card {
   width: 100%;
   max-width: var(--column);
-  max-height: 90dvh;
+  /* The sheet's own height, not the screen's: a taller card would push its title above the screen. */
+  max-height: 100%;
   overflow-y: auto;
   padding: var(--s6);
   border-radius: var(--r-hud);

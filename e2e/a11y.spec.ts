@@ -11,6 +11,8 @@
  *   results  S50 to S52, the Today cards S01 and S03, the offer S02, My results S53 and the example
  *            S54, with the answers of e2e/results-data.ts
  *   booth    S55 (code, errors, on), S57 and S58
+ *   portal   the landing, Program (with the weekly plan), coach settings, the workout start and the
+ *            trial
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from "@playwright/test";
@@ -428,6 +430,68 @@ for (const lang of LANGS) {
       await page.waitForTimeout(300);
       await audit(page, `booth ${name}`, problems);
     }
+    await context.close();
+    expect(problems).toEqual([]);
+  });
+}
+
+/* ------------------------------------------------------------------ portal */
+
+for (const lang of LANGS) {
+  test(`axe ${lang}: the landing, Program, the workout start, the trial and coach settings`, async ({
+    browser,
+  }) => {
+    test.setTimeout(5 * 60_000);
+    const problems: string[] = [];
+    const { context, page } = await phone(browser);
+    await page.goto(url("/", lang));
+    await expect(page.locator("h1").first()).toBeVisible();
+    await audit(page, "landing", problems);
+    await register(page, `portal-${lang}`);
+    const intake = await page.request.put("/api/intake", {
+      headers: { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" },
+      data: {
+        age: 45,
+        conditions: ["none"],
+        diagnosisNotes: "",
+        medications: "",
+        mobility: "seated",
+        support: "none",
+        pain: [],
+        restrictions: [],
+        symptoms: "no",
+        recentChange: "no",
+        clearance: "yes",
+        equipment: ["chair"],
+        goal: "habit",
+        days: [0, 2, 4],
+        time: "09:00",
+        sessionMinutes: 30,
+        consent: true,
+      },
+    });
+    expect(intake.status()).toBe(200);
+    await page.goto(url("/", lang));
+    const nav = page.locator(".portal-sidebar nav button");
+    // Program: the weekly plan (day tabs, block headings, tags) as well as the exercises.
+    await nav.nth(1).click();
+    await expect(page.locator(".weekly-block").first()).toBeVisible({ timeout: 20_000 });
+    await audit(page, "Program", problems);
+    await page.locator(".portal-topbar .icon-button").first().click();
+    await expect(page.locator('[data-setting="safety-check-in"]')).toBeVisible();
+    await audit(page, "coach settings", problems);
+    await page.keyboard.press("Escape");
+    // The workout start (C48): the setup screen with its attest line, then the warm up.
+    await nav.nth(0).click();
+    await page.locator(".next-workout .cta").click();
+    await expect(page.locator(".workout-attest")).toBeVisible();
+    await audit(page, "workout setup", problems);
+    await page.locator(".interval-page .cta").click();
+    await expect(page.locator(".interval-clock")).toBeVisible();
+    await audit(page, "workout warm up", problems);
+    await page.goto(url("/?try=1", lang));
+    await expect(page.locator(".try-shell")).toBeVisible();
+    await audit(page, "trial", problems);
     await context.close();
     expect(problems).toEqual([]);
   });

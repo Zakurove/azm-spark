@@ -3,7 +3,7 @@
  * time, the 64 px ambulance number, STOP, the big answer buttons (AnswerZones), the countdown ring, the
  * stage caption and the heading icon. They use only the check tokens (safety.css).
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import CheckIcon from "../shared/CheckIcon";
@@ -78,15 +78,17 @@ export function BigNumber({ number = "997" }: { number?: "997" }) {
 
 /**
  * STOP (principle 6, 4.2): full width, red, 72 px, a stop square and the word; its accessible name is
- * "Stop now". Never disabled. On the answer screens it sits in a sticky zone at the bottom.
+ * "Stop now". Never disabled. On the answer screens it sits in a sticky zone at the bottom; the
+ * workout uses the same control in its own bottom bar (C49), and `buttonRef` lets it take focus.
  */
-export function StopButton({ onPress }: { onPress(): void }) {
+export function StopButton({ onPress, buttonRef }: { onPress(): void; buttonRef?: Ref<HTMLButtonElement> }) {
   const { lang } = useCheckUi();
   return (
     <div className="safety-stop-zone">
       <button
         type="button"
         className="safety-stop"
+        ref={buttonRef}
         onClick={onPress}
         aria-label={t(lang, "assessment.stop.buttonLabel")}
       >

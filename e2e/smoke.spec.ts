@@ -2,7 +2,8 @@
  * Round 3 foundation smoke (contract v3 K, J): the landing, the closed check (/?check=1 without booth
  * mode), the example stub (/?example=progress), the booth staff stub (/?booth=1) and the new results
  * page in the portal nav render in Arabic and English with the right lang and dir, and no console
- * error. The account is a throwaway on the run's temporary database.
+ * error; Start session opens the workout's one setup screen (C48). The account is a throwaway on the
+ * run's temporary database.
  */
 import { expect, test, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
@@ -12,6 +13,8 @@ import enProgress from "../src/i18n/en/progress.json" with { type: "json" };
 import arLanding from "../src/i18n/ar/landing.json" with { type: "json" };
 import enLanding from "../src/i18n/en/landing.json" with { type: "json" };
 import { signUpAddress } from "./sign-up";
+import { labels } from "../src/app/platform-copy";
+import { camCopy } from "../src/app/camera-copy";
 
 const COPY = {
   ar: { a: ar, p: arProgress, l: arLanding },
@@ -37,6 +40,43 @@ function watchConsole(page: Page): string[] {
 async function expectDocument(page: Page, lang: Lang) {
   await expect(page.locator("html")).toHaveAttribute("lang", lang);
   await expect(page.locator("html")).toHaveAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+}
+
+/** A throwaway signed in account with a saved intake (seated, chair), on Today. */
+async function signIn(page: Page, lang: Lang) {
+  await page.goto(url("/", lang));
+  const headers = { Origin: new URL(page.url()).origin };
+  const email = `e2e-${lang}-${Date.now()}@example.test`;
+  const secret = `${crypto.randomUUID()}Aa1`;
+  const reg = await page.request.post("/api/auth/register", {
+    headers: { ...headers, "X-Azm-Request": "1", ...signUpAddress() },
+    data: { name: "E2E Member", email, password: secret, adultConfirmed: true },
+  });
+  expect(reg.status()).toBe(200);
+  const intake = await page.request.put("/api/intake", {
+    headers: { ...headers, "X-Azm-Request": "1" },
+    data: {
+      age: 45,
+      conditions: ["none"],
+      diagnosisNotes: "",
+      medications: "",
+      mobility: "seated",
+      support: "none",
+      pain: [],
+      restrictions: [],
+      symptoms: "no",
+      recentChange: "no",
+      clearance: "yes",
+      equipment: ["chair"],
+      goal: "habit",
+      days: [0, 2, 4],
+      time: "09:00",
+      sessionMinutes: 30,
+      consent: true,
+    },
+  });
+  expect(intake.status()).toBe(200);
+  await page.goto(url("/", lang));
 }
 
 for (const lang of LANGS) {
@@ -116,54 +156,48 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("the results page is in the portal nav, and Today holds the check slot", async ({ page }) => {
+    test("the results page is in the portal nav; Today shows no check card while home checks are closed", async ({
+      page,
+    }) => {
       const errors = watchConsole(page);
-      const headers = {
-        Origin: new URL(page.url() === "about:blank" ? "http://127.0.0.1" : page.url()).origin,
-      };
-      await page.goto(url("/", lang));
-      headers.Origin = new URL(page.url()).origin;
-      const email = `e2e-${lang}-${Date.now()}@example.test`;
-      const secret = `${crypto.randomUUID()}Aa1`;
-      const reg = await page.request.post("/api/auth/register", {
-        headers: { ...headers, "X-Azm-Request": "1", ...signUpAddress() },
-        data: { name: "E2E Member", email, password: secret, adultConfirmed: true },
-      });
-      expect(reg.status()).toBe(200);
-      const intake = await page.request.put("/api/intake", {
-        headers: { ...headers, "X-Azm-Request": "1" },
-        data: {
-          age: 45,
-          conditions: ["none"],
-          diagnosisNotes: "",
-          medications: "",
-          mobility: "seated",
-          support: "none",
-          pain: [],
-          restrictions: [],
-          symptoms: "no",
-          recentChange: "no",
-          clearance: "yes",
-          equipment: ["chair"],
-          goal: "habit",
-          days: [0, 2, 4],
-          time: "09:00",
-          sessionMinutes: 30,
-          consent: true,
-        },
-      });
-      expect(intake.status()).toBe(200);
-      await page.goto(url("/", lang));
-      // Today: the movement check slot (S01) after the next session card.
-      await expect(page.locator('[data-screen="S01"]')).toBeVisible();
-      await expect(page.locator('[data-screen="S01"] h2')).toHaveText(COPY[lang].a.name);
+      await signIn(page, lang);
+      // Today keeps the check slot, but only the cards that start or resume a check show there (C43);
+      // home checks are closed on the e2e server, so it stays empty.
+      await expect(page.locator(".check-slot")).toBeAttached();
+      await expect(page.locator('[data-screen="S01"]')).toHaveCount(0);
       const nav = page.locator(".portal-sidebar nav");
       await nav.getByRole("button", { name: COPY[lang].p.nav.label }).click();
-      await expect(page.locator(".portal-topbar")).toContainText(COPY[lang].p.nav.label);
       await expect(page.locator('[data-screen="S53"] h2')).toHaveText(COPY[lang].p.checks.heading);
       // The other portal pages still work.
       await nav.locator("button").nth(1).click();
       await expect(page.locator(".plan-card")).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+
+    test("Start session opens one setup screen, then the warm up (C48)", async ({ page }) => {
+      const errors = watchConsole(page);
+      const c = labels(lang);
+      await signIn(page, lang);
+      await page.getByRole("button", { name: c.start }).first().click();
+      // Setup: the full placement guide on the first session, the attestation line, no checkbox, no timer.
+      await expect(page.locator(".interval-main h1")).toHaveText(camCopy(lang).placeReminder);
+      await expect(page.locator(".place-tips li")).toHaveCount(camCopy(lang).tips.length);
+      await expect(page.locator(".workout-attest")).toHaveText(c.attest);
+      await expect(page.locator('input[type="checkbox"], [role="timer"], .section-kicker')).toHaveCount(0);
+      // The program lists each exercise once.
+      const rows = page.locator(".workout-queue > div");
+      await expect(rows.first()).toContainText(" · ");
+      const names = await rows.locator("strong").allTextContents();
+      expect(new Set(names.map((n) => n.split(" · ")[0])).size).toBe(names.length);
+      const ready = page.getByRole("button", { name: c.ready });
+      await expect(ready).toHaveAttribute("aria-describedby", "workout-attest");
+      expect((await ready.boundingBox())!.height).toBeGreaterThanOrEqual(48);
+      await ready.click();
+      // The warm up has its own screen and timer, without a set label.
+      await expect(page.locator(".interval-main h1")).toHaveText(c.warmup);
+      await expect(page.locator('[role="timer"]')).toBeVisible();
+      await expect(page.locator(".section-kicker")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: c.startTraining })).toBeVisible();
       expect(errors).toEqual([]);
     });
   });

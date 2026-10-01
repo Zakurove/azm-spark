@@ -45,7 +45,6 @@ export const T = {
   validReps: { ar: "دون ملاحظة", en: "without flags" },
   partialReps: { ar: "مدى أقصر", en: "shorter range" },
   compReps: { ar: "مع ملاحظة", en: "with movement flags" },
-  stop: { ar: "إيقاف", en: "STOP" },
   rpeTitle: { ar: "قدّر جهدك من ٠ إلى ١٠", en: "How hard was that, from 0 to 10?" },
   rpeHigh: { ar: "جهدك مرتفع، خذ راحةً كاملة قبل المواصلة", en: "High effort. Take a proper rest." },
   summaryTitle: { ar: "ملخص الجلسة", en: "Session summary" },

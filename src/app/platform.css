@@ -967,11 +967,24 @@
   font-size: 13px;
   display: block;
 }
-.workout-queue small {
-  font-size: 11px;
-  color: var(--muted);
-  display: block;
-  margin-top: 5px;
+/* C48: the setup screen's one placement line and the attestation the "I'm ready" tap confirms. */
+.workout-place-line {
+  font-size: 15px;
+  line-height: 2;
+  margin: 18px 0 0;
+}
+.workout-place-line .text-button {
+  min-height: 48px;
+  font-size: 14px;
+  color: var(--purple);
+}
+.workout-attest {
+  margin: 22px 0 0;
+  padding: 15px;
+  border-radius: 10px;
+  background: var(--purple-tint);
+  font-size: 14px;
+  line-height: 1.9;
 }
 @media (max-width: 1150px) {
   .auth-grid {
@@ -2398,22 +2411,6 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.cam-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 750;
-  color: #b33b2e;
-  letter-spacing: 0.04em;
-}
-.cam-live i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #d9463a;
-  animation: ld-pulse 1.6s infinite;
-}
 .cam-view {
   position: relative;
   flex: 1;
@@ -2660,12 +2657,19 @@
 .cam-bottom {
   padding: 12px 12px max(14px, env(safe-area-inset-bottom));
 }
-.cam-stop {
-  width: 100%;
-  min-height: 68px;
-  font-size: 19px;
-  border-radius: 18px;
-  gap: 12px;
+/* C49: the check's STOP sits in the workout's own bottom bar, which already holds it in place. */
+.azm-check.cam-bottom .safety-stop-zone,
+.azm-check.session-stop .safety-stop-zone {
+  position: static;
+  padding: 0;
+  background: transparent;
+}
+.azm-check.cam-bottom,
+.azm-check.session-stop {
+  background: transparent;
+}
+.session-stop {
+  flex: 1 1 220px;
 }
 @media (min-width: 900px) {
   .cam-top {
@@ -2676,12 +2680,10 @@
     border-radius: 30px;
   }
   .cam-bottom {
-    display: flex;
-    justify-content: center;
     padding: 14px 28px 20px;
   }
-  .cam-stop {
-    width: min(440px, 100%);
+  .azm-check.cam-bottom .safety-stop {
+    max-width: 440px;
   }
 }
 

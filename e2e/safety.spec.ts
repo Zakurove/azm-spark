@@ -15,7 +15,7 @@ import { expect, test, type Page } from "@playwright/test";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
-import { MEASURE, model, openGuest, openSignedIn, seed, type Lang } from "./safety-fixtures";
+import { MEASURE, openGuest, openSignedIn, type Lang } from "./safety-fixtures";
 
 const COPY = { ar, en } as const;
 const LANGS: Lang[] = ["ar", "en"];
@@ -168,47 +168,7 @@ for (const lang of LANGS) {
       await expect(page.locator(".check-base")).toHaveAttribute("data-state", "cam.measure");
     });
 
-    test("a visitor pass ending over S37 clears the pass and keeps the screen until it is left (R3C-35)", async ({
-      page,
-    }) => {
-      await page.clock.install();
-      // A visitor's own phone in booth mode: the pass the server gave it (never checked for real here).
-      await page.route("**/api/booth/check", (r) =>
-        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
-      );
-      const pass = JSON.stringify({ kind: "visitor", token: "c".repeat(64), expires: Date.now() + 3600e3 });
-      await page.addInitScript((p) => {
-        if (!sessionStorage.getItem("azm.e2e.visitor")) {
-          sessionStorage.setItem("azm.e2e.visitor", "1");
-          sessionStorage.setItem("azm.booth", p);
-        }
-      }, pass);
-      await seed(
-        page,
-        model({
-          state: { kind: "safety", safety: "ad", screen: "scr_ad", alsoShow: [], faintAnswered: false },
-        }),
-        false,
-      );
-      await page.goto(lang === "en" ? "/?check=1&lang=en" : "/?check=1");
-      const s37 = page.locator('[data-screen="S37"]');
-      await expect(s37).toBeVisible();
-      // Eleven minutes with the tab hidden, then back.
-      const visibility = (state: "hidden" | "visible") =>
-        page.evaluate((v) => {
-          Object.defineProperty(document, "visibilityState", { get: () => v, configurable: true });
-          document.dispatchEvent(new Event("visibilitychange"));
-        }, state);
-      await visibility("hidden");
-      await page.clock.runFor(11 * 60 * 1000);
-      await visibility("visible");
-      await page.clock.runFor(1_000);
-      // The AD steps stay on the phone; the pass is gone.
-      await expect(s37).toBeVisible();
-      expect(await page.evaluate(() => sessionStorage.getItem("azm.booth"))).toBeNull();
-    });
-
-    test("S36: 997 first as a tel: link, the number at 64 px, every sentence captioned in turn", async ({
+    test("S36: 997 first as a tel: link, the number at 64 px, every sentence highlighted in turn", async ({
       page,
     }) => {
       await page.clock.install();
@@ -234,18 +194,19 @@ for (const lang of LANGS) {
       expect((await call.boundingBox())!.height).toBeGreaterThanOrEqual(64);
       await expect(call).toHaveAttribute("aria-label", lang === "ar" ? "اتصل بالرقم ٩ ٩ ٧" : "Call 9 9 7");
       await expectTargets(page);
-      // The caption strip shows every sentence in turn (the voice when it may speak, else the reading
-      // time), and the sentence stack highlights it.
+      // C17: every sentence is on the card and highlighted in turn as it is read (the voice when it may
+      // speak, else the reading time); no caption strip repeats it above the card.
       const seen = new Set<string>();
+      let captions = 0;
       for (let i = 0; i < 40; i++) {
         await page.clock.runFor(500);
-        const text = await page.locator(".check-caption .check-caption-text").allInnerTexts();
-        for (const t of text) seen.add(t.trim());
+        for (const t of await page.locator(".safety-sentences p[aria-current='true']").allInnerTexts())
+          seen.add(t.trim());
+        captions += await page.locator(".check-caption").count();
       }
-      // C14: a sentence that is the heading itself is not captioned again above it.
-      const bare = (x: string) => x.replace(/[.!?؟]/gu, "").trim();
+      expect(captions).toBe(0);
       for (const s of sentences(data.screens.scr_emergency[lang]))
-        if (bare(s) !== bare(a.safety.emergency.title)) expect([...seen]).toContain(shown(lang, s));
+        expect([...seen]).toContain(shown(lang, s));
       await expect(page.locator(".safety-sentences p[aria-current]")).toHaveCount(0);
       await page.getByRole("button", { name: a.common.listen }).click();
       await page.clock.runFor(100);

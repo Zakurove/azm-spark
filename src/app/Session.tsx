@@ -19,6 +19,9 @@ import { camCopy } from "./camera-copy";
 import { copy, illustration, sessionProfile, Setup } from "./product";
 import Icon from "./Icon";
 import Dialog from "./Dialog";
+import { CheckRoot } from "../features/assessment/shared/CheckRoot";
+import { StopButton } from "../features/assessment/safety/parts";
+import "../features/assessment/safety/safety.css";
 
 type Stage = "loading" | "framing" | "calibrating" | "training" | "rpe" | "summary";
 
@@ -629,10 +632,6 @@ export default function SessionScreen(props: {
           </button>
           <div className="cam-title">
             <b>{def.name[lang]}</b>
-            <span className="cam-live">
-              <i />
-              {k.live}
-            </span>
           </div>
           <button
             className={`cam-round ${muted ? "is-muted" : ""}`}
@@ -772,12 +771,10 @@ export default function SessionScreen(props: {
             )}
           </div>
         </div>
-        <footer className="cam-bottom">
-          <button className="stop cam-stop" ref={stopBtnRef} onClick={stopNow}>
-            <Icon name="stop" size={22} />
-            {k.stop}
-          </button>
-        </footer>
+        {/* C49: the check's STOP, 72 px «توقف», the same control everywhere. */}
+        <CheckRoot ui={{ lang }} page={false} className="cam-bottom">
+          <StopButton onPress={stopNow} buttonRef={stopBtnRef} />
+        </CheckRoot>
         {dialogs}
       </div>
     );
@@ -985,10 +982,9 @@ export default function SessionScreen(props: {
         </div>
       </main>
       <footer className="session-controls">
-        <button className="stop" ref={stopBtnRef} onClick={stopNow}>
-          <Icon name="stop" size={18} />
-          {t("stop")}
-        </button>
+        <CheckRoot ui={{ lang }} page={false} className="session-stop">
+          <StopButton onPress={stopNow} buttonRef={stopBtnRef} />
+        </CheckRoot>
         <button
           className="ghost sound-button"
           onClick={() => {

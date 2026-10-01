@@ -389,6 +389,7 @@ export default function App() {
         <Workout
           run={run}
           lang={lang}
+          firstSession={records.length === 0}
           preferences={preferences}
           onPreferences={updatePreferences}
           onExit={() => setRun(null)}

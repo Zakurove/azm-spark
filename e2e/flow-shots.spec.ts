@@ -137,10 +137,14 @@ for (const size of SIZES) {
       const footerNext = () => page.locator(".check-footer .cta").first();
 
       // S08: Next without a choice (the hint), and none chosen.
+      // The walk's model already holds «none»: clear it, or Next moves on to S08b.
       await openState(page, "S08-conditions", lang);
+      await page.locator('.check-answer[aria-pressed="true"]').click();
       await footerNext().click();
+      await expect(page.locator('[data-screen="S08"]')).toBeVisible();
       await shot(page, lang, size, "S08-conditions-hint");
       await page.locator(".check-answer").first().click();
+      await expect(page.locator('[data-screen="S08"]')).toBeVisible();
       await shot(page, lang, size, "S08-conditions-none-chosen");
 
       // S12: Continue without the tick.

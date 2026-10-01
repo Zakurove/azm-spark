@@ -180,6 +180,8 @@ export function useReducedMotion(): boolean {
 export interface CameraCaption extends CaptionLine {
   /** Changes with every line, so a repeated line shows again. */
   n: number;
+  /** When its line was asked for (ms), so the screen shows it only in that part (R-11). */
+  at: number;
 }
 
 export interface CameraCues {
@@ -223,9 +225,9 @@ export function useCameraCues(active: boolean): CameraCues {
   }, [ui.sound.on, player]);
   useEffect(() => () => player.stop(), [player]);
 
-  const show = useCallback((line: CaptionLine, speaking: boolean, clearAfterMs?: number) => {
+  const show = useCallback((line: CaptionLine, at: number, speaking: boolean, clearAfterMs?: number) => {
     counter.current += 1;
-    setCaption({ ...line, n: counter.current });
+    setCaption({ ...line, n: counter.current, at });
     showRef.current(line.text, line.severity, speaking);
     if (clearTimer.current) clearTimeout(clearTimer.current);
     clearTimer.current = clearAfterMs
@@ -247,7 +249,7 @@ export function useCameraCues(active: boolean): CameraCues {
       const speak = next.speak && soundRef.current && isVoiceLine(cue);
       // The caption shows as the line starts; the hidden announcer hears it only when no voice says
       // it (sound off, a prompt of a timed trial, or a failed play), so nothing is announced twice.
-      if (line) show(line, speak);
+      if (line) show(line, next.at, speak);
       if (!speak) return;
       // The line lasts until its voice ends (CuePlayer onEnd), not an estimate.
       void player
@@ -271,7 +273,7 @@ export function useCameraCues(active: boolean): CameraCues {
     note: (n) => {
       const text = n.text ? n.text[langRef.current] : n.key ? translate(langRef.current, n.key) : "";
       if (!text) return;
-      show({ text, severity: n.severity }, false, n.clearAfterMs);
+      show({ text, severity: n.severity }, performance.now(), false, n.clearAfterMs);
     },
     silence: () => {
       queue.clear();
@@ -282,7 +284,7 @@ export function useCameraCues(active: boolean): CameraCues {
       if (!c) return;
       const speak = !!c.cue && soundRef.current && isVoiceLine(c.cue);
       if (speak) void player.line(c.cue as Parameters<CuePlayer["line"]>[0], "safety");
-      show(c, speak);
+      show(c, c.at, speak);
     },
     unblock: () => {
       primeAudio(langRef.current);

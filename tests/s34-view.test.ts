@@ -127,9 +127,9 @@ describe("S34 view, every preview state in both languages", () => {
     expect(ar).toContain("s34-caption-short");
     expect(ar).not.toContain("s34-caption-text");
     expect(text(ar)).toContain("ابتعد قليلًا");
-    const hold = render("range-hold", "en");
-    expect(text(hold)).toContain("Hold it there");
-    expect(text(hold)).not.toContain("Hold your arm there.");
+    const coach = render("range-coach", "en");
+    expect(text(coach)).toContain("Sideways not forward");
+    expect(text(coach)).not.toContain("Raise your arm out to the side, not in front of you.");
     // Captions only (Large captions) and a blocked voice: the sentence, large, without the short form.
     for (const name of ["timed-large", "setup-sound-blocked"]) {
       const html = render(name, "en");
@@ -139,6 +139,38 @@ describe("S34 view, every preview state in both languages", () => {
     // A sentence that carries a safety limit is always the line on screen.
     const lean = text(render("lean-left", "en"));
     expect(lean).toContain("only as far as you are sure you can come back from on your own");
+  });
+
+  it("no caption repeats the instruction the card already shows (C29, R-10)", () => {
+    // The card's word is the instruction: Go, Hold it there, Lower slowly, Hold there a moment, Come
+    // back to the middle, Rest, Saved; the phone held sideways: the card says to turn it upright.
+    for (const lang of ["ar", "en"] as const)
+      for (const name of [
+        "go",
+        "countdown",
+        "range-hold",
+        "range-lower",
+        "lean-pause",
+        "lean-return",
+        "lean-coach",
+        "rest-attempt",
+        "rest-side",
+        "saved-range",
+        "landscape",
+      ])
+        expect(render(name, lang), `${name} ${lang}`).not.toContain("s34-caption");
+    // A caption that says more than the card's word stays: the raise to the side, the lean with its
+    // safety limit, a coaching line, the time up line (sit down slowly), the go of a running trial.
+    for (const name of [
+      "practice-range",
+      "range-raise",
+      "lean-left",
+      "range-coach",
+      "timed-timeup",
+      "saved-timed",
+      "timed-curl",
+    ])
+      expect(render(name, "en"), name).toContain("s34-caption");
   });
 
   it("the top bar holds the counter, the booth badge and Sound; the pills on their own row (C29)", () => {

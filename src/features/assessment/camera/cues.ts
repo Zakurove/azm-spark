@@ -163,6 +163,8 @@ export interface CueStart {
   interrupt: boolean;
   /** Estimated end (ms). */
   endsAt: number;
+  /** When it was asked for (ms): its caption belongs to the part of that moment (R-11). */
+  at: number;
 }
 
 /** Lines older than this are dropped rather than played late. */
@@ -237,6 +239,6 @@ export class CueQueue {
     this.waiting.splice(best, 1);
     const endsAt = now + (cand.speak ? cueDurationMs(cand.id, this.lang()) : 1500);
     this.current = { req: cand, endsAt };
-    return { id: cand.id, speak: cand.speak, interrupt, endsAt };
+    return { id: cand.id, speak: cand.speak, interrupt, endsAt, at: cand.at };
   }
 }

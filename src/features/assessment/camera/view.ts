@@ -1,12 +1,14 @@
 /**
  * The words of the camera screens (UX spec S34c to S34k): which copy key and which cue go with each
- * setup issue, retry fix, phase and chip. Pure: no DOM. Interface copy comes from src/i18n; every
+ * setup issue, retry fix, phase and chip, and which caption shows over the card. Pure: no DOM. Interface copy comes from src/i18n; every
  * clinical line comes from the check data (cues, reasons).
  */
 import type { I18nKey } from "../../../i18n";
 import type { QualityIssue, SetupIssue } from "../../../engine/quality";
 import { viewCue } from "../../../engine/quality";
 import type { CheckCueId, Side, TestId } from "../../../movements/types";
+import type { CamSnapshot } from "./controller";
+import type { CueSeverity } from "./cues";
 
 /* ------------------------------------------------------------ setup check (S34c) */
 
@@ -245,3 +247,89 @@ export const DOT_KEY: Record<AttemptDot, I18nKey> = {
   saved: "assessment.hud.dotSaved",
   retry: "assessment.hud.dotRetry",
 };
+
+/* ------------------------------------------------------------ one instruction on screen (C29) */
+
+/** The card the stage shows (CameraView): a test's value card, or a part's own card. */
+export type StageKind = "setup" | "range" | "timed" | "lean" | "rest" | "saved" | "retry" | "calibrate";
+
+/**
+ * The cues whose instruction the card already shows as its word (R-10). While the card shows that
+ * word, the caption does not repeat it above the card; the voice still says the whole sentence. The
+ * raise, the lean, the coaching lines and the time up lines keep their caption: their sentence says
+ * more than the word (to the side, the safety limit, sit down slowly).
+ */
+export const CARD_SAYS: Partial<Record<CheckCueId, PhaseWord>> = {
+  check_ready: "ready",
+  check_go: "go",
+  test_abd_hold: "hold",
+  test_abd_lower: "lower",
+  test_trunk_pause: "pause",
+  test_trunk_return: "return",
+  test_trunk_to_middle: "return",
+  check_rest_short: "rest",
+  check_rest_minute: "rest",
+  check_saved: "saved",
+};
+
+type CardSnap = Pick<
+  CamSnapshot,
+  "part" | "phaseWord" | "rest" | "paused" | "countdown" | "runnerPhase" | "timeUp" | "practice"
+>;
+
+/** The word the stage's card shows now (panels.tsx), or null when it shows none. */
+export function cardWordOf(stage: StageKind, snap: CardSnap): PhaseWord | null {
+  const calibrating = snap.phaseWord === "upright" ? "upright" : "still";
+  if (stage === "saved" || stage === "rest") return stage;
+  if (stage === "calibrate") return calibrating;
+  if (stage !== "range" && stage !== "timed" && stage !== "lean") return null;
+  if (snap.part === "calibrate") return calibrating;
+  if (stage === "lean")
+    return snap.paused
+      ? "paused"
+      : snap.phaseWord === "rest" || (snap.part === "rest" && snap.phaseWord !== "saved")
+        ? "centred"
+        : snap.phaseWord;
+  if (snap.part === "rest" && snap.rest) return "rest";
+  if (stage === "range") return snap.paused ? "paused" : snap.phaseWord === "rest" ? null : snap.phaseWord;
+  if (snap.countdown === "go") return "go";
+  if (snap.countdown !== null && snap.runnerPhase === "ready") return "ready";
+  if (snap.timeUp) return "timeUp";
+  if (snap.paused) return "paused";
+  return snap.runnerPhase === "attempt" || snap.practice ? null : snap.phaseWord;
+}
+
+/**
+ * The caption over the card (C29: one instruction on screen). None when the card is the instruction
+ * (the phone held sideways, S34i and the practice fix, whose reason is the fix) or when the card
+ * shows the cue's word (CARD_SAYS). A safety line always shows.
+ */
+export function captionOverCard<C extends { cue?: CheckCueId; severity: CueSeverity }>(
+  caption: C | null,
+  card: { word: PhaseWord | null; only: boolean },
+): C | null {
+  if (!caption || caption.severity === "safety") return caption;
+  if (card.only) return null;
+  const said = caption.cue ? CARD_SAYS[caption.cue] : undefined;
+  return said && said === card.word ? null : caption;
+}
+
+/**
+ * Camera frames carry the time they were taken and the screen's clock ticks on its own, so a line of
+ * the new part may be dated up to a frame or two before the tick that entered it.
+ */
+export const PART_GRACE_MS = 250;
+
+/**
+ * A caption belongs to the part of the test that asked for its line (R-11, as a caption belongs to
+ * its screen, C14): a line asked before the current part began, such as the calibration's «اجلس
+ * مستقيمًا» once the practice runs, is not shown. A safety line, and a line of copy with no time,
+ * always show.
+ */
+export function captionOfPart<C extends { at?: number; severity: CueSeverity }>(
+  caption: C | null,
+  partSince: number,
+): C | null {
+  if (!caption || caption.severity === "safety" || caption.at === undefined) return caption;
+  return caption.at >= partSince - PART_GRACE_MS ? caption : null;
+}

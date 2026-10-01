@@ -363,6 +363,8 @@ export class CameraController {
   private holdStart: number | null = null;
   private holdAnchor: number | null = null;
   private phaseWord: PhaseWord | null = null;
+  private shownPart: CamPart | null = null;
+  private shownPartSince = 0;
   private count = 0;
   private trialRemaining: number | null = null;
   private countdown: number | "go" | null = null;
@@ -407,7 +409,7 @@ export class CameraController {
     this.enterIfChanged(t);
     this.timers(t);
     this.reconcile(t);
-    return this.drain();
+    return this.drain(t);
   }
 
   /** Time passing without a frame (loading, a slow camera): the screen's timers still run. */
@@ -419,13 +421,13 @@ export class CameraController {
       this.savedUntil = Math.max(this.savedUntil, t + 1000);
     this.timers(t);
     this.reconcile(t);
-    return this.drain();
+    return this.drain(t);
   }
 
   frame(f: Frame, env: CamEnv = IDLE_ENV, t: number = f.t): CamOutput {
     this.lastT = Math.max(this.lastT, t);
     const s = this.state;
-    if (!s) return this.drain();
+    if (!s) return this.drain(t);
     const poses = posesOf(f);
     this.lastPoses = poses;
     let lm: Landmark[] | null;
@@ -464,7 +466,7 @@ export class CameraController {
       this.lostWhileArmed = false;
       if (s.kind === "cam.retry") this.retryTimer(t, env);
       this.timers(t);
-      return this.drain();
+      return this.drain(t);
     }
 
     this.checkInFrame(t, lm, f.aspect, env);
@@ -474,7 +476,7 @@ export class CameraController {
     if (this.shouldFeed(env, phoneMoved)) this.feed(f, env, t);
     this.timers(t);
     this.reconcile(t);
-    return this.drain();
+    return this.drain(t);
   }
 
   /**
@@ -482,13 +484,13 @@ export class CameraController {
    * again without its practice leans; a calibration in progress starts again with it.
    */
   skipPractice(t: number): CamOutput {
-    if (this.test.testId !== "trunk_control_seated" || this.practiceSkipped) return this.drain();
+    if (this.test.testId !== "trunk_control_seated" || this.practiceSkipped) return this.drain(t);
     this.practiceSkipped = true;
     // The runner drops its practice where it is (TrunkControlRunner.skipPractice): the baseline is
     // kept, so the 3 s calibration is not repeated.
     if (this.runner instanceof TrunkControlRunner) this.handle(this.runner.skipPractice(t), t);
     this.reconcile(t);
-    return this.drain();
+    return this.drain(t);
   }
 
   /** The tracked person's landmarks in the last frame (the skeleton of setup and calibration). */
@@ -511,6 +513,14 @@ export class CameraController {
       last: this.lastLift,
       setup: [...v.issues, ...(v.noTilt ? ["no_tilt"] : [])],
     };
+  }
+
+  /**
+   * When the current part of the sequence began (ms, the time of the call that entered it). A caption
+   * of a line asked before then belongs to an earlier part and is not shown (captionOfPart, R-11).
+   */
+  get partSince(): number {
+    return this.shownPartSince;
   }
 
   /** The side lean practice was skipped (the button hides). */
@@ -585,7 +595,13 @@ export class CameraController {
     this.enterIfChanged(t);
   }
 
-  private drain(): CamOutput {
+  private drain(t: number): CamOutput {
+    // R-11: the part of the sequence and since when it runs, for the captions of its lines.
+    const part = this.part();
+    if (part !== this.shownPart) {
+      this.shownPart = part;
+      this.shownPartSince = t;
+    }
     const o = this.out;
     this.out = { events: [], cues: [], notes: [] };
     return o;

@@ -13,6 +13,7 @@ import {
 } from "../src/features/assessment/flowMachine";
 import { CameraController, camTestOf, IDLE_ENV } from "../src/features/assessment/camera/controller";
 import { camTiming } from "../src/features/assessment/camera/timing";
+import { captionOfPart, PART_GRACE_MS } from "../src/features/assessment/camera/view";
 import type { TestId } from "../src/movements/types";
 import { atSetup, checkInOn, framesOf, NOW, play, runFixture } from "./s34-harness";
 
@@ -119,6 +120,39 @@ describe("S34 camera sequence with fixture poses, each test kind and both aspect
     expect(Math.max(...remaining)).toBe(30);
     expect(Math.min(...remaining)).toBe(0);
     expect(frozen).not.toBeNull();
+  });
+});
+
+describe("a caption belongs to the part of the test that asked for its line (R-11)", () => {
+  it("the controller dates each part, and a line asked in the calibration is not shown in the practice", () => {
+    const seen: { part: string; since: number; t: number }[] = [];
+    runFixture(atSetup("shoulder_abduction"), "abd-9x16", 150, {
+      stopWhen: (m) => !camKind(m),
+      after: (ctrl, _m, t) => {
+        const part = ctrl.snapshot(t).part;
+        const last = seen[seen.length - 1];
+        if (!last || last.part !== part) seen.push({ part, since: ctrl.partSince, t });
+        else expect(ctrl.partSince).toBe(last.since);
+      },
+    });
+    // A part starts at the time of the call that entered it.
+    for (const s of seen.slice(1)) expect(s.since, s.part).toBe(s.t);
+    const calibrate = seen.find((s) => s.part === "calibrate")!;
+    const practice = seen.find((s) => s.part === "practice")!;
+    expect(practice.since - calibrate.since).toBeGreaterThan(PART_GRACE_MS);
+    // «اجلس مستقيمًا», asked as the calibration began, shows there and not once the practice runs.
+    const sitTall = { at: calibrate.since, severity: "info" as const };
+    expect(captionOfPart(sitTall, calibrate.since)).toBe(sitTall);
+    expect(captionOfPart(sitTall, practice.since)).toBeNull();
+    // A line of the practice shows; a safety line always does; a line with no time (copy) too.
+    expect(captionOfPart({ at: practice.since, severity: "info" as const }, practice.since)).not.toBeNull();
+    // A frame taken a moment before the tick that entered the part still counts as the part's.
+    const early = { at: practice.since - PART_GRACE_MS / 2, severity: "info" as const };
+    expect(captionOfPart(early, practice.since)).toBe(early);
+    expect(
+      captionOfPart({ at: calibrate.since, severity: "safety" as const }, practice.since),
+    ).not.toBeNull();
+    expect(captionOfPart({ severity: "warn" as const }, practice.since)).not.toBeNull();
   });
 });
 

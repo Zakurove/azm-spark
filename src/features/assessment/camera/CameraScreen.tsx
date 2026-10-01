@@ -20,7 +20,6 @@ import type { ScreenProps } from "../screenTypes";
 import { useCheckUi, type CaptionSeverity } from "../shared/CheckUi";
 import { CameraStage, type StageCaption } from "./CameraStage";
 import { CameraVideo } from "./CameraVideo";
-import { sameWords } from "./cues";
 import {
   IDLE_ENV,
   type CamEnv,
@@ -56,7 +55,17 @@ import { controllerFor } from "./registry";
 import { StaffReadoutPanel } from "./StaffReadout";
 import { cameraSession, useCameraSession, type CamError, type CamStatus } from "./session";
 import { camTiming, e2eFastTiming, type CamTiming } from "./timing";
-import { ARM_KEY, framingViewOf, PHASE_KEY, SETUP_TITLE, type AttemptDot } from "./view";
+import {
+  ARM_KEY,
+  captionOfPart,
+  captionOverCard,
+  cardWordOf,
+  framingViewOf,
+  PHASE_KEY,
+  SETUP_TITLE,
+  type AttemptDot,
+  type StageKind,
+} from "./view";
 
 /**
  * O3: live degrees during the arm raise are off at the booth and at home (council UX round). The
@@ -211,7 +220,7 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
         scale: viewport.scale,
         reduced,
       }}
-      caption={cues.caption}
+      caption={captionOfPart(cues.caption, ctrl.partSince)}
       blocked={cues.blocked}
       timing={timing}
       tips={tips}
@@ -239,8 +248,6 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
 }
 
 /* ================================================================ the view (live and previews) */
-
-export type StageKind = "setup" | "range" | "timed" | "lean" | "rest" | "saved" | "retry" | "calibrate";
 
 export interface CameraViewProps {
   model: FlowModel;
@@ -525,20 +532,14 @@ export function CameraView(p: CameraViewProps) {
       </button>
     ) : null;
 
-  // S34i and the practice fix (C30): the card's reason says the fix, so no caption repeats it above;
-  // a safety line stays. On the countdown the card's state word «استعد» is the caption's line: it is
-  // shown once.
+  // One instruction on screen (C29, R-10): the card is the instruction with the phone held sideways
+  // (it says to turn the phone upright), on S34i and the practice fix (C30: its reason is the fix),
+  // and whenever it shows the cue's word; a safety line stays.
   const retrying = s.kind === "cam.retry" || (s.kind === "cam.practice" && !!snap.practiceFix);
-  const readyWord = t(lang, "assessment.hud.phase.ready");
-  const countingDown = typeof snap.countdown === "number";
-  const caption =
-    device.phoneLandscape && running
-      ? { text: t(lang, "assessment.setup.turnUpright"), severity: "warn" as const }
-      : p.caption && retrying && p.caption.severity !== "safety"
-        ? null
-        : p.caption && countingDown && sameWords(p.caption.short ?? p.caption.text, readyWord)
-          ? null
-          : p.caption;
+  const caption = captionOverCard(p.caption, {
+    word: cardWordOf(kind, snap),
+    only: (device.phoneLandscape && running) || retrying,
+  });
   const videoMode =
     large && measuring
       ? "thumb"

@@ -257,14 +257,15 @@ for (const lang of LANGS) {
       await expect(page.locator(".cta")).toHaveCount(1);
       await page.getByRole("button", { name: a.results.seeOverTime }).click();
       await expect(page.locator('[data-screen="S53"]')).toBeVisible();
-      await expect(page.locator(".portal-topbar")).toContainText(p.nav.label);
+      await expect(page.locator(".portal-sidebar nav button.active")).toContainText(p.nav.label);
       // Return to Today from a fresh copy of the results: the top bar ✕ and the footer both say it.
       await openSnapshot(page, lang, snap, false);
       await expect(
         page.locator(".check-topbar").getByRole("button", { name: a.common.backToToday }),
       ).toBeVisible();
       await page.locator(".check-footer").getByRole("button", { name: a.common.backToToday }).click();
-      await expect(page.locator('.check-slot [data-screen="S01"]')).toBeVisible();
+      // Today: the next session; the upcoming check card lives on My results (C43).
+      await expect(page.locator(".next-workout")).toBeVisible();
       expect(errors).toEqual([]);
     });
 
@@ -583,6 +584,7 @@ for (const lang of LANGS) {
       await expect(slot.locator('[data-screen="S03"]')).toHaveCount(0);
       // Offline: the answer waits for the connection and the thanks says it is not saved yet.
       await today(due, {}, false);
+      await expect(s03).toBeVisible();
       await browser.setOffline(true);
       await answers.first().click();
       await s03.getByRole("button", { name: a.after.send }).click();

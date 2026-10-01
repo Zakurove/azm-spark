@@ -195,7 +195,8 @@ for (const lang of LANGS) {
       for (const width of [320, 375]) {
         await page.setViewportSize({ width, height: 800 });
         await page.goto(url("/", lang));
-        await expect(page.locator('[data-screen="S01"]')).toBeVisible();
+        // Today (C43: no check card while home checks are closed on the E2E server).
+        await expect(page.locator(".next-workout")).toBeVisible();
         const sideways = () =>
           page.evaluate(
             () => document.scrollingElement!.scrollWidth - document.scrollingElement!.clientWidth,
@@ -268,7 +269,7 @@ for (const lang of LANGS) {
       await page.goBack();
       await expect(leave).toBeVisible();
       await leave.getByRole("button", { name: COPY[lang].a.exit.leave }).click();
-      await expect(page.locator('[data-screen="S01"]')).toBeVisible();
+      await expect(page.locator(".next-workout")).toBeVisible();
     });
 
     test("a guest exit replaces the page: Back never returns to the visitor's screens (S57)", async ({

@@ -2947,7 +2947,7 @@
     ],
     "checkIn": {
       "decision": "D-016 (Nasser, 2026-09-30): a simple check in, off by default. It replaces the council's check in, no response alarm and fall watch (O34, O42, Q31 (2) (4) (5) (6), R3C-01 to R3C-05).",
-      "setting": "An optional per device setting, «التحقق من سلامتك أثناء الاختبار» · Check on me during tests, off by default, in the coach settings and on the check intro (S14). At the booth it is off and not shown, because staff watch.",
+      "setting": "An optional per device setting, «الاطمئنان عليك أثناء الاختبار» · Check on me during tests, off by default, in the coach settings only (simplicity cut C39 took the switch off the check intro, S14). At the booth it is off and not shown, because staff watch.",
       "triggers": [
         "during a camera test, the person leaves the picture for 5 s",
         "during a camera test, no movement for 10 s"

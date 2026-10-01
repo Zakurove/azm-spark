@@ -530,7 +530,6 @@ export default function App() {
       </aside>
       <div className="portal-content">
         <header className="portal-topbar">
-          <span>{pageLabel(page)}</span>
           <div>
             <button className="icon-button" onClick={() => setSettings(true)} aria-label={c.neural}>
               <Icon name="settings" size={19} />
@@ -554,17 +553,12 @@ export default function App() {
             <>
               <div className="page-heading">
                 <div>
-                  {/* My results (S53) has no kicker: its results are measured, not reported. */}
-                  {page !== "results" && (
-                    <p className="section-kicker">
-                      {page === "today" ? `${c.welcome}، ${account.user.name}` : c.reported}
-                    </p>
-                  )}
+                  {/* Program and health say what was reported; Today greets (C43); My results (S53)
+                      has no kicker: its results are measured, not reported. */}
+                  {page !== "results" && page !== "today" && <p className="section-kicker">{c.reported}</p>}
                   <h1>
                     {page === "today"
-                      ? lang === "ar"
-                        ? "خطوتك القادمة تبدأ هنا."
-                        : "Your next move starts here."
+                      ? `${c.welcome}${lang === "ar" ? "، " : ", "}${account.user.name}`
                       : pageLabel(page)}
                   </h1>
                 </div>
@@ -623,7 +617,6 @@ export default function App() {
                               })}
                             </p>
                             <h2>{optionNames[h.goal]?.[lang]}</h2>
-                            <p>{h.conditions.map((v) => optionNames[v]?.[lang]).join(" · ")}</p>
                             <div className="hero-dose">
                               <span>
                                 {countOf(
@@ -661,17 +654,6 @@ export default function App() {
                         </section>
                       )}
                       {page === "today" && todaySlot}
-                      {page === "today" && (
-                        <LazyPart lang={lang}>
-                          <WeeklyPlanView
-                            lang={lang}
-                            plan={p}
-                            compact
-                            onLoaded={onWeekly}
-                            onOpen={() => setPage("program")}
-                          />
-                        </LazyPart>
-                      )}
                       <section className="schedule-card">
                         <div className="card-heading">
                           <h2>{c.schedule}</h2>
@@ -700,22 +682,22 @@ export default function App() {
                           })}
                         </div>
                       </section>
-                      <section className="plan-card">
-                        <div className="card-heading">
-                          <h2>{c.program}</h2>
-                          <span>{c.planReady}</span>
-                        </div>
-                        {planDetails}
-                        <div className="preparation-row">
-                          <span>
-                            <Icon name="clock" size={17} />
-                            {c.warmup} {countPhrase(lang, "min", p.warmUpMinutes)}
-                          </span>
-                          <span>
-                            {c.cooldown} {countPhrase(lang, "min", p.coolDownMinutes)}
-                          </span>
-                        </div>
-                        {page === "program" && (
+                      {page === "program" && (
+                        <section className="plan-card">
+                          <div className="card-heading">
+                            <h2>{c.program}</h2>
+                            <span>{c.planReady}</span>
+                          </div>
+                          {planDetails}
+                          <div className="preparation-row">
+                            <span>
+                              <Icon name="clock" size={17} />
+                              {c.warmup} {countPhrase(lang, "min", p.warmUpMinutes)}
+                            </span>
+                            <span>
+                              {c.cooldown} {countPhrase(lang, "min", p.coolDownMinutes)}
+                            </span>
+                          </div>
                           <div className="plan-actions">
                             <button className="cta" disabled={busy} onClick={() => void start(false)}>
                               {c.start}
@@ -725,8 +707,8 @@ export default function App() {
                               {c.preview}
                             </button>
                           </div>
-                        )}
-                      </section>
+                        </section>
+                      )}
                       {page === "program" && (
                         <LazyPart lang={lang}>
                           <WeeklyPlanView lang={lang} plan={p} onLoaded={onWeekly} />
@@ -734,7 +716,8 @@ export default function App() {
                       )}
                     </>
                   )}
-                  {(p.notes.length > 0 || p.exclusions.length > 0) && (
+                  {/* C43: why this program lives on the Program tab only. */}
+                  {page === "program" && (p.notes.length > 0 || p.exclusions.length > 0) && (
                     <section className="plan-notes">
                       <h2>{c.reasons}</h2>
                       {p.notes.map((n) => (

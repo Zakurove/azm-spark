@@ -45,7 +45,9 @@ for (const lang of LANGS) {
       const errors = watchConsole(page);
       await page.goto(url("/", lang));
       await expect(page.locator("h1").first()).toBeVisible();
-      await expect(page.getByRole("link", { name: COPY[lang].l.actions.tryCheck }).first()).toBeVisible();
+      // C36: one gold action, Start free; the movement check action waits until the check can start.
+      await expect(page.locator(".ld-hero-copy .cta")).toHaveText(COPY[lang].l.actions.startFree);
+      await expect(page.getByRole("link", { name: COPY[lang].l.actions.tryCheck })).toHaveCount(0);
       await expectDocument(page, lang);
       expect(errors).toEqual([]);
     });

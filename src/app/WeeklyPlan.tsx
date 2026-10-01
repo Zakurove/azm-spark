@@ -25,8 +25,6 @@ const copy = {
     seconds: "ثانية",
     why: "لماذا هذه الخطة",
     tips: "نصائح لأسبوعك",
-    open: "افتح خطتك الأسبوعية",
-    exercises: "تمارين",
   },
   en: {
     title: "Your weekly plan",
@@ -47,8 +45,6 @@ const copy = {
     seconds: "sec",
     why: "Why this plan",
     tips: "Tips for your week",
-    open: "Open your weekly plan",
-    exercises: "exercises",
   },
 };
 
@@ -102,15 +98,11 @@ function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
 export default function WeeklyPlanView({
   lang,
   plan,
-  compact,
   onLoaded,
-  onOpen,
 }: {
   lang: Lang;
   plan: Plan;
-  compact?: boolean;
   onLoaded: (w: WeeklyPlan) => void;
-  onOpen?: () => void;
 }) {
   const k = copy[lang];
   const weekly = plan.weekly;
@@ -179,31 +171,6 @@ export default function WeeklyPlanView({
     </span>
   );
   const day = weekly.days[Math.min(dayIdx, weekly.days.length - 1)];
-  if (compact) {
-    const count = day.warmup.length + day.extra.length + day.cooldown.length + plan.exercises.length;
-    return (
-      <section className="weekly-card compact">
-        <div className="weekly-head">
-          {badge}
-          <h2>{k.title}</h2>
-          <p className="weekly-summary">{weekly.summary[lang]}</p>
-        </div>
-        <div className="weekly-today">
-          <b>
-            {weekday(day.day, lang)} · {day.focus[lang]}
-          </b>
-          <span>
-            {fmtNum(count, lang)} {k.exercises}
-          </span>
-        </div>
-        <button className="ghost" onClick={onOpen}>
-          {k.open}
-          <Icon name="arrow" size={16} />
-        </button>
-      </section>
-    );
-  }
-
   return (
     <section className="weekly-card">
       <div className="weekly-head">

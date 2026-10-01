@@ -317,9 +317,10 @@ for (const lang of LANGS) {
     await expect(page.locator('[data-screen="S52"]')).toBeVisible();
     await audit(page, "S52", problems);
 
-    // Today: S01 in its variants, S03 above it.
+    // Today: S01 when a check is due or open, S03 above it; the other variants on My results (C43).
     const slot = ".check-slot";
-    const today = async (label: string, over: Record<string, unknown>, extra = {}) => {
+    const resultsPage = ".check-results-page";
+    const today = async (label: string, over: Record<string, unknown>, extra = {}, onToday = true) => {
       await mockApi(page, {
         context: contextOf(over),
         progress: progress([]),
@@ -327,27 +328,45 @@ for (const lang of LANGS) {
         ...extra,
       });
       await page.goto(url("/", lang));
+      if (!onToday)
+        await page
+          .locator("nav")
+          .first()
+          .getByRole("button", { name: lang === "ar" ? "نتائجي" : "My results" })
+          .first()
+          .click();
+      const region = onToday ? slot : resultsPage;
       await expect(
-        page.locator(`${slot} [data-screen="S01"], ${slot} [data-screen="S03"]`).first(),
+        page.locator(`${region} [data-screen="S01"], ${region} [data-screen="S03"]`).first(),
       ).toBeVisible();
-      await expect(page.locator(`${slot} .pg-entry-skeleton`)).toHaveCount(0);
-      await audit(page, `S01 ${label}`, problems, slot);
+      await expect(page.locator(`${region} .pg-entry-skeleton`)).toHaveCount(0);
+      await audit(page, `S01 ${label}`, problems, region);
     };
     await today("first", {});
-    // The Today page outside the check as well (the week strip, the weekly card, the footnote), once.
+    // The Today page outside the check as well (the week strip, the footnote), once.
     await audit(page, "Today page", problems);
-    await today("homeSoon", { homeOpen: false });
-    await today("blocked", { blocked: "clinical_review" });
-    await today("locked", {
-      lock: {
-        until: now + DAY,
-        releasableByClearance: true,
-        when: { token: "nextDay_clock", time: { hour: 7, minute: 50, suffix: "am" } },
+    await today("homeSoon", { homeOpen: false }, {}, false);
+    await today("blocked", { blocked: "clinical_review" }, {}, false);
+    await today(
+      "locked",
+      {
+        lock: {
+          until: now + DAY,
+          releasableByClearance: true,
+          when: { token: "nextDay_clock", time: { hour: 7, minute: 50, suffix: "am" } },
+        },
       },
-    });
+      {},
+      false,
+    );
     const open = openCheck(now);
     await today("resume", open.context, { checks: { assessments: [open.check] } });
-    await today("upcoming", { firstCheck: false, completedBefore: true, retestDue: now + 20 * DAY });
+    await today(
+      "upcoming",
+      { firstCheck: false, completedBefore: true, retestDue: now + 20 * DAY },
+      {},
+      false,
+    );
     await today("S03 followUp", { firstCheck: false, completedBefore: true, followUpDue: true });
 
     // S02, the offer after the intake.

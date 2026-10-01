@@ -109,7 +109,7 @@ for (const size of SIZES) {
       await shot(page, lang, size.tag, size.tag === "d" ? "S04-desktop-stub" : "S05-guest-welcome-stub");
       await page.evaluate(() => sessionStorage.removeItem("azm.booth"));
 
-      // Signed in: Today with the check slot (S01) and the results page (S53).
+      // Signed in: Today, and the results page with the check card (S01, S53).
       const origin = new URL(page.url()).origin;
       const headers = { Origin: origin, "X-Azm-Request": "1" };
       const reg = await page.request.post("/api/auth/register", {
@@ -146,12 +146,12 @@ for (const size of SIZES) {
       });
       expect(intake.status()).toBe(200);
       await page.goto(q("/", lang));
-      // The loading card (aria-busy) carries S01 too; wait for the loaded one, which stays.
-      const today = page.locator('[data-screen="S01"]:not([aria-busy="true"])');
-      await expect(today).toBeVisible();
-      await today.scrollIntoViewIfNeeded();
-      await shot(page, lang, size.tag, "S01-today-slot");
+      // Home checks are closed on this server, so Today has no check card (C43): My results has it.
+      await expect(page.locator(".next-workout")).toBeVisible();
+      await shot(page, lang, size.tag, "today");
       await page.locator(".portal-sidebar nav button").nth(2).click();
+      // The loading card (aria-busy) carries S01 too; wait for the loaded one, which stays.
+      await expect(page.locator('[data-screen="S01"]:not([aria-busy="true"])')).toBeVisible();
       await expect(page.locator('[data-screen="S53"]')).toBeVisible();
       await shot(page, lang, size.tag, "S53-results-page-stub");
       await context.close();

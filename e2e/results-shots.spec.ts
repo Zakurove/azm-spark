@@ -216,6 +216,8 @@ for (const size of SIZES) {
       await signIn(page, lang, `today-${size.tag}`);
       const now = Date.now();
       const slot = ".check-slot";
+      // C43: Today shows the check card when a check is due or open; My results shows every variant.
+      const ON_TODAY = ["first", "due", "resume", "leanRepeat", "repeatOffer"];
       const today = async (label: string, over: Record<string, unknown>, extra = {}) => {
         await mockApi(page, {
           context: context(over),
@@ -224,9 +226,15 @@ for (const size of SIZES) {
           ...extra,
         });
         await page.goto(url("/", lang));
-        await expect(page.locator(`${slot} [data-screen="S01"]`).first()).toBeVisible();
-        await expect(page.locator(`${slot} .pg-entry-skeleton`)).toHaveCount(0);
-        await part(page, slot, name(`S01-${label}`));
+        const region = ON_TODAY.includes(label) ? slot : ".check-results-page";
+        if (region !== slot)
+          await page
+            .locator(".portal-sidebar nav")
+            .getByRole("button", { name: lang === "ar" ? "نتائجي" : "My results" })
+            .click();
+        await expect(page.locator(`${region} [data-screen="S01"]`).first()).toBeVisible();
+        await expect(page.locator(`${region} .pg-entry-skeleton`)).toHaveCount(0);
+        await part(page, region, name(`S01-${label}`));
       };
       await today("first", {});
       await today("homeSoon", { homeOpen: false });
@@ -254,7 +262,7 @@ for (const size of SIZES) {
         retestDue: now + 27 * DAY,
       });
       await today("upcoming", { firstCheck: false, completedBefore: true, retestDue: now + 20 * DAY });
-      await page.locator(`${slot} .check-text-button`).first().click();
+      await page.locator(".check-results-page .pg-entry .check-text-button").first().click();
       await expect(page.locator(".check-dialog")).toBeVisible();
       await shot(page, name("S01-upcoming-earlyDialog"), false);
       await page.keyboard.press("Escape");
@@ -285,9 +293,14 @@ for (const size of SIZES) {
         checks: { assessments: [] },
         delay: 4000,
       });
+      // While loading, Today shows nothing of the check (C43); My results shows the skeleton.
       await page.goto(url("/", lang));
-      await expect(page.locator(`${slot} .pg-entry-skeleton`)).toBeVisible();
-      await part(page, slot, name("S01-loading"));
+      await page
+        .locator(".portal-sidebar nav")
+        .getByRole("button", { name: lang === "ar" ? "نتائجي" : "My results" })
+        .click();
+      await expect(page.locator(".check-results-page .pg-entry-skeleton")).toBeVisible();
+      await part(page, ".check-results-page", name("S01-loading"));
       await mockApi(page, { context: { status: 500, body: { error: "SERVER" } }, progress: progress([]) });
       await page.goto(url("/", lang));
       await expect(page.locator(`${slot} [data-variant="error"]`)).toBeVisible();
@@ -325,7 +338,7 @@ for (const size of SIZES) {
       await expect(page.locator('[data-screen="S03"][data-sent="lasting"]')).toBeVisible();
       await part(page, slot, name("S03-lasting"));
       await page.evaluate(() => location.reload());
-      await expect(page.locator('[data-screen="S01"]')).toBeVisible();
+      await expect(page.locator(".next-workout")).toBeVisible();
       await mockApi(page, {
         context: context({
           firstCheck: false,

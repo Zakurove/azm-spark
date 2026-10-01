@@ -340,13 +340,9 @@
   border-bottom: 1px solid var(--line);
   background: #ffffffb0;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 0 40px;
-}
-.portal-topbar > span {
-  font-size: 12px;
-  color: var(--muted);
 }
 .portal-topbar > div {
   display: flex;
@@ -2927,34 +2923,6 @@
     background-position: -200% 0;
   }
 }
-.weekly-card.compact {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.weekly-card.compact .weekly-summary {
-  margin-top: 6px;
-}
-.weekly-today {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  background: #fbfaf8;
-  border: 1px solid #efece5;
-  border-radius: 14px;
-  padding: 12px 16px;
-  font-size: 13px;
-}
-.weekly-today span {
-  /* 4.5:1 on the warm card (WCAG 1.4.3). */
-  color: var(--muted);
-  flex-shrink: 0;
-}
-.weekly-card.compact .ghost {
-  align-self: flex-start;
-  background: #fff;
-}
 @media (max-width: 760px) {
   .weekly-card {
     padding: 18px 15px;
@@ -2975,10 +2943,6 @@
   }
   .weekly-days button {
     min-width: 112px;
-  }
-  .weekly-today {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 [dir="rtl"] .weekly-item-body ol {

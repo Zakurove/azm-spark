@@ -76,6 +76,8 @@ export interface EntryCardProps {
   onStart(options?: CheckStartOptions): void;
   onResults?(): void;
   onOpenHealth?(): void;
+  /** On Today the session start is the one gold action (C43): the check's own action is outlined. */
+  quiet?: boolean;
 }
 
 const ICON: Record<NonNullable<EntryState["variant"]>, string> = {
@@ -91,7 +93,15 @@ const ICON: Record<NonNullable<EntryState["variant"]>, string> = {
   upcoming: "calendar",
 };
 
-export function EntryCard({ state, compact, offline, onStart, onResults, onOpenHealth }: EntryCardProps) {
+export function EntryCard({
+  state,
+  compact,
+  offline,
+  onStart,
+  onResults,
+  onOpenHealth,
+  quiet,
+}: EntryCardProps) {
   const { lang } = useCheckUi();
   const [early, setEarly] = useState(false);
   const titleId = useId();
@@ -205,7 +215,7 @@ export function EntryCard({ state, compact, offline, onStart, onResults, onOpenH
         <>
           {cream && secondary && <div className="pg-entry-divider" aria-hidden="true" />}
           {primary && (
-            <button type="button" className="cta" onClick={primary.run}>
+            <button type="button" className={quiet ? "ghost" : "cta"} onClick={primary.run}>
               {primary.label}
               <CheckIcon name="arrow-forward" />
             </button>
@@ -518,8 +528,21 @@ async function sendAfter(value: NextDayAnswer, owner?: string): Promise<void | "
 }
 
 /**
- * The Today slot: S03 (the next day question, when due) above the S01 entry card. It loads GET
- * /api/assessments/context, GET /api/progress and GET /api/assessments and picks the S01 variant.
+ * The S01 variants Today shows (C43): a check is due or open, so there is something to start. The
+ * others (closed, too soon, upcoming, paused, blocked) live on My results, never as a dead end here.
+ */
+export const TODAY_VARIANTS: readonly NonNullable<EntryState["variant"]>[] = [
+  "first",
+  "due",
+  "resume",
+  "leanRepeat",
+  "repeatOffer",
+];
+
+/**
+ * The Today slot: S03 (the next day question, when due) above the S01 entry card when a check is due
+ * or open. It loads GET /api/assessments/context, GET /api/progress and GET /api/assessments and picks
+ * the S01 variant.
  */
 export function TodayCheckSlot({ lang, onStart, onOpenResults, onOpenHealth, owner }: TodayCheckSlotProps) {
   const { data, reload, online } = useCheckData(owner);
@@ -528,7 +551,7 @@ export function TodayCheckSlot({ lang, onStart, onOpenResults, onOpenHealth, own
   const ctx = data.context;
   let body: ReactNode = null;
   let followUp = false;
-  if (ctx.status === "loading") body = <EntrySkeleton />;
+  if (ctx.status === "loading") body = null;
   else if (ctx.status === "error" && ctx.code === "PLAN_REQUIRED") body = null;
   else if (ctx.status !== "ok") body = <EntryError onRetry={() => void reload()} />;
   else {
@@ -540,15 +563,17 @@ export function TodayCheckSlot({ lang, onStart, onOpenResults, onOpenHealth, own
       resumeAllowed,
     });
     followUp = state.followUp || answeredThisSession !== null;
-    body = (
-      <EntryCard
-        state={state}
-        offline={!online}
-        onStart={onStart}
-        onResults={onOpenResults}
-        onOpenHealth={onOpenHealth}
-      />
-    );
+    body =
+      state.variant && TODAY_VARIANTS.includes(state.variant) ? (
+        <EntryCard
+          state={state}
+          offline={!online}
+          onStart={onStart}
+          onResults={onOpenResults}
+          onOpenHealth={onOpenHealth}
+          quiet
+        />
+      ) : null;
   }
   return (
     <CheckRoot ui={{ lang, online }} page={false} className="check-slot">

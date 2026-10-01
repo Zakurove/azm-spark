@@ -410,10 +410,10 @@ for (const lang of LANGS) {
       await mockApi(page, full);
       await page.goto(url("/", lang));
       await nav().click();
-      // Arm raise right and left, side lean right, arm curl right and left, then the booth series.
+      // Arm raise right and left, side lean right, arm curl right and left; no booth card (C34).
       const cards = page.locator(".pg-series");
-      await expect(cards).toHaveCount(6);
-      await expect(cards.last().locator(".pg-chip")).toHaveText(DATA.progress.labels.boothPoint[lang]);
+      await expect(cards).toHaveCount(5);
+      await expect(page.locator(".pg-series .pg-chip")).toHaveCount(0);
       // C42: one How to read note above the cards, with the band sentence once.
       await expect(page.locator("[data-how-to-read]")).toHaveCount(1);
       await expect(page.locator(".pg-band-note")).toHaveCount(0);
@@ -457,18 +457,18 @@ for (const lang of LANGS) {
       await expect(page.locator('.check-results-page [data-screen="S01"]')).toBeVisible();
       await mockApi(page, full);
       await alert.getByRole("button", { name: a.common.retry }).click();
-      await expect(cards).toHaveCount(6);
+      await expect(cards).toHaveCount(5);
 
       // Offline: the last loaded copy stays with its date.
       await browser.setOffline(true);
       await expect(page.locator(".check-offline")).toBeVisible();
       await expect(page.locator("[data-last-loaded]")).toBeVisible();
-      await expect(cards).toHaveCount(6);
+      await expect(cards).toHaveCount(5);
       await browser.setOffline(false);
       expect(errors).toEqual([]);
     });
 
-    test("S01 and S03: the Today card variants, the early start and the next day question", async ({
+    test("S01 and S03: the check card on Today when due or open, the rest on My results, the next day question", async ({
       page,
       context: browser,
     }) => {
@@ -476,7 +476,9 @@ for (const lang of LANGS) {
       await signIn(page, lang, "s01");
       const now = Date.now();
       const slot = page.locator(".check-slot");
-      const today = async (over: Record<string, unknown>, extra = {}) => {
+      const hero = page.locator(".next-workout");
+      /** Today with this context: the S01 card shows only when a check is due or open (C43). */
+      const today = async (over: Record<string, unknown>, extra = {}, shown = true) => {
         await mockApi(page, {
           context: context(over),
           progress: progress([]),
@@ -484,27 +486,27 @@ for (const lang of LANGS) {
           ...extra,
         });
         await page.goto(url("/", lang));
-        await expect(slot.locator('[data-screen="S01"][data-variant]')).toBeVisible();
+        await expect(hero).toBeVisible();
+        if (shown) await expect(slot.locator('[data-screen="S01"][data-variant]')).toBeVisible();
       };
-      // The real server first: home checks are closed on the E2E server.
+      /** My results with this context: every S01 variant, the ones without a start too. */
+      const results = page.locator(".check-results-page");
+      const onResults = async (over: Record<string, unknown>) => {
+        await today(over, {}, false);
+        await page.locator(".portal-sidebar nav").getByRole("button", { name: p.nav.label }).click();
+        await expect(results.locator('[data-screen="S01"][data-variant]')).toBeVisible();
+      };
+      // The real server first: home checks are closed on the E2E server. No dead end on Today.
       await page.goto(url("/", lang));
-      await expect(slot.locator('[data-variant="homeSoon"]')).toContainText(a.entry.homeSoon);
-      await expect(slot.locator("button")).toHaveCount(0);
+      await expect(hero).toBeVisible();
+      await expect(slot.locator('[data-screen="S01"]')).toHaveCount(0);
 
+      // Due or open: on Today, with the session start the one gold action (C43).
       await today({});
       const first = slot.locator('[data-variant="first"]');
       await expect(first.locator("h2")).toHaveText(a.name);
-      await expect(first.locator(".cta")).toHaveText(a.entry.first.cta);
-      await today({
-        lock: { until: now + DAY, releasableByClearance: true, when: { token: "nextDay_midnight" } },
-      });
-      await expect(slot.locator('[data-variant="locked"][role="status"] h2')).toHaveText(
-        a.entry.locked.title,
-      );
-      await expect(slot.getByRole("button", { name: a.entry.locked.cleared })).toBeVisible();
-      await today({ blocked: "clinical_review" });
-      await slot.getByRole("button", { name: a.entry.blocked.link }).click();
-      await expect(slot).toHaveCount(0);
+      await expect(first.locator(".ghost")).toHaveText(a.entry.first.cta);
+      await expect(slot.locator(".cta")).toHaveCount(0);
       await today({ firstCheck: false, completedBefore: true, retestDue: now - DAY });
       await expect(slot.locator('[data-variant="due"] h2')).toHaveText(a.entry.due.title);
       await today({
@@ -512,33 +514,50 @@ for (const lang of LANGS) {
         completedBefore: true,
         sideLeanRepeat: { from: now - DAY, to: now + 4 * DAY, baseTests: ["trunk_control_seated"] },
       });
-      await expect(slot.locator('[data-variant="leanRepeat"] .cta')).toHaveText(a.entry.leanRepeat.cta);
-      await today({ firstCheck: false, completedBefore: true, earliestNext: now + DAY });
-      await expect(slot.locator('[data-variant="tooSoon"] button')).toHaveCount(0);
+      await expect(slot.locator('[data-variant="leanRepeat"] .ghost')).toHaveText(a.entry.leanRepeat.cta);
       // An open check within its 30 minutes: where it stopped, and Continue (O6).
       const open = openCheck(now);
       await today(open.context, { checks: { assessments: [open.check] } });
       const resume = slot.locator('[data-variant="resume"]');
       await expect(resume.locator("h2")).toHaveText(a.entry.resume.title);
       await expect(resume).toContainText(lang === "ar" ? "الاختبار ٢ من ٣" : "test 2 of 3");
-      await expect(resume.locator(".cta")).toHaveText(a.entry.resume.cta);
+      await expect(resume.locator(".ghost")).toHaveText(a.entry.resume.cta);
 
-      // Upcoming: the early start asks first (H9), Later closes, Start now opens the check.
-      await today({ firstCheck: false, completedBefore: true, retestDue: now + 20 * DAY });
-      await slot.getByRole("button", { name: a.entry.upcoming.early }).click();
+      // Paused, blocked, too soon: never on Today; My results says so.
+      for (const over of [
+        { lock: { until: now + DAY, releasableByClearance: true, when: { token: "nextDay_midnight" } } },
+        { blocked: "clinical_review" },
+        { firstCheck: false, completedBefore: true, earliestNext: now + DAY },
+      ]) {
+        await today(over, {}, false);
+        await expect(slot.locator('[data-screen="S01"]')).toHaveCount(0);
+      }
+      await onResults({
+        lock: { until: now + DAY, releasableByClearance: true, when: { token: "nextDay_midnight" } },
+      });
+      await expect(results.locator('[data-variant="locked"][role="status"] h2')).toHaveText(
+        a.entry.locked.title,
+      );
+      await expect(results.getByRole("button", { name: a.entry.locked.cleared })).toBeVisible();
+      await onResults({ firstCheck: false, completedBefore: true, earliestNext: now + DAY });
+      await expect(results.locator('[data-variant="tooSoon"] button')).toHaveCount(0);
+
+      // Upcoming, on My results: the early start asks first (H9), Later closes, Start now opens the check.
+      await onResults({ firstCheck: false, completedBefore: true, retestDue: now + 20 * DAY });
+      await results.getByRole("button", { name: a.entry.upcoming.early }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.locator("h2")).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
-      await expect(slot.getByRole("button", { name: a.entry.upcoming.early })).toBeFocused();
-      await slot.getByRole("button", { name: a.entry.upcoming.early }).click();
+      await expect(results.getByRole("button", { name: a.entry.upcoming.early })).toBeFocused();
+      await results.getByRole("button", { name: a.entry.upcoming.early }).click();
       await dialog.locator(".cta").click();
       await expect(page.locator(".check-base")).toBeVisible();
 
       // S03 above the card: select, then Send; lasting shows the 937 call.
       const due = { firstCheck: false, completedBefore: true, retestDue: now + 26 * DAY, followUpDue: true };
-      await today(due, { after: { recorded: true, screen: null, lastingUnresolved: true } });
+      await today(due, { after: { recorded: true, screen: null, lastingUnresolved: true } }, false);
       const s03 = slot.locator('[data-screen="S03"]');
       await expect(s03.locator("legend")).toBeVisible();
       await s03.getByRole("button", { name: a.after.send }).click();
@@ -551,12 +570,11 @@ for (const lang of LANGS) {
       await expect(slot.locator('[data-screen="S03"][data-sent="lasting"] [role="status"]')).toBeVisible();
       await expect(slot.locator('a[href="tel:937"]')).toBeVisible();
       // I will answer later hides it until the next app open.
-      await today(due);
+      await today(due, {}, false);
       await slot.getByRole("button", { name: a.after.notNow }).click();
       await expect(slot.locator('[data-screen="S03"]')).toHaveCount(0);
-      await expect(slot.locator('[data-screen="S01"]')).toBeVisible();
       // Offline: the answer waits for the connection and the thanks says it is not saved yet.
-      await today(due);
+      await today(due, {}, false);
       await browser.setOffline(true);
       await answers.first().click();
       await s03.getByRole("button", { name: a.after.send }).click();

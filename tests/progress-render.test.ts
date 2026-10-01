@@ -30,7 +30,7 @@ import { createCheckApi } from "../src/features/assessment/api";
 import { ResultsScreen } from "../src/features/assessment/results/ResultsView";
 import { ResultCards } from "../src/features/assessment/results/ResultCards";
 import { buildResults } from "../src/features/assessment/results/model";
-import { EntryCard, NextDayQuestion } from "../src/features/progress/EntryCards";
+import { EntryCard, NextDayQuestion, TODAY_VARIANTS } from "../src/features/progress/EntryCards";
 import { ExampleProgress } from "../src/features/progress/ExamplePage";
 import { SessionsBlock } from "../src/features/progress/Sessions";
 import { HowToRead, SeriesCard, ThenNow, comparisonLines } from "../src/features/progress/ThenNow";
@@ -168,6 +168,21 @@ describe("S01 entry card", () => {
       }
     });
   }
+
+  it("Today shows it only when a check is due or open, its action outlined beside the session start (C43)", () => {
+    expect([...TODAY_VARIANTS].sort()).toEqual(["due", "first", "leanRepeat", "repeatOffer", "resume"]);
+    const m = html(
+      "en",
+      createElement(EntryCard, {
+        state: entry({ variant: "due" }),
+        offline: false,
+        onStart: noop,
+        quiet: true,
+      }),
+    );
+    expect(m).not.toContain('class="cta"');
+    expect(m).toMatch(/class="ghost"[^>]*>Start the check/);
+  });
 
   it("writes the first body with the minutes and the 4 weeks", () => {
     const m = card("en", { variant: "first", minutes: [16, 21] });

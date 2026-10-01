@@ -8,6 +8,7 @@ import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import CheckIcon from "./CheckIcon";
 import { announcementFor, useCheckUi, type CaptionSeverity } from "./CheckUi";
+import { sameWords } from "./format";
 
 export interface CaptionBarProps {
   text: string;
@@ -25,6 +26,21 @@ export const SEVERITY_ICON: Record<CaptionSeverity, string> = {
   warn: "alert-triangle",
   safety: "stop-square",
 };
+
+/**
+ * Whether a caption may show (C14): a line belongs to the screen that asked for it, so a line from a
+ * screen that is gone (the camera's last cue after the flow moved to S47) never shows over the next
+ * one; and a line that is already the screen's heading is not repeated above it.
+ */
+export function captionAllowed(
+  owner: string,
+  current: string,
+  text: string,
+  heading: string | null,
+): boolean {
+  if (owner !== current) return false;
+  return !heading || !sameWords(text, heading);
+}
 
 export function CaptionBar({ text, severity, onReplay }: CaptionBarProps) {
   const { lang } = useCheckUi();

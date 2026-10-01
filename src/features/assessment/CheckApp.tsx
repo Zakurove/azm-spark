@@ -36,6 +36,7 @@ import { OVERLAYS, overlayFor, SCREENS, screenFor } from "./screens";
 import { LeaveDialog } from "./shared/CheckDialog";
 import { CheckRoot } from "./shared/CheckRoot";
 import { CheckShell } from "./shared/CheckShell";
+import { captionAllowed } from "./shared/CaptionBar";
 import { useCheckUi, type Caption, type CaptionSeverity, type CheckUi } from "./shared/CheckUi";
 import { ErrorState, LoadingState } from "./shared/states";
 import { useOnline } from "./shared/useOnline";
@@ -249,13 +250,18 @@ export default function CheckApp({
   }, [model.state, onExit]);
 
   const screenKey = screenKeyOf(model);
-  // A caption belongs to its screen.
+  // A caption belongs to its screen (C14): cleared when the screen changes, and a line asked for by a
+  // screen that is gone (a late camera cue) or already the screen's heading is not shown.
   useEffect(() => setCaption(null), [screenKey]);
-
+  const currentKey = useRef(screenKey);
+  currentKey.current = screenKey;
   const showCaption = useCallback(
-    (text: string, severity: CaptionSeverity = "info", speaking = false, replay?: () => void) =>
-      setCaption({ text, severity, speaking, ...(replay ? { replay } : {}) }),
-    [],
+    (text: string, severity: CaptionSeverity = "info", speaking = false, replay?: () => void) => {
+      const heading = baseRef.current?.querySelector("h1")?.textContent ?? null;
+      if (!captionAllowed(screenKey, currentKey.current, text, heading)) return;
+      setCaption({ text, severity, speaking, ...(replay ? { replay } : {}) });
+    },
+    [screenKey],
   );
   const ui: CheckUi = {
     lang,

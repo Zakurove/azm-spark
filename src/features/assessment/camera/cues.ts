@@ -13,6 +13,7 @@
  * lines by an estimate of their length. Every spoken line is captioned at the moment it starts, and
  * a prompt (a line of a timed trial, D-009) is captioned without being spoken.
  */
+import { sameWords } from "../shared/format";
 import type { Lang } from "../../../app/i18n";
 import { cueLine } from "../../../movements/assessments";
 import type { CheckCueId } from "../../../movements/types";
@@ -128,17 +129,7 @@ export function captionOf(id: CheckCueId, lang: Lang): CaptionLine {
   };
 }
 
-/** The same words, whatever the punctuation, the tashkeel and the case. */
-export function sameWords(a: string, b: string): boolean {
-  const bare = (s: string) =>
-    s
-      .normalize("NFC")
-      .replace(/[\u064B-\u0652\u0670]/g, "")
-      .replace(/[\p{P}\s]+/gu, " ")
-      .trim()
-      .toLowerCase();
-  return bare(a) === bare(b);
-}
+export { sameWords };
 
 /**
  * How long a line is taken to last before its voice starts: about as long as a calm voice needs for

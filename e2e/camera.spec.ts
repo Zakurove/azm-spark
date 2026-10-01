@@ -87,6 +87,12 @@ for (const run of RUNS) {
         await expect(page.locator(".s34-timed .s34-line40")).toBeVisible();
       }
       await reach(page, run.end, 150_000);
+      if (run.end === "between") {
+        // C14: leaving the camera clears its caption; no movement cue stays over the pain question.
+        await expect(page.locator('[data-screen="S47"]')).toBeVisible();
+        await page.waitForTimeout(2500);
+        await expect(page.locator(".check-caption")).toHaveCount(0);
+      }
       const seen = await statesSeen(page);
       const kinds = run.timed
         ? ["cam.setup", "cam.calibrate", "cam.practice", "cam.countdown", "cam.measure", "cam.saved"]

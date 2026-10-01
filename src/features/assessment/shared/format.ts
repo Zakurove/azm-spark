@@ -28,3 +28,15 @@ export function parseNumberInput(raw: string): number | null {
   const n = Number(ascii);
   return Number.isFinite(n) ? n : null;
 }
+
+/** The same words, whatever the punctuation, the tashkeel and the case. */
+export function sameWords(a: string, b: string): boolean {
+  const bare = (s: string) =>
+    s
+      .normalize("NFC")
+      .replace(/[\u064B-\u0652\u0670]/g, "")
+      .replace(/[\p{P}\s]+/gu, " ")
+      .trim()
+      .toLowerCase();
+  return bare(a) === bare(b);
+}

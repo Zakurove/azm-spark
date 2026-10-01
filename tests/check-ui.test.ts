@@ -7,6 +7,7 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { bidiSegments, bidiText, tx } from "../src/i18n/rich";
 import { t } from "../src/i18n";
+import { captionAllowed } from "../src/features/assessment/shared/CaptionBar";
 
 const html = (node: ReactNode) => renderToStaticMarkup(createElement("p", null, node));
 
@@ -78,6 +79,27 @@ describe("caption severity is never colour alone (4.3, principle 10)", () => {
     expect(shapes.size).toBe(3);
     expect(render("safety")).toContain('class="check-caption is-safety"');
     expect(render("safety")).toContain('data-severity="safety"');
+  });
+});
+
+describe("a caption belongs to its screen and never repeats its heading (C14)", () => {
+  it("drops a line from a screen that is gone: the camera's last cue never sits over S47", () => {
+    expect(captionAllowed("cam.measure:0:1", "between:0:1", "والآن أنزلها ببطء.", "هل الألم الآن")).toBe(
+      false,
+    );
+    expect(captionAllowed("cam.measure:0:1", "cam.measure:0:1", "والآن أنزلها ببطء.", null)).toBe(true);
+  });
+
+  it("drops a line that is the screen's heading, whatever the punctuation", () => {
+    expect(
+      captionAllowed(
+        "skipNotice",
+        "skipNotice",
+        "لا بأس، سنتخطى هذا الاختبار.",
+        "لا بأس، سنتخطى هذا الاختبار",
+      ),
+    ).toBe(false);
+    expect(captionAllowed("intro", "intro", "Let’s measure your movement now.", "Movement check")).toBe(true);
   });
 });
 

@@ -88,8 +88,6 @@ export class CuePlayer {
   private generation = 0;
   private isMuted = false;
   private activePriority = -1;
-  private rate = 1;
-  guidanceOnly = false;
   /** A pack played instead of the stored choice: the coach settings' sample of a pack being chosen. */
   voicePack?: string;
   constructor(private lang: Lang) {}
@@ -99,10 +97,6 @@ export class CuePlayer {
   set muted(value: boolean) {
     this.isMuted = value;
     if (value) this.stop();
-  }
-  set pace(value: number) {
-    this.rate = Math.max(0.75, Math.min(1.25, value));
-    if (this.activeAudio) this.activeAudio.playbackRate = this.rate;
   }
   setLang(lang: Lang) {
     this.stop();
@@ -186,7 +180,7 @@ export class CuePlayer {
       } catch {
         /* not seekable yet */
       }
-      target.playbackRate = this.rate;
+      target.playbackRate = 1;
       target.onended = finish;
       target.onerror = finish;
       try {
@@ -220,7 +214,6 @@ export class CuePlayer {
     );
     u.lang = SPEECH_LANG[this.lang];
     u.voice = voice;
-    u.rate = this.rate;
     u.onend = finish;
     u.onerror = finish;
     started = true;
@@ -232,8 +225,6 @@ export class CuePlayer {
     return this.line(id, severity);
   }
   count(n: number) {
-    return this.guidanceOnly || n < 1 || n > 10
-      ? Promise.resolve(false)
-      : this.line(`count_${n}` as VoiceLine, "praise");
+    return n < 1 || n > 10 ? Promise.resolve(false) : this.line(`count_${n}` as VoiceLine, "praise");
   }
 }

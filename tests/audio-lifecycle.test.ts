@@ -89,16 +89,6 @@ it("interrupts a count immediately for safety", async () => {
   await warning;
   expect(pending[1].play).toHaveBeenCalledOnce();
 });
-it("omits counts in guidance-only mode while retaining correction cues", async () => {
-  const player = new CuePlayer("ar");
-  player.guidanceOnly = true;
-  expect(await player.count(1)).toBe(false);
-  expect(pending).toHaveLength(0);
-  const warning = player.cue("sit_tall");
-  pending[0].oncanplaythrough();
-  await warning;
-  expect(pending[0].play).toHaveBeenCalledOnce();
-});
 it("says when a line ends (onEnd): at its end, when it is cut off, never for a line that did not start", async () => {
   const player = new CuePlayer("ar");
   const ends: string[] = [];

@@ -6,8 +6,6 @@ afterEach(() => vi.unstubAllGlobals());
 it("recovers from malformed or unavailable stored preferences", () => {
   const fallback = {
     voice: "full",
-    pace: 1,
-    focus: false,
     safetyCheckIn: false,
     voicePack: "",
     checkSound: "",
@@ -26,6 +24,18 @@ it("recovers from malformed or unavailable stored preferences", () => {
       }),
   });
   expect(readPreferences()).toEqual(fallback);
+});
+it("keeps the voice on or off; the guidance only mode of an earlier build reads as on (C40)", () => {
+  for (const [stored, voice] of [
+    ["off", "off"],
+    ["full", "full"],
+    ["essential", "full"],
+  ] as const) {
+    vi.stubGlobal("localStorage", {
+      getItem: () => JSON.stringify({ voice: stored, pace: 0.85, focus: true }),
+    });
+    expect(readPreferences()).toEqual({ voice, safetyCheckIn: false, voicePack: "", checkSound: "" });
+  }
 });
 it("keeps the movement check's optional check in per device, off by default (D-016)", () => {
   vi.stubGlobal("localStorage", { getItem: () => null });

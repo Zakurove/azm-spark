@@ -21,7 +21,12 @@ declare module "virtual:check-unit-forms" {
 declare module "virtual:voice-packs" {
   const index: {
     default: string;
-    packs: { id: string; label: string; provider: string; voices: { ar: string; en: string } }[];
+    packs: {
+      id: string;
+      name: { ar: string; en: string };
+      provider: string;
+      voices: { ar: string; en: string };
+    }[];
   };
   export default index;
 }

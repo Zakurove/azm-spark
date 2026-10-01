@@ -560,7 +560,7 @@
     "fine": "I am fine",
     "wantStop": "I want to stop",
     "setting": "Check on me during tests",
-    "settingNote": "If you leave the picture or stop moving for a few seconds during a test, we pause it and ask if you are all right."
+    "settingNote": "We pause a test and ask if you leave the picture or stop moving."
   },
   "skipNotice": {
     "painTitle": "Today we skip the tests that use the area that hurts",

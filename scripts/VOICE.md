@@ -5,7 +5,9 @@ The coach voice comes from a **voice pack**: one voice per language, recorded ah
 `public/cues/packs/index.json`. The app never calls a speech service; it only plays these files.
 A line a pack does not have plays from the default pack, then with the phone's own voice.
 
-Today one pack is installed: `openai-ash` (the default, OpenAI voice Ash).
+Today one pack is installed: `openai-ash` (the default, OpenAI voice Ash). In the app a pack shows
+by its place in `index.json` («الصوت ١» · "Voice 1", then «الصوت ٢» · "Voice 2"), never by the
+provider's voice id; edit its `name` in `index.json` to give it another name.
 
 ## 1. Before you render
 
@@ -40,9 +42,10 @@ the pack's `manifest.json` (provenance) and its line in `index.json` (line count
 ## 3. Compare in the app
 
 1. `npm run dev`, open http://localhost:5205, sign in.
-2. Open the coach settings (the gear at the top, "Coach voice").
-3. **Choose a voice** appears once two or more packs are installed. Tap a voice to hear its welcome;
-   **Hear your coach** plays it again. Then run a workout or a movement check to hear it in use.
+2. Open the coach settings (the gear at the top, «صوت يناسبك» · "A voice that fits you").
+3. **Choose a voice** appears once two or more packs are installed, each by its name («الصوت ٢»).
+   Tap a voice to hear its welcome; **Hear your coach** plays it again. Then run a workout or a
+   movement check to hear it in use. Note which name is which pack id in `index.json`.
 
 The choice is kept on that phone only. With a partial pack, the lines it lacks are heard in the
 default voice.

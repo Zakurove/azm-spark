@@ -22,7 +22,7 @@ describe("the check in switch in the coach settings (D-016)", () => {
       const at = html.indexOf('data-setting="safety-check-in"');
       expect(at).toBeGreaterThan(-1);
       const button = html.slice(html.lastIndexOf("<button", at), html.indexOf("</button>", at));
-      expect(button).toContain('aria-pressed="false"');
+      expect(button).toContain('aria-checked="false"');
       expect(button).toContain(t(lang, "assessment.checkin.setting"));
       expect(button).toContain(t(lang, "assessment.checkin.settingNote"));
     }
@@ -31,6 +31,6 @@ describe("the check in switch in the coach settings (D-016)", () => {
   it("shows the stored setting", () => {
     const html = render("en", { ...defaults, safetyCheckIn: true });
     const at = html.indexOf('data-setting="safety-check-in"');
-    expect(html.slice(html.lastIndexOf("<button", at), at)).toContain('aria-pressed="true"');
+    expect(html.slice(html.lastIndexOf("<button", at), at)).toContain('aria-checked="true"');
   });
 });

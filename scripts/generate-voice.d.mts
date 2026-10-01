@@ -13,7 +13,8 @@ export interface Voices {
 }
 export interface PackEntry {
   id: string;
-  label: string;
+  /** The friendly name in the coach settings (C40), set by withPack from the pack's place. */
+  name: { ar: string; en: string };
   provider: string;
   voices: Voices;
   cueCount: number;
@@ -40,8 +41,9 @@ export declare function packEntry(
   voices: Voices,
   ids: string[],
   has: (lang: "ar" | "en", id: string) => boolean,
-): PackEntry;
-export declare function withPack(index: PackIndex | null, entry: PackEntry): PackIndex;
+): Omit<PackEntry, "name">;
+export declare function packName(n: number): PackEntry["name"];
+export declare function withPack(index: PackIndex | null, entry: Omit<PackEntry, "name">): PackIndex;
 export declare const INSTRUCTIONS: { ar: string; en: string; count: string };
 export declare function styleFor(lang: "ar" | "en", id: string): string;
 export declare function inputFor(lang: "ar" | "en", id: string, line: VoiceLine): string;

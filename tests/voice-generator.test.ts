@@ -13,6 +13,7 @@ import {
   PACE_GATE,
   paceGate,
   packEntry,
+  packName,
   packVoices,
   parseArgs,
   spokenWords,
@@ -192,7 +193,6 @@ describe("voice packs from the generator (D-016 item 5)", () => {
     expect(() => packVoices(undefined, { ar: "Charon", en: null })).toThrow(/--voice-ar and --voice-en/);
     const achird = {
       id: "gemini-achird",
-      label: "Achird",
       provider: "Google Gemini",
       voices: { ar: "Achird", en: "Achird" },
     };
@@ -205,16 +205,26 @@ describe("voice packs from the generator (D-016 item 5)", () => {
     const has = (lang: string, id: string) => id !== "b" || lang === "ar";
     expect(packEntry("gemini-schedar", { ar: "Schedar", en: "Schedar" }, ["a", "b", "c"], has)).toEqual({
       id: "gemini-schedar",
-      label: "Schedar",
       provider: "Google Gemini",
       voices: { ar: "Schedar", en: "Schedar" },
       cueCount: 2,
       complete: false,
     });
     expect(packEntry("mix", { ar: "Algieba", en: "Achird" }, ["a"], () => true)).toMatchObject({
-      label: "Algieba / Achird",
       complete: true,
     });
+  });
+
+  it("names a new pack by its place, Arabic first, and a pack keeps its name (C40)", () => {
+    expect(packName(2)).toEqual({ ar: "الصوت ٢", en: "Voice 2" });
+    const entry = (id: string) => ({ id, provider: "Google Gemini", voices: { ar: "x", en: "x" } }) as never;
+    const added = withPack(index, entry("gemini-achird"));
+    expect(added.packs.map((p) => p.name)).toEqual([index.packs[0].name, packName(2)]);
+    const renamed = {
+      ...added,
+      packs: [added.packs[0], { ...added.packs[1], name: { ar: "هادئ", en: "Calm" } }],
+    };
+    expect(withPack(renamed, entry("gemini-achird")).packs[1].name).toEqual({ ar: "هادئ", en: "Calm" });
   });
 
   it("adds a pack to the index, replaces it in place, and keeps the default", () => {

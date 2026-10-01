@@ -10,7 +10,8 @@ import type { Lang } from "./i18n";
 
 export interface VoicePack {
   id: string;
-  label: string;
+  /** The friendly name in the picker (C40): «الصوت ١» · "Voice 1", never the provider's voice id. */
+  name: { ar: string; en: string };
 }
 
 export const VOICE_PACKS: readonly VoicePack[] = index.packs;

@@ -389,10 +389,6 @@ export default function SessionScreen(props: {
     };
   }, [demo]);
   useEffect(() => {
-    player.pace = preferences.pace;
-    player.guidanceOnly = preferences.voice === "essential";
-  }, [player, preferences]);
-  useEffect(() => {
     if (stage === "calibrating") void player.line("calibration");
     if (stage === "training") void player.line("training");
   }, [stage, player]);
@@ -787,10 +783,7 @@ export default function SessionScreen(props: {
     );
   const stageIndex = stage === "loading" || stage === "framing" ? 0 : stage === "calibrating" ? 1 : 2;
   return (
-    <div
-      className={`session ${preferences.focus ? "focus-session" : ""} ${demo ? "demo-session" : "camera-session"}`}
-      data-stage={stage}
-    >
+    <div className={`session ${demo ? "demo-session" : "camera-session"}`} data-stage={stage}>
       <header className="session-header">
         <button className="brand" onClick={onExit} aria-label={t("home")}>
           <Brand />
@@ -800,14 +793,6 @@ export default function SessionScreen(props: {
           {demo ? c.demo : c.live}
         </div>
         <div className="session-tools">
-          <button
-            className="ghost focus-toggle"
-            aria-pressed={preferences.focus}
-            onClick={() => onPreferences({ ...preferences, focus: !preferences.focus })}
-          >
-            <Icon name="focus" size={17} />
-            {preferences.focus ? x.standard : x.focus}
-          </button>
           <button className="text-button" onClick={onExit}>
             {t("home")}
           </button>

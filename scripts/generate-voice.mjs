@@ -241,14 +241,22 @@ export function packVoices(existing,voices){
 // The pack's line in the index: cueCount counts the script lines it has in both languages.
 export function packEntry(id,voices,ids,has){
  const cueCount=ids.filter(line=>has('ar',line)&&has('en',line)).length;
- return {id,label:voices.ar===voices.en?voices.ar:`${voices.ar} / ${voices.en}`,provider:PACK_PROVIDER,voices,cueCount,complete:cueCount===ids.length};
+ return {id,provider:PACK_PROVIDER,voices,cueCount,complete:cueCount===ids.length};
 }
 
-// The index with the pack added (or replaced where it was). The default stays; a first pack is it.
+// The friendly name of the pack in the coach settings (C40): its place in the list, never the
+// provider's voice id. Arabic first, with Arabic Indic digits.
+export function packName(n){
+ return {ar:`الصوت ${String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)])}`,en:`Voice ${n}`};
+}
+
+// The index with the pack added (or replaced where it was, keeping its name). The default stays; a
+// first pack is it.
 export function withPack(index,entry){
  const packs=[...(index?.packs??[])];
  const at=packs.findIndex(p=>p.id===entry.id);
- if(at<0)packs.push(entry);else packs[at]=entry;
+ const named={id:entry.id,name:at<0?packName(packs.length+1):packs[at].name??packName(at+1),...entry};
+ if(at<0)packs.push(named);else packs[at]=named;
  return {default:index?.default??entry.id,packs};
 }
 

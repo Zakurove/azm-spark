@@ -11,8 +11,8 @@ vi.mock("virtual:voice-packs", () => ({
   default: {
     default: "openai-ash",
     packs: [
-      { id: "openai-ash", label: "Ash", provider: "OpenAI" },
-      { id: "gemini-achird", label: "Achird", provider: "Google Gemini" },
+      { id: "openai-ash", name: { ar: "الصوت ١", en: "Voice 1" }, provider: "OpenAI" },
+      { id: "gemini-achird", name: { ar: "الصوت ٢", en: "Voice 2" }, provider: "Google Gemini" },
     ],
   },
 }));
@@ -183,22 +183,40 @@ describe("the voice choice in the coach settings", () => {
     return at < 0 ? "" : html.slice(at, html.indexOf("</fieldset>", at));
   };
 
-  it("lists every installed pack, the default chosen until another is", () => {
+  it("lists every installed pack by its friendly name, the default chosen until another is (C40)", () => {
     for (const lang of ["ar", "en"] as const) {
       const html = field(render(lang, defaults));
       expect(html).toContain(lang === "ar" ? "اختر الصوت" : "Choose a voice");
       expect(html.match(/<button/g)).toHaveLength(2);
-      expect(html).toMatch(/aria-pressed="true"[^>]*><bdi>Ash<\/bdi>/);
-      expect(html).toMatch(/aria-pressed="false"[^>]*><bdi>Achird<\/bdi>/);
+      expect(html).toMatch(new RegExp(`aria-pressed="true"[^>]*>${lang === "ar" ? "الصوت ١" : "Voice 1"}<`));
+      expect(html).toMatch(new RegExp(`aria-pressed="false"[^>]*>${lang === "ar" ? "الصوت ٢" : "Voice 2"}<`));
+      expect(html).not.toMatch(/Ash|Achird/);
     }
     const chosen = field(render("en", { ...defaults, voicePack: "gemini-achird" }));
-    expect(chosen).toMatch(/aria-pressed="true"[^>]*><bdi>Achird<\/bdi>/);
+    expect(chosen).toMatch(/aria-pressed="true"[^>]*>Voice 2</);
+  });
+
+  it("has one voice switch and the check in switch, no pace, no focus view, no eyebrow (C40)", () => {
+    for (const lang of ["ar", "en"] as const) {
+      const html = render(lang, defaults);
+      expect(html.match(/role="switch"/g)).toHaveLength(2);
+      expect(html).toMatch(
+        /data-setting="voice"[^>]*>|role="switch" aria-checked="true" data-setting="voice"/,
+      );
+      expect(html).not.toMatch(/AZM COACH|eyebrow|focus-option/);
+    }
+    expect(render("en", { ...defaults, voice: "off" })).toContain(
+      'aria-checked="false" data-setting="voice"',
+    );
   });
 
   it("is not shown while a single pack is installed", async () => {
     vi.resetModules();
     vi.doMock("virtual:voice-packs", () => ({
-      default: { default: "openai-ash", packs: [{ id: "openai-ash", label: "Ash", provider: "OpenAI" }] },
+      default: {
+        default: "openai-ash",
+        packs: [{ id: "openai-ash", name: { ar: "الصوت ١", en: "Voice 1" }, provider: "OpenAI" }],
+      },
     }));
     const { default: Single } = await import("../src/app/CoachSettings");
     for (const lang of ["ar", "en"] as const) {

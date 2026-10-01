@@ -3,7 +3,10 @@
   "packs": [
     {
       "id": "openai-ash",
-      "label": "Ash",
+      "name": {
+        "ar": "الصوت ١",
+        "en": "Voice 1"
+      },
       "provider": "OpenAI",
       "voices": {
         "ar": "ash",

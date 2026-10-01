@@ -1,3 +1,9 @@
+/**
+ * Coach settings (C40, D-016 items 2 and 5), per device: the coach's voice on or off (on gives
+ * guidance and counts), the voice pack picker once two packs are installed (a tap plays the pack's
+ * welcome; Nasser tries and picks the voices himself, nothing is generated here), and the movement
+ * check's optional check in. Gold for the one action, purple accents, every option 48 px or more.
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n";
 import { Lang } from "./i18n";
@@ -6,6 +12,43 @@ import { CuePlayer } from "./audio";
 import { installedPack, VOICE_PACKS } from "./voicePacks";
 import Dialog from "./Dialog";
 import Icon from "./Icon";
+
+/** One setting as a switch: a title, one line under it and a toggle of fixed width. */
+function SwitchRow({
+  on,
+  icon,
+  title,
+  note,
+  setting,
+  onChange,
+}: {
+  on: boolean;
+  icon: string;
+  title: string;
+  note: string;
+  setting: string;
+  onChange(on: boolean): void;
+}) {
+  return (
+    <button
+      className={`setting-switch ${on ? "selected" : ""}`}
+      role="switch"
+      aria-checked={on}
+      data-setting={setting}
+      onClick={() => onChange(!on)}
+    >
+      <Icon name={icon} />
+      <span className="setting-switch-text">
+        <strong>{title}</strong>
+        <small>{note}</small>
+      </span>
+      <span className="toggle" aria-hidden="true">
+        <i />
+      </span>
+    </button>
+  );
+}
+
 export default function CoachSettings({
   lang,
   value,
@@ -42,9 +85,6 @@ export default function CoachSettings({
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
-  useEffect(() => {
-    player.pace = value.pace;
-  }, [player, value.pace]);
   return (
     <Dialog titleId="coach-settings-title">
       <div className="settings-top">
@@ -55,9 +95,15 @@ export default function CoachSettings({
           <Icon name="close" />
         </button>
       </div>
-      <p className="eyebrow">AZM COACH</p>
       <h2 id="coach-settings-title">{c.coachSettings}</h2>
-      <p>{c.settingsIntro}</p>
+      <SwitchRow
+        on={value.voice !== "off"}
+        icon="sound"
+        title={c.voiceSwitch}
+        note={c.voiceSwitchNote}
+        setting="voice"
+        onChange={(on) => onChange({ ...value, voice: on ? "full" : "off" })}
+      />
       {/* D-016 item 5: the installed voice packs, per device; choosing one plays its welcome. */}
       {VOICE_PACKS.length > 1 && (
         <fieldset className="settings-field voice-packs" data-setting="voice-pack">
@@ -73,21 +119,13 @@ export default function CoachSettings({
                   void sample(p.id);
                 }}
               >
-                <bdi>{p.label}</bdi>
+                {p.name[lang]}
               </button>
             ))}
           </div>
         </fieldset>
       )}
       <div className="voice-preview">
-        <div className={`voice-wave ${playing ? "playing" : ""}`} aria-hidden="true">
-          {Array.from({ length: 17 }, (_, i) => (
-            <i
-              key={i}
-              style={{ height: `${12 + (Math.sin(i * 1.7) + 1) * 15}px`, animationDelay: `${i * 0.07}s` }}
-            />
-          ))}
-        </div>
         <button className="ghost" disabled={playing} onClick={() => void sample(pack)}>
           <Icon name="play" size={17} />
           {c.preview}
@@ -95,65 +133,15 @@ export default function CoachSettings({
         <small>{c.voiceNote}</small>
         {blocked && <p role="status">{c.voiceBlocked}</p>}
       </div>
-      <div className="settings-field">
-        <div className="segmented">
-          {(["full", "essential", "off"] as const).map((mode) => (
-            <button
-              key={mode}
-              aria-pressed={value.voice === mode}
-              className={value.voice === mode ? "selected" : ""}
-              onClick={() => onChange({ ...value, voice: mode })}
-            >
-              {c[mode]}
-            </button>
-          ))}
-        </div>
-      </div>
-      <fieldset className="settings-field">
-        <legend>{c.pace}</legend>
-        <div className="segmented">
-          {[0.85, 1, 1.15].map((pace, i) => (
-            <button
-              key={pace}
-              aria-pressed={value.pace === pace}
-              className={value.pace === pace ? "selected" : ""}
-              onClick={() => onChange({ ...value, pace })}
-            >
-              {[c.slow, c.normal, c.quick][i]}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <button
-        className={`focus-option ${value.focus ? "selected" : ""}`}
-        aria-pressed={value.focus}
-        onClick={() => onChange({ ...value, focus: !value.focus })}
-      >
-        <Icon name="focus" />
-        <span>
-          <strong>{c.focus}</strong>
-          <small>{c.focusNote}</small>
-        </span>
-        <span className="toggle">
-          <i />
-        </span>
-      </button>
       {/* The movement check's optional check in (D-016): per device, off by default. */}
-      <button
-        className={`focus-option ${value.safetyCheckIn ? "selected" : ""}`}
-        aria-pressed={value.safetyCheckIn}
-        data-setting="safety-check-in"
-        onClick={() => onChange({ ...value, safetyCheckIn: !value.safetyCheckIn })}
-      >
-        <Icon name="shield" />
-        <span>
-          <strong>{t(lang, "assessment.checkin.setting")}</strong>
-          <small>{t(lang, "assessment.checkin.settingNote")}</small>
-        </span>
-        <span className="toggle">
-          <i />
-        </span>
-      </button>
+      <SwitchRow
+        on={value.safetyCheckIn}
+        icon="shield"
+        title={t(lang, "assessment.checkin.setting")}
+        note={t(lang, "assessment.checkin.settingNote")}
+        setting="safety-check-in"
+        onChange={(on) => onChange({ ...value, safetyCheckIn: on })}
+      />
       <div className="modal-actions">
         <button className="cta" onClick={onClose}>
           {c.close}

@@ -97,7 +97,7 @@
 .azm-check .pg-startnow {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s2) var(--s5);
+  gap: var(--s2) var(--s6);
   margin: 0;
 }
 .azm-check .pg-startnow-part {

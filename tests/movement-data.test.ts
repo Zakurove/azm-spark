@@ -689,9 +689,11 @@ describe("Arabic and English", () => {
   });
 
   it("O24-1: every cue has a short form of at most 3 words, no punctuation but a question mark, digits Arabic Indic", () => {
-    // The exceptions the panel decided (cueShortRule): the O34-1 zone form and three English twins.
+    // The exceptions in cueShortRule: the O34-1 zone form, the R-12 form and the English twins.
     const LONGER = new Set([
       "ضع يدك في المربع",
+      // R-12: «لا أحد أمامك» read as a statement; the Arabic seat confirms the longer form.
+      "لا يقف أحد أمامك",
       "Hand in the box",
       "Answer from where you are",
       "Lower your arm slowly",

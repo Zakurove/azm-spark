@@ -13,7 +13,6 @@ import {
   idleWaitMs,
   isStaffShortcut,
   parseStaffCount,
-  reloadWaits,
   secondsLeft,
   type IdlePhase,
 } from "../src/features/assessment/booth/tools";
@@ -208,31 +207,5 @@ describe("starting for the next visitor (S57, Q19 (4))", () => {
     const home = initialModel({ mode: "signedIn", booth: false, homeOpen: true, desktop: false });
     const m = step({ ...home, state: { kind: "plan" } }, { type: "STAFF_RESET" });
     expect(m.state).toEqual({ kind: "plan" });
-  });
-});
-
-describe("a visitor pass ending over a safety screen (R3C-35)", () => {
-  it("waits on S36 to S40, S38b, S33 and the check in, alarm and stop list overlays", () => {
-    const safety = (safety: string, screen: string): FlowState =>
-      ({ kind: "safety", safety, screen, alsoShow: [], faintAnswered: false }) as FlowState;
-    for (const s of [
-      safety("emergency", "scr_emergency"),
-      safety("ad", "scr_ad"),
-      safety("faint", "scr_faint"),
-      safety("fall", "scr_fall"),
-      safety("seekCare", "scr_stop_seek_care"),
-      safety("pain", "scr_stop_pain"),
-      { kind: "faintAsk" } as FlowState,
-      { kind: "postponed", reason: "unwell", screen: null, alsoShow: [] } as FlowState,
-    ])
-      expect(reloadWaits(guest(s)), JSON.stringify(s)).toBe(true);
-    const measuring = { kind: "cam.measure", i: 0, side: 0 } as FlowState;
-    expect(reloadWaits(guest(measuring, { kind: "stopList" }))).toBe(true);
-  });
-
-  it("reloads at once anywhere else", () => {
-    expect(reloadWaits(guest({ kind: "results" }))).toBe(false);
-    expect(reloadWaits(guest({ kind: "cam.measure", i: 0, side: 0 }))).toBe(false);
-    expect(reloadWaits(guest({ kind: "guestWelcome" }))).toBe(false);
   });
 });

@@ -1,19 +1,10 @@
 /**
- * Booth passes as the booth screens read them (contract v3 I, O17, O18, 7.2-11; UX spec S55, S55b):
- * the staff code, the server answers, the visitor token redeem, the ended mark, booth mode state and
- * the offline preparation.
+ * The booth staff session as the booth screens read it (contract v3 I, O17, O18, 7.2-11; UX spec S55,
+ * C34): the staff code, the server answer, booth mode state and the offline preparation.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiResult } from "../src/features/assessment/api";
-import {
-  markVisitorPhone,
-  normalizeCode,
-  redeemOutcome,
-  tokenOutcome,
-  verifyOutcome,
-  visitorLink,
-  wasVisitorPhone,
-} from "../src/features/assessment/booth/passes";
+import { normalizeCode, verifyOutcome } from "../src/features/assessment/booth/passes";
 import {
   BOOTH_CACHE,
   isPageFallback,
@@ -24,7 +15,6 @@ import {
 import { memoryStorage } from "./booth-helpers";
 
 const SESSION = "a".repeat(64);
-const TOKEN = "b".repeat(64);
 const later = () => Date.now() + 60_000;
 const ok = <T>(value: T): ApiResult<T> => ({ ok: true, value });
 const http = (status: number, code: string): ApiResult<never> => ({
@@ -56,21 +46,9 @@ describe("the staff code and the verify answer (S55)", () => {
       kind: "error",
     });
   });
-
-  it("reads the visitor token answer; 403 BOOTH_SESSION means the staff session has ended", () => {
-    expect(tokenOutcome(ok({ token: TOKEN, expires: later() }))).toMatchObject({ kind: "qr", token: TOKEN });
-    expect(tokenOutcome(http(403, "BOOTH_SESSION"))).toEqual({ kind: "sessionEnded" });
-    expect(tokenOutcome({ ok: false, error: { kind: "offline" } })).toEqual({ kind: "offline" });
-    expect(tokenOutcome(ok({ token: "short", expires: later() }))).toEqual({ kind: "error" });
-  });
-
-  it("links the visitor QR to this site with the token only", () => {
-    expect(visitorLink("https://azm.example/", TOKEN)).toBe(`https://azm.example/?boothToken=${TOKEN}`);
-    expect(visitorLink("http://127.0.0.1:5205", TOKEN)).toBe(`http://127.0.0.1:5205/?boothToken=${TOKEN}`);
-  });
 });
 
-describe("the visitor's phone (S55b)", () => {
+describe("booth mode on a staff phone (S55, C34)", () => {
   let storage: Storage;
   beforeEach(() => {
     storage = memoryStorage();
@@ -78,59 +56,20 @@ describe("the visitor's phone (S55b)", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("reads every redeem answer", () => {
-    expect(redeemOutcome(ok({ ok: true, token: TOKEN, expires: later() }))).toMatchObject({ kind: "on" });
-    expect(redeemOutcome(ok({ ok: false }))).toEqual({ kind: "ended" });
-    expect(redeemOutcome(http(400, "BOOTH_INVALID"))).toEqual({ kind: "ended" });
-    expect(redeemOutcome({ ok: false, error: { kind: "offline" } })).toEqual({ kind: "offline" });
-    expect(redeemOutcome({ ok: false, error: { kind: "network" } })).toEqual({ kind: "error" });
-    expect(redeemOutcome(http(429, "RATE_LIMIT"))).toEqual({ kind: "error" });
-  });
-
-  it("keeps this phone's own pass and the visitor mark after a redeem, never the QR token", async () => {
-    const { redeemToken } = await import("../src/features/assessment/booth/VisitorTokenPage");
-    const { readBoothPass } = await import("../src/features/assessment/boothMode");
-    const own = "c".repeat(64);
-    const boothRedeem = vi.fn(async () => ok({ ok: true as const, token: own, expires: later() }));
-    expect(await redeemToken({ boothRedeem }, TOKEN)).toBe("on");
-    expect(boothRedeem).toHaveBeenCalledWith(TOKEN);
-    expect(readBoothPass()).toMatchObject({ kind: "visitor", token: own });
-    expect(storage.getItem("azm.booth")).not.toContain(TOKEN);
-    expect(wasVisitorPhone()).toBe(true);
-  });
-
-  it("ends a token of the wrong form without a call, and a refused one without booth mode", async () => {
-    const { redeemToken } = await import("../src/features/assessment/booth/VisitorTokenPage");
-    const { readBoothPass } = await import("../src/features/assessment/boothMode");
-    const boothRedeem = vi.fn(async () => ok({ ok: false as const }));
-    expect(await redeemToken({ boothRedeem }, "not-a-token")).toBe("ended");
-    expect(boothRedeem).not.toHaveBeenCalled();
-    expect(await redeemToken({ boothRedeem }, TOKEN)).toBe("ended");
-    expect(readBoothPass()).toBeNull();
-    expect(wasVisitorPhone()).toBe(false);
-  });
-
-  it("says booth mode has ended once a visitor pass is gone (tokenEnded), never before", async () => {
+  it("holds a staff session until it ends; a visitor pass of an earlier build is never read", async () => {
     const { boothModeState } = await import("../src/features/assessment/booth/useBoothMode");
-    const { saveVisitorToken, clearBoothPass, saveStaffSession } =
-      await import("../src/features/assessment/boothMode");
-    expect(boothModeState()).toMatchObject({ booth: false, tokenEnded: false, setting: "home" });
-    saveVisitorToken(TOKEN, later());
-    markVisitorPhone();
-    expect(boothModeState()).toMatchObject({
-      booth: true,
-      kind: "visitor",
-      tokenEnded: false,
-      setting: "booth",
-    });
-    clearBoothPass();
-    expect(boothModeState()).toMatchObject({ booth: false, tokenEnded: true, setting: "home" });
-    // A staff phone that was never a visitor's never shows it.
-    storage.clear();
+    const { clearBoothPass, saveStaffSession } = await import("../src/features/assessment/boothMode");
+    expect(boothModeState()).toMatchObject({ booth: false, setting: "home" });
     saveStaffSession(SESSION, later());
-    expect(boothModeState()).toMatchObject({ booth: true, kind: "staff", tokenEnded: false });
+    expect(boothModeState()).toMatchObject({ booth: true, kind: "staff", setting: "booth" });
+    clearBoothPass();
+    expect(boothModeState().booth).toBe(false);
+    storage.setItem(
+      "azm.booth",
+      JSON.stringify({ kind: "visitor", token: "b".repeat(64), expires: later() }),
+    );
+    expect(boothModeState().booth).toBe(false);
     // An expired pass is booth mode off.
-    storage.clear();
     saveStaffSession(SESSION, Date.now() - 1);
     expect(boothModeState().booth).toBe(false);
   });

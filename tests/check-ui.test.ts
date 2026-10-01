@@ -130,7 +130,7 @@ describe("answer lists keep the data order (principle 2)", () => {
   });
 });
 
-describe("booth mode is a server pass, never the code (S55, S55b, O17)", () => {
+describe("booth mode is a server pass, never the code (S55, O17, C34)", () => {
   const SESSION = "a".repeat(64);
   const TOKEN = "b".repeat(64);
 
@@ -164,83 +164,30 @@ describe("booth mode is a server pass, never the code (S55, S55b, O17)", () => {
       // At closing time the pass ends and is removed.
       expect(booth.isBoothMode(5000)).toBe(false);
       expect(store.has("azm.booth")).toBe(false);
-      booth.saveVisitorToken(TOKEN, 9e15);
-      expect(booth.readBoothPass()).toMatchObject({ kind: "visitor", token: TOKEN });
-      booth.clearBoothPass();
+      // A visitor pass of an earlier build is never read (C34: staff phones only).
+      store.set("azm.booth", JSON.stringify({ kind: "visitor", token: TOKEN, expires: 9e15 }));
       expect(booth.isBoothMode()).toBe(false);
     }));
 
-  it("a booth start gets its one check token: the visitor's own, or a new one from the staff session", () =>
+  it("the session holds unless the server refuses it; a network error keeps booth mode (O18)", () =>
     withStore(async () => {
       const booth = await import("../src/features/assessment/boothMode");
-      const calls: string[] = [];
-      const api = {
-        boothToken: async (session: string) => {
-          calls.push(session);
-          return { ok: true as const, value: { token: TOKEN, expires: 9e15 } };
-        },
-      };
-      expect(await booth.boothStartToken(api)).toBeNull();
-      booth.saveVisitorToken(TOKEN, 9e15);
-      expect(await booth.boothStartToken(api)).toBe(TOKEN);
-      expect(calls).toEqual([]);
-      booth.saveStaffSession(SESSION, 9e15);
-      expect(await booth.boothStartToken(api)).toBe(TOKEN);
-      expect(calls).toEqual([SESSION]);
-    }));
-
-  it("the pass holds unless the server refuses it; a network error keeps booth mode (O18)", () =>
-    withStore(async () => {
-      const booth = await import("../src/features/assessment/boothMode");
-      const refused = {
-        boothToken: async () => ({
-          ok: false as const,
-          error: { kind: "http" as const, status: 403, code: "BOOTH_SESSION", body: {} },
-        }),
-        boothRedeem: async () => ({ ok: true as const, value: { ok: false as const } }),
-        boothCheck: async () => ({ ok: true as const, value: { ok: false as const } }),
-      };
+      const checked: string[] = [];
+      const refused = { boothCheck: async () => ({ ok: true as const, value: { ok: false as const } }) };
       const offline = {
-        boothToken: async () => ({ ok: false as const, error: { kind: "network" as const } }),
-        boothRedeem: async () => ({ ok: false as const, error: { kind: "network" as const } }),
         boothCheck: async () => ({ ok: false as const, error: { kind: "network" as const } }),
       };
-      booth.saveStaffSession(SESSION, 9e15);
-      expect(await booth.boothPassHolds(offline)).toBe(true);
-      expect(await booth.boothPassHolds(refused)).toBe(false);
-      booth.saveVisitorToken(TOKEN, 9e15);
-      expect(await booth.boothPassHolds(offline)).toBe(true);
-      expect(await booth.boothPassHolds(refused)).toBe(false);
-      // Redeeming keeps the token only when the server accepts it.
-      booth.clearBoothPass();
-      expect(await booth.redeemVisitorToken(refused, TOKEN)).toBe(false);
-      expect(booth.isBoothMode()).toBe(false);
-      // The QR token is spent on redeem: the phone keeps its own pass from the answer, never the QR's.
-      const PHONE = "c".repeat(64);
-      const redeemed: string[] = [];
-      const ok = {
-        boothRedeem: async (token: string) => {
-          redeemed.push(token);
-          return { ok: true as const, value: { ok: true as const, token: PHONE, expires: 9e15 } };
-        },
-      };
-      expect(await booth.redeemVisitorToken(ok, "not-a-token")).toBe(false);
-      expect(await booth.redeemVisitorToken(ok, TOKEN)).toBe(true);
-      expect(redeemed).toEqual([TOKEN]);
-      expect(booth.readBoothPass()).toMatchObject({ kind: "visitor", token: PHONE });
-      // The phone checks its pass without redeeming (which would spend it).
-      const checked: string[] = [];
-      const probe = {
-        boothToken: refused.boothToken,
-        boothRedeem: async () => {
-          throw new Error("a probe never redeems");
-        },
-        boothCheck: async (token: string) => {
-          checked.push(token);
+      const holds = {
+        boothCheck: async (session: string) => {
+          checked.push(session);
           return { ok: true as const, value: { ok: true as const, expires: 9e15 } };
         },
       };
-      expect(await booth.boothPassHolds(probe)).toBe(true);
-      expect(checked).toEqual([PHONE]);
+      expect(await booth.boothPassHolds(holds)).toBe(false);
+      booth.saveStaffSession(SESSION, 9e15);
+      expect(await booth.boothPassHolds(offline)).toBe(true);
+      expect(await booth.boothPassHolds(refused)).toBe(false);
+      expect(await booth.boothPassHolds(holds)).toBe(true);
+      expect(checked).toEqual([SESSION]);
     }));
 });

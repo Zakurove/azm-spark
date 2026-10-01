@@ -18,7 +18,7 @@ import {
   T0,
   WHEELCHAIR_STROKE,
   answersFor,
-  boothTokenFor,
+  asBoothCheck,
   envFromContext,
   intakeOf,
   itemOf,
@@ -31,7 +31,6 @@ import {
   startApi,
   type Harness,
 } from "./check-api-harness";
-import { fill } from "./precheck-fixtures";
 
 /** Start of the next calendar day in Asia/Riyadh after T0 (2026-10-05 00:00 +03:00). */
 const NEXT_DAY = Date.UTC(2026, 9, 4, 21, 0, 0);
@@ -1023,7 +1022,7 @@ describe("replace while open, complete, consent revoked", () => {
   });
 });
 
-describe("staff booth mode", () => {
+describe("home only starts and the booth rules (C34)", () => {
   beforeAll(async () => {
     h = await startApi();
   });
@@ -1035,90 +1034,26 @@ describe("staff booth mode", () => {
     await h.close();
   });
 
-  it("refuses booth mode without AZM_BOOTH_CODE, or with a wrong code, and accepts the right code", async () => {
+  it("starts a signed in check at home only: the booth runs the guest check (C34)", async () => {
+    process.env.AZM_BOOTH_CODE = "staff-code-8841";
     const cookie = await member(
       h,
       "booth@example.test",
       intakeOf({ mobility: "standing", clearance: "unsure" }),
     );
-    delete process.env.AZM_BOOTH_CODE;
-    const withoutEnv = await start(h, cookie, {}, { setting: "booth", boothCode: "anything" });
-    expect(withoutEnv.data).toEqual({ error: "BOOTH_CODE" });
-    process.env.AZM_BOOTH_CODE = "staff-code-8841";
-    expect((await start(h, cookie, {}, { setting: "booth", boothCode: "staff-code-8842" })).data).toEqual({
-      error: "BOOTH_CODE",
-    });
-    expect((await start(h, cookie, {}, { setting: "booth" })).data).toEqual({ error: "BOOTH_CODE" });
-    expect((await start(h, cookie, {}, { setting: "booth", boothCode: "staff-code-884" })).status).toBe(403);
-    const ok = await start(h, cookie, {}, { setting: "booth", boothCode: "staff-code-8841" });
-    expect(ok.status).toBe(200);
-    expect(ok.data).toMatchObject({ setting: "booth", kind: "baseline" });
-    // D-016: at the booth, as at home, the chair stand is not offered for clearance unsure.
+    const answers = await answersFor(h, cookie);
+    const call = (extra: Record<string, unknown>) =>
+      h.call("/assessments", { answers, device: DEVICE, ...extra }, cookie);
+    expect((await call({ setting: "booth" })).data).toEqual({ error: "START_INVALID", field: "setting" });
+    for (const key of ["boothToken", "testsOff"])
+      expect((await call({ [key]: "x" })).data).toEqual({ error: "START_INVALID", field: key });
+    // The context is the home one, whatever the address asks.
+    const ctx = await h.call("/assessments/context?setting=booth", undefined, cookie);
+    expect(ctx.data.setting).toBe("home");
+    const ok = await call({});
+    expect(ok.data).toMatchObject({ setting: "home", kind: "baseline" });
+    // D-016: the chair stand is not offered for clearance unsure.
     expect(itemOf(ok.data.protocol, "chair_stand_30s", "none").skipped).toBe("clearance");
-    // A staff corrected count is allowed at the booth only.
-    const curl = resultBody(itemOf(ok.data.protocol, "arm_curl_30s", "right"), 11);
-    const body = { ...curl, detail: { ...curl.detail, countSource: "staff" } };
-    expect((await h.call(`/assessments/${ok.data.id}/results`, body, cookie)).data).toEqual({ saved: true });
-    await h.call(`/assessments/${ok.data.id}/complete`, {}, cookie);
-    // The booth check is its own series: the home check is still a first check of the home series.
-    setTime(T0 + 3 * DAY);
-    const again = await login(h, "booth@example.test");
-    const ctx = await h.call("/assessments/context", undefined, again);
-    expect(ctx.data.firstCheck).toBe(true);
-    expect(ctx.data.baseTests).not.toContain("chair_stand_30s");
-    const home = await start(h, again);
-    expect(home.data).toMatchObject({ setting: "home", kind: "baseline" });
-    expect(itemOf(home.data.protocol, "chair_stand_30s", "none").skipped).toBe("clearance");
-    const db = h.inspect();
-    const rows = db.prepare("SELECT setting, kind FROM assessments ORDER BY started").all();
-    expect(rows).toEqual([
-      { setting: "booth", kind: "baseline" },
-      { setting: "home", kind: "baseline" },
-    ]);
-  });
-
-  it("serves the booth context on request, so a booth check asks what the server evaluates", async () => {
-    process.env.AZM_BOOTH_CODE = "staff-code-3302";
-    const intake = intakeOf({
-      mobility: "standing",
-      clearance: "yes",
-      conditions: ["upper_limb_unilateral"],
-    });
-    let cookie = await member(h, "booth-ctx@example.test", intake);
-    expect((await h.call("/assessments/context?setting=gym", undefined, cookie)).data).toEqual({
-      error: "CONTEXT_INVALID",
-      field: "setting",
-    });
-    const home = await start(h, cookie, { pc_limb_arm_side: "left" });
-    await postResults(h, cookie, home.data.id, home.data.protocol, { "shoulder_abduction:right": 120 });
-    await h.call(`/assessments/${home.data.id}/complete`, {}, cookie);
-    setTime(T0 + 3 * DAY);
-    cookie = await login(h, "booth-ctx@example.test");
-    const homeCtx = (await h.call("/assessments/context", undefined, cookie)).data;
-    const boothCtx = (await h.call("/assessments/context?setting=booth", undefined, cookie)).data;
-    expect(homeCtx).toMatchObject({
-      setting: "home",
-      firstCheck: false,
-      setup: { limbLoss: { arm: "left" } },
-    });
-    expect(boothCtx).toMatchObject({ setting: "booth", firstCheck: true });
-    // The first booth check asks the baseline setup questions again; home answers would be incomplete.
-    const homeAnswers = await answersFor(h, cookie);
-    const boothToken = await boothTokenFor(h, "staff-code-3302");
-    const refused = await h.call(
-      "/assessments",
-      { answers: homeAnswers, device: DEVICE, setting: "booth", boothToken },
-      cookie,
-    );
-    expect(refused.data).toEqual({ error: "PRECHECK_INCOMPLETE" });
-    const ok = await start(
-      h,
-      cookie,
-      { pc_limb_arm_side: "left" },
-      { setting: "booth", boothCode: "staff-code-3302" },
-    );
-    expect(ok.data).toMatchObject({ setting: "booth", kind: "baseline" });
-    expect(itemOf(ok.data.protocol, "chair_stand_30s", "none").variant).toBe("one_arm_cross");
   });
 
   it("refuses a staff count at home", async () => {
@@ -1132,100 +1067,34 @@ describe("staff booth mode", () => {
     });
   });
 
-  it("takes the tests switched off at the booth out of the protocol, never at home (D-016 item 4)", async () => {
-    process.env.AZM_BOOTH_CODE = "staff-code-5510";
-    const cookie = await member(
-      h,
-      "booth-off@example.test",
-      intakeOf({ mobility: "standing", clearance: "yes" }),
-    );
-    const c = await h.call("/assessments/context?setting=booth", undefined, cookie);
-    const env = envFromContext(c.data, "booth");
-    expect(env.baseTests).toContain("chair_stand_30s");
-    // The phone asks nothing for the chair stand once it is off.
-    const answers = fill({ ...env, baseTests: env.baseTests.filter((t) => t !== "chair_stand_30s") });
-    const call = async (extra: Record<string, unknown>) =>
-      h.call("/assessments", { answers, device: DEVICE, ...extra }, cookie);
-    const boothToken = await boothTokenFor(h, "staff-code-5510");
-    // Never at home, and only tests of the check, once each.
-    expect((await call({ testsOff: ["chair_stand_30s"] })).data).toEqual({
-      error: "START_INVALID",
-      field: "testsOff",
-    });
-    for (const testsOff of [["walk_6min"], ["chair_stand_30s", "chair_stand_30s"], "chair_stand_30s"])
-      expect((await call({ setting: "booth", boothToken, testsOff })).data).toEqual({
-        error: "START_INVALID",
-        field: "testsOff",
-      });
-    // Without the switch the server asks the chair stand questions, so these answers are incomplete.
-    expect((await call({ setting: "booth", boothToken })).data).toEqual({ error: "PRECHECK_INCOMPLETE" });
-    const ok = await call({ setting: "booth", boothToken, testsOff: ["chair_stand_30s"] });
-    expect(ok.status).toBe(200);
-    const tests = (ok.data.protocol as ProtocolItem[]).map((i) => i.testId);
-    expect(tests).not.toContain("chair_stand_30s");
-    expect(tests).toContain("shoulder_abduction");
-    expect(tests).toContain("arm_curl_30s");
-    // A result for the test that is off is not part of the check.
-    const body = { ...resultBody({ ...itemOf(ok.data.protocol, "arm_curl_30s", "right") }, 10) };
-    const stand = { ...body, testId: "chair_stand_30s", side: "none" };
-    expect((await h.call(`/assessments/${ok.data.id}/results`, stand, cookie)).data).toEqual({
-      error: "NOT_IN_PROTOCOL",
-    });
-  });
-
-  it("stores the plane check ratio of each arm raise, the fallback at the booth only (F-1)", async () => {
-    process.env.AZM_BOOTH_CODE = "staff-code-5511";
+  it("stores the standard plane check ratio of each arm raise at home, never the booth fallback (F-1)", async () => {
     const cookie = await member(
       h,
       "booth-plane@example.test",
       intakeOf({ mobility: "seated", clearance: "yes" }),
     );
-    const booth = await start(h, cookie, {}, { setting: "booth", boothCode: "staff-code-5511" });
-    const raise = itemOf(booth.data.protocol, "shoulder_abduction", "right");
-    const post = (id: string, item: ProtocolItem, planeRatio: unknown, value = 120) =>
+    const home = await start(h, cookie);
+    const raise = itemOf(home.data.protocol, "shoulder_abduction", "right");
+    const post = (planeRatio: unknown) =>
       h.call(
-        `/assessments/${id}/results`,
-        resultBody(item, value, { detail: { reference: "trunk", trunkLeanAtPeak: 3, planeRatio } }),
+        `/assessments/${home.data.id}/results`,
+        resultBody(raise, 118, { detail: { reference: "trunk", trunkLeanAtPeak: 2, planeRatio } }),
         cookie,
       );
-    for (const bad of [0.7, 0.8, "0.75", true])
-      expect((await post(booth.data.id, raise, bad)).data).toEqual({
-        error: "RESULT_INVALID",
-        field: "detail.planeRatio",
-      });
-    expect((await post(booth.data.id, raise, 0.75)).data).toEqual({ saved: true });
-    const stored = h
-      .inspect()
-      .prepare("SELECT detail FROM assessment_results WHERE assessment_id=? AND test_id='shoulder_abduction'")
-      .get(booth.data.id) as { detail: string };
-    expect(JSON.parse(stored.detail)).toMatchObject({ planeRatio: 0.75 });
+    for (const bad of [0.75, 0.7, "0.85", true])
+      expect((await post(bad)).data).toEqual({ error: "RESULT_INVALID", field: "detail.planeRatio" });
+    expect((await post(0.85)).data).toEqual({ saved: true });
     // Only the arm raise has a plane check.
-    const curl = itemOf(booth.data.protocol, "arm_curl_30s", "right");
-    const curlBody = resultBody(curl, 11);
+    const curl = resultBody(itemOf(home.data.protocol, "arm_curl_30s", "right"), 11);
     expect(
       (
         await h.call(
-          `/assessments/${booth.data.id}/results`,
-          { ...curlBody, detail: { ...curlBody.detail, planeRatio: 0.85 } },
+          `/assessments/${home.data.id}/results`,
+          { ...curl, detail: { ...curl.detail, planeRatio: 0.85 } },
           cookie,
         )
       ).data,
     ).toEqual({ error: "RESULT_INVALID", field: "detail.planeRatio" });
-    await h.call(`/assessments/${booth.data.id}/complete`, {}, cookie);
-
-    // At home the arm raise always measures with the standard ratio.
-    setTime(T0 + 3 * DAY);
-    const again = await login(h, "booth-plane@example.test");
-    const home = await start(h, again);
-    const homeRaise = itemOf(home.data.protocol, "shoulder_abduction", "right");
-    const homePost = (planeRatio: number) =>
-      h.call(
-        `/assessments/${home.data.id}/results`,
-        resultBody(homeRaise, 118, { detail: { reference: "trunk", trunkLeanAtPeak: 2, planeRatio } }),
-        again,
-      );
-    expect((await homePost(0.75)).data).toEqual({ error: "RESULT_INVALID", field: "detail.planeRatio" });
-    expect((await homePost(0.85)).data).toEqual({ saved: true });
   });
 
   it("refuses a dumbbell at home for the conditions that must not use one", async () => {
@@ -1617,18 +1486,15 @@ describe("pc_sci_ad_since at the first home check after a booth check", () => {
     process.env.AZM_BOOTH_CODE = "booth-code-7731";
     const intake = intakeOf({ conditions: ["sci_incomplete"], mobility: "wheelchair", clearance: "yes" });
     const cookie = await member(h, "sci-booth@example.test", intake);
-    const booth = await start(
-      h,
-      cookie,
-      { pc_sci_level: "yes" },
-      { setting: "booth", boothCode: "booth-code-7731" },
-    );
+    const booth = await start(h, cookie, { pc_sci_level: "yes" });
     expect(booth.status).toBe(200);
     const item = booth.data.protocol.find((i: ProtocolItem) => !i.skipped);
     await postResults(h, cookie, booth.data.id, booth.data.protocol, {
       [`${item.testId}:${item.side}`]: 100,
     });
     expect((await h.call(`/assessments/${booth.data.id}/complete`, {}, cookie)).status).toBe(200);
+    // A signed in booth check of an earlier build (C34): the home series has not started.
+    asBoothCheck(h, booth.data.id);
     setTime(T0 + 3 * DAY);
     const next = await login(h, "sci-booth@example.test");
     const c = await h.call("/assessments/context", undefined, next);

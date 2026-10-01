@@ -113,7 +113,7 @@ export type BetweenAnswer = "same" | "more" | "much";
  * booth staff screen (S55, the booth code is no longer valid).
  */
 export type ExitTarget =
-  "today" | "landing" | "example" | "try" | "demo" | "healthEdit" | "results" | "signIn" | "boothStaff";
+  "today" | "landing" | "example" | "try" | "demo" | "healthEdit" | "results" | "signIn";
 /** Why the start or resume call did not start the check (contract v2 E, v3 I, round 3). */
 export type StartError =
   | "offline"
@@ -123,7 +123,6 @@ export type StartError =
   | "TOO_SOON"
   | "REVIEW"
   | "PLAN_REQUIRED"
-  | "BOOTH_CODE"
   | "RATE_LIMIT"
   | "START_INVALID"
   | "PRECHECK_INCOMPLETE"
@@ -261,7 +260,7 @@ export interface DeviceInfo {
 /** Everything the flow needs to know before it starts. */
 export interface FlowConfig {
   mode: FlowMode;
-  /** This device is in verified booth mode (S55, S55b, contract v3 I). */
+  /** This device is in verified booth mode (S55, contract v3 I); a guest check only (C34). */
   booth: boolean;
   /** Home checks are open (server flag AZM_CHECK_HOME, contract v3 I). */
   homeOpen: boolean;
@@ -383,18 +382,13 @@ export type FlowEffect =
       id: number;
       type: "start";
       answers: Answers;
-      setting: Setting;
       session?: CheckSession;
-      /** The tests switched off at the booth (D-016 item 4); the server takes them out too. */
-      testsOff?: TestId[];
     }
   | {
       id: number;
       type: "startBackground";
       answers: Answers;
-      setting: Setting;
       session?: CheckSession;
-      testsOff?: TestId[];
     }
   /** The stop names the test side running, or during a rest the next one (resultOnStop). */
   | { id: number; type: "stop"; checkId: string; option: StopOptionId; ref: TestRef | null }
@@ -407,9 +401,8 @@ export type FlowEffect =
   | { id: number; type: "adult" }
   | { id: number; type: "resume"; checkId: string; answers: Answers }
   | { id: number; type: "resumeBackground"; checkId: string; answers: Answers }
-  | { id: number; type: "complete"; checkId: string }
-  /** The booth pass was refused: this tab leaves booth mode until staff turn it on again. */
-  | { id: number; type: "clearBoothPass" };
+  | { id: number; type: "complete"; checkId: string };
+/** The booth pass was refused: this tab leaves booth mode until staff turn it on again. */
 
 /** The body of POST /api/assessments/:id/results (contract v2 E; server validate.ts ResultBody). */
 export interface ResultPayload {
@@ -645,7 +638,8 @@ export function initialModel(config: FlowConfig, device: DeviceInfo = DEFAULT_DE
 function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
   return {
     config,
-    setting: config.mode === "guest" ? "booth" : config.booth ? "booth" : "home",
+    // The booth runs the guest check only (C34): a signed in check always uses the home rules.
+    setting: config.mode === "guest" ? "booth" : "home",
     device,
     guestPath: null,
     guest: {},
@@ -992,8 +986,6 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         return go({ ...m, data: { ...d, guestPath: e.path } }, { kind: "guestSetup", step: 1 });
       if (e.type === "ADULT_NO") return go(m, { kind: "adultEnd" });
       if (e.type === "EXAMPLE") return go(m, { kind: "exit", to: "example" });
-      // S55b: the visitor token ended on S05; its Continue leaves to the start page.
-      if (e.type === "EXIT") return go(m, { kind: "exit", to: "landing" });
       return m;
 
     case "adultGate":
@@ -2052,13 +2044,7 @@ function tellServer(m: FlowModel): FlowModel {
   if (d.resuming && d.checkId)
     return closeCheck(emit(m, { type: "resumeBackground", checkId: d.checkId, answers: d.answers }));
   const session = d.config.session ?? "full";
-  return emit(m, {
-    type: "startBackground",
-    answers: d.answers,
-    setting: d.setting,
-    ...(session !== "full" ? { session } : {}),
-    ...startOff(d),
-  });
+  return emit(m, { type: "startBackground", answers: d.answers, ...(session !== "full" ? { session } : {}) });
 }
 
 /** Emergency or AD from the pre-check: the safety screen now, the server told in the background. */
@@ -2111,13 +2097,7 @@ function proceed(m0: FlowModel, outcome: PrecheckOutcome, lastQuestion: string |
 function startEffect(d: FlowData): DistributiveOmit<FlowEffect, "id"> {
   if (d.resuming && d.checkId) return { type: "resume", checkId: d.checkId, answers: d.answers };
   const session = d.config.session ?? "full";
-  return {
-    type: "start",
-    answers: d.answers,
-    setting: d.setting,
-    ...(session !== "full" ? { session } : {}),
-    ...startOff(d),
-  };
+  return { type: "start", answers: d.answers, ...(session !== "full" ? { session } : {}) };
 }
 
 /**
@@ -2126,12 +2106,6 @@ function startEffect(d: FlowData): DistributiveOmit<FlowEffect, "id"> {
  */
 export function testsOff(d: Pick<FlowData, "config">): TestId[] {
   return d.config.booth ? (d.config.boothSettings?.testsOff ?? []) : [];
-}
-
-/** A booth start names the tests switched off, so the server freezes the same protocol. */
-function startOff(d: FlowData): { testsOff?: TestId[] } {
-  const off = testsOff(d);
-  return off.length ? { testsOff: off } : {};
 }
 
 /** The protocol is frozen: raw answers are dropped from the phone (spec 5.10). */
@@ -2252,13 +2226,6 @@ function startFailure(
       // variant that explains them (S01 tooSoon, homeSoon, blocked, endedEarly).
       void now;
       return go(m, { kind: "exit", to: "today" });
-    case "BOOTH_CODE":
-      // The booth pass was refused (the day, the hours, a used or ended token): booth mode ends on this
-      // tab and staff turn it on again (S55, S55b); the effect clears the pass.
-      // SPEC-GAP: booth-token-ended-exit. S55b shows booth.tokenEnded on a visitor's phone; the flow does
-      // not know the pass kind, so both kinds leave for the staff screen (S55) until the booth stream
-      // builds S55b.
-      return emit(go(m, { kind: "exit", to: "boothStaff" }), { type: "clearBoothPass" });
     case "AUTH":
       return go(m, { kind: "exit", to: "signIn" });
     default:
@@ -2358,12 +2325,11 @@ function routeGuestStart(m: FlowModel, now: number): FlowModel {
 
 function withContext(m: FlowModel, c: SignedInContext): FlowModel {
   const d = m.data;
-  const setting: Setting = d.config.booth ? "booth" : "home";
+  // A signed in check runs at home only (C34).
+  const setting: Setting = "home";
   // The side lean only session asks the questions of its one test (server precheckEnv, Q12 (2)).
   const leanOnly = (d.config.session ?? "full") === "side_lean_only";
-  // The tests switched off at the booth never appear (D-016 item 4); the start sends them too.
-  const off = testsOff(d);
-  const full = c.ctx ? baseSelection(c.ctx, setting, c.setup).filter((i) => !off.includes(i.testId)) : [];
+  const full = c.ctx ? baseSelection(c.ctx, setting, c.setup) : [];
   const base = leanOnly ? sideLeanOnly(full) : full;
   const env: PrecheckEnv | null = c.ctx
     ? {
@@ -2373,7 +2339,7 @@ function withContext(m: FlowModel, c: SignedInContext): FlowModel {
         firstCheck: c.firstCheck,
         unresolvedChangeReported: c.unresolvedChangeReported,
         lastCheckLasting: c.lastCheckLasting,
-        baseTests: leanOnly ? baseTests(base) : c.baseTests.filter((t) => !off.includes(t as TestId)),
+        baseTests: leanOnly ? baseTests(base) : c.baseTests,
         completedBefore: c.completedBefore,
         ...(c.sideLeanDoneAtHome !== undefined ? { sideLeanDoneAtHome: c.sideLeanDoneAtHome } : {}),
         ...(c.neededArmsLastStand !== undefined ? { neededArmsLastStand: c.neededArmsLastStand } : {}),

@@ -1,8 +1,8 @@
 /**
  * The series of the results pages (UX spec S52, S53, S54), pure:
- *   seriesCards        one card per current series, in test order then side in run order, the booth
- *                      series after the home series; older series of the same test side collapsed
- *                      under "Show the earlier line"; the booth points of a test side for its trend
+ *   seriesCards        one card per current home series, in test order then side in run order; older
+ *                      series of the same test side collapsed under "Show the earlier line"; the
+ *                      booth points of a test side for its trend (C34: no booth card)
  *   trendRange         the TrendChart value scale, the band included
  *   todaysViews        the series whose newest result is today's check (S52 after the save)
  * Verdicts are never computed here: they come from compareSeries (contract D), on the server for
@@ -56,8 +56,9 @@ export function testOrder(position: CheckPosition | null | undefined): TestId[] 
 
 /**
  * The cards of the results page (S53): the home series in test order of the protocol, then the side
- * in run order (sideOrder with the person's weaker side); the booth series after the home series,
- * each labelled "At the booth".
+ * in run order (sideOrder with the person's weaker side). A booth result (a signed in booth check of
+ * an earlier build) is a point on its home trend, never a card of its own (C34); the list of checks
+ * still opens it.
  */
 export function seriesCards(
   views: readonly SeriesViewLike[],
@@ -66,7 +67,7 @@ export function seriesCards(
   const support = person.support ?? "none";
   const currents: SeriesViewLike[] = [];
   for (const v of views) {
-    if (currents.some((c) => sameSeries(c, v))) continue;
+    if (v.setting !== "home" || currents.some((c) => sameSeries(c, v))) continue;
     const group = views.filter((x) => sameSeries(x, v));
     currents.push(
       group.find((x) => x.current) ?? [...group].sort((a, b) => b.latest.date - a.latest.date)[0],
@@ -79,12 +80,9 @@ export function seriesCards(
     const i = sides.indexOf(s);
     return i < 0 ? sides.length : i;
   };
-  const settingRank = (s: Setting) => (s === "home" ? 0 : 1);
   currents.sort(
     (a, b) =>
-      settingRank(a.setting) - settingRank(b.setting) ||
-      testRank(a.testId) - testRank(b.testId) ||
-      sideRank(a.testId, a.side) - sideRank(b.testId, b.side),
+      testRank(a.testId) - testRank(b.testId) || sideRank(a.testId, a.side) - sideRank(b.testId, b.side),
   );
   return currents.map((view) => ({
     key: view.seriesKey,
@@ -92,13 +90,10 @@ export function seriesCards(
     earlier: views
       .filter((x) => x !== view && sameSeries(x, view))
       .sort((a, b) => b.latest.date - a.latest.date),
-    boothPoints:
-      view.setting === "home"
-        ? views
-            .filter((x) => x.testId === view.testId && x.side === view.side && x.setting === "booth")
-            .flatMap((x) => viewPoints(x))
-            .sort((a, b) => a.date - b.date)
-        : [],
+    boothPoints: views
+      .filter((x) => x.testId === view.testId && x.side === view.side && x.setting === "booth")
+      .flatMap((x) => viewPoints(x))
+      .sort((a, b) => a.date - b.date),
   }));
 }
 

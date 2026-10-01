@@ -4,7 +4,7 @@
  *
  *   - the context fields (homeOpen, adultConfirmed, faintReportedUnresolved, early, sideLeanRepeat,
  *     openCheck) and the lock view { until, releasableByClearance, when } with no reason;
- *   - the start: ADULT_REQUIRED, NOT_OFFERED, status, checkIn, helperBriefing, session, boothToken;
+ *   - the start: ADULT_REQUIRED, NOT_OFFERED, status, checkIn, helperBriefing, session;
  *   - the stop naming its test side, STOPPED, qualityRetries and the new skip reasons;
  *   - the end question, the faint follow up, the alarm, the resume and the adult confirmation;
  *   - the booth verify, token and redeem routes.
@@ -422,51 +422,10 @@ describe("booth (O17)", () => {
     expect(ok.value.session).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(ok.value)).not.toContain("553311");
 
-    const token = await api.boothToken(ok.value.session);
-    expect(token.ok && token.value.token).toMatch(/^[0-9a-f]{64}$/);
-    if (!token.ok) return;
-    expect(token.value.expires).toBeLessThanOrEqual(Date.now() + 45 * 60 * 1000);
-    const redeemed = await api.boothRedeem(token.value.token);
-    expect(redeemed).toEqual({
-      ok: true,
-      value: { ok: true, token: expect.stringMatching(/^[0-9a-f]{64}$/), expires: token.value.expires },
-    });
-    // Single use: the QR token is spent; the phone's own pass checks without being used.
-    expect(await api.boothRedeem(token.value.token)).toEqual({ ok: true, value: { ok: false } });
-    if (!redeemed.ok || !redeemed.value.ok) return;
-    expect(await api.boothCheck(redeemed.value.token)).toEqual({
-      ok: true,
-      value: { ok: true, expires: token.value.expires },
-    });
-    const bad = await api.boothToken("f".repeat(64));
-    expect(!bad.ok && bad.error.kind === "http" && bad.error.code).toBe("BOOTH_SESSION");
-    expect(await api.boothRedeem("f".repeat(64))).toEqual({ ok: true, value: { ok: false } });
-  });
-
-  it("a signed in booth start sends boothToken; a used token is BOOTH_CODE", async () => {
-    process.env.AZM_BOOTH_CODE = "771144";
-    process.env.AZM_BOOTH_DATES = riyadhDate(Date.now());
-    const cookie = await member(h, email(), intakeOf());
-    const api = clientFor(cookie);
-    const verified = await api.boothVerify("771144");
-    if (!verified.ok || !verified.value.ok) throw new Error("verify");
-    const token = await api.boothToken(verified.value.session);
-    if (!token.ok) throw new Error("token");
-    const answers = await answersFor(h, cookie, {}, "booth");
-    const ok = await api.startCheck({
-      answers,
-      device: deviceInfo(),
-      setting: "booth",
-      boothToken: token.value.token,
-    });
-    expect(ok.ok && ok.value.setting).toBe("booth");
-    const again = await api.startCheck({
-      answers,
-      device: deviceInfo(),
-      setting: "booth",
-      boothToken: token.value.token,
-    });
-    expect(toStartResult(again)).toEqual({ ok: false, code: "BOOTH_CODE" });
+    // The staff session checks without being used; a session the server never issued is refused.
+    const until = await api.boothCheck(ok.value.session);
+    expect(until.ok && until.value.ok).toBe(true);
+    expect(await api.boothCheck("f".repeat(64))).toEqual({ ok: true, value: { ok: false } });
   });
 });
 

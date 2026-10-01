@@ -18,7 +18,6 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createCheckApi, toResumeResult, toSignedInContext, toStartResult, type CheckApi } from "./api";
-import { boothStartToken, clearBoothPass } from "./boothMode";
 import {
   flowReducer,
   initialModel,
@@ -51,11 +50,6 @@ export type Dispatch = (event: FlowEvent) => void;
 export interface CheckFlowOptions {
   config: FlowConfig;
   device?: DeviceInfo;
-  /**
-   * The one check booth token of a signed in booth start (O17): the visitor's token, or a new one from
-   * the staff session (boothMode.ts). Replaceable in tests.
-   */
-  boothToken?: () => Promise<string | null>;
   api?: CheckApi;
   queue?: ResultQueue;
   /** The signed in account (its user id): the outbox sends only its calls. */
@@ -260,7 +254,7 @@ export function useCheckFlow(opts: CheckFlowOptions) {
       return;
     }
     let active = true;
-    void api.getContext(config.booth ? "booth" : "home").then((r) => {
+    void api.getContext().then((r) => {
       if (!active) return;
       if (!r.ok) return dispatch({ type: "CONTEXT_FAILED" });
       const context = toSignedInContext(r.value);
@@ -335,13 +329,6 @@ export function useCheckFlow(opts: CheckFlowOptions) {
     }
   }, [model.effects]);
 
-  /** The one check booth token of a booth start (O17), or nothing at home. */
-  async function tokenFor(setting: string): Promise<{ boothToken?: string }> {
-    if (setting !== "booth") return {};
-    const token = await (opts.boothToken ?? (() => boothStartToken(api)))();
-    return token ? { boothToken: token } : {};
-  }
-
   async function runEffect(effect: FlowEffect): Promise<void> {
     const device = modelRef.current.data.device;
     switch (effect.type) {
@@ -349,10 +336,8 @@ export function useCheckFlow(opts: CheckFlowOptions) {
         const r = await api.startCheck({
           answers: effect.answers,
           device,
-          setting: effect.setting,
-          ...(await tokenFor(effect.setting)),
+          setting: "home",
           ...(effect.session ? { session: effect.session } : {}),
-          ...(effect.testsOff ? { testsOff: effect.testsOff } : {}),
         });
         dispatch({ type: "START_RESULT", result: toStartResult(r) });
         return;
@@ -374,18 +359,12 @@ export function useCheckFlow(opts: CheckFlowOptions) {
           type: "startBackground",
           answers: effect.answers,
           device,
-          setting: effect.setting,
-          ...(await tokenFor(effect.setting)),
           ...(effect.session ? { session: effect.session } : {}),
-          ...(effect.testsOff ? { testsOff: effect.testsOff } : {}),
         });
         break;
       case "adult":
         // Sent at once, never queued (queuedCallOf).
         await api.confirmAdult();
-        return;
-      case "clearBoothPass":
-        clearBoothPass();
         return;
       default: {
         const call = queuedCallOf(effect);

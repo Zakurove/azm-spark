@@ -12,6 +12,7 @@ import {
   DAY,
   HOUR,
   T0,
+  asBoothCheck,
   intakeOf,
   itemOf,
   login,
@@ -300,16 +301,11 @@ describe("booth and home series", () => {
   });
 
   it("keeps the booth point apart from the home series", async () => {
-    process.env.AZM_BOOTH_CODE = "staff-code-1177";
-    process.env.AZM_BOOTH_DATES = "2026-10-04";
     const email = "booth-series@example.test";
     await member(h, email, intakeOf());
-    await check(
-      email,
-      T0,
-      { "shoulder_abduction:right": 120 },
-      { extra: { setting: "booth", boothCode: "staff-code-1177" } },
-    );
+    // A signed in booth check of an earlier build (C34: the booth now runs the guest check).
+    const first = await check(email, T0, { "shoulder_abduction:right": 120 });
+    asBoothCheck(h, first.id);
     const home = await check(email, T0 + 3 * DAY, { "shoulder_abduction:right": 100 });
     const p = (await h.call("/progress", undefined, home.cookie)).data;
     const booth = current(p.tests, "shoulder_abduction", "right", "booth");

@@ -10,7 +10,7 @@
  *            overlays), guest and signed in
  *   results  S50 to S52, the Today cards S01 and S03, the offer S02, My results S53 and the example
  *            S54, with the answers of e2e/results-data.ts
- *   booth    S55 (code, errors, on, the visitor QR), S55b (every phase), S57 and S58
+ *   booth    S55 (code, errors, on), S57 and S58
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from "@playwright/test";
@@ -173,8 +173,6 @@ const FIRST_OUTCOMES: Record<string, Outcome> = {
 /* ------------------------------------------------------------------ booth */
 
 const SESSION = "a".repeat(64);
-const QR_TOKEN = "d".repeat(64);
-const VISITOR = "c".repeat(64);
 const HOUR = 60 * 60 * 1000;
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -390,9 +388,8 @@ for (const lang of LANGS) {
     const { context, page } = await phone(browser);
     let verify: unknown = { ok: false };
     await page.route("**/api/booth/verify", (r) => json(r, verify));
-    await page.route("**/api/booth/token", (r) => json(r, { token: QR_TOKEN, expires: Date.now() + HOUR }));
 
-    // S55: the code, a wrong code, booth mode on, the visitor QR.
+    // S55: the code, a wrong code, booth mode on.
     await page.goto(url("/?booth=1", lang));
     await expect(page.locator("input").first()).toBeVisible();
     await audit(page, "S55 code", problems);
@@ -402,30 +399,8 @@ for (const lang of LANGS) {
     await audit(page, "S55 wrong", problems);
     verify = { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR };
     await page.locator("form .cta").first().click();
-    await expect(
-      page.locator("[data-booth-on], [data-visitor-qr], .booth-qr-panel, button").first(),
-    ).toBeVisible();
+    await expect(page.locator('[data-booth="on"]')).toBeVisible();
     await audit(page, "S55 on", problems);
-
-    // S55b in every phase.
-    let answer: "on" | "ended" | "abort" = "on";
-    await page.route("**/api/booth/redeem", async (r) => {
-      if (answer === "abort") return r.abort("internetdisconnected");
-      await json(
-        r,
-        answer === "on" ? { ok: true, token: VISITOR, expires: Date.now() + HOUR } : { ok: false },
-      );
-    });
-    for (const phase of ["on", "ended", "abort"] as const) {
-      answer = phase;
-      await page.evaluate(() => sessionStorage.clear());
-      await page.goto(url(`/?booth=1&e2eBooth=token&t=${QR_TOKEN}`, lang));
-      await expect(page.locator(`[data-phase="${phase === "abort" ? "error" : phase}"]`)).toBeVisible();
-      await audit(page, `S55b ${phase}`, problems);
-    }
-    await page.goto(url(`/?booth=1&e2eBooth=token&phase=offline&t=${QR_TOKEN}`, lang));
-    await expect(page.locator('[data-phase="offline"]')).toBeVisible();
-    await audit(page, "S55b offline", problems);
 
     // S57, the layer and the staff count; S58, the tips.
     for (const name of ["count", "tips", "tips-wheelchair", "layer-results"]) {

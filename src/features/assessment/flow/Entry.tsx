@@ -18,7 +18,6 @@ import { useCheckUi } from "../shared/CheckUi";
 import { guestMinutes, localLabels } from "./copy";
 import { QrCode, SamePress } from "./parts";
 import { unlockAudio } from "./voice";
-import { TokenEndedCard, useBoothMode } from "../booth";
 
 /* ------------------------------------------------------------------ S04 */
 
@@ -97,8 +96,6 @@ export function DesktopGate({ dispatch }: ScreenProps) {
 
 export function GuestWelcome({ dispatch, model }: ScreenProps) {
   const { lang, online } = useCheckUi();
-  // S55b: a visitor token that ended while this screen showed: booth.tokenEnded in place of the start.
-  const { tokenEnded } = useBoothMode();
   // F-2: the one test path first, the full check after it, each with the minutes of what runs at this
   // booth; a path with no test switched on is not offered (D-016 item 4, F-1 D). C03: gold is the one
   // test, the staff default; the full check stays visible as an outline button of the same size.
@@ -136,16 +133,13 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
     <CheckShell
       brand
       language
-      footer={
-        tokenEnded || !primary ? undefined : { lead: adult, primary, ...(secondary ? { secondary } : {}) }
-      }
+      footer={primary ? { lead: adult, primary, ...(secondary ? { secondary } : {}) } : undefined}
     >
       <div className="flow-stack" data-screen="S05">
         <h1>{t(lang, "assessment.guest.title")}</h1>
         <p className="check-body">{t(lang, "assessment.guest.notSaved")}</p>
         <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
         {!online && <p className="check-field-error">{t(lang, "assessment.guest.offlineNoModel")}</p>}
-        {tokenEnded && <TokenEndedCard onContinue={() => dispatch({ type: "EXIT" })} />}
         <button
           type="button"
           className="check-text-button flow-example-link"

@@ -53,12 +53,6 @@ const PATHS: Record<string, ReactNode> = {
       <path d="m16 9 6 6m0-6-6 6" />
     </>
   ),
-  captions: (
-    <>
-      <rect x="3" y="5" width="18" height="14" rx="3" />
-      <path d="M10 10.5a2 2 0 1 0 0 3m7-3a2 2 0 1 0 0 3" />
-    </>
-  ),
   camera: (
     <>
       <rect x="3" y="6" width="18" height="14" rx="3" />
@@ -123,14 +117,6 @@ const PATHS: Record<string, ReactNode> = {
     <>
       <circle cx="12" cy="4" r="2" />
       <path d="M12 7v8m0 0-3 6m3-6 3 6M12 9l8-3M12 9l-3 4" />
-    </>
-  ),
-  qr: (
-    <>
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <path d="M14 14h3v3h-3zm4 4h3v3h-3z" />
     </>
   ),
   badge: (

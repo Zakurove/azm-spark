@@ -14,7 +14,6 @@ import { t } from "../../i18n";
 import { bidiText, tx } from "../../i18n/rich";
 import { CHECK_DATA, precheckItem, screenText } from "../../movements/assessments";
 import type { AfterResponse, ApiResult } from "../assessment/api";
-import { TokenEndedCard, useBoothMode } from "../assessment/booth";
 import { CheckDialog } from "../assessment/shared/CheckDialog";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
@@ -77,11 +76,6 @@ export interface EntryCardProps {
   onStart(options?: CheckStartOptions): void;
   onResults?(): void;
   onOpenHealth?(): void;
-  /**
-   * S55b: this tab's visitor token has ended, so booth.tokenEnded shows in place of the start action
-   * (a home check never runs under booth rules); its Continue opens the results.
-   */
-  tokenEnded?: boolean;
 }
 
 const ICON: Record<NonNullable<EntryState["variant"]>, string> = {
@@ -97,15 +91,7 @@ const ICON: Record<NonNullable<EntryState["variant"]>, string> = {
   upcoming: "calendar",
 };
 
-export function EntryCard({
-  state,
-  compact,
-  offline,
-  onStart,
-  onResults,
-  onOpenHealth,
-  tokenEnded,
-}: EntryCardProps) {
+export function EntryCard({ state, compact, offline, onStart, onResults, onOpenHealth }: EntryCardProps) {
   const { lang } = useCheckUi();
   const [early, setEarly] = useState(false);
   const titleId = useId();
@@ -213,9 +199,7 @@ export function EntryCard({
         </span>
       </div>
       {body && <p className="check-body">{bidiText(lang, body)}</p>}
-      {tokenEnded && startable ? (
-        <TokenEndedCard onContinue={() => onResults?.()} />
-      ) : offline && startable ? (
+      {offline && startable ? (
         <p className="check-meta">{t(lang, "assessment.state.offline.startBlocked")}</p>
       ) : (
         <>
@@ -500,8 +484,6 @@ export function AfterIntakeOffer({ lang, minutes, onStart, onLater, returnFocus 
 
 export interface TodayCheckSlotProps {
   lang: Lang;
-  /** This tab is in verified booth mode (S01 homeSoon does not apply). */
-  booth: boolean;
   /**
    * Opens the check (CheckApp, signed in). The options name a resume (O6), the side lean only session
    * (Q12 (2)) or the care team release of a lock; App.tsx passes them to CheckApp.
@@ -539,16 +521,8 @@ async function sendAfter(value: NextDayAnswer, owner?: string): Promise<void | "
  * The Today slot: S03 (the next day question, when due) above the S01 entry card. It loads GET
  * /api/assessments/context, GET /api/progress and GET /api/assessments and picks the S01 variant.
  */
-export function TodayCheckSlot({
-  lang,
-  booth,
-  onStart,
-  onOpenResults,
-  onOpenHealth,
-  owner,
-}: TodayCheckSlotProps) {
+export function TodayCheckSlot({ lang, onStart, onOpenResults, onOpenHealth, owner }: TodayCheckSlotProps) {
   const { data, reload, online } = useCheckData(owner);
-  const { tokenEnded } = useBoothMode();
   const [laterNow, setLaterNow] = useState(nextDayHidden());
   const [now] = useState(() => Date.now());
   const ctx = data.context;
@@ -562,7 +536,6 @@ export function TodayCheckSlot({
       context: ctx.value,
       progress: data.progress.status === "ok" ? data.progress.value : null,
       checks: data.checks.status === "ok" ? data.checks.value : null,
-      booth,
       now,
       resumeAllowed,
     });
@@ -574,12 +547,11 @@ export function TodayCheckSlot({
         onStart={onStart}
         onResults={onOpenResults}
         onOpenHealth={onOpenHealth}
-        tokenEnded={tokenEnded}
       />
     );
   }
   return (
-    <CheckRoot ui={{ lang, booth, online }} page={false} className="check-slot">
+    <CheckRoot ui={{ lang, online }} page={false} className="check-slot">
       {followUp && !laterNow && (
         <NextDayQuestion lang={lang} onSend={(v) => sendAfter(v, owner)} onNotNow={() => setLaterNow(true)} />
       )}

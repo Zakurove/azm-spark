@@ -528,9 +528,6 @@ describe("Appendix A: pre-check questions and the start call", () => {
       });
     const auth = play(m, { type: "START_RESULT", result: { ok: false, code: "AUTH" } });
     expect(auth.state).toEqual({ kind: "exit", to: "signIn" });
-    const booth = play(m, { type: "START_RESULT", result: { ok: false, code: "BOOTH_CODE" } });
-    expect(booth.state).toEqual({ kind: "exit", to: "boothStaff" });
-    expect(booth.effects.some((x) => x.type === "clearBoothPass")).toBe(true);
   });
 
   it("the guest proceeds on the phone: no start call, the protocol frozen locally", () => {

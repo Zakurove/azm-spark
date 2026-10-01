@@ -1,12 +1,10 @@
 /**
- * The booth stream in the browser (UX spec S55, S55b, S57 and S58, contract v3 I, council O15, O17,
- * O18), in Arabic and English:
+ * The booth stream in the browser (UX spec S55, S57 and S58, contract v3 I, council O15, O17, O18;
+ * staff phones only, C34), in Arabic and English:
  *
  *   S55   /?booth=1: the staff code against the real server (the booth days rule: no code works
  *         outside the booth days), then the verify answers (wrong, too many tries, offline, on), the
- *         visitor QR, the end of the staff session, and turning booth mode off (it never leaks home).
- *   S55b  the visitor token page: redeem, used or ended, offline then Try again, and the phone that
- *         keeps only its own pass.
+ *         end of the staff session, and turning booth mode off (it never leaks home).
  *   S57   the staff reset (a press and hold on the badge, the shortcut key) from a question, a camera
  *         and a safety screen; the idle reset on S50 (3 minutes, then 30 s) and before the camera
  *         (5 minutes), never on camera or safety screens; the staff count; New visitor.
@@ -29,8 +27,6 @@ const fill = (s: string, vars: Record<string, string | number>) =>
   s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? `{${k}}`));
 
 const SESSION = "a".repeat(64);
-const VISITOR = "c".repeat(64);
-const QR_TOKEN = "d".repeat(64);
 const HOUR = 60 * 60 * 1000;
 
 /** Console errors, except the expected 401 of /api/auth/me and the answers a spec routes on purpose. */
@@ -107,7 +103,7 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("booth mode on: the pass is kept and never the code, the visitor QR, then off", async ({ page }) => {
+    test("booth mode on: the pass is kept and never the code, then off", async ({ page }) => {
       const errors = watchConsole(page);
       let release: () => void = () => undefined;
       const held = new Promise<void>((r) => (release = r));
@@ -115,9 +111,6 @@ for (const lang of LANGS) {
         await held;
         await json(r, { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR });
       });
-      await page.route("**/api/booth/token", (r) =>
-        json(r, { token: QR_TOKEN, expires: Date.now() + 45 * 60 * 1000 }),
-      );
       await page.goto(url("/?booth=1", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       const turnOn = page.getByRole("button", { name: c.booth.turnOn });
@@ -133,20 +126,6 @@ for (const lang of LANGS) {
       const stored = await page.evaluate(() => JSON.stringify({ ...sessionStorage, ...localStorage }));
       expect(stored).not.toContain("777111");
 
-      // The one check QR for a visitor's own phone: a picture only, never the link as text.
-      const token = page.waitForRequest("**/api/booth/token");
-      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
-      expect((await token).postDataJSON()).toEqual({ session: SESSION });
-      const panel = page.locator("[data-visitor-qr]");
-      await expect(panel.getByRole("heading", { name: c.booth.visitorQrTitle })).toBeFocused();
-      await expect(panel).toContainText(c.booth.visitorQrBody);
-      await expect(panel.getByRole("img", { name: c.booth.visitorQrTitle })).toBeVisible();
-      expect(await page.locator("body").innerText()).not.toContain(QR_TOKEN);
-      const decoded = await decodeQr(page);
-      if (decoded !== "unsupported") expect(decoded).toMatch(new RegExp(`/\\?boothToken=${QR_TOKEN}$`));
-      await panel.getByRole("button", { name: c.common.close }).click();
-      await expect(page.getByRole("button", { name: c.booth.showVisitorQr })).toBeFocused();
-
       // Turning booth mode off leaves nothing: the guest check is closed again (never leaks home).
       await page.getByRole("button", { name: c.booth.turnOff }).click();
       await expect(page.getByLabel(c.booth.codeLabel)).toBeVisible();
@@ -157,16 +136,23 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("the staff session ends at closing time: a refused token turns booth mode off", async ({ page }) => {
+    test("a session the server refuses (closing time) turns booth mode off when the check opens", async ({
+      page,
+    }) => {
       await page.route("**/api/booth/verify", (r) =>
         json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
       );
-      await page.route("**/api/booth/token", (r) => json(r, { error: "BOOTH_SESSION" }, 403));
+      const checked: unknown[] = [];
+      await page.route("**/api/booth/check", (r) => {
+        checked.push(r.request().postDataJSON());
+        return json(r, { ok: false });
+      });
       await page.goto(url("/?booth=1", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
-      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
-      await expect(page.getByLabel(c.booth.codeLabel)).toBeVisible();
+      await page.getByRole("button", { name: c.booth.openGuest }).click();
+      await expect(page.locator("h1")).toHaveText(c.guest.boothOnly.title);
+      expect(checked[0]).toEqual({ session: SESSION });
       expect(await boothPass(page)).toBeNull();
     });
 
@@ -174,7 +160,7 @@ for (const lang of LANGS) {
       await page.route("**/api/booth/verify", (r) =>
         json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
       );
-      await page.route("**/api/booth/token", (r) => json(r, { token: QR_TOKEN, expires: Date.now() + HOUR }));
+      await page.route("**/api/booth/check", (r) => json(r, { ok: true, expires: Date.now() + HOUR }));
       await page.goto(url("/?booth=1", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
@@ -189,16 +175,14 @@ for (const lang of LANGS) {
     // A phone: the guest check opens on S05 (no desktop interstitial, O10).
     test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
 
-    test("a test switched off, the plane fallback and the readout: kept on the phone, followed by S05 and the visitor QR", async ({
+    test("a test switched off, the plane fallback and the readout: kept on the phone, followed by S05", async ({
       page,
     }) => {
       const errors = watchConsole(page);
       await page.route("**/api/booth/verify", (r) =>
         json(r, { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR }),
       );
-      await page.route("**/api/booth/token", (r) =>
-        json(r, { token: QR_TOKEN, expires: Date.now() + 45 * 60 * 1000 }),
-      );
+      await page.route("**/api/booth/check", (r) => json(r, { ok: true, expires: Date.now() + 3 * HOUR }));
       await page.goto(url("/?booth=1", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
@@ -231,16 +215,6 @@ for (const lang of LANGS) {
       const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("azm.boothSettings") ?? "null"));
       expect(kept).toEqual({ testsOff: ["shoulder_abduction"], planeFallback: true, readout: true });
 
-      // The visitor QR carries the tests and the plane rule, never the readout.
-      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
-      await expect(page.locator("[data-visitor-qr] svg")).toBeVisible();
-      const decoded = await decodeQr(page);
-      if (decoded !== "unsupported")
-        expect(decoded).toMatch(
-          new RegExp(`/\\?boothToken=${QR_TOKEN}&off=shoulder_abduction&plane=fallback$`),
-        );
-      await page.locator("[data-visitor-qr]").getByRole("button", { name: c.common.close }).click();
-
       // A reload keeps them, and the page opens on them while they differ from the defaults.
       await page.reload();
       await expect(page.locator("[data-booth-settings]")).toHaveAttribute("open", "");
@@ -249,11 +223,13 @@ for (const lang of LANGS) {
         "false",
       );
 
-      // S05: the one test is the arm curl now, with its own minutes (F-1 D: 13 as built).
+      // S05: the one test is the arm curl now, with its own minutes (F-1 D: 13 as built); C03: the one
+      // test is the gold action, the full check an outline button beside it.
       await page.getByRole("button", { name: c.booth.openGuest }).click();
       await expect(page.locator('[data-screen="S05"]')).toBeVisible();
-      const paths = page.locator(".check-footer .cta");
+      const paths = page.locator(".check-footer :is(.cta, .ghost)");
       await expect(paths).toHaveCount(2);
+      await expect(page.locator(".check-footer .cta")).toHaveCount(1);
       await expect(paths.first()).toContainText(c.guest.quickTry.split("{")[0].trim());
       await expect(paths.first()).toContainText(lang === "ar" ? "١٣" : "13");
 
@@ -271,71 +247,6 @@ for (const lang of LANGS) {
       await page.goto(url("/?check=1", lang));
       await expect(page.locator("h1")).toHaveText(c.guest.boothOnly.title);
       expect(errors).toEqual([]);
-    });
-  });
-
-  test.describe(`booth S55b visitor token (${lang})`, () => {
-    const tokenPage = (t: string) => url(`/?booth=1&e2eBooth=token&t=${t}`, lang);
-
-    test("redeems once and keeps this phone's own pass, never the QR token", async ({ page }) => {
-      const errors = watchConsole(page);
-      const calls: unknown[] = [];
-      await page.route("**/api/booth/redeem", (r) => {
-        calls.push(r.request().postDataJSON());
-        return json(r, { ok: true, token: VISITOR, expires: Date.now() + 45 * 60 * 1000 });
-      });
-      await page.goto(tokenPage(QR_TOKEN));
-      await expect(page.getByRole("status").filter({ hasText: c.booth.tokenOn })).toBeVisible();
-      await expect(page.locator(".check-topbar .check-booth-badge")).toBeVisible();
-      expect(calls).toEqual([{ token: QR_TOKEN }]);
-      const pass = JSON.parse((await boothPass(page))!);
-      expect(pass).toMatchObject({ kind: "visitor", token: VISITOR });
-      await page.getByRole("button", { name: c.common.continue }).click();
-      await expect(page.locator("body")).toHaveAttribute("data-continued", "on");
-      expect(errors).toEqual([]);
-    });
-
-    test("a used or ended token shows tokenEnded; later the staff page shows it too, never the code", async ({
-      page,
-    }) => {
-      await page.route("**/api/booth/redeem", (r) => json(r, { ok: false }));
-      await page.goto(tokenPage(QR_TOKEN));
-      await expect(page.locator("[data-token-ended]")).toContainText(c.booth.tokenEnded);
-      await expect(page.locator(".check-booth-badge")).toHaveCount(0);
-      expect(await boothPass(page)).toBeNull();
-
-      // This phone redeemed a token before, and it has ended since.
-      await page.evaluate(() => sessionStorage.setItem("azm.booth.visitor", "1"));
-      await page.goto(url("/?booth=1", lang));
-      await expect(page.locator("[data-token-ended]")).toContainText(c.booth.tokenEnded);
-      await expect(page.getByLabel(c.booth.codeLabel)).toHaveCount(0);
-    });
-
-    test("a link of the wrong form ends without a call; a network error, then Try again", async ({
-      page,
-    }) => {
-      let calls = 0;
-      await page.route("**/api/booth/redeem", (r) => {
-        calls += 1;
-        return calls === 1
-          ? r.abort("internetdisconnected")
-          : json(r, { ok: true, token: VISITOR, expires: Date.now() + HOUR });
-      });
-      await page.goto(tokenPage("not-a-token"));
-      await expect(page.locator("[data-token-ended]")).toBeVisible();
-      expect(calls).toBe(0);
-
-      await page.goto(tokenPage(QR_TOKEN));
-      await expect(page.getByRole("alert")).toContainText(c.state.error.body);
-      await page.getByRole("button", { name: c.common.retry }).click();
-      await expect(page.getByRole("status").filter({ hasText: c.booth.tokenOn })).toBeVisible();
-      expect(calls).toBe(2);
-    });
-
-    test("offline: starting needs a connection", async ({ page }) => {
-      await page.goto(url(`/?booth=1&e2eBooth=token&phase=offline&t=${QR_TOKEN}`, lang));
-      await expect(page.getByRole("alert")).toContainText(c.state.offline.startBlocked);
-      await expect(page.getByRole("button", { name: c.common.retry })).toBeVisible();
     });
   });
 
@@ -509,14 +420,12 @@ test.describe("booth targets", () => {
       await page.route("**/api/booth/verify", (r) =>
         json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
       );
-      await page.route("**/api/booth/token", (r) => json(r, { token: QR_TOKEN, expires: Date.now() + HOUR }));
       const c = COPY[lang];
       await page.goto(url("/?booth=1", lang));
       expect(await smallControls(page)).toEqual([]);
       await page.getByLabel(c.booth.codeLabel).fill("1");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
-      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
-      await expect(page.locator("[data-visitor-qr]")).toBeVisible();
+      await expect(page.getByRole("button", { name: c.booth.openGuest })).toBeVisible();
       expect(await smallControls(page)).toEqual([]);
       // The staff settings, open: every switch is 48 px or more too.
       await page.locator("[data-booth-settings] summary").click();
@@ -525,7 +434,7 @@ test.describe("booth targets", () => {
       const summary = await page.locator("[data-booth-settings] summary").boundingBox();
       expect(summary!.height).toBeGreaterThanOrEqual(48);
 
-      for (const part of ["tips", "count", "layer-results", "token&phase=on", "token&phase=ended"]) {
+      for (const part of ["tips", "count", "layer-results"]) {
         await page.goto(url(`/?booth=1&e2eBooth=${part}`, lang));
         await expect(page.locator("h1")).toBeVisible();
         expect(await smallControls(page), part).toEqual([]);
@@ -549,55 +458,16 @@ test.describe("booth mode never leaks home", () => {
     await expect(page.locator(".check-booth-badge")).toHaveCount(0);
   });
 
-  test("an ended visitor pass is removed, and the staff page shows tokenEnded", async ({ page }) => {
+  test("a visitor pass of an earlier build is never read (C34: staff phones only)", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => {
       sessionStorage.setItem(
         "azm.booth",
-        JSON.stringify({ kind: "visitor", token: "e".repeat(64), expires: Date.now() - 1000 }),
+        JSON.stringify({ kind: "visitor", token: "e".repeat(64), expires: Date.now() + 60_000 }),
       );
-      sessionStorage.setItem("azm.booth.visitor", "1");
     });
     await page.goto("/?check=1");
     await expect(page.locator("h1")).toHaveText(ar.guest.boothOnly.title);
     expect(await boothPass(page)).toBeNull();
   });
 });
-
-/**
- * Reads the visitor QR back with the browser's own barcode reader where it has one (Chrome on macOS,
- * Android). "unsupported" where it has none; the unit tests read every code back too.
- */
-async function decodeQr(page: Page): Promise<string | "unsupported"> {
-  return page.evaluate(async () => {
-    const BD = (
-      window as unknown as {
-        BarcodeDetector?: new (o: object) => { detect(s: unknown): Promise<{ rawValue: string }[]> };
-      }
-    ).BarcodeDetector;
-    if (!BD) return "unsupported";
-    const svg = document.querySelector<SVGSVGElement>("[data-visitor-qr] svg");
-    if (!svg) return "no svg";
-    const xml = new XMLSerializer().serializeToString(svg);
-    // Inline the fills (the stylesheet colours do not travel with the serialised picture).
-    const src = xml
-      .replace('class="check-qr-light"', 'fill="#ffffff"')
-      .replace('class="check-qr-dark"', 'fill="#000000"');
-    const img = new Image(400, 400);
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
-    await img.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = 400;
-    canvas.height = 400;
-    const g = canvas.getContext("2d")!;
-    g.fillStyle = "#fff";
-    g.fillRect(0, 0, 400, 400);
-    g.drawImage(img, 0, 0, 400, 400);
-    try {
-      const found = await new BD({ formats: ["qr_code"] }).detect(canvas);
-      return found[0]?.rawValue ?? "none";
-    } catch {
-      return "unsupported";
-    }
-  });
-}

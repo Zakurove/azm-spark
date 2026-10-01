@@ -1,5 +1,5 @@
 /**
- * Review screenshots of the booth stream (UX spec definition of done): S55, S55b, S57 and S58
+ * Review screenshots of the booth stream (UX spec definition of done): S55, S57 and S58
  * in every state that applies, at 375 x 812 and 1440 x 900, in Arabic and English. Runs only with
  * AZM_SHOTS_DIR set:
  *
@@ -31,8 +31,6 @@ const digits = (lang: Lang, n: number) =>
   lang === "ar" ? String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : String(n);
 
 const SESSION = "a".repeat(64);
-const QR_TOKEN = "d".repeat(64);
-const VISITOR = "c".repeat(64);
 const HOUR = 60 * 60 * 1000;
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -74,7 +72,6 @@ for (const size of SIZES) {
         if (hold) await hold;
         await json(r, verify);
       });
-      await page.route("**/api/booth/token", (r) => json(r, { token: QR_TOKEN, expires: Date.now() + HOUR }));
       await page.goto(url("/?booth=1", lang));
       const code = page.getByLabel(c.booth.codeLabel);
       const turnOn = page.getByRole("button", { name: c.booth.turnOn });
@@ -112,12 +109,7 @@ for (const size of SIZES) {
       await expect(page.locator("[data-offline]")).toHaveCount(0, { timeout: 30_000 });
       await shot(page, lang, size, "s55-on");
 
-      await page.getByRole("button", { name: c.booth.showVisitorQr }).click();
-      await expect(page.locator("[data-visitor-qr] svg")).toBeVisible();
-      await shot(page, lang, size, "s55-visitor-qr");
-
       // The staff settings (D-016 item 4, F-1): open, with the arm raise switched off.
-      await page.locator("[data-visitor-qr]").getByRole("button", { name: c.common.close }).click();
       await page.locator("[data-booth-settings] summary").click();
       const raise = page.locator('[data-setting="test:shoulder_abduction"]');
       await raise.click();
@@ -134,46 +126,6 @@ for (const size of SIZES) {
       await expect(page.getByRole("alert")).toHaveText(c.state.offline.startBlocked);
       await shot(page, lang, size, "s55-offline");
       await context.setOffline(false);
-
-      await page.evaluate(() => sessionStorage.setItem("azm.booth.visitor", "1"));
-      await page.reload();
-      await expect(page.locator("[data-token-ended]")).toBeVisible();
-      await shot(page, lang, size, "s55-visitor-phone-ended");
-      await context.close();
-    });
-
-    test(`booth shots S55b ${lang} ${size.tag}`, async ({ browser }) => {
-      mkdirSync(OUT, { recursive: true });
-      const { context, page } = await fresh(browser, size);
-      let answer: "held" | "on" | "ended" | "abort" = "held";
-      await page.route("**/api/booth/redeem", async (r) => {
-        if (answer === "held") return; // never answered: the loading state stays
-        if (answer === "abort") return r.abort("internetdisconnected");
-        await json(
-          r,
-          answer === "on" ? { ok: true, token: VISITOR, expires: Date.now() + HOUR } : { ok: false },
-        );
-      });
-      const tokenPage = url(`/?booth=1&e2eBooth=token&t=${QR_TOKEN}`, lang);
-      await page.goto(tokenPage);
-      await expect(page.locator('[data-phase="redeeming"]')).toBeVisible();
-      await shot(page, lang, size, "s55b-loading");
-      answer = "on";
-      await page.goto(tokenPage);
-      await expect(page.locator('[data-phase="on"]')).toBeVisible();
-      await shot(page, lang, size, "s55b-on");
-      answer = "ended";
-      await page.evaluate(() => sessionStorage.clear());
-      await page.goto(tokenPage);
-      await expect(page.locator('[data-phase="ended"]')).toBeVisible();
-      await shot(page, lang, size, "s55b-ended");
-      answer = "abort";
-      await page.goto(tokenPage);
-      await expect(page.locator('[data-phase="error"]')).toBeVisible();
-      await shot(page, lang, size, "s55b-error");
-      await page.goto(url(`/?booth=1&e2eBooth=token&phase=offline&t=${QR_TOKEN}`, lang));
-      await expect(page.locator('[data-phase="offline"]')).toBeVisible();
-      await shot(page, lang, size, "s55b-offline");
       await context.close();
     });
 

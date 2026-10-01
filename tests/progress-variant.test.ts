@@ -58,7 +58,6 @@ const state = (over: Partial<ContextResponse> = {}, extra: Partial<EntryInputs> 
     context: context(over),
     progress: null,
     checks: [],
-    booth: false,
     now: NOW,
     resumeAllowed: () => true,
     ...extra,
@@ -91,9 +90,8 @@ describe("S01 variants, first matching row wins", () => {
     expect(state({ blocked: "unsupported_position" }).variant).toBeNull();
   });
 
-  it("2 homeSoon: home checks closed and this tab not in booth mode (Q31 (6))", () => {
+  it("2 homeSoon: home checks closed, booth mode or not (Q31 (6); the booth runs the guest check, C34)", () => {
     expect(state({ homeOpen: false }).variant).toBe("homeSoon");
-    expect(state({ homeOpen: false }, { booth: true }).variant).toBe("first");
   });
 
   it("3 locked: a lock that has not ended, with the release when releasable", () => {

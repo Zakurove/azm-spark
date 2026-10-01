@@ -5,11 +5,11 @@
  *         changes every day and works only on the booth days and hours (server BOOTH_DATES); the
  *         server answers a device session for the day, kept by boothMode.ts in sessionStorage for
  *         this tab only, and the code is dropped at once.
- *   on    "Booth mode is on for this phone", open the visitor check (/?check=1), the one check QR for
- *         a signed in visitor's own phone (POST /api/booth/token, 45 minutes at most, shown only as a
- *         QR, never as text), the offline preparation line (O18), the staff settings (D-016 item 4,
- *         council F-1: a switch per test, the plane check fallback, the staff readout; open while any
- *         of them differs from the defaults) and "Turn off booth mode".
+ *   on    "Booth mode is on for this phone", open the visitor check (/?check=1), the offline
+ *         preparation line (O18), the staff settings (D-016 item 4, council F-1: a switch per test,
+ *         the plane check fallback, the staff readout; open while any of them differs from the
+ *         defaults) and "Turn off booth mode". The booth runs on staff phones only (C34): a signed in
+ *         visitor runs the check here as a guest, and the S50 code is the way to sign up.
  *
  * The session ends at closing time: the page turns back to the code form by itself. The badge shows
  * only while booth mode is on (S57). Not linked from any user screen. No Sound: nothing plays here.
@@ -17,7 +17,7 @@
  * States: loading (the busy primary), error (wrong code, closed, too many tries, network), offline
  * (cannot verify: state.offline.startBlocked); empty and camera do not apply.
  */
-import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { Lang } from "../../../app/i18n";
 import { localizeDigits, t } from "../../../i18n";
 import { createCheckApi, type CheckApi } from "../api";
@@ -28,10 +28,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { reportNetwork, useOnline } from "../shared/useOnline";
 import { BoothCodeForm } from "./CodeForm";
-import { tokenOutcome, visitorLink, wasVisitorPhone } from "./passes";
 import { offlineStatus, precacheBooth, type OfflineStatus, type PrecacheResult } from "./precache";
-import { QrCode } from "../shared/QrCode";
-import { TokenEndedCard } from "./VisitorTokenPage";
 import {
   isDefault,
   PLANE_RATIOS,
@@ -48,14 +45,10 @@ import "./booth.css";
 export interface BoothStaffPageProps {
   lang: Lang;
   onLanguage(): void;
-  /** Leaves this page for the landing (a visitor's phone whose token has ended, S55b). */
-  onExit(): void;
   /** Opens the visitor check (/?check=1) once booth mode is on. */
   onOpenGuest(): void;
   /** Replaceable in tests. */
-  api?: Pick<CheckApi, "boothVerify" | "boothToken">;
-  /** The site the visitor QR opens (this page's origin by default). */
-  origin?: string;
+  api?: Pick<CheckApi, "boothVerify">;
   /** Keeps the booth files for offline use (O18); replaceable in tests. */
   precache?: () => Promise<PrecacheResult>;
 }
@@ -90,15 +83,7 @@ function defaultPrecache(): Promise<PrecacheResult> {
   return preparing;
 }
 
-function BoothStaff({
-  lang,
-  onLanguage,
-  onOpenGuest,
-  onExit,
-  api: given,
-  origin,
-  precache,
-}: BoothStaffPageProps) {
+function BoothStaff({ lang, onLanguage, onOpenGuest, api: given, precache }: BoothStaffPageProps) {
   const api = useMemo(
     () =>
       given ??
@@ -110,10 +95,6 @@ function BoothStaff({
   );
   const { online, backOnline } = useOnline();
   const [pass, setPass] = useState<BoothPass | null>(() => readBoothPass());
-  // A visitor's own phone whose one check token has ended lands here when its start is refused
-  // (flow BOOTH_CODE): it shows booth.tokenEnded (S55b), never the staff code, which is typed only
-  // on staff devices (S55, 7.2-11).
-  const [visitorPhone] = useState(() => wasVisitorPhone());
 
   // The staff session ends at closing time: the page turns back to the code form (S55).
   useEffect(() => {
@@ -133,14 +114,10 @@ function BoothStaff({
     >
       <CheckShell exit={false} language>
         <div className="booth-screen" data-screen="S55" data-booth={pass ? "on" : "off"}>
-          <h1>{t(lang, visitorPhone && !pass ? "assessment.name" : "assessment.booth.title")}</h1>
-          {visitorPhone && !pass ? (
-            <TokenEndedCard onContinue={onExit} />
-          ) : pass ? (
+          <h1>{t(lang, "assessment.booth.title")}</h1>
+          {pass ? (
             <BoothOn
               pass={pass}
-              api={api}
-              origin={origin}
               precache={precache ?? defaultPrecache}
               onOpenGuest={onOpenGuest}
               onTurnOff={turnOff}
@@ -164,23 +141,17 @@ function BoothStaff({
 
 function BoothOn({
   pass,
-  api,
-  origin,
   precache,
   onOpenGuest,
   onTurnOff,
 }: {
   pass: BoothPass;
-  api: Pick<CheckApi, "boothToken">;
-  origin?: string;
   precache: () => Promise<PrecacheResult>;
   onOpenGuest(): void;
   onTurnOff(): void;
 }) {
   const lang = useLang();
   const offline = useOfflinePreparation(pass.kind === "staff", precache);
-  // Staff settings are typed on staff devices only; a visitor's phone takes them from the QR (S55b).
-  const staff = pass.kind !== "visitor";
   return (
     <>
       <p className="booth-status" role="status">
@@ -191,9 +162,6 @@ function BoothOn({
         <button type="button" className="cta" onClick={onOpenGuest} data-primary="">
           {t(lang, "assessment.booth.openGuest")}
         </button>
-        {pass.kind === "staff" && (
-          <VisitorQr session={pass.session} api={api} origin={origin} onSessionEnded={onTurnOff} />
-        )}
       </div>
       {offline !== "notReady" && (
         <p className="booth-offline-line" role="status" data-offline={offline}>
@@ -210,7 +178,7 @@ function BoothOn({
           </span>
         </p>
       )}
-      {staff && <StaffSettings />}
+      <StaffSettings />
       <button type="button" className="check-text-button" onClick={onTurnOff}>
         {t(lang, "assessment.booth.turnOff")}
       </button>
@@ -302,103 +270,6 @@ function useOfflinePreparation(active: boolean, precache: () => Promise<Precache
   if (!active) return "notReady";
   const controlled = typeof navigator !== "undefined" && !!navigator.serviceWorker?.controller;
   return offlineStatus(result, controlled);
-}
-
-/* ------------------------------------------------------------------ the visitor QR (S55, S55b) */
-
-type QrState =
-  | { kind: "closed" }
-  | { kind: "busy" }
-  | { kind: "qr"; token: string; expires: number }
-  | { kind: "offline" }
-  | { kind: "error" };
-
-function VisitorQr({
-  session,
-  api,
-  origin,
-  onSessionEnded,
-}: {
-  session: string;
-  api: Pick<CheckApi, "boothToken">;
-  origin?: string;
-  onSessionEnded(): void;
-}) {
-  const lang = useLang();
-  const [state, setState] = useState<QrState>({ kind: "closed" });
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const showRef = useRef<HTMLButtonElement>(null);
-  const titleId = useId();
-
-  const show = async () => {
-    if (state.kind === "busy") return;
-    setState({ kind: "busy" });
-    const out = tokenOutcome(await api.boothToken(session));
-    if (out.kind === "sessionEnded") return onSessionEnded();
-    setState(out);
-  };
-
-  // A token lasts 45 minutes at most (O17): its QR goes away when it ends.
-  useEffect(() => {
-    if (state.kind !== "qr") return;
-    headingRef.current?.focus();
-    const timer = setTimeout(() => setState({ kind: "closed" }), Math.max(0, state.expires - Date.now()));
-    return () => clearTimeout(timer);
-  }, [state]);
-
-  if (state.kind === "qr") {
-    const link = visitorLink(
-      origin ?? (typeof location !== "undefined" ? location.origin : ""),
-      state.token,
-      readBoothSettings(),
-    );
-    return (
-      <section className="check-card booth-qr-panel" aria-labelledby={titleId} data-visitor-qr="">
-        <h2 id={titleId} ref={headingRef} tabIndex={-1} className="check-h2">
-          {t(lang, "assessment.booth.visitorQrTitle")}
-        </h2>
-        <p className="check-body">{t(lang, "assessment.booth.visitorQrBody")}</p>
-        <div className="booth-qr">
-          <QrCode text={link} label={t(lang, "assessment.booth.visitorQrTitle")} size={224} />
-        </div>
-        <button
-          type="button"
-          className="ghost"
-          onClick={() => {
-            setState({ kind: "closed" });
-            requestAnimationFrame(() => showRef.current?.focus());
-          }}
-        >
-          {t(lang, "assessment.common.close")}
-        </button>
-      </section>
-    );
-  }
-  return (
-    <>
-      <button
-        ref={showRef}
-        type="button"
-        className="ghost"
-        onClick={() => void show()}
-        aria-busy={state.kind === "busy" || undefined}
-      >
-        {state.kind === "busy" && <span className="booth-busy" aria-hidden="true" />}
-        <CheckIcon name="qr" />
-        {t(lang, "assessment.booth.showVisitorQr")}
-      </button>
-      {(state.kind === "offline" || state.kind === "error") && (
-        <p className="booth-alert" role="alert">
-          {t(
-            lang,
-            state.kind === "offline"
-              ? "assessment.state.offline.startBlocked"
-              : "assessment.state.error.body",
-          )}
-        </p>
-      )}
-    </>
-  );
 }
 
 /* ------------------------------------------------------------------ helpers */

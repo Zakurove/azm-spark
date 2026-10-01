@@ -1,23 +1,18 @@
 /**
- * Booth staff mode (contract v3 I, O17, 7.2-11, UX spec S55 and S55b).
+ * Booth staff mode (contract v3 I, O17, 7.2-11, UX spec S55). The booth runs on staff phones only
+ * (simplicity cut C34): a visitor, signed in or not, runs the check there as a guest.
  *
  *   POST /api/booth/verify  { code }     public; 10 tries per IP and 30 in all in 15 minutes; → { ok } and, when
  *                                        ok, the staff device session of the booth day { session,
  *                                        expires }; { ok: false, closed: true } outside the booth
  *                                        days and hours
- *   POST /api/booth/token   { session }  a one check visitor token for 45 minutes at most, never past
- *                                        closing: { token, expires }; 403 BOOTH_SESSION
- *   POST /api/booth/redeem  { token }    the visitor's phone redeems the QR token once: it is spent
- *                                        and swapped for the phone's own pass { ok, token, expires };
- *                                        { ok: false } for a spent, used or ended token
- *   POST /api/booth/check   { token }    the phone checks its pass without using it: { ok, expires? }
+ *   POST /api/booth/check   { session }  whether the staff session still holds: { ok, expires? }
  *
- * A signed in booth check starts with a boothToken only (O17; the code stays on staff devices), see
- * POST /api/assessments. Codes, sessions and tokens are never logged or stored in the clear.
+ * Codes and sessions are never logged or stored in the clear.
  */
 import type { Route } from "../../http/types";
 import { boothCodeMatches, boothWindow } from "./config";
-import { createPass, PASS, swapPass, validPass } from "./store";
+import { createPass, validPass } from "./store";
 
 const WINDOW_MS = 15 * 60 * 1000;
 /** Contract v3 I: 10 verify calls per IP in 15 minutes. */
@@ -28,10 +23,8 @@ export const VERIFY_PER_IP = 10;
  * before the code, so it refuses the right code too and tells nothing.
  */
 export const VERIFY_ALL = 30;
-/** Visitor phones share the venue's address, so the token routes allow more per IP. */
-const PASS_CALLS_PER_IP = 60;
-/** A visitor token covers one check and lasts at most 45 minutes (O17, S55b). */
-export const VISITOR_TOKEN_MS = 45 * 60 * 1000;
+/** The session check runs whenever a booth phone opens the guest check. */
+const CHECK_CALLS_PER_IP = 60;
 
 function onlyKey(body: Record<string, unknown>, key: string): string | null {
   const extra = Object.keys(body).filter((k) => k !== key);
@@ -56,40 +49,8 @@ export const boothRoutes: Route[] = [
       const window = boothWindow(now);
       if (!window.open) return json(200, { ok: false, closed: true });
       if (!ok) return json(200, { ok: false });
-      const session = createPass(db, "staff", window.closes, now);
+      const session = createPass(db, window.closes, now);
       json(200, { ok: true, session, expires: window.closes });
-    },
-  },
-  {
-    method: "POST",
-    path: /^\/api\/booth\/token$/,
-    auth: "public",
-    handle({ db, body, ip, json, limited }) {
-      if (limited(`booth-token:${ip}`, PASS_CALLS_PER_IP, WINDOW_MS))
-        return json(429, { error: "RATE_LIMIT" });
-      const bad = onlyKey(body, "session");
-      if (bad || typeof body.session !== "string" || !PASS.test(body.session))
-        return json(403, { error: "BOOTH_SESSION" });
-      const now = Date.now();
-      const window = boothWindow(now);
-      const staff = window.open ? validPass(db, body.session, "staff", now) : null;
-      if (staff === null) return json(403, { error: "BOOTH_SESSION" });
-      const expires = Math.min(now + VISITOR_TOKEN_MS, window.closes, staff);
-      json(200, { token: createPass(db, "visitor", expires, now), expires });
-    },
-  },
-  {
-    method: "POST",
-    path: /^\/api\/booth\/redeem$/,
-    auth: "public",
-    handle({ db, body, ip, json, limited }) {
-      if (limited(`booth-redeem:${ip}`, PASS_CALLS_PER_IP, WINDOW_MS))
-        return json(429, { error: "RATE_LIMIT" });
-      if (onlyKey(body, "token")) return json(400, { error: "BOOTH_INVALID", field: "body" });
-      const now = Date.now();
-      // Single use: a QR link passed on to other phones turns booth mode on for the first one only.
-      const pass = boothWindow(now).open ? swapPass(db, body.token, now) : null;
-      json(200, pass === null ? { ok: false } : { ok: true, token: pass.token, expires: pass.expires });
     },
   },
   {
@@ -97,11 +58,11 @@ export const boothRoutes: Route[] = [
     path: /^\/api\/booth\/check$/,
     auth: "public",
     handle({ db, body, ip, json, limited }) {
-      if (limited(`booth-redeem:${ip}`, PASS_CALLS_PER_IP, WINDOW_MS))
+      if (limited(`booth-check:${ip}`, CHECK_CALLS_PER_IP, WINDOW_MS))
         return json(429, { error: "RATE_LIMIT" });
-      if (onlyKey(body, "token")) return json(400, { error: "BOOTH_INVALID", field: "body" });
+      if (onlyKey(body, "session")) return json(400, { error: "BOOTH_INVALID", field: "body" });
       const now = Date.now();
-      const expires = boothWindow(now).open ? validPass(db, body.token, "visitor", now) : null;
+      const expires = boothWindow(now).open ? validPass(db, body.session, now) : null;
       json(200, expires === null ? { ok: false } : { ok: true, expires });
     },
   },

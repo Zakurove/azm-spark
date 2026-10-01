@@ -71,8 +71,7 @@ describe("check API client against the server", () => {
     expect(c.lock).toBeNull();
     // The harness opens home checks (AZM_CHECK_HOME=1).
     expect(c.homeOpen).toBe(true);
-    const booth = await clientFor(cookie).getContext("booth");
-    expect(booth.ok && booth.value.setting).toBe("booth");
+    expect(r.value.setting).toBe("home");
   });
 
   it("consent: accept and revoke; a start without consent is CONSENT_REQUIRED", async () => {
@@ -150,17 +149,6 @@ describe("check API client against the server", () => {
       }),
     );
     expect(r).toMatchObject({ ok: false, code: "POSTPONE", status: "emergency", screen: "scr_emergency" });
-  });
-
-  it("a booth start without a valid booth token is BOOTH_CODE", async () => {
-    const cookie = await member(h, email(), intakeOf());
-    const r = await clientFor(cookie).startCheck({
-      answers: await answersFor(h, cookie, {}, "booth"),
-      device: deviceInfo(),
-      setting: "booth",
-      boothToken: "f".repeat(64),
-    });
-    expect(toStartResult(r)).toEqual({ ok: false, code: "BOOTH_CODE" });
   });
 
   it("offline sends nothing; a network failure is reported", async () => {
@@ -406,7 +394,6 @@ describe("result queue", () => {
       type: "startBackground",
       answers: { pc_unwell: "yes" },
       device: DEFAULT_DEVICE,
-      setting: "home",
     });
     expect(await q.flush()).toMatchObject({ sent: 5, dropped: 0, waiting: 0 });
     expect(sent).toEqual(["result right", "between same", "result left", "stop chest", "start"]);
@@ -421,7 +408,6 @@ describe("result queue", () => {
       type: "startBackground",
       answers: { pc_urgent: "yes" },
       device: DEFAULT_DEVICE,
-      setting: "home",
     });
     await q.enqueue({ type: "stop", checkId: "a", option: "chest" });
     expect((await store.all()).map((c) => c.type)).toEqual(["stop"]);

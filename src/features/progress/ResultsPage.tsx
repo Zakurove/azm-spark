@@ -26,7 +26,6 @@ import { OfflineBanner } from "../assessment/shared/states";
 import { resumeAllowed } from "../assessment/useCheckFlow";
 import { progressApi, useCheckData } from "./data";
 import { canStartFrom, entryState, type CheckStartOptions } from "./variant";
-import { useBoothMode } from "../assessment/booth";
 import { EntryCard, EntrySkeleton, startFromTap } from "./EntryCards";
 import { dayLabel } from "./format";
 import { seriesContextOf, storedResultsOf, viewsAsOf } from "./local";
@@ -37,7 +36,6 @@ import "./progress.css";
 
 export interface ResultsPageProps {
   lang: Lang;
-  booth: boolean;
   /** Opens the check; the options name a resume, the side lean only session or a lock release. */
   onStartCheck(options?: CheckStartOptions): void;
   onOpenProgram(): void;
@@ -153,8 +151,7 @@ function CheckDetail({
   );
 }
 
-export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner, workouts }: ResultsPageProps) {
-  const { tokenEnded } = useBoothMode();
+export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts }: ResultsPageProps) {
   const { data, reload, online } = useCheckData(owner);
   const [now] = useState(() => Date.now());
   const [open, setOpen] = useState<string | null>(null);
@@ -168,7 +165,7 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner, w
   const progress = data.progress.status === "ok" ? data.progress.value : null;
   const checks = data.checks.status === "ok" ? data.checks.value : null;
   const person = context?.ctx ?? null;
-  const entry = context ? entryState({ context, progress, checks, booth, now, resumeAllowed }) : null;
+  const entry = context ? entryState({ context, progress, checks, now, resumeAllowed }) : null;
   const cards = progress
     ? seriesCards(progress.tests as SeriesViewLike[], {
         support: person?.support,
@@ -273,7 +270,7 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner, w
   }
 
   return (
-    <CheckRoot ui={{ lang, booth, online, screenKey: "S53" }} page={false} className="check-results-page">
+    <CheckRoot ui={{ lang, online, screenKey: "S53" }} page={false} className="check-results-page">
       <OfflineBanner />
       {!online && data.loadedAt !== null && (
         <p className="check-meta" data-last-loaded="">
@@ -298,15 +295,7 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner, w
       ) : (
         <>
           {data.context.status === "loading" && <EntrySkeleton />}
-          {showEntry && entry && (
-            <EntryCard
-              compact
-              state={entry}
-              offline={!online}
-              onStart={onStartCheck}
-              tokenEnded={tokenEnded}
-            />
-          )}
+          {showEntry && entry && <EntryCard compact state={entry} offline={!online} onStart={onStartCheck} />}
           <section className="pg-section" data-screen="S53" aria-labelledby={headingId}>
             <h2 id={headingId}>{t(lang, "progress.checks.heading")}</h2>
             {checksBody}

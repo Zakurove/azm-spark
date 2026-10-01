@@ -2,8 +2,8 @@
  * Movement check routes (contract v2 E and G, v3 I; clinical spec 2 to 5; council decisions).
  *
  *   GET  /api/assessments/context        what the client needs to run the pre-check
- *   POST /api/assessments                start: flags, booth pass, consent, adult, lock, 48 hour rule,
- *                                        the pre-check evaluated here
+ *   POST /api/assessments                start (home only, C34): flags, consent, adult, lock, 48 hour
+ *                                        rule, the pre-check evaluated here
  *   POST /api/assessments/:id/results    one test side, validated against the frozen protocol
  *   POST /api/assessments/:id/stop       the stop list answer (spec 4.0 stop routing)
  *   POST /api/assessments/:id/between    bt_pain_after (spec 2.3)
@@ -36,8 +36,7 @@ import {
 import { seriesKey } from "../../../src/medical/progress-rules";
 import type { Setting, TestId } from "../../../src/movements/types";
 import { adultConfirmedAt } from "../account/store";
-import { boothWindow, homeChecksOpen } from "../booth/config";
-import { usePass, validPass } from "../booth/store";
+import { homeChecksOpen } from "../booth/config";
 import { activeConsent, CONSENT_VERSIONS, type ConsentRecord } from "../consents/store";
 import {
   RESUME_WINDOW_MS,
@@ -108,22 +107,6 @@ export function storedPrecheck(
   return out;
 }
 
-/**
- * The booth credential of a signed in booth start (O17): an unused visitor token, only inside the
- * booth days and hours. Returns the token to use once the start is evaluated, or false when refused.
- */
-// SPEC-GAP: booth-code-and-token. Contract v3 I started a signed in booth check with boothCode; O17
-// and 7.2-11 keep the code on staff devices, which swap it for a one check boothToken. The start takes
-// only the token (a boothCode is an unknown field, 400 START_INVALID), so it is never a second way to
-// test codes next to the rate limited POST /api/booth/verify.
-// SPEC-GAP: booth-code-refused. Contract E says booth needs the code, "otherwise home". A missing or
-// refused token is refused (403 BOOTH_CODE) rather than silently run with the home rules while the
-// person stands at the booth, so staff see the mistake.
-function boothPass(ctx: RouteContext, token: string | undefined, now: number) {
-  if (!boothWindow(now).open || token === undefined) return false;
-  return validPass(ctx.db, token, "visitor", now) !== null ? { token } : false;
-}
-
 /** A stored result as the owner sees it in the list (row ids and the quality report left out). */
 function publicResult(r: ResultRecord) {
   return {
@@ -152,17 +135,11 @@ export const assessmentRoutes: Route[] = [
     method: "GET",
     path: /^\/api\/assessments\/context$/,
     auth: "user",
-    handle({ db, user, req, json }) {
+    handle({ db, user, json }) {
       const now = Date.now();
       const u = user!;
-      // Booth mode asks with ?setting=booth, so its questions match the server's evaluation (the
-      // booth code itself is checked when the check starts).
-      // SPEC-GAP: context-setting-query. Contract E returns setting home only; the booth firstCheck
-      // and base tests differ, so the query is a contract addition.
-      const asked = new URL(req.url ?? "/", "http://azm.invalid").searchParams.get("setting");
-      if (asked !== null && asked !== "home" && asked !== "booth")
-        return json(400, { error: "CONTEXT_INVALID", field: "setting" });
-      const setting: Setting = asked === "booth" ? "booth" : "home";
+      // Home only (simplicity cut C34): the booth runs as a guest check on staff phones.
+      const setting: Setting = "home";
       const s = personState(db, u.id, now);
       if (!s) return json(409, { error: "PLAN_REQUIRED" });
       const lock = currentLock(db, u.id, now);
@@ -229,8 +206,6 @@ export const assessmentRoutes: Route[] = [
       if (!parsed.ok) return json(400, { error: "START_INVALID", field: parsed.field });
       const { answers, device, setting, session } = parsed.value;
       if (homeClosed(rc, setting)) return;
-      const pass = setting === "booth" ? boothPass(rc, parsed.value.boothToken, now) : null;
-      if (pass === false) return json(403, { error: "BOOTH_CODE" });
       const s = personState(db, u.id, now);
       if (!s) return json(409, { error: "PLAN_REQUIRED" });
       if (isBlocked(s.context)) return json(409, { error: "REVIEW", reason: s.context.blocked });
@@ -243,7 +218,7 @@ export const assessmentRoutes: Route[] = [
       if (session === "side_lean_only" && (setting !== "home" || !s.sideLeanRepeat))
         return json(409, { error: "NOT_OFFERED" });
       const ctx = s.context;
-      const { env, base } = precheckEnv(db, u.id, s, ctx, setting, session, parsed.value.testsOff);
+      const { env, base } = precheckEnv(db, u.id, s, ctx, setting, session);
 
       const lock = currentLock(db, u.id, now);
       // A releasable lock (recent_change) is released at once by a yes to pc_change_cleared.
@@ -256,8 +231,6 @@ export const assessmentRoutes: Route[] = [
 
       const outcome = evaluatePrecheck(env, answers, now);
       if (outcome.status === "incomplete") return json(400, { error: "PRECHECK_INCOMPLETE" });
-      // A visitor token covers one check: it is used by the first start that is evaluated (O17).
-      if (pass?.token && !usePass(db, pass.token, now)) return json(403, { error: "BOOTH_CODE" });
       if (outcome.status !== "proceed") {
         // SPEC-GAP: started-includes-postponed. A start that the pre-check postpones counts as a
         // check started, so it is the denominator of the pre-check safety counts (Q25 (a)).

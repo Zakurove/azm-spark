@@ -1,12 +1,11 @@
 /**
  * E2E harness of the booth screens (VITE_E2E=1 builds only, contract v3 K): /?booth=1&e2eBooth=<page>.
- * It shows the booth parts that other screens host (S57 tools over a screen, S58, S55b states, the
- * staff count) on their own page, with the real flow reducer, for the Playwright specs and the review
+ * It shows the booth parts that other screens host (S57 tools over a screen, S58, the staff count)
+ * on their own page, with the real flow reducer, for the Playwright specs and the review
  * screenshots. BoothStaffPage loads it lazily inside an import.meta.env.VITE_E2E branch, so a
  * production bundle never holds it.
  *
  *   layer-<results|question|camera|safety>           BoothLayer over a screen in that flow state
- *   token&phase=<redeeming|on|ended|offline|error>    S55b in that phase; token&t=<token> redeems
  *   tips, tips-wheelchair                             S58
  *   count                                             S34h with the staff count correction
  */
@@ -20,7 +19,6 @@ import { useOnline } from "../../shared/useOnline";
 import { BoothLayer, NewVisitorButton, startNextVisitor } from "../BoothLayer";
 import { SetupTipsView } from "../SetupTips";
 import { StaffCountCorrection } from "../StaffCountCorrection";
-import { VisitorTokenPage, type TokenPhase } from "../VisitorTokenPage";
 
 const LAYER_STATES: Record<string, FlowState> = {
   results: { kind: "results" },
@@ -44,19 +42,6 @@ export default function BoothHarness({
   lang: Lang;
   onLanguage(): void;
 }) {
-  const params = new URLSearchParams(location.search);
-  if (name === "token") {
-    const phase = params.get("phase") as TokenPhase | null;
-    return (
-      <VisitorTokenPage
-        lang={lang}
-        onLanguage={onLanguage}
-        token={params.get("t") ?? "0".repeat(64)}
-        initialPhase={phase ?? undefined}
-        onContinue={(on) => document.body.setAttribute("data-continued", on ? "on" : "off")}
-      />
-    );
-  }
   if (name.startsWith("layer-"))
     return <LayerPage state={name.slice(6)} lang={lang} onLanguage={onLanguage} />;
   return <PartPage name={name} lang={lang} onLanguage={onLanguage} />;

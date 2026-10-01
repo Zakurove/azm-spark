@@ -1,11 +1,9 @@
 /**
  * useBoothMode (UX spec 5.10): this tab's booth mode as the screens read it.
  *
- *   booth       a staff device session (S55) or a visitor's one check token (S55b) holds now
+ *   booth       a staff device session (S55) holds now (staff phones only, C34)
  *   kind        which pass it is (the E2E override only in VITE_E2E builds)
- *   expires     when the pass ends (closing time, or 45 minutes for a visitor token)
- *   tokenEnded  this tab redeemed a visitor token and it has ended since: start actions show
- *               booth.tokenEnded instead (S55b), so a home check never runs under booth rules
+ *   expires     when the pass ends (closing time)
  *   setting     booth or home
  *
  * It reads again when the pass ends and when the tab is shown again, so the badge and the start
@@ -14,13 +12,11 @@
  */
 import { useEffect, useState } from "react";
 import { readBoothPass, type BoothPass } from "../boothMode";
-import { wasVisitorPhone } from "./passes";
 
 export interface BoothModeState {
   booth: boolean;
   kind: BoothPass["kind"] | null;
   expires: number | null;
-  tokenEnded: boolean;
   setting: "booth" | "home";
 }
 
@@ -31,7 +27,6 @@ export function boothModeState(now = Date.now()): BoothModeState {
     booth: pass !== null,
     kind: pass?.kind ?? null,
     expires,
-    tokenEnded: pass === null && wasVisitorPhone(),
     setting: pass ? "booth" : "home",
   };
 }

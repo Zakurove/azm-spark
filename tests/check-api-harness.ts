@@ -212,55 +212,37 @@ export function envFromContext(c: any, setting: Setting = "home"): PrecheckEnv {
 }
 
 /** Every visible question answered: `given` first, the benign answer for the rest. */
-export async function answersFor(
-  h: Harness,
-  cookie: string,
-  given: Answers = {},
-  setting: Setting = "home",
-): Promise<Answers> {
-  const c = await h.call(
-    `/assessments/context${setting === "booth" ? "?setting=booth" : ""}`,
-    undefined,
-    cookie,
-  );
+export async function answersFor(h: Harness, cookie: string, given: Answers = {}): Promise<Answers> {
+  const c = await h.call("/assessments/context", undefined, cookie);
   if (c.status !== 200 || !c.data.ctx) throw new Error(`context: ${c.status} ${JSON.stringify(c.data)}`);
-  return fill(envFromContext(c.data, setting), given);
+  return fill(envFromContext(c.data), given);
 }
 
-let boothAddress = 0;
-
-/**
- * A one check booth token the way a staff phone gets one (O17, 7.2-11): the staff code is verified
- * (POST /api/booth/verify, from an address of its own so the per address limit never interferes) and
- * the staff session asks for a visitor token. Null when the code or the day is refused.
- */
-export async function boothTokenFor(h: Harness, code: string): Promise<string | null> {
-  boothAddress += 1;
-  const ip = `198.18.${(boothAddress >> 8) & 255}.${boothAddress & 255}`;
-  const v = await h.call("/booth/verify", { code }, "", "POST", { "x-forwarded-for": ip });
-  if (v.data?.ok !== true) return null;
-  const t = await h.call("/booth/token", { session: v.data.session });
-  return typeof t.data?.token === "string" ? t.data.token : null;
-}
-
-/**
- * POST /api/assessments with benign answers. A `boothCode` in `extra` is exchanged for a booth token
- * first (boothTokenFor), as a staff phone does: the start itself never takes the code.
- */
+/** POST /api/assessments with benign answers (a signed in check starts at home only, C34). */
 export async function start(
   h: Harness,
   cookie: string,
   given: Answers = {},
   extra: Record<string, unknown> = {},
 ): Promise<Reply> {
-  const setting = (extra.setting as Setting | undefined) ?? "home";
-  const answers = await answersFor(h, cookie, given, setting);
-  const { boothCode, ...rest } = extra;
-  if (typeof boothCode === "string") {
-    const token = await boothTokenFor(h, boothCode);
-    if (token) rest.boothToken = token;
+  const answers = await answersFor(h, cookie, given);
+  return h.call("/assessments", { answers, device: DEVICE, ...extra }, cookie);
+}
+
+/**
+ * A completed check made into a signed in booth check of an earlier build: since C34 a booth check
+ * runs as a guest and keeps nothing, but the server still reads the booth checks it kept before.
+ */
+export function asBoothCheck(h: Harness, id: string): void {
+  const db = new DatabaseSync(h.file);
+  try {
+    db.prepare("UPDATE assessments SET setting='booth' WHERE id=?").run(id);
+    db.prepare(
+      "UPDATE assessment_results SET series_key=replace(series_key,'setting=home','setting=booth') WHERE assessment_id=?",
+    ).run(id);
+  } finally {
+    db.close();
   }
-  return h.call("/assessments", { answers, device: DEVICE, ...rest }, cookie);
 }
 
 export const QUALITY = {

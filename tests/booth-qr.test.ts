@@ -24,7 +24,7 @@ import {
   type QrEcc,
   type QrMatrix,
 } from "../src/features/assessment/shared/qr";
-import { visitorLink } from "../src/features/assessment/booth/passes";
+import { registerLink } from "../src/features/assessment/results/ResultsView";
 
 describe("tables and codes (ISO/IEC 18004)", () => {
   it("has the published data capacities", () => {
@@ -158,10 +158,9 @@ function readBack(q: QrMatrix): { text: string; ecc: QrEcc; mask: number } {
 }
 
 describe("generated codes read back", () => {
-  const token = "0123456789abcdef".repeat(4);
   const cases: [string, QrEcc][] = [
-    [visitorLink("https://web-production-898e1.up.railway.app", token), "M"],
-    [visitorLink("http://127.0.0.1:5205/", token), "M"],
+    [registerLink("https://web-production-898e1.up.railway.app").url, "M"],
+    [registerLink("http://127.0.0.1:5205/").url, "M"],
     ["https://azm.example/?app=1", "Q"],
     ["عزم، جناح الحركة", "M"],
     ["x", "L"],
@@ -176,7 +175,7 @@ describe("generated codes read back", () => {
     });
 
   it("reads back with every mask, and picks the mask with the lowest penalty", () => {
-    const text = visitorLink("https://azm.example", token);
+    const text = registerLink("https://azm.example").url;
     const scores = [0, 1, 2, 3, 4, 5, 6, 7].map((mask) => {
       const q = encodeQr(text, "M", mask);
       expect(readBack(q).mask).toBe(mask);
@@ -196,8 +195,8 @@ describe("generated codes read back", () => {
     expect(qrPath(q)).not.toMatch(/-/);
   });
 
-  it("puts a visitor token link in a small code (version 7 or less at M)", () => {
-    const q = encodeQr(visitorLink("https://web-production-898e1.up.railway.app", token), "M");
+  it("puts the sign up link in a small code (version 7 or less at M)", () => {
+    const q = encodeQr(registerLink("https://web-production-898e1.up.railway.app").url, "M");
     expect(q.version).toBeLessThanOrEqual(7);
   });
 });

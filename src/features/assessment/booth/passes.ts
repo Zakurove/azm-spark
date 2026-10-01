@@ -1,15 +1,13 @@
 /**
- * The booth passes as the booth screens read them (contract v3 I, O17, 7.2-11; UX spec S55, S55b):
- * what each server answer means for the screen, the typed staff code, the visitor QR link, and the
- * mark a visitor's phone keeps once its one check token has ended.
+ * The booth staff session as the staff page reads it (contract v3 I, O17, 7.2-11; UX spec S55): what
+ * the server's answer means for the screen, and the typed staff code.
  *
  * The raw staff code never stays on a phone: it goes from the input to POST /api/booth/verify and is
  * dropped. Only the server's pass is kept, by boothMode.ts (sessionStorage `azm.booth`, this tab only).
  */
-import type { ApiResult, BoothRedeemResponse, BoothVerifyResponse } from "../api";
-import { visitorQuery, type BoothSettings } from "./settings";
+import type { ApiResult, BoothVerifyResponse } from "../api";
 
-/** A booth session or token as the server issues it (server/modules/booth/store.ts). */
+/** A booth session as the server issues it (server/modules/booth/store.ts). */
 export const PASS_FORMAT = /^[0-9a-f]{64}$/;
 
 /**
@@ -47,97 +45,4 @@ export function verifyOutcome(r: ApiResult<BoothVerifyResponse>): VerifyOutcome 
   if (!v.ok && v.closed) return { kind: "closed" };
   if (!v.ok) return { kind: "wrong" };
   return { kind: "error" };
-}
-
-export type TokenOutcome =
-  | { kind: "qr"; token: string; expires: number }
-  /** 403 BOOTH_SESSION: the staff session has ended (closing time): booth mode ends on this phone. */
-  | { kind: "sessionEnded" }
-  | { kind: "offline" }
-  | { kind: "error" };
-
-/** POST /api/booth/token, read for the visitor QR of S55. */
-export function tokenOutcome(r: ApiResult<{ token: string; expires: number }>): TokenOutcome {
-  if (!r.ok) {
-    if (r.error.kind === "offline") return { kind: "offline" };
-    if (r.error.kind === "http" && r.error.code === "BOOTH_SESSION") return { kind: "sessionEnded" };
-    return { kind: "error" };
-  }
-  const v = r.value;
-  if (typeof v?.token === "string" && PASS_FORMAT.test(v.token) && typeof v.expires === "number")
-    return { kind: "qr", token: v.token, expires: v.expires };
-  return { kind: "error" };
-}
-
-export type RedeemOutcome =
-  | { kind: "on"; token: string; expires: number }
-  /** The token was spent, used, ended or never valid: booth.tokenEnded. */
-  | { kind: "ended" }
-  | { kind: "offline" }
-  | { kind: "error" };
-
-/** POST /api/booth/redeem, read for S55b. A token of the wrong form is ended without a call. */
-export function redeemOutcome(r: ApiResult<BoothRedeemResponse>): RedeemOutcome {
-  if (!r.ok) {
-    if (r.error.kind === "offline") return { kind: "offline" };
-    // 400 BOOTH_INVALID: the link was changed; nothing to try again.
-    if (r.error.kind === "http" && r.error.status === 400) return { kind: "ended" };
-    return { kind: "error" };
-  }
-  const v = r.value;
-  if (v.ok && PASS_FORMAT.test(v.token) && v.expires > Date.now())
-    return { kind: "on", token: v.token, expires: v.expires };
-  return { kind: "ended" };
-}
-
-/**
- * The link of the visitor QR (S55): this site with the one check token, and the booth staff settings
- * the visitor's phone runs with (the tests switched off and the plane check fallback, never the
- * readout; nothing at the defaults). It is shown only as a QR code, never as text (S55). Arabic first:
- * the visitor's phone opens in Arabic and can switch.
- */
-export function visitorLink(origin: string, token: string, settings?: BoothSettings): string {
-  return `${origin.replace(/\/+$/, "")}/?boothToken=${token}${settings ? visitorQuery(settings) : ""}`;
-}
-
-/* ------------------------------------------------------------------ the ended mark (S55b) */
-
-/**
- * A visitor's phone keeps this mark (sessionStorage, this tab only) from the moment its token is
- * redeemed. When the pass is gone later (the results showed, 10 minutes hidden, 45 minutes), the
- * mark says booth mode has ended here, so the start actions show booth.tokenEnded instead (S55b):
- * a home check never runs under booth rules, and nobody wonders why the booth badge went away.
- */
-const VISITOR_MARK = "azm.booth.visitor";
-
-function session(): Storage | null {
-  try {
-    return typeof sessionStorage === "undefined" ? null : sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
-export function markVisitorPhone(): void {
-  try {
-    session()?.setItem(VISITOR_MARK, "1");
-  } catch {
-    /* private mode: the mark lasts for this page only */
-  }
-}
-
-export function wasVisitorPhone(): boolean {
-  try {
-    return session()?.getItem(VISITOR_MARK) === "1";
-  } catch {
-    return false;
-  }
-}
-
-export function clearVisitorMark(): void {
-  try {
-    session()?.removeItem(VISITOR_MARK);
-  } catch {
-    /* nothing kept */
-  }
 }

@@ -1,8 +1,8 @@
 /**
  * The series of the results pages (UX spec S52, S53, S54), with views built by the same rules as GET
  * /api/progress (seriesViews and compareSeries): the card order (test order of the protocol, side in
- * run order, booth after home), older lines collapsed, booth points on the home trend, the NumberLine
- * and TrendChart scales, and today's series for S52. Verdicts only ever come from the rules.
+ * run order, home only), older lines collapsed, booth points on the home trend, the TrendChart
+ * scale, and today's series for S52. Verdicts only ever come from the rules.
  */
 import { describe, expect, it } from "vitest";
 import { seriesKey, type StoredResult } from "../src/medical/progress-rules";
@@ -79,21 +79,20 @@ const HISTORY = [
 ];
 
 describe("the cards of My results (S53)", () => {
-  it("orders home series by the protocol's test order and the run order of sides, booth last", () => {
+  it("orders home series by the protocol's test order and the run order of sides; no booth card (C34)", () => {
     const cards = seriesCards(views(HISTORY), { support: "none", position: "chair" });
     expect(cards.map((c) => `${c.view.testId}:${c.view.side}:${c.view.setting}`)).toEqual([
       "shoulder_abduction:right:home",
       "shoulder_abduction:left:home",
       "arm_curl_30s:left:home",
-      "shoulder_abduction:right:booth",
     ]);
   });
 
-  it("puts the booth points of a test side on its home trend, and none on the booth card", () => {
+  it("puts the booth points of a test side on its home trend", () => {
     const cards = seriesCards(views(HISTORY), { position: "chair" });
     expect(cards[0].boothPoints.map((p) => p.value)).toEqual([98]);
     expect(cards[0].view.points?.map((p) => p.value)).toEqual([100, 106, 111, 122]);
-    expect(cards[3].boothPoints).toEqual([]);
+    expect(cards[1].boothPoints).toEqual([]);
   });
 
   it("shows trends only from the third check of a series", () => {

@@ -69,11 +69,6 @@
   font-weight: 700;
   line-height: 1.4;
 }
-.azm-check .pg-chip.is-plain {
-  background: var(--card);
-  border-color: var(--field-border);
-  color: var(--ink);
-}
 .azm-check .pg-lead {
   font-size: var(--t-body);
   line-height: var(--lh-body);

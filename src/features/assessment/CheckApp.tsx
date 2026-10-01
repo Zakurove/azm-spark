@@ -20,8 +20,7 @@ import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
 import { BoothLayer } from "./booth";
 import { isDefault, readBoothSettings, type BoothSettings } from "./booth/settings";
-import { reloadWaits } from "./booth/tools";
-import { boothPassHolds, clearBoothPass, isBoothMode, readBoothPass, watchVisitorHidden } from "./boothMode";
+import { boothPassHolds, clearBoothPass, isBoothMode } from "./boothMode";
 import {
   canLeave,
   cameraRunning,
@@ -129,7 +128,8 @@ export default function CheckApp({
   release,
   owner,
 }: CheckAppProps) {
-  const inBooth = booth ?? isBoothMode();
+  // The booth runs the guest check only (C34): a signed in check always runs with the home rules.
+  const inBooth = mode === "guest" && (booth ?? isBoothMode());
   const config = useMemo(
     () =>
       checkConfig({
@@ -184,9 +184,9 @@ export default function CheckApp({
     return () => window.removeEventListener("popstate", onPop);
   }, [guardBack, dispatch]);
 
-  // The booth pass is checked again whenever the guest check opens online: a pass the server refuses
-  // (closing time, a used or ended visitor token) leaves booth mode and the page shows S05b; a
-  // network error keeps it, so a booth phone works offline (O18).
+  // The staff session is checked again whenever the guest check opens online: a session the server
+  // refuses (closing time) leaves booth mode and the page shows S05b; a network error keeps it, so a
+  // booth phone works offline (O18).
   useEffect(() => {
     if (mode !== "guest" || !config.booth || !online) return;
     void boothPassHolds(api).then((holds) => {
@@ -195,28 +195,6 @@ export default function CheckApp({
       location.replace(location.href);
     });
   }, []);
-
-  // S55b: a visitor's token ends when the results show and after the tab stays hidden for 10 minutes;
-  // the page then leaves booth mode, so a home check never runs under booth rules.
-  const atResults = model.state.kind === "results";
-  useEffect(() => {
-    if (atResults && readBoothPass()?.kind === "visitor") clearBoothPass();
-  }, [atResults]);
-  // Never over a safety screen, S33 or the stop list: the pass is cleared, and the page reloads once
-  // the person has left that screen (R3C-35).
-  const reloadPending = useRef(false);
-  useEffect(() => {
-    if (!config.booth) return;
-    return watchVisitorHidden(() => {
-      if (reloadWaits(modelRef.current)) reloadPending.current = true;
-      else location.replace(location.href);
-    });
-  }, []);
-  useEffect(() => {
-    if (!reloadPending.current || reloadWaits(model)) return;
-    reloadPending.current = false;
-    location.replace(location.href);
-  }, [model]);
 
   // Guests and booth mode: a page restored from the back and forward cache starts again (S57).
   useEffect(() => {

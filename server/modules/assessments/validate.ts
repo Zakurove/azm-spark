@@ -6,7 +6,7 @@
  * the bounds of their unit, lists are bounded, and every JSON field has a size cap. A failed check
  * names the field, never the value.
  */
-import { CHECK_DATA, testDef } from "../../../src/movements/assessments";
+import { testDef } from "../../../src/movements/assessments";
 import type { ProtocolItem } from "../../../src/medical/assessment";
 import { parseQuestionId, type Answers } from "../../../src/medical/precheck";
 import { DETAIL_KEYS } from "../../../src/medical/progress-rules";
@@ -113,32 +113,17 @@ function answerShaped(raw: unknown): boolean {
 export interface StartBody {
   answers: Answers;
   device: Device;
-  setting: Setting;
   /**
-   * The one check booth token of O17 (POST /api/booth/token). The staff code itself never reaches the
-   * start: it stays on staff devices (7.2-11), so the start cannot be used to test codes.
+   * Home only (simplicity cut C34): the booth runs on staff phones as a guest check, which keeps nothing,
+   * so a signed in check never starts with the booth rules.
    */
-  boothToken?: string;
+  setting: "home";
   faceCovered?: boolean;
   /** Q12 (2): the side lean only session; default a full check. */
   session: CheckSession;
-  /**
-   * The tests switched off on the booth device (D-016 item 4, council F-1 D): booth only, taken out of
-   * the base selection before the pre-check, so the protocol matches the phone's.
-   */
-  testsOff?: TestId[];
 }
 
-const START_KEYS = [
-  "answers",
-  "device",
-  "setting",
-  "boothToken",
-  "faceCovered",
-  "session",
-  "testsOff",
-] as const;
-const TEST_IDS: readonly string[] = CHECK_DATA.tests.map((t) => t.id);
+const START_KEYS = ["answers", "device", "setting", "faceCovered", "session"] as const;
 
 export function checkStart(body: Record<string, unknown>): Check<StartBody> {
   if (unknownKeys(body, START_KEYS).length) return fail(unknownKeys(body, START_KEYS)[0]);
@@ -147,24 +132,11 @@ export function checkStart(body: Record<string, unknown>): Check<StartBody> {
   const device = checkDevice(body.device);
   if (!device.ok) return device;
   const setting = body.setting ?? "home";
-  if (setting !== "home" && setting !== "booth") return fail("setting");
-  if (body.boothToken !== undefined && (typeof body.boothToken !== "string" || body.boothToken.length > 128))
-    return fail("boothToken");
+  if (setting !== "home") return fail("setting");
   if (body.faceCovered !== undefined && typeof body.faceCovered !== "boolean") return fail("faceCovered");
   const session = body.session ?? "full";
   if (session !== "full" && session !== "side_lean_only") return fail("session");
-  const off = body.testsOff;
-  if (
-    off !== undefined &&
-    (setting !== "booth" ||
-      !Array.isArray(off) ||
-      new Set(off).size !== off.length ||
-      !off.every((t) => typeof t === "string" && TEST_IDS.includes(t)))
-  )
-    return fail("testsOff");
   const out: StartBody = { answers: answers.value, device: device.value, setting, session };
-  if (Array.isArray(off) && off.length) out.testsOff = off as TestId[];
-  if (typeof body.boothToken === "string") out.boothToken = body.boothToken;
   if (typeof body.faceCovered === "boolean") out.faceCovered = body.faceCovered;
   return { ok: true, value: out };
 }

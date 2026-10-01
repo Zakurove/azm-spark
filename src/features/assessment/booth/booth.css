@@ -1,5 +1,5 @@
 /*
- * Booth screens S55 to S58 (UX spec v1.1 S55, S55b, S57, S58). Scoped to .azm-check and built
+ * Booth screens S55 to S58 (UX spec v1.1 S55, S57, S58). Scoped to .azm-check and built
  * only from the custom properties of ../tokens.css (no colour literal). Sizes in rem so text zoom
  * scales them; nothing under 16 px, body 18 px, targets 48 px (inputs 56 px, answers 64 px).
  */
@@ -111,20 +111,6 @@
   color: var(--green-ink);
 }
 
-/* ------------------------------------------------------------------ QR (S55, S50) */
-
-.azm-check .booth-qr {
-  display: grid;
-  justify-items: center;
-  gap: var(--s2);
-  margin: 0;
-}
-.azm-check .booth-qr-panel {
-  display: grid;
-  gap: var(--s3);
-  justify-items: stretch;
-}
-
 /* ------------------------------------------------------------------ S57 badge, sheets */
 
 /* The badge takes a press and hold (staff reset): no callout, no text selection. */
@@ -162,10 +148,6 @@
 .azm-check .booth-still {
   min-height: 64px;
   font-size: 1.25rem;
-}
-.azm-check .booth-count-row {
-  display: grid;
-  gap: var(--s2);
 }
 
 /* ------------------------------------------------------------------ S58 setup tips */

@@ -18,6 +18,7 @@ import {
   T0,
   WHEELCHAIR_STROKE,
   answersFor,
+  asBoothCheck,
   intakeOf,
   itemOf,
   login,
@@ -122,16 +123,6 @@ describe("contract v3 I: home checks behind AZM_CHECK_HOME", () => {
     expect((await h.call("/assessments", undefined, cookie)).data.assessments).toEqual([]);
     process.env.AZM_CHECK_HOME = "1";
     expect((await h.call("/assessments", { answers, device: DEVICE }, cookie)).data.error).toBe("POSTPONE");
-  });
-
-  it("keeps booth checks open with the staff code while home checks are closed", async () => {
-    delete process.env.AZM_CHECK_HOME;
-    process.env.AZM_BOOTH_CODE = CODE;
-    setTime(BOOTH_DAY);
-    const cookie = await member(h, "closed-booth@example.test", intakeOf());
-    const r = await start(h, cookie, {}, { setting: "booth", boothCode: CODE });
-    expect(r.status).toBe(200);
-    expect(r.data.setting).toBe("booth");
   });
 });
 
@@ -284,7 +275,7 @@ describe("POST /api/booth/verify (contract v3 I, O17)", () => {
 /** 2026-10-12 00:00 in Riyadh: the booth session of 2026-10-11 ends at midnight without booth hours. */
 const NEXT_BOOTH_MIDNIGHT = Date.UTC(2026, 9, 11, 21, 0, 0);
 
-describe("booth passes (O17): staff session, one check visitor token, redeem, start", () => {
+describe("booth sessions (O17, C34): staff phones only", () => {
   beforeAll(async () => {
     h = await startApi();
   });
@@ -298,86 +289,27 @@ describe("booth passes (O17): staff session, one check visitor token, redeem, st
     return r.data.session;
   }
 
-  it("issues a 45 minute token for one check to a verified staff session", async () => {
+  it("checks a staff session without using it until the booth day ends; no visitor tokens (C34)", async () => {
     process.env.AZM_BOOTH_CODE = CODE;
     setTime(BOOTH_DAY);
     const session = await staffSession("192.0.2.40");
-    expect((await h.call("/booth/token", { session: "f".repeat(64) })).status).toBe(403);
-    expect((await h.call("/booth/token", { session: "f".repeat(64) })).data).toEqual({
-      error: "BOOTH_SESSION",
-    });
-    const t = await h.call("/booth/token", { session });
-    expect(t.status).toBe(200);
-    expect(t.data).toEqual({ token: expect.stringMatching(/^[0-9a-f]{64}$/), expires: BOOTH_DAY + 45 * MIN });
-
-    // The visitor's phone redeems the QR token once: it is swapped for this phone's own pass, which
-    // stays valid until a check starts with it.
-    const redeemed = await h.call("/booth/redeem", { token: t.data.token });
-    expect(redeemed.data).toEqual({
-      ok: true,
-      token: expect.stringMatching(/^[0-9a-f]{64}$/),
-      expires: BOOTH_DAY + 45 * MIN,
-    });
-    const pass = redeemed.data.token as string;
-    expect(pass).not.toBe(t.data.token);
-    expect((await h.call("/booth/redeem", { token: "0".repeat(64) })).data).toEqual({ ok: false });
-    // The phone checks its pass without using it.
-    expect((await h.call("/booth/check", { token: pass })).data).toEqual({
-      ok: true,
-      expires: BOOTH_DAY + 45 * MIN,
-    });
-    expect((await h.call("/booth/check", { token: pass })).data).toEqual({
-      ok: true,
-      expires: BOOTH_DAY + 45 * MIN,
-    });
-
-    // A signed in visitor starts a booth check with the phone's pass, once; the QR token is spent.
-    const cookie = await member(h, "visitor@example.test", intakeOf());
-    expect((await start(h, cookie, {}, { setting: "booth", boothToken: t.data.token })).data).toEqual({
-      error: "BOOTH_CODE",
-    });
-    const s = await start(h, cookie, {}, { setting: "booth", boothToken: pass });
-    expect(s.status).toBe(200);
-    expect(s.data.setting).toBe("booth");
-    const again = await start(h, cookie, {}, { setting: "booth", boothToken: pass });
-    expect(again.data).toEqual({ error: "BOOTH_CODE" });
-    expect((await h.call("/booth/redeem", { token: pass })).data).toEqual({ ok: false });
-    expect((await h.call("/booth/check", { token: pass })).data).toEqual({ ok: false });
-    // Only hashes are stored, never a token.
-    const stored = rows(h, "SELECT * FROM booth_passes");
-    for (const secret of [t.data.token, pass, session]) expect(JSON.stringify(stored)).not.toContain(secret);
-  });
-
-  it("redeems a QR token on one phone only: a second phone is refused (O17, S55b)", async () => {
-    process.env.AZM_BOOTH_CODE = CODE;
-    setTime(BOOTH_DAY);
-    const session = await staffSession("192.0.2.42");
-    const qr = (await h.call("/booth/token", { session })).data.token as string;
-    const first = await h.call("/booth/redeem", { token: qr });
-    expect(first.data.ok).toBe(true);
-    for (let phone = 2; phone <= 5; phone++)
-      expect((await h.call("/booth/redeem", { token: qr })).data, `phone ${phone}`).toEqual({ ok: false });
-    expect((await h.call("/booth/check", { token: qr })).data).toEqual({ ok: false });
-    // Bodies that do not fit are refused.
-    expect((await h.call("/booth/check", { token: first.data.token, extra: 1 })).status).toBe(400);
-  });
-
-  it("ends a visitor token after 45 minutes and a staff session at the end of the booth day", async () => {
-    process.env.AZM_BOOTH_CODE = CODE;
-    setTime(BOOTH_DAY);
-    const session = await staffSession("192.0.2.41");
-    const t = await h.call("/booth/token", { session });
-    setTime(BOOTH_DAY + 45 * MIN);
-    expect((await h.call("/booth/redeem", { token: t.data.token })).data).toEqual({ ok: false });
-    const cookie = await member(h, "late-visitor@example.test", intakeOf());
-    expect((await start(h, cookie, {}, { setting: "booth", boothToken: t.data.token })).data).toEqual({
-      error: "BOOTH_CODE",
-    });
-    // Close to midnight the token ends with the booth day.
-    setTime(NEXT_BOOTH_MIDNIGHT - 10 * MIN);
-    expect((await h.call("/booth/token", { session })).data.expires).toBe(NEXT_BOOTH_MIDNIGHT);
+    for (let i = 0; i < 2; i++)
+      expect((await h.call("/booth/check", { session })).data).toEqual({
+        ok: true,
+        expires: NEXT_BOOTH_MIDNIGHT,
+      });
+    expect((await h.call("/booth/check", { session: "f".repeat(64) })).data).toEqual({ ok: false });
+    expect((await h.call("/booth/check", { session, extra: 1 })).status).toBe(400);
+    // The visitor token routes are gone: the booth runs on staff phones only.
+    for (const path of ["/booth/token", "/booth/redeem"]) {
+      const r = await h.call(path, { session });
+      expect(r.status, path).not.toBe(200);
+      expect(JSON.stringify(r.data), path).not.toContain("token");
+    }
     setTime(NEXT_BOOTH_MIDNIGHT);
-    expect((await h.call("/booth/token", { session })).data).toEqual({ error: "BOOTH_SESSION" });
+    expect((await h.call("/booth/check", { session })).data).toEqual({ ok: false });
+    // Only hashes are stored, never a session.
+    expect(JSON.stringify(rows(h, "SELECT * FROM booth_passes"))).not.toContain(session);
   });
 
   it("never takes the staff code on the start, so the start tells nothing about a code", async () => {
@@ -395,17 +327,6 @@ describe("booth passes (O17): staff session, one check visitor token, redeem, st
       expect(r.status).toBe(400);
       expect(r.data).toEqual({ error: "START_INVALID", field: "boothCode" });
     }
-  });
-
-  it("starts a signed in booth check with a token from the staff code on a booth day only", async () => {
-    process.env.AZM_BOOTH_CODE = CODE;
-    setTime(T0);
-    const cookie = await member(h, "code-visitor@example.test", intakeOf());
-    expect((await start(h, cookie, {}, { setting: "booth", boothCode: CODE })).data).toEqual({
-      error: "BOOTH_CODE",
-    });
-    process.env.AZM_BOOTH_DATES = "2026-10-04";
-    expect((await start(h, cookie, {}, { setting: "booth", boothCode: CODE })).status).toBe(200);
   });
 });
 
@@ -953,13 +874,13 @@ describe("the next check dates (H9, Q12 (2))", () => {
   });
 
   it("a booth check sets no home due date; the first home check is 48 hours after it", async () => {
-    process.env.AZM_BOOTH_CODE = CODE;
-    process.env.AZM_BOOTH_DATES = "2026-10-04";
     const cookie = await member(h, "h9-booth@example.test", intakeOf());
-    const s = await start(h, cookie, {}, { setting: "booth", boothCode: CODE });
+    const s = await start(h, cookie);
     const item = s.data.protocol.find((i: ProtocolItem) => !i.skipped);
     await h.call(`/assessments/${s.data.id}/results`, resultBody(item, 100), cookie);
     await h.call(`/assessments/${s.data.id}/complete`, {}, cookie);
+    // A signed in booth check of an earlier build (C34: the booth now runs the guest check).
+    asBoothCheck(h, s.data.id);
     const c = (await h.call("/assessments/context", undefined, cookie)).data;
     expect(c).toMatchObject({ retestDue: null, earliestNext: T0 + 48 * HOUR, early: false });
     expect((await h.call("/progress", undefined, cookie)).data).toMatchObject({
@@ -1262,26 +1183,6 @@ describe("partial answers on terminal routes (O29) and the new skip reasons (O33
     expect(
       (await h.call(`/assessments/${s.data.id}/results`, skipBody(items[0], "pain_today"), cookie)).data,
     ).toEqual({ error: "RESULT_INVALID", field: "skippedReason" });
-  });
-
-  it("refuses a self count at the booth, where staff correct the count (O22)", async () => {
-    process.env.AZM_BOOTH_CODE = CODE;
-    process.env.AZM_BOOTH_DATES = "2026-10-04";
-    const cookie = await member(h, "o22@example.test", intakeOf({ mobility: "standing" }));
-    const s = await start(h, cookie, {}, { setting: "booth", boothCode: CODE });
-    expect(s.status).toBe(200);
-    const stand = itemOf(s.data.protocol, "chair_stand_30s", "none");
-    const self = resultBody(stand, 11, {
-      detail: { countSource: "self", hSit: 0.52, rise: 0.31, footwear: "shoes", armrests: false },
-    });
-    expect((await h.call(`/assessments/${s.data.id}/results`, self, cookie)).data).toEqual({
-      error: "RESULT_INVALID",
-      field: "detail.countSource",
-    });
-    const staff = resultBody(stand, 11, {
-      detail: { countSource: "staff", hSit: 0.52, rise: 0.31, footwear: "shoes", armrests: false },
-    });
-    expect((await h.call(`/assessments/${s.data.id}/results`, staff, cookie)).data).toEqual({ saved: true });
   });
 
   it("keeps the ended reason free of the stop option (Q25 (d))", async () => {

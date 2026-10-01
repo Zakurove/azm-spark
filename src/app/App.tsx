@@ -26,7 +26,6 @@ import { LazyPage, LazyPart } from "./LazyPage";
 const CheckApp = lazy(() => import("../features/assessment/CheckApp"));
 const loadBooth = () => import("../features/assessment/booth");
 const BoothStaffPage = lazy(() => loadBooth().then((m) => ({ default: m.BoothStaffPage })));
-const VisitorTokenPage = lazy(() => loadBooth().then((m) => ({ default: m.VisitorTokenPage })));
 const loadProgress = () => import("../features/progress");
 const AfterIntakeOffer = lazy(() => loadProgress().then((m) => ({ default: m.AfterIntakeOffer })));
 const ExampleProgress = lazy(() => loadProgress().then((m) => ({ default: m.ExampleProgress })));
@@ -49,12 +48,6 @@ const qs = new URLSearchParams(location.search);
 /** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
 const checkEntry = qs.get("check") === "1";
 const boothEntry = qs.get("booth") === "1";
-/**
- * S55b: a visitor's own phone opened the staff QR (/?boothToken=<token>). VisitorTokenPage redeems the
- * one check token (POST /api/booth/redeem) and keeps this phone's own pass; its Continue opens the
- * guest check for a visitor who is not signed in and Today for one who is, replacing the page.
- */
-const boothTokenEntry = qs.get("boothToken");
 /** The account page opened on its register tab (S50 QR, the Create a free account button). */
 const registerEntry = qs.get("register") === "1";
 // The example page (S54): shown wherever the check UI is on (featureFlag.ts, every build by default).
@@ -109,7 +102,6 @@ const EXIT_URLS: Partial<Record<ExitTarget, string>> = {
   example: "/?example=progress",
   try: "/?try=1",
   demo: "/?demo=1&autostart=1",
-  boothStaff: "/?booth=1",
   signIn: "/?app=1",
 };
 export default function App() {
@@ -230,19 +222,6 @@ export default function App() {
       setBusy(false);
     }
   };
-  if (boothTokenEntry !== null)
-    return (
-      <LazyPage lang={lang}>
-        <VisitorTokenPage
-          lang={lang}
-          onLanguage={toggleLanguage}
-          token={boothTokenEntry}
-          // Booth mode on: a signed in visitor opens Today (S01 starts the booth check), a visitor who
-          // is not signed in the guest check (S05); the address loses the token either way.
-          onContinue={(on) => openUrl(on && !account ? "/?check=1" : "/", lang, true)}
-        />
-      </LazyPage>
-    );
   if (privacyEntry)
     return (
       <LazyPage lang={lang}>
@@ -277,7 +256,6 @@ export default function App() {
         <BoothStaffPage
           lang={lang}
           onLanguage={toggleLanguage}
-          onExit={() => openUrl("/", lang, true)}
           onOpenGuest={() => openUrl("/?check=1", lang)}
         />
       </LazyPage>
@@ -431,7 +409,6 @@ export default function App() {
     <LazyPart lang={lang}>
       <TodayCheckSlot
         lang={lang}
-        booth={isBoothMode()}
         owner={account.user.id}
         onStart={(options) => setCheckOpen(options ?? {})}
         onOpenResults={() => setPage("results")}
@@ -816,7 +793,6 @@ export default function App() {
                   {CHECK_UI ? (
                     <ResultsPage
                       lang={lang}
-                      booth={isBoothMode()}
                       owner={account.user.id}
                       onStartCheck={(options) => setCheckOpen(options ?? {})}
                       onOpenProgram={() => setPage("program")}

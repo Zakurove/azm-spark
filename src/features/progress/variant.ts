@@ -4,7 +4,7 @@
  * (GET /api/assessments), the first matching row of the S01 table wins:
  *
  *   1 blocked      clinical review reasons (mobility bed: the card is hidden)
- *   2 homeSoon     home checks closed and this tab not in booth mode (no start control)
+ *   2 homeSoon     home checks closed (no start control; the booth runs the guest check, C34)
  *   3 locked       a lock that has not ended (the care team release when releasable)
  *   4 resume       an open check within its 30 minutes, never after a safety screen (O6)
  *   5 followUp     the next day question is due: S03 above the card, then the rows below
@@ -74,8 +74,6 @@ export interface EntryInputs {
   context: ContextResponse;
   progress: ProgressResponse | null;
   checks: readonly StoredCheck[] | null;
-  /** This tab is in verified booth mode. */
-  booth: boolean;
   now: number;
   /** O6 (1): never resume a check that had a safety screen on this device. */
   resumeAllowed(checkId: string): boolean;
@@ -134,8 +132,8 @@ export function entryState(i: EntryInputs): EntryState {
     out.endedEarlyToday = false;
     return out;
   }
-  // 2: home checks closed and not in booth mode (Q31 (6)).
-  if (!homeOpenOf(c) && !i.booth) {
+  // 2: home checks closed (Q31 (6)); at the booth a signed in visitor runs the guest check (C34).
+  if (!homeOpenOf(c)) {
     out.variant = "homeSoon";
     out.endedEarlyToday = false;
     return out;

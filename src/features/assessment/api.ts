@@ -149,14 +149,11 @@ export interface ContextResponse {
 export interface StartBody {
   answers: Answers;
   device: DeviceInfo;
-  setting: Setting;
-  /** O17: the one check booth pass of a signed in booth start (the code never leaves staff devices). */
-  boothToken?: string;
+  /** Home only (C34): at the booth every visitor runs the guest check, which keeps nothing. */
+  setting: "home";
   /** Q12 (2): the side lean only session; a full check by default. */
   session?: CheckSession;
   faceCovered?: boolean;
-  /** The tests switched off on this booth device (D-016 item 4); booth starts only. */
-  testsOff?: TestId[];
 }
 
 /** The helper briefing of each test that runs with a helper (Q11). */
@@ -282,18 +279,13 @@ export interface AdultResponse {
 export type BoothVerifyResponse =
   { ok: true; session: string; expires: number } | { ok: false; closed?: true };
 
-/**
- * POST /api/booth/redeem: the QR token is spent and swapped for this phone's own pass (O17, S55b), so
- * the link turns booth mode on for one phone only.
- */
-export type BoothRedeemResponse = { ok: true; token: string; expires: number } | { ok: false };
-/** POST /api/booth/check: this phone's pass still holds (checked, not used). */
+/** POST /api/booth/check: this phone's staff session still holds. */
 export type BoothCheckResponse = { ok: true; expires: number } | { ok: false };
 
 /* ------------------------------------------------------------------ the client */
 
 export interface CheckApi {
-  getContext(setting?: Setting): Promise<ApiResult<ContextResponse>>;
+  getContext(): Promise<ApiResult<ContextResponse>>;
   startCheck(body: StartBody): Promise<ApiResult<StartOk>>;
   postResult(id: string, body: ResultPayload): Promise<ApiResult<{ saved: true }>>;
   /** The stop names the test side running, or during a rest the next one to run (resultOnStop). */
@@ -321,9 +313,7 @@ export interface CheckApi {
   revokeConsent(): Promise<ApiResult<{ kind: string; revoked: true }>>;
   confirmAdult(): Promise<ApiResult<AdultResponse>>;
   boothVerify(code: string): Promise<ApiResult<BoothVerifyResponse>>;
-  boothToken(session: string): Promise<ApiResult<{ token: string; expires: number }>>;
-  boothRedeem(token: string): Promise<ApiResult<BoothRedeemResponse>>;
-  boothCheck(token: string): Promise<ApiResult<BoothCheckResponse>>;
+  boothCheck(session: string): Promise<ApiResult<BoothCheckResponse>>;
 }
 
 export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
@@ -365,8 +355,7 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
 
   const check = (id: string, tail: string) => `/assessments/${id}/${tail}`;
   return {
-    getContext: (setting) =>
-      call<ContextResponse>("GET", `/assessments/context${setting === "booth" ? "?setting=booth" : ""}`),
+    getContext: () => call<ContextResponse>("GET", "/assessments/context"),
     startCheck: (body) => call<StartOk>("POST", "/assessments", body),
     postResult: (id, body) => call("POST", check(id, "results"), body),
     postStop: (id, option, ref) =>
@@ -393,9 +382,7 @@ export function createCheckApi(options: CheckApiOptions = {}): CheckApi {
     revokeConsent: () => call("DELETE", "/consents/movement_check"),
     confirmAdult: () => call<AdultResponse>("POST", "/account/adult", { confirmed: true }),
     boothVerify: (code) => call<BoothVerifyResponse>("POST", "/booth/verify", { code }),
-    boothToken: (session) => call("POST", "/booth/token", { session }),
-    boothRedeem: (token) => call<BoothRedeemResponse>("POST", "/booth/redeem", { token }),
-    boothCheck: (token) => call<BoothCheckResponse>("POST", "/booth/check", { token }),
+    boothCheck: (session) => call<BoothCheckResponse>("POST", "/booth/check", { session }),
   };
 }
 
@@ -512,7 +499,6 @@ const START_ERRORS: readonly StartError[] = [
   "TOO_SOON",
   "REVIEW",
   "PLAN_REQUIRED",
-  "BOOTH_CODE",
   "RATE_LIMIT",
   "START_INVALID",
   "PRECHECK_INCOMPLETE",

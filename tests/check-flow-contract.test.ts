@@ -164,9 +164,7 @@ describe("the context (round 3)", () => {
     expect(m.data.base.every((b) => b.testId === "trunk_control_seated")).toBe(true);
     const starting = signedAtStarting(ctx, { session: "side_lean_only" });
     expect(kind(starting)).toBe("starting");
-    expect(starting.effects).toEqual([
-      expect.objectContaining({ type: "start", session: "side_lean_only", setting: "home" }),
-    ]);
+    expect(starting.effects).toEqual([expect.objectContaining({ type: "start", session: "side_lean_only" })]);
     // Not offered today: the flow never starts it.
     expect(signedAt({ session: "side_lean_only" }, contextOf()).state).toEqual({ kind: "exit", to: "today" });
   });

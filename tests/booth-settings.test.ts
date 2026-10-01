@@ -6,9 +6,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkConfig } from "../src/features/assessment/CheckApp";
-import { DEFAULT_DEVICE, type FlowEffect, type FlowModel } from "../src/features/assessment/flowMachine";
+import type { FlowEffect, FlowModel } from "../src/features/assessment/flowMachine";
 import { guestMinutes } from "../src/features/assessment/flow/copy";
-import { visitorLink } from "../src/features/assessment/booth/passes";
 import {
   cleanSettings,
   DEFAULT_BOOTH_SETTINGS,
@@ -17,15 +16,12 @@ import {
   PLANE_RATIOS,
   readBoothSettings,
   saveBoothSettings,
-  settingsFromQuery,
   SWITCHABLE_TESTS,
-  visitorQuery,
   type BoothSettings,
 } from "../src/features/assessment/booth/settings";
 import { estimateMinutes } from "../src/medical/assessment";
 import { CHECK_DATA } from "../src/movements/assessments";
 import type { TestId } from "../src/movements/types";
-import { ResultQueue } from "../src/features/assessment/resultQueue";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StaffReadoutPanel } from "../src/features/assessment/camera/StaffReadout";
@@ -106,42 +102,6 @@ describe("settings kept on the device", () => {
     expect(plain).not.toHaveProperty("boothSettings");
   });
 
-  it("travel to a visitor's phone with the staff QR, without the readout", async () => {
-    const settings = {
-      ...off("shoulder_abduction", "trunk_control_seated"),
-      planeFallback: true,
-      readout: true,
-    };
-    const token = "b".repeat(64);
-    expect(visitorQuery(DEFAULT_BOOTH_SETTINGS)).toBe("");
-    expect(visitorLink("https://azm.example", token)).toBe(`https://azm.example/?boothToken=${token}`);
-    const link = visitorLink("https://azm.example", token, settings);
-    expect(link).toBe(
-      `https://azm.example/?boothToken=${token}&off=shoulder_abduction,trunk_control_seated&plane=fallback`,
-    );
-    const q = new URL(link).searchParams;
-    expect(settingsFromQuery(q)).toEqual({ ...settings, readout: false });
-    expect(settingsFromQuery(new URLSearchParams("off=nope,,arm_curl_30s&plane=0.5&readout=1"))).toEqual(
-      off("arm_curl_30s"),
-    );
-
-    // The visitor's phone keeps them with its pass once the token is redeemed, and only then.
-    const { redeemToken } = await import("../src/features/assessment/booth/VisitorTokenPage");
-    const own = "c".repeat(64);
-    const refused = vi.fn(async () => ({ ok: true as const, value: { ok: false as const } }));
-    expect(await redeemToken({ boothRedeem: refused }, token, settings)).toBe("ended");
-    expect(readBoothSettings()).toEqual(DEFAULT_BOOTH_SETTINGS);
-    const boothRedeem = vi.fn(async () => ({
-      ok: true as const,
-      value: { ok: true as const, token: own, expires: Date.now() + 60_000 },
-    }));
-    expect(await redeemToken({ boothRedeem }, token, settingsFromQuery(q))).toBe("on");
-    expect(readBoothSettings()).toEqual({ ...settings, readout: false });
-    // A later QR at the defaults clears them on this phone.
-    expect(await redeemToken({ boothRedeem }, token, DEFAULT_BOOTH_SETTINGS)).toBe("on");
-    expect(readBoothSettings()).toEqual(DEFAULT_BOOTH_SETTINGS);
-  });
-
   it("clean anything sent", () => {
     expect(cleanSettings(null)).toEqual(DEFAULT_BOOTH_SETTINGS);
     expect(cleanSettings({ testsOff: "shoulder_abduction" })).toEqual(DEFAULT_BOOTH_SETTINGS);
@@ -196,50 +156,18 @@ describe("a switched off test never appears in the visitor's tests today", () =>
     expect(m.state.kind).toBe("guestStaff");
   });
 
-  it("a signed in visitor at the booth never gets it either, and the start tells the server", () => {
+  it("a signed in check runs at home whatever the booth settings, and its start carries none (C34)", () => {
     const settings = off("shoulder_abduction");
-    const ctx = contextOf({ position: "chair" }, { setting: "booth" });
-    let m = signedAt(ctx, { booth: true, boothSettings: settings });
-    expect(baseTestsOf(m)).not.toContain("shoulder_abduction");
-    expect(m.data.env?.baseTests).not.toContain("shoulder_abduction");
+    let m = signedAt(contextOf({ position: "chair" }), { booth: true, boothSettings: settings });
+    expect(m.data.setting).toBe("home");
+    expect(baseTestsOf(m)).toContain("shoulder_abduction");
     m = answerAll(
       play(m, { type: "CONTEXT_CONFIRM" }, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }),
     );
     const start = m.effects.find((e): e is Extract<FlowEffect, { type: "start" }> => e.type === "start");
-    expect(start).toMatchObject({ setting: "booth", testsOff: ["shoulder_abduction"] });
-    // At home the start carries no switch.
-    const home = answerAll(
-      play(
-        signedAt(contextOf({ position: "chair" })),
-        { type: "CONTEXT_CONFIRM" },
-        { type: "CONTINUE" },
-        { type: "SOUND_RESULT", mode: "voice" },
-      ),
-    );
-    const homeStart = home.effects.find((e) => e.type === "start");
-    expect(homeStart).toBeDefined();
-    expect(homeStart).not.toHaveProperty("testsOff");
-  });
-});
-
-describe("the booth start sent later (a pre-check the phone already postponed)", () => {
-  it("names the tests switched off, so the server evaluates the same questions", async () => {
-    const sent: unknown[] = [];
-    const q = new ResultQueue({
-      startCheck: async (body) => {
-        sent.push(body);
-        return { ok: false, error: { kind: "http", status: 409, code: "POSTPONE", body: {} } };
-      },
-    });
-    await q.enqueue({
-      type: "startBackground",
-      answers: { pc_unwell: "yes" },
-      device: DEFAULT_DEVICE,
-      setting: "booth",
-      testsOff: ["shoulder_abduction"],
-    });
-    await q.flush();
-    expect(sent).toEqual([expect.objectContaining({ setting: "booth", testsOff: ["shoulder_abduction"] })]);
+    expect(start).toBeDefined();
+    expect(start).not.toHaveProperty("testsOff");
+    expect(start).not.toHaveProperty("setting");
   });
 });
 

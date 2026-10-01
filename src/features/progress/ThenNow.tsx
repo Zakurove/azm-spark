@@ -444,17 +444,13 @@ export function SeriesCard({
 }) {
   const { lang } = useCheckUi();
   const unit = resultUnitOf(view.testId);
-  const booth = view.setting === "booth";
-  const chips = (
-    <>
-      {booth && <span className="pg-chip is-plain">{CHECK_DATA.progress.labels.boothPoint[lang]}</span>}
-      {example && <span className="pg-chip">{t(lang, "progress.example.tag")}</span>}
-    </>
-  );
   const trendPoints = view.points ? [...view.points, ...boothPoints] : null;
   return (
     <article className="check-card pg-series" data-series={`${view.testId}:${view.side}:${view.setting}`}>
-      <SeriesHeading view={view} chips={booth || example ? chips : undefined} />
+      <SeriesHeading
+        view={view}
+        chips={example ? <span className="pg-chip">{t(lang, "progress.example.tag")}</span> : undefined}
+      />
       {earlier.length > 0 && view.baseline && (
         <p className="check-meta">
           {bidiText(

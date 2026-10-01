@@ -2,13 +2,15 @@
  * S42 "That is fine" after a stop, S46 the skip notice and S46b next test or results now (UX spec S42,
  * S46, S46b; council O43, Q19 (7), P6). Screens at the phone, in the check shell.
  *
- * S42  After a stop for tiredness, choice or something else: the reason in plain words (after tired its
- *      own line, R3C-20); after tired and other a one minute rest (check_rest_minute) with a ring,
- *      during which "Start the next test now" stays enabled (primaries are never disabled). End
- *      today's check goes to the end question. "Change my reason" returns to the stop list. The
- *      stopped test is measured again at the next check (O43: no same day redo).
- * S46  Confirms a skip in plain words: the title by what skipped it, one row per skipped test and side
- *      with its reason. Continue goes on (the flow's continuation).
+ * S42  After a stop for tiredness, choice or something else. With the one minute rest (after tired and
+ *      something else, C26): the headline «استرح دقيقة», the ring (check_rest_minute is spoken, never a
+ *      banner) and the two actions, "Start the next test now" enabled throughout (primaries are never
+ *      disabled). After a stop by choice: «لا بأس» and the reason in plain words. End today's check goes
+ *      to the end question. "Change my reason" returns to the stop list. The stopped test is measured
+ *      again at the next check (O43: no same day redo).
+ * S46  Only for a skip the check made (C27: the pain question, the hands, quality): the title by what
+ *      skipped it, one row per skipped test and side with its reason. Continue goes on (the flow's
+ *      continuation). A skip the person chose goes straight on.
  * S46b A guest after each test: two equally prominent buttons, the next test's name under the first.
  *
  * States: L, E, Er, Cam not applicable (nothing waits); Off works (the banner shows).
@@ -34,7 +36,9 @@ export function StopDone({ model, dispatch }: ScreenProps) {
   const rest = s?.restSec === 60;
   const totalMs = SAFETY_TIMING.stopRestSec * 1000;
   const left = useCountdown(totalMs, rest);
-  useSpeechSequence(rest ? [cueSpeech("check_rest_minute", lang)] : [], { key: `S42:${rest}:${lang}` });
+  useSpeechSequence(rest ? [{ ...cueSpeech("check_rest_minute", lang), onScreen: true }] : [], {
+    key: `S42:${rest}:${lang}`,
+  });
   if (!s) return null;
   const last = isLastTest(model.data, s.i);
   const resting = rest && left > 0;
@@ -44,16 +48,11 @@ export function StopDone({ model, dispatch }: ScreenProps) {
       ? t(lang, "assessment.rest.nextNow")
       : t(lang, "assessment.stopDone.next");
   // S42 follows only a stop the person chose (tired, something else, just wanted to stop). The data
-  // stores tired and something else as stopped_symptom, whose text says we stopped for safety; here the
-  // person stopped. After tired the display only line stopped_tired (R3C-20); after something else the
-  // by_choice text. The stored reason is unchanged.
+  // stores something else as stopped_symptom, whose text says we stopped for safety; here the person
+  // stopped, so the by_choice text shows when there is no rest. The stored reason is unchanged.
   const shownReason = s.reason === "stopped_symptom" ? "by_choice" : s.reason;
   const reason =
-    s.option === "tired"
-      ? t(lang, "assessment.stopDone.tired")
-      : shownReason in CHECK_DATA.reasons
-        ? reasonText(shownReason as ReasonId, lang)
-        : null;
+    !rest && shownReason in CHECK_DATA.reasons ? reasonText(shownReason as ReasonId, lang) : null;
   const seconds = Math.ceil(left / 1000);
   return (
     <CheckShell
@@ -71,7 +70,7 @@ export function StopDone({ model, dispatch }: ScreenProps) {
       }}
     >
       <div className="safety-notice" data-screen="S42">
-        <h1>{t(lang, "assessment.stopDone.title")}</h1>
+        <h1>{t(lang, rest ? "assessment.stopDone.restTitle" : "assessment.stopDone.title")}</h1>
         {reason && <p className="check-body">{bidiText(lang, reason)}</p>}
         {rest && (
           <section className="check-card is-info safety-rest">
@@ -81,9 +80,6 @@ export function StopDone({ model, dispatch }: ScreenProps) {
               size={96}
               label={<bdi>{bidiText(lang, String(seconds))}</bdi>}
             />
-            <p className="check-body">
-              {t(lang, last ? "assessment.stopDone.restLast" : "assessment.stopDone.rest")}
-            </p>
           </section>
         )}
         <button
@@ -104,7 +100,6 @@ export function SkipNotice({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
   const s = model.state.kind === "skipNotice" ? model.state : null;
   const view = skipNoticeView(s?.rows ?? [], lang);
-  useSpeechSequence(view.cue ? [cueSpeech(view.cue, lang)] : [], { key: `S46:${view.title}` });
   return (
     <CheckShell
       sound

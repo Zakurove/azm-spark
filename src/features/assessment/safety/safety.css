@@ -65,23 +65,35 @@
   display: grid;
   gap: var(--s2);
 }
-.azm-check .safety-sentences p {
+.azm-check .safety-sentences p,
+.azm-check .safety-sentences li {
   margin: 0;
   padding-inline-start: var(--s3);
   border-inline-start: 4px solid transparent;
   line-height: 1.8;
 }
-.azm-check .safety-sentences.is-18 p {
+.azm-check .safety-sentences.is-18 :is(p, li) {
   font-size: var(--t-body);
 }
-.azm-check .safety-sentences.is-22 p {
+.azm-check .safety-sentences.is-22 :is(p, li) {
   font-size: 1.375rem;
 }
-.azm-check .safety-sentences.is-26 p {
+.azm-check .safety-sentences.is-26 :is(p, li) {
   font-size: 1.625rem;
   font-weight: 600;
 }
-.azm-check .safety-sentences p.is-current,
+/* C17: the AD steps, one numbered action per line. */
+.azm-check .safety-steps {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding-inline-start: var(--s6);
+}
+.azm-check .safety-steps li::marker {
+  font-weight: 800;
+  color: var(--purple);
+}
+.azm-check .safety-sentences :is(p, li).is-current,
 .azm-check .safety-extra h2.is-current {
   border-inline-start-color: var(--purple);
 }
@@ -213,6 +225,15 @@
   font-size: 1.75rem;
   line-height: 1.5;
   font-weight: 700;
+}
+/* C15: the booth staff line, small and once, right under the question. */
+.azm-check .safety-staff-line {
+  margin: 0;
+  color: var(--muted);
+}
+/* C15: the questions on the stage end above the STOP zone, so nothing hides behind it. */
+.azm-check .safety-question.is-stage {
+  padding-bottom: calc(var(--h-stop) + 2 * var(--s3) + env(safe-area-inset-bottom));
 }
 .azm-check .safety-count {
   font-size: 6rem;

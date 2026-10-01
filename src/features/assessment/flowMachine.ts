@@ -1822,8 +1822,10 @@ function continueTo(m: FlowModel, c: Continuation): FlowModel {
 /* ------------------------------------------------------------ skips */
 
 /**
- * Skips the current side and the rest of test i with a reason, then shows S46. `tried`: the current
- * side was tried and is not measured today (a quality failure), so the end question is asked.
+ * Skips the current side and the rest of test i with a reason. A skip the person chose (the skip
+ * dialog, no chair, motion refused) goes straight on to the next test or the end (C27); a skip the
+ * check made (the hands, quality) shows S46 first. `tried`: the current side was tried and is not
+ * measured today (a quality failure), so the end question is asked.
  */
 function skipTest(
   m: FlowModel,
@@ -1842,8 +1844,12 @@ function skipTest(
     const status = opts.tried && si === fromSide ? "notMeasured" : "skipped";
     next = recordSide(next, item.testId, item.side, { status, reason });
   });
+  if (CHOSEN_SKIPS.includes(reason)) return continueTo(next, afterTest(next, i));
   return go(next, { kind: "skipNotice", rows, then: afterTest(next, i) });
 }
+
+/** Skips the person chose, which need no notice (C27). */
+const CHOSEN_SKIPS: readonly string[] = ["by_choice", "chair_needed", "motion_needed"];
 
 function skipCurrentTest(m: FlowModel, reason: string): FlowModel {
   const t = currentTest(m);

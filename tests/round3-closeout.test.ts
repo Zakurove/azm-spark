@@ -47,7 +47,8 @@ describe("R3C-20 and R3C-21: S42 after tired, and S49 after a stop", () => {
         type: "SKIP_CONFIRM",
       },
     );
-    expect(skipped.state).toMatchObject({ kind: "skipNotice", then: { to: "endQuestion" } });
+    // A skip the person chose goes straight on (C27): here to the end question.
+    expect(skipped.state).toEqual({ kind: "endQuestion" });
     const never = withState(signed, { kind: "test.instruction", i: 2 });
     const unstarted = { ...never, data: { ...never.data, started: false } };
     expect(unstarted.data.outcomes).toEqual({});

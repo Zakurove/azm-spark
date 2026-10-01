@@ -598,18 +598,31 @@ describe("Appendix A: plan, instruction and preparation", () => {
     expect(play(g, { type: "PREP_NEXT" }, { type: "BACK" }).state).toEqual({ kind: "test.grip", i: curl });
   });
 
-  it("test.instruction: the chair gate no skips the chair stand; skip opens the skip dialog", () => {
+  it("a skip the person chose goes straight on: the dialog, the chair gate no (C27)", () => {
     const m = play(signedAtPlan(), { type: "PLAN_START" });
-    const skipped = play(m, { type: "CHAIR_GATE_NO" });
-    expect(kind(skipped)).toBe("skipNotice");
     const dialog = play(m, { type: "SKIP" });
     expect(dialog.overlay).toEqual({ kind: "skipDialog" });
     expect(play(dialog, { type: "SKIP_CANCEL" }).state).toEqual(m.state);
     expect(play(dialog, { type: "SKIP_CANCEL" }).overlay).toBeNull();
     const confirmed = play(dialog, { type: "SKIP_CONFIRM" });
-    expect(kind(confirmed)).toBe("skipNotice");
-    expect(confirmed.state).toMatchObject({ rows: [{ reason: "by_choice" }, { reason: "by_choice" }] });
-    expect(play(confirmed, { type: "CONTINUE" }).state).toEqual({ kind: "test.instruction", i: 1 });
+    expect(confirmed.state).toEqual({ kind: "test.instruction", i: 1 });
+    expect(confirmed.overlay).toBeNull();
+    const t0 = confirmed.data.tests[0];
+    for (const side of t0.sides)
+      expect(confirmed.data.outcomes[`${t0.testId}:${side.side}`]).toMatchObject({
+        status: "skipped",
+        reason: "by_choice",
+      });
+    // The chair gate no is the person's answer too.
+    const chair = withState(m, { kind: "test.instruction", i: 0 });
+    expect(kind(play(chair, { type: "CHAIR_GATE_NO" }))).not.toBe("skipNotice");
+  });
+
+  it("S46 stays for a skip the person did not choose: the pain question, the hands, quality (C27)", () => {
+    const m = play(signedAtPlan(), { type: "PLAN_START" });
+    const pushed = withState(m, cam("after.pushed", 0));
+    expect(kind(play(pushed, { type: "AFTER_ANSWER", value: true }))).toBe("skipNotice");
+    expect(kind(play(pushed, { type: "AFTER_ANSWER", value: false }))).toBe("skipNotice");
   });
 
   it("a camera error on the primer opens S32; Try again returns to the primer, later leaves", () => {
@@ -647,11 +660,13 @@ describe("Appendix A: the camera states", () => {
       kind(play(at(cam("cam.setup", curl), { calibrated: true, practiced: true }), { type: "SETUP_OK" })),
     ).toBe("cam.countdown");
     expect(play(at(cam("cam.setup")), { type: "SKIP" }).overlay).toEqual({ kind: "skipDialog" });
+    // Motion refused: the test is skipped (motion_needed) and the flow goes straight on (C27).
     const motion = play(at(cam("cam.setup")), { type: "MOTION_REFUSED" });
-    expect(motion.state).toMatchObject({
-      kind: "skipNotice",
-      rows: [{ reason: "motion_needed" }, { reason: "motion_needed" }],
-    });
+    expect(motion.state).toEqual({ kind: "test.instruction", i: 1 });
+    expect(Object.values(motion.data.outcomes).map((o) => o.reason)).toEqual([
+      "motion_needed",
+      "motion_needed",
+    ]);
   });
 
   it("cam.calibrate: done goes to practice, stillness offers a retry or a skip", () => {
@@ -847,7 +862,9 @@ describe("Appendix A: the camera states", () => {
   });
 
   it("skipNotice: continue follows the continuation computed at the skip", () => {
-    const n = play(at(cam("cam.setup")), { type: "SKIP" }, { type: "SKIP_CONFIRM" });
+    const n = play(at(cam("cam.calibrate", 0, 0, { offer: true }), { calibrationRounds: 2 }), {
+      type: "CALIBRATION_STILL",
+    });
     expect(n.state).toMatchObject({ kind: "skipNotice", then: { to: "test", i: 1 } });
     expect(play(n, { type: "CONTINUE" }).state).toEqual({ kind: "test.instruction", i: 1 });
   });

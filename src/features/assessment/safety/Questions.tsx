@@ -32,11 +32,20 @@ import { playChime, useFoldFit, useSpeechSequence, useWakeLock } from "./hooks";
 import { AnswerZones, StopButton, type ZoneOption } from "./parts";
 import { copyLine, cueSpeech, dataLine, screenLines, splitSentences, type SpeechLine } from "./speech";
 
-/** The line under the answers: at the booth staff tap the spoken answer; after STOP, stay put (4.3). */
+/**
+ * C15: at the booth, one small line under the question: our staff tap the answer the person says. The
+ * question stays the heading and the biggest text on the screen.
+ */
+export function StaffLine() {
+  const { lang, booth } = useCheckUi();
+  if (!booth) return null;
+  return <p className="check-meta safety-staff-line">{t(lang, "assessment.test.answerBooth")}</p>;
+}
+
+/** The line under the answers after STOP at home: stay put (4.3). */
 function ZoneLine({ afterStop }: { afterStop?: boolean }) {
   const { lang, booth } = useCheckUi();
-  if (booth) return <p className="safety-zone-line">{t(lang, "assessment.test.answerBooth")}</p>;
-  if (afterStop) return <p className="safety-zone-line">{t(lang, "assessment.stop.stayPut")}</p>;
+  if (afterStop && !booth) return <p className="safety-zone-line">{t(lang, "assessment.stop.stayPut")}</p>;
   return null;
 }
 
@@ -89,6 +98,7 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
         <h1 id={headingId} className="safety-stage-question">
           {bidiText(lang, q.ask[lang])}
         </h1>
+        <StaffLine />
         <AnswerZones
           labelledBy={headingId}
           fold
@@ -96,7 +106,6 @@ export function FaintAsk({ model, dispatch }: ScreenProps) {
           say={(line) => seq.replay([line])}
           onAnswer={(v) => dispatch({ type: "FAINT_ANSWER", value: v as "yes" | "no" | "unsure" })}
         />
-        <ZoneLine />
         <p className="check-body safety-intro">{bidiText(lang, intro)}</p>
         {sci && <p className="check-body safety-intro">{bidiText(lang, sci)}</p>}
         <button type="button" className="ghost safety-listen" onClick={() => seq.replay(listen)}>
@@ -147,6 +156,7 @@ export function Between({ model, dispatch }: ScreenProps) {
           <h1 id={headingId} className="safety-stage-question">
             {bidiText(lang, q.ask[lang])}
           </h1>
+          <StaffLine />
           <AnswerZones
             labelledBy={headingId}
             fold
@@ -212,6 +222,7 @@ export function AfterTest({ model, dispatch }: ScreenProps) {
           <h1 id={headingId} className="safety-stage-question">
             {bidiText(lang, ask[lang])}
           </h1>
+          {!typing && <StaffLine />}
           {kind === "after.count" && typeof count === "number" && (
             <p className="safety-count">
               <bdi>{bidiText(lang, String(count))}</bdi>
@@ -236,7 +247,6 @@ export function AfterTest({ model, dispatch }: ScreenProps) {
               }}
             />
           )}
-          {!typing && <ZoneLine />}
         </div>
       </CheckShell>
       {cameraRunning(model.state) && <StopButton onPress={() => dispatch({ type: "STOP" })} />}
@@ -335,6 +345,7 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
             ),
           )}
         </h1>
+        <StaffLine />
         <ul className="check-card is-cream check-list safety-signs">
           {view.list.map((sign) => (
             <li key={sign}>{bidiText(lang, sign)}</li>
@@ -347,7 +358,6 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
           say={(l) => seq.replay([l])}
           onAnswer={(v) => dispatch({ type: "END_ANSWER", yes: v === "yes" })}
         />
-        <ZoneLine />
         {/* Listen again after the answers, so the answers stay on screen with the long question. */}
         <button type="button" className="ghost safety-listen" onClick={() => seq.replay()}>
           <CheckIcon name="speaker" />

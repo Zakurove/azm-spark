@@ -361,9 +361,10 @@ for (const lang of LANGS) {
       const label = data.stopRouting.options.find((o) => o.id === "tired")!.label[lang];
       await page.getByRole("button", { name: label }).click();
       const done = page.locator('[data-screen="S42"]');
-      await expect(done.locator("h1")).toHaveText(a.stopDone.title);
-      // The tired line of its own (R3C-20), never the safety stop line.
-      await expect(done.getByText(a.stopDone.tired)).toBeVisible();
+      // C26: the headline says the rest; no banner and no "not saved" line, never the safety stop line.
+      await expect(done.locator("h1")).toHaveText(a.stopDone.restTitle);
+      await expect(page.locator(".check-caption")).toHaveCount(0);
+      await expect(done.locator("p.check-body")).toHaveCount(0);
       await expect(page.getByRole("button", { name: a.rest.nextNow })).toBeVisible();
       await page.clock.runFor(61_000);
       await expect(page.getByRole("button", { name: a.stopDone.next })).toBeVisible();
@@ -406,7 +407,7 @@ for (const lang of LANGS) {
           {
             state: {
               kind: "skipNotice",
-              rows: [{ testId: "shoulder_abduction", side: "left", reason: "by_choice" }],
+              rows: [{ testId: "shoulder_abduction", side: "left", reason: "quality" }],
               then: { to: "test", i: 1 },
             },
             screen: "S46",

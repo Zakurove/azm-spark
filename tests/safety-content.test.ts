@@ -389,15 +389,15 @@ describe("S42, S46, S49", () => {
   it("S46 titles by what skipped the test, with a row per test side and its reason", () => {
     const pain = skipNoticeView([{ testId: "arm_curl_30s", side: "left", reason: "pain_more" }], "en");
     expect(pain.title).toBe("Today we skip the tests that use the area that hurts");
-    expect(pain.cue).toBeNull();
     expect(pain.rows[0]).toMatchObject({ test: "Arm bends in 30 seconds", side: "Your left arm" });
     expect(pain.rows[0].reason).toContain("hurts more today");
-    const choice = skipNoticeView(
-      [{ testId: "trunk_control_seated", side: "right", reason: "by_choice" }],
+    // C27: a skip the person chose has no notice, so there is no voluntary title or cue; any other
+    // reason titles the notice with its own text.
+    const other = skipNoticeView(
+      [{ testId: "trunk_control_seated", side: "right", reason: "quality" }],
       "ar",
     );
-    expect([choice.cue, choice.title]).toEqual(["check_skip_ok", "لا بأس، سنتخطى هذا الاختبار."]);
-    expect(choice.rows[0].side).toBe("الميل إلى يمينك");
+    expect(other.rows[0].side).toBe("الميل إلى يمينك");
     const quality = skipNoticeView([{ testId: "shoulder_abduction", side: "left", reason: "quality" }], "en");
     expect(quality.title).toBe("We could not measure this clearly today. Next time, try the setup tips.");
     expect(quality.rows[0].reason).toBeNull();

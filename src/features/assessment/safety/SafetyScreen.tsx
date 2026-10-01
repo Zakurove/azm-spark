@@ -33,6 +33,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { sameWords } from "../camera/cues";
 import { safetyView } from "./content";
+import type { SpeechLine } from "./speech";
 import { useLatest, useSpeechSequence, useWakeLock } from "./hooks";
 import { BigNumber, SafetyHeading, SentenceStack, TextWithTimes } from "./parts";
 import { SAFETY_TIMING } from "./timing";
@@ -54,7 +55,12 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
     seqRef.current.stop();
     dispatch({ type: "FAINT_ASK" });
   };
-  const seq = useSpeechSequence(view?.speech ?? [], {
+  // C17: on S36 and S37 every spoken sentence is on the card and highlighted as it is read, so none is
+  // repeated in a banner above it.
+  const onCard = view?.kind === "emergency" || view?.kind === "ad";
+  const card = (lines: readonly SpeechLine[]) =>
+    onCard ? lines.map((l) => ({ ...l, onScreen: true })) : lines;
+  const seq = useSpeechSequence(card(view?.speech ?? []), {
     key,
     beforeLine: () => {
       if (!askDue.current) return true;
@@ -154,7 +160,12 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
                 >
                   {bidiText(lang, b.heading)}
                 </h2>
-                <SentenceStack block={b.screen} sentences={b.sentences} current={seq.mark} />
+                <SentenceStack
+                  block={b.screen}
+                  sentences={b.sentences}
+                  current={seq.mark}
+                  numbered={b.screen === "scr_ad"}
+                />
               </section>
             ) : (
               <SentenceStack
@@ -163,11 +174,12 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
                 sentences={b.sentences}
                 current={seq.mark}
                 skipFirst={b === view.blocks[0] && sameWords(b.sentences[0] ?? "", view.heading)}
+                numbered={b.screen === "scr_ad"}
               />
             ),
           )}
         </section>
-        <button type="button" className="ghost safety-listen" onClick={() => seq.replay(view.listen)}>
+        <button type="button" className="ghost safety-listen" onClick={() => seq.replay(card(view.listen))}>
           <CheckIcon name="speaker" />
           {t(lang, "assessment.common.listen")}
         </button>

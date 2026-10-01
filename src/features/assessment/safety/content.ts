@@ -336,36 +336,31 @@ export function checkInView(lang: Lang) {
 
 export interface SkipNoticeView {
   title: string;
-  /** The cue spoken and captioned on arrival (check_skip_ok when it is the title). */
-  cue: CheckCueId | null;
   rows: { key: string; test: string; side: string | null; reason: string | null }[];
 }
 
 /**
  * The title of S46 by what skipped the test (S46 table): the pain answer (pain_more), pushed with the
- * hands (needed_arms), a reason that says it all (quality, needed_support), else check_skip_ok. A row
- * whose reason is already the title shows the test only.
+ * hands (needed_arms), else the reason that says it all (quality). A row whose reason is already the
+ * title shows the test only.
  */
 export function skipNoticeView(
   rows: { testId: TestId; side: string; reason: string }[],
   lang: Lang,
 ): SkipNoticeView {
+  // C27: S46 shows only for a skip the check made (the pain question, the hands, quality); a skip the
+  // person chose goes straight on, so there is no voluntary title.
   const reasons = new Set(rows.map((r) => r.reason));
-  let title: string;
-  let cue: CheckCueId | null = null;
   let titleReason: string | null = null;
+  let title: string;
   if (reasons.has("pain_more")) title = t(lang, "assessment.skipNotice.painTitle");
   else if (reasons.has("needed_arms")) title = t(lang, "assessment.skipNotice.handsTitle");
-  else if (reasons.size === 1 && (reasons.has("quality") || reasons.has("needed_support"))) {
-    titleReason = [...reasons][0];
-    title = reasonText(titleReason as ReasonId, lang);
-  } else {
-    cue = "check_skip_ok";
-    title = cueLine(cue)[lang];
+  else {
+    titleReason = rows[0]?.reason ?? null;
+    title = (titleReason && safeReason(titleReason, lang)) ?? "";
   }
   return {
     title,
-    cue,
     rows: rows.map((r) => ({
       key: `${r.testId}:${r.side}`,
       test: testName(r.testId, lang),

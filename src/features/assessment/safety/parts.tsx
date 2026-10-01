@@ -21,6 +21,7 @@ export function SentenceStack({
   current,
   size = 22,
   skipFirst = false,
+  numbered = false,
 }: {
   block: string;
   sentences: readonly string[];
@@ -32,19 +33,28 @@ export function SentenceStack({
    * under the heading (the marks keep their numbers).
    */
   skipFirst?: boolean;
+  /** C17: the AD steps, one action per numbered item after the first sentence, with no word removed. */
+  numbered?: boolean;
 }) {
   const { lang } = useCheckUi();
+  const line = (s: string, i: number, Tag: "p" | "li") => {
+    const on = current === `${block}:${i}`;
+    return (
+      <Tag key={i} className={on ? "is-current" : undefined} aria-current={on ? "true" : undefined}>
+        {bidiText(lang, s)}
+      </Tag>
+    );
+  };
+  if (numbered)
+    return (
+      <div className={`safety-sentences is-${size}`}>
+        {sentences.length > 0 && line(sentences[0], 0, "p")}
+        <ol className="safety-steps">{sentences.slice(1).map((s, k) => line(s, k + 1, "li"))}</ol>
+      </div>
+    );
   return (
     <div className={`safety-sentences is-${size}`}>
-      {sentences.map((s, i) => {
-        if (skipFirst && i === 0) return null;
-        const on = current === `${block}:${i}`;
-        return (
-          <p key={i} className={on ? "is-current" : undefined} aria-current={on ? "true" : undefined}>
-            {bidiText(lang, s)}
-          </p>
-        );
-      })}
+      {sentences.map((s, i) => (skipFirst && i === 0 ? null : line(s, i, "p")))}
     </div>
   );
 }

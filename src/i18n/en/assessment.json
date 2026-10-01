@@ -573,13 +573,11 @@
   },
   "stopDone": {
     "title": "That is fine",
-    "rest": "Rest for a minute before the next test.",
     "next": "Go on to the next test",
     "end": "End today’s check",
     "finish": "Finish and see your results",
     "changeReason": "Change my reason",
-    "tired": "You stopped to rest. This test’s result was not saved.",
-    "restLast": "Rest for one minute."
+    "restTitle": "Rest for a minute"
   },
   "checkin": {
     "fine": "I am fine",

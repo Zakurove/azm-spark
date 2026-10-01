@@ -515,7 +515,8 @@ for (const lang of LANGS) {
       await expect(screen(page, "S28")).toBeVisible();
       await page.getByRole("button", { name: t.common.skipTest }).click();
       await dialog.getByRole("button", { name: t.skip.confirm }).click();
-      await expect(page.locator('.check-base[data-state="skipNotice"]')).toBeVisible();
+      // C27: a skip the person chose goes straight on, with no notice.
+      await expect(page.locator('.check-base[data-state="skipNotice"]')).toHaveCount(0);
     });
 
     test("camera refused: S32 names the fix, Try again reloads back to the primer", async ({ page }) => {
@@ -630,9 +631,6 @@ for (const lang of LANGS) {
       await expectScreen(page, "S28", lang);
       await page.getByRole("button", { name: t.common.skipTest }).click();
       await page.getByRole("dialog").getByRole("button", { name: t.skip.confirm }).click();
-      await page.evaluate(() =>
-        (window as unknown as { e2eDispatch(e: { type: string }): void }).e2eDispatch({ type: "CONTINUE" }),
-      );
 
       // S28 side lean, then S26 the helper briefing with the weaker side.
       await expectScreen(page, "S28", lang);
@@ -644,9 +642,6 @@ for (const lang of LANGS) {
       await expectScreen(page, "S28", lang);
       await page.getByRole("button", { name: t.common.skipTest }).click();
       await page.getByRole("dialog").getByRole("button", { name: t.skip.confirm }).click();
-      await page.evaluate(() =>
-        (window as unknown as { e2eDispatch(e: { type: string }): void }).e2eDispatch({ type: "CONTINUE" }),
-      );
 
       // S28 arm curl, then S29 grip per arm and S30 load per arm.
       await expectScreen(page, "S28", lang);

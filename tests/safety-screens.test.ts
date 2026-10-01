@@ -267,12 +267,12 @@ describe("S46 to S49", () => {
       SCREENS.S46,
       model({
         kind: "skipNotice",
-        rows: [{ testId: "chair_stand_30s", side: "none", reason: "by_choice" }],
+        rows: [{ testId: "chair_stand_30s", side: "none", reason: "needed_arms" }],
         then: { to: "endQuestion" },
       }),
       { lang: "en" },
     );
-    expect(skip).toContain("That is fine. We will skip this test.");
+    expect(skip).toContain("You needed your hands, which is fine");
     expect(skip).toContain("Chair stands in 30 seconds");
     const after = render(SCREENS.S46b, model({ kind: "guestAfterTest", next: 1 }), { lang: "en" });
     expect([...after.matchAll(/class="cta"/g)]).toHaveLength(2);

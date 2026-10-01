@@ -327,10 +327,6 @@ export const SAFETY_STATES: SafetyState[] = [
 
   // S46 skip notice, S46b guest after a test.
   {
-    name: "S46-skip-by-choice",
-    open: { state: skip([{ testId: "shoulder_abduction", side: "left", reason: "by_choice" }]) },
-  },
-  {
     name: "S46-skip-pain-more",
     open: {
       state: skip([

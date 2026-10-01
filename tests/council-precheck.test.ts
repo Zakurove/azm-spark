@@ -673,7 +673,9 @@ describe("O9: possibleQuestions", () => {
         before = now;
       }
     }
-  });
+    // 400 random people take about 2 s alone; on a shared 2 core CI runner the full suite pushes this
+    // past vitest's 5 s default, so this test gets its own limit.
+  }, 60_000);
 
   it("O9: counts the follow ups that can still open", () => {
     const env = envOf({}, { firstCheck: false, sideLeanDoneAtHome: true });

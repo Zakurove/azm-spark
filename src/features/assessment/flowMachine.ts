@@ -307,6 +307,8 @@ export interface SignedInContext {
   homeOpen: boolean;
   /** Q2 (5), Q32 (6): the account holds the adult confirmation; without it S05a asks (and posts it). */
   adultConfirmed: boolean;
+  /** C46: a first check within 24 hours of saving the profile; S13 is skipped (the intro comes next). */
+  profileFresh?: boolean;
   /** The last check's Parkinson's dose bucket (warn_pd_timing {x} on S25), or null. */
   lastPdDoseBucket?: string | null;
   /** Q5: the load of each arm's current home arm curl series, for the S30 re-test form, or null. */
@@ -775,7 +777,7 @@ export function backTarget(m: FlowModel): FlowState | null {
         ? { kind: "guestWelcome" }
         : { kind: "guestSetup", step: (s.step - 1) as GuestStep };
     case "intro":
-      return { kind: "context" };
+      return m.data.signedIn?.profileFresh ? null : { kind: "context" };
     case "soundCheck":
       return m.data.resuming ? null : { kind: "intro" };
     case "question": {
@@ -1011,7 +1013,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
         // The account keeps the confirmation (POST /api/account/adult); the start needs it (403
         // ADULT_REQUIRED brings the person back here).
         const si = d.signedIn ? { ...d.signedIn, adultConfirmed: true } : null;
-        return emit(go({ ...m, data: { ...d, signedIn: si } }, { kind: "context" }), { type: "adult" });
+        return emit(go({ ...m, data: { ...d, signedIn: si } }, contextStep(si)), { type: "adult" });
       }
       if (e.type === "ADULT_NO") return go(m, { kind: "adultEnd" });
       return m;
@@ -1043,7 +1045,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "CONSENT_ACCEPTED") {
         const si = d.signedIn ? { ...d.signedIn, consent: true } : null;
         const next = { ...m, data: { ...d, signedIn: si } };
-        return go(next, si?.adultConfirmed ? { kind: "context" } : { kind: "adultGate" });
+        return go(next, si?.adultConfirmed ? contextStep(si) : { kind: "adultGate" });
       }
       if (e.type === "NOT_NOW") return go(m, { kind: "exit", to: "today" });
       return m;
@@ -2410,7 +2412,12 @@ function routeSignedInStart(m: FlowModel, now: number): FlowModel {
   if (d.config.desktop && !d.desktopPassed) return go(m, { kind: "desktopGate" });
   if (gate) return go(m, gate);
   if (!c.adultConfirmed) return go(m, { kind: "adultGate" });
-  return go(m, { kind: "context" });
+  return go(m, contextStep(c));
+}
+
+/** S13, or the intro when the profile was saved within the last 24 hours before a first check (C46). */
+function contextStep(c: SignedInContext | null): FlowState {
+  return c?.profileFresh ? { kind: "intro" } : { kind: "context" };
 }
 
 /* ------------------------------------------------------------ guest steps */

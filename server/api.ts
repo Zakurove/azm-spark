@@ -261,7 +261,8 @@ export function createApi(
       }
       if (route === "/api/intake" && req.method === "PUT") {
         if (!validateIntake(body)) return json(400, { error: "INTAKE_INVALID" });
-        const plan = createPlan(body);
+        // C46: the plan keeps when the profile was saved; a first check within 24 hours skips S13.
+        const plan = { ...createPlan(body), created: Date.now() };
         const old = db.prepare("SELECT version FROM profiles WHERE user_id=?").get(u.id) as any;
         const version = (old?.version ?? 0) + 1;
         db.prepare(

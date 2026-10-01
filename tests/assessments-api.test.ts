@@ -243,6 +243,21 @@ describe("postpones, locks and the change question", () => {
     await h.close();
   });
 
+  it("a first check within 24 hours of saving the profile is fresh, so S13 is skipped (C46)", async () => {
+    const cookie = await member(h, "fresh@example.test", WHEELCHAIR_STROKE);
+    expect((await h.call("/assessments/context", undefined, cookie)).data).toMatchObject({
+      firstCheck: true,
+      profileFresh: true,
+    });
+    setTime(T0 + DAY - 1);
+    expect((await h.call("/assessments/context", undefined, cookie)).data.profileFresh).toBe(true);
+    setTime(T0 + DAY);
+    expect((await h.call("/assessments/context", undefined, cookie)).data.profileFresh).toBe(false);
+    // Saving the profile again makes it fresh again.
+    await h.call("/intake", WHEELCHAIR_STROKE, cookie, "PUT");
+    expect((await h.call("/assessments/context", undefined, cookie)).data.profileFresh).toBe(true);
+  });
+
   it("feeling unwell postpones until the next day in Riyadh, and nothing is stored", async () => {
     const cookie = await member(h, "unwell@example.test", intakeOf());
     const r = await start(h, cookie, { pc_unwell: "yes" });

@@ -88,6 +88,8 @@ import { CLIENT_SKIP_REASONS, checkResult, checkStart, checkTestRef, unknownKeys
 
 /** Check starts per person per calendar day in Asia/Riyadh (contract E). */
 export const STARTS_PER_DAY = 20;
+/** C46: how long after saving the profile a first check skips S13 (Is this still right?). */
+export const PROFILE_FRESH_MS = 24 * 60 * 60 * 1000;
 /** Tests whose series key holds the chair (same chair yes or no, spec 4.3 and 4.4). */
 const CHAIR_TESTS: readonly TestId[] = ["trunk_control_seated", "chair_stand_30s"];
 export const ID_PATH = "(?<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})";
@@ -147,12 +149,16 @@ export const assessmentRoutes: Route[] = [
       const dose = s.lastCompleted?.precheck["fingerprint.pdDoseBucket"];
       const consent = activeConsent(db, u.id, "movement_check") !== null;
       const kept = keptResults(db, u.id);
+      const firstCheck = firstCheckIn(db, u.id, setting);
       const common = {
         setting,
         homeOpen: homeChecksOpen(),
         adultConfirmed: adultConfirmedAt(db, u.id) !== null,
         setup: s.setup,
-        firstCheck: firstCheckIn(db, u.id, setting),
+        firstCheck,
+        // C46: S13 is skipped on a first check within 24 hours of saving the profile.
+        profileFresh:
+          firstCheck && typeof s.plan.created === "number" && now - s.plan.created < PROFILE_FRESH_MS,
         completedBefore: s.lastCompleted !== null,
         unresolvedChangeReported: s.unresolvedChangeReported,
         faintReportedUnresolved: s.faintReportedUnresolved,

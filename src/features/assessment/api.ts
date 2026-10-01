@@ -116,6 +116,8 @@ export interface ContextResponse {
   setting: Setting;
   setup: SignedInContext["setup"];
   firstCheck: boolean;
+  /** C46: a first check within 24 hours of saving the profile (S13 is skipped). */
+  profileFresh?: boolean;
   completedBefore: boolean;
   unresolvedChangeReported: boolean;
   /** Q33 (3): a faint stop set faintReported and no pc_faint_since answer has cleared it yet. */
@@ -591,6 +593,7 @@ export function toSignedInContext(c: ContextResponse): SignedInContext {
     consent: c.consent,
     homeOpen: homeOpenOf(c),
     adultConfirmed: c.adultConfirmed === true,
+    ...(c.profileFresh === true ? { profileFresh: true } : {}),
     lastPdDoseBucket: c.lastPdDoseBucket ?? null,
     lastLoads: c.lastLoads ?? null,
   };

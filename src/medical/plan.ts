@@ -70,6 +70,8 @@ export interface Plan {
   estimatedMinutes: number;
   recoveryHours: number;
   version?: number;
+  /** Epoch ms the profile was saved with this plan (C46: a first check within 24 hours skips S13). */
+  created?: number;
   weekly?: import("./weekly").WeeklyPlan;
 }
 export const types: Record<string, DisabilityType> = {

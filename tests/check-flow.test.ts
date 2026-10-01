@@ -351,6 +351,20 @@ describe("Appendix A: signed in entry, consent, context, intro, sound check", ()
     expect(ids).toContain("pc_change_cleared");
   });
 
+  it("a first check within 24 hours of saving the profile opens on the intro, without S13 (C46)", () => {
+    const fresh = signedAt({}, contextOf({}, { profileFresh: true }));
+    expect(fresh.state).toEqual({ kind: "intro" });
+    // S13 is not a step to go back to; the person leaves with the close button.
+    expect(backTarget(fresh)).toBeNull();
+    expect(signedAt({}, contextOf()).state).toEqual({ kind: "context" });
+    // After the adult confirmation (S05a) and the consent (S12) too.
+    const adult = signedAt({}, contextOf({}, { profileFresh: true, adultConfirmed: false }));
+    expect(adult.state.kind).toBe("adultGate");
+    const consent = signedAt({}, contextOf({}, { profileFresh: true, consent: false }));
+    expect(consent.state.kind).toBe("consent");
+    expect(play(consent, { type: "CONSENT_ACCEPTED" }).state).toEqual({ kind: "intro" });
+  });
+
   it("Back walks the questions to the intro, and never leaves a safety screen", () => {
     const q2 = play(
       signedAt(),

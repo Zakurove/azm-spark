@@ -202,7 +202,7 @@ test("the rest between the arms counts down, names the next arm, then sets up ag
     run: { calibrated: true },
   });
   await expect(page.locator(".s34-rest")).toContainText("Rest");
-  await expect(page.locator(".s34-rest")).toContainText("After the rest, Your right arm");
+  await expect(page.locator(".s34-rest")).toContainText("After the rest: Your right arm");
   await reach(page, "cam.setup", 6_000);
   await page.context().close();
 });

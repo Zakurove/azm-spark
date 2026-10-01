@@ -4065,7 +4065,7 @@
           "arthritis with pain on this arm (setup.painSides)"
         ],
         "firstRetestAdd": 1,
-        "firstRetest": "At the first re-test of each series the band is widened by 1 count in both directions; from the second re-test on, the normal band applies. The band sentence shows the band actually used (Q27).",
+        "firstRetest": "At the first re-test of each series the band is widened by 1 count in both directions; from the second re-test on, the normal band applies. The chart's shaded zone shows the band actually used (Q27, simplicity cut C42).",
         "noVerdictWhen": [
           "range_below_baseline flag",
           "compensated share differs by more than 25 percentage points",
@@ -4871,7 +4871,7 @@
           "add": 1
         },
         "firstRetestAdd": 1,
-        "firstRetest": "At the first re-test of each series the band is widened by 1 count in both directions (on top of the wide band when that applies); from the second re-test on, the normal band applies. The band sentence shows the band actually used (Q27).",
+        "firstRetest": "At the first re-test of each series the band is widened by 1 count in both directions (on top of the wide band when that applies); from the second re-test on, the normal band applies. The chart's shaded zone shows the band actually used (Q27, simplicity cut C42).",
         "wideWhen": [
           "conditions include ms",
           "pushHand changed",
@@ -5217,8 +5217,8 @@
       }
     },
     "bandSentence": {
-      "ar": "قد يأتي تغير يصل إلى {band} {unit} من اختلاف بين يوم وآخر، ومن طريقة رؤية الكاميرا لك، لذلك نعدّه قريبًا من نقطة بدايتك.",
-      "en": "A change of up to {band} {unit} can come from day to day differences and from how the camera sees you, so we read it as about the same."
+      "ar": "قد يأتي تغير صغير من اختلاف بين يوم وآخر، ومن طريقة رؤية الكاميرا لك، لذلك نعدّه قريبًا من نقطة بدايتك. تُظهر المنطقة المظللة في الرسم حدود هذا التغير.",
+      "en": "A small change can come from day to day differences and from how the camera sees you, so we read it as about the same. The shaded zone in a chart shows how small."
     },
     "shaddaRule": "Every form of the verb عدّ in progress copy carries its shadda (نعدّ، نعدّه، نعدّها), including every noVerdict line (Q1).",
     "bandReplacement": {
@@ -5234,10 +5234,10 @@
       "floorRule": "A replaced band is never narrower than the supervised published floor: arm raise 12 degrees, arm curl 3, chair stand 3, side lean 6 degrees.",
       "dataSource": "Computed only from data collected under the ethics approved protocol (Q2), or from people who gave the separate research opt in (boundary.researchOptIn); never from results kept only under the personal tracking consent."
     },
-    "boothExample": "Computed by the same comparison code with these bands, shows at least one about the same row next to a higher row, and keeps its example label. Staff show it with the demo video to visitors routed to scr_booth_no_check (Q19).",
+    "boothExample": "Computed by the same comparison code with these bands: one series card (one test, start and now, the verdict in words) with its example label and the sign up code (simplicity cut C37). Staff show it with the demo video to visitors routed to scr_booth_no_check (Q19).",
     "noVerdictDisplay": "A side without a verdict is a normal result card showing start and now with its noVerdict sentence, never a greyed or error state (P1).",
-    "skippedTests": "The results screen names every skipped test with its reason from 3.6 in plain words, with reasonSuffixes.substituteRan when the side lean ran in the chair stand slot (P6).",
-    "firstRetest": "arm_curl_30s and chair_stand_30s: at the first re-test of each series the band is widened by 1 count in both directions; from the second re-test on, the normal band applies; the band sentence shows the band actually used. The arm raise keeps a single baseline and the side lean its two check baseline, with no familiarisation session (Q27).",
+    "skippedTests": "S27 and the results screens name every skipped test in one muted line (Not today: {tests}.), then each distinct reason from 3.6 once in plain words, with reasonSuffixes.substituteRan only when the side lean actually ran in the chair stand slot (P6, simplicity cut C32).",
+    "firstRetest": "arm_curl_30s and chair_stand_30s: at the first re-test of each series the band is widened by 1 count in both directions; from the second re-test on, the normal band applies; the chart's shaded zone shows the band actually used (simplicity cut C42). The arm raise keeps a single baseline and the side lean its two check baseline, with no familiarisation session (Q27).",
     "unitForms": {
       "deg": {
         "ar": {

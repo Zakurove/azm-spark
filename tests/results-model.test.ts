@@ -1,7 +1,7 @@
 /**
  * What the results screens show (UX spec S50 to S52 shared rules, P6), pure: one card per test with a
  * row per side in run order, the values as whole numbers, "not measured" sides named with their
- * reason, every test that did not run listed in the S27 groups, the ended early header, and where the
+ * reason, every test that did not run in one list (C32), the ended early header, and where the
  * save of a signed in check stands (0.7). The register link of the booth QR never carries the visit.
  */
 import { describe, expect, it } from "vitest";
@@ -12,7 +12,6 @@ import {
   buildResults,
   NOT_REACHED,
   resultsMode,
-  sharedReason,
   storedCheckModel,
   type SideFact,
 } from "../src/features/assessment/results/model";
@@ -37,13 +36,11 @@ const SEATED: ProtocolItem[] = [
 
 function build(
   facts: Record<string, SideFact>,
-  o: { mode?: "guest" | "first" | "retest"; items?: ProtocolItem[]; wheelchair?: boolean } = {},
+  o: { mode?: "guest" | "first" | "retest"; items?: ProtocolItem[] } = {},
 ) {
   return buildResults({
     mode: o.mode ?? "first",
     items: o.items ?? SEATED,
-    wheelchair: o.wheelchair ?? false,
-    intakeExcluded: () => null,
     fact: (i) => facts[`${i.testId}:${i.side}`] ?? { kind: "notReached" },
   });
 }
@@ -78,8 +75,7 @@ describe("results cards (S50 to S52)", () => {
     ]);
     expect(r.anyMeasured).toBe(true);
     expect(r.endedEarly).toBe(false);
-    expect(r.notToday).toEqual([]);
-    expect(r.notPart).toEqual([]);
+    expect(r.skipped).toEqual([]);
     expect(r.measured).toHaveLength(6);
   });
 
@@ -89,23 +85,14 @@ describe("results cards (S50 to S52)", () => {
     expect(card.rows[1]).toEqual({ side: "left", status: "notMeasured", reason: "quality" });
   });
 
-  it("pairs a wheelchair arm raise not measured by quality with the wheelchair tip (Q13)", () => {
-    const facts = {
-      ...ALL,
-      "shoulder_abduction:left": { kind: "notMeasured", reason: "quality" } as SideFact,
-    };
-    expect(build(facts, { wheelchair: true }).cards[0].rows[1].wheelchairTip).toBe(true);
-    expect(build(facts).cards[0].rows[1].wheelchairTip).toBeUndefined();
-  });
-
   it("keeps a side skipped during the check inside its test card when the other side was measured", () => {
     const r = build({ ...ALL, "arm_curl_30s:left": { kind: "skipped", reason: "pain_today" } });
     const curl = r.cards.find((c) => c.testId === "arm_curl_30s")!;
     expect(curl.rows[1]).toEqual({ side: "left", status: "notMeasured", reason: "pain_today" });
-    expect(r.notToday).toEqual([]);
+    expect(r.skipped).toEqual([]);
   });
 
-  it("lists tests that did not run in the two S27 groups with their reasons (P6)", () => {
+  it("lists the tests that did not run in one list with their reasons (P6, C32)", () => {
     const items = [
       ...SEATED.slice(0, 2),
       item("trunk_control_seated", "right", 3, { skipped: "restriction_balance" as ReasonId }),
@@ -117,9 +104,8 @@ describe("results cards (S50 to S52)", () => {
     facts["arm_curl_30s:left"] = { kind: "skipped", reason: "pain_today" };
     const r = build(facts, { items });
     expect(r.cards.map((c) => c.testId)).toEqual(["shoulder_abduction"]);
-    expect(r.notPart.map((e) => e.testId)).toEqual(["trunk_control_seated"]);
-    expect(r.notToday.map((e) => e.testId)).toEqual(["arm_curl_30s"]);
-    expect(sharedReason(r.notToday[0])).toBe("pain_today");
+    expect(r.skipped.map((e) => e.testId)).toEqual(["trunk_control_seated", "arm_curl_30s"]);
+    expect(r.skipped[1].sides.map((x) => x.reason)).toEqual(["pain_today", "pain_today"]);
   });
 
   it("marks a signed in check that stopped before its end as ended early, never a guest's", () => {
@@ -128,7 +114,7 @@ describe("results cards (S50 to S52)", () => {
     delete facts["arm_curl_30s:left"];
     const r = build(facts);
     expect(r.endedEarly).toBe(true);
-    expect(r.notToday).toEqual([
+    expect(r.skipped).toEqual([
       {
         testId: "arm_curl_30s",
         sides: [
@@ -140,7 +126,7 @@ describe("results cards (S50 to S52)", () => {
     const guest = build(facts, { mode: "guest" });
     expect(guest.endedEarly).toBe(false);
     // The guest chose "See my results now" (S46b): by choice, never "not reached".
-    expect(guest.notToday[0].sides.map((x) => x.reason)).toEqual(["by_choice", "by_choice"]);
+    expect(guest.skipped[0].sides.map((x) => x.reason)).toEqual(["by_choice", "by_choice"]);
   });
 
   it("says nothing was measured when every side is skipped or not measured (E state)", () => {
@@ -162,18 +148,6 @@ describe("results cards (S50 to S52)", () => {
     const lean = r.cards.find((c) => c.testId === "trunk_control_seated")!;
     expect(lean.rows.map((x) => x.censored)).toEqual([true, true]);
     expect(r.cards[0].rows[0].censored).toBeUndefined();
-  });
-
-  it("names rows that share one reason once (S27)", () => {
-    expect(
-      sharedReason({
-        testId: "arm_curl_30s",
-        sides: [
-          { side: "right", reason: "pain_today" },
-          { side: "left", reason: "pain_area" },
-        ],
-      }),
-    ).toBeNull();
   });
 });
 
@@ -234,11 +208,11 @@ describe("the flow and stored checks as results", () => {
         result("trunk_control_seated", "left", null, "pain_today"),
       ],
     } as unknown as StoredCheck;
-    const r = storedCheckModel(check, false);
+    const r = storedCheckModel(check);
     expect(r.mode).toBe("retest");
     expect(r.cards.map((c) => c.testId)).toEqual(["shoulder_abduction"]);
     expect(r.cards[0].rows.map((x) => x.status)).toEqual(["measured", "notMeasured"]);
-    expect(r.notToday.map((e) => e.testId)).toEqual(["trunk_control_seated", "arm_curl_30s"]);
+    expect(r.skipped.map((e) => e.testId)).toEqual(["trunk_control_seated", "arm_curl_30s"]);
     expect(r.endedEarly).toBe(true);
   });
 

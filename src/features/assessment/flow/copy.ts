@@ -746,31 +746,6 @@ export function testWarnings(warnings: readonly string[], testId: TestId): Scree
 
 /* ================================================================ the plan (S27) */
 
-/** Skip groups (S27): day level reasons are "Not today", intake level reasons "Not part of your check". */
-const NOT_TODAY: readonly string[] = [
-  "pain_today",
-  "pain_more",
-  "flare",
-  "helper_needed",
-  "armrests_needed",
-  "chair_needed",
-  "weak_shoulder",
-  "arm_not_able",
-  "pressure_sore",
-  "recent_surgery",
-  "clearance_booth",
-  "motion_needed",
-  "by_choice",
-  "quality",
-  "stopped_symptom",
-  "needed_arms",
-  "needed_support",
-];
-
-export function skipGroup(reason: string): "notToday" | "notPart" {
-  return NOT_TODAY.includes(reason) ? "notToday" : "notPart";
-}
-
 export type VariantWhy = "booth" | "painArm" | "noResistance" | "safety" | "handsAllowed";
 
 /**
@@ -815,17 +790,13 @@ export interface PlanRow {
   sideLines: string[];
 }
 
-export interface PlanSkip {
-  testId: TestId;
-  name: string;
-  reason: string;
-  boothOffer: boolean;
-}
-
 export interface PlanView {
   rows: PlanRow[];
-  notToday: PlanSkip[];
-  notPart: PlanSkip[];
+  /**
+   * The tests that will not run (C32): their names for one line, then each reason in plain words (the
+   * booth offer after a test kept for the booth, while the booth days include today).
+   */
+  skipped: { names: string[]; reasons: string[] };
   minutes: [number, number];
 }
 
@@ -853,7 +824,7 @@ export function sideLabel(testId: TestId, side: Side, lang: Lang): string {
 
 /**
  * The frozen protocol as S27 shows it: the tests that run in order, each with its chips and side
- * lines, and the skipped tests in two groups with the reason in plain words (P6).
+ * lines, and the skipped tests named once with their reasons in plain words (P6, C32).
  */
 export function planView(
   protocol: readonly ProtocolItem[],
@@ -868,23 +839,20 @@ export function planView(
     byTest.set(item.testId, list);
   }
   const rows: PlanRow[] = [];
-  const notToday: PlanSkip[] = [];
-  const notPart: PlanSkip[] = [];
+  const skipped: PlanView["skipped"] = { names: [], reasons: [] };
   const offerNow = boothDaysNow(now);
   for (const [testId, items] of byTest) {
     const def = testDef(testId);
     const running = items.filter((i) => !i.skipped);
     if (running.length === 0) {
-      const first = items[0];
-      const reason = first.skipped as ReasonId;
-      const skip: PlanSkip = {
-        testId,
-        name: def.name[lang],
-        reason: skipReasonText(reason, lang, { substituteRan: items.some((i) => i.substituteRan) }),
-        // D-016: a test skipped for clearance is not offered at the booth either.
-        boothOffer: offerNow && reason === "booth_only_trunk",
-      };
-      (skipGroup(reason) === "notToday" ? notToday : notPart).push(skip);
+      const reason = items[0].skipped as ReasonId;
+      skipped.names.push(def.name[lang]);
+      skipped.reasons.push(
+        skipReasonText(reason, lang, { substituteRan: items.some((i) => i.substituteRan) }),
+      );
+      // D-016: a test skipped for clearance is not offered at the booth either.
+      if (offerNow && reason === "booth_only_trunk")
+        skipped.reasons.push(CHECK_DATA.reasons.booth_offer[lang]);
       continue;
     }
     const sides = items.filter((i) => i.side !== "none");
@@ -910,8 +878,7 @@ export function planView(
   }
   return {
     rows,
-    notToday,
-    notPart,
+    skipped,
     // C11: the tests that run, read as every screen reads them (statedMinutes).
     minutes: statedMinutes(
       rows.map((r) => r.testId),

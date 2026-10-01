@@ -1,14 +1,14 @@
 /**
- * The example of the results page (UX spec S54, D-008): the bundled fixture holds stored results only,
- * and the series views are computed by the same code as GET /api/progress (seriesViews, which runs
- * compareSeries), so the example can never show a verdict the rules would not give. Works offline.
+ * The example of the results page (UX spec S54, D-008, C37): the bundled fixture holds one series of
+ * stored results only, and its view is computed by the same code as GET /api/progress (seriesViews,
+ * which runs compareSeries), so the example can never show a verdict the rules would not give. Works
+ * offline.
  */
 import type { CheckContext, StoredSetup } from "../../medical/assessment";
 import { seriesKey, type StoredResult } from "../../medical/progress-rules";
 import { testDef } from "../../movements/assessments";
 import type { CheckPosition, Setting, Side, TestId } from "../../movements/types";
 import { seriesViews } from "../../medical/series";
-import type { ProgressResponse } from "../assessment/api";
 import fixture from "./example-fixture.json";
 import { seriesContextOf } from "./local";
 import type { SeriesViewLike } from "./series";
@@ -68,18 +68,4 @@ export function exampleResults(): StoredResult[] {
 export function exampleViews(): SeriesViewLike[] {
   const ctxFor = seriesContextOf(EXAMPLE_PERSON, EXAMPLE_PERSON.setup);
   return seriesViews(exampleResults(), ctxFor, { lastCheckLasting: false });
-}
-
-/** The example's sessions block (S54 must include one). */
-export function exampleSessions(): Pick<
-  ProgressResponse,
-  "sessions" | "validShare" | "avgEffort" | "activeMinutesPerWeek"
-> {
-  const s = fixture.sessions;
-  return {
-    sessions: { weeks: s.weeks as unknown as ProgressResponse["sessions"]["weeks"] },
-    validShare: s.validShare,
-    avgEffort: s.avgEffort,
-    activeMinutesPerWeek: s.activeMinutesPerWeek,
-  };
 }

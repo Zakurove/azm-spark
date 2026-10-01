@@ -4,7 +4,7 @@
  * clinical line comes from the check data (cues, reasons).
  */
 import type { I18nKey } from "../../../i18n";
-import type { QualityIssue, SetupIssue, Tilt } from "../../../engine/quality";
+import type { QualityIssue, SetupIssue } from "../../../engine/quality";
 import { viewCue } from "../../../engine/quality";
 import type { CheckCueId, Side, TestId } from "../../../movements/types";
 
@@ -26,63 +26,6 @@ export const SETUP_TITLE: Record<ScreenSetupIssue, I18nKey> = {
   blocked: "assessment.setup.issue.blocked",
   motion: "assessment.setup.issue.motion",
 };
-
-export type ChipId = "level" | "distance" | "framing" | "light" | "people" | "view";
-export type ChipState = "ok" | "fix" | "na";
-/** Always 6 chips, fixed order (S34c). */
-export const CHIP_ORDER: readonly ChipId[] = ["level", "distance", "framing", "light", "people", "view"];
-export const CHIP_KEY: Record<ChipId, I18nKey> = {
-  level: "assessment.setup.chip.level",
-  distance: "assessment.setup.chip.distance",
-  framing: "assessment.setup.chip.framing",
-  light: "assessment.setup.chip.light",
-  people: "assessment.setup.chip.people",
-  view: "assessment.setup.chip.view",
-};
-export const CHIP_STATE_KEY: Record<ChipState, I18nKey> = {
-  ok: "assessment.setup.chipOk",
-  fix: "assessment.setup.chipFix",
-  na: "assessment.setup.chipNA",
-};
-
-const CHIP_OF: Record<ScreenSetupIssue, ChipId> = {
-  no_person: "framing",
-  framing: "framing",
-  blocked: "framing",
-  second_person: "people",
-  tilt: "level",
-  motion: "level",
-  too_close: "distance",
-  too_far: "distance",
-  arm_room: "distance",
-  wrong_view: "view",
-  light: "light",
-};
-
-/** The six chips of a setup result: the level chip is "Not available" without a tilt reading. */
-export function setupChips(
-  issues: readonly ScreenSetupIssue[],
-  tilt: Tilt | null,
-): Record<ChipId, ChipState> {
-  const out: Record<ChipId, ChipState> = {
-    level: tilt ? "ok" : "na",
-    distance: "ok",
-    framing: "ok",
-    light: "ok",
-    people: "ok",
-    view: "ok",
-  };
-  for (const i of issues) {
-    const chip = CHIP_OF[i];
-    if (chip === "level" && i === "motion") continue;
-    out[chip] = "fix";
-  }
-  // Without a person nothing else can be judged yet: the framing chip asks for a fix and the others
-  // (all but the phone level, read from the phone itself) are not available, never a green tick.
-  if (issues.includes("no_person"))
-    for (const c of ["distance", "light", "people", "view"] as const) out[c] = "na";
-  return out;
-}
 
 /** The setup cue of a screen issue (S34c table). */
 export function setupIssueCue(

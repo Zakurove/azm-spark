@@ -1,6 +1,6 @@
 /**
  * The pure rules of the camera screens (UX spec S34, 4.3, 4.8): check in arming, the cue queue and
- * its priorities, captions (short form and full sentence, never arTts), setup chips, retry fixes, and
+ * its priorities, captions (short form or full sentence, never arTts), setup words, retry fixes, and
  * the result payload as the server takes it.
  */
 import { describe, expect, it } from "vitest";
@@ -12,7 +12,7 @@ import {
   cueClass,
   CueQueue,
   cueSeverity,
-  sentenceMayHide,
+  showsSentence,
   SPOKEN_EXTRA_MS,
 } from "../src/features/assessment/camera/cues";
 import { RESULT_DETAIL_KEYS } from "../src/features/assessment/camera/payload";
@@ -20,7 +20,6 @@ import {
   fixOf,
   retryIssueOf,
   SETUP_ISSUE_ORDER,
-  setupChips,
   setupIssueCue,
   viewDiagramFor,
 } from "../src/features/assessment/camera/view";
@@ -160,23 +159,6 @@ describe("cues and captions (UX spec 4.3)", () => {
 });
 
 describe("setup check words (S34c)", () => {
-  it("always six chips in a fixed order; level is not available without a reading", () => {
-    const chips = setupChips([], null);
-    expect(Object.keys(chips)).toEqual(["level", "distance", "framing", "light", "people", "view"]);
-    expect(chips.level).toBe("na");
-    expect(setupChips([], { rollDeg: 1, pitchDeg: 0 }).level).toBe("ok");
-  });
-
-  it("each issue marks its chip; nobody seen marks the picture and judges nothing else", () => {
-    expect(setupChips(["too_close"], null).distance).toBe("fix");
-    expect(setupChips(["second_person"], null).people).toBe("fix");
-    expect(setupChips(["wrong_view"], null).view).toBe("fix");
-    expect(setupChips(["tilt"], { rollDeg: 9, pitchDeg: 0 }).level).toBe("fix");
-    const none = setupChips(["no_person", "light", "too_far"], null);
-    // Without a person no distance, light, people or view can be judged: never a green tick (review).
-    expect(none).toMatchObject({ framing: "fix", light: "na", distance: "na", people: "na", view: "na" });
-  });
-
   it("issue order follows the S34c table", () => {
     expect(SETUP_ISSUE_ORDER[0]).toBe("no_person");
     expect(SETUP_ISSUE_ORDER.indexOf("second_person")).toBeLessThan(SETUP_ISSUE_ORDER.indexOf("blocked"));
@@ -266,22 +248,18 @@ describe("the result payload (contract v2 E)", () => {
   });
 });
 
-describe("fit level 3 caption sentence (R3C-16)", () => {
-  const line = (id: Parameters<typeof captionOf>[0], heard = true) => ({ ...captionOf(id, "en"), heard });
-  const on = { voiceMode: true, soundOn: true, large: false };
+describe("one caption line (C29, R3C-16)", () => {
+  const line = (id: Parameters<typeof captionOf>[0]) => captionOf(id, "en");
 
-  it("hides the sentence only while its voice is heard, with a short form, Large captions off", () => {
-    expect(sentenceMayHide(line("test_abd_raise"), on)).toBe(true);
-    expect(sentenceMayHide(line("test_abd_raise", false), on)).toBe(false);
-    expect(sentenceMayHide(line("test_abd_raise"), { ...on, soundOn: false })).toBe(false);
-    expect(sentenceMayHide(line("test_abd_raise"), { ...on, voiceMode: false })).toBe(false);
-    expect(sentenceMayHide(line("test_abd_raise"), { ...on, large: true })).toBe(false);
-    expect(sentenceMayHide({ text: "No short form", severity: "info", heard: true }, on)).toBe(false);
+  it("the short form while a voice says the sentence; the sentence in Large captions or without a short form", () => {
+    expect(showsSentence(line("test_abd_raise"), false)).toBe(false);
+    expect(showsSentence(line("test_abd_raise"), true)).toBe(true);
+    expect(showsSentence({ text: "No short form", severity: "info" }, false)).toBe(true);
   });
 
-  it("never hides a safety caption, or a sentence that carries a safety limit its short form lacks", () => {
-    expect(sentenceMayHide(line("check_stop_now"), on)).toBe(false);
-    for (const id of ALWAYS_SENTENCE) expect(sentenceMayHide(line(id), on), id).toBe(false);
+  it("always the sentence for a safety caption, or one that carries a safety limit its short form lacks", () => {
+    expect(showsSentence(line("check_stop_now"), false)).toBe(true);
+    for (const id of ALWAYS_SENTENCE) expect(showsSentence(line(id), false), id).toBe(true);
     expect([...ALWAYS_SENTENCE].sort()).toEqual(
       [
         "check_sit_minute",

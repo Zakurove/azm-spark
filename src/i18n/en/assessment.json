@@ -167,13 +167,11 @@
       "restart": "Go back to the start"
     },
     "resultsTitle": "Your results today",
-    "keepTitle": "Keep your own starting point",
     "keepBody": "Create a free account, then set your starting point at home and check again every {weeks} weeks to see how your movement changes.",
     "scan": "Scan the code with your own phone",
     "qrAlt": "QR code that opens the Azm sign up page",
     "register": "Create a free account",
     "newVisitor": "Start for a new visitor",
-    "keepBodySoon": "Create a free account to start your program. The movement check will appear on Today when it opens at home.",
     "orOpen": "Or open {url}",
     "quickTry": "Try one test, in about {minutes} {unit}",
     "fullCheck": "The full check, in about {minutesFrom} to {minutesTo} {unit}",
@@ -345,7 +343,7 @@
     "eachArm": "Each arm",
     "eachSide": "Each side",
     "withHelper": "With a helper",
-    "notToday": "Not today",
+    "notToday": "Not today: {tests}.",
     "sideLine": "{side}. {reason}",
     "sideArmLeft": "Your left arm",
     "sideArmRight": "Your right arm",
@@ -354,7 +352,6 @@
     "start": "Start the first test",
     "noneTitle": "We will not run any test today",
     "noneBody": "Every test was skipped today for the reasons shown. You can try again on another day.",
-    "notPart": "Not part of your check",
     "variantWhy": {
       "booth": "At the booth, everyone does this test without a weight.",
       "painArm": "No weight, because you told us about pain in this arm.",
@@ -443,18 +440,6 @@
       "blocked": "Something blocks the view",
       "motion": "We need motion access for the phone"
     },
-    "chip": {
-      "level": "Phone level",
-      "distance": "Distance",
-      "framing": "In the picture",
-      "light": "Light",
-      "people": "People in view",
-      "view": "Angle"
-    },
-    "chipOk": "Good",
-    "chipFix": "Needs adjusting",
-    "chipNA": "Not available",
-    "chipLabel": "{chip}, {state}",
     "helperOk": "We can see someone beside you. That is fine.",
     "turnUpright": "Turn the phone upright",
     "stillNoOne": "We still cannot see you. Make sure the front camera faces you.",
@@ -493,15 +478,12 @@
     "sideRight": "Right",
     "timeLeft": "Ends in {s} {unit}",
     "countLabel": "Count",
-    "cameraOn": "Camera on. The video stays on your phone.",
     "helperChip": "Helper beside you",
     "dotSaved": "Try {n}, saved",
     "dotRetry": "Try {n}, to be repeated",
     "dotPending": "Try {n}, not started yet",
-    "tryShort": "{n} of {total}",
     "replay": "Hear the instructions again",
     "tapForSound": "Tap to turn on the sound",
-    "largeCaptions": "Large captions",
     "sideChangeWheelchair": "Turn your chair, or move the phone to your other side."
   },
   "retry": {
@@ -523,12 +505,7 @@
     },
     "touchedHelper": "We ask your helper not to touch you during the test, unless you lose your balance.",
     "lowFpsBody": "Close other apps, then try again.",
-    "left": {
-      "two": "Two more tries",
-      "one": "One more try"
-    },
     "restartIn": "Starting in {s} {unit}",
-    "now": "Try now",
     "after2min": "We will try again after two minutes of rest."
   },
   "rest": {
@@ -609,6 +586,7 @@
     "startTitle": "Your starting point",
     "nowTitle": "Your results now",
     "nextHeading": "Next step",
+    "nextDate": "Your next check is on {date}.",
     "keepProgram": "Carry on with your program as usual.",
     "seeOverTime": "See your checks over time",
     "endedEarlyTitle": "Today’s check ended early",
@@ -663,6 +641,7 @@
       "outside": "Outside the check angles",
       "seconds": "Seconds passing",
       "of": "{a} of {b}",
+      "setup": "Setup checks",
       "issues": "Quality issues",
       "fps": "Frames per second",
       "last": "Last lift",

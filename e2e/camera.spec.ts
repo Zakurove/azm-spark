@@ -71,9 +71,10 @@ for (const run of RUNS) {
 
       await reach(page, "cam.measure", 90_000);
       if (run.testId === "shoulder_abduction") {
-        // The try counter reads from 2 m; no live degrees (O3) and never the value of an attempt.
-        await expect(page.locator(".s34-try")).toBeVisible();
-        if (lang === "ar") await expect(page.locator(".s34-try")).toHaveText(/[١٢٣]/);
+        // The attempt dots read from 2 m, with no counter text beside them (C29); no live degrees (O3)
+        // and never the value of an attempt.
+        await expect(page.locator(".s34-range .s34-dots")).toBeVisible();
+        await expect(page.locator(".s34-try")).toHaveCount(0);
         await expect(page.locator(".s34-degrees")).toHaveCount(0);
       }
       if (run.testId === "trunk_control_seated") {
@@ -111,14 +112,14 @@ for (const run of RUNS) {
   }
 }
 
-test("setup check with nobody in the picture: the title, the chips and the offers at the phone (Arabic)", async ({
+test("setup check with nobody in the picture: one line and the offers at the phone (Arabic)", async ({
   browser,
 }) => {
   const page = await newPage(browser, "9x16");
   await openCamera(page, "ar", "shoulder_abduction", "e2eFixture=empty&e2eCamFast=1");
   await expect(page.locator(".s34-band.is-none")).toContainText("لا نراك بعد", { timeout: 15_000 });
-  await expect(page.locator(".s34-chip[aria-label='الظهور في الصورة، يحتاج إلى تعديل']")).toBeVisible();
-  await expect(page.locator(".s34-chip")).toHaveCount(6);
+  // C28: one line, the first fix; the checks that pass are not listed.
+  await expect(page.locator(".s34-chip")).toHaveCount(0);
   // After a long wait: the setup tips, then skipping (the fast E2E timing: 4 s and 6 s).
   await page.getByRole("button", { name: "اعرض نصائح التجهيز" }).click();
   await expect(page.getByRole("dialog", { name: "نصائح التجهيز" })).toBeVisible();
@@ -134,7 +135,6 @@ test("a second person in the middle keeps the test from starting (English)", asy
   const page = await newPage(browser, "9x16");
   await openCamera(page, "en", "shoulder_abduction", "e2eFixture=crowd-9x16&e2eCamFast=1");
   await expect(page.locator(".s34-band")).toContainText("Someone else in the middle", { timeout: 15_000 });
-  await expect(page.locator(".s34-chip[aria-label='People in view, Needs adjusting']")).toBeVisible();
   await expect(page.locator(".s34-caption")).toContainText(
     "Make sure no one stands between you and the phone",
   );
@@ -153,16 +153,19 @@ test("STOP opens the stop list over the stage during a test (Arabic)", async ({ 
   await page.context().close();
 });
 
-test("retry: the fix, two more tries, Try now returns to the setup check (English)", async ({ browser }) => {
+test("retry: the reason and the countdown, then the setup check on its own (English)", async ({
+  browser,
+}) => {
   const page = await newPage(browser, "9x16");
   await openCamera(page, "en", "shoulder_abduction", "e2eFixture=seated-still&e2eCamFast=1", {
     state: { kind: "cam.retry", i: 0, side: 0, issue: "plane_flexion", exhausted: false },
     run: { calibrated: true, practiced: true, saved: 1, retriesUsed: 1 },
   });
   await expect(page.locator(".s34-retry")).toContainText("Raise it out to the side");
-  await expect(page.locator(".s34-retry")).toContainText("Two more tries");
-  await page.getByRole("button", { name: "Try now" }).click();
-  await reach(page, "cam.setup", 5_000);
+  // C30: no tries left line and no Try now; the countdown starts the next try.
+  await expect(page.locator(".s34-retry")).not.toContainText("Two more tries");
+  await expect(page.getByRole("button", { name: "Try now" })).toHaveCount(0);
+  await reach(page, "cam.setup", 10_000);
   await page.context().close();
 });
 
@@ -175,7 +178,6 @@ test("retry: Skip this test opens the skip dialog, and the restart waits for it 
     run: { calibrated: true, practiced: true, saved: 1, retriesUsed: 2 },
   });
   await expect(page.locator(".s34-retry")).toContainText("لمسك شخص آخر أثناء المحاولة");
-  await expect(page.locator(".s34-retry")).toContainText("بقيت محاولة إضافية واحدة");
   await page.getByRole("button", { name: "تخطَّ هذا الاختبار" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.waitForTimeout(7000);

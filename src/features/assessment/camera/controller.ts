@@ -51,7 +51,7 @@ import { nearestCentre, posesOf, SubjectLock } from "../../../engine/subject";
 import type { Frame, Landmark } from "../../../engine/types";
 import { testDef } from "../../../movements/assessments";
 import type { CheckCueId, CheckPosition, Side, TestDef, TestId } from "../../../movements/types";
-import { flowReducer, RETRIES, type FlowEvent, type FlowModel, type FlowState } from "../flowMachine";
+import { flowReducer, type FlowEvent, type FlowModel, type FlowState } from "../flowMachine";
 import { armingFor, camPart, type CamPart } from "./arming";
 import { PLANE_RATIOS } from "../booth/settings";
 import { cloneDeep } from "./cloneRunner";
@@ -59,14 +59,11 @@ import { cueClass, type CueClass, type CueRequest, type CueSeverity } from "./cu
 import { sideRecord, sideResultEvent } from "./payload";
 import { camTiming, type CamTiming } from "./timing";
 import {
-  setupChips,
   SETUP_ISSUE_ORDER,
   setupIssueCue,
   retryIssueOf,
   fixOf,
   type AttemptDot,
-  type ChipId,
-  type ChipState,
   type PhaseWord,
   type ScreenSetupIssue,
 } from "./view";
@@ -122,6 +119,8 @@ export interface CamOutput {
 export interface StaffReadout {
   live: PlaneReadout | null;
   last: { outcome: string; value: number | null; reasons: string[] } | null;
+  /** The setup checks that fail (C28: the person sees only the first), no_tilt without a reading. */
+  setup: string[];
 }
 
 /** Why scoring is paused (the paused HUD state): another person, the phone, or nobody seen. */
@@ -129,7 +128,8 @@ export type PausedWhy = "person" | "phone" | "lost" | null;
 
 export interface SetupView {
   issues: ScreenSetupIssue[];
-  chips: Record<ChipId, ChipState>;
+  /** The phone gives no tilt reading (motion access off), so its level is not checked. */
+  noTilt: boolean;
   ok: boolean;
   /** 0 to 1 over the 2 s hold. */
   hold: number;
@@ -283,7 +283,7 @@ class StillMeter {
 
 const EMPTY_SETUP: SetupView = {
   issues: [],
-  chips: setupChips([], null),
+  noTilt: false,
   ok: false,
   hold: 0,
   waitedSec: 0,
@@ -505,7 +505,12 @@ export class CameraController {
     if (!this.test.readout) return null;
     const now = this.runner instanceof RangeTestRunner ? this.runner.readout() : null;
     if (now) this.lastReadout = now;
-    return { live: this.lastReadout, last: this.lastLift };
+    const v = this.setupView;
+    return {
+      live: this.lastReadout,
+      last: this.lastLift,
+      setup: [...v.issues, ...(v.noTilt ? ["no_tilt"] : [])],
+    };
   }
 
   /** The side lean practice was skipped (the button hides). */
@@ -566,13 +571,6 @@ export class CameraController {
     };
   }
 
-  /** S34e: Try now on the practice fix (the next practice, or the scored attempts after the last). */
-  practiceFixNow(t: number): CamOutput {
-    if (this.practiceFix) this.endPracticeFix(t);
-    this.reconcile(t);
-    return this.drain();
-  }
-
   /** The screen was left for good (another test, the results): nothing is kept. */
   dispose(): void {
     this.runner = null;
@@ -619,7 +617,7 @@ export class CameraController {
         this.setupFrames = [];
         this.setupOkSince = null;
         this.setupSent = false;
-        this.setupView = { ...EMPTY_SETUP, chips: setupChips([], null) };
+        this.setupView = EMPTY_SETUP;
         this.lastIssue = null;
         this.lastIssueCueAt = -Infinity;
         this.noPersonSince = null;
@@ -1284,10 +1282,9 @@ export class CameraController {
     const people = poses.filter((p) => isPerson(p)).length;
     const helperSeen = this.setupView.helperSeen || (people >= 2 && !issues.includes("second_person"));
     if (helperSeen && !this.setupView.helperSeen) this.noteOnce("assessment.setup.helperOk", "info");
-    if (!env.tilt) this.noteOnce("assessment.camera.motionOff", "info");
     this.setupView = {
       issues,
-      chips: setupChips(issues, env.tilt),
+      noTilt: !env.tilt,
       ok,
       hold,
       waitedSec: (t - this.stateSince) / 1000,
@@ -1416,9 +1413,4 @@ function hipsHiddenShare(frames: readonly SetupFrame[]): number {
     if ((p[23]?.visibility ?? 0) < 0.5 || (p[24]?.visibility ?? 0) < 0.5) hidden++;
   }
   return hidden / frames.length;
-}
-
-/** The retry budget left after the retries used (S34i: two more, one more). */
-export function triesLeft(testId: TestId, used: number): number {
-  return Math.max(0, RETRIES[testId] - used);
 }

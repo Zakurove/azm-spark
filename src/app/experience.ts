@@ -95,9 +95,7 @@ export const ui = (lang: Lang) =>
         insightPartial:
           "بعض الحركات لم تصل إلى مدى العدّ المحدّد بمعايرتك. تُعرض منفصلة عن التكرارات المكتملة.",
         insightEmpty: "لم تُسجّل تكرارات بعد. يمكنك مراجعة وضع الكاميرا وإعادة المحاولة.",
-        sessions: "مجموعات مسجّلة",
         completed: "تكرارات مكتملة",
-        minutes: "دقائق مسجّلة",
         recent: "آخر الجلسات",
         export: "تنزيل سجلّي",
         exportNote: "ملف يحتوي على أرقام جلساتك فقط، دون صور أو فيديو.",
@@ -163,9 +161,7 @@ export const ui = (lang: Lang) =>
         insightPartial:
           "Some movements did not reach the counting range established by calibration. They appear separately from completed reps.",
         insightEmpty: "No repetitions recorded yet. Review your camera position and try again.",
-        sessions: "Recorded sets",
         completed: "Completed reps",
-        minutes: "Recorded minutes",
         recent: "Recent sessions",
         export: "Download my record",
         exportNote: "A file of session numbers only. No images or video.",

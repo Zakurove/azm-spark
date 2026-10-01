@@ -1,15 +1,15 @@
 /**
  * The video of the camera stage (UX spec 4.2): the one camera element of the check, fitted with
  * object-fit contain so framing feedback is truthful, mirrored as a selfie view, with the skeleton
- * (only during setup and calibration, O27), the framing guide (S34c) and the arm marker (S34g1) on
- * top. The box is forced LTR: physical side markers follow the person's own side in the mirrored
- * picture and never flip with RTL. Video never leaves the phone: the element is only drawn here.
+ * (only during setup and calibration, O27) and the framing guide (S34c) on top. The box is forced
+ * LTR, so the mirrored picture never flips with RTL. Video never leaves the phone: the element is
+ * only drawn here.
  *
  * Tapping anywhere on the video replays the current cue (a target that covers the video).
  */
 import { useEffect, useRef, type ReactNode } from "react";
 import type { Frame, Landmark } from "../../../engine/types";
-import { ArmMarker, FramingGuide } from "./hud";
+import { FramingGuide } from "./hud";
 
 const BONES: readonly [number, number][] = [
   [11, 12],
@@ -35,7 +35,6 @@ export interface CameraVideoProps {
   /** A stand in for the camera picture (E2E previews only). */
   picture?: ReactNode;
   guide: { view: "front" | "side" | "oblique"; state: "none" | "adjust" | "ready" } | null;
-  armMarker: { side: "left" | "right"; label: string } | null;
   replayLabel: string;
   onReplay(): void;
 }
@@ -149,7 +148,6 @@ export function CameraVideo(p: CameraVideoProps) {
           <FramingGuide view={p.guide.view} state={p.guide.state} />
         </div>
       )}
-      {p.armMarker && <ArmMarker side={p.armMarker.side} label={p.armMarker.label} />}
       <button type="button" className="s34-replay" aria-label={p.replayLabel} onClick={p.onReplay} />
     </div>
   );

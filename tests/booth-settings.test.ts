@@ -330,6 +330,7 @@ describe("the staff readout panel", () => {
       fps: 23.6,
     },
     last: { outcome: "invalid", value: 131, reasons: ["plane_unconfirmed"] },
+    setup: ["too_close", "no_tilt"],
   };
   const html = (lang: "ar" | "en", r = readout) =>
     renderToStaticMarkup(
@@ -345,11 +346,14 @@ describe("the staff readout panel", () => {
       expect(en).toContain(x);
     expect(en).toContain('<bdi dir="ltr">not_visible, low_fps</bdi>');
     expect(en).toContain('<bdi dir="ltr">invalid 131 plane_unconfirmed</bdi>');
+    // C28: every failing setup check is listed for the team; the person sees only the first.
+    expect(en).toContain("Setup checks");
+    expect(en).toContain('<bdi dir="ltr">too_close, no_tilt</bdi>');
     const ar = html("ar");
     for (const x of ["نسبة العضد", "٠٫٨١", "٠٫٨٥", "غير مقبول الآن", "٠٫١ من ٠٫٣", "٢٤"])
       expect(ar).toContain(x);
     expect(ar).toContain('data-plane="fail"');
-    expect(html("en", { live: null, last: null } as never)).toContain("Not started yet");
+    expect(html("en", { live: null, last: null, setup: [] } as never)).toContain("Not started yet");
   });
 });
 

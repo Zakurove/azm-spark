@@ -48,7 +48,6 @@ export function readSessions(): SavedSession[] {
 }
 const en = {
   practice: "Practice",
-  history: "My sessions",
   eyebrow: "MOVEMENT, ON YOUR TERMS",
   hero: "Start with\nyour movement.",
   intro: "Find your starting position. We’ll learn your range and guide you, one movement at a time.",
@@ -97,10 +96,7 @@ const en = {
   progress: "Set progress",
   range: "Your movement range",
   adjustment: "Movement support",
-  noHistory: "Your next session starts here.",
-  noHistoryBody: "Your recorded training sessions appear here. Demo sessions are kept out of your progress.",
   local: "ON THIS DEVICE",
-  emptyAction: "Find an exercise",
   demoSummary: "Demo complete",
   demoNotSaved: "Simulated results. This demo is not saved to your sessions.",
   saveFailed: "This session could not be saved on this device.",
@@ -122,7 +118,6 @@ const en = {
 };
 const ar: typeof en = {
   practice: "التمرين",
-  history: "جلساتي",
   eyebrow: "حركتك هي البداية",
   hero: "ابدأ من\nحركتك.",
   intro: "ابدأ من الوضعية المناسبة لك. نضبط التدريب على مداك، ونرشدك خطوة بخطوة.",
@@ -171,10 +166,7 @@ const ar: typeof en = {
   progress: "تقدّم المجموعة",
   range: "مدى حركتك",
   adjustment: "دعم الحركة",
-  noHistory: "جلستك القادمة تبدأ هنا.",
-  noHistoryBody: "تظهر هنا جلساتك المسجّلة. لا تُضاف العروض التجريبية إلى تقدّمك.",
   local: "على هذا الجهاز",
-  emptyAction: "اختر تمرينًا",
   demoSummary: "انتهى العرض التجريبي",
   demoNotSaved: "نتائج محاكاة. لا يُحفظ هذا العرض ضمن جلساتك.",
   saveFailed: "تعذّر حفظ هذه الجلسة على الجهاز.",

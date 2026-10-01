@@ -1,23 +1,25 @@
 /**
- * S54, /?example=progress (UX spec S54, D-008): a read only example for the booth and the landing,
- * rendered from the bundled fixture (example-fixture.json) and compared by the real rules, so it works
- * offline and never shows a verdict the rules would not give. Clearly labelled: the banner sits in
- * the sticky top bar area (never scrolls away, never dismissible) and is read first (the h1 that takes
- * focus is described by it), and every card carries the Example pill. Nothing is interactive except
- * the table toggles and the actions. Dates sit in a fixed past example year and show the year.
+ * S54, /?example=progress (UX spec S54, D-008, C37): a read only example for the booth and the
+ * landing, rendered from the bundled fixture (example-fixture.json) and compared by the real rules, so
+ * it works offline and never shows a verdict the rules would not give. One labelled card: one test,
+ * start and now, the verdict in words; then the sign up QR for the visitor's own phone. The banner
+ * sits in the sticky top bar area (never scrolls away, never dismissible) and is read first (the h1
+ * that takes focus is described by it). Dates sit in a fixed past example year and show the year.
  */
 import { useId, useMemo } from "react";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
+import { registerLink } from "../assessment/results/ResultsView";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { CheckShell } from "../assessment/shared/CheckShell";
-import { EXAMPLE_PERSON, exampleSessions, exampleViews } from "./example";
+import { QrCode } from "../assessment/shared/QrCode";
+import { EXAMPLE_PERSON, exampleViews } from "./example";
 import { ResultsFooter } from "./ResultsPage";
 import { seriesCards } from "./series";
-import { SessionsBlock, sessionsOf } from "./Sessions";
 import { SeriesCard } from "./ThenNow";
 import "./progress.css";
+import "../assessment/results/results.css";
 
 export interface ExampleProgressProps {
   lang: Lang;
@@ -38,10 +40,8 @@ export function ExampleProgress({
   onRegister,
 }: ExampleProgressProps) {
   const bannerId = useId();
-  const headingId = useId();
-  const sessionsId = useId();
-  const cards = useMemo(() => seriesCards(exampleViews(), EXAMPLE_PERSON), []);
-  const sessions = useMemo(() => sessionsOf(exampleSessions()), []);
+  const card = useMemo(() => seriesCards(exampleViews(), EXAMPLE_PERSON)[0], []);
+  const link = registerLink(typeof location === "undefined" ? "https://azm.invalid" : location.origin);
   const tag = t(lang, "progress.example.tag");
   const banner = (
     <section className="check-offline-wrap check-example-banner" role="region" aria-label={tag}>
@@ -70,25 +70,14 @@ export function ExampleProgress({
       >
         <h1 aria-describedby={bannerId}>{t(lang, "progress.example.title")}</h1>
         {!canTryCheck && <p className="check-body">{t(lang, "assessment.guest.boothOnly.title")}</p>}
-        <section className="pg-section" data-screen="S54" aria-labelledby={headingId}>
-          <h2 id={headingId}>{t(lang, "progress.checks.heading")}</h2>
-          <ul className="pg-cards">
-            {cards.map((c) => (
-              <li key={c.key}>
-                <SeriesCard
-                  view={c.view}
-                  earlier={c.earlier}
-                  boothPoints={c.boothPoints}
-                  example
-                  dates={DATES}
-                />
-              </li>
-            ))}
-          </ul>
+        <section className="pg-section" data-screen="S54">
+          {card && <SeriesCard view={card.view} example dates={DATES} />}
         </section>
-        <section className="pg-section" aria-labelledby={sessionsId}>
-          <h2 id={sessionsId}>{t(lang, "progress.sessions.heading")}</h2>
-          <SessionsBlock data={sessions} year chips={<span className="pg-chip">{tag}</span>} />
+        <section className="check-card is-info rs-keep">
+          <div className="rs-qr">
+            <QrCode text={link.url} label={t(lang, "assessment.guest.qrAlt")} showText />
+            <p className="check-body">{t(lang, "assessment.guest.scan")}</p>
+          </div>
         </section>
         <ResultsFooter />
       </CheckShell>

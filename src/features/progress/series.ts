@@ -3,8 +3,6 @@
  *   seriesCards        one card per current series, in test order then side in run order, the booth
  *                      series after the home series; older series of the same test side collapsed
  *                      under "Show the earlier line"; the booth points of a test side for its trend
- *   numberLineRange    the NumberLine scale: start ± max(3 × band, |change| + band), rounded outward
- *                      to 5 degrees or 1 count, never below 0
  *   trendRange         the TrendChart value scale, the band included
  *   todaysViews        the series whose newest result is today's check (S52 after the save)
  * Verdicts are never computed here: they come from compareSeries (contract D), on the server for
@@ -104,25 +102,8 @@ export function seriesCards(
   }));
 }
 
-/** The rounding step of a scale: 5 degrees or 1 count (UX spec S52 NumberLine). */
+/** The rounding step of a scale: 5 degrees or 1 count. */
 const stepOf = (unit: UnitFormId) => (unit === "deg" ? 5 : 1);
-
-/**
- * The NumberLine scale (S52): from start minus to start plus max(3 × band, |change| + band), rounded
- * outward to a multiple of 5 (degrees) or 1 (counts), never below 0.
- */
-export function numberLineRange(
-  start: number,
-  now: number,
-  band: number,
-  unit: UnitFormId,
-): { lo: number; hi: number } {
-  const step = stepOf(unit);
-  const span = Math.max(3 * band, Math.abs(now - start) + band, step);
-  const lo = Math.max(0, Math.floor((start - span) / step) * step);
-  const hi = Math.ceil((start + span) / step) * step;
-  return { lo, hi: hi > lo ? hi : lo + step };
-}
 
 /** The TrendChart value scale: every value and the band around the start, rounded outward. */
 export function trendRange(

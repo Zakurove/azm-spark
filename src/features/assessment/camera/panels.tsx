@@ -8,16 +8,13 @@ import { useEffect, useRef, type ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
 import { countPhrase, formatNumber, t, unitWord } from "../../../i18n";
 import { bidiText, tx } from "../../../i18n/rich";
-import { cueLine, reasonText, testDef } from "../../../movements/assessments";
+import { reasonText, testDef } from "../../../movements/assessments";
 import { SetupTipsList } from "../booth/SetupTips";
 import CheckIcon from "../shared/CheckIcon";
 import type { CamSnapshot, CamTest } from "./controller";
-import { Dots, LeanArrow, Ring, TopView, TryCounter } from "./hud";
+import { Dots, LeanArrow, Ring, TopView } from "./hud";
 import {
   ARM_KEY,
-  CHIP_KEY,
-  CHIP_ORDER,
-  CHIP_STATE_KEY,
   FIX_KEY,
   fixOf,
   PHASE_KEY,
@@ -87,6 +84,8 @@ export interface SetupPanelProps {
   test: CamTest;
   lang: Lang;
   motion: { onAllow(): void } | null;
+  /** At home, without a tilt reading: one line that the phone's level is not checked (C28). */
+  motionOff: boolean;
   onTips(): void;
   onSkip(): void;
   tipsAfterSec: number;
@@ -94,11 +93,16 @@ export interface SetupPanelProps {
   reducedMotion: boolean;
 }
 
+/**
+ * S34c (C28): one line, the fix for the first failing check or «جاهز». The checks that pass are not
+ * listed; the staff readout lists every failing check at the booth.
+ */
 export function SetupPanel({
   snap,
   test,
   lang,
   motion,
+  motionOff,
   onTips,
   onSkip,
   tipsAfterSec,
@@ -111,8 +115,7 @@ export function SetupPanel({
   const word = s.ok ? t(lang, "assessment.setup.ready") : t(lang, SETUP_TITLE[first ?? "no_person"]);
   const diagram = first === "wrong_view" ? viewDiagramFor(test.testId, test.side, test.weaker) : null;
   const waiting = !s.ok && s.issues.length > 0;
-  // Motion access (map 2.9) is answered at the phone: Allow comes first, the state under it, and no
-  // chips (nothing else can be checked until the phone may read its tilt). The caption says why.
+  // Motion access (map 2.9) is answered at the phone: Allow comes first, the state under it.
   if (motion && first === "motion")
     return (
       <div className="s34-panel s34-setup is-motion">
@@ -134,25 +137,7 @@ export function SetupPanel({
           </Ring>
         )}
       </div>
-      <ul className="s34-chips">
-        {CHIP_ORDER.map((c) => {
-          const state = s.chips[c];
-          const label = t(lang, "assessment.setup.chipLabel", {
-            chip: t(lang, CHIP_KEY[c]),
-            state: t(lang, CHIP_STATE_KEY[state]),
-          });
-          return (
-            <li key={c} className={`s34-chip is-${state}`} aria-label={label}>
-              {state === "na" ? (
-                <NotAvailableMark />
-              ) : (
-                <CheckIcon name={state === "ok" ? "check" : "alert-triangle"} size={18} />
-              )}
-              <span aria-hidden="true">{t(lang, CHIP_KEY[c])}</span>
-            </li>
-          );
-        })}
-      </ul>
+      {motionOff && <p className="s34-meta">{t(lang, "assessment.camera.motionOff")}</p>}
       {diagram && <TopView kind={diagram} label={t(lang, "assessment.setup.viewDiagramAlt")} />}
       {waiting && s.waitedSec >= tipsAfterSec && (
         <div className="s34-at-phone">
@@ -167,18 +152,6 @@ export function SetupPanel({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * The mark of a chip that cannot be judged yet: a dotted ring, never a bar (a bar reads as a dash
- * beside Arabic). The chip's words carry the state.
- */
-function NotAvailableMark() {
-  return (
-    <svg className="s34-chip-na" width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
-    </svg>
   );
 }
 
@@ -286,7 +259,6 @@ export function RangePanel({
         >
           {snap.holdDone ? <CheckIcon name="check" size={48} /> : null}
         </Ring>
-        {!snap.practice && <TryCounter n={snap.attemptN} total={snap.dots.length} lang={lang} />}
       </div>
       <PhaseLine word={word} lang={lang} paused={paused} />
     </div>
@@ -445,11 +417,7 @@ export function LeanPanel({
           centred={centred}
           phase={word === "return" ? "back" : word === "pause" ? "hold" : "out"}
         />
-        {snap.practice ? (
-          <span className="s34-badge-practice">{t(lang, "assessment.common.practice")}</span>
-        ) : (
-          <TryCounter n={snap.attemptN} total={snap.dots.length} lang={lang} />
-        )}
+        {snap.practice && <span className="s34-badge-practice">{t(lang, "assessment.common.practice")}</span>}
       </div>
       <PhaseLine word={word} lang={lang} paused={paused} />
     </div>
@@ -479,15 +447,17 @@ export function SavedPanel({ snap, lang, timed }: { snap: CamSnapshot; lang: Lan
 
 /* ------------------------------------------------------------ S34i retry */
 
+/**
+ * S34i (C30): the reason and the countdown, which starts the next try on its own; "Skip this test" is
+ * a text link and STOP is the stage's own. With no try left the ring counts to the next step and the
+ * tips stay at hand.
+ */
 export function RetryPanel({
   snap,
   lang,
   test,
   issue,
   exhausted,
-  triesLeft,
-  practice = false,
-  onNow,
   onSkip,
   onTips,
   reducedMotion,
@@ -497,10 +467,6 @@ export function RetryPanel({
   test: CamTest;
   issue: string;
   exhausted: boolean;
-  triesLeft: number;
-  /** S34e: a practice that failed again (no retry is used, so no tries left line). */
-  practice?: boolean;
-  onNow(): void;
   onSkip(): void;
   onTips(): void;
   reducedMotion: boolean;
@@ -508,16 +474,13 @@ export function RetryPanel({
   const fix = fixOf(issue, test.testId, test.side, test.weaker);
   const retry = snap.retry ?? { remaining: 6, total: 6, counting: false };
   const timed = test.testId === "arm_curl_30s" || test.testId === "chair_stand_30s";
-  const fixTitle = t(lang, FIX_KEY[fix.fix]);
-  // When no try is left nothing starts again: the band names what went wrong, never "try again",
-  // and no "we start in" line runs beside it (the ring counts to the next step).
-  const title = exhausted ? fixTitle : stripStop(cueLine("check_try_again")[lang]);
-  // A timed test repeats after the two minute rest (S34j), not after the 6 s ring: only that line.
-  const restartLine = !exhausted && !timed;
   return (
     <div className="s34-panel s34-retry" data-exhausted={exhausted || undefined}>
-      <StateBand band="adjust" icon={exhausted ? "alert-triangle" : "refresh"} word={bidiText(lang, title)} />
-      {!exhausted && <p className="s34-line40">{fixTitle}</p>}
+      <StateBand
+        band="adjust"
+        icon={exhausted ? "alert-triangle" : "refresh"}
+        word={t(lang, FIX_KEY[fix.fix])}
+      />
       {exhausted && <p className="s34-meta">{bidiText(lang, reasonText("quality", lang))}</p>}
       {!exhausted && fix.fix === "touched" && (
         <p className="s34-meta">{t(lang, "assessment.retry.touchedHelper")}</p>
@@ -534,22 +497,14 @@ export function RetryPanel({
         >
           <span className="s34-ring-num">{bidiText(lang, String(retry.remaining))}</span>
         </Ring>
-        <span className="s34-restart-lines">
-          {!exhausted && !practice && (
-            <span className="s34-meta">
-              {timed
-                ? t(lang, "assessment.retry.after2min")
-                : triesLeft >= 2
-                  ? t(lang, "assessment.retry.left.two")
-                  : t(lang, "assessment.retry.left.one")}
-            </span>
-          )}
-          {restartLine && (
-            <span className="s34-meta">
-              {tx(lang, "assessment.retry.restartIn", { s: retry.remaining, unit: "sec" })}
-            </span>
-          )}
-        </span>
+        {!exhausted && (
+          <span className="s34-meta">
+            {/* A timed test repeats after the two minute rest (S34j), not after the ring. */}
+            {timed
+              ? t(lang, "assessment.retry.after2min")
+              : tx(lang, "assessment.retry.restartIn", { s: retry.remaining, unit: "sec" })}
+          </span>
+        )}
       </div>
       <div className="s34-at-phone">
         {exhausted ? (
@@ -557,23 +512,13 @@ export function RetryPanel({
             {t(lang, "assessment.setup.tipsLink")}
           </button>
         ) : (
-          <>
-            <button type="button" className="cta" onClick={onNow}>
-              {t(lang, "assessment.retry.now")}
-            </button>
-            <button type="button" className="ghost" onClick={onSkip}>
-              {t(lang, "assessment.common.skipTest")}
-            </button>
-          </>
+          <button type="button" className="check-text-button s34-text-button" onClick={onSkip}>
+            {t(lang, "assessment.common.skipTest")}
+          </button>
         )}
       </div>
     </div>
   );
-}
-
-/** The band title of check_try_again without its final full stop (a title, not a sentence). */
-function stripStop(s: string): string {
-  return s.replace(/[.。]$/u, "");
 }
 
 /* ------------------------------------------------------------ S34j rest */

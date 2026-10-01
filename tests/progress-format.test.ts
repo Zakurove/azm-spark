@@ -7,14 +7,11 @@
 import { describe, expect, it } from "vitest";
 import { CHECK_DATA } from "../src/movements/assessments";
 import {
-  bandSentence,
-  changeText,
   dayLabel,
   isCountUnit,
   isReasonId,
   moreThan,
   nextDueText,
-  reasonGroup,
   resultSentence,
   resultUnitOf,
   sideLabel,
@@ -23,7 +20,6 @@ import {
   whenText,
 } from "../src/features/progress/format";
 
-const DASHES = /[-‐-―−]/;
 const LATIN_DIGIT = /[0-9]/;
 
 describe("values with units in words (S51)", () => {
@@ -60,32 +56,11 @@ describe("values with units in words (S51)", () => {
   });
 });
 
-describe("the change from the start (S52, O8)", () => {
-  it("says a decrease in words, never with a sign or a dash", () => {
-    const down = changeText("ar", -17, "deg");
-    expect(down).toBe("نقص ١٧ درجة عن البداية");
-    expect(changeText("en", -17, "deg")).toBe("17 degrees below your start");
-    for (const text of [down, changeText("en", -3, "bends"), changeText("ar", -2, "deg")])
-      expect(text).not.toMatch(DASHES);
-  });
-
-  it("gives counts without the unit (O8) and the dual in Arabic for degrees", () => {
-    expect(changeText("ar", 3, "bends")).toBe("زيادة ٣ عن البداية");
-    expect(changeText("en", -2, "stands")).toBe("2 fewer than at your start");
-    expect(changeText("ar", 2, "deg")).toBe("زيادة درجتين عن البداية");
-  });
-
-  it("says exactly the same at zero", () => {
-    expect(changeText("en", 0, "deg")).toBe("Exactly the same as your start");
-  });
-});
-
 describe("the band sentence and the result sentence", () => {
-  it("states the band used with the Q1 wording (نعدّه with its shadda)", () => {
-    const ar = bandSentence("ar", 16, "deg");
-    expect(ar).toContain("١٦ درجة");
+  it("says the band sentence once, with no band number and نعدّه with its shadda (C42)", () => {
+    const { ar, en } = CHECK_DATA.progress.bandSentence;
     expect(ar).toContain("نعدّه");
-    expect(bandSentence("en", 5, "bends")).toContain("5 bends");
+    for (const text of [ar, en]) expect(text).not.toMatch(/[{}0-9٠-٩]/);
   });
 
   it("fills the side, the load, the variant, the seconds and the value", () => {
@@ -152,19 +127,7 @@ describe("dates, sides and the lock time", () => {
   });
 });
 
-describe("the S27 group of a skip reason", () => {
-  it("puts intake level reasons under «Not part of your check» and day reasons under «Not today»", () => {
-    expect(reasonGroup("position_seated")).toBe("notPart");
-    expect(reasonGroup("restriction_balance")).toBe("notPart");
-    expect(reasonGroup("pain_today")).toBe("notToday");
-    expect(reasonGroup("by_choice")).toBe("notToday");
-  });
-
-  it("lets the trigger decide: an intake reason set on the day is «Not today»", () => {
-    expect(reasonGroup("clearance", true)).toBe("notToday");
-    expect(reasonGroup("clearance", false)).toBe("notPart");
-  });
-
+describe("skip reasons", () => {
   it("knows which reasons have a text in the check data", () => {
     expect(isReasonId("pain_today")).toBe(true);
     expect(isReasonId("no_such_reason")).toBe(false);

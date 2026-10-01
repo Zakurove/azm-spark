@@ -1,9 +1,11 @@
 /**
  * CameraStage (UX spec 3.0, 4.2, 5.6): the frame of every camera screen, read from 2 to 3 m.
  *
- *   top bar      test and side, helper chip, booth badge, offline pill, camera on, sound controls
- *   caption card the short form at 56 px with its icon, the full sentence at 34 px (56 in Large
- *                captions), close to the front camera lens; a severity bar and icon, never truncated
+ *   top bar      test counter and name, booth badge, Sound; the tap for sound and offline pills on a
+ *                row of their own under it
+ *   caption card one line close to the front camera lens (C29): the short form at 56 px while the voice
+ *                says the sentence, or the sentence itself, large, when no voice is heard and where
+ *                the sentence carries a safety limit; a severity bar and icon, never truncated
  *   video        object-fit contain, mirrored, the skeleton and the framing guide on top (forced LTR)
  *   value card   the part's panel (setup, calibrate, HUD, saved, retry, rest), over the video bottom
  *   STOP         72 px, red, always visible; first in the focus order (principle 6)
@@ -18,23 +20,17 @@ import { SEVERITY_ICON } from "../shared/CaptionBar";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import type { CheckCueId } from "../../../movements/types";
-import { sentenceMayHide, type CueSeverity } from "./cues";
+import { showsSentence, type CueSeverity } from "./cues";
 import "./camera.css";
 
 export interface StageCaption {
   short?: string;
   text: string;
   severity: CueSeverity;
-  /** The cue of the line, and whether its voice is playing now (R3C-16). */
+  /** The cue of the line. */
   cue?: CheckCueId;
-  heard?: boolean;
   /** Changes with every line, so a repeated line is drawn again. */
   n?: number;
-  /**
-   * Only the short form is drawn (S34i and the practice fix: the value card's fix title already
-   * carries the sentence); the sentence stays the caption's name.
-   */
-  shortOnly?: boolean;
 }
 
 export interface CameraStageProps {
@@ -48,10 +44,9 @@ export interface CameraStageProps {
    */
   staff?: ReactNode;
   sound: { blocked: boolean; onUnblock(): void };
-  largeCaptions: { on: boolean; onToggle(): void };
+  /** Large captions: no voice is heard, so the caption is the sentence itself, large (C29). */
+  large: boolean;
   caption: StageCaption | null;
-  /** The person chose voice (not captions only or the screen reader) at the sound check. */
-  voiceMode: boolean;
   onReplay(): void;
   /** The video with its overlays, or null (loading, errors, the phone held sideways). */
   video: ReactNode;
@@ -99,10 +94,7 @@ export function CameraStage(p: CameraStageProps) {
     setToast(t(lang, next ? "assessment.common.soundOn" : "assessment.common.soundOff"));
   };
   const c = p.caption;
-  const large = p.largeCaptions.on;
-  // Fit level 3 may hide the sentence under the short form only while the voice says it (R3C-16).
-  const sentence =
-    c && sentenceMayHide(c, { voiceMode: p.voiceMode, soundOn: ui.sound.on, large }) ? "hide" : "keep";
+  const large = p.large;
   const stageRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
@@ -164,41 +156,32 @@ export function CameraStage(p: CameraStageProps) {
               <span className="check-booth-badge-text">{t(lang, "assessment.guest.boothBadge")}</span>
             </span>
           )}
-          <span className="s34-camera-on" role="img" aria-label={t(lang, "assessment.hud.cameraOn")}>
-            <CheckIcon name="camera" size={24} />
-          </span>
-          {p.sound.blocked && ui.sound.on && (
-            <button type="button" className="s34-pill is-button" onClick={p.sound.onUnblock}>
-              <CheckIcon name="speaker" size={20} />
-              <span>{t(lang, "assessment.hud.tapForSound")}</span>
-            </button>
-          )}
           <button
             type="button"
-            className="check-icon-button s34-tool"
+            className="check-icon-button"
             onClick={toggleSound}
             aria-pressed={ui.sound.on}
             aria-label={t(lang, "assessment.common.sound")}
           >
             <CheckIcon name={ui.sound.on ? "speaker" : "speaker-off"} />
           </button>
-          <button
-            type="button"
-            className="check-icon-button s34-tool"
-            onClick={p.largeCaptions.onToggle}
-            aria-pressed={large}
-            aria-label={t(lang, "assessment.hud.largeCaptions")}
-          >
-            <CheckIcon name="captions" />
-          </button>
         </div>
-        {/* Offline: a pill on its own row under the title, so the title row keeps to one line. */}
-        {!ui.online && (
+        {/* The tap for sound and offline pills: a row of their own under the title, so the title row
+            keeps to one line at 375 px in Arabic. */}
+        {((p.sound.blocked && ui.sound.on) || !ui.online) && (
           <p className="s34-top-note">
-            <span className="s34-pill is-offline" role="status">
-              <CheckIcon name="wifi-off" size={20} />
-              <span>{t(lang, "assessment.state.offline.pill")}</span>
-            </span>
+            {p.sound.blocked && ui.sound.on && (
+              <button type="button" className="s34-pill is-button" onClick={p.sound.onUnblock}>
+                <CheckIcon name="speaker" size={20} />
+                <span>{t(lang, "assessment.hud.tapForSound")}</span>
+              </button>
+            )}
+            {!ui.online && (
+              <span className="s34-pill is-offline" role="status">
+                <CheckIcon name="wifi-off" size={20} />
+                <span>{t(lang, "assessment.state.offline.pill")}</span>
+              </span>
+            )}
           </p>
         )}
       </header>
@@ -216,27 +199,23 @@ export function CameraStage(p: CameraStageProps) {
             type="button"
             key={c.n}
             className={`s34-caption is-${c.severity}`}
-            data-sentence={sentence}
             onClick={p.onReplay}
             aria-label={`${c.text} ${t(lang, "assessment.hud.replay")}`}
           >
             <span className="s34-caption-lines" aria-hidden="true">
-              {c.short ? (
-                <>
-                  <span className="s34-caption-short">
-                    <span className="s34-caption-icon">
-                      <CheckIcon name={SEVERITY_ICON[c.severity]} size={36} />
-                    </span>
-                    {bidiText(lang, c.short)}
-                  </span>
-                  {!c.shortOnly && <span className="s34-caption-text">{bidiText(lang, c.text)}</span>}
-                </>
-              ) : (
+              {showsSentence(c, large) ? (
                 <span className="s34-caption-text">
                   <span className="s34-caption-icon">
                     <CheckIcon name={SEVERITY_ICON[c.severity]} size={30} />
                   </span>
                   {bidiText(lang, c.text)}
+                </span>
+              ) : (
+                <span className="s34-caption-short">
+                  <span className="s34-caption-icon">
+                    <CheckIcon name={SEVERITY_ICON[c.severity]} size={36} />
+                  </span>
+                  {bidiText(lang, c.short!)}
                 </span>
               )}
             </span>

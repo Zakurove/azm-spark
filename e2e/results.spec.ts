@@ -178,7 +178,8 @@ for (const lang of LANGS) {
       const s50 = page.locator('[data-screen="S50"]');
       await expect(s50).toBeVisible();
       await expect(page.locator("h1")).toHaveText(a.guest.resultsTitle);
-      await expect(page.locator(".pg-lead")).toHaveText(a.guest.notSaved);
+      // C31: no booth "not saved" line under the title.
+      await expect(page.locator(".pg-lead")).toHaveCount(0);
       await expect(page.locator(".check-topbar .check-booth-badge")).toBeVisible();
       // One card per test tried, in run order; the skipped test under "Not today".
       await expect(page.locator(".rs-card .rs-test")).toHaveText([
@@ -188,24 +189,25 @@ for (const lang of LANGS) {
       await expect(page.locator('.rs-row[data-status="notMeasured"] .rs-not')).toHaveText(
         DATA.progress.labels.notMeasured[lang],
       );
-      await expect(page.locator('.rs-skips[data-group="notToday"] .rs-skip-name')).toHaveText(
+      // C32: one muted line names the skipped test, then its reason once.
+      await expect(page.locator("[data-skipped] p").first()).toContainText(
         testName("trunk_control_seated", lang),
       );
+      await expect(page.locator(".rs-skips")).toHaveCount(0);
       await expect(page.locator(".rs-card").first()).toContainText(
         lang === "ar" ? "١٢١ درجة" : "121 degrees",
       );
       // No comparison and no verdict for a guest.
       await expect(page.locator(".pg-pill")).toHaveCount(0);
       // The register block: the QR opens the public sign up, never this visit.
-      await expect(page.locator(".rs-keep h2")).toHaveText(a.guest.keepTitle);
-      await expect(page.locator(".rs-keep")).toContainText(a.guest.keepBodySoon);
+      await expect(page.locator(".rs-keep h2")).toHaveText(a.guest.register);
       const origin = new URL(page.url()).origin;
       expect(await readQr(page, "svg[data-qr]")).toEqual([`${origin}/?app=1&register=1`]);
       await expect(page.locator("svg[data-qr]")).toHaveAttribute("aria-label", a.guest.qrAlt);
-      // The footer, in order, at 16 px or more.
+      // The footer at the booth (C33): the see your doctor line and not medical, at 16 px or more.
       const footer = page.locator(".check-results-footer p");
-      await expect(footer).toHaveCount(3);
-      await expect(footer.nth(2)).toHaveText(DATA.boundary.notMedical[lang]);
+      await expect(footer).toHaveCount(2);
+      await expect(footer.nth(1)).toHaveText(DATA.boundary.notMedical[lang]);
       for (const size of await footer.evaluateAll((els) =>
         els.map((e) => parseFloat(getComputedStyle(e).fontSize)),
       ))
@@ -223,16 +225,6 @@ for (const lang of LANGS) {
         .click();
       await reloaded;
       await expect(s50).toHaveCount(0);
-      // Create a free account opens the account page on this phone, replacing the visit.
-      await openSnapshot(
-        page,
-        lang,
-        resultsSnapshot({ mode: "guest", booth: true, homeOpen: false, items: SEATED, outcomes: GUEST }),
-        true,
-      );
-      await page.locator(".rs-keep").getByRole("button", { name: a.guest.register }).click();
-      await expect(page).toHaveURL(/app=1&register=1/);
-      await expect(page.locator(".azm-check")).toHaveCount(0);
       expect(errors).toEqual([]);
     });
 
@@ -357,10 +349,10 @@ for (const lang of LANGS) {
       await expect(page.locator("h1")).toHaveText(a.results.nowTitle);
       const raiseRight = page.locator('.rs-card[data-test="shoulder_abduction"] .rs-row[data-side="right"]');
       await expect(raiseRight.locator(".pg-pill")).toHaveText(DATA.progress.verdicts.higher[lang]);
-      await expect(raiseRight.locator(".pg-change")).toContainText(
-        lang === "ar" ? "زيادة ٢٢ درجة عن البداية" : "22 degrees above your start",
-      );
-      await expect(raiseRight.locator('.pg-line svg[role="img"]')).toHaveAttribute("aria-label", /.+/);
+      // C42: start and now in one line, no change line and no range bar; how to read, once above.
+      await expect(raiseRight.locator(".pg-startnow")).toContainText(DATA.progress.labels.start[lang]);
+      await expect(raiseRight.locator(".pg-change, .pg-line")).toHaveCount(0);
+      await expect(page.locator("[data-how-to-read]")).toHaveCount(1);
       const raiseLeft = page.locator('.rs-card[data-test="shoulder_abduction"] .rs-row[data-side="left"]');
       await expect(raiseLeft.locator(".pg-pill")).toHaveText(DATA.progress.verdicts.same[lang]);
       const curlLeft = page.locator('.rs-card[data-test="arm_curl_30s"] .rs-row[data-side="left"]');
@@ -422,6 +414,9 @@ for (const lang of LANGS) {
       const cards = page.locator(".pg-series");
       await expect(cards).toHaveCount(6);
       await expect(cards.last().locator(".pg-chip")).toHaveText(DATA.progress.labels.boothPoint[lang]);
+      // C42: one How to read note above the cards, with the band sentence once.
+      await expect(page.locator("[data-how-to-read]")).toHaveCount(1);
+      await expect(page.locator(".pg-band-note")).toHaveCount(0);
       // Trends from the third check only: the arm raise right with its booth point.
       await expect(page.locator(".pg-trend")).toHaveCount(1);
       await expect(page.locator(".pg-trend > svg .pg-mark-booth")).toHaveCount(1);
@@ -591,12 +586,12 @@ for (const lang of LANGS) {
       const banner = page.getByRole("region", { name: p.example.tag });
       await expect(banner).toContainText(p.example.banner);
       await expect(page.locator("h1")).toHaveText(p.example.title);
+      // C37: one labelled card, start and now with the verdict in words, then the sign up QR.
       const cards = page.locator(".pg-series");
-      const n = await cards.count();
-      expect(n).toBeGreaterThanOrEqual(5);
-      for (let i = 0; i < n; i++)
-        await expect(cards.nth(i).locator(".pg-chip").last()).toHaveText(p.example.tag);
-      await expect(page.locator(".pg-pill")).toContainText([DATA.progress.verdicts.higher[lang]]);
+      await expect(cards).toHaveCount(1);
+      await expect(cards.locator(".pg-chip").last()).toHaveText(p.example.tag);
+      await expect(page.locator(".pg-pill")).toHaveText(DATA.progress.verdicts.higher[lang]);
+      await expect(page.locator("svg[data-qr]")).toBeVisible();
       // Closed home checks, no booth: Create a free account leads, and the check is not offered.
       await expect(page.locator(".check-footer .cta")).toHaveText(p.example.register);
       await expect(page.getByRole("button", { name: p.example.tryCheck })).toHaveCount(0);

@@ -1,16 +1,17 @@
 /**
  * S53, the nav page نتائجي · My results (UX spec S53; the name avoids "progress", O7):
  *   - the next check (S01 compact, with the H9 early start, the side lean repeat and the repeat offer);
- *   - per series then and now (GET /api/progress), trends only from the third check, the booth series
- *     after the home series, older lines of comparison collapsed; the Q26 heavier weight offer;
- *   - the sessions block (consistency and adherence), and every check, whose row opens the S52 view of
- *     that check, read only;
+ *   - one "How to read this" note, then per series start and now (GET /api/progress), trends only from
+ *     the third check, the booth series after the home series, older lines of comparison collapsed;
+ *     the Q26 heavier weight offer (C42);
+ *   - the sessions block (consistency and adherence) with the workout history under it (C44), and
+ *     every check, whose row opens the S52 view of that check, read only;
  *   - its own footer: the results footer, the boundary line and the not medical line, at 16 px.
  * States: L skeleton cards; E no completed check (the CTA follows S01, hidden when blocked); Er the
  * progress failed, the next check card still renders from the context; Off the last loaded copy with
  * its date, or the offline empty state; Cam not applicable.
  */
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import { t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
@@ -31,7 +32,7 @@ import { dayLabel } from "./format";
 import { seriesContextOf, storedResultsOf, viewsAsOf } from "./local";
 import { seriesCards, type SeriesViewLike } from "./series";
 import { CheckHistoryList, SessionsBlock, historyRows, sessionsOf } from "./Sessions";
-import { SeriesCard, type HeavierOfferState } from "./ThenNow";
+import { HowToRead, SeriesCard, type HeavierOfferState } from "./ThenNow";
 import "./progress.css";
 
 export interface ResultsPageProps {
@@ -42,6 +43,8 @@ export interface ResultsPageProps {
   onOpenProgram(): void;
   /** The signed in account (its user id): keeps the last loaded copy for offline use (0.7). */
   owner?: string;
+  /** The workout history of the portal, under the sessions block (C44). */
+  workouts?: ReactNode;
 }
 
 /** The results footer of S53: resultsFooter, the boundary line and notMedical, at 16 px. */
@@ -119,7 +122,7 @@ function CheckDetail({
   const titleId = useId();
   useEffect(() => headingRef.current?.focus(), []);
   const person = context?.ctx ?? null;
-  const model = storedCheckModel(check, person?.position === "wheelchair");
+  const model = storedCheckModel(check);
   let views: Map<string, SeriesViewLike> | undefined;
   if (person) {
     const results = storedResultsOf(checks, person.position, context?.setup);
@@ -141,19 +144,16 @@ function CheckDetail({
             ? CHECK_DATA.progress.labels.boothPoint[lang]
             : t(lang, "progress.trend.home")}
         </span>{" "}
-        <span className="pg-meta-part">
-          {t(
-            lang,
-            check.status === "completed" ? "progress.history.completed" : "progress.history.endedEarly",
-          )}
-        </span>
+        {check.status !== "completed" && (
+          <span className="pg-meta-part">{t(lang, "progress.history.endedEarly")}</span>
+        )}
       </p>
       <ResultCards model={model} views={views} level={3} />
     </section>
   );
 }
 
-export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }: ResultsPageProps) {
+export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner, workouts }: ResultsPageProps) {
   const { tokenEnded } = useBoothMode();
   const { data, reload, online } = useCheckData(owner);
   const [now] = useState(() => Date.now());
@@ -254,18 +254,21 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }:
     );
   } else {
     checksBody = (
-      <ul className="pg-cards">
-        {cards.map((c) => (
-          <li key={c.key}>
-            <SeriesCard
-              view={c.view}
-              earlier={c.earlier}
-              boothPoints={c.boothPoints}
-              heavierOffer={heavier(c.view)}
-            />
-          </li>
-        ))}
-      </ul>
+      <>
+        <HowToRead />
+        <ul className="pg-cards">
+          {cards.map((c) => (
+            <li key={c.key}>
+              <SeriesCard
+                view={c.view}
+                earlier={c.earlier}
+                boothPoints={c.boothPoints}
+                heavierOffer={heavier(c.view)}
+              />
+            </li>
+          ))}
+        </ul>
+      </>
     );
   }
 
@@ -315,6 +318,7 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }:
             ) : progress ? (
               <SessionsBlock data={sessionsOf(progress)} onOpenProgram={onOpenProgram} />
             ) : null}
+            {workouts}
           </section>
           {history.length > 0 && (
             <section className="pg-section" aria-labelledby={historyId} data-block="history">

@@ -1,18 +1,19 @@
 /**
  * After the pre-check, before the camera:
  *   S25  Before you start: the warnings for the whole check (warn and info cards, read at home)
- *   S27  Your tests today: the frozen protocol, its duration and every skip with its reason (P6)
+ *   S27  Your tests today: the frozen protocol, its duration and every skip with its reason (P6, C32)
  *   S26  Helper briefing (home, Q11, O34-2): read aloud sentence by sentence, the P4 picture
  */
 import { localizeDigits, t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import { CHECK_DATA, screenText, testDef } from "../../../movements/assessments";
-import type { ScreenId, Side, TestId } from "../../../movements/types";
+import type { ScreenId, Side } from "../../../movements/types";
 import { testCounter } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
+import { SkippedTests } from "../shared/SkippedTests";
 import {
   alignedSentences,
   checkWarnings,
@@ -172,40 +173,9 @@ export function Plan({ model, dispatch }: ScreenProps) {
             ))}
           </ol>
         )}
-        {view && view.notToday.length > 0 && (
-          <SkipGroup title={t(lang, "assessment.plan.notToday")} items={view.notToday} />
-        )}
-        {view && view.notPart.length > 0 && (
-          <SkipGroup title={t(lang, "assessment.plan.notPart")} items={view.notPart} />
-        )}
+        {view && <SkippedTests names={view.skipped.names} reasons={view.skipped.reasons} />}
       </div>
     </CheckShell>
-  );
-}
-
-function SkipGroup({
-  title,
-  items,
-}: {
-  title: string;
-  items: { testId: TestId; name: string; reason: string; boothOffer: boolean }[];
-}) {
-  const { lang } = useCheckUi();
-  return (
-    <section className="flow-section" aria-label={title}>
-      <h2>{title}</h2>
-      <ul className="check-card flow-skip-list">
-        {items.map((s) => (
-          <li key={s.testId}>
-            <p className="flow-strong">{bidiText(lang, s.name)}</p>
-            <p className="check-meta">{bidiText(lang, s.reason)}</p>
-            {s.boothOffer && (
-              <p className="check-meta">{bidiText(lang, CHECK_DATA.reasons.booth_offer[lang])}</p>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 

@@ -1,13 +1,12 @@
 /**
- * The small parts of the camera HUD (UX spec 5.6): rings, attempt dots, the try counter, the lean
- * arrow, the framing guide, the arm marker and the top view diagram. Physical side markers (the arm
- * marker, the lean arrow, the per side dots of the side lean) are LTR boxes placed from the person's
- * own side in the mirrored picture, so RTL never flips them (4.2).
+ * The small parts of the camera HUD (UX spec 5.6): rings, attempt dots, the lean arrow, the framing
+ * guide and the top view diagram. Physical side markers (the lean arrow, the per side dots of the
+ * side lean) are LTR boxes placed from the person's own side in the mirrored picture, so RTL never
+ * flips them (4.2).
  */
 import type { ReactNode } from "react";
 import type { Lang } from "../../../app/i18n";
 import { t } from "../../../i18n";
-import { bidiText } from "../../../i18n/rich";
 import CheckIcon from "../shared/CheckIcon";
 import { DOT_KEY, type AttemptDot } from "./view";
 
@@ -79,17 +78,6 @@ export function Dots({ dots, lang, physical }: { dots: AttemptDot[]; lang: Lang;
           {d === "retry" && <CheckIcon name="refresh" size={14} />}
         </span>
       ))}
-    </span>
-  );
-}
-
-/** "2 of 3" at 56 px, readable from 2 m (P3, hud.tryShort). */
-export function TryCounter({ n, total, lang }: { n: number; total: number; lang: Lang }) {
-  return (
-    // A span takes no aria-label (no role): the full words are read, the short form is shown.
-    <span className="s34-try">
-      <span aria-hidden="true">{bidiText(lang, t(lang, "assessment.hud.tryShort", { n, total }))}</span>
-      <span className="check-visually-hidden">{t(lang, "assessment.common.tryOf", { n, total })}</span>
     </span>
   );
 }
@@ -168,20 +156,6 @@ export function FramingGuide({
         </g>
       )}
     </svg>
-  );
-}
-
-/* ------------------------------------------------------------ arm marker (S34g1) */
-
-/** "◀━━ Your right arm" on the arm's own side of the mirrored picture. */
-export function ArmMarker({ side, label }: { side: "left" | "right"; label: string }) {
-  return (
-    <span className={`s34-arm-marker is-${side}`} dir="ltr">
-      <span className="s34-arm-marker-bar" aria-hidden="true" />
-      <span className="s34-arm-marker-text" dir="auto">
-        {label}
-      </span>
-    </span>
   );
 }
 

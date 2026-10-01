@@ -4,15 +4,15 @@
  *   - one card per test that was tried (a side measured, or tried and not measured), with a row per
  *     side in run order: the value with its unit in words, or "Not measured today" with its reason
  *     (a side skipped by the protocol or during the check is named in its card);
- *   - every test that did not run at all, in the two S27 groups "Not today" and "Not part of your
- *     check", with its reason in plain words (and the substitute sentence when it ran, P6);
+ *   - every test that did not run at all, named in one line with each distinct reason once in plain
+ *     words (and the substitute sentence when it ran, P6, C32);
  *   - whether the check ended early (tests left that never ran) and whether anything was measured.
  * Report per test and side only: never an overall line (S50 to S52 shared rules).
  */
 import type { ProtocolItem } from "../../../medical/assessment";
 import type { TestSide } from "../../../medical/precheck";
 import type { TestId } from "../../../movements/types";
-import { reasonGroup, type SentenceDetail } from "../../progress/format";
+import type { SentenceDetail } from "../../progress/format";
 import type { StoredCheck } from "../api";
 import { outcomeKey, type FlowModel, type ResultPayload, type SideOutcome } from "../flowMachine";
 
@@ -35,8 +35,6 @@ export interface ResultRow {
   reason?: string;
   detail?: SentenceDetail;
   variant?: string | null;
-  /** Q13: a wheelchair arm raise not measured by quality pairs the reason with tips.wheelchair. */
-  wheelchairTip?: boolean;
 }
 
 export interface ResultCardModel {
@@ -54,8 +52,8 @@ export interface ResultsModel {
   /** Tests were left that never ran (a signed in check stopped before its end). */
   endedEarly: boolean;
   cards: ResultCardModel[];
-  notToday: SkipEntry[];
-  notPart: SkipEntry[];
+  /** The tests that did not run at all (C32: one line, then each distinct reason once). */
+  skipped: SkipEntry[];
   /** At least one side has a value (else the lead is results.noneMeasured). */
   anyMeasured: boolean;
   /** The test sides measured (S52 matches them with the saved series). */
@@ -69,20 +67,13 @@ export type SideFact =
   | { kind: "skipped"; reason: string }
   | { kind: "notReached" };
 
-type SideState =
-  | { kind: "row"; row: ResultRow }
-  | { kind: "skip"; reason: string; dayLevel: boolean; substituteRan?: boolean };
+type SideState = { kind: "row"; row: ResultRow } | { kind: "skip"; reason: string; substituteRan?: boolean };
 
-/**
- * The core of both builders: protocol items in order, what happened to each side, and whether a
- * skipped item was an intake level exclusion (null: unknown, the reason id decides).
- */
+/** The core of both builders: protocol items in order and what happened to each side. */
 export function buildResults(o: {
   mode: ResultsMode;
   items: readonly ProtocolItem[];
   fact(item: ProtocolItem): SideFact;
-  intakeExcluded(item: ProtocolItem): boolean | null;
-  wheelchair: boolean;
 }): ResultsModel {
   const items = [...o.items].sort((a, b) => a.order - b.order);
   const states = new Map<string, SideState>();
@@ -90,13 +81,9 @@ export function buildResults(o: {
   for (const item of items) {
     const key = outcomeKey(item.testId, item.side);
     if (item.skipped) {
-      const excluded = o.intakeExcluded(item);
       states.set(key, {
         kind: "skip",
         reason: item.skipped,
-        // SPEC-GAP: plan-group-trigger. Without the base selection (a resumed or stored check) the
-        // reason id alone decides the group.
-        dayLevel: excluded === null ? reasonGroup(item.skipped) === "notToday" : !excluded,
         ...(item.substituteRan ? { substituteRan: true } : {}),
       });
       continue;
@@ -120,37 +107,22 @@ export function buildResults(o: {
         break;
       }
       case "notMeasured":
-        states.set(key, {
-          kind: "row",
-          row: {
-            side: item.side,
-            status: "notMeasured",
-            reason: f.reason,
-            ...(o.wheelchair && item.testId === "shoulder_abduction" && f.reason === "quality"
-              ? { wheelchairTip: true }
-              : {}),
-          },
-        });
+        states.set(key, { kind: "row", row: { side: item.side, status: "notMeasured", reason: f.reason } });
         break;
       case "skipped":
-        states.set(key, { kind: "skip", reason: f.reason, dayLevel: true });
+        states.set(key, { kind: "skip", reason: f.reason });
         break;
       case "notReached":
         // The guest chose "See my results now" (S46b, by_choice), or a signed in check ended before
         // this test (assessment.results.notReached).
         notReached = true;
-        states.set(key, {
-          kind: "skip",
-          reason: o.mode === "guest" ? "by_choice" : NOT_REACHED,
-          dayLevel: true,
-        });
+        states.set(key, { kind: "skip", reason: o.mode === "guest" ? "by_choice" : NOT_REACHED });
         break;
     }
   }
 
   const cards: ResultCardModel[] = [];
-  const notToday: SkipEntry[] = [];
-  const notPart: SkipEntry[] = [];
+  const skipped: SkipEntry[] = [];
   const tests: TestId[] = [];
   for (const item of items) if (!tests.includes(item.testId)) tests.push(item.testId);
   for (const testId of tests) {
@@ -166,21 +138,13 @@ export function buildResults(o: {
       });
       continue;
     }
-    const skips = sides.map(({ item, state }) => {
-      const k = state as Extract<SideState, { kind: "skip" }>;
-      return { side: item.side, reason: k.reason, dayLevel: k.dayLevel, substituteRan: k.substituteRan };
-    });
-    const entry: SkipEntry = {
+    skipped.push({
       testId,
-      sides: skips.map(({ side, reason, substituteRan }) => ({
-        side,
-        reason,
-        ...(substituteRan ? { substituteRan } : {}),
-      })),
-    };
-    // A test is "Not part of your check" only when every side is an intake level exclusion.
-    const part = skips.every((s) => reasonGroup(s.reason, s.dayLevel) === "notPart");
-    (part ? notPart : notToday).push(entry);
+      sides: sides.map(({ item, state }) => {
+        const k = state as Extract<SideState, { kind: "skip" }>;
+        return { side: item.side, reason: k.reason, ...(k.substituteRan ? { substituteRan: true } : {}) };
+      }),
+    });
   }
 
   const measured = cards.flatMap((c) =>
@@ -190,8 +154,7 @@ export function buildResults(o: {
     mode: o.mode,
     endedEarly: o.mode !== "guest" && notReached,
     cards,
-    notToday,
-    notPart,
+    skipped,
     anyMeasured: measured.length > 0,
     measured,
   };
@@ -210,21 +173,11 @@ export function resultsMode(m: FlowModel): ResultsMode {
   return m.data.checkKind === "retest" ? "retest" : "first";
 }
 
-/** The position of the person today (the signed in context, or the guest's answer). */
-function positionOf(m: FlowModel): string | undefined {
-  return m.data.env?.ctx.position ?? m.data.signedIn?.ctx?.position ?? m.data.guest.position;
-}
-
 export function resultsModel(m: FlowModel): ResultsModel {
   const d = m.data;
   return buildResults({
     mode: resultsMode(m),
     items: d.protocol,
-    wheelchair: positionOf(m) === "wheelchair",
-    intakeExcluded: (item) =>
-      d.base.length === 0
-        ? null
-        : d.base.some((b) => b.testId === item.testId && b.side === item.side && b.excluded !== undefined),
     fact: (item) => {
       const o = d.outcomes[outcomeKey(item.testId, item.side)];
       const p = payloadOf(o);
@@ -251,13 +204,11 @@ export function resultsModel(m: FlowModel): ResultsModel {
  * The results of an earlier check (GET /api/assessments), for its read only view on My results: its
  * frozen protocol, and per side its stored row (a value, quality as "not measured", or a skip).
  */
-export function storedCheckModel(check: StoredCheck, wheelchair: boolean): ResultsModel {
+export function storedCheckModel(check: StoredCheck): ResultsModel {
   const byKey = new Map(check.results.map((r) => [outcomeKey(r.testId, r.side), r]));
   return buildResults({
     mode: check.kind === "retest" ? "retest" : "first",
     items: check.protocol,
-    wheelchair,
-    intakeExcluded: () => null,
     fact: (item) => {
       const r = byKey.get(outcomeKey(item.testId, item.side));
       if (!r)
@@ -271,10 +222,4 @@ export function storedCheckModel(check: StoredCheck, wheelchair: boolean): Resul
       return { kind: "skipped", reason: r.skippedReason };
     },
   });
-}
-
-/** Rows of a skip entry that share one reason are named once, without their sides (S27). */
-export function sharedReason(entry: SkipEntry): string | null {
-  const first = entry.sides[0]?.reason;
-  return first !== undefined && entry.sides.every((s) => s.reason === first) ? first : null;
 }

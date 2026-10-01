@@ -79,41 +79,41 @@
   line-height: var(--lh-body);
 }
 
-/* ------------------------------------------------------------ then and now (S52) */
+/* ------------------------------------------------------------ then and now (S52, S53; C42) */
 
+/* How to read the cards: one note above them, the band sentence once. */
+.azm-check .pg-how {
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  border-inline-start: 4px solid var(--purple);
+  border-radius: var(--r-control);
+  background: var(--purple-tint);
+}
+.azm-check .pg-how-title {
+  font-size: var(--t-body);
+  font-weight: 700;
+}
 .azm-check .pg-thennow {
   display: grid;
   gap: var(--s3);
 }
-.azm-check .pg-values {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s3);
+/* Start and now in one line, each with its label. */
+.azm-check .pg-startnow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
   margin: 0;
 }
-.azm-check .pg-values.is-single {
-  grid-template-columns: 1fr;
+.azm-check .pg-startnow-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s2);
 }
-.azm-check .pg-value {
-  display: grid;
-  gap: var(--s1);
-  align-content: start;
-  padding: var(--s3);
-  border: 1px solid var(--line);
-  border-radius: var(--r-control);
-  background: var(--page);
-  margin: 0;
-}
-.azm-check .pg-value dt {
+.azm-check .pg-startnow-label {
   font-size: var(--t-meta);
-  line-height: 1.5;
   font-weight: 600;
   color: var(--muted);
-}
-.azm-check .pg-value dd {
-  margin: 0;
-  display: grid;
-  gap: var(--s1);
 }
 .azm-check .pg-number {
   display: inline-flex;
@@ -148,16 +148,6 @@
   color: var(--muted);
   font-weight: 500;
 }
-.azm-check .pg-change {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-  font-size: var(--t-body);
-  line-height: 1.6;
-}
-.azm-check .pg-change-label {
-  font-weight: 700;
-}
 .azm-check .pg-pill {
   display: inline-flex;
   align-items: center;
@@ -181,29 +171,14 @@
   font-size: var(--t-body);
   line-height: var(--lh-body);
 }
-.azm-check .pg-band-note {
-  font-size: var(--t-meta);
-  line-height: 1.6;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-/* The number line (S52): 343 x 72, the band hatched so it reads without colour, a hollow circle for
-   the start and a filled diamond for now. Forced LTR geometry; the component mirrors it in Arabic. */
-.azm-check .pg-line {
-  display: grid;
-  gap: var(--s2);
-}
-.azm-check .pg-line > svg,
+/* The trend (S53): the band hatched so it reads without colour. Forced LTR geometry; the component
+   mirrors it in Arabic. */
 .azm-check .pg-trend > svg {
   display: block;
   width: 100%;
-  max-width: 343px;
+  max-width: 440px;
   height: auto;
   overflow: visible;
-}
-.azm-check .pg-trend > svg {
-  max-width: 440px;
 }
 .azm-check .pg-axis {
   stroke: var(--field-border);
@@ -221,11 +196,6 @@
 .azm-check .pg-hatch-line {
   stroke: var(--purple-border);
   stroke-width: 2;
-}
-.azm-check .pg-mark-start {
-  fill: var(--card);
-  stroke: var(--ink);
-  stroke-width: 2.5;
 }
 .azm-check .pg-mark-now {
   fill: var(--ink);
@@ -248,19 +218,6 @@
 .azm-check .pg-svg-text.is-muted {
   fill: var(--muted);
   font-weight: 600;
-}
-.azm-check .pg-legend {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s2);
-  font-size: var(--t-meta);
-  line-height: 1.6;
-  color: var(--muted);
-  font-weight: 500;
-}
-.azm-check .pg-legend svg {
-  flex: none;
-  margin-top: 4px;
 }
 
 /* ------------------------------------------------------------ trend (S53) */

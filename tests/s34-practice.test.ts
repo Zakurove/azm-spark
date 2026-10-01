@@ -42,24 +42,4 @@ describe("S34e: a practice that keeps failing", () => {
     expect(measureAt).not.toBeNull();
     expect(run.kinds).toContain("cam.measure");
   });
-
-  it("Try now on the last fix goes on at once", () => {
-    const start = leftArm();
-    let pressed = false;
-    const run = runFixture(start, "abd-9x16", 150, {
-      fast: false,
-      after: (ctrl, _m, t) => {
-        const pf = ctrl.snapshot(t).practiceFix;
-        if (pf?.last && !pressed) {
-          pressed = true;
-          const out = ctrl.practiceFixNow(t);
-          expect(ctrl.snapshot(t).practiceFix).toBeNull();
-          void out;
-        }
-      },
-      stopWhen: (m) => pressed && m.state.kind === "cam.measure",
-    });
-    expect(pressed).toBe(true);
-    expect(run.model.state.kind).toBe("cam.measure");
-  });
 });

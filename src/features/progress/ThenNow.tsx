@@ -3,9 +3,10 @@
  *   ValueNumber   a value with its unit in words, read together ("120 degrees"); censored side lean
  *                 values as "more than {value}"
  *   VerdictPill   higher, about the same or lower, in words with a decorative icon (never colour)
- *   NumberLine    start and now on a line with the shaded "about the same" band (343 x 72)
  *   TrendChart    the person's own checks from the third one, with a real table as its alternative
- *   ThenNow       start, now, change, verdict, number line and the lines of compareSeries' output
+ *   HowToRead     the one note above the cards: the band sentence, once (C42)
+ *   ThenNow       start and now in one line, the verdict and the lines of compareSeries' output; one
+ *                 value for a series of one check (C42)
  *   SeriesCard    one series on My results and the example, with its trend and earlier lines
  * Report per test and side only; no comparison with other people, no ranges, no percentages.
  */
@@ -17,15 +18,8 @@ import { CHECK_DATA, testDef } from "../../movements/assessments";
 import type { UnitFormId, Verdict } from "../../movements/types";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { useCheckUi } from "../assessment/shared/CheckUi";
-import { bandSentence, changeText, dayLabel, moreThan, resultUnitOf, sideLabel, valueParts } from "./format";
-import {
-  fraction,
-  numberLineRange,
-  trendRange,
-  type LoadStepView,
-  type SeriesPoint,
-  type SeriesViewLike,
-} from "./series";
+import { dayLabel, moreThan, resultUnitOf, sideLabel, valueParts } from "./format";
+import { fraction, trendRange, type LoadStepView, type SeriesPoint, type SeriesViewLike } from "./series";
 
 /** Date options of a page: the example shows the year of its fixed dates (S54). */
 export interface DateStyle {
@@ -83,11 +77,7 @@ export function VerdictPill({ verdict }: { verdict: Verdict }) {
   );
 }
 
-/* ------------------------------------------------------------ number line */
-
-const LINE_W = 343;
-const LINE_H = 72;
-const PAD = 16;
+/* ------------------------------------------------------------ chart marks */
 
 /** The hatch of the "about the same" band, so it reads without colour. */
 function Hatch({ id }: { id: string }) {
@@ -100,91 +90,6 @@ function Hatch({ id }: { id: string }) {
 
 function Diamond({ x, y, r, className }: { x: number; y: number; r: number; className: string }) {
   return <path className={className} d={`M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`} />;
-}
-
-/**
- * NumberLine (S52): increases toward the inline end, so in Arabic higher values sit to the left (O23).
- * role img, with the numberLine.label text alternative; the band legend is visible under it.
- */
-export function NumberLine({
-  start,
-  now,
-  band,
-  unit,
-}: {
-  start: number;
-  now: number;
-  band: number;
-  unit: UnitFormId;
-}) {
-  const { lang } = useCheckUi();
-  const hatchId = useId();
-  const { lo, hi } = numberLineRange(start, now, band, unit);
-  const rtl = lang === "ar";
-  const x = (v: number) => {
-    const f = fraction(v, lo, hi);
-    return PAD + (rtl ? 1 - f : f) * (LINE_W - 2 * PAD);
-  };
-  const y = 26;
-  const bandFrom = x(Math.max(lo, start - band));
-  const bandTo = x(Math.min(hi, start + band));
-  const xs = x(start);
-  const xn = x(now);
-  // Values printed under both markers, moved apart when the markers are close.
-  let sx = xs;
-  let nx = xn;
-  if (Math.abs(xn - xs) < 44) {
-    const mid = (xs + xn) / 2;
-    const dir = xn > xs || (xn === xs && !rtl) ? 1 : -1;
-    sx = mid - 22 * dir;
-    nx = mid + 22 * dir;
-  }
-  const label = t(lang, "progress.numberLine.label", { start, now, unit });
-  return (
-    <div className="pg-line">
-      <svg viewBox={`0 0 ${LINE_W} ${LINE_H}`} role="img" aria-label={label} direction="ltr">
-        <defs>
-          <Hatch id={`${hatchId}h`} />
-        </defs>
-        <line className="pg-axis" x1={PAD} y1={y} x2={LINE_W - PAD} y2={y} />
-        <rect
-          className="pg-band"
-          x={Math.min(bandFrom, bandTo)}
-          y={y - 12}
-          width={Math.abs(bandTo - bandFrom)}
-          height={24}
-          rx={4}
-        />
-        <rect
-          x={Math.min(bandFrom, bandTo)}
-          y={y - 12}
-          width={Math.abs(bandTo - bandFrom)}
-          height={24}
-          rx={4}
-          fill={`url(#${hatchId}h)`}
-          className="pg-hatch"
-        />
-        <circle className="pg-mark-start" cx={xs} cy={y} r={8} />
-        <Diamond className="pg-mark-now" x={xn} y={y} r={9} />
-        <text className="pg-svg-text is-muted" x={sx} y={y + 36} textAnchor="middle">
-          {formatNumber(lang, start)}
-        </text>
-        <text className="pg-svg-text" x={nx} y={y + 36} textAnchor="middle">
-          {formatNumber(lang, now)}
-        </text>
-      </svg>
-      <p className="pg-legend">
-        <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden="true">
-          <defs>
-            <Hatch id={`${hatchId}l`} />
-          </defs>
-          <rect className="pg-band" x="1" y="1" width="20" height="12" rx="3" />
-          <rect x="1" y="1" width="20" height="12" rx="3" fill={`url(#${hatchId}l)`} className="pg-hatch" />
-        </svg>
-        <span>{t(lang, "progress.numberLine.legendBand")}</span>
-      </p>
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------ trend */
@@ -393,8 +298,8 @@ export function comparisonLines(lang: Lang, v: SeriesViewLike): string[] {
   const out: string[] = [];
   if (v.milestone) return [p.milestone[lang]];
   if (v.notComparable) return [p.notComparable[lang]];
-  if (v.firstResult) return [CHECK_DATA.boundary.firstResult[lang]];
-  if (v.startingPointSet) return [p.startingPointSet[lang]];
+  // C42: a first result, or a series of one check, says its starting point is set.
+  if (v.firstResult || v.startingPointSet || oneCheck(v)) return [p.startingPointSet[lang]];
   if (v.largeDrop) return [p.largeDrop.text[lang]];
   if (v.nearFullRange) return [p.nearFullRange[lang]];
   if (v.noVerdict && v.noVerdict !== "censored") return [p.noVerdict[v.noVerdict][lang]];
@@ -413,59 +318,55 @@ export interface HeavierOfferState {
   onChoose(choice: "heavier" | "same"): void;
 }
 
-export function ThenNow({
-  view,
-  dates,
-  heavierOffer,
-}: {
-  view: SeriesViewLike;
-  dates?: DateStyle;
-  heavierOffer?: HeavierOfferState;
-}) {
+/** A series of one check: its start is today's value (C42 shows one value, never start and now). */
+export function oneCheck(v: SeriesViewLike): boolean {
+  return !!v.baseline && v.baseline.date === v.latest.date;
+}
+
+/**
+ * The one note above the result cards (C42): how to read them, with the band sentence once, in place
+ * of a legend and the same paragraph on every card.
+ */
+export function HowToRead() {
+  const { lang } = useCheckUi();
+  return (
+    <div className="pg-how" data-how-to-read="">
+      <p className="pg-how-title">{t(lang, "progress.howToRead")}</p>
+      <p className="check-body">{bidiText(lang, CHECK_DATA.progress.bandSentence[lang])}</p>
+    </div>
+  );
+}
+
+export function ThenNow({ view, heavierOffer }: { view: SeriesViewLike; heavierOffer?: HeavierOfferState }) {
   const { lang } = useCheckUi();
   const unit = resultUnitOf(view.testId);
   const labels = CHECK_DATA.progress.labels;
-  const dayOpts = { weekday: false, year: dates?.year };
-  const single = onlyNow(view);
+  const one = oneCheck(view);
+  const single = one || onlyNow(view);
   const verdict = view.verdict;
   const lines = comparisonLines(lang, view);
-  const showBand = verdict !== null && !single;
   return (
     <div className="pg-thennow">
-      <dl className={`pg-values${single ? " is-single" : ""}`}>
-        {!single && view.baseline && (
-          <div className="pg-value">
-            <dt>{labels.start[lang]}</dt>
-            <dd>
-              <PointValue point={view.baseline} unit={unit} />
-              <span className="pg-date">{dayLabel(lang, view.baseline.date, dayOpts)}</span>
-            </dd>
-          </div>
-        )}
-        <div className="pg-value">
-          <dt>{labels.now[lang]}</dt>
-          <dd>
-            <PointValue point={view.latest} unit={unit} big={single} />
-            <span className="pg-date">{dayLabel(lang, view.latest.date, dayOpts)}</span>
-          </dd>
-        </div>
-      </dl>
-      {verdict !== null && !single && view.change !== null && (
-        <p className="pg-change">
-          <span className="pg-change-label">{labels.change[lang]}</span>
-          <span>{bidiText(lang, changeText(lang, view.change, unit))}</span>
+      {single || !view.baseline ? (
+        <PointValue point={view.latest} unit={unit} big />
+      ) : (
+        <p className="pg-startnow">
+          <span className="pg-startnow-part">
+            <span className="pg-startnow-label">{labels.start[lang]}</span>
+            <PointValue point={view.baseline} unit={unit} />
+          </span>
+          <span className="pg-startnow-part">
+            <span className="pg-startnow-label">{labels.now[lang]}</span>
+            <PointValue point={view.latest} unit={unit} />
+          </span>
         </p>
       )}
       {verdict !== null && !single && <VerdictPill verdict={verdict} />}
-      {showBand && view.baseline && (
-        <NumberLine start={view.baseline.value} now={view.latest.value} band={view.band} unit={unit} />
-      )}
       {lines.map((line) => (
         <p key={line} className="pg-note">
           {bidiText(lang, line)}
         </p>
       ))}
-      {showBand && <p className="pg-band-note">{bidiText(lang, bandSentence(lang, view.band, unit))}</p>}
       {heavierOffer && view.testId === "arm_curl_30s" && view.loadStep && (
         <HeavierOffer state={heavierOffer} step={view.loadStep.to} />
       )}
@@ -564,7 +465,7 @@ export function SeriesCard({
           )}
         </p>
       )}
-      <ThenNow view={view} dates={dates} heavierOffer={heavierOffer} />
+      <ThenNow view={view} heavierOffer={heavierOffer} />
       {trendPoints && view.baseline && (
         <TrendChart
           points={trendPoints}
@@ -580,7 +481,7 @@ export function SeriesCard({
           {earlier.map((e) => (
             <div key={e.seriesKey} className="pg-earlier-line">
               <h4 className="pg-h4">{t(lang, "progress.series.earlier")}</h4>
-              <ThenNow view={e} dates={dates} />
+              <ThenNow view={e} />
             </div>
           ))}
         </details>

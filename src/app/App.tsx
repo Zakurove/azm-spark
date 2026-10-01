@@ -61,16 +61,14 @@ const registerEntry = qs.get("register") === "1";
 const exampleEntry = CHECK_UI && qs.get("example") === "progress";
 /** The privacy notice (Q32 (1), H5), open to everyone. */
 const privacyEntry = qs.get("privacy") === "1";
-type Page = "today" | "program" | "health" | "history" | "results";
-const PAGES: readonly Page[] = CHECK_UI
-  ? ["today", "program", "results", "health", "history"]
-  : ["today", "program", "health", "history"];
+/** Four tabs (C44): My results carries the checks and, under them, the workout history. */
+type Page = "today" | "program" | "health" | "results";
+const PAGES: readonly Page[] = ["today", "program", "results", "health"];
 const PAGE_ICONS: Record<Page, string> = {
   today: "spark",
   program: "calendar",
   results: "chart",
   health: "health",
-  history: "clock",
 };
 /** A count with its noun in the right Arabic plural form (one and two replace the number). */
 function countOf(
@@ -592,7 +590,7 @@ export default function App() {
                       : pageLabel(page)}
                   </h1>
                 </div>
-                {page !== "history" && page !== "results" && (
+                {page !== "results" && (
                   <button
                     className="ghost"
                     onClick={() => {
@@ -813,20 +811,20 @@ export default function App() {
                   </button>
                 </section>
               )}
-              {page === "history" && (
-                <LazyPart lang={lang}>
-                  <History lang={lang} records={records} onStart={() => setPage("today")} />
-                </LazyPart>
-              )}
               {page === "results" && (
                 <LazyPart lang={lang}>
-                  <ResultsPage
-                    lang={lang}
-                    booth={isBoothMode()}
-                    owner={account.user.id}
-                    onStartCheck={(options) => setCheckOpen(options ?? {})}
-                    onOpenProgram={() => setPage("program")}
-                  />
+                  {CHECK_UI ? (
+                    <ResultsPage
+                      lang={lang}
+                      booth={isBoothMode()}
+                      owner={account.user.id}
+                      onStartCheck={(options) => setCheckOpen(options ?? {})}
+                      onOpenProgram={() => setPage("program")}
+                      workouts={<History lang={lang} records={records} />}
+                    />
+                  ) : (
+                    <History lang={lang} records={records} />
+                  )}
                 </LazyPart>
               )}
               {/* My results carries its own footer (S53) at 16 px; the portal note stays elsewhere. */}

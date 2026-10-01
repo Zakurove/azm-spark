@@ -20,7 +20,7 @@ import { CameraView } from "../CameraScreen";
 import { camTestOf, type CamSnapshot, type SetupView } from "../controller";
 import { captionOf } from "../cues";
 import { useViewport } from "../hooks";
-import { setupChips, type AttemptDot, type ScreenSetupIssue } from "../view";
+import type { AttemptDot, ScreenSetupIssue } from "../view";
 import { camFixtureFrames } from "./fixtures";
 import { PREVIEWS, type Caption, type Preview } from "./previews";
 
@@ -29,7 +29,7 @@ function snapshotOf(p: Preview, state: FlowState): CamSnapshot {
   const issues = (p.snap?.setup?.issues ?? []) as ScreenSetupIssue[];
   const setupView: SetupView = {
     issues,
-    chips: setupChips(issues, null),
+    noTilt: false,
     ok: false,
     hold: 0,
     waitedSec: 5,
@@ -67,16 +67,11 @@ function snapshotOf(p: Preview, state: FlowState): CamSnapshot {
   };
 }
 
-/**
- * The preview's caption. `?e2eHeard=1` draws it as the voice says it (R3C-16: at fit level 3 its
- * sentence may then give way); without it, as when no voice is heard (the sentence always stays).
- */
+/** The preview's caption: a cue with its short form, or a line of copy. */
 function captionText(c: Caption | undefined, lang: Lang) {
   if (!c) return null;
-  const heard =
-    typeof location !== "undefined" && new URLSearchParams(location.search).get("e2eHeard") === "1";
-  if ("cue" in c) return { ...captionOf(c.cue, lang), heard };
-  return { text: t(lang, c.key), severity: c.severity, heard };
+  if ("cue" in c) return captionOf(c.cue, lang);
+  return { text: t(lang, c.key), severity: c.severity };
 }
 
 /** One frame of the preview's fixture script, in the page's shape (at < 0: nobody). */
@@ -150,8 +145,9 @@ export default function CameraPreview({ name, model, dispatch }: ScreenProps & {
     state,
     data: {
       ...model.data,
-      run: { ...model.data.run, retriesUsed: p.retriesUsed ?? 0 },
       helperRequired: p.helper ? [p.test] : [],
+      // Large captions follow the sound (C29): captions only draws them.
+      ...(p.large ? { soundMode: "captionsOnly" as const } : {}),
     },
   };
   const found = camTestOf(m);
@@ -181,7 +177,7 @@ export default function CameraPreview({ name, model, dispatch }: ScreenProps & {
         reduced: false,
       }}
       caption={caption}
-      blocked={false}
+      blocked={!!p.blocked}
       timing={{ tipsAfterSec: 60, skipAfterSec: 90 }}
       tips={tips}
       onTips={setTips}
@@ -194,10 +190,8 @@ export default function CameraPreview({ name, model, dispatch }: ScreenProps & {
         replay: noop,
         unblock: noop,
         skipPractice: noop,
-        practiceFixNow: noop,
         retryModel: noop,
       }}
-      {...(p.large ? { largeCaptions: true } : {})}
     />
   );
 }

@@ -7,20 +7,10 @@
   "checks": {
     "heading": "نتائج قياساتك"
   },
-  "change": {
-    "up": "زيادة {value} {unit} عن البداية",
-    "down": "نقص {value} {unit} عن البداية",
-    "upCount": "زيادة {value} عن البداية",
-    "downCount": "نقص {value} عن البداية",
-    "none": "مثل البداية تمامًا"
-  },
+  "howToRead": "كيف تقرأ هذا",
   "verdictIconHigher": "أعلى",
   "verdictIconSame": "قريب من البداية",
   "verdictIconLower": "أقل",
-  "numberLine": {
-    "label": "من {start} {unit} عند البداية إلى {now} {unit} الآن. المنطقة المظللة تعني «قريب من نقطة بدايتك».",
-    "legendBand": "المنطقة المظللة تعني «قريب من نقطة بدايتك»"
-  },
   "trend": {
     "table": "اعرضها جدولًا",
     "chart": "اعرضها رسمًا بيانيًا",
@@ -51,7 +41,6 @@
   },
   "history": {
     "heading": "كل قياساتك",
-    "completed": "مكتمل",
     "endedEarly": "انتهى مبكرًا"
   },
   "empty": {

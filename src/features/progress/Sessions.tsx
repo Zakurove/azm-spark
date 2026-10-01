@@ -5,7 +5,6 @@
  * week's count, and three tiles: active minutes per week, reps within range "n of every 10" (never a
  * percentage) and the average effort. Tiles are a dl.
  */
-import type { ReactNode } from "react";
 import { t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
 import { CHECK_DATA } from "../../movements/assessments";
@@ -48,17 +47,7 @@ export function inRangeOfTen(validShare: number): number {
   return Math.max(0, Math.min(10, Math.round(validShare * 10)));
 }
 
-export function SessionsBlock({
-  data,
-  year,
-  onOpenProgram,
-  chips,
-}: {
-  data: SessionsData;
-  year?: boolean;
-  onOpenProgram?: () => void;
-  chips?: ReactNode;
-}) {
+export function SessionsBlock({ data, onOpenProgram }: { data: SessionsData; onOpenProgram?: () => void }) {
   const { lang } = useCheckUi();
   if (!hasSessions(data)) {
     return (
@@ -77,7 +66,6 @@ export function SessionsBlock({
   const n = weeks.length;
   return (
     <div className="check-card pg-sessions">
-      {chips && <div className="pg-chips">{chips}</div>}
       {n > 0 && (
         <>
           <p className="check-meta">{bidiText(lang, t(lang, "progress.sessions.weeks", { weeks: n }))}</p>
@@ -92,7 +80,7 @@ export function SessionsBlock({
                   ))}
                   <span className="check-visually-hidden">
                     {t(lang, "progress.sessions.weekLabel", {
-                      date: start === null ? "" : dayLabel(lang, start, { weekday: false, year }),
+                      date: start === null ? "" : dayLabel(lang, start, { weekday: false }),
                       done: w.done,
                       planned: w.planned,
                     })}
@@ -162,7 +150,10 @@ export function historyRows(checks: readonly StoredCheck[]): StoredCheck[] {
     .sort((a, b) => (a.completed ?? a.started) - (b.completed ?? b.started));
 }
 
-/** One row per check: its date, where and how it ended, 56 px; opens the S52 view of that check. */
+/**
+ * One row per check: its date and where, with "Ended early" only when it did (C42), 56 px; opens the
+ * S52 view of that check.
+ */
 export function CheckHistoryList({
   checks,
   onOpen,
@@ -183,12 +174,9 @@ export function CheckHistoryList({
                   ? CHECK_DATA.progress.labels.boothPoint[lang]
                   : t(lang, "progress.trend.home")}
               </span>{" "}
-              <span className="pg-meta-part">
-                {t(
-                  lang,
-                  c.status === "completed" ? "progress.history.completed" : "progress.history.endedEarly",
-                )}
-              </span>
+              {c.status !== "completed" && (
+                <span className="pg-meta-part">{t(lang, "progress.history.endedEarly")}</span>
+              )}
             </span>
             <CheckIcon name="arrow-forward" size={20} />
           </button>

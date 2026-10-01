@@ -72,7 +72,7 @@ describe("S34 view, every preview state in both languages", () => {
     });
   }
 
-  it("the side lean shows no number but the try counter, the arm raise no degrees (O3, O4)", () => {
+  it("the side lean shows no number at all, the arm raise no degrees (O3, O4, C29)", () => {
     expect(SHOW_LIVE_DEGREES).toBe(false);
     for (const name of PREVIEW_NAMES) {
       const p = PREVIEWS[name];
@@ -80,8 +80,7 @@ describe("S34 view, every preview state in both languages", () => {
       if (p.test === "shoulder_abduction") expect(html, name).not.toContain("s34-degrees");
       if (p.test === "trunk_control_seated" && name.startsWith("lean-")) {
         const card = html.slice(html.indexOf(">", html.indexOf("s34-lean-panel")));
-        const digits = text(card).replace(/\d+ of \d+/g, "");
-        expect(digits, name).not.toMatch(/\d/);
+        expect(text(card), name).not.toMatch(/\d/);
       }
     }
   });
@@ -93,30 +92,58 @@ describe("S34 view, every preview state in both languages", () => {
     expect(text(html.slice(html.indexOf(">", html.indexOf("s34-card"))))).not.toMatch(/\d/);
   });
 
-  it("the setup check always shows six chips with a word and a state in their names", () => {
+  it("the setup check shows one line, the first fix or Ready, and no chips (C28)", () => {
     const html = render("setup-close", "en");
-    expect(html.match(/class="s34-chip /g)).toHaveLength(6);
-    expect(html).toContain('aria-label="Distance, Needs adjusting"');
-    expect(html).toContain('aria-label="Phone level, Not available"');
+    expect(html).not.toContain("s34-chip");
+    const card = text(html.slice(html.indexOf("s34-card")));
+    expect(card).toContain("Too close");
+    expect(card).not.toContain("Light");
+    expect(text(render("setup-ready", "en"))).toContain("Ready");
   });
 
-  it("the retry tells the fix, the tries left and the restart, with Try now and Skip", () => {
-    const html = text(render("retry-plane", "en"));
+  it("the retry shows the reason and the countdown; Skip is a text link, no Try now (C30)", () => {
+    const raw = render("retry-plane", "en");
+    const html = text(raw);
     expect(html).toContain("Raise it out to the side");
-    expect(html).toContain("Two more tries");
     expect(html).toContain("Starting in 4 seconds");
-    expect(html).toContain("Try now");
     expect(html).toContain("Skip this test");
+    expect(raw).toContain("check-text-button s34-text-button");
+    for (const gone of ["Try now", "Two more tries", "Let’s try", "Try again"])
+      expect(html).not.toContain(gone);
+    // The card says the fix, so no caption repeats it above.
+    expect(raw).not.toContain("s34-caption");
     const timed = text(render("retry-timed", "en"));
     expect(timed).toContain("We will try again after two minutes of rest.");
   });
 
-  it("captions carry the short form and the full sentence of the check data", () => {
+  it("a caption is one line: the short form with a voice, the sentence when none is heard (C29)", () => {
     const ar = render("setup-close", "ar");
     expect(ar).toContain("s34-caption-short");
+    expect(ar).not.toContain("s34-caption-text");
     expect(text(ar)).toContain("ابتعد قليلًا");
-    const en = text(render("range-hold", "en"));
-    expect(en).toContain("Hold your arm there.");
+    const hold = render("range-hold", "en");
+    expect(text(hold)).toContain("Hold it there");
+    expect(text(hold)).not.toContain("Hold your arm there.");
+    // Captions only (Large captions) and a blocked voice: the sentence, large, without the short form.
+    for (const name of ["timed-large", "setup-sound-blocked"]) {
+      const html = render(name, "en");
+      expect(html, name).toContain("s34-caption-text");
+      expect(html, name).not.toContain("s34-caption-short");
+    }
+    // A sentence that carries a safety limit is always the line on screen.
+    const lean = text(render("lean-left", "en"));
+    expect(lean).toContain("only as far as you are sure you can come back from on your own");
+  });
+
+  it("the top bar holds the counter, the booth badge and Sound; the pills on their own row (C29)", () => {
+    const html = render("setup-sound-blocked", "en");
+    const top = html.slice(html.indexOf("s34-top"), html.indexOf("</header>"));
+    expect(top).not.toContain("Large captions");
+    expect(top).not.toContain("s34-camera-on");
+    expect(top.indexOf("Tap to turn on the sound")).toBeGreaterThan(top.indexOf("s34-top-note"));
+    expect(top.indexOf("s34-top-note")).toBeGreaterThan(top.indexOf("s34-top-tools"));
+    // The side is named once, in the value card: no marker over the picture.
+    expect(render("range-raise", "en")).not.toContain("s34-arm-marker");
   });
 
   it("the helper strip shows for a test that counts on a helper; the booth badge always at the booth", () => {

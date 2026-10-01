@@ -84,14 +84,12 @@ export interface CaptionLine {
   /** The full display sentence (never the vocalised speech text). */
   text: string;
   severity: CueSeverity;
-  /** The line's voice is playing now (CuePlayer started it and it has not ended). */
-  heard?: boolean;
 }
 
 /**
  * Cues whose sentence carries a safety limit its short form lacks (R3C-16 (2) (e)): their sentence is
- * always shown, at every fit level ("Lean left slowly" would lose "only as far as you are sure you
- * can come back from on your own", "Sit one minute" would lose "then get up slowly").
+ * always the line on screen ("Lean left slowly" would lose "only as far as you are sure you can come
+ * back from on your own", "Sit one minute" would lose "then get up slowly").
  */
 export const ALWAYS_SENTENCE: ReadonlySet<CheckCueId> = new Set<CheckCueId>([
   "check_stop_any_time",
@@ -103,17 +101,13 @@ export const ALWAYS_SENTENCE: ReadonlySet<CheckCueId> = new Set<CheckCueId>([
 ]);
 
 /**
- * Fit level 3 of the camera screen (R3C-16): a caption's full sentence may be hidden, leaving its 56 px
- * short form, only while all of these hold: it has a short form; its voice is actually playing (the
- * Sound on, voice mode, and the player started it: not blocked, not failed); it is not a safety caption
- * (safety severity: check_stop_now and the check in cue); Large captions is
- * off; and it is not one of the ALWAYS_SENTENCE cues. When the voice is not heard the caption is the
- * only channel, so "never truncated" (4.3) holds for exactly those people.
+ * One line on screen (C29): the 56 px short form while the voice says the sentence, or the sentence
+ * itself, large, when no voice is heard (Large captions), when the cue has no short form, for a
+ * safety caption, and for the ALWAYS_SENTENCE cues.
  */
-export function sentenceMayHide(c: CaptionLine, o: { voiceMode: boolean; soundOn: boolean; large: boolean }) {
-  if (!c.short || c.heard !== true || !o.soundOn || !o.voiceMode || o.large) return false;
-  if (c.severity === "safety") return false;
-  return !(c.cue && (ALWAYS_SENTENCE.has(c.cue) || SAFETY_CUES.has(c.cue)));
+export function showsSentence(c: CaptionLine, large: boolean): boolean {
+  if (large || !c.short || c.severity === "safety") return true;
+  return !!c.cue && (ALWAYS_SENTENCE.has(c.cue) || SAFETY_CUES.has(c.cue));
 }
 
 export function captionOf(id: CheckCueId, lang: Lang): CaptionLine {

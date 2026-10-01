@@ -2,7 +2,8 @@
  * The staff readout over the arm raise (booth staff settings, council F-1): for the team's real phone
  * sessions, so the team can see why a lift fails. It shows the live upper arm ratio against the plane
  * check rule, whether the frame passes the plane check, the seconds passing against those needed, the
- * quality gate issues and the frame rate of the lift, and the last lift's outcome with its reasons.
+ * quality gate issues and the frame rate of the lift, the last lift's outcome with its reasons, and
+ * the setup checks that fail (the person sees only the first, C28), no_tilt without a tilt reading.
  * Booth mode with the staff toggle only, in the row above the picture; nothing is stored or sent.
  * Engine ids (outcomes, reasons, issues) are shown as they are, in their own left to right runs.
  */
@@ -18,7 +19,7 @@ const PLANE_KEY: Record<"pass" | "fail" | "outside", I18nKey> = {
 };
 
 export function StaffReadoutPanel({ readout, lang }: { readout: StaffReadout; lang: Lang }) {
-  const { live, last } = readout;
+  const { live, last, setup } = readout;
   const num = (n: number) => formatNumber(lang, n);
   const ids = (xs: readonly string[]) =>
     xs.length ? <bdi dir="ltr">{xs.join(", ")}</bdi> : t(lang, "assessment.booth.readout.none");
@@ -34,6 +35,7 @@ export function StaffReadoutPanel({ readout, lang }: { readout: StaffReadout; la
       value: live ? t(lang, "assessment.booth.readout.of", { a: live.okSec, b: live.needSec }) : notYet,
     },
     { key: "assessment.booth.readout.fps", value: live ? num(Math.round(live.fps)) : notYet },
+    { key: "assessment.booth.readout.setup", value: ids(setup), wide: true },
     { key: "assessment.booth.readout.issues", value: live ? ids(live.issues) : notYet, wide: true },
     {
       key: "assessment.booth.readout.last",

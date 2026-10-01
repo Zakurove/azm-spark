@@ -517,20 +517,6 @@
   font-size: var(--t-meta);
   color: var(--muted);
 }
-.azm-check .flow-skip-list {
-  margin: 0;
-  list-style: none;
-  background: var(--page);
-}
-.azm-check .flow-skip-list li {
-  display: grid;
-  gap: var(--s1);
-}
-.azm-check .flow-skip-list li + li {
-  padding-top: var(--s3);
-  border-top: 1px solid var(--line);
-}
-
 /* The chair gate and the same chair question on the card (S28, Q9). */
 .azm-check .flow-gate {
   padding-top: var(--s2);

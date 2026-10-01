@@ -43,7 +43,6 @@ import {
   boothDaysNow,
   samePress,
   sideLabel,
-  skipGroup,
   snapKg,
   splitSentences,
   stepDownChoices,
@@ -59,7 +58,7 @@ import {
 import { statedMinutes, type ProtocolItem } from "../src/medical/assessment";
 import { offerMinutes } from "../src/features/assessment/api";
 import { lockEndsAt } from "../src/medical/precheck";
-import { CHECK_DATA, precheckItem, screenText, testDef } from "../src/movements/assessments";
+import { CHECK_DATA, precheckItem, screenText, skipReasonText, testDef } from "../src/movements/assessments";
 import type { ScreenId, TestId } from "../src/movements/types";
 import { NOW } from "./flow-fixtures";
 import { ctxOf, envOf } from "./precheck-fixtures";
@@ -548,13 +547,6 @@ describe("warnings (S25, S28)", () => {
 });
 
 describe("the plan (S27, P6)", () => {
-  it("groups day level reasons as not today and intake reasons as not part", () => {
-    expect(skipGroup("pain_today")).toBe("notToday");
-    expect(skipGroup("helper_needed")).toBe("notToday");
-    expect(skipGroup("position_seated")).toBe("notPart");
-    expect(skipGroup("restriction_overhead")).toBe("notPart");
-  });
-
   it("explains a variant set by a rule, and shows no chip for default variants", () => {
     const env = envOf();
     const curl = { testId: "arm_curl_30s" as const, side: "left" as const, variant: "arm_only" as const };
@@ -571,7 +563,7 @@ describe("the plan (S27, P6)", () => {
     expect(variantLabel("arm_curl_30s", "arm_only", "en")).toBeTruthy();
   });
 
-  it("lists the tests that run in order, per side, and each skip in its group with its reason", () => {
+  it("lists the tests that run in order, per side, and names the skipped tests once with their reasons (C32)", () => {
     const env = envOf({ position: "standing" });
     const protocol = [
       item({ testId: "shoulder_abduction", side: "right", order: 1 }),
@@ -588,8 +580,15 @@ describe("the plan (S27, P6)", () => {
     expect(v.rows[0].sideLines[0]).toContain(sideLabel("shoulder_abduction", "left", "en"));
     expect(v.rows[1].variant).toBe(variantLabel("arm_curl_30s", "arm_only", "en"));
     expect(v.rows[1].variantWhy).toBe("safety");
-    expect(v.notToday.map((s) => s.testId)).toEqual(["trunk_control_seated"]);
-    expect(v.notPart.map((s) => s.testId)).toEqual(["chair_stand_30s"]);
+    // One list: no "Not part of your check" group (C32).
+    expect(v.skipped.names).toEqual([
+      testDef("trunk_control_seated").name.en,
+      testDef("chair_stand_30s").name.en,
+    ]);
+    expect(v.skipped.reasons).toEqual([
+      skipReasonText("helper_needed", "en"),
+      skipReasonText("restriction_weight_bearing", "en"),
+    ]);
     expect(v.minutes).toEqual(statedMinutes(["shoulder_abduction", "arm_curl_30s"], "home"));
   });
 
@@ -599,16 +598,17 @@ describe("the plan (S27, P6)", () => {
     const boothDay = Date.UTC(2026, 9, 11, 9);
     expect(boothDaysNow(boothDay)).toBe(true);
     expect(riyadhDay(boothDay)).toBe("2026-10-11");
-    expect(planView(skip, env, "en", boothDay).notPart[0].boothOffer).toBe(true);
-    expect(planView(skip, env, "en", NOW).notPart[0].boothOffer).toBe(false);
+    const offer = CHECK_DATA.reasons.booth_offer.en;
+    expect(planView(skip, env, "en", boothDay).skipped.reasons).toContain(offer);
+    expect(planView(skip, env, "en", NOW).skipped.reasons).not.toContain(offer);
     const stand = [item({ testId: "chair_stand_30s", skipped: "clearance" })];
-    expect(planView(stand, env, "en", boothDay).notPart[0].boothOffer).toBe(false);
+    expect(planView(stand, env, "en", boothDay).skipped.reasons).not.toContain(offer);
   });
 
   it("has no rows when every test is skipped (O21)", () => {
     const v = planView([item({ testId: "shoulder_abduction", skipped: "pain_today" })], envOf(), "ar", NOW);
     expect(v.rows).toEqual([]);
-    expect(v.notToday).toHaveLength(1);
+    expect(v.skipped.names).toHaveLength(1);
   });
 });
 

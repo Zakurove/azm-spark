@@ -23,7 +23,6 @@ import { CameraVideo } from "./CameraVideo";
 import { sameWords } from "./cues";
 import {
   IDLE_ENV,
-  triesLeft,
   type CamEnv,
   type CamOutput,
   type CamSnapshot,
@@ -232,7 +231,6 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
           cues.replay();
         },
         skipPractice: () => apply(ctrl.skipPractice(performance.now())),
-        practiceFixNow: () => apply(ctrl.practiceFixNow(performance.now())),
         retryModel: () => cameraSession.restart(),
       }}
       staff={readout ? <StaffReadoutPanel readout={readout} lang={lang} /> : undefined}
@@ -269,11 +267,8 @@ export interface CameraViewProps {
     replay(): void;
     unblock(): void;
     skipPractice(): void;
-    practiceFixNow(): void;
     retryModel(): void;
   };
-  /** The Large captions choice, when the person made one (E2E previews set it). */
-  largeCaptions?: boolean;
   /** The staff readout of the arm raise (booth staff settings, F-1), above the picture. */
   staff?: ReactNode;
 }
@@ -285,7 +280,6 @@ export function CameraView(p: CameraViewProps) {
   const ui = useCheckUi();
   const { lang } = ui;
   const { model, dispatch, snap, test, session, device } = p;
-  const [largeChoice, setLargeChoice] = useState<boolean | null>(p.largeCaptions ?? null);
   // Fitting a short screen (4.2): level 1 the compact sizes and the video strip, level 2 no picture
   // while measuring, resting or on the retry card and the main value first in the card, level 3 the
   // caption's short form without its sentence (camera.css). Levels only go up while the screen is open.
@@ -310,7 +304,9 @@ export function CameraView(p: CameraViewProps) {
   const title = counter ? [t(lang, "assessment.common.testOf", counter), def.name[lang]] : [def.name[lang]];
   const measuring =
     snap.part === "attempt" || snap.part === "hold" || snap.part === "practice" || snap.part === "countdown";
-  const large = largeChoice ?? (!ui.sound.on || (model.data.soundMode ?? "voice") !== "voice");
+  // Large captions (C29): the caption shows its full sentence, large, whenever no voice is heard (the
+  // Sound off, captions only, a screen reader, or the voice blocked); it is never a choice on screen.
+  const large = !ui.sound.on || (model.data.soundMode ?? "voice") !== "voice" || p.blocked;
   const running = session.status === "running";
   const setupPart = s.kind === "cam.setup" || s.kind === "cam.calibrate" || snap.part === "calibrate";
   const item = model.data.tests[test.i]?.sides[test.sideIndex];
@@ -363,6 +359,7 @@ export function CameraView(p: CameraViewProps) {
               test={test}
               lang={lang}
               motion={p.motion}
+              motionOff={!ui.booth && snap.setup.noTilt}
               onTips={() => p.onTips(true)}
               onSkip={() => dispatch({ type: "SKIP" })}
               tipsAfterSec={p.timing.tipsAfterSec}
@@ -408,9 +405,6 @@ export function CameraView(p: CameraViewProps) {
               test={test}
               issue={s.issue}
               exhausted={s.exhausted}
-              // The retry being offered is one of the extra tries: at the first failure two remain.
-              triesLeft={triesLeft(test.testId, Math.max(0, model.data.run.retriesUsed - 1))}
-              onNow={() => dispatch({ type: "RETRY" })}
               onSkip={() => dispatch({ type: "SKIP" })}
               onTips={() => p.onTips(true)}
               reducedMotion={device.reduced}
@@ -455,9 +449,6 @@ export function CameraView(p: CameraViewProps) {
                 test={test}
                 issue={snap.practiceFix.issue}
                 exhausted={false}
-                practice
-                triesLeft={0}
-                onNow={p.on.practiceFixNow}
                 onSkip={() => dispatch({ type: "SKIP" })}
                 onTips={() => p.onTips(true)}
                 reducedMotion={device.reduced}
@@ -512,11 +503,6 @@ export function CameraView(p: CameraViewProps) {
         skeleton={setupPart}
         picture={p.picture}
         guide={s.kind === "cam.setup" ? { view: framingViewOf(test.testId), state: guideState } : null}
-        armMarker={
-          def.kind === "range_test" && !setupPart && test.side !== "none"
-            ? { side: test.side, label: t(lang, ARM_KEY[test.side]) }
-            : null
-        }
         replayLabel={t(lang, "assessment.hud.replay")}
         onReplay={p.on.replay}
       />
@@ -539,23 +525,20 @@ export function CameraView(p: CameraViewProps) {
       </button>
     ) : null;
 
-  // S34i and the practice fix: the card's fix title carries the sentence, so the caption keeps only
-  // its short form (the sentence is its name).
+  // S34i and the practice fix (C30): the card's reason says the fix, so no caption repeats it above;
+  // a safety line stays. On the countdown the card's state word «استعد» is the caption's line: it is
+  // shown once.
   const retrying = s.kind === "cam.retry" || (s.kind === "cam.practice" && !!snap.practiceFix);
-  // On a screen too short for both (fit 2), the retry card alone says the fix; a safety line stays.
-  // On the countdown the card's state word «استعد» is the caption's line: it is shown once.
   const readyWord = t(lang, "assessment.hud.phase.ready");
   const countingDown = typeof snap.countdown === "number";
   const caption =
     device.phoneLandscape && running
       ? { text: t(lang, "assessment.setup.turnUpright"), severity: "warn" as const }
-      : p.caption && retrying && fit >= 2 && p.caption.severity !== "safety"
+      : p.caption && retrying && p.caption.severity !== "safety"
         ? null
         : p.caption && countingDown && sameWords(p.caption.short ?? p.caption.text, readyWord)
           ? null
-          : p.caption && retrying && p.caption.short
-            ? { ...p.caption, shortOnly: true }
-            : p.caption;
+          : p.caption;
   const videoMode =
     large && measuring
       ? "thumb"
@@ -572,9 +555,8 @@ export function CameraView(p: CameraViewProps) {
         helperChip={model.data.helperRequired.includes(test.testId)}
         staff={p.staff}
         sound={{ blocked: p.blocked, onUnblock: p.on.unblock }}
-        largeCaptions={{ on: large, onToggle: () => setLargeChoice(!large) }}
+        large={large}
         caption={caption}
-        voiceMode={model.data.soundMode !== "captionsOnly" && model.data.soundMode !== "screenReader"}
         onReplay={p.on.replay}
         video={video}
         videoMode={videoMode}

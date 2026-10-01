@@ -21,10 +21,11 @@ export interface Preview {
   caption?: Caption;
   session?: { status: CamStatus; error?: CamError };
   landscape?: boolean;
+  /** Large captions (C29: captions only). */
   large?: boolean;
+  /** The voice could not play: the tap for sound pill shows on its own row (C29). */
+  blocked?: boolean;
   tips?: boolean;
-  /** Quality retries used on the side (the retry panel counts the tries left from it). */
-  retriesUsed?: number;
   helper?: boolean;
   position?: CheckPosition;
   motion?: boolean;
@@ -88,6 +89,15 @@ export const PREVIEWS: Record<string, Preview> = {
     state: setup,
     snap: { setup: { issues: ["too_close"] } },
     caption: { cue: "check_move_back" },
+    fixture: "abd",
+    at: 1,
+  },
+  "setup-sound-blocked": {
+    test: "shoulder_abduction",
+    state: setup,
+    snap: { setup: { issues: ["too_close"] } },
+    caption: { cue: "check_move_back" },
+    blocked: true,
     fixture: "abd",
     at: 1,
   },
@@ -462,7 +472,6 @@ export const PREVIEWS: Record<string, Preview> = {
   "retry-plane": {
     test: "shoulder_abduction",
     state: retry("plane_flexion"),
-    retriesUsed: 1,
     snap: {
       part: "retry",
       retry: { remaining: 4, total: 6, counting: true },
@@ -475,7 +484,6 @@ export const PREVIEWS: Record<string, Preview> = {
   "retry-touched": {
     test: "trunk_control_seated",
     state: retry("touched"),
-    retriesUsed: 2,
     snap: { part: "retry", retry: { remaining: 6, total: 6, counting: false } },
     caption: { cue: "check_one_person" },
     fixture: "lean",
@@ -484,7 +492,6 @@ export const PREVIEWS: Record<string, Preview> = {
   "retry-timed": {
     test: "arm_curl_30s",
     state: retry("out_of_frame"),
-    retriesUsed: 1,
     snap: { part: "retry", retry: { remaining: 5, total: 6, counting: true } },
     caption: { cue: "check_whole_body" },
     fixture: "curl",
@@ -493,7 +500,6 @@ export const PREVIEWS: Record<string, Preview> = {
   "retry-exhausted": {
     test: "shoulder_abduction",
     state: retry("not_visible", true),
-    retriesUsed: 2,
     snap: { part: "retry", retry: { remaining: 3, total: 6, counting: true } },
     caption: { cue: "check_sleeves" },
     fixture: "abd",

@@ -11,12 +11,7 @@ import {
   type FlowModel,
   type ResultPayload,
 } from "../src/features/assessment/flowMachine";
-import {
-  CameraController,
-  camTestOf,
-  IDLE_ENV,
-  triesLeft,
-} from "../src/features/assessment/camera/controller";
+import { CameraController, camTestOf, IDLE_ENV } from "../src/features/assessment/camera/controller";
 import { camTiming } from "../src/features/assessment/camera/timing";
 import type { TestId } from "../src/movements/types";
 import { atSetup, checkInOn, framesOf, NOW, play, runFixture } from "./s34-harness";
@@ -137,12 +132,11 @@ describe("S34c setup check", () => {
     return { run, snap: snap! };
   };
 
-  it("with nobody in the picture: we cannot see you yet, the framing chip needs adjusting, no start", () => {
+  it("with nobody in the picture: we cannot see you yet, no tilt reading, no start", () => {
     const { run, snap } = setupRun("fx:empty", 8);
     expect(run.model.state.kind).toBe("cam.setup");
     expect(snap.setup.issues[0]).toBe("no_person");
-    expect(snap.setup.chips.framing).toBe("fix");
-    expect(snap.setup.chips.level).toBe("na");
+    expect(snap.setup.noTilt).toBe(true);
     expect(run.cues).toContain("check_whole_body");
     expect(run.events.some((e) => e.type === "SETUP_OK")).toBe(false);
   });
@@ -158,7 +152,6 @@ describe("S34c setup check", () => {
     const { run, snap } = setupRun("crowd-9x16", 8);
     expect(run.model.state.kind).toBe("cam.setup");
     expect(snap.setup.issues).toContain("second_person");
-    expect(snap.setup.chips.people).toBe("fix");
     expect(run.cues).toContain("check_one_person");
   });
 
@@ -173,7 +166,8 @@ describe("S34c setup check", () => {
     // B2: at the booth the line names the team (test.stopBooth, C04), never the home line.
     expect(run.notes.filter((k) => k === "assessment.test.stopBooth")).toHaveLength(1);
     expect(run.notes).not.toContain("assessment.intro.howToStop");
-    expect(run.notes).toContain("assessment.camera.motionOff");
+    // C28: no tilt reading is a line of the setup card at home, never a caption.
+    expect(run.notes).not.toContain("assessment.camera.motionOff");
   });
 
   it("a helper at the side is accepted and said once", () => {
@@ -235,12 +229,6 @@ describe("S34i retry and S34j rests (the screen's own timers)", () => {
     const next = flowReducer(m, { type: "CONTINUE", now: NOW });
     const outcome = Object.values(next.data.outcomes)[0];
     expect(outcome).toMatchObject({ status: "notMeasured", reason: "quality" });
-  });
-
-  it("tries left follow the flow's retry budget", () => {
-    expect(triesLeft("shoulder_abduction", 0)).toBe(2);
-    expect(triesLeft("shoulder_abduction", 1)).toBe(1);
-    expect(triesLeft("arm_curl_30s", 1)).toBe(0);
   });
 
   it("the side change rest of the arm raise lasts 20 s, then names the next arm", () => {

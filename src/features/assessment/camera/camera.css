@@ -65,17 +65,6 @@
   gap: var(--s1);
   margin-inline-start: auto;
 }
-.azm-check .s34-tool {
-  flex: none;
-}
-.azm-check .s34-camera-on {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: var(--h-icon);
-  color: var(--ink);
-}
 .azm-check .s34-pill {
   display: inline-flex;
   align-items: center;
@@ -287,32 +276,21 @@
   > :is(.s34-row, .s34-side):first-child {
   order: 5;
 }
-/* Fit level 3 (R3C-16, spec 4.2 and 4.3): the caption keeps its 56 px short form and its sentence may
-   give way only while the voice says it (data-sentence="hide": sentenceMayHide, never a safety
-   caption, never with Large captions, never a cue whose sentence carries a safety limit); the
-   sentence stays the caption's name and a tap replays it. When the sentence stays, the value card's
-   secondary lines give way instead: the side label row, the dots and try text and the time left
-   line. The 2 m values (count, degrees, rings, phase word, go word) and STOP never give way. The
-   setup video keeps a 96 px strip (4.2). */
+/* Fit level 3 (spec 4.2): when the caption is a sentence (Large captions, or a cue whose sentence
+   carries a safety limit, C29), the value card's secondary lines give way: the side label row, the
+   dots and the time left line. The 2 m values (count, degrees, rings, phase word, go word) and STOP
+   never give way. The setup video keeps a 96 px strip (4.2). */
 .azm-check
-  .s34-stage[data-fit="3"]:not(.is-large)
-  .s34-caption[data-sentence="hide"]:not(.is-safety)
-  .s34-caption-short
-  + .s34-caption-text {
-  display: none;
-}
-.azm-check
-  .s34-stage[data-fit="3"]:has(.s34-caption[data-sentence="keep"] .s34-caption-short + .s34-caption-text)
+  .s34-stage[data-fit="3"]:has(.s34-caption .s34-caption-text)
   :is(
     .s34-range > .s34-row-top,
     .s34-timed > .s34-side,
     .s34-timed > .s34-line40,
-    .s34-lean-panel > .s34-sides,
-    .s34-try
+    .s34-lean-panel > .s34-sides
   ) {
   display: none;
 }
-/* The at phone buttons side by side (Try now and Skip, Tips and Skip), 56 px each. */
+/* The at phone buttons side by side (Tips and Skip), 56 px each. */
 .azm-check .s34-stage[data-fit="3"] .s34-at-phone:has(> :nth-child(2)) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -326,17 +304,9 @@
   font-size: calc(2rem * var(--s34-scale));
 }
 /* Setup at fit level 3: the state word at the 40 px tier (the caption's 56 px short form says what to
-   do from 2 m), and the six chips in three columns (two rows). */
+   do from 2 m). */
 .azm-check .s34-stage[data-fit="3"] .s34-setup .s34-word {
   font-size: calc(2.5rem * var(--s34-scale));
-}
-.azm-check .s34-stage[data-fit="3"] .s34-chips {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.azm-check .s34-stage[data-fit="3"] .s34-chip {
-  padding-inline: var(--s2);
-  font-size: 0.8125rem;
 }
 .azm-check .s34-video-area.is-strip + .s34-card {
   margin-top: 0;
@@ -423,38 +393,6 @@
 .azm-check .s34-frame-badge path {
   stroke: var(--card);
   stroke-width: 2.5;
-}
-/* The arm marker sits on the arm's own side of the mirrored picture (LTR box, never flipped). */
-/* Kept inside the visible picture: never under the value card, which overlaps the video's last 24 px. */
-.azm-check .s34-arm-marker {
-  position: absolute;
-  top: clamp(var(--s2), 35%, calc(100% - var(--s6) - 52px));
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s1) var(--s3);
-  border-radius: var(--r-pill);
-  background: var(--hud-surface);
-  font-size: 1.375rem;
-  font-weight: 700;
-  pointer-events: none;
-  z-index: 1;
-}
-.azm-check .s34-arm-marker.is-right {
-  right: var(--s2);
-  flex-direction: row;
-}
-.azm-check .s34-arm-marker.is-left {
-  left: var(--s2);
-  flex-direction: row-reverse;
-}
-/* The side swatch is a dot, never a bar (a bar reads as a dash beside Arabic). */
-.azm-check .s34-arm-marker-bar {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--ink);
 }
 .azm-check .s34-replay {
   position: absolute;
@@ -563,42 +501,6 @@
 .azm-check .s34-band.is-info .s34-band-icon,
 .azm-check .s34-band.is-paused .s34-band-icon {
   color: var(--purple);
-}
-
-/* Setup chips: always six, icon and word, never colour alone (S34c). */
-.azm-check .s34-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.azm-check .s34-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s1);
-  min-height: 32px;
-  padding: 2px var(--s3);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  background: var(--card);
-  font-size: var(--t-meta);
-  font-weight: 700;
-  line-height: 1.3;
-}
-.azm-check .s34-chip.is-ok {
-  border-color: var(--green-ink);
-  color: var(--green-ink);
-  background: var(--green-tint);
-}
-.azm-check .s34-chip.is-fix {
-  border-color: var(--warn-fill);
-  color: var(--warn-ink);
-  background: var(--warn-tint);
-}
-.azm-check .s34-chip.is-na {
-  color: var(--muted);
 }
 
 /* Rings: track in line colour, time and rest in purple, a hold in green ink, a number inside. */
@@ -750,17 +652,8 @@
   border-color: var(--warn-ink);
   color: var(--warn-ink);
 }
-.azm-check .s34-try {
-  font-size: calc(3.5rem * var(--s34-scale));
-  font-weight: 800;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
 .azm-check .s34-row-top {
   justify-content: flex-start;
-}
-.azm-check .s34-row-top .s34-try {
-  margin-inline-start: auto;
 }
 
 /* Side lean: direction and centre only, never a magnitude (O4). */
@@ -879,10 +772,6 @@
   display: flex;
   align-items: center;
   gap: var(--s3);
-}
-.azm-check .s34-restart-lines {
-  display: flex;
-  flex-direction: column;
 }
 .azm-check .s34-text-button {
   justify-content: center;

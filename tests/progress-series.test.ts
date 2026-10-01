@@ -11,7 +11,6 @@ import type { Setting, TestId } from "../src/movements/types";
 import { seriesViews } from "../src/medical/series";
 import {
   fraction,
-  numberLineRange,
   seriesCards,
   testOrder,
   todaysViews,
@@ -164,17 +163,7 @@ describe("today's series on S52", () => {
   });
 });
 
-describe("the scales (S52 NumberLine, S53 TrendChart)", () => {
-  it("spans start ± max(3 × band, |change| + band), rounded out to 5 degrees", () => {
-    expect(numberLineRange(100, 117, 16, "deg")).toEqual({ lo: 50, hi: 150 });
-    expect(numberLineRange(100, 170, 16, "deg")).toEqual({ lo: 10, hi: 190 });
-  });
-
-  it("rounds counts to 1 and never goes below 0", () => {
-    expect(numberLineRange(4, 6, 3, "bends")).toEqual({ lo: 0, hi: 13 });
-    expect(numberLineRange(0, 0, 0, "stands")).toEqual({ lo: 0, hi: 1 });
-  });
-
+describe("the scale (S53 TrendChart)", () => {
   it("keeps every trend value and the band inside the chart", () => {
     const r = trendRange([100, 122, 98], 100, 16, "deg");
     expect(r.lo).toBeLessThanOrEqual(84);

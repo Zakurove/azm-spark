@@ -33,7 +33,7 @@ import { buildResults } from "../src/features/assessment/results/model";
 import { EntryCard, NextDayQuestion } from "../src/features/progress/EntryCards";
 import { ExampleProgress } from "../src/features/progress/ExamplePage";
 import { SessionsBlock } from "../src/features/progress/Sessions";
-import { SeriesCard, ThenNow, comparisonLines } from "../src/features/progress/ThenNow";
+import { HowToRead, SeriesCard, ThenNow, comparisonLines } from "../src/features/progress/ThenNow";
 import type { EntryState } from "../src/features/progress/variant";
 import type { SeriesViewLike } from "../src/features/progress/series";
 
@@ -314,25 +314,39 @@ function screen(lang: Lang, model: FlowModel, ui: Partial<typeof DEFAULT_UI> = {
 
 describe("S50 to S52 results", () => {
   for (const lang of LANGS) {
-    it(`S50 guest: nothing saved, the register block, the new visitor button and the footer (${lang})`, () => {
+    it(`S50 guest: the values, the register block, the new visitor button and the footer (${lang})`, () => {
       const m = screen(lang, flow("guest", null, OUTCOMES));
       expect(countTag(m, /<h1/g)).toBe(1);
       expect(m).toContain(t(lang, "assessment.guest.resultsTitle"));
-      expect(m).toContain(t(lang, "assessment.guest.notSaved"));
-      expect(m).toContain(t(lang, "assessment.guest.keepTitle"));
-      expect(m).toContain(t(lang, "assessment.guest.keepBodySoon"));
+      // C31: no booth "not saved" line and no banner; the register block is «أنشئ حسابًا مجانيًا».
+      expect(m).not.toContain(t(lang, "assessment.guest.notSaved"));
+      expect(m).toMatch(new RegExp(`<h2 id="rs-keep-title">${t(lang, "assessment.guest.register")}</h2>`));
       expect(m).toContain('role="img"');
       expect(m).toContain("register=1");
       expect(m).toContain(t(lang, "assessment.guest.newVisitor"));
       expect(m).not.toContain(t(lang, "assessment.results.nextHeading"));
       expect(m).toContain(CHECK_DATA.progress.labels.notMeasured[lang]);
-      expect(m).toContain(t(lang, "assessment.plan.notToday"));
+      // C32: one line names the skipped test, then its reason once; no "Not part of your check".
+      expect(text(m)).toContain(
+        text(
+          renderToStaticMarkup(
+            createElement(
+              "p",
+              null,
+              t(lang, "assessment.plan.notToday", { tests: testDef("trunk_control_seated").name[lang] }),
+            ),
+          ),
+        ),
+      );
+      expect(countTag(m, new RegExp(CHECK_DATA.reasons.pain_today[lang].slice(0, 12), "g"))).toBe(1);
+      // C33: at the booth the foot has the see your doctor line and not medical, not the boundary line.
       const b = CHECK_DATA.boundary;
       const plain = text(m);
-      const footer = [b.resultsFooter[lang], b.line[lang], b.notMedical[lang]].map((s) =>
-        plain.indexOf(text(renderToStaticMarkup(createElement("p", null, s))).slice(0, 12)),
-      );
-      expect(footer.every((i) => i >= 0)).toBe(true);
+      const at = (s: string) =>
+        plain.indexOf(text(renderToStaticMarkup(createElement("p", null, s))).slice(0, 12));
+      expect(at(b.resultsFooter[lang])).toBeGreaterThanOrEqual(0);
+      expect(at(b.notMedical[lang])).toBeGreaterThanOrEqual(0);
+      expect(at(b.line[lang])).toBe(-1);
       expectCleanCopy(lang, m.replace(/data-qr="[^"]*"/g, ""));
     });
 
@@ -344,14 +358,37 @@ describe("S50 to S52 results", () => {
       expect(m).toContain(t(lang, "assessment.results.keepProgram"));
       expect(m).toContain(t(lang, "assessment.common.backToToday"));
       expect(m).toContain(t(lang, "assessment.results.seeOverTime"));
-      expect(m).not.toContain(t(lang, "assessment.guest.keepTitle"));
+      expect(m).not.toContain("rs-keep");
       // The value is read with its unit ("121 degrees"), and the arm curl of 2 in its dual form.
       expect(m).toContain(lang === "ar" ? "١٢١ درجة" : "121 degrees");
       expect(m).toContain(lang === "ar" ? "مرتين" : "2 bends");
+      // C41: the sentence that restates a value is its accessible name, never a visible line.
+      expect(m).toMatch(/class="rs-value" role="img" aria-label="[^"]+"/);
+      // The next check as a date only, and the home foot with the boundary line (C33).
+      expect(m).toContain(
+        t(lang, "assessment.results.nextDate", { date: "{date}" }).split("{date}")[0].trim(),
+      );
+      expect(m).not.toContain(CHECK_DATA.progress.nextDue[lang].slice(-20));
+      expect(text(m)).toContain(
+        text(renderToStaticMarkup(createElement("p", null, CHECK_DATA.boundary.line[lang]))).slice(0, 12),
+      );
       expect(m).not.toMatch(/verdict|pg-pill/);
       expectCleanCopy(lang, m);
     });
   }
+
+  it("S50 off the booth: one line and the Create a free account button, no QR (C31)", () => {
+    const m0 = flow("guest", null, OUTCOMES);
+    const model = {
+      ...m0,
+      data: { ...m0.data, config: { ...m0.data.config, booth: false, homeOpen: true } },
+    };
+    const m = screen("en", model, { booth: false });
+    expect(m).toContain(t("en", "assessment.guest.register"));
+    expect(text(m)).toContain(t("en", "assessment.guest.keepBody", { weeks: 4 }).slice(0, 20));
+    expect(m).not.toContain("data-qr");
+    expect(m).not.toContain('id="rs-keep-title"');
+  });
 
   it("S51 ended early: the ended early title and lead, without the next check date", () => {
     const outcomes = { ...OUTCOMES };
@@ -360,7 +397,7 @@ describe("S50 to S52 results", () => {
     const m = screen("en", flow("signedIn", "baseline", outcomes));
     expect(m).toContain(t("en", "assessment.results.endedEarlyTitle"));
     expect(m).toContain(t("en", "assessment.results.endedEarlyBody"));
-    expect(m).not.toContain(CHECK_DATA.progress.nextDue.en.slice(0, 20));
+    expect(m).not.toContain("Your next check is on");
   });
 
   it("S51 empty: the lead says nothing was measured", () => {
@@ -398,8 +435,6 @@ describe("S50 to S52 results", () => {
     const model = buildResults({
       mode: "retest",
       items: SEATED.filter((i) => i.testId === "shoulder_abduction"),
-      wheelchair: false,
-      intakeExcluded: () => null,
       fact: () => ({ kind: "measured", value: 122, detail: {}, variant: null }),
     });
     const views = new Map([["shoulder_abduction:right", view("shoulder_abduction", "right")]]);
@@ -414,18 +449,24 @@ describe("S50 to S52 results", () => {
 
 describe("then and now (S52, S53)", () => {
   for (const lang of LANGS) {
-    it(`says the verdict in words with the change, the number line and the band sentence (${lang})`, () => {
+    it(`says start and now in one line and the verdict in words, nothing else per card (C42, ${lang})`, () => {
       const v = view("shoulder_abduction", "right");
       expect(v.verdict).toBe("higher");
       const m = html(lang, createElement(ThenNow, { view: v }));
       expect(m).toContain(CHECK_DATA.progress.verdicts.higher[lang]);
-      expect(text(m)).toContain(lang === "ar" ? "زيادة ٢٢ درجة عن البداية" : "22 degrees above your start");
-      expect(m).toContain('role="img"');
-      expect(m).toContain(
-        t(lang, "progress.numberLine.label", { start: 100, now: 122, unit: "deg" })
-          .replace(/«|»|‘|’/g, "")
-          .slice(0, 10),
-      );
+      expect(countTag(m, /class="pg-startnow"/g)).toBe(1);
+      expect(m).toContain(CHECK_DATA.progress.labels.start[lang]);
+      expect(m).toContain(CHECK_DATA.progress.labels.now[lang]);
+      // No change line, no range bar, no legend and no band paragraph on the card.
+      expect(m).not.toContain(CHECK_DATA.progress.labels.change[lang]);
+      expect(m).not.toMatch(/pg-line|pg-legend|pg-band-note/);
+      expect(text(m)).not.toContain(CHECK_DATA.progress.bandSentence[lang].slice(0, 12));
+      expectCleanCopy(lang, m);
+    });
+
+    it(`says how to read the cards once, with the band sentence (C42, ${lang})`, () => {
+      const m = html(lang, createElement(HowToRead));
+      expect(m).toContain(t(lang, "progress.howToRead"));
       expect(text(m)).toContain(CHECK_DATA.progress.bandSentence[lang].slice(0, 12));
       expectCleanCopy(lang, m);
     });
@@ -435,15 +476,18 @@ describe("then and now (S52, S53)", () => {
     const v = view("arm_curl_30s", "left");
     expect(v.verdict).toBe("lower");
     expect(comparisonLines("en", v)).toContain(CHECK_DATA.progress.lowerExtra.en);
-    expect(text(html("en", createElement(ThenNow, { view: v })))).toContain("7 fewer than at your start");
+    expect(html("en", createElement(ThenNow, { view: v }))).toContain(
+      CHECK_DATA.progress.lowerExtra.en.slice(0, 20),
+    );
   });
 
-  it("shows only Now with the first result line for a first check of a series", () => {
+  it("shows one value and «حدّدنا نقطة بدايتك» for a series of one check (C42)", () => {
     const v = view("arm_curl_30s", "right");
     const m = html("en", createElement(ThenNow, { view: v }));
     expect(m).not.toContain("pg-pill");
     expect(m).not.toContain(CHECK_DATA.progress.labels.start.en);
-    expect(m).toContain(CHECK_DATA.boundary.firstResult.en);
+    expect(m).not.toContain(CHECK_DATA.progress.labels.now.en);
+    expect(m).toContain(CHECK_DATA.progress.startingPointSet.en);
   });
 
   it("shows the no verdict line without a pill or a band", () => {
@@ -515,7 +559,7 @@ describe("sessions (S53)", () => {
 
 describe("S54 example", () => {
   for (const lang of LANGS) {
-    it(`labels every card as an example and reads the banner with the h1 (${lang})`, () => {
+    it(`shows one labelled example card and the sign up code, the banner read with the h1 (C37, ${lang})`, () => {
       const m = renderToStaticMarkup(
         createElement(ExampleProgress, {
           lang,
@@ -525,11 +569,11 @@ describe("S54 example", () => {
           onRegister: noop,
         }),
       );
-      const cards = countTag(m, /<article/g);
-      expect(cards).toBeGreaterThanOrEqual(5);
-      expect(countTag(m, new RegExp(`>${t(lang, "progress.example.tag")}<`, "g"))).toBeGreaterThanOrEqual(
-        cards,
-      );
+      expect(countTag(m, /<article/g)).toBe(1);
+      expect(countTag(m, new RegExp(`>${t(lang, "progress.example.tag")}<`, "g"))).toBeGreaterThanOrEqual(1);
+      expect(m).toContain(CHECK_DATA.progress.verdicts.higher[lang]);
+      expect(m).toContain("register=1");
+      expect(m).not.toContain(t(lang, "progress.sessions.heading"));
       const banner = /<span id="([^"]+)">([^<]+)<\/span>/.exec(m)!;
       expect(banner[2]).toBe(t(lang, "progress.example.banner"));
       expect(m).toMatch(new RegExp(`<h1[^>]*aria-describedby="${banner[1]}"`));

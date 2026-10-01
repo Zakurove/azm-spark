@@ -1,12 +1,13 @@
 /**
- * The per test cards and the skip groups of a results screen (UX spec S50 to S52 shared rules, P6):
+ * The per test cards and the skipped tests of a results screen (UX spec S50 to S52 shared rules, P6):
  *   - one card per test in run order (h2 the test name), a row per side in the order the test ran,
  *     with the side named («ذراعك اليمنى»), never mirrored;
- *   - a measured side shows its value (56 px) with the unit word beside it and the result sentence,
- *     or, when the saved comparison is known (S52), start and now with the verdict (ThenNow);
- *   - a side not measured shows "Not measured today" (22 px) with its reason, never greyed (P1);
- *   - tests that did not run are listed under "Not today" and "Not part of your check" with their
- *     reasons in plain words, in neutral words, never styled as a miss (S27 groups).
+ *   - a measured side shows its value (56 px) with the unit word beside it; the result sentence is its
+ *     accessible name only (C31, C41); when the saved comparison is known (S52), start and now with
+ *     the verdict (ThenNow);
+ *   - a side not measured shows "Not measured today" (22 px) with one neutral line, its reason, never
+ *     greyed (P1);
+ *   - tests that did not run are named in one muted line, then each distinct reason once (C32).
  */
 import { t, type Lang } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
@@ -16,13 +17,8 @@ import { isReasonId, resultSentence, resultUnitOf, sideLabel } from "../../progr
 import type { SeriesViewLike } from "../../progress/series";
 import { ThenNow, ValueNumber, type HeavierOfferState } from "../../progress/ThenNow";
 import { useCheckUi } from "../shared/CheckUi";
-import {
-  NOT_REACHED,
-  type ResultCardModel,
-  type ResultRow,
-  type ResultsModel,
-  type SkipEntry,
-} from "./model";
+import { SkippedTests } from "../shared/SkippedTests";
+import { NOT_REACHED, type ResultCardModel, type ResultRow, type ResultsModel } from "./model";
 
 /**
  * A reason in plain words (data:reasons), with the substitute sentence when it ran (P6); a test left
@@ -63,20 +59,20 @@ function Row({
         view ? (
           <ThenNow view={view} heavierOffer={heavier} />
         ) : (
-          <>
-            <ValueNumber unit={unit} value={row.value} censored={row.censored} big />
-            {!row.censored && (
-              <p className="check-body">
-                {bidiText(
-                  lang,
-                  resultSentence(lang, testId, row.side, row.value, {
+          <div
+            className="rs-value"
+            {...(row.censored
+              ? {}
+              : {
+                  role: "img",
+                  "aria-label": resultSentence(lang, testId, row.side, row.value, {
                     detail: row.detail,
                     variant: row.variant,
                   }),
-                )}
-              </p>
-            )}
-          </>
+                })}
+          >
+            <ValueNumber unit={unit} value={row.value} censored={row.censored} big />
+          </div>
         )
       ) : (
         <>
@@ -85,9 +81,6 @@ function Row({
             <p className="check-body">
               <ReasonText reason={row.reason} />
             </p>
-          )}
-          {row.wheelchairTip && (
-            <p className="check-body">{bidiText(lang, t(lang, "assessment.tips.wheelchair"))}</p>
           )}
         </>
       )}
@@ -128,53 +121,7 @@ export function ResultCard({
   );
 }
 
-function SkipGroup({
-  titleKey,
-  entries,
-  level,
-}: {
-  titleKey: "notToday" | "notPart";
-  entries: SkipEntry[];
-  level: 2 | 3;
-}) {
-  const { lang } = useCheckUi();
-  if (entries.length === 0) return null;
-  const Heading = level === 2 ? "h2" : "h3";
-  return (
-    <section className="rs-skips" data-group={titleKey}>
-      <Heading className="rs-group">
-        {titleKey === "notToday" ? t(lang, "assessment.plan.notToday") : t(lang, "assessment.plan.notPart")}
-      </Heading>
-      <ul className="check-card rs-skip-list">
-        {entries.map((e) => {
-          const same = e.sides.every((s) => s.reason === e.sides[0].reason);
-          return (
-            <li key={e.testId} data-test={e.testId}>
-              <p className="rs-skip-name">{bidiText(lang, testDef(e.testId).name[lang])}</p>
-              {same ? (
-                <p className="check-body">
-                  <ReasonText reason={e.sides[0].reason} substituteRan={e.sides[0].substituteRan} />
-                </p>
-              ) : (
-                e.sides.map((s) => {
-                  const side = sideLabel(lang, e.testId, s.side);
-                  const reason = reasonWords(lang, s.reason, s.substituteRan);
-                  return (
-                    <p key={s.side} className="check-body">
-                      {bidiText(lang, side ? t(lang, "assessment.plan.sideLine", { side, reason }) : reason)}
-                    </p>
-                  );
-                })
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-/** Every card, then the two skip groups (P6: every skipped test is named with its reason). */
+/** Every card, then the skipped tests (P6: every skipped test is named with its reason). */
 export function ResultCards({
   model,
   views,
@@ -191,8 +138,17 @@ export function ResultCards({
       {model.cards.map((card) => (
         <ResultCard key={card.testId} card={card} views={views} level={level} heavier={heavier} />
       ))}
-      <SkipGroup titleKey="notToday" entries={model.notToday} level={level} />
-      <SkipGroup titleKey="notPart" entries={model.notPart} level={level} />
+      <Skipped model={model} />
     </>
+  );
+}
+
+function Skipped({ model }: { model: ResultsModel }) {
+  const { lang } = useCheckUi();
+  return (
+    <SkippedTests
+      names={model.skipped.map((e) => testDef(e.testId).name[lang])}
+      reasons={model.skipped.flatMap((e) => e.sides.map((s) => reasonWords(lang, s.reason, s.substituteRan)))}
+    />
   );
 }

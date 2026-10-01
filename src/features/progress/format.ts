@@ -2,12 +2,9 @@
  * Formatting rules of the results and My results screens (UX spec 0.2, S50 to S54), pure:
  *   dayLabel          a date in Gregorian with Arabic month names (Q30), in Asia/Riyadh
  *   valueParts        a number and its unit word, as the big result value shows them
- *   changeText        the change from the start in words (never a sign, O8 count wording)
- *   bandSentence      the Q1 band sentence with the band actually used
  *   resultSentence    data:tests.<id>.resultSentence with its tokens (side, load, variant, seconds)
  *   sideLabel         the side of a result row in the S27 words («ذراعك اليمنى», «الميل إلى يمينك»)
  *   whenText          the {when} line of a lock (Q33 (4), pausedWhenTokens)
- *   reasonGroup       the S27 group of a skip reason: "Not today" or "Not part of your check"
  * Every text comes from the copy (t) or the check data; nothing here writes words of its own.
  */
 import { fmtDate, type Lang } from "../../app/i18n";
@@ -78,26 +75,6 @@ export function valueParts(lang: Lang, unit: UnitFormId, n: number): ValueParts 
 /** "more than {value}" of a censored side lean value (data:progress.noVerdict.censored). */
 export function moreThan(lang: Lang, value: number): string {
   return interpolate(lang, CHECK_DATA.progress.noVerdict.censored[lang], { value: Math.round(value) });
-}
-
-/**
- * The change from the start, in words (UX spec S52): «زيادة ١٧ درجة عن البداية», «نقص ٣ عن البداية»
- * for counts (O8, no unit), «مثل البداية تمامًا» at zero. A decrease is said in words, never a sign.
- */
-export function changeText(lang: Lang, change: number, unit: UnitFormId): string {
-  const value = Math.round(Math.abs(change));
-  if (value === 0) return t(lang, "progress.change.none");
-  const up = change > 0;
-  // O8: counts without their unit, except one and two in Arabic, which are never a bare digit with a
-  // count (0.2): the unit's one and two forms stand for the number («مرة واحدة»، «مرتين»).
-  if (isCountUnit(unit) && !(lang === "ar" && value <= 2))
-    return t(lang, up ? "progress.change.upCount" : "progress.change.downCount", { value });
-  return t(lang, up ? "progress.change.up" : "progress.change.down", { value, unit });
-}
-
-/** The Q1 band sentence with the band actually used (widened at the first re-test, Q27). */
-export function bandSentence(lang: Lang, band: number, unit: UnitFormId): string {
-  return interpolate(lang, CHECK_DATA.progress.bandSentence[lang], { band: Math.round(band), unit });
 }
 
 /** The H9 next check line (data:progress.nextDue) with its date. */
@@ -189,31 +166,6 @@ export function whenText(lang: Lang, when: LockWhen | null | undefined): string 
   return when.time
     ? interpolate(lang, line, { time: clockText(lang, when.time) })
     : line.replace("{time}", "");
-}
-
-/** Skip reasons of the "Not part of your check" group (UX spec S27): intake level, every check. */
-const NOT_PART: readonly string[] = [
-  "position_seated",
-  "limb_loss_leg",
-  "limb_loss_arm",
-  "restriction_overhead",
-  "restriction_weight_bearing",
-  "restriction_balance",
-  "pain_area",
-  "clearance",
-  "booth_only_trunk",
-  "pusher",
-];
-
-/**
- * The S27 group of a skip reason: day level reasons are "Not today", intake level reasons that hold
- * at every check are "Not part of your check". The trigger decides when it is known: an intake level
- * reason set on the day is "Not today" (`dayLevel`).
- */
-export function reasonGroup(reason: string, dayLevel?: boolean): "notToday" | "notPart" {
-  if (dayLevel === true) return "notToday";
-  if (dayLevel === false && NOT_PART.includes(reason)) return "notPart";
-  return NOT_PART.includes(reason) ? "notPart" : "notToday";
 }
 
 /** Whether a reason id has a text in the check data (a skip reason the UI can name, P6). */

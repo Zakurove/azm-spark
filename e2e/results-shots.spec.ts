@@ -392,10 +392,8 @@ for (const size of SIZES) {
       // S54, the example, with and without the booth.
       await page.goto(url("/?example=progress", lang));
       await expect(page.locator('[data-screen="S54"]')).toBeVisible();
+      // C37: one example card (start and now, the verdict) and the sign up QR; no chart or table.
       await shot(page, name("S54-default"));
-      await page.locator(".pg-trend .check-text-button").first().click();
-      await expect(page.locator(".pg-table").first()).toBeVisible();
-      await part(page, ".pg-series", name("S54-table"));
       await page.evaluate(() => sessionStorage.setItem("azm.booth", "e2e-booth"));
       await page.goto(url("/?example=progress", lang));
       await expect(page.locator('[data-screen="S54"]')).toBeVisible();

@@ -634,6 +634,44 @@ export function questionView(env: PrecheckEnv, answers: Answers, id: string, lan
   };
 }
 
+/** One row of a question group screen: its question id and the row heading. */
+export interface GroupRow {
+  id: string;
+  label: string;
+}
+
+/**
+ * C25: both arms of pc_arm_function on one screen. The data's askBoth question, a row per arm
+ * («ذراعك اليمنى» · Your right arm) with the same three data answers; Listen reads the question and
+ * the answers once.
+ */
+export function groupView(
+  ids: readonly string[],
+  lang: Lang,
+): { question: string; rows: GroupRow[]; options: { value: string; label: string }[]; speech: SpeechLine[] } {
+  const item = precheckItem("pc_arm_function") as PrecheckItem;
+  const question = item.askBoth?.[lang] ?? "";
+  const rows = ids.map((id) => ({
+    id,
+    label: t(
+      lang,
+      parseQuestionId(id)?.part === "left" ? "assessment.plan.sideArmLeft" : "assessment.plan.sideArmRight",
+    ),
+  }));
+  const options = localLabels(
+    lang,
+    (item.options ?? []).map((o) => ({ value: String(o.value), label: o.label[lang] })),
+  );
+  const speech: SpeechLine[] = [
+    { display: question },
+    ...(item.options ?? []).map((o) => ({
+      display: o.label[lang],
+      speech: lang === "ar" ? (o.label.arTts ?? o.label.ar) : o.label.en,
+    })),
+  ];
+  return { question, rows, options, speech };
+}
+
 /** The 0 to 10 scale rows of the data (Q7): 0 to 5, then 6 to 10. */
 export const SCALE_ROWS: readonly (readonly number[])[] = CHECK_DATA.painScale.rows;
 

@@ -146,6 +146,13 @@ async function answerQuestions(page: Page, lang: Lang, pain = 0, seen: string[] 
       await next(page).click();
     } else if (kind === "S24" && id.endsWith(":areas")) {
       throw new Error("areas follow up not expected in this walk");
+    } else if (await q.getAttribute("data-group")) {
+      // C25: both arms on one screen, a row each, then Next.
+      for (const row of await page.locator(".flow-group-row .check-answers").all())
+        await row
+          .getByRole("button", { name: optionLabel(base, benignValue(base), lang), exact: true })
+          .click();
+      await next(page).click();
     } else {
       await answer(page, optionLabel(base, benignValue(base), lang)).click();
     }
@@ -483,6 +490,31 @@ for (const lang of LANGS) {
       await expect(page.locator("h1")).toHaveText(t.postpone.titleSci);
       await page.getByRole("button", { name: t.postpone.sciAgain }).click();
       await expect(page.locator('[data-question="pc_sci_ready"]')).toBeVisible();
+    });
+
+    test("both arms on one screen: a row each, Next asks for both, then the next question (S21, C25)", async ({
+      page,
+    }) => {
+      const t = COPY[lang];
+      await openState(page, "S21-arm-function", lang);
+      const rows = page.locator(".flow-group-row");
+      await expect(rows).toHaveCount(2);
+      await expect(rows.nth(0).locator("h2")).toHaveText(t.plan.sideArmRight);
+      await expect(rows.nth(1).locator("h2")).toHaveText(t.plan.sideArmLeft);
+      const pick = (row: number, value: string) =>
+        rows.nth(row).getByRole("button", { name: optionLabel("pc_arm_function", value, lang), exact: true });
+      await pick(0, "bend_no_hold").click();
+      await expect(pick(0, "bend_no_hold")).toHaveAttribute("aria-pressed", "true");
+      await next(page).click();
+      await expect(page.getByText(t.common.chooseToContinue)).toBeVisible();
+      await expect(rows.nth(1).getByRole("button").first()).toBeFocused();
+      await pick(1, "bend_hold").click();
+      await next(page).click();
+      await expect(page.locator("[data-group]")).toHaveCount(0);
+      // Back returns to the pair with both answers kept.
+      await page.locator(".check-back").click();
+      await expect(pick(0, "bend_no_hold")).toHaveAttribute("aria-pressed", "true");
+      await expect(pick(1, "bend_hold")).toHaveAttribute("aria-pressed", "true");
     });
 
     test("the pain areas: each chosen area opens its own scale, and Next needs every score (S20)", async ({

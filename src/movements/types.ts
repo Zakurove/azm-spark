@@ -745,6 +745,8 @@ export interface PrecheckItem {
   };
   /** Asked instead of ask at the first check of a series. */
   askFirstCheck?: Text;
+  /** pc_arm_function: both arms on one screen, a row per arm (simplicity cut C25). */
+  askBoth?: Text;
   /** pc_trunk_armrests: the question by position (Q12 (1)); a standing person sits on a chair. */
   askByPosition?: Record<"chair" | "wheelchair", Text>;
   /** pc_change_cleared: the form asked directly for an unresolved changeReported (Q33 (2)). */

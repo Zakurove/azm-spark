@@ -506,6 +506,8 @@ export type FlowEvent = At &
     | { type: "CONTEXT_EDIT" }
     | { type: "SOUND_RESULT"; mode: SoundMode }
     | { type: "ANSWER"; id: string; value: AnswerValue }
+    /** C25: the answers of a question group (pc_arm_function, both arms on one screen), in order. */
+    | { type: "ANSWERS"; answers: { id: string; value: AnswerValue }[] }
     | { type: "START_RESULT"; result: StartResult }
     | { type: "RESUME_RESULT"; result: ResumeResult }
     | { type: "END_FORM"; side: Side | null; chronicNote: boolean }
@@ -743,6 +745,20 @@ export function questionCounter(m: FlowModel): { n: number; total: number } | nu
   return { n, total: Math.max(n, possible) };
 }
 
+/**
+ * The questions shown together with the current one (C25): both arms of pc_arm_function, a row per
+ * arm, when both are asked; otherwise the question alone. Each keeps its own id, answer and rules.
+ */
+export function questionGroup(m: FlowModel): string[] {
+  const s = m.state;
+  const id = s.kind === "question" ? s.id : s.kind === "starting" ? s.lastQuestion : null;
+  if (!id) return [];
+  const base = parseQuestionId(id)?.base;
+  if (!m.data.env || base !== "pc_arm_function") return [id];
+  const group = questionsNow(m.data, m.data.answers).filter((q) => parseQuestionId(q)?.base === base);
+  return group.length > 1 && group.includes(id) ? group : [id];
+}
+
 /** "Test n of total" (S28 and the camera top bar). */
 export function testCounter(m: FlowModel): { n: number; total: number } | null {
   const t = currentTest(m);
@@ -765,7 +781,8 @@ export function backTarget(m: FlowModel): FlowState | null {
     case "question": {
       if (!m.data.env) return null;
       const visible = questionsNow(m.data, m.data.answers);
-      const at = visible.indexOf(s.id);
+      // A question group is one screen (C25): Back leaves it from its first question.
+      const at = visible.indexOf(questionGroup(m)[0]);
       if (at > 0) return { kind: "question", id: visible[at - 1] };
       // The first question: back to the last guest step at the booth (C04), the intro at home (S16
       // and S14b are not screens to go back to, C05, C06); a resumed re-ask has no way back.
@@ -1047,6 +1064,16 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
 
     case "question":
       if (e.type === "ANSWER" && e.id === s.id) return answer(m, s.id, e.value, now);
+      if (e.type === "ANSWERS" && e.answers.some((a) => a.id === s.id)) {
+        // Each answer as if given on its own screen, from the group's first question; a routing
+        // answer (or a group that changed) stops the rest.
+        let out: FlowModel = { ...m, state: { kind: "question", id: e.answers[0].id } };
+        for (const a of e.answers) {
+          if (out.state.kind !== "question" || out.state.id !== a.id) break;
+          out = answer(out, a.id, a.value, now);
+        }
+        return out;
+      }
       return m;
 
     case "starting":

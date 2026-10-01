@@ -1639,6 +1639,10 @@
         "ar": "ماذا تستطيع أن تفعل بذراعك {side}؟",
         "en": "What can you do with your {side} arm?"
       },
+      "askBoth": {
+        "ar": "ماذا تستطيع أن تفعل بكل ذراع؟",
+        "en": "What can you do with each arm?"
+      },
       "sideTokens": {
         "right": {
           "ar": "اليمنى",

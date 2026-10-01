@@ -79,6 +79,7 @@ function models(): Record<string, FlowModel> {
     S18: untilQuestion(sci, "pc_sci_level")!,
     S19: untilQuestion(q, "pc_pain_now")!,
     S20: untilQuestion(q, "pc_pain_areas", { pc_pain_now: 3 })!,
+    S21arms: untilQuestion(sci, "pc_arm_function:right", { pc_sci_level: "no" })!,
     S22: untilQuestion(sci, "pc_sci_ready", { pc_sci_level: "yes" })!,
     S23: untilQuestion(standing, "pc_steadi:fell")!,
     S24: untilQuestion(q, "pc_surgery_recent:areas", { pc_surgery_recent: "yes" })!,
@@ -298,6 +299,26 @@ describe("pre-check questions (S17 to S24)", () => {
       at = next;
     }
     expect(text).toContain(t("en", "assessment.precheck.areas.none"));
+  });
+
+  it("S21 asks both arms on one screen: a row per arm with the same three answers, then Next (C25)", () => {
+    const item = precheckItem("pc_arm_function");
+    const left = withState(M.S21arms, { kind: "question", id: "pc_arm_function:left" });
+    for (const lang of LANGS)
+      for (const m of [M.S21arms, left]) {
+        const { id, html, text } = screen(m, lang);
+        expect(id).toBe("S21");
+        expect(text).toContain(item.askBoth![lang]);
+        expect(text).toContain(t(lang, "assessment.plan.sideArmRight"));
+        expect(text).toContain(t(lang, "assessment.plan.sideArmLeft"));
+        expect(text.indexOf(t(lang, "assessment.plan.sideArmRight"))).toBeLessThan(
+          text.indexOf(t(lang, "assessment.plan.sideArmLeft")),
+        );
+        expect(count(html, 'class="check-answer"')).toBe(2 * item.options!.length);
+        for (const o of item.options!) expect(count(text, o.label[lang])).toBe(2);
+        expect(html).toContain('class="check-footer"');
+        expect(count(html, 'class="check-answers"')).toBe(2);
+      }
   });
 
   it("S22 shows the list to read and its two data answers", () => {

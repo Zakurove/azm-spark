@@ -19,6 +19,7 @@ import {
   initialModel,
   prepSteps,
   questionCounter,
+  questionGroup,
   safetyKindOf,
   sameChairAsked,
   testCounter,
@@ -425,6 +426,51 @@ describe("Appendix A: pre-check questions and the start call", () => {
       reason: "sci_ready",
       screen: "scr_postpone_sci",
     });
+  });
+
+  it("asks both arms of pc_arm_function on one screen: one ANSWERS, Back skips the pair (C25)", () => {
+    const sci = play(
+      signedAt({}, contextOf({ conditions: ["sci_incomplete"], position: "wheelchair" })),
+      { type: "CONTEXT_CONFIRM" },
+      { type: "CONTINUE" },
+      { type: "SOUND_RESULT", mode: "voice" },
+    );
+    const seen: string[] = [];
+    let at = sci;
+    for (let k = 0; k < 40 && at.state.kind === "question" && at.state.id !== "pc_arm_function:right"; k++) {
+      seen.push(at.state.id);
+      at = play(at, { type: "ANSWER", id: at.state.id, value: benign(at.state.id) });
+    }
+    expect(at.state).toEqual({ kind: "question", id: "pc_arm_function:right" });
+    expect(questionGroup(at)).toEqual(["pc_arm_function:right", "pc_arm_function:left"]);
+    const both = play(at, {
+      type: "ANSWERS",
+      answers: [
+        { id: "pc_arm_function:right", value: "bend_no_hold" },
+        { id: "pc_arm_function:left", value: "no_bend" },
+      ],
+    });
+    expect(both.data.answers["pc_arm_function:right"]).toBe("bend_no_hold");
+    expect(both.data.answers["pc_arm_function:left"]).toBe("no_bend");
+    expect(both.state.kind === "question" && both.state.id.startsWith("pc_arm_function")).toBe(false);
+    // Back from the next question opens the pair again (its left row is the state), and Back from the
+    // pair goes to the question before it, never to the pair's right row on its own.
+    const back = play(both, { type: "BACK" });
+    expect(back.state).toEqual({ kind: "question", id: "pc_arm_function:left" });
+    expect(questionGroup(back)).toEqual(["pc_arm_function:right", "pc_arm_function:left"]);
+    expect(play(back, { type: "BACK" }).state).toEqual({ kind: "question", id: seen[seen.length - 1] });
+    // Answering again from the left row state replaces both answers.
+    const again = play(back, {
+      type: "ANSWERS",
+      answers: [
+        { id: "pc_arm_function:right", value: "bend_hold" },
+        { id: "pc_arm_function:left", value: "bend_hold" },
+      ],
+    });
+    expect(again.data.answers["pc_arm_function:right"]).toBe("bend_hold");
+    expect(again.state).toEqual(both.state);
+    // Every other question is a group of one.
+    expect(questionGroup(sci)).toEqual([(sci.state as { id: string }).id]);
   });
 
   it("emergency and AD answers route at once, with no confirm", () => {

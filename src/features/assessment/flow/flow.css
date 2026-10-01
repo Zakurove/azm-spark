@@ -27,6 +27,10 @@
 .azm-check .flow-group-heading {
   margin-bottom: calc(-1 * var(--s2));
 }
+/* S21 both arms (C25): a row per arm, its heading above its three answers. */
+.azm-check .flow-group-row + .flow-group-row {
+  margin-top: var(--s3);
+}
 
 /* A line with a leading icon (notes, the how to stop line). */
 .azm-check .flow-note {

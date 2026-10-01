@@ -1,7 +1,7 @@
 /**
  * S17 to S24: the pre-check question screens (UX spec S17 to S24, Q18 (2), Q7, O9, O11a to O11c).
  *
- * One question per screen, from visibleQuestions; the text is the data's, in the form questionForm
+ * One question per screen, from visibleQuestions (both arms of pc_arm_function share one, C25); the text is the data's, in the form questionForm
  * picks (askFirstCheck, askDirect, the position form, the examples at home), with its tokens filled.
  *   yes_no, yes_no_unsure, single, the steadi items, a surgery area's clearance and pc_sci_ready:
  *     full width answers in data order, none preselected; a tap submits (Q18 (2)), and an answer
@@ -25,13 +25,13 @@ import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import type { AnswerValue } from "../../../medical/precheck";
 import { CHECK_DATA } from "../../../movements/assessments";
-import { backTarget, questionCounter, type FlowModel } from "../flowMachine";
+import { backTarget, questionCounter, questionGroup, type FlowModel } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons, MultiAnswerList, useNextWithHint } from "../shared/answers";
 import { CheckShell, type ButtonSpec } from "../shared/CheckShell";
 import { useCheckUi } from "../shared/CheckUi";
 import { ErrorState, LoadingState } from "../shared/states";
-import { firstAreaWithoutScore, questionView, type QuestionView } from "./copy";
+import { firstAreaWithoutScore, groupView, questionView, type QuestionView } from "./copy";
 import { AreaPicker, Emphasized, ListenButton, SamePress, ScaleGrid } from "./parts";
 import { useEntryLines, useVoice } from "./voice";
 
@@ -54,6 +54,9 @@ export function QuestionScreen(props: ScreenProps) {
         <StartStatus {...props} />
       </CheckShell>
     );
+  // C25: a question group (both arms of pc_arm_function) is one screen, a row per question.
+  const group = questionGroup(props.model);
+  if (group.length > 1) return <GroupBody key={group.join(" ")} ids={group} id={id} {...props} />;
   // A new question mounts afresh (its own selection, its own entry line).
   return <QuestionBody key={id} id={id} {...props} />;
 }
@@ -127,6 +130,81 @@ function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: Scre
         )}
         {view.list && <QuestionList view={view} />}
         {control.render(titleId)}
+        <StartStatus
+          model={model}
+          dispatch={dispatch}
+          api={api}
+          retryCamera={retryCamera}
+          retrySave={retrySave}
+        />
+      </div>
+    </CheckShell>
+  );
+}
+
+/**
+ * C25: both arms on one screen (S21). Each row selects one of the same three answers; Next sends both
+ * answers in order (ANSWERS), as if each had its own screen. Without both, Next shows the hint and
+ * moves focus to the first row with no answer.
+ */
+function GroupBody({
+  ids,
+  id,
+  model,
+  dispatch,
+  api,
+  retryCamera,
+  retrySave,
+}: ScreenProps & { ids: string[]; id: string }) {
+  const { lang, booth } = useCheckUi();
+  const voice = useVoice(model.data.soundMode);
+  const view = groupView(ids, lang);
+  const starting = model.state.kind === "starting";
+  const counter = questionCounter(model);
+  const titleId = useId();
+  const back = !starting && backTarget(model) ? () => dispatch({ type: "BACK" }) : undefined;
+  const autoplay = model.data.setting === "home" && !booth && model.data.soundMode === "voice";
+  useEntryLines(voice, view.speech, autoplay, { onScreen: true });
+  const given = model.data.answers;
+  const [chosen, setChosen] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(ids.map((q) => [q, typeof given[q] === "string" ? (given[q] as string) : null])),
+  );
+  const missing = ids.find((q) => !chosen[q]);
+  const next = useNextWithHint(!missing, () =>
+    dispatch({ type: "ANSWERS", answers: ids.map((q) => ({ id: q, value: chosen[q]! })) }),
+  );
+  return (
+    <CheckShell
+      counter={counter ? { value: counter.n, max: counter.total } : undefined}
+      onBack={back}
+      sound
+      footer={starting ? undefined : { primary: next.primary }}
+    >
+      <div className="flow-stack" data-screen="S21" data-question={id} data-group={ids.join(" ")}>
+        <h1 id={titleId} className="check-question">
+          {view.question}
+        </h1>
+        <ListenButton
+          label={t(lang, "assessment.precheck.listenQuestion")}
+          onClick={() => void voice.play(view.speech, { onScreen: true })}
+        />
+        {next.hint}
+        {view.rows.map((row) => (
+          <section key={row.id} className="flow-stack flow-group-row" aria-labelledby={`${titleId}${row.id}`}>
+            <h2 id={`${titleId}${row.id}`} className="check-h2">
+              {row.label}
+            </h2>
+            <AnswerButtons
+              labelledBy={`${titleId}${row.id}`}
+              options={view.options}
+              value={chosen[row.id] ?? null}
+              mode="select"
+              onSubmit={(v) => setChosen((c) => ({ ...c, [row.id]: v }))}
+              describedBy={row.id === missing ? next.describedBy : undefined}
+              groupRef={row.id === missing ? next.groupRef : undefined}
+            />
+          </section>
+        ))}
         <StartStatus
           model={model}
           dispatch={dispatch}

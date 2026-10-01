@@ -215,10 +215,16 @@ export const FLOW_STATES: Record<string, NamedState> = {
     screen: "S21",
     build: () => guestQuestion("pc_arm_pain_side:shoulder", { pain: ["shoulder"] }),
   },
+  // C25: both arms on one screen.
   "S21-arm-function": {
-    mode: "signedIn",
+    mode: "guest",
     screen: "S21",
-    build: () => signedQuestion("pc_arm_function:left", WHEELCHAIR_SCI),
+    build: () =>
+      guestQuestion(
+        "pc_arm_function:right",
+        { position: "wheelchair", conditions: ["sci_incomplete"] },
+        { pc_sci_level: "no" },
+      ),
   },
   "S21-pd-dose": {
     mode: "signedIn",

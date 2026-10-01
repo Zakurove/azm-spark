@@ -95,6 +95,8 @@ export function CameraStage(p: CameraStageProps) {
   };
   const c = p.caption;
   const large = p.large;
+  // A blocked voice says nothing until a tap: the sentence takes the short form's place (C29).
+  const sentence = !!c && showsSentence(c, large || p.sound.blocked);
   const stageRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
@@ -199,11 +201,13 @@ export function CameraStage(p: CameraStageProps) {
             type="button"
             key={c.n}
             className={`s34-caption is-${c.severity}`}
+            // A sentence in the short form's place is longer: fit level 3 makes room for it.
+            data-long={sentence && c.short ? "" : undefined}
             onClick={p.onReplay}
             aria-label={`${c.text} ${t(lang, "assessment.hud.replay")}`}
           >
             <span className="s34-caption-lines" aria-hidden="true">
-              {showsSentence(c, large) ? (
+              {sentence ? (
                 <span className="s34-caption-text">
                   <span className="s34-caption-icon">
                     <CheckIcon name={SEVERITY_ICON[c.severity]} size={30} />

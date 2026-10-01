@@ -83,7 +83,7 @@ export default function Gallery({
 
 function Page({ name, lang }: { name: string; lang: Lang }) {
   if (name === "question" || name === "booth" || name === "soundOff" || name === "offline")
-    return <QuestionPage lang={lang} />;
+    return <QuestionPage lang={lang} steps={name === "booth"} />;
   if (name === "multi") return <MultiPage lang={lang} />;
   if (name === "fixture") return <FixturePage />;
   if (name === "offer") return <OfferPage lang={lang} />;
@@ -160,11 +160,18 @@ function OfferPage({ lang }: { lang: Lang }) {
   );
 }
 
-function QuestionPage({ lang }: { lang: Lang }) {
+/**
+ * A pre-check question: its counter is a bar with no numbers (C10). The booth page counts the guest
+ * steps instead («الخطوة ١ من ٦»), whose total is fixed, so the counter text shows at phone width.
+ */
+function QuestionPage({ lang, steps = false }: { lang: Lang; steps?: boolean }) {
   const q = precheckItem("pc_urgent");
   const [value, setValue] = useState<string | null>(null);
+  const counter = steps
+    ? { text: t(lang, "assessment.common.stepOf", { n: 1, total: 6 }), value: 1, max: 6 }
+    : { value: 1, max: 9 };
   return (
-    <CheckShell counter={{ value: 1, max: 9 }} onBack={noop} sound>
+    <CheckShell counter={counter} onBack={noop} sound>
       <h1 id="gallery-q" className="check-question">
         {q.ask![lang]}
       </h1>

@@ -276,12 +276,13 @@
   > :is(.s34-row, .s34-side):first-child {
   order: 5;
 }
-/* Fit level 3 (spec 4.2): when the caption is a sentence (Large captions, or a cue whose sentence
-   carries a safety limit, C29), the value card's secondary lines give way: the side label row, the
-   dots and the time left line. The 2 m values (count, degrees, rings, phase word, go word) and STOP
-   never give way. The setup video keeps a 96 px strip (4.2). */
+/* Fit level 3 (spec 4.2): when the caption is a sentence in its short form's place (Large captions, a
+   blocked voice, or a cue whose sentence carries a safety limit, C29), the value card's secondary
+   lines give way: the side label row, the dots and the time left line. The 2 m values (count,
+   degrees, rings, phase word, go word) and STOP never give way. The setup video keeps a 96 px strip
+   (4.2). */
 .azm-check
-  .s34-stage[data-fit="3"]:has(.s34-caption .s34-caption-text)
+  .s34-stage[data-fit="3"]:has(.s34-caption[data-long])
   :is(
     .s34-range > .s34-row-top,
     .s34-timed > .s34-side,

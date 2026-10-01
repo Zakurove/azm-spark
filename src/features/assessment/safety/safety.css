@@ -226,9 +226,10 @@
   line-height: 1.5;
   font-weight: 700;
 }
-/* C15: the booth staff line, small and once, right under the question. */
+/* C15: the booth staff line, small and once, right under the question (it reads with the question,
+   so it sits closer to it than the grid gap). */
 .azm-check .safety-staff-line {
-  margin: 0;
+  margin: calc(-1 * var(--s3)) 0 0;
   color: var(--muted);
 }
 /* C15: the questions on the stage end above the STOP zone, so nothing hides behind it. */

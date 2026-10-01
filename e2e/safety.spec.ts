@@ -242,8 +242,10 @@ for (const lang of LANGS) {
         const text = await page.locator(".check-caption .check-caption-text").allInnerTexts();
         for (const t of text) seen.add(t.trim());
       }
+      // C14: a sentence that is the heading itself is not captioned again above it.
+      const bare = (x: string) => x.replace(/[.!?؟]/gu, "").trim();
       for (const s of sentences(data.screens.scr_emergency[lang]))
-        expect([...seen]).toContain(shown(lang, s));
+        if (bare(s) !== bare(a.safety.emergency.title)) expect([...seen]).toContain(shown(lang, s));
       await expect(page.locator(".safety-sentences p[aria-current]")).toHaveCount(0);
       await page.getByRole("button", { name: a.common.listen }).click();
       await page.clock.runFor(100);

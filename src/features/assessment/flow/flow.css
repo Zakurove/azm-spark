@@ -108,6 +108,11 @@
   margin: 0;
   text-align: center;
 }
+/* S05 (C03): the gold one test and the outline full check are the same size, even when one label
+   takes two lines (two flexible rows of an auto height grid share the taller height). */
+.azm-check .check-footer-inner:has(> .flow-adult-line + .cta + .ghost) {
+  grid-template-rows: auto 1fr 1fr;
+}
 .azm-check .flow-listen {
   justify-self: start;
   width: auto;

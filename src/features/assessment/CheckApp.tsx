@@ -153,7 +153,8 @@ export default function CheckApp({
   });
 
   const [soundOn, setSoundOn] = useState(true);
-  const [caption, setCaption] = useState<Caption | null>(null);
+  /** The caption and the screen that asked for it (C14). */
+  const [caption, setCaption] = useState<(Caption & { owner: string }) | null>(null);
   const modelRef = useRef(model);
   modelRef.current = model;
 
@@ -228,16 +229,17 @@ export default function CheckApp({
   }, [model.state, onExit]);
 
   const screenKey = screenKeyOf(model);
-  // A caption belongs to its screen (C14): cleared when the screen changes, and a line asked for by a
-  // screen that is gone (a late camera cue) or already the screen's heading is not shown.
-  useEffect(() => setCaption(null), [screenKey]);
+  // A caption belongs to its screen (C14): it shows only on the screen that asked for it, and a line
+  // asked for by a screen that is gone (a late camera cue) or already the screen's heading is not
+  // shown. Read at render, never cleared by an effect: a new screen's first line is asked for in its
+  // own effects, which run before this component's.
   const currentKey = useRef(screenKey);
   currentKey.current = screenKey;
   const showCaption = useCallback(
     (text: string, severity: CaptionSeverity = "info", speaking = false, replay?: () => void) => {
       const heading = baseRef.current?.querySelector("h1")?.textContent ?? null;
       if (!captionAllowed(screenKey, currentKey.current, text, heading)) return;
-      setCaption({ text, severity, speaking, ...(replay ? { replay } : {}) });
+      setCaption({ text, severity, speaking, owner: screenKey, ...(replay ? { replay } : {}) });
     },
     [screenKey],
   );
@@ -250,12 +252,12 @@ export default function CheckApp({
     savedLater: status.waiting > 0,
     saveAuth: status.auth,
     sound: { on: soundOn, toggle: () => setSoundOn((v) => !v) },
-    caption,
+    caption: caption?.owner === screenKey ? caption : null,
     showCaption,
     clearCaption: () => setCaption(null),
     // The caption's tap plays the line again (its audio), else shows the text again.
     replayCaption: () => {
-      if (!caption) return;
+      if (!caption || caption.owner !== screenKey) return;
       if (caption.replay) caption.replay();
       else setCaption({ ...caption });
     },

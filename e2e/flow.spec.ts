@@ -519,12 +519,16 @@ for (const lang of LANGS) {
       await expect(page.locator('.check-base[data-state="skipNotice"]')).toHaveCount(0);
     });
 
-    test("camera refused: S32 names the fix, Try again reloads back to the primer", async ({ page }) => {
+    test("camera refused at home: S32 names the fix, Try again reloads back to the primer", async ({
+      page,
+    }) => {
       const t = COPY[lang];
       await page.addInitScript(() => {
         const err = sessionStorage.getItem("e2e.gum") ?? "NotAllowedError";
         navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException("e2e", err));
       });
+      // At the booth staff allow the camera on S55 (C08): the primer is a home screen.
+      await signIn(page);
       await openState(page, "S31-primer-home", lang);
       await page.getByRole("button", { name: t.primer.allow }).click();
       await expectScreen(page, "S32", lang);

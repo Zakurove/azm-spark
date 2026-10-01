@@ -135,8 +135,10 @@ test("a second person in the middle keeps the test from starting (English)", asy
   const page = await newPage(browser, "9x16");
   await openCamera(page, "en", "shoulder_abduction", "e2eFixture=crowd-9x16&e2eCamFast=1");
   await expect(page.locator(".s34-band")).toContainText("Someone else in the middle", { timeout: 15_000 });
-  await expect(page.locator(".s34-caption")).toContainText(
-    "Make sure no one stands between you and the phone",
+  // C29: one line on screen; the full sentence is said and is the caption's name.
+  await expect(page.locator(".s34-caption")).toHaveAttribute(
+    "aria-label",
+    /Make sure no one stands between you and the phone/,
   );
   await page.waitForTimeout(4000);
   await expect(page.locator(".check-base")).toHaveAttribute("data-state", "cam.setup");

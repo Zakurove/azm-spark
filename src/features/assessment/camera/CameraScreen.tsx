@@ -304,9 +304,9 @@ export function CameraView(p: CameraViewProps) {
   const title = counter ? [t(lang, "assessment.common.testOf", counter), def.name[lang]] : [def.name[lang]];
   const measuring =
     snap.part === "attempt" || snap.part === "hold" || snap.part === "practice" || snap.part === "countdown";
-  // Large captions (C29): the caption shows its full sentence, large, whenever no voice is heard (the
-  // Sound off, captions only, a screen reader, or the voice blocked); it is never a choice on screen.
-  const large = !ui.sound.on || (model.data.soundMode ?? "voice") !== "voice" || p.blocked;
+  // Large captions (C29): the caption shows its full sentence, large, whenever no voice is wanted (the
+  // Sound off, captions only, a screen reader); it is never a choice on screen.
+  const large = !ui.sound.on || (model.data.soundMode ?? "voice") !== "voice";
   const running = session.status === "running";
   const setupPart = s.kind === "cam.setup" || s.kind === "cam.calibrate" || snap.part === "calibrate";
   const item = model.data.tests[test.i]?.sides[test.sideIndex];

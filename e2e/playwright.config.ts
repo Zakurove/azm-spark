@@ -4,7 +4,7 @@
  * AZM_DATABASE in a fresh temporary folder, on a private port, never the dev database.
  *
  *   npm run e2e                         the specs in e2e/
- *   AZM_SHOTS_DIR=<dir> npm run e2e     also writes the review screenshots (e2e/shots.spec.ts)
+ *   AZM_SHOTS_DIR=<dir> npm run e2e     also writes the review screenshots (e2e/*-shots.spec.ts)
  */
 import { defineConfig, devices } from "@playwright/test";
 import { mkdirSync } from "node:fs";

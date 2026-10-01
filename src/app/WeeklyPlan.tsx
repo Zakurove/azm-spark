@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plan } from "../medical/plan";
-import { libraryById, WeeklyItem, WeeklyPlan } from "../medical/weekly";
+import { libraryById, summaryText, WeeklyItem, WeeklyPlan } from "../medical/weekly";
 import { EXERCISES } from "../exercises/defs";
 import { Lang, fmtDate, fmtNum } from "./i18n";
 import { api } from "./api";
@@ -176,7 +176,7 @@ export default function WeeklyPlanView({
       <div className="weekly-head">
         {badge}
         <h2>{k.title}</h2>
-        <p className="weekly-summary">{weekly.summary[lang]}</p>
+        <p className="weekly-summary">{summaryText(weekly.summary, lang)}</p>
       </div>
       <div className="weekly-days" role="tablist">
         {weekly.days.map((d, i) => (

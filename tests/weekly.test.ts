@@ -7,6 +7,7 @@ import {
   engineWeekly,
   libraryById,
   sanitizeSelection,
+  summaryText,
 } from "../src/medical/weekly";
 
 const base: Intake = {
@@ -129,4 +130,17 @@ it("discards model ids outside the safe pool and cleans its wording", () => {
   expect(s.summary!.ar).toBe("خطة تناسب حالتك الطبية، كل يوم");
   expect(DASH.test(s.summary!.en)).toBe(false);
   expect(cleanText("a - b", "en", 50)).toBe("a, b");
+});
+
+it("reads a stored v5.0 summary with the right day count (R-13, before F-6 every count said أيام)", () => {
+  const rest = "في الأسبوع، مبنية على حالتك الطبية.";
+  const old = (n: string) => ({ ar: `خطة من ${n} أيام ${rest}`, en: `A plan of ${n} days.` });
+  expect(summaryText(old("١"), "ar")).toBe(`خطة من يوم واحد ${rest}`);
+  expect(summaryText(old("٢"), "ar")).toBe(`خطة من يومين ${rest}`);
+  expect(summaryText(old("٣"), "ar")).toBe(`خطة من ٣ أيام ${rest}`);
+  expect(summaryText(old("٢"), "en")).toBe("A plan of ٢ days.");
+  // A summary the model wrote, or today's rules text, is shown as it is.
+  const fresh = { ar: "خطة من يومين في الأسبوع.", en: "A 2 day weekly plan." };
+  expect(summaryText(fresh, "ar")).toBe(fresh.ar);
+  expect(summaryText(fresh, "en")).toBe(fresh.en);
 });

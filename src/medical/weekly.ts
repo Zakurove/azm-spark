@@ -234,6 +234,19 @@ function arabicDays(n: number): string {
   return `${n} يومًا`;
 }
 
+/**
+ * The summary of a weekly plan as shown. A plan stored before F-6 (v5.0 and early 6.0) keeps the
+ * rules text «خطة من ١ أيام» or «خطة من ٢ أيام» until it is rebuilt; it reads with the singular or
+ * the dual, as new plans do (R-13). Any other summary is shown as it is.
+ */
+export function summaryText(summary: L, lang: "ar" | "en"): string {
+  if (lang !== "ar") return summary.en;
+  return summary.ar.replace(
+    /^خطة من ([١٢]) أيام /,
+    (_, n: string) => `خطة من ${arabicDays(n === "١" ? 1 : 2)} `,
+  );
+}
+
 export function buildWeekly(
   h: Intake,
   plan: Plan,

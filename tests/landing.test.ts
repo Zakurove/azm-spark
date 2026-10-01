@@ -26,8 +26,10 @@ import type { Lang } from "../src/app/i18n";
 
 const LANGS: Lang[] = ["ar", "en"];
 const noop = () => {};
-const render = (lang: Lang) =>
-  renderToStaticMarkup(createElement(Landing, { lang, onLanguage: noop, onEnter: noop, onDemo: noop }));
+const render = (lang: Lang, tryCheck = false) =>
+  renderToStaticMarkup(
+    createElement(Landing, { lang, onLanguage: noop, onEnter: noop, onDemo: noop, tryCheck }),
+  );
 
 /** Decodes the few entities renderToStaticMarkup writes. */
 const decode = (s: string) =>
@@ -106,13 +108,20 @@ describe("hero", () => {
     }
   });
 
-  it("offers the workout trial and registration", () => {
-    const en = text(part(render("en"), "ld-hero-copy"));
-    expect(en).toContain("Try a workout now");
-    expect(en).toContain("Start free");
-    const ar = text(part(render("ar"), "ld-hero-copy"));
-    expect(ar).toContain("جرّب تمرينًا الآن");
-    expect(ar).toContain("ابدأ مجانًا");
+  it("has one gold action, Start free, and a quiet Try a workout link, at the top and the bottom only (C36)", () => {
+    for (const lang of LANGS) {
+      const html = render(lang);
+      const hero = part(html, "ld-hero-copy");
+      expect(text(hero)).toContain(t(lang, "landing.actions.startFree"));
+      expect(text(hero)).toContain(t(lang, "landing.actions.tryWorkout"));
+      expect(hero.match(/class="cta /g)).toHaveLength(1);
+      expect(hero).toMatch(
+        new RegExp(`class="cta ld-cta-start"[^>]*>${t(lang, "landing.actions.startFree")}`),
+      );
+      // Twice on the page (top and bottom), never in the header.
+      expect(html.match(/class="cta /g)).toHaveLength(2);
+      expect(text(part(html, "ld-header"))).not.toContain(t(lang, "landing.actions.startFree"));
+    }
   });
 
   it("keeps the athlete render and the live session card", () => {
@@ -176,7 +185,7 @@ describe("then and now example card", () => {
 });
 
 describe("four step loop", () => {
-  it("shows measure, plan, coach and measure again in order, each with a small screen", () => {
+  it("shows measure, plan, coach and measure again as a plain numbered list (C36)", () => {
     expect(LOOP_STEPS).toEqual(["measure", "prescribe", "coach", "prove"]);
     for (const lang of LANGS) {
       const flow = part(render(lang), "ld-how-flow");
@@ -186,8 +195,10 @@ describe("four step loop", () => {
         const step = LOOP_STEPS[i];
         expect(text(item)).toContain(t(lang, `landing.loop.steps.${step}.title`));
         expect(text(item)).toContain(t(lang, `landing.loop.steps.${step}.body`));
-        expect(item).toContain('class="ld-mock"');
+        expect(item).not.toContain('class="ld-mock"');
       });
+      // One example only: measure and compare, labelled Example.
+      expect(part(render(lang), "ld-how").match(/class="ld-mock"/g)).toHaveLength(1);
     }
     expect(LOOP_STEPS.map((s) => t("en", `landing.loop.steps.${s}.title`))).toEqual([
       "Measure",
@@ -218,11 +229,11 @@ describe("four step loop", () => {
     expect(t("ar", "landing.loop.steps.prove.body")).toContain("كل أربعة أسابيع");
   });
 
-  it("keeps progress wording rules in the prove step and its example chart", () => {
+  it("keeps progress wording rules in the measure again step and its example chart", () => {
     for (const lang of LANGS) {
-      const prove = text(part(render(lang), "ld-step-prove"));
-      expect(forbiddenStems(prove)).toEqual([]);
-      expect(prove).toContain(t(lang, "landing.example.tag"));
+      const how = text(part(render(lang), "ld-how"));
+      expect(forbiddenStems(how)).toEqual([]);
+      expect(text(part(render(lang), "ld-mock"))).toContain(t(lang, "landing.example.tag"));
     }
   });
 
@@ -235,33 +246,35 @@ describe("four step loop", () => {
     expect(chartPos(124)).toBe(100);
   });
 
-  it("offers the movement check on its guest route, keeping the language", () => {
+  it("offers the movement check only while it can start, on its guest route (C36)", () => {
     expect(checkHref("ar")).toBe("/?check=1");
     expect(checkHref("en")).toBe("/?check=1&lang=en");
-    const ar = part(render("ar"), "ld-how-action");
+    for (const lang of LANGS) expect(render(lang)).not.toContain("ld-how-action");
+    const ar = part(render("ar", true), "ld-how-action");
     expect(ar).toContain('href="/?check=1"');
-    expect(text(ar)).toBe("جرّب قياس الحركة غير مخصص للأغراض الطبية.");
-    const en = part(render("en"), "ld-how-action");
+    expect(text(ar)).toBe("جرّب قياس الحركة");
+    const en = part(render("en", true), "ld-how-action");
     expect(decode(en)).toContain('href="/?check=1&lang=en"');
-    expect(text(en)).toBe("Try the movement check Not intended for medical purposes.");
+    expect(text(en)).toBe("Try the movement check");
   });
 });
 
 describe("closing and footer", () => {
-  it("shows the not intended for medical purposes line from the clinical data, also under the check action", () => {
+  it("shows the not intended for medical purposes line from the clinical data once, in the footer (C33)", () => {
     for (const lang of LANGS) {
       expect(t(lang, "landing.footer.notMedical")).toBe(CHECK_DATA.boundary.notMedical[lang]);
-      expect(text(render(lang))).toContain(CHECK_DATA.boundary.notMedical[lang]);
-      expect(text(part(render(lang), "ld-how-action"))).toContain(CHECK_DATA.boundary.notMedical[lang]);
+      const page = text(render(lang, true));
+      expect(page.split(CHECK_DATA.boundary.notMedical[lang])).toHaveLength(2);
+      expect(text(part(render(lang), "ld-footer"))).toContain(CHECK_DATA.boundary.notMedical[lang]);
     }
     expect(t("ar", "landing.footer.notMedical")).toBe("غير مخصص للأغراض الطبية.");
     expect(t("en", "landing.footer.notMedical")).toBe("Not intended for medical purposes.");
   });
 
-  it("sets the line at body size, never fine print, under the action and in the footer (Q23 (2), H1)", () => {
+  it("sets the line at body size, never fine print, in the footer (Q23 (2), H1)", () => {
     const css = readFileSync(join(__dirname, "../src/app/platform.css"), "utf8");
     // Every rule that sizes the line, in the order of the file, as the cascade applies them.
-    const sizes = [...css.matchAll(/([^{}]*\.ld(?:-check)?-not-medical[^{}]*)\{([^}]*)\}/g)]
+    const sizes = [...css.matchAll(/([^{}]*\.ld-not-medical[^{}]*)\{([^}]*)\}/g)]
       .map(([, selector, body]) => ({
         selector: selector.trim(),
         size: /font-size:\s*(\d+)px/.exec(body)?.[1],
@@ -289,6 +302,13 @@ describe("closing and footer", () => {
 });
 
 describe("page wide rules", () => {
+  it("says Azm in the English footer and brand line, never AZM SPARK (C36)", () => {
+    const footer = text(part(render("en"), "ld-footer"));
+    expect(footer).toContain("Azm is a training companion");
+    expect(footer).toContain("Azm. Training is still yours.");
+    expect(render("en")).not.toMatch(/SPARK/i);
+  });
+
   it("every landing string is in both languages and passes the wording rules", () => {
     const ar = new Map(leaves(DICTIONARIES.ar.landing));
     const en = new Map(leaves(DICTIONARIES.en.landing));
@@ -300,8 +320,8 @@ describe("page wide rules", () => {
     const page = text(render("ar"));
     for (const word of ["سبارك", "جوالك", "فحص", "تقدم", "يصف", "نصمم", "نُثبت"])
       expect(page).not.toContain(word);
-    // No group of three slogan chips (rule 4).
-    expect(render("ar")).not.toContain("ld-health-chips");
+    // No benefits section with health effect claims (C36, rule 5).
+    expect(render("ar")).not.toContain("ld-health");
   });
 
   it("the rendered page has no dash, says حالتك الطبية and never claims to be a rehabilitation app", () => {

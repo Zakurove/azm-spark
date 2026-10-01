@@ -7,7 +7,10 @@ import Icon from "./Icon";
 
 /*
  * Landing for people and families (technical plan, "Landing page reimagining", phase 1 part of F15):
- * the hero and the four step loop. Copy lives in src/i18n/{ar,en}/landing.json.
+ * the hero and the four step loop. Copy lives in src/i18n/{ar,en}/landing.json. Simplicity cut C36:
+ * one gold action (Start free) with a quiet Try a workout link, at the top and the bottom only; the
+ * steps as a plain numbered list with the one measure and compare example; no benefits section; the
+ * movement check action only while the check can start; not medical once, in the footer.
  *
  * Hero headline: option 1 of the plan, the tech lead's default. Nasser may swap it for one of the
  * other two options, which are in landing.json in both languages:
@@ -46,46 +49,6 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : false;
-}
-
-function JointsMark() {
-  return (
-    <svg width="46" height="52" viewBox="0 0 46 52" fill="none" aria-hidden className="ld-mock-joints">
-      <path
-        d="M23 10v14m0 0 -9 7m9 -7 9 7m-9 -7v13"
-        stroke="#c9c2ae"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-      <circle cx="23" cy="6" r="4" fill="#f2c33c" />
-      <circle cx="23" cy="24" r="3.4" fill="#8065ad" />
-      <circle cx="14" cy="31" r="3" fill="#8065ad" />
-      <circle cx="32" cy="31" r="3" fill="#8065ad" />
-      <circle cx="23" cy="37" r="3" fill="#c9c2ae" />
-      <circle cx="23" cy="47" r="3" fill="#c9c2ae" />
-    </svg>
-  );
-}
-
-/** A seated person raising one arm to the side, with the measured angle at the shoulder. */
-function ArmRaiseMark() {
-  return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden className="ld-mock-raise">
-      <path
-        d="M32 17v22M24 21h16M24 21l-4 15M40 21l14 -9M26 39h12M26 39l-4 12v10M38 39l4 12v10"
-        stroke="#c9c2ae"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M40 31a10 10 0 0 0 8.4 -15.4" stroke="#f2c33c" strokeWidth="2.2" strokeLinecap="round" />
-      <circle cx="32" cy="10" r="4.5" fill="#f2c33c" />
-      <circle cx="40" cy="21" r="3.2" fill="#8065ad" />
-      <circle cx="54" cy="12" r="3" fill="#8065ad" />
-      <circle cx="24" cy="21" r="2.8" fill="#c9c2ae" />
-      <circle cx="32" cy="39" r="2.8" fill="#c9c2ae" />
-    </svg>
-  );
 }
 
 /** Where a value sits on the example chart, in percent of its height. */
@@ -151,74 +114,23 @@ function ExampleCard({ lang }: { lang: Lang }) {
   );
 }
 
-function StepMock({ step, lang }: { step: LoopStep; lang: Lang }) {
-  switch (step) {
-    case "measure":
-      return (
-        <div className="ld-mock-check">
-          <ArmRaiseMark />
-          <div className="ld-mock-lines">
-            <span>{t(lang, "landing.loop.mocks.measure.label")}</span>
-            <b>{t(lang, "landing.loop.mocks.measure.test")}</b>
-            <span className="ld-mock-dots">
-              <i className="on" />
-              <i />
-              <i />
-              {t(lang, "landing.loop.mocks.measure.step", { n: 1, total: 3 })}
-            </span>
-          </div>
+/** The measure and compare example (C36): the person's own checks over time, labelled Example. */
+function CompareMock({ lang }: { lang: Lang }) {
+  return (
+    <div className="ld-mock" aria-hidden>
+      <div className="ld-mock-prove">
+        <div className="ld-mock-prove-head">
+          <span>{t(lang, "landing.loop.mocks.prove.label")}</span>
+          <span className="ld-tag">{t(lang, "landing.example.tag")}</span>
         </div>
-      );
-    case "prescribe":
-      return (
-        <div className="ld-mock-plan">
-          <div className="ld-mock-plan-head">
-            <Icon name="calendar" size={14} />
-            {t(lang, "landing.loop.mocks.prescribe.label")}
-          </div>
-          <div className="ld-mock-plan-row">
-            <span>{t(lang, "landing.loop.mocks.prescribe.press")}</span>
-            <b>{t(lang, "landing.loop.mocks.prescribe.dose", { sets: 3, reps: 8 })}</b>
-          </div>
-          <div className="ld-mock-plan-row">
-            <span>{t(lang, "landing.loop.mocks.prescribe.curl")}</span>
-            <b>{t(lang, "landing.loop.mocks.prescribe.dose", { sets: 2, reps: 10 })}</b>
-          </div>
-          <span className="ld-mock-stamp">
-            <Icon name="check" size={12} />
-            {t(lang, "landing.loop.mocks.prescribe.fits")}
-          </span>
+        <PointsChart />
+        <div className="ld-mock-prove-axis">
+          <span>{t(lang, "landing.example.start")}</span>
+          <span>{t(lang, "landing.example.now")}</span>
         </div>
-      );
-    case "coach":
-      return (
-        <div className="ld-mock-cam">
-          <JointsMark />
-          <div className="ld-mock-lines">
-            <b>{t(lang, "landing.loop.mocks.coach.title")}</b>
-            <span>{t(lang, "landing.loop.mocks.coach.voice")}</span>
-          </div>
-          <div className="ld-mock-reps">
-            <b>{fmtNum(5, lang)}</b>
-            <span>/ {fmtNum(8, lang)}</span>
-          </div>
-        </div>
-      );
-    case "prove":
-      return (
-        <div className="ld-mock-prove">
-          <div className="ld-mock-prove-head">
-            <span>{t(lang, "landing.loop.mocks.prove.label")}</span>
-            <span className="ld-tag">{t(lang, "landing.example.tag")}</span>
-          </div>
-          <PointsChart />
-          <div className="ld-mock-prove-axis">
-            <span>{t(lang, "landing.example.start")}</span>
-            <span>{t(lang, "landing.example.now")}</span>
-          </div>
-        </div>
-      );
-  }
+      </div>
+    </div>
+  );
 }
 
 export default function Landing({
@@ -226,11 +138,14 @@ export default function Landing({
   onLanguage,
   onEnter,
   onDemo,
+  tryCheck,
 }: {
   lang: Lang;
   onLanguage: () => void;
   onEnter: (register?: boolean) => void;
   onDemo: () => void;
+  /** The movement check can start (booth mode or open home checks): its action shows (C36). */
+  tryCheck: boolean;
 }) {
   const [rep, setRep] = useState(3);
   useEffect(() => {
@@ -241,13 +156,13 @@ export default function Landing({
   }, []);
   const actions = (
     <div className="ld-ctas">
-      <button className="cta ld-cta-demo" onClick={onDemo}>
-        <Icon name="play" size={18} />
-        {t(lang, "landing.actions.tryWorkout")}
-      </button>
-      <button className="ghost ld-cta-ghost" onClick={() => onEnter(true)}>
+      <button className="cta ld-cta-start" onClick={() => onEnter(true)}>
         {t(lang, "landing.actions.startFree")}
         <Icon name="arrow" size={16} />
+      </button>
+      <button className="ld-cta-link" onClick={onDemo}>
+        <Icon name="play" size={16} />
+        {t(lang, "landing.actions.tryWorkout")}
       </button>
     </div>
   );
@@ -262,9 +177,6 @@ export default function Landing({
             </button>
             <button className="ghost ld-login" onClick={() => onEnter(false)}>
               {t(lang, "landing.header.login")}
-            </button>
-            <button className="cta ld-start-sm" onClick={() => onEnter(true)}>
-              {t(lang, "landing.actions.startFree")}
             </button>
           </div>
         </div>
@@ -321,7 +233,7 @@ export default function Landing({
           </div>
           <ol className="ld-how-flow">
             {LOOP_STEPS.map((step, i) => (
-              <li className={`ld-step ld-step-${step}`} key={step}>
+              <li className="ld-step" key={step}>
                 <div className="ld-step-head">
                   <span className="ld-step-num" aria-hidden>
                     {fmtNum(i + 1, lang)}
@@ -329,32 +241,19 @@ export default function Landing({
                   <h3>{t(lang, `landing.loop.steps.${step}.title`)}</h3>
                 </div>
                 <p>{t(lang, `landing.loop.steps.${step}.body`)}</p>
-                <div className="ld-mock" aria-hidden>
-                  <StepMock step={step} lang={lang} />
-                </div>
               </li>
             ))}
           </ol>
-          <div className="ld-how-action">
-            <a className="cta ld-cta-check" href={checkHref(lang)}>
-              <Icon name="camera" size={18} />
-              {t(lang, "landing.actions.tryCheck")}
-            </a>
-            {/* Q23 (2): the not intended for medical purposes line directly under the check action. */}
-            <p className="ld-not-medical ld-check-not-medical">{t(lang, "landing.footer.notMedical")}</p>
-          </div>
-        </section>
-
-        <section className="ld-health">
-          <div className="ld-health-inner">
-            <div>
-              <h2>{t(lang, "landing.health.title")}</h2>
-              <p className="ld-health-body">{t(lang, "landing.health.body")}</p>
+          <CompareMock lang={lang} />
+          {/* While home checks are closed /?check=1 is the booth only screen (S05b): no action here. */}
+          {tryCheck && (
+            <div className="ld-how-action">
+              <a className="ghost ld-cta-check" href={checkHref(lang)}>
+                <Icon name="camera" size={18} />
+                {t(lang, "landing.actions.tryCheck")}
+              </a>
             </div>
-            <div className="ld-health-img" aria-hidden>
-              <img src="/illustrations/landing/standing.webp" alt="" loading="lazy" />
-            </div>
-          </div>
+          )}
         </section>
 
         <section className="ld-close">

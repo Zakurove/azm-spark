@@ -349,6 +349,7 @@ export default function App() {
           setAuthView(true);
         }}
         onDemo={() => setTryCam(true)}
+        tryCheck={isBoothMode() || homeChecksOpen}
       />
     );
   if (!account)

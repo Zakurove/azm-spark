@@ -55,30 +55,10 @@
       }
     },
     "mocks": {
-      "measure": {
-        "label": "Movement check",
-        "test": "Arm raise to the side",
-        "step": "Test {n} of {total}"
-      },
-      "prescribe": {
-        "label": "Your plan this week",
-        "press": "Seated shoulder press",
-        "curl": "Seated arm bend",
-        "dose": "{sets} × {reps}",
-        "fits": "Fits your medical condition"
-      },
-      "coach": {
-        "title": "Live count and correction",
-        "voice": "In a calm Arabic voice"
-      },
       "prove": {
         "label": "Your checks over time"
       }
     }
-  },
-  "health": {
-    "title": "It shows up everywhere, even in your sleep",
-    "body": "Regular movement works quietly throughout your body. Your heart grows stronger at its own pace, your mood clears after a session, even a short one, and within weeks you may notice the groceries feel lighter, your stance steadier and your sleep deeper. All your body needs is a start that fits."
   },
   "close": {
     "title": "Your body changed. Your resolve did not.",
@@ -86,7 +66,7 @@
   },
   "footer": {
     "notMedical": "Not intended for medical purposes.",
-    "note": "AZM SPARK is a training companion, not a clinic. It does not diagnose or treat, your clearance to exercise is yours to confirm, and if your medical condition sits outside what we cover today, we say so plainly and refer it for review first.",
-    "brandline": "AZM SPARK. Training is still yours."
+    "note": "Azm is a training companion, not a clinic. It does not diagnose or treat, your clearance to exercise is yours to confirm, and if your medical condition sits outside what we cover today, we say so plainly and refer it for review first.",
+    "brandline": "Azm. Training is still yours."
   }
 }

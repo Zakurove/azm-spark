@@ -155,7 +155,7 @@ it("publishes a bilingual privacy notice, linked from the landing and the sign u
     expect(plain).toContain(CHECK_DATA.boundary.storageNotice[lang]);
     for (const name of ["Railway", "OpenAI", PRIVACY_OWNER.controller]) expect(plain).toContain(name);
     const landing = renderToStaticMarkup(
-      createElement(Landing, { lang, onLanguage: noop, onEnter: noop, onDemo: noop }),
+      createElement(Landing, { lang, onLanguage: noop, onEnter: noop, onDemo: noop, tryCheck: false }),
     );
     expect(landing).toContain(lang === "en" ? 'href="/?privacy=1&amp;lang=en"' : 'href="/?privacy=1"');
     const signUp = renderToStaticMarkup(

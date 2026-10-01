@@ -98,8 +98,10 @@ describe("the workout start (C48)", () => {
   it("lists each exercise once as name · sets × reps", () => {
     const html = render("ar");
     expect(html.split("ضغط الكتف جالسًا").length - 1).toBe(1);
-    expect(html).toContain("ضغط الكتف جالسًا · ٣ × ٩");
-    expect(render("en")).toContain("Seated Shoulder Press · 3 × 9");
+    const row = (h: string) => h.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+    expect(row(html)).toContain("ضغط الكتف جالسًا · ٣ × ٩");
+    expect(row(render("en"))).toContain("Seated Shoulder Press · 3 × 9");
+    expect(html).toContain('<span class="workout-dose">· ٣ × ٩</span>');
   });
 
   it("shows the set label on the rest between sets", () => {

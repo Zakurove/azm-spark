@@ -201,7 +201,10 @@ export default function Workout({
             return (
               <div key={i} className={now ? "current" : done ? "done" : ""}>
                 <span>{done ? <Icon name="check" size={16} /> : fmtNum(i + 1, lang)}</span>
-                <strong>{`${name} · ${fmtNum(e.sets, lang)} × ${fmtNum(e.reps, lang)}`}</strong>
+                <strong>
+                  {name}{" "}
+                  <span className="workout-dose">{`· ${fmtNum(e.sets, lang)} × ${fmtNum(e.reps, lang)}`}</span>
+                </strong>
               </div>
             );
           })}

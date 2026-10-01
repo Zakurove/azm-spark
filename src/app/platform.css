@@ -967,6 +967,12 @@
   font-size: 13px;
   display: block;
 }
+/* The dose reads apart from the name (in Arabic the middle dot sits close to the zero «٠»). */
+.workout-dose {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
 /* C48: the setup screen's one placement line and the attestation the "I'm ready" tap confirms. */
 .workout-place-line {
   font-size: 15px;

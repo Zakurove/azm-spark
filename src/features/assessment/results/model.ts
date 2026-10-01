@@ -2,8 +2,9 @@
  * What the results screens show (UX spec S50 to S52, P6), pure, from the flow state or from a stored
  * check (the read only view of an earlier check on My results, S53):
  *   - one card per test that was tried (a side measured, or tried and not measured), with a row per
- *     side in run order: the value with its unit in words, or "Not measured today" with its reason
- *     (a side skipped by the protocol or during the check is named in its card);
+ *     side in run order: the value with its unit in words, or "Not measured today" with its reason,
+ *     each reason said once on the screen (R-13; a side skipped by the protocol or during the check is
+ *     named in its card);
  *   - every test that did not run at all, named in one line with each distinct reason once in plain
  *     words (and the substitute sentence when it ran, P6, C32);
  *   - whether the check ended early (tests left that never ran) and whether anything was measured.
@@ -31,7 +32,7 @@ export interface ResultRow {
   value?: number;
   /** Side lean best censored by an abort or armrest contact: shown as "more than {value}". */
   censored?: boolean;
-  /** The reason id of a side not measured (data:reasons). */
+  /** The reason id of a side not measured (data:reasons); absent when a side above said it (R-13). */
   reason?: string;
   detail?: SentenceDetail;
   variant?: string | null;
@@ -123,6 +124,18 @@ export function buildResults(o: {
 
   const cards: ResultCardModel[] = [];
   const skipped: SkipEntry[] = [];
+  // R-13: each reason is said once on the screen, under the first side not measured for it.
+  const said = new Set<string>();
+  const once = (row: ResultRow): ResultRow => {
+    if (!row.reason) return row;
+    if (!said.has(row.reason)) {
+      said.add(row.reason);
+      return row;
+    }
+    const { reason: _said, ...rest } = row;
+    void _said;
+    return rest;
+  };
   const tests: TestId[] = [];
   for (const item of items) if (!tests.includes(item.testId)) tests.push(item.testId);
   for (const testId of tests) {
@@ -133,7 +146,11 @@ export function buildResults(o: {
       cards.push({
         testId,
         rows: sides.map(({ item, state }) =>
-          state.kind === "row" ? state.row : { side: item.side, status: "notMeasured", reason: state.reason },
+          once(
+            state.kind === "row"
+              ? state.row
+              : { side: item.side, status: "notMeasured", reason: state.reason },
+          ),
         ),
       });
       continue;

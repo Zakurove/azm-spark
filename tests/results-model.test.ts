@@ -139,6 +139,36 @@ describe("results cards (S50 to S52)", () => {
     expect(r.cards.every((c) => c.rows.every((x) => x.status === "notMeasured"))).toBe(true);
   });
 
+  it("says each reason once on the screen, under the first side not measured for it (R-13)", () => {
+    const none = Object.fromEntries(
+      SEATED.map((i) => [`${i.testId}:${i.side}`, { kind: "notMeasured", reason: "quality" } as SideFact]),
+    );
+    // Nothing measured: six sides, the sentence once.
+    expect(build(none).cards.flatMap((c) => c.rows.map((x) => x.reason))).toEqual([
+      "quality",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    // Different reasons each show once; a measured side has none.
+    const mixed = build({
+      ...ALL,
+      "shoulder_abduction:left": { kind: "notMeasured", reason: "quality" },
+      "trunk_control_seated:right": { kind: "skipped", reason: "pain_today" },
+      "arm_curl_30s:left": { kind: "notMeasured", reason: "quality" },
+    });
+    expect(mixed.cards.flatMap((c) => c.rows.map((x) => [x.status, x.reason]))).toEqual([
+      ["measured", undefined],
+      ["notMeasured", "quality"],
+      ["notMeasured", "pain_today"],
+      ["measured", undefined],
+      ["measured", undefined],
+      ["notMeasured", undefined],
+    ]);
+  });
+
   it("shows a censored side lean best as more than its value (spec 4.3)", () => {
     const r = build({
       ...ALL,
@@ -236,7 +266,11 @@ describe("the flow and stored checks as results", () => {
     const lean = r.cards.find((c) => c.testId === "trunk_control_seated")!;
     expect(lean.rows.map((x) => x.reason)).toEqual(["quality", "pain_today"]);
     const curl = r.cards.find((c) => c.testId === "arm_curl_30s")!;
-    expect(curl.rows.map((x) => x.reason)).toEqual(["quality", "by_choice"]);
+    // The side lean already said quality above (R-13): the arm curl says only its new reason.
+    expect(curl.rows.map((x) => [x.status, x.reason])).toEqual([
+      ["notMeasured", undefined],
+      ["notMeasured", "by_choice"],
+    ]);
   });
 });
 

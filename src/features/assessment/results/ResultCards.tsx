@@ -6,7 +6,7 @@
  *     accessible name only (C31, C41); when the saved comparison is known (S52), start and now with
  *     the verdict (ThenNow);
  *   - a side not measured shows "Not measured today" (22 px) with one neutral line, its reason, never
- *     greyed (P1);
+ *     greyed (P1); a reason already said on the screen is not said again (R-13);
  *   - tests that did not run are named in one muted line, then each distinct reason once (C32).
  */
 import { t, type Lang } from "../../../i18n";

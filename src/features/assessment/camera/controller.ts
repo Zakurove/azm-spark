@@ -1272,15 +1272,10 @@ export class CameraController {
       this.lastIssueCueAt = t;
       const cue = setupIssueCue(first, testId, side, weaker, res.cue);
       if (cue) this.pushCue(cue, "setup", t, true, undefined, true);
-      // The motion permission is the problem, not the placement: say what is needed and why (the
-      // wheelchair tip is on the S58 tips).
-      else if (first === "motion")
-        this.note(
-          this.test.position === "wheelchair"
-            ? "assessment.primer.motionWheelchair"
-            : "assessment.setup.issue.motion",
-          "warn",
-        );
+      // The motion permission is the problem, not the placement: one line at home; never at the booth,
+      // where staff allowed motion on S55 and the staff readout shows a missing reading (C08).
+      else if (first === "motion" && this.test.setting !== "booth")
+        this.note("assessment.setup.issue.motion", "warn");
     }
     if (first === "no_person") this.noPersonSince ??= t;
     else this.noPersonSince = null;
@@ -1305,10 +1300,10 @@ export class CameraController {
       const waitRunner = this.timed && !!this.runner && this.model.data.run.practiced;
       if (!waitRunner) {
         this.setupSent = true;
-        // B2: the booth has its own line (it names the team), the home line says how to answer.
+        // B2: the booth has its own line (it names the team, C04), the home line says how to answer.
         if (this.test.first)
           this.noteOnce(
-            this.test.setting === "booth" ? "assessment.intro.howToStopBooth" : "assessment.intro.howToStop",
+            this.test.setting === "booth" ? "assessment.test.stopBooth" : "assessment.intro.howToStop",
             "info",
             true,
           );

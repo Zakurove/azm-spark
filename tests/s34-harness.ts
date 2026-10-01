@@ -37,7 +37,6 @@ export function guestPlan(position: "chair" | "standing" | "wheelchair" = "chair
     initialModel(GUEST),
     { type: "START" },
     { type: "GUEST_PATH", path: "full" },
-    { type: "ADULT_YES" },
     { type: "GUEST_ANSWER", step: 1, value: position },
     { type: "GUEST_ANSWER", step: 2, value: "none" },
     { type: "GUEST_ANSWER", step: 3, value: ["none"] },
@@ -49,7 +48,6 @@ export function guestPlan(position: "chair" | "standing" | "wheelchair" = "chair
     { type: "GUEST_NEXT" },
     { type: "CONTINUE" },
     { type: "SOUND_RESULT", mode: "voice" },
-    { type: "PRECHECK_START" },
   );
   for (let k = 0; k < 60 && m.state.kind === "question"; k++) {
     const id = (m.state as { id: string }).id;

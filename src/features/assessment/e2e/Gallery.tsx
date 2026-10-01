@@ -164,11 +164,7 @@ function QuestionPage({ lang }: { lang: Lang }) {
   const q = precheckItem("pc_urgent");
   const [value, setValue] = useState<string | null>(null);
   return (
-    <CheckShell
-      counter={{ text: t(lang, "assessment.common.questionOf", { n: 1, total: 9 }), value: 1, max: 9 }}
-      onBack={noop}
-      sound
-    >
+    <CheckShell counter={{ value: 1, max: 9 }} onBack={noop} sound>
       <h1 id="gallery-q" className="check-question">
         {q.ask![lang]}
       </h1>

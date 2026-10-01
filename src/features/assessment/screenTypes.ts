@@ -31,7 +31,6 @@ export const FLOW_SCREEN_IDS = [
   "S13",
   "S14",
   "S14b",
-  "S16",
   "S17",
   "S18",
   "S19",

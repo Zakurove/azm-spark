@@ -11,6 +11,11 @@ export interface Preferences {
   safetyCheckIn: boolean;
   /** The chosen voice pack (src/app/voicePacks.ts); empty follows the default pack. Per device. */
   voicePack: string;
+  /**
+   * The movement check's sound check answer on this device (S14b runs on the first home check only,
+   * C05): voice or the screen reader; empty until it has been asked.
+   */
+  checkSound: "" | "voice" | "screenReader";
 }
 export const defaults: Preferences = {
   voice: "full",
@@ -18,6 +23,7 @@ export const defaults: Preferences = {
   focus: false,
   safetyCheckIn: false,
   voicePack: "",
+  checkSound: "",
 };
 export function readPreferences(): Preferences {
   try {
@@ -28,6 +34,7 @@ export function readPreferences(): Preferences {
       focus: p.focus === true,
       safetyCheckIn: p.safetyCheckIn === true,
       voicePack: typeof p.voicePack === "string" ? p.voicePack : "",
+      checkSound: p.checkSound === "voice" || p.checkSound === "screenReader" ? p.checkSound : "",
     };
   } catch {
     return { ...defaults };

@@ -9,8 +9,10 @@
  *     commits like any other (O11a: no read back); emergency and AD answers route at once (O11c).
  *   the two 0 to 10 pain scales (S19, S20): select, then Next, with the readout «اخترت {value}» (O11b).
  *   the areas follow up (S24): chips, Next, at least one area.
- * Back returns to the previous visible question with its answer selected. "Question n of total"
- * counts every question that can still appear (O9), so the total only shrinks.
+ * Back returns to the previous visible question with its answer selected. A thin bar with no numbers
+ * shows the way so far (C10): its total is every question that can still appear (O9), so it only moves
+ * forward. The first question carries the one subtitle of the pre-check (C06): how to answer, at home
+ * with the data's note on what is kept, and on a resumed check the O6 line instead.
  *
  * Listen plays the question, the list and every answer, each captioned. At home in voice mode the
  * question plays by itself 800 ms after focus moves to it; at the booth only on a tap (4.9, B16).
@@ -22,6 +24,7 @@ import { useId, useRef, useState, type ReactNode } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import type { AnswerValue } from "../../../medical/precheck";
+import { CHECK_DATA } from "../../../movements/assessments";
 import { backTarget, questionCounter, type FlowModel } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons, MultiAnswerList, useNextWithHint } from "../shared/answers";
@@ -94,18 +97,11 @@ function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: Scre
   const answer = (value: AnswerValue) => dispatch({ type: "ANSWER", id, value });
   const listen = () => void voice.play(view.speech, { onScreen: true });
   const control = useControl(view, model.data.answers[id], answer);
+  const first = !starting && counter?.n === 1;
 
   return (
     <CheckShell
-      counter={
-        counter
-          ? {
-              text: t(lang, "assessment.common.questionOf", { n: counter.n, total: counter.total }),
-              value: counter.n,
-              max: counter.total,
-            }
-          : undefined
-      }
+      counter={counter ? { value: counter.n, max: counter.total } : undefined}
       onBack={back}
       sound
       footer={control.next ? { primary: control.next } : undefined}
@@ -117,6 +113,7 @@ function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: Scre
         <h1 id={titleId} className={`check-question${view.question.length > 140 ? " is-long" : ""}`}>
           <Emphasized text={view.question} words={view.emphasis} />
         </h1>
+        {first && <FirstLine resuming={model.data.resuming} home={model.data.setting === "home"} />}
         {/* B16: at the booth nothing plays by itself; Listen comes first, above any list. On S22 at the
             booth it is the 64 px earphones button (staff offer the desk earphones to everyone). */}
         {booth && view.kind === "listConfirm" ? (
@@ -139,6 +136,18 @@ function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: Scre
         />
       </div>
     </CheckShell>
+  );
+}
+
+/** The pre-check's one subtitle, on its first question (C06): S16 is gone. */
+function FirstLine({ resuming, home }: { resuming: boolean; home: boolean }) {
+  const { lang } = useCheckUi();
+  if (resuming) return <p className="check-body">{t(lang, "assessment.resume.notice")}</p>;
+  return (
+    <>
+      <p className="check-body">{t(lang, "assessment.precheck.howToAnswer")}</p>
+      {home && <p className="check-meta">{bidiText(lang, CHECK_DATA.boundary.precheckNotice[lang])}</p>}
+    </>
   );
 }
 

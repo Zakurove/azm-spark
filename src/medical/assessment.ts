@@ -11,6 +11,7 @@
  *   finalizeProtocol   today's protocol after the pre-check: skips, variants, helper, band, and
  *                      whether the substitute ran (P6)
  *   estimateMinutes    the computed duration of a check (O40)
+ *   statedMinutes      the one range every screen states for a set of tests (C11)
  *   checkSchedule      due 28 days after the last home check; 48 hours minimum between checks; the
  *                      booth and the side lean only session (H9, Q12 (2), Q33)
  *   allowedLoads       the loads an arm may use (Q5)
@@ -738,6 +739,16 @@ export function estimateMinutes(
     if (helper(t)) m = plus(m, E.helperBriefing);
   }
   return m;
+}
+
+/**
+ * The range a screen states for a check (C11): its tests in a setting, always read with the worst
+ * case context, so the same tests give the same range on every screen (S05 and S27 at the booth, S01
+ * and S27 at home) and a stated range only lengthens (F-2 Rule 1). Fewer tests may give fewer minutes.
+ * At the booth the guest steps are counted.
+ */
+export function statedMinutes(tests: readonly TestId[], setting: Setting): Minutes {
+  return estimateMinutes([...new Set(tests)], null, setting, setting === "booth");
 }
 
 /** Whether the pre-check can ask condition, standing or setup questions (the Q18 time budget). */

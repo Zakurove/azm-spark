@@ -35,7 +35,6 @@ export function guestAfterSteps(p: GuestPersona = {}): FlowModel {
   const go = (e: FlowEvent) => (m = step(m, e));
   go({ type: "START" });
   go({ type: "GUEST_PATH", path: p.path ?? "full" });
-  go({ type: "ADULT_YES" });
   go({ type: "GUEST_ANSWER", step: 1, value: p.position ?? "standing" });
   go({ type: "GUEST_ANSWER", step: 2, value: p.support ?? "none" });
   go({ type: "GUEST_ANSWER", step: 3, value: p.conditions?.length ? p.conditions : ["none"] });
@@ -80,7 +79,6 @@ export function precheckUntil(
   let m = m0;
   if (m.state.kind === "intro") m = step(m, { type: "CONTINUE" });
   if (m.state.kind === "soundCheck") m = step(m, { type: "SOUND_RESULT", mode: "voice" });
-  if (m.state.kind === "precheckNotice") m = step(m, { type: "PRECHECK_START" });
   const seen: string[] = [];
   for (let k = 0; k < 80 && m.state.kind === "question"; k++) {
     const id = m.state.id;

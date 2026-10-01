@@ -102,7 +102,7 @@ export function Warnings({ model, dispatch }: ScreenProps) {
 export function Plan({ model, dispatch }: ScreenProps) {
   const { lang, guest } = useCheckUi();
   const env = model.data.env;
-  const view = env ? planView(model.data.protocol, env, lang, Date.now(), guest) : null;
+  const view = env ? planView(model.data.protocol, env, lang, Date.now()) : null;
   const none = !view || view.rows.length === 0;
   return (
     <CheckShell

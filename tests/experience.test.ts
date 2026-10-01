@@ -4,12 +4,26 @@ import { sessionCsv } from "../src/app/History";
 import { SavedSession } from "../src/app/product";
 afterEach(() => vi.unstubAllGlobals());
 it("recovers from malformed or unavailable stored preferences", () => {
-  const fallback = { voice: "full", pace: 1, focus: false, safetyCheckIn: false, voicePack: "" };
+  const fallback = {
+    voice: "full",
+    pace: 1,
+    focus: false,
+    safetyCheckIn: false,
+    voicePack: "",
+    checkSound: "",
+  };
   vi.stubGlobal("localStorage", { getItem: () => "{broken" });
   expect(readPreferences()).toEqual(fallback);
   vi.stubGlobal("localStorage", {
     getItem: () =>
-      JSON.stringify({ voice: "remote", pace: 8, focus: "yes", safetyCheckIn: "yes", voicePack: ["x"] }),
+      JSON.stringify({
+        voice: "remote",
+        pace: 8,
+        focus: "yes",
+        safetyCheckIn: "yes",
+        voicePack: ["x"],
+        checkSound: "captionsOnly",
+      }),
   });
   expect(readPreferences()).toEqual(fallback);
 });

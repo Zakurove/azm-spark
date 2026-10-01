@@ -44,9 +44,6 @@
   color: var(--red);
 }
 
-.azm-check .flow-chip-line {
-  display: flex;
-}
 .azm-check .flow-chips {
   display: flex;
   flex-wrap: wrap;
@@ -83,10 +80,16 @@
   gap: var(--s3);
 }
 
-/* The links and text buttons of the flow (the example link, the privacy link). */
+/* The links and text buttons of the flow (the example link, the under 18 link, the privacy link). */
 .azm-check .flow-link,
-.azm-check .flow-example-link {
+.azm-check .flow-example-link,
+.azm-check [data-adult="under"] {
   justify-self: center;
+}
+/* S05: the adult confirmation directly above the start buttons (C02). */
+.azm-check .flow-adult-line {
+  margin: 0;
+  text-align: center;
 }
 .azm-check .flow-listen {
   justify-self: start;
@@ -235,11 +238,6 @@
   stroke: var(--purple);
   stroke-width: 2;
   stroke-dasharray: 6 6;
-}
-.azm-check .flow-draw-ring {
-  fill: none;
-  stroke: var(--gold-ink);
-  stroke-width: 4;
 }
 
 /* Notice cards (S25, S28): warn tint with a 4 px band and a triangle, or purple tint with info. */

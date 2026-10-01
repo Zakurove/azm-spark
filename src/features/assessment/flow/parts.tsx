@@ -535,21 +535,3 @@ export function ChairGateDrawing() {
     </figure>
   );
 }
-
-/** The camera permission prompt drawing (S31): a system prompt with its Allow button circled. */
-export function PromptDrawing({ alt }: { alt: string }) {
-  return (
-    <figure className="flow-drawing">
-      <svg viewBox="0 0 320 170" role="img" aria-label={alt}>
-        <rect x="0" y="0" width="320" height="170" rx="14" className="flow-draw-bg" />
-        <rect x="50" y="20" width="220" height="130" rx="16" className="flow-draw-card" />
-        <circle cx="160" cy="52" r="12" className="flow-draw-soft" />
-        <rect x="90" y="74" width="140" height="8" rx="4" className="flow-draw-soft" />
-        <rect x="110" y="88" width="100" height="8" rx="4" className="flow-draw-soft" />
-        <rect x="66" y="112" width="84" height="26" rx="8" className="flow-draw-soft" />
-        <rect x="170" y="112" width="84" height="26" rx="8" className="flow-draw-accent" />
-        <ellipse cx="212" cy="125" rx="54" ry="24" className="flow-draw-ring" />
-      </svg>
-    </figure>
-  );
-}

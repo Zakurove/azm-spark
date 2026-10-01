@@ -24,27 +24,20 @@ export const IDLE_COUNTDOWN_MS = 30 * 1000;
 export const LONG_PRESS_MS = 1500;
 
 /**
- * Screens where the idle reset may run (S57: S05 to S31 before the camera, S46, S46b, and S50), by
- * flow state. Every other state never resets itself; staff clear it with the staff reset.
+ * Screens where the idle reset may run (S57: S05 to S28 before the camera, S46, S46b, and S50), by
+ * flow state. Every other state never resets itself; staff clear it with the staff reset. Only the
+ * states a booth visitor reaches are listed: the booth has no intro, sound check, notice, primer or
+ * home preparation screens (C04 to C08).
  */
 const IDLE_STATES: ReadonlySet<FlowStateKind> = new Set<FlowStateKind>([
   "guestWelcome", // S05
-  "adultGate", // S05a
   "adultEnd", // S05a end card
   "guestSetup", // S06 to S11
   "guestStaff", // S09
-  "intro", // S14
-  "soundCheck", // S14b
-  "precheckNotice", // S16
   "question", // S17 to S24
-  "starting", // the last question, busy
   "warnings", // S25
   "plan", // S27
   "test.instruction", // S28
-  "test.grip", // S29 grip
-  "test.load", // S30
-  "test.helper", // S26
-  "test.primer", // S31
   "skipNotice", // S46
   "guestAfterTest", // S46b
   "results", // S50

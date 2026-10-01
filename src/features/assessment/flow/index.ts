@@ -3,7 +3,7 @@
  *
  *   S04 DesktopGate · S05 GuestWelcome · S05a AdultGate (and its end card) · S05b BoothOnly
  *   S06 to S11 GuestStep · S09 TalkToStaff · S12 Consent · S13 ContextCheck · S14 Intro
- *   S14b SoundCheck · S16 PrecheckNotice (and the O6 resume line) · S17 to S24 QuestionScreen
+ *   S14b SoundCheck · S17 to S24 QuestionScreen
  *   S25 Warnings · S26 HelperBrief · S27 Plan · S28 Instruction · S29 ArmCurlQuestion (grip and the
  *   practice check) · S30 LoadChoice · S31 CameraPrimer · S32 CameraProblem · S33 Postponed
  *   S35 PausedToday
@@ -16,7 +16,7 @@ import { Consent, ContextCheck } from "./Consent";
 import { AdultGate, DesktopGate, GuestWelcome, TalkToStaff } from "./Entry";
 import { GuestStep } from "./GuestStep";
 import { Instruction } from "./Instruction";
-import { Intro, PrecheckNotice, SoundCheck } from "./Intro";
+import { Intro, SoundCheck } from "./Intro";
 import { ArmCurlQuestion, LoadChoice } from "./Load";
 import { PausedToday, Postponed } from "./Lock";
 import { HelperBrief, Plan, Warnings } from "./Plan";
@@ -39,7 +39,6 @@ export const FLOW_SCREENS: Record<FlowScreenId, ScreenComponent> = {
   S13: ContextCheck,
   S14: Intro,
   S14b: SoundCheck,
-  S16: PrecheckNotice,
   S17: QuestionScreen,
   S18: QuestionScreen,
   S19: QuestionScreen,

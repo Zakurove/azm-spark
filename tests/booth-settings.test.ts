@@ -37,11 +37,10 @@ import {
   answerAll,
   contextOf,
   GUEST,
-  guestAtIntro,
+  guestAtQuestions,
   guestAtPlan,
   play,
   signedAt,
-  toQuestions,
   type GuestChoices,
 } from "./flow-walks";
 
@@ -174,10 +173,11 @@ describe("a switched off test never appears in the visitor's tests today", () =>
   it("the pre-check asks nothing for a test that is off", () => {
     const asked = (settings: BoothSettings) => {
       const seen: string[] = [];
-      let m = toQuestions(
-        guestAtIntro({ position: "standing", config: { ...GUEST, boothSettings: settings } }),
+      answerAll(
+        guestAtQuestions({ position: "standing", config: { ...GUEST, boothSettings: settings } }),
+        {},
+        seen,
       );
-      m = answerAll(m, {}, seen);
       return seen;
     };
     expect(asked(DEFAULT_BOOTH_SETTINGS).some((id) => id.startsWith("pc_stand"))).toBe(true);
@@ -187,9 +187,12 @@ describe("a switched off test never appears in the visitor's tests today", () =>
   it("a guest whose only test is off talks to our team (S09), with no new copy", () => {
     // Stroke without clearance: the booth arm raise only (Q19 (5b)); with it off, no test runs.
     const choices: GuestChoices = { conditions: ["stroke"], clearance: "unsure" };
-    const on = guestAtIntro({ ...choices, config: { ...GUEST, boothSettings: DEFAULT_BOOTH_SETTINGS } });
-    expect(on.state.kind).toBe("intro");
-    const m = guestAtIntro({ ...choices, config: { ...GUEST, boothSettings: off("shoulder_abduction") } });
+    const on = guestAtQuestions({ ...choices, config: { ...GUEST, boothSettings: DEFAULT_BOOTH_SETTINGS } });
+    expect(on.state.kind).toBe("question");
+    const m = guestAtQuestions({
+      ...choices,
+      config: { ...GUEST, boothSettings: off("shoulder_abduction") },
+    });
     expect(m.state.kind).toBe("guestStaff");
   });
 
@@ -200,13 +203,7 @@ describe("a switched off test never appears in the visitor's tests today", () =>
     expect(baseTestsOf(m)).not.toContain("shoulder_abduction");
     expect(m.data.env?.baseTests).not.toContain("shoulder_abduction");
     m = answerAll(
-      play(
-        m,
-        { type: "CONTEXT_CONFIRM" },
-        { type: "CONTINUE" },
-        { type: "SOUND_RESULT", mode: "voice" },
-        { type: "PRECHECK_START" },
-      ),
+      play(m, { type: "CONTEXT_CONFIRM" }, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }),
     );
     const start = m.effects.find((e): e is Extract<FlowEffect, { type: "start" }> => e.type === "start");
     expect(start).toMatchObject({ setting: "booth", testsOff: ["shoulder_abduction"] });
@@ -217,7 +214,6 @@ describe("a switched off test never appears in the visitor's tests today", () =>
         { type: "CONTEXT_CONFIRM" },
         { type: "CONTINUE" },
         { type: "SOUND_RESULT", mode: "voice" },
-        { type: "PRECHECK_START" },
       ),
     );
     const homeStart = home.effects.find((e) => e.type === "start");

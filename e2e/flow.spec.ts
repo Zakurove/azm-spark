@@ -158,6 +158,13 @@ async function answerQuestions(page: Page, lang: Lang, pain = 0, seen: string[] 
   return seen;
 }
 
+/** The two numbers of a minutes range in either language ("17 to 23", «١٧ إلى ٢٣»). */
+function minutesOf(text: string): [number, number] {
+  const latin = text.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  const [a, b] = latin.match(/\d+/g)!.map(Number);
+  return [a, b];
+}
+
 /** Opens a named state of e2e/flow-models.ts through the check's reload snapshot. */
 async function openState(page: Page, name: string, lang: Lang, query = "") {
   await page.goto("/?e2eGallery=loading");
@@ -284,28 +291,33 @@ for (const lang of LANGS) {
       await page.addInitScript(() => sessionStorage.setItem("azm.booth", "e2e-booth"));
       await page.goto(url("/?check=1&e2eFixture=seated-raise", lang));
 
-      // S05: two equal paths, nothing saved, the booth badge.
+      // S05: one gold path and the full check as an outline button of the same height (C03), the
+      // adult line directly above them (C02), nothing saved.
       await expectScreen(page, "S05", lang);
       await expect(page.getByText(t.guest.notSaved)).toBeVisible();
-      await expect(page.locator(".check-footer .cta")).toHaveCount(2);
+      await expect(page.locator(".check-footer .cta")).toHaveCount(1);
+      await expect(page.locator(".check-footer .ghost")).toHaveCount(1);
+      await expect(page.locator(".check-footer .flow-adult-line")).toHaveText(
+        shown(lang, data.boundary.adultConfirm[lang]),
+      );
+      const [gold, outline] = [page.locator(".check-footer .cta"), page.locator(".check-footer .ghost")];
+      expect((await outline.boundingBox())!.height).toBe((await gold.boundingBox())!.height);
       await expectTargets(page);
-      await page.locator(".check-footer .cta").nth(1).click();
-
-      // S05a: the data text first, a tap submits.
-      await expectScreen(page, "S05a", lang);
-      await answer(page, shown(lang, data.boundary.adultConfirm[lang])).click();
+      // The full check's range on S05 (C11): S27 states a range inside it, from the same function.
+      const offered = minutesOf((await outline.textContent())!);
+      await outline.click();
 
       // S06, S07: single choice submits on tap; Back keeps the answer.
       await expectScreen(page, "S06", lang);
       await expect(page.locator(".check-topbar-counter")).toHaveText(
         shown(lang, fill(t.common.stepOf, { n: 1, total: 6 })),
       );
-      await answer(page, t.options.position.chair).click();
+      await answer(page, t.options.position.standing).click();
       await expectScreen(page, "S07", lang);
       await page.getByRole("button", { name: t.common.back }).click();
       await expectScreen(page, "S06", lang);
-      await expect(answer(page, t.options.position.chair)).toHaveAttribute("aria-pressed", "true");
-      await answer(page, t.options.position.chair).click();
+      await expect(answer(page, t.options.position.standing)).toHaveAttribute("aria-pressed", "true");
+      await answer(page, t.options.position.standing).click();
       await answer(page, t.options.support.none).click();
 
       // S08: Next without a choice shows the hint and moves focus to the first row; none is exclusive.
@@ -330,34 +342,23 @@ for (const lang of LANGS) {
         await next(page).click();
       }
 
-      // S14: the computed range in boundary.intro, the booth need line.
-      await expectScreen(page, "S14", lang);
-      await expect(page.locator('[data-part="duration"]')).toContainText(lang === "ar" ? "دقيقة" : "minutes");
-      await expect(page.getByText(t.intro.need.booth)).toBeVisible();
+      // Straight to the first question (C04, C05, C06): its one subtitle, and a bar with no numbers (C10).
+      await expectScreen(page, "S17", lang);
+      await expect(page.getByText(t.precheck.howToAnswer)).toBeVisible();
+      await expect(page.locator(".check-topbar-counter")).toHaveCount(0);
+      await expect(page.locator(".check-progress")).toBeVisible();
       await expectTargets(page);
-      await next(page).click();
-
-      // S14b: No, then No again, then continue without sound.
-      await expectScreen(page, "S14b", lang);
-      const no = data.engine.soundCheck.options.find((o) => o.value === "no")!.label[lang];
-      await answer(page, no).click();
-      await expect(page.locator('[data-note="off"]')).toBeVisible();
-      await answer(page, no).click();
-      await expect(page.locator('[data-note="stillOff"]')).toBeVisible();
-      await page.getByRole("button", { name: t.soundCheck.continueWithout }).click();
-
-      // S16, then every question (the pain scale at 3 opens the areas question).
-      await expectScreen(page, "S16", lang);
-      await expect(page.getByText(t.precheck.helperReads)).toHaveCount(0);
-      await next(page).click();
       const seen = await answerQuestions(page, lang, 3);
       expect(seen[0]).toBe("pc_urgent");
       expect(seen).toContain("pc_pain_now");
       expect(seen).toContain("pc_pain_areas");
 
-      // S27: the frozen plan, no Back.
+      // S27: the frozen plan, no Back, and a range inside S05's (C11).
       await expectScreen(page, "S27", lang);
       await expect(page.getByRole("button", { name: t.common.back, exact: true })).toHaveCount(0);
+      const stated = minutesOf((await screen(page, "S27").locator(".check-meta").first().textContent())!);
+      expect(stated[0]).toBeGreaterThanOrEqual(offered[0]);
+      expect(stated[1]).toBeLessThanOrEqual(offered[1]);
       await expectTargets(page);
       await page.getByRole("button", { name: t.plan.start }).click();
 
@@ -367,22 +368,19 @@ for (const lang of LANGS) {
       await expect(page.getByRole("button", { name: t.common.skipTest })).toBeVisible();
       await page.getByRole("button", { name: t.test.ready }).click();
 
-      // S31: the fixture camera needs no prompt; the camera screens follow.
-      await expectScreen(page, "S31", lang);
-      await page.getByRole("button", { name: t.primer.allow }).click();
+      // No camera primer at the booth (C08): the camera screens follow at once.
       await expect(page.locator('.check-base[data-state^="cam."]')).toBeVisible();
       expect(errors).toEqual([]);
     });
 
-    /** From S05 through the guest steps and the pre-check to S27, with plain answers. */
-    async function guestToPlan(page: Page, path: "quick" | "full") {
+    /**
+     * From S05 through the guest steps and the pre-check, with plain answers: to S27, or for the one
+     * test path straight to its card (S28, C07).
+     */
+    async function guestToTests(page: Page, path: "quick" | "full") {
       const t = COPY[lang];
       await expectScreen(page, "S05", lang);
-      await page
-        .locator(".check-footer .cta")
-        .nth(path === "quick" ? 0 : 1)
-        .click();
-      await answer(page, shown(lang, data.boundary.adultConfirm[lang])).click();
+      await page.locator(path === "quick" ? ".check-footer .cta" : ".check-footer .ghost").click();
       await answer(page, t.options.position.chair).click();
       await answer(page, t.options.support.none).click();
       await answer(page, data.selection.guestBooth.conditionsStep.noneChip[lang]).click();
@@ -393,33 +391,25 @@ for (const lang of LANGS) {
         await answer(page, step === "S10" ? t.options.pain.none : t.options.restriction.none).click();
         await next(page).click();
       }
-      await expectScreen(page, "S14", lang);
-      await next(page).click();
-      await expectScreen(page, "S14b", lang);
-      await answer(page, data.engine.soundCheck.options.find((o) => o.value === "yes")!.label[lang]).click();
-      await expectScreen(page, "S16", lang);
-      await next(page).click();
       // A pain score of 3 (0 would also match the label of 10 out of 10).
       await answerQuestions(page, lang, 3);
-      await expectScreen(page, "S27", lang);
+      await expectScreen(page, path === "quick" ? "S28" : "S27", lang);
     }
 
     test("a test switched off by staff never appears: the one test is the arm curl (D-016 item 4)", async ({
       page,
     }) => {
-      const t = COPY[lang];
       const errors = watchConsole(page);
       await page.addInitScript(() => {
         sessionStorage.setItem("azm.booth", "e2e-booth");
         localStorage.setItem("azm.boothSettings", JSON.stringify({ testsOff: ["shoulder_abduction"] }));
       });
       await page.goto(url("/?check=1", lang));
-      await guestToPlan(page, "quick");
-      const plan = screen(page, "S27");
-      await expect(plan.locator(".flow-plan-row")).toHaveCount(1);
-      await expect(plan.locator(".flow-plan-row h2")).toHaveText(shown(lang, data.tests[1].name[lang]));
-      await expect(plan).not.toContainText(shown(lang, data.tests[0].name[lang]));
-      await expect(plan.getByText(t.plan.variantWhy.booth)).toBeVisible();
+      await guestToTests(page, "quick");
+      // One test: no plan (C07); its card names the arm curl, never the arm raise.
+      const card = screen(page, "S28");
+      await expect(card.locator("h1")).toHaveText(shown(lang, data.tests[1].name[lang]));
+      await expect(card).not.toContainText(shown(lang, data.tests[0].name[lang]));
       expect(errors).toEqual([]);
     });
 
@@ -433,10 +423,8 @@ for (const lang of LANGS) {
         localStorage.setItem("azm.boothSettings", JSON.stringify({ readout: true, planeFallback: true }));
       });
       await page.goto(url("/?check=1&e2eFixture=seated-raise", lang));
-      await guestToPlan(page, "quick");
-      await page.getByRole("button", { name: t.plan.start }).click();
+      await guestToTests(page, "quick");
       await page.getByRole("button", { name: t.test.ready }).click();
-      await page.getByRole("button", { name: t.primer.allow }).click();
       const panel = page.locator("[data-staff-readout]");
       await expect(panel).toBeVisible();
       await expect(panel).toContainText(t.booth.readout.title);
@@ -478,8 +466,8 @@ for (const lang of LANGS) {
       await expect(page.locator("h1")).toHaveText(t.guest.staff.titleBooth);
       await page.getByRole("button", { name: t.guest.staff.restart }).click();
       await expect(screen(page, "S05")).toBeVisible();
-      await page.locator(".check-footer .cta").first().click();
-      await answer(page, shown(lang, fill(t.adult.under, { age: 18 }))).click();
+      // C02: the under 18 link on S05 itself.
+      await page.getByRole("button", { name: shown(lang, fill(t.adult.under, { age: 18 })) }).click();
       await expect(page.locator('[data-variant="end"]')).toBeVisible();
       await expect(page.getByText(shown(lang, fill(t.adult.body, { age: 18 })))).toBeVisible();
     });
@@ -536,7 +524,7 @@ for (const lang of LANGS) {
         const err = sessionStorage.getItem("e2e.gum") ?? "NotAllowedError";
         navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException("e2e", err));
       });
-      await openState(page, "S31-primer-booth", lang);
+      await openState(page, "S31-primer-home", lang);
       await page.getByRole("button", { name: t.primer.allow }).click();
       await expectScreen(page, "S32", lang);
       await expect(page.locator('[data-screen="S32"]')).toHaveAttribute("data-variant", "denied");
@@ -600,18 +588,21 @@ for (const lang of LANGS) {
       await expect(page.getByText(t.context.sideLeft)).toBeVisible();
       await next(page).click();
 
-      // S14: the personal needs with the helper for the side lean.
+      // S14: the personal needs with the helper for the side lean, no time and no tests (C11, C38).
       await expectScreen(page, "S14", lang);
       await expect(page.getByText(t.intro.need.phone)).toBeVisible();
       await expect(page.getByText(t.intro.need.chairArmrests)).toBeVisible();
+      await expect(page.locator('[role="switch"]')).toHaveCount(0);
       await next(page).click();
+      // S14b, the first check on this device (C05); the answer is kept for the next check.
       await expectScreen(page, "S14b", lang);
       await answer(page, data.engine.soundCheck.options[0].label[lang]).click();
+      expect(
+        await page.evaluate(() => JSON.parse(localStorage.getItem("azm.coach") ?? "{}").checkSound),
+      ).toBe("voice");
 
-      // S16 at home names the helper who may read the questions.
-      await expectScreen(page, "S16", lang);
-      await expect(page.getByText(t.precheck.helperReads)).toBeVisible();
-      await next(page).click();
+      // The first question carries the home note on what is kept (C06).
+      await expect(page.getByText(data.boundary.precheckNotice[lang])).toBeVisible();
 
       // pc_unwell at home: the question, then the examples under "For example" (O45).
       await answer(page, optionLabel("pc_urgent", "no", lang)).click();
@@ -679,11 +670,9 @@ for (const lang of LANGS) {
       await expect(page.locator(".flow-kg-input")).toHaveValue(shown(lang, lang === "ar" ? "1٫5" : "1.5"));
       await next(page).click();
 
-      // S31 home: the placement line and the phone steady cue; Back returns to the load.
-      // (The camera itself is not opened here: flowMachine sends the first camera test with a
-      // preparation step back to that step after the primer; see the stream's foundation requests.)
+      // S31 home: one privacy line and the button (C08); Back returns to the load.
       await expectScreen(page, "S31", lang);
-      await expect(page.getByText(t.primer.place)).toBeVisible();
+      await expect(page.getByText(t.primer.body)).toBeVisible();
       await page.getByRole("button", { name: t.common.back, exact: true }).click();
       await expectScreen(page, "S30", lang);
       expect(errors).toEqual([]);

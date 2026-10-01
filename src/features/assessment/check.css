@@ -558,6 +558,10 @@ html:has(.azm-check.check-page) {
   margin: 0 auto;
   padding: var(--s3) var(--gutter);
 }
+/* A secondary action in the footer is as tall as the primary: one gold choice, never a smaller one (C03). */
+.azm-check .check-footer .ghost {
+  min-height: var(--h-cta);
+}
 /* The footer is sticky only while the visual viewport is at least 560 CSS px tall (3.0). */
 @media (min-height: 560px) {
   .azm-check .check-footer {

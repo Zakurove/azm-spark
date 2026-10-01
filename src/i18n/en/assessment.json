@@ -5,7 +5,6 @@
     "exit": "Leave the check",
     "soundOn": "Sound is on",
     "soundOff": "Sound is off",
-    "questionOf": "Question {n} of {total}",
     "testOf": "Test {n} of {total}",
     "tryOf": "Try {n} of {total}",
     "practice": "Practice, not counted",
@@ -23,7 +22,6 @@
     "chooseToContinue": "Choose an answer to continue.",
     "call937": "Call the Ministry of Health on 937",
     "notSavedYet": "Not saved yet",
-    "videoStays": "Video stays on your phone",
     "language": "العربية",
     "noneClears": "Clears the other choices",
     "sound": "Sound",
@@ -144,7 +142,7 @@
   },
   "guest": {
     "title": "Try the movement check",
-    "notSaved": "This is a trial. Nothing from your answers or results is saved.",
+    "notSaved": "This is a trial and nothing is saved. The video stays on this phone.",
     "start": "Start",
     "boothBadge": "Azm booth",
     "offlineNoModel": "Movement tracking cannot be prepared without an internet connection this time. Connect, then try again.",
@@ -269,15 +267,8 @@
     "edit": "Update your medical condition answers"
   },
   "intro": {
-    "testsHeading": "Today’s tests",
-    "sound": "Turn your volume up to hear the instructions. They also appear as text.",
-    "stop": "The Stop button is always on screen, and anyone with you can press it.",
     "illustrationAlt": "A person sitting on a chair, with a phone standing about two meters in front of them.",
-    "start": "Start the questions",
-    "welcomeBack": "Welcome back. We will compare the results of this check with your starting point.",
     "howToStop": "If you want to stop during a test, sit down if you are standing, lower your arms, then tap Stop on the screen.",
-    "allSeated": "All the tests in your check are done sitting.",
-    "duration": "Today’s check takes about {minutesFrom} to {minutesTo} {unit}.",
     "need": {
       "heading": "What you need today",
       "chairSteady": "A steady chair with a back",
@@ -290,11 +281,8 @@
       "helper": "Another adult beside you for {tests}",
       "loadFirst": "Something light to hold for the arm bends, such as a closed water bottle, or nothing",
       "loadSame": "The same weight or bottle you used last time",
-      "shoes": "The same shoes at every check, or bare feet every time",
-      "booth": "Everything you need is ready at the booth."
-    },
-    "skipAny": "You can skip any test.",
-    "howToStopBooth": "If you want to stop during a test, say Stop to one of our team, or sit down if you are standing, lower your arms and stay still."
+      "shoes": "The same shoes at every check, or bare feet every time"
+    }
   },
   "soundCheck": {
     "title": "Let’s make sure you can hear the sound",
@@ -330,8 +318,6 @@
     "steadi": {
       "heading": "About standing and balance"
     },
-    "helperReads": "If someone is helping you, they can read the questions to you, and you give the answers.",
-    "canListen": "You can listen to every question.",
     "listenQuestion": "Listen to the question",
     "listenEarphones": "Listen to the list with the earphones"
   },
@@ -406,7 +392,8 @@
       "weight": "holding a weight",
       "cuff": "with a wrist weight",
       "none": "without a weight"
-    }
+    },
+    "stopBooth": "To stop at any time, say “Stop” to a member of our team, or touch Stop on the screen."
   },
   "skip": {
     "title": "Skip this test?",
@@ -431,13 +418,8 @@
   "primer": {
     "title": "Let’s turn on the camera",
     "body": "Azm sees your movement through your phone camera. The video stays on your phone. It is never recorded or sent.",
-    "motion": "Your phone will also ask for motion access, so we can check that it stands level.",
-    "place": "Stand the phone upright on something steady, then go back to your place. We start when we can see you.",
     "allow": "Turn on the camera",
-    "placeBooth": "The phone is already in place. Sit in the marked chair, and we start when we can see you.",
-    "motionWheelchair": "In a wheelchair, we need motion access to measure the arm raise. Tap Allow when your phone asks.",
-    "promptLine": "Your phone will ask you now. Tap Allow.",
-    "promptAlt": "Picture of the phone’s camera permission prompt, with the Allow button circled."
+    "placeBooth": "The phone is already in place. Sit in the marked chair, and we start when we can see you."
   },
   "postpone": {
     "title": "Let’s postpone today’s check",

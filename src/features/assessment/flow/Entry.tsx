@@ -1,8 +1,8 @@
 /**
  * The entry screens of the flow:
  *   S04   Use a phone for the check (desktop interstitial, O10)
- *   S05   Guest welcome at the booth (two paths, Q19 (7))
- *   S05a  Adult confirmation (Q2 (5), Q32 (6)) and its end card
+ *   S05   Guest welcome at the booth (two paths, Q19 (7)), with the adult line above the starts (C02)
+ *   S05a  Adult confirmation of a signed in account without one (Q32 (6)) and the adult end card
  *   S09   Talk to our team (Q19 (5a))
  */
 import { useEffect, useState } from "react";
@@ -17,6 +17,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import { guestMinutes, localLabels } from "./copy";
 import { QrCode, SamePress } from "./parts";
+import { unlockAudio } from "./voice";
 import { TokenEndedCard, useBoothMode } from "../booth";
 
 /* ------------------------------------------------------------------ S04 */
@@ -99,14 +100,20 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
   // S55b: a visitor token that ended while this screen showed: booth.tokenEnded in place of the start.
   const { tokenEnded } = useBoothMode();
   // F-2: the one test path first, the full check after it, each with the minutes of what runs at this
-  // booth; a path with no test switched on is not offered (D-016 item 4, F-1 D).
+  // booth; a path with no test switched on is not offered (D-016 item 4, F-1 D). C03: gold is the one
+  // test, the staff default; the full check stays visible as an outline button of the same size.
   const minutes = guestMinutes(testsOff(model.data));
+  // The start tap unlocks audio (4.6): the booth has no intro or sound check to do it (C04, C05).
+  const start = (path: "quick" | "full") => () => {
+    unlockAudio();
+    dispatch({ type: "GUEST_PATH", path });
+  };
   const quick =
     minutes.quick === null
       ? undefined
       : {
           label: t(lang, "assessment.guest.quickTry", { minutes: minutes.quick, unit: "min" }),
-          onClick: () => dispatch({ type: "GUEST_PATH", path: "quick" }),
+          onClick: start("quick"),
         };
   const full =
     minutes.full === null
@@ -117,29 +124,25 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
             minutesTo: minutes.full[1],
             unit: "min",
           }),
-          onClick: () => dispatch({ type: "GUEST_PATH", path: "full" }),
+          onClick: start("full"),
         };
   const primary = quick ?? full;
-  const secondary = quick && full ? { ...full, kind: "primary" as const } : undefined;
+  const secondary = quick && full ? full : undefined;
+  // C02: the adult line sits directly above the start buttons, so a start is the confirmation.
+  const adult = (
+    <p className="check-body flow-adult-line">{bidiText(lang, CHECK_DATA.boundary.adultConfirm[lang])}</p>
+  );
   return (
     <CheckShell
       brand
       language
-      footer={tokenEnded || !primary ? undefined : { primary, ...(secondary ? { secondary } : {}) }}
+      footer={
+        tokenEnded || !primary ? undefined : { lead: adult, primary, ...(secondary ? { secondary } : {}) }
+      }
     >
       <div className="flow-stack" data-screen="S05">
         <h1>{t(lang, "assessment.guest.title")}</h1>
-        <p className="check-body">{bidiText(lang, CHECK_DATA.boundary.line[lang])}</p>
-        <p className="flow-note">
-          <CheckIcon name="info" size={20} />
-          <span>{t(lang, "assessment.guest.notSaved")}</span>
-        </p>
-        <p className="flow-chip-line">
-          <span className="check-chip">
-            <CheckIcon name="shield" size={18} />
-            {t(lang, "assessment.common.videoStays")}
-          </span>
-        </p>
+        <p className="check-body">{t(lang, "assessment.guest.notSaved")}</p>
         <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
         {!online && <p className="check-field-error">{t(lang, "assessment.guest.offlineNoModel")}</p>}
         {tokenEnded && <TokenEndedCard onContinue={() => dispatch({ type: "EXIT" })} />}
@@ -149,6 +152,14 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
           onClick={() => dispatch({ type: "EXAMPLE" })}
         >
           {t(lang, "assessment.guest.seeExample")}
+        </button>
+        <button
+          type="button"
+          className="check-text-button"
+          data-adult="under"
+          onClick={() => dispatch({ type: "ADULT_NO" })}
+        >
+          {t(lang, "assessment.adult.under", { age: ADULT_AGE })}
         </button>
       </div>
     </CheckShell>

@@ -240,7 +240,6 @@ async function openGuestStep(page: Page, lang: Lang, step: number) {
       fm.initialModel({ mode: "guest", booth: true, homeOpen: false, desktop: false }),
       { type: "START" },
       { type: "GUEST_PATH", path: "full" },
-      { type: "ADULT_YES" },
     );
     const answers: Record<string, unknown>[] = [
       { type: "GUEST_ANSWER", step: 1, value: "chair" },

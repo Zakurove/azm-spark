@@ -86,15 +86,10 @@ export function screenFor(m: FlowModel): CheckScreenId | null {
       return "S12";
     case "context":
       return "S13";
-    case "resumeNotice":
-      // O6 (2): the resume line on the notice screen, before the sound check and the re-ask.
-      return "S16";
     case "intro":
       return "S14";
     case "soundCheck":
       return "S14b";
-    case "precheckNotice":
-      return "S16";
     case "question":
       return questionScreen(s.id);
     case "starting":

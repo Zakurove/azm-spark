@@ -10,11 +10,9 @@ import { homeChecksOpen } from "../server/modules/booth/config";
 import { captionOf, sameWords } from "../src/features/assessment/camera/cues";
 import { homeOpenOf } from "../src/features/assessment/api";
 import { setupChips } from "../src/features/assessment/camera/view";
-import { precheckNotice } from "../src/features/assessment/flow/Intro";
 import { instructionSteps } from "../src/features/assessment/flow/copy";
 import { t } from "../src/i18n";
 import { HOME_CHECKS_READY } from "../src/medical/gates";
-import { CHECK_DATA } from "../src/movements/assessments";
 
 describe("the home gate in code (Q31 (6))", () => {
   it("AZM_CHECK_HOME=1 alone never opens home checks before the build releases them", () => {
@@ -57,20 +55,7 @@ describe("captions and chips (S34, 4.3, S34c)", () => {
   });
 });
 
-describe("booth copy (S14, S16, S28)", () => {
-  it("S16: a booth guest keeps nothing, so the notice never claims to keep answers", () => {
-    for (const lang of ["ar", "en"] as const) {
-      const full = CHECK_DATA.boundary.precheckNotice[lang];
-      const guest = precheckNotice(lang, true);
-      expect(guest.startsWith(full.split(/(?<=[.!?؟])\s+/u)[0])).toBe(true);
-      expect(guest).not.toContain(full.split(/(?<=[.!?؟])\s+/u)[1]);
-      expect(guest).toContain(
-        CHECK_DATA.selection.guestBooth.conditionsStep.helper[lang].split(/(?<=[.!?؟])\s+/u)[1],
-      );
-      expect(precheckNotice(lang, false)).toBe(full);
-    }
-  });
-
+describe("booth copy (S28)", () => {
   it("S28: the booth chair stand starts at the phone step (our team sets up the chair and support)", () => {
     for (const lang of ["ar", "en"] as const) {
       const home = instructionSteps("chair_stand_30s", "standard", false, lang);

@@ -10,7 +10,7 @@ import type { Lang } from "../../../app/i18n";
 import { localizeDigits, t, type I18nKey, type Vars } from "../../../i18n";
 import {
   allowedLoads,
-  estimateMinutes,
+  statedMinutes,
   LOAD_LIMITS,
   type CheckContext,
   type LoadKind,
@@ -170,25 +170,25 @@ export function rangeVars([from, to]: readonly [number, number]): Vars {
 const POSITIONS: readonly CheckPosition[] = ["chair", "wheelchair", "standing"];
 
 /**
- * The guest's two paths on S05 (O40, F-2), from the tests that run at this booth (D-016 item 4): the
- * one test path is its one test alone (the arm raise, or the first test still on, F-1 D), at its upper
- * estimate so it is never too short; until the position is known the full check shows the widest
- * range of the three positions' base selections at the booth, the guest steps included. A path with
- * no test to run is null, and S05 does not offer it.
+ * The guest's two paths on S05 (O40, F-2, C11), from the tests that run at this booth (D-016 item 4),
+ * each the stated range of its tests (statedMinutes): the one test path is its one test alone (the
+ * arm raise, or the first test still on, F-1 D), at its upper minutes; until the position is known the
+ * full check spans the three positions' base selections, so the range S27 states for any visitor's
+ * tests lies inside it. A path with no test to run is null, and S05 does not offer it.
  */
 export function guestMinutes(testsOff: readonly TestId[]): {
   quick: number | null;
   full: [number, number] | null;
 } {
   const one = oneTest(testsOff);
-  const quick = one ? estimateMinutes([one], null, "booth", true)[1] : null;
+  const quick = one ? statedMinutes([one], "booth")[1] : null;
   let from = Infinity;
   let to = 0;
   for (const position of POSITIONS) {
     const all = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
     const tests = all.filter((t) => !testsOff.includes(t));
     if (!tests.length) continue;
-    const [a, b] = estimateMinutes(tests, null, "booth", true);
+    const [a, b] = statedMinutes(tests, "booth");
     from = Math.min(from, a);
     to = Math.max(to, b);
   }
@@ -417,24 +417,6 @@ export function introHelperTests(tests: readonly TestId[], ctx: CheckContext, se
       id === "trunk_control_seated" ||
       (id === "chair_stand_30s" && STAND_HELPER_CONDITIONS.some((c) => ctx.conditions.includes(c))),
   );
-}
-
-/**
- * boundary.intro with the person's computed range (O40, S14): the data turned its fixed "8 to 10
- * minutes" into {min} and {max} from estimateMinutes, with the Arabic minutes noun chosen by the
- * larger number (دقائق up to 10, دقيقة from 11). S14 shows it in place of intro.duration and
- * intro.skipAny, as the spec asks once the data carries the tokens.
- */
-export function introBoundary(lang: Lang, [from, to]: readonly [number, number]): string {
-  const intro = CHECK_DATA.boundary.intro;
-  const nouns = intro.tokens.minutesNoun;
-  const noun = lang === "ar" ? (to <= 10 ? nouns.ar.maxUpTo10 : nouns.ar.maxFrom11) : nouns.en;
-  return fillTokens(intro[lang], { min: String(from), max: String(to), minutesNoun: noun });
-}
-
-/** Whether every test of the check is done seated (S14 allSeated: chair and wheelchair users). */
-export function allSeated(position: CheckPosition): boolean {
-  return position === "chair" || position === "wheelchair";
 }
 
 /* ================================================================ pre-check questions (S17 to S24) */
@@ -865,7 +847,6 @@ export function planView(
   env: Pick<PrecheckEnv, "setting" | "ctx" | "setup">,
   lang: Lang,
   now: number,
-  guest: boolean,
 ): PlanView {
   const byTest = new Map<TestId, ProtocolItem[]>();
   for (const item of [...protocol].sort((a, b) => a.order - b.order)) {
@@ -914,12 +895,15 @@ export function planView(
         ),
     });
   }
-  const runnable = protocol.filter((i) => !i.skipped);
   return {
     rows,
     notToday,
     notPart,
-    minutes: estimateMinutes(runnable.length ? protocol : [], env.ctx, env.setting, guest),
+    // C11: the tests that run, read as every screen reads them (statedMinutes).
+    minutes: statedMinutes(
+      rows.map((r) => r.testId),
+      env.setting,
+    ),
   };
 }
 

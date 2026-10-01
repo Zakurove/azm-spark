@@ -84,7 +84,8 @@ export function screenKeyOf(m: FlowModel): string {
 /**
  * The flow's configuration, fixed for the life of the check: guest or signed in, booth mode, the
  * desktop interstitial, the session (the side lean only session from S01 leanRepeat, Q12 (2)), the
- * person's check in setting (D-016), which the booth never uses, and the booth staff settings of this
+ * person's check in setting (D-016) and the sound check answer of this device (C05), which the booth
+ * never uses, and the booth staff settings of this
  * device (D-016 item 4), which only the booth uses. Home checks count as closed until the context says
  * otherwise (contract v3 I).
  */
@@ -94,6 +95,8 @@ export function checkConfig(o: {
   desktop: boolean;
   session?: CheckSession;
   checkIn?: boolean;
+  /** The sound check answer kept on this device (C05). */
+  soundMode?: FlowConfig["soundMode"];
   boothSettings?: BoothSettings;
 }): FlowConfig {
   return {
@@ -103,6 +106,7 @@ export function checkConfig(o: {
     desktop: o.desktop,
     ...(o.session && o.session !== "full" ? { session: o.session } : {}),
     ...(o.checkIn && !o.booth && o.mode === "signedIn" ? { checkIn: true } : {}),
+    ...(o.soundMode && !o.booth ? { soundMode: o.soundMode } : {}),
     ...(o.booth && o.boothSettings && !isDefault(o.boothSettings) ? { boothSettings: o.boothSettings } : {}),
   };
 }
@@ -133,6 +137,7 @@ export default function CheckApp({
         desktop: desktop ?? isDesktopDevice(),
         session,
         checkIn: readPreferences().safetyCheckIn,
+        soundMode: readPreferences().checkSound || undefined,
         ...(inBooth ? { boothSettings: readBoothSettings() } : {}),
       }),
     // The configuration is fixed for the life of the check.

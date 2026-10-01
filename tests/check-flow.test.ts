@@ -51,8 +51,11 @@ const withState = (m: FlowModel, state: FlowState): FlowModel => ({ ...m, state,
 /** The optional check in switched on (D-016), as the person's setting would at home. */
 const checkInOn = (m: FlowModel): FlowModel => ({ ...m, data: { ...m.data, checkIn: true } });
 
-/** A guest at the booth through the six steps (chair, no weaker side, nothing else) to the intro. */
-function guestAtIntro(
+/**
+ * A guest at the booth through the six steps (chair, no weaker side, nothing else): at the first
+ * question, since the booth has no intro, sound check or notice (C04, C05, C06).
+ */
+function guestAtQuestions(
   position: "chair" | "standing" | "wheelchair" = "chair",
   path: "quick" | "full" = "full",
   clearance: "yes" | "no" | "unsure" = "yes",
@@ -85,14 +88,7 @@ function answerAll(m: FlowModel, given: Answers = {}): FlowModel {
 }
 
 function guestAtPlan(position: "chair" | "standing" | "wheelchair" = "chair"): FlowModel {
-  const m = answerAll(
-    play(
-      guestAtIntro(position),
-      { type: "CONTINUE" },
-      { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
-    ),
-  );
+  const m = answerAll(guestAtQuestions(position));
   return kind(m) === "warnings" ? play(m, { type: "CONTINUE" }) : m;
 }
 
@@ -151,7 +147,6 @@ function signedAtStarting(ctx?: SignedInContext): FlowModel {
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     ),
   );
 }
@@ -188,19 +183,18 @@ describe("Appendix A: entry, booth only and the guest steps", () => {
     expect(play(m, { type: "TRY_WORKOUT" }).state).toEqual({ kind: "exit", to: "try" });
   });
 
-  it("guestWelcome: quick or full opens the adult gate; the example leaves", () => {
+  it("guestWelcome: a start button is the adult confirmation and opens the guest steps (C02)", () => {
     const m = play(initialModel(GUEST), { type: "START" });
     for (const path of ["quick", "full"] as const) {
       const n = play(m, { type: "GUEST_PATH", path });
-      expect(kind(n)).toBe("adultGate");
+      expect(n.state).toEqual({ kind: "guestSetup", step: 1 });
       expect(n.data.guestPath).toBe(path);
     }
     expect(play(m, { type: "EXAMPLE" }).state).toEqual({ kind: "exit", to: "example" });
   });
 
-  it("adultGate: yes starts the guest steps, no shows the adult card, which restarts the visit", () => {
-    const m = play(initialModel(GUEST), { type: "START" }, { type: "GUEST_PATH", path: "full" });
-    expect(play(m, { type: "ADULT_YES" }).state).toEqual({ kind: "guestSetup", step: 1 });
+  it("guestWelcome: the under 18 link shows the adult card, which restarts the visit (C02)", () => {
+    const m = play(initialModel(GUEST), { type: "START" });
     const under = play(m, { type: "ADULT_NO" });
     expect(kind(under)).toBe("adultEnd");
     expect(kind(play(under, { type: "RESTART" }))).toBe("guestWelcome");
@@ -208,12 +202,7 @@ describe("Appendix A: entry, booth only and the guest steps", () => {
   });
 
   it("guestSetup: single steps submit on tap, multiple steps wait for Next, Back keeps the answer", () => {
-    let m = play(
-      initialModel(GUEST),
-      { type: "START" },
-      { type: "GUEST_PATH", path: "full" },
-      { type: "ADULT_YES" },
-    );
+    let m = play(initialModel(GUEST), { type: "START" }, { type: "GUEST_PATH", path: "full" });
     m = play(m, { type: "GUEST_ANSWER", step: 1, value: "chair" });
     expect(m.state).toEqual({ kind: "guestSetup", step: 2 });
     m = play(m, { type: "GUEST_ANSWER", step: 2, value: "left" });
@@ -230,25 +219,22 @@ describe("Appendix A: entry, booth only and the guest steps", () => {
     expect(back.state).toEqual({ kind: "guestSetup", step: 2 });
     expect(back.data.guest.support).toBe("left");
     expect(
-      play(
-        play(
-          initialModel(GUEST),
-          { type: "START" },
-          { type: "GUEST_PATH", path: "full" },
-          { type: "ADULT_YES" },
-        ),
-        { type: "BACK" },
-      ).state,
+      play(play(initialModel(GUEST), { type: "START" }, { type: "GUEST_PATH", path: "full" }), {
+        type: "BACK",
+      }).state,
     ).toEqual({ kind: "guestWelcome" });
   });
 
-  it("guestSetup: the last step goes to the intro, or to the team (S09) when the rules give no check", () => {
-    expect(kind(guestAtIntro())).toBe("intro");
+  it("guestSetup: the last step goes straight to the first question, or to the team (S09)", () => {
+    // C04, C05, C06: no intro, no sound check and no notice at the booth; the voice is on.
+    const first = guestAtQuestions();
+    expect(first.state).toEqual({ kind: "question", id: "pc_urgent" });
+    expect(first.data.soundMode).toBe("voice");
+    expect(backTarget(first)).toEqual({ kind: "guestSetup", step: 6 });
     const bed = play(
       initialModel(GUEST),
       { type: "START" },
       { type: "GUEST_PATH", path: "full" },
-      { type: "ADULT_YES" },
       { type: "GUEST_ANSWER", step: 1, value: "bed" },
       { type: "GUEST_ANSWER", step: 2, value: "none" },
       { type: "GUEST_ANSWER", step: 3, value: ["cardiac"] },
@@ -265,7 +251,7 @@ describe("Appendix A: entry, booth only and the guest steps", () => {
   });
 
   it("the quick path keeps the arm raise only", () => {
-    const m = guestAtIntro("chair", "quick");
+    const m = guestAtQuestions("chair", "quick");
     expect(m.data.env!.baseTests).toEqual(["shoulder_abduction"]);
   });
 });
@@ -327,14 +313,22 @@ describe("Appendix A: signed in entry, consent, context, intro, sound check", ()
     expect(play(signedAt(), { type: "CONTEXT_EDIT" }).state).toEqual({ kind: "exit", to: "healthEdit" });
   });
 
-  it("intro, sound check and the pre-check notice lead to the first question", () => {
+  it("the intro leads to the sound check on a new device, then straight to the first question (C05, C06)", () => {
     let m = play(signedAt(), { type: "CONTEXT_CONFIRM" }, { type: "CONTINUE" });
     expect(kind(m)).toBe("soundCheck");
     m = play(m, { type: "SOUND_RESULT", mode: "captionsOnly" });
-    expect(kind(m)).toBe("precheckNotice");
-    expect(m.data.soundMode).toBe("captionsOnly");
-    m = play(m, { type: "PRECHECK_START" });
     expect(m.state).toEqual({ kind: "question", id: "pc_urgent" });
+    expect(m.data.soundMode).toBe("captionsOnly");
+  });
+
+  it("a device that kept its sound answer skips the sound check (C05)", () => {
+    const m = play(
+      signedAt({ soundMode: "screenReader" }),
+      { type: "CONTEXT_CONFIRM" },
+      { type: "CONTINUE" },
+    );
+    expect(m.state).toEqual({ kind: "question", id: "pc_urgent" });
+    expect(m.data.soundMode).toBe("screenReader");
   });
 
   it("an unresolved reported change asks pc_change_cleared among the first questions", () => {
@@ -346,7 +340,6 @@ describe("Appendix A: signed in entry, consent, context, intro, sound check", ()
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     const ids: string[] = [];
     let x = m;
@@ -357,25 +350,21 @@ describe("Appendix A: signed in entry, consent, context, intro, sound check", ()
     expect(ids).toContain("pc_change_cleared");
   });
 
-  it("Back walks the intro chain and the questions, and never leaves a safety screen", () => {
+  it("Back walks the questions to the intro, and never leaves a safety screen", () => {
     const q2 = play(
       signedAt(),
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
       { type: "ANSWER", id: "pc_urgent", value: "no" },
     );
     expect(q2.state).toEqual({ kind: "question", id: "pc_unwell" });
     const back = play(q2, { type: "BACK" });
     expect(back.state).toEqual({ kind: "question", id: "pc_urgent" });
     expect(back.data.answers.pc_urgent).toBe("no");
-    expect(play(back, { type: "BACK" }).state).toEqual({ kind: "precheckNotice" });
-    expect(play(back, { type: "BACK" }, { type: "BACK" }).state).toEqual({ kind: "soundCheck" });
-    expect(play(back, { type: "BACK" }, { type: "BACK" }, { type: "BACK" }).state).toEqual({ kind: "intro" });
-    expect(play(back, { type: "BACK" }, { type: "BACK" }, { type: "BACK" }, { type: "BACK" }).state).toEqual({
-      kind: "context",
-    });
+    // The first question goes back to the intro: the sound check is not a step to return to (C05).
+    expect(play(back, { type: "BACK" }).state).toEqual({ kind: "intro" });
+    expect(play(back, { type: "BACK" }, { type: "BACK" }).state).toEqual({ kind: "context" });
     const safety = play(back, { type: "ANSWER", id: "pc_urgent", value: "yes" });
     expect(backTarget(safety)).toBeNull();
     expect(play(safety, { type: "BACK" }).state).toEqual(safety.state);
@@ -389,7 +378,6 @@ describe("Appendix A: pre-check questions and the start call", () => {
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
 
   it("an answer that postpones commits on tap: S33 at once, with its lock (O11a)", () => {
@@ -423,7 +411,6 @@ describe("Appendix A: pre-check questions and the start call", () => {
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     for (let k = 0; k < 40 && sci.state.kind === "question" && sci.state.id !== "pc_sci_ready"; k++)
       sci = play(sci, {
@@ -451,7 +438,6 @@ describe("Appendix A: pre-check questions and the start call", () => {
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     const ad = answerAll(sci, { pc_sci_level: "yes", pc_sci_ad_now: "yes" });
     expect(ad.state).toMatchObject({ kind: "safety", safety: "ad", screen: "scr_ad" });
@@ -566,6 +552,22 @@ describe("Appendix A: plan, instruction and preparation", () => {
     expect(play(m, { type: "PLAN_START" }).state).toEqual({ kind: "test.instruction", i: 0 });
     const empty = { ...m, data: { ...m.data, tests: [] } };
     expect(play(empty, { type: "PLAN_START" }).state).toEqual({ kind: "exit", to: "landing" });
+  });
+
+  it("a protocol of one test goes from the pre-check straight to its card, with no Back to S27 (C07)", () => {
+    const quick = answerAll(guestAtQuestions("chair", "quick"));
+    expect(quick.state).toEqual({ kind: "test.instruction", i: 0 });
+    expect(screenFor(quick)).toBe("S28");
+    expect(backTarget(quick)).toBeNull();
+    // Two or more tests keep S27, and its Back from the first card.
+    const full = play(guestAtPlan(), { type: "PLAN_START" });
+    expect(backTarget(full)).toEqual({ kind: "plan" });
+  });
+
+  it("the booth has no camera primer: ready goes to the setup check (C08)", () => {
+    const m = play(guestAtPlan(), { type: "PLAN_START" });
+    expect(prepSteps(m.data, 0)).toEqual([]);
+    expect(play(m, { type: "READY" }).state).toEqual({ kind: "cam.setup", i: 0, side: 0 });
   });
 
   it("test.instruction: ready runs the preparation screens in map 2.3 order, then the setup check", () => {
@@ -919,15 +921,11 @@ describe("Appendix A: stop list, stop done, check in, faint, end", () => {
     expect(play(done, { type: "CHANGE_REASON" }).overlay).toEqual({ kind: "stopList" });
   });
 
-  it("check in (D-016): off by default and never at the booth, so a trigger does nothing", () => {
+  it("check in (D-016): off by default, set only in the coach settings, never at the booth (C39)", () => {
     expect(initialModel(SIGNED).data.checkIn).toBe(false);
     expect(initialModel({ ...SIGNED, checkIn: true }).data.checkIn).toBe(true);
     expect(initialModel({ ...GUEST, checkIn: true }).data.checkIn).toBe(false);
     expect(play(measuring, { type: "TRIGGER", trigger: "left_frame" }).overlay).toBeNull();
-    // The setting switch (S14) works at home and never at the booth.
-    expect(play(signedAtPlan(), { type: "CHECKIN_SETTING", on: true }).data.checkIn).toBe(true);
-    expect(play(checkInOn(signedAtPlan()), { type: "CHECKIN_SETTING", on: false }).data.checkIn).toBe(false);
-    expect(play(measuring, { type: "CHECKIN_SETTING", on: true }).data.checkIn).toBe(false);
   });
 
   it("check in on: a trigger pauses the test with S43; I am fine redoes the attempt after its rest", () => {
@@ -1119,9 +1117,13 @@ describe("Appendix A: stop list, stop done, check in, faint, end", () => {
         },
       },
     });
-    // O6 (2): the resume line, the sound check and the day of questions again come first.
-    expect(resumed.state).toEqual({ kind: "resumeNotice" });
-    resumed = answerAll(play(resumed, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }));
+    // O6 (2): the sound check on a new device, then the day of questions again (the first carries the
+    // resume line, C06), with no way back into the finished part.
+    expect(resumed.state).toEqual({ kind: "soundCheck" });
+    expect(backTarget(resumed)).toBeNull();
+    resumed = play(resumed, { type: "SOUND_RESULT", mode: "voice" });
+    expect(backTarget(resumed)).toBeNull();
+    resumed = answerAll(resumed);
     expect(resumed.effects.map((e) => e.type)).toEqual(["resume"]);
     resumed = play(resumed, {
       type: "RESUME_RESULT",
@@ -1137,12 +1139,7 @@ describe("Appendix A: stop list, stop done, check in, faint, end", () => {
 /** One model in every state kind (guest at the booth, chair). */
 function samples(): Record<FlowStateKind, FlowModel> {
   const p = guestAtPlan();
-  const q = play(
-    guestAtIntro(),
-    { type: "CONTINUE" },
-    { type: "SOUND_RESULT", mode: "voice" },
-    { type: "PRECHECK_START" },
-  );
+  const q = guestAtQuestions();
   const states: Record<FlowStateKind, FlowState> = {
     entry: { kind: "entry", error: null },
     boothOnly: { kind: "boothOnly" },
@@ -1154,10 +1151,8 @@ function samples(): Record<FlowStateKind, FlowModel> {
     guestStaff: { kind: "guestStaff" },
     consent: { kind: "consent" },
     context: { kind: "context" },
-    resumeNotice: { kind: "resumeNotice" },
     intro: { kind: "intro" },
     soundCheck: { kind: "soundCheck" },
-    precheckNotice: { kind: "precheckNotice" },
     question: { kind: "question", id: "pc_urgent" },
     starting: { kind: "starting", lastQuestion: null, error: "network", attempt: 1 },
     warnings: { kind: "warnings" },
@@ -1215,7 +1210,7 @@ describe("every safety event from every state reaches its safety screen", () => 
 
   it("covers every state kind", () => {
     expect(Object.keys(all).sort()).toEqual(Object.keys(all).sort());
-    expect(Object.keys(all)).toHaveLength(47);
+    expect(Object.keys(all)).toHaveLength(45);
   });
 
   it.each(Object.keys(all))("a safety screen from the server or a stricter answer, from %s", (k) => {
@@ -1363,7 +1358,6 @@ describe("network effects", () => {
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     const postponed = play(
       q,
@@ -1521,13 +1515,7 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
   });
 
   it("guest booth standing, clearance not sure: no chair stand, the seated side lean in its slot (D-016)", () => {
-    const q = play(
-      guestAtIntro("standing", "full", "unsure"),
-      { type: "CONTINUE" },
-      { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
-    );
-    let x = q;
+    let x = guestAtQuestions("standing", "full", "unsure");
     for (let k = 0; k < 40 && x.state.kind === "question"; k++)
       x = play(x, { type: "ANSWER", id: x.state.id, value: benign(x.state.id) });
     const done = runTests(x);
@@ -1546,7 +1534,6 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     m = answerAll(m);
     expect(kind(m)).toBe("starting");
@@ -1563,7 +1550,7 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
     expect(screenFor(runTests(m))).toBe("S52");
   });
 
-  it("camera denied at the primer, retried after the reload, then measured", () => {
+  it("camera denied at the booth setup, retried, then measured", () => {
     let m = play(
       guestAtPlan(),
       { type: "PLAN_START" },
@@ -1572,7 +1559,7 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
     );
     expect(screenFor(m)).toBe("S32");
     m = play(m, { type: "RETRY" });
-    expect(m.state).toEqual({ kind: "test.primer", i: 0 });
+    expect(m.state).toEqual({ kind: "cam.setup", i: 0, side: 0 });
     expect(kind(runTests(m))).toBe("results");
   });
 
@@ -1581,7 +1568,6 @@ describe("whole flows (the Playwright flows of contract v3 L, on the pure machin
       guestAtPlan(),
       { type: "PLAN_START" },
       { type: "READY" },
-      { type: "PREP_NEXT" },
       { type: "SETUP_OK" },
       { type: "CALIBRATED" },
       { type: "PRACTICE_DONE" },
@@ -1675,7 +1661,8 @@ describe("stops never fail open", () => {
       kind: "paused",
     });
     expect(resume({ consent: false }).state).toEqual({ kind: "consent" });
-    expect(resume({}).state).toEqual({ kind: "resumeNotice" });
+    expect(resume({}).state).toEqual({ kind: "soundCheck" });
+    expect(resume({}, { soundMode: "voice" }).state).toMatchObject({ kind: "question" });
   });
 
   it("the 48 hour minimum is checked at entry (earliestNext)", () => {
@@ -1806,7 +1793,6 @@ describe("no confirm in place before a postponing answer (O11a, O33 (j))", () =>
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     // An earlier postponing answer left in place (a restored draft): the next answer postpones at once.
     const withUnwell = { ...m, data: { ...m.data, answers: { ...m.data.answers, pc_unwell: "yes" } } };
@@ -1875,13 +1861,7 @@ describe("no way back into a stopped test (O43)", () => {
 });
 
 describe("a guest's lock lasts for the visit (Q25 (c), UX spec 2.1)", () => {
-  const atQuestions = () =>
-    play(
-      guestAtIntro(),
-      { type: "CONTINUE" },
-      { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
-    );
+  const atQuestions = () => guestAtQuestions();
   const postponed = () => {
     let m = atQuestions();
     for (let k = 0; k < 40 && m.state.kind === "question"; k++) {

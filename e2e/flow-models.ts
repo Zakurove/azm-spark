@@ -17,7 +17,7 @@ import {
   answerAll,
   contextOf,
   GUEST,
-  guestAtIntro,
+  guestAtQuestions,
   guestAtPlan,
   okStart,
   play,
@@ -47,7 +47,8 @@ export interface NamedState {
 /* ------------------------------------------------------------------ walks */
 
 const welcome = () => play(initialModel(GUEST), { type: "START" });
-const guestStep = (step: 1 | 2 | 3 | 4 | 5 | 6) => withState(guestAtIntro(), { kind: "guestSetup", step });
+const guestStep = (step: 1 | 2 | 3 | 4 | 5 | 6) =>
+  withState(guestAtQuestions(), { kind: "guestSetup", step });
 
 function must<T>(x: T | null, what: string): T {
   if (x === null) throw new Error(`${what} is not reached`);
@@ -56,7 +57,7 @@ function must<T>(x: T | null, what: string): T {
 
 /** The question `id` of a guest with these choices (benign answers before it). */
 function guestQuestion(id: string, c: GuestChoices = {}, given: Answers = {}): FlowModel {
-  return must(untilQuestion(toQuestions(guestAtIntro(c)), id, given), id);
+  return must(untilQuestion(guestAtQuestions(c), id, given), id);
 }
 
 /** A guest answering `id` with `value` after benign answers. */
@@ -73,15 +74,7 @@ const signedIntro = (ctx = contextOf()) => play(signedAt(ctx), { type: "CONTEXT_
 
 /** A signed in home check at the question `id`. */
 function signedQuestion(id: string, ctx = contextOf(), given: Answers = {}): FlowModel {
-  const m = play(
-    signedIntro(ctx),
-    { type: "CONTINUE" },
-    { type: "SOUND_RESULT", mode: "voice" },
-    {
-      type: "PRECHECK_START",
-    },
-  );
-  return must(untilQuestion(m, id, given), id);
+  return must(untilQuestion(toQuestions(signedIntro(ctx)), id, given), id);
 }
 
 /** A signed in home check after its start call: S25 or S27. */
@@ -140,15 +133,10 @@ export const FLOW_STATES: Record<string, NamedState> = {
     booth: false,
     build: () => play(initialModel({ ...GUEST, booth: false }), { type: "START" }),
   },
-  "S05a-adult": {
-    mode: "guest",
-    screen: "S05a",
-    build: () => play(welcome(), { type: "GUEST_PATH", path: "full" }),
-  },
   "S05a-adult-end": {
     mode: "guest",
     screen: "S05a",
-    build: () => play(welcome(), { type: "GUEST_PATH", path: "full" }, { type: "ADULT_NO" }),
+    build: () => play(welcome(), { type: "ADULT_NO" }),
   },
   "S05a-adult-signed-in": {
     mode: "signedIn",
@@ -162,7 +150,7 @@ export const FLOW_STATES: Record<string, NamedState> = {
   "S08b-clearance": { mode: "guest", screen: "S08b", build: () => guestStep(4) },
   "S10-pain-areas": { mode: "guest", screen: "S10", build: () => guestStep(5) },
   "S11-restrictions": { mode: "guest", screen: "S11", build: () => guestStep(6) },
-  "S09-talk-to-staff": { mode: "guest", screen: "S09", build: () => guestAtIntro({ position: "bed" }) },
+  "S09-talk-to-staff": { mode: "guest", screen: "S09", build: () => guestAtQuestions({ position: "bed" }) },
   // Signed in entry (S12, S13)
   "S12-consent": {
     mode: "signedIn",
@@ -174,8 +162,7 @@ export const FLOW_STATES: Record<string, NamedState> = {
     screen: "S13",
     build: () => signedAt(contextOf({ position: "chair", support: "left", pain: ["shoulder", "knee"] })),
   },
-  // Intro, sound check, notice (S14, S14b, S16)
-  "S14-intro-booth": { mode: "guest", screen: "S14", build: () => guestAtIntro() },
+  // Intro and sound check at home (S14, S14b; the booth has neither, C04, C05)
   "S14-intro-home": { mode: "signedIn", screen: "S14", build: () => signedIntro(CHAIR_LEFT) },
   "S14-intro-home-standing": { mode: "signedIn", screen: "S14", build: () => signedIntro(STANDING_PD) },
   "S14-intro-retest": {
@@ -184,24 +171,9 @@ export const FLOW_STATES: Record<string, NamedState> = {
     build: () => signedIntro(contextOf({ position: "wheelchair" }, { firstCheck: false })),
   },
   "S14b-sound-check": {
-    mode: "guest",
+    mode: "signedIn",
     screen: "S14b",
-    build: () => play(guestAtIntro(), { type: "CONTINUE" }),
-  },
-  "S16-notice-booth": {
-    mode: "guest",
-    screen: "S16",
-    build: () => play(guestAtIntro(), { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }),
-  },
-  "S16-notice-home": {
-    mode: "signedIn",
-    screen: "S16",
-    build: () => play(signedIntro(), { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }),
-  },
-  "S16-resume-line": {
-    mode: "signedIn",
-    screen: "S16",
-    build: () => at(signedIntro(), { kind: "resumeNotice" }),
+    build: () => play(signedIntro(), { type: "CONTINUE" }),
   },
   // Pre-check (S17 to S24)
   "S17-urgent": { mode: "guest", screen: "S17", build: () => guestQuestion("pc_urgent") },
@@ -311,7 +283,7 @@ export const FLOW_STATES: Record<string, NamedState> = {
   "S25-warnings-booth": {
     mode: "guest",
     screen: "S25",
-    build: () => answerAll(toQuestions(guestAtIntro()), { pc_pain_now: 7, pc_pain_areas: {} }),
+    build: () => answerAll(guestAtQuestions(), { pc_pain_now: 7, pc_pain_areas: {} }),
   },
   "S25-warnings-home": {
     mode: "signedIn",
@@ -427,11 +399,6 @@ export const FLOW_STATES: Record<string, NamedState> = {
       const i = (m.state as { i: number }).i;
       return at(m, { kind: "test.load", i, stepDown: true });
     },
-  },
-  "S31-primer-booth": {
-    mode: "guest",
-    screen: "S31",
-    build: () => play(guestAtPlan(), { type: "PLAN_START" }, { type: "READY" }),
   },
   "S31-primer-home": {
     mode: "signedIn",

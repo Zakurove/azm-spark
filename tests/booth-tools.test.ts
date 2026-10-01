@@ -39,17 +39,13 @@ describe("where the idle reset may run (S57, O15)", () => {
     expect(IDLE_OTHER_MS).toBe(300_000);
     for (const s of [
       { kind: "guestWelcome" },
-      { kind: "adultGate" },
+      { kind: "adultEnd" },
       { kind: "guestSetup", step: 3 },
       { kind: "guestStaff" },
-      { kind: "intro" },
-      { kind: "soundCheck" },
-      { kind: "precheckNotice" },
       { kind: "question", id: "pc_urgent" },
       { kind: "warnings" },
       { kind: "plan" },
       { kind: "test.instruction", i: 0 },
-      { kind: "test.primer", i: 0 },
       { kind: "skipNotice", rows: [], then: { to: "endQuestion" } },
       { kind: "guestAfterTest", next: 1 },
     ] as FlowState[])
@@ -70,7 +66,7 @@ describe("where the idle reset may run (S57, O15)", () => {
       { kind: "paused", until: null, releasable: false },
       { kind: "stopDone", i: 0, restSec: 60, reason: "tired" },
       { kind: "endQuestion" },
-      { kind: "cam.problem", problem: "denied", returnTo: { kind: "test.primer", i: 0 } },
+      { kind: "cam.problem", problem: "denied", returnTo: { kind: "cam.setup", i: 0, side: 0 } },
       { kind: "desktopGate" },
     ];
     for (const s of never) expect(idleWaitMs(guest(s)), s.kind).toBeNull();

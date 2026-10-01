@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { t } from "../src/i18n";
 import {
   alignedSentences,
-  allSeated,
   areaChoices,
   names937,
   cameraProblemOf,
@@ -19,11 +18,11 @@ import {
   EMPHASIS,
   fillTokens,
   firstAreaWithoutScore,
+  guestMinutes,
   guestStepView,
   helperBriefScreen,
   illustrationAlt,
   instructionSteps,
-  introBoundary,
   introHelperTests,
   introNeeds,
   joinAnd,
@@ -56,10 +55,11 @@ import {
   whenOfLock,
   whenText,
 } from "../src/features/assessment/flow/copy";
-import { estimateMinutes, type ProtocolItem } from "../src/medical/assessment";
+import { statedMinutes, type ProtocolItem } from "../src/medical/assessment";
+import { offerMinutes } from "../src/features/assessment/api";
 import { lockEndsAt } from "../src/medical/precheck";
 import { CHECK_DATA, precheckItem, screenText, testDef } from "../src/movements/assessments";
-import type { ScreenId } from "../src/movements/types";
+import type { ScreenId, TestId } from "../src/movements/types";
 import { NOW } from "./flow-fixtures";
 import { ctxOf, envOf } from "./precheck-fixtures";
 
@@ -154,14 +154,44 @@ describe("emphasis (UX spec 0.2)", () => {
   });
 });
 
-describe("durations (O40)", () => {
-  it("fills boundary.intro with the range, the Arabic noun chosen by the larger number", () => {
-    expect(introBoundary("en", [9, 11])).toContain("about 9 to 11 minutes");
-    expect(introBoundary("ar", [9, 11])).toContain("نحو 9 إلى 11 دقيقة");
-    expect(introBoundary("ar", [8, 10])).toContain("نحو 8 إلى 10 دقائق");
-    for (const lang of LANGS) expect(introBoundary(lang, [16, 21])).not.toMatch(/\{\w+\}/);
-    // The rest of the boundary text is unchanged, including "you can skip any test".
-    expect(introBoundary("en", [9, 11])).toContain("You can skip any test.");
+/** A protocol item with the defaults the plan tests need. */
+const item = (p: Partial<ProtocolItem> & Pick<ProtocolItem, "testId">): ProtocolItem => ({
+  side: "none",
+  version: 1,
+  order: 0,
+  band: "default",
+  ...p,
+});
+
+describe("durations (O40, C11)", () => {
+  /** A protocol of these tests, every side running, in the data's order. */
+  const protocolOf = (tests: readonly TestId[]): ProtocolItem[] =>
+    tests.map((testId, i) => item({ testId, side: "none", order: i + 1 }));
+
+  it("one range for a set of tests in a setting: S05 and S27 at the booth, S01 and S27 at home", () => {
+    // The booth: S27 states the range of the visitor's tests, inside the full range S05 offers for
+    // every position, and both come from statedMinutes.
+    const full = guestMinutes([]).full!;
+    for (const position of ["chair", "wheelchair", "standing"] as const) {
+      const tests = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
+      const s27 = planView(protocolOf(tests), envOf({ position }, { setting: "booth" }), "en", NOW).minutes;
+      expect(s27).toEqual(statedMinutes(tests, "booth"));
+      expect(s27[0]).toBeGreaterThanOrEqual(full[0]);
+      expect(s27[1]).toBeLessThanOrEqual(full[1]);
+    }
+    // The one test path states its upper minutes on S05 from the same function.
+    expect(guestMinutes([]).quick).toBe(statedMinutes(["shoulder_abduction"], "booth")[1]);
+    // Home: S01 (the context's base tests) and S27 (the same tests frozen) say the same range,
+    // whatever the person's context and the day's variants.
+    const ctx = envOf({ position: "chair", support: "left", conditions: ["stroke"] });
+    const chair = CHECK_DATA.selection.basePerPosition.chair as readonly TestId[];
+    const s01 = offerMinutes({ baseTests: [...chair], ctx: ctx.ctx });
+    const frozen = protocolOf(chair).map((i): ProtocolItem =>
+      i.testId === "arm_curl_30s" ? { ...i, variant: "arm_only" } : i,
+    );
+    expect(planView(frozen, ctx, "en", NOW).minutes).toEqual(s01);
+    // Fewer tests may say fewer minutes.
+    expect(statedMinutes(["shoulder_abduction"], "home")[1]).toBeLessThan(statedMinutes(chair, "home")[1]);
   });
 });
 
@@ -316,12 +346,6 @@ describe("S14 what you need today", () => {
       "chair_stand_30s",
     ]);
     expect(introHelperTests(tests, ctxOf({ conditions: ["parkinsons"] }), "booth")).toEqual([]);
-  });
-
-  it("treats chair and wheelchair users as seated", () => {
-    expect(allSeated("chair")).toBe(true);
-    expect(allSeated("wheelchair")).toBe(true);
-    expect(allSeated("standing")).toBe(false);
   });
 });
 
@@ -504,14 +528,6 @@ describe("warnings (S25, S28)", () => {
 });
 
 describe("the plan (S27, P6)", () => {
-  const item = (p: Partial<ProtocolItem> & Pick<ProtocolItem, "testId">): ProtocolItem => ({
-    side: "none",
-    version: 1,
-    order: 0,
-    band: "default",
-    ...p,
-  });
-
   it("groups day level reasons as not today and intake reasons as not part", () => {
     expect(skipGroup("pain_today")).toBe("notToday");
     expect(skipGroup("helper_needed")).toBe("notToday");
@@ -545,7 +561,7 @@ describe("the plan (S27, P6)", () => {
       item({ testId: "trunk_control_seated", side: "none", order: 5, skipped: "helper_needed" }),
       item({ testId: "chair_stand_30s", side: "none", order: 6, skipped: "restriction_weight_bearing" }),
     ];
-    const v = planView(protocol, env, "en", NOW, false);
+    const v = planView(protocol, env, "en", NOW);
     expect(v.rows.map((r) => r.testId)).toEqual(["shoulder_abduction", "arm_curl_30s"]);
     expect(v.rows[0].perSide).toBe("arm");
     expect(v.rows[0].sideLines).toHaveLength(1);
@@ -554,7 +570,7 @@ describe("the plan (S27, P6)", () => {
     expect(v.rows[1].variantWhy).toBe("safety");
     expect(v.notToday.map((s) => s.testId)).toEqual(["trunk_control_seated"]);
     expect(v.notPart.map((s) => s.testId)).toEqual(["chair_stand_30s"]);
-    expect(v.minutes).toEqual(estimateMinutes(protocol, env.ctx, "home", false));
+    expect(v.minutes).toEqual(statedMinutes(["shoulder_abduction", "arm_curl_30s"], "home"));
   });
 
   it("offers the booth only on booth days, and never for a test skipped for clearance (D-016)", () => {
@@ -563,20 +579,14 @@ describe("the plan (S27, P6)", () => {
     const boothDay = Date.UTC(2026, 9, 11, 9);
     expect(boothDaysNow(boothDay)).toBe(true);
     expect(riyadhDay(boothDay)).toBe("2026-10-11");
-    expect(planView(skip, env, "en", boothDay, false).notPart[0].boothOffer).toBe(true);
-    expect(planView(skip, env, "en", NOW, false).notPart[0].boothOffer).toBe(false);
+    expect(planView(skip, env, "en", boothDay).notPart[0].boothOffer).toBe(true);
+    expect(planView(skip, env, "en", NOW).notPart[0].boothOffer).toBe(false);
     const stand = [item({ testId: "chair_stand_30s", skipped: "clearance" })];
-    expect(planView(stand, env, "en", boothDay, false).notPart[0].boothOffer).toBe(false);
+    expect(planView(stand, env, "en", boothDay).notPart[0].boothOffer).toBe(false);
   });
 
   it("has no rows when every test is skipped (O21)", () => {
-    const v = planView(
-      [item({ testId: "shoulder_abduction", skipped: "pain_today" })],
-      envOf(),
-      "ar",
-      NOW,
-      false,
-    );
+    const v = planView([item({ testId: "shoulder_abduction", skipped: "pain_today" })], envOf(), "ar", NOW);
     expect(v.rows).toEqual([]);
     expect(v.notToday).toHaveLength(1);
   });

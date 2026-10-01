@@ -123,7 +123,7 @@ export const PREVIEWS: Record<string, Preview> = {
     position: "wheelchair",
     motion: true,
     snap: { setup: { issues: ["motion"] } },
-    caption: { key: "assessment.primer.motionWheelchair", severity: "warn" },
+    caption: { key: "assessment.setup.issue.motion", severity: "warn" },
     fixture: "abd",
     at: 1,
   },

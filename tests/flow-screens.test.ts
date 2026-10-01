@@ -7,27 +7,26 @@ import { describe, expect, it } from "vitest";
 import type { Lang } from "../src/app/i18n";
 import { FLOW_SCREENS } from "../src/features/assessment/flow";
 import { desktopLink } from "../src/features/assessment/flow/Entry";
-import { introFacts, precheckNotice } from "../src/features/assessment/flow/Intro";
+import { introFacts } from "../src/features/assessment/flow/Intro";
 import { warningText, weakerSide } from "../src/features/assessment/flow/Plan";
 import { questionIdOf } from "../src/features/assessment/flow/Question";
 import { audible, captionMs } from "../src/features/assessment/flow/voice";
 import { initialModel, type FlowModel, type FlowState } from "../src/features/assessment/flowMachine";
 import { screenFor } from "../src/features/assessment/screens";
 import type { FlowScreenId } from "../src/features/assessment/screenTypes";
-import { t } from "../src/i18n";
+import { localizeDigits, t } from "../src/i18n";
 import { CHECK_DATA, precheckItem, screenText, testDef } from "../src/movements/assessments";
 import {
   contextOf,
   copyProblems,
   GUEST,
-  guestAtIntro,
+  guestAtQuestions,
   guestAtPlan,
   play,
   render,
   signedAt,
   signedStarted,
   textOf,
-  toQuestions,
   untilQuestion,
   withState,
 } from "./flow-fixtures";
@@ -49,11 +48,13 @@ const welcome = () => play(initialModel(GUEST), { type: "START" });
 /* ------------------------------------------------------------------ models of every screen */
 
 function models(): Record<string, FlowModel> {
-  const intro = guestAtIntro();
-  const q = toQuestions(intro);
-  const sci = toQuestions(guestAtIntro({ conditions: ["sci_complete"] }));
-  const standing = toQuestions(guestAtIntro({ position: "standing" }));
+  const q = guestAtQuestions();
+  const sci = guestAtQuestions({ conditions: ["sci_complete"] });
+  const standing = guestAtQuestions({ position: "standing" });
   const signedHome = signedAt(contextOf({ position: "chair", support: "left" }));
+  const intro = play(signedHome, { type: "CONTEXT_CONFIRM" });
+  const started = signedStarted(contextOf());
+  const signedPlan = started.state.kind === "warnings" ? play(started, { type: "CONTINUE" }) : started;
   const plan = guestAtPlan();
   const helperCtx = contextOf({ position: "chair", support: "right" });
   const helper = play(
@@ -63,20 +64,17 @@ function models(): Record<string, FlowModel> {
   return {
     S04: play(initialModel({ ...GUEST, desktop: true }), { type: "START" }),
     S05: welcome(),
-    S05a: play(welcome(), { type: "GUEST_PATH", path: "quick" }),
-    S05aEnd: play(welcome(), { type: "GUEST_PATH", path: "quick" }, { type: "ADULT_NO" }),
+    S05a: signedAt(contextOf({}, { adultConfirmed: false })),
+    S05aEnd: play(welcome(), { type: "ADULT_NO" }),
     S05b: play(initialModel({ ...GUEST, booth: false }), { type: "START" }),
-    S06: play(welcome(), { type: "GUEST_PATH", path: "full" }, { type: "ADULT_YES" }),
-    S08: withState(intro, { kind: "guestSetup", step: 3 }),
-    S08b: withState(intro, { kind: "guestSetup", step: 4 }),
-    S09: guestAtIntro({ position: "bed" }),
+    S06: play(welcome(), { type: "GUEST_PATH", path: "full" }),
+    S08: withState(q, { kind: "guestSetup", step: 3 }),
+    S08b: withState(q, { kind: "guestSetup", step: 4 }),
+    S09: guestAtQuestions({ position: "bed" }),
     S12: signedAt(contextOf({}, { consent: false })),
     S13: signedHome,
     S14: intro,
-    S14signed: play(signedHome, { type: "CONTEXT_CONFIRM" }),
     S14b: play(intro, { type: "CONTINUE" }),
-    S16: play(intro, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }),
-    S16resume: withState(intro, { kind: "resumeNotice" }),
     S17: q,
     S18: untilQuestion(sci, "pc_sci_level")!,
     S19: untilQuestion(q, "pc_pain_now")!,
@@ -87,9 +85,9 @@ function models(): Record<string, FlowModel> {
     S25: signedStarted(contextOf(), { pc_pain_now: 7, pc_pain_areas: {} }),
     S27: plan,
     S28: play(plan, { type: "PLAN_START" }),
-    S31: play(plan, { type: "PLAN_START" }, { type: "READY" }),
+    S31: play(signedPlan, { type: "PLAN_START" }, { type: "READY" }),
     S33: answerTo(q, "pc_unwell", "yes"),
-    S35: withState(intro, {
+    S35: withState(q, {
       kind: "paused",
       until: null,
       releasable: true,
@@ -122,10 +120,7 @@ describe("every flow screen renders for its state, in both languages, within the
     S12: "S12",
     S13: "S13",
     S14: "S14",
-    S14signed: "S14",
     S14b: "S14b",
-    S16: "S16",
-    S16resume: "S16",
     S17: "S17",
     S18: "S18",
     S19: "S19",
@@ -162,17 +157,26 @@ describe("entry screens", () => {
     expect(desktopLink("https://azm.test", true)).toBe("https://azm.test/?check=1");
   });
 
-  it("S05 offers the two paths as equal gold buttons, the boundary lines and the example link", () => {
+  it("S05: one gold path, the full check outlined, two short lines, the adult line above the starts", () => {
     for (const lang of LANGS) {
       const { html, text } = screen(M.S05, lang);
-      expect(count(html, 'class="cta"')).toBe(2);
+      // C03: gold is the one test; the full check stays visible as an outline button with its minutes.
+      expect(count(html, 'class="cta"')).toBe(1);
+      expect(count(html, 'class="ghost"')).toBe(1);
       expect(text).toContain(textOf(t(lang, "assessment.guest.notSaved")));
-      expect(html).toContain(t(lang, "assessment.guest.seeExample"));
       expect(text).toContain(textOf(CHECK_DATA.boundary.notMedical[lang]));
+      // C33: no boundary paragraph at the booth (its comparison sentence is not true where nothing is kept).
+      expect(text).not.toContain(textOf(CHECK_DATA.boundary.line[lang]));
+      expect(html).toContain(t(lang, "assessment.guest.seeExample"));
+      // C02: the adult line word for word, directly above the start buttons, and the under 18 link.
+      const footer = html.slice(html.indexOf("<footer"));
+      const adult = localizeDigits(lang, CHECK_DATA.boundary.adultConfirm[lang]);
+      expect(textOf(footer).startsWith(textOf(adult))).toBe(true);
+      expect(text).toContain(textOf(t(lang, "assessment.adult.under", { age: 18 })));
     }
   });
 
-  it("S05a asks with the data text first and ends kindly without storing anything", () => {
+  it("S05a asks a signed in account with the data text first and ends kindly", () => {
     const { text } = screen(M.S05a, "en");
     expect(text.indexOf(CHECK_DATA.boundary.adultConfirm.en)).toBeLessThan(text.indexOf("I am under 18"));
     const end = screen(M.S05aEnd, "en");
@@ -229,43 +233,21 @@ describe("signed in entry (S12, S13)", () => {
   });
 });
 
-describe("intro, sound check and notice (S14, S14b, S16)", () => {
-  it("S14 shows boundary.intro with the computed range and the booth need line at the booth", () => {
-    const { text } = screen(M.S14, "en");
+describe("intro and sound check at home (S14, S14b)", () => {
+  it("S14: the title, the boundary paragraph, the personal needs, one stop line, not medical (C38)", () => {
     const { ctx, tests } = introFacts(M.S14);
     expect(ctx).not.toBeNull();
     expect(tests.length).toBeGreaterThan(0);
-    // At the booth only the time is said (the chair, the stand and the space are ready), and neither
-    // the phone's sound nor who may press STOP (the phone and the check are the team's).
-    expect(text).toMatch(/Today’s check takes about \d+ to \d+ minutes\./);
-    expect(text).not.toContain("You will need a steady chair");
-    expect(text).not.toContain(t("en", "assessment.intro.sound"));
-    expect(text).not.toContain(t("en", "assessment.intro.stop"));
-    expect(text).toContain(t("en", "assessment.intro.need.booth"));
-    expect(text).toContain(t("en", "assessment.intro.allSeated"));
-    for (const id of tests) expect(text).toContain(testDef(id).name.en);
-  });
-
-  it("S14 lists the personal needs at home and welcomes a re-test back", () => {
-    const home = screen(M.S14signed, "en");
-    expect(home.text).toContain(t("en", "assessment.intro.need.phone"));
-    expect(home.text).not.toContain(t("en", "assessment.intro.need.booth"));
-    const retest = play(signedAt(contextOf({}, { firstCheck: false })), { type: "CONTEXT_CONFIRM" });
-    expect(screen(retest, "en").text).toContain(t("en", "assessment.intro.welcomeBack"));
-  });
-
-  it("S14 at home carries the check in switch, off by default; the booth never shows it (D-016)", () => {
     for (const lang of LANGS) {
-      const home = screen(M.S14signed, lang);
-      expect(home.html).toContain('role="switch"');
-      expect(home.html).toContain('aria-checked="false"');
-      expect(home.text).toContain(t(lang, "assessment.checkin.setting"));
-      expect(home.text).toContain(t(lang, "assessment.checkin.settingNote"));
-      const on = screen({ ...M.S14signed, data: { ...M.S14signed.data, checkIn: true } }, lang);
-      expect(on.html).toContain('aria-checked="true"');
-      const booth = screen(M.S14, lang);
-      expect(booth.html).not.toContain('role="switch"');
-      expect(booth.text).not.toContain(t(lang, "assessment.checkin.setting"));
+      const { html, text } = screen(M.S14, lang);
+      expect(text).toContain(textOf(CHECK_DATA.boundary.line[lang]));
+      expect(text).toContain(t(lang, "assessment.intro.need.phone"));
+      expect(count(text, textOf(t(lang, "assessment.intro.howToStop")))).toBe(1);
+      expect(text).toContain(textOf(CHECK_DATA.boundary.notMedical[lang]));
+      // No time (C11), no tests list (S27 has it), no check in switch (C39: the coach settings).
+      expect(text).not.toMatch(lang === "en" ? /\d+ to \d+ minutes/ : /دقيقة|دقائق/);
+      expect(html).not.toContain("flow-intro-tests");
+      expect(html).not.toContain('role="switch"');
     }
   });
 
@@ -275,25 +257,15 @@ describe("intro, sound check and notice (S14, S14b, S16)", () => {
     for (const o of CHECK_DATA.engine.soundCheck.options) expect(text).toContain(o.label.ar);
     expect(text).toContain(t("ar", "assessment.soundCheck.screenReader"));
   });
-
-  it("S16 shows the notice, the helper line at home only, and the O6 resume line", () => {
-    const booth = screen(M.S16, "en");
-    // A booth guest keeps nothing (S05, S50): no retention sentence, the guest line of the data.
-    expect(booth.text).toContain(precheckNotice("en", true));
-    expect(booth.text).not.toContain("We keep only what is needed");
-    expect(booth.text).toContain("Your answers stay on this device for this try only");
-    expect(booth.text).not.toContain(t("en", "assessment.precheck.helperReads"));
-    const home = play(M.S14signed, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" });
-    expect(screen(home, "en").text).toContain(t("en", "assessment.precheck.helperReads"));
-    expect(screen(home, "en").text).toContain(CHECK_DATA.boundary.precheckNotice.en);
-    expect(screen(M.S16resume, "en").text).toContain(t("en", "assessment.resume.notice"));
-  });
 });
 
 describe("pre-check questions (S17 to S24)", () => {
-  it("S17 shows the counter, the question, the list card and two answers that submit on tap", () => {
+  it("S17 shows the bar, the question, the list card and two answers that submit on tap", () => {
     const { html, text } = screen(M.S17, "en");
-    expect(text).toMatch(/Question 1 of \d+/);
+    // C10: a bar with no numbers; C06: the first question's one subtitle.
+    expect(html).toContain('class="check-progress" aria-hidden="true"');
+    expect(text).not.toMatch(/Question \d+ of \d+/);
+    expect(text).toContain(t("en", "assessment.precheck.howToAnswer"));
     expect(questionIdOf(M.S17)).toBe("pc_urgent");
     for (const line of precheckItem("pc_urgent").list!.en) expect(text).toContain(line);
     expect(count(html, 'class="check-answer"')).toBe(2);
@@ -445,12 +417,13 @@ describe("test preparation (S28, S31, S32)", () => {
     }
   });
 
-  it("S31 asks for the camera with the booth placement line", () => {
+  it("S31 at home: one privacy line and the button (C08)", () => {
     expect(M.S31.state.kind).toBe("test.primer");
-    const { text } = screen(M.S31, "en");
+    const { html, text } = screen(M.S31, "en");
     expect(text).toContain(t("en", "assessment.primer.body"));
-    expect(text).toContain(t("en", "assessment.primer.placeBooth"));
     expect(text).toContain(t("en", "assessment.primer.allow"));
+    const body = html.slice(html.indexOf('data-screen="S31"'), html.indexOf("</main>"));
+    expect(count(body, "<p ")).toBe(1);
   });
 
   it("S32 shows each camera problem with its own title", () => {

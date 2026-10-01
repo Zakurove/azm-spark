@@ -4,7 +4,8 @@
  *   top bar     Back, the step counter, the booth badge, Sound, Exit or a screen's own close control
  *               (S51, S52); the language switch only on the entry screens S05, S05b, S12, S14, S54, S55
  *   content     an optional line above the caption (S41), then the caption slot
- *   bar         6 px progress bar (role progressbar, labelled by the counter, aria-valuetext)
+ *   bar         6 px progress bar (role progressbar, labelled by the counter, aria-valuetext; the
+ *               pre-check bar has no counter text and is only a picture, C10)
  *   banners     the sound off line, the offline banner (0.7)
  *   content     caption slot, optional wordmark header, the screen, 16 px gutters, 560 px column
  *   footer      call controls first, one gold primary, one secondary; sticky from 560 CSS px tall
@@ -18,7 +19,7 @@
  * and sets them as scroll padding on the real scroller (the page, or the overlay layer).
  *
  * DOM order equals visual order. On every screen change focus moves to the h1 (tabindex -1), which is
- * described by the counter, so "Question 3 of 9" is read with the question.
+ * described by the counter, so "Step 3 of 6" is read with the step.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Brand from "../../../app/Brand";
@@ -44,7 +45,11 @@ export interface CallLinkProps {
 }
 
 export interface StepCounterProps {
-  text: string;
+  /**
+   * "Step n of 6", shown and read with the h1. None for the pre-check (C10): its bar has no numbers,
+   * because the possible total only shrinks and a count would never be true.
+   */
+  text?: string;
   value: number;
   max: number;
 }
@@ -61,7 +66,8 @@ export interface CheckShellProps {
   language?: boolean;
   /** The Sound control: only on screens that play a line (3.0). */
   sound?: boolean;
-  footer?: { primary?: ButtonSpec; secondary?: ButtonSpec; call?: CallLinkProps[] };
+  /** `lead`: a line directly above the buttons (S05: the adult confirmation the start gives, C02). */
+  footer?: { lead?: ReactNode; primary?: ButtonSpec; secondary?: ButtonSpec; call?: CallLinkProps[] };
   /** A notice at the top of the sticky header, above the top bar (S54: the example banner). */
   notice?: ReactNode;
   /** A line that sits above the caption strip (S41: the stay put line, as the spec draws it). */
@@ -131,7 +137,7 @@ export function CheckShell({
     const h1 = mainRef.current?.querySelector<HTMLElement>("h1");
     if (!h1) return;
     h1.tabIndex = -1;
-    if (counter) {
+    if (counter?.text) {
       const own = (h1.getAttribute("aria-describedby") ?? "").split(" ").filter((x) => x && x !== counterId);
       h1.setAttribute("aria-describedby", [counterId, ...own].join(" "));
     }
@@ -186,7 +192,7 @@ export function CheckShell({
               <CheckIcon name="arrow-back" />
             </button>
           )}
-          {counter ? (
+          {counter?.text ? (
             <span id={counterId} className="check-topbar-counter">
               {bidiText(lang, counter.text)}
             </span>
@@ -222,28 +228,34 @@ export function CheckShell({
             )
           )}
         </div>
-        {counter && (
-          <div
-            className="check-progress"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={counter.max}
-            aria-valuenow={counter.value}
-            aria-valuetext={counter.text}
-            aria-labelledby={counterId}
-          >
-            <span style={{ width: `${pct}%` }} />
-          </div>
-        )}
+        {counter &&
+          (counter.text ? (
+            <div
+              className="check-progress"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={counter.max}
+              aria-valuenow={counter.value}
+              aria-valuetext={counter.text}
+              aria-labelledby={counterId}
+            >
+              <span style={{ width: `${pct}%` }} />
+            </div>
+          ) : (
+            // A bar with no numbers is only a picture of the way so far (C10).
+            <div className="check-progress" aria-hidden="true">
+              <span style={{ width: `${pct}%` }} />
+            </div>
+          ))}
       </header>
       <OfflineBanner />
       <main className="check-main" ref={mainRef}>
         <div className="check-content check-enter" key={ui.screenKey}>
-          {(counter || ui.booth || sound) && (
+          {(counter?.text || ui.booth || sound) && (
             // The narrow and short screen forms of the top bar parts (check.css): the counter above the
             // h1 (read with it through aria-describedby, so hidden here), the badge and Sound.
             <div className="check-inline-bar">
-              {counter && (
+              {counter?.text && (
                 <p className="check-meta check-inline-counter" aria-hidden="true">
                   {bidiText(lang, counter.text)}
                 </p>
@@ -267,6 +279,7 @@ export function CheckShell({
       {footer && (footer.primary || footer.secondary || footer.call?.length) && (
         <footer className="check-footer" ref={footRef}>
           <div className="check-footer-inner">
+            {footer.lead}
             {footer.call?.map((c) => (
               <CallLink key={c.number} {...c} />
             ))}

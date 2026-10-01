@@ -24,7 +24,6 @@ import {
   type SignedInContext,
   type StartResult,
 } from "../src/features/assessment/flowMachine";
-import { screenFor } from "../src/features/assessment/screens";
 import { t } from "../src/i18n";
 import { finalizeProtocol, baseSelection, type CheckContext } from "../src/medical/assessment";
 import {
@@ -93,7 +92,6 @@ function signedAtStarting(ctx?: SignedInContext, config: Partial<FlowConfig> = {
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     ),
   );
 }
@@ -154,12 +152,7 @@ describe("the context (round 3)", () => {
     const yes = play(m, { type: "ADULT_YES" });
     expect(kind(yes)).toBe("context");
     expect(types(yes)).toEqual(["adult"]);
-    const guest = play(
-      initialModel(GUEST),
-      { type: "START" },
-      { type: "GUEST_PATH", path: "full" },
-      { type: "ADULT_YES" },
-    );
+    const guest = play(initialModel(GUEST), { type: "START" }, { type: "GUEST_PATH", path: "full" });
     expect(guest.effects).toEqual([]);
   });
 
@@ -511,16 +504,13 @@ describe("resume after an interruption (O6)", () => {
     });
   });
 
-  it("shows the O6 line, runs the sound check, then asks only the re-ask questions", () => {
+  it("runs the sound check on a new device, then asks only the re-ask questions", () => {
     let m = resumed();
-    expect(kind(m)).toBe("resumeNotice");
-    expect(screenFor(m)).toBe("S16");
-    // The council's line, word for word (O6 (2)).
+    // The O6 line is the first re-ask question's subtitle (C06), word for word (O6 (2)).
     expect(t("ar", "assessment.resume.notice")).toBe("قبل أن نكمل، سنعيد بعض الأسئلة القصيرة عن حالك الآن.");
     expect(t("en", "assessment.resume.notice")).toBe(
       "Before we continue, we will ask a few short questions again about how you are now.",
     );
-    m = play(m, { type: "CONTINUE" });
     expect(kind(m)).toBe("soundCheck");
     m = play(m, { type: "SOUND_RESULT", mode: "voice" });
     expect(m.state).toEqual({ kind: "question", id: "pc_urgent" });
@@ -538,7 +528,7 @@ describe("resume after an interruption (O6)", () => {
   });
 
   it("proceeds at the next unfinished test from its first attempt (S28), with the new skips", () => {
-    let m = play(resumed(), { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" });
+    let m = play(resumed(), { type: "SOUND_RESULT", mode: "voice" });
     m = answerAll(m);
     const tests = m.data.tests;
     const skip = tests[tests.length - 1].sides[0];
@@ -559,7 +549,7 @@ describe("resume after an interruption (O6)", () => {
   });
 
   it("a re-ask emergency shows the safety screen at once and tells the server in the background", () => {
-    let m = play(resumed(), { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" });
+    let m = play(resumed(), { type: "SOUND_RESULT", mode: "voice" });
     m = play(m, { type: "ANSWER", id: "pc_urgent", value: "yes" });
     expect(m.state).toMatchObject({ kind: "safety", screen: "scr_emergency" });
     expect(types(m)).toEqual(["resumeBackground"]);
@@ -567,7 +557,7 @@ describe("resume after an interruption (O6)", () => {
   });
 
   it("the check closed meanwhile (NOT_OPEN): back to Today; a lock pauses", () => {
-    const m = answerAll(play(resumed(), { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }));
+    const m = answerAll(play(resumed(), { type: "SOUND_RESULT", mode: "voice" }));
     expect(play(m, { type: "RESUME_RESULT", result: { ok: false, code: "NOT_OPEN" } }).state).toEqual({
       kind: "exit",
       to: "today",
@@ -608,7 +598,6 @@ describe("the guest steps follow Q19 (2) and O20; the counter follows O9", () =>
       initialModel(GUEST),
       { type: "START" },
       { type: "GUEST_PATH", path: "full" },
-      { type: "ADULT_YES" },
       { type: "GUEST_ANSWER", step: 1, value: "chair" },
       { type: "GUEST_ANSWER", step: 2, value: "left" },
       { type: "GUEST_ANSWER", step: 3, value: conditions },
@@ -623,24 +612,24 @@ describe("the guest steps follow Q19 (2) and O20; the counter follows O9", () =>
 
   it("the guest's clearance answer counts (Q19 (2)): cleared after a stroke, more than the arm raise", () => {
     const cleared = guestThrough(["stroke"], "yes");
-    expect(kind(cleared)).toBe("intro");
+    expect(kind(cleared)).toBe("question");
     expect(cleared.data.env?.ctx.clearance).toBe("yes");
     expect(new Set(cleared.data.base.filter((b) => !b.excluded).map((b) => b.testId)).size).toBeGreaterThan(
       1,
     );
     const uncleared = guestThrough(["stroke"], "no");
-    expect(kind(uncleared)).toBe("intro");
+    expect(kind(uncleared)).toBe("question");
     expect(uncleared.data.env?.ctx.clearance).toBe("no");
     expect(uncleared.data.env?.baseTests).toEqual(["shoulder_abduction"]);
   });
 
   it("the SCI type unknown chip takes the sci_complete rules (O20)", () => {
     const m = guestThrough(["sci_unsure"], "yes");
-    expect(kind(m)).toBe("intro");
+    expect(kind(m)).toBe("question");
     expect(m.data.env?.ctx.conditions).toEqual(["sci_complete"]);
   });
 
-  it("the question total counts every question that can still appear and never grows (O9)", async () => {
+  it("the pre-check bar only moves forward: its total is every question still possible (O9, C10)", async () => {
     const { possibleQuestions } = await import("../src/medical/precheck");
     const { questionCounter } = await import("../src/features/assessment/flowMachine");
     let m = play(
@@ -648,14 +637,16 @@ describe("the guest steps follow Q19 (2) and O20; the counter follows O9", () =>
       { type: "CONTEXT_CONFIRM" },
       { type: "CONTINUE" },
       { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
     );
     let last = Infinity;
+    let filled = 0;
     for (let k = 0; k < 40 && m.state.kind === "question"; k++) {
       const c = questionCounter(m)!;
       expect(c.total).toBe(possibleQuestions(m.data.env!, m.data.answers).length);
       expect(c.total).toBeLessThanOrEqual(last);
+      expect(c.n / c.total).toBeGreaterThanOrEqual(filled);
       last = c.total;
+      filled = c.n / c.total;
       m = play(m, { type: "ANSWER", id: m.state.id, value: benign(m.state.id) });
     }
   });

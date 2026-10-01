@@ -47,13 +47,15 @@ export interface GuestChoices {
   config?: FlowConfig;
 }
 
-/** A guest at the booth through the six steps to the intro (or S09 when routed there). */
-export function guestAtIntro(c: GuestChoices = {}): FlowModel {
+/**
+ * A guest at the booth through the six steps: at the first pre-check question (C04, C05, C06: no
+ * intro, sound check or notice at the booth), or S09 when routed there.
+ */
+export function guestAtQuestions(c: GuestChoices = {}): FlowModel {
   return play(
     initialModel(c.config ?? GUEST),
     { type: "START" },
     { type: "GUEST_PATH", path: c.path ?? "full" },
-    { type: "ADULT_YES" },
     { type: "GUEST_ANSWER", step: 1, value: c.position ?? "chair" },
     { type: "GUEST_ANSWER", step: 2, value: c.support ?? "none" },
     { type: "GUEST_ANSWER", step: 3, value: c.conditions ?? ["none"] },
@@ -66,9 +68,9 @@ export function guestAtIntro(c: GuestChoices = {}): FlowModel {
   );
 }
 
-/** From the intro to the first pre-check question. */
+/** A signed in check from the intro (S14) to the first question: the sound check on a new device. */
 export function toQuestions(m: FlowModel): FlowModel {
-  return play(m, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" }, { type: "PRECHECK_START" });
+  return play(m, { type: "CONTINUE" }, { type: "SOUND_RESULT", mode: "voice" });
 }
 
 /**
@@ -98,7 +100,7 @@ export function untilQuestion(m: FlowModel, id: string, given: Answers = {}): Fl
 
 /** A guest at the plan (S27), the warnings passed. */
 export function guestAtPlan(c: GuestChoices = {}, given: Answers = {}): FlowModel {
-  const m = answerAll(toQuestions(guestAtIntro(c)), given);
+  const m = answerAll(guestAtQuestions(c), given);
   return m.state.kind === "warnings" ? play(m, { type: "CONTINUE" }) : m;
 }
 
@@ -156,16 +158,7 @@ export function okStart(m: FlowModel, kind: "baseline" | "retest" = "baseline"):
 
 /** A signed in check at the start call (the last question answered). */
 export function signedAtStarting(ctx?: SignedInContext, given: Answers = {}): FlowModel {
-  return answerAll(
-    play(
-      signedAt(ctx),
-      { type: "CONTEXT_CONFIRM" },
-      { type: "CONTINUE" },
-      { type: "SOUND_RESULT", mode: "voice" },
-      { type: "PRECHECK_START" },
-    ),
-    given,
-  );
+  return answerAll(toQuestions(play(signedAt(ctx), { type: "CONTEXT_CONFIRM" })), given);
 }
 
 /** A signed in check just after the start call (S25 when there are warnings, else S27). */

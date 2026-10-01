@@ -170,8 +170,8 @@ describe("S34c setup check", () => {
   it("all checks passing for 2 s starts calibration, and the first test says how to stop once", () => {
     const { run } = setupRun("abd-9x16", 5);
     expect(run.kinds.slice(0, 2)).toEqual(["cam.setup", "cam.calibrate"]);
-    // B2: at the booth the line names the team (intro.howToStopBooth), never the home line.
-    expect(run.notes.filter((k) => k === "assessment.intro.howToStopBooth")).toHaveLength(1);
+    // B2: at the booth the line names the team (test.stopBooth, C04), never the home line.
+    expect(run.notes.filter((k) => k === "assessment.test.stopBooth")).toHaveLength(1);
     expect(run.notes).not.toContain("assessment.intro.howToStop");
     expect(run.notes).toContain("assessment.camera.motionOff");
   });

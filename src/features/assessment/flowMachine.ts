@@ -163,11 +163,8 @@ export type FlowState =
   | { kind: "guestStaff" }
   | { kind: "consent" }
   | { kind: "context" }
-  /** O6 (2): the line before the re-ask of a resumed check (shown on the notice screen, S16). */
-  | { kind: "resumeNotice" }
   | { kind: "intro" }
   | { kind: "soundCheck" }
-  | { kind: "precheckNotice" }
   | { kind: "question"; id: string }
   | { kind: "starting"; lastQuestion: string | null; error: StartError | null; attempt: number }
   | { kind: "warnings" }
@@ -274,6 +271,11 @@ export interface FlowConfig {
   session?: CheckSession;
   /** The person's check in setting when the check opens (D-016); never on at the booth. */
   checkIn?: boolean;
+  /**
+   * The sound check answer kept on this device (S14b runs once per device at home, C05); the booth
+   * never asks, because staff play the test sound when they turn booth mode on (S55).
+   */
+  soundMode?: SoundMode;
   /** The booth staff settings of this device (D-016 item 4, council F-1); booth mode only. */
   boothSettings?: BoothSettings;
 }
@@ -348,7 +350,7 @@ export interface FlowData {
   lock: { reason: string; until: number | null } | null;
   /** The server has closed this check itself: the phone never completes it. */
   closed: boolean;
-  /** The optional check in is on (D-016): the setting, which S14 can change; never at the booth. */
+  /** The optional check in is on (D-016): the coach settings switch; never at the booth. */
   checkIn: boolean;
   /** The helper briefing of each test that runs with a helper (Q11). */
   helperBriefing: HelperBriefing;
@@ -498,6 +500,7 @@ export type FlowEvent = At &
     | { type: "EXAMPLE" }
     | { type: "TRY_WORKOUT" }
     | { type: "DEMO" }
+    /** S05: a start button, which is also the guest's adult confirmation at the booth (C02). */
     | { type: "GUEST_PATH"; path: GuestPath }
     | { type: "ADULT_YES" }
     | { type: "ADULT_NO" }
@@ -509,7 +512,6 @@ export type FlowEvent = At &
     | { type: "CONTEXT_CONFIRM" }
     | { type: "CONTEXT_EDIT" }
     | { type: "SOUND_RESULT"; mode: SoundMode }
-    | { type: "PRECHECK_START" }
     | { type: "ANSWER"; id: string; value: AnswerValue }
     | { type: "START_RESULT"; result: StartResult }
     | { type: "RESUME_RESULT"; result: ResumeResult }
@@ -553,10 +555,9 @@ export type FlowEvent = At &
     | { type: "STOP_NEXT" }
     | { type: "STOP_END" }
     | { type: "CHANGE_REASON" }
-    /** S43: «أنا بخير» and «أريد التوقف»; S14: the check in setting (D-016). */
+    /** S43: «أنا بخير» and «أريد التوقف» (D-016). */
     | { type: "FINE" }
     | { type: "WANT_STOP" }
-    | { type: "CHECKIN_SETTING"; on: boolean }
     | { type: "FAINT_ASK" }
     | { type: "FAINT_ANSWER"; value: "yes" | "no" | "unsure" }
     | { type: "END_ANSWER"; yes: boolean }
@@ -652,7 +653,7 @@ function emptyData(config: FlowConfig, device: DeviceInfo): FlowData {
     env: null,
     base: [],
     answers: {},
-    soundMode: null,
+    soundMode: config.booth ? "voice" : (config.soundMode ?? null),
     warnings: [],
     helperRequired: [],
     protocol: [],
@@ -759,31 +760,34 @@ export function backTarget(m: FlowModel): FlowState | null {
   const s = m.state;
   const guest = m.data.config.mode === "guest";
   switch (s.kind) {
-    case "adultGate":
-      return guest ? { kind: "guestWelcome" } : null;
     case "guestSetup":
       return s.step === 1
         ? { kind: "guestWelcome" }
         : { kind: "guestSetup", step: (s.step - 1) as GuestStep };
     case "intro":
-      return guest ? { kind: "guestSetup", step: 6 } : { kind: "context" };
+      return { kind: "context" };
     case "soundCheck":
-      return m.data.resuming ? { kind: "resumeNotice" } : { kind: "intro" };
-    case "precheckNotice":
-      return { kind: "soundCheck" };
+      return m.data.resuming ? null : { kind: "intro" };
     case "question": {
       if (!m.data.env) return null;
       const visible = questionsNow(m.data, m.data.answers);
       const at = visible.indexOf(s.id);
       if (at > 0) return { kind: "question", id: visible[at - 1] };
-      return m.data.resuming ? { kind: "soundCheck" } : { kind: "precheckNotice" };
+      // The first question: back to the last guest step at the booth (C04), the intro at home (S16
+      // and S14b are not screens to go back to, C05, C06); a resumed re-ask has no way back.
+      if (m.data.resuming) return null;
+      return guest ? { kind: "guestSetup", step: 6 } : { kind: "intro" };
     }
     case "cam.problem":
       // S32 Back: to the screen it came from (the camera primer, S31), which asks again.
       return s.returnTo;
     case "test.instruction":
-      // S28: Back to the plan (S27) only before the first test, while nothing of today has run.
-      return s.i === firstRunnableTest(m) && Object.keys(m.data.outcomes).length === 0 && !m.data.resuming
+      // S28: Back to the plan (S27) only before the first test, while nothing of today has run, and
+      // only when the plan was shown (C07: a protocol of one test has none).
+      return showsPlan(m.data) &&
+        s.i === firstRunnableTest(m) &&
+        Object.keys(m.data.outcomes).length === 0 &&
+        !m.data.resuming
         ? { kind: "plan" }
         : null;
     case "test.grip":
@@ -813,7 +817,8 @@ export function prepSteps(d: FlowData, i: number): PrepKind[] {
     out.push("load");
   }
   if (d.setting === "home" && run.sides.some((s) => s.helperRequired)) out.push("helper");
-  if (!d.cameraUsed) out.push("primer");
+  // At the booth staff allowed the camera and motion on S55 (C08): no primer.
+  if (!d.cameraUsed && !d.config.booth) out.push("primer");
   return out;
 }
 
@@ -889,8 +894,6 @@ function reduce(m: FlowModel, e: FlowEvent): FlowModel {
     case "STOP":
       if (!cameraRunning(m.state) || m.overlay?.kind === "stopList") return m;
       return { ...m, overlay: { kind: "stopList" } };
-    case "CHECKIN_SETTING":
-      return m.data.config.booth ? m : { ...m, data: { ...m.data, checkIn: e.on } };
     case "BACK": {
       if (m.overlay) return m;
       const target = backTarget(m);
@@ -983,16 +986,19 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
 
     case "guestWelcome":
+      // C02: the adult line sits above the start buttons on S05, so a start is the confirmation; the
+      // under 18 link ends the visit as S05a's no did.
       if (e.type === "GUEST_PATH")
-        return go({ ...m, data: { ...d, guestPath: e.path } }, { kind: "adultGate" });
+        return go({ ...m, data: { ...d, guestPath: e.path } }, { kind: "guestSetup", step: 1 });
+      if (e.type === "ADULT_NO") return go(m, { kind: "adultEnd" });
       if (e.type === "EXAMPLE") return go(m, { kind: "exit", to: "example" });
       // S55b: the visitor token ended on S05; its Continue leaves to the start page.
       if (e.type === "EXIT") return go(m, { kind: "exit", to: "landing" });
       return m;
 
     case "adultGate":
+      // S05a: a signed in account with no stored confirmation (made before the rule, Q32 (6)).
       if (e.type === "ADULT_YES") {
-        if (guest) return go(m, { kind: "guestSetup", step: 1 });
         // The account keeps the confirmation (POST /api/account/adult); the start needs it (403
         // ADULT_REQUIRED brings the person back here).
         const si = d.signedIn ? { ...d.signedIn, adultConfirmed: true } : null;
@@ -1010,12 +1016,12 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "GUEST_ANSWER" && e.step === s.step) {
         const next = { ...m, data: { ...d, guest: setGuestAnswer(d.guest, s.step, e.value) } };
         // Single choice steps submit on tap (Q18 (2)); multiple choice steps wait for Next.
-        return GUEST_MULTI.includes(s.step) ? next : guestAdvance(next, s.step);
+        return GUEST_MULTI.includes(s.step) ? next : guestAdvance(next, s.step, now);
       }
       if (e.type === "GUEST_NEXT") {
         const v = guestValue(d.guest, s.step);
         if (v === undefined || (Array.isArray(v) && v.length === 0)) return m;
-        return guestAdvance(m, s.step);
+        return guestAdvance(m, s.step, now);
       }
       return m;
 
@@ -1038,24 +1044,13 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       if (e.type === "CONTEXT_EDIT") return go(m, { kind: "exit", to: "healthEdit" });
       return m;
 
-    case "resumeNotice":
-      if (e.type === "CONTINUE") return go(m, { kind: "soundCheck" });
-      return m;
-
     case "intro":
-      if (e.type === "CONTINUE") return go(m, { kind: "soundCheck" });
+      if (e.type === "CONTINUE") return toQuestions(m, now);
       return m;
 
     case "soundCheck":
-      if (e.type === "SOUND_RESULT") {
-        const next = { ...m, data: { ...d, soundMode: e.mode } };
-        // O6 (2): after the sound check a resumed check asks its questions again at once.
-        return d.resuming ? firstQuestion(next, now) : go(next, { kind: "precheckNotice" });
-      }
-      return m;
-
-    case "precheckNotice":
-      if (e.type === "PRECHECK_START") return firstQuestion(m, now);
+      // The first check on this device (C05); the screen keeps the answer on the device.
+      if (e.type === "SOUND_RESULT") return firstQuestion({ ...m, data: { ...d, soundMode: e.mode } }, now);
       return m;
 
     case "question":
@@ -1078,7 +1073,7 @@ function stateReducer(m: FlowModel, e: FlowEvent, now: number): FlowModel {
       return m;
 
     case "warnings":
-      if (e.type === "CONTINUE") return go(m, { kind: "plan" });
+      if (e.type === "CONTINUE") return toPlan(m);
       return m;
 
     case "plan":
@@ -1995,6 +1990,11 @@ function outcomeNow(d: FlowData, answers: Answers, now: number): PrecheckOutcome
     : evaluatePrecheck(d.env!, answers, now);
 }
 
+/** The sound check the first time on this device (C05), else the first question at once. */
+function toQuestions(m: FlowModel, now: number): FlowModel {
+  return m.data.soundMode === null ? go(m, { kind: "soundCheck" }) : firstQuestion(m, now);
+}
+
 function firstQuestion(m: FlowModel, now: number): FlowModel {
   if (!m.data.env) return m;
   const visible = questionsNow(m.data, m.data.answers);
@@ -2161,7 +2161,24 @@ function frozen(
     staffCount: {},
     ...extra,
   };
-  return go({ ...m, data }, before.length ? { kind: "warnings" } : { kind: "plan" });
+  const next = { ...m, data };
+  return before.length ? go(next, { kind: "warnings" }) : toPlan(next);
+}
+
+/**
+ * Whether S27 shows (C07): a plan of one test is not a plan, so a protocol of one test goes straight
+ * to its card (S28). A protocol with two or more tests, or with every test skipped (F-1 D routing (b)),
+ * shows it.
+ */
+export function showsPlan(d: Pick<FlowData, "protocol" | "tests">): boolean {
+  return !(new Set(d.protocol.map((p) => p.testId)).size === 1 && d.tests.length === 1);
+}
+
+/** S27, or for a protocol of one test its instruction card (C07). */
+function toPlan(m: FlowModel): FlowModel {
+  if (showsPlan(m.data)) return go(m, { kind: "plan" });
+  const i = nextRunnableTest(m, 0);
+  return i === null ? leaveFlow(m) : go(m, { kind: "test.instruction", i });
 }
 
 /** The paused screen (S35) of a lock: when it ends, the care team release and its {when}. */
@@ -2247,10 +2264,11 @@ function startFailure(
 
 /**
  * Continue an open check (Appendix A: resume; O6), after the same gates as a new start: a blocked
- * context or closed home checks leave, a lock pauses, a missing consent asks for it. Then the O6 line
- * (S16), the sound check (S14b) and the day of questions again (resumeQuestions), which the server
- * evaluates on POST /:id/resume; the check goes on at the next unfinished test from its first attempt
- * (S28, O6 (3)). With nothing left to run, the end question and the results.
+ * context or closed home checks leave, a lock pauses, a missing consent asks for it. Then the sound
+ * check if this device has none (C05) and the day of questions again (resumeQuestions), the first
+ * with the O6 line as its subtitle (C06); the server evaluates them on POST /:id/resume, and the check
+ * goes on at the next unfinished test from its first attempt (S28, O6 (3)). With nothing left to run,
+ * the end question and the results.
  */
 function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
   const gate = entryGate(m, now);
@@ -2288,7 +2306,7 @@ function resume(m: FlowModel, c: ResumeCheck, now: number): FlowModel {
   const next = { ...m, data };
   if (nextRunnableTest(next, 0) === null)
     return toEndQuestion({ ...next, data: { ...data, resuming: false } });
-  return go(next, { kind: "resumeNotice" });
+  return toQuestions(next, now);
 }
 
 /**
@@ -2422,9 +2440,9 @@ function setGuestAnswer(g: GuestAnswers, step: GuestStep, value: string | string
   return { ...g, [key]: [...new Set(exclusive)] };
 }
 
-function guestAdvance(m: FlowModel, step: GuestStep): FlowModel {
+function guestAdvance(m: FlowModel, step: GuestStep, now: number): FlowModel {
   if (step < 6) return go(m, { kind: "guestSetup", step: (step + 1) as GuestStep });
-  return guestRouting(m);
+  return guestRouting(m, now);
 }
 
 /**
@@ -2449,7 +2467,7 @@ export function guestSteps(g: GuestAnswers): GuestSteps | null {
   };
 }
 
-function guestRouting(m: FlowModel): FlowModel {
+function guestRouting(m: FlowModel, now: number): FlowModel {
   const d = m.data;
   const steps = guestSteps(d.guest);
   const ctx = steps ? guestContext(steps) : ({ blocked: "invalid_input" } as const);
@@ -2468,7 +2486,8 @@ function guestRouting(m: FlowModel): FlowModel {
     lastCheckLasting: false,
     baseTests: tests,
   };
-  return go({ ...m, data: { ...d, env, base, answers: {} } }, { kind: "intro" });
+  // C04, C05, C06: the booth goes from the guest steps straight to the first question.
+  return firstQuestion({ ...m, data: { ...d, env, base, answers: {} } }, now);
 }
 
 /**

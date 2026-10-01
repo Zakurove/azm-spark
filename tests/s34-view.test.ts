@@ -85,6 +85,12 @@ describe("S34 view, every preview state in both languages", () => {
     }
   });
 
+  it("the rest names what comes next after a colon, so a label keeps its capital (English)", () => {
+    expect(text(render("rest-side", "en"))).toMatch(/After the rest:\s+Your right arm/);
+    expect(text(render("rest-attempt", "en"))).toMatch(/After the rest:\s+Try 2 of 3/);
+    expect(text(render("rest-side", "en"))).not.toContain("After the rest,");
+  });
+
   it("a saved attempt shows the check and Saved, never its value (O28)", () => {
     const html = render("saved-range", "en");
     expect(text(html)).toContain("Saved");

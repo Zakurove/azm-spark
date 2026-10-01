@@ -507,7 +507,7 @@
     "after2min": "We will try again after two minutes of rest."
   },
   "rest": {
-    "after": "After the rest, {next}",
+    "after": "After the rest: {next}",
     "nextTest": "the next test",
     "nextNow": "Start the next test now"
   },

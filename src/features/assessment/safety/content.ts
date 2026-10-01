@@ -222,7 +222,8 @@ export function safetyView(
       collapsed: true,
     });
 
-  const calls: ("997" | "937")[] = screens.some(names997) ? ["997"] : [];
+  // Every shown text that names 997 brings its call control, the collapsed AD card of S38 too (R-7).
+  const calls: ("997" | "937")[] = blocks.some((b) => names997(b.screen)) ? ["997"] : [];
   if (state.screen === "scr_stop_seek_care") calls.push("937");
   const lock = activeLock(d, now);
   const askFaint = (state.askFaint === true || kind === "faint") && !state.faintAnswered;

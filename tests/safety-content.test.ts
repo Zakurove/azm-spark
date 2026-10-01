@@ -184,6 +184,16 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
     expect(v.speech.some((l) => l.mark?.startsWith("scr_ad"))).toBe(false);
     expect(v.listen.some((l) => l.mark?.startsWith("scr_ad"))).toBe(true);
     expect(v.askFaint).toBe(true);
+    // R-7: the card names 997 (D-016 allows it on scr_ad), so the screen carries its call control,
+    // as S36 and S37 do; the 64 px number stays on S36 only.
+    expect(v.calls).toEqual(["997"]);
+    expect(v.bigNumber).toBe(false);
+  });
+
+  it("S38 without a spinal cord injury at T6 or above names no number and has no call control", () => {
+    const v = safetyView(safety("scr_faint", "faint"), model().data, "en", NOW);
+    expect(v.blocks.map((b) => b.screen)).toEqual(["scr_faint"]);
+    expect(v.calls).toEqual([]);
   });
 
   it("speaks every sentence: the stop cue, the body, each card's heading and body, then the paused line", () => {

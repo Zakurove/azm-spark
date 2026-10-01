@@ -3000,7 +3000,7 @@
         "showOn": "S36 only, and only when S36 is reached from pc_urgent: the AD card shown under scr_emergency for every SCI condition (pc_urgent alsoShowIf), right after the scr_emergency body, with this lead first. The other routes to S36 (ec_symptoms yes, the stop list chest or stroke_signs, sf_faint_loc yes or not sure) show no AD card and no lead: on the faint route the card would tell a person with SCI who has just fainted to sit upright right after scr_faint told them to lie down. If the medical seat wants the card on any of those routes, that action gains its own alsoShowIf, with this lead always first. Never on S37 (scr_ad reached from declared AD signs), where the signs are already known (O12 (3)). UX aligns the S36 row of check-ux-spec.md (scr_ad for SCI, alsoShow) with 2.7.",
         "status": "pending: the medical seat confirms it before it is shown, and it joins Nasser’s Oct 9 review of scr_ad (Q18 (4)). If it is not approved by the freeze, booth staff briefed on the AD and orthostatic responses (2.7) cover the gap, and the home gate waits for it. It reuses phrases already approved in pc_sci_ad_now and scr_faint. The panel text (O12 (3)) left out «انسداد في الأنف» · a stuffy nose, which pc_sci_ad_now and warn_sci_t6 list; the data owner added it (review fixes, 2026-09-28), so a person with SCI who has a stuffy nose and feels faint is not sent to lie flat. The medical seat confirms the addition with the lead, or removes it and records why here."
       },
-      "cardOnFaintSci": "On S38 for sci_t6, the scr_ad card follows scr_faint_sci under the heading «خطوات التعامل مع خلل المنعكسات اللاإرادية», collapsed to its heading and first sentence, opening on tap and spoken on Listen, so S38b is not delayed (O24-6)."
+      "cardOnFaintSci": "On S38 for sci_t6, the scr_ad card follows scr_faint_sci under the heading «خطوات التعامل مع خلل المنعكسات اللاإرادية», collapsed to its heading and first sentence, opening on tap and spoken on Listen, so S38b is not delayed (O24-6). Because the card names 997, S38 then carries the emergencyCall button as well (R-7, 2026-10-02); the 64 px number stays on scr_emergency only."
     },
     "scr_stop_ask": {
       "ar": "ما الذي جعلك تتوقف؟",
@@ -3183,7 +3183,7 @@
       "en": "Call 997",
       "href": "tel:997"
     },
-    "firstActionOn": "the two emergency screens, which are the only screens that name 997 (scr_emergency, and scr_ad for autonomic dysreflexia; D-016): the first action is this full width button",
+    "firstActionOn": "the two emergency screens, which are the only screens that name 997 (scr_emergency, and scr_ad for autonomic dysreflexia; D-016): the first action is this full width button. The scr_ad card brings it wherever it shows, S38 for sci_t6 included (cardOnFaintSci).",
     "bigNumberOn": [
       "scr_emergency"
     ],

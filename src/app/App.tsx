@@ -267,6 +267,7 @@ export default function App() {
           lang={lang}
           onLanguage={toggleLanguage}
           canTryCheck={isBoothMode() || homeChecksOpen}
+          booth={isBoothMode()}
           // At the booth the guest check; at home the signed in check starts from Today (S01).
           onTryCheck={() => openUrl(isBoothMode() ? "/?check=1" : "/", lang)}
           onRegister={() => openUrl("/?app=1&register=1", lang)}

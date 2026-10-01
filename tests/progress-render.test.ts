@@ -545,12 +545,13 @@ describe("sessions (S53)", () => {
 
 describe("S54 example", () => {
   for (const lang of LANGS) {
-    it(`shows one labelled example card and the sign up code, the banner read with the h1 (C37, ${lang})`, () => {
+    it(`shows one labelled example card, the banner read with the h1, no code away from the booth (C37, R-13, ${lang})`, () => {
       const m = renderToStaticMarkup(
         createElement(ExampleProgress, {
           lang,
           onLanguage: noop,
           canTryCheck: false,
+          booth: false,
           onTryCheck: noop,
           onRegister: noop,
         }),
@@ -558,7 +559,9 @@ describe("S54 example", () => {
       expect(countTag(m, /<article/g)).toBe(1);
       expect(countTag(m, new RegExp(`>${t(lang, "progress.example.tag")}<`, "g"))).toBeGreaterThanOrEqual(1);
       expect(m).toContain(CHECK_DATA.progress.verdicts.higher[lang]);
-      expect(m).toContain("register=1");
+      // The page is already on the person's phone: Create a free account, never a code to scan.
+      expect(m).not.toContain("data-qr");
+      expect(m).not.toContain(t(lang, "assessment.guest.scan"));
       expect(m).not.toContain(t(lang, "progress.sessions.heading"));
       const banner = /<span id="([^"]+)">([^<]+)<\/span>/.exec(m)!;
       expect(banner[2]).toBe(t(lang, "progress.example.banner"));
@@ -571,17 +574,20 @@ describe("S54 example", () => {
     });
   }
 
-  it("offers to try the check at the booth", () => {
+  it("offers to try the check at the booth, with the sign up code for the visitor's own phone", () => {
     const m = renderToStaticMarkup(
       createElement(ExampleProgress, {
         lang: "en",
         onLanguage: noop,
         canTryCheck: true,
+        booth: true,
         onTryCheck: noop,
         onRegister: noop,
       }),
     );
     expect(m).toContain(t("en", "progress.example.tryCheck"));
     expect(m).not.toContain(t("en", "assessment.guest.boothOnly.title"));
+    expect(m).toContain("data-qr");
+    expect(m).toContain("register=1");
   });
 });

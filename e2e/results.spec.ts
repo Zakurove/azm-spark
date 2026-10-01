@@ -614,12 +614,13 @@ for (const lang of LANGS) {
       const banner = page.getByRole("region", { name: p.example.tag });
       await expect(banner).toContainText(p.example.banner);
       await expect(page.locator("h1")).toHaveText(p.example.title);
-      // C37: one labelled card, start and now with the verdict in words, then the sign up QR.
+      // C37: one labelled card, start and now with the verdict in words.
       const cards = page.locator(".pg-series");
       await expect(cards).toHaveCount(1);
       await expect(cards.locator(".pg-chip").last()).toHaveText(p.example.tag);
       await expect(page.locator(".pg-pill")).toHaveText(DATA.progress.verdicts.higher[lang]);
-      await expect(page.locator("svg[data-qr]")).toBeVisible();
+      // Away from the booth the page is already on the person's phone: no QR to scan (R-13).
+      await expect(page.locator("svg[data-qr]")).toHaveCount(0);
       // Closed home checks, no booth: Create a free account leads, and the check is not offered.
       await expect(page.locator(".check-footer .cta")).toHaveText(p.example.register);
       await expect(page.getByRole("button", { name: p.example.tryCheck })).toHaveCount(0);
@@ -631,6 +632,8 @@ for (const lang of LANGS) {
       // At the booth: Try the movement check opens the guest check.
       await page.evaluate(() => sessionStorage.setItem("azm.booth", "e2e-booth"));
       await page.goto(url("/?example=progress", lang));
+      // The sign up QR is for the visitor's own phone, at the booth only.
+      await expect(page.locator("svg[data-qr]")).toBeVisible();
       await page.locator(".check-footer .cta").click();
       await expect(page).toHaveURL(/check=1/);
       expect(errors).toEqual([]);

@@ -18,6 +18,7 @@ import {
   t,
   unitWord,
 } from "../src/i18n";
+import { fmtTime } from "../src/app/i18n";
 import { testDef } from "../src/movements/assessments";
 
 const DIR = join(__dirname, "../src/i18n");
@@ -236,5 +237,17 @@ describe("dates always use the Gregorian calendar (Q30)", () => {
         /new Intl\.DateTimeFormat\(|toLocale(Date)?String\(/.test(readFileSync(f, "utf8")),
     );
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("the portal's session time (fmtTime)", () => {
+  it("is a 12 hour time with the check's am and pm words, never a leading zero", () => {
+    // «٠٩:٠٠» read as dots in Arabic; the check's clock times already read «٣:١٥ مساءً».
+    expect(fmtTime("09:00", "ar")).toBe("٩:٠٠ صباحًا");
+    expect(fmtTime("09:00", "en")).toBe("9:00 am");
+    expect(fmtTime("18:30", "ar")).toBe("٦:٣٠ مساءً");
+    expect(fmtTime("12:05", "en")).toBe("12:05 pm");
+    expect(fmtTime("00:15", "en")).toBe("12:15 am");
+    expect(fmtTime("later", "en")).toBe("later");
   });
 });

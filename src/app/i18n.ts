@@ -101,5 +101,15 @@ export function pct(n: number, lang: Lang): string {
   }).format(n);
 }
 
-export const fmtTime = (t: string, l: Lang) =>
-  l === "ar" ? t.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : t;
+/**
+ * A session time "HH:MM" as the check writes clock times: 12 hour, no leading zero, with the same
+ * am and pm words («٩:٠٠ صباحًا» · "9:00 am"). Anything else is shown as it is, digits localized.
+ */
+export const fmtTime = (t: string, l: Lang) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+  const local = (s: string) => (l === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s);
+  if (!m) return local(t);
+  const h = Number(m[1]) % 24;
+  const suffix = h < 12 ? { ar: "صباحًا", en: "am" } : { ar: "مساءً", en: "pm" };
+  return `${local(`${h % 12 || 12}:${m[2]}`)} ${suffix[l]}`;
+};

@@ -3,8 +3,6 @@
   "common": {
     "back": "Go back",
     "exit": "Leave the check",
-    "soundOn": "Sound is on",
-    "soundOff": "Sound is off",
     "testOf": "Test {n} of {total}",
     "tryOf": "Try {n} of {total}",
     "practice": "Practice, not counted",

@@ -606,13 +606,6 @@
   min-height: var(--h-cta);
 }
 
-/* The Sound toast on a question (S17 to S24) sits under the top bar, never over an answer row near
-   the footer (the answers must stay readable and tappable while it shows). */
-.azm-check .check-page-inner:has([data-question]) > .check-toast {
-  top: calc(var(--check-topbar-h, 64px) + var(--s2));
-  bottom: auto;
-}
-
 /* Headings on the check screens break into even lines (never a lone «١٠.» or a ragged third line). */
 .azm-check :is(h1, h2) {
   text-wrap: balance;

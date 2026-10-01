@@ -131,21 +131,6 @@
     white-space: nowrap;
   }
 }
-.azm-check .s34-toast {
-  position: absolute;
-  inset-inline: var(--gutter);
-  top: calc(var(--topbar) + env(safe-area-inset-top) + var(--s2));
-  z-index: 3;
-  max-width: var(--column);
-  margin: 0 auto;
-  padding: var(--s3) var(--s4);
-  border: 1px solid var(--field-border);
-  border-radius: var(--r-control);
-  background: var(--card);
-  font-size: var(--t-meta);
-  font-weight: 700;
-}
-
 /* The helper reminder under the top bar (4.5): the test counts on the helper. */
 .azm-check .s34-helper {
   grid-area: helper;

@@ -532,6 +532,20 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-question="pc_pain_areas"]')).toHaveCount(0);
     });
 
+    test("Sound on a question: the icon and its pressed state change, no toast over the heading (R-13)", async ({
+      page,
+    }) => {
+      const t = COPY[lang];
+      await openState(page, "S17-urgent", lang);
+      const sound = page.getByRole("button", { name: t.common.sound }).first();
+      await expect(sound).toHaveAttribute("aria-pressed", "true");
+      await sound.click();
+      await expect(sound).toHaveAttribute("aria-pressed", "false");
+      // Counted at once: a toast would leave by itself after 2.5 s.
+      expect(await page.locator(".check-toast").count()).toBe(0);
+      await expect(page.locator("h1")).toBeInViewport();
+    });
+
     test("the skip dialog opens on its title with the way back first; Escape keeps the test (S28)", async ({
       page,
     }) => {

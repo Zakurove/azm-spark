@@ -21,7 +21,7 @@
  * DOM order equals visual order. On every screen change focus moves to the h1 (tabindex -1), which is
  * described by the counter, so "Step 3 of 6" is read with the step.
  */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import Brand from "../../../app/Brand";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
@@ -129,7 +129,6 @@ export function CheckShell({
   const mainRef = useRef<HTMLElement>(null);
   const topRef = useRef<HTMLElement>(null);
   const footRef = useRef<HTMLElement>(null);
-  const [toast, setToast] = useState<string | null>(null);
   useScrollPadding(topRef, footRef);
 
   // Focus moves to the h1 on every screen change (3.0, definition of done).
@@ -145,24 +144,13 @@ export function CheckShell({
     // Only a new screen moves focus; a re-render of the same screen never does.
   }, [ui.screenKey]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
-  const toggleSound = () => {
-    const next = !ui.sound.on;
-    ui.sound.toggle();
-    setToast(t(lang, next ? "assessment.common.soundOn" : "assessment.common.soundOff"));
-  };
   const other = lang === "ar" ? "en" : "ar";
   const pct = counter && counter.max > 0 ? Math.min(100, Math.round((counter.value / counter.max) * 100)) : 0;
   const soundButton = (where: "top" | "inline") => (
     <button
       type="button"
       className={`check-icon-button check-sound-${where}`}
-      onClick={toggleSound}
+      onClick={ui.sound.toggle}
       aria-pressed={ui.sound.on}
       aria-label={t(lang, "assessment.common.sound")}
     >
@@ -294,11 +282,6 @@ export function CheckShell({
             )}
           </div>
         </footer>
-      )}
-      {toast && (
-        <p className="check-toast" role="status">
-          {toast}
-        </p>
       )}
     </div>
   );

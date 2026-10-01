@@ -82,17 +82,6 @@ export interface CameraStageProps {
 export function CameraStage(p: CameraStageProps) {
   const ui = useCheckUi();
   const { lang } = ui;
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(id);
-  }, [toast]);
-  const toggleSound = () => {
-    const next = !ui.sound.on;
-    ui.sound.toggle();
-    setToast(t(lang, next ? "assessment.common.soundOn" : "assessment.common.soundOff"));
-  };
   const c = p.caption;
   const large = p.large;
   // A blocked voice says nothing until a tap: the sentence takes the short form's place (C29).
@@ -161,7 +150,7 @@ export function CameraStage(p: CameraStageProps) {
           <button
             type="button"
             className="check-icon-button"
-            onClick={toggleSound}
+            onClick={ui.sound.toggle}
             aria-pressed={ui.sound.on}
             aria-label={t(lang, "assessment.common.sound")}
           >
@@ -229,11 +218,6 @@ export function CameraStage(p: CameraStageProps) {
         <section className="s34-card">{p.card}</section>
         {p.actions && <div className="s34-actions">{p.actions}</div>}
       </div>
-      {toast && (
-        <p className="s34-toast" role="status">
-          {toast}
-        </p>
-      )}
     </div>
   );
 }

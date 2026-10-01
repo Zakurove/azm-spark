@@ -406,14 +406,21 @@ describe("S42, S46, S49", () => {
     expect(hands.rows[0].side).toBeNull();
   });
 
-  it("S49 asks the general form, or names the side with its token and speech line", () => {
+  it("S49 asks a short lead with the signs as a list, the side form naming the side (C18)", () => {
     const general = endQuestionView(null, "ar");
     expect(general.text).toBe(CHECK_DATA.endOfCheck[0].ask.ar);
+    expect(general.list).toEqual(CHECK_DATA.endOfCheck[0].list.ar);
+    expect(general.listTts).toEqual(CHECK_DATA.endOfCheck[0].list.arTts);
     const side = endQuestionView("left", "ar");
-    expect(side.text).toContain("ذراعك اليسرى");
-    expect(side.text).not.toContain("{side}");
-    expect(side.arTts).toBe(CHECK_DATA.endOfCheck[0].askSide.arTtsBySide!.left);
-    expect(endQuestionView("right", "en").text).toContain("your right arm");
+    expect(side.text).toBe(general.text);
+    expect(side.list[0]).toContain("ذراعك اليسرى");
+    expect(side.list.join(" ")).not.toContain("{side}");
+    expect(side.listTts).toEqual(CHECK_DATA.endOfCheck[0].listSide.arTtsBySide.left);
+    expect(endQuestionView("right", "en").list[0]).toContain("your right arm");
+    // Every sign of the long sentence is still asked: weakness or numbness, face, speech, vision, balance.
+    const en = endQuestionView(null, "en").list.join(" ");
+    for (const sign of ["Weakness or numbness", "face", "speech", "vision", "balance"])
+      expect(en).toContain(sign);
   });
 
   it("bolds the meaning words without changing the text (0.2)", () => {
@@ -422,6 +429,6 @@ describe("S42, S46, S49", () => {
     expect(parts.map((p) => p.text).join("")).toBe(text);
     expect(parts.filter((p) => p.strong).map((p) => p.text)).toEqual(["اليوم", "جديد ومفاجئ"]);
     const en = CHECK_DATA.endOfCheck[0].ask.en;
-    expect(emphasise(en, ["today", "new, sudden"]).filter((p) => p.strong)).toHaveLength(2);
+    expect(emphasise(en, ["today", "new and sudden"]).filter((p) => p.strong)).toHaveLength(2);
   });
 });

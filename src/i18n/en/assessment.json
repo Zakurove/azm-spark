@@ -393,7 +393,9 @@
       "cuff": "with a wrist weight",
       "none": "without a weight"
     },
-    "stopBooth": "To stop at any time, say “Stop” to a member of our team, or touch Stop on the screen."
+    "stopBooth": "To stop at any time, say “Stop” to a member of our team, or touch Stop on the screen.",
+    "placeBooth": "The phone is already in place. Sit in the marked chair, and we start when we can see you.",
+    "placeBoothWheelchair": "Stay in your wheelchair at the mark."
   },
   "skip": {
     "title": "Skip this test?",
@@ -418,8 +420,7 @@
   "primer": {
     "title": "Let’s turn on the camera",
     "body": "Azm sees your movement through your phone camera. The video stays on your phone. It is never recorded or sent.",
-    "allow": "Turn on the camera",
-    "placeBooth": "The phone is already in place. Sit in the marked chair, and we start when we can see you."
+    "allow": "Turn on the camera"
   },
   "postpone": {
     "title": "Let’s postpone today’s check",

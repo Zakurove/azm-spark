@@ -399,11 +399,17 @@ describe("test preparation (S28, S31, S32)", () => {
       const run = M.S28.data.tests[0];
       const def = testDef(run.testId);
       expect(text).toContain(textOf(def.name[lang]));
-      expect(count(html, "<li")).toBeGreaterThanOrEqual(def.safety[lang].length);
+      // C12: every safety note, the stop note once as the stop block; two steps at the booth.
+      for (const note of def.safety[lang]) expect(count(text, textOf(note))).toBe(1);
+      expect(html).toContain('class="flow-stop-block"');
+      expect(count(html.slice(html.indexOf("<ol"), html.indexOf("</ol>")), "<li")).toBe(2);
       expect(text).toContain(t(lang, "assessment.test.ready"));
       expect(text).toContain(t(lang, "assessment.common.skipTest"));
-      // Booth: the phone step is replaced (the phone is mounted).
-      expect(text).toContain(textOf(t(lang, "assessment.primer.placeBooth")));
+      // C04: the booth's how to stop line comes first, and the booth seat line replaces the setup.
+      expect(text.indexOf(textOf(t(lang, "assessment.test.stopBooth")))).toBeLessThan(
+        text.indexOf(textOf(def.name[lang])),
+      );
+      expect(text).toContain(textOf(t(lang, "assessment.test.placeBooth")));
     }
   });
 

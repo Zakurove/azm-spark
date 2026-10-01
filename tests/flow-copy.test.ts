@@ -10,6 +10,7 @@ import {
   names937,
   cameraProblemOf,
   cardNotes,
+  cardSafety,
   checkWarnings,
   clockText,
   contextRows,
@@ -146,7 +147,10 @@ describe("emphasis (UX spec 0.2)", () => {
     for (const [id, words] of Object.entries(EMPHASIS)) {
       const item = precheckItem(id as "pc_urgent");
       for (const lang of LANGS) {
-        const texts = [item.ask?.[lang] ?? "", ...(item.list?.[lang] ?? [])].join(" ");
+        const ask = item.ask ?? item.examples?.ask;
+        const texts = [ask?.[lang] ?? "", ...(item.list?.[lang] ?? item.examples?.list[lang] ?? [])].join(
+          " ",
+        );
         const found = emphasize(texts, words[lang]).filter((p) => p.strong);
         expect(found.length, `${id} ${lang}`).toBeGreaterThan(0);
       }
@@ -196,6 +200,23 @@ describe("durations (O40, C11)", () => {
 });
 
 describe("guest steps (S06 to S11, Q19)", () => {
+  it("S11 on the one test path lists only what can touch its test, and no exercise (C09)", () => {
+    const values = (tests?: TestId[]) => guestStepView("en", 6, tests).options.map((o) => o.value);
+    // The arm raise: the overhead item, the doctor's advice not to exercise, and none.
+    expect(values(["shoulder_abduction"])).toEqual(["no_overhead", "no_exercise", "none"]);
+    // The arm curl at the booth runs without a weight for everyone: only no exercise touches it.
+    expect(values(["arm_curl_30s"])).toEqual(["no_exercise", "none"]);
+    // The full check lists every item, as before.
+    expect(values()).toEqual([
+      "no_overhead",
+      "no_resistance",
+      "no_weight_bearing",
+      "balance_support",
+      "no_exercise",
+      "none",
+    ]);
+  });
+
   it("has six steps in the spec order with the spec's choice kinds", () => {
     const screens = ([1, 2, 3, 4, 5, 6] as const).map((n) => guestStepView("en", n));
     expect(screens.map((s) => s.screen)).toEqual(["S06", "S07", "S08", "S08b", "S10", "S11"]);
@@ -369,15 +390,14 @@ describe("pre-check question views (S17 to S24)", () => {
     }
   });
 
-  it("asks the first check form of pc_change, and lists the examples at home only (O45)", () => {
+  it("asks the first check form of pc_change as a short question and a list, everywhere (O45, C23)", () => {
     const item = precheckItem("pc_change");
-    const home = questionView(envOf(), {}, "pc_change", "en");
-    expect(home.question).toBe(item.examples!.askFirstCheck!.en);
-    expect(home.list).toEqual(item.examples!.list.en);
-    expect(home.listHeading).toBe(item.examples!.heading.en);
-    const booth = questionView(envOf({}, { setting: "booth" }), {}, "pc_change", "en");
-    expect(booth.question).toBe(item.askFirstCheck!.en);
-    expect(booth.list).toBeUndefined();
+    for (const setting of ["home", "booth"] as const) {
+      const v = questionView(envOf({}, { setting }), {}, "pc_change", "en");
+      expect(v.question).toBe(item.examples!.askFirstCheck!.en);
+      expect(v.list).toEqual(item.examples!.list.en);
+      expect(v.listHeading).toBe(item.examples!.heading.en);
+    }
     const later = questionView(envOf({}, { firstCheck: false }), {}, "pc_change", "en");
     expect(later.question).toBe(item.examples!.ask.en);
   });
@@ -601,21 +621,61 @@ describe("the instruction card (S28)", () => {
     expect(summaryCues("chair_stand_30s", "one_arm_cross")).toEqual(["test_stand_start", "test_stand_full"]);
   });
 
-  it("applies zero based step replacements and the booth phone step", () => {
-    const def = testDef("arm_curl_30s") as unknown as {
-      steps: { en: string[] };
-      variants: { id: string; stepsReplace?: Record<string, { en: string }> }[];
-    };
-    const armOnly = def.variants.find((v) => v.id === "arm_only");
-    const steps = instructionSteps("arm_curl_30s", "arm_only", false, "en");
-    for (const [k, text] of Object.entries(armOnly?.stepsReplace ?? {}))
-      expect(steps[Number(k)]).toBe(text.en);
-    expect(steps).toHaveLength(def.steps.en.length);
-    const booth = instructionSteps("shoulder_abduction", undefined, true, "ar");
-    expect(booth).toContain(t("ar", "assessment.primer.placeBooth"));
-    expect(instructionSteps("shoulder_abduction", undefined, false, "ar")).not.toContain(
-      t("ar", "assessment.primer.placeBooth"),
+  it("shows three short steps: where to sit, where the phone goes, the movement (C12)", () => {
+    for (const id of [
+      "shoulder_abduction",
+      "arm_curl_30s",
+      "trunk_control_seated",
+      "chair_stand_30s",
+    ] as const)
+      for (const lang of LANGS) {
+        const home = instructionSteps(id, undefined, false, lang);
+        expect(home, `${id} ${lang}`).toEqual(testDef(id).steps[lang]);
+        expect(home).toHaveLength(3);
+        // At the booth our team sets the chair and the phone: the booth seat line and the movement.
+        expect(instructionSteps(id, undefined, true, lang)).toEqual([
+          t(lang, "assessment.test.placeBooth"),
+          home[2],
+        ]);
+        expect(instructionSteps(id, undefined, true, lang, "wheelchair")[0]).toBe(
+          t(lang, "assessment.test.placeBoothWheelchair"),
+        );
+      }
+    // A variant replaces its step: the chair stand's arms (one arm cross) is the movement step.
+    const cross = testDef("chair_stand_30s").variants.find((v) => v.id === "one_arm_cross")!;
+    expect(instructionSteps("chair_stand_30s", "one_arm_cross", false, "en")[2]).toBe(
+      cross.stepsReplace!["2"].en,
     );
+  });
+
+  it("keeps every safety note and makes the stop note the one stop block (C12)", () => {
+    for (const id of ["shoulder_abduction", "trunk_control_seated", "chair_stand_30s"] as const)
+      for (const lang of LANGS) {
+        const def = testDef(id);
+        const card = cardSafety(id, false, lang);
+        expect(card.stop.display).toBe(def.safety[lang][def.safetyStop]);
+        expect([...card.notes.map((n) => n.display), card.stop.display].sort()).toEqual(
+          [...def.safety[lang]].sort(),
+        );
+        expect([...card.notes, card.stop].every((n) => n.onScreen)).toBe(true);
+      }
+  });
+
+  it("shows the arm curl's load notes only with a load; the stop note always (C13)", () => {
+    const def = testDef("arm_curl_30s");
+    for (const lang of LANGS) {
+      const loaded = cardSafety("arm_curl_30s", true, lang);
+      expect(loaded.notes.map((n) => n.display)).toEqual(
+        def.safety[lang].filter((_, k) => k !== def.safetyStop),
+      );
+      const armOnly = cardSafety("arm_curl_30s", false, lang);
+      for (const k of def.safetyLoadOnly)
+        expect(armOnly.notes.map((n) => n.display)).not.toContain(def.safety[lang][k]);
+      expect(armOnly.stop.display).toBe(def.safety[lang][def.safetyStop]);
+      // The breathing note is not about the load and stays.
+      expect(armOnly.notes).toHaveLength(def.safety[lang].length - def.safetyLoadOnly.length - 1);
+    }
+    expect(def.safety.en[def.safetyStop]).toMatch(/^Stop at once/);
   });
 
   it("names the drawing by test, seat and variant, never starting with the word drawing", () => {

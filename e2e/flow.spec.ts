@@ -364,7 +364,7 @@ for (const lang of LANGS) {
 
       // S28: the booth phone step, every safety note, skip is there.
       await expectScreen(page, "S28", lang);
-      await expect(page.getByText(t.primer.placeBooth).first()).toBeVisible();
+      await expect(page.getByText(t.test.placeBooth).first()).toBeVisible();
       await expect(page.getByRole("button", { name: t.common.skipTest })).toBeVisible();
       await page.getByRole("button", { name: t.test.ready }).click();
 

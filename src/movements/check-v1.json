@@ -25,23 +25,7 @@
       "ar": "غير مخصص للأغراض الطبية.",
       "en": "Not intended for medical purposes."
     },
-    "notMedicalPlacement": "At body size (16 px, AA contrast), never as hidden fine print and never as the hero headline: directly under the movement check action on the landing, in the landing footer, on the check intro, at the foot of every results screen, on any printed or shared report, in the installable app and any store description, and on the booth screen (Q23).",
-    "intro": {
-      "ar": "يستغرق القياس نحو {min} إلى {max} {minutesNoun}. ستحتاج إلى كرسي ثابت أو كرسيك المتحرك، ومكان يقف فيه هاتفك ثابتًا، وبعض المساحة. يمكنك تخطي أي اختبار.",
-      "en": "The check takes about {min} to {max} minutes. You will need a steady chair or your wheelchair, a place to stand your phone, and some space. You can skip any test.",
-      "tokens": {
-        "min": "the lower end of estimateMinutes for this person today (selection.sessionMinutes), digits per Q30 from the Arabic seat’s formatter",
-        "max": "the upper end of the same estimate",
-        "minutesNoun": {
-          "ar": {
-            "maxUpTo10": "دقائق",
-            "maxFrom11": "دقيقة"
-          },
-          "en": "minutes",
-          "rule": "Arabic: دقائق when max is 10 or less, دقيقة when max is 11 or more (the noun follows the larger number)."
-        }
-      }
-    },
+    "notMedicalPlacement": "At body size (16 px, AA contrast), never as hidden fine print and never as the hero headline, once per path (simplicity cut C33, overriding the Q23 list): at the booth on S05 and at the foot of S50; at home on the check intro (S14) and at the foot of the results (S51, S52); on the landing once, in the footer; and on any printed or shared report, in the installable app and any store description.",
     "firstResult": {
       "ar": "هذه نقطة بدايتك، وسنقارن بها قياساتك القادمة.",
       "en": "This is your starting point. We will compare your next checks with it."
@@ -669,10 +653,6 @@
       "type": "yes_no",
       "showIf": null,
       "contractKey": "unwell",
-      "ask": {
-        "ar": "هل تشعر بتوعك اليوم؟ مثل الحمى، أو الزكام أو الإنفلونزا، أو عدوى، أو قيء، أو دوخة أو شعور بأنك على وشك الإغماء.",
-        "en": "Do you feel unwell today? For example a fever, a cold or flu, an infection, vomiting, or feeling dizzy or light headed."
-      },
       "examples": {
         "heading": {
           "ar": "على سبيل المثال",
@@ -707,7 +687,7 @@
             "دَوْخَةٌ أَوْ شُعُورٌ بِأَنَّكَ عَلَى وَشْكِ الْإِغْمَاءْ."
           ]
         },
-        "rule": "Home checks only (O45): the question is shown alone (this ask, and askFirstCheck where it applies), then the examples as a non interactive bulleted list under the small heading, in the same order and words as the single sentence, read after the question. One yes or no under the list, never a checkbox per item. The booth keeps the single sentence of ask. Both lists go through the Q18 (6) testing before the first pilot participant."
+        "rule": "Every setting, the booth included (simplicity cut C23, after O45): the question is shown alone (examples.ask, and examples.askFirstCheck where it applies), then the examples as a non interactive bulleted list under the small heading, read after the question. One yes or no under the list, never a checkbox per item. The list items are the clauses of the former single sentence word for word. Both lists go through the Q18 (6) testing before the first pilot participant."
       },
       "faintWordingPending": {
         "status": "pending: the medical seat decides (review fixes, 2026-09-28). The v1.1 text stands until then. The chosen words go into ask and examples.list together (O45: the same words in both) and through the Q18 (6) testing with the examples list.",
@@ -808,14 +788,6 @@
       "showIf": {
         "noUnresolvedChangeReported": true
       },
-      "ask": {
-        "ar": "منذ آخر قياس أكملته، أو منذ آخر مرة أخبرتنا فيها بتغير، هل تغير شيء في حالتك الطبية؟ مثل أعراض جديدة أو أسوأ، أو زيارة للمستشفى، أو تشخيص جديد، أو سقطة أُصبت فيها، أو دواء جديد يسبب لك دوخة أو نعاسًا أو عدم ثبات، أو تغيير في أدوية القلب أو ضغط الدم.",
-        "en": "Since your last completed check, or since you last told us about a change, has anything changed in your medical condition? For example new or worse symptoms, a hospital visit, a new diagnosis, a fall with an injury, a new medicine that makes you dizzy, drowsy or unsteady, or a change in heart or blood pressure medicine."
-      },
-      "askFirstCheck": {
-        "ar": "خلال الأشهر الثلاثة الأخيرة، هل تغير شيء في حالتك الطبية؟ مثل أعراض جديدة أو أسوأ، أو زيارة للمستشفى، أو تشخيص جديد، أو سقطة أُصبت فيها، أو دواء جديد يسبب لك دوخة أو نعاسًا أو عدم ثبات، أو تغيير في أدوية القلب أو ضغط الدم.",
-        "en": "In the last 3 months, has anything changed in your medical condition? For example new or worse symptoms, a hospital visit, a new diagnosis, a fall with an injury, a new medicine that makes you dizzy, drowsy or unsteady, or a change in heart or blood pressure medicine."
-      },
       "examples": {
         "heading": {
           "ar": "على سبيل المثال",
@@ -858,7 +830,7 @@
             "تَغْيِيرٌ فِي أَدْوِيَةِ الْقَلْبِ أَوْ ضَغْطِ الدَّمْ."
           ]
         },
-        "rule": "Home checks only (O45): the question is shown alone (this ask, and askFirstCheck where it applies), then the examples as a non interactive bulleted list under the small heading, in the same order and words as the single sentence, read after the question. One yes or no under the list, never a checkbox per item. The booth keeps the single sentence of ask. Both lists go through the Q18 (6) testing before the first pilot participant."
+        "rule": "Every setting, the booth included (simplicity cut C23, after O45): the question is shown alone (examples.ask, and examples.askFirstCheck where it applies), then the examples as a non interactive bulleted list under the small heading, read after the question. One yes or no under the list, never a checkbox per item. The list items are the clauses of the former single sentence word for word. Both lists go through the Q18 (6) testing before the first pilot participant."
       },
       "options": [
         {
@@ -1452,9 +1424,9 @@
         ]
       },
       "ask": {
-        "ar": "هل مستوى إصابة الحبل الشوكي لديك T6 أو أعلى، أي عند أسفل عظمة القص أو فوقها؟ اعتمد على مستوى الإصابة الذي أخبرك به فريق رعايتك.",
-        "en": "Is your spinal cord injury level T6 or higher, that is at the bottom of your breastbone or above? Use the injury level your care team gave you.",
-        "arTts": "هَلْ مُسْتَوَى إِصَابَةِ الْحَبْلِ الشَّوْكِيِّ لَدَيْكَ تِي سِتَّةْ أَوْ أَعْلَى، أَيْ عِنْدَ أَسْفَلِ عَظْمَةِ الْقَصِّ أَوْ فَوْقَهَا؟ اِعْتَمِدْ عَلَى مُسْتَوَى الْإِصَابَةِ الَّذِي أَخْبَرَكَ بِهِ فَرِيقُ رِعَايَتِكْ."
+        "ar": "هل إصابة الحبل الشوكي لديك عند أسفل عظمة القص أو فوقها (المستوى T6 أو أعلى)؟ اعتمد على مستوى الإصابة الذي أخبرك به فريق رعايتك.",
+        "en": "Is your spinal cord injury at the bottom of your breastbone or above (level T6 or higher)? Use the injury level your care team gave you.",
+        "arTts": "هَلْ إِصَابَةُ الْحَبْلِ الشَّوْكِيِّ لَدَيْكَ عِنْدَ أَسْفَلِ عَظْمَةِ الْقَصِّ أَوْ فَوْقَهَا، الْمُسْتَوَى تِي سِتَّةْ أَوْ أَعْلَى؟ اِعْتَمِدْ عَلَى مُسْتَوَى الْإِصَابَةِ الَّذِي أَخْبَرَكَ بِهِ فَرِيقُ رِعَايَتِكْ."
       },
       "options": [
         {
@@ -2684,17 +2656,9 @@
       "type": "yes_no",
       "when": "before results, on every check that shows any result (including a check ended early), whatever the results",
       "ask": {
-        "ar": "قبل أن نعرض نتائجك، هل شعرت اليوم بضعف أو خدر جديد ومفاجئ في ذراع أو ساق أو في جهة من جسمك، أو بتغير مفاجئ في وجهك أو كلامك أو رؤيتك أو توازنك؟",
-        "en": "Before we show your results, have you felt any new, sudden weakness or numbness today in an arm, a leg or one side of your body, or any sudden change in your face, speech, vision or balance?",
-        "arTts": "قَبْلَ أَنْ نَعْرِضَ نَتَائِجَكْ، هَلْ شَعَرْتَ الْيَوْمَ بِضَعْفٍ أَوْ خَدَرٍ جَدِيدٍ وَمُفَاجِئٍ فِي ذِرَاعٍ أَوْ سَاقٍ أَوْ فِي جِهَةٍ مِنْ جِسْمِكْ، أَوْ بِتَغَيُّرٍ مُفَاجِئٍ فِي وَجْهِكَ أَوْ كَلَامِكَ أَوْ رُؤْيَتِكَ أَوْ تَوَازُنِكْ؟"
-      },
-      "askSide": {
-        "ar": "قبل أن نعرض نتائجك، هل شعرت اليوم بضعف أو خدر جديد ومفاجئ في ذراعك {side} أو في جهتك {side} من جسمك، أو بتغير مفاجئ في وجهك أو كلامك أو رؤيتك أو توازنك؟",
-        "en": "Before we show your results, have you felt any new, sudden weakness or numbness today in your {side} arm or the {side} side of your body, or any sudden change in your face, speech, vision or balance?",
-        "arTtsBySide": {
-          "right": "قَبْلَ أَنْ نَعْرِضَ نَتَائِجَكْ، هَلْ شَعَرْتَ الْيَوْمَ بِضَعْفٍ أَوْ خَدَرٍ جَدِيدٍ وَمُفَاجِئٍ فِي ذِرَاعِكَ الْيُمْنَى أَوْ فِي جِهَتِكَ الْيُمْنَى مِنْ جِسْمِكْ، أَوْ بِتَغَيُّرٍ مُفَاجِئٍ فِي وَجْهِكَ أَوْ كَلَامِكَ أَوْ رُؤْيَتِكَ أَوْ تَوَازُنِكْ؟",
-          "left": "قَبْلَ أَنْ نَعْرِضَ نَتَائِجَكْ، هَلْ شَعَرْتَ الْيَوْمَ بِضَعْفٍ أَوْ خَدَرٍ جَدِيدٍ وَمُفَاجِئٍ فِي ذِرَاعِكَ الْيُسْرَى أَوْ فِي جِهَتِكَ الْيُسْرَى مِنْ جِسْمِكْ، أَوْ بِتَغَيُّرٍ مُفَاجِئٍ فِي وَجْهِكَ أَوْ كَلَامِكَ أَوْ رُؤْيَتِكَ أَوْ تَوَازُنِكْ؟"
-        }
+        "ar": "قبل أن نعرض نتائجك، هل شعرت اليوم بأي مما يلي بشكل جديد ومفاجئ؟",
+        "en": "Before we show your results, have you felt any of these today, new and sudden?",
+        "arTts": "قَبْلَ أَنْ نَعْرِضَ نَتَائِجَكْ، هَلْ شَعَرْتَ الْيَوْمَ بِأَيٍّ مِمَّا يَلِي بِشَكْلٍ جَدِيدٍ وَمُفَاجِئْ؟"
       },
       "sideTokens": {
         "right": {
@@ -2708,7 +2672,7 @@
           "arTts": "الْيُسْرَى"
         }
       },
-      "speech": "Speech (review fixes, 2026-09-28): ask.arTts, and askSide.arTtsBySide with the side token filled in (one full line per side, as pc_helper.ask.arTtsByTest), so Listen reads the question from speech generated in advance, with its chronic line (O37), never by generic speech synthesis.",
+      "speech": "Speech (review fixes 2026-09-28, simplicity cut C18): ask.arTts, then each list line from list.arTts, or from listSide.arTtsBySide for the side form, so Listen reads the question from speech generated in advance, with its chronic line (O37), never by generic speech synthesis.",
       "chronicNote": {
         "ar": "نسأل عن الجديد والمفاجئ، أو عمّا ساء فجأة، لا عن ضعف أو خدر تعرفه منذ مدة ولم يتغير.",
         "arTts": "نَسْأَلُ عَنِ الْجَدِيدِ وَالْمُفَاجِئْ، أَوْ عَمَّا سَاءَ فَجْأَةْ، لَا عَنْ ضَعْفٍ أَوْ خَدَرٍ تَعْرِفُهُ مُنْذُ مُدَّةٍ وَلَمْ يَتَغَيَّرْ.",
@@ -2732,7 +2696,7 @@
         },
         "display": "18 px, directly above the answers, read by Listen with the question. Routing is unchanged; the bold «جديد ومفاجئ», «اليوم» and «الآن» stay as built.",
         "status": "not shown anywhere, the booth included, until the Q18 (6) cognitive testing of this line is complete, with at least 5 people living with aphasia after stroke among the testers (O37).",
-        "appliesTo": "both forms: ask and askSide"
+        "appliesTo": "both forms: list and listSide"
       },
       "sideTrigger": "The side form is used when the one sided large drop trigger fires (progress.largeDrop.oneSidedRule): for a test with sides, a result more than 2 x band below baseline on one side while the other side of the same test is not lower, or only one side was tested today, whatever the quality flags.",
       "options": [
@@ -2760,7 +2724,42 @@
           "screen": "scr_emergency",
           "stores": "changeReported"
         }
-      ]
+      ],
+      "list": {
+        "ar": [
+          "ضعف أو خدر في ذراع أو ساق أو في جهة من جسمك",
+          "تغير في وجهك أو كلامك أو رؤيتك أو توازنك"
+        ],
+        "en": [
+          "Weakness or numbness in an arm, a leg or one side of your body",
+          "A change in your face, speech, vision or balance"
+        ],
+        "arTts": [
+          "ضَعْفٌ أَوْ خَدَرٌ فِي ذِرَاعٍ أَوْ سَاقٍ أَوْ فِي جِهَةٍ مِنْ جِسْمِكْ.",
+          "تَغَيُّرٌ فِي وَجْهِكَ أَوْ كَلَامِكَ أَوْ رُؤْيَتِكَ أَوْ تَوَازُنِكْ."
+        ]
+      },
+      "listSide": {
+        "ar": [
+          "ضعف أو خدر في ذراعك {side} أو في جهتك {side} من جسمك",
+          "تغير في وجهك أو كلامك أو رؤيتك أو توازنك"
+        ],
+        "en": [
+          "Weakness or numbness in your {side} arm or the {side} side of your body",
+          "A change in your face, speech, vision or balance"
+        ],
+        "arTtsBySide": {
+          "right": [
+            "ضَعْفٌ أَوْ خَدَرٌ فِي ذِرَاعِكَ الْيُمْنَى أَوْ فِي جِهَتِكَ الْيُمْنَى مِنْ جِسْمِكْ.",
+            "تَغَيُّرٌ فِي وَجْهِكَ أَوْ كَلَامِكَ أَوْ رُؤْيَتِكَ أَوْ تَوَازُنِكْ."
+          ],
+          "left": [
+            "ضَعْفٌ أَوْ خَدَرٌ فِي ذِرَاعِكَ الْيُسْرَى أَوْ فِي جِهَتِكَ الْيُسْرَى مِنْ جِسْمِكْ.",
+            "تَغَيُّرٌ فِي وَجْهِكَ أَوْ كَلَامِكَ أَوْ رُؤْيَتِكَ أَوْ تَوَازُنِكْ."
+          ]
+        }
+      },
+      "display": "The layout of pc_urgent (simplicity cut C18): the short lead as the question, the signs as bullets, one yes or no. The side form (sideTrigger) uses listSide with the side token filled in. Routing is unchanged. The lead and the lines are draft until Nasser (medical) and Chaker (fitness) sign it (simplicity pass, 2026-10-01); the medical expert and the Arabic seat sign the wording."
     }
   ],
   "afterCheck": [
@@ -3733,32 +3732,17 @@
         "ar": [
           "اجلس مستقيمًا على كرسي ثابت له ظهر، وظهرك مستند إليه. إذا كنت تستخدم كرسيًا متحركًا، فابقَ عليه وفرامله مقفلة.",
           "ضع الهاتف أمامك على بعد مترين إلى ثلاثة أمتار، بارتفاع صدرك تقريبًا، وواجهه.",
-          "اترك ذراعيك بجانبك لحظة حتى يتعرف التطبيق على جلستك.",
-          "أبقِ ذراعك مستقيمة، وإبهامك متجهًا إلى الأعلى.",
-          "ارفع ذراعك ببطء إلى الجانب، إلى أعلى ارتفاع مريح لك.",
-          "ثبّت ذراعك في الأعلى لحظة، ثم أنزلها ببطء.",
-          "أبقِ جسمك ثابتًا، دون أن تميل إلى الجهة الأخرى أو ترفع كتفك نحو أذنك.",
-          "بعد محاولة تجريبية واحدة، ستكرر ذلك 3 مرات لكل ذراع."
+          "ارفع ذراعك ببطء إلى الجانب، إلى أعلى ارتفاع مريح لك."
         ],
         "en": [
           "Sit tall on a steady chair with a backrest, your back resting against it. If you use a wheelchair, stay in it with the brakes on.",
           "Place the phone in front of you, 2 to 3 meters away, at about chest height, and face it.",
-          "Rest both arms by your sides for a moment so the app can see how you sit.",
-          "Keep your arm straight, with your thumb pointing up.",
-          "Slowly raise your arm out to the side, as high as is comfortable for you.",
-          "Hold your arm at the top for a moment, then lower it slowly.",
-          "Keep your body still. Do not lean to the other side or lift your shoulder toward your ear.",
-          "After one practice lift, you will do this 3 times with each arm."
+          "Slowly raise your arm out to the side, as high as is comfortable for you."
         ],
         "arTts": [
           "اِجْلِسْ مُسْتَقِيمًا عَلَى كُرْسِيٍّ ثَابِتٍ لَهُ ظَهْرْ، وَظَهْرُكَ مُسْتَنِدٌ إِلَيْهْ. إِذَا كُنْتَ تَسْتَخْدِمُ كُرْسِيًّا مُتَحَرِّكًا، فَابْقَ عَلَيْهِ وَفَرَامِلُهُ مُقْفَلَةْ.",
           "ضَعِ الْهَاتِفَ أَمَامَكَ عَلَى بُعْدِ مِتْرَيْنِ إِلَى ثَلَاثَةِ أَمْتَارْ، بِارْتِفَاعِ صَدْرِكَ تَقْرِيبًا، وَوَاجِهْهْ.",
-          "اُتْرُكْ ذِرَاعَيْكَ بِجَانِبِكَ لَحْظَةً حَتَّى يَتَعَرَّفَ التَّطْبِيقُ عَلَى جِلْسَتِكْ.",
-          "أَبْقِ ذِرَاعَكَ مُسْتَقِيمَةْ، وَإِبْهَامَكَ مُتَّجِهًا إِلَى الْأَعْلَى.",
-          "اِرْفَعْ ذِرَاعَكَ بِبُطْءٍ إِلَى الْجَانِبْ، إِلَى أَعْلَى ارْتِفَاعٍ مُرِيحٍ لَكْ.",
-          "ثَبِّتْ ذِرَاعَكَ فِي الْأَعْلَى لَحْظَةْ، ثُمَّ أَنْزِلْهَا بِبُطْءْ.",
-          "أَبْقِ جِسْمَكَ ثَابِتًا، دُونَ أَنْ تَمِيلَ إِلَى الْجِهَةِ الْأُخْرَى أَوْ تَرْفَعَ كَتِفَكَ نَحْوَ أُذُنِكْ.",
-          "بَعْدَ مُحَاوَلَةٍ تَجْرِيبِيَّةٍ وَاحِدَةْ، سَتُكَرِّرُ ذَلِكَ ثَلَاثَ مَرَّاتٍ لِكُلِّ ذِرَاعْ."
+          "اِرْفَعْ ذِرَاعَكَ بِبُطْءٍ إِلَى الْجَانِبْ، إِلَى أَعْلَى ارْتِفَاعٍ مُرِيحٍ لَكْ."
         ]
       },
       "safety": {
@@ -3829,7 +3813,9 @@
           },
           "status": "7.2-13: the medical seat and the exercise physiologist confirm this text before the data is regenerated; until then safety[3] stands."
         }
-      ]
+      ],
+      "stepsRule": "The card (S28) shows these three steps in order: where to sit, where the phone goes, the movement (simplicity cut C12). At the booth our team sets the chair and the phone, so the card shows the booth seat line and the movement. Calibration, practice, rests and the count are spoken when they apply.",
+      "safetyStop": 3
     },
     {
       "id": "arm_curl_30s",
@@ -3869,13 +3855,6 @@
           "label": {
             "ar": "وزن للمعصم",
             "en": "Wrist weight"
-          },
-          "stepsReplace": {
-            "2": {
-              "ar": "ثبّت وزن المعصم، ثم دع ذراعك تتدلى مستقيمة بجانبك.",
-              "en": "Fasten the wrist weight, then let your arm hang straight down by your side.",
-              "arTts": "ثَبِّتْ وَزْنَ الْمِعْصَمْ، ثُمَّ دَعْ ذِرَاعَكَ تَتَدَلَّى مُسْتَقِيمَةً بِجَانِبِكْ."
-            }
           }
         },
         {
@@ -3883,13 +3862,6 @@
           "label": {
             "ar": "دون وزن",
             "en": "No weight"
-          },
-          "stepsReplace": {
-            "2": {
-              "ar": "دع ذراعك تتدلى مستقيمة بجانبك وراحة يدك نحو جسمك، دون أن تمسك وزنًا.",
-              "en": "Let your arm hang straight down by your side, with your palm facing your body. You will not hold a weight.",
-              "arTts": "دَعْ ذِرَاعَكَ تَتَدَلَّى مُسْتَقِيمَةً بِجَانِبِكَ وَرَاحَةُ يَدِكَ نَحْوَ جِسْمِكْ، دُونَ أَنْ تُمْسِكَ وَزْنًا."
-            }
           }
         }
       ],
@@ -4230,32 +4202,17 @@
         "ar": [
           "اجلس مستقيمًا على كرسي ثابت بلا مساند للذراعين، أو على كرسي أُزيل منه مسند الذراع في جهة الذراع التي تختبرها، أو على كرسيك المتحرك وفرامله مقفلة. أسند ظهرك إلى ظهر الكرسي، واجعل قدميك مسنودتين.",
           "اجعل جانبك الذي فيه الذراع التي تختبرها نحو الهاتف. ضع الهاتف على بعد متر ونصف إلى مترين، بارتفاع صدرك تقريبًا.",
-          "أمسك الوزن وراحة يدك نحو جسمك، ودع ذراعك تتدلى مستقيمة بجانبك.",
-          "أبقِ أعلى ذراعك ثابتًا وقريبًا من جسمك.",
-          "اثنِ مرفقك إلى الأعلى تمامًا، ثم مُدّه إلى الأسفل تمامًا. إذا كان ذلك مريحًا، فأدر راحة يدك إلى الأعلى وأنت ترفع، وافعل ذلك بالطريقة نفسها في كل مرة.",
-          "أولًا، أدِّ ثنيتين تجريبيتين ببطء.",
-          "بعد إشارة البدء، أكمل أكبر عدد من الثنيات الكاملة تستطيعه بأمان خلال 30 ثانية، وتنفس بشكل طبيعي.",
-          "استرح دقيقة على الأقل، ثم كرر ذلك بذراعك الأخرى."
+          "اثنِ مرفقك إلى الأعلى تمامًا، ثم مُدّه إلى الأسفل تمامًا. إذا كان ذلك مريحًا، فأدر راحة يدك إلى الأعلى وأنت ترفع، وافعل ذلك بالطريقة نفسها في كل مرة."
         ],
         "en": [
           "Sit tall on a steady chair without armrests, or with the armrest removed on the side you test, or in your wheelchair with the brakes on. Rest your back against the backrest and keep your feet supported.",
           "Turn so the side with the arm you are testing faces the phone. Place the phone 1.5 to 2 meters away, at about chest height.",
-          "Hold your weight with your palm facing your body, and let your arm hang straight down by your side.",
-          "Keep your upper arm still and close to your body.",
-          "Bend your elbow all the way up, then straighten it all the way down. If it is comfortable, turn your palm up as you lift, and do it the same way each time.",
-          "First, do 2 slow practice bends.",
-          "After the start signal, do as many full bends as you safely can in 30 seconds. Breathe normally.",
-          "Rest for at least one minute, then do the same with your other arm."
+          "Bend your elbow all the way up, then straighten it all the way down. If it is comfortable, turn your palm up as you lift, and do it the same way each time."
         ],
         "arTts": [
           "اِجْلِسْ مُسْتَقِيمًا عَلَى كُرْسِيٍّ ثَابِتٍ بِلَا مَسَانِدَ لِلذِّرَاعَيْنْ، أَوْ عَلَى كُرْسِيٍّ أُزِيلَ مِنْهُ مِسْنَدُ الذِّرَاعِ فِي جِهَةِ الذِّرَاعِ الَّتِي تَخْتَبِرُهَا، أَوْ عَلَى كُرْسِيِّكَ الْمُتَحَرِّكِ وَفَرَامِلُهُ مُقْفَلَةْ. أَسْنِدْ ظَهْرَكَ إِلَى ظَهْرِ الْكُرْسِيّ، وَاجْعَلْ قَدَمَيْكَ مَسْنُودَتَيْنْ.",
           "اِجْعَلْ جَانِبَكَ الَّذِي فِيهِ الذِّرَاعُ الَّتِي تَخْتَبِرُهَا نَحْوَ الْهَاتِفْ. ضَعِ الْهَاتِفَ عَلَى بُعْدِ مِتْرٍ وَنِصْفٍ إِلَى مِتْرَيْنْ، بِارْتِفَاعِ صَدْرِكَ تَقْرِيبًا.",
-          "أَمْسِكِ الْوَزْنَ وَرَاحَةُ يَدِكَ نَحْوَ جِسْمِكْ، وَدَعْ ذِرَاعَكَ تَتَدَلَّى مُسْتَقِيمَةً بِجَانِبِكْ.",
-          "أَبْقِ أَعْلَى ذِرَاعِكَ ثَابِتًا وَقَرِيبًا مِنْ جِسْمِكْ.",
-          "اِثْنِ مِرْفَقَكَ إِلَى الْأَعْلَى تَمَامًا، ثُمَّ مُدَّهُ إِلَى الْأَسْفَلِ تَمَامًا. إِذَا كَانَ ذَلِكَ مُرِيحًا، فَأَدِرْ رَاحَةَ يَدِكَ إِلَى الْأَعْلَى وَأَنْتَ تَرْفَعْ، وَافْعَلْ ذَلِكَ بِالطَّرِيقَةِ نَفْسِهَا فِي كُلِّ مَرَّةْ.",
-          "أَوَّلًا، أَدِّ ثَنْيَتَيْنِ تَجْرِيبِيَّتَيْنِ بِبُطْءْ.",
-          "بَعْدَ إِشَارَةِ الْبَدْءْ، أَكْمِلْ أَكْبَرَ عَدَدٍ مِنَ الثَّنَيَاتِ الْكَامِلَةِ تَسْتَطِيعُهُ بِأَمَانٍ خِلَالَ ثَلَاثِينَ ثَانِيَةْ، وَتَنَفَّسْ بِشَكْلٍ طَبِيعِيّ.",
-          "اِسْتَرِحْ دَقِيقَةً عَلَى الْأَقَلّ، ثُمَّ كَرِّرْ ذَلِكَ بِذِرَاعِكَ الْأُخْرَى."
+          "اِثْنِ مِرْفَقَكَ إِلَى الْأَعْلَى تَمَامًا، ثُمَّ مُدَّهُ إِلَى الْأَسْفَلِ تَمَامًا. إِذَا كَانَ ذَلِكَ مُرِيحًا، فَأَدِرْ رَاحَةَ يَدِكَ إِلَى الْأَعْلَى وَأَنْتَ تَرْفَعْ، وَافْعَلْ ذَلِكَ بِالطَّرِيقَةِ نَفْسِهَا فِي كُلِّ مَرَّةْ."
         ]
       },
       "safety": {
@@ -4375,7 +4332,15 @@
           },
           "status": "7.2-13: the medical seat and the exercise physiologist confirm this text before the data is regenerated; until then safety[4] stands."
         }
-      ]
+      ],
+      "stepsRule": "The card (S28) shows these three steps in order: where to sit, where the phone goes, the movement (simplicity cut C12). At the booth our team sets the chair and the phone, so the card shows the booth seat line and the movement. Calibration, practice, rests and the count are spoken when they apply.",
+      "safetyStop": 4,
+      "safetyLoadOnly": [
+        0,
+        1,
+        2
+      ],
+      "safetyLoadOnlyRule": "These bullets are about the load and show only when the arm curl runs with a load (any arm not arm_only); the stop bullet always shows (simplicity cut C13)."
     },
     {
       "id": "trunk_control_seated",
@@ -4652,34 +4617,19 @@
       },
       "steps": {
         "ar": [
-          "استخدم كرسيًا ثابتًا له ظهر ومسندان للذراعين على الجانبين، وأسند ظهره إلى الجدار، واترك مساحة على جانبيه. وإذا كنت على كرسي متحرك، فأقفل الفرامل، وأبقِ الواقيين الجانبيين أو مسندي الذراعين في مكانهما، وأبقِ حزامك المعتاد مربوطًا.",
           "اجلس في عمق المقعد، وقدماك على الأرض أو على مسند القدمين.",
           "ضع الهاتف أمامك على بعد مترين تقريبًا، بارتفاع صدرك، وواجهه.",
-          "أرح يديك بخفة على فخذيك أو على مساند الذراعين، وأبقِ الذراع الأضعف مرتاحة على فخذك.",
-          "اجلس مستقيمًا وثابتًا بضع ثوانٍ.",
-          "مِل ببطء إلى أحد الجانبين، فقط بالقدر الذي تثق أنك تعود منه بنفسك. ودع يدك تنزلق بخفة على فخذك أو على مسند الذراع، دون ضغط.",
-          "ابقَ هنا لحظة، ثم عُد واجلس مستقيمًا.",
-          "ابقَ على المقعد وأبقِ قدميك ثابتتين. بعد ميلة تجريبية واحدة لكل جانب، ستميل 3 مرات إلى كل جانب."
+          "مِل ببطء إلى أحد الجانبين، فقط بالقدر الذي تثق أنك تعود منه بنفسك. ودع يدك تنزلق بخفة على فخذك أو على مسند الذراع، دون ضغط."
         ],
         "en": [
-          "Use a steady chair with a backrest and armrests on both sides, placed against a wall, with some space on both sides. In a wheelchair, put the brakes on, keep the side guards or armrests in place, and keep your usual belt fastened.",
           "Sit back in the seat with your feet flat on the floor or on the footplates.",
           "Place the phone in front of you, about 2 meters away, at chest height, and face it.",
-          "Rest your hands lightly on your thighs or on the armrests. Keep a weaker arm resting on your lap.",
-          "Sit tall and still for a few seconds.",
-          "Slowly lean to one side, only as far as you are sure you can come back from on your own. Let your hand slide lightly along your thigh or the armrest, without pushing.",
-          "Hold there a moment, then come back and sit tall.",
-          "Stay on the seat and keep your feet still. After one practice lean to each side, you will lean 3 times to each side."
+          "Slowly lean to one side, only as far as you are sure you can come back from on your own. Let your hand slide lightly along your thigh or the armrest, without pushing."
         ],
         "arTts": [
-          "اِسْتَخْدِمْ كُرْسِيًّا ثَابِتًا لَهُ ظَهْرٌ وَمِسْنَدَانِ لِلذِّرَاعَيْنِ عَلَى الْجَانِبَيْنْ، وَأَسْنِدْ ظَهْرَهُ إِلَى الْجِدَارْ، وَاتْرُكْ مَسَاحَةً عَلَى جَانِبَيْهْ. وَإِذَا كُنْتَ عَلَى كُرْسِيٍّ مُتَحَرِّكْ، فَأَقْفِلِ الْفَرَامِلْ، وَأَبْقِ الْوَاقِيَيْنِ الْجَانِبِيَّيْنِ أَوْ مِسْنَدَيِ الذِّرَاعَيْنِ فِي مَكَانِهِمَا، وَأَبْقِ حِزَامَكَ الْمُعْتَادَ مَرْبُوطًا.",
           "اِجْلِسْ فِي عُمْقِ الْمَقْعَدْ، وَقَدَمَاكَ عَلَى الْأَرْضِ أَوْ عَلَى مِسْنَدِ الْقَدَمَيْنْ.",
           "ضَعِ الْهَاتِفَ أَمَامَكَ عَلَى بُعْدِ مِتْرَيْنِ تَقْرِيبًا، بِارْتِفَاعِ صَدْرِكْ، وَوَاجِهْهْ.",
-          "أَرِحْ يَدَيْكَ بِخِفَّةٍ عَلَى فَخِذَيْكَ أَوْ عَلَى مَسَانِدِ الذِّرَاعَيْنْ، وَأَبْقِ الذِّرَاعَ الْأَضْعَفَ مُرْتَاحَةً عَلَى فَخِذِكْ.",
-          "اِجْلِسْ مُسْتَقِيمًا وَثَابِتًا بِضْعَ ثَوَانْ.",
-          "مِلْ بِبُطْءٍ إِلَى أَحَدِ الْجَانِبَيْنْ، فَقَطْ بِالْقَدْرِ الَّذِي تَثِقُ أَنَّكَ تَعُودُ مِنْهُ بِنَفْسِكْ. وَدَعْ يَدَكَ تَنْزَلِقُ بِخِفَّةٍ عَلَى فَخِذِكَ أَوْ عَلَى مِسْنَدِ الذِّرَاعْ، دُونَ ضَغْطْ.",
-          "اِبْقَ هُنَا لَحْظَةْ، ثُمَّ عُدْ وَاجْلِسْ مُسْتَقِيمًا.",
-          "اِبْقَ عَلَى الْمَقْعَدِ وَأَبْقِ قَدَمَيْكَ ثَابِتَتَيْنْ. بَعْدَ مَيْلَةٍ تَجْرِيبِيَّةٍ وَاحِدَةٍ لِكُلِّ جَانِبْ، سَتَمِيلُ ثَلَاثَ مَرَّاتٍ إِلَى كُلِّ جَانِبْ."
+          "مِلْ بِبُطْءٍ إِلَى أَحَدِ الْجَانِبَيْنْ، فَقَطْ بِالْقَدْرِ الَّذِي تَثِقُ أَنَّكَ تَعُودُ مِنْهُ بِنَفْسِكْ. وَدَعْ يَدَكَ تَنْزَلِقُ بِخِفَّةٍ عَلَى فَخِذِكَ أَوْ عَلَى مِسْنَدِ الذِّرَاعْ، دُونَ ضَغْطْ."
         ]
       },
       "safety": {
@@ -4733,7 +4683,9 @@
         "check_saved",
         "check_try_again",
         "check_rest_short"
-      ]
+      ],
+      "stepsRule": "The card (S28) shows these three steps in order: where to sit, where the phone goes, the movement (simplicity cut C12). At the booth our team sets the chair and the phone, so the card shows the booth seat line and the movement. Calibration, practice, rests and the count are spoken when they apply.",
+      "safetyStop": 3
     },
     {
       "id": "chair_stand_30s",
@@ -4773,7 +4725,7 @@
             "en": "Hands allowed"
           },
           "stepsReplace": {
-            "4": {
+            "2": {
               "ar": "يمكنك الاستعانة بيديك على مساند الذراعين أو على فخذيك للوقوف والجلوس، ثم ارفع يديك عن السند كلما وقفت.",
               "en": "You may push with your hands on the armrests or your thighs to stand and to sit. Take your hands off the support each time you are standing.",
               "arTts": "يُمْكِنُكَ الِاسْتِعَانَةُ بِيَدَيْكَ عَلَى مَسَانِدِ الذِّرَاعَيْنِ أَوْ عَلَى فَخِذَيْكَ لِلْوُقُوفِ وَالْجُلُوسْ، ثُمَّ ارْفَعْ يَدَيْكَ عَنِ السَّنَدِ كُلَّمَا وَقَفْتْ."
@@ -4788,7 +4740,7 @@
           },
           "when": "arms_assisted at home with pc_walking_aid yes (a modifier of arms_assisted, same series)",
           "stepsReplace": {
-            "4": {
+            "2": {
               "ar": "يمكنك الاستعانة بيديك على مساند الذراعين أو على فخذيك للوقوف والجلوس. في كل مرة، قف وخذ لحظة حتى تشعر بالثبات، ثم ارفع يديك عن السند.",
               "en": "You may push with your hands on the armrests or your thighs to stand and to sit. Each time, stand up, get steady, then take your hands off the support.",
               "arTts": "يُمْكِنُكَ الِاسْتِعَانَةُ بِيَدَيْكَ عَلَى مَسَانِدِ الذِّرَاعَيْنِ أَوْ عَلَى فَخِذَيْكَ لِلْوُقُوفِ وَالْجُلُوسْ. فِي كُلِّ مَرَّةْ، قِفْ وَخُذْ لَحْظَةً حَتَّى تَشْعُرَ بِالثَّبَاتْ، ثُمَّ ارْفَعْ يَدَيْكَ عَنِ السَّنَدْ."
@@ -4803,7 +4755,7 @@
           },
           "when": "upper_limb_unilateral, standard version",
           "stepsReplace": {
-            "4": {
+            "2": {
               "ar": "ضع يدك على الكتف المقابل، وأبقِ ذراعك الأخرى، أو طرفك الصناعي إن كنت ترتديه، قريبة من صدرك.",
               "en": "Place your hand on the opposite shoulder. Keep your other arm, or your prosthesis if you wear one, close to your chest.",
               "arTts": "ضَعْ يَدَكَ عَلَى الْكَتِفِ الْمُقَابِلْ، وَأَبْقِ ذِرَاعَكَ الْأُخْرَى، أَوْ طَرَفَكَ الصِّنَاعِيَّ إِنْ كُنْتَ تَرْتَدِيهْ، قَرِيبَةً مِنْ صَدْرِكْ.",
@@ -5074,38 +5026,21 @@
       },
       "steps": {
         "ar": [
-          "استخدم كرسيًا ثابتًا لا يدور، بلا عجلات ولا وسادة لينة، مثل كرسي السفرة، يصل مقعده إلى ثنية ركبتك من الخلف تقريبًا عندما تقف بجانبه، وأسند ظهره إلى الجدار. لا تستخدم كنبة منخفضة أو جلسة أرضية. وإذا كنت ستستعين بمساند الذراعين، فيجب أن تكون متينة.",
-          "ليكن أمامك شيء متين في متناول يدك، مثل طاولة المطبخ أو طاولة ثقيلة، على أن يكون أقرب إلى الجهة البعيدة عن الهاتف، فلا يقع بينك وبين الهاتف.",
-          "ضع الهاتف واقفًا على بعد مترين إلى ثلاثة أمتار، في منتصف المسافة بين أمامك وجانبك الأقوى، ليظهر جسمك كاملًا عندما تقف. إذا لم تكن إحدى جهتيك أضعف، فضعه جهة يمينك.",
           "اجلس في منتصف المقعد، وظهرك مستقيم، وقدماك على الأرض.",
-          "ضع ذراعيك متقاطعتين عند الرسغين، وأسندهما إلى صدرك.",
-          "أولًا، أدِّ وقفتين تجريبيتين ببطء. قف مستقيمًا تمامًا، ثم اجلس على المقعد بالكامل.",
-          "استرح دقيقة. وبعد إشارة البدء، قف تمامًا ثم اجلس، أكبر عدد من المرات تستطيعه بأمان خلال 30 ثانية.",
-          "بعد ذلك، ابقَ جالسًا دقيقة، ثم انهض ببطء."
+          "ضع الهاتف واقفًا على بعد مترين إلى ثلاثة أمتار، في منتصف المسافة بين أمامك وجانبك الأقوى، ليظهر جسمك كاملًا عندما تقف. إذا لم تكن إحدى جهتيك أضعف، فضعه جهة يمينك.",
+          "ضع ذراعيك متقاطعتين عند الرسغين، وأسندهما إلى صدرك."
         ],
         "en": [
-          "Use a firm chair that does not swivel, without wheels or a soft cushion, such as a dining chair, with the seat about as high as the back of your knee when you stand beside it, and put its back against a wall. Do not use a low sofa or floor seating. If you will push on armrests, they must be sturdy.",
-          "Have something sturdy within reach in front of you, such as a kitchen counter or a heavy table, a little toward the side away from the phone, so it is not between you and the phone.",
-          "Stand the phone upright 2 to 3 meters away, halfway between straight in front of you and your stronger side, so your whole body shows when you stand. If neither side is weaker, place it toward your right.",
           "Sit in the middle of the seat with your back straight and your feet flat on the floor.",
-          "Cross your arms at the wrists and hold them against your chest.",
-          "First, do 2 slow practice stands. Stand up fully, then sit all the way down.",
-          "Rest for a minute. After the start signal, stand up fully and sit down again, as many times as you safely can in 30 seconds.",
-          "Afterwards, stay seated for a minute, then get up slowly."
+          "Stand the phone upright 2 to 3 meters away, halfway between straight in front of you and your stronger side, so your whole body shows when you stand. If neither side is weaker, place it toward your right.",
+          "Cross your arms at the wrists and hold them against your chest."
         ],
         "arTts": [
-          "اِسْتَخْدِمْ كُرْسِيًّا ثَابِتًا لَا يَدُورْ، بِلَا عَجَلَاتٍ وَلَا وِسَادَةٍ لَيِّنَةْ، مِثْلَ كُرْسِيِّ السُّفْرَةْ، يَصِلُ مَقْعَدُهُ إِلَى ثَنْيَةِ رُكْبَتِكَ مِنَ الْخَلْفِ تَقْرِيبًا عِنْدَمَا تَقِفُ بِجَانِبِهْ، وَأَسْنِدْ ظَهْرَهُ إِلَى الْجِدَارْ. لَا تَسْتَخْدِمْ كَنَبَةً مُنْخَفِضَةً أَوْ جَلْسَةً أَرْضِيَّةْ. وَإِذَا كُنْتَ سَتَسْتَعِينُ بِمَسَانِدِ الذِّرَاعَيْنْ، فَيَجِبُ أَنْ تَكُونَ مَتِينَةْ.",
-          "لِيَكُنْ أَمَامَكَ شَيْءٌ مَتِينٌ فِي مُتَنَاوَلِ يَدِكْ، مِثْلُ طَاوِلَةِ الْمَطْبَخِ أَوْ طَاوِلَةٍ ثَقِيلَةْ، عَلَى أَنْ يَكُونَ أَقْرَبَ إِلَى الْجِهَةِ الْبَعِيدَةِ عَنِ الْهَاتِفْ، فَلَا يَقَعُ بَيْنَكَ وَبَيْنَ الْهَاتِفْ.",
-          "ضَعِ الْهَاتِفَ وَاقِفًا عَلَى بُعْدِ مِتْرَيْنِ إِلَى ثَلَاثَةِ أَمْتَارْ، فِي مُنْتَصَفِ الْمَسَافَةِ بَيْنَ أَمَامِكَ وَجَانِبِكَ الْأَقْوَى، لِيَظْهَرَ جِسْمُكَ كَامِلًا عِنْدَمَا تَقِفْ. إِذَا لَمْ تَكُنْ إِحْدَى جِهَتَيْكَ أَضْعَفْ، فَضَعْهُ جِهَةَ يَمِينِكْ.",
           "اِجْلِسْ فِي مُنْتَصَفِ الْمَقْعَدْ، وَظَهْرُكَ مُسْتَقِيمْ، وَقَدَمَاكَ عَلَى الْأَرْضْ.",
-          "ضَعْ ذِرَاعَيْكَ مُتَقَاطِعَتَيْنِ عِنْدَ الرُّسْغَيْنْ، وَأَسْنِدْهُمَا إِلَى صَدْرِكْ.",
-          "أَوَّلًا، أَدِّ وَقْفَتَيْنِ تَجْرِيبِيَّتَيْنِ بِبُطْءْ. قِفْ مُسْتَقِيمًا تَمَامًا، ثُمَّ اجْلِسْ عَلَى الْمَقْعَدِ بِالْكَامِلْ.",
-          "اِسْتَرِحْ دَقِيقَةْ. وَبَعْدَ إِشَارَةِ الْبَدْءْ، قِفْ تَمَامًا ثُمَّ اجْلِسْ، أَكْبَرَ عَدَدٍ مِنَ الْمَرَّاتِ تَسْتَطِيعُهُ بِأَمَانٍ خِلَالَ ثَلَاثِينَ ثَانِيَةْ.",
-          "بَعْدَ ذَلِكْ، اِبْقَ جَالِسًا دَقِيقَةْ، ثُمَّ انْهَضْ بِبُطْءْ."
+          "ضَعِ الْهَاتِفَ وَاقِفًا عَلَى بُعْدِ مِتْرَيْنِ إِلَى ثَلَاثَةِ أَمْتَارْ، فِي مُنْتَصَفِ الْمَسَافَةِ بَيْنَ أَمَامِكَ وَجَانِبِكَ الْأَقْوَى، لِيَظْهَرَ جِسْمُكَ كَامِلًا عِنْدَمَا تَقِفْ. إِذَا لَمْ تَكُنْ إِحْدَى جِهَتَيْكَ أَضْعَفْ، فَضَعْهُ جِهَةَ يَمِينِكْ.",
+          "ضَعْ ذِرَاعَيْكَ مُتَقَاطِعَتَيْنِ عِنْدَ الرُّسْغَيْنْ، وَأَسْنِدْهُمَا إِلَى صَدْرِكْ."
         ]
       },
-      "boothStepsFrom": 2,
-      "boothStepsRule": "At the booth the steps start at the phone step (the booth line), leaving out the two home setup steps: staff set up the chair and the support in front before each chair stand, as the booth staff brief and the S58 staff setup tips say (R3C-33).",
       "safety": {
         "ar": [
           "أجرِ هذا الاختبار فقط إذا كنت تشعر بالثبات اليوم.",
@@ -5212,7 +5147,24 @@
           },
           "status": "7.2-13: the medical seat and the exercise physiologist confirm this text before the data is regenerated; until then safety[4] stands."
         }
-      ]
+      ],
+      "boothSetup": {
+        "ar": [
+          "استخدم كرسيًا ثابتًا لا يدور، بلا عجلات ولا وسادة لينة، مثل كرسي السفرة، يصل مقعده إلى ثنية ركبتك من الخلف تقريبًا عندما تقف بجانبه، وأسند ظهره إلى الجدار. لا تستخدم كنبة منخفضة أو جلسة أرضية. وإذا كنت ستستعين بمساند الذراعين، فيجب أن تكون متينة.",
+          "ليكن أمامك شيء متين في متناول يدك، مثل طاولة المطبخ أو طاولة ثقيلة، على أن يكون أقرب إلى الجهة البعيدة عن الهاتف، فلا يقع بينك وبين الهاتف."
+        ],
+        "en": [
+          "Use a firm chair that does not swivel, without wheels or a soft cushion, such as a dining chair, with the seat about as high as the back of your knee when you stand beside it, and put its back against a wall. Do not use a low sofa or floor seating. If you will push on armrests, they must be sturdy.",
+          "Have something sturdy within reach in front of you, such as a kitchen counter or a heavy table, a little toward the side away from the phone, so it is not between you and the phone."
+        ],
+        "arTts": [
+          "اِسْتَخْدِمْ كُرْسِيًّا ثَابِتًا لَا يَدُورْ، بِلَا عَجَلَاتٍ وَلَا وِسَادَةٍ لَيِّنَةْ، مِثْلَ كُرْسِيِّ السُّفْرَةْ، يَصِلُ مَقْعَدُهُ إِلَى ثَنْيَةِ رُكْبَتِكَ مِنَ الْخَلْفِ تَقْرِيبًا عِنْدَمَا تَقِفُ بِجَانِبِهْ، وَأَسْنِدْ ظَهْرَهُ إِلَى الْجِدَارْ. لَا تَسْتَخْدِمْ كَنَبَةً مُنْخَفِضَةً أَوْ جَلْسَةً أَرْضِيَّةْ. وَإِذَا كُنْتَ سَتَسْتَعِينُ بِمَسَانِدِ الذِّرَاعَيْنْ، فَيَجِبُ أَنْ تَكُونَ مَتِينَةْ.",
+          "لِيَكُنْ أَمَامَكَ شَيْءٌ مَتِينٌ فِي مُتَنَاوَلِ يَدِكْ، مِثْلُ طَاوِلَةِ الْمَطْبَخِ أَوْ طَاوِلَةٍ ثَقِيلَةْ، عَلَى أَنْ يَكُونَ أَقْرَبَ إِلَى الْجِهَةِ الْبَعِيدَةِ عَنِ الْهَاتِفْ، فَلَا يَقَعُ بَيْنَكَ وَبَيْنَ الْهَاتِفْ."
+        ],
+        "rule": "Our team sets up the chair and the support in front at the booth; these lines are the staff setup tips (S58), never on the visitor's card."
+      },
+      "stepsRule": "The card (S28) shows these three steps in order: where to sit, where the phone goes, the movement (simplicity cut C12). At the booth our team sets the chair and the phone, so the card shows the booth seat line and the movement. Calibration, practice, rests and the count are spoken when they apply.",
+      "safetyStop": 4
     }
   ],
   "progress": {
@@ -6266,8 +6218,8 @@
           "en": "What is your medical condition?"
         },
         "helper": {
-          "ar": "اختر كل ما ينطبق عليك. تبقى إجاباتك على هذا الجهاز لهذه التجربة فقط، وتُمحى عند انتهائك.",
-          "en": "Choose all that apply. Your answers stay on this device for this try only, and are cleared when you finish."
+          "ar": "اختر كل ما ينطبق عليك.",
+          "en": "Choose all that apply."
         },
         "chips": "One screen of large chips with the intake condition labels exactly, with لا شيء مما سبق · None of these first.",
         "noneChip": {
@@ -6317,7 +6269,7 @@
         "stroke, sci_complete or sci_incomplete with clearance no or not sure (booth only rule): the seated arm raise only, active movement only and without load, with all its rules (pc_weak_lift, pc_weak_shoulder, thumb up) and staff within arm's reach. The side lean, the arm curl and the chair stand are skipped with reason clearance_booth.",
         "Everyone else follows 3.1 and 3.3, including Q6 and D-016 for clearance no or not sure (arm curl without weight; no chair stand, the seated side lean in its slot)."
       ],
-      "signedIn": "A signed in visitor at the booth always runs in booth mode (staff enter the booth code), so results carry setting booth and the home series starts at home.",
+      "signedIn": "A signed in visitor at the booth runs the check as a guest on a staff booth phone (simplicity cut C34), so nothing of it is kept; the S50 code is the way to sign up, and the home series starts at home.",
       "afterEachTest": {
         "buttons": [
           {
@@ -6350,7 +6302,7 @@
       "cognitiveTestMethod": "5 to 8 users in each group whose screens are tested, never fewer than 5, including at least 5 people living with SCI for the AD screens (pc_sci_level, warn_sci_t6, pc_sci_ad_now, pc_sci_ready, scr_ad); each group includes women, adults over 60 and at least one person who reads little or uses a screen reader; screens are also tested by ear; scripted scenarios, not the participant's own health answers; a written paid participation agreement; no names in notes; no audio or video recording without separate consent; ethics approval if the findings will be published. The co-designers (H8) may take part. The other new questions go through the same testing before the first pilot participant (Q18 (6)). At least 5 people living with aphasia after stroke join the testing of pc_urgent and ec_symptoms (O37); the examples lists of pc_change and pc_unwell, with their speech lines, and the clearance question with its O39 hint are tested before the first pilot participant (O45, O39)."
     },
     "sessionMinutes": {
-      "computed": "estimateMinutes (UX spec S27): a per person range [min, max] from the tests selected today, the setting, the helper briefings and the guest steps. It fills boundary.intro {min} and {max} and every duration shown (S01, S02, S05, S14, S27).",
+      "computed": "estimateMinutes (UX spec S27): a range [min, max] from the tests, the setting, the helper briefings and the guest steps. Every screen states it through statedMinutes (simplicity cut C11): the tests with the worst case context, so the same tests show the same range on S01, S02, S05 and S27, and a stated range only lengthens.",
       "includes": "Every estimate includes every rest (the 60 s side change, the seated minute after the chair stand, rests after stops), practice, the answers and the pre-check; none of these is ever shortened to meet a time target (O40).",
       "startingEstimatesMinutes": {
         "overhead": [

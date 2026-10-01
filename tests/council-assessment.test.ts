@@ -342,11 +342,6 @@ describe("O40: estimateMinutes, the computed duration", () => {
       add(EST.overhead, EST.guestSteps, EST.precheckWithConditionQuestions, EST.shoulder_abduction),
     );
   });
-
-  it("O40: the intro noun follows the larger number (دقائق up to 10, دقيقة from 11)", () => {
-    const tokens = CHECK_DATA.boundary.intro.tokens.minutesNoun.ar;
-    expect([tokens.maxUpTo10, tokens.maxFrom11]).toEqual(["دقائق", "دقيقة"]);
-  });
 });
 
 /* ------------------------------------------------ H9, Q12, Q33 schedule */

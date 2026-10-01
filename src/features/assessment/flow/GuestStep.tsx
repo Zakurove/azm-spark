@@ -8,11 +8,12 @@
  */
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
-import { backTarget, type GuestAnswers } from "../flowMachine";
+import { backTarget, testsOff, type GuestAnswers } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons, MultiAnswerList, useNextWithHint } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import { useCheckUi } from "../shared/CheckUi";
+import { oneTest } from "../booth/settings";
 import { guestStepView, localLabels, type GuestStepNo } from "./copy";
 import { ListenButton, SamePress } from "./parts";
 import { useVoice } from "./voice";
@@ -30,7 +31,9 @@ export function GuestStep({ model, dispatch }: ScreenProps) {
   const { lang } = useCheckUi();
   const voice = useVoice(model.data.soundMode);
   const step = (model.state.kind === "guestSetup" ? model.state.step : 1) as GuestStepNo;
-  const raw0 = guestStepView(lang, step);
+  // C09: the one test path asks only the restrictions that can touch its test.
+  const one = model.data.guestPath === "quick" ? oneTest(testsOff(model.data)) : null;
+  const raw0 = guestStepView(lang, step, one ? [one] : undefined);
   const view = { ...raw0, options: localLabels(lang, raw0.options) };
   const raw = model.data.guest[KEYS[step]];
   const values = Array.isArray(raw) ? raw : [];

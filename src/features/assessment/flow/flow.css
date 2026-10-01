@@ -43,6 +43,23 @@
 .azm-check .flow-note.is-stop > svg {
   color: var(--red);
 }
+/* S28: the one stop block, every stop condition word for word (C12); red is never the only signal. */
+.azm-check .flow-stop-block {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin: var(--s3) 0 0;
+  padding: var(--s3);
+  border: 1px solid var(--cream-border);
+  border-inline-start: 4px solid var(--red);
+  border-radius: var(--r-card);
+  background: var(--cream);
+}
+.azm-check .flow-stop-block > svg {
+  flex: none;
+  margin-top: 4px;
+  color: var(--red);
+}
 
 .azm-check .flow-chips {
   display: flex;

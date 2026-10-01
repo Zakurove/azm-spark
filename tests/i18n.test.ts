@@ -18,7 +18,7 @@ import {
   t,
   unitWord,
 } from "../src/i18n";
-import { CHECK_DATA, testDef } from "../src/movements/assessments";
+import { testDef } from "../src/movements/assessments";
 
 const DIR = join(__dirname, "../src/i18n");
 const files = (lang: string) =>
@@ -138,10 +138,6 @@ describe("numbers and digits", () => {
     for (const lang of ["ar", "en"])
       for (const file of files(lang))
         expect(JSON.stringify(read(lang, file)), `${lang}/${file}`).not.toMatch(/997|٩٩٧/);
-  });
-
-  it("leaves no ASCII digit in the Arabic boundary intro", () => {
-    expect(localizeDigits("ar", CHECK_DATA.boundary.intro.ar)).not.toMatch(/[0-9]/);
   });
 });
 

@@ -4,7 +4,7 @@
  * council/decisions.json (P, Q, H ids) and council/decisions-ux-round.json (O ids, 7.2 ids).
  */
 import { describe, expect, it } from "vitest";
-import { CHECK_DATA } from "../src/movements/assessments";
+import { CHECK_DATA, precheckItem } from "../src/movements/assessments";
 import type { PrecheckId, Side, TestId } from "../src/movements/types";
 import {
   AFTER_CHECK_WINDOW_HOURS,
@@ -605,11 +605,17 @@ describe("Q18 and O45: which wording a question uses", () => {
     expect(questionForm(standing(), {}, "pc_steadi:worry").text).toBe("ask");
   });
 
-  it("O45: the examples list of pc_change and pc_unwell at home only; the booth keeps one sentence", () => {
-    expect(questionForm(envOf(), {}, "pc_unwell").examples).toBe(true);
-    expect(questionForm(envOf(), {}, "pc_change").examples).toBe(true);
-    expect(questionForm(envOf({}, { setting: "booth" }), {}, "pc_unwell").examples).toBe(false);
+  it("C23: pc_change and pc_unwell are a short question and a list in every setting", () => {
+    for (const setting of ["home", "booth"] as const) {
+      expect(questionForm(envOf({}, { setting }), {}, "pc_unwell").examples).toBe(true);
+      expect(questionForm(envOf({}, { setting }), {}, "pc_change").examples).toBe(true);
+    }
     expect(questionForm(envOf(), {}, "pc_ms_heat").examples).toBe(false);
+    // The single sentences are gone from the data; the list items carry their clauses.
+    for (const id of ["pc_change", "pc_unwell"] as const) {
+      expect(precheckItem(id).ask).toBeUndefined();
+      expect(precheckItem(id).askFirstCheck).toBeUndefined();
+    }
   });
 
   it("O37: the chronic line may apply for a weaker side or the listed conditions (shown only once tested)", () => {

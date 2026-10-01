@@ -1762,7 +1762,7 @@ export interface QuestionForm {
   text: "ask" | "askFirstCheck" | "askDirect" | "askByPosition";
   /** askByPosition: the form of the person's position. */
   position?: "chair" | "wheelchair";
-  /** Home only: the question alone, then the examples list (pc_change, pc_unwell; O45). */
+  /** The question alone, then the examples list (pc_change, pc_unwell; O45), in every setting (C23). */
   examples: boolean;
   /**
    * The long standing signs line applies to this person (O37: a weaker side or the listed
@@ -1774,8 +1774,9 @@ export interface QuestionForm {
 /**
  * The wording of a question instance for this person: askFirstCheck at the first check of a series
  * (pc_change, the fell question of pc_steadi), askDirect for pc_change_cleared with an unresolved
- * changeReported (Q33 (2)), the position form of pc_trunk_armrests (Q12 (1)), the examples list at
- * home (O45) and whether the chronic line applies (O37). The text itself always comes from the data.
+ * changeReported (Q33 (2)), the position form of pc_trunk_armrests (Q12 (1)), the examples list
+ * (O45, C23: in every setting) and whether the chronic line applies (O37). The text itself always
+ * comes from the data.
  */
 export function questionForm(env: PrecheckEnv, answers: Answers, id: string): QuestionForm {
   const parsed = parseQuestionId(id);
@@ -1787,11 +1788,12 @@ export function questionForm(env: PrecheckEnv, answers: Answers, id: string): Qu
   if (item.askByPosition) text = "askByPosition";
   else if (item.askDirect && env.unresolvedChangeReported && value(st, "pc_change") !== "yes")
     text = "askDirect";
-  else if (env.firstCheck && (sub ? sub.askFirstCheck : item.askFirstCheck)) text = "askFirstCheck";
+  else if (env.firstCheck && (sub ? sub.askFirstCheck : (item.askFirstCheck ?? item.examples?.askFirstCheck)))
+    text = "askFirstCheck";
   return {
     text,
     ...(text === "askByPosition" ? { position: positionForm(env) } : {}),
-    examples: item.examples !== undefined && env.setting === "home",
+    examples: item.examples !== undefined,
     chronicNote: item.chronicNote !== undefined && showIfHolds(item.chronicNote.showIf, stateCond(st)),
   };
 }

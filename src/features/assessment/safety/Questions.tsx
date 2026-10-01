@@ -303,8 +303,14 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
   const s = model.state.kind === "endQuestion" ? model.state : null;
   const view = endQuestionView(s?.side ?? null, lang);
   const headingId = useId();
+  // C18: the lead, then each sign, all on screen (so never in the caption strip).
   const line = dataLine({ ar: view.text, en: view.text, arTts: view.arTts ?? undefined }, lang);
-  const seq = useSpeechSequence([{ ...line, display: view.text, onScreen: true }], {
+  const signs = view.list.map((text, k) => ({
+    ...dataLine({ ar: text, en: text, arTts: view.listTts?.[k] }, lang),
+    display: text,
+    onScreen: true,
+  }));
+  const seq = useSpeechSequence([{ ...line, display: view.text, onScreen: true }, ...signs], {
     key: `S49:${s?.side ?? ""}:${lang}`,
   });
   const { booth } = useCheckUi();
@@ -329,6 +335,11 @@ export function EndQuestion({ model, dispatch }: ScreenProps) {
             ),
           )}
         </h1>
+        <ul className="check-card is-cream check-list safety-signs">
+          {view.list.map((sign) => (
+            <li key={sign}>{bidiText(lang, sign)}</li>
+          ))}
+        </ul>
         <AnswerZones
           labelledBy={headingId}
           fold

@@ -872,8 +872,8 @@ export class CameraController {
     this.posted = false;
     this.lockPending = true;
     this.handle(this.runner.start(t), t);
-    // R3C-26: where test_stand_arms_cross would play, one_arm_cross has its own step line (stepsReplace
-    // 4). It is captioned only: spoken once Nasser approves it by ear (voicePending).
+    // R3C-26: where test_stand_arms_cross would play, one_arm_cross has its own step line (its movement
+    // step in stepsReplace). It is captioned only: spoken once Nasser approves it by ear (voicePending).
     if (
       this.test.testId === "chair_stand_30s" &&
       this.test.variant === "one_arm_cross" &&
@@ -1382,10 +1382,10 @@ export class CameraController {
 
 /* ================================================================ helpers */
 
-/** The arm position line of the chair stand's one_arm_cross variant (its step 5), from the data. */
+/** The arm position line of the chair stand's one_arm_cross variant (its movement step), from the data. */
 function oneArmCrossLine(): { ar: string; en: string } | null {
   const def = testDef("chair_stand_30s");
-  const step = def.variants.find((v) => v.id === "one_arm_cross")?.stepsReplace?.["4"];
+  const step = def.variants.find((v) => v.id === "one_arm_cross")?.stepsReplace?.["2"];
   return step ? { ar: step.ar, en: step.en } : null;
 }
 

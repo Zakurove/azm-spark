@@ -413,27 +413,12 @@ export interface Signoff {
 }
 
 export type BoundaryId =
-  | "line"
-  | "notMedical"
-  | "intro"
-  | "firstResult"
-  | "consent"
-  | "storageNotice"
-  | "precheckNotice"
-  | "resultsFooter";
+  "line" | "notMedical" | "firstResult" | "consent" | "storageNotice" | "precheckNotice" | "resultsFooter";
 
 /** Boundary lines, placement rules and the public wording guard (spec 1, Q23, Q29, H5). */
 export type Boundary = Record<BoundaryId, Text> & {
   /** Where the not intended for medical purposes line sits (Q23 (2)). */
   notMedicalPlacement: string;
-  /** boundary.intro: {min} and {max} from estimateMinutes, {minutesNoun} by the larger number (O40). */
-  intro: Text & {
-    tokens: {
-      min: string;
-      max: string;
-      minutesNoun: { ar: { maxUpTo10: string; maxFrom11: string }; en: string; rule: string };
-    };
-  };
   /** The 18 or older confirmation (Q2 (5), Q32 (6), 7.2-6). */
   adultConfirm: Text & { when: string; status: string };
   /** The research opt in (phase 2, Q1 (3)). */
@@ -988,10 +973,16 @@ interface TestDefBase<I extends TestId, K extends TestKind> {
   comparability: Comparability;
   name: Text;
   purpose: Text;
-  /** Instruction steps, with the speech form of each Arabic step (O24-7). */
+  /**
+   * The card's three steps (S28, C12): where to sit, where the phone goes, the movement, with the
+   * speech form of each Arabic step (O24-7).
+   */
   steps: SpokenList;
+  stepsRule: string;
   /** Safety notes, spoken with the steps (O24-7). */
   safety: SpokenList;
+  /** The safety note that names every stop condition: the card's one stop block (C12). */
+  safetyStop: number;
   resultSentence: Text;
   resultUnit: UnitFormId;
   cues: CheckCueId[];
@@ -1055,6 +1046,9 @@ export interface ShoulderAbductionDef extends TestDefBase<"shoulder_abduction", 
 }
 
 export interface ArmCurlDef extends TestDefBase<"arm_curl_30s", "timed_count"> {
+  /** The safety notes about the load: shown only when an arm runs with a load (C13). */
+  safetyLoadOnly: number[];
+  safetyLoadOnlyRule: string;
   viewAllowance: string;
   sideOrder: "weaker_first";
   durationSec: number;
@@ -1180,9 +1174,8 @@ export interface TrunkControlDef extends TestDefBase<"trunk_control_seated", "tr
 }
 
 export interface ChairStandDef extends TestDefBase<"chair_stand_30s", "timed_count"> {
-  /** At the booth the steps start at this step, the phone step (R3C-33). */
-  boothStepsFrom: number;
-  boothStepsRule: string;
+  /** The chair and support setup our team does at the booth: the S58 staff tips (R3C-33, C12). */
+  boothSetup: SpokenList & { rule: string };
   cameraAngleDeg: number;
   viewNote: string;
   durationSec: number;
@@ -1413,13 +1406,19 @@ export interface StopFollowUp {
     | { if: { equals: OptionValue }; do: "record"; lock: LockKind }
   )[];
 }
-/** The end of check symptom question (S49, Q23 (7)): the general form and the side form. */
+/**
+ * The end of check symptom question (S49, Q23 (7)): a short lead and the signs as a list (C18), in
+ * the general form and the side form.
+ */
 export interface EndOfCheckQuestion {
   id: EndOfCheckId;
   type: "yes_no";
   when: string;
   ask: Spoken;
-  askSide: Text & { arTtsBySide: Record<Side, string> };
+  list: SpokenList;
+  /** The side form: {side} in the first line, the speech of each line per side. */
+  listSide: TextList & { arTtsBySide: Record<Side, string[]> };
+  display: string;
   sideTokens: Record<Side, Spoken>;
   speech: string;
   chronicNote: ChronicNote;

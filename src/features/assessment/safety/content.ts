@@ -381,14 +381,21 @@ function safeReason(id: string, lang: Lang): string | null {
 
 /* ------------------------------------------------------------------ S49 end question */
 
-/** The end question (Q23 (7)): the general form, or the side form with its side token. */
+/**
+ * The end question (Q23 (7), C18): the short lead and the signs as a list, in the general form or the
+ * side form with its side token, each line with its vocalised speech.
+ */
 export function endQuestionView(side: Side | null | undefined, lang: Lang) {
   const q = endOfCheckQuestion("ec_symptoms");
-  if (!side) return { text: q.ask[lang], arTts: q.ask.arTts ?? null };
+  const text = q.ask[lang];
+  const arTts = q.ask.arTts ?? null;
+  if (!side) return { text, arTts, list: q.list[lang], listTts: q.list.arTts ?? null };
   const token = q.sideTokens[side][lang];
   return {
-    text: q.askSide[lang].split("{side}").join(token),
-    arTts: q.askSide.arTtsBySide?.[side] ?? null,
+    text,
+    arTts,
+    list: q.listSide[lang].map((l) => l.split("{side}").join(token)),
+    listTts: q.listSide.arTtsBySide[side],
   };
 }
 
@@ -397,7 +404,7 @@ export function endQuestionView(side: Side | null | undefined, lang: Lang) {
  * bolds them without changing the text.
  */
 export const EMPHASIS: Record<"ec_symptoms", Record<Lang, string[]>> = {
-  ec_symptoms: { ar: ["اليوم", "جديد ومفاجئ"], en: ["today", "new, sudden"] },
+  ec_symptoms: { ar: ["اليوم", "جديد ومفاجئ"], en: ["today", "new and sudden"] },
 };
 
 /** A text split into plain and emphasised parts (each emphasis once, first match). */

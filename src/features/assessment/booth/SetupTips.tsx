@@ -71,12 +71,12 @@ export function SetupTipsList({
 
 /**
  * At the booth our team sets up the chair and the support in front before each chair stand, so the
- * visitor's steps start at the phone step (R3C-33): the two home setup steps of the data are here.
+ * visitor's card leaves them out (R3C-33, C12): the data's boothSetup lines are here.
  */
 export function BoothStandSetup() {
   const { lang } = useCheckUi();
   const def = testDef("chair_stand_30s");
-  const setup = def.steps[lang].slice(0, def.boothStepsFrom);
+  const setup = def.boothSetup[lang];
   return (
     <section className="booth-stand-setup" aria-labelledby="booth-stand-setup">
       <h2 id="booth-stand-setup" className="check-h2">

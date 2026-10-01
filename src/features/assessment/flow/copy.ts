@@ -58,6 +58,8 @@ export interface SpeechLine {
   display: string;
   /** The fully vocalised Arabic line (arTts) or the English speech; else the display text is read. */
   speech?: string;
+  /** The line is already on the screen: spoken, never repeated in the caption strip (C12, C14). */
+  onScreen?: boolean;
 }
 
 /** A spoken cue of the check data, or a text line. */
@@ -237,12 +239,20 @@ const RESTRICTION_IDS = [
 
 const opt = (lang: Lang, key: string) => t(lang, `assessment.options.${key}` as I18nKey);
 
+/** A restriction item that can change one of these tests at the booth (its exclusions), or none. */
+function touches(r: (typeof RESTRICTION_IDS)[number], tests: readonly TestId[]): boolean {
+  if (r === "none" || r === "no_exercise") return true;
+  return tests.some((id) => (testDef(id).exclusions.restrictions as readonly string[]).includes(r));
+}
+
 /**
  * One guest step (UX spec S06 to S11, Q19): the question, its hint and its options in the spec order.
  * The conditions step reads its title, helper line and "None of these" from the check data (Q19 (1));
- * clearance reads the Q19 question and its three answers from the data, word for word.
+ * clearance reads the Q19 question and its three answers from the data, word for word. On the one
+ * test path (`tests`), S11 lists only the restrictions that exclude one of its tests in the data, and
+ * no exercise, which always routes to our team (C09); the full check lists them all.
  */
-export function guestStepView(lang: Lang, step: GuestStepNo): GuestStepView {
+export function guestStepView(lang: Lang, step: GuestStepNo, tests?: readonly TestId[]): GuestStepView {
   const gb = CHECK_DATA.selection.guestBooth;
   switch (step) {
     case 1:
@@ -302,7 +312,10 @@ export function guestStepView(lang: Lang, step: GuestStepNo): GuestStepView {
         hint: t(lang, "assessment.guest.chooseAll"),
         multiple: true,
         exclusive: "none",
-        options: RESTRICTION_IDS.map((v) => ({ value: v, label: opt(lang, `restriction.${v}`) })),
+        options: RESTRICTION_IDS.filter((v) => !tests || touches(v, tests)).map((v) => ({
+          value: v,
+          label: opt(lang, `restriction.${v}`),
+        })),
       };
   }
 }
@@ -935,42 +948,58 @@ export function summaryCues(testId: TestId, variant?: string): CheckCueId[] {
   }
 }
 
-/** The step that tells the person to place the phone (replaced at the booth: primer.placeBooth). */
-export const PHONE_STEP: Record<TestId, number> = {
-  shoulder_abduction: 1,
-  arm_curl_30s: 1,
-  trunk_control_seated: 2,
-  chair_stand_30s: 2,
-};
-
+/** The step that tells the person to place the phone (replaced at the booth: test.placeBooth). */
 /**
- * The steps of a test with today's variant applied (S28): stepsReplace keys are zero based step
- * indexes, and at the booth the phone step becomes primer.placeBooth (the phone is already mounted).
+ * The card's steps (S28, C12): the data's three steps (where to sit, where the phone goes, the
+ * movement) with today's variant applied (stepsReplace keys are zero based step indexes). At the booth
+ * our team sets up the chair and the phone (the chair stand's support too, R3C-33), so the card says
+ * where to sit at the booth (C08: a wheelchair user stays in the wheelchair at the mark) and the
+ * movement.
  */
-// R3C-33 (2): the arm curl's phone step also says to turn side on to the phone; at the booth the whole
-// step is replaced as the spec says, and the setup check's side view cue asks for the turn.
 export function instructionSteps(
   testId: TestId,
   variant: string | undefined,
   booth: boolean,
   lang: Lang,
+  position: CheckPosition = "chair",
 ): string[] {
   const def = testDef(testId) as {
     steps: { ar: string[]; en: string[] };
     variants?: { id: string; stepsReplace?: Record<string, { ar: string; en: string }> }[];
-    boothStepsFrom?: number;
   };
   const steps = [...def.steps[lang]];
-  // The arm curl variant is the load kind: a cuff_or_arm_only arm still lists the held steps until
-  // the load is chosen, arm_only replaces the hold step.
   const v = def.variants?.find((x) => x.id === variant);
   for (const [k, text] of Object.entries(v?.stepsReplace ?? {})) steps[Number(k)] = text[lang];
-  if (booth) steps[PHONE_STEP[testId]] = t(lang, "assessment.primer.placeBooth");
-  // R3C-33: at the booth our team sets up the chair and the support in front (the staff brief and the
-  // S58 staff tips), so the chair stand's two home setup steps are left out: the steps start at the
-  // phone step, already the booth line (tests.chair_stand_30s.boothStepsFrom).
-  if (booth && def.boothStepsFrom !== undefined) return steps.slice(def.boothStepsFrom);
-  return steps;
+  if (!booth) return steps;
+  const seat =
+    position === "wheelchair" ? "assessment.test.placeBoothWheelchair" : "assessment.test.placeBooth";
+  return [t(lang, seat), steps[MOVE_STEP]];
+}
+
+/** The movement is the card's third step (C12). */
+const MOVE_STEP = 2;
+
+/**
+ * The safety notes of a card (S28, C12, C13), each with its speech: the notes in data order without
+ * the stop note, which is the card's one stop block (every stop condition word for word). The arm
+ * curl's load notes show only when an arm runs with a load (C13).
+ */
+export function cardSafety(
+  testId: TestId,
+  withLoad: boolean,
+  lang: Lang,
+): { notes: SpeechLine[]; stop: SpeechLine } {
+  const def = testDef(testId);
+  const loadOnly: readonly number[] = def.id === "arm_curl_30s" && !withLoad ? def.safetyLoadOnly : [];
+  const line = (k: number): SpeechLine => {
+    const speech = lang === "ar" ? def.safety.arTts?.[k] : undefined;
+    return { display: def.safety[lang][k], ...(speech ? { speech } : {}), onScreen: true };
+  };
+  const notes = def.safety[lang]
+    .map((_, k) => k)
+    .filter((k) => k !== def.safetyStop && !loadOnly.includes(k))
+    .map(line);
+  return { notes, stop: line(def.safetyStop) };
 }
 
 /** The card notes of a test that apply (S28, O24-5, O41), as data texts with their speech. */

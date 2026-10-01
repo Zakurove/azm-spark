@@ -12,6 +12,7 @@ import { homeOpenOf } from "../src/features/assessment/api";
 import { setupChips } from "../src/features/assessment/camera/view";
 import { instructionSteps } from "../src/features/assessment/flow/copy";
 import { t } from "../src/i18n";
+import { testDef } from "../src/movements/assessments";
 import { HOME_CHECKS_READY } from "../src/medical/gates";
 
 describe("the home gate in code (Q31 (6))", () => {
@@ -56,14 +57,13 @@ describe("captions and chips (S34, 4.3, S34c)", () => {
 });
 
 describe("booth copy (S28)", () => {
-  it("S28: the booth chair stand starts at the phone step (our team sets up the chair and support)", () => {
+  it("S28 at the booth: the seat line and the movement; our team sets up the chair, support and phone", () => {
     for (const lang of ["ar", "en"] as const) {
       const home = instructionSteps("chair_stand_30s", "standard", false, lang);
       const booth = instructionSteps("chair_stand_30s", "standard", true, lang);
-      expect(booth[0]).toBe(t(lang, "assessment.primer.placeBooth"));
-      expect(booth).toHaveLength(home.length - 2);
-      expect(booth).not.toContain(home[0]);
-      expect(booth).not.toContain(home[1]);
+      expect(booth).toEqual([t(lang, "assessment.test.placeBooth"), home[2]]);
+      // The chair and the support in front are the staff setup tips (S58), never on the card.
+      for (const line of testDef("chair_stand_30s").boothSetup[lang]) expect(home).not.toContain(line);
     }
   });
 });

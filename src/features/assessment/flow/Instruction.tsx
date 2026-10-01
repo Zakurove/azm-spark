@@ -1,9 +1,12 @@
 /**
- * S28 Instruction card (one per test): what the test shows, the steps with today's variant, the
- * safety notes (never collapsed), spoken on entry and on Listen again, and the last chance to skip
- * before the camera. warn_sci_t6 (an info card, with no call control: D-016) and warn_weak_shoulder
- * come first. For the chair stand at home the card holds the chair gate (Q9) in place
- * of "Let's start", and from the second check the same chair question (su_same_chair).
+ * S28 Instruction card (one per test, C12): the picture, three short steps (where to sit, where the
+ * phone goes, the movement; at the booth the booth seat line and the movement), the safety notes and
+ * one stop block that keeps every stop condition word for word, spoken on entry and on Listen again,
+ * and the last chance to skip before the camera. At the booth the how to stop line comes first (C04).
+ * warn_sci_t6 (an info card, with no call control: D-016) and warn_weak_shoulder come before the
+ * title, once. The arm curl without a load shows no load safety (C13). For the chair stand at home the
+ * card holds the chair gate (Q9) in place of "Let's start", and from the second check the same chair
+ * question (su_same_chair). Calibration, practice, rests and the count are spoken when they apply.
  */
 import { useState } from "react";
 import { t } from "../../../i18n";
@@ -18,6 +21,7 @@ import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
 import {
   cardNotes,
+  cardSafety,
   illustrationAlt,
   localLabels,
   instructionSteps,
@@ -40,9 +44,10 @@ export function Instruction({ model, dispatch }: ScreenProps) {
   const position = env?.ctx.position ?? "chair";
   const main = run?.sides[0];
   const variant = main?.variant;
-  const steps = instructionSteps(testId, variant, booth, lang);
-  const safety = def.safety[lang];
-  const notes = cardNotes(testId, variant, position, lang);
+  const steps = instructionSteps(testId, variant, booth, lang, position);
+  const withLoad = testId === "arm_curl_30s" && (run?.sides ?? []).some((s) => s.variant !== "arm_only");
+  const safety = cardSafety(testId, withLoad, lang);
+  const notes = cardNotes(testId, variant, position, lang).map((n) => ({ ...n, onScreen: true }));
   const warnings = testWarnings(model.data.warnings, testId);
   const counter = testCounter(model);
   const home = model.data.setting === "home";
@@ -60,18 +65,18 @@ export function Instruction({ model, dispatch }: ScreenProps) {
       : null;
   const load = testDef("arm_curl_30s").load;
 
-  // Spoken: the summary cues, the safety notes, the card notes, then the warnings (S28).
+  // Spoken: the summary cues, the safety notes, the stop block, the card notes, then the warnings
+  // (S28). Everything after the cues is on the card, so it is never repeated in the caption (C12).
   const warningLine = (id: string): SpeechItem => {
     const data = CHECK_DATA.screens[id as keyof typeof CHECK_DATA.screens];
-    return lang === "ar" ? { display: data.ar, speech: data.arTts } : { display: data.en };
+    return lang === "ar"
+      ? { display: data.ar, speech: data.arTts, onScreen: true }
+      : { display: data.en, onScreen: true };
   };
   const lines: SpeechItem[] = [
     ...summaryCues(testId, variant).map((cue) => ({ cue })),
-    // Each safety note with its vocalised Arabic line where the data has one (O24-7).
-    ...safety.map((s, k) => {
-      const speech = lang === "ar" ? def.safety.arTts?.[k] : undefined;
-      return speech ? { display: s, speech } : { display: s };
-    }),
+    ...safety.notes,
+    safety.stop,
     ...notes,
     ...warnings.map(warningLine),
   ];
@@ -107,6 +112,12 @@ export function Instruction({ model, dispatch }: ScreenProps) {
       }}
     >
       <div className="flow-stack" data-screen="S28" data-test={testId}>
+        {booth && (
+          <p className="flow-note is-stop" data-part="stop-booth">
+            <CheckIcon name="stop-square" size={22} />
+            <span className="check-body">{t(lang, "assessment.test.stopBooth")}</span>
+          </p>
+        )}
         {warnings.map((id) => (
           <NoticeCard key={id} tone={id === "warn_sci_t6" ? "info" : "warn"}>
             <p className="check-body">{bidiText(lang, screenText(id, lang))}</p>
@@ -148,13 +159,17 @@ export function Instruction({ model, dispatch }: ScreenProps) {
             {t(lang, "assessment.test.safetyHeading")}
           </h2>
           <ul className="flow-list flow-safety">
-            {safety.map((s, k) => (
-              <li key={k}>{bidiText(lang, s)}</li>
+            {safety.notes.map((n, k) => (
+              <li key={k}>{bidiText(lang, n.display)}</li>
             ))}
             {notes.map((n, k) => (
               <li key={`n${k}`}>{bidiText(lang, n.display)}</li>
             ))}
           </ul>
+          <p className="flow-stop-block" data-part="stop">
+            <CheckIcon name="stop-square" size={22} />
+            <span className="check-body">{bidiText(lang, safety.stop.display)}</span>
+          </p>
         </section>
         <ListenButton onClick={() => void voice.play(lines)} />
         {gate && !gateYes && (

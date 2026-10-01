@@ -196,7 +196,8 @@ export function useVoice(mode: SoundMode | null): Voice {
         setCurrent(i);
         opts.onLine?.(i);
         // The caption's tap plays this line again (3.0); a line already in the body is not repeated.
-        if (opts.onScreen) u.clearCaption();
+        const onScreen = opts.onScreen === true || line.onScreen === true;
+        if (onScreen) u.clearCaption();
         else u.showCaption(line.display, severity, hear, () => void play([item], opts));
         let played = false;
         if (hear) {
@@ -210,7 +211,7 @@ export function useVoice(mode: SoundMode | null): Voice {
         if (run.stopped) return;
         if (!played) {
           // Nothing heard: the caption stays for its reading time and the announcer reads it.
-          if (!opts.onScreen) uiRef.current.showCaption(line.display, severity, false);
+          if (!onScreen) uiRef.current.showCaption(line.display, severity, false);
           await sleep(captionMs(line.display), run);
         }
       }

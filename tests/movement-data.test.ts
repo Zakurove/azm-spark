@@ -529,10 +529,8 @@ describe("referential integrity", () => {
     // Bottle sizes are words, never digits (Q30).
     for (const b of ["bottle_half", "bottle_1", "bottle_1_5"] as const)
       expect(tokens(armCurl.resultTokens.load[b].en), b).toEqual([]);
-    expect(tokens(D.endOfCheck[0].askSide.en)).toEqual(["side"]);
+    expect(tokens(D.endOfCheck[0].listSide.en[0])).toEqual(["side"]);
     expect(Object.keys(D.endOfCheck[0].sideTokens).sort()).toEqual(["left", "right"]);
-    expect(tokens(D.boundary.intro.en)).toEqual(["max", "min"]);
-    expect(tokens(D.boundary.intro.ar)).toEqual(["max", "min", "minutesNoun"]);
     for (const k of ["min60_active", "nextDay_clock", "sameDay_clock"] as const)
       expect(tokens(D.pausedWhenTokens[k].en), k).toEqual(["time"]);
     expect(tokens(D.screens.scr_paused_today.en)).toEqual(["when"]);
@@ -556,7 +554,6 @@ describe("Arabic and English", () => {
   ];
   // Word lists and rules keyed by language, not translations of one text.
   const NOT_TEXT = [
-    ".boundary.intro.tokens.minutesNoun",
     ".engine.speech.fineOnlyPhrases",
     ".engine.speech.notAnswers",
     ".engine.speech.notFineWords",
@@ -596,8 +593,7 @@ describe("Arabic and English", () => {
   });
 
   it("Arabic and English use the same {tokens}", () => {
-    // O40: {minutesNoun} is the Arabic noun for the larger number; English says minutes itself.
-    const ARABIC_ONLY: Record<string, string[]> = { ".boundary.intro": ["minutesNoun"] };
+    const ARABIC_ONLY: Record<string, string[]> = {};
     for (const { path, obj } of BILINGUAL)
       if (typeof obj.ar === "string" && typeof obj.en === "string") {
         const ar = tokens(obj.ar).filter((t) => !(ARABIC_ONLY[path] ?? []).includes(t));
@@ -778,7 +774,7 @@ describe("typed accessors", () => {
 
   it("the revision 1.1 accessors return the data", () => {
     expect(stopFollowUp("sf_faint_loc").options.map((o) => o.value)).toEqual(["yes", "no", "unsure"]);
-    expect(endOfCheckQuestion("ec_symptoms").askSide.en).toContain("{side}");
+    expect(endOfCheckQuestion("ec_symptoms").listSide.en[0]).toContain("{side}");
     expect(setupQuestion("su_chair_gate").test).toBe("chair_stand_30s");
     expect(pausedWhenText("nextDay_clock", "en")).toBe("tomorrow after {time}");
     expect(emergencyCallButton("en")).toEqual({ label: "Call 997", href: "tel:997" });

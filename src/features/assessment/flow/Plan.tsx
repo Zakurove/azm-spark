@@ -65,7 +65,8 @@ export function Warnings({ model, dispatch }: ScreenProps) {
     return out;
   });
   const autoplay = model.data.setting === "home" && !booth && model.data.soundMode === "voice";
-  useEntryLines(voice, lines, autoplay);
+  // The lines are the cards themselves: read aloud, never repeated in the caption strip (R-10).
+  useEntryLines(voice, lines, autoplay, { onScreen: true });
   return (
     <CheckShell
       sound
@@ -92,7 +93,7 @@ export function Warnings({ model, dispatch }: ScreenProps) {
               ))}
           </NoticeCard>
         ))}
-        <ListenButton onClick={() => void voice.play(lines)} />
+        <ListenButton onClick={() => void voice.play(lines, { onScreen: true })} />
       </div>
     </CheckShell>
   );

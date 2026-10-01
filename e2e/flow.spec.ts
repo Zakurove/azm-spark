@@ -601,6 +601,19 @@ for (const lang of LANGS) {
   test.describe(`flow screens, signed in at home (${lang})`, () => {
     test.use(MOBILE);
 
+    test("S25 at home reads its cards aloud with no caption repeating them above (R-10)", async ({
+      page,
+    }) => {
+      await signIn(page);
+      await openState(page, "S25-warnings-home", lang);
+      await expect(page.locator('[data-screen="S25"] .check-body').first()).toBeVisible();
+      // The cards are read from 800 ms after the screen opens, each for its reading time.
+      for (let i = 0; i < 6; i++) {
+        await page.waitForTimeout(500);
+        await expect(page.locator(".check-caption")).toHaveCount(0);
+      }
+    });
+
     test("first check: consent, context, intro, questions, start, warnings, plan, helper, grip and load", async ({
       page,
     }) => {
@@ -653,7 +666,7 @@ for (const lang of LANGS) {
       // The start call ran with the answers; S25 shows the high pain caution.
       expect(mocks.starts).toHaveLength(1);
       await expectScreen(page, "S25", lang);
-      // The card is a region named by its tone; at home in voice mode it is also read and captioned.
+      // The card is a region named by its tone; at home in voice mode it is also read.
       await expect(
         page.getByRole("region", { name: t.tone.warn }).getByText(data.screens.warn_pain_high[lang]),
       ).toBeVisible();

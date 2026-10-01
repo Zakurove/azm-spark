@@ -47,10 +47,9 @@ function html(lang: Lang, node: ReactElement, ui: Partial<typeof DEFAULT_UI> = {
   );
 }
 
-/** The visible text: tags removed, the development screen id chip and hidden SVG text left out. */
+/** The visible text: tags removed, hidden SVG text left out. */
 function text(markup: string): string {
   return markup
-    .replace(/<span class="check-chip check-stub-id"[^>]*>[^<]*<\/span>/g, " ")
     .replace(/<bdi lang="en"[^>]*>[^<]*<\/bdi>/g, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&[a-z#0-9]+;/g, " ")

@@ -21,7 +21,6 @@ import { storedCheckModel } from "../assessment/results/model";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { useCheckUi } from "../assessment/shared/CheckUi";
-import { ScreenIdChip } from "../assessment/shared/ScreenStub";
 import { OfflineBanner } from "../assessment/shared/states";
 import { resumeAllowed } from "../assessment/useCheckFlow";
 import { progressApi, useCheckData } from "./data";
@@ -308,7 +307,6 @@ export function ResultsPage({ lang, booth, onStartCheck, onOpenProgram, owner }:
           <section className="pg-section" data-screen="S53" aria-labelledby={headingId}>
             <h2 id={headingId}>{t(lang, "progress.checks.heading")}</h2>
             {checksBody}
-            <ScreenIdChip id="S53" />
           </section>
           <section className="pg-section" aria-labelledby={sessionsId} data-block="sessions">
             <h2 id={sessionsId}>{t(lang, "progress.sessions.heading")}</h2>

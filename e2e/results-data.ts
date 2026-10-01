@@ -532,15 +532,15 @@ export function watchConsole(page: Page): string[] {
 
 /**
  * The smallest text on screen inside the check root, in CSS pixels (UX spec 0.4: nothing under 16 px):
- * HTML text at its computed size, SVG text at its size times the drawing's scale. The development
- * screen id chip and visually hidden text are left out.
+ * HTML text at its computed size, SVG text at its size times the drawing's scale. Visually hidden
+ * text is left out.
  */
 export async function smallestText(page: Page): Promise<{ px: number; text: string }> {
   return page.evaluate(() => {
     let min = { px: Infinity, text: "" };
     const visible = (el: Element) => {
       const r = el.getBoundingClientRect();
-      return r.width > 1 && r.height > 1 && !el.closest(".check-visually-hidden, .check-stub-id");
+      return r.width > 1 && r.height > 1 && !el.closest(".check-visually-hidden");
     };
     for (const root of document.querySelectorAll(".azm-check")) {
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);

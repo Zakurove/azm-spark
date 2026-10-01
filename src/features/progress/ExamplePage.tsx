@@ -12,7 +12,6 @@ import { t } from "../../i18n";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { CheckShell } from "../assessment/shared/CheckShell";
-import { ScreenIdChip } from "../assessment/shared/ScreenStub";
 import { EXAMPLE_PERSON, exampleSessions, exampleViews } from "./example";
 import { ResultsFooter } from "./ResultsPage";
 import { seriesCards } from "./series";
@@ -86,7 +85,6 @@ export function ExampleProgress({
               </li>
             ))}
           </ul>
-          <ScreenIdChip id="S54" />
         </section>
         <section className="pg-section" aria-labelledby={sessionsId}>
           <h2 id={sessionsId}>{t(lang, "progress.sessions.heading")}</h2>

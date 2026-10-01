@@ -25,7 +25,6 @@ import type { ScreenProps } from "../screenTypes";
 import { CheckShell } from "../shared/CheckShell";
 import { useCheckUi } from "../shared/CheckUi";
 import { ErrorState } from "../shared/states";
-import { ScreenIdChip } from "../shared/ScreenStub";
 import { resultsModel, type ResultsModel } from "./model";
 import { ResetDialog, startNextVisitor } from "../booth/BoothLayer";
 import { QrCode } from "../shared/QrCode";
@@ -226,7 +225,6 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
             onRetry={retrySave}
           />
         )}
-        <ScreenIdChip id={screen} />
       </div>
 
       <ResultCards model={r} views={views ?? undefined} heavier={heavier} />

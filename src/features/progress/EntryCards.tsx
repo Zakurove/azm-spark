@@ -20,7 +20,6 @@ import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { CallLink } from "../assessment/shared/CheckShell";
 import { useCheckUi } from "../assessment/shared/CheckUi";
-import { ScreenIdChip } from "../assessment/shared/ScreenStub";
 import { useOnline } from "../assessment/shared/useOnline";
 import { queueNextDayAnswer, resumeAllowed } from "../assessment/useCheckFlow";
 import { progressApi, useCheckData } from "./data";
@@ -248,7 +247,6 @@ export function EntryCard({
           )}
         </p>
       )}
-      <ScreenIdChip id="S01" />
       {early && (
         <EarlyStartDialog
           onStart={() => {
@@ -442,7 +440,6 @@ export function NextDayQuestion({ lang, onSend, onNotNow }: NextDayQuestionProps
       >
         {t(lang, "assessment.after.notNow")}
       </button>
-      <ScreenIdChip id="S03" />
     </section>
   );
 }
@@ -493,7 +490,6 @@ export function AfterIntakeOffer({ lang, minutes, onStart, onLater, returnFocus 
           <button type="button" className="ghost" onClick={onLater}>
             {t(lang, "assessment.afterIntake.later")}
           </button>
-          <ScreenIdChip id="S02" />
         </div>
       </CheckDialog>
     </CheckRoot>

@@ -845,16 +845,6 @@ html:has(.azm-check.check-page) {
   background: none;
 }
 
-/* ------------------------------------------------------------ stubs (round 3 foundation) */
-
-.azm-check .check-stub {
-  display: grid;
-  gap: var(--s3);
-}
-.azm-check .check-stub-id {
-  justify-self: start;
-}
-
 /* ------------------------------------------------------------ reduced motion (principle 17) */
 
 @media (prefers-reduced-motion: reduce) {

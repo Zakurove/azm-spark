@@ -165,11 +165,9 @@ async function answerQuestions(page: Page, lang: Lang, pain = 0, seen: string[] 
   return seen;
 }
 
-/** The two numbers of a minutes range in either language ("17 to 23", «١٧ إلى ٢٣»). */
-function minutesOf(text: string): [number, number] {
-  const latin = text.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-  const [a, b] = latin.match(/\d+/g)!.map(Number);
-  return [a, b];
+/** D-017 item 1: no screen of the booth path states a time. */
+async function expectNoTime(page: Page, lang: Lang) {
+  await expect(page.locator("body")).not.toContainText(lang === "ar" ? /دقيق|دقائق/ : /\bminutes?\b/i);
 }
 
 /** Opens a named state of e2e/flow-models.ts through the check's reload snapshot. */
@@ -310,8 +308,10 @@ for (const lang of LANGS) {
       const [gold, outline] = [page.locator(".check-footer .cta"), page.locator(".check-footer .ghost")];
       expect((await outline.boundingBox())!.height).toBe((await gold.boundingBox())!.height);
       await expectTargets(page);
-      // The full check's range on S05 (C11): S27 states a range inside it, from the same function.
-      const offered = minutesOf((await outline.textContent())!);
+      // D-017 item 1: the buttons name the path only, and no time shows anywhere on the booth path.
+      await expect(gold).toHaveText(t.guest.quickTry);
+      await expect(outline).toHaveText(t.guest.fullCheck);
+      await expectNoTime(page, lang);
       await outline.click();
 
       // S06, S07: single choice submits on tap; Back keeps the answer.
@@ -329,6 +329,7 @@ for (const lang of LANGS) {
 
       // S08: Next without a choice shows the hint and moves focus to the first row; none is exclusive.
       await expectScreen(page, "S08", lang);
+      await expectNoTime(page, lang);
       await next(page).click();
       await expect(page.getByText(t.common.chooseToContinue)).toBeVisible();
       const none = answer(page, data.selection.guestBooth.conditionsStep.noneChip[lang]);
@@ -355,17 +356,17 @@ for (const lang of LANGS) {
       await expect(page.locator(".check-topbar-counter")).toHaveCount(0);
       await expect(page.locator(".check-progress")).toBeVisible();
       await expectTargets(page);
+      await expectNoTime(page, lang);
       const seen = await answerQuestions(page, lang, 3);
       expect(seen[0]).toBe("pc_urgent");
       expect(seen).toContain("pc_pain_now");
       expect(seen).toContain("pc_pain_areas");
 
-      // S27: the frozen plan, no Back, and a range inside S05's (C11).
+      // S27: the frozen plan, no Back, and no time (D-017 item 1).
       await expectScreen(page, "S27", lang);
       await expect(page.getByRole("button", { name: t.common.back, exact: true })).toHaveCount(0);
-      const stated = minutesOf((await screen(page, "S27").locator(".check-meta").first().textContent())!);
-      expect(stated[0]).toBeGreaterThanOrEqual(offered[0]);
-      expect(stated[1]).toBeLessThanOrEqual(offered[1]);
+      await expect(screen(page, "S27").locator(".check-meta").first()).toHaveText(t.plan.skipAny);
+      await expectNoTime(page, lang);
       await expectTargets(page);
       await page.getByRole("button", { name: t.plan.start }).click();
 
@@ -373,6 +374,7 @@ for (const lang of LANGS) {
       await expectScreen(page, "S28", lang);
       await expect(page.getByText(t.test.placeBooth).first()).toBeVisible();
       await expect(page.getByRole("button", { name: t.common.skipTest })).toBeVisible();
+      await expectNoTime(page, lang);
       await page.getByRole("button", { name: t.test.ready }).click();
 
       // No camera primer at the booth (C08): the camera screens follow at once.

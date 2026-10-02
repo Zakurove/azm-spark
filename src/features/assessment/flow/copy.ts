@@ -162,7 +162,7 @@ export function emphasize(text: string, words: readonly string[]): EmphasisPart[
   return out;
 }
 
-/* ================================================================ durations (S05, S14, S27) */
+/* ================================================================ durations (S27 at home) and S05 paths */
 
 /** Vars of a duration range for t(): {minutesFrom} to {minutesTo} {unit}. */
 export function rangeVars([from, to]: readonly [number, number]): Vars {
@@ -172,29 +172,20 @@ export function rangeVars([from, to]: readonly [number, number]): Vars {
 const POSITIONS: readonly CheckPosition[] = ["chair", "wheelchair", "standing"];
 
 /**
- * The guest's two paths on S05 (O40, F-2, C11), from the tests that run at this booth (D-016 item 4),
- * each the stated range of its tests (statedMinutes): the one test path is its one test alone (the
- * arm raise, or the first test still on, F-1 D), at its upper minutes; until the position is known the
- * full check spans the three positions' base selections, so the range S27 states for any visitor's
- * tests lies inside it. A path with no test to run is null, and S05 does not offer it.
+ * The guest's two paths on S05 (O40, F-2), from the tests that run at this booth (D-016 item 4): the
+ * one test path while a one test is still on (the arm raise, or the first test still on, F-1 D), the
+ * full check while any position's base selection keeps a test. A path with nothing to run is not
+ * offered. No path states a time (D-017 item 1).
  */
-export function guestMinutes(testsOff: readonly TestId[]): {
-  quick: number | null;
-  full: [number, number] | null;
-} {
-  const one = oneTest(testsOff);
-  const quick = one ? statedMinutes([one], "booth")[1] : null;
-  let from = Infinity;
-  let to = 0;
-  for (const position of POSITIONS) {
-    const all = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
-    const tests = all.filter((t) => !testsOff.includes(t));
-    if (!tests.length) continue;
-    const [a, b] = statedMinutes(tests, "booth");
-    from = Math.min(from, a);
-    to = Math.max(to, b);
-  }
-  return { quick, full: to > 0 ? [from, to] : null };
+export function guestPaths(testsOff: readonly TestId[]): { quick: boolean; full: boolean } {
+  return {
+    quick: oneTest(testsOff) !== null,
+    full: POSITIONS.some((position) =>
+      (CHECK_DATA.selection.basePerPosition[position] as readonly TestId[]).some(
+        (t) => !testsOff.includes(t),
+      ),
+    ),
+  };
 }
 
 /* ================================================================ guest steps (S06 to S11) */
@@ -828,7 +819,8 @@ export interface PlanView {
    * booth offer after a test kept for the booth, while the booth days include today).
    */
   skipped: { names: string[]; reasons: string[] };
-  minutes: [number, number];
+  /** The stated range at home; null at the booth, which states no time (D-017 item 1). */
+  minutes: [number, number] | null;
 }
 
 /** The booth days (S27 booth_offer): the offer line shows only while they include today. */
@@ -910,11 +902,8 @@ export function planView(
   return {
     rows,
     skipped,
-    // C11: the tests that run, read as every screen reads them (statedMinutes).
-    minutes: statedMinutes(
-      rows.map((r) => r.testId),
-      env.setting,
-    ),
+    // C11: the tests that run, read as every home screen reads them (statedMinutes).
+    minutes: env.setting === "home" ? statedMinutes(rows.map((r) => r.testId)) : null,
   };
 }
 

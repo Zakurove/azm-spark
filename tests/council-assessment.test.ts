@@ -262,15 +262,15 @@ describe("P6: the substitute sentence on the chair stand's skip reason", () => {
 
 /* -------------------------------------------------------- O40 duration */
 
-describe("O40: estimateMinutes, the computed duration", () => {
+describe("O40: estimateMinutes, the computed duration at home (D-017: the booth states no time)", () => {
   const add = (...xs: [number, number][]) =>
     xs.reduce<[number, number]>((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
 
   it("O40: a wheelchair user at home with three tests and no weight gets 16 to 21 minutes", () => {
     const ctx = ctxOf({ position: "wheelchair", clearance: "unsure" });
     const p = protocolOf(ctx, "home");
-    expect(estimateMinutes(p, ctx, "home")).toEqual([16, 21]);
-    expect(estimateMinutes(p, ctx, "home")).toEqual(
+    expect(estimateMinutes(p, ctx)).toEqual([16, 21]);
+    expect(estimateMinutes(p, ctx)).toEqual(
       add(
         EST.overhead,
         EST.precheckWithConditionQuestions,
@@ -282,10 +282,10 @@ describe("O40: estimateMinutes, the computed duration", () => {
     );
   });
 
-  it("O40: a load adds the load minutes; a guest adds the guest steps", () => {
+  it("O40: a load adds the load minutes", () => {
     const ctx = ctxOf({ position: "standing" });
     const home = protocolOf(ctx, "home");
-    expect(estimateMinutes(home, ctx, "home")).toEqual(
+    expect(estimateMinutes(home, ctx)).toEqual(
       add(
         EST.overhead,
         EST.precheckWithConditionQuestions,
@@ -294,41 +294,27 @@ describe("O40: estimateMinutes, the computed duration", () => {
         EST.arm_curl_30s_withLoad,
       ),
     );
-    // D-016: a guest who is not cleared gets the side lean in the chair stand slot, with no staff
-    // measurement minutes.
-    const g = ctxOf({ position: "standing", clearance: "unsure" });
-    const booth = protocolOf(g, "booth");
-    expect(estimateMinutes(booth, g, "booth", true)).toEqual(
-      add(
-        EST.overhead,
-        EST.guestSteps,
-        EST.precheckWithConditionQuestions,
-        EST.shoulder_abduction,
-        EST.trunk_control_seated,
-        EST.arm_curl_30s_noLoad,
-      ),
-    );
   });
 
   it("O40: skipped tests add nothing; rests and practice are inside each test's minutes and never cut", () => {
-    // Stroke with no weaker side and only the arm raise: no condition question can appear.
-    const ctx = contextOf(guest({ conditions: ["stroke"], clearance: "no" }));
-    const p = protocolOf(ctx, "booth");
-    expect(estimateMinutes(p, ctx, "booth", true)).toEqual(
-      add(EST.overhead, EST.guestSteps, EST.precheck, EST.shoulder_abduction),
+    const ctx = ctxOf({ position: "wheelchair", clearance: "unsure" });
+    const p = protocolOf(ctx, "home").map((i) =>
+      i.testId === "arm_curl_30s" ? { ...i, skipped: "pain_today" as const } : i,
     );
-    // With a weaker side the arm questions appear (pc_weak_lift, pc_weak_shoulder).
-    const weak = contextOf(guest({ conditions: ["stroke"], clearance: "no", support: "left" }));
-    expect(estimateMinutes(protocolOf(weak, "booth"), weak, "booth", true)).toEqual(
-      add(EST.overhead, EST.guestSteps, EST.precheckWithConditionQuestions, EST.shoulder_abduction),
+    expect(estimateMinutes(p, ctx)).toEqual(
+      add(
+        EST.overhead,
+        EST.precheckWithConditionQuestions,
+        EST.shoulder_abduction,
+        EST.trunk_control_seated,
+        EST.helperBriefing,
+      ),
     );
   });
 
   it("O40: before the pre-check a list of test ids gives the upper reading (load at home, helper for the side lean)", () => {
     const ctx = ctxOf();
-    expect(
-      estimateMinutes(["shoulder_abduction", "trunk_control_seated", "arm_curl_30s"], ctx, "home"),
-    ).toEqual(
+    expect(estimateMinutes(["shoulder_abduction", "trunk_control_seated", "arm_curl_30s"], ctx)).toEqual(
       add(
         EST.overhead,
         EST.precheckWithConditionQuestions,
@@ -338,8 +324,8 @@ describe("O40: estimateMinutes, the computed duration", () => {
         EST.arm_curl_30s_withLoad,
       ),
     );
-    expect(estimateMinutes(["shoulder_abduction"], null, "booth", true)).toEqual(
-      add(EST.overhead, EST.guestSteps, EST.precheckWithConditionQuestions, EST.shoulder_abduction),
+    expect(estimateMinutes(["shoulder_abduction"], null)).toEqual(
+      add(EST.overhead, EST.precheckWithConditionQuestions, EST.shoulder_abduction),
     );
   });
 });

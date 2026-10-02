@@ -10,8 +10,8 @@
  *                      (spec 3.2 to 3.4)
  *   finalizeProtocol   today's protocol after the pre-check: skips, variants, helper, band, and
  *                      whether the substitute ran (P6)
- *   estimateMinutes    the computed duration of a check (O40)
- *   statedMinutes      the one range every screen states for a set of tests (C11)
+ *   estimateMinutes    the computed duration of a check at home (O40)
+ *   statedMinutes      the one range every home screen states for a set of tests (C11)
  *   checkSchedule      due 28 days after the last home check; 48 hours minimum between checks; the
  *                      booth and the side lean only session (H9, Q12 (2), Q33)
  *   allowedLoads       the loads an arm may use (Q5)
@@ -690,21 +690,19 @@ type Minutes = [number, number];
 const plus = (a: Minutes, b: readonly [number, number]): Minutes => [a[0] + b[0], a[1] + b[1]];
 
 /**
- * The computed duration of a check in minutes, [from, to] (O40; UX spec S27): overhead (intro, sound
- * check, results), the guest steps for a guest, the pre-check (longer with condition questions), and
- * per test that runs today its own minutes, which hold every rest, practice and answer (never cut):
- * the arm curl with or without a load, and a helper briefing for each test with a helper. With
- * protocol items the day's skips, variants and helpers are known; with test ids (before the
- * pre-check) the upper reading is used: a load at home when no rule forbids it, a helper briefing for
- * the side lean at home.
+ * The computed duration of a check at home in minutes, [from, to] (O40; UX spec S27): overhead
+ * (intro, sound check, results), the pre-check (longer with condition questions), and per test that
+ * runs today its own minutes, which hold every rest, practice and answer (never cut): the arm curl
+ * with or without a load, and a helper briefing for each test with a helper. With protocol items the
+ * day's skips, variants and helpers are known; with test ids (before the pre-check) the upper reading
+ * is used: a load when no rule forbids it, a helper briefing for the side lean. The booth states no
+ * time (D-017 item 1), so there is no booth reading.
  */
 // SPEC-GAP: estimate-helper-stand. The data adds the helper briefing minute to the side lean; a
 // chair stand with a helper briefing gets the same minute (an estimate is never too short).
 export function estimateMinutes(
   items: readonly ProtocolItem[] | readonly TestId[],
   ctx: CheckContext | null,
-  setting: Setting,
-  guest = false,
 ): Minutes {
   const E = CHECK_DATA.selection.sessionMinutes.startingEstimatesMinutes;
   const known = items.length > 0 && typeof items[0] !== "string";
@@ -713,7 +711,6 @@ export function estimateMinutes(
     ? [...new Set(protocol.map((i) => i.testId))]
     : [...new Set(items as readonly TestId[])];
   const helper = (t: TestId): boolean => {
-    if (setting !== "home") return false;
     if (known) return protocol.some((i) => i.testId === t && i.helperRequired);
     if (t === "trunk_control_seated") return true;
     return (
@@ -723,14 +720,12 @@ export function estimateMinutes(
     );
   };
   const withLoad = (): boolean => {
-    if (setting === "booth") return false;
     if (known) return protocol.some((i) => i.testId === "arm_curl_30s" && i.variant !== "arm_only");
     if (!ctx) return true;
     return ctx.clearance === "yes" && !ctx.restrictions.includes("no_resistance");
   };
   let m: Minutes = [...E.overhead] as Minutes;
-  if (guest) m = plus(m, E.guestSteps);
-  m = plus(m, conditionQuestions(tests, ctx, setting) ? E.precheckWithConditionQuestions : E.precheck);
+  m = plus(m, conditionQuestions(tests, ctx) ? E.precheckWithConditionQuestions : E.precheck);
   for (const t of tests) {
     if (t === "shoulder_abduction") m = plus(m, E.shoulder_abduction);
     if (t === "arm_curl_30s") m = plus(m, withLoad() ? E.arm_curl_30s_withLoad : E.arm_curl_30s_noLoad);
@@ -742,20 +737,19 @@ export function estimateMinutes(
 }
 
 /**
- * The range a screen states for a check (C11): its tests in a setting, always read with the worst
- * case context, so the same tests give the same range on every screen (S05 and S27 at the booth, S01
- * and S27 at home) and a stated range only lengthens (F-2 Rule 1). Fewer tests may give fewer minutes.
- * At the booth the guest steps are counted.
+ * The range a home screen states for a check (C11): its tests read with the worst case context, so
+ * the same tests give the same range on S01, S02 and S27 and a stated range only lengthens (F-2
+ * Rule 1). Fewer tests may give fewer minutes.
  */
-export function statedMinutes(tests: readonly TestId[], setting: Setting): Minutes {
-  return estimateMinutes([...new Set(tests)], null, setting, setting === "booth");
+export function statedMinutes(tests: readonly TestId[]): Minutes {
+  return estimateMinutes([...new Set(tests)], null);
 }
 
 /** Whether the pre-check can ask condition, standing or setup questions (the Q18 time budget). */
-function conditionQuestions(tests: readonly TestId[], ctx: CheckContext | null, setting: Setting): boolean {
+function conditionQuestions(tests: readonly TestId[], ctx: CheckContext | null): boolean {
   if (!ctx) return true;
   const env: PrecheckEnv = {
-    setting,
+    setting: "home",
     ctx,
     setup: null,
     firstCheck: true,

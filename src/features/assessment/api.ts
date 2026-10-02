@@ -631,7 +631,7 @@ export function resumeCheckOf(open: OpenCheck | null, checks: readonly StoredChe
  * stated range of the context's base tests (C11), the one S27 states for the same tests.
  */
 export function offerMinutes(c: Pick<ContextResponse, "baseTests" | "ctx">): [number, number] {
-  const [from, to] = statedMinutes(c.baseTests as TestId[], "home");
+  const [from, to] = statedMinutes(c.baseTests as TestId[]);
   return [from, to];
 }
 

@@ -19,7 +19,6 @@ import {
   EMPHASIS,
   fillTokens,
   firstAreaWithoutScore,
-  guestMinutes,
   guestStepView,
   helperBriefScreen,
   illustrationAlt,
@@ -171,19 +170,7 @@ describe("durations (O40, C11)", () => {
   const protocolOf = (tests: readonly TestId[]): ProtocolItem[] =>
     tests.map((testId, i) => item({ testId, side: "none", order: i + 1 }));
 
-  it("one range for a set of tests in a setting: S05 and S27 at the booth, S01 and S27 at home", () => {
-    // The booth: S27 states the range of the visitor's tests, inside the full range S05 offers for
-    // every position, and both come from statedMinutes.
-    const full = guestMinutes([]).full!;
-    for (const position of ["chair", "wheelchair", "standing"] as const) {
-      const tests = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
-      const s27 = planView(protocolOf(tests), envOf({ position }, { setting: "booth" }), "en", NOW).minutes;
-      expect(s27).toEqual(statedMinutes(tests, "booth"));
-      expect(s27[0]).toBeGreaterThanOrEqual(full[0]);
-      expect(s27[1]).toBeLessThanOrEqual(full[1]);
-    }
-    // The one test path states its upper minutes on S05 from the same function.
-    expect(guestMinutes([]).quick).toBe(statedMinutes(["shoulder_abduction"], "booth")[1]);
+  it("one range for a set of tests at home: S01 and S27; the booth states no time (D-017)", () => {
     // Home: S01 (the context's base tests) and S27 (the same tests frozen) say the same range,
     // whatever the person's context and the day's variants.
     const ctx = envOf({ position: "chair", support: "left", conditions: ["stroke"] });
@@ -194,7 +181,9 @@ describe("durations (O40, C11)", () => {
     );
     expect(planView(frozen, ctx, "en", NOW).minutes).toEqual(s01);
     // Fewer tests may say fewer minutes.
-    expect(statedMinutes(["shoulder_abduction"], "home")[1]).toBeLessThan(statedMinutes(chair, "home")[1]);
+    expect(statedMinutes(["shoulder_abduction"])[1]).toBeLessThan(statedMinutes(chair)[1]);
+    // The booth plan carries no minutes.
+    expect(planView(protocolOf(chair), envOf({}, { setting: "booth" }), "en", NOW).minutes).toBeNull();
   });
 });
 
@@ -593,7 +582,7 @@ describe("the plan (S27, P6)", () => {
       skipReasonText("helper_needed", "en"),
       skipReasonText("restriction_weight_bearing", "en"),
     ]);
-    expect(v.minutes).toEqual(statedMinutes(["shoulder_abduction", "arm_curl_30s"], "home"));
+    expect(v.minutes).toEqual(statedMinutes(["shoulder_abduction", "arm_curl_30s"]));
   });
 
   it("offers the booth only on booth days, and never for a test skipped for clearance (D-016)", () => {

@@ -544,8 +544,6 @@ describe("shared UI helpers", () => {
     expect(minutesUnit("en", 1)).toBe("minute");
     expect(minutesUnit("en", 21)).toBe("minutes");
     // Durations pass unit "min": the oblique dual after a preposition, never a numeral with it.
-    expect(t("ar", "assessment.guest.quickTry", { minutes: 2, unit: "min" })).toContain("في نحو دقيقتين");
-    expect(t("ar", "assessment.guest.quickTry", { minutes: 1, unit: "min" })).toContain("في نحو دقيقة واحدة");
     expect(t("ar", "assessment.afterIntake.body", { minutesFrom: 16, minutesTo: 21, unit: "min" })).toContain(
       "نحو ١٦ إلى ٢١ دقيقة",
     );
@@ -562,7 +560,6 @@ describe("shared UI helpers", () => {
     expect(t("en", "assessment.plan.meta", { minutesFrom: 1, minutesTo: 2, unit: "min" })).toContain(
       "1 to 2 minutes",
     );
-    expect(t("en", "assessment.guest.quickTry", { minutes: 2, unit: "min" })).toContain("2 minutes");
   });
 
   it("browser families for the camera permission steps", () => {

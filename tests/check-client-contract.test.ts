@@ -475,7 +475,7 @@ describe("the offer after the intake (S02) shows the computed minutes (O40)", ()
     const r = await clientFor(cookie).getContext();
     if (!r.ok) throw new Error("context");
     const minutes = offerMinutes(r.value);
-    expect(minutes).toEqual(estimateMinutes(r.value.baseTests as never, r.value.ctx ?? null, "home"));
+    expect(minutes).toEqual(estimateMinutes(r.value.baseTests as never, r.value.ctx ?? null));
     expect(minutes[0]).toBeGreaterThan(0);
     expect(minutes[1]).toBeGreaterThanOrEqual(minutes[0]);
   });

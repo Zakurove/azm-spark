@@ -1341,7 +1341,6 @@ export interface SessionMinutes {
   includes: string;
   startingEstimatesMinutes: {
     overhead: [number, number];
-    guestSteps: [number, number];
     precheck: [number, number];
     precheckWithConditionQuestions: [number, number];
     shoulder_abduction: [number, number];

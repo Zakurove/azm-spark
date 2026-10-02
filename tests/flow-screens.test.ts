@@ -43,6 +43,8 @@ function screen(m: FlowModel, lang: Lang, ui = {}): { id: FlowScreenId; html: st
 }
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
+/** A duration in either language (D-017 item 1: no time on the booth path). */
+const MINUTES: Record<Lang, RegExp> = { ar: /دقيق|دقائق/, en: /\bminutes?\b/i };
 const welcome = () => play(initialModel(GUEST), { type: "START" });
 
 /* ------------------------------------------------------------------ models of every screen */
@@ -85,6 +87,7 @@ function models(): Record<string, FlowModel> {
     S24: untilQuestion(q, "pc_surgery_recent:areas", { pc_surgery_recent: "yes" })!,
     S25: signedStarted(contextOf(), { pc_pain_now: 7, pc_pain_areas: {} }),
     S27: plan,
+    S27home: signedPlan,
     S28: play(plan, { type: "PLAN_START" }),
     S31: play(signedPlan, { type: "PLAN_START" }, { type: "READY" }),
     S33: answerTo(q, "pc_unwell", "yes"),
@@ -161,14 +164,18 @@ describe("entry screens", () => {
   it("S05: one gold path, the full check outlined, two short lines, the adult line above the starts", () => {
     for (const lang of LANGS) {
       const { html, text } = screen(M.S05, lang);
-      // C03: gold is the one test; the full check stays visible as an outline button with its minutes.
+      // C03: gold is the one test; the full check stays visible as an outline button.
       expect(count(html, 'class="cta"')).toBe(1);
       expect(count(html, 'class="ghost"')).toBe(1);
+      // D-017 item 1: the buttons name the path only; no time anywhere on the booth path.
+      expect(text).toContain(textOf(t(lang, "assessment.guest.quickTry")));
+      expect(text).toContain(textOf(t(lang, "assessment.guest.fullCheck")));
+      expect(text).not.toMatch(MINUTES[lang]);
       expect(text).toContain(textOf(t(lang, "assessment.guest.notSaved")));
       expect(text).toContain(textOf(CHECK_DATA.boundary.notMedical[lang]));
       // C33: no boundary paragraph at the booth (its comparison sentence is not true where nothing is kept).
       expect(text).not.toContain(textOf(CHECK_DATA.boundary.line[lang]));
-      expect(html).toContain(t(lang, "assessment.guest.seeExample"));
+      expect(html).toContain(t(lang, "assessment.guest.boothOnly.example"));
       // C02: the adult line word for word, directly above the start buttons, and the under 18 link.
       const footer = html.slice(html.indexOf("<footer"));
       const adult = localizeDigits(lang, CHECK_DATA.boundary.adultConfirm[lang]);
@@ -374,13 +381,20 @@ describe("after the pre-check (S25, S26, S27)", () => {
     expect(warningText("warn_ms_cool", "ar", null)).toBe(screenText("warn_ms_cool", "ar"));
   });
 
-  it("S27 lists the tests in order with the duration and a start button, and no Back", () => {
+  it("S27 at the booth lists the tests in order with a start button, no time and no Back (D-017)", () => {
     for (const lang of LANGS) {
       const { html, text } = screen(M.S27, lang);
       expect(html).toContain('class="flow-plan"');
       expect(text).toContain(t(lang, "assessment.plan.start"));
+      expect(text).toContain(t(lang, "assessment.plan.skipAny"));
+      expect(text).not.toMatch(MINUTES[lang]);
       expect(html).not.toContain(`aria-label="${t(lang, "assessment.common.back")}"`);
     }
+  });
+
+  it("S27 at home keeps the duration", () => {
+    expect(M.S27home.data.setting).toBe("home");
+    for (const lang of LANGS) expect(screen(M.S27home, lang).text).toMatch(MINUTES[lang]);
   });
 
   it("S27 with every test skipped names the way out (O21)", () => {

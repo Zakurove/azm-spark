@@ -6306,14 +6306,10 @@
       "cognitiveTestMethod": "5 to 8 users in each group whose screens are tested, never fewer than 5, including at least 5 people living with SCI for the AD screens (pc_sci_level, warn_sci_t6, pc_sci_ad_now, pc_sci_ready, scr_ad); each group includes women, adults over 60 and at least one person who reads little or uses a screen reader; screens are also tested by ear; scripted scenarios, not the participant's own health answers; a written paid participation agreement; no names in notes; no audio or video recording without separate consent; ethics approval if the findings will be published. The co-designers (H8) may take part. The other new questions go through the same testing before the first pilot participant (Q18 (6)). At least 5 people living with aphasia after stroke join the testing of pc_urgent and ec_symptoms (O37); the examples lists of pc_change and pc_unwell, with their speech lines, and the clearance question with its O39 hint are tested before the first pilot participant (O45, O39)."
     },
     "sessionMinutes": {
-      "computed": "estimateMinutes (UX spec S27): a range [min, max] from the tests, the setting, the helper briefings and the guest steps. Every screen states it through statedMinutes (simplicity cut C11): the tests with the worst case context, so the same tests show the same range on S01, S02, S05 and S27, and a stated range only lengthens.",
+      "computed": "estimateMinutes (UX spec S27): a range [min, max] of a check at home, from the tests and the helper briefings. Every home screen states it through statedMinutes (simplicity cut C11): the tests with the worst case context, so the same tests show the same range on S01, S02 and S27, and a stated range only lengthens. The booth states no time (D-017 item 1, Nasser, 2 October 2026): no minutes or duration estimate on S05, S27 or any other booth screen, cue or caption, so there is no booth reading and no guest steps estimate.",
       "includes": "Every estimate includes every rest (the 60 s side change, the seated minute after the chair stand, rests after stops), practice, the answers and the pre-check; none of these is ever shortened to meet a time target (O40).",
       "startingEstimatesMinutes": {
         "overhead": [
-          2,
-          2
-        ],
-        "guestSteps": [
           2,
           2
         ],
@@ -6350,8 +6346,8 @@
           6
         ]
       },
-      "status": "Estimates until the booth build is timed with the two H8 co-designers; the measured medians then replace them here and in S27.",
-      "target": "Council F-2 (30 September 2026): the booth default is the one test path, which staff offer first; the full check stays optional and is never hidden. F1: a wheelchair user finishes the booth one test path, from the tap on S05 to the results (S50), in a median of 12 minutes or less, in Arabic and in English, with no rest, practice, attempt, side, answer or pre-check item cut; for both booth paths the measured median falls inside the range the app states on S05 and S27. Before the booth freeze a median above a stated range lengthens these estimates; it never shortens them (O40).",
+      "status": "Estimates until home checks are timed; the measured medians then replace them here and in S27 at home.",
+      "target": "Council F-2 (30 September 2026): the booth default is the one test path, which staff offer first; the full check stays optional and is never hidden. F1: a wheelchair user finishes the booth one test path, from the tap on S05 to the results (S50), in a median of 12 minutes or less, in Arabic and in English, with no rest, practice, attempt, side, answer or pre-check item cut. This is a staff target only: the booth states no time (D-017 item 1). At home a measured median above a stated range lengthens these estimates; it never shortens them (O40).",
       "replaces": "the fixed [8, 10] of v1.1"
     },
     "conditionNotes": {

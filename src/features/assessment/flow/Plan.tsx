@@ -1,7 +1,8 @@
 /**
  * After the pre-check, before the camera:
  *   S25  Before you start: the warnings for the whole check (warn and info cards, read at home)
- *   S27  Your tests today: the frozen protocol, its duration and every skip with its reason (P6, C32)
+ *   S27  Your tests today: the frozen protocol, its duration at home and every skip with its reason
+ *        (P6, C32; the booth states no time, D-017)
  *   S26  Helper briefing (home, Q11, O34-2): read aloud sentence by sentence, the P4 picture
  */
 import { localizeDigits, t } from "../../../i18n";
@@ -128,7 +129,12 @@ export function Plan({ model, dispatch }: ScreenProps) {
         {none ? (
           <p className="check-body">{t(lang, "assessment.plan.noneBody")}</p>
         ) : (
-          <p className="check-meta">{t(lang, "assessment.plan.meta", rangeVars(view.minutes))}</p>
+          // D-017 item 1: the booth states no time; home keeps its estimate.
+          <p className="check-meta">
+            {view.minutes
+              ? t(lang, "assessment.plan.meta", rangeVars(view.minutes))
+              : t(lang, "assessment.plan.skipAny")}
+          </p>
         )}
         {view && view.rows.length > 0 && (
           <ol className="flow-plan">

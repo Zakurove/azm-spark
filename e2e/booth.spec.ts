@@ -223,15 +223,14 @@ for (const lang of LANGS) {
         "false",
       );
 
-      // S05: the one test is the arm curl now, with its own minutes (F-1 D: 13 as built); C03: the one
-      // test is the gold action, the full check an outline button beside it.
+      // S05: the one test is the arm curl now (F-1 D), with no minutes (D-017); C03: the one test is the
+      // gold action, the full check an outline button beside it.
       await page.getByRole("button", { name: c.booth.openGuest }).click();
       await expect(page.locator('[data-screen="S05"]')).toBeVisible();
       const paths = page.locator(".check-footer :is(.cta, .ghost)");
       await expect(paths).toHaveCount(2);
       await expect(page.locator(".check-footer .cta")).toHaveCount(1);
-      await expect(paths.first()).toContainText(c.guest.quickTry.split("{")[0].trim());
-      await expect(paths.first()).toContainText(lang === "ar" ? "١٣" : "13");
+      await expect(paths.first()).toHaveText(c.guest.quickTry);
 
       // Back on the staff page, both arm tests off: no one test path is offered.
       await page.goto(url("/?booth=1", lang));
@@ -239,7 +238,7 @@ for (const lang of LANGS) {
       await page.goto(url("/?check=1", lang));
       await expect(page.locator('[data-screen="S05"]')).toBeVisible();
       await expect(paths).toHaveCount(1);
-      await expect(paths.first()).toContainText(c.guest.fullCheck.split("{")[0].trim());
+      await expect(paths.first()).toHaveText(c.guest.fullCheck);
 
       // Turning booth mode off leaves the settings on the phone, but home never reads them.
       await page.goto(url("/?booth=1", lang));

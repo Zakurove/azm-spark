@@ -15,7 +15,7 @@ import { AnswerButtons } from "../shared/answers";
 import { CheckShell } from "../shared/CheckShell";
 import CheckIcon from "../shared/CheckIcon";
 import { useCheckUi } from "../shared/CheckUi";
-import { guestMinutes, localLabels } from "./copy";
+import { guestPaths, localLabels } from "./copy";
 import { QrCode, SamePress } from "./parts";
 import { unlockAudio } from "./voice";
 
@@ -96,33 +96,21 @@ export function DesktopGate({ dispatch }: ScreenProps) {
 
 export function GuestWelcome({ dispatch, model }: ScreenProps) {
   const { lang, online } = useCheckUi();
-  // F-2: the one test path first, the full check after it, each with the minutes of what runs at this
-  // booth; a path with no test switched on is not offered (D-016 item 4, F-1 D). C03: gold is the one
+  // F-2: the one test path first, the full check after it, each offered only while something of it
+  // runs at this booth (D-016 item 4, F-1 D), and no time on either (D-017 item 1). C03: gold is the one
   // test, the staff default; the full check stays visible as an outline button of the same size.
-  const minutes = guestMinutes(testsOff(model.data));
+  const paths = guestPaths(testsOff(model.data));
   // The start tap unlocks audio (4.6): the booth has no intro or sound check to do it (C04, C05).
   const start = (path: "quick" | "full") => () => {
     unlockAudio();
     dispatch({ type: "GUEST_PATH", path });
   };
-  const quick =
-    minutes.quick === null
-      ? undefined
-      : {
-          label: t(lang, "assessment.guest.quickTry", { minutes: minutes.quick, unit: "min" }),
-          onClick: start("quick"),
-        };
-  const full =
-    minutes.full === null
-      ? undefined
-      : {
-          label: t(lang, "assessment.guest.fullCheck", {
-            minutesFrom: minutes.full[0],
-            minutesTo: minutes.full[1],
-            unit: "min",
-          }),
-          onClick: start("full"),
-        };
+  const quick = paths.quick
+    ? { label: t(lang, "assessment.guest.quickTry"), onClick: start("quick") }
+    : undefined;
+  const full = paths.full
+    ? { label: t(lang, "assessment.guest.fullCheck"), onClick: start("full") }
+    : undefined;
   const primary = quick ?? full;
   const secondary = quick && full ? full : undefined;
   // C02: the adult line sits directly above the start buttons, so a start is the confirmation.
@@ -145,7 +133,7 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
           className="check-text-button flow-example-link"
           onClick={() => dispatch({ type: "EXAMPLE" })}
         >
-          {t(lang, "assessment.guest.seeExample")}
+          {t(lang, "assessment.guest.boothOnly.example")}
         </button>
         <button
           type="button"

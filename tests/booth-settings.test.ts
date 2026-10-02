@@ -2,12 +2,12 @@
  * Booth staff settings (D-016 item 4, council F-1 D, F-2): the switch that turns a single test off at
  * the booth, the arm raise plane check fallback and the staff readout toggle. Kept on the device, read
  * only in booth mode, never at home; a switched off test never appears in the visitor's tests today;
- * the one test path runs the first test still on, and S05 shows the minutes of what runs.
+ * the one test path runs the first test still on, and S05 offers only the paths that can run.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkConfig } from "../src/features/assessment/CheckApp";
 import type { FlowEffect, FlowModel } from "../src/features/assessment/flowMachine";
-import { guestMinutes } from "../src/features/assessment/flow/copy";
+import { guestPaths } from "../src/features/assessment/flow/copy";
 import {
   cleanSettings,
   DEFAULT_BOOTH_SETTINGS,
@@ -19,7 +19,6 @@ import {
   SWITCHABLE_TESTS,
   type BoothSettings,
 } from "../src/features/assessment/booth/settings";
-import { estimateMinutes } from "../src/medical/assessment";
 import { CHECK_DATA } from "../src/movements/assessments";
 import type { TestId } from "../src/movements/types";
 import { createElement } from "react";
@@ -191,28 +190,13 @@ describe("the one test path (F-1 D, F-2)", () => {
     for (const i of curl.data.protocol) expect(i.variant).toBe("arm_only");
   });
 
-  it("F-2: S05 offers one test in about 12 minutes by default, first, with the full check after it", () => {
-    const m = guestMinutes([]);
-    expect(m.quick).toBe(12);
-    expect(m.quick).toBe(estimateMinutes(["shoulder_abduction"], null, "booth", true)[1]);
-    // Until the position is known, the widest range of the three positions (17 to 23 as built).
-    for (const position of ["chair", "wheelchair", "standing"] as const) {
-      const tests = CHECK_DATA.selection.basePerPosition[position] as readonly TestId[];
-      const [a, b] = estimateMinutes(tests, null, "booth", true);
-      expect(m.full![0]).toBeLessThanOrEqual(a);
-      expect(m.full![1]).toBeGreaterThanOrEqual(b);
-    }
-    expect(m.full).toEqual([17, 23]);
-    expect(m.quick!).toBeLessThan(m.full![0]);
-  });
-
-  it("S05 shows the minutes of what runs: the arm curl's 13, and no one test when neither is on", () => {
-    expect(guestMinutes(["shoulder_abduction"]).quick).toBe(13);
-    expect(guestMinutes(["shoulder_abduction", "arm_curl_30s"]).quick).toBeNull();
-    // The full check without the arm raise is shorter, and it is never offered with no test at all.
-    const full = guestMinutes(["shoulder_abduction"]).full!;
-    expect(full[1]).toBeLessThan(guestMinutes([]).full![1]);
-    expect(guestMinutes([...SWITCHABLE_TESTS]).full).toBeNull();
+  it("F-2: S05 offers the one test first and the full check after it, by what runs (D-017: no minutes)", () => {
+    expect(guestPaths([])).toEqual({ quick: true, full: true });
+    // The arm curl is the one test when the arm raise is off; no one test when neither is on.
+    expect(guestPaths(["shoulder_abduction"])).toEqual({ quick: true, full: true });
+    expect(guestPaths(["shoulder_abduction", "arm_curl_30s"])).toEqual({ quick: false, full: true });
+    // The full check is never offered with no test at all.
+    expect(guestPaths([...SWITCHABLE_TESTS]).full).toBe(false);
   });
 });
 

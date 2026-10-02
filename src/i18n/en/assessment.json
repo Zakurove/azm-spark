@@ -171,9 +171,8 @@
     "register": "Create a free account",
     "newVisitor": "Start for a new visitor",
     "orOpen": "Or open {url}",
-    "quickTry": "Try one test, in about {minutes} {unit}",
-    "fullCheck": "The full check, in about {minutesFrom} to {minutesTo} {unit}",
-    "seeExample": "No time? See an example",
+    "quickTry": "Try one test",
+    "fullCheck": "The full check",
     "boothOnly": {
       "title": "For now, the movement check is available only at the Azm booth",
       "body": "You can see an example of the results page, or watch a demo.",
@@ -336,6 +335,7 @@
   "plan": {
     "title": "Your tests today",
     "meta": "About {minutesFrom} to {minutesTo} {unit}. You can skip any test.",
+    "skipAny": "You can skip any test.",
     "eachArm": "Each arm",
     "eachSide": "Each side",
     "withHelper": "With a helper",

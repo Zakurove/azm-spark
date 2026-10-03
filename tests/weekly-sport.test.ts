@@ -146,6 +146,7 @@ describe("the weekly plan model call with a sport (booth v2, B4)", () => {
     expect(person.goal).toBe("sport");
     expect(person.sport).toEqual({
       name: "Wheelchair basketball",
+      nameAr: "كرة السلة على الكراسي المتحركة",
       demands: sportById("wheelchair_basketball")!.demands,
     });
     const tail = user.slice(user.indexOf("Safe candidates:\n") + "Safe candidates:\n".length);

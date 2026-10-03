@@ -697,6 +697,12 @@
   stroke: var(--ink);
   stroke-width: 3;
 }
+/* Compact phones (375 x 667): the view diagram at 112 px, so the rest card's wheelchair side change
+   line and a setup view problem stay on screen with the ring and STOP. */
+.azm-check .s34-stage.is-compact .s34-topview {
+  width: 112px;
+  height: 112px;
+}
 .azm-check .s34-topview * {
   vector-effect: non-scaling-stroke;
 }

@@ -208,7 +208,10 @@ for (const lang of LANGS) {
 /** The values read from 2 m on the camera stage  });
 }
 
-/** The values read from 2 m on the camera stage, and the controls at the phone (4.1, 4.2, S34). */
+/**
+ * The values read from 2 m on the camera stage, the view diagram with its line (the wheelchair side
+ * change on S34j, a view problem on S34c) and the controls at the phone (4.1, 4.2, S34).
+ */
 const KEY_VALUES = [
   ".s34-count",
   ".s34-degrees",
@@ -221,6 +224,8 @@ const KEY_VALUES = [
   ".s34-caption-short",
   ".s34-restart",
   ".s34-at-phone button",
+  ".s34-topview",
+  ".s34-meta",
 ];
 
 /** The cues whose sentence always stays, whatever the fit level (R3C-16 (2) (e)). */

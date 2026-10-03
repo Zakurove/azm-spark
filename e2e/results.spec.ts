@@ -18,6 +18,7 @@
  * needs data the server cannot hold yet (e2e/results-data.ts).
  */
 import { expect, test, type Page } from "@playwright/test";
+import { DISCLAIMERS } from "../tests/no-disclaimers";
 import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import arProgress from "../src/i18n/ar/progress.json" with { type: "json" };
@@ -204,14 +205,9 @@ for (const lang of LANGS) {
       const origin = new URL(page.url()).origin;
       expect(await readQr(page, "svg[data-qr]")).toEqual([`${origin}/?app=1&register=1`]);
       await expect(page.locator("svg[data-qr]")).toHaveAttribute("aria-label", a.guest.qrAlt);
-      // The footer at the booth (C33): the see your doctor line and not medical, at 16 px or more.
-      const footer = page.locator(".check-results-footer p");
-      await expect(footer).toHaveCount(2);
-      await expect(footer.nth(1)).toHaveText(DATA.boundary.notMedical[lang]);
-      for (const size of await footer.evaluateAll((els) =>
-        els.map((e) => parseFloat(getComputedStyle(e).fontSize)),
-      ))
-        expect(size).toBeGreaterThanOrEqual(16);
+      // D-017 item 2: no footer disclaimer at the booth.
+      await expect(page.locator(".check-results-footer")).toHaveCount(0);
+      for (const d of DISCLAIMERS[lang]) await expect(page.locator("body")).not.toContainText(d);
       await expectReadable(page);
       await noSideScroll(page, 320);
       await page.setViewportSize({ width: 375, height: 812 });

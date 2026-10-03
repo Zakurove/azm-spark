@@ -269,7 +269,7 @@ export function safetyView(
     bigNumber: screens.some((s) => BIG_NUMBER.has(s)),
     calls,
     blocks,
-    kept: measured ? t(lang, guest ? "assessment.safety.keptGuest" : "assessment.safety.kept") : null,
+    kept: measured && !guest ? t(lang, "assessment.safety.kept") : null,
     paused,
     boothStaff,
     exitLabel,

@@ -5,7 +5,7 @@
  *     the lock card as a status with the care team release only when releasable;
  *   - S03: a fieldset with its legend and the three answers as buttons, none selected;
  *   - S50 to S52: one h1, the title per variant, values as text, "not measured" with its reason, the
- *     skip groups, the next step, the footer lines in order, the register block for a guest;
+ *     skip groups, the next step, the register block for a guest, and no disclaimer (D-017);
  *   - S52 and S53: verdicts in words from the data, the change in words, the number line's text
  *     alternative, the band sentence only with a verdict, the no verdict lines without a verdict;
  *   - S53 sessions: "n of every 10", never a percentage;
@@ -17,6 +17,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Lang } from "../src/app/i18n";
+import { disclaimersIn } from "./no-disclaimers";
 import { t } from "../src/i18n";
 import { CHECK_DATA } from "../src/movements/assessments";
 import type { ProtocolItem } from "../src/medical/assessment";
@@ -300,12 +301,11 @@ function screen(lang: Lang, model: FlowModel, ui: Partial<typeof DEFAULT_UI> = {
 
 describe("S50 to S52 results", () => {
   for (const lang of LANGS) {
-    it(`S50 guest: the values, the register block, the new visitor button and the footer (${lang})`, () => {
+    it(`S50 guest: the values, the register block and the new visitor button, no footer (${lang})`, () => {
       const m = screen(lang, flow("guest", null, OUTCOMES));
       expect(countTag(m, /<h1/g)).toBe(1);
       expect(m).toContain(t(lang, "assessment.guest.resultsTitle"));
-      // C31: no booth "not saved" line and no banner; the register block is «أنشئ حسابًا مجانيًا».
-      expect(m).not.toContain(t(lang, "assessment.guest.notSaved"));
+      // C31: no banner; the register block is «أنشئ حسابًا مجانيًا».
       expect(m).toMatch(new RegExp(`<h2 id="rs-keep-title">${t(lang, "assessment.guest.register")}</h2>`));
       expect(m).toContain('role="img"');
       expect(m).toContain("register=1");
@@ -325,14 +325,9 @@ describe("S50 to S52 results", () => {
         ),
       );
       expect(countTag(m, new RegExp(CHECK_DATA.reasons.pain_today[lang].slice(0, 12), "g"))).toBe(1);
-      // C33: at the booth the foot has the see your doctor line and not medical, not the boundary line.
-      const b = CHECK_DATA.boundary;
-      const plain = text(m);
-      const at = (s: string) =>
-        plain.indexOf(text(renderToStaticMarkup(createElement("p", null, s))).slice(0, 12));
-      expect(at(b.resultsFooter[lang])).toBeGreaterThanOrEqual(0);
-      expect(at(b.notMedical[lang])).toBeGreaterThanOrEqual(0);
-      expect(at(b.line[lang])).toBe(-1);
+      // D-017 item 2: no footer disclaimer (see your doctor, not medical, the boundary line).
+      expect(disclaimersIn(lang, text(m))).toEqual([]);
+      expect(m).not.toContain("check-results-footer");
       expectCleanCopy(lang, m.replace(/data-qr="[^"]*"/g, ""));
     });
 
@@ -350,14 +345,13 @@ describe("S50 to S52 results", () => {
       expect(m).toContain(lang === "ar" ? "مرتين" : "2 bends");
       // C41: the sentence that restates a value is its accessible name, never a visible line.
       expect(m).toMatch(/class="rs-value" role="img" aria-label="[^"]+"/);
-      // The next check as a date only, and the home foot with the boundary line (C33).
+      // The next check as a date only, and no footer disclaimer (D-017 item 2).
       expect(m).toContain(
         t(lang, "assessment.results.nextDate", { date: "{date}" }).split("{date}")[0].trim(),
       );
       expect(m).not.toContain(CHECK_DATA.progress.nextDue[lang].slice(-20));
-      expect(text(m)).toContain(
-        text(renderToStaticMarkup(createElement("p", null, CHECK_DATA.boundary.line[lang]))).slice(0, 12),
-      );
+      expect(disclaimersIn(lang, text(m))).toEqual([]);
+      expect(m).not.toContain("check-results-footer");
       expect(m).not.toMatch(/verdict|pg-pill/);
       expectCleanCopy(lang, m);
     });
@@ -415,6 +409,7 @@ describe("S50 to S52 results", () => {
     expect(m).toContain(t("ar", "assessment.results.nowTitle"));
     expect(m).toContain('data-screen="S52"');
     expect(m).not.toContain(CHECK_DATA.boundary.firstResult.ar);
+    expect(disclaimersIn("ar", text(m))).toEqual([]);
   });
 
   it("the per test cards show then and now when the comparison of a side is known", () => {
@@ -570,6 +565,9 @@ describe("S54 example", () => {
       // Home checks closed and no booth: the register action leads, the booth only line shows.
       expect(m).not.toContain(t(lang, "progress.example.tryCheck"));
       expect(m).toContain(t(lang, "assessment.guest.boothOnly.title"));
+      // D-017 item 2: no results footer disclaimer on the example either.
+      expect(disclaimersIn(lang, text(m))).toEqual([]);
+      expect(m).not.toContain("check-results-footer");
       expectCleanCopy(lang, m);
     });
   }

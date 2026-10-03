@@ -125,8 +125,6 @@ export function GuestWelcome({ dispatch, model }: ScreenProps) {
     >
       <div className="flow-stack" data-screen="S05">
         <h1>{t(lang, "assessment.guest.title")}</h1>
-        <p className="check-body">{t(lang, "assessment.guest.notSaved")}</p>
-        <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
         {!online && <p className="check-field-error">{t(lang, "assessment.guest.offlineNoModel")}</p>}
         <button
           type="button"

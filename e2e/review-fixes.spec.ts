@@ -212,10 +212,10 @@ for (const lang of LANGS) {
           .click();
         await expect(page.locator('[data-screen="S53"]')).toBeVisible();
         expect(await sideways(), `My results at ${width}`).toBe(0);
-        // My results: no "reported" kicker and no 10 px footnote; its own footer instead.
+        // My results: no "reported" kicker, no footnote and no footer disclaimer (D-017 item 2).
         await expect(page.locator(".page-heading .section-kicker")).toHaveCount(0);
         await expect(page.locator(".medical-footnote")).toHaveCount(0);
-        await expect(page.locator(".check-results-footer")).toBeVisible();
+        await expect(page.locator(".check-results-footer")).toHaveCount(0);
       }
     });
 

@@ -10,8 +10,6 @@
 // the contract gives the UX spec the last word on interaction, so the screen follows the spec, and the
 // body says the same thing as the buttons.
 import { t } from "../../../i18n";
-import { bidiText } from "../../../i18n/rich";
-import { CHECK_DATA } from "../../../movements/assessments";
 import { CHECK_UI } from "../featureFlag";
 import type { ScreenProps } from "../screenTypes";
 import { CheckShell } from "../shared/CheckShell";
@@ -55,7 +53,6 @@ export function BoothOnly({ dispatch }: ScreenProps) {
           {t(lang, CHECK_UI ? "assessment.guest.boothOnly.body" : "assessment.guest.boothOnly.bodyDemo")}
         </p>
       </section>
-      <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
     </CheckShell>
   );
 }

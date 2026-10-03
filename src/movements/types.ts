@@ -412,13 +412,13 @@ export interface Signoff {
   council: string;
 }
 
-export type BoundaryId =
-  "line" | "notMedical" | "firstResult" | "consent" | "storageNotice" | "precheckNotice" | "resultsFooter";
+export type BoundaryId = "firstResult" | "consent" | "storageNotice";
 
-/** Boundary lines, placement rules and the public wording guard (spec 1, Q23, Q29, H5). */
+/**
+ * Boundary lines and the public wording guard (spec 1, Q23, Q29, H5). No disclaimer lines (D-017 item
+ * 2): the wording guard is the protection.
+ */
 export type Boundary = Record<BoundaryId, Text> & {
-  /** Where the not intended for medical purposes line sits (Q23 (2)). */
-  notMedicalPlacement: string;
   /** The 18 or older confirmation (Q2 (5), Q32 (6), 7.2-6). */
   adultConfirm: Text & { when: string; status: string };
   /** The research opt in (phase 2, Q1 (3)). */

@@ -11,8 +11,8 @@
  *   the areas follow up (S24): chips, Next, at least one area.
  * Back returns to the previous visible question with its answer selected. A thin bar with no numbers
  * shows the way so far (C10): its total is every question that can still appear (O9), so it only moves
- * forward. The first question carries the one subtitle of the pre-check (C06): how to answer, at home
- * with the data's note on what is kept, and on a resumed check the O6 line instead.
+ * forward. The first question carries the one subtitle of the pre-check (C06): how to answer, or on a
+ * resumed check the O6 line instead.
  *
  * Listen plays the question, the list and every answer, each captioned. At home in voice mode the
  * question plays by itself 800 ms after focus moves to it; at the booth only on a tap (4.9, B16).
@@ -24,7 +24,6 @@ import { useId, useRef, useState, type ReactNode } from "react";
 import { t } from "../../../i18n";
 import { bidiText } from "../../../i18n/rich";
 import type { AnswerValue } from "../../../medical/precheck";
-import { CHECK_DATA } from "../../../movements/assessments";
 import { backTarget, questionCounter, questionGroup, type FlowModel } from "../flowMachine";
 import type { ScreenProps } from "../screenTypes";
 import { AnswerButtons, MultiAnswerList, useNextWithHint } from "../shared/answers";
@@ -116,7 +115,7 @@ function QuestionBody({ id, model, dispatch, api, retryCamera, retrySave }: Scre
         <h1 id={titleId} className={`check-question${view.question.length > 140 ? " is-long" : ""}`}>
           <Emphasized text={view.question} words={view.emphasis} />
         </h1>
-        {first && <FirstLine resuming={model.data.resuming} home={model.data.setting === "home"} />}
+        {first && <FirstLine resuming={model.data.resuming} />}
         {/* B16: at the booth nothing plays by itself; Listen comes first, above any list. On S22 at the
             booth it is the 64 px earphones button (staff offer the desk earphones to everyone). */}
         {booth && view.kind === "listConfirm" ? (
@@ -217,15 +216,16 @@ function GroupBody({
   );
 }
 
-/** The pre-check's one subtitle, on its first question (C06): S16 is gone. */
-function FirstLine({ resuming, home }: { resuming: boolean; home: boolean }) {
+/**
+ * The pre-check's one subtitle, on its first question (C06): S16 is gone. No notice on what is kept
+ * (D-017 item 2): the consent (S12) states it before the check.
+ */
+function FirstLine({ resuming }: { resuming: boolean }) {
   const { lang } = useCheckUi();
-  if (resuming) return <p className="check-body">{t(lang, "assessment.resume.notice")}</p>;
   return (
-    <>
-      <p className="check-body">{t(lang, "assessment.precheck.howToAnswer")}</p>
-      {home && <p className="check-meta">{bidiText(lang, CHECK_DATA.boundary.precheckNotice[lang])}</p>}
-    </>
+    <p className="check-body">
+      {t(lang, resuming ? "assessment.resume.notice" : "assessment.precheck.howToAnswer")}
+    </p>
   );
 }
 

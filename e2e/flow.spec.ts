@@ -22,6 +22,7 @@ import ar from "../src/i18n/ar/assessment.json" with { type: "json" };
 import en from "../src/i18n/en/assessment.json" with { type: "json" };
 import data from "../src/movements/check-v1.json" with { type: "json" };
 import { signUpAddress } from "./sign-up";
+import { DISCLAIMERS } from "../tests/no-disclaimers";
 
 const COPY = { ar, en } as const;
 type Lang = keyof typeof COPY;
@@ -165,9 +166,11 @@ async function answerQuestions(page: Page, lang: Lang, pain = 0, seen: string[] 
   return seen;
 }
 
-/** D-017 item 1: no screen of the booth path states a time. */
-async function expectNoTime(page: Page, lang: Lang) {
-  await expect(page.locator("body")).not.toContainText(lang === "ar" ? /دقيق|دقائق/ : /\bminutes?\b/i);
+/** D-017: no screen of the booth path states a time (item 1) or shows a disclaimer (item 2). */
+async function expectNoTimeNoDisclaimer(page: Page, lang: Lang) {
+  const body = page.locator("body");
+  await expect(body).not.toContainText(lang === "ar" ? /دقيق|دقائق/ : /\bminutes?\b/i);
+  for (const d of DISCLAIMERS[lang]) await expect(body).not.toContainText(d);
 }
 
 /** Opens a named state of e2e/flow-models.ts through the check's reload snapshot. */
@@ -297,9 +300,8 @@ for (const lang of LANGS) {
       await page.goto(url("/?check=1&e2eFixture=seated-raise", lang));
 
       // S05: one gold path and the full check as an outline button of the same height (C03), the
-      // adult line directly above them (C02), nothing saved.
+      // adult line directly above them (C02).
       await expectScreen(page, "S05", lang);
-      await expect(page.getByText(t.guest.notSaved)).toBeVisible();
       await expect(page.locator(".check-footer .cta")).toHaveCount(1);
       await expect(page.locator(".check-footer .ghost")).toHaveCount(1);
       await expect(page.locator(".check-footer .flow-adult-line")).toHaveText(
@@ -311,7 +313,7 @@ for (const lang of LANGS) {
       // D-017 item 1: the buttons name the path only, and no time shows anywhere on the booth path.
       await expect(gold).toHaveText(t.guest.quickTry);
       await expect(outline).toHaveText(t.guest.fullCheck);
-      await expectNoTime(page, lang);
+      await expectNoTimeNoDisclaimer(page, lang);
       await outline.click();
 
       // S06, S07: single choice submits on tap; Back keeps the answer.
@@ -329,7 +331,7 @@ for (const lang of LANGS) {
 
       // S08: Next without a choice shows the hint and moves focus to the first row; none is exclusive.
       await expectScreen(page, "S08", lang);
-      await expectNoTime(page, lang);
+      await expectNoTimeNoDisclaimer(page, lang);
       await next(page).click();
       await expect(page.getByText(t.common.chooseToContinue)).toBeVisible();
       const none = answer(page, data.selection.guestBooth.conditionsStep.noneChip[lang]);
@@ -356,7 +358,7 @@ for (const lang of LANGS) {
       await expect(page.locator(".check-topbar-counter")).toHaveCount(0);
       await expect(page.locator(".check-progress")).toBeVisible();
       await expectTargets(page);
-      await expectNoTime(page, lang);
+      await expectNoTimeNoDisclaimer(page, lang);
       const seen = await answerQuestions(page, lang, 3);
       expect(seen[0]).toBe("pc_urgent");
       expect(seen).toContain("pc_pain_now");
@@ -366,7 +368,7 @@ for (const lang of LANGS) {
       await expectScreen(page, "S27", lang);
       await expect(page.getByRole("button", { name: t.common.back, exact: true })).toHaveCount(0);
       await expect(screen(page, "S27").locator(".check-meta").first()).toHaveText(t.plan.skipAny);
-      await expectNoTime(page, lang);
+      await expectNoTimeNoDisclaimer(page, lang);
       await expectTargets(page);
       await page.getByRole("button", { name: t.plan.start }).click();
 
@@ -374,7 +376,7 @@ for (const lang of LANGS) {
       await expectScreen(page, "S28", lang);
       await expect(page.getByText(t.test.placeBooth).first()).toBeVisible();
       await expect(page.getByRole("button", { name: t.common.skipTest })).toBeVisible();
-      await expectNoTime(page, lang);
+      await expectNoTimeNoDisclaimer(page, lang);
       await page.getByRole("button", { name: t.test.ready }).click();
 
       // No camera primer at the booth (C08): the camera screens follow at once.
@@ -668,8 +670,9 @@ for (const lang of LANGS) {
         await page.evaluate(() => JSON.parse(localStorage.getItem("azm.coach") ?? "{}").checkSound),
       ).toBe("voice");
 
-      // The first question carries the home note on what is kept (C06).
-      await expect(page.getByText(data.boundary.precheckNotice[lang])).toBeVisible();
+      // The first question carries the one subtitle only: no note on what is kept (D-017 item 2).
+      await expect(page.getByText(t.precheck.howToAnswer)).toBeVisible();
+      for (const d of DISCLAIMERS[lang]) await expect(page.locator("body")).not.toContainText(d);
 
       // pc_unwell at home: the question, then the examples under "For example" (O45).
       await answer(page, optionLabel("pc_urgent", "no", lang)).click();
@@ -731,7 +734,7 @@ for (const lang of LANGS) {
       await expect(page.locator(".flow-kg-input")).toHaveValue(shown(lang, lang === "ar" ? "1٫5" : "1.5"));
       await next(page).click();
 
-      // S31 home: one privacy line and the button (C08); Back returns to the load.
+      // S31 home: one line and the button (C08), no video line (D-017); Back returns to the load.
       await expectScreen(page, "S31", lang);
       await expect(page.getByText(t.primer.body)).toBeVisible();
       await page.getByRole("button", { name: t.common.back, exact: true }).click();

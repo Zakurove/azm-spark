@@ -30,6 +30,7 @@ import {
   untilQuestion,
   withState,
 } from "./flow-fixtures";
+import { disclaimersIn } from "./no-disclaimers";
 
 const LANGS: Lang[] = ["ar", "en"];
 
@@ -161,7 +162,7 @@ describe("entry screens", () => {
     expect(desktopLink("https://azm.test", true)).toBe("https://azm.test/?check=1");
   });
 
-  it("S05: one gold path, the full check outlined, two short lines, the adult line above the starts", () => {
+  it("S05: one gold path, the full check outlined, the adult line above the starts, no time, no disclaimer", () => {
     for (const lang of LANGS) {
       const { html, text } = screen(M.S05, lang);
       // C03: gold is the one test; the full check stays visible as an outline button.
@@ -171,10 +172,8 @@ describe("entry screens", () => {
       expect(text).toContain(textOf(t(lang, "assessment.guest.quickTry")));
       expect(text).toContain(textOf(t(lang, "assessment.guest.fullCheck")));
       expect(text).not.toMatch(MINUTES[lang]);
-      expect(text).toContain(textOf(t(lang, "assessment.guest.notSaved")));
-      expect(text).toContain(textOf(CHECK_DATA.boundary.notMedical[lang]));
-      // C33: no boundary paragraph at the booth (its comparison sentence is not true where nothing is kept).
-      expect(text).not.toContain(textOf(CHECK_DATA.boundary.line[lang]));
+      // D-017 item 2: no not medical label, no trial note and no video line.
+      expect(disclaimersIn(lang, text)).toEqual([]);
       expect(html).toContain(t(lang, "assessment.guest.boothOnly.example"));
       // C02: the adult line word for word, directly above the start buttons, and the under 18 link.
       const footer = html.slice(html.indexOf("<footer"));
@@ -190,6 +189,14 @@ describe("entry screens", () => {
     const end = screen(M.S05aEnd, "en");
     expect(end.text).toContain(t("en", "assessment.adult.body", { age: 18 }));
     expect(end.text).toContain(t("en", "assessment.guest.staff.restart"));
+  });
+
+  it("S05b names the booth and its two ways on, with no disclaimer (D-017 item 2)", () => {
+    for (const lang of LANGS) {
+      const { text } = screen(M.S05b, lang);
+      expect(text).toContain(t(lang, "assessment.guest.boothOnly.title"));
+      expect(disclaimersIn(lang, text)).toEqual([]);
+    }
   });
 
   it("S09 never names the condition that caused it", () => {
@@ -242,16 +249,16 @@ describe("signed in entry (S12, S13)", () => {
 });
 
 describe("intro and sound check at home (S14, S14b)", () => {
-  it("S14: the title, the boundary paragraph, the personal needs, one stop line, not medical (C38)", () => {
+  it("S14: the title, the personal needs and one stop line, with no disclaimer (C38, D-017)", () => {
     const { ctx, tests } = introFacts(M.S14);
     expect(ctx).not.toBeNull();
     expect(tests.length).toBeGreaterThan(0);
     for (const lang of LANGS) {
       const { html, text } = screen(M.S14, lang);
-      expect(text).toContain(textOf(CHECK_DATA.boundary.line[lang]));
       expect(text).toContain(t(lang, "assessment.intro.need.phone"));
       expect(count(text, textOf(t(lang, "assessment.intro.howToStop")))).toBe(1);
-      expect(text).toContain(textOf(CHECK_DATA.boundary.notMedical[lang]));
+      // D-017 item 2: no boundary paragraph and no not medical label.
+      expect(disclaimersIn(lang, text)).toEqual([]);
       // No time (C11), no tests list (S27 has it), no check in switch (C39: the coach settings).
       expect(text).not.toMatch(lang === "en" ? /\d+ to \d+ minutes/ : /دقيقة|دقائق/);
       expect(html).not.toContain("flow-intro-tests");
@@ -464,13 +471,16 @@ describe("test preparation (S28, S31, S32)", () => {
     }
   });
 
-  it("S31 at home: one privacy line and the button (C08)", () => {
+  it("S31 at home: one line and the button (C08), without the repeated video line (D-017)", () => {
     expect(M.S31.state.kind).toBe("test.primer");
-    const { html, text } = screen(M.S31, "en");
-    expect(text).toContain(t("en", "assessment.primer.body"));
-    expect(text).toContain(t("en", "assessment.primer.allow"));
-    const body = html.slice(html.indexOf('data-screen="S31"'), html.indexOf("</main>"));
-    expect(count(body, "<p ")).toBe(1);
+    for (const lang of LANGS) {
+      const { html, text } = screen(M.S31, lang);
+      expect(text).toContain(t(lang, "assessment.primer.body"));
+      expect(text).toContain(t(lang, "assessment.primer.allow"));
+      expect(disclaimersIn(lang, text)).toEqual([]);
+      const body = html.slice(html.indexOf('data-screen="S31"'), html.indexOf("</main>"));
+      expect(count(body, "<p ")).toBe(1);
+    }
   });
 
   it("S32 shows each camera problem with its own title", () => {
@@ -478,6 +488,7 @@ describe("test preparation (S28, S31, S32)", () => {
       const m = withState(M.S31, { kind: "cam.problem", problem, returnTo: M.S31.state });
       const { text } = screen(m, "en");
       expect(text).toContain(t("en", `assessment.camera.${problem}.title`));
+      expect(disclaimersIn("en", text)).toEqual([]);
     }
   });
 });

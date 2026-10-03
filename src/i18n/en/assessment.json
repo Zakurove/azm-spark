@@ -52,7 +52,7 @@
   "camera": {
     "denied": {
       "title": "Camera access is off",
-      "body": "Azm needs the camera to see how you move. The video stays on your phone. It is never recorded or sent.",
+      "body": "Azm needs the camera to see how you move.",
       "ios": "In Safari, open the page menu next to the address, then Website Settings, then Camera, and choose Allow. Or open Settings, then Safari, then Camera. Then come back here and tap “Try again”.",
       "android": "In Chrome, tap the View site information icon next to the address, then Permissions, and turn on Camera. Then come back here and tap “Try again”.",
       "other": "Open your browser settings for this site and allow the camera. Then come back here and tap “Try again”.",
@@ -140,7 +140,6 @@
   },
   "guest": {
     "title": "Try the movement check",
-    "notSaved": "This is a trial and nothing is saved. The video stays on this phone.",
     "start": "Start",
     "boothBadge": "Azm booth",
     "offlineNoModel": "Movement tracking cannot be prepared without an internet connection this time. Connect, then try again.",
@@ -287,7 +286,6 @@
     "title": "Leave the check now?",
     "bodyBefore": "Your answers will not be kept.",
     "bodyDuring": "Results of the tests you finished are kept.",
-    "bodyGuest": "Nothing is saved in this trial.",
     "stay": "Stay in the check",
     "leave": "Yes, leave the check"
   },
@@ -412,7 +410,7 @@
   },
   "primer": {
     "title": "Let’s turn on the camera",
-    "body": "Azm sees your movement through your phone camera. The video stays on your phone. It is never recorded or sent.",
+    "body": "Azm sees your movement through your phone camera.",
     "allow": "Turn on the camera"
   },
   "postpone": {
@@ -530,7 +528,6 @@
       "title": "Let’s stop here"
     },
     "kept": "Results of the tests you finished are kept.",
-    "keptGuest": "Nothing is saved in this trial.",
     "boothStaff": "Our team is close by at the booth.",
     "ambulanceNumber": "Ambulance number",
     "adJump": "Go to the steps for autonomic dysreflexia"

@@ -141,20 +141,19 @@ export interface LeaveDialogProps {
 
 /**
  * S15 Leave the check. The safe choice is the gold primary and takes focus; Escape equals Stay.
- * The body says what is kept: nothing before the start, finished results during, nothing as a guest.
+ * The body says what is kept: nothing before the start, finished results during; a guest sees the
+ * question and its two answers only (D-017 item 2: no "nothing is saved in this trial" note).
  */
 export function LeaveDialog({ variant, onStay, onLeave }: LeaveDialogProps) {
   const { lang } = useCheckUi();
   const body =
     variant === "guest"
-      ? t(lang, "assessment.exit.bodyGuest")
-      : variant === "during"
-        ? t(lang, "assessment.exit.bodyDuring")
-        : t(lang, "assessment.exit.bodyBefore");
+      ? null
+      : t(lang, variant === "during" ? "assessment.exit.bodyDuring" : "assessment.exit.bodyBefore");
   return (
     <CheckDialog titleId="check-leave-title" onClose={onStay} initialFocus="[data-stay]">
       <h2 id="check-leave-title">{t(lang, "assessment.exit.title")}</h2>
-      <p className="check-body">{body}</p>
+      {body && <p className="check-body">{body}</p>}
       <div className="check-actions">
         <button type="button" className="cta" onClick={onStay} data-stay="">
           {t(lang, "assessment.exit.stay")}

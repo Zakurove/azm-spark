@@ -16,7 +16,6 @@ import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { CheckShell } from "../assessment/shared/CheckShell";
 import { QrCode } from "../assessment/shared/QrCode";
 import { EXAMPLE_PERSON, exampleViews } from "./example";
-import { ResultsFooter } from "./ResultsPage";
 import { seriesCards } from "./series";
 import { SeriesCard } from "./ThenNow";
 import "./progress.css";
@@ -85,7 +84,6 @@ export function ExampleProgress({
             </div>
           </section>
         )}
-        <ResultsFooter />
       </CheckShell>
     </CheckRoot>
   );

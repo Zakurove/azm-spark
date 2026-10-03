@@ -17,15 +17,6 @@
     "council": "local-docs/council/decisions.json and decisions.md (49 final decisions of 2026-09-27)"
   },
   "boundary": {
-    "line": {
-      "ar": "عزم يقيس حركتك لتتابعها بنفسك. لا يشخّص أي حالة، ولا يقيس قوة العضلات أو تيبّسها. تُقارَن نتائجك بنتائجك السابقة فقط.",
-      "en": "Azm measures your movement for your own tracking. It does not diagnose, and it does not measure muscle strength or muscle tightness. Your results are compared only with your own earlier results."
-    },
-    "notMedical": {
-      "ar": "غير مخصص للأغراض الطبية.",
-      "en": "Not intended for medical purposes."
-    },
-    "notMedicalPlacement": "At body size (16 px, AA contrast), never as hidden fine print and never as the hero headline, once per path (simplicity cut C33, overriding the Q23 list): at the booth on S05 and at the foot of S50; at home on the check intro (S14) and at the foot of the results (S51, S52); on the landing once, in the footer; and on any printed or shared report, in the installable app and any store description.",
     "firstResult": {
       "ar": "هذه نقطة بدايتك، وسنقارن بها قياساتك القادمة.",
       "en": "This is your starting point. We will compare your next checks with it."
@@ -50,20 +41,13 @@
       "phase": 2,
       "rule": "Optional and off by default, shipped with the F14 consents; withdrawing it changes nothing else; stored with the consent version and a timestamp. Only data under this opt in or under the ethics approved protocol (Q2) may feed Azm's own MDC (Q1)."
     },
-    "precheckNotice": {
-      "ar": "تساعد هذه الأسئلة على أن يكون قياس اليوم آمنًا لك. نحتفظ فقط بما يلزم للمقارنة بين قياساتك، مثل جهتك الأضعف أو الوزن الذي تستخدمه. أما بقية إجاباتك فنستخدمها اليوم فقط.",
-      "en": "These questions help keep today’s check safe. We keep only what is needed to compare your checks, such as your weaker side or the weight you use. Your other answers are used today only."
-    },
-    "resultsFooter": {
-      "ar": "إذا لاحظت أعراضًا جديدة أو تغيرًا في حالتك الطبية، فراجع طبيبك أو فريق رعايتك.",
-      "en": "If you notice new symptoms or a change in your medical condition, check with your doctor or care team."
-    },
     "bannedPublicWording": {
-      "rule": "Never: prescribe, وصفة or يصف; treat or treatment as what Azm does; rehabilitation program; manage spasticity; recovery; prove, proof or إثبات; progress or تقدم in user facing copy; patients for users; monitor for clinicians. Never the expansion Smart Personalized Assessment of Range and Kinematics in new copy, and never عزم سبارك or any transliteration of SPARK in Arabic (H2): the product is عزم alone in Arabic.",
+      "rule": "Never: prescribe, وصفة or يصف; treat or treatment as what Azm does; diagnose or يشخّص as what Azm does (D-017: with no disclaimer left, this rule is the protection at the regulatory line); rehabilitation program; manage spasticity; recovery; prove, proof or إثبات; progress or تقدم in user facing copy; patients for users; monitor for clinicians. Never the expansion Smart Personalized Assessment of Range and Kinematics in new copy, and never عزم سبارك or any transliteration of SPARK in Arabic (H2): the product is عزم alone in Arabic.",
       "enWords": [
         "prescribe",
         "prescription",
         "treatment",
+        "diagnose",
         "rehabilitation program",
         "manage spasticity",
         "recovery",
@@ -79,7 +63,8 @@
         "يصف",
         "إثبات",
         "تقدم",
-        "سبارك"
+        "سبارك",
+        "يشخص"
       ],
       "manual": "treat as what Azm does, and monitor for clinicians, are checked by the copy review, because the words also have allowed uses (a blood pressure monitor)."
     }

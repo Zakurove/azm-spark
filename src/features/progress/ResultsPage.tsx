@@ -6,7 +6,7 @@
  *     the Q26 heavier weight offer (C42);
  *   - the sessions block (consistency and adherence) with the workout history under it (C44), and
  *     every check, whose row opens the S52 view of that check, read only;
- *   - its own footer: the results footer, the boundary line and the not medical line, at 16 px.
+ *   - no footer disclaimer (D-017 item 2).
  * States: L skeleton cards; E no completed check (the CTA follows S01, hidden when blocked); Er the
  * progress failed, the next check card still renders from the context; Off the last loaded copy with
  * its date, or the offline empty state; Cam not applicable.
@@ -43,19 +43,6 @@ export interface ResultsPageProps {
   owner?: string;
   /** The workout history of the portal, under the sessions block (C44). */
   workouts?: ReactNode;
-}
-
-/** The results footer of S53: resultsFooter, the boundary line and notMedical, at 16 px. */
-export function ResultsFooter() {
-  const { lang } = useCheckUi();
-  const b = CHECK_DATA.boundary;
-  return (
-    <footer className="check-results-footer">
-      <p className="check-label">{bidiText(lang, b.resultsFooter[lang])}</p>
-      <p className="check-meta">{bidiText(lang, b.line[lang])}</p>
-      <p className="check-label">{b.notMedical[lang]}</p>
-    </footer>
-  );
 }
 
 function SkeletonCard({ lines = 3 }: { lines?: number }) {
@@ -317,7 +304,6 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
           )}
         </>
       )}
-      <ResultsFooter />
     </CheckRoot>
   );
 }

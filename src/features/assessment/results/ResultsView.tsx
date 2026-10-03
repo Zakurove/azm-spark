@@ -4,8 +4,8 @@
  *   S51 first       «نقطة بدايتك»: the first result of each series, then the next check's date
  *   S52 re-test     «نتائجك الآن»: then and now per series from compareSeries, once the server has saved
  *                   the check (GET /api/progress); until then the values of today, marked not saved yet
- * An ended early check shows the ended early header. S49 always comes first (the flow). The foot
- * follows C33: at the booth not medical and the see your doctor line; at home the boundary line too.
+ * An ended early check shows the ended early header. S49 always comes first (the flow). No footer
+ * disclaimer (D-017 item 2).
  *
  * States: L saving while the completion runs (values render at once); E nothing measured (every card
  * not measured, the lead becomes results.noneMeasured); Er the save failed (chip and Try again); Off
@@ -126,7 +126,6 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
         ? CHECK_DATA.boundary.firstResult[lang]
         : null;
   const screen = guest ? "S50" : r.mode === "retest" ? "S52" : "S51";
-  const b = CHECK_DATA.boundary;
   const booth = d.config.booth;
   const repeat = [...(views?.values() ?? [])].some((v) => v.repeatOffer);
   const home = d.setting === "home";
@@ -217,12 +216,6 @@ export function ResultsScreen({ model, dispatch, api, retrySave }: ScreenProps) 
 
       {guest && <KeepBlock booth={booth} />}
 
-      {/* C33: the boundary line is not shown at the booth, where nothing is compared or kept. */}
-      <footer className="check-results-footer">
-        <p className="check-label">{bidiText(lang, b.resultsFooter[lang])}</p>
-        {!guest && <p className="check-meta">{bidiText(lang, b.line[lang])}</p>}
-        <p className="check-label">{b.notMedical[lang]}</p>
-      </footer>
       {newVisitor && (
         <ResetDialog
           onConfirm={() => {

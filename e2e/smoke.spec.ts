@@ -126,7 +126,8 @@ for (const lang of LANGS) {
       await page.getByRole("button", { name: COPY[lang].a.common.exit }).click();
       const dialog = page.getByRole("dialog", { name: COPY[lang].a.exit.title });
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByText(COPY[lang].a.exit.bodyGuest)).toBeVisible();
+      // D-017 item 2: no "nothing is saved in this trial" note, the question and its two answers only.
+      await expect(dialog.locator("p")).toHaveCount(0);
       await expect(dialog.getByRole("button", { name: COPY[lang].a.exit.stay })).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();

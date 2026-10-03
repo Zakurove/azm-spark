@@ -906,12 +906,6 @@ html:has(.azm-check.check-page) {
 .azm-check .check-topbar > .check-example-banner {
   border-bottom: 1px solid var(--purple-border);
 }
-/* The footer of My results (S53): its own lines at 16 px, in the muted ink. */
-.azm-check .check-results-footer {
-  display: grid;
-  gap: var(--s2);
-  margin-top: var(--s6);
-}
 /* Slots inside other pages (Today, My results) keep the page's own background and spacing. */
 .azm-check.check-slot,
 .azm-check.check-results-page {

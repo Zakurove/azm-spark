@@ -10,7 +10,8 @@
  *   - no UX string says فحص (Q29 renamed the check قياس الحركة);
  *   - no verb stands directly before عزم as its subject (copy rule 12, Q29: unvowelled, «يحتاج عزم»
  *     reads as the noun عَزْم, determination), so عزم comes first («عزم يحتاج»);
- *   - no label ends with a colon.
+ *   - no label ends with a colon;
+ *   - no copy holds a disclaimer (D-017 item 2; the wording rule above stays the protection).
  * The landing namespace follows the same rules (council Q23 (6), Q29, H1, H2).
  * A failure here is reported to the copy owner; the rule is never weakened to pass.
  */
@@ -25,6 +26,7 @@ import * as cameraCopy from "../src/app/camera-copy";
 import * as appI18n from "../src/app/i18n";
 import * as experience from "../src/app/experience";
 import * as product from "../src/app/product";
+import { disclaimersIn } from "./no-disclaimers";
 
 const DIR = join(__dirname, "../src/i18n");
 const read = (lang: string, ns: string) =>
@@ -170,6 +172,12 @@ describe("movement check copy", () => {
     expect(bannedIn("en", "Your proof of change")).toEqual(["proof"]);
     expect(bannedIn("en", "a prescription")).toEqual(["prescription"]);
     expect(bannedIn("en", "We never manage spasticity")).toEqual(["manage spasticity"]);
+    // D-017 item 2: with the disclaimers gone the wording rule is the protection, so no copy says Azm
+    // diagnoses; the noun stays allowed (a person's own new diagnosis, «هذا ليس تشخيصًا»).
+    expect(bannedIn("en", "Azm diagnoses your arm")).toEqual(["diagnose"]);
+    expect(bannedIn("ar", "عزم يُشخّص حالتك")).toEqual(["يشخص"]);
+    expect(bannedIn("en", "A new diagnosis")).toEqual([]);
+    expect(bannedIn("ar", "هذا ليس تشخيصًا")).toEqual([]);
   });
 
   it("no UX string calls the check فحص (Q29)", () => {
@@ -186,6 +194,18 @@ describe("movement check copy", () => {
     expect(VERB_BEFORE_AZM.test("يحتاج عزم إلى الكاميرا")).toBe(true);
     expect(VERB_BEFORE_AZM.test("يقيس عزم حركتك")).toBe(true);
     expect(VERB_BEFORE_AZM.test("عزم يقيس حركتك")).toBe(false);
+  });
+
+  it("D-017 item 2: no copy holds a disclaimer, and the check data has none left", () => {
+    // The consent screen (S12) states what is stored (PDPL) and keeps its video point.
+    const KEPT = new Set(["assessment.consent.pointVideo"]);
+    const bad = [...COPY, ...OTHER_COPY]
+      .filter((c) => !KEPT.has(c.key))
+      .flatMap((c) => disclaimersIn(c.lang, c.text).map((d) => `${c.lang} ${c.key}: ${d}`));
+    expect(bad).toEqual([]);
+    // The pre-check notice went too: it showed after the consent, so the consent never needed it.
+    for (const gone of ["line", "notMedical", "notMedicalPlacement", "resultsFooter", "precheckNotice"])
+      expect(CHECK_DATA.boundary, gone).not.toHaveProperty(gone);
   });
 
   it("no label ends with a colon", () => {

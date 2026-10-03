@@ -1,7 +1,7 @@
 /**
  * S31 Camera primer (home only) and the permission requests it shares with the booth staff screen.
  *
- * S31 asks for the camera once per check at home, with one privacy line and the button (C08); on iOS
+ * S31 asks for the camera once per check at home, with one line and the button (C08); on iOS
  * the same tap asks for motion (the tap is the gesture iOS needs for
  * DeviceOrientationEvent.requestPermission and for audio). The tap asks for the camera, closes the
  * stream again at once (the camera screens open their own), asks for motion where the browser needs

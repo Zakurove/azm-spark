@@ -3,10 +3,10 @@
  * set the chair and the phone and play the test sound when they turn booth mode on (C04, C05).
  *
  * S14 (C38) plays check_intro, check_stop_any_time and the how to stop line on entry, 800 ms after
- * focus moves to the h1, each captioned. It shows the title, the boundary paragraph, the needs of
- * this person's tests (the equipment the instruction cards no longer list, C12), one stop line and
- * "not for medical purposes". The time shows on S01 and S27 only (C11); the tests on S27; the check in
- * switch lives in the coach settings only (C39).
+ * focus moves to the h1, each captioned. It shows the title, the needs of this person's tests (the
+ * equipment the instruction cards no longer list, C12) and one stop line; no disclaimer (D-017 item
+ * 2). The time shows on S01 and S27 only (C11); the tests on S27; the check in switch lives in the
+ * coach settings only (C39).
  *
  * S14b plays check_sound on entry and on replay (Q31 (1)). No shows scr_sound_off and asks again; a
  * second No shows scr_sound_still_off with Try again and Continue without sound (captionsOnly). "I use
@@ -77,7 +77,6 @@ export function Intro({ model, dispatch }: ScreenProps) {
     >
       <div className="flow-stack" data-screen="S14">
         <h1>{t(lang, "assessment.name")}</h1>
-        <p className="check-body">{bidiText(lang, CHECK_DATA.boundary.line[lang])}</p>
         <IntroDrawing alt={t(lang, "assessment.intro.illustrationAlt")} position={position} />
         <section className="flow-section" aria-labelledby="flow-intro-need">
           <h2 id="flow-intro-need">{t(lang, "assessment.intro.need.heading")}</h2>
@@ -103,7 +102,6 @@ export function Intro({ model, dispatch }: ScreenProps) {
           <CheckIcon name="stop-square" size={22} />
           <span className="check-body">{howToStop}</span>
         </p>
-        <p className="check-label">{bidiText(lang, CHECK_DATA.boundary.notMedical[lang])}</p>
       </div>
     </CheckShell>
   );

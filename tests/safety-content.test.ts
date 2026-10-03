@@ -257,7 +257,7 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
     ]).toEqual(["Continue", true, true]);
   });
 
-  it("kept, paused and booth lines: signed in keeps results and shows {when}; a guest sees the staff line", () => {
+  it("kept, paused and booth lines: signed in keeps results and shows {when}; a guest sees the staff line only", () => {
     const measured = { "shoulder_abduction:left": { status: "measured" as const, value: 120 } };
     const lock = { reason: "stop_symptom", until: NOW + 12 * 3600e3 };
     const s = safetyView(
@@ -276,7 +276,8 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
       "en",
       NOW,
     );
-    expect(g.kept).toBe("Nothing is saved in this trial.");
+    // D-017 item 2: no "nothing is saved in this trial" note at the booth.
+    expect(g.kept).toBeNull();
     expect(g.paused).toBeNull();
     expect(g.boothStaff).toBe("Our team is close by at the booth.");
     // No lock, or one that has ended: no paused line.

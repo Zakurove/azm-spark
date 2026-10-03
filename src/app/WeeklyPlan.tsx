@@ -5,6 +5,9 @@ import { EXERCISES } from "../exercises/defs";
 import { Lang, fmtDate, fmtNum } from "./i18n";
 import { api } from "./api";
 import Icon from "./Icon";
+import ExerciseArt from "./ExerciseArt";
+import { guidedCopy } from "./guided-copy";
+import { cardKind } from "../medical/session";
 
 const copy = {
   ar: {
@@ -20,9 +23,6 @@ const copy = {
     extra: "تمارين اليوم",
     cooldown: "التهدئة",
     withCamera: "بالكاميرا",
-    sets: "مجموعات",
-    reps: "تكرار",
-    seconds: "ثانية",
     tips: "نصائح لأسبوعك",
   },
   en: {
@@ -39,47 +39,46 @@ const copy = {
     extra: "Today’s exercises",
     cooldown: "Cool down",
     withCamera: "Camera",
-    sets: "sets",
-    reps: "reps",
-    seconds: "sec",
     tips: "Tips for your week",
   },
 };
 
 const weekday = (day: number, lang: Lang) => fmtDate(new Date(2026, 8, 6 + day), lang, { weekday: "long" });
-const categoryIcon: Record<string, string> = {
-  flexibility: "spark",
-  balance: "rise",
-  core: "shield",
-  upper_body: "chair",
-  lower_body: "rise",
-};
-
+/**
+ * A weekly plan item as the guided card it becomes in the session (booth v2, D): its glyph, its dose
+ * (a timer for a hold, a tap counter for reps), and inside, the description and the numbered steps.
+ */
 function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
-  const k = copy[lang],
+  const g = guidedCopy(lang),
     ex = libraryById(item.id);
   if (!ex) return null;
+  const n = (v: number) => fmtNum(v, lang);
   const digits = (s: string) => (lang === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s);
-  const dose = item.holdSeconds
-    ? `${fmtNum(item.sets, lang)} × ${fmtNum(item.holdSeconds, lang)} ${k.seconds}`
-    : `${fmtNum(item.sets, lang)} ${k.sets} × ${fmtNum(item.reps ?? 8, lang)} ${k.reps}`;
+  const timer = cardKind(item) === "timer";
+  const dose = timer
+    ? g.doseHold(item.sets, item.holdSeconds ?? 0, n)
+    : g.doseReps(item.sets, item.reps ?? 8, n);
   return (
     <details className="weekly-item">
       <summary>
-        <span className="weekly-item-icon">
-          <Icon name={categoryIcon[ex.category] ?? "spark"} size={16} />
-        </span>
+        <ExerciseArt category={ex.category} size="row" />
         <div>
           <b>{ex.name[lang]}</b>
-          <small>{dose}</small>
+          <small className="weekly-dose">
+            <Icon name={timer ? "clock" : "tap"} size={13} />
+            {dose}
+          </small>
         </div>
         <Icon name="arrow" size={14} />
       </summary>
       <div className="weekly-item-body">
         <p>{digits(ex.description[lang])}</p>
-        <ol>
-          {ex.steps[lang].map((s) => (
-            <li key={s}>{digits(s)}</li>
+        <ol className="weekly-steps">
+          {ex.steps[lang].map((s, i) => (
+            <li key={s}>
+              <span aria-hidden="true">{n(i + 1)}</span>
+              {digits(s)}
+            </li>
           ))}
         </ol>
         {item.note && (
@@ -88,6 +87,12 @@ function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
             {item.note[lang]}
           </p>
         )}
+        <p className="weekly-guided">
+          <Icon name="spark" size={13} />
+          {g.guided}
+          {" · "}
+          {timer ? g.timer : g.counter}
+        </p>
       </div>
     </details>
   );
@@ -197,23 +202,24 @@ export default function WeeklyPlanView({
             <Item key={i.id} item={i} lang={lang} />
           ))}
         </div>
-        <div className="weekly-block">
-          <h3>{k.camera}</h3>
-          {plan.exercises.map((e) => (
-            <div key={e.exerciseId} className="weekly-item camera">
-              <span className="weekly-item-icon">
-                <Icon name="camera" size={16} />
-              </span>
-              <div>
-                <b>{EXERCISES.find((x) => x.id === e.exerciseId)?.name[lang]}</b>
-                <small>
-                  {fmtNum(e.sets, lang)} {k.sets} × {fmtNum(e.reps, lang)} {k.reps}
-                </small>
+        {/* Booth v2 (D): a program with no camera movement is guided cards alone. */}
+        {plan.exercises.length > 0 && (
+          <div className="weekly-block">
+            <h3>{k.camera}</h3>
+            {plan.exercises.map((e) => (
+              <div key={e.exerciseId} className="weekly-item camera">
+                <span className="weekly-item-icon">
+                  <Icon name="camera" size={16} />
+                </span>
+                <div>
+                  <b>{EXERCISES.find((x) => x.id === e.exerciseId)?.name[lang]}</b>
+                  <small>{guidedCopy(lang).cameraDose(e.sets, e.reps, (v) => fmtNum(v, lang))}</small>
+                </div>
+                <span className="weekly-tag">{k.withCamera}</span>
               </div>
-              <span className="weekly-tag">{k.withCamera}</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <div className="weekly-block">
           <h3>{k.extra}</h3>
           {day.extra.map((i) => (

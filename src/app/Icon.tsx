@@ -50,6 +50,13 @@ export default function Icon({ name, size = 24 }: { name: string; size?: number 
       </>
     ),
     play: <path d="m8 4 12 8-12 8z" />,
+    pause: <path d="M8.5 5v14M15.5 5v14" />,
+    // a finger tap: the tap counter of a guided card
+    tap: (
+      <>
+        <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V11m0-.5a1.5 1.5 0 0 1 3 0v3.5a6 6 0 0 1-6 6h-.6a5 5 0 0 1-3.9-1.9L5 14.5a1.5 1.5 0 0 1 2.3-1.9L9 14" />
+      </>
+    ),
     chair: (
       <>
         <path d="M6 3v12h12V9M6 10h12M6 15v6m12-6v6" />

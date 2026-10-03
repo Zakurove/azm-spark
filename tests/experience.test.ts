@@ -71,7 +71,8 @@ it("exports partial attempts separately and preserves unknown effort", () => {
     exerciseId: "sit_to_stand",
     reps: { valid: 2, compensated: 1, partial: 4 },
   } as SavedSession;
-  expect(sessionCsv([s]).split("\r\n")[1]).toBe("1970-01-01T00:00:01.000Z,sit_to_stand,3,2,1,4,,");
+  // Booth v2 (D): the export names each row's mode and keeps a held card's seconds in its own column.
+  expect(sessionCsv([s]).split("\r\n")[1]).toBe("1970-01-01T00:00:01.000Z,sit_to_stand,3,2,1,4,,,camera,");
 });
 it("does not congratulate an empty session", () => {
   expect(insight({ valid: 0, compensated: 0, partial: 0 }, "en")).toMatch(/No repetitions/);

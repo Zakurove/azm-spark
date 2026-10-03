@@ -1303,6 +1303,33 @@
   font-size: 13px;
   display: block;
 }
+/* Booth v2 (D): the session list in its parts (warm up, camera, the day's exercises, cool down). */
+.workout-queue-group {
+  margin: 14px 10px 4px;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  color: #5f6672;
+}
+.workout-queue h2 + .workout-queue-group {
+  margin-top: 0;
+}
+/* The opening of the camera part between the cards: what it is and its sets. */
+.workout-camera-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--purple-tint);
+  color: #5b4590;
+}
+.interval-main > p.workout-camera-dose {
+  font-size: 16px;
+  font-weight: 750;
+  color: #5b4590;
+  margin-top: -6px;
+}
 /* The dose reads apart from the name (in Arabic the middle dot sits close to the zero «٠»). */
 .workout-dose {
   /* Darker than --muted, which reads at 4.3:1 on the current row's purple tint (AA needs 4.5). */
@@ -3250,6 +3277,53 @@
   font-size: 12.5px;
   line-height: 2;
   color: #4c515b;
+}
+/* Booth v2 (D): an item reads as the guided card it becomes in the session. */
+.weekly-dose {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+.weekly-dose svg {
+  color: #8065ad;
+}
+.weekly-item-body ol.weekly-steps,
+[dir="rtl"] .weekly-item-body ol.weekly-steps {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+.weekly-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 3px 0;
+}
+.weekly-steps li > span {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f1ecf8;
+  color: #5b4590;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.weekly-item-body p.weekly-guided {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f6f2fb;
+  color: #5b4590;
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.8;
 }
 .weekly-note {
   display: flex;

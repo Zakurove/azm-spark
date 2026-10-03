@@ -9,6 +9,7 @@ import { SavedSession, Setup } from "./product";
 import Brand from "./Brand";
 import Landing from "./Landing";
 import type { WeeklyPlan } from "../medical/weekly";
+import { planRest, sessionDay, sessionSize } from "../medical/session";
 import type { WorkoutRun } from "./Workout";
 import Icon from "./Icon";
 import type { ExitTarget } from "../features/assessment/flowMachine";
@@ -219,7 +220,15 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
-      setRun(await api<WorkoutRun>("/workouts", { version: account?.plan?.version, demo: isDemo }));
+      // Booth v2 (D): the session holds the day's guided cards; the phone says which weekday it is.
+      setRun(
+        await api<WorkoutRun>("/workouts", {
+          version: account?.plan?.version,
+          demo: isDemo,
+          guided: true,
+          weekday: new Date().getDay(),
+        }),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -635,9 +644,13 @@ export default function App() {
                               <span>
                                 {countOf(
                                   lang,
-                                  p.exercises.length,
-                                  { one: "حركة واحدة", two: "حركتان", few: "حركات", many: "حركة" },
-                                  ["movement", "movements"],
+                                  // Booth v2 (D): the camera movements and the day's guided cards.
+                                  sessionSize(
+                                    p,
+                                    p.weekly && sessionDay(p.weekly, upcoming.getDay(), planRest(p)),
+                                  ),
+                                  { one: "تمرين واحد", two: "تمرينان", few: "تمارين", many: "تمرينًا" },
+                                  ["exercise", "exercises"],
                                 )}
                               </span>
                               <span>{countPhrase(lang, "min", p.estimatedMinutes)}</span>

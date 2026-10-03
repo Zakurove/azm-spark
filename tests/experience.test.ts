@@ -1,11 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { readPreferences, insight } from "../src/app/experience";
+import { defaults, readPreferences, insight, savePreferences } from "../src/app/experience";
 import { sessionCsv } from "../src/app/History";
 import { SavedSession } from "../src/app/product";
 afterEach(() => vi.unstubAllGlobals());
 it("recovers from malformed or unavailable stored preferences", () => {
+  // Booth v2 A6: the voice is off by default.
   const fallback = {
-    voice: "full",
+    voice: "off",
     safetyCheckIn: false,
     voicePack: "",
     checkSound: "",
@@ -25,17 +26,38 @@ it("recovers from malformed or unavailable stored preferences", () => {
   });
   expect(readPreferences()).toEqual(fallback);
 });
-it("keeps the voice on or off; the guidance only mode of an earlier build reads as on (C40)", () => {
+it("keeps the voice on or off as chosen on this device since booth v2 (A6)", () => {
   for (const [stored, voice] of [
     ["off", "off"],
     ["full", "full"],
-    ["essential", "full"],
   ] as const) {
     vi.stubGlobal("localStorage", {
-      getItem: () => JSON.stringify({ voice: stored, pace: 0.85, focus: true }),
+      getItem: () => JSON.stringify({ voice: stored, voiceV: 2 }),
     });
     expect(readPreferences()).toEqual({ voice, safetyCheckIn: false, voicePack: "", checkSound: "" });
   }
+});
+it("reads a voice stored before booth v2 as off: earlier builds saved their default with any setting", () => {
+  // The C40 build stored voice "full" (its default) whenever any coach setting changed, and the
+  // guidance only mode of a build before it stored "essential": neither was a choice of the voice.
+  for (const stored of ["off", "full", "essential"]) {
+    vi.stubGlobal("localStorage", {
+      getItem: () => JSON.stringify({ voice: stored, pace: 0.85, focus: true, voicePack: "x" }),
+    });
+    expect(readPreferences()).toEqual({ voice: "off", safetyCheckIn: false, voicePack: "x", checkSound: "" });
+  }
+});
+it("saves the voice with its marker, so the choice is kept", () => {
+  const store = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => store.set(k, v),
+  });
+  expect(defaults.voice).toBe("off");
+  savePreferences({ ...defaults, voice: "full" });
+  expect(readPreferences().voice).toBe("full");
+  savePreferences({ ...defaults, voice: "off" });
+  expect(readPreferences().voice).toBe("off");
 });
 it("keeps the movement check's optional check in per device, off by default (D-016)", () => {
   vi.stubGlobal("localStorage", { getItem: () => null });

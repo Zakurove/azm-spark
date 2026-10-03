@@ -1,7 +1,10 @@
 import { Lang } from "./i18n";
 import { RepClass } from "../engine/types";
 export interface Preferences {
-  /** The coach's voice (C40): on gives guidance and counts; off leaves the captions. */
+  /**
+   * The coach's voice (C40): on gives guidance and counts; off leaves the captions. Off by default
+   * (booth v2 A6); the large speaker button of the camera screen turns it on, per device.
+   */
   voice: "full" | "off";
   /**
    * The movement check's optional check in (D-016): during a camera test, «هل أنت بخير؟» after 5 s out
@@ -17,16 +20,21 @@ export interface Preferences {
   checkSound: "" | "voice" | "screenReader";
 }
 export const defaults: Preferences = {
-  voice: "full",
+  voice: "off",
   safetyCheckIn: false,
   voicePack: "",
   checkSound: "",
 };
+/**
+ * Marks a voice choice made since booth v2. Earlier builds stored their default ("full") whenever any
+ * coach setting changed, so a voice stored without this marker was never chosen and reads as off.
+ */
+const VOICE_MARK = 2;
 export function readPreferences(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem("azm.coach") ?? "{}");
     return {
-      voice: p.voice === "off" ? "off" : "full",
+      voice: p.voiceV === VOICE_MARK && p.voice === "full" ? "full" : "off",
       safetyCheckIn: p.safetyCheckIn === true,
       voicePack: typeof p.voicePack === "string" ? p.voicePack : "",
       checkSound: p.checkSound === "voice" || p.checkSound === "screenReader" ? p.checkSound : "",
@@ -37,7 +45,7 @@ export function readPreferences(): Preferences {
 }
 export function savePreferences(p: Preferences) {
   try {
-    localStorage.setItem("azm.coach", JSON.stringify(p));
+    localStorage.setItem("azm.coach", JSON.stringify({ ...p, voiceV: VOICE_MARK }));
   } catch {
     /* Settings still work for this visit. */
   }

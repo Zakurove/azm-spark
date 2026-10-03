@@ -1,7 +1,7 @@
 import library from "../exercises/library.json";
 import { getDetailedDisabilityConfig } from "./legacy-config";
 import { Intake, Plan, types } from "./plan";
-import type { DemandTag } from "./sports";
+import { CAMERA_DEMANDS, DEMANDS, sportById, type DemandTag, type Sport } from "./sports";
 
 /** Weekly plan layer. The rules below decide what is SAFE and the dose; an optional
  * language model may only arrange exercises from the already filtered pool and write
@@ -84,7 +84,7 @@ export function eligibleExercises(h: Intake, plan: Plan): LibraryExercise[] {
     if (h.mobility === "seated" && !seatedOk) return false;
     if (h.mobility !== "standing" && (e.tags.includes("floor_exercise") || e.tags.includes("lying_down")))
       return false;
-    if (e.equipment.includes("resistance_bands")) return false;
+    if (e.equipment.includes("resistance_bands") && !h.equipment.includes("bands")) return false;
     if (e.equipment.includes("dumbbells") && !h.equipment.includes("weights")) return false;
     if (has("no_resistance") && e.equipment.length) return false;
     if (
@@ -105,12 +105,12 @@ export function eligibleExercises(h: Intake, plan: Plan): LibraryExercise[] {
         (e.category === "balance" && !seatedOk))
     )
       return false;
-    if (h.conditions.includes("upper_limb_unilateral") && e.equipment.includes("dumbbells")) return false;
+    if (h.conditions.includes("upper_limb_unilateral") && e.equipment.length) return false;
     return true;
   });
 }
 
-const WEIGHTS: Record<Intake["goal"], Record<string, number>> = {
+const WEIGHTS: Record<Exclude<Intake["goal"], "sport">, Record<string, number>> = {
   mobility: { flexibility: 0.35, balance: 0.2, core: 0.2, upper_body: 0.15, lower_body: 0.1 },
   strength: { upper_body: 0.35, core: 0.25, lower_body: 0.2, balance: 0.1, flexibility: 0.1 },
   habit: { flexibility: 0.25, upper_body: 0.2, core: 0.2, balance: 0.2, lower_body: 0.15 },
@@ -126,10 +126,80 @@ const FOCUS: Record<string, L> = {
 
 const isHold = (e: LibraryExercise) => e.category === "flexibility" || /stretch|hold|breath/i.test(e.name.en);
 
+/** The library exercises that are the same movement as a camera movement of the plan. */
+const TWINS: Record<string, string> = { seated_biceps_curl: "seated_bicep_curls" };
+const cameraTwins = (plan: Plan) =>
+  new Set(
+    plan.exercises.flatMap((e) => [e.exerciseId, ...(TWINS[e.exerciseId] ? [TWINS[e.exerciseId]] : [])]),
+  );
+
+/** The sport of a sport goal, or undefined for the other goals. */
+const goalSport = (h: Intake): Sport | undefined => (h.goal === "sport" ? sportById(h.sport) : undefined);
+
+/**
+ * The rules' own week for a sport goal (B4). The pool is already safe; here the sport's demands
+ * weight the choice. The extras go round the sport's demands across the week (flexibility is left to
+ * the warm up and cool down), each from the safe exercises that build that demand, the ones that
+ * build more of the sport first. Each day is named after the first demand it builds.
+ */
+function sportSelection(plan: Plan, pool: LibraryExercise[], sport: Sport): Selection {
+  const wants = (e: LibraryExercise) => e.demands.filter((d) => sport.demands.includes(d)).length;
+  const ranked = (list: LibraryExercise[]) => [...list].sort((a, b) => wants(b) - wants(a));
+  const flex = ranked(pool.filter((e) => e.category === "flexibility"));
+  // The camera movements are done every training day already: the library copy of one is not repeated.
+  const camera = cameraTwins(plan);
+  const work = pool.filter((e) => e.category !== "flexibility" && !camera.has(e.id));
+  const targets = sport.demands.filter((d) => d !== "flexibility");
+  const builders = new Map(targets.map((d) => [d, ranked(work.filter((e) => e.demands.includes(d)))]));
+  const helpful = ranked(work.filter((e) => wants(e) > 0));
+  const cursor: Record<string, number> = {};
+  /** The next exercise of a list not used today, and not an extra of the day before when another fits. */
+  let yesterday = new Set<string>();
+  const next = (list: LibraryExercise[], key: string, used: Set<string>) => {
+    for (const avoid of [yesterday, new Set<string>()])
+      for (let tries = 0; tries < list.length; tries++) {
+        const e = list[(cursor[key] = (cursor[key] ?? -1) + 1) % list.length];
+        if (!used.has(e.id) && !avoid.has(e.id)) {
+          used.add(e.id);
+          return e.id;
+        }
+      }
+    return null;
+  };
+  // The demands the safe pool can build, taken in turn across the whole week, so a short week still
+  // reaches each of them and each day opens on a different one.
+  const buildable = targets.filter((d) => builders.get(d)!.length);
+  let turn = 0;
+  const days = plan.days.map(() => {
+    const used = new Set<string>();
+    const warmup = [next(flex, "warm", used), next(flex, "warm", used)].filter(Boolean) as string[];
+    const extra: string[] = [];
+    let focus: DemandTag | undefined;
+    for (let tries = 0; extra.length < 3 && tries < buildable.length * 3; tries++) {
+      const demand = buildable[turn++ % buildable.length];
+      const id = next(builders.get(demand)!, demand, used);
+      if (!id) continue;
+      extra.push(id);
+      focus ??= demand;
+    }
+    while (extra.length < 3) {
+      const id = next(helpful, "helpful", used) ?? next(work, "any", used);
+      if (!id) break;
+      extra.push(id);
+    }
+    const cooldown = [next(flex, "cool", used), next(flex, "cool", used)].filter(Boolean) as string[];
+    yesterday = new Set(extra);
+    return { focus: focus ? DEMANDS[focus] : undefined, warmup, extra, cooldown };
+  });
+  return { days };
+}
+
 export function defaultSelection(h: Intake, plan: Plan, pool: LibraryExercise[]): Selection {
+  const sport = goalSport(h);
+  if (sport) return sportSelection(plan, pool, sport);
   const configs = configsFor(h);
   const recommended = new Set(configs.flatMap((c) => c.recommendedCategories));
-  const weights = { ...WEIGHTS[h.goal] };
+  const weights = { ...WEIGHTS[h.goal === "sport" ? "strength" : h.goal] };
   for (const k of Object.keys(weights)) if (recommended.has(k)) weights[k] += 0.1;
   const order = Object.entries(weights)
     .filter(([k]) => k !== "flexibility")
@@ -291,11 +361,17 @@ export function buildWeekly(
     };
   });
   const n = plan.days.length;
+  const sport = goalSport(h);
+  const sportName = sport && { ar: sport.name.ar, en: sport.name.en.toLowerCase() };
   const summary: L = selection.summary ?? {
     ar: toArabicDigits(
-      `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين مختارة من مكتبة عزم، وينتهي بتهدئة.`,
+      sportName
+        ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين تبني ما تحتاجه هذه الرياضة، وينتهي بتهدئة.`
+        : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين مختارة من مكتبة عزم، وينتهي بتهدئة.`,
     ),
-    en: `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, moves into a camera session that counts and corrects, adds exercises chosen from the Azm library, and closes with a cool down.`,
+    en: sportName
+      ? `A ${n} day weekly plan built on your medical condition and aimed at ${sportName.en}. Each day opens with a warm up, moves into a camera session that counts and corrects, adds exercises that build what this sport asks of you, and closes with a cool down.`
+      : `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, moves into a camera session that counts and corrects, adds exercises chosen from the Azm library, and closes with a cool down.`,
   };
   const why: L[] = selection.why?.length
     ? selection.why
@@ -304,14 +380,32 @@ export function buildWeekly(
           ar: "استبعدنا كل تمرين لا يناسب وضعيتك أو ألمك أو تعليمات طبيبك.",
           en: "Every exercise that conflicts with your position, pain, or clinician instructions was removed.",
         },
+        ...(sport && sportName
+          ? [
+              {
+                ar: `ومن التمارين الآمنة اخترنا ما يبني متطلبات ${sportName.ar}: ${listOf(
+                  sport.demands.slice(0, 3).map((d) => DEMANDS[d].ar),
+                  "ar",
+                )}.`,
+                en: `From the safe exercises, we chose those that build what ${sportName.en} asks for: ${listOf(
+                  sport.demands.slice(0, 3).map((d) => DEMANDS[d].en.toLowerCase()),
+                  "en",
+                )}.`,
+              },
+            ]
+          : []),
         {
           ar: "المجموعات والتكرارات محسوبة بقواعد حالتك الطبية، ولا تتجاوزها أي خطة.",
           en: "Sets and repetitions come from the rules for your medical condition, and no plan exceeds them.",
         },
-        {
-          ar: "نوّعنا التمارين بين الأيام حتى تتحرك عضلات مختلفة وتأخذ كل منها وقتها للراحة.",
-          en: "Exercises vary across days so different muscles work and each gets time to recover.",
-        },
+        ...(sport
+          ? []
+          : [
+              {
+                ar: "نوّعنا التمارين بين الأيام حتى تتحرك عضلات مختلفة وتأخذ كل منها وقتها للراحة.",
+                en: "Exercises vary across days so different muscles work and each gets time to recover.",
+              },
+            ]),
       ];
   const tips: L[] = selection.tips?.length
     ? selection.tips
@@ -339,6 +433,41 @@ export function buildWeekly(
         },
       ];
   return { source, summary, why, tips, days };
+}
+
+/** "a, b and c" in English; «أ، وب، وج» in Arabic. */
+function listOf(items: string[], lang: "ar" | "en"): string {
+  if (lang === "ar") return items.join("، و");
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+export interface PathStep {
+  demand: DemandTag;
+  /** The exercises of this week that build the demand: the camera movements first, then the library. */
+  exercises: { id: string; camera: boolean }[];
+}
+
+/**
+ * The sport path (B5): each demand of the sport with the exercises of this week that build it. The
+ * camera movements are known from the plan; the library exercises come with the weekly plan (null
+ * while it is being written, so the camera movements show alone).
+ */
+export function sportPath(sport: Sport, plan: Plan, weekly: WeeklyPlan | null | undefined): PathStep[] {
+  const camera = cameraTwins(plan);
+  const week = [
+    ...new Set(
+      (weekly?.days ?? []).flatMap((d) => [...d.extra, ...d.warmup, ...d.cooldown].map((i) => i.id)),
+    ),
+  ].filter((id) => !camera.has(id));
+  return sport.demands.map((demand) => ({
+    demand,
+    exercises: [
+      ...plan.exercises
+        .filter((e) => (CAMERA_DEMANDS[e.exerciseId] ?? []).includes(demand))
+        .map((e) => ({ id: e.exerciseId, camera: true })),
+      ...week.filter((id) => libraryById(id)?.demands.includes(demand)).map((id) => ({ id, camera: false })),
+    ],
+  }));
 }
 
 export function engineWeekly(h: Intake, plan: Plan): WeeklyPlan | null {

@@ -277,9 +277,11 @@ export const optionNames: Record<string, { ar: string; en: string }> = {
   balance_support: { ar: "أحتاج مساعدة للوقوف والتوازن", en: "I need help to stand / balance" },
   chair: { ar: "كرسي ثابت", en: "Stable chair" },
   weights: { ar: "أوزان مناسبة أستخدمها بالفعل", en: "Suitable weights I already use" },
+  bands: { ar: "أشرطة مقاومة", en: "Resistance bands" },
   mobility: { ar: "الحركة اليومية", en: "Everyday movement" },
   strength: { ar: "القوة والتحكّم", en: "Strength & control" },
   habit: { ar: "الانتظام في التمرين", en: "Build a routine" },
+  sport: { ar: "العودة إلى الرياضة", en: "Back to sport" },
 };
 export const reasonText: Record<string, { ar: string; en: string }> = {
   cardiac: {
@@ -358,7 +360,12 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
     ar: "المقاومة غير متاحة أو لديك تعليمات بتجنّبها.",
     en: "Suitable resistance is unavailable or restricted.",
   },
+  // Plans saved before booth v2 may still name the chair (a stable chair is now assumed).
   chair: { ar: "تتطلب هذه الحركة كرسيًا ثابتًا.", en: "This movement requires a stable chair." },
+  curl_unloaded: {
+    ar: "تُؤدّى دون أوزان، أو بشيء خفيف في يدك مثل قارورة ماء.",
+    en: "Done without weights, or with something light in your hand such as a water bottle.",
+  },
   standing: {
     ar: "لم تُدرج بسبب وضعيتك أو ألم الساقين أو متطلبات التوازن والتتبّع.",
     en: "Not included due to position, lower body pain, balance or tracking requirements.",

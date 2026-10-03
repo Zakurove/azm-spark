@@ -57,14 +57,28 @@ describe("medical program gates", () => {
     expect(p.exercises.map((e) => e.exerciseId)).toEqual(["sit_to_stand"]);
   });
   it("respects overhead restriction and equipment availability", () => {
+    // Booth v2 (B6): equipment alone never ends in review. Without weights, the curl is done
+    // unloaded when nothing else is left; the overhead restriction still removes the press.
     const p = createPlan({
       ...healthy,
       mobility: "seated",
       restrictions: ["no_overhead"],
       equipment: ["chair"],
     });
-    expect(p.status).toBe("review");
-    expect(p.exercises).toHaveLength(0);
+    expect(p.status).toBe("ready");
+    expect(p.exclusions).toContainEqual({ exerciseId: "seated_shoulder_press", reason: "overhead" });
+    expect(p.exercises.map((e) => [e.exerciseId, e.reason])).toEqual([
+      ["seated_biceps_curl", "curl_unloaded"],
+    ]);
+    // A restriction, not the equipment, still ends in review.
+    const r = createPlan({
+      ...healthy,
+      mobility: "seated",
+      restrictions: ["no_overhead", "no_resistance"],
+      equipment: [],
+    });
+    expect(r.status).toBe("review");
+    expect(r.exercises).toHaveLength(0);
   });
   it("does not prescribe sit-to-stand to a wheelchair setup", () => {
     const p = createPlan({ ...healthy, mobility: "wheelchair" });

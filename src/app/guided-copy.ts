@@ -19,7 +19,6 @@ const ar = {
   slot: { warmup: "الإحماء", extra: "تمارين اليوم", cooldown: "التهدئة" },
   /** "{n} of {total}" in the top bar. */
   progress: (n: string, total: string) => `${n} من ${total}`,
-  progressLabel: (n: string, total: string) => `التمرين ${n} من ${total} في جلستك`,
   steps: "الخطوات",
   setOf: (n: string, total: string) => `المجموعة ${n} من ${total}`,
   start: "ابدأ",
@@ -61,7 +60,6 @@ type GuidedCopy = typeof ar;
 const en: GuidedCopy = {
   slot: { warmup: "Warm up", extra: "Today’s exercises", cooldown: "Cool down" },
   progress: (n, total) => `${n} of ${total}`,
-  progressLabel: (n, total) => `Exercise ${n} of ${total} in your session`,
   steps: "Steps",
   setOf: (n, total) => `Set ${n} of ${total}`,
   start: "Start",

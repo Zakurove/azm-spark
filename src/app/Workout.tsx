@@ -218,6 +218,7 @@ export default function Workout({
     setStage("set");
   };
   const position = steps.find((s) => s.kind === "camera")?.prescription.setup.position ?? "chair";
+  const hasCamera = steps.some((s) => s.kind === "camera");
   const cameraSets = steps.filter((s) => s.kind === "camera").length;
   const cameraOrdinal = steps.slice(0, index + 1).filter((s) => s.kind === "camera").length;
   const finished = stage === "cooldown" || stage === "done";
@@ -250,7 +251,9 @@ export default function Workout({
             </p>
           )}
           {body && <p>{body}</p>}
+          {/* The phone's placement is for the camera part; a session of cards alone has none. */}
           {stage === "setup" &&
+            hasCamera &&
             (placement ? (
               <PlacementGuide lang={lang} position={position} compact={!firstSession} />
             ) : (

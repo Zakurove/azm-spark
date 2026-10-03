@@ -91,6 +91,39 @@ describe("a session with guided cards (D)", () => {
     expect(rest).toContain('role="timer"');
   });
 
+  it("asks no phone placement before a session of cards alone", () => {
+    const limb = { ...intake, conditions: ["upper_limb_unilateral"] };
+    const p = createPlan(limb);
+    const day = sessionDay(engineWeekly(limb, p)!, 0, planRest(p))!;
+    const html = renderToStaticMarkup(
+      createElement(Workout, {
+        run: { id: "w2", demo: false, plan: p, today: day },
+        lang: "en",
+        firstSession: true,
+        preferences: defaults,
+        onPreferences: () => undefined,
+        onExit: () => undefined,
+      }),
+    );
+    expect(html).toContain(labels("en").attest);
+    expect(html).not.toContain("place-tips");
+    expect(html).not.toContain(guidedCopy("en").cameraKicker);
+    // with a camera movement, the first session shows the placement in full
+    expect(render("en", {})).not.toContain("place-tips");
+    expect(
+      renderToStaticMarkup(
+        createElement(Workout, {
+          run: { id: "w3", demo: false, plan, today },
+          lang: "en",
+          firstSession: true,
+          preferences: defaults,
+          onPreferences: () => undefined,
+          onExit: () => undefined,
+        }),
+      ),
+    ).toContain("place-tips");
+  });
+
   it("keeps the timers around the camera sets for a workout started before the cards", () => {
     const html = render("en", { demo: true, today: undefined });
     expect(html).toContain(labels("en").warmup);

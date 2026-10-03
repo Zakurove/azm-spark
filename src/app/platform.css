@@ -1296,8 +1296,14 @@
   background: #8068a7;
   color: white;
 }
-.workout-queue .done {
-  opacity: 0.5;
+/* A done row reads quieter (AA contrast kept, no fading), with a soft green tick. */
+.workout-queue .done strong {
+  color: #5f6672;
+  font-weight: 600;
+}
+.workout-queue .done > span {
+  background: #e9f4ea;
+  color: #2f6b3a;
 }
 .workout-queue strong {
   font-size: 13px;

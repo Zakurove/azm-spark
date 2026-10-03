@@ -104,6 +104,11 @@
   padding: 18px 20px 14px;
   animation: gcard-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.gcard-info:focus-visible {
+  outline: 3px solid #8a6d14;
+  outline-offset: -3px;
+  border-radius: 18px;
+}
 .gcard-hero {
   display: flex;
   align-items: center;

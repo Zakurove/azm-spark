@@ -189,12 +189,19 @@ export default function GuidedCard({
   );
 
   return (
-    <div className="gcard" data-phase={phase} data-kind={kind} data-slot={slot}>
+    <div
+      className="gcard"
+      data-phase={phase}
+      data-kind={kind}
+      data-slot={slot}
+      data-sets={sets}
+      data-reps={kind === "counter" ? reps : undefined}
+    >
       <div className="gcard-backdrop" aria-hidden="true" />
       <header className="gcard-top">
         <span className="gcard-slot gcard-glass">
           <span>{g.slot[slot]}</span>
-          <b aria-label={g.progressLabel(n(position), n(total))}>{g.progress(n(position), n(total))}</b>
+          <b>{g.progress(n(position), n(total))}</b>
         </span>
         <button type="button" className="gcard-exit gcard-glass" aria-label={g.exit} onClick={onExit}>
           <Icon name="close" size={20} />
@@ -204,7 +211,8 @@ export default function GuidedCard({
         <i style={{ inlineSize: `${(Math.min(position, total) / Math.max(1, total)) * 100}%` }} />
       </div>
       <main className="gcard-body">
-        <section className="gcard-info">
+        {/* Focusable, so a keyboard can scroll the steps on a short screen. */}
+        <section className="gcard-info" tabIndex={0} aria-label={name}>
           <div className="gcard-hero">
             <ExerciseArt category={ex.category} />
             <div>
@@ -239,7 +247,7 @@ export default function GuidedCard({
             ))}
           </ol>
         </section>
-        <section className="gcard-panel gcard-glass" aria-label={name}>
+        <section className="gcard-panel gcard-glass">
           {phase === "effort" ? (
             <div className="gcard-effort">
               <p className="gcard-done-line" role="status">

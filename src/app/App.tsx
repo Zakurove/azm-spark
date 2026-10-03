@@ -789,8 +789,6 @@ export default function App() {
                   )}
                 </LazyPart>
               )}
-              {/* My results carries its own footer (S53) at 16 px; the portal note stays elsewhere. */}
-              {page !== "results" && <p className="medical-footnote">{c.medicalNote}</p>}
             </>
           )}
         </main>

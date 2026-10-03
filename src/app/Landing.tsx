@@ -10,7 +10,8 @@ import Icon from "./Icon";
  * the hero and the four step loop. Copy lives in src/i18n/{ar,en}/landing.json. Simplicity cut C36:
  * one gold action (Start free) with a quiet Try a workout link, at the top and the bottom only; the
  * steps as a plain numbered list with the one measure and compare example; no benefits section; the
- * movement check action only while the check can start; not medical once, in the footer.
+ * movement check action only while the check can start. The footer has no disclaimer (D-017 item 2):
+ * the privacy link and the brand line.
  *
  * Hero headline: option 1 of the plan, the tech lead's default. Nasser may swap it for one of the
  * other two options, which are in landing.json in both languages:
@@ -264,13 +265,9 @@ export default function Landing({
       </main>
       <footer className="ld-footer">
         <div className="ld-footer-inner">
-          <div>
-            <p className="ld-not-medical">{t(lang, "landing.footer.notMedical")}</p>
-            <p className="ld-note">{t(lang, "landing.footer.note")}</p>
-            <a className="ld-privacy" href={privacyHref(lang)}>
-              {t(lang, "privacy.link")}
-            </a>
-          </div>
+          <a className="ld-privacy" href={privacyHref(lang)}>
+            {t(lang, "privacy.link")}
+          </a>
           <span className="ld-brandline">{t(lang, "landing.footer.brandline")}</span>
         </div>
       </footer>

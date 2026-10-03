@@ -95,7 +95,6 @@ export const labels = (l: Lang) =>
         retry: "إعادة المحاولة",
         reported: "ما أخبرتنا به",
         recordNote: "إقرار السماح الطبي صادر منك، وليس تحققًا من تقرير الطبيب.",
-        medicalNote: "البرنامج إرشاد تدريبي؛ لا يُشخّص حالة ولا يستبدل تعليمات مختصّك.",
         session: "جلسة",
         calendar: "الأيام",
         neural: "صوت المدرّب",
@@ -217,8 +216,6 @@ export const labels = (l: Lang) =>
         retry: "Try again",
         reported: "What you told us",
         recordNote: "Medical clearance is self reported, not verification of a clinician’s report.",
-        medicalNote:
-          "This is exercise guidance. It does not diagnose conditions or replace your clinician’s instructions.",
         session: "session",
         calendar: "Days",
         neural: "Coach voice",

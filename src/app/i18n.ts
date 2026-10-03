@@ -56,10 +56,6 @@ export const T = {
     ar: "الفيديو لا يغادر جهازك، وتُحفظ الأرقام فقط",
     en: "Video never leaves your device. Only numbers are saved",
   },
-  disclaimer: {
-    ar: "عَزم مرشد تدريبي وليس جهازًا طبيًا. إذا كنت من مرضى القلب فلا تبدأ التمرين إلا بموافقة طبيبك.",
-    en: "Azm is training guidance, not a medical device. Cardiac conditions require medical clearance before exercise.",
-  },
   onDevice: { ar: "يعمل على جهازك", en: "Runs on your device" },
   arabicFirst: { ar: "العربية أولًا", en: "Arabic first" },
   yourBaseline: { ar: "مداك أنت هو المعيار", en: "Your baseline is the standard" },

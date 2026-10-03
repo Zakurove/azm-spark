@@ -1,14 +1,12 @@
 /**
  * Landing page, phase 1 of F15 (technical plan, "Landing page reimagining"): the hero with the
- * then and now example card, the four step loop, the "not intended for medical purposes" line and
- * the closing text without "or doctor" (clinical spec Q23, Appendix B item 15).
+ * then and now example card, the four step loop and the closing text without "or doctor" (clinical
+ * spec Q23, Appendix B item 15). No disclaimer in the footer (D-017 item 2).
  *
  * The page is rendered to static markup in both languages, so what is checked is what a visitor
  * reads. Copy is read from src/i18n/{ar,en}/landing.json through t().
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import Landing, {
@@ -23,6 +21,7 @@ import { DICTIONARIES, t } from "../src/i18n";
 import { CHECK_DATA, testDef } from "../src/movements/assessments";
 import { ARABIC_MARKS, wordingProblems } from "../scripts/wording-rules.mjs";
 import type { Lang } from "../src/app/i18n";
+import { disclaimersIn } from "./no-disclaimers";
 
 const LANGS: Lang[] = ["ar", "en"];
 const noop = () => {};
@@ -260,28 +259,17 @@ describe("four step loop", () => {
 });
 
 describe("closing and footer", () => {
-  it("shows the not intended for medical purposes line from the clinical data once, in the footer (C33)", () => {
+  it("shows no disclaimer: the footer is the privacy link and the brand line (D-017 item 2)", () => {
     for (const lang of LANGS) {
-      expect(t(lang, "landing.footer.notMedical")).toBe(CHECK_DATA.boundary.notMedical[lang]);
-      const page = text(render(lang, true));
-      expect(page.split(CHECK_DATA.boundary.notMedical[lang])).toHaveLength(2);
-      expect(text(part(render(lang), "ld-footer"))).toContain(CHECK_DATA.boundary.notMedical[lang]);
+      expect(disclaimersIn(lang, text(render(lang, true)))).toEqual([]);
+      const footer = part(render(lang), "ld-footer");
+      expect(footer).not.toMatch(/ld-not-medical|ld-note/);
+      expect(text(footer)).toContain(t(lang, "privacy.link"));
+      expect(text(footer)).toContain(t(lang, "landing.footer.brandline"));
     }
-    expect(t("ar", "landing.footer.notMedical")).toBe("غير مخصص للأغراض الطبية.");
-    expect(t("en", "landing.footer.notMedical")).toBe("Not intended for medical purposes.");
-  });
-
-  it("sets the line at body size, never fine print, in the footer (Q23 (2), H1)", () => {
-    const css = readFileSync(join(__dirname, "../src/app/platform.css"), "utf8");
-    // Every rule that sizes the line, in the order of the file, as the cascade applies them.
-    const sizes = [...css.matchAll(/([^{}]*\.ld-not-medical[^{}]*)\{([^}]*)\}/g)]
-      .map(([, selector, body]) => ({
-        selector: selector.trim(),
-        size: /font-size:\s*(\d+)px/.exec(body)?.[1],
-      }))
-      .filter((r) => r.size !== undefined);
-    expect(sizes.length).toBeGreaterThan(0);
-    for (const r of sizes) expect(Number(r.size), r.selector).toBeGreaterThanOrEqual(16);
+    // The video feature chip stays (D-017 keeps it).
+    expect(t("ar", "landing.hero.chips.video")).toBe("الفيديو لا يغادر جهازك");
+    expect(t("en", "landing.hero.chips.video")).toBe("Video never leaves your device");
   });
 
   it("keeps the closing line and uses the council's closing text, without the doctor (spec Q23)", () => {
@@ -304,7 +292,6 @@ describe("closing and footer", () => {
 describe("page wide rules", () => {
   it("says Azm in the English footer and brand line, never AZM SPARK (C36)", () => {
     const footer = text(part(render("en"), "ld-footer"));
-    expect(footer).toContain("Azm is a training companion");
     expect(footer).toContain("Azm. Training is still yours.");
     expect(render("en")).not.toMatch(/SPARK/i);
   });

@@ -576,7 +576,7 @@
     "startTitle": "نقطة بدايتك",
     "nowTitle": "نتائجك الآن",
     "nextHeading": "الخطوة التالية",
-    "nextDate": "قياسك القادم في {date}.",
+    "nextDate": "قياسك القادم يوم {date}.",
     "keepProgram": "تابع برنامجك كالمعتاد.",
     "seeOverTime": "اعرض قياساتك عبر الوقت",
     "endedEarlyTitle": "انتهى قياس اليوم مبكرًا",

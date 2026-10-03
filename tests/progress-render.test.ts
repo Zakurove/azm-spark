@@ -349,6 +349,8 @@ describe("S50 to S52 results", () => {
       expect(m).toContain(
         t(lang, "assessment.results.nextDate", { date: "{date}" }).split("{date}")[0].trim(),
       );
+      // The weekday reads «يوم السبت»: «في السبت» is not how Arabic names a day.
+      if (lang === "ar") expect(m).toContain("قياسك القادم يوم ");
       expect(m).not.toContain(CHECK_DATA.progress.nextDue[lang].slice(-20));
       expect(disclaimersIn(lang, text(m))).toEqual([]);
       expect(m).not.toContain("check-results-footer");

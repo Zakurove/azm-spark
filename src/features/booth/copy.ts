@@ -102,8 +102,9 @@ const ar = {
   included: "مناسب",
   adapted: "مكيّف",
   excluded: "مستبعد",
-  library: (n: number) =>
-    `و${arCount(n, { one: "تمرين آمن واحد", two: "تمرينان آمنان", few: "تمارين آمنة", many: "تمرينًا آمنًا" })} من مكتبة عزم`,
+  /** alone: no camera movement comes before it, so the line opens without «و». */
+  library: (n: number, alone = false) =>
+    `${alone ? "" : "و"}${arCount(n, { one: "تمرين آمن واحد", two: "تمرينان آمنان", few: "تمارين آمنة", many: "تمرينًا آمنًا" })} من مكتبة عزم`,
   restLonger: "راحة أطول بين المجموعات",
   restValue: (n: string) => `${n} ث`,
   restBase: (n: string) => `بدل ${n} ث`,
@@ -264,7 +265,8 @@ const en: Copy = {
   included: "Included",
   adapted: "Adapted",
   excluded: "Left out",
-  library: (n: number) => `and ${enCount(n, "safe exercise", "safe exercises")} from the Azm library`,
+  library: (n: number, alone = false) =>
+    `${alone ? "" : "and "}${enCount(n, "safe exercise", "safe exercises")} from the Azm library`,
   restLonger: "Longer rest between sets",
   restValue: (n: string) => `${n} s`,
   restBase: (n: string) => `instead of ${n} s`,

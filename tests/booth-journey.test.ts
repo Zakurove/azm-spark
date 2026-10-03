@@ -10,6 +10,7 @@ import {
   DOTS,
   IDLE_MS,
   START,
+  cameraFits,
   cameraSetup,
   canGoOn,
   dotOf,
@@ -168,6 +169,67 @@ describe("the rules can say no, and the safety question stops calmly", () => {
     expect(journeyPlan(j).plan.status).toBe("review");
     // Back returns to the engine, not to a camera result that never was.
     expect(step(j, { type: "BACK" }).step).toBe("engine");
+  });
+
+  it("a ready plan of guided cards alone (no camera movement fits) never opens the press camera", () => {
+    // One arm: the rules leave out every camera movement, and the program is guided cards (D).
+    let j = run([
+      { type: "OPEN", door: "self" },
+      { type: "TAP", answers: { conditions: ["upper_limb_unilateral"] } },
+      { type: "NEXT" },
+      { type: "TAP", answers: { position: "seated" } },
+      { type: "NEXT" },
+      { type: "TAP", answers: { side: "none" } },
+      { type: "NEXT" },
+    ]);
+    const { plan } = journeyPlan(j);
+    expect(plan.status).toBe("ready");
+    expect(plan.exercises).toEqual([]);
+    expect(cameraFits(j)).toBe(false);
+    // The goal still shapes the week; then the program, with no safety question and no camera.
+    j = run([{ type: "NEXT" }], j);
+    expect(j.step).toBe("goal");
+    j = run([{ type: "GOAL", goal: "strength" }, { type: "NEXT" }], j);
+    expect(j.step).toBe("program");
+    expect(step(j, { type: "BACK" }).step).toBe("goal");
+  });
+
+  it("the rules leave the press out (no overhead): the camera is skipped, the week stays", () => {
+    const reading = {
+      ...SAAD_EXTRACTION,
+      extracted: {
+        ...SAAD_EXTRACTION.extracted,
+        conditions: [],
+        mobility: "standing",
+        restrictions: ["no_overhead"],
+        pain: [],
+      },
+    } as typeof SAAD_EXTRACTION;
+    let j = run([
+      { type: "OPEN", door: "self" },
+      { type: "READ", extraction: reading, source: "live" },
+      { type: "TAP", answers: { conditions: ["none"] } },
+      { type: "NEXT" },
+      { type: "TAP", answers: { position: "standing" } },
+      { type: "NEXT" },
+      { type: "TAP", answers: { side: "none" } },
+      { type: "NEXT" },
+    ]);
+    const { plan } = journeyPlan(j);
+    expect(plan.status).toBe("ready");
+    expect(plan.exclusions).toContainEqual({ exerciseId: "seated_shoulder_press", reason: "overhead" });
+    expect(cameraFits(j)).toBe(false);
+    j = run([{ type: "NEXT" }, { type: "GOAL", goal: "strength" }, { type: "NEXT" }], j);
+    expect(j.step).toBe("program");
+  });
+
+  it("Saad's story fits the press, so the camera follows the safety question", () => {
+    const j = run([
+      { type: "OPEN", door: "story" },
+      { type: "READ", extraction: SAAD_EXTRACTION, source: "live" },
+      { type: "NEXT" },
+    ]);
+    expect(cameraFits(j)).toBe(true);
   });
 
   it("yes to the safety question stops before the camera; no camera attempt starts", () => {

@@ -104,6 +104,59 @@ describe("the starting point's count up", () => {
   });
 });
 
+describe("a ready plan of guided cards alone (contract D at the booth)", () => {
+  // One arm, seated: the rules leave every camera movement out; the week is library cards.
+  const oneArm = () =>
+    planFor(
+      selfBase({ conditions: ["upper_limb_unilateral"], clearance: null, position: "seated", side: "none" }),
+      "strength",
+    );
+
+  it("the engine lists no camera movement in, and the library on its own", () => {
+    const { intake, plan } = oneArm();
+    expect(plan.status).toBe("ready");
+    expect(plan.exercises).toEqual([]);
+    const v = engineView(intake, plan, "en", reasonText);
+    expect(v.included).toEqual([]);
+    expect(v.library).toBeGreaterThan(0);
+    expect(v.excluded.map((x) => x.id)).toContain("seated_shoulder_press");
+  });
+
+  it("the rules' longer rest still shows when the session is guided cards alone", () => {
+    const { intake, plan } = planFor(
+      selfBase({
+        conditions: ["upper_limb_unilateral", "sci_incomplete"],
+        clearance: "yes",
+        position: "wheelchair",
+        side: "none",
+      }),
+      "strength",
+    );
+    expect(plan.status).toBe("ready");
+    expect(plan.exercises).toEqual([]);
+    expect(plan.restSeconds).toBeGreaterThan(30);
+    const rest = engineView(intake, plan, "en", reasonText).adapted.find((a) => a.id === "rest");
+    expect(rest).toMatchObject({ value: `${plan.restSeconds} s`, base: "instead of 30 s" });
+  });
+
+  it("the library line reads on its own, with no leading and", () => {
+    expect(boothCopy("en").library(12, true)).toBe("12 safe exercises from the Azm library");
+    expect(boothCopy("en").library(12)).toBe("and 12 safe exercises from the Azm library");
+    expect(boothCopy("ar").library(12, true).startsWith("و")).toBe(false);
+    expect(boothCopy("ar").library(12).startsWith("و")).toBe(true);
+  });
+
+  it("the week has no camera movement on any day, and library exercises on each", () => {
+    const { intake, plan } = oneArm();
+    const week = cameraWeek(plan, engineWeekly(intake, plan), "en");
+    expect(week.length).toBeGreaterThan(0);
+    for (const d of week) {
+      expect(d.camera).toEqual([]);
+      expect(d.extra.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("the week and the register code", () => {
   it("shows each training day with the camera movements and up to two library exercises", () => {
     const { intake, plan } = saad();

@@ -446,6 +446,43 @@ test("a heart condition holds the plan for review: no camera, the reasons and th
   expect(errors).toEqual([]);
 });
 
+test("one arm: the rules leave the press out, so the goal leads to a week of guided cards, no camera", async ({
+  page,
+}) => {
+  const errors = watchConsole(page);
+  await staffIn(page, "en");
+  await page.locator('[data-door="self"]').click();
+  await page.locator('[data-condition="upper_limb_unilateral"]').click();
+  await expect(page.locator("[data-clearance]")).toHaveCount(0);
+  await next(page);
+  await page.locator('[data-pick="seated"]').click();
+  await next(page);
+  await page.locator('[data-pick="none"]').click();
+  await next(page);
+  // The engine: a ready plan, every camera movement left out, the library on its own line.
+  const engine = page.locator('[data-screen="engine"]');
+  await expect(engine).toHaveAttribute("data-status", "ready");
+  await expect(page.locator('[data-group="out"] [data-item="seated_shoulder_press"]')).toBeVisible();
+  await expect(page.locator('[data-group="in"] [data-item]')).toHaveCount(0);
+  await expect(page.locator('[data-group="in"] .bx-item.lib')).toHaveText(
+    /^\d+ safe exercises? from the Azm library$/,
+  );
+  await next(page);
+  await page.locator('[data-pick="strength"]').click();
+  await next(page);
+  // No safety question and no camera: the week straight away, with no empty camera line.
+  const program = page.locator('[data-screen="program"]');
+  await expect(program).toHaveAttribute("data-status", "ready");
+  await expect(page.locator(".cam2")).toHaveCount(0);
+  await expect(page.locator(".bx-day").first()).toBeVisible();
+  await expect(page.locator(".bx-every")).toHaveCount(0);
+  await expect(page.locator('[data-register="dock"]')).toBeVisible();
+  // Back returns to the goal, not to a camera result that never was.
+  await page.locator('.bx-actions [data-action="back"]').click();
+  await expect(page.locator('[data-screen="goal"]')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("yes to the safety question: a calm stop with the emergency line, then the doors", async ({ page }) => {
   await staffIn(page, "ar");
   await page.locator('[data-door="story"]').click();

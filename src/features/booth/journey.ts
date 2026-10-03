@@ -14,7 +14,9 @@
  *   6 program the week, the sport path and the register code
  *
  * A plan the rules hold for review skips the camera: the engine shows why, and the program step
- * shows the review with the register code (rules before AI, and before the camera too).
+ * shows the review with the register code (rules before AI, and before the camera too). A ready plan
+ * that leaves the seated shoulder press out (guided cards alone, one arm, upper pain, no overhead)
+ * goes from the goal to the program, with no safety question and no camera (cameraFits).
  */
 import type { SessionSummary } from "../../engine/types";
 import type { Setup } from "../../app/product";
@@ -119,6 +121,17 @@ export function journeyPlan(j: Journey): { intake: Intake; plan: Plan } {
   return planFor(base, j.goal ?? "strength", j.sport);
 }
 
+/**
+ * Whether the booth's camera set is for this person: the plan is ready and the rules kept the seated
+ * shoulder press in it. A plan of guided cards alone (no camera movement fits, contract D) or one
+ * that leaves the press out (one arm, upper pain, no overhead) goes from the goal to the program,
+ * with no safety question and no camera (rules before AI, and before the camera too).
+ */
+export function cameraFits(j: Journey): boolean {
+  const { plan } = journeyPlan(j);
+  return plan.status === "ready" && plan.exercises.some((e) => e.exerciseId === BOOTH_EXERCISE);
+}
+
 /** Who moves in front of the camera: Saad's story uses the wheelchair profile, a visitor their own. */
 export function cameraSetup(j: Journey): Setup {
   if (j.door === "story") return { position: "wheelchair", support: "none" };
@@ -195,7 +208,8 @@ export function journeyReducer(j: Journey, e: JourneyEvent): Journey {
           // The rules held the plan for review: no camera, the program step says why.
           return journeyPlan(j).plan.status === "review" ? go(j, "program") : go(j, "goal");
         case "goal":
-          return go(j, "safety");
+          // The camera only for a press the rules kept; otherwise the week straight away.
+          return cameraFits(j) ? go(j, "safety") : go(j, "program");
         case "results":
           return go(j, "program");
         default:
@@ -220,12 +234,13 @@ export function journeyReducer(j: Journey, e: JourneyEvent): Journey {
         case "results":
           return go(j, "safety", -1);
         case "program":
-          return go(j, j.summary ? "results" : "engine", -1);
+          if (j.summary) return go(j, "results", -1);
+          return go(j, journeyPlan(j).plan.status === "review" ? "engine" : "goal", -1);
         default:
           return j;
       }
     case "SAFETY":
-      if (j.step !== "safety") return j;
+      if (j.step !== "safety" || (!e.unwell && !cameraFits(j))) return j;
       return e.unwell ? go(j, "stop") : { ...go(j, "camera"), attempt: j.attempt + 1 };
     case "CAMERA_DONE":
       if (j.step !== "camera") return j;

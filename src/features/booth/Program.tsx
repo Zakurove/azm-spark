@@ -105,15 +105,18 @@ export function ProgramStep({
                 />
                 {waiting ? k.writing : weekly?.source === "ai" ? k.sourceAi : k.sourceEngine}
               </p>
-              <p className="bx-every">
-                {k.everySession}
-                {days[0]?.camera.map((c) => (
-                  <span key={c}>
-                    <BoothIcon name="camera" size={14} />
-                    {c}
-                  </span>
-                ))}
-              </p>
+              {/* A week of guided cards alone has no camera movement to name (booth v2, D). */}
+              {!!days[0]?.camera.length && (
+                <p className="bx-every">
+                  {k.everySession}
+                  {days[0].camera.map((c) => (
+                    <span key={c}>
+                      <BoothIcon name="camera" size={14} />
+                      {c}
+                    </span>
+                  ))}
+                </p>
+              )}
               <ol className="bx-days">
                 {days.map((d, i) => (
                   <li key={d.day} className="bx-day" style={{ ["--i" as string]: i }}>

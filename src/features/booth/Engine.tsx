@@ -63,7 +63,7 @@ export function EngineStep({
             {v.library > 0 && (
               <li className="bx-item lib" style={{ ["--i" as string]: v.included.length }}>
                 <BoothIcon name="spark" size={18} />
-                <span>{k.library(v.library)}</span>
+                <span>{k.library(v.library, v.included.length === 0)}</span>
               </li>
             )}
           </Group>

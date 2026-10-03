@@ -120,13 +120,15 @@ export function engineView(
   const library = eligibleExercises(intake, plan).filter(
     (x) => !plan.exercises.some((e) => e.exerciseId === x.id),
   ).length;
-  const first = plan.exercises[0];
+  // The rules' rest between sets: the first camera movement's, or the plan's own for a session of
+  // guided cards alone (booth v2, D).
+  const rest = plan.exercises[0]?.restSeconds ?? plan.restSeconds ?? 0;
   const adapted: EngineItem[] = [];
-  if (first && first.restSeconds > BASE_DOSE.rest)
+  if (rest > BASE_DOSE.rest)
     adapted.push({
       id: "rest",
       title: k.restLonger,
-      value: k.restValue(num(lang, first.restSeconds)),
+      value: k.restValue(num(lang, rest)),
       base: k.restBase(num(lang, BASE_DOSE.rest)),
     });
   const upper = plan.exercises.find((e) => e.exerciseId !== "sit_to_stand");

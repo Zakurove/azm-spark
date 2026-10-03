@@ -2,7 +2,7 @@
  * C48: the workout opens on one setup screen with no timer. The attestation is one line from the
  * copy files, confirmed by one tap on «أنا جاهز» with no checkbox. The placement guide shows in full
  * on the first session and as one line with a link after that. The warm up has its own screen with
- * a timer and no set label, and the program lists each exercise once («ضغط الكتف جالسًا · ٣ × ٩»).
+ * a timer and no set label, and the program lists each exercise once («ضغط الكتف جالسًا، ٣ × ٩»).
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -99,9 +99,12 @@ describe("the workout start (C48)", () => {
     const html = render("ar");
     expect(html.split("ضغط الكتف جالسًا").length - 1).toBe(1);
     const row = (h: string) => h.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
-    expect(row(html)).toContain("ضغط الكتف جالسًا · ٣ × ٩");
+    // Booth v2 (D): in Arabic a middle dot beside an Arabic number reads as its zero («· ٢٠» as
+    // «٢٠٠»), so the Arabic row takes the Arabic comma; English keeps the middle dot.
+    expect(row(html)).toContain("ضغط الكتف جالسًا، ٣ × ٩");
+    expect(row(html)).not.toContain("·");
     expect(row(render("en"))).toContain("Seated Shoulder Press · 3 × 9");
-    expect(html).toContain('<span class="workout-dose">· ٣ × ٩</span>');
+    expect(html).toContain('<span class="workout-dose">٣ × ٩</span>');
   });
 
   it("shows the set label on the rest between sets", () => {

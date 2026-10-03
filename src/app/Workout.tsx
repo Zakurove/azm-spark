@@ -304,7 +304,9 @@ export default function Workout({
               <div key={i} className={now ? "current" : done ? "done" : ""} data-group={r.group}>
                 <span>{done ? <Icon name="check" size={16} /> : fmtNum(i + 1, lang)}</span>
                 <strong>
-                  {r.name} <span className="workout-dose">{`· ${r.dose}`}</span>
+                  {/* In Arabic a middle dot beside a number reads as its zero: the Arabic comma. */}
+                  {lang === "ar" ? `${r.name}، ` : `${r.name} `}
+                  <span className="workout-dose">{lang === "ar" ? r.dose : `· ${r.dose}`}</span>
                 </strong>
               </div>,
             ];

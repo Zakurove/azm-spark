@@ -316,7 +316,9 @@ export default function GuidedCard({
                   {face}
                 </div>
               )}
-              <p className="gcard-hint">{resting ? g.rest : kind === "counter" ? g.tapHint : g.holdHint}</p>
+              <p className="gcard-hint">
+                {resting ? g.restHint : kind === "counter" ? g.tapHint : g.holdHint}
+              </p>
               {kind === "timer" && (
                 <button
                   type="button"
@@ -332,15 +334,13 @@ export default function GuidedCard({
                   {g.saveError}
                 </p>
               )}
+              <p className="gcard-status" role="status" aria-live="polite">
+                {status}
+              </p>
               <button type="button" className="gcard-skip" disabled={saving} onClick={onSkip}>
                 {g.skipExercise}
               </button>
             </>
-          )}
-          {phase !== "effort" && (
-            <p className="gcard-status" role="status" aria-live="polite">
-              {status}
-            </p>
           )}
         </section>
       </main>

@@ -27,6 +27,8 @@ import { programWhy } from "../medical/programWhy";
 const CheckApp = lazy(() => import("../features/assessment/CheckApp"));
 const loadBooth = () => import("../features/assessment/booth");
 const BoothStaffPage = lazy(() => loadBooth().then((m) => ({ default: m.BoothStaffPage })));
+/** Booth v2 (contract C): the booth journey, its two doors and six steps. */
+const BoothApp = lazy(() => import("../features/booth/BoothApp"));
 const loadProgress = () => import("../features/progress");
 const AfterIntakeOffer = lazy(() => loadProgress().then((m) => ({ default: m.AfterIntakeOffer })));
 const ExampleProgress = lazy(() => loadProgress().then((m) => ({ default: m.ExampleProgress })));
@@ -49,7 +51,14 @@ const flushPendingCheckCalls = (owner: string) =>
 const qs = new URLSearchParams(location.search);
 /** Movement check entries (contract v3 J): the guest check, booth staff mode and the example page. */
 const checkEntry = qs.get("check") === "1";
-const boothEntry = qs.get("booth") === "1";
+/**
+ * Booth v2 (contract C1, D-018): /?booth=1 is the booth journey. The parked movement check keeps its
+ * staff page at /?booth=check, linked from nowhere at the booth, and its E2E harness at
+ * /?booth=1&e2eBooth=<page> (VITE_E2E builds only).
+ */
+const boothParam = qs.get("booth");
+const boothJourneyEntry = boothParam === "1" && !qs.get("e2eBooth");
+const boothEntry = boothParam === "check" || (boothParam === "1" && !!qs.get("e2eBooth"));
 /** The account page opened on its register tab (S50 QR, the Create a free account button). */
 const registerEntry = qs.get("register") === "1";
 // The example page (S54): shown wherever the check UI is on (featureFlag.ts, every build by default).
@@ -252,6 +261,12 @@ export default function App() {
           // A guest never goes Back into a previous visitor's screens: every exit replaces the page (S57).
           onExit={(to) => openUrl(EXIT_URLS[to] ?? "/", lang, true)}
         />
+      </LazyPage>
+    );
+  if (boothJourneyEntry)
+    return (
+      <LazyPage lang={lang}>
+        <BoothApp lang={lang} onLanguage={toggleLanguage} />
       </LazyPage>
     );
   if (boothEntry)

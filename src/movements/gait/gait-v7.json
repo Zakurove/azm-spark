@@ -1,0 +1,2965 @@
+{
+  "id": "gait-rules",
+  "version": "0.2.1",
+  "status": "draft",
+  "signoff": {
+    "approved": false,
+    "approvers": [
+      "Dr. Nasser Alharbi (PM&R), medical",
+      "Chaker Belhaj, fitness"
+    ]
+  },
+  "grades": {
+    "measurement": {
+      "A": "validated against motion capture or a pressure walkway in a clinical population with one 2D camera",
+      "B": "validated in healthy adults only, or with a different single camera setup",
+      "C": "no direct validation; derived from landmarks that are themselves acceptable",
+      "D": "shown to be unreliable; never used"
+    }
+  },
+  "eligibility": {
+    "gate": [
+      {
+        "item": "intake.walking",
+        "rule": "no -> not offered; without_aid or with_aid -> continue"
+      },
+      {
+        "item": "pc_walk_10m (new, asked at each gait test)",
+        "rule": "no -> not offered, reason walk_needs_hands_on_help"
+      },
+      {
+        "item": "restriction no_weight_bearing or no_exercise",
+        "rule": "not offered"
+      },
+      {
+        "item": "lower limb loss",
+        "rule": "only with the prosthesis on (pc_limb_leg_prosthesis yes); never on crutches without a prosthesis"
+      },
+      {
+        "item": "pc_surgery_recent with back, hip, knee, ankle or foot not cleared",
+        "rule": "not offered today"
+      },
+      {
+        "item": "clearance no or unsure",
+        "rule": "stroke or SCI: no gait test (reason clearance_needed), as the global gate (review A17); a named exception (overground only, helper, short walk, never the pad) is open question Q1. Other conditions: overground allowed; walking pad not offered"
+      }
+    ],
+    "today": [
+      {
+        "item": "pc_urgent yes",
+        "action": "emergency route (existing)"
+      },
+      {
+        "item": "pc_unwell yes or pc_change yes",
+        "action": "postpone (existing)"
+      },
+      {
+        "item": "pc_pain_now >= 9",
+        "action": "postpone (existing)"
+      },
+      {
+        "item": "leg, hip or back pain 6 or more today (pc_pain_areas with pc_pain_now)",
+        "action": "postpone the gait test (review A08: one shared rule, skip at 6 or more)"
+      },
+      {
+        "item": "leg, hip or back pain 4 or 5 today",
+        "action": "test runs; only the antalgic label can be shown and the weakness and tightness contributors are suppressed (review A08)"
+      },
+      {
+        "item": "pc_pain_now 6 to 8 elsewhere (not a leg, hip or back)",
+        "action": "existing high pain warning; overground allowed; pad not offered"
+      },
+      {
+        "item": "pc_steadi any yes",
+        "action": "helper required; pad not offered"
+      },
+      {
+        "item": "pc_walking_aid yes or an aid in the intake",
+        "action": "helper required; walk with the usual aid; pad not offered"
+      },
+      {
+        "item": "restriction balance_support",
+        "action": "helper required; pad not offered"
+      },
+      {
+        "item": "pc_pd_dizzy_standing yes",
+        "action": "helper required; pad not offered"
+      },
+      {
+        "item": "pc_pd_freezing yes (new, Parkinson's only)",
+        "action": "helper required; pad not offered; turns slow and wide"
+      },
+      {
+        "item": "pc_pd_on, pc_pd_dose",
+        "action": "recorded with the result for like with like re-tests"
+      },
+      {
+        "item": "pc_arthritis_flare in hip, knee, ankle or foot",
+        "action": "overground with the warning; pad not offered"
+      },
+      {
+        "item": "pc_ms_heat, SCI autonomic dysreflexia items",
+        "action": "existing rules"
+      },
+      {
+        "item": "pc_helper",
+        "action": "asked at home when a helper is required; no -> skip with reason helper_needed; staff count as helper at the booth"
+      },
+      {
+        "item": "knee orthosis (KAFO or a locked knee brace) on a side",
+        "action": "recorded; stiff knee not assessed on that side (knee_orthosis_on_S, review A14)"
+      }
+    ],
+    "modeChoice": {
+      "default": "overground",
+      "padAllowedWhenAll": [
+        "no walking aid",
+        "pc_steadi all no",
+        "no balance_support restriction",
+        "no freezing",
+        "no dizziness on standing",
+        "leg, hip or back pain 5 or less today",
+        "clearance yes",
+        "no flare in a leg joint",
+        "pad has a front bar, or a stable support on the side away from the phone, within reach (review B12)",
+        "comfortable speed not below the pad's lowest speed",
+        "booth or clinic staff present, or a helper at home"
+      ]
+    },
+    "padSafety": [
+      {
+        "step": "level floor, clear space behind, stop control held by helper or safety key clipped"
+      },
+      {
+        "step": "foot sensing automatic speed off; speed set by hand"
+      },
+      {
+        "step": "step on with the belt stopped, hold the support, start at the lowest speed, raise to comfortable"
+      },
+      {
+        "step": "record handrail held: none, light, firm"
+      },
+      {
+        "step": "support is a front bar, or a support on the side away from the phone; the helper stands behind the walker on the camera side"
+      },
+      {
+        "step": "warm up 2 min (engineering default); familiarised flag only when total pad time >= 6 min"
+      }
+    ],
+    "stops": [
+      "person, helper or coach can stop at any time; coach stop and mark_pain end recording; the coach never overrides a safety stop (plan §3.2)",
+      "pain 6 or more, a rise of 2 or more over the score before the walk, or a sudden sharp pain ends the test; result labelled pain_limited (review A08: one shared rule)",
+      "unsteadiness, a stumble or the helper taking hold ends the test; only completed clean cycles are kept",
+      "on the pad the app cannot stop the belt: the stop line asks the person to hold the support and the helper to press stop"
+    ]
+  },
+  "capture": {
+    "common": {
+      "cameraFps": 30,
+      "processedFps": {
+        "full": 25,
+        "timingOnly": 20
+      },
+      "maxDistance_m": 4,
+      "headVisible": true,
+      "standingCalibration_s": 3
+    },
+    "walking_pad": {
+      "side": {
+        "distance_m": [
+          2.5,
+          3.5
+        ]
+      },
+      "front": {
+        "distance_m": 2,
+        "duration_s": 20
+      }
+    },
+    "overground": {
+      "front": {
+        "space_m": 6,
+        "marks": {
+          "stop_m_behind_phone": 1.5
+        },
+        "passesToward": 4,
+        "maxPasses": 6,
+        "analysedWindow_m_from_phone": [
+          1.5,
+          4
+        ]
+      },
+      "side": {
+        "distance_m": [
+          3,
+          4
+        ],
+        "passes": 4,
+        "maxPasses": 6
+      }
+    },
+    "minimumCycles": {
+      "perSidePerViewGroup": 6,
+      "noPenalty": 10
+    }
+  },
+  "preprocessing": [
+    {
+      "step": "timestamps"
+    },
+    {
+      "step": "visibility"
+    },
+    {
+      "step": "outliers"
+    },
+    {
+      "step": "gaps"
+    },
+    {
+      "step": "smoothing"
+    },
+    {
+      "step": "swaps"
+    },
+    {
+      "step": "facing"
+    },
+    {
+      "step": "turns and steady state"
+    }
+  ],
+  "events": {
+    "side": {
+      "peaks": {
+        "distance_s": 0.4
+      }
+    }
+  },
+  "metrics": [
+    {
+      "id": "cadence",
+      "views": [
+        "side",
+        "front",
+        "pad_side",
+        "pad_front"
+      ],
+      "unit": "steps/min",
+      "grade": "A",
+      "use": [
+        "report",
+        "rule"
+      ]
+    },
+    {
+      "id": "step_time_s",
+      "views": [
+        "side",
+        "front",
+        "pad_side",
+        "pad_front"
+      ],
+      "unit": "s",
+      "grade": "A",
+      "use": [
+        "report"
+      ]
+    },
+    {
+      "id": "stride_time_s",
+      "views": [
+        "side",
+        "front",
+        "pad_side",
+        "pad_front"
+      ],
+      "unit": "s",
+      "grade": "A",
+      "use": [
+        "report"
+      ]
+    },
+    {
+      "id": "stance_pct",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "%",
+      "grade": "A",
+      "use": [
+        "report"
+      ]
+    },
+    {
+      "id": "swing_pct",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "%",
+      "grade": "B",
+      "use": [
+        "report"
+      ]
+    },
+    {
+      "id": "single_support_s",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "s",
+      "grade": "B",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "double_support_pct",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "%",
+      "grade": "B",
+      "notReportedBelowFps": 25,
+      "use": [
+        "report"
+      ]
+    },
+    {
+      "id": "step_length_m",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "m",
+      "grade": "A",
+      "use": [
+        "report",
+        "rule"
+      ]
+    },
+    {
+      "id": "stride_length_m",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "m",
+      "grade": "A",
+      "use": [
+        "report",
+        "rule"
+      ]
+    },
+    {
+      "id": "speed_mps",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "m/s",
+      "grade": "A",
+      "use": [
+        "report",
+        "finding"
+      ]
+    },
+    {
+      "id": "sr_single_support",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "ratio",
+      "grade": "B",
+      "gradeFront": "D",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "sr_stance",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "ratio",
+      "grade": "A",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "sr_step_length",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "ratio",
+      "grade": "A",
+      "gradeFront": "D",
+      "use": [
+        "rule",
+        "finding"
+      ]
+    },
+    {
+      "id": "knee_swing_peak",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "A",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "knee_stance_min",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "A",
+      "gradeHyperextension": "B",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "knee_loading_peak",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "B-",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "tla_peak",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "C+",
+      "gradePad": "C",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "hip_ext_peak",
+      "views": [
+        "side"
+      ],
+      "unit": "deg",
+      "grade": "A",
+      "gradePad": "C",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "thigh_swing_peak",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "A",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "foot_pitch_ic",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "C",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "trunk_incl",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "A",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "trunk_incl_abs",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unit": "deg",
+      "grade": "A",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "arm_swing",
+      "views": [
+        "side"
+      ],
+      "unit": "ratio",
+      "grade": "C",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "pelvic_drop",
+      "views": [
+        "front",
+        "pad_front"
+      ],
+      "unit": "deg",
+      "grade": "C",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "static_pelvic_drop",
+      "views": [
+        "front"
+      ],
+      "unit": "deg",
+      "grade": "C",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "trunk_sway_range",
+      "views": [
+        "front",
+        "pad_front"
+      ],
+      "unit": "deg",
+      "grade": "B-",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "trunk_lean_peak",
+      "views": [
+        "front",
+        "pad_front"
+      ],
+      "unit": "deg",
+      "grade": "B-",
+      "use": [
+        "rule"
+      ]
+    },
+    {
+      "id": "swing_lateral_path",
+      "views": [
+        "front",
+        "pad_front"
+      ],
+      "unit": "ratio",
+      "grade": "C",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "hip_hike",
+      "views": [
+        "front",
+        "pad_front"
+      ],
+      "unit": "share",
+      "grade": "C",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "step_width_ratio",
+      "views": [
+        "front",
+        "pad_front"
+      ],
+      "unit": "ratio",
+      "grade": "C",
+      "use": [
+        "support"
+      ]
+    },
+    {
+      "id": "ankle_angles",
+      "views": [],
+      "grade": "D",
+      "use": [
+        "do_not_use"
+      ]
+    },
+    {
+      "id": "variability",
+      "views": [],
+      "grade": "D",
+      "use": [
+        "do_not_use"
+      ]
+    }
+  ],
+  "scaling": {
+    "speedMatched": {
+      "strideLength_m": {
+        "intercept": -0.238,
+        "speed": 0.418,
+        "height_cm": 0.005,
+        "rmse": 0.068
+      },
+      "cadence": {
+        "intercept": 159.2,
+        "speed": 39.833,
+        "height_cm": -0.567,
+        "rmse": 5.24
+      }
+    }
+  },
+  "qualityGates": [
+    {
+      "level": "setup",
+      "gate": "one person (helper at side ok), whole body and head in view with 3% margin, phone level within 5 deg, distance in range",
+      "onFail": "coach cue, no recording",
+      "code": "src/engine/quality.ts setupCheck"
+    },
+    {
+      "level": "setup",
+      "gate": "model sustains 25 fps",
+      "onFail": "Lite; if < 20 fps, front timing only or stop"
+    },
+    {
+      "level": "cycle",
+      "gate": "landmarks 23 to 32 (and 11, 12 for trunk) visibility >= 0.5 in >= 90% of frames; event order valid; stride time plausible; no unresolved swap; not a turn",
+      "onFail": "drop cycle",
+      "code": "QUALITY_RULES.minVisibleShare 0.9"
+    },
+    {
+      "level": "view",
+      "gate": ">= 6 clean cycles per side",
+      "onFail": "coach adds passes (overground) or 10 s (pad) once; then timing only or record again"
+    },
+    {
+      "level": "view",
+      "gate": "gap filled frames <= 15% of analysed frames",
+      "onFail": "confidence one level lower"
+    },
+    {
+      "level": "view",
+      "gate": "median processed fps >= 25",
+      "onFail": "20 to 24: timing only and confidence one level lower; < 20: record again"
+    },
+    {
+      "level": "setup",
+      "gate": "pad and overground side: hip, knee and ankle visibility >= 0.5 in 90% of warm up frames on the near side (review B12)",
+      "onFail": "move the support or the helper, no recording"
+    },
+    {
+      "level": "session",
+      "gate": "pad: handrail hold recorded (none, light, firm); constant speed",
+      "onFail": "firm: trendelenburg, duchenne_lean and waddling not assessed (handrail_held), symmetry rules capped at possible; light touch: every rule capped at possible (review B12)"
+    },
+    {
+      "level": "session",
+      "gate": "pad: both side views recorded",
+      "onFail": "between limb rules capped at possible, flag far_limb (review A15, B04)"
+    }
+  ],
+  "norms": {
+    "lookup": "ages 18 and 19 use 20 to 29 (flag); 20 to 69 Fang18; 70+ Hollman11",
+    "methodWarning": "speed norms differ by method: 127.2 to 146.2 cm/s 7.62 m timed walk (Bohannon97); 1.06 to 1.25 m/s 2 min sensor walk (Fang18); about 1.0 to 1.16 m/s 4 m walk Singapore (Yang24). Fang walked back and forth on 7 m, so many strides were near a turn, while Azm analyses steady steps: Azm's healthy users will look faster and longer stepping than Fang's 'typical', so slow_speed and short steps (a) under call below 70; Fang 60 to 69 (men step 0.62 m, speed 1.12) sits below Hollman 70 to 74 (0.69 m, 1.17) (review B10). Planned replacement: Oberg 1993 (233 adults 10 to 79, 5.5 m walkway, slow, normal and fast, 95% prediction intervals) and Al-Obaidi 2003 (Kuwait, 20 to 29) as the regional check; their tables were not retrieved (abstracts opened). Re-anchor on Azm healthy recordings.",
+    "fang18": {
+      "source": "Fang18",
+      "population": "292 healthy adults, Nanjing, China; APDM sensors; 2 min back and forth on 7 m at comfortable speed, no aids",
+      "normalisation": {
+        "meanHeight_cm": {
+          "M": 171.63,
+          "W": 158.81
+        },
+        "toPerson": {
+          "speed": "norm * sqrt(H / Hmean)",
+          "stride": "norm * (H / Hmean)",
+          "cadence": "norm / sqrt(H / Hmean)"
+        }
+      },
+      "bands": [
+        {
+          "ageMin": 20,
+          "ageMax": 29,
+          "sex": "M",
+          "speed_mps": {
+            "mean": 1.17,
+            "sd": 0.1
+          },
+          "stride_m": {
+            "mean": 1.28,
+            "sd": 0.12
+          },
+          "step_m_calc": 0.64,
+          "cadence": {
+            "mean": 109.88,
+            "sd": 6.46
+          },
+          "footPitchIC_deg": {
+            "mean": 27.57,
+            "sd": 4.98
+          }
+        },
+        {
+          "ageMin": 20,
+          "ageMax": 29,
+          "sex": "W",
+          "speed_mps": {
+            "mean": 1.11,
+            "sd": 0.14
+          },
+          "stride_m": {
+            "mean": 1.15,
+            "sd": 0.09
+          },
+          "step_m_calc": 0.575,
+          "cadence": {
+            "mean": 114.91,
+            "sd": 9.21
+          },
+          "footPitchIC_deg": {
+            "mean": 20.18,
+            "sd": 4.09
+          }
+        },
+        {
+          "ageMin": 30,
+          "ageMax": 39,
+          "sex": "M",
+          "speed_mps": {
+            "mean": 1.19,
+            "sd": 0.16
+          },
+          "stride_m": {
+            "mean": 1.29,
+            "sd": 0.12
+          },
+          "step_m_calc": 0.645,
+          "cadence": {
+            "mean": 110.07,
+            "sd": 8.93
+          },
+          "footPitchIC_deg": {
+            "mean": 26.44,
+            "sd": 5.77
+          }
+        },
+        {
+          "ageMin": 30,
+          "ageMax": 39,
+          "sex": "W",
+          "speed_mps": {
+            "mean": 1.13,
+            "sd": 0.12
+          },
+          "stride_m": {
+            "mean": 1.16,
+            "sd": 0.07
+          },
+          "step_m_calc": 0.58,
+          "cadence": {
+            "mean": 116.4,
+            "sd": 8.18
+          },
+          "footPitchIC_deg": {
+            "mean": 20.06,
+            "sd": 3.23
+          }
+        },
+        {
+          "ageMin": 40,
+          "ageMax": 49,
+          "sex": "M",
+          "speed_mps": {
+            "mean": 1.23,
+            "sd": 0.16
+          },
+          "stride_m": {
+            "mean": 1.32,
+            "sd": 0.1
+          },
+          "step_m_calc": 0.66,
+          "cadence": {
+            "mean": 111.32,
+            "sd": 9.14
+          },
+          "footPitchIC_deg": {
+            "mean": 26.8,
+            "sd": 4.07
+          }
+        },
+        {
+          "ageMin": 40,
+          "ageMax": 49,
+          "sex": "W",
+          "speed_mps": {
+            "mean": 1.06,
+            "sd": 0.11
+          },
+          "stride_m": {
+            "mean": 1.12,
+            "sd": 0.09
+          },
+          "step_m_calc": 0.56,
+          "cadence": {
+            "mean": 112.44,
+            "sd": 6.04
+          },
+          "footPitchIC_deg": {
+            "mean": 18.77,
+            "sd": 4.06
+          }
+        },
+        {
+          "ageMin": 50,
+          "ageMax": 59,
+          "sex": "M",
+          "speed_mps": {
+            "mean": 1.25,
+            "sd": 0.18
+          },
+          "stride_m": {
+            "mean": 1.32,
+            "sd": 0.15
+          },
+          "step_m_calc": 0.66,
+          "cadence": {
+            "mean": 113.09,
+            "sd": 8.82
+          },
+          "footPitchIC_deg": {
+            "mean": 24.72,
+            "sd": 6.52
+          }
+        },
+        {
+          "ageMin": 50,
+          "ageMax": 59,
+          "sex": "W",
+          "speed_mps": {
+            "mean": 1.19,
+            "sd": 0.09
+          },
+          "stride_m": {
+            "mean": 1.18,
+            "sd": 0.08
+          },
+          "step_m_calc": 0.59,
+          "cadence": {
+            "mean": 119.48,
+            "sd": 5.2
+          },
+          "footPitchIC_deg": {
+            "mean": 18.62,
+            "sd": 3.85
+          }
+        },
+        {
+          "ageMin": 60,
+          "ageMax": 69,
+          "sex": "M",
+          "speed_mps": {
+            "mean": 1.12,
+            "sd": 0.13
+          },
+          "stride_m": {
+            "mean": 1.23,
+            "sd": 0.12
+          },
+          "step_m_calc": 0.615,
+          "cadence": {
+            "mean": 108.55,
+            "sd": 6.59
+          },
+          "footPitchIC_deg": {
+            "mean": 22.67,
+            "sd": 4.61
+          }
+        },
+        {
+          "ageMin": 60,
+          "ageMax": 69,
+          "sex": "W",
+          "speed_mps": {
+            "mean": 1.14,
+            "sd": 0.12
+          },
+          "stride_m": {
+            "mean": 1.15,
+            "sd": 0.1
+          },
+          "step_m_calc": 0.575,
+          "cadence": {
+            "mean": 118.8,
+            "sd": 7.57
+          },
+          "footPitchIC_deg": {
+            "mean": 19.43,
+            "sd": 4.38
+          }
+        },
+        {
+          "ageMin": 70,
+          "ageMax": 89,
+          "sex": "M",
+          "speed_mps": {
+            "mean": 0.87,
+            "sd": 0.25
+          },
+          "stride_m": {
+            "mean": 1.01,
+            "sd": 0.24
+          },
+          "step_m_calc": 0.505,
+          "cadence": {
+            "mean": 101.88,
+            "sd": 10.38
+          },
+          "footPitchIC_deg": {
+            "mean": 16.8,
+            "sd": 6.76
+          }
+        },
+        {
+          "ageMin": 70,
+          "ageMax": 89,
+          "sex": "W",
+          "speed_mps": {
+            "mean": 0.85,
+            "sd": 0.22
+          },
+          "stride_m": {
+            "mean": 0.92,
+            "sd": 0.19
+          },
+          "step_m_calc": 0.46,
+          "cadence": {
+            "mean": 107.82,
+            "sd": 10.6
+          },
+          "footPitchIC_deg": {
+            "mean": 13.73,
+            "sd": 4.87
+          }
+        }
+      ]
+    },
+    "hollman11": {
+      "source": "Hollman11",
+      "population": "294 adults 70+ (108 men, 186 women), GAITRite 5.6 m, two walks at self selected normal pace, no aids; height not reported",
+      "bands": [
+        {
+          "sex": "M",
+          "ageMin": 70,
+          "ageMax": 74,
+          "speed_cmps": {
+            "mean": 117,
+            "sd": 16
+          },
+          "cadence": {
+            "mean": 102,
+            "sd": 8
+          },
+          "step_cm": {
+            "mean": 69,
+            "sd": 8
+          },
+          "stride_cm": {
+            "mean": 139,
+            "sd": 14
+          },
+          "step_time_s": {
+            "mean": 0.59,
+            "sd": 0.05
+          },
+          "stance_pct": {
+            "mean": 63.2,
+            "sd": 2.1
+          },
+          "swing_pct": {
+            "mean": 36.6,
+            "sd": 1.5
+          },
+          "double_support_pct": {
+            "mean": 26.3,
+            "sd": 3
+          },
+          "step_width_cm": {
+            "mean": 9.7,
+            "sd": 3
+          }
+        },
+        {
+          "sex": "M",
+          "ageMin": 75,
+          "ageMax": 79,
+          "speed_cmps": {
+            "mean": 122,
+            "sd": 15
+          },
+          "cadence": {
+            "mean": 106,
+            "sd": 10
+          },
+          "step_cm": {
+            "mean": 68,
+            "sd": 7
+          },
+          "stride_cm": {
+            "mean": 137,
+            "sd": 12
+          },
+          "step_time_s": {
+            "mean": 0.56,
+            "sd": 0.05
+          },
+          "stance_pct": {
+            "mean": 64,
+            "sd": 2.5
+          },
+          "swing_pct": {
+            "mean": 36.7,
+            "sd": 1.5
+          },
+          "double_support_pct": {
+            "mean": 26.5,
+            "sd": 2.3
+          },
+          "step_width_cm": {
+            "mean": 8.9,
+            "sd": 5.2
+          }
+        },
+        {
+          "sex": "M",
+          "ageMin": 80,
+          "ageMax": 84,
+          "speed_cmps": {
+            "mean": 112,
+            "sd": 17
+          },
+          "cadence": {
+            "mean": 103,
+            "sd": 8
+          },
+          "step_cm": {
+            "mean": 65,
+            "sd": 8
+          },
+          "stride_cm": {
+            "mean": 131,
+            "sd": 17
+          },
+          "step_time_s": {
+            "mean": 0.59,
+            "sd": 0.04
+          },
+          "stance_pct": {
+            "mean": 63.8,
+            "sd": 2.7
+          },
+          "swing_pct": {
+            "mean": 36.6,
+            "sd": 2.8
+          },
+          "double_support_pct": {
+            "mean": 27.4,
+            "sd": 4.7
+          },
+          "step_width_cm": {
+            "mean": 11.2,
+            "sd": 4
+          }
+        },
+        {
+          "sex": "M",
+          "ageMin": 85,
+          "ageMax": null,
+          "speed_cmps": {
+            "mean": 101,
+            "sd": 22
+          },
+          "cadence": {
+            "mean": 102,
+            "sd": 11
+          },
+          "step_cm": {
+            "mean": 59,
+            "sd": 10
+          },
+          "stride_cm": {
+            "mean": 119,
+            "sd": 21
+          },
+          "step_time_s": {
+            "mean": 0.59,
+            "sd": 0.08
+          },
+          "stance_pct": {
+            "mean": 64.9,
+            "sd": 2.7
+          },
+          "swing_pct": {
+            "mean": 35.1,
+            "sd": 2.69
+          },
+          "double_support_pct": {
+            "mean": 30.3,
+            "sd": 3.5
+          },
+          "step_width_cm": {
+            "mean": 9.9,
+            "sd": 4.8
+          }
+        },
+        {
+          "sex": "W",
+          "ageMin": 70,
+          "ageMax": 74,
+          "speed_cmps": {
+            "mean": 116,
+            "sd": 20
+          },
+          "cadence": {
+            "mean": 113,
+            "sd": 20
+          },
+          "step_cm": {
+            "mean": 61,
+            "sd": 9
+          },
+          "stride_cm": {
+            "mean": 123,
+            "sd": 17
+          },
+          "step_time_s": {
+            "mean": 0.53,
+            "sd": 0.06
+          },
+          "stance_pct": {
+            "mean": 63.3,
+            "sd": 3.1
+          },
+          "swing_pct": {
+            "mean": 36.6,
+            "sd": 2.6
+          },
+          "double_support_pct": {
+            "mean": 27.14,
+            "sd": 4
+          },
+          "step_width_cm": {
+            "mean": 7,
+            "sd": 3.5
+          }
+        },
+        {
+          "sex": "W",
+          "ageMin": 75,
+          "ageMax": 79,
+          "speed_cmps": {
+            "mean": 112,
+            "sd": 17
+          },
+          "cadence": {
+            "mean": 114,
+            "sd": 13
+          },
+          "step_cm": {
+            "mean": 59,
+            "sd": 7
+          },
+          "stride_cm": {
+            "mean": 118,
+            "sd": 15
+          },
+          "step_time_s": {
+            "mean": 0.53,
+            "sd": 0.06
+          },
+          "stance_pct": {
+            "mean": 63.9,
+            "sd": 3
+          },
+          "swing_pct": {
+            "mean": 36.1,
+            "sd": 3
+          },
+          "double_support_pct": {
+            "mean": 28.4,
+            "sd": 6.4
+          },
+          "step_width_cm": {
+            "mean": 7.7,
+            "sd": 4
+          }
+        },
+        {
+          "sex": "W",
+          "ageMin": 80,
+          "ageMax": 84,
+          "speed_cmps": {
+            "mean": 101,
+            "sd": 15
+          },
+          "cadence": {
+            "mean": 110,
+            "sd": 9
+          },
+          "step_cm": {
+            "mean": 55,
+            "sd": 7
+          },
+          "stride_cm": {
+            "mean": 111,
+            "sd": 14
+          },
+          "step_time_s": {
+            "mean": 0.55,
+            "sd": 0.05
+          },
+          "stance_pct": {
+            "mean": 64.5,
+            "sd": 2.6
+          },
+          "swing_pct": {
+            "mean": 35.5,
+            "sd": 2.5
+          },
+          "double_support_pct": {
+            "mean": 29,
+            "sd": 4.6
+          },
+          "step_width_cm": {
+            "mean": 7.9,
+            "sd": 4.1
+          }
+        },
+        {
+          "sex": "W",
+          "ageMin": 85,
+          "ageMax": null,
+          "speed_cmps": {
+            "mean": 98,
+            "sd": 20
+          },
+          "cadence": {
+            "mean": 108,
+            "sd": 10
+          },
+          "step_cm": {
+            "mean": 54,
+            "sd": 9
+          },
+          "stride_cm": {
+            "mean": 109,
+            "sd": 18
+          },
+          "step_time_s": {
+            "mean": 0.56,
+            "sd": 0.05
+          },
+          "stance_pct": {
+            "mean": 64.5,
+            "sd": 2.5
+          },
+          "swing_pct": {
+            "mean": 35.7,
+            "sd": 2.6
+          },
+          "double_support_pct": {
+            "mean": 28.7,
+            "sd": 4.8
+          },
+          "step_width_cm": {
+            "mean": 9.1,
+            "sd": 2.6
+          }
+        }
+      ]
+    },
+    "context": {
+      "stanceSwingUnder70": {
+        "stance_pct": 60,
+        "swing_pct": 40,
+        "source": "Perry92"
+      },
+      "comfortableSpeed_cmps": {
+        "range": [
+          127.2,
+          146.2
+        ],
+        "ages": "20 to 79",
+        "source": "Bohannon97"
+      },
+      "metaAnalysisSpeed_cmps": {
+        "high": 143.4,
+        "highGroup": "men 40 to 49",
+        "low": 94.3,
+        "lowGroup": "women 80 to 99",
+        "source": "Bohannon11"
+      }
+    },
+    "kinematics": [
+      {
+        "id": "knee_swing_peak",
+        "value": "about 60 deg (Perry92); 59.5 +/- 2.2 deg, range 45 to 65 (Krajewski25)"
+      },
+      {
+        "id": "knee_loading_peak",
+        "value": "to 15 deg; max 18 deg as single support starts"
+      },
+      {
+        "id": "knee_terminal_stance",
+        "value": "maximum extension between 0 and -5 deg (near straight)"
+      },
+      {
+        "id": "hip_extension_terminal_stance",
+        "value": "10 deg hyperextension (Perry92); 3D 20.4 +/- 4.0 young, 14.3 +/- 4.4 older, 11.1 older fallers (Kerrigan01)"
+      },
+      {
+        "id": "hip_flexion_swing_peak",
+        "value": "30 deg"
+      },
+      {
+        "id": "tla_healthy",
+        "value": "peaks 20.0 to 25.5 deg near toe off, 5 conditions, 18 healthy young men, mocap, zeroed at standing"
+      },
+      {
+        "id": "tla_stroke",
+        "value": "paretic 6.6 (5.4), non-paretic 11.3 (5.5) deg at peak propulsion, treadmill, 5th met to greater trochanter"
+      },
+      {
+        "id": "tla_near_fall_cutoff",
+        "value": "3.26 deg, AUC 0.884, subacute stroke"
+      },
+      {
+        "id": "pelvic_obliquity",
+        "value": "about 4 deg lateral drop (Perry92); frontal pelvic range 8.2 (1.7) deg healthy preferred speed; reported means 5.7 to 11.5"
+      },
+      {
+        "id": "trunk_frontal_range",
+        "value": "4.9 (1.2) deg healthy; 9.1 (2.8) deg Duchenne limp in hip OA; reported healthy 3.3 to 7.0"
+      },
+      {
+        "id": "foot_pitch_ic",
+        "value": "13.73 deg (women 70 to 89) to 27.57 deg (men 20 to 29)"
+      },
+      {
+        "id": "step_width",
+        "value": "7.0 to 11.2 cm 70+ (Hollman11); about 8 cm older women, 10 cm older men (Pirker)"
+      }
+    ],
+    "symmetry": {
+      "expression": "symmetry ratio = larger / smaller (Patterson10)",
+      "cutoffs": {
+        "swing_time": 1.06,
+        "step_length": 1.08,
+        "source": "Patterson 2010 as quoted in Fujii24"
+      },
+      "stance": "no stance cut-off opened; swing cut-off applied to single support (= opposite swing time)"
+    },
+    "kinematicNote": "2D angles to vertical differ from 3D angles to the pelvis; 3D values are context until re-anchored (G§2)"
+  },
+  "errorMargins": {
+    "event_s": {
+      "value": 0.02
+    },
+    "symTiming_side": {
+      "value": 0.03
+    },
+    "symSingleSupport_side": {
+      "value": 0.05
+    },
+    "symStepLength_side": {
+      "value": 0.05
+    },
+    "stepLength_m": {
+      "side": 0.03,
+      "pad": 0.03
+    },
+    "speed_side_mps": {
+      "value": 0.04
+    },
+    "knee_deg": {
+      "value": 5
+    },
+    "hip_deg": {
+      "value": 4
+    },
+    "trunkIncl_deg": {
+      "value": 1.5
+    },
+    "pelvis2DBias_deg": {
+      "value": 4.6
+    },
+    "trunkFrontal_deg": {
+      "value": 4
+    }
+  },
+  "retest": {
+    "realChange": [
+      {
+        "metric": "speed_mps",
+        "min": 0.1,
+        "views": [
+          "side",
+          "pad_side"
+        ]
+      },
+      {
+        "metric": "step_length_m",
+        "min": 0.05
+      },
+      {
+        "metric": "cadence",
+        "min": 5
+      },
+      {
+        "metric": "symmetry_ratio",
+        "min": 0.06
+      },
+      {
+        "metric": "knee_deg",
+        "min": 10
+      },
+      {
+        "metric": "tla_deg",
+        "min": 8
+      }
+    ]
+  },
+  "confidenceModel": {
+    "statuses": [
+      "possible",
+      "likely",
+      "not_seen",
+      "not_assessed"
+    ],
+    "notAssessedReasons": [
+      "wrong_view",
+      "gate_failed",
+      "aid_or_orthosis",
+      "prosthetic_side",
+      "no_height",
+      "pad_rule_off",
+      "slow_speed",
+      "knee_orthosis_on_S",
+      "handrail_held",
+      "clearance_needed",
+      "parkinsons_flat_contact",
+      "crouch_or_short_steps_on_S"
+    ],
+    "levels": [
+      "low",
+      "moderate",
+      "high"
+    ],
+    "capFromGrade": {
+      "A": "high",
+      "B": "moderate",
+      "B-": "moderate",
+      "C+": "low",
+      "C": "low",
+      "D": null
+    },
+    "downgradeOneLevelFor": [
+      "fewer than 10 clean cycles",
+      "processed fps 20 to 24",
+      "status possible",
+      "pad with handrail held (timing and symmetry rules)",
+      "single side view on the pad (between limb rules capped at possible, far_limb)",
+      "pad not familiarised (foot signs)",
+      "side not an affected region in the history and no listed condition explains it"
+    ],
+    "spasticityOnlyWith": [
+      "stroke",
+      "ms",
+      "cerebral_palsy",
+      "sci_incomplete"
+    ]
+  },
+  "patterns": [
+    {
+      "id": "shorter_stance",
+      "labels": {
+        "withPain": "antalgic",
+        "withoutPain": "short_stance",
+        "prostheticSide": "prosthetic_side"
+      },
+      "signGrades": [
+        "B"
+      ],
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "signs": [
+        {
+          "metric": "sr_single_support",
+          "role": "required",
+          "direction": "short side P"
+        },
+        {
+          "metric": "sr_stance",
+          "role": "support",
+          "direction": "short side P"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "sr_single_support_gte": 1.11
+        },
+        "likely": {
+          "sr_single_support_gte": 1.16
+        },
+        "type": "calc"
+      },
+      "caps": {
+        "handrailHeld": "possible",
+        "lightTouch": "possible",
+        "singlePadSideView": "possible"
+      },
+      "confidenceCap": "moderate",
+      "contributors": {
+        "antalgic": [
+          "pain_side"
+        ],
+        "short_stance": [
+          "weak_stance_leg"
+        ],
+        "prosthetic_side": [
+          "prosthesis_fit",
+          "prosthesis_comfort"
+        ]
+      },
+      "targets": {
+        "antalgic": [
+          {
+            "action": "mobility",
+            "target": "painful_joint_gentle_range"
+          },
+          {
+            "action": "practice",
+            "target": "gradual_loading"
+          },
+          {
+            "action": "strengthen",
+            "target": "muscles_around_painful_joint",
+            "when": "pain settles"
+          }
+        ],
+        "short_stance": [
+          {
+            "action": "practice",
+            "target": "single_leg_stance_supported"
+          },
+          {
+            "action": "strengthen",
+            "target": "hip_abductors",
+            "side": "P"
+          },
+          {
+            "action": "strengthen",
+            "target": "hip_extensors",
+            "side": "P"
+          },
+          {
+            "action": "strengthen",
+            "target": "quadriceps",
+            "side": "P"
+          },
+          {
+            "action": "practice",
+            "target": "walking"
+          }
+        ],
+        "prosthetic_side": [
+          {
+            "action": "refer",
+            "target": "prosthetist"
+          },
+          {
+            "action": "practice",
+            "target": "gradual_loading"
+          }
+        ]
+      },
+      "copyTargets": {
+        "antalgic": [
+          "gentle_range_load"
+        ],
+        "short_stance": [
+          "single_leg_practice",
+          "strengthen_hip_abductors",
+          "strengthen_quadriceps",
+          "walking_practice"
+        ],
+        "prosthetic_side": [
+          "gradual_loading_practice"
+        ]
+      },
+      "referrals": [
+        "refer_prosthetist"
+      ]
+    },
+    {
+      "id": "trendelenburg",
+      "views": [
+        "front",
+        "back (away passes)",
+        "pad_front"
+      ],
+      "signGrades": [
+        "C"
+      ],
+      "signs": [
+        {
+          "metric": "pelvic_drop",
+          "role": "required",
+          "during": "single stance of S"
+        },
+        {
+          "metric": "static_pelvic_drop",
+          "role": "required for likely",
+          "during": "static single leg stance on S"
+        },
+        {
+          "metric": "trunk_lean_peak",
+          "role": "required for likely",
+          "rule": "toward S at the duchenne_lean possible threshold"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "pelvic_drop_gte": 10,
+          "otherSide_lt": 10
+        },
+        "likely": {
+          "requires": "possible AND the static single leg stance drop on S (review B06) AND trunk lean toward S at the duchenne_lean possible threshold"
+        },
+        "withoutStaticCheck": "capped at possible, confidence low",
+        "type": "calc"
+      },
+      "bilateral": "both sides >= 10 -> waddling",
+      "notAssessed": [
+        "handrail_held (firm hold on the pad)"
+      ],
+      "caps": {
+        "lightTouch": "possible"
+      },
+      "confidenceCap": "low",
+      "contributors": [
+        "weak_hip_abductors",
+        "hip_pain",
+        "prosthesis_fit"
+      ],
+      "contributorRules": {
+        "hip_pain": "pain area hip on S",
+        "prosthesis_fit": "leg prosthesis on S"
+      },
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "hip_abductors",
+          "side": "S"
+        },
+        {
+          "action": "practice",
+          "target": "single_leg_stance_supported"
+        },
+        {
+          "action": "refer",
+          "target": "prosthetist",
+          "when": "prosthesis on S"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_hip_abductors",
+        "single_leg_practice"
+      ],
+      "referrals": [
+        "refer_prosthetist"
+      ]
+    },
+    {
+      "id": "duchenne_lean",
+      "views": [
+        "front",
+        "back (away passes)",
+        "pad_front"
+      ],
+      "signGrades": [
+        "B-"
+      ],
+      "signs": [
+        {
+          "metric": "trunk_sway_range",
+          "role": "required"
+        },
+        {
+          "metric": "trunk_lean_peak",
+          "role": "required",
+          "rule": "peak toward S in >= 60% of cycles"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "trunk_sway_range_gte": 11
+        },
+        "likely": {
+          "trunk_sway_range_gte": 15
+        },
+        "type": "calc"
+      },
+      "notAssessed": [
+        "walker",
+        "handrail_held (firm hold on the pad)"
+      ],
+      "caps": {
+        "cane": "possible",
+        "lightTouch": "possible"
+      },
+      "confidenceCap": "moderate",
+      "contributors": [
+        "weak_hip_abductors",
+        "hip_pain",
+        "prosthesis_fit"
+      ],
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "hip_abductors",
+          "side": "S"
+        },
+        {
+          "action": "practice",
+          "target": "single_leg_stance_supported"
+        },
+        {
+          "action": "mobility",
+          "target": "painful_joint_gentle_range",
+          "when": "hip pain"
+        },
+        {
+          "action": "refer",
+          "target": "prosthetist",
+          "when": "prosthesis on S"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_hip_abductors",
+        "single_leg_practice"
+      ],
+      "referrals": [
+        "refer_prosthetist"
+      ]
+    },
+    {
+      "id": "waddling",
+      "views": [
+        "front",
+        "back (away passes)",
+        "pad_front"
+      ],
+      "signGrades": [
+        "C",
+        "B-"
+      ],
+      "signs": [
+        {
+          "metric": "pelvic_drop",
+          "role": "required",
+          "rule": ">= 10 on both sides"
+        },
+        {
+          "metric": "trunk_sway_range",
+          "role": "required",
+          "rule": ">= 11 without a one sided peak"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "pelvic_drop_both_gte": 10,
+          "trunk_sway_range_gte": 11
+        },
+        "likely": null,
+        "type": "calc"
+      },
+      "notAssessed": [
+        "handrail_held (firm hold on the pad)"
+      ],
+      "statusMax": "possible",
+      "confidenceCap": "low",
+      "contributors": [
+        "hip_girdle_weakness",
+        "hip_pain"
+      ],
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "hip_abductors",
+          "side": "both"
+        },
+        {
+          "action": "strengthen",
+          "target": "hip_extensors",
+          "side": "both"
+        },
+        {
+          "action": "refer",
+          "target": "care_team",
+          "when": "not already known"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_hip_abductors",
+        "strengthen_hip_extensors"
+      ],
+      "referrals": [
+        "refer_care_team"
+      ]
+    },
+    {
+      "id": "stiff_knee",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "bilateralId": "stiff_knee_both",
+      "signGrades": [
+        "A"
+      ],
+      "signs": [
+        {
+          "metric": "knee_swing_peak",
+          "role": "required"
+        },
+        {
+          "metric": "knee_swing_peak_between_limb_diff",
+          "role": "required"
+        },
+        {
+          "metric": "swing_lateral_path",
+          "role": "support",
+          "view": "front"
+        },
+        {
+          "metric": "hip_hike",
+          "role": "support",
+          "view": "front"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "any": [
+            {
+              "knee_swing_peak_lt": 45
+            },
+            {
+              "between_limb_diff_gte": 15
+            }
+          ]
+        },
+        "likely": {
+          "all": [
+            {
+              "knee_swing_peak_lt": 40
+            },
+            {
+              "between_limb_diff_gte": 17
+            }
+          ]
+        },
+        "bilateralLikely": {
+          "both_knee_swing_peak_lt": 40,
+          "speed_mps_gte": 0.6
+        },
+        "speedRules": {
+          "bilateralBelow0.6": "not_assessed (slow_speed)",
+          "below0.5": "unilateral capped at possible and needs a between limb difference >= 15",
+          "unilateralCondition": "absolute peak alone counts only at >= 0.8 m/s"
+        },
+        "type": "published"
+      },
+      "notAssessed": [
+        "prosthetic_side",
+        "knee_orthosis_on_S"
+      ],
+      "confidenceCap": "high",
+      "contributors": [
+        "weak_push_off",
+        "quad_stiffness",
+        "weak_hip_flexors",
+        "knee_bend_limited",
+        "clearance_compensation"
+      ],
+      "contributorRules": {
+        "quad_stiffness": "upper motor neuron condition",
+        "knee_bend_limited": "Pillar 1 knee flexion limited",
+        "clearance_compensation": "front support signs present"
+      },
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "calf",
+          "side": "S"
+        },
+        {
+          "action": "practice",
+          "target": "push_off"
+        },
+        {
+          "action": "strengthen",
+          "target": "hip_flexors",
+          "side": "S"
+        },
+        {
+          "action": "mobility",
+          "target": "knee_flexion",
+          "when": "Pillar 1 limited"
+        },
+        {
+          "action": "practice",
+          "target": "walking"
+        },
+        {
+          "action": "stretch",
+          "target": "quadriceps",
+          "when": "spasticity listed"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_calf_push_off",
+        "strengthen_hip_flexors",
+        "mobility_knee_flexion",
+        "walking_practice"
+      ]
+    },
+    {
+      "id": "steppage",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "signGrades": [
+        "C",
+        "A"
+      ],
+      "signs": [
+        {
+          "metric": "foot_pitch_ic",
+          "role": "required",
+          "rule": "<= 0 deg (flat or forefoot first)"
+        },
+        {
+          "metric": "thigh_swing_peak_between_limb_diff",
+          "role": "required",
+          "rule": ">= 8 deg higher on S"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "foot_pitch_ic_lte": 0,
+          "thigh_swing_peak_diff_gte": 8
+        },
+        "likely": {
+          "requires": "possible on >= 60% of the side's clean cycles AND speed >= 0.6 m/s AND near limb views (both pad side views, or overground passes with each limb nearest the phone)"
+        },
+        "type": "calc"
+      },
+      "notAssessed": [
+        "ankle_foot_orthosis_on_S",
+        "prosthetic_side",
+        "crouch_or_short_steps_on_S (5.7 or 5.11 fires on that side)",
+        "parkinsons_flat_contact (Parkinson's in the history)"
+      ],
+      "confidenceCap": "low",
+      "downgrade": [
+        "pad_not_familiarised"
+      ],
+      "contributors": [
+        "weak_dorsiflexors",
+        "tight_calf",
+        "calf_stiffness"
+      ],
+      "contributorRules": {
+        "tight_calf": "ranks first when the Pillar 1 lunge is limited",
+        "calf_stiffness": "ranks first with an upper motor neuron condition",
+        "weak_dorsiflexors": "first otherwise"
+      },
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "ankle_dorsiflexors",
+          "when": "likely and foot_lift_ask yes (active movement present)"
+        },
+        {
+          "action": "stretch",
+          "target": "calf",
+          "when": "tight_calf or calf_stiffness ranked"
+        },
+        {
+          "action": "refer",
+          "target": "afo"
+        },
+        {
+          "action": "refer",
+          "target": "new_or_worse"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_dorsiflexors",
+        "stretch_calf"
+      ],
+      "referrals": [
+        "refer_afo",
+        "refer_new_or_worse"
+      ],
+      "copyIds": {
+        "possible": "steppage_possible",
+        "likely": "steppage_likely"
+      }
+    },
+    {
+      "id": "crouch",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "unilateralId": "knee_stays_bent",
+      "signGrades": [
+        "A"
+      ],
+      "signs": [
+        {
+          "metric": "knee_stance_min",
+          "role": "required"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "knee_stance_min_gte": 15
+        },
+        "likely": {
+          "knee_stance_min_gte": 20
+        },
+        "type": "calc"
+      },
+      "notAssessed": [
+        "prosthetic_side"
+      ],
+      "confidenceCap": "high",
+      "contributors": [
+        "knee_straighten_limited",
+        "weak_quadriceps",
+        "weak_push_off",
+        "tight_hip_flexors",
+        "weak_hip_extensors"
+      ],
+      "contributorRules": {
+        "knee_straighten_limited": "Pillar 1 knee extension deficit >= 10 deg ranks first"
+      },
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "quadriceps"
+        },
+        {
+          "action": "strengthen",
+          "target": "calf"
+        },
+        {
+          "action": "mobility",
+          "target": "knee_extension"
+        },
+        {
+          "action": "stretch",
+          "target": "hip_flexors"
+        },
+        {
+          "action": "stretch",
+          "target": "hamstrings",
+          "when": "Pillar 1 shows them limited"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_quadriceps",
+        "strengthen_calf_push_off",
+        "mobility_knee_extension",
+        "stretch_hip_flexors"
+      ]
+    },
+    {
+      "id": "recurvatum",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "signGrades": [
+        "B"
+      ],
+      "signs": [
+        {
+          "metric": "knee_stance_min",
+          "role": "required",
+          "rule": "negative (past straight)"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "hyperextension_gte": 10
+        },
+        "likely": {
+          "hyperextension_gte": 15
+        },
+        "type": "calc"
+      },
+      "notAssessed": [
+        "prosthetic_side"
+      ],
+      "confidenceCap": "moderate",
+      "contributors": [
+        "weak_quadriceps",
+        "weak_hamstrings",
+        "tight_calf",
+        "calf_stiffness",
+        "quad_stiffness"
+      ],
+      "contributorRules": {
+        "calf_stiffness": "upper motor neuron condition",
+        "quad_stiffness": "upper motor neuron condition",
+        "tight_calf": "Pillar 1 ankle dorsiflexion limited"
+      },
+      "targets": [
+        {
+          "action": "stretch",
+          "target": "calf"
+        },
+        {
+          "action": "strengthen",
+          "target": "quadriceps"
+        },
+        {
+          "action": "strengthen",
+          "target": "hamstrings"
+        },
+        {
+          "action": "practice",
+          "target": "knee_control_standing"
+        },
+        {
+          "action": "refer",
+          "target": "knee_brace"
+        }
+      ],
+      "copyTargets": [
+        "stretch_calf",
+        "strengthen_quadriceps",
+        "strengthen_hamstrings",
+        "knee_control_practice"
+      ],
+      "referrals": [
+        "refer_knee_brace"
+      ]
+    },
+    {
+      "id": "quad_avoidance",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "signGrades": [
+        "B-"
+      ],
+      "signs": [
+        {
+          "metric": "knee_loading_peak",
+          "role": "required"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "knee_loading_peak_lte": 5,
+          "lowerThanOtherSide_gte": 10
+        },
+        "likely": null,
+        "type": "calc"
+      },
+      "statusMax": "possible",
+      "confidenceCap": "low",
+      "contributors": [
+        "weak_quadriceps",
+        "knee_pain"
+      ],
+      "targets": [
+        {
+          "action": "strengthen",
+          "target": "quadriceps"
+        },
+        {
+          "action": "practice",
+          "target": "loading_bent_knee_supported"
+        }
+      ],
+      "copyTargets": [
+        "strengthen_quadriceps",
+        "loading_practice"
+      ]
+    },
+    {
+      "id": "reduced_extension",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "signGrades": [
+        "C+"
+      ],
+      "signs": [
+        {
+          "metric": "tla_peak",
+          "role": "required",
+          "rule": "lower than the other side"
+        },
+        {
+          "metric": "sr_step_length",
+          "role": "corroboration",
+          "rule": ">= 1.13 with the short step on the other leg"
+        },
+        {
+          "metric": "pillar1_hip_extension",
+          "role": "corroboration",
+          "rule": "value below 0 on S (thigh cannot reach the trunk line; review B14)"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "tla_lower_than_other_gte": 8
+        },
+        "likely": {
+          "tla_lower_than_other_gte": 8,
+          "requires": "one corroboration"
+        },
+        "bilateral": "off until re-anchored on Azm healthy recordings",
+        "type": "calc"
+      },
+      "caps": {
+        "pad": "possible"
+      },
+      "confidenceCap": "low",
+      "confidenceCapPad": "low",
+      "contributors": [
+        "tight_hip_flexors",
+        "weak_push_off",
+        "weak_hip_extensors"
+      ],
+      "contributorRules": {
+        "tight_hip_flexors": "ranks first when the Pillar 1 thigh cannot reach the trunk line (value below 0); never from the standing test alone otherwise (review B14)"
+      },
+      "targets": [
+        {
+          "action": "stretch",
+          "target": "hip_flexors"
+        },
+        {
+          "action": "strengthen",
+          "target": "calf"
+        },
+        {
+          "action": "practice",
+          "target": "push_off"
+        },
+        {
+          "action": "strengthen",
+          "target": "hip_extensors"
+        },
+        {
+          "action": "practice",
+          "target": "walking"
+        }
+      ],
+      "copyTargets": [
+        "stretch_hip_flexors",
+        "strengthen_calf_push_off",
+        "strengthen_hip_extensors",
+        "walking_practice"
+      ]
+    },
+    {
+      "id": "short_steps",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "signGrades": [
+        "A"
+      ],
+      "signs": [
+        {
+          "id": "a",
+          "metric": "step_length_m",
+          "rule": "< age and sex mean - 2 SD (height adjusted)"
+        },
+        {
+          "id": "b",
+          "metric": "stride_length_m",
+          "rule": "< Mikos expected - 0.136 m"
+        },
+        {
+          "id": "c",
+          "metric": "cadence",
+          "rule": ">= age and sex mean"
+        },
+        {
+          "id": "s1",
+          "metric": "trunk_incl_abs",
+          "role": "support",
+          "rule": ">= 5 deg forward of true vertical (engineering; standing stoop is not subtracted, review B21)"
+        },
+        {
+          "id": "s2",
+          "metric": "arm_swing",
+          "role": "support",
+          "rule": "small or uneven"
+        }
+      ],
+      "thresholds": {
+        "possible": {
+          "any": [
+            "b",
+            "a and c only when height is missing"
+          ]
+        },
+        "likely": {
+          "all": [
+            "a",
+            "b",
+            "c"
+          ]
+        },
+        "type": "calc"
+      },
+      "caps": {
+        "noHeight": "possible",
+        "padStepLength": "possible"
+      },
+      "confidenceCap": "high",
+      "contributors": [
+        "small_movements_condition",
+        "careful_walking",
+        "tight_hip_flexors"
+      ],
+      "contributorRules": {
+        "small_movements_condition": "parkinsons in conditions",
+        "careful_walking": "pc_steadi fell or worry yes",
+        "tight_hip_flexors": "reduced_extension fires"
+      },
+      "targets": [
+        {
+          "action": "practice",
+          "target": "step_length_slow_beat_on_pad",
+          "when": "walking pad: beat 85% of today's cadence"
+        },
+        {
+          "action": "practice",
+          "target": "step_length_floor_marks",
+          "when": "overground: floor marks, beat at today's cadence, 'take big steps' (review C09)"
+        },
+        {
+          "action": "practice",
+          "target": "walking"
+        },
+        {
+          "action": "stretch",
+          "target": "hip_flexors",
+          "when": "reduced_extension fires"
+        },
+        {
+          "action": "practice",
+          "target": "balance_confidence_supported"
+        }
+      ],
+      "copyTargets": [
+        "step_length_practice",
+        "step_length_pad_practice",
+        "walking_practice"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "flat_or_forefoot_contact",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "grade": "C",
+      "targets": [],
+      "copyTargets": []
+    },
+    {
+      "id": "slow_speed",
+      "views": [
+        "side"
+      ],
+      "grade": "A",
+      "targets": [
+        {
+          "action": "practice",
+          "target": "walking"
+        }
+      ],
+      "copyTargets": [
+        "walking_practice"
+      ]
+    },
+    {
+      "id": "uneven_step_length",
+      "views": [
+        "side",
+        "pad_side"
+      ],
+      "grade": "A",
+      "gradeFront": "D",
+      "targets": [
+        {
+          "action": "practice",
+          "target": "even_steps"
+        }
+      ],
+      "copyTargets": [
+        "even_steps_practice"
+      ]
+    }
+  ],
+  "copy": {
+    "rules": "Arabic first with complete English; حالتك الطبية; no dash characters; person first; plain words; no diagnosis or treatment claims; patterns say may suggest; contributors are possible reasons",
+    "placeholders": {
+      "side_ar": [
+        "اليمنى",
+        "اليسرى"
+      ],
+      "side_en": [
+        "right",
+        "left"
+      ],
+      "digitsAr": "Arabic Indic"
+    },
+    "metrics": {
+      "cadence": {
+        "ar": "تمشي بمعدل {value} خطوة في الدقيقة، والمعتاد لمن هم في عمرك نحو {typical}.",
+        "en": "You walk at {value} steps a minute. Typical for your age is about {typical}."
+      },
+      "speed": {
+        "ar": "سرعة مشيك {value} متر في الثانية، والمعتاد لمن هم في عمرك نحو {typical}.",
+        "en": "Your walking speed is {value} metres a second. Typical for your age is about {typical}."
+      },
+      "speed_pad": {
+        "ar": "اخترت على جهاز المشي سرعة {value} كيلومتر في الساعة.",
+        "en": "You chose {value} km an hour on the walking pad."
+      },
+      "step_length": {
+        "ar": "طول خطوتك نحو {value} سنتيمتر، والمعتاد لمن هم في عمرك وطولك نحو {typical}.",
+        "en": "Your step is about {value} cm long. Typical for your age and height is about {typical}."
+      },
+      "steps_even": {
+        "ar": "خطواتك متقاربة في الجهتين.",
+        "en": "Your steps are about even on both sides."
+      },
+      "uneven_step_length": {
+        "ar": "خطوة ساقك {side_ar} أقصر من خطوة الساق الأخرى.",
+        "en": "The step of your {side_en} leg is shorter than the step of your other leg."
+      },
+      "slow_speed": {
+        "ar": "سرعة مشيك أبطأ من المعتاد لمن هم في عمرك.",
+        "en": "Your walking speed is slower than typical for your age."
+      }
+    },
+    "patterns": {
+      "antalgic": {
+        "ar": "قد تشير طريقة مشيك إلى أنك تقف على ساقك {side_ar} وقتًا أقصر من الساق الأخرى.",
+        "en": "Your walk may suggest that you stand on your {side_en} leg for a shorter time than on your other leg."
+      },
+      "short_stance": {
+        "ar": "قد تشير طريقة مشيك إلى أنك تقف على ساقك {side_ar} وقتًا أقصر من الساق الأخرى.",
+        "en": "Your walk may suggest that you stand on your {side_en} leg for a shorter time than on your other leg."
+      },
+      "trendelenburg": {
+        "ar": "قد تشير طريقة مشيك إلى أن حوضك ينخفض في الجهة الأخرى عندما تقف على ساقك {side_ar}.",
+        "en": "Your walk may suggest that your hips dip on the other side when you stand on your {side_en} leg."
+      },
+      "duchenne_lean": {
+        "ar": "قد تشير طريقة مشيك إلى أنك تميل بجذعك نحو ساقك {side_ar} عندما تقف عليها.",
+        "en": "Your walk may suggest that you lean your upper body over your {side_en} leg when you stand on it."
+      },
+      "waddling": {
+        "ar": "قد تشير طريقة مشيك إلى أن حوضك وجذعك يتمايلان من جهة إلى أخرى.",
+        "en": "Your walk may suggest that your hips and upper body sway from side to side."
+      },
+      "stiff_knee": {
+        "ar": "قد تشير طريقة مشيك إلى أن ركبتك {side_ar} تنثني أقل من المعتاد عندما تحرك ساقك إلى الأمام.",
+        "en": "Your walk may suggest that your {side_en} knee bends less than usual when you swing your leg forward."
+      },
+      "stiff_knee_both": {
+        "ar": "قد تشير طريقة مشيك إلى أن ركبتيك تنثنيان أقل من المعتاد عندما تحرك ساقيك إلى الأمام.",
+        "en": "Your walk may suggest that both knees bend less than usual when you swing your legs forward."
+      },
+      "steppage_possible": {
+        "ar": "قد تشير طريقة مشيك إلى أن مقدمة قدمك {side_ar} تلمس الأرض قبل الكعب أو معه.",
+        "en": "Your walk may suggest that the front of your {side_en} foot lands before your heel or with it."
+      },
+      "steppage_likely": {
+        "ar": "قد تشير طريقة مشيك إلى أنك ترفع ساقك {side_ar} أعلى من المعتاد، وأن مقدمة قدمك تلمس الأرض أولًا.",
+        "en": "Your walk may suggest that you lift your {side_en} leg higher than usual and that the front of your foot lands first."
+      },
+      "crouch": {
+        "ar": "قد تشير طريقة مشيك إلى أن ركبتيك تبقيان منثنيتين وأنت تقف على كل ساق.",
+        "en": "Your walk may suggest that your knees stay bent while you stand on each leg."
+      },
+      "knee_stays_bent": {
+        "ar": "قد تشير طريقة مشيك إلى أن ركبتك {side_ar} تبقى منثنية عندما تقف عليها.",
+        "en": "Your walk may suggest that your {side_en} knee stays bent when you stand on it."
+      },
+      "recurvatum": {
+        "ar": "قد تشير طريقة مشيك إلى أن ركبتك {side_ar} تنثني إلى الخلف أبعد من وضعها المستقيم عندما تقف عليها.",
+        "en": "Your walk may suggest that your {side_en} knee bends backwards past straight when you stand on it."
+      },
+      "quad_avoidance": {
+        "ar": "قد تشير طريقة مشيك إلى أن ركبتك {side_ar} تبقى مستقيمة تقريبًا عندما تضع قدمك على الأرض.",
+        "en": "Your walk may suggest that your {side_en} knee stays almost straight as your foot lands."
+      },
+      "reduced_extension": {
+        "ar": "قد تشير طريقة مشيك إلى أن ساقك {side_ar} لا تمتد خلفك كثيرًا قبل أن ترفعها.",
+        "en": "Your walk may suggest that your {side_en} leg does not reach far behind you before you lift it."
+      },
+      "short_steps": {
+        "ar": "قد تشير طريقة مشيك إلى أن خطواتك أقصر من المعتاد بالنسبة لسرعتك وعمرك.",
+        "en": "Your walk may suggest that your steps are shorter than usual for your speed and age."
+      },
+      "possible_suffix": {
+        "ar": "وسنتحقق من ذلك مرة أخرى في القياس القادم.",
+        "en": "We will check this again at your next check."
+      },
+      "no_pattern": {
+        "ar": "لم نلحظ اليوم في مشيك نمطًا يحتاج إلى تمارين خاصة، من الأنماط التي يبحث عنها هذا القياس.",
+        "en": "We did not see a walking pattern today that needs special exercises, among the patterns this check looks for."
+      }
+    },
+    "contributorsLead": {
+      "ar": "ومن الأسباب الممكنة {list}.",
+      "en": "Possible reasons include {list}."
+    },
+    "contributorsJoin": {
+      "ar": " و",
+      "en": ", and the last with and"
+    },
+    "contributors": {
+      "pain_side": {
+        "ar": "الألم الذي ذكرته في هذه الجهة",
+        "en": "the pain you told us about on that side"
+      },
+      "weak_stance_leg": {
+        "ar": "ضعف هذه الساق أو صعوبة الوقوف عليها",
+        "en": "weakness in that leg, or finding it harder to stand on it"
+      },
+      "weak_hip_abductors": {
+        "ar": "ضعف عضلات جانب الورك",
+        "en": "weaker muscles on the side of your hip"
+      },
+      "hip_pain": {
+        "ar": "الألم في الورك",
+        "en": "pain in your hip"
+      },
+      "hip_girdle_weakness": {
+        "ar": "ضعف عضلات الورك والفخذ في الجهتين",
+        "en": "weaker hip and thigh muscles on both sides"
+      },
+      "weak_push_off": {
+        "ar": "ضعف الدفع من عضلات خلف الساق",
+        "en": "a weaker push from your calf muscles"
+      },
+      "quad_stiffness": {
+        "ar": "تيبّس عضلات مقدمة الفخذ المرتبط بحالتك الطبية",
+        "en": "stiffness in the muscles at the front of your thigh that can come with your medical condition"
+      },
+      "weak_hip_flexors": {
+        "ar": "ضعف عضلات مقدمة الورك",
+        "en": "weaker muscles at the front of your hip"
+      },
+      "knee_bend_limited": {
+        "ar": "محدودية ثني الركبة",
+        "en": "less bend in your knee"
+      },
+      "clearance_compensation": {
+        "ar": "محاولة إبعاد القدم عن الأرض بتحريك الساق إلى الجانب أو رفع الورك",
+        "en": "trying to clear your foot by swinging the leg out or lifting the hip"
+      },
+      "weak_dorsiflexors": {
+        "ar": "ضعف العضلات التي ترفع مقدمة القدم",
+        "en": "weaker muscles that lift the front of your foot"
+      },
+      "tight_calf": {
+        "ar": "شدّ عضلات خلف الساق",
+        "en": "tight calf muscles"
+      },
+      "calf_stiffness": {
+        "ar": "تيبّس عضلات خلف الساق المرتبط بحالتك الطبية",
+        "en": "stiffness in your calf muscles that can come with your medical condition"
+      },
+      "knee_straighten_limited": {
+        "ar": "محدودية فرد الركبة",
+        "en": "your knee not straightening fully"
+      },
+      "weak_quadriceps": {
+        "ar": "ضعف عضلات مقدمة الفخذ",
+        "en": "weaker muscles at the front of your thigh"
+      },
+      "weak_hamstrings": {
+        "ar": "ضعف عضلات خلف الفخذ",
+        "en": "weaker muscles at the back of your thigh"
+      },
+      "tight_hip_flexors": {
+        "ar": "شدّ عضلات مقدمة الورك",
+        "en": "tight muscles at the front of your hip"
+      },
+      "weak_hip_extensors": {
+        "ar": "ضعف عضلات الأرداف",
+        "en": "weaker buttock muscles"
+      },
+      "knee_pain": {
+        "ar": "الألم في الركبة",
+        "en": "pain in your knee"
+      },
+      "small_movements_condition": {
+        "ar": "صغر الحركة وبطؤها المرتبطان بحالتك الطبية",
+        "en": "smaller and slower movements that can come with your medical condition"
+      },
+      "careful_walking": {
+        "ar": "المشي بحذر بعد سقوط أو خوفًا من السقوط",
+        "en": "walking carefully after a fall, or for fear of falling"
+      },
+      "prosthesis_fit": {
+        "ar": "طول الطرف الصناعي أو ضبطه",
+        "en": "the length or set up of your prosthesis"
+      },
+      "prosthesis_comfort": {
+        "ar": "مدى راحة الطرف الصناعي وثقتك بالوقوف عليه",
+        "en": "how comfortable your prosthesis feels and how sure you feel standing on it"
+      }
+    },
+    "targetsLead": {
+      "ar": "لذلك أضفنا إلى برنامجك {list}.",
+      "en": "So we added {list} to your program."
+    },
+    "targets": {
+      "strengthen_hip_abductors": {
+        "ar": "تمارين تقوّي عضلات جانب الورك",
+        "en": "exercises to strengthen the muscles on the side of your hip"
+      },
+      "strengthen_hip_extensors": {
+        "ar": "تمارين تقوّي عضلات الأرداف",
+        "en": "exercises to strengthen your buttock muscles"
+      },
+      "strengthen_quadriceps": {
+        "ar": "تمارين تقوّي عضلات مقدمة الفخذ",
+        "en": "exercises to strengthen the front of your thigh"
+      },
+      "strengthen_hamstrings": {
+        "ar": "تمارين تقوّي عضلات خلف الفخذ",
+        "en": "exercises to strengthen the back of your thigh"
+      },
+      "strengthen_calf_push_off": {
+        "ar": "تمارين تقوّي عضلات خلف الساق وتدريبًا على الدفع بالقدم",
+        "en": "exercises to strengthen your calf muscles and practice pushing off"
+      },
+      "strengthen_hip_flexors": {
+        "ar": "تمارين تقوّي عضلات مقدمة الورك",
+        "en": "exercises to strengthen the front of your hip"
+      },
+      "strengthen_dorsiflexors": {
+        "ar": "تمارين ترفع فيها مقدمة القدم",
+        "en": "exercises that lift the front of your foot"
+      },
+      "stretch_hip_flexors": {
+        "ar": "تمارين إطالة لعضلات مقدمة الورك",
+        "en": "stretches for the front of your hip"
+      },
+      "stretch_calf": {
+        "ar": "تمارين إطالة لعضلات خلف الساق",
+        "en": "calf stretches"
+      },
+      "stretch_hamstrings": {
+        "ar": "تمارين إطالة لعضلات خلف الفخذ",
+        "en": "stretches for the back of your thigh"
+      },
+      "mobility_knee_flexion": {
+        "ar": "تمارين تثني فيها ركبتك ضمن المدى المريح",
+        "en": "exercises that bend your knee within a comfortable range"
+      },
+      "mobility_knee_extension": {
+        "ar": "تمارين تفرد فيها ركبتك ضمن المدى المريح",
+        "en": "exercises that straighten your knee within a comfortable range"
+      },
+      "gentle_range_load": {
+        "ar": "حركات لطيفة لمدى الحركة، وتحميلًا تدريجيًا بقدر ما يريحك",
+        "en": "gentle range of motion, and gradual loading as you feel comfortable"
+      },
+      "single_leg_practice": {
+        "ar": "تدريبًا على الوقوف على ساق واحدة مع سند",
+        "en": "practice standing on one leg with support"
+      },
+      "knee_control_practice": {
+        "ar": "تدريبًا على التحكم في الركبة وأنت واقف",
+        "en": "practice controlling your knee while standing"
+      },
+      "loading_practice": {
+        "ar": "تدريبًا على ثني الركبة قليلًا وأنت تحمل وزنك مع سند",
+        "en": "practice bending your knee a little while taking your weight, with support"
+      },
+      "step_length_practice": {
+        "ar": "تدريبًا على خطوات أطول",
+        "en": "practice taking longer steps"
+      },
+      "step_length_pad_practice": {
+        "ar": "تدريبًا على خطوات أطول مع إيقاع على جهاز المشي",
+        "en": "practice taking longer steps to a beat on the walking pad"
+      },
+      "gradual_loading_practice": {
+        "ar": "تدريبًا على تحميل وزنك على الساق خطوة بخطوة",
+        "en": "practice putting your weight on the leg step by step"
+      },
+      "even_steps_practice": {
+        "ar": "تدريبًا على خطوات متساوية",
+        "en": "practice taking even steps"
+      },
+      "walking_practice": {
+        "ar": "تدريبًا على المشي",
+        "en": "walking practice"
+      }
+    },
+    "referrals": {
+      "refer_afo": {
+        "ar": "قد يفيدك أن تسأل فريق رعايتك عن دعامة للقدم والكاحل.",
+        "en": "You may want to ask your care team about an ankle and foot brace."
+      },
+      "refer_knee_brace": {
+        "ar": "قد يفيدك أن تسأل فريق رعايتك عن دعامة تمنع ركبتك من الانثناء إلى الخلف.",
+        "en": "You may want to ask your care team about a brace that stops your knee bending backwards."
+      },
+      "refer_prosthetist": {
+        "ar": "قد يفيدك أن تراجع أخصائي الأطراف الصناعية للتأكد من طول الطرف وضبطه.",
+        "en": "You may want to see your prosthetist to check the length and set up of your prosthesis."
+      },
+      "refer_new_or_worse": {
+        "ar": "إذا كان هذا جديدًا أو يزداد، فراجع طبيبك قريبًا.",
+        "en": "If this is new or getting worse, please see your doctor soon."
+      },
+      "refer_care_team": {
+        "ar": "نقترح أن تعرض هذه النتيجة على فريق رعايتك.",
+        "en": "We suggest you show this result to your care team."
+      }
+    },
+    "confidence": {
+      "label": {
+        "ar": "مدى تأكدنا",
+        "en": "How sure we are"
+      },
+      "low": {
+        "ar": "منخفض",
+        "en": "Low"
+      },
+      "moderate": {
+        "ar": "متوسط",
+        "en": "Moderate"
+      },
+      "high": {
+        "ar": "مرتفع",
+        "en": "High"
+      }
+    },
+    "quality": {
+      "quality_retry": {
+        "ar": "لم نتمكن من رؤية خطواتك بوضوح كافٍ. لنجرّب مرة أخرى مع إضاءة أفضل والهاتف ثابت.",
+        "en": "We could not see your steps clearly enough. Let us try again with better light and the phone steady."
+      },
+      "quality_timing_only": {
+        "ar": "رأينا توقيت خطواتك بوضوح، لكننا لم نتمكن من قياس حركة ركبتيك ووركيك هذه المرة.",
+        "en": "We saw the timing of your steps clearly, but we could not measure how your knees and hips move this time."
+      },
+      "pad_compare": {
+        "ar": "قسنا مشيك على جهاز المشي، وسنقارنه في المرة القادمة بقياس على الجهاز أيضًا.",
+        "en": "We measured your walk on the walking pad, and next time we will compare it with another walking pad check."
+      },
+      "handrail_held": {
+        "ar": "أمسكت بالمقبض أثناء المشي، لذلك قد تبدو خطواتك أكثر انتظامًا مما هي عليه دون مقبض، ولم نقيّم حركة حوضك وجذعك هذه المرة.",
+        "en": "You held the handrail while walking, so your steps may look more even than they are without it, and we did not assess how your hips and upper body move this time."
+      },
+      "handrail_light": {
+        "ar": "لمست المقبض بخفة أثناء المشي، لذلك نعرض نتائجك بدرجة تأكد أقل.",
+        "en": "You touched the handrail lightly while walking, so we show your results with less certainty."
+      },
+      "pain_limited": {
+        "ar": "توقفنا لأنك شعرت بألم، وسجلنا ذلك مع نتيجتك.",
+        "en": "We stopped because you felt pain, and we noted this with your result."
+      },
+      "aid_noted": {
+        "ar": "قسنا مشيك وأنت تستخدم {aid_ar}.",
+        "en": "We measured your walk while you used your {aid_en}."
+      }
+    },
+    "setup": {
+      "helper_needed": {
+        "ar": "نحتاج أن يمشي بجانبك شخص بالغ أثناء اختبار المشي.",
+        "en": "We need another adult to walk beside you during the walking test."
+      },
+      "pc_walk_10m": {
+        "ar": "هل تستطيع أن تمشي عشرة أمتار على أرض مستوية دون أن يمسكك أحد؟",
+        "en": "Can you walk 10 metres on a flat floor without someone holding you?"
+      },
+      "pc_pd_freezing": {
+        "ar": "هل تشعر أحيانًا بأن قدميك ملتصقتان بالأرض عندما تبدأ المشي أو تستدير؟",
+        "en": "Do your feet sometimes feel stuck to the floor when you start walking or turn?"
+      },
+      "clear_path": {
+        "ar": "تأكد أن الطريق خالٍ ومستوٍ، وأن بقربك شيئًا ثابتًا تستند إليه.",
+        "en": "Make sure the path is clear and level, with something steady to hold nearby."
+      },
+      "usual_aid": {
+        "ar": "امشِ كما تمشي عادة، مع عصاك أو المشاية أو الدعامة إن كنت تستخدمها.",
+        "en": "Walk as you usually do, with your cane, walker or brace if you use one."
+      },
+      "turn_slowly": {
+        "ar": "عند نهاية الطريق، استدر ببطء في نصف دائرة واسعة.",
+        "en": "At the end of the path, turn slowly in a wide half circle."
+      },
+      "pad_auto_off": {
+        "ar": "أوقف خاصية تغيير السرعة بالقدم، واضبط السرعة يدويًا.",
+        "en": "Turn off the foot speed control and set the speed by hand."
+      },
+      "pad_key": {
+        "ar": "ثبّت مفتاح الأمان بملابسك إن كان في الجهاز مفتاح.",
+        "en": "Clip the safety key to your clothes if the pad has one."
+      },
+      "pad_start": {
+        "ar": "قف على الجهاز وهو متوقف وأنت ممسك بالسند، ثم ابدأ بأبطأ سرعة وزدها حتى تصل إلى مشيك المريح.",
+        "en": "Step on while the belt is stopped and hold the support. Then start at the slowest speed and raise it until it feels like your comfortable walk."
+      },
+      "stop_any_time": {
+        "ar": "توقف في أي وقت إذا شعرت بألم أو دوخة أو عدم ثبات.",
+        "en": "Stop at any time if you feel pain or dizziness, or feel unsteady."
+      },
+      "pad_stop": {
+        "ar": "أمسك بالسند، وسيوقف مرافقك الجهاز.",
+        "en": "Hold the support, and your helper will stop the pad."
+      },
+      "pad_other_side": {
+        "ar": "الآن ينقل مرافقك الهاتف إلى الجهة الأخرى من جهاز المشي. استمر في المشي بالسرعة نفسها.",
+        "en": "Now your helper moves the phone to the other side of the walking pad. Keep walking at the same speed."
+      },
+      "walk_past_phone": {
+        "ar": "امشِ متجاوزًا الهاتف دون أن تبطئ، ثم توقف عند العلامة خلفه.",
+        "en": "Walk past the phone without slowing down, then stop at the mark behind it."
+      },
+      "single_leg_static": {
+        "ar": "أمسك السند بأطراف أصابعك، وقف على ساق واحدة حتى 10 ثوان، ثم بدّل الساق. توقف متى شئت.",
+        "en": "Rest your fingertips on the support and stand on one leg for up to 10 seconds, then change legs. Stop whenever you want."
+      }
+    }
+  },
+  "citations": [
+    {
+      "id": "Fang18",
+      "cite": "Fang X, Liu C, Jiang Z. R Soc Open Sci 2018",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5792878/fullTextXML"
+    },
+    {
+      "id": "Hollman11",
+      "cite": "Hollman JH, McDade EM, Petersen RC. Gait Posture 2011",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3104090/"
+    },
+    {
+      "id": "Perry92",
+      "cite": "Perry J. Normal gait. Atlas of Limb Prosthetics ch. 13",
+      "url": "https://www.oandplibrary.org/alp/chap13-01.asp"
+    },
+    {
+      "id": "Bohannon97",
+      "cite": "Bohannon RW. Age Ageing 1997",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:9143432%20AND%20SRC:MED&resultType=core&format=json"
+    },
+    {
+      "id": "Bohannon11",
+      "cite": "Bohannon RW, Williams Andrews A. Physiotherapy 2011",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:21820535%20AND%20SRC:MED&resultType=core&format=json"
+    },
+    {
+      "id": "Krajewski25",
+      "cite": "Krajewski KT, et al. Am J Phys Med Rehabil 2025",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12187528/"
+    },
+    {
+      "id": "Kerrigan01",
+      "cite": "Kerrigan DC, et al. Arch Phys Med Rehabil 2001",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=11239282&rettype=abstract&retmode=text"
+    },
+    {
+      "id": "Miyazaki19",
+      "cite": "Miyazaki T, et al. Biomed Res Int 2019",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6942796/fullTextXML"
+    },
+    {
+      "id": "Lewek19",
+      "cite": "Lewek MD, Sawicki GS. Clin Biomech 2019",
+      "url": "https://www.med.unc.edu/healthsciences/regainlab/wp-content/uploads/sites/1342/2022/10/2019_Lewek_ClinBiomech.pdf"
+    },
+    {
+      "id": "Osada26",
+      "cite": "Osada Y, et al. Gait Posture (online 2026)",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=42696957&rettype=abstract&retmode=text"
+    },
+    {
+      "id": "Reininga12",
+      "cite": "Reininga IH, et al. J Neuroeng Rehabil 2012",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3274426/fullTextXML"
+    },
+    {
+      "id": "Pirker",
+      "cite": "Pirker W, Katzenschlager R. Wien Klin Wochenschr 2017",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5318488/fullTextXML"
+    }
+  ]
+}

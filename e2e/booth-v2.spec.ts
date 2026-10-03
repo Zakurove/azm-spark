@@ -17,6 +17,7 @@
  *   staff     the staff menu (new visitor, language, the coach voice), Alt Shift N, the idle reset
  *   design    56 px targets, nothing linked to the parked check, no console errors
  */
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 type Lang = "ar" | "en";
@@ -386,6 +387,41 @@ for (const lang of LANGS) {
   });
 }
 
+test("a visitor's report photo fills the taps; the plain notice line is under the button", async ({
+  page,
+}) => {
+  const errors = watchConsole(page);
+  const reads: any[] = [];
+  await page.route("**/api/booth/report", async (r) => {
+    reads.push(r.request().postDataJSON());
+    await json(r, LIVE);
+  });
+  await staffIn(page, "en");
+  await page.locator('[data-door="self"]').click();
+  await expect(page.locator(".bx-photo-note")).toHaveText(
+    "Azm reads your report once to fill in your answers, and does not keep it.",
+  );
+  await page.locator(".bx-photo input[type=file]").setInputFiles("public/booth/saad-report.png");
+  await expect(page.locator('[data-photo="read"]')).toBeVisible();
+  expect(reads[0]).toMatchObject({ session: SESSION, kind: "image", lang: "en" });
+  // The reading filled the condition and the position; clearance stays the visitor's own answer.
+  await expect(page.locator('[data-condition="sci_incomplete"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-clearance]")).toHaveCount(3);
+  await page.locator('[data-clearance="yes"]').click();
+  await next(page);
+  await expect(page.locator('[data-pick="wheelchair"]')).toHaveAttribute("aria-checked", "true");
+  expect(errors).toEqual([]);
+});
+
+test("a report photo the engine cannot read leaves the taps to the visitor", async ({ page }) => {
+  await page.route("**/api/booth/report", (r) => json(r, { error: "ENGINE_FAILED" }, 502));
+  await staffIn(page, "ar");
+  await page.locator('[data-door="self"]').click();
+  await page.locator(".bx-photo input[type=file]").setInputFiles("public/booth/saad-report.png");
+  await expect(page.locator('[data-photo="failed"]')).toBeVisible();
+  await expect(page.locator('[data-condition][aria-pressed="true"]')).toHaveCount(0);
+});
+
 /* ------------------------------------------------------------------ the rules say no, calmly */
 
 test("a heart condition holds the plan for review: no camera, the reasons and the register code", async ({
@@ -529,5 +565,103 @@ for (const lang of LANGS) {
     expect(await small()).toEqual([]);
     await page.locator('[data-action="staff"]').click();
     expect(await small()).toEqual([]);
+  });
+}
+
+/* ------------------------------------------------------------------ axe */
+
+const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
+
+/** Every serious or critical axe violation on the screen as it is now (at rest: reduced motion). */
+async function audit(page: Page, where: string, problems: string[]) {
+  await page.evaluate(() => document.fonts.ready);
+  const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+  for (const v of r.violations) {
+    if (v.impact !== "serious" && v.impact !== "critical") continue;
+    problems.push(
+      `${where}: ${v.id} (${v.impact}) ${v.nodes
+        .slice(0, 3)
+        .map((n) => n.target.join(" "))
+        .join(" | ")}`,
+    );
+  }
+}
+
+for (const lang of LANGS) {
+  test(`axe ${lang}: every booth step at rest, on a tablet`, async ({ browser }) => {
+    test.setTimeout(240_000);
+    const context = await browser.newContext({
+      viewport: { width: 1024, height: 768 },
+      hasTouch: true,
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    const problems: string[] = [];
+    await page.route("**/api/booth/report", (r) => json(r, LIVE));
+    await page.route("**/api/booth/plan", (r) => json(r, { plan: { status: "ready" }, weekly: AI_WEEK }));
+    await page.route("**/api/booth/verify", (r) =>
+      json(r, { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR }),
+    );
+    await page.goto(url("/?booth=1&e2eTrace=full", lang));
+    await audit(page, "code", problems);
+    await page.getByLabel(T[lang].codeLabel).fill("482913");
+    await page.getByRole("button", { name: T[lang].turnOn }).click();
+    await expect(page.locator('[data-screen="home"]')).toBeVisible();
+    await audit(page, "home", problems);
+
+    // Saad's story through the camera to the program.
+    await page.locator('[data-door="story"]').click();
+    await audit(page, "report", problems);
+    await page.locator('[data-action="read"]').click();
+    await expect(page.locator('[data-screen="report"]')).toHaveAttribute("data-reading", "read");
+    await audit(page, "report read", problems);
+    await next(page);
+    await audit(page, "engine", problems);
+    await page.locator('[data-action="staff"]').click();
+    await audit(page, "staff menu", problems);
+    await page.keyboard.press("Escape");
+    await next(page);
+    await audit(page, "goal", problems);
+    await next(page);
+    await audit(page, "safety", problems);
+    await cameraToResults(page, lang);
+    await audit(page, "results", problems);
+    await page.locator('[data-action="program"]').click();
+    await expect(page.locator('[data-screen="program"]')).toHaveAttribute("data-source", "ai");
+    await audit(page, "program", problems);
+
+    // Try it as yourself, the stop, and a plan held for review.
+    await page.locator('[data-action="start-again"]').click();
+    await page.locator('[data-door="self"]').click();
+    await page.locator('[data-condition="stroke"]').click();
+    await audit(page, "about condition", problems);
+    await page.locator('[data-clearance="yes"]').click();
+    await next(page);
+    await page.locator('[data-pick="seated"]').click();
+    await audit(page, "about position", problems);
+    await next(page);
+    await page.locator('[data-pick="left"]').click();
+    await audit(page, "about side", problems);
+    await next(page);
+    await next(page);
+    await page.locator('[data-pick="sport"]').click();
+    await audit(page, "goal sport", problems);
+    await page.locator('[data-sport="boccia"]').click();
+    await next(page);
+    await page.locator('[data-answer="yes"]').click();
+    await audit(page, "stop", problems);
+    await page.locator('[data-action="start-again"]').click();
+    await page.locator('[data-door="self"]').click();
+    await page.locator('[data-condition="cardiac"]').click();
+    await next(page);
+    await page.locator('[data-pick="seated"]').click();
+    await next(page);
+    await page.locator('[data-pick="none"]').click();
+    await next(page);
+    await audit(page, "engine review", problems);
+    await next(page);
+    await audit(page, "program review", problems);
+    await context.close();
+    expect(problems).toEqual([]);
   });
 }

@@ -172,6 +172,13 @@ function Journey({
     [j.door, j.self, j.reading, j.goal, j.sport],
   );
 
+  // Who moves in front of the camera: one setup per journey, so the camera screen's profile holds.
+  const setup = useMemo(
+    () => cameraSetup(j),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [j.door, j.self.position, j.self.side],
+  );
+
   // Staff reset at any time, the camera included: Alt Shift N (the booth's staff shortcut, S57).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -205,7 +212,7 @@ function Journey({
         <Session
           key={j.attempt}
           lang={lang}
-          setup={cameraSetup(j)}
+          setup={setup}
           exerciseId={BOOTH_EXERCISE}
           targetReps={BOOTH_REPS}
           demo={demoCam}

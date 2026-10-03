@@ -22,6 +22,8 @@ import { readingChips, type ChipKind } from "./views";
 
 /** The reading animation runs at least this long, so the chips arrive as a reading, not a flash. */
 const MIN_READ_MS = 1800;
+/** A visitor's report photo is read within this long, or the taps stay as they are. */
+const PHOTO_WAIT_MS = 20_000;
 
 const CHIP_ICON: Record<ChipKind, string> = {
   age: "user",
@@ -290,8 +292,13 @@ function Conditions({
 
   const readPhoto = async (f: File) => {
     setPhoto("reading");
+    // A visitor's own report has no cached reading: a reading that does not answer in time lets the
+    // visitor tap the answers instead.
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), PHOTO_WAIT_MS);
     const image = await imageData(f);
-    const r = image ? await readReport(session, image, lang) : null;
+    const r = image ? await readReport(session, image, lang, ctl.signal) : null;
+    clearTimeout(timer);
     if (!alive.current) return;
     if (r?.ok && readable(r.value)) {
       onRead(r.value);
@@ -360,6 +367,7 @@ function Conditions({
             {k.photoOpen}
           </button>
         )}
+        {photo === "idle" && <p className="bx-photo-note">{k.photoNotice}</p>}
         {photo === "read" && <p role="status">{k.photoRead}</p>}
         {photo === "failed" && <p role="status">{k.photoFailed}</p>}
         <input

@@ -81,9 +81,12 @@ export default function GuidedCard({
       const left = Math.max(0, endAt.current - Date.now());
       setRemaining(left);
       if (left > 0) return;
+      // Once at zero: the next tick never counts the same set twice.
+      clearInterval(timer);
       if (phase === "rest") {
         setSetNo((s) => s + 1);
         setCount(0);
+        setStatus("");
         setPhase("ready");
         return;
       }

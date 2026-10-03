@@ -303,6 +303,11 @@ img {
   top: 13px;
   inset-inline-end: 12px;
 }
+/* On the soft purple fill the small text darkens a step, to keep 4.5:1 (WCAG 1.4.3). */
+.position-option.selected small,
+.exercise-option.selected small {
+  color: #5f6672;
+}
 .selected .selection-dot {
   background: var(--select-dot);
   color: #fff;

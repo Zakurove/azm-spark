@@ -3189,6 +3189,11 @@
   font-size: 11px;
   color: var(--muted);
 }
+/* On the soft purple fill the small text darkens a step, to keep 4.5:1 (WCAG 1.4.3). */
+.weekly-days button.active small,
+.try-pose.selected span {
+  color: #5f6672;
+}
 .weekly-days button.active {
   border-color: transparent;
   background: var(--select-fill);

@@ -5,8 +5,8 @@ import {
   getDetailedDisabilityConfig,
   getMinimumRecoveryHours,
 } from "./legacy-config";
-import { DisabilityType } from "./legacy-types";
 import { Setup } from "../app/product";
+import { CONDITION_TYPES, libraryPool } from "./pool";
 import { CAMERA_DEMANDS, isSportId, sportById, type SportId } from "./sports";
 export const conditions = [
   "none",
@@ -79,23 +79,18 @@ export interface Plan {
   coolDownMinutes: number;
   estimatedMinutes: number;
   recoveryHours: number;
+  /**
+   * The rules' rest between sets, for the guided cards of a session too (booth v2, D). Plans saved
+   * before it read the rest of their first camera movement.
+   */
+  restSeconds?: number;
   version?: number;
   /** Epoch ms the profile was saved with this plan (C46: a first check within 24 hours skips S13). */
   created?: number;
   weekly?: import("./weekly").WeeklyPlan;
 }
-export const types: Record<string, DisabilityType> = {
-  stroke: "neurological",
-  ms: "neurological",
-  cerebral_palsy: "neurological",
-  parkinsons: "neurological",
-  sci_complete: "mobility",
-  sci_incomplete: "mobility",
-  lower_limb_unilateral: "amputation",
-  upper_limb_unilateral: "amputation",
-  arthritis: "chronic",
-  cfs_moderate: "chronic",
-};
+/** The legacy disability type of each condition (pool.ts keeps the table). */
+export const types = CONDITION_TYPES;
 export function validateIntake(v: unknown): v is Intake {
   if (!v || typeof v !== "object") return false;
   const x = v as Intake;
@@ -198,6 +193,7 @@ export function createPlan(h: Intake): Plan {
     coolDownMinutes: cool,
     estimatedMinutes: 0,
     recoveryHours: recovery,
+    restSeconds: rest,
   };
   const candidate = ["seated_shoulder_press", "seated_biceps_curl", "sit_to_stand"];
   for (const id of candidate) {
@@ -239,7 +235,9 @@ export function createPlan(h: Intake): Plan {
       reason: "curl_unloaded",
     });
   }
-  if (!p.exercises.length) reasons.push("no_exercises");
+  // A program is never empty for lack of camera movements (booth v2, D): the session is then made of
+  // guided cards from the library. Only when the library has nothing safe either is it reviewed.
+  if (!p.exercises.length && !libraryPool(h).length) reasons.push("no_exercises");
   // Goal changes order, never overrides the safety filter.
   if (h.goal === "mobility")
     p.exercises.sort(

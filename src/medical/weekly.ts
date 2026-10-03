@@ -1,28 +1,20 @@
-import library from "../exercises/library.json";
-import { getDetailedDisabilityConfig } from "./legacy-config";
-import { Intake, Plan, types } from "./plan";
+import { Intake, Plan } from "./plan";
+import {
+  CAMERA_TWINS,
+  configsFor,
+  LIBRARY,
+  libraryById,
+  libraryPool,
+  type L,
+  type LibraryExercise,
+} from "./pool";
 import { CAMERA_DEMANDS, DEMANDS, sportById, type DemandTag, type Sport } from "./sports";
 
 /** Weekly plan layer. The rules below decide what is SAFE and the dose; an optional
  * language model may only arrange exercises from the already filtered pool and write
  * the explanation. Every model output passes through sanitizeSelection. */
 
-export type L = { ar: string; en: string };
-export interface LibraryExercise {
-  id: string;
-  name: L;
-  description: L;
-  category: string;
-  muscles: string[];
-  equipment: string[];
-  difficulty: string;
-  minutes: number;
-  steps: { ar: string[]; en: string[] };
-  tags: string[];
-  /** What the exercise builds for a para sport (sports.ts); empty for leg strength alone. */
-  demands: DemandTag[];
-  contraindications: string[];
-}
+export { LIBRARY, libraryById, type L, type LibraryExercise };
 export interface WeeklyItem {
   id: string;
   sets: number;
@@ -57,57 +49,10 @@ export interface Selection {
   }[];
 }
 
-export const LIBRARY = library as LibraryExercise[];
-export const libraryById = (id: string) => LIBRARY.find((e) => e.id === id);
-
-const configsFor = (h: Intake) =>
-  h.conditions.filter((c) => c !== "none").map((c) => getDetailedDisabilityConfig(types[c] ?? "other", c));
-
+/** The safe library exercises for a ready plan (pool.ts); none while the plan is in review. */
 export function eligibleExercises(h: Intake, plan: Plan): LibraryExercise[] {
   if (plan.status !== "ready") return [];
-  const configs = configsFor(h);
-  const avoid = new Set(configs.flatMap((c) => c.avoidCategories));
-  const highFatigue = configs.some((c) => ["high", "critical"].includes(String(c.fatigueRisk)));
-  const painContra = new Set(h.pain.map((p) => `${p}_injury`));
-  const has = (r: string) => h.restrictions.includes(r);
-  return LIBRARY.filter((e) => {
-    const seatedOk = e.tags.includes("seated") || e.tags.includes("wheelchair_friendly");
-    const text = `${e.name.en} ${e.description.en} ${e.steps.en.join(" ")}`;
-    if (avoid.has(e.category) || e.difficulty === "advanced") return false;
-    if (highFatigue && e.difficulty !== "beginner") return false;
-    if (e.contraindications.some((c) => painContra.has(c))) return false;
-    if (
-      h.mobility === "wheelchair" &&
-      !(e.tags.includes("wheelchair_friendly") || (e.tags.includes("seated") && !e.tags.includes("standing")))
-    )
-      return false;
-    if (h.mobility === "seated" && !seatedOk) return false;
-    if (h.mobility !== "standing" && (e.tags.includes("floor_exercise") || e.tags.includes("lying_down")))
-      return false;
-    if (e.equipment.includes("resistance_bands") && !h.equipment.includes("bands")) return false;
-    if (e.equipment.includes("dumbbells") && !h.equipment.includes("weights")) return false;
-    if (has("no_resistance") && e.equipment.length) return false;
-    if (
-      has("no_overhead") &&
-      (/overhead|above (your|the) head/i.test(text) ||
-        (/press|raise/i.test(e.name.en) && e.muscles.includes("shoulders")))
-    )
-      return false;
-    if (
-      has("no_weight_bearing") &&
-      (e.tags.includes("standing") || (["lower_body", "balance"].includes(e.category) && !seatedOk))
-    )
-      return false;
-    if (
-      has("balance_support") &&
-      (e.tags.includes("standing") ||
-        e.contraindications.includes("severe_balance_issues") ||
-        (e.category === "balance" && !seatedOk))
-    )
-      return false;
-    if (h.conditions.includes("upper_limb_unilateral") && e.equipment.length) return false;
-    return true;
-  });
+  return libraryPool(h);
 }
 
 const WEIGHTS: Record<Exclude<Intake["goal"], "sport">, Record<string, number>> = {
@@ -127,10 +72,12 @@ const FOCUS: Record<string, L> = {
 const isHold = (e: LibraryExercise) => e.category === "flexibility" || /stretch|hold|breath/i.test(e.name.en);
 
 /** The library exercises that are the same movement as a camera movement of the plan. */
-const TWINS: Record<string, string> = { seated_biceps_curl: "seated_bicep_curls" };
 const cameraTwins = (plan: Plan) =>
   new Set(
-    plan.exercises.flatMap((e) => [e.exerciseId, ...(TWINS[e.exerciseId] ? [TWINS[e.exerciseId]] : [])]),
+    plan.exercises.flatMap((e) => [
+      e.exerciseId,
+      ...(CAMERA_TWINS[e.exerciseId] ? [CAMERA_TWINS[e.exerciseId]] : []),
+    ]),
   );
 
 /** The sport of a sport goal, or undefined for the other goals. */
@@ -363,15 +310,33 @@ export function buildWeekly(
   const n = plan.days.length;
   const sport = goalSport(h);
   const sportName = sport && { ar: sport.name.ar, en: sport.name.en.toLowerCase() };
+  // Booth v2 (D): without a camera movement, each day is guided cards from the warm up to the cool down.
+  const camera = plan.exercises.length > 0;
+  const middle = {
+    ar: sportName
+      ? camera
+        ? "ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين تبني ما تحتاجه هذه الرياضة"
+        : "ثم تمارين موجّهة خطوة بخطوة تبني ما تحتاجه هذه الرياضة"
+      : camera
+        ? "ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين مختارة من مكتبة عزم"
+        : "ثم تمارين موجّهة خطوة بخطوة من مكتبة عزم",
+    en: sportName
+      ? camera
+        ? "moves into a camera session that counts and corrects, adds exercises that build what this sport asks of you"
+        : "moves through guided exercises that build what this sport asks of you"
+      : camera
+        ? "moves into a camera session that counts and corrects, adds exercises chosen from the Azm library"
+        : "moves through guided exercises chosen from the Azm library",
+  };
   const summary: L = selection.summary ?? {
     ar: toArabicDigits(
       sportName
-        ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين تبني ما تحتاجه هذه الرياضة، وينتهي بتهدئة.`
-        : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ثم تمرين بالكاميرا يعدّ ويصحّح، ثم تمارين مختارة من مكتبة عزم، وينتهي بتهدئة.`,
+        ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`
+        : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`,
     ),
     en: sportName
-      ? `A ${n} day weekly plan built on your medical condition and aimed at ${sportName.en}. Each day opens with a warm up, moves into a camera session that counts and corrects, adds exercises that build what this sport asks of you, and closes with a cool down.`
-      : `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, moves into a camera session that counts and corrects, adds exercises chosen from the Azm library, and closes with a cool down.`,
+      ? `A ${n} day weekly plan built on your medical condition and aimed at ${sportName.en}. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`
+      : `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`,
   };
   const why: L[] = selection.why?.length
     ? selection.why

@@ -38,6 +38,10 @@
    "seated",
    "upper_body_focus"
   ],
+  "demands": [
+   "pressing_strength",
+   "shoulder_endurance"
+  ],
   "contraindications": [
    "shoulder_injury"
   ]
@@ -81,6 +85,10 @@
    "seated",
    "low_impact"
   ],
+  "demands": [
+   "shoulder_endurance",
+   "grip_and_arm"
+  ],
   "contraindications": []
  },
  {
@@ -120,6 +128,9 @@
    "wheelchair_friendly",
    "seated",
    "beginner_friendly"
+  ],
+  "demands": [
+   "grip_and_arm"
   ],
   "contraindications": []
  },
@@ -164,6 +175,10 @@
    "lying_down",
    "seated"
   ],
+  "demands": [
+   "pressing_strength",
+   "pushing_power"
+  ],
   "contraindications": [
    "shoulder_injury"
   ]
@@ -204,6 +219,9 @@
   "tags": [
    "wheelchair_friendly",
    "seated"
+  ],
+  "demands": [
+   "pushing_power"
   ],
   "contraindications": [
    "elbow_injury"
@@ -247,6 +265,9 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [
+   "shoulder_endurance"
+  ],
   "contraindications": [
    "shoulder_injury"
   ]
@@ -289,6 +310,9 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [
+   "shoulder_endurance"
+  ],
   "contraindications": [
    "shoulder_injury"
   ]
@@ -330,6 +354,10 @@
   "tags": [
    "wheelchair_friendly",
    "seated"
+  ],
+  "demands": [
+   "pressing_strength",
+   "shoulder_endurance"
   ],
   "contraindications": [
    "shoulder_injury"
@@ -374,6 +402,9 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [
+   "grip_and_arm"
+  ],
   "contraindications": []
  },
  {
@@ -414,6 +445,9 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [
+   "grip_and_arm"
+  ],
   "contraindications": []
  },
  {
@@ -452,6 +486,9 @@
   "tags": [
    "wheelchair_friendly",
    "seated"
+  ],
+  "demands": [
+   "pushing_power"
   ],
   "contraindications": [
    "elbow_injury",
@@ -496,6 +533,9 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [
+   "pushing_power"
+  ],
   "contraindications": [
    "elbow_injury"
   ]
@@ -537,6 +577,10 @@
   "tags": [
    "wheelchair_friendly",
    "seated"
+  ],
+  "demands": [
+   "shoulder_endurance",
+   "grip_and_arm"
   ],
   "contraindications": [
    "back_injury"
@@ -580,6 +624,9 @@
    "wheelchair_friendly",
    "seated"
   ],
+  "demands": [
+   "shoulder_endurance"
+  ],
   "contraindications": [
    "shoulder_injury"
   ]
@@ -621,6 +668,10 @@
    "standing",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "pushing_power",
+   "pressing_strength"
   ],
   "contraindications": [
    "wrist_injury"
@@ -664,6 +715,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "trunk_control"
+  ],
   "contraindications": []
  },
  {
@@ -702,6 +756,10 @@
    "wheelchair_friendly",
    "seated",
    "low_impact"
+  ],
+  "demands": [
+   "trunk_rotation",
+   "trunk_control"
   ],
   "contraindications": [
    "back_injury"
@@ -742,6 +800,9 @@
    "wheelchair_friendly",
    "seated",
    "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": [
    "back_injury"
@@ -784,6 +845,10 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [
+   "trunk_rotation",
+   "cardio"
+  ],
   "contraindications": [
    "back_injury"
   ]
@@ -823,6 +888,9 @@
    "lying_down",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": [
    "back_injury"
@@ -865,6 +933,10 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "trunk_control",
+   "flexibility"
+  ],
   "contraindications": []
  },
  {
@@ -902,6 +974,10 @@
    "wheelchair_friendly",
    "seated",
    "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control",
+   "cardio"
   ],
   "contraindications": [
    "hip_injury"
@@ -943,6 +1019,10 @@
    "wheelchair_friendly",
    "seated",
    "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_rotation",
+   "trunk_control"
   ],
   "contraindications": [
    "back_injury"
@@ -986,6 +1066,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "trunk_control"
+  ],
   "contraindications": []
  },
  {
@@ -1024,6 +1107,9 @@
   "tags": [
    "wheelchair_friendly",
    "seated"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": [
    "back_injury"
@@ -1066,6 +1152,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "trunk_control"
+  ],
   "contraindications": []
  },
  {
@@ -1102,6 +1191,9 @@
   },
   "tags": [
    "floor_exercise"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": [
    "knee_injury",
@@ -1145,6 +1237,10 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility",
+   "shoulder_endurance"
+  ],
   "contraindications": []
  },
  {
@@ -1183,6 +1279,9 @@
    "seated",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
   ],
   "contraindications": [
    "neck_injury"
@@ -1226,6 +1325,9 @@
    "beginner_friendly",
    "hand_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": []
  },
  {
@@ -1264,6 +1366,9 @@
    "seated",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
   ],
   "contraindications": [
    "shoulder_injury"
@@ -1307,6 +1412,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": [
    "shoulder_injury"
   ]
@@ -1348,6 +1456,9 @@
    "standing",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
   ],
   "contraindications": [
    "shoulder_injury",
@@ -1393,6 +1504,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": []
  },
  {
@@ -1432,6 +1546,10 @@
    "seated",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility",
+   "trunk_rotation"
   ],
   "contraindications": [
    "back_injury"
@@ -1474,6 +1592,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": [
    "wrist_injury",
    "knee_injury"
@@ -1514,6 +1635,9 @@
    "seated",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
   ],
   "contraindications": [
    "hip_injury"
@@ -1556,6 +1680,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": []
  },
  {
@@ -1595,6 +1722,10 @@
    "low_impact",
    "beginner_friendly",
    "hand_friendly"
+  ],
+  "demands": [
+   "flexibility",
+   "grip_and_arm"
   ],
   "contraindications": []
  },
@@ -1636,6 +1767,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": [
    "neck_injury"
   ]
@@ -1676,6 +1810,7 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [],
   "contraindications": [
    "knee_injury"
   ]
@@ -1718,6 +1853,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "cardio"
+  ],
   "contraindications": []
  },
  {
@@ -1757,6 +1895,7 @@
    "standing",
    "beginner_friendly"
   ],
+  "demands": [],
   "contraindications": []
  },
  {
@@ -1795,6 +1934,7 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [],
   "contraindications": []
  },
  {
@@ -1835,6 +1975,7 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [],
   "contraindications": [
    "hip_injury"
   ]
@@ -1875,6 +2016,7 @@
    "seated",
    "beginner_friendly"
   ],
+  "demands": [],
   "contraindications": []
  },
  {
@@ -1915,6 +2057,7 @@
    "wheelchair_friendly",
    "seated"
   ],
+  "demands": [],
   "contraindications": [
    "knee_injury"
   ]
@@ -1957,6 +2100,7 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [],
   "contraindications": []
  },
  {
@@ -1995,6 +2139,7 @@
   "tags": [
    "seated"
   ],
+  "demands": [],
   "contraindications": [
    "knee_injury"
   ]
@@ -2036,6 +2181,9 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "flexibility"
+  ],
   "contraindications": []
  },
  {
@@ -2074,6 +2222,9 @@
    "seated",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": []
  },
@@ -2115,6 +2266,10 @@
    "low_impact",
    "beginner_friendly"
   ],
+  "demands": [
+   "trunk_control",
+   "flexibility"
+  ],
   "contraindications": []
  },
  {
@@ -2152,6 +2307,9 @@
   "tags": [
    "standing",
    "adaptable"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": [
    "severe_balance_issues"
@@ -2192,6 +2350,9 @@
   "tags": [
    "standing",
    "adaptable"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": [
    "severe_balance_issues"
@@ -2234,6 +2395,9 @@
    "standing",
    "low_impact",
    "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
   ],
   "contraindications": []
  }

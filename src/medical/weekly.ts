@@ -1,6 +1,7 @@
 import library from "../exercises/library.json";
 import { getDetailedDisabilityConfig } from "./legacy-config";
 import { Intake, Plan, types } from "./plan";
+import type { DemandTag } from "./sports";
 
 /** Weekly plan layer. The rules below decide what is SAFE and the dose; an optional
  * language model may only arrange exercises from the already filtered pool and write
@@ -18,6 +19,8 @@ export interface LibraryExercise {
   minutes: number;
   steps: { ar: string[]; en: string[] };
   tags: string[];
+  /** What the exercise builds for a para sport (sports.ts); empty for leg strength alone. */
+  demands: DemandTag[];
   contraindications: string[];
 }
 export interface WeeklyItem {

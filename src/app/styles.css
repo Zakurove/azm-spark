@@ -2459,10 +2459,12 @@ img {
   transform: none;
 }
 .report-upload {
-  border: 1px solid #ddd3ef;
-  background: #faf8fd;
-  border-radius: 16px;
-  padding: 21px;
+  background: linear-gradient(160deg, #f7f3fd 0%, #ffffff 70%);
+  box-shadow:
+    0 0 0 1px #ece6f6,
+    0 12px 32px rgba(99, 82, 141, 0.08);
+  border-radius: 18px;
+  padding: 22px;
   margin-bottom: 28px;
 }
 .report-heading {
@@ -2474,15 +2476,15 @@ img {
   font-size: 16px;
 }
 .report-heading p {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
   line-height: 1.9;
   margin-top: 6px;
 }
 .report-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: #efe9f8;
   color: #63528d;
   display: grid;
@@ -2491,19 +2493,57 @@ img {
   margin: 0;
 }
 .report-actions {
-  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  margin-top: 18px;
 }
-.report-actions .ghost {
-  background: white;
+.report-read {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 13px;
+  background: #6f5aa0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(111, 90, 160, 0.22);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.report-read:hover:not(:disabled) {
+  background: #63508f;
+}
+.report-read:disabled {
+  background: #d9d1e8;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.report-actions .text-button {
+  color: #5e4989;
 }
 .report-paste {
-  margin: 14px 0 0;
+  margin: 18px 0 0;
 }
 .report-paste textarea {
   background: white;
 }
-.report-analyze {
-  margin-top: 12px;
+.report-notice {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+/* On wider screens the panel's actions and lines sit in the heading's text column. */
+@media (min-width: 761px) {
+  .report-upload > :not(.report-heading) {
+    margin-inline-start: 54px;
+  }
 }
 .report-busy {
   display: flex;
@@ -2528,15 +2568,12 @@ img {
   }
 }
 .report-foot {
-  margin-top: 12px;
+  margin-top: 4px;
 }
 .report-foot .text-button {
   font-size: 12px;
   color: var(--muted);
-}
-.report-privacy {
-  margin: 12px 0 0;
-  font-size: 10.5px;
+  padding-inline: 0;
 }
 .report-badge {
   display: inline-block;

@@ -16,6 +16,9 @@ export const labels = (l: Lang) =>
         today: "اليوم",
         program: "البرنامج",
         health: "حالتك الطبية",
+        // D-018: the tabs; the page titles keep the full names.
+        nav: { today: "اليوم", program: "برنامجي", health: "حالتي" },
+        titles: { today: "اليوم", program: "برنامجي", health: "حالتي الطبية" },
         logout: "تسجيل الخروج",
         backHome: "العودة للرئيسية",
         continue: "متابعة",
@@ -47,7 +50,9 @@ export const labels = (l: Lang) =>
         unsure: "غير متأكد",
         choose: "اختر إجابة",
         equipment: "ما الأدوات المتاحة لديك؟",
-        goal: "ما الذي ترغب في تحسينه؟",
+        equipmentHelp: "يكفيك كرسي ثابت للبدء. اختر ما لديك غيره.",
+        goal: "ما هدفك؟",
+        sportPick: "اختر رياضتك",
         days: "أيام التمرين المفضّلة",
         time: "وقت التمرين",
         duration: "الوقت المتاح للجلسة",
@@ -102,21 +107,18 @@ export const labels = (l: Lang) =>
         signOutError: "تعذّر الخروج. حاول مرة أخرى.",
         reportTitle: "عندك تقرير طبي؟",
         reportBody: "صوّر صفحة التقرير أو الصق نصه، فنعبّئ منه إجاباتك مسبقًا، ثم نسألك عمّا تبقّى فقط.",
-        // Q32 (2), word for word: the separate consent before a report is sent to be read.
-        reportConsentBody:
-          "نرسل تقريرك الطبي إلى نظام ذكاء اصطناعي تقدّمه شركة خارج المملكة ليقرأه. لا يحتفظ عزم بالتقرير. وقد تحتفظ به الشركة مدة أقصاها ٣٠ يومًا لأغراض الأمان فقط، ولا تستخدمه لتدريب نماذجها. إن استطعت، غطِّ اسمك ورقم هويتك قبل التصوير. ويمكنك بدلًا من ذلك أن تُدخل حالتك الطبية بنفسك.",
-        reportConsentCheck: "أوافق على إرسال تقريري لقراءته بهذه الطريقة.",
-        reportUpload: "ارفع صورة التقرير",
-        reportPaste: "أو الصق نص التقرير هنا",
-        reportAnalyze: "حلّل التقرير",
-        reportBusy: "جارٍ تحليل التقرير…",
+        // Booth v2 (B8, option A): one plain line; pressing «اقرأ تقريري» is the consent.
+        reportNotice: "يقرأ عزم تقريرك مرة واحدة ليملأ إجاباتك، ولا يحتفظ به.",
+        reportRead: "اقرأ تقريري",
+        reportPasteOpen: "أو الصق نص التقرير",
+        reportPhotoOpen: "أو صوّر التقرير",
+        reportPaste: "نص التقرير",
+        reportBusy: "يقرأ عزم تقريرك…",
         reportSkip: "تخطَّ وأجب يدويًا",
         reportDone: "استخرجنا هذه المعلومات من تقريرك، تأكّد منها قبل المتابعة.",
         reportMissing: "يتبقى عليك الإجابة عن:",
         reportBadge: "من التقرير",
         reportNotMedical: "لم نتعرّف على تقرير طبي في الملف. أكمل الإجابات يدويًا.",
-        reportPrivacy:
-          "يُحلَّل تقريرك مرة واحدة لتعبئة إجاباتك مسبقًا، ولا تحتفظ عزم بالتقرير أو الصورة، ولا يُحفظ إلا ما تؤكده وترسله بنفسك.",
       }
     : {
         login: "Sign in",
@@ -134,6 +136,9 @@ export const labels = (l: Lang) =>
         today: "Today",
         program: "Program",
         health: "Your medical condition",
+        // D-018: the tabs; the page titles keep the full names.
+        nav: { today: "Today", program: "Program", health: "My condition" },
+        titles: { today: "Today", program: "My program", health: "My medical condition" },
         logout: "Sign out",
         backHome: "Back to home",
         continue: "Continue",
@@ -166,7 +171,9 @@ export const labels = (l: Lang) =>
         unsure: "Not sure",
         choose: "Choose an answer",
         equipment: "What equipment do you have?",
-        goal: "What would you like to work on?",
+        equipmentHelp: "A stable chair is all you need to start. Add anything else you have.",
+        goal: "What is your goal?",
+        sportPick: "Choose your sport",
         days: "Preferred training days",
         time: "Training time",
         duration: "Time available per session",
@@ -224,21 +231,18 @@ export const labels = (l: Lang) =>
         reportTitle: "Have a medical report?",
         reportBody:
           "Photograph the report page or paste its text. We prefill your answers from it, then ask only what is still missing.",
-        // Q32 (2), word for word: the separate consent before a report is sent to be read.
-        reportConsentBody:
-          "We send your medical report to an AI service from a company outside Saudi Arabia, which reads it. Azm does not keep the report. The company may keep it for up to 30 days for safety checks only, and does not use it to train its models. If you can, cover your name and ID number before taking the photo. You can enter your medical condition yourself instead.",
-        reportConsentCheck: "I agree to send my report to be read this way.",
-        reportUpload: "Upload a report photo",
-        reportPaste: "Or paste the report text here",
-        reportAnalyze: "Analyze report",
-        reportBusy: "Analyzing your report…",
+        // Booth v2 (B8, option A): one plain line; pressing Read my report is the consent.
+        reportNotice: "Azm reads your report once to fill in your answers, and does not keep it.",
+        reportRead: "Read my report",
+        reportPasteOpen: "Or paste the report text",
+        reportPhotoOpen: "Or photograph the report",
+        reportPaste: "Report text",
+        reportBusy: "Azm is reading your report…",
         reportSkip: "Skip and answer manually",
         reportDone: "We extracted this from your report. Please verify before continuing.",
         reportMissing: "Still to answer:",
         reportBadge: "from report",
         reportNotMedical: "We could not recognize a medical report in this file. Please answer manually.",
-        reportPrivacy:
-          "Your report is analyzed once to prefill your answers. Azm never stores the report or image; only the answers you confirm and submit are saved.",
       };
 export const optionNames: Record<string, { ar: string; en: string }> = {
   // The condition labels are the check's person first wording (S08 guest chips use these exactly).
@@ -277,9 +281,11 @@ export const optionNames: Record<string, { ar: string; en: string }> = {
   balance_support: { ar: "أحتاج مساعدة للوقوف والتوازن", en: "I need help to stand / balance" },
   chair: { ar: "كرسي ثابت", en: "Stable chair" },
   weights: { ar: "أوزان مناسبة أستخدمها بالفعل", en: "Suitable weights I already use" },
+  bands: { ar: "أشرطة مقاومة", en: "Resistance bands" },
   mobility: { ar: "الحركة اليومية", en: "Everyday movement" },
   strength: { ar: "القوة والتحكّم", en: "Strength & control" },
   habit: { ar: "الانتظام في التمرين", en: "Build a routine" },
+  sport: { ar: "العودة إلى الرياضة", en: "Back to sport" },
 };
 export const reasonText: Record<string, { ar: string; en: string }> = {
   cardiac: {
@@ -358,7 +364,12 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
     ar: "المقاومة غير متاحة أو لديك تعليمات بتجنّبها.",
     en: "Suitable resistance is unavailable or restricted.",
   },
+  // Plans saved before booth v2 may still name the chair (a stable chair is now assumed).
   chair: { ar: "تتطلب هذه الحركة كرسيًا ثابتًا.", en: "This movement requires a stable chair." },
+  curl_unloaded: {
+    ar: "تُؤدّى دون أوزان، أو بشيء خفيف في يدك مثل قارورة ماء.",
+    en: "Done without weights, or with something light in your hand such as a water bottle.",
+  },
   standing: {
     ar: "لم تُدرج بسبب وضعيتك أو ألم الساقين أو متطلبات التوازن والتتبّع.",
     en: "Not included due to position, lower body pain, balance or tracking requirements.",

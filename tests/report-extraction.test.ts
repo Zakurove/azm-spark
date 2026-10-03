@@ -113,30 +113,35 @@ it("rejects unauthenticated report posts before buffering large bodies, and keep
   service.close();
 });
 
-it("asks the separate report consent before anything can be sent (Q32 (2))", async () => {
+it("shows one plain line, and the Read my report press is the consent (booth v2, B8, option A)", async () => {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const { createElement } = await import("react");
   const { default: ReportUpload, reportRequest } = await import("../src/app/ReportUpload");
   const { labels } = await import("../src/app/platform-copy");
+  const LINE = {
+    ar: "يقرأ عزم تقريرك مرة واحدة ليملأ إجاباتك، ولا يحتفظ به.",
+    en: "Azm reads your report once to fill in your answers, and does not keep it.",
+  };
   for (const lang of ["ar", "en"] as const) {
     const c = labels(lang);
-    // C47: a fresh intake shows a link first; the notice and the consent come when it is chosen.
+    // C47: a fresh intake shows a link first; the panel comes when it is chosen.
     const link = renderToStaticMarkup(createElement(ReportUpload, { lang, onExtracted: () => {} }));
     expect(link.replace(/<[^>]+>/g, "")).toBe(c.reportTitle);
-    expect(link).not.toContain('type="checkbox"');
     const html = renderToStaticMarkup(
       createElement(ReportUpload, { lang, onExtracted: () => {}, opened: true }),
     );
     const plain = html.replace(/<[^>]+>/g, "");
-    expect(plain).toContain(c.reportConsentCheck);
-    // The consent text is shown in full (digits and Latin runs isolated in Arabic).
-    expect(plain.replace(/\s+/g, " ")).toContain(lang === "ar" ? "مدة أقصاها ٣٠ يومًا" : "up to 30 days");
-    // Unticked, and the upload and paste controls wait for it; skipping stays open.
-    expect(html).toMatch(/<input type="checkbox"\/>/);
-    expect(html).toMatch(/<button type="button" class="ghost" disabled="">/);
-    expect(html).toMatch(/<textarea[^>]*disabled=""/);
+    // The one plain line, and nothing about a company outside the Kingdom or how long it keeps data.
+    expect(c.reportNotice).toBe(LINE[lang]);
+    expect(plain).toContain(LINE[lang]);
+    expect(plain).not.toMatch(/خارج المملكة|outside Saudi|30 days|٣٠ يومًا|OpenAI/);
+    expect(c).not.toHaveProperty("reportConsentBody");
+    expect(c).not.toHaveProperty("reportConsentCheck");
+    // No tick box and no extra paragraph: the Read my report press is the consent, and it is open.
+    expect(html).not.toContain('type="checkbox"');
+    expect(html).not.toMatch(/disabled=""/);
+    expect(plain).toContain(c.reportRead);
     expect(html).toContain(`<button type="button" class="text-button">${c.reportSkip}</button>`);
-    expect(html).toContain('href="/?privacy=1');
     expect(plain).not.toMatch(/medical engine|محرك عزم/);
   }
   expect(reportRequest({ kind: "text", text: "x" }, "ar")).toEqual({

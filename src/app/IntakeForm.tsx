@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Intake, conditions, painOptions, restrictionOptions, validateIntake, Plan } from "../medical/plan";
+import {
+  Intake,
+  conditions,
+  equipmentOptions,
+  goalOptions,
+  painOptions,
+  restrictionOptions,
+  validateIntake,
+  Plan,
+} from "../medical/plan";
+import { sportById, sportsFor, type SportId } from "../medical/sports";
+import SportIcon from "./SportIcon";
 import { Lang, fmtDate, fmtNum, fmtTime } from "./i18n";
 import { labels, optionNames, errorText } from "./platform-copy";
 import { api } from "./api";
@@ -33,6 +44,73 @@ const empty: Draft = {
   sessionMinutes: 30,
   consent: false,
 };
+/**
+ * The goal of the program (booth v2, B3): four cards, and with «العودة إلى الرياضة» the grid of the 13
+ * para sports, those that suit the person's position first. The rules decide what is safe; the goal
+ * only shapes what is chosen.
+ */
+export function GoalChoices({
+  lang,
+  goal,
+  sport,
+  mobility,
+  onGoal,
+  onSport,
+}: {
+  lang: Lang;
+  goal: Intake["goal"];
+  sport: SportId | undefined;
+  mobility: string;
+  onGoal: (goal: Intake["goal"]) => void;
+  onSport: (sport: SportId) => void;
+}) {
+  const c = labels(lang);
+  return (
+    <>
+      <fieldset>
+        <legend>{c.goal}</legend>
+        <div className="goal-grid">
+          {goalOptions.map((g) => (
+            <button
+              type="button"
+              key={g}
+              aria-pressed={goal === g}
+              className={`goal-card ${goal === g ? "selected" : ""}`}
+              onClick={() => onGoal(g)}
+            >
+              <span className="goal-icon">
+                <SportIcon icon={g} size={22} />
+              </span>
+              {optionNames[g][lang]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      {goal === "sport" && (
+        <fieldset className="sport-pick">
+          <legend>{c.sportPick}</legend>
+          <div className="sport-grid">
+            {sportsFor(mobility).map((s) => (
+              <button
+                type="button"
+                key={s.id}
+                aria-pressed={sport === s.id}
+                className={`sport-tile ${sport === s.id ? "selected" : ""}`}
+                onClick={() => onSport(s.id)}
+              >
+                <span className="sport-disc">
+                  <SportIcon icon={s.icon} size={26} />
+                </span>
+                {s.name[lang]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+    </>
+  );
+}
+
 export default function IntakeForm({
   lang,
   initial,
@@ -45,7 +123,10 @@ export default function IntakeForm({
   onCancel?: () => void;
 }) {
   const c = labels(lang),
-    [draft, setDraft] = useState<Draft>(initial ?? empty),
+    // A stable chair is assumed (B6): a chair saved before is dropped from the equipment answer.
+    [draft, setDraft] = useState<Draft>(() =>
+      initial ? { ...initial, equipment: initial.equipment.filter((e) => e !== "chair") } : empty,
+    ),
     [step, setStep] = useState(0),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -133,7 +214,7 @@ export default function IntakeForm({
           {name(o)}
         </button>
       ))}
-      {["pain", "restrictions"].includes(field) && (
+      {["pain", "restrictions", "equipment"].includes(field) && (
         <button
           type="button"
           className={!draft[field].length ? "selected" : ""}
@@ -162,7 +243,7 @@ export default function IntakeForm({
       : step === 1
         ? !!draft.mobility && !!draft.symptoms && !!draft.recentChange && !!draft.clearance
         : step === 2
-          ? draft.days.length > 0 && draft.days.length <= 4
+          ? draft.days.length > 0 && draft.days.length <= 4 && (draft.goal !== "sport" || !!draft.sport)
           : validateIntake(draft);
   const submit = async () => {
     if (!valid) {
@@ -363,20 +444,22 @@ export default function IntakeForm({
         )}
         {step === 2 && (
           <>
+            <GoalChoices
+              lang={lang}
+              goal={draft.goal}
+              sport={draft.sport}
+              mobility={draft.mobility}
+              // A sport rides only with the sport goal.
+              onGoal={(goal) =>
+                setDraft((d) => ({ ...d, goal, sport: goal === "sport" ? d.sport : undefined }))
+              }
+              onSport={(sport) => set("sport", sport)}
+            />
             <fieldset>
               <legend>{c.equipment}</legend>
-              {choices("equipment", ["chair", "weights"])}
+              <p className="field-help">{c.equipmentHelp}</p>
+              {choices("equipment", equipmentOptions)}
             </fieldset>
-            <label className="field">
-              <span>{c.goal}</span>
-              <select value={draft.goal} onChange={(e) => set("goal", e.target.value as never)}>
-                {["mobility", "strength", "habit"].map((o) => (
-                  <option key={o} value={o}>
-                    {name(o)}
-                  </option>
-                ))}
-              </select>
-            </label>
             <fieldset>
               <legend>{c.days}</legend>
               <div className="day-picker">
@@ -441,7 +524,13 @@ export default function IntakeForm({
                 [c.restriction, draft.restrictions.map(name).join("، ") || c.noItems],
                 [c.symptoms, draft.symptoms === "yes" ? c.yes : c.no],
                 [c.clearance, draft.clearance === "yes" ? c.yes : draft.clearance === "no" ? c.no : c.unsure],
-                [c.goal, name(draft.goal)],
+                [
+                  c.goal,
+                  draft.goal === "sport" && draft.sport
+                    ? `${name("sport")}${lang === "ar" ? "، " : ", "}${sportById(draft.sport)?.name[lang]}`
+                    : name(draft.goal),
+                ],
+                [c.equipment, draft.equipment.map(name).join(lang === "ar" ? "، " : ", ") || c.noItems],
                 [
                   c.days,
                   [...draft.days]

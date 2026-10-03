@@ -7,6 +7,7 @@ import {
 } from "./legacy-config";
 import { DisabilityType } from "./legacy-types";
 import { Setup } from "../app/product";
+import { CAMERA_DEMANDS, isSportId, sportById, type SportId } from "./sports";
 export const conditions = [
   "none",
   "stroke",
@@ -23,6 +24,13 @@ export const conditions = [
   "other",
 ] as const;
 export const painOptions = ["shoulder", "elbow", "wrist", "back", "hip", "knee"] as const;
+/**
+ * The equipment question (booth v2, B6): weights and bands. A stable chair is assumed, so it is no
+ * longer asked; "chair" stays valid because profiles saved before the change hold it.
+ */
+export const equipmentOptions = ["weights", "bands"] as const;
+const EQUIPMENT_VALUES = ["chair", ...equipmentOptions] as const;
+export const goalOptions = ["mobility", "strength", "habit", "sport"] as const;
 export const restrictionOptions = [
   "no_overhead",
   "no_resistance",
@@ -43,7 +51,9 @@ export interface Intake {
   recentChange: "yes" | "no";
   clearance: "yes" | "no" | "unsure";
   equipment: string[];
-  goal: "mobility" | "strength" | "habit";
+  goal: (typeof goalOptions)[number];
+  /** The para sport of the goal «العودة إلى الرياضة»: present with that goal, and only with it. */
+  sport?: SportId;
   days: number[];
   time: string;
   sessionMinutes: number;
@@ -113,8 +123,9 @@ export function validateIntake(v: unknown): v is Intake {
     ["yes", "no"].includes(x.symptoms) &&
     ["yes", "no"].includes(x.recentChange) &&
     ["yes", "no", "unsure"].includes(x.clearance) &&
-    list(x.equipment, ["chair", "weights"]) &&
-    ["mobility", "strength", "habit"].includes(x.goal) &&
+    list(x.equipment, EQUIPMENT_VALUES) &&
+    (goalOptions as readonly string[]).includes(x.goal) &&
+    (x.goal === "sport" ? isSportId(x.sport) : x.sport === undefined) &&
     list(x.days, [0, 1, 2, 3, 4, 5, 6], 1) &&
     x.days.length <= 4 &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(x.time) &&
@@ -125,6 +136,33 @@ export function validateIntake(v: unknown): v is Intake {
 export function scheduleFits(days: number[], recoveryHours: number) {
   const s = [...days].sort((a, b) => a - b);
   return s.every((d, i) => (s[(i + 1) % s.length] - d + 7 || 7) * 24 >= recoveryHours);
+}
+/**
+ * Why a camera movement is left out for this intake ("" when it is not). The last rule that applies
+ * names the reason, as before. A stable chair is assumed (booth v2, B6), so no movement waits for a
+ * chair tick any more.
+ */
+function exclusionOf(id: string, h: Intake): string {
+  let excluded = "";
+  const upper = id !== "sit_to_stand";
+  if (upper && h.conditions.includes("upper_limb_unilateral")) excluded = "tracking_limbs";
+  if (upper && h.pain.some((p) => ["shoulder", "elbow", "wrist", "back"].includes(p)))
+    excluded = "pain_upper";
+  if (id === "seated_shoulder_press" && h.restrictions.includes("no_overhead")) excluded = "overhead";
+  if (
+    id === "seated_biceps_curl" &&
+    (!h.equipment.includes("weights") || h.restrictions.includes("no_resistance"))
+  )
+    excluded = "resistance";
+  if (
+    !upper &&
+    (h.mobility !== "standing" ||
+      h.restrictions.some((r) => ["no_weight_bearing", "balance_support"].includes(r)) ||
+      h.pain.some((p) => ["hip", "knee", "back"].includes(p)) ||
+      h.conditions.includes("lower_limb_unilateral"))
+  )
+    excluded = "standing";
+  return excluded;
 }
 export function createPlan(h: Intake): Plan {
   if (!validateIntake(h)) throw new Error("INVALID_INTAKE");
@@ -163,26 +201,8 @@ export function createPlan(h: Intake): Plan {
   };
   const candidate = ["seated_shoulder_press", "seated_biceps_curl", "sit_to_stand"];
   for (const id of candidate) {
-    let excluded = "";
+    const excluded = exclusionOf(id, h);
     const upper = id !== "sit_to_stand";
-    if (upper && h.conditions.includes("upper_limb_unilateral")) excluded = "tracking_limbs";
-    if (upper && h.pain.some((p) => ["shoulder", "elbow", "wrist", "back"].includes(p)))
-      excluded = "pain_upper";
-    if (id === "seated_shoulder_press" && h.restrictions.includes("no_overhead")) excluded = "overhead";
-    if (
-      id === "seated_biceps_curl" &&
-      (!h.equipment.includes("weights") || h.restrictions.includes("no_resistance"))
-    )
-      excluded = "resistance";
-    if (h.mobility !== "wheelchair" && !h.equipment.includes("chair")) excluded = "chair";
-    if (
-      !upper &&
-      (h.mobility !== "standing" ||
-        h.restrictions.some((r) => ["no_weight_bearing", "balance_support"].includes(r)) ||
-        h.pain.some((p) => ["hip", "knee", "back"].includes(p)) ||
-        h.conditions.includes("lower_limb_unilateral"))
-    )
-      excluded = "standing";
     if (excluded) {
       p.exclusions.push({ exerciseId: id, reason: excluded });
       continue;
@@ -201,12 +221,36 @@ export function createPlan(h: Intake): Plan {
       reason: upper ? "seated_match" : "standing_match",
     });
   }
+  // Equipment alone never ends in review (B6): when the only thing holding the curl back is that there
+  // are no weights, and nothing else is left, the curl is done without weights or with something light.
+  const curl = "seated_biceps_curl";
+  if (
+    !p.exercises.length &&
+    !h.equipment.includes("weights") &&
+    exclusionOf(curl, { ...h, equipment: [...h.equipment, "weights"] }) === ""
+  ) {
+    p.exclusions = p.exclusions.filter((e) => e.exerciseId !== curl);
+    p.exercises.push({
+      exerciseId: curl,
+      setup: { position: h.mobility === "wheelchair" ? "wheelchair" : "chair", support: h.support },
+      sets: Math.min(...configs.map((c) => adjustSets(3, c))),
+      reps: Math.min(...configs.map((c) => adjustReps(10, c)), 10),
+      restSeconds: rest,
+      reason: "curl_unloaded",
+    });
+  }
   if (!p.exercises.length) reasons.push("no_exercises");
   // Goal changes order, never overrides the safety filter.
   if (h.goal === "mobility")
     p.exercises.sort(
       (a, b) => Number(b.exerciseId === "sit_to_stand") - Number(a.exerciseId === "sit_to_stand"),
     );
+  // The sport goal: the movements that build more of the sport's demands come first (stable sort).
+  const sport = h.goal === "sport" ? sportById(h.sport) : undefined;
+  if (sport) {
+    const builds = (id: string) => (CAMERA_DEMANDS[id] ?? []).filter((d) => sport.demands.includes(d)).length;
+    p.exercises.sort((a, b) => builds(b.exerciseId) - builds(a.exerciseId));
+  }
   const duration = () =>
     warm +
     cool +

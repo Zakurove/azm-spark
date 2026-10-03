@@ -23,7 +23,6 @@ const copy = {
     sets: "مجموعات",
     reps: "تكرار",
     seconds: "ثانية",
-    why: "لماذا هذه الخطة",
     tips: "نصائح لأسبوعك",
   },
   en: {
@@ -43,7 +42,6 @@ const copy = {
     sets: "sets",
     reps: "reps",
     seconds: "sec",
-    why: "Why this plan",
     tips: "Tips for your week",
   },
 };
@@ -229,15 +227,9 @@ export default function WeeklyPlanView({
           ))}
         </div>
       </div>
+      {/* Booth v2 (B7): the Program page says why in two short lines of its own (plan-notes), so the
+          week shows its tips only; the plan's reasons stay in the data for the booth. */}
       <div className="weekly-foot">
-        <div>
-          <h3>{k.why}</h3>
-          <ul>
-            {weekly.why.map((w) => (
-              <li key={w.en}>{w[lang]}</li>
-            ))}
-          </ul>
-        </div>
         <div>
           <h3>{k.tips}</h3>
           <ul>

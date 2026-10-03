@@ -8,6 +8,7 @@ import {
   WeeklyPlan,
 } from "../src/medical/weekly";
 import { EXERCISES } from "../src/exercises/defs";
+import { sportById } from "../src/medical/sports";
 
 /** Weekly plan composer. The rules engine has already filtered for safety and fixed the dose;
  * the model only arranges approved exercises and writes the explanation. Any failure falls
@@ -29,6 +30,7 @@ A deterministic medical rules engine has ALREADY removed every unsafe exercise a
 4. summary: two warm sentences addressed to the person, naming their medical condition and their goal, explaining how the week is shaped around them.
 5. why: exactly 3 short reasons, each tied to something concrete in their profile (a restriction, a pain area, their mobility, their condition).
 6. tips: exactly 3 practical tips specific to their condition (warning signs to stop, energy, temperature, consistency).
+7. When the goal is "sport", the person is working toward the para sport in "sport" (name it as "name" in English and "nameAr" in Arabic), and "sport.demands" lists what that sport asks of the body. Each candidate lists the demands it builds. Choose extras that build those demands and cover every demand across the week; title each day by the demand it builds (for example قوة الدفع, Pushing power). Name the sport in the summary and in at least one why reason. Never say the person is ready for the sport, cleared to play, or that the plan guarantees anything; clubs and readiness checks come later, outside this plan.
 
 The person's conditions are enum keys (for example stroke, ms, cerebral_palsy, sci_complete, sci_incomplete, parkinsons, arthritis, cfs_moderate, lower_limb_unilateral, upper_limb_unilateral, none); name them in plain words.
 
@@ -80,6 +82,7 @@ async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: str
       },
     },
   };
+  const sport = h.goal === "sport" ? sportById(h.sport) : undefined;
   // Q32: no identifier and no free text in a model call. The conditions go as enum keys only; the
   // diagnosis notes (typed, or read from a report, and able to hold a name or an ID number) and the
   // medications never leave the server.
@@ -91,6 +94,7 @@ async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: str
     painAreas: h.pain,
     restrictions: h.restrictions,
     goal: h.goal,
+    sport: sport && { name: sport.name.en, nameAr: sport.name.ar, demands: sport.demands },
     trainingDays: plan.days.length,
     cameraExercisesEachDay: plan.exercises.map((e) => EXERCISES.find((x) => x.id === e.exerciseId)?.name.en),
   };
@@ -102,6 +106,7 @@ async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: str
     difficulty: e.difficulty,
     muscles: e.muscles,
     equipment: e.equipment,
+    demands: e.demands,
   }));
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

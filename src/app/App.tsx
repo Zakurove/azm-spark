@@ -18,6 +18,7 @@ import { CHECK_UI } from "../features/assessment/featureFlag";
 import type { CheckStartOptions } from "../features/progress";
 import { countPhrase, t } from "../i18n";
 import { LazyPage, LazyPart } from "./LazyPage";
+import { programWhy } from "../medical/programWhy";
 /**
  * Loaded on demand (acceptance F-4): the landing's first script carries the app shell, the landing
  * and the copy; the check, the camera and pose runtime, the booth, the portal pages and the workout
@@ -34,6 +35,7 @@ const TodayCheckSlot = lazy(() => loadProgress().then((m) => ({ default: m.Today
 const Auth = lazy(() => import("./Auth"));
 const TryCamera = lazy(() => import("./TryCamera"));
 const WeeklyPlanView = lazy(() => import("./WeeklyPlan"));
+const SportPath = lazy(() => import("./SportPath"));
 const IntakeForm = lazy(() => import("./IntakeForm"));
 const Workout = lazy(() => import("./Workout"));
 const Session = lazy(() => import("./Session"));
@@ -129,7 +131,9 @@ export default function App() {
     [homeChecksOpen, setHomeChecksOpen] = useState(false),
     [intakeOffer, setIntakeOffer] = useState<[number, number] | null>(null);
   const c = labels(lang);
-  const pageLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c[key]);
+  /** The short tab names (D-018: اليوم · برنامجي · نتائجي · حالتي); page titles keep the full names. */
+  const navLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c.nav[key]);
+  const pageTitle = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c.titles[key]);
   const toggleLanguage = () => setLang(lang === "ar" ? "en" : "ar");
   /** Where the movement check sends a signed in person when it ends or they leave it. */
   const onCheckExit = (to: ExitTarget) => {
@@ -490,13 +494,16 @@ export default function App() {
             <button
               key={key}
               className={page === key ? "active" : ""}
+              aria-current={page === key ? "page" : undefined}
               onClick={() => {
                 setPage(key);
                 setEditing(false);
               }}
             >
-              <Icon name={PAGE_ICONS[key]} size={20} />
-              {pageLabel(key)}
+              <span className="nav-icon">
+                <Icon name={PAGE_ICONS[key]} size={20} />
+              </span>
+              <span className="nav-label">{navLabel(key)}</span>
             </button>
           ))}
         </nav>
@@ -561,7 +568,7 @@ export default function App() {
                   <h1>
                     {page === "today"
                       ? `${c.welcome}${lang === "ar" ? "، " : ", "}${account.user.name}`
-                      : pageLabel(page)}
+                      : pageTitle(page)}
                   </h1>
                 </div>
                 {page !== "results" && (
@@ -606,6 +613,11 @@ export default function App() {
                     page === "today" && todaySlot
                   ) : (
                     <>
+                      {page === "program" && h.goal === "sport" && h.sport && (
+                        <LazyPart lang={lang}>
+                          <SportPath lang={lang} sport={h.sport} plan={p} weekly={p.weekly} />
+                        </LazyPart>
+                      )}
                       {page === "today" && (
                         <section className="next-workout">
                           <div>
@@ -711,34 +723,38 @@ export default function App() {
                           </div>
                         </section>
                       )}
+                      {/* C43: why this program lives on the Program tab only, in two short lines (B7). */}
+                      {page === "program" && (
+                        <section className="plan-notes">
+                          <h2>{c.reasons}</h2>
+                          {programWhy(p).map((line) => (
+                            <p key={line.en}>
+                              <Icon name="check" size={15} />
+                              {line[lang]}
+                            </p>
+                          ))}
+                          {p.exclusions.length > 0 && (
+                            <details>
+                              <summary>
+                                {c.excluded} ({fmtNum(p.exclusions.length, lang)})
+                                <Icon name="arrow" size={14} />
+                              </summary>
+                              {p.exclusions.map((e) => (
+                                <p key={e.exerciseId}>
+                                  <strong>{EXERCISES.find((x) => x.id === e.exerciseId)?.name[lang]}:</strong>{" "}
+                                  {reason(e.reason)}
+                                </p>
+                              ))}
+                            </details>
+                          )}
+                        </section>
+                      )}
                       {page === "program" && (
                         <LazyPart lang={lang}>
                           <WeeklyPlanView lang={lang} plan={p} onLoaded={onWeekly} />
                         </LazyPart>
                       )}
                     </>
-                  )}
-                  {/* C43: why this program lives on the Program tab only. */}
-                  {page === "program" && (p.notes.length > 0 || p.exclusions.length > 0) && (
-                    <section className="plan-notes">
-                      <h2>{c.reasons}</h2>
-                      {p.notes.map((n) => (
-                        <p key={n}>{reason(n)}</p>
-                      ))}
-                      {p.exclusions.length > 0 && (
-                        <details>
-                          <summary>
-                            {c.excluded} ({fmtNum(p.exclusions.length, lang)})
-                          </summary>
-                          {p.exclusions.map((e) => (
-                            <p key={e.exerciseId}>
-                              <strong>{EXERCISES.find((x) => x.id === e.exerciseId)?.name[lang]}:</strong>{" "}
-                              {reason(e.reason)}
-                            </p>
-                          ))}
-                        </details>
-                      )}
-                    </section>
                   )}
                 </>
               )}

@@ -190,16 +190,6 @@ export default function Landing({
             <h1>{t(lang, HERO_HEADLINE)}</h1>
             <p className="ld-hero-body">{t(lang, "landing.hero.body")}</p>
             {actions}
-            <div className="ld-chips">
-              <span className="ld-chip">
-                <Icon name="shield" size={14} />
-                {t(lang, "landing.hero.chips.video")}
-              </span>
-              <span className="ld-chip">
-                <Icon name="camera" size={14} />
-                {t(lang, "landing.hero.chips.noApp")}
-              </span>
-            </div>
           </div>
           <div className="ld-stage" aria-hidden>
             <span className="ld-stage-disc" />

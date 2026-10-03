@@ -2045,7 +2045,7 @@
 .bx-idle {
   position: fixed;
   z-index: 25;
-  top: 84px;
+  top: 8px;
   left: 50%;
   display: flex;
   align-items: center;
@@ -2357,7 +2357,7 @@
     width: auto;
   }
   .bx-idle {
-    top: 72px;
+    top: 4px;
     width: calc(100% - 32px);
     justify-content: space-between;
     font-size: 14.5px;

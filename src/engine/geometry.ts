@@ -154,6 +154,22 @@ export function computeMetrics(frame: Frame, wanted: MetricId[], required: numbe
         values[m] = (an.y - hp.y) / tl; // larger = hips higher above ankles
         break;
       }
+      case "wrist_height": {
+        // Booth v2 A1: how high the wrists are above the shoulders, in trunk lengths, averaged over
+        // the arms whose shoulder and wrist are seen. Resting arms (hands down) read strongly
+        // negative, the racked press near zero, arms overhead about one trunk length up.
+        const parts: number[] = [];
+        if (vis(lm, LM.l_shoulder) && vis(lm, LM.l_wrist)) parts.push(lm[LM.l_shoulder].y - lm[LM.l_wrist].y);
+        if (vis(lm, LM.r_shoulder) && vis(lm, LM.r_wrist)) parts.push(lm[LM.r_shoulder].y - lm[LM.r_wrist].y);
+        if (parts.length) values[m] = parts.reduce((a, b) => a + b) / parts.length / tl;
+        break;
+      }
+      case "shoulder_span": {
+        // Booth v2 A2: the view of the start position (side view for the curl).
+        if (!(vis(lm, LM.l_shoulder) && vis(lm, LM.r_shoulder))) break;
+        values[m] = shoulderWidth(lm) / tl;
+        break;
+      }
       case "nose_offset": {
         // S0: the side of the mid shoulder the face is on, which gives the forward direction of a
         // side view at calibration. Horizontal only, as the council wrote it.

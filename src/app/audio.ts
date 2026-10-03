@@ -88,6 +88,8 @@ export class CuePlayer {
   private generation = 0;
   private isMuted = false;
   private activePriority = -1;
+  /** The one count waiting for the line playing now to end (booth v2 A5), or null. */
+  private queuedCount: number | null = null;
   /** A pack played instead of the stored choice: the coach settings' sample of a pack being chosen. */
   voicePack?: string;
   constructor(private lang: Lang) {}
@@ -103,6 +105,7 @@ export class CuePlayer {
     this.lang = lang;
   }
   stop() {
+    this.queuedCount = null;
     this.generation++;
     this.activeAudio?.pause();
     this.activeAudio = undefined;
@@ -159,7 +162,8 @@ export class CuePlayer {
     let started = false;
     let ended = false;
     const finish = () => {
-      if (generation === this.generation) {
+      const current = generation === this.generation;
+      if (current) {
         this.activePriority = -1;
         this.activeAudio = undefined;
         if (this.endActive === finish) this.endActive = undefined;
@@ -167,6 +171,12 @@ export class CuePlayer {
       if (started && !ended) {
         ended = true;
         onEnd?.();
+      }
+      // The waiting count plays once this line has ended (never after a stop: stop clears it).
+      if (current && this.queuedCount !== null && !this.muted) {
+        const n = this.queuedCount;
+        this.queuedCount = null;
+        void this.line(`count_${n}` as VoiceLine, "praise");
       }
     };
     const el = await this.file(id);
@@ -224,7 +234,17 @@ export class CuePlayer {
   cue(id: CueId, severity: Severity = id === "stop_rest" ? "safety" : "warn") {
     return this.line(id, severity);
   }
-  count(n: number) {
-    return n < 1 || n > 10 ? Promise.resolve(false) : this.line(`count_${n}` as VoiceLine, "praise");
+  /**
+   * Says a rep count. While another line plays, the count waits as the ONLY queued line: a newer
+   * count replaces it, and it plays when that line ends (booth v2 A5). A count never waits behind
+   * a safety line, and a stop drops it.
+   */
+  count(n: number): Promise<boolean> {
+    if (n < 1 || n > 10 || this.muted) return Promise.resolve(false);
+    if (this.activePriority >= 0) {
+      this.queuedCount = this.activePriority < priority.safety ? n : null;
+      return Promise.resolve(false);
+    }
+    return this.line(`count_${n}` as VoiceLine, "praise");
   }
 }

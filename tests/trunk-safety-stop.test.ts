@@ -54,8 +54,14 @@ const rot = (v: P, deg: number): P => ({
 interface PoseSpec {
   /** true trunk angle from vertical, degrees, positive = shoulders toward the image right */
   lean: number;
-  /** true interior elbow angle of both arms */
+  /** true interior elbow angle of both arms (the curl's primary metric) */
   elbow: number;
+  /**
+   * Front view press, 0 racked to 1 overhead (booth v2: the press counts on wrist height, so these
+   * tests drive it by the arms' lift; the upper arm turns 62 to 168 degrees from straight down and
+   * the forearm 196 to 174, as in the generated press trace). Overrides `elbow` when set.
+   */
+  press?: number;
   /** "front" for the press; "side" for the curl, facing the image right (+1) or left (-1) */
   view: "front" | "side";
   facing?: 1 | -1;
@@ -81,6 +87,12 @@ function frame(w: number, h: number, s: PoseSpec, t = 0): Frame {
   // the forearm turns by (180 - elbow) toward the midline or up in front.
   const arm = (side: -1 | 1, sh: P) => {
     const out = s.view === "front" ? side : facing;
+    if (s.press !== undefined) {
+      const ua = rot({ x: 0, y: 1 }, -out * (62 + 106 * s.press));
+      const fa = rot({ x: 0, y: 1 }, -out * (196 - 22 * s.press));
+      const e = add(sh, scale(ua, 0.55 * u));
+      return { e, wr: add(e, scale(fa, 0.5 * u)) };
+    }
     const ud = rot({ x: 0, y: 1 }, -out * 30);
     const e = add(sh, scale(ud, 0.55 * u));
     const wr = add(e, scale(rot(ud, -out * (180 - s.elbow)), 0.5 * u));
@@ -112,10 +124,15 @@ function calibrate(def: ExerciseDef, w: number, h: number, s: Omit<PoseSpec, "el
   const cal = new Calibrator(def);
   for (let i = 0; i < 180; i++) {
     const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 60);
-    cal.feed(metrics(def, frame(w, h, { ...s, elbow: lo + (hi - lo) * k }, i * 33)));
+    const arms = def === PRESS ? { elbow: 0, press: k } : { elbow: lo + (hi - lo) * k };
+    cal.feed(metrics(def, frame(w, h, { ...s, ...arms }, i * 33)));
   }
   return cal.build(0);
 }
+
+/** The arms at the middle of the movement: the press half way up, the curl half way bent. */
+const midArms = (def: ExerciseDef): Pick<PoseSpec, "elbow" | "press"> =>
+  def === PRESS ? { elbow: 0, press: 0.5 } : { elbow: (def.defaultRange[0] + def.defaultRange[1]) / 2 };
 
 /** A PRF with a given calibrated posture, built from real calibration frames. */
 function prfAt(def: ExerciseDef, w: number, h: number, lean: number, facing: 1 | -1 = 1): PRF {
@@ -129,11 +146,13 @@ function prfAt(def: ExerciseDef, w: number, h: number, lean: number, facing: 1 |
 function firesAt(def: ExerciseDef, prf: PRF, w: number, h: number, dir: 1 | -1, facing: 1 | -1 = 1) {
   const engine = new RepEngine(def, prf, WHEELCHAIR);
   const base = prf.baselines.trunk_lean!;
-  const mid = (def.defaultRange[0] + def.defaultRange[1]) / 2;
   for (let i = 0; i <= 600; i++) {
     const lean = base + dir * i * 0.1;
     const ev = engine.step(
-      metrics(def, frame(w, h, { lean, elbow: mid, view: def === PRESS ? "front" : "side", facing }, i * 33)),
+      metrics(
+        def,
+        frame(w, h, { lean, ...midArms(def), view: def === PRESS ? "front" : "side", facing }, i * 33),
+      ),
     );
     const stop = ev.find((e) => e.kind === "stop") as Extract<EngineEvent, { kind: "stop" }> | undefined;
     if (stop) return { lean, ruleId: stop.ruleId, events: ev };
@@ -177,7 +196,8 @@ describe("S0 definitions", () => {
   });
 
   it("bumps the workout engine version", () => {
-    expect(WORKOUT_ENGINE_VERSION).toBe("workout_engine_2");
+    // 3 since booth v2 A (wrist height press, rep based calibration); the S0 stop is unchanged.
+    expect(WORKOUT_ENGINE_VERSION).toBe("workout_engine_3");
   });
 
   it("has the council's pre-set block cue in Arabic and English", () => {
@@ -243,11 +263,14 @@ describe("seated shoulder press: 15 degrees from the posture, 25 either way", ()
     const engine = new RepEngine(PRESS, prf, HEMI_LEFT);
     const events: EngineEvent[] = [];
     let t = 0;
-    const feed = (lean: number, elbow: number) =>
-      events.push(...engine.step(metrics(PRESS, frame(w, h, { lean, elbow, view: "front" }, (t += 33)))));
-    feed(10, 97); // arms racked: the engine arms
-    for (let e = 97; e <= 150; e += 2) feed(10, e); // into a rep
-    for (let lean = 10; lean <= 30; lean += 0.2) feed(lean, 150);
+    // booth v2: the press is driven by the arms' lift (it counts on wrist height)
+    const feed = (lean: number, press: number) =>
+      events.push(
+        ...engine.step(metrics(PRESS, frame(w, h, { lean, elbow: 0, press, view: "front" }, (t += 33)))),
+      );
+    feed(10, 0); // arms racked: the engine arms
+    for (let p = 0; p <= 0.75; p += 0.025) feed(10, p); // into a rep
+    for (let lean = 10; lean <= 30; lean += 0.2) feed(lean, 0.75);
     const warn = events.find((e) => e.kind === "flag" && e.ruleId === "trunk_lean") as
       Extract<EngineEvent, { kind: "flag" }> | undefined;
     const stop = events.find((e) => e.kind === "stop") as Extract<EngineEvent, { kind: "stop" }>;
@@ -356,9 +379,11 @@ describe("the pre-set block", () => {
     expect(engine.blocked).toBe("sit_upright_first");
     const events: EngineEvent[] = [];
     for (let i = 0; i < 300; i++) {
-      const elbow = 95 + 70 * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 60));
+      const press = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 60);
       events.push(
-        ...engine.step(metrics(PRESS, frame(720, 1280, { lean: 26, elbow, view: "front" }, i * 33))),
+        ...engine.step(
+          metrics(PRESS, frame(720, 1280, { lean: 26, elbow: 0, press, view: "front" }, i * 33)),
+        ),
       );
     }
     expect(events.every((e) => e.kind === "flag" && e.ruleId === PRESET_BLOCK_ID)).toBe(true);
@@ -374,15 +399,19 @@ describe("the stop ends the set", () => {
     const engine = new RepEngine(PRESS, prf, WHEELCHAIR);
     const events: EngineEvent[] = [];
     let t = 0;
-    const feed = (lean: number, elbow: number) =>
-      events.push(...engine.step(metrics(PRESS, frame(w, h, { lean, elbow, view: "front" }, (t += 33)))));
-    for (let i = 0; i < 120; i++) feed(0, 95 + 70 * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 60)));
+    // booth v2: the press is driven by the arms' lift (it counts on wrist height)
+    const feed = (lean: number, press: number) =>
+      events.push(
+        ...engine.step(metrics(PRESS, frame(w, h, { lean, elbow: 0, press, view: "front" }, (t += 33)))),
+      );
+    const lift = (i: number) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 60);
+    for (let i = 0; i < 120; i++) feed(0, lift(i));
     expect(engine.repCount).toBe(2);
-    feed(0, 150);
-    feed(16, 150); // a sudden 16 degree lean mid rep
+    feed(0, 0.75);
+    feed(16, 0.75); // a sudden 16 degree lean mid rep
     expect(engine.stoppedBy).toBe("trunk_safety");
     const after = events.length;
-    for (let i = 0; i < 120; i++) feed(0, 95 + 70 * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / 60)));
+    for (let i = 0; i < 120; i++) feed(0, lift(i));
     expect(events.length).toBe(after);
     expect(engine.repCount).toBe(2);
     const stop = events.filter((e) => e.kind === "stop");
@@ -436,21 +465,19 @@ describe("S0 acts on every frame the session sees, framed or not, and during cal
   it("training: the stop fires with the wrists out of view (framing not OK), past the cap", () => {
     const prf = prfAt(PRESS, w, h, 0);
     const engine = new RepEngine(PRESS, prf, WHEELCHAIR);
-    const mid = (PRESS.defaultRange[0] + PRESS.defaultRange[1]) / 2;
-    const f = noWrists(frame(w, h, { lean: 30, elbow: mid, view: "front" }, 1000));
+    const mid = midArms(PRESS);
+    const f = noWrists(frame(w, h, { lean: 30, ...mid, view: "front" }, 1000));
     const mf = computeMetrics(f, PRESS.metrics, PRESS.variants[0].requiredLandmarks);
     expect(mf.framingOk).toBe(false);
     const ev = frameTrunkStop(PRESS, mf, engine);
     expect(ev.map((e) => e.kind)).toEqual(["flag", "stop"]);
     expect(ev[1]).toMatchObject({ kind: "stop", ruleId: "trunk_safety_cap" });
     // Once stopped the set counts nothing more.
-    expect(engine.step(metrics(PRESS, frame(w, h, { lean: 0, elbow: mid, view: "front" }, 1100)))).toEqual(
-      [],
-    );
+    expect(engine.step(metrics(PRESS, frame(w, h, { lean: 0, ...mid, view: "front" }, 1100)))).toEqual([]);
     // Within the limits nothing fires.
     const calm = new RepEngine(PRESS, prf, WHEELCHAIR);
     const ok = computeMetrics(
-      noWrists(frame(w, h, { lean: 5, elbow: mid, view: "front" }, 1000)),
+      noWrists(frame(w, h, { lean: 5, ...mid, view: "front" }, 1000)),
       PRESS.metrics,
       [],
     );
@@ -458,14 +485,14 @@ describe("S0 acts on every frame the session sees, framed or not, and during cal
   });
 
   it("calibration: the absolute cap (b) needs no calibration and stops the set", () => {
-    const mid = (PRESS.defaultRange[0] + PRESS.defaultRange[1]) / 2;
+    const mid = midArms(PRESS);
     const at = (def: ExerciseDef, s: PoseSpec) => computeMetrics(frame(w, h, s, 500), def.metrics, []);
-    const press = frameTrunkStop(PRESS, at(PRESS, { lean: 35, elbow: mid, view: "front" }), null);
+    const press = frameTrunkStop(PRESS, at(PRESS, { lean: 35, ...mid, view: "front" }), null);
     expect(press.map((e) => e.kind)).toEqual(["flag", "stop"]);
     expect(press[0]).toMatchObject({ ruleId: "trunk_safety_cap", cue: "stop_rest", severity: "safety" });
-    expect(frameTrunkStop(PRESS, at(PRESS, { lean: -26, elbow: mid, view: "front" }), null)).toHaveLength(2);
+    expect(frameTrunkStop(PRESS, at(PRESS, { lean: -26, ...mid, view: "front" }), null)).toHaveLength(2);
     // The relative limit needs the calibrated posture: 20 degrees is not stopped yet.
-    expect(frameTrunkStop(PRESS, at(PRESS, { lean: 20, elbow: mid, view: "front" }), null)).toEqual([]);
+    expect(frameTrunkStop(PRESS, at(PRESS, { lean: 20, ...mid, view: "front" }), null)).toEqual([]);
     // The curl: 25 forward, 30 backward, from this frame's face side; without it, 25 both ways.
     const c = (CURL.defaultRange[0] + CURL.defaultRange[1]) / 2;
     const curl = (lean: number, extra: Partial<PoseSpec> = {}) =>
@@ -475,7 +502,7 @@ describe("S0 acts on every frame the session sees, framed or not, and during cal
     expect(curl(-31)).toBe(2);
     expect(curl(-27, { noseOnLine: true })).toBe(2);
     expect(
-      frameTrunkStop(exerciseById("sit_to_stand"), at(PRESS, { lean: 40, elbow: mid, view: "front" }), null),
+      frameTrunkStop(exerciseById("sit_to_stand"), at(PRESS, { lean: 40, ...mid, view: "front" }), null),
     ).toEqual([]);
   });
 });

@@ -77,7 +77,9 @@ export type MetricId =
   | "shoulder_hike" // shoulder line vertical offset, fraction of trunk length (signed: +ve = left higher)
   | "arm_asym" // |elbow_flex_l - elbow_flex_r| degrees
   | "hip_height" // hip midpoint height above ankle midpoint, fraction of trunk length (sit-to-stand)
-  | "nose_offset"; // nose minus mid shoulder, horizontal, fraction of trunk length (+ve = nose to image right)
+  | "nose_offset" // nose minus mid shoulder, horizontal, fraction of trunk length (+ve = nose to image right)
+  | "wrist_height" // shoulder y minus wrist y over trunk length, mean of the visible arms (+ve = wrist above shoulder)
+  | "shoulder_span"; // shoulder width over trunk length: about 0.7 square on, under 0.4 side on
 
 export interface MetricFrame {
   t: number;
@@ -149,6 +151,19 @@ export interface ExerciseVariant {
   contextLandmarks: number[];
 }
 
+/**
+ * One condition of an exercise's start position (booth v2, contract A2): the metric is seen and lies
+ * within [min, max]. Calibration begins only after every condition has held for one second.
+ */
+export interface StartCondition {
+  metric: MetricId;
+  min?: number;
+  max?: number;
+}
+
+/** What the summary measure reports (booth v2, contract A4). */
+export type MeasureKind = "elbow_extension" | "elbow_flexion" | "hip_rise";
+
 export interface ExerciseDef {
   id: string;
   name: { en: string; ar: string };
@@ -165,6 +180,14 @@ export interface ExerciseDef {
   rules: CompensationRule[];
   /** trunk safety stop (S0); evaluated every frame of the set, in or out of a rep */
   trunkSafety?: TrunkSafetyStop;
+  /** the start position (booth v2 A2): every condition holds for 1 s before calibration begins */
+  start: StartCondition[];
+  /**
+   * The summary measure (booth v2 A4): its kind and the metric read at the bottom and the top of
+   * every counted rep. Elbow kinds report true interior elbow angles in degrees; hip_rise reports
+   * hip height over trunk length.
+   */
+  measure: { kind: MeasureKind; metric: MetricId };
   variants: ExerciseVariant[];
   targetReps: number;
   camera: { en: string; ar: string }; // framing instruction
@@ -189,7 +212,25 @@ export type EngineEvent =
   /** A safety stop ended the set (S0); the engine counts nothing after it. */
   | { kind: "stop"; ruleId: string; t: number }
   | { kind: "framing"; ok: boolean; t: number }
-  | { kind: "progress"; pct: number; t: number };
+  | { kind: "progress"; pct: number; t: number }
+  /**
+   * The personal range moved during the set (booth v2 A3): the top extends up to a rep that went
+   * beyond it, or adapts down to three consistent shorter reps. `range` is [bottom, top] in metric
+   * units, oriented like the PRF range.
+   */
+  | { kind: "range"; range: [number, number]; reason: "extend_up" | "adapt_down"; t: number };
+
+/**
+ * The summary measure of a set (booth v2 A4), from the counted reps: the median value at the bottom
+ * and at the top of the movement, and their difference. Elbow kinds are true interior elbow angles
+ * in whole degrees; hip_rise is hip height over trunk length, rounded to 2 decimals.
+ */
+export interface SessionMeasure {
+  kind: MeasureKind;
+  bottomDeg: number;
+  topDeg: number;
+  rangeDeg: number;
+}
 
 export interface SessionSummary {
   exerciseId: string;
@@ -202,4 +243,8 @@ export interface SessionSummary {
   romPct?: number; // best rep ROM as % of calibrated range
   /** WORKOUT_ENGINE_VERSION of the engine that judged the set (repEngine.ts) */
   engineVersion?: string;
+  /** the set's measure over its counted reps (booth v2 A4); absent with no counted rep */
+  measure?: SessionMeasure;
+  /** reps counted without a flag (valid reps) */
+  steadyReps?: number;
 }

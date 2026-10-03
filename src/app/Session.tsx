@@ -1,29 +1,46 @@
-import Brand from "./Brand";
 import { Preferences, RepMoment, ui, insight } from "./experience";
 import RepReview from "./RepReview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calibrator } from "../engine/calibration";
-import { computeMetrics } from "../engine/geometry";
-import { PoseSmoother } from "../engine/oneEuro";
-import { CueOrchestrator } from "../engine/orchestrator";
+import type { GateMessage, Presence } from "../engine/feedbackGate";
 import { unscoredLandmarks } from "../engine/profiles";
-import { calibrationBlock, frameTrunkStop, RepEngine, WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
-import { presetBlock } from "../engine/trunkSafety";
-import { CueId, EngineEvent, ExerciseDef, Frame, LM, PRF, SessionSummary, Severity } from "../engine/types";
+import { WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
+import { CueId, ExerciseDef, Frame, LM, SessionSummary, Severity } from "../engine/types";
+import { FlowStage, FlowView, WorkoutFlow } from "../engine/workoutFlow";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
-import { CuePlayer } from "./audio";
+import { CuePlayer, isVoiceLine } from "./audio";
 import { CUE_TEXT, fmtNum, Lang, pct as fmtPct, T } from "./i18n";
 import { drawOverlay } from "./overlay";
 import { CameraPoseSource, CameraStatus, PoseSource, TracePoseSource } from "./poseSource";
+import type { TraceOpts } from "../engine/traces";
 import { camCopy } from "./camera-copy";
-import { copy, illustration, sessionProfile, Setup } from "./product";
+import { sessionCopy } from "./session-copy";
+import { copy, sessionProfile, Setup } from "./product";
 import Icon from "./Icon";
 import Dialog from "./Dialog";
 import { CheckRoot } from "../features/assessment/shared/CheckRoot";
 import { StopButton } from "../features/assessment/safety/parts";
 import "../features/assessment/safety/safety.css";
+import "./session.css";
 
-type Stage = "loading" | "framing" | "calibrating" | "training" | "rpe" | "summary";
+/**
+ * The camera screen (booth v2, contract A7): the trial, the workouts and the booth.
+ *
+ *   full bleed live video (a calm mannequin on a light stage in the demo);
+ *   a light glass panel with the range arc, the large rep count and the person's own top;
+ *   one caption line from the calm feedback gate (feedbackGate.ts);
+ *   a large speaker button (the voice is off by default, remembered per device) and Stop.
+ *
+ * The set itself runs in WorkoutFlow (engine/workoutFlow.ts): the outline, the start position,
+ * the 2 rep calibration and the counted set. `variant` "booth" ends with `onComplete(summary)` and
+ * no dialogs; the trial and the workouts keep the effort and summary dialogs, then call it too.
+ */
+export type SessionVariant = "trial" | "workout" | "booth";
+
+/** The standing figure of the sit to stand trace, head to feet (demo). */
+const STAND_BOX = { x0: 0.2, y0: 0.06, x1: 0.8, y1: 0.92 };
+
+/** The personal top sits at this share of the arc: room to show a rep that goes beyond it. */
+const TOP_AT = 0.8;
 
 const FLAG_JOINTS: Partial<Record<CueId, number[]>> = {
   sit_tall: [LM.l_shoulder, LM.r_shoulder, LM.l_hip, LM.r_hip],
@@ -34,6 +51,34 @@ const FLAG_JOINTS: Partial<Record<CueId, number[]>> = {
 };
 
 const qs = new URLSearchParams(location.search);
+/**
+ * E2E builds only (VITE_E2E is replaced at build time): ?e2eTrace= plays a synthetic trace in place
+ * of the camera, so the camera screen can be walked and photographed without a person.
+ */
+const E2E_TRACES: Record<string, TraceOpts> = {
+  nasser: { restSec: 3, leadInSec: 2, effort: 0.45 },
+  full: { leadInSec: 2.5 },
+  limited: { leadInSec: 2.5, effort: 0.35 },
+  lean: { leadInSec: 2.5, leanDeg: 12, leanFromRep: 3 },
+};
+const e2eTrace = import.meta.env.VITE_E2E === "1" ? qs.get("e2eTrace") : null;
+
+type Ui = {
+  stage: FlowStage;
+  presence: Presence;
+  holding: boolean;
+  calReps: number;
+  count: number;
+  caption: { id: string; text: string; severity: Severity } | null;
+};
+const INITIAL_UI: Ui = {
+  stage: "framing",
+  presence: "none",
+  holding: false,
+  calReps: 0,
+  count: 0,
+  caption: null,
+};
 
 export default function SessionScreen(props: {
   lang: Lang;
@@ -49,13 +94,21 @@ export default function SessionScreen(props: {
   onExit: () => void;
   onRestart: () => void;
   onDemo: () => void;
+  /** Which screen this is: the trial, a workout set, or the booth (no dialogs; ends with onComplete). */
+  variant?: SessionVariant;
+  /** Called once with the set's summary when it ends (after the dialogs, or at once at the booth). */
+  onComplete?: (summary: SessionSummary) => void;
+  /** The trial (older callers); same as variant "trial". */
   trial?: boolean;
   onRegister?: () => void;
 }) {
   const { lang, setup, exerciseId, demo, preferences, onPreferences, onExit, onRestart, onDemo } = props;
+  const variant: SessionVariant = props.variant ?? (props.trial ? "trial" : "workout");
+  const trial = variant === "trial";
   const c = copy(lang),
     x = ui(lang),
-    k = camCopy(lang);
+    k = camCopy(lang),
+    s = sessionCopy(lang);
   const profile = useMemo(() => sessionProfile(setup), [setup]);
   const profileId = profile.id;
   const def = useMemo<ExerciseDef>(
@@ -65,282 +118,252 @@ export default function SessionScreen(props: {
     }),
     [exerciseId, props.targetReps],
   );
-  const variant = useMemo(() => variantForProfile(def, profileId), [def, profileId]);
+  const variantDef = useMemo(() => variantForProfile(def, profileId), [def, profileId]);
   const contextSet = useMemo(
-    () => new Set([...variant.contextLandmarks, ...unscoredLandmarks(profile)]),
-    [variant, profile],
+    () => new Set([...variantDef.contextLandmarks, ...unscoredLandmarks(profile)]),
+    [variantDef, profile],
   );
   const t = useCallback(
-    <K extends keyof typeof T>(k: K) => (T[k] as { ar: string; en: string })[lang] ?? "",
+    <K extends keyof typeof T>(key: K) => (T[key] as { ar: string; en: string })[lang] ?? "",
     [lang],
   );
+  const noVideo = demo || !!e2eTrace;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const fillRef = useRef<SVGPathElement>(null);
+  const holdRef = useRef<SVGCircleElement>(null);
 
-  const [stage, setStage] = useState<Stage>("loading");
-  const [err, setErr] = useState<string | null>(null);
-  const [framingOk, setFramingOk] = useState(false);
-  const [calProgress, setCalProgress] = useState(0);
-  const [pctNow, setPctNow] = useState(0);
-  const [counts, setCounts] = useState({ valid: 0, partial: 0, compensated: 0 });
-  const [caption, setCaption] = useState<{ text: string; severity: Severity } | null>(null);
+  const [source, setSource] = useState<"loading" | "running" | "error">("loading");
+  const [camStatus, setCamStatus] = useState<CameraStatus>("model");
+  const [errKind, setErrKind] = useState<"denied" | "none" | "generic" | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [view, setView] = useState<Ui>(INITIAL_UI);
+  const [end, setEnd] = useState<null | "rpe" | "summary" | "done">(null);
   const [rpe, setRpe] = useState<number | null>(null);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [muted, setMuted] = useState(preferences.voice === "off");
   const [moments, setMoments] = useState<RepMoment[]>([]);
-  const [phase, setPhase] = useState("idle");
-  const [tracking, setTracking] = useState(true);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [camStatus, setCamStatus] = useState<CameraStatus>("model");
-  const [presence, setPresence] = useState<"none" | "partial" | "ok">("none");
-  const [hold, setHold] = useState(0);
-  const [errKind, setErrKind] = useState<"denied" | "none" | "generic" | null>(null);
-  const [attempt, setAttempt] = useState(0);
-
-  // mutable pipeline
-  const pipe = useRef({
-    smoother: new PoseSmoother(),
-    calibrator: null as Calibrator | null,
-    engine: null as RepEngine | null,
-    orch: new CueOrchestrator(),
-    prf: null as PRF | null,
-    stage: "loading" as Stage,
-    framingSince: 0,
-    framingStart: 0,
-    flags: {} as Record<string, number>,
-    flash: new Set<number>(),
-    flashUntil: 0,
-    startedAt: 0,
-    lastCaptionUntil: 0,
-    total: 0,
-    moments: [] as RepMoment[],
-    frameLostSince: 0,
-    lastFramingCueT: 0,
-    lastPresetCueT: -Infinity,
-    stoppedBy: null as string | null,
-    stopSource: null as null | (() => void),
-  });
+  const [saveError, setSaveError] = useState(false);
+  const [fit, setFit] = useState<"cover" | "contain">("cover");
   // S0: the set ended on the trunk safety stop (the RPE and summary dialogs say so).
   const [safetyStop, setSafetyStop] = useState(false);
   const player = useMemo(() => new CuePlayer(lang), [lang]);
-  const fast = qs.get("fast") === "1";
 
-  const setStageBoth = (s: Stage) => {
-    pipe.current.stage = s;
-    setStage(s);
-  };
+  const pipe = useRef({
+    flow: null as WorkoutFlow | null,
+    over: false,
+    startedAt: 0,
+    flash: new Set<number>(),
+    flashUntil: 0,
+    captionId: null as string | null,
+    ui: INITIAL_UI,
+    fit: "cover" as "cover" | "contain",
+    stopSource: null as null | (() => void),
+  });
 
-  const showCaption = useCallback((text: string, severity: Severity, ms = 4200) => {
-    setCaption({ text, severity });
-    pipe.current.lastCaptionUntil = performance.now() + ms;
-  }, []);
-
-  const speakCue = useCallback(
-    (cue: CueId | { count: number }, severity: Severity) => {
-      if (typeof cue === "object") {
-        void player.count(cue.count);
-        return;
-      }
-      void player.cue(cue, severity);
-      showCaption(CUE_TEXT[cue][lang], severity);
-      const joints = FLAG_JOINTS[cue];
-      if (joints) {
-        pipe.current.flash = new Set(joints);
-        pipe.current.flashUntil = performance.now() + 2000;
-      }
-    },
-    [player, lang, showCaption],
+  const captionText = useCallback(
+    (m: GateMessage): string => s.messages[m.id] ?? (m.id in CUE_TEXT ? CUE_TEXT[m.id as CueId][lang] : ""),
+    [s, lang],
   );
 
-  const finishSet = useCallback(() => {
-    speakCue("set_done", "praise");
-    setStageBoth("rpe");
-  }, [speakCue]);
+  const say = useCallback(
+    (m: GateMessage) => {
+      if (!m.voice || !isVoiceLine(m.voice)) return;
+      void player.line(m.voice, m.severity);
+    },
+    [player],
+  );
+
+  /** The set's summary from the flow, with the fields every save carries. */
+  const buildSummary = useCallback(
+    (rpeVal: number | null): SessionSummary => {
+      const P = pipe.current;
+      const r = P.flow?.summary();
+      return {
+        exerciseId,
+        profileId,
+        startedAt: P.startedAt || Date.now(),
+        endedAt: Date.now(),
+        reps: r?.reps ?? { valid: 0, partial: 0, compensated: 0 },
+        flags: r?.flags ?? {},
+        rpe: rpeVal ?? undefined,
+        romPct: r?.romPct,
+        engineVersion: WORKOUT_ENGINE_VERSION,
+        ...(r?.measure ? { measure: r.measure } : {}),
+        steadyReps: r?.steadyReps ?? 0,
+      };
+    },
+    [exerciseId, profileId],
+  );
+
+  /** The set is over: the target is reached, Stop was pressed in the set, or the safety stop. */
+  const finishSet = useCallback(
+    (how: "done" | "stopped" | "safety") => {
+      const P = pipe.current;
+      if (P.over) return;
+      P.over = true;
+      P.stopSource?.();
+      if (how === "done") void player.cue("set_done", "praise");
+      if (how === "safety") setSafetyStop(true);
+      setMoments([...(P.flow?.moments ?? [])]);
+      if (variant === "booth") {
+        setEnd("done");
+        props.onComplete?.(buildSummary(null));
+        return;
+      }
+      setEnd("rpe");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [player, variant, buildSummary, props.onComplete],
+  );
 
   const onFrame = useCallback(
     (raw: Frame) => {
       const P = pipe.current;
-      // smoothFrame keeps raw.aspect, so computeMetrics measures in pixel space (D-003);
-      // the overlay below keeps drawing the normalized landmarks.
-      const sm = P.smoother.smoothFrame(raw);
-      const mf = computeMetrics(sm, def.metrics, variant.requiredLandmarks);
-      setTracking(mf.framingOk);
-      const shouldersSeen = raw.lm[LM.l_shoulder].visibility > 0.5 && raw.lm[LM.r_shoulder].visibility > 0.5;
-      const pres = mf.framingOk ? "ok" : shouldersSeen ? "partial" : "none";
-      setPresence(pres);
+      if (P.over || !P.flow) return;
+      const v: FlowView = P.flow.step(raw);
+      const now = performance.now();
 
-      // paint
+      // The caption: a new cue about a joint makes that joint glow for 2 s.
+      const cap = v.caption;
+      if ((cap?.id ?? null) !== P.captionId) {
+        P.captionId = cap?.id ?? null;
+        const joints = cap ? FLAG_JOINTS[cap.id as CueId] : undefined;
+        if (joints) {
+          P.flash = new Set(joints);
+          P.flashUntil = now + 2000;
+        }
+      }
+      if (now > P.flashUntil) P.flash = new Set();
+
+      // How the video fills the screen: full bleed unless the picture's shape is far from the
+      // screen's (then the whole picture, so nobody is cut off).
+      const video = videoRef.current,
+        wrap = wrapRef.current;
+      if (!noVideo && video && wrap && video.videoWidth && wrap.clientWidth) {
+        const ratio = video.videoWidth / video.videoHeight / (wrap.clientWidth / wrap.clientHeight);
+        const next = ratio > 1.6 || ratio < 1 / 1.6 ? "contain" : "cover";
+        if (next !== P.fit) {
+          P.fit = next;
+          setFit(next);
+        }
+      }
+
       const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          if (performance.now() > P.flashUntil) P.flash = new Set();
-          drawOverlay(ctx, sm, {
-            contextLandmarks: contextSet,
-            flashJoints: P.flash,
-            mirrored: !demo,
-            demo,
-            sourceWidth: videoRef.current?.videoWidth,
-            sourceHeight: videoRef.current?.videoHeight,
-          });
-        }
+      const ctx = canvas?.getContext("2d");
+      if (ctx && canvas) {
+        const portrait = canvas.height > canvas.width;
+        // On a wide screen the panel floats at the inline end: the figure keeps the rest.
+        const cssWidth = wrap?.clientWidth ?? 0;
+        const side = !portrait && cssWidth >= 900 ? 448 / cssWidth : 0;
+        const rtl = lang === "ar";
+        drawOverlay(ctx, v.frame, {
+          contextLandmarks: contextSet,
+          flashJoints: P.flash,
+          mirrored: !noVideo,
+          demo: noVideo,
+          sourceWidth: video?.videoWidth,
+          sourceHeight: video?.videoHeight,
+          fit: P.fit,
+          // the demo figure sits between the caption and the panel (beside the panel when wide)
+          demoBox: exerciseId === "sit_to_stand" ? STAND_BOX : undefined,
+          demoArea: portrait
+            ? { top: 0.17, bottom: 0.61 }
+            : { top: 0.2, bottom: 0.96, left: rtl ? side : 0, right: rtl ? 1 : 1 - side },
+        });
       }
 
-      if (performance.now() > P.lastCaptionUntil) setCaption(null);
-
-      switch (P.stage) {
-        case "framing": {
-          setFramingOk(mf.framingOk);
-          if (mf.framingOk) {
-            if (!P.framingSince) P.framingSince = raw.t;
-            setHold(Math.min(1, (raw.t - P.framingSince) / 2000));
-            if (raw.t - P.framingSince > 2000) {
-              P.calibrator = new Calibrator(def);
-              setHold(0);
-              setStageBoth("calibrating");
-            }
-          } else {
-            P.framingSince = 0;
-            setHold(0);
-            if (
-              !demo &&
-              P.framingStart &&
-              raw.t - P.framingStart > 6000 &&
-              raw.t - P.lastFramingCueT > 10000
-            ) {
-              P.lastFramingCueT = raw.t;
-              void player.cue((pres === "partial" ? "move_back" : "get_in_frame") as CueId, "info");
-            }
-          }
-          break;
+      // The arc: the live position, the personal top at TOP_AT once the range is set.
+      const fill = fillRef.current;
+      if (fill) {
+        let f = 0;
+        if (v.pct !== null) f = v.pct * TOP_AT;
+        else if (v.stage === "calibrating") {
+          const val = v.mf.values[def.primaryMetric];
+          const [lo, hi] = def.defaultRange;
+          if (val !== undefined) f = ((val - lo) / (hi - lo)) * TOP_AT;
         }
-        case "calibrating":
-        case "training": {
-          // S0 first, on every frame whatever the framing gate says: it needs only the shoulders and
-          // hips. During calibration the absolute cap (it needs no calibration) is the pre-set block:
-          // the set has not started, so it never stops with an RPE; the person is asked to sit as
-          // upright as they comfortably can (at most every 4 s) and the calibration starts again.
-          if (P.stage === "calibrating") {
-            const block = calibrationBlock(def, mf);
-            if (block) {
-              if (raw.t - P.lastPresetCueT > PRESET_CUE_EVERY_MS) {
-                P.lastPresetCueT = raw.t;
-                speakCue(block, "safety");
-              }
-              P.calibrator = new Calibrator(def);
-              setCalProgress(0);
-              break;
-            }
-          } else {
-            const trunkStop = frameTrunkStop(def, mf, P.engine);
-            if (trunkStop.length) {
-              for (const ev of trunkStop) handleEvent(ev);
-              break;
-            }
-          }
-          // in-session framing guard: hold the pipeline while the user is out of frame
-          if (!mf.framingOk) {
-            if (!P.frameLostSince) P.frameLostSince = raw.t;
-            if (raw.t - P.frameLostSince > 3000 && raw.t - P.lastFramingCueT > 10000) {
-              P.lastFramingCueT = raw.t;
-              speakCue("get_in_frame", "warn");
-            }
-            break;
-          }
-          P.frameLostSince = 0;
-          if (P.stage === "training") {
-            const events = P.engine!.step(mf);
-            for (const ev of events) handleEvent(ev);
-            const deferred = P.orch.tick(raw.t);
-            if (deferred) speakCue(deferred.cue as CueId, deferred.severity);
-            break;
-          }
-          P.calibrator!.feed(mf);
-          const prog = P.calibrator!.progress(raw.t, fast ? 60 : 150);
-          setCalProgress(prog);
-          if (P.calibrator!.ready(raw.t, fast ? 60 : 150)) {
-            const prf = P.calibrator!.build();
-            // S0 pre-set block: a calibrated posture at or beyond the trunk cap never starts the
-            // set. Ask the person to sit as upright as they comfortably can, then calibrate again.
-            const blocked = presetBlock(def, prf);
-            if (blocked) {
-              speakCue(blocked, "safety");
-              P.calibrator = new Calibrator(def);
-              setCalProgress(0);
-              break;
-            }
-            P.prf = prf;
-            P.engine = new RepEngine(def, P.prf, profile);
-            P.startedAt = Date.now();
-            setStageBoth("training");
-            showCaption(T.calibDone[lang], "praise");
-          }
-          break;
-        }
-        default:
-          break;
+        const share = Math.max(0, Math.min(1, f));
+        fill.style.strokeDasharray = `${share * 100} 100`;
+        fill.style.opacity = share > 0.01 ? "1" : "0";
+      }
+      const hold = holdRef.current;
+      if (hold) {
+        hold.style.strokeDasharray = `${v.startHold * 100} 100`;
+        hold.style.opacity = v.startHold > 0.01 ? "1" : "0";
       }
 
-      function handleEvent(ev: EngineEvent) {
-        if (ev.kind === "stop") {
-          // S0: the trunk safety stop ends the set (its stop_rest cue came with the flag). The RPE and
-          // summary dialogs keep "Stop now and rest" on screen, since the caption goes behind them.
-          P.stoppedBy = ev.ruleId;
-          setSafetyStop(true);
-          setStageBoth("rpe");
-          return;
-        }
-        if (ev.kind === "phase") setPhase(ev.phase);
-        if (ev.kind === "progress") setPctNow(ev.pct);
-        if (ev.kind === "flag") {
-          P.flags[ev.ruleId] = (P.flags[ev.ruleId] ?? 0) + 1;
-          const out = P.orch.push(ev);
-          if (out) speakCue(out.cue as CueId, out.severity);
-        }
-        if (ev.kind === "rep") {
-          P.moments.push({ cls: ev.cls, durSec: ev.durSec, peakPct: ev.peakPct });
-          setMoments([...P.moments]);
-          setCounts((c) => ({ ...c, [ev.cls]: c[ev.cls as keyof typeof c] + 1 }));
-          if (ev.cls !== "partial") {
-            P.total += 1;
-            const out = P.orch.push(ev);
-            if (out) speakCue(out.cue, out.severity);
-            if (P.total >= def.targetReps) finishSet();
-          }
-        }
+      for (const m of v.speak) say(m);
+      for (const ev of v.events) if (ev.kind === "rep" && ev.cls !== "partial") void player.count(ev.count);
+      if (v.stage === "training" && !P.startedAt) P.startedAt = Date.now();
+
+      const next: Ui = {
+        stage: v.stage,
+        presence: v.presence,
+        holding: v.stage === "start" && v.startHold > 0,
+        calReps: v.calReps,
+        count: v.count,
+        caption: cap ? { id: cap.id, text: captionText(cap), severity: cap.severity } : null,
+      };
+      const prev = P.ui;
+      if (
+        prev.stage !== next.stage ||
+        prev.presence !== next.presence ||
+        prev.holding !== next.holding ||
+        prev.calReps !== next.calReps ||
+        prev.count !== next.count ||
+        prev.caption?.id !== next.caption?.id ||
+        prev.caption?.text !== next.caption?.text
+      ) {
+        P.ui = next;
+        setView(next);
       }
+      if (v.stage === "finished") finishSet("done");
+      else if (v.stage === "stopped") finishSet("safety");
     },
-    [def, variant, profile, contextSet, demo, lang, speakCue, showCaption, finishSet, fast, player],
+    [contextSet, def, noVideo, say, player, captionText, finishSet, exerciseId, lang],
   );
 
   // source lifecycle
   useEffect(() => {
     let src: PoseSource | undefined;
     let cancelled = false;
+    const P = pipe.current;
+    P.flow = new WorkoutFlow(def, profile, variantDef.requiredLandmarks, def.targetReps);
+    P.over = false;
+    P.startedAt = 0;
+    P.ui = INITIAL_UI;
+    P.captionId = null;
+    setView(INITIAL_UI);
     (async () => {
       try {
         if (demo) {
           src = new TracePoseSource(
             exerciseId,
-            exerciseId === "seated_shoulder_press" ? { leanDeg: 12, leanFromRep: 4 } : {},
+            exerciseId === "seated_shoulder_press" ? E2E_TRACES.lean : { leadInSec: 2.5 },
           );
+        } else if (e2eTrace) {
+          src =
+            e2eTrace === "nobody"
+              ? new EmptyPoseSource()
+              : new TracePoseSource(exerciseId, E2E_TRACES[e2eTrace] ?? {});
         } else {
           const cam = new CameraPoseSource(videoRef.current!);
           cam.onStatus = setCamStatus;
           src = cam;
         }
-        setStageBoth("loading");
-        pipe.current.stopSource = () => src?.stop();
+        setSource("loading");
+        P.stopSource = () => src?.stop();
         await src.start(onFrame);
         if (cancelled) {
           src.stop();
           return;
         }
-        pipe.current.framingStart = performance.now();
-        setStageBoth("framing");
+        setSource("running");
       } catch (e) {
         src?.stop();
         if (cancelled) return;
@@ -353,7 +376,7 @@ export default function SessionScreen(props: {
               ? "none"
               : "generic",
         );
-        setErr(T.cameraError[lang]);
+        setSource("error");
       }
     })();
     return () => {
@@ -363,9 +386,12 @@ export default function SessionScreen(props: {
   }, [demo, exerciseId, attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => player.stop(), [player]);
+  useEffect(() => {
+    player.muted = muted;
+  }, [muted, player]);
   // A propped phone must not dim or lock mid set.
   useEffect(() => {
-    if (demo) return;
+    if (noVideo) return;
     let lock: { release: () => Promise<void> } | null = null,
       active = true;
     const request = async () => {
@@ -390,11 +416,7 @@ export default function SessionScreen(props: {
       document.removeEventListener("visibilitychange", onVisible);
       void lock?.release().catch(() => undefined);
     };
-  }, [demo]);
-  useEffect(() => {
-    if (stage === "calibrating") void player.line("calibration");
-    if (stage === "training") void player.line("training");
-  }, [stage, player]);
+  }, [noVideo]);
 
   // canvas sizing
   useEffect(() => {
@@ -411,77 +433,219 @@ export default function SessionScreen(props: {
 
   const stopNow = useCallback(() => {
     player.stop();
-    if (
-      pipe.current.stage === "training" ||
-      pipe.current.stage === "calibrating" ||
-      pipe.current.stage === "framing"
-    ) {
-      pipe.current.stopSource?.(); // camera/pose halt immediately — privacy + battery
-      if (pipe.current.stage === "training") setStageBoth("rpe");
-      else onExit();
-    } else {
-      pipe.current.stopSource?.();
-      onExit();
+    const P = pipe.current;
+    const stage = P.flow?.stage;
+    if (!P.over && (stage === "training" || stage === "finished")) {
+      finishSet("stopped");
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onExit, player]);
+    P.over = true;
+    P.stopSource?.(); // camera and pose halt at once: privacy and battery
+    onExit();
+  }, [onExit, player, finishSet]);
 
-  // Escape always stops; focus lands on STOP when training starts
+  // Escape always stops; focus lands on STOP when the set starts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") stopNow();
+      if (e.key === "Escape" && !end) stopNow();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stopNow]);
+  }, [stopNow, end]);
   const stopBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (stage === "training") stopBtnRef.current?.focus();
-    if (stage === "rpe" || stage === "summary") pipe.current.stopSource?.();
-  }, [stage]);
-  useEffect(() => {
-    player.muted = muted;
-  }, [muted, player]);
+    if (view.stage === "training") stopBtnRef.current?.focus({ preventScroll: true });
+  }, [view.stage]);
+
+  const toggleSound = () => {
+    const next = !muted;
+    // Inside the tap: iOS lets the voice play later only if a tap started the audio.
+    if (!next) CuePlayer.unlock();
+    setMuted(next);
+    onPreferences({ ...preferences, voice: next ? "off" : "full" });
+  };
 
   const saveAndSummarize = async (rpeVal: number | null) => {
     if (saving) return;
     setSaving(true);
-    const P = pipe.current;
-    const s: SessionSummary = {
-      exerciseId,
-      profileId: profileId as SessionSummary["profileId"],
-      startedAt: P.startedAt || Date.now(),
-      endedAt: Date.now(),
-      reps: counts,
-      flags: P.flags,
-      rpe: rpeVal ?? undefined,
-      romPct: P.engine ? Math.min(100, Math.round(P.engine.bestRom * 100)) : undefined,
-      engineVersion: WORKOUT_ENGINE_VERSION,
-    };
+    setSaveError(false);
+    const sum = buildSummary(rpeVal);
     if (props.onSave) {
       try {
-        await props.onSave(s, P.moments);
+        await props.onSave(sum, pipe.current.flow?.moments ?? []);
         setSaved(!demo);
       } catch {
         setSaved(false);
         setSaving(false);
-        showCaption(
-          lang === "ar" ? "تعذّر حفظ المجموعة. حاول مجددًا." : "Could not save this set. Please retry.",
-          "warn",
-        );
+        setSaveError(true);
         return;
       }
     }
     setSaving(false);
-    setSummary(s);
-    setStageBoth("summary");
+    setSummary(sum);
+    setEnd("summary");
+    props.onComplete?.(sum);
   };
 
-  const totalReps = counts.valid + counts.partial + counts.compensated;
+  const stage = view.stage;
+  const live = source === "running" && !end;
+  const panelKey = source !== "running" ? source : stage === "framing" || stage === "start" ? stage : "gauge";
+  const ranged = stage === "training" || stage === "finished" || stage === "stopped";
 
-  const dialogs = (
-    <>
-      {stage === "rpe" && (
+  return (
+    <div
+      className={`cam2${noVideo ? " no-video" : ""}${demo ? " is-demo" : ""}`}
+      data-stage={source === "running" ? stage : source}
+      data-presence={view.presence}
+      data-variant={variant}
+      data-count={view.count}
+    >
+      <div className="cam2-stage" ref={wrapRef} data-fit={fit}>
+        {noVideo && <div className="cam2-backdrop" aria-hidden />}
+        <video ref={videoRef} className="cam2-video" playsInline muted hidden={noVideo} />
+        <canvas ref={canvasRef} className="cam2-overlay" aria-hidden />
+        {live && stage === "framing" && (
+          <Outline presence={view.presence} rise={exerciseId === "sit_to_stand"} />
+        )}
+      </div>
+
+      <header className="cam2-top">
+        <div className="cam2-title cam2-glass">
+          <b>{def.name[lang]}</b>
+          {demo ? (
+            <span className="cam2-tag">{s.demo}</span>
+          ) : props.setNumber ? (
+            <span className="cam2-tag">
+              {s.setLabel} {fmtNum(props.setNumber, lang)}
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className={`cam2-sound cam2-glass${muted ? "" : " on"}`}
+          onClick={toggleSound}
+          aria-pressed={!muted}
+          aria-label={muted ? s.soundOff : s.soundOn}
+        >
+          <SpeakerIcon muted={muted} />
+          <span>{s.sound}</span>
+        </button>
+      </header>
+
+      <div
+        className="cam2-caption-slot"
+        aria-live={view.caption?.severity === "safety" ? "assertive" : "polite"}
+      >
+        {live && view.caption && (
+          <p key={view.caption.id} className={`cam2-caption ${view.caption.severity}`}>
+            {view.caption.text}
+          </p>
+        )}
+      </div>
+
+      <section className="cam2-panel cam2-glass" aria-label={def.name[lang]}>
+        <div className="cam2-panel-body" key={panelKey} data-panel={panelKey}>
+          {source === "loading" && (
+            <div className="cam2-status" role="status">
+              <span className="cam2-spinner" aria-hidden />
+              <b>{camStatus === "camera" ? k.loadingCam : k.loadingModel}</b>
+            </div>
+          )}
+          {source === "error" && (
+            <div className="cam2-status cam2-error" role="alert">
+              <b>{errKind === "denied" ? k.errDenied : errKind === "none" ? k.errNone : k.errGeneric}</b>
+              <p>{errKind === "denied" ? k.errDeniedBody : k.errGenericBody}</p>
+              <div className="cam2-error-actions">
+                <button
+                  className="cta"
+                  onClick={() => {
+                    setErrKind(null);
+                    setAttempt((a) => a + 1);
+                  }}
+                >
+                  {k.retry}
+                </button>
+                <button className="ghost" onClick={onDemo}>
+                  {k.watchDemo}
+                </button>
+              </div>
+            </div>
+          )}
+          {source === "running" && stage === "framing" && (
+            <div className="cam2-instruct" role="status">
+              <span className={`cam2-frame-icon ${view.presence}`} aria-hidden>
+                <OutlineGlyph />
+              </span>
+              <div>
+                <h2>{exerciseId === "sit_to_stand" ? s.framingTitleRise : s.framingTitle}</h2>
+                <p>
+                  {exerciseId === "sit_to_stand"
+                    ? s.framingBodyRise
+                    : exerciseId === "seated_biceps_curl"
+                      ? s.framingBodySide
+                      : s.framingBody}
+                </p>
+              </div>
+            </div>
+          )}
+          {source === "running" && stage === "start" && (
+            <div className={`cam2-instruct cam2-start${view.holding ? " holding" : ""}`} role="status">
+              <span className="cam2-pose" aria-hidden>
+                <svg viewBox="0 0 120 120" className="cam2-hold">
+                  <circle className="track" cx="60" cy="60" r="56" pathLength={100} />
+                  <circle
+                    className="fill"
+                    cx="60"
+                    cy="60"
+                    r="56"
+                    pathLength={100}
+                    ref={holdRef}
+                    style={{ strokeDasharray: "0 100" }}
+                  />
+                </svg>
+                <StartPicture exerciseId={exerciseId} />
+              </span>
+              <div>
+                <h2>{view.holding ? s.startHold : s.startTitle}</h2>
+                <p>{s.start[exerciseId] ?? ""}</p>
+              </div>
+            </div>
+          )}
+          {source === "running" && panelKey === "gauge" && (
+            <div className={`cam2-meter${ranged ? " ranged" : " measuring"}`}>
+              <Gauge
+                fillRef={fillRef}
+                ranged={ranged}
+                lang={lang}
+                count={view.count}
+                target={def.targetReps}
+                calReps={view.calReps}
+                of={s.of}
+                reps={s.reps}
+                measured={s.measured}
+                topLabel={s.yourTop}
+              />
+              {ranged ? (
+                <p className="cam2-legend">
+                  <i aria-hidden />
+                  {s.yourTop}
+                </p>
+              ) : (
+                <div className="cam2-measure-text" role="status">
+                  <h2>{s.measureTitle}</h2>
+                  <p>{s.measureBody}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {/* C49: the check's STOP «توقف», the same control everywhere. */}
+        <CheckRoot ui={{ lang }} page={false} className="cam2-stop">
+          <StopButton onPress={stopNow} buttonRef={stopBtnRef} />
+        </CheckRoot>
+      </section>
+
+      {end === "rpe" && (
         <Dialog titleId="rpe-title">
           {safetyStop ? (
             <SafetyStopCard lang={lang} />
@@ -514,9 +678,9 @@ export default function SessionScreen(props: {
               {t("rpeHigh")}
             </p>
           )}
-          {caption?.severity === "warn" && (
+          {saveError && (
             <p className="form-error" role="alert">
-              {caption.text}
+              {lang === "ar" ? "تعذّر حفظ المجموعة. حاول مجددًا." : "Could not save this set. Please retry."}
             </p>
           )}
           <div className="modal-actions">
@@ -529,7 +693,7 @@ export default function SessionScreen(props: {
           </div>
         </Dialog>
       )}
-      {stage === "summary" && summary && (
+      {end === "summary" && summary && (
         <Dialog titleId="sum-title">
           {safetyStop ? (
             <SafetyStopCard lang={lang} />
@@ -554,10 +718,17 @@ export default function SessionScreen(props: {
               <b>{fmtNum(summary.reps.partial, lang)}</b>
               <span>{t("partialReps")}</span>
             </div>
-            <div>
-              <b>{summary.romPct != null ? fmtPct(summary.romPct / 100, lang) : "·"}</b>
-              <span>{t("bestRom")}</span>
-            </div>
+            {summary.measure && summary.measure.kind !== "hip_rise" ? (
+              <div>
+                <b>{fmtNum(summary.measure.rangeDeg, lang)}°</b>
+                <span>{s.rangeMeasure}</span>
+              </div>
+            ) : (
+              <div>
+                <b>{summary.romPct != null ? fmtPct(summary.romPct / 100, lang) : "·"}</b>
+                <span>{t("bestRom")}</span>
+              </div>
+            )}
           </div>
           <p className="micro">{t("ofYourRange")}</p>
           {summary.rpe != null && (
@@ -574,10 +745,10 @@ export default function SessionScreen(props: {
           </div>
           <RepReview reps={moments} lang={lang} demo={demo} />
           <p className="sum-note">
-            {demo ? c.demoNotSaved : props.trial ? k.trialNote : saved ? t("saveNote") : c.saveFailed}
+            {demo ? c.demoNotSaved : trial ? k.trialNote : saved ? t("saveNote") : c.saveFailed}
           </p>
           <div className="modal-actions">
-            {props.trial ? (
+            {trial ? (
               <>
                 <button className="cta" onClick={props.onRegister}>
                   {k.register}
@@ -616,402 +787,188 @@ export default function SessionScreen(props: {
           </div>
         </Dialog>
       )}
-    </>
-  );
-  const repsDone = counts.valid + counts.compensated;
-  const toggleSound = () => {
-    setMuted(!muted);
-    onPreferences({ ...preferences, voice: !muted ? "off" : "full" });
-  };
-  if (!demo)
-    return (
-      <div className="cam-shell" data-stage={stage} data-presence={presence}>
-        <header className="cam-top">
-          <button className="cam-round" onClick={stopNow} aria-label={k.exit}>
-            <Icon name="close" size={20} />
-          </button>
-          <div className="cam-title">
-            <b>{def.name[lang]}</b>
-          </div>
-          <button
-            className={`cam-round ${muted ? "is-muted" : ""}`}
-            onClick={toggleSound}
-            aria-pressed={muted}
-            aria-label={muted ? k.muted : k.sound}
-          >
-            <Icon name="sound" size={20} />
-          </button>
-        </header>
-        <div className="cam-view" ref={wrapRef}>
-          <video ref={videoRef} className="cam" playsInline muted />
-          <canvas ref={canvasRef} className="overlay" />
-          <div className="cam-hud">
-            {stage === "loading" && !err && (
-              <div className="cam-center-card">
-                <span className="cam-spinner" aria-hidden />
-                <b role="status">{camStatus === "camera" ? k.loadingCam : k.loadingModel}</b>
-              </div>
-            )}
-            {err && (
-              <div className="cam-center-card cam-error" role="alert">
-                <Icon name="camera" size={34} />
-                <b>{errKind === "denied" ? k.errDenied : errKind === "none" ? k.errNone : k.errGeneric}</b>
-                <p>{errKind === "denied" ? k.errDeniedBody : k.errGenericBody}</p>
-                <div className="cam-error-actions">
-                  <button
-                    className="cta"
-                    onClick={() => {
-                      setErr(null);
-                      setErrKind(null);
-                      setAttempt((a) => a + 1);
-                    }}
-                  >
-                    {k.retry}
-                  </button>
-                  <button className="ghost" onClick={onDemo}>
-                    {k.watchDemo}
-                  </button>
-                </div>
-              </div>
-            )}
-            {stage === "framing" && (
-              <>
-                <svg className={`cam-silhouette ${presence}`} viewBox="0 0 200 260" aria-hidden>
-                  <circle cx="100" cy="54" r="30" />
-                  <path d="M32 258 C32 176 58 120 100 112 C142 120 168 176 168 258" />
-                </svg>
-                <div className={`cam-status-card ${presence}`} role="status">
-                  {presence === "ok" ? (
-                    <span className="cam-ring-wrap">
-                      <svg className="cam-ring" viewBox="0 0 44 44">
-                        <circle className="track" cx="22" cy="22" r="19" />
-                        <circle
-                          className="fill ok"
-                          cx="22"
-                          cy="22"
-                          r="19"
-                          style={{ strokeDasharray: `${hold * 119.4} 119.4` }}
-                        />
-                      </svg>
-                      <Icon name="check" size={22} />
-                    </span>
-                  ) : (
-                    <span className="cam-status-dot" />
-                  )}
-                  <div>
-                    <b>{presence === "ok" ? k.hold : presence === "partial" ? k.partial : k.noPerson}</b>
-                    <p>
-                      {presence === "ok"
-                        ? k.holdBody
-                        : presence === "partial"
-                          ? exerciseId === "sit_to_stand"
-                            ? k.partialRise
-                            : k.partialBody
-                          : k.noPersonBody}
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-            {stage === "calibrating" && (
-              <div className="cam-status-card cal" role="status">
-                <span className="cam-ring-wrap">
-                  <svg className="cam-ring" viewBox="0 0 44 44">
-                    <circle className="track" cx="22" cy="22" r="19" />
-                    <circle
-                      className="fill"
-                      cx="22"
-                      cy="22"
-                      r="19"
-                      style={{ strokeDasharray: `${calProgress * 119.4} 119.4` }}
-                    />
-                  </svg>
-                  <b>{fmtNum(Math.round(calProgress * 100), lang)}</b>
-                </span>
-                <div>
-                  <b>{k.calTitle}</b>
-                  <p>{tracking ? k.calBody : k.lostBody}</p>
-                </div>
-              </div>
-            )}
-            {(stage === "training" || stage === "rpe" || stage === "summary") && (
-              <>
-                {caption ? (
-                  <div className={`cam-caption ${caption.severity}`} aria-live="assertive">
-                    {caption.text}
-                  </div>
-                ) : !tracking && stage === "training" ? (
-                  <div className="cam-caption warn">{k.lost}</div>
-                ) : null}
-                <div className="cam-count">
-                  <div className="cam-count-num">
-                    <b>{fmtNum(repsDone, lang)}</b>
-                    <span>/ {fmtNum(def.targetReps, lang)}</span>
-                  </div>
-                  <div className="cam-count-bar">
-                    <i style={{ width: `${Math.min(100, (repsDone / def.targetReps) * 100)}%` }} />
-                  </div>
-                  <div className="cam-count-meta">
-                    <span>
-                      {(
-                        {
-                          idle: x.phaseIdle,
-                          lifting: x.phaseLifting,
-                          top: x.phaseTop,
-                          lowering: x.phaseLowering,
-                        } as Record<string, string>
-                      )[phase] ?? x.phaseIdle}
-                    </span>
-                    <span>
-                      {k.range} <b>{fmtPct(Math.min(1, pctNow), lang)}</b>
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        {/* C49: the check's STOP, 72 px «توقف», the same control everywhere. */}
-        <CheckRoot ui={{ lang }} page={false} className="cam-bottom">
-          <StopButton onPress={stopNow} buttonRef={stopBtnRef} />
-        </CheckRoot>
-        {dialogs}
-      </div>
-    );
-  const stageIndex = stage === "loading" || stage === "framing" ? 0 : stage === "calibrating" ? 1 : 2;
-  return (
-    <div className={`session ${demo ? "demo-session" : "camera-session"}`} data-stage={stage}>
-      <header className="session-header">
-        <button className="brand" onClick={onExit} aria-label={t("home")}>
-          <Brand />
-        </button>
-        <div className={`session-mode ${demo ? "is-demo" : ""}`}>
-          <span />
-          {demo ? c.demo : c.live}
-        </div>
-        <div className="session-tools">
-          <button className="text-button" onClick={onExit}>
-            {t("home")}
-          </button>
-        </div>
-      </header>
-      <main className="session-main">
-        <div className="session-title">
-          <div>
-            <p className="eyebrow">
-              {c[setup.position]} · {demo ? t("demoMode") : t("cameraMode")}
-            </p>
-            <h1>{def.name[lang]}</h1>
-          </div>
-          <div className="session-steps">
-            {c.stageLabels.map((label, i) => (
-              <span key={label} className={stageIndex === i ? "current" : stageIndex > i ? "done" : ""}>
-                <b>{stageIndex > i ? <Icon name="check" size={13} /> : fmtNum(i + 1, lang)}</b>
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className={`tracking-status ${tracking ? "ready" : "lost"}`}>
-          <span className="status-dot" />
-          <span role="status">{demo ? x.simulated : tracking ? x.tracking : x.lost}</span>
-          <small>
-            {!tracking
-              ? x.lostNote
-              : stage === "training"
-                ? (
-                    {
-                      idle: x.phaseIdle,
-                      lifting: x.phaseLifting,
-                      top: x.phaseTop,
-                      lowering: x.phaseLowering,
-                    } as Record<string, string>
-                  )[phase]
-                : stage === "calibrating"
-                  ? x.calStart
-                  : ""}
-          </small>
-        </div>
-        <div className="session-grid">
-          <section
-            className={`movement-panel ${demo ? "demo-panel" : "camera-panel"}`}
-            aria-label={demo ? c.demo : c.live}
-          >
-            <div className="movement-heading">
-              <span>
-                <Icon name={demo ? "play" : "camera"} size={17} />
-                {demo ? c.guide : c.live}
-              </span>
-              <small>{demo ? c.demoNotice : ""}</small>
-            </div>
-            {demo ? (
-              <>
-                <div className="demo-reference">
-                  <img src={illustration(setup, exerciseId)} alt={`${c.illustration}: ${def.name[lang]}`} />
-                  <span>{c.demoGuide}</span>
-                </div>
-                <div className="signal-strip">
-                  <div className="tracking-view" ref={wrapRef}>
-                    <canvas ref={canvasRef} className="overlay" aria-label={c.signals} />
-                  </div>
-                  <div>
-                    <strong>{c.signals}</strong>
-                    <p>{c.signalNote}</p>
-                    <div className="legend">
-                      <span>
-                        <i className="dot g" />
-                        {t("legendScored")}
-                      </span>
-                      <span>
-                        <i className="dot a" />
-                        {t("legendFlag")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="camera-view" ref={wrapRef}>
-                <video ref={videoRef} className="cam" playsInline muted />
-                <canvas ref={canvasRef} className="overlay" />
-                {(stage === "loading" || err) && (
-                  <div className="camera-placeholder">
-                    <Icon name="camera" size={42} />
-                    <p>{err ?? c.loading}</p>
-                    {err && (
-                      <button className="cta" onClick={onDemo}>
-                        {c.cameraFallback}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            {stage === "training" && <RepReview reps={moments} lang={lang} demo={demo} compact />}
-          </section>
-          <aside className="coach-panel">
-            <div className="coach-heading">
-              <span className="coach-symbol">
-                <Icon name="spark" size={22} />
-              </span>
-              <span>{c.coaching}</span>
-              <span className="status-dot" />
-            </div>
-            <div className="coach-message" aria-live="polite" aria-atomic="true">
-              {stage === "loading" && (
-                <div className="banner">
-                  <strong>{c.loading}</strong>
-                  <p>{demo ? c.demoBody : c.cameraHelp}</p>
-                </div>
-              )}
-              {stage === "framing" && (
-                <div className={`banner ${framingOk ? "ok" : ""}`}>
-                  <span className="step-label">{c.stageLabels[0]}</span>
-                  <strong>{t("framingTitle")}</strong>
-                  <p>{framingOk ? t("framingOk") : def.camera[lang]}</p>
-                </div>
-              )}
-              {stage === "calibrating" && (
-                <div className="banner cal">
-                  <span className="step-label">{c.stageLabels[1]}</span>
-                  <strong>{t("calibTitle")}</strong>
-                  <p>{t("calibBody")}</p>
-                  <div
-                    className="cal-bar"
-                    role="progressbar"
-                    aria-label={t("calibTitle")}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(calProgress * 100)}
-                  >
-                    <i style={{ width: `${Math.round(calProgress * 100)}%` }} />
-                  </div>
-                </div>
-              )}
-              {(stage === "training" || stage === "rpe" || stage === "summary") && (
-                <div className={`cue-toast ${caption?.severity ?? "idle"}`}>
-                  <span className="step-label">{c.stageLabels[2]}</span>
-                  <strong>{caption?.text ?? (demo ? c.demoWaiting : c.waiting)}</strong>
-                  <p>{t("yourBaseline")}</p>
-                </div>
-              )}
-            </div>
-            {(stage === "training" || stage === "rpe" || stage === "summary") && (
-              <div className="rep-card">
-                <span className="metric-label">{c.total}</span>
-                <div className="rep-main">
-                  <b className="rep-num">{fmtNum(counts.valid + counts.compensated, lang)}</b>
-                  <span>/ {fmtNum(def.targetReps, lang)}</span>
-                </div>
-                <div className="set-bar">
-                  <i
-                    style={{
-                      width: `${Math.min(100, ((counts.valid + counts.compensated) / def.targetReps) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <div className="rep-sub">
-                  <span>
-                    <b>{fmtNum(counts.valid, lang)}</b>
-                    {t("validReps")}
-                  </span>
-                  <span>
-                    <b>{fmtNum(counts.compensated, lang)}</b>
-                    {t("compReps")}
-                  </span>
-                  <span>
-                    <b>{fmtNum(counts.partial, lang)}</b>
-                    {t("partialReps")}
-                  </span>
-                </div>
-              </div>
-            )}
-            {stage === "training" && (
-              <div className="range-meter">
-                <div>
-                  <span>{c.range}</span>
-                  <b>{fmtPct(Math.min(1, pctNow), lang)}</b>
-                </div>
-                <div className="range-track">
-                  <i style={{ width: `${Math.max(0, Math.min(1, pctNow)) * 100}%` }} />
-                </div>
-                <p>{c.rangeHint}</p>
-              </div>
-            )}
-          </aside>
-        </div>
-      </main>
-      <footer className="session-controls">
-        <CheckRoot ui={{ lang }} page={false} className="session-stop">
-          <StopButton onPress={stopNow} buttonRef={stopBtnRef} />
-        </CheckRoot>
-        <button
-          className="ghost sound-button"
-          onClick={() => {
-            setMuted(!muted);
-            onPreferences({ ...preferences, voice: !muted ? "off" : "full" });
-          }}
-          aria-pressed={muted}
-        >
-          <Icon name="sound" size={18} />
-          {muted ? t("soundOff") : t("soundOn")}
-        </button>
-        <p>{demo ? c.demoNotice : ""}</p>
-        <span className="control-set">
-          {t("set")} {fmtNum(props.setNumber ?? 1, lang)} · {fmtNum(totalReps, lang)} {t("reps")}
-        </span>
-      </footer>
-      {dialogs}
     </div>
   );
 }
 
-/** S0: at most one pre-set block line every 4 s while the person settles (council S0). */
-const PRESET_CUE_EVERY_MS = 4000;
+/** The range arc with the count in its middle (training) or the measured reps (calibrating). */
+function Gauge(p: {
+  fillRef: React.RefObject<SVGPathElement>;
+  ranged: boolean;
+  lang: Lang;
+  count: number;
+  target: number;
+  calReps: number;
+  of: string;
+  reps: string;
+  measured: string;
+  topLabel: string;
+}) {
+  const C = 120,
+    R = 98,
+    A0 = 150,
+    SWEEP = 240;
+  const at = (deg: number) => {
+    const r = (deg * Math.PI) / 180;
+    return [C + R * Math.cos(r), C + R * Math.sin(r)] as const;
+  };
+  const [x0, y0] = at(A0);
+  const [x1, y1] = at(A0 + SWEEP);
+  const d = `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${R} ${R} 0 1 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  const [mx, my] = at(A0 + SWEEP * TOP_AT);
+  return (
+    <div className="cam2-gauge">
+      <svg viewBox="0 0 240 240" aria-hidden>
+        <defs>
+          <linearGradient id="cam2-fill" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#f6d36b" />
+            <stop offset="1" stopColor="#e9b52c" />
+          </linearGradient>
+        </defs>
+        <g className="cam2-arc">
+          <path d={d} className="track" pathLength={100} />
+          <path
+            d={d}
+            className="fill"
+            pathLength={100}
+            ref={p.fillRef}
+            style={{ strokeDasharray: "0 100" }}
+          />
+          {p.ranged && (
+            <g className="cam2-top-mark">
+              <circle cx={mx} cy={my} r="13" className="halo" />
+              <circle cx={mx} cy={my} r="6.5" className="dot" />
+            </g>
+          )}
+        </g>
+      </svg>
+      <div className="cam2-gauge-center">
+        {p.ranged ? (
+          <>
+            <b className={`cam2-count${p.count ? "" : " zero"}`} key={p.count}>
+              {fmtNum(p.count, p.lang)}
+            </b>
+            <span className="cam2-target">
+              {p.of} {fmtNum(p.target, p.lang)}
+            </span>
+          </>
+        ) : (
+          <span
+            className="cam2-dots"
+            role="img"
+            aria-label={`${p.measured} ${fmtNum(p.calReps, p.lang)} ${p.of} ${fmtNum(2, p.lang)}`}
+          >
+            {[0, 1].map((i) => (
+              <i key={i} className={i < p.calReps ? "on" : ""} />
+            ))}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The calm outline the person fits into while the camera finds them. */
+function Outline({ presence, rise }: { presence: Presence; rise: boolean }) {
+  return (
+    <svg className={`cam2-outline ${presence}`} viewBox="0 0 200 260" aria-hidden>
+      {rise ? (
+        <>
+          <circle cx="100" cy="34" r="20" />
+          <path d="M62 250 C62 170 70 82 100 70 C130 82 138 170 138 250" />
+        </>
+      ) : (
+        <>
+          <circle cx="100" cy="60" r="30" />
+          <path d="M28 258 C28 176 56 122 100 114 C144 122 172 176 172 258" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function OutlineGlyph() {
+  return (
+    <svg viewBox="0 0 48 48" width="40" height="40">
+      <circle cx="24" cy="16" r="7" />
+      <path d="M9 44 C9 31 15 25 24 24 C33 25 39 31 39 44" />
+    </svg>
+  );
+}
+
+/** A simple picture of the start position. */
+function StartPicture({ exerciseId }: { exerciseId: string }) {
+  if (exerciseId === "seated_biceps_curl")
+    return (
+      <svg viewBox="0 0 120 120" className="cam2-pose-art">
+        <circle cx="62" cy="26" r="11" className="head" />
+        <path d="M60 40 L58 80 L84 82 L86 104" className="body" />
+        <path d="M60 46 L60 70 L62 88" className="arm" />
+        <circle cx="62" cy="90" r="5" className="hand" />
+        <path d="M44 84 H90" className="seat" />
+      </svg>
+    );
+  if (exerciseId === "sit_to_stand")
+    return (
+      <svg viewBox="0 0 120 120" className="cam2-pose-art">
+        <circle cx="52" cy="24" r="11" className="head" />
+        <path d="M52 38 L52 74 L80 76 L80 104" className="body" />
+        <path d="M52 46 L64 62 L76 60" className="arm" />
+        <path d="M38 78 H86 M40 78 V106 M84 78 V106" className="seat" />
+      </svg>
+    );
+  return (
+    <svg viewBox="0 0 120 120" className="cam2-pose-art">
+      <circle cx="60" cy="28" r="11" className="head" />
+      <path d="M60 42 L60 84" className="body" />
+      <path d="M42 46 L78 46" className="body" />
+      <path d="M42 46 L26 62 L28 38" className="arm" />
+      <path d="M78 46 L94 62 L92 38" className="arm" />
+      <circle cx="28" cy="35" r="5" className="hand" />
+      <circle cx="92" cy="35" r="5" className="hand" />
+      <path d="M38 88 H82" className="seat" />
+    </svg>
+  );
+}
+
+function SpeakerIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden className="cam2-speaker">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+      {muted ? (
+        <path d="m16 9.5 5 5m0 -5-5 5" />
+      ) : (
+        <>
+          <path d="M15.5 9a4.2 4.2 0 0 1 0 6" />
+          <path d="M18.2 6.5a8 8 0 0 1 0 11" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** E2E only: a source in which nobody is in the picture (the outline). */
+class EmptyPoseSource implements PoseSource {
+  kind = "trace" as const;
+  private timer = 0;
+  async start(onFrame: (f: Frame) => void): Promise<void> {
+    const step = () => {
+      onFrame({
+        t: performance.now(),
+        lm: Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 })),
+      });
+      this.timer = requestAnimationFrame(step);
+    };
+    this.timer = requestAnimationFrame(step);
+  }
+  stop(): void {
+    cancelAnimationFrame(this.timer);
+  }
+}
 
 /**
  * The line that stays on the RPE and summary dialogs after the trunk safety stop (S0): a cream card
- * with the info icon and «توقف الآن واسترح.» · Stop now and rest., since the 4 s caption goes behind
+ * with the info icon and «توقف الآن واسترح.» · Stop now and rest., since the caption goes behind
  * the dialog and is the only signal with the voice off. Never the check mark of a finished set.
  */
 function SafetyStopCard({ lang }: { lang: Lang }) {

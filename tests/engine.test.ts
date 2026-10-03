@@ -50,8 +50,11 @@ describe("seated shoulder press — wheelchair profile", () => {
   });
 
   it("classifies shallow reps as partial", () => {
+    // Booth v2: reps peaking under 55% of the personal range stay partial. Consistent reps from 55%
+    // up adapt the range down to them (tests/engine-v2.test.ts), so the shallow effort here is 0.42,
+    // about 52% of the calibrated range on the wrist height the press now counts on.
     const clean = seatedPressTrace({ reps: 3 });
-    const shallow = seatedPressTrace({ reps: 6, effort: 0.55 });
+    const shallow = seatedPressTrace({ reps: 6, effort: 0.42 });
     const { reps } = runPipeline("seated_shoulder_press", "wheelchair", shallow, { calibrateWith: clean });
     const partial = reps.filter((r) => r.cls === "partial").length;
     expect(reps.length).toBeGreaterThanOrEqual(4);
@@ -80,10 +83,13 @@ describe("seated shoulder press — wheelchair profile", () => {
   it("PRF calibration derives a personal range near the trace's actual excursion", () => {
     const frames = seatedPressTrace({ reps: 8 });
     const { prf } = runPipeline("seated_shoulder_press", "wheelchair", frames);
+    // Booth v2: the press counts on wrist height (trunk lengths above the shoulders): racked about
+    // 0.25 in this trace, overhead about 1.14.
     const [lo, hi] = prf.range;
-    expect(lo).toBeGreaterThan(40); // racked press position — deep elbow flexion
-    expect(hi).toBeLessThan(185);
-    expect(hi - lo).toBeGreaterThan(30);
+    expect(lo).toBeGreaterThan(0.15);
+    expect(lo).toBeLessThan(0.35);
+    expect(hi).toBeGreaterThan(1.05);
+    expect(hi).toBeLessThan(1.2);
   });
 });
 

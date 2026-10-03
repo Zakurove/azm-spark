@@ -144,9 +144,11 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("/?booth=1 staff stub: the booth badge only once booth mode is on (S55, S57)", async ({ page }) => {
+    test("/?booth=check staff stub (the parked check, booth v2): the booth badge only once booth mode is on (S55, S57)", async ({
+      page,
+    }) => {
       const errors = watchConsole(page);
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(COPY[lang].a.booth.title);
       // Before a code is verified the device is not in booth mode, so no badge and no Sound.
       await expect(page.locator(".check-booth-badge")).toHaveCount(0);

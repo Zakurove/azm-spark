@@ -411,7 +411,7 @@ for (const lang of LANGS) {
     await page.route("**/api/booth/verify", (r) => json(r, verify));
 
     // S55: the code, a wrong code, booth mode on.
-    await page.goto(url("/?booth=1", lang));
+    await page.goto(url("/?booth=check", lang));
     await expect(page.locator("input").first()).toBeVisible();
     await audit(page, "S55 code", problems);
     await page.locator("input").first().fill("123456");

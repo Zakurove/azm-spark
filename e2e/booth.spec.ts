@@ -2,7 +2,7 @@
  * The booth stream in the browser (UX spec S55, S57 and S58, contract v3 I, council O15, O17, O18;
  * staff phones only, C34), in Arabic and English:
  *
- *   S55   /?booth=1: the staff code against the real server (the booth days rule: no code works
+ *   S55   /?booth=check (the parked check's staff page since booth v2): the staff code against the real server (the booth days rule: no code works
  *         outside the booth days), then the verify answers (wrong, too many tries, offline, on), the
  *         end of the staff session, and turning booth mode off (it never leaks home).
  *   S57   the staff reset (a press and hold on the badge, the shortcut key) from a question, a camera
@@ -63,7 +63,7 @@ for (const lang of LANGS) {
       context,
     }) => {
       const errors = watchConsole(page);
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await expect(page.locator("h1")).toHaveText(c.booth.title);
       const code = page.getByLabel(c.booth.codeLabel);
       await expect(code).toHaveAttribute("type", "password");
@@ -111,7 +111,7 @@ for (const lang of LANGS) {
         await held;
         await json(r, { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR });
       });
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       const turnOn = page.getByRole("button", { name: c.booth.turnOn });
       await turnOn.click();
@@ -147,7 +147,7 @@ for (const lang of LANGS) {
         checked.push(r.request().postDataJSON());
         return json(r, { ok: false });
       });
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
       await page.getByRole("button", { name: c.booth.openGuest }).click();
@@ -161,7 +161,7 @@ for (const lang of LANGS) {
         json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
       );
       await page.route("**/api/booth/check", (r) => json(r, { ok: true, expires: Date.now() + HOUR }));
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
       await page.getByRole("button", { name: c.booth.openGuest }).click();
@@ -183,7 +183,7 @@ for (const lang of LANGS) {
         json(r, { ok: true, session: SESSION, expires: Date.now() + 3 * HOUR }),
       );
       await page.route("**/api/booth/check", (r) => json(r, { ok: true, expires: Date.now() + 3 * HOUR }));
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await page.getByLabel(c.booth.codeLabel).fill("777111");
       await page.getByRole("button", { name: c.booth.turnOn }).click();
 
@@ -233,7 +233,7 @@ for (const lang of LANGS) {
       await expect(paths.first()).toHaveText(c.guest.quickTry);
 
       // Back on the staff page, both arm tests off: no one test path is offered.
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await page.locator('[data-setting="test:arm_curl_30s"]').click();
       await page.goto(url("/?check=1", lang));
       await expect(page.locator('[data-screen="S05"]')).toBeVisible();
@@ -241,7 +241,7 @@ for (const lang of LANGS) {
       await expect(paths.first()).toHaveText(c.guest.fullCheck);
 
       // Turning booth mode off leaves the settings on the phone, but home never reads them.
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       await page.getByRole("button", { name: c.booth.turnOff }).click();
       await page.goto(url("/?check=1", lang));
       await expect(page.locator("h1")).toHaveText(c.guest.boothOnly.title);
@@ -420,7 +420,7 @@ test.describe("booth targets", () => {
         json(r, { ok: true, session: SESSION, expires: Date.now() + HOUR }),
       );
       const c = COPY[lang];
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       expect(await smallControls(page)).toEqual([]);
       await page.getByLabel(c.booth.codeLabel).fill("1");
       await page.getByRole("button", { name: c.booth.turnOn }).click();

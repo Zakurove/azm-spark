@@ -9,6 +9,7 @@ import { engineWeekly } from "../src/medical/weekly";
 import { boothCopy } from "../src/features/booth/copy";
 import { planFor, selfBase, storyBase } from "../src/features/booth/intake";
 import { registerUrl } from "../src/features/booth/Program";
+import { countUpAt } from "../src/features/booth/Results";
 import { SAAD_EXTRACTION, SAAD_GOAL } from "../src/features/booth/story";
 import { cameraWeek, engineView, readingChips } from "../src/features/booth/views";
 import { disclaimersIn } from "./no-disclaimers";
@@ -89,6 +90,17 @@ describe("the medical engine view", () => {
     const v = engineView(intake, plan, "ar", reasonText);
     expect(v.status).toBe("review");
     expect(v.review).toContain(reasonText.cardiac.ar);
+  });
+});
+
+describe("the starting point's count up", () => {
+  it("starts at 0 even when a frame comes just before the start, and ends on the value", () => {
+    // A first animation frame stamped before the effect's own clock: never a negative number.
+    expect(countUpAt(84, -3, 1300)).toBe(0);
+    expect(countUpAt(84, 0, 1300)).toBe(0);
+    expect(countUpAt(84, 650, 1300)).toBeGreaterThan(42);
+    expect(countUpAt(84, 1300, 1300)).toBe(84);
+    expect(countUpAt(84, 5000, 1300)).toBe(84);
   });
 });
 

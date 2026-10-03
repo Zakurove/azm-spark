@@ -17,6 +17,15 @@ function reducedMotion() {
   return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/**
+ * The count up's value after `elapsed` ms of `ms`, eased out. A frame's timestamp can come just before
+ * the start, so a negative elapsed is the start (never a negative number, which copy cannot show).
+ */
+export function countUpAt(to: number, elapsed: number, ms: number): number {
+  const p = Math.max(0, Math.min(1, elapsed / ms));
+  return Math.round(to * (1 - Math.pow(1 - p, 3)));
+}
+
 /** Counts up to `to` once (or shows it at once with reduced motion). */
 function useCountUp(to: number, ms = 1300) {
   const [v, setV] = useState(() => (reducedMotion() ? to : 0));
@@ -28,9 +37,8 @@ function useCountUp(to: number, ms = 1300) {
     let raf = 0;
     const t0 = performance.now();
     const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / ms);
-      setV(Math.round(to * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
+      setV(countUpAt(to, t - t0, ms));
+      if (t - t0 < ms) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);

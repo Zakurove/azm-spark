@@ -53,14 +53,19 @@ export function ProgramStep({
 
   useEffect(() => {
     if (localPlan.status !== "ready") return;
+    // cancelled: this effect was cleaned up (a reset, or StrictMode's second mount), so its answer is
+    // dropped; an answer that never comes ends the wait after AI_WAIT_MS with the rules' week.
+    let cancelled = false;
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), AI_WAIT_MS);
     void fetchPlan(session, intake, ctl.signal).then((r) => {
-      if (ctl.signal.aborted && !r.ok) return setWaiting(false);
+      if (cancelled) return;
+      clearTimeout(timer);
       if (r.ok && r.value.plan.status === "ready" && r.value.weekly?.days.length) setWeekly(r.value.weekly);
       setWaiting(false);
     });
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       ctl.abort();
     };

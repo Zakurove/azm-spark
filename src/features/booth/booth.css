@@ -124,8 +124,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-width: 52px;
-  min-height: 52px;
+  min-width: 56px;
+  min-height: 56px;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.82);
@@ -904,7 +904,9 @@
 .bx-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-width: 64px;
   min-height: 56px;
   padding: 0 22px;
   border: 0;
@@ -2144,11 +2146,6 @@
   }
   .bx-dots i.now {
     width: 22px;
-  }
-  .bx-menu-button,
-  .bx-lang {
-    min-width: 48px;
-    min-height: 48px;
   }
   .bx-main {
     padding: 4px 16px calc(112px + env(safe-area-inset-bottom));

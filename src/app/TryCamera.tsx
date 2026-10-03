@@ -53,7 +53,7 @@ export default function TryCamera({
         setup={{ position, support: "none" }}
         exerciseId={position === "rise" ? "sit_to_stand" : "seated_shoulder_press"}
         demo={false}
-        trial
+        variant="trial"
         targetReps={position === "rise" ? 4 : 6}
         preferences={preferences}
         onPreferences={onPreferences}

@@ -92,6 +92,7 @@ export default function Workout({
         targetReps={p.reps}
         setNumber={p.setNumber}
         demo={run.demo}
+        variant="workout"
         preferences={preferences}
         onPreferences={onPreferences}
         onExit={onExit}

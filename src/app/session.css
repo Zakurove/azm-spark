@@ -1,0 +1,628 @@
+/* ——— The camera screen (booth v2, contract A7) ———
+   Full bleed video, light glass panels (white at 70 to 85 percent with blur), gold for movement and
+   actions, purple for the person's own marks, soft shadows, no hard dark borders, calm transitions,
+   and reduced motion respected. */
+
+.cam2 {
+  --c2-ink: #1c2029;
+  --c2-muted: #636873;
+  --c2-gold: #f8cb44;
+  --c2-gold-deep: #e3ab1f;
+  --c2-purple: #8065ad;
+  --c2-purple-ink: #5b4590;
+  --c2-purple-tint: #f1ecf8;
+  --c2-glass: rgba(255, 255, 255, 0.8);
+  --c2-shadow: 0 22px 56px -28px rgba(46, 34, 82, 0.42), 0 2px 8px -3px rgba(46, 34, 82, 0.1);
+  --c2-top: max(12px, env(safe-area-inset-top));
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  overflow: hidden;
+  background: #f3f1ec;
+  color: var(--c2-ink);
+}
+
+.cam2-glass {
+  background: var(--c2-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: var(--c2-shadow);
+}
+
+/* the picture */
+.cam2-stage {
+  position: absolute;
+  inset: 0;
+  direction: ltr;
+}
+.cam2-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.cam2-stage[data-fit="contain"] {
+  background: radial-gradient(120% 90% at 50% 30%, #f7f5f0, #e7e3ef);
+}
+.cam2-stage[data-fit="contain"] .cam2-video {
+  object-fit: contain;
+}
+.cam2-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 38% at 50% 74%, rgba(128, 101, 173, 0.1), transparent 70%),
+    radial-gradient(90% 60% at 50% 18%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #fbf8f1 0%, #f4efe4 52%, #ece6f2 100%);
+}
+.cam2-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* the calm outline while the camera finds the person */
+.cam2-outline {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  height: 60%;
+  max-width: 84%;
+  transform: translate(-50%, -50%);
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 8 10;
+  filter: drop-shadow(0 2px 12px rgba(40, 32, 70, 0.28));
+  transition:
+    stroke 0.5s ease,
+    stroke-dasharray 0.5s ease;
+  animation: cam2-breathe 3.2s ease-in-out infinite;
+}
+.no-video .cam2-outline {
+  stroke: rgba(128, 101, 173, 0.5);
+  filter: none;
+}
+.cam2-outline.ok {
+  stroke: #f2c443;
+  stroke-dasharray: 600 0;
+}
+
+/* top: the exercise and the large speaker button */
+.cam2-top {
+  position: absolute;
+  top: var(--c2-top);
+  inset-inline: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cam2-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  min-width: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+.cam2-title b {
+  font-size: 15.5px;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cam2-tag {
+  flex-shrink: 0;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--c2-purple-tint);
+  color: var(--c2-purple-ink);
+  font-size: 12.5px;
+  font-weight: 750;
+}
+.cam2-sound {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 58px;
+  min-width: 58px;
+  padding: 0 20px 0 16px;
+  border-radius: 999px;
+  color: var(--c2-muted);
+  font-size: 15.5px;
+  font-weight: 750;
+  transition:
+    background 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.cam2-sound.on {
+  background: linear-gradient(135deg, #fbd862, var(--c2-gold));
+  color: var(--c2-ink);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 16px 32px -18px rgba(214, 160, 20, 0.75),
+    0 2px 6px -2px rgba(46, 34, 82, 0.12);
+}
+.cam2-speaker {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cam2-speaker path:first-child {
+  fill: currentColor;
+  fill-opacity: 0.16;
+}
+
+/* the one caption line */
+.cam2-caption-slot {
+  position: absolute;
+  top: calc(var(--c2-top) + 74px);
+  inset-inline: 16px;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.cam2-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 13px 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: var(--c2-shadow);
+  font-size: clamp(17px, 4.6vw, 24px);
+  font-weight: 750;
+  line-height: 1.45;
+  text-align: center;
+  animation: cam2-rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cam2-caption::before {
+  content: "";
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c2-purple);
+  box-shadow: 0 0 0 5px rgba(128, 101, 173, 0.16);
+}
+.cam2-caption.praise::before {
+  background: var(--c2-gold-deep);
+  box-shadow: 0 0 0 5px rgba(227, 171, 31, 0.2);
+}
+.cam2-caption.warn::before {
+  background: #e0952a;
+  box-shadow: 0 0 0 5px rgba(224, 149, 42, 0.2);
+}
+.cam2-caption.safety {
+  background: rgba(255, 244, 241, 0.94);
+  color: #92291f;
+}
+.cam2-caption.safety::before {
+  background: #c4483c;
+  box-shadow: 0 0 0 5px rgba(196, 72, 60, 0.18);
+}
+
+/* the panel: status, start position, the range arc, and Stop */
+.cam2-panel {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  border-radius: 32px;
+}
+.cam2-panel-body {
+  animation: cam2-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cam2-panel h2 {
+  font-size: clamp(19px, 5vw, 24px);
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+}
+.cam2-panel p {
+  color: var(--c2-muted);
+  font-size: 15px;
+  line-height: 1.75;
+  margin-top: 2px;
+}
+
+.cam2-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 4px;
+  text-align: center;
+}
+.cam2-status b {
+  font-size: 17px;
+  font-weight: 750;
+}
+.cam2-spinner {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid #efe7cf;
+  border-top-color: var(--c2-gold-deep);
+  animation: cam2-spin 0.9s linear infinite;
+}
+.cam2-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.cam2-instruct {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.cam2-frame-icon {
+  flex-shrink: 0;
+  width: 68px;
+  height: 68px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--c2-purple-tint);
+  transition: background 0.4s ease;
+}
+.cam2-frame-icon svg {
+  fill: none;
+  stroke: var(--c2-purple);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 4 4;
+}
+.cam2-frame-icon.ok {
+  background: #fdf3d2;
+}
+.cam2-frame-icon.ok svg {
+  stroke: var(--c2-gold-deep);
+  stroke-dasharray: none;
+}
+
+.cam2-pose {
+  position: relative;
+  flex-shrink: 0;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #ffffff, #f4f0fa);
+}
+.cam2-hold {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.cam2-hold circle {
+  fill: none;
+  stroke-width: 5;
+}
+.cam2-hold .track {
+  stroke: rgba(128, 101, 173, 0.14);
+}
+.cam2-hold .fill {
+  stroke: var(--c2-gold-deep);
+  stroke-linecap: round;
+  opacity: 0;
+  transition:
+    stroke-dasharray 0.12s linear,
+    opacity 0.2s ease;
+}
+.cam2-pose-art {
+  position: absolute;
+  inset: 12px;
+}
+.cam2-pose-art .head {
+  fill: #ece6f5;
+  stroke: var(--c2-purple);
+  stroke-width: 4;
+}
+.cam2-pose-art .body,
+.cam2-pose-art .arm {
+  fill: none;
+  stroke: var(--c2-purple);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cam2-pose-art .arm {
+  stroke: var(--c2-purple-ink);
+}
+.cam2-pose-art .hand {
+  fill: var(--c2-gold-deep);
+}
+.cam2-pose-art .seat {
+  fill: none;
+  stroke: #d6cde6;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.cam2-start.holding .cam2-pose {
+  animation: cam2-glow 1.2s ease-in-out infinite;
+}
+
+/* the range arc and the count */
+.cam2-meter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cam2-gauge {
+  position: relative;
+  width: min(212px, 56vw);
+  aspect-ratio: 1;
+  margin: -6px 0 -34px;
+}
+.cam2-gauge svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.cam2-arc {
+  transform-box: view-box;
+  transform-origin: center;
+}
+[dir="rtl"] .cam2-arc {
+  transform: scaleX(-1);
+}
+.cam2-arc path {
+  fill: none;
+  stroke-width: 15;
+  stroke-linecap: round;
+}
+.cam2-arc .track {
+  stroke: rgba(128, 101, 173, 0.13);
+}
+.cam2-arc .fill {
+  stroke: url(#cam2-fill);
+  transition:
+    stroke-dasharray 0.12s linear,
+    opacity 0.2s ease;
+  filter: drop-shadow(0 6px 10px rgba(227, 171, 31, 0.35));
+}
+.cam2-top-mark {
+  animation: cam2-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.cam2-top-mark .halo {
+  fill: rgba(128, 101, 173, 0.2);
+}
+.cam2-top-mark .dot {
+  fill: var(--c2-purple);
+  stroke: #fff;
+  stroke-width: 3;
+}
+.cam2-gauge-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 4px;
+}
+.cam2-count {
+  font-size: clamp(66px, 19vw, 96px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+  animation: cam2-count 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+.cam2-target {
+  margin-top: 6px;
+  color: var(--c2-muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+.cam2-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.cam2-dots i {
+  width: 44px;
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(128, 101, 173, 0.14);
+  transition:
+    background 0.35s ease,
+    box-shadow 0.35s ease;
+}
+.cam2-dots i.on {
+  background: linear-gradient(90deg, #f6d36b, var(--c2-gold-deep));
+  box-shadow: 0 6px 14px -6px rgba(227, 171, 31, 0.6);
+  animation: cam2-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+.cam2-legend {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 0 !important;
+  font-size: 13.5px !important;
+  font-weight: 700;
+}
+.cam2-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c2-purple);
+  box-shadow: 0 0 0 4px rgba(128, 101, 173, 0.18);
+}
+.cam2-measure-text {
+  text-align: center;
+}
+
+/* Stop: the check's control, calm in this panel */
+.cam2 .azm-check.cam2-stop {
+  background: transparent;
+}
+.cam2 .azm-check.cam2-stop .safety-stop-zone {
+  position: static;
+  padding: 0;
+  background: transparent;
+}
+.cam2 .azm-check.cam2-stop .safety-stop {
+  max-width: none;
+  min-height: 60px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #cf5244, #b63d31);
+  font-size: 1.3rem;
+  box-shadow: 0 14px 30px -16px rgba(160, 50, 40, 0.75);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.cam2 .azm-check.cam2-stop .safety-stop:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 7px rgba(128, 101, 173, 0.5),
+    0 14px 30px -16px rgba(160, 50, 40, 0.75);
+}
+.cam2 .azm-check.cam2-stop .safety-stop:active {
+  transform: scale(0.98);
+}
+.cam2-sound:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 7px rgba(128, 101, 173, 0.5);
+}
+
+/* wide screens: the panel floats at the side, clear of the person in the middle */
+@media (min-width: 900px) and (orientation: landscape) {
+  .cam2-top {
+    top: 24px;
+    inset-inline: 28px;
+  }
+  .cam2-caption-slot {
+    top: 104px;
+  }
+  .cam2-panel {
+    inset-inline-start: auto;
+    inset-inline-end: 28px;
+    bottom: 28px;
+    width: 392px;
+    padding: 24px 22px 20px;
+    gap: 18px;
+  }
+  .cam2-gauge {
+    width: 236px;
+  }
+}
+/* phones on their side */
+@media (orientation: landscape) and (max-height: 520px) {
+  .cam2-panel {
+    inset-inline-start: auto;
+    inset-inline-end: 12px;
+    top: calc(var(--c2-top) + 70px);
+    bottom: 12px;
+    width: 300px;
+    padding: 12px 14px;
+    gap: 10px;
+    justify-content: space-between;
+    overflow: auto;
+  }
+  .cam2-gauge {
+    width: 150px;
+    margin-bottom: -20px;
+  }
+  .cam2-count {
+    font-size: 54px;
+  }
+  .cam2-caption-slot {
+    inset-inline-end: 330px;
+  }
+}
+
+@keyframes cam2-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cam2-count {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes cam2-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes cam2-breathe {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes cam2-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(227, 171, 31, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(227, 171, 31, 0);
+  }
+}
+@keyframes cam2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam2 *,
+  .cam2 *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}

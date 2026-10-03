@@ -9,13 +9,15 @@ import {
   type LibraryExercise,
 } from "./pool";
 import { CAMERA_DEMANDS, DEMANDS, sportById, type DemandTag, type Sport } from "./sports";
+import type { WeeklyItemV7Fields, WeeklyPlanFindingsRef } from "./target-types";
 
 /** Weekly plan layer. The rules below decide what is SAFE and the dose; an optional
  * language model may only arrange exercises from the already filtered pool and write
  * the explanation. Every model output passes through sanitizeSelection. */
 
 export { LIBRARY, libraryById, type L, type LibraryExercise };
-export interface WeeklyItem {
+/** v7 (product v7 contract 2.10): optional targets, why line and reasons of a targeted item. */
+export interface WeeklyItem extends WeeklyItemV7Fields {
   id: string;
   sets: number;
   reps?: number;
@@ -35,6 +37,8 @@ export interface WeeklyPlan {
   why: L[];
   tips: L[];
   days: WeeklyDay[];
+  /** v7: present on a targeted weekly, the focus check it was built from (product v7 contract 2.10). */
+  findings?: WeeklyPlanFindingsRef;
 }
 export interface Selection {
   summary?: L;

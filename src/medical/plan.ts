@@ -8,6 +8,7 @@ import {
 import { Setup } from "../app/product";
 import { CONDITION_TYPES, libraryPool } from "./pool";
 import { CAMERA_DEMANDS, isSportId, sportById, type SportId } from "./sports";
+import type { RegionEntry, RomIntakeFlags } from "./body-map";
 export const conditions = [
   "none",
   "stroke",
@@ -38,6 +39,14 @@ export const restrictionOptions = [
   "no_exercise",
   "balance_support",
 ] as const;
+/** v7 (D-019): sex for the normal values of range of motion (product v7 contract 2.2). */
+export const sexOptions = ["male", "female"] as const;
+export type Sex = (typeof sexOptions)[number];
+/** v7 walking question: the aid the person walks with. */
+export const walkingAids = ["cane", "crutches", "walker", "other"] as const;
+export type WalkingAid = (typeof walkingAids)[number];
+export type Walking = { status: "no" } | { status: "with_aid"; aid: WalkingAid } | { status: "without_aid" };
+
 export interface Intake {
   age: number;
   conditions: string[];
@@ -58,6 +67,16 @@ export interface Intake {
   time: string;
   sessionMinutes: number;
   consent: boolean;
+  /** v7 (D-019), for the normal values. Optional in the type so intakes saved before v7 still load. */
+  sex?: Sex;
+  /** v7 body map. [] means no affected region. */
+  regions?: RegionEntry[];
+  /** v7 walking question. */
+  walking?: Walking;
+  /** v7, optional: height in whole cm (gait scaling, gait-rules Q4). 120 to 220. */
+  heightCm?: number;
+  /** v7 safety answers that shape the range protocol (rom-protocol 2.2 and 6). */
+  romFlags?: RomIntakeFlags;
 }
 export interface Prescription {
   exerciseId: string;

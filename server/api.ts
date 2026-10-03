@@ -152,6 +152,14 @@ export function createApi(
             return json(429, { error: "RATE_LIMIT" });
           maxBody = 6 * 1024 * 1024;
         }
+        // A module route that takes a larger body decides from the headers alone (booth v2: the booth
+        // report photo, for a valid booth pass only), before anything is buffered.
+        const gate = routes.find((r) => r.method === req.method && r.bodyLimit && route.match(r.path));
+        if (gate?.bodyLimit) {
+          const cap = gate.bodyLimit({ req, db, ip: ip ?? "", limited });
+          if (typeof cap !== "number") return json(cap.status, { error: cap.error });
+          maxBody = cap;
+        }
         let size = 0;
         const parts: Buffer[] = [];
         for await (const chunk of req) {

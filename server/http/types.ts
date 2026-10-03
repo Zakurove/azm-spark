@@ -37,4 +37,18 @@ export interface Route {
   path: RegExp;
   auth: "public" | "user";
   handle(ctx: RouteContext): Promise<void> | void;
+  /**
+   * A route that takes a body larger than the 64 KB default (booth v2: the report photo). Called from
+   * the headers alone, BEFORE any body is buffered: the larger cap in bytes, or a refusal that ends
+   * the request at once. A route without it keeps the default cap.
+   */
+  bodyLimit?(ctx: BodyGate): number | { status: number; error: string };
+}
+
+/** What a route's bodyLimit may read: the headers, the database and the rate limits, never the body. */
+export interface BodyGate {
+  req: IncomingMessage;
+  db: DatabaseSync;
+  ip: string;
+  limited: RouteContext["limited"];
 }

@@ -7,11 +7,13 @@
  *                                        expires }; { ok: false, closed: true } outside the booth
  *                                        days and hours
  *   POST /api/booth/check   { session }  whether the staff session still holds: { ok, expires? }
+ *   POST /api/booth/report, POST /api/booth/plan   the booth v2 journey (journey.ts)
  *
  * Codes and sessions are never logged or stored in the clear.
  */
 import type { Route } from "../../http/types";
 import { boothCodeMatches, boothWindow } from "./config";
+import { journeyRoutes } from "./journey";
 import { createPass, validPass } from "./store";
 
 const WINDOW_MS = 15 * 60 * 1000;
@@ -66,4 +68,5 @@ export const boothRoutes: Route[] = [
       json(200, expires === null ? { ok: false } : { ok: true, expires });
     },
   },
+  ...journeyRoutes,
 ];

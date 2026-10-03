@@ -72,7 +72,7 @@ for (const size of SIZES) {
         if (hold) await hold;
         await json(r, verify);
       });
-      await page.goto(url("/?booth=1", lang));
+      await page.goto(url("/?booth=check", lang));
       const code = page.getByLabel(c.booth.codeLabel);
       const turnOn = page.getByRole("button", { name: c.booth.turnOn });
       await expect(code).toBeVisible();

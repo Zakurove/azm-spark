@@ -1,7 +1,8 @@
 /**
  * The booth screens as the check's screen registry holds them (screens.ts reads BOOTH_SCREENS). None
  * has a flow state; each is reached outside the flow:
- *   S55   the staff page /?booth=1 (BoothStaffPage, rendered by App)
+ *   S55   the staff page /?booth=check (BoothStaffPage, rendered by App; parked since booth v2,
+ *         where /?booth=1 is the booth journey)
  *   S57   the booth tools over every screen (BoothLayer, NewVisitorButton, StaffCountCorrection)
  *   S58   the setup tips, opened in place by the camera and results screens (SetupTipsView)
  * so their registry entries are thin screens over the same parts, never a second design.
@@ -23,7 +24,7 @@ export function StaffEntryScreen(_: ScreenProps) {
         <button
           type="button"
           className="cta"
-          onClick={() => location.replace(lang === "en" ? "/?booth=1&lang=en" : "/?booth=1")}
+          onClick={() => location.replace(lang === "en" ? "/?booth=check&lang=en" : "/?booth=check")}
         >
           {t(lang, "assessment.booth.turnOn")}
         </button>

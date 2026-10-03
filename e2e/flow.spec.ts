@@ -625,10 +625,27 @@ for (const lang of LANGS) {
       await signIn(page);
       await openState(page, "S25-warnings-home", lang);
       await expect(page.locator('[data-screen="S25"] .check-body').first()).toBeVisible();
-      // The cards are read from 800 ms after the screen opens, each for its reading time.
+      // The cards are read from 800 ms after the screen opens, each for its reading time. The count is
+      // read at once (no retry), so a caption shown for a moment is caught.
       for (let i = 0; i < 6; i++) {
         await page.waitForTimeout(500);
-        await expect(page.locator(".check-caption")).toHaveCount(0);
+        expect(await page.locator(".check-caption").count()).toBe(0);
+      }
+    });
+
+    test("S14b plays its sound with no caption repeating the question on screen (C14)", async ({ page }) => {
+      await signIn(page);
+      await openState(page, "S14b-sound-check", lang);
+      await expect(page.locator('[data-screen="S14b"] .check-question')).toBeVisible();
+      // Read at once (no retry): the cue starts 800 ms after the screen opens.
+      for (let i = 0; i < 12; i++) {
+        await page.waitForTimeout(250);
+        expect(await page.locator(".check-caption").count()).toBe(0);
+      }
+      await page.locator('[data-screen="S14b"] .flow-listen').click();
+      for (let i = 0; i < 8; i++) {
+        await page.waitForTimeout(250);
+        expect(await page.locator(".check-caption").count()).toBe(0);
       }
     });
 

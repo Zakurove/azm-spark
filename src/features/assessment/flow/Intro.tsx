@@ -122,8 +122,9 @@ export function SoundCheck({ model, dispatch }: ScreenProps) {
   const titleId = "flow-sound-title";
   const questionId = "flow-sound-question";
   const noteRef = useRef<HTMLDivElement>(null);
-  const playSound = () => void voice.play([{ cue: "check_sound" }]);
-  useEntryLines(voice, [{ cue: "check_sound" }], true);
+  // The question is on the screen: the cue is heard, with no caption repeating it (C14).
+  const playSound = () => void voice.play([{ cue: "check_sound" }], { onScreen: true });
+  useEntryLines(voice, [{ cue: "check_sound" }], true, { onScreen: true });
   const options = localLabels(
     lang,
     CHECK_DATA.engine.soundCheck.options.map((o) => ({ value: o.value, label: o.label[lang] })),

@@ -29,10 +29,30 @@ export const EXERCISES: ExerciseDef[] = [
       en: "Press both arms overhead from shoulder level, then lower with control.",
       ar: "ادفع ذراعيك فوق رأسك من مستوى الكتفين ثم أنزلهما بتحكّم.",
     },
-    primaryMetric: "elbow_flex_mean",
-    metrics: ["elbow_flex_mean", "elbow_flex_l", "elbow_flex_r", "trunk_lean", "shoulder_hike", "arm_asym"],
-    defaultRange: [95, 165],
+    // Booth v2 A1: the press counts on wrist height (wrists above the shoulders, in trunk lengths),
+    // so resting arms (hands down, elbows straight) read as the bottom and never as the top. The
+    // elbow angles stay for display and for the summary measure. Racked about 0.2 (wrists just
+    // above the shoulders), overhead about 1.1 (upper arm plus forearm over the trunk length),
+    // from the generated traces and adult segment ratios.
+    primaryMetric: "wrist_height",
+    metrics: [
+      "wrist_height",
+      "elbow_flex_mean",
+      "elbow_flex_l",
+      "elbow_flex_r",
+      "trunk_lean",
+      "shoulder_hike",
+      "arm_asym",
+    ],
+    defaultRange: [0.2, 1.1],
     minPhaseSec: 0.8,
+    // Hands near shoulder height with the elbows bent. Resting arms (wrists far below), arms
+    // overhead and straight arms out to the sides are not the start.
+    start: [
+      { metric: "wrist_height", min: -0.3, max: 0.6 },
+      { metric: "elbow_flex_mean", max: 135 },
+    ],
+    measure: { kind: "elbow_extension", metric: "elbow_flex_mean" },
     rules: [
       {
         id: "trunk_lean",
@@ -114,9 +134,24 @@ export const EXERCISES: ExerciseDef[] = [
     // CAMERA: side/45-degree view is REQUIRED — a frontal view collapses the sagittal-plane
     // elbow angle in 2D projection (verified failure mode); framing text enforces this.
     primaryMetric: "elbow_flex_mean",
-    metrics: ["elbow_flex_mean", "elbow_flex_l", "elbow_flex_r", "trunk_lean", "arm_asym", "nose_offset"],
+    metrics: [
+      "elbow_flex_mean",
+      "elbow_flex_l",
+      "elbow_flex_r",
+      "trunk_lean",
+      "arm_asym",
+      "nose_offset",
+      "shoulder_span",
+    ],
     defaultRange: [165, 55], // inverted range: start extended (165°) → curled (55°)
     minPhaseSec: 0.7,
+    // The arm hanging with the elbow fairly straight, seen from the side (a 45 degree view still
+    // passes: shoulder span under the front view limit, VIEW_RATIO.frontMin in body.ts).
+    start: [
+      { metric: "elbow_flex_mean", min: 140 },
+      { metric: "shoulder_span", max: 0.55 },
+    ],
+    measure: { kind: "elbow_flexion", metric: "elbow_flex_mean" },
     rules: [
       {
         id: "trunk_swing",
@@ -181,6 +216,9 @@ export const EXERCISES: ExerciseDef[] = [
     metrics: ["hip_height", "knee_flex_mean", "trunk_lean"],
     defaultRange: [1.1, 1.75], // hip height above ankles ÷ trunk length: seated ≈1.1 → standing ≈1.75
     minPhaseSec: 1.0,
+    // Seated: the hips within the lower third of the default range.
+    start: [{ metric: "hip_height", max: 1.35 }],
+    measure: { kind: "hip_rise", metric: "hip_height" },
     rules: [
       {
         id: "lean_excess",

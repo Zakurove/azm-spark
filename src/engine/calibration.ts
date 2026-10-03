@@ -1,35 +1,64 @@
 import { ExerciseDef, MetricFrame, MetricId, PRF } from "./types";
 
 /**
- * Personal Reference Frame capture.
- * The user performs guided reps at comfortable effort; we record the primary metric's
- * observed range and the median of each compensation baseline metric.
- * All later thresholds are expressed relative to THIS user's numbers — never population norms.
+ * Personal Reference Frame capture by reps (booth v2, contract A3).
  *
- * Readiness requires three things:
- *  1. enough samples (time in front of the camera),
- *  2. a meaningfully wide range (≥30% of the exercise default — filters out standing still),
- *  3. a STABLE range envelope — the observed min/max stopped growing over the last
- *     ~2 seconds, i.e. the user has actually shown us their extremes across full reps.
- * Without (3) the PRF captures a partial slice of the movement and every later rep
- * looks instant (this exact bug was caught by live-trace testing).
+ * Calibration starts after the start position gate (startPosition.ts) and watches the primary
+ * metric for comfortable reps: a rise of at least the excursion floor from a low point, then a
+ * return. The first `reps` (2) of them set the personal range: the median rep bottom and the median
+ * rep peak, at least the excursion floor apart. All later thresholds are relative to THIS person's
+ * numbers, never population norms.
+ *
+ *   excursion floor   15% of the exercise's default range (CAL_FLOOR_SHARE); smaller wobbles, a
+ *                     tremor or a shift in the chair, are never a rep;
+ *   rep bottom        never more than one floor below the start position's value (`startValue`),
+ *                     so hands dropped to the lap between reps are not taken as the bottom, and a
+ *                     rise from the lap back to the start position is not a rep;
+ *   comfortable       the rep lasts at least MIN_CAL_REP_MS from its low point to its return.
+ *
+ * The baselines of the rule metrics are the medians over the calibration frames, as before.
+ * Without a rep, `build` falls back to the exercise's default range.
  */
-export class Calibrator {
-  private primarySamples: number[] = [];
-  private baselineSamples = new Map<MetricId, number[]>();
-  private spanHistory: { t: number; span: number }[] = [];
+export const CAL_REPS = 2;
+export const CAL_FLOOR_SHARE = 0.15;
+export const MIN_CAL_REP_MS = 600;
 
-  constructor(private def: ExerciseDef) {}
+export interface CalibrationRep {
+  /** oriented bottom and peak (higher is toward the top of the movement) */
+  bottom: number;
+  peak: number;
+  t: number;
+}
+
+export class Calibrator {
+  private baselineSamples = new Map<MetricId, number[]>();
+  private readonly dir: 1 | -1;
+  private readonly floor: number;
+  private readonly needed: number;
+  private readonly bottomFloor: number;
+  private found: CalibrationRep[] = [];
+  private rising = false;
+  private lo = Infinity;
+  private loT = 0;
+  private hi = -Infinity;
+
+  constructor(
+    private def: ExerciseDef,
+    opts: { reps?: number; startValue?: number } = {},
+  ) {
+    const [dLo, dHi] = def.defaultRange;
+    this.dir = dLo > dHi ? -1 : 1;
+    this.floor = Math.abs(dHi - dLo) * CAL_FLOOR_SHARE;
+    this.needed = Math.max(1, opts.reps ?? CAL_REPS);
+    this.bottomFloor =
+      opts.startValue !== undefined && Number.isFinite(opts.startValue)
+        ? this.dir * opts.startValue - this.floor
+        : -Infinity;
+  }
 
   feed(mf: MetricFrame): void {
     const p = mf.values[this.def.primaryMetric];
-    if (p !== undefined) {
-      this.primarySamples.push(p);
-      if (this.primarySamples.length % 5 === 0) {
-        const [lo, hi] = robustRange(this.primarySamples);
-        this.spanHistory.push({ t: mf.t, span: hi - lo });
-      }
-    }
+    if (p !== undefined && Number.isFinite(p)) this.track(this.dir * p, mf.t);
     for (const m of baselineMetrics(this.def)) {
       const v = mf.values[m];
       if (v === undefined || !Number.isFinite(v)) continue;
@@ -39,48 +68,62 @@ export class Calibrator {
     }
   }
 
-  private sampleFrac(minSamples: number): number {
-    return Math.min(1, this.primarySamples.length / minSamples);
+  private track(u: number, t: number): void {
+    if (!this.rising) {
+      if (u < this.lo) {
+        this.lo = u;
+        this.loT = t;
+      }
+      if (u >= this.lo + this.floor) {
+        this.rising = true;
+        this.hi = u;
+      }
+      return;
+    }
+    this.hi = Math.max(this.hi, u);
+    const drop = Math.max(0.5 * this.floor, 0.35 * (this.hi - this.lo));
+    if (u > this.hi - drop) return;
+    // Raising the hands from the lap back to the start position is not a rep: the rise must clear
+    // the floor above the bottom as kept, not only above the lap.
+    const bottom = Math.max(this.lo, this.bottomFloor);
+    if (t - this.loT >= MIN_CAL_REP_MS && this.hi - bottom >= this.floor)
+      this.found.push({ bottom, peak: this.hi, t });
+    this.rising = false;
+    this.lo = u;
+    this.loT = t;
+    this.hi = -Infinity;
   }
 
-  private spanFrac(): number {
-    if (this.primarySamples.length < 30) return 0;
-    const [dLo, dHi] = this.def.defaultRange;
-    const need = Math.abs(dHi - dLo) * 0.3;
-    const [lo, hi] = robustRange(this.primarySamples);
-    return Math.min(1, (hi - lo) / need);
+  /** Comfortable reps measured so far. */
+  get reps(): number {
+    return this.found.length;
   }
 
-  /** span grew less than 8% over the trailing 2s window */
-  private isStable(now: number, windowMs = 2000, tolerance = 0.08): boolean {
-    if (this.spanHistory.length < 4) return false;
-    const current = this.spanHistory[this.spanHistory.length - 1].span;
-    if (current <= 0) return false;
-    const past = [...this.spanHistory].reverse().find((h) => now - h.t >= windowMs);
-    if (!past) return false;
-    return (current - past.span) / current < tolerance;
+  /** How many reps the calibration needs. */
+  get repsNeeded(): number {
+    return this.needed;
   }
 
-  /** all three readiness conditions */
-  ready(now: number, minSamples = 150): boolean {
-    return this.sampleFrac(minSamples) >= 1 && this.spanFrac() >= 1 && this.isStable(now);
+  /** Ready once the needed comfortable reps are measured (the arguments are kept for older callers). */
+  ready(_now?: number, _minSamples?: number): boolean {
+    return this.found.length >= this.needed;
   }
 
-  /** 0..1 progress for the UI ring (samples + range width; stability adds the last stretch) */
-  progress(now: number, minSamples = 150): number {
-    const base = 0.45 * this.sampleFrac(minSamples) + 0.45 * this.spanFrac();
-    return Math.min(1, base + (this.isStable(now) ? 0.1 : 0));
+  /** 0..1 for the UI: whole reps, plus half a rep while one is rising. */
+  progress(_now?: number, _minSamples?: number): number {
+    return Math.min(1, (this.found.length + (this.rising ? 0.5 : 0)) / this.needed);
   }
 
   build(now = Date.now()): PRF {
     let range: [number, number];
-    if (this.primarySamples.length >= 30) {
-      const [lo, hi] = robustRange(this.primarySamples);
-      // orient to the exercise's direction: some exercises (curl) run high → low
-      const inverted = this.def.defaultRange[0] > this.def.defaultRange[1];
-      range = inverted ? [hi, lo] : [lo, hi];
+    const reps = this.found.slice(0, this.needed);
+    if (reps.length) {
+      const bottom = median(reps.map((r) => r.bottom));
+      const peak = median(reps.map((r) => r.peak));
+      const top = bottom + Math.max(peak - bottom, this.floor);
+      range = [this.dir * bottom, this.dir * top];
     } else {
-      range = this.def.defaultRange;
+      range = [...this.def.defaultRange];
     }
     const baselines: PRF["baselines"] = {};
     for (const [m, arr] of this.baselineSamples) baselines[m] = median(arr);

@@ -34,6 +34,16 @@ export interface TraceOpts {
   asymmetry?: number;
   /** seconds of idle hold before reps start */
   leadInSec?: number;
+  /**
+   * Seated shoulder press only: seconds with the arms resting down (hands by the thighs, elbows
+   * straight) before the person raises them to the start position over one second. This is the
+   * posture the trial first recorded as a full press (booth v2, Nasser's field test).
+   */
+  restSec?: number;
+  /** Per rep effort (0..1 of the full range), overriding `effort` for the reps it lists. */
+  efforts?: number[];
+  /** A small wrist oscillation, in normalized image units, at `hz` (tremor). */
+  tremor?: { amp: number; hz: number };
 }
 
 const DEG = Math.PI / 180;
@@ -130,8 +140,10 @@ function repClock(sec: number, leadInSec: number, repSec: number, reps: number) 
 
 /**
  * Seated shoulder press, front view, wheelchair user.
- * Racked: elbows out beside the ribs, wrists at shoulder height (elbow ≈ 95°).
- * Top: arms nearly vertical overhead (elbow ≈ 170°).
+ * Racked: elbows out beside the ribs, wrists just above shoulder height (wrist height about 0.25
+ * trunk lengths, a flexed elbow). Top: arms nearly vertical overhead (wrist height about 1.14).
+ * With `restSec` the set opens with the arms resting down (wrist height about minus 1.1, elbows
+ * straight), then the person raises them to the rack over one second.
  */
 export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
   const {
@@ -143,15 +155,21 @@ export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
     asymmetry = 0,
     leadInSec = 1.2,
     leanFromRep,
+    restSec = 0,
+    efforts,
+    tremor,
   } = o;
   const frames: Frame[] = [];
-  const total = Math.round((leadInSec + reps * repSec + 1) * fps);
+  const raiseSec = restSec > 0 ? 1 : 0;
+  const before = restSec + raiseSec;
+  const total = Math.round((before + leadInSec + reps * repSec + 1) * fps);
   const UA = 0.135,
     FA = 0.125;
 
   for (let f = 0; f < total; f++) {
     const sec = f / fps;
-    const { repIdx, lift } = repClock(sec, leadInSec, repSec, reps);
+    const { repIdx, lift } = repClock(sec - before, leadInSec, repSec, reps);
+    const repEffort = repIdx >= 0 && efforts && repIdx < efforts.length ? efforts[repIdx] : effort;
     const leanStart = leanFromRep ?? Math.floor(reps / 2);
     const leanActive = leanDeg !== 0 && repIdx >= leanStart;
     const L = blank();
@@ -164,14 +182,20 @@ export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
       lean: (leanActive ? leanDeg : 0) * DEG * Math.min(1, lift * 1.6),
       sway: 0.0025 * Math.sin((sec / 3.6) * 2 * Math.PI),
     });
+    // 0 resting down → 1 racked, eased over the one second raise
+    const raised = sec < restSec ? 0 : sec < before ? cyc((sec - restSec) / 2) : 1;
     for (const s of [-1, 1] as const) {
-      const e = s === 1 ? Math.max(0, effort - asymmetry * effort) : effort;
+      const e = s === 1 ? Math.max(0, repEffort - asymmetry * repEffort) : repEffort;
       const l = lift * e;
-      // upper arm: 62° (racked, elbow beside ribs) → 168° (overhead)
-      const ua = (62 + 106 * l) * DEG;
-      // forearm: vertical up in the rack (185° ≈ slightly inward), stays up
-      const fa = (196 - 22 * l) * DEG;
+      // upper arm: 62° (racked, elbow beside ribs) → 168° (overhead); 8° when resting down
+      const ua = (8 + (54 + 106 * l) * raised) * DEG;
+      // forearm: vertical up in the rack (196° ≈ slightly inward), stays up; 10° when resting down
+      const fa = (10 + (186 - 22 * l) * raised) * DEG;
       placeArm(L, s, sh(s), ua, fa, UA, FA);
+    }
+    if (tremor) {
+      const d = tremor.amp * Math.sin(2 * Math.PI * tremor.hz * sec);
+      for (const w of [LM.l_wrist, LM.r_wrist]) L[w] = { ...L[w], y: L[w].y + d };
     }
     // wheelchair occludes the legs — low visibility, the overlay draws the chair instead
     L[LM.l_knee] = lm(0.44, 0.68, 0.25);
@@ -189,7 +213,7 @@ export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
  * curl collapses in 2D). Both arms overlap in profile and move together.
  */
 export function seatedCurlTrace(o: TraceOpts = {}): Frame[] {
-  const { reps = 8, fps = 30, repSec = 2.2, effort = 1, leadInSec = 1.2 } = o;
+  const { reps = 8, fps = 30, repSec = 2.2, effort = 1, leadInSec = 1.2, efforts } = o;
   const frames: Frame[] = [];
   const total = Math.round((leadInSec + reps * repSec + 1) * fps);
   const UA = 0.135,
@@ -197,7 +221,8 @@ export function seatedCurlTrace(o: TraceOpts = {}): Frame[] {
 
   for (let f = 0; f < total; f++) {
     const sec = f / fps;
-    const { lift } = repClock(sec, leadInSec, repSec, reps);
+    const { repIdx, lift } = repClock(sec, leadInSec, repSec, reps);
+    const repEffort = repIdx >= 0 && efforts && repIdx < efforts.length ? efforts[repIdx] : effort;
     const L = blank();
     const { sh } = buildTrunk(L, {
       cx: 0.5,
@@ -214,7 +239,7 @@ export function seatedCurlTrace(o: TraceOpts = {}): Frame[] {
     L[LM.l_eye] = lm(L[LM.l_eye].x + fwd * 0.7, L[LM.l_eye].y);
     L[LM.r_eye] = lm(L[LM.r_eye].x + fwd * 0.7, L[LM.r_eye].y);
     for (const s of [-1, 1] as const) {
-      const l = lift * effort;
+      const l = lift * repEffort;
       // upper arm hangs by the side (0° = straight down), drifting slightly forward at the top
       const ua = (4 + 6 * l) * DEG;
       // forearm swings forward-up: extended (hanging, elbow ≈175°) → curled (≈45°)
@@ -239,7 +264,7 @@ export function seatedCurlTrace(o: TraceOpts = {}): Frame[] {
 
 /** Sit-to-stand, 45° view: hips rise from chair height, arms reach forward on the rise. */
 export function sitToStandTrace(o: TraceOpts = {}): Frame[] {
-  const { reps = 5, fps = 30, repSec = 3.2, effort = 1, leadInSec = 1.2 } = o;
+  const { reps = 5, fps = 30, repSec = 3.2, effort = 1, leadInSec = 1.2, efforts } = o;
   const frames: Frame[] = [];
   const total = Math.round((leadInSec + reps * repSec + 1) * fps);
   const cx = 0.5;
@@ -248,8 +273,9 @@ export function sitToStandTrace(o: TraceOpts = {}): Frame[] {
 
   for (let f = 0; f < total; f++) {
     const sec = f / fps;
-    const { lift } = repClock(sec, leadInSec, repSec, reps);
-    const rise = lift * effort; // 0 seated → 1 standing
+    const { repIdx, lift } = repClock(sec, leadInSec, repSec, reps);
+    const repEffort = repIdx >= 0 && efforts && repIdx < efforts.length ? efforts[repIdx] : effort;
+    const rise = lift * repEffort; // 0 seated → 1 standing
     const L = blank();
 
     const ankleY = 0.88;

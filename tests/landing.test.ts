@@ -267,9 +267,17 @@ describe("closing and footer", () => {
       expect(text(footer)).toContain(t(lang, "privacy.link"));
       expect(text(footer)).toContain(t(lang, "landing.footer.brandline"));
     }
-    // The video feature chip stays (D-017 keeps it).
-    expect(t("ar", "landing.hero.chips.video")).toBe("الفيديو لا يغادر جهازك");
-    expect(t("en", "landing.hero.chips.video")).toBe("Video never leaves your device");
+  });
+
+  it("has no hero chips: the two badges and their copy keys are gone (booth v2, B10)", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const lang of LANGS) {
+      const hero = part(render(lang), "ld-hero");
+      expect(hero).not.toContain("ld-chip");
+      expect(text(hero)).not.toMatch(/Video never leaves|No app, no equipment|الفيديو لا يغادر|بلا تطبيق/);
+      const json = JSON.parse(readFileSync(`${__dirname}/../src/i18n/${lang}/landing.json`, "utf8"));
+      expect(json.hero).not.toHaveProperty("chips");
+    }
   });
 
   it("keeps the closing line and uses the council's closing text, without the doctor (spec Q23)", () => {

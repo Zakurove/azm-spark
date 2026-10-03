@@ -165,3 +165,30 @@ describe("the weekly plan model call with a sport (booth v2, B4)", () => {
     expect(weekly.summary.en).toContain("wheelchair basketball");
   });
 });
+
+describe("why this program, in two short lines (booth v2, B7)", () => {
+  it("says what decided the program and how the dose fits, in two short lines", async () => {
+    const { programWhy } = await import("../src/medical/programWhy");
+    const plain: Intake = {
+      ...saad,
+      conditions: ["none"],
+      mobility: "seated",
+      goal: "habit",
+      sport: undefined,
+    };
+    for (const h of [saad, plain, { ...plain, conditions: ["ms"], clearance: "yes" as const }]) {
+      const lines = programWhy(createPlan(h));
+      expect(lines).toHaveLength(2);
+      for (const l of lines) {
+        expect(l.ar.length).toBeLessThanOrEqual(70);
+        expect(l.en.length).toBeLessThanOrEqual(90);
+        expect(DASH.test(l.ar + l.en)).toBe(false);
+      }
+      expect(lines[0].ar).toContain("حالتك الطبية");
+    }
+    // A condition whose rules lighten the dose says so.
+    const ms = createPlan({ ...plain, conditions: ["ms"], clearance: "yes" });
+    expect(ms.notes).toContain("fatigue");
+    expect(programWhy(ms)[1].en).toMatch(/lighter sets/i);
+  });
+});

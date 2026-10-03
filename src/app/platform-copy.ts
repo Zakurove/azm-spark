@@ -16,6 +16,9 @@ export const labels = (l: Lang) =>
         today: "اليوم",
         program: "البرنامج",
         health: "حالتك الطبية",
+        // D-018: the tabs; the page titles keep the full names.
+        nav: { today: "اليوم", program: "برنامجي", health: "حالتي" },
+        titles: { today: "اليوم", program: "برنامجي", health: "حالتي الطبية" },
         logout: "تسجيل الخروج",
         backHome: "العودة للرئيسية",
         continue: "متابعة",
@@ -133,6 +136,9 @@ export const labels = (l: Lang) =>
         today: "Today",
         program: "Program",
         health: "Your medical condition",
+        // D-018: the tabs; the page titles keep the full names.
+        nav: { today: "Today", program: "Program", health: "My condition" },
+        titles: { today: "Today", program: "My program", health: "My medical condition" },
         logout: "Sign out",
         backHome: "Back to home",
         continue: "Continue",

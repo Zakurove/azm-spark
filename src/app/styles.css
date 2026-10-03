@@ -1,5 +1,10 @@
 :root {
   font-family: Cairo, system-ui, sans-serif;
+  /* Booth v2: no hard borders. A selection is a soft purple fill with a lavender glow. */
+  --select-fill: #f5f0fc;
+  --select-ink: #4f3c7c;
+  --select-dot: #6f5aa0;
+  --select-glow: 0 0 0 2px #cdbdea, 0 10px 24px rgba(111, 90, 160, 0.14);
   color: #25312e;
   background: #f7f8f5;
   font-synthesis: none;
@@ -140,8 +145,8 @@ img {
   padding: 0 3px;
 }
 .app-header nav button.active {
-  border-color: var(--ink);
-  color: var(--ink);
+  border-color: #8f78c2;
+  color: var(--select-ink);
   font-weight: 750;
 }
 .language {
@@ -187,9 +192,9 @@ img {
   font-weight: 700;
 }
 .journey .current > span {
-  background: var(--ink);
+  background: var(--select-dot);
   color: white;
-  border-color: var(--ink);
+  border-color: transparent;
 }
 .journey .done > span {
   background: #e5eee7;
@@ -280,9 +285,9 @@ img {
 }
 .position-option.selected,
 .exercise-option.selected {
-  border-color: #87998b;
-  background: #f1f5ef;
-  box-shadow: inset 0 0 0 1px #87998b;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow: var(--select-glow);
 }
 .selection-dot {
   width: 18px;
@@ -298,10 +303,15 @@ img {
   top: 13px;
   inset-inline-end: 12px;
 }
+/* On the soft purple fill the small text darkens a step, to keep 4.5:1 (WCAG 1.4.3). */
+.position-option.selected small,
+.exercise-option.selected small {
+  color: #5f6672;
+}
 .selected .selection-dot {
-  background: var(--ink);
+  background: var(--select-dot);
   color: #fff;
-  border-color: var(--ink);
+  border-color: transparent;
 }
 .support-field {
   margin-top: 25px;
@@ -713,13 +723,15 @@ img {
   font-weight: 700;
 }
 .session-steps .current b {
-  border-color: #a4b5a6;
-  background: #e8efe5;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow: 0 0 0 2px #cdbdea;
+  color: var(--select-ink);
 }
 .session-steps .done b {
-  background: var(--ink);
+  background: var(--select-dot);
   color: white;
-  border-color: var(--ink);
+  border-color: transparent;
 }
 .session-grid {
   display: grid;
@@ -1134,7 +1146,8 @@ img {
 }
 .rpe-btn.sel {
   background: var(--gold);
-  border-color: #bd9828;
+  border-color: transparent;
+  box-shadow: 0 10px 20px -12px rgba(214, 160, 20, 0.8);
 }
 .rpe-labels {
   display: flex;
@@ -1757,7 +1770,9 @@ img {
   flex: 1 1 40%;
 }
 .voice-packs .segmented button.selected {
-  box-shadow: inset 0 0 0 2px var(--purple);
+  background: var(--select-fill);
+  box-shadow: var(--select-glow);
+  color: var(--select-ink);
 }
 .voice-preview {
   padding: 16px;
@@ -1978,8 +1993,9 @@ img {
   font-size: 10px;
 }
 .rep-timeline button.active {
-  background: #f3f5ef;
-  border-color: #bbcbb9;
+  background: var(--select-fill);
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #cdbdea;
 }
 .rep-stick {
   width: 12px;

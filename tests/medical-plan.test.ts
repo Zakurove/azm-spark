@@ -70,15 +70,17 @@ describe("medical program gates", () => {
     expect(p.exercises.map((e) => [e.exerciseId, e.reason])).toEqual([
       ["seated_biceps_curl", "curl_unloaded"],
     ]);
-    // A restriction, not the equipment, still ends in review.
+    // A restriction, not the equipment, still leaves out every camera movement; since booth v2 (D)
+    // the program is not empty for that: its sessions are guided cards from the library.
     const r = createPlan({
       ...healthy,
       mobility: "seated",
       restrictions: ["no_overhead", "no_resistance"],
       equipment: [],
     });
-    expect(r.status).toBe("review");
     expect(r.exercises).toHaveLength(0);
+    expect(r.status).toBe("ready");
+    expect(r.reasons).not.toContain("no_exercises");
   });
   it("does not prescribe sit-to-stand to a wheelchair setup", () => {
     const p = createPlan({ ...healthy, mobility: "wheelchair" });
@@ -87,9 +89,12 @@ describe("medical program gates", () => {
     ).toBe(true);
   });
   it("excludes unsupported limb tracking and PEM fixed-dose plans", () => {
-    expect(
-      createPlan({ ...healthy, conditions: ["upper_limb_unilateral"], mobility: "wheelchair" }).status,
-    ).toBe("review");
+    // No camera movement tracks one arm; since booth v2 (D) the program is guided cards instead of a
+    // review.
+    const limb = createPlan({ ...healthy, conditions: ["upper_limb_unilateral"], mobility: "wheelchair" });
+    expect(limb.exercises).toHaveLength(0);
+    expect(limb.exclusions.filter((e) => e.reason === "tracking_limbs")).toHaveLength(2);
+    expect(limb.status).toBe("ready");
     expect(createPlan({ ...healthy, conditions: ["cfs_moderate"], clearance: "yes" }).reasons).toContain(
       "pem",
     );

@@ -444,6 +444,8 @@ for (const lang of LANGS) {
     test.setTimeout(5 * 60_000);
     const problems: string[] = [];
     const { context, page } = await phone(browser);
+    // The guided card's hold passes at once (booth v2 D).
+    await page.clock.install();
     await page.goto(url("/", lang));
     await expect(page.locator("h1").first()).toBeVisible();
     await audit(page, "landing", problems);
@@ -481,14 +483,24 @@ for (const lang of LANGS) {
     await expect(page.locator('[data-setting="safety-check-in"]')).toBeVisible();
     await audit(page, "coach settings", problems);
     await page.keyboard.press("Escape");
-    // The workout start (C48): the setup screen with its attest line, then the warm up.
+    // The workout start (C48): the setup screen with its attest line, then the warm up (booth v2 D:
+    // the first warm up card), its effort, and a counted card.
     await nav.nth(0).click();
     await page.locator(".next-workout .cta").click();
     await expect(page.locator(".workout-attest")).toBeVisible();
     await audit(page, "workout setup", problems);
     await page.locator(".interval-page .cta").click();
-    await expect(page.locator(".interval-clock")).toBeVisible();
-    await audit(page, "workout warm up", problems);
+    await expect(page.locator(".gcard")).toBeVisible();
+    await audit(page, "workout warm up card", problems);
+    await page.locator(".gcard-cta").click();
+    await page.clock.fastForward(60_000);
+    await expect(page.locator(".gcard")).toHaveAttribute("data-phase", "effort");
+    await page.locator(".gcard-rpe button").nth(2).click();
+    await audit(page, "guided card effort", problems);
+    await page.locator(".gcard-actions .gcard-ghost").click();
+    await page.locator(".gcard-skip").click();
+    await expect(page.locator(".workout-camera-kicker")).toBeVisible();
+    await audit(page, "workout camera part", problems);
     await page.goto(url("/?try=1", lang));
     await expect(page.locator(".try-shell")).toBeVisible();
     await audit(page, "trial", problems);

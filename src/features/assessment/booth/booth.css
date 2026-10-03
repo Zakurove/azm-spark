@@ -137,10 +137,13 @@
   max-width: var(--column);
   margin: 0 auto;
   padding: var(--s6) var(--s4) var(--s4);
-  border: 2px solid var(--purple);
+  border: 2px solid transparent;
   border-radius: var(--r-card);
   background: var(--card);
-  box-shadow: 0 24px 60px -30px var(--shadow-soft);
+  /* Booth v2: a soft purple glow, not a hard border. */
+  box-shadow:
+    var(--soft-selected),
+    0 24px 60px -30px var(--shadow-soft);
 }
 .azm-check .booth-sheet:focus {
   outline: none;

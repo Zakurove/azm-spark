@@ -27,14 +27,28 @@ export function illustration(setup: Setup, exerciseId?: string) {
   if (setup.position === "rise") return "/illustrations/standing.png";
   return `/illustrations/${setup.position}-${exerciseId === "seated_biceps_curl" ? "curl" : "press"}.png`;
 }
-export type SavedSession = SessionSummary & { mode: "camera"; setup: Setup; moments?: RepMoment[] };
-export function readSessions(): SavedSession[] {
+export type CameraRecord = SessionSummary & { mode: "camera"; setup: Setup; moments?: RepMoment[] };
+/** A guided card done in a session (booth v2, D): the dose it had and what was done of it. */
+export interface GuidedRecord {
+  mode: "guided";
+  exerciseId: string;
+  slot: "warmup" | "extra" | "cooldown";
+  startedAt: number;
+  endedAt: number;
+  rpe?: number;
+  dose: { sets: number; reps?: number; holdSeconds?: number };
+  done: { sets: number; reps?: number; seconds?: number };
+}
+/** A saved session record: a camera set, or a guided card. */
+export type SavedSession = CameraRecord | GuidedRecord;
+export const isGuided = (r: SavedSession): r is GuidedRecord => r.mode === "guided";
+export function readSessions(): CameraRecord[] {
   try {
     const data: unknown = JSON.parse(localStorage.getItem("azm5.sessions") ?? "[]");
     if (!Array.isArray(data)) return [];
     return data
       .filter(
-        (s): s is SavedSession =>
+        (s): s is CameraRecord =>
           s?.mode === "camera" &&
           EXERCISES.some((e) => e.id === s.exerciseId) &&
           Number.isFinite(s.endedAt) &&

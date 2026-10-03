@@ -15,6 +15,7 @@ import enLanding from "../src/i18n/en/landing.json" with { type: "json" };
 import { signUpAddress } from "./sign-up";
 import { labels } from "../src/app/platform-copy";
 import { camCopy } from "../src/app/camera-copy";
+import { guidedCopy } from "../src/app/guided-copy";
 
 const COPY = {
   ar: { a: ar, p: arProgress, l: arLanding },
@@ -177,7 +178,7 @@ for (const lang of LANGS) {
       expect(errors).toEqual([]);
     });
 
-    test("Start session opens one setup screen, then the warm up (C48)", async ({ page }) => {
+    test("Start session opens one setup screen, then the warm up (C48, booth v2 D)", async ({ page }) => {
       const errors = watchConsole(page);
       const c = labels(lang);
       await signIn(page, lang);
@@ -189,18 +190,23 @@ for (const lang of LANGS) {
       await expect(page.locator('input[type="checkbox"], [role="timer"], .section-kicker')).toHaveCount(0);
       // The program lists each exercise once.
       const rows = page.locator(".workout-queue > div");
-      await expect(rows.first()).toContainText(" · ");
+      // Booth v2 (D): the Arabic row takes the Arabic comma (a middle dot reads as the zero «٠»).
+      const sep = lang === "ar" ? "، " : " · ";
+      await expect(rows.first()).toContainText(sep);
       const names = await rows.locator("strong").allTextContents();
-      expect(new Set(names.map((n) => n.split(" · ")[0])).size).toBe(names.length);
+      expect(new Set(names.map((n) => n.split(sep)[0])).size).toBe(names.length);
       const ready = page.getByRole("button", { name: c.ready });
       await expect(ready).toHaveAttribute("aria-describedby", "workout-attest");
       expect((await ready.boundingBox())!.height).toBeGreaterThanOrEqual(48);
       await ready.click();
-      // The warm up has its own screen and timer, without a set label.
-      await expect(page.locator(".interval-main h1")).toHaveText(c.warmup);
-      await expect(page.locator('[role="timer"]')).toBeVisible();
+      // Booth v2 (D): the warm up is the day's warm up cards, each a guided card with its own timer
+      // and no set label of the camera part.
+      const card = page.locator(".gcard");
+      await expect(card).toHaveAttribute("data-slot", "warmup");
+      await expect(page.locator(".gcard-slot")).toContainText(guidedCopy(lang).slot.warmup);
+      await expect(page.locator('.gcard [role="timer"]')).toBeVisible();
       await expect(page.locator(".section-kicker")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: c.startTraining })).toBeVisible();
+      await expect(page.getByRole("button", { name: guidedCopy(lang).start })).toBeVisible();
       expect(errors).toEqual([]);
     });
   });

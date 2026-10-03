@@ -4,6 +4,10 @@
   --line: #e3e4e9;
   --green: #53674e;
   --gold: #f8cb44;
+  /* Booth v2: no hard borders. A selection is a soft purple fill with a lavender glow. */
+  --select-fill: #f5f0fc;
+  --select-ink: #4f3c7c;
+  --select-glow: 0 0 0 2px #cdbdea, 0 10px 24px rgba(111, 90, 160, 0.14);
   background: #f5f5f7;
   color: var(--ink);
 }
@@ -150,9 +154,9 @@
   color: var(--muted);
 }
 .auth-tabs .active {
-  border-color: var(--ink);
+  border-color: #8f78c2;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--select-ink);
 }
 .auth-form-panel > p {
   font-size: 13px;
@@ -418,7 +422,7 @@
   color: #ece8f4;
 }
 .hero-dose > span + span {
-  border-inline-start: 1px solid #555865;
+  border-inline-start: 1px solid #e3dcc8;
   padding-inline-start: 17px;
 }
 .next-workout .cta {
@@ -509,7 +513,8 @@
   color: #5f6670;
 }
 .week-strip .current-day {
-  border: 1px solid #aa93c9;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #cdbdea;
 }
 .week-strip i {
   height: 3px;
@@ -985,8 +990,9 @@
   min-height: 48px;
 }
 .intake-choices button.selected {
-  background: #f1edf8;
-  border-color: #ab96c9;
+  background: var(--select-fill);
+  border-color: transparent;
+  box-shadow: var(--select-glow);
   color: #5e4989;
 }
 .conditions-grid {
@@ -1166,8 +1172,9 @@
   padding: 6px;
 }
 .day-picker .selected {
-  border-color: #b7a2d4;
-  background: #eee8f6;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow: var(--select-glow);
   color: #5c4885;
 }
 .intake-actions {
@@ -1296,12 +1303,45 @@
   background: #8068a7;
   color: white;
 }
-.workout-queue .done {
-  opacity: 0.5;
+/* A done row reads quieter (AA contrast kept, no fading), with a soft green tick. */
+.workout-queue .done strong {
+  color: #5f6672;
+  font-weight: 600;
+}
+.workout-queue .done > span {
+  background: #e9f4ea;
+  color: #2f6b3a;
 }
 .workout-queue strong {
   font-size: 13px;
   display: block;
+}
+/* Booth v2 (D): the session list in its parts (warm up, camera, the day's exercises, cool down). */
+.workout-queue-group {
+  margin: 14px 10px 4px;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  color: #5f6672;
+}
+.workout-queue h2 + .workout-queue-group {
+  margin-top: 0;
+}
+/* The opening of the camera part between the cards: what it is and its sets. */
+.workout-camera-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--purple-tint);
+  color: #5b4590;
+}
+.interval-main > p.workout-camera-dose {
+  font-size: 16px;
+  font-weight: 750;
+  color: #5b4590;
+  margin-top: -6px;
 }
 /* The dose reads apart from the name (in Arabic the middle dot sits close to the zero «٠»). */
 .workout-dose {
@@ -2583,8 +2623,11 @@
   transform: translateY(-2px);
 }
 .try-pose.selected {
-  border-color: var(--gold);
-  box-shadow: 0 20px 44px -24px #d9a82aa6;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow:
+    0 0 0 2px #cdbdea,
+    0 20px 44px -24px rgba(111, 90, 160, 0.55);
 }
 .try-pose-check {
   position: absolute;
@@ -2674,8 +2717,10 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #1c2029;
-  color: #fff;
+  /* Booth v2: soft purple numbers, no hard black discs. */
+  background: #f1ecf8;
+  color: #5b4590;
+  font-weight: 800;
   display: grid;
   place-items: center;
   font-size: 13px;
@@ -3144,10 +3189,17 @@
   font-size: 11px;
   color: var(--muted);
 }
+/* On the soft purple fill the small text darkens a step, to keep 4.5:1 (WCAG 1.4.3). */
+.weekly-days button.active small,
+.try-pose.selected span {
+  color: #5f6672;
+}
 .weekly-days button.active {
-  border-color: var(--gold);
-  background: #fffaeb;
-  box-shadow: 0 12px 26px -18px #d9a82a99;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow:
+    0 0 0 2px #cdbdea,
+    0 12px 26px -18px rgba(111, 90, 160, 0.55);
 }
 .weekly-day {
   display: grid;
@@ -3250,6 +3302,53 @@
   font-size: 12.5px;
   line-height: 2;
   color: #4c515b;
+}
+/* Booth v2 (D): an item reads as the guided card it becomes in the session. */
+.weekly-dose {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+.weekly-dose svg {
+  color: #8065ad;
+}
+.weekly-item-body ol.weekly-steps,
+[dir="rtl"] .weekly-item-body ol.weekly-steps {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+.weekly-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 3px 0;
+}
+.weekly-steps li > span {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f1ecf8;
+  color: #5b4590;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.weekly-item-body p.weekly-guided {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f6f2fb;
+  color: #5b4590;
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.8;
 }
 .weekly-note {
   display: flex;

@@ -216,10 +216,10 @@ describe("contextFromIntake (spec 3.1)", () => {
     expect(contextFromIntake(intakeOf(), readyPlan([...SCHEDULING_REVIEW_REASONS]))).toMatchObject({
       position: "chair",
     });
-    // Real plans: upper limb loss seated has no exercises; stroke standing in 20 minutes runs over
-    // the session length. (recovery is covered by the synthetic plan above.)
+    // A real plan: stroke standing in 20 minutes runs over the session length. (recovery and
+    // no_exercises are covered by the synthetic plan above: since booth v2 (D) a plan with no camera
+    // movement is guided cards, and no_exercises stays only for an empty library pool too.)
     const cases: [Partial<Intake>, string][] = [
-      [{ conditions: ["upper_limb_unilateral"] }, "no_exercises"],
       [{ conditions: ["stroke"], mobility: "standing", sessionMinutes: 20 }, "duration"],
     ];
     for (const [over, reason] of cases) {

@@ -30,6 +30,8 @@ export interface TraceOpts {
   leanDeg?: number;
   /** rep index at which the lean begins (default: halfway through the set) */
   leanFromRep?: number;
+  /** hold the lean all the time (a habitual posture) instead of only with the lift */
+  leanHold?: boolean;
   /** right arm lags left by this fraction (asymmetry demo) */
   asymmetry?: number;
   /** seconds of idle hold before reps start */
@@ -155,6 +157,7 @@ export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
     asymmetry = 0,
     leadInSec = 1.2,
     leanFromRep,
+    leanHold = false,
     restSec = 0,
     efforts,
     tremor,
@@ -179,7 +182,7 @@ export function seatedPressTrace(o: TraceOpts = {}): Frame[] {
       trunkLen: 0.225,
       shoulderHalf: 0.082,
       hipHalf: 0.06,
-      lean: (leanActive ? leanDeg : 0) * DEG * Math.min(1, lift * 1.6),
+      lean: (leanActive ? leanDeg : 0) * DEG * (leanHold ? 1 : Math.min(1, lift * 1.6)),
       sway: 0.0025 * Math.sin((sec / 3.6) * 2 * Math.PI),
     });
     // 0 resting down → 1 racked, eased over the one second raise

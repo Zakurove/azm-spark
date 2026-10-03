@@ -604,20 +604,50 @@
   gap: 12px;
   margin-top: 25px;
 }
-.plan-notes p {
+.plan-notes > p {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: #474c58;
+  margin-top: 10px;
+}
+.plan-notes > p > svg {
+  margin-top: 5px;
+  color: #7b64ad;
+}
+.plan-notes details {
+  margin-top: 10px;
+  font-size: 12px;
+}
+.plan-notes details p {
   font-size: 12px;
   line-height: 1.95;
   color: var(--muted);
-  margin-top: 12px;
-}
-.plan-notes details {
-  margin-top: 18px;
-  font-size: 12px;
+  margin-top: 8px;
 }
 .plan-notes summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
+  list-style: none;
   font-weight: 600;
+  color: #5e4989;
   min-height: 48px;
+}
+.plan-notes summary::-webkit-details-marker {
+  display: none;
+}
+.plan-notes summary svg,
+[dir="rtl"] .plan-notes summary .icon-dir {
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+.plan-notes details[open] summary svg,
+[dir="rtl"] .plan-notes details[open] summary .icon-dir {
+  transform: rotate(-90deg);
 }
 /* The sport path (booth v2, B5): a light glass card, a gold sport disc, and the demands as a soft
    purple path with the week's exercises as chips. */
@@ -753,6 +783,9 @@
 @media (prefers-reduced-motion: reduce) {
   .sport-path-wait {
     animation: none;
+  }
+  .plan-notes summary svg {
+    transition: none;
   }
 }
 @media (max-width: 760px) {

@@ -43,16 +43,16 @@ const GLYPHS: Record<string, React.ReactNode> = {
   ),
   wheelchair_tennis: (
     <>
-      <ellipse cx="9.5" cy="9.5" rx="5" ry="6" transform="rotate(-45 9.5 9.5)" />
-      <path d="m13.4 13.4 6.6 6.6M6.6 9.6l5.8-.2M9.6 6.6l-.2 5.8" />
-      <circle cx="19" cy="5" r="1.8" />
+      <ellipse cx="14" cy="9.5" rx="4.6" ry="6" transform="rotate(45 14 9.5)" />
+      <path d="M9.8 13.7 4.5 19M10.8 6.3l6.4 6.4M18.2 5.3l-8.4 8.4" />
+      <circle cx="19" cy="19" r="1.8" />
     </>
   ),
   para_table_tennis: (
     <>
-      <circle cx="10" cy="10" r="6.2" />
-      <path d="m14.2 14.6 4.4 4.4a1.5 1.5 0 0 0 2.1-2.1l-4.4-4.4" />
-      <circle cx="19.5" cy="5" r="1.6" />
+      <circle cx="14" cy="9.5" r="6" />
+      <path d="m9.8 13.8-4.4 4.4a1.6 1.6 0 0 0 2.2 2.2l4.4-4.4" />
+      <circle cx="19" cy="19" r="1.7" />
     </>
   ),
   sitting_volleyball: (

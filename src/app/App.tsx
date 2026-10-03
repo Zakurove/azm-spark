@@ -728,12 +728,16 @@ export default function App() {
                         <section className="plan-notes">
                           <h2>{c.reasons}</h2>
                           {programWhy(p).map((line) => (
-                            <p key={line.en}>{line[lang]}</p>
+                            <p key={line.en}>
+                              <Icon name="check" size={15} />
+                              {line[lang]}
+                            </p>
                           ))}
                           {p.exclusions.length > 0 && (
                             <details>
                               <summary>
                                 {c.excluded} ({fmtNum(p.exclusions.length, lang)})
+                                <Icon name="arrow" size={14} />
                               </summary>
                               {p.exclusions.map((e) => (
                                 <p key={e.exerciseId}>

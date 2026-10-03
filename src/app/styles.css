@@ -2539,6 +2539,12 @@ img {
   line-height: 1.9;
   color: var(--muted);
 }
+/* On wider screens the panel's actions and lines sit in the heading's text column. */
+@media (min-width: 761px) {
+  .report-upload > :not(.report-heading) {
+    margin-inline-start: 54px;
+  }
+}
 .report-busy {
   display: flex;
   align-items: center;
@@ -2567,6 +2573,7 @@ img {
 .report-foot .text-button {
   font-size: 12px;
   color: var(--muted);
+  padding-inline: 0;
 }
 .report-badge {
   display: inline-block;

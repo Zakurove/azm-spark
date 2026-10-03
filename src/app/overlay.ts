@@ -11,30 +11,50 @@ export interface OverlayState {
    * frame. The overlay uses the same mapping as the video's object-fit. Default contain.
    */
   fit?: "cover" | "contain";
+  /** Demo only: the figure's box in the trace, and the band of the screen it is fitted into. */
+  demoBox?: Box;
+  demoArea?: { top: number; bottom: number; left?: number; right?: number };
 }
 
-/** The part of a synthetic trace's square frame the figure lives in (head to wheels). */
-const DEMO_BOX = { x0: 0.18, y0: 0.06, x1: 0.82, y1: 0.9 };
+/** A box in a frame's normalized coordinates. */
+export interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+/** The part of a synthetic trace's square frame a seated figure lives in (hands overhead to the seat). */
+export const DEMO_BOX: Box = { x0: 0.2, y0: 0.1, x1: 0.8, y1: 0.68 };
 
 /**
  * A single projection shared by every joint and connection. Real landmarks follow the video's
- * object-fit (cover or contain). Synthetic traces (demo) fit their figure's box into the screen,
- * anchored toward the top, so the figure stays clear of the bottom panel.
+ * object-fit (cover or contain). Synthetic traces (demo) fit `demoBox` into the band of the screen
+ * between `demoArea.top` and `demoArea.bottom` (shares of the height), clear of the caption and
+ * the panel. Every mapping keeps one scale for x and y.
  */
 export function projection(
   width: number,
   height: number,
-  st: Pick<OverlayState, "demo" | "sourceWidth" | "sourceHeight" | "mirrored" | "fit">,
+  st: Pick<
+    OverlayState,
+    "demo" | "sourceWidth" | "sourceHeight" | "mirrored" | "fit" | "demoBox" | "demoArea"
+  >,
 ) {
   if (st.demo) {
-    const bw = DEMO_BOX.x1 - DEMO_BOX.x0,
-      bh = DEMO_BOX.y1 - DEMO_BOX.y0;
-    const scale = Math.min(width / bw, (height * 0.92) / bh);
-    const ox = (width - bw * scale) / 2,
-      oy = Math.max(0, (height * 0.92 - bh * scale) * 0.25);
+    const box = st.demoBox ?? DEMO_BOX;
+    const area = st.demoArea ?? { top: 0, bottom: 1 };
+    const bw = box.x1 - box.x0,
+      bh = box.y1 - box.y0;
+    const top = area.top * height,
+      band = (area.bottom - area.top) * height;
+    const left = (area.left ?? 0) * width,
+      span = ((area.right ?? 1) - (area.left ?? 0)) * width;
+    const scale = Math.min((span * 0.92) / bw, band / bh);
+    const ox = left + (span - bw * scale) / 2,
+      oy = top + (band - bh * scale) / 2;
     return (x: number, y: number) => ({
-      x: ox + ((st.mirrored ? 1 - x : x) - DEMO_BOX.x0) * scale,
-      y: oy + (y - DEMO_BOX.y0) * scale,
+      x: ox + ((st.mirrored ? 1 - x : x) - box.x0) * scale,
+      y: oy + (y - box.y0) * scale,
     });
   }
   const sourceW = st.sourceWidth || width,

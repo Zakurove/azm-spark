@@ -36,6 +36,9 @@ import "./session.css";
  */
 export type SessionVariant = "trial" | "workout" | "booth";
 
+/** The standing figure of the sit to stand trace, head to feet (demo). */
+const STAND_BOX = { x0: 0.2, y0: 0.06, x1: 0.8, y1: 0.92 };
+
 /** The personal top sits at this share of the arc: room to show a rep that goes beyond it. */
 const TOP_AT = 0.8;
 
@@ -252,7 +255,12 @@ export default function SessionScreen(props: {
 
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
-      if (ctx)
+      if (ctx && canvas) {
+        const portrait = canvas.height > canvas.width;
+        // On a wide screen the panel floats at the inline end: the figure keeps the rest.
+        const cssWidth = wrap?.clientWidth ?? 0;
+        const side = !portrait && cssWidth >= 900 ? 448 / cssWidth : 0;
+        const rtl = lang === "ar";
         drawOverlay(ctx, v.frame, {
           contextLandmarks: contextSet,
           flashJoints: P.flash,
@@ -261,7 +269,13 @@ export default function SessionScreen(props: {
           sourceWidth: video?.videoWidth,
           sourceHeight: video?.videoHeight,
           fit: P.fit,
+          // the demo figure sits between the caption and the panel (beside the panel when wide)
+          demoBox: exerciseId === "sit_to_stand" ? STAND_BOX : undefined,
+          demoArea: portrait
+            ? { top: 0.17, bottom: 0.61 }
+            : { top: 0.2, bottom: 0.96, left: rtl ? side : 0, right: rtl ? 1 : 1 - side },
         });
+      }
 
       // The arc: the live position, the personal top at TOP_AT once the range is set.
       const fill = fillRef.current;
@@ -311,7 +325,7 @@ export default function SessionScreen(props: {
       if (v.stage === "finished") finishSet("done");
       else if (v.stage === "stopped") finishSet("safety");
     },
-    [contextSet, def, noVideo, say, player, captionText, finishSet],
+    [contextSet, def, noVideo, say, player, captionText, finishSet, exerciseId, lang],
   );
 
   // source lifecycle
@@ -831,7 +845,7 @@ function Gauge(p: {
       <div className="cam2-gauge-center">
         {p.ranged ? (
           <>
-            <b className="cam2-count" key={p.count}>
+            <b className={`cam2-count${p.count ? "" : " zero"}`} key={p.count}>
               {fmtNum(p.count, p.lang)}
             </b>
             <span className="cam2-target">

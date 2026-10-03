@@ -154,8 +154,6 @@ describe("movement check copy", () => {
       'experience.ts ui("en").noneYet: progress',
       'product.ts copy("ar").progress: تقدم',
       'product.ts copy("en").progress: progress',
-      // Q32 (2) word for word: «تقدّمه شركة» means a company provides it, not progress.
-      'platform-copy.ts labels("ar").reportConsentBody: تقدم',
     ];
     const app = OTHER_COPY.filter((c) => !c.key.startsWith("voice "));
     expect(app.length).toBeGreaterThan(300);

@@ -226,8 +226,9 @@ export function createApi(
       }
       if (route === "/api/medical-report" && req.method === "POST") {
         // Q32 (2): report reading sends health data to a model outside the Kingdom, so it needs its
-        // own explicit consent, ticked on the report panel and sent with every report. Without it
-        // nothing is sent anywhere. The acceptance is kept with its time, like every consent.
+        // own explicit consent, sent with every report. Since booth v2 (B8, option A) the press on
+        // «اقرأ تقريري» is that consent; the /privacy page names the processor. Without it nothing is
+        // sent anywhere. The acceptance is kept with its time, like every consent.
         if (body.reportConsent !== true) return json(403, { error: "CONSENT_REQUIRED" });
         const { reportConsent: _consent, ...report } = body;
         void _consent;

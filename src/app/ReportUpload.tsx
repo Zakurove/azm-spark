@@ -3,9 +3,6 @@ import { Lang } from "./i18n";
 import { labels, errorText } from "./platform-copy";
 import { api } from "./api";
 import Icon from "./Icon";
-import { t } from "../i18n";
-import { bidiText } from "../i18n/rich";
-import { privacyHref } from "./privacyHref";
 
 export interface ReportResult {
   document: string;
@@ -28,8 +25,8 @@ export interface ReportResult {
 }
 
 /**
- * The body of POST /api/medical-report: the report with the separate consent of Q32 (2), which the
- * server needs before it sends anything to the model.
+ * The body of POST /api/medical-report. Pressing «اقرأ تقريري» is the consent (booth v2, B8, option
+ * A): every read carries reportConsent true, which the server still requires before it sends anything.
  */
 export function reportRequest(
   body: { kind: "text"; text: string } | { kind: "image"; image: string },
@@ -38,11 +35,10 @@ export function reportRequest(
   return { ...body, lang, reportConsent: true };
 }
 
-/** Optional medical report analysis of a fresh intake (C47): a secondary link «عندك تقرير طبي؟» under
- * the first questions; choosing it opens the panel with the transfer notice before any upload.
- * The image is downscaled on the phone; on any failure the form continues by hand.
- * Nothing can be sent until the person ticks the separate report consent (Q32 (2)); skipping and
- * answering by hand stays open at all times. */
+/** Optional medical report reading of a fresh intake (C47): a secondary link «عندك تقرير طبي؟» under
+ * the first questions opens the panel. One action, «اقرأ تقريري», reads a photo (or the pasted text),
+ * with one plain line under it; the /privacy page keeps the processor details. The image is
+ * downscaled on the phone; on any failure the form continues by hand, and skipping stays open. */
 export default function ReportUpload({
   lang,
   onExtracted,
@@ -57,8 +53,8 @@ export default function ReportUpload({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [open, setOpen] = useState(opened),
-    [text, setText] = useState(""),
-    [consent, setConsent] = useState(false);
+    [paste, setPaste] = useState(false),
+    [text, setText] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   if (!open)
     return (
@@ -68,11 +64,10 @@ export default function ReportUpload({
       </button>
     );
 
-  const analyze = async (body: { kind: "text"; text: string } | { kind: "image"; image: string }) => {
+  const read = async (body: { kind: "text"; text: string } | { kind: "image"; image: string }) => {
     setBusy(true);
     setError("");
     try {
-      if (!consent) return;
       const result = await api<ReportResult>("/medical-report", reportRequest(body, lang));
       if (result.document === "not_medical" || result.document === "unreadable") {
         setError("NOT_MEDICAL");
@@ -93,13 +88,13 @@ export default function ReportUpload({
       setError("REPORT_INVALID");
       return;
     }
-    await analyze({ kind: "image", image });
+    await read({ kind: "image", image });
   };
 
   return (
-    <section className="report-upload" aria-label={c.reportTitle}>
+    <section className="report-upload" aria-label={c.reportTitle} aria-busy={busy}>
       <div className="report-heading">
-        <span className="landing-feature-icon report-icon">
+        <span className="report-icon">
           <Icon name="health" size={19} />
         </span>
         <div>
@@ -108,65 +103,56 @@ export default function ReportUpload({
         </div>
       </div>
       {busy ? (
-        <div className="report-busy">
+        <div className="report-busy" role="status">
           <span className="report-spinner" aria-hidden />
           {c.reportBusy}
         </div>
       ) : (
         <>
-          <div className="report-consent">
-            <p>{bidiText(lang, c.reportConsentBody)}</p>
-            <label className="consent">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span>{c.reportConsentCheck}</span>
-            </label>
-            <a className="report-privacy-link" href={privacyHref(lang)} target="_blank" rel="noreferrer">
-              {t(lang, "privacy.link")}
-            </a>
-          </div>
-          <div className="report-actions">
-            <button
-              type="button"
-              className="ghost"
-              disabled={!consent}
-              onClick={() => fileRef.current?.click()}
-            >
-              <Icon name="camera" size={16} />
-              {c.reportUpload}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onFile(f);
-                e.target.value = "";
-              }}
-            />
-          </div>
-          <label className="field report-paste">
-            <span>{c.reportPaste}</span>
-            <textarea
-              rows={3}
-              maxLength={20000}
-              value={text}
-              disabled={!consent}
-              onChange={(e) => setText(e.target.value)}
-            />
-          </label>
-          {text.trim().length > 0 && (
-            <button
-              type="button"
-              className="cta report-analyze"
-              disabled={!consent}
-              onClick={() => void analyze({ kind: "text", text: text.trim() })}
-            >
-              {c.reportAnalyze}
-              <Icon name="arrow" size={16} />
-            </button>
+          {paste ? (
+            <>
+              <label className="field report-paste">
+                <span>{c.reportPaste}</span>
+                <textarea rows={4} maxLength={20000} value={text} onChange={(e) => setText(e.target.value)} />
+              </label>
+              <div className="report-actions">
+                <button
+                  type="button"
+                  className="report-read"
+                  disabled={!text.trim()}
+                  onClick={() => void read({ kind: "text", text: text.trim() })}
+                >
+                  <Icon name="spark" size={17} />
+                  {c.reportRead}
+                </button>
+                <button type="button" className="text-button" onClick={() => setPaste(false)}>
+                  {c.reportPhotoOpen}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="report-actions">
+              <button type="button" className="report-read" onClick={() => fileRef.current?.click()}>
+                <Icon name="camera" size={17} />
+                {c.reportRead}
+              </button>
+              <button type="button" className="text-button" onClick={() => setPaste(true)}>
+                {c.reportPasteOpen}
+              </button>
+            </div>
           )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f);
+              e.target.value = "";
+            }}
+          />
+          <p className="report-notice">{c.reportNotice}</p>
           {error && (
             <p className="form-error" role="alert">
               {error === "NOT_MEDICAL" ? c.reportNotMedical : errorText(error, lang)}
@@ -177,7 +163,6 @@ export default function ReportUpload({
               {c.reportSkip}
             </button>
           </div>
-          <p className="field-help report-privacy">{c.reportPrivacy}</p>
         </>
       )}
     </section>

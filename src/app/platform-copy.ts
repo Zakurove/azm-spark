@@ -102,21 +102,18 @@ export const labels = (l: Lang) =>
         signOutError: "تعذّر الخروج. حاول مرة أخرى.",
         reportTitle: "عندك تقرير طبي؟",
         reportBody: "صوّر صفحة التقرير أو الصق نصه، فنعبّئ منه إجاباتك مسبقًا، ثم نسألك عمّا تبقّى فقط.",
-        // Q32 (2), word for word: the separate consent before a report is sent to be read.
-        reportConsentBody:
-          "نرسل تقريرك الطبي إلى نظام ذكاء اصطناعي تقدّمه شركة خارج المملكة ليقرأه. لا يحتفظ عزم بالتقرير. وقد تحتفظ به الشركة مدة أقصاها ٣٠ يومًا لأغراض الأمان فقط، ولا تستخدمه لتدريب نماذجها. إن استطعت، غطِّ اسمك ورقم هويتك قبل التصوير. ويمكنك بدلًا من ذلك أن تُدخل حالتك الطبية بنفسك.",
-        reportConsentCheck: "أوافق على إرسال تقريري لقراءته بهذه الطريقة.",
-        reportUpload: "ارفع صورة التقرير",
-        reportPaste: "أو الصق نص التقرير هنا",
-        reportAnalyze: "حلّل التقرير",
-        reportBusy: "جارٍ تحليل التقرير…",
+        // Booth v2 (B8, option A): one plain line; pressing «اقرأ تقريري» is the consent.
+        reportNotice: "يقرأ عزم تقريرك مرة واحدة ليملأ إجاباتك، ولا يحتفظ به.",
+        reportRead: "اقرأ تقريري",
+        reportPasteOpen: "أو الصق نص التقرير",
+        reportPhotoOpen: "أو صوّر التقرير",
+        reportPaste: "نص التقرير",
+        reportBusy: "يقرأ عزم تقريرك…",
         reportSkip: "تخطَّ وأجب يدويًا",
         reportDone: "استخرجنا هذه المعلومات من تقريرك، تأكّد منها قبل المتابعة.",
         reportMissing: "يتبقى عليك الإجابة عن:",
         reportBadge: "من التقرير",
         reportNotMedical: "لم نتعرّف على تقرير طبي في الملف. أكمل الإجابات يدويًا.",
-        reportPrivacy:
-          "يُحلَّل تقريرك مرة واحدة لتعبئة إجاباتك مسبقًا، ولا تحتفظ عزم بالتقرير أو الصورة، ولا يُحفظ إلا ما تؤكده وترسله بنفسك.",
       }
     : {
         login: "Sign in",
@@ -224,21 +221,18 @@ export const labels = (l: Lang) =>
         reportTitle: "Have a medical report?",
         reportBody:
           "Photograph the report page or paste its text. We prefill your answers from it, then ask only what is still missing.",
-        // Q32 (2), word for word: the separate consent before a report is sent to be read.
-        reportConsentBody:
-          "We send your medical report to an AI service from a company outside Saudi Arabia, which reads it. Azm does not keep the report. The company may keep it for up to 30 days for safety checks only, and does not use it to train its models. If you can, cover your name and ID number before taking the photo. You can enter your medical condition yourself instead.",
-        reportConsentCheck: "I agree to send my report to be read this way.",
-        reportUpload: "Upload a report photo",
-        reportPaste: "Or paste the report text here",
-        reportAnalyze: "Analyze report",
-        reportBusy: "Analyzing your report…",
+        // Booth v2 (B8, option A): one plain line; pressing Read my report is the consent.
+        reportNotice: "Azm reads your report once to fill in your answers, and does not keep it.",
+        reportRead: "Read my report",
+        reportPasteOpen: "Or paste the report text",
+        reportPhotoOpen: "Or photograph the report",
+        reportPaste: "Report text",
+        reportBusy: "Azm is reading your report…",
         reportSkip: "Skip and answer manually",
         reportDone: "We extracted this from your report. Please verify before continuing.",
         reportMissing: "Still to answer:",
         reportBadge: "from report",
         reportNotMedical: "We could not recognize a medical report in this file. Please answer manually.",
-        reportPrivacy:
-          "Your report is analyzed once to prefill your answers. Azm never stores the report or image; only the answers you confirm and submit are saved.",
       };
 export const optionNames: Record<string, { ar: string; en: string }> = {
   // The condition labels are the check's person first wording (S08 guest chips use these exactly).

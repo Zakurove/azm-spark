@@ -452,15 +452,33 @@ export default function App() {
           <b>{fmtNum(p.estimatedMinutes, lang)}</b>
           <span>{lang === "ar" ? tileNoun(p.estimatedMinutes, "دقائق", "دقيقة") : c.minutes}</span>
         </div>
-        <div>
-          <b>
-            {fmtNum(
-              p.exercises.reduce((s, e) => s + e.sets, 0),
-              lang,
-            )}
-          </b>
-          <span>{c.sets}</span>
-        </div>
+        {p.exercises.length > 0 ? (
+          <div>
+            <b>
+              {fmtNum(
+                p.exercises.reduce((s, e) => s + e.sets, 0),
+                lang,
+              )}
+            </b>
+            <span>{c.sets}</span>
+          </div>
+        ) : (
+          // Booth v2 (D): a program of guided cards alone counts the exercises of a session.
+          p.weekly && (
+            <div>
+              <b>{fmtNum(sessionSize(p, sessionDay(p.weekly, upcoming.getDay(), planRest(p))), lang)}</b>
+              <span>
+                {lang === "ar"
+                  ? tileNoun(
+                      sessionSize(p, sessionDay(p.weekly, upcoming.getDay(), planRest(p))),
+                      "تمارين في الجلسة",
+                      "تمرينًا في الجلسة",
+                    )
+                  : "exercises a session"}
+              </span>
+            </div>
+          )
+        )}
       </div>
       <div className="prescriptions">
         {p.exercises.map((e, i) => {

@@ -9,7 +9,6 @@
     "stepOf": "Step {n} of {total}",
     "next": "Next",
     "continue": "Continue",
-    "start": "Start",
     "retry": "Try again",
     "close": "Close",
     "yes": "Yes",
@@ -23,7 +22,6 @@
     "language": "العربية",
     "noneClears": "Clears the other choices",
     "sound": "Sound",
-    "notSure": "Not sure",
     "callAria": "Call {digits}"
   },
   "state": {
@@ -140,7 +138,6 @@
   },
   "guest": {
     "title": "Try the movement check",
-    "start": "Start",
     "boothBadge": "Azm booth",
     "offlineNoModel": "Movement tracking cannot be prepared without an internet connection this time. Connect, then try again.",
     "position": {

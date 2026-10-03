@@ -2,15 +2,11 @@
   "nav": {
     "label": "My results"
   },
-  "title": "My results",
   "loading": "Loading your results",
   "checks": {
     "heading": "Your check results"
   },
   "howToRead": "How to read this",
-  "verdictIconHigher": "Higher",
-  "verdictIconSame": "About the same",
-  "verdictIconLower": "Lower",
   "trend": {
     "table": "Show as a table",
     "chart": "Show as a chart",

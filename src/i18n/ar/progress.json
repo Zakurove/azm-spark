@@ -2,15 +2,11 @@
   "nav": {
     "label": "نتائجي"
   },
-  "title": "نتائجي",
   "loading": "نحمّل نتائجك",
   "checks": {
     "heading": "نتائج قياساتك"
   },
   "howToRead": "كيف تقرأ هذا",
-  "verdictIconHigher": "أعلى",
-  "verdictIconSame": "قريب من البداية",
-  "verdictIconLower": "أقل",
   "trend": {
     "table": "اعرضها جدولًا",
     "chart": "اعرضها رسمًا بيانيًا",

@@ -213,6 +213,17 @@ for (const lang of LANGS) {
       await expect(page.locator(".safety-sentences p[aria-current='true']")).toHaveCount(1);
     });
 
+    test("S37: the AD steps are numbered in the reader's digits (Q30)", async ({ page }) => {
+      await openGuest(page, lang, {
+        state: { kind: "safety", safety: "ad", screen: "scr_ad", alsoShow: [], faintAnswered: false },
+        sciT6: true,
+      });
+      const step = page.locator('[data-screen="S37"] .safety-steps li').first();
+      await expect(step).toBeVisible();
+      const marker = await step.evaluate((el) => getComputedStyle(el).listStyleType);
+      expect(marker).toBe(lang === "ar" ? "arabic-indic" : "decimal");
+    });
+
     test("S38 asks the faint question after its speech and 20 s; No keeps S38, Yes opens S36 (O42)", async ({
       page,
     }) => {

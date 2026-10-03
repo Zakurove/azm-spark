@@ -89,6 +89,10 @@
   margin: 0;
   padding-inline-start: var(--s6);
 }
+/* Q30: Arabic Indic digits in Arabic, the list numbers too. */
+.azm-check:lang(ar) .safety-steps {
+  list-style-type: arabic-indic;
+}
 .azm-check .safety-steps li::marker {
   font-weight: 800;
   color: var(--purple);

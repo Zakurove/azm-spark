@@ -88,9 +88,24 @@ export function createApi(
   const userView = (u: any) => ({ id: u.id, name: u.name, email: u.email, role: "member" });
   const profile = (id: string) => {
     const p = db.prepare("SELECT * FROM profiles WHERE user_id=?").get(id) as any;
-    return p
-      ? { intake: JSON.parse(p.intake), plan: { ...JSON.parse(p.plan), version: p.version } }
-      : { intake: null, plan: null };
+    if (!p) return { intake: null, plan: null };
+    const intake = JSON.parse(p.intake),
+      plan = JSON.parse(p.plan) as Plan;
+    // Booth v2 (B6): a stable chair is assumed. A plan the old chair rule left in review (every
+    // movement out for want of a chair tick) is planned again once, under a new version; the answers
+    // stay as they were. Such a plan was never ready, so no workout is pinned to it.
+    if (plan.exclusions?.some((e) => e.reason === "chair") && validateIntake(intake)) {
+      const fresh = { ...createPlan(intake), created: plan.created ?? Date.now() };
+      const version = p.version + 1;
+      db.prepare("UPDATE profiles SET plan=?, version=? WHERE user_id=? AND version=?").run(
+        JSON.stringify(fresh),
+        version,
+        id,
+        p.version,
+      );
+      return { intake, plan: { ...fresh, version } };
+    }
+    return { intake, plan: { ...plan, version: p.version } };
   };
   async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void) {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);

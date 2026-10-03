@@ -8,6 +8,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createPlan, validateIntake, Plan, Prescription } from "../src/medical/plan";
 import { extractReport, validReportBody } from "./report";
 import { createWeekly } from "./weekly-ai";
+import { cardRecord, runSteps, startDay, type RunPlan } from "./guided";
 import { BUSY_TIMEOUT_MS, runMigrations } from "./db/migrate";
 import { moduleRoutes } from "./modules";
 import type { Route } from "./http/types";
@@ -94,7 +95,15 @@ export function createApi(
     // Booth v2 (B6): a stable chair is assumed. A plan the old chair rule left in review (every
     // movement out for want of a chair tick) is planned again once, under a new version; the answers
     // stay as they were. Such a plan was never ready, so no workout is pinned to it.
-    if (plan.exclusions?.some((e) => e.reason === "chair") && validateIntake(intake)) {
+    // Booth v2 (D): a plan reviewed only because no camera movement fitted is guided cards now; it
+    // is planned again once, when that makes it ready.
+    const noCamera =
+      plan.status === "review" &&
+      plan.reasons?.length === 1 &&
+      plan.reasons[0] === "no_exercises" &&
+      validateIntake(intake) &&
+      createPlan(intake).status === "ready";
+    if ((plan.exclusions?.some((e) => e.reason === "chair") || noCamera) && validateIntake(intake)) {
       const fresh = { ...createPlan(intake), created: plan.created ?? Date.now() };
       const version = p.version + 1;
       db.prepare("UPDATE profiles SET plan=?, version=? WHERE user_id=? AND version=?").run(
@@ -300,27 +309,78 @@ export function createApi(
         if (!demo) {
           const active = db
             .prepare(
-              "SELECT id,position FROM workouts WHERE user_id=? AND version=? AND demo=0 AND ended=0 ORDER BY created DESC LIMIT 1",
+              "SELECT id,position,plan FROM workouts WHERE user_id=? AND version=? AND demo=0 AND ended=0 ORDER BY created DESC LIMIT 1",
             )
             .get(u.id, p.plan.version) as any;
-          if (active)
-            return json(200, { id: active.id, demo: false, plan: p.plan, nextIndex: active.position });
+          // A workout resumes with the day it started on (its cards), when it has one.
+          if (active) {
+            const today = (JSON.parse(active.plan) as RunPlan).today;
+            return json(200, {
+              id: active.id,
+              demo: false,
+              plan: p.plan,
+              nextIndex: active.position,
+              ...(today ? { today } : {}),
+            });
+          }
           const last = db
             .prepare("SELECT data FROM results WHERE user_id=? ORDER BY rowid DESC LIMIT 1")
             .get(u.id) as any;
           if (last && Date.now() - JSON.parse(last.data).endedAt < p.plan.recoveryHours * 3600000)
             return json(409, { error: "RECOVERY" });
         }
+        // Booth v2 (D): a page that knows the guided cards asks for them; the day is kept with the run.
+        const today = body.guided === true ? startDay(p.intake, p.plan, body.weekday, Date.now()) : null;
+        const run: RunPlan = today ? { ...p.plan, today } : p.plan;
+        if (!runSteps(run).length) return json(409, { error: "PLAN_REQUIRED" });
         const id = randomUUID();
         db.prepare("INSERT INTO workouts(id,user_id,plan,version,demo,created) VALUES(?,?,?,?,?,?)").run(
           id,
           u.id,
-          JSON.stringify(p.plan),
+          JSON.stringify(run),
           p.plan.version,
           Number(demo),
           Date.now(),
         );
-        return json(200, { id, demo, plan: p.plan });
+        return json(200, { id, demo, plan: p.plan, ...(today ? { today } : {}) });
+      }
+      const cards = route.match(/^\/api\/workouts\/([a-f0-9-]+)\/cards$/);
+      if (cards && req.method === "POST") {
+        const run = db.prepare("SELECT * FROM workouts WHERE id=? AND user_id=?").get(cards[1], u.id) as any;
+        if (!run) return json(404, { error: "NOT_FOUND" });
+        const current = profile(u.id);
+        if (current.plan?.version !== run.version || current.plan?.status !== "ready")
+          return json(409, { error: "PLAN_CHANGED" });
+        const steps = runSteps(JSON.parse(run.plan) as RunPlan);
+        if (run.ended || body.index !== run.position) return json(409, { error: "SET_ORDER" });
+        const now = Date.now();
+        const out = cardRecord(body, steps[body.index], run.created, now);
+        if ("error" in out)
+          return json(out.error === "order" ? 409 : 400, {
+            error: out.error === "order" ? "SET_ORDER" : "RESULT_INVALID",
+          });
+        const rpe = out.record?.rpe;
+        db.exec("BEGIN");
+        try {
+          if (!run.demo && out.record)
+            db.prepare("INSERT INTO results VALUES(?,?,?,?,?)").run(
+              randomUUID(),
+              u.id,
+              run.id,
+              body.index,
+              JSON.stringify(out.record),
+            );
+          db.prepare("UPDATE workouts SET position=position+1,ended=? WHERE id=?").run(
+            Number(body.index + 1 === steps.length || (typeof rpe === "number" && rpe >= 8)),
+            run.id,
+          );
+          db.exec("COMMIT");
+        } catch (err) {
+          db.exec("ROLLBACK");
+          throw err;
+        }
+        const saved = !run.demo && out.record !== null;
+        return json(200, { saved, record: saved ? out.record : null });
       }
       const match = route.match(/^\/api\/workouts\/([a-f0-9-]+)\/sets$/);
       if (match && req.method === "POST") {
@@ -329,12 +389,13 @@ export function createApi(
         const current = profile(u.id);
         if (current.plan?.version !== run.version || current.plan?.status !== "ready")
           return json(409, { error: "PLAN_CHANGED" });
-        const plan = JSON.parse(run.plan) as Plan;
-        const sets = plan.exercises.flatMap((e: Prescription) => Array.from({ length: e.sets }, () => e));
-        if (run.ended || body.index !== run.position || body.index >= sets.length)
+        // The steps of the run: the camera sets alone, or (a guided workout) between its cards.
+        const steps = runSteps(JSON.parse(run.plan) as RunPlan);
+        const step = steps[body.index];
+        if (run.ended || body.index !== run.position || !step || step.kind !== "camera")
           return json(409, { error: "SET_ORDER" });
         const s = body.summary,
-          e = sets[body.index];
+          e: Prescription = step.prescription;
         if (
           !s ||
           s.exerciseId !== e.exerciseId ||
@@ -413,7 +474,7 @@ export function createApi(
               JSON.stringify(data),
             );
           db.prepare("UPDATE workouts SET position=position+1,ended=? WHERE id=?").run(
-            Number(body.index + 1 === sets.length || s.rpe >= 8),
+            Number(body.index + 1 === steps.length || s.rpe >= 8),
             run.id,
           );
           db.exec("COMMIT");

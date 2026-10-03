@@ -4,6 +4,10 @@
   --line: #e3e4e9;
   --green: #53674e;
   --gold: #f8cb44;
+  /* Booth v2: no hard borders. A selection is a soft purple fill with a lavender glow. */
+  --select-fill: #f5f0fc;
+  --select-ink: #4f3c7c;
+  --select-glow: 0 0 0 2px #cdbdea, 0 10px 24px rgba(111, 90, 160, 0.14);
   background: #f5f5f7;
   color: var(--ink);
 }
@@ -150,9 +154,9 @@
   color: var(--muted);
 }
 .auth-tabs .active {
-  border-color: var(--ink);
+  border-color: #8f78c2;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--select-ink);
 }
 .auth-form-panel > p {
   font-size: 13px;
@@ -418,7 +422,7 @@
   color: #ece8f4;
 }
 .hero-dose > span + span {
-  border-inline-start: 1px solid #555865;
+  border-inline-start: 1px solid #e3dcc8;
   padding-inline-start: 17px;
 }
 .next-workout .cta {
@@ -509,7 +513,8 @@
   color: #5f6670;
 }
 .week-strip .current-day {
-  border: 1px solid #aa93c9;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #cdbdea;
 }
 .week-strip i {
   height: 3px;
@@ -985,8 +990,9 @@
   min-height: 48px;
 }
 .intake-choices button.selected {
-  background: #f1edf8;
-  border-color: #ab96c9;
+  background: var(--select-fill);
+  border-color: transparent;
+  box-shadow: var(--select-glow);
   color: #5e4989;
 }
 .conditions-grid {
@@ -1166,8 +1172,9 @@
   padding: 6px;
 }
 .day-picker .selected {
-  border-color: #b7a2d4;
-  background: #eee8f6;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow: var(--select-glow);
   color: #5c4885;
 }
 .intake-actions {
@@ -2616,8 +2623,11 @@
   transform: translateY(-2px);
 }
 .try-pose.selected {
-  border-color: var(--gold);
-  box-shadow: 0 20px 44px -24px #d9a82aa6;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow:
+    0 0 0 2px #cdbdea,
+    0 20px 44px -24px rgba(111, 90, 160, 0.55);
 }
 .try-pose-check {
   position: absolute;
@@ -2707,8 +2717,10 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #1c2029;
-  color: #fff;
+  /* Booth v2: soft purple numbers, no hard black discs. */
+  background: #f1ecf8;
+  color: #5b4590;
+  font-weight: 800;
   display: grid;
   place-items: center;
   font-size: 13px;
@@ -3178,9 +3190,11 @@
   color: var(--muted);
 }
 .weekly-days button.active {
-  border-color: var(--gold);
-  background: #fffaeb;
-  box-shadow: 0 12px 26px -18px #d9a82a99;
+  border-color: transparent;
+  background: var(--select-fill);
+  box-shadow:
+    0 0 0 2px #cdbdea,
+    0 12px 26px -18px rgba(111, 90, 160, 0.55);
 }
 .weekly-day {
   display: grid;

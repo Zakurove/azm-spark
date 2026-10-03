@@ -37,6 +37,14 @@
   --shadow-soft: rgba(28, 32, 41, 0.5);
   --shadow-strong: rgba(28, 32, 41, 0.6);
   --focus: 0 0 0 3px var(--card), 0 0 0 6px var(--gold-ink);
+  /* Booth v2: no hard borders. Soft fills, soft edges, and a soft purple glow for a selection. */
+  --soft-fill: #f4f1f8;
+  --soft-fill-hover: #ece6f5;
+  --soft-edge: inset 0 0 0 1px #dcd8e6, 0 6px 18px -14px rgba(46, 34, 82, 0.35);
+  --soft-edge-hover: inset 0 0 0 1px #cdbdea, 0 8px 20px -14px rgba(111, 90, 160, 0.45);
+  --soft-selected: 0 0 0 2px #cdbdea, 0 10px 24px rgba(111, 90, 160, 0.14);
+  --soft-gold: 0 10px 22px -14px rgba(214, 160, 20, 0.75);
+  --mark-border: #8f86a8;
 
   /* Spacing on a 4 px grid, radii (0.3). */
   --s1: 0.25rem;

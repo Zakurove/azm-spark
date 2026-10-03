@@ -123,7 +123,8 @@
   box-shadow: var(--focus);
 }
 
-/* Primary: gold fill, ink text, 1 px gold ink border, one per screen, never disabled. */
+/* Primary: gold fill, ink text, one per screen, never disabled. Booth v2: no hard border (a
+   transparent one keeps the size and shows in forced colours), a soft gold shadow. */
 .azm-check .cta {
   display: inline-flex;
   align-items: center;
@@ -132,9 +133,10 @@
   width: 100%;
   min-height: var(--h-cta);
   padding: var(--s3) var(--s6);
-  border: 1px solid var(--gold-ink);
+  border: 1px solid transparent;
   border-radius: var(--r-control);
   background: var(--gold);
+  box-shadow: var(--soft-gold);
   color: var(--ink);
   font-size: var(--t-button);
   font-weight: 700;
@@ -150,7 +152,7 @@
   cursor: progress;
 }
 
-/* Secondary: outlined, 48 px. */
+/* Secondary: a soft lavender fill, 48 px (booth v2: no outline). */
 .azm-check .ghost {
   display: inline-flex;
   align-items: center;
@@ -159,9 +161,9 @@
   width: 100%;
   min-height: var(--h-ghost);
   padding: var(--s2) var(--s4);
-  border: 1px solid var(--field-border);
+  border: 1px solid transparent;
   border-radius: var(--r-control);
-  background: var(--card);
+  background: var(--soft-fill);
   color: var(--ink);
   font-size: var(--t-button);
   font-weight: 700;
@@ -171,7 +173,7 @@
   cursor: pointer;
 }
 .azm-check .ghost:hover {
-  border-color: var(--ink);
+  background: var(--soft-fill-hover);
 }
 
 /* The tests that do not run today (C32): one muted line, then each distinct reason once. */
@@ -224,16 +226,17 @@
   min-height: var(--h-icon);
   min-width: var(--h-icon);
   padding: 0 var(--s3);
-  border: 1px solid var(--field-border);
+  border: 1px solid transparent;
   border-radius: var(--r-control);
-  background: var(--card);
+  background: var(--soft-fill);
   color: var(--ink);
   font-size: var(--t-meta);
   font-weight: 700;
   cursor: pointer;
 }
 
-/* Answer rows: full width, 64 px, 12 px apart; selected is purple tint, purple border and a check. */
+/* Answer rows: full width, 64 px, 12 px apart; a soft hairline, and selected is a soft purple fill
+   with a lavender glow and a check (booth v2: no hard borders). */
 .azm-check .check-answers {
   display: grid;
   gap: var(--s3);
@@ -248,9 +251,10 @@
   width: 100%;
   min-height: var(--h-answer);
   padding: var(--s3) var(--s4);
-  border: 1.5px solid var(--field-border);
+  border: 1.5px solid transparent;
   border-radius: var(--r-control);
   background: var(--card);
+  box-shadow: var(--soft-edge);
   color: var(--ink);
   font-size: var(--t-answer);
   font-weight: 650;
@@ -259,12 +263,16 @@
   cursor: pointer;
 }
 .azm-check .check-answer:hover {
-  border-color: var(--ink);
+  box-shadow: var(--soft-edge-hover);
 }
 .azm-check .check-answer[aria-pressed="true"],
 .azm-check .check-answer[aria-checked="true"] {
-  border: 2px solid var(--purple);
   background: var(--purple-tint);
+  box-shadow: var(--soft-selected);
+}
+/* The keyboard focus ring stays visible on a selected answer. */
+.azm-check .check-answer:focus-visible {
+  box-shadow: var(--focus);
 }
 .azm-check .check-answer-mark {
   display: inline-flex;
@@ -273,7 +281,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1.5px solid var(--field-border);
+  border: 1.5px solid var(--mark-border);
   border-radius: 999px;
   background: var(--card);
   color: var(--card);
@@ -318,9 +326,9 @@
   flex: none;
   width: 56px;
   height: 56px;
-  border: 1.5px solid var(--field-border);
+  border: 1.5px solid transparent;
   border-radius: var(--r-control);
-  background: var(--card);
+  background: var(--soft-fill);
   color: var(--ink);
   cursor: pointer;
 }
@@ -386,9 +394,13 @@
   color: var(--on-red);
 }
 .azm-check .check-call.is-937 {
-  background: var(--card);
-  border: 2px solid var(--purple);
+  background: var(--purple-tint);
+  border: 2px solid transparent;
+  box-shadow: var(--soft-selected);
   color: var(--purple);
+}
+.azm-check .check-call:focus-visible {
+  box-shadow: var(--focus);
 }
 
 /* STOP on camera screens: full width, red, 72 px (section 4, principle 6). */
@@ -800,8 +812,10 @@ html:has(.azm-check.check-page) {
   padding: var(--s3) var(--s4);
   border-radius: var(--r-control);
   background: var(--card);
-  border: 1px solid var(--field-border);
-  box-shadow: 0 16px 40px -24px var(--shadow-strong);
+  border: 1px solid transparent;
+  box-shadow:
+    var(--soft-edge),
+    0 16px 40px -24px var(--shadow-strong);
   font-size: var(--t-meta);
   font-weight: 650;
 }
@@ -812,8 +826,8 @@ html:has(.azm-check.check-page) {
   min-height: 32px;
   padding: 0 var(--s3);
   border-radius: var(--r-pill);
-  background: var(--card);
-  border: 1px solid var(--field-border);
+  background: var(--soft-fill);
+  border: 1px solid transparent;
   font-size: var(--t-meta);
   font-weight: 600;
 }

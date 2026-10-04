@@ -86,8 +86,8 @@ export interface RomProtocol {
   notMeasured: RomNotMeasured[];
   sitBeforeStand: boolean;
 }
-/** C-13 and rom-protocol sessionOrder: at most 8 measured movements per check. */
-export const MAX_MEASURED_PER_CHECK = 8;
+/** C-13 and rom-protocol sessionOrder: at most 8 measured movements per check (read from the data, C-1). */
+export const MAX_MEASURED_PER_CHECK: number = ROM_DATA.sessionOrder.maxMeasured;
 export interface RomProtocolInput {
   intake: Intake & Required<Pick<Intake, "sex" | "regions" | "walking">>;
   setting: "home" | "booth";

@@ -283,6 +283,24 @@ describe("ROM runtime data (rom-v7.json)", () => {
     for (const c of asked) expect(conditions as readonly string[], c.condition).toContain(c.condition);
   });
 
+  it("keeps the retest bands and the session cap as numbers (freeze step, D-024 item 4)", () => {
+    const { retest, sessionOrder } = ROM_DATA;
+    expect(retest.floorDeg).toBeGreaterThan(0);
+    expect(retest.defaultDeg).toBeGreaterThanOrEqual(retest.floorDeg);
+    for (const [key, band] of Object.entries(retest.bands)) {
+      expect([...ROM_MOVEMENT_IDS, ...REGION_IDS] as string[], key).toContain(key);
+      for (const v of [band.deg, band.neurologicalDeg, band.neurologicalLabDeg, band.neurologicalHomeDeg])
+        if (v !== undefined) expect(v, key).toBeGreaterThanOrEqual(retest.floorDeg);
+      if (band.position)
+        expect(
+          movementDef(key as RomMovementId).positions.map((p) => p.id),
+          key,
+        ).toContain(band.position);
+    }
+    expect(Number.isInteger(sessionOrder.maxMeasured)).toBe(true);
+    expect(sessionOrder.minutesPerMovement).toBeGreaterThan(0);
+  });
+
   it("serves the typed accessors and versions", () => {
     expect(movementDef("knee_extension").kind).toBe("lack");
     expect(defaultDef("neck_rotation").region).toBe("neck");

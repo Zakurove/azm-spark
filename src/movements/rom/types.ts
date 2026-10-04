@@ -416,6 +416,40 @@ export interface RomFunctionalFloor {
   position?: RomPositionId;
 }
 
+/**
+ * A retest band (rom-protocol retest, review B15): the change in degrees that counts as real. `deg` holds
+ * for everyone; `neurologicalDeg` on a limb affected by a neurological condition; the elbow's
+ * neurological band is written twice in the rule, lab and home (contract change log, freeze step).
+ * `position` names the position the band is for (lying knee straightening); `wideDeg` is the side arm
+ * raise's wide band of v1.1.
+ */
+export interface RomRetestBand {
+  deg?: number;
+  neurologicalDeg?: number;
+  neurologicalLabDeg?: number;
+  neurologicalHomeDeg?: number;
+  position?: RomPositionId;
+  wideDeg?: number;
+}
+
+/** retest: the bands compareRom reads (B4). A change counts only beyond the band, never below floorDeg. */
+export interface RomRetest {
+  /** «never below 10» */
+  floorDeg: number;
+  /** «all other movements 10 until the bench test retest gives Azm's own value» */
+  defaultDeg: number;
+  /** By movement, or by region where the rule names a region (elbow: both elbow movements). */
+  bands: Partial<Record<RomMovementId | RegionId, RomRetestBand>>;
+}
+
+/** sessionOrder: «At most 8 measured movements per session (about 1.5 minutes each, calc)». */
+export interface RomSessionOrder {
+  /** MAX_MEASURED_PER_CHECK reads it (C-13). */
+  maxMeasured: number;
+  /** The coach segment minutes (C-6: items x 1.5 + 1). */
+  minutesPerMovement: number;
+}
+
 export interface RomData {
   id: string;
   specVersion: string;
@@ -440,6 +474,8 @@ export interface RomData {
   defaultMovements: RomDefaultMovementDef[];
   norms: NormDef[];
   thresholds: { functionalFloor: Partial<Record<RomMovementId, RomFunctionalFloor>> };
+  retest: RomRetest;
+  sessionOrder: RomSessionOrder;
   /** Kept until the tech lead decides contract gap 5: the parity source for the safety ids and the pain rule. */
   safety: { id: RomSafetyId; rule: string; action: string }[];
   reasonIds: Record<RomV7ReasonId, string>;

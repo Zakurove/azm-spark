@@ -5375,6 +5375,34 @@
       }
     }
   },
+  "retest": {
+    "floorDeg": 10,
+    "defaultDeg": 10,
+    "bands": {
+      "shoulder_flexion": {
+        "neurologicalDeg": 18
+      },
+      "elbow": {
+        "neurologicalLabDeg": 33,
+        "neurologicalHomeDeg": 36
+      },
+      "ankle_dorsiflexion_lunge": {
+        "deg": 10
+      },
+      "knee_extension": {
+        "deg": 11,
+        "position": "lying_back"
+      },
+      "shoulder_abduction": {
+        "deg": 16,
+        "wideDeg": 20
+      }
+    }
+  },
+  "sessionOrder": {
+    "maxMeasured": 8,
+    "minutesPerMovement": 1.5
+  },
   "safety": [
     {
       "id": "global_gate",

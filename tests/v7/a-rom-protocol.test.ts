@@ -854,6 +854,11 @@ describe("session order and the cap (C-13, rom-protocol sessionOrder)", () => {
     })),
   });
 
+  it("reads the cap from the data: sessionOrder.maxMeasured (C-1)", () => {
+    expect(MAX_MEASURED_PER_CHECK).toBe(ROM_DATA.sessionOrder.maxMeasured);
+    expect(MAX_MEASURED_PER_CHECK).toBe(8);
+  });
+
   it("at most MAX_MEASURED_PER_CHECK (8) run; core movements first; the rest are deferred", () => {
     expect(MAX_MEASURED_PER_CHECK).toBe(8);
     const p = build(fahd);
@@ -1008,16 +1013,17 @@ describe.skipIf(!process.env.AZM_CLINICAL_V7)(
   () => {
     const rom = () =>
       JSON.parse(readFileSync(join(process.env.AZM_CLINICAL_V7!, "rom-protocol.json"), "utf8")) as {
-        sessionOrder: string;
+        sessionOrder: { rule: string; maxMeasured: number };
         limbLoss: { levels: { level: keyof typeof LIMB_LOSS_PRESENT_REGIONS; present: string }[] };
         safety: { id: string; rule: string }[];
       };
 
     it("the cap: at most 8 measured movements per session", () => {
-      expect(rom().sessionOrder).toContain(
+      expect(rom().sessionOrder.maxMeasured).toBe(MAX_MEASURED_PER_CHECK);
+      expect(rom().sessionOrder.rule).toContain(
         `At most ${MAX_MEASURED_PER_CHECK} measured movements per session`,
       );
-      expect(rom().sessionOrder).toContain(
+      expect(rom().sessionOrder.rule).toContain(
         "seated block (shoulder, elbow, neck, seated variants), then standing block",
       );
     });

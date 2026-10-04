@@ -187,8 +187,8 @@ function romSource(): Obj {
       functionalFloor: withReviewFields(rom.thresholds.functionalFloor),
     },
     functionalCrossCheck: [{ movement: "shoulder_flexion", text: "Daily tasks" }],
-    retest: "Proposal",
-    sessionOrder: "Proposal",
+    retest: { rule: "Proposal: band = MDC95, never below 10", ...rom.retest },
+    sessionOrder: { rule: "At most 8 measured movements", ...rom.sessionOrder },
     safety: rom.safety.map((s: Obj) => ({ ...s, evidence: "Proposal" })),
     reasonIds: rom.reasonIds,
     copy: rom.copy,
@@ -434,7 +434,7 @@ describe("v7 clinical export: sections", () => {
     for (const name of ["rom", "gait", "targets"] as const)
       for (const key of DROP_TOP[name]) expect(KEEP[name]).not.toContain(key);
     const { data } = exportV7(sources());
-    expect(Object.keys(data!.rom)).not.toContain("sessionOrder");
+    expect(Object.keys(data!.rom)).not.toContain("normSelection");
     expect(Object.keys(data!.gait)).not.toContain("notInMvp");
     expect(Object.keys(data!.targets)).not.toContain("coverage");
   });
@@ -898,6 +898,39 @@ describe("v7 clinical export: movements (rules 6 and 7)", () => {
     expect(d.resultName).toEqual({ ar: "وصول الفخذ", en: "Thigh behind" });
     expect(d.compensationIds).toEqual(["trunk_back"]);
     expect(d.name).toEqual({ ar: "رفع الذراع أمامًا", en: "Arm raise to the front" });
+  });
+});
+
+describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 item 4)", () => {
+  it("exports retest (floor, default and the bands) and sessionOrder (the cap), without their prose", () => {
+    const rom = exportRom(romSource()) as Obj;
+    expect(rom.retest).toEqual({
+      floorDeg: 10,
+      defaultDeg: 10,
+      bands: {
+        shoulder_flexion: { neurologicalDeg: 18 },
+        elbow: { neurologicalLabDeg: 33, neurologicalHomeDeg: 36 },
+        ankle_dorsiflexion_lunge: { deg: 10 },
+        knee_extension: { deg: 11, position: "lying_back" },
+        shoulder_abduction: { deg: 16, wideDeg: 20 },
+      },
+    });
+    expect(rom.sessionOrder).toEqual({ maxMeasured: 8, minutesPerMovement: 1.5 });
+    expect(KEEP.rom).toEqual(expect.arrayContaining(["retest", "sessionOrder"]));
+    expect(DROP_TOP.rom).not.toContain("retest");
+    expect(DROP_TOP.rom).not.toContain("sessionOrder");
+  });
+
+  it("fails on a retest band of an unknown movement or field, and on a number written as text", () => {
+    const s = romSource();
+    s.retest.bands.wrist = { deg: 10 };
+    expect(() => exportRom(s)).toThrow("retest band wrist: not a movement or region id");
+    const f = romSource();
+    f.retest.bands.elbow.homeDeg = 36;
+    expect(() => exportRom(f)).toThrow("retest band elbow: unknown field homeDeg");
+    const t = romSource();
+    t.sessionOrder.maxMeasured = "8";
+    expect(() => exportRom(t)).toThrow("sessionOrder.maxMeasured: not a number");
   });
 });
 

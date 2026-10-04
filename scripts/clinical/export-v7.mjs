@@ -97,6 +97,8 @@ export const KEEP = {
     "defaultMovements",
     "norms",
     "thresholds",
+    "retest",
+    "sessionOrder",
     "safety",
     "reasonIds",
     "copy",
@@ -148,8 +150,9 @@ const DERIVED = { citations: "sources", whyLines: "mapping" };
 
 /**
  * Top level source sections that are known and not kept: documentation and review material.
- * Gap 5 of the change log lists them; the ROM landmark names, norm selection prose, functional
- * cross check, retest prose and session order prose are implemented in code from local-docs.
+ * Gap 5 of the change log lists them; the ROM landmark names, norm selection prose and functional
+ * cross check are implemented in code from local-docs. Retest and the session order are kept since
+ * the freeze step (D-024 item 4): their numbers, not their prose.
  */
 export const DROP_TOP = {
   rom: [
@@ -161,8 +164,6 @@ export const DROP_TOP = {
     "landmarks",
     "normSelection",
     "functionalCrossCheck",
-    "retest",
-    "sessionOrder",
     "openQuestions",
     "notVerified",
     "reviewLog",
@@ -353,6 +354,12 @@ function knownFields(value, known, where) {
   for (const k of Object.keys(value))
     if (!known.includes(k) && !DROP_ANYWHERE.includes(k))
       fail(`${where}: unknown field ${k}: add it to export-v7.mjs`);
+}
+
+/** A number the code reads: fails on text, so a number written as words never reaches the runtime data. */
+function num(v, where) {
+  if (typeof v !== "number" || !Number.isFinite(v)) fail(`${where}: not a number: ${JSON.stringify(v)}`);
+  return v;
 }
 
 /** Checks the fields of an object (kept, or known as dropped prose) and keeps the kept ones (rule 3). */
@@ -671,6 +678,47 @@ function limbLossLevels(limbLoss, reasonOf) {
   };
 }
 
+/** The fields of a retest band (D-024 item 4): a movement's band, the neurological limb's and the wide band. */
+export const RETEST_BAND_FIELDS = [
+  "deg",
+  "neurologicalDeg",
+  "neurologicalLabDeg",
+  "neurologicalHomeDeg",
+  "position",
+  "wideDeg",
+];
+
+/**
+ * retest: the change bands compareRom reads (B4; review B15), copied from the rule in words, which
+ * stays in local-docs. A band is keyed by movement, or by region where the rule names a region (elbow).
+ */
+function retest(r, movements) {
+  knownFields(r, ["floorDeg", "defaultDeg", "bands", "rule"], "retest");
+  for (const [k, band] of Object.entries(r.bands ?? fail("retest.bands is missing"))) {
+    const where = `retest band ${k}`;
+    const movement = movements.find((m) => m.id === k);
+    if (!movement && !REGION_IDS.includes(k)) fail(`${where}: not a movement or region id`);
+    knownFields(band, RETEST_BAND_FIELDS, where);
+    for (const f of RETEST_BAND_FIELDS) if (f in band && f !== "position") num(band[f], `${where}.${f}`);
+    if ("position" in band && !movement?.positions.some((p) => p.id === band.position))
+      fail(`${where}: position ${band.position} is not a position of the movement`);
+  }
+  return {
+    floorDeg: num(r.floorDeg, "retest.floorDeg"),
+    defaultDeg: num(r.defaultDeg, "retest.defaultDeg"),
+    bands: strip(r.bands),
+  };
+}
+
+/** sessionOrder: the measured cap of a check (MAX_MEASURED_PER_CHECK) and the minutes per movement (C-6). */
+function sessionOrder(o) {
+  knownFields(o, ["maxMeasured", "minutesPerMovement", "rule"], "sessionOrder");
+  return {
+    maxMeasured: num(o.maxMeasured, "sessionOrder.maxMeasured"),
+    minutesPerMovement: num(o.minutesPerMovement, "sessionOrder.minutesPerMovement"),
+  };
+}
+
 /** thresholds: the functional floors (the grading rules in words are implemented in rom-norms.ts). */
 function thresholds(t) {
   knownFields(t, ["functionalFloor", ...ROM_PROSE.thresholds], "thresholds");
@@ -734,6 +782,8 @@ export function exportRom(source) {
     }),
     norms,
     thresholds: thresholds(source.thresholds),
+    retest: retest(source.retest, source.movements),
+    sessionOrder: sessionOrder(source.sessionOrder),
     safety: source.safety.map((s) => take(s, ["id", "rule", "action"], `safety ${s.id}`)),
     reasonIds: strip(reasonIds),
     copy: strip(source.copy),

@@ -183,7 +183,11 @@ export function sanitizeRegions(v: unknown): ReportRegion[] {
     const key = `${region}:${side}`;
     const merged = new Set<unknown>([...(out.get(key)?.problems ?? []), ...problems]);
     if (!out.has(key) && out.size >= MAX_REGION_ENTRIES) continue;
-    out.set(key, { region, side, problems: PROBLEM_TYPES.filter((p): p is ProblemType => merged.has(p)) });
+    // A limb loss belongs to an arm or a leg, never to the neck or the back.
+    const problemsOf = PROBLEM_TYPES.filter(
+      (p): p is ProblemType => merged.has(p) && !(p === "limb_loss" && side === "axial"),
+    );
+    out.set(key, { region, side, problems: problemsOf });
   }
   return [...out.values()];
 }

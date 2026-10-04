@@ -288,6 +288,15 @@ describe("mergeRegions", () => {
     expect(mergeRegions([], merged)).toEqual(merged);
   });
 
+  it("splits a limb loss listed on both sides, so each side asks its level", () => {
+    expect(
+      mergeRegionDrafts([], [{ region: "knee", side: "both", problems: ["limb_loss"], origin: "report" }]),
+    ).toEqual([
+      { region: "knee", side: "right", problems: ["limb_loss"], origin: "report" },
+      { region: "knee", side: "left", problems: ["limb_loss"], origin: "report" },
+    ]);
+  });
+
   it("merges entries still being answered the same way (the intake form's working state)", () => {
     const drafts: RegionDraft[] = [{ region: "hip", side: "left", problems: [], origin: "person" }];
     expect(

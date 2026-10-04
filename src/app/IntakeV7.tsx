@@ -5,8 +5,8 @@
  * (rom-protocol 2.2 and 6), the report's region suggestions (applied only by a tap), and the safety
  * questions of RomIntakeFlags.
  *
- * IntakeForm loads this module only in a VITE_V7 build (`V7_UI ? lazy(...) : null`), so a default
- * build has none of it. The step keeps its working state (V7Ui) in IntakeForm, so it survives moving
+ * IntakeForm loads this module only in a VITE_V7 build (`import.meta.env.VITE_V7 === "1" ?
+ * lazy(...) : null`), so a default build has none of it. The step keeps its working state (V7Ui) in IntakeForm, so it survives moving
  * between steps, and writes the intake's v7 fields (V7Answers) on every change: a field stays
  * undefined until its answers are complete, which keeps Continue closed. Clinical lines come from
  * the range data (romCopy, regions, problem types, movement names); the step's own lines are in the
@@ -585,7 +585,10 @@ function RegionCard({
   onRemove(): void;
 }) {
   const oneSide = draft.side === "left" || draft.side === "right";
-  const problems = PROBLEM_TYPES.filter((p) => p !== "limb_loss" || (oneSide && limbOf(draft.region)));
+  // Limb loss on one side of a limb only; a chosen one stays visible so it can be unticked.
+  const problems = PROBLEM_TYPES.filter(
+    (p) => p !== "limb_loss" || (oneSide && limbOf(draft.region)) || draft.problems.includes(p),
+  );
   const title = entryLabel(lang, draft.region, draft.side);
   const complete = finalizeRegion(draft) !== null;
   // A complete card (a fill, a saved answer) starts folded to one line; an open one has its questions.

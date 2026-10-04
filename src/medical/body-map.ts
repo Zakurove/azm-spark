@@ -377,12 +377,14 @@ export function mergeRegionDrafts<T extends RegionDraft>(base: readonly T[], add
     const r = right.length ? combine(right, "right") : null;
     const l = left.length ? combine(left, "left") : null;
     const hasBoth = here.some((e) => e.side !== "left" && e.side !== "right");
+    // A limb loss belongs to one side: two sides that list it stay apart, so each asks its level.
+    const lostLimb = (e: T) => e.limbLoss !== undefined || e.problems.includes("limb_loss");
     if (
       r &&
       l &&
       hasBoth &&
-      !r.limbLoss &&
-      !l.limbLoss &&
+      !lostLimb(r) &&
+      !lostLimb(l) &&
       same({ ...r, origin: 0, side: 0 }, { ...l, origin: 0, side: 0 })
     )
       out.push(combine(here, "both"));

@@ -351,6 +351,16 @@ describe("the step on screen", () => {
     });
   });
 
+  it("keeps a chosen limb loss chip visible on a card that cannot hold one, so it can be unticked", () => {
+    const ui: V7Ui = {
+      ...complete,
+      drafts: [{ region: "neck", side: "axial", problems: ["limb_loss"], origin: "report" }],
+    };
+    const html = render({ ui, lang: "en" });
+    expect(html).toMatch(/aria-pressed="true"[^>]*>.*?Limb loss/s);
+    expect(stepAnswers(ui, ctx()).regions).toBeUndefined();
+  });
+
   it("asks an ankle surgery the Achilles question", () => {
     const ui: V7Ui = {
       ...complete,

@@ -89,6 +89,9 @@ describe("sanitizing the suggested regions", () => {
       { region: "knee", side: "unknown", problems: ["injury"] },
     ]);
     expect(sanitizeRegions("shoulder")).toEqual([]);
+    expect(sanitizeRegions([{ region: "neck", side: "axial", problems: ["limb_loss", "pain"] }])).toEqual([
+      { region: "neck", side: "axial", problems: ["pain"] },
+    ]);
     expect(sanitizeRegions([null, 3, { region: "hip" }])).toEqual([
       { region: "hip", side: "unknown", problems: [] },
     ]);

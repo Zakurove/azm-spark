@@ -1,4 +1,11 @@
 import library from "../exercises/library.json";
+import {
+  V7_ONLY_IDS,
+  canClearV7Ids,
+  openPositions,
+  recentHipReplacement,
+  v7Contraindications,
+} from "./contraindications";
 import { getDetailedDisabilityConfig } from "./legacy-config";
 import type { DisabilityType } from "./legacy-types";
 import type { Intake } from "./plan";
@@ -62,14 +69,32 @@ export const CAMERA_TWINS: Record<string, string> = {
 };
 const TWIN_IDS = new Set(Object.values(CAMERA_TWINS));
 
-/** The safe library exercises for an intake (the eligibility rules of the weekly plan). */
-export function libraryPool(h: Intake): LibraryExercise[] {
+/**
+ * The safe library exercises for an intake (the eligibility rules of the weekly plan). The pool stays
+ * the safety base in every build (product v7 contract 2.10), and reads no flag:
+ *   1. a draft (a new exercise before its sign off) only with includeDrafts, which only
+ *      selectForTargets passes, so the default pool never holds one;
+ *   2. the v7 contraindications the intake decides close an exercise, or only its standing or chair
+ *      front forms (contraindications.ts); an intake without the v7 fields cannot clear a v7 id or a
+ *      hip end range item; a hip replacement under 3 months drops every hip end range item, whatever
+ *      limits were ticked. Existing entries carry no v7 id and no hip end range, so v1 pools are
+ *      unchanged.
+ */
+export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): LibraryExercise[] {
   const configs = configsFor(h);
   const avoid = new Set(configs.flatMap((c) => c.avoidCategories));
   const highFatigue = configs.some((c) => ["high", "critical"].includes(String(c.fatigueRisk)));
   const painContra = new Set(h.pain.map((p) => `${p}_injury`));
   const has = (r: string) => h.restrictions.includes(r);
+  const v7Ids = v7Contraindications(h, null, null);
+  const clearsV7 = canClearV7Ids(h);
+  const hipReplaced = recentHipReplacement(h);
   return LIBRARY.filter((e) => {
+    if (e.status === "draft" && !opts.includeDrafts) return false;
+    const hipEndRange = (e.hipEndRange?.length ?? 0) > 0;
+    if (!clearsV7 && (hipEndRange || e.contraindications.some((c) => V7_ONLY_IDS.has(c)))) return false;
+    if (hipReplaced && hipEndRange) return false;
+    if (!openPositions(e, v7Ids)) return false;
     const seatedOk = e.tags.includes("seated") || e.tags.includes("wheelchair_friendly");
     const text = `${e.name.en} ${e.description.en} ${e.steps.en.join(" ")}`;
     if (TWIN_IDS.has(e.id)) return false;

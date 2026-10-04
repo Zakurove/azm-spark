@@ -733,8 +733,3 @@ export function buildRomProtocol(input: RomProtocolInput): RomProtocol {
   out.sitBeforeStand = out.items.some((i) => i.block === "lying" && !i.skipped);
   return out;
 }
-
-/** "movement:side" helper for callers that index a protocol. */
-export function protocolKey(item: Pick<RomProtocolItem, "movementId" | "side">): string {
-  return keyOf(item.movementId, item.side);
-}

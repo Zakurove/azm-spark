@@ -10,6 +10,7 @@ import {
   GAIT_DAY_ITEMS,
   RF_REGION_COPY,
   RF_REGION_ITEM,
+  RF_REGION_LEG,
   applyPrecheckOutcome,
   focusPrecheckEnv,
   gaitDayItems,
@@ -431,6 +432,8 @@ describe("rf_region (contract 2.5)", () => {
     }
     // The leg version adds the weight bearing sign; the answers are the data's yes and no.
     expect(RF_REGION_COPY.ask_leg.en).toContain("stand on");
+    expect(RF_REGION_COPY.ask.en).not.toContain("stand on");
+    expect(RF_REGION_LEG).toEqual(["hip", "knee", "ankle_foot"]);
     expect(ROM_DATA.copy.ans_yes.ar).toBe("نعم");
     expect(ROM_DATA.copy.ans_no.ar).toBe("لا");
   });

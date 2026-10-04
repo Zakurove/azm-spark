@@ -17,10 +17,15 @@
  *   - The model is recorded with every measurement and every gait view (`model` when it starts; the
  *     runner's flag `modelLite`), never once for the check.
  *
+ * One camera serves every screen of a check: B's shell provides its FocusCamera through
+ * `FocusCameraContext`, and a screen it shows (C's gait step, whose 2.8.4 props have no camera) reads
+ * it with `useFocusCamera()`.
+ *
  * Video never leaves the phone: the frames go to the engine in memory and nothing is recorded. On a
  * VITE_E2E=1 build, ?e2eFixture=<name> plays fixture frames instead of the camera, as in the v1
  * check; a fixture is never probed into Lite and nothing is kept for it.
  */
+import { createContext, useContext, useRef } from "react";
 import { capture } from "../../movements/gait/gait-v7.json";
 import { CHECK_DATA } from "../../movements/assessments";
 import { CameraPoseSource, preloadPoseAssets, type PoseSource } from "../../app/poseSource";
@@ -258,4 +263,15 @@ export function focusCameraSession(opts: FocusCameraOptions = {}): FocusCamera {
       thermal = true;
     },
   };
+}
+
+/** The check's camera for the screens of a focus check: the shell provides it (one per check). */
+export const FocusCameraContext = createContext<FocusCamera | null>(null);
+
+/** The focus camera the shell provides; a screen shown on its own makes one for itself, once. */
+export function useFocusCamera(): FocusCamera {
+  const provided = useContext(FocusCameraContext);
+  const own = useRef<FocusCamera | null>(null);
+  if (provided) return provided;
+  return (own.current ??= focusCameraSession());
 }

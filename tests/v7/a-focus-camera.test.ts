@@ -14,13 +14,18 @@ vi.mock("@mediapipe/tasks-vision", () => ({
   PoseLandmarker: { createFromOptions: mocks.create },
 }));
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
+  FocusCameraContext,
   focusCameraSession,
+  useFocusCamera,
   MODEL_MEMORY_DAYS,
   MODEL_MEMORY_KEY,
   PROBE_FLOOR_FPS,
   PROBE_MS,
   rememberedModel,
+  type FocusCamera,
   type FocusCameraOptions,
   type PoseModel,
 } from "../../src/features/focus/camera";
@@ -334,5 +339,33 @@ describe("the default pose source", () => {
     });
     cam.session.stop();
     expect(track.stop).toHaveBeenCalled();
+  });
+});
+
+describe("one focus camera for the screens of a check", () => {
+  /** Renders a screen that reads the camera, as C's GaitStep does (2.8.4 gives it no camera prop). */
+  function seen(provided: FocusCamera | null): FocusCamera[] {
+    const got: FocusCamera[] = [];
+    const Screen = () => {
+      got.push(useFocusCamera());
+      return null;
+    };
+    const screen = createElement(Screen);
+    renderToStaticMarkup(
+      provided ? createElement(FocusCameraContext.Provider, { value: provided }, screen) : screen,
+    );
+    return got;
+  }
+
+  it("gives a screen the camera the shell provides", () => {
+    const cam = focusCameraSession({ storage: null, now: () => NOW });
+    expect(seen(cam)).toEqual([cam]);
+  });
+
+  it("makes one for a screen shown on its own", () => {
+    const [own] = seen(null);
+    expect(own.session).toBeDefined();
+    expect(typeof own.probe).toBe("function");
+    expect(own.model).toBe("full");
   });
 });

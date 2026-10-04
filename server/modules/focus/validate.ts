@@ -7,7 +7,8 @@
  * check names the first bad field, never the value: 400 { error, field }.
  *
  * Bounds (section 4): range values flexion 0 to 180, signed -90 to 90, lack -30 to 150, whole
- * numbers; pain 0 to 10 integers; at most 3 scored attempts, 1 practice and 2 retries. Gait: at most
+ * numbers; pain 0 to 10 integers; at most 3 scored attempts and 1 practice (ROM_DATA.engine, read from
+ * the data) and 2 retries. Gait: at most
  * 3 views, 200 events and 120 cycles per view, every per view replay null, one replay cycle of at most
  * 45 frames (24 KB), metric values inside the bounds of their unit (cadence 20 to 250, times 0.1 to
  * 5 s, percent 0 to 100, ratios 0 to 5, degrees -90 to 120, speed 0 to 3 m/s, lengths 0 to 2.5 m),
@@ -44,7 +45,7 @@ import type {
 } from "../../../src/engine/gait/types";
 import { GAIT_DATA } from "../../../src/movements/gait";
 import { GAIT_METRIC_IDS } from "../../../src/movements/gait/types";
-import { movementDef } from "../../../src/movements/rom";
+import { ROM_DATA, movementDef } from "../../../src/movements/rom";
 import {
   COMPENSATION_IDS,
   ROM_MOVEMENT_IDS,
@@ -282,8 +283,11 @@ export const ROM_VALUE_BOUNDS: Record<RomKind, [number, number]> = {
   signed: [-90, 90],
   lack: [-30, 150],
 };
-export const MAX_SCORED_ATTEMPTS = 3;
-export const MAX_PRACTICE = 1;
+/** Scored attempts per movement and side: ROM_DATA.engine.scoredAttemptsMax (C-1, read from the data). */
+export const MAX_SCORED_ATTEMPTS: number = ROM_DATA.engine.scoredAttemptsMax;
+/** Practice attempts per movement and side: ROM_DATA.engine.practice. */
+export const MAX_PRACTICE: number = ROM_DATA.engine.practice;
+/** Quality retries per movement and side: the v1.1 range tests' maxRetries (contract 2.6, at most 2). */
 export const MAX_RETRIES = 2;
 
 /** The engine's quality report of one attempt: ok, fps, view and issues checked, the rest bounded. */

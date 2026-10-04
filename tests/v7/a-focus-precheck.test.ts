@@ -20,6 +20,7 @@ import {
   rfRegionsToAsk,
 } from "../../src/medical/focus-precheck";
 import { buildRomProtocol, type FocusToday, type RomProtocol } from "../../src/medical/rom-protocol";
+import { autoFillRegions } from "../../src/medical/body-map";
 import { gaitPlanFor, type GaitPlan } from "../../src/medical/gait-eligibility";
 import {
   evaluatePrecheck,
@@ -72,6 +73,29 @@ const outcome = (over: Partial<PrecheckOutcome>): PrecheckOutcome => ({
   ...over,
 });
 const noGait: GaitPlan | null = null;
+
+/* ------------------------------------------- Parkinson's leg back (A10) */
+
+describe("Parkinson's leg back: a helper beside it (rom-protocol 2.3 movementSet, review A10)", () => {
+  const pd = intake({
+    conditions: ["parkinsons"],
+    regions: autoFillRegions([{ condition: "parkinsons", confirmed: true }]),
+  });
+  it("at home, pc_steadi yes or no: the v1 chair stand rule asks a helper for every Parkinson's standing test", () => {
+    for (const fell of ["yes", "no"] as const) {
+      const protocol = build(pd, { helperPresent: true }, "home");
+      const env = focusPrecheckEnv(baseEnv(pd, "home"), protocol, noGait);
+      const o = evaluatePrecheck(env, fill(env, { "pc_steadi:fell": fell, pc_helper: "yes" }), NOW);
+      expect(o.status, fell).toBe("proceed");
+      const r = applyPrecheckOutcome(protocol, noGait, o);
+      expect(itemOf(r.protocol, "hip_extension"), fell).toMatchObject({
+        position: "standing_supported",
+        helperRequired: true,
+      });
+      expect(r.helperRequired, fell).toContain("rom_standing");
+    }
+  });
+});
 
 /* ------------------------------------------------------------ proxy tests */
 

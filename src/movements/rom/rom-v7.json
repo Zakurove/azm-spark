@@ -386,6 +386,25 @@
           "ar": "أريد التعديل",
           "en": "I want to change it"
         }
+      ],
+      "movementSet": [
+        {
+          "movement": "shoulder_flexion"
+        },
+        {
+          "movement": "neck_extension"
+        },
+        {
+          "movement": "trunk_lateral_flexion",
+          "position": "seated_armrests"
+        },
+        {
+          "movement": "hip_extension"
+        },
+        {
+          "movement": "hip_flexion",
+          "position": "seated"
+        }
       ]
     },
     {

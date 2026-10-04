@@ -23,7 +23,7 @@ import {
 import { contextFromIntake, intakeExclusion, isBlocked } from "../../src/medical/assessment";
 import { painOptions, type Plan } from "../../src/medical/plan";
 import type { RegionId } from "../../src/medical/body-map";
-import { REGION_IDS } from "../../src/medical/body-map";
+import { REGION_IDS, autoFillRegions } from "../../src/medical/body-map";
 import { ROM_DATA, ROM_RULES_VERSION, regionRow } from "../../src/movements/rom";
 import { ROM_MOVEMENT_IDS, ROM_SAFETY_IDS, type RomMovementId } from "../../src/movements/rom/types";
 import { TARGETS_DATA } from "../../src/movements/targets";
@@ -531,6 +531,124 @@ describe("positions (rom-protocol 2.5)", () => {
     expect(itemOf(p, "hip_flexion")).toMatchObject({ position: "seated", graded: false });
     expect(itemOf(p, "trunk_flexion", "none")).toMatchObject({ position: "seated", graded: false });
     expect(itemOf(p, "hip_extension").position).toBe("standing_supported");
+  });
+});
+
+describe("Parkinson's movement set (rom-protocol 2.3 movementSet; review A10, D-024 item 4)", () => {
+  /** The map the Parkinson's question fills (origin condition): neck, trunk, both shoulders, both hips. */
+  const pdMap = autoFillRegions([{ condition: "parkinsons", confirmed: true }]);
+  const pd = (over: Parameters<typeof intake>[0] = {}) =>
+    intake({ conditions: ["parkinsons"], regions: pdMap, ...over });
+  const planned = (p: RomProtocol) => [...p.items, ...p.deferred];
+  const movementsIn = (p: RomProtocol, region: RegionId) => [
+    ...new Set(
+      planned(p)
+        .filter((i) => i.region === region)
+        .map((i) => i.movementId),
+    ),
+  ];
+
+  it("reads the set from the data", () => {
+    expect(pdMap.map((e) => `${e.region}:${e.side}:${e.origin}`)).toEqual([
+      "neck:axial:condition",
+      "back_trunk:axial:condition",
+      "shoulder:both:condition",
+      "hip:both:condition",
+    ]);
+    expect(ROM_DATA.conditionAutoMap.find((c) => c.condition === "parkinsons")?.movementSet).toEqual([
+      { movement: "shoulder_flexion" },
+      { movement: "neck_extension" },
+      { movement: "trunk_lateral_flexion", position: "seated_armrests" },
+      { movement: "hip_extension" },
+      { movement: "hip_flexion", position: "seated" },
+    ]);
+  });
+
+  it("the shoulders: the arm raise to the front only, seated, on both sides", () => {
+    const p = build(pd());
+    expect(movementsIn(p, "shoulder")).toEqual(["shoulder_flexion"]);
+    expect(
+      planned(p)
+        .filter((i) => i.region === "shoulder")
+        .map((i) => `${i.side}:${i.position}`),
+    ).toEqual(["right:seated", "left:seated"]);
+  });
+
+  it("the neck: looking up only", () => {
+    const p = build(pd());
+    expect(movementsIn(p, "neck")).toEqual(["neck_extension"]);
+    expect(itemOf(p, "neck_extension", "none").position).toBe("seated");
+  });
+
+  it("the trunk: the side bend seated with armrests, both ways, under the side lean gate, never standing", () => {
+    const p = build(pd());
+    expect(movementsIn(p, "back_trunk")).toEqual(["trunk_lateral_flexion"]);
+    for (const side of ["right", "left"]) {
+      expect(itemOf(p, "trunk_lateral_flexion", side)).toMatchObject({
+        position: "seated_armrests",
+        graded: false,
+      });
+      expect(itemOf(p, "trunk_lateral_flexion", side).skipped).toBeUndefined();
+    }
+    // balance_support at home fails the side lean gate: not measured, and not taken standing either.
+    const home = buildRomProtocol({
+      intake: pd({ restrictions: ["balance_support"] }),
+      setting: "home",
+      today: today({ helperPresent: true }),
+    });
+    expect(itemOf(home, "trunk_lateral_flexion")).toMatchObject({
+      position: "seated_armrests",
+      skipped: "seated_lean_gate",
+    });
+  });
+
+  it("the hips: the leg back standing with support (its helper comes through the pre-check bridge)", () => {
+    const p = build(pd(), { maxMeasured: 20 });
+    expect(itemOf(p, "hip_extension")).toMatchObject({ position: "standing_supported", graded: true });
+    expect(itemOf(p, "hip_extension", "left").position).toBe("standing_supported");
+    expect(movementsIn(p, "hip")).not.toContain("hip_abduction");
+  });
+
+  it("the hips: the knee lift seated only, not graded, even for someone who can lie down", () => {
+    const p = build(pd());
+    for (const side of ["right", "left"])
+      expect(itemOf(p, "hip_flexion", side)).toMatchObject({ position: "seated", graded: false });
+    expect(movementsIn(p, "hip").sort()).toEqual(["hip_extension", "hip_flexion"]);
+  });
+
+  it("the forward bend: not from the condition's trunk; seated and not graded when the person added the trunk", () => {
+    expect(movementsIn(build(pd()), "back_trunk")).not.toContain("trunk_flexion");
+    const added = pd({
+      regions: [
+        ...pdMap.filter((e) => e.region !== "back_trunk"),
+        entry("back_trunk", "axial", ["stiffness"]),
+      ],
+    });
+    expect(itemOf(build(added), "trunk_flexion", "none")).toMatchObject({
+      position: "seated",
+      graded: false,
+    });
+  });
+
+  it("neck and trunk turns: stored as not measured, relevant (grey), never typical", () => {
+    const p = build(pd());
+    for (const m of ["neck_rotation", "trunk_rotation", "trunk_extension"])
+      expect(notMeasuredOf(p, m, "none"), m).toMatchObject({
+        source: "not_measured_camera",
+        reason: "not_measured_camera",
+      });
+  });
+
+  it("a region outside the set keeps the region table", () => {
+    const p = build(pd({ regions: [...pdMap, entry("knee", "right", ["pain"])] }), { maxMeasured: 20 });
+    expect(movementsIn(p, "knee")).toEqual(["knee_flexion", "knee_extension"]);
+    // Without Parkinson's the same map plans every movement of the region table.
+    const other = build(intake({ regions: pdMap }), { maxMeasured: 20 });
+    expect(movementsIn(other, "shoulder").sort()).toEqual([
+      "shoulder_abduction",
+      "shoulder_extension",
+      "shoulder_flexion",
+    ]);
   });
 });
 

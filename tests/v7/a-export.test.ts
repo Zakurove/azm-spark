@@ -961,6 +961,35 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     expect(() => exportRom(u)).toThrow("thresholds sdCap: unknown field fraction");
   });
 
+  it("exports the Parkinson's movement set as { movement, position? } and checks each entry", () => {
+    const rom = exportRom(romSource()) as Obj;
+    const row = rom.conditionAutoMap.find((c: Obj) => c.condition === "parkinsons");
+    expect(row.movementSet).toEqual([
+      { movement: "shoulder_flexion" },
+      { movement: "neck_extension" },
+      { movement: "trunk_lateral_flexion", position: "seated_armrests" },
+      { movement: "hip_extension" },
+      { movement: "hip_flexion", position: "seated" },
+    ]);
+    expect(Object.keys(row)).toEqual(["condition", "ask", "answers", "movementSet"]);
+    const pdIndex = (s: Obj) => s.conditionAutoMap.findIndex((c: Obj) => c.condition === "parkinsons");
+    const bad = romSource();
+    bad.conditionAutoMap[pdIndex(bad)].movementSet[0] = { movement: "shoulder_raise" };
+    expect(() => exportRom(bad)).toThrow(
+      "conditionAutoMap parkinsons movementSet: unknown movement shoulder_raise",
+    );
+    const pos = romSource();
+    pos.conditionAutoMap[pdIndex(pos)].movementSet[1] = { movement: "neck_extension", position: "standing" };
+    expect(() => exportRom(pos)).toThrow(
+      "conditionAutoMap parkinsons movementSet: neck_extension has no position standing",
+    );
+    const extra = romSource();
+    extra.conditionAutoMap[pdIndex(extra)].movementSet[2].helper = true;
+    expect(() => exportRom(extra)).toThrow(
+      "conditionAutoMap parkinsons movementSet trunk_lateral_flexion: unknown field helper",
+    );
+  });
+
   it("fails on a retest band of an unknown movement or field, and on a number written as text", () => {
     const s = romSource();
     s.retest.bands.wrist = { deg: 10 };

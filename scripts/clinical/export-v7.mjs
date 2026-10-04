@@ -639,7 +639,7 @@ function normDef(n) {
 export const ROM_PROSE = {
   conventions: ["angles", "ang", "imageAxes", "midpoints", "lack", "wording"],
   problemTypes: ["rule", "programHint"],
-  conditionAutoMap: ["regions", "problem", "movementSet", "ask2"],
+  conditionAutoMap: ["regions", "problem", "ask2"],
   limbLoss: ["rule"],
   limbLossLevel: ["openQuestion", "standing"],
   positions: ["who"],
@@ -689,6 +689,23 @@ function limbLossLevels(limbLoss, reasonOf) {
       };
     }),
   };
+}
+
+/**
+ * A condition's own movement set (Parkinson's, review A10; D-024 item 4): { movement, position? }, the
+ * rule words beside each entry dropped. Each movement must exist and the position must be one of its
+ * positions.
+ */
+function movementSet(entries, movements, where) {
+  if (!Array.isArray(entries)) fail(`${where} movementSet is not a list`);
+  return entries.map((x) => {
+    const movement = movements.find((m) => m.id === x?.movement);
+    if (!movement) fail(`${where} movementSet: unknown movement ${x?.movement}`);
+    knownFields(x, ["movement", "position", "rule"], `${where} movementSet ${x.movement}`);
+    if ("position" in x && !movement.positions.some((p) => p.id === x.position))
+      fail(`${where} movementSet: ${x.movement} has no position ${x.position}`);
+    return pick(x, ["movement", "position"], where);
+  });
 }
 
 /** The fields of a retest band (D-024 item 4): a movement's band, the neurological limb's and the wide band. */
@@ -787,13 +804,14 @@ export function exportRom(source) {
     ),
     conditionAutoMap: source.conditionAutoMap.map((c) => {
       const where = `conditionAutoMap ${c.condition}`;
-      knownFields(c, ["condition", "ask", "answers", ...ROM_PROSE.conditionAutoMap], where);
+      knownFields(c, ["condition", "ask", "answers", "movementSet", ...ROM_PROSE.conditionAutoMap], where);
       // ask2 repeats copy.arthritis_type_ask (change log, A1): dropped, its fields still checked.
       if ("ask2" in c) knownFields(c.ask2, ["ar", "en"], `${where} ask2`);
       return {
         condition: c.condition,
         ask: take(c.ask, ["ar", "en"], `${where} ask`),
         answers: c.answers.map((a) => take(a, ["ar", "en"], `${where} answer`, ["map"])),
+        ...("movementSet" in c ? { movementSet: movementSet(c.movementSet, source.movements, where) } : {}),
       };
     }),
     limbLoss: limbLossLevels(source.limbLoss, reasonOf),

@@ -6,8 +6,9 @@
  *
  *   globalGate      rom-protocol 6 global_gate (the v1.1 gate of any camera test)
  *   standingGate    the standing positions: the v1.1 chair stand exclusions (H6 rule 2, review A07)
- *   buildRomProtocol  the region table (2.1), the problem type rules (2.2), limb loss (2.4), the
- *                   positions (2.5), every safety id of section 6, the session order and the cap
+ *   buildRomProtocol  the region table (2.1), the problem type rules (2.2), the Parkinson's movement
+ *                   set (2.3), limb loss (2.4), the positions (2.5), every safety id of section 6, the
+ *                   session order and the cap
  *
  * Rules before AI: the movements, positions, norms, limb loss lists and reason ids are read from the
  * ROM data; the rules the clinical source writes in prose are written here by hand, each quoting its
@@ -165,6 +166,20 @@ const HIP_AVOID_MOVEMENTS: Record<HipAvoidId, readonly RomMovementId[]> = {
   back_out: ["hip_extension"], // «Taking my leg behind me or turning it out»
   none: [],
 };
+
+/**
+ * The Parkinson's movement set (rom-protocol 2.3 conditionAutoMap parkinsons movementSet, review A10),
+ * read from the data: «shoulder_flexion, neck_extension, trunk_lateral_flexion (seated_armrests, under
+ * the side lean gate), hip_extension (helper when pc_steadi has any yes), hip_flexion (seated only, no
+ * grade)». In the regions the set covers only these movements are planned, in the position each names.
+ * «trunk_flexion is not filled in (seated only, no grade, if the person adds it)»: planned seated only
+ * when the person added the trunk (an entry of origin person). The leg back's helper comes through the
+ * pre-check bridge: the v1 chair stand rule asks a helper at home for every standing test of a person
+ * with Parkinson's (pc_steadi or not), and at the booth the staff stand beside the person.
+ */
+const PD_SET: readonly { movement: RomMovementId; position?: RomPositionId }[] =
+  ROM_DATA.conditionAutoMap.find((c) => c.condition === "parkinsons")?.movementSet ?? [];
+const PD_REGIONS: ReadonlySet<RegionId> = new Set(PD_SET.map((x) => movementDef(x.movement).region));
 
 /** sessionOrder: «seated block, then standing block, then lying block» (C-13: gait between standing and lying). */
 const BLOCK_OF: Record<RomPositionId, RomBlock> = {
@@ -492,12 +507,29 @@ function safetyReason(u: Unit, m: RomMovementId, day: Day): RomV7ReasonId | null
 
 /* ------------------------------------------------------------ positions */
 
-/** Parkinson's: «the only hip bend variant» and «the only variant» of the forward bend is seated (A10). */
+/**
+ * Parkinson's (A10): the position the movement set names (the seated hip bend, the seated side bend
+ * with armrests), and the forward bend seated only («the only variant for Parkinson's»).
+ */
 function positionsOf(def: RomMovementDef, day: Day): RomPositionId[] {
   const all = def.positions.map((p) => p.id);
-  if (day.parkinsons && (def.id === "hip_flexion" || def.id === "trunk_flexion"))
-    return all.filter((p) => p === "seated");
+  if (!day.parkinsons) return all;
+  const set = PD_SET.find((x) => x.movement === def.id);
+  if (set?.position) return all.filter((p) => p === set.position);
+  if (def.id === "trunk_flexion") return all.filter((p) => p === "seated");
   return all;
+}
+
+/** The movements planned for a body map unit: the region table's, or the Parkinson's set where it applies. */
+function movementsOf(u: Unit, day: Day): RomMovementId[] {
+  const row = regionRow(u.region);
+  const all = [...row.measure, ...row.caution];
+  if (!day.parkinsons || !PD_REGIONS.has(u.region)) return all;
+  return all.filter(
+    (m) =>
+      PD_SET.some((x) => x.movement === m) ||
+      (m === "trunk_flexion" && u.entries.some((e) => e.origin === "person")),
+  );
 }
 
 function positionBlock(m: RomMovementId, position: RomPositionId, day: Day): RomV7ReasonId | null {
@@ -679,7 +711,7 @@ export function buildRomProtocol(input: RomProtocolInput): RomProtocol {
 
   for (const u of units) {
     const row = regionRow(u.region);
-    for (const m of [...row.measure, ...row.caution]) {
+    for (const m of movementsOf(u, day)) {
       const def = movementDef(m);
       const sides: RomSide[] =
         u.side === "axial" ? (def.bothDirections ? ["right", "left"] : ["none"]) : [u.side];

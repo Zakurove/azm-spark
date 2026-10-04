@@ -477,8 +477,17 @@ export interface RomData {
   regions: RomRegion[];
   regionTable: RomRegionTableRow[];
   problemTypes: { id: ProblemType; ar: string; en: string }[];
-  /** The condition questions (rom-protocol 2.3); a row without a question has empty ask text. */
-  conditionAutoMap: { condition: string; ask: Text; answers: Text[] }[];
+  /**
+   * The condition questions (rom-protocol 2.3); a row without a question has empty ask text. A
+   * condition with its own movement set (Parkinson's, review A10) lists it: buildRomProtocol plans only
+   * those movements in the regions they cover, in the position given.
+   */
+  conditionAutoMap: {
+    condition: string;
+    ask: Text;
+    answers: Text[];
+    movementSet?: { movement: RomMovementId; position?: RomPositionId }[];
+  }[];
   limbLoss: {
     levels: {
       level: LimbLossLevel;

@@ -92,6 +92,8 @@ export class FakeMic {
 }
 
 export class FakeSpeaker {
+  /** False: the context is suspended (never unlocked by a tap), so nothing is heard. */
+  audible = true;
   chunks = 0;
   flushes = 0;
   ducks: boolean[] = [];

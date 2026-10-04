@@ -28,6 +28,15 @@ export class Speaker {
     return this.streamer?.playing ?? false;
   }
 
+  /** False while the context cannot sound: suspended (iOS starts it only from a tap) or closed. */
+  get audible(): boolean {
+    try {
+      return this.context().state === "running";
+    } catch {
+      return false;
+    }
+  }
+
   /** Plays one chunk of the coach's voice after the ones before it. */
   play(pcm24k: ArrayBuffer): void {
     if (this.closed || pcm24k.byteLength < 2) return;

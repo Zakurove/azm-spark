@@ -351,6 +351,12 @@ describe("Speaker", () => {
     expect(ctx.gains.at(-1)!.gain.value).toBe(1);
   });
 
+  it("is audible only while its context runs", () => {
+    expect(speaker.audible).toBe(true);
+    ctx.state = "suspended";
+    expect(speaker.audible).toBe(false);
+  });
+
   it("resumes a suspended context, and plays nothing after close", () => {
     ctx.state = "suspended";
     speaker.play(pcm(0.1));

@@ -267,6 +267,18 @@ describe("the maximum question", () => {
     });
   });
 
+  it("asks with the local voice when the coach's audio cannot be heard (a context never unlocked)", async () => {
+    const h = harness();
+    h.speaker.audible = false;
+    h.session.start();
+    await run(900);
+    h.push(hold());
+    await run(600);
+    h.emit(coachAudio(2));
+    await run(900);
+    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+  });
+
   it("refuses the coach's own answer when the person said nothing after the question (S0-2)", async () => {
     const h = harness();
     const host = h.host as RefRomHost;

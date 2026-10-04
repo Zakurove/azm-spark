@@ -47,6 +47,8 @@ export interface SpeakerLike {
   flush(): void;
   duck(on: boolean): void;
   readonly playing: boolean;
+  /** False while its context cannot sound (iOS starts one only from a tap); absent means it can. */
+  readonly audible?: boolean;
   onIdle(fn: () => void): () => void;
   close(): void;
 }
@@ -397,7 +399,8 @@ export class CoachSession {
         if (this.dropTurn) return;
         this.speaker.play(e.pcm24k);
         this.captions.audio(e.pcm24k.byteLength);
-        this.bridge.coachSpeaking(true, now);
+        // Audio nobody can hear never counts as the coach asking (rule 2 then asks with the local voice).
+        if (this.speaker.audible !== false) this.bridge.coachSpeaking(true, now);
         return this.update();
       case "outputTranscript":
         if (this.dropTurn) return;

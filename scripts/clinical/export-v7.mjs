@@ -539,9 +539,9 @@ export const COMPENSATION_UNITS = [
 export const COMPENSATION_EFFECTS = ["invalid", "flag", "log"];
 
 /** The v1 check's cue lines (check-v1.json cues): the side arm raise keeps two of them (D-024 item 2). */
-export const V1_CUE_IDS = JSON.parse(readFileSync(join(ROOT, "src/movements/check-v1.json"), "utf8")).cues.map(
-  (c) => c.id,
-);
+export const V1_CUE_IDS = JSON.parse(
+  readFileSync(join(ROOT, "src/movements/check-v1.json"), "utf8"),
+).cues.map((c) => c.id);
 
 const numOrNull = (v, where) => (v === null ? null : num(v, where));
 const oneOf = (v, list, where, what) => (list.includes(v) ? v : fail(`${where}: ${what} ${v}`));
@@ -587,7 +587,10 @@ function compensation(c, cueIds, where) {
   out.unit = c.unit === null ? null : oneOf(c.unit, COMPENSATION_UNITS, where, "unit");
   out.when = c.when === null ? null : oneOf(c.when, ["above", "below"], where, "when");
   if ("windowDeg" in c)
-    out.windowDeg = [num(c.windowDeg?.[0], `${where}.windowDeg`), num(c.windowDeg?.[1], `${where}.windowDeg`)];
+    out.windowDeg = [
+      num(c.windowDeg?.[0], `${where}.windowDeg`),
+      num(c.windowDeg?.[1], `${where}.windowDeg`),
+    ];
   if ("forSeconds" in c) out.forSeconds = num(c.forSeconds, `${where}.forSeconds`);
   for (const k of ["orInvalid", "orFlag"])
     if (k in c) {
@@ -697,7 +700,19 @@ const LIMIT_FIELDS = [
   "withinUpTo",
   "markedAbove",
 ];
-const ROW_FIELDS = ["sex", "ageMin", "ageMax", "side", "mean", "sd", "sdUsed", "n", "limits", "ci95", "sdDerived"];
+const ROW_FIELDS = [
+  "sex",
+  "ageMin",
+  "ageMax",
+  "side",
+  "mean",
+  "sd",
+  "sdUsed",
+  "n",
+  "limits",
+  "ci95",
+  "sdDerived",
+];
 const NORM_FIELDS = ["id", "movement", "source", "method", "position", "strength", "graded", "rows", "notes"];
 
 function normLimits(limits, where) {
@@ -1058,7 +1073,8 @@ function gaitNormSourceIds(norms, sourceTable) {
 
 function gaitViews(views, where) {
   if (!Array.isArray(views)) fail(`${where}: views is not a list`);
-  for (const v of views) if (!GAIT_VIEWS.includes(v)) fail(`${where}: view ${JSON.stringify(v)} is not a gait view`);
+  for (const v of views)
+    if (!GAIT_VIEWS.includes(v)) fail(`${where}: view ${JSON.stringify(v)} is not a gait view`);
   return views;
 }
 
@@ -1120,7 +1136,12 @@ export function exportGait(source) {
     confidenceModel: Object.fromEntries(
       Object.entries(cm).filter(([k, v]) => typeof v !== "string" && !DROP_ANYWHERE.includes(k)),
     ),
-    patterns: source.patterns.map((p) => pattern(p, source.metrics.map((m) => m.id))),
+    patterns: source.patterns.map((p) =>
+      pattern(
+        p,
+        source.metrics.map((m) => m.id),
+      ),
+    ),
     findings: source.findings.map((f) => {
       const where = `findings ${f.id}`;
       const out = take(f, FINDING_FIELDS, where, FINDING_PROSE);
@@ -1133,7 +1154,6 @@ export function exportGait(source) {
   };
   return normaliseRegions(out, "gait");
 }
-
 
 /* --------------------------------------------------------------- targets */
 
@@ -1203,9 +1223,10 @@ export function exportTargets(source) {
 
 /**
  * Text that names something rather than counting it, masked before numberTokens reads the numbers:
- * dates and years, versions (0.2.1), licence names, decision ids (D-003, C-7), section and file references (section
- * 2.4, rule 2, plan §3.2, rom.md 3.4, v1.1 4.1, Q12, 4.3, exercise-targets 5.6, contract 2.5, Pillar 1)
- * and ids written with letters and digits (R46, v1.1, Q6, T6, MDC95, fang18, Stenum24, G§5, 2D).
+ * dates and years, versions (0.2.1), licence names, decision ids (D-003, C-7), section and file
+ * references (section 2.4, rule 2, plan §3.2, rom.md 3.4, v1.1 4.1, Q12, 4.3, exercise-targets 5.6,
+ * contract 2.5, Pillar 1) and ids written with letters and digits (R46, v1.1, Q6, T6, MDC95, fang18,
+ * Stenum24, G§5, 2D).
  */
 const REFERENCES = [
   /\b\d{4}-\d{2}-\d{2}\b/g,
@@ -1372,7 +1393,11 @@ export const PROSE_NUMBER_EXEMPT = [
     numbers: [5.6, 5.9, 5.1, 4.6],
     why: "the section numbers of the rules to recompute (5.6, 5.9, 5.10, 4.6)",
   },
-  { file: "gait", path: "patterns[*].section", why: "the section number of the pattern in the gait rules document" },
+  {
+    file: "gait",
+    path: "patterns[*].section",
+    why: "the section number of the pattern in the gait rules document",
+  },
   {
     file: "gait",
     path: "patterns[*].notAssessed[*]",
@@ -1447,7 +1472,11 @@ export const globRegex = (glob) =>
     `^${glob
       .split(/(\[\*\]|\*)/)
       .map((part) =>
-        part === "[*]" ? "\\[\\d+\\]" : part === "*" ? "[^.\\[]+" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        part === "[*]"
+          ? "\\[\\d+\\]"
+          : part === "*"
+            ? "[^.\\[]+"
+            : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
       )
       .join("")}$`,
   );
@@ -1485,7 +1514,8 @@ export function proseNumbers(name, source) {
   const prose = (text, path, covered) => {
     let numbers = numberTokens(text);
     if (!numbers.length) return;
-    if (TABLE_PROSE.some(([file, re, ok]) => file === name && re.test(path) && ok(re.exec(path), text))) return;
+    if (TABLE_PROSE.some(([file, re, ok]) => file === name && re.test(path) && ok(re.exec(path), text)))
+      return;
     numbers = numbers.filter((n) => !covered.has(n));
     for (const r of rules) {
       if (!numbers.length || !r.re.test(path)) continue;
@@ -1504,7 +1534,9 @@ export function proseNumbers(name, source) {
       if (holderParent && isProseMap(holder)) numericLeaves(holderParent, covered);
       prose(v, path, covered);
     } else if (Array.isArray(v)) {
-      v.forEach((x, i) => visit(x, `${path}[${i}]`, isObject(x) ? x : holder, isObject(x) ? null : holderParent));
+      v.forEach((x, i) =>
+        visit(x, `${path}[${i}]`, isObject(x) ? x : holder, isObject(x) ? null : holderParent),
+      );
     } else if (isObject(v)) {
       for (const [k, x] of Object.entries(v)) {
         if (DROP_ANYWHERE.includes(k) || USER_FACING_KEYS.has(k)) continue;
@@ -1595,7 +1627,8 @@ function main() {
     for (const name of Object.keys(INPUT_FILES)) {
       const { listed, exempt } = proseNumbers(name, sources[name]);
       count += listed.length;
-      for (const l of listed) console.log(`${name} ${l.path} [${l.numbers.join(", ")}] ${JSON.stringify(l.text)}`);
+      for (const l of listed)
+        console.log(`${name} ${l.path} [${l.numbers.join(", ")}] ${JSON.stringify(l.text)}`);
       for (const [why, n] of Object.entries(exempt)) console.log(`${name} exempt (${n}): ${why}`);
     }
     console.log(`Prose numbers without a numeric field: ${count}`);

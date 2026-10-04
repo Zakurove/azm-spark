@@ -968,8 +968,6 @@ function shortSteps(c: Ctx): Draft[] {
   const id: GaitPatternId = "short_steps";
   const g = groupOf(c, gaitPattern(id).views);
   if (g.reason) return [notAssessed(id, g.reason)];
-  // Overground without the height there are no metres (3.5): neither (a) nor (b) can run.
-  if (!c.pad && c.height === null) return [notAssessed(id, "no_height")];
   const step = g.metrics.step_length_m;
   const stride = g.metrics.stride_length_m;
   const cad = g.metrics.cadence;
@@ -977,6 +975,9 @@ function shortSteps(c: Ctx): Draft[] {
   const stepV = valueOf(step);
   const strideV = valueOf(stride);
   const cadV = valueOf(cad);
+  // Overground without the height there are no metres (3.5, C1-18): neither (a) nor (b) can run.
+  if (!c.pad && (c.height === null || (stepV === null && strideV === null)))
+    return [notAssessed(id, "no_height")];
   // (a) «step_length_m below the age and sex mean − 2 SD (height adjusted)».
   const aAt = nm ? nm.step.mean - N.short.sdBelow * nm.step.sd : null;
   const a = stepV !== null && aAt !== null && stepV < aAt;

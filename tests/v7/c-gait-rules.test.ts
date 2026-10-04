@@ -964,6 +964,14 @@ describe("5.11 short steps", () => {
         "none",
       ),
     ).toMatchObject({ status: "not_assessed", notAssessed: "no_height" });
+    // A height in the intake, but the walk gave no metres (the capture's setup had none).
+    expect(
+      on(
+        patterns({ side: { ...short(), step_length_m: null, stride_length_m: null } }),
+        "short_steps",
+        "none",
+      ),
+    ).toMatchObject({ status: "not_assessed", notAssessed: "no_height" });
     const pad = patterns({
       mode: "walking_pad",
       side: short(),

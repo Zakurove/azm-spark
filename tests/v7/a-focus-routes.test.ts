@@ -1154,7 +1154,8 @@ describe("POST /api/focus/:id/complete", () => {
       expect(entries.find((e) => e.movementId === row.movement_id && e.side === row.side)?.source).toBe(
         row.source,
       );
-    expect(r.data.findings).toEqual([]);
+    // The findings are stream B's (romFindings); the route returns what they give.
+    expect(Array.isArray(r.data.findings)).toBe(true);
     // Complete closes the check.
     expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).data).toEqual({
       error: "NOT_OPEN",

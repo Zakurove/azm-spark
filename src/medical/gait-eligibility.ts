@@ -19,6 +19,8 @@ export type GaitMode = "overground" | "walking_pad";
 export type GaitNotOffered =
   | "not_walking"
   | "walk_needs_hands_on_help"
+  /** A required helper is not there today: «pc_helper ... no -> skip with reason helper_needed» (D-024, A4-2). */
+  | "helper_needed"
   | "restriction"
   | "prosthesis_off"
   | "surgery_not_cleared"
@@ -221,8 +223,7 @@ export function gaitPlanFor(
   // «pc_helper: asked at home when a helper is required; no -> skip ...; staff count as helper at the booth».
   const helperPresent =
     setting === "booth" || today.helperPresent === true || yes(answers, "pc_helper:chair_stand_30s");
-  // CONTRACT-GAP (A4, change log): GaitNotOffered has no helper_needed; the nearest reason stands in.
-  if (helperRequired && !helperPresent) return notOffered("walk_needs_hands_on_help");
+  if (helperRequired && !helperPresent) return notOffered("helper_needed");
 
   const painNow = answer(answers, "pc_pain_now");
   // modeChoice.padAllowedWhenAll (the setup items are the capture's): every answer must be a calm one.

@@ -221,6 +221,8 @@ describe("applyPrecheckOutcome: skips", () => {
     );
     expect(itemOf(out.protocol, "hip_extension").skipped).toBe("helper_needed");
     expect(out.gait!.offered).toBe(false);
+    // The gait test's own reason is the same helper_needed (D-024, A4-2).
+    expect(out.gait!.reason).toBe("helper_needed");
   });
 
   it("the v7 limb loss rule decides the arm with limb loss, not the v1 arm raise skip", () => {

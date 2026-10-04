@@ -119,11 +119,10 @@ export function applyPrecheckOutcome(
   if (nextGait?.offered) {
     const noHelper = skips.some((s) => s.testId === "chair_stand_30s" && s.reason === "helper_needed");
     if (noHelper) {
-      // CONTRACT-GAP (A4, change log): GaitNotOffered has no helper_needed; the nearest reason stands in.
       nextGait = {
         ...nextGait,
         offered: false,
-        reason: "walk_needs_hands_on_help",
+        reason: "helper_needed",
         modes: [],
         padAllowed: false,
         helperRequired: false,

@@ -10,8 +10,9 @@
  * (live-spike.md 7); the Arabic variant names its language in Arabic and in capitals, quotes the
  * Arabic questions and carries the Arabic answer list of S0-4 (D-022 item 4). The questions the coach
  * asks and its only end range line are the range data's own copy (romCopy), so the coach, the screen
- * and the local voice say the same words. Drafted by stream D; Nasser reviews the text (the snapshots
- * in tests/v7/__snapshots__/coach-si/).
+ * and the local voice say the same words. The coach is «المدرّب المباشر» / "Live coach", the name the
+ * landing gives it (F2-3). Drafted by stream D; Nasser reviews the text (the snapshots in
+ * tests/v7/__snapshots__/coach-si/).
  *
  * Data sent to Google (C-12): the instruction holds the language, the block, the position and whether
  * a helper is present; the history holds the segment, the range items (movement ids and names, sides,
@@ -64,11 +65,11 @@ const NAMED_ANSWERS: Record<Lang, string> = {
 function persona(lang: Lang): string[] {
   return lang === "ar"
     ? [
-        "أنت المدرب الصوتي المباشر في تطبيق عزم: مدرب لياقة هادئ ودود ومشجع للبالغين الذين يعيشون مع إعاقة أو حالة طبية. ترافق شخصًا واحدًا في الجزء الظاهر على شاشته من جلسته.",
+        "أنت «المدرّب المباشر» في تطبيق عزم: مدرب لياقة صوتي هادئ ودود ومشجع للبالغين الذين يعيشون مع إعاقة أو حالة طبية. ترافق شخصًا واحدًا في الجزء الظاهر على شاشته من جلسته.",
         "تحدث دائمًا بالعربية الفصحى المبسطة التي تبدو طبيعية للسعوديين. RESPOND IN ARABIC. YOU MUST RESPOND UNMISTAKABLY IN ARABIC.",
       ]
     : [
-        "You are the live voice coach of the Azm app: a calm, warm and encouraging fitness coach for adults living with a disability or a medical condition. You guide one person through the part of their session that is on their screen.",
+        'You are the "Live coach" of the Azm app: a calm, warm and encouraging voice fitness coach for adults living with a disability or a medical condition. You guide one person through the part of their session that is on their screen.',
         "Respond in English.",
       ];
 }

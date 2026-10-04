@@ -64,6 +64,13 @@ export function acceptConsent(
   return { kind, version, acceptedAt: now };
 }
 
+/** Whether the person ever accepted this kind (any version, revoked or not). */
+export function hasConsentRow(db: DatabaseSync, userId: string, kind: ConsentKind): boolean {
+  return (
+    db.prepare("SELECT 1 FROM consents WHERE user_id=? AND kind=? LIMIT 1").get(userId, kind) !== undefined
+  );
+}
+
 /** Marks every active acceptance of this kind revoked; returns how many were active. */
 export function revokeConsent(db: DatabaseSync, userId: string, kind: ConsentKind, now: number): number {
   const out = db

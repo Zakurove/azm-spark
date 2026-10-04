@@ -1,9 +1,11 @@
 /**
  * The two v7 consent kinds (product v7 contract C-8, section 4): focus_check (range compared with
  * norms, a new purpose) and live_coach (the voice coach sends audio outside the Kingdom), version 1
- * each. With AZM_V7 off they are unknown kinds exactly as today (400 on accept, 404 on revoke); with
- * it on they are accepted and revoked like the v1 kinds, and revoking focus_check ends every open
- * focus check (consent_revoked) while what was stored stays with the person.
+ * each. With AZM_V7 off they are unknown kinds exactly as today (400 on accept, 404 on revoke) for a
+ * person who never accepted one; with it on they are accepted and revoked like the v1 kinds, and
+ * revoking focus_check ends every open focus check (consent_revoked) while what was stored stays with
+ * the person. A withdrawal never waits on the flag: a v7 consent given while it was on is revoked
+ * with it off too (C-9 gates accepting only, Gate A review).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
@@ -74,6 +76,45 @@ describe("consent kinds", () => {
     expect(activeConsent(db, id, "focus_check")).not.toBeNull();
   });
 
+  it("revokes a v7 consent given while the flag was on, also with the flag off (a withdrawal always holds)", async () => {
+    process.env.AZM_V7 = "1";
+    const cookie = await member(h, "kill@example.test", v7Intake(), ["focus_check", "live_coach"]);
+    const id = await userId(h, cookie);
+    const db = h.db();
+    db.prepare(
+      `INSERT INTO focus_checks(id,user_id,kind,setting,status,protocol,gait_plan,today,precheck,versions,device,intake_version,started,active,completed,ended_reason)
+       VALUES('kill-open',?,'baseline','booth','open','{}',NULL,'{}','{}','{}','{}',1,1,1,NULL,NULL)`,
+    ).run(id);
+    // The operator turns the flag off (a kill switch); the person withdraws both consents.
+    process.env.AZM_V7 = "0";
+    for (const kind of ["focus_check", "live_coach"])
+      expect(await h.call(`/consents/${kind}`, {}, cookie, "DELETE")).toMatchObject({
+        status: 200,
+        data: { kind, revoked: true },
+      });
+    expect(db.prepare("SELECT status, ended_reason FROM focus_checks WHERE id='kill-open'").get()).toEqual({
+      status: "abandoned",
+      ended_reason: "consent_revoked",
+    });
+    // Accepting stays closed with the flag off.
+    expect((await h.call("/consents", { kind: "focus_check", version: 1 }, cookie)).status).toBe(400);
+    // When the flag returns, nothing counts the withdrawn consents again.
+    process.env.AZM_V7 = "1";
+    expect(activeConsent(db, id, "focus_check")).toBeNull();
+    expect(activeConsent(db, id, "live_coach")).toBeNull();
+    // A second withdrawal with the flag off answers as the first (the rows stay revoked).
+    process.env.AZM_V7 = "0";
+    expect((await h.call("/consents/focus_check", {}, cookie, "DELETE")).status).toBe(200);
+    // A person who never accepted a v7 kind still meets 404 with the flag off, as before v7.
+    process.env.AZM_V7 = "0";
+    const never = await member(h, "never@example.test", v7Intake());
+    for (const kind of ["focus_check", "live_coach"])
+      expect((await h.call(`/consents/${kind}`, {}, never, "DELETE")).status).toBe(404);
+    // An unknown kind is 404 whatever the flag.
+    process.env.AZM_V7 = "1";
+    expect((await h.call("/consents/movement_checks", {}, cookie, "DELETE")).status).toBe(404);
+  });
+
   it("ends every open focus check when focus_check is revoked, and keeps what was stored", async () => {
     process.env.AZM_V7 = "1";
     const cookie = await member(h, "revoke@example.test", v7Intake(), ["focus_check"]);
@@ -97,7 +138,11 @@ describe("consent kinds", () => {
       kind: "focus_check",
       revoked: true,
     });
-    const rows = db.prepare("SELECT id, status, ended_reason FROM focus_checks ORDER BY id").all();
+    const rows = db
+      .prepare(
+        "SELECT id, status, ended_reason FROM focus_checks WHERE id IN ('done-1','open-1','open-2') ORDER BY id",
+      )
+      .all();
     expect(rows).toEqual([
       { id: "done-1", status: "completed", ended_reason: null },
       { id: "open-1", status: "abandoned", ended_reason: "consent_revoked" },

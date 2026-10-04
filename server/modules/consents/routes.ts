@@ -1,6 +1,24 @@
+import type { DatabaseSync } from "node:sqlite";
 import type { Route } from "../../http/types";
 import { revokeFocusChecks } from "../focus/store";
-import { acceptConsent, CONSENT_VERSIONS, isConsentKind, revokeConsent } from "./store";
+import {
+  acceptConsent,
+  CONSENT_VERSIONS,
+  hasConsentRow,
+  isConsentKind,
+  revokeConsent,
+  type ConsentKind,
+} from "./store";
+
+/**
+ * A kind this person can withdraw: a kind of this server (isConsentKind), or a v7 kind the person
+ * holds a row of while the flag is off (product v7 contract C-9: the flag gates accepting, never
+ * withdrawing).
+ */
+function revocableKind(db: DatabaseSync, userId: string, kind: string): kind is ConsentKind {
+  if (isConsentKind(kind)) return true;
+  return Object.hasOwn(CONSENT_VERSIONS, kind) && hasConsentRow(db, userId, kind as ConsentKind);
+}
 
 /**
  * The movement check consent (spec 2.1): explicit, for this purpose only, separate from the program
@@ -31,7 +49,10 @@ export const consentRoutes: Route[] = [
     path: /^\/api\/consents\/(?<kind>[a-z_]{1,40})$/,
     auth: "user",
     handle({ db, user, params, json }) {
-      if (!isConsentKind(params.kind)) return json(404, { error: "NOT_FOUND" });
+      // A withdrawal never depends on the v7 flag (C-9 gates accepting only): a v7 consent given while
+      // AZM_V7 was on is revoked with the flag off too, so it cannot count again when the flag returns.
+      // A person who never gave a v7 consent meets 404 with the flag off, as before v7.
+      if (!revocableKind(db, user!.id, params.kind)) return json(404, { error: "NOT_FOUND" });
       const now = Date.now();
       db.exec("BEGIN IMMEDIATE");
       try {

@@ -84,6 +84,13 @@ export class ToolExecutor {
     return structuredClone(this.counts);
   }
 
+  /** A new Live session in the segment: call ids are per session; the counts go on. */
+  newConnection(): void {
+    this.applied.clear();
+    this.told.clear();
+    this.cancelled.clear();
+  }
+
   private apply(call: { id: string; name: string; args: unknown }, now: number): ToolResult {
     const screened = screenToolCall(this.block, call, this.guard, now);
     if (!screened.ok) return screened.result;

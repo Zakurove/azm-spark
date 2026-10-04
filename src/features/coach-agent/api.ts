@@ -1,0 +1,113 @@
+/**
+ * The coach's two server calls and the install's device id (product v7 contract 5.1 and 5.2, stream
+ * D, step D4). The token request carries no free text (C-12): the block, the segment, the language,
+ * the check or workout, the device id and the pause length. The usage report goes with fetch,
+ * keepalive and the X-Azm-Request header, never navigator.sendBeacon (it cannot set the header, and the
+ * origin check would answer 403). The wire types are the server's (server/modules/agent/types.ts).
+ */
+import type { TokenRequest, TokenResponse, UsageReport } from "../../../server/modules/agent/types";
+import type { MintResult } from "./session";
+
+/** localStorage key of the random per install id (5.1 deviceId). */
+export const DEVICE_KEY = "azm.device";
+const DEVICE_ID = /^[A-Za-z0-9_-]{16,64}$/;
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+
+/** The token response as 5.1 writes it; anything else is a failed mint. */
+function isTokenResponse(v: unknown): v is TokenResponse {
+  if (!isRecord(v)) return false;
+  const history = v.history;
+  return (
+    typeof v.sessionId === "string" &&
+    typeof v.token === "string" &&
+    /^auth_tokens\/\S+$/.test(v.token) &&
+    typeof v.model === "string" &&
+    (v.apiVersion === "v1beta" || v.apiVersion === "v1alpha") &&
+    typeof v.expiresAt === "string" &&
+    typeof v.newSessionExpiresAt === "string" &&
+    Array.isArray(history) &&
+    history.length > 0 &&
+    history.every(
+      (h) => isRecord(h) && (h.role === "user" || h.role === "model") && typeof h.text === "string",
+    )
+  );
+}
+
+/** POST /api/agent/token. Never throws: a refusal carries its status and code, no network is status 0. */
+export async function mintCoachToken(
+  req: TokenRequest,
+  fetchImpl: typeof fetch = fetch,
+): Promise<MintResult> {
+  let res: Response;
+  try {
+    res = await fetchImpl("/api/agent/token", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Azm-Request": "1" },
+      body: JSON.stringify(req),
+    });
+  } catch {
+    return { ok: false, status: 0, error: "NETWORK" };
+  }
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* not JSON */
+  }
+  if (!res.ok) {
+    const error = isRecord(body) && typeof body.error === "string" ? body.error : "SERVER";
+    return { ok: false, status: res.status, error };
+  }
+  if (!isTokenResponse(body)) return { ok: false, status: 502, error: "TOKEN_FAILED" };
+  const date = Date.parse(res.headers.get("date") ?? "");
+  return { ok: true, token: body, serverDate: Number.isFinite(date) ? date : null };
+}
+
+/** POST /api/agent/usage (5.2): at the end of a segment, at a fallback and when the page hides. */
+export function sendUsageReport(r: UsageReport, fetchImpl: typeof fetch = fetch): void {
+  try {
+    void fetchImpl("/api/agent/usage", {
+      method: "POST",
+      keepalive: true,
+      credentials: "same-origin",
+      headers: { "X-Azm-Request": "1", "Content-Type": "application/json" },
+      body: JSON.stringify(r),
+    }).catch(() => undefined);
+  } catch {
+    /* a missing report leaves the reservation counted (5.2) */
+  }
+}
+
+let pageId: string | null = null;
+
+/** 24 characters of [A-Za-z0-9_-] from 18 random bytes. */
+function randomId(): string {
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/** The random per install id (localStorage azm.device); one per page when storage is blocked. */
+export function coachDeviceId(
+  storage: Pick<Storage, "getItem" | "setItem"> | null = typeof localStorage === "undefined"
+    ? null
+    : localStorage,
+): string {
+  try {
+    const kept = storage?.getItem(DEVICE_KEY);
+    if (kept && DEVICE_ID.test(kept)) return kept;
+    const id = randomId();
+    storage?.setItem(DEVICE_KEY, id);
+    if (storage) return id;
+  } catch {
+    /* storage blocked */
+  }
+  pageId ??= randomId();
+  return pageId;
+}

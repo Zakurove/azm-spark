@@ -72,7 +72,8 @@ export class CuePlayer {
   static unlock(): void {
     try {
       const nav = navigator as Navigator & { audioSession?: { type: string } };
-      if (nav.audioSession) nav.audioSession.type = "playback";
+      // While the live coach holds the session as play-and-record (v7 contract 2.11 rule 3), it stays.
+      if (nav.audioSession && nav.audioSession.type !== "play-and-record") nav.audioSession.type = "playback";
     } catch {
       /* not supported */
     }

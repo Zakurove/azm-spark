@@ -6,132 +6,16 @@
  * the movement's segment turned to the angle; the mannequin fixtures of every movement are step B2's.
  */
 import { describe, expect, it } from "vitest";
-import type { Landmark } from "../../src/engine/types";
 import { MOVEMENT_ANGLES } from "../../src/engine/rom/angles";
 import { movementDef } from "../../src/movements/rom";
-import { ROM_MOVEMENT_IDS, type RomMovementId, type RomSide } from "../../src/movements/rom/types";
+import { ROM_MOVEMENT_IDS, type RomMovementId } from "../../src/movements/rom/types";
 import { checkRomResult } from "../../server/modules/focus/validate";
-import { abductionPose, drive, elbowExtensionPose, item, kinds, runner } from "./b-driver";
-import {
-  UPPER_BODY,
-  frontSeated,
-  frontStanding,
-  lyingSide,
-  midOf,
-  place,
-  point,
-  rotate,
-  sideSeated,
-  sideStanding,
-} from "./b-poses";
+import { drive, item, kinds, runner } from "./b-driver";
+import { UPPER_BODY, frontSeated, frontStanding, midOf, point, rotate } from "./b-poses";
+import { MOVEMENT_CASES, type MovementCase } from "./b-person";
 
-const RIGHT_ARM = [14, 16, 18, 20, 22];
-const RIGHT_LEG = [26, 28, 30, 32];
-const RIGHT_SHANK = [28, 30, 32];
+const CASES = MOVEMENT_CASES;
 const HEAD = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-/** A pose scaled about the picture's middle (nearer the phone: the neck movements are filmed at about 1.5 m). */
-const nearer = (px: Landmark[], k = 1.25): Landmark[] =>
-  px.map((q) => ({ ...q, x: 0.5 + (q.x - 0.5) * k, y: 0.5 + (q.y - 0.5) * k }));
-
-/** Bent forward at the hips by `deg`, the arms hanging straight down from the shoulders. */
-function forwardBend(deg: number): Landmark[] {
-  let px = rotate(sideStanding(), UPPER_BODY, point(sideStanding(), 24), deg);
-  for (const [s, e, w] of [
-    [12, 14, 16],
-    [11, 13, 15],
-  ]) {
-    px = place(px, e, { x: px[s].x, y: px[s].y + 0.15 }, px[e].visibility);
-    px = place(px, w, { x: px[s].x, y: px[s].y + 0.27 }, px[w].visibility);
-  }
-  return px;
-}
-
-interface MovementCase {
-  side: RomSide;
-  rest: number;
-  target: number;
-  pose: (deg: number) => Landmark[];
-}
-
-const CASES: Record<RomMovementId, MovementCase> = {
-  shoulder_flexion: {
-    side: "right",
-    rest: 0,
-    target: 120,
-    pose: (d) => rotate(sideSeated(), RIGHT_ARM, point(sideSeated(), 12), -d),
-  },
-  shoulder_abduction: { side: "right", rest: 5, target: 130, pose: (d) => abductionPose(d) },
-  shoulder_extension: {
-    side: "right",
-    rest: 0,
-    target: 40,
-    pose: (d) => rotate(sideSeated(), RIGHT_ARM, point(sideSeated(), 12), d),
-  },
-  elbow_extension: { side: "right", rest: 90, target: 10, pose: (d) => elbowExtensionPose(d) },
-  elbow_flexion: { side: "right", rest: 0, target: 130, pose: (d) => elbowExtensionPose(d) },
-  hip_flexion: {
-    side: "right",
-    rest: 0,
-    target: 100,
-    pose: (d) => rotate(lyingSide(), RIGHT_LEG, point(lyingSide(), 24), -d),
-  },
-  hip_extension: {
-    side: "right",
-    rest: 0,
-    target: 15,
-    pose: (d) => rotate(sideStanding(), RIGHT_LEG, point(sideStanding(), 24), d),
-  },
-  hip_abduction: {
-    side: "right",
-    rest: 0,
-    target: 35,
-    pose: (d) => rotate(frontStanding(), RIGHT_LEG, point(frontStanding(), 24), d),
-  },
-  knee_flexion: {
-    side: "right",
-    rest: 0,
-    target: 120,
-    pose: (d) => rotate(lyingSide(), RIGHT_SHANK, point(lyingSide(), 26), -d),
-  },
-  knee_extension: {
-    side: "right",
-    rest: 30,
-    target: 4,
-    pose: (d) => rotate(lyingSide(), RIGHT_SHANK, point(lyingSide(), 26), d),
-  },
-  ankle_dorsiflexion_lunge: {
-    side: "right",
-    rest: 0,
-    target: 38,
-    pose: (d) => rotate(sideStanding(), [26], point(sideStanding(), 28), d),
-  },
-  trunk_lateral_flexion: {
-    side: "left",
-    rest: 0,
-    target: 25,
-    pose: (d) => rotate(frontStanding(), UPPER_BODY, midOf(frontStanding(), 23, 24), d),
-  },
-  trunk_flexion: { side: "none", rest: 0, target: 60, pose: (d) => forwardBend(d) },
-  neck_lateral_flexion: {
-    side: "left",
-    rest: 0,
-    target: 30,
-    pose: (d) => rotate(frontSeated(), HEAD, midOf(frontSeated(), 11, 12), d),
-  },
-  neck_flexion: {
-    side: "none",
-    rest: 0,
-    target: 40,
-    pose: (d) => nearer(rotate(sideSeated(), HEAD, { x: 0.5, y: 0.27 }, d)),
-  },
-  neck_extension: {
-    side: "none",
-    rest: 0,
-    target: 35,
-    pose: (d) => nearer(rotate(sideSeated(), HEAD, { x: 0.5, y: 0.27 }, -d)),
-  },
-};
 
 describe("every measured movement through the runner", () => {
   it("has a case for each of the 16", () => {

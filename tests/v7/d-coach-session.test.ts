@@ -550,8 +550,19 @@ describe("the rotation of rule 7 and S0-3", () => {
     expect(h.transports[0].sent.at(-1)).toEqual({ kind: "close" });
     await run(900);
     expect(h.mints).toHaveLength(2);
+    expect(h.mints[1]).toEqual(h.mints[0]);
     expect(h.transports).toHaveLength(2);
     expect(h.session.getSnapshot().mode).toBe("live");
+    // The rest of the segment: the server's history with the host's snapshot, sent first.
+    expect(h.live().sent[0]).toEqual({
+      kind: "history",
+      turns: [
+        { role: "user", text: `${HISTORY[0].text}\n[CTX now rom item=shoulder_flexion_right phase=attempt]` },
+        HISTORY[1],
+      ],
+    });
+    // A planned rotation is no fallback: the report waits for the end of the segment.
+    expect(h.reports).toEqual([]);
   });
 
   it("rotates at the boundary after setupComplete plus 9.5 minutes", async () => {

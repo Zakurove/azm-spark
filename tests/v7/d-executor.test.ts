@@ -137,6 +137,28 @@ describe("the maximum question", () => {
   });
 });
 
+describe("the cause question", () => {
+  const ask: BridgeEvent = { p: 1, type: "ask_cause", movement: "shoulder_flexion", side: "right", t: 500 };
+
+  it("records the spoken cause only while the question is open and after the person spoke", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    s.guard.heard("tight", 100);
+    s.ex.handle([{ id: "x1", name: "set_limit_cause", args: { cause: "tight" } }], 200);
+    expect(s.results()[0]).toEqual({ accepted: false, reason: "wrong_phase" });
+    host.askCause();
+    s.guard.question(ask);
+    s.ex.handle([{ id: "x2", name: "set_limit_cause", args: { cause: "weak" } }], 900);
+    expect(s.results()[1]).toEqual({ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" });
+    s.guard.heard("أحس بشد", 1500);
+    s.ex.handle([{ id: "x3", name: "set_limit_cause", args: { cause: "tight" } }], 2000);
+    expect(s.results()[2]).toEqual({ accepted: true, say: "recorded" });
+    expect(host.causes).toEqual(["tight"]);
+    s.ex.handle([{ id: "x4", name: "set_limit_cause", args: { cause: "pain" } }], 2100);
+    expect(s.results()[3]).toEqual({ accepted: false, reason: "wrong_phase" });
+  });
+});
+
 describe("the can move question", () => {
   const canMove = (v: boolean) => ({
     id: "m1",

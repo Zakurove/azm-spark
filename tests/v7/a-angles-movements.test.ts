@@ -642,6 +642,72 @@ describe("the movement specific rules", () => {
     expectAngle(measure(c, c.at(-15), c.at(0), base("none")), 15, "no side");
   });
 
+  describe("neck side bend: each line against its own neutral (D-024, A3-3)", () => {
+    // A head whose eye line is not parallel to its ear line at neutral: the eyes 4 degrees off.
+    const OFFSET = 4;
+    const C = { x: 0.5, y: 0.2 };
+    const eyeAt = (x: number) => turn({ x, y: 0.19 }, { x: 0.5, y: 0.19 }, OFFSET);
+    const head = (n: number, earVis = 0.95) => {
+      const h = (p: Pt) => turn(p, C, n);
+      return frontBody(
+        {
+          0: h({ x: 0.5, y: 0.215 }),
+          2: h(eyeAt(0.515)),
+          5: h(eyeAt(0.485)),
+          7: h({ x: 0.53, y: 0.21 }),
+          8: h({ x: 0.47, y: 0.21 }),
+        },
+        { 7: earVis, 8: earVis },
+      );
+    };
+    const covered = (n: number) => head(n, 0.3);
+    const read = (px: Landmark[], cal: AngleContext["calibration"]) =>
+      MOVEMENT_ANGLES.neck_lateral_flexion(px, { ...base("left"), calibration: cal });
+    const cal = (frames: Landmark[][]) =>
+      calibrate(
+        "neck_lateral_flexion",
+        frames.map((px) => ({ px })),
+        base("left"),
+      )!;
+
+    it("records the eye line's neutral beside the ear line's", () => {
+      const c = cal([head(0), head(0), head(0)]);
+      expect(Math.abs(c.neutralEyeLineDeg! - c.neutralHeadDeg!)).toBeCloseTo(OFFSET, 9);
+      // The other movements have no eye line.
+      expect(
+        calibrate("neck_flexion", [{ px: CASES.find((k) => k.id === "neck_flexion")!.at(0) }], base("none"))!
+          .neutralEyeLineDeg,
+      ).toBeNull();
+      expect(
+        calibrate("shoulder_flexion", [{ px: CASES[0].at(0) }], base("right"))!.neutralEyeLineDeg,
+      ).toBeNull();
+    });
+
+    it("reads an eye line frame against the eye line's neutral, an ear line frame against the ear line's", () => {
+      const c = cal([head(0), head(0), head(0)]);
+      for (const n of [10, 25, 40]) {
+        expectAngle(read(covered(n), c), n, `eyes ${n}`);
+        expectAngle(read(head(n), c), n, `ears ${n}`);
+      }
+      // A calibration made before the field existed reads both lines against neutralHeadDeg (A3).
+      const { neutralEyeLineDeg: _old, ...before } = c;
+      expect(Math.abs(read(covered(25), before)! - 25)).toBeCloseTo(OFFSET, 9);
+    });
+
+    it("keeps the ear line's neutral from the start frames that read the ear line", () => {
+      // One start frame with the ears seen, two with them covered: the ear neutral is the seen one.
+      const c = cal([head(0), covered(0), covered(0)]);
+      expectAngle(read(head(30), c), 30, "ears");
+      expectAngle(read(covered(30), c), 30, "eyes");
+    });
+
+    it("works as before when the ears are covered from the start", () => {
+      const c = cal([covered(0), covered(0), covered(0)]);
+      expect(c.neutralEyeLineDeg).toBeCloseTo(c.neutralHeadDeg!, 9);
+      expectAngle(read(covered(25), c), 25, "eyes");
+    });
+  });
+
   it("neck flexion is the head's change less the trunk's: leaning the whole body forward reads 0", () => {
     const c = CASES.find((k) => k.id === "neck_flexion")!;
     const lean = (px: Landmark[], deg: number) =>

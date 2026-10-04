@@ -15,6 +15,7 @@ import BodyMap, {
   cellPoint,
   entryLabel,
   toggleBodyMapCell,
+  type BodyMapProps,
 } from "../../src/features/body-map/BodyMap";
 import type { RegionEntry } from "../../src/medical/body-map";
 
@@ -131,6 +132,21 @@ describe("edit mode", () => {
     const html = render("en", [shoulderRight, kneesBoth]);
     const pressed = [...html.matchAll(/data-cell="([^"]+)"[^>]*aria-pressed="true"/g)].map((m) => m[1]);
     expect(pressed.sort()).toEqual(["knee:left", "knee:right", "shoulder:right"]);
+  });
+});
+
+describe("the props (contract 2.2 with D-024, A2-5)", () => {
+  it("takes the page language in both modes, and the notes in summary mode only", () => {
+    const props: BodyMapProps[] = [
+      { lang: "ar", mode: "edit", value: [], onChange: () => {} },
+      { lang: "en", mode: "summary", colours: {} },
+      { lang: "en", mode: "summary", colours: {}, notes: { "knee:left": "within the usual range" } },
+    ];
+    // @ts-expect-error lang is required: the cell, view and side names are in the page language.
+    const noLang: BodyMapProps = { mode: "summary", colours: {} };
+    // @ts-expect-error the notes are read after a cell's name in summary mode only.
+    const editNotes: BodyMapProps = { lang: "en", mode: "edit", value: [], onChange: () => {}, notes: {} };
+    expect([...props, noLang, editNotes]).toHaveLength(5);
   });
 });
 

@@ -115,7 +115,7 @@ function metric(id: (typeof GAIT_METRIC_IDS)[number]) {
 
 const allMetrics = () => Object.fromEntries(GAIT_METRIC_IDS.map((id) => [id, metric(id)]));
 
-/** One view: `events` and `cycles` long, with every metric when `full`. */
+/** One view: `events` and `cycles` long, with every metric when `full`, on the Lite model when `full` (C-10). */
 function view(
   v: { view: GaitView; nearSide?: "left" | "right" },
   events: number,
@@ -126,6 +126,7 @@ function view(
   return {
     view: v.view,
     ...(v.nearSide ? { nearSide: v.nearSide } : {}),
+    poseModel: full ? "lite" : "full",
     events: Array.from({ length: events }, (_, i) => ({
       side: i % 2 ? "left" : "right",
       type: i % 4 < 2 ? "ic" : "to",

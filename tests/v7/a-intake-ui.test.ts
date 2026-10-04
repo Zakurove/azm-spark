@@ -385,7 +385,8 @@ describe("the step on screen", () => {
         side: "left",
         problems: ["after_surgery"],
         origin: "person",
-        surgery: { since: "gt6m", cleared: "yes", avoid: [] },
+        // 3 months or more: only when is stored (D-024, A2-8).
+        surgery: { since: "gt6m" },
       },
     ]);
   });

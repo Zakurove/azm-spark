@@ -84,6 +84,14 @@ export interface RomCalibration {
   fixedHip: Pt | null;
   segmentPx: Partial<Record<"upperArm" | "forearm" | "thigh" | "shank" | "trunk" | "shoulderWidth", number>>;
   neutralHeadDeg: number | null;
+  /**
+   * The neck side bend's eye line at neutral (ang_signed of the shoulder line and the eye line 2 to 5),
+   * recorded beside neutralHeadDeg and read on the frames that read the eye line, so an eye line frame
+   * is never compared with the ear line's neutral (D-024, A3-3). Null for the other movements, or when
+   * no start frame saw both eyes; absent in a calibration made before the field, which reads
+   * neutralHeadDeg as A3 did.
+   */
+  neutralEyeLineDeg?: number | null;
   gravityMode: boolean;
 }
 /** The movement's angle on one pixel space frame, in the movement's convention (flexion, lack or signed); null when a gate landmark is unseen. */
@@ -618,16 +626,20 @@ const trunkFlexion: AngleFn = (px, ctx) => {
  * toward the same side shoulder."
  * The change is counted toward the named side (the context's side; a tilt the other way reads 0, and
  * with no side either way). In the model's labels a positive change tilts toward the model's left.
- * The neutral is the calibration's neutralHeadDeg, recorded with the line each start frame read: a
- * neutral of the ear line read against a frame of the eye line is off by the angle between the two
- * lines at neutral (no field records the line: contract gap, A3).
+ * Each line is read against its own neutral (D-024, A3-3): an ear line frame against neutralHeadDeg
+ * (the ear line at the start), an eye line frame against neutralEyeLineDeg, since the two lines are
+ * not parallel on every face. A calibration without the eye line's neutral reads neutralHeadDeg.
+ * When no start frame read the ear line (the ears covered from the start), neutralHeadDeg is the eye
+ * line's neutral, as A3 recorded it.
  */
 const neckLateralFlexion: AngleFn = (px, ctx) => {
   const r = new Roles(movementDef("neck_lateral_flexion"), px, null);
   if (!r.gate()) return null;
-  const neutral = ctx.calibration.neutralHeadDeg;
+  const line = neckSideBendLine(px);
+  const { neutralHeadDeg, neutralEyeLineDeg } = ctx.calibration;
+  const neutral = line === "eyes" ? (neutralEyeLineDeg ?? neutralHeadDeg) : neutralHeadDeg;
   if (neutral === null) return null;
-  const delta = wrapTurn(headTilt(r) - neutral);
+  const delta = wrapTurn(lineTilt(r, line) - neutral);
   if (ctx.side === "none") return Math.abs(delta);
   return Math.max(0, modelSide(ctx.side, ctx.mirrored) === "left" ? delta : -delta);
 };
@@ -640,9 +652,9 @@ export function neckSideBendLine(px: Landmark[]): "ears" | "eyes" {
 }
 
 /** ang_signed(SL, EL): the turn from the shoulder line (11 to 12) to the ear line (7 to 8) or eye line (2 to 5). */
-function headTilt(r: Roles): number {
+function lineTilt(r: Roles, line: "ears" | "eyes"): number {
   const [s1, s2] = r.line("shoulders");
-  const [e1, e2] = r.line(neckSideBendLine(r.px));
+  const [e1, e2] = r.line(line);
   return turnFrom(sub(s2, s1), sub(e2, e1));
 }
 
@@ -729,8 +741,11 @@ function pointMedian(points: Pt[]): Pt | null {
  *   that see it; null in gravity mode.
  * - segmentPx: the side's upper arm, forearm, thigh and shank, the trunk and the shoulder width, each
  *   the median over the frames that see both ends; a length never seen is left out.
- * - neutralHeadDeg: the neck movements' neutral head angle (side bend: ang_signed of the shoulder and
- *   head lines; chin to chest and looking up: the head line's direction); null for the others.
+ * - neutralHeadDeg: the neck movements' neutral head angle (side bend: ang_signed of the shoulder line
+ *   and the ear line over the start frames that read the ear line, or of the eye line when none did;
+ *   chin to chest and looking up: the head line's direction); null for the others.
+ * - neutralEyeLineDeg: the side bend's eye line at neutral, over the start frames that see both eyes
+ *   (D-024, A3-3); null for the others or when no start frame saw them.
  * - startDeg: the median angle of the start frames with this calibration.
  * Null when there is no frame, no neutral head for a neck movement, or no start angle. `t` is 0: the
  * frames carry no time, so the runner stamps it.
@@ -808,12 +823,14 @@ export function calibrate(
     if (v !== undefined) segmentPx[k] = v;
 
   let neutralHeadDeg: number | null = null;
+  let neutralEyeLineDeg: number | null = null;
   if (id === "neck_lateral_flexion") {
-    const tilts = per
-      .map((f) => new Roles(def, f.px, null))
-      .filter((r) => r.gate())
-      .map(headTilt);
-    neutralHeadDeg = angleMedian(tilts);
+    const gated = per.map((f) => new Roles(def, f.px, null)).filter((r) => r.gate());
+    neutralEyeLineDeg = angleMedian(gated.filter((r) => r.seen("eyes")).map((r) => lineTilt(r, "eyes")));
+    const earFrames = gated.filter((r) => neckSideBendLine(r.px) === "ears");
+    neutralHeadDeg = earFrames.length
+      ? angleMedian(earFrames.map((r) => lineTilt(r, "ears")))
+      : angleMedian(gated.map((r) => lineTilt(r, "eyes")));
     if (neutralHeadDeg === null) return null;
   } else if (id === "neck_flexion" || id === "neck_extension") {
     const heads = per
@@ -831,6 +848,7 @@ export function calibrate(
     fixedHip,
     segmentPx,
     neutralHeadDeg,
+    neutralEyeLineDeg,
     gravityMode,
   };
   const fn = MOVEMENT_ANGLES[id];

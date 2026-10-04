@@ -45,6 +45,14 @@ const TryCamera = lazy(() => import("./TryCamera"));
 const WeeklyPlanView = lazy(() => import("./WeeklyPlan"));
 const SportPath = lazy(() => import("./SportPath"));
 const IntakeForm = lazy(() => import("./IntakeForm"));
+/**
+ * A v7 intake's own rows on My condition (A2-15), from the intake step's lazy chunk: VITE_V7=1 builds
+ * only, the env tested inline as for the v7 pages below.
+ */
+const IntakeV7Review =
+  import.meta.env.VITE_V7 === "1"
+    ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7Review })))
+    : null;
 const Workout = lazy(() => import("./Workout"));
 const Session = lazy(() => import("./Session"));
 const History = lazy(() => import("./History"));
@@ -1012,26 +1020,7 @@ function Pages() {
                     <Icon name="health" size={28} />
                     <h2>{c.health}</h2>
                   </div>
-                  <dl className="intake-review">
-                    {[
-                      [c.age, fmtNum(h.age, lang)],
-                      [c.condition, h.conditions.map((v) => optionNames[v]?.[lang]).join("، ")],
-                      [c.mobility, optionNames[h.mobility]?.[lang]],
-                      [c.pain, h.pain.map((v) => optionNames[v]?.[lang]).join("، ") || c.noItems],
-                      [
-                        c.restriction,
-                        h.restrictions.map((v) => optionNames[v]?.[lang]).join("، ") || c.noItems,
-                      ],
-                      [c.clearance, h.clearance === "yes" ? c.yes : h.clearance === "no" ? c.no : c.unsure],
-                      [c.medications, h.medications || c.noItems],
-                      [c.diagnosis, h.diagnosisNotes || c.noItems],
-                    ].map(([k, v]) => (
-                      <div key={k}>
-                        <dt>{k}</dt>
-                        <dd>{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
+                  <HealthAnswers lang={lang} h={h} />
                   <p className="field-help">{c.recordNote}</p>
                   <button className="cta" onClick={() => setEditing(true)}>
                     {c.edit}
@@ -1094,5 +1083,51 @@ function Pages() {
         </LazyPart>
       )}
     </div>
+  );
+}
+
+/** The v7 answers of an intake the v7 form saved (contract 2.2, hasV7Fields); null for one saved before v7. */
+const v7AnswersOf = (h: Intake) =>
+  h.sex !== undefined && h.regions !== undefined && h.walking !== undefined
+    ? { sex: h.sex, regions: h.regions, walking: h.walking, heightCm: h.heightCm, romFlags: h.romFlags }
+    : null;
+
+/**
+ * My condition's answers (the health page). v7 (D-024, A2-15): in a VITE_V7 build a v7 intake's own
+ * rows (sex, walking, height and the body map) follow mobility, as the intake's review step lists
+ * them, and replace the pain row, which a v7 intake writes from the body map. An intake saved before
+ * v7, and a default build, keep the rows as before.
+ */
+export function HealthAnswers({ lang, h }: { lang: Lang; h: Intake }) {
+  const c = labels(lang);
+  const v7 = IntakeV7Review ? v7AnswersOf(h) : null;
+  type Row = [string, string | undefined];
+  const pain: Row = [c.pain, h.pain.map((v) => optionNames[v]?.[lang]).join("، ") || c.noItems];
+  const rows: Row[] = [
+    [c.age, fmtNum(h.age, lang)],
+    [c.condition, h.conditions.map((v) => optionNames[v]?.[lang]).join("، ")],
+    [c.mobility, optionNames[h.mobility]?.[lang]],
+    ...(v7 ? [] : [pain]),
+    [c.restriction, h.restrictions.map((v) => optionNames[v]?.[lang]).join("، ") || c.noItems],
+    [c.clearance, h.clearance === "yes" ? c.yes : h.clearance === "no" ? c.no : c.unsure],
+    [c.medications, h.medications || c.noItems],
+    [c.diagnosis, h.diagnosisNotes || c.noItems],
+  ];
+  const row = ([k, v]: Row) => (
+    <div key={k}>
+      <dt>{k}</dt>
+      <dd>{v}</dd>
+    </div>
+  );
+  return (
+    <dl className="intake-review">
+      {rows.slice(0, 3).map(row)}
+      {IntakeV7Review && v7 && (
+        <Suspense fallback={null}>
+          <IntakeV7Review lang={lang} value={v7} />
+        </Suspense>
+      )}
+      {rows.slice(3).map(row)}
+    </dl>
   );
 }

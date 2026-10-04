@@ -14,7 +14,6 @@
  * evaluatePrecheck, then on proceed applyPrecheckOutcome (contract section 4).
  */
 import { TEST_ID_LIST, type ScreenId, type TestId } from "../movements/types";
-import type { Text } from "../movements/types";
 import type { Intake } from "./plan";
 import type { RegionId } from "./body-map";
 import { REGION_IDS } from "./body-map";
@@ -119,11 +118,10 @@ export function applyPrecheckOutcome(
   if (nextGait?.offered) {
     const noHelper = skips.some((s) => s.testId === "chair_stand_30s" && s.reason === "helper_needed");
     if (noHelper) {
-      // CONTRACT-GAP (A4, change log): GaitNotOffered has no helper_needed; the nearest reason stands in.
       nextGait = {
         ...nextGait,
         offered: false,
-        reason: "walk_needs_hands_on_help",
+        reason: "helper_needed",
         modes: [],
         padAllowed: false,
         helperRequired: false,
@@ -188,25 +186,13 @@ export function missingGaitDayItems(
 export const RF_REGION_ITEM: "rf_region" = "rf_region";
 
 /**
- * The rf_region question, drafted by A from the data's rule text (rom-protocol 6 red_flags: «a hot,
- * red, swollen joint; fever; a new deformity; cannot take weight on the leg since an injury; new
- * numbness or weakness»); the clinical sign off reviews it with the rest of the copy. The leg version
- * adds the weight bearing sign. {region} is the region's name (ROM_DATA.regions label). The answers
- * are the data's ans_yes and ans_no. Contract change log (A4): this copy belongs in the rom namespace
- * once src/i18n/v7.ts registers it.
+ * The rf_region question is copy of the rom namespace (D-024, A4-7): rom.rf_region_ask, and
+ * rom.rf_region_ask_leg for these leg regions, which adds the weight bearing sign. Drafted by A from
+ * the data's rule text (rom-protocol 6 red_flags: «a hot, red, swollen joint; fever; a new deformity;
+ * cannot take weight on the leg since an injury; new numbness or weakness»); the clinical sign off
+ * reviews it with the rest of the copy. {region} is the region's name (ROM_DATA.regions label), and
+ * the answers are the data's ans_yes and ans_no.
  */
-export const RF_REGION_COPY: Readonly<Record<"ask" | "ask_leg", Text>> = Object.freeze({
-  ask: {
-    ar: "في {region} اليوم: هل توجد سخونة أو احمرار أو تورّم، أو تغيّر جديد في الشكل، أو تنميل أو ضعف جديد؟ أو هل عندك حرارة؟",
-    en: "Today, in your {region}: is it hot, red or swollen, has its shape changed, or is there new numbness or weakness? Or do you have a fever?",
-  },
-  ask_leg: {
-    ar: "في {region} اليوم: هل توجد سخونة أو احمرار أو تورّم، أو تغيّر جديد في الشكل، أو تنميل أو ضعف جديد، أو لا تستطيع الوقوف على هذه الساق منذ إصابة؟ أو هل عندك حرارة؟",
-    en: "Today, in your {region}: is it hot, red or swollen, has its shape changed, is there new numbness or weakness, or have you been unable to stand on that leg since an injury? Or do you have a fever?",
-  },
-});
-
-/** The leg regions take RF_REGION_COPY.ask_leg. */
 export const RF_REGION_LEG: readonly RegionId[] = Object.freeze(["hip", "knee", "ankle_foot"]);
 
 /**

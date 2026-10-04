@@ -36,6 +36,7 @@ import {
   type RegionId,
   type RomFlagContext,
 } from "../../src/medical/body-map";
+import { autoFillQuestions as autoFillFromItsModule } from "../../src/medical/body-map-autofill";
 import { conditions, painOptions } from "../../src/medical/plan";
 import { ROM_DATA, movementDef } from "../../src/movements/rom";
 import { ROM_MOVEMENT_IDS } from "../../src/movements/rom/types";
@@ -55,6 +56,15 @@ const limbs = (
 ): RegionEntry[] => regions.map((region) => ({ region, side, problems, origin: "condition" as const }));
 
 describe("autoFillQuestions (conditionAutoMap)", () => {
+  it("lives in body-map-autofill.ts, so body-map.ts reads no range data (D-024, A2-3)", () => {
+    expect(autoFillQuestions).toBe(autoFillFromItsModule);
+    const source = readFileSync(join(__dirname, "../../src/medical/body-map.ts"), "utf8");
+    // Only type imports reach the range data: plan.ts imports body-map.ts in every build.
+    const valueImports = [...source.matchAll(/^import (?!type )[^;]*? from "([^"]+)";/gms)].map((m) => m[1]);
+    expect(valueImports.filter((f) => /movements\//.test(f))).toEqual([]);
+    expect(source).toContain('export { autoFillQuestions } from "./body-map-autofill";');
+  });
+
   it("asks the questions of the person's conditions in the order of the data", () => {
     const qs = autoFillQuestions(["arthritis", "stroke"]);
     expect(qs.map((q) => q.condition)).toEqual(["stroke", "arthritis"]);
@@ -323,7 +333,6 @@ describe("validateRegions", () => {
       surgery: {
         since: "lt6w",
         cleared: "no",
-        avoid: [],
         hipReplacement: true,
         hipAvoid: ["flex90", "cross"],
       },
@@ -336,6 +345,27 @@ describe("validateRegions", () => {
   it("accepts a complete map, and an empty one", () => {
     expect(validateRegions(valid)).toBe(true);
     expect(validateRegions([])).toBe(true);
+  });
+
+  it("stores the clearance and what to avoid only when they are asked (D-024, A2-8)", () => {
+    const surgery = (region: RegionId, s: NonNullable<RegionEntry["surgery"]>) =>
+      validateRegions([entry(region, "left", ["after_surgery"], { surgery: s })]);
+    // 3 months or more: only when; clearance and the movements to avoid were never asked.
+    expect(surgery("knee", { since: "3m_6m" })).toBe(true);
+    expect(surgery("knee", { since: "gt6m" })).toBe(true);
+    expect(surgery("knee", { since: "gt6m", cleared: "yes" })).toBe(false);
+    expect(surgery("knee", { since: "gt6m", avoid: [] })).toBe(false);
+    expect(surgery("knee", { since: "3m_6m", cleared: "yes", avoid: [] })).toBe(false);
+    // Under 3 months the clearance is always asked.
+    expect(surgery("knee", { since: "lt6w" })).toBe(false);
+    expect(surgery("knee", { since: "6w_3m", cleared: "unsure" })).toBe(true);
+    // What to avoid only once cleared, and only where the camera measures a movement.
+    expect(surgery("knee", { since: "lt6w", cleared: "no", avoid: [] })).toBe(false);
+    expect(surgery("knee", { since: "lt6w", cleared: "yes" })).toBe(false);
+    expect(surgery("knee", { since: "lt6w", cleared: "yes", avoid: [] })).toBe(true);
+    expect(surgery("knee", { since: "lt6w", cleared: "yes", avoid: ["knee_flexion"] })).toBe(true);
+    expect(surgery("forearm_wrist", { since: "lt6w", cleared: "yes" })).toBe(true);
+    expect(surgery("forearm_wrist", { since: "lt6w", cleared: "yes", avoid: [] })).toBe(false);
   });
 
   const broken: [string, unknown][] = [
@@ -431,7 +461,7 @@ describe("validateRegions", () => {
       "hip limits after 3 months",
       [
         entry("hip", "left", ["after_surgery"], {
-          surgery: { since: "3m_6m", cleared: "yes", avoid: [], hipReplacement: true, hipAvoid: ["cross"] },
+          surgery: { since: "3m_6m", hipReplacement: true, hipAvoid: ["cross"] },
         }),
       ],
     ],
@@ -439,7 +469,7 @@ describe("validateRegions", () => {
       "the stretch answer after 3 months",
       [
         entry("knee", "left", ["after_surgery"], {
-          surgery: { since: "gt6m", cleared: "yes", avoid: [], stretchAllowed: "yes" },
+          surgery: { since: "gt6m", stretchAllowed: "yes" },
         }),
       ],
     ],
@@ -447,7 +477,7 @@ describe("validateRegions", () => {
       "an unknown cleared answer",
       [
         entry("knee", "left", ["after_surgery"], {
-          surgery: { since: "gt6m", cleared: "maybe" as never, avoid: [] },
+          surgery: { since: "lt6w", cleared: "maybe" as never, avoid: [] },
         }),
       ],
     ],
@@ -573,7 +603,7 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
       draft({
         region: "ankle_foot",
         problems: ["after_surgery"],
-        surgery: { since: "3m_6m", cleared: "yes", avoid: [] },
+        surgery: { since: "3m_6m" },
       }),
     );
     const both = draft({
@@ -586,11 +616,15 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
     expect(finalizeRegion(both)?.injury).toEqual({ since: "3m_6m", achilles: true });
   });
 
-  it("asks only when for a surgery more than 3 months ago, and stores it as cleared with nothing to avoid", () => {
+  it("asks only when for a surgery 3 months ago or more, and stores only that (D-024, A2-8)", () => {
     for (const since of ["3m_6m", "gt6m"] as const) {
       const d = draft({ region: "shoulder", problems: ["after_surgery"], surgery: { since } });
       expect(regionQuestions(d)).toEqual(["surgery_when"]);
-      expect(finalizeRegion(d)?.surgery).toEqual({ since, cleared: "yes", avoid: [] });
+      expect(finalizeRegion(d)?.surgery).toEqual({ since });
+      // Answers given before the date changed are not kept: they were not asked for this surgery.
+      expect(
+        finalizeRegion({ ...d, surgery: { since, cleared: "no", avoid: ["shoulder_flexion"] } })?.surgery,
+      ).toEqual({ since });
     }
   });
 
@@ -601,7 +635,12 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
       surgery: { since: "lt6w", cleared: "unsure" },
     });
     expect(regionQuestions(d)).toEqual(["surgery_when", "surgery_cleared"]);
-    expect(finalizeRegion(d)?.surgery).toEqual({ since: "lt6w", cleared: "unsure", avoid: [] });
+    expect(finalizeRegion(d)?.surgery).toEqual({ since: "lt6w", cleared: "unsure" });
+    // A movement list from before the answer changed is not kept.
+    expect(finalizeRegion({ ...d, surgery: { ...d.surgery, avoid: ["knee_flexion"] } })?.surgery).toEqual({
+      since: "lt6w",
+      cleared: "unsure",
+    });
   });
 
   it("asks what to avoid, stretching and loading once a recent surgery is cleared", () => {
@@ -643,7 +682,12 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
       surgery: { since: "lt6w", cleared: "yes", stretchAllowed: "yes", loadAllowed: "no" },
     });
     expect(regionQuestions(d)).not.toContain("surgery_avoid");
-    expect(finalizeRegion(d)?.surgery?.avoid).toEqual([]);
+    expect(finalizeRegion(d)?.surgery).toEqual({
+      since: "lt6w",
+      cleared: "yes",
+      stretchAllowed: "yes",
+      loadAllowed: "no",
+    });
   });
 
   it("asks about a hip replacement and its limits after a recent hip surgery, cleared or not", () => {
@@ -666,7 +710,6 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
     ).toEqual({
       since: "lt6w",
       cleared: "no",
-      avoid: [],
       hipReplacement: true,
       hipAvoid: ["none"],
     });
@@ -691,7 +734,7 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
       draft({
         region: "hip",
         problems: ["after_surgery"],
-        surgery: { since: "gt6m", cleared: "yes", avoid: [] },
+        surgery: { since: "gt6m" },
       }),
     );
   });

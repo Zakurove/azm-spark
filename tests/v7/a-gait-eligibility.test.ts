@@ -99,11 +99,16 @@ describe("gait-rules eligibility.gate", () => {
     const map = intake({
       regions: [
         entry("knee", "right", ["after_surgery"], {
-          surgery: { since: "6w_3m", cleared: "unsure", avoid: [] },
+          surgery: { since: "6w_3m", cleared: "unsure" },
         }),
       ],
     });
     expect(notOffered(plan(map))).toBe("surgery_not_cleared");
+    // 3 months or more: no clearance is asked or stored (D-024, A2-8), and absent is no restriction.
+    for (const since of ["3m_6m", "gt6m"] as const) {
+      const older = intake({ regions: [entry("knee", "right", ["after_surgery"], { surgery: { since } })] });
+      expect(plan(older).offered, since).toBe(true);
+    }
   });
 
   it("clearance no or unsure: stroke or SCI not offered; others overground only", () => {
@@ -197,6 +202,8 @@ describe("gait-rules eligibility.today", () => {
     expect(plan(h, { helperPresent: true }, calm, "home").offered).toBe(true);
     const absent = plan(h, { helperPresent: false }, calm, "home");
     expect(absent.offered).toBe(false);
+    // «pc_helper ... no -> skip with reason helper_needed» (D-024, A4-2).
+    expect(notOffered(absent)).toBe("helper_needed");
     expect(plan(h, {}, { ...calm, "pc_helper:chair_stand_30s": "yes" }, "home").offered).toBe(true);
     // Without a helper requirement nothing is asked.
     expect(plan(intake(), {}, calm, "home").offered).toBe(true);

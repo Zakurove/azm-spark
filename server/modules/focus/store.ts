@@ -16,6 +16,7 @@ import type {
   GaitAnalysis,
   GaitQuality,
   GaitSetup,
+  GaitViewResult,
   StaticStanceResult,
 } from "../../../src/engine/gait/types";
 import type { LimitCause, RomAttempt, RomFlag, RomMeasureResult } from "../../../src/engine/rom/types";
@@ -436,9 +437,8 @@ const num = (v: number | null) => (v === null ? null : Number(v));
 
 /**
  * A stored row as the rules read it (StoredRomRow). A not measured row has no pose model and no
- * engine version (section 3 columns are NULL), and a default only movement no movement version;
- * StoredRomRow types them as always present, so they read as "full", "" and 0 (contract gap written
- * in the change log: the proposal types them nullable).
+ * engine version (section 3 columns are NULL), and a default only movement no movement version: they
+ * read as null (D-024, A5-5).
  */
 function toRomRow(r: RomRowDb): StoredRomRow {
   return {
@@ -461,10 +461,10 @@ function toRomRow(r: RomRowDb): StoredRomRow {
     median: num(r.median),
     nValid: Number(r.n_valid),
     flags: JSON.parse(r.flags),
-    poseModel: r.pose_model ?? "full",
-    movementVersion: r.movement_version === null ? 0 : Number(r.movement_version),
+    poseModel: r.pose_model,
+    movementVersion: num(r.movement_version),
     normsVersion: r.norms_version,
-    engineVersion: r.engine_version ?? "",
+    engineVersion: r.engine_version,
     created: Number(r.created),
   };
 }
@@ -503,9 +503,13 @@ export interface StoredGaitFindings {
 
 /**
  * A view as stored: the response's view (metrics and clean cycles, section 3) with the view's whole
- * quality report, so the rules see at complete what they saw at the gait POST (2.9).
+ * quality report, so the rules see at complete what they saw at the gait POST (2.9), and the model it
+ * was measured with (C-10; D-024, A5-9), which the response leaves out.
  */
-export type StoredGaitView = GaitStoredView["views"][number] & { quality: GaitQuality };
+export type StoredGaitView = GaitStoredView["views"][number] & {
+  quality: GaitQuality;
+  poseModel: GaitViewResult["poseModel"];
+};
 
 export interface StoredGait {
   id: string;
@@ -543,11 +547,15 @@ interface GaitRowDb {
 }
 
 function toGait(r: GaitRowDb): StoredGait {
+  // A view stored before each view kept its model (A5-9) reads as the analysis's model.
+  const views = (JSON.parse(r.views) as (Omit<StoredGaitView, "poseModel"> & Partial<StoredGaitView>)[]).map(
+    (v) => ({ ...v, poseModel: v.poseModel ?? r.pose_model }),
+  );
   return {
     id: r.id,
     checkId: r.check_id,
     mode: r.mode,
-    views: JSON.parse(r.views),
+    views,
     setup: JSON.parse(r.setup),
     ...gaitMetricsOf(r.metrics),
     findings: JSON.parse(r.findings),

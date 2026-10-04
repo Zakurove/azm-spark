@@ -10,6 +10,16 @@ import Brand from "./Brand";
 import { t, type I18nKey } from "../i18n";
 import { bidiText, tx } from "../i18n/rich";
 import { CHECK_DATA } from "../movements/assessments";
+import { V7_UI } from "./v7flag";
+
+/**
+ * v7 (D-024 item 5, A5-14 with A2-14): the focus check's purpose and what it keeps, beside the
+ * movement check's lines. A v7 intake adds sex, height and the body map; the focus check keeps range
+ * and walking results as numbers, one step as skeleton lines, and of the day's answers the pain score
+ * per area and whether a helper was there. A default build shows neither line.
+ */
+const FOCUS_PURPOSES: I18nKey[] = V7_UI ? ["privacy.purposes.focus"] : [];
+const FOCUS_KEPT: I18nKey[] = V7_UI ? ["privacy.kept.focus"] : [];
 
 /**
  * The company responsible for the data and the contact for rights requests (Q32 (1), (4)).
@@ -77,6 +87,7 @@ export default function Privacy({
           {list([
             "privacy.purposes.plan",
             "privacy.purposes.check",
+            ...FOCUS_PURPOSES,
             "privacy.purposes.sessions",
             "privacy.purposes.safety",
           ])}
@@ -86,6 +97,7 @@ export default function Privacy({
             "privacy.kept.account",
             "privacy.kept.profile",
             "privacy.kept.check",
+            ...FOCUS_KEPT,
             "privacy.kept.sessions",
             "privacy.kept.consents",
           ])}

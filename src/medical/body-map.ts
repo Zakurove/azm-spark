@@ -13,15 +13,15 @@
  * and 6), so they are code here (C-1); tests/v7/a-body-map.test.ts checks them against the data and,
  * with AZM_CLINICAL_V7, against the prose they were written from.
  *
- * plan.ts (validateIntake) imports this module, and plan.ts reaches many chunks, so it reads the
- * range of motion data only through the named import of conditionAutoMap below: a default build
- * keeps none of it, and a v7 build keeps only that slice (the full data is imported only by v7
- * chunks, contract 8.8).
+ * plan.ts (validateIntake) imports this module, and plan.ts reaches many chunks, so it reads none of
+ * the range of motion data: the condition questions (autoFillQuestions, which read conditionAutoMap)
+ * live in body-map-autofill.ts and are re-exported here (D-024, A2-3), so the data stays in the v7
+ * chunks (contract 8.8).
  */
-import { conditionAutoMap } from "../movements/rom/rom-v7.json";
 import type { RomMovementId } from "../movements/rom/types";
-import type { Text } from "../movements/types";
 import type { painOptions } from "./plan";
+
+export { autoFillQuestions } from "./body-map-autofill";
 
 /** The canonical region ids (C-11): the ids of rom-protocol.json regions, in body order. */
 export const REGION_IDS = [
@@ -65,13 +65,20 @@ export interface RegionEntry {
   origin: "person" | "condition" | "report";
   /** Present only when problems includes "injury". achilles only on ankle_foot (achilles_ask). */
   injury?: { since: SinceBucket; achilles?: boolean };
-  /** Present only when problems includes "after_surgery". */
+  /**
+   * Present only when problems includes "after_surgery". The clearance and the movements to avoid are
+   * asked only under 3 months (rom-protocol 2.2; D-024, A2-8): absent means not asked and no
+   * restriction, so no answer is stored that the person never gave.
+   */
   surgery?: {
     since: SinceBucket;
-    /** surgery_cleared */
-    cleared: YesNoUnsure;
-    /** surgery_avoid, [] when none */
-    avoid: RomMovementId[];
+    /** surgery_cleared: present exactly when the surgery is under 3 months. */
+    cleared?: YesNoUnsure;
+    /**
+     * surgery_avoid, [] when none: present exactly when the surgery is under 3 months, cleared yes,
+     * in a region where the camera measures a movement (REGION_MOVEMENTS).
+     */
+    avoid?: RomMovementId[];
     /** hip only */
     hipReplacement?: boolean;
     /** hip_avoid_ask, hip replacement under 3 months only */
@@ -230,16 +237,7 @@ export function painIdsFromRegions(regions: readonly Pick<RegionEntry, "region" 
   return PAIN_ORDER.filter((id) => ids.has(id));
 }
 
-/* --------------------------------------------------- the condition questions */
-
-/** The questions to ask for the person's conditions, in order (conditionAutoMap). */
-export function autoFillQuestions(
-  conditions: readonly string[],
-): { condition: string; ask: Text; answers: Text[] }[] {
-  return conditionAutoMap
-    .filter((row) => conditions.includes(row.condition) && row.ask.ar !== "" && row.ask.en !== "")
-    .map((row) => ({ condition: row.condition, ask: row.ask, answers: row.answers }));
-}
+/* --------------------------------------------------- the condition fill */
 
 const fill = (
   regions: readonly RegionId[],
@@ -439,7 +437,10 @@ function validEntry(v: unknown): v is RegionEntry {
     const s = v.surgery;
     if (!isObject(s) || !onlyKeys(s, SURGERY_KEYS) || !has(SINCE_BUCKETS, s.since)) return false;
     const recent = underThreeMonths(s.since);
-    if (!has(YES_NO_UNSURE, s.cleared) || !uniqueList(s.avoid, REGION_MOVEMENTS[region])) return false;
+    // Each answer is stored exactly when it is asked (regionQuestions; D-024, A2-8).
+    if (recent ? !has(YES_NO_UNSURE, s.cleared) : s.cleared !== undefined) return false;
+    const avoidAsked = recent && s.cleared === "yes" && REGION_MOVEMENTS[region].length > 0;
+    if (avoidAsked ? !uniqueList(s.avoid, REGION_MOVEMENTS[region]) : s.avoid !== undefined) return false;
     // A recent hip surgery always says whether it was a replacement (hip bend and the hip limits).
     if (region === "hip" && recent ? typeof s.hipReplacement !== "boolean" : s.hipReplacement !== undefined)
       return false;
@@ -526,9 +527,11 @@ export function regionQuestions(d: RegionDraft): RegionQuestionId[] {
 }
 
 /**
- * The entry a complete draft saves, without the answers that no longer apply; null while a question
- * of regionQuestions has no answer. A surgery more than 3 months ago asks only when (the recent
- * rules no longer apply) and is stored as cleared with nothing to avoid (contract change log, A2).
+ * The entry a complete draft saves, with only the answers regionQuestions asks; null while one of
+ * them has no answer. A surgery 3 months ago or more asks only when (the recent rules no longer
+ * apply), so it stores only `since`: no clearance and no movement list the person never gave (D-024,
+ * A2-8; absent means no restriction). A recent one stores what to avoid only once cleared, where the
+ * camera measures a movement.
  */
 export function finalizeRegion(d: RegionDraft): RegionEntry | null {
   if (!uniqueList(d.problems, PROBLEM_TYPES, 1)) return null;
@@ -546,10 +549,10 @@ export function finalizeRegion(d: RegionDraft): RegionEntry | null {
   if (asked.has("surgery_when")) {
     const s = d.surgery ?? {};
     if (!s.since) return null;
-    if (!underThreeMonths(s.since)) out.surgery = { since: s.since, cleared: "yes", avoid: [] };
+    if (!underThreeMonths(s.since)) out.surgery = { since: s.since };
     else {
       if (!s.cleared) return null;
-      const surgery: NonNullable<RegionEntry["surgery"]> = { since: s.since, cleared: s.cleared, avoid: [] };
+      const surgery: NonNullable<RegionEntry["surgery"]> = { since: s.since, cleared: s.cleared };
       if (asked.has("surgery_avoid")) {
         if (!s.avoid) return null;
         surgery.avoid = REGION_MOVEMENTS[d.region].filter((id) => s.avoid!.includes(id));

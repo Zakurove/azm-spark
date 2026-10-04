@@ -192,9 +192,7 @@ describe("problem type rules (rom-protocol 2.2)", () => {
     for (const cleared of ["no", "unsure"] as const) {
       const p = build(
         intake({
-          regions: [
-            entry("shoulder", "left", ["after_surgery"], { surgery: { since: "6w_3m", cleared, avoid: [] } }),
-          ],
+          regions: [entry("shoulder", "left", ["after_surgery"], { surgery: { since: "6w_3m", cleared } })],
         }),
       );
       expect(
@@ -213,16 +211,36 @@ describe("problem type rules (rom-protocol 2.2)", () => {
     );
     expect(itemOf(ok, "shoulder_abduction", "left").skipped).toBe("surgery_precaution");
     expect(itemOf(ok, "shoulder_flexion", "left").skipped).toBeUndefined();
-    const older = build(
-      intake({
-        regions: [
-          entry("shoulder", "left", ["after_surgery"], {
-            surgery: { since: "3m_6m", cleared: "no", avoid: [] },
-          }),
-        ],
-      }),
-    );
-    expect(older.items.some((i) => i.skipped)).toBe(false);
+    // 3 months or more: only when is stored (D-024, A2-8), and no recent surgery rule applies.
+    for (const since of ["3m_6m", "gt6m"] as const) {
+      const older = build(
+        intake({ regions: [entry("shoulder", "left", ["after_surgery"], { surgery: { since } })] }),
+      );
+      expect(
+        older.items.some((i) => i.skipped),
+        since,
+      ).toBe(false);
+    }
+  });
+
+  it("reads an absent clearance or movement list as no restriction (D-024, A2-8)", () => {
+    // A surgery 3 months ago or more keeps no clearance answer: nothing is skipped, gait is offered.
+    const older = intake({
+      regions: [entry("knee", "left", ["after_surgery"], { surgery: { since: "gt6m" } })],
+    });
+    expect(build(older).items.some((i) => i.skipped)).toBe(false);
+    // No movement list: nothing to avoid (forearm and wrist are never asked; a list can only add skips).
+    for (const region of ["shoulder", "knee"] as const) {
+      const cleared = build(
+        intake({
+          regions: [entry(region, "left", ["after_surgery"], { surgery: { since: "lt6w", cleared: "yes" } })],
+        }),
+      );
+      expect(
+        cleared.items.some((i) => i.skipped),
+        region,
+      ).toBe(false);
+    }
   });
 
   it("limb loss: measured only where every landmark lies on a present part (2.4)", () => {

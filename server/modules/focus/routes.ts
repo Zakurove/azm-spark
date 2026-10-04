@@ -425,6 +425,7 @@ function storedAnalysis(g: StoredGait): GaitAnalysis {
     views: g.views.map((v) => ({
       view: v.view,
       ...(v.nearSide ? { nearSide: v.nearSide } : {}),
+      poseModel: v.poseModel,
       events: [],
       cycles: [],
       metrics: v.metrics,
@@ -444,7 +445,8 @@ function gaitView(g: StoredGait, patterns: GaitPatternResult[], provisional: boo
   return {
     id: g.id,
     mode: g.mode,
-    views: g.views.map(({ quality: _quality, ...v }) => v),
+    // The response's views as 2.9 types them: the quality report and the model stay in storage.
+    views: g.views.map(({ quality: _quality, poseModel: _poseModel, ...v }) => v),
     metrics: g.metrics,
     patterns,
     findings: g.findings.findings,
@@ -768,6 +770,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
             metrics: v.metrics,
             cleanCycles: v.quality.cleanCycles,
             quality: v.quality,
+            // C-10: the model is recorded per gait view (D-024, A5-9).
+            poseModel: v.poseModel,
           })),
           setup,
           metrics: analysis.combined,
@@ -775,7 +779,11 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           findings: { patterns: storedPatterns(ev.patterns), findings: ev.findings },
           quality,
           replay: analysis.replay,
-          poseModel: analysis.flags.includes("model_lite") ? "lite" : "full",
+          // The analysis's model: Lite when it flags model_lite or any view used Lite.
+          poseModel:
+            analysis.flags.includes("model_lite") || analysis.views.some((v) => v.poseModel === "lite")
+              ? "lite"
+              : "full",
           rulesVersion: ev.rulesVersion,
           engineVersion: analysis.engineVersion,
           created: now,

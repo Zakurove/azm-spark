@@ -180,6 +180,238 @@
     "en": "10",
     "arTts": "عَشَرَة"
   },
+  "rom_keep_back": {
+    "ar": "أبقِ ظهرك مستندًا إلى الكرسي.",
+    "en": "Keep your back against the chair."
+  },
+  "rom_no_lean": {
+    "ar": "حاول ألا تميل بجسمك.",
+    "en": "Try not to lean your body."
+  },
+  "rom_on_own": {
+    "ar": "حرّكها بنفسك، دون مساعدة يدك الأخرى.",
+    "en": "Move it on your own, without help from your other hand."
+  },
+  "rom_no_hands": {
+    "ar": "حرّك ساقك بنفسك، دون أن تسحبها بيديك.",
+    "en": "Move your leg on your own, without pulling it with your hands."
+  },
+  "rom_arm_straight": {
+    "ar": "أبقِ ذراعك مستقيمة.",
+    "en": "Keep your arm straight."
+  },
+  "rom_arm_in_front": {
+    "ar": "ارفع ذراعك أمامك مباشرة، لا إلى الجانب.",
+    "en": "Raise your arm straight in front of you, not out to the side."
+  },
+  "rom_arm_back_straight": {
+    "ar": "حرّك ذراعك إلى الخلف مباشرة، قريبًا من جسمك.",
+    "en": "Move your arm straight back, close to your body."
+  },
+  "rom_elbow_by_side": {
+    "ar": "أبقِ مرفقك بجانب جسمك.",
+    "en": "Keep your elbow by your side."
+  },
+  "rom_palm_forward": {
+    "ar": "أبقِ كفك إلى الأمام.",
+    "en": "Keep your palm facing forward."
+  },
+  "rom_head_down": {
+    "ar": "أبقِ رأسك وظهرك على السرير.",
+    "en": "Keep your head and back on the bed."
+  },
+  "rom_other_leg_flat": {
+    "ar": "أبقِ ساقك الأخرى ممدودة على السرير.",
+    "en": "Keep your other leg flat on the bed."
+  },
+  "rom_knee_straight_up": {
+    "ar": "أبقِ ركبتك متجهة إلى الأعلى، دون أن تميل إلى الجانب.",
+    "en": "Keep your knee pointing up, without letting it fall to the side."
+  },
+  "rom_toes_up": {
+    "ar": "أبقِ أصابع قدمك متجهة إلى الأعلى.",
+    "en": "Keep your toes pointing up."
+  },
+  "rom_knee_straight": {
+    "ar": "أبقِ ركبتك مستقيمة.",
+    "en": "Keep your knee straight."
+  },
+  "rom_knees_straight": {
+    "ar": "أبقِ ركبتيك مستقيمتين.",
+    "en": "Keep your knees straight."
+  },
+  "rom_leg_straight_back": {
+    "ar": "حرّك ساقك إلى الخلف مباشرة.",
+    "en": "Move your leg straight back."
+  },
+  "rom_leg_to_side": {
+    "ar": "حرّك ساقك إلى الجانب مباشرة، لا إلى الأمام.",
+    "en": "Move your leg straight out to the side, not forward."
+  },
+  "rom_hips_level": {
+    "ar": "أبقِ وركيك في مستوى واحد.",
+    "en": "Keep your hips level."
+  },
+  "rom_heel_down": {
+    "ar": "أبقِ كعبك على الأرض.",
+    "en": "Keep your heel on the floor."
+  },
+  "rom_toes_to_wall": {
+    "ar": "أبقِ أصابع قدمك متجهة نحو الجدار.",
+    "en": "Keep your toes pointing at the wall."
+  },
+  "rom_knee_over_toes": {
+    "ar": "أبقِ ركبتك فوق أصابع قدمك.",
+    "en": "Keep your knee in line with your toes."
+  },
+  "rom_face_forward": {
+    "ar": "أبقِ وجهك إلى الأمام.",
+    "en": "Keep your face forward."
+  },
+  "rom_shoulder_down": {
+    "ar": "لا ترفع كتفك نحو أذنك.",
+    "en": "Do not lift your shoulder toward your ear."
+  },
+  "rom_thumb_up": {
+    "ar": "أبقِ إبهامك إلى الأعلى.",
+    "en": "Keep your thumb pointing up."
+  },
+  "rom_intro": {
+    "ar": "سنقيس فقط حركة المفاصل المرتبطة بحالتك الطبية، ونقارنها بالمعتاد لمن هم في مثل عمرك وجنسك.",
+    "en": "We will measure only the joints linked to your medical condition, and compare them with what is typical for people of your age and sex."
+  },
+  "rom_intro_no_diagnosis": {
+    "ar": "هذا قياس للحركة نبني عليه برنامجك.",
+    "en": "This measures your movement so we can build your program."
+  },
+  "rom_safety_always": {
+    "ar": "تحرك ضمن المدى المريح لك فقط، ولا تتجاوز حد الألم أبدًا.",
+    "en": "Move only within a comfortable range. Never push into pain."
+  },
+  "rom_stop_line": {
+    "ar": "توقف فورًا إذا شعرت بألم حاد أو متزايد، أو بدوخة، أو بضيق في التنفس، أو بألم في الصدر.",
+    "en": "Stop at once if you feel sharp or increasing pain, dizziness, shortness of breath or chest pain."
+  },
+  "rom_neck_stop_line": {
+    "ar": "توقف إذا شعرت بدوخة، أو تغيّرت رؤيتك، أو شعرت بتنميل في ذراعيك، أو شعرت بما يشبه الصعقة الكهربائية في ظهرك أو أطرافك.",
+    "en": "Stop if you feel dizzy, your vision changes, you feel tingling in your arms, or you feel an electric shock feeling down your back or limbs."
+  },
+  "rom_support_line": {
+    "ar": "قبل أن تبدأ، تأكد أن بقربك سندًا ثابتًا تمسكه، وأن المكان حولك خالٍ.",
+    "en": "Before you start, make sure you have a steady support to hold, and a clear space around you."
+  },
+  "rom_helper_line": {
+    "ar": "يجب أن يقف شخص بجانبك أثناء هذه الحركة.",
+    "en": "Someone must stand beside you during this movement."
+  },
+  "rom_turn_side": {
+    "ar": "الآن استدر لتصبح جهتك الأخرى نحو الهاتف، وأبقِ الهاتف في مكانه.",
+    "en": "Now turn so your other side faces the phone, and leave the phone where it is."
+  },
+  "rom_sit_before_stand": {
+    "ar": "اجلس على طرف السرير دقيقة قبل أن تقف.",
+    "en": "Sit on the edge of the bed for a minute before you stand."
+  },
+  "rom_practice": {
+    "ar": "هذه محاولة للتجربة فقط.",
+    "en": "This one is just for practice."
+  },
+  "rom_again": {
+    "ar": "مرة أخرى، بالطريقة نفسها.",
+    "en": "Once more, the same way."
+  },
+  "rom_recorded": {
+    "ar": "سجّلنا ذلك. استرح قليلًا.",
+    "en": "Got it. Rest for a moment."
+  },
+  "rom_keep_going": {
+    "ar": "حسنًا، تابع ببطء إن استطعت، دون ألم.",
+    "en": "All right, keep going slowly if you can, without pain."
+  },
+  "rom_can_move_ask": {
+    "ar": "هل تستطيع تحريك هذا المفصل بنفسك، ولو قليلًا؟",
+    "en": "Can you move this joint on your own, even a little?"
+  },
+  "rom_ask_max": {
+    "ar": "هل هذا أقصى ما تستطيع؟",
+    "en": "Is this as far as you can go?"
+  },
+  "rom_pain_ask": {
+    "ar": "ما مقدار الألم الذي تشعر به الآن؟ الرقم 0 يعني لا ألم، والرقم 10 يعني أشد ألم يمكنك تخيله.",
+    "en": "How much pain do you feel now? 0 means no pain, and 10 means the worst pain you can imagine."
+  },
+  "rom_what_stopped_ask": {
+    "ar": "ما الذي أوقفك أكثر؟",
+    "en": "What stopped you most?"
+  },
+  "rom_pain_stop": {
+    "ar": "سنتوقف عن هذه الحركة الآن. لا تتجاوز حد الألم أبدًا.",
+    "en": "We will stop this movement now. Never push into pain."
+  },
+  "rom_no_active_movement": {
+    "ar": "لا بأس. سنسجّل ذلك، وسيراعيه برنامجك.",
+    "en": "That is fine. We will note it, and your program will take it into account."
+  },
+  "rom_not_today_safety": {
+    "ar": "حرصًا على سلامتك، لن نقيس هذه الحركة اليوم.",
+    "en": "For your safety, we will not measure this movement today."
+  },
+  "gait_helper_needed": {
+    "ar": "نحتاج أن يمشي بجانبك شخص بالغ أثناء اختبار المشي.",
+    "en": "We need another adult to walk beside you during the walking test."
+  },
+  "gait_clear_path": {
+    "ar": "تأكد أن الطريق خالٍ ومستوٍ، وأن بقربك شيئًا ثابتًا تستند إليه.",
+    "en": "Make sure the path is clear and level, with something steady to hold nearby."
+  },
+  "gait_usual_aid": {
+    "ar": "امشِ كما تمشي عادة، مع عصاك أو المشاية أو الدعامة إن كنت تستخدمها.",
+    "en": "Walk as you usually do, with your cane, walker or brace if you use one."
+  },
+  "gait_turn_slowly": {
+    "ar": "عند نهاية الطريق، استدر ببطء في نصف دائرة واسعة.",
+    "en": "At the end of the path, turn slowly in a wide half circle."
+  },
+  "gait_pad_auto_off": {
+    "ar": "أوقف خاصية تغيير السرعة بالقدم، واضبط السرعة يدويًا.",
+    "en": "Turn off the foot speed control and set the speed by hand."
+  },
+  "gait_pad_key": {
+    "ar": "ثبّت مفتاح الأمان بملابسك إن كان في الجهاز مفتاح.",
+    "en": "Clip the safety key to your clothes if the pad has one."
+  },
+  "gait_pad_start": {
+    "ar": "قف على الجهاز وهو متوقف وأنت ممسك بالسند، ثم ابدأ بأبطأ سرعة وزدها حتى تصل إلى مشيك المريح.",
+    "en": "Step on while the belt is stopped and hold the support. Then start at the slowest speed and raise it until it feels like your comfortable walk."
+  },
+  "gait_stop_any_time": {
+    "ar": "توقف في أي وقت إذا شعرت بألم أو دوخة أو عدم ثبات.",
+    "en": "Stop at any time if you feel pain or dizziness, or feel unsteady."
+  },
+  "gait_pad_stop": {
+    "ar": "أمسك بالسند، وسيوقف مرافقك الجهاز.",
+    "en": "Hold the support, and your helper will stop the pad."
+  },
+  "gait_pad_other_side": {
+    "ar": "الآن ينقل مرافقك الهاتف إلى الجهة الأخرى من جهاز المشي. استمر في المشي بالسرعة نفسها.",
+    "en": "Now your helper moves the phone to the other side of the walking pad. Keep walking at the same speed."
+  },
+  "gait_walk_past_phone": {
+    "ar": "امشِ متجاوزًا الهاتف دون أن تبطئ، ثم توقف عند العلامة خلفه.",
+    "en": "Walk past the phone without slowing down, then stop at the mark behind it."
+  },
+  "gait_single_leg_static": {
+    "ar": "أمسك السند بأطراف أصابعك، وقف على ساق واحدة حتى 10 ثوان، ثم بدّل الساق. توقف متى شئت.",
+    "en": "Rest your fingertips on the support and stand on one leg for up to 10 seconds, then change legs. Stop whenever you want."
+  },
+  "gait_quality_retry": {
+    "ar": "لم نتمكن من رؤية خطواتك بوضوح كافٍ. لنجرّب مرة أخرى مع إضاءة أفضل والهاتف ثابت.",
+    "en": "We could not see your steps clearly enough. Let us try again with better light and the phone steady."
+  },
+  "gait_pain_limited": {
+    "ar": "توقفنا لأنك شعرت بألم، وسجلنا ذلك مع نتيجتك.",
+    "en": "We stopped because you felt pain, and we noted this with your result."
+  },
   "check_intro": {
     "ar": "لنقِس حركتك الآن، لتتابعها بنفسك. خذ وقتك.",
     "en": "Let’s measure your movement now, for your own tracking. Take your time.",

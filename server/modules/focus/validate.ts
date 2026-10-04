@@ -627,7 +627,7 @@ function checkView(v: unknown, mode: GaitMode): Check<GaitViewResult> {
   if (!isPlainObject(v)) return fail(field);
   const extra = extraKey(
     v,
-    ["view", "nearSide", "events", "cycles", "metrics", "quality", "replay"],
+    ["view", "nearSide", "poseModel", "events", "cycles", "metrics", "quality", "replay"],
     `${field}.`,
   );
   if (extra) return fail(extra);
@@ -635,6 +635,8 @@ function checkView(v: unknown, mode: GaitMode): Check<GaitViewResult> {
   if (!oneOf(v.view, GAIT_VIEWS) || !views.includes(v.view)) return fail(`${field}.view`);
   if (v.nearSide !== undefined && (v.view !== "pad_side" || !oneOf(v.nearSide, LIMB_SIDES)))
     return fail(`${field}.nearSide`);
+  // The model of each view (C-10; D-024, A5-9): Heavy is not shipped.
+  if (!oneOf(v.poseModel, ["lite", "full"] as const)) return fail(`${field}.poseModel`);
   if (!Array.isArray(v.events) || v.events.length > GAIT_LIMITS.eventsPerView) return fail(`${field}.events`);
   if (!v.events.every(checkEvent)) return fail(`${field}.events`);
   if (!Array.isArray(v.cycles) || v.cycles.length > GAIT_LIMITS.cyclesPerView) return fail(`${field}.cycles`);

@@ -11,5 +11,7 @@
     "agree": "I agree that my movement and walking results are kept in my account, so I can see how my movement changes and my program is built from them.",
     "continue": "Continue",
     "notNow": "I will decide later"
-  }
+  },
+  "rf_region_ask": "Today, in your {region}: is it hot, red or swollen, has its shape changed, or is there new numbness or weakness? Or do you have a fever?",
+  "rf_region_ask_leg": "Today, in your {region}: is it hot, red or swollen, has its shape changed, is there new numbness or weakness, or have you been unable to stand on that leg since an injury? Or do you have a fever?"
 }

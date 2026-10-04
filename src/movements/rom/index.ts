@@ -31,7 +31,7 @@ const checked = raw satisfies WidenV7<RomData>;
 // unknown; the satisfies check above and the data tests are what make it safe.
 export const ROM_DATA: RomData = checked as unknown as RomData;
 
-/** The rules version stored with a protocol and its findings, for example "rom_protocol_0.2.1". */
+/** The rules version stored with a protocol and its findings, for example "rom_protocol_0.2.2". */
 export const ROM_RULES_VERSION = `rom_protocol_${ROM_DATA.specVersion}`;
 /** The norms ship inside the ROM data, so they carry its spec version. */
 export const NORMS_VERSION = `rom_norms_${ROM_DATA.specVersion}`;

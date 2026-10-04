@@ -16,5 +16,5 @@ const checked = raw satisfies WidenV7<TargetsData>;
 
 export const TARGETS_DATA: TargetsData = checked as unknown as TargetsData;
 
-/** The targets version stored with a targeted weekly, for example "targets_0.2.1". */
+/** The targets version stored with a targeted weekly, for example "targets_0.2.2". */
 export const TARGETS_VERSION = `targets_${TARGETS_DATA.version}`;

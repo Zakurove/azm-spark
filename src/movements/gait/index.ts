@@ -15,7 +15,7 @@ const checked = raw satisfies WidenV7<GaitData>;
 
 export const GAIT_DATA: GaitData = checked as unknown as GaitData;
 
-/** The rules version stored with the gait findings, for example "gait_rules_0.2.1". */
+/** The rules version stored with the gait findings, for example "gait_rules_0.2.2". */
 export const GAIT_RULES_VERSION = `gait_rules_${GAIT_DATA.version}`;
 /** The engine's version, stored with every analysis (bumped by stream C when the engine changes). */
 export const GAIT_ENGINE_VERSION = "gait_engine_1";

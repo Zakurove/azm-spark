@@ -719,11 +719,34 @@ function sessionOrder(o) {
   };
 }
 
-/** thresholds: the functional floors (the grading rules in words are implemented in rom-norms.ts). */
+/**
+ * thresholds: the numbers of the grading rules, copied next to their words (A4-8: the SD cap, the z
+ * cut points, the percent of normal rule, the arm raise over read and the phone bias of terms.b), and
+ * the functional floors. The rules in words are implemented in rom-norms.ts.
+ */
+export const THRESHOLD_NUMBERS = [
+  "sdCap",
+  "zWithinMin",
+  "zMarkedBelow",
+  "percentOfNormalMinN",
+  "elevationOverReadAbove",
+];
 function thresholds(t) {
-  knownFields(t, ["functionalFloor", ...ROM_PROSE.thresholds], "thresholds");
-  knownFields(t.terms ?? {}, ROM_PROSE.terms, "thresholds terms");
-  return { functionalFloor: strip(t.functionalFloor) };
+  knownFields(t, [...THRESHOLD_NUMBERS, "functionalFloor", ...ROM_PROSE.thresholds], "thresholds");
+  knownFields(t.terms ?? {}, [...ROM_PROSE.terms, "phoneBias"], "thresholds terms");
+  knownFields(t.sdCap ?? {}, ["pctOfN", "fromMeanDeg"], "thresholds sdCap");
+  return {
+    sdCap: {
+      pctOfN: num(t.sdCap?.pctOfN, "thresholds.sdCap.pctOfN"),
+      fromMeanDeg: num(t.sdCap?.fromMeanDeg, "thresholds.sdCap.fromMeanDeg"),
+    },
+    zWithinMin: num(t.zWithinMin, "thresholds.zWithinMin"),
+    zMarkedBelow: num(t.zMarkedBelow, "thresholds.zMarkedBelow"),
+    percentOfNormalMinN: num(t.percentOfNormalMinN, "thresholds.percentOfNormalMinN"),
+    elevationOverReadAbove: num(t.elevationOverReadAbove, "thresholds.elevationOverReadAbove"),
+    phoneBias: num(t.terms?.phoneBias, "thresholds.terms.phoneBias"),
+    functionalFloor: strip(t.functionalFloor),
+  };
 }
 
 export function exportRom(source) {

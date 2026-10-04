@@ -5341,6 +5341,15 @@
     }
   ],
   "thresholds": {
+    "sdCap": {
+      "pctOfN": 12.5,
+      "fromMeanDeg": 90
+    },
+    "zWithinMin": -1.96,
+    "zMarkedBelow": -3,
+    "percentOfNormalMinN": 20,
+    "elevationOverReadAbove": 120,
+    "phoneBias": 0,
     "functionalFloor": {
       "shoulder_flexion": {
         "withinMin": 120,

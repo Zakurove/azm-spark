@@ -12,10 +12,11 @@
  *   gradeMeasurement  what the server stores with a measurement (C-3, 5.3 painPrecedence)
  *
  * Rules before AI: the norm rows, their limits, σm, the z cut points and the functional floors are read
- * from the ROM data (ROM_DATA.norms, thresholds.functionalFloor, engine). The few numbers the clinical
- * source writes only in prose (the SD cap, the 20 degree percent rule, the 120 degree arm raise over
- * read, the phone bias) are code constants below, each quoting its text; tests/v7/a-norms.test.ts
- * checks them against the clinical source and checks every exported limit against the rule.
+ * from the ROM data (ROM_DATA.norms, thresholds.functionalFloor, engine). The numbers the clinical
+ * source writes beside its grading rules in words (the SD cap, the 20 degree percent rule, the 120
+ * degree arm raise over read, the phone bias) are read from ROM_DATA.thresholds too (freeze step,
+ * A4-8); each constant below quotes its text, and tests/v7/a-norms.test.ts checks every exported limit
+ * against the rule.
  */
 import { ROM_DATA, defaultDef, movementDef } from "../movements/rom";
 import { DEFAULT_ONLY_IDS, ROM_MOVEMENT_IDS } from "../movements/rom/types";
@@ -117,7 +118,10 @@ export interface MeasurementGrade {
  * the grades can be recomputed then without measuring again (5.1 why 10).
  */
 export const PHONE_BIAS: Record<RomMovementId, number> = Object.freeze(
-  Object.fromEntries(ROM_MOVEMENT_IDS.map((id) => [id, 0])) as Record<RomMovementId, number>,
+  Object.fromEntries(ROM_MOVEMENT_IDS.map((id) => [id, ROM_DATA.thresholds.phoneBias])) as Record<
+    RomMovementId,
+    number
+  >,
 );
 
 /**
@@ -125,15 +129,15 @@ export const PHONE_BIAS: Record<RomMovementId, number> = Object.freeze(
  * limits already carry SDeff; this states the rule tests/v7/a-norms.test.ts checks them against.
  */
 export const SD_CAP: { readonly fraction: number; readonly fromMeanDeg: number } = Object.freeze({
-  fraction: 0.125,
-  fromMeanDeg: 90,
+  fraction: ROM_DATA.thresholds.sdCap.pctOfN / 100,
+  fromMeanDeg: ROM_DATA.thresholds.sdCap.fromMeanDeg,
 });
 
 /** thresholds.percentOfNormal: «round(100 x value / N) for flexion and signed movements with N of 20 degrees or more». */
-export const PERCENT_OF_NORMAL_MIN_N = 20;
+export const PERCENT_OF_NORMAL_MIN_N: number = ROM_DATA.thresholds.percentOfNormalMinN;
 
 /** thresholds.approximate: «values above 120 degrees on the arm raises (elevationOverRead)». */
-export const ELEVATION_OVER_READ_ABOVE = 120;
+export const ELEVATION_OVER_READ_ABOVE: number = ROM_DATA.thresholds.elevationOverReadAbove;
 
 /** The arm raises of thresholds.approximate: to the front and to the side. */
 export const ARM_RAISES: readonly RomMovementId[] = Object.freeze(["shoulder_flexion", "shoulder_abduction"]);

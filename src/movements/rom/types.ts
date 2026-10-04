@@ -450,6 +450,23 @@ export interface RomSessionOrder {
   minutesPerMovement: number;
 }
 
+/** thresholds: the numbers of the grading rules (copied next to their words in the source) and the functional floors. */
+export interface RomThresholds {
+  /** SDeff: «SD, capped at 12.5% of N for movements with N of 90 degrees or more». */
+  sdCap: { pctOfN: number; fromMeanDeg: number };
+  /** withinNormal: «z ≥ −1.96» (every row's limits.zWithin). */
+  zWithinMin: number;
+  /** markedlyLimited: «z < −3» (every row's limits.zMarked). */
+  zMarkedBelow: number;
+  /** percentOfNormal: «for flexion and signed movements with N of 20 degrees or more». */
+  percentOfNormalMinN: number;
+  /** approximate: «values above 120 degrees on the arm raises (elevationOverRead)». */
+  elevationOverReadAbove: number;
+  /** terms.b: «phone bias against the norm's instrument: 0 until the bench check». */
+  phoneBias: number;
+  functionalFloor: Partial<Record<RomMovementId, RomFunctionalFloor>>;
+}
+
 export interface RomData {
   id: string;
   specVersion: string;
@@ -473,7 +490,7 @@ export interface RomData {
   movements: RomMovementDef[];
   defaultMovements: RomDefaultMovementDef[];
   norms: NormDef[];
-  thresholds: { functionalFloor: Partial<Record<RomMovementId, RomFunctionalFloor>> };
+  thresholds: RomThresholds;
   retest: RomRetest;
   sessionOrder: RomSessionOrder;
   /** Kept until the tech lead decides contract gap 5: the parity source for the safety ids and the pain rule. */

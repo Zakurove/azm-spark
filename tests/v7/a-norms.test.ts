@@ -587,6 +587,31 @@ describe("gradeMeasurement (what the server stores, C-3)", () => {
   });
 });
 
+/* ------------------------------------- the numbers of the rules, from the data */
+
+describe("the grading constants read the ROM data (freeze step, A4-8)", () => {
+  it("SD cap, percent of normal, arm raise over read and phone bias", () => {
+    const t = ROM_DATA.thresholds;
+    expect(SD_CAP).toEqual({ fraction: t.sdCap.pctOfN / 100, fromMeanDeg: t.sdCap.fromMeanDeg });
+    expect(SD_CAP).toEqual({ fraction: 0.125, fromMeanDeg: 90 });
+    expect(PERCENT_OF_NORMAL_MIN_N).toBe(t.percentOfNormalMinN);
+    expect(ELEVATION_OVER_READ_ABOVE).toBe(t.elevationOverReadAbove);
+    for (const id of ROM_MOVEMENT_IDS) expect(PHONE_BIAS[id], id).toBe(t.phoneBias);
+  });
+
+  it("every graded row's limits use the z cut points of thresholds", () => {
+    let rows = 0;
+    for (const n of ROM_DATA.norms)
+      for (const r of n.rows)
+        if (r.limits) {
+          rows++;
+          expect(r.limits.zWithin, n.id).toBe(ROM_DATA.thresholds.zWithinMin);
+          expect(r.limits.zMarked, n.id).toBe(ROM_DATA.thresholds.zMarkedBelow);
+        }
+    expect(rows).toBeGreaterThan(50);
+  });
+});
+
 /* -------------------------------------- constants only in the clinical prose */
 
 describe.skipIf(!process.env.AZM_CLINICAL_V7)(

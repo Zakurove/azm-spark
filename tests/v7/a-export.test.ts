@@ -182,10 +182,15 @@ function romSource(): Obj {
       }),
     })),
     normSelection: ["Take the norm id of the position"],
-    thresholds: {
-      terms: { b: "phone bias" },
-      functionalFloor: withReviewFields(rom.thresholds.functionalFloor),
-    },
+    thresholds: (() => {
+      const { phoneBias, functionalFloor, ...numbers } = rom.thresholds;
+      return {
+        terms: { b: "phone bias: 0 until the bench check", phoneBias },
+        SDeff: "SD, capped at 12.5% of N for movements with N of 90 degrees or more",
+        ...numbers,
+        functionalFloor: withReviewFields(functionalFloor),
+      };
+    })(),
     functionalCrossCheck: [{ movement: "shoulder_flexion", text: "Daily tasks" }],
     retest: { rule: "Proposal: band = MDC95, never below 10", ...rom.retest },
     sessionOrder: { rule: "At most 8 measured movements", ...rom.sessionOrder },
@@ -500,8 +505,9 @@ function objectShapes(name: Name, source: Obj): [string, Obj][] {
 
 const EXPORTERS = { rom: exportRom, gait: exportGait, targets: exportTargets } as const;
 /** The export of one source after `change`: its error, or its output as text. */
+const SOURCES = { rom: romSource, gait: gaitSource, targets: targetsSource } as const;
 function exportWith(name: Name, change: (s: Obj) => void): { error?: string; text?: string } {
-  const s = sources()[name];
+  const s = SOURCES[name]();
   change(s);
   try {
     return { text: JSON.stringify(EXPORTERS[name](s)) };
@@ -519,26 +525,31 @@ function at(source: Obj, path: string): Obj {
 
 describe("v7 clinical export: a new field anywhere reaches the output or fails (D-024 item 4)", () => {
   for (const name of ["rom", "gait", "targets"] as const)
-    it(`${name}: a number or a prose field added to any object is exported or stops the export`, () => {
-      const shapes = objectShapes(name, sources()[name]);
-      expect(shapes.length).toBeGreaterThan(40);
-      const silent: string[] = [];
-      for (const [path] of shapes)
-        for (const value of [7, "new rule text"]) {
-          const r = exportWith(name, (s) => {
-            at(s, path).zzFreeze = value;
-          });
-          const kept = r.text?.includes('"zzFreeze"');
-          // Numbers mode keeps a number and drops prose; prose there is what --report-prose-numbers lists.
-          if (
-            !r.error &&
-            !kept &&
-            !(typeof value === "string" && NUMBERS_MODE[name].some((p) => path.startsWith(p)))
-          )
-            silent.push(`${path} ${JSON.stringify(value)}`);
-        }
-      expect(silent).toEqual([]);
-    });
+    // One export per object shape and value: about a second each, longer on a busy runner.
+    it(
+      `${name}: a number or a prose field added to any object is exported or stops the export`,
+      { timeout: 60_000 },
+      () => {
+        const shapes = objectShapes(name, SOURCES[name]());
+        expect(shapes.length).toBeGreaterThan(40);
+        const silent: string[] = [];
+        for (const [path] of shapes)
+          for (const value of [7, "new rule text"]) {
+            const r = exportWith(name, (s) => {
+              at(s, path).zzFreeze = value;
+            });
+            const kept = r.text?.includes('"zzFreeze"');
+            // Numbers mode keeps a number and drops prose; prose there is what --report-prose-numbers lists.
+            if (
+              !r.error &&
+              !kept &&
+              !(typeof value === "string" && NUMBERS_MODE[name].some((p) => path.startsWith(p)))
+            )
+              silent.push(`${path} ${JSON.stringify(value)}`);
+          }
+        expect(silent).toEqual([]);
+      },
+    );
 
   it("names the object and the field when a picked object gets an unknown field", () => {
     const cases: [Name, string, string][] = [
@@ -612,7 +623,7 @@ describe("v7 clinical export: --report-prose-numbers over every kept section", (
   it("lists a number written in prose in any kept section, ROM included", () => {
     const s = sources();
     s.rom.safety[0].rule = "Pain 7 or more";
-    s.rom.thresholds.SDeff = "SD capped at 12.5% of N";
+    s.rom.thresholds.SDeff = "SD capped at 11.5% of N";
     s.gait.findings[0].rule = "foot pitch <= 0 on >= 60% of cycles";
     s.targets.mapping.paths[1].plus = "stretch only at priority 1";
     expect(listedPaths("rom", s.rom)).toEqual(expect.arrayContaining(["safety[0].rule", "thresholds.SDeff"]));
@@ -919,6 +930,33 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     expect(KEEP.rom).toEqual(expect.arrayContaining(["retest", "sessionOrder"]));
     expect(DROP_TOP.rom).not.toContain("retest");
     expect(DROP_TOP.rom).not.toContain("sessionOrder");
+  });
+
+  it("exports the numbers of the grading rules next to the functional floors (A4-8)", () => {
+    const t = (exportRom(romSource()) as Obj).thresholds;
+    expect(Object.keys(t)).toEqual([
+      "sdCap",
+      "zWithinMin",
+      "zMarkedBelow",
+      "percentOfNormalMinN",
+      "elevationOverReadAbove",
+      "phoneBias",
+      "functionalFloor",
+    ]);
+    expect(t).toMatchObject({
+      sdCap: { pctOfN: 12.5, fromMeanDeg: 90 },
+      zWithinMin: -1.96,
+      zMarkedBelow: -3,
+      percentOfNormalMinN: 20,
+      elevationOverReadAbove: 120,
+      phoneBias: 0,
+    });
+    const s = romSource();
+    s.thresholds.sdCap = { pctOfN: "12.5", fromMeanDeg: 90 };
+    expect(() => exportRom(s)).toThrow("thresholds.sdCap.pctOfN: not a number");
+    const u = romSource();
+    u.thresholds.sdCap.fraction = 0.125;
+    expect(() => exportRom(u)).toThrow("thresholds sdCap: unknown field fraction");
   });
 
   it("fails on a retest band of an unknown movement or field, and on a number written as text", () => {

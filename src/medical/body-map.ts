@@ -13,15 +13,15 @@
  * and 6), so they are code here (C-1); tests/v7/a-body-map.test.ts checks them against the data and,
  * with AZM_CLINICAL_V7, against the prose they were written from.
  *
- * plan.ts (validateIntake) imports this module, and plan.ts reaches many chunks, so it reads the
- * range of motion data only through the named import of conditionAutoMap below: a default build
- * keeps none of it, and a v7 build keeps only that slice (the full data is imported only by v7
- * chunks, contract 8.8).
+ * plan.ts (validateIntake) imports this module, and plan.ts reaches many chunks, so it reads none of
+ * the range of motion data: the condition questions (autoFillQuestions, which read conditionAutoMap)
+ * live in body-map-autofill.ts and are re-exported here (D-024, A2-3), so the data stays in the v7
+ * chunks (contract 8.8).
  */
-import { conditionAutoMap } from "../movements/rom/rom-v7.json";
 import type { RomMovementId } from "../movements/rom/types";
-import type { Text } from "../movements/types";
 import type { painOptions } from "./plan";
+
+export { autoFillQuestions } from "./body-map-autofill";
 
 /** The canonical region ids (C-11): the ids of rom-protocol.json regions, in body order. */
 export const REGION_IDS = [
@@ -237,16 +237,7 @@ export function painIdsFromRegions(regions: readonly Pick<RegionEntry, "region" 
   return PAIN_ORDER.filter((id) => ids.has(id));
 }
 
-/* --------------------------------------------------- the condition questions */
-
-/** The questions to ask for the person's conditions, in order (conditionAutoMap). */
-export function autoFillQuestions(
-  conditions: readonly string[],
-): { condition: string; ask: Text; answers: Text[] }[] {
-  return conditionAutoMap
-    .filter((row) => conditions.includes(row.condition) && row.ask.ar !== "" && row.ask.en !== "")
-    .map((row) => ({ condition: row.condition, ask: row.ask, answers: row.answers }));
-}
+/* --------------------------------------------------- the condition fill */
 
 const fill = (
   regions: readonly RegionId[],

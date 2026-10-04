@@ -36,6 +36,7 @@ import {
   type RegionId,
   type RomFlagContext,
 } from "../../src/medical/body-map";
+import { autoFillQuestions as autoFillFromItsModule } from "../../src/medical/body-map-autofill";
 import { conditions, painOptions } from "../../src/medical/plan";
 import { ROM_DATA, movementDef } from "../../src/movements/rom";
 import { ROM_MOVEMENT_IDS } from "../../src/movements/rom/types";
@@ -55,6 +56,15 @@ const limbs = (
 ): RegionEntry[] => regions.map((region) => ({ region, side, problems, origin: "condition" as const }));
 
 describe("autoFillQuestions (conditionAutoMap)", () => {
+  it("lives in body-map-autofill.ts, so body-map.ts reads no range data (D-024, A2-3)", () => {
+    expect(autoFillQuestions).toBe(autoFillFromItsModule);
+    const source = readFileSync(join(__dirname, "../../src/medical/body-map.ts"), "utf8");
+    // Only type imports reach the range data: plan.ts imports body-map.ts in every build.
+    const valueImports = [...source.matchAll(/^import (?!type )[^;]*? from "([^"]+)";/gms)].map((m) => m[1]);
+    expect(valueImports.filter((f) => /movements\//.test(f))).toEqual([]);
+    expect(source).toContain('export { autoFillQuestions } from "./body-map-autofill";');
+  });
+
   it("asks the questions of the person's conditions in the order of the data", () => {
     const qs = autoFillQuestions(["arthritis", "stroke"]);
     expect(qs.map((q) => q.condition)).toEqual(["stroke", "arthritis"]);

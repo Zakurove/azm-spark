@@ -3,6 +3,7 @@ import { getDetailedDisabilityConfig } from "./legacy-config";
 import type { DisabilityType } from "./legacy-types";
 import type { Intake } from "./plan";
 import type { DemandTag } from "./sports";
+import type { LibraryExerciseV7Fields } from "./target-types";
 
 /**
  * The Azm exercise library and which of it is safe for a person: the rules, before any model. The
@@ -11,7 +12,8 @@ import type { DemandTag } from "./sports";
  */
 
 export type L = { ar: string; en: string };
-export interface LibraryExercise {
+/** v7 (product v7 contract 2.10): optional positions, targets, pain friendly, dose, draft status and hip end range. */
+export interface LibraryExercise extends LibraryExerciseV7Fields {
   id: string;
   name: L;
   description: L;

@@ -1,0 +1,840 @@
+/**
+ * Writes the v7 runtime clinical data (product v7 contract, decision C-1 and section 2.1).
+ *
+ *   node scripts/clinical/export-v7.mjs --input <folder>
+ *
+ * The input folder holds the three clinical sources, rom-protocol.json, gait-rules.json and
+ * exercise-targets.json (in practice /Users/nasser/Development/Azm6.0/local-docs/clinical/v7, git
+ * ignored). There is no default: a run without --input exits with 1 and writes nothing, so a
+ * worktree without the clinical folder can never write stale data. The outputs are the committed
+ * runtime files of the checkout the script lives in:
+ *
+ *   src/movements/rom/rom-v7.json, src/movements/gait/gait-v7.json, src/movements/targets/targets-v7.json
+ *
+ * Each output keeps only the runtime sections of contract 2.1 rule 3, in the shapes of the types in
+ * src/movements/{rom,gait,targets}/types.ts. Review material and prose that engineers read in
+ * local-docs are dropped (rule 2). Prose that the data writes where the code needs a structure
+ * (landmark midpoints, optional landmark roles, engine ranges, limb loss reasons, norm flags, hip
+ * end range notes) is turned into that structure through explicit tables; any prose a table does
+ * not know fails the export, so a change in the clinical source is never dropped silently.
+ *
+ * Exits with 1, and writes nothing, when a kept section is missing, when a source has a top level
+ * section this script does not know, when a region id is unknown after normalisation (C-11), when a
+ * table meets prose it does not know, or when any kept string breaks the wording rules
+ * (scripts/wording-rules.mjs, the same rules as tests/wording.test.ts). It never rewrites copy.
+ */
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dataViolations } from "../wording-rules.mjs";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+
+/** Input file names inside the --input folder. */
+export const INPUT_FILES = {
+  rom: "rom-protocol.json",
+  gait: "gait-rules.json",
+  targets: "exercise-targets.json",
+};
+
+/** Output paths, relative to the checkout. */
+export const OUTPUT_FILES = {
+  rom: "src/movements/rom/rom-v7.json",
+  gait: "src/movements/gait/gait-v7.json",
+  targets: "src/movements/targets/targets-v7.json",
+};
+
+/* ------------------------------------------------------------- the lists */
+
+/** Fields dropped at any depth (rule 2). Engineers read them in local-docs. */
+export const DROP_ANYWHERE = [
+  "sources",
+  "cites",
+  "basis",
+  "evidence",
+  "note",
+  "notes",
+  "why",
+  "Ebasis",
+  "sigmaMBasis",
+  "knownBias",
+  "reviewLog",
+  "openQuestions",
+  "notVerified",
+  "builtFrom",
+  "evidenceScale",
+  "twin",
+  "author",
+  "consumers",
+  "engineering",
+];
+
+/**
+ * Top level sections kept, in output order. The rule 3 lists, plus the sections contract gap 5
+ * (change log, 2026-10-04) asks about, kept until the tech lead decides: rom safety (the 23 safety
+ * ids with their rule text, for the painStopRule and buildRomProtocol parity tests), gait eligibility
+ * and qualityGates (gaitPlanFor and the quality gates), and the targets placeholders (the hold
+ * placeholder). `citations` is built from `sources`; the targets `whyLines` come from mapping.whyLines.
+ */
+export const KEEP = {
+  rom: [
+    "id",
+    "specVersion",
+    "status",
+    "signoff",
+    "conventions",
+    "engine",
+    "regions",
+    "regionTable",
+    "problemTypes",
+    "conditionAutoMap",
+    "limbLoss",
+    "positions",
+    "movements",
+    "defaultMovements",
+    "norms",
+    "thresholds",
+    "safety",
+    "reasonIds",
+    "copy",
+    "cues",
+    "results",
+    "sideWords",
+    "citations",
+  ],
+  gait: [
+    "id",
+    "version",
+    "status",
+    "signoff",
+    "grades",
+    "eligibility",
+    "capture",
+    "preprocessing",
+    "events",
+    "metrics",
+    "scaling",
+    "qualityGates",
+    "norms",
+    "errorMargins",
+    "retest",
+    "confidenceModel",
+    "patterns",
+    "findings",
+    "copy",
+    "citations",
+  ],
+  targets: [
+    "id",
+    "version",
+    "status",
+    "signoff",
+    "placeholders",
+    "taxonomy",
+    "dose",
+    "libraryTags",
+    "newExercises",
+    "contraindicationVocabulary",
+    "mapping",
+    "whyLines",
+  ],
+};
+
+/** Output sections that are built from a differently named source section. */
+const DERIVED = { citations: "sources", whyLines: "mapping" };
+
+/**
+ * Top level source sections that are known and not kept: documentation and review material.
+ * Gap 5 of the change log lists them; the ROM landmark names, norm selection prose, functional
+ * cross check, retest prose and session order prose are implemented in code from local-docs.
+ */
+export const DROP_TOP = {
+  rom: [
+    "date",
+    "decision",
+    "reviewRound",
+    "builtFrom",
+    "evidenceScale",
+    "landmarks",
+    "normSelection",
+    "functionalCrossCheck",
+    "retest",
+    "sessionOrder",
+    "openQuestions",
+    "notVerified",
+    "reviewLog",
+  ],
+  gait: [
+    "date",
+    "decision",
+    "reviewRound",
+    "author",
+    "plan",
+    "twin",
+    "consumers",
+    "citationKeys",
+    "conventions",
+    "notInMvp",
+    "openQuestions",
+    "engineering",
+    "reviewLog",
+  ],
+  targets: [
+    "date",
+    "decision",
+    "reviewRound",
+    "twin",
+    "builtFrom",
+    "consumers",
+    "evidenceScale",
+    "wordingRules",
+    "coverage",
+    "openQuestions",
+    "notVerified",
+    "reviewLog",
+  ],
+};
+
+/** The canonical region ids (C-11, rom-protocol regions). */
+export const REGION_IDS = [
+  "neck",
+  "back_trunk",
+  "shoulder",
+  "elbow",
+  "forearm_wrist",
+  "hip",
+  "knee",
+  "ankle_foot",
+];
+
+/**
+ * Region spellings of the other files, normalised to the canonical ids (rule 4). exercise-targets
+ * writes forearm_and_wrist in regionDefaultRule (C-11), and its taxonomy writes trunk and wrist_hand
+ * for the trunk and the wrist and hand muscle groups (change log, A1).
+ */
+export const REGION_ALIASES = {
+  forearm_and_wrist: "forearm_wrist",
+  trunk: "back_trunk",
+  wrist_hand: "forearm_wrist",
+};
+
+/**
+ * Optional landmark roles (rule 7): the movement's `optional` prose to a role id, and the standard
+ * MediaPipe reference added to the movement's landmarks when the role is missing there. The plain
+ * role names A, H, K, S, MS and MH are added from the same table when a movement lists one it does
+ * not have (for example the hip for the elbow movements' trunk check).
+ */
+export const OPTIONAL_ROLES = {
+  "W (wrist, for the elbow check)": "W",
+  W: "W",
+  "ears 7 and 8 (shrug logging)": "ears",
+  "other knee": "Kother",
+  "hip line": "hips",
+  hips: "hips",
+  heel: "heel",
+  nose: "nose",
+  A: "A",
+  H: "H",
+  K: "K",
+  S: "S",
+  MS: "MS",
+  MH: "MH",
+};
+export const STANDARD_ROLE_REFS = {
+  W: { left: 15, right: 16 },
+  ears: [7, 8],
+  Kother: { other: "knee" },
+  hips: [23, 24],
+  heel: { left: 29, right: 30 },
+  nose: 0,
+  A: { left: 27, right: 28 },
+  H: { left: 23, right: 24 },
+  K: { left: 25, right: 26 },
+  S: { left: 11, right: 12 },
+  MS: { mid: [11, 12] },
+  MH: { mid: [23, 24] },
+};
+
+/** Landmark prose of movements[].angle.landmarks (the LandmarkRef doc comment of contract 2.3). */
+export const LANDMARK_PROSE = [
+  [/^mid\((\d+), (\d+)\)$/, (m) => ({ mid: [Number(m[1]), Number(m[2])] })],
+  [/^mid\((\d+), (\d+)\) fixed at calibration$/, (m) => ({ mid: [Number(m[1]), Number(m[2])], fixed: true })],
+  [/^the other hip \(23 or 24\)$/, () => ({ other: "hip" })],
+  [/^other knee$/, () => ({ other: "knee" })],
+];
+
+/** The evidence grades of RomMovementDef.cameraEvidence. */
+export const EVIDENCE = ["High", "Moderate", "Low", "Very low"];
+/**
+ * Camera evidence written as a range: the lower grade is kept (conservative), the way a range of
+ * evidence is read for a decision (change log, A1).
+ */
+export const EVIDENCE_RANGES = {
+  "Low to moderate": "Low",
+  "Low to moderate (conflicting)": "Low",
+  "Moderate to high": "Moderate",
+};
+
+/**
+ * Engine values written as prose, to their structure (rule 3: engine value fields only). A number
+ * passes as is; any other prose fails the export.
+ */
+export const ENGINE_PROSE = {
+  restBetweenAttemptsSeconds: { "5 to 10": { min: 5, max: 10 } },
+  inconsistentSpread: { "E + 5": { plusE: 5 } },
+  smoothing: {
+    "Live dial: existing One Euro filter. Recorded value: Hampel filter (window 7, n sigma 2), then the median of the hold window":
+      { live: "one_euro", hampel: { window: 7, nSigma: 2 }, holdValue: "median" },
+  },
+  sigmaMFloor: { "measure 5.1 (10 ÷ 1.96); caution 7.7 (15 ÷ 1.96)": { measure: 5.1, caution: 7.7 } },
+};
+
+/** Norm limit flags, by the id before the colon. */
+export const NORM_FLAGS = ["sdUnknown"];
+
+/** Hip end range ids of exercise-targets newExercises[].hipEndRange (contract gap 3). */
+export const HIP_END_RANGE_IDS = [
+  "flexion_past_90",
+  "adduction_past_midline",
+  "extension",
+  "external_rotation",
+  "internal_rotation",
+  "abduction",
+];
+
+/* --------------------------------------------------------------- helpers */
+
+class ExportError extends Error {}
+const fail = (message) => {
+  throw new ExportError(message);
+};
+const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+/** Removes DROP_ANYWHERE fields at any depth. */
+export function strip(value) {
+  if (Array.isArray(value)) return value.map(strip);
+  if (isObject(value)) {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) if (!DROP_ANYWHERE.includes(k)) out[k] = strip(v);
+    return out;
+  }
+  return value;
+}
+
+/** Keeps only the listed fields that are present, in the listed order. */
+function pick(value, keys, where) {
+  if (!isObject(value)) fail(`${where} is not an object`);
+  const out = {};
+  for (const k of keys) if (k in value) out[k] = strip(value[k]);
+  return out;
+}
+
+/** Fails on a field that is neither kept nor known as dropped. */
+function knownFields(value, known, where) {
+  for (const k of Object.keys(value))
+    if (!known.includes(k)) fail(`${where}: unknown field ${k}: add it to export-v7.mjs`);
+}
+
+/**
+ * Numbers mode (rule 3 "(numbers)"): keeps number and boolean leaves, arrays of them, and the
+ * objects that still hold one; drops prose. Prose that holds a number is listed by numbersInProse.
+ */
+export function numbersOnly(value) {
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    if (value.length && value.every((x) => typeof x === "number" || typeof x === "boolean")) return value;
+    const kept = value.map(numbersOnly).filter((x) => x !== undefined);
+    return kept.length && kept.every(isObject) ? kept : undefined;
+  }
+  if (isObject(value)) {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (DROP_ANYWHERE.includes(k)) continue;
+      const kept = numbersOnly(v);
+      if (kept !== undefined) out[k] = kept;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return undefined;
+}
+
+/** Prose strings holding a digit inside a numbers mode section: what numbers mode leaves behind. */
+export function numbersInProse(value, where = "") {
+  const out = [];
+  const visit = (v, path) => {
+    if (typeof v === "string") {
+      if (/\d/.test(v)) out.push(`${path} ${JSON.stringify(v)}`);
+    } else if (Array.isArray(v)) v.forEach((x, i) => visit(x, `${path}[${i}]`));
+    else if (isObject(v))
+      for (const [k, x] of Object.entries(v)) if (!DROP_ANYWHERE.includes(k)) visit(x, `${path}.${k}`);
+  };
+  visit(value, where);
+  return out;
+}
+
+/** Normalises every `region` string at any depth (rule 4) and fails on an unknown id. */
+export function normaliseRegions(value, where = "") {
+  if (Array.isArray(value)) return value.map((v, i) => normaliseRegions(v, `${where}[${i}]`));
+  if (isObject(value)) {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k === "region" && typeof v === "string") {
+        const id = REGION_ALIASES[v] ?? v;
+        if (!REGION_IDS.includes(id)) fail(`${where}.region: unknown region id ${v}`);
+        out[k] = id;
+      } else out[k] = normaliseRegions(v, `${where}.${k}`);
+    }
+    return out;
+  }
+  return value;
+}
+
+/* ------------------------------------------------------------ top levels */
+
+function checkSections(name, source) {
+  if (!isObject(source)) fail(`${INPUT_FILES[name]} is not an object`);
+  const errors = [];
+  for (const key of KEEP[name]) {
+    const from = DERIVED[key] ?? key;
+    if (!(from in source)) errors.push(`${INPUT_FILES[name]}: missing section ${from}`);
+  }
+  const known = new Set([...KEEP[name], ...DROP_TOP[name], ...Object.values(DERIVED)]);
+  for (const key of Object.keys(source))
+    if (!known.has(key))
+      errors.push(
+        `${INPUT_FILES[name]}: unknown top level section ${key}: add it to KEEP or DROP_TOP in export-v7.mjs`,
+      );
+  if (errors.length) throw new ExportError(errors.join("\n"));
+}
+
+function citations(sourceTable, ids, where) {
+  const out = [];
+  for (const id of ids) {
+    const s = sourceTable[id];
+    if (!isObject(s)) fail(`${where}: source ${id} is not in sources`);
+    out.push({ id, cite: s.cite, url: s.url });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------- ROM */
+
+const MOVEMENT_FIELDS = [
+  "id",
+  "version",
+  "region",
+  "ar",
+  "en",
+  "plane",
+  "verdict",
+  "cameraEvidence",
+  "kind",
+  "canBeNegative",
+  "priority",
+  "view",
+  "positions",
+  "camera",
+  "startPose",
+  "angle",
+  "gate",
+  "optional",
+  "compensations",
+  "E",
+  "Ebasis",
+  "knownBias",
+  "instructions",
+  "cites",
+  "sigmaM",
+  "sigmaMBasis",
+  "approximateInPersonView",
+  "variantInstructions",
+  "bothDirections",
+  "absoluteFloor",
+  "gravityAssisted",
+  "resultName",
+  "feeds",
+];
+
+export function landmarkRef(v, where) {
+  if (Number.isInteger(v)) return v;
+  if (Array.isArray(v) && v.length === 2 && v.every(Number.isInteger)) return [v[0], v[1]];
+  if (isObject(v) && Object.keys(v).length === 2 && Number.isInteger(v.left) && Number.isInteger(v.right))
+    return { left: v.left, right: v.right };
+  if (typeof v === "string")
+    for (const [re, make] of LANDMARK_PROSE) {
+      const m = re.exec(v);
+      if (m) return make(m);
+    }
+  return fail(`${where}: unknown landmark ${JSON.stringify(v)}`);
+}
+
+function cameraEvidence(v, where) {
+  if (EVIDENCE.includes(v)) return v;
+  if (v in EVIDENCE_RANGES) return EVIDENCE_RANGES[v];
+  return fail(`${where}: unknown camera evidence ${JSON.stringify(v)}`);
+}
+
+export function movementDef(m, regions) {
+  const where = `movements ${m.id}`;
+  knownFields(m, MOVEMENT_FIELDS, where);
+  const region = regions.find((r) => r.id === (REGION_ALIASES[m.region] ?? m.region));
+  if (!region) fail(`${where}: unknown region ${m.region}`);
+  const landmarks = {};
+  for (const [role, ref] of Object.entries(m.angle?.landmarks ?? {}))
+    landmarks[role] = landmarkRef(ref, `${where} landmark ${role}`);
+  const optional = (m.optional ?? []).map((text) => {
+    const role = OPTIONAL_ROLES[text];
+    if (!role) fail(`${where}: unknown optional landmark ${JSON.stringify(text)}`);
+    if (!(role in landmarks)) landmarks[role] = STANDARD_ROLE_REFS[role];
+    return role;
+  });
+  const gate = (m.gate ?? []).map((g) => {
+    const any = /^(\w+) or (\w+)$/.exec(g);
+    const roles = any ? [any[1], any[2]] : [g];
+    for (const r of roles) if (!(r in landmarks)) fail(`${where}: gate role ${r} is not a landmark`);
+    return any ? { anyOf: roles } : g;
+  });
+  const def = {
+    id: m.id,
+    version: m.version ?? 1,
+    region: region.id,
+    name: { ar: m.ar, en: m.en },
+    plane: m.plane,
+    verdict: m.verdict,
+    cameraEvidence: cameraEvidence(m.cameraEvidence, where),
+    kind: m.kind,
+    canBeNegative: m.canBeNegative,
+    priority: m.priority,
+    view: m.view,
+    axial: region.axial,
+    positions: m.positions.map((p) => ({ id: p.id, graded: p.graded, normId: p.normId })),
+    landmarks,
+    gate,
+    optional,
+    compensationIds: m.compensations.map((c) => c.id),
+    E: m.E,
+    sigmaM: m.sigmaM,
+    approximateInPersonView: m.approximateInPersonView ?? false,
+    instructions: { ar: m.instructions.ar, en: m.instructions.en },
+  };
+  for (const k of ["variantInstructions", "absoluteFloor", "bothDirections", "gravityAssisted", "resultName"])
+    if (k in m) def[k] = strip(m[k]);
+  return def;
+}
+
+function engineValues(engine) {
+  const out = {};
+  for (const [k, v] of Object.entries(engine)) {
+    const value = isObject(v) && "value" in v ? v.value : v;
+    if (typeof value === "number") out[k] = value;
+    else if (ENGINE_PROSE[k] && value in ENGINE_PROSE[k]) out[k] = ENGINE_PROSE[k][value];
+    else fail(`engine.${k}: unknown value ${JSON.stringify(value)}: add it to ENGINE_PROSE in export-v7.mjs`);
+  }
+  return out;
+}
+
+const LIMIT_FIELDS = [
+  "sigmaM",
+  "sdUsed",
+  "sdEff",
+  "capApplied",
+  "floorApplied",
+  "sdObserved",
+  "zWithin",
+  "zMarked",
+  "withinFrom",
+  "markedBelow",
+  "withinUpTo",
+  "markedAbove",
+];
+const ROW_FIELDS = ["sex", "ageMin", "ageMax", "side", "mean", "sd", "sdUsed", "n", "limits", "ci95", "sdDerived"];
+const NORM_FIELDS = ["id", "movement", "source", "method", "position", "strength", "graded", "rows", "notes"];
+
+function normLimits(limits, where) {
+  knownFields(limits, [...LIMIT_FIELDS, "flag"], where);
+  const out = pick(limits, LIMIT_FIELDS, where);
+  if ("flag" in limits) {
+    const id = /^(\w+):/.exec(limits.flag)?.[1];
+    if (!NORM_FLAGS.includes(id)) fail(`${where}: unknown flag ${JSON.stringify(limits.flag)}`);
+    out.flag = id;
+  }
+  return out;
+}
+
+function normDef(n) {
+  const where = `norms ${n.id}`;
+  knownFields(n, NORM_FIELDS, where);
+  return {
+    id: n.id,
+    movement: n.movement,
+    // rule 8: sources as arrays ("R7, R8" -> ["R7", "R8"])
+    source: Array.isArray(n.source) ? n.source : String(n.source).split(/\s*,\s*/),
+    position: n.position,
+    strength: n.strength,
+    graded: n.graded,
+    rows: n.rows.map((r, i) => {
+      knownFields(r, ROW_FIELDS, `${where} row ${i}`);
+      return {
+        sex: r.sex,
+        ageMin: r.ageMin,
+        ageMax: r.ageMax ?? null,
+        ...("side" in r ? { side: r.side } : {}),
+        mean: r.mean,
+        sd: r.sd ?? null,
+        sdUsed: r.sdUsed ?? null,
+        n: r.n ?? null,
+        limits: r.limits ? normLimits(r.limits, `${where} row ${i} limits`) : null,
+      };
+    }),
+  };
+}
+
+export function exportRom(source) {
+  checkSections("rom", source);
+  const reasonIds = source.reasonIds;
+  const reasonOf = (text, where) => {
+    const id = /^([a-z_]+)/.exec(text)?.[1];
+    if (!id || !(id in reasonIds)) fail(`${where}: no reason id in ${JSON.stringify(text)}`);
+    return id;
+  };
+  const regions = source.regions.map((r) => pick(r, ["id", "ar", "en", "axial", "label"], "regions"));
+  const norms = source.norms.map(normDef);
+  const normSourceIds = [...new Set(norms.flatMap((n) => n.source))];
+  const out = {
+    id: source.id,
+    specVersion: source.specVersion,
+    status: source.status,
+    signoff: pick(source.signoff, ["status", "approved", "approvers"], "signoff"),
+    conventions: { sides: source.conventions.sides },
+    engine: engineValues(source.engine),
+    regions,
+    regionTable: strip(source.regionTable),
+    problemTypes: source.problemTypes.map((p) => pick(p, ["id", "ar", "en"], "problemTypes")),
+    conditionAutoMap: source.conditionAutoMap.map((c) => ({
+      condition: c.condition,
+      ask: pick(c.ask, ["ar", "en"], `conditionAutoMap ${c.condition} ask`),
+      answers: c.answers.map((a) => pick(a, ["ar", "en"], `conditionAutoMap ${c.condition} answer`)),
+    })),
+    limbLoss: {
+      levels: source.limbLoss.levels.map((l) => ({
+        level: l.level,
+        measured: l.measured,
+        notMeasured: Object.fromEntries(
+          Object.entries(l.notMeasured).map(([m, text]) => [m, reasonOf(text, `limbLoss ${l.level} ${m}`)]),
+        ),
+      })),
+    },
+    positions: Object.fromEntries(
+      Object.entries(source.positions).map(([id, p]) => [id, pick(p, ["ar", "en"], `positions ${id}`)]),
+    ),
+    movements: source.movements.map((m) => movementDef(m, regions)),
+    defaultMovements: source.defaultMovements.map((d) => ({
+      id: d.id,
+      region: d.region,
+      ar: d.ar,
+      en: d.en,
+      normId: d.normId,
+      inAffectedRegion: { source: d.inAffectedRegion.source },
+    })),
+    norms,
+    thresholds: { functionalFloor: strip(source.thresholds.functionalFloor) },
+    safety: source.safety.map((s) => pick(s, ["id", "rule", "action"], "safety")),
+    reasonIds: strip(reasonIds),
+    copy: strip(source.copy),
+    cues: strip(source.cues),
+    results: strip(source.results),
+    sideWords: strip(source.sideWords),
+    citations: citations(source.sources, normSourceIds, "norms"),
+  };
+  return normaliseRegions(out, "rom");
+}
+
+/* ------------------------------------------------------------------ gait */
+
+const METRIC_FIELDS = ["id", "views", "unit", "grade", "gradeFront", "gradePad", "gradeHyperextension"];
+const METRIC_KNOWN = [
+  ...METRIC_FIELDS,
+  "notReportedBelowFps",
+  "use",
+  "definition",
+  "aggregation",
+  "error",
+  "views2",
+  "basis",
+];
+/** Pattern fields that are prose about the rule, read in local-docs (patterns "(structured)"). */
+export const PATTERN_PROSE = ["section", "sides", "labelRule"];
+const FINDING_FIELDS = ["id", "views", "grade", "gradeFront", "targets", "copyTargets"];
+
+function gaitNormSourceIds(norms, sourceTable) {
+  const ids = [];
+  const visit = (v, key) => {
+    if (typeof v === "string" && (key === "source" || key === "sources") && v in sourceTable) ids.push(v);
+    else if (Array.isArray(v)) v.forEach((x) => visit(x, key));
+    else if (isObject(v)) for (const [k, x] of Object.entries(v)) visit(x, k);
+  };
+  visit(norms, "");
+  return [...new Set(ids)];
+}
+
+export function exportGait(source) {
+  checkSections("gait", source);
+  const cm = source.confidenceModel;
+  const out = {
+    id: source.id,
+    version: source.version,
+    status: source.status,
+    signoff: pick(source.signoff, ["approved", "approvers"], "signoff"),
+    grades: { measurement: strip(source.grades.measurement) },
+    eligibility: strip(source.eligibility),
+    capture: numbersOnly(source.capture),
+    preprocessing: source.preprocessing.map((p) => ({ step: p.step, ...numbersOnly(p) })),
+    events: numbersOnly(source.events),
+    metrics: source.metrics.map((m) => {
+      knownFields(m, METRIC_KNOWN, `metrics ${m.id}`);
+      return {
+        ...pick(m, METRIC_FIELDS, `metrics ${m.id}`),
+        ...("notReportedBelowFps" in m ? { notReportedBelowFps: m.notReportedBelowFps } : {}),
+        use: m.use,
+      };
+    }),
+    scaling: numbersOnly(source.scaling),
+    qualityGates: strip(source.qualityGates),
+    norms: strip(source.norms),
+    errorMargins: numbersOnly(source.errorMargins),
+    retest: { realChange: strip(source.retest.realChange) },
+    // "(lists)": the structured fields; the prose rules (firing, corroboration, ...) are code
+    confidenceModel: Object.fromEntries(
+      Object.entries(cm).filter(([k, v]) => typeof v !== "string" && !DROP_ANYWHERE.includes(k)),
+    ),
+    patterns: source.patterns.map((p) =>
+      strip(Object.fromEntries(Object.entries(p).filter(([k]) => !PATTERN_PROSE.includes(k)))),
+    ),
+    findings: source.findings.map((f) => pick(f, FINDING_FIELDS, `findings ${f.id}`)),
+    copy: strip(source.copy),
+    citations: citations(source.sources, gaitNormSourceIds(source.norms, source.sources), "gait norms"),
+  };
+  return normaliseRegions(out, "gait");
+}
+
+/** Prose that numbers mode drops from the gait sections, for the change log (gap list). */
+export function gaitNumbersInProse(source) {
+  return [
+    ...numbersInProse(source.capture, "capture"),
+    ...numbersInProse(source.preprocessing, "preprocessing"),
+    ...numbersInProse(source.events, "events"),
+    ...numbersInProse(source.scaling, "scaling"),
+    ...numbersInProse(source.errorMargins, "errorMargins"),
+  ];
+}
+
+/* --------------------------------------------------------------- targets */
+
+/** Mapping parts that are prose lists of the algorithm (merge, selection), implemented in code. */
+export const MAPPING_PROSE = ["merge", "selection", "whyLines"];
+
+export function hipEndRange(items, where) {
+  return items.map((text) => {
+    const id = /^([a-z_0-9]+)/.exec(text)?.[1];
+    if (!HIP_END_RANGE_IDS.includes(id)) fail(`${where}: unknown hip end range ${JSON.stringify(text)}`);
+    return id;
+  });
+}
+
+export function exportTargets(source) {
+  checkSections("targets", source);
+  const out = {
+    id: source.id,
+    version: source.version,
+    status: source.status,
+    signoff: pick(source.signoff, ["approved", "approvers"], "signoff"),
+    placeholders: strip(source.placeholders),
+    taxonomy: strip(source.taxonomy),
+    dose: {
+      profiles: source.dose.profiles.map((p) => pick(p, ["id", "ar", "en", "numbers"], `dose ${p.id}`)),
+      sessionOrder: strip(source.dose.sessionOrder),
+    },
+    libraryTags: strip(source.libraryTags),
+    newExercises: source.newExercises.map((e) => {
+      const x = strip(e);
+      if ("hipEndRange" in x) x.hipEndRange = hipEndRange(x.hipEndRange, `newExercises ${e.id}`);
+      return x;
+    }),
+    contraindicationVocabulary: strip(source.contraindicationVocabulary),
+    mapping: strip(
+      Object.fromEntries(Object.entries(source.mapping).filter(([k]) => !MAPPING_PROSE.includes(k))),
+    ),
+    whyLines: strip(source.mapping.whyLines ?? fail("mapping.whyLines is missing")),
+  };
+  return normaliseRegions(out, "targets");
+}
+
+/* ------------------------------------------------------------------ main */
+
+/**
+ * Builds the three runtime files from the three clinical sources.
+ * Returns { data: { rom, gait, targets } } or { errors }.
+ */
+export function exportV7(sources) {
+  const errors = [];
+  const data = {};
+  const builders = { rom: exportRom, gait: exportGait, targets: exportTargets };
+  for (const [name, build] of Object.entries(builders)) {
+    try {
+      data[name] = build(sources?.[name]);
+    } catch (e) {
+      if (!(e instanceof ExportError)) throw e;
+      errors.push(...e.message.split("\n"));
+      continue;
+    }
+    const wording = dataViolations(data[name], OUTPUT_FILES[name].split("/").pop());
+    errors.push(...wording.map((w) => `wording: ${w}`));
+  }
+  return errors.length ? { errors } : { data };
+}
+
+/** The --input folder from the arguments, or null. */
+export function inputArg(argv) {
+  const i = argv.indexOf("--input");
+  if (i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("--")) return argv[i + 1];
+  const eq = argv.find((a) => a.startsWith("--input="));
+  return eq ? eq.slice("--input=".length) || null : null;
+}
+
+function main() {
+  const input = inputArg(process.argv.slice(2));
+  if (!input) {
+    console.error(
+      "Usage: node scripts/clinical/export-v7.mjs --input <folder with rom-protocol.json, gait-rules.json, exercise-targets.json>",
+    );
+    console.error("The clinical folder is /Users/nasser/Development/Azm6.0/local-docs/clinical/v7 (C-1).");
+    process.exit(1);
+  }
+  const sources = {};
+  for (const [name, file] of Object.entries(INPUT_FILES)) {
+    const path = join(resolve(input), file);
+    try {
+      sources[name] = JSON.parse(readFileSync(path, "utf8"));
+    } catch (e) {
+      console.error(`Cannot read ${path}: ${e instanceof Error ? e.message : e}`);
+      process.exit(1);
+    }
+  }
+  const { data, errors } = exportV7(sources);
+  if (errors) {
+    console.error(`Not exported (${errors.length} problem${errors.length === 1 ? "" : "s"}):`);
+    for (const e of errors) console.error(`  ${e}`);
+    process.exit(1);
+  }
+  for (const [name, file] of Object.entries(OUTPUT_FILES)) {
+    const path = join(ROOT, file);
+    const text = JSON.stringify(data[name], null, 2) + "\n";
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, text);
+    console.log(`Wrote ${relative(ROOT, path)}: ${Buffer.byteLength(text)} bytes`);
+  }
+  if (process.argv.includes("--report-prose-numbers"))
+    for (const line of gaitNumbersInProse(sources.gait)) console.log(`  numbers in prose: ${line}`);
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

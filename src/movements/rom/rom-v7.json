@@ -1,0 +1,6054 @@
+{
+  "id": "rom_protocol",
+  "specVersion": "0.2.1",
+  "status": "draft",
+  "signoff": {
+    "status": "draft",
+    "approved": false,
+    "approvers": [
+      "Dr. Nasser Alharbi (PM&R), medical",
+      "Chaker Belhaj, fitness"
+    ]
+  },
+  "conventions": {
+    "sides": "Left and right are the person's own (R15). The camera side is the side whose shoulder, hip and knee have the higher mean visibility; it must be the tested side (R21)."
+  },
+  "engine": {
+    "visibilityMin": 0.6,
+    "fpsMin": 12,
+    "phoneLevelToleranceDeg": 5,
+    "holdBandDeg": 3,
+    "holdSeconds": 1,
+    "wideHoldBandDeg": 5,
+    "minExcursionDeg": 10,
+    "attemptTimeoutSeconds": 20,
+    "answerTimeoutSeconds": 10,
+    "practice": 1,
+    "scoredAttemptsMax": 3,
+    "restBetweenAttemptsSeconds": {
+      "min": 5,
+      "max": 10
+    },
+    "minValidForGrade": 2,
+    "inconsistentSpread": {
+      "plusE": 5
+    },
+    "smoothing": {
+      "live": "one_euro",
+      "hampel": {
+        "window": 7,
+        "nSigma": 2
+      },
+      "holdValue": "median"
+    },
+    "sitBeforeStandSeconds": 60,
+    "sigmaMFloor": {
+      "measure": 5.1,
+      "caution": 7.7
+    }
+  },
+  "regions": [
+    {
+      "id": "neck",
+      "ar": "الرقبة",
+      "en": "Neck",
+      "axial": true,
+      "label": {
+        "ar": "الرقبة",
+        "en": "Neck"
+      }
+    },
+    {
+      "id": "back_trunk",
+      "ar": "الظهر والجذع",
+      "en": "Back or trunk",
+      "axial": true,
+      "label": {
+        "ar": "الظهر والجذع",
+        "en": "Back or trunk"
+      }
+    },
+    {
+      "id": "shoulder",
+      "ar": "الكتف",
+      "en": "Shoulder",
+      "axial": false,
+      "label": {
+        "ar": "الكتف",
+        "en": "Shoulder"
+      }
+    },
+    {
+      "id": "elbow",
+      "ar": "المرفق",
+      "en": "Elbow",
+      "axial": false,
+      "label": {
+        "ar": "المرفق",
+        "en": "Elbow"
+      }
+    },
+    {
+      "id": "forearm_wrist",
+      "ar": "الساعد والرسغ",
+      "en": "Forearm and wrist",
+      "axial": false,
+      "label": {
+        "ar": "الساعد والرسغ",
+        "en": "Forearm and wrist"
+      }
+    },
+    {
+      "id": "hip",
+      "ar": "الورك",
+      "en": "Hip",
+      "axial": false,
+      "label": {
+        "ar": "الورك",
+        "en": "Hip"
+      }
+    },
+    {
+      "id": "knee",
+      "ar": "الركبة",
+      "en": "Knee",
+      "axial": false,
+      "label": {
+        "ar": "الركبة",
+        "en": "Knee"
+      }
+    },
+    {
+      "id": "ankle_foot",
+      "ar": "الكاحل والقدم",
+      "en": "Ankle and foot",
+      "axial": false,
+      "label": {
+        "ar": "الكاحل والقدم",
+        "en": "Ankle and foot"
+      }
+    }
+  ],
+  "regionTable": [
+    {
+      "region": "neck",
+      "measure": [],
+      "caution": [
+        "neck_lateral_flexion",
+        "neck_flexion",
+        "neck_extension"
+      ],
+      "default": [
+        "neck_rotation"
+      ],
+      "core": [
+        "neck_lateral_flexion"
+      ],
+      "extended": [
+        "neck_flexion",
+        "neck_extension"
+      ],
+      "sides": "both directions (axial)"
+    },
+    {
+      "region": "back_trunk",
+      "measure": [],
+      "caution": [
+        "trunk_lateral_flexion",
+        "trunk_flexion"
+      ],
+      "default": [
+        "trunk_extension",
+        "trunk_rotation"
+      ],
+      "core": [
+        "trunk_lateral_flexion"
+      ],
+      "extended": [
+        "trunk_flexion"
+      ],
+      "sides": "both directions (axial)"
+    },
+    {
+      "region": "shoulder",
+      "measure": [
+        "shoulder_flexion",
+        "shoulder_abduction"
+      ],
+      "caution": [
+        "shoulder_extension"
+      ],
+      "default": [
+        "shoulder_internal_rotation",
+        "shoulder_external_rotation"
+      ],
+      "core": [
+        "shoulder_flexion",
+        "shoulder_abduction"
+      ],
+      "extended": [
+        "shoulder_extension"
+      ],
+      "sides": "affected side only"
+    },
+    {
+      "region": "elbow",
+      "measure": [
+        "elbow_extension"
+      ],
+      "caution": [
+        "elbow_flexion"
+      ],
+      "default": [],
+      "core": [
+        "elbow_extension"
+      ],
+      "extended": [
+        "elbow_flexion"
+      ],
+      "sides": "affected side only"
+    },
+    {
+      "region": "forearm_wrist",
+      "measure": [],
+      "caution": [],
+      "default": [
+        "forearm_pronation",
+        "forearm_supination",
+        "wrist_flexion",
+        "wrist_extension"
+      ],
+      "core": [],
+      "extended": [],
+      "sides": "affected side only"
+    },
+    {
+      "region": "hip",
+      "measure": [],
+      "caution": [
+        "hip_flexion",
+        "hip_extension",
+        "hip_abduction"
+      ],
+      "default": [
+        "hip_internal_rotation",
+        "hip_external_rotation"
+      ],
+      "core": [
+        "hip_flexion"
+      ],
+      "extended": [
+        "hip_extension",
+        "hip_abduction"
+      ],
+      "sides": "affected side only"
+    },
+    {
+      "region": "knee",
+      "measure": [
+        "knee_flexion",
+        "knee_extension"
+      ],
+      "caution": [],
+      "default": [],
+      "core": [
+        "knee_flexion",
+        "knee_extension"
+      ],
+      "extended": [],
+      "sides": "affected side only"
+    },
+    {
+      "region": "ankle_foot",
+      "measure": [
+        "ankle_dorsiflexion_lunge"
+      ],
+      "caution": [],
+      "default": [
+        "ankle_plantarflexion",
+        "ankle_dorsiflexion_nwb"
+      ],
+      "core": [
+        "ankle_dorsiflexion_lunge"
+      ],
+      "extended": [],
+      "sides": "affected side only"
+    }
+  ],
+  "problemTypes": [
+    {
+      "id": "weakness",
+      "ar": "ضعف أو شلل",
+      "en": "Weakness or paralysis"
+    },
+    {
+      "id": "injury",
+      "ar": "إصابة في المفصل أو الرباط أو الوتر",
+      "en": "Joint, ligament or tendon injury"
+    },
+    {
+      "id": "pain",
+      "ar": "ألم",
+      "en": "Pain"
+    },
+    {
+      "id": "stiffness",
+      "ar": "تيبس",
+      "en": "Stiffness"
+    },
+    {
+      "id": "after_surgery",
+      "ar": "بعد عملية جراحية",
+      "en": "After surgery"
+    },
+    {
+      "id": "limb_loss",
+      "ar": "فقد طرف",
+      "en": "Limb loss"
+    }
+  ],
+  "conditionAutoMap": [
+    {
+      "condition": "stroke",
+      "ask": {
+        "ar": "بحسب حالتك الطبية، سنقيس حركة الذراع والساق في الجهة الأضعف. أي جهة هي الأضعف؟",
+        "en": "Based on your medical condition, we will measure the arm and leg on your weaker side. Which side is weaker?"
+      },
+      "answers": [
+        {
+          "ar": "اليمنى",
+          "en": "Right"
+        },
+        {
+          "ar": "اليسرى",
+          "en": "Left"
+        }
+      ]
+    },
+    {
+      "condition": "cerebral_palsy",
+      "ask": {
+        "ar": "أي أجزاء جسمك تتأثر أكثر بحالتك الطبية؟",
+        "en": "Which parts of your body does your medical condition affect most?"
+      },
+      "answers": [
+        {
+          "ar": "جهة واحدة",
+          "en": "One side"
+        },
+        {
+          "ar": "الساقان أكثر من الذراعين",
+          "en": "Both legs more than the arms"
+        },
+        {
+          "ar": "الذراعان والساقان",
+          "en": "Both arms and both legs"
+        }
+      ]
+    },
+    {
+      "condition": "ms",
+      "ask": {
+        "ar": "أي أطرافك تتأثر أكثر بحالتك الطبية؟",
+        "en": "Which of your limbs does your medical condition affect most?"
+      },
+      "answers": [
+        {
+          "ar": "الذراع اليمنى",
+          "en": "Right arm"
+        },
+        {
+          "ar": "الذراع اليسرى",
+          "en": "Left arm"
+        },
+        {
+          "ar": "الساق اليمنى",
+          "en": "Right leg"
+        },
+        {
+          "ar": "الساق اليسرى",
+          "en": "Left leg"
+        }
+      ]
+    },
+    {
+      "condition": "parkinsons",
+      "ask": {
+        "ar": "بحسب حالتك الطبية، سنقيس حركة الرقبة والجذع والكتفين والوركين. هل هذا مناسب؟",
+        "en": "Based on your medical condition, we will measure your neck, trunk, shoulders and hips. Is that right?"
+      },
+      "answers": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "أريد التعديل",
+          "en": "I want to change it"
+        }
+      ]
+    },
+    {
+      "condition": "sci_complete",
+      "ask": {
+        "ar": "أين مستوى إصابة الحبل الشوكي لديك؟",
+        "en": "Where is the level of your spinal cord injury?"
+      },
+      "answers": [
+        {
+          "ar": "في الرقبة",
+          "en": "In the neck"
+        },
+        {
+          "ar": "في الظهر أو أسفله",
+          "en": "In the back or lower"
+        }
+      ]
+    },
+    {
+      "condition": "sci_incomplete",
+      "ask": {
+        "ar": "أين مستوى إصابة الحبل الشوكي لديك؟",
+        "en": "Where is the level of your spinal cord injury?"
+      },
+      "answers": [
+        {
+          "ar": "في الرقبة",
+          "en": "In the neck"
+        },
+        {
+          "ar": "في الظهر أو أسفله",
+          "en": "In the back or lower"
+        }
+      ]
+    },
+    {
+      "condition": "lower_limb_unilateral",
+      "ask": {
+        "ar": "في أي جهة، وعلى أي مستوى؟",
+        "en": "Which side, and at what level?"
+      },
+      "answers": [
+        {
+          "ar": "تحت الركبة",
+          "en": "Below the knee"
+        },
+        {
+          "ar": "فوق الركبة",
+          "en": "Above the knee"
+        }
+      ]
+    },
+    {
+      "condition": "upper_limb_unilateral",
+      "ask": {
+        "ar": "في أي جهة، وعلى أي مستوى؟",
+        "en": "Which side, and at what level?"
+      },
+      "answers": [
+        {
+          "ar": "تحت المرفق",
+          "en": "Below the elbow"
+        },
+        {
+          "ar": "فوق المرفق",
+          "en": "Above the elbow"
+        }
+      ]
+    },
+    {
+      "condition": "arthritis",
+      "ask": {
+        "ar": "أي مفاصلك تتأثر بحالتك الطبية؟",
+        "en": "Which of your joints does your medical condition affect?"
+      },
+      "answers": []
+    },
+    {
+      "condition": "other conditions (cardiac, cfs_moderate, other, none)",
+      "ask": {
+        "ar": "",
+        "en": ""
+      },
+      "answers": []
+    }
+  ],
+  "limbLoss": {
+    "levels": [
+      {
+        "level": "below_knee",
+        "measured": [
+          "hip_flexion",
+          "hip_extension",
+          "hip_abduction"
+        ],
+        "notMeasured": {
+          "knee_flexion": "not_measured_camera",
+          "knee_extension": "not_measured_camera",
+          "ankle_dorsiflexion_lunge": "limb_absent"
+        }
+      },
+      {
+        "level": "above_knee",
+        "measured": [],
+        "notMeasured": {
+          "hip_flexion": "not_measured_camera",
+          "hip_extension": "not_measured_camera",
+          "hip_abduction": "not_measured_camera",
+          "knee_flexion": "limb_absent",
+          "knee_extension": "limb_absent",
+          "ankle_dorsiflexion_lunge": "limb_absent"
+        }
+      },
+      {
+        "level": "below_elbow",
+        "measured": [
+          "shoulder_flexion",
+          "shoulder_abduction",
+          "shoulder_extension"
+        ],
+        "notMeasured": {
+          "elbow_extension": "not_measured_camera",
+          "elbow_flexion": "not_measured_camera"
+        }
+      },
+      {
+        "level": "above_elbow",
+        "measured": [],
+        "notMeasured": {
+          "shoulder_flexion": "not_measured_camera",
+          "shoulder_abduction": "not_measured_camera",
+          "shoulder_extension": "not_measured_camera",
+          "elbow_extension": "limb_absent",
+          "elbow_flexion": "limb_absent"
+        }
+      }
+    ]
+  },
+  "positions": {
+    "seated": {
+      "ar": "جلوس",
+      "en": "Seated (chair or own wheelchair, brakes on)"
+    },
+    "seated_forward": {
+      "ar": "جلوس قرب مقدمة كرسي بلا ذراعين",
+      "en": "Seated near the front of an armless chair"
+    },
+    "standing": {
+      "ar": "وقوف",
+      "en": "Standing"
+    },
+    "standing_supported": {
+      "ar": "وقوف مع إمساك سند ثابت",
+      "en": "Standing, holding a steady support"
+    },
+    "lying_back": {
+      "ar": "استلقاء على الظهر",
+      "en": "Lying on the back on a bed or firm mat"
+    },
+    "seated_armrests": {
+      "ar": "جلوس على كرسي ثابت له مسندان للذراعين، أو على كرسي متحرك واقياه الجانبيان في مكانهما",
+      "en": "Seated on a steady chair with armrests on both sides, or in a wheelchair with side guards in place and brakes on"
+    }
+  },
+  "movements": [
+    {
+      "id": "shoulder_flexion",
+      "version": 1,
+      "region": "shoulder",
+      "name": {
+        "ar": "رفع الذراع أمامًا",
+        "en": "Arm raise to the front"
+      },
+      "plane": "sagittal",
+      "verdict": "measure",
+      "cameraEvidence": "Moderate",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "gill_shoulder_flexion"
+        }
+      ],
+      "landmarks": {
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "E": {
+          "left": 13,
+          "right": 14
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "nose": 0,
+        "W": {
+          "left": 15,
+          "right": 16
+        }
+      },
+      "gate": [
+        "S",
+        "E",
+        "H"
+      ],
+      "optional": [
+        "W",
+        "nose"
+      ],
+      "compensationIds": [
+        "trunk_back",
+        "plane",
+        "bent_elbow",
+        "assisted"
+      ],
+      "E": 10,
+      "sigmaM": 5.1,
+      "approximateInPersonView": true,
+      "instructions": {
+        "ar": [
+          "اجلس على كرسي ثابت وظهرك مستند إليه، واجعل جانبك {sideM} نحو الهاتف.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع كتفك تقريبًا.",
+          "أبقِ ذراعك {sideF} مستقيمة وإبهامك إلى الأعلى، ثم ارفعها أمامك إلى أعلى ما تستطيع دون ألم.",
+          "اثبت لحظة في أعلى نقطة، وأبقِ ظهرك مستندًا إلى الكرسي."
+        ],
+        "en": [
+          "Sit on a steady chair with your back against it, and turn so your {side} side faces the phone.",
+          "Place the phone 2 to 3 meters away, at about the height of your shoulder.",
+          "Keep your {side} arm straight with your thumb pointing up, then raise it in front of you as high as you can without pain.",
+          "Hold for a moment at the top, and keep your back against the chair."
+        ]
+      }
+    },
+    {
+      "id": "shoulder_abduction",
+      "version": 1,
+      "region": "shoulder",
+      "name": {
+        "ar": "رفع الذراع جانبًا",
+        "en": "Arm raise to the side"
+      },
+      "plane": "frontal",
+      "verdict": "measure",
+      "cameraEvidence": "Moderate",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "front",
+      "axial": false,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "gill_shoulder_abduction"
+        }
+      ],
+      "landmarks": {
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "E": {
+          "left": 13,
+          "right": 14
+        },
+        "MS": {
+          "mid": [
+            11,
+            12
+          ]
+        },
+        "MHf": {
+          "mid": [
+            23,
+            24
+          ],
+          "fixed": true
+        },
+        "W": {
+          "left": 15,
+          "right": 16
+        },
+        "ears": [
+          7,
+          8
+        ]
+      },
+      "gate": [
+        "S",
+        "E",
+        "MS",
+        "MHf"
+      ],
+      "optional": [
+        "W",
+        "ears"
+      ],
+      "compensationIds": [
+        "trunk_lean",
+        "plane",
+        "trunk_rotation",
+        "assisted",
+        "bent_elbow",
+        "shrug"
+      ],
+      "E": 10,
+      "sigmaM": 5.1,
+      "approximateInPersonView": true,
+      "instructions": {
+        "ar": [
+          "اجلس مستقيمًا على كرسي ثابت وظهرك مستند إليه، وواجه الهاتف.",
+          "ضع الهاتف أمامك على بعد مترين إلى ثلاثة أمتار، بارتفاع صدرك تقريبًا.",
+          "أبقِ إبهامك إلى الأعلى، وارفع ذراعك {sideF} ببطء إلى الجانب إلى أعلى ما تستطيع دون ألم.",
+          "اثبت لحظة، ولا تمِل بجسمك إلى الجهة الأخرى."
+        ],
+        "en": [
+          "Sit tall on a steady chair with your back against it, facing the phone.",
+          "Place the phone in front of you, 2 to 3 meters away, at about chest height.",
+          "With your thumb pointing up, slowly raise your {side} arm out to the side, as high as you can without pain.",
+          "Hold for a moment, and do not lean your body to the other side."
+        ]
+      }
+    },
+    {
+      "id": "shoulder_extension",
+      "version": 1,
+      "region": "shoulder",
+      "name": {
+        "ar": "تحريك الذراع إلى الخلف",
+        "en": "Arm back"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "extended",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "seated_forward",
+          "graded": true,
+          "normId": "fleisig_shoulder_extension"
+        },
+        {
+          "id": "standing_supported",
+          "graded": true,
+          "normId": "fleisig_shoulder_extension"
+        }
+      ],
+      "landmarks": {
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "E": {
+          "left": 13,
+          "right": 14
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "nose": 0,
+        "W": {
+          "left": 15,
+          "right": 16
+        }
+      },
+      "gate": [
+        "S",
+        "E",
+        "H"
+      ],
+      "optional": [
+        "W",
+        "nose"
+      ],
+      "compensationIds": [
+        "trunk_forward",
+        "plane",
+        "bent_elbow"
+      ],
+      "E": 16,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "اجلس قرب مقدمة كرسي ثابت بلا ذراعين، واجعل جانبك {sideM} نحو الهاتف. وإن كنت تقف بأمان، فيمكنك أن تقف ممسكًا بسند ثابت.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع كتفك تقريبًا.",
+          "أبقِ ذراعك {sideF} مستقيمة وكفك نحو جسمك، ثم حرّكها إلى الخلف إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ جسمك مستقيمًا دون أن تميل إلى الأمام."
+        ],
+        "en": [
+          "Sit near the front of a steady armless chair with your {side} side toward the phone. If you can stand safely, you may stand holding a steady support instead.",
+          "Place the phone 2 to 3 meters away, at about the height of your shoulder.",
+          "Keep your {side} arm straight with your palm facing your body, then move it back as far as you can without pain.",
+          "Hold for a moment, and keep your body upright without leaning forward."
+        ]
+      }
+    },
+    {
+      "id": "elbow_extension",
+      "version": 1,
+      "region": "elbow",
+      "name": {
+        "ar": "فرد المرفق",
+        "en": "Elbow straightening"
+      },
+      "plane": "sagittal",
+      "verdict": "measure",
+      "cameraEvidence": "Moderate",
+      "kind": "lack",
+      "canBeNegative": true,
+      "priority": "core",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "mckay_elbow_extension"
+        }
+      ],
+      "landmarks": {
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "E": {
+          "left": 13,
+          "right": 14
+        },
+        "W": {
+          "left": 15,
+          "right": 16
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        }
+      },
+      "gate": [
+        "S",
+        "E",
+        "W"
+      ],
+      "optional": [
+        "H"
+      ],
+      "compensationIds": [
+        "upper_arm_moves",
+        "forearm_plane",
+        "trunk"
+      ],
+      "E": 10,
+      "sigmaM": 5.1,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "اجلس على كرسي ثابت، واجعل جانبك {sideM} نحو الهاتف، وذراعك بجانب جسمك.",
+          "ضع الهاتف على بعد مترين تقريبًا، بارتفاع كتفك.",
+          "اثنِ مرفقك إلى زاوية قائمة تقريبًا، ثم افرده إلى أقصى ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ أعلى ذراعك بجانب جسمك."
+        ],
+        "en": [
+          "Sit on a steady chair with your {side} side toward the phone and your arm by your side.",
+          "Place the phone about 2 meters away, at the height of your shoulder.",
+          "Bend your elbow to about a right angle, then straighten it as far as you can without pain.",
+          "Hold for a moment, keeping your upper arm by your side."
+        ]
+      },
+      "gravityAssisted": true
+    },
+    {
+      "id": "elbow_flexion",
+      "version": 1,
+      "region": "elbow",
+      "name": {
+        "ar": "ثني المرفق",
+        "en": "Elbow bend"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "extended",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "mckay_elbow_flexion"
+        }
+      ],
+      "landmarks": {
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "E": {
+          "left": 13,
+          "right": 14
+        },
+        "W": {
+          "left": 15,
+          "right": 16
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        }
+      },
+      "gate": [
+        "S",
+        "E",
+        "W"
+      ],
+      "optional": [
+        "H"
+      ],
+      "compensationIds": [
+        "upper_arm_moves",
+        "forearm_plane"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "اجلس على كرسي ثابت، واجعل جانبك {sideM} نحو الهاتف، وذراعك بجانب جسمك.",
+          "ضع الهاتف على بعد مترين تقريبًا، بارتفاع كتفك.",
+          "اجعل كفك إلى الأمام، ثم اثنِ مرفقك لتقرّب يدك من كتفك إلى أقصى ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ مرفقك بجانب جسمك."
+        ],
+        "en": [
+          "Sit on a steady chair with your {side} side toward the phone and your arm by your side.",
+          "Place the phone about 2 meters away, at the height of your shoulder.",
+          "Turn your palm forward, then bend your elbow to bring your hand toward your shoulder, as far as you can without pain.",
+          "Hold for a moment, keeping your elbow by your side."
+        ]
+      }
+    },
+    {
+      "id": "hip_flexion",
+      "version": 1,
+      "region": "hip",
+      "name": {
+        "ar": "ثني الورك",
+        "en": "Knee to chest (hip bend)"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "lying_back",
+          "graded": true,
+          "normId": "mckay_hip_flexion"
+        },
+        {
+          "id": "seated",
+          "graded": false,
+          "normId": null
+        }
+      ],
+      "landmarks": {
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "W": {
+          "left": 15,
+          "right": 16
+        },
+        "Kother": {
+          "other": "knee"
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        }
+      },
+      "gate": [
+        "H",
+        "K",
+        "S"
+      ],
+      "optional": [
+        "W",
+        "Kother",
+        "A"
+      ],
+      "compensationIds": [
+        "assisted",
+        "trunk_lift",
+        "other_leg",
+        "plane"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "استلقِ على ظهرك فوق سرير أو فرشة ثابتة، واجعل جانبك {sideM} نحو الهاتف.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع السرير تقريبًا، بحيث يظهر جسمك كله.",
+          "أبقِ ساقك الأخرى ممدودة، واثنِ ركبتك {sideF} وقرّبها من صدرك إلى أقصى ما تستطيع دون ألم، دون أن تسحبها بيديك.",
+          "اثبت لحظة، وأبقِ رأسك وظهرك على السرير."
+        ],
+        "en": [
+          "Lie on your back on a bed or a firm mat, with your {side} side toward the phone.",
+          "Place the phone 2 to 3 meters away, at about the height of the bed, so your whole body shows.",
+          "Keep your other leg straight. Bend your {side} knee and bring it toward your chest as far as you can without pain, without pulling it with your hands.",
+          "Hold for a moment, keeping your head and back on the bed."
+        ]
+      },
+      "variantInstructions": {
+        "seated": {
+          "ar": "اجلس مستقيمًا وظهرك مستند، ثم ارفع ركبتك {sideF} نحو صدرك إلى أقصى ما تستطيع دون ألم، دون أن تميل إلى الخلف.",
+          "en": "Sit tall with your back supported, then lift your {side} knee toward your chest as far as you can without pain, without leaning back."
+        }
+      }
+    },
+    {
+      "id": "hip_extension",
+      "version": 1,
+      "region": "hip",
+      "name": {
+        "ar": "تحريك الساق إلى الخلف",
+        "en": "Leg back (hip)"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "signed",
+      "canBeNegative": true,
+      "priority": "extended",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "standing_supported",
+          "graded": true,
+          "normId": "cdc_hip_extension"
+        }
+      ],
+      "landmarks": {
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        },
+        "nose": 0,
+        "Kother": {
+          "other": "knee"
+        }
+      },
+      "gate": [
+        "H",
+        "K",
+        "S"
+      ],
+      "optional": [
+        "A",
+        "Kother",
+        "nose"
+      ],
+      "compensationIds": [
+        "trunk_tilt",
+        "knee_bend",
+        "stance_knee",
+        "plane"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "قف مواجهًا لسطح المطبخ أو طاولة ثقيلة، ويداك عليها، وخلفك كرسي ثابت، واجعل جانبك {sideM} نحو الهاتف.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع وركك، بحيث يظهر جسمك كله.",
+          "أبقِ ركبتك مستقيمة، وحرّك ساقك {sideF} إلى الخلف إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ جسمك مستقيمًا دون أن تميل إلى الأمام أو إلى الخلف."
+        ],
+        "en": [
+          "Stand facing a kitchen counter or a heavy table with both hands on it and a steady chair behind you, with your {side} side toward the phone.",
+          "Place the phone 2 to 3 meters away, at hip height, so your whole body shows.",
+          "Keep your knee straight, and move your {side} leg back as far as you can without pain.",
+          "Hold for a moment, and keep your body upright without leaning forward or back."
+        ]
+      },
+      "absoluteFloor": {
+        "mildBelow": 0,
+        "markedAtOrBelow": -10
+      },
+      "resultName": {
+        "ar": "وصول الفخذ خلف خط الجذع",
+        "en": "Thigh behind the trunk line"
+      }
+    },
+    {
+      "id": "hip_abduction",
+      "version": 1,
+      "region": "hip",
+      "name": {
+        "ar": "تحريك الساق إلى الجانب",
+        "en": "Leg out to the side"
+      },
+      "plane": "frontal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "extended",
+      "view": "front",
+      "axial": false,
+      "positions": [
+        {
+          "id": "standing_supported",
+          "graded": true,
+          "normId": "boone_hip_abduction"
+        }
+      ],
+      "landmarks": {
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "Hother": {
+          "other": "hip"
+        },
+        "MS": {
+          "mid": [
+            11,
+            12
+          ]
+        },
+        "MH": {
+          "mid": [
+            23,
+            24
+          ]
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        }
+      },
+      "gate": [
+        "H",
+        "K",
+        "Hother"
+      ],
+      "optional": [
+        "A",
+        "MS",
+        "MH"
+      ],
+      "compensationIds": [
+        "trunk_lean",
+        "hip_hike",
+        "plane"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "قف مواجهًا للهاتف، وضع يدك البعيدة عن الساق التي ستحركها على سطح المطبخ أو طاولة ثقيلة بجانبك، وخلفك كرسي ثابت.",
+          "ضع الهاتف أمامك على بعد مترين إلى ثلاثة أمتار، بارتفاع وركك، بحيث يظهر جسمك كله.",
+          "أبقِ ركبتك مستقيمة وأصابع قدمك إلى الأمام، وحرّك ساقك {sideF} إلى الجانب إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ جسمك مستقيمًا دون أن تميل إلى الجهة الأخرى."
+        ],
+        "en": [
+          "Stand facing the phone with the hand away from the leg you will move on a kitchen counter or heavy table beside you, and a steady chair behind you.",
+          "Place the phone in front of you, 2 to 3 meters away, at hip height, so your whole body shows.",
+          "Keep your knee straight and your toes pointing forward, and move your {side} leg out to the side as far as you can without pain.",
+          "Hold for a moment, and keep your body upright without leaning to the other side."
+        ]
+      }
+    },
+    {
+      "id": "knee_flexion",
+      "version": 1,
+      "region": "knee",
+      "name": {
+        "ar": "ثني الركبة",
+        "en": "Knee bend"
+      },
+      "plane": "sagittal",
+      "verdict": "measure",
+      "cameraEvidence": "Moderate",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "lying_back",
+          "graded": true,
+          "normId": "mckay_knee_flexion"
+        },
+        {
+          "id": "standing_supported",
+          "graded": false,
+          "normId": null
+        }
+      ],
+      "landmarks": {
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        },
+        "W": {
+          "left": 15,
+          "right": 16
+        },
+        "heel": {
+          "left": 29,
+          "right": 30
+        }
+      },
+      "gate": [
+        "H",
+        "K",
+        "A"
+      ],
+      "optional": [
+        "W",
+        "heel"
+      ],
+      "compensationIds": [
+        "assisted",
+        "plane"
+      ],
+      "E": 12,
+      "sigmaM": 5.1,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "استلقِ على ظهرك فوق سرير أو فرشة ثابتة، واجعل جانبك {sideM} نحو الهاتف.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع السرير تقريبًا، بحيث يظهر جسمك كله.",
+          "اسحب كعبك {sideM} على السرير نحو جسمك لتثني ركبتك إلى أقصى ما تستطيع دون ألم، دون أن تسحبها بيديك.",
+          "اثبت لحظة."
+        ],
+        "en": [
+          "Lie on your back on a bed or a firm mat, with your {side} side toward the phone.",
+          "Place the phone 2 to 3 meters away, at about the height of the bed, so your whole body shows.",
+          "Slide your {side} heel along the bed toward your body to bend your knee as far as you can without pain, without pulling it with your hands.",
+          "Hold for a moment."
+        ]
+      },
+      "variantInstructions": {
+        "standing_supported": {
+          "ar": "قف ممسكًا بسند ثابت، واثنِ ركبتك {sideF} لترفع كعبك خلفك نحو جسمك، إلى أقصى ما تستطيع دون ألم.",
+          "en": "Stand holding a steady support, and bend your {side} knee to bring your heel up behind you, as far as you can without pain."
+        }
+      }
+    },
+    {
+      "id": "knee_extension",
+      "version": 1,
+      "region": "knee",
+      "name": {
+        "ar": "فرد الركبة",
+        "en": "Knee straightening"
+      },
+      "plane": "sagittal",
+      "verdict": "measure",
+      "cameraEvidence": "Moderate",
+      "kind": "lack",
+      "canBeNegative": true,
+      "priority": "core",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "lying_back",
+          "graded": true,
+          "normId": "mckay_knee_extension"
+        },
+        {
+          "id": "seated",
+          "graded": false,
+          "normId": null
+        }
+      ],
+      "landmarks": {
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        },
+        "S": {
+          "left": 11,
+          "right": 12
+        }
+      },
+      "gate": [
+        "H",
+        "K",
+        "A"
+      ],
+      "optional": [
+        "S"
+      ],
+      "compensationIds": [
+        "plane",
+        "seated_lean_back"
+      ],
+      "E": 12,
+      "sigmaM": 5.1,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "استلقِ على ظهرك فوق سرير أو فرشة ثابتة، واجعل جانبك {sideM} نحو الهاتف.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع السرير تقريبًا، بحيث يظهر جسمك كله.",
+          "اسحب كعبك {sideM} لتثني ركبتك قليلًا، ثم افردها تمامًا على منشفة ملفوفة تحت كاحلك، واضغط بمؤخرة ركبتك نحو السرير إلى أقصى ما تستطيع دون ألم.",
+          "اثبت لحظة."
+        ],
+        "en": [
+          "Lie on your back on a bed or a firm mat, with your {side} side toward the phone.",
+          "Place the phone 2 to 3 meters away, at about the height of the bed, so your whole body shows.",
+          "Slide your {side} heel up to bend your knee a little, then straighten it fully over a rolled towel under your ankle, pressing the back of your knee toward the bed as far as you can without pain.",
+          "Hold for a moment."
+        ]
+      },
+      "variantInstructions": {
+        "seated": {
+          "ar": "اجلس مستقيمًا وظهرك مستند، ثم افرد ركبتك {sideF} أمامك إلى أقصى ما تستطيع دون ألم، دون أن تميل إلى الخلف.",
+          "en": "Sit tall with your back supported, then straighten your {side} knee in front of you as far as you can without pain, without leaning back."
+        }
+      },
+      "absoluteFloor": {
+        "lackMildFrom": 15,
+        "lackMarkedFrom": 20,
+        "position": "lying_back"
+      }
+    },
+    {
+      "id": "ankle_dorsiflexion_lunge",
+      "version": 1,
+      "region": "ankle_foot",
+      "name": {
+        "ar": "ثني الكاحل بدفع الركبة نحو الجدار",
+        "en": "Knee to wall (ankle bend)"
+      },
+      "plane": "sagittal",
+      "verdict": "measure",
+      "cameraEvidence": "Moderate",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "side",
+      "axial": false,
+      "positions": [
+        {
+          "id": "standing_supported",
+          "graded": true,
+          "normId": "mckay_ankle_dorsiflexion"
+        }
+      ],
+      "landmarks": {
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        },
+        "heel": {
+          "left": 29,
+          "right": 30
+        },
+        "toe": {
+          "left": 31,
+          "right": 32
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        }
+      },
+      "gate": [
+        "K",
+        "A",
+        "heel",
+        "toe"
+      ],
+      "optional": [
+        "H"
+      ],
+      "compensationIds": [
+        "heel_lift",
+        "foot_turn",
+        "knee_plane"
+      ],
+      "E": 10,
+      "sigmaM": 5.1,
+      "approximateInPersonView": true,
+      "instructions": {
+        "ar": [
+          "قف مواجهًا لجدار، وضع يديك عليه للسند، وخلفك كرسي ثابت، واجعل جانبك {sideM} نحو الهاتف.",
+          "ضع الهاتف على بعد مترين تقريبًا، بارتفاع وركك، بحيث تظهر قدماك.",
+          "ضع قدمك {sideF} في الأمام وأصابعها نحو الجدار، ثم اثنِ ركبتك الأمامية نحو الجدار إلى أبعد ما تستطيع، وكعبك على الأرض.",
+          "اثبت لحظة، ولا ترفع كعبك."
+        ],
+        "en": [
+          "Stand facing a wall with both hands on it for support and a steady chair behind you, with your {side} side toward the phone.",
+          "Place the phone about 2 meters away, at hip height, so your feet show.",
+          "Put your {side} foot in front with the toes pointing at the wall, then bend your front knee toward the wall as far as you can, keeping your heel on the floor.",
+          "Hold for a moment, and do not lift your heel."
+        ]
+      }
+    },
+    {
+      "id": "trunk_lateral_flexion",
+      "version": 1,
+      "region": "back_trunk",
+      "name": {
+        "ar": "الميل إلى الجانب",
+        "en": "Bending to the side"
+      },
+      "plane": "frontal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "front",
+      "axial": true,
+      "positions": [
+        {
+          "id": "standing",
+          "graded": true,
+          "normId": "cfr_trunk_lateral_flexion"
+        },
+        {
+          "id": "seated_armrests",
+          "graded": false,
+          "normId": null
+        }
+      ],
+      "landmarks": {
+        "MS": {
+          "mid": [
+            11,
+            12
+          ]
+        },
+        "MH": {
+          "mid": [
+            23,
+            24
+          ]
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "hips": [
+          23,
+          24
+        ]
+      },
+      "gate": [
+        "MS",
+        "MH"
+      ],
+      "optional": [
+        "K",
+        "hips"
+      ],
+      "compensationIds": [
+        "trunk_rotation",
+        "knee_bend",
+        "pelvis_shift"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "قف مواجهًا للهاتف وقدماك متباعدتان بعرض كتفيك، أو اجلس على كرسي ثابت له مسندان للذراعين، أو على كرسيك المتحرك والفرامل مقفلة.",
+          "ضع الهاتف أمامك على بعد مترين إلى ثلاثة أمتار، بارتفاع صدرك تقريبًا، بحيث يظهر جسمك من رأسك إلى ركبتيك.",
+          "مِل بجسمك ببطء إلى الجهة {sideF}، وأنزل يدك على جانب ساقك، أو على مسند الذراع إن كنت جالسًا، إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، دون أن تميل إلى الأمام أو إلى الخلف."
+        ],
+        "en": [
+          "Stand facing the phone with your feet shoulder width apart, or sit on a steady chair with armrests on both sides, or in your wheelchair with the brakes on.",
+          "Place the phone in front of you, 2 to 3 meters away, at about chest height, so you show from your head to your knees.",
+          "Slowly bend your body to the {side}, sliding your hand down the side of your leg, or down the armrest if you are sitting, as far as you can without pain.",
+          "Hold for a moment, without leaning forward or back."
+        ]
+      },
+      "bothDirections": true
+    },
+    {
+      "id": "trunk_flexion",
+      "version": 1,
+      "region": "back_trunk",
+      "name": {
+        "ar": "الانحناء إلى الأمام",
+        "en": "Bending forward"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "extended",
+      "view": "side",
+      "axial": true,
+      "positions": [
+        {
+          "id": "standing_supported",
+          "graded": true,
+          "normId": "esola_trunk_flexion"
+        },
+        {
+          "id": "seated",
+          "graded": false,
+          "normId": null
+        }
+      ],
+      "landmarks": {
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "K": {
+          "left": 25,
+          "right": 26
+        },
+        "A": {
+          "left": 27,
+          "right": 28
+        },
+        "nose": 0
+      },
+      "gate": [
+        "S",
+        "H"
+      ],
+      "optional": [
+        "K",
+        "A"
+      ],
+      "compensationIds": [
+        "knee_bend",
+        "hands_support"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "قف وجانبك نحو الهاتف، وقدماك متباعدتان قليلًا، وبقربك سند ثابت تمسكه إن احتجت.",
+          "ضع الهاتف على بعد مترين إلى ثلاثة أمتار، بارتفاع وركك، بحيث يظهر جسمك كله.",
+          "أبقِ ركبتيك مستقيمتين، وانحنِ ببطء إلى الأمام كأنك تمد يديك نحو الأرض، إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، ثم ارجع ببطء إلى الوقوف."
+        ],
+        "en": [
+          "Stand with your side toward the phone, feet a little apart, with a steady support close by in case you need it.",
+          "Place the phone 2 to 3 meters away, at hip height, so your whole body shows.",
+          "Keep your knees straight and slowly bend forward as if reaching your hands toward the floor, as far as you can without pain.",
+          "Hold for a moment, then slowly come back up."
+        ]
+      },
+      "bothDirections": false
+    },
+    {
+      "id": "neck_lateral_flexion",
+      "version": 1,
+      "region": "neck",
+      "name": {
+        "ar": "إمالة الرأس إلى الجانب",
+        "en": "Head tilt to the side"
+      },
+      "plane": "frontal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "core",
+      "view": "front",
+      "axial": true,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "neck_lateral_flexion"
+        }
+      ],
+      "landmarks": {
+        "ears": [
+          7,
+          8
+        ],
+        "eyes": [
+          2,
+          5
+        ],
+        "shoulders": [
+          11,
+          12
+        ],
+        "nose": 0,
+        "hips": [
+          23,
+          24
+        ]
+      },
+      "gate": [
+        {
+          "anyOf": [
+            "ears",
+            "eyes"
+          ]
+        },
+        "shoulders"
+      ],
+      "optional": [
+        "nose",
+        "hips"
+      ],
+      "compensationIds": [
+        "shoulder_hike",
+        "head_turn",
+        "trunk_lean"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "اجلس مستقيمًا على كرسي وظهرك مستند، وواجه الهاتف.",
+          "ضع الهاتف أمامك على بعد متر ونصف تقريبًا، بارتفاع رأسك.",
+          "أبقِ وجهك إلى الأمام، وأمِل رأسك ببطء لتقرّب أذنك {sideF} من كتفك، إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، ولا ترفع كتفك نحو أذنك."
+        ],
+        "en": [
+          "Sit tall on a chair with your back supported, facing the phone.",
+          "Place the phone in front of you, about 1.5 meters away, at the height of your head.",
+          "Keep your face forward and slowly tilt your head to bring your {side} ear toward your shoulder, as far as you can without pain.",
+          "Hold for a moment, and do not lift your shoulder toward your ear."
+        ]
+      },
+      "bothDirections": true
+    },
+    {
+      "id": "neck_flexion",
+      "version": 1,
+      "region": "neck",
+      "name": {
+        "ar": "خفض الذقن نحو الصدر",
+        "en": "Chin to chest"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "extended",
+      "view": "side",
+      "axial": true,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "mckay_neck_flexion"
+        }
+      ],
+      "landmarks": {
+        "ear": {
+          "left": 7,
+          "right": 8
+        },
+        "eyeOuter": {
+          "left": 3,
+          "right": 6
+        },
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "nose": 0
+      },
+      "gate": [
+        "ear",
+        "eyeOuter",
+        "S",
+        "H"
+      ],
+      "optional": [
+        "nose"
+      ],
+      "compensationIds": [
+        "trunk"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "اجلس مستقيمًا على كرسي وظهرك مستند، واجعل جانبك نحو الهاتف.",
+          "ضع الهاتف على بعد متر ونصف تقريبًا، بارتفاع رأسك.",
+          "انظر أمامك، ثم أنزل ذقنك ببطء نحو صدرك إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ كتفيك وظهرك ثابتين."
+        ],
+        "en": [
+          "Sit tall on a chair with your back supported and your side toward the phone.",
+          "Place the phone about 1.5 meters away, at the height of your head.",
+          "Look straight ahead, then slowly lower your chin toward your chest as far as you can without pain.",
+          "Hold for a moment, keeping your shoulders and back still."
+        ]
+      }
+    },
+    {
+      "id": "neck_extension",
+      "version": 1,
+      "region": "neck",
+      "name": {
+        "ar": "رفع الذقن والنظر إلى الأعلى",
+        "en": "Looking up"
+      },
+      "plane": "sagittal",
+      "verdict": "caution",
+      "cameraEvidence": "Low",
+      "kind": "flexion",
+      "canBeNegative": false,
+      "priority": "extended",
+      "view": "side",
+      "axial": true,
+      "positions": [
+        {
+          "id": "seated",
+          "graded": true,
+          "normId": "mckay_neck_extension"
+        }
+      ],
+      "landmarks": {
+        "ear": {
+          "left": 7,
+          "right": 8
+        },
+        "eyeOuter": {
+          "left": 3,
+          "right": 6
+        },
+        "S": {
+          "left": 11,
+          "right": 12
+        },
+        "H": {
+          "left": 23,
+          "right": 24
+        },
+        "nose": 0
+      },
+      "gate": [
+        "ear",
+        "eyeOuter",
+        "S",
+        "H"
+      ],
+      "optional": [
+        "nose"
+      ],
+      "compensationIds": [
+        "trunk"
+      ],
+      "E": 15,
+      "sigmaM": 7.7,
+      "approximateInPersonView": false,
+      "instructions": {
+        "ar": [
+          "اجلس مستقيمًا على كرسي وظهرك مستند، واجعل جانبك نحو الهاتف.",
+          "ضع الهاتف على بعد متر ونصف تقريبًا، بارتفاع رأسك.",
+          "انظر أمامك، ثم ارفع ذقنك ببطء وانظر إلى الأعلى إلى أبعد ما تستطيع دون ألم.",
+          "اثبت لحظة، وأبقِ كتفيك وظهرك ثابتين."
+        ],
+        "en": [
+          "Sit tall on a chair with your back supported and your side toward the phone.",
+          "Place the phone about 1.5 meters away, at the height of your head.",
+          "Look straight ahead, then slowly lift your chin and look up as far as you can without pain.",
+          "Hold for a moment, keeping your shoulders and back still."
+        ]
+      }
+    }
+  ],
+  "defaultMovements": [
+    {
+      "id": "shoulder_internal_rotation",
+      "region": "shoulder",
+      "ar": "تدوير الكتف إلى الداخل",
+      "en": "Shoulder turn inward",
+      "normId": "mckay_shoulder_ir",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "shoulder_external_rotation",
+      "region": "shoulder",
+      "ar": "تدوير الكتف إلى الخارج",
+      "en": "Shoulder turn outward",
+      "normId": "mckay_shoulder_er",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "forearm_pronation",
+      "region": "forearm_wrist",
+      "ar": "تدوير الساعد لتتجه الكف إلى الأسفل",
+      "en": "Forearm turn, palm down",
+      "normId": "cdc_forearm_pronation",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "forearm_supination",
+      "region": "forearm_wrist",
+      "ar": "تدوير الساعد لتتجه الكف إلى الأعلى",
+      "en": "Forearm turn, palm up",
+      "normId": "cdc_forearm_supination",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "wrist_flexion",
+      "region": "forearm_wrist",
+      "ar": "ثني الرسغ",
+      "en": "Wrist bend",
+      "normId": "aaos_wrist_flexion",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "wrist_extension",
+      "region": "forearm_wrist",
+      "ar": "مد الرسغ إلى الخلف",
+      "en": "Wrist bend back",
+      "normId": "aaos_wrist_extension",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "hip_internal_rotation",
+      "region": "hip",
+      "ar": "تدوير الورك إلى الداخل",
+      "en": "Hip turn inward",
+      "normId": "mckay_hip_ir",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "hip_external_rotation",
+      "region": "hip",
+      "ar": "تدوير الورك إلى الخارج",
+      "en": "Hip turn outward",
+      "normId": "mckay_hip_er",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "ankle_plantarflexion",
+      "region": "ankle_foot",
+      "ar": "توجيه القدم إلى الأسفل",
+      "en": "Pointing the foot down",
+      "normId": "mckay_ankle_plantarflexion",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "ankle_dorsiflexion_nwb",
+      "region": "ankle_foot",
+      "ar": "رفع مقدمة القدم دون تحميل",
+      "en": "Foot up without weight",
+      "normId": "cdc_ankle_dorsiflexion",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "neck_rotation",
+      "region": "neck",
+      "ar": "تدوير الرأس",
+      "en": "Head turn",
+      "normId": "apti_neck_rotation",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "trunk_extension",
+      "region": "back_trunk",
+      "ar": "الانحناء إلى الخلف",
+      "en": "Bending back",
+      "normId": "cfr_trunk_extension",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    },
+    {
+      "id": "trunk_rotation",
+      "region": "back_trunk",
+      "ar": "تدوير الجذع",
+      "en": "Trunk turn",
+      "normId": "cfr_trunk_rotation",
+      "inAffectedRegion": {
+        "source": "not_measured_camera"
+      }
+    }
+  ],
+  "norms": [
+    {
+      "id": "gill_shoulder_flexion",
+      "movement": "shoulder_flexion",
+      "source": [
+        "R2"
+      ],
+      "position": "standing",
+      "strength": "High",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 24,
+          "mean": 170.8,
+          "sd": 18.2,
+          "sdUsed": 15.7,
+          "n": 97,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 138,
+            "markedBelow": 121
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 24,
+          "mean": 164.7,
+          "sd": 11.1,
+          "sdUsed": 13.4,
+          "n": 99,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 137,
+            "markedBelow": 122
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 25,
+          "ageMax": 29,
+          "mean": 165.2,
+          "sd": 9.8,
+          "sdUsed": 15.7,
+          "n": 170,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 133,
+            "markedBelow": 116
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 25,
+          "ageMax": 29,
+          "mean": 166,
+          "sd": 13.1,
+          "sdUsed": 13.4,
+          "n": 119,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 138,
+            "markedBelow": 123
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 30,
+          "ageMax": 34,
+          "mean": 167.9,
+          "sd": 11.5,
+          "sdUsed": 15.7,
+          "n": 146,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 136,
+            "markedBelow": 118
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 30,
+          "ageMax": 34,
+          "mean": 164.4,
+          "sd": 13.1,
+          "sdUsed": 13.4,
+          "n": 145,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 136,
+            "markedBelow": 121
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 35,
+          "ageMax": 39,
+          "mean": 162.8,
+          "sd": 24.3,
+          "sdUsed": 15.7,
+          "n": 131,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 130,
+            "markedBelow": 113
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 35,
+          "ageMax": 39,
+          "mean": 166.2,
+          "sd": 12.5,
+          "sdUsed": 13.4,
+          "n": 122,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 138,
+            "markedBelow": 123
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 40,
+          "ageMax": 44,
+          "mean": 165.5,
+          "sd": 13.1,
+          "sdUsed": 15.7,
+          "n": 140,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 133,
+            "markedBelow": 116
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 40,
+          "ageMax": 44,
+          "mean": 163.7,
+          "sd": 14,
+          "sdUsed": 13.4,
+          "n": 125,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 136,
+            "markedBelow": 121
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 45,
+          "ageMax": 49,
+          "mean": 164.9,
+          "sd": 13.1,
+          "sdUsed": 15.7,
+          "n": 113,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 133,
+            "markedBelow": 115
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 45,
+          "ageMax": 49,
+          "mean": 159.9,
+          "sd": 14,
+          "sdUsed": 13.4,
+          "n": 105,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 132,
+            "markedBelow": 117
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 50,
+          "ageMax": 54,
+          "mean": 165,
+          "sd": 18.6,
+          "sdUsed": 15.7,
+          "n": 94,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 133,
+            "markedBelow": 115
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 50,
+          "ageMax": 54,
+          "mean": 160.1,
+          "sd": 14.5,
+          "sdUsed": 13.4,
+          "n": 89,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 132,
+            "markedBelow": 117
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 55,
+          "ageMax": 59,
+          "mean": 159.4,
+          "sd": 15.6,
+          "sdUsed": 15.7,
+          "n": 86,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 15.7,
+            "sdEff": 15.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 127,
+            "markedBelow": 110
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 55,
+          "ageMax": 59,
+          "mean": 157.1,
+          "sd": 14.6,
+          "sdUsed": 13.4,
+          "n": 86,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 13.4,
+            "sdEff": 13.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 129,
+            "markedBelow": 114
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": 64,
+          "mean": 157.4,
+          "sd": 16.5,
+          "sdUsed": 21,
+          "n": 58,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 21,
+            "sdEff": 19.7,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 20.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 96
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": 64,
+          "mean": 146.5,
+          "sd": 27.1,
+          "sdUsed": 24.7,
+          "n": 55,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 24.7,
+            "sdEff": 18.3,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 19,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 65,
+          "ageMax": 69,
+          "mean": 152.3,
+          "sd": 20.1,
+          "sdUsed": 21,
+          "n": 62,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 21,
+            "sdEff": 19,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 19.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 93
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 65,
+          "ageMax": 69,
+          "mean": 152.1,
+          "sd": 15.7,
+          "sdUsed": 24.7,
+          "n": 61,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 24.7,
+            "sdEff": 19,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 19.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 93
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 70,
+          "ageMax": 74,
+          "mean": 146.8,
+          "sd": 19.3,
+          "sdUsed": 21,
+          "n": 49,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 21,
+            "sdEff": 18.4,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 19,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 70,
+          "ageMax": 74,
+          "mean": 144.8,
+          "sd": 29.7,
+          "sdUsed": 24.7,
+          "n": 54,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 24.7,
+            "sdEff": 18.1,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 75,
+          "ageMax": 79,
+          "mean": 143.4,
+          "sd": 26.1,
+          "sdUsed": 21,
+          "n": 52,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 21,
+            "sdEff": 17.9,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 75,
+          "ageMax": 79,
+          "mean": 141.9,
+          "sd": 21.5,
+          "sdUsed": 24.7,
+          "n": 46,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 24.7,
+            "sdEff": 17.7,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 80,
+          "ageMax": 84,
+          "mean": 140.2,
+          "sd": 22,
+          "sdUsed": 21,
+          "n": 31,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 21,
+            "sdEff": 17.5,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 80,
+          "ageMax": 84,
+          "mean": 133.7,
+          "sd": 24.3,
+          "sdUsed": 24.7,
+          "n": 51,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 24.7,
+            "sdEff": 16.7,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 85,
+          "ageMax": null,
+          "mean": 127.8,
+          "sd": 24.4,
+          "sdUsed": 21,
+          "n": 10,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 21,
+            "sdEff": 16,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 16.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 85,
+          "ageMax": null,
+          "mean": 124.1,
+          "sd": 39.6,
+          "sdUsed": 24.7,
+          "n": 10,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 24.7,
+            "sdEff": 15.5,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 16.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        }
+      ]
+    },
+    {
+      "id": "gill_shoulder_abduction",
+      "movement": "shoulder_abduction",
+      "source": [
+        "R2"
+      ],
+      "position": "standing",
+      "strength": "High",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 24,
+          "mean": 158.4,
+          "sd": 25,
+          "sdUsed": 17.3,
+          "n": 97,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 123,
+            "markedBelow": 104
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 24,
+          "mean": 156.4,
+          "sd": 12.1,
+          "sdUsed": 14.2,
+          "n": 99,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 127,
+            "markedBelow": 111
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 25,
+          "ageMax": 29,
+          "mean": 154.1,
+          "sd": 13.6,
+          "sdUsed": 17.3,
+          "n": 170,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 100
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 25,
+          "ageMax": 29,
+          "mean": 157.3,
+          "sd": 15.3,
+          "sdUsed": 14.2,
+          "n": 119,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 128,
+            "markedBelow": 112
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 30,
+          "ageMax": 34,
+          "mean": 157,
+          "sd": 15.7,
+          "sdUsed": 17.3,
+          "n": 146,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 122,
+            "markedBelow": 103
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 30,
+          "ageMax": 34,
+          "mean": 156,
+          "sd": 12.7,
+          "sdUsed": 14.2,
+          "n": 145,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 126,
+            "markedBelow": 111
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 35,
+          "ageMax": 39,
+          "mean": 155.1,
+          "sd": 21.3,
+          "sdUsed": 17.3,
+          "n": 131,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 101
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 35,
+          "ageMax": 39,
+          "mean": 158.8,
+          "sd": 12.3,
+          "sdUsed": 14.2,
+          "n": 122,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 129,
+            "markedBelow": 114
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 40,
+          "ageMax": 44,
+          "mean": 154.9,
+          "sd": 14.3,
+          "sdUsed": 17.3,
+          "n": 140,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 101
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 40,
+          "ageMax": 44,
+          "mean": 154.9,
+          "sd": 15.4,
+          "sdUsed": 14.2,
+          "n": 125,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 125,
+            "markedBelow": 110
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 45,
+          "ageMax": 49,
+          "mean": 154.5,
+          "sd": 14,
+          "sdUsed": 17.3,
+          "n": 113,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 100
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 45,
+          "ageMax": 49,
+          "mean": 151.1,
+          "sd": 14.9,
+          "sdUsed": 14.2,
+          "n": 105,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 122,
+            "markedBelow": 106
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 50,
+          "ageMax": 54,
+          "mean": 158.1,
+          "sd": 15.9,
+          "sdUsed": 17.3,
+          "n": 94,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 123,
+            "markedBelow": 104
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 50,
+          "ageMax": 54,
+          "mean": 151.4,
+          "sd": 16.9,
+          "sdUsed": 14.2,
+          "n": 89,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 122,
+            "markedBelow": 106
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 55,
+          "ageMax": 59,
+          "mean": 148.6,
+          "sd": 18.8,
+          "sdUsed": 17.3,
+          "n": 86,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 17.3,
+            "sdEff": 17.3,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 18,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 94
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 55,
+          "ageMax": 59,
+          "mean": 149.6,
+          "sd": 13.7,
+          "sdUsed": 14.2,
+          "n": 86,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 14.2,
+            "sdEff": 14.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 104
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": 64,
+          "mean": 145.9,
+          "sd": 18.1,
+          "sdUsed": 22.5,
+          "n": 58,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 22.5,
+            "sdEff": 18.2,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": 64,
+          "mean": 138.8,
+          "sd": 26.5,
+          "sdUsed": 26.1,
+          "n": 55,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 26.1,
+            "sdEff": 17.4,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 65,
+          "ageMax": 69,
+          "mean": 137.5,
+          "sd": 28.9,
+          "sdUsed": 22.5,
+          "n": 62,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 22.5,
+            "sdEff": 17.2,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 65,
+          "ageMax": 69,
+          "mean": 142.6,
+          "sd": 17.7,
+          "sdUsed": 26.1,
+          "n": 61,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 26.1,
+            "sdEff": 17.8,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 18.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 70,
+          "ageMax": 74,
+          "mean": 137.2,
+          "sd": 21.7,
+          "sdUsed": 22.5,
+          "n": 49,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 22.5,
+            "sdEff": 17.1,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 70,
+          "ageMax": 74,
+          "mean": 132.7,
+          "sd": 30.9,
+          "sdUsed": 26.1,
+          "n": 54,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 26.1,
+            "sdEff": 16.6,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.4,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 75,
+          "ageMax": 79,
+          "mean": 136.4,
+          "sd": 18.1,
+          "sdUsed": 22.5,
+          "n": 52,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 22.5,
+            "sdEff": 17.1,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 75,
+          "ageMax": 79,
+          "mean": 133.3,
+          "sd": 26.2,
+          "sdUsed": 26.1,
+          "n": 46,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 26.1,
+            "sdEff": 16.7,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.4,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 80,
+          "ageMax": 84,
+          "mean": 130.5,
+          "sd": 22.8,
+          "sdUsed": 22.5,
+          "n": 31,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 22.5,
+            "sdEff": 16.3,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 17.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 80,
+          "ageMax": 84,
+          "mean": 120.9,
+          "sd": 26.5,
+          "sdUsed": 26.1,
+          "n": 51,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 26.1,
+            "sdEff": 15.1,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 15.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 85,
+          "ageMax": null,
+          "mean": 118.9,
+          "sd": 23.4,
+          "sdUsed": 22.5,
+          "n": 10,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 22.5,
+            "sdEff": 14.9,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 15.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 85,
+          "ageMax": null,
+          "mean": 119.5,
+          "sd": 35.3,
+          "sdUsed": 26.1,
+          "n": 10,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 26.1,
+            "sdEff": 14.9,
+            "capApplied": true,
+            "floorApplied": true,
+            "sdObserved": 15.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 90
+          }
+        }
+      ]
+    },
+    {
+      "id": "fleisig_shoulder_extension",
+      "movement": "shoulder_extension",
+      "source": [
+        "R3"
+      ],
+      "position": "standing",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 29,
+          "side": "left",
+          "mean": 55.3,
+          "sd": 14.9,
+          "sdUsed": null,
+          "n": 772,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.9,
+            "sdEff": 14.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 22,
+            "markedBelow": 5
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 30,
+          "ageMax": 39,
+          "side": "left",
+          "mean": 53.2,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 311,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 21,
+            "markedBelow": 3
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 40,
+          "ageMax": 49,
+          "side": "left",
+          "mean": 54,
+          "sd": 14.9,
+          "sdUsed": null,
+          "n": 250,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.9,
+            "sdEff": 14.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 21,
+            "markedBelow": 4
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 50,
+          "ageMax": 59,
+          "side": "left",
+          "mean": 54.4,
+          "sd": 14.4,
+          "sdUsed": null,
+          "n": 198,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.4,
+            "sdEff": 14.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 22,
+            "markedBelow": 5
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": 69,
+          "side": "left",
+          "mean": 51.5,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 77,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 19,
+            "markedBelow": 1
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 70,
+          "ageMax": null,
+          "side": "left",
+          "mean": 49,
+          "sd": 14.7,
+          "sdUsed": null,
+          "n": 22,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.7,
+            "sdEff": 14.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 16,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 29,
+          "side": "left",
+          "mean": 49.2,
+          "sd": 13.9,
+          "sdUsed": null,
+          "n": 1321,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 13.9,
+            "sdEff": 13.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 18,
+            "markedBelow": 2
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 30,
+          "ageMax": 39,
+          "side": "left",
+          "mean": 46.1,
+          "sd": 14.7,
+          "sdUsed": null,
+          "n": 748,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.7,
+            "sdEff": 14.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 14,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 40,
+          "ageMax": 49,
+          "side": "left",
+          "mean": 47,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 538,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 14,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 50,
+          "ageMax": 59,
+          "side": "left",
+          "mean": 48.5,
+          "sd": 15.1,
+          "sdUsed": null,
+          "n": 342,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 15.1,
+            "sdEff": 15.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 15,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": 69,
+          "side": "left",
+          "mean": 51.1,
+          "sd": 14.6,
+          "sdUsed": null,
+          "n": 116,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.6,
+            "sdEff": 14.6,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 19,
+            "markedBelow": 2
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 70,
+          "ageMax": null,
+          "side": "left",
+          "mean": 49.7,
+          "sd": 14.7,
+          "sdUsed": null,
+          "n": 33,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.7,
+            "sdEff": 14.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 17,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 29,
+          "side": "right",
+          "mean": 56.3,
+          "sd": 14.9,
+          "sdUsed": null,
+          "n": 772,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.9,
+            "sdEff": 14.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 23,
+            "markedBelow": 6
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 30,
+          "ageMax": 39,
+          "side": "right",
+          "mean": 54.9,
+          "sd": 14.4,
+          "sdUsed": null,
+          "n": 311,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.4,
+            "sdEff": 14.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 23,
+            "markedBelow": 6
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 40,
+          "ageMax": 49,
+          "side": "right",
+          "mean": 56,
+          "sd": 14.9,
+          "sdUsed": null,
+          "n": 250,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.9,
+            "sdEff": 14.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 23,
+            "markedBelow": 6
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 50,
+          "ageMax": 59,
+          "side": "right",
+          "mean": 55.5,
+          "sd": 14.7,
+          "sdUsed": null,
+          "n": 198,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.7,
+            "sdEff": 14.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 23,
+            "markedBelow": 6
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": 69,
+          "side": "right",
+          "mean": 53.1,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 77,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 20,
+            "markedBelow": 3
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 70,
+          "ageMax": null,
+          "side": "right",
+          "mean": 49.4,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 22,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 17,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 29,
+          "side": "right",
+          "mean": 50.2,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 1321,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 18,
+            "markedBelow": 0
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 30,
+          "ageMax": 39,
+          "side": "right",
+          "mean": 48.6,
+          "sd": 15.3,
+          "sdUsed": null,
+          "n": 748,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 15.3,
+            "sdEff": 15.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 17.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 15,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 40,
+          "ageMax": 49,
+          "side": "right",
+          "mean": 49.1,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 538,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 16,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 50,
+          "ageMax": 59,
+          "side": "right",
+          "mean": 50.1,
+          "sd": 15.1,
+          "sdUsed": null,
+          "n": 342,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 15.1,
+            "sdEff": 15.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 17,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": 69,
+          "side": "right",
+          "mean": 52,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 116,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 19,
+            "markedBelow": 2
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 70,
+          "ageMax": null,
+          "side": "right",
+          "mean": 51.1,
+          "sd": 14.8,
+          "sdUsed": null,
+          "n": 33,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.8,
+            "sdEff": 14.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 18,
+            "markedBelow": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "mckay_shoulder_ir",
+      "movement": "shoulder_internal_rotation",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 58,
+          "sd": 12,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 63,
+          "sd": 14,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 57,
+          "sd": 11,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 63,
+          "sd": 11.6,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_shoulder_er",
+      "movement": "shoulder_external_rotation",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 83,
+          "sd": 13.2,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 83,
+          "sd": 15.8,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 71,
+          "sd": 12.2,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 72,
+          "sd": 13.9,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_elbow_flexion",
+      "movement": "elbow_flexion",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "High",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 147,
+          "sd": 4.9,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 4.9,
+            "sdEff": 4.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 9.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 129,
+            "markedBelow": 120
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 149,
+          "sd": 5.4,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 5.4,
+            "sdEff": 5.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 9.4,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 131,
+            "markedBelow": 121
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 146,
+          "sd": 6,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 6,
+            "sdEff": 6,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 9.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 127,
+            "markedBelow": 117
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 149,
+          "sd": 4.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 4.7,
+            "sdEff": 4.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 131,
+            "markedBelow": 122
+          }
+        }
+      ]
+    },
+    {
+      "id": "mckay_elbow_extension",
+      "movement": "elbow_extension",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": -2,
+          "sd": 5,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 5,
+            "sdEff": 5,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 7.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 12,
+            "markedAbove": 19
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": -4,
+          "sd": 5.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 5.1,
+            "sdEff": 5.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 7.2,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 10,
+            "markedAbove": 18
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 1,
+          "sd": 5,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 5,
+            "sdEff": 5,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 7.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 15,
+            "markedAbove": 22
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 0,
+          "sd": 5.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 5.1,
+            "sdEff": 5.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 7.2,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 14,
+            "markedAbove": 22
+          }
+        }
+      ]
+    },
+    {
+      "id": "cdc_forearm_pronation",
+      "movement": "forearm_pronation",
+      "source": [
+        "R4"
+      ],
+      "position": "per CDC methods (oss.md 6.1)",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 76.7,
+          "sd": 7.2,
+          "sdUsed": null,
+          "n": 114,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 78.2,
+          "sd": 6.3,
+          "sdUsed": null,
+          "n": 96,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 82.3,
+          "sd": 6.1,
+          "sdUsed": null,
+          "n": 143,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 81.1,
+          "sd": 7.2,
+          "sdUsed": null,
+          "n": 123,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "cdc_forearm_supination",
+      "movement": "forearm_supination",
+      "source": [
+        "R4"
+      ],
+      "position": "per CDC methods",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 85.3,
+          "sd": 6.8,
+          "sdUsed": null,
+          "n": 114,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 81.8,
+          "sd": 7.2,
+          "sdUsed": null,
+          "n": 96,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 89.9,
+          "sd": 8.4,
+          "sdUsed": null,
+          "n": 143,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 86.5,
+          "sd": 6.8,
+          "sdUsed": null,
+          "n": 123,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "aaos_wrist_flexion",
+      "movement": "wrist_flexion",
+      "source": [
+        "R14"
+      ],
+      "position": "not stated",
+      "strength": "Low",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 80,
+          "sd": null,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "aaos_wrist_extension",
+      "movement": "wrist_extension",
+      "source": [
+        "R14"
+      ],
+      "position": "not stated",
+      "strength": "Low",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 70,
+          "sd": null,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_hip_flexion",
+      "movement": "hip_flexion",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 120,
+          "sd": 8.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 8.7,
+            "sdEff": 8.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 11.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 97,
+            "markedBelow": 85
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 123,
+          "sd": 10,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 10,
+            "sdEff": 10,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 12.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 98,
+            "markedBelow": 85
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 115,
+          "sd": 10.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 10.7,
+            "sdEff": 10.7,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 13.2,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 90,
+            "markedBelow": 75
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 114,
+          "sd": 12.6,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 12.6,
+            "sdEff": 12.6,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 14.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 90,
+            "markedBelow": 70
+          }
+        }
+      ]
+    },
+    {
+      "id": "cdc_hip_extension",
+      "movement": "hip_extension",
+      "source": [
+        "R4"
+      ],
+      "position": "side lying",
+      "strength": "Low",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 17.1,
+          "sd": 5.9,
+          "sdUsed": null,
+          "n": 114,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 5.9,
+            "sdEff": 5.9,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 9.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 0,
+            "markedBelow": -9
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 13.3,
+          "sd": 5.5,
+          "sdUsed": null,
+          "n": 96,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 5.5,
+            "sdEff": 5.5,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 9.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 0,
+            "markedBelow": -9
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 18.2,
+          "sd": 6.6,
+          "sdUsed": null,
+          "n": 143,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 6.6,
+            "sdEff": 6.6,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 10.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 0,
+            "markedBelow": -9
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 16.9,
+          "sd": 7.1,
+          "sdUsed": null,
+          "n": 123,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 7.1,
+            "sdEff": 7.1,
+            "capApplied": false,
+            "floorApplied": true,
+            "sdObserved": 10.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 0,
+            "markedBelow": -9
+          }
+        }
+      ]
+    },
+    {
+      "id": "boone_hip_abduction",
+      "movement": "hip_abduction",
+      "source": [
+        "R6"
+      ],
+      "position": "not stated in the reprint",
+      "strength": "Low",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 40.5,
+          "sd": 6,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 6,
+            "sdEff": 6,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 9.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 21,
+            "markedBelow": 11
+          }
+        }
+      ]
+    },
+    {
+      "id": "mckay_hip_ir",
+      "movement": "hip_internal_rotation",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 36,
+          "sd": 7.9,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 40,
+          "sd": 8.8,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 33,
+          "sd": 8,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 35,
+          "sd": 8.4,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_hip_er",
+      "movement": "hip_external_rotation",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 30,
+          "sd": 8.3,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 27,
+          "sd": 8.3,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 26,
+          "sd": 7,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 22,
+          "sd": 6.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_knee_flexion",
+      "movement": "knee_flexion",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "High",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 136,
+          "sd": 6.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 6.1,
+            "sdEff": 6.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 120,
+            "markedBelow": 112
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 137,
+          "sd": 6.2,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 6.2,
+            "sdEff": 6.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 121,
+            "markedBelow": 113
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 133,
+          "sd": 7.2,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 7.2,
+            "sdEff": 7.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 116,
+            "markedBelow": 107
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 131,
+          "sd": 8.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 8.1,
+            "sdEff": 8.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 9.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 112,
+            "markedBelow": 102
+          }
+        }
+      ]
+    },
+    {
+      "id": "mckay_knee_extension",
+      "movement": "knee_extension",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": -1,
+          "sd": 2.3,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 2.3,
+            "sdEff": 2.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 5.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 10,
+            "markedAbove": 16
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": -2,
+          "sd": 2.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 2.7,
+            "sdEff": 2.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 5.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 9,
+            "markedAbove": 15
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 1,
+          "sd": 2.4,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 2.4,
+            "sdEff": 2.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 5.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 12,
+            "markedAbove": 18
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": -1,
+          "sd": 1.6,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 1.6,
+            "sdEff": 1.6,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 5.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinUpTo": 9,
+            "markedAbove": 15
+          }
+        }
+      ]
+    },
+    {
+      "id": "okuno_aket_seated",
+      "movement": "knee_extension",
+      "source": [
+        "R18"
+      ],
+      "position": "supine, hip at 90 degrees (closest match to sitting)",
+      "strength": "Low",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 23,
+          "sd": 14.6,
+          "sdUsed": null,
+          "n": 20,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_ankle_dorsiflexion",
+      "movement": "ankle_dorsiflexion_lunge",
+      "source": [
+        "R1"
+      ],
+      "position": "standing lunge",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 32,
+          "sd": 6.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 6.1,
+            "sdEff": 6.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 16,
+            "markedBelow": 8
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 29,
+          "sd": 6.4,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 6.4,
+            "sdEff": 6.4,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8.2,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 13,
+            "markedBelow": 4
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 31,
+          "sd": 6.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 6.1,
+            "sdEff": 6.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 15,
+            "markedBelow": 7
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 26,
+          "sd": 6.3,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 5.1,
+            "sdUsed": 6.3,
+            "sdEff": 6.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 8.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 10,
+            "markedBelow": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "mckay_ankle_plantarflexion",
+      "movement": "ankle_plantarflexion",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 56,
+          "sd": 7.5,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 62,
+          "sd": 8.9,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 53,
+          "sd": 6.8,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 57,
+          "sd": 7.2,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "cdc_ankle_dorsiflexion",
+      "movement": "ankle_dorsiflexion_nwb",
+      "source": [
+        "R4"
+      ],
+      "position": "sitting",
+      "strength": "Moderate",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 12.7,
+          "sd": 6.1,
+          "sdUsed": null,
+          "n": 114,
+          "limits": null
+        },
+        {
+          "sex": "male",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 11.9,
+          "sd": 5.3,
+          "sdUsed": null,
+          "n": 96,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 44,
+          "mean": 14.1,
+          "sd": 6.1,
+          "sdUsed": null,
+          "n": 143,
+          "limits": null
+        },
+        {
+          "sex": "female",
+          "ageMin": 45,
+          "ageMax": 69,
+          "mean": 11.6,
+          "sd": 5.8,
+          "sdUsed": null,
+          "n": 123,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "mckay_neck_flexion",
+      "movement": "neck_flexion",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 59,
+          "sd": 10.8,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 10.8,
+            "sdEff": 10.8,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 13.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 33,
+            "markedBelow": 19
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 56,
+          "sd": 10.2,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 10.2,
+            "sdEff": 10.2,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 12.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 31,
+            "markedBelow": 18
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 55,
+          "sd": 12,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 12,
+            "sdEff": 12,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.3,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 27,
+            "markedBelow": 12
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 53,
+          "sd": 10.6,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 10.6,
+            "sdEff": 10.6,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 13.1,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 27,
+            "markedBelow": 14
+          }
+        }
+      ]
+    },
+    {
+      "id": "mckay_neck_extension",
+      "movement": "neck_extension",
+      "source": [
+        "R1"
+      ],
+      "position": "not retrieved",
+      "strength": "Moderate",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "male",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 58,
+          "sd": 13.1,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 13.1,
+            "sdEff": 13.1,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.2,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 28,
+            "markedBelow": 12
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 20,
+          "ageMax": 59,
+          "mean": 61,
+          "sd": 14.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 14.7,
+            "sdEff": 14.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 16.6,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 28,
+            "markedBelow": 11
+          }
+        },
+        {
+          "sex": "male",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 40,
+          "sd": 12.3,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 12.3,
+            "sdEff": 12.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 14.5,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 12,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "female",
+          "ageMin": 60,
+          "ageMax": null,
+          "mean": 43,
+          "sd": 13.3,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 13.3,
+            "sdEff": 13.3,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 15.4,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 13,
+            "markedBelow": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "neck_lateral_flexion",
+      "movement": "neck_lateral_flexion",
+      "source": [
+        "R7",
+        "R8"
+      ],
+      "position": "seated",
+      "strength": "Low",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": 29,
+          "side": "right",
+          "mean": 42.1,
+          "sd": 7.9,
+          "sdUsed": null,
+          "n": 300,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 7.9,
+            "sdEff": 7.9,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 11,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 20,
+            "markedBelow": 9
+          }
+        },
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": 29,
+          "side": "left",
+          "mean": 41.4,
+          "sd": 7.7,
+          "sdUsed": null,
+          "n": 300,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 7.7,
+            "sdEff": 7.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 10.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 20,
+            "markedBelow": 9
+          }
+        },
+        {
+          "sex": "any",
+          "ageMin": 65,
+          "ageMax": null,
+          "side": "right",
+          "mean": 27.3,
+          "sd": 7.7,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 7.7,
+            "sdEff": 7.7,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 10.9,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 6,
+            "markedBelow": null
+          }
+        },
+        {
+          "sex": "any",
+          "ageMin": 65,
+          "ageMax": null,
+          "side": "left",
+          "mean": 29,
+          "sd": 7.6,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": 7.6,
+            "sdEff": 7.6,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 10.8,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 8,
+            "markedBelow": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "apti_neck_rotation",
+      "movement": "neck_rotation",
+      "source": [
+        "R7"
+      ],
+      "position": "seated",
+      "strength": "Low",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "side": "right",
+          "mean": 71.1,
+          "sd": 10.5,
+          "sdUsed": null,
+          "n": 300,
+          "limits": null
+        },
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "side": "left",
+          "mean": 70.2,
+          "sd": 9.7,
+          "sdUsed": null,
+          "n": 300,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "esola_trunk_flexion",
+      "movement": "trunk_flexion",
+      "source": [
+        "R11"
+      ],
+      "position": "standing",
+      "strength": "Low",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 111,
+          "sd": null,
+          "sdUsed": null,
+          "n": 41,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": null,
+            "sdEff": null,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 7.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 96,
+            "markedBelow": 88,
+            "flag": "sdUnknown"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cfr_trunk_lateral_flexion",
+      "movement": "trunk_lateral_flexion",
+      "source": [
+        "R12"
+      ],
+      "position": "standing",
+      "strength": "Low",
+      "graded": true,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 30,
+          "sd": null,
+          "sdUsed": null,
+          "n": null,
+          "limits": {
+            "sigmaM": 7.7,
+            "sdUsed": null,
+            "sdEff": null,
+            "capApplied": false,
+            "floorApplied": false,
+            "sdObserved": 7.7,
+            "zWithin": -1.96,
+            "zMarked": -3,
+            "withinFrom": 15,
+            "markedBelow": 7,
+            "flag": "sdUnknown"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cfr_trunk_extension",
+      "movement": "trunk_extension",
+      "source": [
+        "R12"
+      ],
+      "position": "standing",
+      "strength": "Low",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 30,
+          "sd": null,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    },
+    {
+      "id": "cfr_trunk_rotation",
+      "movement": "trunk_rotation",
+      "source": [
+        "R12"
+      ],
+      "position": "standing",
+      "strength": "Low",
+      "graded": false,
+      "rows": [
+        {
+          "sex": "any",
+          "ageMin": 18,
+          "ageMax": null,
+          "mean": 30,
+          "sd": null,
+          "sdUsed": null,
+          "n": null,
+          "limits": null
+        }
+      ]
+    }
+  ],
+  "thresholds": {
+    "functionalFloor": {
+      "shoulder_flexion": {
+        "withinMin": 120,
+        "markedBelow": 90
+      },
+      "shoulder_abduction": {
+        "withinMin": 120,
+        "markedBelow": 90
+      },
+      "knee_flexion": {
+        "withinMin": 110,
+        "markedBelow": 90,
+        "position": "lying_back"
+      },
+      "hip_flexion": {
+        "withinMin": 90,
+        "markedBelow": null,
+        "position": "lying_back"
+      },
+      "elbow_flexion": {
+        "withinMin": null,
+        "markedBelow": 110
+      },
+      "knee_extension": {
+        "lackMildFrom": 15,
+        "lackMarkedFrom": 20,
+        "position": "lying_back"
+      },
+      "hip_extension": {
+        "withinMin": 0,
+        "markedBelow": -9
+      }
+    }
+  },
+  "safety": [
+    {
+      "id": "global_gate",
+      "rule": "The v1.1 global gate decides whether any camera test runs (cardiac, other, cfs_moderate, bed, no_exercise, warning symptoms, recent change, stroke or SCI without clearance) (R46).",
+      "action": "No range check"
+    },
+    {
+      "id": "after_surgery_recent",
+      "rule": "Surgery on this region less than 3 months ago, and the surgical team has not allowed active movement (answer no or not sure)",
+      "action": "Region not measured (surgery_not_cleared); stored as not measured, never as typical"
+    },
+    {
+      "id": "after_surgery_precaution",
+      "rule": "Surgery less than 3 months ago and the person was told to avoid certain movements",
+      "action": "Those movements not measured (surgery_precaution). After a hip replacement in the last 3 months hip bend is not measured, and the hip precaution filters stay on unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); the checklist of what to avoid is in copy hip_avoid_ask (review A06, C02). The surgeon's instruction wins even though a meta analysis found posterior approach precautions unnecessary (R37)."
+    },
+    {
+      "id": "hip_replacement_recent",
+      "rule": "Hip replacement in the last 3 months",
+      "action": "Hip bend not measured (hip_replacement_recent). The hip precaution filters are on by default (posterior and anterior lists) unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); otherwise only the movements ticked in hip_avoid_ask are filtered (review A06, C02)"
+    },
+    {
+      "id": "spine_surgery",
+      "rule": "Neck or back surgery less than 3 months ago",
+      "action": "Neck or back or trunk region not measured"
+    },
+    {
+      "id": "acute_injury",
+      "rule": "Injury to this region in the last 6 weeks",
+      "action": "Region not measured (acute_injury)"
+    },
+    {
+      "id": "red_flags",
+      "rule": "In the region: a hot, red, swollen joint; fever; a new deformity; cannot take weight on the leg since an injury; new numbness or weakness",
+      "action": "Not measured; seek care screen (existing scr_stop_seek_care)"
+    },
+    {
+      "id": "pain_today",
+      "rule": "Today's pain in this region 6 or more out of 10",
+      "action": "Region not measured today (pain_today)"
+    },
+    {
+      "id": "pain_during",
+      "rule": "During a movement: pain 6 or more out of 10, or 2 or more above that region's score before the test, or a sudden sharp pain",
+      "action": "Stop that movement; record the last valid hold as pain limited; ask before any other movement of the same joint"
+    },
+    {
+      "id": "achilles",
+      "rule": "An Achilles tendon tear or repair in the last 6 months, with or without surgery",
+      "action": "Knee to wall lunge not measured (achilles); calf stretches excluded in the program"
+    },
+    {
+      "id": "osteoporosis",
+      "rule": "Told of osteoporosis or a spine fracture",
+      "action": "Bending forward not measured (default)"
+    },
+    {
+      "id": "neck_caution",
+      "rule": "Told the neck is unstable, or dizziness or vision change when moving the head; or rheumatoid or another inflammatory arthritis (arthritis subtype yes or not sure) unless a doctor has confirmed the neck is stable (neck_cleared_ask yes)",
+      "action": "Neck not measured"
+    },
+    {
+      "id": "standing_tests",
+      "rule": "Standing movements (leg back, leg out to the side, knee to wall, bending forward, standing side bend)",
+      "action": "Standing gate = the v1.1 chair stand exclusions and helper rules (H6 rule 2): not with hip, knee or back pain areas, no_weight_bearing, balance_support at home, sci_complete, clearance no or not sure at home; lower limb loss only with the prosthesis on. Hands on a wall, kitchen counter or heavy table, a firm chair behind, never a chair back. Knee to wall on a leg with weakness or an upper motor neuron condition: helper beside and chair behind, else standing_not_allowed. Standing hip tests when both legs are affected: helper required."
+    },
+    {
+      "id": "no_overhead",
+      "rule": "Restriction no_overhead",
+      "action": "Arm raises to the front and side not measured (v1.1 skips the arm raise; no capped version) (R46)"
+    },
+    {
+      "id": "weak_shoulder",
+      "rule": "pc_weak_shoulder yes (a painful or loose weaker shoulder)",
+      "action": "That shoulder not measured (R46)"
+    },
+    {
+      "id": "sci_t6",
+      "rule": "SCI at T6 or above",
+      "action": "warn_sci_t6 before every test; AD signs in the stop list (R46)"
+    },
+    {
+      "id": "limb_loss",
+      "rule": "Any landmark of the angle lies on an absent part",
+      "action": "An absent joint: not applicable, no default (limb_absent or segment_unreliable). A present residual joint the camera cannot measure: not_measured_camera with refer_measure (review A13)"
+    },
+    {
+      "id": "never",
+      "rule": "Always",
+      "action": "Active movement only. No helper moving the limb, no pulleys, no weights, no prompt to push further after pain is reported"
+    },
+    {
+      "id": "seated_side_lean_gate",
+      "rule": "Seated side bend (trunk_lateral_flexion, seated_armrests)",
+      "action": "The approved v1.1 side lean gate word for word: pc_trunk_armrests by position (armrests_needed); helper for SCI, stroke, CP, Parkinson's and MS (helper_needed); excluded with pc_stroke_push yes (pusher), a chest strap or lateral trunk supports, pc_sit_unsupported no or not sure and pc_fall_sitting yes (booth only), back pain 6 or more, pc_pressure_sore yes. Never beyond the last best side lean"
+    },
+    {
+      "id": "sitting_balance",
+      "rule": "sit_unsupported_ask no or not sure, or not asked with mobility bed or SCI at neck level",
+      "action": "The seated_forward position (arm back) and the seated forward bend are not used; the arm back is measured standing_supported when the standing gate allows, else not measured (sitting_balance)"
+    },
+    {
+      "id": "sit_before_stand",
+      "rule": "After the lying block, or any lying test",
+      "action": "Line sit_before_stand: sit on the edge of the bed for about a minute before standing; a standing test never follows a lying test directly"
+    },
+    {
+      "id": "coach_end_range",
+      "rule": "Live coach during range blocks",
+      "action": "keep_reaching is accepted only right after «ليس بعد», while the attempt is open and no pain was reported since; it is rejected after ans_hurts, mark_pain or a recorded maximum (confirm_max yes, which folds record_range, contract C-7). In range blocks the system instruction bans push further phrasing; the coach may use only keep_going. Written into product-v7-plan.md 3.2 on 2026-10-04; live.md keeps its research table"
+    },
+    {
+      "id": "limb_loss_standing",
+      "rule": "Lower limb loss",
+      "action": "Standing tests only with the prosthesis on, otherwise standing_not_allowed"
+    }
+  ],
+  "reasonIds": {
+    "default_camera": "Not measured by camera (default only movement) in a region that is not on the body map: typical default",
+    "no_active_movement": "The person cannot move the joint on their own",
+    "acute_injury": "Injury in the last 6 weeks",
+    "pain_today": "Pain 6 or more today in that region",
+    "pain_stop": "Stopped during the movement by pain (the finding is pain limited when a hold was recorded)",
+    "surgery_not_cleared": "Surgery in the last 3 months without clearance for active movement",
+    "surgery_precaution": "A movement the surgical team said to avoid",
+    "spine_surgery": "Neck or back surgery in the last 3 months",
+    "red_flag": "A red flag in the region; seek care screen",
+    "osteoporosis": "Bending forward with osteoporosis or a spine fracture",
+    "neck_caution": "Neck instability or dizziness with head movement",
+    "standing_not_allowed": "Standing movement not allowed by mobility or restrictions, or no one beside with balance_support",
+    "no_overhead": "Restriction no_overhead (arm raises)",
+    "weak_shoulder": "pc_weak_shoulder yes",
+    "limb_absent": "The joint is absent (limb loss): not applicable",
+    "segment_unreliable": "A landmark of the angle lies on an absent part while the joint itself is absent: not applicable (a present residual joint uses not_measured_camera instead)",
+    "quality": "Quality gate failed after 2 extra attempts (v1.1)",
+    "no_hold": "No end range hold within 20 s (repeated; after 2 extra attempts, quality). A confirmed small hold is graded with smallExcursion instead",
+    "no_norm_position": "Measured in a position without a matched norm: value and progress only, no grade",
+    "not_measured_camera": "Default only movement in an affected region: relevant, not measured by the camera; no typical value assumed (review A01)",
+    "achilles": "Achilles tendon tear or repair in the last 6 months (lunge)",
+    "hip_replacement_recent": "Hip replacement in the last 3 months (hip bend)",
+    "seated_lean_gate": "The v1.1 side lean gate failed (armrests_needed, helper_needed, pusher, booth_only_trunk, pressure_sore)",
+    "helper_needed": "A helper is required for this test and none is present",
+    "clearance_needed": "Stroke or SCI without medical clearance (global gate)",
+    "deferred": "Beyond the measured cap of the check (MAX_MEASURED_PER_CHECK 8; 2 in the showcase): stored as not measured today and kept for a later check (contract 2.5 and section 4); copy deferred_line",
+    "not_reached": "The check was completed or stopped before this movement was reached: stored as not measured today (contract section 4); copy not_reached_line",
+    "sitting_balance": "Cannot sit safely without the backrest (sit_unsupported_ask no or not sure, or not asked with mobility bed or SCI at neck level): the seated_forward position and the seated forward bend are not used (review C11)"
+  },
+  "copy": {
+    "intro": {
+      "ar": "سنقيس فقط حركة المفاصل المرتبطة بحالتك الطبية، ونقارنها بالمعتاد لمن هم في مثل عمرك وجنسك.",
+      "en": "We will measure only the joints linked to your medical condition, and compare them with what is typical for people of your age and sex."
+    },
+    "intro_no_diagnosis": {
+      "ar": "هذا قياس للحركة نبني عليه برنامجك.",
+      "en": "This measures your movement so we can build your program."
+    },
+    "safety_always": {
+      "ar": "تحرك ضمن المدى المريح لك فقط، ولا تتجاوز حد الألم أبدًا.",
+      "en": "Move only within a comfortable range. Never push into pain."
+    },
+    "stop_line": {
+      "ar": "توقف فورًا إذا شعرت بألم حاد أو متزايد، أو بدوخة، أو بضيق في التنفس، أو بألم في الصدر.",
+      "en": "Stop at once if you feel sharp or increasing pain, dizziness, shortness of breath or chest pain."
+    },
+    "neck_stop_line": {
+      "ar": "توقف إذا شعرت بدوخة، أو تغيّرت رؤيتك، أو شعرت بتنميل في ذراعيك، أو شعرت بما يشبه الصعقة الكهربائية في ظهرك أو أطرافك.",
+      "en": "Stop if you feel dizzy, your vision changes, you feel tingling in your arms, or you feel an electric shock feeling down your back or limbs."
+    },
+    "support_line": {
+      "ar": "قبل أن تبدأ، تأكد أن بقربك سندًا ثابتًا تمسكه، وأن المكان حولك خالٍ.",
+      "en": "Before you start, make sure you have a steady support to hold, and a clear space around you."
+    },
+    "helper_line": {
+      "ar": "يجب أن يقف شخص بجانبك أثناء هذه الحركة.",
+      "en": "Someone must stand beside you during this movement."
+    },
+    "turn_side": {
+      "ar": "الآن استدر لتصبح جهتك الأخرى نحو الهاتف، وأبقِ الهاتف في مكانه.",
+      "en": "Now turn so your other side faces the phone, and leave the phone where it is."
+    },
+    "practice": {
+      "ar": "هذه محاولة للتجربة فقط.",
+      "en": "This one is just for practice."
+    },
+    "again": {
+      "ar": "مرة أخرى، بالطريقة نفسها.",
+      "en": "Once more, the same way."
+    },
+    "ask_max": {
+      "ar": "هل هذا أقصى ما تستطيع؟",
+      "en": "Is this as far as you can go?"
+    },
+    "ans_yes": {
+      "ar": "نعم",
+      "en": "Yes"
+    },
+    "ans_not_yet": {
+      "ar": "ليس بعد",
+      "en": "Not yet"
+    },
+    "ans_hurts": {
+      "ar": "أستطيع أكثر، لكنه يؤلمني",
+      "en": "I can go further, but it hurts"
+    },
+    "keep_going": {
+      "ar": "حسنًا، تابع ببطء إن استطعت، دون ألم.",
+      "en": "All right, keep going slowly if you can, without pain."
+    },
+    "recorded": {
+      "ar": "سجّلنا ذلك. استرح قليلًا.",
+      "en": "Got it. Rest for a moment."
+    },
+    "pain_ask": {
+      "ar": "ما مقدار الألم الذي تشعر به الآن؟ الرقم 0 يعني لا ألم، والرقم 10 يعني أشد ألم يمكنك تخيله.",
+      "en": "How much pain do you feel now? 0 means no pain, and 10 means the worst pain you can imagine."
+    },
+    "pain_stop": {
+      "ar": "سنتوقف عن هذه الحركة الآن. لا تتجاوز حد الألم أبدًا.",
+      "en": "We will stop this movement now. Never push into pain."
+    },
+    "what_stopped_ask": {
+      "ar": "ما الذي أوقفك أكثر؟",
+      "en": "What stopped you most?"
+    },
+    "what_stopped_tight": {
+      "ar": "شد أو تيبس",
+      "en": "Tightness or stiffness"
+    },
+    "what_stopped_pain": {
+      "ar": "ألم",
+      "en": "Pain"
+    },
+    "what_stopped_weak": {
+      "ar": "ضعف أو ثقل",
+      "en": "Weakness or heaviness"
+    },
+    "can_move_ask": {
+      "ar": "هل تستطيع تحريك هذا المفصل بنفسك، ولو قليلًا؟",
+      "en": "Can you move this joint on your own, even a little?"
+    },
+    "no_active_movement": {
+      "ar": "لا بأس. سنسجّل ذلك، وسيراعيه برنامجك.",
+      "en": "That is fine. We will note it, and your program will take it into account."
+    },
+    "default_line": {
+      "ar": "لا تقيس الكاميرا هذه الحركة بدقة كافية، لذلك لم نقسها.",
+      "en": "The camera cannot measure this movement accurately enough, so we did not measure it."
+    },
+    "not_today_safety": {
+      "ar": "حرصًا على سلامتك، لن نقيس هذه الحركة اليوم.",
+      "en": "For your safety, we will not measure this movement today."
+    },
+    "not_applicable": {
+      "ar": "هذه الحركة لا تنطبق عليك، فلن نقيسها.",
+      "en": "This movement does not apply to you, so we will not measure it."
+    },
+    "region_ask": {
+      "ar": "أي أجزاء جسمك تتأثر بحالتك الطبية؟",
+      "en": "Which parts of your body does your medical condition affect?"
+    },
+    "side_ask": {
+      "ar": "أي جهة؟",
+      "en": "Which side?"
+    },
+    "side_right": {
+      "ar": "اليمنى",
+      "en": "Right"
+    },
+    "side_left": {
+      "ar": "اليسرى",
+      "en": "Left"
+    },
+    "side_both": {
+      "ar": "الجهتان",
+      "en": "Both"
+    },
+    "problem_ask": {
+      "ar": "ما نوع المشكلة في هذا الجزء؟",
+      "en": "What kind of problem is it in this part?"
+    },
+    "surgery_when": {
+      "ar": "متى أُجريت العملية؟",
+      "en": "When was the surgery?"
+    },
+    "surgery_recent": {
+      "ar": "خلال الأشهر الثلاثة الأخيرة",
+      "en": "In the last 3 months"
+    },
+    "surgery_older": {
+      "ar": "قبل أكثر من ثلاثة أشهر",
+      "en": "More than 3 months ago"
+    },
+    "surgery_cleared": {
+      "ar": "هل سمح لك الجرّاح أو أخصائي العلاج الطبيعي بتحريك هذا المفصل بنفسك؟",
+      "en": "Has your surgeon or physiotherapist allowed you to move this joint on your own?"
+    },
+    "surgery_avoid": {
+      "ar": "هل طُلب منك تجنب حركات معينة لهذا المفصل؟",
+      "en": "Were you told to avoid certain movements of this joint?"
+    },
+    "injury_when": {
+      "ar": "متى حدثت الإصابة؟",
+      "en": "When did the injury happen?"
+    },
+    "injury_recent": {
+      "ar": "خلال الأسابيع الستة الأخيرة",
+      "en": "In the last 6 weeks"
+    },
+    "injury_older": {
+      "ar": "قبل أكثر من ستة أسابيع",
+      "en": "More than 6 weeks ago"
+    },
+    "bones_ask": {
+      "ar": "هل أخبرك طبيب بأن لديك هشاشة في العظام، أو كسرًا في فقرات الظهر؟",
+      "en": "Has a doctor told you that you have weak bones (osteoporosis) or a broken bone in your spine?"
+    },
+    "neck_ask": {
+      "ar": "هل أخبرك طبيب بأن رقبتك غير مستقرة، أو تشعر بدوخة عند تحريك رأسك؟",
+      "en": "Has a doctor told you that your neck is unstable, or do you feel dizzy when you move your head?"
+    },
+    "ans_no": {
+      "ar": "لا",
+      "en": "No"
+    },
+    "ans_unsure": {
+      "ar": "لست متأكدًا",
+      "en": "Not sure"
+    },
+    "confirm_regions": {
+      "ar": "سنقيس {regions} في الجهة {sideF}. هل هذا مناسب؟",
+      "en": "We will measure your {regions} on your {side} side. Is that right?"
+    },
+    "change_it": {
+      "ar": "أريد التعديل",
+      "en": "I want to change it"
+    },
+    "typical_default_line": {
+      "ar": "لم تذكر هذا الجزء ضمن ما يتأثر بحالتك الطبية، لذلك نعدّ حركته ضمن المعتاد.",
+      "en": "You did not list this part among those your medical condition affects, so we count its movement as typical."
+    },
+    "sit_before_stand": {
+      "ar": "اجلس على طرف السرير دقيقة قبل أن تقف.",
+      "en": "Sit on the edge of the bed for a minute before you stand."
+    },
+    "surgery_stretch_ask": {
+      "ar": "هل سمح لك فريقك الجراحي بتمارين الإطالة؟",
+      "en": "Has your surgical team allowed stretching?"
+    },
+    "surgery_load_ask": {
+      "ar": "هل سمح لك فريقك الجراحي بتمارين التقوية بالأوزان أو بالشريط المطاطي؟",
+      "en": "Has your surgical team allowed strengthening with weights or a band?"
+    },
+    "hip_avoid_ask": {
+      "ar": "ما الحركات التي طُلب منك تجنّبها بعد عملية الورك؟ اختر كل ما ينطبق.",
+      "en": "Which movements were you told to avoid after your hip surgery? Choose all that apply."
+    },
+    "hip_avoid_flex90": {
+      "ar": "ثني الورك أكثر من زاوية قائمة",
+      "en": "Bending my hip past a right angle"
+    },
+    "hip_avoid_cross": {
+      "ar": "وضع ساق فوق الأخرى",
+      "en": "Crossing my legs"
+    },
+    "hip_avoid_turn_in": {
+      "ar": "تدوير الساق إلى الداخل",
+      "en": "Turning my leg in"
+    },
+    "hip_avoid_back_out": {
+      "ar": "تحريك الساق إلى الخلف أو تدويرها إلى الخارج",
+      "en": "Taking my leg behind me or turning it out"
+    },
+    "hip_avoid_none": {
+      "ar": "لم يُطلب مني تجنّب أي حركة",
+      "en": "I was told no limits"
+    },
+    "achilles_ask": {
+      "ar": "هل حدث لك قطع في وتر العرقوب (وتر الكعب) أو أُجريت لك عملية فيه خلال الأشهر الستة الأخيرة؟",
+      "en": "Have you had a torn Achilles tendon (heel cord) or surgery on it in the last 6 months?"
+    },
+    "neck_cleared_ask": {
+      "ar": "هل أكّد لك طبيبك أن رقبتك مستقرة وأن تمارين الرقبة مناسبة لك؟",
+      "en": "Has your doctor confirmed that your neck is stable and that neck exercises suit you?"
+    },
+    "arthritis_type_ask": {
+      "ar": "هل أخبرك طبيب بأن التهاب مفاصلك من النوع الروماتويدي أو من نوع التهابي آخر؟",
+      "en": "Has a doctor told you that your arthritis is rheumatoid or another inflammatory type?"
+    },
+    "foot_lift_ask": {
+      "ar": "هل تستطيع وأنت جالس أن ترفع مقدمة قدمك عن الأرض؟",
+      "en": "While sitting, can you lift the front of your foot off the floor?"
+    },
+    "transfer_chair_ask": {
+      "ar": "هل تستطيع الانتقال بأمان من كرسيك المتحرك إلى كرسي ثابت؟",
+      "en": "Can you move safely from your wheelchair to a steady chair?"
+    },
+    "deferred_line": {
+      "ar": "لم نقس هذه الحركة اليوم حتى لا يطول القياس، وسنقيسها في مرة قادمة.",
+      "en": "We did not measure this movement today, to keep the check short. We will measure it another time."
+    },
+    "not_reached_line": {
+      "ar": "انتهى القياس اليوم قبل أن نصل إلى هذه الحركة.",
+      "en": "Today's check ended before we reached this movement."
+    },
+    "sit_unsupported_ask": {
+      "ar": "هل تستطيع الجلوس نحو 30 ثانية دون أن تستند إلى ظهر الكرسي، ودون أن تمسك بشيء بيديك؟",
+      "en": "Can you sit for about 30 seconds without leaning on the backrest and without holding on with your hands?"
+    }
+  },
+  "cues": {
+    "keep_back": {
+      "ar": "أبقِ ظهرك مستندًا إلى الكرسي.",
+      "en": "Keep your back against the chair."
+    },
+    "no_lean": {
+      "ar": "حاول ألا تميل بجسمك.",
+      "en": "Try not to lean your body."
+    },
+    "on_own": {
+      "ar": "حرّكها بنفسك، دون مساعدة يدك الأخرى.",
+      "en": "Move it on your own, without help from your other hand."
+    },
+    "no_hands": {
+      "ar": "حرّك ساقك بنفسك، دون أن تسحبها بيديك.",
+      "en": "Move your leg on your own, without pulling it with your hands."
+    },
+    "arm_straight": {
+      "ar": "أبقِ ذراعك مستقيمة.",
+      "en": "Keep your arm straight."
+    },
+    "arm_in_front": {
+      "ar": "ارفع ذراعك أمامك مباشرة، لا إلى الجانب.",
+      "en": "Raise your arm straight in front of you, not out to the side."
+    },
+    "arm_back_straight": {
+      "ar": "حرّك ذراعك إلى الخلف مباشرة، قريبًا من جسمك.",
+      "en": "Move your arm straight back, close to your body."
+    },
+    "elbow_by_side": {
+      "ar": "أبقِ مرفقك بجانب جسمك.",
+      "en": "Keep your elbow by your side."
+    },
+    "palm_forward": {
+      "ar": "أبقِ كفك إلى الأمام.",
+      "en": "Keep your palm facing forward."
+    },
+    "head_down": {
+      "ar": "أبقِ رأسك وظهرك على السرير.",
+      "en": "Keep your head and back on the bed."
+    },
+    "other_leg_flat": {
+      "ar": "أبقِ ساقك الأخرى ممدودة على السرير.",
+      "en": "Keep your other leg flat on the bed."
+    },
+    "knee_straight_up": {
+      "ar": "أبقِ ركبتك متجهة إلى الأعلى، دون أن تميل إلى الجانب.",
+      "en": "Keep your knee pointing up, without letting it fall to the side."
+    },
+    "toes_up": {
+      "ar": "أبقِ أصابع قدمك متجهة إلى الأعلى.",
+      "en": "Keep your toes pointing up."
+    },
+    "knee_straight": {
+      "ar": "أبقِ ركبتك مستقيمة.",
+      "en": "Keep your knee straight."
+    },
+    "knees_straight": {
+      "ar": "أبقِ ركبتيك مستقيمتين.",
+      "en": "Keep your knees straight."
+    },
+    "leg_straight_back": {
+      "ar": "حرّك ساقك إلى الخلف مباشرة.",
+      "en": "Move your leg straight back."
+    },
+    "leg_to_side": {
+      "ar": "حرّك ساقك إلى الجانب مباشرة، لا إلى الأمام.",
+      "en": "Move your leg straight out to the side, not forward."
+    },
+    "hips_level": {
+      "ar": "أبقِ وركيك في مستوى واحد.",
+      "en": "Keep your hips level."
+    },
+    "heel_down": {
+      "ar": "أبقِ كعبك على الأرض.",
+      "en": "Keep your heel on the floor."
+    },
+    "toes_to_wall": {
+      "ar": "أبقِ أصابع قدمك متجهة نحو الجدار.",
+      "en": "Keep your toes pointing at the wall."
+    },
+    "knee_over_toes": {
+      "ar": "أبقِ ركبتك فوق أصابع قدمك.",
+      "en": "Keep your knee in line with your toes."
+    },
+    "face_forward": {
+      "ar": "أبقِ وجهك إلى الأمام.",
+      "en": "Keep your face forward."
+    },
+    "shoulder_down": {
+      "ar": "لا ترفع كتفك نحو أذنك.",
+      "en": "Do not lift your shoulder toward your ear."
+    },
+    "thumb_up": {
+      "ar": "أبقِ إبهامك إلى الأعلى.",
+      "en": "Keep your thumb pointing up."
+    }
+  },
+  "results": {
+    "value_flexion": {
+      "ar": "قِسنا {value} {unit}، والمعتاد لمن هم في مثل عمرك وجنسك نحو {norm} {unit}.",
+      "en": "We measured {value} {unit}. Typical for people of your age and sex is about {norm} {unit}."
+    },
+    "value_lack": {
+      "ar": "ينقص المفصل {value} {unit} ليستقيم تمامًا، والمعتاد أن يستقيم تمامًا أو يكاد.",
+      "en": "The joint is {value} {unit} short of fully straight. Typically it straightens fully or almost fully."
+    },
+    "value_lack_straight": {
+      "ar": "يستقيم المفصل تمامًا.",
+      "en": "The joint straightens fully."
+    },
+    "value_no_grade": {
+      "ar": "قِسنا {value} {unit}. لا توجد قيمة معتادة لهذه الوضعية، لذلك نقارن قياساتك القادمة بهذا القياس.",
+      "en": "We measured {value} {unit}. There is no typical value for this position, so we will compare your next checks with this one."
+    },
+    "label_within": {
+      "ar": "لا محدودية واضحة",
+      "en": "No clear limitation"
+    },
+    "label_mild": {
+      "ar": "أقل قليلًا من المعتاد",
+      "en": "A little below typical"
+    },
+    "label_marked": {
+      "ar": "أقل بوضوح من المعتاد",
+      "en": "Clearly below typical"
+    },
+    "label_pain": {
+      "ar": "توقف بسبب الألم",
+      "en": "Stopped by pain"
+    },
+    "label_default": {
+      "ar": "لم تقسه الكاميرا",
+      "en": "Not measured by the camera"
+    },
+    "label_not_today": {
+      "ar": "لم يُقَس اليوم",
+      "en": "Not measured today"
+    },
+    "label_not_applicable": {
+      "ar": "لا ينطبق",
+      "en": "Does not apply"
+    },
+    "label_provisional": {
+      "ar": "قراءة أولى من محاولة صحيحة واحدة",
+      "en": "First reading, from one valid try"
+    },
+    "label_approximate": {
+      "ar": "مقارنة تقريبية",
+      "en": "Approximate comparison"
+    },
+    "finding_tight": {
+      "ar": "قد يشير هذا إلى شد أو تيبس حول المفصل. سنضيف إلى برنامجك تمارين لهذه الحركة.",
+      "en": "This may suggest tightness or stiffness around the joint. We will add exercises for this movement to your program."
+    },
+    "finding_weak": {
+      "ar": "قد يشير هذا إلى ضعف في العضلات التي تحرك المفصل. سنضيف إلى برنامجك تمارين تقوية مناسبة.",
+      "en": "This may suggest weakness in the muscles that move the joint. We will add suitable strengthening exercises to your program."
+    },
+    "finding_pain": {
+      "ar": "توقفت الحركة بسبب الألم. سنعمل على هذه الحركة برفق، ضمن المدى المريح لك.",
+      "en": "The movement stopped because of pain. We will work on it gently, within your comfortable range."
+    },
+    "finding_within": {
+      "ar": "لم تجد الكاميرا اليوم محدودية واضحة في هذه الحركة.",
+      "en": "The camera did not find a clear limitation in this movement today."
+    },
+    "finding_new": {
+      "ar": "إذا كان هذا جديدًا عليك، فتحدث مع طبيبك أو فريق رعايتك.",
+      "en": "If this is new to you, talk with your doctor or care team."
+    },
+    "label_typical_default": {
+      "ar": "لم يُذكر ضمن حالتك الطبية، فعُدّ ضمن المعتاد",
+      "en": "Not listed as affected, so counted as typical"
+    },
+    "label_uncertain": {
+      "ar": "قد يكون هناك نقص بسيط لا تستطيع الكاميرا تأكيده",
+      "en": "There may be a small lack the camera cannot confirm"
+    },
+    "value_knee_seated": {
+      "ar": "ينقص ركبتك {value} {unit} لتستقيم وأنت جالس. في الجلوس تحدّ عضلات خلف الفخذ من هذه الحركة، لذلك نقارن قياساتك القادمة بهذا القياس.",
+      "en": "Your knee is {value} {unit} short of straight while you sit. Sitting, the muscles at the back of the thigh limit this movement, so we will compare your next checks with this one."
+    },
+    "value_hip_ext_behind": {
+      "ar": "وصل فخذك إلى {value} {unit} خلف خط جذعك، والمعتاد نحو {norm} {unit}.",
+      "en": "Your thigh reached {value} {unit} behind the line of your trunk. Typical is about {norm} {unit}."
+    },
+    "value_hip_ext_front": {
+      "ar": "لم يصل فخذك إلى خط جذعك، وبقي أمامه بنحو {value} {unit}.",
+      "en": "Your thigh did not reach the line of your trunk. It stayed about {value} {unit} in front of it."
+    },
+    "refer_measure": {
+      "ar": "لا تستطيع الكاميرا قياس هذه الحركة لديك بدقة. قد يفيدك أن يقيسها أحد أفراد فريق رعايتك.",
+      "en": "The camera cannot measure this movement well for you. It may help to have someone in your care team measure it."
+    }
+  },
+  "sideWords": {
+    "sideM": {
+      "right": "الأيمن",
+      "left": "الأيسر"
+    },
+    "sideF": {
+      "right": "اليمنى",
+      "left": "اليسرى"
+    },
+    "side": {
+      "right": "right",
+      "left": "left"
+    }
+  },
+  "citations": [
+    {
+      "id": "R2",
+      "cite": "Gill TK et al. Shoulder range of movement in the general population: age and gender stratified normative data. BMC Musculoskelet Disord 2020 (flexion and abduction tables; exclusion of shoulder pain, stiffness and RA)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7549223/"
+    },
+    {
+      "id": "R3",
+      "cite": "Fleisig GS et al. Active range of motion of the shoulder: a cross sectional study of 6635 subjects. JSES Int 2022 (n per group from Table II; Appendix A means and 95% CI by arm, sex and decade)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9937824/"
+    },
+    {
+      "id": "R1",
+      "cite": "McKay MJ et al. Normative reference values for strength and flexibility of 1,000 children and adults. Neurology 2017;88:36 to 43 (Table 2, read from the table image)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5200854/"
+    },
+    {
+      "id": "R4",
+      "cite": "CDC Normal Joint Range of Motion Study public use file (Soucie 2011). Right side values computed here from the archived file and its coding book",
+      "url": "https://web.archive.org/web/20151004063201/http://www.cdc.gov/ncbddd/jointrom/documents/normal-dataset.xls"
+    },
+    {
+      "id": "R14",
+      "cite": "AAOS normal values (secondary commercial reprint citing AAOS 1965)",
+      "url": "https://goniometer.io/range-of-motion"
+    },
+    {
+      "id": "R6",
+      "cite": "Roaas A, Andersson GBJ. Normal range of motion of the hip, knee and ankle joints in male subjects, 30 to 40 years of age. Acta Orthop Scand 1982 (prints the Boone and Azen 1979 active columns)",
+      "url": "https://actaorthop.org/actao/article/download/28654/33535/82106"
+    },
+    {
+      "id": "R18",
+      "cite": "Okuno H et al. Reliability and validity of AI based pose estimation for lower limb flexibility and ROM. Sensors 2026 (MediaPipe: AKET, modified Thomas test (a knee angle, thigh to shank), weight bearing lunge with the reference angle = 90 degrees minus the arctangent of (ground to knee over heel to wall); reference 49 (4.7), MediaPipe 43 (5.8); MDC95 10.7, 5.0, 3.2)",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13611076/"
+    },
+    {
+      "id": "R7",
+      "cite": "Apti A et al. Normative values for cervical and lumbar range of motion in healthy young adults. J Turk Spinal Surg 2023",
+      "url": "https://jtss.org/pdf/f942abf9-a73b-4057-b48b-c3a4b7d0c2a5/articles/jtss.galenos.2023.33042/jtss-34-113-En.pdf"
+    },
+    {
+      "id": "R8",
+      "cite": "Cervical mobility and cervical proprioception in relation to fall risk among older adults (2023), non fallers aged 65 to 93",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10260694/"
+    },
+    {
+      "id": "R11",
+      "cite": "Esola MA et al. Analysis of lumbar spine and hip motion during forward bending. Spine 1996 (abstract)",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=%22Analysis%20of%20lumbar%20spine%20and%20hip%20motion%20during%20forward%20bending%22&format=json&resultType=core"
+    },
+    {
+      "id": "R12",
+      "cite": "38 CFR 4.71a, Note 2: normal cervical and thoracolumbar ranges",
+      "url": "https://www.law.cornell.edu/cfr/text/38/4.71a"
+    }
+  ]
+}

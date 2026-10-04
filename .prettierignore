@@ -12,3 +12,7 @@ src/app/voice-script.json
 package-lock.json
 src/movements/check-v1.json
 tests/fixtures/**/*.json
+src/movements/rom/rom-v7.json
+src/movements/gait/gait-v7.json
+src/movements/targets/targets-v7.json
+src/engine/signal/vendor/

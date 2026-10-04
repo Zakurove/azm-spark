@@ -8,7 +8,6 @@
 import { describe, expect, it } from "vitest";
 import {
   GAIT_DAY_ITEMS,
-  RF_REGION_COPY,
   RF_REGION_ITEM,
   RF_REGION_LEG,
   applyPrecheckOutcome,
@@ -32,6 +31,7 @@ import type { CheckContext } from "../../src/medical/assessment";
 import { GAIT_DATA } from "../../src/movements/gait";
 import { ROM_DATA } from "../../src/movements/rom";
 import { wordingProblems } from "../../scripts/wording-rules.mjs";
+import { V7_DICTIONARIES, tV7 } from "../../src/i18n/v7";
 import { NOW, fill } from "../precheck-fixtures";
 import { entry, intake, itemOf, running, today, type V7Intake } from "./a-fixtures";
 
@@ -423,18 +423,23 @@ describe("GAIT_DAY_ITEMS: asked when the gait test is planned", () => {
 /* ---------------------------------------------------- region red flags today */
 
 describe("rf_region (contract 2.5)", () => {
-  it("is the item id rf_region, with Arabic and English copy that pass the wording rules", () => {
+  /** The rf_region lines of the rom namespace (D-024, A4-7), as the dictionaries hold them. */
+  const line = (lang: "ar" | "en", key: "rf_region_ask" | "rf_region_ask_leg") =>
+    (V7_DICTIONARIES[lang].rom as Record<string, string>)[key];
+
+  it("is the item id rf_region, with Arabic and English copy in the rom namespace that passes the wording rules", () => {
     expect(RF_REGION_ITEM).toBe("rf_region");
-    for (const [key, line] of Object.entries(RF_REGION_COPY)) {
+    for (const key of ["rf_region_ask", "rf_region_ask_leg"] as const) {
       for (const lang of ["ar", "en"] as const) {
-        expect(line[lang].trim().length, `${key} ${lang}`).toBeGreaterThan(0);
-        expect(wordingProblems(line[lang]), `${key} ${lang}`).toEqual([]);
-        expect(line[lang], `${key} ${lang}`).toContain("{region}");
+        expect(line(lang, key).trim().length, `${key} ${lang}`).toBeGreaterThan(0);
+        expect(wordingProblems(line(lang, key)), `${key} ${lang}`).toEqual([]);
+        expect(line(lang, key), `${key} ${lang}`).toContain("{region}");
       }
     }
+    expect(tV7("en", "rom.rf_region_ask", { region: "knee" })).toMatch(/^Today, in your knee: /);
     // The leg version adds the weight bearing sign; the answers are the data's yes and no.
-    expect(RF_REGION_COPY.ask_leg.en).toContain("stand on");
-    expect(RF_REGION_COPY.ask.en).not.toContain("stand on");
+    expect(line("en", "rf_region_ask_leg")).toContain("stand on");
+    expect(line("en", "rf_region_ask")).not.toContain("stand on");
     expect(RF_REGION_LEG).toEqual(["hip", "knee", "ankle_foot"]);
     expect(ROM_DATA.copy.ans_yes.ar).toBe("نعم");
     expect(ROM_DATA.copy.ans_no.ar).toBe("لا");
@@ -452,7 +457,7 @@ describe("rf_region (contract 2.5)", () => {
       "new numbness or weakness",
     ])
       expect(rule, sign).toContain(sign);
-    const en = RF_REGION_COPY.ask_leg.en.toLowerCase();
+    const en = line("en", "rf_region_ask_leg").toLowerCase();
     for (const word of ["hot", "red", "swollen", "fever", "shape", "stand on", "numbness", "weakness"])
       expect(en, word).toContain(word);
   });

@@ -256,10 +256,15 @@ function fromIntake(h: Intake, out: Set<string>): void {
 
   for (const e of h.regions ?? []) {
     const surgery = e.problems.includes("after_surgery");
-    const recent = surgery && within(e.surgery?.since, "3m");
-    const notCleared = recent && e.surgery?.cleared !== "yes";
+    const notCleared =
+      surgery && within(e.surgery?.since, ID_WINDOWS.region_not_cleared) && e.surgery?.cleared !== "yes";
     // «Neck or back surgery in the last 3 months».
-    if (recent && (e.region === "neck" || e.region === "back_trunk")) out.add("spine_surgery_recent");
+    if (
+      surgery &&
+      (e.region === "neck" || e.region === "back_trunk") &&
+      within(e.surgery?.since, ID_WINDOWS.spine_surgery_recent)
+    )
+      out.add("spine_surgery_recent");
     // «Surgery in that region under 3 months without clearance for active movement».
     if (notCleared) out.add(regionId("region_not_cleared", e.region));
     // «Surgery in that region under 12 weeks, or no loading clearance» (asked only under 12 weeks).

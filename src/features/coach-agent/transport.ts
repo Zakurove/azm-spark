@@ -165,6 +165,8 @@ export class GenaiTransport implements LiveTransport {
   private open = false;
   private ended = false;
   private giveUp: ((e: TransportError) => void) | null = null;
+  /** A socket that failed before the transport was open (it may fail right as the setup completes). */
+  private failedEarly: TransportError | null = null;
 
   constructor(
     private readonly load: () => Promise<GenaiSdk> = loadGenai,
@@ -197,11 +199,11 @@ export class GenaiTransport implements LiveTransport {
           for (const e of mapServerMessage(m)) this.emit(e);
         },
         onerror: () => {
-          if (!this.open) this.giveUp?.(new TransportError("socket_error"));
+          if (!this.open) this.failEarly(new TransportError("socket_error"));
           else if (!this.ended) this.emit({ type: "error", code: "socket_error" });
         },
         onclose: (e) => {
-          if (!this.open) this.giveUp?.(new TransportError(`closed_${e?.code ?? 0}`));
+          if (!this.open) this.failEarly(new TransportError(`closed_${e?.code ?? 0}`));
           else if (!this.ended) {
             this.ended = true;
             this.emit({ type: "close", code: e?.code ?? 0, reason: e?.reason ?? "" });
@@ -220,9 +222,9 @@ export class GenaiTransport implements LiveTransport {
       clearTimeout(timer);
       this.giveUp = null;
     }
-    if (this.ended) {
-      session.close();
-      throw new TransportError("closed");
+    if (this.ended || this.failedEarly) {
+      this.safe(() => session.close());
+      throw this.failedEarly ?? new TransportError("closed");
     }
     this.session = session;
     // The history first (initialHistoryInClientContent): it is taken as history and gets no reply.
@@ -290,6 +292,11 @@ export class GenaiTransport implements LiveTransport {
   on(fn: (e: TransportEvent) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
+  }
+
+  private failEarly(error: TransportError): void {
+    this.failedEarly ??= error;
+    this.giveUp?.(error);
   }
 
   private live(): GenaiSession | null {

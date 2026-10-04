@@ -48,7 +48,7 @@ class FakeSdk {
   callbacks: Callbacks | null = null;
   closed = 0;
   /** How the next connect ends: resolve after setupComplete, or the socket closes first. */
-  mode: "ok" | "close_early" | "never" = "ok";
+  mode: "ok" | "close_early" | "close_at_setup" | "never" = "ok";
   private resolveConnect: (() => void) | null = null;
 
   module(): GenaiSdk {
@@ -72,6 +72,12 @@ class FakeSdk {
               if (sdk.mode === "ok") queueMicrotask(() => sdk.resolveConnect?.());
               if (sdk.mode === "close_early")
                 queueMicrotask(() => p.callbacks.onclose?.({ code: 1011, reason: "token expired" }));
+              // The socket closes in the same task as the setup completes, before the app runs again.
+              if (sdk.mode === "close_at_setup")
+                queueMicrotask(() => {
+                  sdk.resolveConnect?.();
+                  p.callbacks.onclose?.({ code: 1008, reason: "policy" });
+                });
             });
           },
         };
@@ -262,6 +268,15 @@ describe("GenaiTransport", () => {
     const t = transport();
     const events = collect(t);
     await expect(t.connect(OPTS)).rejects.toThrow(/closed_1011/);
+    expect(events).toEqual([]);
+    expect(sdk.sent).toEqual([]);
+  });
+
+  it("rejects connect when the socket closes right as the setup completes, and never reports it open", async () => {
+    sdk.mode = "close_at_setup";
+    const t = transport();
+    const events = collect(t);
+    await expect(t.connect(OPTS)).rejects.toThrow(/closed_1008/);
     expect(events).toEqual([]);
     expect(sdk.sent).toEqual([]);
   });

@@ -15,9 +15,10 @@
  * movement starts.»
  *
  * The numbers are the data's (ROM_DATA.engine: holdBandDeg, holdSeconds, wideHoldBandDeg,
- * minExcursionDeg, smoothing.hampel). The filtered angle is the live dial's One Euro output
+ * minExcursionDeg, smoothing.hampel). The filtered angle is what the runner passes: the live dial's angle
  * (engine.smoothing: «Live dial: existing One Euro filter. Recorded value: Hampel filter (window 7,
- * n sigma 2), then the median of the hold window»).
+ * n sigma 2), then the median of the hold window»), the One Euro on the landmarks, after v1's 0.3 s
+ * running median (runner.ts, change log B1-3).
  *
  * Readings of the words, each an engineering choice that adds no clinical number:
  *   - «within a 3 degree band»: the highest minus the lowest filtered angle of the window, at most the band.
@@ -97,7 +98,7 @@ export interface HoldFound {
 
 interface Sample {
   t: number;
-  /** The One Euro filtered angle. */
+  /** The filtered angle. */
   f: number;
   /** The angle of the frame, unfiltered. */
   raw: number;

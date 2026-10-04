@@ -29,7 +29,8 @@ import type {
 } from "./types";
 import { r3, type LimbSide } from "./util";
 
-const NEAR_LIMB: ReadonlySet<GaitMetricId> = new Set<GaitMetricId>([
+/** The metrics a limb gives only from a view where it was nearest the phone (gait-rules 2.2, 2.3). */
+export const NEAR_LIMB_METRICS: ReadonlySet<GaitMetricId> = new Set<GaitMetricId>([
   "knee_swing_peak",
   "knee_stance_min",
   "knee_loading_peak",
@@ -93,14 +94,17 @@ function combineMetric(id: GaitMetricId, views: readonly GaitViewResult[]): Gait
     larger.delete("equal");
     if (larger.size > 1) return null;
   }
-  const sideFrom = (side: LimbSide) => (NEAR_LIMB.has(id) ? given.filter((v) => nearFor(v, side)) : given);
+  const sideFrom = (side: LimbSide) =>
+    NEAR_LIMB_METRICS.has(id) ? given.filter((v) => nearFor(v, side)) : given;
   const sides = {
     left: weighted(sideFrom("left").map((v) => [v.metrics[id]!.sides?.left, v.metrics[id]!.n])),
     right: weighted(sideFrom("right").map((v) => [v.metrics[id]!.sides?.right, v.metrics[id]!.n])),
   };
-  const used = NEAR_LIMB.has(id) ? given.filter((v) => nearFor(v, "left") || nearFor(v, "right")) : given;
+  const used = NEAR_LIMB_METRICS.has(id)
+    ? given.filter((v) => nearFor(v, "left") || nearFor(v, "right"))
+    : given;
   if (!used.length) return null;
-  const value = NEAR_LIMB.has(id)
+  const value = NEAR_LIMB_METRICS.has(id)
     ? weighted([
         [sides.left, 1],
         [sides.right, 1],
@@ -127,6 +131,24 @@ function combineMetric(id: GaitMetricId, views: readonly GaitViewResult[]): Gait
     out.share = { left: sL === null ? null : r3(sL), right: sR === null ? null : r3(sR) };
   }
   return out;
+}
+
+/**
+ * Every metric of these views combined by the near limb rule, the sign agreement of the symmetry
+ * ratios and the weighting by n (combineViews; the gait rules combine the views that passed their
+ * gate the same way).
+ */
+export function combineViewMetrics(
+  views: readonly GaitViewResult[],
+): Partial<Record<GaitMetricId, GaitMetricValue>> {
+  const combined: Partial<Record<GaitMetricId, GaitMetricValue>> = {};
+  const ids = new Set<GaitMetricId>();
+  for (const v of views) for (const id of Object.keys(v.metrics) as GaitMetricId[]) ids.add(id);
+  for (const id of ids) {
+    const m = combineMetric(id, views);
+    if (m) combined[id] = m;
+  }
+  return combined;
 }
 
 function staticDrop(stance: readonly StaticStanceResult[]): GaitMetricValue | null {
@@ -171,13 +193,7 @@ export function combineViews(
   engineVersion: string,
 ): GaitAnalysis {
   const kept = views.slice(0, MAX_VIEWS);
-  const combined: Partial<Record<GaitMetricId, GaitMetricValue>> = {};
-  const ids = new Set<GaitMetricId>();
-  for (const v of kept) for (const id of Object.keys(v.metrics) as GaitMetricId[]) ids.add(id);
-  for (const id of ids) {
-    const m = combineMetric(id, kept);
-    if (m) combined[id] = m;
-  }
+  const combined = combineViewMetrics(kept);
   const sd = staticDrop(stance);
   if (sd) combined.static_pelvic_drop = sd;
 

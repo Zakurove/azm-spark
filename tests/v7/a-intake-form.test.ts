@@ -133,7 +133,7 @@ describe("a v7 intake edited in a default build (Gate A review)", () => {
         problems: ["injury", "after_surgery"],
         origin: "person",
         injury: { since: "gt6m" },
-        surgery: { since: "gt6m", cleared: "yes", avoid: [] },
+        surgery: { since: "gt6m" },
       },
       {
         region: "ankle_foot",
@@ -158,7 +158,7 @@ describe("a v7 intake edited in a default build (Gate A review)", () => {
         side: "left",
         problems: ["after_surgery"],
         origin: "person",
-        surgery: { since: "gt6m", cleared: "yes", avoid: [] },
+        surgery: { since: "gt6m" },
       },
       regions[5],
     ]);

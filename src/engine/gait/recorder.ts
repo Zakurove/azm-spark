@@ -2,8 +2,9 @@
  * The gait recorder (product v7 contract 2.8 GaitRecorder; section 9: push under 1 ms p95, under
  * 1 MB per 40 s view): a ring of typed arrays holding the x, y and visibility of the 33 landmarks,
  * the time and the aspect of each frame, at most `maxSec` seconds of frames (the oldest drop first).
- * Float32 coordinates (a ten millionth of the picture, far below a pixel); the ring grows by doubling
- * from 30 frames a second, so a 40 s view at 30 fps holds about 480 KB and at 60 fps about 1 MB.
+ * Float32 coordinates (a ten millionth of the picture, far below a pixel); the ring starts at 30
+ * frames a second and, when full, grows to the rate seen so far, so a 40 s view at 30 fps holds about
+ * 480 KB and at 60 fps under 1 MB.
  * Landmarks never leave the phone from here: `frames()` gives them to the analysis in memory. Pure,
  * no DOM.
  */
@@ -42,8 +43,11 @@ export class GaitRecorder {
     return (this.head + i) % this.cap;
   }
 
+  /** Room for maxSec at the rate seen so far, with 2% to spare (at least one more frame). */
   private grow(): void {
-    const cap = this.cap * 2;
+    const span = this.t[this.slot(this.count - 1)] - this.t[this.head];
+    const need = span > 0 ? Math.ceil(((this.count * this.maxMs) / span) * 1.02) : this.cap * 2;
+    const cap = Math.max(this.cap + 1, need);
     const t = new Float64Array(cap);
     const aspect = new Float32Array(cap);
     const lm = new Float32Array(cap * PER_FRAME);

@@ -3,9 +3,11 @@
  * frame): a light estimate for the screen and the coach, never stored and never a measurement.
  *
  *   - steps: peaks of the distance between the ankles, found on line with the analysis' peak rules
- *     (gait-rules events.side.peaks: at least 0.4 s apart, a prominence of 10% of the signal's range in
- *     the pass): across the picture in side views, the signed height difference (its size) in front
- *     views, where each contact is an extreme.
+ *     (gait-rules events.side.peaks: at least 0.4 s apart, a prominence of 10% of the signal's range):
+ *     across the picture in side views, the signed height difference (its size) in front views, where
+ *     each contact is an extreme. The range is the last two turn margins' (about two strides), kept
+ *     across passes, so the small sway of a turn in place is never a step; a front view counts no
+ *     step while the shoulders are side on (a turn).
  *   - passes: walking runs, each counted at its first step; a run ends when the person leaves the
  *     picture for longer than the gap rule (0.12 s), turns to face the other way (front views), or
  *     reverses across the picture over the turn margin (overground side views).
@@ -30,8 +32,7 @@ export class LiveStepCounter {
   private inPass = false;
   private lastSeen: number | null = null;
   private lastFacing: "toward" | "away" | null = null;
-  private lo = Infinity;
-  private hi = -Infinity;
+  private recent: { t: number; v: number }[] = [];
   private phase: "rise" | "fall" = "rise";
   private ext = -Infinity;
   private extT = 0;
@@ -46,8 +47,6 @@ export class LiveStepCounter {
 
   private endPass(): void {
     this.inPass = false;
-    this.lo = Infinity;
-    this.hi = -Infinity;
     this.phase = "rise";
     this.ext = -Infinity;
     this.dir = 0;
@@ -97,10 +96,18 @@ export class LiveStepCounter {
     }
 
     const v = this.front ? Math.abs(la[1] - ra[1]) : Math.abs(la[0] - ra[0]);
-    this.lo = Math.min(this.lo, v);
-    this.hi = Math.max(this.hi, v);
-    const prominence = GAIT_ENGINE.peakProminenceShare * (this.hi - this.lo);
-    if (!(prominence > 0)) return { steps: this.steps, passes: this.passes, facing };
+    this.recent.push({ t: f.t, v });
+    while (this.recent.length > 1 && f.t - this.recent[0].t > 2 * GAIT_ENGINE.turnMarginSec * 1000)
+      this.recent.shift();
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const r of this.recent) {
+      lo = Math.min(lo, r.v);
+      hi = Math.max(hi, r.v);
+    }
+    const prominence = GAIT_ENGINE.peakProminenceShare * (hi - lo);
+    if (!(prominence > 0) || (this.front && facing === "side"))
+      return { steps: this.steps, passes: this.passes, facing };
     if (this.phase === "rise") {
       if (v > this.ext) {
         this.ext = v;

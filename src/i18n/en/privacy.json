@@ -18,7 +18,7 @@
     "account": "Your name, your email and your password, which is stored in a form that cannot be read back.",
     "profile": "The answers of your health profile: your medical condition, the areas that hurt, your movement limits, how you move, and the notes and medicines you choose to write.",
     "check": "Movement check results as numbers only, with the setup and the dates needed to compare them. The answers of the day before a check are used that day and not kept.",
-    "focus": "Your movement and walking results as numbers only, and one step of your walk as skeleton lines with no picture, with your sex, your height and the areas you marked on the body map.",
+    "focus": "Your movement and walking results as numbers only, and one step of your walk as skeleton lines with no picture, with your sex, your height and the areas you marked on the body map. Of your answers on the day of the check, we keep the pain score of each area and whether a helper was with you.",
     "sessions": "Your exercise sessions and their results.",
     "consents": "Your consents and your confirmation that you are 18 or older, with their dates."
   },

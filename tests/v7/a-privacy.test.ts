@@ -35,6 +35,11 @@ describe("the focus check paragraph of the privacy notice", () => {
     expect(t("en", "privacy.kept.focus")).toMatch(/numbers only/);
     expect(t("en", "privacy.kept.focus")).toMatch(/skeleton lines with no picture/);
     expect(t("en", "privacy.purposes.focus")).toMatch(/usual for your sex and age/);
+    // Of the day's answers a focus check keeps only the pain score per area and the helper (R1-2).
+    expect(t("en", "privacy.kept.focus")).toMatch(
+      /pain score of each area and whether a helper was with you/,
+    );
+    expect(t("ar", "privacy.kept.focus")).toContain("درجة الألم في كل منطقة");
     for (const key of ["privacy.purposes.focus", "privacy.kept.focus"] as const)
       for (const lang of ["ar", "en"] as const)
         expect(wordingProblems(t(lang, key)), `${key} ${lang}`).toEqual([]);

@@ -6,6 +6,7 @@ import {
   equipmentOptions,
   goalOptions,
   painOptions,
+  reconcileV7Fields,
   restrictionOptions,
   validateIntake,
   Plan,
@@ -68,6 +69,16 @@ type Draft = Omit<Intake, "symptoms" | "recentChange" | "clearance" | "mobility"
   clearance: Intake["clearance"] | "";
   mobility: Intake["mobility"] | "";
 };
+/**
+ * The intake the form validates and saves, from its draft. A VITE_V7 build writes pain[] from the
+ * body map (contract 2.2 rule 3; the v1 pain question is not asked). A default build asks neither
+ * the body map nor walking, yet a saved v7 intake brings them into the draft, so it keeps them in
+ * line with the v1 answers the person changed (reconcileV7Fields, Gate A review): otherwise an
+ * unticked pain area or mobility bed would make the intake impossible to save in this build.
+ */
+export function intakeBody<D extends Draft>(draft: D): D {
+  return V7_UI ? { ...draft, pain: painIdsFromRegions(draft.regions ?? []) } : reconcileV7Fields(draft);
+}
 const empty: Draft = {
   age: 0,
   conditions: [],
@@ -287,8 +298,7 @@ export default function IntakeForm({
   );
   const kind = STEP_KINDS[step];
   const last = STEP_KINDS.length - 1;
-  // v7: pain[] mirrors the body map (contract 2.2 rule 3), the v1 pain question is not asked.
-  const body: Draft = V7_UI ? { ...draft, pain: painIdsFromRegions(draft.regions ?? []) } : draft;
+  const body = intakeBody(draft);
   const valid =
     kind === "about"
       ? draft.age >= 18 && draft.age <= 100 && draft.conditions.length > 0

@@ -8,7 +8,14 @@ import {
 import { Setup } from "../app/product";
 import { CONDITION_TYPES, libraryPool } from "./pool";
 import { CAMERA_DEMANDS, isSportId, sportById, type SportId } from "./sports";
-import { painIdsFromRegions, validateRegions, type RegionEntry, type RomIntakeFlags } from "./body-map";
+import {
+  REGION_PAIN_IDS,
+  painIdsFromRegions,
+  validateRegions,
+  type ProblemType,
+  type RegionEntry,
+  type RomIntakeFlags,
+} from "./body-map";
 export const conditions = [
   "none",
   "stroke",
@@ -216,6 +223,41 @@ function validV7Fields(x: Intake): boolean {
   if (x.walking && x.mobility === "bed" && x.walking.status !== "no") return false;
   if (x.regions && !painIdsFromRegions(x.regions).every((id) => x.pain.includes(id))) return false;
   return true;
+}
+/**
+ * The v7 fields a form without them keeps in line with the v1 answers (Gate A review, D-024). A
+ * default build's intake form spreads a saved v7 intake into its draft, so the body map and the
+ * walking answer travel back unseen while mobility and pain[] stay editable, and the cross field
+ * rules would then refuse an intake the person has no way to fix. Rule 1: mobility bed walks no.
+ * Rule 3: a v1 pain area missing from pain[] (the person unticked it) takes pain and injury, with
+ * the injury answers, off the body map entries of its region, and an entry left with no problem is
+ * dropped. An intake without the v7 fields, or one that keeps both rules, comes back as it is.
+ */
+export function reconcileV7Fields<
+  T extends { mobility: string; pain: readonly string[]; regions?: RegionEntry[]; walking?: Walking },
+>(x: T): T {
+  let out = x;
+  if (x.walking && x.mobility === "bed" && x.walking.status !== "no") {
+    const walking: Walking = { status: "no" };
+    out = { ...out, walking };
+  }
+  const unticked = (e: RegionEntry) => {
+    const id = REGION_PAIN_IDS[e.region];
+    return id !== undefined && !x.pain.includes(id);
+  };
+  const mirrored = (p: ProblemType) => p === "pain" || p === "injury";
+  if (x.regions?.some((e) => unticked(e) && e.problems.some(mirrored))) {
+    const regions = x.regions.flatMap((e): RegionEntry[] => {
+      if (!unticked(e) || !e.problems.some(mirrored)) return [e];
+      const problems = e.problems.filter((p) => !mirrored(p));
+      if (!problems.length) return [];
+      const kept: RegionEntry = { ...e, problems };
+      delete kept.injury;
+      return [kept];
+    });
+    out = { ...out, regions };
+  }
+  return out;
 }
 export function scheduleFits(days: number[], recoveryHours: number) {
   const s = [...days].sort((a, b) => a - b);

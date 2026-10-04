@@ -66,6 +66,8 @@ interface Question {
   asked: boolean;
   /** The coach started to speak after it was sent. */
   voiced: boolean;
+  /** The coach was still speaking when it was sent: its audio counts once that old turn has stopped. */
+  afterIdle: boolean;
 }
 
 export class EventBridge {
@@ -84,6 +86,8 @@ export class EventBridge {
   /** Questions in a row the coach did not voice in time (rule 6). */
   private missed = 0;
   private localPlaying = false;
+  /** The coach's voice is playing (the last coachSpeaking). */
+  private speaking = false;
   private micIsOpen = true;
   private reopenAt: number | null = null;
   private readonly offPlaying: () => void;
@@ -142,8 +146,12 @@ export class EventBridge {
 
   /** The coach's voice: true for every chunk the session plays, false when it went idle. */
   coachSpeaking(speaking: boolean, now: number): void {
+    this.speaking = speaking;
     const q = this.question;
-    if (!speaking || !q || q.sentAt === null || q.voiced || q.asked) return;
+    if (!q || q.sentAt === null || q.voiced || q.asked) return;
+    // Chunks of the sentence the question cut are not the coach asking it.
+    if (!speaking) q.afterIdle = false;
+    if (!speaking || q.afterIdle) return;
     q.voiced = true;
     this.missed = 0;
     this.hooks.onFirstAudio?.(now - q.sentAt);
@@ -201,7 +209,7 @@ export class EventBridge {
   }
 
   private p1(e: P1Event, now: number): void {
-    const q: Question = { e, at: now, sentAt: null, asked: false, voiced: false };
+    const q: Question = { e, at: now, sentAt: null, asked: false, voiced: false, afterIdle: false };
     this.question = q;
     if (this.current === "local") this.askLocally(q, now);
     else if (this.current === "live") this.trySend(q, now);
@@ -227,6 +235,7 @@ export class EventBridge {
     this.flush(now);
     this.transport.sendContext(this.line(q.e), true);
     q.sentAt = now;
+    q.afterIdle = this.speaking;
     this.lastTrigger = now;
   }
 

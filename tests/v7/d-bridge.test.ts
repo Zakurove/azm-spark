@@ -193,6 +193,31 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     expect(s.hooks.onFirstAudio).not.toHaveBeenCalled();
   });
 
+  it("counts the coach's old sentence, still playing when the question went, as no answer to it", () => {
+    const s = setup();
+    s.bridge.coachSpeaking(true, s.at(0));
+    s.bridge.push(hold(T0 + 100), s.at(100));
+    // Chunks of the old turn, before the interruption the question causes.
+    s.bridge.coachSpeaking(true, s.at(150));
+    s.bridge.coachSpeaking(true, s.at(200));
+    s.bridge.coachSpeaking(false, s.at(250));
+    s.bridge.coachSpeaking(true, s.at(800));
+    s.run(4000);
+    expect(s.local.said).toEqual([]);
+    expect(s.hooks.onFirstAudio).toHaveBeenCalledWith(700);
+  });
+
+  it("asks locally when the old sentence never stops after the question", () => {
+    const s = setup();
+    s.bridge.coachSpeaking(true, s.at(0));
+    s.bridge.push(hold(T0 + 100), s.at(100));
+    for (let t = 200; t <= 1600; t += 200) {
+      s.bridge.coachSpeaking(true, s.at(t));
+      s.bridge.tick(s.at(t));
+    }
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+  });
+
   it("maps every question to its local line and asked_locally name", () => {
     expect(LOCAL_ASK).toEqual({
       end_range_hold: { line: "rom_ask_max", what: "ask_max" },

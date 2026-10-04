@@ -609,6 +609,19 @@ describe("the rotation of rule 7 and S0-3", () => {
     expect(h.transports).toHaveLength(2);
   });
 
+  it("takes the close at the token's expiresAt as the end of its time, not an error", async () => {
+    // A gait segment of 5 minutes: the token ends 8 minutes after the mint, before the 10 minute limit.
+    const h = harness({
+      mint: (_r, n) => ({ ok: true, token: token(n, { minutes: 5 }), serverDate: Date.now() }),
+    });
+    h.session.start();
+    await run(900);
+    await run(8 * 60_000 - 900);
+    h.emit({ type: "close", code: 1011, reason: "auth token has expired" });
+    expect(h.session.getSnapshot().mode).toBe("local");
+    expect(h.reports.at(-1)).toMatchObject({ endReason: "go_away" });
+  });
+
   it("takes a 1011 close after 595 s as the connection limit, and an earlier one as an error", async () => {
     const h = harness();
     h.session.start();

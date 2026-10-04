@@ -88,6 +88,8 @@ export interface CoachSnapshot {
 }
 
 export const TICK_MS = 100;
+/** A close this close to the token's expiresAt (on this phone's estimate of it) is the token's end. */
+export const EXPIRY_CLOSE_SLACK_MS = 2000;
 /** A token refusal that does not pass with time: the segment stays local (5.1 order of checks). */
 const FINAL_STATUS = new Set([400, 401, 403, 404, 409, 503]);
 const END_REASONS: readonly CoachEndReason[] = [
@@ -435,7 +437,12 @@ export class CoachSession {
       case "error":
         return this.fallback("fallback_error");
       case "close":
-        return this.fallback(closeEndReason(e.code, this.liveSince === null ? 0 : now - this.liveSince));
+        // S0-3: the connection limit, or the token's own end (1011 "auth token has expired"), is not an error.
+        return this.fallback(
+          now >= this.expiresAt - EXPIRY_CLOSE_SLACK_MS
+            ? "go_away"
+            : closeEndReason(e.code, this.liveSince === null ? 0 : now - this.liveSince),
+        );
     }
   }
 

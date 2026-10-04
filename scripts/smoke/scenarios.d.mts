@@ -14,7 +14,13 @@ export interface Scenario {
   poseAt(t: number): Pose;
   meta: Record<string, unknown>;
 }
-export declare const SCENARIOS: Readonly<Record<"rom-shoulder-abduction-right" | "gait-pad-side", Scenario>>;
+export interface RomScenario extends Scenario {
+  kind: "rom";
+}
+export interface GaitScenario extends Scenario {
+  kind: "gait";
+}
+export declare const SCENARIOS: Readonly<{ "rom-shoulder-abduction-right": RomScenario; "gait-pad-side": GaitScenario }>;
 export declare function framePoints(sc: Scenario, skel: Skeleton): { x: number; y: number; depth: number }[];
 
 interface TruthBase {
@@ -60,8 +66,8 @@ export interface GaitTruth extends TruthBase {
   events: GaitEventTruth[];
 }
 export type Truth = RomTruth | GaitTruth;
-export declare function scenarioTruth(sc: Scenario & { kind: "rom" }): RomTruth;
-export declare function scenarioTruth(sc: Scenario & { kind: "gait" }): GaitTruth;
+export declare function scenarioTruth(sc: RomScenario): RomTruth;
+export declare function scenarioTruth(sc: GaitScenario): GaitTruth;
 export declare function scenarioTruth(sc: Scenario): Truth;
 export declare function smokeQuery(truth: Truth): string;
 export declare function feetDown(sc: Scenario, t: number): { left: boolean; right: boolean };

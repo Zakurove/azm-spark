@@ -29,8 +29,9 @@ describe("the range scenario: the right arm raised to the side, seated, front vi
     expect(def.positions.map((p) => p.id)).toContain(truth.position);
     expect(truth.view).toBe(def.view);
     // The phone 2 to 3 m away, at chest height (the movement's camera text).
-    expect(rom.camera.pos[2]).toBeGreaterThanOrEqual(def.distanceM[0]);
-    expect(rom.camera.pos[2]).toBeLessThanOrEqual(def.distanceM[1]);
+    const [near, far] = ([] as number[]).concat(def.distanceM);
+    expect(rom.camera.pos[2]).toBeGreaterThanOrEqual(near);
+    expect(rom.camera.pos[2]).toBeLessThanOrEqual(far ?? near);
   });
 
   it("holds the end angle in every loop, with the arm at rest between raises", () => {

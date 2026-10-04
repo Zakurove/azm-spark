@@ -162,6 +162,8 @@ export function drive(
     at?: (t: number, r: RomRunner) => RomEvent[] | void;
     /** Stops the drive once true (checked after each frame and answer). */
     until?: (r: RomRunner) => boolean;
+    /** Called after each frame with the events of that frame. */
+    frame?: (t: number, events: RomEvent[]) => void;
   } = {},
 ): Drive {
   const fps = s.fps ?? 30;
@@ -255,7 +257,9 @@ export function drive(
     angles.push({ t, deg });
     const lm = s.pose(deg, t);
     const frame: Frame = { t, lm, poses: [lm], aspect: 1 };
-    take(r.feed(frame, s.env ?? { rollDeg: 0 }), t);
+    const evs = r.feed(frame, s.env ?? { rollDeg: 0 });
+    take(evs, t);
+    hooks.frame?.(t, evs);
   }
   return { events, phases, angles, t: last };
 }

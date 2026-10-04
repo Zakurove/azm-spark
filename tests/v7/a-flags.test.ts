@@ -22,7 +22,6 @@ vi.mock("../../server/modules/program/hooks", () => ({
   },
 }));
 
-import { extractReport } from "../../server/report";
 import { AGENT_SESSIONS_KEPT_DAYS } from "../../server/modules/focus/store";
 import { testRules } from "./a-focus-rules";
 import { DAY, member, register, startV7Api, userId, v7Intake, type V7Harness } from "./a-harness";
@@ -114,10 +113,14 @@ describe("existing routes with the flag off", () => {
       });
   });
 
-  it("keep the report extraction schema without regions", async () => {
-    let sent: any = null;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
-      sent = JSON.parse(String(init?.body));
+  it("keep the report extraction schema without regions (POST /api/medical-report)", async () => {
+    const cookie = await register(h, "report-off@example.test");
+    const real = globalThis.fetch;
+    const sent: any[] = [];
+    // Only the model call is stubbed; the test's own calls to the API go through.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (!String(url).startsWith("https://api.openai.com/")) return real(url, init);
+      sent.push(JSON.parse(String(init?.body)));
       return new Response(
         JSON.stringify({
           choices: [{ message: { content: JSON.stringify({ document: "medical_report" }) } }],
@@ -125,14 +128,24 @@ describe("existing routes with the flag off", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     });
+    process.env.OPENAI_API_KEY = "test-key-flags";
     try {
-      await extractReport({ kind: "text", text: "report" }, "test-key");
+      const r = await h.call(
+        "/medical-report",
+        { kind: "text", text: "report", reportConsent: true },
+        cookie,
+      );
+      expect(r.status).toBe(200);
+      expect(r.data.extracted).not.toHaveProperty("regions");
     } finally {
       fetchSpy.mockRestore();
+      delete process.env.OPENAI_API_KEY;
     }
-    const schema = sent.response_format.json_schema.schema;
+    expect(sent).toHaveLength(1);
+    const schema = sent[0].response_format.json_schema.schema;
     expect(schema.properties).not.toHaveProperty("regions");
     expect(schema.required).not.toContain("regions");
+    expect(sent[0].messages[0].content).not.toContain("regions:");
   });
 
   it("save the intake and call afterIntakeSaved only with AZM_V7=1", async () => {

@@ -72,8 +72,8 @@ export interface PerfSnapshot {
   frameMs: Spread;
   /**
    * Long tasks the browser reported (each over 50 ms); maxMs null when none. beyondModel: the tasks
-   * whose time outside the model's calls is over the budget (section 9: "none over 50 ms besides the
-   * model call"), with the longest such time.
+   * during capture (from the first model call) whose time outside the model's calls is over the
+   * budget (section 9: "none over 50 ms besides the model call"), with the longest such time.
    */
   longTasks: { count: number; maxMs: number | null; beyondModel: { count: number; maxMs: number | null } };
   /** The delegate of the last pose model that loaded (the source tries the GPU, then the CPU). */
@@ -101,6 +101,8 @@ export class PerfMeter {
   private heapFirst: number | null = null;
   private heapLast: number | null = null;
   private loaded: "GPU" | "CPU" | null = null;
+  /** The first model call: long tasks before it are loading, not capture. */
+  private firstModel: number | null = null;
   private failed: string | null = null;
 
   /** `longTaskMs`: the time outside model calls a long task may take (section 9, 50 ms). */
@@ -118,6 +120,7 @@ export class PerfMeter {
 
   /** A model call from `start` to `end` (ms). */
   model(start: number, end: number): void {
+    if (this.firstModel === null) this.firstModel = start;
     this.modelStarts.push(start);
     this.modelDurations.push(end - start);
   }
@@ -128,9 +131,14 @@ export class PerfMeter {
     this.lastFrame = t;
   }
 
-  /** A long task of `durationMs` from `startTime`; the part outside the recent model calls is kept too. */
+  /**
+   * A long task of `durationMs` from `startTime`. During capture (from the first model call) its part
+   * outside the recent model calls is kept too; before it the page was loading, which section 9's
+   * capture budget does not cover.
+   */
   longTask(durationMs: number, startTime: number): void {
     this.longs.push(durationMs);
+    if (this.firstModel === null || startTime + durationMs <= this.firstModel) return;
     const starts = this.modelStarts.values();
     const durations = this.modelDurations.values();
     const end = startTime + durationMs;
@@ -193,6 +201,7 @@ export class PerfMeter {
     this.heapLast = null;
     this.loaded = null;
     this.failed = null;
+    this.firstModel = null;
   }
 }
 

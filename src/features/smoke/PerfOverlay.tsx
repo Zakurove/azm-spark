@@ -6,7 +6,8 @@
  *   the pose rate (frames the model processed per second), the model's time per frame, the display's
  *   frame time, long tasks, the JS heap and any User Timing measure named azm:* a stream adds.
  *
- * A value outside its budget is marked (budgets.ts). The numbers come from perfProbe.ts: the model's
+ * A value outside its budget is marked (budgets.ts). It sits in the bottom corner where a line starts,
+ * lets taps through, and folds to one line from its title. The numbers come from perfProbe.ts: the model's
  * detectForVideo is timed by wrapping it, so no stream's file carries a hook (A6a-5).
  * window.__azmPerf.snapshot() gives the same numbers to a script (G3). src/app/App.tsx mounts this
  * over every page in a VITE_E2E=1 build only, so a default build has no chunk for it. It measures in
@@ -57,44 +58,66 @@ function Row({ label, value, over }: { label: string; value: string; over?: bool
   );
 }
 
-/** The panel for one snapshot. */
-export function PerfPanel({ snapshot: s, lang }: { snapshot: PerfSnapshot; lang: Lang }) {
+/**
+ * The panel for one snapshot. Folded, it keeps one line (the pose rate and the model's 95th
+ * percentile); its title toggles it, the only part that takes a tap (the rest lets taps through).
+ */
+export function PerfPanel({
+  snapshot: s,
+  lang,
+  folded = false,
+  onToggle,
+}: {
+  snapshot: PerfSnapshot;
+  lang: Lang;
+  folded?: boolean;
+  onToggle?: () => void;
+}) {
   const t = LABELS[lang];
   // Section 9: no long task over 50 ms besides the model call.
   const longOver = s.longTasks.beyondModel.count > 0;
+  const line =
+    s.poseFps === null
+      ? t.none
+      : `${one(s.poseFps)} fps${s.modelMs.n ? ` · p95 ${one(s.modelMs.p95)} ms` : ""}`;
   return (
     <aside className="perf-overlay" aria-label={t.title} dir={lang === "ar" ? "rtl" : "ltr"}>
-      <h2>{t.title}</h2>
-      <dl>
-        {s.poseFps === null ? (
-          <Row label={t.pose} value={t.none} />
-        ) : (
-          <Row label={t.pose} value={`${one(s.poseFps)} fps`} over={s.poseFps < BUDGETS.romFps} />
-        )}
-        {s.modelMs.n > 0 && <Row label={t.model} value={spreadText(s.modelMs)} />}
-        {s.delegate && <Row label={t.delegate} value={s.delegate} />}
-        <Row label={t.frame} value={spreadText(s.frameMs)} />
-        <Row
-          label={t.long}
-          value={s.longTasks.count ? `${s.longTasks.count} · ${t.max} ${one(s.longTasks.maxMs)} ms` : "0"}
-          over={longOver}
-        />
-        {s.heapMB !== null && (
+      <button type="button" className="perf-toggle" aria-expanded={!folded} onClick={onToggle}>
+        <span>{t.title}</span>
+        {folded ? <span dir="ltr">{line}</span> : null}
+      </button>
+      {folded ? null : (
+        <dl>
+          {s.poseFps === null ? (
+            <Row label={t.pose} value={t.none} />
+          ) : (
+            <Row label={t.pose} value={`${one(s.poseFps)} fps`} over={s.poseFps < BUDGETS.romFps} />
+          )}
+          {s.modelMs.n > 0 && <Row label={t.model} value={spreadText(s.modelMs)} />}
+          {s.delegate && <Row label={t.delegate} value={s.delegate} />}
+          <Row label={t.frame} value={spreadText(s.frameMs)} />
           <Row
-            label={t.heap}
-            value={`${one(s.heapMB)} MB${s.heapGrowthMB ? ` (+${one(s.heapGrowthMB)})` : ""}`}
-            over={(s.heapGrowthMB ?? 0) > HEAP_GROWTH_MB}
+            label={t.long}
+            value={s.longTasks.count ? `${s.longTasks.count} · ${t.max} ${one(s.longTasks.maxMs)} ms` : "0"}
+            over={longOver}
           />
-        )}
-        {Object.entries(s.measures).map(([name, m]) => (
-          <Row
-            key={name}
-            label={name}
-            value={spreadText(m)}
-            over={MEASURE_BUDGETS[name] !== undefined && (m.p95 ?? 0) > MEASURE_BUDGETS[name]}
-          />
-        ))}
-      </dl>
+          {s.heapMB !== null && (
+            <Row
+              label={t.heap}
+              value={`${one(s.heapMB)} MB${s.heapGrowthMB ? ` (+${one(s.heapGrowthMB)})` : ""}`}
+              over={(s.heapGrowthMB ?? 0) > HEAP_GROWTH_MB}
+            />
+          )}
+          {Object.entries(s.measures).map(([name, m]) => (
+            <Row
+              key={name}
+              label={name}
+              value={spreadText(m)}
+              over={MEASURE_BUDGETS[name] !== undefined && (m.p95 ?? 0) > MEASURE_BUDGETS[name]}
+            />
+          ))}
+        </dl>
+      )}
     </aside>
   );
 }
@@ -106,6 +129,7 @@ const pageLang = (): Lang =>
 
 export default function PerfOverlay() {
   const [view, setView] = useState<{ snapshot: PerfSnapshot; lang: Lang } | null>(null);
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
     const meter = new PerfMeter(240);
     const release = attachMeter(meter);
@@ -121,5 +145,12 @@ export default function PerfOverlay() {
       if (w.__azmPerf === api) delete w.__azmPerf;
     };
   }, []);
-  return view ? <PerfPanel snapshot={view.snapshot} lang={view.lang} /> : null;
+  return view ? (
+    <PerfPanel
+      snapshot={view.snapshot}
+      lang={view.lang}
+      folded={folded}
+      onToggle={() => setFolded((f) => !f)}
+    />
+  ) : null;
 }

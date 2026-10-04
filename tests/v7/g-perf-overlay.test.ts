@@ -77,6 +77,23 @@ describe("PerfPanel", () => {
   });
 });
 
+describe("PerfPanel folded", () => {
+  it("keeps one line, the pose rate and the model's 95th percentile, behind a toggle", () => {
+    const html = renderToStaticMarkup(
+      createElement(PerfPanel, { snapshot: snap(), lang: "en", folded: true, onToggle() {} }),
+    );
+    expect(html).toContain('aria-expanded="false"');
+    expect(text(html)).toContain("29.6 fps");
+    expect(text(html)).toContain("17.9 ms");
+    expect(text(html)).not.toContain("Heap");
+    const open = renderToStaticMarkup(
+      createElement(PerfPanel, { snapshot: snap(), lang: "en", folded: false, onToggle() {} }),
+    );
+    expect(open).toContain('aria-expanded="true"');
+    expect(text(open)).toContain("Heap");
+  });
+});
+
 describe("PerfOverlay", () => {
   it("renders nothing on the server: it measures only in the browser, after mounting", () => {
     expect(renderToStaticMarkup(createElement(PerfOverlay))).toBe("");

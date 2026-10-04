@@ -91,6 +91,8 @@ describe("PerfMeter", () => {
 
   it("counts the time of a long task outside the model's calls (section 9: none over 50 ms besides the model call)", () => {
     const m = new PerfMeter(100);
+    // Loading the model (before its first frame) is not capture: counted, never beyond the model.
+    m.longTask(700, 100);
     m.model(1000, 1040);
     // 60 ms, 40 of them in the model call: 20 ms beyond.
     m.longTask(60, 990);
@@ -99,7 +101,7 @@ describe("PerfMeter", () => {
     m.longTask(130, 1950);
     // 120 ms and no model call.
     m.longTask(120, 5000);
-    expect(m.snapshot().longTasks).toEqual({ count: 3, maxMs: 130, beyondModel: { count: 2, maxMs: 120 } });
+    expect(m.snapshot().longTasks).toEqual({ count: 4, maxMs: 700, beyondModel: { count: 2, maxMs: 120 } });
   });
 
   it("keeps the delegate of the last model that loaded", () => {

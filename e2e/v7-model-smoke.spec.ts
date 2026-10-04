@@ -125,7 +125,16 @@ function gitCommit(): string {
 }
 
 test.describe("v7 real model smoke (contract 8.4)", () => {
-  test.skip(!VIDEOS, "AZM_SMOKE_VIDEOS is not set: the smoke runs on demand with its videos, never in CI");
+  if (!videos.length)
+    test("the smoke videos", () => {
+      test.skip(
+        !VIDEOS,
+        "AZM_SMOKE_VIDEOS is not set: the smoke runs on demand with its videos, never in CI",
+      );
+      throw new Error(
+        `No <id>.truth.json with a video beside it in ${VIDEOS}${ONLY ? ` for ${ONLY.join(", ")}` : ""}`,
+      );
+    });
 
   test.afterAll(() => {
     rmSync(TMP, { recursive: true, force: true });

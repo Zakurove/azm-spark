@@ -64,6 +64,17 @@ const ProgramPage =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/ProgramPage")) : null;
 const ShowcaseEntry =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/showcase/ShowcaseEntry")) : null;
+/**
+ * The v7 link slots of the portal (contract 1.3, A5-12), VITE_V7=1 builds only and tested inline as
+ * the pages above: B's focus check entry on Today and findings link on My results, E's program link
+ * on the Program tab. Each loads in its own Suspense boundary and renders what its owner decides.
+ */
+const FocusTodayEntry =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/FocusTodayEntry")) : null;
+const FindingsLink =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/FindingsLink")) : null;
+const ProgramLink =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/ProgramLink")) : null;
 const checkApi = () => import("../features/assessment/api");
 /** Sends what a movement check left in its outbox (loads the flow's code first). */
 const flushPendingCheckCalls = (owner: string) =>
@@ -154,6 +165,16 @@ const E2EGallery =
   import.meta.env.VITE_E2E === "1" ? lazy(() => import("../features/assessment/e2e/Gallery")) : null;
 const galleryEntry = E2EGallery ? qs.get("e2eGallery") : null;
 /**
+ * The real model smoke page of v7 (contract 8.4, stream G): /?e2eSmoke=<name>, VITE_E2E builds only
+ * (the env test written inline, so a default build has no chunk for it).
+ */
+const SmokePage = import.meta.env.VITE_E2E === "1" ? lazy(() => import("../features/smoke/SmokePage")) : null;
+const smokeEntry = SmokePage ? qs.get("e2eSmoke") : null;
+/** The performance overlay of v7 (contract 9, stream G): /?perf=1 over any page, VITE_E2E builds only. */
+const PerfOverlay =
+  import.meta.env.VITE_E2E === "1" ? lazy(() => import("../features/smoke/PerfOverlay")) : null;
+const perfEntry = !!PerfOverlay && qs.get("perf") === "1";
+/**
  * A full page load that keeps the chosen language (the entries above are read at load). replace: the
  * page is replaced in the history, so Back cannot return to it (booth and guest exits, S57).
  */
@@ -169,7 +190,20 @@ const EXIT_URLS: Partial<Record<ExitTarget, string>> = {
   demo: "/?demo=1&autostart=1",
   signIn: "/?app=1",
 };
+/** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
 export default function App() {
+  return PerfOverlay && perfEntry ? (
+    <>
+      <Pages />
+      <Suspense fallback={null}>
+        <PerfOverlay />
+      </Suspense>
+    </>
+  ) : (
+    <Pages />
+  );
+}
+function Pages() {
   const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar"),
     [account, setAccount] = useState<AccountState | null>(null),
     [loading, setLoading] = useState(true),
@@ -313,6 +347,12 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <E2EGallery name={galleryEntry} lang={lang} onLanguage={toggleLanguage} />
+      </Suspense>
+    );
+  if (SmokePage && smokeEntry)
+    return (
+      <Suspense fallback={null}>
+        <SmokePage name={smokeEntry} lang={lang} onLanguage={toggleLanguage} />
       </Suspense>
     );
   if (ShowcaseEntry && showcaseEntry)
@@ -573,6 +613,29 @@ export default function App() {
       />
     </LazyPart>
   );
+  /** Opens a v7 page from the portal, kept in the address bar as its own URL opens it. */
+  const openV7 = (next: V7Page) => {
+    history.replaceState({}, "", v7Url(next));
+    setV7Page(next);
+  };
+  // v7 (contract 1.3, A5-12): the focus check's entry, after the movement check's slot.
+  const focusEntry = FocusTodayEntry && h && p && (
+    <LazyPart lang={lang}>
+      <FocusTodayEntry
+        lang={lang}
+        owner={account.user.id}
+        intake={h}
+        plan={p}
+        onStart={() => openV7({ page: "focus" })}
+        onOpenFindings={(checkId) => openV7({ page: "findings", checkId })}
+        onOpenResults={() => setPage("results")}
+        onOpenHealth={() => {
+          setPage("health");
+          setEditing(true);
+        }}
+      />
+    </LazyPart>
+  );
   const planDetails = p && (
     <>
       <div className="plan-measures">
@@ -775,7 +838,12 @@ export default function App() {
                     </section>
                   ) : null}
                   {p.status === "review" ? (
-                    page === "today" && todaySlot
+                    page === "today" && (
+                      <>
+                        {todaySlot}
+                        {focusEntry}
+                      </>
+                    )
                   ) : (
                     <>
                       {page === "program" && h.goal === "sport" && h.sport && (
@@ -837,6 +905,7 @@ export default function App() {
                         </section>
                       )}
                       {page === "today" && todaySlot}
+                      {page === "today" && focusEntry}
                       <section className="schedule-card">
                         <div className="card-heading">
                           <h2>{c.schedule}</h2>
@@ -865,6 +934,16 @@ export default function App() {
                           })}
                         </div>
                       </section>
+                      {page === "program" && ProgramLink && (
+                        <LazyPart lang={lang}>
+                          <ProgramLink
+                            lang={lang}
+                            plan={p}
+                            onOpenProgram={() => openV7({ page: "program" })}
+                            onOpenFindings={() => openV7({ page: "findings", checkId: null })}
+                          />
+                        </LazyPart>
+                      )}
                       {page === "program" && (
                         <section className="plan-card">
                           <div className="card-heading">
@@ -958,6 +1037,16 @@ export default function App() {
                     {c.edit}
                   </button>
                 </section>
+              )}
+              {page === "results" && FindingsLink && (
+                <LazyPart lang={lang}>
+                  <FindingsLink
+                    lang={lang}
+                    owner={account.user.id}
+                    onOpenFindings={(checkId) => openV7({ page: "findings", checkId })}
+                    onStart={() => openV7({ page: "focus" })}
+                  />
+                </LazyPart>
               )}
               {page === "results" && (
                 <LazyPart lang={lang}>

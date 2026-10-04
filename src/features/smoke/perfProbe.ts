@@ -77,7 +77,7 @@ function browserEnv(): ProbeEnv {
  */
 function watchCreate(
   cls: { createFromOptions(...args: never[]): Promise<unknown> },
-  onLoad: (delegate: "GPU" | "CPU", ok: boolean) => void,
+  onLoad: (delegate: "GPU" | "CPU", ok: boolean, error?: string) => void,
 ): () => void {
   const original = cls.createFromOptions;
   const wrapped = function (this: unknown, ...args: unknown[]) {
@@ -86,7 +86,7 @@ function watchCreate(
     const loading = (original as (...a: unknown[]) => Promise<unknown>).apply(this, args);
     loading.then(
       () => onLoad(delegate, true),
-      () => onLoad(delegate, false),
+      (err: unknown) => onLoad(delegate, false, err instanceof Error ? err.message : String(err)),
     );
     return loading;
   };
@@ -113,7 +113,7 @@ function startHub(env: ProbeEnv): Hub {
       )
     : () => undefined;
   const undoCreate = env.poseClass
-    ? watchCreate(env.poseClass, (delegate, ok) => each((m) => m.delegate(delegate, ok)))
+    ? watchCreate(env.poseClass, (delegate, ok, error) => each((m) => m.delegate(delegate, ok, error)))
     : () => undefined;
   let raf = 0;
   const tick = (t: number) => {

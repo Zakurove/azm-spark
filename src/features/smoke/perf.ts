@@ -78,6 +78,8 @@ export interface PerfSnapshot {
   longTasks: { count: number; maxMs: number | null; beyondModel: { count: number; maxMs: number | null } };
   /** The delegate of the last pose model that loaded (the source tries the GPU, then the CPU). */
   delegate: "GPU" | "CPU" | null;
+  /** Why the last delegate that failed did not load ("GPU: <message>"); null when none failed. */
+  delegateError: string | null;
   /** User Timing measures named azm:*, by name, ms. */
   measures: Record<string, Spread>;
   /** The JS heap in use (Chromium), MB; null where the browser does not tell. */
@@ -99,6 +101,7 @@ export class PerfMeter {
   private heapFirst: number | null = null;
   private heapLast: number | null = null;
   private loaded: "GPU" | "CPU" | null = null;
+  private failed: string | null = null;
 
   /** `longTaskMs`: the time outside model calls a long task may take (section 9, 50 ms). */
   constructor(
@@ -138,9 +141,10 @@ export class PerfMeter {
     if (rest > this.longTaskMs) this.beyond.push(rest);
   }
 
-  /** A pose model was created with `delegate`; `ok` when it loaded. */
-  delegate(delegate: "GPU" | "CPU", ok: boolean): void {
+  /** A pose model was created with `delegate`; `ok` when it loaded, else why not. */
+  delegate(delegate: "GPU" | "CPU", ok: boolean, error?: string): void {
     if (ok) this.loaded = delegate;
+    else this.failed = `${delegate}: ${error ?? "failed"}`;
   }
 
   measure(name: string, durationMs: number): void {
@@ -171,6 +175,7 @@ export class PerfMeter {
       },
       measures,
       delegate: this.loaded,
+      delegateError: this.failed,
       heapMB: this.heapLast,
       heapGrowthMB:
         this.heapLast !== null && this.heapFirst !== null
@@ -186,6 +191,8 @@ export class PerfMeter {
     this.lastFrame = null;
     this.heapFirst = null;
     this.heapLast = null;
+    this.loaded = null;
+    this.failed = null;
   }
 }
 

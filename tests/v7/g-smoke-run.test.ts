@@ -16,7 +16,7 @@ import type { RomRunnerOptions } from "../../src/engine/rom/types";
 import { fixtureFrames, loadFixture } from "../fixtures/format";
 
 const spec = (query: string): SmokeSpec => {
-  const r = parseSmokeSpec("test-run", query);
+  const r = parseSmokeSpec("test-run", query.includes("preloadMs=") ? query : `${query}&preloadMs=0`);
   if (!r.ok) throw new Error(r.error);
   return r.spec;
 };
@@ -216,6 +216,43 @@ describe("a range run", () => {
       used: "full",
       probe: { model: "full", fps: 29.8, switched: false },
     });
+  });
+
+  it("opens the camera only after the preload had its time, as the setup card gives it", async () => {
+    const cam = fakeCamera();
+    const run = new SmokeRun(
+      spec("kind=rom&movement=shoulder_abduction&side=right&traceSec=1&preloadMs=60"),
+      {
+        camera: cam.camera,
+        createRunner: notBuilt("RomRunner"),
+        analyse: notBuilt("analyseGaitView"),
+        meter: new PerfMeter(10000),
+        gpu: null,
+      },
+    );
+    const done = run.start();
+    await flush();
+    expect(cam.calls).toEqual(["preload rom"]);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(cam.calls).toEqual(["preload rom", "acquire"]);
+    for (const f of frames.slice(0, 40)) cam.emit(f);
+    expect((await done).status).toBe("done");
+  });
+
+  it("does not open the camera when stopped during the preload", async () => {
+    const cam = fakeCamera();
+    const run = new SmokeRun(spec("kind=rom&movement=shoulder_abduction&side=right&preloadMs=40"), {
+      camera: cam.camera,
+      createRunner: notBuilt("RomRunner"),
+      analyse: notBuilt("analyseGaitView"),
+      meter: new PerfMeter(10000),
+      gpu: null,
+    });
+    const done = run.start();
+    run.stop();
+    expect((await done).status).toBe("error");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(cam.calls).toEqual(["preload rom"]);
   });
 
   it("ends with an error when the camera fails", async () => {

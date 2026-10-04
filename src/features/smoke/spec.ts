@@ -11,7 +11,9 @@
  *              views), heightCm, and the video's windows in seconds from its first frame:
  *              standFrom, standTo (the standing calibration), walkFrom, walkTo (the walk)
  *   both       model=full|lite|auto (auto runs the focus camera's probe, C-10; default full),
- *              frames=1 (keep the subject's landmarks in the result, for replay off line)
+ *              frames=1 (keep the subject's landmarks in the result, for replay off line),
+ *              preloadMs (how long the camera waits after the model preload, as the setup card
+ *              gives it time; default 3000, 0 opens the camera at once)
  */
 import {
   ROM_MOVEMENT_IDS,
@@ -30,6 +32,8 @@ interface SmokeCommon {
   model: SmokeModel;
   /** Keep the subject's landmarks in the result (for replay off line). */
   frames: boolean;
+  /** How long the camera opens after the model preload starts, ms (the setup card's time). */
+  preloadMs: number;
 }
 
 export interface RomSmokeSpec extends SmokeCommon {
@@ -153,6 +157,7 @@ export function parseSmokeSpec(name: string, search: string): SmokeSpecResult {
       name,
       model: pick(q, "model", MODELS, "full"),
       frames: q.get("frames") === "1",
+      preloadMs: num(q, "preloadMs", { min: 0 }) ?? 3000,
     };
     return { ok: true, spec: kind === "rom" ? romSpec(q, common) : gaitSpec(q, common) };
   } catch (err) {

@@ -120,6 +120,7 @@ describe("attachMeter", () => {
     await FakeModel.createFromOptions(null, { baseOptions: { delegate: "CPU" } });
     await Promise.resolve();
     expect(m.snapshot().delegate).toBe("CPU");
+    expect(m.snapshot().delegateError).toBe("GPU: no GPU");
     release();
     // Undone with the last meter.
     expect(Object.getOwnPropertyDescriptor(FakeModel, "createFromOptions")?.value.name).toBe(

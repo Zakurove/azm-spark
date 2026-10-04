@@ -26,6 +26,7 @@ describe("a range run", () => {
       kind: "rom",
       model: "full",
       frames: false,
+      preloadMs: 3000,
       movement: "shoulder_abduction",
       side: "right",
       // The movement's first position when none is named.
@@ -59,6 +60,8 @@ describe("a range run", () => {
     );
     expect(error("kind=rom&movement=shoulder_abduction&side=right&model=heavy")).toContain("model");
     expect(error("kind=rom&movement=shoulder_abduction&side=right&timeoutSec=0")).toContain("timeoutSec");
+    expect(error("kind=rom&movement=shoulder_abduction&side=right&preloadMs=-1")).toContain("preloadMs");
+    expect(ok("r", "kind=rom&movement=shoulder_abduction&side=right&preloadMs=0").preloadMs).toBe(0);
     expect(error("movement=shoulder_abduction")).toContain("kind");
   });
 });
@@ -73,6 +76,7 @@ describe("a gait run", () => {
       kind: "gait",
       model: "full",
       frames: false,
+      preloadMs: 3000,
       view: "pad_side",
       nearSide: "right",
       mode: "walking_pad",

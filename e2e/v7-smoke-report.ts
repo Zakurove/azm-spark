@@ -206,7 +206,9 @@ function runSection(run: RunRecord): string[] {
     tr && tr.width && tr.height
       ? `; track ${tr.width} x ${tr.height} at ${tr.frameRate ?? "?"} fps${tr.resizeMode ? ` (${tr.resizeMode})` : ""}`
       : "";
-  const delegate = r.perf.delegate ? ` on the ${r.perf.delegate}` : "";
+  const delegate = r.perf.delegate
+    ? ` on the ${r.perf.delegate}${r.perf.delegateError ? ` (${r.perf.delegateError})` : ""}`
+    : "";
   const longs = r.perf.longTasks;
   lines.push(
     `- Status ${r.status}${r.error ? ` (${r.error})` : ""} in ${num(r.seconds)} s; ${r.camera.frames} frames at ${r.camera.fps ?? 0} fps${size}${track}${size ? ")" : ""}; model ${r.model.used}${delegate} (asked ${r.model.requested})${r.model.probe ? `, probe ${r.model.probe.fps} fps${r.model.probe.switched ? ", switched to Lite" : ""}` : ""}.`,

@@ -105,9 +105,11 @@ describe("PerfMeter", () => {
   it("keeps the delegate of the last model that loaded", () => {
     const m = new PerfMeter(100);
     expect(m.snapshot().delegate).toBeNull();
-    m.delegate("GPU", false);
+    m.delegate("GPU", false, "WebGL context lost");
     m.delegate("CPU", true);
     expect(m.snapshot().delegate).toBe("CPU");
+    // Why the GPU did not load stays with the snapshot.
+    expect(m.snapshot().delegateError).toBe("GPU: WebGL context lost");
     m.delegate("GPU", true);
     expect(m.snapshot().delegate).toBe("GPU");
   });

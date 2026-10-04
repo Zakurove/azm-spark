@@ -201,19 +201,30 @@ export class SmokeRun {
     return () => this.listeners.delete(fn);
   }
 
-  /** Starts the run; resolves with its result when it ends. */
+  /**
+   * Starts the run; resolves with its result when it ends. The model preload starts first and the
+   * camera opens `preloadMs` later, as the setup card gives it time in the app (two fetches of the
+   * model at once can fail in Chromium, and the pose source then falls back to the CPU).
+   */
   start(): Promise<SmokeResult> {
     const done = new Promise<SmokeResult>((resolve) => (this.finish = resolve));
     const cam = this.deps.camera;
     const kind = this.spec.kind;
-    cam.preload(kind);
-    const release = cam.session.acquire();
-    const offStatus = cam.session.onStatus((s, e) => {
-      if (s === "error") this.end("error", `camera ${e ?? "error"}`);
-    });
-    const offFrame = cam.session.onFrame((f) => this.frame(f));
-    this.cleanup.push(offFrame, offStatus, release);
     if (kind === "gait") this.capture = new GaitCapture(this.spec as GaitSmokeSpec);
+    cam.preload(kind);
+    const open = () => {
+      if (this.ended) return;
+      const release = cam.session.acquire();
+      const offStatus = cam.session.onStatus((s, e) => {
+        if (s === "error") this.end("error", `camera ${e ?? "error"}`);
+      });
+      const offFrame = cam.session.onFrame((f) => this.frame(f));
+      this.cleanup.push(offFrame, offStatus, release);
+    };
+    if (this.spec.preloadMs > 0) {
+      const timer = setTimeout(open, this.spec.preloadMs);
+      this.cleanup.push(() => clearTimeout(timer));
+    } else open();
     return done;
   }
 

@@ -17,6 +17,7 @@ const snap = (over: Partial<PerfSnapshot> = {}): PerfSnapshot => ({
   longTasks: { count: 0, maxMs: null, beyondModel: { count: 0, maxMs: null } },
   measures: {},
   delegate: "GPU",
+  delegateError: null,
   heapMB: 61.2,
   heapGrowthMB: 3.4,
   ...over,

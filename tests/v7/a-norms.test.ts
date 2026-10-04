@@ -22,6 +22,7 @@ import {
   gradeMeasurement,
   gradeValue,
   normFor,
+  shownApproximate,
   typicalValue,
   type NormPick,
 } from "../../src/medical/rom-norms";
@@ -231,6 +232,18 @@ describe("every norm row's band equals the exported limits (within 0.5 degrees)"
     expect(rows).toBeGreaterThan(100);
   });
 
+  it("a row without an SD: its limits are N - 1.96 σm and N - 3 σm (σm only)", () => {
+    const rows = graded.flatMap((n) =>
+      n.rows.filter((r) => r.limits!.flag === "sdUnknown").map((r) => ({ n, r })),
+    );
+    expect(rows.map(({ n }) => n.id).sort()).toEqual(["cfr_trunk_lateral_flexion", "esola_trunk_flexion"]);
+    for (const { n, r } of rows) {
+      const l = r.limits!;
+      expect(Math.abs(r.mean + l.zWithin * l.sigmaM - l.withinFrom!), n.id).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(r.mean + l.zMarked * l.sigmaM - l.markedBelow!), n.id).toBeLessThanOrEqual(0.5);
+    }
+  });
+
   it("floorApplied marks exactly the rows a functional floor moved", () => {
     for (const n of graded)
       for (const { m, p } of usesOf(n.id))
@@ -342,12 +355,35 @@ describe("gradeValue (thresholds)", () => {
     expect(gradeValue(neck, p, -10, flagsNone).grade).toBe("mild");
   });
 
-  it("an unknown SD uses σm alone", () => {
+  it("an unknown SD uses σm alone: the row's precomputed limits grade it, always approximate in the person's view (D-023)", () => {
     const trunk = movementDef("trunk_flexion");
     const p = pick("trunk_flexion", "standing_supported", "female", 50); // N 111, sdEff null, σm 7.7
+    expect(p.row.limits).toMatchObject({ flag: "sdUnknown", withinFrom: 96, markedBelow: 88 });
     const g = gradeValue(trunk, p, 100, flagsNone);
     expect(g.z).toBeCloseTo((100 - 111) / 7.7, 10);
     expect(g.grade).toBe("within");
+    expect(gradeValue(trunk, p, 96, flagsNone).grade).toBe("within");
+    expect(gradeValue(trunk, p, 95, flagsNone).grade).toBe("mild");
+    expect(gradeValue(trunk, p, 88, flagsNone).grade).toBe("mild");
+    // The limits decide, not z: 87.95 is under the limit of 88 although its z is above -3.
+    const edge = gradeValue(trunk, p, 87.95, flagsNone);
+    expect(edge.z).toBeGreaterThan(-3);
+    expect(edge.grade).toBe("marked");
+    expect(g.approximate).toBe(true);
+    expect(shownApproximate(trunk, p, 100, flagsNone)).toBe(true);
+    const lateral = movementDef("trunk_lateral_flexion");
+    expect(shownApproximate(lateral, pick(lateral.id, "standing", "male", 40), 25, flagsNone)).toBe(true);
+  });
+
+  it("shownApproximate: the label the person sees (arm raises and the lunge, the over read, sdUnknown rows)", () => {
+    expect(shownApproximate(flex, men40, 100, flagsNone)).toBe(true); // arm raise (B17)
+    const elbow = movementDef("elbow_flexion"); // caution: approximate for the clinician only
+    const ep = pick(elbow.id, "seated", "male", 40);
+    expect(gradeValue(elbow, ep, 140, flagsNone).approximate).toBe(true);
+    expect(shownApproximate(elbow, ep, 140, flagsNone)).toBe(false);
+    expect(shownApproximate(elbow, ep, 140, ["elevationOverRead"])).toBe(true);
+    const knee = movementDef("knee_flexion");
+    expect(shownApproximate(knee, pick(knee.id, "lying_back", "male", 40), 130, flagsNone)).toBe(false);
   });
 
   it("percent of normal: round(100 x value / N) for flexion with N of 20 degrees or more", () => {

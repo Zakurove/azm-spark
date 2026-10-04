@@ -302,7 +302,15 @@ export function gradeValue(
 ): GradeResult {
   const s = spreadOf(def, pick);
   const z = def.kind === "lack" ? (s.n + s.b - value) / s.sdObs : (value - (s.n + s.b)) / s.sdObs;
-  const zGrade: RomGrade = z >= s.zWithin ? "within" : z >= s.zMarked || !s.zMarkedUsed ? "mild" : "marked";
+  // D-023 (gap 7): a row without an SD grades with its precomputed limits (σm only, as the clinical
+  // source writes them); elsewhere the z rule decides.
+  const zGrade: RomGrade = sdUnknown(pick)
+    ? limitsGrade(def, pick.row.limits!, value)
+    : z >= s.zWithin
+      ? "within"
+      : z >= s.zMarked || !s.zMarkedUsed
+        ? "mild"
+        : "marked";
   const fGrade = floorGrade(def, floorFor(def, pick), value);
   return {
     grade: worse(zGrade, fGrade),
@@ -310,8 +318,44 @@ export function gradeValue(
     percentOfNormal:
       def.kind !== "lack" && s.n >= PERCENT_OF_NORMAL_MIN_N ? Math.round((100 * value) / s.n) : null,
     floorBroken: fGrade === "within" ? null : fGrade,
-    approximate: isApproximate(def, value, flags),
+    approximate: isApproximate(def, value, flags) || sdUnknown(pick),
   };
+}
+
+const sdUnknown = (pick: NormPick | null) => pick?.row.limits?.flag === "sdUnknown";
+
+/** The grade of a value against a row's precomputed limits (rom-protocol 5.2). */
+function limitsGrade(def: RomMovementDef, limits: NormLimits, value: number): RomGrade {
+  if (def.kind === "lack") {
+    if (limits.withinUpTo !== undefined && value <= limits.withinUpTo) return "within";
+    return limits.markedAbove !== undefined && limits.markedAbove !== null && value > limits.markedAbove
+      ? "marked"
+      : "mild";
+  }
+  if (limits.withinFrom !== undefined && value >= limits.withinFrom) return "within";
+  return limits.markedBelow !== undefined && limits.markedBelow !== null && value < limits.markedBelow
+    ? "marked"
+    : "mild";
+}
+
+/**
+ * Whether the person sees the approximate label too (the clinician view shows it for every approximate
+ * grade): the arm raises and the lunge (review B17 fallback, approximateInPersonView), a value the
+ * phone over reads (elevationOverRead), and a grade from a row without an SD, «because mild limitation
+ * may be over-called» (D-023, gap 7).
+ */
+export function shownApproximate(
+  def: RomMovementDef,
+  pick: NormPick | null,
+  value: number,
+  flags: readonly RomFlag[],
+): boolean {
+  return (
+    def.approximateInPersonView ||
+    flags.includes("elevationOverRead") ||
+    overRead(def.id, value) ||
+    sdUnknown(pick)
+  );
 }
 
 /**
@@ -326,6 +370,19 @@ export type GradeBand =
 export function gradeBand(def: RomMovementDef, pick: NormPick): GradeBand {
   const s = spreadOf(def, pick);
   const floor = floorFor(def, pick);
+  const limits = pick.row.limits!;
+  // D-023 (gap 7): a row without an SD grades with its precomputed limits.
+  if (sdUnknown(pick)) {
+    const floorMoved = limits.floorApplied;
+    return def.kind === "lack"
+      ? { kind: "lack", withinUpTo: limits.withinUpTo!, markedAbove: limits.markedAbove ?? null, floorMoved }
+      : {
+          kind: def.kind,
+          withinFrom: limits.withinFrom!,
+          markedBelow: limits.markedBelow ?? null,
+          floorMoved,
+        };
+  }
   if (def.kind === "lack") {
     const zUpTo = s.n + s.b - s.zWithin * s.sdObs;
     const zAbove = s.zMarkedUsed ? s.n + s.b - s.zMarked * s.sdObs : null;
@@ -387,7 +444,7 @@ export function gradeMeasurement(result: RomMeasureResult, intake: Intake & { se
   const pick = normFor(def.id, result.position, intake.sex, intake.age, side);
   const derived: RomFlag[] = [];
   if (result.nValid < ROM_DATA.engine.minValidForGrade) derived.push("provisional");
-  if (isApproximate(def, value, measured)) derived.push("approximate");
+  if (isApproximate(def, value, measured) || sdUnknown(pick)) derived.push("approximate");
   if (pick?.flags.includes("ageOutsideBand")) derived.push("ageOutsideBand");
   if (overRead(def.id, value)) derived.push("elevationOverRead");
   const flags = unique([...measured, ...derived]);

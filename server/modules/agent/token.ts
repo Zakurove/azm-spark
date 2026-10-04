@@ -158,7 +158,7 @@ export async function mintToken(
   } catch {
     throw new TokenError(res.status);
   }
-  if (typeof name !== "string" || !/^auth_tokens\/[A-Za-z0-9_.\-]{1,200}$/.test(name))
-    throw new TokenError(res.status);
+  // Google writes the token's name; the client passes it on as is (the SDK puts it in the socket URL).
+  if (typeof name !== "string" || !/^auth_tokens\/\S{1,1024}$/.test(name)) throw new TokenError(res.status);
   return { name, expireTime, newSessionExpireTime };
 }

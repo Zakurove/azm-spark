@@ -1,0 +1,290 @@
+/* The body map (product v7 contract 2.2) and the intake step around it (src/app/IntakeV7.tsx).
+   Light background, Cairo, gold focus and the soft purple selection of the portal (styles.css). */
+
+.bm {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+.bm-views {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f1f3ef;
+}
+.bm-views button {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.bm-views button[aria-pressed="true"] {
+  background: white;
+  color: var(--select-ink);
+  font-weight: 700;
+  box-shadow: 0 1px 6px rgba(37, 49, 46, 0.1);
+}
+/* The figure is drawn left to right in both languages: left and right are the person's own. */
+.bm-figure {
+  position: relative;
+  direction: ltr;
+  width: 240px;
+  max-width: 100%;
+  aspect-ratio: 240 / 440;
+}
+.bm-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.bm-outline > * {
+  fill: #d6dcd5;
+  stroke: #d6dcd5;
+  stroke-width: 5;
+  stroke-linejoin: round;
+}
+.bm-body > * {
+  fill: #f4f6f2;
+}
+.bm-outline .bm-arm,
+.bm-outline .bm-leg,
+.bm-body .bm-arm,
+.bm-body .bm-leg {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bm-outline .bm-arm {
+  stroke-width: 29;
+}
+.bm-outline .bm-leg {
+  stroke-width: 37;
+}
+.bm-body .bm-arm {
+  stroke: #f4f6f2;
+  stroke-width: 24;
+}
+.bm-body .bm-leg {
+  stroke: #f4f6f2;
+  stroke-width: 32;
+}
+.bm-detail {
+  fill: none;
+  stroke: #d6dcd5;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.bm-side {
+  position: absolute;
+  top: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.bm-side-start {
+  left: 0;
+}
+.bm-side-end {
+  right: 0;
+}
+/* A cell: a 44 px target centred on its point, with a visible dot. */
+.bm-cell {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: none;
+}
+.bm-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0 0 2px #cdbdea;
+  transition:
+    width 0.15s ease,
+    height 0.15s ease,
+    background 0.15s ease;
+}
+.bm-edit .bm-cell:hover .bm-dot {
+  background: var(--select-fill);
+}
+.bm-cell[aria-pressed="true"] .bm-dot {
+  width: 26px;
+  height: 26px;
+  background: var(--select-dot);
+  box-shadow: var(--select-glow);
+}
+.bm-cell:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+}
+.bm-mark .bm-dot {
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 0 0 3px white;
+}
+.bm-within .bm-dot {
+  background: var(--green);
+}
+.bm-mild .bm-dot {
+  background: var(--gold);
+}
+.bm-marked .bm-dot {
+  background: var(--red);
+}
+.bm-pain .bm-dot {
+  background: var(--purple);
+}
+.bm-grey .bm-dot {
+  background: #b9bfb8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bm-dot {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------- the intake step (IntakeV7) */
+
+.intake7-intro {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted);
+  margin: -12px 0 6px;
+}
+.intake7-height input {
+  max-width: 170px;
+}
+.intake7-map {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+}
+.intake7-none {
+  margin-top: 12px;
+}
+.intake7-cards {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.intake7-card {
+  border-radius: 14px;
+  background: #fafbf8;
+  box-shadow: 0 0 0 1px var(--line);
+  padding: 14px 16px 4px;
+}
+.intake7-card[data-origin="condition"],
+.intake7-card[data-origin="report"] {
+  background: #fcfaff;
+}
+.intake7-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.intake7-card h4 {
+  font-size: 15px;
+  margin: 0;
+}
+.intake7-card-actions {
+  display: flex;
+  gap: 14px;
+}
+.intake7-card header .text-button {
+  min-height: 44px;
+  font-size: 12px;
+}
+.intake7-summary {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--select-ink);
+  margin: 0 0 10px;
+}
+.intake7-card fieldset {
+  margin: 14px 0;
+}
+.intake7-missing {
+  font-size: 12px;
+  color: var(--red);
+  margin: 6px 0 10px;
+}
+.intake7-block {
+  border-radius: 16px;
+  background: #fbf8ff;
+  box-shadow: 0 0 0 1px #e7def5;
+  padding: 16px 18px;
+  margin: 24px 0;
+}
+.intake7-block h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.intake7-block fieldset {
+  margin: 14px 0;
+}
+.intake7-block .cta {
+  margin-top: 6px;
+}
+.intake7-confirm p {
+  font-size: 14px;
+  line-height: 1.9;
+  margin: 0 0 10px;
+}
+.intake7-suggest {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.intake7-suggest h4 {
+  font-size: 13px;
+  margin: 0;
+  color: var(--muted);
+}
+.intake7-suggest ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.intake7-suggest li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  border-radius: 12px;
+  background: #fcfaff;
+  box-shadow: 0 0 0 1px #e7def5;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.intake7-suggest li .intake-choices button {
+  min-height: 44px;
+}
+.intake7-foot {
+  font-size: 12px;
+  color: var(--muted);
+  margin: -4px 0 8px;
+}
+@media (max-width: 760px) {
+  .intake7-map {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+  }
+  .intake7-card {
+    padding: 12px 12px 2px;
+  }
+}

@@ -1,7 +1,20 @@
 import { conditions, painOptions, restrictionOptions } from "../src/medical/plan";
+import {
+  AXIAL_REGIONS,
+  MAX_REGION_ENTRIES,
+  PROBLEM_TYPES,
+  REGION_IDS,
+  type ProblemType,
+  type RegionId,
+  type ReportRegion,
+} from "../src/medical/body-map";
 
 /** Medical-report extraction: one OpenAI call per upload, conservative by design.
- * The raw report is never stored; only sanitized intake fields return to the client. */
+ * The raw report is never stored; only sanitized intake fields return to the client.
+ *
+ * v7 (contract 2.2 and section 4): with AZM_V7=1 the home report reading also suggests body map
+ * regions (ExtractOptions.regions, passed by POST /api/medical-report). The suggestions are shown
+ * with origin "report" and applied only by the person's tap. The booth reading never asks for them. */
 
 const MOBILITY = ["seated", "wheelchair", "standing", "bed"] as const;
 const EXTRACT_FIELDS = [
@@ -81,6 +94,52 @@ Rules:
 8. If the input is not a medical document or is unreadable, set "document" accordingly and leave every field empty or unknown.
 9. List every unestablished field name in "missing". For genuine ambiguities, write up to 5 short clarifying questions in {{LANG}} in "questions". Write "summary" in {{LANG}}, at most 300 characters, stating plainly what was understood.`;
 
+/** What a reading asks the model for beyond the v1 fields. */
+export interface ExtractOptions {
+  /** The v7 body map suggestions (AZM_V7=1 on the home report route only). */
+  regions?: boolean;
+}
+
+const REGION_SIDES = ["left", "right", "both", "axial", "unknown"] as const;
+const REGIONS_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    required: ["region", "side", "problems"],
+    properties: {
+      region: { type: "string", enum: [...REGION_IDS] },
+      side: { type: "string", enum: [...REGION_SIDES] },
+      problems: { type: "array", items: { type: "string", enum: [...PROBLEM_TYPES] } },
+    },
+  },
+};
+
+/** The response format of a reading: the v1 schema, plus the regions when asked. */
+export function extractionSchema(opts: ExtractOptions = {}): typeof SCHEMA {
+  if (!opts.regions) return SCHEMA;
+  const schema = SCHEMA.json_schema.schema;
+  return {
+    ...SCHEMA,
+    json_schema: {
+      ...SCHEMA.json_schema,
+      schema: {
+        ...schema,
+        required: [...schema.required, "regions"],
+        properties: { ...schema.properties, regions: REGIONS_SCHEMA } as typeof schema.properties,
+      },
+    },
+  };
+}
+
+const REGIONS_RULE = `10. regions: the body regions the report documents as currently affected, one item per region and side, with exactly these region ids: neck; back_trunk (the back, the trunk or the spine); shoulder; elbow; forearm_wrist (the forearm, the wrist or the hand); hip; knee; ankle_foot (the ankle or the foot). An arm named as a whole gives shoulder, elbow and forearm_wrist; a leg named as a whole gives hip, knee and ankle_foot. side: left or right when the report names the side, both when it names both sides, axial for neck and back_trunk, otherwise unknown. problems: only the types the report documents for that region: weakness (weakness or paralysis), injury (a joint, ligament or tendon injury), pain, stiffness (stiffness or a contracture), after_surgery (an operation on that region), limb_loss (an amputation, given on the joint just above it: knee for a below knee amputation, hip for an above knee one, elbow for a below elbow one, shoulder for an above elbow one). List a region only when the report names that body part or limb, and never infer a region from a diagnosis alone. These are suggestions the person confirms.`;
+
+/** The system instruction of a reading: the v1 rules, plus the regions rule when asked. */
+export function reportPrompt(lang: "Arabic" | "English", opts: ExtractOptions = {}): string {
+  const base = SYSTEM_PROMPT.replaceAll("{{LANG}}", lang);
+  return opts.regions ? `${base}\n${REGIONS_RULE}` : base;
+}
+
 export interface Extraction {
   document: string;
   extracted: {
@@ -94,6 +153,8 @@ export interface Extraction {
     restrictions: string[];
     symptoms: string;
     recentChange: string;
+    /** v7, only when the reading asked for regions (ExtractOptions.regions). */
+    regions?: ReportRegion[];
   };
   missing: string[];
   questions: string[];
@@ -101,8 +162,38 @@ export interface Extraction {
   confidence: string;
 }
 
+/**
+ * The suggested regions, re-validated: the app's region ids and problem types only, an axial side
+ * for the neck and the back or trunk, an unknown side for a limb given none, one suggestion per
+ * region and side (problem types merged), at most 16.
+ */
+export function sanitizeRegions(v: unknown): ReportRegion[] {
+  if (!Array.isArray(v)) return [];
+  const out = new Map<string, ReportRegion>();
+  for (const item of v) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    if (!(REGION_IDS as readonly unknown[]).includes(r.region)) continue;
+    const region = r.region as RegionId;
+    const given = (REGION_SIDES as readonly unknown[]).includes(r.side)
+      ? (r.side as ReportRegion["side"])
+      : "unknown";
+    const side = AXIAL_REGIONS.includes(region) ? "axial" : given === "axial" ? "unknown" : given;
+    const problems = Array.isArray(r.problems) ? r.problems : [];
+    const key = `${region}:${side}`;
+    const merged = new Set<unknown>([...(out.get(key)?.problems ?? []), ...problems]);
+    if (!out.has(key) && out.size >= MAX_REGION_ENTRIES) continue;
+    // A limb loss belongs to an arm or a leg, never to the neck or the back.
+    const problemsOf = PROBLEM_TYPES.filter(
+      (p): p is ProblemType => merged.has(p) && !(p === "limb_loss" && side === "axial"),
+    );
+    out.set(key, { region, side, problems: problemsOf });
+  }
+  return [...out.values()];
+}
+
 /** Never trust model output: re-validate every value against the app's own enums. */
-export function sanitizeExtraction(raw: any): Extraction {
+export function sanitizeExtraction(raw: any, opts: ExtractOptions = {}): Extraction {
   const list = (v: unknown, allowed: readonly string[]) =>
     Array.isArray(v)
       ? [...new Set(v.filter((x) => typeof x === "string" && x !== "none" && allowed.includes(x)))]
@@ -128,6 +219,7 @@ export function sanitizeExtraction(raw: any): Extraction {
       restrictions: list(raw?.restrictions, restrictionOptions),
       symptoms: pick(raw?.symptoms, ["yes"], "unknown"),
       recentChange: pick(raw?.recentChange, ["yes"], "unknown"),
+      ...(opts.regions ? { regions: sanitizeRegions(raw?.regions) } : {}),
     },
     missing: list(raw?.missing, EXTRACT_FIELDS),
     questions: Array.isArray(raw?.questions)
@@ -163,6 +255,7 @@ export function validReportBody(
 export async function extractReport(
   body: { kind: "text" | "image"; text?: string; image?: string; lang?: "ar" | "en" },
   key: string,
+  opts: ExtractOptions = {},
 ): Promise<Extraction> {
   const lang = body.lang === "en" ? "English" : "Arabic";
   const user =
@@ -179,15 +272,16 @@ export async function extractReport(
     body: JSON.stringify({
       model: "gpt-4o",
       temperature: 0,
-      max_tokens: 1200,
-      response_format: SCHEMA,
+      // Up to 16 suggested regions need room beside the v1 fields.
+      max_tokens: opts.regions ? 1600 : 1200,
+      response_format: extractionSchema(opts),
       messages: [
-        { role: "system", content: SYSTEM_PROMPT.replaceAll("{{LANG}}", lang) },
+        { role: "system", content: reportPrompt(lang, opts) },
         { role: "user", content: user },
       ],
     }),
   });
   if (!r.ok) throw new Error(`ENGINE_${r.status}`);
   const data = (await r.json()) as any;
-  return sanitizeExtraction(JSON.parse(data.choices?.[0]?.message?.content ?? "{}"));
+  return sanitizeExtraction(JSON.parse(data.choices?.[0]?.message?.content ?? "{}"), opts);
 }

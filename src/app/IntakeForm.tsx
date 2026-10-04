@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
+  HEIGHT_CM,
   Intake,
   conditions,
   equipmentOptions,
@@ -9,6 +10,7 @@ import {
   validateIntake,
   Plan,
 } from "../medical/plan";
+import { painIdsFromRegions, type ReportRegion } from "../medical/body-map";
 import { sportById, sportsFor, type SportId } from "../medical/sports";
 import SportIcon from "./SportIcon";
 import { Lang, fmtDate, fmtNum, fmtTime } from "./i18n";
@@ -19,6 +21,47 @@ import ReportUpload, { ReportResult } from "./ReportUpload";
 import { CHECK_DATA } from "../movements/assessments";
 import { t } from "../i18n";
 import { privacyHref } from "./privacyHref";
+import { V7_UI } from "./v7flag";
+import type { V7Ui } from "./IntakeV7";
+
+/**
+ * v7 (product v7 contract 1.2 and 2.2): a VITE_V7 build adds the "Your body" step (sex, the body
+ * map, walking, height, the safety answers) after "Movement and precautions", loaded on demand, and
+ * writes pain[] from the body map instead of asking the v1 pain question. A default build keeps the
+ * four steps exactly as before and loads none of it.
+ */
+// The lazy imports test the env inline, like App.tsx's VITE_E2E gallery: Vite 8 chunks before it
+// folds a constant imported from another module, so `V7_UI ? lazy(...)` left an orphan IntakeV7
+// chunk in a default build (contract change log, A2). V7_UI drives every other branch. The parts
+// wait in a plain Suspense: importing LazyPage here moved React's jsx runtime out of the landing's
+// chunk, and a part that fails to load reaches the page's own boundary (App's LazyPage).
+const IntakeV7 = import.meta.env.VITE_V7 === "1" ? lazy(() => import("./IntakeV7")) : null;
+const IntakeV7StepName =
+  import.meta.env.VITE_V7 === "1"
+    ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7StepName })))
+    : null;
+const IntakeV7Review =
+  import.meta.env.VITE_V7 === "1"
+    ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7Review })))
+    : null;
+type StepKind = "about" | "health" | "body" | "goal" | "review";
+const STEP_KINDS: readonly StepKind[] = V7_UI
+  ? ["about", "health", "body", "goal", "review"]
+  : ["about", "health", "goal", "review"];
+/** The label of each v1 step in labels().steps. */
+const V1_STEP: Record<Exclude<StepKind, "body">, number> = { about: 0, health: 1, goal: 2, review: 3 };
+/** The "Your body" step is done: sex, walking, the regions and the safety answers complete, height valid if given. */
+function v7Ready(d: Pick<Intake, "sex" | "walking" | "regions" | "romFlags" | "heightCm">): boolean {
+  const h = d.heightCm;
+  return (
+    d.sex !== undefined &&
+    d.walking !== undefined &&
+    d.regions !== undefined &&
+    d.romFlags !== undefined &&
+    (h === undefined || (Number.isInteger(h) && h >= HEIGHT_CM.min && h <= HEIGHT_CM.max))
+  );
+}
+
 type Draft = Omit<Intake, "symptoms" | "recentChange" | "clearance" | "mobility"> & {
   symptoms: Intake["symptoms"] | "";
   recentChange: Intake["recentChange"] | "";
@@ -132,6 +175,9 @@ export default function IntakeForm({
     [error, setError] = useState("");
   const [prefilled, setPrefilled] = useState<Set<string>>(new Set()),
     [reportInfo, setReportInfo] = useState<ReportResult | null>(null);
+  // v7: the "Your body" step's working state, and the report's body map suggestions.
+  const [v7ui, setV7ui] = useState<V7Ui | null>(null),
+    [reportRegions, setReportRegions] = useState<{ regions: ReportRegion[]; pain: string[] } | null>(null);
   const applyExtraction = (r: ReportResult) => {
     const filled = new Set<string>();
     const e = r.extracted;
@@ -161,7 +207,8 @@ export default function IntakeForm({
         next.support = e.support;
         filled.add("support");
       }
-      if (e.pain.length && !d.pain.length) {
+      // v7 writes pain[] from the body map: the report's pain areas become map suggestions instead.
+      if (!V7_UI && e.pain.length && !d.pain.length) {
         next.pain = e.pain;
         filled.add("pain");
       }
@@ -181,6 +228,7 @@ export default function IntakeForm({
     });
     setPrefilled(filled);
     setReportInfo(r);
+    if (V7_UI) setReportRegions({ regions: e.regions ?? [], pain: e.pain });
   };
   const mark = (f: string) =>
     prefilled.has(f) ? <span className="report-badge">{c.reportBadge}</span> : null;
@@ -237,28 +285,34 @@ export default function IntakeForm({
       </select>
     </label>
   );
+  const kind = STEP_KINDS[step];
+  const last = STEP_KINDS.length - 1;
+  // v7: pain[] mirrors the body map (contract 2.2 rule 3), the v1 pain question is not asked.
+  const body: Draft = V7_UI ? { ...draft, pain: painIdsFromRegions(draft.regions ?? []) } : draft;
   const valid =
-    step === 0
+    kind === "about"
       ? draft.age >= 18 && draft.age <= 100 && draft.conditions.length > 0
-      : step === 1
+      : kind === "health"
         ? !!draft.mobility && !!draft.symptoms && !!draft.recentChange && !!draft.clearance
-        : step === 2
-          ? draft.days.length > 0 && draft.days.length <= 4 && (draft.goal !== "sport" || !!draft.sport)
-          : validateIntake(draft);
+        : kind === "body"
+          ? v7Ready(draft)
+          : kind === "goal"
+            ? draft.days.length > 0 && draft.days.length <= 4 && (draft.goal !== "sport" || !!draft.sport)
+            : validateIntake(body);
   const submit = async () => {
     if (!valid) {
       setError("INTAKE_INVALID");
       return;
     }
     setError("");
-    if (step < 3) {
+    if (step < last) {
       setStep(step + 1);
       window.scrollTo(0, 0);
       return;
     }
     setBusy(true);
     try {
-      onSaved(await api("/intake", draft, "PUT"));
+      onSaved(await api("/intake", body, "PUT"));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -268,6 +322,54 @@ export default function IntakeForm({
   const weekdays = Array.from({ length: 7 }, (_, i) =>
     fmtDate(new Date(2026, 8, 6 + i), lang, { weekday: "short" }),
   );
+  const stepName = (k: StepKind) =>
+    k === "body"
+      ? IntakeV7StepName && (
+          <Suspense fallback={null}>
+            <IntakeV7StepName lang={lang} />
+          </Suspense>
+        )
+      : c.steps[V1_STEP[k]];
+  const v7Value = {
+    sex: draft.sex,
+    regions: draft.regions,
+    walking: draft.walking,
+    heightCm: draft.heightCm,
+    romFlags: draft.romFlags,
+  };
+  // The review: v7 shows its rows after mobility, and the body map replaces the v1 pain row.
+  const reviewRows = (
+    [
+      [c.age, fmtNum(draft.age, lang)],
+      [c.condition, draft.conditions.map(name).join("، ")],
+      [c.mobility, name(draft.mobility)],
+      [c.pain, draft.pain.map(name).join("، ") || c.noItems],
+      [c.restriction, draft.restrictions.map(name).join("، ") || c.noItems],
+      [c.symptoms, draft.symptoms === "yes" ? c.yes : c.no],
+      [c.clearance, draft.clearance === "yes" ? c.yes : draft.clearance === "no" ? c.no : c.unsure],
+      [
+        c.goal,
+        draft.goal === "sport" && draft.sport
+          ? `${name("sport")}${lang === "ar" ? "، " : ", "}${sportById(draft.sport)?.name[lang]}`
+          : name(draft.goal),
+      ],
+      [c.equipment, draft.equipment.map(name).join(lang === "ar" ? "، " : ", ") || c.noItems],
+      [
+        c.days,
+        [...draft.days]
+          .sort()
+          .map((i) => weekdays[i])
+          .join(" · "),
+      ],
+      [c.time, fmtTime(draft.time, lang)],
+    ] as [string, string][]
+  ).filter(([k]) => !V7_UI || k !== c.pain);
+  const reviewRow = ([k, v]: [string, string]) => (
+    <div key={k}>
+      <dt>{k}</dt>
+      <dd>{v}</dd>
+    </div>
+  );
   return (
     <div className="intake-layout">
       <aside className="intake-progress">
@@ -275,11 +377,11 @@ export default function IntakeForm({
         <h1>{c.intakeTitle}</h1>
         <p>{c.intakeBody}</p>
         <ol>
-          {c.steps.map((s, i) => (
-            <li key={s} className={i === step ? "current" : i < step ? "done" : ""}>
+          {STEP_KINDS.map((k, i) => (
+            <li key={k} className={i === step ? "current" : i < step ? "done" : ""}>
               <button onClick={() => i < step && setStep(i)} disabled={i > step}>
                 <b>{i < step ? <Icon name="check" size={16} /> : fmtNum(i + 1, lang)}</b>
-                {s}
+                {stepName(k)}
               </button>
             </li>
           ))}
@@ -336,10 +438,10 @@ export default function IntakeForm({
           </aside>
         )}
         <p className="section-kicker">
-          {fmtNum(step + 1, lang)} / {fmtNum(4, lang)}
+          {fmtNum(step + 1, lang)} / {fmtNum(STEP_KINDS.length, lang)}
         </p>
-        <h2>{c.steps[step]}</h2>
-        {step === 0 && (
+        <h2>{stepName(kind)}</h2>
+        {kind === "about" && (
           <>
             <label className="field age-field">
               <span>
@@ -392,7 +494,7 @@ export default function IntakeForm({
             {initial === null && !reportInfo && <ReportUpload lang={lang} onExtracted={applyExtraction} />}
           </>
         )}
-        {step === 1 && (
+        {kind === "health" && (
           <>
             <label className="field">
               <span>
@@ -423,13 +525,15 @@ export default function IntakeForm({
                 ))}
               </select>
             </label>
-            <fieldset>
-              <legend>
-                {c.pain}
-                {mark("pain")}
-              </legend>
-              {choices("pain", painOptions)}
-            </fieldset>
+            {!V7_UI && (
+              <fieldset>
+                <legend>
+                  {c.pain}
+                  {mark("pain")}
+                </legend>
+                {choices("pain", painOptions)}
+              </fieldset>
+            )}
             <fieldset>
               <legend>
                 {c.restriction}
@@ -442,7 +546,22 @@ export default function IntakeForm({
             {answer("clearance", c.clearance)}
           </>
         )}
-        {step === 2 && (
+        {kind === "body" && IntakeV7 && (
+          <Suspense fallback={null}>
+            <IntakeV7
+              lang={lang}
+              context={{ conditions: draft.conditions, mobility: draft.mobility }}
+              value={v7Value}
+              ui={v7ui}
+              report={reportRegions}
+              earlierPain={initial && initial.regions === undefined ? initial.pain : []}
+              showMissing={error === "INTAKE_INVALID"}
+              onUi={setV7ui}
+              onChange={(v) => setDraft((d) => ({ ...d, ...v }))}
+            />
+          </Suspense>
+        )}
+        {kind === "goal" && (
           <>
             <GoalChoices
               lang={lang}
@@ -511,40 +630,18 @@ export default function IntakeForm({
             </div>
           </>
         )}
-        {step === 3 && (
+        {kind === "review" && (
           <>
             <h3>{c.reviewTitle}</h3>
             <p className="field-help">{c.reviewBody}</p>
             <dl className="intake-review">
-              {[
-                [c.age, fmtNum(draft.age, lang)],
-                [c.condition, draft.conditions.map(name).join("، ")],
-                [c.mobility, name(draft.mobility)],
-                [c.pain, draft.pain.map(name).join("، ") || c.noItems],
-                [c.restriction, draft.restrictions.map(name).join("، ") || c.noItems],
-                [c.symptoms, draft.symptoms === "yes" ? c.yes : c.no],
-                [c.clearance, draft.clearance === "yes" ? c.yes : draft.clearance === "no" ? c.no : c.unsure],
-                [
-                  c.goal,
-                  draft.goal === "sport" && draft.sport
-                    ? `${name("sport")}${lang === "ar" ? "، " : ", "}${sportById(draft.sport)?.name[lang]}`
-                    : name(draft.goal),
-                ],
-                [c.equipment, draft.equipment.map(name).join(lang === "ar" ? "، " : ", ") || c.noItems],
-                [
-                  c.days,
-                  [...draft.days]
-                    .sort()
-                    .map((i) => weekdays[i])
-                    .join(" · "),
-                ],
-                [c.time, fmtTime(draft.time, lang)],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <dt>{k}</dt>
-                  <dd>{v}</dd>
-                </div>
-              ))}
+              {reviewRows.slice(0, 3).map(reviewRow)}
+              {IntakeV7Review && (
+                <Suspense fallback={null}>
+                  <IntakeV7Review lang={lang} value={v7Value} />
+                </Suspense>
+              )}
+              {reviewRows.slice(3).map(reviewRow)}
             </dl>
             <label className="consent">
               <input
@@ -571,7 +668,7 @@ export default function IntakeForm({
         )}
         <div className="intake-actions">
           <button className="cta" disabled={busy} type="submit">
-            {busy ? c.busy : step === 3 ? (initial ? c.save : c.create) : c.continue}
+            {busy ? c.busy : step === last ? (initial ? c.save : c.create) : c.continue}
             <Icon name="arrow" size={18} />
           </button>
           {step > 0 ? (

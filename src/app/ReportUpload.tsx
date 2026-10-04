@@ -3,6 +3,7 @@ import { Lang } from "./i18n";
 import { labels, errorText } from "./platform-copy";
 import { api } from "./api";
 import Icon from "./Icon";
+import type { ReportRegion } from "../medical/body-map";
 
 export interface ReportResult {
   document: string;
@@ -17,6 +18,8 @@ export interface ReportResult {
     restrictions: string[];
     symptoms: string;
     recentChange: string;
+    /** v7: body map suggestions, only from a server with AZM_V7=1 (contract 2.2). */
+    regions?: ReportRegion[];
   };
   missing: string[];
   questions: string[];

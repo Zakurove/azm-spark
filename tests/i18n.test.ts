@@ -20,6 +20,7 @@ import {
 } from "../src/i18n";
 import { fmtTime } from "../src/app/i18n";
 import { testDef } from "../src/movements/assessments";
+import { V7_DICTIONARIES, V7_NAMESPACES } from "../src/i18n/v7";
 
 const DIR = join(__dirname, "../src/i18n");
 const files = (lang: string) =>
@@ -42,7 +43,11 @@ const tokens = (s: string) => [...new Set([...s.matchAll(/\{(\w+)\}/g)].map((m) 
 describe("dictionaries", () => {
   it("has the same namespace files in Arabic and English, all registered", () => {
     expect(files("ar")).toEqual(files("en"));
-    expect(files("en").map((f) => f.replace(/\.json$/, ""))).toEqual([...NAMESPACES].sort());
+    // The v7 namespaces are registered in src/i18n/v7.ts only, never in t()'s DICTS (contract 8.8).
+    expect(files("en").map((f) => f.replace(/\.json$/, ""))).toEqual(
+      [...NAMESPACES, ...V7_NAMESPACES].sort(),
+    );
+    for (const ns of V7_NAMESPACES) expect(NAMESPACES).not.toContain(ns);
     for (const ns of ["assessment", "progress", "landing"]) expect(NAMESPACES).toContain(ns);
   });
 
@@ -50,9 +55,11 @@ describe("dictionaries", () => {
     const ar = leaves(read("ar", file));
     const en = leaves(read("en", file));
     expect(Object.keys(ar).sort()).toEqual(Object.keys(en).sort());
-    const ns = file.replace(/\.json$/, "") as (typeof NAMESPACES)[number];
-    expect(DICTIONARIES.ar[ns]).toEqual(read("ar", file));
-    expect(DICTIONARIES.en[ns]).toEqual(read("en", file));
+    const ns = file.replace(/\.json$/, "");
+    const registered = (lang: "ar" | "en") =>
+      ({ ...DICTIONARIES[lang], ...V7_DICTIONARIES[lang] }) as Record<string, unknown>;
+    expect(registered("ar")[ns]).toEqual(read("ar", file));
+    expect(registered("en")[ns]).toEqual(read("en", file));
     for (const [key, value] of Object.entries(en)) {
       if (key === "") continue; // an empty namespace
       expect(typeof value, `${file} ${key}`).toBe("string");

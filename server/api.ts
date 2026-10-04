@@ -178,7 +178,12 @@ export function createApi(
         const parts: Buffer[] = [];
         for await (const chunk of req) {
           size += chunk.length;
-          if (size > maxBody) return json(413, { error: "TOO_LARGE" });
+          if (size > maxBody) {
+            // The rest of the body stays unread: the answer closes the connection, so a client that
+            // keeps connections alive never sends its next request into this one (A5-11).
+            res.setHeader("Connection", "close");
+            return json(413, { error: "TOO_LARGE" });
+          }
           parts.push(Buffer.from(chunk));
         }
         body = JSON.parse(Buffer.concat(parts).toString() || "{}");

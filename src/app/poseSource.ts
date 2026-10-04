@@ -16,15 +16,32 @@ export type CameraStatus = "model" | "camera";
 
 const coarsePointer = () => typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
 /** Phones get the lite model: roughly 40% smaller and fast enough on mobile GPUs. */
-export const poseModelUrl = () => `/models/pose_landmarker_${coarsePointer() ? "lite" : "full"}.task`;
+const defaultModel = (): "lite" | "full" => (coarsePointer() ? "lite" : "full");
+/** The file of a pose model; without one, the v1 choice (Lite on a phone, Full elsewhere). */
+export const poseModelUrl = (model: "lite" | "full" = defaultModel()) =>
+  `/models/pose_landmarker_${model}.task`;
 
-/** Warms the HTTP cache while the person reads the setup guide, so the session starts quickly. */
-export function preloadPoseAssets() {
+/**
+ * Warms the HTTP cache while the person reads the setup guide, so the session starts quickly. Without
+ * a model, the one the v1 choice loads.
+ */
+export function preloadPoseAssets(model?: "lite" | "full") {
   try {
-    void fetch(poseModelUrl()).catch(() => undefined);
+    void fetch(poseModelUrl(model)).catch(() => undefined);
   } catch {
     /* offline or unsupported */
   }
+}
+
+/**
+ * Opens the front camera as every camera source of the app does; `video` adds constraints (the
+ * focus check asks for the frame rate of its gait capture).
+ */
+export function openCamera(video: MediaTrackConstraints = {}): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user", ...video },
+    audio: false,
+  });
 }
 
 const emptyFrame = (t: number, aspect?: number): Frame => ({
@@ -45,6 +62,19 @@ export interface CameraPoseOptions {
    * from `Frame.poses` with SubjectLock.
    */
   numPoses?: number;
+  /**
+   * The pose model to load (product v7 C-10: the focus check measures with Full when the device
+   * sustains the floor, else Lite). Absent: the v1 choice, Lite on a phone and Full elsewhere.
+   */
+  model?: "lite" | "full";
+  /**
+   * A camera the source borrows instead of opening its own: called once the model has loaded (so
+   * leaving during the download never asks for the camera), it gives an open stream that its caller
+   * owns. stop() leaves the stream running and on the video, so the owner can start another source on
+   * the same camera (the focus check's Lite fallback, C-10). Absent: the source opens its own camera
+   * and closes it on stop().
+   */
+  stream?: () => Promise<MediaStream>;
 }
 
 type RawLandmark = { x: number; y: number; z: number; visibility?: number };
@@ -57,6 +87,9 @@ export class CameraPoseSource implements PoseSource {
   video: HTMLVideoElement;
   onStatus?: (status: CameraStatus) => void;
   readonly numPoses: number;
+  /** The model the source loads (CameraPoseOptions.model, or the v1 choice). */
+  readonly model: "lite" | "full";
+  private readonly borrowed: (() => Promise<MediaStream>) | null;
   private landmarker: PoseLandmarker | null = null;
   private raf = 0;
   private stream: MediaStream | null = null;
@@ -67,6 +100,8 @@ export class CameraPoseSource implements PoseSource {
     this.video = video;
     const n = opts.numPoses ?? 1;
     this.numPoses = Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+    this.model = opts.model ?? defaultModel();
+    this.borrowed = opts.stream ?? null;
   }
 
   async start(onFrame: (f: Frame) => void): Promise<void> {
@@ -75,7 +110,7 @@ export class CameraPoseSource implements PoseSource {
     const vision = await FilesetResolver.forVisionTasks("/wasm");
     if (this.cancelled) return;
     const options = (delegate: "GPU" | "CPU") => ({
-      baseOptions: { modelAssetPath: poseModelUrl(), delegate },
+      baseOptions: { modelAssetPath: poseModelUrl(this.model), delegate },
       runningMode: "VIDEO" as const,
       numPoses: this.numPoses,
     });
@@ -93,12 +128,10 @@ export class CameraPoseSource implements PoseSource {
     this.landmarker = landmarker;
 
     this.onStatus?.("camera");
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
-      audio: false,
-    });
+    const stream = this.borrowed ? await this.borrowed() : await openCamera();
     if (this.cancelled) {
-      stream.getTracks().forEach((tr) => tr.stop());
+      // A borrowed camera stays with its owner.
+      if (!this.borrowed) stream.getTracks().forEach((tr) => tr.stop());
       return;
     }
     this.stream = stream;
@@ -149,11 +182,14 @@ export class CameraPoseSource implements PoseSource {
     this.cancelled = true;
     this.running = false;
     cancelAnimationFrame(this.raf);
-    this.stream?.getTracks().forEach((tr) => tr.stop());
     this.landmarker?.close();
     this.landmarker = null;
+    // A borrowed camera keeps running, and the video keeps showing it, for its owner's next source.
+    if (!this.borrowed) {
+      this.stream?.getTracks().forEach((tr) => tr.stop());
+      this.video.srcObject = null;
+    }
     this.stream = null;
-    this.video.srcObject = null;
   }
 }
 

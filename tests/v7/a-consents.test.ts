@@ -6,8 +6,17 @@
  * focus check (consent_revoked) while what was stored stays with the person.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { CONSENT_VERSIONS, activeConsent } from "../../server/modules/consents/store";
+import { tV7, V7_DICTIONARIES } from "../../src/i18n/v7";
+import { disclaimersIn } from "../no-disclaimers";
 import { member, startV7Api, userId, v7Intake, type V7Harness } from "./a-harness";
+
+/**
+ * The digest of the focus check consent text (rom namespace, consent keys) that CONSENT_VERSIONS
+ * focus_check 1 stands for. A changed text needs a new consent version, and then a new digest here.
+ */
+const FOCUS_CHECK_TEXT_V1 = "8c8cc9077c6116df0078e987e8470d8a9f06f45838be0b46c83ab3aafcef0408";
 
 let h: V7Harness;
 beforeAll(async () => {
@@ -96,5 +105,37 @@ describe("consent kinds", () => {
     ]);
     expect(db.prepare("SELECT id FROM rom_measurements").all()).toEqual([{ id: "row-1" }]);
     expect(activeConsent(db, id, "focus_check")).toBeNull();
+  });
+});
+
+describe("the focus check consent text (version 1)", () => {
+  const text = (lang: "ar" | "en") =>
+    Object.values((V7_DICTIONARIES[lang].rom as { consent: Record<string, string> }).consent).join(" ");
+
+  it("is the text version 1 stands for", () => {
+    const consent = (lang: "ar" | "en") => (V7_DICTIONARIES[lang].rom as { consent: unknown }).consent;
+    const digest = createHash("sha256")
+      .update(JSON.stringify({ ar: consent("ar"), en: consent("en") }))
+      .digest("hex");
+    expect({ version: CONSENT_VERSIONS.focus_check, digest }).toEqual({
+      version: 1,
+      digest: FOCUS_CHECK_TEXT_V1,
+    });
+  });
+
+  it("names the purpose, what is kept, the processor and the transfer outside the Kingdom (PDPL)", () => {
+    expect(tV7("en", "rom.consent.body")).toContain("your sex and age");
+    expect(tV7("ar", "rom.consent.body")).toContain("جنسك وعمرك");
+    expect(tV7("en", "rom.consent.pointWhere")).toContain("Railway");
+    expect(tV7("en", "rom.consent.pointWhere")).toContain("outside the Kingdom");
+    expect(tV7("ar", "rom.consent.pointWhere")).toContain("Railway");
+    expect(tV7("ar", "rom.consent.pointWhere")).toContain("خارج المملكة");
+    expect(tV7("ar", "rom.consent.pointProfile")).toContain("حالتك الطبية");
+    expect(tV7("en", "rom.consent.pointKept")).toContain("numbers only");
+  });
+
+  it("holds no disclaimer beyond the consent screen's own video point (D-017)", () => {
+    expect(disclaimersIn("ar", text("ar"))).toEqual(["يبقى الفيديو"]);
+    expect(disclaimersIn("en", text("en"))).toEqual(["The video stays"]);
   });
 });

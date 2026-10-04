@@ -1,0 +1,74 @@
+{
+  "step": "Your body",
+  "sex": {
+    "legend": "Sex",
+    "male": "Male",
+    "female": "Female"
+  },
+  "walking": {
+    "legend": "Can you walk?",
+    "no": "No",
+    "with_aid": "Yes, with an aid",
+    "without_aid": "Yes, without an aid",
+    "aidLegend": "Which aid do you use?",
+    "cane": "Cane",
+    "crutches": "Crutches",
+    "walker": "Walker",
+    "other": "Another aid"
+  },
+  "height": {
+    "label": "Your height in centimetres",
+    "help": "It helps us measure your steps more accurately.",
+    "invalid": "Enter a height between 120 and 220 centimetres."
+  },
+  "conditions": {
+    "title": "From your medical condition",
+    "apply": "Show the parts on the map",
+    "confirmMany": "We will measure these parts of your body. Is that right?",
+    "fillAgain": "Fill in the map from your medical condition"
+  },
+  "map": {
+    "label": "Your body map",
+    "views": "View",
+    "front": "Front",
+    "back": "Back",
+    "yourRight": "Your right",
+    "yourLeft": "Your left",
+    "help": "Tap each part that is affected, then choose the kind of problem.",
+    "none": "No part of my body is affected",
+    "cell": "{region}, {side}",
+    "right": "right side",
+    "left": "left side",
+    "both": "both sides",
+    "remove": "Remove"
+  },
+  "since": {
+    "lt6w": "In the last 6 weeks",
+    "6w_3m": "Between 6 weeks and 3 months ago",
+    "3m_6m": "Between 3 and 6 months ago",
+    "gt6m": "More than 6 months ago"
+  },
+  "hipReplacement": "Was the surgery a hip replacement?",
+  "limbLossLevel": "At what level?",
+  "needsAnswers": "Finish the answers for this part.",
+  "safety": {
+    "title": "Questions for your safety"
+  },
+  "foot": {
+    "right": "Right foot",
+    "left": "Left foot"
+  },
+  "suggest": {
+    "report": "Your report mentions these parts",
+    "earlier": "From your earlier answers",
+    "add": "Add"
+  },
+  "review": {
+    "sex": "Sex",
+    "height": "Height",
+    "heightValue": "{cm} cm",
+    "walking": "Walking",
+    "regions": "Affected parts",
+    "none": "None"
+  }
+}

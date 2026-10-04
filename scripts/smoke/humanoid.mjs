@@ -4,9 +4,11 @@
  * Contract 8.4 asks for rendered videos "posed at known angles, for exact truth". This draws a
  * person from a joint angle skeleton with smooth signed distance shapes, ray marched in a WebGL 2
  * fragment shader: skin, a cream shirt, dark trousers, white shoes, hair and a face in profile, a
- * chair for seated movements and a walking pad deck. Nothing is taken from a third party: no mesh,
- * texture, motion capture or code (the round cone and ellipsoid distance formulas are the
- * well known closed forms). MediaPipe Pose tracks it like a person (checked with both models).
+ * chair for seated movements and a walking pad deck. No mesh, texture or motion capture is used. The
+ * round cone and ellipsoid distance functions and the polynomial smooth minimum are the closed forms
+ * Inigo Quilez publishes in his articles (iquilezles.org, "distance functions" and "smooth minimum"),
+ * written here from the formulas; no file was copied. MediaPipe Pose tracks the figure like a person
+ * (checked with both models).
  *
  *   skeleton(pose)           the joints in metres (y up, the floor at 0), from the pose angles;
  *                            Node and browser, pure

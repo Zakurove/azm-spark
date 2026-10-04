@@ -16,8 +16,9 @@
  * stored (the v1 data map only), nor any free text. Nothing here logs. Errors are { error: CODE }; a
  * 400 names the field that failed.
  *
- * Home focus checks stay closed exactly like v1 home checks (C-14): the start and every later
- * mutation call homeClosed, and a signed in booth check needs a valid booth pass (X-Azm-Booth).
+ * Home focus checks stay closed exactly like v1 home checks (C-14): the start and every later result
+ * (rom, gait, complete) call homeClosed, and a signed in booth check needs a valid booth pass
+ * (X-Azm-Booth). A stop never does, as v1 safetyCheck: a safety answer always reaches the check.
  */
 import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
@@ -253,12 +254,13 @@ function openCheck(ctx: RouteContext, now: number): FocusCheck | null {
  * The owner's check for a stop. A safety stop is never refused because the server closed the check
  * first (a stale close, a new start): its lock and counts must still reach the server, as in v1
  * (safetyCheck). The check is taken when it is open (a stale one is closed first, `closed` says so)
- * or closed less than a day after its last activity; a closed check is never reopened.
+ * or closed less than a day after its last activity; a closed check is never reopened. Nor is it
+ * refused because home closed meanwhile (no homeClosed, as v1 safetyCheck): a stop only records
+ * locks, dates, counts and not measured rows, and never measures (Gate A review).
  */
 function stopCheck(ctx: RouteContext, now: number): { c: FocusCheck; closed: boolean } | null {
   const c = ownCheck(ctx);
   if (!c) return null;
-  if (homeClosed(ctx, c.setting)) return null;
   if (c.status === "open") {
     if (!isStale(c, now)) return { c, closed: false };
     const status = transaction(ctx.db, () => closeFocusCheck(ctx.db, c, "stale")) ?? c.status;

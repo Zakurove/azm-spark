@@ -697,7 +697,7 @@ describe("POST /api/focus/:id/rom", () => {
     });
   });
 
-  it("refuses a home check's results while home checks are closed (HOME_CLOSED)", async () => {
+  it("refuses a home check's results while home checks are closed (HOME_CLOSED), never its stops", async () => {
     const { cookie } = await person();
     const s = await started(cookie);
     h.db().prepare("UPDATE focus_checks SET setting='home' WHERE id=?").run(s.id);
@@ -706,9 +706,8 @@ describe("POST /api/focus/:id/rom", () => {
       error: "HOME_CLOSED",
     });
     expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).data).toEqual({ error: "HOME_CLOSED" });
-    expect((await h.call(`/focus/${s.id}/stop`, { option: "tired" }, cookie)).data).toEqual({
-      error: "HOME_CLOSED",
-    });
+    // A stop is a safety answer: it is taken (v1 safetyCheck never checks homeClosed).
+    expect((await h.call(`/focus/${s.id}/stop`, { option: "tired" }, cookie)).status).toBe(200);
   });
 });
 
@@ -1041,6 +1040,49 @@ describe("POST /api/focus/:id/stop", () => {
     expect((await h.call(`/focus/${s.id}/stop`, { option: "tired", why: "x" }, cookie)).data).toEqual({
       error: "STOP_INVALID",
       field: "why",
+    });
+  });
+
+  it("takes a safety stop of a home check after home closes: its lock, dates and counts (v1 safetyCheck)", async () => {
+    // Home open (AZM_CHECK_HOME=1) at the start, as a decision opening home for v7 (D-021) would do.
+    process.env.AZM_CHECK_HOME = "1";
+    const { cookie, id } = await person();
+    const ctx = await h.call("/focus/context", undefined, cookie);
+    expect(ctx.data.setting).toBe("home");
+    const r = await h.call("/focus", startBody(fill(ctx.data.env, {} as never), { setting: "home" }), cookie);
+    expect(r.status).toBe(200);
+    const s = r.data as { id: string };
+    // Home closes again while the check is open (AZM_CHECK_HOME is read on every request).
+    delete process.env.AZM_CHECK_HOME;
+    const db = h.db();
+    const safetyBefore =
+      (
+        db.prepare("SELECT SUM(count) AS n FROM safety_events WHERE reason='focus:stop:chest'").get() as {
+          n: number | null;
+        }
+      ).n ?? 0;
+    const stop = await h.call(
+      `/focus/${s.id}/stop`,
+      { option: "chest", movementId: "shoulder_flexion", side: "right" },
+      cookie,
+    );
+    expect(stop.status).toBe(200);
+    expect(stop.data.route).toMatchObject({ option: "chest", screen: "scr_emergency", endsCheck: true });
+    expect(stop.data.lock).toMatchObject({ until: expect.any(Number) });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM check_locks WHERE user_id=?").get(id)).toEqual({ n: 1 });
+    expect(db.prepare("SELECT change_reported FROM check_state WHERE user_id=?").get(id)).toEqual({
+      change_reported: "2026-10-04",
+    });
+    expect(
+      (
+        db.prepare("SELECT SUM(count) AS n FROM safety_events WHERE reason='focus:stop:chest'").get() as {
+          n: number;
+        }
+      ).n,
+    ).toBe(safetyBefore + 1);
+    expect(db.prepare("SELECT status, ended_reason FROM focus_checks WHERE id=?").get(s.id)).toEqual({
+      status: "ended_early",
+      ended_reason: "stop",
     });
   });
 

@@ -269,7 +269,8 @@ export function createApi(
         const key = process.env.OPENAI_API_KEY;
         if (!key) return json(503, { error: "EXTRACTION_UNAVAILABLE" });
         try {
-          return json(200, await extractReport(report, key));
+          // v7 (contract section 4): the reading suggests body map regions only with AZM_V7=1.
+          return json(200, await extractReport(report, key, { regions: process.env.AZM_V7 === "1" }));
         } catch (err) {
           console.error("AZM report extraction failed", err instanceof Error ? err.message : "Error");
           return json(502, { error: "ENGINE_FAILED" });

@@ -122,6 +122,16 @@ export type AutoFillAnswer =
 /** A body map cell: a region and a side (axial regions have one cell). */
 export type BodyMapKey = `${RegionId}:${"left" | "right" | "axial"}`;
 
+/**
+ * A region the report reading suggests (contract 2.2, server/report.ts with AZM_V7): shown as a
+ * suggestion with origin "report", applied to the map only by the person's tap.
+ */
+export interface ReportRegion {
+  region: RegionId;
+  side: RegionSide | "unknown";
+  problems: ProblemType[];
+}
+
 /* ------------------------------------------------------------ id lists */
 
 /** The regions with a left and a right, in body order. */

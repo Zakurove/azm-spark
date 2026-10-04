@@ -1178,6 +1178,49 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     expect(() => exportGait(t)).toThrow("findings uneven_step_length.thresholds: not a number");
   });
 
+  it("exports causeResolution as one cause path id plus alternatives, and dose.text with its numbers", () => {
+    const t = exportTargets(targetsSource()) as Obj;
+    const row = (order: number) => t.mapping.causeResolution.find((r: Obj) => r.order === order);
+    expect(row(4)).toMatchObject({
+      path: "tight",
+      alternatives: [
+        {
+          path: "rehab",
+          when: "an injury over 6 weeks or surgery from 12 weeks is in the history",
+          injuryOverWeeks: 6,
+          surgeryFromWeeks: 12,
+        },
+      ],
+    });
+    expect(row(6)).toMatchObject({
+      path: "pain_stable",
+      alternatives: [
+        { path: "pain_irritable", painRiseGte: 2, painToday: [4, 5], injuryOrSurgeryUnderMonths: 3 },
+      ],
+    });
+    expect(row(11)).toMatchObject({
+      path: "pain_stable",
+      alternatives: [{ path: "pain_irritable", when: "as order 6", asOrder: 6 }],
+    });
+    const ex = (id: string) => t.newExercises.find((e: Obj) => e.id === id);
+    expect(ex("wall_hand_walk").dose).toEqual({
+      profile: "stretch_hold",
+      painProfile: "mobility_pain",
+      text: "NIA: hold 10 to 30 s, 3 to 5 times. With pain: no hold, walk up only within comfort.",
+      holdSeconds: [10, 30],
+      repetitions: [3, 5],
+    });
+    expect(JSON.stringify(t.newExercises)).not.toContain('"note"');
+    const bad = targetsSource();
+    bad.mapping.causeResolution[3].path = "tight, or rehab when an injury over 6 weeks";
+    expect(() => exportTargets(bad)).toThrow(
+      'mapping causeResolution 4: path "tight, or rehab when an injury over 6 weeks" is not a cause path',
+    );
+    const alt = targetsSource();
+    alt.mapping.causeResolution[3].alternatives[0].path = "rest";
+    expect(() => exportTargets(alt)).toThrow('mapping causeResolution 4: path "rest" is not a cause path');
+  });
+
   it("fails on a retest band of an unknown movement or field, and on a number written as text", () => {
     const s = romSource();
     s.retest.bands.wrist = { deg: 10 };

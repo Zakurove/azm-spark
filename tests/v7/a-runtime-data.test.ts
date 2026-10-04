@@ -496,8 +496,17 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
     expect(TARGETS_DATA.whyLines.map((w) => w.id)).toEqual([...WHY_LINE_IDS]);
     expect(TARGETS_DATA.taxonomy.actions.map((a) => a.id)).toEqual([...ACTIONS]);
     expect(TARGETS_DATA.mapping.paths.map((p) => p.path)).toEqual([...CAUSE_PATHS]);
-    for (const c of TARGETS_DATA.mapping.causeResolution)
-      expect(CAUSE_PATHS, c.path).toContain(/^[a-z_]+/.exec(c.path)?.[0]);
+    // One cause path id per row, and structured alternatives (D-023 item 6).
+    for (const c of TARGETS_DATA.mapping.causeResolution) {
+      expect(CAUSE_PATHS, c.path).toContain(c.path);
+      for (const a of c.alternatives ?? []) {
+        expect(CAUSE_PATHS, a.path).toContain(a.path);
+        expect(a.when.trim(), `${c.order}`).not.toBe("");
+      }
+    }
+    expect(TARGETS_DATA.mapping.causeResolution.filter((c) => c.alternatives).map((c) => c.order)).toEqual([
+      4, 6, 11,
+    ]);
     expect(TARGETS_DATA.mapping.causeResolution.map((c) => c.order)).toEqual(
       TARGETS_DATA.mapping.causeResolution.map((_, i) => i + 1),
     );
@@ -531,6 +540,10 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
       for (const d of [e.dose.profile, e.dose.painProfile, e.dose.stretchProfile].filter(Boolean))
         expect(DOSE_PROFILE_IDS).toContain(d);
       for (const h of e.hipEndRange ?? []) expect(HIP_END_RANGE_IDS).toContain(h);
+      // dose.text (renamed from note, D-023 item 7) keeps the numbers it writes beside it.
+      expect(e.dose).not.toHaveProperty("note");
+      for (const k of ["holdSeconds", "repetitions", "rounds"] as const)
+        if (e.dose[k] !== undefined) expect(e.dose.text, `${e.id} ${k}`).toEqual(expect.any(String));
       expect(e.steps.ar.length).toBe(e.steps.en.length);
     }
     expect(EXPORT_HIP_IDS).toEqual([...HIP_END_RANGE_IDS]);

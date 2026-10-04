@@ -59,12 +59,19 @@ export interface LibraryExerciseV7Fields {
   positions?: ExercisePosition[];
   targets?: { id: TargetId; role: "primary" | "secondary" }[];
   painFriendly?: boolean;
-  /** stretchProfile: the data gives some new exercises a stretch dose too (change log, A1). */
+  /**
+   * stretchProfile: the data gives some new exercises a stretch dose too (change log, A1). text: the
+   * exercise's own dose in English words (exercise-targets newExercises[].dose.text, renamed from note
+   * by the freeze step, D-023 item 7), with the numbers it writes.
+   */
   dose?: {
     profile: DoseProfileId;
     painProfile?: DoseProfileId;
     stretchProfile?: DoseProfileId;
-    note?: string;
+    text?: string;
+    holdSeconds?: number | number[];
+    repetitions?: number | number[];
+    rounds?: number[];
   };
   /** new exercises ship as draft until sign off; absent means approved (every existing entry) */
   status?: "draft" | "approved";

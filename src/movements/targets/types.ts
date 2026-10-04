@@ -145,8 +145,20 @@ export interface NewExercise {
   positions: ExercisePosition[];
   targets: TargetRef[];
   painFriendly: boolean;
-  /** The exporter drops dose.note with every note field (rule 2; change log, A1). */
-  dose: { profile: DoseProfileId; painProfile?: DoseProfileId; stretchProfile?: DoseProfileId };
+  /**
+   * text: the exercise's own dose in English words (renamed from note, D-023 item 7), an engineering
+   * note beside the profile, never shown to the person; holdSeconds, repetitions and rounds are the
+   * numbers it writes (a value, or a range [from, to]).
+   */
+  dose: {
+    profile: DoseProfileId;
+    painProfile?: DoseProfileId;
+    stretchProfile?: DoseProfileId;
+    text?: string;
+    holdSeconds?: number | number[];
+    repetitions?: number | number[];
+    rounds?: number[];
+  };
   cautions: Text | null;
   textSource: {
     type: "original_azm" | "adapted_nia";
@@ -169,9 +181,31 @@ export interface ContraindicationTerm {
   meaning: string;
 }
 
+/**
+ * A cause path that replaces a row's path when its condition holds (D-023 item 6), with the numbers the
+ * condition writes.
+ */
+export interface CauseAlternative {
+  path: CausePath;
+  /** The condition in words. */
+  when: string;
+  /** order 4: «an injury over 6 weeks or surgery from 12 weeks is in the history» */
+  injuryOverWeeks?: number;
+  surgeryFromWeeks?: number;
+  /** order 6: «the pain rose by 2 or more during the test, today's pain is 4 or 5, or an injury or surgery was under 3 months ago» */
+  painRiseGte?: number;
+  painToday?: number[];
+  injuryOrSurgeryUnderMonths?: number;
+  /** order 11: «as order 6» */
+  asOrder?: number;
+}
+
 export interface TargetsMapping {
-  /** The path, or prose naming two paths ("pain_irritable or pain_stable", "tight, or rehab when ..."). */
-  causeResolution: { order: number; if: string; path: string }[];
+  /**
+   * The ordered rules from a finding to its cause path: the row's path, or the first alternative whose
+   * condition holds (rows 4, 6 and 11; D-023 item 6).
+   */
+  causeResolution: { order: number; if: string; path: CausePath; alternatives?: CauseAlternative[] }[];
   paths: { path: CausePath; actions: TargetAction[]; plus: string }[];
   gradeRules: {
     finding: string;

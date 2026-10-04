@@ -2281,7 +2281,9 @@
       "painFriendly": true,
       "dose": {
         "profile": "mobility_reps",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "10 slides forward and 10 to the side.",
+        "repetitions": 10
       },
       "cautions": {
         "ar": "إذا كان كتفك الأضعف مؤلمًا أو غير ثابت، فحرّكه في مدى صغير فقط.",
@@ -2361,7 +2363,13 @@
       "painFriendly": true,
       "dose": {
         "profile": "mobility_reps",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "10 swings, 1 to 2 rounds.",
+        "repetitions": 10,
+        "rounds": [
+          1,
+          2
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -2448,7 +2456,16 @@
       "painFriendly": true,
       "dose": {
         "profile": "stretch_hold",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "NIA: hold 10 to 30 s, 3 to 5 times. With pain: no hold, walk up only within comfort.",
+        "holdSeconds": [
+          10,
+          30
+        ],
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -2691,7 +2708,16 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold"
+        "profile": "stretch_hold",
+        "text": "NIA: hold 10 to 30 s, 3 to 5 times.",
+        "holdSeconds": [
+          10,
+          30
+        ],
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -3248,7 +3274,16 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold"
+        "profile": "stretch_hold",
+        "text": "NIA: hold 10 to 30 s, 3 to 5 times.",
+        "holdSeconds": [
+          10,
+          30
+        ],
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": {
         "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
@@ -3558,7 +3593,12 @@
       "painFriendly": true,
       "dose": {
         "profile": "mobility_reps",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "5 to 10 repetitions; no long holds looking up.",
+        "repetitions": [
+          5,
+          10
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -3862,7 +3902,8 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold"
+        "profile": "stretch_hold",
+        "text": "The trial used twice daily home stretching for 10 weeks."
       },
       "cautions": null,
       "textSource": {
@@ -4022,7 +4063,12 @@
       "painFriendly": false,
       "dose": {
         "profile": "strength_reps",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "NIA: 10 to 15 times each leg, then 10 to 15 more.",
+        "repetitions": [
+          10,
+          15
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -4110,7 +4156,12 @@
       "painFriendly": false,
       "dose": {
         "profile": "strength_reps",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "NIA: 10 to 15 times each leg, then 10 to 15 more.",
+        "repetitions": [
+          10,
+          15
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -4259,7 +4310,8 @@
       ],
       "painFriendly": true,
       "dose": {
-        "profile": "strength_reps"
+        "profile": "strength_reps",
+        "text": "A light band around the thighs adds load later (needs the bands equipment)."
       },
       "cautions": null,
       "textSource": {
@@ -4337,7 +4389,13 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "balance_practice"
+        "profile": "balance_practice",
+        "text": "2 to 3 rounds of 10 steps each way.",
+        "rounds": [
+          2,
+          3
+        ],
+        "repetitions": 10
       },
       "cautions": null,
       "textSource": {
@@ -4487,7 +4545,16 @@
       "painFriendly": true,
       "dose": {
         "profile": "stretch_hold",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "NIA: hold 10 to 30 s, 3 to 5 times each leg.",
+        "holdSeconds": [
+          10,
+          30
+        ],
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": {
         "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
@@ -4727,7 +4794,12 @@
       "painFriendly": false,
       "dose": {
         "profile": "strength_reps",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "NIA: 10 to 15 times each leg, then 10 to 15 more.",
+        "repetitions": [
+          10,
+          15
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -5037,7 +5109,16 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold"
+        "profile": "stretch_hold",
+        "text": "NIA: 10 to 30 s, 3 to 5 times each leg.",
+        "holdSeconds": [
+          10,
+          30
+        ],
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": {
         "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
@@ -5128,7 +5209,16 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold"
+        "profile": "stretch_hold",
+        "text": "NIA: 10 to 30 s, 3 to 5 times each leg.",
+        "holdSeconds": [
+          10,
+          30
+        ],
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": {
         "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
@@ -5223,7 +5313,12 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "strength_reps"
+        "profile": "strength_reps",
+        "text": "NIA: 10 to 15 times, rest, then 10 to 15 more.",
+        "repetitions": [
+          10,
+          15
+        ]
       },
       "cautions": {
         "ar": "إذا كانت لديك مشكلة في الركبة أو الظهر، فتحدث مع طبيبك قبل هذا التمرين.",
@@ -5395,7 +5490,12 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold"
+        "profile": "stretch_hold",
+        "text": "NIA: alternate legs, at least 3 to 5 times each.",
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -5479,7 +5579,12 @@
       "painFriendly": true,
       "dose": {
         "profile": "stretch_hold",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "NIA: at least 3 to 5 times. With pain: move without holding.",
+        "repetitions": [
+          3,
+          5
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -5707,7 +5812,12 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "strength_reps"
+        "profile": "strength_reps",
+        "text": "10 to 15 each leg.",
+        "repetitions": [
+          10,
+          15
+        ]
       },
       "cautions": null,
       "textSource": {
@@ -5799,7 +5909,9 @@
       "painFriendly": true,
       "dose": {
         "profile": "balance_practice",
-        "painProfile": "mobility_pain"
+        "painProfile": "mobility_pain",
+        "text": "10 shifts each way. With pain: shift only as far as is comfortable.",
+        "repetitions": 10
       },
       "cautions": null,
       "textSource": {
@@ -7428,7 +7540,15 @@
       {
         "order": 4,
         "if": "The end range answer «ما الذي أوقفك أكثر؟» was «شد أو تيبس» (tight)",
-        "path": "tight, or rehab when an injury over 6 weeks or surgery from 12 weeks is in the history"
+        "path": "tight",
+        "alternatives": [
+          {
+            "path": "rehab",
+            "when": "an injury over 6 weeks or surgery from 12 weeks is in the history",
+            "injuryOverWeeks": 6,
+            "surgeryFromWeeks": 12
+          }
+        ]
       },
       {
         "order": 5,
@@ -7438,7 +7558,19 @@
       {
         "order": 6,
         "if": "The answer was «ألم», or the result is pain limited: irritable when the pain rose by 2 or more during the test, today's pain is 4 or 5, or an injury or surgery was under 3 months ago; otherwise stable (review C07)",
-        "path": "pain_irritable or pain_stable"
+        "path": "pain_stable",
+        "alternatives": [
+          {
+            "path": "pain_irritable",
+            "when": "the pain rose by 2 or more during the test, today's pain is 4 or 5, or an injury or surgery was under 3 months ago",
+            "painRiseGte": 2,
+            "painToday": [
+              4,
+              5
+            ],
+            "injuryOrSurgeryUnderMonths": 3
+          }
+        ]
       },
       {
         "order": 7,
@@ -7463,7 +7595,14 @@
       {
         "order": 11,
         "if": "Body map problem type pain (irritable or stable as order 6)",
-        "path": "pain_irritable or pain_stable"
+        "path": "pain_stable",
+        "alternatives": [
+          {
+            "path": "pain_irritable",
+            "when": "as order 6",
+            "asOrder": 6
+          }
+        ]
       },
       {
         "order": 12,

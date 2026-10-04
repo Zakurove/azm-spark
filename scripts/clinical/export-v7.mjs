@@ -1091,6 +1091,19 @@ export function hipEndRange(items, where) {
   });
 }
 
+/**
+ * mapping.causeResolution: each row's path is one cause path id of mapping.paths, and its alternatives
+ * ({ path, when } with the numbers the when writes) name cause paths too (D-023 item 6).
+ */
+function causeResolution(mapping) {
+  const paths = (mapping.paths ?? []).map((p) => p.path);
+  for (const row of mapping.causeResolution ?? []) {
+    const where = `mapping causeResolution ${row.order}`;
+    for (const x of [row, ...(row.alternatives ?? [])])
+      if (!paths.includes(x.path)) fail(`${where}: path ${JSON.stringify(x.path)} is not a cause path`);
+  }
+}
+
 /** dose: the profiles (id, names and their numbers) and the session order. */
 function dose(d) {
   knownFields(d, ["profiles", "sessionOrder"], "dose");
@@ -1102,6 +1115,7 @@ function dose(d) {
 
 export function exportTargets(source) {
   checkSections("targets", source);
+  causeResolution(source.mapping);
   const out = {
     id: source.id,
     version: source.version,

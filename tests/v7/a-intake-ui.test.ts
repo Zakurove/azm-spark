@@ -9,6 +9,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import IntakeV7, {
   FILL_ANSWERS,
+  answerAchilles,
   IntakeV7Review,
   confirmLine,
   fillAnswers,
@@ -331,6 +332,52 @@ describe("the step on screen", () => {
         }),
       ),
     ).not.toContain("فقد طرف");
+  });
+
+  it("answers the Achilles question of an ankle surgery: a yes adds the injury type, a no stays in the form", () => {
+    const d = {
+      region: "ankle_foot" as const,
+      side: "left" as const,
+      problems: ["after_surgery" as const],
+      origin: "person" as const,
+      surgery: { since: "6w_3m" as const, cleared: "yes" as const },
+    };
+    expect(answerAchilles(d, false)).toEqual({ ...d, achillesAnswer: false });
+    expect(answerAchilles(d, true)).toEqual({
+      ...d,
+      achillesAnswer: undefined,
+      problems: ["injury", "after_surgery"],
+      injury: { since: "6w_3m", achilles: true },
+    });
+  });
+
+  it("asks an ankle surgery the Achilles question", () => {
+    const ui: V7Ui = {
+      ...complete,
+      drafts: [
+        {
+          region: "ankle_foot",
+          side: "left",
+          problems: ["after_surgery"],
+          origin: "person",
+          surgery: { since: "gt6m" },
+        },
+      ],
+    };
+    const text = plain(render({ ui, lang: "en" }));
+    expect(text).toContain(romCopy("achilles_ask").en);
+    expect(stepAnswers(ui, ctx()).regions).toBeUndefined();
+    expect(
+      stepAnswers({ ...ui, drafts: [{ ...ui.drafts[0], achillesAnswer: false }] }, ctx()).regions,
+    ).toEqual([
+      {
+        region: "ankle_foot",
+        side: "left",
+        problems: ["after_surgery"],
+        origin: "person",
+        surgery: { since: "gt6m", cleared: "yes", avoid: [] },
+      },
+    ]);
   });
 
   it("folds a complete card to one line with Change, and keeps an open one's questions", () => {

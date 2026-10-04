@@ -315,6 +315,12 @@ export interface RegionDraft {
   injury?: Partial<NonNullable<RegionEntry["injury"]>>;
   surgery?: Partial<NonNullable<RegionEntry["surgery"]>>;
   limbLoss?: Partial<NonNullable<RegionEntry["limbLoss"]>>;
+  /**
+   * achilles_ask on an ankle and foot with after_surgery and no injury. RegionEntry keeps the answer
+   * only under injury, so a yes adds the injury type (a torn tendon is an injury, with
+   * injury.achilles) and a no stays here, in the form only (contract change log, A2 and A4-6).
+   */
+  achillesAnswer?: boolean;
 }
 
 function same(a: unknown, b: unknown): boolean {
@@ -488,7 +494,8 @@ export type RegionQuestionId =
  * and 6). Injury: when, and on the ankle and foot the Achilles question. Surgery: when; under 3
  * months the team's clearance, then, once cleared, what to avoid (where the camera measures
  * something), stretching and loading; after a recent hip surgery, whether it was a replacement and
- * its limits, cleared or not. Limb loss: the level, on one side only.
+ * its limits, cleared or not; on the ankle and foot without the injury type, the Achilles question
+ * (it covers a tear or a repair). Limb loss: the level, on one side only.
  */
 export function regionQuestions(d: RegionDraft): RegionQuestionId[] {
   const out: RegionQuestionId[] = [];
@@ -509,6 +516,8 @@ export function regionQuestions(d: RegionDraft): RegionQuestionId[] {
       }
       if (cleared) out.push("surgery_stretch_ask", "surgery_load_ask");
     }
+    // rom-protocol 6 achilles: a tear or repair in the last 6 months, with or without surgery.
+    if (d.region === "ankle_foot" && !d.problems.includes("injury")) out.push("achilles_ask");
   }
   if (d.problems.includes("limb_loss")) out.push("limb_loss_level");
   return out;
@@ -560,6 +569,8 @@ export function finalizeRegion(d: RegionDraft): RegionEntry | null {
       out.surgery = surgery;
     }
   }
+  // The Achilles question of an ankle surgery without the injury type: only its no can be kept.
+  if (asked.has("achilles_ask") && !d.problems.includes("injury") && d.achillesAnswer !== false) return null;
   if (asked.has("limb_loss_level")) {
     const level = d.limbLoss?.level;
     const limb = limbOf(d.region);

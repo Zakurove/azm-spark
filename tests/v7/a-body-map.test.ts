@@ -554,6 +554,29 @@ describe("the follow up questions of a region (rom-protocol 2.2 and 6)", () => {
     );
   });
 
+  it("asks the Achilles question after an ankle surgery too (rom-protocol 6 achilles, with or without surgery)", () => {
+    const d = draft({ region: "ankle_foot", problems: ["after_surgery"], surgery: { since: "3m_6m" } });
+    expect(regionQuestions(d)).toEqual(["surgery_when", "achilles_ask"]);
+    // RegionEntry keeps the answer only under injury: a no lives in the draft, a yes adds the injury type.
+    expect(finalizeRegion(d)).toBeNull();
+    expect(finalizeRegion({ ...d, achillesAnswer: true })).toBeNull();
+    expect(finalizeRegion({ ...d, achillesAnswer: false })).toEqual(
+      draft({
+        region: "ankle_foot",
+        problems: ["after_surgery"],
+        surgery: { since: "3m_6m", cleared: "yes", avoid: [] },
+      }),
+    );
+    const both = draft({
+      region: "ankle_foot",
+      problems: ["injury", "after_surgery"],
+      injury: { since: "3m_6m", achilles: true },
+      surgery: { since: "3m_6m" },
+    });
+    expect(regionQuestions(both).filter((q) => q === "achilles_ask")).toHaveLength(1);
+    expect(finalizeRegion(both)?.injury).toEqual({ since: "3m_6m", achilles: true });
+  });
+
   it("asks only when for a surgery more than 3 months ago, and stores it as cleared with nothing to avoid", () => {
     for (const since of ["3m_6m", "gt6m"] as const) {
       const d = draft({ region: "shoulder", problems: ["after_surgery"], surgery: { since } });

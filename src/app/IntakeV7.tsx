@@ -389,6 +389,21 @@ function Checks<T extends string>({
 const toggle = <T,>(list: readonly T[], v: T): T[] =>
   list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 
+/**
+ * The Achilles answer of an ankle surgery without the injury type: a yes adds the injury type with
+ * injury.achilles (a torn tendon is an injury, and RegionEntry keeps the answer there; its when starts
+ * at the surgery's), a no stays in the form (contract change log, A2 and A4-6).
+ */
+export function answerAchilles(draft: RegionDraft, yes: boolean): RegionDraft {
+  if (!yes) return { ...draft, achillesAnswer: false };
+  return {
+    ...draft,
+    achillesAnswer: undefined,
+    problems: PROBLEM_TYPES.filter((p) => p === "injury" || draft.problems.includes(p)),
+    injury: { since: draft.injury?.since ?? draft.surgery?.since, achilles: true },
+  };
+}
+
 /** The follow up question of one region. */
 function RegionQuestion({
   lang,
@@ -419,6 +434,17 @@ function RegionQuestion({
         />
       );
     case "achilles_ask":
+      // After an ankle surgery without the injury type, a yes adds the injury type with the Achilles
+      // answer (a torn tendon is an injury; RegionEntry keeps the answer there), a no stays in the form.
+      if (!draft.problems.includes("injury"))
+        return (
+          <Choices
+            legend={copy(lang, "achilles_ask")}
+            options={yesNo(lang)}
+            value={draft.achillesAnswer}
+            onPick={(v) => onChange(answerAchilles(draft, v))}
+          />
+        );
       return (
         <Choices
           legend={copy(lang, "achilles_ask")}

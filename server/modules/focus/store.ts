@@ -44,6 +44,23 @@ export interface FocusDevice {
   browser: string;
 }
 
+/**
+ * The day's answers a later step reads, the only ones kept (contract section 3, Gate A review): the
+ * pain per region for the gait rules at complete, and helper present for the coach's token (C-12,
+ * 5.1). The others (red flag regions, the walk and freezing answers, a prosthesis worn, a chair
+ * transfer, an orthosis) did their work at the start and live on in the frozen protocol and gait
+ * plan, so they are not kept: the v1 data map keeps nothing else from the pre-check either.
+ */
+export type StoredFocusToday = Pick<FocusToday, "painByRegion" | "helperPresent">;
+
+/** The kept part of the day's answers (StoredFocusToday). */
+export function storedToday(today: Pick<FocusToday, "painByRegion" | "helperPresent">): StoredFocusToday {
+  return {
+    painByRegion: { ...today.painByRegion },
+    ...(today.helperPresent !== undefined ? { helperPresent: today.helperPresent } : {}),
+  };
+}
+
 export interface FocusCheck {
   id: string;
   userId: string;
@@ -53,8 +70,8 @@ export interface FocusCheck {
   /** RomProtocol after applyPrecheckOutcome. */
   protocol: RomProtocol;
   gaitPlan: GaitPlan | null;
-  /** The day's answers: enumerated values and numbers only. */
-  today: FocusToday;
+  /** The kept day's answers (StoredFocusToday): numbers and a yes or no only. */
+  today: StoredFocusToday;
   /** The v1 data map of the pre-check (StoredPrecheck keys) with the consent's time and version. */
   precheck: Record<string, unknown>;
   versions: FocusVersions;
@@ -96,7 +113,7 @@ function toCheck(r: FocusRow): FocusCheck {
     status: r.status,
     protocol: JSON.parse(r.protocol),
     gaitPlan: r.gait_plan === null ? null : JSON.parse(r.gait_plan),
-    today: JSON.parse(r.today),
+    today: storedToday(JSON.parse(r.today) as FocusToday),
     precheck: JSON.parse(r.precheck),
     versions: JSON.parse(r.versions),
     device: JSON.parse(r.device),
@@ -108,7 +125,13 @@ function toCheck(r: FocusRow): FocusCheck {
   };
 }
 
-export type NewFocusCheck = Omit<FocusCheck, "id" | "status" | "active" | "completed" | "endedReason">;
+export type NewFocusCheck = Omit<
+  FocusCheck,
+  "id" | "status" | "active" | "completed" | "endedReason" | "today"
+> & {
+  /** The day's answers as the start received them; only StoredFocusToday is written. */
+  today: FocusToday;
+};
 
 /**
  * Stores a new open focus check after closing any other open one of the person (replaced): a person
@@ -127,7 +150,7 @@ export function createFocusCheck(db: DatabaseSync, c: NewFocusCheck): string {
     c.setting,
     JSON.stringify(c.protocol),
     c.gaitPlan === null ? null : JSON.stringify(c.gaitPlan),
-    JSON.stringify(c.today),
+    JSON.stringify(storedToday(c.today)),
     JSON.stringify(c.precheck),
     JSON.stringify(c.versions),
     JSON.stringify(c.device),

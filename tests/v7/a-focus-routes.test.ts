@@ -405,7 +405,9 @@ describe("POST /api/focus: a booth start", () => {
     });
     expect(JSON.parse(row.protocol as string)).toEqual(p);
     expect(JSON.parse(row.gait_plan as string)).toEqual(r.data.gait);
-    expect(JSON.parse(row.today as string)).toEqual(today);
+    // Of the day's answers only those a later step reads are kept (the gait recompute at complete
+    // reads the pain, the coach's token helper present); the rest live on in the frozen protocol.
+    expect(JSON.parse(row.today as string)).toEqual({ painByRegion: { knee: 3 }, helperPresent: true });
     expect(JSON.parse(row.device as string)).toEqual(DEVICE);
     expect(JSON.parse(row.versions as string)).toMatchObject({
       rom: ROM_RULES_VERSION,
@@ -432,6 +434,29 @@ describe("POST /api/focus: a booth start", () => {
     expect(p.items.filter((i) => i.region === "shoulder").every((i) => i.skipped === "red_flag")).toBe(true);
     // A leg region red flag would remove gait; a shoulder one keeps it.
     expect(r.data.gait.offered).toBe(true);
+  });
+
+  it("keeps none of the day's symptom answers once their effect is frozen (data minimisation)", async () => {
+    const { cookie } = await person(v7Intake({ conditions: ["parkinsons"] }));
+    const today = {
+      painByRegion: { knee: 4 },
+      redFlagRegions: ["shoulder"],
+      walk10m: true,
+      pdFreezing: false,
+      prosthesisOn: false,
+      transferChair: false,
+      orthosis: { right: "afo" },
+    };
+    const r = await start(cookie, { today });
+    expect(r.status).toBe(200);
+    expect(r.data.warnings).toContain("scr_stop_seek_care");
+    // The red flag lives on in the protocol (red_flag skips) and the walk answers in the gait plan.
+    expect((r.data.protocol as RomProtocol).items.some((i) => i.skipped === "red_flag")).toBe(true);
+    const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(r.data.id) as {
+      today: string;
+    };
+    expect(JSON.parse(row.today)).toEqual({ painByRegion: { knee: 4 } });
+    expect(row.today).not.toMatch(/redFlag|walk10m|pdFreezing|prosthesis|transfer|orthosis|afo|shoulder/);
   });
 
   it("leaves out a part the person does not include today", async () => {

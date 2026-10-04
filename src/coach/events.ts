@@ -18,7 +18,7 @@ import type { BridgeEvent, BridgeOptions } from "./types";
 export const TYPICAL_ROUND_DEG = 5;
 
 /** A string field as an id like token: letters, digits and _ . : only, at most 48 characters. */
-function token(v: string): string {
+export function safeToken(v: string): string {
   const t = v.replace(/[^A-Za-z0-9_.:]/g, "_").slice(0, 48);
   return t.length ? t : "none";
 }
@@ -46,7 +46,7 @@ function fields(e: BridgeEvent): [string, string][] {
     case "safety_stop":
       return [["reason", e.reason]];
     case "red_flag":
-      return [["screen", token(e.screen)]];
+      return [["screen", safeToken(e.screen)]];
     case "end_range_hold":
       return [
         ["mv", e.movement],
@@ -64,14 +64,14 @@ function fields(e: BridgeEvent): [string, string][] {
     case "compensation":
       return [
         ...(e.movement ? ([["mv", e.movement]] as [string, string][]) : []),
-        ["kind", token(e.kind)],
+        ["kind", safeToken(e.kind)],
         ...(e.value !== undefined ? ([["value", whole(e.value)]] as [string, string][]) : []),
       ];
     case "setup_issue":
-      return [["issue", token(e.issue)]];
+      return [["issue", safeToken(e.issue)]];
     case "step_start":
       return [
-        ["label", token(e.label)],
+        ["label", safeToken(e.label)],
         ...(e.movement ? ([["mv", e.movement]] as [string, string][]) : []),
         ...(e.side ? ([["side", e.side]] as [string, string][]) : []),
       ];
@@ -91,7 +91,7 @@ function fields(e: BridgeEvent): [string, string][] {
       ];
     case "reps":
       return [
-        ["exercise", token(e.exercise)],
+        ["exercise", safeToken(e.exercise)],
         ["count", whole(e.count)],
         ["target", whole(e.target)],
       ];

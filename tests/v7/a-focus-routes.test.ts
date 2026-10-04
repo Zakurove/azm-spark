@@ -1138,6 +1138,22 @@ describe("POST /api/focus/:id/complete", () => {
     });
   });
 
+  it("gives the gait rules at complete what they had at the gait POST, the walk's events aside", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    const body = gaitBody(s.gait!, "walking_pad", { worst: true });
+    expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).status).toBe(200);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    const [posted, final] = gaitCalls.inputs.slice(-2).map((i) => i.analysis);
+    const strip = (a: typeof posted) => ({
+      ...a,
+      views: a.views.map((v) => ({ ...v, events: [], cycles: [] })),
+    });
+    expect(final).toEqual(strip(posted));
+    expect(final.staticStance).toHaveLength(2);
+    expect(final.views[0].quality).toMatchObject({ medianFps: 28.5, gapShare: 0.04, gatePassed: true });
+  });
+
   it("writes nothing when a step fails: one transaction", async () => {
     const { cookie } = await person();
     const s = await started(cookie);

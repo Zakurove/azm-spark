@@ -403,19 +403,20 @@ function gaitFindings(
   now: number,
 ): { patterns: GaitPatternResult[]; findings: StoredGaitFindings["findings"]; rulesVersion: string } {
   const romProfile = buildRomProfile({ intake, rows, now });
+  const pd = pdState(c, intake);
   return evaluateGait({
     analysis,
     intake,
     romProfile,
-    today: {
-      painByRegion: c.today.painByRegion,
-      ...(pdState(c, intake) ? { pdState: pdState(c, intake) } : {}),
-    },
+    today: { painByRegion: c.today.painByRegion, ...(pd ? { pdState: pd } : {}) },
     plan: c.gaitPlan!,
   });
 }
 
-/** The analysis a stored gait row stands for, enough for the rules to run again at complete. */
+/**
+ * The analysis a stored gait row stands for, for the rules to run again at complete: everything the
+ * gait POST gave them but the walk's events and cycles, which the rules do not read (2.9).
+ */
 function storedAnalysis(g: StoredGait): GaitAnalysis {
   return {
     mode: g.mode,
@@ -425,18 +426,11 @@ function storedAnalysis(g: StoredGait): GaitAnalysis {
       events: [],
       cycles: [],
       metrics: v.metrics,
-      quality: {
-        cleanCycles: v.cleanCycles,
-        medianFps: 0,
-        gapShare: 0,
-        gatePassed: g.quality.gatePassed,
-        timingOnly: g.quality.timingOnly,
-        issues: [],
-      },
+      quality: v.quality,
       replay: null,
     })),
     replay: g.replay,
-    staticStance: [],
+    staticStance: g.staticStance,
     combined: g.metrics,
     flags: g.quality.flags,
     engineVersion: g.engineVersion,
@@ -448,7 +442,7 @@ function gaitView(g: StoredGait, patterns: GaitPatternResult[], provisional: boo
   return {
     id: g.id,
     mode: g.mode,
-    views: g.views,
+    views: g.views.map(({ quality: _quality, ...v }) => v),
     metrics: g.metrics,
     patterns,
     findings: g.findings.findings,
@@ -771,9 +765,11 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
             ...(v.nearSide ? { nearSide: v.nearSide } : {}),
             metrics: v.metrics,
             cleanCycles: v.quality.cleanCycles,
+            quality: v.quality,
           })),
           setup,
           metrics: analysis.combined,
+          staticStance: analysis.staticStance,
           findings: { patterns: storedPatterns(ev.patterns), findings: ev.findings },
           quality,
           replay: analysis.replay,

@@ -12,7 +12,12 @@ import type { GaitPlan } from "../../../src/medical/gait-eligibility";
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { MeasurementGrade } from "../../../src/medical/rom-norms";
 import type { GaitPatternResult, GaitStoredView, GaitSupportFinding } from "../../../src/medical/gait-types";
-import type { GaitAnalysis, GaitSetup } from "../../../src/engine/gait/types";
+import type {
+  GaitAnalysis,
+  GaitQuality,
+  GaitSetup,
+  StaticStanceResult,
+} from "../../../src/engine/gait/types";
 import type { LimitCause, RomAttempt, RomFlag, RomMeasureResult } from "../../../src/engine/rom/types";
 import type { DefaultOnlyId, RomMovementId, RomPositionId, RomSide } from "../../../src/movements/rom/types";
 import type { Setting } from "../../../src/movements/types";
@@ -473,15 +478,22 @@ export interface StoredGaitFindings {
   findings: GaitSupportFinding[];
 }
 
+/**
+ * A view as stored: the response's view (metrics and clean cycles, section 3) with the view's whole
+ * quality report, so the rules see at complete what they saw at the gait POST (2.9).
+ */
+export type StoredGaitView = GaitStoredView["views"][number] & { quality: GaitQuality };
+
 export interface StoredGait {
   id: string;
   checkId: string | null;
   mode: GaitAnalysis["mode"];
-  /** Per view: the metrics and the clean cycles (section 3). */
-  views: GaitStoredView["views"];
+  views: StoredGaitView[];
   setup: GaitSetup;
   /** GaitAnalysis.combined. */
   metrics: GaitAnalysis["combined"];
+  /** GaitAnalysis.staticStance (kept in the metrics column with combined). */
+  staticStance: StaticStanceResult[];
   findings: StoredGaitFindings;
   quality: GaitStoredView["quality"];
   replay: GaitAnalysis["replay"];
@@ -514,7 +526,7 @@ function toGait(r: GaitRowDb): StoredGait {
     mode: r.mode,
     views: JSON.parse(r.views),
     setup: JSON.parse(r.setup),
-    metrics: JSON.parse(r.metrics),
+    ...gaitMetricsOf(r.metrics),
     findings: JSON.parse(r.findings),
     quality: JSON.parse(r.quality),
     replay: r.replay === null ? null : JSON.parse(r.replay),
@@ -523,6 +535,12 @@ function toGait(r: GaitRowDb): StoredGait {
     engineVersion: r.engine_version,
     created: Number(r.created),
   };
+}
+
+/** The metrics column: GaitAnalysis.combined and the static stance results. */
+function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance"> {
+  const m = JSON.parse(json) as { combined: GaitAnalysis["combined"]; staticStance: StaticStanceResult[] };
+  return { metrics: m.combined, staticStance: m.staticStance };
 }
 
 /** The patterns as stored: their lines are dropped, the rules write them again on read. */
@@ -542,7 +560,7 @@ export function saveGait(db: DatabaseSync, userId: string, g: Omit<StoredGait, "
     g.mode,
     JSON.stringify(g.views),
     JSON.stringify(g.setup),
-    JSON.stringify(g.metrics),
+    JSON.stringify({ combined: g.metrics, staticStance: g.staticStance }),
     JSON.stringify(g.findings),
     JSON.stringify(g.quality),
     g.replay === null ? null : JSON.stringify(g.replay),

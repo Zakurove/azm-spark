@@ -220,7 +220,12 @@ const ISSUE_ORDER_VIEW_UNKNOWN: QualityIssue[] = [
 ];
 
 export interface QualityConfig {
-  testId: TestId;
+  /**
+   * The v1 test, which picks the retry cue of an issue (retryCue). Null for a v7 measurement (range
+   * of motion and gait, product v7 contract 7): the report then gives its issues with no cue, and v7
+   * maps `issues[0]` to its own line.
+   */
+  testId: TestId | null;
   side: TestSide;
   /** Landmarks that alone can fail an attempt. */
   gate: number[];
@@ -328,7 +333,7 @@ export interface QualityReport {
   issues: QualityIssue[];
   /** Gate landmarks under the minimum visibility in too many frames (empty when visible). */
   missing: number[];
-  /** The retry cue for the first issue (retryCue), null when the attempt is ok. */
+  /** The retry cue for the first issue (retryCue), null when the attempt is ok or `testId` is null. */
   cue: CheckCueId | null;
 }
 
@@ -489,7 +494,8 @@ export class QualityMonitor {
       distanceM: distanceM === null ? null : round(distanceM, 2),
       issues,
       missing,
-      cue: issues.length ? retryCue(issues[0], c.testId, c.side, missing, c.weaker) : null,
+      cue:
+        issues.length && c.testId !== null ? retryCue(issues[0], c.testId, c.side, missing, c.weaker) : null,
     };
   }
 }
@@ -604,7 +610,8 @@ const SETUP_ORDER: SetupIssue[] = [
 ];
 
 export interface SetupConfig {
-  testId: TestId;
+  /** The v1 test, which picks the retry cue (setupCue); null for v7, as in QualityConfig: no cue. */
+  testId: TestId | null;
   side: TestSide;
   /** Landmarks that must be inside the frame margin (the test's framing, spec 4.1 to 4.4). */
   framing: number[];
@@ -680,7 +687,7 @@ export interface SetupResult {
   ok: boolean;
   /** In the order to fix them. */
   issues: SetupIssue[];
-  /** Retry cue for the first issue. */
+  /** Retry cue for the first issue, null when there is none or `testId` is null. */
   cue: CheckCueId | null;
   /** Shown but never blocking (the side lean's tilt above 3 degrees). */
   warnings: SetupIssue[];
@@ -807,7 +814,7 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
   return {
     ok: issues.length === 0,
     issues,
-    cue: issues.length ? setupCue(issues[0], cfg.testId, cfg.side, cfg.weaker) : null,
+    cue: issues.length && cfg.testId !== null ? setupCue(issues[0], cfg.testId, cfg.side, cfg.weaker) : null,
     warnings,
     view,
     distanceM: distanceM === null ? null : round(distanceM, 2),

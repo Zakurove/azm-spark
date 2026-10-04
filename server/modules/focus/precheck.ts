@@ -5,18 +5,23 @@
  * routes run, by their contract signatures.
  *
  * The rules of 2.4 and 2.5 (rom-norms.ts, rom-protocol.ts, gait-eligibility.ts, focus-precheck.ts)
- * and hasV7Fields (plan.ts, 2.2) are built by stream A's steps A2 and A4 beside this step. The focus
- * routes take them through FocusRules, so they compile and are tested on their own; FOCUS_RULES binds
- * the real functions when the A steps meet at Gate A, and until then the routes that need them
- * answer 503 FOCUS_RULES_PENDING (the flag keeps every focus route off outside dev and staging).
+ * and hasV7Fields (plan.ts, 2.2) are stream A's steps A2 and A4. The focus routes take them through
+ * FocusRules, so the route tests can run on small test rules; FOCUS_RULES binds the real functions
+ * (bound at Gate A). Routes built with null rules answer 503 FOCUS_RULES_PENDING.
  */
 import type { DatabaseSync } from "node:sqlite";
 import { contextFromIntake, isBlocked, type CheckContext } from "../../../src/medical/assessment";
-import type { Intake, Plan, Sex } from "../../../src/medical/plan";
+import { hasV7Fields, type Intake, type Plan, type Sex } from "../../../src/medical/plan";
 import type { Answers, PrecheckEnv, PrecheckOutcome } from "../../../src/medical/precheck";
-import type { FocusToday, RomProtocol, RomProtocolInput } from "../../../src/medical/rom-protocol";
-import type { GaitPlan } from "../../../src/medical/gait-eligibility";
-import type { MeasurementGrade } from "../../../src/medical/rom-norms";
+import {
+  buildRomProtocol,
+  type FocusToday,
+  type RomProtocol,
+  type RomProtocolInput,
+} from "../../../src/medical/rom-protocol";
+import { gaitPlanFor, type GaitPlan } from "../../../src/medical/gait-eligibility";
+import { applyPrecheckOutcome, focusPrecheckEnv } from "../../../src/medical/focus-precheck";
+import { gradeMeasurement, typicalValue, type MeasurementGrade } from "../../../src/medical/rom-norms";
 import type { RomMeasureResult } from "../../../src/engine/rom/types";
 import type { JointMovementId } from "../../../src/movements/rom/types";
 import type { Setting } from "../../../src/movements/types";
@@ -60,20 +65,16 @@ export interface FocusRules {
   typicalValue(movement: JointMovementId, sex: Sex, age: number, side?: "left" | "right"): number | null;
 }
 
-/**
- * The real rules, bound at Gate A when steps A2 and A4 are merged:
- *
- *   import { hasV7Fields } from "../../../src/medical/plan";
- *   import { buildRomProtocol } from "../../../src/medical/rom-protocol";
- *   import { gaitPlanFor } from "../../../src/medical/gait-eligibility";
- *   import { applyPrecheckOutcome, focusPrecheckEnv } from "../../../src/medical/focus-precheck";
- *   import { gradeMeasurement, typicalValue } from "../../../src/medical/rom-norms";
- *   export const FOCUS_RULES: FocusRules | null = { hasV7Fields, buildRomProtocol, gaitPlanFor,
- *     focusPrecheckEnv, applyPrecheckOutcome, gradeMeasurement, typicalValue };
- *
- * Null until then (contract change log, A5).
- */
-export const FOCUS_RULES: FocusRules | null = null;
+/** The real rules of steps A2 and A4, bound at Gate A (contract change log A5-1). */
+export const FOCUS_RULES: FocusRules | null = {
+  hasV7Fields,
+  buildRomProtocol,
+  gaitPlanFor,
+  focusPrecheckEnv,
+  applyPrecheckOutcome,
+  gradeMeasurement,
+  typicalValue,
+};
 
 /** The check context of a focus check in its setting (the booth rules of Q19 (5b) included), or null when blocked. */
 export function focusContext(intake: Intake, plan: Plan, setting: Setting): CheckContext | null {

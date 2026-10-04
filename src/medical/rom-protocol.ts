@@ -111,13 +111,14 @@ const ARM_REGIONS: readonly RegionId[] = ["shoulder", "elbow", "forearm_wrist"];
  * The present parts of each limb loss level (rom-protocol 2.4, column Present): «below knee: hip, knee
  * (residual)»; «above knee: hip (residual thigh)»; «below elbow: shoulder, elbow (residual)»; «above
  * elbow: shoulder (residual upper arm)». The other regions of that limb are absent: not applicable.
+ * Read from the data (limbLoss.levels[].present, region ids since the freeze step, A4-8).
  */
-export const LIMB_LOSS_PRESENT_REGIONS: Readonly<Record<LimbLossLevel, readonly RegionId[]>> = Object.freeze({
-  below_knee: ["hip", "knee"],
-  above_knee: ["hip"],
-  below_elbow: ["shoulder", "elbow"],
-  above_elbow: ["shoulder"],
-});
+export const LIMB_LOSS_PRESENT_REGIONS: Readonly<Record<LimbLossLevel, readonly RegionId[]>> = Object.freeze(
+  Object.fromEntries(ROM_DATA.limbLoss.levels.map((l) => [l.level, Object.freeze([...l.present])])) as Record<
+    LimbLossLevel,
+    readonly RegionId[]
+  >,
+);
 const LIMB_OF_LEVEL: Record<LimbLossLevel, "leg" | "arm"> = {
   below_knee: "leg",
   above_knee: "leg",

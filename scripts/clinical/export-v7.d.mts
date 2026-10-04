@@ -28,6 +28,7 @@ export declare function movementDef(
   regions: { id: string; axial: boolean }[],
 ): Record<string, unknown>;
 export declare function hipEndRange(items: string[], where: string): string[];
+export declare function presentRegions(text: string, where: string): string[];
 export declare function exportRom(source: unknown): Record<string, unknown>;
 export declare function exportGait(source: unknown): Record<string, unknown>;
 export declare function exportTargets(source: unknown): Record<string, unknown>;

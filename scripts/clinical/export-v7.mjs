@@ -641,7 +641,7 @@ export const ROM_PROSE = {
   problemTypes: ["rule", "programHint"],
   conditionAutoMap: ["regions", "problem", "movementSet", "ask2"],
   limbLoss: ["rule"],
-  limbLossLevel: ["present", "openQuestion", "standing"],
+  limbLossLevel: ["openQuestion", "standing"],
   positions: ["who"],
   inAffectedRegion: ["percentOfNormal", "finding", "bodyMap"],
   thresholds: [
@@ -660,15 +660,28 @@ export const ROM_PROSE = {
   terms: ["N", "SD", "sigmaM", "b", "z"],
 };
 
-/** limbLoss.levels: the measured movements and the reason id of each movement that is not measured. */
+/**
+ * limbLoss.levels[].present in words to region ids (A4-8): «hip, knee (residual)» -> ["hip", "knee"],
+ * the bracketed words dropped; a word that is not a region id fails the export.
+ */
+export function presentRegions(text, where) {
+  if (typeof text !== "string") fail(`${where}: present is missing`);
+  const ids = text.replace(/\s*\([^)]*\)/g, "").split(/\s*,\s*/);
+  for (const id of ids)
+    if (!REGION_IDS.includes(id)) fail(`${where}: present ${JSON.stringify(text)}: ${id} is not a region id`);
+  return ids;
+}
+
+/** limbLoss.levels: the present regions, the measured movements and the reason id of each one not measured. */
 function limbLossLevels(limbLoss, reasonOf) {
   knownFields(limbLoss, ["levels", ...ROM_PROSE.limbLoss], "limbLoss");
   return {
     levels: limbLoss.levels.map((l) => {
       const where = `limbLoss ${l.level}`;
-      knownFields(l, ["level", "measured", "notMeasured", ...ROM_PROSE.limbLossLevel], where);
+      knownFields(l, ["level", "present", "measured", "notMeasured", ...ROM_PROSE.limbLossLevel], where);
       return {
         level: l.level,
+        present: presentRegions(l.present, where),
         measured: l.measured,
         notMeasured: Object.fromEntries(
           Object.entries(l.notMeasured).map(([m, text]) => [m, reasonOf(text, `${where} ${m}`)]),

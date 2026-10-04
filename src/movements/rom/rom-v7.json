@@ -477,6 +477,10 @@
     "levels": [
       {
         "level": "below_knee",
+        "present": [
+          "hip",
+          "knee"
+        ],
         "measured": [
           "hip_flexion",
           "hip_extension",
@@ -490,6 +494,9 @@
       },
       {
         "level": "above_knee",
+        "present": [
+          "hip"
+        ],
         "measured": [],
         "notMeasured": {
           "hip_flexion": "not_measured_camera",
@@ -502,6 +509,10 @@
       },
       {
         "level": "below_elbow",
+        "present": [
+          "shoulder",
+          "elbow"
+        ],
         "measured": [
           "shoulder_flexion",
           "shoulder_abduction",
@@ -514,6 +525,9 @@
       },
       {
         "level": "above_elbow",
+        "present": [
+          "shoulder"
+        ],
         "measured": [],
         "notMeasured": {
           "shoulder_flexion": "not_measured_camera",

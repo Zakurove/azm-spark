@@ -854,6 +854,13 @@ describe("session order and the cap (C-13, rom-protocol sessionOrder)", () => {
     })),
   });
 
+  it("reads the present parts of each limb loss level from the data (A4-8)", () => {
+    expect(Object.fromEntries(ROM_DATA.limbLoss.levels.map((l) => [l.level, [...l.present]]))).toEqual(
+      Object.fromEntries(Object.entries(LIMB_LOSS_PRESENT_REGIONS).map(([k, v]) => [k, [...v]])),
+    );
+    expect(LIMB_LOSS_PRESENT_REGIONS.below_knee).toEqual(["hip", "knee"]);
+  });
+
   it("reads the cap from the data: sessionOrder.maxMeasured (C-1)", () => {
     expect(MAX_MEASURED_PER_CHECK).toBe(ROM_DATA.sessionOrder.maxMeasured);
     expect(MAX_MEASURED_PER_CHECK).toBe(8);

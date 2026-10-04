@@ -482,6 +482,8 @@ export interface RomData {
   limbLoss: {
     levels: {
       level: LimbLossLevel;
+      /** The regions present at this level (rom-protocol 2.4 column Present); the limb's others are absent. */
+      present: RegionId[];
       measured: RomMovementId[];
       notMeasured: Partial<Record<RomMovementId, "not_measured_camera" | "limb_absent">>;
     }[];

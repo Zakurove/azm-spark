@@ -35,6 +35,7 @@ import {
   normaliseRegions,
   numberTokens,
   numbersOnly,
+  presentRegions,
   proseNumbers,
   strip,
 } from "../../scripts/clinical/export-v7.mjs";
@@ -147,7 +148,8 @@ function romSource(): Obj {
       rule: "A movement is measured only when every landmark is present",
       levels: rom.limbLoss.levels.map((l: Obj) => ({
         ...l,
-        present: "hip",
+        // The present parts in words, the residual note in brackets (rom-protocol 2.4).
+        present: (l.present ?? []).map((r: string, i: number) => (i ? `${r} (residual)` : r)).join(", "),
         notMeasured: Object.fromEntries(
           Object.entries(l.notMeasured).map(([m, r]) => [
             m,
@@ -1003,6 +1005,21 @@ describe("v7 clinical export: structured prose (engine, norms, limb loss, hip en
     const s = romSource();
     s.engine.holdSeconds = { value: "about 1", basis: "plan" };
     expect(() => exportRom(s)).toThrow('engine.holdSeconds: unknown value "about 1"');
+  });
+
+  it("maps the present parts of each limb loss level to region ids, failing on another word", () => {
+    const rom = exportRom(romSource()) as Obj;
+    expect(rom.limbLoss.levels.map((l: Obj) => [l.level, l.present])).toEqual([
+      ["below_knee", ["hip", "knee"]],
+      ["above_knee", ["hip"]],
+      ["below_elbow", ["shoulder", "elbow"]],
+      ["above_elbow", ["shoulder"]],
+    ]);
+    expect(presentRegions("shoulder (residual upper arm)", "x")).toEqual(["shoulder"]);
+    expect(presentRegions("hip, knee (residual)", "x")).toEqual(["hip", "knee"]);
+    const s = romSource();
+    s.limbLoss.levels[0].present = "hip, thigh";
+    expect(() => exportRom(s)).toThrow('limbLoss below_knee: present "hip, thigh": thigh is not a region id');
   });
 
   it("maps limb loss prose to reason ids and fails on prose without one", () => {

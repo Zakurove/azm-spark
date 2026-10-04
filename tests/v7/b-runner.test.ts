@@ -989,3 +989,40 @@ describe("events", () => {
     expect(asked).toHaveLength(3);
   });
 });
+
+describe("every line the runner plays has a voice line", () => {
+  it("the copy lines of the questions and steps, and every compensation cue of the data", async () => {
+    const script = (await import("../../src/app/voice-script.json")).default as Record<string, unknown>;
+    const heard = new Set<string>();
+    const listen = (r: RomRunner, s: Script, extra: (r: RomRunner, t: number) => RomEvent[] = () => []) => {
+      const d = drive(r, s, 150);
+      for (const c of cuesOf([...d.events, ...extra(r, d.t)])) heard.add(c);
+    };
+    listen(runner("shoulder_abduction", { askCauseBelow: 150 }), abduct(100, { cause: "tight" }));
+    listen(
+      runner("shoulder_abduction"),
+      abduct(100, {
+        answer: (h) => (h.attempt === 1 ? { answer: "not_yet" } : { answer: "hurts" }),
+        pain: { level: 7 },
+      }),
+    );
+    const can = runner("shoulder_abduction", { item: { askCanMove: true } });
+    for (const c of cuesOf([...can.start(0), ...can.answerCanMove(false, 10)])) heard.add(c);
+    expect([...heard]).toEqual(
+      expect.arrayContaining([
+        "practice",
+        "again",
+        "ask_max",
+        "recorded",
+        "keep_going",
+        "pain_ask",
+        "pain_stop",
+        "what_stopped_ask",
+        "can_move_ask",
+        "no_active_movement",
+      ]),
+    );
+    for (const m of ROM_DATA.movements) for (const c of m.compensations) if (c.cue) heard.add(c.cue);
+    for (const line of heard) expect(script[`rom_${line}`] ?? script[line], line).toBeDefined();
+  });
+});

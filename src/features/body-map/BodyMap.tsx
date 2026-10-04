@@ -11,7 +11,8 @@
  * never mirrors with the page direction (it is drawn left to right in both languages); its labels
  * are in the page language. The art is original Azm line art.
  *
- * `lang` is a prop beside the contract's mode props, for the labels (contract change log, A2).
+ * Beside the contract's mode props, `lang` gives the labels' language and summary mode takes optional
+ * `notes`, read after a cell's name (A2-5, accepted in D-024).
  */
 import { useState } from "react";
 import type { Lang } from "../../app/i18n";

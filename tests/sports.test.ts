@@ -89,7 +89,10 @@ describe("para sports and their demands (booth v2, B1)", () => {
 });
 
 describe("demand tags on the library (booth v2, B2)", () => {
-  const LIB = library as { id: string; category: string; demands?: string[] }[];
+  // The approved entries: the v7 drafts (status draft, contract 2.10) join these rules at their sign off.
+  const LIB = (library as { id: string; category: string; demands?: string[]; status?: string }[]).filter(
+    (e) => e.status !== "draft",
+  );
 
   it("tags all 55 exercises with known demands only", () => {
     expect(LIB).toHaveLength(55);

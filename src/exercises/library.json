@@ -3171,5 +3171,4414 @@
    }
   ],
   "painFriendly": false
+ },
+ {
+  "id": "table_slides",
+  "name": {
+   "ar": "مسح الطاولة بالذراع",
+   "en": "Table slides"
+  },
+  "description": {
+   "ar": "حركة لطيفة للكتف على الطاولة، تحمل فيها الطاولة وزن ذراعك.",
+   "en": "A gentle shoulder movement on a table, which carries the weight of your arm."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس مقابل طاولة، قريبًا منها بحيث يرتاح ساعدك عليها.",
+    "ضع يدك على منشفة صغيرة فوق الطاولة، ويمكن أن تضع يدك الأخرى فوقها لتساعدها.",
+    "اسحب المنشفة ببطء إلى الأمام، مع ميل خفيف إلى الأمام من الوركين.",
+    "توقف عندما تشعر بشد خفيف، وازفر ببطء.",
+    "عد ببطء إلى وضع البداية.",
+    "ثم اسحب المنشفة إلى الجانب وأعدها.",
+    "إذا كانت ذراعك الأضعف هي التي تتحرك، فأبقِ ساعدها كله مستندًا على الطاولة، وحرّكها في مدى صغير، ودع يدك الأخرى تساعدها، ولا تسحبها أبدًا. وبين التمارين أسند هذه الذراع على طاولة أو وسادة أو مسند."
+   ],
+   "en": [
+    "Sit facing a table, close enough to rest your forearm on it.",
+    "Place your hand on a small towel on the table. Your other hand can rest on top to help.",
+    "Slowly slide the towel forward, leaning a little forward from your hips.",
+    "Stop when you feel a gentle stretch, and breathe out slowly.",
+    "Slide back slowly to the start.",
+    "Then slide the towel out to the side and back.",
+    "If your weaker arm is the one moving, keep its whole forearm resting on the table, move it in a small range with your other hand helping, and never pull on it. Between exercises, rest that arm on a table, pillow or armrest."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:shoulder_abduction",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain",
+   "text": "10 slides forward and 10 to the side.",
+   "repetitions": 10
+  }
+ },
+ {
+  "id": "seated_arm_swing",
+  "name": {
+   "ar": "أرجحة الذراع جالسًا",
+   "en": "Seated arm swing"
+  },
+  "description": {
+   "ar": "أرجحة صغيرة مرتخية للذراع إلى الأمام والخلف.",
+   "en": "A small, relaxed swing of the arm forward and back."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس قرب مقدمة كرسي بلا ذراعين، وقدماك مسطحتان على الأرض.",
+    "مِل قليلًا إلى الأمام وضع يدك الأقوى على فخذك للسند. أو اجلس مقابل طاولة وضع ساعدك الآخر عليها ليستند صدرك.",
+    "دع الذراع الأخرى تتدلى مرتخية بجانب الكرسي.",
+    "أرجحها برفق إلى الأمام ثم إلى الخلف، حركة صغيرة ومرتخية.",
+    "زد المسافة قليلًا فقط ما دامت الحركة مريحة."
+   ],
+   "en": [
+    "Sit near the front of an armless chair with your feet flat on the floor.",
+    "Lean a little forward and rest your stronger hand on your thigh for support. Or sit facing a table and rest your other forearm on it so your chest is supported.",
+    "Let the other arm hang relaxed beside the chair.",
+    "Swing it gently forward and then back, small and relaxed.",
+    "Make the swing a little bigger only while it stays comfortable."
+   ]
+  },
+  "tags": [
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "weak_shoulder",
+   "weak_arm_no_active_shoulder",
+   "wheelchair_needs_transfer",
+   "sitting_balance"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated_forward"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_extension",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain",
+   "text": "10 swings, 1 to 2 rounds.",
+   "repetitions": 10,
+   "rounds": [
+    1,
+    2
+   ]
+  }
+ },
+ {
+  "id": "wall_hand_walk",
+  "name": {
+   "ar": "مشي اليدين على الحائط",
+   "en": "Hands up the wall"
+  },
+  "description": {
+   "ar": "حركة ترفع فيها ذراعيك على الحائط بأصابعك.",
+   "en": "Walk your fingers up a wall to raise your arms."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف مقابل حائط، أبعد قليلًا من طول ذراعك، وقدماك متباعدتان بعرض الكتفين. يمكنك أيضًا أن تجلس على كرسي قريب من الحائط.",
+    "مِل إلى الأمام وضع كفيك مبسوطتين على الحائط عند مستوى الكتفين.",
+    "مع إبقاء ظهرك مستقيمًا، حرّك أصابعك ببطء صعودًا على الحائط إلى أعلى مستوى مريح.",
+    "اثبت {hold_ar}، ثم أنزل يديك ببطء.",
+    "لتحريك الذراع إلى الجانب، اجعل جانبك نحو الحائط، وحرّك أصابع اليد القريبة صعودًا."
+   ],
+   "en": [
+    "Stand facing a wall, a little farther than arm's length away, feet shoulder width apart. You can also sit on a chair close to the wall.",
+    "Lean forward and put your palms flat on the wall at shoulder height.",
+    "Keeping your back straight, slowly walk your fingers up the wall as high as is comfortable.",
+    "Hold for {hold_en}, then walk your hands slowly back down.",
+    "To move the arm out to the side, turn your side to the wall and walk the fingers of the nearer hand up the wall."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "no_overhead",
+   "weak_shoulder",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing",
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:shoulder_abduction",
+    "role": "secondary"
+   },
+   {
+    "id": "stretch:chest",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain",
+   "text": "NIA: hold 10 to 30 s, 3 to 5 times. With pain: no hold, walk up only within comfort.",
+   "holdSeconds": [
+    10,
+    30
+   ],
+   "repetitions": [
+    3,
+    5
+   ]
+  }
+ },
+ {
+  "id": "stick_arm_raise",
+  "name": {
+   "ar": "رفع الذراعين بالعصا",
+   "en": "Arm raise with a stick"
+  },
+  "description": {
+   "ar": "ترفع ذراعيك معًا بعصا خفيفة، وتساعد الذراع الأقوى الذراع الأخرى.",
+   "en": "Raise both arms together with a light stick, the stronger arm helping the other."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا على كرسي، أو استلقِ على ظهرك على السرير.",
+    "أمسك عصا خفيفة أو منشفة ملفوفة بيديك، والمسافة بينهما بعرض الكتفين.",
+    "دع ذراعك الأقوى تساعد وأنت ترفع الذراعين ببطء إلى الأمام ثم إلى الأعلى.",
+    "توقف عند ارتفاع مريح تشعر فيه بشد خفيف، واثبت مدة نفس هادئ.",
+    "أنزل ذراعيك ببطء وبتحكم."
+   ],
+   "en": [
+    "Sit tall in a chair, or lie on your back on a bed.",
+    "Hold a light stick or a rolled towel with both hands, shoulder width apart.",
+    "Let your stronger arm help as you slowly raise both arms forward and up.",
+    "Stop at a comfortable height where you feel a gentle stretch, and hold for a slow breath.",
+    "Lower your arms slowly, with control."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "lying_down",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "no_overhead",
+   "weak_shoulder"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated",
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "mobility_reps"
+  }
+ },
+ {
+  "id": "arm_back_reach",
+  "name": {
+   "ar": "مدّ الذراعين إلى الخلف",
+   "en": "Arms back reach"
+  },
+  "description": {
+   "ar": "تحريك الذراعين المستقيمتين إلى الخلف ببطء.",
+   "en": "Move both straight arms slowly back."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "shoulders",
+   "back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس قرب مقدمة كرسي بلا ذراعين، أو قف وقدماك متباعدتان قليلًا.",
+    "دع ذراعيك تتدليان مستقيمتين بجانبك، وكفاك نحو جسمك.",
+    "اجلس معتدلًا، وحرّك الذراعين ببطء إلى الخلف قدر ما يريحك، مع إبقاء المرفقين مستقيمين.",
+    "حافظ على جذعك معتدلًا، ولا تمل إلى الأمام.",
+    "اثبت ثانيتين، ثم أعد ذراعيك ببطء."
+   ],
+   "en": [
+    "Sit near the front of an armless chair, or stand with your feet a little apart.",
+    "Let your arms hang straight by your sides, palms facing in.",
+    "Sit tall and slowly move both arms back as far as is comfortable, keeping your elbows straight.",
+    "Keep your body upright and do not lean forward.",
+    "Hold for 2 seconds, then bring your arms back slowly."
+   ]
+  },
+  "tags": [
+   "seated",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "standing_gate",
+   "wheelchair_needs_transfer",
+   "sitting_balance"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated_forward",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_extension",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_flexors",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:shoulder_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "arms_open_chest_stretch",
+  "name": {
+   "ar": "فتح الذراعين لإطالة الصدر",
+   "en": "Open arms chest stretch"
+  },
+  "description": {
+   "ar": "إطالة لعضلات الصدر.",
+   "en": "A stretch for the chest muscles."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "chest",
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس على كرسي ثابت بلا ذراعين أو قف، وقدماك مسطحتان على الأرض بعرض الكتفين.",
+    "افتح ذراعيك إلى الجانبين عند مستوى الكتفين، وكفاك نحو الأمام.",
+    "حرّك ذراعيك ببطء إلى الخلف وأنت تضم لوحي الكتفين.",
+    "توقف عندما تشعر بشد في صدرك، واثبت {hold_ar}.",
+    "أعد ذراعيك إلى الأمام ببطء واسترح."
+   ],
+   "en": [
+    "Sit in a sturdy armless chair or stand, feet flat on the floor and shoulder width apart.",
+    "Hold your arms out to your sides at shoulder height, palms facing forward.",
+    "Slowly move your arms back while squeezing your shoulder blades together.",
+    "Stop when you feel a stretch across your chest, and hold for {hold_en}.",
+    "Bring your arms forward slowly and rest."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "weak_shoulder",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "stretch:chest",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_flexors",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:scapular_retractors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold",
+   "text": "NIA: hold 10 to 30 s, 3 to 5 times.",
+   "holdSeconds": [
+    10,
+    30
+   ],
+   "repetitions": [
+    3,
+    5
+   ]
+  }
+ },
+ {
+  "id": "shoulder_wall_press",
+  "name": {
+   "ar": "ضغط الكتف على الحائط",
+   "en": "Shoulder wall press"
+  },
+  "description": {
+   "ar": "تقوية للكتف بالضغط على الحائط دون حركة ودون أدوات.",
+   "en": "Shoulder strengthening by pressing into a wall, with no movement and no equipment."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "shoulders"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس أو قف وجانبك نحو حائط، ومرفقك مثني بزاوية قائمة.",
+    "اضغط بالجهة الخارجية لمرفقك وساعدك على الحائط، كأنك ترفع ذراعك إلى الجانب، دون أن تتحرك الذراع.",
+    "اضغط برفق 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ.",
+    "ثم واجه الحائط واضغط بقبضتك إلى الأمام عليه 5 ثوان.",
+    "يمكنك أيضًا أن تدير ظهرك للحائط وتضغط بمرفقك إلى الخلف عليه.",
+    "اضغط بالقدر المريح فقط ودون ألم."
+   ],
+   "en": [
+    "Sit or stand with your side next to a wall, elbow bent to a right angle.",
+    "Press the outside of your elbow and forearm into the wall, as if lifting your arm out to the side. The arm does not move.",
+    "Press gently for 5 seconds, breathing normally, then relax.",
+    "Then face the wall and press your fist forward into it for 5 seconds.",
+    "You can also stand with your back to the wall and press your elbow back into it.",
+    "Press only as hard as is comfortable, with no pain."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "shoulder_endurance"
+  ],
+  "contraindications": [
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_abductors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "elbow_slides_table",
+  "name": {
+   "ar": "فرد المرفق وثنيه على الطاولة",
+   "en": "Elbow slides on a table"
+  },
+  "description": {
+   "ar": "تمرين على الطاولة تفرد فيه مرفقك وتثنيه.",
+   "en": "A table exercise where you straighten and bend your elbow."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "biceps",
+   "triceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس بجانب طاولة وضع ساعدك على منشفة فوقها، والكف للأعلى أو للأسفل بحسب ما يريحك.",
+    "اسحب يدك ببطء إلى الأمام ليستقيم مرفقك قدر ما يريحك.",
+    "لإطالة مقدمة الذراع، اثبت على الشد الخفيف {hold_ar}. يمكن أن تضع يدك الأخرى على ساعدك دون أن تضغط على المرفق.",
+    "ثم اسحب يدك نحوك ببطء لينثني المرفق."
+   ],
+   "en": [
+    "Sit beside a table and rest your forearm on a towel on it, palm up or down, whichever is comfortable.",
+    "Slowly slide your hand forward to straighten your elbow as far as is comfortable.",
+    "To stretch the front of the arm, hold the gentle stretch for {hold_en}. Your other hand can rest on your forearm, without pressing on the elbow.",
+    "Then slide your hand slowly back toward you to bend the elbow."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:elbow_extension",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:elbow_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:elbow_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain",
+   "stretchProfile": "stretch_hold"
+  }
+ },
+ {
+  "id": "assisted_elbow_bend",
+  "name": {
+   "ar": "ثني المرفق وفرده بمساعدة اليد الأخرى",
+   "en": "Assisted elbow bend and straighten"
+  },
+  "description": {
+   "ar": "تثني مرفقك وتفرده، وتساعده يدك الأخرى برفق في نهاية الحركة.",
+   "en": "Bend and straighten your elbow, with gentle help from your other hand at the end."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "biceps",
+   "triceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وذراعك مرتخية بجانبك.",
+    "اثنِ مرفقك ببطء لتقرّب يدك من كتفك.",
+    "عندما تصل إلى نهاية الحركة، دع يدك الأخرى تساعد برفق، دون ألم.",
+    "اثبت {hold_ar} لإطالة خلف الذراع.",
+    "ثم افرد الذراع ببطء حتى تستقيم قدر ما يريحك."
+   ],
+   "en": [
+    "Sit tall with your arm relaxed by your side.",
+    "Slowly bend your elbow to bring your hand toward your shoulder.",
+    "When you reach the end, let your other hand help gently, without pain.",
+    "Hold for {hold_en} to stretch the back of the arm.",
+    "Then straighten the arm slowly, as far as is comfortable."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:elbow_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:elbow_extension",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:elbow_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain",
+   "stretchProfile": "stretch_hold"
+  }
+ },
+ {
+  "id": "wall_arm_stretch",
+  "name": {
+   "ar": "إطالة الذراع على الحائط",
+   "en": "Wall arm stretch"
+  },
+  "description": {
+   "ar": "إطالة لمقدمة الذراع والصدر عند الحائط.",
+   "en": "A stretch for the front of the arm and chest at a wall."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "biceps",
+   "chest"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قف وجانبك نحو حائط، على بُعد خطوة تقريبًا.",
+    "ضع كفك مبسوطة على الحائط خلفك عند مستوى الكتف أو أخفض قليلًا، والمرفق مستقيم.",
+    "أدر جسمك ببطء بعيدًا عن الحائط حتى تشعر بشد على طول مقدمة ذراعك.",
+    "اثبت {hold_ar}، ثم عد."
+   ],
+   "en": [
+    "Stand with your side next to a wall, about a step away.",
+    "Place your palm flat on the wall behind you at shoulder height or a little lower, with your elbow straight.",
+    "Slowly turn your body away from the wall until you feel a stretch along the front of your arm.",
+    "Hold for {hold_en}, then turn back."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "weak_shoulder",
+   "shoulder_injury",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "stretch:elbow_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:chest",
+    "role": "secondary"
+   },
+   {
+    "id": "stretch:shoulder_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold"
+  }
+ },
+ {
+  "id": "seated_side_reach",
+  "name": {
+   "ar": "الميل جانبًا جالسًا",
+   "en": "Seated side reach"
+  },
+  "description": {
+   "ar": "ميل جانبي بطيء وأنت جالس على كرسي له مسندان للذراعين.",
+   "en": "A slow side bend while sitting in a chair with armrests on both sides."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "obliques"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا على كرسي ثابت له مسندان للذراعين، بلا عجلات ولا يدور، أو على كرسيك المتحرك والفرامل مقفلة والواقيان الجانبيان في مكانهما.",
+    "ضع يديك على مسندي الذراعين.",
+    "مِل ببطء إلى جهة واحدة، ودع يدك تنزلق برفق على مسند الذراع أو الواقي الجانبي، دون أن تدفع بها.",
+    "إذا كنت على كرسيك المتحرك، فأبقِ يدك الأخرى على مسند الذراع أو على العجلة، ولا تنزل بيدك أدنى من أعلى العجلة.",
+    "لا تمِل أبعد من أبعد ميل وصلت إليه في آخر قياس. توقف عندما تشعر بشد في الجهة الأخرى من جسمك.",
+    "اثبت {hold_ar}، ثم اعتدل ببطء وبدّل الجهة."
+   ],
+   "en": [
+    "Sit tall on a steady chair with armrests on both sides, with no wheels and no swivel, or in your wheelchair with the brakes on and the side guards in place.",
+    "Rest your hands on the armrests.",
+    "Slowly lean to one side, letting your hand slide gently down the armrest or side guard without pushing on it.",
+    "If you are in your wheelchair, keep your other hand on the armrest or the wheel, and do not reach lower than the top of the wheel.",
+    "Do not lean further than your best side lean at your last check. Stop when you feel a stretch along the other side of your body.",
+    "Hold for {hold_en}, then sit up slowly and change sides."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility",
+   "trunk_control"
+  ],
+  "contraindications": [
+   "seated_lean_gate",
+   "pusher",
+   "no_trunk_armrests"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_lateral_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:trunk_side",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "standing_side_bend_supported",
+  "name": {
+   "ar": "الميل جانبًا واقفًا مع سند",
+   "en": "Standing side bend with support"
+  },
+  "description": {
+   "ar": "ميل جانبي واقفًا وأنت تمسك سندًا ثابتًا.",
+   "en": "A side bend while standing and holding a steady support."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "obliques"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قف وجانبك نحو سطح المطبخ أو طاولة ثقيلة، وخلفك كرسي ثابت، وأمسكه بيد واحدة.",
+    "قف معتدلًا وقدماك متباعدتان.",
+    "دع يدك الأخرى تنزلق ببطء على جانب فخذك، وأنت تميل بجسمك بعيدًا عن السند.",
+    "توقف عندما تشعر بشد في جانب جسمك، واثبت {hold_ar}.",
+    "اعتدل ببطء، ثم استدر وكرر على الجهة الأخرى."
+   ],
+   "en": [
+    "Stand with your side next to a kitchen counter or a heavy table, with a steady chair behind you, and hold it with one hand.",
+    "Stand tall with your feet apart.",
+    "Slowly slide your other hand down the side of your thigh, bending your body away from the support.",
+    "Stop when you feel a stretch along the side of your body, and hold for {hold_en}.",
+    "Stand up straight slowly, then turn around and repeat on the other side."
+   ]
+  },
+  "tags": [
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "severe_balance_issues",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_lateral_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:trunk_side",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "seated_forward_bend",
+  "name": {
+   "ar": "الانحناء إلى الأمام جالسًا",
+   "en": "Seated forward bend"
+  },
+  "description": {
+   "ar": "إطالة لعضلات الظهر وأنت جالس.",
+   "en": "A stretch for your back muscles while sitting."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "back",
+   "lower_back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس قرب مقدمة كرسي ثابت بلا ذراعين، وقدماك مسطحتان على الأرض بعرض الكتفين.",
+    "انحنِ ببطء إلى الأمام من الوركين، مع إبقاء ظهرك ورقبتك مستقيمين.",
+    "أرخِ رقبتك واخفض ذقنك، ودع يديك تنزلقان على ساقيك نحو أسفل الساقين.",
+    "توقف عندما تشعر بشد أو انزعاج خفيف في ظهرك، واثبت {hold_ar}.",
+    "اعتدل ببطء حتى تعود إلى وضع البداية."
+   ],
+   "en": [
+    "Sit toward the front of a sturdy armless chair, feet flat on the floor and shoulder width apart.",
+    "Slowly bend forward from your hips, keeping your back and neck straight.",
+    "Relax your neck and lower your chin. Slide your hands down your legs toward your shins.",
+    "Stop when you feel a stretch or slight discomfort in your back, and hold for {hold_en}.",
+    "Sit up slowly all the way to the start."
+   ]
+  },
+  "tags": [
+   "seated",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "osteoporosis_spine",
+   "spine_surgery_recent",
+   "hip_precautions_posterior",
+   "wheelchair_needs_transfer",
+   "sitting_balance"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated_forward"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:back_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:hamstrings",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold",
+   "text": "NIA: hold 10 to 30 s, 3 to 5 times.",
+   "holdSeconds": [
+    10,
+    30
+   ],
+   "repetitions": [
+    3,
+    5
+   ]
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "seated_upper_back_extension",
+  "name": {
+   "ar": "فرد أعلى الظهر جالسًا",
+   "en": "Seated upper back extension"
+  },
+  "description": {
+   "ar": "تمرين لطيف يفرد أعلى ظهرك فوق مسند الكرسي.",
+   "en": "A gentle exercise that straightens your upper back over the chair back."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس على كرسي ثابت له مسند يصل إلى منتصف ظهرك.",
+    "ضع ذراعيك متقاطعتين على صدرك.",
+    "ارفع صدرك برفق ومِل بأعلى ظهرك فوق حافة المسند.",
+    "أبقِ نظرك إلى الأمام أو ارفعه قليلًا فقط، واثبت مدة نفس هادئ.",
+    "عد إلى الجلوس المعتدل. توقف إذا شعرت بدوخة."
+   ],
+   "en": [
+    "Sit in a sturdy chair with a backrest that reaches the middle of your back.",
+    "Cross your arms over your chest.",
+    "Gently lift your chest and lean your upper back over the top of the backrest.",
+    "Keep your eyes forward or look up only a little, and hold for a slow breath.",
+    "Return to sitting tall. Stop if you feel dizzy."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
+  ],
+  "contraindications": [
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_extension",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:back_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:neck_extension",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "seated_pelvic_rock",
+  "name": {
+   "ar": "تحريك الحوض جالسًا",
+   "en": "Seated pelvic rock"
+  },
+  "description": {
+   "ar": "حركة صغيرة لأسفل الظهر وأنت جالس، بين التقوس والاستقامة.",
+   "en": "A small movement of the lower back while sitting, between rounding and sitting tall."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "core",
+   "lower_back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس قرب مقدمة كرسي ثابت، وقدماك مسطحتان على الأرض ويداك على فخذيك.",
+    "أمِل حوضك ببطء إلى الخلف لينحني أسفل ظهرك قليلًا.",
+    "ثم أمِل حوضك إلى الأمام لتجلس معتدلًا مع تقوس خفيف في أسفل ظهرك.",
+    "تحرك ببطء بين الوضعين ضمن المدى المريح، دون أن تحرك كتفيك كثيرًا."
+   ],
+   "en": [
+    "Sit near the front of a sturdy chair, feet flat on the floor and hands on your thighs.",
+    "Slowly tilt your hips back so your lower back rounds a little.",
+    "Then tilt your hips forward to sit tall, with a small curve in your lower back.",
+    "Move slowly between the two, within your comfortable range, keeping your shoulders fairly still."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
+  ],
+  "contraindications": [
+   "osteoporosis_spine",
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:trunk_extension",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:abdominals",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "chin_to_chest",
+  "name": {
+   "ar": "خفض الذقن نحو الصدر",
+   "en": "Chin to chest"
+  },
+  "description": {
+   "ar": "إطالة لطيفة لمؤخرة الرقبة.",
+   "en": "A gentle stretch for the back of the neck."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "neck"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وكتفاك مرتخيتان.",
+    "اخفض ذقنك ببطء نحو صدرك حتى تشعر بشد خفيف في مؤخرة رقبتك.",
+    "اثبت {hold_ar} دون أن تشد رأسك بيديك.",
+    "ارفع رأسك ببطء إلى الوسط."
+   ],
+   "en": [
+    "Sit tall with your shoulders relaxed.",
+    "Slowly lower your chin toward your chest until you feel a gentle stretch at the back of your neck.",
+    "Hold for {hold_en} without pulling your head with your hands.",
+    "Lift your head slowly back to the middle."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "neck_caution",
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:neck_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:neck_back",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "look_up_gently",
+  "name": {
+   "ar": "رفع النظر إلى الأعلى برفق",
+   "en": "Look up gently"
+  },
+  "description": {
+   "ar": "حركة صغيرة للرقبة إلى الخلف ضمن المدى المريح.",
+   "en": "A small neck movement back, within your comfortable range."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "neck"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وظهرك مسنود وكتفاك مرتخيتان.",
+    "انظر ببطء إلى الأعلى نحو السقف، بالقدر المريح فقط.",
+    "اثبت من 2 إلى 3 ثوان، ثم أعد رأسك ببطء إلى الوسط.",
+    "توقف فورًا إذا شعرت بدوخة أو تغيّر في النظر أو تنميل."
+   ],
+   "en": [
+    "Sit tall with your back supported and your shoulders relaxed.",
+    "Slowly look up toward the ceiling, only as far as is comfortable.",
+    "Hold for 2 to 3 seconds, then bring your head slowly back to the middle.",
+    "Stop straight away if you feel dizzy, notice a change in your vision, or have numbness or tingling."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "neck_caution",
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:neck_extension",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain",
+   "text": "5 to 10 repetitions; no long holds looking up.",
+   "repetitions": [
+    5,
+    10
+   ]
+  }
+ },
+ {
+  "id": "head_tilt_side",
+  "name": {
+   "ar": "إمالة الرأس إلى الجانب",
+   "en": "Head tilt to the side"
+  },
+  "description": {
+   "ar": "إطالة لطيفة لجانب الرقبة دون شد باليد.",
+   "en": "A gentle stretch for the side of the neck, without pulling with the hand."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "neck"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وكتفاك مرتخيتان ومنخفضتان.",
+    "أمِل رأسك ببطء لتقرّب أذنك من كتفك، دون أن ترفع الكتف.",
+    "توقف عندما تشعر بشد خفيف في الجهة الأخرى من رقبتك، واثبت {hold_ar}.",
+    "أعد رأسك ببطء إلى الوسط، ثم أمِله إلى الجهة الأخرى."
+   ],
+   "en": [
+    "Sit tall with your shoulders relaxed and down.",
+    "Slowly tilt your head to bring your ear toward your shoulder, without lifting the shoulder.",
+    "Stop when you feel a gentle stretch on the other side of your neck, and hold for {hold_en}.",
+    "Bring your head slowly back to the middle, then tilt to the other side."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "neck_caution",
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:neck_lateral_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:neck_side",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "seated_knee_hug",
+  "name": {
+   "ar": "ضم الركبة إلى الصدر جالسًا",
+   "en": "Seated knee hug"
+  },
+  "description": {
+   "ar": "ثني الورك وأنت جالس بمساعدة يديك.",
+   "en": "Bend your hip while sitting, with help from your hands."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "glutes",
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وظهرك مستند إلى الكرسي. إذا كنت على كرسي متحرك، فاقفل الفرامل وأدر العجلتين الأماميتين الصغيرتين إلى الأمام.",
+    "أمسك أسفل أحد فخذيك بكلتا يديك.",
+    "ارفع تلك الركبة ببطء نحو صدرك قدر ما يريحك.",
+    "اثبت {hold_ar} وظهرك مستند إلى الكرسي.",
+    "أنزل قدمك ببطء إلى الأرض."
+   ],
+   "en": [
+    "Sit tall with your back against the chair. In a wheelchair, lock the brakes and turn the small front wheels to face forward.",
+    "Hold under one thigh with both hands.",
+    "Slowly lift that knee toward your chest as far as is comfortable.",
+    "Hold for {hold_en}, keeping your back against the chair.",
+    "Lower your foot slowly to the floor."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:hip_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:hip_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold"
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "lying_knee_to_chest",
+  "name": {
+   "ar": "ضم الركبة إلى الصدر مستلقيًا",
+   "en": "Knee to chest, lying"
+  },
+  "description": {
+   "ar": "إطالة للأرداف وأسفل الظهر وأنت مستلقٍ.",
+   "en": "A stretch for the buttock and lower back while lying down."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "glutes",
+   "lower_back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك على سرير أو فرشة ثابتة، وركبتاك مثنيتان وقدماك مسطحتان.",
+    "أمسك خلف أحد فخذيك بكلتا يديك.",
+    "قرّب تلك الركبة ببطء من صدرك حتى تشعر بشد خفيف في الأرداف.",
+    "أبقِ رأسك والقدم الأخرى على السطح، واثبت {hold_ar}.",
+    "أنزل الساق ببطء وبدّل الساق."
+   ],
+   "en": [
+    "Lie on your back on a bed or a firm mat, knees bent and feet flat.",
+    "Hold behind one thigh with both hands.",
+    "Slowly bring that knee toward your chest until you feel a gentle stretch in your buttock.",
+    "Keep your head and the other foot down, and hold for {hold_en}.",
+    "Lower the leg slowly and change legs."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "mobility:hip_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:hip_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:back_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold"
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "standing_hip_flexor_stretch",
+  "name": {
+   "ar": "إطالة مقدمة الورك واقفًا",
+   "en": "Standing hip flexor stretch"
+  },
+  "description": {
+   "ar": "إطالة لمقدمة الورك وأنت واقف ممسك بسند.",
+   "en": "A stretch for the front of the hip while standing and holding a support."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف وجانبك نحو سطح المطبخ أو طاولة ثقيلة، وخلفك كرسي ثابت، وأمسكه.",
+    "أرجع الساق التي ستطيلها إلى الخلف، خطوة طويلة خلف الساق الأخرى.",
+    "شدّ عضلات الأرداف والبطن قليلًا حتى لا يتقوس أسفل ظهرك، وأبقِ جذعك معتدلًا.",
+    "اثنِ الركبة الأمامية قليلًا وانقل وزنك برفق إلى الأمام حتى تشعر بشد في مقدمة الورك الخلفي.",
+    "اثبت {hold_ar}، ثم ضم القدمين وبدّل الساق."
+   ],
+   "en": [
+    "Stand with your side to a kitchen counter or a heavy table, with a steady chair behind you, and hold it.",
+    "Step the leg you will stretch back, one long step behind the other.",
+    "Tighten your buttocks and tummy a little so your lower back does not arch. Keep your body upright.",
+    "Bend the front knee a little and move your weight gently forward until you feel a stretch at the front of the back hip.",
+    "Hold for {hold_en}, then bring your feet together and change legs."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "severe_balance_issues",
+   "hip_precautions_anterior",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "stretch:hip_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_extension",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold",
+   "text": "The trial used twice daily home stretching for 10 weeks."
+  },
+  "hipEndRange": [
+   "extension"
+  ]
+ },
+ {
+  "id": "glute_bridge",
+  "name": {
+   "ar": "رفع الحوض مستلقيًا",
+   "en": "Bridge"
+  },
+  "description": {
+   "ar": "تقوية لعضلات الأرداف وأنت مستلقٍ على ظهرك.",
+   "en": "Strengthens your buttock muscles while lying on your back."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "glutes",
+   "hamstrings",
+   "lower_back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك على سرير أو فرشة ثابتة، وركبتاك مثنيتان وقدماك مسطحتان بعرض الوركين.",
+    "شدّ عضلات الأرداف وارفع حوضك ببطء حتى يصبح جسمك خطًا من الكتفين إلى الركبتين، أو إلى الارتفاع المريح لك.",
+    "اثبت من 1 إلى 3 ثوان وأنت تُخرج النفس.",
+    "أنزل حوضك ببطء."
+   ],
+   "en": [
+    "Lie on your back on a bed or a firm mat, knees bent and feet flat, hip width apart.",
+    "Tighten your buttocks and slowly lift your hips until your body is in a line from shoulders to knees, or as high as is comfortable.",
+    "Hold for 1 to 3 seconds while breathing out.",
+    "Lower your hips slowly."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_extension",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:back_extensors",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:hamstrings",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  }
+ },
+ {
+  "id": "standing_back_leg_raise",
+  "name": {
+   "ar": "رفع الساق إلى الخلف واقفًا",
+   "en": "Back leg raise"
+  },
+  "description": {
+   "ar": "رفع الساق إلى الخلف وأنت واقف ممسك بسند.",
+   "en": "Lifting one leg back while standing and holding a support."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "glutes",
+   "lower_back"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ أو طاولة ثقيلة، وخلفك كرسي ثابت، وأمسكه بيديك للتوازن.",
+    "أخرج النفس وارفع إحدى ساقيك ببطء إلى الخلف وهي مستقيمة، دون ثني الركبة ودون مدّ أصابع القدم.",
+    "حاول ألا تميل إلى الأمام، وأبقِ ركبة الساق التي تقف عليها مثنية قليلًا.",
+    "اثبت ثانية واحدة، ثم خذ نفسًا وأنت تُنزل الساق ببطء.",
+    "كرر بالساق الأخرى."
+   ],
+   "en": [
+    "Stand facing a kitchen counter or a heavy table, with a steady chair behind you,, holding on with your hands for balance.",
+    "Breathe out and slowly lift one leg straight back, without bending your knee or pointing your toes.",
+    "Try not to lean forward. Keep the knee of the leg you stand on slightly bent.",
+    "Hold for 1 second, then breathe in as you lower the leg slowly.",
+    "Repeat with the other leg."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "severe_balance_issues",
+   "hip_precautions_anterior",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_extension",
+    "role": "secondary"
+   },
+   {
+    "id": "balance:single_leg_stance",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps",
+   "painProfile": "mobility_pain",
+   "text": "NIA: 10 to 15 times each leg, then 10 to 15 more.",
+   "repetitions": [
+    10,
+    15
+   ]
+  },
+  "hipEndRange": [
+   "extension"
+  ]
+ },
+ {
+  "id": "standing_side_leg_raise",
+  "name": {
+   "ar": "رفع الساق إلى الجانب واقفًا",
+   "en": "Side leg raise"
+  },
+  "description": {
+   "ar": "رفع الساق إلى الجانب وأنت واقف ممسك بسند.",
+   "en": "Lifting one leg out to the side while standing and holding a support."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hips",
+   "glutes"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ أو طاولة ثقيلة، وخلفك كرسي ثابت، وقدماك متباعدتان قليلًا، وأمسكه بيديك للتوازن.",
+    "أخرج النفس وارفع إحدى ساقيك ببطء إلى الجانب، مع إبقاء ظهرك مستقيمًا وأصابع قدمك متجهة إلى الأمام.",
+    "أبقِ ركبة الساق التي تقف عليها مثنية قليلًا، ولا تمل بجسمك إلى الجانب.",
+    "اثبت ثانية واحدة، ثم خذ نفسًا وأنت تُنزل الساق ببطء.",
+    "كرر بالساق الأخرى."
+   ],
+   "en": [
+    "Stand facing a kitchen counter or a heavy table, with a steady chair behind you, with your feet slightly apart, holding on with your hands for balance.",
+    "Breathe out and slowly lift one leg out to the side. Keep your back straight and your toes facing forward.",
+    "Keep the knee of the leg you stand on slightly bent, and do not lean your body to the side.",
+    "Hold for 1 second, then breathe in as you lower the leg slowly.",
+    "Repeat with the other leg."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "severe_balance_issues",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_abduction",
+    "role": "secondary"
+   },
+   {
+    "id": "balance:single_leg_stance",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps",
+   "painProfile": "mobility_pain",
+   "text": "NIA: 10 to 15 times each leg, then 10 to 15 more.",
+   "repetitions": [
+    10,
+    15
+   ]
+  }
+ },
+ {
+  "id": "side_lying_leg_lift",
+  "name": {
+   "ar": "رفع الساق مستلقيًا على الجنب",
+   "en": "Side lying leg lift"
+  },
+  "description": {
+   "ar": "تقوية لعضلات جانب الورك وأنت مستلقٍ على جنبك.",
+   "en": "Strengthens the muscles on the side of your hip while lying on your side."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hips",
+   "glutes"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "استلقِ على جنبك على سرير أو فرشة ثابتة، والساق التي تتمرن بها في الأعلى. اثنِ الركبة السفلى لتثبت.",
+    "أرح رأسك على ذراعك أو على وسادة.",
+    "أبقِ الساق العليا مستقيمة وعلى خط جسمك، وأصابع القدم إلى الأمام.",
+    "ارفع الساق العليا ببطء نحو السقف، إلى الارتفاع الذي تستطيعه دون أن تميل إلى الخلف.",
+    "اثبت ثانية واحدة، ثم أنزلها ببطء."
+   ],
+   "en": [
+    "Lie on your side on a bed or a firm mat, with the leg you will train on top. Bend the lower knee for balance.",
+    "Rest your head on your arm or a pillow.",
+    "Keep the top leg straight and in line with your body, toes facing forward.",
+    "Slowly lift the top leg toward the ceiling, only as high as you can without rolling backward.",
+    "Hold for 1 second, then lower it slowly."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "lying_side"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_abduction",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  },
+  "hipEndRange": [
+   "adduction_past_midline"
+  ]
+ },
+ {
+  "id": "clamshell",
+  "name": {
+   "ar": "فتح الركبة مستلقيًا على الجنب",
+   "en": "Clamshell"
+  },
+  "description": {
+   "ar": "تقوية لعضلات جانب الورك وخلفه وأنت مستلقٍ على جنبك.",
+   "en": "Strengthens the muscles at the side and back of your hip while lying on your side."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hips",
+   "glutes"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "استلقِ على جنبك على سرير أو فرشة ثابتة، واثنِ وركيك وركبتيك، والكعبان متلاصقان.",
+    "أرح رأسك على ذراعك أو على وسادة، وأبقِ أحد الوركين فوق الآخر مباشرة.",
+    "مع إبقاء الكعبين متلاصقين، ارفع ركبتك العليا ببطء قدر ما يريحك دون أن تميل إلى الخلف.",
+    "اثبت ثانية واحدة، ثم أنزلها ببطء."
+   ],
+   "en": [
+    "Lie on your side on a bed or a firm mat, with your hips and knees bent and your heels together.",
+    "Rest your head on your arm or a pillow, and keep one hip directly above the other.",
+    "Keeping your heels together, slowly lift your top knee as far as is comfortable without rolling backward.",
+    "Hold for 1 second, then lower it slowly."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "lying_side"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_reps",
+   "text": "A light band around the thighs adds load later (needs the bands equipment)."
+  },
+  "hipEndRange": [
+   "adduction_past_midline"
+  ]
+ },
+ {
+  "id": "side_steps_supported",
+  "name": {
+   "ar": "خطوات جانبية مع سند",
+   "en": "Side steps with support"
+  },
+  "description": {
+   "ar": "المشي إلى الجانب على طول سطح المطبخ.",
+   "en": "Stepping sideways along a kitchen counter."
+  },
+  "category": "balance",
+  "muscles": [
+   "hips",
+   "legs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح مطبخ طويل، وأمسكه بكلتا يديك.",
+    "خطُ إلى الجانب بإحدى قدميك، ثم قرّب القدم الأخرى منها، وأصابع قدميك متجهة إلى الأمام.",
+    "امشِ 10 خطوات في اتجاه، ثم 10 خطوات عائدًا.",
+    "حافظ على جذعك معتدلًا، وعلى خطواتك بطيئة ومتساوية."
+   ],
+   "en": [
+    "Stand facing a long kitchen counter, holding it with both hands.",
+    "Step sideways with one foot, then bring the other foot to meet it. Keep your toes facing forward.",
+    "Take 10 steps one way, then 10 steps back.",
+    "Keep your body upright and your steps slow and even."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "severe_balance_issues",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "primary"
+   },
+   {
+    "id": "balance:stepping",
+    "role": "primary"
+   },
+   {
+    "id": "practice:walking",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "balance_practice",
+   "text": "2 to 3 rounds of 10 steps each way.",
+   "rounds": [
+    2,
+    3
+   ],
+   "repetitions": 10
+  }
+ },
+ {
+  "id": "seated_inner_thigh_stretch",
+  "name": {
+   "ar": "إطالة باطن الفخذ جالسًا",
+   "en": "Seated inner thigh stretch"
+  },
+  "description": {
+   "ar": "إطالة لباطن الفخذين وأنت جالس.",
+   "en": "A stretch for your inner thighs while sitting."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "inner_thighs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا قرب مقدمة كرسي ثابت، وقدماك مسطحتان ومتباعدتان.",
+    "ضع يديك على الجهة الداخلية لركبتيك.",
+    "باعد ركبتيك برفق إلى الخارج حتى تشعر بشد في باطن الفخذين.",
+    "اثبت {hold_ar}، ثم استرخِ."
+   ],
+   "en": [
+    "Sit tall near the front of a sturdy chair, feet flat and wide apart.",
+    "Place your hands on the inside of your knees.",
+    "Gently move your knees outward until you feel a stretch along your inner thighs.",
+    "Hold for {hold_en}, then relax."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_anterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "stretch:hip_adductors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_abduction",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain"
+  },
+  "hipEndRange": [
+   "external_rotation",
+   "abduction"
+  ]
+ },
+ {
+  "id": "lying_knee_drop_out",
+  "name": {
+   "ar": "إنزال الركبة إلى الجانب مستلقيًا",
+   "en": "Knee drop out, lying"
+  },
+  "description": {
+   "ar": "إطالة للورك وباطن الفخذ وأنت مستلقٍ.",
+   "en": "A stretch for your hip and inner thigh while lying down."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "inner_thighs",
+   "hips"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك على سرير أو فرشة ثابتة، والساقان متلاصقتان، والركبتان مثنيتان، والقدمان مسطحتان. أبقِ كتفيك على السطح.",
+    "أنزل إحدى ركبتيك ببطء إلى الجانب قدر ما يريحك، مع إبقاء القدمين متقاربتين والساق الأخرى ثابتة.",
+    "اثبت {hold_ar}.",
+    "أعد الركبة ببطء وبدّل الجهة."
+   ],
+   "en": [
+    "Lie on your back on a bed or a firm mat with your legs together, knees bent and feet flat. Keep both shoulders down.",
+    "Slowly lower one knee out to the side as far as is comfortable. Keep your feet close together and the other leg still.",
+    "Hold for {hold_en}.",
+    "Bring the knee back up slowly and change sides."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_anterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "stretch:hip_adductors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_abduction",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain",
+   "text": "NIA: hold 10 to 30 s, 3 to 5 times each leg.",
+   "holdSeconds": [
+    10,
+    30
+   ],
+   "repetitions": [
+    3,
+    5
+   ]
+  },
+  "hipEndRange": [
+   "external_rotation"
+  ]
+ },
+ {
+  "id": "heel_slides",
+  "name": {
+   "ar": "سحب الكعب مستلقيًا",
+   "en": "Heel slides"
+  },
+  "description": {
+   "ar": "حركة لطيفة لثني الركبة والورك وأنت مستلقٍ.",
+   "en": "A gentle movement to bend your knee and hip while lying down."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hamstrings",
+   "quadriceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك على سرير أو فرشة ثابتة وساقاك ممدودتان.",
+    "اسحب أحد كعبيك ببطء نحو أردافك، وأنت تثني ركبتك قدر ما يريحك.",
+    "إذا طُلب منك بعد عملية في الورك ألا تثني وركك كثيرًا، فتوقف قبل أن ينثني وركك أكثر من زاوية قائمة.",
+    "توقف من 2 إلى 3 ثوان.",
+    "أعد الكعب ببطء حتى تستقيم الساق."
+   ],
+   "en": [
+    "Lie on your back on a bed or a firm mat with your legs straight.",
+    "Slowly slide one heel toward your buttock, bending your knee as far as is comfortable.",
+    "If you were told after hip surgery not to bend your hip far, stop before your hip bends past a right angle.",
+    "Pause for 2 to 3 seconds.",
+    "Slide the heel back down slowly until the leg is straight."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "mobility:knee_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:hamstrings",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "seated_knee_bend_slide",
+  "name": {
+   "ar": "ثني الركبة بسحب القدم جالسًا",
+   "en": "Seated knee bend slide"
+  },
+  "description": {
+   "ar": "تسحب قدمك تحت الكرسي لتثني ركبتك.",
+   "en": "Slide your foot under the chair to bend your knee."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "quadriceps",
+   "hamstrings"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا قرب مقدمة كرسي. ضع منشفة صغيرة تحت قدمك إذا لم تكن الأرض ملساء.",
+    "اسحب قدمك ببطء إلى الخلف تحت الكرسي، وأنت تثني ركبتك قدر ما يريحك.",
+    "لإطالة مقدمة الفخذ، اثبت في نهاية الحركة {hold_ar}.",
+    "أعد قدمك إلى الأمام ببطء."
+   ],
+   "en": [
+    "Sit tall near the front of a chair. Put a small towel under your foot if the floor is not smooth.",
+    "Slowly slide your foot back under the chair, bending your knee as far as is comfortable.",
+    "To stretch the front of your thigh, hold the end position for {hold_en}.",
+    "Slide your foot forward again slowly."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:knee_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:quadriceps",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain",
+   "stretchProfile": "stretch_hold"
+  }
+ },
+ {
+  "id": "standing_knee_curl",
+  "name": {
+   "ar": "ثني الركبة واقفًا",
+   "en": "Knee curl"
+  },
+  "description": {
+   "ar": "ثني الركبة لرفع الكعب خلفك وأنت واقف ممسك بسند.",
+   "en": "Bending the knee to bring the heel up behind you while standing and holding a support."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hamstrings"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ أو طاولة ثقيلة، وخلفك كرسي ثابت، وأمسكه بيديك للتوازن.",
+    "أخرج النفس وأنت ترفع أحد كعبيك ببطء نحو أردافك قدر ما يريحك.",
+    "اثنِ الركبة فقط، وأبقِ وركيك ثابتين، وركبة الساق التي تقف عليها مثنية قليلًا.",
+    "اثبت ثانية واحدة، ثم خذ نفسًا وأنت تُنزل قدمك ببطء.",
+    "كرر بالساق الأخرى."
+   ],
+   "en": [
+    "Stand facing a kitchen counter or a heavy table, with a steady chair behind you,, holding on with your hands for balance.",
+    "Breathe out as you slowly bring one heel up toward your buttock, as far as is comfortable.",
+    "Bend only from your knee and keep your hips still. Keep the knee of the leg you stand on slightly bent.",
+    "Hold for 1 second, then breathe in as you lower your foot slowly.",
+    "Repeat with the other leg."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "severe_balance_issues",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hamstrings",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:knee_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "balance:single_leg_stance",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps",
+   "painProfile": "mobility_pain",
+   "text": "NIA: 10 to 15 times each leg, then 10 to 15 more.",
+   "repetitions": [
+    10,
+    15
+   ]
+  }
+ },
+ {
+  "id": "quad_set",
+  "name": {
+   "ar": "شد عضلة الفخذ والساق ممدودة",
+   "en": "Thigh tightening"
+  },
+  "description": {
+   "ar": "شد عضلة مقدمة الفخذ والساق ممدودة، دون حركة.",
+   "en": "Tightening the front of the thigh with the leg straight, without movement."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "quadriceps"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس وساقك ممدودة وكعبك على مسند قدم، أو استلقِ على ظهرك وساقاك ممدودتان.",
+    "شدّ العضلة في مقدمة فخذك، مع دفع مؤخرة ركبتك برفق إلى الأسفل.",
+    "اسحب أصابع قدمك قليلًا نحوك، واثبت 5 ثوان وأنت تتنفس بشكل طبيعي.",
+    "استرخِ تمامًا، ثم كرر."
+   ],
+   "en": [
+    "Sit with your leg straight and your heel on a footstool, or lie on your back with your legs straight.",
+    "Tighten the muscle at the front of your thigh, pressing the back of your knee gently down.",
+    "Pull your toes slightly toward you, and hold for 5 seconds while breathing normally.",
+    "Relax fully, then repeat."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated",
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:quadriceps",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:knee_extension",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "knee_straighten_stretch_stool",
+  "name": {
+   "ar": "إطالة الركبة على مسند القدم",
+   "en": "Knee straightening stretch on a footstool"
+  },
+  "description": {
+   "ar": "تترك ركبتك تستقيم ببطء وكعبك مرفوع على مسند.",
+   "en": "Let your knee slowly straighten with your heel raised on a stool."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hamstrings",
+   "calves"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس على كرسي وضع كعبك على مسند قدم أو كرسي آخر بالارتفاع نفسه، دون أي شيء تحت ركبتك.",
+    "اجلس معتدلًا ودع ركبتك تستقيم قدر ما يريحك.",
+    "لشد أكبر، ضع يديك على فخذك فوق الركبة مباشرة، وليس على صابونة الركبة، واضغط برفق شديد.",
+    "اثبت {hold_ar}، ثم اثنِ الركبة واسترح."
+   ],
+   "en": [
+    "Sit on a chair and rest your heel on a footstool or another chair of the same height, with nothing under your knee.",
+    "Sit tall and let your knee straighten as far as is comfortable.",
+    "For a stronger stretch, rest your hands on your thigh just above the knee, never on the kneecap, and press very gently.",
+    "Hold for {hold_en}, then bend the knee and rest."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "knee_injury",
+   "achilles",
+   "knee_hyperextension"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:knee_extension",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:hamstrings",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:calf",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold"
+  }
+ },
+ {
+  "id": "seated_hamstring_stretch",
+  "name": {
+   "ar": "إطالة خلف الفخذ جالسًا",
+   "en": "Seated hamstring stretch"
+  },
+  "description": {
+   "ar": "إطالة لخلف الفخذ وأنت جالس، والميل من الوركين.",
+   "en": "A stretch for the back of the thigh while sitting, leaning from the hips."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hamstrings"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا قرب مقدمة كرسي ثابت.",
+    "مدّ إحدى ساقيك أمامك والكعب على الأرض وأصابع القدم إلى الأعلى، وأبقِ القدم الأخرى مسطحة.",
+    "مع إبقاء ظهرك مستقيمًا، مِل إلى الأمام من الوركين لا من الخصر، حتى تشعر بشد خلف الساق الممدودة.",
+    "اثبت {hold_ar}، ثم اعتدل وبدّل الساق."
+   ],
+   "en": [
+    "Sit tall near the front of a sturdy chair.",
+    "Stretch one leg out in front of you with the heel on the floor and the toes pointing up. Keep the other foot flat.",
+    "Keeping your back straight, lean forward from your hips, not your waist, until you feel a stretch at the back of the straight leg.",
+    "Hold for {hold_en}, then sit up and change legs."
+   ]
+  },
+  "tags": [
+   "seated",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_posterior",
+   "wheelchair_needs_transfer",
+   "sitting_balance"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated_forward"
+  ],
+  "targets": [
+   {
+    "id": "stretch:hamstrings",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:knee_extension",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold"
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "lying_hamstring_stretch",
+  "name": {
+   "ar": "إطالة خلف الفخذ مستلقيًا",
+   "en": "Lying hamstring stretch"
+  },
+  "description": {
+   "ar": "إطالة لخلف الفخذ وأنت مستلقٍ على ظهرك.",
+   "en": "A stretch for the back of your thigh while lying on your back."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hamstrings"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "استلقِ على ظهرك على سرير أو فرشة ثابتة، وإحدى ركبتيك مثنية وقدمها مسطحة.",
+    "ارفع الساق الأخرى مع إبقاء الركبة مثنية قليلًا.",
+    "أمسك خلف الفخذ المرفوع بكلتا يديك، أو لفّ منشفة حول القدم، وأبقِ رأسك وكتفيك على السطح.",
+    "اسحب الساق نحوك برفق حتى تشعر بشد خلفها، واثبت {hold_ar}.",
+    "أنزل الساق ببطء وبدّل الساق."
+   ],
+   "en": [
+    "Lie on your back on a bed or a firm mat with one knee bent and that foot flat.",
+    "Raise the other leg, keeping the knee slightly bent.",
+    "Hold behind the raised thigh with both hands, or loop a towel around the foot. Keep your head and shoulders down.",
+    "Gently pull the leg toward you until you feel a stretch at the back of your leg, and hold for {hold_en}.",
+    "Lower the leg slowly and change legs."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "stretch:hamstrings",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold",
+   "text": "NIA: 10 to 30 s, 3 to 5 times each leg.",
+   "holdSeconds": [
+    10,
+    30
+   ],
+   "repetitions": [
+    3,
+    5
+   ]
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "standing_thigh_stretch",
+  "name": {
+   "ar": "إطالة مقدمة الفخذ واقفًا",
+   "en": "Standing thigh stretch"
+  },
+  "description": {
+   "ar": "إطالة لمقدمة الفخذ وأنت واقف ممسك بسند.",
+   "en": "A stretch for the front of the thigh while standing and holding a support."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "quadriceps",
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ أو طاولة ثقيلة، وخلفك كرسي ثابت، وقدماك بعرض الكتفين، وركبتاك مستقيمتان دون شدّهما بقوة.",
+    "أمسك السطح بيد واحدة للتوازن.",
+    "اثنِ الساق الأخرى إلى الخلف وأمسك قدمك بيدك الحرة. إذا لم تصل إليها، فلفّ منشفة أو حزامًا حول القدم وأمسك طرفيه.",
+    "أبقِ ركبتك متجهة إلى الأرض، واسحب برفق حتى تشعر بشد في مقدمة فخذك.",
+    "اثبت {hold_ar}، ثم بدّل الساق."
+   ],
+   "en": [
+    "Stand facing a kitchen counter or a heavy table, with a steady chair behind you, with your feet shoulder width apart, knees straight but not locked.",
+    "Hold the counter with one hand for balance.",
+    "Bend the other leg back and hold your foot with your free hand. If you cannot reach it, loop a towel or a belt around the foot and hold both ends.",
+    "Keep your knee pointing to the floor. Gently pull until you feel a stretch at the front of your thigh.",
+    "Hold for {hold_en}, then change legs."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "severe_balance_issues",
+   "knee_injury",
+   "hip_precautions_anterior",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "stretch:quadriceps",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:knee_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "stretch:hip_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold",
+   "text": "NIA: 10 to 30 s, 3 to 5 times each leg.",
+   "holdSeconds": [
+    10,
+    30
+   ],
+   "repetitions": [
+    3,
+    5
+   ]
+  },
+  "hipEndRange": [
+   "extension"
+  ]
+ },
+ {
+  "id": "sit_to_stand",
+  "name": {
+   "ar": "الوقوف من الكرسي",
+   "en": "Sit to stand"
+  },
+  "description": {
+   "ar": "الوقوف من الكرسي ثم الجلوس مرة أخرى ببطء وبتحكم.",
+   "en": "Standing up from a chair and sitting down again, slowly and with control."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "quadriceps",
+   "glutes"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 5,
+  "steps": {
+   "ar": [
+    "اجلس قرب مقدمة كرسي ثابت، وركبتاك مثنيتان وقدماك مسطحتان بعرض الكتفين. أسند الكرسي إلى حائط حتى لا ينزلق.",
+    "مِل إلى الأمام من الوركين وظهرك مستقيم.",
+    "أخرج النفس وقم ببطء. استعن بيديك على فخذيك أو على مسندي الكرسي إذا احتجت.",
+    "خذ نفسًا وأنت تجلس ببطء وبتحكم.",
+    "كلما زادت قوتك، قلّل استعانتك بيديك."
+   ],
+   "en": [
+    "Sit toward the front of a sturdy chair, knees bent and feet flat, shoulder width apart. Put the chair against a wall so it cannot slide.",
+    "Lean forward from your hips with your back straight.",
+    "Breathe out and stand up slowly. Use your hands on your thighs or the armrests if you need to.",
+    "Breathe in as you sit down slowly, with control.",
+    "As you get stronger, use your hands less."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "no_weight_bearing",
+   "severe_balance_issues",
+   "standing_gate",
+   "hip_precautions_posterior_unless_raised_seat"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:quadriceps",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "practice:sit_to_stand",
+    "role": "primary"
+   },
+   {
+    "id": "practice:loading_bent_knee",
+    "role": "secondary"
+   },
+   {
+    "id": "practice:gradual_loading",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps",
+   "text": "NIA: 10 to 15 times, rest, then 10 to 15 more.",
+   "repetitions": [
+    10,
+    15
+   ]
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "mini_squat_supported",
+  "name": {
+   "ar": "ثني الركبتين قليلًا مع سند",
+   "en": "Mini squat with support"
+  },
+  "description": {
+   "ar": "تحمل وزنك والركبتان مثنيتان قليلًا وأنت ممسك بسند.",
+   "en": "Take your weight with your knees slightly bent while holding a support."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "quadriceps",
+   "glutes"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ أو طاولة ثقيلة، وأمسكه بكلتا يديك، وخلفك كرسي ثابت، وقدماك بعرض الوركين.",
+    "اثنِ ركبتيك قليلًا وببطء كأنك تبدأ الجلوس، مع إبقاء كعبيك على الأرض وركبتيك فوق أصابع قدميك.",
+    "انزل ربع المسافة فقط، أو أقل إذا شعرت بألم.",
+    "اثبت ثانية أو ثانيتين، ثم قم ببطء دون أن تشدّ ركبتيك إلى الخلف."
+   ],
+   "en": [
+    "Stand facing a kitchen counter or a heavy table, holding it with both hands, with a steady chair behind you and your feet hip width apart.",
+    "Slowly bend your knees a little, as if starting to sit, keeping your heels down and your knees over your toes.",
+    "Go only a quarter of the way down, or less if it hurts.",
+    "Hold for 1 or 2 seconds, then stand up slowly without pushing your knees back."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "no_weight_bearing",
+   "severe_balance_issues",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:quadriceps",
+    "role": "primary"
+   },
+   {
+    "id": "practice:loading_bent_knee",
+    "role": "primary"
+   },
+   {
+    "id": "practice:knee_control",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  }
+ },
+ {
+  "id": "wall_calf_stretch",
+  "name": {
+   "ar": "إطالة الساق عند الحائط",
+   "en": "Calf stretch at the wall"
+  },
+  "description": {
+   "ar": "إطالة لعضلات خلف الساق وأنت واقف.",
+   "en": "A stretch for your calf muscles while standing."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "calves"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قف مقابل حائط أو سطح المطبخ، أبعد قليلًا من طول ذراعك، وقدماك بعرض الكتفين، وخلفك كرسي ثابت.",
+    "ضع كفيك مبسوطتين على الحائط عند مستوى الكتفين.",
+    "خطُ إلى الأمام بإحدى ساقيك واثنِ ركبتها، وأبقِ القدمين مسطحتين على الأرض.",
+    "اثنِ الركبة الخلفية قليلًا حتى تشعر بشد في عضلة الساق الخلفية، دون انزعاج.",
+    "اثبت {hold_ar}، ثم بدّل الساق.",
+    "يمكنك أيضًا إبقاء الركبة الخلفية مستقيمة، فيزيد الشد في أعلى عضلة الساق."
+   ],
+   "en": [
+    "Stand facing a wall or a kitchen counter, a little farther than arm's length away, feet shoulder width apart, with a steady chair behind you.",
+    "Put your palms flat against the wall at shoulder height.",
+    "Step forward with one leg and bend that knee. Keep both feet flat on the floor.",
+    "Bend the back knee slightly until you feel a stretch in the back calf. It should not feel uncomfortable.",
+    "Hold for {hold_en}, then change legs.",
+    "You can also keep the back knee straight, which stretches the upper part of the calf more."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "severe_balance_issues",
+   "standing_gate",
+   "achilles"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "stretch:calf",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "stretch_hold",
+   "text": "NIA: alternate legs, at least 3 to 5 times each.",
+   "repetitions": [
+    3,
+    5
+   ]
+  }
+ },
+ {
+  "id": "seated_ankle_stretch",
+  "name": {
+   "ar": "إطالة الكاحل جالسًا",
+   "en": "Seated ankle stretch"
+  },
+  "description": {
+   "ar": "توجيه أصابع القدم نحوك ثم بعيدًا عنك وأنت جالس.",
+   "en": "Point your toes toward you, then away, while sitting."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "ankles",
+   "calves",
+   "shins"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس بثبات قرب حافة كرسي ثابت بلا ذراعين.",
+    "مدّ ساقيك أمامك والكعبان على الأرض.",
+    "اثنِ كاحليك لتتجه أصابع قدميك نحوك، واثبت {hold_ar}.",
+    "ثم وجّه أصابع قدميك بعيدًا عنك، واثبت {hold_ar}.",
+    "يمكنك أداؤه بكاحل واحد في كل مرة."
+   ],
+   "en": [
+    "Sit securely toward the edge of a sturdy armless chair.",
+    "Stretch your legs out in front of you with your heels on the floor.",
+    "Bend your ankles to point your toes toward you, and hold for {hold_en}.",
+    "Then point your toes away from you and hold for {hold_en}.",
+    "You can do one ankle at a time."
+   ]
+  },
+  "tags": [
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "achilles",
+   "wheelchair_needs_transfer"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:calf",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:ankle_plantarflexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "stretch_hold",
+   "painProfile": "mobility_pain",
+   "text": "NIA: at least 3 to 5 times. With pain: move without holding.",
+   "repetitions": [
+    3,
+    5
+   ]
+  }
+ },
+ {
+  "id": "band_ankle_lift",
+  "name": {
+   "ar": "رفع مقدمة القدم بالشريط المطاطي",
+   "en": "Band ankle lift"
+  },
+  "description": {
+   "ar": "تقوية للعضلات التي ترفع مقدمة القدم.",
+   "en": "Strengthens the muscles that lift the front of your foot."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "shins"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس على كرسي، واربط شريطًا مطاطيًا خفيفًا بقائمة طاولة ثقيلة أمامك، ولفّه فوق ظهر قدمك.",
+    "تراجع حتى يشتد الشريط قليلًا، والكعب على الأرض.",
+    "اسحب أصابعك ومقدمة قدمك ببطء إلى الأعلى نحوك مقاومًا الشريط.",
+    "اثبت ثانية واحدة، ثم أنزلها ببطء."
+   ],
+   "en": [
+    "Sit on a chair. Tie a light band to a heavy table leg in front of you and loop it over the top of your foot.",
+    "Move back until the band is a little tight, with your heel on the floor.",
+    "Slowly pull your toes and the front of your foot up toward you against the band.",
+    "Hold for 1 second, then lower slowly."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "no_active_movement"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:ankle_dorsiflexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  }
+ },
+ {
+  "id": "standing_toe_lifts_supported",
+  "name": {
+   "ar": "رفع مقدمة القدمين واقفًا مع سند",
+   "en": "Standing toe lifts with support"
+  },
+  "description": {
+   "ar": "تقوية للعضلات التي ترفع مقدمة القدم وأنت ممسك بسند.",
+   "en": "Strengthens the muscles that lift the front of the foot while holding a support."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "shins"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ وأمسكه بكلتا يديك، وقدماك بعرض الوركين.",
+    "أبقِ كعبيك على الأرض وارفع مقدمة قدميك ببطء.",
+    "اثبت ثانية واحدة، ثم أنزلهما ببطء.",
+    "حافظ على جذعك معتدلًا، ولا تمل إلى الخلف."
+   ],
+   "en": [
+    "Stand facing a kitchen counter, holding it with both hands, feet hip width apart.",
+    "Keep your heels down and slowly lift the front of both feet.",
+    "Hold for 1 second, then lower slowly.",
+    "Keep your body upright and do not lean back."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "severe_balance_issues",
+   "no_active_movement",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:ankle_dorsiflexors",
+    "role": "primary"
+   },
+   {
+    "id": "balance:weight_shift",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  }
+ },
+ {
+  "id": "push_off_practice",
+  "name": {
+   "ar": "التدريب على الدفع بالقدم",
+   "en": "Push off practice"
+  },
+  "description": {
+   "ar": "تدريب على رفع الكعب والدفع بمقدمة القدم كما في المشي.",
+   "en": "Practice lifting the heel and pushing off the front of the foot, as in walking."
+  },
+  "category": "balance",
+  "muscles": [
+   "calves",
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف وجانبك نحو سطح المطبخ وأمسكه، وأرجع الساق التي ستتمرن بها إلى الخلف كما في خطوة عادية.",
+    "انقل وزنك إلى الأمام فوق القدم الأمامية.",
+    "دع كعب القدم الخلفية يرتفع، وارتكز على مقدمتها كأنك تدفع الأرض بعيدًا.",
+    "اثبت ثانية واحدة، ثم أنزل الكعب وأعد وزنك إلى الخلف.",
+    "حافظ على جذعك معتدلًا."
+   ],
+   "en": [
+    "Stand with your side to a kitchen counter and hold it. Step the leg you will train back, as in a normal step.",
+    "Move your weight forward over the front foot.",
+    "Let the back heel lift and roll onto the ball of the back foot, as if pushing the floor away.",
+    "Hold for 1 second, then lower the heel and move your weight back.",
+    "Keep your body upright."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "severe_balance_issues",
+   "no_weight_bearing",
+   "hip_precautions_anterior",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "practice:push_off",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:calf",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_extension",
+    "role": "secondary"
+   },
+   {
+    "id": "stretch:hip_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps",
+   "text": "10 to 15 each leg.",
+   "repetitions": [
+    10,
+    15
+   ]
+  },
+  "hipEndRange": [
+   "extension"
+  ]
+ },
+ {
+  "id": "standing_weight_shift",
+  "name": {
+   "ar": "نقل الوزن واقفًا مع سند",
+   "en": "Standing weight shift with support"
+  },
+  "description": {
+   "ar": "تنقل وزنك ببطء من ساق إلى أخرى وأنت ممسك بسند.",
+   "en": "Shift your weight slowly from one leg to the other while holding a support."
+  },
+  "category": "balance",
+  "muscles": [
+   "legs",
+   "core"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ وأمسكه، وقدماك بعرض الوركين، وركبتاك مرتخيتان غير مشدودتين.",
+    "انقل وزنك ببطء إلى إحدى ساقيك بالقدر المريح، واثبت 3 ثوان.",
+    "انقل وزنك ببطء إلى الساق الأخرى، واثبت 3 ثوان.",
+    "ثم ضع إحدى قدميك أمام الأخرى قليلًا، وانقل وزنك إلى الأمام وإلى الخلف.",
+    "كلما زاد ثباتك، أمسك بيد واحدة، ثم بأطراف الأصابع."
+   ],
+   "en": [
+    "Stand facing a kitchen counter and hold it, feet hip width apart, knees soft and not locked.",
+    "Slowly shift your weight onto one leg, as much as is comfortable, and hold for 3 seconds.",
+    "Shift slowly to the other leg and hold for 3 seconds.",
+    "Then stand with one foot a little in front of the other, and shift your weight forward and back.",
+    "As you get steadier, hold on with one hand, then with your fingertips."
+   ]
+  },
+  "tags": [
+   "standing",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "trunk_control"
+  ],
+  "contraindications": [
+   "no_weight_bearing",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "balance:weight_shift",
+    "role": "primary"
+   },
+   {
+    "id": "practice:gradual_loading",
+    "role": "primary"
+   },
+   {
+    "id": "practice:knee_control",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:hip_extension",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "balance_practice",
+   "painProfile": "mobility_pain",
+   "text": "10 shifts each way. With pain: shift only as far as is comfortable.",
+   "repetitions": 10
+  }
+ },
+ {
+  "id": "standing_march_supported",
+  "name": {
+   "ar": "المشي في المكان مع سند",
+   "en": "Marching in place with support"
+  },
+  "description": {
+   "ar": "ترفع ركبتيك بالتناوب وأنت ممسك بسند.",
+   "en": "Lift your knees in turn while holding a support."
+  },
+  "category": "balance",
+  "muscles": [
+   "hip_flexors",
+   "legs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "قف مقابل سطح المطبخ وأمسكه بكلتا يديك.",
+    "ارفع إحدى ركبتيك ببطء إلى الارتفاع المريح، ثم أنزل القدم.",
+    "ارفع الركبة الأخرى، وحافظ على جذعك معتدلًا.",
+    "امشِ في مكانك ببطء، 10 مرات لكل ساق."
+   ],
+   "en": [
+    "Stand facing a kitchen counter, holding it with both hands.",
+    "Slowly lift one knee as high as is comfortable, then put the foot down.",
+    "Lift the other knee, keeping your body upright.",
+    "March slowly in place, 10 lifts for each leg."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "cardio"
+  ],
+  "contraindications": [
+   "severe_balance_issues",
+   "no_weight_bearing",
+   "hip_precautions_posterior",
+   "standing_gate"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing_supported"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "balance:single_leg_stance",
+    "role": "secondary"
+   },
+   {
+    "id": "practice:walking",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "walking_practice",
+  "name": {
+   "ar": "التدريب على المشي",
+   "en": "Walking practice"
+  },
+  "description": {
+   "ar": "مشي منتظم بجهد متوسط.",
+   "en": "Regular walking at a moderate effort."
+  },
+  "category": "walking",
+  "muscles": [
+   "legs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 10,
+  "steps": {
+   "ar": [
+    "امشِ كما تمشي عادة، مع عصاك أو المشاية أو الدعامة إن كنت تستخدمها.",
+    "اختر طريقًا خاليًا ومستويًا، وبقربك شيء ثابت تستند إليه.",
+    "إذا طلب منك التطبيق مرافقًا، فلا تمشِ إلا وبجانبك شخص بالغ.",
+    "امشِ بسرعة تجعل تنفسك أسرع قليلًا: تستطيع الكلام، لكنك لا تستطيع الغناء.",
+    "توقف واسترح إذا شعرت بألم أو دوخة أو عدم ثبات، أو بألم أو ضغط في الصدر، أو إذا ضاق نفسك حتى لا تستطيع الكلام."
+   ],
+   "en": [
+    "Walk the way you usually do, with your cane, walker or brace if you use one.",
+    "Choose a clear, level path with something steady to hold nearby.",
+    "If the app asks for a helper, walk only with another adult beside you.",
+    "Walk at a pace that makes you breathe a little harder: you can still talk, but you could not sing.",
+    "Stop and rest if you feel pain, dizziness or unsteady, if you feel chest pain or pressure, or if you are too short of breath to talk."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "cardio"
+  ],
+  "contraindications": [
+   "walk_not_eligible",
+   "no_weight_bearing"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "practice:walking",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "walking_practice"
+  }
+ },
+ {
+  "id": "longer_steps_practice",
+  "name": {
+   "ar": "التدريب على خطوات أطول",
+   "en": "Longer steps practice"
+  },
+  "description": {
+   "ar": "المشي على علامات على الأرض متباعدة قليلًا.",
+   "en": "Walking on floor marks placed a little apart."
+  },
+  "category": "walking",
+  "muscles": [
+   "legs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "ضع علامات صغيرة على الأرض، مثل قطع شريط لاصق، أبعد قليلًا من خطواتك المعتادة.",
+    "امشِ ببطء على العلامات، وضع قدمًا على كل علامة، وانزل على كعبك عندما تستطيع.",
+    "حرّك ذراعيك وأنت تمشي.",
+    "امشِ على الخط من 4 إلى 6 مرات، واستدر ببطء في نصف دائرة واسعة عند نهايته.",
+    "استخدم عصاك أو المشاية إن كنت تستخدمها عادة، وأبقِ سندًا قريبًا منك."
+   ],
+   "en": [
+    "Put small marks on the floor, such as pieces of tape, a little farther apart than your usual steps.",
+    "Walk slowly along the marks, placing one foot on each mark. Land on your heel when you can.",
+    "Swing your arms as you walk.",
+    "Walk the line 4 to 6 times, turning slowly in a wide half circle at the end.",
+    "Use your cane or walker if you usually do, and keep a support nearby."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "walk_not_eligible",
+   "no_weight_bearing"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "practice:step_length",
+    "role": "primary"
+   },
+   {
+    "id": "practice:even_steps",
+    "role": "primary"
+   },
+   {
+    "id": "practice:walking",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "cue_walking"
+  }
+ },
+ {
+  "id": "beat_walking",
+  "name": {
+   "ar": "المشي على إيقاع",
+   "en": "Walking to a beat"
+  },
+  "description": {
+   "ar": "المشي على إيقاع من التطبيق.",
+   "en": "Walking in time with a beat from the app."
+  },
+  "category": "walking",
+  "muscles": [
+   "legs"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 6,
+  "steps": {
+   "ar": [
+    "شغّل الإيقاع في التطبيق. على جهاز المشي يكون الإيقاع أبطأ قليلًا من خطواتك اليوم. على الأرض يكون بسرعة خطواتك اليوم.",
+    "خطُ خطوة واحدة مع كل نبضة. على الأرض، اجعل خطواتك كبيرة.",
+    "امشِ من 2 إلى 5 دقائق، ثم استرح.",
+    "على جهاز المشي، أمسك المقبض، واضبط السرعة يدويًا، وليكن مرافقك قرب زر الإيقاف."
+   ],
+   "en": [
+    "Start the beat in the app. On the walking pad, the beat is a little slower than your steps today. On the floor, it matches your steps today.",
+    "Take one step on each beat. On the floor, take big steps.",
+    "Walk for 2 to 5 minutes, then rest.",
+    "On a walking pad, hold the handrail, set the speed by hand, and have your helper near the stop control."
+   ]
+  },
+  "tags": [
+   "standing",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "cardio"
+  ],
+  "contraindications": [
+   "walk_not_eligible",
+   "no_weight_bearing",
+   "pad_not_eligible"
+  ],
+  "status": "draft",
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "practice:step_length",
+    "role": "primary"
+   },
+   {
+    "id": "practice:step_length_pad",
+    "role": "primary"
+   },
+   {
+    "id": "practice:even_steps",
+    "role": "primary"
+   },
+   {
+    "id": "practice:walking",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "cue_walking"
+  }
+ },
+ {
+  "id": "shoulder_turn_out_supported",
+  "name": {
+   "ar": "تدوير الكتف إلى الخارج على الطاولة",
+   "en": "Shoulder turn out on a table"
+  },
+  "description": {
+   "ar": "تدوير الساعد إلى الخارج والمرفق بجانب الجسم، والساعد مستند على الطاولة.",
+   "en": "Turning the forearm outward with the elbow by your side and the forearm resting on a table."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "infraspinatus",
+   "teres_minor"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس بجانب طاولة، ومرفقك بجانب جسمك مثني بزاوية قائمة، وساعدك على منشفة فوق الطاولة.",
+    "أبقِ مرفقك ملاصقًا لجسمك، واسحب يدك ببطء إلى الخارج بعيدًا عن بطنك قدر ما يريحك.",
+    "توقف لحظة، ثم أعد يدك ببطء نحو بطنك.",
+    "يمكن أن تساعد يدك الأخرى برفق، دون أن تدفع إلى الألم."
+   ],
+   "en": [
+    "Sit beside a table with your elbow by your side, bent to a right angle, and your forearm on a towel on the table.",
+    "Keeping your elbow against your side, slowly slide your hand outward, away from your tummy, as far as is comfortable.",
+    "Pause for a moment, then bring your hand slowly back toward your tummy.",
+    "Your other hand can help gently, without pushing into pain."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_external_rotation",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_back",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:shoulder_external_rotators",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "forearm_turns",
+  "name": {
+   "ar": "تدوير الساعد",
+   "en": "Forearm turns"
+  },
+  "description": {
+   "ar": "تدوير الكف إلى الأعلى ثم إلى الأسفل والساعد مستند على الطاولة.",
+   "en": "Turning the palm up and then down with the forearm resting on a table."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "supinator",
+   "pronator_teres"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "اجلس وساعدك على طاولة، ومرفقك بجانب جسمك.",
+    "أدر كفك ببطء إلى الأعلى قدر ما يريحك، ثم إلى الأسفل.",
+    "يمكن أن تساعد يدك الأخرى برفق.",
+    "كرر 10 مرات."
+   ],
+   "en": [
+    "Sit with your forearm on a table and your elbow by your side.",
+    "Slowly turn your palm up as far as is comfortable, then down.",
+    "Your other hand can help gently.",
+    "Repeat 10 times."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:forearm_rotation",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:wrist",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "towel_squeeze",
+  "name": {
+   "ar": "ضغط المنشفة باليد",
+   "en": "Towel squeeze"
+  },
+  "description": {
+   "ar": "ضغط منشفة ملفوفة بقبضة اليد ثم إرخاؤها.",
+   "en": "Squeezing a rolled towel in your hand, then letting go."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "forearm_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس وساعدك مستند على طاولة أو على فخذك، وأمسك منشفة صغيرة ملفوفة.",
+    "اضغط المنشفة ببطء بقدر ما يريحك، واثبت 3 إلى 5 ثوان وأنت تتنفس بشكل طبيعي.",
+    "أرخِ يدك ببطء وافرد أصابعك.",
+    "كرر 10 مرات، ثم بدّل اليد إن احتجت."
+   ],
+   "en": [
+    "Sit with your forearm resting on a table or your thigh, holding a small rolled towel.",
+    "Slowly squeeze the towel as hard as is comfortable and hold for 3 to 5 seconds, breathing normally.",
+    "Slowly relax your hand and open your fingers.",
+    "Repeat 10 times, then change hands if needed."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "grip_and_arm"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:forearm_grip",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hand",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "seated_hip_turns",
+  "name": {
+   "ar": "تدوير الورك جالسًا",
+   "en": "Seated hip turns"
+  },
+  "description": {
+   "ar": "تحريك أسفل الساق إلى الداخل والخارج ببطء وأنت جالس، فيدور الورك.",
+   "en": "Moving the lower leg slowly in and out while sitting, so the hip turns."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hip_rotators"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وقدماك على الأرض، وركبتاك مثنيتان بزاوية قائمة.",
+    "ارفع قدمك قليلًا عن الأرض، وأبقِ ركبتك في مكانها.",
+    "حرّك قدمك ببطء إلى الخارج قدر ما يريحك، ثم إلى الداخل، فيدور وركك.",
+    "كرر 10 مرات لكل ساق."
+   ],
+   "en": [
+    "Sit tall with your feet on the floor and your knees bent to a right angle.",
+    "Lift your foot a little off the floor, keeping your knee where it is.",
+    "Slowly move your foot outward as far as is comfortable, then inward, so your hip turns.",
+    "Repeat 10 times with each leg."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_posterior",
+   "hip_precautions_anterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:hip_rotation",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  },
+  "hipEndRange": [
+   "internal_rotation",
+   "external_rotation"
+  ]
+ },
+ {
+  "id": "head_turn_gently",
+  "name": {
+   "ar": "تدوير الرأس برفق",
+   "en": "Gentle head turn"
+  },
+  "description": {
+   "ar": "تدوير الرأس ببطء إلى كل جهة ضمن المدى المريح.",
+   "en": "Turning your head slowly to each side within a comfortable range."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "neck_rotators"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 2,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وظهرك مستند، وانظر أمامك.",
+    "أدر رأسك ببطء لتنظر فوق كتفك قدر ما يريحك.",
+    "عد إلى المنتصف ببطء، ثم أدره إلى الجهة الأخرى.",
+    "كرر 5 إلى 10 مرات لكل جهة. توقف إذا شعرت بدوخة."
+   ],
+   "en": [
+    "Sit tall with your back supported, looking straight ahead.",
+    "Slowly turn your head to look over your shoulder as far as is comfortable.",
+    "Come back to the middle slowly, then turn to the other side.",
+    "Repeat 5 to 10 times to each side. Stop if you feel dizzy."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "neck_caution",
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:neck_rotation",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  }
+ },
+ {
+  "id": "seated_shoulder_blade_set",
+  "name": {
+   "ar": "ضم لوحي الكتف جالسًا",
+   "en": "Seated shoulder blade set"
+  },
+  "description": {
+   "ar": "ضم لوحي الكتف إلى الخلف والأسفل برفق، والذراعان مستندتان.",
+   "en": "Drawing your shoulder blades gently back and down with both arms supported."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "rhomboids",
+   "lower_trapezius"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا، وأسند ذراعيك على وسادة أو على مسندي الكرسي أو على طاولة.",
+    "اسحب لوحي كتفيك برفق إلى الخلف وإلى الأسفل، دون أن ترفع كتفيك.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ.",
+    "كرر 10 مرات. أبقِ ذراعك الأضعف مستندة طوال الوقت."
+   ],
+   "en": [
+    "Sit tall with your arms resting on a pillow, the armrests or a table.",
+    "Gently draw your shoulder blades back and down, without lifting your shoulders.",
+    "Hold for 5 seconds, breathing normally, then relax.",
+    "Repeat 10 times. Keep your weaker arm supported the whole time."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "shoulder_endurance"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:scapular_retractors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "side_lying_leg_back",
+  "name": {
+   "ar": "تحريك الساق إلى الخلف مستلقيًا على الجنب",
+   "en": "Side lying leg back"
+  },
+  "description": {
+   "ar": "تحريك الساق العليا إلى الخلف ببطء وأنت مستلقٍ على جنبك.",
+   "en": "Moving the top leg slowly back while lying on your side."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "gluteus_maximus"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "استلقِ على جنبك على سرير أو فرشة ثابتة، والساق السفلى مثنية قليلًا، ووسادة تحت رأسك.",
+    "أبقِ الساق العليا مستقيمة، وحرّكها ببطء إلى الخلف قدر ما يريحك، دون أن تقوّس ظهرك.",
+    "توقف لحظة، ثم أعدها ببطء.",
+    "كرر 10 مرات، ثم استدر وكرر على الجهة الأخرى إن احتجت."
+   ],
+   "en": [
+    "Lie on your side on a bed or a firm mat, the bottom leg slightly bent and a pillow under your head.",
+    "Keep the top leg straight and move it slowly back as far as is comfortable, without arching your back.",
+    "Pause for a moment, then bring it back slowly.",
+    "Repeat 10 times, then turn over and repeat on the other side if needed."
+   ]
+  },
+  "tags": [
+   "lying_down",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_anterior",
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "lying_side"
+  ],
+  "targets": [
+   {
+    "id": "mobility:hip_extension",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  },
+  "hipEndRange": [
+   "extension",
+   "adduction_past_midline"
+  ]
+ },
+ {
+  "id": "band_shoulder_turn_out",
+  "name": {
+   "ar": "تدوير الكتف إلى الخارج بالشريط المطاطي",
+   "en": "Band shoulder turn out"
+  },
+  "description": {
+   "ar": "تدوير الساعد إلى الخارج ضد شريط مطاطي، والمرفق بجانب الجسم.",
+   "en": "Turning the forearm outward against a band, with the elbow by your side."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "infraspinatus",
+   "teres_minor"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا، ومرفقك بجانب جسمك مثني بزاوية قائمة، ومنشفة صغيرة ملفوفة بين مرفقك وجسمك.",
+    "أمسك طرف الشريط المطاطي بتلك اليد، وثبّت طرفه الآخر بيدك الأخرى أمام بطنك، أو اربطه بمقبض باب مغلق عند مستوى المرفق.",
+    "أبقِ مرفقك ملاصقًا للمنشفة، وأدر ساعدك ببطء إلى الخارج بعيدًا عن بطنك قدر ما يريحك.",
+    "عد ببطء إلى البداية. كرر 10 إلى 15 مرة، ثم بدّل الذراع إن احتجت."
+   ],
+   "en": [
+    "Sit tall with your elbow by your side, bent to a right angle, and a small rolled towel between your elbow and your side.",
+    "Hold one end of the band in that hand. Hold the other end with your other hand in front of your tummy, or tie it to the handle of a closed door at elbow height.",
+    "Keeping your elbow against the towel, slowly turn your forearm outward, away from your tummy, as far as is comfortable.",
+    "Return slowly to the start. Repeat 10 to 15 times, then change arms if needed."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "shoulder_endurance"
+  ],
+  "contraindications": [
+   "weak_shoulder"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_external_rotators",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:shoulder_external_rotation",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  }
+ },
+ {
+  "id": "door_frame_turn_out_press",
+  "name": {
+   "ar": "ضغط الكتف إلى الخارج على إطار الباب",
+   "en": "Door frame turn out press"
+  },
+  "description": {
+   "ar": "ضغط ظهر اليد إلى الخارج على إطار الباب دون حركة، والمرفق بجانب الجسم.",
+   "en": "Pressing the back of your hand outward into a door frame without moving, elbow by your side."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "infraspinatus",
+   "teres_minor"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس بجانب إطار باب، ومرفقك بجانب جسمك مثني بزاوية قائمة.",
+    "ضع ظهر يدك ورسغك على إطار الباب.",
+    "اضغط بظهر يدك إلى الخارج على الإطار برفق، كأنك تدير ساعدك إلى الخارج. لا تتحرك الذراع.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ.",
+    "اضغط بالقدر المريح فقط ودون ألم."
+   ],
+   "en": [
+    "Sit beside a door frame with your elbow by your side, bent to a right angle.",
+    "Place the back of your hand and wrist against the door frame.",
+    "Gently press the back of your hand outward into the frame, as if turning your forearm out. The arm does not move.",
+    "Hold for 5 seconds, breathing normally, then relax.",
+    "Press only as hard as is comfortable, with no pain."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "shoulder_endurance"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_external_rotators",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "armrest_press_down",
+  "name": {
+   "ar": "الضغط إلى الأسفل على مسندي الذراعين",
+   "en": "Armrest press down"
+  },
+  "description": {
+   "ar": "ضغط الكفين إلى الأسفل على مسندي الذراعين مع خفض الكتفين، دون رفع الجسم.",
+   "en": "Pressing your palms down into the armrests and drawing your shoulders down, without lifting your body."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "latissimus_dorsi",
+   "lower_trapezius",
+   "pectoralis_major"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا على كرسي ثابت له مسندان للذراعين، أو على كرسيك المتحرك والفرامل مقفلة.",
+    "ضع كفيك على مسندي الذراعين، ومرفقاك مثنيان قليلًا.",
+    "اضغط بكفيك إلى الأسفل، وأبعد كتفيك عن أذنيك، دون أن ترفع جسمك عن المقعد.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ.",
+    "اضغط بالقدر المريح فقط ودون ألم."
+   ],
+   "en": [
+    "Sit tall on a steady chair with armrests on both sides, or in your wheelchair with the brakes on.",
+    "Place your palms on the armrests, elbows slightly bent.",
+    "Press your palms down and draw your shoulders away from your ears, without lifting your body off the seat.",
+    "Hold for 5 seconds, breathing normally, then relax.",
+    "Press only as hard as is comfortable, with no pain."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "shoulder_endurance"
+  ],
+  "contraindications": [
+   "weak_shoulder",
+   "wrist_injury"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_depressors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "band_arm_pull_down",
+  "name": {
+   "ar": "سحب الذراعين إلى الأسفل بالشريط المطاطي",
+   "en": "Band arm pull down"
+  },
+  "description": {
+   "ar": "سحب الشريط المطاطي من مستوى الكتفين إلى جانبي الوركين والذراعان مستقيمتان.",
+   "en": "Pulling a band from shoulder height down to your hips with straight arms."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "latissimus_dorsi",
+   "lower_trapezius"
+  ],
+  "equipment": [
+   "resistance_bands"
+  ],
+  "difficulty": "beginner",
+  "minutes": 4,
+  "steps": {
+   "ar": [
+    "اربط منتصف الشريط المطاطي بمقبض باب مغلق أو بشيء ثابت، عند مستوى كتفيك وأنت جالس.",
+    "اجلس مقابل الباب وأمسك طرفي الشريط، وذراعاك مستقيمتان أمامك عند مستوى الكتفين أو أدنى. لا ترفعهما فوق كتفيك.",
+    "اسحب الشريط ببطء إلى الأسفل حتى تصل يداك إلى جانبي وركيك، واخفض كتفيك.",
+    "عد ببطء إلى البداية. كرر 10 إلى 15 مرة."
+   ],
+   "en": [
+    "Tie the middle of the band to the handle of a closed door, or to something steady, at the height of your shoulders while you sit.",
+    "Sit facing the door and hold both ends, arms straight in front of you at shoulder height or lower. Do not raise them above your shoulders.",
+    "Slowly pull the band down until your hands reach the sides of your hips, drawing your shoulders down.",
+    "Return slowly to the start. Repeat 10 to 15 times."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "shoulder_endurance"
+  ],
+  "contraindications": [
+   "weak_shoulder"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_depressors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false,
+  "dose": {
+   "profile": "strength_reps"
+  }
+ },
+ {
+  "id": "seated_knees_out_press",
+  "name": {
+   "ar": "دفع الركبتين إلى الخارج جالسًا",
+   "en": "Seated knees out press"
+  },
+  "description": {
+   "ar": "دفع الركبتين إلى الخارج ضد اليدين أو حزام، دون حركة.",
+   "en": "Pushing your knees out against your hands or a belt, without moving."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "gluteus_medius"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا، وقدماك على الأرض أو على مسندي القدمين، بعرض الوركين.",
+    "ضع كفيك على الجهة الخارجية لركبتيك، أو لفّ حزامًا حول فخذيك فوق الركبتين.",
+    "ادفع ركبتيك إلى الخارج ضد يديك أو الحزام، دون أن تتحرك الساقان.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ."
+   ],
+   "en": [
+    "Sit tall with your feet on the floor or the footplates, hip width apart.",
+    "Place your palms on the outside of your knees, or loop a belt around your thighs just above the knees.",
+    "Push your knees out against your hands or the belt, without your legs moving.",
+    "Hold for 5 seconds, breathing normally, then relax."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "seated_heel_dig",
+  "name": {
+   "ar": "ضغط الكعب إلى الخلف جالسًا",
+   "en": "Seated heel dig"
+  },
+  "description": {
+   "ar": "ضغط الكعب إلى الأسفل وإلى الخلف على الأرض، دون حركة.",
+   "en": "Pressing your heel down and back into the floor, without moving."
+  },
+  "category": "lower_body",
+  "muscles": [
+   "hamstrings"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا، وضع إحدى قدميك أمامك قليلًا وكعبها على الأرض، والركبة مثنية قليلًا.",
+    "اضغط بكعبك إلى الأسفل وإلى الخلف على الأرض، كأنك تسحبه نحو الكرسي، دون أن تتحرك القدم.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ.",
+    "كرر 10 مرات، ثم بدّل الساق."
+   ],
+   "en": [
+    "Sit tall and place one foot a little in front of you, heel on the floor and knee slightly bent.",
+    "Press your heel down and back into the floor, as if pulling it toward the chair, without your foot moving.",
+    "Hold for 5 seconds, breathing normally, then relax.",
+    "Repeat 10 times, then change legs."
+   ]
+  },
+  "tags": [
+   "seated",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hamstrings",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "seated_knee_lift_assisted",
+  "name": {
+   "ar": "رفع الركبة جالسًا بمساعدة اليدين",
+   "en": "Assisted seated knee lift"
+  },
+  "description": {
+   "ar": "رفع الركبة قليلًا وأنت جالس، ويداك تحت الفخذ تساعدانها.",
+   "en": "Lifting your knee a little while sitting, with your hands under the thigh helping."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "hip_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وظهرك مستند، وقدماك على الأرض أو على مسندي القدمين.",
+    "ضع يديك تحت أحد فخذيك قرب الركبة.",
+    "ارفع الركبة ببطء بضعة سنتيمترات، ودع يديك تحملان معظم وزن الساق، ضمن المدى المريح لك.",
+    "توقف لحظة، ثم أنزلها ببطء. كرر 5 إلى 10 مرات، ثم بدّل الساق."
+   ],
+   "en": [
+    "Sit tall with your back supported and your feet on the floor or the footplates.",
+    "Place your hands under one thigh, near the knee.",
+    "Slowly lift the knee a few centimetres, letting your hands carry most of the leg's weight, within your comfortable range.",
+    "Pause for a moment, then lower it slowly. Repeat 5 to 10 times, then change legs."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "flexibility"
+  ],
+  "contraindications": [
+   "hip_precautions_posterior"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:hip_flexion",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "mobility_reps",
+   "painProfile": "mobility_pain"
+  },
+  "hipEndRange": [
+   "flexion_past_90"
+  ]
+ },
+ {
+  "id": "elbow_bend_press",
+  "name": {
+   "ar": "ضغط ثني المرفق باليد الأخرى",
+   "en": "Elbow bend press"
+  },
+  "description": {
+   "ar": "ثني المرفق ضد مقاومة اليد الأخرى، دون حركة.",
+   "en": "Bending your elbow against your other hand, without moving."
+  },
+  "category": "upper_body",
+  "muscles": [
+   "biceps",
+   "brachialis"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا، ومرفقك بجانب جسمك مثني بزاوية قائمة، وكفك إلى الأعلى.",
+    "ضع يدك الأخرى فوق رسغك.",
+    "حاول أن تثني مرفقك إلى الأعلى، وقاوم بيدك الأخرى حتى لا تتحرك الذراع.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ. كرر 10 مرات، ثم بدّل الذراع إن احتجت."
+   ],
+   "en": [
+    "Sit tall with your elbow by your side, bent to a right angle, palm up.",
+    "Place your other hand on top of your wrist.",
+    "Try to bend your elbow up while your other hand pushes back, so the arm does not move.",
+    "Hold for 5 seconds, breathing normally, then relax. Repeat 10 times, then change arms if needed."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [
+   "grip_and_arm"
+  ],
+  "contraindications": [],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_flexors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
+ },
+ {
+  "id": "chin_nod_hold",
+  "name": {
+   "ar": "إيماءة الذقن مع الثبات",
+   "en": "Chin nod hold"
+  },
+  "description": {
+   "ar": "إيماءة صغيرة بالذقن إلى الأسفل مع الثبات، والظهر مستند.",
+   "en": "A small nod of the chin with a hold, back supported."
+  },
+  "category": "flexibility",
+  "muscles": [
+   "deep_neck_flexors"
+  ],
+  "equipment": [],
+  "difficulty": "beginner",
+  "minutes": 3,
+  "steps": {
+   "ar": [
+    "اجلس معتدلًا وظهرك مستند، وانظر أمامك.",
+    "أومئ برأسك إيماءة صغيرة جدًا، كأنك تقول نعم بهدوء، فينخفض ذقنك قليلًا دون أن تنحني رقبتك إلى الأمام.",
+    "اثبت 5 ثوان وأنت تتنفس بشكل طبيعي، ثم استرخِ.",
+    "كرر 10 مرات. توقف إذا شعرت بدوخة أو تنميل."
+   ],
+   "en": [
+    "Sit tall with your back supported, looking straight ahead.",
+    "Make a very small nod, as if quietly saying yes, so your chin lowers a little without your neck bending forward.",
+    "Hold for 5 seconds, breathing normally, then relax.",
+    "Repeat 10 times. Stop if you feel dizzy or tingling."
+   ]
+  },
+  "tags": [
+   "seated",
+   "wheelchair_friendly",
+   "low_impact",
+   "beginner_friendly"
+  ],
+  "demands": [],
+  "contraindications": [
+   "neck_caution",
+   "spine_surgery_recent"
+  ],
+  "status": "draft",
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:neck_deep_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:neck_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true,
+  "dose": {
+   "profile": "strength_isometric"
+  }
  }
 ]

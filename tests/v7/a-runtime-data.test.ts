@@ -519,7 +519,10 @@ describe("gait runtime data (gait-v7.json)", () => {
 /* -------------------------------------------------------------- targets */
 
 describe("exercise targets runtime data (targets-v7.json)", () => {
-  const LIBRARY_IDS = new Set((library as { id: string }[]).map((e) => e.id));
+  // The approved entries: E1 enters the new exercises into library.json as drafts (contract 2.10).
+  const LIBRARY_IDS = new Set(
+    (library as { id: string; status?: string }[]).filter((e) => e.status !== "draft").map((e) => e.id),
+  );
 
   it("lists exactly the dose profiles and why lines", () => {
     expect(TARGETS_DATA.dose.profiles.map((p) => p.id)).toEqual([...DOSE_PROFILE_IDS]);

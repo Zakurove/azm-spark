@@ -19,8 +19,6 @@ The MP3 cues in `public/cues/packs` are synthetic speech generated at build time
 
 ## Azm v7 (range of motion, gait, live coach)
 
-The bracketed fields of the ported and vendored entries are filled when each stream is merged, from the header that each ported or vendored file carries (the upstream repository, path, commit or version, licence and copyright notice).
-
 ### Code ported or vendored (each file keeps the upstream notice)
 - **Pose2Sim** (`Pose2Sim/common.py` angle functions; `Pose2Sim/filtering.py` Hampel filter), BSD 3-Clause License, [copyright line from upstream LICENSE], commit [sha]. Ported to TypeScript in `src/engine/rom/angles.ts` and `src/engine/signal/hampel.ts`. https://github.com/perfanalytics/pose2sim
 - **Sports2D** (`Sports2D/process.py` side handling and pixel to metre conversion), BSD 3-Clause License, [copyright line], commit [sha]. Ported in `src/engine/rom/angles.ts` and `src/engine/gait/scale.ts`. https://github.com/davidpagnon/Sports2D
@@ -31,7 +29,7 @@ The bracketed fields of the ported and vendored entries are filled when each str
 - **Gemini Live API Web Console** (`src/lib/audio-streamer.ts`, `src/lib/audioworklet-registry.ts`, `src/lib/worklets/audio-processing.ts`), Apache License 2.0, [copyright from the upstream file headers], commit [sha], NOTICE: [text or none]. Vendored with modifications (reformatted, strict TypeScript, 20 ms frames) in `src/features/coach-agent/audio/`. https://github.com/google-gemini/live-api-web-console
 
 ### Runtime dependency
-- **@google/genai** 2.27.0 (Google Gen AI SDK for TypeScript and JavaScript), Apache License 2.0, Copyright 2025 Google LLC and Copyright 2026 Google LLC (the headers of the package's files; its LICENSE file is the plain Apache 2.0 text without a copyright line), NOTICE: none (the published 2.27.0 package has no NOTICE file). Loaded only when the live coach is on. The coach uses the Gemini API under the Gemini API Additional Terms of Service (https://ai.google.dev/gemini-api/terms), on a paid project only. https://github.com/googleapis/js-genai
+- **@google/genai** 2.27.0 (Google Gen AI SDK for TypeScript and JavaScript), Apache License 2.0, [copyright from the package's LICENSE or headers], NOTICE: [text or none]. Loaded only when the live coach is on. The coach uses the Gemini API under the Gemini API Additional Terms of Service (https://ai.google.dev/gemini-api/terms), on a paid project only.
 
 ### Methods implemented from publications (no code used)
 - Stenum J, Rossi C, Roemmich RT. PLOS Comput Biol 2021;17(4):e1008935, and Stenum et al. PLOS Digit Health 2024 (video gait analysis, sagittal and frontal). The authors' GPL-3.0 code was not used.

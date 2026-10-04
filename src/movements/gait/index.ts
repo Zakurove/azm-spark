@@ -8,7 +8,8 @@
  */
 import raw from "./gait-v7.json";
 import type { WidenV7 } from "../rom/types";
-import type { GaitData } from "./types";
+import type { GaitFindingDef, GaitData, GaitPatternDef } from "./types";
+import type { GaitPatternId } from "../../medical/gait-types";
 
 // Compile time shape check; literal ids are checked by tests/v7/a-runtime-data.test.ts.
 const checked = raw satisfies WidenV7<GaitData>;
@@ -19,3 +20,17 @@ export const GAIT_DATA: GaitData = checked as unknown as GaitData;
 export const GAIT_RULES_VERSION = `gait_rules_${GAIT_DATA.version}`;
 /** The engine's version, stored with every analysis (bumped by stream C when the engine changes). */
 export const GAIT_ENGINE_VERSION = "gait_engine_1";
+
+/** One pattern: its views, signs and the numbers of its rules (GAIT_DATA.patterns). */
+export function gaitPattern(id: GaitPatternId): GaitPatternDef {
+  const p = GAIT_DATA.patterns.find((x) => x.id === id);
+  if (!p) throw new Error(`Unknown gait pattern: ${id}`);
+  return p;
+}
+
+/** One support finding: its views and the thresholds of its rule (GAIT_DATA.findings). */
+export function gaitFinding(id: GaitFindingDef["id"]): GaitFindingDef {
+  const f = GAIT_DATA.findings.find((x) => x.id === id);
+  if (!f) throw new Error(`Unknown gait finding: ${id}`);
+  return f;
+}

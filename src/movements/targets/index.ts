@@ -9,7 +9,8 @@
  */
 import raw from "./targets-v7.json";
 import type { WidenV7 } from "../rom/types";
-import type { TargetsData } from "./types";
+import type { DoseProfile, TargetsData } from "./types";
+import type { DoseProfileId } from "../../medical/target-types";
 
 // Compile time shape check; literal ids are checked by tests/v7/a-runtime-data.test.ts.
 const checked = raw satisfies WidenV7<TargetsData>;
@@ -18,3 +19,10 @@ export const TARGETS_DATA: TargetsData = checked as unknown as TargetsData;
 
 /** The targets version stored with a targeted weekly, for example "targets_0.2.2". */
 export const TARGETS_VERSION = `targets_${TARGETS_DATA.version}`;
+
+/** One dose profile with the numbers copied next to its words (TARGETS_DATA.dose.profiles). */
+export function doseProfile(id: DoseProfileId): DoseProfile {
+  const p = TARGETS_DATA.dose.profiles.find((x) => x.id === id);
+  if (!p) throw new Error(`Unknown dose profile: ${id}`);
+  return p;
+}

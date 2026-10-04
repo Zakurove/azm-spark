@@ -33,6 +33,8 @@ import {
   defaultDef,
   movementDef,
   regionRow,
+  compensationDef,
+  retestBand,
   romCopy,
   romCue,
   romResultLine,
@@ -51,7 +53,13 @@ import {
   type RomCueId,
   type RomMovementId,
 } from "../../src/movements/rom/types";
-import { GAIT_DATA, GAIT_ENGINE_VERSION, GAIT_RULES_VERSION } from "../../src/movements/gait";
+import {
+  GAIT_DATA,
+  GAIT_ENGINE_VERSION,
+  GAIT_RULES_VERSION,
+  gaitFinding,
+  gaitPattern,
+} from "../../src/movements/gait";
 import {
   GAIT_CONTRIBUTOR_IDS,
   GAIT_COPY_METRIC_KEYS,
@@ -65,7 +73,7 @@ import {
   GAIT_SETUP_COPY_KEYS,
   GAIT_UNUSED_METRIC_IDS,
 } from "../../src/movements/gait/types";
-import { TARGETS_DATA, TARGETS_VERSION } from "../../src/movements/targets";
+import { TARGETS_DATA, TARGETS_VERSION, doseProfile } from "../../src/movements/targets";
 import { movementDef as movementDefOf } from "../../src/movements/rom";
 import { DOSE_PROFILE_IDS, HIP_END_RANGE_IDS, WHY_LINE_IDS } from "../../src/movements/targets/types";
 import {
@@ -373,6 +381,19 @@ describe("ROM runtime data (rom-v7.json)", () => {
     expect(sessionOrder.minutesPerMovement).toBeGreaterThan(0);
   });
 
+  it("serves the freeze step's structures through typed accessors", () => {
+    expect(compensationDef("shoulder_abduction", "plane")).toMatchObject({
+      cue: "test_abd_side",
+      invalidAt: 0.85,
+    });
+    expect(() => compensationDef("shoulder_flexion", "heel_lift")).toThrow(
+      "Unknown range of motion compensation: shoulder_flexion heel_lift",
+    );
+    expect(retestBand("knee_extension")).toEqual({ deg: 11, position: "lying_back" });
+    expect(retestBand("elbow")).toEqual({ neurologicalLabDeg: 33, neurologicalHomeDeg: 36 });
+    expect(retestBand("neck_flexion")).toBeNull();
+  });
+
   it("serves the typed accessors and versions", () => {
     expect(movementDef("knee_extension").kind).toBe("lack");
     expect(defaultDef("neck_rotation").region).toBe("neck");
@@ -480,6 +501,14 @@ describe("gait runtime data (gait-v7.json)", () => {
     expect(GAIT_DATA.norms.hollman11.bands.length).toBeGreaterThan(0);
   });
 
+  it("serves the patterns and support findings through typed accessors", () => {
+    expect(gaitPattern("stiff_knee").thresholds.speed?.cappedNeedsDiffGte).toBe(15);
+    expect(gaitFinding("uneven_step_length").thresholds).toMatchObject({
+      likely: { sr_step_length_gte: 1.18 },
+    });
+    expect(() => gaitPattern("limp" as GaitPatternId)).toThrow("Unknown gait pattern: limp");
+  });
+
   it("serves its versions", () => {
     expect(GAIT_RULES_VERSION).toBe(`gait_rules_${GAIT_DATA.version}`);
     expect(GAIT_ENGINE_VERSION).toBe("gait_engine_1");
@@ -564,6 +593,11 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
     for (const r of TARGETS_DATA.mapping.regionDefaultRule.rows) expect(REGION_IDS).toContain(r.region);
     for (const g of [...TARGETS_DATA.taxonomy.muscleGroups, ...TARGETS_DATA.taxonomy.jointMovements])
       expect(REGION_IDS).toContain(g.region);
+  });
+
+  it("serves the dose profiles through a typed accessor", () => {
+    expect(doseProfile("mobility_pain").numbers.painStop).toEqual({ atOrAbove: 6, riseAtOrAbove: 2 });
+    expect(() => doseProfile("rest" as DoseProfileId)).toThrow("Unknown dose profile: rest");
   });
 
   it("serves its version", () => {

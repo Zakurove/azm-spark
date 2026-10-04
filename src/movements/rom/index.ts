@@ -11,15 +11,18 @@ import raw from "./rom-v7.json";
 import type { RegionId } from "../../medical/body-map";
 import type { Text } from "../types";
 import type {
+  CompensationId,
   DefaultMovementDef,
   DefaultOnlyId,
   RegionTableRow,
+  RomCompensationDef,
   RomCopyKey,
   RomCueId,
   RomData,
   RomMovementDef,
   RomMovementId,
   RomResultKey,
+  RomRetestBand,
   WidenV7,
 } from "./types";
 
@@ -59,6 +62,22 @@ export function defaultDef(id: DefaultOnlyId): DefaultMovementDef {
 /** The region table row of a body map region: its measure, caution, default, core and extended movements. */
 export function regionRow(region: RegionId): RegionTableRow {
   return regionRows.get(region) ?? missing("region", region);
+}
+
+/** One compensation check of a movement: its cue line and numbers (the freeze step's structure). */
+export function compensationDef(movement: RomMovementId, id: CompensationId): RomCompensationDef {
+  return (
+    movementDef(movement).compensations.find((c) => c.id === id) ??
+    missing("compensation", `${movement} ${id}`)
+  );
+}
+
+/**
+ * The retest band the data writes for a movement or a region (ROM_DATA.retest.bands), or null when it
+ * writes none: then retest.defaultDeg applies, never below retest.floorDeg.
+ */
+export function retestBand(key: RomMovementId | RegionId): RomRetestBand | null {
+  return ROM_DATA.retest.bands[key] ?? null;
 }
 
 /** A copy line of the range of motion check (ROM_DATA.copy). */

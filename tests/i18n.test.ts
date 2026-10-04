@@ -19,6 +19,7 @@ import {
   unitWord,
 } from "../src/i18n";
 import { fmtTime } from "../src/app/i18n";
+import { V7_DICTIONARIES, V7_NAMESPACES } from "../src/i18n/v7";
 import { testDef } from "../src/movements/assessments";
 
 const DIR = join(__dirname, "../src/i18n");
@@ -40,19 +41,29 @@ function leaves(v: unknown, prefix = ""): Record<string, unknown> {
 const tokens = (s: string) => [...new Set([...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].sort();
 
 describe("dictionaries", () => {
+  // The v7 namespaces are registered in src/i18n/v7.ts, never in the dictionaries of src/i18n/index.ts,
+  // so the landing's first script holds none of their strings (product v7 contract 1.2 and 8.8).
+  const registered = {
+    ar: { ...DICTIONARIES.ar, ...V7_DICTIONARIES.ar } as Record<string, unknown>,
+    en: { ...DICTIONARIES.en, ...V7_DICTIONARIES.en } as Record<string, unknown>,
+  };
+
   it("has the same namespace files in Arabic and English, all registered", () => {
     expect(files("ar")).toEqual(files("en"));
-    expect(files("en").map((f) => f.replace(/\.json$/, ""))).toEqual([...NAMESPACES].sort());
+    expect(files("en").map((f) => f.replace(/\.json$/, ""))).toEqual(
+      [...NAMESPACES, ...V7_NAMESPACES].sort(),
+    );
     for (const ns of ["assessment", "progress", "landing"]) expect(NAMESPACES).toContain(ns);
+    for (const ns of V7_NAMESPACES) expect(NAMESPACES as string[]).not.toContain(ns);
   });
 
   it.each(files("en"))("%s has identical key sets in Arabic and English", (file) => {
     const ar = leaves(read("ar", file));
     const en = leaves(read("en", file));
     expect(Object.keys(ar).sort()).toEqual(Object.keys(en).sort());
-    const ns = file.replace(/\.json$/, "") as (typeof NAMESPACES)[number];
-    expect(DICTIONARIES.ar[ns]).toEqual(read("ar", file));
-    expect(DICTIONARIES.en[ns]).toEqual(read("en", file));
+    const ns = file.replace(/\.json$/, "");
+    expect(registered.ar[ns]).toEqual(read("ar", file));
+    expect(registered.en[ns]).toEqual(read("en", file));
     for (const [key, value] of Object.entries(en)) {
       if (key === "") continue; // an empty namespace
       expect(typeof value, `${file} ${key}`).toBe("string");

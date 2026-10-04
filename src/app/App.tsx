@@ -20,6 +20,11 @@ import type { CheckStartOptions } from "../features/progress";
 import { countPhrase, t } from "../i18n";
 import { LazyPage, LazyPart } from "./LazyPage";
 import { programWhy } from "../medical/programWhy";
+import { V7_UI } from "./v7flag";
+import type { FocusExit } from "../features/focus/FocusApp";
+import type { FindingsExit } from "../features/focus/FindingsPage";
+import type { ProgramExit } from "../features/program-v7/ProgramPage";
+import type { ShowcaseExit } from "../features/showcase/ShowcaseEntry";
 /**
  * Loaded on demand (acceptance F-4): the landing's first script carries the app shell, the landing
  * and the copy; the check, the camera and pose runtime, the booth, the portal pages and the workout
@@ -45,6 +50,20 @@ const Session = lazy(() => import("./Session"));
 const History = lazy(() => import("./History"));
 const CoachSettings = lazy(() => import("./CoachSettings"));
 const Privacy = lazy(() => import("./Privacy"));
+/**
+ * The v7 pages (product v7 contract 1.2, 1.3 and C-9), filled by streams B (the focus check and the
+ * findings), E (the program) and F (the showcase). Only a VITE_V7=1 build has them: a default build
+ * emits no chunk for them (8.8). The test is V7_UI written inline, as the E2E gallery's below: the
+ * bundler registers a dynamic import before it inlines an imported constant, so `V7_UI ? lazy(...)`
+ * would still emit the (never loaded) chunks. tests/v7/a-seams.test.ts keeps the two tests equal.
+ */
+const FocusApp = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/FocusApp")) : null;
+const FindingsPage =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/FindingsPage")) : null;
+const ProgramPage =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/ProgramPage")) : null;
+const ShowcaseEntry =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/showcase/ShowcaseEntry")) : null;
 const checkApi = () => import("../features/assessment/api");
 /** Sends what a movement check left in its outbox (loads the flow's code first). */
 const flushPendingCheckCalls = (owner: string) =>
@@ -66,6 +85,40 @@ const registerEntry = qs.get("register") === "1";
 const exampleEntry = CHECK_UI && qs.get("example") === "progress";
 /** The privacy notice (Q32 (1), H5), open to everyone. */
 const privacyEntry = qs.get("privacy") === "1";
+/** A v7 page of the signed in portal (VITE_V7=1 builds only). */
+type V7Page = { page: "focus" } | { page: "findings"; checkId: string | null } | { page: "program" };
+const CHECK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/**
+ * The v7 entries (VITE_V7=1 builds only): /?focus=1 the focus check, /?findings=1 (with &check=<id>
+ * for one check) the findings, /?targets=1 the program page, all signed in; /?showcase=1 the A to Z
+ * showcase entry, signed in or not.
+ */
+const v7Entry: V7Page | null = !V7_UI
+  ? null
+  : qs.get("focus") === "1"
+    ? { page: "focus" }
+    : qs.get("findings") === "1"
+      ? { page: "findings", checkId: CHECK_ID.test(qs.get("check") ?? "") ? qs.get("check") : null }
+      : qs.get("targets") === "1"
+        ? { page: "program" }
+        : null;
+const showcaseEntry = V7_UI && qs.get("showcase") === "1";
+/** The URL of a v7 page, kept in the address bar so a reload opens the same page. */
+const v7Url = (p: V7Page | null) =>
+  !p
+    ? "/"
+    : p.page === "focus"
+      ? "/?focus=1"
+      : p.page === "program"
+        ? "/?targets=1"
+        : `/?findings=1${p.checkId ? `&check=${p.checkId}` : ""}`;
+/** Where the showcase entry leaves to: a full page load, so the account it signed in is read afresh. */
+const SHOWCASE_EXITS: Record<ShowcaseExit, string> = {
+  landing: "/",
+  focus: "/?focus=1",
+  findings: "/?findings=1",
+  program: "/?targets=1",
+};
 /** Four tabs (C44): My results carries the checks and, under them, the workout history. */
 type Page = "today" | "program" | "health" | "results";
 const PAGES: readonly Page[] = ["today", "program", "results", "health"];
@@ -139,7 +192,9 @@ export default function App() {
     ),
     // S54: home checks are open (the context says so for a signed in person; closed otherwise).
     [homeChecksOpen, setHomeChecksOpen] = useState(false),
-    [intakeOffer, setIntakeOffer] = useState<[number, number] | null>(null);
+    [intakeOffer, setIntakeOffer] = useState<[number, number] | null>(null),
+    // A v7 page opened by its URL or from another v7 page (VITE_V7=1 builds only).
+    [v7Page, setV7Page] = useState<V7Page | null>(v7Entry);
   const c = labels(lang);
   /** The short tab names (D-018: اليوم · برنامجي · نتائجي · حالتي); page titles keep the full names. */
   const navLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c.nav[key]);
@@ -259,6 +314,16 @@ export default function App() {
       <Suspense fallback={null}>
         <E2EGallery name={galleryEntry} lang={lang} onLanguage={toggleLanguage} />
       </Suspense>
+    );
+  if (ShowcaseEntry && showcaseEntry)
+    return (
+      <LazyPage lang={lang}>
+        <ShowcaseEntry
+          lang={lang}
+          onLanguage={toggleLanguage}
+          onExit={(to) => openUrl(SHOWCASE_EXITS[to], lang, true)}
+        />
+      </LazyPage>
     );
   if (checkEntry)
     return (
@@ -397,6 +462,64 @@ export default function App() {
         />
       </LazyPage>
     );
+  if (v7Page) {
+    /** Opens another v7 page, or closes them on a portal tab (healthEdit: the health form open). */
+    const go = (next: V7Page | null, tab: Page = "today", healthEdit = false) => {
+      history.replaceState({}, "", v7Url(next));
+      setV7Page(next);
+      if (next) return;
+      setPage(tab);
+      setEditing(healthEdit);
+    };
+    if (FocusApp && v7Page.page === "focus")
+      return (
+        <LazyPage lang={lang}>
+          <FocusApp
+            lang={lang}
+            onLanguage={toggleLanguage}
+            owner={account.user.id}
+            onExit={(to: FocusExit) =>
+              to === "findings"
+                ? go({ page: "findings", checkId: null })
+                : to === "health"
+                  ? go(null, "health", true)
+                  : go(null)
+            }
+          />
+        </LazyPage>
+      );
+    if (FindingsPage && v7Page.page === "findings")
+      return (
+        <LazyPage lang={lang}>
+          <FindingsPage
+            lang={lang}
+            onLanguage={toggleLanguage}
+            checkId={v7Page.checkId}
+            onExit={(to: FindingsExit) =>
+              to === "program"
+                ? go({ page: "program" })
+                : to === "focus"
+                  ? go({ page: "focus" })
+                  : go(null, to === "results" ? "results" : "today")
+            }
+          />
+        </LazyPage>
+      );
+    if (ProgramPage && v7Page.page === "program")
+      return (
+        <LazyPage lang={lang}>
+          <ProgramPage
+            lang={lang}
+            onLanguage={toggleLanguage}
+            onExit={(to: ProgramExit) =>
+              to === "findings"
+                ? go({ page: "findings", checkId: null })
+                : go(null, to === "program" ? "program" : "today")
+            }
+          />
+        </LazyPage>
+      );
+  }
   if (checkOpen)
     return (
       <LazyPage lang={lang}>

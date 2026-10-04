@@ -44,7 +44,25 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_abductors",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "resistance_band_rows",
@@ -89,7 +107,25 @@
    "shoulder_endurance",
    "grip_and_arm"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:scapular_retractors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:elbow_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_bicep_curls",
@@ -132,7 +168,21 @@
   "demands": [
    "grip_and_arm"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:elbow_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "chest_press",
@@ -181,7 +231,26 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated",
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:chest",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:shoulder_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_tricep_extensions",
@@ -225,7 +294,17 @@
   ],
   "contraindications": [
    "elbow_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_lateral_raises",
@@ -270,7 +349,17 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_abductors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_front_raises",
@@ -315,7 +404,17 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_flexors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_arnold_press",
@@ -361,7 +460,25 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:shoulder_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_abductors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "hammer_curls",
@@ -405,7 +522,21 @@
   "demands": [
    "grip_and_arm"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:forearm_grip",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "concentration_curls",
@@ -448,7 +579,17 @@
   "demands": [
    "grip_and_arm"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_flexors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "overhead_tricep_extension",
@@ -493,7 +634,17 @@
   "contraindications": [
    "elbow_injury",
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "tricep_kickbacks",
@@ -538,7 +689,21 @@
   ],
   "contraindications": [
    "elbow_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_extensors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_dumbbell_row",
@@ -584,7 +749,21 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:scapular_retractors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "reverse_flys",
@@ -629,7 +808,21 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:scapular_retractors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_back",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "wall_push_ups",
@@ -675,7 +868,25 @@
   ],
   "contraindications": [
    "wrist_injury"
-  ]
+  ],
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:chest",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:elbow_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:shoulder_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "core_breathing_exercise",
@@ -718,7 +929,17 @@
   "demands": [
    "trunk_control"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_torso_rotation",
@@ -763,7 +984,21 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_rotation",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:trunk_side",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_crunches",
@@ -806,7 +1041,17 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_bicycle",
@@ -851,7 +1096,25 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:trunk_side",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:hip_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "dead_bug",
@@ -894,7 +1157,17 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "pelvic_tilts",
@@ -937,7 +1210,21 @@
    "trunk_control",
    "flexibility"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:trunk_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_knee_lifts",
@@ -981,7 +1268,25 @@
   ],
   "contraindications": [
    "hip_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "strengthen:abdominals",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_oblique_twist",
@@ -1026,7 +1331,21 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:trunk_side",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:trunk_rotation",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "stomach_vacuum",
@@ -1069,7 +1388,18 @@
   "demands": [
    "trunk_control"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated",
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "side_bend",
@@ -1113,7 +1443,21 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:trunk_side",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:trunk_lateral_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "supine_marching",
@@ -1155,7 +1499,21 @@
   "demands": [
    "trunk_control"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:abdominals",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_flexors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "bird_dog",
@@ -1198,7 +1556,21 @@
   "contraindications": [
    "knee_injury",
    "wrist_injury"
-  ]
+  ],
+  "positions": [
+   "floor"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:back_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "arm_circles",
@@ -1241,7 +1613,21 @@
    "flexibility",
    "shoulder_endurance"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:shoulder_abduction",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "neck_stretches",
@@ -1285,7 +1671,29 @@
   ],
   "contraindications": [
    "neck_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "stretch:neck_side",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:neck_lateral_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:neck_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:neck_extension",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "wrist_circles",
@@ -1328,7 +1736,17 @@
   "demands": [
    "flexibility"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:wrist",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "shoulder_stretch",
@@ -1372,7 +1790,17 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "stretch:shoulder_back",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "chest_opener",
@@ -1417,7 +1845,26 @@
   ],
   "contraindications": [
    "shoulder_injury"
-  ]
+  ],
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "stretch:chest",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:shoulder_extension",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "tricep_stretch",
@@ -1463,7 +1910,30 @@
   "contraindications": [
    "shoulder_injury",
    "elbow_injury"
-  ]
+  ],
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "stretch:elbow_extensors",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:shoulder_extensors",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:elbow_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "upper_back_stretch",
@@ -1507,7 +1977,22 @@
   "demands": [
    "flexibility"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "stretch:scapular_retractors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:trunk_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_spinal_twist",
@@ -1553,7 +2038,21 @@
   ],
   "contraindications": [
    "back_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_rotation",
+    "role": "primary"
+   },
+   {
+    "id": "stretch:trunk_side",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "cat_cow_stretch",
@@ -1598,7 +2097,21 @@
   "contraindications": [
    "wrist_injury",
    "knee_injury"
-  ]
+  ],
+  "positions": [
+   "floor"
+  ],
+  "targets": [
+   {
+    "id": "mobility:trunk_flexion",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:trunk_extension",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_hip_flexor_stretch",
@@ -1641,7 +2154,21 @@
   ],
   "contraindications": [
    "hip_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "stretch:hip_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_extension",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "ankle_circles",
@@ -1683,7 +2210,21 @@
   "demands": [
    "flexibility"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "secondary"
+   },
+   {
+    "id": "mobility:ankle_plantarflexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "finger_stretches",
@@ -1727,7 +2268,21 @@
    "flexibility",
    "grip_and_arm"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "mobility:hand",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:forearm_grip",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "chin_tucks",
@@ -1772,7 +2327,26 @@
   ],
   "contraindications": [
    "neck_injury"
-  ]
+  ],
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:neck_deep_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:neck_flexion",
+    "role": "secondary"
+   },
+   {
+    "id": "stretch:neck_back",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_leg_extensions",
@@ -1813,7 +2387,21 @@
   "demands": [],
   "contraindications": [
    "knee_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:quadriceps",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:knee_extension",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_marching",
@@ -1856,7 +2444,21 @@
   "demands": [
    "cardio"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_flexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:hip_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "heel_raises",
@@ -1896,7 +2498,26 @@
    "beginner_friendly"
   ],
   "demands": [],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:calf",
+    "role": "primary"
+   },
+   {
+    "id": "practice:push_off",
+    "role": "secondary"
+   },
+   {
+    "id": "balance:weight_shift",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "toe_raises",
@@ -1935,7 +2556,21 @@
    "beginner_friendly"
   ],
   "demands": [],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:ankle_dorsiflexors",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_hip_abduction",
@@ -1978,7 +2613,17 @@
   "demands": [],
   "contraindications": [
    "hip_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_hip_adduction",
@@ -2017,7 +2662,17 @@
    "beginner_friendly"
   ],
   "demands": [],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_adductors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "leg_press_with_band",
@@ -2060,7 +2715,21 @@
   "demands": [],
   "contraindications": [
    "knee_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:quadriceps",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "glute_squeeze",
@@ -2101,7 +2770,18 @@
    "beginner_friendly"
   ],
   "demands": [],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated",
+   "lying_back"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hip_extensors",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "hamstring_curl_with_band",
@@ -2142,7 +2822,21 @@
   "demands": [],
   "contraindications": [
    "knee_injury"
-  ]
+  ],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "strengthen:hamstrings",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:knee_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_calf_stretch",
@@ -2184,7 +2878,21 @@
   "demands": [
    "flexibility"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "stretch:calf",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:ankle_dorsiflexion",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "seated_weight_shifts",
@@ -2226,7 +2934,21 @@
   "demands": [
    "trunk_control"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "balance:seated",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:trunk_side",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "seated_reach",
@@ -2270,7 +2992,21 @@
    "trunk_control",
    "flexibility"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated"
+  ],
+  "targets": [
+   {
+    "id": "balance:seated",
+    "role": "primary"
+   },
+   {
+    "id": "mobility:shoulder_flexion",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": true
  },
  {
   "id": "single_leg_balance",
@@ -2313,7 +3049,21 @@
   ],
   "contraindications": [
    "severe_balance_issues"
-  ]
+  ],
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "balance:single_leg_stance",
+    "role": "primary"
+   },
+   {
+    "id": "strengthen:hip_abductors",
+    "role": "secondary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "heel_toe_stand",
@@ -2356,7 +3106,17 @@
   ],
   "contraindications": [
    "severe_balance_issues"
-  ]
+  ],
+  "positions": [
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "balance:tandem_stance",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  },
  {
   "id": "eye_tracking_balance",
@@ -2399,6 +3159,17 @@
   "demands": [
    "trunk_control"
   ],
-  "contraindications": []
+  "contraindications": [],
+  "positions": [
+   "seated",
+   "standing"
+  ],
+  "targets": [
+   {
+    "id": "balance:gaze",
+    "role": "primary"
+   }
+  ],
+  "painFriendly": false
  }
 ]

@@ -162,10 +162,13 @@ export function focusCameraSession(opts: FocusCameraOptions = {}): FocusCamera {
   const create = opts.createSource ?? defaultSource;
   const storage = opts.storage === undefined ? deviceStorage() : opts.storage;
   const now = opts.now ?? Date.now;
-  /** Kinds Full missed in this check (a device outcome), and the highest floor it sustained. */
+  /** Kinds whose floor Full missed in this check before sustaining it (the device's outcome). */
   const missed = new Set<ProbeKind>();
+  /** The highest floor Full sustained in this check: a later miss at or under it is thermal. */
   let sustained = 0;
+  /** Lite to the end of the check (a thermal miss, or thermalFallback). */
   let thermal = false;
+  /** A pose source was built: preload no longer picks the model the session starts on. */
   let built = false;
   let sourceKind: PoseSource["kind"] | null = null;
 

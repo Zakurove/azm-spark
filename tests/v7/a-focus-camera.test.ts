@@ -94,9 +94,16 @@ function camera(opts: Partial<FocusCameraOptions> & { kind?: "camera" | "trace" 
     ...opts,
   });
   const release = cam.session.acquire();
-  const running = async (n: number) => vi.waitFor(() => expect(sources[n - 1]?.started).toBe(true));
+  /** Source n runs, and the probe that started it (if any) has gone on to listen for frames. */
+  const running = async (n: number) => {
+    await vi.waitFor(() => expect(sources[n - 1]?.started).toBe(true));
+    await settle();
+  };
   return { cam, sources, storage, release, running };
 }
+
+/** A turn of the event loop: every pending continuation (a probe starting to listen) has run. */
+const settle = () => new Promise((r) => setTimeout(r, 0));
 
 const memory = (s: MemoryStorage) => JSON.parse(s.data.get(MODEL_MEMORY_KEY) ?? "{}");
 
@@ -129,7 +136,7 @@ describe("focusCameraSession", () => {
     const { cam, sources, storage, running } = camera();
     await running(1);
     const probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(10);
     expect(await probe).toEqual({ model: "lite", fps: 10, switched: true });
     expect(cam.model).toBe("lite");
@@ -163,7 +170,7 @@ describe("focusCameraSession", () => {
     await running(1);
     expect(sources[0].model).toBe("lite");
     const probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(11);
     expect(await probe).toEqual({ model: "lite", fps: 11, switched: false });
     expect(sources).toHaveLength(1);
@@ -187,11 +194,11 @@ describe("focusCameraSession", () => {
     const { cam, sources, storage, running } = camera();
     await running(1);
     let probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(20);
     expect(await probe).toEqual({ model: "full", fps: 20, switched: false });
     probe = cam.probe("gait");
-    await Promise.resolve();
+    await settle();
     sources[0].play(20, PROBE_MS + 100, 5000);
     expect(await probe).toEqual({ model: "lite", fps: 20, switched: true });
     expect(memory(storage)).toEqual({ rom: { model: "full", at: NOW }, gait: { model: "lite", at: NOW } });
@@ -208,17 +215,17 @@ describe("focusCameraSession", () => {
     const { cam, sources, storage, running } = camera();
     await running(1);
     let probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(30);
     await probe;
     probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(12, PROBE_MS + 100, 5000);
     expect(await probe).toEqual({ model: "lite", fps: 12, switched: true });
     expect(memory(storage)).toEqual({ rom: { model: "full", at: NOW } });
     // Every later block of the check stays Lite.
     probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[1].play(30, PROBE_MS + 100, 9000);
     expect(await probe).toEqual({ model: "lite", fps: 30, switched: false });
     expect(sources).toHaveLength(2);
@@ -242,7 +249,7 @@ describe("focusCameraSession", () => {
     const { cam, sources, storage, running } = camera({ kind: "trace" });
     await running(1);
     const probe = cam.probe("gait");
-    await Promise.resolve();
+    await settle();
     sources[0].play(15);
     expect(await probe).toEqual({ model: "full", fps: 15, switched: false });
     expect(sources).toHaveLength(1);
@@ -260,7 +267,7 @@ describe("focusCameraSession", () => {
     const { cam, sources, running } = camera({ storage });
     await running(1);
     const probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(5, 300);
     cam.session.stop();
     expect(await probe).toEqual({ model: "full", fps: 5, switched: false });
@@ -280,7 +287,7 @@ describe("focusCameraSession", () => {
     expect(cam.model).toBe("full");
     await running(1);
     const probe = cam.probe("rom");
-    await Promise.resolve();
+    await settle();
     sources[0].play(10);
     expect(await probe).toEqual({ model: "lite", fps: 10, switched: true });
   });

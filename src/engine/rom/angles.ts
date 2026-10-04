@@ -252,10 +252,14 @@ const VIS_MIN = ROM_DATA.engine.visibilityMin;
 
 /**
  * Ears under this visibility: the neck side bend reads the eye line ("Eye line (2 to 5) when ear
- * visibility is below 0.5", its definition below). A number of the clinical prose, which the export
- * drops: parity tested against the source with AZM_CLINICAL_V7.
+ * visibility is below 0.5", its definition below). Read from the data: the freeze step copied the
+ * number next to the angle prose (movements[neck_lateral_flexion].earLineMinVisibility, A3-4).
  */
-export const EAR_LINE_MIN_VISIBILITY = 0.5;
+export const EAR_LINE_MIN_VISIBILITY: number =
+  movementDef("neck_lateral_flexion").earLineMinVisibility ??
+  (() => {
+    throw new Error("rom-v7.json: neck_lateral_flexion has no earLineMinVisibility");
+  })();
 
 /**
  * The arm raises measure against the trunk when the hips are seen in at least this share of the start

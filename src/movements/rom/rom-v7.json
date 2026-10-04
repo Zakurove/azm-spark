@@ -601,6 +601,11 @@
       "priority": "core",
       "view": "side",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "seated",
@@ -642,6 +647,49 @@
         "bent_elbow",
         "assisted"
       ],
+      "compensations": [
+        {
+          "id": "trunk_back",
+          "cue": "keep_back",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "plane",
+          "cue": "arm_in_front",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below",
+          "windowDeg": [
+            70,
+            110
+          ]
+        },
+        {
+          "id": "bent_elbow",
+          "cue": "arm_straight",
+          "cueAt": null,
+          "invalidAt": null,
+          "flagAt": 150,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "below"
+        },
+        {
+          "id": "assisted",
+          "cue": "on_own",
+          "cueAt": null,
+          "invalidAt": 0.25,
+          "effect": "invalid",
+          "unit": "shoulder_widths",
+          "when": "below"
+        }
+      ],
       "E": 10,
       "sigmaM": 5.1,
       "approximateInPersonView": true,
@@ -676,6 +724,13 @@
       "priority": "core",
       "view": "front",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
+      "frameMarginArmLengths": 1.3,
+      "calibrationSeconds": 1,
       "positions": [
         {
           "id": "seated",
@@ -732,6 +787,69 @@
         "bent_elbow",
         "shrug"
       ],
+      "compensations": [
+        {
+          "id": "trunk_lean",
+          "cue": "test_abd_still",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "plane",
+          "cue": "test_abd_side",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below",
+          "windowDeg": [
+            70,
+            110
+          ],
+          "forSeconds": 0.3
+        },
+        {
+          "id": "trunk_rotation",
+          "cue": null,
+          "cueAt": null,
+          "invalidAt": 15,
+          "effect": "invalid",
+          "unit": "percent",
+          "when": "above"
+        },
+        {
+          "id": "assisted",
+          "cue": "on_own",
+          "cueAt": null,
+          "invalidAt": null,
+          "effect": "invalid",
+          "unit": null,
+          "when": null
+        },
+        {
+          "id": "bent_elbow",
+          "cue": null,
+          "cueAt": null,
+          "invalidAt": null,
+          "flagAt": 150,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "below"
+        },
+        {
+          "id": "shrug",
+          "cue": "shoulder_down",
+          "cueAt": null,
+          "invalidAt": null,
+          "effect": "log",
+          "unit": null,
+          "when": null
+        }
+      ],
+      "directionFromDeg": 20,
       "E": 10,
       "sigmaM": 5.1,
       "approximateInPersonView": true,
@@ -766,6 +884,11 @@
       "priority": "extended",
       "view": "side",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "seated_forward",
@@ -811,6 +934,36 @@
         "plane",
         "bent_elbow"
       ],
+      "compensations": [
+        {
+          "id": "trunk_forward",
+          "cue": "no_lean",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "plane",
+          "cue": "arm_back_straight",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        },
+        {
+          "id": "bent_elbow",
+          "cue": "arm_straight",
+          "cueAt": null,
+          "invalidAt": null,
+          "flagAt": 150,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "below"
+        }
+      ],
       "E": 16,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -845,6 +998,8 @@
       "priority": "core",
       "view": "side",
       "axial": false,
+      "distanceM": 2,
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "seated",
@@ -883,6 +1038,35 @@
         "forearm_plane",
         "trunk"
       ],
+      "compensations": [
+        {
+          "id": "upper_arm_moves",
+          "cue": "elbow_by_side",
+          "cueAt": 10,
+          "invalidAt": 20,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "forearm_plane",
+          "cue": "thumb_up",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        },
+        {
+          "id": "trunk",
+          "cue": null,
+          "cueAt": null,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        }
+      ],
       "E": 10,
       "sigmaM": 5.1,
       "approximateInPersonView": false,
@@ -918,6 +1102,8 @@
       "priority": "extended",
       "view": "side",
       "axial": false,
+      "distanceM": 2,
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "seated",
@@ -955,6 +1141,26 @@
         "upper_arm_moves",
         "forearm_plane"
       ],
+      "compensations": [
+        {
+          "id": "upper_arm_moves",
+          "cue": "elbow_by_side",
+          "cueAt": 10,
+          "invalidAt": 20,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "forearm_plane",
+          "cue": "palm_forward",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -989,6 +1195,11 @@
       "priority": "core",
       "view": "side",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "lying_back",
@@ -1042,6 +1253,44 @@
         "other_leg",
         "plane"
       ],
+      "compensations": [
+        {
+          "id": "assisted",
+          "cue": "no_hands",
+          "cueAt": null,
+          "invalidAt": 0.3,
+          "effect": "invalid",
+          "unit": "thigh_lengths",
+          "when": "below"
+        },
+        {
+          "id": "trunk_lift",
+          "cue": "head_down",
+          "cueAt": null,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "other_leg",
+          "cue": "other_leg_flat",
+          "cueAt": null,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "plane",
+          "cue": "knee_straight_up",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1082,6 +1331,11 @@
       "priority": "extended",
       "view": "side",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "standing_supported",
@@ -1127,6 +1381,45 @@
         "stance_knee",
         "plane"
       ],
+      "compensations": [
+        {
+          "id": "trunk_tilt",
+          "cue": "no_lean",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "knee_bend",
+          "cue": "knee_straight",
+          "cueAt": 20,
+          "invalidAt": null,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "stance_knee",
+          "cue": null,
+          "cueAt": null,
+          "invalidAt": null,
+          "flagAt": 15,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "plane",
+          "cue": "leg_straight_back",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1169,6 +1462,11 @@
       "priority": "extended",
       "view": "front",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "standing_supported",
@@ -1220,6 +1518,35 @@
         "hip_hike",
         "plane"
       ],
+      "compensations": [
+        {
+          "id": "trunk_lean",
+          "cue": "no_lean",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "hip_hike",
+          "cue": "hips_level",
+          "cueAt": 5,
+          "invalidAt": null,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "plane",
+          "cue": "leg_to_side",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1254,6 +1581,10 @@
       "priority": "core",
       "view": "side",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
       "positions": [
         {
           "id": "lying_back",
@@ -1301,6 +1632,26 @@
         "assisted",
         "plane"
       ],
+      "compensations": [
+        {
+          "id": "assisted",
+          "cue": "no_hands",
+          "cueAt": null,
+          "invalidAt": 0.3,
+          "effect": "invalid",
+          "unit": "shank_lengths",
+          "when": "below"
+        },
+        {
+          "id": "plane",
+          "cue": "knee_straight_up",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        }
+      ],
       "E": 12,
       "sigmaM": 5.1,
       "approximateInPersonView": false,
@@ -1341,16 +1692,22 @@
       "priority": "core",
       "view": "side",
       "axial": false,
+      "distanceM": [
+        2,
+        3
+      ],
       "positions": [
         {
           "id": "lying_back",
           "graded": true,
-          "normId": "mckay_knee_extension"
+          "normId": "mckay_knee_extension",
+          "uncertainLackFrom": 5
         },
         {
           "id": "seated",
           "graded": false,
-          "normId": null
+          "normId": null,
+          "referMeasureLackAbove": 52
         }
       ],
       "landmarks": {
@@ -1382,6 +1739,26 @@
       "compensationIds": [
         "plane",
         "seated_lean_back"
+      ],
+      "compensations": [
+        {
+          "id": "plane",
+          "cue": "toes_up",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        },
+        {
+          "id": "seated_lean_back",
+          "cue": "no_lean",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        }
       ],
       "E": 12,
       "sigmaM": 5.1,
@@ -1428,6 +1805,7 @@
       "priority": "core",
       "view": "side",
       "axial": false,
+      "distanceM": 2,
       "positions": [
         {
           "id": "standing_supported",
@@ -1471,6 +1849,40 @@
         "foot_turn",
         "knee_plane"
       ],
+      "compensations": [
+        {
+          "id": "heel_lift",
+          "cue": "heel_down",
+          "cueAt": null,
+          "invalidAt": 0.06,
+          "effect": "invalid",
+          "unit": "shank_lengths",
+          "when": "above",
+          "forSeconds": 0.3,
+          "orInvalid": {
+            "at": 5,
+            "unit": "deg"
+          }
+        },
+        {
+          "id": "foot_turn",
+          "cue": "toes_to_wall",
+          "cueAt": null,
+          "invalidAt": 0.8,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        },
+        {
+          "id": "knee_plane",
+          "cue": "knee_over_toes",
+          "cueAt": null,
+          "invalidAt": 0.85,
+          "effect": "invalid",
+          "unit": "ratio",
+          "when": "below"
+        }
+      ],
       "E": 10,
       "sigmaM": 5.1,
       "approximateInPersonView": true,
@@ -1505,6 +1917,11 @@
       "priority": "core",
       "view": "front",
       "axial": true,
+      "distanceM": [
+        2,
+        3
+      ],
+      "levelWithinDeg": 5,
       "positions": [
         {
           "id": "standing",
@@ -1552,6 +1969,40 @@
         "knee_bend",
         "pelvis_shift"
       ],
+      "compensations": [
+        {
+          "id": "trunk_rotation",
+          "cue": "face_forward",
+          "cueAt": null,
+          "invalidAt": 15,
+          "effect": "invalid",
+          "unit": "percent",
+          "when": "above"
+        },
+        {
+          "id": "knee_bend",
+          "cue": "knees_straight",
+          "cueAt": null,
+          "invalidAt": 15,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "pelvis_shift",
+          "cue": "hips_level",
+          "cueAt": null,
+          "invalidAt": null,
+          "flagAt": 5,
+          "effect": "flag",
+          "unit": "deg",
+          "when": "above",
+          "orFlag": {
+            "at": 0.25,
+            "unit": "shoulder_widths"
+          }
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1587,6 +2038,10 @@
       "priority": "extended",
       "view": "side",
       "axial": true,
+      "distanceM": [
+        2,
+        3
+      ],
       "positions": [
         {
           "id": "standing_supported",
@@ -1630,6 +2085,26 @@
         "knee_bend",
         "hands_support"
       ],
+      "compensations": [
+        {
+          "id": "knee_bend",
+          "cue": "knees_straight",
+          "cueAt": null,
+          "invalidAt": 15,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "hands_support",
+          "cue": null,
+          "cueAt": null,
+          "invalidAt": null,
+          "effect": "flag",
+          "unit": null,
+          "when": null
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1665,6 +2140,9 @@
       "priority": "core",
       "view": "front",
       "axial": true,
+      "distanceM": 1.5,
+      "levelWithinDeg": 5,
+      "calibrationSeconds": 1,
       "positions": [
         {
           "id": "seated",
@@ -1709,6 +2187,36 @@
         "head_turn",
         "trunk_lean"
       ],
+      "compensations": [
+        {
+          "id": "shoulder_hike",
+          "cue": "shoulder_down",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        },
+        {
+          "id": "head_turn",
+          "cue": "face_forward",
+          "cueAt": null,
+          "invalidAt": 0.15,
+          "effect": "invalid",
+          "unit": "ear_distance_share",
+          "when": "above"
+        },
+        {
+          "id": "trunk_lean",
+          "cue": "no_lean",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        }
+      ],
+      "earLineMinVisibility": 0.5,
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1744,6 +2252,8 @@
       "priority": "extended",
       "view": "side",
       "axial": true,
+      "distanceM": 1.5,
+      "calibrationSeconds": 1,
       "positions": [
         {
           "id": "seated",
@@ -1782,6 +2292,17 @@
       "compensationIds": [
         "trunk"
       ],
+      "compensations": [
+        {
+          "id": "trunk",
+          "cue": "keep_back",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        }
+      ],
       "E": 15,
       "sigmaM": 7.7,
       "approximateInPersonView": false,
@@ -1816,6 +2337,7 @@
       "priority": "extended",
       "view": "side",
       "axial": true,
+      "distanceM": 1.5,
       "positions": [
         {
           "id": "seated",
@@ -1853,6 +2375,17 @@
       ],
       "compensationIds": [
         "trunk"
+      ],
+      "compensations": [
+        {
+          "id": "trunk",
+          "cue": "keep_back",
+          "cueAt": 5,
+          "invalidAt": 10,
+          "effect": "invalid",
+          "unit": "deg",
+          "when": "above"
+        }
       ],
       "E": 15,
       "sigmaM": 7.7,

@@ -85,7 +85,20 @@ const ENGINE_TEXT = (key: string, value: unknown): unknown => {
 function romSource(): Obj {
   const rom = committed("rom");
   const movements = rom.movements.map((m: Obj) => {
-    const { name, axial: _axial, version, landmarks, gate, optional, compensationIds, ...rest } = m;
+    const {
+      name,
+      axial: _axial,
+      version,
+      landmarks,
+      gate,
+      optional,
+      compensationIds: _ids,
+      compensations,
+      directionFromDeg,
+      earLineMinVisibility,
+      positions,
+      ...rest
+    } = m;
     return {
       ...rest,
       ...(version === 1 ? {} : { version }),
@@ -93,20 +106,27 @@ function romSource(): Obj {
       en: name.en,
       camera: "Side view, phone level within 5 degrees",
       startPose: "Seated",
+      positions: positions.map((p: Obj) => ({ ...p, note: "Seated for everyone (P5)" })),
       angle: {
         definition: "theta = ang(E − S, H − S)",
         landmarks: Object.fromEntries(Object.entries(landmarks).map(([k, v]) => [k, LANDMARK_TEXT(v)])),
         reference: "Trunk line",
         zero: "0 = arm along the trunk",
         direction: "Flexion only",
+        ...(directionFromDeg === undefined ? {} : { directionFromDeg }),
+        ...(earLineMinVisibility === undefined ? {} : { earLineMinVisibility }),
       },
       gate: gate.map((g: unknown) => (typeof g === "string" ? g : (g as Obj).anyOf.join(" or "))),
       optional: optional.map((r: string) => OPTIONAL_TEXT[r] ?? r),
-      compensations: compensationIds.map((id: string) => ({
-        id,
+      // The structured fields beside the prose; the source names the cue line cueId.
+      compensations: compensations.map(({ cue, ...c }: Obj) => ({
+        id: c.id,
         check: "Trunk tilt",
-        cue: "> 5 degrees",
+        cue: "> 5 degrees: keep_back",
         invalid: "> 10 degrees",
+        cueId: cue,
+        ...c,
+        basis: "v1.1 A.1 (R46)",
       })),
       Ebasis: "LoA −6.2 to 12.9",
       knownBias: "Phone reads higher",
@@ -759,7 +779,21 @@ describe("v7 clinical export: movements (rules 6 and 7)", () => {
     },
     gate: ["S", "E", "H"],
     optional: [],
-    compensations: [{ id: "trunk_back", check: "x" }],
+    distanceM: [2, 3],
+    compensations: [
+      {
+        id: "trunk_back",
+        check: "x",
+        cue: "> 5 degrees: cue keep_back",
+        invalid: "> 10 degrees",
+        cueId: "keep_back",
+        cueAt: 5,
+        invalidAt: 10,
+        effect: "invalid",
+        unit: "deg",
+        when: "above",
+      },
+    ],
     E: 10,
     sigmaM: 5.1,
     instructions: { ar: ["اجلس"], en: ["Sit"] },
@@ -988,6 +1022,82 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     expect(() => exportRom(extra)).toThrow(
       "conditionAutoMap parkinsons movementSet trunk_lateral_flexion: unknown field helper",
     );
+  });
+
+  it("exports each compensation's cue line and numbers, the camera numbers and the angle numbers", () => {
+    const rom = exportRom(romSource()) as Obj;
+    const def = (id: string) => rom.movements.find((m: Obj) => m.id === id);
+    const comp = (m: string, c: string) => def(m).compensations.find((x: Obj) => x.id === c);
+    expect(comp("shoulder_flexion", "trunk_back")).toEqual({
+      id: "trunk_back",
+      cue: "keep_back",
+      cueAt: 5,
+      invalidAt: 10,
+      effect: "invalid",
+      unit: "deg",
+      when: "above",
+    });
+    expect(comp("shoulder_abduction", "trunk_lean").cue).toBe("test_abd_still");
+    expect(comp("shoulder_abduction", "plane")).toEqual({
+      id: "plane",
+      cue: "test_abd_side",
+      cueAt: null,
+      invalidAt: 0.85,
+      effect: "invalid",
+      unit: "ratio",
+      when: "below",
+      windowDeg: [70, 110],
+      forSeconds: 0.3,
+    });
+    expect(comp("ankle_dorsiflexion_lunge", "heel_lift")).toMatchObject({
+      invalidAt: 0.06,
+      unit: "shank_lengths",
+      forSeconds: 0.3,
+      orInvalid: { at: 5, unit: "deg" },
+    });
+    expect(comp("trunk_lateral_flexion", "pelvis_shift")).toMatchObject({
+      effect: "flag",
+      flagAt: 5,
+      orFlag: { at: 0.25, unit: "shoulder_widths" },
+    });
+    for (const m of rom.movements) {
+      expect(
+        m.compensations.map((c: Obj) => c.id),
+        m.id,
+      ).toEqual(m.compensationIds);
+      expect(m.distanceM, m.id).toBeDefined();
+    }
+    expect(def("shoulder_abduction")).toMatchObject({
+      distanceM: [2, 3],
+      levelWithinDeg: 5,
+      frameMarginArmLengths: 1.3,
+      calibrationSeconds: 1,
+      directionFromDeg: 20,
+    });
+    expect(def("neck_lateral_flexion")).toMatchObject({ distanceM: 1.5, earLineMinVisibility: 0.5 });
+    expect(def("knee_extension").positions).toEqual([
+      { id: "lying_back", graded: true, normId: "mckay_knee_extension", uncertainLackFrom: 5 },
+      { id: "seated", graded: false, normId: null, referMeasureLackAbove: 52 },
+    ]);
+  });
+
+  it("fails on a compensation cue that is not a line, an unknown effect or a missing number", () => {
+    const s = romSource();
+    s.movements[0].compensations[0].cueId = "keep_still";
+    expect(() => exportRom(s)).toThrow(
+      "movements shoulder_flexion compensation trunk_back: cue keep_still is not a cue line",
+    );
+    const e = romSource();
+    e.movements[0].compensations[0].effect = "warn";
+    expect(() => exportRom(e)).toThrow("movements shoulder_flexion compensation trunk_back: effect warn");
+    const n = romSource();
+    delete n.movements[0].compensations[0].cueAt;
+    expect(() => exportRom(n)).toThrow(
+      "movements shoulder_flexion compensation trunk_back.cueAt: not a number",
+    );
+    const d = romSource();
+    d.movements[0].distanceM = "2 to 3";
+    expect(() => exportRom(d)).toThrow("movements shoulder_flexion.distanceM: not a number");
   });
 
   it("fails on a retest band of an unknown movement or field, and on a number written as text", () => {

@@ -14,7 +14,7 @@
  */
 import type { NormDef } from "../../medical/rom-norms";
 import type { LimbLossLevel, ProblemType, RegionId } from "../../medical/body-map";
-import type { Text } from "../types";
+import type { CheckCueId, Text } from "../types";
 
 /* ---------------------------------------------------------- movement ids */
 
@@ -116,6 +116,39 @@ export type LandmarkRef =
   | { mid: [number, number]; fixed?: true }
   | { other: "hip" | "knee" };
 
+/** The units of a compensation's numbers, as the clinical prose writes them. */
+export type CompensationUnit =
+  "deg" | "ratio" | "percent" | "shank_lengths" | "thigh_lengths" | "shoulder_widths" | "ear_distance_share";
+
+/**
+ * One compensation check of a movement, its numbers copied from the clinical prose (freeze step, D-024
+ * items 2 and 4); B's COMPENSATIONS constants parity test against it. The prose (check, cue, invalid)
+ * stays in local-docs.
+ */
+export interface RomCompensationDef {
+  id: CompensationId;
+  /** The line the cue plays: a v7 cue, or a v1 arm raise line (test_abd_still, test_abd_side); null: none. */
+  cue: RomCueId | CheckCueId | null;
+  /** The value from which the cue plays («> 5 degrees: keep_back»); null: the cue plays when the check fires. */
+  cueAt: number | null;
+  /** The value from which the attempt is invalid («> 10 degrees», «< 0.85»); null: on any detection, or never. */
+  invalidAt: number | null;
+  /** A flag only check's value («Flag only below 150 degrees»). */
+  flagAt?: number;
+  /** invalid: the attempt is not scored; flag: stored, still scored; log: logging and coaching only. */
+  effect: "invalid" | "flag" | "log";
+  unit: CompensationUnit | null;
+  /** The check fires above or below its values; null when it has none. */
+  when: "above" | "below" | null;
+  /** The angle window the check reads (the plane checks: 70 to 110 degrees). */
+  windowDeg?: [number, number];
+  /** How long the value must hold («for 0.3 s or more»). */
+  forSeconds?: number;
+  /** A second criterion («or pitch change > 5 degrees», «or 0.25 shoulder widths»). */
+  orInvalid?: { at: number; unit: CompensationUnit };
+  orFlag?: { at: number; unit: CompensationUnit };
+}
+
 export interface RomMovementDef {
   id: RomMovementId;
   version: number;
@@ -131,7 +164,26 @@ export interface RomMovementDef {
   priority: "core" | "extended";
   view: "front" | "side";
   axial: boolean;
-  positions: { id: RomPositionId; graded: boolean; normId: string | null }[];
+  /** The camera distance in metres: a range, or about one value («about 2 m»). */
+  distanceM: number | [number, number];
+  /** «phone ... level within 5 degrees», where the camera prose says so. */
+  levelWithinDeg?: number;
+  /** shoulder_abduction: «frame margin 1.3 arm lengths each side». */
+  frameMarginArmLengths?: number;
+  /** The start pose's calibration hold («for 1 s»). */
+  calibrationSeconds?: number;
+  /**
+   * uncertainLackFrom: knee straightening lying, «a lack between 5 and the within normal limit shows
+   * label_uncertain» (with knee injury, surgery, OA, CP or limb loss); referMeasureLackAbove: seated, «A
+   * seated lack above 52 ... shows refer_measure» (review A09, B13).
+   */
+  positions: {
+    id: RomPositionId;
+    graded: boolean;
+    normId: string | null;
+    uncertainLackFrom?: number;
+    referMeasureLackAbove?: number;
+  }[];
   /** Landmarks by role (S, E, W, H, K, A, heel, toe, nose, ear, eyeOuter, ears, eyes, shoulders, MS, MH, MHf, Hother, Kother, hips). */
   landmarks: Record<string, LandmarkRef>;
   /** Roles that must pass the visibility gate; { anyOf } where the data says "ears or eyes". */
@@ -139,6 +191,12 @@ export interface RomMovementDef {
   /** Role ids (exporter rule 7), each a key of `landmarks`. */
   optional: string[];
   compensationIds: CompensationId[];
+  /** The compensation checks, in the order of compensationIds. */
+  compensations: RomCompensationDef[];
+  /** shoulder_abduction: «Elbow lateral to the shoulder ... once theta exceeds 20 degrees». */
+  directionFromDeg?: number;
+  /** neck_lateral_flexion: the eye line when an ear's visibility is below this (A3-4). */
+  earLineMinVisibility?: number;
   /** camera allowance, degrees */
   E: number;
   sigmaM: number;

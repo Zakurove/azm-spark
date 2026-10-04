@@ -18,6 +18,7 @@ import type {
   RomSide,
 } from "../../movements/rom/types";
 import type { SubjectLock } from "../subject";
+import type { CheckCueId } from "../../movements/types";
 
 export type RomPhase =
   | "idle"
@@ -84,8 +85,11 @@ export type RomEvent =
   /** The end range hold (engine.holdBandDeg for engine.holdSeconds after minExcursionDeg): the maximum question opens. */
   | { kind: "hold"; hold: RomHold }
   | { kind: "compensation"; id: CompensationId; level: "cue" | "invalid"; value: number; t: number }
-  /** A local voice pack line to play (cues, ask_max when the coach is off, recorded, pain_stop ...). */
-  | { kind: "cue"; cue: RomCueId | RomCopyKey; t: number }
+  /**
+   * A local voice pack line to play (cues, ask_max when the coach is off, recorded, pain_stop ...); the
+   * side arm raise plays its v1 lines (test_abd_still, test_abd_side; D-024 item 2).
+   */
+  | { kind: "cue"; cue: RomCueId | RomCopyKey | CheckCueId; t: number }
   | { kind: "quality"; issue: QualityIssue; t: number }
   | { kind: "attempt"; record: RomAttempt }
   | { kind: "stop"; reason: "pain_stop" | "user_stop"; t: number }
@@ -152,12 +156,14 @@ export interface RomMeasureResult {
 
 /**
  * One compensation check of a movement (stream B fills COMPENSATIONS in compensations.ts with code
- * constants, each quoting its clinical text, tested against ROM_DATA.movements[].compensationIds).
+ * constants, each quoting its clinical text, tested against ROM_DATA.movements[].compensations: ids,
+ * cue lines, cueAt and invalidAt). The cue is a v7 cue, or a v1 arm raise line for the side arm raise
+ * (test_abd_still, test_abd_side; D-024 item 2).
  */
 export interface CompensationCheck {
   id: CompensationId;
   measure(px: Landmark[], ctx: AngleContext): number | null;
   cueAt: number | null;
   invalidAt: number | null;
-  cue: RomCueId | null;
+  cue: RomCueId | CheckCueId | null;
 }

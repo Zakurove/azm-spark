@@ -26,7 +26,11 @@ export declare function landmarkRef(v: unknown, where: string): unknown;
 export declare function movementDef(
   m: Record<string, unknown>,
   regions: { id: string; axial: boolean }[],
+  cueIds?: ReadonlySet<string> | null,
 ): Record<string, unknown>;
+export declare const COMPENSATION_UNITS: readonly string[];
+export declare const COMPENSATION_EFFECTS: readonly string[];
+export declare const V1_CUE_IDS: readonly string[];
 export declare function hipEndRange(items: string[], where: string): string[];
 export declare function presentRegions(text: string, where: string): string[];
 export declare function exportRom(source: unknown): Record<string, unknown>;

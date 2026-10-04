@@ -627,6 +627,8 @@ describe("the movement specific rules", () => {
 
   it("neck side bend: the eye line when the ears are under 0.5 visibility", () => {
     expect(EAR_LINE_MIN_VISIBILITY).toBe(0.5);
+    // Read from the data since the freeze step (A3-4).
+    expect(EAR_LINE_MIN_VISIBILITY).toBe(movementDef("neck_lateral_flexion").earLineMinVisibility);
     const c = CASES.find((k) => k.id === "neck_lateral_flexion")!;
     const ears = (px: Landmark[], v: number) =>
       px.map((q, i) => (i === 7 || i === 8 ? { ...q, visibility: v } : q));

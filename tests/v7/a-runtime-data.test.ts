@@ -9,6 +9,8 @@
  */
 import { describe, expect, it } from "vitest";
 import library from "../../src/exercises/library.json";
+import { CHECK_CUE_IDS } from "../../src/movements/types";
+import type { CompensationCheck, RomEvent } from "../../src/engine/rom/types";
 import { conditions } from "../../src/medical/plan";
 import { AXIAL_REGIONS, PROBLEM_TYPES, REGION_IDS, type RegionId } from "../../src/medical/body-map";
 import type { CausePath } from "../../src/medical/rom-types";
@@ -66,6 +68,13 @@ import {
   HIP_END_RANGE_IDS as EXPORT_HIP_IDS,
   REGION_IDS as EXPORT_REGION_IDS,
 } from "../../scripts/clinical/export-v7.mjs";
+
+/* --------------------------------- the compensation cue types (D-024 item 2) */
+
+// A compensation's cue and the runner's cue event take a v1 arm raise line (tsc checks these).
+const _abdSide: CompensationCheck["cue"] = "test_abd_side";
+const _abdStill: Extract<RomEvent, { kind: "cue" }> = { kind: "cue", cue: "test_abd_still", t: 0 };
+void [_abdSide, _abdStill];
 
 /* ------------------------------------------- compile time union checks */
 
@@ -281,6 +290,55 @@ describe("ROM runtime data (rom-v7.json)", () => {
     }
     const asked = ROM_DATA.conditionAutoMap.filter((c) => c.ask.en !== "");
     for (const c of asked) expect(conditions as readonly string[], c.condition).toContain(c.condition);
+  });
+
+  it("resolves every compensation cue to a known line, v7 or v1 (D-024 item 2)", () => {
+    const known = new Set<string>([...ROM_CUE_IDS, ...CHECK_CUE_IDS]);
+    let cues = 0;
+    for (const m of ROM_DATA.movements) {
+      expect(
+        m.compensations.map((c) => c.id),
+        m.id,
+      ).toEqual(m.compensationIds);
+      for (const c of m.compensations) {
+        if (c.cue === null) continue;
+        cues++;
+        expect(known.has(c.cue), `${m.id} ${c.id} ${c.cue}`).toBe(true);
+      }
+    }
+    expect(cues).toBeGreaterThan(30);
+    // The side arm raise keeps the v1 lines (no v7 cue says keep the arm out to the side).
+    const abd = movementDef("shoulder_abduction").compensations;
+    expect(abd.find((c) => c.id === "trunk_lean")?.cue).toBe("test_abd_still");
+    expect(abd.find((c) => c.id === "plane")?.cue).toBe("test_abd_side");
+  });
+
+  it("gives every compensation its effect, unit and numbers, and every movement its camera distance", () => {
+    const UNITS = [
+      "deg",
+      "ratio",
+      "percent",
+      "shank_lengths",
+      "thigh_lengths",
+      "shoulder_widths",
+      "ear_distance_share",
+    ];
+    for (const m of ROM_DATA.movements) {
+      const d = m.distanceM;
+      expect(typeof d === "number" ? d > 0 : d.length === 2 && d[0] < d[1], m.id).toBe(true);
+      for (const c of m.compensations) {
+        const where = `${m.id} ${c.id}`;
+        expect(["invalid", "flag", "log"], where).toContain(c.effect);
+        if (c.unit !== null) expect(UNITS, where).toContain(c.unit);
+        const numbers = [c.cueAt, c.invalidAt, c.flagAt].filter((v) => v !== null && v !== undefined);
+        if (numbers.length) {
+          expect(c.unit, where).not.toBeNull();
+          expect(["above", "below"], where).toContain(c.when);
+        }
+        if (c.effect === "flag") expect(c.invalidAt, where).toBeNull();
+        if (c.windowDeg) expect(c.windowDeg[0]).toBeLessThan(c.windowDeg[1]);
+      }
+    }
   });
 
   it("keeps the retest bands and the session cap as numbers (freeze step, D-024 item 4)", () => {

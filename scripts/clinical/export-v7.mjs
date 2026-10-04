@@ -456,6 +456,10 @@ const MOVEMENT_FIELDS = [
   "id",
   "version",
   "region",
+  "distanceM",
+  "levelWithinDeg",
+  "frameMarginArmLengths",
+  "calibrationSeconds",
   "ar",
   "en",
   "plane",
@@ -509,15 +513,97 @@ function cameraEvidence(v, where) {
 
 /** Prose of movements[].angle that angles.ts quotes word for word (rule 2); the landmarks are kept. */
 const ANGLE_PROSE = ["definition", "reference", "zero", "direction"];
+/** The knee straightening label numbers of a position's note (review A09, B13; D-024 item 4). */
+const POSITION_NUMBERS = ["uncertainLackFrom", "referMeasureLackAbove"];
+/** Numbers the angle prose writes, kept on the movement (A3-4 and the side arm raise's direction). */
+const ANGLE_NUMBERS = ["directionFromDeg", "earLineMinVisibility"];
 /** Prose of movements[].compensations (rule 2): the code quotes it. */
 const COMPENSATION_PROSE = ["check", "cue", "invalid"];
+/** The units of the compensation numbers, as the prose writes them. */
+export const COMPENSATION_UNITS = [
+  "deg",
+  "ratio",
+  "percent",
+  "shank_lengths",
+  "thigh_lengths",
+  "shoulder_widths",
+  "ear_distance_share",
+];
+/** invalid: the attempt is not scored; flag: stored, still scored; log: logging and coaching only. */
+export const COMPENSATION_EFFECTS = ["invalid", "flag", "log"];
 
-export function movementDef(m, regions) {
+/** The v1 check's cue lines (check-v1.json cues): the side arm raise keeps two of them (D-024 item 2). */
+export const V1_CUE_IDS = JSON.parse(readFileSync(join(ROOT, "src/movements/check-v1.json"), "utf8")).cues.map(
+  (c) => c.id,
+);
+
+const numOrNull = (v, where) => (v === null ? null : num(v, where));
+const oneOf = (v, list, where, what) => (list.includes(v) ? v : fail(`${where}: ${what} ${v}`));
+
+/**
+ * One compensation check (D-024 items 2 and 4): the cue line the cue prose names (cueId in the source)
+ * and the numbers its check, cue and invalid prose write: cueAt, invalidAt, flagAt, their unit, whether
+ * the check fires above or below them, the angle window, the hold time and a second criterion. The
+ * prose stays in local-docs. cueIds: the known lines (v7 cues and v1 cues), or null to skip that check.
+ */
+function compensation(c, cueIds, where) {
+  knownFields(
+    c,
+    [
+      "id",
+      "cueId",
+      "cueAt",
+      "invalidAt",
+      "flagAt",
+      "effect",
+      "unit",
+      "when",
+      "windowDeg",
+      "forSeconds",
+      "orInvalid",
+      "orFlag",
+      ...COMPENSATION_PROSE,
+    ],
+    where,
+  );
+  if (!("cueId" in c)) fail(`${where}: cueId is missing (null when the prose names no line)`);
+  const cue = c.cueId;
+  if (cue !== null && typeof cue !== "string") fail(`${where}: cueId ${JSON.stringify(cue)}`);
+  if (cue !== null && cueIds && !cueIds.has(cue)) fail(`${where}: cue ${cue} is not a cue line`);
+  const out = {
+    id: c.id,
+    cue,
+    cueAt: numOrNull(c.cueAt, `${where}.cueAt`),
+    invalidAt: numOrNull(c.invalidAt, `${where}.invalidAt`),
+  };
+  if ("flagAt" in c) out.flagAt = num(c.flagAt, `${where}.flagAt`);
+  out.effect = oneOf(c.effect, COMPENSATION_EFFECTS, where, "effect");
+  out.unit = c.unit === null ? null : oneOf(c.unit, COMPENSATION_UNITS, where, "unit");
+  out.when = c.when === null ? null : oneOf(c.when, ["above", "below"], where, "when");
+  if ("windowDeg" in c)
+    out.windowDeg = [num(c.windowDeg?.[0], `${where}.windowDeg`), num(c.windowDeg?.[1], `${where}.windowDeg`)];
+  if ("forSeconds" in c) out.forSeconds = num(c.forSeconds, `${where}.forSeconds`);
+  for (const k of ["orInvalid", "orFlag"])
+    if (k in c) {
+      knownFields(c[k], ["at", "unit"], `${where} ${k}`);
+      out[k] = {
+        at: num(c[k].at, `${where}.${k}.at`),
+        unit: oneOf(c[k].unit, COMPENSATION_UNITS, where, "unit"),
+      };
+    }
+  return out;
+}
+
+/** The camera distance: a range [from, to] in metres, or about one value. */
+function distance(v, where) {
+  if (Array.isArray(v) && v.length === 2) return [num(v[0], where), num(v[1], where)];
+  return num(v, where);
+}
+
+export function movementDef(m, regions, cueIds = null) {
   const where = `movements ${m.id}`;
   knownFields(m, MOVEMENT_FIELDS, where);
-  knownFields(m.angle ?? {}, ["landmarks", ...ANGLE_PROSE], `${where} angle`);
-  for (const c of m.compensations ?? [])
-    knownFields(c, ["id", ...COMPENSATION_PROSE], `${where} compensation ${c.id}`);
+  knownFields(m.angle ?? {}, ["landmarks", ...ANGLE_PROSE, ...ANGLE_NUMBERS], `${where} angle`);
   const region = regions.find((r) => r.id === (REGION_ALIASES[m.region] ?? m.region));
   if (!region) fail(`${where}: unknown region ${m.region}`);
   const landmarks = {};
@@ -548,16 +634,32 @@ export function movementDef(m, regions) {
     priority: m.priority,
     view: m.view,
     axial: region.axial,
-    positions: m.positions.map((p) => take(p, ["id", "graded", "normId"], `${where} position ${p.id}`)),
+    distanceM: distance(m.distanceM, `${where}.distanceM`),
+  };
+  // The camera numbers the camera prose writes (the level where it says so, the abduction margin) and
+  // the start pose's calibration hold.
+  for (const k of ["levelWithinDeg", "frameMarginArmLengths", "calibrationSeconds"])
+    if (k in m) def[k] = num(m[k], `${where}.${k}`);
+  Object.assign(def, {
+    positions: m.positions.map((p) => {
+      const at = `${where} position ${p.id}`;
+      const out = take(p, ["id", "graded", "normId", ...POSITION_NUMBERS], at);
+      for (const k of POSITION_NUMBERS) if (k in out) num(out[k], `${at}.${k}`);
+      return out;
+    }),
     landmarks,
     gate,
     optional,
     compensationIds: m.compensations.map((c) => c.id),
+    compensations: m.compensations.map((c) => compensation(c, cueIds, `${where} compensation ${c.id}`)),
+  });
+  for (const k of ANGLE_NUMBERS) if (k in m.angle) def[k] = num(m.angle[k], `${where}.angle.${k}`);
+  Object.assign(def, {
     E: m.E,
     sigmaM: m.sigmaM,
     approximateInPersonView: m.approximateInPersonView ?? false,
     instructions: take(m.instructions, ["ar", "en"], `${where} instructions`),
-  };
+  });
   for (const k of ["variantInstructions", "absoluteFloor", "bothDirections", "gravityAssisted", "resultName"])
     if (k in m) def[k] = strip(m[k]);
   return def;
@@ -821,7 +923,9 @@ export function exportRom(source) {
         take(p, ["ar", "en"], `positions ${id}`, ROM_PROSE.positions),
       ]),
     ),
-    movements: source.movements.map((m) => movementDef(m, regions)),
+    movements: source.movements.map((m) =>
+      movementDef(m, regions, new Set([...Object.keys(source.cues ?? {}), ...V1_CUE_IDS])),
+    ),
     defaultMovements: source.defaultMovements.map((d) => {
       const where = `defaultMovements ${d.id}`;
       return {

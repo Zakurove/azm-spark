@@ -559,6 +559,14 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           : { ...built, items: built.items.map((i) => (i.skipped ? i : { ...i, skipped: "by_choice" })) };
         const planned = include.gait ? rules.gaitPlanFor(intake, today, setting, answers) : null;
         const gait = planned && showcase ? oneView(planned) : planned;
+        // The gait day items (2.5 GAIT_DAY_ITEMS) are asked when the day plans a walk: a start that
+        // walks carries their answers (pc_walk_10m, and pc_pd_freezing with Parkinson's).
+        if (gait?.offered) {
+          if (today.walk10m === undefined)
+            return json(400, { error: "START_INVALID", field: "today.walk10m" });
+          if (intake.conditions.includes("parkinsons") && today.pdFreezing === undefined)
+            return json(400, { error: "START_INVALID", field: "today.pdFreezing" });
+        }
         const env = rules.focusPrecheckEnv(focusEnvBase(db, u.id, s, ctx, setting), protocol, gait);
 
         const lock = currentLock(db, u.id, now);

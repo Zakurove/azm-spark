@@ -121,7 +121,7 @@ function startBody(answers: unknown, over: Record<string, unknown> = {}) {
   return {
     setting: "booth",
     answers,
-    today: { painByRegion: {}, redFlagRegions: [] },
+    today: { painByRegion: {}, redFlagRegions: [], walk10m: true },
     device: DEVICE,
     include: { rom: true, gait: true },
     ...over,
@@ -334,6 +334,26 @@ describe("POST /api/focus: the order of checks", () => {
     expect(r.data.warnings).toContain("scr_stop_seek_care");
   });
 
+  it("needs the gait day items when the day plans a walk (2.5 GAIT_DAY_ITEMS)", async () => {
+    const { cookie } = await person();
+    expect((await start(cookie, { today: { painByRegion: {}, redFlagRegions: [] } })).data).toEqual({
+      error: "START_INVALID",
+      field: "today.walk10m",
+    });
+    // Without the walk today the item is not needed.
+    const noWalk = await start(cookie, {
+      today: { painByRegion: {}, redFlagRegions: [] },
+      include: { rom: true, gait: false },
+    });
+    expect(noWalk.status).toBe(200);
+    const pd = await person(v7Intake({ conditions: ["parkinsons"] }));
+    expect((await start(pd.cookie)).data).toEqual({ error: "START_INVALID", field: "today.pdFreezing" });
+    const r = await start(pd.cookie, {
+      today: { painByRegion: {}, redFlagRegions: [], walk10m: true, pdFreezing: false },
+    });
+    expect(r.status).toBe(200);
+  });
+
   it("counts every start against 20 a day (RATE_LIMIT)", async () => {
     const { cookie } = await person();
     for (let i = 0; i < 20; i++)
@@ -401,7 +421,9 @@ describe("POST /api/focus: a booth start", () => {
 
   it("names the seek care screen for a red flag region and leaves its items not measured", async () => {
     const { cookie } = await person();
-    const r = await start(cookie, { today: { painByRegion: {}, redFlagRegions: ["shoulder"] } });
+    const r = await start(cookie, {
+      today: { painByRegion: {}, redFlagRegions: ["shoulder"], walk10m: true },
+    });
     expect(r.status).toBe(200);
     expect(r.data.warnings).toContain("scr_stop_seek_care");
     const p: RomProtocol = r.data.protocol;
@@ -561,7 +583,9 @@ describe("POST /api/focus/:id/rom", () => {
 
   it("refuses what is not in the protocol, a skipped item, a second save and a stale client", async () => {
     const { cookie } = await person();
-    const s = await started(cookie, { today: { painByRegion: { shoulder: 7 }, redFlagRegions: [] } });
+    const s = await started(cookie, {
+      today: { painByRegion: { shoulder: 7 }, redFlagRegions: [], walk10m: true },
+    });
     expect((await h.call(`/focus/${s.id}/rom`, { movementId: "elbow", side: "right" }, cookie)).data).toEqual(
       {
         error: "RESULT_INVALID",
@@ -1028,7 +1052,9 @@ describe("POST /api/focus/:id/complete", () => {
       }),
     );
     // A red flag on the elbows (not a leg or the back, so the walk stays offered).
-    const s = await started(cookie, { today: { painByRegion: { hip: 2 }, redFlagRegions: ["elbow"] } });
+    const s = await started(cookie, {
+      today: { painByRegion: { hip: 2 }, redFlagRegions: ["elbow"], walk10m: true },
+    });
     const p = s.protocol;
     // 4 elbow items with a red flag; 10 others, of which 8 run today and 2 are deferred.
     expect(p.items.filter((i) => i.skipped === "red_flag").length).toBe(4);

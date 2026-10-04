@@ -284,12 +284,19 @@
     {
       "id": "injury",
       "ar": "إصابة في المفصل أو الرباط أو الوتر",
-      "en": "Joint, ligament or tendon injury"
+      "en": "Joint, ligament or tendon injury",
+      "acuteWeeks": 6,
+      "achillesMonths": 6
     },
     {
       "id": "pain",
       "ar": "ألم",
-      "en": "Pain"
+      "en": "Pain",
+      "painScale": [
+        0,
+        10
+      ],
+      "notMeasuredAtOrAbove": 6
     },
     {
       "id": "stiffness",
@@ -299,7 +306,9 @@
     {
       "id": "after_surgery",
       "ar": "بعد عملية جراحية",
-      "en": "After surgery"
+      "en": "After surgery",
+      "recentMonths": 3,
+      "earlyWeeks": 12
     },
     {
       "id": "limb_loss",
@@ -5987,27 +5996,32 @@
     {
       "id": "after_surgery_recent",
       "rule": "Surgery on this region less than 3 months ago, and the surgical team has not allowed active movement (answer no or not sure)",
-      "action": "Region not measured (surgery_not_cleared); stored as not measured, never as typical"
+      "action": "Region not measured (surgery_not_cleared); stored as not measured, never as typical",
+      "months": 3
     },
     {
       "id": "after_surgery_precaution",
       "rule": "Surgery less than 3 months ago and the person was told to avoid certain movements",
-      "action": "Those movements not measured (surgery_precaution). After a hip replacement in the last 3 months hip bend is not measured, and the hip precaution filters stay on unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); the checklist of what to avoid is in copy hip_avoid_ask (review A06, C02). The surgeon's instruction wins even though a meta analysis found posterior approach precautions unnecessary (R37)."
+      "action": "Those movements not measured (surgery_precaution). After a hip replacement in the last 3 months hip bend is not measured, and the hip precaution filters stay on unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); the checklist of what to avoid is in copy hip_avoid_ask (review A06, C02). The surgeon's instruction wins even though a meta analysis found posterior approach precautions unnecessary (R37).",
+      "months": 3
     },
     {
       "id": "hip_replacement_recent",
       "rule": "Hip replacement in the last 3 months",
-      "action": "Hip bend not measured (hip_replacement_recent). The hip precaution filters are on by default (posterior and anterior lists) unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); otherwise only the movements ticked in hip_avoid_ask are filtered (review A06, C02)"
+      "action": "Hip bend not measured (hip_replacement_recent). The hip precaution filters are on by default (posterior and anterior lists) unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); otherwise only the movements ticked in hip_avoid_ask are filtered (review A06, C02)",
+      "months": 3
     },
     {
       "id": "spine_surgery",
       "rule": "Neck or back surgery less than 3 months ago",
-      "action": "Neck or back or trunk region not measured"
+      "action": "Neck or back or trunk region not measured",
+      "months": 3
     },
     {
       "id": "acute_injury",
       "rule": "Injury to this region in the last 6 weeks",
-      "action": "Region not measured (acute_injury)"
+      "action": "Region not measured (acute_injury)",
+      "weeks": 6
     },
     {
       "id": "red_flags",
@@ -6017,17 +6031,23 @@
     {
       "id": "pain_today",
       "rule": "Today's pain in this region 6 or more out of 10",
-      "action": "Region not measured today (pain_today)"
+      "action": "Region not measured today (pain_today)",
+      "atOrAbove": 6,
+      "outOf": 10
     },
     {
       "id": "pain_during",
       "rule": "During a movement: pain 6 or more out of 10, or 2 or more above that region's score before the test, or a sudden sharp pain",
-      "action": "Stop that movement; record the last valid hold as pain limited; ask before any other movement of the same joint"
+      "action": "Stop that movement; record the last valid hold as pain limited; ask before any other movement of the same joint",
+      "atOrAbove": 6,
+      "outOf": 10,
+      "riseAtOrAbove": 2
     },
     {
       "id": "achilles",
       "rule": "An Achilles tendon tear or repair in the last 6 months, with or without surgery",
-      "action": "Knee to wall lunge not measured (achilles); calf stretches excluded in the program"
+      "action": "Knee to wall lunge not measured (achilles); calf stretches excluded in the program",
+      "months": 6
     },
     {
       "id": "osteoporosis",
@@ -6072,7 +6092,8 @@
     {
       "id": "seated_side_lean_gate",
       "rule": "Seated side bend (trunk_lateral_flexion, seated_armrests)",
-      "action": "The approved v1.1 side lean gate word for word: pc_trunk_armrests by position (armrests_needed); helper for SCI, stroke, CP, Parkinson's and MS (helper_needed); excluded with pc_stroke_push yes (pusher), a chest strap or lateral trunk supports, pc_sit_unsupported no or not sure and pc_fall_sitting yes (booth only), back pain 6 or more, pc_pressure_sore yes. Never beyond the last best side lean"
+      "action": "The approved v1.1 side lean gate word for word: pc_trunk_armrests by position (armrests_needed); helper for SCI, stroke, CP, Parkinson's and MS (helper_needed); excluded with pc_stroke_push yes (pusher), a chest strap or lateral trunk supports, pc_sit_unsupported no or not sure and pc_fall_sitting yes (booth only), back pain 6 or more, pc_pressure_sore yes. Never beyond the last best side lean",
+      "backPainAtOrAbove": 6
     },
     {
       "id": "sitting_balance",

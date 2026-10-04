@@ -362,6 +362,12 @@ function num(v, where) {
   return v;
 }
 
+/** Checks that the listed fields an object has hold numbers (or lists of numbers), and returns it. */
+function numbersIn(obj, keys, where) {
+  for (const k of keys) if (k in obj) for (const v of [obj[k]].flat()) num(v, `${where}.${k}`);
+  return obj;
+}
+
 /** Checks the fields of an object (kept, or known as dropped prose) and keeps the kept ones (rule 3). */
 function take(value, kept, where, droppedProse = []) {
   knownFields(value, [...kept, ...droppedProse], where);
@@ -733,6 +739,18 @@ function normDef(n) {
   };
 }
 
+/** Numbers copied next to a problem type's rule and program hint (freeze step, D-024 item 4). */
+export const PROBLEM_TYPE_NUMBERS = [
+  "acuteWeeks",
+  "achillesMonths",
+  "painScale",
+  "notMeasuredAtOrAbove",
+  "recentMonths",
+  "earlyWeeks",
+];
+/** Numbers copied next to a safety rule (freeze step): its months, weeks and pain cuts. */
+export const SAFETY_NUMBERS = ["months", "weeks", "atOrAbove", "outOf", "riseAtOrAbove", "backPainAtOrAbove"];
+
 /**
  * ROM prose the export drops, by object (rule 2 and the rule 3 field lists): engineers read it in
  * local-docs and the code that implements it quotes it. Known here so that any other field stops the
@@ -902,7 +920,11 @@ export function exportRom(source) {
     regions,
     regionTable: strip(source.regionTable),
     problemTypes: source.problemTypes.map((p) =>
-      take(p, ["id", "ar", "en"], `problemTypes ${p.id}`, ROM_PROSE.problemTypes),
+      numbersIn(
+        take(p, ["id", "ar", "en", ...PROBLEM_TYPE_NUMBERS], `problemTypes ${p.id}`, ROM_PROSE.problemTypes),
+        PROBLEM_TYPE_NUMBERS,
+        `problemTypes ${p.id}`,
+      ),
     ),
     conditionAutoMap: source.conditionAutoMap.map((c) => {
       const where = `conditionAutoMap ${c.condition}`;
@@ -942,7 +964,13 @@ export function exportRom(source) {
     thresholds: thresholds(source.thresholds),
     retest: retest(source.retest, source.movements),
     sessionOrder: sessionOrder(source.sessionOrder),
-    safety: source.safety.map((s) => take(s, ["id", "rule", "action"], `safety ${s.id}`)),
+    safety: source.safety.map((s) =>
+      numbersIn(
+        take(s, ["id", "rule", "action", ...SAFETY_NUMBERS], `safety ${s.id}`),
+        SAFETY_NUMBERS,
+        `safety ${s.id}`,
+      ),
+    ),
     reasonIds: strip(reasonIds),
     copy: strip(source.copy),
     cues: strip(source.cues),
@@ -1143,12 +1171,13 @@ export function exportTargets(source) {
 
 /**
  * Text that names something rather than counting it, masked before numberTokens reads the numbers:
- * dates and years, licence names, decision ids (D-003, C-7), section and file references (section
+ * dates and years, versions (0.2.1), licence names, decision ids (D-003, C-7), section and file references (section
  * 2.4, rule 2, plan §3.2, rom.md 3.4, v1.1 4.1, Q12, 4.3, exercise-targets 5.6, contract 2.5, Pillar 1)
  * and ids written with letters and digits (R46, v1.1, Q6, T6, MDC95, fang18, Stenum24, G§5, 2D).
  */
 const REFERENCES = [
   /\b\d{4}-\d{2}-\d{2}\b/g,
+  /\b\d+(?:\.\d+){2,}\b/g,
   /\b(?:19|20)\d\d\b/g,
   /\bBSD-\d+\b/g,
   /\b[A-Z]-\d+\b/g,
@@ -1178,8 +1207,194 @@ export function numberTokens(text) {
 export const PROSE_NUMBER_EXEMPT = [
   {
     file: "rom",
+    path: "conventions.*",
+    why: "conventions: the range of ang (0 to 180), lack 0 = straight and the midpoint landmark indices (structured per movement as { mid }), implemented in angles.ts",
+  },
+  {
+    file: "rom",
+    path: "movements[*].angle.*",
+    numbers: [0, 90, 180],
+    why: "the angle construct: 0 and 180 bound an angle between two lines and 90 is the right angle of the hip abduction formula; angles.ts quotes each definition word for word",
+  },
+  {
+    file: "rom",
+    path: "movements[0].angle.reference",
+    numbers: [15],
+    why: "an example of the gravity correction (a 15 degree recline adds 15 degrees, calc), not a threshold",
+  },
+  {
+    file: "rom",
+    path: "movements[*].compensations[*].check",
+    numbers: [180],
+    why: "knee flexion is 180 minus the knee angle (the construct of the check)",
+  },
+  {
+    file: "rom",
     path: "norms[*].method",
     why: "how the norm source measured: evidence (study design, sample, instrument), not a rule",
+  },
+  { file: "rom", path: "norms[*].position", why: "the position the norm source measured in: evidence" },
+  {
+    file: "rom",
+    path: "thresholds.terms.SD",
+    why: "how sdUsed was pooled for Gill (calc); the norm rows hold sdUsed",
+  },
+  {
+    file: "rom",
+    path: "thresholds.terms.sigmaM",
+    numbers: [95, 1.96],
+    why: "the definition of sigma m: a 95% interval's half width over 1.96",
+  },
+  {
+    file: "rom",
+    path: "thresholds.terms.sigmaM",
+    numbers: [5.1, 7.7],
+    why: "the class floors of sigma m, which engine.sigmaMFloor holds",
+  },
+  {
+    file: "rom",
+    path: "thresholds.SDeff",
+    numbers: [25, 2],
+    why: "the same SD cap written on the 2 SD band (2 x 12.5%)",
+  },
+  {
+    file: "rom",
+    path: "thresholds.markedlyLimited",
+    numbers: [3],
+    why: "3 x SDobserved restates the marked z of -3 (zMarkedBelow)",
+  },
+  {
+    file: "rom",
+    path: "thresholds.valueUsed",
+    numbers: [1, 2, 10],
+    why: "engine.minValidForGrade (2) and engine.minExcursionDeg (10) hold these; 1 valid attempt is one short of 2",
+  },
+  { file: "rom", path: "thresholds.percentOfNormal", numbers: [100], why: "100 makes a percentage" },
+  {
+    file: "rom",
+    path: "retest.rule",
+    numbers: [18.19, 3.2, 10.7],
+    why: "the published MDC95 values behind the bands (evidence); the bands are the numbers next to the rule",
+  },
+  {
+    file: "rom",
+    path: "reasonIds.*",
+    why: "the engineering text of a reason id: its numbers restate the safety rules, the engine and the session cap, which hold them as fields",
+  },
+  {
+    file: "gait",
+    path: "capture.common.model",
+    numbers: [19],
+    why: "the speed of the Heavy model on a test phone (evidence; Heavy is not shipped)",
+  },
+  {
+    file: "gait",
+    path: "events.front.singleStanceWindow",
+    numbers: [26.3, 30.3, 70],
+    why: "the published double support behind the window (evidence)",
+  },
+  { file: "gait", path: "metrics[*].error", why: "how well studies measured the metric (evidence)" },
+  {
+    file: "gait",
+    path: "metrics[0].definition",
+    numbers: [60, 1],
+    why: "the cadence formula: 60 seconds a minute, one step fewer than the contacts",
+  },
+  {
+    file: "gait",
+    path: "metrics[22].definition",
+    numbers: [15, 16, 11, 12],
+    why: "the MediaPipe landmarks of the arm swing (wrists 15 and 16, shoulders 11 and 12)",
+  },
+  {
+    file: "gait",
+    path: "scaling.speedMatched.cohort",
+    why: "the cohort the speed matched regression came from (evidence)",
+  },
+  ...[
+    "norms.methodWarning",
+    "norms.fang18.population",
+    "norms.hollman11.population",
+    "norms.context.*.*",
+    "norms.kinematics[*].value",
+  ].map((path) => ({
+    file: "gait",
+    path,
+    why: "published values and study descriptions kept as context (the gait norms text), not rules",
+  })),
+  {
+    file: "gait",
+    path: "errorMargins.stepLength_m.padNote",
+    numbers: [0.01],
+    why: "the lab treadmill error that the pad's error replaced (evidence)",
+  },
+  {
+    file: "gait",
+    path: "errorMargins.definition",
+    numbers: [1.96],
+    why: "the definition of E: a 95% band (1.96 sigma)",
+  },
+  {
+    file: "gait",
+    path: "errorMargins.definition",
+    numbers: [5.6, 5.9, 5.1, 4.6],
+    why: "the section numbers of the rules to recompute (5.6, 5.9, 5.10, 4.6)",
+  },
+  { file: "gait", path: "patterns[*].section", why: "the section number of the pattern in the gait rules document" },
+  {
+    file: "gait",
+    path: "patterns[*].notAssessed[*]",
+    numbers: [5.7, 5.11],
+    why: "the section numbers of the crouch and short steps patterns",
+  },
+  { file: "gait", path: "findings[*].error", why: "the measurement error of side view speed (evidence)" },
+  { file: "targets", path: "dose.profiles[*].caveat", why: "the evidence behind the dose profile" },
+  { file: "targets", path: "dose.profiles[*].strength", why: "the strength of the evidence for the dose" },
+  {
+    file: "targets",
+    path: "libraryTags[*].proposed.why2",
+    why: "the reason in words for a proposed contraindication; its numbers are that contraindication's rule (contraindicationVocabulary months and weeks)",
+  },
+  {
+    file: "targets",
+    path: "newExercises[*].textSource.niaTitle",
+    why: "the title of the NIA exercise the text adapts",
+  },
+  {
+    file: "targets",
+    path: "newExercises[20].dose.text",
+    numbers: [10],
+    why: "the schedule of the trial behind the stretch (evidence)",
+  },
+  {
+    file: "targets",
+    path: "contraindicationVocabulary[15].meaning",
+    numbers: [8],
+    why: "the boot period of a trial (evidence); the 6 month window is the rule",
+  },
+  {
+    file: "targets",
+    path: "mapping.causeResolution[5].if",
+    numbers: [2, 4, 5, 3],
+    why: "the condition of the row's pain_irritable alternative, which holds these numbers",
+  },
+  {
+    file: "targets",
+    path: "mapping.causeResolution[10].if",
+    numbers: [6],
+    why: "the order the row's alternative names (asOrder)",
+  },
+  {
+    file: "targets",
+    path: "mapping.gradeRules[*].targets",
+    numbers: [5.6],
+    why: "a section number (the region default rule, 5.6)",
+  },
+  {
+    file: "targets",
+    path: "mapping.selection[5]",
+    numbers: [5],
+    why: "a worked test example (a repair 5 weeks ago), not a rule",
   },
 ];
 
@@ -1194,12 +1409,15 @@ const TABLE_PROSE = [
   ],
 ];
 
-const globRegex = (glob) =>
+/** A source path glob to a regex: [*] is any index, * any one key, everything else literal. */
+export const globRegex = (glob) =>
   new RegExp(
     `^${glob
-      .replace(/[.+?^${}()|\\]/g, "\\$&")
-      .replace(/\[\*\]/g, "\\[\\d+\\]")
-      .replace(/\*/g, "[^.\\[]+")}$`,
+      .split(/(\[\*\]|\*)/)
+      .map((part) =>
+        part === "[*]" ? "\\[\\d+\\]" : part === "*" ? "[^.\\[]+" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      )
+      .join("")}$`,
   );
 const EXEMPT_RULES = () => PROSE_NUMBER_EXEMPT.map((r) => ({ ...r, re: globRegex(r.path) }));
 
@@ -1226,9 +1444,12 @@ const isProseMap = (o) =>
  * into a numeric field next to its prose (D-023 item 5, D-024 item 4).
  */
 export function proseNumbers(name, source) {
-  const rules = EXEMPT_RULES().filter((r) => r.file === name);
+  const rules = EXEMPT_RULES()
+    .map((r, i) => ({ ...r, i }))
+    .filter((r) => r.file === name);
   const listed = [];
   const exempt = {};
+  const rulesUsed = new Set();
   const prose = (text, path, covered) => {
     let numbers = numberTokens(text);
     if (!numbers.length) return;
@@ -1237,7 +1458,10 @@ export function proseNumbers(name, source) {
     for (const r of rules) {
       if (!numbers.length || !r.re.test(path)) continue;
       const hit = numbers.filter((n) => !r.numbers || r.numbers.includes(n));
-      if (hit.length) exempt[r.why] = (exempt[r.why] ?? 0) + 1;
+      if (hit.length) {
+        exempt[r.why] = (exempt[r.why] ?? 0) + 1;
+        rulesUsed.add(r.i);
+      }
       numbers = numbers.filter((n) => !hit.includes(n));
     }
     if (numbers.length) listed.push({ path, text, numbers: [...new Set(numbers)] });
@@ -1266,7 +1490,7 @@ export function proseNumbers(name, source) {
     if (typeof v === "string") prose(v, from, new Set());
     else visit(v, from, isObject(v) ? v : {}, null);
   }
-  return { listed, exempt };
+  return { listed, exempt, rulesUsed: [...rulesUsed] };
 }
 
 /* ------------------------------------------------------------------ main */

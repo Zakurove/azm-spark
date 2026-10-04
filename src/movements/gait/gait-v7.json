@@ -55,18 +55,28 @@
       },
       {
         "item": "pc_pain_now >= 9",
+        "painNowAtOrAbove": 9,
         "action": "postpone (existing)"
       },
       {
         "item": "leg, hip or back pain 6 or more today (pc_pain_areas with pc_pain_now)",
+        "painAtOrAbove": 6,
         "action": "postpone the gait test (review A08: one shared rule, skip at 6 or more)"
       },
       {
         "item": "leg, hip or back pain 4 or 5 today",
+        "pain": [
+          4,
+          5
+        ],
         "action": "test runs; only the antalgic label can be shown and the weakness and tightness contributors are suppressed (review A08)"
       },
       {
         "item": "pc_pain_now 6 to 8 elsewhere (not a leg, hip or back)",
+        "painNow": [
+          6,
+          8
+        ],
         "action": "existing high pain warning; overground allowed; pad not offered"
       },
       {
@@ -124,7 +134,8 @@
         "pad has a front bar, or a stable support on the side away from the phone, within reach (review B12)",
         "comfortable speed not below the pad's lowest speed",
         "booth or clinic staff present, or a helper at home"
-      ]
+      ],
+      "padPainAtOrBelow": 5
     },
     "padSafety": [
       {
@@ -143,7 +154,9 @@
         "step": "support is a front bar, or a support on the side away from the phone; the helper stands behind the walker on the camera side"
       },
       {
-        "step": "warm up 2 min (engineering default); familiarised flag only when total pad time >= 6 min"
+        "step": "warm up 2 min (engineering default); familiarised flag only when total pad time >= 6 min",
+        "warmUp_min": 2,
+        "familiarisedFrom_min": 6
       }
     ],
     "stops": [
@@ -151,7 +164,11 @@
       "pain 6 or more, a rise of 2 or more over the score before the walk, or a sudden sharp pain ends the test; result labelled pain_limited (review A08: one shared rule)",
       "unsteadiness, a stumble or the helper taking hold ends the test; only completed clean cycles are kept",
       "on the pad the app cannot stop the belt: the stop line asks the person to hold the support and the helper to press stop"
-    ]
+    ],
+    "painStop": {
+      "atOrAbove": 6,
+      "riseAtOrAbove": 2
+    }
   },
   "capture": {
     "common": {
@@ -738,38 +755,64 @@
     {
       "level": "setup",
       "gate": "one person (helper at side ok), whole body and head in view with 3% margin, phone level within 5 deg, distance in range",
+      "marginPct": 3,
+      "levelWithinDeg": 5,
       "onFail": "coach cue, no recording",
       "code": "src/engine/quality.ts setupCheck"
     },
     {
       "level": "setup",
       "gate": "model sustains 25 fps",
-      "onFail": "Lite; if < 20 fps, front timing only or stop"
+      "fps": 25,
+      "onFail": "Lite; if < 20 fps, front timing only or stop",
+      "belowFps": 20
     },
     {
       "level": "cycle",
       "gate": "landmarks 23 to 32 (and 11, 12 for trunk) visibility >= 0.5 in >= 90% of frames; event order valid; stride time plausible; no unresolved swap; not a turn",
+      "landmarkRange": [
+        23,
+        32
+      ],
+      "trunkLandmarks": [
+        11,
+        12
+      ],
+      "visibilityMin": 0.5,
+      "framesPct": 90,
       "onFail": "drop cycle",
-      "code": "QUALITY_RULES.minVisibleShare 0.9"
+      "code": "QUALITY_RULES.minVisibleShare 0.9",
+      "minVisibleShare": 0.9
     },
     {
       "level": "view",
       "gate": ">= 6 clean cycles per side",
-      "onFail": "coach adds passes (overground) or 10 s (pad) once; then timing only or record again"
+      "cleanCyclesPerSide": 6,
+      "onFail": "coach adds passes (overground) or 10 s (pad) once; then timing only or record again",
+      "padExtra_s": 10
     },
     {
       "level": "view",
       "gate": "gap filled frames <= 15% of analysed frames",
+      "gapFilledPctMax": 15,
       "onFail": "confidence one level lower"
     },
     {
       "level": "view",
       "gate": "median processed fps >= 25",
-      "onFail": "20 to 24: timing only and confidence one level lower; < 20: record again"
+      "fps": 25,
+      "onFail": "20 to 24: timing only and confidence one level lower; < 20: record again",
+      "timingOnlyFps": [
+        20,
+        24
+      ],
+      "recordAgainBelowFps": 20
     },
     {
       "level": "setup",
       "gate": "pad and overground side: hip, knee and ankle visibility >= 0.5 in 90% of warm up frames on the near side (review B12)",
+      "visibilityMin": 0.5,
+      "warmUpFramesPct": 90,
       "onFail": "move the support or the helper, no recording"
     },
     {
@@ -785,6 +828,21 @@
   ],
   "norms": {
     "lookup": "ages 18 and 19 use 20 to 29 (flag); 20 to 69 Fang18; 70+ Hollman11",
+    "lookupAges": {
+      "youngest": [
+        18,
+        19
+      ],
+      "youngestUse": [
+        20,
+        29
+      ],
+      "fang18": [
+        20,
+        69
+      ],
+      "hollman11From": 70
+    },
     "methodWarning": "speed norms differ by method: 127.2 to 146.2 cm/s 7.62 m timed walk (Bohannon97); 1.06 to 1.25 m/s 2 min sensor walk (Fang18); about 1.0 to 1.16 m/s 4 m walk Singapore (Yang24). Fang walked back and forth on 7 m, so many strides were near a turn, while Azm analyses steady steps: Azm's healthy users will look faster and longer stepping than Fang's 'typical', so slow_speed and short steps (a) under call below 70; Fang 60 to 69 (men step 0.62 m, speed 1.12) sits below Hollman 70 to 74 (0.69 m, 1.17) (review B10). Planned replacement: Oberg 1993 (233 adults 10 to 79, 5.5 m walkway, slow, normal and fast, 95% prediction intervals) and Al-Obaidi 2003 (Kuwait, 20 to 29) as the regional check; their tables were not retrieved (abstracts opened). Re-anchor on Azm healthy recordings.",
     "fang18": {
       "source": "Fang18",

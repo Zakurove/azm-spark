@@ -342,6 +342,8 @@ export interface GaitHollman11Band {
 }
 export interface GaitNorms {
   lookup: string;
+  /** lookup: «ages 18 and 19 use 20 to 29 (flag); 20 to 69 Fang18; 70+ Hollman11». */
+  lookupAges: { youngest: number[]; youngestUse: number[]; fang18: number[]; hollman11From: number };
   methodWarning: string;
   fang18: {
     source: string;
@@ -389,10 +391,22 @@ export interface GaitData {
   /** Kept until the tech lead decides contract gap 5 (gaitPlanFor, the pain rule parity). */
   eligibility: {
     gate: { item: string; rule: string }[];
-    today: { item: string; action: string }[];
-    modeChoice: { default: "overground"; padAllowedWhenAll: string[] };
-    padSafety: { step: string }[];
+    /** Each item with the pain numbers its words write (freeze step). */
+    today: {
+      item: string;
+      action: string;
+      painNowAtOrAbove?: number;
+      painAtOrAbove?: number;
+      pain?: number[];
+      painNow?: number[];
+    }[];
+    /** padPainAtOrBelow: «leg, hip or back pain 5 or less today». */
+    modeChoice: { default: "overground"; padAllowedWhenAll: string[]; padPainAtOrBelow: number };
+    /** «warm up 2 min ...; familiarised flag only when total pad time >= 6 min» */
+    padSafety: { step: string; warmUp_min?: number; familiarisedFrom_min?: number }[];
     stops: string[];
+    /** stops: «pain 6 or more, a rise of 2 or more over the score before the walk» (the shared rule, C-15). */
+    painStop: { atOrAbove: number; riseAtOrAbove: number };
   };
   capture: {
     common: {
@@ -482,6 +496,22 @@ export interface GaitData {
     gate: string;
     onFail: string;
     code?: string;
+    /** The numbers each gate's words write (freeze step). */
+    marginPct?: number;
+    levelWithinDeg?: number;
+    fps?: number;
+    belowFps?: number;
+    landmarkRange?: number[];
+    trunkLandmarks?: number[];
+    visibilityMin?: number;
+    framesPct?: number;
+    minVisibleShare?: number;
+    cleanCyclesPerSide?: number;
+    padExtra_s?: number;
+    gapFilledPctMax?: number;
+    timingOnlyFps?: number[];
+    recordAgainBelowFps?: number;
+    warmUpFramesPct?: number;
   }[];
   norms: GaitNorms;
   errorMargins: {

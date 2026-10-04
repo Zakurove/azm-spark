@@ -11,7 +11,12 @@
   },
   "placeholders": {
     "hold_ar": "The hold time with its correct Arabic counted noun, from the item's dose profile and the person's age: «30 ثانية» (stretch_hold, under 65), «60 ثانية» (65 and over), «لحظة» on the pain path (a short pause where it is comfortable, never a held stretch; mobility_pain, review C19). Digits stay ASCII in the source and render as Arabic Indic digits (RP section 7).",
-    "hold_en": "The same in English: '30 seconds', '60 seconds', or 'a moment' on the pain path (review C19)."
+    "hold_en": "The same in English: '30 seconds', '60 seconds', or 'a moment' on the pain path (review C19).",
+    "holdSeconds": {
+      "under65": 30,
+      "age65plus": 60
+    },
+    "olderFromAge": 65
   },
   "taxonomy": {
     "targetIdFormat": "<action>:<target>, for example stretch:hip_flexors, mobility:knee_flexion, balance:single_leg_stance",
@@ -705,7 +710,8 @@
         "gaitTarget": "step_length_slow_beat_on_pad",
         "targetIds": [
           "practice:step_length_pad (walking pad: beat 85% of today's cadence); overground: practice:step_length (floor marks, beat at today's cadence) (review C09)"
-        ]
+        ],
+        "beatPctOfCadence": 85
       },
       {
         "gaitAction": "practice",
@@ -759,8 +765,13 @@
             "under65": 2,
             "age65plus": 1
           },
+          "olderFromAge": 65,
           "totalSecondsPerMuscle": 60,
           "daysPerWeek": "daily when possible; at least 2 to 3",
+          "daysPerWeekAtLeast": [
+            2,
+            3
+          ],
           "intensity": "to mild tightness or slight discomfort, never pain; no bouncing",
           "when": "after strength, balance or walking work, when the muscles are warm"
         }
@@ -772,7 +783,15 @@
         "numbers": {
           "repetitions": 10,
           "rounds": "1 to 2",
+          "roundsRange": [
+            1,
+            2
+          ],
           "pauseAtEndSeconds": "2 to 3",
+          "pauseAtEndSecondsRange": [
+            2,
+            3
+          ],
           "daysPerWeek": "daily",
           "intensity": "slow and smooth, within the comfortable range",
           "when": "first in the session, as a warm up"
@@ -784,10 +803,20 @@
         "en": "Gentle range with pain",
         "numbers": {
           "repetitions": "5 to 10",
+          "repetitionsRange": [
+            5,
+            10
+          ],
           "rounds": 1,
           "pauseAtEndSeconds": "a moment (up to 2), where it is comfortable; never a held stretch at end range (review C19)",
+          "pauseAtEndSecondsMax": 2,
           "daysPerWeek": "daily",
           "painRule": "pain during the exercise must stay at 5 or below and may not rise by 2 points or more; stop at 6 or more, a rise of 2 or more, or any sharp pain (the shared rule, review A08); if pain is worse the next day, use a smaller range or fewer repetitions",
+          "painStayAtOrBelow": 5,
+          "painStop": {
+            "atOrAbove": 6,
+            "riseAtOrAbove": 2
+          },
           "noStretch": true,
           "when": "first in the session"
         }
@@ -798,6 +827,10 @@
         "en": "Strength repetitions",
         "numbers": {
           "repetitions": "10 to 15",
+          "repetitionsRange": [
+            10,
+            15
+          ],
           "sets": {
             "start": 1,
             "build": 2,
@@ -805,7 +838,16 @@
           },
           "tempo": "about 3 s to lift, 1 s hold, 3 s to lower",
           "daysPerWeek": "2 to 3, never the same muscles on 2 days in a row",
+          "daysPerWeekRange": [
+            2,
+            3
+          ],
           "intensity": "effort, never a percentage of a one repetition maximum (review C19): start at a moderate effort, with several more repetitions still possible at the end of the set; build toward hard but never very, very hard, with only 1 or 2 more possible; if 8 in a row are not possible, the load is too heavy",
+          "repsInReserveAtHard": [
+            1,
+            2
+          ],
+          "tooHeavyBelowReps": 8,
           "progression": "when 2 sets of 10 to 15 feel easy, add a little load or a stronger band",
           "breathing": "breathe out on the effort; never hold the breath"
         }
@@ -818,7 +860,15 @@
           "holdSeconds": 5,
           "repetitions": 10,
           "sets": "1 to 2",
+          "setsRange": [
+            1,
+            2
+          ],
           "daysPerWeek": "2 to 3",
+          "daysPerWeekRange": [
+            2,
+            3
+          ],
           "intensity": "a comfortable push, no pain, breathing normally"
         }
       },
@@ -828,10 +878,26 @@
         "en": "Balance practice",
         "numbers": {
           "holdSeconds": "up to 10",
+          "holdSecondsMax": 10,
           "repetitions": "10 to 15 each side",
+          "repetitionsRange": [
+            10,
+            15
+          ],
           "daysPerWeek": "at least 2 to 3; 3 or more for older adults",
+          "daysPerWeekAtLeast": [
+            2,
+            3
+          ],
+          "olderAdultsDaysPerWeekAtLeast": 3,
           "support": "always a sturdy support in reach; start with two hands, then one hand, then one finger, then no hands; eyes closed only when steady",
-          "minutesPerWeekOsteoporosis": "aim for about 2 hours a week, 15 to 20 minutes a day"
+          "minutesPerWeekOsteoporosis": "aim for about 2 hours a week, 15 to 20 minutes a day",
+          "osteoporosisHoursPerWeek": 2,
+          "osteoporosisMinutesPerDay": [
+            15,
+            20
+          ],
+          "minutesPerSession": 10
         }
       },
       {
@@ -840,8 +906,26 @@
         "en": "Walking practice",
         "numbers": {
           "minutes": "start with 10 (or what is comfortable) and build toward 20 to 30",
+          "startMinutes": 10,
+          "buildTowardMinutes": [
+            20,
+            30
+          ],
           "daysPerWeek": "3 to 5",
+          "daysPerWeekRange": [
+            3,
+            5
+          ],
           "intensity": "moderate at home: somewhat hard, breathing harder, able to talk but not sing (about 11 to 14 on the 6 to 20 effort scale); higher intensity only in a programme a clinician sets and supervises, which the app does not set in v7 (review C17); the app uses effort, never heart rate",
+          "effort": [
+            11,
+            14
+          ],
+          "effortScale": [
+            6,
+            20
+          ],
+          "buildMinutesPerWeek": 5,
           "eligibility": "only for people who walk and pass gait-rules section 1; the helper and pad rules apply"
         }
       },
@@ -851,9 +935,31 @@
         "en": "Cued walking",
         "numbers": {
           "boutMinutes": "2 to 5",
+          "boutMinutesRange": [
+            2,
+            5
+          ],
           "bouts": "2 to 4 within walking practice",
+          "boutsRange": [
+            2,
+            4
+          ],
           "beat": "walking pad (Parkinson's included): about 85% of today's cadence; overground, Parkinson's included: 100% of today's cadence with the cue 'take big steps'; after a stroke, raise the beat by 5% once the person keeps time (proposal); never a beat slower than today's cadence overground (review C09)",
-          "daysPerWeek": "3 to 5"
+          "beatPct": {
+            "pad": 85,
+            "overground": 100,
+            "strokeRaise": 5
+          },
+          "daysPerWeek": "3 to 5",
+          "daysPerWeekRange": [
+            3,
+            5
+          ],
+          "floorMarkSpacingPct": 10,
+          "defaultBouts": {
+            "bouts": 3,
+            "minutes": 3
+          }
         }
       }
     ],
@@ -7402,7 +7508,8 @@
     {
       "id": "spine_surgery_recent",
       "kind": "new",
-      "meaning": "Neck or back surgery in the last 3 months (rom-protocol section 6 spine_surgery)."
+      "meaning": "Neck or back surgery in the last 3 months (rom-protocol section 6 spine_surgery).",
+      "months": 3
     },
     {
       "id": "neck_caution",
@@ -7432,12 +7539,14 @@
     {
       "id": "hip_precautions_posterior",
       "kind": "new",
-      "meaning": "Hip surgery with limits ticked in hip_avoid_ask: bending the hip past a right angle, crossing the legs or turning the leg in; ON by default for 3 months after a hip replacement unless the person was told of no limits. Items tagged hipEndRange flexion_past_90 or adduction_past_midline are removed (review C02) [OSUTHA22][Guo24]."
+      "meaning": "Hip surgery with limits ticked in hip_avoid_ask: bending the hip past a right angle, crossing the legs or turning the leg in; ON by default for 3 months after a hip replacement unless the person was told of no limits. Items tagged hipEndRange flexion_past_90 or adduction_past_midline are removed (review C02) [OSUTHA22][Guo24].",
+      "months": 3
     },
     {
       "id": "hip_precautions_anterior",
       "kind": "new",
-      "meaning": "Hip surgery with the limit 'taking the leg behind or turning it out' ticked; ON by default for 3 months after a hip replacement unless no limits. Items tagged hipEndRange extension or external_rotation are removed (review C02) [OSUTHA22]."
+      "meaning": "Hip surgery with the limit 'taking the leg behind or turning it out' ticked; ON by default for 3 months after a hip replacement unless no limits. Items tagged hipEndRange extension or external_rotation are removed (review C02) [OSUTHA22].",
+      "months": 3
     },
     {
       "id": "hip_precautions_posterior_unless_raised_seat",
@@ -7447,12 +7556,14 @@
     {
       "id": "achilles",
       "kind": "new",
-      "meaning": "Achilles tendon tear or repair in the last 6 months: calf stretches and calf stretch secondary items removed (review A06; boot period 8 weeks in Willits10; 6 months is a proposal)."
+      "meaning": "Achilles tendon tear or repair in the last 6 months: calf stretches and calf stretch secondary items removed (review A06; boot period 8 weeks in Willits10; 6 months is a proposal).",
+      "months": 6
     },
     {
       "id": "knee_hyperextension",
       "kind": "new",
-      "meaning": "Gait recurvatum possible or likely on that side, or Pillar 1 knee past straight by 5 or more (review A19)."
+      "meaning": "Gait recurvatum possible or likely on that side, or Pillar 1 knee past straight by 5 or more (review A19).",
+      "kneePastStraightGte": 5
     },
     {
       "id": "standing_gate",
@@ -7462,7 +7573,8 @@
     {
       "id": "seated_lean_gate",
       "kind": "new",
-      "meaning": "The v1.1 seated side lean gate (Q12, 4.3): armrests or side guards on both sides, no wheels or swivel; helper for SCI, stroke, CP, Parkinson's and MS; pc_sit_unsupported no or not sure, pc_fall_sitting yes, chest strap or lateral supports, back pain 6 or more, pc_pressure_sore yes (review A02)."
+      "meaning": "The v1.1 seated side lean gate (Q12, 4.3): armrests or side guards on both sides, no wheels or swivel; helper for SCI, stroke, CP, Parkinson's and MS; pc_sit_unsupported no or not sure, pc_fall_sitting yes, chest strap or lateral supports, back pain 6 or more, pc_pressure_sore yes (review A02).",
+      "backPainAtOrAbove": 6
     },
     {
       "id": "pusher",
@@ -7487,17 +7599,20 @@
     {
       "id": "region_not_cleared:<region>",
       "kind": "new, generated from the body map",
-      "meaning": "Surgery in that region under 3 months without clearance for active movement: every item whose primary or secondary target sits in that region is removed (review C01)."
+      "meaning": "Surgery in that region under 3 months without clearance for active movement: every item whose primary or secondary target sits in that region is removed (review C01).",
+      "months": 3
     },
     {
       "id": "region_early_post_op:<region>",
       "kind": "new, generated",
-      "meaning": "Surgery in that region under 12 weeks, or no loading clearance: only unloaded active range items from the pain friendly set; no bands, weights, isometric pushes or loaded standing work on that leg (review C01, A11)."
+      "meaning": "Surgery in that region under 12 weeks, or no loading clearance: only unloaded active range items from the pain friendly set; no bands, weights, isometric pushes or loaded standing work on that leg (review C01, A11).",
+      "weeks": 12
     },
     {
       "id": "region_acute_injury:<region>",
       "kind": "new, generated",
-      "meaning": "Injury in that region under 6 weeks: as region_early_post_op (review C01)."
+      "meaning": "Injury in that region under 6 weeks: as region_early_post_op (review C01).",
+      "weeks": 6
     },
     {
       "id": "region_red_flag:<region>",
@@ -7525,7 +7640,8 @@
       {
         "order": 1,
         "if": "Surgery in that region under 12 weeks and cleared for active movement (or an injury that is still being protected) (review A11, C01)",
-        "path": "post_op_early"
+        "path": "post_op_early",
+        "surgeryUnderWeeks": 12
       },
       {
         "order": 2,
@@ -7575,7 +7691,9 @@
       {
         "order": 7,
         "if": "Body map: injury older than 6 weeks, or surgery from 12 weeks (or with loading clearance) (review C08)",
-        "path": "rehab"
+        "path": "rehab",
+        "injuryOverWeeks": 6,
+        "surgeryFromWeeks": 12
       },
       {
         "order": 8,
@@ -7629,7 +7747,8 @@
           "mobility",
           "strengthen"
         ],
-        "plus": "strengthen at the finding's priority; stretch only at priority 1 and only when the answer was tight"
+        "plus": "strengthen at the finding's priority; stretch only at priority 1 and only when the answer was tight",
+        "stretchAtPriority": 1
       },
       {
         "path": "pd",
@@ -7637,7 +7756,8 @@
           "strengthen",
           "mobility"
         ],
-        "plus": "large amplitude range work and strengthening at the finding's priority; stretch at priority 1"
+        "plus": "large amplitude range work and strengthening at the finding's priority; stretch at priority 1",
+        "stretchAtPriority": 1
       },
       {
         "path": "rehab",
@@ -7645,7 +7765,8 @@
           "mobility",
           "strengthen"
         ],
-        "plus": "strengthen at the finding's priority; stretch at priority 1"
+        "plus": "strengthen at the finding's priority; stretch at priority 1",
+        "stretchAtPriority": 1
       },
       {
         "path": "tight",
@@ -7676,7 +7797,10 @@
           "mobility",
           "strengthen"
         ],
-        "plus": "pain friendly range plus strengthening from week 1: isometrics marked pain friendly first (quad_set, glute_squeeze, shoulder_wall_press, towel_squeeze), then dynamic work in the comfortable arc; same limits (stay at 5 or below, a rise under 2, back to baseline by the next day or reduce)"
+        "plus": "pain friendly range plus strengthening from week 1: isometrics marked pain friendly first (quad_set, glute_squeeze, shoulder_wall_press, towel_squeeze), then dynamic work in the comfortable arc; same limits (stay at 5 or below, a rise under 2, back to baseline by the next day or reduce)",
+        "fromWeek": 1,
+        "painStayAtOrBelow": 5,
+        "painRiseUnder": 2
       },
       {
         "path": "unknown",
@@ -7751,6 +7875,8 @@
       {
         "finding": "noNormPosition (value and progress only)",
         "targets": "none until a graded check; knee straightening in sitting with a lack above 52: mobility:knee_extension and stretch:hamstrings at priority 1 plus refer_measure",
+        "seatedLackAbove": 52,
+        "seatedLackPriority": 1,
         "perAction": 0,
         "priority": null
       }
@@ -8310,6 +8436,7 @@
     ],
     "regionDefaultRule": {
       "rule": "Review A01. A body map region with a default only movement (never measured by the camera) gets mobility targets for those movements at priority 1, for every problem type; pain friendly items when the type is pain. The movements are stored as not measured (grey), never as typical.",
+      "priority": 1,
       "rows": [
         {
           "region": "forearm_wrist",
@@ -8387,8 +8514,14 @@
     },
     "arthritisAddOn": "Arthritis in the conditions (any path): always add strengthening of the muscles around the joint at the finding's priority (knee: quadriceps and hip abductors; hip: hip abductors and hip extensors; shoulder: scapular retractors and the shoulder muscles that move the limited direction) and walking practice for people who walk (review C08) [OARSI19][Fransen15].",
     "neckAddOn": "Review C16. Every neck finding (neck_flexion, neck_extension, neck_lateral_flexion) adds strengthen:neck_deep_flexors and strengthen:scapular_retractors at priority 2 on every path except pain_irritable and post_op_early, whatever the end range answer; neck_caution and spine_surgery_recent still remove the neck items (chin_tucks, chin_nod_hold) [Gross15][Blanpied17].",
+    "neckAddOnPriority": 2,
     "mobilityDefaultRule": {
       "rule": "Review C12. A wheelchair user (mobility wheelchair) whose arms move on their own gets a shoulder care block at priority 1 whatever the findings: strengthening of the muscles between the shoulder blades, the muscles that turn the shoulder outward and the muscles that draw the shoulder down, and a chest stretch, 2 to 3 days a week. Not for a side with upper limb loss, no active shoulder movement or a region filter on the shoulder (region_*); weak_shoulder and the overhead rule apply.",
+      "priority": 1,
+      "daysPerWeekRange": [
+        2,
+        3
+      ],
       "rows": [
         {
           "mobility": "wheelchair",
@@ -8410,7 +8543,11 @@
             "chest_opener"
           ],
           "priority": 1,
-          "daysPerWeek": "2 to 3"
+          "daysPerWeek": "2 to 3",
+          "daysPerWeekRange": [
+            2,
+            3
+          ]
         }
       ]
     },
@@ -8421,7 +8558,12 @@
         "ar": "قبل أن تبدأ: اقفل فرامل كرسيك المتحرك، وأدر العجلتين الأماميتين الصغيرتين إلى الأمام، وركّب مانع الانقلاب إن كان في كرسيك.",
         "en": "Before you start: lock your wheelchair brakes, turn the small front wheels to face forward, and put the anti tippers on if your chair has them."
       }
-    ]
+    ],
+    "selectionNumbers": {
+      "itemsPerFindingMax": 2,
+      "gaitTargetNotSeenChecks": 2,
+      "strengthenStaysAtPriority": 1
+    }
   },
   "whyLines": [
     {

@@ -7,6 +7,8 @@ export declare const KEEP: Record<Name, readonly string[]>;
 export declare const DROP_TOP: Record<Name, readonly string[]>;
 export declare const NUMBERS_MODE: Record<Name, readonly string[]>;
 export declare const ROM_PROSE: Record<string, readonly string[]>;
+export declare const PROBLEM_TYPE_NUMBERS: readonly string[];
+export declare const SAFETY_NUMBERS: readonly string[];
 export declare const REGION_IDS: readonly string[];
 export declare const REGION_ALIASES: Record<string, string>;
 export declare const OPTIONAL_ROLES: Record<string, string>;
@@ -48,7 +50,12 @@ export declare const PROSE_NUMBER_EXEMPT: readonly {
 export declare function proseNumbers(
   name: Name,
   source: unknown,
-): { listed: { path: string; text: string; numbers: number[] }[]; exempt: Record<string, number> };
+): {
+  listed: { path: string; text: string; numbers: number[] }[];
+  exempt: Record<string, number>;
+  /** Indices of PROSE_NUMBER_EXEMPT that filed at least one number. */
+  rulesUsed: number[];
+};
 export declare function exportV7(
   sources: unknown,
 ):

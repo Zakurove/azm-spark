@@ -71,7 +71,13 @@ export interface TargetsTaxonomy {
   practiceTargets: { id: string; ar: string; en: string }[];
   standingOnlyTargets: TargetId[];
   standingRelevantTargets: TargetId[];
-  gaitRulesAlignment: { gaitAction: string; gaitTarget: string; targetIds: string[] }[];
+  /** beatPctOfCadence: the pad beat the target ids write («beat 85% of today's cadence»). */
+  gaitRulesAlignment: {
+    gaitAction: string;
+    gaitTarget: string;
+    targetIds: string[];
+    beatPctOfCadence?: number;
+  }[];
 }
 
 /** A dose profile: its numbers as the data writes them (numbers, or prose where the source gives a range). */
@@ -102,6 +108,37 @@ export interface DoseProfile {
     boutMinutes?: string;
     bouts?: string;
     beat?: string;
+    /** The numbers the words above write, copied beside them (freeze step, D-024 item 4). */
+    daysPerWeekAtLeast?: number[];
+    daysPerWeekRange?: number[];
+    olderAdultsDaysPerWeekAtLeast?: number;
+    olderFromAge?: number;
+    roundsRange?: number[];
+    repetitionsRange?: number[];
+    setsRange?: number[];
+    pauseAtEndSecondsRange?: number[];
+    pauseAtEndSecondsMax?: number;
+    holdSecondsMax?: number;
+    /** mobility_pain: «stay at 5 or below», «stop at 6 or more, a rise of 2 or more» (C-15). */
+    painStayAtOrBelow?: number;
+    painStop?: { atOrAbove: number; riseAtOrAbove: number };
+    /** strength_reps: «with only 1 or 2 more possible», «if 8 in a row are not possible». */
+    repsInReserveAtHard?: number[];
+    tooHeavyBelowReps?: number;
+    osteoporosisHoursPerWeek?: number;
+    osteoporosisMinutesPerDay?: number[];
+    minutesPerSession?: number;
+    startMinutes?: number;
+    buildTowardMinutes?: number[];
+    buildMinutesPerWeek?: number;
+    /** walking_practice: «about 11 to 14 on the 6 to 20 effort scale». */
+    effort?: number[];
+    effortScale?: number[];
+    boutMinutesRange?: number[];
+    boutsRange?: number[];
+    beatPct?: { pad: number; overground: number; strokeRaise: number };
+    floorMarkSpacingPct?: number;
+    defaultBouts?: { bouts: number; minutes: number };
   };
 }
 
@@ -174,6 +211,11 @@ export interface NewExercise {
 }
 
 export interface ContraindicationTerm {
+  /** The numbers the meaning writes (freeze step): months and weeks since, the knee and back pain cuts. */
+  months?: number;
+  weeks?: number;
+  kneePastStraightGte?: number;
+  backPainAtOrAbove?: number;
   /** An id, or a template with `:<region>` generated per body map region. */
   id: string;
   /** "existing", "existing restriction", "new", "new, generated ..." (V7_ONLY_IDS are the kind "new" ids). */
@@ -205,13 +247,34 @@ export interface TargetsMapping {
    * The ordered rules from a finding to its cause path: the row's path, or the first alternative whose
    * condition holds (rows 4, 6 and 11; D-023 item 6).
    */
-  causeResolution: { order: number; if: string; path: CausePath; alternatives?: CauseAlternative[] }[];
-  paths: { path: CausePath; actions: TargetAction[]; plus: string }[];
+  causeResolution: {
+    order: number;
+    if: string;
+    path: CausePath;
+    alternatives?: CauseAlternative[];
+    /** The numbers the condition writes (order 1: surgery under 12 weeks; order 7: injury over 6 weeks, surgery from 12). */
+    surgeryUnderWeeks?: number;
+    injuryOverWeeks?: number;
+    surgeryFromWeeks?: number;
+  }[];
+  paths: {
+    path: CausePath;
+    actions: TargetAction[];
+    plus: string;
+    /** «stretch at priority 1»; pain_stable: «from week 1», «stay at 5 or below, a rise under 2». */
+    stretchAtPriority?: number;
+    fromWeek?: number;
+    painStayAtOrBelow?: number;
+    painRiseUnder?: number;
+  }[];
   gradeRules: {
     finding: string;
     targets: string;
     perAction: number | string;
     priority: number | string | null;
+    /** noNormPosition: «knee straightening in sitting with a lack above 52 ... at priority 1». */
+    seatedLackAbove?: number;
+    seatedLackPriority?: number;
   }[];
   romMovements: {
     movement: RomMovementId;
@@ -229,12 +292,19 @@ export interface TargetsMapping {
   gaitStatusRules: { status: string; use: string; priority: number | null }[];
   regionDefaultRule: {
     rule: string;
+    /** «mobility targets for those movements at priority 1» */
+    priority: number;
     rows: { region: RegionId; when: string; targets: string[]; exercises: string[] }[];
   };
   arthritisAddOn: string;
   neckAddOn: string;
+  /** neckAddOn: «at priority 2 on every path except pain_irritable and post_op_early». */
+  neckAddOnPriority: number;
   mobilityDefaultRule: {
     rule: string;
+    /** «a shoulder care block at priority 1 ..., 2 to 3 days a week» */
+    priority: number;
+    daysPerWeekRange: number[];
     rows: {
       mobility: "wheelchair";
       block: "wheelchair_shoulder";
@@ -242,7 +312,17 @@ export interface TargetsMapping {
       exercises: string[];
       priority: number;
       daysPerWeek: string;
+      daysPerWeekRange: number[];
     }[];
+  };
+  /**
+   * The numbers of the selection prose (which stays in local-docs): «at most 2 items per limited movement
+   * or pattern», «a gait target when not seen at two checks», «strengthening stays at priority 1».
+   */
+  selectionNumbers: {
+    itemsPerFindingMax: number;
+    gaitTargetNotSeenChecks: number;
+    strengthenStaysAtPriority: number;
   };
   sessionLines: { id: "wheelchair_setup"; when: string; ar: string; en: string }[];
 }
@@ -253,7 +333,13 @@ export interface TargetsData {
   status: string;
   signoff: { approved: boolean; approvers: string[] };
   /** Kept until the tech lead decides contract gap 5: the hold placeholder rule in words. */
-  placeholders: { hold_ar: string; hold_en: string };
+  placeholders: {
+    hold_ar: string;
+    hold_en: string;
+    /** «30 ثانية» under 65, «60 ثانية» 65 and over (stretch_hold). */
+    holdSeconds: { under65: number; age65plus: number };
+    olderFromAge: number;
+  };
   taxonomy: TargetsTaxonomy;
   dose: { profiles: DoseProfile[]; sessionOrder: { step: string; text: string }[] };
   libraryTags: LibraryTag[];

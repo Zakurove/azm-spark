@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { wordingProblems } from "../../scripts/wording-rules.mjs";
 import { join } from "node:path";
 import {
   DROP_ANYWHERE,
@@ -646,7 +647,7 @@ describe("v7 clinical export: --report-prose-numbers over every kept section", (
     s.rom.safety[0].rule = "Pain 7 or more";
     s.rom.thresholds.SDeff = "SD capped at 11.5% of N";
     s.gait.findings[0].rule = "foot pitch <= 0 on >= 70% of cycles";
-    s.targets.mapping.paths[1].plus = "stretch only at priority 1";
+    s.targets.mapping.paths[1].plus = "stretch only at priority 3";
     expect(listedPaths("rom", s.rom)).toEqual(expect.arrayContaining(["safety[0].rule", "thresholds.SDeff"]));
     expect(proseNumbers("rom", s.rom).listed.find((l) => l.path === "safety[0].rule")).toEqual({
       path: "safety[0].rule",
@@ -704,6 +705,35 @@ describe("v7 clinical export: --report-prose-numbers over every kept section", (
     expect(rule.why).toMatch(/\w/);
     expect(r.exempt[rule.why]).toBeGreaterThan(0);
   });
+
+  it("gives every exemption a file, a path and a reason", () => {
+    expect(PROSE_NUMBER_EXEMPT.length).toBeGreaterThan(20);
+    for (const r of PROSE_NUMBER_EXEMPT) {
+      expect(["rom", "gait", "targets"]).toContain(r.file);
+      expect(r.path).toMatch(/^[a-zA-Z]/);
+      expect(r.why.length, r.path).toBeGreaterThan(10);
+      expect(wordingProblems(r.why), r.path).toEqual([]);
+    }
+  });
+
+  it.skipIf(!process.env.AZM_CLINICAL_V7)(
+    "the real sources: every prose number has a numeric field next to it or a reason, and every reason is used",
+    () => {
+      const dir = process.env.AZM_CLINICAL_V7!;
+      const used = new Set<number>();
+      for (const [name, file] of [
+        ["rom", "rom-protocol.json"],
+        ["gait", "gait-rules.json"],
+        ["targets", "exercise-targets.json"],
+      ] as const) {
+        const r = proseNumbers(name, JSON.parse(readFileSync(join(dir, file), "utf8")));
+        expect(r.listed, name).toEqual([]);
+        for (const i of r.rulesUsed) used.add(i);
+      }
+      const unused = PROSE_NUMBER_EXEMPT.filter((_, i) => !used.has(i)).map((r) => `${r.file} ${r.path}`);
+      expect(unused).toEqual([]);
+    },
+  );
 
   it("prints the list, and with --dry-run writes nothing", () => {
     const dir = mkdtempSync(join(tmpdir(), "azm-v7-export-"));

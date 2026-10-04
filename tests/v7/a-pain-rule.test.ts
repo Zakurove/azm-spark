@@ -50,6 +50,24 @@ describe("PAIN_STOP parity with the three clinical files", () => {
     ]);
   });
 
+  it("the numbers copied next to the rule in each file (freeze step)", () => {
+    const rom = ROM_DATA.safety.find((s) => s.id === "pain_during")!;
+    expect([rom.atOrAbove, rom.riseAtOrAbove, rom.outOf]).toEqual([
+      PAIN_STOP.atOrAbove,
+      PAIN_STOP.riseOf,
+      10,
+    ]);
+    expect(GAIT_DATA.eligibility.painStop).toEqual({
+      atOrAbove: PAIN_STOP.atOrAbove,
+      riseAtOrAbove: PAIN_STOP.riseOf,
+    });
+    const profile = TARGETS_DATA.dose.profiles.find((p) => p.id === "mobility_pain")!;
+    expect(profile.numbers.painStop).toEqual({
+      atOrAbove: PAIN_STOP.atOrAbove,
+      riseAtOrAbove: PAIN_STOP.riseOf,
+    });
+  });
+
   it("is 6 and 2", () => {
     expect(PAIN_STOP).toEqual({ atOrAbove: 6, riseOf: 2 });
   });

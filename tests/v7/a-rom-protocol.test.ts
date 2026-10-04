@@ -1193,6 +1193,29 @@ describe.skipIf(!process.env.AZM_CLINICAL_V7)(
 it("pain_today reads its threshold from the data", () => {
   const row = ROM_DATA.safety.find((s) => s.id === "pain_today")!;
   expect(row.rule).toContain(`${PAIN_TODAY_SKIP_AT} or more out of 10`);
+  // The number copied next to the words (freeze step), and the pain problem type's.
+  expect(row.atOrAbove).toBe(PAIN_TODAY_SKIP_AT);
+  expect(ROM_DATA.problemTypes.find((p) => p.id === "pain")?.notMeasuredAtOrAbove).toBe(PAIN_TODAY_SKIP_AT);
+});
+
+it("the since rules match the body map's since buckets (lt6w, 6w_3m, gt6m)", () => {
+  const types = Object.fromEntries(ROM_DATA.problemTypes.map((p) => [p.id, p]));
+  const safety = Object.fromEntries(ROM_DATA.safety.map((s) => [s.id, s]));
+  // lt6w: an injury «in the last 6 weeks» is acute.
+  expect(types.injury.acuteWeeks).toBe(6);
+  expect(safety.acute_injury.weeks).toBe(6);
+  // 6w_3m: surgery «less than 3 months ago» is recent.
+  expect(types.after_surgery.recentMonths).toBe(3);
+  for (const id of [
+    "after_surgery_recent",
+    "after_surgery_precaution",
+    "hip_replacement_recent",
+    "spine_surgery",
+  ])
+    expect(safety[id].months, id).toBe(3);
+  // gt6m: an Achilles tear or repair «in the last 6 months» skips the lunge.
+  expect(types.injury.achillesMonths).toBe(6);
+  expect(safety.achilles.months).toBe(6);
 });
 
 // Every movement id the region table names is a measured movement id (compile time union check).

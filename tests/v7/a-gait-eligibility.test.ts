@@ -320,6 +320,16 @@ describe("parity with the clinical text of eligibility", () => {
     expect(v1.actions.some((a) => a.do === "postpone" && a.if.gte === 9)).toBe(true);
   });
 
+  it("the pain thresholds read the numbers copied next to the words (freeze step)", () => {
+    expect(row("leg, hip or back pain 6 or more today").painAtOrAbove).toBe(GAIT_PAIN_SKIP_AT);
+    expect(row("leg, hip or back pain 4 or 5 today").pain).toEqual([...GAIT_ANTALGIC_PAIN]);
+    expect(GAIT_DATA.confidenceModel.painDayAntalgic).toEqual([...GAIT_ANTALGIC_PAIN]);
+    expect(row("pc_pain_now 6 to 8 elsewhere").painNow?.[0]).toBe(GAIT_PAD_PAIN_NOW_FROM);
+    expect(row("pc_pain_now >= 9").painNowAtOrAbove).toBe(9);
+    // The pad's pain limit is one below the skip.
+    expect(GAIT_DATA.eligibility.modeChoice.padPainAtOrBelow).toBe(GAIT_PAIN_SKIP_AT - 1);
+  });
+
   it("the helper rows: each one requires a helper and keeps the pad off", () => {
     for (const needle of [
       "pc_steadi any yes",

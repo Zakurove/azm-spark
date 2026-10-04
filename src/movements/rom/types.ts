@@ -534,7 +534,22 @@ export interface RomData {
   engine: RomEngine;
   regions: RomRegion[];
   regionTable: RomRegionTableRow[];
-  problemTypes: { id: ProblemType; ar: string; en: string }[];
+  /**
+   * The problem types, with the numbers their rules write (freeze step): injury acuteWeeks 6 and
+   * achillesMonths 6; pain painScale [0, 10] and notMeasuredAtOrAbove 6; after_surgery recentMonths 3
+   * and the program hint's earlyWeeks 12. The body map's since buckets (lt6w, 6w_3m, gt6m) follow them.
+   */
+  problemTypes: {
+    id: ProblemType;
+    ar: string;
+    en: string;
+    acuteWeeks?: number;
+    achillesMonths?: number;
+    painScale?: number[];
+    notMeasuredAtOrAbove?: number;
+    recentMonths?: number;
+    earlyWeeks?: number;
+  }[];
   /**
    * The condition questions (rom-protocol 2.3); a row without a question has empty ask text. A
    * condition with its own movement set (Parkinson's, review A10) lists it: buildRomProtocol plans only
@@ -563,7 +578,18 @@ export interface RomData {
   retest: RomRetest;
   sessionOrder: RomSessionOrder;
   /** Kept until the tech lead decides contract gap 5: the parity source for the safety ids and the pain rule. */
-  safety: { id: RomSafetyId; rule: string; action: string }[];
+  safety: {
+    id: RomSafetyId;
+    rule: string;
+    action: string;
+    /** The numbers the rule writes (freeze step): months and weeks since, the pain cuts. */
+    months?: number;
+    weeks?: number;
+    atOrAbove?: number;
+    outOf?: number;
+    riseAtOrAbove?: number;
+    backPainAtOrAbove?: number;
+  }[];
   reasonIds: Record<RomV7ReasonId, string>;
   copy: Record<(typeof ROM_COPY_KEYS)[number], Text>;
   cues: Record<(typeof ROM_CUE_IDS)[number], Text>;

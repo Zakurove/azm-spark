@@ -37,7 +37,14 @@
  * ("sides", so the larger side reads above 1). Near limb rule: the knee, thigh, trailing limb, foot
  * pitch and arm metrics of a side view come only from cycles whose side was nearest the phone.
  */
-import { DOUBLE_SUPPORT_MIN_FPS, GAIT_ENGINE, SHARE_SIGNS, metricDef, metricInView } from "./params";
+import {
+  DOUBLE_SUPPORT_MIN_FPS,
+  GAIT_ENGINE,
+  SHARE_SIGNS,
+  UNIT_BOUNDS,
+  metricDef,
+  metricInView,
+} from "./params";
 import type { Cycle } from "./cycles";
 import { dropAt, kneeAt, leanAt, leftOnRight, pitchAt, thighAt, tlaAt, trunkAt } from "./kinematics";
 import type { Motion } from "./passes";
@@ -123,7 +130,14 @@ function signShown(id: GaitMetricId, v: number, sideMedian: number): boolean | n
   }
 }
 
-function perSide(id: GaitMetricId, view: GaitView, v: Sided): GaitMetricValue | null {
+/** The values a metric's unit allows (section 4 bounds); anything else came from broken tracking. */
+function bounded(id: GaitMetricId, xs: number[]): number[] {
+  const b = UNIT_BOUNDS[metricDef(id).unit ?? ""];
+  return b ? xs.filter((x) => x >= b[0] && x <= b[1]) : xs;
+}
+
+function perSide(id: GaitMetricId, view: GaitView, raw: Sided): GaitMetricValue | null {
+  const v: Sided = { left: bounded(id, raw.left), right: bounded(id, raw.right) };
   const all = [...v.left, ...v.right];
   if (!all.length) return null;
   const mL = median(v.left);
@@ -155,7 +169,7 @@ function whole(
   n: number,
   sides?: Sided,
 ): GaitMetricValue | null {
-  if (value === null || !Number.isFinite(value) || n <= 0) return null;
+  if (value === null || !Number.isFinite(value) || n <= 0 || !bounded(id, [value]).length) return null;
   const out: GaitMetricValue = {
     id,
     value: r3(value),
@@ -164,8 +178,8 @@ function whole(
     grade: gradeOf(id, view, []),
   };
   if (sides) {
-    const mL = median(sides.left);
-    const mR = median(sides.right);
+    const mL = median(bounded(id, sides.left));
+    const mR = median(bounded(id, sides.right));
     out.sides = { left: mL === null ? null : r3(mL), right: mR === null ? null : r3(mR) };
   }
   return out;
@@ -176,6 +190,7 @@ function symmetry(id: GaitMetricId, view: GaitView, v: Sided): GaitMetricValue |
   const mL = median(v.left);
   const mR = median(v.right);
   if (mL === null || mR === null || !(mL > 0) || !(mR > 0)) return null;
+  if (bounded(id, [mL / mR, mR / mL]).length < 2) return null;
   return {
     id,
     value: r3(Math.max(mL / mR, mR / mL)),

@@ -335,6 +335,16 @@ describe("side view metrics on a hand made walk", () => {
     ).toEqual({});
   });
 
+  it("leaves out a value outside its unit's bounds (section 4), which only broken tracking gives", () => {
+    // A foot pitch of 170 degrees (heel and foot index read the wrong way round) on the right cycle.
+    const broken = sideScenario();
+    const s = broken.p.series;
+    [s.x[30][0], s.x[32][0]] = [s.x[32][0], s.x[30][0]];
+    const out = viewMetrics(input(broken.p, "side", broken.cycles));
+    expect(out.foot_pitch_ic).toBeUndefined();
+    expect(out.knee_swing_peak?.sides?.right).toBe(25);
+  });
+
   it("leaves the trunk out of cycles whose trunk landmarks failed the gate", () => {
     const noTrunk = viewMetrics(
       input(

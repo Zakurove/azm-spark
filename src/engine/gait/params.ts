@@ -173,6 +173,22 @@ export const SHARE_SIGNS = {
  */
 export const STORED_LIMITS = { eventsPerView: 200, cyclesPerView: 120, replayFrames: 45 } as const;
 
+/**
+ * The bounds of a stored metric value by its unit (section 4; server/modules/focus/validate.ts
+ * GAIT_UNIT_BOUNDS, held equal by tests/v7/c-params.test.ts). A cycle's value outside them can only
+ * come from broken tracking, and the engine leaves it out, so a body it builds is never refused.
+ */
+export const UNIT_BOUNDS: Readonly<Record<string, [number, number]>> = {
+  "steps/min": [20, 250],
+  s: [0.1, 5],
+  "%": [0, 100],
+  ratio: [0, 5],
+  deg: [-90, 120],
+  "m/s": [0, 3],
+  m: [0, 2.5],
+  share: [0, 1],
+};
+
 /** The replay landmarks (contract 2.8): 0, 11 to 16 and 23 to 32. */
 export const REPLAY_LANDMARK_IDS: readonly number[] = [
   0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,

@@ -16,11 +16,12 @@ import {
   REPLAY_LANDMARK_IDS,
   SHARE_SIGNS,
   STORED_LIMITS,
+  UNIT_BOUNDS,
   metricInView,
 } from "../../src/engine/gait/params";
 import { GAIT_DATA, GAIT_ENGINE_VERSION, gaitPattern } from "../../src/movements/gait";
 import { GAIT_METRIC_IDS } from "../../src/movements/gait/types";
-import { GAIT_LIMITS, REPLAY_LANDMARKS } from "../../server/modules/focus/validate";
+import { GAIT_LIMITS, GAIT_UNIT_BOUNDS, REPLAY_LANDMARKS } from "../../server/modules/focus/validate";
 
 const step = (id: string) => GAIT_DATA.preprocessing.find((p) => p.step === id)!;
 
@@ -100,6 +101,8 @@ describe("gait engine numbers", () => {
     expect(STORED_LIMITS.replayFrames).toBe(GAIT_LIMITS.replayFrames);
     expect([...REPLAY_LANDMARK_IDS]).toEqual([...REPLAY_LANDMARKS]);
     expect(ENGINE_VERSION).toBe(GAIT_ENGINE_VERSION);
+    expect(UNIT_BOUNDS).toEqual(GAIT_UNIT_BOUNDS);
+    for (const id of GAIT_METRIC_IDS) expect(UNIT_BOUNDS[METRIC_DEFS.get(id)!.unit!], id).toBeDefined();
   });
 
   it("reads the gait data through named imports only (D-023 gap 16)", () => {

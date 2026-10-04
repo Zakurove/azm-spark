@@ -21,9 +21,12 @@
  *
  * Readings of the words, each an engineering choice that adds no clinical number:
  *   - «within a 3 degree band»: the highest minus the lowest filtered angle of the window, at most the band.
- *   - «before the movement starts»: the angle has not yet left the hold band around the point furthest
- *     from the end range. A hold whose excursion is beyond the band but under engine.minExcursionDeg is
- *     a small excursion hold (the person moved, a little); at or under the band it is suppressed.
+ *   - «before the movement starts»: the angle has not left the hold band around the point furthest from
+ *     the end range, or (for a hold under engine.minExcursionDeg) not left the band around the start pose's
+ *     angle toward the end range (RomCalibration.startDeg). A hold whose excursion is beyond the band but
+ *     under the minimum, beyond the start pose too, is a small excursion hold (the person moved, a
+ *     little); else it is suppressed. The start pose check keeps landmark jitter at rest from asking the
+ *     maximum question: over 20 s a still angle's lowest reading sits about 3 degrees under its middle.
  *   - A gap between readings longer than v1's sustained window gap (RANGE_RULES.maxGapMs, 250 ms) breaks
  *     the window, as v1 SustainedPeak does; a shorter gap (one unseen frame) does not.
  *   - After a hold fires the detector waits; `rearm(t)` (after «ليس بعد», or an unconfirmed small hold)
@@ -49,9 +52,18 @@ export const HOLD_RULES = {
  */
 export const PLATEAU_RULES = { maxDegPerSec: 8, seconds: 0.4 } as const;
 
+/** A hold's value: engine.smoothing «Hampel filter (window 7, n sigma 2), then the median of the hold window», not rounded. */
+export function holdValue(raws: readonly number[]): number | null {
+  if (!raws.length) return null;
+  const e = ROM_DATA.engine.smoothing.hampel;
+  return median(Array.from(hampel(raws as number[], e.window, e.nSigma)));
+}
+
 export interface HoldOptions {
   /** 1: higher is further (flexion, signed); -1: lower is further (lack, degrees short of straight). */
   direction: 1 | -1;
+  /** The start pose's angle (RomCalibration.startDeg), for small holds; null: not known. */
+  startDeg?: number | null;
   bandDeg: number;
   holdMs: number;
   minExcursionDeg: number;
@@ -150,18 +162,21 @@ export class HoldDetector {
       hi = Math.max(hi, s.f);
     }
     if (hi - lo > this.band) return null;
-    const excursionDeg = this.excursion(median(this.buf.map((s) => s.f))!);
+    const level = median(this.buf.map((s) => s.f))!;
+    const excursionDeg = this.excursion(level);
     if (excursionDeg <= this.band) return null;
+    const start = this.opts.startDeg ?? null;
+    if (
+      excursionDeg < this.opts.minExcursionDeg &&
+      start !== null &&
+      this.opts.direction * (level - start) <= this.band
+    )
+      return null;
     this.latched = true;
-    const cleaned = hampel(
-      this.buf.map((s) => s.raw),
-      ROM_DATA.engine.smoothing.hampel.window,
-      ROM_DATA.engine.smoothing.hampel.nSigma,
-    );
     return {
       from: this.buf[0].t,
       to: t,
-      deg: median(Array.from(cleaned))!,
+      deg: holdValue(this.buf.map((s) => s.raw))!,
       excursionDeg,
       bandDeg: this.band,
       smallExcursion: excursionDeg < this.opts.minExcursionDeg,

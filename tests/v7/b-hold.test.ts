@@ -217,6 +217,31 @@ describe("HoldDetector: excursion toward the end range", () => {
   });
 });
 
+describe("HoldDetector: a small hold needs the angle beyond the start pose", () => {
+  it("a dip under the start pose at rest does not make the start level a small hold", () => {
+    // The start pose reads 6; the resting angle dips to 2 for a moment (jitter), then sits at 6 again.
+    const rest = (s: number) => (s > 1 && s < 1.3 ? 2 : 6);
+    expect(feed(new HoldDetector(holdOptions("flexion")), rest, 4)).toHaveLength(1);
+    expect(feed(new HoldDetector({ ...holdOptions("flexion"), startDeg: 6 }), rest, 4)).toHaveLength(0);
+  });
+
+  it("a small movement beyond the start pose is a small hold; a full one needs no start check", () => {
+    const small = feed(
+      new HoldDetector({ ...holdOptions("flexion"), startDeg: 6 }),
+      raise(13, 1, 1, 3, 6),
+      6,
+    );
+    expect(small).toHaveLength(1);
+    expect(small[0].smallExcursion).toBe(true);
+    // A lack movement: beyond the start is a smaller lack.
+    const lack = feed(new HoldDetector({ ...holdOptions("lack"), startDeg: 40 }), raise(33, 1, 1, 3, 40), 6);
+    expect(lack).toHaveLength(1);
+    expect(lack[0].smallExcursion).toBe(true);
+    // Full holds keep the clinical rule alone.
+    expect(feed(new HoldDetector({ ...holdOptions("flexion"), startDeg: 90 }), raise(60), 8)).toHaveLength(1);
+  });
+});
+
 describe("HoldDetector: the wide band", () => {
   /** A tremor of 4 degrees peak to peak on a plateau: never inside 3 degrees, always inside 5. */
   const tremor = (s: number) => (s < 1 ? 0 : s < 3 ? 30 * (s - 1) : 60 + 2 * Math.sin(2 * Math.PI * 4 * s));

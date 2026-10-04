@@ -628,9 +628,10 @@ describe("attempts that do not count", () => {
 
   it("a tremor never settles in 3 degrees: after two tries without a hold the 5 degree band, flagged wideHold", () => {
     const r = runner("shoulder_abduction");
-    // 2.2 degrees at 1.5 Hz: the One Euro dial reads it about 4.2 degrees wide (a 4 Hz tremor of 2 degrees
-    // reads under 3 and is a hold with the normal band: the hold reads the filtered angle).
-    const d = drive(r, abduct(100, { tremor: { amp: 2.2, hz: 1.5 } }), 200);
+    // 2.5 degrees at 1 Hz: the hold signal (the dial's One Euro on the landmarks, then v1's 0.3 s median)
+    // reads it about 3.7 degrees wide over a second, inside the 5 degree band only. A faster tremor
+    // (2.2 degrees at 1.5 Hz) reads under 3 and is a hold with the normal band.
+    const d = drive(r, abduct(100, { tremor: { amp: 2.5, hz: 1 } }), 200);
     const attempts = kinds(d.events, "attempt").map((e) => e.record);
     expect(attempts[0].reasons).toEqual(["no_hold"]);
     expect(attempts[1]).toMatchObject({ index: 1, outcome: "retry", reasons: ["no_hold"] });

@@ -12,7 +12,12 @@
  *      the arm raises start with the arm by the side (v1's relaxed angle, RANGE_RULES.relaxedMaxDeg).
  *   2. «One practice movement (not stored), then up to 3 scored attempts, 5 to 10 s apart»
  *      (engine.practice, engine.scoredAttemptsMax, restSec default engine.restBetweenAttemptsSeconds.min).
- *   3. «A live dial shows the angle (One Euro filtered)»: a `live` event every frame with an angle.
+ *   3. «A live dial shows the angle (One Euro filtered)»: a `live` event every frame with an angle, the
+ *      movement angle of the subject's landmarks after the existing One Euro filter (PoseSmoother, with the
+ *      defaults it was tuned with for landmark coordinates). The hold, the plateau, the first movement and
+ *      the compensation windows read that angle after v1's 0.3 s running median (RANGE_RULES.medianSec,
+ *      rangeTest.ts measures through it before its hold rule): at 2 to 3 m in a portrait picture a still
+ *      arm's angle jitters about 3 degrees frame to frame, more than the 3 degree band (change log B1-3).
  *   4. The hold (hold.ts): the `hold` event, phase ask_max, the local line ask_max.
  *   5. «هل هذا أقصى ما تستطيع؟»: answerMax (buttons or the coach, first answer per hold wins). Yes
  *      records the hold; not yet resumes the attempt («A later hold replaces the value only if it is
@@ -46,7 +51,8 @@
  *   - A stop by the person (stop "user_stop", or finish before the end) keeps no value: status stopped,
  *     reason by_choice until the controller writes the stop list's reason (v1 resultOnStop).
  */
-import { OneEuro } from "../oneEuro";
+import { PoseSmoother } from "../oneEuro";
+import { toPixelSpace } from "../geometry";
 import { QualityMonitor, type QualityIssue, type QualityReport } from "../quality";
 import { SubjectLock } from "../subject";
 import type { Frame, Landmark } from "../types";
@@ -131,7 +137,10 @@ interface Attempt {
   monitor: QualityMonitor;
   /** The quality gate reads the attempt up to its hold, and again after «not yet». */
   monitoring: boolean;
-  euro: OneEuro;
+  /** The existing One Euro on the subject's landmarks (oneEuro.ts PoseSmoother): the dial's angle. */
+  smoother: PoseSmoother;
+  /** v1's running median over the dial's angle: the angle the hold, the plateau and the checks read. */
+  median: RunningMedian;
   hold: HoldDetector;
   plateau: PlateauDetector;
   /** The first filtered angle and the time the movement started (it left the hold band around it). */
@@ -617,7 +626,7 @@ export class RomRunner {
 
   private startAttempt(t: number, practice: boolean): void {
     const index = practice ? 0 : this.scored.length + 1;
-    const hold = new HoldDetector(this.holdOpts);
+    const hold = new HoldDetector({ ...this.holdOpts, startDeg: this.cal?.startDeg ?? null });
     if (this.noHoldTries >= 2) hold.setBand(ROM_DATA.engine.wideHoldBandDeg);
     this.att = {
       index,
@@ -631,7 +640,8 @@ export class RomRunner {
         }),
       ),
       monitoring: true,
-      euro: new OneEuro(),
+      smoother: new PoseSmoother(),
+      median: new RunningMedian(RUNNER_RULES.medianSec * 1000),
       hold,
       plateau: new PlateauDetector(this.holdOpts),
       startDeg: null,
@@ -655,6 +665,18 @@ export class RomRunner {
     return (a.firstMove ?? a.t0) + ROM_DATA.engine.attemptTimeoutSeconds * 1000 + a.extendMs;
   }
 
+  /**
+   * The dial's angle: the movement angle of the subject's landmarks after the existing One Euro filter
+   * (PoseSmoother, the defaults it was tuned with for landmark coordinates; on the angle in degrees the
+   * same defaults hardly smooth, since its speed term would read degrees per second), null without one.
+   */
+  private dialAngle(a: Attempt, frame: Frame, tr: Tracked, ctx: AngleContext): number | null {
+    if (!tr.raw) return null;
+    const smoothed = toPixelSpace(a.smoother.smooth(tr.raw, frame.t), frame.aspect);
+    const v = MOVEMENT_ANGLES[this.opts.def.id](smoothed, ctx);
+    return v !== null && Number.isFinite(v) ? v : null;
+  }
+
   private attempting(frame: Frame): void {
     const a = this.att!;
     const t = frame.t;
@@ -663,9 +685,10 @@ export class RomRunner {
     const px = tr.pick.paused ? null : tr.px;
     const ctx = this.context();
     const angle = px ? MOVEMENT_ANGLES[this.opts.def.id](px, ctx) : null;
-    if (px && angle !== null && Number.isFinite(angle)) {
-      const f = a.euro.filter(angle, t);
-      this.sink.push({ kind: "live", deg: round1(f), t });
+    const dial = px ? this.dialAngle(a, frame, tr, ctx) : null;
+    if (px && angle !== null && Number.isFinite(angle) && dial !== null) {
+      this.sink.push({ kind: "live", deg: round1(dial), t });
+      const f = a.median.push(t, dial);
       if (a.startDeg === null) a.startDeg = f;
       else if (a.firstMove === null && Math.abs(f - a.startDeg) > this.holdOpts.bandDeg) a.firstMove = t;
       this.emitHits(this.comp.frame({ t, px, ctx, angle: f }));
@@ -722,11 +745,8 @@ export class RomRunner {
     const t = frame.t;
     const tr = this.track(frame);
     const px = tr.pick.paused ? null : tr.px;
-    if (px) {
-      const angle = MOVEMENT_ANGLES[this.opts.def.id](px, this.context());
-      if (angle !== null && Number.isFinite(angle))
-        this.sink.push({ kind: "live", deg: round1(a.euro.filter(angle, t)), t });
-    }
+    const dial = px ? this.dialAngle(a, frame, tr, this.context()) : null;
+    if (dial !== null) this.sink.push({ kind: "live", deg: round1(dial), t });
     if (t < this.answerDeadline || !a.current) return;
     // «No answer within 10 s: the hold is recorded as unconfirmed.» A small hold needs «نعم»: the attempt goes on.
     const held = a.current;

@@ -130,6 +130,8 @@ export interface ReplayCycle {
 export interface GaitViewResult {
   view: GaitView;
   nearSide?: "left" | "right";
+  /** The model this view was measured with (GaitViewInput.poseModel), recorded per view (C-10; D-024, A5-9). */
+  poseModel: "lite" | "full";
   events: GaitEvent[];
   cycles: GaitCycle[];
   metrics: Partial<Record<GaitMetricId, GaitMetricValue>>;

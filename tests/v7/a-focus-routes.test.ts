@@ -780,6 +780,8 @@ describe("POST /api/focus/:id/gait", () => {
     });
     // The patterns are stored without their lines (written again on read).
     expect(JSON.parse(row.findings).patterns[0].lines).toBeUndefined();
+    // Each view keeps its pose model (C-10; D-024, A5-9); the response views stay as 2.9 types them.
+    expect(JSON.parse(row.views).map((v: { poseModel: string }) => v.poseModel)).toEqual(["full", "full"]);
     expect(JSON.parse(row.setup)).toEqual(body.setup);
     expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).data).toEqual({ error: "ALREADY_SAVED" });
   });
@@ -800,6 +802,44 @@ describe("POST /api/focus/:id/gait", () => {
     expect(h.db().prepare("SELECT pose_model FROM gait_analyses WHERE check_id=?").get(s.id)).toEqual({
       pose_model: "lite",
     });
+  });
+
+  it("stores the pose model of each view, and the analysis's model is lite when any view used Lite (D-024, A5-9)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    const body = gaitBody(s.gait!, "overground");
+    body.analysis.views[1].poseModel = "lite";
+    expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).status).toBe(200);
+    const row = h.db().prepare("SELECT views, pose_model FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      views: string;
+      pose_model: string;
+    };
+    expect(
+      JSON.parse(row.views).map((v: { view: string; poseModel: string }) => [v.view, v.poseModel]),
+    ).toEqual([
+      ["side", "full"],
+      ["front", "lite"],
+    ]);
+    expect(row.pose_model).toBe("lite");
+    // complete gives the rules each view's model as the gait POST did.
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    expect(gaitCalls.inputs.at(-1)!.analysis.views.map((v) => v.poseModel)).toEqual(["full", "lite"]);
+  });
+
+  it("reads a view stored without its pose model as the analysis's model", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    expect(
+      (await h.call(`/focus/${s.id}/gait`, gaitBody(s.gait!, "walking_pad", { worst: true }), cookie)).status,
+    ).toBe(200);
+    const db = h.db();
+    const { views } = db.prepare("SELECT views FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      views: string;
+    };
+    const before = (JSON.parse(views) as Record<string, unknown>[]).map(({ poseModel: _m, ...v }) => v);
+    db.prepare("UPDATE gait_analyses SET views=? WHERE check_id=?").run(JSON.stringify(before), s.id);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    expect(gaitCalls.inputs.at(-1)!.analysis.views.every((v) => v.poseModel === "lite")).toBe(true);
   });
 
   it("refuses a body over 160 KB before reading it all, and an unsigned caller", async () => {
@@ -884,6 +924,20 @@ describe("POST /api/focus/:id/gait", () => {
         error: "GAIT_INVALID",
         field,
       });
+  });
+
+  it("needs the pose model of each view, Lite or Full (D-024, A5-9)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    for (const poseModel of [undefined, "heavy", null]) {
+      const body = gaitBody(s.gait!, "overground");
+      (body.analysis.views[0] as { poseModel?: unknown }).poseModel = poseModel;
+      if (poseModel === undefined) delete (body.analysis.views[0] as { poseModel?: unknown }).poseModel;
+      expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).data, String(poseModel)).toEqual({
+        error: "GAIT_INVALID",
+        field: "analysis.views.poseModel",
+      });
+    }
   });
 
   it("takes a walk only into an open check, 20 posts in 15 minutes", async () => {

@@ -138,7 +138,7 @@ function Figure({ view }: { view: BodyMapView }) {
       {view === "front" ? (
         <path className="bm-detail" d="M98 94Q120 102 142 94" />
       ) : (
-        <path className="bm-detail" d="M120 92L120 238M92 114Q101 130 110 116M130 116Q139 130 148 114" />
+        <path className="bm-detail" d="M120 92L120 238" />
       )}
     </svg>
   );

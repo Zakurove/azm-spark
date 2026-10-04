@@ -40,7 +40,9 @@
     "right": "right side",
     "left": "left side",
     "both": "both sides",
-    "remove": "Remove"
+    "remove": "Remove",
+    "change": "Change",
+    "done": "Done"
   },
   "since": {
     "lt6w": "In the last 6 weeks",

@@ -333,6 +333,22 @@ describe("the step on screen", () => {
     ).not.toContain("فقد طرف");
   });
 
+  it("folds a complete card to one line with Change, and keeps an open one's questions", () => {
+    const ui: V7Ui = {
+      ...complete,
+      drafts: [
+        { region: "knee", side: "right", problems: ["weakness", "stiffness"], origin: "condition" },
+        { region: "hip", side: "left", problems: [], origin: "person" },
+      ],
+    };
+    const html = render({ ui, lang: "en" });
+    expect(html).toMatch(/data-region="knee:right" data-folded="true"/);
+    expect(html).toMatch(/data-region="hip:left" data-folded="false"/);
+    const text = plain(html);
+    expect(text).toContain("Knee, right side Change Remove Weakness or paralysis, Stiffness");
+    expect(text.match(/What kind of problem is it in this part\?/g)).toHaveLength(1);
+  });
+
   it("shows the confirmation after a fill, and the report's suggestions with Add", () => {
     const drafts = autoFillRegions([{ condition: "stroke", weakerSide: "left" }]);
     const text = plain(

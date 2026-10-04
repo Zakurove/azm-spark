@@ -561,34 +561,62 @@ function RegionCard({
   const oneSide = draft.side === "left" || draft.side === "right";
   const problems = PROBLEM_TYPES.filter((p) => p !== "limb_loss" || (oneSide && limbOf(draft.region)));
   const title = entryLabel(lang, draft.region, draft.side);
+  const complete = finalizeRegion(draft) !== null;
+  // A complete card (a fill, a saved answer) starts folded to one line; an open one has its questions.
+  const [open, setOpen] = useState(!complete);
+  const folded = complete && !open;
   return (
     <article
       className="intake7-card"
       data-origin={draft.origin}
       data-region={`${draft.region}:${draft.side}`}
+      data-folded={folded}
     >
       <header>
         <h4>{title}</h4>
-        <button type="button" className="text-button" onClick={onRemove}>
-          {tV7(lang, "intake7.map.remove")}
-        </button>
+        <span className="intake7-card-actions">
+          {complete && (
+            <button
+              type="button"
+              className="text-button"
+              aria-expanded={!folded}
+              onClick={() => setOpen(folded)}
+            >
+              {tV7(lang, folded ? "intake7.map.change" : "intake7.map.done")}
+            </button>
+          )}
+          <button type="button" className="text-button" onClick={onRemove}>
+            {tV7(lang, "intake7.map.remove")}
+          </button>
+        </span>
       </header>
-      {showMissing && finalizeRegion(draft) === null && (
-        <p className="intake7-missing" role="alert">
-          {tV7(lang, "intake7.needsAnswers")}
+      {folded ? (
+        <p className="intake7-summary">
+          {draft.problems.map((p) => problemName(lang, p)).join(lang === "ar" ? "، " : ", ")}
         </p>
+      ) : (
+        <>
+          {showMissing && !complete && (
+            <p className="intake7-missing" role="alert">
+              {tV7(lang, "intake7.needsAnswers")}
+            </p>
+          )}
+          <Checks
+            legend={copy(lang, "problem_ask")}
+            options={problems.map((p) => ({ value: p, label: problemName(lang, p) }))}
+            values={draft.problems}
+            onToggle={(p) =>
+              onChange({
+                ...draft,
+                problems: PROBLEM_TYPES.filter((x) => toggle(draft.problems, p).includes(x)),
+              })
+            }
+          />
+          {regionQuestions(draft).map((q) => (
+            <RegionQuestion key={q} lang={lang} q={q} draft={draft} onChange={onChange} />
+          ))}
+        </>
       )}
-      <Checks
-        legend={copy(lang, "problem_ask")}
-        options={problems.map((p) => ({ value: p, label: problemName(lang, p) }))}
-        values={draft.problems}
-        onToggle={(p) =>
-          onChange({ ...draft, problems: PROBLEM_TYPES.filter((x) => toggle(draft.problems, p).includes(x)) })
-        }
-      />
-      {regionQuestions(draft).map((q) => (
-        <RegionQuestion key={q} lang={lang} q={q} draft={draft} onChange={onChange} />
-      ))}
     </article>
   );
 }

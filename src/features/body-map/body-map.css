@@ -18,7 +18,7 @@
   padding: 0 20px;
   border-radius: 999px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--ink);
 }
 .bm-views button[aria-pressed="true"] {
   background: white;
@@ -197,9 +197,19 @@
   font-size: 15px;
   margin: 0;
 }
+.intake7-card-actions {
+  display: flex;
+  gap: 14px;
+}
 .intake7-card header .text-button {
   min-height: 44px;
   font-size: 12px;
+}
+.intake7-summary {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--select-ink);
+  margin: 0 0 10px;
 }
 .intake7-card fieldset {
   margin: 14px 0;

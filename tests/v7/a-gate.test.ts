@@ -14,9 +14,18 @@ import { applyPrecheckOutcome, focusPrecheckEnv } from "../../src/medical/focus-
 import { gradeMeasurement, typicalValue } from "../../src/medical/rom-norms";
 import { ROM_RULES_VERSION } from "../../src/movements/rom";
 import { GAIT_RULES_VERSION } from "../../src/movements/gait";
+import type { ToolResult } from "../../src/coach/types";
 import { fill } from "../precheck-fixtures";
 import { gaitBody, romBody } from "./a-focus-bodies";
 import { MINUTE, T0, boothPass, member, startV7Api, v7Intake, type V7Harness } from "./a-harness";
+
+describe("the section 2 types frozen at Gate A", () => {
+  it("let a host reject an answer tool nobody answered (D-022, S0-2: no_answer_heard)", () => {
+    // Checked by npm run check: the reason must be a member of ToolResult["reason"].
+    const r: ToolResult = { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" };
+    expect(r.reason).toBe("no_answer_heard");
+  });
+});
 
 describe("FOCUS_RULES", () => {
   it("binds the real rules of steps A2 and A4", () => {

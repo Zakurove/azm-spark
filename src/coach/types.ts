@@ -109,7 +109,9 @@ export interface ToolResult {
     | "after_pain"
     | "not_in_block"
     | "not_allowed"
-    | "paused_on_screen";
+    | "paused_on_screen"
+    /** D-022 (S0-2): an answer tool with no speech from the person since the question (mark_pain: in the last 10 s). */
+    | "no_answer_heard";
   /** A copy key the coach should convey in its own words (for example keep_going, recorded, pain_stop, hold_still, tap_to_confirm). */
   say?: string;
   data?: Record<string, number | string | boolean | null>;

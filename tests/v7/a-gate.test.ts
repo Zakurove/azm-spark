@@ -3,16 +3,23 @@
  * routes take the real rules of steps A2 (hasV7Fields) and A4 (the range protocol, gait eligibility,
  * the pre-check bridge and the norms) through FOCUS_RULES in server/modules/focus/precheck.ts. A5's
  * route tests run on the small test rules of a-focus-rules.ts; this file runs a booth focus check
- * from the context to complete on the rules the app ships. It also holds what the merge adds to the
- * shared files: the type the change log asked for before the freeze, and the licence fields of the
- * code stream A ported or added (contract 1.4).
+ * from the context to complete on the rules the app ships, and runs the body map of every condition
+ * answer (A2) through the range protocol and the gait plan (A4). It also holds what the merge adds
+ * to the shared files: the type the change log asked for before the freeze, and the licence fields
+ * of the code stream A ported or added (contract 1.4).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
-import { hasV7Fields } from "../../src/medical/plan";
-import { buildRomProtocol, type RomProtocol, type RomProtocolItem } from "../../src/medical/rom-protocol";
+import { createPlan, hasV7Fields, validateIntake } from "../../src/medical/plan";
+import { autoFillRegions, painIdsFromRegions, type AutoFillAnswer } from "../../src/medical/body-map";
+import {
+  MAX_MEASURED_PER_CHECK,
+  buildRomProtocol,
+  type RomProtocol,
+  type RomProtocolItem,
+} from "../../src/medical/rom-protocol";
 import { gaitPlanFor, type GaitPlan } from "../../src/medical/gait-eligibility";
 import { applyPrecheckOutcome, focusPrecheckEnv } from "../../src/medical/focus-precheck";
 import { gradeMeasurement, typicalValue } from "../../src/medical/rom-norms";
@@ -154,4 +161,70 @@ describe("the app's focus routes on the real rules", () => {
     for (const n of s.protocol.notMeasured)
       expect(sourceOf(n.movementId, n.side), `${n.movementId}:${n.side}`).toBe(n.source);
   });
+});
+
+describe("A2's body map feeds A4's range protocol (the seam the parallel steps never ran)", () => {
+  /** One answer of each kind of rom-protocol 2.3, as the intake form's condition questions give them. */
+  const ANSWERS: AutoFillAnswer[] = [
+    { condition: "stroke", weakerSide: "left" },
+    { condition: "stroke", weakerSide: "right" },
+    { condition: "cerebral_palsy", pattern: "one_side", side: "left" },
+    { condition: "cerebral_palsy", pattern: "both_legs" },
+    { condition: "cerebral_palsy", pattern: "all_limbs" },
+    { condition: "ms", limbs: ["right_arm", "left_leg"] },
+    { condition: "ms", limbs: ["right_arm", "left_arm", "right_leg", "left_leg"] },
+    { condition: "parkinsons", confirmed: true },
+    { condition: "sci_complete", level: "neck" },
+    { condition: "sci_incomplete", level: "back" },
+    { condition: "lower_limb_unilateral", side: "left", level: "below_knee" },
+    { condition: "lower_limb_unilateral", side: "right", level: "above_knee" },
+    { condition: "upper_limb_unilateral", side: "left", level: "below_elbow" },
+    { condition: "upper_limb_unilateral", side: "right", level: "above_elbow" },
+  ];
+  const day = { painByRegion: {}, redFlagRegions: [] };
+
+  for (const answer of ANSWERS)
+    it(`${answer.condition} ${JSON.stringify(answer).slice(1, -1)}`, () => {
+      const regions = autoFillRegions([answer]);
+      const wheelchair = answer.condition === "sci_complete" || answer.condition === "sci_incomplete";
+      const intake = v7Intake({
+        conditions: [answer.condition],
+        regions,
+        pain: painIdsFromRegions(regions),
+        mobility: wheelchair ? "wheelchair" : "standing",
+        walking: wheelchair ? { status: "no" } : { status: "without_aid" },
+        romFlags: { osteoporosis: false, neckCaution: false },
+      });
+      expect(regions.length).toBeGreaterThan(0);
+      expect(validateIntake(intake)).toBe(true);
+      expect(hasV7Fields(intake)).toBe(true);
+      expect(() => createPlan(intake)).not.toThrow();
+      if (!hasV7Fields(intake)) return;
+      const onMap = new Set(regions.map((r) => r.region));
+      for (const setting of ["home", "booth"] as const) {
+        const p = buildRomProtocol({ intake, setting, today: day });
+        const all = [...p.items, ...p.deferred];
+        // Only the body map's regions are planned. The joints below an amputation are the one record
+        // off the map (rom-protocol 2.4: not applicable, limb absent), and every region on the map
+        // is accounted for: planned, or not measured with its reason (above the knee or the elbow
+        // nothing is left to measure, and the start answers NOTHING_TO_MEASURE).
+        for (const i of all) expect(onMap.has(i.region), `${i.movementId} ${i.region}`).toBe(true);
+        for (const n of p.notMeasured)
+          if (!onMap.has(n.region))
+            expect(`${n.source}:${n.reason}`, `${n.movementId} ${n.region}`).toBe(
+              "not_applicable:limb_absent",
+            );
+        const accounted = new Set([...all, ...p.notMeasured].map((x) => x.region));
+        for (const r of onMap) expect(accounted.has(r), r).toBe(true);
+        // Each movement and side once, at most 8 running, in block order.
+        const keys = all.map((i) => `${i.movementId}:${i.side}`);
+        expect(new Set(keys).size).toBe(keys.length);
+        const runs = p.items.filter((i) => !i.skipped);
+        expect(runs.length).toBeLessThanOrEqual(MAX_MEASURED_PER_CHECK);
+        const blocks = runs.map((i) => ["seated", "standing", "lying"].indexOf(i.block));
+        expect(blocks).toEqual([...blocks].sort((a, b) => a - b));
+        const gait = gaitPlanFor(intake, day, setting, {});
+        if (wheelchair) expect(gait).toMatchObject({ offered: false, reason: "not_walking" });
+      }
+    });
 });

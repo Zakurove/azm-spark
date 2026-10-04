@@ -6,10 +6,10 @@
  *                   as the gait engine takes them (GaitFrame: real timestamps, normalised landmarks,
  *                   the picture's aspect).
  *   harnessCadence  the harness's own check that the model tracks the legs: the period of the gap
- *                   between the ankles (front to back in a side view, up and down in a front view),
- *                   found by autocorrelation over strides of 0.6 to 2.5 s (48 to 200 steps a
- *                   minute). It is not the gait engine's cadence (C's analyseGaitView is), and nothing
- *                   in the app reads it.
+ *                   between the ankles (front to back in a side view, up and down in a front view;
+ *                   positions at any visibility), found by autocorrelation over strides of 0.6 to
+ *                   2.5 s (48 to 200 steps a minute). It is not the gait engine's cadence (C's
+ *                   analyseGaitView is), and nothing in the app reads it.
  *   trackingShare   the share of frames with both ankles, heels and toes seen.
  *
  * Pure, no DOM.
@@ -116,11 +116,14 @@ export function harnessCadence(frames: readonly GaitFrame[], view: GaitView): Ha
   const sideView = view === "side" || view === "pad_side";
   const signal = sideView ? "ankle_x" : "ankle_y";
   const none: HarnessCadence = { cadenceSpm: null, strideS: null, signal, strength: null };
+  // Positions at any visibility: the model still places a hidden ankle, and a side view hides the far
+  // one behind the near leg in every stride (as A's calibration reads orientation landmarks).
   const ys = frames.map((f) => {
     const l = f.lm[27];
     const r = f.lm[28];
-    if (!l || !r || !(l.visibility >= VIS_MIN && r.visibility >= VIS_MIN)) return null;
-    return sideView ? (l.x - r.x) * f.aspect : l.y - r.y;
+    if (!l || !r) return null;
+    const y = sideView ? (l.x - r.x) * f.aspect : l.y - r.y;
+    return Number.isFinite(y) ? y : null;
   });
   if (!frames.length) return none;
   const { y, segments } = resampleUniform(

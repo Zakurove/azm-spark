@@ -92,13 +92,24 @@ describe("harnessCadence", () => {
     }
   });
 
-  it("finds nothing in a still person or unseen ankles", () => {
-    const still = video(10, () => 0).map((f) => ({ t: f.t, lm: f.lm, aspect: f.aspect! }));
-    expect(harnessCadence(still, "pad_side").cadenceSpm).toBeNull();
-    const lost = video(10, () => 1.2, { lostAnkles: true }).map((f) => ({
+  it("reads the ankles at any visibility: the far ankle hides behind the near leg once a stride", () => {
+    // Positions only: the model still places a hidden ankle, and a side view hides the far one in
+    // every stride, which would cut the signal into pieces shorter than a stride.
+    const hidden = video(20, () => 1.2, { lostAnkles: true }).map((f) => ({
       t: f.t,
       lm: f.lm,
       aspect: f.aspect!,
+    }));
+    expect(harnessCadence(hidden, "side").strideS!).toBeCloseTo(1.2, 1);
+  });
+
+  it("finds nothing in a still person or ankles that are not numbers", () => {
+    const still = video(10, () => 0).map((f) => ({ t: f.t, lm: f.lm, aspect: f.aspect! }));
+    expect(harnessCadence(still, "pad_side").cadenceSpm).toBeNull();
+    const lost = video(10, () => 1.2).map((f) => ({
+      t: f.t,
+      aspect: f.aspect!,
+      lm: f.lm.map((p, i) => (i === 27 ? { ...p, x: Number.NaN } : p)),
     }));
     expect(harnessCadence(lost, "side").cadenceSpm).toBeNull();
   });

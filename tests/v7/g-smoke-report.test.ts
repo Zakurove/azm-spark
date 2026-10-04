@@ -38,15 +38,22 @@ const base = {
   status: "done",
   startedAt: "2026-10-04T18:00:00.000Z",
   seconds: 40,
-  camera: { width: 540, height: 960, frames: 900, fps: 29.9 },
+  camera: {
+    width: 540,
+    height: 720,
+    frames: 900,
+    fps: 29.9,
+    track: { width: 540, height: 720, frameRate: 30, resizeMode: "crop-and-scale" },
+  },
   model: { requested: "full", used: "full", probe: null },
   gpu: "ANGLE (Apple, ANGLE Metal Renderer: Apple M4)",
   perf: {
     poseFps: 29.9,
     modelMs: { n: 900, p50: 12, p95: 18, max: 30 },
     frameMs: { n: 1, p50: 16.7, p95: 17, max: 17 },
-    longTasks: { count: 0, maxMs: null },
+    longTasks: { count: 1, maxMs: 476, beyondModel: { count: 0, maxMs: null } },
     measures: {},
+    delegate: "GPU",
     heapMB: 80,
     heapGrowthMB: 4,
   },
@@ -202,6 +209,10 @@ describe("summaryMarkdown", () => {
     expect(md).toContain("## Lite against Full");
     expect(md).toContain("not built (B)");
     expect(md).toContain("abc1234");
+    // The camera track, the delegate and the long tasks beyond the model's calls are in each run.
+    expect(md).toContain("track 540 x 720 at 30 fps (crop-and-scale)");
+    expect(md).toContain("on the GPU");
+    expect(md).toContain("beyond the model's calls 0");
     // Prose follows the copy rules: no dash characters.
     expect(wordingProblems(md.replace(/[`|#*]/g, " ")).filter((p) => p === "dash character")).toEqual([]);
   });

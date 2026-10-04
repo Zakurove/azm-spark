@@ -70,8 +70,14 @@ export interface PerfSnapshot {
   modelMs: Spread;
   /** The display's frame time (animation frame gaps), ms. */
   frameMs: Spread;
-  /** Long tasks the browser reported (each over 50 ms); maxMs null when none. */
-  longTasks: { count: number; maxMs: number | null };
+  /**
+   * Long tasks the browser reported (each over 50 ms); maxMs null when none. beyondModel: the tasks
+   * whose time outside the model's calls is over the budget (section 9: "none over 50 ms besides the
+   * model call"), with the longest such time.
+   */
+  longTasks: { count: number; maxMs: number | null; beyondModel: { count: number; maxMs: number | null } };
+  /** The delegate of the last pose model that loaded (the source tries the GPU, then the CPU). */
+  delegate: "GPU" | "CPU" | null;
   /** User Timing measures named azm:*, by name, ms. */
   measures: Record<string, Spread>;
   /** The JS heap in use (Chromium), MB; null where the browser does not tell. */
@@ -86,16 +92,25 @@ export class PerfMeter {
   private readonly modelDurations: RecentValues;
   private readonly frameGaps: RecentValues;
   private readonly longs: RecentValues;
+  private readonly beyond: RecentValues;
   private readonly named = new Map<string, RecentValues>();
+  private readonly longTaskMs: number;
   private lastFrame: number | null = null;
   private heapFirst: number | null = null;
   private heapLast: number | null = null;
+  private loaded: "GPU" | "CPU" | null = null;
 
-  constructor(private readonly capacity = 240) {
+  /** `longTaskMs`: the time outside model calls a long task may take (section 9, 50 ms). */
+  constructor(
+    private readonly capacity = 240,
+    opts: { longTaskMs?: number } = {},
+  ) {
     this.modelStarts = new RecentValues(capacity);
     this.modelDurations = new RecentValues(capacity);
     this.frameGaps = new RecentValues(capacity);
     this.longs = new RecentValues(capacity);
+    this.beyond = new RecentValues(capacity);
+    this.longTaskMs = opts.longTaskMs ?? 50;
   }
 
   /** A model call from `start` to `end` (ms). */
@@ -110,8 +125,22 @@ export class PerfMeter {
     this.lastFrame = t;
   }
 
-  longTask(durationMs: number, _startTime: number): void {
+  /** A long task of `durationMs` from `startTime`; the part outside the recent model calls is kept too. */
+  longTask(durationMs: number, startTime: number): void {
     this.longs.push(durationMs);
+    const starts = this.modelStarts.values();
+    const durations = this.modelDurations.values();
+    const end = startTime + durationMs;
+    let inModel = 0;
+    for (let i = 0; i < starts.length; i++)
+      inModel += Math.max(0, Math.min(end, starts[i] + durations[i]) - Math.max(startTime, starts[i]));
+    const rest = durationMs - inModel;
+    if (rest > this.longTaskMs) this.beyond.push(rest);
+  }
+
+  /** A pose model was created with `delegate`; `ok` when it loaded. */
+  delegate(delegate: "GPU" | "CPU", ok: boolean): void {
+    if (ok) this.loaded = delegate;
   }
 
   measure(name: string, durationMs: number): void {
@@ -128,14 +157,20 @@ export class PerfMeter {
 
   snapshot(): PerfSnapshot {
     const longs = this.longs.values();
+    const beyond = this.beyond.values();
     const measures: Record<string, Spread> = {};
     for (const [name, w] of this.named) measures[name] = spread(w.values());
     return {
       poseFps: medianFps(this.modelStarts.values()),
       modelMs: spread(this.modelDurations.values()),
       frameMs: spread(this.frameGaps.values()),
-      longTasks: { count: longs.length, maxMs: longs.length ? Math.max(...longs) : null },
+      longTasks: {
+        count: longs.length,
+        maxMs: longs.length ? Math.max(...longs) : null,
+        beyondModel: { count: beyond.length, maxMs: beyond.length ? Math.max(...beyond) : null },
+      },
       measures,
+      delegate: this.loaded,
       heapMB: this.heapLast,
       heapGrowthMB:
         this.heapLast !== null && this.heapFirst !== null
@@ -145,7 +180,8 @@ export class PerfMeter {
   }
 
   reset(): void {
-    for (const w of [this.modelStarts, this.modelDurations, this.frameGaps, this.longs]) w.clear();
+    for (const w of [this.modelStarts, this.modelDurations, this.frameGaps, this.longs, this.beyond])
+      w.clear();
     this.named.clear();
     this.lastFrame = null;
     this.heapFirst = null;

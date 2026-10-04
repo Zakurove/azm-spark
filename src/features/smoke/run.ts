@@ -74,7 +74,18 @@ export interface SmokeResult {
   startedAt: string;
   /** Wall time of the run, s. */
   seconds: number;
-  camera: { width: number | null; height: number | null; frames: number; fps: number | null };
+  /**
+   * The picture the model saw (the video element), the frames and their median rate, and the camera
+   * track's settings (a fake camera gives the file's size or a crop of it that fits the app's camera
+   * constraints).
+   */
+  camera: {
+    width: number | null;
+    height: number | null;
+    frames: number;
+    fps: number | null;
+    track: { width?: number; height?: number; frameRate?: number; resizeMode?: string } | null;
+  };
   model: { requested: SmokeSpec["model"]; used: PoseModel; probe: ProbeResult | null };
   gpu: string | null;
   perf: PerfSnapshot;
@@ -127,6 +138,19 @@ const notRun = (err: unknown): NotRun => ({
   error: message(err),
 });
 
+/** The settings of the camera track on a video element (width, height, frame rate, resize mode). */
+function trackSettings(video: HTMLVideoElement | null): SmokeResult["camera"]["track"] {
+  try {
+    const stream = video?.srcObject as MediaStream | null | undefined;
+    const s = stream?.getVideoTracks?.()[0]?.getSettings?.();
+    if (!s) return null;
+    const { width, height, frameRate, resizeMode } = s as MediaTrackSettings & { resizeMode?: string };
+    return { width, height, frameRate, resizeMode };
+  } catch {
+    return null;
+  }
+}
+
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -141,6 +165,7 @@ export class SmokeRun {
   private probe: ProbeResult | null = null;
   private firstT: number | null = null;
   private videoSize: { width: number | null; height: number | null } = { width: null, height: null };
+  private track: SmokeResult["camera"]["track"] = null;
   private finish: ((r: SmokeResult) => void) | null = null;
   private cleanup: (() => void)[] = [];
   private ended: SmokeResult | null = null;
@@ -209,6 +234,7 @@ export class SmokeRun {
       this.firstT = f.t;
       const v = this.deps.camera.session.video;
       if (v && v.videoWidth > 0) this.videoSize = { width: v.videoWidth, height: v.videoHeight };
+      this.track = trackSettings(v);
     }
     const elapsed = (f.t - this.firstT!) / 1000;
     if (this.spec.kind === "rom") this.romFrame(f, elapsed, first);
@@ -331,7 +357,7 @@ export class SmokeRun {
       ...(error ? { error } : {}),
       startedAt: this.startedAt,
       seconds: Math.round((this.now() - this.startWall) / 100) / 10,
-      camera: { ...this.videoSize, frames: this.times.length, fps: medianFps(this.times) },
+      camera: { ...this.videoSize, frames: this.times.length, fps: medianFps(this.times), track: this.track },
       model: { requested: spec.model, used: this.deps.camera.model, probe: this.probe },
       gpu: this.deps.gpu,
       perf: this.deps.meter.snapshot(),

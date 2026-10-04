@@ -11,6 +11,13 @@ class FakeModel {
   detectForVideo(_frame: unknown, t: number): { t: number } {
     return { t };
   }
+  static async createFromOptions(
+    _vision: unknown,
+    opts: { baseOptions: { delegate: string } },
+  ): Promise<FakeModel> {
+    if (opts.baseOptions.delegate === "GPU") throw new Error("no GPU");
+    return new FakeModel();
+  }
 }
 
 function fakeEnv() {
@@ -21,6 +28,7 @@ function fakeEnv() {
   let tick: (() => void) | null = null;
   const env: ProbeEnv = {
     poseProto: FakeModel.prototype,
+    poseClass: FakeModel,
     now: () => now,
     requestFrame: (cb) => {
       frame = cb;
@@ -78,7 +86,8 @@ describe("attachMeter", () => {
       const s = m.snapshot();
       expect(s.modelMs.n).toBe(10);
       expect(s.frameMs.p50).toBe(33);
-      expect(s.longTasks).toEqual({ count: 1, maxMs: 80 });
+      // No model call ran inside it (the fake model takes no time): all of it is beyond the model.
+      expect(s.longTasks).toEqual({ count: 1, maxMs: 80, beyondModel: { count: 1, maxMs: 80 } });
       // Only the azm measures are kept.
       expect(Object.keys(s.measures)).toEqual(["azm:rom_feed"]);
       expect(s.heapMB).toBeCloseTo(40.33, 9);
@@ -103,10 +112,25 @@ describe("attachMeter", () => {
     releaseC();
   });
 
+  it("records the delegate a model loaded with (the source tries the GPU, then the CPU)", async () => {
+    const f = fakeEnv();
+    const m = new PerfMeter(100);
+    const release = attachMeter(m, f.env);
+    await FakeModel.createFromOptions(null, { baseOptions: { delegate: "GPU" } }).catch(() => undefined);
+    await FakeModel.createFromOptions(null, { baseOptions: { delegate: "CPU" } });
+    await Promise.resolve();
+    expect(m.snapshot().delegate).toBe("CPU");
+    release();
+    // Undone with the last meter.
+    expect(Object.getOwnPropertyDescriptor(FakeModel, "createFromOptions")?.value.name).toBe(
+      "createFromOptions",
+    );
+  });
+
   it("works without a pose model to time", () => {
     const f = fakeEnv();
     const m = new PerfMeter(100);
-    const release = attachMeter(m, { ...f.env, poseProto: null });
+    const release = attachMeter(m, { ...f.env, poseProto: null, poseClass: null });
     f.advance(16);
     f.frame();
     f.advance(16);

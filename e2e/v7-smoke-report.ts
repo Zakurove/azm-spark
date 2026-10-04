@@ -200,10 +200,17 @@ const ms = (v: number | null) => (v === null ? "none" : `${num(v)} ms`);
 function runSection(run: RunRecord): string[] {
   const r = run.result;
   const lines = [`### ${run.id}, ${modelName(run.model)}`, ""];
-  const size = r.camera.width && r.camera.height ? ` (${r.camera.width} x ${r.camera.height})` : "";
+  const size = r.camera.width && r.camera.height ? ` (picture ${r.camera.width} x ${r.camera.height}` : "";
+  const tr = r.camera.track;
+  const track =
+    tr && tr.width && tr.height
+      ? `; track ${tr.width} x ${tr.height} at ${tr.frameRate ?? "?"} fps${tr.resizeMode ? ` (${tr.resizeMode})` : ""}`
+      : "";
+  const delegate = r.perf.delegate ? ` on the ${r.perf.delegate}` : "";
+  const longs = r.perf.longTasks;
   lines.push(
-    `- Status ${r.status}${r.error ? ` (${r.error})` : ""} in ${num(r.seconds)} s; ${r.camera.frames} frames at ${r.camera.fps ?? 0} fps${size}; model ${r.model.used} (asked ${r.model.requested})${r.model.probe ? `, probe ${r.model.probe.fps} fps${r.model.probe.switched ? ", switched to Lite" : ""}` : ""}.`,
-    `- Model time per frame p50 ${ms(r.perf.modelMs.p50)}, p95 ${ms(r.perf.modelMs.p95)}; long tasks ${r.perf.longTasks.count}${r.perf.longTasks.maxMs !== null ? ` (longest ${ms(r.perf.longTasks.maxMs)})` : ""}; heap ${r.perf.heapMB ?? "unknown"} MB${r.perf.heapGrowthMB !== null ? ` (growth ${r.perf.heapGrowthMB})` : ""}.`,
+    `- Status ${r.status}${r.error ? ` (${r.error})` : ""} in ${num(r.seconds)} s; ${r.camera.frames} frames at ${r.camera.fps ?? 0} fps${size}${track}${size ? ")" : ""}; model ${r.model.used}${delegate} (asked ${r.model.requested})${r.model.probe ? `, probe ${r.model.probe.fps} fps${r.model.probe.switched ? ", switched to Lite" : ""}` : ""}.`,
+    `- Model time per frame p50 ${ms(r.perf.modelMs.p50)}, p95 ${ms(r.perf.modelMs.p95)}; long tasks ${longs.count}${longs.maxMs !== null ? ` (longest ${ms(longs.maxMs)})` : ""}, beyond the model's calls ${longs.beyondModel.count}${longs.beyondModel.maxMs !== null ? ` (longest ${ms(longs.beyondModel.maxMs)})` : ""}; heap ${r.perf.heapMB ?? "unknown"} MB${r.perf.heapGrowthMB !== null ? ` (growth ${r.perf.heapGrowthMB})` : ""}.`,
   );
   if (r.rom) {
     const runner = r.rom.runner;

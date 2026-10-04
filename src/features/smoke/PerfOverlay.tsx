@@ -27,6 +27,7 @@ const LABELS = {
     model: "زمن النموذج",
     frame: "زمن الإطار",
     long: "مهام طويلة",
+    delegate: "المعالج",
     heap: "الذاكرة",
     none: "لا إطارات من النموذج بعد",
     max: "الأطول",
@@ -37,6 +38,7 @@ const LABELS = {
     model: "Model",
     frame: "Frame",
     long: "Long tasks",
+    delegate: "Delegate",
     heap: "Heap",
     none: "no model frames yet",
     max: "max",
@@ -58,7 +60,8 @@ function Row({ label, value, over }: { label: string; value: string; over?: bool
 /** The panel for one snapshot. */
 export function PerfPanel({ snapshot: s, lang }: { snapshot: PerfSnapshot; lang: Lang }) {
   const t = LABELS[lang];
-  const longOver = s.longTasks.maxMs !== null && s.longTasks.maxMs > BUDGETS.longTaskMs;
+  // Section 9: no long task over 50 ms besides the model call.
+  const longOver = s.longTasks.beyondModel.count > 0;
   return (
     <aside className="perf-overlay" aria-label={t.title} dir={lang === "ar" ? "rtl" : "ltr"}>
       <h2>{t.title}</h2>
@@ -69,6 +72,7 @@ export function PerfPanel({ snapshot: s, lang }: { snapshot: PerfSnapshot; lang:
           <Row label={t.pose} value={`${one(s.poseFps)} fps`} over={s.poseFps < BUDGETS.romFps} />
         )}
         {s.modelMs.n > 0 && <Row label={t.model} value={spreadText(s.modelMs)} />}
+        {s.delegate && <Row label={t.delegate} value={s.delegate} />}
         <Row label={t.frame} value={spreadText(s.frameMs)} />
         <Row
           label={t.long}

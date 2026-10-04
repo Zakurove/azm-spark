@@ -22,7 +22,26 @@ const spec = (query: string): SmokeSpec => {
 };
 
 /** A focus camera stand in: frames are pushed by the test, the probe answers at once. */
-function fakeCamera(model: "full" | "lite" = "full") {
+/** A video element stand in with the stream's track settings, as Chromium's fake camera gives them. */
+const fakeVideo = {
+  videoWidth: 540,
+  videoHeight: 720,
+  srcObject: {
+    getVideoTracks: () => [
+      {
+        getSettings: () => ({
+          width: 540,
+          height: 720,
+          frameRate: 30,
+          resizeMode: "crop-and-scale",
+          deviceId: "fake",
+        }),
+      },
+    ],
+  },
+};
+
+function fakeCamera(model: "full" | "lite" = "full", video: unknown = null) {
   const frames = new Set<(f: Frame) => void>();
   const statuses = new Set<(s: string, e: string | null) => void>();
   const calls: string[] = [];
@@ -30,7 +49,7 @@ function fakeCamera(model: "full" | "lite" = "full") {
     model,
     session: {
       status: "idle",
-      video: null,
+      video,
       acquire() {
         calls.push("acquire");
         cam.session.status = "running";
@@ -96,7 +115,7 @@ describe("a range run", () => {
   const frames: Frame[] = [0, 1, 2].flatMap((k) => loop.map((f) => ({ ...f, t: 1000 + k * 5000 + f.t })));
 
   it("reads the video with the page's trace and reports a runner that is not built", async () => {
-    const cam = fakeCamera();
+    const cam = fakeCamera("full", fakeVideo);
     const run = new SmokeRun(spec("kind=rom&movement=shoulder_abduction&side=right&traceSec=12"), {
       camera: cam.camera,
       createRunner: notBuilt("RomRunner"),
@@ -113,6 +132,12 @@ describe("a range run", () => {
     expect(cam.listeners).toBe(0);
     expect(result.model).toEqual({ requested: "full", used: "full", probe: null });
     expect(result.gpu).toBe("test gpu");
+    // The picture the model saw, and the camera track Chromium gave (it fits the app's constraints).
+    expect(result.camera).toMatchObject({
+      width: 540,
+      height: 720,
+      track: { width: 540, height: 720, frameRate: 30, resizeMode: "crop-and-scale" },
+    });
     expect(result.rom!.runner).toEqual({ status: "not_built", error: "RomRunner is not built yet" });
     // The trace ran for traceSec of frames.
     expect(result.camera.frames).toBeGreaterThanOrEqual(12 * fx.meta.fps);

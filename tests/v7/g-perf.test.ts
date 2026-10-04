@@ -65,8 +65,9 @@ describe("PerfMeter", () => {
     const m = new PerfMeter(1000);
     for (let i = 0; i < 60; i++) m.model(i * 33.3, i * 33.3 + 12);
     for (let i = 0; i < 120; i++) m.frame(i * 16.7);
-    m.longTask(70, 100);
-    m.longTask(120, 900);
+    // Two long tasks after the model calls ended.
+    m.longTask(70, 3000);
+    m.longTask(120, 4000);
     m.measure("azm:rom_feed", 1.5);
     m.measure("azm:rom_feed", 0.5);
     m.heap(50);
@@ -75,7 +76,8 @@ describe("PerfMeter", () => {
     expect(s.poseFps).toBe(30);
     expect(s.modelMs).toMatchObject({ n: 60, p50: 12, max: 12 });
     expect(s.frameMs.p50).toBeCloseTo(16.7, 9);
-    expect(s.longTasks).toEqual({ count: 2, maxMs: 120 });
+    // The model's own calls fill none of these two tasks: both count beyond the model.
+    expect(s.longTasks).toEqual({ count: 2, maxMs: 120, beyondModel: { count: 2, maxMs: 120 } });
     expect(s.measures["azm:rom_feed"]).toMatchObject({ n: 2, max: 1.5 });
     expect(s.heapMB).toBe(62);
     expect(s.heapGrowthMB).toBe(12);
@@ -85,6 +87,29 @@ describe("PerfMeter", () => {
       modelMs: { n: 0 },
       longTasks: { count: 0, maxMs: null },
     });
+  });
+
+  it("counts the time of a long task outside the model's calls (section 9: none over 50 ms besides the model call)", () => {
+    const m = new PerfMeter(100);
+    m.model(1000, 1040);
+    // 60 ms, 40 of them in the model call: 20 ms beyond.
+    m.longTask(60, 990);
+    // 130 ms with 40 ms of model call: 90 ms beyond.
+    m.model(2000, 2040);
+    m.longTask(130, 1950);
+    // 120 ms and no model call.
+    m.longTask(120, 5000);
+    expect(m.snapshot().longTasks).toEqual({ count: 3, maxMs: 130, beyondModel: { count: 2, maxMs: 120 } });
+  });
+
+  it("keeps the delegate of the last model that loaded", () => {
+    const m = new PerfMeter(100);
+    expect(m.snapshot().delegate).toBeNull();
+    m.delegate("GPU", false);
+    m.delegate("CPU", true);
+    expect(m.snapshot().delegate).toBe("CPU");
+    m.delegate("GPU", true);
+    expect(m.snapshot().delegate).toBe("GPU");
   });
 
   it("keeps only its window of recent samples", () => {

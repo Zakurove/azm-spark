@@ -4,6 +4,7 @@
  *
  *   - PoseLandmarker.prototype.detectForVideo is timed (perf.ts timeMethod): every pose source's
  *     model call, the frames it processed and its time, with no hook in another stream's file;
+ *   - PoseLandmarker.createFromOptions is watched for the delegate that loaded (GPU or CPU);
  *   - an animation frame loop for the display's frame time;
  *   - PerformanceObserver for long tasks and the User Timing measures named azm:*;
  *   - the JS heap once a second (Chromium's performance.memory).
@@ -25,6 +26,8 @@ interface Entry {
 export interface ProbeEnv {
   /** The prototype whose detectForVideo is timed; null when there is none to time. */
   poseProto: { detectForVideo(...args: never[]): unknown } | null;
+  /** The class whose createFromOptions tells which delegate loaded; null when there is none. */
+  poseClass: { createFromOptions(...args: never[]): Promise<unknown> } | null;
   now(): number;
   requestFrame(cb: (t: number) => void): number;
   cancelFrame(id: number): void;
@@ -37,6 +40,7 @@ export interface ProbeEnv {
 function browserEnv(): ProbeEnv {
   return {
     poseProto: PoseLandmarker.prototype,
+    poseClass: PoseLandmarker,
     now: () => performance.now(),
     requestFrame: (cb) => requestAnimationFrame(cb),
     cancelFrame: (id) => cancelAnimationFrame(id),
@@ -67,6 +71,30 @@ function browserEnv(): ProbeEnv {
   };
 }
 
+/**
+ * Watches a model class's createFromOptions: the delegate it was asked for (GPU, else CPU) and
+ * whether it loaded. One hub installs it, so one wrapper; the returned function restores the method.
+ */
+function watchCreate(
+  cls: { createFromOptions(...args: never[]): Promise<unknown> },
+  onLoad: (delegate: "GPU" | "CPU", ok: boolean) => void,
+): () => void {
+  const original = cls.createFromOptions;
+  const wrapped = function (this: unknown, ...args: unknown[]) {
+    const opts = args[1] as { baseOptions?: { delegate?: string } } | undefined;
+    const delegate = opts?.baseOptions?.delegate === "GPU" ? "GPU" : "CPU";
+    const loading = (original as (...a: unknown[]) => Promise<unknown>).apply(this, args);
+    loading.then(
+      () => onLoad(delegate, true),
+      () => onLoad(delegate, false),
+    );
+    return loading;
+  };
+  Object.defineProperty(cls, "createFromOptions", { value: wrapped, writable: true, configurable: true });
+  return () =>
+    Object.defineProperty(cls, "createFromOptions", { value: original, writable: true, configurable: true });
+}
+
 interface Hub {
   meters: Set<PerfMeter>;
   stop(): void;
@@ -83,6 +111,9 @@ function startHub(env: ProbeEnv): Hub {
         (start, end) => each((m) => m.model(start, end)),
         env.now,
       )
+    : () => undefined;
+  const undoCreate = env.poseClass
+    ? watchCreate(env.poseClass, (delegate, ok) => each((m) => m.delegate(delegate, ok)))
     : () => undefined;
   let raf = 0;
   const tick = (t: number) => {
@@ -105,6 +136,7 @@ function startHub(env: ProbeEnv): Hub {
     meters,
     stop() {
       undoModel();
+      undoCreate();
       env.cancelFrame(raf);
       stopObserver?.();
       stopHeap();

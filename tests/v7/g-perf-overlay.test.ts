@@ -14,8 +14,9 @@ const snap = (over: Partial<PerfSnapshot> = {}): PerfSnapshot => ({
   poseFps: 29.6,
   modelMs: { n: 120, p50: 11.24, p95: 17.9, max: 30 },
   frameMs: { n: 240, p50: 16.7, p95: 18.2, max: 40 },
-  longTasks: { count: 0, maxMs: null },
+  longTasks: { count: 0, maxMs: null, beyondModel: { count: 0, maxMs: null } },
   measures: {},
+  delegate: "GPU",
   heapMB: 61.2,
   heapGrowthMB: 3.4,
   ...over,
@@ -31,6 +32,7 @@ describe("PerfPanel", () => {
     expect(ar).toContain("17.9");
     expect(ar).toContain("16.7");
     expect(ar).toContain("61.2");
+    expect(ar).toContain("GPU");
     expect(ar).toMatch(/\p{Script=Arabic}/u);
     const en = text(renderToStaticMarkup(createElement(PerfPanel, { snapshot: snap(), lang: "en" })));
     expect(en).toContain("Pose");
@@ -42,7 +44,10 @@ describe("PerfPanel", () => {
   it("marks a pose rate under the range floor and long tasks over 50 ms", () => {
     const slow = renderToStaticMarkup(
       createElement(PerfPanel, {
-        snapshot: snap({ poseFps: 11, longTasks: { count: 2, maxMs: 91 } }),
+        snapshot: snap({
+          poseFps: 11,
+          longTasks: { count: 2, maxMs: 91, beyondModel: { count: 1, maxMs: 61 } },
+        }),
         lang: "en",
       }),
     );

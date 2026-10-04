@@ -258,7 +258,7 @@ const VIS_MIN = ROM_DATA.engine.visibilityMin;
 export const EAR_LINE_MIN_VISIBILITY: number =
   movementDef("neck_lateral_flexion").earLineMinVisibility ??
   (() => {
-    throw new Error("rom-v7.json: neck_lateral_flexion has no earLineMinVisibility");
+    throw new Error("The range of motion data has no earLineMinVisibility for neck_lateral_flexion");
   })();
 
 /**

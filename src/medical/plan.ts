@@ -8,7 +8,7 @@ import {
 import { Setup } from "../app/product";
 import { CONDITION_TYPES, libraryPool } from "./pool";
 import { CAMERA_DEMANDS, isSportId, sportById, type SportId } from "./sports";
-import type { RegionEntry, RomIntakeFlags } from "./body-map";
+import { painIdsFromRegions, validateRegions, type RegionEntry, type RomIntakeFlags } from "./body-map";
 export const conditions = [
   "none",
   "stroke",
@@ -46,6 +46,8 @@ export type Sex = (typeof sexOptions)[number];
 export const walkingAids = ["cane", "crutches", "walker", "other"] as const;
 export type WalkingAid = (typeof walkingAids)[number];
 export type Walking = { status: "no" } | { status: "with_aid"; aid: WalkingAid } | { status: "without_aid" };
+/** The v7 height answer, whole centimetres (gait-rules Q4). */
+export const HEIGHT_CM = { min: 120, max: 220 } as const;
 
 export interface Intake {
   age: number;
@@ -144,8 +146,76 @@ export function validateIntake(v: unknown): v is Intake {
     x.days.length <= 4 &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(x.time) &&
     [20, 30, 40].includes(x.sessionMinutes) &&
-    x.consent === true
+    x.consent === true &&
+    validV7Fields(x)
   );
+}
+/** True when the intake has every field the focus check needs (sex, regions, walking). */
+export function hasV7Fields(h: Intake): h is Intake & Required<Pick<Intake, "sex" | "regions" | "walking">> {
+  return h.sex !== undefined && h.regions !== undefined && h.walking !== undefined;
+}
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]) =>
+  Object.keys(v).every((k) => keys.includes(k));
+function validWalking(v: unknown): v is Walking {
+  if (!isRecord(v)) return false;
+  if (v.status === "with_aid")
+    return onlyKeys(v, ["status", "aid"]) && (walkingAids as readonly unknown[]).includes(v.aid);
+  return (v.status === "no" || v.status === "without_aid") && onlyKeys(v, ["status"]);
+}
+const ROM_FLAG_KEYS = [
+  "osteoporosis",
+  "neckCaution",
+  "inflammatoryArthritis",
+  "neckCleared",
+  "footLift",
+  "transferChair",
+  "sitUnsupported",
+];
+function validRomFlags(v: unknown): v is RomIntakeFlags {
+  if (!isRecord(v) || !onlyKeys(v, ROM_FLAG_KEYS)) return false;
+  const optional = (k: string, ok: (x: unknown) => boolean) => v[k] === undefined || ok(v[k]);
+  const bool = (x: unknown) => typeof x === "boolean";
+  const yesNoUnsure = (x: unknown) => x === "yes" || x === "no" || x === "unsure";
+  return (
+    bool(v.osteoporosis) &&
+    bool(v.neckCaution) &&
+    optional("inflammatoryArthritis", yesNoUnsure) &&
+    optional("neckCleared", bool) &&
+    optional(
+      "footLift",
+      (f) => isRecord(f) && onlyKeys(f, ["left", "right"]) && Object.values(f).every(bool),
+    ) &&
+    optional("transferChair", bool) &&
+    optional("sitUnsupported", yesNoUnsure)
+  );
+}
+/**
+ * The v7 fields (product v7 contract 2.2), each validated only when present, so an intake saved
+ * before v7 passes exactly as before; the server applies this whether or not AZM_V7 is on. Cross
+ * field rules: mobility bed walks no; and the pain mirror, every body map entry with pain or injury
+ * in a region that has a v1 pain id appears in pain[], which the v1 pool exclusions read.
+ */
+function validV7Fields(x: Intake): boolean {
+  const v = x as unknown as Record<string, unknown>;
+  const present = (k: keyof Intake) => v[k] !== undefined;
+  if (present("sex") && !(sexOptions as readonly unknown[]).includes(v.sex)) return false;
+  if (present("regions") && !validateRegions(v.regions)) return false;
+  if (present("walking") && !validWalking(v.walking)) return false;
+  if (
+    present("heightCm") &&
+    !(
+      Number.isInteger(v.heightCm) &&
+      (v.heightCm as number) >= HEIGHT_CM.min &&
+      (v.heightCm as number) <= HEIGHT_CM.max
+    )
+  )
+    return false;
+  if (present("romFlags") && !validRomFlags(v.romFlags)) return false;
+  if (x.walking && x.mobility === "bed" && x.walking.status !== "no") return false;
+  if (x.regions && !painIdsFromRegions(x.regions).every((id) => x.pain.includes(id))) return false;
+  return true;
 }
 export function scheduleFits(days: number[], recoveryHours: number) {
   const s = [...days].sort((a, b) => a - b);

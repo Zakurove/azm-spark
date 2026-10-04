@@ -86,12 +86,12 @@ describe("views and gates", () => {
     expect(on(front, "trendelenburg", "none")).toMatchObject({ status: "not_seen" });
   });
 
-  it("does not assess the patterns of a view group whose gate failed", () => {
+  it("does not assess the patterns of a view group short of 6 clean cycles a side", () => {
     const out = patterns({
       views: [
         view({ view: "side" }),
-        view({ view: "front", cycles: { left: 4, right: 3 } }),
-        view({ view: "back", cycles: { left: 2, right: 5 } }),
+        view({ view: "front", cycles: { left: 2, right: 3 } }),
+        view({ view: "back", cycles: { left: 3, right: 2 } }),
       ],
     });
     for (const id of ["trendelenburg", "duchenne_lean", "waddling"] as const)
@@ -99,17 +99,41 @@ describe("views and gates", () => {
     expect(on(out, "stiff_knee", "none")?.status).toBe("not_seen");
   });
 
-  it("reads only the views that passed their gate", () => {
-    // A failed front view shows a hip dip; the back view, which passed, does not.
+  it("passes a view group on the clean cycles of its views together (per side and per view group)", () => {
+    // Toward passes give the right side's steady cycles and away passes the left's: neither view alone
+    // has 6 a side, the group has 10.
     const dip = { pelvic_drop: { left: 3, right: 14, shareLeft: 0, shareRight: 1 } };
     const out = patterns({
       views: [
         view({ view: "side" }),
-        view({ view: "front", metrics: dip, cycles: { left: 5, right: 5 } }),
-        view({ view: "back" }),
+        view({ view: "front", metrics: dip, cycles: { left: 0, right: 10 } }),
+        view({ view: "back", metrics: dip, cycles: { left: 10, right: 0 } }),
+      ],
+    });
+    expect(fired(out)).toEqual(["trendelenburg:right:possible"]);
+  });
+
+  it("leaves out a view under 20 fps", () => {
+    const dip = { pelvic_drop: { left: 3, right: 14, shareLeft: 0, shareRight: 1 } };
+    const out = patterns({
+      views: [view({ view: "side" }), view({ view: "front", metrics: dip, fps: 18 }), view({ view: "back" })],
+    });
+    expect(fired(out)).toEqual([]);
+  });
+
+  it("reads a limb's kinematics on the pad only with its own clean cycles where it was nearest", () => {
+    const stiff = { knee_swing_peak: { left: 60, right: 35, shareLeft: 0, shareRight: 1 } };
+    const out = patterns({
+      mode: "walking_pad",
+      setup: PAD_SETUP,
+      views: [
+        view({ view: "pad_side", nearSide: "right", metrics: stiff, cycles: { left: 9, right: 5 } }),
+        view({ view: "pad_side", nearSide: "left", metrics: stiff, cycles: { left: 9, right: 9 } }),
+        view({ view: "pad_front" }),
       ],
     });
     expect(fired(out)).toEqual([]);
+    expect(on(out, "stiff_knee", "none")?.status).toBe("not_seen");
   });
 
   it("treats a view showing the other body view as the wrong view", () => {

@@ -12,10 +12,13 @@
  * data. Where the clinical text leaves a rule open, the choice is named in a comment with its entry in
  * the contract change log (step C3, C3-n and the gaps CG-7 onwards).
  *
- *   Views and gates   a pattern reads only the views of its own list (patterns[].views) whose gate
- *                     passed (6 clean cycles a side, 20 fps or more) and that show the right body view;
- *                     their metrics are combined as combineViews does (the near limb rule). No view
- *                     of the list: not assessed, wrong_view; none that passed: gate_failed.
+ *   Views and gates   a pattern reads the views of its own list (patterns[].views) that show the right
+ *                     body view at 20 fps or more, as one view group: the group passes with 6 clean
+ *                     cycles a side over its views together (gait-rules 2.5 «per side and per view
+ *                     group»; C3-1), and a limb's kinematics on the pad need its own 6 in the views
+ *                     where it was nearest. Their metrics are combined as combineViews does (the near
+ *                     limb rule). No view of the list: not assessed, wrong_view; a group short of
+ *                     cycles: gate_failed.
  *   Firing (5.0)      a side's median beyond the threshold, and for a sign read cycle by cycle the
  *                     sign in 60% or more of that side's clean cycles (GaitMetricValue.share).
  *   Confidence (5.0)  the cap of the weakest sign (the data's confidenceCap and the grades measured
@@ -33,6 +36,7 @@ import type {
   GaitViewResult,
 } from "../engine/gait/types";
 import { NEAR_LIMB_METRICS, combineViewMetrics } from "../engine/gait/combine";
+import { GAIT_ENGINE } from "../engine/gait/params";
 import type {
   Confidence,
   ContributorId,
@@ -244,7 +248,7 @@ const BOTH_LEG_CONDITIONS: readonly string[] = [
 interface Group {
   /** The analysis's views in the pattern's list. */
   inViews: GaitViewResult[];
-  /** Of those, the ones whose gate passed and that show the right body view. */
+  /** Of those, the ones read: the right body view at 20 fps or more, when the group passed its gate. */
   passed: GaitViewResult[];
   metrics: Metrics;
   /** wrong_view or gate_failed when no view can be read. */
@@ -281,13 +285,36 @@ function groupOf(c: Ctx, views: readonly GaitView[]): Group {
   if (known) return known;
   const inViews = c.analysis.views.filter((v) => views.includes(v.view));
   const rightView = inViews.filter((v) => !v.quality.issues.includes("wrong_view"));
-  const passed = rightView.filter((v) => v.quality.gatePassed);
+  // «under 20 fps: record again» (C1-16): such a view gives nothing to read.
+  const usable = rightView.filter((v) => v.quality.medianFps >= GAIT_ENGINE.recordAgainBelowFps);
+  const cycles = (s: Side, vs: readonly GaitViewResult[]) =>
+    vs.reduce((n, v) => n + v.quality.cleanCycles[s], 0);
+  const enough = (s: Side, vs: readonly GaitViewResult[]) => cycles(s, vs) >= GAIT_ENGINE.cleanCyclesPerSide;
+  // C3-1: the toward and away passes are one group (each pass's steady cycle can fall on one side).
+  const passed = usable.length && SIDES.every((s) => enough(s, usable)) ? usable : [];
   const reason: NotAssessedReason | null = !rightView.length
     ? "wrong_view"
     : !passed.length
       ? "gate_failed"
       : null;
-  const g: Group = { inViews, passed, metrics: combineViewMetrics(passed), reason };
+  const metrics = combineViewMetrics(passed);
+  // The near limb rule's own gate: a limb's kinematics need its clean cycles in the views where it was
+  // nearest the phone (a pad side view of the other side gives the far limb none).
+  for (const id of NEAR_LIMB_METRICS) {
+    const m = metrics[id];
+    if (!m) continue;
+    for (const s of SIDES)
+      if (
+        !enough(
+          s,
+          passed.filter((v) => v.view !== "pad_side" || v.nearSide === s),
+        )
+      ) {
+        if (m.sides) m.sides[s] = null;
+        if (m.share) m.share[s] = null;
+      }
+  }
+  const g: Group = { inViews, passed, metrics, reason };
   c.groups.set(key, g);
   return g;
 }

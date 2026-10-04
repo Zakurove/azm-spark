@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { CoachBlock, CoachSegment, ToolName } from "../../../src/coach/types";
 import type { CoachEndReason } from "../../../src/coach/events";
+import { transaction } from "../assessments/store";
 import type { AgentConfig } from "./token";
 import type { UsageReport } from "./types";
 
@@ -179,41 +180,33 @@ export function decide(db: DatabaseSync, ask: ReservationAsk, cfg: AgentConfig):
  * reserves nothing. Synchronous, in one transaction.
  */
 export function reserve(db: DatabaseSync, ask: ReservationAsk, cfg: AgentConfig): Reservation {
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  return transaction(db, (): Reservation => {
     const d = decide(db, ask, cfg);
-    let out: Reservation;
-    if (!d.ok) out = d;
-    else if (d.kind === "remint") {
+    if (!d.ok) return d;
+    if (d.kind === "remint") {
       db.prepare(
         "UPDATE agent_sessions SET remints=remints+1, minutes_reserved=minutes_reserved+?, model=?, instruction_version=?, minted=? WHERE id=?",
       ).run(cfg.remintMinutes, ask.model, ask.instructionVersion, ask.now, d.session.id);
-      out = { ok: true, kind: "remint", id: d.session.id, minutesLeft: d.minutesLeft };
-    } else {
-      const id = randomUUID();
-      db.prepare(
-        "INSERT INTO agent_sessions(id,user_id,block,segment,ref,remints,day,device,model,instruction_version,minutes_reserved,minted) VALUES(?,?,?,?,?,0,?,?,?,?,?,?)",
-      ).run(
-        id,
-        ask.userId,
-        ask.block,
-        ask.segment,
-        ask.ref,
-        ask.day,
-        ask.device,
-        ask.model,
-        ask.instructionVersion,
-        ask.minutes,
-        ask.now,
-      );
-      out = { ok: true, kind: "new", id, minutesLeft: d.minutesLeft };
+      return { ok: true, kind: "remint", id: d.session.id, minutesLeft: d.minutesLeft };
     }
-    db.exec("COMMIT");
-    return out;
-  } catch (error) {
-    if (db.isTransaction) db.exec("ROLLBACK");
-    throw error;
-  }
+    const id = randomUUID();
+    db.prepare(
+      "INSERT INTO agent_sessions(id,user_id,block,segment,ref,remints,day,device,model,instruction_version,minutes_reserved,minted) VALUES(?,?,?,?,?,0,?,?,?,?,?,?)",
+    ).run(
+      id,
+      ask.userId,
+      ask.block,
+      ask.segment,
+      ask.ref,
+      ask.day,
+      ask.device,
+      ask.model,
+      ask.instructionVersion,
+      ask.minutes,
+      ask.now,
+    );
+    return { ok: true, kind: "new", id, minutesLeft: d.minutesLeft };
+  });
 }
 
 /* ------------------------------------------------------------- usage */

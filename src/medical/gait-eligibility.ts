@@ -108,7 +108,11 @@ function legPainToday(today: FocusToday, answers: Answers): number {
   return Math.max(0, ...scores);
 }
 
-/** Recent surgery to the back or a leg not cleared: the v1 answer, or the body map (under 3 months, not cleared). */
+/**
+ * Recent surgery to the back or a leg not cleared: the v1 answer, or the body map (under 3 months, not
+ * cleared). The body map stores the clearance exactly under 3 months (D-024, A2-8): an older surgery
+ * has none and is no restriction.
+ */
 function surgeryNotCleared(intake: Intake, answers: Answers): boolean {
   if (yes(answers, "pc_surgery_recent")) {
     const areas = answer(answers, "pc_surgery_recent:areas");

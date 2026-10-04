@@ -65,13 +65,20 @@ export interface RegionEntry {
   origin: "person" | "condition" | "report";
   /** Present only when problems includes "injury". achilles only on ankle_foot (achilles_ask). */
   injury?: { since: SinceBucket; achilles?: boolean };
-  /** Present only when problems includes "after_surgery". */
+  /**
+   * Present only when problems includes "after_surgery". The clearance and the movements to avoid are
+   * asked only under 3 months (rom-protocol 2.2; D-024, A2-8): absent means not asked and no
+   * restriction, so no answer is stored that the person never gave.
+   */
   surgery?: {
     since: SinceBucket;
-    /** surgery_cleared */
-    cleared: YesNoUnsure;
-    /** surgery_avoid, [] when none */
-    avoid: RomMovementId[];
+    /** surgery_cleared: present exactly when the surgery is under 3 months. */
+    cleared?: YesNoUnsure;
+    /**
+     * surgery_avoid, [] when none: present exactly when the surgery is under 3 months, cleared yes,
+     * in a region where the camera measures a movement (REGION_MOVEMENTS).
+     */
+    avoid?: RomMovementId[];
     /** hip only */
     hipReplacement?: boolean;
     /** hip_avoid_ask, hip replacement under 3 months only */
@@ -439,7 +446,10 @@ function validEntry(v: unknown): v is RegionEntry {
     const s = v.surgery;
     if (!isObject(s) || !onlyKeys(s, SURGERY_KEYS) || !has(SINCE_BUCKETS, s.since)) return false;
     const recent = underThreeMonths(s.since);
-    if (!has(YES_NO_UNSURE, s.cleared) || !uniqueList(s.avoid, REGION_MOVEMENTS[region])) return false;
+    // Each answer is stored exactly when it is asked (regionQuestions; D-024, A2-8).
+    if (recent ? !has(YES_NO_UNSURE, s.cleared) : s.cleared !== undefined) return false;
+    const avoidAsked = recent && s.cleared === "yes" && REGION_MOVEMENTS[region].length > 0;
+    if (avoidAsked ? !uniqueList(s.avoid, REGION_MOVEMENTS[region]) : s.avoid !== undefined) return false;
     // A recent hip surgery always says whether it was a replacement (hip bend and the hip limits).
     if (region === "hip" && recent ? typeof s.hipReplacement !== "boolean" : s.hipReplacement !== undefined)
       return false;
@@ -526,9 +536,11 @@ export function regionQuestions(d: RegionDraft): RegionQuestionId[] {
 }
 
 /**
- * The entry a complete draft saves, without the answers that no longer apply; null while a question
- * of regionQuestions has no answer. A surgery more than 3 months ago asks only when (the recent
- * rules no longer apply) and is stored as cleared with nothing to avoid (contract change log, A2).
+ * The entry a complete draft saves, with only the answers regionQuestions asks; null while one of
+ * them has no answer. A surgery 3 months ago or more asks only when (the recent rules no longer
+ * apply), so it stores only `since`: no clearance and no movement list the person never gave (D-024,
+ * A2-8; absent means no restriction). A recent one stores what to avoid only once cleared, where the
+ * camera measures a movement.
  */
 export function finalizeRegion(d: RegionDraft): RegionEntry | null {
   if (!uniqueList(d.problems, PROBLEM_TYPES, 1)) return null;
@@ -546,10 +558,10 @@ export function finalizeRegion(d: RegionDraft): RegionEntry | null {
   if (asked.has("surgery_when")) {
     const s = d.surgery ?? {};
     if (!s.since) return null;
-    if (!underThreeMonths(s.since)) out.surgery = { since: s.since, cleared: "yes", avoid: [] };
+    if (!underThreeMonths(s.since)) out.surgery = { since: s.since };
     else {
       if (!s.cleared) return null;
-      const surgery: NonNullable<RegionEntry["surgery"]> = { since: s.since, cleared: s.cleared, avoid: [] };
+      const surgery: NonNullable<RegionEntry["surgery"]> = { since: s.since, cleared: s.cleared };
       if (asked.has("surgery_avoid")) {
         if (!s.avoid) return null;
         surgery.avoid = REGION_MOVEMENTS[d.region].filter((id) => s.avoid!.includes(id));

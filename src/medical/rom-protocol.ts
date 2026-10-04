@@ -444,7 +444,9 @@ function precautions(u: Unit): Set<RomMovementId> {
   const out = new Set<RomMovementId>();
   for (const e of u.entries) {
     if (!e.problems.includes("after_surgery") || !e.surgery) continue;
-    // The surgeon's instruction wins (R37): a movement to avoid is never measured.
+    // The surgeon's instruction wins (R37): a movement to avoid is never measured. No list (not
+    // asked: 3 months or more, not cleared, or no camera movement in the region) avoids nothing
+    // (D-024, A2-8).
     for (const m of e.surgery.avoid ?? []) out.add(m);
     if (!hipReplacementRecent(e)) continue;
     const ticked = (e.surgery.hipAvoid ?? []).filter((h) => h !== "none");
@@ -468,6 +470,8 @@ function safetyReason(u: Unit, m: RomMovementId, day: Day): RomV7ReasonId | null
   if (day.today.redFlagRegions.includes(u.region)) return "red_flag";
   if (day.gate) return day.gate;
   if (isAxial(u.region) && u.entries.some(surgeryUnder3m)) return "spine_surgery";
+  // surgery_cleared is stored exactly under 3 months (D-024, A2-8): an older surgery keeps none and no
+  // recent surgery rule applies to it; a recent one always has its answer (validateRegions).
   if (u.entries.some((e) => surgeryUnder3m(e) && e.surgery?.cleared !== "yes")) return "surgery_not_cleared";
   if (m === "hip_flexion" && u.entries.some(hipReplacementRecent)) return "hip_replacement_recent";
   if (precautions(u).has(m)) return "surgery_precaution";

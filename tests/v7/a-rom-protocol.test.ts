@@ -11,6 +11,7 @@ import { join } from "node:path";
 import {
   LIMB_LOSS_PRESENT_REGIONS,
   MAX_MEASURED_PER_CHECK,
+  MOVEMENT_RUN_ORDER,
   PAIN_TODAY_SKIP_AT,
   ROM_SAFETY_RULES,
   buildRomProtocol,
@@ -20,11 +21,12 @@ import {
   type RomProtocolInput,
 } from "../../src/medical/rom-protocol";
 import { contextFromIntake, intakeExclusion, isBlocked } from "../../src/medical/assessment";
-import type { Plan } from "../../src/medical/plan";
+import { painOptions, type Plan } from "../../src/medical/plan";
 import type { RegionId } from "../../src/medical/body-map";
 import { REGION_IDS } from "../../src/medical/body-map";
 import { ROM_DATA, ROM_RULES_VERSION, regionRow } from "../../src/movements/rom";
-import { ROM_SAFETY_IDS, type RomMovementId } from "../../src/movements/rom/types";
+import { ROM_MOVEMENT_IDS, ROM_SAFETY_IDS, type RomMovementId } from "../../src/movements/rom/types";
+import { TARGETS_DATA } from "../../src/movements/targets";
 import { PAIN_STOP } from "../../src/medical/pain-rule";
 import { entry, intake, itemOf, keys, notMeasuredOf, running, today, type V7Intake } from "./a-fixtures";
 
@@ -367,8 +369,7 @@ describe("positions (rom-protocol 2.5)", () => {
   it("the standing gate agrees with the v1 chair stand intake exclusion where the two rules are the same", () => {
     const cases: Parameters<typeof intake>[0][] = [
       {},
-      { pain: ["hip"] },
-      { pain: ["wrist"] },
+      ...painOptions.map((p) => ({ pain: [p] })),
       { restrictions: ["no_weight_bearing"] },
       { restrictions: ["balance_support"] },
       { restrictions: ["no_overhead"] },
@@ -978,6 +979,28 @@ describe("retest: like with like", () => {
   });
 });
 
+/* ------------------------------------------------- constants and the data */
+
+describe("code constants against the data", () => {
+  it("the run order lists every measured movement once", () => {
+    expect([...MOVEMENT_RUN_ORDER].sort()).toEqual([...ROM_MOVEMENT_IDS].sort());
+  });
+
+  it("the upper motor neuron conditions are the ones exercise-targets names for the umn path", () => {
+    const row = TARGETS_DATA.mapping.causeResolution.find((r) => r.order === 2)!;
+    expect(row.if).toContain("Stroke, MS, cerebral palsy or incomplete SCI");
+    expect(row.path).toBe("umn");
+  });
+
+  it("the hip precaution answers map to the movements their copy names", () => {
+    expect(ROM_DATA.copy.hip_avoid_flex90.en).toBe("Bending my hip past a right angle");
+    expect(ROM_DATA.copy.hip_avoid_back_out.en).toBe("Taking my leg behind me or turning it out");
+    expect(ROM_DATA.copy.hip_avoid_none.en).toBe("I was told no limits");
+    const hipRule = ROM_DATA.safety.find((s) => s.id === "hip_replacement_recent")!;
+    expect(hipRule.action).toContain("on by default (posterior and anterior lists)");
+  });
+});
+
 /* --------------------------------------------- the clinical source (prose) */
 
 describe.skipIf(!process.env.AZM_CLINICAL_V7)(
@@ -1016,6 +1039,17 @@ describe.skipIf(!process.env.AZM_CLINICAL_V7)(
         for (const r of limb)
           expect(lvl.present.includes(words[r]), `${lvl.level} ${r}`).toBe(present.includes(r));
       }
+    });
+
+    it("the hip precaution lists (R63)", () => {
+      const src = JSON.parse(
+        readFileSync(join(process.env.AZM_CLINICAL_V7!, "rom-protocol.json"), "utf8"),
+      ) as {
+        safety: { id: string; evidence?: string }[];
+      };
+      const ev = src.safety.find((s) => s.id === "after_surgery_precaution")!.evidence ?? "";
+      expect(ev).toContain("posterior: no flexion past 90, no internal rotation or adduction past neutral");
+      expect(ev).toContain("anterior: no extension past 20, no external rotation past 50");
     });
 
     it("pain today: 6 or more", () => {

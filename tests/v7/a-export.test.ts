@@ -257,12 +257,11 @@ function gaitSource(): Obj {
       rule: "Hampel filter window 7",
       sources: ["x"],
     })),
-    events: { ...g.events, front: { method: "Stenum 2024", gives: "IC only" } },
+    events: { ...g.events, front: { ...g.events.front, method: "Stenum 2024", gives: "IC only" } },
     metrics: g.metrics.map((m: Obj) => ({
       ...m,
       definition: "IC to IC",
       aggregation: "median",
-      ...(m.id === "pelvic_drop" ? { views2: ["back (away passes)"] } : {}),
     })),
     scaling: { ...g.scaling, overgroundFront: "no metres in the MVP" },
     qualityGates: withReviewFields(g.qualityGates),
@@ -646,7 +645,7 @@ describe("v7 clinical export: --report-prose-numbers over every kept section", (
     const s = sources();
     s.rom.safety[0].rule = "Pain 7 or more";
     s.rom.thresholds.SDeff = "SD capped at 11.5% of N";
-    s.gait.findings[0].rule = "foot pitch <= 0 on >= 60% of cycles";
+    s.gait.findings[0].rule = "foot pitch <= 0 on >= 70% of cycles";
     s.targets.mapping.paths[1].plus = "stretch only at priority 1";
     expect(listedPaths("rom", s.rom)).toEqual(expect.arrayContaining(["safety[0].rule", "thresholds.SDeff"]));
     expect(proseNumbers("rom", s.rom).listed.find((l) => l.path === "safety[0].rule")).toEqual({
@@ -1100,6 +1099,85 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     expect(() => exportRom(d)).toThrow("movements shoulder_flexion.distanceM: not a number");
   });
 
+  it("exports the gait numbers copied next to their prose (gap 12, D-024 items 3 and 4)", () => {
+    const g = exportGait(gaitSource()) as Obj;
+    const step = (id: string) => g.preprocessing.find((p: Obj) => p.step === id);
+    expect(step("timestamps")).toEqual({ step: "timestamps", hz: 30 });
+    expect(step("visibility")).toEqual({ step: "visibility", visibilityMin: 0.5 });
+    expect(step("outliers")).toEqual({ step: "outliers", hampel: { window: 7, nSigma: 2 } });
+    expect(step("gaps")).toEqual({ step: "gaps", maxGap_s: 0.12 });
+    expect(step("smoothing")).toEqual({
+      step: "smoothing",
+      butterworth: { order: 4, cutoffHz: 5, filtfiltOrder: 2 },
+    });
+    expect(step("turns and steady state")).toEqual({
+      step: "turns and steady state",
+      turnMargin_s: 1,
+      dropSteps: { first: 2, last: 2 },
+    });
+    expect(g.events.side.peaks).toEqual({ distance_s: 0.4, prominencePctOfRange: 10 });
+    expect(g.events.side.fallback).toEqual({
+      ankleLandmarks: [27, 28],
+      disagreeFrames: 2,
+      disagreeEventsPct: 20,
+    });
+    expect(g.events.front.singleStanceWindowPct).toEqual([35, 90]);
+    expect(g.events.checks.strideTimePlausibleX).toEqual([0.5, 1.5]);
+    expect(g.capture.walking_pad.setupGate).toEqual({ visibilityMin: 0.5, warmUpFramesPct: 90 });
+    expect(g.capture.staticSingleLegStance).toEqual({ holdMax_s: 10, measureLast_s: 3 });
+    expect(g.confidenceModel).toMatchObject({
+      firingSharePct: 60,
+      downgradeCleanCyclesBelow: 10,
+      downgradeProcessedFps: [20, 24],
+      painDayAntalgic: [4, 5],
+      unilateralAbsoluteFrom_mps: 0.8,
+    });
+    expect(g.errorMargins.thresholdRuleE).toEqual({ possible: 1, likely: 2 });
+    const finding = (id: string) => g.findings.find((f: Obj) => f.id === id);
+    expect(finding("flat_or_forefoot_contact").thresholds).toEqual({
+      foot_pitch_ic_lte: 0,
+      cleanCyclesPctGte: 60,
+    });
+    expect(finding("slow_speed").thresholds).toEqual({ sdBelowMean: 2 });
+    expect(finding("uneven_step_length").thresholds).toEqual({
+      possible: { sr_step_length_gte: 1.13 },
+      likely: { sr_step_length_gte: 1.18 },
+    });
+    const pattern = (id: string) => g.patterns.find((p: Obj) => p.id === id);
+    expect(pattern("stiff_knee").thresholds.speed).toEqual({
+      bilateralNotAssessedBelow_mps: 0.6,
+      unilateralCappedBelow_mps: 0.5,
+      cappedNeedsDiffGte: 15,
+      absoluteAloneFrom_mps: 0.8,
+    });
+    expect(pattern("steppage").thresholds.likely).toMatchObject({
+      possibleCyclesPctGte: 60,
+      speed_mps_gte: 0.6,
+    });
+    expect(pattern("trendelenburg").views).toEqual(["front", "back", "pad_front"]);
+    for (const id of ["pelvic_drop", "trunk_sway_range", "trunk_lean_peak"])
+      expect(g.metrics.find((m: Obj) => m.id === id).views).toEqual(["front", "back", "pad_front"]);
+  });
+
+  it("fails on a view that is not a gait view and on a sign metric that is neither a metric nor a derived sign", () => {
+    const v = gaitSource();
+    v.patterns[1].views = ["front", "back (away passes)"];
+    expect(() => exportGait(v)).toThrow(
+      'patterns trendelenburg: view "back (away passes)" is not a gait view',
+    );
+    const m = gaitSource();
+    m.metrics[0].views = ["side", "far"];
+    expect(() => exportGait(m)).toThrow('metrics cadence: view "far" is not a gait view');
+    const s = gaitSource();
+    s.patterns[4].signs[1].metric = "knee_diff";
+    expect(() => exportGait(s)).toThrow(
+      "patterns stiff_knee: sign metric knee_diff is not a metric or a derived sign",
+    );
+    const t = gaitSource();
+    t.findings[2].thresholds.likely.sr_step_length_gte = "1.18";
+    expect(() => exportGait(t)).toThrow("findings uneven_step_length.thresholds: not a number");
+  });
+
   it("fails on a retest band of an unknown movement or field, and on a number written as text", () => {
     const s = romSource();
     s.retest.bands.wrist = { deg: 10 };
@@ -1227,16 +1305,16 @@ describe("v7 clinical export: gait and targets sections", () => {
 
   it("keeps the structured gait fields and drops the prose ones", () => {
     const g = exportGait(gaitSource()) as Obj;
-    expect(g.preprocessing.every((p: Obj) => Object.keys(p).join() === "step")).toBe(true);
+    // Numbers mode: the step and the numbers copied next to each rule, never the rule in words.
+    expect(g.preprocessing.every((p: Obj) => typeof p.step === "string" && !("rule" in p))).toBe(true);
     expect(g.capture.common).not.toHaveProperty("model");
-    expect(g.events).not.toHaveProperty("front");
+    expect(Object.keys(g.events.front)).toEqual(["singleStanceWindowPct"]);
     expect(g.confidenceModel).not.toHaveProperty("firing");
     expect(g.confidenceModel.capFromGrade.A).toBe("high");
     expect(g.patterns.every((p: Obj) => !("section" in p) && !("sides" in p) && !("labelRule" in p))).toBe(
       true,
     );
     expect(g.findings.every((f: Obj) => !("rule" in f) && !("use" in f))).toBe(true);
-    expect(g.metrics.find((m: Obj) => m.id === "pelvic_drop")).not.toHaveProperty("views2");
     expect(g.errorMargins).not.toHaveProperty("thresholdRule");
     expect(g.retest).toEqual({ realChange: committed("gait").retest.realChange });
   });

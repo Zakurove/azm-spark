@@ -956,19 +956,32 @@ export function exportRom(source) {
 /* ------------------------------------------------------------------ gait */
 
 const METRIC_FIELDS = ["id", "views", "unit", "grade", "gradeFront", "gradePad", "gradeHyperextension"];
+/** Numbers a metric's definition writes (flat contact at or below 0, the last 3 s of the static stance). */
+const METRIC_NUMBERS = ["flatAtOrBelow", "measureLast_s"];
 const METRIC_KNOWN = [
   ...METRIC_FIELDS,
+  ...METRIC_NUMBERS,
   "notReportedBelowFps",
   "use",
   "definition",
   "aggregation",
   "error",
-  "views2",
   "basis",
+];
+/** The gait views (GaitView): metric, pattern and finding views must be these ids (D-024 item 3). */
+export const GAIT_VIEWS = ["front", "back", "side", "pad_side", "pad_front"];
+/**
+ * Signs a pattern reads that are not metrics of one view (D-024 item 3): the between limb differences
+ * of the knee and thigh swing peaks, and the Pillar 1 hip extension of the range profile.
+ */
+export const GAIT_DERIVED_SIGN_IDS = [
+  "knee_swing_peak_between_limb_diff",
+  "thigh_swing_peak_between_limb_diff",
+  "pillar1_hip_extension",
 ];
 /** Pattern fields that are prose about the rule, read in local-docs (patterns "(structured)"). */
 export const PATTERN_PROSE = ["section", "sides", "labelRule"];
-const FINDING_FIELDS = ["id", "views", "grade", "gradeFront", "targets", "copyTargets"];
+const FINDING_FIELDS = ["id", "views", "grade", "gradeFront", "thresholds", "targets", "copyTargets"];
 /** Finding prose, implemented by the gait rules (C): the rule text, its use and the speed notes. */
 const FINDING_PROSE = ["rule", "use", "padNote", "error", "feeds"];
 
@@ -981,6 +994,29 @@ function gaitNormSourceIds(norms, sourceTable) {
   };
   visit(norms, "");
   return [...new Set(ids)];
+}
+
+function gaitViews(views, where) {
+  if (!Array.isArray(views)) fail(`${where}: views is not a list`);
+  for (const v of views) if (!GAIT_VIEWS.includes(v)) fail(`${where}: view ${JSON.stringify(v)} is not a gait view`);
+  return views;
+}
+
+/** Every leaf a number (a finding's thresholds): a number written as text fails. */
+function numbersTree(v, where) {
+  if (isObject(v)) for (const x of Object.values(v)) numbersTree(x, where);
+  else num(v, where);
+  return v;
+}
+
+/** A pattern (structured: its prose fields dropped), with its views and sign metrics checked. */
+function pattern(p, metricIds) {
+  const where = `patterns ${p.id}`;
+  gaitViews(p.views, where);
+  for (const sign of p.signs ?? [])
+    if (!metricIds.includes(sign.metric) && !GAIT_DERIVED_SIGN_IDS.includes(sign.metric))
+      fail(`${where}: sign metric ${sign.metric} is not a metric or a derived sign`);
+  return strip(Object.fromEntries(Object.entries(p).filter(([k]) => !PATTERN_PROSE.includes(k))));
 }
 
 /** grades: the measurement grades (the evidence scale and the basis types are documentation). */
@@ -1004,12 +1040,16 @@ export function exportGait(source) {
     preprocessing: source.preprocessing.map((p) => ({ step: p.step, ...numbersOnly(p) })),
     events: numbersOnly(source.events),
     metrics: source.metrics.map((m) => {
-      knownFields(m, METRIC_KNOWN, `metrics ${m.id}`);
-      return {
-        ...pick(m, METRIC_FIELDS, `metrics ${m.id}`),
+      const where = `metrics ${m.id}`;
+      knownFields(m, METRIC_KNOWN, where);
+      gaitViews(m.views, where);
+      const out = {
+        ...pick(m, METRIC_FIELDS, where),
         ...("notReportedBelowFps" in m ? { notReportedBelowFps: m.notReportedBelowFps } : {}),
         use: m.use,
       };
+      for (const k of METRIC_NUMBERS) if (k in m) out[k] = num(m[k], `${where}.${k}`);
+      return out;
     }),
     scaling: numbersOnly(source.scaling),
     qualityGates: strip(source.qualityGates),
@@ -1020,10 +1060,14 @@ export function exportGait(source) {
     confidenceModel: Object.fromEntries(
       Object.entries(cm).filter(([k, v]) => typeof v !== "string" && !DROP_ANYWHERE.includes(k)),
     ),
-    patterns: source.patterns.map((p) =>
-      strip(Object.fromEntries(Object.entries(p).filter(([k]) => !PATTERN_PROSE.includes(k)))),
-    ),
-    findings: source.findings.map((f) => take(f, FINDING_FIELDS, `findings ${f.id}`, FINDING_PROSE)),
+    patterns: source.patterns.map((p) => pattern(p, source.metrics.map((m) => m.id))),
+    findings: source.findings.map((f) => {
+      const where = `findings ${f.id}`;
+      const out = take(f, FINDING_FIELDS, where, FINDING_PROSE);
+      gaitViews(out.views, where);
+      if ("thresholds" in out) numbersTree(out.thresholds, `${where}.thresholds`);
+      return out;
+    }),
     copy: strip(source.copy),
     citations: citations(source.sources, gaitNormSourceIds(source.norms, source.sources), "gait norms"),
   };

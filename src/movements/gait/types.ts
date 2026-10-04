@@ -13,7 +13,13 @@
  * text, pattern rule text) are engineering documentation, never shown to a person.
  */
 import type { GaitView } from "../../engine/gait/types";
-import type { Confidence, GaitPatternId, GaitStatus, NotAssessedReason } from "../../medical/gait-types";
+import type {
+  Confidence,
+  GaitDerivedSignId,
+  GaitPatternId,
+  GaitStatus,
+  NotAssessedReason,
+} from "../../medical/gait-types";
 import type { Text } from "../types";
 
 /** Measurement grades of gait-rules grades.measurement, with the minus and plus steps metrics use. */
@@ -51,6 +57,12 @@ export const GAIT_METRIC_IDS = [
   "swing_lateral_path",
   "hip_hike",
   "step_width_ratio",
+] as const;
+/** The derived signs patterns read (GaitDerivedSignId, D-024 item 3), in the order of the data. */
+export const GAIT_DERIVED_SIGN_IDS = [
+  "knee_swing_peak_between_limb_diff",
+  "thigh_swing_peak_between_limb_diff",
+  "pillar1_hip_extension",
 ] as const;
 /** Metrics the data lists as grade D, never used (do_not_use). */
 export const GAIT_UNUSED_METRIC_IDS = ["ankle_angles", "variability"] as const;
@@ -199,6 +211,10 @@ export interface GaitMetricDef {
   /** double_support_pct: not reported below this processed fps. */
   notReportedBelowFps?: number;
   use: ("report" | "rule" | "finding" | "support" | "do_not_use")[];
+  /** foot_pitch_ic: «<= 0 flat or forefoot first». */
+  flatAtOrBelow?: number;
+  /** static_pelvic_drop: «median of the last 3 s». */
+  measureLast_s?: number;
 }
 
 /** A threshold set of a pattern: `<metric>_gte` style numbers, and `any`, `all` or `requires` combinations. */
@@ -210,6 +226,8 @@ export interface GaitPatternTarget {
   /** "P" (the short stance side), "S" (the pattern's side) or "both". */
   side?: string;
   when?: string;
+  /** short_steps on the walking pad: «beat 85% of today's cadence». */
+  beatPctOfCadence?: number;
 }
 
 /** A pattern as the data writes it ("(structured)": the prose section, sides and labelRule are dropped). */
@@ -218,16 +236,26 @@ export interface GaitPatternDef {
   /** shorter_stance only: the label by pain and prosthesis. */
   labels?: { withPain: string; withoutPain: string; prostheticSide: string };
   signGrades: GaitGrade[];
-  /** View ids, with prose for a view variant ("back (away passes)"). */
-  views: string[];
+  /** Gait views (the back view is the away passes of the overground front view). */
+  views: GaitView[];
+  /** Each sign's rule in words, with the numbers it writes copied beside it (freeze step). */
   signs: {
-    metric: string;
+    metric: (typeof GAIT_METRIC_IDS)[number] | GaitDerivedSignId;
     id?: string;
     role?: string;
     direction?: string;
     during?: string;
     rule?: string;
     view?: string;
+    gte?: number;
+    lte?: number;
+    lt?: number;
+    /** «in >= 60% of cycles» */
+    cyclesPctGte?: number;
+    /** «< age and sex mean - 2 SD» */
+    sdBelowMean?: number;
+    /** «< Mikos expected - 0.136 m» */
+    belowExpected_m?: number;
   }[];
   thresholds: {
     possible: GaitThresholdSet;
@@ -236,6 +264,13 @@ export interface GaitPatternDef {
     withoutStaticCheck?: string;
     bilateralLikely?: Record<string, number>;
     speedRules?: Record<string, string>;
+    /** stiff_knee: the numbers of speedRules (D-024 item 4). */
+    speed?: {
+      bilateralNotAssessedBelow_mps: number;
+      unilateralCappedBelow_mps: number;
+      cappedNeedsDiffGte: number;
+      absoluteAloneFrom_mps: number;
+    };
     bilateral?: string;
   };
   caps?: Record<string, GaitStatus>;
@@ -250,6 +285,10 @@ export interface GaitPatternDef {
   notAssessed?: string[];
   /** Contributor id to the prose condition that orders it first. */
   contributorRules?: Partial<Record<GaitContributorId, string>>;
+  /** The numbers of contributorRules («deficit >= 10 deg», «value below 0»). */
+  contributorThresholds?: Partial<Record<GaitContributorId, { gte?: number; lt?: number }>>;
+  /** shorter_stance labelRule: «Pain 4 or 5 on the test day: antalgic only». */
+  antalgicOnlyPain?: [number, number];
   statusMax?: GaitStatus;
   bilateralId?: string;
   unilateralId?: string;
@@ -262,6 +301,12 @@ export interface GaitFindingDef {
   views: GaitView[];
   grade: GaitGrade;
   gradeFront?: GaitGrade;
+  /**
+   * The numbers of the finding's rule (D-024 item 4): flat contact «foot_pitch_ic <= 0 on >= 60% of the
+   * side's clean cycles»; slow speed «< age and sex mean - 2 SD»; uneven steps «possible >= 1.13,
+   * likely >= 1.18».
+   */
+  thresholds: Record<string, number | Record<string, number>>;
   targets: GaitPatternTarget[];
   copyTargets: GaitCopyTargetKey[];
 }
@@ -357,23 +402,80 @@ export interface GaitData {
       headVisible: boolean;
       standingCalibration_s: number;
     };
-    walking_pad: { side: { distance_m: number[] }; front: { distance_m: number; duration_s: number } };
+    walking_pad: {
+      side: {
+        levelWithinDeg: number;
+        /** «lens at hip height 0.8 to 1.3 m» */
+        lensHeight_m: number[];
+        distance_m: number[];
+        /** «30 per side view» */
+        durationPerView_s: number;
+        /** «about 25 per view at 100 steps/min (calc)» */
+        expectedStridesPerView: number;
+        expectedStridesAtStepsPerMin: number;
+      };
+      front: { levelWithinDeg: number; lensHeight_m: number; distance_m: number; duration_s: number };
+      /** «setup gate: hip, knee and ankle visibility >= 0.5 in 90% of warm up frames» */
+      setupGate: { visibilityMin: number; warmUpFramesPct: number };
+    };
     overground: {
       front: {
         space_m: number;
+        lateralOffset_m: number[];
+        lensHeight_m: number[];
         marks: { stop_m_behind_phone: number };
         passesToward: number;
         maxPasses: number;
+        /** «about 2 per side each way, calc»: what the coach is told to expect. */
+        expectedCleanCyclesPerSidePerPass: number;
         analysedWindow_m_from_phone: number[];
       };
-      side: { distance_m: number[]; passes: number; maxPasses: number };
+      side: {
+        pathMin_m: number;
+        lensHeight_m: number[];
+        distance_m: number[];
+        passes: number;
+        maxPasses: number;
+        passesEachWay: number;
+        /** «at least two steps outside the frame on each side» */
+        stepsOutsideFrame: number;
+      };
     };
+    /** «up to 10 s», «median over the last 3 s of the hold» */
+    staticSingleLegStance: { holdMax_s: number; measureLast_s: number };
     minimumCycles: { perSidePerViewGroup: number; noPenalty: number };
   };
-  preprocessing: { step: string }[];
-  events: { side: { peaks: { distance_s: number } } };
+  /** Each step with the numbers its rule writes (the rule in words is code, gap 12). */
+  preprocessing: {
+    step: string;
+    hz?: number;
+    visibilityMin?: number;
+    hampel?: { window: number; nSigma: number };
+    maxGap_s?: number;
+    /** «zero lag 4th order Butterworth low pass 5 Hz (2nd order filtfilt)» */
+    butterworth?: { order: number; cutoffHz: number; filtfiltOrder: number };
+    turnMargin_s?: number;
+    /** «drop first two and last two steps per pass» */
+    dropSteps?: { first: number; last: number };
+  }[];
+  events: {
+    side: {
+      heelLandmarks: number[];
+      footIndexLandmarks: number[];
+      peaks: { distance_s: number; prominencePctOfRange: number };
+      /** «detectors disagree by > 2 frames on > 20% of events» */
+      fallback: { ankleLandmarks: number[]; disagreeFrames: number; disagreeEventsPct: number };
+    };
+    /** «35% to 90% of the interval from a leg's IC to the next opposite IC» */
+    front: { singleStanceWindowPct: number[] };
+    /** «0.5 to 1.5 x bout median» */
+    checks: { strideTimePlausibleX: number[] };
+  };
   metrics: GaitMetricDef[];
-  scaling: { speedMatched: { strideLength_m: GaitRegression; cadence: GaitRegression } };
+  scaling: {
+    pad: { padCheckBeltTurns: number; beltSpeedFlagPct: number; untilMeasuredStepLengthE_m: number };
+    speedMatched: { strideLength_m: GaitRegression; cadence: GaitRegression };
+  };
   /** Kept until the tech lead decides contract gap 5. */
   qualityGates: {
     level: "setup" | "cycle" | "view" | "session";
@@ -394,15 +496,26 @@ export interface GaitData {
     trunkIncl_deg: { value: number };
     pelvis2DBias_deg: { value: number };
     trunkFrontal_deg: { value: number };
+    /** «possible = upper normal limit + 1 E; likely = + 2 E» */
+    thresholdRuleE: { possible: number; likely: number };
   };
   retest: { realChange: { metric: string; min: number; views?: GaitView[] }[] };
   confidenceModel: {
+    /** firing: «sign present in >= 60% of that side's clean cycles» (gap 12). */
+    firingSharePct: number;
     statuses: GaitStatus[];
     notAssessedReasons: NotAssessedReason[];
     levels: Confidence[];
     capFromGrade: Record<GaitGrade, Confidence | null>;
     downgradeOneLevelFor: string[];
+    /** «fewer than 10 clean cycles», «processed fps 20 to 24» */
+    downgradeCleanCyclesBelow: number;
+    downgradeProcessedFps: number[];
     spasticityOnlyWith: string[];
+    /** painDayRule: «leg, hip or back pain 4 or 5 on the test day» */
+    painDayAntalgic: number[];
+    /** unilateralRule: «an absolute threshold alone counts only at 0.8 m/s or more» */
+    unilateralAbsoluteFrom_mps: number;
   };
   patterns: GaitPatternDef[];
   findings: GaitFindingDef[];

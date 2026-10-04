@@ -24,6 +24,13 @@ export type GaitPatternId =
   | "quad_avoidance"
   | "reduced_extension"
   | "short_steps";
+/**
+ * Signs a pattern reads that are not metrics of one view (D-024 item 3): the between limb differences of
+ * the knee and thigh swing peaks (stiff knee, steppage), and the Pillar 1 hip extension of the range
+ * profile (reduced extension corroboration).
+ */
+export type GaitDerivedSignId =
+  "knee_swing_peak_between_limb_diff" | "thigh_swing_peak_between_limb_diff" | "pillar1_hip_extension";
 export type GaitStatus = "possible" | "likely" | "not_seen" | "not_assessed";
 export type Confidence = "low" | "moderate" | "high";
 export type NotAssessedReason =
@@ -52,7 +59,8 @@ export interface GaitPatternResult {
   confidence: Confidence | null;
   notAssessed?: NotAssessedReason;
   evidence: {
-    metric: GaitMetricId;
+    /** A metric, or a derived sign (D-024 item 3). */
+    metric: GaitMetricId | GaitDerivedSignId;
     side?: "left" | "right";
     value: number;
     threshold: number;

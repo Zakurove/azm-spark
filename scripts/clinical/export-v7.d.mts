@@ -17,6 +17,8 @@ export declare const ENGINE_PROSE: Record<string, Record<string, unknown>>;
 export declare const NORM_FLAGS: readonly string[];
 export declare const HIP_END_RANGE_IDS: readonly string[];
 export declare const PATTERN_PROSE: readonly string[];
+export declare const GAIT_VIEWS: readonly string[];
+export declare const GAIT_DERIVED_SIGN_IDS: readonly string[];
 export declare const MAPPING_PROSE: readonly string[];
 export declare function strip(value: unknown): unknown;
 export declare function numbersOnly(value: unknown): unknown;

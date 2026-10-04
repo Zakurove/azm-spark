@@ -17,7 +17,9 @@ import type { CausePath } from "../../src/medical/rom-types";
 import type {
   Confidence,
   ContributorId,
+  GaitDerivedSignId,
   GaitPatternId,
+  GaitPatternResult,
   GaitStatus,
   NotAssessedReason,
 } from "../../src/medical/gait-types";
@@ -55,6 +57,7 @@ import {
   GAIT_COPY_METRIC_KEYS,
   GAIT_COPY_PATTERN_KEYS,
   GAIT_COPY_TARGET_KEYS,
+  GAIT_DERIVED_SIGN_IDS,
   GAIT_METRIC_IDS,
   GAIT_PATTERN_IDS,
   GAIT_QUALITY_COPY_KEYS,
@@ -85,7 +88,17 @@ const unions: true[] = [
   true satisfies Equal<ContributorId, (typeof GAIT_CONTRIBUTOR_IDS)[number]>,
   true satisfies Equal<DoseProfileId, (typeof DOSE_PROFILE_IDS)[number]>,
   true satisfies Equal<RomCueId, (typeof ROM_CUE_IDS)[number]>,
+  true satisfies Equal<GaitDerivedSignId, (typeof GAIT_DERIVED_SIGN_IDS)[number]>,
 ];
+
+// A pattern's evidence names a metric or a derived sign (D-024 item 3; tsc checks it).
+const _derived: GaitPatternResult["evidence"][number] = {
+  metric: "pillar1_hip_extension",
+  value: -2,
+  threshold: 0,
+  share: null,
+};
+void _derived;
 
 const sorted = (xs: Iterable<string>) => [...xs].sort();
 const GAIT_VIEWS: readonly GaitView[] = ["front", "back", "side", "pad_side", "pad_front"];
@@ -393,6 +406,43 @@ describe("gait runtime data (gait-v7.json)", () => {
       "slow_speed",
       "uneven_step_length",
     ]);
+  });
+
+  it("names every view as a gait view and every sign metric as a metric or a derived sign (D-024 item 3)", () => {
+    const metrics = new Set<string>([...GAIT_METRIC_IDS, ...GAIT_UNUSED_METRIC_IDS]);
+    for (const p of GAIT_DATA.patterns) {
+      for (const v of p.views) expect(GAIT_VIEWS, `${p.id} ${v}`).toContain(v);
+      for (const sign of p.signs)
+        expect(
+          metrics.has(sign.metric) || (GAIT_DERIVED_SIGN_IDS as readonly string[]).includes(sign.metric),
+          `${p.id} ${sign.metric}`,
+        ).toBe(true);
+    }
+    for (const f of GAIT_DATA.findings) for (const v of f.views) expect(GAIT_VIEWS).toContain(v);
+    // The back view (away passes) gives the pelvic drop and the trunk lean (capture.overground.front).
+    for (const id of ["pelvic_drop", "trunk_sway_range", "trunk_lean_peak"])
+      expect(GAIT_DATA.metrics.find((m) => m.id === id)?.views, id).toContain("back");
+    for (const id of ["trendelenburg", "duchenne_lean", "waddling"])
+      expect(GAIT_DATA.patterns.find((p) => p.id === id)?.views, id).toEqual(["front", "back", "pad_front"]);
+    const used = new Set(GAIT_DATA.patterns.flatMap((p) => p.signs.map((s) => s.metric)));
+    for (const d of GAIT_DERIVED_SIGN_IDS) expect(used.has(d), d).toBe(true);
+  });
+
+  it("keeps the numbers of the gait rules (freeze step: preprocessing, events, capture, findings, speed rules)", () => {
+    const step = (id: string) => GAIT_DATA.preprocessing.find((p) => p.step === id);
+    expect(step("timestamps")?.hz).toBe(30);
+    expect(step("outliers")?.hampel).toEqual({ window: 7, nSigma: 2 });
+    expect(step("smoothing")?.butterworth).toEqual({ order: 4, cutoffHz: 5, filtfiltOrder: 2 });
+    expect(GAIT_DATA.events.front.singleStanceWindowPct).toEqual([35, 90]);
+    expect(GAIT_DATA.confidenceModel.firingSharePct).toBe(60);
+    expect(GAIT_DATA.capture.staticSingleLegStance.measureLast_s).toBe(3);
+    expect(GAIT_DATA.findings.find((f) => f.id === "uneven_step_length")?.thresholds).toEqual({
+      possible: { sr_step_length_gte: 1.13 },
+      likely: { sr_step_length_gte: 1.18 },
+    });
+    expect(
+      GAIT_DATA.patterns.find((p) => p.id === "stiff_knee")?.thresholds.speed?.absoluteAloneFrom_mps,
+    ).toBe(0.8);
   });
 
   it("matches the confidence model to the gait finding types", () => {

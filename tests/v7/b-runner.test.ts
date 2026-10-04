@@ -305,6 +305,18 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
     expect(r.phase).toBe("attempt");
   });
 
+  it("a late answer to a hold already answered in an earlier attempt is already_answered", () => {
+    const r = runner("shoulder_abduction");
+    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
+    const hold = r.currentHold!;
+    expect(r.answerMax(hold.holdId, "yes", "button", d.t + 100).accepted).toBe(true);
+    expect(r.phase).toBe("rest");
+    expect(r.answerMax(hold.holdId, "yes", "voice", d.t + 400)).toMatchObject({
+      accepted: false,
+      reason: "already_answered",
+    });
+  });
+
   it("an answer to an earlier hold is stale", () => {
     const r = runner("shoulder_abduction");
     const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });

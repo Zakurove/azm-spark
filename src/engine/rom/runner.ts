@@ -7,7 +7,7 @@
  *
  * rom-protocol 1.1, one measured attempt, step by step:
  *   1. «calibration: the start pose held still for 1 s (start angle, segment pixel lengths, trunk line,
- *      neutral head)» — the movement's calibrationSeconds when it writes one; v1's stillness band
+ *      neutral head)»: the movement's calibrationSeconds when it writes one; v1's stillness band
  *      (RANGE_RULES.calibrationStillDeg) on v1's running median, widened by CalibrationRounds (O35);
  *      the arm raises start with the arm by the side (v1's relaxed angle, RANGE_RULES.relaxedMaxDeg).
  *   2. «One practice movement (not stored), then up to 3 scored attempts, 5 to 10 s apart»
@@ -159,7 +159,6 @@ interface Attempt {
   painLevel: number | null;
   /** When the current question opened. */
   askT: number;
-  answered: Set<string>;
 }
 
 const clampTo = (kind: RomKind, v: number) =>
@@ -202,6 +201,8 @@ export class RomRunner {
   private readonly reports: QualityReport[] = [];
   private noHoldTries = 0;
   private holdCount = 0;
+  /** Every hold answered or timed out (first answer per hold wins, across attempts). */
+  private readonly answered = new Set<string>();
   private restUntil = 0;
   private answerDeadline = 0;
 
@@ -308,12 +309,12 @@ export class RomRunner {
   answerMax(holdId: string, answer: RomAnswer, source: AnswerSource, t: number): AnswerResult {
     const a = this.att;
     if (this.phaseNow === "stopped") return this.reject("stopped");
-    if (a?.answered.has(holdId)) return this.reject("already_answered");
+    if (this.answered.has(holdId)) return this.reject("already_answered");
     if (this.phaseNow !== "ask_max" || !a?.current) return this.reject("wrong_phase");
     if (a.current.hold.holdId !== holdId) return this.reject("stale_hold");
     this.tLast = Math.max(this.tLast, t);
     const held = a.current;
-    a.answered.add(holdId);
+    this.answered.add(holdId);
     held.answer = answer;
     held.source = source;
     a.extendMs += Math.max(0, t - a.askT);
@@ -653,7 +654,6 @@ export class RomRunner {
       pain: false,
       painLevel: null,
       askT: t,
-      answered: new Set(),
     };
     this.comp.startAttempt(practice);
     this.setPhase(practice ? "practice" : "attempt", t, index);
@@ -750,7 +750,7 @@ export class RomRunner {
     if (t < this.answerDeadline || !a.current) return;
     // «No answer within 10 s: the hold is recorded as unconfirmed.» A small hold needs «نعم»: the attempt goes on.
     const held = a.current;
-    a.answered.add(held.hold.holdId);
+    this.answered.add(held.hold.holdId);
     if (held.hold.smallExcursion) {
       // No answer: the question's time counts toward the attempt's 20 s (only an answered question pauses it).
       a.current = null;

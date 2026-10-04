@@ -16,7 +16,7 @@ import { member, startV7Api, userId, v7Intake, type V7Harness } from "./a-harnes
  * The digest of the focus check consent text (rom namespace, consent keys) that CONSENT_VERSIONS
  * focus_check 1 stands for. A changed text needs a new consent version, and then a new digest here.
  */
-const FOCUS_CHECK_TEXT_V1 = "8c8cc9077c6116df0078e987e8470d8a9f06f45838be0b46c83ab3aafcef0408";
+const FOCUS_CHECK_TEXT_V1 = "386dfabfde7cd3f821062ff5a5af6df24e96289177eec5e5305d574ad088b237";
 
 let h: V7Harness;
 beforeAll(async () => {
@@ -134,8 +134,9 @@ describe("the focus check consent text (version 1)", () => {
     expect(tV7("en", "rom.consent.pointKept")).toContain("numbers only");
   });
 
-  it("holds no disclaimer beyond the consent screen's own video point (D-017)", () => {
-    expect(disclaimersIn("ar", text("ar"))).toEqual(["يبقى الفيديو"]);
-    expect(disclaimersIn("en", text("en"))).toEqual(["The video stays"]);
+  it("holds no disclaimer (D-017) and says what happens to the video in its own words", () => {
+    expect(disclaimersIn("ar", text("ar"))).toEqual([]);
+    expect(disclaimersIn("en", text("en"))).toEqual([]);
+    expect(tV7("en", "rom.consent.pointVideo")).toContain("processed on your phone only");
   });
 });

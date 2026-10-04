@@ -685,6 +685,16 @@ describe("POST /api/focus/:id/rom", () => {
     });
   });
 
+  it("counts range posts against 120 in 15 minutes (RATE_LIMIT)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    for (let i = 0; i < 120; i++)
+      expect((await h.call(`/focus/${s.id}/rom`, { movementId: "x" }, cookie)).status).toBe(400);
+    expect((await h.call(`/focus/${s.id}/rom`, { movementId: "x" }, cookie)).data).toEqual({
+      error: "RATE_LIMIT",
+    });
+  });
+
   it("refuses a home check's results while home checks are closed (HOME_CLOSED)", async () => {
     const { cookie } = await person();
     const s = await started(cookie);
@@ -847,6 +857,20 @@ describe("POST /api/focus/:id/gait", () => {
         error: "GAIT_INVALID",
         field,
       });
+  });
+
+  it("takes a walk only into an open check, 20 posts in 15 minutes", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    const body = gaitBody(s.gait!, "overground");
+    expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).data).toEqual({
+      error: "NOT_OPEN",
+      status: "completed",
+    });
+    // 20 posts in all are taken (this one and 19 more); the 21st is refused before its body is read.
+    for (let i = 0; i < 19; i++) expect((await h.call(`/focus/${s.id}/gait`, {}, cookie)).status).toBe(409);
+    expect((await h.call(`/focus/${s.id}/gait`, {}, cookie)).data).toEqual({ error: "RATE_LIMIT" });
   });
 
   it("is refused when the plan offers no walk, and counts a failed gate", async () => {

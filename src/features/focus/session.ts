@@ -81,6 +81,11 @@ export class FocusSession {
     this.opts = opts;
   }
 
+  /** The language changed on the page (the coach's repeated instructions follow it). */
+  setLang(lang: Lang): void {
+    (this.opts as { lang: Lang }).lang = lang;
+  }
+
   private now(): number {
     return this.opts.now?.() ?? Date.now();
   }
@@ -149,17 +154,20 @@ export class FocusSession {
   private controller(): RomController {
     if (this.ctl) return this.ctl;
     const check = this.model.data.check!;
-    const opts: RomControllerOptions = {
+    const opts = this.opts;
+    const options: RomControllerOptions = {
       protocol: check.protocol,
       painByRegion: this.model.data.today.painByRegion,
       intake: this.model.data.intake,
-      lang: this.opts.lang,
+      get lang() {
+        return opts.lang;
+      },
       ...(this.opts.poseModel ? { poseModel: this.opts.poseModel } : {}),
       ...(this.opts.restSec !== undefined ? { restSec: this.opts.restSec } : {}),
       ...(this.opts.sitSeconds !== undefined ? { sitSeconds: this.opts.sitSeconds } : {}),
       ...(this.opts.stopRestSeconds !== undefined ? { stopRestSeconds: this.opts.stopRestSeconds } : {}),
     };
-    this.ctl = new RomController(opts);
+    this.ctl = new RomController(options);
     this.ctl.subscribe(() => this.pump());
     return this.ctl;
   }

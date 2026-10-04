@@ -201,6 +201,8 @@ export class RomController implements CoachHost {
   private validNow = 0;
   /** The value of the last valid attempt (the coach's confirm_max result). */
   private lastValid: number | null = null;
+  /** The runner's rest between attempts: when it ends (the screen's ring). */
+  private restUntil: { until: number; total: number } | null = null;
   private lastT = 0;
 
   constructor(opts: RomControllerOptions) {
@@ -277,6 +279,18 @@ export class RomController implements CoachHost {
 
   get paused(): PausedBy | null {
     return this.pausedBy;
+  }
+
+  /** The milliseconds left of the runner's rest between attempts at `t`. */
+  restLeft(t: number): number {
+    return this.restUntil ? Math.max(0, this.restUntil.until - t) : 0;
+  }
+
+  /** The length of the runner's rest between attempts. */
+  restTotal(): number {
+    return (
+      this.restUntil?.total ?? (this.opts.restSec ?? ROM_DATA.engine.restBetweenAttemptsSeconds.min) * 1000
+    );
   }
 
   /** The milliseconds left of a timer step (rest or sit) at `t`, its pause kept. */
@@ -915,7 +929,11 @@ export class RomController implements CoachHost {
             this.bridge({ p: 1, type: "ask_pain", movement: item.movementId, side: item.side, t: e.t });
           if (e.phase === "ask_cause")
             this.bridge({ p: 1, type: "ask_cause", movement: item.movementId, side: item.side, t: e.t });
-          if (e.phase === "rest") this.resetRing(null);
+          if (e.phase === "rest") {
+            this.resetRing(null);
+            const total = (this.opts.restSec ?? ROM_DATA.engine.restBetweenAttemptsSeconds.min) * 1000;
+            this.restUntil = { until: e.t + total, total };
+          }
           break;
         case "live":
           this.liveDeg = e.deg;

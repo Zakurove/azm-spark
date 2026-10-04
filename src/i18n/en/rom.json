@@ -13,5 +13,115 @@
     "notNow": "I will decide later"
   },
   "rf_region_ask": "Today, in your {region}: is it hot, red or swollen, has its shape changed, or is there new numbness or weakness? Or do you have a fever?",
-  "rf_region_ask_leg": "Today, in your {region}: is it hot, red or swollen, has its shape changed, is there new numbness or weakness, or have you been unable to stand on that leg since an injury? Or do you have a fever?"
+  "rf_region_ask_leg": "Today, in your {region}: is it hot, red or swollen, has its shape changed, is there new numbness or weakness, or have you been unable to stand on that leg since an injury? Or do you have a fever?",
+  "shell": {
+    "brand": "Azm",
+    "name": "Focused movement check",
+    "progress": "Part {n} of {total}",
+    "leave": "Leave the check",
+    "loading": "Getting your check ready",
+    "loadError": "We could not open the check. Make sure you are online, then try again.",
+    "saving": "Saving your results",
+    "saveError": "Your results are not saved yet. Make sure you are online, then try again.",
+    "startError": "The check did not start. Your answers are still here, so you can try again.",
+    "leaveTitle": "Leave the check?",
+    "leaveBody": "What we have measured so far is kept.",
+    "stay": "Stay in the check",
+    "leaveConfirm": "Leave"
+  },
+  "closed": {
+    "intakeTitle": "We need your body map first",
+    "intakeBody": "Mark the areas your medical condition affects on the body map, then come back to the check.",
+    "intakeAction": "Open Your medical condition",
+    "homeTitle": "This check runs at the booth for now",
+    "homeBody": "For now, the focused movement check runs on our team's phone at the booth.",
+    "lockedTitle": "Let's rest today",
+    "soonTitle": "You can check again soon",
+    "soonBody": "Your next check can start {when}.",
+    "planTitle": "Complete your medical condition first",
+    "planBody": "We build the check from your answers about your medical condition.",
+    "reviewTitle": "Your plan is being reviewed",
+    "reviewBody": "We will open the check once your plan is reviewed.",
+    "rateTitle": "Let's continue another time",
+    "rateBody": "You started the check many times today. You can try again tomorrow.",
+    "nothingTitle": "There is nothing to measure today",
+    "nothingBody": "For your safety, we will not measure today. You can try another day."
+  },
+  "intro": {
+    "title": "Your focused movement check",
+    "joints": "What we will measure today",
+    "minutes": "About {n} {unit}",
+    "seated": "Seated",
+    "standing": "Standing",
+    "lying": "Lying down",
+    "walk": "Then we look at your walk",
+    "safety": "For your safety",
+    "start": "Start"
+  },
+  "precheck": {
+    "kicker": "Before we start"
+  },
+  "pain": {
+    "outOf": "out of 10",
+    "none": "No pain",
+    "worst": "Worst pain"
+  },
+  "seekCare": {
+    "continue": "Continue with the other areas"
+  },
+  "block": {
+    "seatedTitle": "Movements while seated",
+    "standingTitle": "Movements while standing",
+    "lyingTitle": "Movements while lying down",
+    "camera": "Put the phone on a steady stand and make sure you can see yourself in the picture.",
+    "ready": "Ready",
+    "helperReady": "My helper is beside me. Ready"
+  },
+  "setup": {
+    "kicker": "Movement {n} of {total}",
+    "ready": "Ready, let's start"
+  },
+  "measure": {
+    "start": "Take the start position and hold still",
+    "practice": "Practice",
+    "attempt": "Try {n} of {total}",
+    "tries": "Valid tries: {n} of {total}",
+    "move": "Move slowly as far as you can without pain",
+    "rest": "Rest a moment",
+    "paused": "Paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "typical": "Typical",
+    "band": "Typical for your age and sex",
+    "hold": "Hold"
+  },
+  "result": {
+    "kicker": "Result",
+    "typical": "Typical",
+    "tries": "Tries",
+    "quality": "The camera could not see the movement clearly enough, so we did not record it today.",
+    "byChoice": "You stopped this movement, so we did not record it today.",
+    "next": "Next movement",
+    "finish": "Continue"
+  },
+  "painStop": {
+    "title": "We stopped this movement"
+  },
+  "stopRest": {
+    "title": "Rest for a minute"
+  },
+  "sit": {
+    "title": "Before you stand",
+    "done": "You can stand up slowly now"
+  },
+  "gait": {
+    "title": "Your walk",
+    "body": "Next we look at how you walk.",
+    "skip": "Not today"
+  },
+  "done": {
+    "title": "Your check is done",
+    "body": "We recorded your movement today, and your results are ready.",
+    "findings": "See my results"
+  }
 }

@@ -58,6 +58,8 @@ export interface Skeleton {
   trunkF: Vec3;
   right: Vec3;
   seatY: number | null;
+  /** The lowest sole point of each foot, metres. */
+  soleY: Sided;
 }
 export interface Camera {
   pos: Vec3;

@@ -132,6 +132,11 @@ export function skeleton(pose) {
     for (const p of [g.heel, g.toe]) lowest = Math.min(lowest, p[1] - BODY.sole * g.footUp[1]);
   const P = [pose.at[0], 1 - lowest + (pose.floorY ?? 0), pose.at[1]];
   const lg = legs(P);
+  /** The lowest sole point of each foot (the floor is the lowest of the two). */
+  const soleY = {
+    l: Math.min(...[lg.l.heel, lg.l.toe].map((p) => p[1] - BODY.sole * lg.l.footUp[1])),
+    r: Math.min(...[lg.r.heel, lg.r.toe].map((p) => p[1] - BODY.sole * lg.r.footUp[1])),
+  };
   joints[J.PELVIS] = P;
   joints[J.HIP_L] = lg.l.hip;
   joints[J.HIP_R] = lg.r.hip;
@@ -177,7 +182,7 @@ export function skeleton(pose) {
   // Seated when the thighs are near level: the seat top under the thighs.
   const seated = Math.min(pose.hip.l, pose.hip.r) >= 70;
   const seatY = seated ? Math.min(lg.l.hip[1], lg.r.hip[1]) - BODY.thighRadius : null;
-  return { joints, headF, headU, trunkF: F, right: R, seatY };
+  return { joints, headF, headU, trunkF: F, right: R, seatY, soleY };
 }
 
 /** The 3D abduction of an arm: the angle between the upper arm and the trunk's downward line. */

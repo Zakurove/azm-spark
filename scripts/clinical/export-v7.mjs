@@ -16,7 +16,10 @@
  * local-docs are dropped (rule 2). Prose that the data writes where the code needs a structure
  * (landmark midpoints, optional landmark roles, engine ranges, limb loss reasons, norm flags, hip
  * end range notes) is turned into that structure through explicit tables; any prose a table does
- * not know fails the export, so a change in the clinical source is never dropped silently.
+ * not know fails the export. Every object the export reads has a known fields check (kept, or known
+ * as dropped prose), so a field the source gains anywhere either reaches the output or stops the
+ * export (D-024 item 4); only the sections of NUMBERS_MODE drop new prose, which
+ * --report-prose-numbers lists when it holds a digit.
  *
  * Exits with 1, and writes nothing, when a kept section is missing, when a source has a top level
  * section this script does not know, when a region id is unknown after normalisation (C-11), when a
@@ -195,6 +198,17 @@ export const DROP_TOP = {
   ],
 };
 
+/**
+ * Sections whose prose the export drops by design (rule 3 "(numbers)" and the confidence model's
+ * "(lists)"): a number added there reaches the output, and prose holding a digit is what
+ * --report-prose-numbers lists. Every other object goes through a known fields check.
+ */
+export const NUMBERS_MODE = {
+  rom: [],
+  gait: ["capture", "preprocessing", "events", "scaling", "errorMargins", "confidenceModel"],
+  targets: [],
+};
+
 /** The canonical region ids (C-11, rom-protocol regions). */
 export const REGION_IDS = [
   "neck",
@@ -329,10 +343,22 @@ function pick(value, keys, where) {
   return out;
 }
 
-/** Fails on a field that is neither kept nor known as dropped. */
+/**
+ * Fails on a field that is neither kept nor known as dropped (the rule 2 review fields are known as
+ * dropped everywhere). Every object the export reads goes through it, so a field the clinical source
+ * gains anywhere either reaches the output or stops the export (D-024 item 4).
+ */
 function knownFields(value, known, where) {
+  if (!isObject(value)) fail(`${where} is not an object`);
   for (const k of Object.keys(value))
-    if (!known.includes(k)) fail(`${where}: unknown field ${k}: add it to export-v7.mjs`);
+    if (!known.includes(k) && !DROP_ANYWHERE.includes(k))
+      fail(`${where}: unknown field ${k}: add it to export-v7.mjs`);
+}
+
+/** Checks the fields of an object (kept, or known as dropped prose) and keeps the kept ones (rule 3). */
+function take(value, kept, where, droppedProse = []) {
+  knownFields(value, [...kept, ...droppedProse], where);
+  return pick(value, kept, where);
 }
 
 /**
@@ -474,9 +500,17 @@ function cameraEvidence(v, where) {
   return fail(`${where}: unknown camera evidence ${JSON.stringify(v)}`);
 }
 
+/** Prose of movements[].angle that angles.ts quotes word for word (rule 2); the landmarks are kept. */
+const ANGLE_PROSE = ["definition", "reference", "zero", "direction"];
+/** Prose of movements[].compensations (rule 2): the code quotes it. */
+const COMPENSATION_PROSE = ["check", "cue", "invalid"];
+
 export function movementDef(m, regions) {
   const where = `movements ${m.id}`;
   knownFields(m, MOVEMENT_FIELDS, where);
+  knownFields(m.angle ?? {}, ["landmarks", ...ANGLE_PROSE], `${where} angle`);
+  for (const c of m.compensations ?? [])
+    knownFields(c, ["id", ...COMPENSATION_PROSE], `${where} compensation ${c.id}`);
   const region = regions.find((r) => r.id === (REGION_ALIASES[m.region] ?? m.region));
   if (!region) fail(`${where}: unknown region ${m.region}`);
   const landmarks = {};
@@ -507,7 +541,7 @@ export function movementDef(m, regions) {
     priority: m.priority,
     view: m.view,
     axial: region.axial,
-    positions: m.positions.map((p) => ({ id: p.id, graded: p.graded, normId: p.normId })),
+    positions: m.positions.map((p) => take(p, ["id", "graded", "normId"], `${where} position ${p.id}`)),
     landmarks,
     gate,
     optional,
@@ -515,7 +549,7 @@ export function movementDef(m, regions) {
     E: m.E,
     sigmaM: m.sigmaM,
     approximateInPersonView: m.approximateInPersonView ?? false,
-    instructions: { ar: m.instructions.ar, en: m.instructions.en },
+    instructions: take(m.instructions, ["ar", "en"], `${where} instructions`),
   };
   for (const k of ["variantInstructions", "absoluteFloor", "bothDirections", "gravityAssisted", "resultName"])
     if (k in m) def[k] = strip(m[k]);
@@ -525,6 +559,7 @@ export function movementDef(m, regions) {
 function engineValues(engine) {
   const out = {};
   for (const [k, v] of Object.entries(engine)) {
+    if (isObject(v)) knownFields(v, ["value"], `engine.${k}`);
     const value = isObject(v) && "value" in v ? v.value : v;
     if (typeof value === "number") out[k] = value;
     else if (ENGINE_PROSE[k] && value in ENGINE_PROSE[k]) out[k] = ENGINE_PROSE[k][value];
@@ -589,6 +624,60 @@ function normDef(n) {
   };
 }
 
+/**
+ * ROM prose the export drops, by object (rule 2 and the rule 3 field lists): engineers read it in
+ * local-docs and the code that implements it quotes it. Known here so that any other field stops the
+ * export.
+ */
+export const ROM_PROSE = {
+  conventions: ["angles", "ang", "imageAxes", "midpoints", "lack", "wording"],
+  problemTypes: ["rule", "programHint"],
+  conditionAutoMap: ["regions", "problem", "movementSet", "ask2"],
+  limbLoss: ["rule"],
+  limbLossLevel: ["present", "openQuestion", "standing"],
+  positions: ["who"],
+  inAffectedRegion: ["percentOfNormal", "finding", "bodyMap"],
+  thresholds: [
+    "terms",
+    "SDeff",
+    "withinNormal",
+    "mildlyLimited",
+    "markedlyLimited",
+    "aboveTypical",
+    "valueUsed",
+    "percentOfNormal",
+    "painPrecedence",
+    "notGraded",
+    "approximate",
+  ],
+  terms: ["N", "SD", "sigmaM", "b", "z"],
+};
+
+/** limbLoss.levels: the measured movements and the reason id of each movement that is not measured. */
+function limbLossLevels(limbLoss, reasonOf) {
+  knownFields(limbLoss, ["levels", ...ROM_PROSE.limbLoss], "limbLoss");
+  return {
+    levels: limbLoss.levels.map((l) => {
+      const where = `limbLoss ${l.level}`;
+      knownFields(l, ["level", "measured", "notMeasured", ...ROM_PROSE.limbLossLevel], where);
+      return {
+        level: l.level,
+        measured: l.measured,
+        notMeasured: Object.fromEntries(
+          Object.entries(l.notMeasured).map(([m, text]) => [m, reasonOf(text, `${where} ${m}`)]),
+        ),
+      };
+    }),
+  };
+}
+
+/** thresholds: the functional floors (the grading rules in words are implemented in rom-norms.ts). */
+function thresholds(t) {
+  knownFields(t, ["functionalFloor", ...ROM_PROSE.thresholds], "thresholds");
+  knownFields(t.terms ?? {}, ROM_PROSE.terms, "thresholds terms");
+  return { functionalFloor: strip(t.functionalFloor) };
+}
+
 export function exportRom(source) {
   checkSections("rom", source);
   const reasonIds = source.reasonIds;
@@ -597,48 +686,55 @@ export function exportRom(source) {
     if (!id || !(id in reasonIds)) fail(`${where}: no reason id in ${JSON.stringify(text)}`);
     return id;
   };
-  const regions = source.regions.map((r) => pick(r, ["id", "ar", "en", "axial", "label"], "regions"));
+  const regions = source.regions.map((r) => take(r, ["id", "ar", "en", "axial", "label"], `regions ${r.id}`));
   const norms = source.norms.map(normDef);
   const normSourceIds = [...new Set(norms.flatMap((n) => n.source))];
   const out = {
     id: source.id,
     specVersion: source.specVersion,
     status: source.status,
-    signoff: pick(source.signoff, ["status", "approved", "approvers"], "signoff"),
-    conventions: { sides: source.conventions.sides },
+    signoff: take(source.signoff, ["status", "approved", "approvers"], "signoff"),
+    conventions: take(source.conventions, ["sides"], "conventions", ROM_PROSE.conventions),
     engine: engineValues(source.engine),
     regions,
     regionTable: strip(source.regionTable),
-    problemTypes: source.problemTypes.map((p) => pick(p, ["id", "ar", "en"], "problemTypes")),
-    conditionAutoMap: source.conditionAutoMap.map((c) => ({
-      condition: c.condition,
-      ask: pick(c.ask, ["ar", "en"], `conditionAutoMap ${c.condition} ask`),
-      answers: c.answers.map((a) => pick(a, ["ar", "en"], `conditionAutoMap ${c.condition} answer`)),
-    })),
-    limbLoss: {
-      levels: source.limbLoss.levels.map((l) => ({
-        level: l.level,
-        measured: l.measured,
-        notMeasured: Object.fromEntries(
-          Object.entries(l.notMeasured).map(([m, text]) => [m, reasonOf(text, `limbLoss ${l.level} ${m}`)]),
-        ),
-      })),
-    },
+    problemTypes: source.problemTypes.map((p) =>
+      take(p, ["id", "ar", "en"], `problemTypes ${p.id}`, ROM_PROSE.problemTypes),
+    ),
+    conditionAutoMap: source.conditionAutoMap.map((c) => {
+      const where = `conditionAutoMap ${c.condition}`;
+      knownFields(c, ["condition", "ask", "answers", ...ROM_PROSE.conditionAutoMap], where);
+      // ask2 repeats copy.arthritis_type_ask (change log, A1): dropped, its fields still checked.
+      if ("ask2" in c) knownFields(c.ask2, ["ar", "en"], `${where} ask2`);
+      return {
+        condition: c.condition,
+        ask: take(c.ask, ["ar", "en"], `${where} ask`),
+        answers: c.answers.map((a) => take(a, ["ar", "en"], `${where} answer`, ["map"])),
+      };
+    }),
+    limbLoss: limbLossLevels(source.limbLoss, reasonOf),
     positions: Object.fromEntries(
-      Object.entries(source.positions).map(([id, p]) => [id, pick(p, ["ar", "en"], `positions ${id}`)]),
+      Object.entries(source.positions).map(([id, p]) => [
+        id,
+        take(p, ["ar", "en"], `positions ${id}`, ROM_PROSE.positions),
+      ]),
     ),
     movements: source.movements.map((m) => movementDef(m, regions)),
-    defaultMovements: source.defaultMovements.map((d) => ({
-      id: d.id,
-      region: d.region,
-      ar: d.ar,
-      en: d.en,
-      normId: d.normId,
-      inAffectedRegion: { source: d.inAffectedRegion.source },
-    })),
+    defaultMovements: source.defaultMovements.map((d) => {
+      const where = `defaultMovements ${d.id}`;
+      return {
+        ...take(d, ["id", "region", "ar", "en", "normId"], where, ["inAffectedRegion"]),
+        inAffectedRegion: take(
+          d.inAffectedRegion,
+          ["source"],
+          `${where} inAffectedRegion`,
+          ROM_PROSE.inAffectedRegion,
+        ),
+      };
+    }),
     norms,
-    thresholds: { functionalFloor: strip(source.thresholds.functionalFloor) },
-    safety: source.safety.map((s) => pick(s, ["id", "rule", "action"], "safety")),
+    thresholds: thresholds(source.thresholds),
+    safety: source.safety.map((s) => take(s, ["id", "rule", "action"], `safety ${s.id}`)),
     reasonIds: strip(reasonIds),
     copy: strip(source.copy),
     cues: strip(source.cues),
@@ -665,6 +761,8 @@ const METRIC_KNOWN = [
 /** Pattern fields that are prose about the rule, read in local-docs (patterns "(structured)"). */
 export const PATTERN_PROSE = ["section", "sides", "labelRule"];
 const FINDING_FIELDS = ["id", "views", "grade", "gradeFront", "targets", "copyTargets"];
+/** Finding prose, implemented by the gait rules (C): the rule text, its use and the speed notes. */
+const FINDING_PROSE = ["rule", "use", "padNote", "error", "feeds"];
 
 function gaitNormSourceIds(norms, sourceTable) {
   const ids = [];
@@ -677,6 +775,13 @@ function gaitNormSourceIds(norms, sourceTable) {
   return [...new Set(ids)];
 }
 
+/** grades: the measurement grades (the evidence scale and the basis types are documentation). */
+function grades(g) {
+  knownFields(g, ["measurement", "basisTypes"], "grades");
+  knownFields(g.basisTypes ?? {}, ["published", "calc", "engineering"], "grades basisTypes");
+  return { measurement: strip(g.measurement) };
+}
+
 export function exportGait(source) {
   checkSections("gait", source);
   const cm = source.confidenceModel;
@@ -684,8 +789,8 @@ export function exportGait(source) {
     id: source.id,
     version: source.version,
     status: source.status,
-    signoff: pick(source.signoff, ["approved", "approvers"], "signoff"),
-    grades: { measurement: strip(source.grades.measurement) },
+    signoff: take(source.signoff, ["approved", "approvers"], "signoff"),
+    grades: grades(source.grades),
     eligibility: strip(source.eligibility),
     capture: numbersOnly(source.capture),
     preprocessing: source.preprocessing.map((p) => ({ step: p.step, ...numbersOnly(p) })),
@@ -702,7 +807,7 @@ export function exportGait(source) {
     qualityGates: strip(source.qualityGates),
     norms: strip(source.norms),
     errorMargins: numbersOnly(source.errorMargins),
-    retest: { realChange: strip(source.retest.realChange) },
+    retest: take(source.retest, ["realChange"], "retest", ["likeWithLike"]),
     // "(lists)": the structured fields; the prose rules (firing, corroboration, ...) are code
     confidenceModel: Object.fromEntries(
       Object.entries(cm).filter(([k, v]) => typeof v !== "string" && !DROP_ANYWHERE.includes(k)),
@@ -710,7 +815,7 @@ export function exportGait(source) {
     patterns: source.patterns.map((p) =>
       strip(Object.fromEntries(Object.entries(p).filter(([k]) => !PATTERN_PROSE.includes(k)))),
     ),
-    findings: source.findings.map((f) => pick(f, FINDING_FIELDS, `findings ${f.id}`)),
+    findings: source.findings.map((f) => take(f, FINDING_FIELDS, `findings ${f.id}`, FINDING_PROSE)),
     copy: strip(source.copy),
     citations: citations(source.sources, gaitNormSourceIds(source.norms, source.sources), "gait norms"),
   };
@@ -730,6 +835,9 @@ export function gaitNumbersInProse(source) {
 
 /* --------------------------------------------------------------- targets */
 
+/** Dose profile prose: the evidence, its strength and the proposal in words (the numbers object is kept). */
+const DOSE_PROSE = ["caveat", "strength", "proposal"];
+
 /** Mapping parts that are prose lists of the algorithm (merge, selection), implemented in code. */
 export const MAPPING_PROSE = ["merge", "selection", "whyLines"];
 
@@ -741,19 +849,25 @@ export function hipEndRange(items, where) {
   });
 }
 
+/** dose: the profiles (id, names and their numbers) and the session order. */
+function dose(d) {
+  knownFields(d, ["profiles", "sessionOrder"], "dose");
+  return {
+    profiles: d.profiles.map((p) => take(p, ["id", "ar", "en", "numbers"], `dose ${p.id}`, DOSE_PROSE)),
+    sessionOrder: strip(d.sessionOrder),
+  };
+}
+
 export function exportTargets(source) {
   checkSections("targets", source);
   const out = {
     id: source.id,
     version: source.version,
     status: source.status,
-    signoff: pick(source.signoff, ["approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["approved", "approvers"], "signoff"),
     placeholders: strip(source.placeholders),
     taxonomy: strip(source.taxonomy),
-    dose: {
-      profiles: source.dose.profiles.map((p) => pick(p, ["id", "ar", "en", "numbers"], `dose ${p.id}`)),
-      sessionOrder: strip(source.dose.sessionOrder),
-    },
+    dose: dose(source.dose),
     libraryTags: strip(source.libraryTags),
     newExercises: source.newExercises.map((e) => {
       const x = strip(e);

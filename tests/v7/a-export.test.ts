@@ -19,6 +19,7 @@ import {
   ENGINE_PROSE,
   HIP_END_RANGE_IDS,
   KEEP,
+  NUMBERS_MODE,
   OPTIONAL_ROLES,
   OUTPUT_FILES,
   STANDARD_ROLE_REFS,
@@ -461,6 +462,127 @@ describe("v7 clinical export: sections", () => {
     const bad = sources();
     delete bad.rom.sources.R2;
     expect(exportV7(bad).errors).toEqual(["norms: source R2 is not in sources"]);
+  });
+});
+
+/* ------------------------------------- every picked object (D-024 item 4) */
+
+type Name = "rom" | "gait" | "targets";
+/** Source sections the export never keeps a field of (rule 2 review material, DROP_TOP, the source table). */
+const NOT_EXPORTED = (name: Name, key: string) =>
+  DROP_ANYWHERE.includes(key) || DROP_TOP[name].includes(key) || key === "sources";
+
+/**
+ * One path per object shape of a source (array indices folded to the first element): every object the
+ * export reads, as [path, object] pairs. Objects under review material are left out.
+ */
+function objectShapes(name: Name, source: Obj): [string, Obj][] {
+  const seen = new Map<string, [string, Obj]>();
+  const visit = (v: unknown, path: string, shape: string) => {
+    if (Array.isArray(v)) {
+      v.forEach((x, i) => visit(x, `${path}[${i}]`, `${shape}[]`));
+      return;
+    }
+    if (!v || typeof v !== "object") return;
+    if (path && !seen.has(shape)) seen.set(shape, [path, v as Obj]);
+    for (const [k, x] of Object.entries(v)) {
+      if (!path && NOT_EXPORTED(name, k)) continue;
+      if (path && DROP_ANYWHERE.includes(k)) continue;
+      visit(x, path ? `${path}.${k}` : k, shape ? `${shape}.${k}` : k);
+    }
+  };
+  visit(source, "", "");
+  return [...seen.values()];
+}
+
+const EXPORTERS = { rom: exportRom, gait: exportGait, targets: exportTargets } as const;
+/** The export of one source after `change`: its error, or its output as text. */
+function exportWith(name: Name, change: (s: Obj) => void): { error?: string; text?: string } {
+  const s = sources()[name];
+  change(s);
+  try {
+    return { text: JSON.stringify(EXPORTERS[name](s)) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+/** The object at a path such as movements[0].positions[1] inside a source. */
+function at(source: Obj, path: string): Obj {
+  return path
+    .replace(/\[(\d+)\]/g, ".$1")
+    .split(".")
+    .reduce((o: Obj, k) => o[k], source);
+}
+
+describe("v7 clinical export: a new field anywhere reaches the output or fails (D-024 item 4)", () => {
+  for (const name of ["rom", "gait", "targets"] as const)
+    it(`${name}: a number or a prose field added to any object is exported or stops the export`, () => {
+      const shapes = objectShapes(name, sources()[name]);
+      expect(shapes.length).toBeGreaterThan(40);
+      const silent: string[] = [];
+      for (const [path] of shapes)
+        for (const value of [7, "new rule text"]) {
+          const r = exportWith(name, (s) => {
+            at(s, path).zzFreeze = value;
+          });
+          const kept = r.text?.includes('"zzFreeze"');
+          // Numbers mode keeps a number and drops prose; prose there is what --report-prose-numbers lists.
+          if (
+            !r.error &&
+            !kept &&
+            !(typeof value === "string" && NUMBERS_MODE[name].some((p) => path.startsWith(p)))
+          )
+            silent.push(`${path} ${JSON.stringify(value)}`);
+        }
+      expect(silent).toEqual([]);
+    });
+
+  it("names the object and the field when a picked object gets an unknown field", () => {
+    const cases: [Name, string, string][] = [
+      ["rom", "signoff", "signoff: unknown field zzFreeze"],
+      ["rom", "conventions", "conventions: unknown field zzFreeze"],
+      ["rom", "engine.holdBandDeg", "engine.holdBandDeg: unknown field zzFreeze"],
+      ["rom", "regions[0]", "regions neck: unknown field zzFreeze"],
+      ["rom", "problemTypes[0]", "problemTypes weakness: unknown field zzFreeze"],
+      ["rom", "conditionAutoMap[3]", "conditionAutoMap parkinsons: unknown field zzFreeze"],
+      ["rom", "conditionAutoMap[3].answers[0]", "conditionAutoMap parkinsons answer: unknown field zzFreeze"],
+      ["rom", "limbLoss", "limbLoss: unknown field zzFreeze"],
+      ["rom", "limbLoss.levels[0]", "limbLoss below_knee: unknown field zzFreeze"],
+      ["rom", "positions.seated", "positions seated: unknown field zzFreeze"],
+      [
+        "rom",
+        "movements[0].positions[0]",
+        "movements shoulder_flexion position seated: unknown field zzFreeze",
+      ],
+      ["rom", "movements[0].angle", "movements shoulder_flexion angle: unknown field zzFreeze"],
+      [
+        "rom",
+        "movements[0].compensations[0]",
+        "movements shoulder_flexion compensation trunk_back: unknown field zzFreeze",
+      ],
+      ["rom", "movements[0].instructions", "movements shoulder_flexion instructions: unknown field zzFreeze"],
+      ["rom", "defaultMovements[0]", "defaultMovements shoulder_internal_rotation: unknown field zzFreeze"],
+      [
+        "rom",
+        "defaultMovements[0].inAffectedRegion",
+        "defaultMovements shoulder_internal_rotation inAffectedRegion: unknown field zzFreeze",
+      ],
+      ["rom", "thresholds", "thresholds: unknown field zzFreeze"],
+      ["rom", "safety[0]", "safety global_gate: unknown field zzFreeze"],
+      ["gait", "signoff", "signoff: unknown field zzFreeze"],
+      ["gait", "grades", "grades: unknown field zzFreeze"],
+      ["gait", "retest", "retest: unknown field zzFreeze"],
+      ["gait", "findings[0]", "findings flat_or_forefoot_contact: unknown field zzFreeze"],
+      ["targets", "signoff", "signoff: unknown field zzFreeze"],
+      ["targets", "dose", "dose: unknown field zzFreeze"],
+      ["targets", "dose.profiles[0]", "dose stretch_hold: unknown field zzFreeze"],
+    ];
+    for (const [name, path, message] of cases) {
+      const r = exportWith(name, (s) => {
+        at(s, path).zzFreeze = "x";
+      });
+      expect(r.error, `${name} ${path}`).toContain(message);
+    }
   });
 });
 

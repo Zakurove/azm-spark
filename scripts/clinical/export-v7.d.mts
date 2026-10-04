@@ -5,6 +5,8 @@ export declare const OUTPUT_FILES: Record<Name, string>;
 export declare const DROP_ANYWHERE: readonly string[];
 export declare const KEEP: Record<Name, readonly string[]>;
 export declare const DROP_TOP: Record<Name, readonly string[]>;
+export declare const NUMBERS_MODE: Record<Name, readonly string[]>;
+export declare const ROM_PROSE: Record<string, readonly string[]>;
 export declare const REGION_IDS: readonly string[];
 export declare const REGION_ALIASES: Record<string, string>;
 export declare const OPTIONAL_ROLES: Record<string, string>;

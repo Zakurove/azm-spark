@@ -16,6 +16,7 @@
     "start": "node .runtime/server.mjs"
   },
   "dependencies": {
+    "@google/genai": "2.27.0",
     "@mediapipe/tasks-vision": "^0.10.14",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

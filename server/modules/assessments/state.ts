@@ -22,6 +22,7 @@ import type { Intake, Plan } from "../../../src/medical/plan";
 import { afterCheckDue, type PrecheckEnv } from "../../../src/medical/precheck";
 import type { SeriesContext } from "../../../src/medical/progress-rules";
 import type { CheckPosition, Setting } from "../../../src/movements/types";
+import { lastCompletedFocusAt, scheduleWithFocus } from "../focus/store";
 import {
   checkState,
   completedChecks,
@@ -93,7 +94,9 @@ export function personState(db: DatabaseSync, userId: string, now: number): Pers
     lastCompleted: last,
     followUpDue: last && followUp === undefined && afterCheckDue(last.completed!, now) ? last : null,
     faintReportedUnresolved: state.faintReported !== null,
-    schedule: checkSchedule(checks, now),
+    // v7 (product v7 contract section 4): the 48 hour minimum also counts the latest completed focus
+    // check; nothing else of the schedule changes, and without focus checks it is as before.
+    schedule: scheduleWithFocus(checkSchedule(checks, now), lastCompletedFocusAt(db, userId), now),
     sideLeanRepeat:
       home.length && home[0].hadSideLean
         ? sideLeanRepeatOffer({

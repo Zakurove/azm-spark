@@ -1,1 +1,15 @@
-{}
+{
+  "consent": {
+    "title": "Before we keep your movement results",
+    "body": "To compare how far your joints move with what is usual for your sex and age, to show you how your movement changes over time and to build your program from it, we need to keep your results in your account.",
+    "pointKept": "We keep numbers only: the degrees each joint we measure moves, your walking numbers if you walk, and one step of your walk as skeleton lines with no picture.",
+    "pointProfile": "We read them with your sex, your age and the areas you marked on the body map in Your medical condition.",
+    "pointVideo": "We never record or send the video: it is processed on your phone only.",
+    "pointWhere": "Your results are kept on servers of the company Railway in the Netherlands, outside the Kingdom.",
+    "pointWithdraw": "You can withdraw your consent at any time from Your medical condition. Your earlier results stay until you ask us to delete them.",
+    "privacyLink": "Read how we use your data",
+    "agree": "I agree that my movement and walking results are kept in my account, so I can see how my movement changes and my program is built from them.",
+    "continue": "Continue",
+    "notNow": "I will decide later"
+  }
+}

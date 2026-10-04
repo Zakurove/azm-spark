@@ -17,6 +17,7 @@ import type { PoseSource } from "../../../app/poseSource";
 import type { Frame, Landmark } from "../../../engine/types";
 import { CATALOG } from "../../../../tests/fixtures/catalog";
 import { generate, type GenSpec } from "../../../../tests/fixtures/gen";
+import { gaitFixtureFrames } from "../../../../tests/fixtures/gait/catalog";
 import { CAM_FIXTURES } from "../camera/e2e/fixtures";
 
 /** The marker the bundle test looks for. */
@@ -71,6 +72,13 @@ export function fixtureFrames(name: string): Frame[] {
       poses: [],
       aspect: 0.5625,
     }));
+  }
+  // v7 gait fixtures (product v7 contract 8.3, stream C): a name starting gait/ is read from
+  // tests/fixtures/gait/catalog.ts, frames as the engine sees them.
+  if (name.startsWith("gait/")) {
+    const frames = gaitFixtureFrames(name);
+    if (!frames) throw new RangeError(`Unknown e2e fixture ${name}`);
+    return frames;
   }
   const spec = fixtureSpec(name);
   if (!spec) throw new RangeError(`Unknown e2e fixture ${name}`);

@@ -13,6 +13,7 @@
  * counts). Recorded booth fixtures use the same format with source "recorded".
  */
 import type { GenSpec } from "./gen";
+import { ROM_CATALOG } from "./rom/catalog";
 
 export interface CatalogEntry {
   /** Path under tests/fixtures. */
@@ -219,4 +220,6 @@ export const CATALOG: CatalogEntry[] = [
         "Standard chair stand, arms crossed, 45 degree view: two practice stands, then three trial stands with the arms crossed and two pushing on the thighs with both hands (runner options: practice rest 2 s). Hand use must stop the test at the fourth trial stand.",
     },
   },
+  // v7 range of motion fixtures (product v7 contract 8.2, stream B): tests/fixtures/rom/catalog.ts.
+  ...ROM_CATALOG,
 ];

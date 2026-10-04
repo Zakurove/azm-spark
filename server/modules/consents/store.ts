@@ -11,11 +11,25 @@ import { CHECK_DATA } from "../../../src/movements/assessments";
 // version, and a consent to an older version does not count.
 // report_reading (Q32 (2)): the separate consent to send a medical report to the model that reads it,
 // version 1 of its text (platform-copy.ts reportConsentBody).
-export const CONSENT_VERSIONS = { movement_check: CHECK_DATA.version, report_reading: 1 } as const;
+// v7 (product v7 contract C-8): focus_check, range of motion compared with normal values and the
+// walk, a new purpose (its text: the rom namespace's consent keys); live_coach, the voice coach that
+// sends the session's audio outside the Kingdom (its text: the coach namespace, stream D). Version 1
+// of each text; a changed text ships with a new version and needs a new acceptance.
+export const CONSENT_VERSIONS = {
+  movement_check: CHECK_DATA.version,
+  report_reading: 1,
+  focus_check: 1,
+  live_coach: 1,
+} as const;
 export type ConsentKind = keyof typeof CONSENT_VERSIONS;
 
-export function isConsentKind(kind: unknown): kind is ConsentKind {
-  return typeof kind === "string" && Object.hasOwn(CONSENT_VERSIONS, kind);
+/** The v7 consent kinds: known only while AZM_V7=1 (C-9; otherwise unknown kinds, as before v7). */
+export const V7_CONSENT_KINDS: readonly ConsentKind[] = ["focus_check", "live_coach"];
+
+/** A consent kind of this server: the v1 kinds always, the v7 kinds only with the flag on. */
+export function isConsentKind(kind: unknown, v7 = process.env.AZM_V7 === "1"): kind is ConsentKind {
+  if (typeof kind !== "string" || !Object.hasOwn(CONSENT_VERSIONS, kind)) return false;
+  return v7 || !V7_CONSENT_KINDS.includes(kind as ConsentKind);
 }
 
 export interface ConsentRecord {

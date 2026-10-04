@@ -1,4 +1,5 @@
 import type { Route } from "../../http/types";
+import { revokeFocusChecks } from "../focus/store";
 import { acceptConsent, CONSENT_VERSIONS, isConsentKind, revokeConsent } from "./store";
 
 /**
@@ -40,6 +41,8 @@ export const consentRoutes: Route[] = [
           db.prepare(
             "UPDATE assessments SET status='abandoned', ended_reason='consent_revoked' WHERE user_id=? AND status='open'",
           ).run(user!.id);
+        // v7: the focus check consent holds the focus checks; live_coach keeps no server state.
+        if (params.kind === "focus_check") revokeFocusChecks(db, user!.id);
         db.exec("COMMIT");
       } catch (error) {
         if (db.isTransaction) db.exec("ROLLBACK");

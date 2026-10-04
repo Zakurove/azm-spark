@@ -602,7 +602,9 @@ export function countSafetyEvent(
 /**
  * The anonymous daily product counts (Q2 (6)) and the denominators of the safety log (Q25 (a)), in
  * the same form: checks_started, checks_completed, checks_ended_early and check_minutes (key ""),
- * tests_finished and quality_retries (key: test id), tests_skipped (key: reason id).
+ * tests_finished and quality_retries (key: test id), tests_skipped (key: reason id). v7 (product v7
+ * contract section 3): focus_started and focus_completed (key ""), rom_quality_retries (key: movement
+ * id), gait_gate_failed (key: gait mode) and coach_fallback (key: coach block).
  */
 export type ProductMetric =
   | "checks_started"
@@ -611,7 +613,12 @@ export type ProductMetric =
   | "check_minutes"
   | "tests_finished"
   | "tests_skipped"
-  | "quality_retries";
+  | "quality_retries"
+  | "focus_started"
+  | "focus_completed"
+  | "rom_quality_retries"
+  | "gait_gate_failed"
+  | "coach_fallback";
 
 export function countProduct(
   db: DatabaseSync,

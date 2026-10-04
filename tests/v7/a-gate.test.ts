@@ -3,9 +3,13 @@
  * routes take the real rules of steps A2 (hasV7Fields) and A4 (the range protocol, gait eligibility,
  * the pre-check bridge and the norms) through FOCUS_RULES in server/modules/focus/precheck.ts. A5's
  * route tests run on the small test rules of a-focus-rules.ts; this file runs a booth focus check
- * from the context to complete on the rules the app ships.
+ * from the context to complete on the rules the app ships. It also holds what the merge adds to the
+ * shared files: the type the change log asked for before the freeze, and the licence fields of the
+ * code stream A ported or added (contract 1.4).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
 import { hasV7Fields } from "../../src/medical/plan";
 import { buildRomProtocol, type RomProtocol, type RomProtocolItem } from "../../src/medical/rom-protocol";
@@ -24,6 +28,24 @@ describe("the section 2 types frozen at Gate A", () => {
     // Checked by npm run check: the reason must be a member of ToolResult["reason"].
     const r: ToolResult = { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" };
     expect(r.reason).toBe("no_answer_heard");
+  });
+});
+
+describe("THIRD_PARTY_LICENSES.md after the A merges", () => {
+  it("fills the bracketed fields of the code stream A ported, vendored or added (contract 1.4, 6.3)", () => {
+    const lines = readFileSync(join(__dirname, "../..", "THIRD_PARTY_LICENSES.md"), "utf8").split("\n");
+    const filled = [
+      "**Pose2Sim**",
+      "**Sports2D**",
+      "**SciPy**",
+      "**digital-filter** 2.4.2",
+      "**@google/genai** 2.27.0",
+    ];
+    for (const name of filled) {
+      const line = lines.find((l) => l.startsWith(`- ${name}`));
+      expect(line, name).toBeDefined();
+      expect(line, name).not.toMatch(/\[[^\]]*\]/);
+    }
   });
 });
 

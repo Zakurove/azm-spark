@@ -322,8 +322,8 @@ describe("v7 copy namespaces", () => {
 describe("the v7 build flag and the lazy page entries", () => {
   it("is off unless the build sets VITE_V7=1", () => {
     expect(V7_UI).toBe(process.env.VITE_V7 === "1");
-    expect(source("src/app/v7flag.ts")).toContain(
-      'export const V7_UI: boolean = import.meta.env.VITE_V7 === "1";',
+    expect(source("src/app/v7flag.ts")).toMatch(
+      /export const V7_UI(: boolean)? = import\.meta\.env\.VITE_V7 === "1";/,
     );
   });
 

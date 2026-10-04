@@ -991,7 +991,16 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
         shoulder_abduction: { deg: 16, wideDeg: 20 },
       },
     });
-    expect(rom.sessionOrder).toEqual({ maxMeasured: 8, minutesPerMovement: 1.5 });
+    expect(rom.sessionOrder).toEqual({
+      maxMeasured: 8,
+      minutesPerMovement: 1.5,
+      blocks: ["seated", "standing", "lying"],
+    });
+    const lists = rom.safety.find((s: Obj) => s.id === "after_surgery_precaution").hipPrecautions;
+    expect(lists.anterior).toEqual({ extensionPastDeg: 20, externalRotationPastDeg: 50 });
+    const b = romSource();
+    b.sessionOrder.blocks = ["seated", "lying", "standing", "pool"];
+    expect(() => exportRom(b)).toThrow("sessionOrder.blocks: pool is not a block");
     expect(KEEP.rom).toEqual(expect.arrayContaining(["retest", "sessionOrder"]));
     expect(DROP_TOP.rom).not.toContain("retest");
     expect(DROP_TOP.rom).not.toContain("sessionOrder");

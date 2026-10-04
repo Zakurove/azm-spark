@@ -66,6 +66,7 @@ import {
   GAIT_UNUSED_METRIC_IDS,
 } from "../../src/movements/gait/types";
 import { TARGETS_DATA, TARGETS_VERSION } from "../../src/movements/targets";
+import { movementDef as movementDefOf } from "../../src/movements/rom";
 import { DOSE_PROFILE_IDS, HIP_END_RANGE_IDS, WHY_LINE_IDS } from "../../src/movements/targets/types";
 import {
   HIP_END_RANGE_IDS as EXPORT_HIP_IDS,
@@ -511,6 +512,14 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
       TARGETS_DATA.mapping.causeResolution.map((_, i) => i + 1),
     );
     expect(TARGETS_DATA.mapping.romMovements.map((r) => r.movement)).toEqual([...ROM_MOVEMENT_IDS]);
+    // The numbers the mapping notes write (review material scanned by hand at the freeze step).
+    const row = (m: string) => TARGETS_DATA.mapping.romMovements.find((r) => r.movement === m);
+    expect(row("hip_extension")?.targetsWhenBelow).toBe(0);
+    expect(row("knee_extension")).toMatchObject({ seatedLackAbove: 52, seatedLackPriority: 1 });
+    // The same knee number in the range data and the grade rule.
+    const seated = movementDefOf("knee_extension").positions.find((p) => p.id === "seated");
+    expect(seated?.referMeasureLackAbove).toBe(row("knee_extension")?.seatedLackAbove);
+    expect(TARGETS_DATA.mapping.gradeRules.find((g) => g.seatedLackAbove)?.seatedLackAbove).toBe(52);
   });
 
   it("writes every target id as <action>:<target>", () => {

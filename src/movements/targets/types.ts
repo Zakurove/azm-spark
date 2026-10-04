@@ -282,6 +282,11 @@ export interface TargetsMapping {
     stretch: TargetId[];
     strengthen: TargetId[];
     side?: string;
+    /** hip_extension: «only a value below 0 (possible flexion contracture) adds targets». */
+    targetsWhenBelow?: number;
+    /** knee_extension: «a seated lack above 52 adds ... at priority 1 with refer_measure». */
+    seatedLackAbove?: number;
+    seatedLackPriority?: number;
   }[];
   gaitPatterns: {
     pattern: string;

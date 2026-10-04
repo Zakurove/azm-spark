@@ -158,7 +158,10 @@ const UNDER_3_MONTHS = new Set(["lt6w", "6w_3m"]);
  * back (anterior); the rotations are default only and adduction is never measured. They are on by
  * default unless the person answers «لم يُطلب مني تجنّب أي حركة» (none); otherwise only the ticked items.
  */
-const HIP_PRECAUTION_DEFAULT: readonly RomMovementId[] = ["hip_flexion", "hip_extension"];
+export const HIP_PRECAUTION_DEFAULT: readonly RomMovementId[] = Object.freeze([
+  "hip_flexion",
+  "hip_extension",
+]);
 const HIP_AVOID_MOVEMENTS: Record<HipAvoidId, readonly RomMovementId[]> = {
   flex90: ["hip_flexion"], // «Bending my hip past a right angle»
   cross: [], // «Crossing my legs»: adduction, not measured
@@ -190,7 +193,9 @@ const BLOCK_OF: Record<RomPositionId, RomBlock> = {
   standing_supported: "standing",
   lying_back: "lying",
 };
-const BLOCK_ORDER: Record<RomBlock, number> = { seated: 0, standing: 1, lying: 2 };
+/** The block order of the data (sessionOrder.blocks), tested equal to the clinical words above. */
+export const BLOCK_RUN_ORDER: readonly RomBlock[] = Object.freeze([...ROM_DATA.sessionOrder.blocks]);
+const BLOCK_ORDER = Object.fromEntries(BLOCK_RUN_ORDER.map((b, i) => [b, i])) as Record<RomBlock, number>;
 /** «group by position to limit changes»: inside a block the positions in this order. */
 const POSITION_ORDER: Record<RomPositionId, number> = {
   seated: 0,

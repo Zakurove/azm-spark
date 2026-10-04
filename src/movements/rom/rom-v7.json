@@ -5985,7 +5985,12 @@
   },
   "sessionOrder": {
     "maxMeasured": 8,
-    "minutesPerMovement": 1.5
+    "minutesPerMovement": 1.5,
+    "blocks": [
+      "seated",
+      "standing",
+      "lying"
+    ]
   },
   "safety": [
     {
@@ -6003,7 +6008,18 @@
       "id": "after_surgery_precaution",
       "rule": "Surgery less than 3 months ago and the person was told to avoid certain movements",
       "action": "Those movements not measured (surgery_precaution). After a hip replacement in the last 3 months hip bend is not measured, and the hip precaution filters stay on unless the person answers «لم يُطلب مني تجنّب أي حركة» (I was told no limits); the checklist of what to avoid is in copy hip_avoid_ask (review A06, C02). The surgeon's instruction wins even though a meta analysis found posterior approach precautions unnecessary (R37).",
-      "months": 3
+      "months": 3,
+      "hipPrecautions": {
+        "posterior": {
+          "flexionPastDeg": 90,
+          "internalRotationPastNeutral": true,
+          "adductionPastNeutral": true
+        },
+        "anterior": {
+          "extensionPastDeg": 20,
+          "externalRotationPastDeg": 50
+        }
+      }
     },
     {
       "id": "hip_replacement_recent",

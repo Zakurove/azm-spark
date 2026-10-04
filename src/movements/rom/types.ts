@@ -506,6 +506,8 @@ export interface RomSessionOrder {
   maxMeasured: number;
   /** The coach segment minutes (C-6: items x 1.5 + 1). */
   minutesPerMovement: number;
+  /** «seated block ..., then standing block ..., then lying block» (C-13 runs gait between the last two). */
+  blocks: ("seated" | "standing" | "lying")[];
 }
 
 /** thresholds: the numbers of the grading rules (copied next to their words in the source) and the functional floors. */
@@ -589,6 +591,15 @@ export interface RomData {
     outOf?: number;
     riseAtOrAbove?: number;
     backPainAtOrAbove?: number;
+    /** after_surgery_precaution: the R63 lists («posterior: no flexion past 90, ...; anterior: no extension past 20, ...»). */
+    hipPrecautions?: {
+      posterior: {
+        flexionPastDeg: number;
+        internalRotationPastNeutral: boolean;
+        adductionPastNeutral: boolean;
+      };
+      anterior: { extensionPastDeg: number; externalRotationPastDeg: number };
+    };
   }[];
   reasonIds: Record<RomV7ReasonId, string>;
   copy: Record<(typeof ROM_COPY_KEYS)[number], Text>;

@@ -860,13 +860,43 @@ function retest(r, movements) {
   };
 }
 
-/** sessionOrder: the measured cap of a check (MAX_MEASURED_PER_CHECK) and the minutes per movement (C-6). */
+/** The range blocks of a check (sessionOrder: «seated block ..., then standing block ..., then lying block»). */
+export const ROM_BLOCKS = ["seated", "standing", "lying"];
+
+/**
+ * sessionOrder: the measured cap of a check (MAX_MEASURED_PER_CHECK), the minutes per movement (C-6)
+ * and the order of the blocks.
+ */
 function sessionOrder(o) {
-  knownFields(o, ["maxMeasured", "minutesPerMovement", "rule"], "sessionOrder");
+  knownFields(o, ["maxMeasured", "minutesPerMovement", "blocks", "rule"], "sessionOrder");
+  const blocks = o.blocks ?? fail("sessionOrder.blocks is missing");
+  for (const b of blocks) if (!ROM_BLOCKS.includes(b)) fail(`sessionOrder.blocks: ${b} is not a block`);
+  if (new Set(blocks).size !== ROM_BLOCKS.length || blocks.length !== ROM_BLOCKS.length)
+    fail(`sessionOrder.blocks: each of ${ROM_BLOCKS.join(", ")} once`);
   return {
     maxMeasured: num(o.maxMeasured, "sessionOrder.maxMeasured"),
     minutesPerMovement: num(o.minutesPerMovement, "sessionOrder.minutesPerMovement"),
+    blocks: [...blocks],
   };
+}
+
+/**
+ * The R63 hip precaution lists of safety after_surgery_precaution (A4-8): what each list forbids past
+ * which angle or past neutral, copied from the rule's evidence.
+ */
+function hipPrecautions(h, where) {
+  knownFields(h, ["posterior", "anterior"], where);
+  const lists = {
+    posterior: ["flexionPastDeg", "internalRotationPastNeutral", "adductionPastNeutral"],
+    anterior: ["extensionPastDeg", "externalRotationPastDeg"],
+  };
+  for (const [side, fields] of Object.entries(lists)) {
+    knownFields(h[side], fields, `${where} ${side}`);
+    for (const [k, v] of Object.entries(h[side]))
+      if (k.endsWith("Deg")) num(v, `${where}.${side}.${k}`);
+      else if (v !== true) fail(`${where}.${side}.${k}: not true`);
+  }
+  return strip(h);
 }
 
 /**
@@ -964,13 +994,15 @@ export function exportRom(source) {
     thresholds: thresholds(source.thresholds),
     retest: retest(source.retest, source.movements),
     sessionOrder: sessionOrder(source.sessionOrder),
-    safety: source.safety.map((s) =>
-      numbersIn(
-        take(s, ["id", "rule", "action", ...SAFETY_NUMBERS], `safety ${s.id}`),
+    safety: source.safety.map((s) => {
+      const out = numbersIn(
+        take(s, ["id", "rule", "action", ...SAFETY_NUMBERS, "hipPrecautions"], `safety ${s.id}`),
         SAFETY_NUMBERS,
         `safety ${s.id}`,
-      ),
-    ),
+      );
+      if ("hipPrecautions" in out) out.hipPrecautions = hipPrecautions(out.hipPrecautions, `safety ${s.id}`);
+      return out;
+    }),
     reasonIds: strip(reasonIds),
     copy: strip(source.copy),
     cues: strip(source.cues),

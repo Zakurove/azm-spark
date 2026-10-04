@@ -9,6 +9,7 @@ export declare const NUMBERS_MODE: Record<Name, readonly string[]>;
 export declare const ROM_PROSE: Record<string, readonly string[]>;
 export declare const PROBLEM_TYPE_NUMBERS: readonly string[];
 export declare const SAFETY_NUMBERS: readonly string[];
+export declare const ROM_BLOCKS: readonly string[];
 export declare const REGION_IDS: readonly string[];
 export declare const REGION_ALIASES: Record<string, string>;
 export declare const OPTIONAL_ROLES: Record<string, string>;

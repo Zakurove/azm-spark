@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  BLOCK_RUN_ORDER,
+  HIP_PRECAUTION_DEFAULT,
   LIMB_LOSS_PRESENT_REGIONS,
   MAX_MEASURED_PER_CHECK,
   MOVEMENT_RUN_ORDER,
@@ -977,6 +979,21 @@ describe("session order and the cap (C-13, rom-protocol sessionOrder)", () => {
       Object.fromEntries(Object.entries(LIMB_LOSS_PRESENT_REGIONS).map(([k, v]) => [k, [...v]])),
     );
     expect(LIMB_LOSS_PRESENT_REGIONS.below_knee).toEqual(["hip", "knee"]);
+  });
+
+  it("keeps the block order of the data: sessionOrder.blocks, then the hip precaution lists (R63)", () => {
+    expect(BLOCK_RUN_ORDER).toEqual(ROM_DATA.sessionOrder.blocks);
+    const lists = ROM_DATA.safety.find((s) => s.id === "after_surgery_precaution")?.hipPrecautions;
+    expect(lists).toEqual({
+      posterior: { flexionPastDeg: 90, internalRotationPastNeutral: true, adductionPastNeutral: true },
+      anterior: { extensionPastDeg: 20, externalRotationPastDeg: 50 },
+    });
+    // The measured movement each list stops: the hip bend (posterior) and the leg back (anterior); the
+    // rotations are default only and adduction is never measured.
+    expect(HIP_PRECAUTION_DEFAULT).toEqual([
+      ...(lists?.posterior.flexionPastDeg !== undefined ? ["hip_flexion"] : []),
+      ...(lists?.anterior.extensionPastDeg !== undefined ? ["hip_extension"] : []),
+    ]);
   });
 
   it("reads the cap from the data: sessionOrder.maxMeasured (C-1)", () => {

@@ -7965,7 +7965,8 @@
         ],
         "strengthen": [
           "strengthen:hip_extensors"
-        ]
+        ],
+        "targetsWhenBelow": 0
       },
       {
         "movement": "hip_abduction",
@@ -8001,7 +8002,9 @@
         ],
         "strengthen": [
           "strengthen:quadriceps"
-        ]
+        ],
+        "seatedLackAbove": 52,
+        "seatedLackPriority": 1
       },
       {
         "movement": "ankle_dorsiflexion_lunge",

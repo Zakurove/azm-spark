@@ -143,10 +143,13 @@ describe("smokeQuery", () => {
       kind: "gait",
       view: "pad_side",
       nearSide: "right",
-      mode: "pad",
+      mode: "walking_pad",
     });
     expect(Number(g.get("standFrom"))).toBeLessThan(Number(g.get("standTo")));
     expect(Number(g.get("walkTo")) - Number(g.get("walkFrom"))).toBeGreaterThanOrEqual(30);
     expect(Number(g.get("padKmh"))).toBeGreaterThan(0);
+    // The rendered person's standing height, for the gait engine's metre scaling.
+    expect(Number(g.get("heightCm"))).toBeGreaterThan(165);
+    expect(Number(g.get("heightCm"))).toBeLessThan(185);
   });
 });

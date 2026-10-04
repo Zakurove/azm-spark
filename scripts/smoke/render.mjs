@@ -4,6 +4,7 @@
  * ffmpeg on the PATH and Playwright's Chromium (npx playwright install chromium).
  *
  *   node scripts/smoke/render.mjs <scenario|all> --out <dir> [--y4m] [--seconds N] [--scale 2]
+ *                                                      [--truth-only]
  *
  *   <dir>/<scenario>.mp4          H.264, the scenario's size and frame rate
  *   <dir>/<scenario>.truth.json   the truth (scenarios.mjs scenarioTruth) and the smoke page query
@@ -14,6 +15,7 @@
  * /Users/nasser/Development/Azm6.0/local-docs/qa/v7/videos for <dir> (git ignored, never committed).
  * Each frame is drawn by the procedural humanoid's shader in Chromium on the GPU (Metal on macOS) at
  * `--scale` times the size and averaged down by ffmpeg, so edges are smooth like a camera picture.
+ * --truth-only writes the truth and joints files again without rendering (the kinematics run in Node).
  */
 import { chromium } from "@playwright/test";
 import { spawn, spawnSync } from "node:child_process";
@@ -28,11 +30,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ORIGIN = "http://azm-smoke-render.local";
 
 function parse(argv) {
-  const opts = { ids: [], out: undefined, y4m: false, seconds: undefined, scale: 2 };
+  const opts = { ids: [], out: undefined, y4m: false, seconds: undefined, scale: 2, truthOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--out") opts.out = argv[++i];
     else if (a === "--y4m") opts.y4m = true;
+    else if (a === "--truth-only") opts.truthOnly = true;
     else if (a === "--seconds") opts.seconds = Number(argv[++i]);
     else if (a === "--scale") opts.scale = Number(argv[++i]);
     else if (a.startsWith("--")) throw new Error(`render: unknown option ${a}`);
@@ -73,6 +76,23 @@ window.gpu = () => {
 window.ready = true;
 </script></body></html>`;
 
+/** The truth and joints files of a scenario (the kinematics only). */
+function writeTruth(sc, opts, outDir, extra = {}) {
+  const seconds = opts.seconds ?? sc.seconds;
+  const frames = Math.round(seconds * sc.fps);
+  const joints = [];
+  for (let i = 0; i < frames; i++)
+    joints.push(framePoints(sc, skeleton(sc.poseAt(i / sc.fps))).map((p) => [round4(p.x), round4(p.y)]));
+  const truth = scenarioTruth(sc);
+  const out = { ...truth, frames, seconds, smokeQuery: smokeQuery(truth), ...extra };
+  writeFileSync(join(outDir, `${sc.id}.truth.json`), JSON.stringify(out, null, 2) + "\n");
+  writeFileSync(
+    join(outDir, `${sc.id}.joints.json`),
+    JSON.stringify({ id: sc.id, fps: sc.fps, order: "humanoid.mjs J", frames: joints }) + "\n",
+  );
+  return out;
+}
+
 async function renderOne(page, sc, opts, outDir) {
   const seconds = opts.seconds ?? sc.seconds;
   const frames = Math.round(seconds * sc.fps);
@@ -92,25 +112,16 @@ async function renderOne(page, sc, opts, outDir) {
     { stdio: ["pipe", "inherit", "inherit"] },
   );
   const done = new Promise((res, rej) => ff.on("close", (code) => (code === 0 ? res() : rej(new Error(`ffmpeg ${code}`)))));
-  const joints = [];
   const t0 = Date.now();
   for (let i = 0; i < frames; i++) {
-    const t = i / sc.fps;
-    const skel = skeleton(sc.poseAt(t));
-    joints.push(framePoints(sc, skel).map((p) => [round4(p.x), round4(p.y)]));
+    const skel = skeleton(sc.poseAt(i / sc.fps));
     const png = await page.evaluate(([s, c, sc2]) => window.draw(s, c, sc2), [skel, sc.camera, sc.scene]);
     if (!ff.stdin.write(Buffer.from(png, "base64"))) await new Promise((r) => ff.stdin.once("drain", r));
     if (i % 150 === 0) process.stdout.write(`  ${sc.id}: frame ${i}/${frames}\r`);
   }
   ff.stdin.end();
   await done;
-  const truth = scenarioTruth(sc);
-  const out = { ...truth, frames, seconds, smokeQuery: smokeQuery(truth), renderSeconds: (Date.now() - t0) / 1000 };
-  writeFileSync(join(outDir, `${sc.id}.truth.json`), JSON.stringify(out, null, 2) + "\n");
-  writeFileSync(
-    join(outDir, `${sc.id}.joints.json`),
-    JSON.stringify({ id: sc.id, fps: sc.fps, order: "humanoid.mjs J", frames: joints }) + "\n",
-  );
+  const out = writeTruth(sc, opts, outDir, { renderSeconds: (Date.now() - t0) / 1000 });
   console.log(`  ${sc.id}: ${frames} frames, ${sc.width}x${sc.height} at ${sc.fps} fps -> ${mp4} (${out.renderSeconds.toFixed(1)} s)`);
   if (opts.y4m) {
     const y4m = join(outDir, `${sc.id}.y4m`);
@@ -126,9 +137,17 @@ const round4 = (x) => Math.round(x * 1e4) / 1e4;
 
 async function main() {
   const opts = parse(process.argv.slice(2));
-  if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status !== 0) throw new Error("render: ffmpeg is not on the PATH");
+  if (!opts.truthOnly && spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status !== 0)
+    throw new Error("render: ffmpeg is not on the PATH");
   const outDir = resolve(opts.out);
   mkdirSync(outDir, { recursive: true });
+  if (opts.truthOnly) {
+    for (const id of opts.ids) {
+      writeTruth(SCENARIOS[id], opts, outDir);
+      console.log(`  ${id}: truth and joints written to ${outDir}`);
+    }
+    return;
+  }
   const browser = await launch();
   try {
     const page = await browser.newPage();

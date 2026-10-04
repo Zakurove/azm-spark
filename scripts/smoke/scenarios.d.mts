@@ -60,6 +60,7 @@ export interface GaitTruth extends TruthBase {
   strideTimeS: number;
   stancePct: number;
   padSpeedKmh: number;
+  heightCm: number;
   standing: { from: number; to: number };
   walk: { from: number; to: number };
   strides: { left: number; right: number };

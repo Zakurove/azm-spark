@@ -235,7 +235,7 @@ function gaitPadSide({ id, cadence, padKmh }) {
     poseAt,
     meta: {
       view: "pad_side",
-      mode: "pad",
+      mode: "walking_pad",
       // Walking toward +x seen from +z: the right side faces the phone.
       nearSide: "right",
       cadenceSpm: cadence,
@@ -355,6 +355,9 @@ export function scenarioTruth(sc) {
   }
   const m = sc.meta;
   const events = designEvents(m);
+  // Standing height: the top of the hair (the head centre plus 0.14 m in humanoid.mjs) above the deck.
+  const stand = skeleton(sc.poseAt(0));
+  const heightCm = round((stand.joints[J.HEAD][1] + 0.14 - m.deck) * 100, 1);
   const ic = (side) => events.filter((e) => e.side === side && e.type === "ic");
   return {
     ...base,
@@ -365,6 +368,7 @@ export function scenarioTruth(sc) {
     strideTimeS: m.strideTimeS,
     stancePct: round(100 * m.rocker.toeOff, 6),
     padSpeedKmh: m.padSpeedKmh,
+    heightCm,
     standing: { from: m.standing[0], to: m.standing[1] },
     walk: { from: round(m.walk[0], 6), to: round(m.walk[1], 6) },
     strides: { left: ic("left").length - 1, right: ic("right").length - 1 },
@@ -387,6 +391,7 @@ export function smokeQuery(truth) {
     q.set("nearSide", truth.nearSide);
     q.set("mode", truth.mode);
     q.set("padKmh", String(truth.padSpeedKmh));
+    q.set("heightCm", String(truth.heightCm));
     // The standing calibration inside the still start, the walk window of the truth.
     q.set("standFrom", String(truth.standing.from + 0.5));
     q.set("standTo", String(truth.standing.from + 3.5));

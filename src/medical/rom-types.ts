@@ -63,10 +63,14 @@ export interface StoredRomRow {
   median: number | null;
   nValid: number;
   flags: RomFlag[];
-  poseModel: "lite" | "full";
-  movementVersion: number;
+  /**
+   * A not measured row has no pose model and no engine version, and a default only movement no
+   * movement version: the section 3 columns are NULL (D-024, A5-5).
+   */
+  poseModel: "lite" | "full" | null;
+  movementVersion: number | null;
   normsVersion: string;
-  engineVersion: string;
+  engineVersion: string | null;
   created: number;
 }
 

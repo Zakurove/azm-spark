@@ -41,6 +41,7 @@ vi.mock("../../src/medical/gait-rules", () => ({
 }));
 
 import { setLock } from "../../server/modules/assessments/store";
+import { romRowsOf } from "../../server/modules/focus/store";
 import { lockView } from "../../server/modules/assessments/common";
 import { fill } from "../precheck-fixtures";
 import type { RomProtocol, RomProtocolItem } from "../../src/medical/rom-protocol";
@@ -1006,6 +1007,37 @@ describe("POST /api/focus/:id/stop", () => {
     const again = await h.call(`/focus/${s.id}/stop`, { option: "tired" }, cookie);
     expect(again.status).toBe(200);
     expect(again.data.route).toMatchObject({ option: "tired", endsCheck: false });
+  });
+
+  it("reads a not measured row with no pose model and no engine version (D-024, A5-5)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    const flex = item(s.protocol, "shoulder_flexion");
+    expect((await h.call(`/focus/${s.id}/rom`, romBody(flex, 120), cookie)).status).toBe(200);
+    expect((await h.call(`/focus/${s.id}/stop`, { option: "chest" }, cookie)).status).toBe(200);
+    const rows = romRowsOf(h.db(), s.id);
+    const row = (movementId: string) => rows.find((r) => r.movementId === movementId && r.side === "right")!;
+    // The measured row keeps what the phone sent.
+    expect(row("shoulder_flexion")).toMatchObject({
+      source: "measured",
+      poseModel: "full",
+      movementVersion: movementDef("shoulder_flexion").version,
+      engineVersion: "rom_engine_1",
+    });
+    // A measured movement never reached: its movement version, no model, no engine.
+    expect(row("shoulder_extension")).toMatchObject({
+      source: "not_measured_today",
+      poseModel: null,
+      movementVersion: movementDef("shoulder_extension").version,
+      engineVersion: null,
+    });
+    // A default only movement: no version of any kind.
+    expect(row("shoulder_external_rotation")).toMatchObject({
+      source: "not_measured_camera",
+      poseModel: null,
+      movementVersion: null,
+      engineVersion: null,
+    });
   });
 
   it("lets the check go on after a stop that does not end it, with the stopped movement not measured today", async () => {

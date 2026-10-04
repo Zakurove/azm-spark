@@ -436,9 +436,8 @@ const num = (v: number | null) => (v === null ? null : Number(v));
 
 /**
  * A stored row as the rules read it (StoredRomRow). A not measured row has no pose model and no
- * engine version (section 3 columns are NULL), and a default only movement no movement version;
- * StoredRomRow types them as always present, so they read as "full", "" and 0 (contract gap written
- * in the change log: the proposal types them nullable).
+ * engine version (section 3 columns are NULL), and a default only movement no movement version: they
+ * read as null (D-024, A5-5).
  */
 function toRomRow(r: RomRowDb): StoredRomRow {
   return {
@@ -461,10 +460,10 @@ function toRomRow(r: RomRowDb): StoredRomRow {
     median: num(r.median),
     nValid: Number(r.n_valid),
     flags: JSON.parse(r.flags),
-    poseModel: r.pose_model ?? "full",
-    movementVersion: r.movement_version === null ? 0 : Number(r.movement_version),
+    poseModel: r.pose_model,
+    movementVersion: num(r.movement_version),
     normsVersion: r.norms_version,
-    engineVersion: r.engine_version ?? "",
+    engineVersion: r.engine_version,
     created: Number(r.created),
   };
 }

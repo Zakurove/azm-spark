@@ -22,6 +22,7 @@ import {
   NUMBERS_MODE,
   OPTIONAL_ROLES,
   OUTPUT_FILES,
+  PROSE_NUMBER_EXEMPT,
   STANDARD_ROLE_REFS,
   exportGait,
   exportRom,
@@ -32,7 +33,9 @@ import {
   landmarkRef,
   movementDef,
   normaliseRegions,
+  numberTokens,
   numbersOnly,
+  proseNumbers,
   strip,
 } from "../../scripts/clinical/export-v7.mjs";
 
@@ -583,6 +586,109 @@ describe("v7 clinical export: a new field anywhere reaches the output or fails (
       });
       expect(r.error, `${name} ${path}`).toContain(message);
     }
+  });
+});
+
+/* ---------------------------------- --report-prose-numbers (D-024 item 4) */
+
+describe("v7 clinical export: --report-prose-numbers over every kept section", () => {
+  const listedPaths = (name: Name, s: Obj) => proseNumbers(name, s).listed.map((l) => l.path);
+
+  it("reads numbers, not references, dates, versions, names or licences", () => {
+    expect(numberTokens("visibility >= 0.5 in 90% of frames; > 2 frames on > 20% of events")).toEqual([
+      0.5, 90, 2, 20,
+    ]);
+    expect(numberTokens("zero lag 4th order Butterworth low pass 5 Hz (2nd order filtfilt)")).toEqual([
+      4, 5, 2,
+    ]);
+    expect(numberTokens("z ≥ −1.96; −3 ≤ z; front -0.07 to 0.10")).toEqual([-1.96, -3, -0.07, 0.1]);
+    expect(
+      numberTokens(
+        "(R46, v1.1 4.1, Q12, 4.3, H6 rule 2, section 2.4, rom.md 3.4, plan §3.2, G§5, D-003, contract C-7, 2026-10-04, Stenum 2024, BSD-3, MDC95, 2D, Pillar 1, exercise-targets 5.6, gait-rules section 1, rom-protocol 5.3, contract 2.5, T6, fang18)",
+      ),
+    ).toEqual([]);
+  });
+
+  it("lists a number written in prose in any kept section, ROM included", () => {
+    const s = sources();
+    s.rom.safety[0].rule = "Pain 7 or more";
+    s.rom.thresholds.SDeff = "SD capped at 12.5% of N";
+    s.gait.findings[0].rule = "foot pitch <= 0 on >= 60% of cycles";
+    s.targets.mapping.paths[1].plus = "stretch only at priority 1";
+    expect(listedPaths("rom", s.rom)).toEqual(expect.arrayContaining(["safety[0].rule", "thresholds.SDeff"]));
+    expect(proseNumbers("rom", s.rom).listed.find((l) => l.path === "safety[0].rule")).toEqual({
+      path: "safety[0].rule",
+      text: "Pain 7 or more",
+      numbers: [7],
+    });
+    expect(listedPaths("gait", s.gait)).toContain("findings[0].rule");
+    expect(listedPaths("targets", s.targets)).toContain("mapping.paths[1].plus");
+  });
+
+  it("does not list a number that a numeric field next to the prose holds", () => {
+    const s = sources();
+    s.rom.safety[0].rule = "Pain 7 or more";
+    s.rom.safety[0].atOrAbove = 7;
+    s.rom.thresholds.SDeff = "SD capped at 12.5% of N for N of 90 degrees or more";
+    s.rom.thresholds.sdCap = { pctOfN: 12.5, fromMeanDeg: 90 };
+    s.gait.eligibility.stops = ["pain 6 or more, a rise of 2 or more"];
+    s.gait.eligibility.painStop = { atOrAbove: 6, riseAtOrAbove: 2 };
+    const rom = listedPaths("rom", s.rom);
+    expect(rom).not.toContain("safety[0].rule");
+    expect(rom).not.toContain("thresholds.SDeff");
+    expect(listedPaths("gait", s.gait)).not.toContain("eligibility.stops[0]");
+    // A number the field does not hold is still listed.
+    s.rom.safety[0].rule = "Pain 8 or more";
+    expect(proseNumbers("rom", s.rom).listed.find((l) => l.path === "safety[0].rule")?.numbers).toEqual([8]);
+  });
+
+  it("reads a prose map's numbers next to the map", () => {
+    const s = sources();
+    const p = s.gait.patterns[0];
+    p.thresholds.speedRules = { below: "needs a difference >= 15" };
+    expect(listedPaths("gait", s.gait)).toContain("patterns[0].thresholds.speedRules.below");
+    p.thresholds.speed = { diffGte: 15 };
+    expect(listedPaths("gait", s.gait)).not.toContain("patterns[0].thresholds.speedRules.below");
+  });
+
+  it("leaves out copy, review fields and the prose the export structures through a table", () => {
+    const s = sources();
+    s.rom.copy.intro = { ar: "مدة 30 ثانية", en: "For 30 seconds" };
+    s.rom.safety[0].evidence = "R33: NRS 6 to 7";
+    s.rom.safety[0].note = "about 25 strides";
+    const listed = listedPaths("rom", s.rom);
+    expect(listed.some((p) => p.startsWith("copy."))).toBe(false);
+    expect(listed.some((p) => p.includes("evidence") || p.endsWith(".note"))).toBe(false);
+    // engine.smoothing "Hampel filter (window 7, n sigma 2)" is structured by ENGINE_PROSE.
+    expect(listed.some((p) => p.startsWith("engine."))).toBe(false);
+  });
+
+  it("files a number of an exempt kind under its reason", () => {
+    const s = sources();
+    s.rom.norms[0].method = "Active, standing; 24.3% of those screened excluded";
+    const r = proseNumbers("rom", s.rom);
+    expect(r.listed.map((l) => l.path)).not.toContain("norms[0].method");
+    const rule = PROSE_NUMBER_EXEMPT.find((x) => x.file === "rom" && x.path === "norms[*].method")!;
+    expect(rule.why).toMatch(/\w/);
+    expect(r.exempt[rule.why]).toBeGreaterThan(0);
+  });
+
+  it("prints the list, and with --dry-run writes nothing", () => {
+    const dir = mkdtempSync(join(tmpdir(), "azm-v7-export-"));
+    const s = sources();
+    s.rom.safety[0].rule = "Pain 7 or more";
+    writeFileSync(join(dir, "rom-protocol.json"), JSON.stringify(s.rom));
+    writeFileSync(join(dir, "gait-rules.json"), JSON.stringify(s.gait));
+    writeFileSync(join(dir, "exercise-targets.json"), JSON.stringify(s.targets));
+    const before = (["rom", "gait", "targets"] as const).map(committedText);
+    const run = spawnSync(process.execPath, [SCRIPT, "--input", dir, "--report-prose-numbers", "--dry-run"], {
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('rom safety[0].rule [7] "Pain 7 or more"');
+    expect(run.stdout).not.toContain("Wrote");
+    // --dry-run writes nothing.
+    expect((["rom", "gait", "targets"] as const).map(committedText)).toEqual(before);
   });
 });
 

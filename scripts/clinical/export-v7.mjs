@@ -29,7 +29,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dataViolations } from "../wording-rules.mjs";
+import { USER_FACING_KEYS, dataViolations } from "../wording-rules.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -822,16 +822,6 @@ export function exportGait(source) {
   return normaliseRegions(out, "gait");
 }
 
-/** Prose that numbers mode drops from the gait sections, for the change log (gap list). */
-export function gaitNumbersInProse(source) {
-  return [
-    ...numbersInProse(source.capture, "capture"),
-    ...numbersInProse(source.preprocessing, "preprocessing"),
-    ...numbersInProse(source.events, "events"),
-    ...numbersInProse(source.scaling, "scaling"),
-    ...numbersInProse(source.errorMargins, "errorMargins"),
-  ];
-}
 
 /* --------------------------------------------------------------- targets */
 
@@ -881,6 +871,136 @@ export function exportTargets(source) {
     whyLines: strip(source.mapping.whyLines ?? fail("mapping.whyLines is missing")),
   };
   return normaliseRegions(out, "targets");
+}
+
+/* ------------------------------------------------- --report-prose-numbers */
+
+/**
+ * Text that names something rather than counting it, masked before numberTokens reads the numbers:
+ * dates and years, licence names, decision ids (D-003, C-7), section and file references (section
+ * 2.4, rule 2, plan §3.2, rom.md 3.4, v1.1 4.1, Q12, 4.3, exercise-targets 5.6, contract 2.5, Pillar 1)
+ * and ids written with letters and digits (R46, v1.1, Q6, T6, MDC95, fang18, Stenum24, G§5, 2D).
+ */
+const REFERENCES = [
+  /\b\d{4}-\d{2}-\d{2}\b/g,
+  /\b(?:19|20)\d\d\b/g,
+  /\bBSD-\d+\b/g,
+  /\b[A-Z]-\d+\b/g,
+  /\bQ\d+,\s*\d+(?:\.\d+)+/g,
+  /\b(?:rom|gait|oss|live|plan)\.md\s+\d+(?:\.\d+)*/g,
+  /\b(?:rom-protocol|gait-rules|exercise-targets|contract|v1\.1|gait|council|RP|GR)\s+(?:sections?\s+)?\d+(?:\.\d+)*/g,
+  /(?:\b(?:sections?|rules?|appendix|(?:open )?questions?|Pillar)\s+|§)\d+(?:\.\d+)*/gi,
+  /[A-Za-z_§][A-Za-z_§]*\d+(?:\.\d+)*[A-Za-z_\d]*/g,
+  /\b\d+D\b/g,
+];
+
+/** The numbers a piece of prose writes with digits (ordinals included), references left out. */
+export function numberTokens(text) {
+  let t = String(text);
+  for (const re of REFERENCES) t = t.replace(re, (m) => " ".repeat(m.length));
+  const out = [];
+  for (const m of t.matchAll(/(?<![\w.])[-\u2212]?\d+(?:\.\d+)?(?=(?:st|nd|rd|th)\b|[^\w]|$)/g))
+    out.push(Number(m[0].replace("\u2212", "-")));
+  return out;
+}
+
+/**
+ * Prose numbers that need no numeric field, each with the reason (the change log of the contract
+ * lists the same). A rule names the source path (a [*] matches any index, a * any key) and,
+ * when only some numbers of that prose are meant, those numbers.
+ */
+export const PROSE_NUMBER_EXEMPT = [
+  {
+    file: "rom",
+    path: "norms[*].method",
+    why: "how the norm source measured: evidence (study design, sample, instrument), not a rule",
+  },
+];
+
+/** Prose the export turns into a structure through one of its tables (covered as a whole). */
+const TABLE_PROSE = [
+  ["rom", /^engine\.(\w+)\.value$/, (m, text) => text in (ENGINE_PROSE[m[1]] ?? {})],
+  ["rom", /^movements\[\d+\]\.optional\[\d+\]$/, (_, text) => text in OPTIONAL_ROLES],
+  [
+    "rom",
+    /^movements\[\d+\]\.angle\.landmarks\.\w+$/,
+    (_, text) => LANDMARK_PROSE.some(([re]) => re.test(text)),
+  ],
+];
+
+const globRegex = (glob) =>
+  new RegExp(
+    `^${glob
+      .replace(/[.+?^${}()|\\]/g, "\\$&")
+      .replace(/\[\*\]/g, "\\[\\d+\\]")
+      .replace(/\*/g, "[^.\\[]+")}$`,
+  );
+const EXEMPT_RULES = () => PROSE_NUMBER_EXEMPT.map((r) => ({ ...r, re: globRegex(r.path) }));
+
+/** Numbers held by the fields of an object: numbers, arrays of numbers and nested objects (not lists of rows). */
+function numericLeaves(v, acc = new Set()) {
+  if (typeof v === "number") acc.add(v);
+  else if (Array.isArray(v)) {
+    if (v.every((x) => x === null || typeof x !== "object")) for (const x of v) numericLeaves(x, acc);
+  } else if (isObject(v))
+    for (const [k, x] of Object.entries(v)) if (!DROP_ANYWHERE.includes(k)) numericLeaves(x, acc);
+  return acc;
+}
+
+/** An object whose fields are all prose (a map of rules in words): its numbers sit next to it. */
+const isProseMap = (o) =>
+  Object.entries(o).every(([k, v]) => DROP_ANYWHERE.includes(k) || typeof v === "string" || v === null);
+
+/**
+ * --report-prose-numbers: every number that prose inside a kept section of a clinical source writes
+ * with digits and that no numeric field next to the prose holds (the same object; for a map of prose,
+ * the object holding the map), so the code would have to read it from words. Copy shown to a person
+ * (ar, en) and review material (rule 2) are not read; prose the export structures through a table is
+ * covered; PROSE_NUMBER_EXEMPT files the rest by reason. The freeze step copies every listed number
+ * into a numeric field next to its prose (D-023 item 5, D-024 item 4).
+ */
+export function proseNumbers(name, source) {
+  const rules = EXEMPT_RULES().filter((r) => r.file === name);
+  const listed = [];
+  const exempt = {};
+  const prose = (text, path, covered) => {
+    let numbers = numberTokens(text);
+    if (!numbers.length) return;
+    if (TABLE_PROSE.some(([file, re, ok]) => file === name && re.test(path) && ok(re.exec(path), text))) return;
+    numbers = numbers.filter((n) => !covered.has(n));
+    for (const r of rules) {
+      if (!numbers.length || !r.re.test(path)) continue;
+      const hit = numbers.filter((n) => !r.numbers || r.numbers.includes(n));
+      if (hit.length) exempt[r.why] = (exempt[r.why] ?? 0) + 1;
+      numbers = numbers.filter((n) => !hit.includes(n));
+    }
+    if (numbers.length) listed.push({ path, text, numbers: [...new Set(numbers)] });
+  };
+  const visit = (v, path, holder, holderParent) => {
+    if (typeof v === "string") {
+      const covered = numericLeaves(holder);
+      if (holderParent && isProseMap(holder)) numericLeaves(holderParent, covered);
+      prose(v, path, covered);
+    } else if (Array.isArray(v)) {
+      v.forEach((x, i) => visit(x, `${path}[${i}]`, isObject(x) ? x : holder, isObject(x) ? null : holderParent));
+    } else if (isObject(v)) {
+      for (const [k, x] of Object.entries(v)) {
+        if (DROP_ANYWHERE.includes(k) || USER_FACING_KEYS.has(k)) continue;
+        visit(x, `${path}.${k}`, isObject(x) ? x : v, isObject(x) ? v : holderParent);
+      }
+    }
+  };
+  const seen = new Set();
+  for (const section of KEEP[name]) {
+    const from = DERIVED[section] ?? section;
+    if (from === "sources" || seen.has(from) || !(from in source)) continue;
+    seen.add(from);
+    // A section is its own holder: nothing outside it covers its prose.
+    const v = source[from];
+    if (typeof v === "string") prose(v, from, new Set());
+    else visit(v, from, isObject(v) ? v : {}, null);
+  }
+  return { listed, exempt };
 }
 
 /* ------------------------------------------------------------------ main */
@@ -940,15 +1060,24 @@ function main() {
     for (const e of errors) console.error(`  ${e}`);
     process.exit(1);
   }
-  for (const [name, file] of Object.entries(OUTPUT_FILES)) {
-    const path = join(ROOT, file);
-    const text = JSON.stringify(data[name], null, 2) + "\n";
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, text);
-    console.log(`Wrote ${relative(ROOT, path)}: ${Buffer.byteLength(text)} bytes`);
+  if (!process.argv.includes("--dry-run"))
+    for (const [name, file] of Object.entries(OUTPUT_FILES)) {
+      const path = join(ROOT, file);
+      const text = JSON.stringify(data[name], null, 2) + "\n";
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+      console.log(`Wrote ${relative(ROOT, path)}: ${Buffer.byteLength(text)} bytes`);
+    }
+  if (process.argv.includes("--report-prose-numbers")) {
+    let count = 0;
+    for (const name of Object.keys(INPUT_FILES)) {
+      const { listed, exempt } = proseNumbers(name, sources[name]);
+      count += listed.length;
+      for (const l of listed) console.log(`${name} ${l.path} [${l.numbers.join(", ")}] ${JSON.stringify(l.text)}`);
+      for (const [why, n] of Object.entries(exempt)) console.log(`${name} exempt (${n}): ${why}`);
+    }
+    console.log(`Prose numbers without a numeric field: ${count}`);
   }
-  if (process.argv.includes("--report-prose-numbers"))
-    for (const line of gaitNumbersInProse(sources.gait)) console.log(`  numbers in prose: ${line}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

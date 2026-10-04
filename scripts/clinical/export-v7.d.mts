@@ -31,7 +31,17 @@ export declare function hipEndRange(items: string[], where: string): string[];
 export declare function exportRom(source: unknown): Record<string, unknown>;
 export declare function exportGait(source: unknown): Record<string, unknown>;
 export declare function exportTargets(source: unknown): Record<string, unknown>;
-export declare function gaitNumbersInProse(source: unknown): string[];
+export declare function numberTokens(text: string): number[];
+export declare const PROSE_NUMBER_EXEMPT: readonly {
+  file: Name;
+  path: string;
+  numbers?: readonly number[];
+  why: string;
+}[];
+export declare function proseNumbers(
+  name: Name,
+  source: unknown,
+): { listed: { path: string; text: string; numbers: number[] }[]; exempt: Record<string, number> };
 export declare function exportV7(
   sources: unknown,
 ):

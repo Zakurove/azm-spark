@@ -1,0 +1,375 @@
+/**
+ * Stream D, step D4: the tool executor (product v7 contract 2.11 tool call timing, C-16, C-17, D-022
+ * item 2; 8.6). A valid call goes to the host the moment it arrives and its result is sent at once; a
+ * cancellation after the host applied the call changes nothing and the coach is told what the app did
+ * (tool_applied, P3); a cancellation for a call not handled yet drops it. The answer tools need the
+ * person's own speech after the question (S0-2). Hosts: the reference range host of the harness, the
+ * session host, and a host of the shared step kind rules for every block.
+ */
+import { describe, expect, it } from "vitest";
+import { ToolExecutor } from "../../src/features/coach-agent/executor";
+import { SessionHost, type SessionScreen } from "../../src/features/coach-agent/sessionHost";
+import { AnswerGuard, TOOL_SETS } from "../../src/coach/tools";
+import type {
+  BridgeEvent,
+  CoachBlock,
+  CoachHost,
+  CoachStepKind,
+  ToolName,
+  ToolResult,
+} from "../../src/coach/types";
+import { ControlHost, RefRomHost } from "./d-coach-harness";
+
+type Response = { id: string; name: string; response: ToolResult; scheduling?: string };
+
+function setup(host: CoachHost) {
+  const sent: Response[][] = [];
+  const pushed: BridgeEvent[] = [];
+  const guard = new AnswerGuard();
+  const ex = new ToolExecutor(
+    host.block,
+    () => host,
+    (r) => sent.push(r),
+    (e) => pushed.push(e),
+    guard,
+  );
+  const results = () => sent.flat().map((r) => r.response);
+  return { ex, sent, pushed, guard, results };
+}
+
+const holdEvent = (t: number): BridgeEvent => ({
+  p: 1,
+  type: "end_range_hold",
+  holdId: "h1",
+  movement: "shoulder_flexion",
+  side: "right",
+  deg: 118,
+  typical: 166,
+  t,
+});
+const max = (answer: "yes" | "not_yet" | "hurts", id = "c1") => ({
+  id,
+  name: "confirm_max",
+  args: { movement: "shoulder_flexion", side: "right", answer },
+});
+
+describe("the maximum question", () => {
+  it("records the person's spoken yes and tells the coach the result", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.openHold("h1", 118);
+    s.guard.question(holdEvent(1000));
+    s.guard.heard("إيه، هذا أقصى شي", 2200);
+    s.ex.handle([max("yes")], 2500);
+    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
+    expect(s.sent).toEqual([
+      [
+        {
+          id: "c1",
+          name: "confirm_max",
+          response: { accepted: true, say: "recorded", data: { recorded: true, deg: 118 } },
+        },
+      ],
+    ]);
+    expect(s.ex.stats()).toEqual({ confirm_max: { ok: 1, rejected: 0 } });
+  });
+
+  it("refuses an answer the person never gave (S0-2) and records nothing", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.openHold("h1", 118);
+    s.guard.heard("something earlier", 500);
+    s.guard.question(holdEvent(1000));
+    s.ex.handle([max("yes")], 1800);
+    expect(s.results()).toEqual([{ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }]);
+    expect(host.answers).toEqual([]);
+    expect(host.calls).toEqual([]);
+    expect(s.ex.stats()).toEqual({ confirm_max: { ok: 0, rejected: 1 } });
+  });
+
+  it("refuses an early answer before the hold with hold_still, and takes it at the hold", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    s.guard.heard("yes", 900);
+    s.ex.handle([max("yes", "c1")], 1000);
+    expect(s.results()).toEqual([{ accepted: false, reason: "wrong_phase", say: "hold_still" }]);
+    // The hold opens and asks again; the person answers once more.
+    host.openHold("h1", 121);
+    s.guard.question(holdEvent(3000));
+    s.guard.heard("yes", 4000);
+    s.ex.handle([max("yes", "c2")], 4300);
+    expect(s.results()[1]).toEqual({ accepted: true, say: "recorded", data: { recorded: true, deg: 121 } });
+    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 121 }]);
+  });
+
+  it("lets the first answer win when a tap and a spoken answer race", () => {
+    const tapFirst = new RefRomHost();
+    const a = setup(tapFirst);
+    tapFirst.openHold("h1", 118);
+    a.guard.question(holdEvent(1000));
+    a.guard.heard("أقدر أكثر", 2000);
+    expect(tapFirst.buttonMax("yes")).toBe(true);
+    a.ex.handle([max("not_yet")], 2300);
+    expect(a.results()).toEqual([{ accepted: false, reason: "wrong_phase" }]);
+    expect(tapFirst.answers).toEqual([{ answer: "yes", via: "button", deg: 118 }]);
+
+    const voiceFirst = new RefRomHost();
+    const b = setup(voiceFirst);
+    voiceFirst.openHold("h1", 118);
+    b.guard.question(holdEvent(1000));
+    b.guard.heard("نعم", 2000);
+    b.ex.handle([max("yes")], 2300);
+    expect(voiceFirst.buttonMax("not_yet")).toBe(false);
+    expect(voiceFirst.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
+  });
+
+  it("applies a second spoken answer for the same hold no more (live-spike.md 4: no cancellation came)", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.openHold("h1", 118);
+    s.guard.question(holdEvent(1000));
+    s.guard.heard("نعم", 2000);
+    s.ex.handle([max("yes", "c1")], 2300);
+    s.guard.heard("أقدر أكثر بس يوجعني", 2600);
+    s.ex.handle([max("hurts", "c2")], 3400);
+    expect(s.results()[1].accepted).toBe(false);
+    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
+  });
+});
+
+describe("the can move question", () => {
+  const canMove = (v: boolean) => ({
+    id: "m1",
+    name: "answer_can_move",
+    args: { movement: "shoulder_flexion", side: "right", canMove: v },
+  });
+  const ask: BridgeEvent = {
+    p: 1,
+    type: "ask_can_move",
+    movement: "shoulder_flexion",
+    side: "right",
+    t: 500,
+  };
+
+  it("is answered by voice", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.askCanMove();
+    s.guard.question(ask);
+    s.guard.heard("إيه أقدر أحركه", 1500);
+    s.ex.handle([canMove(true)], 1700);
+    expect(s.results()).toEqual([{ accepted: true, say: "lets_begin" }]);
+    expect(host.canMove).toEqual([{ value: true, via: "voice" }]);
+  });
+
+  it("is answered by button, and a spoken answer after it changes nothing", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.askCanMove();
+    s.guard.question(ask);
+    expect(host.buttonCanMove(false)).toBe(true);
+    s.guard.heard("لا", 1500);
+    s.ex.handle([canMove(true)], 1700);
+    expect(s.results()).toEqual([{ accepted: false, reason: "wrong_phase" }]);
+    expect(host.canMove).toEqual([{ value: false, via: "button" }]);
+  });
+});
+
+describe("pain and stop (S0-2, C-15)", () => {
+  it("takes mark_pain only within 10 s of the person's speech, and stop always", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    s.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 0 } }], 1000);
+    expect(s.results()[0]).toEqual({ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" });
+    s.guard.heard("يوجعني، تقريبا خمسة", 2000);
+    s.ex.handle([{ id: "p2", name: "mark_pain", args: { level: 5 } }], 12_000);
+    expect(s.results()[1]).toEqual({ accepted: true, say: "pain_stop", data: { action: "stop_movement" } });
+    s.ex.handle([{ id: "p3", name: "mark_pain", args: { level: 1 } }], 12_001);
+    expect(s.results()[2]).toEqual({ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" });
+    s.ex.handle([{ id: "s1", name: "stop", args: { reason: "chest" } }], 30_000);
+    expect(s.results()[3]).toEqual({ accepted: true, say: "tap_to_confirm" });
+    expect(host.stopList).toEqual(["chest"]);
+  });
+
+  it("stops a range movement at 5 rising from 2", () => {
+    const host = new RefRomHost();
+    host.painBefore = 2;
+    const s = setup(host);
+    s.guard.heard("five", 100);
+    s.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 5, location: "shoulder" } }], 200);
+    expect(s.results()[0].data).toEqual({ action: "stop_movement" });
+    const calm = new RefRomHost();
+    calm.painBefore = 3;
+    const t = setup(calm);
+    t.guard.heard("four", 100);
+    t.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 4 } }], 200);
+    expect(t.results()[0].data).toEqual({ action: "continue" });
+  });
+
+  it("never lets keep_reaching through after pain", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.openHold("h1", 100);
+    s.guard.question(holdEvent(0));
+    s.guard.heard("not yet", 1000);
+    s.ex.handle([max("not_yet")], 1200);
+    s.ex.handle([{ id: "k1", name: "keep_reaching", args: {} }], 1300);
+    expect(s.results()[1]).toEqual({ accepted: true, say: "keep_going" });
+    s.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 3 } }], 1400);
+    s.ex.handle([{ id: "k2", name: "keep_reaching", args: {} }], 1500);
+    expect(s.results()[3]).toEqual({ accepted: false, reason: "after_pain" });
+  });
+});
+
+describe("cancellations (C-17)", () => {
+  it("leaves an applied call as applied and tells the coach what the app did", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    host.openHold("h1", 118);
+    s.guard.question(holdEvent(1000));
+    s.guard.heard("yes", 2000);
+    s.ex.handle([max("yes", "c7")], 2200);
+    s.ex.cancel(["c7"], 2500);
+    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
+    expect(host.phase).toBe("done");
+    expect(s.pushed).toEqual([{ p: 3, type: "tool_applied", name: "confirm_max", accepted: true, t: 2500 }]);
+    // A second cancellation of the same call says nothing more.
+    s.ex.cancel(["c7"], 2600);
+    expect(s.pushed).toHaveLength(1);
+  });
+
+  it("drops a call whose cancellation came before it was handled", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    s.guard.heard("stop", 100);
+    s.ex.cancel(["c9"], 200);
+    s.ex.handle([{ id: "c9", name: "stop", args: { reason: "choice" } }], 210);
+    expect(host.calls).toEqual([]);
+    expect(s.sent).toEqual([]);
+    expect(s.pushed).toEqual([]);
+  });
+});
+
+describe("the checks before the host", () => {
+  it("answers unknown tools, tools of another block and bad arguments without the host", () => {
+    const host = new SessionHost(screenStub());
+    const s = setup(host);
+    s.ex.handle(
+      [
+        { id: "a", name: "record_range", args: {} },
+        { id: "b", name: "confirm_max", args: { movement: "knee_flexion", side: "left", answer: "yes" } },
+        { id: "c", name: "mark_pain", args: { level: 7.5 } },
+        { id: "d", name: "stop", args: { reason: "ad_signs" } },
+      ],
+      100,
+    );
+    expect(s.sent).toHaveLength(1);
+    expect(s.results()).toEqual([
+      { accepted: false, reason: "unknown_tool" },
+      { accepted: false, reason: "not_in_block" },
+      { accepted: false, reason: "invalid_args" },
+      { accepted: false, reason: "invalid_args" },
+    ]);
+    // An unknown name is not a tool, so it has no count.
+    expect(s.ex.stats()).toEqual({
+      confirm_max: { ok: 0, rejected: 1 },
+      mark_pain: { ok: 0, rejected: 1 },
+      stop: { ok: 0, rejected: 1 },
+    });
+  });
+
+  it("gives the non blocking tools their scheduling and applies a repeated id once", () => {
+    const host = new ControlHost("rom");
+    const s = setup(host);
+    s.ex.handle(
+      [
+        { id: "1", name: "keep_reaching", args: {} },
+        { id: "2", name: "repeat_instructions", args: {} },
+        { id: "3", name: "stop", args: { reason: "tired" } },
+        { id: "3", name: "stop", args: { reason: "tired" } },
+      ],
+      100,
+    );
+    expect(s.sent[0].map((r) => [r.id, r.name, r.scheduling])).toEqual([
+      ["1", "keep_reaching", "SILENT"],
+      ["2", "repeat_instructions", "WHEN_IDLE"],
+      ["3", "stop", undefined],
+    ]);
+  });
+
+  it("answers a host that throws with a refusal and still answers the other calls", () => {
+    const bad: CoachHost = {
+      block: "gait",
+      step: () => ({ kind: "active", finished: false }),
+      snapshot: () => "",
+      handleTool: () => {
+        throw new Error("host broke");
+      },
+    };
+    const s = setup(bad);
+    s.ex.handle(
+      [
+        { id: "x", name: "pause", args: {} },
+        { id: "y", name: "repeat_instructions", args: {} },
+      ],
+      100,
+    );
+    expect(s.results()).toEqual([
+      { accepted: false, reason: "not_allowed" },
+      { accepted: false, reason: "not_allowed" },
+    ]);
+  });
+});
+
+/* ------------------------------------------------ the host matrix */
+
+function screenStub(): SessionScreen {
+  return {
+    pause() {},
+    resume() {},
+    next() {},
+    instructions: () => "Stand tall.",
+    openStopList() {},
+    stopExercise() {},
+    painOk() {},
+  };
+}
+
+const KINDS: CoachStepKind[] = ["info", "confirm", "question", "timer", "safety", "active"];
+const CONTROL: Record<"pause" | "next_step" | "repeat_instructions" | "stop", (k: CoachStepKind) => boolean> =
+  {
+    pause: (k) => k === "active" || k === "timer",
+    next_step: (k) => k === "info",
+    repeat_instructions: () => true,
+    stop: () => true,
+  };
+const ARGS: Partial<Record<ToolName, unknown>> = { stop: { reason: "choice" } };
+
+describe("every control tool in every step kind, for every block (C-16)", () => {
+  for (const block of ["rom", "gait", "session"] as CoachBlock[])
+    it(`applies the step kind rules in the ${block} block`, () => {
+      for (const kind of KINDS)
+        for (const [name, allowed] of Object.entries(CONTROL)) {
+          const host = block === "session" ? new SessionHost(screenStub()) : new ControlHost(block);
+          if (host instanceof SessionHost) host.setStep(kind, kind);
+          else host.kind = kind;
+          const s = setup(host);
+          s.ex.handle([{ id: "1", name, args: ARGS[name as ToolName] ?? {} }], 100);
+          expect(s.results()[0].accepted, `${block} ${kind} ${name}`).toBe(allowed(kind));
+          expect(TOOL_SETS[block]).toContain(name);
+        }
+    });
+
+  it("lets mark_pain through in every kind of every block once the person spoke", () => {
+    for (const block of ["rom", "gait", "session"] as CoachBlock[])
+      for (const kind of KINDS) {
+        const host = block === "session" ? new SessionHost(screenStub(), 0) : new ControlHost(block);
+        if (host instanceof SessionHost) host.setStep(kind, kind);
+        else host.kind = kind;
+        const s = setup(host);
+        s.guard.heard("it hurts a bit", 50);
+        s.ex.handle([{ id: "1", name: "mark_pain", args: { level: 1 } }], 100);
+        expect(s.results()[0].accepted, `${block} ${kind}`).toBe(true);
+      }
+  });
+});

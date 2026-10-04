@@ -881,6 +881,11 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         const c = openCheck(rc, now);
         if (!c) return;
         if (!rules) return json(503, RULES_PENDING);
+        // As v1 (SPEC-GAP complete-needs-row): a check completes only with a stored row, a range row
+        // (measured, or the not measured row of a range result or a stop) or a walk. An empty check
+        // stays open until it goes stale, so it starts no 48 hour clock and is never the baseline a
+        // retest is measured against (Gate A review).
+        if (romRowsOf(db, c.id).length === 0 && !gaitOf(db, c.id)) return json(409, { error: "NO_RESULTS" });
         const intake = v7IntakeOf(rc, rules);
         if (!intake) return;
         const out = transaction(db, () => {

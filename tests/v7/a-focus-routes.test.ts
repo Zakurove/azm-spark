@@ -268,6 +268,8 @@ describe("POST /api/focus: the order of checks", () => {
   it("keeps 48 hours after the last completed check of either kind (TOO_SOON, two way)", async () => {
     const a = await person();
     const first = await started(a.cookie);
+    const knee = item(first.protocol, "knee_flexion");
+    expect((await h.call(`/focus/${first.id}/rom`, romBody(knee, 130), a.cookie)).status).toBe(200);
     expect((await h.call(`/focus/${first.id}/complete`, {}, a.cookie)).status).toBe(200);
     setTime(T0 + 10 * HOUR);
     pass = await boothPass(h, T0 + 10 * HOUR);
@@ -862,6 +864,8 @@ describe("POST /api/focus/:id/gait", () => {
   it("takes a walk only into an open check, 20 posts in 15 minutes", async () => {
     const { cookie } = await person();
     const s = await started(cookie);
+    const knee = item(s.protocol, "knee_flexion");
+    expect((await h.call(`/focus/${s.id}/rom`, romBody(knee, 130), cookie)).status).toBe(200);
     expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
     const body = gaitBody(s.gait!, "overground");
     expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).data).toEqual({
@@ -1200,6 +1204,55 @@ describe("POST /api/focus/:id/complete", () => {
       error: "COMPLETE_INVALID",
       field: "body",
     });
+  });
+
+  it("refuses a check with nothing stored (NO_RESULTS, as v1 complete-needs-row): no clock, no baseline", async () => {
+    const { cookie, id } = await person();
+    const s = await started(cookie);
+    const before = countOf("focus_completed");
+    // The app crashed or the person left at once: complete arrives with no range row and no walk.
+    expect(await h.call(`/focus/${s.id}/complete`, {}, cookie)).toMatchObject({
+      status: 409,
+      data: { error: "NO_RESULTS" },
+    });
+    const db = h.db();
+    expect(db.prepare("SELECT status, completed FROM focus_checks WHERE id=?").get(s.id)).toEqual({
+      status: "open",
+      completed: null,
+    });
+    expect(rowsOf(s.id)).toEqual([]);
+    expect(countOf("focus_completed")).toBe(before);
+    // No 48 hour clock starts and the check is no baseline: a new start goes ahead as a baseline.
+    setTime(T0 + 10 * HOUR);
+    pass = await boothPass(h, T0 + 10 * HOUR);
+    const next = await started(cookie);
+    expect(next.kind).toBe("baseline");
+    expect(
+      db.prepare("SELECT COUNT(*) AS n FROM focus_checks WHERE user_id=? AND status='completed'").get(id),
+    ).toEqual({
+      n: 0,
+    });
+    // A stored walk alone is a result: that check completes.
+    expect((await h.call(`/focus/${next.id}/gait`, gaitBody(next.gait!, "overground"), cookie)).status).toBe(
+      200,
+    );
+    expect((await h.call(`/focus/${next.id}/complete`, {}, cookie)).status).toBe(200);
+  });
+
+  it("completes a check whose only row is a stopped movement's (a stored row, as v1 counts a skip)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    const flex = item(s.protocol, "shoulder_flexion");
+    expect(
+      (
+        await h.call(
+          `/focus/${s.id}/stop`,
+          { option: "tired", movementId: flex.movementId, side: "right" },
+          cookie,
+        )
+      ).status,
+    ).toBe(200);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
   });
 });
 

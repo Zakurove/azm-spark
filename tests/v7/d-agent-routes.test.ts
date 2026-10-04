@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createHash } from "node:crypto";
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
 import { createFocusCheck } from "../../server/modules/focus/store";
+import { clearLock, setLock } from "../../server/modules/assessments/store";
 import { segmentsFor, type CheckSegment } from "../../server/modules/agent/segments";
 import { buildHistory, buildInstruction, COACH_SI_VERSION } from "../../src/coach/instruction";
 import { toolDeclarations } from "../../src/coach/tools";
@@ -182,6 +183,15 @@ const token = (body: unknown, cookie: string, extra: Record<string, string> = fr
 const usage = (body: unknown, cookie: string, extra: Record<string, string> = {}) =>
   h.call("/agent/usage", body, cookie, "POST", extra);
 
+/** The coach_fallback counts by key and setting. */
+function fallbacks(): Record<string, number> {
+  const rows = h
+    .db()
+    .prepare("SELECT key, setting, count FROM product_counts WHERE metric='coach_fallback'")
+    .all() as { key: string; setting: string; count: number }[];
+  return Object.fromEntries(rows.map((r) => [`${r.key}:${r.setting}`, Number(r.count)]));
+}
+
 function row(id: string): Record<string, any> {
   return h.db().prepare("SELECT * FROM agent_sessions WHERE id=?").get(id) as Record<string, any>;
 }
@@ -274,6 +284,11 @@ describe("POST /api/agent/token: the order of checks", () => {
     expect((await token(id("11111111-2222-4333-8444-555555555555"), st.cookie)).data).toEqual({
       error: "NOT_OPEN",
     });
+    // A lock on the person (a safety stop's, for example) closes every coach segment.
+    setLock(h.db(), st.user, { until: T0 + HOUR, releasableByClearance: false }, T0);
+    expect((await token(tokenBody(st), st.cookie)).data).toEqual({ error: "NOT_OPEN" });
+    clearLock(h.db(), st.user);
+    expect((await token(tokenBody(st), st.cookie)).status).toBe(200);
     // Stale: 30 minutes without activity.
     vi.setSystemTime(T0 + 31 * MINUTE);
     expect((await token(tokenBody(st), st.cookie)).data).toEqual({ error: "NOT_OPEN" });
@@ -282,7 +297,7 @@ describe("POST /api/agent/token: the order of checks", () => {
     const stop = await h.call(`/focus/${other.id}/stop`, { option: "chest" }, other.cookie);
     expect(stop.status).toBe(200);
     expect((await token(tokenBody(other), other.cookie)).data).toEqual({ error: "NOT_OPEN" });
-    expect(google).toHaveLength(0);
+    expect(google).toHaveLength(1);
   });
 
   it("answers 403 HOME_CLOSED for a range or gait segment of a home check (C-14)", async () => {
@@ -498,8 +513,11 @@ describe("POST /api/agent/token: the token", () => {
           status: 400,
         },
       );
+    const failed = fallbacks()["token_failed:booth"] ?? 0;
     const r = await token(tokenBody(st), st.cookie);
     expect(r.status).toBe(502);
+    // The segment never started, so no usage report follows: the route counts the fallback itself.
+    expect(fallbacks()["token_failed:booth"]).toBe(failed + 1);
     expect(r.data).toEqual({ error: "TOKEN_FAILED" });
     expect(h.db().prepare("SELECT COUNT(*) AS n FROM agent_sessions WHERE user_id=?").get(st.user)).toEqual({
       n: 0,
@@ -625,8 +643,11 @@ describe("the budget (5.1): never trusts the client", () => {
     );
     expect((await token(tokenBody(st), st.cookie)).status).toBe(200);
     expect(row(first.data.sessionId)).toMatchObject({ remints: 2, minutes_reserved: minutes + 4 });
+    const budget = fallbacks()["budget:booth"] ?? 0;
     const third = await token(tokenBody(st), st.cookie);
     expect(third.status).toBe(429);
+    // A running segment's fallback is counted from its usage report, not here.
+    expect(fallbacks()["budget:booth"] ?? 0).toBe(budget);
     expect(third.data).toEqual({ error: "BUDGET", minutesLeft: 45 - minutes - 4 });
     expect(google).toHaveLength(3);
     expect(h.db().prepare("SELECT COUNT(*) AS n FROM agent_sessions WHERE user_id=?").get(st.user)).toEqual({
@@ -681,9 +702,11 @@ describe("the budget (5.1): never trusts the client", () => {
     const minutes = Math.min(9, Math.ceil(romSegment(a).items.length * 1.5 + 1));
     process.env.AZM_AGENT_GLOBAL_DAILY_MINUTES = String(counted() + minutes + 2);
     expect((await token(tokenBody(a), a.cookie)).status).toBe(200);
+    const budget = fallbacks()["budget:booth"] ?? 0;
     const refused = await token(tokenBody(b), b.cookie);
     expect(refused.status).toBe(429);
     expect(refused.data).toEqual({ error: "BUDGET", minutesLeft: 2 });
+    expect(fallbacks()["budget:booth"]).toBe(budget + 1);
   });
 
   it("fits a full A to Z in the default user budget: every segment of the check, both workout parts and two re-mints", async () => {

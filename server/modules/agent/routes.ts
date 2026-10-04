@@ -27,7 +27,7 @@ import { boothWindow } from "../booth/config";
 import { validPass } from "../booth/store";
 import { activeConsent } from "../consents/store";
 import { ownFocusCheck, type FocusCheck } from "../focus/store";
-import { decide, ownSession, reserve, storeUsage, type ReservationAsk } from "./budget";
+import { decide, ownSession, reserve, segmentSession, storeUsage, type ReservationAsk } from "./budget";
 import { checkContext, workoutContext, type CoachContext } from "./context";
 import { minutesFor, segmentsFor, SESSION_SEGMENTS } from "./segments";
 import { TokenError, agentConfig, coachSetup, mintToken } from "./token";
@@ -116,6 +116,8 @@ export const agentRoutes: Route[] = [
       let ref: string;
       let minutes: number;
       let context: () => CoachContext | null;
+      // The setting of a coach_fallback count (section 3).
+      let setting: () => Setting;
       if ("checkId" in req.ref) {
         const check = openFocus(db, req.ref.checkId, u.id, now);
         if (!check) return json(409, NOT_OPEN);
@@ -124,6 +126,7 @@ export const agentRoutes: Route[] = [
         if (!seg || seg.block !== req.block) return json(400, { error: "AGENT_INVALID", field: "segment" });
         ref = check.id;
         minutes = minutesFor(seg, cfg.segmentMinutes);
+        setting = () => check.setting;
         context = () => {
           const intake = profileOf(db, u.id)?.intake;
           return intake ? checkContext(check, intake, seg, req.lang) : null;
@@ -135,8 +138,18 @@ export const agentRoutes: Route[] = [
           return json(400, { error: "AGENT_INVALID", field: "segment" });
         ref = req.ref.workoutId;
         minutes = minutesFor({ block: "session" }, cfg.segmentMinutes);
+        setting = () => (boothPassHolds(rc.req, db, now) ? "booth" : "home");
         context = () => workoutContext(workout.run, workout.position, req.segment, req.lang);
       }
+
+      /**
+       * A segment that never started falls back to the local voice here: no usage report can follow,
+       * so this route counts it (a running segment's fallback is counted from its usage report).
+       */
+      const neverStarted = (key: "budget" | "token_failed") => {
+        if (!segmentSession(db, u.id, ref, req.segment))
+          countProduct(db, "coach_fallback", key, setting(), now);
+      };
 
       const device = sha256(req.deviceId);
       if (
@@ -160,7 +173,10 @@ export const agentRoutes: Route[] = [
       };
       // A refusal before the mint costs no call to Google; reserve decides again after it.
       const before = decide(db, ask, cfg);
-      if (!before.ok) return json(429, { error: "BUDGET", minutesLeft: before.minutesLeft });
+      if (!before.ok) {
+        neverStarted("budget");
+        return json(429, { error: "BUDGET", minutesLeft: before.minutesLeft });
+      }
 
       const ctx = context();
       if (!ctx) return json(409, NOT_OPEN);
@@ -176,10 +192,14 @@ export const agentRoutes: Route[] = [
       } catch (error) {
         const status = error instanceof TokenError ? error.status : 0;
         console.error("AZM agent token failed", status);
+        neverStarted("token_failed");
         return json(502, { error: "TOKEN_FAILED" });
       }
       const reservation = reserve(db, ask, cfg);
-      if (!reservation.ok) return json(429, { error: "BUDGET", minutesLeft: reservation.minutesLeft });
+      if (!reservation.ok) {
+        neverStarted("budget");
+        return json(429, { error: "BUDGET", minutesLeft: reservation.minutesLeft });
+      }
       const out: TokenResponse = {
         sessionId: reservation.id,
         token: minted.name,

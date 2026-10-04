@@ -14,6 +14,9 @@ import { moduleRoutes } from "./modules";
 import type { Route } from "./http/types";
 import { confirmAdult } from "./modules/account/store";
 import { acceptConsent } from "./modules/consents/store";
+import { v7Enabled } from "./modules/focus/routes";
+import { pruneAgentSessions } from "./modules/focus/store";
+import { afterIntakeSaved } from "./modules/program/hooks";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -66,6 +69,8 @@ export function createApi(
     console.log(
       `Azm database migrated to schema ${migrated.schema}${migrated.backup ? ", backup written before migrating" : ""}`,
     );
+  // v7 retention (product v7 contract section 3): coach session rows are kept 90 days.
+  pruneAgentSessions(db, Date.now());
   const rates = new Map<string, { n: number; until: number }>();
   let swept = 0;
   function limited(key: string, max = 12, windowMs = 900000) {
@@ -278,7 +283,9 @@ export function createApi(
       if (route === "/api/plan/weekly" && req.method === "POST") {
         const p = profile(u.id);
         if (!p.intake || !p.plan || p.plan.status !== "ready") return json(409, { error: "PLAN_REQUIRED" });
-        if (p.plan.weekly && body.refresh !== true)
+        // v7 (product v7 contract 2.10): a targeted weekly (one with findings) is returned unchanged,
+        // also with refresh: true; the Program page refreshes it through POST /api/program/targets.
+        if (p.plan.weekly && (body.refresh !== true || p.plan.weekly.findings))
           return json(200, { weekly: p.plan.weekly, version: p.plan.version });
         if (limited(`weekly:${u.id}`, 6)) return json(429, { error: "RATE_LIMIT" });
         const weekly = await createWeekly(p.intake, p.plan, process.env.OPENAI_API_KEY);
@@ -301,6 +308,14 @@ export function createApi(
         db.prepare(
           "INSERT INTO profiles VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET intake=excluded.intake,plan=excluded.plan,version=excluded.version",
         ).run(u.id, JSON.stringify(body), JSON.stringify(plan), version);
+        // v7 (product v7 contract 2.10): the targeted weekly follows the new intake (stream E). The
+        // intake is saved whatever the hook does; a failure is logged by its name only.
+        if (v7Enabled())
+          try {
+            afterIntakeSaved(db, u.id);
+          } catch (error) {
+            console.error("AZM intake hook failed", error instanceof Error ? error.name : "Error");
+          }
         return json(200, { intake: body, plan: { ...plan, version } });
       }
       if (route === "/api/sessions" && req.method === "GET") {

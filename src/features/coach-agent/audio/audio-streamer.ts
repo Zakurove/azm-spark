@@ -29,6 +29,10 @@
  *     (product v7 contract 2.11 rule 1). Upstream ramped the gain down over 100 ms and swapped the node
  *     200 ms later, so a reply that began within those 200 ms played silent;
  *   - setVolume() for the ducking of rule 3 (30% while a local line plays), kept by stop() and resume();
+ *   - every turn gets the 100 ms initial buffer (section 9): once the last chunk has played the
+ *     streamer is quiet and stops polling, and the next chunk, or one that comes after the voice ran
+ *     dry inside a turn, is scheduled at once after a fresh buffer. Upstream kept polling every 100 ms
+ *     and played a later turn's first chunk at the next poll with no buffer;
  *   - a playing flag, and onComplete also after stop() when something was playing; close();
  *   - a chunk is read through its own byte offset, and an odd last byte is dropped instead of throwing.
  */
@@ -140,11 +144,18 @@ export class AudioStreamer {
     if (processingBuffer.length > 0) {
       this.audioQueue.push(processingBuffer);
     }
+    // Modified for Azm: a chunk that finds everything scheduled already played (the voice ran dry
+    // inside a turn) starts again like a new turn, after a fresh initial buffer, at once.
+    const ranDry = this.isPlaying && this.scheduledTime <= this.context.currentTime;
     // Start playing if not already playing.
-    if (!this.isPlaying) {
+    if (!this.isPlaying || ranDry) {
       this.isPlaying = true;
       // Initialize scheduledTime only when we start playing
       this.scheduledTime = this.context.currentTime + this.initialBufferTime;
+      if (this.scheduleTimer) {
+        clearTimeout(this.scheduleTimer);
+        this.scheduleTimer = null;
+      }
       this.scheduleNextBuffer();
     }
   }
@@ -170,12 +181,19 @@ export class AudioStreamer {
       if (this.audioQueue.length === 0) {
         this.endOfQueueAudioSource = source;
       }
-      // Modified for Azm: every chunk is tracked until it ends; the last one of the queue completes.
+      // Modified for Azm: every chunk is tracked until it ends; the last one of the queue completes,
+      // and the streamer is quiet until the next chunk, which starts a new turn after a fresh initial
+      // buffer (nothing polls while the coach is quiet).
       this.scheduled.add(source);
       source.onended = () => {
         this.scheduled.delete(source);
         if (!this.audioQueue.length && this.endOfQueueAudioSource === source) {
           this.endOfQueueAudioSource = null;
+          this.isPlaying = false;
+          if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+          }
           this.onComplete();
         }
       };

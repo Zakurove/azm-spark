@@ -324,6 +324,34 @@ describe("Speaker", () => {
     expect(speaker.playing).toBe(false);
   });
 
+  it("starts every later turn at once after its own 100 ms buffer, and runs no timer while quiet", () => {
+    speaker.play(pcm(0.1));
+    expect(played()[0].started).toBeCloseTo(10.1, 6);
+    ctx.currentTime = 10.2;
+    played()[0].onended?.();
+    // Quiet between turns: nothing is polling.
+    expect(vi.getTimerCount()).toBe(0);
+    ctx.currentTime = 12;
+    vi.advanceTimersByTime(1800);
+    speaker.play(pcm(0.1));
+    expect(played()).toHaveLength(2);
+    expect(played()[1].started).toBeCloseTo(12.1, 6);
+  });
+
+  it("gives a chunk that comes after the voice ran dry inside a turn a fresh 100 ms buffer", () => {
+    speaker.play(pcm(0.1));
+    // The first chunk has played (its ended event not delivered yet) when the next one arrives.
+    ctx.currentTime = 10.25;
+    speaker.play(pcm(0.1));
+    expect(played()).toHaveLength(2);
+    expect(played()[1].started).toBeCloseTo(10.35, 6);
+    // A chunk that arrives while the voice still plays follows it without a gap.
+    ctx.currentTime = 10.3;
+    speaker.play(pcm(0.1));
+    vi.advanceTimersByTime(100);
+    expect(played()[2].started).toBeCloseTo(10.45, 6);
+  });
+
   it("flushes at once and plays the next chunk right away on a fresh gain", () => {
     const idle = vi.fn();
     speaker.onIdle(idle);

@@ -188,6 +188,17 @@ function lengthRatio(
   return len === null || !ref ? null : len / ref;
 }
 
+/**
+ * The far wrist reaches across to the tested limb: its depth (the model's z, smaller nearer the camera)
+ * is nearer the tested joint's than its own side's joint's. False without depth (every z the same).
+ */
+function reachesAcross(px: Landmark[], wrist: number, tested: number, own: number): boolean {
+  const z = (i: number) => px[i].z;
+  if (![wrist, tested, own].every((i) => Number.isFinite(z(i)))) return false;
+  if (z(tested) === z(own)) return false;
+  return Math.abs(z(wrist) - z(tested)) < Math.abs(z(wrist) - z(own));
+}
+
 /** Seen wrists of both sides. */
 function wrists(px: Landmark[]): Pt[] {
   return [15, 16].filter((i) => seen(px, i)).map((i) => at(px, i));
@@ -527,13 +538,28 @@ export const COMPENSATIONS: Record<RomMovementId, CompensationSpec[]> = {
   ],
   hip_flexion: [
     // assisted: «A wrist within 0.3 thigh lengths of the tested knee at the end range», «yes (active range only)».
+    // The tested side's wrist, and the other wrist only when it is on the near side of the body: in
+    // the side view the far knee lies on the tested knee in the picture, so a far hand resting on the
+    // far knee (a common way to sit) reads as «a wrist at the tested knee» whenever the lift is small.
+    // The other wrist counts when its depth is nearer the tested knee's than its own knee's (a hand
+    // reaching across to pull the tested knee); without depth it is left out (wave 2 fix, engine
+    // review 6; contract gap W2-7).
     spec("hip_flexion", "assisted", {
       measure: (px, ctx) => {
         const s = limbSide(ctx);
         const thigh = ctx.calibration.segmentPx.thigh;
-        const w = wrists(px);
-        if (s === null || !thigh || !w.length || !seen(px, ID.knee[s])) return null;
-        return Math.min(...w.map((p) => dist(p, at(px, ID.knee[s])))) / thigh;
+        if (s === null || !thigh || !seen(px, ID.knee[s])) return null;
+        const knee = at(px, ID.knee[s]);
+        const near: Pt[] = seen(px, ID.wrist[s]) ? [at(px, ID.wrist[s])] : [];
+        const o = other(s);
+        if (
+          seen(px, ID.wrist[o]) &&
+          seen(px, ID.knee[o]) &&
+          reachesAcross(px, ID.wrist[o], ID.knee[s], ID.knee[o])
+        )
+          near.push(at(px, ID.wrist[o]));
+        if (!near.length) return null;
+        return Math.min(...near.map((p) => dist(p, knee))) / thigh;
       },
       compare: "value",
       at: "hold",

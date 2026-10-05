@@ -1,1 +1,6 @@
-{}
+{
+  "name": "Live coach",
+  "consent": {
+    "title": "Before you turn on the Live coach"
+  }
+}

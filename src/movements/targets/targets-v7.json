@@ -3451,6 +3451,7 @@
         "beginner_friendly"
       ],
       "demands": [
+        "flexibility",
         "trunk_control"
       ],
       "contraindications": [
@@ -3529,6 +3530,7 @@
         "beginner_friendly"
       ],
       "demands": [
+        "flexibility",
         "trunk_control"
       ],
       "contraindications": [
@@ -7441,7 +7443,9 @@
         "low_impact",
         "beginner_friendly"
       ],
-      "demands": [],
+      "demands": [
+        "flexibility"
+      ],
       "contraindications": [
         "neck_caution",
         "spine_surgery_recent"

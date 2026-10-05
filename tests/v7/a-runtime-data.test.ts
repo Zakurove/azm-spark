@@ -662,6 +662,16 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
     });
   });
 
+  it("gives every flexibility item the flexibility demand; the walking items keep their category (E1-9)", () => {
+    for (const e of TARGETS_DATA.newExercises.filter((x) => x.category === "flexibility"))
+      expect(e.demands, e.id).toContain("flexibility");
+    const byId = (id: string) => TARGETS_DATA.newExercises.find((x) => x.id === id)!;
+    expect(byId("seated_upper_back_extension").demands).toEqual(["flexibility", "trunk_control"]);
+    expect(byId("seated_pelvic_rock").demands).toEqual(["flexibility", "trunk_control"]);
+    expect(byId("chin_nod_hold").demands).toEqual(["flexibility"]);
+    expect(TARGETS_DATA.newExercises.filter((x) => x.category === "walking")).toHaveLength(3);
+  });
+
   it("doses the standing hip flexor stretch by the stretch profile; the trial's schedule is evidence (FZ-6)", () => {
     const e = TARGETS_DATA.newExercises.find((x) => x.id === "standing_hip_flexor_stretch")!;
     expect(e.dose).toEqual({ profile: "stretch_hold" });

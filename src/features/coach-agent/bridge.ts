@@ -137,7 +137,8 @@ export class EventBridge {
     }
     const q = this.question;
     if (q && !q.asked && !q.voiced) {
-      if (now - q.at >= this.opts.localFallbackMs) this.askLocally(q, now);
+      // In local mode a question that waited for a line to end is asked as soon as it can be.
+      if (this.current === "local" || now - q.at >= this.opts.localFallbackMs) this.askLocally(q, now);
       else if (this.current === "live" && q.sentAt === null) this.trySend(q, now);
     }
     if (this.current === "live" && this.context.length && now - this.lastFlush >= this.opts.contextFlushMs)
@@ -200,7 +201,9 @@ export class EventBridge {
     this.stopped = true;
     this.question = null;
     this.hooks.flushCoach?.();
-    if (!this.local.playing) this.local.say(P0_LINE, "safety");
+    // The host's own safety line stands for the stop line; a correction or a question playing does
+    // not (a safety line preempts it in CuePlayer), so a user_stop over a correction is still said.
+    if (!(this.local.playingSafety ?? this.local.playing)) this.local.say(P0_LINE, "safety");
     if (this.current === "live") {
       this.flush(now);
       this.transport.sendContext(this.line(e), true);
@@ -239,8 +242,14 @@ export class EventBridge {
     this.lastTrigger = now;
   }
 
-  /** Rule 2: the local voice asks; the coach is told silently (now when live, else once it is). */
+  /**
+   * Rule 2: the local voice asks; the coach is told silently (now when live, else once it is). While a
+   * local line plays (a correction at the same rank would make CuePlayer refuse the question) and for
+   * 300 ms after it, the question waits: nothing is marked asked, the coach is told nothing and its
+   * turn is kept; a later tick asks it.
+   */
   private askLocally(q: Question, now: number): void {
+    if (this.localPlaying || this.local.playing || (this.reopenAt !== null && now < this.reopenAt)) return;
     q.asked = true;
     const ask = LOCAL_ASK[q.e.type];
     this.local.say(ask.line, "warn");

@@ -17,6 +17,7 @@ export type CueLike = Pick<CuePlayer, "line" | "stop">;
 
 export class CueVoice implements LocalVoice {
   private active = new Map<number, VoiceLine>();
+  private severities = new Map<number, Severity>();
   private seq = 0;
   private listeners = new Set<(playing: boolean) => void>();
 
@@ -26,9 +27,15 @@ export class CueVoice implements LocalVoice {
     return this.active.size > 0;
   }
 
+  /** A safety line is playing (rule 1: the bridge's stop line is not said over the host's own). */
+  get playingSafety(): boolean {
+    return [...this.severities.values()].includes("safety");
+  }
+
   say(line: string, severity: Severity): void {
     if (!isVoiceLine(line) || [...this.active.values()].includes(line)) return;
     const token = ++this.seq;
+    this.severities.set(token, severity);
     this.set(token, line);
     let done = false;
     const end = () => {
@@ -58,6 +65,7 @@ export class CueVoice implements LocalVoice {
   }
 
   private unset(token: number): void {
+    this.severities.delete(token);
     if (!this.active.delete(token)) return;
     if (!this.playing) this.emit(false);
   }

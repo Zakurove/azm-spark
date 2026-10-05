@@ -199,6 +199,11 @@ export interface LocalVoice {
   say(line: string, severity: Severity): void;
   stopAll(): void;
   readonly playing: boolean;
+  /**
+   * A safety line is playing (the host's own stop or pain line): the bridge's P0 stop line is then not
+   * said again (rule 1). Absent: unknown, read as `playing` (wave 2 fix, contract gap W2-14).
+   */
+  readonly playingSafety?: boolean;
   onPlaying(fn: (playing: boolean) => void): () => void;
 }
 

@@ -14,23 +14,26 @@ const T0 = 50_000;
 class FakeVoice implements LocalVoice {
   said: { line: string; severity: Severity }[] = [];
   private fns = new Set<(p: boolean) => void>();
-  private active = 0;
+  private active: Severity[] = [];
   get playing() {
-    return this.active > 0;
+    return this.active.length > 0;
+  }
+  get playingSafety() {
+    return this.active.includes("safety");
   }
   say(line: string, severity: Severity) {
     this.said.push({ line, severity });
-    this.active++;
-    if (this.active === 1) for (const fn of this.fns) fn(true);
+    this.active.push(severity);
+    if (this.active.length === 1) for (const fn of this.fns) fn(true);
   }
   /** The line playing now ends. */
   end() {
-    if (this.active === 0) return;
-    this.active--;
-    if (this.active === 0) for (const fn of this.fns) fn(false);
+    if (this.active.length === 0) return;
+    this.active.shift();
+    if (this.active.length === 0) for (const fn of this.fns) fn(false);
   }
   stopAll() {
-    this.active = 1;
+    this.active = ["info"];
     this.end();
   }
   onPlaying(fn: (p: boolean) => void) {
@@ -128,6 +131,13 @@ describe("rule 1: a P0 acts first and closes the bridge to all but P0", () => {
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_pain_stop"]);
   });
 
+  it("says the stop line over a correction playing (only the host's own safety line stands for it)", () => {
+    const s = setup();
+    s.local.say("rom_no_lean", "warn");
+    s.bridge.push(stop(T0), s.at(0));
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean", P0_LINE]);
+  });
+
   it("is sent at once even right after a P1, and cancels the question's local fallback", () => {
     const s = setup();
     s.bridge.push(hold(T0), s.at(0));
@@ -218,6 +228,36 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
   });
 
+  it("waits for a correction to end before it asks locally, and tells the coach only then", () => {
+    const s = setup();
+    s.bridge.push(hold(T0), s.at(0));
+    // The host says a correction just before the local fallback: the question would be refused.
+    s.local.say("rom_shoulder_down", "warn");
+    s.run(1500);
+    s.run(2000);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_shoulder_down"]);
+    expect(s.hooks.onAskedLocally).not.toHaveBeenCalled();
+    expect(s.sent.filter((x) => x.text.includes("asked_locally"))).toEqual([]);
+    // The correction ends; 300 ms later the question is asked and the coach told.
+    s.at(2000);
+    s.local.end();
+    s.run(2250);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_shoulder_down"]);
+    s.run(2400);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_shoulder_down", "rom_ask_max"]);
+    expect(s.hooks.onAskedLocally).toHaveBeenCalledTimes(1);
+  });
+
+  it("in local mode, asks once the line playing ends", () => {
+    const s = setup("local");
+    s.local.say("rom_no_lean", "warn");
+    s.bridge.push(hold(T0), s.at(0));
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean"]);
+    s.local.end();
+    s.run(400);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean", "rom_ask_max"]);
+  });
+
   it("maps every question to its local line and asked_locally name", () => {
     expect(LOCAL_ASK).toEqual({
       end_range_hold: { line: "rom_ask_max", what: "ask_max" },
@@ -227,7 +267,12 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     });
     const s = setup("local");
     s.bridge.push({ p: 1, type: "ask_can_move", movement: "neck_flexion", side: "none", t: T0 }, s.at(0));
-    s.bridge.push({ p: 1, type: "ask_cause", movement: "neck_flexion", side: "none", t: T0 + 10 }, s.at(10));
+    s.local.end();
+    s.run(400);
+    s.bridge.push(
+      { p: 1, type: "ask_cause", movement: "neck_flexion", side: "none", t: T0 + 410 },
+      s.at(410),
+    );
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_can_move_ask", "rom_what_stopped_ask"]);
   });
 
@@ -390,6 +435,8 @@ describe("rule 6: two questions without coach audio fall back to the local voice
     s.bridge.push(hold(T0), s.at(0));
     s.run(1500);
     expect(s.hooks.onFallback).not.toHaveBeenCalled();
+    s.at(2500);
+    s.local.end();
     s.bridge.push(askPain(T0 + 4000), s.at(4000));
     s.run(5500);
     expect(s.hooks.onFallback).toHaveBeenCalledWith("fallback_slow");

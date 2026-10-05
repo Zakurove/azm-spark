@@ -60,6 +60,8 @@ export interface E2ePage {
   listen: NonNullable<CoachDeps["listen"]>;
   /** POST /api/agent/usage (sendUsageReport in the browser). */
   report: CoachDeps["report"];
+  /** The perf overlay's timings (User Timing in the browser). */
+  measure?: CoachDeps["measure"];
 }
 
 /** The coach segment's parts for ?e2eCoach=fake. */
@@ -100,5 +102,6 @@ export function e2eCoachDeps(page: E2ePage): CoachDeps {
     speaker: () => new SilentSpeaker(),
     deviceId: () => "e2e_device_000000000000",
     listen: page.listen,
+    ...(page.measure ? { measure: page.measure } : {}),
   };
 }

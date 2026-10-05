@@ -107,6 +107,19 @@ export function setCoachAudioSession(live: boolean): void {
   }
 }
 
+/**
+ * A section 9 timing as a User Timing measure (performance.measure, on the performance.now clock the
+ * session uses), which the perf overlay of VITE_E2E builds reads by its azm: name (DG-1). Never throws.
+ */
+export function userTiming(name: string, start: number, duration: number): void {
+  if (!Number.isFinite(start) || !Number.isFinite(duration) || start < 0 || duration < 0) return;
+  try {
+    performance.measure(name, { start, duration });
+  } catch {
+    /* a browser without measure options */
+  }
+}
+
 /** The page's offline, online and hide events. */
 function windowEvents(h: { offline(): void; online(): void; hidden(): void }): () => void {
   if (typeof window === "undefined") return noop;
@@ -145,6 +158,7 @@ function coachDeps(): CoachDeps {
       hooks: window as unknown as Record<string, unknown>,
       listen: windowEvents,
       report: (r) => sendUsageReport(r),
+      measure: userTiming,
     });
   return {
     now: () => performance.now(),
@@ -158,5 +172,6 @@ function coachDeps(): CoachDeps {
     deviceId: () => coachDeviceId(),
     listen: windowEvents,
     audioSession: setCoachAudioSession,
+    measure: userTiming,
   };
 }

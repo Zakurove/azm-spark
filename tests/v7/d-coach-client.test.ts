@@ -17,7 +17,12 @@ import {
 import { CueVoice, type CueLike } from "../../src/features/coach-agent/LocalVoice";
 import { CoachSession } from "../../src/features/coach-agent/session";
 import { E2E_COACH_SESSION_ID, SilentSpeaker, e2eCoachDeps } from "../../src/features/coach-agent/e2eCoach";
-import { setCoachAudioSession, useCoach, type CoachControl } from "../../src/features/coach-agent/useCoach";
+import {
+  setCoachAudioSession,
+  useCoach,
+  userTiming,
+  type CoachControl,
+} from "../../src/features/coach-agent/useCoach";
 import { CuePlayer } from "../../src/app/audio";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../server/modules/agent/types";
 import type { CoachOptions } from "../../src/coach/types";
@@ -243,6 +248,22 @@ describe("the audio session while the coach is live", () => {
     nav.audioSession.type = "auto";
     CuePlayer.unlock();
     expect(nav.audioSession.type).toBe("playback");
+  });
+});
+
+/* ------------------------------------------------- the perf overlay */
+
+describe("the coach's timings for the perf overlay (DG-1)", () => {
+  afterEach(() => performance.clearMeasures());
+
+  it("are User Timing measures named azm:*, which the overlay reads, and never throw", () => {
+    const start = performance.now();
+    userTiming("azm:coach_connect", start, 900);
+    const [entry] = performance.getEntriesByName("azm:coach_connect", "measure");
+    expect(entry.startTime).toBeCloseTo(start, 6);
+    expect(entry.duration).toBeCloseTo(900, 6);
+    expect(() => userTiming("azm:coach_first_audio", Number.NaN, -1)).not.toThrow();
+    expect(performance.getEntriesByName("azm:coach_first_audio", "measure")).toEqual([]);
   });
 });
 

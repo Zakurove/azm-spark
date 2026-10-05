@@ -76,9 +76,18 @@ export interface CoachDeps {
   listen?(h: { offline(): void; online(): void; hidden(): void }): () => void;
   /** Rule 3: play-and-record while the coach is live, playback after. */
   audioSession?(live: boolean): void;
+  /** Section 9 timings for the perf overlay (User Timing measures named azm:*, DG-1), on the clock of now. */
+  measure?(name: CoachMeasure, start: number, duration: number): void;
   /** The bridge's tick (default 100 ms). */
   tickMs?: number;
 }
+
+/**
+ * The section 9 timings a segment measures (D-026 item 8: the first audio comes from the perf overlay,
+ * not the usage report's columns): the token request's round trip, the connect call to setupComplete,
+ * and each question's send to the coach's first audible chunk.
+ */
+export type CoachMeasure = "azm:coach_mint" | "azm:coach_connect" | "azm:coach_first_audio";
 
 /** What useCoach shows (2.11 CoachState without its functions). */
 export interface CoachSnapshot {
@@ -183,7 +192,10 @@ export class CoachSession {
           this.dropTurn = true;
           this.speaker.flush();
         },
-        onFirstAudio: (ms) => this.firstAudio.push(ms),
+        onFirstAudio: (ms) => {
+          this.firstAudio.push(ms);
+          this.deps.measure?.("azm:coach_first_audio", this.deps.now() - ms, ms);
+        },
       },
     );
     this.bridge.setMode("connecting");
@@ -317,12 +329,14 @@ export class CoachSession {
       ...(this.deps.silenceMs ? { silenceMs: this.deps.silenceMs } : {}),
     };
     let res: MintResult;
+    const asked = this.deps.now();
     try {
       res = await this.deps.mint(req);
     } catch {
       res = { ok: false, status: 0, error: "NETWORK" };
     }
     if (this.ended) return null;
+    if (res.ok) this.deps.measure?.("azm:coach_mint", asked, this.deps.now() - asked);
     if (!res.ok) {
       if (res.error === "BUDGET" || FINAL_STATUS.has(res.status)) this.noCoach = true;
       if (this.snap.mode === "connecting")
@@ -453,6 +467,8 @@ export class CoachSession {
     if (this.liveSince !== null) return;
     this.liveSince = now;
     this.firstConnectMs ??= now - (this.connectStart ?? now);
+    if (this.connectStart !== null)
+      this.deps.measure?.("azm:coach_connect", this.connectStart, now - this.connectStart);
     this.rotateDue = false;
     this.rotateAtTime = rotateAt(now, this.expiresAt);
     if (!this.audioHeld) {

@@ -48,6 +48,8 @@ interface Options {
   mint?: (req: TokenRequest, n: number) => MintResult;
   micRefused?: boolean;
   noMic?: boolean;
+  /** The token request's round trip (default at once). */
+  mintDelayMs?: number;
 }
 
 function harness(o: Options = {}) {
@@ -59,6 +61,7 @@ function harness(o: Options = {}) {
   const speaker = new FakeSpeaker();
   const voice = new FakeVoice();
   const audioSessions: boolean[] = [];
+  const measures: { name: string; start: number; duration: number }[] = [];
   let online = o.online ?? true;
   let handlers: { offline(): void; online(): void; hidden(): void } | null = null;
   const deps: CoachDeps = {
@@ -67,6 +70,7 @@ function harness(o: Options = {}) {
     online: () => online,
     async mint(req) {
       mints.push(req);
+      if (o.mintDelayMs) await new Promise((r) => setTimeout(r, o.mintDelayMs));
       return o.mint
         ? o.mint(req, mints.length)
         : { ok: true, token: token(mints.length), serverDate: Date.now() };
@@ -85,6 +89,7 @@ function harness(o: Options = {}) {
       return () => (handlers = null);
     },
     audioSession: (live) => audioSessions.push(live),
+    measure: (name, start, duration) => measures.push({ name, start, duration }),
     tickMs: 50,
   };
   const host = o.host ?? new RefRomHost();
@@ -116,6 +121,7 @@ function harness(o: Options = {}) {
     voice,
     host,
     audioSessions,
+    measures,
     live,
     sent,
     contexts,
@@ -220,6 +226,27 @@ describe("the prewarm (rule 8)", () => {
     expect(h.transports).toHaveLength(1);
     expect(h.live().options?.token).toBe("auth_tokens/t2");
     expect(h.session.getSnapshot().mode).toBe("live");
+  });
+});
+
+describe("the section 9 measures for the perf overlay (DG-1, D-026 item 8)", () => {
+  it("measures the mint, the connect to setupComplete and each question's first audio", async () => {
+    const h = harness({ mintDelayMs: 250 });
+    const host = h.host as RefRomHost;
+    h.session.start();
+    await run(250 + 900);
+    expect(h.session.getSnapshot().mode).toBe("live");
+    expect(h.measures).toEqual([
+      { name: "azm:coach_mint", start: T0, duration: 250 },
+      { name: "azm:coach_connect", start: T0 + 250, duration: 900 },
+    ]);
+    host.openHold("h1", 118);
+    h.push(hold());
+    const sentAt = Date.now();
+    await run(640);
+    h.emit(coachAudio());
+    h.emit(coachAudio());
+    expect(h.measures.slice(2)).toEqual([{ name: "azm:coach_first_audio", start: sentAt, duration: 640 }]);
   });
 });
 

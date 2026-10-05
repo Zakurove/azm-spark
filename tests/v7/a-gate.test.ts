@@ -54,6 +54,31 @@ describe("THIRD_PARTY_LICENSES.md after the A merges", () => {
       expect(line, name).not.toMatch(/\[[^\]]*\]/);
     }
   });
+
+  it("fills the bracketed fields of the code stream C ported, from its file headers (wave 2 merge)", () => {
+    const lines = readFileSync(join(__dirname, "../..", "THIRD_PARTY_LICENSES.md"), "utf8").split("\n");
+    const expected: [string, string[]][] = [
+      [
+        "**myogait**",
+        ["Copyright (c) 2024 Frederic Fer, Institut de Myologie", "695ca8636d071f7c84374f2e0bdd48caeb1b869a"],
+      ],
+      [
+        "**OpenCap processing**",
+        [
+          "Copyright 2023 Stanford University and the Authors",
+          "72b5416bf6172fe3d9b42b01e1a02252362b20fc",
+          "NOTICE: none",
+        ],
+      ],
+      ["**Pose2Sim**", ["`src/engine/gait/scale.ts`"]],
+    ];
+    for (const [name, parts] of expected) {
+      const line = lines.find((l) => l.startsWith(`- ${name}`));
+      expect(line, name).toBeDefined();
+      expect(line, name).not.toMatch(/\[[^\]]*\]/);
+      for (const part of parts) expect(line, name).toContain(part);
+    }
+  });
 });
 
 describe("FOCUS_RULES", () => {

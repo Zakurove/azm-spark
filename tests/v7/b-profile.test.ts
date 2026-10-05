@@ -340,6 +340,28 @@ describe("buildRomProfile: every joint movement and side (contract 2.7, C-4)", (
     expect(p.entries.filter((e) => e.source !== "default" && e.typical !== null)).toEqual([]);
   });
 
+  it("Parkinson's: a movement the set leaves out is stored grey, never typical, with no finding of its own (FZ-3)", () => {
+    const intake = intakeOf({
+      conditions: ["parkinsons"],
+      regions: [entry("shoulder", "right", ["stiffness"], { origin: "condition" })],
+    });
+    const rows = [
+      notMeasured("shoulder_abduction", "right", "not_measured_today", "not_in_set", "not_today"),
+    ];
+    const p = buildRomProfile({ intake, rows, now: 7 });
+    expect(at(p, "shoulder_abduction", "right")).toMatchObject({
+      source: "not_measured_today",
+      finding: "not_today",
+      reason: "not_in_set",
+      value: null,
+      typical: null,
+      percentOfNormal: null,
+    });
+    // The set's own targets cover the exercises: the left out movement gives no finding.
+    expect(romFindings(p, intake).some((f) => f.movementId === "shoulder_abduction")).toBe(false);
+    expect(bodyMapSummary(p)["shoulder:right"]).toBe("grey");
+  });
+
   it("keeps a stored row under its own source, with the typical value it was graded against", () => {
     const value = valueFor(FAHD, "knee_flexion", "right", "mild");
     const row = measured(FAHD, "knee_flexion", "right", "lying_back", value, { nValid: 1, median: value });

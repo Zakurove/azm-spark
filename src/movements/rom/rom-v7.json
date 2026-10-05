@@ -6159,7 +6159,8 @@
     "clearance_needed": "Stroke or SCI without medical clearance (global gate)",
     "deferred": "Beyond the measured cap of the check (MAX_MEASURED_PER_CHECK 8; 2 in the showcase): stored as not measured today and kept for a later check (contract 2.5 and section 4); copy deferred_line",
     "not_reached": "The check was completed or stopped before this movement was reached: stored as not measured today (contract section 4); copy not_reached_line",
-    "sitting_balance": "Cannot sit safely without the backrest (sit_unsupported_ask no or not sure, or not asked with mobility bed or SCI at neck level): the seated_forward position and the seated forward bend are not used (review C11)"
+    "sitting_balance": "Cannot sit safely without the backrest (sit_unsupported_ask no or not sure, or not asked with mobility bed or SCI at neck level): the seated_forward position and the seated forward bend are not used (review C11)",
+    "not_in_set": "Parkinson's: a camera movement of a region the movement set covers that the set leaves out (the side arm raise, the arm back, the neck side bend, chin to chest, the leg to the side, and the forward bend unless the person adds the trunk): stored as not measured, grey, never typical (ROM-Q15); no target of its own, since the set's own targets cover the exercises (FZ-3, D-026 item 4)"
   },
   "copy": {
     "intro": {

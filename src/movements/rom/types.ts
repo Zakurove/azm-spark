@@ -254,6 +254,7 @@ export const ROM_REASON_IDS = [
   "deferred",
   "not_reached",
   "sitting_balance",
+  "not_in_set",
 ] as const;
 export type RomV7ReasonId = (typeof ROM_REASON_IDS)[number];
 

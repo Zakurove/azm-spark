@@ -238,6 +238,9 @@ function notMeasuredLine(e: RomProfileEntry, lang: Lang): string | null {
       return tV7(lang, "rom.findings.painStop");
     case "stopped_symptom":
       return tV7(lang, "rom.findings.stopped");
+    // A movement the Parkinson's set leaves out in its regions (rom-protocol 4.3 rule 11, FZ-3), or a
+    // movement of the body map with no row at all.
+    case "not_in_set":
     case null:
       return tV7(lang, "rom.findings.notInCheck");
     default:

@@ -1,8 +1,9 @@
 /**
  * POST /api/agent/token and POST /api/agent/usage (product v7 contract 5.1 and 5.2, stream D): the
  * live coach's ephemeral token, its budget and the usage report. Registered behind AZM_V7 by
- * server/modules/index.ts (404 while the flag is off); both answer 503 AGENT_UNAVAILABLE while
- * AZM_AGENT_ENABLED is off or GEMINI_API_KEY is missing.
+ * server/modules/index.ts (404 while the flag is off). The token route answers 503 AGENT_UNAVAILABLE
+ * while AZM_AGENT_ENABLED is off or GEMINI_API_KEY is missing; the usage report does not, since it
+ * asks nothing of Google and a segment that ran before the switch went off still reports.
  *
  * The coach is an enhancement, never a dependency (C-5): every refusal here leaves the segment to the
  * local voice pack and the buttons. The token route checks, in the order of 5.1: the body, the
@@ -222,7 +223,9 @@ export const agentRoutes: Route[] = [
       const { db, body, json, limited } = rc;
       const u = rc.user!;
       const now = Date.now();
-      if (!agentConfig()) return json(503, UNAVAILABLE);
+      // No check of the coach switch or the key: a report asks nothing of Google, and the segments
+      // that ran before the switch went off still report on their own rows (5.2; the e2e server of
+      // 1.2.1 runs with AZM_AGENT_ENABLED=0 and 8.7 expects the page hide report to answer 200).
       if (limited(`agent-usage:${u.id}`, USAGE_PER_WINDOW, WINDOW_MS))
         return json(429, { error: "RATE_LIMIT" });
       const parsed = parseUsageReport(body);

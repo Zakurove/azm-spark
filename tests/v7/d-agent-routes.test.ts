@@ -222,11 +222,12 @@ const report = (sessionId: string, over: Record<string, unknown> = {}) => ({
 /* --------------------------------------------------------------- tests */
 
 describe("POST /api/agent/token: the order of checks", () => {
-  it("answers 503 AGENT_UNAVAILABLE while the coach is switched off or has no key, on both routes", async () => {
+  it("answers 503 AGENT_UNAVAILABLE while the coach is switched off or has no key", async () => {
     const st = await started();
     delete process.env.AZM_AGENT_ENABLED;
     expect((await token(tokenBody(st), st.cookie)).data).toEqual({ error: "AGENT_UNAVAILABLE" });
-    expect((await usage(report("11111111-2222-4333-8444-555555555555"), st.cookie)).status).toBe(503);
+    // The usage report has no such check (it asks nothing of Google): an unknown session is 404.
+    expect((await usage(report("11111111-2222-4333-8444-555555555555"), st.cookie)).status).toBe(404);
     process.env.AZM_AGENT_ENABLED = "1";
     delete process.env.GEMINI_API_KEY;
     expect((await token(tokenBody(st), st.cookie)).status).toBe(503);
@@ -828,6 +829,30 @@ describe("POST /api/agent/usage (5.2)", () => {
     });
     expect(r.status).toBe(403);
     expect(await r.json()).toEqual({ error: "ORIGIN" });
+  });
+
+  it("stores the report of a segment while the coach is switched off or has no key (a kill switch, the e2e server)", async () => {
+    const st = await started();
+    const t = await token(tokenBody(st), st.cookie);
+    expect(t.status).toBe(200);
+    // The switch goes off mid segment (1.2.1: the e2e server runs with AZM_AGENT_ENABLED=0): the
+    // report still reaches its own row, and asks nothing of Google.
+    delete process.env.AZM_AGENT_ENABLED;
+    vi.setSystemTime(T0 + 3 * MINUTE);
+    const off = await usage(
+      report(t.data.sessionId, { durationSec: 120, endReason: "fallback_error" }),
+      st.cookie,
+    );
+    expect(off.status).toBe(200);
+    expect(off.data).toEqual({ ok: true });
+    expect(row(t.data.sessionId)).toMatchObject({ minutes_used: 2, end_reason: "fallback_error" });
+    process.env.AZM_AGENT_ENABLED = "1";
+    delete process.env.GEMINI_API_KEY;
+    expect((await usage(report(t.data.sessionId), st.cookie)).status).toBe(200);
+    expect(row(t.data.sessionId)).toMatchObject({ end_reason: "done" });
+    expect(google).toHaveLength(1);
+    // Still the person's own row only.
+    expect((await usage(report("11111111-2222-4333-8444-555555555555"), st.cookie)).status).toBe(404);
   });
 
   it("answers 404 for a session that is not the person's", async () => {

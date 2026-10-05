@@ -79,6 +79,23 @@ describe("THIRD_PARTY_LICENSES.md after the A merges", () => {
       for (const part of parts) expect(line, name).toContain(part);
     }
   });
+
+  it("fills the bracketed fields of the code stream D vendored, from its file headers (wave 2 merge)", () => {
+    const text = readFileSync(join(__dirname, "../..", "THIRD_PARTY_LICENSES.md"), "utf8");
+    const line = text.split("\n").find((l) => l.startsWith("- **Gemini Live API Web Console**"));
+    expect(line).toBeDefined();
+    expect(line).not.toMatch(/\[[^\]]*\]/);
+    for (const part of [
+      "Copyright 2024 Google LLC",
+      "0a4542fe0e39d07956ea7af5de45d7c81fde8960",
+      "NOTICE: none",
+      "`src/features/coach-agent/audio/`",
+    ])
+      expect(line).toContain(part);
+    // No bracketed field is left anywhere in the v7 section once C and D are merged.
+    const v7 = text.slice(text.indexOf("## Azm v7 (range of motion, gait, live coach)"));
+    expect(v7).not.toMatch(/\[(copyright|sha|x|text or none|or: )[^\]]*\]/);
+  });
 });
 
 describe("FOCUS_RULES", () => {

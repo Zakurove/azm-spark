@@ -17,15 +17,10 @@ import {
 import { CueVoice, type CueLike } from "../../src/features/coach-agent/LocalVoice";
 import { CoachSession } from "../../src/features/coach-agent/session";
 import { E2E_COACH_SESSION_ID, SilentSpeaker, e2eCoachDeps } from "../../src/features/coach-agent/e2eCoach";
-import {
-  setCoachAudioSession,
-  useCoach,
-  userTiming,
-  type CoachControl,
-} from "../../src/features/coach-agent/useCoach";
+import { setCoachAudioSession, useCoach, userTiming } from "../../src/features/coach-agent/useCoach";
 import { CuePlayer } from "../../src/app/audio";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../server/modules/agent/types";
-import type { CoachOptions } from "../../src/coach/types";
+import type { CoachOptions, CoachState } from "../../src/coach/types";
 import { FakeVoice, RefRomHost } from "./d-coach-harness";
 
 const REQ: TokenRequest = {
@@ -270,8 +265,8 @@ describe("the coach's timings for the perf overlay (DG-1)", () => {
 /* ---------------------------------------------------------- useCoach */
 
 describe("useCoach before a session exists", () => {
-  function render(opts: CoachOptions | null): CoachControl {
-    let out: CoachControl | null = null;
+  function render(opts: CoachOptions | null): CoachState {
+    let out: CoachState | null = null;
     function Probe() {
       out = useCoach(opts);
       return null;

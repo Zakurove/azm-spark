@@ -548,7 +548,9 @@ export function ResultScreen({
   const norm = ctl.norm(item);
   // The server's grade once it answered (C-3); the same pure grade on the phone before that.
   const finding = saved?.grade.finding ?? ctl.findingOf(result);
-  const typical = saved?.typical ?? norm.typical;
+  // The server's typical once it answered (null for a position without a graded norm: never another
+  // position's), the phone's own before that.
+  const typical = saved ? saved.typical : norm.typical;
   const view = resultView(item, result, finding, typical, intake, lang, (k) =>
     tV7(lang, `rom.${k}` as never),
   );

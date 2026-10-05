@@ -172,6 +172,7 @@ export function testRules(over: Partial<FocusRules> = {}): FocusRules {
     },
     gradeMeasurement: testGrade,
     typicalValue: () => TEST_TYPICAL,
+    positionTypical: () => TEST_TYPICAL,
     ...over,
   };
 }

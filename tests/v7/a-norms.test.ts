@@ -22,6 +22,7 @@ import {
   gradeMeasurement,
   gradeValue,
   normFor,
+  positionTypical,
   shownApproximate,
   typicalValue,
   type NormPick,
@@ -153,6 +154,20 @@ describe("typicalValue", () => {
     expect(typicalValue("neck_lateral_flexion", "male", 70, "left")).toBe(29);
     expect(typicalValue("forearm_pronation", "female", 50)).toBe(81); // 81.1
     expect(typicalValue("wrist_flexion", "male", 30)).toBe(80);
+  });
+});
+
+describe("positionTypical (rom-protocol 3.12, 4.3 rule 7)", () => {
+  it("is the graded norm of the position's own mean, and none for a position without one", () => {
+    expect(positionTypical("knee_flexion", "lying_back", "male", 40)).toBe(
+      typicalValue("knee_flexion", "male", 40),
+    );
+    // Not graded (no matched norm): value and progress only, never another position's typical.
+    expect(typicalValue("trunk_flexion", "female", 60)).not.toBeNull();
+    expect(positionTypical("trunk_flexion", "seated", "female", 60)).toBeNull();
+    expect(positionTypical("trunk_lateral_flexion", "seated_armrests", "female", 60, "right")).toBeNull();
+    expect(positionTypical("knee_extension", "seated", "female", 60, "right")).toBeNull();
+    expect(positionTypical("knee_flexion", null, "male", 40)).toBeNull();
   });
 });
 

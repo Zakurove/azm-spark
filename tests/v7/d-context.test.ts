@@ -135,6 +135,21 @@ describe("checkContext", () => {
     });
   });
 
+  it("sends no typical for a position without a graded norm (4.3 rule 7), never another position's", () => {
+    const seatedBend: RomProtocolItem = {
+      ...ITEM,
+      movementId: "trunk_flexion",
+      side: "none",
+      region: "back_trunk",
+      position: "seated",
+      graded: false,
+    };
+    const seg = { ...ROM_SEG, items: [seatedBend] } as CheckSegment;
+    expect(checkContext(check(), INTAKE, seg, "en").history).toMatchObject({
+      items: [{ movement: "trunk_flexion", position: "seated", typical: null }],
+    });
+  });
+
   it("gives the walk its modes, the views without the near side (it would name the affected side), the aid and the helper", () => {
     const ctx = checkContext(check({ setting: "booth" }), INTAKE, GAIT_SEG, "ar");
     expect(ctx.instruction).toEqual({ lang: "ar", block: "gait", position: "walking", helperPresent: true });

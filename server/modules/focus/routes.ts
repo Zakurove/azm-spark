@@ -682,8 +682,11 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (!intake) return;
         // C-3: the server's grade, from the same pure rules the phone ran.
         const grade = rules.gradeMeasurement(r, intake);
-        const typical = rules.typicalValue(
+        // The typical of the result's own position: the graded norm it was matched to, else none
+        // (rom-protocol 4.3 rule 7, «value and progress only»), never another position's.
+        const typical = rules.positionTypical(
           item.movementId,
+          r.position,
           intake.sex,
           intake.age,
           item.side === "none" ? undefined : item.side,

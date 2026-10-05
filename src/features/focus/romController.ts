@@ -65,7 +65,7 @@ import {
   type RomProtocolItem,
   type RomReasonId,
 } from "../../medical/rom-protocol";
-import { gradeBand, gradeMeasurement, normFor, typicalValue } from "../../medical/rom-norms";
+import { gradeBand, gradeMeasurement, normFor } from "../../medical/rom-norms";
 import type { RomFindingId } from "../../medical/rom-types";
 import { movementDef, ROM_DATA } from "../../movements/rom";
 import type { RomCopyKey, RomCueId } from "../../movements/rom/types";
@@ -375,15 +375,20 @@ export class RomController implements CoachHost {
     return this.results.get(itemKey(item)) ?? null;
   }
 
-  /** The typical value and the normal band of a movement for this person (the dial and the result card). */
+  /**
+   * The typical value and the normal band of a movement for this person (the dial, the result card
+   * and the coach), from the graded norm of the item's own position only: a position without one has
+   * neither (rom-protocol 3.12 and 4.3 rule 7: «not graded (no matched norm): value and progress
+   * only»), never another position's.
+   */
   norm(item: RomProtocolItem): DialNorm {
     const p = this.opts.intake;
     if (!p) return { typical: null, withinFrom: null, withinUpTo: null };
     const side = item.side === "none" ? undefined : item.side;
-    const typical = typicalValue(item.movementId, p.sex, p.age, side);
     const pick = item.graded ? normFor(item.movementId, item.position, p.sex, p.age, side) : null;
-    if (!pick || !pick.norm.graded || !pick.row.limits)
-      return { typical, withinFrom: null, withinUpTo: null };
+    if (!pick || !pick.norm.graded) return { typical: null, withinFrom: null, withinUpTo: null };
+    const typical = Math.round(pick.row.mean);
+    if (!pick.row.limits) return { typical, withinFrom: null, withinUpTo: null };
     const band = gradeBand(movementDef(item.movementId), pick);
     return band.kind === "lack"
       ? { typical, withinFrom: null, withinUpTo: band.withinUpTo }

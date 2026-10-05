@@ -222,6 +222,23 @@ export function typicalValue(
   return pick ? Math.round(pick.row.mean) : null;
 }
 
+/**
+ * The typical value of a movement in its own position (rom-protocol 3.12 and 4.3 rule 7): the mean, in
+ * whole degrees, of the graded norm matched to that position, or null for a position without one
+ * («not graded (no matched norm): value and progress only»). The live dial, the result card, the
+ * coach and the rom route show it; the findings page reads the same from a stored row's norm.
+ */
+export function positionTypical(
+  movement: JointMovementId,
+  position: RomPositionId | null,
+  sex: Sex,
+  age: number,
+  side?: "left" | "right",
+): number | null {
+  const pick = position === null ? null : normFor(movement, position, sex, age, side);
+  return pick && pick.norm.graded ? Math.round(pick.row.mean) : null;
+}
+
 /* -------------------------------------------------------------- grading */
 
 const RANK: Record<RomGrade, number> = { within: 0, mild: 1, marked: 2 };

@@ -10,7 +10,7 @@
 import type { CoachSegment } from "../../../src/coach/types";
 import type { HistoryInput, InstructionInput, SessionHistoryItem } from "../../../src/coach/instruction";
 import type { Intake } from "../../../src/medical/plan";
-import { typicalValue } from "../../../src/medical/rom-norms";
+import { positionTypical } from "../../../src/medical/rom-norms";
 import type { SessionStep } from "../../../src/medical/session";
 import type { Lang } from "../../../src/movements/types";
 import { runSteps, type RunPlan } from "../../guided";
@@ -46,8 +46,15 @@ export function checkContext(check: FocusCheck, intake: Intake, seg: CheckSegmen
           movement: i.movementId,
           side: i.side,
           position: i.position,
+          // The typical of the item's own position, none without a graded norm there (4.3 rule 7).
           typical: sex
-            ? typicalValue(i.movementId, sex, intake.age, i.side === "none" ? undefined : i.side)
+            ? positionTypical(
+                i.movementId,
+                i.position,
+                sex,
+                intake.age,
+                i.side === "none" ? undefined : i.side,
+              )
             : null,
         })),
       },

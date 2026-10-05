@@ -516,3 +516,39 @@ describe("corrections and lines", () => {
     for (const l of ["practice", "ask_max", "recorded", "again"] as const) expect(said).toContain(l);
   });
 });
+
+describe("the typical value of a position without a matched norm (rom-protocol 3.12, 4.3 rule 7)", () => {
+  // An MS wheelchair user at the booth with the back and the right knee on the body map: the forward
+  // bend is seated, the side bend in seated_armrests, the knee straightening seated, none graded.
+  const MS_CHAIR = intake({
+    mobility: "wheelchair",
+    conditions: ["ms"],
+    regions: [entry("back_trunk", "axial", ["stiffness"]), entry("knee", "right", ["stiffness"])],
+  });
+
+  it("has no typical, no band, for every ungraded position, and the graded one keeps its norm", () => {
+    const p = protocolOf(MS_CHAIR);
+    const ctl = controller(p, { intake: MS_CHAIR });
+    const ungraded = p.items.filter((i) => !i.skipped && !i.graded);
+    expect(ungraded.map(itemKey)).toEqual(
+      expect.arrayContaining(["trunk_flexion:none", "trunk_lateral_flexion:right", "knee_extension:right"]),
+    );
+    for (const item of ungraded)
+      expect(ctl.norm(item), itemKey(item)).toEqual({ typical: null, withinFrom: null, withinUpTo: null });
+    const lyingKnee = { ...p.items.find((i) => i.movementId === "knee_flexion")!, skipped: undefined };
+    expect(ctl.norm(lyingKnee).typical).toBeGreaterThan(100);
+  });
+
+  it("tells the coach no typical at the hold and in the result of an ungraded movement", () => {
+    const p = protocolOf(MS_CHAIR);
+    const ctl = controller(p, { intake: MS_CHAIR });
+    ctl.startBlock("seated", 0);
+    const run = runBlock(ctl, {}, 900);
+    const events = bridges(run.events);
+    const trunk = events.filter(
+      (e) => (e.type === "end_range_hold" || e.type === "movement_result") && e.movement === "trunk_flexion",
+    );
+    expect(trunk.length).toBeGreaterThanOrEqual(2);
+    for (const e of trunk) expect("typical" in e && e.typical).toBeNull();
+  });
+});

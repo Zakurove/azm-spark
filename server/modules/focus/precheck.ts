@@ -21,9 +21,14 @@ import {
 } from "../../../src/medical/rom-protocol";
 import { gaitPlanFor, type GaitPlan } from "../../../src/medical/gait-eligibility";
 import { applyPrecheckOutcome, focusPrecheckEnv } from "../../../src/medical/focus-precheck";
-import { gradeMeasurement, typicalValue, type MeasurementGrade } from "../../../src/medical/rom-norms";
+import {
+  gradeMeasurement,
+  positionTypical,
+  typicalValue,
+  type MeasurementGrade,
+} from "../../../src/medical/rom-norms";
 import type { RomMeasureResult } from "../../../src/engine/rom/types";
-import type { JointMovementId } from "../../../src/movements/rom/types";
+import type { JointMovementId, RomPositionId } from "../../../src/movements/rom/types";
 import type { Setting } from "../../../src/movements/types";
 import { neededArmsLastStand, sideLeanDoneAtHome, type PersonState } from "../assessments/state";
 import { lastCompletedFocus } from "./store";
@@ -63,6 +68,14 @@ export interface FocusRules {
   gradeMeasurement(result: RomMeasureResult, intake: Intake & { sex: Sex }): MeasurementGrade;
   /** rom-norms.ts (A4): the typical default of a movement for the person's sex and age. */
   typicalValue(movement: JointMovementId, sex: Sex, age: number, side?: "left" | "right"): number | null;
+  /** rom-norms.ts: the typical of a movement in its own position, null without a graded norm there (4.3 rule 7). */
+  positionTypical(
+    movement: JointMovementId,
+    position: RomPositionId | null,
+    sex: Sex,
+    age: number,
+    side?: "left" | "right",
+  ): number | null;
 }
 
 /** The real rules of steps A2 and A4, bound at Gate A (contract change log A5-1). */
@@ -74,6 +87,7 @@ export const FOCUS_RULES: FocusRules | null = {
   applyPrecheckOutcome,
   gradeMeasurement,
   typicalValue,
+  positionTypical,
 };
 
 /** The check context of a focus check in its setting (the booth rules of Q19 (5b) included), or null when blocked. */

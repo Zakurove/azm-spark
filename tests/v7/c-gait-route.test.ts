@@ -86,12 +86,17 @@ describe("the gait route runs the server's gait rules", () => {
     const gait = await h.call(`/focus/${s.id}/gait`, body, cookie);
     expect(gait.status).toBe(200);
     expect(gait.data).toMatchObject({ provisional: true, rulesVersion: GAIT_RULES_VERSION });
+    // The route gives the rules the walk's setup (CG-7) and the kept day answers (D-026 item 7).
+    const kept = JSON.parse(
+      (h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(s.id) as { today: string }).today,
+    );
     const expected = evaluateGait({
       analysis: body.analysis,
       intake,
       romProfile: null,
-      today: { painByRegion: {} },
+      today: kept,
       plan: s.gait,
+      setup: body.setup,
     });
     const status = (ps: GaitPatternResult[]) =>
       ps.map((p) => `${p.pattern}:${p.side}:${p.status}:${p.confidence}`);

@@ -209,8 +209,42 @@ describe("gait bodies", () => {
     expect(fieldOf(checkGaitBody(pad, home))).toBe("setup.mode");
   });
 
+  it("takes the pain marked during the walk: at most 10, a side or none, a whole level 0 to 10 (CG-8)", () => {
+    const b = gaitBody(plan, "overground");
+    const at = (walkPain: unknown) =>
+      fieldOf(checkGaitBody({ ...b, analysis: { ...b.analysis, walkPain } }, plan));
+    expect(fieldOf(checkGaitBody(b, plan))).toBe("ok");
+    expect(at([])).toBe("ok");
+    expect(
+      at([
+        { side: "right", level: 4 },
+        { side: null, level: 0 },
+        { side: "left", level: 10 },
+      ]),
+    ).toBe("ok");
+    expect(GAIT_LIMITS.walkPain).toBe(10);
+    expect(at(Array.from({ length: GAIT_LIMITS.walkPain }, () => ({ side: null, level: 1 })))).toBe("ok");
+    expect(at(Array.from({ length: GAIT_LIMITS.walkPain + 1 }, () => ({ side: null, level: 1 })))).toBe(
+      "analysis.walkPain",
+    );
+    for (const bad of [
+      {},
+      null,
+      [{ side: "up", level: 4 }],
+      [{ side: "both", level: 4 }],
+      [{ level: 4 }],
+      [{ side: null, level: 11 }],
+      [{ side: null, level: -1 }],
+      [{ side: null, level: 2.5 }],
+      [{ side: null, level: "7" }],
+      [{ side: null, level: 2, note: "it hurt" }],
+    ])
+      expect(at(bad), JSON.stringify(bad)).toBe("analysis.walkPain");
+  });
+
   it("accepts the largest body of section 4, which fits the analysis cap and the body limit", () => {
     const worst = gaitBody(plan, "walking_pad", { worst: true });
+    expect(worst.analysis.walkPain).toHaveLength(GAIT_LIMITS.walkPain);
     expect(fieldOf(checkGaitBody(worst, plan))).toBe("ok");
     const analysis = Buffer.byteLength(JSON.stringify(worst.analysis));
     const body = Buffer.byteLength(JSON.stringify(worst));

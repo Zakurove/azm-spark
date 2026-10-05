@@ -15,7 +15,8 @@ import {
   type CheckJoints,
 } from "../../../src/medical/check-joints";
 import type { BodyMapKey } from "../../../src/medical/body-map";
-import type { FocusToday, RomProtocol, RomReasonId } from "../../../src/medical/rom-protocol";
+import type { RomProtocol, RomReasonId } from "../../../src/medical/rom-protocol";
+import type { StoredFocusToday } from "../../../src/medical/focus-precheck";
 import type { GaitPlan } from "../../../src/medical/gait-eligibility";
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { MeasurementGrade } from "../../../src/medical/rom-norms";
@@ -25,6 +26,7 @@ import type {
   GaitQuality,
   GaitSetup,
   GaitViewResult,
+  GaitWalkPain,
   StaticStanceResult,
 } from "../../../src/engine/gait/types";
 import type { LimitCause, RomAttempt, RomFlag, RomMeasureResult } from "../../../src/engine/rom/types";
@@ -54,20 +56,38 @@ export interface FocusDevice {
 }
 
 /**
- * The day's answers a later step reads, the only ones kept (contract section 3, Gate A review): the
- * pain per region for the gait rules at complete, and helper present for the coach's token (C-12,
- * 5.1). The others (red flag regions, the walk and freezing answers, a prosthesis worn, a chair
- * transfer, an orthosis) did their work at the start and live on in the frozen protocol and gait
- * plan, so they are not kept: the v1 data map keeps nothing else from the pre-check either.
+ * The day's answers a later step reads, the only ones kept (contract section 3; R1-2, D-026 items 7
+ * and 9): the start keeps keptDayAnswers (src/medical/focus-precheck.ts), each answer only when it was
+ * asked. The others (red flag regions, the walk and freezing answers, a chair transfer, an orthosis)
+ * did their work at the start and live on in the frozen protocol and gait plan, so they are not kept.
  */
-export type StoredFocusToday = Pick<FocusToday, "painByRegion" | "helperPresent">;
+export type { StoredFocusToday };
 
-/** The kept part of the day's answers (StoredFocusToday). */
-export function storedToday(today: Pick<FocusToday, "painByRegion" | "helperPresent">): StoredFocusToday {
-  return {
-    painByRegion: { ...today.painByRegion },
-    ...(today.helperPresent !== undefined ? { helperPresent: today.helperPresent } : {}),
-  };
+const YES_NO_UNSURE: readonly unknown[] = ["yes", "no", "unsure"];
+const isBool = (v: unknown): v is boolean => typeof v === "boolean";
+
+/**
+ * The kept day's answers, field by field (StoredFocusToday): nothing else reaches the column or comes
+ * back from it, whatever the object holds (a row written before a field existed reads without it).
+ */
+export function storedToday(today: StoredFocusToday): StoredFocusToday {
+  const out: StoredFocusToday = { painByRegion: { ...today.painByRegion } };
+  if (isBool(today.helperPresent)) out.helperPresent = today.helperPresent;
+  const st = today.steadi;
+  if (st && isBool(st.fell) && isBool(st.worry)) out.steadi = { fell: st.fell, worry: st.worry };
+  if (today.pdState === "on" || today.pdState === "unsure") out.pdState = today.pdState;
+  if (isBool(today.pusher)) out.pusher = today.pusher;
+  if (isBool(today.armrests)) out.armrests = today.armrests;
+  const lean = today.seatedLean;
+  if (lean) {
+    const kept: NonNullable<StoredFocusToday["seatedLean"]> = {};
+    if (isBool(lean.fellSitting)) kept.fellSitting = lean.fellSitting;
+    if (isBool(lean.pressureSore)) kept.pressureSore = lean.pressureSore;
+    if (YES_NO_UNSURE.includes(lean.sitsUnsupported)) kept.sitsUnsupported = lean.sitsUnsupported;
+    if (Object.keys(kept).length) out.seatedLean = kept;
+  }
+  if (isBool(today.prosthesisOn)) out.prosthesisOn = today.prosthesisOn;
+  return out;
 }
 
 export interface FocusCheck {
@@ -122,7 +142,7 @@ function toCheck(r: FocusRow): FocusCheck {
     status: r.status,
     protocol: JSON.parse(r.protocol),
     gaitPlan: r.gait_plan === null ? null : JSON.parse(r.gait_plan),
-    today: storedToday(JSON.parse(r.today) as FocusToday),
+    today: storedToday(JSON.parse(r.today) as StoredFocusToday),
     precheck: JSON.parse(r.precheck),
     versions: JSON.parse(r.versions),
     device: JSON.parse(r.device),
@@ -134,13 +154,7 @@ function toCheck(r: FocusRow): FocusCheck {
   };
 }
 
-export type NewFocusCheck = Omit<
-  FocusCheck,
-  "id" | "status" | "active" | "completed" | "endedReason" | "today"
-> & {
-  /** The day's answers as the start received them; only StoredFocusToday is written. */
-  today: FocusToday;
-};
+export type NewFocusCheck = Omit<FocusCheck, "id" | "status" | "active" | "completed" | "endedReason">;
 
 /**
  * Stores a new open focus check after closing any other open one of the person (replaced): a person
@@ -610,6 +624,8 @@ export interface StoredGait {
   metrics: GaitAnalysis["combined"];
   /** GaitAnalysis.staticStance (kept in the metrics column with combined). */
   staticStance: StaticStanceResult[];
+  /** GaitAnalysis.walkPain, the pain marked during the walk (CG-8; kept in the metrics column too). */
+  walkPain: GaitWalkPain[];
   findings: StoredGaitFindings;
   quality: GaitStoredView["quality"];
   replay: GaitAnalysis["replay"];
@@ -657,10 +673,14 @@ function toGait(r: GaitRowDb): StoredGait {
   };
 }
 
-/** The metrics column: GaitAnalysis.combined and the static stance results. */
-function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance"> {
-  const m = JSON.parse(json) as { combined: GaitAnalysis["combined"]; staticStance: StaticStanceResult[] };
-  return { metrics: m.combined, staticStance: m.staticStance };
+/** The metrics column: GaitAnalysis.combined, the static stance results and the walk's pain marks. */
+function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance" | "walkPain"> {
+  const m = JSON.parse(json) as {
+    combined: GaitAnalysis["combined"];
+    staticStance: StaticStanceResult[];
+    walkPain?: GaitWalkPain[];
+  };
+  return { metrics: m.combined, staticStance: m.staticStance, walkPain: m.walkPain ?? [] };
 }
 
 /** The patterns as stored: their lines are dropped, the rules write them again on read. */
@@ -680,7 +700,7 @@ export function saveGait(db: DatabaseSync, userId: string, g: Omit<StoredGait, "
     g.mode,
     JSON.stringify(g.views),
     JSON.stringify(g.setup),
-    JSON.stringify({ combined: g.metrics, staticStance: g.staticStance }),
+    JSON.stringify({ combined: g.metrics, staticStance: g.staticStance, walkPain: g.walkPain }),
     JSON.stringify(g.findings),
     JSON.stringify(g.quality),
     g.replay === null ? null : JSON.stringify(g.replay),

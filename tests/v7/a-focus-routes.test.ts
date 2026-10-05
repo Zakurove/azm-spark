@@ -148,8 +148,12 @@ async function start(
 }
 
 /** A started booth focus check: its id, protocol and gait plan. */
-async function started(cookie: string, over: Record<string, unknown> = {}) {
-  const r = await start(cookie, over);
+async function started(
+  cookie: string,
+  over: Record<string, unknown> = {},
+  given: Record<string, unknown> = {},
+) {
+  const r = await start(cookie, over, given);
   if (r.status !== 200) throw new Error(`start ${r.status} ${JSON.stringify(r.data)}`);
   return r.data as { id: string; protocol: RomProtocol; gait: GaitPlan | null; kind: string };
 }
@@ -514,8 +518,13 @@ describe("POST /api/focus: a booth start", () => {
     expect(JSON.parse(row.protocol as string)).toEqual(p);
     expect(JSON.parse(row.gait_plan as string)).toEqual(r.data.gait);
     // Of the day's answers only those a later step reads are kept (the gait recompute at complete
-    // reads the pain, the coach's token helper present); the rest live on in the frozen protocol.
-    expect(JSON.parse(row.today as string)).toEqual({ painByRegion: { knee: 3 }, helperPresent: true });
+    // reads the pain and pc_steadi's fell and worry, the coach's token helper present); the rest
+    // live on in the frozen protocol (D-026 items 7 and 9).
+    expect(JSON.parse(row.today as string)).toEqual({
+      painByRegion: { knee: 3 },
+      helperPresent: true,
+      steadi: { fell: false, worry: false },
+    });
     expect(JSON.parse(row.device as string)).toEqual(DEVICE);
     expect(JSON.parse(row.versions as string)).toMatchObject({
       rom: ROM_RULES_VERSION,
@@ -544,7 +553,7 @@ describe("POST /api/focus: a booth start", () => {
     expect(r.data.gait.offered).toBe(true);
   });
 
-  it("keeps none of the day's symptom answers once their effect is frozen (data minimisation)", async () => {
+  it("keeps only the day answers a later step reads; the others' effect is frozen (data minimisation)", async () => {
     const { cookie } = await person(v7Intake({ conditions: ["parkinsons"] }));
     const today = {
       painByRegion: { knee: 4 },
@@ -563,7 +572,13 @@ describe("POST /api/focus: a booth start", () => {
     const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(r.data.id) as {
       today: string;
     };
-    expect(JSON.parse(row.today)).toEqual({ painByRegion: { knee: 4 } });
+    // The gait rules read the pain, pc_steadi's fell and worry and Parkinson's pc_pd_on (CG-9, CG-18);
+    // no leg limb loss, so no prosthesis answer.
+    expect(JSON.parse(row.today)).toEqual({
+      painByRegion: { knee: 4 },
+      steadi: { fell: false, worry: false },
+      pdState: "on",
+    });
     expect(row.today).not.toMatch(/redFlag|walk10m|pdFreezing|prosthesis|transfer|orthosis|afo|shoulder/);
   });
 
@@ -870,9 +885,10 @@ describe("POST /api/focus/:id/gait", () => {
       { view: "front", metrics: body.analysis.views[1].metrics, cleanCycles: { left: 8, right: 7 } },
     ]);
     expect(r.data.patterns[0].lines).toBeDefined();
-    // The rules got the stored day, the intake and the range profile so far.
+    // The rules got the walk's setup, the stored day, the intake and the range profile so far.
     const input = gaitCalls.inputs.at(-1)!;
-    expect(input.today).toEqual({ painByRegion: {} });
+    expect(input.setup).toEqual(body.setup);
+    expect(input.today).toEqual({ painByRegion: {}, steadi: { fell: false, worry: false } });
     expect(input.plan).toEqual(s.gait);
     expect(input.romProfile?.entries.filter((e) => e.source === "measured")).toHaveLength(1);
     const row = h.db().prepare("SELECT * FROM gait_analyses WHERE check_id=?").get(s.id) as Record<
@@ -1452,6 +1468,45 @@ describe("POST /api/focus/:id/complete", () => {
     expect(r.status).toBe(200);
     // The stored patterns keep no lines (section 3); the route writes them with withGaitLines.
     expect(r.data.gait.patterns.map((p: { lines: unknown }) => p.lines)).toEqual([REWRITTEN_LINES]);
+  });
+
+  it("gives the rules at complete the stored setup, the walk's pain marks and the kept day answers (D-026 item 7)", async () => {
+    const { cookie } = await person(v7Intake({ conditions: ["parkinsons"] }));
+    const s = await started(
+      cookie,
+      { today: { painByRegion: {}, redFlagRegions: [], walk10m: true, pdFreezing: false } },
+      { "pc_steadi:fell": "yes", "pc_steadi:worry": "no", pc_pd_on: "unsure" },
+    );
+    const body = gaitBody(s.gait!, "overground");
+    const setup = { ...body.setup, aid: "cane", orthosis: { right: "afo" } };
+    const walkPain = [
+      { side: "right", level: 3 },
+      { side: null, level: 1 },
+    ];
+    const r = await h.call(
+      `/focus/${s.id}/gait`,
+      { setup, analysis: { ...body.analysis, walkPain } },
+      cookie,
+    );
+    expect(r.status).toBe(200);
+    const posted = gaitCalls.inputs.at(-1)!;
+    expect(posted.setup).toEqual(setup);
+    expect(posted.analysis.walkPain).toEqual(walkPain);
+    expect(posted.today).toEqual({
+      painByRegion: {},
+      steadi: { fell: true, worry: false },
+      pdState: "unsure",
+    });
+    // The marks are kept with the walk (the metrics column, beside the static stance), never a word.
+    const row = h.db().prepare("SELECT metrics FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      metrics: string;
+    };
+    expect(JSON.parse(row.metrics).walkPain).toEqual(walkPain);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    const final = gaitCalls.inputs.at(-1)!;
+    expect(final.setup).toEqual(setup);
+    expect(final.analysis.walkPain).toEqual(walkPain);
+    expect(final.today).toEqual(posted.today);
   });
 
   it("writes nothing when a step fails: one transaction", async () => {

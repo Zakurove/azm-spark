@@ -307,7 +307,7 @@ export function globalGate(intake: Intake): "global_gate" | "clearance_needed" |
 }
 
 /** A leg limb loss: a leg level on the body map, or the v1 condition lower_limb_unilateral. */
-function hasLowerLimbLoss(intake: Intake): boolean {
+export function hasLowerLimbLoss(intake: Intake): boolean {
   return (
     intake.conditions.includes("lower_limb_unilateral") ||
     (intake.regions ?? []).some(

@@ -149,6 +149,15 @@ export interface StaticStanceResult {
   pelvicDropDeg: number | null;
   ok: boolean;
 }
+/**
+ * Pain marked during the walk (gait-rules 1.5 «recorded with its side and level»; the antalgic rule's
+ * «mark_pain on P during the walk»), written by C4's GaitController: the side the person named, or
+ * null, and the level 0 to 10 (D-026 item 7, CG-8). At most 10 (the gait route's bound).
+ */
+export interface GaitWalkPain {
+  side: "left" | "right" | null;
+  level: number;
+}
 export interface GaitAnalysis {
   mode: GaitMode;
   /** At most 3 (the plan's view lists); each view's `replay` is null here (the one kept cycle is below). */
@@ -163,4 +172,6 @@ export interface GaitAnalysis {
   )[];
   /** GAIT_ENGINE_VERSION */
   engineVersion: string;
+  /** Pain marked during the walk, in order (CG-8); absent or empty when none was marked. */
+  walkPain?: GaitWalkPain[];
 }

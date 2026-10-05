@@ -205,6 +205,70 @@ describe("the app's focus routes on the real rules", () => {
   });
 });
 
+describe("the day answers a focus check keeps, on the real pre-check (D-026 item 9, E1-5)", () => {
+  let h: V7Harness;
+  let pass = "";
+  beforeAll(async () => {
+    h = await startV7Api(FOCUS_RULES);
+  });
+  afterAll(async () => {
+    await h.close();
+  });
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(T0);
+    process.env.AZM_V7 = "1";
+    pass = await boothPass(h, T0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const k of ["AZM_V7", "AZM_BOOTH_DATES", "AZM_BOOTH_CODE"]) delete process.env[k];
+  });
+
+  it("keep the seated side lean's answers of a check that bends seated on armrests, and no red flag", async () => {
+    // A stroke in a wheelchair with the back on the map: the side bend runs seated on armrests, so the
+    // v1 side lean's questions are asked (pc_trunk_armrests only at home, so not at the booth).
+    const intake = v7Intake({
+      mobility: "wheelchair",
+      walking: { status: "no" },
+      romFlags: { osteoporosis: false, neckCaution: false, transferChair: false, sitUnsupported: "yes" },
+      regions: [{ region: "back_trunk", side: "axial", problems: ["stiffness"], origin: "person" }],
+    });
+    const cookie = await member(h, "gate-lean@example.test", intake, ["focus_check"]);
+    const booth = { "x-azm-booth": pass };
+    const c = await h.call("/focus/context", undefined, cookie, "GET", booth);
+    expect(c.status).toBe(200);
+    const answers = fill(c.data.env, {
+      pc_stroke_push: "no",
+      pc_fall_sitting: "no",
+      pc_pressure_sore: "no",
+      pc_sit_unsupported: "yes",
+    });
+    const start = await h.call(
+      "/focus",
+      {
+        setting: "booth",
+        answers,
+        today: { painByRegion: { back_trunk: 2 }, redFlagRegions: [] },
+        device: { os: "iOS", browser: "Safari" },
+        include: { rom: true, gait: false },
+      },
+      cookie,
+      "POST",
+      booth,
+    );
+    expect(start.status, JSON.stringify(start.data)).toBe(200);
+    const s = start.data as { id: string; protocol: RomProtocol };
+    expect(s.protocol.items.some((i) => i.position === "seated_armrests" && !i.skipped)).toBe(true);
+    const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(s.id) as { today: string };
+    expect(JSON.parse(row.today)).toEqual({
+      painByRegion: { back_trunk: 2 },
+      pusher: false,
+      seatedLean: { fellSitting: false, pressureSore: false, sitsUnsupported: "yes" },
+    });
+  });
+});
+
 describe("A2's body map feeds A4's range protocol (the seam the parallel steps never ran)", () => {
   /** One answer of each kind of rom-protocol 2.3, as the intake form's condition questions give them. */
   const ANSWERS: AutoFillAnswer[] = [

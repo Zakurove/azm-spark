@@ -241,6 +241,15 @@ export function gaitBody(
       combined: worst ? allMetrics() : { cadence: metric("cadence") },
       flags: worst ? ["handrail_light", "model_lite"] : [],
       engineVersion: "gait_engine_1",
+      // Pain marked during the walk (CG-8): the largest body holds the most the route takes.
+      ...(worst
+        ? {
+            walkPain: Array.from({ length: GAIT_LIMITS.walkPain }, (_, k) => ({
+              side: k % 3 === 0 ? null : k % 3 === 1 ? "left" : "right",
+              level: 10,
+            })),
+          }
+        : {}),
     },
   });
 }

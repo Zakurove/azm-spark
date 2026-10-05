@@ -6,10 +6,11 @@
  * with like, the same setting) and the walk's changes; 404 NONE without a completed check of the person.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
 import { gaitOf, romRowsOf } from "../../server/modules/focus/store";
-import * as gaitRules from "../../src/medical/gait-rules";
-import type { GaitPatternResult } from "../../src/medical/gait-types";
+import { withGaitLines } from "../../src/medical/gait-rules";
 import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import type { Intake, Sex } from "../../src/medical/plan";
 import type { RomProtocol, RomProtocolItem } from "../../src/medical/rom-protocol";
@@ -121,17 +122,19 @@ const profile = (cookie: string, checkId?: string) =>
     cookie,
   );
 
-/** The pattern lines the route writes on read: stream C's withGaitLines once merged, else empty ones. */
-function expectedPatterns(stored: Omit<GaitPatternResult, "lines">[]): GaitPatternResult[] {
-  const ns = gaitRules as unknown as Record<string, unknown>;
-  if ("withGaitLines" in ns) return (ns.withGaitLines as (p: typeof stored) => GaitPatternResult[])(stored);
-  return stored.map((p) => ({
-    ...p,
-    lines: { pattern: { ar: "", en: "" }, reasons: null, targets: [], confidence: null },
-  }));
-}
-
 describe("GET /api/focus/profile", () => {
+  it("writes the walk's lines with the gait rules' withGaitLines, a plain import (D-027 item 7)", () => {
+    const src = readFileSync(
+      fileURLToPath(new URL("../../server/modules/focus/profile.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(src).toMatch(
+      /import \{[^}]*\bwithGaitLines\b[^}]*\} from "\.\.\/\.\.\/\.\.\/src\/medical\/gait-rules";/,
+    );
+    // No lookup by name and no empty lines fallback: the export is there since the wave 2 merge.
+    expect(src).not.toMatch(/WITH_GAIT_LINES|EMPTY_LINES| in ns/);
+  });
+
   it("is a v7 route for a signed in person (404 with the flag off, 401 without a session)", async () => {
     const cookie = await person();
     delete process.env.AZM_V7;
@@ -262,7 +265,7 @@ describe("GET /api/focus/profile", () => {
       mode: "overground",
       views: stored.views.map(({ quality: _q, poseModel: _p, ...v }) => v),
       metrics: stored.metrics,
-      patterns: expectedPatterns(stored.findings.patterns),
+      patterns: withGaitLines(stored.findings.patterns),
       findings: stored.findings.findings,
       quality: stored.quality,
       replay: stored.replay,

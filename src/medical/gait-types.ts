@@ -8,7 +8,14 @@ import type { RegionId } from "./body-map";
 import type { GaitPlan, GaitMode } from "./gait-eligibility";
 import type { RomProfile } from "./rom-types";
 import type { TargetId } from "./target-types";
-import type { GaitAnalysis, GaitMetricId, GaitView, GaitViewResult, ReplayCycle } from "../engine/gait/types";
+import type {
+  GaitAnalysis,
+  GaitMetricId,
+  GaitSetup,
+  GaitView,
+  GaitViewResult,
+  ReplayCycle,
+} from "../engine/gait/types";
 import type { GaitData } from "../movements/gait/types";
 import type { Text } from "../movements/types";
 
@@ -48,6 +55,13 @@ export type NotAssessedReason =
   | "crouch_or_short_steps_on_S";
 /** weak_hip_abductors, tight_hip_flexors, ... */
 export type ContributorId = keyof GaitData["copy"]["contributors"];
+/**
+ * What a result was read against. norm_interim: the age and sex norms of gait-rules 4.1 (Fang 2018,
+ * Hollman 2011), which under call below 70 until the steady state tables are retrieved (review B10,
+ * GAIT-Q11): the person's view shows the result with the existing approximate label (D-026 item 7,
+ * CG-16).
+ */
+export type GaitResultFlag = "norm_interim";
 
 export interface GaitPatternResult {
   pattern: GaitPatternId;
@@ -72,18 +86,40 @@ export interface GaitPatternResult {
   /** refer_prosthetist, refer_afo, refer_new_or_worse ... */
   referrals: string[];
   lines: { pattern: Text; reasons: Text | null; targets: Text[]; confidence: Text | null };
+  /** Absent: read against no norm (CG-16). */
+  flags?: GaitResultFlag[];
 }
 export interface GaitSupportFinding {
   id: "flat_or_forefoot_contact" | "slow_speed" | "uneven_step_length";
   side: "left" | "right" | "both" | "none";
   value: number;
+  /**
+   * The level of a finding whose rule has two (uneven_step_length: possible 1.13, likely 1.18); null
+   * for a finding with one rule (flat_or_forefoot_contact, slow_speed) (D-026 item 7, CG-17).
+   */
+  status: "possible" | "likely" | null;
+  /** Absent: read against no norm (slow_speed reads the 4.1 norms, CG-16). */
+  flags?: GaitResultFlag[];
 }
 export interface GaitFindingsInput {
   analysis: GaitAnalysis;
   intake: Intake;
   romProfile: RomProfile | null;
-  today: { painByRegion: Partial<Record<RegionId, number>>; pdState?: "on" | "unsure" };
+  /**
+   * The day's answers the rules read, as the focus check keeps them (StoredFocusToday): the pain per
+   * region, Parkinson's pc_pd_on (CG-18) and pc_steadi's fell and worry (CG-9), each when asked.
+   */
+  today: {
+    painByRegion: Partial<Record<RegionId, number>>;
+    pdState?: "on" | "unsure";
+    steadi?: { fell: boolean; worry: boolean };
+  };
   plan: GaitPlan;
+  /**
+   * The walk's setup as captured (orthoses, the aid as walked, the height): the gait POST body's, and
+   * at complete gait_analyses.setup (D-026 item 7, CG-7).
+   */
+  setup: GaitSetup;
 }
 
 /** The response of POST /api/focus/:id/gait and the gait part of POST /api/focus/:id/complete and GET /api/focus/profile. */

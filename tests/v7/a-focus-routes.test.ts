@@ -14,6 +14,13 @@ import type { GaitFindingsInput } from "../../src/medical/gait-types";
 // The gait rules (stream C) are observed: what the routes give them, and a pattern that reads the
 // range profile they were given, so the final recompute at complete can be seen.
 const gaitCalls = vi.hoisted(() => ({ inputs: [] as GaitFindingsInput[], fail: false }));
+// The lines the profile route writes on read through withGaitLines (the stored patterns keep none).
+const REWRITTEN_LINES = vi.hoisted(() => ({
+  pattern: { ar: "نمط مكتوب من جديد", en: "pattern written again" },
+  reasons: null,
+  targets: [],
+  confidence: null,
+}));
 vi.mock("../../src/medical/gait-rules", () => ({
   evaluateGait: (input: GaitFindingsInput) => {
     gaitCalls.inputs.push(input);
@@ -38,6 +45,8 @@ vi.mock("../../src/medical/gait-rules", () => ({
       rulesVersion: `gait_rules_test_${measured}`,
     };
   },
+  // The profile route writes the stored patterns' lines again on read (a plain import, D-027 item 7).
+  withGaitLines: (patterns: object[]) => patterns.map((p) => ({ ...p, lines: REWRITTEN_LINES })),
 }));
 
 import { setLock } from "../../server/modules/assessments/store";
@@ -139,8 +148,12 @@ async function start(
 }
 
 /** A started booth focus check: its id, protocol and gait plan. */
-async function started(cookie: string, over: Record<string, unknown> = {}) {
-  const r = await start(cookie, over);
+async function started(
+  cookie: string,
+  over: Record<string, unknown> = {},
+  given: Record<string, unknown> = {},
+) {
+  const r = await start(cookie, over, given);
   if (r.status !== 200) throw new Error(`start ${r.status} ${JSON.stringify(r.data)}`);
   return r.data as { id: string; protocol: RomProtocol; gait: GaitPlan | null; kind: string };
 }
@@ -327,6 +340,55 @@ describe("POST /api/focus: the order of checks", () => {
     expect((await start(b.cookie)).status).toBe(200);
   });
 
+  it("carries the earlier best seated side bend of each side, focus or v1 (D-027 item 2, W2-6)", async () => {
+    const back = v7Intake({
+      regions: [{ region: "back_trunk", side: "axial", problems: ["stiffness"], origin: "person" }],
+      walking: { status: "no" },
+    });
+    // A first check: no earlier best, so the runner keeps the first check limit of 30 (v1.1).
+    const a = await person(back);
+    const first = await start(a.cookie);
+    expect(first.status).toBe(200);
+    expect(first.data.sideLeanBest).toEqual({ left: null, right: null });
+    // A completed focus check bent seated on armrests (25 left, 31 right; another position never counts).
+    const b = await person(back);
+    const db = h.db();
+    const done = (id: string, at: number) =>
+      db
+        .prepare(
+          `INSERT INTO focus_checks(id,user_id,kind,setting,status,protocol,gait_plan,today,precheck,versions,device,intake_version,started,active,completed)
+           VALUES(?,?,'baseline','booth','completed','{"rulesVersion":"r","items":[],"deferred":[],"notMeasured":[],"sitBeforeStand":false}',NULL,'{"painByRegion":{}}','{}','{}','{}',1,?,?,?)`,
+        )
+        .run(id, b.id, at, at, at);
+    const lean = (check: string, side: string, position: string, value: number | null, created: number) =>
+      db
+        .prepare(
+          `INSERT INTO rom_measurements(id,user_id,check_id,movement_id,side,position,value,unit,source,reason,pain,finding,attempts,flags,quality,n_valid,norms_version,created)
+           VALUES(?,?,?,'trunk_lateral_flexion',?,?,?,'deg',?,NULL,0,?,'[]','[]','{}',1,'n',?)`,
+        )
+        .run(
+          `${check}-${side}-${position}`,
+          b.id,
+          check,
+          side,
+          position,
+          value,
+          value === null ? "not_measured_today" : "measured",
+          value === null ? "not_today" : "no_grade",
+          created,
+        );
+    done("lean-1", T0 - 5 * DAY);
+    lean("lean-1", "left", "seated_armrests", 25, T0 - 5 * DAY);
+    lean("lean-1", "right", "seated_armrests", 31, T0 - 5 * DAY);
+    done("lean-2", T0 - 4 * DAY);
+    lean("lean-2", "left", "seated_armrests", 22, T0 - 4 * DAY);
+    lean("lean-2", "right", "standing", 40, T0 - 4 * DAY);
+    expect((await start(b.cookie)).data.sideLeanBest).toEqual({ left: 25, right: 31 });
+    // A v1 side lean (trunk_control_seated) of 36 to the right is an earlier best too.
+    v1Done(b.id, "v1-lean", T0 - 3 * DAY, [{ test: "trunk_control_seated", side: "right", value: 36 }]);
+    expect((await start(b.cookie)).data.sideLeanBest).toEqual({ left: 25, right: 36 });
+  });
+
   it("keeps 48 hours only between checks that share a joint (CT-3): another joint at any time", async () => {
     // A focus check of the neck alone, with no walk.
     const neckOnly = v7Intake({
@@ -505,8 +567,13 @@ describe("POST /api/focus: a booth start", () => {
     expect(JSON.parse(row.protocol as string)).toEqual(p);
     expect(JSON.parse(row.gait_plan as string)).toEqual(r.data.gait);
     // Of the day's answers only those a later step reads are kept (the gait recompute at complete
-    // reads the pain, the coach's token helper present); the rest live on in the frozen protocol.
-    expect(JSON.parse(row.today as string)).toEqual({ painByRegion: { knee: 3 }, helperPresent: true });
+    // reads the pain and pc_steadi's fell and worry, the coach's token helper present); the rest
+    // live on in the frozen protocol (D-026 items 7 and 9).
+    expect(JSON.parse(row.today as string)).toEqual({
+      painByRegion: { knee: 3 },
+      helperPresent: true,
+      steadi: { fell: false, worry: false },
+    });
     expect(JSON.parse(row.device as string)).toEqual(DEVICE);
     expect(JSON.parse(row.versions as string)).toMatchObject({
       rom: ROM_RULES_VERSION,
@@ -535,7 +602,7 @@ describe("POST /api/focus: a booth start", () => {
     expect(r.data.gait.offered).toBe(true);
   });
 
-  it("keeps none of the day's symptom answers once their effect is frozen (data minimisation)", async () => {
+  it("keeps only the day answers a later step reads; the others' effect is frozen (data minimisation)", async () => {
     const { cookie } = await person(v7Intake({ conditions: ["parkinsons"] }));
     const today = {
       painByRegion: { knee: 4 },
@@ -554,7 +621,13 @@ describe("POST /api/focus: a booth start", () => {
     const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(r.data.id) as {
       today: string;
     };
-    expect(JSON.parse(row.today)).toEqual({ painByRegion: { knee: 4 } });
+    // The gait rules read the pain, pc_steadi's fell and worry and Parkinson's pc_pd_on (CG-9, CG-18);
+    // no leg limb loss, so no prosthesis answer.
+    expect(JSON.parse(row.today)).toEqual({
+      painByRegion: { knee: 4 },
+      steadi: { fell: false, worry: false },
+      pdState: "on",
+    });
     expect(row.today).not.toMatch(/redFlag|walk10m|pdFreezing|prosthesis|transfer|orthosis|afo|shoulder/);
   });
 
@@ -861,9 +934,10 @@ describe("POST /api/focus/:id/gait", () => {
       { view: "front", metrics: body.analysis.views[1].metrics, cleanCycles: { left: 8, right: 7 } },
     ]);
     expect(r.data.patterns[0].lines).toBeDefined();
-    // The rules got the stored day, the intake and the range profile so far.
+    // The rules got the walk's setup, the stored day, the intake and the range profile so far.
     const input = gaitCalls.inputs.at(-1)!;
-    expect(input.today).toEqual({ painByRegion: {} });
+    expect(input.setup).toEqual(body.setup);
+    expect(input.today).toEqual({ painByRegion: {}, steadi: { fell: false, worry: false } });
     expect(input.plan).toEqual(s.gait);
     expect(input.romProfile?.entries.filter((e) => e.source === "measured")).toHaveLength(1);
     const row = h.db().prepare("SELECT * FROM gait_analyses WHERE check_id=?").get(s.id) as Record<
@@ -1432,6 +1506,56 @@ describe("POST /api/focus/:id/complete", () => {
     expect(final).toEqual(strip(posted));
     expect(final.staticStance).toHaveLength(2);
     expect(final.views[0].quality).toMatchObject({ medianFps: 28.5, gapShare: 0.04, gatePassed: true });
+  });
+
+  it("lets a later profile read write the walk's lines again through the gait rules (D-027 item 7)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    expect((await h.call(`/focus/${s.id}/gait`, gaitBody(s.gait!, "overground"), cookie)).status).toBe(200);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    const r = await h.call("/focus/profile", undefined, cookie);
+    expect(r.status).toBe(200);
+    // The stored patterns keep no lines (section 3); the route writes them with withGaitLines.
+    expect(r.data.gait.patterns.map((p: { lines: unknown }) => p.lines)).toEqual([REWRITTEN_LINES]);
+  });
+
+  it("gives the rules at complete the stored setup, the walk's pain marks and the kept day answers (D-026 item 7)", async () => {
+    const { cookie } = await person(v7Intake({ conditions: ["parkinsons"] }));
+    const s = await started(
+      cookie,
+      { today: { painByRegion: {}, redFlagRegions: [], walk10m: true, pdFreezing: false } },
+      { "pc_steadi:fell": "yes", "pc_steadi:worry": "no", pc_pd_on: "unsure" },
+    );
+    const body = gaitBody(s.gait!, "overground");
+    const setup = { ...body.setup, aid: "cane", orthosis: { right: "afo" } };
+    const walkPain = [
+      { side: "right", level: 3 },
+      { side: null, level: 1 },
+    ];
+    const r = await h.call(
+      `/focus/${s.id}/gait`,
+      { setup, analysis: { ...body.analysis, walkPain } },
+      cookie,
+    );
+    expect(r.status).toBe(200);
+    const posted = gaitCalls.inputs.at(-1)!;
+    expect(posted.setup).toEqual(setup);
+    expect(posted.analysis.walkPain).toEqual(walkPain);
+    expect(posted.today).toEqual({
+      painByRegion: {},
+      steadi: { fell: true, worry: false },
+      pdState: "unsure",
+    });
+    // The marks are kept with the walk (the metrics column, beside the static stance), never a word.
+    const row = h.db().prepare("SELECT metrics FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      metrics: string;
+    };
+    expect(JSON.parse(row.metrics).walkPain).toEqual(walkPain);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    const final = gaitCalls.inputs.at(-1)!;
+    expect(final.setup).toEqual(setup);
+    expect(final.analysis.walkPain).toEqual(walkPain);
+    expect(final.today).toEqual(posted.today);
   });
 
   it("writes nothing when a step fails: one transaction", async () => {

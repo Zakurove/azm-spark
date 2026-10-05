@@ -692,7 +692,9 @@ describe("5.6 high step with forefoot landing (steppage)", () => {
   it("is a support finding, not a pattern, when the thigh swing is not higher", () => {
     const out = run({ side: foot(-2, 31) });
     expect(fired(out.patterns)).toEqual([]);
-    expect(out.findings).toEqual([{ id: "flat_or_forefoot_contact", side: "right", value: -2 }]);
+    expect(out.findings).toEqual([
+      { id: "flat_or_forefoot_contact", side: "right", value: -2, status: null },
+    ]);
   });
 
   it("is not assessed with Parkinson's, an ankle foot orthosis, a prosthesis or crouch on that side", () => {
@@ -1028,6 +1030,44 @@ describe("5.11 short steps", () => {
     expect(fired(patterns({ side: short({ stride: 1.1 }) }))).toEqual([]);
   });
 
+  it("flags every result read against the age and sex norms as interim (D-026 item 7, CG-16)", () => {
+    // Fang 2018 and Hollman 2011 under call below 70 (review B10, GAIT-Q11): (a) and (c) read them,
+    // and they decide likely against possible, so every result of the rule carries norm_interim.
+    expect(on(patterns({ side: short() }), "short_steps", "both")!.flags).toEqual(["norm_interim"]);
+    expect(on(patterns({ side: short({ step: 0.6, cadence: 100 }) }), "short_steps", "both")!.flags).toEqual([
+      "norm_interim",
+    ]);
+    expect(on(patterns(), "short_steps", "none")).toMatchObject({
+      status: "not_seen",
+      flags: ["norm_interim"],
+    });
+    // Without the person's sex there is no norm to read: (b) alone, no flag.
+    expect(
+      on(
+        patterns({ side: short({ step: 0.6, cadence: 100 }), intake: { sex: undefined } }),
+        "short_steps",
+        "both",
+      ),
+    ).toMatchObject({ status: "possible" });
+    expect(
+      on(
+        patterns({ side: short({ step: 0.6, cadence: 100 }), intake: { sex: undefined } }),
+        "short_steps",
+        "both",
+      )!.flags,
+    ).toBeUndefined();
+    // Not assessed reads nothing; no other rule reads a norm.
+    expect(
+      on(
+        patterns({ side: short(), intake: { heightCm: undefined }, flags: ["no_height"] }),
+        "short_steps",
+        "none",
+      )!.flags,
+    ).toBeUndefined();
+    for (const p of patterns({ side: short() }))
+      if (p.pattern !== "short_steps") expect(p.flags, p.pattern).toBeUndefined();
+  });
+
   it("reads the Mikos expected stride for the speed and height (b) at the data margin", () => {
     const b = gaitPattern("short_steps").signs.find((s) => s.id === "b")!.belowExpected_m!;
     const m = GAIT_DATA.scaling.speedMatched.strideLength_m;
@@ -1085,9 +1125,11 @@ describe("5.11 short steps", () => {
 });
 
 describe("5.12 support findings", () => {
-  it("finds a slower than typical speed overground", () => {
+  it("finds a slower than typical speed overground, flagged as read against the interim norms", () => {
+    // The age and sex norms of 4.1 under call below 70 (review B10, GAIT-Q11): norm_interim, shown
+    // with the approximate label (D-026 item 7, CG-16). One rule, so no status (CG-17).
     expect(run({ side: { speed_mps: { value: 0.85 } } }).findings).toEqual([
-      { id: "slow_speed", side: "none", value: 0.85 },
+      { id: "slow_speed", side: "none", value: 0.85, status: null, flags: ["norm_interim"] },
     ]);
     expect(run({ side: { speed_mps: { value: 0.95 } } }).findings).toEqual([]);
     // On the pad the speed is the person's choice.
@@ -1099,11 +1141,21 @@ describe("5.12 support findings", () => {
   it("finds uneven step length on the shorter side at the data threshold", () => {
     const at = num(gaitFinding("uneven_step_length").thresholds.possible, "sr_step_length_gte");
     expect(run({ side: { sr_step_length: { value: at, left: 1 / at, right: at } } }).findings).toEqual([
-      { id: "uneven_step_length", side: "left", value: at },
+      { id: "uneven_step_length", side: "left", value: at, status: "possible" },
     ]);
     expect(
       run({ side: { sr_step_length: { value: at - 0.01, left: 1, right: at - 0.01 } } }).findings,
     ).toEqual([]);
+  });
+
+  it("gives uneven step length its status: possible from the data's 1.13, likely from 1.18 (CG-17)", () => {
+    const lk = num(gaitFinding("uneven_step_length").thresholds.likely, "sr_step_length_gte");
+    expect(run({ side: { sr_step_length: { value: lk, left: lk, right: 1 / lk } } }).findings).toEqual([
+      { id: "uneven_step_length", side: "right", value: lk, status: "likely" },
+    ]);
+    expect(
+      run({ side: { sr_step_length: { value: lk - 0.01, left: lk - 0.01, right: 1 } } }).findings,
+    ).toEqual([{ id: "uneven_step_length", side: "right", value: lk - 0.01, status: "possible" }]);
   });
 });
 

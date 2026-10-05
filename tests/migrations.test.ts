@@ -6,7 +6,7 @@ import { basename, join } from "node:path";
 import { createServer } from "node:http";
 import { Worker } from "node:worker_threads";
 import { scryptSync } from "node:crypto";
-import { runMigrations } from "../server/db/migrate";
+import { BUSY_TIMEOUT_MS, runMigrations } from "../server/db/migrate";
 import { backupDatabase, BACKUPS_KEPT, STALE_PART_MS } from "../server/db/backup";
 import { migrations, type Migration } from "../server/db/migrations";
 import { createApi } from "../server/api";
@@ -361,10 +361,19 @@ describe("runMigrations", () => {
   });
 });
 
+/** The lock holder's states in its shared flag: the lock is held, then the test is ready to migrate. */
+const LOCK_HELD = 1;
+const TEST_READY = 2;
+
 /**
  * Opens `file` in a worker thread (a second connection, like a second process starting on the same
- * database), takes the write lock, runs `sql` inside it, holds the lock for `holdMs` and commits.
- * Resolves once the worker holds the lock; `done` settles when it has committed.
+ * database), takes the write lock and runs `sql` inside it. Resolves once the worker holds the lock.
+ * The hold starts at the ready handshake: `ready()` says the test's connection has read what it needs
+ * and is about to migrate; the worker then holds the lock `holdMs` more and commits (without the call
+ * it commits after BUSY_TIMEOUT_MS). Its commit waits for a reader still on the file, with the busy
+ * timeout runMigrations gives its own connection: on a loaded machine the hold could end while the
+ * test's connection was still reading (its backup), and the commit failed at once with «database is
+ * locked» (D-027 item 7). `done` settles when it has committed.
  */
 async function holdWriteLock(file: string, sql: string, holdMs: number) {
   const flag = new Int32Array(new SharedArrayBuffer(4));
@@ -372,21 +381,27 @@ async function holdWriteLock(file: string, sql: string, holdMs: number) {
     `const { workerData: w } = require("node:worker_threads");
      const { DatabaseSync } = require("node:sqlite");
      const db = new DatabaseSync(w.file);
+     db.exec("PRAGMA busy_timeout=" + w.busyMs);
      db.exec("BEGIN IMMEDIATE");
      db.exec(w.sql);
-     Atomics.store(w.flag, 0, 1);
+     Atomics.store(w.flag, 0, ${LOCK_HELD});
      Atomics.notify(w.flag, 0);
-     Atomics.wait(w.flag, 0, 1, w.holdMs);
+     Atomics.wait(w.flag, 0, ${LOCK_HELD}, w.busyMs);
+     Atomics.wait(w.flag, 0, ${TEST_READY}, w.holdMs);
      db.exec("COMMIT");
      db.close();`,
-    { eval: true, workerData: { file, sql, flag, holdMs } },
+    { eval: true, workerData: { file, sql, flag, holdMs, busyMs: BUSY_TIMEOUT_MS } },
   );
   const done = new Promise<void>((resolve, reject) => {
     worker.once("error", reject);
     worker.once("exit", (code) => (code === 0 ? resolve() : reject(new Error(`worker exit ${code}`))));
   });
   while (Atomics.load(flag, 0) === 0) await new Promise((r) => setTimeout(r, 5));
-  return { done };
+  const ready = () => {
+    Atomics.store(flag, 0, TEST_READY);
+    Atomics.notify(flag, 0);
+  };
+  return { done, ready };
 }
 
 describe("runMigrations with a second connection", () => {
@@ -402,6 +417,7 @@ describe("runMigrations with a second connection", () => {
     );
     const db = openDb(file);
     const before = dump(db);
+    other.ready();
     const out = runMigrations(db, { dbPath: file });
     await other.done;
     expect(out.applied).toEqual([]);
@@ -414,6 +430,7 @@ describe("runMigrations with a second connection", () => {
     const file = legacyFile();
     const other = await holdWriteLock(file, "UPDATE users SET name='Held' WHERE id='u1';", 300);
     const db = openDb(file);
+    other.ready();
     const out = runMigrations(db, { dbPath: file });
     await other.done;
     expect(out.applied).toEqual(VERSIONS);

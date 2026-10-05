@@ -38,7 +38,8 @@ import type { GaitPatternResult, GaitStoredView } from "../../../src/medical/gai
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { RomNotMeasured, RomProtocol, RomProtocolItem } from "../../../src/medical/rom-protocol";
 import { focusPlanJoints } from "../../../src/medical/check-joints";
-import type { GaitAnalysis } from "../../../src/engine/gait/types";
+import { keptDayAnswers } from "../../../src/medical/focus-precheck";
+import type { GaitAnalysis, GaitSetup } from "../../../src/engine/gait/types";
 import { GAIT_ENGINE_VERSION, GAIT_RULES_VERSION } from "../../../src/movements/gait";
 import {
   NORMS_VERSION,
@@ -109,6 +110,7 @@ import {
   romRowsOf,
   saveGait,
   saveRomRow,
+  sideLeanBest,
   stopClosedFocusCheck,
   storedPatterns,
   touchFocus,
@@ -392,28 +394,28 @@ export function notMeasuredRows(c: FocusCheck, existing: readonly StoredRomRow[]
   return out;
 }
 
-/** Parkinson's state for the gait rules: unsure when the pre-check recorded it, else on (pc_pd_on yes). */
-function pdState(c: FocusCheck, intake: V7Intake): "on" | "unsure" | undefined {
-  if (!intake.conditions.includes("parkinsons")) return undefined;
-  return c.precheck["fingerprint.pdState"] === "unsure" ? "unsure" : "on";
-}
-
-/** The gait rules on a stored or posted analysis, with the range rows of the check so far (2.9). */
+/**
+ * The gait rules on a stored or posted analysis and the walk's setup, with the range rows of the check
+ * so far (2.9) and the kept day's answers they read: the pain per region, Parkinson's pc_pd_on and
+ * pc_steadi's fell and worry (D-026 item 7, CG-7, CG-9, CG-18).
+ */
 function gaitFindings(
   c: FocusCheck,
   intake: V7Intake,
   analysis: GaitAnalysis,
+  setup: GaitSetup,
   rows: readonly StoredRomRow[],
   now: number,
 ): { patterns: GaitPatternResult[]; findings: StoredGaitFindings["findings"]; rulesVersion: string } {
   const romProfile = buildRomProfile({ intake, rows, now });
-  const pd = pdState(c, intake);
+  const { painByRegion, pdState, steadi } = c.today;
   return evaluateGait({
     analysis,
     intake,
     romProfile,
-    today: { painByRegion: c.today.painByRegion, ...(pd ? { pdState: pd } : {}) },
+    today: { painByRegion, ...(pdState ? { pdState } : {}), ...(steadi ? { steadi } : {}) },
     plan: c.gaitPlan!,
+    setup,
   });
 }
 
@@ -439,6 +441,7 @@ function storedAnalysis(g: StoredGait): GaitAnalysis {
     combined: g.metrics,
     flags: g.quality.flags,
     engineVersion: g.engineVersion,
+    ...(g.walkPain.length ? { walkPain: g.walkPain } : {}),
   };
 }
 
@@ -639,7 +642,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
             setting,
             protocol: applied.protocol,
             gaitPlan: applied.gait,
-            today,
+            // Only the day's answers a later step reads, each when it was asked (D-026 items 7 and 9).
+            today: keptDayAnswers(env, answers, today, intake),
             precheck: storedPrecheck(outcome, consent, undefined),
             versions: {
               rom: ROM_RULES_VERSION,
@@ -662,6 +666,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           warnings,
           helperRequired: applied.helperRequired,
           helperBriefing: outcome.helperBriefing ?? {},
+          // The seated side bend's limit reads each side's earlier best (D-027 item 2, W2-6).
+          sideLeanBest: sideLeanBest(db, u.id),
         });
       },
     },
@@ -775,7 +781,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (!intake) return;
         const { setup, analysis } = checked.value;
         // C-13: provisional until complete, with the range rows saved so far.
-        const ev = gaitFindings(c, intake, analysis, romRowsOf(db, c.id), now);
+        const ev = gaitFindings(c, intake, analysis, setup, romRowsOf(db, c.id), now);
         const quality = {
           gatePassed: analysis.views.some((v) => v.quality.gatePassed),
           timingOnly: analysis.views.some((v) => v.quality.timingOnly),
@@ -796,6 +802,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           setup,
           metrics: analysis.combined,
           staticStance: analysis.staticStance,
+          walkPain: analysis.walkPain ?? [],
           findings: { patterns: storedPatterns(ev.patterns), findings: ev.findings },
           quality,
           replay: analysis.replay,
@@ -925,7 +932,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           const g = gaitOf(db, c.id);
           let gait: GaitStoredView | null = null;
           if (g && c.gaitPlan) {
-            const ev = gaitFindings(c, intake, storedAnalysis(g), rows, now);
+            const ev = gaitFindings(c, intake, storedAnalysis(g), g.setup, rows, now);
             const findings = { patterns: storedPatterns(ev.patterns), findings: ev.findings };
             replaceGaitFindings(db, g.id, findings, ev.rulesVersion);
             gait = gaitView({ ...g, findings, rulesVersion: ev.rulesVersion }, ev.patterns, false);

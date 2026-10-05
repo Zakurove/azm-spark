@@ -28,6 +28,7 @@ import type { StopOptionId } from "../../movements/types";
 import type { FocusApi, RomSaved } from "./api";
 import {
   initialModel,
+  leanBestOf,
   reduce,
   startBody,
   type FocusEvent,
@@ -185,8 +186,10 @@ export class FocusSession {
     if (this.ctl) return this.ctl;
     const check = this.model.data.check!;
     const opts = this.opts;
+    const leanBest = leanBestOf(check);
     const options: RomControllerOptions = {
       protocol: check.protocol,
+      ...(leanBest ? { sideLeanBest: leanBest } : {}),
       painByRegion: this.model.data.today.painByRegion,
       intake: this.model.data.intake,
       get lang() {

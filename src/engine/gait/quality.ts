@@ -7,12 +7,14 @@
  *                the time from the first to the last (D-026 item 6: a stream that loses every
  *                fourth frame reads 22.5, where the median gap read 30, CG-6); the field keeps its
  *                Gate A name
- *   gapShare     the share of analysed frames with a gate landmark (23 to 32) under 0.5, which the
- *                pre-processing filled by interpolation
+ *   gapShare     the share of analysed frames with a gate landmark (23 to 32; side views: the hips
+ *                and the near leg, D-026 item 6) under 0.5, which the pre-processing filled by
+ *                interpolation
  *   gatePassed   at least 6 clean cycles per side, at 20 fps or more («under 20: record again»)
  *   timingOnly   20 to 24 fps: «timing and cadence only»
  *   issues       what lowered the view: too_few_cycles, low_fps (under 25), gaps (over 15%),
- *                visibility and swap (the gate failed and cycles were dropped for that reason),
+ *                visibility and swap (the gate failed and cycles were dropped for that reason; a
+ *                side view's far leg dropped for visibility does not count),
  *                wrong_view (most of the view's samples show the other body view, or the view's
  *                passes are missing: a front view without toward passes, a back view without away
  *                passes), turns_only (every pass sample is a turn). not_one_person comes from the
@@ -52,7 +54,7 @@
 import type { Cycle } from "./cycles";
 import { GAIT_ENGINE } from "./params";
 import { analysedRuns, type Motion } from "./passes";
-import type { Prepared } from "./preprocess";
+import { LEG, type Prepared } from "./preprocess";
 import type { GaitQuality, GaitQualityIssue } from "./types";
 import { lowerBound, median, r3 } from "./util";
 
@@ -96,20 +98,33 @@ export function medianFps(frameMs: ArrayLike<number>): number {
 export function gapShare(p: Prepared, motion: Motion): number {
   let analysed = 0;
   let filled = 0;
-  for (const pass of motion.passes)
+  for (const pass of motion.passes) {
+    // Side views (a pass with a near limb): the near limb rule of D-026 item 6, the hips and the near
+    // leg; the far leg hiding behind the near one is no gap of the walk.
+    const ids = pass.near
+      ? [
+          LEG.left.hip,
+          LEG.right.hip,
+          LEG[pass.near].knee,
+          LEG[pass.near].ankle,
+          LEG[pass.near].heel,
+          LEG[pass.near].toe,
+        ]
+      : GAIT_ENGINE.gateLandmarks;
     for (const [a, b] of analysedRuns(pass, motion.excluded)) {
       const from = lowerBound(p.frameMs, p.series.t[a] * 1000 - 1e-6);
       const to = lowerBound(p.frameMs, p.series.t[b - 1] * 1000 + 1e-6);
       for (let i = from; i < to; i++) {
         analysed++;
         const lm = p.frames[i].lm;
-        const missing = GAIT_ENGINE.gateLandmarks.some((id) => {
+        const missing = ids.some((id) => {
           const q = lm[id];
           return !q || !Number.isFinite(q.x) || !((q.visibility ?? 0) >= GAIT_ENGINE.gateVisibility);
         });
         if (missing) filled++;
       }
     }
+  }
   return analysed ? filled / analysed : 0;
 }
 
@@ -128,7 +143,12 @@ export function viewQuality(q: QualityInput): GaitQuality {
   const drops = new Map<string, number>();
   for (const c of q.cycles) {
     if (c.clean) clean[c.side]++;
-    else if (c.drop) drops.set(c.drop, (drops.get(c.drop) ?? 0) + 1);
+    else if (c.drop) {
+      // Side views: a far leg's cycle dropped for visibility is the near limb rule at work (the far leg
+      // hides behind the near one, D-026 item 6), not a visibility problem of the walk.
+      if (c.drop === "visibility" && !c.near && q.motion.passes[c.pass]?.near) continue;
+      drops.set(c.drop, (drops.get(c.drop) ?? 0) + 1);
+    }
   }
   const gaps = gapShare(q.p, q.motion);
   const enough =

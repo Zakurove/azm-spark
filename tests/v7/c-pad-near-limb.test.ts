@@ -10,6 +10,15 @@ import { describe, expect, it } from "vitest";
 import { analyseGaitView } from "../../src/engine/gait/analyse";
 import { prepare } from "../../src/engine/gait/preprocess";
 import { loadSmoke } from "../fixtures/gait/smoke";
+import {
+  farLegOf,
+  REAL_FAR_LEG,
+  setupOf,
+  walk,
+  withRealFarLeg,
+  type WalkSpec,
+} from "../fixtures/gait/gen-gait";
+import { GAIT_ENGINE } from "../../src/engine/gait/params";
 
 describe("G1's rendered pad walk through the real model", () => {
   for (const name of ["gait-pad-side-full", "gait-pad-side-lite"] as const)
@@ -49,5 +58,71 @@ describe("G1's rendered pad walk through the real model", () => {
         if (Math.max(...win) > Math.max(...before) && Math.max(...win) > Math.max(...after)) found++;
     }
     expect(found / truth.length).toBeGreaterThan(0.9);
+  });
+});
+
+describe("the overground side view with the far leg as the real model sees it (D-026 item 6, engine review 2)", () => {
+  // Without the near limb rule every cycle of these walks was dropped (visibility) and the walk split
+  // into bouts: no cadence, gate failed, on every phone.
+  const specs: WalkSpec[] = [
+    { view: "side", passes: 4, seed: 91 },
+    { view: "side", passes: 4, seed: 92, cadence: 96, speed: 0.9 },
+    // A fast walker gives each leg about two cycles a pass where it is near: the protocol's 6 passes.
+    { view: "side", passes: 6, seed: 93, cadence: 120, speed: 1.4 },
+  ];
+  for (const spec of specs)
+    it(`passes its gate and times the walk (cadence ${spec.cadence ?? 108})`, () => {
+      const w = walk(spec);
+      const frames = withRealFarLeg(w.frames);
+      // The model the walk was made to: the far knee hidden in about 46% of the frames that show a far
+      // side, the far ankle in about 12%.
+      const sides = w.frames.map((f) => farLegOf(f.lm));
+      const shown = sides.filter((s) => s !== null).length;
+      const hidden = (ids: { left: number; right: number }) =>
+        frames.filter((f, i) => sides[i] && f.lm[ids[sides[i]!]].visibility < 0.5).length / shown;
+      expect(hidden({ left: 25, right: 26 })).toBeCloseTo(REAL_FAR_LEG.knee, 1);
+      expect(hidden({ left: 27, right: 28 })).toBeCloseTo(REAL_FAR_LEG.ankle, 1);
+      const r = analyseGaitView({
+        view: "side",
+        setup: setupOf(spec),
+        standing: w.standing,
+        frames,
+        poseModel: "full",
+        rollDeg: 0,
+      });
+      expect(r.quality.gatePassed).toBe(true);
+      expect(r.quality.cleanCycles.left).toBeGreaterThanOrEqual(GAIT_ENGINE.cleanCyclesPerSide);
+      expect(r.quality.cleanCycles.right).toBeGreaterThanOrEqual(GAIT_ENGINE.cleanCyclesPerSide);
+      expect(Math.abs(r.metrics.cadence!.value! / w.truth.cadence - 1)).toBeLessThan(0.05);
+      // The near leg's step length is still read against the walker's own (within 5%).
+      const clean = analyseGaitView({
+        view: "side",
+        setup: setupOf(spec),
+        standing: w.standing,
+        frames: w.frames,
+        poseModel: "full",
+        rollDeg: 0,
+      });
+      expect(
+        Math.abs(r.metrics.step_length_m!.value! / clean.metrics.step_length_m!.value! - 1),
+      ).toBeLessThan(0.05);
+      expect(r.quality.issues).not.toContain("gaps");
+    });
+
+  it("tells a fast walker's 4 passes they are too few, never that the legs were not seen", () => {
+    // Each leg's cycles come from the passes where it is near; the far leg's dropped cycles are the
+    // near limb rule at work, not a visibility problem of the walk (capture adds passes, up to 6).
+    const spec: WalkSpec = { view: "side", passes: 4, seed: 93, cadence: 120, speed: 1.4 };
+    const w = walk(spec);
+    const r = analyseGaitView({
+      view: "side",
+      setup: setupOf(spec),
+      standing: w.standing,
+      frames: withRealFarLeg(w.frames),
+      poseModel: "full",
+      rollDeg: 0,
+    });
+    expect(r.quality.gatePassed).toBe(false);
+    expect(r.quality.issues).toEqual(["too_few_cycles"]);
   });
 });

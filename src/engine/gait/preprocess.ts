@@ -15,7 +15,8 @@
  *   5. Outliers: Hampel, window 7, n sigma 2.
  *   6. Smoothing: zero lag Butterworth low pass at 5 Hz (2nd order design run by filtfilt), on each
  *      run of finite samples; a run too short for filtfilt is dropped (it cannot hold a stride).
- *   7. Bouts: the runs where both hips and both ankles are finite.
+ *   7. Bouts: the runs where both hips and both ankles are finite (side views: both hips and either
+ *      ankle, D-026 item 6's near limb rule).
  *
  * Azm code, built from the clinical rules (no upstream code). Pure, no DOM.
  */
@@ -71,7 +72,7 @@ export interface Series {
   y: Float64Array[];
   /** Grid samples whose labels were exchanged by the swap or facing rules. */
   relabelled: Uint8Array;
-  /** Half open grid ranges where both hips and both ankles are finite. */
+  /** Half open grid ranges where both hips and both ankles (side views: either ankle) are finite. */
   bouts: [number, number][];
 }
 
@@ -92,6 +93,12 @@ export interface PrepareOptions {
   rollDeg: number | null;
   /** Which label rule runs: the leg swap rule (side views) or the facing check (front and back views). */
   labels: "swaps" | "facing" | "none";
+  /**
+   * What a bout needs besides both hips: both ankles (front and back views, the default), or either
+   * ankle (side views, D-026 item 6's near limb rule: the far ankle hides behind the near shank for a
+   * part of each stride, and the near one stands for the walk then).
+   */
+  bouts?: "both_ankles" | "either_ankle";
 }
 
 /** The frames in time order, keeping only those whose time is finite and moves forward. */
@@ -315,8 +322,11 @@ export function prepare(input: readonly GaitFrame[], opts: PrepareOptions): Prep
     x[id] = smooth(x[id], sos, padlen);
     y[id] = smooth(y[id], sos, padlen);
   }
+  const on = (id: number, k: number) => Number.isFinite(x[id][k]) && Number.isFinite(y[id][k]);
   series.bouts = runs(n, (k) =>
-    [23, 24, 27, 28].every((id) => Number.isFinite(x[id][k]) && Number.isFinite(y[id][k])),
+    opts.bouts === "either_ankle"
+      ? on(23, k) && on(24, k) && (on(27, k) || on(28, k))
+      : [23, 24, 27, 28].every((id) => on(id, k)),
   );
   return { series, frames, frameMs, aspect, faceSeen };
 }

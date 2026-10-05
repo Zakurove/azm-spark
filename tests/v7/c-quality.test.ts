@@ -117,10 +117,11 @@ describe("gates", () => {
   });
 
   it("measures the share of analysed frames whose gate landmarks were filled", () => {
-    // the left foot index hidden 4 frames in every 15 (each gap under 0.12 s, so filled)
+    // the near (right) foot index hidden 4 frames in every 15 (each gap under 0.12 s, so filled); a side
+    // view reads the hips and the near leg (D-026 item 6), so the far foot's gaps would not count
     const w = walk({ view: "pad_side", nearSide: "right", durationSec: 20, seed: 75 });
     w.frames.forEach((f, i) => {
-      if (i % 15 < 3) f.lm[31].visibility = 0.2;
+      if (i % 15 < 3) f.lm[32].visibility = 0.2;
     });
     const r = analyseGaitView({
       view: "pad_side",
@@ -158,8 +159,9 @@ describe("gates", () => {
       excluded,
       wrongViewShare: 0,
     };
+    // The near (right) leg's cycles: a side view's far leg dropped for visibility is no reason.
     const dropped = (drop: Cycle["drop"]): Cycle => ({
-      side: "left",
+      side: "right",
       icStart: 0,
       to: null,
       icEnd: 1000,
@@ -171,7 +173,7 @@ describe("gates", () => {
       kOppIc: null,
       kTo: null,
       k1: 30,
-      near: false,
+      near: true,
       trunkOk: false,
     });
     const q = viewQuality({
@@ -183,5 +185,10 @@ describe("gates", () => {
     expect(q.issues).toEqual(["too_few_cycles", "visibility", "swap", "turns_only"]);
     expect(q.cleanCycles).toEqual({ left: 0, right: 0 });
     expect(q.gapShare).toBe(0);
+    const far: Cycle = { ...dropped("visibility"), side: "left", near: false };
+    expect(viewQuality({ p, motion, cycles: [far], noViewPasses: false }).issues).toEqual([
+      "too_few_cycles",
+      "turns_only",
+    ]);
   });
 });

@@ -17,7 +17,8 @@
  *              edge; a walker who enters or leaves the picture walking, as the capture asks, has its
  *              first and last steps out of view), or leaves the front view's 1.5 to 4 m window;
  *   duration   the stride time is outside 0.5 to 1.5 times the median stride of its pass;
- *   visibility a gate landmark (23 to 32) is under 0.5 in more than 10% of the cycle's frames.
+ *   visibility a gate landmark (23 to 32; side views: the hips and the cycle's own leg, D-026 item
+ *              6's near limb rule) is under 0.5 in more than 10% of the cycle's frames.
  * A clean cycle also records whether the trunk landmarks (11, 12) pass the same visibility gate.
  *
  * The segmentation is ported from myogait, https://github.com/IDMDataHub/myogait, myogait/cycles.py
@@ -56,7 +57,7 @@
 import type { PassEvent } from "./events";
 import { GAIT_ENGINE } from "./params";
 import { EXCLUDED, type Motion } from "./passes";
-import { visibleShare, type Prepared } from "./preprocess";
+import { LEG, visibleShare, type Prepared } from "./preprocess";
 import { correctOrder } from "./spatiotemporal";
 import type { GaitCycle } from "./types";
 import { median, other, type LimbSide } from "./util";
@@ -124,7 +125,7 @@ export function buildCycles(
         if (st < lo * mid || st > hi * mid) drop(c, "duration");
       }
       if (c.clean) {
-        const share = visibleShare(p, GAIT_ENGINE.gateLandmarks, c.icStart, c.icEnd);
+        const share = visibleShare(p, gateLandmarksOf(c.side, kind), c.icStart, c.icEnd);
         if (share < GAIT_ENGINE.gateShare) drop(c, "visibility");
       }
       if (c.clean)
@@ -133,6 +134,19 @@ export function buildCycles(
     out.push(...passCycles);
   });
   return out.sort((a, b) => a.k0 - b.k0 || (a.side === "left" ? -1 : 1));
+}
+
+/**
+ * The landmarks a cycle's visibility gate reads. Front and back views: every gate landmark (23 to 32).
+ * Side views, D-026 item 6's near limb rule for every side view: the hips and the cycle's own leg, so
+ * a near leg's cycle is not dropped for the far leg hiding behind it (on real model output the far
+ * knee is under the floor in about half the frames, G1's smoke), and a far leg's cycle is kept only
+ * where that leg passes its own gate.
+ */
+function gateLandmarksOf(side: LimbSide, kind: "side" | "front"): readonly number[] {
+  if (kind === "front") return GAIT_ENGINE.gateLandmarks;
+  const leg = LEG[side];
+  return [LEG.left.hip, LEG.right.hip, leg.knee, leg.ankle, leg.heel, leg.toe];
 }
 
 function drop(c: Cycle, why: NonNullable<GaitCycle["drop"]>): void {

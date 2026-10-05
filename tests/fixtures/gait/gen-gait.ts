@@ -1003,3 +1003,56 @@ export function singleLegStance(spec: StanceSpec): { standing: GaitFrame[]; fram
   }
   return { standing, frames };
 }
+
+/**
+ * The far leg as the real pose model reports it in a side view (G1's kept landmarks,
+ * tests/fixtures/gait/smoke/gait-pad-side-full.smoke: the far knee under 0.5 in about 46% of frames, the
+ * far ankle in about 12%). The walker's far leg is seen in every frame (visibilityOf gives it 0.88);
+ * here the far knee, and the far ankle with its heel and foot index, go under the floor in the frames
+ * where they are closest to the near ones in the picture (phase locked to the legs crossing), in those
+ * shares of the frames that show a far side. Used for the near limb regressions of the side views.
+ */
+export const REAL_FAR_LEG = { knee: 0.46, ankle: 0.12 } as const;
+
+/** The far leg of a walker's frame: the leg visibilityOf gives its far side value (0.88), or null. */
+export function farLegOf(lm: readonly Landmark[]): Side | null {
+  const far = (v: number) => v < 0.9 && v > 0.5;
+  const near = (v: number) => v >= 0.95;
+  if (far(lm[25].visibility) && near(lm[26].visibility)) return "left";
+  if (far(lm[26].visibility) && near(lm[25].visibility)) return "right";
+  return null;
+}
+
+export function withRealFarLeg(
+  frames: readonly GaitFrame[],
+  share: { knee: number; ankle: number } = REAL_FAR_LEG,
+): GaitFrame[] {
+  const farOf = farLegOf;
+  const gaps = (pair: (s: Side) => [number, number]) => {
+    const out: number[] = [];
+    for (const f of frames) {
+      const far = farOf(f.lm);
+      if (!far) continue;
+      const [a, b] = pair(far);
+      out.push(Math.abs(f.lm[a].x - f.lm[b].x));
+    }
+    return out.sort((x, y) => x - y);
+  };
+  const knee = (s: Side): [number, number] => (s === "left" ? [25, 26] : [26, 25]);
+  const ankle = (s: Side): [number, number] => (s === "left" ? [27, 28] : [28, 27]);
+  const cut = (sorted: number[], q: number) =>
+    sorted.length ? sorted[Math.floor(q * (sorted.length - 1))] : -1;
+  const kneeCut = cut(gaps(knee), share.knee);
+  const ankleCut = cut(gaps(ankle), share.ankle);
+  return frames.map((f) => {
+    const lm = f.lm.map((q) => ({ ...q }));
+    const far = farOf(lm);
+    if (!far) return { ...f, lm };
+    const [fk, nk] = knee(far);
+    const [fa, na] = ankle(far);
+    if (Math.abs(lm[fk].x - lm[nk].x) <= kneeCut) lm[fk] = { ...lm[fk], visibility: 0.3 };
+    if (Math.abs(lm[fa].x - lm[na].x) <= ankleCut)
+      for (const id of far === "left" ? [27, 29, 31] : [28, 30, 32]) lm[id] = { ...lm[id], visibility: 0.3 };
+    return { ...f, lm };
+  });
+}

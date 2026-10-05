@@ -124,10 +124,19 @@ describe("cycles and their drops", () => {
   });
 
   it("drops a cycle whose gate landmarks are under 0.5 in more than 10% of its frames (visibility)", () => {
-    const p = still(200, { from: 35, to: 40, ids: [31] });
+    const p = still(200, { from: 35, to: 40, ids: [32] });
     const cycles = buildCycles(p, motion(p, [pass()]), regular(5), "side", false);
     expect(cycles.find((c) => c.side === "right" && c.k0 === 30)?.drop).toBe("visibility");
     expect(cycles.find((c) => c.side === "right" && c.k0 === 0)?.clean).toBe(true);
+  });
+
+  it("gates a side view's cycle on the hips and its own leg: the other leg hiding behind it drops nothing (D-026 item 6)", () => {
+    const p = still(200, { from: 35, to: 40, ids: [25, 27, 31] });
+    const side = buildCycles(p, motion(p, [pass()]), regular(5), "side", false);
+    expect(side.find((c) => c.side === "right" && c.k0 === 30)?.clean).toBe(true);
+    // The other leg's own cycle over the same frames is dropped: far limb events and metrics come only
+    // from cycles where that leg passes its own gate.
+    expect(side.filter((c) => c.side === "left" && c.drop === "visibility").length).toBeGreaterThan(0);
   });
 
   it("records whether the trunk landmarks pass the same gate", () => {

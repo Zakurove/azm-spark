@@ -616,7 +616,10 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
     }
   })();
 
-  function rangeContent(c: RomController, tNow: number): { screen: string; node: React.ReactNode } {
+  function rangeContent(
+    c: RomController,
+    tNow: number,
+  ): { screen: string; node: React.ReactNode; step?: string } {
     const step = c.current;
     const runs = m.data.check!.protocol.items.filter((i) => !i.skipped);
     const indexOf = (i: { movementId: string; side: string }) =>
@@ -676,7 +679,10 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
         };
       case "measure":
         return {
+          // data-screen names the phase; the column stays mounted for the whole movement (no replayed
+          // entrance or lost focus at each phase).
           screen: `measure_${c.phase ?? "idle"}`,
+          step: `measure:${itemKey(step.item)}`,
           node: (
             <MeasureScreen
               lang={lang}
@@ -754,6 +760,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
           lang={lang}
           top={top}
           screen={content.screen}
+          step={"step" in content ? content.step : undefined}
           wide={!!rangeStep && rangeStep.kind === "measure"}
         >
           {content.node}

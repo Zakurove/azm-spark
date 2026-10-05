@@ -282,6 +282,12 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
   const issue = phase === "calibrating" ? ctl.setupIssue : null;
   const asking =
     phase === "ask_max" || phase === "ask_pain" || phase === "ask_cause" || phase === "ask_can_move";
+  // STOP is first in the focus order and has focus when the measurement opens (v1 S34), and again
+  // when a question closes; a question that opens takes it (QuestionText).
+  const stopRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!asking) stopRef.current?.focus({ preventScroll: true });
+  }, [asking]);
   const value = phase === "ask_max" && hold ? hold.deg : live;
   const prompt =
     phase === "calibrating"
@@ -311,6 +317,9 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       data-movement={item.movementId}
       data-asking={asking ? (phase === "ask_max" ? "max" : "other") : undefined}
     >
+      <div className="fx-v1 fx-stopbar is-measure">
+        <StopButton onPress={onStop} buttonRef={stopRef} />
+      </div>
       <Stage video={video} frame={frame} highlight={highlight}>
         <div className="fx-stage-top">
           <span className="fx-pill is-glass">
@@ -483,9 +492,6 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
           </Question>
         )}
       </Glass>
-      <div className="fx-v1 fx-stopbar">
-        <StopButton onPress={onStop} />
-      </div>
     </div>
   );
 }

@@ -18,7 +18,7 @@ import { entry, intake, today } from "./a-fixtures";
 
 const inRoot = (el: ReactElement) =>
   renderToStaticMarkup(
-    createElement(CheckRoot, { ui: { lang: "ar", booth: true }, page: false, className: "fx" }, el),
+    createElement(CheckRoot, { ui: { lang: "ar", booth: true }, page: false, className: "fx", children: el }),
   );
 
 const items = buildRomProtocol({

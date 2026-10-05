@@ -42,7 +42,18 @@ import { copyText, movementName, regionName } from "./copy";
 import { sideRegion } from "./names";
 import { checkParts, type ClosedWhy, type HelperBriefScreen, type TodayQuestion } from "./flow";
 import { MovementPicture } from "./MovementPicture";
-import { Actions, Body, Choices, Glass, Kicker, Loading, PainScale, Title } from "./parts";
+import {
+  Actions,
+  Body,
+  Choices,
+  Glass,
+  Kicker,
+  Loading,
+  PainScale,
+  Title,
+  useFocusOnMount,
+  useModal,
+} from "./parts";
 
 /* ---------------------------------------------------------------- entry */
 
@@ -382,6 +393,8 @@ export function QuestionScreen({
 }) {
   const view = questionView(env, answers, id, lang);
   const title = useId();
+  // Each question takes focus when it opens (v1 CheckShell: focus to the h1 on every screen change).
+  const heading = useFocusOnMount<HTMLHeadingElement>();
   let control: ReactNode;
   if (view.kind === "scale")
     control = (
@@ -409,6 +422,7 @@ export function QuestionScreen({
     <Glass className="fx-card fx-question" data-question={id}>
       <Kicker>{view.groupHeading ?? tV7(lang, "rom.precheck.kicker")}</Kicker>
       <h1
+        ref={heading}
         id={title}
         className={`fx-title is-question${view.question.length > 110 ? " is-long" : ""}`}
         tabIndex={-1}
@@ -600,12 +614,19 @@ export function QuestionText({
   as?: "h1" | "h2";
 }) {
   const H = as;
+  // The question takes focus when it opens: a new screen's, or a question opening over the measurement.
+  const ref = useFocusOnMount<HTMLHeadingElement>();
   const colon = lead ? text.indexOf(":") : -1;
   if (colon > 0) {
     const place = text.slice(0, colon + 1);
     const rest = text.slice(colon + 1).trim();
     return (
-      <H id={id} className={`fx-title is-question${rest.length > 90 ? " is-long" : ""}`} tabIndex={-1}>
+      <H
+        ref={ref}
+        id={id}
+        className={`fx-title is-question${rest.length > 90 ? " is-long" : ""}`}
+        tabIndex={-1}
+      >
         <span className="fx-q-lead">{bidiText(lang, place)}</span> {bidiText(lang, rest)}
       </H>
     );
@@ -613,7 +634,12 @@ export function QuestionText({
   const [first = text, ...more] = splitSentences(text);
   return (
     <>
-      <H id={id} className={`fx-title is-question${first.length > 110 ? " is-long" : ""}`} tabIndex={-1}>
+      <H
+        ref={ref}
+        id={id}
+        className={`fx-title is-question${first.length > 110 ? " is-long" : ""}`}
+        tabIndex={-1}
+      >
         {bidiText(lang, first)}
       </H>
       {more.length > 0 && <p className="fx-q-more">{bidiText(lang, more.join(" "))}</p>}
@@ -968,6 +994,7 @@ export function FaintAskScreen({
 }) {
   const q = stopFollowUp("sf_faint_loc");
   const title = useId();
+  const heading = useFocusOnMount<HTMLHeadingElement>();
   const options: ZoneOption[] = q.options.map((o) => ({
     value: o.value as string,
     label: o.label[lang],
@@ -977,7 +1004,7 @@ export function FaintAskScreen({
   const intro = back ? (splitSentences(localizeDigits(lang, screenText(back, lang)))[0] ?? "") : "";
   return (
     <Glass className="fx-card fx-question fx-faint" tone="rose">
-      <h1 id={title} className="fx-title is-question" tabIndex={-1}>
+      <h1 ref={heading} id={title} className="fx-title is-question" tabIndex={-1}>
         {bidiText(lang, q.ask[lang])}
       </h1>
       <div className="fx-v1 fx-zones">
@@ -1034,6 +1061,11 @@ export function StopListScreen({
   // after the list opened, and not within 600 ms of a press that opened it (v1 useArmedPress,
   // SAFETY_TIMING.stopArmMs, R3C-03 (6)). Keyboard and switch activation always count.
   const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
+  // A modal list (v1 S41): the page behind inert, focus on its question, Tab kept inside, no Escape
+  // (a safety list stays until it is answered), and focus back on STOP when it closes.
+  const modal = useModal(undefined, () =>
+    document.querySelector<HTMLElement>(".fx-stopbar:not(.is-inert) .safety-stop"),
+  );
   const group = (g: "urgent" | "other") =>
     CHECK_DATA.stopRouting.options.filter((o) => shown.has(o.id) && o.group === g);
   const row = (o: (typeof CHECK_DATA.stopRouting.options)[number]) => (
@@ -1054,6 +1086,8 @@ export function StopListScreen({
   );
   return (
     <div
+      ref={modal.ref}
+      onKeyDown={modal.onKeyDown}
       className={`fx-overlay${stopShown ? " has-stop" : ""}`}
       role="dialog"
       aria-modal="true"
@@ -1105,8 +1139,13 @@ export function LeaveDialog({
   onLeave(): void;
 }) {
   const title = useId();
+  // A modal dialog (v1 CheckDialog): the page behind inert, focus on its question, Tab kept inside,
+  // Escape stays in the check, focus back where it was.
+  const modal = useModal(onStay);
   return (
     <div
+      ref={modal.ref}
+      onKeyDown={modal.onKeyDown}
       className="fx-overlay is-dim"
       role="dialog"
       aria-modal="true"

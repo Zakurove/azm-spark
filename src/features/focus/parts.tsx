@@ -12,6 +12,7 @@ import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CountdownRing } from "../assessment/safety/parts";
+import { inertOutside } from "../assessment/shared/CheckDialog";
 import { CHECK_DATA } from "../../movements/assessments";
 
 export interface Action {
@@ -62,18 +63,26 @@ export function Page({
   children,
   wide = false,
   screen,
+  step,
 }: {
   lang: Lang;
   top: ReactNode;
   children: ReactNode;
   wide?: boolean;
-  /** A test and screenshot hook (data-screen). */
+  /** A test and screenshot hook (data-screen): it may name a phase that changes within a step. */
   screen: string;
+  /**
+   * The step the column belongs to (default the screen): a new step remounts the column, starts at its
+   * top and plays the entrance; a phase change inside one step (a measurement's calibrating, attempts,
+   * questions, rest, pause) keeps it, so nothing fades or slides and keyboard focus stays.
+   */
+  step?: string;
 }) {
-  // A new screen starts at its top (a long card left scrolled never hides the next one's heading).
+  const key = step ?? screen;
+  // A new step starts at its top (a long card left scrolled never hides the next one's heading).
   useLayoutEffect(() => {
     if (typeof window !== "undefined") window.scrollTo(0, 0);
-  }, [screen]);
+  }, [key]);
   return (
     <div
       className={`fx-page${wide ? " is-wide" : ""}`}
@@ -84,12 +93,75 @@ export function Page({
       <span className="fx-glow is-gold" aria-hidden="true" />
       <span className="fx-glow is-violet" aria-hidden="true" />
       {top}
-      <main className="fx-main" key={screen}>
+      <main className="fx-main" key={key}>
         {children}
       </main>
     </div>
   );
 }
+
+/** Moves keyboard and screen reader focus to an element when it mounts (v1 useFocusOnMount). */
+export function useFocusOnMount<T extends HTMLElement>(on = true) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!on || !el) return;
+    if (!el.hasAttribute("tabindex")) el.tabIndex = -1;
+    el.focus({ preventScroll: true });
+  }, [on]);
+  return ref;
+}
+
+/**
+ * A modal overlay (v1 CheckDialog's behaviour, in place): the page behind is inert while it is open,
+ * focus moves to its heading, Tab stays inside, Escape calls `onClose` (none for a safety list), and
+ * on close focus goes back to `returnFocus` or to what had it before.
+ */
+export function useModal(onClose?: () => void, returnFocus?: () => HTMLElement | null) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const returnRef = useRef(returnFocus);
+  returnRef.current = returnFocus;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof document === "undefined") return;
+    const previous = document.activeElement as HTMLElement | null;
+    const changed = inertOutside(el);
+    const heading = el.querySelector<HTMLElement>("h1");
+    if (heading && !heading.hasAttribute("tabindex")) heading.tabIndex = -1;
+    (heading ?? el).focus({ preventScroll: true });
+    return () => {
+      for (const c of changed) c.removeAttribute("inert");
+      const back = returnRef.current?.() ?? (previous && document.contains(previous) ? previous : null);
+      back?.focus({ preventScroll: true });
+    };
+  }, []);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape" && closeRef.current) {
+      e.preventDefault();
+      closeRef.current();
+      return;
+    }
+    if (e.key !== "Tab" || !ref.current) return;
+    const els = Array.from(ref.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+    if (!els.length) return;
+    const first = els[0];
+    const last = els[els.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || !ref.current.contains(active) || active === ref.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (active === last || !ref.current.contains(active))) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  return { ref, onKeyDown };
+}
+
+const FOCUSABLE =
+  "button:not(:disabled),[href],input:not(:disabled),select:not(:disabled),textarea,[tabindex='0']";
 
 /** The top bar: the brand, the way through the check, sound and leave. */
 export function TopBar({

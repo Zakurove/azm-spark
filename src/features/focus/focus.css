@@ -1118,6 +1118,14 @@
   bottom: 0;
   z-index: 5;
 }
+/* STOP under a two column step (the block and setup cards, the result) spans both columns. */
+.fx-split > .fx-stopbar {
+  grid-column: 1 / -1;
+}
+/* The measurement's STOP is first in the focus order (v1 S34) and shown last, at the bottom. */
+.fx-measure > .fx-stopbar.is-measure {
+  order: 1;
+}
 .azm-check.fx .fx-stopbar .safety-stop-zone {
   position: static;
   padding: 4px 0 calc(8px + env(safe-area-inset-bottom));

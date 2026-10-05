@@ -7868,7 +7868,7 @@
       },
       {
         "finding": "no_active_movement",
-        "targets": "no active exercise for that movement; for the shoulder only, table_slides with the other hand helping if the clinicians allow (open question 5); show refer_care_team",
+        "targets": "no active exercise for that movement; for the shoulder only, table_slides with the other hand helping (self assisted, allowed at the sign off: EX-Q5); show refer_care_team",
         "perAction": 0,
         "priority": null
       },

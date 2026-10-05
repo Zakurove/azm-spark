@@ -637,6 +637,14 @@ describe("v7 clinical export: a new field anywhere reaches the output or fails (
       );
     }
   });
+
+  it("keeps a limb loss level's sign off resolution in local-docs beside its question (ROM-Q7)", () => {
+    const r = exportWith("rom", (s) => {
+      s.limbLoss.levels[0].resolution = "ROM-Q7, signed off: not measured with the prosthesis on.";
+    });
+    expect(r.error).toBeUndefined();
+    expect(r.text).not.toContain("ROM-Q7");
+  });
 });
 
 /* ---------------------------------- --report-prose-numbers (D-024 item 4) */

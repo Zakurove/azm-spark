@@ -626,4 +626,21 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
     expect(TARGETS_VERSION).toBe("targets_1.0.0");
     expect(TARGETS_DATA.newExercises.every((e) => e.status === "draft")).toBe(true);
   });
+
+  it("holds the D-025 grade rules: the residual knee or hip targets and the shoulder table slides, with no condition left", () => {
+    const rule = (finding: string) => TARGETS_DATA.mapping.gradeRules.find((r) => r.finding === finding)!;
+    // ROM-Q7 and review A13: active (the condition lived in the basis, which local-docs keeps).
+    expect(rule("not_measured_camera (residual joint after limb loss)")).toMatchObject({
+      targets:
+        "mobility:hip_extension above an above knee loss; mobility:knee_extension above a below knee loss; refer_measure",
+      perAction: 1,
+      priority: 1,
+    });
+    // EX-Q5: self assisted shoulder table slides with the care team line; no item for other joints.
+    const none = rule("no_active_movement").targets;
+    expect(none).toContain("for the shoulder only, table_slides with the other hand helping");
+    expect(none).toContain("show refer_care_team");
+    expect(none).not.toMatch(/if the clinicians allow|open question/);
+    expect(TARGETS_DATA.newExercises.find((e) => e.id === "table_slides")!.contraindications).toEqual([]);
+  });
 });

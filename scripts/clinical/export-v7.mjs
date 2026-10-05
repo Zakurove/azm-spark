@@ -782,7 +782,7 @@ export const ROM_PROSE = {
   problemTypes: ["rule", "programHint"],
   conditionAutoMap: ["regions", "problem", "ask2"],
   limbLoss: ["rule"],
-  limbLossLevel: ["openQuestion", "standing"],
+  limbLossLevel: ["openQuestion", "resolution", "standing"],
   positions: ["who"],
   inAffectedRegion: ["percentOfNormal", "finding", "bodyMap"],
   thresholds: [

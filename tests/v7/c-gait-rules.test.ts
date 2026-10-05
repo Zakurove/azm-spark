@@ -293,14 +293,15 @@ describe("5.2 hip dip (Trendelenburg)", () => {
     });
   });
 
-  it("is likely with the static single leg stance drop and the trunk lean on that side, still low", () => {
+  it("stays possible with the static single leg stance drop and the trunk lean, kept as evidence (D-024 item 3, D-026 item 7)", () => {
     const stance = [{ side: "right" as const, pelvicDropDeg: 12, ok: true }];
     const r = on(
       patterns({ front: { ...dip(14), ...lean }, staticStance: stance }),
       "trendelenburg",
       "right",
     )!;
-    expect(r).toMatchObject({ status: "likely", confidence: "low" });
+    // The static drop is a value only until its threshold is tuned (CG-10): Trendelenburg is possible at most.
+    expect(r).toMatchObject({ status: "possible", confidence: "low" });
     expect(r.evidence.map((e) => e.metric)).toEqual([
       "pelvic_drop",
       "pelvic_drop",

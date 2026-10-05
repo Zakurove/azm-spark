@@ -637,14 +637,17 @@ function trendelenburg(c: Ctx): Draft[] {
       ev("pelvic_drop", s, d, N.trendelenburg.drop, shareOf(drop, s)),
       ev("pelvic_drop", otherSide(s), o, N.trendelenburg.otherBelow, shareOf(drop, otherSide(s))),
     ];
-    // Likely: «possible AND the static single leg stance drop on S AND trunk lean toward S at the
-    // duchenne_lean possible threshold». CG-10: the static drop has no number of its own; it reads the
-    // walking drop's (pelvic_drop_gte). Without the static check: possible, low.
+    // Likely in the data: «possible AND the static single leg stance drop on S AND trunk lean toward
+    // S at the duchenne_lean possible threshold». CG-10: the static drop has no number of its own (the
+    // placeholder reads the walking drop's, pelvic_drop_gte), so it is a value only and never raises
+    // Trendelenburg until its threshold is tuned (D-026 item 7; D-024 item 3: «Trendelenburg stays
+    // possible at most»): with the static drop and the lean the status stays possible, the two kept
+    // as evidence.
     const st = c.analysis.staticStance.find((x) => x.side === s && x.ok && x.pelvicDropDeg !== null);
     const staticDrop = st !== undefined && st.pelvicDropDeg! >= N.trendelenburg.drop;
     const lean = leanOn(g, s, N.duchenne.sway);
-    const isLikely = staticDrop && lean;
-    if (isLikely)
+    const withStatic = staticDrop && lean;
+    if (withStatic)
       evidence.push(
         ev("static_pelvic_drop", s, st!.pelvicDropDeg!, N.trendelenburg.drop),
         ev(
@@ -664,9 +667,9 @@ function trendelenburg(c: Ctx): Draft[] {
       );
     return {
       kind: "fired",
-      status: cap(isLikely ? "likely" : "possible", lightTouch(c)),
+      status: cap("possible", lightTouch(c)),
       evidence,
-      grades: [drop!.grade, ...(isLikely ? [g.metrics.trunk_sway_range!.grade] : [])],
+      grades: [drop!.grade, ...(withStatic ? [g.metrics.trunk_sway_range!.grade] : [])],
     };
   });
 }

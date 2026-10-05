@@ -42,7 +42,7 @@ describe("agentConfig (5.4)", () => {
       segmentMinutes: DEFAULT_SEGMENT_MINUTES,
       remints: 2,
       remintMinutes: 2,
-      userDailyMinutes: 45,
+      userDailyMinutes: 70,
       globalDailyMinutes: 600,
     });
   });
@@ -87,7 +87,7 @@ describe("agentConfig (5.4)", () => {
       voice: "Achird",
       remints: 2,
       remintMinutes: 2,
-      userDailyMinutes: 45,
+      userDailyMinutes: 70,
       globalDailyMinutes: 600,
     });
   });

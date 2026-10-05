@@ -411,7 +411,7 @@ describe("POST /api/agent/token: the token", () => {
       expiresAt: call.body.expireTime,
       newSessionExpiresAt: call.body.newSessionExpireTime,
       history,
-      minutesLeft: 45 - minutes,
+      minutesLeft: USER_DAILY - life(minutes),
     });
     expect(history[0].text).toContain("helper=yes");
   });
@@ -431,7 +431,8 @@ describe("POST /api/agent/token: the token", () => {
       device: createHash("sha256").update(st.device).digest("hex"),
       model: "gemini-3.8-live",
       instruction_version: COACH_SI_VERSION,
-      minutes_reserved: minutes,
+      // The minutes its token can keep a Live session: the window, the segment and the margin.
+      minutes_reserved: life(minutes),
       minutes_used: null,
       minted: T0,
       reported: null,
@@ -620,8 +621,12 @@ describe("C-12: only the listed data reaches Google or the history", () => {
   });
 });
 
+/** The default user budget (5.4) and a token's life: the minutes it can keep a Live session. */
+const USER_DAILY = 70;
+const life = (minutes: number) => Math.min(10, minutes + 3);
+
 describe("the budget (5.1): never trusts the client", () => {
-  it("re-mints on the same row: plus 2 minutes and one re-mint each, at most 2, then 429 BUDGET", async () => {
+  it("re-mints on the same row: each re-mint reserves its own token's life, at most 2, then 429 BUDGET", async () => {
     const st = await started();
     const seg = romSegment(st);
     const minutes = Math.min(9, Math.ceil(seg.items.length * 1.5 + 1));
@@ -632,24 +637,25 @@ describe("the budget (5.1): never trusts the client", () => {
     const second = await token(tokenBody(st), st.cookie);
     expect(second.status).toBe(200);
     expect(second.data.sessionId).toBe(first.data.sessionId);
+    // Every token can keep a session for its whole life, so every mint counts it (coach review 2).
     expect(row(first.data.sessionId)).toMatchObject({
       remints: 1,
-      minutes_reserved: minutes + 2,
+      minutes_reserved: 2 * life(minutes),
       minted: T0 + 3 * MINUTE,
     });
-    expect(second.data.minutesLeft).toBe(45 - minutes - 2);
+    expect(second.data.minutesLeft).toBe(USER_DAILY - 2 * life(minutes));
     // A re-mint's token lives as long as a first one (the rest of the segment may be all of it).
     expect(google[1].body.expireTime).toBe(
       new Date(T0 + 3 * MINUTE + (2 + minutes + 1) * MINUTE).toISOString(),
     );
     expect((await token(tokenBody(st), st.cookie)).status).toBe(200);
-    expect(row(first.data.sessionId)).toMatchObject({ remints: 2, minutes_reserved: minutes + 4 });
+    expect(row(first.data.sessionId)).toMatchObject({ remints: 2, minutes_reserved: 3 * life(minutes) });
     const budget = fallbacks()["budget:booth"] ?? 0;
     const third = await token(tokenBody(st), st.cookie);
     expect(third.status).toBe(429);
     // A running segment's fallback is counted from its usage report, not here.
     expect(fallbacks()["budget:booth"] ?? 0).toBe(budget);
-    expect(third.data).toEqual({ error: "BUDGET", minutesLeft: 45 - minutes - 4 });
+    expect(third.data).toEqual({ error: "BUDGET", minutesLeft: USER_DAILY - 3 * life(minutes) });
     expect(google).toHaveLength(3);
     expect(h.db().prepare("SELECT COUNT(*) AS n FROM agent_sessions WHERE user_id=?").get(st.user)).toEqual({
       n: 1,
@@ -660,31 +666,32 @@ describe("the budget (5.1): never trusts the client", () => {
     const st = await started();
     const seg = romSegment(st);
     const minutes = Math.min(9, Math.ceil(seg.items.length * 1.5 + 1));
-    // The person's day holds the range segment and 4 minutes more: the walk's 5 do not fit.
-    process.env.AZM_AGENT_USER_DAILY_MINUTES = String(minutes + 4);
+    // The person's day holds the range segment and 4 minutes more: the walk's token does not fit.
+    process.env.AZM_AGENT_USER_DAILY_MINUTES = String(life(minutes) + 4);
     const first = await token(tokenBody(st), st.cookie);
     expect(first.data.minutesLeft).toBe(4);
     expect((await usage(report(first.data.sessionId, { durationSec: 0, turns: 0 }), st.cookie)).status).toBe(
       200,
     );
-    expect(row(first.data.sessionId)).toMatchObject({ minutes_used: 0, minutes_reserved: minutes });
-    // The walk (5 minutes) would fit only if the report had freed the reservation.
+    expect(row(first.data.sessionId)).toMatchObject({ minutes_used: 0, minutes_reserved: life(minutes) });
+    // The walk would fit only if the report had freed the reservation.
     const gait = await token(tokenBody(st, { block: "gait", segment: "gait" }), st.cookie);
     expect(gait.status).toBe(429);
     expect(gait.data).toEqual({ error: "BUDGET", minutesLeft: 4 });
   });
 
-  it("counts a usage report above the reservation, never more than the reservation plus 1", async () => {
+  it("counts a usage report up to the reservation, the summed lives of its tokens, never more", async () => {
     const st = await started();
     const first = await token(tokenBody(st), st.cookie);
     const reserved = row(first.data.sessionId).minutes_reserved as number;
     expect((await usage(report(first.data.sessionId, { durationSec: 3600 }), st.cookie)).status).toBe(200);
-    expect(row(first.data.sessionId).minutes_used).toBe(reserved + 1);
+    expect(row(first.data.sessionId).minutes_used).toBe(reserved);
     // A later, smaller report never lowers the count.
     expect((await usage(report(first.data.sessionId, { durationSec: 60 }), st.cookie)).status).toBe(200);
-    expect(row(first.data.sessionId).minutes_used).toBe(reserved + 1);
+    expect(row(first.data.sessionId).minutes_used).toBe(reserved);
     const next = await token(tokenBody(st, { block: "gait", segment: "gait" }), st.cookie);
-    expect(next.data.minutesLeft).toBe(45 - (reserved + 1) - 5);
+    const gait = row(next.data.sessionId).minutes_reserved as number;
+    expect(next.data.minutesLeft).toBe(USER_DAILY - reserved - gait);
   });
 
   it("keeps all users within the global daily minutes", async () => {
@@ -701,7 +708,7 @@ describe("the budget (5.1): never trusts the client", () => {
           .get("2026-10-04") as { m: number }
       ).m;
     const minutes = Math.min(9, Math.ceil(romSegment(a).items.length * 1.5 + 1));
-    process.env.AZM_AGENT_GLOBAL_DAILY_MINUTES = String(counted() + minutes + 2);
+    process.env.AZM_AGENT_GLOBAL_DAILY_MINUTES = String(counted() + life(minutes) + 2);
     expect((await token(tokenBody(a), a.cookie)).status).toBe(200);
     const budget = fallbacks()["budget:booth"] ?? 0;
     const refused = await token(tokenBody(b), b.cookie);
@@ -734,14 +741,14 @@ describe("the budget (5.1): never trusts the client", () => {
         st.cookie,
       );
       expect(r.status, segment).toBe(200);
-      total += 9;
+      total += row(r.data.sessionId).minutes_reserved as number;
     }
     for (const n of [1, 2]) {
       const r = await token(tokenBody(st), st.cookie);
       expect(r.status, `re-mint ${n}`).toBe(200);
-      total += 2;
+      total += life(Math.min(9, Math.ceil(romSegment(st).items.length * 1.5 + 1)));
     }
-    expect(total).toBeLessThanOrEqual(45);
+    expect(total).toBeLessThanOrEqual(USER_DAILY);
   });
 });
 

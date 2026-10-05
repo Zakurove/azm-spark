@@ -22,7 +22,11 @@ export interface AgentConfig {
   segmentMinutes: SegmentMinutes;
   /** AZM_AGENT_REMINTS: re-mints allowed per segment. */
   remints: number;
-  /** AZM_AGENT_REMINT_MINUTES: minutes a re-mint adds to the segment's reservation. */
+  /**
+   * AZM_AGENT_REMINT_MINUTES: no longer read by the budget, since every mint, a re-mint too, reserves
+   * its own token's life (budget.ts tokenLifeMinutes; coach review 2, contract gap W2-13). Kept so an
+   * environment that sets it still parses.
+   */
   remintMinutes: number;
   userDailyMinutes: number;
   globalDailyMinutes: number;
@@ -34,7 +38,7 @@ const DEFAULTS = {
   voice: "Achird",
   remints: 2,
   remintMinutes: 2,
-  userDailyMinutes: 45,
+  userDailyMinutes: 70,
   globalDailyMinutes: 600,
 } as const;
 

@@ -4,18 +4,22 @@
  * event text or tool argument is ever stored: tool_calls holds counts per tool name.
  *
  * The budget never trusts the client. A segment's counted minutes are max(minutes_reserved,
- * minutes_used): a usage report can raise the count, never lower it. The first mint for a (person,
- * ref, segment) inserts its row with the segment's minutes reserved; a re-mint for the same segment
- * (an unused prewarm whose window passed, a goAway, a transport error) updates the same row, one
- * re-mint and AZM_AGENT_REMINT_MINUTES more each, at most AZM_AGENT_REMINTS. A new reservation or a
- * re-mint must fit the person's counted minutes today (Riyadh day) and every person's.
+ * minutes_used): a usage report can raise the count, never lower it. Every mint reserves the minutes
+ * its token can keep a Live session (tokenLifeMinutes: the window to open it, the segment's minutes and
+ * the margin, within the 10 minute connection), since a one use token may be opened at any time in its
+ * window and run to its end whatever the client reports (coach review 2): the first mint for a
+ * (person, ref, segment) inserts its row with one token life; a re-mint for the same segment (an unused
+ * prewarm whose window passed, a goAway, a transport error) updates the same row, one re-mint and one
+ * more token life each, at most AZM_AGENT_REMINTS. A usage report counts up to the reservation, the
+ * summed lives. A new reservation or a re-mint must fit the person's counted minutes today (Riyadh
+ * day) and every person's.
  */
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { CoachBlock, CoachSegment, ToolName } from "../../../src/coach/types";
 import type { CoachEndReason } from "../../../src/coach/events";
 import { transaction } from "../assessments/store";
-import type { AgentConfig } from "./token";
+import { EXPIRY_MARGIN_MINUTES, NEW_SESSION_WINDOW_MS, type AgentConfig } from "./token";
 import type { UsageReport } from "./types";
 
 export interface AgentSession {
@@ -127,6 +131,18 @@ export function countedMinutes(db: DatabaseSync, day: string, userId?: string): 
 const counted = (s: Pick<AgentSession, "minutesReserved" | "minutesUsed">) =>
   Math.max(s.minutesReserved, s.minutesUsed ?? 0);
 
+/** Google closes a Live connection at 10 minutes (live.md 5). */
+export const LIVE_CONNECTION_MINUTES = 10;
+
+/**
+ * The longest a token minted for a segment of `minutes` can keep a Live session: opened as late as its
+ * window allows and run to its expireTime (the window, the minutes and the margin, token.ts mintToken),
+ * within the 10 minute connection.
+ */
+export function tokenLifeMinutes(minutes: number): number {
+  return Math.min(LIVE_CONNECTION_MINUTES, minutes + NEW_SESSION_WINDOW_MS / 60_000 + EXPIRY_MARGIN_MINUTES);
+}
+
 /** Minutes left as the client sees them: never below 0, rounded down to a tenth. */
 const left = (n: number) => Math.max(0, Math.floor(n * 10 + 1e-9) / 10);
 
@@ -161,9 +177,10 @@ export function decide(db: DatabaseSync, ask: ReservationAsk, cfg: AgentConfig):
   const leftNow = left(Math.min(cfg.userDailyMinutes - user, cfg.globalDailyMinutes - all));
   const session = segmentSession(db, ask.userId, ask.ref, ask.segment);
   if (session && session.remints >= cfg.remints) return { ok: false, minutesLeft: leftNow };
+  const life = tokenLifeMinutes(ask.minutes);
   const delta = session
-    ? counted({ ...session, minutesReserved: session.minutesReserved + cfg.remintMinutes }) - counted(session)
-    : ask.minutes;
+    ? counted({ ...session, minutesReserved: session.minutesReserved + life }) - counted(session)
+    : life;
   if (user + delta > cfg.userDailyMinutes || all + delta > cfg.globalDailyMinutes)
     return { ok: false, minutesLeft: leftNow };
   const minutesLeft = left(
@@ -186,7 +203,7 @@ export function reserve(db: DatabaseSync, ask: ReservationAsk, cfg: AgentConfig)
     if (d.kind === "remint") {
       db.prepare(
         "UPDATE agent_sessions SET remints=remints+1, minutes_reserved=minutes_reserved+?, model=?, instruction_version=?, minted=? WHERE id=?",
-      ).run(cfg.remintMinutes, ask.model, ask.instructionVersion, ask.now, d.session.id);
+      ).run(tokenLifeMinutes(ask.minutes), ask.model, ask.instructionVersion, ask.now, d.session.id);
       return { ok: true, kind: "remint", id: d.session.id, minutesLeft: d.minutesLeft };
     }
     const id = randomUUID();
@@ -202,7 +219,7 @@ export function reserve(db: DatabaseSync, ask: ReservationAsk, cfg: AgentConfig)
       ask.device,
       ask.model,
       ask.instructionVersion,
-      ask.minutes,
+      tokenLifeMinutes(ask.minutes),
       ask.now,
     );
     return { ok: true, kind: "new", id, minutesLeft: d.minutesLeft };
@@ -220,13 +237,14 @@ export const FALLBACK_REASONS: readonly CoachEndReason[] = [
 ];
 
 /**
- * Stores a usage report on its session row (5.2): minutes_used = min(durationSec / 60, reserved + 1),
- * never below what an earlier report counted (the count is never lowered); the other fields describe
+ * Stores a usage report on its session row (5.2): minutes_used = min(durationSec / 60, reserved), the
+ * reservation being the summed lives of the segment's tokens (no session can run longer), never below
+ * what an earlier report counted (the count is never lowered); the other fields describe
  * the segment so far and replace the earlier report's. Returns whether this report newly records a
  * fallback reason, so the route counts each fallback once.
  */
 export function storeUsage(db: DatabaseSync, s: AgentSession, r: UsageReport, now: number): boolean {
-  const reported = Math.min(r.durationSec / 60, s.minutesReserved + 1);
+  const reported = Math.min(r.durationSec / 60, s.minutesReserved);
   const used = Math.max(s.minutesUsed ?? 0, reported);
   db.prepare(
     "UPDATE agent_sessions SET minutes_used=?, connect_ms=?, turns=?, tool_calls=?, prompt_tokens=?, response_tokens=?, end_reason=?, reported=? WHERE id=?",

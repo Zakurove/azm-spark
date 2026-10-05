@@ -25,11 +25,12 @@
  * is the engine's Landmark. Files live at tests/fixtures/<test>/<profile>/<case>.json, written by
  * `stringifyFixture` with one frame per line (prettier leaves them alone, see .prettierignore).
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Frame, Landmark } from "../../src/engine/types";
 import type { GenSpec } from "./gen";
+import { TEST_IDS } from "../../src/movements/assessments";
 
 export const FIXTURE_ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -149,6 +150,18 @@ export function listFixtures(root = FIXTURE_ROOT): string[] {
   };
   walk(root);
   return out;
+}
+
+/**
+ * The movement check fixtures: the .json files under the folders of the v1 tests only
+ * (tests/fixtures/<test>/<profile>/<case>.json). The v7 fixtures beside them (gait/, rom/) have their
+ * own formats and loaders, so they may be JSON too (CG-23, D-027 item 5).
+ */
+export function listCheckFixtures(root = FIXTURE_ROOT): string[] {
+  return TEST_IDS.flatMap((test) => {
+    const dir = join(root, test);
+    return existsSync(dir) ? listFixtures(dir) : [];
+  });
 }
 
 const EMPTY = (): Landmark[] => Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));

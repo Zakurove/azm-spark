@@ -50,21 +50,32 @@
  *     limited attempt when the attempt passed its checks, and the movement stops with reason pain_stop.
  *   - A stop by the person (stop "user_stop", or finish before the end) keeps no value: status stopped,
  *     reason by_choice until the controller writes the stop list's reason (v1 resultOnStop).
+ *   - The arm raises keep v1's two picture rules (D-026 item 5, change log B1-12; rangeTest.ts): the
+ *     other arm held up while the asked arm stays relaxed (wrong arm) repeats the attempt within the 2
+ *     extra and names the arm to use; the mid hip and the face moving the same way since the start pose
+ *     (camera moved, front view with the trunk reference, as v1) repeats it without a retry and takes
+ *     the start pose again after the rest. Both repeats stay events: the stored result never holds them.
  */
 import { PoseSmoother } from "../oneEuro";
 import { toPixelSpace } from "../geometry";
 import { QualityMonitor, type QualityIssue, type QualityReport } from "../quality";
 import { SubjectLock } from "../subject";
 import type { Frame, Landmark } from "../types";
+import type { Pt } from "../body";
 import {
   CalibrationRounds,
   median,
+  norm,
+  Persist,
   round1,
   RunningMedian,
+  seen,
+  sub,
   SubjectTracker,
+  SustainedPeak,
   type Tracked,
 } from "../modes/common";
-import { RANGE_RULES } from "../modes/rangeTest";
+import { pictureShift, RANGE_RULES } from "../modes/rangeTest";
 import type { FeedEnv, QualitySummary } from "../modes/types";
 import { calibrate, cameraSide, MOVEMENT_ANGLES, type AngleContext, type RomCalibration } from "./angles";
 import { CompensationTracker, type CompensationHit, type HoldVerdict } from "./compensations";
@@ -86,6 +97,7 @@ import type {
 } from "./types";
 import { painStopRule } from "../../medical/pain-rule";
 import type { RomReasonId } from "../../medical/rom-protocol";
+import { testDef } from "../../movements/assessments";
 import { ROM_DATA, ROM_ENGINE_VERSION } from "../../movements/rom";
 import type { CompensationId, RomCopyKey, RomCueId, RomKind, RomMovementId } from "../../movements/rom/types";
 import type { CheckCueId } from "../../movements/types";
@@ -103,7 +115,35 @@ export const RUNNER_RULES = {
   keepReachingSec: 10,
   /** v1.1 maxRetries: «up to 2 extra» (rom-protocol 1.1 step 7; the server's MAX_RETRIES). */
   maxRetries: 2,
+  /** v1 SPEC-GAP wrong-arm: the other arm held at this angle or more while the asked arm stays relaxed. */
+  wrongArmDeg: RANGE_RULES.wrongArmDeg,
+  /** v1 holds the other arm's angle for the arm raise's hold (CHECK_DATA shoulder_abduction holdSec). */
+  wrongArmHoldSec: testDef("shoulder_abduction").holdSec,
+  /** v1 SPEC-GAP camera-moved: the picture moved this many calibration shoulder widths (front view). */
+  cameraMovedShoulderWidths: RANGE_RULES.cameraMovedShoulderWidths,
+  /** v1 SPEC-GAP frame-persistence: a picture rule holds this long before it counts. */
+  persistSec: RANGE_RULES.persistSec,
+  /** v1: frames further apart than this break a sustained window (ms). */
+  maxGapMs: RANGE_RULES.maxGapMs,
+  /** v1: the share of the start pose's frames with both hips seen for the trunk reference. */
+  hipsVisibleShare: RANGE_RULES.hipsVisibleShare,
 } as const;
+
+/** The arm raises («رفع الذراع»): v1's wrong arm and camera moved rules (D-026 item 5). */
+const ARM_RAISES: ReadonlySet<RomMovementId> = new Set(["shoulder_flexion", "shoulder_abduction"]);
+/** v1's face of the camera moved rule (rangeTest.ts FACE): the nose and both eyes. */
+const FACE: readonly number[] = [0, 2, 5];
+/** The repeats a stored result can carry (the server's quality.retries bound: MAX_RETRIES + the scored attempts). */
+const REPEATS_MAX = RUNNER_RULES.maxRetries + ROM_DATA.engine.scoredAttemptsMax;
+
+/** The mean of the nose and both eyes, or null when one of them is not seen (v1 rangeTest.ts faceOf). */
+function faceOf(px: Landmark[], minVis: number): Pt | null {
+  if (!FACE.every((i) => seen(px, i, minVis))) return null;
+  return {
+    x: FACE.reduce((sum, i) => sum + px[i].x, 0) / FACE.length,
+    y: FACE.reduce((sum, i) => sum + px[i].y, 0) / FACE.length,
+  };
+}
 
 /** The recorded value bounds of each kind (contract section 4, the server's ROM_VALUE_BOUNDS). */
 export const ROM_VALUE_BOUNDS: Record<RomKind, readonly [number, number]> = {
@@ -130,9 +170,24 @@ interface HeldValue {
   source: AnswerSource | null;
 }
 
+/** v1's arm raise watches over one attempt (rangeTest.ts AttemptState). */
+interface ArmWatch {
+  /** The asked arm's highest angle in the attempt (after v1's running median). */
+  maxDeg: number;
+  otherMed: RunningMedian;
+  otherPeak: SustainedPeak;
+  hipX: RunningMedian;
+  hipY: RunningMedian;
+  faceX: RunningMedian;
+  faceY: RunningMedian;
+  moved: Persist;
+}
+
 interface Attempt {
   index: number;
   practice: boolean;
+  /** v1's wrong arm and camera moved watches (the arm raises only). */
+  arm: ArmWatch | null;
   t0: number;
   monitor: QualityMonitor;
   /** The quality gate reads the attempt up to its hold, and again after «not yet». */
@@ -189,6 +244,10 @@ export class RomRunner {
   private cal: RomCalibration | null = null;
   private calRoll: number | null = null;
   private camSide: Side | null = null;
+  /** The start pose's picture for the camera moved rule (front view, trunk reference; v1 fixedHip and fixedFace). */
+  private fixed: { hip: Pt; face: Pt; shoulderWidth: number } | null = null;
+  /** The picture moved: the start pose is taken again after the rest (v1 recalAfterRest). */
+  private recalAfterRest = false;
 
   /* attempts */
   private att: Attempt | null = null;
@@ -596,6 +655,7 @@ export class RomRunner {
     this.cal = { ...cal, t };
     this.calRoll = roll;
     this.camSide = this.majorityCameraSide();
+    this.fixed = this.fixPicture();
     this.comp.calibrate(this.calBuf, { ...base, calibration: this.cal });
     this.calBuf = [];
     this.startAttempt(t, this.practiceNeeded());
@@ -616,6 +676,31 @@ export class RomRunner {
     );
   }
 
+  /**
+   * v1's calibration of the picture (rangeTest.ts, camera-moved): the mid hip when both hips were seen
+   * in nearly every start pose frame, the face when it was seen in half of them, and the shoulder width.
+   * Only the side arm raise (front view) with the trunk reference reads it, as v1.
+   */
+  private fixPicture(): { hip: Pt; face: Pt; shoulderWidth: number } | null {
+    const buf = this.calBuf;
+    if (this.opts.def.id !== "shoulder_abduction" || this.cal?.gravityMode || !buf.length) return null;
+    const vis = ROM_DATA.engine.visibilityMin;
+    const hips = buf.filter((s) => seen(s.px, 23, vis) && seen(s.px, 24, vis));
+    const faces = buf.map((s) => faceOf(s.px, vis)).filter((f): f is Pt => f !== null);
+    if (hips.length / buf.length < RUNNER_RULES.hipsVisibleShare || faces.length * 2 < buf.length)
+      return null;
+    const shoulderWidth = median(buf.map((s) => norm(sub(s.px[11], s.px[12]))));
+    if (!shoulderWidth) return null;
+    return {
+      hip: {
+        x: median(hips.map((s) => (s.px[23].x + s.px[24].x) / 2))!,
+        y: median(hips.map((s) => (s.px[23].y + s.px[24].y) / 2))!,
+      },
+      face: { x: median(faces.map((f) => f.x))!, y: median(faces.map((f) => f.y))! },
+      shoulderWidth,
+    };
+  }
+
   private majorityCameraSide(): Side | null {
     const def = this.opts.def;
     if (!(def.axial && def.view === "side") || !this.calBuf.length) return null;
@@ -629,9 +714,22 @@ export class RomRunner {
     const index = practice ? 0 : this.scored.length + 1;
     const hold = new HoldDetector({ ...this.holdOpts, startDeg: this.cal?.startDeg ?? null });
     if (this.noHoldTries >= 2) hold.setBand(ROM_DATA.engine.wideHoldBandDeg);
+    const window = RUNNER_RULES.medianSec * 1000;
     this.att = {
       index,
       practice,
+      arm: ARM_RAISES.has(this.opts.def.id)
+        ? {
+            maxDeg: -Infinity,
+            otherMed: new RunningMedian(window),
+            otherPeak: new SustainedPeak(RUNNER_RULES.wrongArmHoldSec * 1000, RUNNER_RULES.maxGapMs),
+            hipX: new RunningMedian(window),
+            hipY: new RunningMedian(window),
+            faceX: new RunningMedian(window),
+            faceY: new RunningMedian(window),
+            moved: new Persist(RUNNER_RULES.persistSec),
+          }
+        : null,
       t0: t,
       monitor: new QualityMonitor(
         romQualityConfig(this.opts.def, this.opts.item.side, {
@@ -689,6 +787,7 @@ export class RomRunner {
     if (px && angle !== null && Number.isFinite(angle) && dial !== null) {
       this.sink.push({ kind: "live", deg: round1(dial), t });
       const f = a.median.push(t, dial);
+      if (a.arm && this.armWatch(a.arm, t, px, ctx, f)) return;
       if (a.startDeg === null) a.startDeg = f;
       else if (a.firstMove === null && Math.abs(f - a.startDeg) > this.holdOpts.bandDeg) a.firstMove = t;
       this.emitHits(this.comp.frame({ t, px, ctx, angle: f }));
@@ -707,6 +806,53 @@ export class RomRunner {
       }
     }
     if (t >= this.deadline(a)) this.timeout(t);
+  }
+
+  /**
+   * v1's arm raise rules (rangeTest.ts attempting, D-026 item 5). Side labelling (v1 spec 4.0): the
+   * other arm held at wrongArmDeg or more for v1's hold while the asked arm stays relaxed. The picture
+   * moved: the live mid hip and face (running medians) away from their start pose places the same way
+   * (pictureShift) by more than cameraMovedShoulderWidths, for persistSec. True when the attempt ended.
+   */
+  private armWatch(w: ArmWatch, t: number, px: Landmark[], ctx: AngleContext, deg: number): boolean {
+    const vis = ROM_DATA.engine.visibilityMin;
+    w.maxDeg = Math.max(w.maxDeg, deg);
+    const side = this.opts.item.side;
+    const other: Side | null = side === "left" ? "right" : side === "right" ? "left" : null;
+    // The other arm's shoulder and elbow (MediaPipe: left 11 and 13, right 12 and 14).
+    const [s, e] = other === "left" ? [11, 13] : [12, 14];
+    const raw =
+      other && seen(px, s, vis) && seen(px, e, vis)
+        ? MOVEMENT_ANGLES[this.opts.def.id](px, { ...ctx, side: other })
+        : null;
+    if (raw === null || !Number.isFinite(raw)) {
+      w.otherMed.reset();
+      w.otherPeak.gap();
+    } else w.otherPeak.push(t, w.otherMed.push(t, raw));
+    const best = w.otherPeak.best;
+    if (w.maxDeg < RUNNER_RULES.relaxedMaxDeg && best && best.value >= RUNNER_RULES.wrongArmDeg) {
+      this.repeat(t, "wrong_arm", ["wrong_arm"]);
+      return true;
+    }
+    const fx = this.fixed;
+    if (fx && seen(px, 23, vis) && seen(px, 24, vis)) {
+      const hx = w.hipX.push(t, (px[23].x + px[24].x) / 2);
+      const hy = w.hipY.push(t, (px[23].y + px[24].y) / 2);
+      const face = faceOf(px, vis);
+      let off = 0;
+      if (face) {
+        const fX = w.faceX.push(t, face.x);
+        const fY = w.faceY.push(t, face.y);
+        off =
+          pictureShift({ x: hx - fx.hip.x, y: hy - fx.hip.y }, { x: fX - fx.face.x, y: fY - fx.face.y }) /
+          fx.shoulderWidth;
+      }
+      if (w.moved.update(t, off > RUNNER_RULES.cameraMovedShoulderWidths)) {
+        this.repeat(t, "camera_moved", ["camera_moved"]);
+        return true;
+      }
+    }
+    return false;
   }
 
   private onHold(found: HoldFound, t: number): void {
@@ -865,16 +1011,26 @@ export class RomRunner {
   }
 
   /**
-   * A scored attempt that does not count: a compensation at its invalid level (outcome invalid, coached),
-   * the quality gate or no hold (outcome retry). Repeated within the 2 extra, then not measured (quality).
+   * An attempt that does not count: a compensation at its invalid level (outcome invalid, coached), the
+   * quality gate, no hold or the wrong arm (outcome retry), repeated within the 2 extra, then not
+   * measured (quality); the picture moved (outcome retry), repeated without a retry after the start pose
+   * is taken again, up to the repeats a stored result can carry.
    */
   private repeat(
     t: number,
-    why: "invalid" | "quality" | "no_hold",
+    why: "invalid" | "quality" | "no_hold" | "wrong_arm" | "camera_moved",
     ids: string[],
     report?: QualityReport,
   ): void {
     const a = this.att!;
+    if (why === "camera_moved" && this.repeated >= REPEATS_MAX) {
+      // A picture that never settles: not measured today, within what the stored result can carry.
+      this.att = null;
+      this.reports.push(a.monitor.report());
+      this.notMeasured = "quality";
+      this.end(t);
+      return;
+    }
     this.att = null;
     const q = report ?? a.monitor.report();
     this.reports.push(q);
@@ -898,12 +1054,23 @@ export class RomRunner {
     this.repeated++;
     this.sink.push({ kind: "attempt", record: rec });
     if (why === "quality" && q.issues.length) this.sink.push({ kind: "quality", issue: q.issues[0], t });
+    if (why === "camera_moved") {
+      // v1 map 2.12: a moved picture is not the person's failure and uses no retry; the start pose is
+      // taken again in the new picture after the rest, and the same attempt follows.
+      this.cue("check_phone_still", t);
+      this.recalAfterRest = true;
+      this.rest(t);
+      return;
+    }
     if (this.retries >= RUNNER_RULES.maxRetries) {
       this.notMeasured = "quality";
       this.end(t);
       return;
     }
     this.retries++;
+    // v1: name the arm to use (the other arm moved).
+    if (why === "wrong_arm")
+      this.cue(this.opts.item.side === "left" ? "check_left_arm" : "check_right_arm", t);
     this.rest(t);
   }
 
@@ -914,7 +1081,11 @@ export class RomRunner {
 
   private resting(frame: Frame): void {
     this.track(frame);
-    if (frame.t >= this.restUntil) this.startAttempt(frame.t, this.practiceNeeded());
+    if (frame.t < this.restUntil) return;
+    if (this.recalAfterRest) {
+      this.recalAfterRest = false;
+      this.beginCalibration(frame.t);
+    } else this.startAttempt(frame.t, this.practiceNeeded());
   }
 
   /** The scored attempts are done: the cause question once when the confirmed value is short, then done. */

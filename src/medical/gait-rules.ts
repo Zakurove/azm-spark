@@ -615,16 +615,27 @@ function shorterStance(c: Ctx): Draft[] {
   ];
 }
 
-/** Duchenne lean on a side: the sway at a threshold and the peak lean toward that side in 60% of cycles. */
+/**
+ * The trunk leans toward a side (CG-20, D-027 item 5): its peak toward that side is shown in 60% of
+ * the cycles («peak toward S in >= 60% of cycles»), and that side's peak is the larger of the two, or
+ * at least half the larger one (an even sway). The trunk passing upright on its way back reads a
+ * little toward the other side in every cycle (about 0.2 degrees against 12 on the synthetic one sided
+ * lean), so a one sided lean names one side; an even sway leans toward both and stays waddling's.
+ */
+function leansToward(g: Group, side: Side): boolean {
+  const lean = g.metrics.trunk_lean_peak;
+  if (!present(lean, side, N.duchenne.leanShare)) return false;
+  const peak = sideOf(lean, side);
+  if (peak === null) return false;
+  const other = sideOf(lean, otherSide(side));
+  return other === null || peak >= other / 2;
+}
+
+/** Duchenne lean on a side: the sway at a threshold and the trunk leaning toward that side (CG-20). */
 function leanOn(g: Group, side: Side, sway: number): boolean {
   const s = g.metrics.trunk_sway_range;
   const v = sideOf(s, side);
-  return (
-    v !== null &&
-    v >= sway &&
-    present(s, side) &&
-    present(g.metrics.trunk_lean_peak, side, N.duchenne.leanShare)
-  );
+  return v !== null && v >= sway && present(s, side) && leansToward(g, side);
 }
 
 /** 5.2 Hip dip on the swing side (Trendelenburg). */
@@ -725,8 +736,8 @@ function waddling(c: Ctx): Draft[] {
   if (l === null || r === null || range === null) return [notAssessed(id, "gate_failed")];
   const bothDrop =
     l >= N.waddling.drop && r >= N.waddling.drop && present(drop, "left") && present(drop, "right");
-  // «trunk_sway_range >= 11 without a one sided peak»: not a lean toward one side only.
-  const leanSides = SIDES.filter((s) => present(g.metrics.trunk_lean_peak, s, N.duchenne.leanShare));
+  // «trunk_sway_range >= 11 without a one sided peak»: not a lean toward one side only (CG-20).
+  const leanSides = SIDES.filter((s) => leansToward(g, s));
   if (!bothDrop || range < N.waddling.sway || leanSides.length === 1) return [notSeen(id)];
   return [
     {

@@ -106,6 +106,16 @@ export const GAIT_ENGINE = {
   staticMeasureLastSec: CAPTURE.staticSingleLegStance.measureLast_s,
 } as const;
 
+/**
+ * The pad side view's swap rule (D-027 item 4, C2's GG-4 proposal (b)): the leg labels are exchanged
+ * only where the near leg's own track jumps more than half a foot length from its prediction. Where it
+ * may, an exchanged sample costs a quarter of a foot length, so the model's own labels stand unless the
+ * near track's continuity says otherwise: an engineering prior (no clinical number), set on G1's
+ * rendered pad walk with Full and Lite (contract change log, the pad walk entry), to be judged on the
+ * team's videos (D-027 item 4 (e)).
+ */
+export const PAD_SWAP = { jumpFootShare: 0.5, exchangeCostFootShare: 0.25 } as const;
+
 function range([from, to]: number[]): number[] {
   const out: number[] = [];
   for (let i = from; i <= to; i++) out.push(i);

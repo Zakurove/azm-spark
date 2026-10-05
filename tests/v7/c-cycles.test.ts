@@ -115,7 +115,10 @@ describe("cycles and their drops", () => {
     // Four regular strides, then one twice as long.
     const events = [
       ...regular(4).slice(0, -1),
-      ...regular(1, 120).map((e) => ({ ...e, index: 120 + (e.index - 120) * 2 })),
+      ...regular(1, 120).map((e) => {
+        const index = 120 + (e.index - 120) * 2;
+        return { ...e, index, t: Math.round((index * 1000) / 30) };
+      }),
     ];
     const cycles = buildCycles(p, motion(p, [pass({ end: 260 })]), events, "side", false);
     const long = cycles.find((c) => c.side === "right" && c.k0 === 120)!;
@@ -132,11 +135,24 @@ describe("cycles and their drops", () => {
 
   it("gates a side view's cycle on the hips and its own leg: the other leg hiding behind it drops nothing (D-026 item 6)", () => {
     const p = still(200, { from: 35, to: 40, ids: [25, 27, 31] });
-    const side = buildCycles(p, motion(p, [pass()]), regular(5), "side", false);
+    const side = buildCycles(p, motion(p, [pass()]), regular(5), "side", true);
     expect(side.find((c) => c.side === "right" && c.k0 === 30)?.clean).toBe(true);
     // The other leg's own cycle over the same frames is dropped: far limb events and metrics come only
     // from cycles where that leg passes its own gate.
     expect(side.filter((c) => c.side === "left" && c.drop === "visibility").length).toBeGreaterThan(0);
+  });
+
+  it("gates the pad side view's timing on the near limb: the far leg hiding behind it keeps its cycle (D-026 item 6)", () => {
+    const p = still(200, { from: 35, to: 40, ids: [25, 27, 31] });
+    const pad = buildCycles(p, motion(p, [pass()]), regular(5), "side", false);
+    expect(pad.find((c) => c.side === "right" && c.k0 === 30)?.clean).toBe(true);
+    // The far (left) leg's cycles are timed on the hips and the near leg, so the far leg hidden for 5
+    // frames drops none; a near leg hidden drops the cycles of both legs.
+    expect(pad.filter((c) => c.side === "left" && c.drop === "visibility")).toEqual([]);
+    const nearHidden = still(200, { from: 35, to: 40, ids: [26, 28, 32] });
+    const hidden = buildCycles(nearHidden, motion(nearHidden, [pass()]), regular(5), "side", false);
+    expect(hidden.some((c) => c.side === "left" && c.drop === "visibility")).toBe(true);
+    expect(hidden.find((c) => c.side === "right" && c.k0 === 30)?.drop).toBe("visibility");
   });
 
   it("records whether the trunk landmarks pass the same gate", () => {

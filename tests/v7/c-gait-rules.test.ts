@@ -384,6 +384,30 @@ describe("5.3 trunk lean (Duchenne)", () => {
     expect(fired(patterns({ front: weak }))).toEqual([]);
   });
 
+  it("names one side for a one sided lean: «toward S» only where S's peak is the larger (CG-20, D-027 item 5)", () => {
+    // The trunk passing upright on its way back reads a little toward the other side in every cycle.
+    const oneSided = {
+      trunk_sway_range: { value: 14, left: 14, right: 14, shareLeft: 1, shareRight: 1 },
+      trunk_lean_peak: { left: 0.25, right: 12, shareLeft: 1, shareRight: 1 },
+    };
+    expect(fired(patterns({ front: oneSided }))).toEqual(["duchenne_lean:right:possible"]);
+    // An even sway: each side's peak is about half the sway, so both lean toward their side and it
+    // stays waddling's (the leans are part of the sway, not shown).
+    const even = {
+      pelvic_drop: { left: 12, right: 12, shareLeft: 1, shareRight: 1 },
+      trunk_sway_range: { value: 13, left: 13, right: 13, shareLeft: 1, shareRight: 1 },
+      trunk_lean_peak: { left: 6.5, right: 6.9, shareLeft: 1, shareRight: 1 },
+    };
+    const out = patterns({ front: even });
+    expect(fired(out)).toEqual([
+      "duchenne_lean:right:possible",
+      "duchenne_lean:left:possible",
+      "waddling:both:possible",
+    ]);
+    for (const side of ["right", "left"] as const)
+      expect(on(out, "duchenne_lean", side)?.confidence).toBeNull();
+  });
+
   it("is not assessed with a walker and capped at possible with a cane", () => {
     const walker = patterns({
       front: leanRight(16),

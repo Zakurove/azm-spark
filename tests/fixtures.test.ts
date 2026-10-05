@@ -2,13 +2,15 @@
  * Landmark fixture infrastructure (contract v2 section F): the file format, the files kept on disk
  * and the generator's physics. Run with AZM_WRITE_FIXTURES=1 to write the catalog files again.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CATALOG } from "./fixtures/catalog";
 import {
   FIXTURE_ROOT,
   fixtureFrames,
+  listCheckFixtures,
   listFixtures,
   loadFixture,
   parseFixture,
@@ -86,8 +88,24 @@ describe("fixture files on disk", () => {
     });
   }
 
+  it("lists only the movement check folders, so the v7 fixtures may be JSON too (CG-23, D-027 item 5)", () => {
+    const root = mkdtempSync(join(tmpdir(), "azm-fixtures-"));
+    for (const dir of ["chair_stand_30s/adult", "gait/mocap", "rom/shoulder_flexion/adult"])
+      mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root, "chair_stand_30s/adult/a.json"), "{}");
+    writeFileSync(join(root, "gait/mocap/walker.json"), "{}");
+    writeFileSync(join(root, "rom/shoulder_flexion/adult/b.json"), "{}");
+    expect(listCheckFixtures(root).map((f) => relative(root, f).split(sep).join("/"))).toEqual([
+      "chair_stand_30s/adult/a.json",
+    ]);
+    // On disk: every movement check fixture, and nothing of the v7 folders.
+    const inCheckFolder = (f: string) =>
+      TEST_IDS.some((t) => relative(FIXTURE_ROOT, f).startsWith(`${t}${sep}`));
+    expect([...listCheckFixtures()].sort()).toEqual(listFixtures().filter(inCheckFolder).sort());
+  });
+
   it("every file is a valid fixture at tests/fixtures/<test>/<profile>/<case>.json", () => {
-    const files = listFixtures();
+    const files = listCheckFixtures();
     expect(files.length).toBeGreaterThanOrEqual(CATALOG.length);
     const catalogued = new Set(CATALOG.map((c) => c.file));
     for (const path of files) {

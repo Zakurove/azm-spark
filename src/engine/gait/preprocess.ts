@@ -10,8 +10,9 @@
  *      first valid sample, so the landmarks would land on different grids; this file applies the
  *      same rule on one grid from the frame times.)
  *   4. Labels: side views exchange the leg labels where both legs jump onto each other's path
- *      (swaps); front and back views exchange every left and right label where they contradict
- *      the facing (facing check). Done before filtering, so no filter smooths across a label jump.
+ *      (swaps; the pad side view only where the near leg's own track jumps, D-027 item 4); front and
+ *      back views exchange every left and right label where they contradict the facing (facing
+ *      check). Done before filtering, so no filter smooths across a label jump.
  *   5. Outliers: Hampel, window 7, n sigma 2.
  *   6. Smoothing: zero lag Butterworth low pass at 5 Hz (2nd order design run by filtfilt), on each
  *      run of finite samples; a run too short for filtfilt is dropped (it cannot hold a stride).
@@ -23,7 +24,7 @@
 import { filtfilt, filtfiltPadlen, lowpassSos } from "../signal/butterworth";
 import { hampel } from "../signal/hampel";
 import { effectiveAspect } from "../geometry";
-import { GAIT_ENGINE, REPLAY_LANDMARK_IDS } from "./params";
+import { GAIT_ENGINE, PAD_SWAP, REPLAY_LANDMARK_IDS } from "./params";
 import type { GaitFrame } from "./types";
 import { lowerBound } from "./util";
 
@@ -99,6 +100,11 @@ export interface PrepareOptions {
    * part of each stride, and the near one stands for the walk then).
    */
   bouts?: "both_ankles" | "either_ankle";
+  /**
+   * Pad side views: the limb nearest the phone. The swap rule then exchanges the legs only where the
+   * near leg's own track jumps (swapNearLeg, D-027 item 4).
+   */
+  nearSide?: "left" | "right";
 }
 
 /** The frames in time order, keeping only those whose time is finite and moves forward. */
@@ -246,6 +252,111 @@ function facingCheck(s: Series, facing: Uint8Array, relabelled: Uint8Array): voi
   }
 }
 
+/** The median heel to foot index distance of both feet over the series (pixel space), 0 when never seen. */
+export function footLength(s: Pick<Series, "x" | "y" | "n">): number {
+  const xs: number[] = [];
+  for (const side of ["left", "right"] as const) {
+    const l = LEG[side];
+    for (let k = 0; k < s.n; k++) {
+      const v = Math.hypot(s.x[l.heel][k] - s.x[l.toe][k], s.y[l.heel][k] - s.y[l.toe][k]);
+      if (Number.isFinite(v)) xs.push(v);
+    }
+  }
+  xs.sort((a, b) => a - b);
+  return xs.length ? xs[xs.length >> 1] : 0;
+}
+
+/**
+ * The swap rule of the pad side view (D-027 item 4, C2's GG-4 proposal (b)). On the pad the model
+ * often lays the hidden far leg on the near one, and the both legs rule (swapLegs) then carries the far
+ * track into the near one. Here the near leg leads: each sample keeps the model's labels or exchanges
+ * them, chosen for the whole run of samples where the near leg's points (knee, ankle, heel, foot index)
+ * are seen (a Viterbi over the two labellings, its state the last two samples' choices):
+ *   - the labels may change only at a sample where the near leg's own track, as the model labels it,
+ *     jumps more than half a foot length (PAD_SWAP.jumpFootShare) from its constant velocity
+ *     prediction from the two samples before;
+ *   - a sample costs the near track's distance from its prediction beyond half a foot length, under
+ *     the chosen labels, and an exchanged sample a quarter of a foot length more
+ *     (PAD_SWAP.exchangeCostFootShare): the model's labels stand unless the near track says otherwise.
+ * The foot length is the median heel to foot index distance of both feet over the walk.
+ */
+function swapNearLeg(s: Series, relabelled: Uint8Array, near: "left" | "right"): void {
+  const ni = near === "left" ? 0 : 1;
+  const fi = 1 - ni;
+  const foot = footLength(s);
+  if (!(foot > 0)) return;
+  const margin = PAD_SWAP.jumpFootShare * foot;
+  const exchangeCost = PAD_SWAP.exchangeCostFootShare * foot;
+  const seen = (k: number, side: number) =>
+    k >= 0 &&
+    k < s.n &&
+    SWAP_POINTS.every((pair) => Number.isFinite(s.x[pair[side]][k] + s.y[pair[side]][k]));
+  /** The near points as labelling `a` gives them at k (0: the model's labels, 1: exchanged). */
+  const X = (k: number, a: number, i: number) => s.x[SWAP_POINTS[i][a ? fi : ni]][k];
+  const Y = (k: number, a: number, i: number) => s.y[SWAP_POINTS[i][a ? fi : ni]][k];
+  /**
+   * The mean distance of the near points under `a` at k from their prediction by the labellings `b`
+   * at k - 1 and `c` at k - 2 (constant velocity; constant position when c is -1).
+   */
+  const err = (k: number, a: number, b: number, c: number) => {
+    let sum = 0;
+    for (let i = 0; i < SWAP_POINTS.length; i++) {
+      let px = X(k - 1, b, i);
+      let py = Y(k - 1, b, i);
+      if (c >= 0) {
+        px = 2 * px - X(k - 2, c, i);
+        py = 2 * py - Y(k - 2, c, i);
+      }
+      sum += Math.hypot(X(k, a, i) - px, Y(k, a, i) - py);
+    }
+    return sum / SWAP_POINTS.length;
+  };
+  for (const [start, end] of runs(s.n, (k) => seen(k, ni))) {
+    const n = end - start;
+    if (n < 2) continue;
+    // Where the labels may change: the near track as the model labels it jumps.
+    const jump = new Uint8Array(n);
+    for (let j = 1; j < n; j++) jump[j] = err(start + j, 0, 0, j >= 2 ? 0 : -1) > margin ? 1 : 0;
+    // cost[j][state], state = choice at j - 1 * 2 + choice at j; the run starts with the model's labels.
+    const cost: Float64Array[] = [Float64Array.of(0, Infinity, Infinity, Infinity)];
+    const from: Int8Array[] = [Int8Array.of(-1, -1, -1, -1)];
+    for (let j = 1; j < n; j++) {
+      const k = start + j;
+      const c = new Float64Array(4).fill(Infinity);
+      const b = new Int8Array(4).fill(-1);
+      const farSeen = seen(k, fi);
+      for (let prev = 0; prev < 4; prev++) {
+        const pc = cost[j - 1][prev];
+        if (pc === Infinity) continue;
+        const before = prev >> 1;
+        const last = prev & 1;
+        for (let a = 0; a < 2; a++) {
+          if (a === 1 && !farSeen) continue;
+          if (a !== last && !jump[j]) continue;
+          const e = err(k, a, last, j >= 2 ? before : -1);
+          const v = pc + Math.max(0, e - margin) + a * exchangeCost;
+          const state = last * 2 + a;
+          if (v < c[state]) {
+            c[state] = v;
+            b[state] = prev;
+          }
+        }
+      }
+      cost.push(c);
+      from.push(b);
+    }
+    let state = 0;
+    for (let i = 1; i < 4; i++) if (cost[n - 1][i] < cost[n - 1][state]) state = i;
+    for (let j = n - 1; j >= 0; j--) {
+      if (state & 1) {
+        exchange(s, LEG_PAIRS, start + j);
+        relabelled[start + j] = 1;
+      }
+      state = j > 0 ? from[j][state] : 0;
+    }
+  }
+}
+
 /** Hampel then the zero lag Butterworth on every run of finite samples; a run too short is dropped. */
 export function smooth(xs: Float64Array, sos: number[][], padlen: number): Float64Array {
   const h = hampel(xs, GAIT_ENGINE.hampel.window, GAIT_ENGINE.hampel.nSigma);
@@ -307,7 +418,10 @@ export function prepare(input: readonly GaitFrame[], opts: PrepareOptions): Prep
   }
   const series: Series = { t, n, hz, x, y, relabelled: new Uint8Array(n), bouts: [] };
 
-  if (opts.labels === "swaps") swapLegs(series, series.relabelled);
+  if (opts.labels === "swaps") {
+    if (opts.nearSide) swapNearLeg(series, series.relabelled, opts.nearSide);
+    else swapLegs(series, series.relabelled);
+  }
   if (opts.labels === "facing") {
     const facing = new Uint8Array(n);
     for (let k = 0; k < n; k++) facing[k] = faceSeen[nearestFrame(frameMs, t[k] * 1000)];

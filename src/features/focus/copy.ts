@@ -9,6 +9,7 @@
  */
 import type { Lang } from "../../app/i18n";
 import { interpolate } from "../../i18n";
+import { tV7 } from "../../i18n/v7";
 import type { Intake } from "../../medical/plan";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
 import { shownApproximate, normFor } from "../../medical/rom-norms";
@@ -51,7 +52,10 @@ export function positionName(position: RomPositionId, lang: Lang): string {
 
 /**
  * The instructions of a movement in its position, side tokens filled: the data's steps, or for a
- * position with its own line (variantInstructions) that line and the closing hold line.
+ * position with its own line (variantInstructions) that line and the plain hold line (the data's last
+ * step is written for its own position: hip flexion's keeps the head and back on the bed). Seated, a
+ * movement whose lift a hand near the knee voids (the assisted check) first says where the hands
+ * rest (D-027 item 3, W2-7).
  */
 export function instructionLines(
   id: RomMovementId,
@@ -60,12 +64,16 @@ export function instructionLines(
   lang: Lang,
 ): string[] {
   const def = movementDef(id);
-  const steps = def.instructions[lang];
   const variant = (
     def.variantInstructions as Partial<Record<RomPositionId, { ar: string; en: string }>> | undefined
   )?.[position];
-  const lines = variant ? [variant[lang], steps[steps.length - 1]] : steps;
-  return lines.map((l) => fillSide(l, side, lang));
+  if (!variant) return def.instructions[lang].map((l) => fillSide(l, side, lang));
+  const hands = position === "seated" && def.compensationIds.includes("assisted");
+  return [
+    ...(hands ? [tV7(lang, "rom.instruction.seatedHands")] : []),
+    fillSide(variant[lang], side, lang),
+    tV7(lang, "rom.instruction.hold"),
+  ];
 }
 
 /** A copy line of the range data. */

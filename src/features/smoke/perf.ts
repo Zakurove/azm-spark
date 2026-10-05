@@ -2,8 +2,8 @@
  * The measures of the v7 performance overlay and the real model smoke page (product v7 contract
  * section 9 and 8.4, stream G, step G1). Pure, no DOM: perfProbe.ts feeds it in the browser.
  *
- *   - the pose rate: 1000 ÷ the median gap between model calls (as QualityMonitor's fps and the
- *     focus camera's probe), so a dropped frame does not move it;
+ *   - the pose rate: the mean over the window of model calls, (calls − 1) × 1000 ÷ their span, as the
+ *     focus camera's probe and the gait view gates read it (D-026 item 6), so dropped frames count;
  *   - the model time per frame: the duration of PoseLandmarker.detectForVideo, read by wrapping the
  *     method (timeMethod), so no stream's file needs a hook (A6a-5);
  *   - the display frame time (animation frame gaps), long tasks, User Timing measures named azm:*
@@ -75,7 +75,7 @@ export class RecentValues {
 }
 
 export interface PerfSnapshot {
-  /** Pose frames the model processed per second (median gap); null under two calls. */
+  /** Pose frames the model processed per second (the mean over the window); null under two calls. */
   poseFps: number | null;
   /** The model's time per frame (detectForVideo), ms. */
   modelMs: Spread;

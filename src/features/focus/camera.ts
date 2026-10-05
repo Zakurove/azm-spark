@@ -3,10 +3,11 @@
  * the whole check, with the pose model chosen per block.
  *
  *   - Every block's setup card runs `probe(kind)`: 2 s of processed frames. Full stays when its
- *     median processed frame rate (the measure the attempt gate and the gait data use) sustains the
- *     block's floor: 15 fps for a range block (C-10, above the engine floor of 12 that fails an
- *     attempt) and the gait data's 25 fps for the gait capture. Else only the pose source is rebuilt
- *     with Lite on the same camera (CameraSession.replaceSource); the Lite file downloads only then.
+ *     mean processed frame rate over the window (D-026 item 6: dropped frames count, as in the gait
+ *     view gates) sustains the block's floor: 15 fps for a range block (C-10, above the engine floor
+ *     of 12 that fails an attempt) and the gait data's 25 fps for the gait capture. Else only the pose
+ *     source is rebuilt with Lite on the same camera (CameraSession.replaceSource); the Lite file
+ *     downloads only then.
  *   - The outcome is kept per device and per kind for 14 days (`localStorage` `azm.poseModel`, every
  *     access in try and catch), so the next check starts each block on the model it can sustain and
  *     loads one file for it. A miss at the range floor is a miss at the gait floor too; a pass at the
@@ -121,7 +122,7 @@ export interface FocusCameraOptions {
 export interface ProbeResult {
   /** The model of the block: record it with each measurement and gait view (C-10). */
   model: PoseModel;
-  /** Median processed frames per second over the probe; null when no two frames came. */
+  /** Mean processed frames per second over the probe's window; null when no two frames came. */
   fps: number | null;
   /** The probe rebuilt the pose source with Lite. */
   switched: boolean;

@@ -6,14 +6,15 @@
  *
  * It wears the My results tab's own rows (progress.css: the section, its heading and the history
  * rows), so it reads as one more list of that page. src/app/App.tsx renders it at the top of My
- * results, in a VITE_V7=1 build only.
+ * results, in a VITE_V7=1 build only, and hands what it loaded to My results (`onCompleted`), which
+ * then hides the movement check's empty state (D-027 item 3).
  */
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { fmtDate, type Lang } from "../../app/i18n";
 import { tV7 } from "../../i18n/v7";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
-import { createFocusApi, type FocusCheckSummary } from "./api";
+import { createFocusApi, type FocusApi, type FocusCheckSummary } from "./api";
 import "../progress/progress.css";
 
 export interface FindingsLinkProps {
@@ -24,6 +25,11 @@ export interface FindingsLinkProps {
   onOpenFindings(checkId: string | null): void;
   /** Opens the focus check (/?focus=1). */
   onStart(): void;
+  /**
+   * What it loaded: null when a load starts, then how many completed checks the person has (0 when
+   * the call fails). My results hides the movement check's empty state while one is complete.
+   */
+  onCompleted?(count: number | null): void;
 }
 
 /** The completed checks, newest first (GET /api/focus lists every check, newest first). */
@@ -33,15 +39,26 @@ export function completedChecks(checks: readonly FocusCheckSummary[]): FocusChec
     .sort((a, b) => b.completed! - a.completed!);
 }
 
-export default function FindingsLink({ lang, owner, onOpenFindings }: FindingsLinkProps) {
+/** The person's completed checks, newest first (GET /api/focus); none when the call fails. */
+export async function loadCompleted(
+  api: Pick<FocusApi, "checks"> = createFocusApi(),
+): Promise<FocusCheckSummary[]> {
+  const r = await api.checks();
+  return r.ok ? completedChecks(r.value.checks) : [];
+}
+
+export default function FindingsLink({ lang, owner, onOpenFindings, onCompleted }: FindingsLinkProps) {
   const [checks, setChecks] = useState<FocusCheckSummary[] | null>(null);
+  const report = useRef(onCompleted);
+  report.current = onCompleted;
   useEffect(() => {
     let live = true;
-    void createFocusApi()
-      .checks()
-      .then((r) => {
-        if (live) setChecks(r.ok ? completedChecks(r.value.checks) : []);
-      });
+    report.current?.(null);
+    void loadCompleted().then((list) => {
+      if (!live) return;
+      setChecks(list);
+      report.current?.(list.length);
+    });
     return () => {
       live = false;
     };

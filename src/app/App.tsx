@@ -236,7 +236,10 @@ function Pages() {
     [homeChecksOpen, setHomeChecksOpen] = useState(false),
     [intakeOffer, setIntakeOffer] = useState<[number, number] | null>(null),
     // A v7 page opened by its URL or from another v7 page (VITE_V7=1 builds only).
-    [v7Page, setV7Page] = useState<V7Page | null>(v7Entry);
+    [v7Page, setV7Page] = useState<V7Page | null>(v7Entry),
+    // v7: a completed focus check, as the findings link loaded it (null while it loads); My results
+    // then hides the movement check's empty state (D-027 item 3).
+    [focusDone, setFocusDone] = useState<boolean | null>(null);
   const c = labels(lang);
   /** The short tab names (D-018: اليوم · برنامجي · نتائجي · حالتي); page titles keep the full names. */
   const navLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c.nav[key]);
@@ -1034,6 +1037,7 @@ function Pages() {
                     owner={account.user.id}
                     onOpenFindings={(checkId) => openV7({ page: "findings", checkId })}
                     onStart={() => openV7({ page: "focus" })}
+                    onCompleted={(n) => setFocusDone(n === null ? null : n > 0)}
                   />
                 </LazyPart>
               )}
@@ -1046,6 +1050,7 @@ function Pages() {
                       onStartCheck={(options) => setCheckOpen(options ?? {})}
                       onOpenProgram={() => setPage("program")}
                       workouts={<History lang={lang} records={records} />}
+                      focusDone={FindingsLink ? focusDone : undefined}
                     />
                   ) : (
                     <History lang={lang} records={records} />

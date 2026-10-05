@@ -53,6 +53,10 @@ describe("the runner's rules read the data and v1", () => {
     expect(RUNNER_RULES.maxRetries).toBe(MAX_RETRIES);
     expect(ROM_VALUE_BOUNDS).toEqual(SERVER_BOUNDS);
     expect(RUNNER_RULES.relaxedMaxDeg).toBe(RANGE_RULES.relaxedMaxDeg);
+    // v1's 0.3 s running median for the start pose and the arm raise watches; the hold signal's is 0.5 s
+    // (D-026 item 5, taken on step B2's 8.2 matrix).
+    expect(RUNNER_RULES.medianSec).toBe(RANGE_RULES.medianSec);
+    expect(RUNNER_RULES.holdMedianSec).toBe(0.5);
     // Every movement that writes its own calibration hold writes 1 s, the shared rule.
     for (const m of ROM_DATA.movements)
       if (m.calibrationSeconds !== undefined) expect(m.calibrationSeconds).toBe(RUNNER_RULES.calibrationSec);
@@ -381,7 +385,8 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
   });
 
   it("keep reaching gives a slow mover time to reach a further hold", () => {
-    // After «not yet» the arm shakes for 15 s, then settles at 120 slowly: the attempt's own clock ends first.
+    // After «not yet» the arm shakes for 15 s (4 degrees at about 1 Hz, wider than the band through the
+    // hold signal's 0.5 s median), then settles at 120 slowly: the attempt's own clock ends first.
     const run = (keep: boolean) => {
       const r = runner("shoulder_abduction");
       const d = drive(r, abduct(80, { answer: () => null }), 40, { until: (rr) => rr.phase === "ask_max" });
@@ -398,7 +403,7 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
           pose: (_deg, t) =>
             abductionPose(
               t < t0 + 15_000
-                ? 80 + 3 * Math.sin(t / 150)
+                ? 80 + 4 * Math.sin(t / 150)
                 : Math.min(120, 80 + ((t - t0 - 15_000) / 1000) * 10),
             ),
         },
@@ -640,10 +645,10 @@ describe("attempts that do not count", () => {
 
   it("a tremor never settles in 3 degrees: after two tries without a hold the 5 degree band, flagged wideHold", () => {
     const r = runner("shoulder_abduction");
-    // 2.5 degrees at 1 Hz: the hold signal (the dial's One Euro on the landmarks, then v1's 0.3 s median)
-    // reads it about 3.7 degrees wide over a second, inside the 5 degree band only. A faster tremor
-    // (2.2 degrees at 1.5 Hz) reads under 3 and is a hold with the normal band.
-    const d = drive(r, abduct(100, { tremor: { amp: 2.5, hz: 1 } }), 200);
+    // 2.5 degrees at 0.8 Hz: the hold signal (the dial's One Euro on the landmarks, then the 0.5 s median)
+    // reads it wider than 3 degrees over a second, inside the 5 degree band only. A faster tremor (2.5
+    // degrees at 1 Hz) reads under 3 and is a hold with the normal band.
+    const d = drive(r, abduct(100, { tremor: { amp: 2.5, hz: 0.8 } }), 200);
     const attempts = kinds(d.events, "attempt").map((e) => e.record);
     expect(attempts[0].reasons).toEqual(["no_hold"]);
     expect(attempts[1]).toMatchObject({ index: 1, outcome: "retry", reasons: ["no_hold"] });

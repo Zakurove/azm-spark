@@ -18,9 +18,11 @@
  *
  * Timing (SCHEDULE): a generated fixture follows a fixed script while the runner reacts to the person
  * (calibration, the practice, a rest of 5 s after each attempt), as tests/fixtures/runners.ts does for
- * the v1 runners: the first repetition (the practice) starts at 1.5 s and one starts every 12.5 s
- * after it (a 2 s rise, a 4 s hold, a 2 s return: ROM_REP), so each starts after the runner has opened
- * its attempt even when its hold is found 3 s late.
+ * the v1 runners: the first repetition (the practice) starts at 1.5 s and one starts every 16 s after
+ * it, so each starts after the runner has opened its attempt even when its hold is found 5 s late. A
+ * repetition moves at the pace of the v1 arm raise script (PACE_DEG_PER_SEC: 150 degrees in 3 s, «raise
+ * slowly»), taking at least 1 s, holds HOLD_SEC while the maximum question comes, and returns. The long
+ * hold keeps a late hold a late hold: the run is still measured, and the timing check reports it.
  *
  * Noise (MATRIX_NOISE, MATRIX_FACE_NOISE): 0.003 of the picture height on the body's landmarks, and
  * on the face points the same share of it that the COCO keypoint spreads give the face against the
@@ -43,7 +45,7 @@ import type {
 import { typicalValue } from "../../src/medical/rom-norms";
 import type { RomProtocolItem } from "../../src/medical/rom-protocol";
 import type { Sex } from "../../src/medical/plan";
-import { movementDef } from "../../src/movements/rom";
+import { movementDef, ROM_DATA } from "../../src/movements/rom";
 import {
   ROM_MOVEMENT_IDS,
   type RomMovementId,
@@ -73,7 +75,16 @@ type Side = "left" | "right";
 export const REFERENCE: { sex: Sex; age: number } = { sex: "female", age: 50 };
 
 /** The repetitions' start times: the practice at 1.5 s, then one every 10 s. */
-export const SCHEDULE = { first: 1.5, every: 12.5 } as const;
+export const SCHEDULE = { first: 1.5, every: 16 } as const;
+/** How long the scripted person holds the end of a repetition, seconds. */
+export const HOLD_SEC = 6;
+/** The scripted person's pace: the v1 arm raise script's (tests/fixtures/runners.ts RAISE: about 150 degrees in a 3 s rise). */
+export const PACE_DEG_PER_SEC = 50;
+/** The shortest rise (and return), seconds: a movement of a few degrees still takes a moment. */
+export const MIN_RISE_SEC = 1;
+/** A repetition's rise (and return) for an excursion: at PACE_DEG_PER_SEC, at least MIN_RISE_SEC. */
+export const riseSec = (excursionDeg: number) =>
+  Math.round(Math.max(MIN_RISE_SEC, Math.abs(excursionDeg) / PACE_DEG_PER_SEC) * 10) / 10;
 export const repStarts = (n: number, first: number = SCHEDULE.first) =>
   Array.from({ length: n }, (_, i) => first + i * SCHEDULE.every);
 
@@ -159,20 +170,36 @@ export interface RomSpecOptions {
 export function romSpec(o: RomSpecOptions): GenSpec {
   const n = o.reps ?? 4;
   const starts = o.starts ?? repStarts(n);
-  const reps: MotionSpec[] = starts.map((start, k) => ({
-    kind: "rom_rep" as const,
-    start,
-    peak: Array.isArray(o.peak) ? o.peak[k] : o.peak,
-    ...(typeof o.rep === "function" ? o.rep(k) : o.rep),
-  }));
-  const last = starts[starts.length - 1];
+  const rest = o.rom?.rest ?? romRestDeg(o.movement, o.position);
+  const reps = starts.map((start, k): Extract<MotionSpec, { kind: "rom_rep" }> => {
+    const peak = Array.isArray(o.peak) ? o.peak[k] : o.peak;
+    const pace = riseSec(peak - rest);
+    return {
+      kind: "rom_rep",
+      start,
+      peak,
+      rise: pace,
+      hold: HOLD_SEC,
+      lower: pace,
+      ...(typeof o.rep === "function" ? o.rep(k) : o.rep),
+    };
+  });
+  const lastRep = reps[reps.length - 1];
   const seated = o.position.startsWith("seated");
   return {
     test: o.movement,
     profile: seated ? "chair" : "standing",
     aspect: o.aspect,
     fps: o.fps ?? 30,
-    durationSec: o.durationSec ?? last + ROM_REP.rise + ROM_REP.hold + ROM_REP.lower + 1,
+    durationSec:
+      o.durationSec ??
+      Math.ceil(
+        lastRep.start +
+          (lastRep.rise ?? ROM_REP.rise) +
+          (lastRep.hold ?? ROM_REP.hold) +
+          (lastRep.lower ?? ROM_REP.lower) +
+          1,
+      ),
     seed: seedOf(o.name),
     noise: o.noise ?? MATRIX_NOISE,
     noiseFace: o.noiseFace ?? (o.noise ?? MATRIX_NOISE) * ROM_FACE_NOISE_SHARE,
@@ -363,4 +390,89 @@ export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
   const result = runner.finish(frames[frames.length - 1].t);
   const records = events.flatMap((e) => (e.kind === "attempt" ? [e.record] : []));
   return { fx, frames, result, events, holds, records, runner };
+}
+
+/* ------------------------------------------------------------------ the 8.2 acceptance */
+
+/** The engine's hold second (rom-protocol engine.holdSeconds). */
+const ROM_DATA_HOLD_SEC = ROM_DATA.engine.holdSeconds;
+
+/** «recorded value within 5 degrees of the generator's truth» (8.2, plan acceptance). */
+export const VALUE_TOLERANCE_DEG = 5;
+/** «the hold found within 1.5 s of the true plateau start plus the hold second» (8.2). */
+export const HOLD_TOLERANCE_SEC = 1.5;
+
+/** Each scored repetition's hold: the first hold of its window answered «نعم», and its delay after plateau start + the hold second. */
+export function plateauHolds(run: RomRun): { rep: number; t: number | null; delaySec: number | null }[] {
+  const spec = run.fx.meta.spec!;
+  const reps = run.fx.truth.rom!.reps;
+  const holdSec = ROM_DATA_HOLD_SEC;
+  return reps.slice(1).map((r, k) => {
+    const h = run.holds.find(
+      (x) => x.t / 1000 >= r.start && x.t / 1000 <= r.plateauTo + 0.5 && personAnswer(spec, x.t) === "yes",
+    );
+    return {
+      rep: k + 1,
+      t: h ? h.t : null,
+      delaySec: h ? Math.round((h.t / 1000 - (r.plateauFrom + holdSec)) * 100) / 100 : null,
+    };
+  });
+}
+
+/** Holds asked away from a repetition's end (answered «ليس بعد» by the person). */
+export function strayHolds(run: RomRun): RomHold[] {
+  const spec = run.fx.meta.spec!;
+  return run.holds.filter((h) => personAnswer(spec, h.t) !== "yes");
+}
+
+/**
+ * The matrix cases that miss 8.2's hold timing (contract change log B2-3), each with exactly what it
+ * misses. At noise 0.003 of the picture height a portrait picture carries 3.8 px of jitter per landmark
+ * (1.5 times step B1's estimate of the real model's, B1-3; a landscape picture 2.2 px), and a few of its
+ * holds come later than 1.5 s: 4 of the matrix's 1,320 (0.3 percent), all in portrait, while every
+ * case is measured with every value within 5 degrees. A seed sweep (5 more seeds of every case) puts
+ * the rate at about 3 percent of portrait runs, most of them hip abduction (its hip line is about 62 px
+ * long at 2.5 m) and elbow extension (the lack's sign flips near straight); at noise 0.002 one late hold
+ * in 2,200 runs. Asserted exactly, so a change that fixes or moves one shows here.
+ */
+export const LATE_HOLD_CASES: Readonly<Record<string, readonly string[]>> = {
+  "rom/shoulder_flexion/seated/right-75-9x16-30fps": ["repetition 1: hold 1.57 s after plateau start + 1 s"],
+  "rom/hip_extension/standing_supported/right-100-9x16-24fps": [
+    "repetition 1: hold 1.79 s after plateau start + 1 s",
+  ],
+  "rom/hip_abduction/standing_supported/left-75-9x16-30fps-helper": [
+    "repetition 1: hold 2.36 s after plateau start + 1 s",
+  ],
+  "rom/hip_abduction/standing_supported/right-50-9x16-24fps": [
+    "repetition 2: hold 1.71 s after plateau start + 1 s",
+  ],
+};
+
+/** Every way a matrix run misses the 8.2 acceptance (empty when it meets it). */
+export function matrixProblems(c: RomCase, run: RomRun): string[] {
+  const res = run.result;
+  const out: string[] = [];
+  if (res.status !== "measured") out.push(`status ${res.status} (${res.reason})`);
+  if (res.nValid !== 3) out.push(`${res.nValid} valid attempts`);
+  if (res.retries)
+    out.push(
+      `${res.retries} repeats: ${run.records
+        .filter((a) => a.outcome === "retry" || a.outcome === "invalid")
+        .map((a) => a.reasons.join("+"))
+        .join(", ")}`,
+    );
+  if (res.value === null || Math.abs(res.value - c.truthDeg) > VALUE_TOLERANCE_DEG)
+    out.push(`value ${res.value} for ${c.truthDeg}`);
+  for (const a of res.attempts)
+    if (a.value === null || Math.abs(a.value - c.truthDeg) > VALUE_TOLERANCE_DEG)
+      out.push(`attempt ${a.index} value ${a.value} for ${c.truthDeg}`);
+  for (const e of run.events)
+    if (e.kind === "compensation" && e.level === "invalid")
+      out.push(`compensation ${e.id} invalid at ${e.t} ms`);
+  for (const h of plateauHolds(run))
+    if (h.delaySec === null || Math.abs(h.delaySec) > HOLD_TOLERANCE_SEC)
+      out.push(
+        `repetition ${h.rep}: hold ${h.delaySec === null ? "not found" : `${h.delaySec} s`} after plateau start + 1 s`,
+      );
+  return out;
 }

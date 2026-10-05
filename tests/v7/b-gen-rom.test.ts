@@ -66,6 +66,7 @@ function still(
       noise: 0,
       motions: extra.motions,
       rom: extra.rom,
+      rep: { rise: ROM_REP.rise, lower: ROM_REP.lower },
     }),
     durationSec: 1.5 + ROM_REP.rise + ROM_REP.hold,
   };
@@ -142,17 +143,18 @@ describe("the truth of a range of motion fixture", () => {
       aspect: "9:16",
       peak: [100, 110, 120],
       reps: 3,
+      rep: { rise: 2, hold: 4, lower: 2 },
       motions: [{ kind: "rom_offset", offset: { pitch: 5 }, start: 20, rise: 1, hold: 2, back: 1 }],
     });
     const t = generate(spec).truth.rom!;
     expect(t).toMatchObject({ movement: "knee_flexion", position: "lying_back", side: "right", restDeg: 0 });
     expect(t.reps.map((r) => [r.start, r.plateauFrom, r.plateauTo, r.end, r.peakDeg])).toEqual([
       [1.5, 3.5, 7.5, 9.5, 100],
-      [14, 16, 20, 22, 110],
-      [26.5, 28.5, 32.5, 34.5, 120],
+      [17.5, 19.5, 23.5, 25.5, 110],
+      [33.5, 35.5, 39.5, 41.5, 120],
     ]);
     expect(t.compensations).toEqual([{ kind: "offset", from: 20, to: 24 }]);
-    expect(romAngleAt(spec, 17)).toBeCloseTo(110, 6);
+    expect(romAngleAt(spec, 21)).toBeCloseTo(110, 6);
     expect(romAngleAt(spec, 12)).toBeCloseTo(0, 6);
   });
 });

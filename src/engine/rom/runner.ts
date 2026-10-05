@@ -15,9 +15,11 @@
  *   3. «A live dial shows the angle (One Euro filtered)»: a `live` event every frame with an angle, the
  *      movement angle of the subject's landmarks after the existing One Euro filter (PoseSmoother, with the
  *      defaults it was tuned with for landmark coordinates). The hold, the plateau, the first movement and
- *      the compensation windows read that angle after v1's 0.3 s running median (RANGE_RULES.medianSec,
- *      rangeTest.ts measures through it before its hold rule): at 2 to 3 m in a portrait picture a still
- *      arm's angle jitters about 3 degrees frame to frame, more than the 3 degree band (change log B1-3).
+ *      the compensation windows read that angle after a 0.5 s running median (RUNNER_RULES.holdMedianSec,
+ *      D-026 item 5): at 2 to 3 m in a portrait picture a still arm's angle jitters about 3 degrees frame to
+ *      frame, more than the 3 degree band (change log B1-3), and step B2's fixtures at 24 to 30 fps missed
+ *      or delayed holds through v1's 0.3 s median (RANGE_RULES.medianSec, rangeTest.ts measures through it
+ *      before its hold rule).
  *   4. The hold (hold.ts): the `hold` event, phase ask_max, the local line ask_max.
  *   5. «هل هذا أقصى ما تستطيع؟»: answerMax (buttons or the coach, first answer per hold wins). Yes
  *      records the hold; not yet resumes the attempt («A later hold replaces the value only if it is
@@ -110,7 +112,14 @@ export const RUNNER_RULES = {
   calibrationStillDeg: RANGE_RULES.calibrationStillDeg,
   /** The arm raises' start pose, the arm by the side: v1's relaxed angle. */
   relaxedMaxDeg: RANGE_RULES.relaxedMaxDeg,
+  /** v1's running median (0.3 s): the start pose's stillness and the arm raises' wrong arm and camera moved watches. */
   medianSec: RANGE_RULES.medianSec,
+  /**
+   * The hold signal's running median, seconds: D-026 item 5 («the hold median window goes from 0.3 s to
+   * 0.5 s; this is a signal filter, not a clinical number», B1-3), taken when step B2's 8.2 matrix (noise
+   * 0.003, 24 to 30 fps) missed or delayed holds in portrait pictures through the 0.3 s median.
+   */
+  holdMedianSec: 0.5,
   /** Contract 2.6 keepReaching: «Extends the attempt by 10 s». */
   keepReachingSec: 10,
   /** v1.1 maxRetries: «up to 2 extra» (rom-protocol 1.1 step 7; the server's MAX_RETRIES). */
@@ -741,7 +750,7 @@ export class RomRunner {
       ),
       monitoring: true,
       smoother: new PoseSmoother(),
-      median: new RunningMedian(RUNNER_RULES.medianSec * 1000),
+      median: new RunningMedian(RUNNER_RULES.holdMedianSec * 1000),
       hold,
       plateau: new PlateauDetector(this.holdOpts),
       startDeg: null,

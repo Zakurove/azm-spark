@@ -38,3 +38,23 @@ describe("the too soon screen", () => {
     expect(en).not.toMatch(/tomorrow/i);
   });
 });
+
+describe("the intro on the booth path (D-017 item 1: no time is mentioned)", () => {
+  it("shows no minutes at the booth, and the range's minutes at home", async () => {
+    const { IntroScreen } = await import("../../src/features/focus/Screens");
+    const { buildRomProtocol } = await import("../../src/medical/rom-protocol");
+    const { entry, intake, today } = await import("./a-fixtures");
+    const protocol = buildRomProtocol({
+      intake: intake({ regions: [entry("knee", "right", ["stiffness"])] }),
+      setting: "booth",
+      today: today(),
+    });
+    const html = (setting: "home" | "booth") =>
+      renderToStaticMarkup(
+        createElement(IntroScreen, { lang: "ar", protocol, gait: null, setting, onStart: () => {} }),
+      );
+    expect(html("booth")).not.toContain('data-part="minutes"');
+    expect(html("booth")).not.toMatch(/دقيق/);
+    expect(html("home")).toContain('data-part="minutes"');
+  });
+});

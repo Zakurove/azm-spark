@@ -385,6 +385,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               lang={lang}
               protocol={m.data.context!.protocol!}
               gait={m.data.context!.gait}
+              setting={m.data.context!.setting}
               onStart={() => {
                 CuePlayer.unlock();
                 // iOS: the motion permission is asked inside a tap (v1's camera primer does the same).

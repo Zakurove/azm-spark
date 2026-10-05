@@ -268,11 +268,14 @@ export function IntroScreen({
   lang,
   protocol,
   gait,
+  setting = "booth",
   onStart,
 }: {
   lang: Lang;
   protocol: RomProtocol;
   gait: GaitPlan | null;
+  /** D-017 item 1: no time is mentioned anywhere on the booth path; the minutes show at home only. */
+  setting?: "home" | "booth";
   onStart(): void;
 }) {
   const runs = protocol.items.filter((i) => !i.skipped);
@@ -291,12 +294,14 @@ export function IntroScreen({
         <Title>{tV7(lang, "rom.intro.title")}</Title>
         <Body lang={lang} text={copyText("intro", lang)} />
         <Body lang={lang} text={copyText("intro_no_diagnosis", lang)} muted />
-        <p className="fx-meta">
-          <CheckIcon name="clock" size={20} />
-          <span>
-            {interpolate(lang, tV7(lang, "rom.intro.minutes"), { n: minutesOf(runs), unit: "min" })}
-          </span>
-        </p>
+        {setting === "home" && (
+          <p className="fx-meta" data-part="minutes">
+            <CheckIcon name="clock" size={20} />
+            <span>
+              {interpolate(lang, tV7(lang, "rom.intro.minutes"), { n: minutesOf(runs), unit: "min" })}
+            </span>
+          </p>
+        )}
       </Glass>
       <Glass className="fx-card fx-joints">
         <h2 className="fx-h2">{tV7(lang, "rom.intro.joints")}</h2>

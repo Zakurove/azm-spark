@@ -1,11 +1,13 @@
 /**
- * The real model smoke's pad walk as a regression (D-026 item 6, GG-4): G1's rendered walk on the
- * pad seen from the right, through MediaPipe Full and Lite (tests/fixtures/gait/smoke), whose far leg
- * hides behind the near one for part of each stride. C1 dropped every cycle of it. Every side view now
- * gates a cycle on the hips and its own leg (W2-15), but until GG-4's swap rule and foot detector land
- * the engine must keep failing the real model walks safely: no view passes its gate on a wrong walk,
- * on the pad or made overground, and the near limb's tracking itself is good enough to time the walk
- * on Full. The generator's overground side walks, with the far leg the real model reports, pass.
+ * The real model smoke's pad walk as a regression (D-026 item 6, GG-4, D-027 item 4): G1's rendered
+ * walk on the pad seen from the right, through MediaPipe Full and Lite (tests/fixtures/gait/smoke),
+ * whose far leg hides behind the near one for part of each stride. C1 dropped every cycle of it; until
+ * GG-4's swap rule and foot detector landed the engine failed it safely. With them (D-027 item 4: the
+ * legs exchanged only where the near leg's own track jumps more than half a foot length; a foot
+ * detector with two events of a kind in a near stride falling back to the ankle) and the pad side
+ * view's timing gated on the near limb, both walks pass their gate with the cadence within 5% of the
+ * truth (8.4). Made overground, no side view passes its gate on a wrong walk; the generator's
+ * overground side walks, with the far leg the real model reports, pass.
  */
 import { describe, expect, it } from "vitest";
 import { analyseGaitView } from "../../src/engine/gait/analyse";
@@ -23,9 +25,9 @@ import {
 } from "../fixtures/gait/gen-gait";
 import { GAIT_ENGINE, PAD_SWAP } from "../../src/engine/gait/params";
 
-describe("G1's rendered pad walk through the real model", () => {
+describe("G1's rendered pad walk through the real model (D-027 item 4)", () => {
   for (const name of ["gait-pad-side-full", "gait-pad-side-lite"] as const)
-    it(`never passes the gate on a wrong walk (${name})`, () => {
+    it(`passes its gate with the cadence within 5% of the truth (${name})`, () => {
       const s = loadSmoke(name);
       const r = analyseGaitView({
         view: "pad_side",
@@ -36,9 +38,16 @@ describe("G1's rendered pad walk through the real model", () => {
         poseModel: s.model,
         rollDeg: 0,
       });
-      if (r.quality.gatePassed)
-        expect(Math.abs(r.metrics.cadence!.value! / s.truth.cadence - 1)).toBeLessThan(0.05);
-      else expect(r.quality.issues).toContain("too_few_cycles");
+      expect(r.quality.gatePassed).toBe(true);
+      expect(r.quality.cleanCycles.left).toBeGreaterThanOrEqual(GAIT_ENGINE.cleanCyclesPerSide);
+      expect(r.quality.cleanCycles.right).toBeGreaterThanOrEqual(GAIT_ENGINE.cleanCyclesPerSide);
+      expect(Math.abs(r.metrics.cadence!.value! / s.truth.cadence - 1)).toBeLessThan(0.05);
+      // The near leg's contacts: within 100 ms of the truth, 90% or more (the walk's first and last
+      // contacts sit at its edges, where no peak can be read).
+      const near = r.events.filter((e) => e.side === s.nearSide && e.type === "ic");
+      const truth = s.truth.ics.filter((e) => e.side === s.nearSide);
+      const found = truth.filter((t) => near.some((e) => Math.abs(e.t - t.t) <= 100)).length;
+      expect(found / truth.length).toBeGreaterThanOrEqual(0.9);
     });
 
   it("exchanges the legs only where the near leg's own track jumps: never on the model's good labels", () => {

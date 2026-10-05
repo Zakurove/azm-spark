@@ -122,13 +122,17 @@ export function buildCycles(
         if (c.clean && (edge.has(c.k1) || (c.kOppIc !== null && edge.has(c.kOppIc)))) drop(c, "pass_edge");
     }
     const [lo, hi] = GAIT_ENGINE.strideTimePlausible;
+    // The pad side view gates timing on the near limb (D-026 item 6): every cycle's visibility gate
+    // reads the hips and the near leg, the far leg's too, which hides behind the near one for a part
+    // of each stride; no far leg kinematics are read in a side view (metrics.ts, near cycles only).
+    const padNear = !overground && kind === "side" ? pass.near : undefined;
     for (const c of passCycles) {
       if (c.clean && mid !== null) {
         const st = c.times.icEnd - c.times.ic;
         if (st < lo * mid || st > hi * mid) drop(c, "duration");
       }
       if (c.clean) {
-        const share = visibleShare(p, gateLandmarksOf(c.side, kind), c.icStart, c.icEnd);
+        const share = visibleShare(p, gateLandmarksOf(padNear ?? c.side, kind), c.icStart, c.icEnd);
         if (share < GAIT_ENGINE.gateShare) drop(c, "visibility");
       }
       if (c.clean)

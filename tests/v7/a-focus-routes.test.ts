@@ -14,6 +14,13 @@ import type { GaitFindingsInput } from "../../src/medical/gait-types";
 // The gait rules (stream C) are observed: what the routes give them, and a pattern that reads the
 // range profile they were given, so the final recompute at complete can be seen.
 const gaitCalls = vi.hoisted(() => ({ inputs: [] as GaitFindingsInput[], fail: false }));
+// The lines the profile route writes on read through withGaitLines (the stored patterns keep none).
+const REWRITTEN_LINES = vi.hoisted(() => ({
+  pattern: { ar: "نمط مكتوب من جديد", en: "pattern written again" },
+  reasons: null,
+  targets: [],
+  confidence: null,
+}));
 vi.mock("../../src/medical/gait-rules", () => ({
   evaluateGait: (input: GaitFindingsInput) => {
     gaitCalls.inputs.push(input);
@@ -38,6 +45,8 @@ vi.mock("../../src/medical/gait-rules", () => ({
       rulesVersion: `gait_rules_test_${measured}`,
     };
   },
+  // The profile route writes the stored patterns' lines again on read (a plain import, D-027 item 7).
+  withGaitLines: (patterns: object[]) => patterns.map((p) => ({ ...p, lines: REWRITTEN_LINES })),
 }));
 
 import { setLock } from "../../server/modules/assessments/store";
@@ -1334,6 +1343,17 @@ describe("POST /api/focus/:id/complete", () => {
     expect(final).toEqual(strip(posted));
     expect(final.staticStance).toHaveLength(2);
     expect(final.views[0].quality).toMatchObject({ medianFps: 28.5, gapShare: 0.04, gatePassed: true });
+  });
+
+  it("lets a later profile read write the walk's lines again through the gait rules (D-027 item 7)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    expect((await h.call(`/focus/${s.id}/gait`, gaitBody(s.gait!, "overground"), cookie)).status).toBe(200);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).status).toBe(200);
+    const r = await h.call("/focus/profile", undefined, cookie);
+    expect(r.status).toBe(200);
+    // The stored patterns keep no lines (section 3); the route writes them with withGaitLines.
+    expect(r.data.gait.patterns.map((p: { lines: unknown }) => p.lines)).toEqual([REWRITTEN_LINES]);
   });
 
   it("writes nothing when a step fails: one transaction", async () => {

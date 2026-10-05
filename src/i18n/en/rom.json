@@ -24,25 +24,25 @@
     "saving": "Saving your results",
     "saveError": "Your results are not saved yet. Make sure you are online, then try again.",
     "startError": "The check did not start. Your answers are still here, so you can try again.",
-    "leaveTitle": "Leave the check?",
-    "leaveBody": "What we have measured so far is kept.",
+    "leaveTitle": "Leave the check now?",
+    "leaveBody": "If you leave now, this check will not be completed, and next time you start again.",
     "stay": "Stay in the check",
-    "leaveConfirm": "Leave"
+    "leaveConfirm": "Yes, leave the check"
   },
   "closed": {
     "intakeTitle": "We need your body map first",
     "intakeBody": "Mark the areas your medical condition affects on the body map, then come back to the check.",
     "intakeAction": "Open Your medical condition",
     "homeTitle": "This check runs at the booth for now",
-    "homeBody": "For now, the focused movement check runs on our team's phone at the booth.",
-    "lockedTitle": "Let's rest today",
+    "homeBody": "For now, the focused movement check runs on our team’s phone at the booth.",
+    "lockedTitle": "Let’s rest today",
     "soonTitle": "You can check again soon",
     "soonBody": "You can start your next check from {date}.",
     "planTitle": "Complete your medical condition first",
     "planBody": "We build the check from your answers about your medical condition.",
     "reviewTitle": "Your plan is being reviewed",
     "reviewBody": "We will open the check once your plan is reviewed.",
-    "rateTitle": "Let's continue another time",
+    "rateTitle": "Let’s continue another time",
     "rateBody": "You started the check many times today. You can try again tomorrow.",
     "nothingTitle": "There is nothing to measure today",
     "nothingBody": "For your safety, we will not measure today. You can try another day."
@@ -64,9 +64,7 @@
     "kicker": "Before we start"
   },
   "pain": {
-    "outOf": "out of 10",
-    "none": "No pain",
-    "worst": "Worst pain"
+    "outOf": "out of 10"
   },
   "seekCare": {
     "continue": "Continue measuring the other areas",
@@ -83,7 +81,7 @@
   },
   "setup": {
     "kicker": "Movement {n} of {total}",
-    "ready": "Ready, let's start"
+    "ready": "Ready, let’s start"
   },
   "measure": {
     "start": "Take the start position and hold still",
@@ -92,7 +90,7 @@
     "tries": "Valid tries: {n} of {total}",
     "move": "Move slowly as far as you can without pain",
     "rest": "Rest a moment",
-    "paused": "Paused",
+    "paused": "On hold",
     "pause": "Pause",
     "resume": "Resume",
     "typical": "Typical",

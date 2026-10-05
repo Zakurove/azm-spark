@@ -12,6 +12,7 @@ import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CountdownRing } from "../assessment/safety/parts";
+import { CHECK_DATA } from "../../movements/assessments";
 
 export interface Action {
   label: string;
@@ -308,8 +309,8 @@ export function PainScale({
         ))}
       </div>
       <div className="fx-scale-ends" aria-hidden="true">
-        <span>{tV7(lang, "rom.pain.none")}</span>
-        <span>{tV7(lang, "rom.pain.worst")}</span>
+        <span>{CHECK_DATA.painScale.anchors.zero[lang]}</span>
+        <span>{CHECK_DATA.painScale.anchors.ten[lang]}</span>
       </div>
       {tried && value === null && (
         <p id={hint} className="fx-hint">

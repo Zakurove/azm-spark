@@ -78,9 +78,6 @@ export interface GaitPatternFixture {
   companions?: { result: string; why: string }[];
 }
 
-const DUCHENNE_BOTH =
-  "duchenne_lean reads a lean toward a side as any peak above standing in its window (the trunk passing upright on its way back counts), so a one sided lean fires on the other side too (C2 gap)";
-
 /** The pattern walks: each rule of gait-rules 5.1 to 5.11 at a mild and a strong severity. */
 export const GAIT_PATTERN_FIXTURES: readonly GaitPatternFixture[] = [
   {
@@ -126,7 +123,6 @@ export const GAIT_PATTERN_FIXTURES: readonly GaitPatternFixture[] = [
     mode: "overground",
     walk: { trunkLean: { left: 12, right: -4 } },
     expect: "possible",
-    companions: [{ result: "duchenne_lean:right:possible", why: DUCHENNE_BOTH }],
   },
   {
     pattern: "duchenne_lean",
@@ -135,7 +131,6 @@ export const GAIT_PATTERN_FIXTURES: readonly GaitPatternFixture[] = [
     mode: "walking_pad",
     walk: { trunkLean: { left: 16, right: -4 } },
     expect: "likely",
-    companions: [{ result: "duchenne_lean:right:likely", why: DUCHENNE_BOTH }],
   },
   {
     pattern: "waddling",

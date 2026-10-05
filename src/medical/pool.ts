@@ -35,6 +35,13 @@ export interface LibraryExercise extends LibraryExerciseV7Fields {
   /** What the exercise builds for a para sport (sports.ts); empty for leg strength alone. */
   demands: DemandTag[];
   contraindications: string[];
+  /**
+   * v7, a new exercise's own cautions and the NIA credit line of a text adapted from NIA (exercise-
+   * targets newExercises[].cautions and textSource.credit): the guided card shows them with the
+   * exercise in both languages (E1-8, D-026 item 9). Written by scripts/library-v7.mjs.
+   */
+  cautions?: L;
+  credit?: L;
 }
 
 export const LIBRARY = library as LibraryExercise[];
@@ -86,6 +93,28 @@ const TWIN_IDS = new Set(Object.values(CAMERA_TWINS));
  *      gets the limits its range protocol keeps (D-026 item 9); a v1 intake never reads them.
  */
 export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): LibraryExercise[] {
+  return poolOf(h, opts.includeDrafts === true, false);
+}
+
+/**
+ * The eligible pool of the v7 program (exercise-targets 5.8 step 1; contract 2.10), for
+ * selectForTargets only: libraryPool's rules with the new exercises (drafts), where the two pool rules
+ * of the clinical review that would change v1 pools apply (D-023 item 2, gap 4), so libraryPool(h) and
+ * every v1 pool stay as they are:
+ *   - review C14: an item that also has a seated form keeps it for people who do not stand and for
+ *     balance_support (libraryPool hides lying, floor and standing items from them); selectForTargets
+ *     then offers that item in its seated form only;
+ *   - review C11 and EX-Q19: «without a yes, wheelchair users get only wheelchair friendly items»; with
+ *     pc_transfer_chair yes, a seated item too (the person moves to a steady chair).
+ */
+export function programPool(h: Intake): LibraryExercise[] {
+  return poolOf(h, true, true);
+}
+
+/** An exercise's seated forms: on a chair, or near its front. */
+const SEATED_FORMS: readonly string[] = ["seated", "seated_forward"];
+
+function poolOf(h: Intake, includeDrafts: boolean, program: boolean): LibraryExercise[] {
   const configs = configsFor(h);
   const avoid = new Set(configs.flatMap((c) => c.avoidCategories));
   const highFatigue = configs.some((c) => ["high", "critical"].includes(String(c.fatigueRisk)));
@@ -95,7 +124,7 @@ export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): 
   const clearsV7 = canClearV7Ids(h);
   const hipReplaced = recentHipReplacement(h);
   return LIBRARY.filter((e) => {
-    if (e.status === "draft" && !opts.includeDrafts) return false;
+    if (e.status === "draft" && !includeDrafts) return false;
     const hipEndRange = (e.hipEndRange?.length ?? 0) > 0;
     if (!clearsV7 && (hipEndRange || e.contraindications.some((c) => V7_ONLY_IDS.has(c)))) return false;
     if (hipReplaced && hipEndRange) return false;
@@ -108,18 +137,25 @@ export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): 
     if (clearsV7 && !regionOpenPositions({ ...e, positions: open.length ? open : e.positions }, v7Ids))
       return false;
     const seatedOk = e.tags.includes("seated") || e.tags.includes("wheelchair_friendly");
+    // The v7 program keeps an item's seated form where libraryPool hides the item (review C14).
+    const seatedForm = program && (e.positions ?? []).some((p) => SEATED_FORMS.includes(p));
     const text = `${e.name.en} ${e.description.en} ${e.steps.en.join(" ")}`;
     if (TWIN_IDS.has(e.id)) return false;
     if (avoid.has(e.category) || e.difficulty === "advanced") return false;
     if (highFatigue && e.difficulty !== "beginner") return false;
     if (e.contraindications.some((c) => painContra.has(c))) return false;
-    if (
-      h.mobility === "wheelchair" &&
-      !(e.tags.includes("wheelchair_friendly") || (e.tags.includes("seated") && !e.tags.includes("standing")))
-    )
-      return false;
+    if (h.mobility === "wheelchair") {
+      const friendly = e.tags.includes("wheelchair_friendly");
+      if (program) {
+        if (!friendly && !(h.romFlags?.transferChair === true && seatedOk)) return false;
+      } else if (!(friendly || (e.tags.includes("seated") && !e.tags.includes("standing")))) return false;
+    }
     if (h.mobility === "seated" && !seatedOk) return false;
-    if (h.mobility !== "standing" && (e.tags.includes("floor_exercise") || e.tags.includes("lying_down")))
+    if (
+      h.mobility !== "standing" &&
+      (e.tags.includes("floor_exercise") || e.tags.includes("lying_down")) &&
+      !seatedForm
+    )
       return false;
     if (e.equipment.includes("resistance_bands") && !h.equipment.includes("bands")) return false;
     if (e.equipment.includes("dumbbells") && !h.equipment.includes("weights")) return false;
@@ -132,12 +168,13 @@ export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): 
       return false;
     if (
       has("no_weight_bearing") &&
-      (e.tags.includes("standing") || (["lower_body", "balance"].includes(e.category) && !seatedOk))
+      ((e.tags.includes("standing") && !seatedForm) ||
+        (["lower_body", "balance"].includes(e.category) && !seatedOk))
     )
       return false;
     if (
       has("balance_support") &&
-      (e.tags.includes("standing") ||
+      ((e.tags.includes("standing") && !seatedForm) ||
         e.contraindications.includes("severe_balance_issues") ||
         (e.category === "balance" && !seatedOk))
     )

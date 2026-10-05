@@ -4,11 +4,13 @@ import {
   defaultSelection,
   eligibleExercises,
   LibraryExercise,
+  libraryById,
   sanitizeSelection,
   WeeklyPlan,
 } from "../src/medical/weekly";
 import { EXERCISES } from "../src/exercises/defs";
 import { sportById } from "../src/medical/sports";
+import type { TargetedBuild } from "../src/medical/targets";
 
 /** Weekly plan composer. The rules engine has already filtered for safety and fixed the dose;
  * the model only arranges approved exercises and writes the explanation. Any failure falls
@@ -34,9 +36,27 @@ A deterministic medical rules engine has ALREADY removed every unsafe exercise a
 
 The person's conditions are enum keys (for example stroke, ms, cerebral_palsy, sci_complete, sci_incomplete, parkinsons, arthritis, cfs_moderate, lower_limb_unilateral, upper_limb_unilateral, none); name them in plain words.
 
+8. When "fixed" is given, a rules engine has already chosen exercises for the person's movement results: each fixed exercise belongs to one day and one block, with its reason ("why"). Keep every fixed exercise exactly where it is and never change, repeat or reword its reason. Fill only the remaining slots of each block from the candidates. In the summary, say that the week is built on the person's movement results as well as their medical condition and goal.
+
 Language rules: Arabic is warm Modern Standard Arabic with Saudi warmth. Always write حالتك الطبية, never حالتك الصحية. English is natural, not a literal translation. Never use dash characters of any kind. Never diagnose, never promise treatment or recovery, never mention doses, never recommend medication. Speak to one person.`;
 
-async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: string) {
+/** The fixed finding items of a targeted week as the model reads them: per day and block, with their why lines. */
+function fixedFor(targeted: TargetedBuild, plan: Plan) {
+  const why = new Map(targeted.items.map((i) => [i.exerciseId, i.why]));
+  return plan.days.map((_, d) => {
+    const day = targeted.fixed.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+    const block = (ids: string[]) => ids.map((id) => ({ id, why: why.get(id) }));
+    return { warmup: block(day.warmup), extra: block(day.extra), cooldown: block(day.cooldown) };
+  });
+}
+
+async function askModel(
+  h: Intake,
+  plan: Plan,
+  pool: LibraryExercise[],
+  key: string,
+  fixed?: ReturnType<typeof fixedFor>,
+) {
   const ids = pool.map((e) => e.id);
   const schema = {
     type: "json_schema",
@@ -121,7 +141,9 @@ async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: str
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Person:\n${JSON.stringify(profile)}\n\nSafe candidates:\n${JSON.stringify(candidates)}\n\nPlan exactly ${plan.days.length} training days.`,
+          content: `Person:\n${JSON.stringify(profile)}\n\nSafe candidates:\n${JSON.stringify(candidates)}${
+            fixed ? `\n\nFixed (keep each where it is, its why unchanged):\n${JSON.stringify(fixed)}` : ""
+          }\n\nPlan exactly ${plan.days.length} training days.`,
         },
       ],
     }),
@@ -131,8 +153,35 @@ async function askModel(h: Intake, plan: Plan, pool: LibraryExercise[], key: str
   return JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
 }
 
-export async function createWeekly(h: Intake, plan: Plan, key?: string): Promise<WeeklyPlan | null> {
+/**
+ * The weekly plan of a ready plan. With `targeted` (v7, contract 2.10: a week the findings built), the
+ * model may word the summary, the reasons and tips and arrange the goal's share, but it receives the
+ * finding items with their why lines as fixed text, and sanitizeSelection keeps them in their day and
+ * block with their dose and why line; without a key, or when the model fails, the rules' week stands.
+ */
+export async function createWeekly(
+  h: Intake,
+  plan: Plan,
+  key?: string,
+  targeted?: TargetedBuild,
+): Promise<WeeklyPlan | null> {
   if (plan.status !== "ready" || !plan.days.length) return null;
+  if (targeted) {
+    if (!key) return targeted.weekly;
+    try {
+      const fixed = fixedFor(targeted, plan);
+      const chosen = targeted.items.map((i) => libraryById(i.exerciseId)!).filter(Boolean);
+      const raw = await askModel(h, plan, [...chosen, ...targeted.pool], key, fixed);
+      const selection = sanitizeSelection(raw, plan, targeted.pool, targeted.selection, targeted.fixed);
+      return {
+        ...buildWeekly(h, plan, selection, "ai", targeted.items),
+        findings: targeted.weekly.findings,
+      };
+    } catch (err) {
+      console.error("AZM weekly plan model failed", err instanceof Error ? err.message : "Error");
+      return targeted.weekly;
+    }
+  }
   const pool = eligibleExercises(h, plan);
   const fallback = defaultSelection(h, plan, pool);
   if (!key || !pool.length) return buildWeekly(h, plan, fallback, "engine");

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { WeeklyItem } from "../medical/weekly";
+import { stepsOf, type WeeklyItem } from "../medical/weekly";
 import { libraryById } from "../medical/pool";
 import { cardKind, type CardSlot } from "../medical/session";
 import { fmtNum, Lang, T } from "./i18n";
@@ -146,6 +146,8 @@ export default function GuidedCard({
 
   if (!ex) return null;
   const name = ex.name[lang];
+  // v7 (E1-8, D-026 item 9): a targeted item's steps name the hold its dose resolved.
+  const steps = stepsOf(ex, item, lang);
   const resting = phase === "rest";
   // The ring: a hold empties as it runs, the counter fills with each rep, the rest empties in purple.
   const share =
@@ -238,9 +240,15 @@ export default function GuidedCard({
               {item.note[lang]}
             </p>
           )}
+          {ex.cautions && (
+            <p className="gcard-note" data-note="caution">
+              <Icon name="info" size={15} />
+              {digits(ex.cautions[lang])}
+            </p>
+          )}
           <h2 className="gcard-steps-title">{g.steps}</h2>
           <ol className="gcard-steps">
-            {ex.steps[lang].map((s, i) => (
+            {steps.map((s, i) => (
               <li key={s}>
                 <span className="gcard-num" aria-hidden="true">
                   {n(i + 1)}
@@ -249,6 +257,12 @@ export default function GuidedCard({
               </li>
             ))}
           </ol>
+          {/* The NIA credit line of a text adapted from NIA, shown with the exercise (E1-8). */}
+          {ex.credit && (
+            <p className="gcard-desc" data-note="credit" style={{ marginTop: 14 }}>
+              {ex.credit[lang]}
+            </p>
+          )}
         </section>
         <section className="gcard-panel gcard-glass">
           {phase === "effort" ? (

@@ -166,21 +166,30 @@ describe("the new exercises, entered as drafts (newExercises)", () => {
     }
   });
 
-  it("leave the targets data's other fields there (the NIA credit, cautions, props, variants)", () => {
+  it("leave the targets data's other fields there (props, the text source, variants)", () => {
     for (const e of LIBRARY.filter((x) => NEW_IDS.has(x.id)))
-      for (const k of [
-        "props",
-        "cautions",
-        "textSource",
-        "painVariant",
-        "raisedSeatVariant",
-        "requiresMobility",
-      ])
+      for (const k of ["props", "textSource", "painVariant", "raisedSeatVariant", "requiresMobility"])
         expect(e, `${e.id}.${k}`).not.toHaveProperty(k);
     // Each is found by the same id.
     expect(NEW.filter((n) => n.textSource.type === "adapted_nia").every((n) => n.textSource.credit)).toBe(
       true,
     );
+  });
+
+  it("carry their cautions and the NIA credit line, which the guided card shows (E1-8, D-026 item 9)", () => {
+    for (const n of NEW) {
+      const e = libraryById(n.id)!;
+      expect(e.cautions, n.id).toEqual(n.cautions ?? undefined);
+      expect(e.credit, n.id).toEqual(n.textSource.credit);
+    }
+    expect(LIBRARY.filter((e) => e.credit).length).toBe(
+      NEW.filter((n) => n.textSource.type === "adapted_nia").length,
+    );
+    // The existing entries have neither.
+    for (const e of LIBRARY.slice(0, 55)) {
+      expect(e.cautions, e.id).toBeUndefined();
+      expect(e.credit, e.id).toBeUndefined();
+    }
   });
 
   it("name only known contraindication ids, demand tags and categories", () => {

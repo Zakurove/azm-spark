@@ -1,12 +1,23 @@
 /**
- * The program link on the Program tab (product v7 contract 1.2 "Program page links", stream E, step
- * E3): the way to the program built from the findings (/?targets=1), and to the findings behind it.
+ * The program link on the Program tab (product v7 contract 1.2 "Program page links", stream E, step E3;
+ * A6a's slot, D-026 item 1): the way to the program built from the findings (/?targets=1) and to the
+ * findings behind it. src/app/App.tsx renders it on the Program tab of a ready plan, before the plan
+ * card, in a VITE_V7=1 build only.
  *
- * Placeholder of step A6 (contract 1.3, A5-12), replaced by E3: it renders nothing. src/app/App.tsx
- * renders it on the Program tab of a ready plan, before the plan card, in a VITE_V7=1 build only.
+ *   - a week built from the findings (plan.weekly.findings): «برنامجك مبني على نتائج قياسك», with
+ *     «لماذا هذه التمارين؟» (the program page) and the results;
+ *   - otherwise, once a completed focus check is found (GET /api/focus): the invitation to let the
+ *     program follow it (the program page builds the week);
+ *   - otherwise nothing, also while the checks load or when the call fails.
  */
+import { useEffect, useMemo, useState } from "react";
 import type { Lang } from "../../app/i18n";
+import { tV7 } from "../../i18n/v7";
 import type { Plan } from "../../medical/plan";
+import CheckIcon from "../assessment/shared/CheckIcon";
+import { createProgramApi } from "./api";
+import { completedNewestFirst } from "./program";
+import "./program.css";
 
 export interface ProgramLinkProps {
   lang: Lang;
@@ -18,6 +29,65 @@ export interface ProgramLinkProps {
   onOpenFindings(): void;
 }
 
-export default function ProgramLink(_props: ProgramLinkProps): null {
-  return null;
+export default function ProgramLink({ lang, plan, onOpenProgram, onOpenFindings }: ProgramLinkProps) {
+  const built = !!plan.weekly?.findings;
+  const api = useMemo(() => createProgramApi(), []);
+  const [checked, setChecked] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (built) return;
+    let live = true;
+    void api.checks().then((r) => {
+      if (live) setChecked(r.ok && completedNewestFirst(r.value.checks).length > 0);
+    });
+    return () => {
+      live = false;
+    };
+  }, [api, built]);
+  if (built)
+    return (
+      <ProgramLinkCard
+        lang={lang}
+        kind="built"
+        onOpenProgram={onOpenProgram}
+        onOpenFindings={onOpenFindings}
+      />
+    );
+  if (!checked) return null;
+  return (
+    <ProgramLinkCard lang={lang} kind="build" onOpenProgram={onOpenProgram} onOpenFindings={onOpenFindings} />
+  );
+}
+
+/** The card itself: pure, so it renders the same from a test. */
+export function ProgramLinkCard({
+  lang,
+  kind,
+  onOpenProgram,
+  onOpenFindings,
+}: {
+  lang: Lang;
+  kind: "built" | "build";
+  onOpenProgram(): void;
+  onOpenFindings(): void;
+}) {
+  const built = kind === "built";
+  return (
+    <section className="pv7-link" data-program-link={kind} lang={lang} dir={lang === "ar" ? "rtl" : "ltr"}>
+      <h2>
+        <CheckIcon name="spark" size={22} />
+        <span>{tV7(lang, built ? "targets.link.title" : "targets.link.buildTitle")}</span>
+      </h2>
+      <p>{tV7(lang, built ? "targets.link.body" : "targets.link.buildBody")}</p>
+      <div className="pv7-link-actions">
+        <button type="button" className="is-primary" onClick={onOpenProgram} data-action="program">
+          {tV7(lang, built ? "targets.link.open" : "targets.link.build")}
+        </button>
+        {built && (
+          <button type="button" className="is-secondary" onClick={onOpenFindings} data-action="findings">
+            {tV7(lang, "targets.link.findings")}
+          </button>
+        )}
+      </div>
+    </section>
+  );
 }

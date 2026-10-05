@@ -8,8 +8,10 @@
 //     proposals (muscles, osteoporosis cautions) stay proposals;
 //   - every new exercise (newExercises), after the existing entries, with its status (draft until
 //     the sign off and the Arabic review, D-025): the library fields and the v7 fields of
-//     LibraryExercise. Its other fields (props, cautions, textSource with the NIA credit, painVariant,
-//     raisedSeatVariant, requiresMobility) stay in the targets data under the same id.
+//     LibraryExercise, with its cautions and the NIA credit line of an adapted text (textSource.credit),
+//     which the guided card shows with the exercise in both languages (E1-8, D-026 item 9). Its other
+//     fields (props, textSource, painVariant, raisedSeatVariant, requiresMobility) stay in the targets
+//     data under the same id.
 // Idempotent. tests/v7/e-library.test.ts checks the library against the targets data both ways.
 //   node scripts/library-v7.mjs            write the library
 //   node scripts/library-v7.mjs --check    exit 1 when the library is not what the data gives
@@ -75,7 +77,11 @@ const FIELDS = [
   "dose",
   "hipEndRange",
 ];
-const entryOf = (n) => Object.fromEntries(FIELDS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]]));
+const entryOf = (n) => ({
+  ...Object.fromEntries(FIELDS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]])),
+  ...(n.cautions ? { cautions: n.cautions } : {}),
+  ...(n.textSource?.credit ? { credit: n.textSource.credit } : {}),
+});
 const fresh = new Map(data.newExercises.map((n) => [n.id, entryOf(n)]));
 for (const id of fresh.keys()) if (tags.has(id)) throw new Error(`a new exercise is already tagged: ${id}`);
 const out = [...tagged.filter((e) => !fresh.has(e.id)), ...fresh.values()];

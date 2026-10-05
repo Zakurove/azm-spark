@@ -9,7 +9,7 @@ import {
   type LibraryExercise,
 } from "./pool";
 import { CAMERA_DEMANDS, DEMANDS, sportById, type DemandTag, type Sport } from "./sports";
-import type { WeeklyItemV7Fields, WeeklyPlanFindingsRef } from "./target-types";
+import type { TargetedItem, WeeklyItemV7Fields, WeeklyPlanFindingsRef } from "./target-types";
 
 /** Weekly plan layer. The rules below decide what is SAFE and the dose; an optional
  * language model may only arrange exercises from the already filtered pool and write
@@ -23,6 +23,11 @@ export interface WeeklyItem extends WeeklyItemV7Fields {
   reps?: number;
   holdSeconds?: number;
   note?: L;
+  /**
+   * v7 (E1-8, D-026 item 9): the hold the steps of a targeted item name with {hold_ar} and {hold_en}
+   * («٣٠ ثانية», «لحظة» on the pain path), resolved when the item was built (stepsOf).
+   */
+  hold?: L;
 }
 export interface WeeklyDay {
   day: number;
@@ -75,8 +80,11 @@ const FOCUS: Record<string, L> = {
 
 const isHold = (e: LibraryExercise) => e.category === "flexibility" || /stretch|hold|breath/i.test(e.name.en);
 
+/** The cards of a day's blocks: 2 to warm up, 3 of the day's exercises, 2 to cool down. */
+export const BLOCK_SIZES = { warmup: 2, extra: 3, cooldown: 2 } as const;
+
 /** The library exercises that are the same movement as a camera movement of the plan. */
-const cameraTwins = (plan: Plan) =>
+export const cameraTwins = (plan: Pick<Plan, "exercises">) =>
   new Set(
     plan.exercises.flatMap((e) => [
       e.exerciseId,
@@ -212,13 +220,19 @@ export function sanitizeSelection(
   plan: Plan,
   pool: LibraryExercise[],
   fallback: Selection,
+  /**
+   * v7 (contract 2.10): the items the findings fixed, kept first in their day and block whatever the
+   * model asks; the model fills the rest of each block from the pool.
+   */
+  fixed?: Selection,
 ): Selection {
   const ids = new Set(pool.map((e) => e.id));
   const rawDays: any[] = Array.isArray(raw?.days) ? raw.days : [];
   const days = plan.days.map((_, d) => {
     const r = rawDays[d] ?? {},
       f = fallback.days[d];
-    const used = new Set<string>();
+    const keep = fixed?.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+    const used = new Set<string>([...keep.warmup, ...keep.extra, ...keep.cooldown]);
     const take = (list: unknown, max: number, fb: string[]) => {
       const out = (Array.isArray(list) ? list : [])
         .filter(
@@ -227,11 +241,16 @@ export function sanitizeSelection(
         .slice(0, max);
       return out.length ? out : fb.filter((x) => !used.has(x) && (used.add(x), true)).slice(0, max);
     };
-    const warmup = take(r.warmup, 2, f.warmup),
-      extra = take(r.extra, 3, f.extra),
-      cooldown = take(r.cooldown, 2, f.cooldown);
+    const block = (k: "warmup" | "extra" | "cooldown", list: unknown) => [
+      ...keep[k],
+      ...take(list, Math.max(0, BLOCK_SIZES[k] - keep[k].length), f[k]),
+    ];
+    const warmup = block("warmup", r.warmup),
+      extra = block("extra", r.extra),
+      cooldown = block("cooldown", r.cooldown);
+    const day = new Set([...warmup, ...extra, ...cooldown]);
     const notes = (Array.isArray(r.notes) ? r.notes : [])
-      .filter((n: any) => ids.has(n?.id))
+      .filter((n: any) => ids.has(n?.id) || (fixed !== undefined && day.has(n?.id)))
       .slice(0, 3)
       .map((n: any) => ({ id: n.id, ar: cleanText(n.ar, "ar", 140), en: cleanText(n.en, "en", 140) }))
       .filter((n: any) => n.ar && n.en);
@@ -248,6 +267,20 @@ export function sanitizeSelection(
     tips: list(raw?.tips),
     days,
   };
+}
+
+/**
+ * An exercise's steps for one weekly item: a targeted item's hold in place of the {hold_ar} and
+ * {hold_en} its steps name (E1-8; selectForTargets resolves it from the dose profile and the age, «لحظة»
+ * on the pain path). Other steps are shown as they are.
+ */
+export function stepsOf(
+  e: Pick<LibraryExercise, "steps">,
+  item: Pick<WeeklyItem, "hold">,
+  lang: "ar" | "en",
+): string[] {
+  const hold = item.hold?.[lang];
+  return hold ? e.steps[lang].map((s) => s.replaceAll(`{hold_${lang}}`, hold)) : e.steps[lang];
 }
 
 /** Arabic counted days: the singular, the dual, then the plural of 3 to 10 and the singular accusative from 11. */
@@ -271,12 +304,19 @@ export function summaryText(summary: L, lang: "ar" | "en"): string {
   );
 }
 
+/**
+ * The weekly plan of a selection: the rules' dose for each item, or, for the items the findings chose
+ * (v7, contract 2.10: `targeted`), the dose of their profile with their why line, targets and reasons
+ * as selectForTargets built them; no model output reaches those.
+ */
 export function buildWeekly(
   h: Intake,
   plan: Plan,
   selection: Selection,
   source: "engine" | "ai",
+  targeted: readonly TargetedItem[] = [],
 ): WeeklyPlan {
+  const chosen = new Map(targeted.map((t) => [t.exerciseId, t]));
   const configs = configsFor(h);
   const highFatigue = configs.some((c) => ["high", "critical"].includes(String(c.fatigueRisk)));
   const base = plan.exercises[0];
@@ -290,13 +330,16 @@ export function buildWeekly(
   ): WeeklyItem => {
     const e = libraryById(id)!;
     const note = notes?.find((n) => n.id === id);
-    const dose: WeeklyItem = isHold(e)
-      ? {
-          id,
-          sets: slot === "extra" ? Math.min(sets, 2) : 1,
-          holdSeconds: slot === "cooldown" ? hold + 5 : hold,
-        }
-      : { id, sets: slot === "extra" ? sets : 1, reps: slot === "extra" ? reps : Math.min(reps, 8) };
+    const target = chosen.get(id);
+    const dose: WeeklyItem = target
+      ? { ...target.dose }
+      : isHold(e)
+        ? {
+            id,
+            sets: slot === "extra" ? Math.min(sets, 2) : 1,
+            holdSeconds: slot === "cooldown" ? hold + 5 : hold,
+          }
+        : { id, sets: slot === "extra" ? sets : 1, reps: slot === "extra" ? reps : Math.min(reps, 8) };
     return note ? { ...dose, note: { ar: note.ar, en: note.en } } : dose;
   };
   const days: WeeklyDay[] = plan.days.map((day, d) => {
@@ -332,19 +375,41 @@ export function buildWeekly(
         ? "moves into a camera session that counts and corrects, adds exercises chosen from the Azm library"
         : "moves through guided exercises chosen from the Azm library",
   };
-  const summary: L = selection.summary ?? {
-    ar: toArabicDigits(
-      sportName
-        ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`
-        : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`,
-    ),
-    en: sportName
-      ? `A ${n} day weekly plan built on your medical condition and aimed at ${sportName.en}. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`
-      : `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`,
-  };
+  const summary: L =
+    selection.summary ??
+    (targeted.length
+      ? {
+          // v7: a week built from the findings (contract 2.10).
+          ar: toArabicDigits(
+            `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ونتائج قياس حركتك. في كل يوم تمارين اخترناها لنتائجك، ولكل منها سبب واضح، ${
+              sportName ? `وبقية الجلسة تبني ما تحتاجه ${sportName.ar}.` : "وبقية الجلسة لهدفك."
+            }`,
+          ),
+          en: `A ${n} day weekly plan built on your medical condition and your movement results. Each day holds exercises chosen for your results, each with a clear reason, and the rest of the session ${
+            sportName ? `builds what ${sportName.en} asks of you.` : "follows your goal."
+          }`,
+        }
+      : {
+          ar: toArabicDigits(
+            sportName
+              ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`
+              : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`,
+          ),
+          en: sportName
+            ? `A ${n} day weekly plan built on your medical condition and aimed at ${sportName.en}. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`
+            : `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`,
+        });
   const why: L[] = selection.why?.length
     ? selection.why
     : [
+        ...(targeted.length
+          ? [
+              {
+                ar: "اخترنا لكل نتيجة تحتاج عملًا تمارين آمنة لحالتك الطبية، ولكل تمرين منها سطر يقول لماذا أضفناه.",
+                en: "For each result that needs work, we chose exercises that are safe for your medical condition, and each one says why we added it.",
+              },
+            ]
+          : []),
         {
           ar: "استبعدنا كل تمرين لا يناسب وضعيتك أو ألمك أو تعليمات طبيبك.",
           en: "Every exercise that conflicts with your position, pain, or clinician instructions was removed.",

@@ -55,8 +55,30 @@ async function account(page: Page, lang: Lang, intake: Record<string, unknown>) 
   await page.goto(url("/", lang));
 }
 
-/** Serious or critical WCAG 2.2 AA problems on the page (as e2e/a11y.spec.ts reads them). */
+/**
+ * Waits for every finite animation on the page to end (D-027 item 7): a card's panels rise in with
+ * opacity, and a scan mid fade reads their text against a half transparent card, so it fails only
+ * when the machine is slow. Infinite animations (none on these screens) are not waited for.
+ */
+async function settled(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)))
+        .map((a) =>
+          a.finished.then(
+            () => undefined,
+            () => undefined,
+          ),
+        ),
+    ),
+  );
+}
+
+/** Serious or critical WCAG 2.2 AA problems on the page (as e2e/a11y.spec.ts reads them), once settled. */
 async function axe(page: Page): Promise<string[]> {
+  await settled(page);
   const r = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"])
     .analyze();
@@ -178,6 +200,8 @@ test("no camera movement: the program is guided cards; the counter, the rest and
     }
   }
   await expect(card).toHaveAttribute("data-phase", "effort");
+  // Scanned as it rises in: axe waits for the rise to end (a scan mid fade failed on slow runs).
+  expect(await axe(page)).toEqual([]);
   await page.locator(".gcard-rpe button").nth(8).click();
   await expect(page.locator(".gcard-warn")).toBeVisible();
   expect(await axe(page)).toEqual([]);

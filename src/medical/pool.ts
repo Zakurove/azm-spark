@@ -35,6 +35,13 @@ export interface LibraryExercise extends LibraryExerciseV7Fields {
   /** What the exercise builds for a para sport (sports.ts); empty for leg strength alone. */
   demands: DemandTag[];
   contraindications: string[];
+  /**
+   * v7, a new exercise's own cautions and the NIA credit line of a text adapted from NIA (exercise-
+   * targets newExercises[].cautions and textSource.credit): the guided card shows them with the
+   * exercise in both languages (E1-8, D-026 item 9). Written by scripts/library-v7.mjs.
+   */
+  cautions?: L;
+  credit?: L;
 }
 
 export const LIBRARY = library as LibraryExercise[];

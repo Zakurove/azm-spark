@@ -3319,6 +3319,10 @@
    "painProfile": "mobility_pain",
    "text": "10 slides forward and 10 to the side.",
    "repetitions": 10
+  },
+  "cautions": {
+   "ar": "إذا كان كتفك الأضعف مؤلمًا أو غير ثابت، فحرّكه في مدى صغير فقط.",
+   "en": "If your weaker shoulder is painful or loose, keep the movement small."
   }
  },
  {
@@ -3478,6 +3482,10 @@
     3,
     5
    ]
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
   }
  },
  {
@@ -3697,6 +3705,10 @@
     3,
     5
    ]
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
   }
  },
  {
@@ -4042,6 +4054,10 @@
   "dose": {
    "profile": "stretch_hold",
    "painProfile": "mobility_pain"
+  },
+  "cautions": {
+   "ar": "إذا كان لديك إصابة في الحبل الشوكي أو سكتة دماغية أو شلل دماغي أو باركنسون أو تصلب متعدد، فليجلس شخص بالغ بجانبك أثناء هذا التمرين.",
+   "en": "If you live with a spinal cord injury, stroke, cerebral palsy, Parkinson's or MS, another adult should sit or stand beside you during this exercise."
   }
  },
  {
@@ -4190,7 +4206,15 @@
   },
   "hipEndRange": [
    "flexion_past_90"
-  ]
+  ],
+  "cautions": {
+   "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
+   "en": "If you have had hip or back surgery, ask your doctor before this exercise."
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "seated_upper_back_extension",
@@ -4394,6 +4418,10 @@
   "dose": {
    "profile": "stretch_hold",
    "painProfile": "mobility_pain"
+  },
+  "cautions": {
+   "ar": "توقف إذا شعرت بدوخة أو تنميل.",
+   "en": "Stop if you feel dizzy or have numbness or tingling."
   }
  },
  {
@@ -4871,7 +4899,11 @@
   },
   "hipEndRange": [
    "extension"
-  ]
+  ],
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "standing_side_leg_raise",
@@ -4943,6 +4975,10 @@
     10,
     15
    ]
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
   }
  },
  {
@@ -5279,7 +5315,15 @@
   },
   "hipEndRange": [
    "external_rotation"
-  ]
+  ],
+  "cautions": {
+   "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
+   "en": "If you have had hip or back surgery, ask your doctor before this exercise."
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "heel_slides",
@@ -5483,6 +5527,10 @@
     10,
     15
    ]
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
   }
  },
  {
@@ -5677,7 +5725,15 @@
   },
   "hipEndRange": [
    "flexion_past_90"
-  ]
+  ],
+  "cautions": {
+   "ar": "مع هشاشة العظام، أبقِ ظهرك مستقيمًا ولا تنحنِ من الخصر.",
+   "en": "With osteoporosis, keep your back straight and do not bend at the waist."
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "lying_hamstring_stretch",
@@ -5751,7 +5807,15 @@
   },
   "hipEndRange": [
    "flexion_past_90"
-  ]
+  ],
+  "cautions": {
+   "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
+   "en": "If you have had hip or back surgery, ask your doctor before this exercise."
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "standing_thigh_stretch",
@@ -5833,7 +5897,15 @@
   },
   "hipEndRange": [
    "extension"
-  ]
+  ],
+  "cautions": {
+   "ar": "إذا أجريت عملية في الورك أو الظهر، فاسأل طبيبك قبل هذا التمرين.",
+   "en": "If you have had hip or back surgery, ask your doctor before this exercise."
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "sit_to_stand",
@@ -5917,7 +5989,15 @@
   },
   "hipEndRange": [
    "flexion_past_90"
-  ]
+  ],
+  "cautions": {
+   "ar": "إذا كانت لديك مشكلة في الركبة أو الظهر، فتحدث مع طبيبك قبل هذا التمرين.",
+   "en": "If you have knee or back problems, talk with your doctor before this exercise."
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
+  }
  },
  {
   "id": "mini_squat_supported",
@@ -6057,6 +6137,10 @@
     3,
     5
    ]
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
   }
  },
  {
@@ -6133,6 +6217,10 @@
     3,
     5
    ]
+  },
+  "credit": {
+   "ar": "مقتبس من المعهد الوطني للشيخوخة، المعاهد الوطنية للصحة الأمريكية. الترجمة العربية من عزم عن مادة المعهد الوطني للشيخوخة.",
+   "en": "Adapted from material by the National Institute on Aging, National Institutes of Health (Exercise and Physical Activity: Your Everyday Guide). Arabic translated by Azm from material by the National Institute on Aging."
   }
  },
  {
@@ -6745,6 +6833,10 @@
   "dose": {
    "profile": "mobility_reps",
    "painProfile": "mobility_pain"
+  },
+  "cautions": {
+   "ar": "إذا كان كتفك الأضعف مؤلمًا أو غير ثابت، فحرّكه في مدى صغير فقط.",
+   "en": "If your weaker shoulder is painful or loose, keep the movement small."
   }
  },
  {

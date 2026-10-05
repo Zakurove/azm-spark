@@ -161,8 +161,9 @@ describe("the RomController through D's coach segment (DG-7)", () => {
     h.call("c1", "confirm_max", { ...KNEE_BEND, answer: "yes" });
     expect(h.reply("c1")).toMatchObject({ accepted: false, reason: "no_answer_heard" });
     expect(h.ctl.phase).toBe("ask_max");
-    // The person says yes; the coach's call records the hold.
+    // The coach asks; the person says yes; the coach's call records the hold.
     const deg = h.ctl.hold!.deg;
+    await run(1200);
     h.live().emit({ type: "inputTranscript", text: "نعم", final: true });
     await run(800);
     h.call("c2", "confirm_max", { ...KNEE_BEND, answer: "yes" });

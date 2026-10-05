@@ -23,7 +23,7 @@ import { viewMetrics } from "./metrics";
 import { ENGINE_VERSION, GAIT_ENGINE, STORED_LIMITS } from "./params";
 import { passesOf } from "./passes";
 import { LEG, pointOf, prepare, rollTurn, visibleShare } from "./preprocess";
-import { meanFps, viewQuality } from "./quality";
+import { viewFps, viewQuality } from "./quality";
 import { replayOf } from "./replay";
 import { beltMps, pxPerMetre } from "./scale";
 import { standingZeros } from "./standing";
@@ -119,7 +119,7 @@ export function analyseGaitView(input: GaitViewInput): GaitViewResult {
   const events = detectEvents(p, motion.passes, kind);
   const cycles = buildCycles(p, motion, events, kind, isOverground(view));
   const zeros = standingZeros(input.standing, kind, roll);
-  const fps = meanFps(p.frameMs);
+  const fps = viewFps(p, motion);
   const metrics = viewMetrics({
     p,
     view,

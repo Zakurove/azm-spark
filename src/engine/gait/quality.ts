@@ -64,6 +64,26 @@ export function meanFps(frameMs: ArrayLike<number>): number {
   return span > 0 ? ((n - 1) * 1000) / span : 0;
 }
 
+/**
+ * The view's frame rate: the mean inside its passes, their frames over their time (D-026 item 6: frames
+ * the model lost there count), so the time the walker is out of the picture between passes, when a
+ * capture keeps no frame (G1's GaitCapture keeps only the frames that hold the walker), is not read as
+ * lost frames. Without a pass, the mean over the whole recording.
+ */
+export function viewFps(p: Pick<Prepared, "frameMs" | "series">, motion: Pick<Motion, "passes">): number {
+  let gaps = 0;
+  let ms = 0;
+  for (const pass of motion.passes) {
+    if (pass.end - pass.start < 2) continue;
+    const a = lowerBound(p.frameMs, p.series.t[pass.start] * 1000 - 1e-6);
+    const b = lowerBound(p.frameMs, p.series.t[pass.end - 1] * 1000 + 1e-6);
+    if (b - a < 2) continue;
+    gaps += b - a - 1;
+    ms += p.frameMs[b - 1] - p.frameMs[a];
+  }
+  return ms > 0 ? (gaps * 1000) / ms : meanFps(p.frameMs);
+}
+
 /** 1000 ÷ the median gap between frames (0 with fewer than two frames): the probe's measure (A6a-3). */
 export function medianFps(frameMs: ArrayLike<number>): number {
   const gaps: number[] = [];
@@ -103,7 +123,7 @@ export interface QualityInput {
 
 /** The view's quality report (GaitQuality). */
 export function viewQuality(q: QualityInput): GaitQuality {
-  const fps = meanFps(q.p.frameMs);
+  const fps = viewFps(q.p, q.motion);
   const clean = { left: 0, right: 0 };
   const drops = new Map<string, number>();
   for (const c of q.cycles) {

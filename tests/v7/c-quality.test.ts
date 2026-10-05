@@ -39,6 +39,47 @@ describe("frame rate", () => {
     expect(lossy.metrics.knee_swing_peak).toBeUndefined();
   });
 
+  it("counts only the time inside the passes: an overground walk with no frames while the walker is out of the picture reads its camera rate", () => {
+    const spec: WalkSpec = { view: "side", passes: 4, seed: 81 };
+    const w = walk(spec);
+    // As G1's GaitCapture keeps them: only the frames that hold the walker (mid hip in the picture).
+    const inView = w.frames.filter((f) => {
+      const x = (f.lm[23].x + f.lm[24].x) / 2;
+      return x > 0 && x < 1 && f.lm[23].visibility >= 0.5;
+    });
+    expect(inView.length).toBeLessThan(w.frames.length * 0.8);
+    const all = analyseGaitView({
+      view: "side",
+      setup: setupOf(spec),
+      standing: w.standing,
+      frames: w.frames,
+      poseModel: "full",
+      rollDeg: 0,
+    });
+    const picked = analyseGaitView({
+      view: "side",
+      setup: setupOf(spec),
+      standing: w.standing,
+      frames: inView,
+      poseModel: "full",
+      rollDeg: 0,
+    });
+    expect(all.quality.medianFps).toBeCloseTo(30, 0);
+    expect(picked.quality.medianFps).toBeCloseTo(30, 0);
+    expect(picked.quality.issues).not.toContain("low_fps");
+    expect(picked.quality.gatePassed).toBe(all.quality.gatePassed);
+    // A model that loses frames inside the passes still counts them (D-026 item 6).
+    const lossy = analyseGaitView({
+      view: "side",
+      setup: setupOf(spec),
+      standing: w.standing,
+      frames: inView.filter((_, i) => i % 4 !== 3),
+      poseModel: "full",
+      rollDeg: 0,
+    });
+    expect(lossy.quality.medianFps).toBeLessThan(24);
+  });
+
   it("keeps the median gap measure for the probe's comparisons (A6a-3)", () => {
     expect(medianFps([0, 33, 66, 100, 133, 200])).toBeCloseTo(1000 / 33, 12);
     expect(medianFps([0])).toBe(0);

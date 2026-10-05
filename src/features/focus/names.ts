@@ -16,8 +16,8 @@ export function regionName(region: RegionId, lang: Lang, inSentence = false): st
   return lang === "en" && inSentence ? name.toLowerCase() : name;
 }
 
-/** Arabic regions with feminine names: الركبة, الرقبة (the others take the masculine side word). */
-const FEMININE_REGIONS = new Set<RegionId>(["knee", "neck"]);
+/** Arabic regions whose side word is feminine: الركبة, الرقبة, and الكاحل والقدم (the word follows القدم, as the intake's «القدم اليمنى»); the others take the masculine one. */
+const FEMININE_REGIONS = new Set<RegionId>(["knee", "neck", "ankle_foot"]);
 
 /** «الركبة اليمنى» · "Right knee": the region and the side, as the person sees them. */
 export function sideRegion(i: { region: RegionId; side: RomSide }, lang: Lang): string {

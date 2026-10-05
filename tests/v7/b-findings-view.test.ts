@@ -256,8 +256,8 @@ describe("findingsView: the page's groups and rows", () => {
       "الورك الأيمن",
       "الورك الأيسر",
       "الركبة اليسرى",
-      "الكاحل والقدم الأيمن",
-      "الكاحل والقدم الأيسر",
+      "الكاحل والقدم اليمنى",
+      "الكاحل والقدم اليسرى",
     ]);
     expect(en.others.slice(0, 3)).toEqual(["Neck", "Back or trunk", "Left shoulder"]);
   });
@@ -519,7 +519,7 @@ describe("findingsView: the page's groups and rows", () => {
     ).map((m) => notMeasured(m, "left", "not_applicable", "limb_absent", "not_applicable"));
     const v = findingsView(answer(loss, rowsLoss), loss, "ar");
     expect(v.groups).toEqual([]);
-    expect(v.others).not.toContain("الكاحل والقدم الأيسر");
+    expect(v.others).not.toContain("الكاحل والقدم اليسرى");
     // The legend names the colours the map shows (the shoulder within, the knee marked), in one order.
     expect(ar.legend.map((l) => l.tone)).toEqual(["within", "marked"]);
     expect(ar.legend[0]).toEqual({ tone: "within", label: toneLabel("within", "ar") });

@@ -1,0 +1,400 @@
+/* ——— The findings page (product v7 contract B4) ———
+   The focus check's family (focus.css): a warm light stage, glass cards, Cairo, purple for the
+   person's own values, gold for what is typical, no hard dark borders. The results' colours follow
+   the result card's labels: within in purple, a little below typical in gold, clearly below in amber,
+   stopped by pain in rose, not measured in grey. Red stays the STOP colour of the check and is never
+   used here. On a phone one column; from 900 px the check and its body map stand beside the joints. */
+
+.azm-check.fx {
+  --fx-tone-within: #8065ad;
+  --fx-tone-mild: #ecbd34;
+  --fx-tone-marked: #c98317;
+  --fx-tone-pain: #a5483f;
+  --fx-tone-grey: #b9bdc4;
+}
+
+/* ——— the layout ——— */
+.fx-findings,
+.fx-findings-aside,
+.fx-findings-main,
+.fx-findings-range,
+.fx-findings-empty {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .fx-findings {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    align-items: start;
+  }
+  .fx-findings-aside {
+    position: sticky;
+    top: 76px;
+  }
+}
+.fx-findings-empty {
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+.azm-check.fx .fx-findings-heading {
+  margin: 6px 4px 0;
+  font-size: 1.3rem;
+}
+.fx-findings-lead {
+  margin: -6px 4px 0;
+  color: var(--fx-muted);
+  font-size: 1rem;
+  line-height: 1.75;
+  font-weight: 600;
+}
+.fx-findings-hero .fx-meta svg {
+  flex: none;
+  color: var(--fx-purple-ink);
+}
+.fx-findings-slot:empty {
+  display: none;
+}
+
+/* ——— the body map and its legend ——— */
+.fx-findings-map {
+  justify-items: center;
+}
+.fx-findings-map .fx-h2 {
+  justify-self: stretch;
+}
+.fx-findings-map .bm {
+  gap: 10px;
+}
+.fx-findings-map .bm-views button[aria-pressed="true"] {
+  color: var(--fx-purple-ink);
+}
+.fx-findings-map .bm-outline > * {
+  fill: #e7e0f1;
+  stroke: #e7e0f1;
+}
+.fx-findings-map .bm-body > *,
+.fx-findings-map .bm-body .bm-arm,
+.fx-findings-map .bm-body .bm-leg {
+  fill: #fbf9fe;
+  stroke: #fbf9fe;
+}
+.fx-findings-map .bm-body .bm-arm,
+.fx-findings-map .bm-body .bm-leg {
+  fill: none;
+}
+.fx-findings-map .bm-detail {
+  stroke: #e2d9ef;
+}
+.fx-findings-map .bm-side {
+  color: var(--fx-muted);
+}
+.fx-findings-map .bm-figure {
+  width: 200px;
+}
+.fx-findings-map .bm-mark .bm-dot {
+  width: 22px;
+  height: 22px;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 6px 14px -4px rgba(46, 34, 82, 0.35);
+}
+.fx-findings-map .bm-within .bm-dot {
+  background: var(--fx-tone-within);
+}
+.fx-findings-map .bm-mild .bm-dot {
+  background: var(--fx-tone-mild);
+}
+.fx-findings-map .bm-marked .bm-dot {
+  background: var(--fx-tone-marked);
+}
+.fx-findings-map .bm-pain .bm-dot {
+  background: var(--fx-tone-pain);
+}
+.fx-findings-map .bm-grey .bm-dot {
+  background: var(--fx-tone-grey);
+}
+.fx-legend {
+  display: grid;
+  gap: 8px;
+  justify-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fx-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.fx-dot {
+  flex: none;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fx-tone-grey);
+  box-shadow: 0 0 0 2px #ffffff;
+}
+.fx-dot.is-within {
+  background: var(--fx-tone-within);
+}
+.fx-dot.is-mild {
+  background: var(--fx-tone-mild);
+}
+.fx-dot.is-marked {
+  background: var(--fx-tone-marked);
+}
+.fx-dot.is-pain {
+  background: var(--fx-tone-pain);
+}
+
+/* ——— a joint's card and its movements ——— */
+.fx-group {
+  gap: 4px;
+  padding: 20px 20px 10px;
+}
+.fx-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.azm-check.fx .fx-group-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.fx-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fx-row {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0;
+}
+.fx-row + .fx-row {
+  box-shadow: 0 -1px 0 rgba(28, 32, 41, 0.07);
+}
+.fx-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.fx-row-name {
+  display: grid;
+  gap: 0;
+}
+.fx-row-name b {
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+.fx-row-name small {
+  color: var(--fx-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.fx-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.5;
+  background: #eeedf0;
+  color: var(--fx-muted);
+}
+.fx-tag.is-within {
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+}
+.fx-tag.is-mild {
+  background: var(--fx-gold-tint);
+  color: var(--fx-gold-ink);
+}
+.fx-tag.is-marked {
+  background: #fbe2b6;
+  color: #6b4205;
+}
+.fx-tag.is-pain {
+  background: var(--fx-rose-tint);
+  color: var(--fx-rose);
+}
+.fx-row-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.fx-row-number {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.fx-row-number b {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--fx-purple-deep);
+}
+.fx-row-number small,
+.fx-row-typical {
+  color: var(--fx-muted);
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+.fx-row-typical {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.fx-row-typical b {
+  color: var(--fx-gold-ink);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.fx-row-line {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.75;
+}
+.fx-row-finding {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(241, 235, 250, 0.7);
+  color: var(--fx-ink);
+  line-height: 1.75;
+  font-weight: 600;
+}
+.fx-change {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--fx-ring);
+  line-height: 1.65;
+}
+.fx-change b {
+  color: var(--fx-purple-ink);
+  font-weight: 800;
+}
+.fx-change.is-worse b {
+  color: #6b4205;
+}
+.fx-change.is-same b {
+  color: var(--fx-muted);
+}
+.fx-change span {
+  color: var(--fx-muted);
+  font-weight: 600;
+}
+
+/* ——— the value's scale ——— */
+.fx-bar {
+  position: relative;
+  height: 22px;
+  margin: 2px 0;
+}
+.fx-bar > span {
+  position: absolute;
+  top: 50%;
+}
+.fx-bar-track,
+.fx-bar-fill,
+.fx-bar-band {
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 999px;
+}
+.fx-bar-track {
+  inset-inline: 0;
+  background: #ece8f3;
+}
+.fx-bar-band {
+  background: linear-gradient(90deg, rgba(248, 203, 68, 0.55), rgba(242, 196, 67, 0.75));
+}
+.fx-bar-fill {
+  inset-inline-start: 0;
+  background: linear-gradient(90deg, rgba(128, 101, 173, 0.35), rgba(108, 86, 165, 0.75));
+}
+.fx-bar[data-tone="pain"] .fx-bar-fill {
+  background: linear-gradient(90deg, rgba(165, 72, 63, 0.25), rgba(165, 72, 63, 0.65));
+}
+.fx-bar[data-tone="grey"] .fx-bar-fill {
+  background: linear-gradient(90deg, rgba(93, 98, 109, 0.2), rgba(93, 98, 109, 0.45));
+}
+.fx-bar-typical {
+  width: 3px;
+  height: 20px;
+  margin-top: -10px;
+  margin-inline-start: -1.5px;
+  border-radius: 2px;
+  background: var(--fx-gold-deep);
+}
+.fx-bar-value,
+.fx-bar-first {
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  margin-inline-start: -9px;
+  border-radius: 50%;
+}
+.fx-bar-value {
+  background: var(--fx-purple-deep);
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 4px 10px -2px rgba(46, 34, 82, 0.4);
+}
+.fx-bar[data-tone="pain"] .fx-bar-value {
+  background: var(--fx-tone-pain);
+}
+.fx-bar-first {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 3px #b9a6d8;
+}
+
+/* ——— the walk, the other joints ——— */
+.fx-walk,
+.fx-others {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fx-walk li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  line-height: 1.6;
+}
+.fx-walk li > span:first-child {
+  color: var(--fx-muted);
+  font-weight: 700;
+}
+.fx-walk b {
+  font-weight: 800;
+}
+.fx-others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

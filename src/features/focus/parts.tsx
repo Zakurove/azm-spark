@@ -94,6 +94,7 @@ export function TopBar({
   sound,
   onLanguage,
   onLeave,
+  leaveLabel,
 }: {
   lang: Lang;
   /** The parts of the check: done, now, to come. */
@@ -101,6 +102,8 @@ export function TopBar({
   sound?: { on: boolean; toggle(): void } | null;
   onLanguage?: (() => void) | null;
   onLeave?: (() => void) | null;
+  /** The close control's name; leaving the check by default. */
+  leaveLabel?: string;
 }) {
   return (
     <header className="fx-top">
@@ -146,7 +149,7 @@ export function TopBar({
             type="button"
             className="fx-chip is-icon"
             onClick={onLeave}
-            aria-label={tV7(lang, "rom.shell.leave")}
+            aria-label={leaveLabel ?? tV7(lang, "rom.shell.leave")}
             data-action="leave"
           >
             <CheckIcon name="close" size={22} />

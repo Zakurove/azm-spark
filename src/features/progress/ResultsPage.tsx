@@ -43,6 +43,30 @@ export interface ResultsPageProps {
   owner?: string;
   /** The workout history of the portal, under the sessions block (C44). */
   workouts?: ReactNode;
+  /**
+   * v7 (D-027 item 3): the person has a completed focus check, so a starting point already; null
+   * while that is not known yet. Absent in the default build. See checksSection.
+   */
+  focusDone?: boolean | null;
+}
+
+/**
+ * What the movement check's section of My results shows: the loading cards, the error or offline
+ * card, the series cards, the empty state, or nothing ("none"). The empty state («ستظهر نتائج
+ * قياساتك هنا. أجرِ قياس الحركة لتحدد نقطة بدايتك.») asks for a first check to set a starting point,
+ * so with a completed focus check (D-027 item 3, change log W2-11) the section stays out, and while
+ * the focus checks are not known yet (null) it waits with the loading cards rather than flash the
+ * empty state. Without `focusDone` (the default build) the page is as before.
+ */
+export function checksSection(
+  progress: "loading" | "ok" | "error" | "offline",
+  empty: boolean,
+  focusDone?: boolean | null,
+): "loading" | "error" | "offline" | "cards" | "empty" | "none" {
+  if (progress !== "ok") return progress;
+  if (!empty) return "cards";
+  if (focusDone === null) return "loading";
+  return focusDone ? "none" : "empty";
 }
 
 function SkeletonCard({ lines = 3 }: { lines?: number }) {
@@ -138,7 +162,14 @@ function CheckDetail({
   );
 }
 
-export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts }: ResultsPageProps) {
+export function ResultsPage({
+  lang,
+  onStartCheck,
+  onOpenProgram,
+  owner,
+  workouts,
+  focusDone,
+}: ResultsPageProps) {
   const { data, reload, online } = useCheckData(owner);
   const [now] = useState(() => Date.now());
   const [open, setOpen] = useState<string | null>(null);
@@ -184,8 +215,9 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
       : undefined;
 
   const showEntry = entry?.variant && !(empty && startable);
+  const section = checksSection(data.progress.status, empty, focusDone);
   let checksBody;
-  if (data.progress.status === "loading") {
+  if (section === "loading") {
     checksBody = (
       <>
         <SkeletonCard />
@@ -195,7 +227,7 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
         </p>
       </>
     );
-  } else if (data.progress.status === "error") {
+  } else if (section === "error") {
     checksBody = (
       <StateCard
         icon="info"
@@ -211,7 +243,7 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
         }}
       />
     );
-  } else if (data.progress.status === "offline") {
+  } else if (section === "offline") {
     checksBody = (
       <StateCard
         icon="wifi-off"
@@ -219,7 +251,7 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
         body={t(lang, "progress.offline.none")}
       />
     );
-  } else if (empty) {
+  } else if (section === "empty") {
     checksBody = (
       <StateCard
         icon="chart"
@@ -236,7 +268,7 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
         }
       />
     );
-  } else {
+  } else if (section === "cards") {
     checksBody = (
       <>
         <HowToRead />
@@ -283,10 +315,12 @@ export function ResultsPage({ lang, onStartCheck, onOpenProgram, owner, workouts
         <>
           {data.context.status === "loading" && <EntrySkeleton />}
           {showEntry && entry && <EntryCard compact state={entry} offline={!online} onStart={onStartCheck} />}
-          <section className="pg-section" data-screen="S53" aria-labelledby={headingId}>
-            <h2 id={headingId}>{t(lang, "progress.checks.heading")}</h2>
-            {checksBody}
-          </section>
+          {section !== "none" && (
+            <section className="pg-section" data-screen="S53" aria-labelledby={headingId}>
+              <h2 id={headingId}>{t(lang, "progress.checks.heading")}</h2>
+              {checksBody}
+            </section>
+          )}
           <section className="pg-section" aria-labelledby={sessionsId} data-block="sessions">
             <h2 id={sessionsId}>{t(lang, "progress.sessions.heading")}</h2>
             {data.progress.status === "loading" ? (

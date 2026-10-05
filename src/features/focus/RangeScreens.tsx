@@ -102,6 +102,8 @@ export function BlockCard({
         </ol>
         {block === "standing" && <Note lang={lang} icon="shield" text={copyText("support_line", lang)} />}
         {helper && <Note lang={lang} icon="people" text={copyText("helper_line", lang)} />}
+        {/* Lying 2 to 3 m from the phone, the person does not get up to tap: someone beside taps. */}
+        {block === "lying" && <Note lang={lang} icon="people" text={tV7(lang, "rom.block.lyingHelper")} />}
         {neck && <Note lang={lang} icon="alert-triangle" text={copyText("neck_stop_line", lang)} />}
       </Glass>
       <div className="fx-side">
@@ -121,7 +123,7 @@ export function BlockCard({
         <Actions
           items={[
             {
-              label: tV7(lang, helper ? "rom.block.helperReady" : "rom.block.ready"),
+              label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
               onClick: onReady,
               name: "ready",
               icon: "check",
@@ -707,24 +709,51 @@ export function TimerScreen({
   kind,
   leftMs,
   totalMs,
+  last,
+  standing = false,
+  onNext,
   onStop,
 }: {
   lang: Lang;
   kind: "rest" | "sit";
   leftMs: number;
   totalMs: number;
+  /** The lying block's last measurement, shown in the sit minute (it went straight into it). */
+  last?: { item: RomProtocolItem; result: RomMeasureResult };
+  /** The sit minute is over: «يمكنك الوقوف الآن ببطء» and the way on. */
+  standing?: boolean;
+  onNext?: () => void;
   onStop(): void;
 }) {
+  const lastValue = last && last.result.value !== null ? Math.abs(last.result.value) : null;
   return (
-    <div className="fx-timer-screen" data-timer={kind}>
+    <div className="fx-timer-screen" data-timer={kind} data-standing={standing || undefined}>
       <Glass className="fx-card fx-hero">
         <span className="fx-badge is-violet" aria-hidden="true">
           <CheckIcon name={kind === "sit" ? "shield" : "clock"} size={28} />
         </span>
         <Title>{tV7(lang, kind === "sit" ? "rom.sit.title" : "rom.stopRest.title")}</Title>
-        {kind === "sit" && <Body lang={lang} text={copyText("sit_before_stand", lang)} />}
-        <Timer lang={lang} leftMs={leftMs} totalMs={totalMs} size={184} />
-        {kind === "sit" && leftMs <= 0 && <Body lang={lang} text={tV7(lang, "rom.sit.done")} />}
+        {kind === "sit" && !standing && <Body lang={lang} text={copyText("sit_before_stand", lang)} />}
+        {standing ? (
+          <p className="fx-sit-done" role="status">
+            {bidiText(lang, tV7(lang, "rom.sit.done"))}
+          </p>
+        ) : (
+          <Timer lang={lang} leftMs={leftMs} totalMs={totalMs} size={184} />
+        )}
+        {last && (
+          <p className="fx-sit-last" data-movement={last.item.movementId}>
+            <small>{tV7(lang, "rom.sit.last")}</small>
+            <b>{movementName(last.item.movementId, lang)}</b>
+            <span>{sideRegion(last.item, lang)}</span>
+            {lastValue !== null && <em dir="ltr">{`${localizeDigits(lang, String(lastValue))}°`}</em>}
+          </p>
+        )}
+        {standing && onNext && (
+          <Actions
+            items={[{ label: t(lang, "assessment.common.continue"), onClick: onNext, name: "next" }]}
+          />
+        )}
       </Glass>
       <div className="fx-v1 fx-stopbar">
         <StopButton onPress={onStop} />

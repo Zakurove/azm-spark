@@ -740,6 +740,9 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               kind={step.kind}
               leftMs={c.timerLeft(tNow)}
               totalMs={step.total}
+              {...(step.kind === "sit" && step.last ? { last: step.last } : {})}
+              standing={step.kind === "sit" && step.standing !== undefined}
+              onNext={() => c.next(clock())}
               onStop={() => session.requestStop()}
             />
           ),

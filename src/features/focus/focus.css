@@ -1593,6 +1593,43 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ——— the sit before stand minute ——— */
+.fx-sit-done {
+  margin: 8px 0;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--fx-purple-ink);
+}
+.fx-sit-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: var(--fx-purple-tint);
+}
+.fx-sit-last small {
+  flex-basis: 100%;
+  text-align: center;
+  color: var(--fx-muted);
+  font-weight: 700;
+}
+.fx-sit-last span {
+  color: var(--fx-muted);
+  font-weight: 700;
+}
+.fx-sit-last em {
+  font-style: normal;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--fx-purple-deep);
+}
+
 /* ——— the v1 warnings and the helper briefing (v1 S25, S26, S28) ——— */
 .fx-body.is-strong {
   font-weight: 700;

@@ -347,7 +347,8 @@ describe("pause and resume (C-16: the coach resumes only its own pause)", () => 
     expect(ctl.current.kind).toBe("sit");
     ctl.resume("coach", s.until + 30_000);
     const after = ctl.current;
-    expect(after.kind === "sit" && after.until - (s.until + 30_000)).toBe(s.until - (run.t + 10_000));
+    if (after.kind !== "sit") throw new Error("no sit after resume");
+    expect(after.until - (s.until + 30_000)).toBeCloseTo(s.until - (run.t + 10_000), 6);
   });
 
   it("refuses a pause on a question or a confirmation (not_allowed)", () => {

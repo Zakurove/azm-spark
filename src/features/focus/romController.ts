@@ -88,6 +88,11 @@ export interface RomFeedEnv extends FeedEnv {
 
 /** The v1 rest after a stop for tiredness or something else (SAFETY_TIMING.stopRestSec, check_rest_minute). */
 export const STOP_REST_SECONDS: number = SAFETY_TIMING.stopRestSec;
+/**
+ * How long «يمكنك الوقوف الآن ببطء» stays once the sit before stand minute is over, unless the person taps
+ * on: long enough to read or hear it (an interface time, not a clinical number).
+ */
+export const SIT_STAND_MS = 6000;
 /** How much of the last frames the live setup check reads while the start pose is taken (v1: the last second). */
 const SETUP_WINDOW_MS = 1000;
 
@@ -125,7 +130,18 @@ export type RomStep =
   | { kind: "result"; item: RomProtocolItem; result: RomMeasureResult }
   /** `then: "block"`: a rest before the block's card (the walk before it stopped for tiredness). */
   | { kind: "rest"; until: number; total: number; then?: "block" }
-  | { kind: "sit"; until: number; total: number }
+  /**
+   * After the lying block. `last`: the block's last measurement, which goes straight into the minute
+   * and shows its result there (no one alone stands up to tap a result card first).
+   */
+  | {
+      kind: "sit";
+      until: number;
+      total: number;
+      last?: { item: RomProtocolItem; result: RomMeasureResult };
+      /** The minute is over: «يمكنك الوقوف الآن ببطء» shows until this time, or a tap (next). */
+      standing?: number;
+    }
   | { kind: "end"; block: RomBlock }
   | { kind: "ended" };
 
@@ -490,8 +506,11 @@ export class RomController implements CoachHost {
       !this.stopListNow &&
       t >= s.until
     ) {
-      if (s.kind === "sit") this.go({ kind: "end", block: this.blockNow ?? "lying" });
-      else if (s.then === "block") this.showBlock(t);
+      if (s.kind === "sit") {
+        // The minute is over: the stand slowly line first, then the end of the block.
+        if (s.standing === undefined) this.go({ ...s, standing: t + SIT_STAND_MS });
+        else if (t >= s.standing) this.go({ kind: "end", block: this.blockNow ?? "lying" });
+      } else if (s.then === "block") this.showBlock(t);
       else this.nextItem(t);
       return;
     }
@@ -634,6 +653,11 @@ export class RomController implements CoachHost {
     }
     if (s.kind === "measure" && this.runner?.done) {
       this.finishMeasure(s.item, t);
+      return true;
+    }
+    // Once the sit before stand minute is over, the person may tap on (never before: it is a timer).
+    if (s.kind === "sit" && s.standing !== undefined) {
+      this.go({ kind: "end", block: this.blockNow ?? "lying" });
       return true;
     }
     return false;
@@ -969,9 +993,7 @@ export class RomController implements CoachHost {
           (this.results.has(itemKey(i)) || this.stoppedByList.has(itemKey(i))),
       );
     if (this.blockNow === "lying" && this.opts.protocol.sitBeforeStand && ranLying) {
-      const total = (this.opts.sitSeconds ?? ROM_DATA.engine.sitBeforeStandSeconds) * 1000;
-      this.go({ kind: "sit", until: t + total, total });
-      this.line("sit_before_stand", "info");
+      this.startSit(t);
       return;
     }
     this.go({ kind: "end", block: this.blockNow ?? "seated" });
@@ -1210,7 +1232,22 @@ export class RomController implements CoachHost {
     if (!r) return;
     const result = r.finish(t);
     this.record(item, result);
+    // The lying block's last measurement: straight into the sit before stand minute with its result,
+    // so a person lying alone never stands up to tap a result card first (rom-protocol 6
+    // sit_before_stand: sit on the edge of the bed for about a minute before standing).
+    const more = this.queue.some((i) => !this.skippedRegions.has(i.region));
+    if (this.blockNow === "lying" && this.opts.protocol.sitBeforeStand && !more) {
+      this.runner = null;
+      this.startSit(t, { item, result });
+      return;
+    }
     this.go({ kind: "result", item, result });
+  }
+
+  private startSit(t: number, last?: { item: RomProtocolItem; result: RomMeasureResult }): void {
+    const total = (this.opts.sitSeconds ?? ROM_DATA.engine.sitBeforeStandSeconds) * 1000;
+    this.go({ kind: "sit", until: t + total, total, ...(last ? { last } : {}) });
+    this.line("sit_before_stand", "info");
   }
 
   private record(item: RomProtocolItem, result: RomMeasureResult): void {

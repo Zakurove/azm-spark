@@ -79,7 +79,8 @@
     "camera": "Put the phone on a steady stand and make sure you can see yourself in the picture.",
     "ready": "Ready",
     "helperReady": "My helper is beside me. Ready",
-    "cameraWait": "One moment, the camera is getting ready."
+    "cameraWait": "One moment, the camera is getting ready.",
+    "lyingHelper": "While you lie down, your companion or one of our team taps the buttons for you."
   },
   "setup": {
     "kicker": "Movement {n} of {total}",
@@ -120,7 +121,8 @@
   },
   "sit": {
     "title": "Before you stand",
-    "done": "You can stand up slowly now"
+    "done": "You can stand up slowly now",
+    "last": "Last movement"
   },
   "gait": {
     "title": "Your walk",

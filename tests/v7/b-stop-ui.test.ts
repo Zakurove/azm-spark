@@ -87,3 +87,50 @@ describe("the stop list's guard against a double tap (v1 S41)", () => {
     expect(list).toMatch(/if \(armed\(e\)\) onChoose\(o\.id\)/);
   });
 });
+
+describe("the lying block for a person alone (UI review)", () => {
+  it("says on its card that someone beside taps for the person lying down", () => {
+    const html = inRoot(
+      createElement(BlockCard, {
+        lang: "ar",
+        block: "lying",
+        items,
+        helper: false,
+        stage: null,
+        onReady: () => {},
+      }),
+    );
+    expect(html).toContain("وأنت مستلقٍ، يضغط مرافقك أو أحد أفراد فريقنا الأزرار عنك.");
+    expect(html).toContain("مرافقي بجانبي، جاهز");
+  });
+
+  it("shows the last lying result in the sit minute, then the stand slowly line with the way on", async () => {
+    const { TimerScreen } = await import("../../src/features/focus/RangeScreens");
+    const result = { value: 4, status: "measured" } as never;
+    const sitting = inRoot(
+      createElement(TimerScreen, {
+        lang: "ar",
+        kind: "sit",
+        leftMs: 30_000,
+        totalMs: 60_000,
+        last: { item: items[1], result },
+        onStop: () => {},
+      }),
+    );
+    expect(sitting).toContain("آخر حركة");
+    expect(sitting).not.toContain("يمكنك الوقوف الآن ببطء");
+    const standing = inRoot(
+      createElement(TimerScreen, {
+        lang: "ar",
+        kind: "sit",
+        leftMs: 0,
+        totalMs: 60_000,
+        standing: true,
+        onNext: () => {},
+        onStop: () => {},
+      }),
+    );
+    expect(standing).toContain("يمكنك الوقوف الآن ببطء");
+    expect(standing).toContain('data-action="next"');
+  });
+});

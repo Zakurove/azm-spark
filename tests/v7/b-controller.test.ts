@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RomController,
+  SIT_STAND_MS,
   STOP_REST_SECONDS,
   itemKey,
   type RomControllerOptions,
@@ -85,6 +86,8 @@ describe("the range blocks in C-13 order", () => {
       expect(e.result.status).toBe("measured");
       expect(Math.abs(e.result.value! - MOVEMENT_CASES[e.item.movementId].target)).toBeLessThanOrEqual(2);
     }
+    // The lying block's last measurement goes straight into the sit before stand minute, its result
+    // shown in the timer: no one alone stands up to tap a card first (UI review).
     expect(run.steps).toEqual([
       "block",
       "setup:knee_flexion:right",
@@ -92,7 +95,6 @@ describe("the range blocks in C-13 order", () => {
       "result:knee_flexion:right",
       "setup:knee_extension:right",
       "measure:knee_extension:right",
-      "result:knee_extension:right",
       "sit",
       "end",
     ]);
@@ -310,8 +312,40 @@ describe("sit before stand (rom-protocol 6 sit_before_stand)", () => {
     expect(ctl.next(run.t)).toBe(false);
     ctl.tick(s.until - 1);
     expect(ctl.current.kind).toBe("sit");
+    // The minute is over: «يمكنك الوقوف الآن ببطء» holds a few seconds, or until a tap, then the end.
     ctl.tick(s.until);
+    const standing = ctl.current;
+    expect(standing.kind === "sit" && standing.standing).toBe(s.until + SIT_STAND_MS);
+    ctl.tick(s.until + SIT_STAND_MS - 1);
+    expect(ctl.current.kind).toBe("sit");
+    ctl.tick(s.until + SIT_STAND_MS);
     expect(ctl.current.kind).toBe("end");
+  });
+
+  it("lets the person tap on once the minute is over, never before", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    runBlock(ctl, { until: (c) => c.current.kind === "sit" }, 400);
+    const s = ctl.current;
+    if (s.kind !== "sit") throw new Error("no sit");
+    expect(ctl.next(s.until - 1)).toBe(false);
+    ctl.tick(s.until);
+    expect(ctl.next(s.until + 100)).toBe(true);
+    expect(ctl.current.kind).toBe("end");
+  });
+
+  it("starts the minute the moment the last lying measurement ends, with its result shown in the timer", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    const run = runBlock(ctl, { until: (c) => c.current.kind === "sit" }, 400);
+    const s = ctl.current;
+    expect(s.kind).toBe("sit");
+    if (s.kind !== "sit") return;
+    expect(s.last?.item.movementId).toBe("knee_extension");
+    expect(s.last?.result.status).toBe("measured");
+    expect(run.steps.filter((x) => x.startsWith("result"))).toEqual(["result:knee_flexion:right"]);
+    // The measured value was saved as any other.
+    expect(saves(run.events).map((e) => e.item.movementId)).toEqual(["knee_flexion", "knee_extension"]);
   });
 
   it("has no minute after a seated or standing block", () => {

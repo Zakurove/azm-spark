@@ -180,6 +180,11 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
   );
   const pushRef = useRef(coach.push);
   pushRef.current = coach.push;
+  // E2E builds only: the review runs and the smoke run read the coach's mode and both sides' captions.
+  useEffect(() => {
+    if (import.meta.env.VITE_E2E !== "1") return;
+    (window as unknown as { azmCoach?: unknown }).azmCoach = { mode: coach.mode, captions: coach.captions };
+  }, [coach.mode, coach.captions]);
   const coachOn = coach.mode !== "off";
   useEffect(() => {
     const target = props.push;

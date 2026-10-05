@@ -2109,9 +2109,10 @@
           "cue": null,
           "cueAt": null,
           "invalidAt": null,
+          "flagAt": 0.25,
           "effect": "flag",
-          "unit": null,
-          "when": null
+          "unit": "shoulder_widths",
+          "when": "below"
         }
       ],
       "E": 15,

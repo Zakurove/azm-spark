@@ -25,9 +25,9 @@
  *     hold, the median of the hold window against flagAt (or cueAt when the data writes only a cue level,
  *     «> 20 degrees: knee_straight», «Flag only»).
  *   - effect log: the cue plays when the check fires; nothing is recorded.
- *   - A check the data writes with no number (the side arm raise's assisted lift and shrug, the forward
- *     bend's hands on the thighs) fires on v1's own reading of the words (RANGE_RULES), or a placeholder
- *     with a contract gap (hands_support, change log B1-2).
+ *   - A check the data writes with no number (the side arm raise's assisted lift and shrug) fires on v1's
+ *     own reading of the words (RANGE_RULES). The forward bend's hands on the thighs reads v1's near
+ *     reading from the data since the sign off (flagAt 0.25 shoulder widths, below; B1-2).
  *   - The arm raises' assisted lift and shrug count only while the arm is raised (v1: at or above
  *     RANGE_RULES.relaxedMaxDeg, the start of a lift).
  */
@@ -744,9 +744,9 @@ export const COMPENSATIONS: Record<RomMovementId, CompensationSpec[]> = {
       at: "frame",
       positions: ["standing_supported"],
     }),
-    // hands_support: «Wrist resting on the thigh or knee», «Flag only». The data gives no distance: a wrist
-    // within v1's «near» (RANGE_RULES.assistShoulderWidths body widths) of the camera side's thigh is the
-    // placeholder (change log B1-2).
+    // hands_support: «Wrist resting on the thigh or knee», «Flag only». The nearer wrist's distance to the
+    // camera side's thigh (hip to knee), in body widths; the data writes v1's near reading, flagAt 0.25
+    // shoulder widths, when below (B1-2, D-026 item 4), and the tracker reads both from there.
     spec("trunk_flexion", "hands_support", {
       measure: (px, ctx) => {
         const s = cameraSide(px);
@@ -754,18 +754,10 @@ export const COMPENSATIONS: Record<RomMovementId, CompensationSpec[]> = {
         const p = pts(px, s, "hip", "knee");
         const ws = wrists(px);
         if (!p || w === null || !ws.length) return null;
-        return Math.min(...ws.map((q) => segmentDistance(q, p[0], p[1]))) / w <
-          RANGE_RULES.assistShoulderWidths
-          ? 1
-          : 0;
+        return Math.min(...ws.map((q) => segmentDistance(q, p[0], p[1]))) / w;
       },
       compare: "value",
       at: "hold",
-      detect: {
-        at: BOOLEAN,
-        when: "above",
-        source: "placeholder: v1 RANGE_RULES.assistShoulderWidths (change log B1-2)",
-      },
     }),
   ],
   neck_lateral_flexion: [

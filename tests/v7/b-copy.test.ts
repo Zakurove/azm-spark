@@ -47,3 +47,32 @@ describe("the focus check's words", () => {
     expect(html).toContain(CHECK_DATA.painScale.anchors.ten.ar);
   });
 });
+
+describe("numbers with their unit (copy tone rule 9)", () => {
+  it("never puts «درجتين» or «درجة واحدة» under the digits of the dial", async () => {
+    const { Dial, dialUnit } = await import("../../src/features/focus/Dial");
+    expect(dialUnit("ar", 1)).toBe("درجة");
+    expect(dialUnit("ar", 2)).toBe("درجة");
+    expect(dialUnit("ar", 5)).toBe("درجات");
+    expect(dialUnit("ar", 12)).toBe("درجة");
+    expect(dialUnit("en", 1)).toBe("degree");
+    const html = renderToStaticMarkup(
+      createElement(Dial, {
+        lang: "ar",
+        kind: "flexion",
+        value: 2,
+        typical: null,
+        withinFrom: null,
+        withinUpTo: null,
+        max: 30,
+        typicalLabel: "المعتاد",
+      }),
+    );
+    expect(html).not.toContain("درجتين");
+  });
+
+  it("writes a step length in centimetres as «سم», as the intake writes the height", () => {
+    expect(ar.findings.walk.stepValue).toBe("{n} سم");
+    expect(en.findings.walk.stepValue).toBe("{n} cm");
+  });
+});

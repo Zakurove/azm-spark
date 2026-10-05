@@ -9,7 +9,7 @@
  * scale ends at a round number above the typical value, so a small movement still fills the dial.
  */
 import type { Lang } from "../../app/i18n";
-import { localizeDigits, unitWord } from "../../i18n";
+import { localizeDigits, pluralForm, unitWord } from "../../i18n";
 import type { RomKind } from "../../movements/rom/types";
 
 /** Round steps of the scale's end. */
@@ -36,6 +36,18 @@ function arc(from: number, to: number, r: number): string {
   const a = at(from, r);
   const b = at(to, r);
   return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${r} ${r} 0 0 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+}
+
+/**
+ * The unit word under the dial's digits. In Arabic the one and two forms carry the number themselves
+ * («درجة واحدة», «درجتين»: copy tone rule 9), so under «١°» or «٢°» the generic word «درجة» stands;
+ * every other count keeps its form («٥ درجات», «١١ درجة»).
+ */
+export function dialUnit(lang: Lang, n: number): string {
+  const form = pluralForm(lang, n);
+  return lang === "ar" && (form === "one" || form === "two")
+    ? unitWord(lang, "deg", 0)
+    : unitWord(lang, "deg", n);
 }
 
 export interface DialProps {
@@ -141,7 +153,7 @@ export function Dial(p: DialProps) {
             <sup>°</sup>
           </b>
         )}
-        {shown !== null && <span>{p.caption ?? unitWord(p.lang, "deg", shown)}</span>}
+        {shown !== null && <span>{p.caption ?? dialUnit(p.lang, shown)}</span>}
       </div>
       {p.typical !== null && (
         <p className="fx-dial-legend">

@@ -111,3 +111,41 @@ export function coachDeviceId(
   pageId ??= randomId();
   return pageId;
 }
+
+/** GET /api/agent/status (step D5): the coach can run now, and the person gave the live_coach consent. */
+export interface CoachStatus {
+  available: boolean;
+  consent: boolean;
+}
+
+/** The coach's status, or null when it cannot be read (offline, signed out, a build without v7). */
+export async function readCoachStatus(fetchImpl: typeof fetch = fetch): Promise<CoachStatus | null> {
+  try {
+    const res = await fetchImpl("/api/agent/status", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const body: unknown = await res.json();
+    return isRecord(body) && typeof body.available === "boolean" && typeof body.consent === "boolean"
+      ? { available: body.available, consent: body.consent }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** POST /api/consents for live_coach version 1 (C-8): true once the server kept it. */
+export async function giveCoachConsent(fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const res = await fetchImpl("/api/consents", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Azm-Request": "1" },
+      body: JSON.stringify({ kind: "live_coach", version: 1 }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

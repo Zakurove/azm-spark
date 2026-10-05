@@ -1,6 +1,7 @@
 /**
  * POST /api/agent/token and POST /api/agent/usage (product v7 contract 5.1 and 5.2, stream D): the
- * live coach's ephemeral token, its budget and the usage report. Registered behind AZM_V7 by
+ * live coach's ephemeral token, its budget and the usage report; GET /api/agent/status (step D5) for
+ * the coach's switch: whether the coach can run now and whether the person consented. Registered behind AZM_V7 by
  * server/modules/index.ts (404 while the flag is off). The token route answers 503 AGENT_UNAVAILABLE
  * while AZM_AGENT_ENABLED is off or GEMINI_API_KEY is missing; the usage report does not, since it
  * asks nothing of Google and a segment that ran before the switch went off still reports.
@@ -98,6 +99,20 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 /* -------------------------------------------------------------- routes */
 
 export const agentRoutes: Route[] = [
+  {
+    // The coach's switch (step D5, C-5): the coach switched on with a key, and the live_coach consent.
+    // Nothing else: the key and the budget stay on the server.
+    method: "GET",
+    path: /^\/api\/agent\/status$/,
+    auth: "user",
+    handle(rc) {
+      const { db, json } = rc;
+      json(200, {
+        available: agentConfig() !== null,
+        consent: activeConsent(db, rc.user!.id, "live_coach") !== null,
+      });
+    },
+  },
   {
     method: "POST",
     path: /^\/api\/agent\/token$/,

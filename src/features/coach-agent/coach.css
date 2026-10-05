@@ -1,0 +1,63 @@
+/* ——— The live coach's switch and consent (product v7 step D5) ———
+   Inside the coach settings dialog (styles.css .setting-switch): the consent opens in place under the
+   switch, on the app's light, purple for the points' marks, no hard dark borders. */
+.live-coach-setting .setting-switch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.live-coach-consent {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f6f2fb;
+  box-shadow: inset 0 0 0 1px rgba(108, 86, 165, 0.14);
+}
+.live-coach-consent h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.live-coach-consent p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.live-coach-consent ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.live-coach-consent li {
+  position: relative;
+  padding-inline-start: 18px;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.live-coach-consent li::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 2px;
+  top: 0.72em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8065ad;
+}
+.live-coach-consent li[data-point="never"]::before,
+.live-coach-consent li[data-point="retention"]::before,
+.live-coach-consent li[data-point="off"]::before {
+  background: #e3ab1f;
+}
+.live-coach-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.live-coach-consent-actions .cta {
+  flex: 1 1 220px;
+}

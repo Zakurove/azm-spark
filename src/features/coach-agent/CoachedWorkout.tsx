@@ -62,6 +62,8 @@ const c = (lang: Lang, key: string) => tV7(lang, `coach.${key}` as never);
 
 /** How long the pain_ok line stays (or until the next step). */
 export const PAIN_OK_MS = 8000;
+/** On the end card, the coach's time for its closing words before its segment ends. */
+export const CLOSING_MS = 10_000;
 
 export interface CoachedWorkoutProps {
   lang: Lang;
@@ -206,10 +208,22 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     if (lastKey.current === stepKey) return;
     lastKey.current = stepKey;
     setPainOk(false);
+    // A new step is never held (the host's setStep ended its pause too).
+    if (latest.current.paused) latest.current.onPause(false);
     const now = performance.now();
     setSegment(plan.boundary(now));
     pushRef.current({ p: 3, type: "step_start", label, t: now });
   }, [host, stepKey, listOpen, label, plan, props.stage]);
+
+  // The workout is over: the segment ends once the coach had time for its closing words, so the
+  // microphone does not stay open on the end card (leaving earlier ends it as the person's).
+  const endRef = useRef(coach.end);
+  endRef.current = coach.end;
+  useEffect(() => {
+    if (props.stage !== "done") return;
+    const id = setTimeout(() => endRef.current("done"), CLOSING_MS);
+    return () => clearTimeout(id);
+  }, [props.stage]);
 
   useEffect(() => {
     if (!painOk) return;

@@ -1039,7 +1039,10 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
       );
     case "save_error":
       return card(
-        <Body lang={lang} text={gt(lang, "save.error")} />,
+        <>
+          <Kicker>{gt(lang, "kicker")}</Kicker>
+          <Body lang={lang} text={gt(lang, "save.error")} />
+        </>,
         <Actions
           items={[
             {

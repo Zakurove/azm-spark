@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type { CoachPush } from "../coach/types";
 import { Plan } from "../medical/plan";
 import { libraryById } from "../medical/pool";
 import { planRest, sessionSteps, type CardSlot, type SessionDay, type SessionStep } from "../medical/session";
@@ -16,6 +17,15 @@ import Icon from "./Icon";
 import { api } from "./api";
 import { primeAudio } from "./audio";
 import PlacementGuide from "./PlacementGuide";
+
+/**
+ * Step D5: the live coach of a workout, a lazy part of v7 builds only (the default build keeps none of
+ * it). Mounted once per workout at one place of the tree, it owns the workout's Live sessions (one per
+ * segment, C-6, not one per exercise) and takes each camera set's events.
+ */
+const WorkoutCoach =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/coach-agent/CoachedWorkout")) : null;
+
 export interface WorkoutRun {
   id: string;
   demo: boolean;
@@ -86,17 +96,22 @@ export default function Workout({
     [saving, setSaving] = useState(false),
     [saveError, setSaveError] = useState(false),
     [placement, setPlacement] = useState(firstSession);
+  // Step D5: the coach may hold a timer; the camera sets hand their events to the coach.
+  const [paused, setPaused] = useState(false);
+  const coachPush = useRef<CoachPush | null>(null);
+  const toCoach = useMemo<CoachPush>(() => (e) => coachPush.current?.(e), []);
   useEffect(() => {
-    if (stage !== "warmup" && stage !== "rest" && stage !== "cooldown") return;
+    if (paused || (stage !== "warmup" && stage !== "rest" && stage !== "cooldown")) return;
     const end = Date.now() + remaining * 1000;
     const timer = setInterval(() => setRemaining(Math.max(0, Math.ceil((end - Date.now()) / 1000))), 1000);
     return () => clearInterval(timer);
-  }, [stage, index]); // timer does not restart on every tick
+  }, [stage, index, paused]); // timer does not restart on every tick
   const enter = (i: number) => {
     const o = opening(i);
     setIndex(i);
     setRemaining(o.remaining);
     setSaveError(false);
+    setPaused(false);
     setStage(o.stage);
   };
   const next = () => {
@@ -141,10 +156,48 @@ export default function Workout({
   const rows = useMemo(() => queueRows(steps, lang), [steps, lang]);
   const rowOf = (i: number) => rows.findIndex((r) => i >= r.from && i < r.to);
 
+  /**
+   * The coach's stop ended the running exercise (after the person's answer, or a pain over the rule):
+   * a guided card is skipped; a camera set opens again, unsaved, after its rest or at its own screen.
+   */
+  const stopExercise = () => {
+    if (stage === "card") return void saveCard(null);
+    const o = opening(index);
+    setRemaining(o.remaining);
+    setPaused(false);
+    setStage(o.stage === "warmup" ? "intro" : o.stage);
+  };
+  // Beside every screen below at the same place, so the coach stays mounted from step to step.
+  const coach = WorkoutCoach && !run.demo && (
+    <Suspense fallback={null}>
+      <WorkoutCoach
+        lang={lang}
+        workoutId={run.id}
+        preference={preferences.liveCoach}
+        stage={stage}
+        index={index}
+        step={steps[index] ?? null}
+        position={steps.find((s) => s.kind === "camera")?.prescription.setup.position ?? null}
+        paused={paused}
+        onPause={setPaused}
+        push={coachPush}
+        onStopExercise={stopExercise}
+        onNext={onExit}
+        onExit={onExit}
+      />
+    </Suspense>
+  );
+  const withCoach = (screen: JSX.Element) => (
+    <>
+      {screen}
+      {coach}
+    </>
+  );
+
   if (stage === "set") {
     const step = steps[index] as Extract<SessionStep, { kind: "camera" }>;
     const p = step.prescription;
-    return (
+    return withCoach(
       <Session
         key={`${run.id}-${index}`}
         lang={lang}
@@ -161,12 +214,13 @@ export default function Workout({
         onDemo={onExit}
         onSave={save}
         onContinue={next}
-      />
+        coach={WorkoutCoach ? toCoach : undefined}
+      />,
     );
   }
   if (stage === "card") {
     const step = steps[index] as Extract<SessionStep, { kind: "card" }>;
-    return (
+    return withCoach(
       <GuidedCard
         key={`${run.id}-${index}`}
         lang={lang}
@@ -180,7 +234,7 @@ export default function Workout({
         onDone={(r) => void saveCard(r)}
         onSkip={() => void saveCard(null)}
         onExit={onExit}
-      />
+      />,
     );
   }
   const k = camCopy(lang);
@@ -222,7 +276,7 @@ export default function Workout({
   const cameraSets = steps.filter((s) => s.kind === "camera").length;
   const cameraOrdinal = steps.slice(0, index + 1).filter((s) => s.kind === "camera").length;
   const finished = stage === "cooldown" || stage === "done";
-  return (
+  return withCoach(
     <div className="workout-shell">
       <header className="portal-header">
         <Brand />
@@ -313,7 +367,7 @@ export default function Workout({
           })}
         </aside>
       </main>
-    </div>
+    </div>,
   );
 }
 

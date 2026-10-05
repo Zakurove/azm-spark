@@ -35,6 +35,7 @@ import type { Tilt } from "../../engine/quality";
 import "../assessment/safety/safety.css";
 import { useCoach } from "../coach-agent/useCoach";
 import { CueVoice } from "../coach-agent/LocalVoice";
+import { CoachCaption } from "../coach-agent/CoachCaption";
 import { COACH_ASK_LINES, liveCoachOn, romSegment } from "../coach-agent/hosts";
 import { unlockCoachAudio } from "../coach-agent/audio/context";
 import type { CoachMode, CoachSegment } from "../../coach/types";
@@ -808,6 +809,8 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
         >
           {content.node}
         </Page>
+        {/* The live coach's words while it speaks (voice and captions together, step D5). */}
+        {!stopOpen && <CoachCaption coach={coach} lang={lang} />}
         {stopOpen && env && (
           <StopListScreen
             lang={lang}

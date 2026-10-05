@@ -31,6 +31,7 @@ import { Stage } from "../focus/Stage";
 import { readIntake, saveGait } from "./api";
 import { useCoach } from "../coach-agent/useCoach";
 import { CueVoice } from "../coach-agent/LocalVoice";
+import { CoachCaption } from "../coach-agent/CoachCaption";
 import { unlockCoachAudio } from "../coach-agent/audio/context";
 import {
   CAMERA_STEPS,
@@ -350,14 +351,18 @@ export default function GaitCapture(props: GaitStepProps) {
     </Stage>
   );
   return (
-    <GaitScreen
-      lang={lang}
-      ctl={ctl}
-      now={now}
-      clock={clock}
-      stage={stage}
-      onStop={() => ctl.requestStop(clock())}
-    />
+    <>
+      <GaitScreen
+        lang={lang}
+        ctl={ctl}
+        now={now}
+        clock={clock}
+        stage={stage}
+        onStop={() => ctl.requestStop(clock())}
+      />
+      {/* The live coach's words while it speaks (voice and captions together, step D5). */}
+      <CoachCaption coach={coach} lang={lang} />
+    </>
   );
 }
 

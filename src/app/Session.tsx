@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GateMessage, Presence } from "../engine/feedbackGate";
 import { unscoredLandmarks } from "../engine/profiles";
 import { WORKOUT_ENGINE_VERSION } from "../engine/repEngine";
-import { CueId, ExerciseDef, Frame, LM, SessionSummary, Severity } from "../engine/types";
+import { CueId, EngineEvent, ExerciseDef, Frame, LM, SessionSummary, Severity } from "../engine/types";
+import type { BridgeEvent, CoachPush } from "../coach/types";
 import { FlowStage, FlowView, WorkoutFlow } from "../engine/workoutFlow";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
 import { CuePlayer, isVoiceLine } from "./audio";
@@ -87,6 +88,27 @@ const INITIAL_UI: Ui = {
   caption: null,
 };
 
+/**
+ * Step D5 (contract 2.11, the WorkoutFlow row): a set's engine events as the coach hears them: a
+ * counted rep as the count (P3), a correction (P2, the gate has said it already), the trunk safety
+ * stop (P0).
+ */
+export function flowCoachEvents(
+  events: EngineEvent[],
+  exercise: string,
+  target: number,
+  t: number,
+): BridgeEvent[] {
+  const out: BridgeEvent[] = [];
+  for (const ev of events) {
+    if (ev.kind === "rep" && ev.cls !== "partial")
+      out.push({ p: 3, type: "reps", exercise, count: ev.count, target, t });
+    else if (ev.kind === "flag") out.push({ p: 2, type: "compensation", kind: ev.cue, value: ev.value, t });
+    else if (ev.kind === "stop") out.push({ p: 0, type: "safety_stop", reason: "trunk_safety", t });
+  }
+  return out;
+}
+
 export default function SessionScreen(props: {
   lang: Lang;
   setup: Setup;
@@ -108,6 +130,8 @@ export default function SessionScreen(props: {
   /** The trial (older callers); same as variant "trial". */
   trial?: boolean;
   onRegister?: () => void;
+  /** Step D5: a coached workout's set hands the coach its events (flowCoachEvents). */
+  coach?: CoachPush;
 }) {
   const { lang, setup, exerciseId, demo, preferences, onPreferences, onExit, onRestart, onDemo } = props;
   const variant: SessionVariant = props.variant ?? (props.trial ? "trial" : "workout");
@@ -159,6 +183,8 @@ export default function SessionScreen(props: {
   // S0: the set ended on the trunk safety stop (the RPE and summary dialogs say so).
   const [safetyStop, setSafetyStop] = useState(false);
   const player = useMemo(() => new CuePlayer(lang), [lang]);
+  const coachRef = useRef(props.coach);
+  coachRef.current = props.coach;
 
   const pipe = useRef({
     flow: null as WorkoutFlow | null,
@@ -306,6 +332,8 @@ export default function SessionScreen(props: {
 
       for (const m of v.speak) say(m);
       for (const ev of v.events) if (ev.kind === "rep" && ev.cls !== "partial") void player.count(ev.count);
+      const push = coachRef.current;
+      if (push) for (const e of flowCoachEvents(v.events, exerciseId, v.target, now)) push(e);
       if (v.stage === "training" && !P.startedAt) P.startedAt = Date.now();
 
       const next: Ui = {

@@ -28,7 +28,9 @@
     "painTitle": "Before we start: how much pain do you have now?",
     "painHint": "Choose a number from 0, no pain, to 10, the worst pain you can imagine.",
     "painSkip": "Skip this question",
-    "painOk": "Go on only within what feels comfortable, and stop if the pain grows."
+    "painOk": "Go on only within what feels comfortable, and stop if the pain grows.",
+    "paused": "The timer is paused",
+    "goOn": "Go on"
   },
   "status": {
     "connecting": "Connecting the Live coach",

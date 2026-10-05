@@ -12,14 +12,24 @@
  *     than two parts runs the rest in local mode», segments.ts); a new part only at a step (D-13);
  *   - the stop list of a coached workout: the movement check's stop list and v1 routing (stopRoute) with
  *     the person's intake as the context, so a spoken chest pain reaches the emergency screen; a stop
- *     that ends a check ends the workout.
+ *     that ends a check ends the workout, after its screen and, for a faint or a fall, v1's follow up
+ *     question (sf_faint_loc); any other answer stops the running exercise and the workout goes on;
+ *   - what the coach reads back on repeat_instructions: the text of the screen the person sees.
  * Pure, no DOM.
  */
-import type { CoachSegment, CoachStepKind } from "../../coach/types";
+import type { CoachSegment, CoachStepKind, CoachStopReason } from "../../coach/types";
 import type { CheckContext } from "../../medical/assessment";
 import type { Intake } from "../../medical/plan";
-import { emergencyAlsoShow, stopRoute, type PrecheckEnv } from "../../medical/precheck";
-import type { CheckPosition, ScreenId } from "../../movements/types";
+import { libraryById } from "../../medical/pool";
+import { emergencyAlsoShow, faintFollowUp, stopRoute, type PrecheckEnv } from "../../medical/precheck";
+import type { SessionStep } from "../../medical/session";
+import type { CheckPosition, ScreenId, StopFollowUpId } from "../../movements/types";
+import { EXERCISES } from "../../exercises/defs";
+import type { Position } from "../../app/product";
+import type { Lang } from "../../app/i18n";
+import { labels } from "../../app/platform-copy";
+import { camCopy } from "../../app/camera-copy";
+import { guidedCopy } from "../../app/guided-copy";
 
 export type WorkoutStage = "setup" | "warmup" | "intro" | "set" | "rest" | "card" | "cooldown" | "done";
 
@@ -76,14 +86,22 @@ const POSITION: Record<string, CheckPosition> = {
   standing: "standing",
 };
 
+/** A camera set's position as the stop routing reads it (sit to stand is done standing up). */
+const SET_POSITION: Record<Position, CheckPosition> = {
+  chair: "chair",
+  wheelchair: "wheelchair",
+  rise: "standing",
+};
+
 /**
  * The stop list's context for a workout: the person's intake as the movement check reads it, at home,
  * with nothing stored of a check series (the routing reads the position, the conditions and the flags
- * of the stop options).
+ * of the stop options). The position is the camera part's when the workout has one (a fall from a
+ * seat has its own screen), else the intake's.
  */
-export function workoutStopEnv(intake: Intake | null): PrecheckEnv {
+export function workoutStopEnv(intake: Intake | null, position: Position | null = null): PrecheckEnv {
   const ctx: CheckContext = {
-    position: POSITION[intake?.mobility ?? ""] ?? "chair",
+    position: position ? SET_POSITION[position] : (POSITION[intake?.mobility ?? ""] ?? "chair"),
     support: intake?.support ?? "none",
     pain: [...(intake?.pain ?? [])],
     restrictions: [...(intake?.restrictions ?? [])],
@@ -108,6 +126,8 @@ export interface WorkoutStopRoute {
   alsoShow: ScreenId[];
   /** A stop that ends a check ends the workout too. */
   endsWorkout: boolean;
+  /** v1's follow up after a faint or a fall stop's screen (sf_faint_loc). */
+  then?: StopFollowUpId;
 }
 
 /**
@@ -118,5 +138,97 @@ export function workoutStopRoute(option: string, env: PrecheckEnv): WorkoutStopR
   const r = stopRoute(option, env);
   const alsoShow =
     r.screen === "scr_emergency" ? [...new Set([...r.alsoShow, ...emergencyAlsoShow(env)])] : r.alsoShow;
-  return { option: r.option, screen: r.screen, alsoShow, endsWorkout: r.endsCheck };
+  return {
+    option: r.option,
+    screen: r.screen,
+    alsoShow,
+    endsWorkout: r.endsCheck,
+    ...(r.then && r.then !== "bt_pain_after" ? { then: r.then } : {}),
+  };
+}
+
+/** The safety part of a coached workout over its screens: the stop list, a stop's screen, the faint question. */
+export type WorkoutSafety =
+  | { kind: "list"; preselect: CoachStopReason | null }
+  | { kind: "screen"; route: WorkoutStopRoute }
+  | { kind: "faint_ask"; route: WorkoutStopRoute };
+
+/** A camera set or a guided card is running: a stop ends it (the timers and the cards between go on). */
+export function exerciseRuns(stage: WorkoutStage): boolean {
+  return stage === "set" || stage === "card";
+}
+
+/** After the stop list: the stop's screen when it has one (every stop that ends the workout), else none. */
+export function afterStopChoice(route: WorkoutStopRoute): WorkoutSafety | null {
+  return route.screen ? { kind: "screen", route } : null;
+}
+
+/** The one way on from a stop's screen: v1's faint question after a faint or a fall, else the workout ends. */
+export function afterStopScreen(route: WorkoutStopRoute): WorkoutSafety | "leave" {
+  return route.then === "sf_faint_loc" ? { kind: "faint_ask", route } : "leave";
+}
+
+/**
+ * The faint question's answer (v1 faintFollowUp, Q33 (3)): yes or not sure opens the emergency screen,
+ * with the dysreflexia screen beside it for a spinal cord injury; no shows the stop's screen again.
+ * Either way the workout then ends.
+ */
+export function afterFaintAnswer(
+  route: WorkoutStopRoute,
+  value: "yes" | "no" | "unsure",
+  env: PrecheckEnv,
+  now: number,
+): WorkoutSafety {
+  const { then: _then, ...rest } = route;
+  void _then;
+  const out = faintFollowUp(value, now);
+  if (out.status !== "emergency") return { kind: "screen", route: rest };
+  return {
+    kind: "screen",
+    route: { ...rest, screen: out.screen ?? "scr_emergency", alsoShow: emergencyAlsoShow(env) },
+  };
+}
+
+/**
+ * The text of the screen the person sees, for repeat_instructions: the placement and the one line
+ * attestation, a timer's line, the camera part's line, a camera set's exercise and how to stand for it,
+ * a guided card's steps, the end card.
+ */
+export function workoutInstructions(stage: WorkoutStage, step: SessionStep | null, lang: Lang): string {
+  const c = labels(lang),
+    k = camCopy(lang),
+    g = guidedCopy(lang);
+  // Each piece a sentence (a heading gets its full stop), joined by a space.
+  const join = (...parts: (string | null | undefined)[]) =>
+    parts
+      .map((p) => (p ?? "").trim())
+      .filter((p) => p !== "")
+      .map((p) => (/[.!?؟]$/.test(p) ? p : `${p}.`))
+      .join(" ");
+  if (step?.kind === "camera" && stage === "set") {
+    const def = EXERCISES.find((e) => e.id === step.prescription.exerciseId);
+    return join(def?.name[lang], def?.description[lang], def?.camera[lang]);
+  }
+  if (step?.kind === "camera" && stage === "intro") {
+    const def = EXERCISES.find((e) => e.id === step.prescription.exerciseId);
+    return join(def?.name[lang] ?? g.cameraKicker, g.cameraBody);
+  }
+  if (step?.kind === "card" && stage === "card") {
+    const ex = libraryById(step.item.id);
+    return join(ex?.name[lang], ...(ex?.steps[lang] ?? []));
+  }
+  switch (stage) {
+    case "setup":
+      return join(k.placeReminder, c.attest);
+    case "warmup":
+      return join(c.warmup, c.warmupBody);
+    case "rest":
+      return join(c.restTitle, c.restBody);
+    case "cooldown":
+      return join(c.cooldown, c.cooldownBody);
+    case "done":
+      return join(c.done, c.doneBody);
+    default:
+      return join(g.cameraKicker, g.cameraBody);
+  }
 }

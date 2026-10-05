@@ -64,6 +64,7 @@ import {
   LoadErrorScreen,
   LoadingScreen,
   QuestionScreen,
+  RegionSeekCareScreen,
   SafetyScreen,
   StartingScreen,
   StopListScreen,
@@ -74,7 +75,6 @@ import {
 import { checkWarningsOf, partWarnings } from "./flow";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
-import { tV7 } from "../../i18n/v7";
 import "./focus.css";
 
 /** Where the focus check leaves to. */
@@ -449,21 +449,25 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       case "seek_care":
         return {
           screen: "seek_care",
-          node: (
-            <SafetyScreen
-              lang={lang}
-              screen="scr_stop_seek_care"
-              now={Date.now()}
-              next={{
-                label:
-                  s.then === "parts"
-                    ? tV7(lang, "rom.seekCare.continue")
-                    : t(lang, "assessment.common.continue"),
-                onClick: () => session.dispatch({ type: "SEEN" }),
-                name: "continue",
-              }}
-            />
-          ),
+          node:
+            s.then === "parts" ? (
+              <RegionSeekCareScreen
+                lang={lang}
+                regions={m.data.today.redFlagRegions}
+                onContinue={() => session.dispatch({ type: "SEEN" })}
+              />
+            ) : (
+              <SafetyScreen
+                lang={lang}
+                screen="scr_stop_seek_care"
+                now={Date.now()}
+                next={{
+                  label: t(lang, "assessment.common.continue"),
+                  onClick: () => session.dispatch({ type: "SEEN" }),
+                  name: "continue",
+                }}
+              />
+            ),
         };
       case "warnings": {
         const check = m.data.check!;

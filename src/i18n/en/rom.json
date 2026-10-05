@@ -69,7 +69,8 @@
     "worst": "Worst pain"
   },
   "seekCare": {
-    "continue": "Continue with the other areas"
+    "continue": "Continue measuring the other areas",
+    "title": "We will not measure your {region} today"
   },
   "block": {
     "seatedTitle": "Movements while seated",

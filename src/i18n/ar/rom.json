@@ -69,7 +69,8 @@
     "worst": "أشد ألم"
   },
   "seekCare": {
-    "continue": "تابع بالمناطق الأخرى"
+    "continue": "تابع قياس المناطق الأخرى",
+    "title": "لن نقيس {region} اليوم"
   },
   "block": {
     "seatedTitle": "حركات وأنت جالس",

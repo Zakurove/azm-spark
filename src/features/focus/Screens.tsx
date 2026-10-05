@@ -879,6 +879,54 @@ export function SafetyScreen({
 }
 
 /**
+ * A red flag region (rf_region yes, contract 2.5): the region's own screen. It names the regions that
+ * will not be measured today, keeps v1's seek care advice (scr_stop_seek_care) without its «لنتوقف هنا»
+ * and its rest line (the check goes on with the other areas), with the 937 call the text names, then
+ * «تابع قياس المناطق الأخرى». v1's whole screen stays for a check with nothing else to measure.
+ */
+export function RegionSeekCareScreen({
+  lang,
+  regions,
+  onContinue,
+}: {
+  lang: Lang;
+  regions: readonly RegionId[];
+  onContinue(): void;
+}) {
+  const names = regions.map((r) => regionName(r, lang, true));
+  const joined =
+    names.length < 2
+      ? (names[0] ?? "")
+      : lang === "ar"
+        ? `${names.slice(0, -1).join("، ")} و${names[names.length - 1]}`
+        : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  // The advice of scr_stop_seek_care from its third sentence: past «Let's stop here» and the rest line.
+  const advice = splitSentences(localizeDigits(lang, screenText("scr_stop_seek_care", lang))).slice(2);
+  return (
+    <Glass className="fx-card fx-safety is-seekCare" data-screen-part="region_seek_care">
+      <span className="fx-badge is-violet" aria-hidden="true">
+        <CheckIcon name="shield" size={28} />
+      </span>
+      <Title>{bidiText(lang, tV7(lang, "rom.seekCare.title", { region: joined }))}</Title>
+      <div className="fx-sentences">
+        {advice.map((line, i) => (
+          <p key={i}>{bidiText(lang, line)}</p>
+        ))}
+      </div>
+      <div className="fx-actions is-column">
+        <a className="fx-button is-secondary" href="tel:937" data-action="call937">
+          <CheckIcon name="phone-call" size={22} />
+          <span>{t(lang, "assessment.common.call937")}</span>
+        </a>
+        <button type="button" className="fx-button is-primary" onClick={onContinue} data-action="continue">
+          <span>{tV7(lang, "rom.seekCare.continue")}</span>
+        </button>
+      </div>
+    </Glass>
+  );
+}
+
+/**
  * The faint follow up (v1 S38b, sf_faint_loc, Q33 (3), O42) after a faint or a fall stop's screen,
  * once the person is settled: «هل فقدت الوعي، ولو للحظة؟». Yes or Not sure open the emergency screen
  * at once; No shows the stop's screen again with its lock. It waits for the answer: there is no timer

@@ -55,3 +55,17 @@ describe("focus and modality in the focus shell", () => {
     expect(read("parts.tsx")).toMatch(/inertOutside\(el\)/);
   });
 });
+
+describe("the 2 m sizes on the measurement (v1 UX spec 4.1)", () => {
+  it("fits the answers above STOP with v1's fold fitting, from the 2 m sizes down", () => {
+    const measure = between(read("RangeScreens.tsx"), "export function MeasureScreen", "function Question(");
+    expect(measure).toMatch(/useFoldFit\(root, 3,/);
+    expect(measure).toMatch(/data-fit=\{fit\}/);
+    expect(measure).toMatch(/className="fx-v1 fx-zones" data-fold/);
+    const css = read("focus.css");
+    // Level 0: the question and the zone labels at 40 px, zones of 120 px, the caption at 34 px.
+    expect(css).toMatch(/\.azm-check\.fx \.fx-measure \.fx-ask \.fx-title,[^{]*\{\s*font-size: 2\.5rem;/);
+    expect(css).toMatch(/\.azm-check\.fx \.fx-measure \.fx-zones \.safety-zone \{\s*min-height: 120px;/);
+    expect(css).toMatch(/\.fx-measure \.fx-caption \{\s*font-size: 2\.125rem;/);
+  });
+});

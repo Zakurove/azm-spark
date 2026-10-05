@@ -21,6 +21,7 @@ import type { Intake, Sex } from "../../medical/plan";
 import { movementDef, ROM_DATA } from "../../movements/rom";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, StopButton } from "../assessment/safety/parts";
+import { useFoldFit } from "../assessment/safety/hooks";
 import { copyText, instructionLines, lineText, movementName, positionName, resultView } from "./copy";
 import { Dial, scaleMax } from "./Dial";
 import { MovementPicture } from "./MovementPicture";
@@ -310,9 +311,15 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
           ? t(lang, `assessment.setup.issue.${issue}` as never)
           : "";
   const restLeft = phase === "rest" ? ctl.restLeft(now) : 0;
+  // v1's 2 m sizes (UX spec 4.1), stepped down only as far as the answers need to fit above STOP: a
+  // person 2 to 3 m from the phone cannot scroll or read small type (v1 useFoldFit levels).
+  const root = useRef<HTMLDivElement>(null);
+  const fit = useFoldFit(root, 3, `${phase}|${caption ?? ""}|${issue ?? ""}|${lang}`);
   return (
     <div
+      ref={root}
       className="fx-measure"
+      data-fit={fit}
       data-phase={phase}
       data-movement={item.movementId}
       data-asking={asking ? (phase === "ask_max" ? "max" : "other") : undefined}
@@ -409,7 +416,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
               typicalLabel={tV7(lang, "rom.measure.band")}
               {...(def.kind === "lack" ? { caption: tV7(lang, "rom.measure.fromStraight") } : {})}
             />
-            <div className="fx-prompt">
+            <div className="fx-prompt" data-fold>
               {prompt && <p className="fx-prompt-main">{prompt}</p>}
               {sub && <p className="fx-prompt-sub">{bidiText(lang, sub)}</p>}
               {phase === "paused" && (
@@ -429,7 +436,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
         )}
         {phase === "ask_max" && hold && (
           <Question lang={lang} id="fx-ask-max" text={copyText("ask_max", lang)} held={hold.deg}>
-            <div className="fx-v1 fx-zones">
+            <div className="fx-v1 fx-zones" data-fold>
               <AnswerZones
                 labelledBy="fx-ask-max"
                 options={[
@@ -454,7 +461,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
         )}
         {phase === "ask_can_move" && (
           <Question lang={lang} id="fx-can-move" text={copyText("can_move_ask", lang)}>
-            <div className="fx-v1 fx-zones">
+            <div className="fx-v1 fx-zones" data-fold>
               <AnswerZones
                 labelledBy="fx-can-move"
                 options={[

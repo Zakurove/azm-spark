@@ -134,6 +134,121 @@ export function openPositions(
   return open;
 }
 
+/* ---------------------------------------------------------------- regions */
+
+/**
+ * The body map region of each muscle group and joint movement of the targets taxonomy
+ * (TARGETS_DATA.taxonomy muscleGroups and jointMovements, each with its region; a balance or practice
+ * target has none). A code constant, so libraryPool reads no v7 data; tests/v7/e-contraindications
+ * checks it against the taxonomy (C-1).
+ */
+export const TARGET_REGIONS: Readonly<Record<string, RegionId>> = {
+  neck_side: "neck",
+  neck_back: "neck",
+  neck_deep_flexors: "neck",
+  shoulder_flexors: "shoulder",
+  shoulder_abductors: "shoulder",
+  shoulder_extensors: "shoulder",
+  shoulder_back: "shoulder",
+  chest: "shoulder",
+  scapular_retractors: "shoulder",
+  elbow_flexors: "elbow",
+  elbow_extensors: "elbow",
+  forearm_grip: "forearm_wrist",
+  abdominals: "back_trunk",
+  trunk_side: "back_trunk",
+  back_extensors: "back_trunk",
+  hip_flexors: "hip",
+  hip_extensors: "hip",
+  hip_abductors: "hip",
+  hip_adductors: "hip",
+  quadriceps: "knee",
+  hamstrings: "knee",
+  calf: "ankle_foot",
+  ankle_dorsiflexors: "ankle_foot",
+  shoulder_external_rotators: "shoulder",
+  shoulder_depressors: "shoulder",
+  shoulder_flexion: "shoulder",
+  shoulder_abduction: "shoulder",
+  shoulder_extension: "shoulder",
+  elbow_extension: "elbow",
+  elbow_flexion: "elbow",
+  wrist: "forearm_wrist",
+  hand: "forearm_wrist",
+  hip_flexion: "hip",
+  hip_extension: "hip",
+  hip_abduction: "hip",
+  knee_flexion: "knee",
+  knee_extension: "knee",
+  ankle_dorsiflexion: "ankle_foot",
+  ankle_plantarflexion: "ankle_foot",
+  trunk_flexion: "back_trunk",
+  trunk_lateral_flexion: "back_trunk",
+  trunk_extension: "back_trunk",
+  trunk_rotation: "back_trunk",
+  neck_flexion: "neck",
+  neck_extension: "neck",
+  neck_lateral_flexion: "neck",
+  shoulder_external_rotation: "shoulder",
+  forearm_rotation: "forearm_wrist",
+  hip_rotation: "hip",
+  neck_rotation: "neck",
+};
+
+/** The region of a target id (`<action>:<target>`), or null for a balance or practice target. */
+export function regionOfTarget(id: string): RegionId | null {
+  return TARGET_REGIONS[id.slice(id.indexOf(":") + 1)] ?? null;
+}
+
+const LEG_REGION_IDS: readonly RegionId[] = ["hip", "knee", "ankle_foot"];
+const STANDING_FORMS: readonly ExercisePosition[] = ["standing", "standing_supported"];
+/** The equipment that loads an exercise: a band or a weight. */
+const LOADS = ["resistance_bands", "dumbbells"];
+
+/**
+ * The positions an exercise keeps once the region ids that hold close theirs, or null when it is
+ * closed (the vocabulary's ids generated from the body map, each read by the regions of the
+ * exercise's primary and secondary targets, review C01):
+ *   - region_not_cleared and region_red_flag: «every item whose primary or secondary target sits in
+ *     that region is removed» («no exercise for the region»);
+ *   - region_early_post_op and region_acute_injury: «only unloaded active range items from the pain
+ *     friendly set; no bands, weights, isometric pushes or loaded standing work on that leg». Read
+ *     as: pain friendly, no band or weight, every primary target in the region range of motion
+ *     (mobility; a strengthening target there, isometric pushes included, closes it), and for a leg
+ *     region no standing form (a seated or lying form stays).
+ * An exercise that works none of the regions is open as it is. Contract gap W2-2 records the reading.
+ */
+export function regionOpenPositions(
+  e: {
+    positions?: readonly ExercisePosition[];
+    targets?: readonly { id: string; role: "primary" | "secondary" }[];
+    painFriendly?: boolean;
+    equipment: readonly string[];
+  },
+  holding: ReadonlySet<string>,
+): ExercisePosition[] | null {
+  let open: ExercisePosition[] = [...(e.positions ?? [])];
+  const regions = new Set((e.targets ?? []).map((t) => regionOfTarget(t.id)).filter((r) => r !== null));
+  for (const region of regions) {
+    if (holding.has(regionId("region_not_cleared", region))) return null;
+    if (holding.has(regionId("region_red_flag", region))) return null;
+    const early =
+      holding.has(regionId("region_early_post_op", region)) ||
+      holding.has(regionId("region_acute_injury", region));
+    if (!early) continue;
+    if (e.painFriendly !== true || e.equipment.some((x) => LOADS.includes(x))) return null;
+    const primaryHere = (e.targets ?? []).filter(
+      (t) => t.role === "primary" && regionOfTarget(t.id) === region,
+    );
+    if (primaryHere.some((t) => !t.id.startsWith("mobility:"))) return null;
+    if (LEG_REGION_IDS.includes(region)) {
+      open = open.filter((p) => !STANDING_FORMS.includes(p));
+      if (!open.length) return null;
+    }
+  }
+  return open;
+}
+
 /* -------------------------------------------------------------- the person */
 
 /** A since answer inside a window; a missing answer reads as recent (the safe reading, as rom-protocol.ts). */

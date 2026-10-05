@@ -2,9 +2,11 @@
  * Step E1 (product v7 contract 1.2 and 2.10): src/exercises/library.json against the targets data
  * (src/movements/targets/targets-v7.json, exported from the clinical source, C-1), both ways.
  *   - Every existing entry carries the positions, targets and pain friendly tag of its libraryTags
- *     row, and nothing else of v7: no v7 contraindication id, no hip end range, no status (2.10
- *     rule 2: "libraryTags adds positions, targets and painFriendly only", so v1 pools are
- *     unchanged). The rows' proposed changes stay proposals.
+ *     row, and nothing else of v7 in its v1 fields: no v7 contraindication id, no hip end range, no
+ *     status (2.10 rule 2: "libraryTags adds positions, targets and painFriendly only", so v1 pools
+ *     are unchanged). The rows' proposed contraindications, approved with the sign off (D-025), are
+ *     kept apart in v7Contraindications, which libraryPool reads only for an intake with the v7
+ *     fields (D-026 item 9); the rows' other proposals (muscles, osteoporosis cautions) stay proposals.
  *   - Every new exercise follows them as a draft, with the library fields and the v7 fields of its
  *     newExercises row, Arabic and English steps; its other fields stay in the targets data.
  * scripts/library-v7.mjs writes both; it is idempotent.
@@ -59,6 +61,31 @@ describe("every existing library entry, tagged (libraryTags)", () => {
       expect(e!.targets, t.id).toEqual(t.targets);
       expect(e!.painFriendly, t.id).toBe(t.painFriendly);
     }
+  });
+
+  it("keeps its row's signed off contraindications apart, in v7Contraindications (D-025, D-026 item 9)", () => {
+    // The rows' proposed ids (addContraindications, addContraindication), an id's note in brackets
+    // dropped («standing_gate (standing form only)»: standing_gate closes the standing forms only).
+    const proposed = (t: (typeof TARGETS_DATA.libraryTags)[number]): string[] => {
+      const p = t.proposed as { addContraindications?: string[]; addContraindication?: string } | null;
+      const ids = [
+        ...(p?.addContraindications ?? []),
+        ...(p?.addContraindication ? [p.addContraindication] : []),
+      ];
+      return [...new Set(ids.map((id) => id.replace(/\s*\(.*\)$/, "")))];
+    };
+    let carried = 0;
+    for (const t of TARGETS_DATA.libraryTags) {
+      const e = libraryById(t.id)!;
+      const ids = proposed(t);
+      expect(e.v7Contraindications ?? [], t.id).toEqual(ids);
+      for (const id of ids) expect(V7_ONLY_IDS.has(id), `${t.id}: ${id}`).toBe(true);
+      carried += ids.length ? 1 : 0;
+    }
+    expect(carried).toBe(23);
+    expect(libraryById("seated_marching")?.v7Contraindications).toEqual(["hip_precautions_posterior"]);
+    expect(libraryById("seated_calf_stretch")?.v7Contraindications).toEqual(["achilles"]);
+    expect(libraryById("heel_raises")?.v7Contraindications).toEqual(["standing_gate"]);
   });
 
   it("gets nothing else of v7: no status, dose, hip end range or v7 contraindication id", () => {

@@ -62,7 +62,11 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "overhead_load_wheelchair_sci",
+   "weak_shoulder"
+  ]
  },
  {
   "id": "resistance_band_rows",
@@ -304,7 +308,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "overhead_load_wheelchair_sci"
+  ]
  },
  {
   "id": "seated_lateral_raises",
@@ -359,7 +366,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "weak_shoulder"
+  ]
  },
  {
   "id": "seated_front_raises",
@@ -414,7 +424,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "weak_shoulder"
+  ]
  },
  {
   "id": "seated_arnold_press",
@@ -478,7 +491,11 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "overhead_load_wheelchair_sci",
+   "weak_shoulder"
+  ]
  },
  {
   "id": "hammer_curls",
@@ -644,7 +661,11 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "overhead_load_wheelchair_sci",
+   "weak_shoulder"
+  ]
  },
  {
   "id": "tricep_kickbacks",
@@ -886,7 +907,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "standing_gate"
+  ]
  },
  {
   "id": "core_breathing_exercise",
@@ -1051,7 +1075,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "osteoporosis_spine"
+  ]
  },
  {
   "id": "seated_bicycle",
@@ -1114,7 +1141,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "osteoporosis_spine"
+  ]
  },
  {
   "id": "dead_bug",
@@ -1286,7 +1316,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "hip_precautions_posterior"
+  ]
  },
  {
   "id": "seated_oblique_twist",
@@ -1457,7 +1490,12 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "no_trunk_armrests",
+   "pusher",
+   "seated_lean_gate"
+  ]
  },
  {
   "id": "supine_marching",
@@ -1627,7 +1665,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "weak_shoulder"
+  ]
  },
  {
   "id": "neck_stretches",
@@ -1693,7 +1734,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": true
+  "painFriendly": true,
+  "v7Contraindications": [
+   "neck_caution"
+  ]
  },
  {
   "id": "wrist_circles",
@@ -1933,7 +1977,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "weak_shoulder"
+  ]
  },
  {
   "id": "upper_back_stretch",
@@ -1992,7 +2039,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "osteoporosis_spine"
+  ]
  },
  {
   "id": "seated_spinal_twist",
@@ -2111,7 +2161,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": true
+  "painFriendly": true,
+  "v7Contraindications": [
+   "osteoporosis_spine"
+  ]
  },
  {
   "id": "seated_hip_flexor_stretch",
@@ -2168,7 +2221,11 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "hip_precautions_anterior",
+   "wheelchair_needs_transfer"
+  ]
  },
  {
   "id": "ankle_circles",
@@ -2346,7 +2403,11 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": true
+  "painFriendly": true,
+  "v7Contraindications": [
+   "neck_caution",
+   "spine_surgery_recent"
+  ]
  },
  {
   "id": "seated_leg_extensions",
@@ -2458,7 +2519,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": true
+  "painFriendly": true,
+  "v7Contraindications": [
+   "hip_precautions_posterior"
+  ]
  },
  {
   "id": "heel_raises",
@@ -2517,7 +2581,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": true
+  "painFriendly": true,
+  "v7Contraindications": [
+   "standing_gate"
+  ]
  },
  {
   "id": "toe_raises",
@@ -2892,7 +2959,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "achilles"
+  ]
  },
  {
   "id": "seated_weight_shifts",
@@ -3063,7 +3133,10 @@
     "role": "secondary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "standing_gate"
+  ]
  },
  {
   "id": "heel_toe_stand",
@@ -3116,7 +3189,10 @@
     "role": "primary"
    }
   ],
-  "painFriendly": false
+  "painFriendly": false,
+  "v7Contraindications": [
+   "standing_gate"
+  ]
  },
  {
   "id": "eye_tracking_balance",

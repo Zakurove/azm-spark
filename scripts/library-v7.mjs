@@ -2,7 +2,10 @@
 // targets data, src/movements/targets/targets-v7.json (exported from the clinical source, C-1), and
 // writes into src/exercises/library.json:
 //   - every existing entry: the positions, targets and pain friendly tag of its libraryTags row, and
-//     nothing else (the rows' proposed changes stay proposals, 2.10 rule 2);
+//     the contraindication ids the row adds (proposed.addContraindications, approved with the sign
+//     off, D-025) in their own field, v7Contraindications, which libraryPool reads only for an intake
+//     with the v7 fields, so v1 pools stay unchanged (2.10 rule 2, D-026 item 9); the rows' other
+//     proposals (muscles, osteoporosis cautions) stay proposals;
 //   - every new exercise (newExercises), after the existing entries, with its status (draft until
 //     the sign off and the Arabic review, D-025): the library fields and the v7 fields of
 //     LibraryExercise. Its other fields (props, cautions, textSource with the NIA credit, painVariant,
@@ -25,12 +28,30 @@ const ids = new Set(library.map((e) => e.id));
 for (const t of data.libraryTags)
   if (!ids.has(t.id)) throw new Error(`libraryTags names no library entry: ${t.id}`);
 const tags = new Map(data.libraryTags.map((t) => [t.id, t]));
+// The vocabulary's ids (a region template stands for its ids, never named by a row).
+const vocabulary = new Set(data.contraindicationVocabulary.map((v) => v.id));
+
+/** The ids a row adds: addContraindications and addContraindication, a note in brackets dropped. */
+function addedIds(t) {
+  const p = t.proposed ?? {};
+  const ids = [...(p.addContraindications ?? []), ...(p.addContraindication ? [p.addContraindication] : [])];
+  const out = [...new Set(ids.map((id) => id.replace(/\s*\(.*\)$/, "")))];
+  for (const id of out) if (!vocabulary.has(id)) throw new Error(`libraryTags ${t.id} adds an unknown id: ${id}`);
+  return out;
+}
 
 const tagged = library.map((e) => {
   const t = tags.get(e.id);
   if (!t) return e;
-  const { positions: _p, targets: _t, painFriendly: _f, ...rest } = e;
-  return { ...rest, positions: t.positions, targets: t.targets, painFriendly: t.painFriendly };
+  const { positions: _p, targets: _t, painFriendly: _f, v7Contraindications: _c, ...rest } = e;
+  const added = addedIds(t);
+  return {
+    ...rest,
+    positions: t.positions,
+    targets: t.targets,
+    painFriendly: t.painFriendly,
+    ...(added.length ? { v7Contraindications: added } : {}),
+  };
 });
 
 // The fields of LibraryExercise (src/medical/pool.ts) and LibraryExerciseV7Fields, in this order.

@@ -82,6 +82,13 @@ export interface LibraryExerciseV7Fields {
    * Rule 2 of 2.10 stays: any hip end range item after a hip replacement under 3 months is dropped.
    */
   hipEndRange?: HipEndRangeId[];
+  /**
+   * The contraindication ids the entry's libraryTags row adds (exercise-targets libraryTags[].proposed,
+   * approved with the sign off, D-025), kept apart from `contraindications` so v1 pools stay unchanged:
+   * libraryPool reads them only for an intake with the v7 fields (D-026 item 9, contract 2.10 rule 2).
+   * Written by scripts/library-v7.mjs; absent when the row adds none.
+   */
+  v7Contraindications?: string[];
 }
 /** WeeklyItem (weekly.ts) gains optional fields (the type hunk at Gate A). */
 export interface WeeklyItemV7Fields {

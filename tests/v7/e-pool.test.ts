@@ -2,9 +2,11 @@
  * Step E1 (product v7 contract 2.10, the pool rules; C-9): the pool stays the safety base in every
  * build, on the real library and the corpus of tests/v7/e-corpus.ts (every v1 combination and a v7
  * twin of each).
- *   - The v1 pools are pinned: the default pool of every corpus intake holds exactly the exercises it
- *     held before E1, in the same order. The digest was computed on azm7 0a3f776, before E1 changed
- *     pool.ts or library.json.
+ *   - The v1 pools are pinned: the default pool of every v1 corpus intake holds exactly the exercises
+ *     it held before E1, in the same order (E1 pinned the whole corpus on azm7 0a3f776, before it
+ *     changed pool.ts or library.json; the v1 half is pinned since the v7 half follows D-026 item 9).
+ *   - A v7 intake also gets the existing entries' signed off contraindications (v7Contraindications)
+ *     and the body map's region ids (region_not_cleared, region_early_post_op, region_acute_injury).
  *   - Rule 1: the default pool never holds a draft; the drafts reach the pool only when asked.
  *   - Rule 2: an intake without the v7 fields never gets an exercise with a v7 id or a hip end range.
  *   - Rule 3's test: with drafts included and a hip replacement under 3 months on the body map,
@@ -15,17 +17,29 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPlan, type Intake } from "../../src/medical/plan";
 import { LIBRARY, libraryById, libraryPool, type LibraryExercise } from "../../src/medical/pool";
-import { V7_ONLY_IDS, canClearV7Ids, recentHipReplacement } from "../../src/medical/contraindications";
+import {
+  V7_ONLY_IDS,
+  canClearV7Ids,
+  recentHipReplacement,
+  regionOfTarget,
+} from "../../src/medical/contraindications";
 import { createWeekly } from "../../server/weekly-ai";
-import { corpus, flags, hipReplacement, v7 } from "./e-corpus";
+import { corpus, entry, flags, hipReplacement, v7 } from "./e-corpus";
 
 const CORPUS = corpus();
 /** The ids of a pool, in order. */
 const idsOf = (pool: readonly { id: string }[]) => pool.map((e) => e.id).join(",");
 /** One line per intake, its key and the ids of its pool, hashed together. */
-const poolDigest = (pool: (h: Intake) => readonly { id: string }[]) =>
+const poolDigest = (
+  pool: (h: Intake) => readonly { id: string }[],
+  which: (h: Intake) => boolean = () => true,
+) =>
   createHash("sha256")
-    .update(CORPUS.map(({ key, h }) => `${key}: ${idsOf(pool(h))}`).join("\n"))
+    .update(
+      CORPUS.filter(({ h }) => which(h))
+        .map(({ key, h }) => `${key}: ${idsOf(pool(h))}`)
+        .join("\n"),
+    )
     .digest("hex");
 
 const DRAFTS = new Set(LIBRARY.filter((e) => e.status === "draft").map((e) => e.id));
@@ -45,10 +59,89 @@ describe("the v1 pools (contract 2.10 rule 3)", () => {
     expect(new Set(CORPUS.map(({ h }) => idsOf(libraryPool(h)))).size).toBeGreaterThan(300);
   });
 
-  it("keeps the default pool of every corpus intake as it was before E1", () => {
-    expect(poolDigest((h) => libraryPool(h))).toBe(
-      "0ce110ee97a20c3bb606bcf1b3635d92576f962ed6716eaa37625f2b944a0e8e",
+  it("keeps the default pool of every v1 corpus intake as it was before E1", () => {
+    // The v1 half of the corpus (no v7 field): computed on azm7 355d859, before the wave 2 fix that
+    // applies the signed off contraindications of the existing entries to v7 intakes (D-026 item 9),
+    // and equal to E1's pin of the whole corpus there (0ce110ee…).
+    expect(
+      poolDigest(
+        (h) => libraryPool(h),
+        (h) => !canClearV7Ids(h),
+      ),
+    ).toBe("3efa8fd57d932be70f0e659c6c627b18cd94920b4fa9722b0c8265c11cd68bff");
+  });
+});
+
+describe("a v7 intake: the existing entries' signed off contraindications and the region ids (D-026 item 9)", () => {
+  const knee = (equipment: string[]) =>
+    v7({
+      equipment,
+      regions: [entry("knee", "right", ["after_surgery"], { surgery: { since: "lt6w", cleared: "no" } })],
+    });
+  const targetsRegion = (e: LibraryExercise, region: string) =>
+    (e.targets ?? []).some((t) => regionOfTarget(t.id) === region);
+
+  it("a hip replacement 3 weeks ago, cleared, no limits answered: no hip flexion past 90 degrees", () => {
+    const h = v7({
+      regions: [
+        entry("hip", "right", ["after_surgery"], {
+          surgery: { since: "lt6w", cleared: "yes", avoid: [], hipReplacement: true },
+        }),
+      ],
+    });
+    const pool = libraryPool(h).map((e) => e.id);
+    for (const id of ["seated_marching", "seated_knee_lifts", "supine_marching"])
+      expect(pool).not.toContain(id);
+    // Not vacuous: without the surgery all three are offered.
+    expect(libraryPool(v7()).map((e) => e.id)).toEqual(
+      expect.arrayContaining(["seated_marching", "seated_knee_lifts", "supine_marching"]),
     );
+  });
+
+  it("a knee surgery 3 weeks ago, not cleared, with bands: no exercise that works the knee", () => {
+    const pool = libraryPool(knee(["bands"]));
+    expect(pool.filter((e) => targetsRegion(e, "knee")).map((e) => e.id)).toEqual([]);
+    const before = libraryPool(v7({ equipment: ["bands"] })).map((e) => e.id);
+    for (const id of ["leg_press_with_band", "hamstring_curl_with_band", "seated_leg_extensions"]) {
+      expect(before).toContain(id);
+      expect(pool.map((e) => e.id)).not.toContain(id);
+    }
+  });
+
+  it("an Achilles repair 2 months ago: no calf stretch", () => {
+    const h = v7({
+      regions: [entry("ankle_foot", "right", ["injury"], { injury: { since: "6w_3m", achilles: true } })],
+    });
+    expect(libraryPool(h).map((e) => e.id)).not.toContain("seated_calf_stretch");
+    expect(libraryPool(v7()).map((e) => e.id)).toContain("seated_calf_stretch");
+  });
+
+  it("a knee injury 3 weeks ago keeps only the pain friendly range of motion items for that knee", () => {
+    const h = v7({ regions: [entry("knee", "left", ["injury"], { injury: { since: "lt6w" } })] });
+    const knees = libraryPool(h, { includeDrafts: true }).filter((e) => targetsRegion(e, "knee"));
+    expect(knees.map((e) => e.id)).toEqual(["heel_slides"]);
+    for (const e of knees) {
+      expect(e.painFriendly, e.id).toBe(true);
+      expect(e.equipment, e.id).toEqual([]);
+      for (const t of e.targets ?? [])
+        if (t.role === "primary" && regionOfTarget(t.id) === "knee") expect(t.id, e.id).toMatch(/^mobility:/);
+    }
+  });
+
+  it("a v1 intake never reads them: a wheelchair user with weights keeps the Arnold press", () => {
+    const v1Chair = { ...v7({ mobility: "wheelchair", equipment: ["weights"] }) };
+    delete v1Chair.sex;
+    delete v1Chair.regions;
+    delete v1Chair.walking;
+    delete v1Chair.romFlags;
+    expect(canClearV7Ids(v1Chair)).toBe(false);
+    expect(libraryPool(v1Chair).map((e) => e.id)).toContain("seated_arnold_press");
+    // overhead_load_wheelchair_sci: «loaded work with the hand above the shoulder ... removed by default».
+    expect(
+      libraryPool(v7({ mobility: "wheelchair", equipment: ["weights"], walking: { status: "no" } })).map(
+        (e) => e.id,
+      ),
+    ).not.toContain("seated_arnold_press");
   });
 });
 

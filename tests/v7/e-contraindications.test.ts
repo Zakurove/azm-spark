@@ -16,9 +16,13 @@ import {
   SEATED_LEAN_BACK_PAIN_AT,
   V7_ONLY_IDS,
   WINDOW_BUCKETS,
+  TARGET_REGIONS,
   canClearV7Ids,
   openPositions,
   recentHipReplacement,
+  regionId,
+  regionOfTarget,
+  regionOpenPositions,
   v7Contraindications,
 } from "../../src/medical/contraindications";
 import { REGION_IDS, SINCE_BUCKETS, type SinceBucket } from "../../src/medical/body-map";
@@ -566,5 +570,100 @@ describe("openPositions: the forms an exercise keeps", () => {
   it("closes an exercise without positions for a position id", () => {
     expect(openPositions({ contraindications: ["standing_gate"] }, new Set(["standing_gate"]))).toBeNull();
     expect(openPositions({ contraindications: [] }, new Set(["standing_gate"]))).toEqual([]);
+  });
+});
+
+describe("the region ids by the regions an exercise works (regionOpenPositions, D-026 item 9)", () => {
+  it("knows the region of every muscle group and joint movement of the taxonomy, and nothing else (C-1)", () => {
+    const tax = TARGETS_DATA.taxonomy as unknown as {
+      muscleGroups: { id: string; region: string }[];
+      jointMovements: { id: string; region: string }[];
+    };
+    const data = Object.fromEntries(
+      [...tax.muscleGroups, ...tax.jointMovements].map((m) => [m.id, m.region]),
+    );
+    expect(TARGET_REGIONS).toEqual(data);
+    expect(regionOfTarget("strengthen:quadriceps")).toBe("knee");
+    expect(regionOfTarget("mobility:hip_flexion")).toBe("hip");
+    expect(regionOfTarget("balance:single_leg_stance")).toBeNull();
+    expect(regionOfTarget("practice:walking")).toBeNull();
+  });
+
+  const item = (
+    targets: [string, "primary" | "secondary"][],
+    over: {
+      positions?: ("seated" | "standing" | "lying_back")[];
+      painFriendly?: boolean;
+      equipment?: string[];
+    } = {},
+  ) => ({
+    positions: over.positions ?? ["seated"],
+    targets: targets.map(([id, role]) => ({ id, role })),
+    painFriendly: over.painFriendly ?? true,
+    equipment: over.equipment ?? [],
+  });
+  const holding = (...ids: string[]) => new Set(ids);
+
+  it("region_not_cleared closes every exercise with a primary or secondary target in the region", () => {
+    const ids = holding(regionId("region_not_cleared", "knee"));
+    expect(regionOpenPositions(item([["mobility:knee_flexion", "primary"]]), ids)).toBeNull();
+    expect(
+      regionOpenPositions(
+        item([
+          ["strengthen:hip_extensors", "primary"],
+          ["strengthen:hamstrings", "secondary"],
+        ]),
+        ids,
+      ),
+    ).toBeNull();
+    expect(regionOpenPositions(item([["strengthen:hip_extensors", "primary"]]), ids)).toEqual(["seated"]);
+  });
+
+  it("an early surgery or a recent injury keeps only unloaded, pain friendly range of motion for the region", () => {
+    for (const kind of ["region_early_post_op", "region_acute_injury"] as const) {
+      const ids = holding(regionId(kind, "knee"));
+      expect(
+        regionOpenPositions(
+          item([
+            ["mobility:knee_flexion", "primary"],
+            ["strengthen:hamstrings", "secondary"],
+          ]),
+          ids,
+        ),
+      ).toEqual(["seated"]);
+      // A strengthening target in the region, an isometric push included.
+      expect(regionOpenPositions(item([["strengthen:quadriceps", "primary"]]), ids)).toBeNull();
+      expect(
+        regionOpenPositions(item([["mobility:knee_flexion", "primary"]], { painFriendly: false }), ids),
+      ).toBeNull();
+      expect(
+        regionOpenPositions(
+          item([["mobility:knee_flexion", "primary"]], { equipment: ["resistance_bands"] }),
+          ids,
+        ),
+      ).toBeNull();
+      // No loaded standing work on that leg: the seated form stays.
+      expect(
+        regionOpenPositions(
+          item([["mobility:knee_flexion", "primary"]], { positions: ["seated", "standing"] }),
+          ids,
+        ),
+      ).toEqual(["seated"]);
+      expect(
+        regionOpenPositions(item([["mobility:knee_flexion", "primary"]], { positions: ["standing"] }), ids),
+      ).toBeNull();
+    }
+  });
+
+  it("leaves an exercise that works none of the held regions as it is", () => {
+    expect(regionOpenPositions(item([["mobility:shoulder_flexion", "primary"]]), holding())).toEqual([
+      "seated",
+    ]);
+    expect(
+      regionOpenPositions(
+        item([["balance:weight_shift", "primary"]], { positions: ["standing"] }),
+        holding(regionId("region_acute_injury", "knee")),
+      ),
+    ).toEqual(["standing"]);
   });
 });

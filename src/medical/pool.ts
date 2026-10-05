@@ -4,6 +4,7 @@ import {
   canClearV7Ids,
   openPositions,
   recentHipReplacement,
+  regionOpenPositions,
   v7Contraindications,
 } from "./contraindications";
 import { getDetailedDisabilityConfig } from "./legacy-config";
@@ -78,7 +79,11 @@ const TWIN_IDS = new Set(Object.values(CAMERA_TWINS));
  *      front forms (contraindications.ts); an intake without the v7 fields cannot clear a v7 id or a
  *      hip end range item; a hip replacement under 3 months drops every hip end range item, whatever
  *      limits were ticked. Existing entries carry no v7 id and no hip end range, so v1 pools are
- *      unchanged.
+ *      unchanged;
+ *   3. for an intake with the v7 fields only, the existing entries' signed off contraindications too
+ *      (v7Contraindications, D-025) and the body map's region ids by the regions the exercise works
+ *      (regionOpenPositions: a surgery not cleared, an early surgery, a recent injury), so a v7 intake
+ *      gets the limits its range protocol keeps (D-026 item 9); a v1 intake never reads them.
  */
 export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): LibraryExercise[] {
   const configs = configsFor(h);
@@ -94,7 +99,14 @@ export function libraryPool(h: Intake, opts: { includeDrafts?: boolean } = {}): 
     const hipEndRange = (e.hipEndRange?.length ?? 0) > 0;
     if (!clearsV7 && (hipEndRange || e.contraindications.some((c) => V7_ONLY_IDS.has(c)))) return false;
     if (hipReplaced && hipEndRange) return false;
-    if (!openPositions(e, v7Ids)) return false;
+    const signed = clearsV7 && e.v7Contraindications?.length;
+    const open = openPositions(
+      signed ? { ...e, contraindications: [...e.contraindications, ...e.v7Contraindications!] } : e,
+      v7Ids,
+    );
+    if (!open) return false;
+    if (clearsV7 && !regionOpenPositions({ ...e, positions: open.length ? open : e.positions }, v7Ids))
+      return false;
     const seatedOk = e.tags.includes("seated") || e.tags.includes("wheelchair_friendly");
     const text = `${e.name.en} ${e.description.en} ${e.steps.en.join(" ")}`;
     if (TWIN_IDS.has(e.id)) return false;

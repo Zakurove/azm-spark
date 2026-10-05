@@ -159,6 +159,30 @@ describe("the truth of a range of motion fixture", () => {
   });
 });
 
+describe("the scripted angle", () => {
+  it("a tremor wobbles the held end only, from the end of the rise to the start of the return", () => {
+    const spec = romSpec({
+      name: "tremor",
+      movement: "elbow_flexion",
+      position: "seated",
+      side: "right",
+      aspect: "16:9",
+      peak: 100,
+      reps: 1,
+      starts: [1],
+      rep: { rise: 2, hold: 5, lower: 2, tremor: { amp: 2.5, hz: 0.8 } },
+    });
+    expect(romAngleAt(spec, 3)).toBeCloseTo(100, 6);
+    // A quarter period into the hold: the full amplitude.
+    expect(romAngleAt(spec, 3 + 1 / 0.8 / 4)).toBeCloseTo(102.5, 6);
+    const held = Array.from({ length: 50 }, (_, k) => romAngleAt(spec, 3 + (5 * k) / 50));
+    expect(Math.max(...held) - Math.min(...held)).toBeCloseTo(5, 1);
+    // The rise and the return carry none: the rest angle before, the plain envelope halfway back.
+    expect(romAngleAt(spec, 0.5)).toBeCloseTo(5, 6);
+    expect(romAngleAt(spec, 9)).toBeCloseTo(5 + 95 * 0.5, 6);
+  });
+});
+
 describe("postures", () => {
   it("lying on the back: the body level, face up, the head toward the picture's left with the right side to the phone", () => {
     const frames = fixtureFrames(generate(still("hip_flexion", "lying_back", "right", "16:9", 0)));

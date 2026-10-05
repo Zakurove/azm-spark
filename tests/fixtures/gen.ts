@@ -1163,8 +1163,8 @@ export interface RomTruth {
 export type RomMotionSpec =
   /**
    * One repetition: the movement's angle from the rest angle to `peak` over `rise` s (default 2),
-   * held `hold` s (default 2.5), back over `lower` s (default 2). `tremor` wobbles the angle around
-   * it (amplitude in degrees, frequency in Hz), faded in with the rise.
+   * held `hold` s (default ROM_REP.hold), back over `lower` s (default 2). `tremor` wobbles the held
+   * angle (amplitude in degrees, frequency in Hz) from the end of the rise to the start of the return.
    */
   | {
       kind: "rom_rep";
@@ -1412,16 +1412,14 @@ function applyRomMotion(m: MotionSpec, t: number, s: PoseState): void {
   if (!r) return;
   switch (m.kind) {
     case "rom_rep": {
-      const e = envelope(
-        t,
-        m.start,
-        m.rise ?? ROM_REP.rise,
-        m.hold ?? ROM_REP.hold,
-        m.lower ?? ROM_REP.lower,
-      );
+      const rise = m.rise ?? ROM_REP.rise;
+      const hold = m.hold ?? ROM_REP.hold;
+      const e = envelope(t, m.start, rise, hold, m.lower ?? ROM_REP.lower);
       if (e <= 0) return;
-      const wobble = m.tremor ? m.tremor.amp * Math.sin(2 * Math.PI * m.tremor.hz * (t - m.start)) : 0;
-      r.angle += (m.peak - r.rest + wobble) * e;
+      const held = t >= m.start + rise && t <= m.start + rise + hold;
+      const wobble =
+        m.tremor && held ? m.tremor.amp * Math.sin(2 * Math.PI * m.tremor.hz * (t - m.start - rise)) : 0;
+      r.angle += (m.peak - r.rest) * e + wobble;
       return;
     }
     case "rom_wander": {

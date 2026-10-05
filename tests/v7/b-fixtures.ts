@@ -987,3 +987,83 @@ export function compensationSpec(c: CompensationFixture, aspect: AspectName = "1
     notes: `${c.movement} ${c.id}: ${c.reaches}`,
   });
 }
+
+/* ------------------------------------------------------------------ tremor, no hold, 11 fps */
+
+/** The first position of a movement and the side its special fixtures test. */
+function firstCase(movement: RomMovementId): { position: RomPositionId; side: RomSide; cameraSide?: Side } {
+  const [{ side, cameraSide }] = matrixSides(movement).slice(-1);
+  return { position: movementDef(movement).positions[0].id, side, cameraSide };
+}
+
+/**
+ * A tremor that the hold signal (the One Euro on the landmarks, then the 0.5 s median) reads wider
+ * than the 3 degree band over a second and narrower than the 5 degree band: 2.5 degrees at 0.8 Hz
+ * (tests/v7/b-runner.test.ts holds the same tremor on the runner's own driver).
+ */
+export const TREMOR = { amp: 2.5, hz: 0.8 } as const;
+
+/**
+ * «tremor gives wideHold after 2 tries» (8.2): the person holds each end with the tremor. The practice
+ * and the first attempt end without a hold (20 s after the first movement each, engine
+ * attemptTimeoutSeconds), so they are held 21 s; the repeated first attempt, under the wide band, and the
+ * two after it hold for the usual time. Without landmark noise (TREMOR_NOISE): the tremor's hold signal
+ * spans 3.5 degrees over every second, between the two bands; landmark noise moves a second's span by
+ * about a degree either way, so a noisy tremor sometimes holds in 3 degrees by chance (change log B2-7).
+ */
+export const TREMOR_NOISE = 0;
+export function tremorSpec(movement: RomMovementId, aspect: AspectName = "16:9"): GenSpec {
+  const c = firstCase(movement);
+  const name = `rom/${movement}/${c.position}/tremor-${aspect === "9:16" ? "9x16" : "16x9"}`;
+  return romSpec({
+    name,
+    movement,
+    ...c,
+    aspect,
+    peak: endAngle(movement, c.position, 75, c.side),
+    reps: 5,
+    starts: [1.5, 30, 57, 73, 89],
+    rep: (k) => ({ tremor: TREMOR, ...(k <= 1 ? { hold: 21 } : {}) }),
+    noise: TREMOR_NOISE,
+    noiseFace: TREMOR_NOISE,
+    notes: `${movement}: a tremor of ${TREMOR.amp} degrees at ${TREMOR.hz} Hz at every end`,
+  });
+}
+
+/**
+ * «no hold gives no_hold» (8.2): from the end of the start pose the angle never settles (20 degrees
+ * toward the end range and back every 2 s, wider than even the 5 degree band over any second), so the
+ * practice and the first attempt with its two repeats end without a hold.
+ */
+export function noHoldSpec(movement: RomMovementId, aspect: AspectName = "16:9"): GenSpec {
+  const c = firstCase(movement);
+  const name = `rom/${movement}/${c.position}/no-hold-${aspect === "9:16" ? "9x16" : "16x9"}`;
+  const toward = movementDef(movement).kind === "lack" ? -1 : 1;
+  return romSpec({
+    name,
+    movement,
+    ...c,
+    aspect,
+    peak: endAngle(movement, c.position, 50, c.side),
+    reps: 1,
+    starts: [200],
+    durationSec: 110,
+    motions: [{ kind: "rom_wander", from: 1.5, to: 110, amp: toward * 20, periodSec: 2 }],
+    notes: `${movement}: the angle never settles`,
+  });
+}
+
+/** «11 fps gives quality» (8.2): the matrix's script at 11 frames a second, under the engine's 12 (engine.fpsMin). */
+export function lowFpsSpec(movement: RomMovementId, aspect: AspectName = "16:9"): GenSpec {
+  const c = firstCase(movement);
+  const name = `rom/${movement}/${c.position}/11fps-${aspect === "9:16" ? "9x16" : "16x9"}`;
+  return romSpec({
+    name,
+    movement,
+    ...c,
+    aspect,
+    peak: endAngle(movement, c.position, 75, c.side),
+    fps: 11,
+    notes: `${movement}: 11 frames a second`,
+  });
+}

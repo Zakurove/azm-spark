@@ -154,6 +154,117 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
     expect(run.steps.filter((s) => s.startsWith("reask"))).toEqual([]);
   });
 
+  describe("on the neck and the back, one joint whatever the bend's direction (the body map cell)", () => {
+    const NECK = intake({ regions: [entry("neck", "axial", ["stiffness"])] });
+    const BACK = intake({ regions: [entry("back_trunk", "axial", ["stiffness"])] });
+
+    it("a pain stop on a neck side bend asks before the other side bend, and 6 skips the neck", () => {
+      const ctl = controller(protocolOf(NECK), { intake: NECK });
+      ctl.startBlock("seated", 0);
+      const run = runBlock(
+        ctl,
+        {
+          answerMax: (i) => (i.movementId === "neck_lateral_flexion" && i.side === "right" ? "hurts" : "yes"),
+          pain: () => ({ level: 6 }),
+          reask: () => 6,
+        },
+        600,
+      );
+      const stop = run.steps.indexOf("pain_stop:neck_lateral_flexion:right");
+      expect(stop).toBeGreaterThanOrEqual(0);
+      expect(run.steps.slice(stop + 1).find((s) => !s.startsWith("result"))).toBe(
+        "reask:neck_lateral_flexion:left",
+      );
+      expect(run.steps.filter((s) => s.startsWith("setup"))).toEqual(["setup:neck_lateral_flexion:right"]);
+      for (const id of ["neck_flexion", "neck_extension"]) {
+        const row = saves(run.events).find((e) => e.item.movementId === id)!;
+        expect(row.result.status).toBe("not_measured");
+        expect(row.result.reason).toBe("pain_today");
+      }
+    });
+
+    it("the neck's re-ask answer is the score before of its next movements", () => {
+      const ctl = controller(protocolOf(NECK), { intake: NECK });
+      ctl.startBlock("seated", 0);
+      const run = runBlock(
+        ctl,
+        {
+          answerMax: (i) => (i.movementId === "neck_lateral_flexion" && i.side === "right" ? "hurts" : "yes"),
+          pain: () => ({ level: 6 }),
+          reask: () => 3,
+        },
+        900,
+      );
+      expect(run.steps).toContain("reask:neck_lateral_flexion:left");
+      const after = saves(run.events).filter(
+        (e) => e.item.movementId !== "neck_lateral_flexion" || e.item.side === "left",
+      );
+      expect(after.map((e) => itemKey(e.item))).toEqual([
+        "neck_lateral_flexion:left",
+        "neck_flexion:none",
+        "neck_extension:none",
+      ]);
+      for (const e of after) expect(e.result.painBefore).toBe(3);
+    });
+
+    it("a pain stop on the forward bend asks before the side bends", () => {
+      const ctl = controller(protocolOf(BACK), { intake: BACK });
+      ctl.startBlock("standing", 0);
+      const run = runBlock(
+        ctl,
+        {
+          answerMax: (i) => (i.movementId === "trunk_flexion" ? "hurts" : "yes"),
+          pain: () => ({ level: 6 }),
+          reask: () => 7,
+        },
+        600,
+      );
+      const stop = run.steps.indexOf("pain_stop:trunk_flexion:none");
+      expect(stop).toBeGreaterThanOrEqual(0);
+      expect(run.steps.slice(stop + 1).find((s) => !s.startsWith("result"))).toBe(
+        "reask:trunk_lateral_flexion:right",
+      );
+      expect(run.steps.filter((s) => s.startsWith("setup"))).toEqual(["setup:trunk_flexion:none"]);
+      for (const side of ["right", "left"]) {
+        const row = saves(run.events).find(
+          (e) => e.item.movementId === "trunk_lateral_flexion" && e.item.side === side,
+        )!;
+        expect(row.result.reason).toBe("pain_today");
+      }
+    });
+
+    it("a stop list pain answer on a neck side bend asks before the next neck movement", () => {
+      const ctl = controller(protocolOf(NECK), { intake: NECK });
+      ctl.startBlock("seated", 0);
+      let stopped = false;
+      const run = runBlock(
+        ctl,
+        {
+          at: (t, c) => {
+            if (!stopped && c.phase === "attempt") {
+              stopped = true;
+              c.requestStop(t);
+            }
+          },
+          until: (c) => !!c.stopList,
+        },
+        200,
+      );
+      ctl.stopRouted({ endsCheck: false, afterRest: false, then: "bt_pain_after" }, run.t);
+      expect(ctl.current.kind === "reask" && itemKey(ctl.current.item)).toBe("neck_lateral_flexion:left");
+    });
+
+    it("the coach's mark_pain of 6 between neck movements asks before the next one", () => {
+      const ctl = controller(protocolOf(NECK), { intake: NECK });
+      ctl.startBlock("seated", 0);
+      const run = runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+      expect(ctl.current.kind === "result" && itemKey(ctl.current.item)).toBe("neck_lateral_flexion:right");
+      expect(ctl.handleTool("mark_pain", { level: 6 })).toMatchObject({ accepted: true, say: "pain_stop" });
+      ctl.next(run.t + 500);
+      expect(ctl.current.kind === "reask" && itemKey(ctl.current.item)).toBe("neck_lateral_flexion:left");
+    });
+  });
+
   it("a pain below the rule after «it hurts» keeps the value pain limited and asks nothing more", () => {
     // No pain before (null counts as 0): 1 is below the rule, 2 would be a rise of 2.
     const ctl = controller(protocolOf(KNEE));

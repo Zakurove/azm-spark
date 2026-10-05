@@ -54,7 +54,7 @@ import type {
 } from "../../engine/rom/types";
 import type { Frame } from "../../engine/types";
 import type { FeedEnv } from "../../engine/modes/types";
-import type { RegionId } from "../../medical/body-map";
+import { AXIAL_REGIONS, type RegionId } from "../../medical/body-map";
 import { painStopRule } from "../../medical/pain-rule";
 import type { Intake, Sex } from "../../medical/plan";
 import {
@@ -152,7 +152,15 @@ export interface DialNorm {
 }
 
 export const itemKey = (i: Pick<RomProtocolItem, "movementId" | "side">) => `${i.movementId}:${i.side}`;
-const jointKey = (i: Pick<RomProtocolItem, "region" | "side">) => `${i.region}:${i.side}`;
+/**
+ * The joint of the same joint re-ask and of the pain now: the body map cell (rom-protocol 6
+ * pain_during, «any other movement of the same joint»). The neck and the back are one cell whatever
+ * the bend's direction, so a pain stop on a side bend or the forward bend asks before every other
+ * movement of that spine region; a limb region is its region and side (rom-profile's profileCell,
+ * kept out of this chunk).
+ */
+const jointKey = (i: Pick<RomProtocolItem, "region" | "side">): string =>
+  AXIAL_REGIONS.includes(i.region) ? `${i.region}:axial` : `${i.region}:${i.side}`;
 
 /** The C-16 kind of each runner phase in a measurement step. */
 const PHASE_KIND: Record<RomPhase, CoachStepKind> = {
@@ -186,7 +194,7 @@ export class RomController implements CoachHost {
   private readonly results = new Map<string, RomMeasureResult>();
   /** Items the stop list stopped (the server stored their row). */
   private readonly stoppedByList = new Set<string>();
-  /** Joints (region and side) whose next movement asks the pain question first. */
+  /** Joints (body map cells, jointKey) whose next movement asks the pain question first. */
   private readonly reask = new Set<string>();
   /** The pain before the next movement of a joint, after a re-ask. */
   private readonly painNow = new Map<string, number>();

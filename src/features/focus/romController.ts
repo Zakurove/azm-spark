@@ -71,13 +71,14 @@ import { movementDef, ROM_DATA } from "../../movements/rom";
 import type { RomCopyKey, RomCueId } from "../../movements/rom/types";
 import type { CheckCueId } from "../../movements/types";
 import { instructionLines } from "./copy";
+import { SAFETY_TIMING } from "../assessment/safety/timing";
 
 export type PoseModel = "lite" | "full";
 export type Line = RomCueId | RomCopyKey | CheckCueId;
 export type PausedBy = "coach" | "screen";
 
 /** The v1 rest after a stop for tiredness or something else (SAFETY_TIMING.stopRestSec, check_rest_minute). */
-export const STOP_REST_SECONDS = 60;
+export const STOP_REST_SECONDS: number = SAFETY_TIMING.stopRestSec;
 /** How much of the last frames the live setup check reads while the start pose is taken (v1: the last second). */
 const SETUP_WINDOW_MS = 1000;
 

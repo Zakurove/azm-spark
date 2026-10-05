@@ -6,7 +6,13 @@
  * value; and the controller is the CoachHost of the range blocks, every step with its C-16 kind.
  */
 import { describe, expect, it } from "vitest";
-import { RomController, itemKey, type RomControllerOptions } from "../../src/features/focus/romController";
+import {
+  RomController,
+  STOP_REST_SECONDS,
+  itemKey,
+  type RomControllerOptions,
+} from "../../src/features/focus/romController";
+import { SAFETY_TIMING } from "../../src/features/assessment/safety/timing";
 import { buildRomProtocol, type RomProtocol, type RomProtocolItem } from "../../src/medical/rom-protocol";
 import { ROM_DATA } from "../../src/movements/rom";
 import type { BridgeEvent } from "../../src/coach/types";
@@ -348,6 +354,10 @@ describe("the stop list", () => {
     // The stopped movement is never offered again.
     const rest = runBlock(ctl, {}, 300, run.t + 1000);
     expect(saves(rest.events).map((e) => itemKey(e.item))).toEqual(["knee_extension:right"]);
+  });
+
+  it("rests v1's stop rest, read from SAFETY_TIMING (check_rest_minute)", () => {
+    expect(STOP_REST_SECONDS).toBe(SAFETY_TIMING.stopRestSec);
   });
 
   it("a stop for tiredness rests a minute before the next movement", () => {

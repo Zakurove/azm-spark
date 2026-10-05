@@ -523,6 +523,8 @@ describe("the fallbacks of rule 6, each within 1 s, with the test going on by bu
     await run(900);
     h.push(hold());
     await run(4000);
+    // The first question's local line has played to its end (a waiting question is asked only then).
+    h.voice.end();
     h.push({ p: 1, type: "ask_pain", movement: "shoulder_flexion", side: "right", t: Date.now() });
     await run(1500);
     expect(h.session.getSnapshot().mode).toBe("local");

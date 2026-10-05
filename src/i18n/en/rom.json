@@ -86,6 +86,10 @@
     "kicker": "Movement {n} of {total}",
     "ready": "Ready, let’s start"
   },
+  "instruction": {
+    "seatedHands": "Rest your hands at the sides of the chair.",
+    "hold": "Hold for a moment."
+  },
   "measure": {
     "start": "Take the start position and hold still",
     "practice": "Practice",

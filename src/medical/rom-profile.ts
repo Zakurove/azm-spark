@@ -264,7 +264,7 @@ export function buildRomProfile(input: {
 const CAUSE_RULES = TARGETS_DATA.mapping.causeResolution;
 function causeRule(order: number) {
   const r = CAUSE_RULES.find((x) => x.order === order);
-  if (!r) throw new Error(`exercise-targets causeResolution has no order ${order}`);
+  if (!r) throw new Error(`The targets data has no causeResolution order ${order}`);
   return r;
 }
 function alternative(order: number, path: CausePath) {
@@ -273,7 +273,7 @@ function alternative(order: number, path: CausePath) {
   return a;
 }
 function needed<T>(v: T | undefined, what: string): T {
-  if (v === undefined) throw new Error(`exercise-targets causeResolution: ${what} is missing`);
+  if (v === undefined) throw new Error(`The targets data causeResolution misses ${what}`);
   return v;
 }
 
@@ -434,12 +434,12 @@ export function causePath(e: RomProfileEntry, intake: Intake): CausePath {
 const GRADE_RULES = TARGETS_DATA.mapping.gradeRules;
 function gradeRule(finding: string) {
   const r = GRADE_RULES.find((x) => x.finding === finding);
-  if (!r) throw new Error(`exercise-targets gradeRules has no row "${finding}"`);
+  if (!r) throw new Error(`The targets data has no gradeRules row ${finding}`);
   return r;
 }
 function priorityOf(n: unknown, what: string): 1 | 2 | 3 {
   if (n === 1 || n === 2 || n === 3) return n;
-  throw new Error(`exercise-targets gradeRules: ${what} priority is ${String(n)}`);
+  throw new Error(`The targets data gradeRules priority of ${what} is ${String(n)}`);
 }
 
 /** gradeRules (5.3): «mildlyLimited ... priority 2», «markedlyLimited ... 3», «painLimited ... 3». */
@@ -657,7 +657,9 @@ export function retestBandDeg(
 const measuredValue = (r: StoredRomRow) =>
   r.source === "measured" && r.value !== null && isCameraMovement(r.movementId);
 /** Like with like: «same positions for movements measured before» (2.5), the same pose model and movement version (v1.1 comparability). */
-const sameOrUnknown = <T>(a: T | null, b: T | null) => a === null || b === null || a === b;
+function sameOrUnknown<T>(a: T | null, b: T | null): boolean {
+  return a === null || b === null || a === b;
+}
 const likeWithLike = (a: StoredRomRow, b: StoredRomRow) =>
   a.movementId === b.movementId &&
   a.side === b.side &&

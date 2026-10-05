@@ -98,15 +98,16 @@
     "sideTitle": "Stand in the middle of the picture, side on to the phone",
     "padTitle": "Stand still on the stopped pad",
     "body": "Stay still for 3 seconds.",
-    "seen": "We can see you well"
+    "seen": "We can see you well",
+    "progress": "Recording how you stand"
   },
   "walk": {
     "frontTitle": "Walk toward the phone and past it, then back to the start",
     "sideTitle": "Walk across the picture from one side to the other",
     "sideBody": "Start and stop at least two steps outside the picture.",
     "padTitle": "Walk at your comfortable speed",
-    "laps": "times there and back",
-    "passes": "times across",
+    "laps": "There and back",
+    "passes": "Across the picture",
     "of": "of {n}",
     "steps": "steps",
     "seconds": "seconds",
@@ -116,7 +117,8 @@
     "checking": "Checking your steps",
     "pause": "Pause",
     "paused": "Paused",
-    "resume": "Continue"
+    "resume": "Continue",
+    "padBody": "Keep walking until the count ends."
   },
   "again": {
     "title": "Tell us if the pain grows",
@@ -134,8 +136,8 @@
     "placePad": "Stay on the stopped pad facing the phone, with your fingertips on the support.",
     "ready": "Ready",
     "standing": "Stand still on both feet",
-    "lift": "Lift your {side} foot",
-    "liftBody": "Put it down whenever you want.",
+    "lift": "Stand on your {side} leg",
+    "liftBody": "Lift your other foot a little, and put it down whenever you want.",
     "down": "My foot is down",
     "switch": "Now the other leg"
   },

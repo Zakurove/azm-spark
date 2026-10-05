@@ -319,12 +319,14 @@
 .gx-counter span {
   color: var(--fx-purple-ink);
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 800;
   text-align: center;
 }
 .gx-counter em {
   font-style: normal;
   color: var(--fx-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 .gx-ring {
   display: grid;
@@ -379,38 +381,18 @@
   height: 22px;
   border-width: 3px;
 }
-.gx-still {
-  height: 6px;
+.gx-progress {
+  height: 8px;
   border-radius: 999px;
   background: #ece6f4;
   overflow: hidden;
 }
-.gx-still i {
+.gx-progress i {
   display: block;
   height: 100%;
-  width: 40%;
   border-radius: inherit;
   background: linear-gradient(90deg, #f6d36b, #e9b52c);
-  animation: gx-still 1.6s ease-in-out infinite alternate;
-}
-@keyframes gx-still {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(150%);
-  }
-}
-[dir="rtl"] .gx-still i {
-  animation-name: gx-still-rtl;
-}
-@keyframes gx-still-rtl {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-150%);
-  }
+  transition: inline-size 0.3s linear;
 }
 
 /* ——— the result card ——— */
@@ -422,8 +404,8 @@
   gap: 12px;
 }
 .gx-numbers {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;
@@ -431,7 +413,7 @@
 }
 .gx-numbers li {
   display: grid;
-  flex: 1 1 120px;
+  align-content: start;
   gap: 2px;
   padding: 12px 14px;
   border-radius: 20px;
@@ -556,10 +538,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gx-walker-halo,
-  .gx-still i {
+  .gx-walker-halo {
     animation: none;
   }
+  .gx-progress i,
   .gx-passes i,
   .azm-check.fx .gx-choice,
   .azm-check.fx .gx-segmented button {

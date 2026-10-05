@@ -19,12 +19,15 @@ function Phone({
   landscape,
   to,
   label,
+  labelAt,
 }: {
   x: number;
   y: number;
   landscape: boolean;
   to: [number, number];
   label: string;
+  /** Where the label goes (default: on the side away from the view). */
+  labelAt?: { x: number; y: number; anchor: "start" | "middle" | "end" };
 }) {
   const w = landscape ? 30 : 18;
   const h = landscape ? 18 : 30;
@@ -39,7 +42,11 @@ function Phone({
       <path className="gx-cone" d={`M${x} ${y} L${a[0]} ${a[1]} L${b[0]} ${b[1]} Z`} />
       <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={5} className="gx-phone-body" />
       <circle cx={x} cy={y} r={2.6} className="gx-phone-lens" />
-      <text x={x} y={ly} className="gx-label is-phone">
+      <text
+        x={labelAt?.x ?? x}
+        y={labelAt?.y ?? ly}
+        className={`gx-label is-phone${labelAt && labelAt.anchor !== "middle" ? ` is-${labelAt.anchor}` : ""}`}
+      >
         {label}
       </text>
     </g>
@@ -52,11 +59,14 @@ function Span({
   to,
   label,
   side = 1,
+  below = false,
 }: {
   from: [number, number];
   to: [number, number];
   label: string;
   side?: 1 | -1;
+  /** A level span's label under its line (above by default). */
+  below?: boolean;
 }) {
   const mx = (from[0] + to[0]) / 2;
   const my = (from[1] + to[1]) / 2;
@@ -68,7 +78,7 @@ function Span({
       <circle cx={to[0]} cy={to[1]} r={2.2} />
       <text
         x={vertical ? mx + side * 10 : mx}
-        y={vertical ? my + 4 : my - 8}
+        y={vertical ? my + 4 : below ? my + 16 : my - 8}
         className={`gx-label is-span${vertical ? (side > 0 ? " is-start" : " is-end") : ""}`}
       >
         {label}
@@ -124,7 +134,7 @@ export function Placement({
   return (
     <svg
       className={`gx-placement is-${kind}`}
-      viewBox="0 0 320 230"
+      viewBox="0 0 320 240"
       role="img"
       aria-label={label}
       direction="ltr"
@@ -132,21 +142,28 @@ export function Placement({
     >
       {kind === "overground_front" && (
         <g>
-          <rect x={112} y={22} width={64} height={168} rx={10} className="gx-path" />
-          <line x1={112} y1={30} x2={176} y2={30} className="gx-mark" />
-          <text x={92} y={34} className="gx-label is-end">
+          <rect x={104} y={16} width={64} height={216} rx={10} className="gx-path" />
+          <line x1={104} y1={24} x2={168} y2={24} className="gx-mark" />
+          <text x={94} y={28} className="gx-label is-end">
             {t(lang, "start")}
           </text>
-          <line x1={112} y1={212} x2={176} y2={212} className="gx-mark is-stop" />
-          <text x={92} y={216} className="gx-label is-end">
+          <line x1={104} y1={226} x2={168} y2={226} className="gx-mark is-stop" />
+          <text x={94} y={230} className="gx-label is-end">
             {t(lang, "stop")}
           </text>
-          <Walker x={144} y={52} />
-          <path d="M144 70 L144 150" className="gx-arrow" markerEnd="url(#gx-head)" />
-          <Span from={[100, 30]} to={[100, 180]} label={t(lang, "path")} side={-1} />
-          <Phone x={214} y={180} landscape={false} to={[150, 40]} label={t(lang, "phone")} />
-          <Span from={[176, 196]} to={[205, 196]} label={t(lang, "offset")} />
-          <Span from={[240, 180]} to={[240, 212]} label={t(lang, "behind")} />
+          <Walker x={136} y={44} />
+          <path d="M136 62 L136 142" className="gx-arrow" markerEnd="url(#gx-head)" />
+          <Span from={[84, 24]} to={[84, 168]} label={t(lang, "path")} side={-1} />
+          <Phone
+            x={210}
+            y={168}
+            landscape={false}
+            to={[142, 40]}
+            label={t(lang, "phone")}
+            labelAt={{ x: 228, y: 150, anchor: "start" }}
+          />
+          <Span from={[168, 198]} to={[210, 198]} label={t(lang, "offset")} below />
+          <Span from={[250, 168]} to={[250, 226]} label={t(lang, "behind")} />
         </g>
       )}
       {kind === "overground_side" && (

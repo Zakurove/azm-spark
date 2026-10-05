@@ -537,6 +537,18 @@ export class GaitController implements CoachHost {
     };
   }
 
+  /** How much of the 3 s standing calibration is recorded (0 to 1): the stand step, or the stance's. */
+  standingShare(): number {
+    const s = this.current;
+    const frames =
+      s.id === "stand" && s.rec
+        ? this.recOf(s.rec).standing
+        : s.id === "stance" && this.stance
+          ? this.stance.standing
+          : [];
+    return Math.max(0, Math.min(1, coveredMs(frames) / (CAPTURE_RULES.standingSec * 1000)));
+  }
+
   /** The timer step's time left (the warm up). */
   timerLeft(now: number): number {
     const t = this.timer;
@@ -924,11 +936,12 @@ export class GaitController implements CoachHost {
       r.lastStepAt = frame.t;
     }
     if (live.passes > r.passes) r.passes = live.passes;
-    // A calm hint: the feet out of the picture, another person over the walker, nobody on the pad
-    // (overground the walker leaves the picture between passes, as the capture asks).
+    // A calm hint: another person over the walker; on the pad also the feet out of the picture or
+    // nobody (overground the walker leaves the picture between passes and comes close to the lens at
+    // the end of each walk toward it, as the capture asks).
     const pad = r.id.startsWith("pad");
     this.setHint(
-      lm ? (seen(lm, FEET) ? null : "feet") : crowded ? "second_person" : pad ? "no_person" : null,
+      crowded ? "second_person" : !pad ? null : lm ? (seen(lm, FEET) ? null : "feet") : "no_person",
     );
     if (this.checkpointDue(r, frame.t)) this.pendingCheck = true;
     this.changed();

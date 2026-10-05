@@ -405,14 +405,14 @@ function BigChoice({
 }: {
   title: string;
   note: string;
-  icon: string;
+  icon: "floor" | "pad";
   onPick(): void;
   name: string;
 }) {
   return (
     <button type="button" className="gx-choice" onClick={onPick} data-value={name}>
       <span className="fx-choice-icon" aria-hidden="true">
-        <CheckIcon name={icon} size={26} />
+        <ModeIcon kind={icon} />
       </span>
       <span className="gx-choice-text">
         <b>{title}</b>
@@ -609,15 +609,64 @@ function PadDetailsScreen({
   );
 }
 
-/** The big number of a recording, with what it counts and its target. */
-function Counter({ value, label, of }: { value: string; label: string; of?: string }) {
+/** The standing calibration's progress (3 s), a calm gold bar. */
+function Progress({ label, share }: { label: string; share: number }) {
+  const pct = Math.round(share * 100);
+  return (
+    <div
+      className="gx-progress"
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+    >
+      <i style={{ inlineSize: `${pct}%` }} />
+    </div>
+  );
+}
+
+/** The mode's two pictures: footsteps on the floor, and the walking pad. */
+function ModeIcon({ kind }: { kind: "floor" | "pad" }) {
+  return (
+    <svg
+      width={26}
+      height={26}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {kind === "floor" ? (
+        <>
+          <path d="M7.5 3.5c1.6 0 2.5 1.6 2.5 3.6S9.2 11 7.8 11 5 9.6 5 7.4 5.9 3.5 7.5 3.5z" />
+          <path d="M6 13.2h3.4v1.9a1.7 1.7 0 0 1-3.4 0z" />
+          <path d="M16.5 8.5c1.6 0 2.5 1.6 2.5 3.6s-.8 3.9-2.2 3.9-2.8-1.4-2.8-3.6.9-3.9 2.5-3.9z" />
+          <path d="M15 18.2h3.4v1.9a1.7 1.7 0 0 1-3.4 0z" />
+        </>
+      ) : (
+        <>
+          <path d="M3 17.5h15.5a2.5 2.5 0 0 0 0-5H5.5" />
+          <path d="M3 17.5l2.5 3M18 17.5l-2 3" />
+          <path d="M15 12.5l3.5-8.5h2" />
+          <circle cx="9" cy="6" r="1.6" />
+          <path d="M9 8v3.5M7 10l2-1.5 2 1.5" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** The lap or pass now (from 1) of the target, under what it counts («ذهابًا وإيابًا»). */
+function Counter({ value, label, of }: { value: string; label: string; of: string }) {
   return (
     <div className="gx-counter" aria-live="polite">
+      <span>{label}</span>
       <b>{value}</b>
-      <span>
-        {label}
-        {of && <em> {of}</em>}
-      </span>
+      <em>{of}</em>
     </div>
   );
 }
@@ -657,8 +706,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
   const s = ctl.current;
   const rec = s.rec;
   const plan = ctl.plan;
-  const near = rec ? ctl.viewsOf(rec)[0]?.nearSide : undefined;
-  const sideName = near ? sideWord(near, lang) : "";
   const tap = () => ctl.confirm(clock());
   const stopBar = <StopBar onStop={onStop} />;
   const card = (body: ReactNode, actions: ReactNode, opts: { tone?: "gold" | "violet" | "rose" } = {}) => (
@@ -682,8 +729,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
       ];
       return card(
         <>
-          <Kicker>{gt(lang, "kicker")}</Kicker>
-          <Title>{gt(lang, "intro.title")}</Title>
           {lines.map((l) => (
             <Body key={l} lang={lang} text={l} />
           ))}
@@ -704,14 +749,14 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
           <div className="gx-choices">
             <BigChoice
               name="overground"
-              icon="arrow-forward"
+              icon="floor"
               title={gt(lang, "mode.overground")}
               note={gt(lang, "mode.overgroundNote")}
               onPick={() => ctl.chooseMode("overground", clock())}
             />
             <BigChoice
               name="walking_pad"
-              icon="people"
+              icon="pad"
               title={gt(lang, "mode.pad")}
               note={gt(lang, "mode.padNote")}
               onPick={() => ctl.chooseMode("walking_pad", clock())}
@@ -779,17 +824,7 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
             <Body lang={lang} text={gt(lang, "pad.on1")} />
             {stage(true, <Hint lang={lang} ctl={ctl} />)}
           </Glass>
-          <Actions
-            items={[
-              {
-                label: gt(lang, "pad.tooFast"),
-                name: "too_fast",
-                kind: "secondary",
-                onClick: () => ctl.padTooSlowForMe(clock()),
-              },
-              { label: gt(lang, "pad.onReady"), name: "ready", icon: "check", onClick: tap },
-            ]}
-          />
+          <Actions items={[{ label: gt(lang, "pad.onReady"), name: "ready", icon: "check", onClick: tap }]} />
           {stopBar}
         </div>
       );
@@ -811,9 +846,7 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
           <Glass className="fx-card fx-sheet gx-sheet">
             <p className="fx-prompt-main">{gt(lang, `stand.${kind}Title`)}</p>
             <p className="fx-prompt-sub">{gt(lang, "stand.body")}</p>
-            <div className="gx-still" aria-hidden="true">
-              <i />
-            </div>
+            <Progress label={gt(lang, "stand.progress")} share={ctl.standingShare()} />
           </Glass>
           {stopBar}
         </div>
@@ -860,9 +893,7 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
         </div>
       );
     case "walk":
-      return (
-        <WalkScreen lang={lang} ctl={ctl} stage={stage} onStop={onStop} clock={clock} sideName={sideName} />
-      );
+      return <WalkScreen lang={lang} ctl={ctl} stage={stage} onStop={onStop} clock={clock} />;
     case "walk_again":
       return card(
         <>
@@ -1130,14 +1161,12 @@ function WalkScreen({
   stage,
   onStop,
   clock,
-  sideName,
 }: {
   lang: Lang;
   ctl: GaitController;
   stage: GaitScreenProps["stage"];
   onStop(): void;
   clock(): number;
-  sideName: string;
 }) {
   const rec = ctl.current.rec!;
   const live = ctl.live();
@@ -1154,9 +1183,7 @@ function WalkScreen({
       ? setupLine("walk_past_phone", lang)
       : kind === "side"
         ? gt(lang, "walk.sideBody")
-        : rec === "pad_front"
-          ? ""
-          : sideName;
+        : gt(lang, "walk.padBody");
   const phase = live?.phase ?? "walking";
   const paused = ctl.pausedBy !== null;
   const left = live && pad ? Math.max(0, live.plannedSeconds - live.seconds) : 0;
@@ -1223,7 +1250,7 @@ function WalkScreen({
               </div>
             ) : (
               <Counter
-                value={localizeDigits(lang, String(Math.min(live.passes, live.target)))}
+                value={localizeDigits(lang, String(Math.min(live.passes + 1, live.target)))}
                 label={gt(lang, kind === "front" ? "walk.laps" : "walk.passes")}
                 of={gt(lang, "walk.of", { n: localizeDigits(lang, String(live.target)) })}
               />
@@ -1280,6 +1307,9 @@ function StanceScreen({
             <p className="fx-prompt-main">{main}</p>
             {st.phase === "leg" && <p className="fx-prompt-sub">{gt(lang, "stance.liftBody")}</p>}
             {st.phase === "standing" && <p className="fx-prompt-sub">{gt(lang, "stand.body")}</p>}
+            {st.phase === "standing" && (
+              <Progress label={gt(lang, "stand.progress")} share={ctl.standingShare()} />
+            )}
           </div>
           {st.phase === "leg" && (
             <div className="gx-ring">

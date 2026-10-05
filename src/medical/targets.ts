@@ -1185,6 +1185,36 @@ function targetedItem(p: Chosen, h: Intake, plan: Plan): TargetedItem {
   };
 }
 
+/* ----------------------------------------------------- the body map now */
+
+/**
+ * The range findings whose joint is still on the body map (contract 2.10: «afterIntakeSaved rebuilds the
+ * targeted weekly from the latest completed focus check, first dropping the range findings whose region
+ * and side are no longer on the body map (gait patterns are kept)»). A residual joint after limb loss
+ * sits off the map by design (rom-protocol 2.4: «on or off the body map»), so it stays while a limb loss
+ * of its limb and side does.
+ */
+export function findingsOnMap(rom: readonly RomFinding[], h: Intake): RomFinding[] {
+  const regions = h.regions ?? [];
+  const cells = new Set(regions.flatMap((e) => entryCells(e) as string[]));
+  return rom.filter((f) => {
+    const cell = isAxialRegion(f.region) ? `${f.region}:axial` : `${f.region}:${f.side}`;
+    if (cells.has(cell)) return true;
+    const limb = limbOf(f.region);
+    return (
+      f.finding === "unknown" &&
+      !f.noActiveMovement &&
+      limb !== null &&
+      regions.some(
+        (e) =>
+          e.problems.includes("limb_loss") &&
+          limbOf(e.region) === limb &&
+          (e.side === f.side || e.side === "both"),
+      )
+    );
+  });
+}
+
 /* ------------------------------------------------------------ the week */
 
 /** A week the findings built (contract 2.10): what POST /api/program/targets stores and answers, and createWeekly words. */

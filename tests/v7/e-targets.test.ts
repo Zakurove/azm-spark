@@ -16,6 +16,7 @@ import {
   SELF_ASSISTED_SHOULDER,
   TARGET_EVIDENCE,
   collectTargets,
+  findingsOnMap,
 } from "../../src/medical/targets";
 import type { Intake } from "../../src/medical/plan";
 import type { CausePath, RomFinding } from "../../src/medical/rom-types";
@@ -699,5 +700,28 @@ describe("merge and order (exercise-targets 5.7, 5.8 step 3)", () => {
       ],
     };
     expect(collectTargets(input)).toEqual(collectTargets(input));
+  });
+});
+
+describe("findingsOnMap (contract 2.10: the body map now)", () => {
+  it("drops a range finding whose joint left the body map, keeps a residual joint while its limb loss stays", () => {
+    const knee = finding("knee_flexion", "right");
+    const shoulder = finding("shoulder_flexion", "right");
+    const neck = finding("neck_flexion", "none");
+    const h = intake({
+      regions: [entry("shoulder", "right", ["weakness"]), entry("neck", "axial", ["stiffness"])],
+    });
+    expect(findingsOnMap([knee, shoulder, neck], h)).toEqual([shoulder, neck]);
+    // A both sides entry covers each side.
+    expect(findingsOnMap([knee], intake({ regions: [entry("knee", "both", ["pain"])] }))).toEqual([knee]);
+    const residual = finding("knee_extension", "left", {
+      finding: "unknown",
+      priority: 1,
+      value: null,
+      path: "rehab",
+    });
+    const loss = entry("ankle_foot", "left", ["limb_loss"], { limbLoss: { level: "below_knee" } });
+    expect(findingsOnMap([residual], intake({ regions: [loss] }))).toEqual([residual]);
+    expect(findingsOnMap([residual], intake({ regions: [] }))).toEqual([]);
   });
 });

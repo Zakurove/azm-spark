@@ -15,6 +15,8 @@ import {
   sendUsageReport,
 } from "../../src/features/coach-agent/api";
 import { CueVoice, type CueLike } from "../../src/features/coach-agent/LocalVoice";
+import { CoachSession } from "../../src/features/coach-agent/session";
+import { E2E_COACH_SESSION_ID, SilentSpeaker, e2eCoachDeps } from "../../src/features/coach-agent/e2eCoach";
 import { setCoachAudioSession, useCoach, type CoachControl } from "../../src/features/coach-agent/useCoach";
 import { CuePlayer } from "../../src/app/audio";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../server/modules/agent/types";
@@ -279,5 +281,52 @@ describe("useCoach before a session exists", () => {
       local: new FakeVoice(),
     });
     expect(c.mode).toBe("connecting");
+  });
+});
+
+/* ------------------------------------------------------- the e2e coach */
+
+describe("the e2e coach (?e2eCoach=fake, VITE_E2E builds; D-026 item 8)", () => {
+  it("mints the session the e2e seed writes and sends its usage report to the route", async () => {
+    const hooks: Record<string, unknown> = {};
+    const reports: UsageReport[] = [];
+    const deps = e2eCoachDeps({ hooks, listen: () => () => undefined, report: (r) => reports.push(r) });
+    const host = new RefRomHost();
+    const session = new CoachSession(
+      { block: "rom", segment: "rom:seated:1", lang: "ar", ref: REQ.ref, host, local: new FakeVoice() },
+      deps,
+    );
+    session.start();
+    await vi.waitFor(() => expect(session.getSnapshot().mode).toBe("live"), { timeout: 2000 });
+    // The fake coach is driven from a spec through window.e2eCoach.
+    const e2e = hooks.e2eCoach as { sent(): { kind: string }[] };
+    expect(e2e.sent()[0]).toMatchObject({ kind: "history" });
+    session.end("done");
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({ sessionId: E2E_COACH_SESSION_ID, endReason: "done" });
+    // A row id the usage route takes (5.2).
+    expect(E2E_COACH_SESSION_ID).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  });
+
+  it("plays nothing through a silent speaker that is busy for as long as the chunks last", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = new SilentSpeaker(() => Date.now());
+      const idle = vi.fn();
+      s.onIdle(idle);
+      s.play(new ArrayBuffer(48_000 * 0.5));
+      expect(s.playing).toBe(true);
+      vi.advanceTimersByTime(499);
+      expect(s.playing).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(s.playing).toBe(false);
+      expect(idle).toHaveBeenCalledTimes(1);
+      s.play(new ArrayBuffer(48_000));
+      s.flush();
+      expect(s.playing).toBe(false);
+      expect(idle).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -157,6 +157,15 @@ export class FocusSession {
     if (s.kind === "starting" && s.error === null) void this.start();
     if (s.kind === "postponed") void this.recordPostpone();
     if (s.kind === "completing" && !s.error) void this.complete();
+    if ((s.kind === "part" || s.kind === "brief") && this.model.data.parts[s.index]?.kind === "gait") {
+      // The walk's pain gate: a pain stop in a region the walk loads earlier in the check postpones
+      // the walk (6 or more, sharp, a region not measured today for pain) or asks its pain first.
+      if (!this.model.data.walkGated) {
+        const gate = this.ctl?.walkGate(WALK_REGIONS) ?? { skip: false, ask: [] };
+        this.dispatch({ type: "WALK_GATE", skip: gate.skip, ask: gate.ask });
+        return;
+      }
+    }
     if (s.kind === "part") {
       const part = this.model.data.parts[s.index];
       if (part?.kind === "range") {
@@ -277,6 +286,25 @@ export class FocusSession {
 
   private bridge(e: BridgeEvent): void {
     for (const fn of this.bridgeListeners) fn(e);
+  }
+
+  /** The answer to the walk's pain question (walk_pain): the region's pain now, before the walk. */
+  answerWalkPain(value: number): void {
+    const s = this.model.state;
+    if (s.kind !== "walk_pain") return;
+    this.ctl?.answerWalkPain(s.regions[s.k], value, this.now());
+    this.dispatch({ type: "WALK_PAIN", value });
+  }
+
+  /**
+   * The walk's score before (C-15: the rise of 2 counts from it): the highest pain now of the regions
+   * a walk loads, from the day's answers and the re-asks; null when none was asked.
+   */
+  get walkBefore(): number | null {
+    if (this.ctl) return this.ctl.walkGate(WALK_REGIONS).before;
+    const day = this.model.data.today.painByRegion;
+    const scores = WALK_REGIONS.map((r) => day[r]).filter((n): n is number => n !== undefined);
+    return scores.length ? Math.max(...scores) : null;
   }
 
   /** The walk is done or not taken today: the next part. */

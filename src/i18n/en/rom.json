@@ -122,7 +122,9 @@
   "gait": {
     "title": "Your walk",
     "body": "Next we look at how you walk.",
-    "skip": "Not today"
+    "skip": "Not today",
+    "painSkipTitle": "We will not check your walk today",
+    "painSkipBody": "For your safety, with the pain you told us about, we will leave the walk for another time. We will go on with the rest of the check."
   },
   "done": {
     "title": "Your check is done",

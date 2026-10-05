@@ -199,6 +199,8 @@ export class RomController implements CoachHost {
   /** The pain before the next movement of a joint, after a re-ask. */
   private readonly painNow = new Map<string, number>();
   private readonly skippedRegions = new Set<RegionId>();
+  /** Regions with a pain report of 6 or more, or a sharp pain, during the range blocks today. */
+  private readonly painHigh = new Set<RegionId>();
   private lastMeasured: RomProtocolItem | null = null;
   private sink: RomControllerEvent[] = [];
   private listeners = new Set<() => void>();
@@ -436,6 +438,7 @@ export class RomController implements CoachHost {
     this.reask.delete(jointKey(s.item));
     if (score >= PAIN_TODAY_SKIP_AT || sharp) {
       // rom-protocol 6 pain_today: «Region not measured today»: this movement and the region's others.
+      this.painHigh.add(s.item.region);
       this.saveSkipped(s.item, "pain_today", t);
       this.skipRegion(s.item.region, "pain_today", t);
       this.nextItem(t);
@@ -501,9 +504,51 @@ export class RomController implements CoachHost {
   answerPain(level: number, sharp: boolean, source: AnswerSource, t: number) {
     if (!this.runner || this.stopListNow)
       return { accepted: false, reason: "wrong_phase" as const, events: [], action: "continue" as const };
+    const item = this.currentItem()!;
     const res = this.runner.answerPain(level, sharp, source, t);
-    this.take(this.currentItem()!, res.events, t);
+    if (res.accepted && (level >= PAIN_TODAY_SKIP_AT || sharp)) this.painHigh.add(item.region);
+    this.take(item, res.events, t);
     return res;
+  }
+
+  /**
+   * The walk's pain gate after the range blocks so far (gait-rules eligibility.today: «leg, hip or
+   * back pain 6 or more today: postpone the gait test», the one shared rule of C-15; rom-protocol 6
+   * pain_during: ask before any other movement of the same joint). For the regions a walk loads:
+   * skip when one was not measured today for pain (pain_today) or had a pain of 6 or more or a sharp
+   * pain; else ask the pain first in each region whose next movement would re-ask; `before` is the
+   * walk's score before, the highest pain now of those regions (the day's answers, then the re-asks).
+   */
+  walkGate(regions: readonly RegionId[]): { skip: boolean; ask: RegionId[]; before: number | null } {
+    const skip = regions.some((r) => this.skippedRegions.has(r) || this.painHigh.has(r));
+    const asking = new Set([...this.reask].map((k) => k.slice(0, k.indexOf(":")) as RegionId));
+    const ask = skip ? [] : regions.filter((r) => asking.has(r));
+    const scores: number[] = [];
+    for (const r of regions) {
+      const day = this.opts.painByRegion[r];
+      const now = [...this.painNow].filter(([k]) => k.startsWith(`${r}:`)).map(([, v]) => v);
+      if (now.length) scores.push(Math.max(...now));
+      else if (day !== undefined) scores.push(day);
+    }
+    return { skip, ask, before: scores.length ? Math.max(...scores) : null };
+  }
+
+  /**
+   * The walk's re-ask (walkGate's `ask`), answered before the walk: the region's pain now for its
+   * joints' next movements; 6 or more (or a sharp pain) skips the region today (pain_today), its
+   * later movements saved as not measured, and the walk with it.
+   */
+  answerWalkPain(region: RegionId, level: number, t: number, sharp = false): void {
+    this.lastT = t;
+    const score = Math.max(0, Math.min(10, Math.round(level)));
+    for (const k of [...this.reask]) if (k.startsWith(`${region}:`)) this.reask.delete(k);
+    const cells = new Set(this.items.filter((i) => i.region === region).map(jointKey));
+    for (const cell of cells) this.painNow.set(cell, score);
+    if (score >= PAIN_TODAY_SKIP_AT || sharp) {
+      this.painHigh.add(region);
+      this.skipRegion(region, "pain_today", t);
+    }
+    this.changed();
   }
 
   answerCause(cause: LimitCause, source: AnswerSource, t: number): AnswerResult {
@@ -855,6 +900,7 @@ export class RomController implements CoachHost {
     const rule = painStopRule(level, sharp, this.painBefore(near));
     if (rule.stop) {
       this.reask.add(jointKey(near));
+      if (level >= PAIN_TODAY_SKIP_AT || sharp) this.painHigh.add(near.region);
       if (s.kind === "setup") {
         // The movement about to start asks first.
         this.go({ kind: "reask", item: s.item });

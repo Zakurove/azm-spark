@@ -24,6 +24,11 @@
  *                التعليمات»): the part starts only after the tap (v1.1)
  *   part         the parts in C-13 order: seated range, standing range, the walk (C's GaitStep slot),
  *                lying range (then sit before stand, in the RomController)
+ *   walk_pain    before the walk, after a pain stop in a region the walk loads (rom-protocol 6
+ *                pain_during: ask before any other movement of the same joint): the pain now of each
+ *                such region; 6 or more postpones the walk (gait-rules eligibility.today)
+ *   walk_skipped the walk is postponed today for pain (a pain of 6 or more, a sharp pain or a region
+ *                not measured today for pain, in the range blocks or at walk_pain): why, then on
  *   stop_screen  a stop list answer with a screen (emergency, faint, fall, seek care)
  *   faint_ask    after a faint or fall stop's screen, the v1 faint follow up (sf_faint_loc, Q33 (3),
  *                O42): yes or not sure opens the emergency screen, no shows the stop's screen again
@@ -44,6 +49,7 @@ import { REGION_IDS, type RegionId } from "../../medical/body-map";
 import type { Intake, Sex } from "../../medical/plan";
 import {
   BLOCK_RUN_ORDER,
+  PAIN_TODAY_SKIP_AT,
   type FocusToday,
   type RomBlock,
   type RomProtocol,
@@ -127,6 +133,8 @@ export type FocusState =
   | { kind: "warnings" }
   | { kind: "brief"; index: number; screen: HelperBriefScreen }
   | { kind: "part"; index: number }
+  | { kind: "walk_pain"; index: number; regions: RegionId[]; k: number; then: "brief" | "part" }
+  | { kind: "walk_skipped"; index: number }
   | { kind: "stop_screen"; route: FocusStopRoute }
   | { kind: "faint_ask"; route: FocusStopRoute }
   | { kind: "completing"; error: boolean }
@@ -144,6 +152,8 @@ export interface FocusData {
   trail: string[];
   check: StartResponse | null;
   parts: FocusPart[];
+  /** The walk's pain gate ran (the session's WALK_GATE, once per check). */
+  walkGated?: boolean;
 }
 
 export interface FocusModel {
@@ -172,6 +182,10 @@ export type FocusEvent =
   | { type: "SEEN" }
   /** The helper briefing's confirm tap (helperBriefing.confirmButton). */
   | { type: "HELPER_READY" }
+  /** The walk's pain gate (RomController.walkGate), when the walk's part or its briefing opens. */
+  | { type: "WALK_GATE"; skip: boolean; ask: RegionId[] }
+  /** The pain now of the region walk_pain asks about (0 to 10). */
+  | { type: "WALK_PAIN"; value: number }
   | { type: "PART_DONE" }
   | { type: "CHECK_ENDED"; route: FocusStopRoute }
   | { type: "STOP_SCREEN"; route: FocusStopRoute }
@@ -517,6 +531,7 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       if (s.kind === "seek_care")
         return s.then === "nothing" ? go(m, { kind: "closed", why: "nothing" }) : afterStart(m);
       if (s.kind === "warnings") return toPart(m, 0);
+      if (s.kind === "walk_skipped") return toPart(m, s.index + 1);
       if (s.kind === "stop_screen") {
         // A faint or a fall: the follow up once the person is settled (v1 S38b), then Today.
         if (s.route.then === "sf_faint_loc") return go(m, { kind: "faint_ask", route: s.route });
@@ -525,6 +540,24 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       return m;
     case "HELPER_READY":
       return s.kind === "brief" ? go(m, { kind: "part", index: s.index }) : m;
+    case "WALK_GATE": {
+      if ((s.kind !== "part" && s.kind !== "brief") || m.data.parts[s.index]?.kind !== "gait") return m;
+      if (e.skip) return go(m, { kind: "walk_skipped", index: s.index }, { walkGated: true });
+      if (e.ask.length)
+        return go(
+          m,
+          { kind: "walk_pain", index: s.index, regions: [...e.ask], k: 0, then: s.kind },
+          { walkGated: true },
+        );
+      return go(m, s, { walkGated: true });
+    }
+    case "WALK_PAIN": {
+      if (s.kind !== "walk_pain") return m;
+      // The one shared rule's cut (C-15, gait-rules eligibility.today): 6 or more postpones the walk.
+      if (e.value >= PAIN_TODAY_SKIP_AT) return go(m, { kind: "walk_skipped", index: s.index });
+      if (s.k + 1 < s.regions.length) return go(m, { ...s, k: s.k + 1 });
+      return s.then === "brief" ? toPart(m, s.index) : go(m, { kind: "part", index: s.index });
+    }
     case "PART_DONE": {
       if (s.kind !== "part") return m;
       return toPart(m, s.index + 1);

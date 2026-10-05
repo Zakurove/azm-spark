@@ -1110,6 +1110,25 @@ export function DoneScreen({
   );
 }
 
+/**
+ * The walk is postponed today for pain (gait-rules eligibility.today: leg, hip or back pain 6 or more,
+ * a sharp pain, or a region not measured today for pain): why, then the rest of the check.
+ */
+export function WalkSkippedScreen({ lang, onContinue }: { lang: Lang; onContinue(): void }) {
+  return (
+    <Glass className="fx-card" data-walk="skipped">
+      <span className="fx-badge is-violet" aria-hidden="true">
+        <CheckIcon name="shield" size={28} />
+      </span>
+      <Title>{tV7(lang, "rom.gait.painSkipTitle")}</Title>
+      <Body lang={lang} text={tV7(lang, "rom.gait.painSkipBody")} />
+      <Actions
+        items={[{ label: t(lang, "assessment.common.continue"), onClick: onContinue, name: "continue" }]}
+      />
+    </Glass>
+  );
+}
+
 /** The walk's slot (C-13: between the standing and the lying blocks): C's GaitStep, and «لن أمشي اليوم». */
 export function GaitSlot({
   lang,

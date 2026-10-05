@@ -67,6 +67,7 @@ import {
   StartingScreen,
   StopListScreen,
   TodayScreen,
+  WalkSkippedScreen,
   WarningsScreen,
 } from "./Screens";
 import { checkWarningsOf, partWarnings } from "./flow";
@@ -251,7 +252,9 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
     s.kind === "question" ||
     s.kind === "today" ||
     s.kind === "warnings" ||
-    s.kind === "brief";
+    s.kind === "brief" ||
+    s.kind === "walk_pain" ||
+    s.kind === "walk_skipped";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
   useLayoutEffect(() => {
@@ -280,7 +283,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const today = () => session.dispatch({ type: "EXIT", to: "today" });
   const parts = m.data.parts;
   const progress =
-    s.kind === "part" || s.kind === "brief"
+    s.kind === "part" || s.kind === "brief" || s.kind === "walk_pain" || s.kind === "walk_skipped"
       ? { done: s.index, total: parts.length }
       : s.kind === "completing" || s.kind === "done"
         ? { done: parts.length, total: parts.length }
@@ -461,6 +464,23 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
           ),
         };
       }
+      case "walk_pain":
+        return {
+          screen: "walk_pain",
+          node: (
+            <TodayScreen
+              key={`${s.index}:${s.k}`}
+              lang={lang}
+              q={{ kind: "pain", region: s.regions[s.k] }}
+              onAnswer={(value) => session.answerWalkPain(Number(value))}
+            />
+          ),
+        };
+      case "walk_skipped":
+        return {
+          screen: "walk_skipped",
+          node: <WalkSkippedScreen lang={lang} onContinue={() => session.dispatch({ type: "SEEN" })} />,
+        };
       case "stop_screen":
         return {
           screen: "stop_screen",
@@ -511,6 +531,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
                   plan={m.data.check!.gait!}
                   checkId={m.data.check!.id}
                   lang={lang}
+                  painBefore={session.walkBefore}
                   coach={(e) => coach.push(e)}
                   onDone={() => session.gaitDone()}
                   onStop={() => session.requestStop()}

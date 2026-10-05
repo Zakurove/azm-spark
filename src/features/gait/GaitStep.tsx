@@ -16,6 +16,12 @@ export interface GaitStepProps {
   checkId: string;
   lang: Lang;
   coach: CoachPush;
+  /**
+   * The walk's score before (C-15: a rise of 2 over it ends the recording): the highest pain now of
+   * the regions a walk loads, from the day's answers and the re-asks of the range blocks (the
+   * session's walkBefore); null when none was asked, which counts as 0. Contract gap W2-5.
+   */
+  painBefore?: number | null;
   /** The response of POST /api/focus/:id/gait (provisional until complete). */
   onDone(stored: GaitStoredView): void;
   onStop(): void;

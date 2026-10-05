@@ -552,3 +552,71 @@ describe("the typical value of a position without a matched norm (rom-protocol 3
     for (const e of trunk) expect("typical" in e && e.typical).toBeNull();
   });
 });
+
+describe("the walk after the range blocks (gait-rules eligibility.today, rom-protocol pain_during)", () => {
+  const WALK = ["hip", "knee", "ankle_foot", "back_trunk"] as const;
+  const HIP = intake({ regions: [entry("hip", "right", ["pain"])] });
+
+  it("a hip pain stop at 7 and a re-ask of 7: the walk is not offered today", () => {
+    const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
+    expect(ctl.walkGate(WALK)).toEqual({ skip: false, ask: [], before: 2 });
+    ctl.startBlock("standing", 0);
+    runBlock(
+      ctl,
+      {
+        answerMax: (i) => (i.movementId === "hip_extension" ? "hurts" : "yes"),
+        pain: () => ({ level: 7 }),
+        reask: () => 7,
+      },
+      600,
+    );
+    expect(ctl.walkGate(WALK).skip).toBe(true);
+  });
+
+  it("a pain stop at 6 on the last standing movement: the walk is not offered today", () => {
+    const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
+    ctl.startBlock("standing", 0);
+    runBlock(
+      ctl,
+      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 6 }) },
+      600,
+    );
+    expect(ctl.current.kind).toBe("end");
+    expect(ctl.walkGate(WALK).skip).toBe(true);
+  });
+
+  it("a pain stop by a rise of 2 below 6: the walk asks the hip's pain first; 6 or more then skips the walk and the hip", () => {
+    const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
+    ctl.startBlock("standing", 0);
+    runBlock(
+      ctl,
+      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 4 }) },
+      600,
+    );
+    expect(ctl.walkGate(WALK)).toEqual({ skip: false, ask: ["hip"], before: 2 });
+    ctl.answerWalkPain("hip", 3, 1_000_000);
+    expect(ctl.walkGate(WALK)).toEqual({ skip: false, ask: [], before: 3 });
+    // The answer is the next hip movement's score before (the lying hip bend asks nothing more).
+    ctl.startBlock("lying", 1_000_100);
+    const run = runBlock(ctl, {}, 600, 1_000_100);
+    expect(run.steps.filter((s) => s.startsWith("reask"))).toEqual([]);
+    expect(saves(run.events).find((e) => e.item.movementId === "hip_flexion")?.result.painBefore).toBe(3);
+  });
+
+  it("a walk re-ask of 6 skips the walk and the region's later movements (pain_today)", () => {
+    const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
+    ctl.startBlock("standing", 0);
+    runBlock(
+      ctl,
+      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 4 }) },
+      600,
+    );
+    ctl.answerWalkPain("hip", 6, 1_000_000);
+    expect(ctl.walkGate(WALK).skip).toBe(true);
+    ctl.startBlock("lying", 1_000_100);
+    expect(ctl.current).toEqual({ kind: "end", block: "lying" });
+    expect(saves(ctl.drain()).find((e) => e.item.movementId === "hip_flexion")?.result.reason).toBe(
+      "pain_today",
+    );
+  });
+});

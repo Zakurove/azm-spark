@@ -397,6 +397,74 @@ describe("the focus shell end to end on the real routes", () => {
     expect(s.model.state.kind === "postponed" && s.model.state.lock).toBeTruthy();
   });
 
+  it("a hip pain stop at 7 and a re-ask of 7 in the standing block: no walk today (gait-rules eligibility.today)", async () => {
+    const hip: Intake = v7Intake({
+      regions: [{ region: "hip", side: "right", problems: ["stiffness"], origin: "person" }],
+    });
+    const { s } = await session(hip);
+    await s.load();
+    await answerAll(s, noFlags);
+    expect(s.model.data.parts.map((p) => (p.kind === "range" ? p.block : "gait"))).toEqual([
+      "standing",
+      "gait",
+      "lying",
+    ]);
+    runBlock(
+      s.ctl!,
+      {
+        answerMax: (i) => (i.movementId === "hip_extension" ? "hurts" : "yes"),
+        pain: () => ({ level: 7 }),
+        reask: () => 7,
+      },
+      900,
+      2_000_000,
+    );
+    // The walk is not opened: its card says why, then the next part (the lying hip bend, not
+    // measured today for pain, so the lying block ends at once) and the end of the check.
+    expect(s.model.state).toEqual({ kind: "walk_skipped", index: 1 });
+    s.dispatch({ type: "SEEN" });
+    await settle(s, "completing");
+    expect(s.model.state.kind).toBe("done");
+    const rows = romRowsOf(h.db(), s.model.data.check!.id);
+    expect(rows.find((r) => r.movementId === "hip_flexion")?.reason).toBe("pain_today");
+  }, 60_000);
+
+  it("a hip pain stop by a rise below 6: the walk asks the hip's pain first, and the answer is the walk's score before", async () => {
+    const hip: Intake = v7Intake({
+      regions: [{ region: "hip", side: "right", problems: ["stiffness"], origin: "person" }],
+    });
+    const { s } = await session(hip);
+    await s.load();
+    await answerAll(s, noFlags);
+    runBlock(
+      s.ctl!,
+      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 3 }) },
+      900,
+      2_000_000,
+    );
+    expect(s.model.state).toEqual({ kind: "walk_pain", index: 1, regions: ["hip"], k: 0, then: "part" });
+    s.answerWalkPain(3);
+    expect(s.model.state).toEqual({ kind: "part", index: 1 });
+    expect(s.walkBefore).toBe(3);
+  }, 60_000);
+
+  it("a walk re-ask of 6 skips the walk", async () => {
+    const hip: Intake = v7Intake({
+      regions: [{ region: "hip", side: "right", problems: ["stiffness"], origin: "person" }],
+    });
+    const { s } = await session(hip);
+    await s.load();
+    await answerAll(s, noFlags);
+    runBlock(
+      s.ctl!,
+      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 3 }) },
+      900,
+      2_000_000,
+    );
+    s.answerWalkPain(6);
+    expect(s.model.state).toEqual({ kind: "walk_skipped", index: 1 });
+  }, 60_000);
+
   it("an MS check reads warn_ms_cool once before the first part, then runs and completes", async () => {
     const ms: Intake = v7Intake({
       conditions: ["ms"],

@@ -4,74 +4,25 @@
  * as the shell will once D5 wires useCoach: the controller's bridge events go to session.push, and the
  * model's tool calls reach the controller through D's executor (the S0-2 answer guard first).
  *
- * D's coach code is built on its own branch (wt/v7-d): its modules are loaded at run time and these
- * tests are skipped while they are absent, so this branch compiles alone and the tests run as soon as
- * the two streams meet (the merge, or the integration tree).
+ * D-027 item 7: both streams are on azm7, so D's modules are imported statically; a broken D import
+ * fails these tests instead of skipping them.
  */
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { BridgeEvent, ToolResult } from "../../src/coach/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { BridgeEvent } from "../../src/coach/types";
+import { FakeLiveTransport } from "../../src/features/coach-agent/fake";
+import { CoachSession, type CoachDeps } from "../../src/features/coach-agent/session";
 import { RomController } from "../../src/features/focus/romController";
 import { buildRomProtocol } from "../../src/medical/rom-protocol";
 import { entry, intake, today } from "./a-fixtures";
 import { bridges, runBlock } from "./b-shell-driver";
-
-/* D's modules, loaded by path so this file compiles without them. */
-interface SentLike {
-  kind: string;
-  text?: string;
-  turnComplete?: boolean;
-  responses?: { id: string; name: string; response: ToolResult }[];
-}
-interface TransportLike {
-  sent: SentLike[];
-  emit(e: unknown): void;
-}
-interface SessionLike {
-  start(): void;
-  push(e: BridgeEvent): void;
-  end(reason: string): void;
-  getSnapshot(): { mode: string };
-}
-type Ctor<T> = new (...args: never[]) => T;
-interface DModules {
-  CoachSession: new (opts: unknown, deps: unknown) => SessionLike;
-  FakeLiveTransport: new (script?: unknown) => TransportLike;
-  FakeMic: Ctor<object>;
-  FakeSpeaker: Ctor<object>;
-  FakeVoice: Ctor<{ said: { line: string }[] }>;
-}
-
-const load = async (path: string): Promise<Record<string, unknown> | null> => {
-  try {
-    return (await import(/* @vite-ignore */ path)) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-};
-
-let D: DModules | null = null;
-beforeAll(async () => {
-  const [session, fake, harness] = await Promise.all([
-    load("../../src/features/coach-agent/session"),
-    load("../../src/features/coach-agent/fake"),
-    load("./d-coach-harness"),
-  ]);
-  if (session && fake && harness)
-    D = {
-      CoachSession: session.CoachSession as DModules["CoachSession"],
-      FakeLiveTransport: fake.FakeLiveTransport as DModules["FakeLiveTransport"],
-      FakeMic: harness.FakeMic as DModules["FakeMic"],
-      FakeSpeaker: harness.FakeSpeaker as DModules["FakeSpeaker"],
-      FakeVoice: harness.FakeVoice as DModules["FakeVoice"],
-    };
-});
+import { FakeMic, FakeSpeaker, FakeVoice } from "./d-coach-harness";
 
 const T0 = Date.UTC(2026, 9, 5, 9, 0, 0);
 const CHECK = "0b6f1c1e-1d2a-4c8e-9a1b-2f3c4d5e6f70";
 const KNEE = intake({ regions: [entry("knee", "right", ["stiffness"])] });
 const KNEE_BEND = { movement: "knee_flexion" as const, side: "right" as const };
 
-function setup(d: DModules) {
+function setup() {
   const ctl = new RomController({
     protocol: buildRomProtocol({ intake: KNEE, setting: "booth", today: today() }),
     painByRegion: {},
@@ -79,43 +30,44 @@ function setup(d: DModules) {
     lang: "ar",
     restSec: 1,
   });
-  const transports: TransportLike[] = [];
-  const voice = new d.FakeVoice();
-  const session = new d.CoachSession(
-    { block: "rom", segment: "rom:lying:1", lang: "ar", ref: { checkId: CHECK }, host: ctl, local: voice },
-    {
-      now: () => Date.now(),
-      wallNow: () => Date.now(),
-      online: () => true,
-      async mint() {
-        const now = Date.now();
-        return {
-          ok: true,
-          serverDate: now,
-          token: {
-            sessionId: "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
-            token: "auth_tokens/t1",
-            model: "gemini-3.8-live",
-            apiVersion: "v1beta",
-            voice: "Achird",
-            expiresAt: new Date(now + 12 * 60_000).toISOString(),
-            newSessionExpiresAt: new Date(now + 120_000).toISOString(),
-            history: [{ role: "user", text: "[CTX block=rom segment=rom:lying:1 lang=ar helper=yes]" }],
-            minutesLeft: 30,
-          },
-        };
-      },
-      report() {},
-      transport() {
-        const t = new d.FakeLiveTransport({ setupMs: 900 });
-        transports.push(t);
-        return t;
-      },
-      mic: () => new d.FakeMic(),
-      speaker: () => new d.FakeSpeaker(),
-      deviceId: () => "device_abcdefghijklmnop",
-      tickMs: 50,
+  const transports: FakeLiveTransport[] = [];
+  const voice = new FakeVoice();
+  const deps: CoachDeps = {
+    now: () => Date.now(),
+    wallNow: () => Date.now(),
+    online: () => true,
+    async mint() {
+      const now = Date.now();
+      return {
+        ok: true,
+        serverDate: now,
+        token: {
+          sessionId: "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+          token: "auth_tokens/t1",
+          model: "gemini-3.8-live",
+          apiVersion: "v1beta",
+          voice: "Achird",
+          expiresAt: new Date(now + 12 * 60_000).toISOString(),
+          newSessionExpiresAt: new Date(now + 120_000).toISOString(),
+          history: [{ role: "user", text: "[CTX block=rom segment=rom:lying:1 lang=ar helper=yes]" }],
+          minutesLeft: 30,
+        },
+      };
     },
+    report() {},
+    transport() {
+      const t = new FakeLiveTransport({ setupMs: 900 });
+      transports.push(t);
+      return t;
+    },
+    mic: () => new FakeMic(),
+    speaker: () => new FakeSpeaker(),
+    deviceId: () => "device_abcdefghijklmnop",
+    tickMs: 50,
+  };
+  const session = new CoachSession(
+    { block: "rom", segment: "rom:lying:1", lang: "ar", ref: { checkId: CHECK }, host: ctl, local: voice },
+    deps,
   );
   const live = () => transports[transports.length - 1];
   /** The controller's events for the coach, as the shell hands them to useCoach.push. */
@@ -124,8 +76,7 @@ function setup(d: DModules) {
     live().emit({ type: "toolCall", calls: [{ id, name, args }] });
   const reply = (id: string) =>
     live()
-      .sent.filter((s) => s.kind === "toolResponse")
-      .flatMap((s) => s.responses ?? [])
+      .sent.flatMap((s) => (s.kind === "toolResponse" ? s.responses : []))
       .find((r) => r.id === id)?.response;
   return { ctl, session, voice, live, pipe, call, reply };
 }
@@ -136,9 +87,8 @@ beforeEach(() => vi.useFakeTimers({ now: T0 }));
 afterEach(() => vi.useRealTimers());
 
 describe("the RomController through D's coach segment (DG-7)", () => {
-  it("records the person's spoken yes at the hold, through the answer guard and the executor", async (ctx) => {
-    if (!D) return ctx.skip();
-    const h = setup(D);
+  it("records the person's spoken yes at the hold, through the answer guard and the executor", async () => {
+    const h = setup();
     h.ctl.startBlock("lying", 0);
     h.session.start();
     await run(900);
@@ -153,7 +103,7 @@ describe("the RomController through D's coach segment (DG-7)", () => {
     h.pipe(p1.slice(-1));
     const asked = h
       .live()
-      .sent.filter((s) => s.kind === "context")
+      .sent.flatMap((s) => (s.kind === "context" ? [s] : []))
       .at(-1)!;
     expect(asked.turnComplete).toBe(true);
     expect(asked.text).toContain("type=end_range_hold mv=knee_flexion side=right");
@@ -173,9 +123,8 @@ describe("the RomController through D's coach segment (DG-7)", () => {
     h.session.end("done");
   });
 
-  it("refuses next_step on a confirmation and pauses only an active step; a spoken pain stops the movement", async (ctx) => {
-    if (!D) return ctx.skip();
-    const h = setup(D);
+  it("refuses next_step on a confirmation and pauses only an active step; a spoken pain stops the movement", async () => {
+    const h = setup();
     h.ctl.startBlock("lying", 0);
     h.session.start();
     await run(900);

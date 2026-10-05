@@ -14,7 +14,7 @@ import { SessionHost, type SessionScreen } from "../../src/features/coach-agent/
 import { ROTATE_AFTER_SETUP_MS } from "../../src/coach/events";
 import type { BridgeEvent, CoachHost, CoachSegment, TransportEvent } from "../../src/coach/types";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../server/modules/agent/types";
-import { FakeMic, FakeSpeaker, FakeVoice, RefRomHost } from "./d-coach-harness";
+import { FakeMic, FakeSpeaker, FakeVoice, RefGaitHost, RefRomHost, type GaitStepId } from "./d-coach-harness";
 
 const T0 = Date.UTC(2026, 9, 4, 9, 0, 0);
 const CHECK = "0b6f1c1e-1d2a-4c8e-9a1b-2f3c4d5e6f70";
@@ -822,5 +822,131 @@ describe("a workout segment with the session host", () => {
     expect(host.step().kind).toBe("safety");
     // The stop waits for the person's tap: the screen confirms, then pushes the P0.
     expect(h.contexts().filter((c) => c.turnComplete)).toEqual([]);
+  });
+
+  it("comes back after a fallback only at the next step, never mid exercise", async () => {
+    const host = new SessionHost(screen(), null);
+    const h = harness({ host, segment: "session:1" });
+    h.session.start();
+    await run(900);
+    host.setStep("active", "sit_to_stand set 1");
+    h.emit({ type: "error", code: "socket_error" });
+    expect(h.session.getSnapshot().mode).toBe("local");
+    for (let i = 1; i <= 3; i++)
+      h.push({ p: 3, type: "reps", exercise: "sit_to_stand", count: i, target: 10, t: Date.now() });
+    await run(2000);
+    expect(h.transports).toHaveLength(1);
+    host.setStep("timer", "rest");
+    h.push({ p: 3, type: "step_start", label: "rest", t: Date.now() });
+    await run(900);
+    expect(h.transports).toHaveLength(2);
+    expect(h.mints).toHaveLength(2);
+    expect(h.session.getSnapshot().mode).toBe("live");
+    expect(h.live().sent[0]).toMatchObject({ kind: "history" });
+  });
+});
+
+/* ------------------------------------------------------- a walk */
+
+describe("a gait segment with the reference gait host", () => {
+  const responses = (h: ReturnType<typeof harness>) =>
+    h
+      .live()
+      .sent.flatMap((s) => (s.kind === "toolResponse" ? s.responses : []))
+      .map((r) => [r.id, r.response]);
+
+  it("ends the walk on a spoken pain, waits for a tap to walk again, and ends the test pain_limited at a rise of 2", async () => {
+    const gait = new RefGaitHost();
+    gait.painToday = { knee: 2 };
+    const h = harness({ host: gait, segment: "gait" });
+    h.session.start();
+    await run(900);
+    expect(h.mints[0]).toMatchObject({ block: "gait", segment: "gait", ref: { checkId: CHECK } });
+    gait.walk();
+    h.push({ p: 3, type: "step_start", label: "walk_side", t: Date.now() });
+    gait.cycle();
+    gait.cycle();
+    gait.cycle();
+    // The coach's own pain call, with nothing said by the person, changes nothing (S0-2).
+    h.emit(call("g0", "mark_pain", { level: 0 }));
+    expect(gait.recording).toBe(true);
+    h.emit(heard("ركبتي توجعني شوي، ثلاثة"));
+    h.emit(call("g1", "mark_pain", { level: 3, location: "knee" }));
+    expect(gait.recording).toBe(false);
+    expect(gait.recordingsEnded).toEqual([3]);
+    // Walking again is the person's tap: the coach cannot pass it.
+    h.emit(call("g2", "next_step", {}));
+    expect(gait.step()).toEqual({ kind: "confirm", finished: false });
+    gait.walk();
+    gait.cycle();
+    h.emit(heard("زاد الألم، أربعة"));
+    h.emit(call("g3", "mark_pain", { level: 4, location: "knee" }));
+    expect(gait.outcome).toEqual({ label: "pain_limited", cleanCycles: 4 });
+    h.emit(call("g4", "resume", {}));
+    expect(responses(h)).toEqual([
+      ["g0", { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }],
+      ["g1", { accepted: true, say: "pain_ok", data: { action: "recording_ended" } }],
+      ["g2", { accepted: false, reason: "not_allowed", say: "tap_to_confirm" }],
+      ["g3", { accepted: true, say: "pain_stop", data: { action: "stop_test" } }],
+      ["g4", { accepted: false, reason: "safety_stop" }],
+    ]);
+  });
+
+  it("never passes the setup taps or a pad safety step for the person (C-16)", async () => {
+    const gait = new RefGaitHost();
+    const h = harness({ host: gait, segment: "gait" });
+    h.session.start();
+    await run(900);
+    const taps: GaitStepId[] = [
+      "clear_path",
+      "support_nearby",
+      "helper_present",
+      "pad_floor_and_stop_key",
+      "pad_auto_speed_off",
+      "pad_step_on_stopped",
+      "pad_handrail",
+      "pad_support_side",
+      "pad_warm_up",
+    ];
+    for (const id of taps) {
+      gait.show(id);
+      h.emit(call(id, "next_step", {}));
+    }
+    gait.show("intro");
+    h.emit(call("intro", "next_step", {}));
+    gait.walk();
+    gait.passDone();
+    h.emit(call("walk", "next_step", {}));
+    expect(responses(h)).toEqual([
+      ...taps.map((id) => [id, { accepted: false, reason: "not_allowed", say: "tap_to_confirm" }]),
+      ["intro", { accepted: true }],
+      ["walk", { accepted: true }],
+    ]);
+  });
+
+  it("comes back after a fallback only at the end of a pass, with the host's state", async () => {
+    const gait = new RefGaitHost();
+    const h = harness({ host: gait, segment: "gait" });
+    h.session.start();
+    await run(900);
+    gait.walk();
+    h.emit({ type: "error", code: "socket_error" });
+    expect(h.session.getSnapshot().mode).toBe("local");
+    // Mid walk: a new step and a setup correction are no boundary.
+    h.push({ p: 3, type: "step_start", label: "walk_side", t: Date.now() });
+    h.push({ p: 2, type: "setup_issue", issue: "too_close", t: Date.now() });
+    await run(2000);
+    expect(h.transports).toHaveLength(1);
+    gait.cycle();
+    gait.passDone();
+    h.push({ p: 3, type: "pass_done", view: "side", cleanCycles: 1, needed: 6, t: Date.now() });
+    await run(900);
+    expect(h.transports).toHaveLength(2);
+    expect(h.mints).toHaveLength(2);
+    expect(h.session.getSnapshot().mode).toBe("live");
+    expect(h.live().sent[0]).toEqual({
+      kind: "history",
+      turns: [{ role: "user", text: `${HISTORY[0].text}\n[CTX now gait step=walk cycles=1]` }, HISTORY[1]],
+    });
   });
 });

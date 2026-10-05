@@ -18,7 +18,7 @@ import type {
   ToolName,
   ToolResult,
 } from "../../src/coach/types";
-import { ControlHost, RefRomHost } from "./d-coach-harness";
+import { ControlHost, RefGaitHost, RefRomHost } from "./d-coach-harness";
 
 type Response = { id: string; name: string; response: ToolResult; scheduling?: string };
 
@@ -240,6 +240,72 @@ describe("pain and stop (S0-2, C-15)", () => {
     s.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 3 } }], 1400);
     s.ex.handle([{ id: "k2", name: "keep_reaching", args: {} }], 1500);
     expect(s.results()[3]).toEqual({ accepted: false, reason: "after_pain" });
+  });
+});
+
+describe("pain and stop in a walk (the gait row of the host table, C-15)", () => {
+  const pain = (id: string, level: number, more: { sharp?: boolean; location?: string } = {}) => ({
+    id,
+    name: "mark_pain",
+    args: { level, ...more },
+  });
+
+  it("measures the rise from the named region's score today, else the highest leg, hip or back score, else 0", () => {
+    const host = new RefGaitHost();
+    host.painToday = { back_trunk: 4, hip: 1, shoulder: 7 };
+    const s = setup(host);
+    s.guard.heard("it hurts", 100);
+    // No place named: the back's 4 (a shoulder score is not a leg, hip or back one), so 5 goes on.
+    s.ex.handle([pain("p1", 5)], 200);
+    expect(s.results()[0]).toEqual({ accepted: true, say: "pain_ok", data: { action: "continue" } });
+    // The hip named: its 1, so 5 is a rise of 4 and ends the test.
+    s.ex.handle([pain("p2", 5, { location: "hip" })], 300);
+    expect(s.results()[1]).toEqual({ accepted: true, say: "pain_stop", data: { action: "stop_test" } });
+    const fresh = new RefGaitHost();
+    const t = setup(fresh);
+    t.guard.heard("a little pain", 100);
+    // Nothing today: 0, so 2 is a rise of 2.
+    t.ex.handle([pain("p3", 2)], 200);
+    expect(t.results()[0].data).toEqual({ action: "stop_test" });
+    expect(fresh.outcome).toEqual({ label: "pain_limited", cleanCycles: 0 });
+  });
+
+  it("ends the recording on every spoken pain and stop, and the test at 6 or a sharp pain", () => {
+    const host = new RefGaitHost();
+    host.painToday = { knee: 3 };
+    const s = setup(host);
+    s.guard.heard("ركبتي توجعني شوي", 100);
+    host.walk();
+    host.cycle();
+    host.cycle();
+    // Below the rule: the walk ends and the screen asks for a tap to walk again.
+    s.ex.handle([pain("p1", 4, { location: "knee" })], 200);
+    expect(s.results()[0]).toEqual({ accepted: true, say: "pain_ok", data: { action: "recording_ended" } });
+    expect(host.recording).toBe(false);
+    expect(host.recordingsEnded).toEqual([2]);
+    expect(host.step()).toEqual({ kind: "confirm", finished: false });
+    host.walk();
+    s.ex.handle([{ id: "s1", name: "stop", args: { reason: "tired" } }], 300);
+    expect(host.recordingsEnded).toEqual([2, 2]);
+    expect(host.stopList).toEqual([{ reason: "tired", emergencyFirst: false }]);
+    for (const [id, args] of [
+      ["p2", { level: 6 }],
+      ["p3", { level: 1, sharp: true }],
+    ] as const) {
+      const walker = new RefGaitHost();
+      walker.painToday = { knee: 5 };
+      const w = setup(walker);
+      w.guard.heard("آه", 100);
+      walker.walk();
+      walker.cycle();
+      w.ex.handle([{ id, name: "mark_pain", args }], 200);
+      expect(w.results()[0].data, id).toEqual({ action: "stop_test" });
+      // The test ends labelled pain_limited, the completed clean cycles kept; nothing restarts it.
+      expect(walker.outcome).toEqual({ label: "pain_limited", cleanCycles: 1 });
+      expect(walker.step().kind).toBe("safety");
+      w.ex.handle([{ id: "r", name: "resume", args: {} }], 300);
+      expect(w.results()[1]).toEqual({ accepted: false, reason: "safety_stop" });
+    }
   });
 });
 

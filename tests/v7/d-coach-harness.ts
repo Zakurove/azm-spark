@@ -7,10 +7,15 @@
  *   - RefRomHost, a reference range host that follows the 2.11 host table (phases, the hold, the
  *     answers by voice and by button, keep_reaching, painStopRule with painBefore), so the executor and
  *     the session are tested against the table before B3 builds the real one;
+ *   - RefGaitHost, a reference gait host that follows the same table for the gait block (any
+ *     mark_pain or stop ends the recording, the score before from the named region or the highest leg,
+ *     hip or back score today, a pain stop ends the test pain_limited, the setup and pad safety taps
+ *     are confirm steps), before C4 builds the real GaitController;
  *   - ControlHost, a host made of the shared step kind rules only, for any block.
  */
 import { painStopRule } from "../../src/medical/pain-rule";
 import {
+  EMERGENCY_REASONS,
   nextStepRefusal,
   pauseRefusal,
   resumeRefusal,
@@ -28,6 +33,7 @@ import type {
 import type { Severity } from "../../src/engine/types";
 import type { LimitCause, RomAnswer } from "../../src/engine/rom/types";
 import type { RomMovementId, RomSide } from "../../src/movements/rom/types";
+import type { RegionId } from "../../src/medical/body-map";
 
 /* ----------------------------------------------------------- the voice */
 
@@ -267,6 +273,139 @@ export class RefRomHost implements CoachHost {
     }
     this.phase = "attempt";
     return { accepted: true, say: "pain_ask", data: { recorded: false, deg: hold.deg } };
+  }
+}
+
+/** The regions of "the highest leg, hip or back score today" (2.11 host table, gait mark_pain). */
+const LEG_HIP_BACK: readonly RegionId[] = ["back_trunk", "hip", "knee", "ankle_foot"];
+
+/**
+ * The gait steps a reference capture shows, with their kinds (C-16): the clear path, the support
+ * nearby, the helper present and each pad safety step of gait-rules eligibility.padSafety are taps the
+ * person or the helper must make; the handrail question is a question; the warm up and the rest are
+ * timers; a walk is active.
+ */
+export const GAIT_STEPS = {
+  intro: "info",
+  clear_path: "confirm",
+  support_nearby: "confirm",
+  helper_present: "confirm",
+  pad_floor_and_stop_key: "confirm",
+  pad_auto_speed_off: "confirm",
+  pad_step_on_stopped: "confirm",
+  pad_handrail: "question",
+  pad_support_side: "confirm",
+  pad_warm_up: "timer",
+  walk: "active",
+  rest: "timer",
+  walk_again: "confirm",
+} as const satisfies Record<string, CoachStepKind>;
+export type GaitStepId = keyof typeof GAIT_STEPS;
+
+/**
+ * A gait host as the 2.11 host table writes it. The test shows steps (show), starts a walk (walk),
+ * counts its clean cycles (cycle) and ends a pass (passDone). Any mark_pain or stop ends the
+ * recording (gait-rules stops); a pain at or above painStopRule ends the test pain_limited with the
+ * completed clean cycles kept, else the screen asks for a tap to walk again.
+ */
+export class RefGaitHost implements CoachHost {
+  readonly block = "gait" as const;
+  stepId: GaitStepId = "intro";
+  finished = false;
+  recording = false;
+  cleanCycles = 0;
+  pausedBy: PausedBy = null;
+  stopped = false;
+  /** Today's pain answers per region (the pre-check's painByRegion). */
+  painToday: Partial<Record<RegionId, number>> = {};
+  /** The walks a pain or a stop ended, with the clean cycles each had. */
+  recordingsEnded: number[] = [];
+  outcome: { label: "pain_limited"; cleanCycles: number } | null = null;
+  stopList: { reason: string; emergencyFirst: boolean }[] = [];
+  calls: ToolName[] = [];
+
+  show(id: GaitStepId) {
+    this.stepId = id;
+    this.finished = false;
+    this.pausedBy = null;
+  }
+  walk() {
+    this.show("walk");
+    this.recording = true;
+  }
+  cycle() {
+    if (this.recording && !this.pausedBy) this.cleanCycles++;
+  }
+  passDone() {
+    this.recording = false;
+    this.finished = true;
+  }
+  step(): { kind: CoachStepKind; finished: boolean } {
+    if (this.stopped) return { kind: "safety", finished: false };
+    return { kind: GAIT_STEPS[this.stepId], finished: this.finished };
+  }
+  snapshot(): string {
+    return `gait step=${this.stepId} cycles=${this.cleanCycles}`;
+  }
+  /** The score before (2.11): the named region's today, else the highest leg, hip or back score, else 0. */
+  before(location?: RegionId): number {
+    const named = location === undefined ? undefined : this.painToday[location];
+    if (named !== undefined) return named;
+    return Math.max(0, ...LEG_HIP_BACK.map((r) => this.painToday[r] ?? 0));
+  }
+
+  handleTool<N extends ToolName>(name: N, args: ToolArgs[N]): ToolResult {
+    this.calls.push(name);
+    const control = { step: this.step(), pausedBy: this.pausedBy, stopped: this.stopped };
+    switch (name) {
+      case "mark_pain": {
+        const a = args as ToolArgs["mark_pain"];
+        const ended = this.endRecording();
+        const rule = painStopRule(a.level, a.sharp === true, this.before(a.location));
+        if (rule.stop) {
+          if (!this.stopped) {
+            this.stopped = true;
+            this.outcome = { label: "pain_limited", cleanCycles: this.cleanCycles };
+          }
+          return { accepted: true, say: "pain_stop", data: { action: "stop_test" } };
+        }
+        if (!ended) return { accepted: true, say: "pain_ok", data: { action: "continue" } };
+        this.show("walk_again");
+        return { accepted: true, say: "pain_ok", data: { action: "recording_ended" } };
+      }
+      case "stop": {
+        const { reason } = args as ToolArgs["stop"];
+        this.endRecording();
+        const emergencyFirst = EMERGENCY_REASONS.includes(reason);
+        this.stopList.push({ reason, emergencyFirst });
+        return { accepted: true, say: "tap_to_confirm", data: { reason, emergencyFirst } };
+      }
+      case "pause": {
+        const no = pauseRefusal(control);
+        if (no) return no;
+        this.pausedBy = "coach";
+        return { accepted: true };
+      }
+      case "resume": {
+        const no = resumeRefusal(control);
+        if (no) return no;
+        this.pausedBy = null;
+        return { accepted: true };
+      }
+      case "next_step":
+        return nextStepRefusal(control) ?? { accepted: true };
+      case "repeat_instructions":
+        return { accepted: true, data: { text: "Walk at your own comfortable pace." } };
+    }
+    return { accepted: false, reason: "not_in_block" };
+  }
+
+  /** gait-rules stops: a coach stop and mark_pain end the recording; the clean cycles are kept. */
+  private endRecording(): boolean {
+    if (!this.recording) return false;
+    this.recording = false;
+    this.recordingsEnded.push(this.cleanCycles);
+    return true;
   }
 }
 

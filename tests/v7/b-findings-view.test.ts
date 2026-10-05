@@ -189,6 +189,20 @@ const result = (
   vars: Record<string, number> = {},
 ) => interpolate(lang, romResultLine(key)[lang], { unit: "deg", ...vars });
 
+/** Every string a person reads in the page's groups (titles, labels, lines, notes, changes), not the ids. */
+function shownText(groups: ReturnType<typeof findingsView>["groups"]): string {
+  const out: string[] = [];
+  for (const g of groups) {
+    out.push(g.title);
+    if (g.unmeasured) out.push(...g.unmeasured.names, g.unmeasured.label, g.unmeasured.line);
+    for (const r of g.rows) {
+      out.push(r.name, r.label?.text ?? "", r.line ?? "", ...r.notes, ...r.more);
+      if (r.change) out.push(r.change.text, r.change.values);
+    }
+  }
+  return out.join(" | ");
+}
+
 describe("findingsView: the page's groups and rows", () => {
   const rows = [
     measured(FAHD, "knee_flexion", "right", "lying_back", 95),
@@ -303,11 +317,11 @@ describe("findingsView: the page's groups and rows", () => {
     expect(row(ar, "shoulder_extension")).toMatchObject({
       value: null,
       bar: null,
-      label: { text: romResultLine("label_not_today").ar, tone: "grey" },
-      line: romCopy("deferred_line").ar,
+      label: { text: tV7("ar", "rom.findings.notMeasuredLabel"), tone: "grey" },
+      line: tV7("ar", "rom.findings.deferred"),
       finding: null,
     });
-    expect(row(ar, "shoulder_abduction").line).toBe(romCopy("not_reached_line").ar);
+    expect(row(ar, "shoulder_abduction").line).toBe(tV7("ar", "rom.findings.notReached"));
     // A movement the camera never measures, with no row, is grey all the same, never typical (ROM-Q15);
     // one such movement takes the data's own label and line.
     const neck = intakeOf([{ region: "neck", side: "axial", problems: ["stiffness"], origin: "person" }], {
@@ -330,9 +344,9 @@ describe("findingsView: the page's groups and rows", () => {
       line: tV7("en", "rom.findings.cameraNever"),
     });
     const reasons: [StoredRomRow["reason"], string][] = [
-      ["quality", tV7("ar", "rom.result.quality")],
-      ["no_hold", tV7("ar", "rom.result.quality")],
-      ["by_choice", tV7("ar", "rom.result.byChoice")],
+      ["quality", tV7("ar", "rom.findings.quality")],
+      ["no_hold", tV7("ar", "rom.findings.quality")],
+      ["by_choice", tV7("ar", "rom.findings.byChoice")],
       ["stopped_symptom", tV7("ar", "rom.findings.stopped")],
       ["pain_today", tV7("ar", "rom.findings.safety")],
       ["red_flag", tV7("ar", "rom.findings.safety")],
@@ -349,6 +363,49 @@ describe("findingsView: the page's groups and rows", () => {
     expect(row(findingsView(answer(FAHD, []), FAHD, "ar"), "knee_flexion").line).toBe(
       tV7("ar", "rom.findings.notInCheck"),
     );
+  });
+
+  it("never says today: the page is dated and opens any completed check (its lines are tied to the check)", () => {
+    const reasons: StoredRomRow["reason"][] = [
+      "quality",
+      "no_hold",
+      "by_choice",
+      "stopped_symptom",
+      "pain_today",
+      "red_flag",
+      "deferred",
+      "not_reached",
+    ];
+    for (const lang of ["ar", "en"] as const) {
+      for (const reason of reasons) {
+        const v = findingsView(
+          answer(FAHD, [notMeasured("knee_flexion", "right", "not_measured_today", reason, "not_today")]),
+          FAHD,
+          lang,
+        );
+        expect(shownText(v.groups), `${lang} ${reason}`).not.toMatch(/اليوم|today/i);
+      }
+      const changes = findingsView(
+        answer(
+          FAHD,
+          [measured(FAHD, "knee_flexion", "right", "lying_back", 120)],
+          [
+            measured(
+              FAHD,
+              "knee_flexion",
+              "right",
+              "lying_back",
+              90,
+              {},
+              { checkId: "c-first", created: 10 },
+            ),
+          ],
+        ),
+        FAHD,
+        lang,
+      );
+      expect(shownText(changes.groups), lang).not.toMatch(/اليوم|today/i);
+    }
   });
 
   it("shows a pain stop, a pain limited value and a joint the person could not move", () => {

@@ -189,7 +189,8 @@ function labelOf(e: RomProfileEntry, intake: Intake | null, lang: Lang): RowView
   if (e.source === "not_measured_camera") return line("label_default", "grey");
   if (e.reason === "pain_stop") return line("label_pain", "pain");
   if (e.noActiveMovement) return { text: tV7(lang, "rom.findings.noActive"), tone: "grey" };
-  return line("label_not_today", "grey");
+  // The page is dated and opens any completed check: «not measured in this check», never «today».
+  return { text: tV7(lang, "rom.findings.notMeasuredLabel"), tone: "grey" };
 }
 
 /**
@@ -222,15 +223,17 @@ function notMeasuredLine(e: RomProfileEntry, lang: Lang): string | null {
   switch (e.reason) {
     case "no_active_movement":
       return null;
+    // The data's deferred and not reached lines say «today» (the result card's moment); the dated page
+    // says «this check».
     case "deferred":
-      return romCopy("deferred_line")[lang];
+      return tV7(lang, "rom.findings.deferred");
     case "not_reached":
-      return romCopy("not_reached_line")[lang];
+      return tV7(lang, "rom.findings.notReached");
     case "quality":
     case "no_hold":
-      return tV7(lang, "rom.result.quality");
+      return tV7(lang, "rom.findings.quality");
     case "by_choice":
-      return tV7(lang, "rom.result.byChoice");
+      return tV7(lang, "rom.findings.byChoice");
     case "pain_stop":
       return tV7(lang, "rom.findings.painStop");
     case "stopped_symptom":

@@ -145,8 +145,13 @@
     "toLeft": "To the left",
     "noActive": "You could not move it on your own",
     "painStop": "This movement stopped because of pain before we recorded a value.",
-    "stopped": "This movement was stopped, so we did not record it today.",
-    "safety": "For your safety, we did not measure this movement today.",
+    "stopped": "This movement was stopped, so we did not record it in this check.",
+    "safety": "For your safety, we did not measure this movement in this check.",
+    "quality": "The camera could not see the movement clearly enough, so we did not record it in this check.",
+    "byChoice": "You stopped this movement, so we did not record it in this check.",
+    "notMeasuredLabel": "Not measured in this check",
+    "deferred": "We did not measure this movement in this check, to keep it short. We will measure it another time.",
+    "notReached": "This check ended before we reached this movement.",
     "notInCheck": "This movement was not part of this check.",
     "cameraNeverLabel": "Not measured by the camera",
     "cameraNever": "The camera cannot measure these movements accurately enough, so we did not measure them.",
@@ -156,7 +161,7 @@
       "straighter": "Closer to straight than your starting point",
       "lessStraight": "Further from straight than your starting point",
       "same": "About the same as your starting point",
-      "values": "At your starting point {first}, today {latest}"
+      "values": "At your starting point {first}, in this check {latest}"
     },
     "walkTitle": "Your walk since your starting point",
     "walk": {

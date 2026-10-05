@@ -15,13 +15,27 @@
  * quoting its words, and tests/v7/e-targets.test.ts holds each to the data (C-1).
  */
 import { entryCells, limbOf, type RegionEntry, type RegionId, type RegionSide } from "./body-map";
-import { regionId, REGION_ID_KINDS, regionOfTarget, v7Contraindications } from "./contraindications";
+import {
+  openPositions,
+  regionId,
+  REGION_ID_KINDS,
+  regionOfTarget,
+  regionOpenPositions,
+  SEATED_LEAN_BACK_PAIN_AT,
+  v7Contraindications,
+} from "./contraindications";
+import type { StoredFocusToday } from "./focus-precheck";
+import type { GaitPlan } from "./gait-eligibility";
 import { gaitPatternLines, gaitPatternShown } from "./gait-rules";
 import type { GaitPatternResult } from "./gait-types";
+import { adjustReps, adjustSets } from "./legacy-config";
 import type { Intake, Plan } from "./plan";
-import { LIMB_LOSS_PRESENT_REGIONS } from "./rom-protocol";
-import type { CausePath, RomFinding } from "./rom-types";
+import { configsFor, libraryPool, programPool } from "./pool";
+import { hasLowerLimbLoss, LIMB_LOSS_PRESENT_REGIONS } from "./rom-protocol";
+import type { CausePath, RomFinding, RomProfile } from "./rom-types";
 import type {
+  DoseProfileId,
+  ExercisePosition,
   ReferralId,
   TargetAction,
   TargetId,
@@ -29,10 +43,21 @@ import type {
   TargetRequest,
   TargetedItem,
 } from "./target-types";
-import { engineWeekly, type L, type LibraryExercise, type Selection, type WeeklyPlan } from "./weekly";
+import {
+  BLOCK_SIZES,
+  buildWeekly,
+  cameraTwins,
+  defaultSelection,
+  engineWeekly,
+  type L,
+  type LibraryExercise,
+  type Selection,
+  type WeeklyItem,
+  type WeeklyPlan,
+} from "./weekly";
 import { movementDef, ROM_DATA } from "../movements/rom";
 import type { Evidence, RomMovementId } from "../movements/rom/types";
-import { TARGETS_DATA } from "../movements/targets";
+import { doseProfile, TARGETS_DATA } from "../movements/targets";
 import type { WhyLineId } from "../movements/targets/types";
 
 const MAPPING = TARGETS_DATA.mapping;
@@ -663,23 +688,558 @@ export function whyLine(reasons: readonly TargetReason[]): L {
 
 /* ----------------------------------------------------------- selection */
 
-/** selection rules: the eligible pool (libraryPool plus v7 contraindications), position fit, caps, session order, dose profiles. */
-export function selectForTargets(
-  _h: Intake,
-  _plan: Plan,
-  _pool: readonly LibraryExercise[],
-  targets: readonly TargetRequest[],
-): { selection: Selection; items: TargetedItem[]; unmet: TargetRequest[] } {
-  return { selection: { days: [] }, items: [], unmet: [...targets] };
+/**
+ * What a focus check tells the selection beyond the intake (D-026 item 9: E2 reads the stored answers it
+ * needs): the range profile and the gait plan (v7Contraindications' profile and gait ids: a weak
+ * shoulder, a joint the person cannot move, a red flag region, the knee past straight, the walk and pad
+ * eligibility, the prosthesis off), the kept day answers (pusher, armrests, the seated lean answers, the
+ * back pain of the day, the prosthesis) and the walk's patterns (recurvatum). Without a field nothing is
+ * assumed, except the prosthesis (below).
+ */
+export interface TargetContext {
+  profile?: RomProfile | null;
+  gaitPlan?: GaitPlan | null;
+  today?: StoredFocusToday | null;
+  gait?: readonly GaitPatternResult[];
 }
 
-/** The weekly plan built from the findings. Null exactly when engineWeekly is null (plan not ready). */
+/** A session's guided card slots (weekly.ts BLOCK_SIZES): «half of a session's exercise slots» counts them. */
+export const SESSION_SLOTS = BLOCK_SIZES.warmup + BLOCK_SIZES.extra + BLOCK_SIZES.cooldown;
+const NUMBERS = MAPPING.selectionNumbers;
+/** «finding items fill at most half of a session's exercise slots (findingSlotsShareMax, rounded down)» */
+const FINDING_SLOTS = (() => {
+  const n = SESSION_SLOTS * NUMBERS.findingSlotsShareMax;
+  if (NUMBERS.findingSlotsRounding !== "down")
+    throw new Error("The targets data rounds the slots another way");
+  return Math.floor(n);
+})();
+
+/** The seated forms of an item (on a chair, or near its front) and its standing forms. */
+const SEATED_FORMS: readonly ExercisePosition[] = ["seated", "seated_forward"];
+const STANDING_FORMS: readonly ExercisePosition[] = ["standing", "standing_supported"];
+/**
+ * 5.8 step 4: «standing: a standing item for lower limb weight bearing targets and the seated item
+ * otherwise»: the taxonomy's standing only and standing relevant targets.
+ */
+const WEIGHT_BEARING: ReadonlySet<string> = new Set([
+  ...TARGETS_DATA.taxonomy.standingOnlyTargets,
+  ...TARGETS_DATA.taxonomy.standingRelevantTargets,
+]);
+/**
+ * paths pain_stable: «isometrics marked pain friendly first (quad_set, glute_squeeze,
+ * shoulder_wall_press, towel_squeeze), then dynamic work in the comfortable arc».
+ */
+export const PAIN_STABLE_ISOMETRICS: readonly string[] = [
+  "quad_set",
+  "glute_squeeze",
+  "shoulder_wall_press",
+  "towel_squeeze",
+];
+
+/** The person stands for the program: mobility standing, without the standing restrictions. */
+const stands = (h: Intake) =>
+  h.mobility === "standing" &&
+  !h.restrictions.includes("balance_support") &&
+  !h.restrictions.includes("no_weight_bearing");
+
+/**
+ * The ids the check adds to the intake's (v7Contraindications with the profile and the gait plan), with
+ * the kept day answers E1-5 left to E2: «pc_stroke_push yes» (pusher), «pc_trunk_armrests no»
+ * (no_trunk_armrests), seated_lean_gate's «pc_sit_unsupported no or not sure, pc_fall_sitting yes ...
+ * back pain 6 or more, pc_pressure_sore yes», standing_gate's «lower limb loss without the prosthesis»
+ * (the day's answer; a check without a gait plan or an answer reads it as without, E1-5) and
+ * knee_hyperextension's «Gait recurvatum possible or likely». The helper that seated_lean_gate asks for
+ * people living with SCI, stroke, CP, Parkinson's or MS is the item's own caution line
+ * (seated_side_reach), shown with it, so it closes nothing here.
+ */
+export function programContraindications(h: Intake, ctx: TargetContext = {}): Set<string> {
+  const ids = v7Contraindications(h, ctx.profile ?? null, ctx.gaitPlan ?? null);
+  const today = ctx.today;
+  if (today?.pusher === true) ids.add("pusher");
+  if (today?.armrests === false) ids.add("no_trunk_armrests");
+  const lean = today?.seatedLean;
+  if (
+    lean?.fellSitting === true ||
+    lean?.pressureSore === true ||
+    lean?.sitsUnsupported === "no" ||
+    lean?.sitsUnsupported === "unsure" ||
+    (today?.painByRegion.back_trunk ?? 0) >= SEATED_LEAN_BACK_PAIN_AT
+  )
+    ids.add("seated_lean_gate");
+  if (
+    hasLowerLimbLoss(h) &&
+    (today?.prosthesisOn === false || (today?.prosthesisOn === undefined && !ctx.gaitPlan))
+  )
+    ids.add("standing_gate");
+  if (
+    (ctx.gait ?? []).some(
+      (p) => p.pattern === "recurvatum" && (p.status === "possible" || p.status === "likely"),
+    )
+  )
+    ids.add("knee_hyperextension");
+  return ids;
+}
+
+/** An item the program may offer, in the forms it may be done in. */
+interface Candidate {
+  e: LibraryExercise;
+  positions: ExercisePosition[];
+}
+
+/**
+ * The pool's items the check allows, in their open forms (exercise-targets 5.8 steps 1 and 4): every id
+ * that holds closes the item or its forms (openPositions with the signed off ids, D-026 item 9), the
+ * region ids close by the regions it works (regionOpenPositions, «Region filters run last»), a wheelchair
+ * user's items are wheelchair friendly unless the transfer is yes, and a person who does not stand does
+ * an item in its seated form only (C11, C14). A camera movement of the plan keeps the camera (E1-7).
+ */
+function candidatesOf(
+  h: Intake,
+  plan: Pick<Plan, "exercises">,
+  pool: readonly LibraryExercise[],
+  ids: ReadonlySet<string>,
+): Candidate[] {
+  const camera = cameraTwins(plan);
+  const out: Candidate[] = [];
+  for (const e of pool) {
+    if (camera.has(e.id)) continue;
+    if (
+      h.mobility === "wheelchair" &&
+      !e.tags.includes("wheelchair_friendly") &&
+      h.romFlags?.transferChair !== true
+    )
+      continue;
+    const contraindications = [...e.contraindications, ...(e.v7Contraindications ?? [])];
+    const open = openPositions({ positions: e.positions, contraindications }, ids);
+    if (!open) continue;
+    const region = regionOpenPositions({ ...e, positions: open.length ? open : e.positions }, ids);
+    if (!region) continue;
+    let positions = region.length ? region : [...(e.positions ?? [])];
+    if (!stands(h)) positions = positions.filter((p) => SEATED_FORMS.includes(p));
+    if (!positions.length) continue;
+    out.push({ e, positions });
+  }
+  return out;
+}
+
+/** The finding of a target's reason, for «at most 2 items per limited movement or pattern». */
+function findingKeys(t: TargetRequest): string[] {
+  const keys = new Set<string>();
+  for (const r of t.reasons)
+    if (r.kind === "rom") keys.add(`rom:${r.movementId}:${r.side}`);
+    else if (r.kind === "gait") keys.add(`gait:${r.pattern}:${r.label}:${r.side}`);
+  return keys.size ? [...keys] : [`target:${t.id}:${t.side}`];
+}
+
+/**
+ * gradeRules perAction: «markedlyLimited 2», «painLimited 2», «mildlyLimited 1», «provisional (1 valid
+ * attempt) 1», the region default and residual rows 1. A provisional marked result is one priority lower
+ * (B4's findingPriority), so a target at priority 3 from a marked or pain limited result takes 2.
+ */
+const PER_ACTION_TWO: ReadonlySet<string> = new Set(
+  [gradeRule("markedlyLimited"), gradeRule("painLimited")].map((r) => {
+    if (r.perAction !== 2)
+      throw new Error(`The targets data gives ${r.finding} ${String(r.perAction)} items`);
+    return r.finding === "markedlyLimited" ? "marked" : "pain_limited";
+  }),
+);
+const perAction = (t: TargetRequest) =>
+  t.priority === 3 && t.reasons.some((r) => r.kind === "rom" && PER_ACTION_TWO.has(r.finding)) ? 2 : 1;
+
+/** A target only the self assisted shoulder items may fill: a shoulder movement the person could not move. */
+const selfAssisted = (t: TargetRequest) =>
+  t.reasons.some(
+    (r) => r.kind === "rom" && r.finding === "unknown" && movementDef(r.movementId).region === "shoulder",
+  );
+
+/** An item may serve a target: it names the target, from the pain friendly set when asked, self assisted when asked. */
+function serves(c: Candidate, t: TargetRequest): boolean {
+  if (!(c.e.targets ?? []).some((x) => x.id === t.id)) return false;
+  if (t.painFriendlyOnly && c.e.painFriendly !== true) return false;
+  if (selfAssisted(t) && !SELF_ASSISTED_SHOULDER.includes(c.e.id)) return false;
+  return true;
+}
+
+/** The order of an item for a target (5.8 step 4), lower first. */
+function rank(
+  c: Candidate,
+  t: TargetRequest,
+  h: Intake,
+  all: readonly TargetRequest[],
+  index: number,
+): number[] {
+  const role = c.e.targets!.find((x) => x.id === t.id)!.role === "primary" ? 0 : 1;
+  const isometric =
+    t.painFriendlyOnly && actionOf(t.id) === "strengthen" && PAIN_STABLE_ISOMETRICS.includes(c.e.id) ? 0 : 1;
+  const standingForm = c.positions.some((p) => STANDING_FORMS.includes(p));
+  const seatedForm = c.positions.some((p) => SEATED_FORMS.includes(p));
+  const fit = stands(h) && WEIGHT_BEARING.has(t.id) ? (standingForm ? 0 : 1) : seatedForm ? 0 : 1;
+  const others = all.filter((x) => x !== t && serves(c, x)).length;
+  return [role, isometric, fit, -others, index];
+}
+const before = (a: number[], b: number[]) => {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+};
+
+/** An item the selection chose, the targets it serves (the first is the one it was chosen for). */
+interface Chosen {
+  c: Candidate;
+  targets: TargetRequest[];
+}
+
+/** The session block of an item (2.2 session order): range first, then strength, balance and practice, held stretches last. */
+const BLOCK_OF: Record<TargetAction, "warmup" | "extra" | "cooldown"> = {
+  mobility: "warmup",
+  strengthen: "extra",
+  balance: "extra",
+  practice: "extra",
+  stretch: "cooldown",
+};
+/** Within the day's exercises: strengthening before balance and task practice (2.2). */
+const EXTRA_ORDER: Record<TargetAction, number> = {
+  mobility: 0,
+  strengthen: 1,
+  balance: 2,
+  practice: 2,
+  stretch: 3,
+};
+
+/* ------------------------------------------------------------------ dose */
+
+/** The profile of an action for an item that names none (the library's existing entries). */
+const ACTION_PROFILE: Record<TargetAction, DoseProfileId> = {
+  mobility: "mobility_reps",
+  stretch: "stretch_hold",
+  strengthen: "strength_reps",
+  balance: "balance_practice",
+  practice: "walking_practice",
+};
+
+/** A target on the pain path: its items come from the pain friendly set for pain (not only early after surgery). */
+const painPath = (t: TargetRequest) =>
+  t.painFriendlyOnly && !t.reasons.every((r) => r.kind === "rom" && r.path === "post_op_early");
+
+/**
+ * The dose profile of an item (5.8 step 8: «Dose comes from the profile of the item»): its pain profile
+ * on the pain path, its stretch profile when it was chosen for a stretch, else its profile; an existing
+ * entry, which names none, takes its action's (the pain path's range is mobility_pain).
+ */
+function profileOf(p: Chosen): DoseProfileId {
+  const main = p.targets[0];
+  const action = actionOf(main.id);
+  const pain = p.targets.some(painPath);
+  const d = p.c.e.dose;
+  if (d) {
+    if (pain && d.painProfile) return d.painProfile;
+    if (action === "stretch" && d.stretchProfile) return d.stretchProfile;
+    return d.profile;
+  }
+  return pain && action === "mobility" ? "mobility_pain" : ACTION_PROFILE[action];
+}
+
+const olderThan = (h: Intake) => h.age >= needed(TARGETS_DATA.placeholders.olderFromAge, "olderFromAge");
+const atAge = (
+  h: Intake,
+  v: number | { under65: number; age65plus: number } | string | undefined,
+  what: string,
+) => {
+  if (typeof v === "number") return v;
+  if (v && typeof v === "object") return olderThan(h) ? v.age65plus : v.under65;
+  throw new Error(`The dose data writes ${what} in words only`);
+};
+const first = (v: number[] | undefined, what: string) => needed(v?.[0], what);
+
+/**
+ * A profile's numbers as a card (2.1, the start of each range: «start light and build»): a held stretch
+ * by age (30 seconds twice under 65, 60 seconds once from 65); 10 range repetitions in 1 round; 5 to 10
+ * gentle ones on the pain path (5); strength 10 to 15 in 1 set to start (10); isometric holds of 5 seconds
+ * 10 times; balance holds up to 10 seconds, 10 to 15 times (10); walking 10 minutes to start; cued walking
+ * in its default bouts. Then «the existing plan notes (fatigue, heat) lower it where they apply»: the
+ * fatigue note lowers sets and repetitions by the condition's rules (legacy adjustSets, adjustReps), as
+ * the plan's camera dose is lowered.
+ */
+function doseOf(
+  profile: DoseProfileId,
+  h: Intake,
+  plan: Plan,
+): { sets: number; reps?: number; holdSeconds?: number } {
+  const n = doseProfile(profile).numbers;
+  let dose: { sets: number; reps?: number; holdSeconds?: number };
+  switch (profile) {
+    case "stretch_hold":
+      dose = {
+        sets: atAge(h, n.repetitions, "repetitions"),
+        holdSeconds: atAge(h, n.holdSeconds, "holdSeconds"),
+      };
+      break;
+    case "mobility_reps":
+      dose = {
+        sets: first(n.roundsRange, "mobility_reps rounds"),
+        reps: atAge(h, n.repetitions, "repetitions"),
+      };
+      break;
+    case "mobility_pain":
+      dose = {
+        sets: atAge(h, n.rounds as number, "rounds"),
+        reps: first(n.repetitionsRange, "mobility_pain repetitions"),
+      };
+      break;
+    case "strength_reps": {
+      const sets = n.sets;
+      if (!sets || typeof sets !== "object")
+        throw new Error("The dose data writes strength_reps sets in words only");
+      dose = { sets: sets.start, reps: first(n.repetitionsRange, "strength_reps repetitions") };
+      break;
+    }
+    case "strength_isometric":
+      dose = {
+        sets: atAge(h, n.repetitions, "repetitions"),
+        holdSeconds: atAge(h, n.holdSeconds, "holdSeconds"),
+      };
+      break;
+    case "balance_practice":
+      dose = {
+        sets: first(n.repetitionsRange, "balance repetitions"),
+        holdSeconds: needed(n.holdSecondsMax, "holdSecondsMax"),
+      };
+      break;
+    case "walking_practice":
+      dose = { sets: 1, holdSeconds: needed(n.startMinutes, "startMinutes") * 60 };
+      break;
+    case "cue_walking": {
+      const bouts = needed(n.defaultBouts, "defaultBouts");
+      dose = { sets: bouts.bouts, holdSeconds: bouts.minutes * 60 };
+      break;
+    }
+  }
+  if (plan.notes.includes("fatigue")) {
+    const configs = configsFor(h);
+    if (configs.length) {
+      dose.sets = Math.min(dose.sets, ...configs.map((c) => adjustSets(dose.sets, c)));
+      if (dose.reps !== undefined)
+        dose.reps = Math.min(dose.reps, ...configs.map((c) => adjustReps(dose.reps!, c)));
+    }
+  }
+  return dose;
+}
+
+const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+const arDigits = (n: number) => String(n).replace(/\d/g, (d) => ARABIC_DIGITS[Number(d)]);
+/** Seconds counted in Arabic: «ثانية واحدة», «ثانيتين», «٣ ثوانٍ» to 10, then «١١ ثانية». */
+function arSeconds(n: number): string {
+  if (n === 1) return "ثانية واحدة";
+  if (n === 2) return "ثانيتين";
+  return n <= 10 ? `${arDigits(n)} ثوانٍ` : `${arDigits(n)} ثانية`;
+}
+
+/**
+ * The hold of the steps' {hold_ar} and {hold_en} (TARGETS_DATA.placeholders, E1-8): «The hold time with
+ * its correct Arabic counted noun, from the item's dose profile and the person's age: «30 ثانية»
+ * (stretch_hold, under 65), «60 ثانية» (65 and over), «لحظة» on the pain path», 'a moment' in English.
+ */
+function holdOf(p: Chosen, profile: DoseProfileId, h: Intake): L | undefined {
+  const named =
+    p.c.e.steps.ar.some((s) => s.includes("{hold_ar}")) ||
+    p.c.e.steps.en.some((s) => s.includes("{hold_en}"));
+  if (!named) return undefined;
+  if (profile === "mobility_pain") return { ar: PAIN_HOLD.ar, en: PAIN_HOLD.en };
+  const seconds = atAge(h, TARGETS_DATA.placeholders.holdSeconds, "the hold");
+  return { ar: arSeconds(seconds), en: `${seconds} seconds` };
+}
+/** placeholders.hold_ar: «لحظة» on the pain path; hold_en: 'a moment'. */
+export const PAIN_HOLD: L = { ar: "لحظة", en: "a moment" };
+
+/* --------------------------------------------------------------- select */
+
+/**
+ * selection rules (exercise-targets 5.8): the eligible pool with the check's contraindications, position
+ * fit, pain friendly items on the pain paths, the caps (2 items per finding, at most half the slots of a
+ * session), session order, dose profiles. The pool is programPool(h) (pool.ts): libraryPool's rules with
+ * the new exercises and the seated forms (D-023 item 2). `selection` holds each day's finding items in
+ * their blocks; the goal and sport share is targetedWeekly's.
+ */
+export function selectForTargets(
+  h: Intake,
+  plan: Plan,
+  pool: readonly LibraryExercise[],
+  targets: readonly TargetRequest[],
+  ctx: TargetContext = {},
+): { selection: Selection; items: TargetedItem[]; unmet: TargetRequest[] } {
+  const candidates = candidatesOf(h, plan, pool, programContraindications(h, ctx));
+  const order = new Map(candidates.map((c, i) => [c.e.id, i]));
+  const picks: Chosen[] = [];
+  const perFinding = new Map<string, number>();
+  // Two rounds, so the cap of a finding is shared among its actions: each target takes its first item,
+  // then a target whose grade asks for two items (perAction) takes its second while the cap allows.
+  for (const round of [1, 2])
+    for (const t of targets) {
+      const keys = findingKeys(t);
+      let have = 0;
+      for (const p of picks)
+        if (serves(p.c, t)) {
+          if (!p.targets.includes(t)) p.targets.push(t);
+          have++;
+        }
+      while (have < Math.min(round, perAction(t))) {
+        if (keys.every((k) => (perFinding.get(k) ?? 0) >= NUMBERS.itemsPerFindingMax)) break;
+        const best = candidates
+          .filter((c) => !picks.some((p) => p.c === c) && serves(c, t))
+          .sort((a, b) =>
+            before(rank(a, t, h, targets, order.get(a.e.id)!), rank(b, t, h, targets, order.get(b.e.id)!)),
+          )[0];
+        if (!best) break;
+        picks.push({ c: best, targets: [t] });
+        for (const k of keys) perFinding.set(k, (perFinding.get(k) ?? 0) + 1);
+        have++;
+      }
+    }
+  // «One exercise that covers several chosen targets fills one slot and carries every reason.»
+  for (const p of picks)
+    for (const t of targets) if (!p.targets.includes(t) && serves(p.c, t)) p.targets.push(t);
+
+  const days = schedule(plan, picks);
+  const scheduled = picks.filter((p) => days.some((d) => d.has(p)));
+  const items = scheduled.map((p) => targetedItem(p, h, plan));
+  const byId = new Map(items.map((i) => [i.exerciseId, i]));
+  const selection: Selection = {
+    days: days.map((d) => {
+      const ids = [...d.keys()]
+        .sort((a, b) => EXTRA_ORDER[actionOf(a.targets[0].id)] - EXTRA_ORDER[actionOf(b.targets[0].id)])
+        .map((p) => ({ id: p.c.e.id, block: d.get(p)! }));
+      return {
+        warmup: ids.filter((x) => x.block === "warmup").map((x) => x.id),
+        extra: ids.filter((x) => x.block === "extra").map((x) => x.id),
+        cooldown: ids.filter((x) => x.block === "cooldown").map((x) => x.id),
+      };
+    }),
+  };
+  const unmet = targets.filter((t) => !scheduled.some((p) => p.targets.includes(t)));
+  return { selection, items: [...byId.values()], unmet };
+}
+
+/**
+ * The finding items of each training day (5.8 step 5): at most FINDING_SLOTS a session; each day takes
+ * the items shown least so far, the higher priority first, then in session order (range first: it is
+ * the daily warm up), so every item comes round; a strengthening
+ * item is not on two days in a row («never the same muscles on 2 days in a row»); each block keeps its
+ * size (a third range item opens the day's exercises; a third stretch waits for another day).
+ */
+function schedule(plan: Plan, picks: readonly Chosen[]): Map<Chosen, "warmup" | "extra" | "cooldown">[] {
+  const shown = new Map<Chosen, number>();
+  const priority = (p: Chosen) => Math.max(...p.targets.map((t) => t.priority));
+  const index = new Map(picks.map((p, i) => [p, i]));
+  const out: Map<Chosen, "warmup" | "extra" | "cooldown">[] = [];
+  plan.days.forEach((day, d) => {
+    const previous = d > 0 && day - plan.days[d - 1] === 1 ? out[d - 1] : null;
+    const today = new Map<Chosen, "warmup" | "extra" | "cooldown">();
+    const used = { warmup: 0, extra: 0, cooldown: 0 };
+    const queue = [...picks].sort(
+      (a, b) =>
+        (shown.get(a) ?? 0) - (shown.get(b) ?? 0) ||
+        priority(b) - priority(a) ||
+        EXTRA_ORDER[actionOf(a.targets[0].id)] - EXTRA_ORDER[actionOf(b.targets[0].id)] ||
+        index.get(a)! - index.get(b)!,
+    );
+    for (const p of queue) {
+      if (today.size >= FINDING_SLOTS) break;
+      const action = actionOf(p.targets[0].id);
+      if (action === "strengthen" && previous?.has(p)) continue;
+      let block = BLOCK_OF[action];
+      if (block === "warmup" && used.warmup >= BLOCK_SIZES.warmup) block = "extra";
+      if (used[block] >= BLOCK_SIZES[block]) continue;
+      today.set(p, block);
+      used[block]++;
+      shown.set(p, (shown.get(p) ?? 0) + 1);
+    }
+    out.push(today);
+  });
+  return out;
+}
+
+/** A chosen item with its dose, why line, targets and reasons (TargetedItem, WeeklyItem v7 fields). */
+function targetedItem(p: Chosen, h: Intake, plan: Plan): TargetedItem {
+  const sorted = [...p.targets].sort((a, b) => b.priority - a.priority);
+  const reasons: TargetReason[] = [];
+  for (const t of sorted)
+    for (const r of t.reasons) if (!reasons.some((x) => sameReason(x, r))) reasons.push(r);
+  const ids = [...new Set(sorted.map((t) => t.id))];
+  const why = whyLine(reasons);
+  const profile = profileOf(p);
+  const hold = holdOf(p, profile, h);
+  const dose: WeeklyItem = {
+    id: p.c.e.id,
+    ...doseOf(profile, h, plan),
+    targets: ids,
+    why,
+    reasonRefs: reasons,
+    ...(hold ? { hold } : {}),
+  };
+  return {
+    exerciseId: p.c.e.id,
+    slot: BLOCK_OF[actionOf(p.targets[0].id)],
+    targets: ids,
+    reasons,
+    why,
+    dose,
+  };
+}
+
+/* ------------------------------------------------------------ the week */
+
+/**
+ * The weekly plan built from the findings (5.8): the finding items of selectForTargets in their blocks,
+ * then «the rest follows the goal or sport as today»: the rules' own selection (defaultSelection: the
+ * goal's categories or the sport's demands) from the default pool, with the check's contraindications
+ * and the region ids applied last (review C01), fills each block to its size. Null exactly when
+ * engineWeekly is null (plan not ready).
+ */
 export function targetedWeekly(
   h: Intake,
   plan: Plan,
-  _rom: readonly RomFinding[],
-  _gait: readonly GaitPatternResult[],
-  _findingsRef: NonNullable<WeeklyPlan["findings"]>,
+  rom: readonly RomFinding[],
+  gait: readonly GaitPatternResult[],
+  findingsRef: NonNullable<WeeklyPlan["findings"]>,
+  ctx: TargetContext = {},
 ): WeeklyPlan | null {
-  return engineWeekly(h, plan);
+  if (!engineWeekly(h, plan)) return null;
+  const context: TargetContext = { ...ctx, gait: ctx.gait ?? gait };
+  const { targets } = collectTargets({ intake: h, rom, gait });
+  const { selection, items } = selectForTargets(h, plan, programPool(h), targets, context);
+  const week = withGoalShare(h, plan, selection, items, context);
+  return { ...buildWeekly(h, plan, week, "engine", items), findings: findingsRef };
+}
+
+/**
+ * The goal and sport share (5.7: «Targets from the person's goal or sport ... keep their current share of
+ * the session»): each block of a day keeps its finding items first and takes the rules' own selection
+ * after them, up to the block's size. The share's items come from libraryPool(h), never a draft, minus
+ * what the check closes and the finding items themselves.
+ */
+export function withGoalShare(
+  h: Intake,
+  plan: Plan,
+  selection: Selection,
+  items: readonly TargetedItem[],
+  ctx: TargetContext = {},
+): Selection {
+  const chosen = new Set(items.map((i) => i.exerciseId));
+  const share = candidatesOf(h, plan, libraryPool(h), programContraindications(h, ctx))
+    .map((c) => c.e)
+    .filter((e) => !chosen.has(e.id));
+  const base = defaultSelection(h, plan, share);
+  return {
+    days: plan.days.map((_, d) => {
+      const f = selection.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+      const b = base.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+      const fillTo = (mine: string[], theirs: string[], size: number) =>
+        [...mine, ...theirs.filter((id) => !mine.includes(id))].slice(0, Math.max(size, mine.length));
+      return {
+        ...(b.focus ? { focus: b.focus } : {}),
+        warmup: fillTo(f.warmup, b.warmup, BLOCK_SIZES.warmup),
+        extra: fillTo(f.extra, b.extra, BLOCK_SIZES.extra),
+        cooldown: fillTo(f.cooldown, b.cooldown, BLOCK_SIZES.cooldown),
+      };
+    }),
+  };
 }

@@ -128,5 +128,47 @@
     "title": "Your check is done",
     "body": "We recorded your movement today, and your results are ready.",
     "findings": "See my results"
+  },
+  "findings": {
+    "title": "Your movement results",
+    "when": "Measured on {date}",
+    "intro": "We compared how the joints linked to your medical condition move with what is typical for people of your age and sex.",
+    "mapTitle": "Your body map",
+    "legendGrey": "Not measured, or no typical value to compare with",
+    "rangeTitle": "How far your joints move",
+    "changesNote": "We compare each movement with its first measurement, and count a difference as a change only when it is larger than the measuring margin.",
+    "toRight": "To the right",
+    "toLeft": "To the left",
+    "noActive": "You could not move it on your own",
+    "painStop": "This movement stopped because of pain before we recorded a value.",
+    "stopped": "This movement was stopped, so we did not record it today.",
+    "safety": "For your safety, we did not measure this movement today.",
+    "notInCheck": "This movement was not part of this check.",
+    "change": {
+      "more": "More range than your starting point",
+      "less": "Less range than your starting point",
+      "straighter": "Closer to straight than your starting point",
+      "lessStraight": "Further from straight than your starting point",
+      "same": "About the same as your starting point",
+      "values": "At your starting point {first}, today {latest}"
+    },
+    "walkTitle": "Your walk since your starting point",
+    "walk": {
+      "cadence": "Steps a minute",
+      "speed": "Walking speed",
+      "step": "Step length",
+      "fromTo": "From {first} to {latest}",
+      "speedValue": "{n} metres a second",
+      "stepValue": "{n} cm"
+    },
+    "othersTitle": "Your other joints",
+    "othersBody": "You did not list these joints among those your medical condition affects, so we count their movement as typical for your age and sex.",
+    "loading": "Getting your results ready",
+    "loadError": "We could not show your results. Make sure you are online, then try again.",
+    "noneTitle": "No results yet",
+    "noneBody": "After your first movement check, your results show here.",
+    "startCheck": "Start the check",
+    "results": "All my results",
+    "close": "Close the results"
   }
 }

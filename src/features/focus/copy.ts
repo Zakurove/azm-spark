@@ -9,7 +9,6 @@
  */
 import type { Lang } from "../../app/i18n";
 import { interpolate } from "../../i18n";
-import type { RegionId } from "../../medical/body-map";
 import type { Intake } from "../../medical/plan";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
 import { shownApproximate, normFor } from "../../medical/rom-norms";
@@ -43,11 +42,7 @@ export function movementName(id: RomMovementId, lang: Lang): string {
 }
 
 /** A region's name; lower case in English inside a sentence («الركبة» · "knee"). */
-export function regionName(region: RegionId, lang: Lang, inSentence = false): string {
-  const r = ROM_DATA.regions.find((x) => x.id === region);
-  const name = r ? r[lang] : region;
-  return lang === "en" && inSentence ? name.toLowerCase() : name;
-}
+export { regionName } from "./names";
 
 /** A position's name («استلقاء على الظهر» · "Lying on the back on a bed or firm mat"). */
 export function positionName(position: RomPositionId, lang: Lang): string {

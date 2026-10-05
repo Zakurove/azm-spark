@@ -35,6 +35,7 @@ import { pausedLine, whenText } from "../assessment/safety/content";
 import type { LockView } from "../assessment/api";
 import { BodyMap } from "../body-map/BodyMap";
 import { copyText, movementName, regionName } from "./copy";
+import { sideRegion } from "./names";
 import { checkParts, type ClosedWhy, type TodayQuestion } from "./flow";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Glass, Kicker, Loading, PainScale, Title } from "./parts";
@@ -337,18 +338,7 @@ export function IntroScreen({
 }
 
 /** «الركبة اليمنى» · "Right knee": the region and the side, as the person sees them. */
-export function sideRegion(i: Pick<RomProtocolItem, "region" | "side">, lang: Lang): string {
-  const region = regionName(i.region, lang);
-  if (i.side === "none") return region;
-  const w = ROM_DATA.sideWords;
-  if (lang === "en")
-    return `${w.side[i.side][0].toUpperCase()}${w.side[i.side].slice(1)} ${regionName(i.region, lang, true)}`;
-  // The region's own gender decides the side word («الركبة اليمنى», «الكتف الأيمن»).
-  const feminine = FEMININE_REGIONS.has(i.region);
-  return `${region} ${feminine ? w.sideF[i.side] : w.sideM[i.side]}`;
-}
-/** Arabic regions with feminine names: الركبة, الرقبة (the others take the masculine side word). */
-const FEMININE_REGIONS = new Set(["knee", "neck"]);
+export { sideRegion } from "./names";
 
 /* ---------------------------------------------------------- the questions */
 

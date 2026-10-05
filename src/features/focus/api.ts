@@ -1,6 +1,8 @@
 /**
  * The focus check's calls (product v7 contract section 4): the intake (GET /api/auth/me), the context,
- * the focus_check consent, the start, each range result, a stop and the complete call. Every call
+ * the focus_check consent, the start, each range result, a stop and the complete call, and the
+ * findings' reads (the person's checks, GET /api/focus, and a check's profile, GET
+ * /api/focus/profile). Every call
  * returns an ApiResult instead of throwing (the v1 check's shape, src/features/assessment/api.ts), so
  * a screen always has a typed way forward. A booth pass of this tab travels as X-Azm-Booth (C-14): the
  * focus routes accept a signed in booth check only with it, and the context previews the booth's
@@ -12,7 +14,9 @@ import type { RomMeasureResult } from "../../engine/rom/types";
 import type { GaitStoredView } from "../../medical/gait-types";
 import type { Intake } from "../../medical/plan";
 import type { MeasurementGrade } from "../../medical/rom-norms";
-import type { RomFinding, RomProfile } from "../../medical/rom-types";
+import type { BodyMapKey } from "../../medical/body-map";
+import type { GaitChange } from "../../medical/rom-profile";
+import type { BodyMapColour, RomChange, RomFinding, RomProfile } from "../../medical/rom-types";
 import type { RomSide, RomMovementId } from "../../movements/rom/types";
 import type { StopOptionId } from "../../movements/types";
 import type { FocusContext, FocusStopRoute, StartResponse } from "./flow";
@@ -30,6 +34,28 @@ export interface FocusComplete {
   gait: GaitStoredView | null;
 }
 
+/** GET /api/focus/profile (contract section 4): a completed check's profile, findings, body map, walk and changes. */
+export interface FocusProfile {
+  profile: RomProfile;
+  findings: RomFinding[];
+  bodyMap: Partial<Record<BodyMapKey, BodyMapColour>>;
+  gait: GaitStoredView | null;
+  changes: RomChange[];
+  gaitChanges: GaitChange[];
+}
+
+/** One of the person's focus checks (GET /api/focus). */
+export interface FocusCheckSummary {
+  id: string;
+  kind: "baseline" | "retest";
+  setting: "home" | "booth";
+  status: "open" | "completed" | "ended_early" | "abandoned";
+  started: number;
+  completed: number | null;
+  measured: number;
+  gait: boolean;
+}
+
 export interface FocusApi {
   me(): Promise<ApiResult<{ intake: Intake | null }>>;
   context(): Promise<ApiResult<FocusContext>>;
@@ -42,6 +68,10 @@ export interface FocusApi {
     ref: { movementId: RomMovementId; side: RomSide } | null,
   ): Promise<ApiResult<{ route: FocusStopRoute; lock: LockView | null }>>;
   complete(id: string): Promise<ApiResult<FocusComplete>>;
+  /** A completed check's findings; null reads the latest completed check. */
+  profile(checkId: string | null): Promise<ApiResult<FocusProfile>>;
+  /** The person's focus checks, newest first. */
+  checks(): Promise<ApiResult<{ checks: FocusCheckSummary[] }>>;
 }
 
 export interface FocusApiOptions {
@@ -111,5 +141,11 @@ export function createFocusApi(opts: FocusApiOptions = {}): FocusApi {
         ref ? { option, movementId: ref.movementId, side: ref.side } : { option },
       ),
     complete: (id) => call("POST", `/focus/${id}/complete`, {}),
+    profile: (checkId) =>
+      call(
+        "GET",
+        checkId === null ? "/focus/profile" : `/focus/profile?checkId=${encodeURIComponent(checkId)}`,
+      ),
+    checks: () => call("GET", "/focus"),
   };
 }

@@ -51,7 +51,7 @@ const row = (lang: "ar" | "en", e: RomProfileEntry) =>
   findingsView(data([e]), h, lang).groups[0].rows.find(
     (r) => r.movementId === e.movementId && r.side === e.side,
   )!;
-const strip = (s: string) => s.replace(/[⁦-⁩]/g, "");
+const strip = (s: string) => s.replace(/[\u2066-\u2069]/g, "");
 
 describe("a capped seated side bend on the findings page", () => {
   it("reuses v1's words for a censored value", () => {

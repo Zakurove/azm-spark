@@ -706,13 +706,20 @@ export interface TargetContext {
 /** A session's guided card slots (weekly.ts BLOCK_SIZES): «half of a session's exercise slots» counts them. */
 export const SESSION_SLOTS = BLOCK_SIZES.warmup + BLOCK_SIZES.extra + BLOCK_SIZES.cooldown;
 const NUMBERS = MAPPING.selectionNumbers;
-/** «finding items fill at most half of a session's exercise slots (findingSlotsShareMax, rounded down)» */
-const FINDING_SLOTS = (() => {
-  const n = SESSION_SLOTS * NUMBERS.findingSlotsShareMax;
+/**
+ * «finding items fill at most half of a session's exercise slots (findingSlotsShareMax, rounded down);
+ * the rest follows the goal or sport as today»: a session's exercises are its guided cards and the
+ * plan's camera movements, which stay the goal's, so the finding items take at most half of them, and
+ * never more than the cards.
+ */
+export function findingSlots(plan: Pick<Plan, "exercises">): number {
   if (NUMBERS.findingSlotsRounding !== "down")
     throw new Error("The targets data rounds the slots another way");
-  return Math.floor(n);
-})();
+  return Math.min(
+    SESSION_SLOTS,
+    Math.floor((SESSION_SLOTS + plan.exercises.length) * NUMBERS.findingSlotsShareMax),
+  );
+}
 
 /** The seated forms of an item (on a chair, or near its front) and its standing forms. */
 const SEATED_FORMS: readonly ExercisePosition[] = ["seated", "seated_forward"];
@@ -886,6 +893,8 @@ const before = (a: number[], b: number[]) => {
 interface Chosen {
   c: Candidate;
   targets: TargetRequest[];
+  /** The round it was chosen in: a target's first item (1), or the second a grade asks for (2). */
+  round: 1 | 2;
 }
 
 /** The session block of an item (2.2 session order): range first, then strength, balance and practice, held stretches last. */
@@ -1089,7 +1098,7 @@ export function selectForTargets(
             before(rank(a, t, h, targets, order.get(a.e.id)!), rank(b, t, h, targets, order.get(b.e.id)!)),
           )[0];
         if (!best) break;
-        picks.push({ c: best, targets: [t] });
+        picks.push({ c: best, targets: [t], round: round as 1 | 2 });
         for (const k of keys) perFinding.set(k, (perFinding.get(k) ?? 0) + 1);
         have++;
       }
@@ -1098,7 +1107,7 @@ export function selectForTargets(
   for (const p of picks)
     for (const t of targets) if (!p.targets.includes(t) && serves(p.c, t)) p.targets.push(t);
 
-  const days = schedule(plan, picks);
+  const days = schedule(h, plan, picks);
   const scheduled = picks.filter((p) => days.some((d) => d.has(p)));
   const items = scheduled.map((p) => targetedItem(p, h, plan));
   const byId = new Map(items.map((i) => [i.exerciseId, i]));
@@ -1119,41 +1128,97 @@ export function selectForTargets(
 }
 
 /**
- * The finding items of each training day (5.8 step 5): at most FINDING_SLOTS a session; each day takes
- * the items shown least so far, the higher priority first, then in session order (range first: it is
- * the daily warm up), so every item comes round; a strengthening
- * item is not on two days in a row («never the same muscles on 2 days in a row»); each block keeps its
- * size (a third range item opens the day's exercises; a third stretch waits for another day).
+ * The days a week an item's dose asks for (2.1 daysPerWeek), within the person's training days: strength
+ * «2 to 3», isometric holds «2 to 3», balance «at least 2 to 3; 3 or more for older adults», held
+ * stretches «daily when possible; at least 2 to 3», walking «3 to 5»: the first number of each. Range work
+ * is «daily», which no number bounds, so it takes the least the others ask (2) and the week's spare
+ * slots first.
  */
-function schedule(plan: Plan, picks: readonly Chosen[]): Map<Chosen, "warmup" | "extra" | "cooldown">[] {
-  const shown = new Map<Chosen, number>();
+function daysWanted(profile: DoseProfileId, h: Intake, trainingDays: number): number {
+  const n = doseProfile(profile).numbers;
+  const older = olderThan(h) && n.olderAdultsDaysPerWeekAtLeast !== undefined;
+  const least = older
+    ? n.olderAdultsDaysPerWeekAtLeast!
+    : (n.daysPerWeekRange?.[0] ?? n.daysPerWeekAtLeast?.[0] ?? LEAST_DAYS_A_WEEK);
+  return Math.min(trainingDays, least);
+}
+/** The least number of days a week any dose profile names («2 to 3», «at least 2 to 3»). */
+const LEAST_DAYS_A_WEEK = Math.min(
+  ...TARGETS_DATA.dose.profiles.flatMap((p) => [
+    ...(p.numbers.daysPerWeekRange ? [p.numbers.daysPerWeekRange[0]] : []),
+    ...(p.numbers.daysPerWeekAtLeast ? [p.numbers.daysPerWeekAtLeast[0]] : []),
+  ]),
+);
+
+type Block = "warmup" | "extra" | "cooldown";
+
+/**
+ * The finding items of each training day (5.8 steps 5 and 7, 2.1): at most findingSlots a session, and
+ * each item on the days a week its dose asks for, so the week holds fewer exercises done often enough
+ * rather than many done once; an item that no longer fits its days is left out, and its targets are
+ * unmet. The order of the items, at each priority (the targets' own order: priority, then evidence):
+ * the first item of each finding, so as many findings as fit are worked on; then each finding's other
+ * items; then the second items a grade asks for. A strengthening item is never on two
+ * days in a row («never the same muscles on 2 days in a row»); the days least full come first. Then range
+ * work, «daily», and held stretches take the slots still free. Each block keeps its size (a third range
+ * item opens the day's exercises; a third stretch waits for another day).
+ */
+function schedule(h: Intake, plan: Plan, picks: readonly Chosen[]): Map<Chosen, Block>[] {
+  const most = findingSlots(plan);
+  const out: Map<Chosen, Block>[] = plan.days.map(() => new Map());
+  const used = plan.days.map(() => ({ warmup: 0, extra: 0, cooldown: 0 }));
+  const action = (p: Chosen) => actionOf(p.targets[0].id);
   const priority = (p: Chosen) => Math.max(...p.targets.map((t) => t.priority));
-  const index = new Map(picks.map((p, i) => [p, i]));
-  const out: Map<Chosen, "warmup" | "extra" | "cooldown">[] = [];
-  plan.days.forEach((day, d) => {
-    const previous = d > 0 && day - plan.days[d - 1] === 1 ? out[d - 1] : null;
-    const today = new Map<Chosen, "warmup" | "extra" | "cooldown">();
-    const used = { warmup: 0, extra: 0, cooldown: 0 };
-    const queue = [...picks].sort(
-      (a, b) =>
-        (shown.get(a) ?? 0) - (shown.get(b) ?? 0) ||
-        priority(b) - priority(a) ||
-        EXTRA_ORDER[actionOf(a.targets[0].id)] - EXTRA_ORDER[actionOf(b.targets[0].id)] ||
-        index.get(a)! - index.get(b)!,
-    );
-    for (const p of queue) {
-      if (today.size >= FINDING_SLOTS) break;
-      const action = actionOf(p.targets[0].id);
-      if (action === "strengthen" && previous?.has(p)) continue;
-      let block = BLOCK_OF[action];
-      if (block === "warmup" && used.warmup >= BLOCK_SIZES.warmup) block = "extra";
-      if (used[block] >= BLOCK_SIZES[block]) continue;
-      today.set(p, block);
-      used[block]++;
-      shown.set(p, (shown.get(p) ?? 0) + 1);
+  // Each finding's first item before its others and before the second items a grade asks for, at each
+  // priority; a stable sort keeps the targets' own order (priority, then evidence) within.
+  const first = new Set<Chosen>();
+  const seen = new Set<string>();
+  for (const p of picks) {
+    const key = findingKeys(p.targets[0]).join("|");
+    if (!seen.has(key) && p.round === 1) first.add(p);
+    if (p.round === 1) seen.add(key);
+  }
+  const order = [...picks].sort(
+    (a, b) => priority(b) - priority(a) || Number(first.has(b)) - Number(first.has(a)) || a.round - b.round,
+  );
+  /** The block an item takes on a day, or null when the day or its block is full. */
+  const blockOn = (p: Chosen, d: number): Block | null => {
+    if (out[d].size >= most || out[d].has(p)) return null;
+    let block = BLOCK_OF[action(p)];
+    if (block === "warmup" && used[d].warmup >= BLOCK_SIZES.warmup) block = "extra";
+    return used[d][block] < BLOCK_SIZES[block] ? block : null;
+  };
+  /** Strengthening is not on the day before or after one it is on (Saturday and Sunday are neighbours). */
+  const restful = (p: Chosen, d: number, chosen: readonly number[]) =>
+    action(p) !== "strengthen" ||
+    !chosen.some((c) => {
+      const gap = Math.abs(plan.days[c] - plan.days[d]);
+      return gap === 1 || gap === 6;
+    });
+  const place = (p: Chosen, d: number) => {
+    const block = blockOn(p, d)!;
+    out[d].set(p, block);
+    used[d][block]++;
+  };
+  for (const p of order) {
+    const want = daysWanted(profileOf(p), h, plan.days.length);
+    const chosen: number[] = [];
+    const days = plan.days.map((_, d) => d).sort((a, b) => out[a].size - out[b].size || a - b);
+    for (const d of days) {
+      if (chosen.length >= want) break;
+      if (blockOn(p, d) && restful(p, d, chosen)) chosen.push(d);
     }
-    out.push(today);
-  });
+    if (chosen.length < want) continue;
+    for (const d of chosen) place(p, d);
+  }
+  // «daily»: range work, then held stretches, take the slots still free.
+  for (const kind of ["mobility", "stretch"] as const)
+    for (const p of order) {
+      if (action(p) !== kind || !out.some((day) => day.has(p))) continue;
+      plan.days.forEach((_, d) => {
+        if (blockOn(p, d)) place(p, d);
+      });
+    }
   return out;
 }
 

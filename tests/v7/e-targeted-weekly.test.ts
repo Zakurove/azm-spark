@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { createPlan, type Intake, type Plan } from "../../src/medical/plan";
 import { libraryById, libraryPool } from "../../src/medical/pool";
 import { sportById } from "../../src/medical/sports";
-import { SESSION_SLOTS, targetedWeekly } from "../../src/medical/targets";
+import { SESSION_SLOTS, findingSlots, targetedWeekly } from "../../src/medical/targets";
 import { engineWeekly, stepsOf, type WeeklyItem, type WeeklyPlan } from "../../src/medical/weekly";
 import { TARGETS_DATA } from "../../src/movements/targets";
 import { FAHD, finding, intake, pattern } from "./e-fixtures";
@@ -76,7 +76,13 @@ describe("targetedWeekly", () => {
 
   it("fills at most half a session with finding items, and keeps the rest for the goal", () => {
     const w = targetedWeekly(FAHD, planOf(FAHD), ROM, GAIT, REF)!;
-    const most = Math.floor(SESSION_SLOTS * TARGETS_DATA.mapping.selectionNumbers.findingSlotsShareMax);
+    const most = findingSlots(planOf(FAHD));
+    expect(most).toBe(
+      Math.floor(
+        (SESSION_SLOTS + planOf(FAHD).exercises.length) *
+          TARGETS_DATA.mapping.selectionNumbers.findingSlotsShareMax,
+      ),
+    );
     for (const d of w.days) {
       const all = [...d.warmup, ...d.extra, ...d.cooldown];
       expect(all.filter(targeted).length).toBeLessThanOrEqual(most);

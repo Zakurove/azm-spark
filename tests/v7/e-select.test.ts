@@ -19,6 +19,7 @@ import {
   PAIN_STABLE_ISOMETRICS,
   SESSION_SLOTS,
   collectTargets,
+  findingSlots,
   selectForTargets,
   type TargetContext,
 } from "../../src/medical/targets";
@@ -385,11 +386,15 @@ describe("the caps (exercise-targets 5.8 step 5)", () => {
     expect(out.items.filter((i) => i.targets.includes("mobility:knee_flexion"))).toHaveLength(2);
   });
 
-  it("finding items fill at most half of a session's slots, rounded down", () => {
+  it("finding items fill at most half of a session's slots, rounded down: its cards and camera movements", () => {
     expect(SESSION_SLOTS).toBe(7);
-    const perDay = Math.floor(SESSION_SLOTS * NUMBERS.findingSlotsShareMax);
-    expect(perDay).toBe(3);
+    // Without a camera movement, 3 of the 7 cards; with two, 4 of the 9 exercises.
+    expect(findingSlots({ exercises: [] })).toBe(Math.floor(SESSION_SLOTS * NUMBERS.findingSlotsShareMax));
+    expect(findingSlots({ exercises: [] })).toBe(3);
     const h = FAHD;
+    const perDay = findingSlots(planOf(h));
+    expect(planOf(h).exercises).toHaveLength(2);
+    expect(perDay).toBe(4);
     const targets = collectTargets({
       intake: h,
       rom: [
@@ -407,6 +412,65 @@ describe("the caps (exercise-targets 5.8 step 5)", () => {
       expect(finding.length).toBeLessThanOrEqual(perDay);
     }
     expect(out.items.length).toBeGreaterThan(perDay);
+  });
+});
+
+describe("the days of each exercise (exercise-targets 2.1 daysPerWeek)", () => {
+  const fahdTargets = () =>
+    collectTargets({
+      intake: FAHD,
+      rom: [
+        finding("shoulder_flexion", "right", { finding: "marked", priority: 3, path: "umn" }),
+        finding("elbow_extension", "right", { finding: "marked", priority: 3, path: "umn" }),
+        finding("knee_flexion", "right", { finding: "marked", priority: 3, path: "umn" }),
+        finding("knee_extension", "right", { finding: "mild", priority: 2, path: "umn" }),
+      ],
+      gait: [],
+    }).targets;
+  const daysOf = (out: ReturnType<typeof select>, id: string) =>
+    out.selection.days.filter((d) => [...d.warmup, ...d.extra, ...d.cooldown].includes(id)).length;
+
+  it("does each exercise on at least 2 of the training days, rather than many exercises once", () => {
+    const out = select(FAHD, fahdTargets());
+    expect(out.items.length).toBeGreaterThan(0);
+    for (const i of out.items) expect(daysOf(out, i.exerciseId), i.exerciseId).toBeGreaterThanOrEqual(2);
+    // What no longer fits is unmet, never under dosed.
+    expect(out.unmet.length).toBeGreaterThan(0);
+  });
+
+  it("never puts a strengthening exercise on two days in a row", () => {
+    const h = { ...FAHD, days: [0, 1, 2, 3] };
+    const plan = { ...planOf(FAHD), days: [0, 1, 2, 3] };
+    const out = select(h, fahdTargets(), {}, plan);
+    for (const i of out.items) {
+      if (!i.targets[0].startsWith("strengthen:")) continue;
+      const on = plan.days.filter((_, d) => {
+        const day = out.selection.days[d];
+        return [...day.warmup, ...day.extra, ...day.cooldown].includes(i.exerciseId);
+      });
+      for (let k = 1; k < on.length; k++) expect(on[k] - on[k - 1], i.exerciseId).toBeGreaterThan(1);
+    }
+  });
+
+  it("walking practice comes on 3 days when the week has them", () => {
+    const walk = [
+      req({
+        id: "practice:walking",
+        side: "both",
+        reasons: [
+          {
+            kind: "gait",
+            pattern: "short_steps",
+            label: "short_steps",
+            side: "both",
+            status: "likely",
+            confidence: "high",
+          },
+        ],
+      }),
+    ];
+    const out = select(intake(), walk);
+    expect(daysOf(out, "walking_practice")).toBe(3);
   });
 });
 

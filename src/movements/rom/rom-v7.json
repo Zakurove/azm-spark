@@ -1,10 +1,10 @@
 {
   "id": "rom_protocol",
-  "specVersion": "0.2.2",
-  "status": "draft",
+  "specVersion": "1.0.0",
+  "status": "signed_off",
   "signoff": {
-    "status": "draft",
-    "approved": false,
+    "status": "signed_off",
+    "approved": true,
     "approvers": [
       "Dr. Nasser Alharbi (PM&R), medical",
       "Chaker Belhaj, fitness"

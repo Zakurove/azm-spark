@@ -3,7 +3,7 @@
  * contract 2.1 and 2.10).
  *
  * The JSON is written by scripts/clinical/export-v7.mjs from
- * local-docs/clinical/v7/exercise-targets.json (a draft until the clinical sign off). TargetsData
+ * local-docs/clinical/v7/exercise-targets.json (signed off on 2026-10-04, D-025). TargetsData
  * mirrors the exported JSON field by field; src/movements/targets/index.ts checks the JSON against it
  * at compile time and tests/v7/a-runtime-data.test.ts checks the literal id lists against the data.
  * Pure types and id lists, no DOM.

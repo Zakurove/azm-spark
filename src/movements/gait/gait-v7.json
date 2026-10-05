@@ -1,9 +1,9 @@
 {
   "id": "gait-rules",
-  "version": "0.2.2",
-  "status": "draft",
+  "version": "1.0.0",
+  "status": "signed_off",
   "signoff": {
-    "approved": false,
+    "approved": true,
     "approvers": [
       "Dr. Nasser Alharbi (PM&R), medical",
       "Chaker Belhaj, fitness"
@@ -41,7 +41,7 @@
       },
       {
         "item": "clearance no or unsure",
-        "rule": "stroke or SCI: no gait test (reason clearance_needed), as the global gate (review A17); a named exception (overground only, helper, short walk, never the pad) is open question Q1. Other conditions: overground allowed; walking pad not offered"
+        "rule": "stroke or SCI: no gait test (reason clearance_needed), as the global gate (review A17); the named exception (overground only, helper, short walk, never the pad) was not adopted at the sign off (GAIT-Q1: keep the gate). Other conditions: overground allowed; walking pad not offered"
       }
     ],
     "today": [

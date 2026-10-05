@@ -620,6 +620,23 @@ describe("v7 clinical export: a new field anywhere reaches the output or fails (
       expect(r.error, `${name} ${path}`).toContain(message);
     }
   });
+
+  it("keeps who signed off, when and the decision in local-docs (the sign off record, D-025)", () => {
+    for (const name of ["rom", "gait", "targets"] as const) {
+      const r = exportWith(name, (s) => {
+        Object.assign(s.signoff, {
+          signedOffBy: "Dr. Nasser Alharbi (PM&R), medical",
+          date: "2026-10-04",
+          decision: "D-025",
+        });
+      });
+      expect(r.error, name).toBeUndefined();
+      const signoff = JSON.parse(r.text!).signoff;
+      expect(Object.keys(signoff), name).toEqual(
+        name === "rom" ? ["status", "approved", "approvers"] : ["approved", "approvers"],
+      );
+    }
+  });
 });
 
 /* ---------------------------------- --report-prose-numbers (D-024 item 4) */

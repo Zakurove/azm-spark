@@ -767,6 +767,12 @@ export const PROBLEM_TYPE_NUMBERS = [
 export const SAFETY_NUMBERS = ["months", "weeks", "atOrAbove", "outOf", "riseAtOrAbove", "backPainAtOrAbove"];
 
 /**
+ * The sign off record beside the status (D-025): who signed off, when and the decision. Engineers read
+ * them in local-docs; the runtime keeps the status, approved and the approvers.
+ */
+export const SIGNOFF_RECORD = ["signedOffBy", "date", "decision"];
+
+/**
  * ROM prose the export drops, by object (rule 2 and the rule 3 field lists): engineers read it in
  * local-docs and the code that implements it quotes it. Known here so that any other field stops the
  * export.
@@ -959,7 +965,7 @@ export function exportRom(source) {
     id: source.id,
     specVersion: source.specVersion,
     status: source.status,
-    signoff: take(source.signoff, ["status", "approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["status", "approved", "approvers"], "signoff", SIGNOFF_RECORD),
     conventions: take(source.conventions, ["sides"], "conventions", ROM_PROSE.conventions),
     engine: engineValues(source.engine),
     regions,
@@ -1109,7 +1115,7 @@ export function exportGait(source) {
     id: source.id,
     version: source.version,
     status: source.status,
-    signoff: take(source.signoff, ["approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["approved", "approvers"], "signoff", SIGNOFF_RECORD),
     grades: grades(source.grades),
     eligibility: strip(source.eligibility),
     capture: numbersOnly(source.capture),
@@ -1200,7 +1206,7 @@ export function exportTargets(source) {
     id: source.id,
     version: source.version,
     status: source.status,
-    signoff: take(source.signoff, ["approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["approved", "approvers"], "signoff", SIGNOFF_RECORD),
     placeholders: strip(source.placeholders),
     taxonomy: strip(source.taxonomy),
     dose: dose(source.dose),

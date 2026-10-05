@@ -406,7 +406,13 @@ describe("ROM runtime data (rom-v7.json)", () => {
     expect(ROM_RULES_VERSION).toBe(`rom_protocol_${ROM_DATA.specVersion}`);
     expect(NORMS_VERSION).toBe(`rom_norms_${ROM_DATA.specVersion}`);
     expect(ROM_ENGINE_VERSION).toBe("rom_engine_1");
-    expect(ROM_DATA.signoff.approved).toBe(false);
+  });
+
+  it("is signed off (D-025): Nasser approved every recommendation on 2026-10-04, version 1.0.0", () => {
+    expect(ROM_DATA.status).toBe("signed_off");
+    expect(ROM_DATA.signoff).toMatchObject({ status: "signed_off", approved: true });
+    expect(ROM_DATA.specVersion).toBe("1.0.0");
+    expect(ROM_RULES_VERSION).toBe("rom_protocol_1.0.0");
   });
 });
 
@@ -512,7 +518,13 @@ describe("gait runtime data (gait-v7.json)", () => {
   it("serves its versions", () => {
     expect(GAIT_RULES_VERSION).toBe(`gait_rules_${GAIT_DATA.version}`);
     expect(GAIT_ENGINE_VERSION).toBe("gait_engine_1");
-    expect(GAIT_DATA.signoff.approved).toBe(false);
+  });
+
+  it("is signed off (D-025), version 1.0.0", () => {
+    expect(GAIT_DATA.status).toBe("signed_off");
+    expect(GAIT_DATA.signoff.approved).toBe(true);
+    expect(GAIT_DATA.version).toBe("1.0.0");
+    expect(GAIT_RULES_VERSION).toBe("gait_rules_1.0.0");
   });
 });
 
@@ -605,6 +617,13 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
 
   it("serves its version", () => {
     expect(TARGETS_VERSION).toBe(`targets_${TARGETS_DATA.version}`);
-    expect(TARGETS_DATA.signoff.approved).toBe(false);
+  });
+
+  it("is signed off (D-025), version 1.0.0; the new exercises stay drafts until the Arabic review (EX-Q15)", () => {
+    expect(TARGETS_DATA.status).toBe("signed_off");
+    expect(TARGETS_DATA.signoff.approved).toBe(true);
+    expect(TARGETS_DATA.version).toBe("1.0.0");
+    expect(TARGETS_VERSION).toBe("targets_1.0.0");
+    expect(TARGETS_DATA.newExercises.every((e) => e.status === "draft")).toBe(true);
   });
 });

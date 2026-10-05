@@ -2,7 +2,7 @@
  * Types for the v7 runtime gait data, src/movements/gait/gait-v7.json (product v7 contract 2.1).
  *
  * The JSON is written by scripts/clinical/export-v7.mjs from local-docs/clinical/v7/gait-rules.json
- * (a draft until the clinical sign off). GaitData mirrors the exported JSON field by field;
+ * (signed off on 2026-10-04, D-025). GaitData mirrors the exported JSON field by field;
  * src/movements/gait/index.ts checks the JSON against it at compile time and
  * tests/v7/a-runtime-data.test.ts checks the literal id lists against the data in both directions.
  * Pure types and id lists, no DOM.

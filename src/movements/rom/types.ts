@@ -3,7 +3,7 @@
  * 2.1 and 2.3).
  *
  * The JSON is written by scripts/clinical/export-v7.mjs from the clinical source
- * (local-docs/clinical/v7/rom-protocol.json, a draft until the clinical sign off). RomData mirrors the
+ * (local-docs/clinical/v7/rom-protocol.json, signed off on 2026-10-04, D-025). RomData mirrors the
  * exported JSON field by field; src/movements/rom/index.ts checks the JSON against it at compile time
  * (`raw satisfies Widen<RomData>`) and tests/v7/a-runtime-data.test.ts checks every literal id list
  * against the data in both directions. Pure types and id lists, no DOM.

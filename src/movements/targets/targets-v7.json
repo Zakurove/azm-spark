@@ -1,9 +1,9 @@
 {
   "id": "azm-v7-exercise-targets",
-  "version": "0.2.2",
-  "status": "DRAFT for clinical review. Nothing here is approved.",
+  "version": "1.0.0",
+  "status": "signed_off",
   "signoff": {
-    "approved": false,
+    "approved": true,
     "approvers": [
       "Dr. Nasser Alharbi (PM&R)",
       "Chaker Belhaj (fitness)"

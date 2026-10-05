@@ -16,7 +16,10 @@ import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
 import type { AnswerValue, PrecheckEnv, Answers } from "../../medical/precheck";
 import { stopOptions } from "../../medical/precheck";
+import { REGION_IDS, type BodyMapKey, type RegionId } from "../../medical/body-map";
 import type { RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
+import type { BodyMapColour } from "../../medical/rom-types";
+import type { RomSide } from "../../movements/rom/types";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import { CHECK_DATA, emergencyCallButton, screenText, stopFollowUp } from "../../movements/assessments";
 import { GAIT_DATA } from "../../movements/gait";
@@ -30,8 +33,9 @@ import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
 import { pausedLine, whenText } from "../assessment/safety/content";
 import type { LockView } from "../assessment/api";
+import { BodyMap } from "../body-map/BodyMap";
 import { copyText, movementName, regionName } from "./copy";
-import type { ClosedWhy, TodayQuestion } from "./flow";
+import { checkParts, type ClosedWhy, type TodayQuestion } from "./flow";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Glass, Kicker, Loading, PainScale, Title } from "./parts";
 
@@ -213,7 +217,38 @@ export function minutesOf(items: readonly RomProtocolItem[]): number {
   return Math.max(1, Math.round(items.length * ROM_DATA.sessionOrder.minutesPerMovement));
 }
 
-/** Which joints we will check, and why (plan 1.7). */
+/** A joint of the day: a region and a side, with its movements in protocol order. */
+export interface JointGroup {
+  key: string;
+  region: RegionId;
+  side: RomSide;
+  items: RomProtocolItem[];
+}
+
+/** The joints of the day's movements in body order (the region list, the right side first). */
+export function jointsOf(items: readonly RomProtocolItem[]): JointGroup[] {
+  const groups = new Map<string, JointGroup>();
+  for (const i of items) {
+    const key = `${i.region}:${i.side}`;
+    const g = groups.get(key) ?? { key, region: i.region, side: i.side, items: [] };
+    g.items.push(i);
+    groups.set(key, g);
+  }
+  const rank = { right: 0, left: 1, none: 2 } as const;
+  return [...groups.values()].sort(
+    (a, b) => REGION_IDS.indexOf(a.region) - REGION_IDS.indexOf(b.region) || rank[a.side] - rank[b.side],
+  );
+}
+
+/** The body map cell of a joint (the neck and the back have one, axial). */
+export const cellOf = (g: Pick<JointGroup, "region" | "side">): BodyMapKey =>
+  (g.side === "none" ? `${g.region}:axial` : `${g.region}:${g.side}`) as BodyMapKey;
+
+/**
+ * Which joints we will measure, and why (plan 1.7): the affected joints of the history, each with its
+ * movements, marked on the body map the person filled in; the order of the parts (sit, stand, walk,
+ * lie down), so the chair, the space and the bed are ready; the minutes; safety; start.
+ */
 export function IntroScreen({
   lang,
   protocol,
@@ -226,10 +261,17 @@ export function IntroScreen({
   onStart(): void;
 }) {
   const runs = protocol.items.filter((i) => !i.skipped);
-  const blocks = (["seated", "standing", "lying"] as const).filter((b) => runs.some((i) => i.block === b));
+  const joints = jointsOf(runs);
+  const parts = checkParts(protocol, gait);
+  const colours: Partial<Record<BodyMapKey, BodyMapColour>> = {};
+  const notes: Partial<Record<BodyMapKey, string>> = {};
+  for (const g of joints) {
+    colours[cellOf(g)] = "mild";
+    notes[cellOf(g)] = g.items.map((i) => movementName(i.movementId, lang)).join(lang === "ar" ? "، " : ", ");
+  }
   return (
     <div className="fx-intro">
-      <Glass className="fx-card fx-hero">
+      <Glass className="fx-card fx-hero fx-intro-hero">
         <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
         <Title>{tV7(lang, "rom.intro.title")}</Title>
         <Body lang={lang} text={copyText("intro", lang)} />
@@ -243,32 +285,44 @@ export function IntroScreen({
       </Glass>
       <Glass className="fx-card fx-joints">
         <h2 className="fx-h2">{tV7(lang, "rom.intro.joints")}</h2>
-        {blocks.map((b) => (
-          <div key={b} className="fx-joint-group">
-            <p className="fx-joint-group-name">{tV7(lang, `rom.intro.${b}`)}</p>
-            <ul className="fx-joint-list">
-              {runs
-                .filter((i) => i.block === b)
-                .map((i) => (
-                  <li key={`${i.movementId}:${i.side}`} className="fx-joint">
-                    <span className="fx-joint-picture">
-                      <MovementPicture movementId={i.movementId} side={i.side} lang={lang} size={56} />
-                    </span>
-                    <span className="fx-joint-text">
-                      <b>{movementName(i.movementId, lang)}</b>
-                      <span>{sideRegion(i, lang)}</span>
-                    </span>
-                  </li>
-                ))}
-            </ul>
+        <div className="fx-joints-body">
+          <ul className="fx-joint-cards">
+            {joints.map((g) => (
+              <li key={g.key} className="fx-joint-card">
+                <span className="fx-joint-picture" aria-hidden="true">
+                  <MovementPicture movementId={g.items[0].movementId} side={g.side} lang={lang} size={52} />
+                </span>
+                <span className="fx-joint-card-text">
+                  <b>{sideRegion(g, lang)}</b>
+                  <span className="fx-moves">
+                    {g.items.map((i) => (
+                      <span key={i.movementId} className="fx-move">
+                        {movementName(i.movementId, lang)}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="fx-joints-map">
+            <BodyMap lang={lang} mode="summary" colours={colours} notes={notes} />
           </div>
-        ))}
-        {gait?.offered && (
-          <p className="fx-joint-walk">
-            <CheckIcon name="arrow-forward" size={20} />
-            <span>{tV7(lang, "rom.intro.walk")}</span>
-          </p>
-        )}
+        </div>
+        <div className="fx-order">
+          <p className="fx-order-name">{tV7(lang, "rom.intro.order")}</p>
+          <ol className="fx-order-steps">
+            {parts.map((p, i) => (
+              <li
+                key={p.kind === "range" ? p.block : "gait"}
+                className={p.kind === "gait" ? "is-walk" : undefined}
+              >
+                <b>{localizeDigits(lang, String(i + 1))}</b>
+                <span>{tV7(lang, p.kind === "range" ? `rom.intro.${p.block}` : "rom.intro.walkStep")}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       </Glass>
       <Glass className="fx-card fx-safety-note" tone="gold">
         <h2 className="fx-h2">{tV7(lang, "rom.intro.safety")}</h2>
@@ -461,6 +515,7 @@ export function TodayScreen({
     <Choices
       lang={lang}
       labelledBy={title}
+      layout="row"
       choices={[
         { value: "yes", label: copyText("ans_yes", lang) },
         { value: "no", label: copyText("ans_no", lang) },
@@ -485,7 +540,7 @@ export function TodayScreen({
       );
       break;
     case "rf": {
-      kicker = regionName(q.region, lang);
+      // The question names the region in its lead («في الركبة اليوم:»): no kicker.
       const leg = ["hip", "knee", "ankle_foot"].includes(q.region);
       question = tV7(lang, leg ? "rom.rf_region_ask_leg" : "rom.rf_region_ask", {
         region: regionName(q.region, lang, true),
@@ -507,15 +562,48 @@ export function TodayScreen({
   return (
     <Glass className="fx-card fx-question" data-today={q.kind}>
       {kicker && <Kicker>{kicker}</Kicker>}
-      <h1
-        id={title}
-        className={`fx-title is-question${question.length > 110 ? " is-long" : ""}`}
-        tabIndex={-1}
-      >
-        {bidiText(lang, question)}
-      </h1>
+      <QuestionText lang={lang} id={title} text={question} lead={q.kind === "rf"} />
       {control}
     </Glass>
+  );
+}
+
+/**
+ * A question's words: the first sentence large, what follows («0 means no pain …») under it; a
+ * region's red flag question («في الركبة اليوم: …») with its place in purple before the signs.
+ */
+export function QuestionText({
+  lang,
+  id,
+  text,
+  lead = false,
+  as = "h1",
+}: {
+  lang: Lang;
+  id: string;
+  text: string;
+  lead?: boolean;
+  as?: "h1" | "h2";
+}) {
+  const H = as;
+  const colon = lead ? text.indexOf(":") : -1;
+  if (colon > 0) {
+    const place = text.slice(0, colon + 1);
+    const rest = text.slice(colon + 1).trim();
+    return (
+      <H id={id} className={`fx-title is-question${rest.length > 90 ? " is-long" : ""}`} tabIndex={-1}>
+        <span className="fx-q-lead">{bidiText(lang, place)}</span> {bidiText(lang, rest)}
+      </H>
+    );
+  }
+  const [first = text, ...more] = splitSentences(text);
+  return (
+    <>
+      <H id={id} className={`fx-title is-question${first.length > 110 ? " is-long" : ""}`} tabIndex={-1}>
+        {bidiText(lang, first)}
+      </H>
+      {more.length > 0 && <p className="fx-q-more">{bidiText(lang, more.join(" "))}</p>}
+    </>
   );
 }
 
@@ -784,8 +872,21 @@ export function StopListScreen({
   );
 }
 
-/** Leaving mid check: what is kept, stay or leave (v1 S15's question). */
-export function LeaveDialog({ lang, onStay, onLeave }: { lang: Lang; onStay(): void; onLeave(): void }) {
+/**
+ * Leaving mid check: what is kept, stay or leave (v1 S15's question). In the lying block, the sit
+ * before stand line too (rom-protocol 6 sit_before_stand: after any lying test).
+ */
+export function LeaveDialog({
+  lang,
+  lying = false,
+  onStay,
+  onLeave,
+}: {
+  lang: Lang;
+  lying?: boolean;
+  onStay(): void;
+  onLeave(): void;
+}) {
   const title = useId();
   return (
     <div
@@ -800,6 +901,12 @@ export function LeaveDialog({ lang, onStay, onLeave }: { lang: Lang; onStay(): v
           {tV7(lang, "rom.shell.leaveTitle")}
         </h1>
         <Body lang={lang} text={tV7(lang, "rom.shell.leaveBody")} />
+        {lying && (
+          <p className="fx-note">
+            <CheckIcon name="info" size={20} />
+            <span>{bidiText(lang, copyText("sit_before_stand", lang))}</span>
+          </p>
+        )}
         <Actions
           items={[
             {
@@ -839,7 +946,7 @@ export function DoneScreen({
   onFindings,
 }: {
   lang: Lang;
-  measured: { item: RomProtocolItem; value: number | null; label: string | null }[];
+  measured: { item: RomProtocolItem; value: number | null; label: string | null; lack?: boolean }[];
   onFindings(): void;
 }) {
   return (
@@ -851,13 +958,18 @@ export function DoneScreen({
         <Title>{tV7(lang, "rom.done.title")}</Title>
         <Body lang={lang} text={tV7(lang, "rom.done.body")} />
         <ul className="fx-done-list">
-          {measured.map(({ item, value, label }) => (
+          {measured.map(({ item, value, label, lack }) => (
             <li key={`${item.movementId}:${item.side}`}>
               <span>
                 <b>{movementName(item.movementId, lang)}</b>
                 <small>{label ? `${sideRegion(item, lang)} · ${label}` : sideRegion(item, lang)}</small>
               </span>
-              <em dir="ltr">{value === null ? "·" : `${localizeDigits(lang, String(Math.abs(value)))}°`}</em>
+              <span className="fx-done-value">
+                <em dir="ltr">
+                  {value === null ? "·" : `${localizeDigits(lang, String(Math.abs(value)))}°`}
+                </em>
+                {lack && value !== null && <small>{tV7(lang, "rom.measure.fromStraight")}</small>}
+              </span>
             </li>
           ))}
         </ul>

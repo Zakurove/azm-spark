@@ -66,7 +66,9 @@ export function Dial(p: DialProps) {
   const lack = p.kind === "lack";
   const bandFrom = lack ? 0 : p.withinFrom !== null ? p.withinFrom / p.max : null;
   const bandTo = lack ? (p.withinUpTo !== null ? p.withinUpTo / p.max : null) : 1;
-  const typicalShare = p.typical === null ? null : Math.max(0, p.typical) / p.max;
+  // A lack movement's typical value sits at the start of the scale (straight or nearly): its band shows
+  // it, and a mark there would sit under the knob.
+  const typicalShare = p.typical === null || lack ? null : Math.max(0, p.typical) / p.max;
   const tick = typicalShare === null ? null : { a: at(typicalShare, R + 22), b: at(typicalShare, R + 36) };
   // The typical value's label sits outside the arc, kept inside the picture at the ends of the scale.
   const labelAt = typicalShare === null ? null : at(typicalShare, R + 50);
@@ -123,8 +125,10 @@ export function Dial(p: DialProps) {
           {p.value !== null && <circle cx={end.x} cy={end.y} r={13} className="fx-dial-knob" />}
         </g>
         {label && p.typical !== null && (
+          // Isolated left to right (LRI ... PDI): the degree sign follows the number in both languages,
+          // as on the large readout.
           <text x={mirrorX(label.x)} y={label.y} className="fx-dial-typical" textAnchor="middle">
-            {localizeDigits(p.lang, String(Math.round(Math.abs(p.typical))))}°
+            {`\u2066${localizeDigits(p.lang, String(Math.round(Math.abs(p.typical))))}°\u2069`}
           </text>
         )}
       </svg>
@@ -137,7 +141,7 @@ export function Dial(p: DialProps) {
             <sup>°</sup>
           </b>
         )}
-        <span>{p.caption ?? unitWord(p.lang, "deg", shown ?? 0)}</span>
+        {shown !== null && <span>{p.caption ?? unitWord(p.lang, "deg", shown)}</span>}
       </div>
       {p.typical !== null && (
         <p className="fx-dial-legend">

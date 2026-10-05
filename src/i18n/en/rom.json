@@ -49,14 +49,16 @@
   },
   "intro": {
     "title": "Your focused movement check",
-    "joints": "What we will measure today",
+    "joints": "The joints we will measure today",
     "minutes": "About {n} {unit}",
     "seated": "Seated",
     "standing": "Standing",
     "lying": "Lying down",
     "walk": "Then we look at your walk",
     "safety": "For your safety",
-    "start": "Start"
+    "start": "Start",
+    "order": "In this order",
+    "walkStep": "Walking"
   },
   "precheck": {
     "kicker": "Before we start"
@@ -93,7 +95,10 @@
     "resume": "Resume",
     "typical": "Typical",
     "band": "Typical for your age and sex",
-    "hold": "Hold"
+    "hold": "Hold",
+    "instructions": "Instructions",
+    "hideInstructions": "Hide the instructions",
+    "fromStraight": "from straight"
   },
   "result": {
     "kicker": "Result",

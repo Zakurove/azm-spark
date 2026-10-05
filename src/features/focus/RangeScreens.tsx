@@ -26,7 +26,7 @@ import { Dial, scaleMax } from "./Dial";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Dots, Glass, Kicker, PainScale, Timer, Title } from "./parts";
 import type { RomController } from "./romController";
-import { sideRegion } from "./Screens";
+import { QuestionText, sideRegion } from "./Screens";
 import { Stage } from "./Stage";
 import type { RomSaved } from "./api";
 
@@ -184,9 +184,7 @@ export function ReaskScreen({
   return (
     <Glass className="fx-card fx-question" data-reask={item.movementId}>
       <Kicker>{sideRegion(item, lang)}</Kicker>
-      <h1 id="fx-reask" className="fx-title is-question" tabIndex={-1}>
-        {bidiText(lang, copyText("pain_ask", lang))}
-      </h1>
+      <QuestionText lang={lang} id="fx-reask" text={copyText("pain_ask", lang)} />
       <PainScale
         lang={lang}
         labelledBy="fx-reask"
@@ -266,7 +264,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       className="fx-measure"
       data-phase={phase}
       data-movement={item.movementId}
-      data-asking={asking ? "" : undefined}
+      data-asking={asking ? (phase === "ask_max" ? "max" : "other") : undefined}
     >
       <Stage video={video} frame={frame} highlight={highlight}>
         <div className="fx-stage-top">
@@ -274,8 +272,21 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
             <b>{movementName(item.movementId, lang)}</b>
             <span>{sideRegion(item, lang)}</span>
           </span>
-          <span className="fx-pill is-glass is-count">{tV7(lang, "rom.setup.kicker", { n, total })}</span>
         </div>
+        {ctl.instructionsOpen && !asking && (
+          <div
+            className="fx-stage-sheet"
+            id="fx-instructions"
+            role="region"
+            aria-label={tV7(lang, "rom.measure.instructions")}
+          >
+            <ol className="fx-steps">
+              {instructionLines(item.movementId, item.side, item.position, lang).map((line, i) => (
+                <li key={i}>{bidiText(lang, line)}</li>
+              ))}
+            </ol>
+          </div>
+        )}
         {(caption || issue) && (
           <p className={`fx-caption${caption ? " is-warn" : ""}`} role="status">
             {bidiText(
@@ -287,18 +298,39 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       </Stage>
       <Glass className="fx-card fx-sheet">
         <div className="fx-sheet-head">
-          <Dots lang={lang} total={scored} index={att.index} valid={att.valid} />
-          {(phase === "practice" || phase === "attempt" || phase === "calibrating" || phase === "rest") && (
-            <button
-              type="button"
-              className="fx-chip"
-              onClick={() => ctl.pause("screen", clock())}
-              data-action="pause"
-            >
-              <CheckIcon name="pause" size={20} />
-              <span>{tV7(lang, "rom.measure.pause")}</span>
-            </button>
-          )}
+          <div className="fx-sheet-where">
+            <span className="fx-count">{tV7(lang, "rom.setup.kicker", { n, total })}</span>
+            <Dots lang={lang} total={scored} index={att.index} valid={att.valid} />
+          </div>
+          <div className="fx-sheet-tools">
+            {!asking && (
+              <button
+                type="button"
+                className="fx-chip is-icon"
+                onClick={() => ctl.showInstructions(!ctl.instructionsOpen)}
+                aria-pressed={ctl.instructionsOpen}
+                aria-controls={ctl.instructionsOpen ? "fx-instructions" : undefined}
+                aria-label={tV7(
+                  lang,
+                  ctl.instructionsOpen ? "rom.measure.hideInstructions" : "rom.measure.instructions",
+                )}
+                data-action="instructions"
+              >
+                <CheckIcon name="info" size={22} />
+              </button>
+            )}
+            {(phase === "practice" || phase === "attempt" || phase === "calibrating" || phase === "rest") && (
+              <button
+                type="button"
+                className="fx-chip"
+                onClick={() => ctl.pause("screen", clock())}
+                data-action="pause"
+              >
+                <CheckIcon name="pause" size={20} />
+                <span>{tV7(lang, "rom.measure.pause")}</span>
+              </button>
+            )}
+          </div>
         </div>
         {phase === "rest" && (
           <div className="fx-sheet-body is-rest">
@@ -321,6 +353,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
               hold={phase === "attempt" || phase === "practice" ? ctl.holdProgress : null}
               max={max}
               typicalLabel={tV7(lang, "rom.measure.band")}
+              {...(def.kind === "lack" ? { caption: tV7(lang, "rom.measure.fromStraight") } : {})}
             />
             <div className="fx-prompt">
               {prompt && <p className="fx-prompt-main">{prompt}</p>}
@@ -384,6 +417,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
             <PainScale
               lang={lang}
               labelledBy="fx-pain"
+              readout={false}
               nextLabel={t(lang, "assessment.common.next")}
               onDone={(level) => ctl.answerPain(level, false, "button", clock())}
             />
@@ -432,21 +466,28 @@ function Question({
           <sup>°</sup>
         </p>
       )}
-      <h2 id={id} className="fx-title is-question">
-        {bidiText(lang, text)}
-      </h2>
+      <QuestionText lang={lang} id={id} text={text} as="h2" />
       {children}
     </div>
   );
 }
 
 /** A pain stop (C-15, a safety step): the movement stops; the person taps on. */
-export function PainStopScreen({ lang, onContinue }: { lang: Lang; onContinue(): void }) {
+export function PainStopScreen({
+  lang,
+  item,
+  onContinue,
+}: {
+  lang: Lang;
+  item: RomProtocolItem;
+  onContinue(): void;
+}) {
   return (
     <Glass className="fx-card fx-safety is-pain" tone="rose">
       <span className="fx-badge is-rose" aria-hidden="true">
         <CheckIcon name="pause" size={28} />
       </span>
+      <Kicker>{`${movementName(item.movementId, lang)} · ${sideRegion(item, lang)}`}</Kicker>
       <Title>{tV7(lang, "rom.painStop.title")}</Title>
       <Body lang={lang} text={copyText("pain_stop", lang)} />
       <Actions
@@ -531,6 +572,7 @@ export function ResultScreen({
             max={max}
             final
             typicalLabel={tV7(lang, "rom.measure.band")}
+            {...(def.kind === "lack" ? { caption: tV7(lang, "rom.measure.fromStraight") } : {})}
           />
         ) : (
           <div className="fx-figure-art">
@@ -600,8 +642,11 @@ export function TimerScreen({
   onStop(): void;
 }) {
   return (
-    <div className="fx-timer-screen">
+    <div className="fx-timer-screen" data-timer={kind}>
       <Glass className="fx-card fx-hero">
+        <span className="fx-badge is-violet" aria-hidden="true">
+          <CheckIcon name={kind === "sit" ? "shield" : "clock"} size={28} />
+        </span>
         <Title>{tV7(lang, kind === "sit" ? "rom.sit.title" : "rom.stopRest.title")}</Title>
         {kind === "sit" && <Body lang={lang} text={copyText("sit_before_stand", lang)} />}
         <Timer lang={lang} leftMs={leftMs} totalMs={totalMs} size={184} />

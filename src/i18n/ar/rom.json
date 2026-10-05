@@ -49,14 +49,16 @@
   },
   "intro": {
     "title": "قياس حركتك المركّز",
-    "joints": "ما سنقيسه اليوم",
+    "joints": "المفاصل التي سنقيسها اليوم",
     "minutes": "نحو {n} {unit}",
     "seated": "جالسًا",
     "standing": "واقفًا",
     "lying": "مستلقيًا",
     "walk": "ثم ننظر إلى مشيك",
     "safety": "لسلامتك",
-    "start": "ابدأ"
+    "start": "ابدأ",
+    "order": "بهذا الترتيب",
+    "walkStep": "المشي"
   },
   "precheck": {
     "kicker": "قبل أن نبدأ"
@@ -93,7 +95,10 @@
     "resume": "تابع",
     "typical": "المعتاد",
     "band": "المعتاد لعمرك وجنسك",
-    "hold": "اثبت"
+    "hold": "اثبت",
+    "instructions": "التعليمات",
+    "hideInstructions": "إخفاء التعليمات",
+    "fromStraight": "عن الاستقامة"
   },
   "result": {
     "kicker": "النتيجة",

@@ -12,6 +12,8 @@ import { createFocusApi } from "../../src/features/focus/api";
 import { checkParts, painRegions, todayQuestions, type TodayQuestion } from "../../src/features/focus/flow";
 import { itemKey } from "../../src/features/focus/romController";
 import { FocusSession } from "../../src/features/focus/session";
+import { cellOf, jointsOf } from "../../src/features/focus/Screens";
+import { buildRomProtocol } from "../../src/medical/rom-protocol";
 import type { BridgeEvent } from "../../src/coach/types";
 import type { Intake } from "../../src/medical/plan";
 import { benign } from "../precheck-fixtures";
@@ -352,6 +354,30 @@ describe("the focus shell end to end on the real routes", () => {
     expect(s.model.state.kind).toBe("consent");
     await s.consent();
     expect(s.model.state.kind).toBe("intro");
+  });
+});
+
+describe("the intro's joints (plan 1.7: which joints we will measure)", () => {
+  it("groups the day's movements by joint in body order, the right side first, each with its movements", () => {
+    const items = buildRomProtocol({
+      intake: v7Intake({
+        regions: [
+          { region: "knee", side: "left", problems: ["stiffness"], origin: "person" },
+          { region: "shoulder", side: "right", problems: ["stiffness"], origin: "person" },
+          { region: "knee", side: "right", problems: ["stiffness"], origin: "person" },
+        ],
+      }) as Parameters<typeof buildRomProtocol>[0]["intake"],
+      setting: "booth",
+      today: { painByRegion: {}, redFlagRegions: [] },
+    }).items.filter((i) => !i.skipped);
+    const joints = jointsOf(items);
+    expect(joints.map((g) => g.key)).toEqual(["shoulder:right", "knee:right", "knee:left"]);
+    for (const g of joints)
+      expect(g.items.map(itemKey)).toEqual(
+        items.filter((i) => `${i.region}:${i.side}` === g.key).map(itemKey),
+      );
+    expect(joints.map(cellOf)).toEqual(["shoulder:right", "knee:right", "knee:left"]);
+    expect(cellOf({ region: "back_trunk", side: "none" })).toBe("back_trunk:axial");
   });
 });
 

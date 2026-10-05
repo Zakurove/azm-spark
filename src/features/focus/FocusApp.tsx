@@ -37,7 +37,7 @@ import { GaitStep } from "../gait/GaitStep";
 import { focusCameraSession, FocusCameraContext, type FocusSourceFactory } from "./camera";
 import { createFocusApi } from "./api";
 import { FINDING_LABEL, voiceLineOf } from "./copy";
-import { romResultLine } from "../../movements/rom";
+import { movementDef, romResultLine } from "../../movements/rom";
 import { FocusSession } from "./session";
 import { itemKey, type RomController } from "./romController";
 import { TopBar, Page } from "./parts";
@@ -507,6 +507,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
                     item,
                     value: result?.status === "not_measured" ? null : (result?.value ?? null),
                     label: key ? romResultLine(key)[lang] : null,
+                    lack: movementDef(item.movementId).kind === "lack",
                   };
                 })}
               onFindings={() => session.dispatch({ type: "EXIT", to: "findings" })}
@@ -586,7 +587,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       case "pain_stop":
         return {
           screen: "pain_stop",
-          node: <PainStopScreen lang={lang} onContinue={() => c.acknowledge(clock())} />,
+          node: <PainStopScreen lang={lang} item={step.item} onContinue={() => c.acknowledge(clock())} />,
         };
       case "result": {
         const last = runs[runs.length - 1];
@@ -652,6 +653,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
         {leaving && (
           <LeaveDialog
             lang={lang}
+            lying={part?.kind === "range" && part.block === "lying"}
             onStay={() => setLeaving(false)}
             onLeave={() => {
               setLeaving(false);

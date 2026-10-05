@@ -254,25 +254,30 @@ export function PainScale({
   labelledBy,
   onDone,
   nextLabel,
+  readout = true,
 }: {
   lang: Lang;
   labelledBy: string;
   onDone(level: number): void;
   nextLabel: string;
+  /** The chosen number large above the scale (off where the room is short: on the measurement). */
+  readout?: boolean;
 }) {
   const [value, setValue] = useState<number | null>(null);
   const [tried, setTried] = useState(false);
   const hint = useId();
   return (
     <div className="fx-scale-block">
-      <div className="fx-scale-readout" aria-live="polite">
-        {value === null ? (
-          <i className="fx-dial-wait" aria-hidden="true" />
-        ) : (
-          <b>{localizeDigits(lang, String(value))}</b>
-        )}
-        <span>{tV7(lang, "rom.pain.outOf")}</span>
-      </div>
+      {readout && (
+        <div className="fx-scale-readout" aria-live="polite">
+          {value === null ? (
+            <i className="fx-dial-wait" aria-hidden="true" />
+          ) : (
+            <b>{localizeDigits(lang, String(value))}</b>
+          )}
+          <span>{tV7(lang, "rom.pain.outOf")}</span>
+        </div>
+      )}
       <div
         className="fx-scale"
         role="radiogroup"

@@ -583,3 +583,35 @@ describe("findingsView: the changes since the starting point", () => {
     expect(arWalk[0].values).toContain("٠٫٩٥");
   });
 });
+
+describe("the result card and the findings page read one knee history", () => {
+  it("reads label_uncertain from the measured knee's own side, as the findings page does", async () => {
+    const { resultView } = await import("../../src/features/focus/copy");
+    const item = {
+      movementId: "knee_extension",
+      side: "right",
+      region: "knee",
+      position: "lying_back",
+      block: "lying",
+      order: 1,
+      priority: "core",
+      verdict: "measure",
+      normId: "mckay_knee_extension",
+      graded: true,
+      askCanMove: false,
+      helperRequired: false,
+      approximate: false,
+    } as const;
+    const result = { value: 6, nValid: 3, flags: [], reason: null } as unknown as RomMeasureResult;
+    const label = (side: "left" | "right") => {
+      const intake = intakeOf(
+        [{ region: "knee", side, problems: ["injury"], origin: "person", injury: { since: "gt6m" } }],
+        { conditions: [] },
+      );
+      return resultView(item, result, "within", 0, intake, "en", (k) => k).label;
+    };
+    expect(label("right")).toBe(romResultLine("label_uncertain").en);
+    // An injury of the other knee is not this knee's history.
+    expect(label("left")).toBe(romResultLine("label_within").en);
+  });
+});

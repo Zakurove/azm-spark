@@ -179,12 +179,15 @@ export function resultView(
     line = r("value_flexion", { value, norm: typical });
   }
   let label: string | null = FINDING_LABEL[finding] ? romResultLine(FINDING_LABEL[finding]!)[lang] : null;
-  // 7.4: label_uncertain replaces label_within for a lying knee lack from 5 within normal, with these histories.
+  // 7.4: label_uncertain replaces label_within for a lying knee lack from 5 within normal, with these
+  // histories of that knee (its own side: the findings page reads the same, findings.ts).
   const from = (posDef as { uncertainLackFrom?: number } | undefined)?.uncertainLackFrom;
   if (finding === "within" && from !== undefined && v >= from && intake) {
     const knee = intake.regions?.some(
       (e) =>
-        e.region === "knee" && e.problems.some((p) => (UNCERTAIN_PROBLEMS as readonly string[]).includes(p)),
+        e.region === "knee" &&
+        (e.side === item.side || e.side === "both") &&
+        e.problems.some((p) => (UNCERTAIN_PROBLEMS as readonly string[]).includes(p)),
     );
     if (knee || intake.conditions.some((c) => UNCERTAIN_CONDITIONS.includes(c)))
       label = romResultLine("label_uncertain")[lang];

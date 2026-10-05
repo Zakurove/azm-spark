@@ -476,16 +476,14 @@ export interface RomFunctionalFloor {
 
 /**
  * A retest band (rom-protocol retest, review B15): the change in degrees that counts as real. `deg` holds
- * for everyone; `neurologicalDeg` on a limb affected by a neurological condition; the elbow's
- * neurological band is written twice in the rule, lab and home (contract change log, freeze step).
- * `position` names the position the band is for (lying knee straightening); `wideDeg` is the side arm
- * raise's wide band of v1.1.
+ * for everyone; `neurologicalDeg` on a limb affected by a neurological condition (the elbow's is the
+ * home value 36 for both elbow movements since the sign off, FZ-1 and D-026 item 4; the lab value is
+ * evidence in local-docs). `position` names the position the band is for (lying knee straightening);
+ * `wideDeg` is the side arm raise's wide band of v1.1.
  */
 export interface RomRetestBand {
   deg?: number;
   neurologicalDeg?: number;
-  neurologicalLabDeg?: number;
-  neurologicalHomeDeg?: number;
   position?: RomPositionId;
   wideDeg?: number;
 }

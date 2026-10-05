@@ -5967,8 +5967,7 @@
         "neurologicalDeg": 18
       },
       "elbow": {
-        "neurologicalLabDeg": 33,
-        "neurologicalHomeDeg": 36
+        "neurologicalDeg": 36
       },
       "ankle_dorsiflexion_lunge": {
         "deg": 10

@@ -849,15 +849,12 @@ function movementSet(entries, movements, where) {
   });
 }
 
-/** The fields of a retest band (D-024 item 4): a movement's band, the neurological limb's and the wide band. */
-export const RETEST_BAND_FIELDS = [
-  "deg",
-  "neurologicalDeg",
-  "neurologicalLabDeg",
-  "neurologicalHomeDeg",
-  "position",
-  "wideDeg",
-];
+/**
+ * The fields of a retest band (D-024 item 4): a movement's band, the neurological limb's and the wide
+ * band. One band per key: the elbow's lab and home pair of the draft became the home band at the sign
+ * off (FZ-1, D-026 item 4), so a band written twice stops the export.
+ */
+export const RETEST_BAND_FIELDS = ["deg", "neurologicalDeg", "position", "wideDeg"];
 
 /**
  * retest: the change bands compareRom reads (B4; review B15), copied from the rule in words, which

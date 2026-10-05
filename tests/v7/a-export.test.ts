@@ -1010,7 +1010,7 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
       defaultDeg: 10,
       bands: {
         shoulder_flexion: { neurologicalDeg: 18 },
-        elbow: { neurologicalLabDeg: 33, neurologicalHomeDeg: 36 },
+        elbow: { neurologicalDeg: 36 },
         ankle_dorsiflexion_lunge: { deg: 10 },
         knee_extension: { deg: 11, position: "lying_back" },
         shoulder_abduction: { deg: 16, wideDeg: 20 },
@@ -1023,6 +1023,10 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     });
     const lists = rom.safety.find((s: Obj) => s.id === "after_surgery_precaution").hipPrecautions;
     expect(lists.anterior).toEqual({ extensionPastDeg: 20, externalRotationPastDeg: 50 });
+    // FZ-1 (D-026 item 4): one elbow band; the lab and home pair of the draft no longer exports.
+    const twice = romSource();
+    twice.retest.bands.elbow = { neurologicalLabDeg: 33, neurologicalHomeDeg: 36 };
+    expect(() => exportRom(twice)).toThrow("retest band elbow: unknown field neurologicalLabDeg");
     const b = romSource();
     b.sessionOrder.blocks = ["seated", "lying", "standing", "pool"];
     expect(() => exportRom(b)).toThrow("sessionOrder.blocks: pool is not a block");

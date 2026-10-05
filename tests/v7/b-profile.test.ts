@@ -984,10 +984,10 @@ describe("compareRom: the retest rule (rom-protocol 5.3, review B15)", () => {
       r.bands.shoulder_flexion!.neurologicalDeg,
     );
     expect(retestBandDeg("shoulder_flexion", "seated", ["stroke"])).toBe(18);
-    // «elbow 33 (lab) or 36 (home)»: home 36 for both elbow movements (FZ-1, D-026).
+    // «elbow 36 (the home MDC95 ...), for both elbow movements» (FZ-1, D-026 item 4, the sign off).
     for (const id of ["elbow_extension", "elbow_flexion"] as const) {
       expect(retestBandDeg(id, "seated", ["ms"])).toBe(36);
-      expect(retestBandDeg(id, "seated", ["ms"])).toBe(r.bands.elbow!.neurologicalHomeDeg);
+      expect(retestBandDeg(id, "seated", ["ms"])).toBe(r.bands.elbow!.neurologicalDeg);
       expect(retestBandDeg(id, "seated", [])).toBe(10);
     }
     // «lunge 10»; «lying knee straightening 11», other positions the default.

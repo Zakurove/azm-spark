@@ -369,7 +369,7 @@ describe("ROM runtime data (rom-v7.json)", () => {
     expect(retest.defaultDeg).toBeGreaterThanOrEqual(retest.floorDeg);
     for (const [key, band] of Object.entries(retest.bands)) {
       expect([...ROM_MOVEMENT_IDS, ...REGION_IDS] as string[], key).toContain(key);
-      for (const v of [band.deg, band.neurologicalDeg, band.neurologicalLabDeg, band.neurologicalHomeDeg])
+      for (const v of [band.deg, band.neurologicalDeg, band.wideDeg])
         if (v !== undefined) expect(v, key).toBeGreaterThanOrEqual(retest.floorDeg);
       if (band.position)
         expect(
@@ -390,7 +390,8 @@ describe("ROM runtime data (rom-v7.json)", () => {
       "Unknown range of motion compensation: shoulder_flexion heel_lift",
     );
     expect(retestBand("knee_extension")).toEqual({ deg: 11, position: "lying_back" });
-    expect(retestBand("elbow")).toEqual({ neurologicalLabDeg: 33, neurologicalHomeDeg: 36 });
+    // FZ-1 (D-026 item 4): the home band 36 for both elbow movements, one band (the lab 33 is evidence).
+    expect(retestBand("elbow")).toEqual({ neurologicalDeg: 36 });
     expect(retestBand("neck_flexion")).toBeNull();
   });
 

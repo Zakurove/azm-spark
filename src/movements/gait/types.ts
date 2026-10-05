@@ -230,7 +230,6 @@ export interface GaitPatternTarget {
   beatPctOfCadence?: number;
 }
 
-/** A pattern as the data writes it ("(structured)": the prose section, sides and labelRule are dropped). */
 /**
  * An interim gait threshold (D-027 item 6, contract change log CG-19): a data change that reduces false
  * findings in healthy walkers until the GAIT-Q3 tuning on Azm's own recordings. Its basis and the
@@ -244,6 +243,7 @@ export interface GaitInterim {
   replaces?: Record<string, number>;
 }
 
+/** A pattern as the data writes it ("(structured)": the prose section, sides and labelRule are dropped). */
 export interface GaitPatternDef {
   id: GaitPatternId;
   /** shorter_stance only: the label by pain and prosthesis. */

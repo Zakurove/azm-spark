@@ -411,7 +411,8 @@ export class RomRunner {
     this.maxPain = Math.max(this.maxPain ?? 0, stored);
     const a = this.att;
     if (a) {
-      a.pain = true;
+      // A report of no pain (the coach's mark_pain 0) leaves the value as it is; any pain marks it.
+      if (stored > 0 || sharp) a.pain = true;
       a.reachOpen = false;
       a.painLevel = Math.max(a.painLevel ?? 0, stored);
     }

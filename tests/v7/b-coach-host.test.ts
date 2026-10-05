@@ -424,3 +424,239 @@ describe("stop and repeat_instructions", () => {
     expect(ctl.snapshot()).not.toMatch(/male|female|stroke|\d\d years/);
   });
 });
+
+describe("every tool at every step kind of the range blocks (2.11 host table, C-16)", () => {
+  type Tool = Parameters<RomController["handleTool"]>[0];
+  const TOOLS: [Tool, Record<string, unknown>][] = [
+    ["confirm_max", { ...KNEE_BEND, answer: "yes" }],
+    ["answer_can_move", { ...KNEE_BEND, canMove: true }],
+    ["keep_reaching", {}],
+    ["mark_pain", { level: 0 }],
+    ["set_limit_cause", { cause: "tight" }],
+    ["pause", {}],
+    ["resume", {}],
+    ["stop", { reason: "tired" }],
+    ["next_step", {}],
+    ["repeat_instructions", {}],
+  ];
+  /** Each state: how to reach it, its C-16 kind, and the tools the host table accepts there. */
+  const STATES: { name: string; kind: string; reach: () => RomController; accepts: Tool[] }[] = [
+    { name: "the block card", kind: "confirm", reach: () => setup(), accepts: [] },
+    {
+      name: "the setup card",
+      kind: "confirm",
+      reach: () => {
+        const c = setup();
+        c.ready(0);
+        return c;
+      },
+      accepts: [],
+    },
+    {
+      name: "the start pose",
+      kind: "active",
+      reach: () => {
+        const c = setup();
+        reach(c, (x) => x.phase === "calibrating");
+        return c;
+      },
+      accepts: ["pause"],
+    },
+    {
+      name: "the practice",
+      kind: "active",
+      reach: () => {
+        const c = setup();
+        reach(c, (x) => x.phase === "practice");
+        return c;
+      },
+      accepts: ["pause"],
+    },
+    {
+      name: "an attempt",
+      kind: "active",
+      reach: () => {
+        const c = setup();
+        reach(c, (x) => x.phase === "attempt");
+        return c;
+      },
+      accepts: ["pause"],
+    },
+    {
+      name: "the maximum question",
+      kind: "question",
+      reach: () => {
+        const c = setup();
+        reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
+        return c;
+      },
+      accepts: ["confirm_max"],
+    },
+    {
+      name: "right after not yet",
+      kind: "active",
+      reach: () => {
+        const c = setup();
+        const run = reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
+        c.answerMax("not_yet", "button", run.t + 100);
+        return c;
+      },
+      accepts: ["keep_reaching", "pause"],
+    },
+    {
+      name: "the pain question",
+      kind: "question",
+      reach: () => {
+        const c = setup();
+        const run = reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
+        c.answerMax("hurts", "button", run.t + 100);
+        return c;
+      },
+      accepts: [],
+    },
+    {
+      name: "the rest between attempts",
+      kind: "timer",
+      reach: () => {
+        const c = setup();
+        const run = reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
+        c.answerMax("yes", "button", run.t + 100);
+        return c;
+      },
+      accepts: ["pause"],
+    },
+    {
+      name: "the cause question",
+      kind: "question",
+      reach: () => {
+        const c = setup();
+        runBlock(c, { target: () => 100, until: (x) => x.phase === "ask_cause" }, 300);
+        return c;
+      },
+      accepts: ["set_limit_cause"],
+    },
+    {
+      name: "the can move question",
+      kind: "question",
+      reach: () => {
+        const c = setup(WEAK_KNEE);
+        reach(c, (x) => x.phase === "ask_can_move");
+        return c;
+      },
+      accepts: ["answer_can_move"],
+    },
+    {
+      name: "a pause made on the screen",
+      kind: "active",
+      reach: () => {
+        const c = setup();
+        const run = reach(c, (x) => x.phase === "attempt");
+        c.pause("screen", run.t + 10);
+        return c;
+      },
+      accepts: [],
+    },
+    {
+      name: "a pain stop",
+      kind: "safety",
+      reach: () => {
+        const c = setup();
+        reach(c, (x) => x.phase === "attempt");
+        c.handleTool("mark_pain", { level: 8 });
+        return c;
+      },
+      accepts: [],
+    },
+    {
+      name: "a result card",
+      kind: "info",
+      reach: () => {
+        const c = setup();
+        runBlock(c, { until: (x) => x.current.kind === "result" }, 300);
+        return c;
+      },
+      accepts: ["next_step"],
+    },
+    {
+      name: "the same joint re-ask",
+      kind: "question",
+      reach: () => {
+        const c = setup();
+        reach(c, (x) => x.phase === "attempt");
+        c.handleTool("mark_pain", { level: 8 });
+        c.acknowledge(1);
+        c.next(2);
+        return c;
+      },
+      accepts: [],
+    },
+    {
+      name: "the stop list",
+      kind: "safety",
+      reach: () => {
+        const c = setup();
+        const run = reach(c, (x) => x.phase === "attempt");
+        c.requestStop(run.t + 10);
+        return c;
+      },
+      accepts: [],
+    },
+    {
+      name: "the rest after a stop",
+      kind: "timer",
+      reach: () => {
+        const c = setup();
+        const run = reach(c, (x) => x.phase === "attempt");
+        c.requestStop(run.t + 10);
+        c.stopRouted({ endsCheck: false, afterRest: true }, run.t + 20);
+        return c;
+      },
+      accepts: ["pause"],
+    },
+    {
+      name: "the sit before stand minute",
+      kind: "timer",
+      reach: () => {
+        const c = setup();
+        runBlock(c, { until: (x) => x.current.kind === "sit" }, 400);
+        return c;
+      },
+      accepts: ["pause"],
+    },
+  ];
+  /** Accepted at every step (2.11: mark_pain at any step, stop always, repeat_instructions always). */
+  const ALWAYS: Tool[] = ["mark_pain", "stop", "repeat_instructions"];
+
+  for (const state of STATES)
+    it(`${state.name} (${state.kind})`, () => {
+      expect(state.reach().step().kind).toBe(state.kind);
+      for (const [tool, args] of TOOLS) {
+        const ctl = state.reach();
+        const r = ctl.handleTool(tool, args as never);
+        const want = ALWAYS.includes(tool) || state.accepts.includes(tool);
+        expect(r.accepted, `${tool} at ${state.name}: ${JSON.stringify(r)}`).toBe(want);
+        // A step the person must tap is theirs: the coach is told to ask for the tap.
+        if (tool === "next_step" && !want && state.kind !== "active")
+          expect(r).toEqual({ accepted: false, reason: "not_allowed", say: "tap_to_confirm" });
+        if (tool === "resume" && state.name === "a pause made on the screen")
+          expect(r.reason).toBe("paused_on_screen");
+        if (state.kind === "safety" && ["confirm_max", "pause", "resume"].includes(tool))
+          expect(r.reason).toBe("safety_stop");
+      }
+    });
+
+  it("a coach's «no pain» (mark_pain 0) during an attempt does not make the value pain limited", () => {
+    const ctl = setup();
+    reach(ctl, (c) => c.phase === "attempt" && c.attempt.index === 1);
+    expect(ctl.handleTool("mark_pain", { level: 0 })).toEqual({
+      accepted: true,
+      data: { action: "continue" },
+    });
+    runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+    const s = ctl.current;
+    expect(s.kind).toBe("result");
+    if (s.kind !== "result") return;
+    expect(s.result.painLimited).toBe(false);
+    expect(s.result.attempts.every((a) => !a.painLimited)).toBe(true);
+  });
+});

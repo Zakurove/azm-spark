@@ -632,8 +632,12 @@ export class RomController implements CoachHost {
     }
     const s = this.stepNow;
     if (outcome.afterRest) {
+      // The person answered the stop list: the rest is a new timer step the coach may pause (it only
+      // lengthens the rest); the stopped movement never resumes, and the next one waits for «جاهز».
       const total = (this.opts.stopRestSeconds ?? STOP_REST_SECONDS) * 1000;
       this.timerLeftMs = null;
+      this.safetyStopped = false;
+      this.pausedBy = null;
       this.go({ kind: "rest", until: t + total, total });
       return;
     }

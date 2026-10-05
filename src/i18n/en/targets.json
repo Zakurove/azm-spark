@@ -1,1 +1,35 @@
-{}
+{
+  "program": {
+    "kicker": "Your program",
+    "title": "Exercises chosen for your results",
+    "intro": "Each exercise here has one clear reason from your movement results, and the rest of each session follows your goal as before.",
+    "loading": "Building your program from your results",
+    "loadError": "We could not prepare your program right now. Make sure you are online, then try again.",
+    "noneTitle": "No movement results yet",
+    "noneBody": "After your first movement check, we choose exercises for your results and tell you why we chose each one.",
+    "planTitle": "Update your medical condition details first",
+    "planBody": "We need your updated details to build your program from your results.",
+    "emptyTitle": "Your results need no special exercises now",
+    "emptyBody": "Your sessions follow your goal as before, and we will look again at your next check.",
+    "days": "Days for this exercise",
+    "seeResult": "See the result",
+    "results": "My results",
+    "back": "Back to my program",
+    "close": "Close the program"
+  },
+  "summary": {
+    "title": "What we will work on",
+    "body": "We chose these exercises for your results, each for a reason.",
+    "loading": "Preparing your program from your results",
+    "open": "See your full program"
+  },
+  "link": {
+    "title": "Your program is built on your results",
+    "body": "Each exercise chosen for your results has a clear reason.",
+    "open": "Why these exercises?",
+    "findings": "My results",
+    "buildTitle": "Let your program follow your results",
+    "buildBody": "We choose exercises for your movement results, each with a clear reason.",
+    "build": "See your new program"
+  }
+}

@@ -282,6 +282,19 @@ function barOf(
   };
 }
 
+/**
+ * A measured value as shown: its degrees, or for a seated side bend the runner capped (flag "censored",
+ * W2-6: the lean held so far, at most the limit, a lower bound) «أكثر من {value}» / "more than {value}",
+ * v1's own words for a censored side lean (check data progress.noVerdict.censored; D-028 item 3). The
+ * Arabic phrase is one right to left isolate, so it reads whole inside the value's left to right box.
+ */
+function valueText(e: RomProfileEntry, lang: Lang): string {
+  const v = e.kind === "lack" ? Math.max(0, e.value!) : Math.abs(e.value!);
+  if (!e.flags.includes("censored")) return degrees(lang, v);
+  const text = tV7(lang, "rom.findings.moreThan", { value: isolatedDegrees(lang, v) });
+  return lang === "ar" ? `\u2067${text}\u2069` : text;
+}
+
 /** A change since the starting point, in words that name the range or the straightening, never better or worse. */
 function changeOf(e: RomProfileEntry, c: RomChange, lang: Lang): NonNullable<RowView["change"]> {
   const lack = e.kind === "lack";
@@ -350,7 +363,7 @@ function rowOf(
       isAxial(e.region) && e.side !== "none"
         ? tV7(lang, e.side === "right" ? "rom.findings.toRight" : "rom.findings.toLeft")
         : null,
-    value: measured ? degrees(lang, lack ? Math.max(0, e.value!) : Math.abs(e.value!)) : null,
+    value: measured ? valueText(e, lang) : null,
     caption: measured && lack ? tV7(lang, "rom.measure.fromStraight") : null,
     typical: measured && !lack && e.typical !== null ? degrees(lang, e.typical) : null,
     label: labelOf(e, intake, lang),

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plan } from "../medical/plan";
-import { libraryById, summaryText, WeeklyItem, WeeklyPlan } from "../medical/weekly";
+import { libraryById, stepsOf, summaryText, WeeklyItem, WeeklyPlan } from "../medical/weekly";
+import { V7_UI } from "./v7flag";
 import { EXERCISES } from "../exercises/defs";
 import { Lang, fmtDate, fmtNum } from "./i18n";
 import { api } from "./api";
@@ -24,6 +25,8 @@ const copy = {
     cooldown: "التهدئة",
     withCamera: "بالكاميرا",
     tips: "نصائح لأسبوعك",
+    fromResults: "من نتائجك",
+    seeResult: "اعرض النتيجة",
   },
   en: {
     title: "Your weekly plan",
@@ -40,16 +43,33 @@ const copy = {
     cooldown: "Cool down",
     withCamera: "Camera",
     tips: "Tips for your week",
+    fromResults: "From your results",
+    seeResult: "See the result",
   },
 };
+
+/** The mark of an exercise the findings chose: gold, beside its dose (v7, E3). */
+const FROM_RESULTS = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  width: "fit-content",
+  marginTop: 4,
+  color: "#6f540c",
+  background: "#fdf4d6",
+} as const;
 
 const weekday = (day: number, lang: Lang) => fmtDate(new Date(2026, 8, 6 + day), lang, { weekday: "long" });
 /**
  * A weekly plan item as the guided card it becomes in the session (booth v2, D): its glyph, its dose
  * (a timer for a hold, a tap counter for reps), and inside, the description and the numbered steps.
+ * v7 (contract 1.2, E3): an exercise the findings chose is marked «من نتائجك» and says why inside, in
+ * one line, with the way to the result behind it (the findings page, VITE_V7=1 builds); its steps name
+ * the hold its dose resolved.
  */
-function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
+function Item({ item, lang, findings }: { item: WeeklyItem; lang: Lang; findings?: string | null }) {
   const g = guidedCopy(lang),
+    k = copy[lang],
     ex = libraryById(item.id);
   if (!ex) return null;
   const n = (v: number) => fmtNum(v, lang);
@@ -58,8 +78,11 @@ function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
   const dose = timer
     ? g.doseHold(item.sets, item.holdSeconds ?? 0, n)
     : g.doseReps(item.sets, item.reps ?? 8, n);
+  const why = item.why?.[lang];
+  // The result behind it: a range finding or the walk (a region or wheelchair reason is no result).
+  const result = (item.reasonRefs ?? []).some((r) => r.kind === "rom" || r.kind === "gait");
   return (
-    <details className="weekly-item">
+    <details className="weekly-item" {...(why ? { "data-from-results": "" } : {})}>
       <summary>
         <ExerciseArt category={ex.category} size="row" />
         <div>
@@ -68,13 +91,33 @@ function Item({ item, lang }: { item: WeeklyItem; lang: Lang }) {
             <Icon name={timer ? "clock" : "tap"} size={13} />
             {dose}
           </small>
+          {why && (
+            <small className="weekly-tag" style={FROM_RESULTS}>
+              <Icon name="spark" size={12} />
+              {k.fromResults}
+            </small>
+          )}
         </div>
         <Icon name="arrow" size={14} />
       </summary>
       <div className="weekly-item-body">
+        {why && (
+          <p className="weekly-note weekly-why">
+            <Icon name="spark" size={14} />
+            <span>
+              {why}
+              {V7_UI && result && (
+                <>
+                  {" "}
+                  <a href={`/?findings=1${findings ? `&check=${findings}` : ""}`}>{k.seeResult}</a>
+                </>
+              )}
+            </span>
+          </p>
+        )}
         <p>{digits(ex.description[lang])}</p>
         <ol className="weekly-steps">
-          {ex.steps[lang].map((s, i) => (
+          {stepsOf(ex, item, lang).map((s, i) => (
             <li key={s}>
               <span aria-hidden="true">{n(i + 1)}</span>
               {digits(s)}
@@ -174,6 +217,8 @@ export default function WeeklyPlanView({
     </span>
   );
   const day = weekly.days[Math.min(dayIdx, weekly.days.length - 1)];
+  // v7: the focus check a week built from the findings follows (its exercises link to its results).
+  const findingsCheck = weekly.findings?.checkId ?? null;
   return (
     <section className="weekly-card">
       <div className="weekly-head">
@@ -199,7 +244,7 @@ export default function WeeklyPlanView({
         <div className="weekly-block">
           <h3>{k.warmup}</h3>
           {day.warmup.map((i) => (
-            <Item key={i.id} item={i} lang={lang} />
+            <Item key={i.id} item={i} lang={lang} findings={findingsCheck} />
           ))}
         </div>
         {/* Booth v2 (D): a program with no camera movement is guided cards alone. */}
@@ -223,13 +268,13 @@ export default function WeeklyPlanView({
         <div className="weekly-block">
           <h3>{k.extra}</h3>
           {day.extra.map((i) => (
-            <Item key={i.id} item={i} lang={lang} />
+            <Item key={i.id} item={i} lang={lang} findings={findingsCheck} />
           ))}
         </div>
         <div className="weekly-block">
           <h3>{k.cooldown}</h3>
           {day.cooldown.map((i) => (
-            <Item key={i.id} item={i} lang={lang} />
+            <Item key={i.id} item={i} lang={lang} findings={findingsCheck} />
           ))}
         </div>
       </div>

@@ -193,6 +193,7 @@
     "keyTypical": "Typical",
     "keyFirst": "Your starting point",
     "keyValue": "This check",
-    "linkTitle": "Focused movement check results"
+    "linkTitle": "Focused movement check results",
+    "moreThan": "more than {value}"
   }
 }

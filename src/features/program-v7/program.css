@@ -1,0 +1,212 @@
+/* ——— The program built from the findings (product v7 contract 2.10, step E3) ———
+   The focus check's family (focus.css): glass cards on the warm light stage, Cairo, gold for the
+   reason and the one action, purple for the person's own marks (the days), no hard borders. The page's
+   own parts, scoped to .fx (the focus CheckRoot); the Program tab's link (.pv7-link) wears the portal's
+   light card and is scoped by its own class. */
+
+/* ——— the program page ——— */
+.pv7-program,
+.pv7-message {
+  display: grid;
+  gap: 16px;
+}
+.pv7-hero {
+  gap: 10px;
+}
+.pv7-items {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.azm-check.fx .pv7-card {
+  gap: 12px;
+  padding: 18px 18px 14px;
+  border-radius: 26px;
+}
+.pv7-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pv7-card .ex-art-row {
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 0 0 5px rgba(248, 203, 68, 0.14);
+}
+.pv7-card .ex-art-row svg {
+  width: 24px;
+  height: 24px;
+}
+.pv7-card-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.azm-check.fx .pv7-name {
+  margin: 0;
+  font-size: 1.16rem;
+  line-height: 1.45;
+  font-weight: 800;
+  color: var(--fx-ink);
+}
+.pv7-dose {
+  margin: 0;
+  color: var(--fx-muted);
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+.pv7-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pv7-days li {
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.pv7-why {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(253, 244, 214, 0.95), rgba(255, 252, 242, 0.9));
+  color: #3d3210;
+  font-size: 1.04rem;
+  line-height: 1.8;
+  font-weight: 600;
+}
+.pv7-why svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--fx-gold-deep);
+}
+.azm-check.fx .pv7-result {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--fx-purple-ink);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .azm-check.fx .pv7-result:hover {
+    background: var(--fx-purple-tint);
+  }
+}
+
+/* ——— what we will work on (the findings page's targets slot) ——— */
+.pv7-summary-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pv7-summary-list li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(28, 32, 41, 0.045);
+}
+.pv7-summary-list b {
+  font-size: 1.04rem;
+  font-weight: 800;
+}
+.pv7-summary-list span {
+  color: var(--fx-muted);
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+/* ——— the Program tab's link ——— */
+.pv7-link {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(248, 203, 68, 0.2) 0%, rgba(248, 203, 68, 0) 60%),
+    linear-gradient(160deg, #ffffff 0%, #f6f1fb 100%);
+  box-shadow:
+    0 0 0 1px rgba(28, 32, 41, 0.05),
+    0 20px 44px -30px rgba(46, 34, 82, 0.45);
+  color: #1c2029;
+  font-family: Cairo, system-ui, sans-serif;
+}
+.pv7-link h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+}
+.pv7-link h2 svg {
+  flex-shrink: 0;
+  color: #e3ab1f;
+}
+.pv7-link p {
+  margin: 0;
+  color: #5d626d;
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+.pv7-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pv7-link-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.pv7-link-actions .is-primary {
+  background: linear-gradient(135deg, #f8cb44, #e9b52a);
+  color: #3d2f05;
+  box-shadow: 0 12px 26px -16px rgba(226, 170, 30, 0.9);
+}
+.pv7-link-actions .is-secondary {
+  background: #f1ebfa;
+  color: #4f3c7c;
+}
+.pv7-link-actions button:focus-visible {
+  outline: 3px solid #8a6d14;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv7-link-actions button,
+  .azm-check.fx .pv7-result {
+    transition: none;
+  }
+}

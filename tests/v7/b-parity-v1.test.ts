@@ -8,9 +8,10 @@
  * still lead in (the first frame held 1.5 s). Then:
  *   - the measurement: on every file with a raise, v7's value of the lift (the Hampel filter then the
  *     median of the raw v7 angles over the lift's hold second) is within 2 degrees of v1's value;
- *   - the runner: v7's hold rule records that lift within 2 degrees of v1, or its own hold signal over
- *     the lift is wider than the band (the 1 s hold of chair/raise-right at 15 fps in a portrait picture:
- *     change log B1-3); a file without a raise records nothing in either runner.
+ *   - the runner: v7's hold rule records that lift within 2 degrees of v1, on every file with a raise.
+ *     Through v1's 0.3 s median the hold signal of chair/raise-right's 1 s hold at 15 fps in a portrait
+ *     picture was wider than the band (change log B1-3); the hold signal's 0.5 s median (D-026 item 5,
+ *     step B2) holds it. A file without a raise records nothing in either runner.
  * And whole checks generated from the same profiles (practice and three raises, both phone shapes at
  * 30 fps, and at v1's 15 fps in landscape): v7's best value, median and every attempt within 2 degrees
  * of v1's.
@@ -18,8 +19,6 @@
 import { describe, expect, it } from "vitest";
 import { join } from "node:path";
 import { RangeTestRunner } from "../../src/engine/modes";
-import { RunningMedian } from "../../src/engine/modes/common";
-import { PoseSmoother } from "../../src/engine/oneEuro";
 import { toPixelSpace } from "../../src/engine/geometry";
 import { MOVEMENT_ANGLES, type AngleContext } from "../../src/engine/rom/angles";
 import { holdValue } from "../../src/engine/rom/hold";
@@ -27,7 +26,7 @@ import { RomRunner, RUNNER_RULES } from "../../src/engine/rom/runner";
 import type { RomEvent } from "../../src/engine/rom/types";
 import type { Frame } from "../../src/engine/types";
 import { testDef } from "../../src/movements/assessments";
-import { ROM_DATA, movementDef } from "../../src/movements/rom";
+import { movementDef } from "../../src/movements/rom";
 import { FIXTURE_ROOT, fixtureFrames, loadFixture } from "../fixtures/format";
 import type { AspectName, GenTruth, Profile } from "../fixtures/gen";
 import { framesOf, raises, raiseStarts, run, spec } from "../fixtures/runners";
@@ -97,10 +96,7 @@ describe("the six v1 arm raise fixtures", () => {
       const cal = v7.r.calibration!;
       expect(cal).not.toBeNull();
       const ctx: AngleContext = { side, mirrored: false, rollDeg: 0, calibration: cal };
-      const smoother = new PoseSmoother();
-      const med = new RunningMedian(RUNNER_RULES.medianSec * 1000);
       const raw: number[] = [];
-      const signal: { t: number; v: number }[] = [];
       frames.forEach((f, k) => {
         const index =
           k < frames.length - fx.frames.length
@@ -108,28 +104,15 @@ describe("the six v1 arm raise fixtures", () => {
             : fx.truth.subjectIndex[k - (frames.length - fx.frames.length)];
         const lm = f.poses![Math.max(index, 0)];
         const a = MOVEMENT_ANGLES.shoulder_abduction(toPixelSpace(lm, f.aspect), ctx);
-        const s = MOVEMENT_ANGLES.shoulder_abduction(toPixelSpace(smoother.smooth(lm, f.t), f.aspect), ctx);
         if (a !== null && f.t >= from && f.t <= to) raw.push(a);
-        if (s !== null) signal.push({ t: f.t, v: med.push(f.t, s) });
       });
       // The measurement: v7's value of the lift equals v1's within 2 degrees.
       const value = Math.round(holdValue(raw)!);
       expect(Math.abs(value - v1Value!)).toBeLessThanOrEqual(2);
-      // The runner: it records the lift within 2 degrees of v1, or its hold signal never held the band for a second.
+      // The runner: its hold rule records the lift within 2 degrees of v1.
       const recorded = v7.res.practice[0]?.value ?? null;
-      if (recorded !== null) expect(Math.abs(recorded - v1Value!)).toBeLessThanOrEqual(2);
-      else {
-        let narrowest = Infinity;
-        for (let i = 0; i < signal.length; i++) {
-          if (signal[i].t < from - 500 || signal[i].t > to + 500) continue;
-          let j = i;
-          while (j < signal.length && signal[j].t - signal[i].t < ROM_DATA.engine.holdSeconds * 1000) j++;
-          if (j >= signal.length) break;
-          const w = signal.slice(i, j + 1).map((s) => s.v);
-          narrowest = Math.min(narrowest, Math.max(...w) - Math.min(...w));
-        }
-        expect(narrowest).toBeGreaterThan(ROM_DATA.engine.holdBandDeg);
-      }
+      expect(recorded).not.toBeNull();
+      expect(Math.abs(recorded! - v1Value!)).toBeLessThanOrEqual(2);
     });
   }
 });

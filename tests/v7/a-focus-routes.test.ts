@@ -145,6 +145,34 @@ async function started(cookie: string, over: Record<string, unknown> = {}) {
   return r.data as { id: string; protocol: RomProtocol; gait: GaitPlan | null; kind: string };
 }
 
+/** A completed v1 check with its result rows (test, side, value), for the two way 48 hour rule. */
+function v1Done(
+  user: string,
+  id: string,
+  at: number,
+  results: { test: string; side: "left" | "right" | "none"; value: number | null }[],
+) {
+  const db = h.db();
+  db.prepare(
+    `INSERT INTO assessments(id,user_id,kind,setting,status,series_meta,setup,protocol,precheck,device,started,completed,active)
+     VALUES(?,?,'baseline','home','completed','{"position":"chair","poseModel":"full","intakeVersion":1}','{}','[]','{}','{}',?,?,?)`,
+  ).run(id, user, at, at, at);
+  for (const [i, r] of results.entries())
+    db.prepare(
+      `INSERT INTO assessment_results(id,assessment_id,user_id,test_id,side,value,unit,band,attempts,quality,detail,flags,n_valid,series_key,pose_model,movement_version,engine_version,created)
+       VALUES(?,?,?,?,?,?,?,'default','[]','{}','{}','[]',1,'k','full',1,'e1',?)`,
+    ).run(
+      `${id}-r${i}`,
+      id,
+      user,
+      r.test,
+      r.side,
+      r.value,
+      r.test === "shoulder_abduction" ? "deg" : "count",
+      at,
+    );
+}
+
 const item = (p: RomProtocol, movementId: string, side = "right") =>
   p.items.find((i) => i.movementId === movementId && i.side === side) as RomProtocolItem;
 
@@ -289,19 +317,89 @@ describe("POST /api/focus: the order of checks", () => {
       a.cookie,
     );
     expect(v1.data).toEqual({ error: "TOO_SOON", until: T0 + 48 * HOUR });
-    // And a completed v1 check keeps a focus start waiting.
+    // And a completed v1 check keeps a focus start of a joint it loaded waiting (its chair stand: the knee).
     const b = await person();
-    h.db()
-      .prepare(
-        `INSERT INTO assessments(id,user_id,kind,setting,status,series_meta,setup,protocol,precheck,device,started,completed,active)
-         VALUES('v1-done',?,'baseline','home','completed','{"position":"chair","poseModel":"full","intakeVersion":1}','{}','[]','{}','{}',?,?,?)`,
-      )
-      .run(b.id, T0 + 9 * HOUR, T0 + 9 * HOUR, T0 + 9 * HOUR);
+    v1Done(b.id, "v1-done", T0 + 9 * HOUR, [{ test: "chair_stand_30s", side: "none", value: 11 }]);
     expect((await start(b.cookie)).data).toEqual({ error: "TOO_SOON", until: T0 + 57 * HOUR });
     // After 48 hours the start goes ahead.
     setTime(T0 + 58 * HOUR);
     pass = await boothPass(h, T0 + 58 * HOUR);
     expect((await start(b.cookie)).status).toBe(200);
+  });
+
+  it("keeps 48 hours only between checks that share a joint (CT-3): another joint at any time", async () => {
+    // A focus check of the neck alone, with no walk.
+    const neckOnly = v7Intake({
+      regions: [{ region: "neck", side: "axial", problems: ["stiffness"], origin: "person" }],
+      walking: { status: "no" },
+    });
+    const a = await person(neckOnly);
+    const first = await started(a.cookie);
+    expect(first.gait?.offered).toBe(false);
+    const neck = first.protocol.items.find((i) => i.region === "neck")!;
+    expect((await h.call(`/focus/${first.id}/rom`, romBody(neck, 40), a.cookie)).status).toBe(200);
+    expect((await h.call(`/focus/${first.id}/complete`, {}, a.cookie)).status).toBe(200);
+    setTime(T0 + 10 * HOUR);
+    pass = await boothPass(h, T0 + 10 * HOUR);
+    // The neck again shares the joint: 48 hours, in the context and at the start.
+    const ctx = await h.call("/focus/context", undefined, a.cookie, "GET", booth());
+    expect(ctx.data.earliestNext).toBe(T0 + 48 * HOUR);
+    expect((await start(a.cookie)).data).toEqual({ error: "TOO_SOON", until: T0 + 48 * HOUR });
+    // A v1 check loads no neck: it may start at once (the pre-check answers come next).
+    process.env.AZM_CHECK_HOME = "1";
+    await h.call("/consents", { kind: "movement_check", version: 1 }, a.cookie);
+    expect((await h.call("/assessments/context", undefined, a.cookie)).data.earliestNext).toBeNull();
+    const v1 = await h.call(
+      "/assessments",
+      {
+        answers: {},
+        device: { model: "full", aspect: 0.56, fps: 28, engineVersion: "e1", appVersion: "7.0.0" },
+      },
+      a.cookie,
+    );
+    expect(v1.data.error).not.toBe("TOO_SOON");
+    // A focus check of another joint (the right knee) may start at once.
+    const knee = v7Intake({
+      regions: [{ region: "knee", side: "right", problems: ["stiffness"], origin: "person" }],
+      walking: { status: "no" },
+    });
+    expect((await h.call("/intake", knee, a.cookie, "PUT")).status).toBe(200);
+    expect(
+      (await h.call("/focus/context", undefined, a.cookie, "GET", booth())).data.earliestNext,
+    ).toBeNull();
+    expect((await start(a.cookie)).status).toBe(200);
+  });
+
+  it("a completed v1 check holds back only the joints its results loaded (CT-3, both ways)", async () => {
+    // An arm curl on the right loads the right shoulder, elbow and wrist (check-v1 areas).
+    const arm = await person(
+      v7Intake({
+        regions: [{ region: "knee", side: "right", problems: ["stiffness"], origin: "person" }],
+        walking: { status: "no" },
+      }),
+    );
+    v1Done(arm.id, "v1-arm", T0 - 2 * HOUR, [{ test: "arm_curl_30s", side: "right", value: 14 }]);
+    expect(
+      (await h.call("/focus/context", undefined, arm.cookie, "GET", booth())).data.earliestNext,
+    ).toBeNull();
+    expect((await start(arm.cookie)).status).toBe(200);
+    // The right shoulder is one of them: 48 hours from that check.
+    const shoulder = await person(
+      v7Intake({
+        regions: [{ region: "shoulder", side: "right", problems: ["stiffness"], origin: "person" }],
+        walking: { status: "no" },
+      }),
+    );
+    v1Done(shoulder.id, "v1-arm2", T0 - 2 * HOUR, [{ test: "arm_curl_30s", side: "right", value: 14 }]);
+    expect((await start(shoulder.cookie)).data).toEqual({ error: "TOO_SOON", until: T0 + 46 * HOUR });
+    // A walk measures the legs and the trunk, which the chair stand loads.
+    const walker = await person(
+      v7Intake({ regions: [{ region: "neck", side: "axial", problems: ["stiffness"], origin: "person" }] }),
+    );
+    v1Done(walker.id, "v1-stand", T0 - 2 * HOUR, [{ test: "chair_stand_30s", side: "none", value: 9 }]);
+    expect((await start(walker.cookie)).data).toEqual({ error: "TOO_SOON", until: T0 + 46 * HOUR });
+    // Without the walk today, the neck alone may start.
+    expect((await start(walker.cookie, { include: { rom: true, gait: false } })).status).toBe(200);
   });
 
   it("postpones like v1: counts the start and the reason, keeps no check, sets the lock", async () => {

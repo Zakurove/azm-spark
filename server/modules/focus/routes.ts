@@ -37,6 +37,7 @@ import type { GaitPlan } from "../../../src/medical/gait-eligibility";
 import type { GaitPatternResult, GaitStoredView } from "../../../src/medical/gait-types";
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { RomNotMeasured, RomProtocol, RomProtocolItem } from "../../../src/medical/rom-protocol";
+import { focusPlanJoints } from "../../../src/medical/check-joints";
 import type { GaitAnalysis } from "../../../src/engine/gait/types";
 import { GAIT_ENGINE_VERSION, GAIT_RULES_VERSION } from "../../../src/movements/gait";
 import {
@@ -100,6 +101,7 @@ import {
   hasRomRow,
   lastCompletedFocus,
   lastCompletedFocusAt,
+  focusEarliestNext,
   listFocusChecks,
   openFocusCheck,
   ownFocusCheck,
@@ -499,7 +501,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           lastPdDoseBucket: typeof dose === "string" ? dose : null,
         };
         const intake = s.intake;
-        // Without the v7 answers no protocol can be built: the client asks for them first.
+        // Without the v7 answers no protocol can be built: the client asks for them first (the 48 hour
+        // minimum is then the v1 schedule's, which counts the focus checks too).
         if (!rules.hasV7Fields(intake))
           return json(200, { intakeReady: false, ...common, env: null, protocol: null, gait: null });
         const showcase = isShowcase(u.email);
@@ -513,7 +516,14 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         const plan = rules.gaitPlanFor(intake, PREVIEW_TODAY, setting, {});
         const gait = showcase ? oneView(plan) : plan;
         const env = rules.focusPrecheckEnv(focusEnvBase(db, u.id, s, ctx, setting), protocol, gait);
-        json(200, { intakeReady: true, ...common, env, protocol, gait });
+        // The 48 hour minimum of the preview's joints (CT-3): only checks that share one of them count.
+        const earliestNext = focusEarliestNext(
+          db,
+          u.id,
+          focusPlanJoints(protocol, gait?.offered === true),
+          now,
+        );
+        json(200, { intakeReady: true, ...common, earliestNext, env, protocol, gait });
       },
     },
     {
@@ -575,8 +585,11 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         // A releasable lock (recent_change) is released at once by a yes to pc_change_cleared.
         const released = lock !== null && releasesLock(lock, env, answers);
         if (lock && !released) return json(409, { error: "LOCKED", ...lockView(lock, now, "return") });
-        // The 48 hour minimum counts the last completed check of either kind (section 4, two way).
-        const earliest = s.schedule.earliestNext;
+        // The 48 hour minimum counts the checks of either kind completed in the last 48 hours that share
+        // a joint with today's (section 4, two way; CT-3): the range items that run and, with the walk,
+        // the regions it measures.
+        const joints = focusPlanJoints(protocol, gait?.offered === true);
+        const earliest = focusEarliestNext(db, u.id, joints, now);
         if (earliest !== null && now < earliest) return json(409, { error: "TOO_SOON", until: earliest });
 
         const outcome = evaluatePrecheck(env, answers, now);

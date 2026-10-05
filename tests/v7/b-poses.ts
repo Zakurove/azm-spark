@@ -244,7 +244,8 @@ export function calibratedContext(
   start: Landmark[],
   opts: { mirrored?: boolean; rollDeg?: number | null; frames?: Landmark[][] } = {},
 ): AngleContext {
-  const base = { side, mirrored: !!opts.mirrored, rollDeg: opts.rollDeg ?? 0 };
+  // A null roll stays null (no orientation reading): only an absent one is a level phone.
+  const base = { side, mirrored: !!opts.mirrored, rollDeg: opts.rollDeg === undefined ? 0 : opts.rollDeg };
   const frames = (opts.frames ?? Array.from({ length: 15 }, () => start)).map((px) => ({ px }));
   const calibration: RomCalibration | null = calibrate(id, frames, base);
   if (!calibration) throw new Error(`no calibration for ${id} on the start pose`);

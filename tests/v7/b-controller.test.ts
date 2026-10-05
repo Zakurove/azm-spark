@@ -630,3 +630,46 @@ describe("the walk after the range blocks (gait-rules eligibility.today, rom-pro
     );
   });
 });
+
+describe("the phone's roll and tilt (FeedEnv, rom-protocol true vertical, the setup's level check)", () => {
+  const BACK = intake({ regions: [entry("back_trunk", "axial", ["stiffness"])] });
+  const sideBendOnly = (p: RomProtocol): RomProtocol => ({
+    ...p,
+    items: p.items.map((i) =>
+      i.movementId === "trunk_lateral_flexion" && i.side === "left" ? i : { ...i, skipped: "red_flag" },
+    ),
+  });
+  const measuredBend = (plan: Parameters<typeof runBlock>[1]) => {
+    const ctl = controller(sideBendOnly(protocolOf(BACK)), { intake: BACK });
+    ctl.startBlock("standing", 0);
+    const run = runBlock(ctl, plan, 400);
+    return saves(run.events).find((e) => e.item.movementId === "trunk_lateral_flexion")!.result;
+  };
+  const target = MOVEMENT_CASES.trunk_lateral_flexion.target;
+
+  it("measures a level phone with no orientation reading (a null roll) as a level one", () => {
+    const res = measuredBend({ env: {} });
+    expect(res.status).toBe("measured");
+    expect(Math.abs(res.value! - target)).toBeLessThanOrEqual(2);
+  });
+
+  it("measures the side bend against true vertical on a phone rolled 4 degrees, with the sensor's roll", () => {
+    const res = measuredBend({ roll: 4 });
+    expect(res.status).toBe("measured");
+    expect(Math.abs(res.value! - target)).toBeLessThanOrEqual(2);
+    // Without the roll the same picture reads the bend against the picture's vertical.
+    const blind = measuredBend({ roll: 4, env: {} });
+    expect(Math.abs(blind.value! - target)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("shows the level issue while the start pose is taken when the phone is tilted past the movement's level", () => {
+    const ctl = controller(sideBendOnly(protocolOf(BACK)), { intake: BACK });
+    ctl.startBlock("standing", 0);
+    runBlock(
+      ctl,
+      { env: { rollDeg: 0, tilt: { rollDeg: 0, pitchDeg: 12 } }, until: (c) => c.setupIssue !== null },
+      30,
+    );
+    expect(ctl.setupIssue).toBe("tilt");
+  });
+});

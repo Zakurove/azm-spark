@@ -30,7 +30,8 @@ import { readPreferences, savePreferences } from "../../app/experience";
 import type { Frame } from "../../engine/types";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { useCameraSession } from "../assessment/camera/session";
-import { useWakeLock } from "../assessment/camera/hooks";
+import { useOrientation, useWakeLock } from "../assessment/camera/hooks";
+import type { Tilt } from "../../engine/quality";
 import "../assessment/safety/safety.css";
 import { useCoach } from "../coach-agent/useCoach";
 import { GaitStep } from "../gait/GaitStep";
@@ -206,6 +207,13 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const coach = useCoach(null);
   useEffect(() => session.onBridge((e) => coach.push(e)), [session, coach]);
 
+  // The phone's orientation (v1's camera screens' hook): the picture's roll for the true vertical
+  // movements and the gravity reference, and the tilt for the setup's level check. iOS asks for it
+  // inside the intro's start tap (the gesture it needs); without a reading the roll is unknown (null).
+  const orientation = useOrientation();
+  const tilt = useRef<Tilt | null>(null);
+  tilt.current = orientation.tilt;
+
   // The camera: on through a range part (the preview on the block's card, the measurement).
   const frame = useRef<Frame | null>(null);
   const cameraOn =
@@ -213,7 +221,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const cam = useCameraSession(
     (f) => {
       frame.current = f;
-      session.ctl?.feed(f, {});
+      session.ctl?.feed(f, { rollDeg: tilt.current?.rollDeg ?? null, tilt: tilt.current });
     },
     cameraOn,
     focus.session,
@@ -359,6 +367,8 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               gait={m.data.context!.gait}
               onStart={() => {
                 CuePlayer.unlock();
+                // iOS: the motion permission is asked inside a tap (v1's camera primer does the same).
+                orientation.askAgain();
                 session.dispatch({ type: "BEGIN" });
               }}
             />

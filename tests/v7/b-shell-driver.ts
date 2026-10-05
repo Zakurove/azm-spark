@@ -12,8 +12,22 @@ import {
   itemKey,
   type RomController,
   type RomControllerEvent,
+  type RomFeedEnv,
   type RomStep,
 } from "../../src/features/focus/romController";
+
+/** A picture rolled by `deg` about its centre (square pictures: aspect 1), as a camera rolled on its stand. */
+export function rollPicture(lm: Landmark[], deg: number): Landmark[] {
+  if (!deg) return lm;
+  const r = (deg * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  return lm.map((p) => {
+    const x = p.x - 0.5;
+    const y = p.y - 0.5;
+    return { ...p, x: 0.5 + x * c - y * s, y: 0.5 + x * s + y * c };
+  });
+}
 import { MOVEMENT_CASES, movementPose } from "./b-person";
 
 export interface PersonPlan {
@@ -33,6 +47,16 @@ export interface PersonPlan {
   pose?: (item: RomProtocolItem, deg: number, t: number, ctl: RomController) => Landmark[] | null;
   /** Everyone the camera sees (default the person alone): a second person walks in. */
   people?: (person: Landmark[], t: number, ctl: RomController) => Landmark[][];
+  /**
+   * The phone rolled on its stand by this many degrees: the picture turns as the generator's camera
+   * roll does (tests/fixtures/gen.ts), true down at (−sin r, cos r).
+   */
+  roll?: number;
+  /**
+   * What the shell feeds with each frame (romController RomFeedEnv); default a level phone whose sensor
+   * reads the roll above ({ rollDeg: roll, tilt }), and {} is a phone with no orientation reading.
+   */
+  env?: RomFeedEnv;
   /** Called before each frame: may act on the controller (STOP, a coach tool). */
   at?: (t: number, ctl: RomController) => void;
   /** Stops the run once true. */
@@ -149,9 +173,12 @@ export function runBlock(ctl: RomController, plan: PersonPlan = {}, seconds = 60
           after(1, "cause", () => ctl.answerCause(plan.cause ?? "tight", "button", t));
         const speed = 30 / fps;
         angle = Math.abs(goal - angle) <= speed ? goal : angle + Math.sign(goal - angle) * speed;
-        const lm = plan.pose?.(s.item, angle, t, ctl) ?? movementPose(s.item.movementId, s.item.side)(angle);
+        const level =
+          plan.pose?.(s.item, angle, t, ctl) ?? movementPose(s.item.movementId, s.item.side)(angle);
+        const lm = rollPicture(level, plan.roll ?? 0);
         const frame: Frame = { t, lm, poses: plan.people?.(lm, t, ctl) ?? [lm], aspect: 1 };
-        ctl.feed(frame, { rollDeg: 0 });
+        const roll = plan.roll ?? 0;
+        ctl.feed(frame, plan.env ?? { rollDeg: roll, tilt: { rollDeg: roll, pitchDeg: 0 } });
         break;
       }
       default:

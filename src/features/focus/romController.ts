@@ -39,7 +39,7 @@ import type {
   ToolResult,
 } from "../../coach/types";
 import { FeedbackGate, type GateMessage } from "../../engine/feedbackGate";
-import { setupCheck, type SetupFrame, type SetupIssue } from "../../engine/quality";
+import { setupCheck, type SetupFrame, type SetupIssue, type Tilt } from "../../engine/quality";
 import { romSetupConfig } from "../../engine/rom/quality";
 import { RomRunner } from "../../engine/rom/runner";
 import type {
@@ -76,6 +76,15 @@ import { SAFETY_TIMING } from "../assessment/safety/timing";
 export type PoseModel = "lite" | "full";
 export type Line = RomCueId | RomCopyKey | CheckCueId;
 export type PausedBy = "coach" | "screen";
+
+/**
+ * What the shell knows of the phone with each frame: the picture's roll for the runner (FeedEnv, the
+ * true vertical of the trunk bends, the lunge and the gravity reference), and the phone's tilt for the
+ * setup's level check (null without an orientation reading).
+ */
+export interface RomFeedEnv extends FeedEnv {
+  tilt?: Tilt | null;
+}
 
 /** The v1 rest after a stop for tiredness or something else (SAFETY_TIMING.stopRestSec, check_rest_minute). */
 export const STOP_REST_SECONDS: number = SAFETY_TIMING.stopRestSec;
@@ -455,15 +464,19 @@ export class RomController implements CoachHost {
     return true;
   }
 
-  /** A camera frame (measure steps only; other steps ignore it). */
-  feed(frame: Frame, env: FeedEnv = {}): void {
+  /**
+   * A camera frame (measure steps only; other steps ignore it), with the phone's roll and tilt from
+   * the orientation sensor (the shell's useOrientation, as v1's camera screens).
+   */
+  feed(frame: Frame, env: RomFeedEnv = {}): void {
     const s = this.stepNow;
     if (s.kind !== "measure" || !this.runner || this.stopListNow) return;
     this.lastT = frame.t;
     const phase = this.runner.phase;
-    if (phase === "calibrating") this.watchSetup(s.item, frame);
+    if (phase === "calibrating") this.watchSetup(s.item, frame, env.tilt ?? null);
     else if (this.setupIssueNow !== null) this.setupIssueNow = null;
-    const events = this.runner.feed(frame, env);
+    const rollDeg = env.rollDeg ?? env.tilt?.rollDeg ?? null;
+    const events = this.runner.feed(frame, { rollDeg });
     this.take(s.item, events, frame.t, true);
   }
 
@@ -1035,12 +1048,18 @@ export class RomController implements CoachHost {
     this.queue = this.queue.filter((i) => i.region !== region);
   }
 
-  /** The live setup check while the start pose is taken (rom-protocol 1.1 step 1). */
-  private watchSetup(item: RomProtocolItem, frame: Frame): void {
+  /**
+   * The live setup check while the start pose is taken (rom-protocol 1.1 step 1), the phone's level
+   * included when the orientation sensor gives a tilt (the movement's levelWithinDeg, else
+   * engine.phoneLevelToleranceDeg).
+   */
+  private watchSetup(item: RomProtocolItem, frame: Frame, tilt: Tilt | null): void {
     this.setupFrames.push({ t: frame.t, poses: frame.poses ?? [frame.lm], aspect: frame.aspect });
     while (this.setupFrames.length > 1 && frame.t - this.setupFrames[0].t > SETUP_WINDOW_MS)
       this.setupFrames.shift();
-    const res = setupCheck(this.setupFrames, romSetupConfig(movementDef(item.movementId), item.side));
+    const res = setupCheck(this.setupFrames, romSetupConfig(movementDef(item.movementId), item.side), {
+      tilt,
+    });
     const issue = res.ok ? null : (res.issues[0] ?? null);
     if (issue !== this.setupIssueNow) {
       this.setupIssueNow = issue;

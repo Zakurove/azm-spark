@@ -51,6 +51,8 @@ export interface WalkSpec {
   nearSide?: Side;
   /** Overground side: passes, alternating directions. Overground front: toward passes, each followed by an away pass. */
   passes?: number;
+  /** Overground: each pass starts up to this many metres earlier or later along its line (seeded), so its steps land at other places in the picture. */
+  passShiftM?: number;
   rollDeg?: number;
   /** Landmark noise, sd in units of the picture height. */
   noise?: number;
@@ -62,8 +64,8 @@ export interface WalkSpec {
   occlude?: { from: number; to: number; landmarks: number[]; visibility?: number }[];
   /** Degrees the other side's hip drops during the single stance of this side (default 4). */
   pelvicDrop?: Partial<Record<Side, number>>;
-  /** Peak lateral trunk lean toward the stance side, degrees (default 2). */
-  trunkLean?: number;
+  /** Peak lateral trunk lean toward the stance side, degrees (default 2), for both sides or per side. */
+  trunkLean?: number | Partial<Record<Side, number>>;
   /** Forward trunk inclination, degrees (default 3). */
   trunkForward?: number;
   /** Peak heel lift in swing as a share of the height (default 0.04: a swing knee peak near 65 degrees). */
@@ -72,6 +74,29 @@ export interface WalkSpec {
   standingSec?: number;
   /** First walk frame time, ms (default 10000). */
   startMs?: number;
+  // The pattern modifiers (gait-rules 5.1 to 5.11, step C2). Each is per side and off by default.
+  /** Stance share of the side's cycle (default `stance`): the other leg swings for 1 minus it. */
+  stanceBy?: Partial<Record<Side, number>>;
+  /** Peak heel lift in the side's swing, share of the height (default `swingLift`). */
+  liftBy?: Partial<Record<Side, number>>;
+  /** Extra lift late in the side's swing, share of the height: the foot carried high and set down from above (a high step). */
+  highStep?: Partial<Record<Side, number>>;
+  /** Foot pitch at the side's initial contact, degrees (default 18, heel first; 0 or less lands flat or toe first). */
+  contactPitch?: Partial<Record<Side, number>>;
+  /** The foot's turn over the toe at the side's toe off, degrees (default 35): less lifts the ankle less in early swing. */
+  toeOffPitch?: Partial<Record<Side, number>>;
+  /** Knee angle held through the side's single stance, degrees: bent (positive) or past straight (negative). */
+  stanceKnee?: Partial<Record<Side, number>>;
+  /** Knee angle held from the side's initial contact to the other side's toe off, degrees. */
+  loadingKnee?: Partial<Record<Side, number>>;
+  /** Largest knee bend in the side's swing, degrees: the pelvis rises over the other foot to keep it (vaulting). */
+  swingKnee?: Partial<Record<Side, number>>;
+  /** Metres the pelvis lags at the side's toe off (and leads at the other side's): the leg reaches less far behind. */
+  pelvisLag?: Partial<Record<Side, number>>;
+  /** Metres each of the side's contacts lands further ahead: its step longer, the other side's shorter. */
+  contactShift?: Partial<Record<Side, number>>;
+  /** Peak arm swing each way, degrees (default 20). */
+  armSwing?: number;
 }
 
 export interface WalkTruth {
@@ -88,11 +113,24 @@ export interface WalkTruth {
   speed: number;
   heightM: number;
   aspect: number;
-  /** The model's sagittal angles, degrees (the same each cycle). */
+  /** The model's sagittal angles, degrees (the same each cycle), of the left leg. */
   kneeSwingPeak: number;
   kneeStanceMin: number;
   kneeLoadingPeak: number;
   thighSwingPeak: number;
+  /** Each leg's: the sagittal angles above, the trailing limb angle's peak over its standing value, the foot pitch at contact, and its single support (the other leg's swing), s. */
+  sides: Record<
+    Side,
+    {
+      kneeSwingPeak: number;
+      kneeStanceMin: number;
+      kneeLoadingPeak: number;
+      thighSwingPeak: number;
+      tlaPeak: number;
+      pitchAtIc: number;
+      singleSupportSec: number;
+    }
+  >;
   /** Peak drop of the other side's hip in each side's single stance, degrees. */
   pelvicDrop: Record<Side, number>;
   /** Walking passes, ms, with the direction in the picture or the facing. */
@@ -159,6 +197,11 @@ interface Gait {
   stance: number;
   stepWidth: number;
   liftM: number;
+  /** Each leg's stance share, heel lift (m), pitch at contact and at toe off (rad) and contact shift (m). */
+  leg: Record<
+    Side,
+    { stance: number; liftM: number; highM: number; pIc: number; pTo: number; shift: number }
+  >;
 }
 
 interface FootPose {
@@ -193,8 +236,9 @@ const P_TO = 35 * D2R;
 const FLAT_AT = 0.1;
 
 /** The foot's points (forward along the line, up) at a phase of its cycle whose IC is at `contact`. */
-function footAt(b: Body, g: Gait, phase: number, contact: number): FootPose {
-  const riseAt = g.stance - 0.25;
+function footAt(b: Body, g: Gait, side: Side, phase: number, contact: number): FootPose {
+  const { stance, liftM, highM, pIc, pTo } = g.leg[side];
+  const riseAt = stance - 0.25;
   const turn = (pt: [number, number], pivot: [number, number], local: [number, number], p: number) => {
     const dx = pt[0] - local[0];
     const dy = pt[1] - local[1];
@@ -209,21 +253,27 @@ function footAt(b: Body, g: Gait, phase: number, contact: number): FootPose {
     toe: turn(b.toe, pivot, local, p),
   });
   const toeContact: [number, number] = [b.toe[0], 0];
-  if (phase < g.stance) {
-    if (phase < FLAT_AT) return place([contact, 0], [0, 0], P_IC * (1 - smoothstep(phase / FLAT_AT)));
+  // Heel first the foot turns about the heel's floor point down to flat; flat or toe first (pIc 0 or
+  // less) about the toe's.
+  const landing = (at: number, p: number): FootPose =>
+    pIc >= 0 ? place([at, 0], [0, 0], p) : place([at + toeContact[0], 0], toeContact, p);
+  if (phase < stance) {
+    if (phase < FLAT_AT) return landing(contact, pIc * (1 - smoothstep(phase / FLAT_AT)));
     if (phase < riseAt) return place([contact, 0], [0, 0], 0);
-    const p = -P_TO * smoothstep((phase - riseAt) / (g.stance - riseAt));
+    const p = -pTo * smoothstep((phase - riseAt) / (stance - riseAt));
     return place([contact + toeContact[0], 0], toeContact, p);
   }
-  // Swing: the heel from its TO position to the next IC position; the pitch from −P_TO to P_IC,
-  // arriving with no turning speed, so the heel's speed at IC is the pelvis's.
-  const tau = (phase - g.stance) / (1 - g.stance);
-  const start = place([contact + toeContact[0], 0], toeContact, -P_TO);
-  const end = place([contact + g.stride, 0], [0, 0], P_IC);
-  const p = -P_TO + (P_IC + P_TO) * (1 - (1 - tau) ** 2);
+  // Swing: the heel from its TO position to the next IC position; the pitch from minus the toe off pitch to the
+  // contact's, arriving with no turning speed, so the heel's speed at IC is the pelvis's.
+  const tau = (phase - stance) / (1 - stance);
+  const start = place([contact + toeContact[0], 0], toeContact, -pTo);
+  const end = landing(contact + g.stride, pIc);
+  const p = -pTo + (pIc + pTo) * (1 - (1 - tau) ** 2);
   const x = start.heel[0] + (end.heel[0] - start.heel[0]) * swingTravel(tau);
   const bump = Math.sin(Math.PI * tau ** 0.576) ** 2;
-  const y = start.heel[1] + (end.heel[1] - start.heel[1]) * smoothstep(tau) + g.liftM * bump;
+  let y = start.heel[1] + (end.heel[1] - start.heel[1]) * smoothstep(tau) + liftM * bump;
+  // A high step peaks late in the swing (near 70% of it), the foot then set down from above.
+  if (highM) y += highM * Math.sin(Math.PI * tau ** 1.9) ** 2;
   return place([x, y], b.heel, p);
 }
 
@@ -269,6 +319,25 @@ const LEG_IDS = {
   right: { hip: 24, knee: 26, ankle: 28, heel: 30, toe: 32 },
 } as const;
 
+/** A smooth weight on a cyclic phase: 1 on [a, b] (a may be below 0), falling to 0 over `ramp` outside. */
+function plateau(phase: number, a: number, b: number, ramp: number): number {
+  const wrap = (x: number) => ((x % 1) + 1) % 1;
+  const x = wrap(phase - a);
+  if (x <= b - a) return 1;
+  return 1 - smoothstep(Math.min(x - (b - a), 1 - x) / ramp);
+}
+
+/** The knee flexion (degrees, 0 straight) that puts a leg's ankle at distance `dist` from its hip. */
+function kneeForDist(b: Body, dist: number): number {
+  const c = (dist * dist - b.thigh ** 2 - b.shank ** 2) / (2 * b.thigh * b.shank);
+  return Math.acos(Math.min(1, Math.max(-1, c))) / D2R;
+}
+
+/** The hip to ankle distance of a leg whose knee is bent `k` degrees (either way). */
+function distForKnee(b: Body, k: number): number {
+  return Math.sqrt(b.thigh ** 2 + b.shank ** 2 + 2 * b.thigh * b.shank * Math.cos(k * D2R));
+}
+
 /** The walker's 33 landmarks in the room (x right, y up, z toward the camera). */
 function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
   const f = unit(st.heading);
@@ -282,19 +351,27 @@ function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
   const contactOf = (side: Side) => {
     if (!walking) return 0;
     const off = side === "left" ? 0 : 0.5;
-    return (Math.floor(tau / g.strideSec - off) + off) * g.stride;
+    const at = (Math.floor(tau / g.strideSec - off) + off) * g.stride;
+    return g.leg[side].shift ? at + g.leg[side].shift : at;
   };
   const feet = {
-    left: footAt(b, g, phaseOf("left"), contactOf("left")),
-    right: footAt(b, g, phaseOf("right"), contactOf("right")),
+    left: footAt(b, g, "left", phaseOf("left"), contactOf("left")),
+    right: footAt(b, g, "right", phaseOf("right"), contactOf("right")),
   };
   // The pelvis: midway between the contacts at the left IC (half a step behind the leading heel),
-  // moving at the walking speed.
-  const forward = walking ? g.speed * tau - 0.25 * g.stride + b.ankle[0] : b.ankle[0];
+  // moving at the walking speed; a lag of a side holds it back at that side's toe off and ahead at
+  // the other side's (a sine over the cycle).
+  let forward = walking ? g.speed * tau - 0.25 * g.stride + b.ankle[0] : b.ankle[0];
+  if (walking && spec.pelvisLag)
+    for (const side of ["left", "right"] as const) {
+      const lag = spec.pelvisLag[side] ?? 0;
+      if (lag) forward += lag * Math.sin(2 * Math.PI * (phaseOf(side) - g.leg[side].stance - 0.25));
+    }
   const standingHip = b.ankle[1] + b.shank + b.thigh;
+  // A side's single stance is the other leg's swing.
   const single = {
-    left: singleStance(phaseOf("left"), g.stance),
-    right: singleStance(phaseOf("right"), g.stance),
+    left: singleStance(phaseOf("left"), g.leg.right.stance),
+    right: singleStance(phaseOf("right"), g.leg.left.stance),
   };
   const drop = {
     left: walking ? (spec.pelvicDrop?.left ?? 4) * single.left * D2R : 0,
@@ -315,6 +392,55 @@ function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
     if (h < reach)
       pelvisY = Math.min(pelvisY, feet[side].ankle[1] + Math.sqrt(reach * reach - h * h) - hipUp[side]);
   }
+  // Held knee angles: the pelvis height that bends the side's knee to the angle asked, blended in
+  // from the walk's own over the window (the single stance for stanceKnee, from initial contact to
+  // the other side's toe off for loadingKnee). Past straight the knee bends backwards.
+  const backward = { left: false, right: false };
+  if (walking && (spec.stanceKnee || spec.loadingKnee || spec.swingKnee))
+    for (const side of ["left", "right"] as const) {
+      const lat = (side === "left" ? 1 : -1) * (b.hipHalf - g.stepWidth / 2);
+      const h = Math.hypot(feet[side].ankle[0] - forward, lat);
+      const ph = phaseOf(side);
+      const oppTo = g.leg[side === "left" ? "right" : "left"].stance - 0.5;
+      const hold = (target: number, w: number, lowerOnly: boolean) => {
+        if (w <= 0) return;
+        const dy = pelvisY + hipUp[side] - feet[side].ankle[1];
+        const own = kneeForDist(b, Math.hypot(h, dy));
+        const k = (1 - w) * own + w * target;
+        const d = distForKnee(b, Math.abs(k));
+        if (d <= h) return;
+        const y = feet[side].ankle[1] + Math.sqrt(d * d - h * h) - hipUp[side];
+        pelvisY = lowerOnly ? Math.min(pelvisY, y) : y;
+        if (k < 0) backward[side] = true;
+      };
+      const stanceK = spec.stanceKnee?.[side];
+      if (stanceK !== undefined) {
+        // Bent: held over the whole single stance (its minimum is read there); past straight: a bump
+        // inside it (its peak is read there), passing straight on the way.
+        const w =
+          stanceK >= 0
+            ? plateau(ph, oppTo - 0.02, 0.52, 0.06)
+            : Math.sin(Math.PI * Math.min(1, Math.max(0, (ph - oppTo) / (0.5 - oppTo)))) ** 2;
+        hold(stanceK, w, stanceK >= 0);
+      }
+      const loadK = spec.loadingKnee?.[side];
+      // From late swing (the leg reaching straight for the floor) to the other side's toe off.
+      if (loadK !== undefined) hold(loadK, plateau(ph, -0.06, Math.max(0, oppTo), 0.05), false);
+      const swingK = spec.swingKnee?.[side];
+      if (swingK !== undefined) {
+        // Only ever up: a bend under the cap keeps the walk's own height.
+        const own = g.leg[side].stance;
+        const w = plateau(ph, own + 0.04, 0.98, 0.04);
+        const dy = pelvisY + hipUp[side] - feet[side].ankle[1];
+        if (w > 0 && kneeForDist(b, Math.hypot(h, dy)) > swingK) {
+          const d = distForKnee(b, swingK);
+          if (d > h) {
+            const y = feet[side].ankle[1] + Math.sqrt(d * d - h * h) - hipUp[side];
+            pelvisY = Math.max(pelvisY, (1 - w) * pelvisY + w * y);
+          }
+        }
+      }
+    }
   const at = (fw: number, upM: number, lat: number): V =>
     add(st.origin, add(mul(f, fw), add(mul(UP, upM), mul(l, lat))));
   const pelvis = at(forward, pelvisY, 0);
@@ -330,7 +456,7 @@ function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
     const lat = (side === "left" ? 1 : -1) * (g.stepWidth / 2);
     const ft = feet[side];
     const target = at(ft.ankle[0], ft.ankle[1], lat);
-    const leg = twoBone(hips[side], target, b.thigh, b.shank, f);
+    const leg = twoBone(hips[side], target, b.thigh, b.shank, backward[side] ? mul(f, -1) : f);
     const shift = sub(leg.ankle, target);
     lm[ids.hip] = hips[side];
     lm[ids.knee] = leg.knee;
@@ -346,7 +472,12 @@ function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
   }
   // Trunk, shoulders, arms and head.
   const fwd = (spec.trunkForward ?? 3) * D2R;
-  const lean = walking ? (spec.trunkLean ?? 2) * (single.left - single.right) * D2R : 0;
+  const leanBy = typeof spec.trunkLean === "number" || spec.trunkLean === undefined ? null : spec.trunkLean;
+  const lean = !walking
+    ? 0
+    : leanBy
+      ? ((leanBy.left ?? 2) * single.left - (leanBy.right ?? 2) * single.right) * D2R
+      : ((spec.trunkLean as number | undefined) ?? 2) * (single.left - single.right) * D2R;
   const trunkDir = unit(
     add(add(mul(UP, Math.cos(fwd) * Math.cos(lean)), mul(f, Math.sin(fwd))), mul(l, Math.sin(lean))),
   );
@@ -359,7 +490,7 @@ function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
   lm[11] = shoulders.left;
   lm[12] = shoulders.right;
   for (const side of ["left", "right"] as const) {
-    const swing = walking ? -20 * Math.cos(2 * Math.PI * phaseOf(side)) * D2R : 0;
+    const swing = walking ? -(spec.armSwing ?? 20) * Math.cos(2 * Math.PI * phaseOf(side)) * D2R : 0;
     const armDir = unit(add(mul(UP, -Math.cos(swing)), mul(f, Math.sin(swing))));
     const elbow = add(shoulders[side], mul(armDir, b.upperArm));
     const fore = unit(add(mul(UP, -Math.cos(swing + 15 * D2R)), mul(f, Math.sin(swing + 15 * D2R))));
@@ -476,6 +607,22 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
   }
   const turnSec = 1.5;
   let t = 0;
+  // Its own random numbers, so a walk without shifts draws exactly as before; stratified, so the
+  // passes' starts spread over the whole range.
+  const shiftR = spec.passShiftM ? rng((spec.seed ?? 1) * 7919 + 13) : null;
+  const n = spec.passes ?? 4;
+  const order = Array.from({ length: 2 * n }, (_, i) => i);
+  if (shiftR)
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(shiftR() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  let drawn = 0;
+  const shift = (heading: V): V => {
+    if (!shiftR) return [0, 0, 0];
+    const k = order[drawn++ % order.length];
+    return mul(heading, (2 * ((k + shiftR()) / order.length) - 1) * spec.passShiftM!);
+  };
   if (spec.view === "side") {
     const half = 4.8;
     for (let i = 0; i < (spec.passes ?? 4); i++) {
@@ -486,7 +633,7 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
         to: t + dur,
         pass: {
           heading: [dir, 0, 0],
-          origin: [-dir * half - dir * 0.6, 0, 0],
+          origin: add([-dir * half - dir * 0.6, 0, 0], shift([dir, 0, 0])),
           kind: dir > 0 ? "right" : "left",
         },
       });
@@ -502,11 +649,19 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
   const near = 1.5;
   for (let i = 0; i < (spec.passes ?? 4); i++) {
     const dur = (near - far) / g.speed;
-    out.push({ from: t, to: t + dur, pass: { heading: [0, 0, 1], origin: [0, 0, far], kind: "toward" } });
+    out.push({
+      from: t,
+      to: t + dur,
+      pass: { heading: [0, 0, 1], origin: add([0, 0, far], shift([0, 0, 1])), kind: "toward" },
+    });
     t += dur;
     out.push({ from: t, to: t + turnSec });
     t += turnSec;
-    out.push({ from: t, to: t + dur, pass: { heading: [0, 0, -1], origin: [0, 0, near], kind: "away" } });
+    out.push({
+      from: t,
+      to: t + dur,
+      pass: { heading: [0, 0, -1], origin: add([0, 0, near], shift([0, 0, -1])), kind: "away" },
+    });
     t += dur;
     out.push({
       from: t,
@@ -555,13 +710,24 @@ export function walk(spec: WalkSpec): Walk {
   const speed = spec.speed ?? 1.2;
   const cadence = spec.cadence ?? 108;
   const strideSec = 120 / cadence;
+  const stance = spec.stance ?? 0.6;
+  const liftM = (spec.swingLift ?? 0.04) * heightM;
+  const legOf = (side: Side) => ({
+    stance: spec.stanceBy?.[side] ?? stance,
+    liftM: spec.liftBy?.[side] !== undefined ? spec.liftBy[side]! * heightM : liftM,
+    highM: (spec.highStep?.[side] ?? 0) * heightM,
+    pIc: spec.contactPitch?.[side] !== undefined ? spec.contactPitch[side]! * D2R : P_IC,
+    pTo: spec.toeOffPitch?.[side] !== undefined ? spec.toeOffPitch[side]! * D2R : P_TO,
+    shift: spec.contactShift?.[side] ?? 0,
+  });
   const g: Gait = {
     speed,
     strideSec,
     stride: speed * strideSec,
-    stance: spec.stance ?? 0.6,
+    stance,
     stepWidth: spec.stepWidthM ?? 0.1,
-    liftM: (spec.swingLift ?? 0.04) * heightM,
+    liftM,
+    leg: { left: legOf("left"), right: legOf("right") },
   };
   const cam = cameraOf(spec);
   const aspect = cam.w / cam.h;
@@ -661,7 +827,7 @@ export function walk(spec: WalkSpec): Walk {
         if (tIc > seg.to - seg.from) break;
         for (const [type, tt] of [
           ["ic", tIc],
-          ["to", tIc + g.stance * strideSec],
+          ["to", tIc + g.leg[side].stance * strideSec],
         ] as const) {
           if (tt < 0 || tt >= seg.to - seg.from) continue;
           const st: PoseState = { tau: tt, heading: seg.pass.heading, origin: seg.pass.origin };
@@ -678,24 +844,47 @@ export function walk(spec: WalkSpec): Walk {
   ics.sort((a, c) => a.t - c.t);
   tos.sort((a, c) => a.t - c.t);
 
-  // One cycle of the model (every cycle is the same): the left leg from its IC.
+  // One cycle of the model (every cycle is the same) for each leg from its IC: the knee's swing peak
+  // (TO to IC), stance minimum (the single stance) and loading peak (IC to the other's TO), the
+  // thigh's swing peak, and the trailing limb angle's peak (the other's IC to TO) over standing.
   const samples = 400;
-  let kneeSwing = -Infinity;
-  let kneeStance = Infinity;
-  let kneeLoad = -Infinity;
-  let thighSwing = -Infinity;
   const line: PoseState = { tau: 0, heading: [1, 0, 0], origin: [0, 0, 0] };
-  for (let i = 0; i <= samples; i++) {
-    const ph = i / samples;
-    const pose = roomPose(spec, b, g, { ...line, tau: (2 + ph) * strideSec });
-    const k = pose.knee.left;
-    if (ph >= g.stance) {
-      kneeSwing = Math.max(kneeSwing, k);
-      thighSwing = Math.max(thighSwing, pose.thigh.left);
+  const stand = roomPose(spec, b, g, { tau: null, heading: [1, 0, 0], origin: [0, 0, 0] }).lm;
+  const tlaOf = (lm: V[], side: Side) => {
+    const d = sub(lm[LEG_IDS[side].hip], lm[LEG_IDS[side].ankle]);
+    return Math.atan2(d[0], d[1]) / D2R;
+  };
+  const sideTruth = (side: Side): WalkTruth["sides"][Side] => {
+    const own = g.leg[side].stance;
+    const oppTo = g.leg[side === "left" ? "right" : "left"].stance - 0.5;
+    let kneeSwing = -Infinity;
+    let kneeStance = Infinity;
+    let kneeLoad = -Infinity;
+    let thighSwing = -Infinity;
+    let tla = -Infinity;
+    for (let i = 0; i <= samples; i++) {
+      const ph = i / samples;
+      const pose = roomPose(spec, b, g, { ...line, tau: (2 + (side === "left" ? 0 : 0.5) + ph) * strideSec });
+      const k = pose.knee[side];
+      if (ph >= own) {
+        kneeSwing = Math.max(kneeSwing, k);
+        thighSwing = Math.max(thighSwing, pose.thigh[side]);
+      }
+      if (ph >= oppTo && ph <= 0.5) kneeStance = Math.min(kneeStance, k);
+      if (ph <= oppTo) kneeLoad = Math.max(kneeLoad, k);
+      if (ph >= 0.5 && ph <= own) tla = Math.max(tla, tlaOf(pose.lm, side));
     }
-    if (ph >= g.stance - 0.5 && ph <= 0.5) kneeStance = Math.min(kneeStance, k);
-    if (ph <= g.stance - 0.5) kneeLoad = Math.max(kneeLoad, k);
-  }
+    return {
+      kneeSwingPeak: kneeSwing,
+      kneeStanceMin: kneeStance,
+      kneeLoadingPeak: kneeLoad,
+      thighSwingPeak: thighSwing,
+      tlaPeak: tla - tlaOf(stand, side),
+      pitchAtIc: g.leg[side].pIc / D2R,
+      singleSupportSec: (1 - g.leg[side === "left" ? "right" : "left"].stance) * strideSec,
+    };
+  };
+  const sides = { left: sideTruth("left"), right: sideTruth("right") };
   const icPose = roomPose(spec, b, g, { ...line, tau: 2 * strideSec });
   const heelSep = icPose.lm[29][0] - icPose.lm[30][0];
 
@@ -713,10 +902,11 @@ export function walk(spec: WalkSpec): Walk {
       speed,
       heightM,
       aspect,
-      kneeSwingPeak: kneeSwing,
-      kneeStanceMin: kneeStance,
-      kneeLoadingPeak: kneeLoad,
-      thighSwingPeak: thighSwing,
+      kneeSwingPeak: sides.left.kneeSwingPeak,
+      kneeStanceMin: sides.left.kneeStanceMin,
+      kneeLoadingPeak: sides.left.kneeLoadingPeak,
+      thighSwingPeak: sides.left.thighSwingPeak,
+      sides,
       pelvicDrop: { left: spec.pelvicDrop?.left ?? 4, right: spec.pelvicDrop?.right ?? 4 },
       passes,
     },
@@ -766,7 +956,16 @@ export function singleLegStance(spec: StanceSpec): { standing: GaitFrame[]; fram
   const r = rng(spec.seed ?? 7);
   const heightM = spec.heightM ?? 1.7;
   const b = bodyOf(heightM);
-  const g: Gait = { speed: 1, strideSec: 1.1, stride: 1.1, stance: 0.6, stepWidth: 0.1, liftM: 0 };
+  const leg = { stance: 0.6, liftM: 0, highM: 0, pIc: P_IC, pTo: P_TO, shift: 0 };
+  const g: Gait = {
+    speed: 1,
+    strideSec: 1.1,
+    stride: 1.1,
+    stance: 0.6,
+    stepWidth: 0.1,
+    liftM: 0,
+    leg: { left: leg, right: leg },
+  };
   const view: WalkSpec = { view: "front" };
   const cam = cameraOf(view);
   const aspect = cam.w / cam.h;

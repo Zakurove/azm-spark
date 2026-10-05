@@ -169,6 +169,9 @@ function isLandmarkRef(v: unknown): v is LandmarkRef {
 
 /* ------------------------------------------------------------------ ROM */
 
+/** The one approver of the clinical sign off (D-025, 4 Oct 2026). Chaker Belhaj has not reviewed yet. */
+const SOLE_APPROVER = "Dr. Nasser Alharbi (PM&R), medical";
+
 describe("ROM runtime data (rom-v7.json)", () => {
   it("has the union checks compiled", () => expect(unions.every(Boolean)).toBe(true));
 
@@ -412,6 +415,8 @@ describe("ROM runtime data (rom-v7.json)", () => {
   it("is signed off (D-025): Nasser approved every recommendation on 2026-10-04, version 1.0.0", () => {
     expect(ROM_DATA.status).toBe("signed_off");
     expect(ROM_DATA.signoff).toMatchObject({ status: "signed_off", approved: true });
+    // Only Nasser approved (D-025, 4 Oct 2026); Chaker has not reviewed yet.
+    expect(ROM_DATA.signoff.approvers).toEqual([SOLE_APPROVER]);
     expect(ROM_DATA.specVersion).toBe("1.0.0");
     expect(ROM_RULES_VERSION).toBe("rom_protocol_1.0.0");
   });
@@ -524,6 +529,7 @@ describe("gait runtime data (gait-v7.json)", () => {
   it("is signed off (D-025), version 1.0.0", () => {
     expect(GAIT_DATA.status).toBe("signed_off");
     expect(GAIT_DATA.signoff.approved).toBe(true);
+    expect(GAIT_DATA.signoff.approvers).toEqual([SOLE_APPROVER]);
     expect(GAIT_DATA.version).toBe("1.0.0");
     expect(GAIT_RULES_VERSION).toBe("gait_rules_1.0.0");
   });
@@ -623,6 +629,7 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
   it("is signed off (D-025), version 1.0.0; the new exercises stay drafts until the Arabic review (EX-Q15)", () => {
     expect(TARGETS_DATA.status).toBe("signed_off");
     expect(TARGETS_DATA.signoff.approved).toBe(true);
+    expect(TARGETS_DATA.signoff.approvers).toEqual([SOLE_APPROVER]);
     expect(TARGETS_DATA.version).toBe("1.0.0");
     expect(TARGETS_VERSION).toBe("targets_1.0.0");
     expect(TARGETS_DATA.newExercises.every((e) => e.status === "draft")).toBe(true);

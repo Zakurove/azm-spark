@@ -385,6 +385,26 @@ describe("v7 clinical export: round trip to the committed files", () => {
     for (const name of ["rom", "gait", "targets"] as const)
       expect(JSON.stringify(data![name], null, 2) + "\n").toBe(committedText(name));
   });
+
+  it.skipIf(!process.env.AZM_CLINICAL_V7)(
+    "the real sources' sign off record: only Nasser approved (D-025, 4 Oct 2026), Chaker has not reviewed yet",
+    () => {
+      const dir = process.env.AZM_CLINICAL_V7!;
+      for (const file of ["rom-protocol.json", "gait-rules.json", "exercise-targets.json"]) {
+        const { signoff } = JSON.parse(readFileSync(join(dir, file), "utf8"));
+        expect(signoff.approvers, file).toEqual(["Dr. Nasser Alharbi (PM&R), medical"]);
+        expect(signoff.signedOffBy, file).toBe("Dr. Nasser Alharbi (PM&R), medical");
+        expect(signoff.date, file).toBe("2026-10-04");
+        expect(signoff.note, file).toContain("Only Dr. Nasser Alharbi approved (D-025, 4 Oct 2026)");
+        expect(signoff.note, file).toContain("Chaker Belhaj has not reviewed yet");
+      }
+      for (const file of ["rom-protocol.md", "gait-rules.md", "exercise-targets.md"]) {
+        const status = readFileSync(join(dir, file), "utf8").split("\n")[2];
+        expect(status, file).toContain("Only Dr. Nasser Alharbi approved (D-025, 4 Oct 2026)");
+        expect(status, file).toContain("Chaker Belhaj has not reviewed yet");
+      }
+    },
+  );
 });
 
 describe("v7 clinical export: the required --input", () => {

@@ -1,15 +1,16 @@
 /**
  * The real model smoke's pad walk as a regression (D-026 item 6, GG-4): G1's rendered walk on the
  * pad seen from the right, through MediaPipe Full and Lite (tests/fixtures/gait/smoke), whose far leg
- * hides behind the near one for part of each stride. C1 drops every cycle of it. Until the near limb
- * rule lands (the C2 gap GG-4 gives the measured causes and a guarded proposal), the engine must keep
- * failing it safely: no view passes its gate on a wrong walk, and the near limb's tracking itself is
- * good enough to time the walk on Full.
+ * hides behind the near one for part of each stride. C1 dropped every cycle of it. Every side view now
+ * gates a cycle on the hips and its own leg (W2-15), but until GG-4's swap rule and foot detector land
+ * the engine must keep failing the real model walks safely: no view passes its gate on a wrong walk,
+ * on the pad or made overground, and the near limb's tracking itself is good enough to time the walk
+ * on Full. The generator's overground side walks, with the far leg the real model reports, pass.
  */
 import { describe, expect, it } from "vitest";
 import { analyseGaitView } from "../../src/engine/gait/analyse";
 import { prepare } from "../../src/engine/gait/preprocess";
-import { loadSmoke } from "../fixtures/gait/smoke";
+import { loadSmoke, overgroundFromPad } from "../fixtures/gait/smoke";
 import {
   farLegOf,
   REAL_FAR_LEG,
@@ -125,4 +126,31 @@ describe("the overground side view with the far leg as the real model sees it (D
     expect(r.quality.gatePassed).toBe(false);
     expect(r.quality.issues).toEqual(["too_few_cycles"]);
   });
+});
+
+describe("G1's real model walk made overground: a side view never passes its gate on a wrong walk (W2-15)", () => {
+  // Each pass of the pad walk moved at the belt speed, every second pass mirrored (overgroundFromPad).
+  // On real model output the swap rule still carries the far leg into the near track (GG-4), so some
+  // near cycles are wrong (Lite: cadence 23 to 71% off); the view must then fail its gate.
+  const layouts = [
+    [6.5, 4],
+    [5, 6],
+    [7.5, 4],
+  ] as const;
+  for (const name of ["gait-pad-side-full", "gait-pad-side-lite"] as const)
+    for (const [passSec, passes] of layouts)
+      it(`${name}, ${passes} passes of ${passSec} s`, () => {
+        const w = overgroundFromPad(name, passSec, passes);
+        const r = analyseGaitView({
+          view: "side",
+          setup: w.setup,
+          standing: w.standing,
+          frames: w.frames,
+          poseModel: w.model,
+          rollDeg: 0,
+        });
+        if (r.quality.gatePassed)
+          expect(Math.abs(r.metrics.cadence!.value! / w.truth.cadence - 1)).toBeLessThan(0.05);
+        else expect(r.quality.issues).toContain("too_few_cycles");
+      });
 });

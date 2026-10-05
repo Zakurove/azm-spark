@@ -335,6 +335,42 @@ export function touchFocus(db: DatabaseSync, id: string, now: number): void {
   db.prepare("UPDATE focus_checks SET active=? WHERE id=? AND status='open'").run(now, id);
 }
 
+/* ------------------------------------------- the seated side bend's limit */
+
+/**
+ * The best seated side bend of each side at the person's earlier completed checks (D-027 item 2, W2-6):
+ * the focus checks' trunk_lateral_flexion measured seated on armrests, and the v1 side lean
+ * (trunk_control_seated), the larger of the two. The runner's limit reads it (v1.1 4.3: beyond the
+ * earlier best plus 15); null for a side never measured, which keeps the first check limit.
+ */
+export function sideLeanBest(
+  db: DatabaseSync,
+  userId: string,
+): { left: number | null; right: number | null } {
+  const focus = db
+    .prepare(
+      `SELECT m.side, MAX(m.value) AS best FROM rom_measurements m JOIN focus_checks c ON c.id=m.check_id
+       WHERE m.user_id=? AND c.status='completed' AND m.movement_id='trunk_lateral_flexion'
+         AND m.position='seated_armrests' AND m.source='measured' AND m.value IS NOT NULL
+       GROUP BY m.side`,
+    )
+    .all(userId) as { side: string; best: number }[];
+  const v1 = db
+    .prepare(
+      `SELECT r.side, MAX(r.value) AS best FROM assessment_results r JOIN assessments a ON a.id=r.assessment_id
+       WHERE r.user_id=? AND a.status='completed' AND r.test_id='trunk_control_seated' AND r.value IS NOT NULL
+       GROUP BY r.side`,
+    )
+    .all(userId) as { side: string; best: number }[];
+  const out: { left: number | null; right: number | null } = { left: null, right: null };
+  for (const r of [...focus, ...v1])
+    if (r.side === "left" || r.side === "right") {
+      const had = out[r.side];
+      out[r.side] = had === null ? Number(r.best) : Math.max(had, Number(r.best));
+    }
+  return out;
+}
+
 /* ----------------------------------------------------- the 48 hour rule */
 
 /** The checks completed inside the last 48 hours: only they can hold a start back. */

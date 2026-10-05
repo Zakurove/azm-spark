@@ -110,6 +110,7 @@ import {
   romRowsOf,
   saveGait,
   saveRomRow,
+  sideLeanBest,
   stopClosedFocusCheck,
   storedPatterns,
   touchFocus,
@@ -665,6 +666,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           warnings,
           helperRequired: applied.helperRequired,
           helperBriefing: outcome.helperBriefing ?? {},
+          // The seated side bend's limit reads each side's earlier best (D-027 item 2, W2-6).
+          sideLeanBest: sideLeanBest(db, u.id),
         });
       },
     },

@@ -340,6 +340,55 @@ describe("POST /api/focus: the order of checks", () => {
     expect((await start(b.cookie)).status).toBe(200);
   });
 
+  it("carries the earlier best seated side bend of each side, focus or v1 (D-027 item 2, W2-6)", async () => {
+    const back = v7Intake({
+      regions: [{ region: "back_trunk", side: "axial", problems: ["stiffness"], origin: "person" }],
+      walking: { status: "no" },
+    });
+    // A first check: no earlier best, so the runner keeps the first check limit of 30 (v1.1).
+    const a = await person(back);
+    const first = await start(a.cookie);
+    expect(first.status).toBe(200);
+    expect(first.data.sideLeanBest).toEqual({ left: null, right: null });
+    // A completed focus check bent seated on armrests (25 left, 31 right; another position never counts).
+    const b = await person(back);
+    const db = h.db();
+    const done = (id: string, at: number) =>
+      db
+        .prepare(
+          `INSERT INTO focus_checks(id,user_id,kind,setting,status,protocol,gait_plan,today,precheck,versions,device,intake_version,started,active,completed)
+           VALUES(?,?,'baseline','booth','completed','{"rulesVersion":"r","items":[],"deferred":[],"notMeasured":[],"sitBeforeStand":false}',NULL,'{"painByRegion":{}}','{}','{}','{}',1,?,?,?)`,
+        )
+        .run(id, b.id, at, at, at);
+    const lean = (check: string, side: string, position: string, value: number | null, created: number) =>
+      db
+        .prepare(
+          `INSERT INTO rom_measurements(id,user_id,check_id,movement_id,side,position,value,unit,source,reason,pain,finding,attempts,flags,quality,n_valid,norms_version,created)
+           VALUES(?,?,?,'trunk_lateral_flexion',?,?,?,'deg',?,NULL,0,?,'[]','[]','{}',1,'n',?)`,
+        )
+        .run(
+          `${check}-${side}-${position}`,
+          b.id,
+          check,
+          side,
+          position,
+          value,
+          value === null ? "not_measured_today" : "measured",
+          value === null ? "not_today" : "no_grade",
+          created,
+        );
+    done("lean-1", T0 - 5 * DAY);
+    lean("lean-1", "left", "seated_armrests", 25, T0 - 5 * DAY);
+    lean("lean-1", "right", "seated_armrests", 31, T0 - 5 * DAY);
+    done("lean-2", T0 - 4 * DAY);
+    lean("lean-2", "left", "seated_armrests", 22, T0 - 4 * DAY);
+    lean("lean-2", "right", "standing", 40, T0 - 4 * DAY);
+    expect((await start(b.cookie)).data.sideLeanBest).toEqual({ left: 25, right: 31 });
+    // A v1 side lean (trunk_control_seated) of 36 to the right is an earlier best too.
+    v1Done(b.id, "v1-lean", T0 - 3 * DAY, [{ test: "trunk_control_seated", side: "right", value: 36 }]);
+    expect((await start(b.cookie)).data.sideLeanBest).toEqual({ left: 25, right: 36 });
+  });
+
   it("keeps 48 hours only between checks that share a joint (CT-3): another joint at any time", async () => {
     // A focus check of the neck alone, with no walk.
     const neckOnly = v7Intake({

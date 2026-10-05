@@ -115,7 +115,10 @@ describe("cycles and their drops", () => {
     // Four regular strides, then one twice as long.
     const events = [
       ...regular(4).slice(0, -1),
-      ...regular(1, 120).map((e) => ({ ...e, index: 120 + (e.index - 120) * 2 })),
+      ...regular(1, 120).map((e) => {
+        const index = 120 + (e.index - 120) * 2;
+        return { ...e, index, t: Math.round((index * 1000) / 30) };
+      }),
     ];
     const cycles = buildCycles(p, motion(p, [pass({ end: 260 })]), events, "side", false);
     const long = cycles.find((c) => c.side === "right" && c.k0 === 120)!;

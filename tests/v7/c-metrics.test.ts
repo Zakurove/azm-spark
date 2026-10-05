@@ -85,6 +85,13 @@ function cycle(
     kOppIc,
     kTo,
     k1,
+    times: {
+      ic: k0 / 30,
+      oppTo: kOppTo === null ? null : kOppTo / 30,
+      oppIc: kOppIc === null ? null : kOppIc / 30,
+      to: kTo === null ? null : kTo / 30,
+      icEnd: k1 / 30,
+    },
     near,
     trunkOk: true,
   };

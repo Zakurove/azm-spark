@@ -173,6 +173,7 @@ describe("gates", () => {
       kOppIc: null,
       kTo: null,
       k1: 30,
+      times: { ic: 0, oppTo: null, oppIc: null, to: null, icEnd: 1 },
       near: true,
       trunkOk: false,
     });

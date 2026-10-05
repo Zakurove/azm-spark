@@ -48,7 +48,7 @@ import {
 import type { Cycle } from "./cycles";
 import { dropAt, kneeAt, leanAt, leftOnRight, pitchAt, thighAt, tlaAt, trunkAt } from "./kinematics";
 import type { Motion } from "./passes";
-import { LEG, type Prepared, type Series } from "./preprocess";
+import { LEG, type Prepared } from "./preprocess";
 import { padLengths, singleSupport, stanceTime, type CycleTimes } from "./spatiotemporal";
 import type { StandingZeros } from "./standing";
 import type { GaitMetricId, GaitMetricValue, GaitView } from "./types";
@@ -202,15 +202,15 @@ function symmetry(id: GaitMetricId, view: GaitView, v: Sided): GaitMetricValue |
   };
 }
 
-const times = (s: Series, c: Cycle): CycleTimes | null =>
-  c.kOppTo === null || c.kOppIc === null || c.kTo === null
-    ? null
-    : { ic: s.t[c.k0], oppTo: s.t[c.kOppTo], oppIc: s.t[c.kOppIc], to: s.t[c.kTo], icEnd: s.t[c.k1] };
+/** A cycle's event times in seconds, sub-frame (CG-21), or null without the other side's events or its TO. */
+const times = (c: Cycle): CycleTimes | null => {
+  const { ic, oppTo, oppIc, to, icEnd } = c.times;
+  return oppTo === null || oppIc === null || to === null ? null : { ic, oppTo, oppIc, to, icEnd };
+};
 
 /** Every metric of the view that its cycles, calibration and scale give (contract 2.8 GaitViewResult.metrics). */
 export function viewMetrics(m: MetricInput): Partial<Record<GaitMetricId, GaitMetricValue>> {
-  const { p, view, cycles } = m;
-  const s = p.series;
+  const { view, cycles } = m;
   const clean = cycles.filter((c) => c.clean);
   const out: Partial<Record<GaitMetricId, GaitMetricValue>> = {};
   if (m.fps < GAIT_ENGINE.recordAgainBelowFps || !clean.length) return out;
@@ -225,8 +225,8 @@ export function viewMetrics(m: MetricInput): Partial<Record<GaitMetricId, GaitMe
   const stride = sided();
   const step = sided();
   for (const c of clean) {
-    push(stride[c.side], s.t[c.k1] - s.t[c.k0]);
-    if (c.kOppIc !== null) push(step[c.side], s.t[c.k1] - s.t[c.kOppIc]);
+    push(stride[c.side], c.times.icEnd - c.times.ic);
+    if (c.times.oppIc !== null) push(step[c.side], c.times.icEnd - c.times.oppIc);
   }
   const stepTimes = [...step.left, ...step.right];
   const stepSum = stepTimes.reduce((a, b) => a + b, 0);
@@ -268,7 +268,7 @@ function sideMetrics(m: MetricInput, clean: readonly Cycle[], put: Put): void {
   const trunkAbs: number[] = [];
 
   for (const c of clean) {
-    const T = times(s, c);
+    const T = times(c);
     if (!T || c.kOppIc === null || c.kOppTo === null || c.kTo === null) continue;
     const d = motion.passes[c.pass].d;
     const X = c.side;
@@ -348,7 +348,7 @@ function sideMetrics(m: MetricInput, clean: readonly Cycle[], put: Put): void {
       if (c.kOppIc !== null) {
         const d = motion.passes[c.pass].d;
         const sep = d * (s.x[LEG[c.side].heel][c.k1] - s.x[LEG[other(c.side)].heel][c.k1]);
-        if (sep > 0) stepSec.push(s.t[c.k1] - s.t[c.kOppIc]);
+        if (sep > 0 && c.times.oppIc !== null) stepSec.push(c.times.icEnd - c.times.oppIc);
       }
     const ms = mean(steps);
     const mt = mean(stepSec);

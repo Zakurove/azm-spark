@@ -71,13 +71,16 @@ export interface Cycle extends GaitCycle {
   kOppIc: number | null;
   kTo: number | null;
   k1: number;
+  /**
+   * The events' times in seconds, sub-frame (CG-21): the timing metrics read these, never the grid
+   * times of the indices above.
+   */
+  times: { ic: number; oppTo: number | null; oppIc: number | null; to: number | null; icEnd: number };
   /** Side views: the cycle's side is the limb nearest the phone in its pass. */
   near: boolean;
   /** The trunk landmarks pass the cycle's visibility gate. */
   trunkOk: boolean;
 }
-
-const ms = (p: Prepared, k: number) => Math.round(p.series.t[k] * 1000);
 
 /** The cycles of a view, in time order, each clean or with the reason it was dropped. */
 export function buildCycles(
@@ -105,7 +108,7 @@ export function buildCycles(
     // The median stride of the pass's cycles whose order holds (duration and the steady state edges).
     const strides = passCycles
       .filter((c) => c.drop !== "order" && c.drop !== "swap")
-      .map((c) => s.t[c.k1] - s.t[c.k0]);
+      .map((c) => c.times.icEnd - c.times.ic);
     const mid = median(strides);
     if (overground && ics.length) {
       const { first, last } = GAIT_ENGINE.dropSteps;
@@ -121,7 +124,7 @@ export function buildCycles(
     const [lo, hi] = GAIT_ENGINE.strideTimePlausible;
     for (const c of passCycles) {
       if (c.clean && mid !== null) {
-        const st = s.t[c.k1] - s.t[c.k0];
+        const st = c.times.icEnd - c.times.ic;
         if (st < lo * mid || st > hi * mid) drop(c, "duration");
       }
       if (c.clean) {
@@ -170,11 +173,12 @@ function cycleOf(
   const oppIc = find(opp, "ic");
   const oppTo = kind === "side" ? find(opp, "to") : undefined;
   const to = kind === "side" ? find(side, "to") : undefined;
+  const sec = (e: PassEvent | undefined) => (e ? e.t / 1000 : null);
   const c: Cycle = {
     side,
-    icStart: ms(p, a.index),
-    to: to ? ms(p, to.index) : null,
-    icEnd: ms(p, b.index),
+    icStart: a.t,
+    to: to ? to.t : null,
+    icEnd: b.t,
     clean: true,
     pass,
     k0: a.index,
@@ -182,6 +186,7 @@ function cycleOf(
     kOppIc: oppIc?.index ?? null,
     kTo: to?.index ?? null,
     k1: b.index,
+    times: { ic: a.t / 1000, oppTo: sec(oppTo), oppIc: sec(oppIc), to: sec(to), icEnd: b.t / 1000 },
     near,
     trunkOk: false,
   };

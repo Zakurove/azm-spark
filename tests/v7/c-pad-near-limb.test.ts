@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { analyseGaitView } from "../../src/engine/gait/analyse";
+import { peakTime } from "../../src/engine/gait/events";
 import { footLength, prepare } from "../../src/engine/gait/preprocess";
 import { loadSmoke, overgroundFromPad } from "../fixtures/gait/smoke";
 import {
@@ -115,6 +116,51 @@ describe("the pad side view's swap rule (D-027 item 4)", () => {
     const w = walk(pad());
     const p = prepare(w.frames, { rollDeg: 0, labels: "swaps", nearSide: "right" }).series;
     expect(p.relabelled.every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("sub-frame event times (CG-21, D-027 item 5)", () => {
+  it("puts a peak at the vertex of the parabola through it and its two neighbours", () => {
+    const s = { t: Float64Array.from([0, 1 / 30, 2 / 30, 3 / 30]), hz: 30 };
+    // y = -(i - 1.3)^2: the vertex is 0.3 of a frame after sample 1.
+    const sig = Float64Array.from([0, 1, 2, 3], (i) => -((i - 1.3) ** 2));
+    expect(peakTime(s, sig, 1)).toBeCloseTo(1.3 / 30, 9);
+    // A missing neighbour or a flat top keeps the sample's own time.
+    expect(peakTime(s, Float64Array.from([Number.NaN, 1, 0, 0]), 1)).toBe(1 / 30);
+    expect(peakTime(s, Float64Array.from([1, 1, 1, 0]), 1)).toBe(1 / 30);
+  });
+
+  it("times a synthetic pad walk's events closer to the truth than the 30 Hz grid", () => {
+    const w = walk({ view: "pad_side", nearSide: "right", durationSec: 20, seed: 7, speed: 1, cadence: 104 });
+    const r = analyseGaitView({
+      view: "pad_side",
+      nearSide: "right",
+      setup: setupOf({
+        view: "pad_side",
+        nearSide: "right",
+        durationSec: 20,
+        seed: 7,
+        speed: 1,
+        cadence: 104,
+      }),
+      standing: w.standing,
+      frames: w.frames,
+      poseModel: "full",
+      rollDeg: 0,
+    });
+    // The stride times between consecutive contacts: the grid rounds each contact to its frame (33 ms),
+    // the parabola does not (a detector's own lag cancels in a difference).
+    const ics = r.events.filter((x) => x.side === "right" && x.type === "ic");
+    const strideMs = 120_000 / 104;
+    const sub: number[] = [];
+    const grid: number[] = [];
+    for (let i = 1; i < ics.length; i++) {
+      sub.push(Math.abs(ics[i].t - ics[i - 1].t - strideMs));
+      grid.push(Math.abs(((ics[i].index - ics[i - 1].index) * 1000) / 30 - strideMs));
+    }
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(sub.length).toBeGreaterThan(10);
+    expect(mean(sub)).toBeLessThan(mean(grid));
   });
 });
 

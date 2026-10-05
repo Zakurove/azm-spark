@@ -360,6 +360,8 @@ export class GaitController implements CoachHost {
   private readonly lines = new Set<(line: string, severity: "info" | "warn" | "safety") => void>();
   /** True while the live coach speaks for the app: setup lines are then the coach's, not the voice pack's. */
   coachLive = false;
+  /** The live coach was asked for this walk (the screen starts its audio inside the first tap). */
+  coachOn = false;
 
   constructor(opts: GaitControllerOptions) {
     this.opts = opts;

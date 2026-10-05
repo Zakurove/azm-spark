@@ -29,6 +29,9 @@ import { Actions, Body, Glass, Kicker, Loading, Timer, Title } from "../focus/pa
 import { StopBar } from "../focus/RangeScreens";
 import { Stage } from "../focus/Stage";
 import { readIntake, saveGait } from "./api";
+import { useCoach } from "../coach-agent/useCoach";
+import { CueVoice } from "../coach-agent/LocalVoice";
+import { unlockCoachAudio } from "../coach-agent/audio/context";
 import {
   CAMERA_STEPS,
   CAPTURE_RULES,
@@ -186,7 +189,9 @@ export default function GaitCapture(props: GaitStepProps) {
         const id = setInterval(fn, ms);
         return () => clearInterval(id);
       };
-      return new FixturePoseSource(fixtureFor(ctl), { clock: { now: clock, every: realEvery } });
+      // A spec may play another fixture for the next recording (window.azmGaitFixture, "empty": nobody).
+      const pick = (window as unknown as { azmGaitFixture?: string }).azmGaitFixture;
+      return new FixturePoseSource(pick || fixtureFor(ctl), { clock: { now: clock, every: realEvery } });
     });
   }, [ctl, e2e.gait, clock]);
   const session = e2eCam ?? focus.session;
@@ -229,22 +234,52 @@ export default function GaitCapture(props: GaitStepProps) {
     return () => clearInterval(id);
   }, [ctl, clock]);
 
-  // The voice pack (off by default): the controller's lines when the voice is on.
+  // The voice pack (off by default): the controller's lines when the voice is on, through the coach's
+  // local voice while the live coach runs (its mic gate sees every local line, D-12).
   const player = useMemo(() => new CuePlayer(lang), []);
+  const voice = useMemo(() => new CueVoice(player), [player]);
   useEffect(() => player.setLang(lang), [lang, player]);
   useEffect(() => () => player.stop(), [player]);
+  // The walk's coach segment (C-6: gait), with the GaitController as its host (step D5): on with the
+  // person's switch, the live_coach consent and a network (props.coachOn), else off (C-5).
+  const coach = useCoach(
+    props.coachOn
+      ? { block: "gait", segment: "gait", lang, ref: { checkId }, host: ctl, local: voice }
+      : null,
+  );
+  ctl.coachLive = coach.mode === "live";
+  ctl.coachOn = props.coachOn === true;
+  const coachMode = useRef(coach.mode);
+  coachMode.current = coach.mode;
   useEffect(
     () =>
       ctl.onLine((line, severity) => {
-        if (readPreferences().voice === "full" && isVoiceLine(line)) void player.line(line, severity);
+        if (readPreferences().voice !== "full" || !isVoiceLine(line)) return;
+        if (coachMode.current === "off") void player.line(line, severity);
+        else voice.say(line, severity);
       }),
-    [ctl, player],
+    [ctl, player, voice],
   );
-  // The coach's events (2.11): every step start, checkpoint, hint and safety stop.
+  // The coach's events (2.11): every step start, checkpoint, hint and safety stop, to the walk's own
+  // segment and to the shell's coach (off during the walk).
   const coachRef = useRef(props.coach);
   coachRef.current = props.coach;
-  useEffect(() => ctl.onBridge((e) => coachRef.current(e)), [ctl]);
+  const pushRef = useRef(coach.push);
+  pushRef.current = coach.push;
+  useEffect(
+    () =>
+      ctl.onBridge((e) => {
+        pushRef.current(e);
+        coachRef.current(e);
+      }),
+    [ctl],
+  );
   ctl.instructions = () => instructionText(ctl, lang);
+  // E2E builds only: the review screenshots and the specs read the walk (and play the coach's calls).
+  useEffect(() => {
+    if (import.meta.env.VITE_E2E !== "1") return;
+    (window as unknown as { azmGait?: GaitController }).azmGait = ctl;
+  }, [ctl]);
 
   // The partial walk is kept when the walk stops (gait-rules stops: the completed clean cycles count).
   const posted = useRef(false);
@@ -737,7 +772,18 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
           <Note lang={lang} icon="shield" text={setupLine("stop_any_time", lang)} />
         </>,
         <Actions
-          items={[{ label: gt(lang, "intro.start"), name: "start", icon: "arrow-forward", onClick: tap }]}
+          items={[
+            {
+              label: gt(lang, "intro.start"),
+              name: "start",
+              icon: "arrow-forward",
+              onClick: () => {
+                // D-18: the coach's audio starts only inside a tap (iOS).
+                if (ctl.coachOn) unlockCoachAudio();
+                tap();
+              },
+            },
+          ]}
         />,
       );
     }

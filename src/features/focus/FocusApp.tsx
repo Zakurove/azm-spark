@@ -34,6 +34,11 @@ import { useOrientation, useWakeLock } from "../assessment/camera/hooks";
 import type { Tilt } from "../../engine/quality";
 import "../assessment/safety/safety.css";
 import { useCoach } from "../coach-agent/useCoach";
+import { CueVoice } from "../coach-agent/LocalVoice";
+import { COACH_ASK_LINES, liveCoachOn, romSegment } from "../coach-agent/hosts";
+import { unlockCoachAudio } from "../coach-agent/audio/context";
+import type { CoachMode, CoachSegment } from "../../coach/types";
+import { useOnline } from "../assessment/shared/useOnline";
 import { GaitStep } from "../gait/GaitStep";
 import { focusCameraSession, FocusCameraContext, type FocusSourceFactory } from "./camera";
 import { createFocusApi } from "./api";
@@ -200,14 +205,20 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   useEffect(() => {
     player.muted = !soundOn;
   }, [soundOn, player]);
+  // Step D5: while the live coach runs, the lines go through its local voice (the mic gate sees each
+  // one) and the range questions are the coach's to ask (bridge rule 2, D-12).
+  const voice = useMemo(() => new CueVoice(player), [player]);
+  const coachMode = useRef<CoachMode>("off");
   useEffect(
     () =>
       session.onLine((l) => {
         const id = voiceLineOf(l.line);
-        if (soundOn && isVoiceLine(id))
-          void player.line(id, l.severity === "safety" ? "safety" : l.severity === "warn" ? "warn" : "info");
+        if (!soundOn || !isVoiceLine(id)) return;
+        const severity = l.severity === "safety" ? "safety" : l.severity === "warn" ? "warn" : "info";
+        if (coachMode.current === "off") void player.line(id, severity);
+        else if (!COACH_ASK_LINES.has(id)) voice.say(id, severity);
       }),
-    [session, soundOn, player],
+    [session, soundOn, player, voice],
   );
   const toggleSound = () => {
     const on = !soundOn;
@@ -216,9 +227,31 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
     savePreferences({ ...readPreferences(), voice: on ? "full" : "off" });
   };
 
-  // The coach is an enhancement, never a dependency (C-5): off by default; stream D gives it the
-  // options (the segment, the host, the local voice) when the person turned it on and consented.
-  const coach = useCoach(null);
+  // The coach is an enhancement, never a dependency (C-5): off by default. With the person's switch,
+  // the live_coach consent and a network (step D5), each range block is a coach segment (C-6:
+  // rom:<block>:1, then :2 after its fifth movement) with the RomController as its host; the walk's
+  // segment is GaitStep's own.
+  const { online } = useOnline();
+  const coachOn = liveCoachOn({
+    preference: readPreferences().liveCoach,
+    consent: m.data.context?.consent.live_coach === true,
+    online,
+  });
+  const lastSegment = useRef<CoachSegment | null>(null);
+  let romSeg: CoachSegment | null = null;
+  if (part?.kind === "range" && ctl && m.data.check) {
+    const step = ctl.current;
+    const item = "item" in step ? step.item : null;
+    const kept = lastSegment.current?.startsWith(`rom:${part.block}:`) ? lastSegment.current : null;
+    romSeg = item || !kept ? romSegment(m.data.check.protocol, part.block, item) : kept;
+    lastSegment.current = romSeg;
+  }
+  const coach = useCoach(
+    coachOn && romSeg && ctl && m.data.check
+      ? { block: "rom", segment: romSeg, lang, ref: { checkId: m.data.check.id }, host: ctl, local: voice }
+      : null,
+  );
+  coachMode.current = coach.mode;
   useEffect(() => session.onBridge((e) => coach.push(e)), [session, coach]);
 
   // The phone's orientation (v1's camera screens' hook): the picture's roll for the true vertical
@@ -388,6 +421,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               setting={m.data.context!.setting}
               onStart={() => {
                 CuePlayer.unlock();
+                if (coachOn) unlockCoachAudio();
                 // iOS: the motion permission is asked inside a tap (v1's camera primer does the same).
                 orientation.askAgain();
                 session.dispatch({ type: "BEGIN" });
@@ -568,8 +602,10 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
                   lang={lang}
                   painBefore={session.walkBefore}
                   coach={(e) => coach.push(e)}
+                  coachOn={coachOn}
                   onDone={() => session.gaitDone()}
-                  onStop={() => session.requestStop()}
+                  onStop={(preselect) => session.requestStop(preselect ?? null)}
+                  onSkip={() => session.gaitDone()}
                 />
               </GaitSlot>
             ),
@@ -642,6 +678,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               stage={<Stage video={cam.video} frame={frame} highlight={[]} compact />}
               waiting={blockWaiting}
               onReady={() => {
+                if (coachOn) unlockCoachAudio();
                 if (!blockWaiting) c.ready(clock());
               }}
               onStop={() => session.requestStop()}
@@ -705,7 +742,10 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             <PainStopScreen
               lang={lang}
               item={step.item}
-              onContinue={() => c.acknowledge(clock())}
+              onContinue={() => {
+                c.acknowledge(clock());
+                coach.reopen();
+              }}
               onStop={() => session.requestStop()}
             />
           ),
@@ -773,7 +813,11 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             lang={lang}
             env={env}
             preselect={session.stopOutside?.preselect ?? ctl?.stopList?.preselect ?? null}
-            onChoose={(option) => void session.chooseStop(option)}
+            onChoose={(option) =>
+              void session.chooseStop(option).then((r) => {
+                if (r && !r.endsCheck) coach.reopen();
+              })
+            }
           />
         )}
         {leaving && (

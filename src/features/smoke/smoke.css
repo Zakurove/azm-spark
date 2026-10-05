@@ -1,0 +1,188 @@
+/* The v7 performance overlay and real model smoke page (contract 8.4 and section 9, stream G). Light,
+   Cairo (inherited), gold and purple, soft edges: VITE_E2E builds only. */
+
+.perf-overlay {
+  position: fixed;
+  inset-block-end: 8px;
+  inset-inline-start: 8px;
+  z-index: 2147483000;
+  min-width: 13rem;
+  max-width: min(22rem, calc(100vw - 16px));
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 0 0 1px #dcd3ee,
+    0 8px 24px -14px rgba(46, 34, 82, 0.45);
+  color: var(--ink, #25312e);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.perf-toggle {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  gap: 0.75rem;
+  justify-content: space-between;
+  width: 100%;
+  margin: 0 0 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--purple, #8065ad);
+  font: inherit;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.perf-toggle[aria-expanded="false"] {
+  margin: 0;
+}
+
+.perf-toggle:focus-visible {
+  outline: 2px solid var(--gold, #f8cb44);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.perf-overlay dl {
+  margin: 0;
+}
+
+.perf-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.perf-row dt {
+  color: var(--muted, #67736e);
+}
+
+.perf-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.perf-row[data-over="true"] dd {
+  color: #945817;
+  font-weight: 700;
+}
+
+.perf-row[data-over="true"] dd::after {
+  content: " ●";
+  color: #e0a022;
+}
+
+.smoke-page {
+  min-height: 100vh;
+  padding: 1.25rem;
+  background: var(--page, #fbfaf8);
+  color: var(--ink, #25312e);
+}
+
+.smoke-page header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+
+.smoke-page h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.smoke-page .smoke-name {
+  color: var(--purple, #8065ad);
+  font-weight: 700;
+}
+
+.smoke-page button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  background: var(--gold, #f8cb44);
+  color: var(--ink, #25312e);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.smoke-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 40rem) {
+  .smoke-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.smoke-video {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #f1ecf8;
+  aspect-ratio: 9 / 16;
+}
+
+.smoke-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.smoke-card {
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  background: var(--card, #ffffff);
+  box-shadow:
+    inset 0 0 0 1px #e3e4e9,
+    0 6px 18px -14px rgba(46, 34, 82, 0.35);
+}
+
+.smoke-card dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.smoke-card dt {
+  color: var(--muted, #67736e);
+}
+
+.smoke-card dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.smoke-status[data-status="done"] {
+  color: #2f6b3a;
+}
+
+.smoke-status[data-status="error"] {
+  color: #aa3e35;
+}
+
+.smoke-result {
+  margin-block-start: 1rem;
+  max-height: 24rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #f4f1f8;
+  font-size: 0.7rem;
+  direction: ltr;
+  text-align: left;
+  white-space: pre-wrap;
+}

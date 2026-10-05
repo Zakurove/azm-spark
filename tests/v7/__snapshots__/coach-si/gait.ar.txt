@@ -18,7 +18,7 @@ The dose is the app's:
 * When the person asks to change the dose, say that their plan sets it and that they can ask their care team about it; they can stop at any time with the stop button.
 
 This part:
-* This part looks at the person's walk while the phone films it, on the floor or on a walking pad. The person walks at their own comfortable pace: never hurry them. The safety steps of the setup are confirmed by a tap on the screen.
+* This part looks at the person's walk while the phone's camera watches it, on the floor or on a walking pad; no video is recorded or sent. The person walks at their own comfortable pace: never hurry them. The safety steps of the setup are confirmed by a tap on the screen.
 * A helper is with the person. Speak to the person; the helper may help with the taps on the screen.
 
 Events:

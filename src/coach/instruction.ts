@@ -104,7 +104,7 @@ function thisPart(input: InstructionInput): string[] {
   const { lang, block, position, helperPresent } = input;
   const what: Record<CoachBlock, string> = {
     rom: "This part measures how far a few joints move, one movement at a time. The app shows each step on the screen and keeps every measurement; you ask the questions and encourage.",
-    gait: "This part looks at the person's walk while the phone films it, on the floor or on a walking pad. The person walks at their own comfortable pace: never hurry them. The safety steps of the setup are confirmed by a tap on the screen.",
+    gait: "This part looks at the person's walk while the phone's camera watches it, on the floor or on a walking pad; no video is recorded or sent. The person walks at their own comfortable pace: never hurry them. The safety steps of the setup are confirmed by a tap on the screen.",
     session:
       "This part is the person's exercise session: the exercises on the screen, with the sets, repetitions, holds and rest of their plan.",
   };

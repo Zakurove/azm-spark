@@ -45,6 +45,17 @@ describe("buildInstruction", () => {
         );
       });
 
+  it("never says the phone films or records: the camera watches, and no video is recorded or sent", () => {
+    for (const block of BLOCKS)
+      for (const lang of LANGS) {
+        const si = buildInstruction(inputFor(block, lang));
+        expect(si, `${block} ${lang}`).not.toMatch(
+          /\bfilms?\b|\bfilming\b|\brecords? (the|their|your) (walk|movement)/i,
+        );
+      }
+    expect(buildInstruction(inputFor("gait", "ar"))).toContain("no video is recorded or sent");
+  });
+
   it("states the dose rules of 5.3 item 3 in every block and both languages", () => {
     for (const block of BLOCKS)
       for (const lang of LANGS) {

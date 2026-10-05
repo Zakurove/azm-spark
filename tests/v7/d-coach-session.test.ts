@@ -622,6 +622,25 @@ describe("the rotation of rule 7 and S0-3", () => {
     expect(h.reports.at(-1)).toMatchObject({ endReason: "go_away" });
   });
 
+  it("takes the close that follows a goAway as go_away, and comes back at the next boundary", async () => {
+    const h = harness();
+    h.session.start();
+    await run(900);
+    h.emit({ type: "goAway", timeLeftMs: 5_000 });
+    await run(5_000);
+    // No boundary came in time: Google ends the connection it announced.
+    h.emit({ type: "close", code: 1000, reason: "" });
+    expect(h.session.getSnapshot().mode).toBe("local");
+    expect(h.reports.at(-1)).toMatchObject({ endReason: "go_away" });
+    h.push(movementResult());
+    await run(900);
+    expect(h.transports).toHaveLength(2);
+    expect(h.mints).toHaveLength(2);
+    expect(h.session.getSnapshot().mode).toBe("live");
+    h.session.end("done");
+    expect(h.reports.at(-1)).toMatchObject({ endReason: "done" });
+  });
+
   it("takes a 1011 close after 595 s as the connection limit, and an earlier one as an error", async () => {
     const h = harness();
     h.session.start();

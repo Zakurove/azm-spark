@@ -16,7 +16,7 @@
  *   - Rotation (rule 7, S0-3): after goAway, or from the earlier of setupComplete + 9.5 min and the
  *     token's expiresAt - 60 s, the next boundary starts a new session for the rest of the segment:
  *     a re-mint, and the server's history with the host's snapshot. A 1011 close after 595 s is the
- *     connection limit (go_away), not an error.
+ *     connection limit (go_away), not an error, and so is the close that follows a goAway.
  *   - The usage report (5.2) describes the whole segment so far: sent at each fallback, when the page
  *     hides and at the end; never for a segment that had no session.
  *   - While live the audio session is play-and-record (rule 3), and playback again after it.
@@ -437,9 +437,10 @@ export class CoachSession {
       case "error":
         return this.fallback("fallback_error");
       case "close":
-        // S0-3: the connection limit, or the token's own end (1011 "auth token has expired"), is not an error.
+        // S0-3: the connection limit, the token's own end (1011 "auth token has expired") or the end
+        // a goAway announced is not an error.
         return this.fallback(
-          now >= this.expiresAt - EXPIRY_CLOSE_SLACK_MS
+          this.rotateDue || now >= this.expiresAt - EXPIRY_CLOSE_SLACK_MS
             ? "go_away"
             : closeEndReason(e.code, this.liveSince === null ? 0 : now - this.liveSince),
         );

@@ -39,19 +39,22 @@ export function doseText(item: Pick<WeeklyItem, "sets" | "reps" | "holdSeconds">
   const n = (v: number) => fmtNum(v, lang);
   const hold = item.holdSeconds ?? 0;
   if (!hold) return g.doseReps(item.sets, item.reps ?? 8, n);
-  if (hold < 60 || hold % 60 !== 0) return g.doseHold(item.sets, hold, n);
-  const minutes = countPhrase(lang, "min", hold / 60);
-  if (item.sets === 1) return minutes;
+  const minutes = hold >= 60 && hold % 60 === 0;
+  // English keeps the guided card's short seconds; Arabic counts them («٥ ثوانٍ», «٣٠ ثانية»).
+  if (!minutes && lang === "en") return g.doseHold(item.sets, hold, n);
+  const time = minutes ? countPhrase(lang, "min", hold / 60) : countPhrase(lang, "sec", hold);
+  if (item.sets === 1) return time;
   const times = lang === "ar" ? (item.sets === 2 ? "مرتان" : `${n(item.sets)} مرات`) : `${n(item.sets)}`;
-  return `${times} × ${minutes}`;
+  return `${times} × ${time}`;
 }
 
 const BLOCKS = ["warmup", "extra", "cooldown"] as const;
 
 /**
- * The exercises the findings chose, once each, in the order of the week: the day each first comes, then
- * its block (range first, then strength and practice, held stretches last). A week built before E3 or
- * by the v1 rules has none.
+ * The exercises the findings chose, once each: those that serve a result of the check first (a range
+ * finding or the walk), then those of the history alone (a region the camera cannot measure, the
+ * wheelchair shoulder care), each in the order of the week: the day it first comes, then its block
+ * (range first, then strength and practice, held stretches last). A week of the v1 rules has none.
  */
 export function programItems(weekly: WeeklyPlan, lang: Lang): ProgramItemView[] {
   const out = new Map<string, ProgramItemView>();
@@ -77,7 +80,8 @@ export function programItems(weekly: WeeklyPlan, lang: Lang): ProgramItemView[] 
           result: (item.reasonRefs ?? []).some((r) => r.kind === "rom" || r.kind === "gait"),
         });
       }
-  return [...out.values()];
+  const all = [...out.values()];
+  return [...all.filter((i) => i.result), ...all.filter((i) => !i.result)];
 }
 
 /**

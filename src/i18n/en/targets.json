@@ -2,7 +2,7 @@
   "program": {
     "kicker": "Your program",
     "title": "Exercises chosen for your results",
-    "intro": "Each exercise here has one clear reason from your movement results, and the rest of each session follows your goal as before.",
+    "intro": "Each exercise here tells you why we chose it from your movement results, and the rest of each session follows your goal as before.",
     "loading": "Building your program from your results",
     "loadError": "We could not prepare your program right now. Make sure you are online, then try again.",
     "noneTitle": "No movement results yet",

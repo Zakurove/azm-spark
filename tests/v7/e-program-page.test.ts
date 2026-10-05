@@ -66,6 +66,9 @@ describe("programItems", () => {
       expect(i.dose).not.toBe("");
     }
     expect(items.some((i) => i.result)).toBe(true);
+    // The results first, then the history's own (a region the camera cannot measure).
+    const firstOther = items.findIndex((i) => !i.result);
+    if (firstOther >= 0) expect(items.slice(firstOther).every((i) => !i.result)).toBe(true);
     expect(programItems(engineWeekly(FAHD, plan)!, "en")).toEqual([]);
   });
 
@@ -76,6 +79,9 @@ describe("programItems", () => {
     expect(doseText({ sets: 3, holdSeconds: 180 }, "en")).toBe("3 × 3 minutes");
     expect(doseText({ sets: 1, holdSeconds: 600 }, "ar")).toBe("١٠ دقائق");
     expect(doseText({ sets: 2, holdSeconds: 30 }, "ar")).toBe("مرتان × ٣٠ ثانية");
+    // Arabic counts the seconds: «٥ ثوانٍ».
+    expect(doseText({ sets: 10, holdSeconds: 5 }, "ar")).toBe("١٠ مرات × ٥ ثوانٍ");
+    expect(doseText({ sets: 10, holdSeconds: 5 }, "en")).toBe("10 × 5 sec");
   });
 });
 

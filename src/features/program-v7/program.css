@@ -142,8 +142,9 @@
 .pv7-link {
   display: grid;
   gap: 10px;
-  padding: 18px 20px;
-  border-radius: 24px;
+  margin-bottom: 25px;
+  padding: 20px 22px;
+  border-radius: 18px;
   background:
     radial-gradient(120% 90% at 100% 0%, rgba(248, 203, 68, 0.2) 0%, rgba(248, 203, 68, 0) 60%),
     linear-gradient(160deg, #ffffff 0%, #f6f1fb 100%);

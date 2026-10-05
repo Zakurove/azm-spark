@@ -59,6 +59,9 @@ const FROM_RESULTS = {
   background: "#fdf4d6",
 } as const;
 
+/** The way to the result behind it: the purple of the person's own marks. */
+const RESULT_LINK = { color: "#4f3c7c", fontWeight: 800, textUnderlineOffset: 4 } as const;
+
 const weekday = (day: number, lang: Lang) => fmtDate(new Date(2026, 8, 6 + day), lang, { weekday: "long" });
 /**
  * A weekly plan item as the guided card it becomes in the session (booth v2, D): its glyph, its dose
@@ -109,7 +112,9 @@ function Item({ item, lang, findings }: { item: WeeklyItem; lang: Lang; findings
               {V7_UI && result && (
                 <>
                   {" "}
-                  <a href={`/?findings=1${findings ? `&check=${findings}` : ""}`}>{k.seeResult}</a>
+                  <a href={`/?findings=1${findings ? `&check=${findings}` : ""}`} style={RESULT_LINK}>
+                    {k.seeResult}
+                  </a>
                 </>
               )}
             </span>

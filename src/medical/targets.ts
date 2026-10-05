@@ -303,7 +303,9 @@ function romTargets(f: RomFinding, h: Intake, out: Draft[], referrals: ReferralI
   // The arthritis add on (review C08): «any path».
   const muscles = arthritisMuscles(f.region);
   if (h.conditions.includes("arthritis") && muscles) {
-    const arthritis: TargetReason[] = [reason, { kind: "arthritis", region: f.region }];
+    // The add on's own reason first: it has a cap of its own (findingKeys), and the finding's reason
+    // after it says why.
+    const arthritis: TargetReason[] = [{ kind: "arthritis", region: f.region }, reason];
     const around = f.region === "shoulder" ? [...muscles, ...row.strengthen] : muscles;
     for (const id of around) add(id, f.priority, painFriendly, arthritis);
     if (h.walking !== undefined && h.walking.status !== "no")
@@ -832,8 +834,12 @@ function candidatesOf(
 /** The finding of a target's reason, for «at most 2 items per limited movement or pattern». */
 function findingKeys(t: TargetRequest): string[] {
   const keys = new Set<string>();
+  // The arthritis add on («always add strengthening of the muscles around the joint») is counted on its
+  // own, so it never takes the items of the movement it is added to (a painful knee keeps its range work).
+  const addOn = t.reasons[0]?.kind === "arthritis";
   for (const r of t.reasons)
-    if (r.kind === "rom") keys.add(`rom:${r.movementId}:${r.side}`);
+    if (r.kind === "arthritis") keys.add(`arthritis:${r.region}`);
+    else if (r.kind === "rom" && !addOn) keys.add(`rom:${r.movementId}:${r.side}`);
     else if (r.kind === "gait") keys.add(`gait:${r.pattern}:${r.label}:${r.side}`);
   return keys.size ? [...keys] : [`target:${t.id}:${t.side}`];
 }

@@ -372,6 +372,25 @@ describe("the caps (exercise-targets 5.8 step 5)", () => {
     expect(itemFor(out, "strengthen:hamstrings")).toBeDefined();
   });
 
+  it("the arthritis add on has its own cap: a painful knee keeps its gentle range work", () => {
+    const h = intake({
+      conditions: ["arthritis"],
+      regions: [entry("knee", "left", ["pain"])],
+      pain: ["knee"],
+    });
+    const targets = collectTargets({
+      intake: h,
+      rom: [
+        finding("knee_flexion", "left", { finding: "pain_limited", priority: 3, path: "pain_irritable" }),
+      ],
+      gait: [],
+    }).targets;
+    const out = select(h, targets);
+    expect(itemFor(out, "mobility:knee_flexion")).toBeDefined();
+    expect(itemFor(out, "strengthen:quadriceps")).toBeDefined();
+    for (const i of out.items) expect(libraryById(i.exerciseId)!.painFriendly, i.exerciseId).toBe(true);
+  });
+
   it("a finding with one action and two items a grade takes both (a pain limited range)", () => {
     const pain = {
       kind: "rom" as const,

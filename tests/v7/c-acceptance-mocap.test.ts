@@ -4,7 +4,8 @@
  * overground, Van Criekinge 2023; 10 adults on a treadmill at 3 speeds, Fukuchi 2018), each seen in
  * the views its capture plans (overground front, back and side; the pad from both sides and the
  * front), against the datasets' own events:
- *   - cadence within 5% on 95% or more of the trial views that report one;
+ *   - cadence within 5% on 95% or more of the trial views that report one, and on every walker's
+ *     analysis (its views combined);
  *   - events within 2 frames on 90% or more in the side views (the front views' contacts lag the
  *     truth, CG-2: measured below, not judged);
  *   - at least 6 clean cycles a side wherever the walk holds 6 the camera can see whole;
@@ -41,6 +42,15 @@ describe("the engine on projected motion capture", () => {
     // The side views on their own: every one.
     for (const e of errors.filter((x) => / (side|pad_side)$/.test(x.at)))
       expect(Math.abs(e.err), e.at).toBeLessThan(0.05);
+  });
+
+  it("gives each walker's analysis (its views combined) a cadence within 5% of the dataset's", () => {
+    for (const [id, run] of runs) {
+      const c = run.analysis.combined.cadence?.value;
+      const truth = run.views.find((v) => sideKind(v.view))!.walk.truth.cadence;
+      expect(c, id).toBeDefined();
+      expect(Math.abs(c! / truth - 1), id).toBeLessThan(0.05);
+    }
   });
 
   it("finds the side views' events within 2 frames of the dataset's on 90% or more", () => {

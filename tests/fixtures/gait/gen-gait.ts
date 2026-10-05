@@ -26,7 +26,8 @@ import type { Landmark } from "../../../src/engine/types";
 import { rng } from "../gen";
 
 export type Side = "left" | "right";
-type V = [number, number, number];
+/** A point in the room, metres: x right in the picture, y up, z toward the camera. */
+export type V = [number, number, number];
 
 export interface WalkSpec {
   seed?: number;
@@ -123,7 +124,7 @@ const smoothstep = (x: number) => {
   const c = Math.min(1, Math.max(0, x));
   return c * c * (3 - 2 * c);
 };
-function gauss(r: () => number): number {
+export function gauss(r: () => number): number {
   const u = Math.max(r(), 1e-12);
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r());
 }
@@ -385,7 +386,8 @@ function roomPose(spec: WalkSpec, b: Body, g: Gait, st: PoseState): RoomPose {
   return { lm, knee, thigh };
 }
 
-const LR_ALL: [number, number][] = [
+/** Left and right landmark pairs (MediaPipe ids). */
+export const LR_ALL: [number, number][] = [
   [1, 4],
   [2, 5],
   [3, 6],
@@ -403,7 +405,7 @@ const LR_ALL: [number, number][] = [
   [29, 30],
   [31, 32],
 ];
-const LR_LEGS = LR_ALL.slice(11);
+export const LR_LEGS = LR_ALL.slice(11);
 const SIDE_OF: number[] = Array.from({ length: 33 }, (_, i) => {
   for (const [a, b] of LR_ALL) {
     if (i === a) return 1;
@@ -420,7 +422,8 @@ interface Segment {
   turn?: { at: V; fromHeading: V; toHeading: V };
 }
 
-interface Camera {
+/** The phone: a level pinhole (optionally rolled) at `pos` looking along −z. */
+export interface Camera {
   pos: V;
   w: number;
   h: number;
@@ -428,7 +431,7 @@ interface Camera {
   roll: number;
 }
 
-function cameraOf(spec: WalkSpec): Camera {
+export function cameraOf(spec: Pick<WalkSpec, "view" | "camera" | "rollDeg">): Camera {
   const side = spec.view === "side" || spec.view === "pad_side";
   const w = side ? 1280 : 720;
   const h = side ? 720 : 1280;
@@ -445,7 +448,7 @@ function cameraOf(spec: WalkSpec): Camera {
   return { pos, w, h, f, roll: (spec.rollDeg ?? 0) * D2R };
 }
 
-function project(cam: Camera, P: V): { x: number; y: number; z: number; behind: boolean } {
+export function project(cam: Camera, P: V): { x: number; y: number; z: number; behind: boolean } {
   const X = P[0] - cam.pos[0];
   const Y = P[1] - cam.pos[1];
   const D = cam.pos[2] - P[2];
@@ -516,7 +519,7 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
 }
 
 /** Visibility of each landmark as the model would report it. */
-function visibilityOf(
+export function visibilityOf(
   lm: V[],
   heading: V,
   cam: Camera,

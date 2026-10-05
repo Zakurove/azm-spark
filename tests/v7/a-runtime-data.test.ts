@@ -644,4 +644,14 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
     expect(none).not.toMatch(/if the clinicians allow|open question/);
     expect(TARGETS_DATA.newExercises.find((e) => e.id === "table_slides")!.contraindications).toEqual([]);
   });
+
+  it("writes the session caps as numbers: at most 2 items per finding, finding items at most half the slots, rounded down (FZ-5)", () => {
+    expect(TARGETS_DATA.mapping.selectionNumbers).toEqual({
+      itemsPerFindingMax: 2,
+      findingSlotsShareMax: 0.5,
+      findingSlotsRounding: "down",
+      gaitTargetNotSeenChecks: 2,
+      strengthenStaysAtPriority: 1,
+    });
+  });
 });

@@ -8564,6 +8564,8 @@
     ],
     "selectionNumbers": {
       "itemsPerFindingMax": 2,
+      "findingSlotsShareMax": 0.5,
+      "findingSlotsRounding": "down",
       "gaitTargetNotSeenChecks": 2,
       "strengthenStaysAtPriority": 1
     }

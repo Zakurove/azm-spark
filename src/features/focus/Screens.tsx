@@ -31,7 +31,9 @@ import { AreaPicker, TopDownDrawing } from "../assessment/flow/parts";
 import { MultiAnswerList } from "../assessment/shared/answers";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
-import { pausedLine, whenText } from "../assessment/safety/content";
+import { pausedLine } from "../assessment/safety/content";
+import { fmtDate } from "../../app/i18n";
+import { TIME_ZONE } from "../progress/format";
 import type { LockView } from "../assessment/api";
 import { BodyMap } from "../body-map/BodyMap";
 import { copyText, movementName, regionName } from "./copy";
@@ -74,6 +76,18 @@ export function LoadErrorScreen({
   );
 }
 
+/** When the next check opens: the weekday, the date and the time in Riyadh (Gregorian, Q30). */
+export function opensAt(at: number, lang: Lang): string {
+  return fmtDate(at, lang, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: TIME_ZONE,
+  });
+}
+
 /** Nothing can start now: the reason, and the one way forward. */
 export function ClosedScreen({
   lang,
@@ -107,11 +121,11 @@ export function ClosedScreen({
       [title, body, icon] = [v("lockedTitle"), lock?.until ? pausedLine(lock.until, now, lang) : "", "pause"];
       break;
     case "too_soon":
+      // The day, the date and the time the next check opens (48 hours after the last), as v1's entry
+      // card names it: never «tomorrow» for a check two days away.
       [title, body, icon] = [
         v("soonTitle"),
-        until
-          ? interpolate(lang, tV7(lang, "rom.closed.soonBody"), { when: whenText(until, now, lang) })
-          : "",
+        until ? interpolate(lang, tV7(lang, "rom.closed.soonBody"), { date: opensAt(until, lang) }) : "",
         "calendar",
       ];
       break;

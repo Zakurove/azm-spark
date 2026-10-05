@@ -37,7 +37,7 @@
     "homeBody": "For now, the focused movement check runs on our team's phone at the booth.",
     "lockedTitle": "Let's rest today",
     "soonTitle": "You can check again soon",
-    "soonBody": "Your next check can start {when}.",
+    "soonBody": "You can start your next check from {date}.",
     "planTitle": "Complete your medical condition first",
     "planBody": "We build the check from your answers about your medical condition.",
     "reviewTitle": "Your plan is being reviewed",

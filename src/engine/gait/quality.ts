@@ -3,7 +3,10 @@
  * gates). Pure, no DOM.
  *
  *   cleanCycles  the clean cycles of each side
- *   medianFps    1000 ÷ the median gap between frames (the measure of the probe and QualityMonitor)
+ *   medianFps    the processed frame rate: the mean over the view's frames, the frames less one over
+ *                the time from the first to the last (D-026 item 6: a stream that loses every
+ *                fourth frame reads 22.5, where the median gap read 30, CG-6); the field keeps its
+ *                Gate A name
  *   gapShare     the share of analysed frames with a gate landmark (23 to 32) under 0.5, which the
  *                pre-processing filled by interpolation
  *   gatePassed   at least 6 clean cycles per side, at 20 fps or more («under 20: record again»)
@@ -53,7 +56,15 @@ import type { Prepared } from "./preprocess";
 import type { GaitQuality, GaitQualityIssue } from "./types";
 import { lowerBound, median, r3 } from "./util";
 
-/** 1000 ÷ the median gap between frames (0 with fewer than two frames). */
+/** The mean frame rate over the frames: the gaps over their total time (0 with no time between them). */
+export function meanFps(frameMs: ArrayLike<number>): number {
+  const n = frameMs.length;
+  if (n < 2) return 0;
+  const span = frameMs[n - 1] - frameMs[0];
+  return span > 0 ? ((n - 1) * 1000) / span : 0;
+}
+
+/** 1000 ÷ the median gap between frames (0 with fewer than two frames): the probe's measure (A6a-3). */
 export function medianFps(frameMs: ArrayLike<number>): number {
   const gaps: number[] = [];
   for (let i = 1; i < frameMs.length; i++) gaps.push(frameMs[i] - frameMs[i - 1]);
@@ -92,7 +103,7 @@ export interface QualityInput {
 
 /** The view's quality report (GaitQuality). */
 export function viewQuality(q: QualityInput): GaitQuality {
-  const fps = medianFps(q.p.frameMs);
+  const fps = meanFps(q.p.frameMs);
   const clean = { left: 0, right: 0 };
   const drops = new Map<string, number>();
   for (const c of q.cycles) {

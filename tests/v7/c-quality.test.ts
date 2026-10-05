@@ -1,14 +1,14 @@
 /**
  * src/engine/gait/quality.ts (product v7 contract 2.8 GaitQuality; gait-rules 2.1 frame rate, 3.6
- * view gates): clean cycles per side, the median processed frame rate, the gap share, the gate,
- * timing only and the issues.
+ * view gates): clean cycles per side, the processed frame rate (the mean over the view, D-026), the
+ * gap share, the gate, timing only and the issues.
  */
 import { describe, expect, it } from "vitest";
 import { analyseGaitView } from "../../src/engine/gait/analyse";
 import type { Cycle } from "../../src/engine/gait/cycles";
 import { EXCLUDED, type Motion } from "../../src/engine/gait/passes";
 import { prepare } from "../../src/engine/gait/preprocess";
-import { medianFps, viewQuality } from "../../src/engine/gait/quality";
+import { meanFps, medianFps, viewQuality } from "../../src/engine/gait/quality";
 import type { GaitFrame, GaitViewResult } from "../../src/engine/gait/types";
 import type { Landmark } from "../../src/engine/types";
 import { setupOf, walk, type WalkSpec } from "../fixtures/gait/gen-gait";
@@ -27,7 +27,19 @@ function analyse(spec: WalkSpec, view = spec.view): GaitViewResult {
 }
 
 describe("frame rate", () => {
-  it("is 1000 over the median gap between frames (the probe's measure, A6a-3)", () => {
+  it("is the mean rate over the view's frames (D-026 item 6, CG-6)", () => {
+    expect(meanFps([0, 33, 66, 100, 133, 200])).toBeCloseTo(5000 / 200, 12);
+    expect(meanFps([0])).toBe(0);
+    expect(meanFps([5, 5])).toBe(0);
+    // A stream that loses every fourth frame delivers 22.5 frames a second: timing only.
+    const lossy = analyse({ view: "pad_side", nearSide: "right", durationSec: 20, seed: 76, dropEvery: 4 });
+    expect(lossy.quality.medianFps).toBeCloseTo(22.5, 1);
+    expect(lossy.quality.timingOnly).toBe(true);
+    expect(lossy.quality.issues).toContain("low_fps");
+    expect(lossy.metrics.knee_swing_peak).toBeUndefined();
+  });
+
+  it("keeps the median gap measure for the probe's comparisons (A6a-3)", () => {
     expect(medianFps([0, 33, 66, 100, 133, 200])).toBeCloseTo(1000 / 33, 12);
     expect(medianFps([0])).toBe(0);
     // A frame dropped now and then does not lower the median gap.

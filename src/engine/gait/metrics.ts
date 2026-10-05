@@ -78,7 +78,8 @@ export interface MetricInput {
   beltMps: number | null;
   /** The phone roll is known (trunk_incl_abs). */
   rollKnown: boolean;
-  medianFps: number;
+  /** The view's processed frame rate, the mean over its frames (GaitQuality.medianFps, D-026 item 6). */
+  fps: number;
 }
 
 type Sided = Record<LimbSide, number[]>;
@@ -212,12 +213,12 @@ export function viewMetrics(m: MetricInput): Partial<Record<GaitMetricId, GaitMe
   const s = p.series;
   const clean = cycles.filter((c) => c.clean);
   const out: Partial<Record<GaitMetricId, GaitMetricValue>> = {};
-  if (m.medianFps < GAIT_ENGINE.recordAgainBelowFps || !clean.length) return out;
-  const timingOnly = m.medianFps < GAIT_ENGINE.fullFps;
+  if (m.fps < GAIT_ENGINE.recordAgainBelowFps || !clean.length) return out;
+  const timingOnly = m.fps < GAIT_ENGINE.fullFps;
   const put = (id: GaitMetricId, v: GaitMetricValue | null) => {
     if (!v || !metricInView(id, view)) return;
     if (timingOnly && !TIMING_METRICS.includes(id)) return;
-    if (id === "double_support_pct" && m.medianFps < DOUBLE_SUPPORT_MIN_FPS) return;
+    if (id === "double_support_pct" && m.fps < DOUBLE_SUPPORT_MIN_FPS) return;
     out[id] = v;
   };
 

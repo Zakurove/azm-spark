@@ -121,7 +121,7 @@ function input(p: Prepared, view: GaitView, cycles: Cycle[], over: Partial<Metri
     pxPerM: 0.5,
     beltMps: null,
     rollKnown: true,
-    medianFps: 30,
+    fps: 30,
     ...over,
   };
 }
@@ -320,10 +320,10 @@ describe("side view metrics on a hand made walk", () => {
   });
 
   it("reports only timing between 20 and 24 fps, no double support under 25, and nothing under 20", () => {
-    const slow = viewMetrics(input(p, "side", cycles, { medianFps: 22 }));
+    const slow = viewMetrics(input(p, "side", cycles, { fps: 22 }));
     expect(Object.keys(slow).sort()).toEqual([...TIMING_METRICS].sort());
     expect(slow.double_support_pct).toBeUndefined();
-    expect(viewMetrics(input(p, "side", cycles, { medianFps: 19 }))).toEqual({});
+    expect(viewMetrics(input(p, "side", cycles, { fps: 19 }))).toEqual({});
     expect(
       viewMetrics(
         input(

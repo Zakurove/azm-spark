@@ -204,6 +204,37 @@ describe("the focus shell end to end on the real routes", () => {
     expect(row.value).toBeNull();
   }, 60_000);
 
+  it("a second stop choice with no stop list open does nothing (a double tap)", async () => {
+    const { s } = await session();
+    await s.load();
+    await answerAll(s, noFlags);
+    const posted: string[] = [];
+    const api = (s as unknown as { api: { stop: (...a: unknown[]) => Promise<unknown> } }).api;
+    const stop = api.stop.bind(api);
+    api.stop = (...a: unknown[]) => {
+      posted.push(String(a[1]));
+      return stop(...a);
+    };
+    const events: BridgeEvent[] = [];
+    s.onBridge((e) => events.push(e));
+    let first: Promise<unknown> | null = null;
+    let second: Promise<unknown> | null = null;
+    runParts(s, {
+      at: (_t, ctl) => {
+        if (first === null && ctl.phase === "attempt") {
+          s.requestStop();
+          first = s.chooseStop("tired");
+          second = s.chooseStop("tired");
+        }
+      },
+      until: () => first !== null,
+    });
+    await first;
+    expect(await second).toBeNull();
+    expect(posted).toEqual(["tired"]);
+    expect(events.filter((e) => e.type === "safety_stop")).toHaveLength(1);
+  }, 60_000);
+
   it("a stop that ends the check leaves for Today after its screen", async () => {
     const { s } = await session();
     await s.load();

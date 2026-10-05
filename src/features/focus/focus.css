@@ -1395,6 +1395,9 @@
   justify-items: center;
   text-align: center;
 }
+.fx-result .fx-figure .fx-pill {
+  justify-self: center;
+}
 .fx-result-line {
   margin: 0;
   font-size: 1.22rem;

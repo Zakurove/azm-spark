@@ -307,7 +307,8 @@ export class FocusSession {
   async chooseStop(option: StopOptionId): Promise<StopRoute | null> {
     const env = this.model.data.context?.env;
     const check = this.model.data.check;
-    if (!env) return null;
+    // One answer per stop list: a second tap after the list closed does nothing.
+    if (!env || !this.stopListOpen) return null;
     const local = stopRoute(option, env);
     const item = this.ctl?.stopList?.item ?? null;
     const route: FocusStopRoute = {

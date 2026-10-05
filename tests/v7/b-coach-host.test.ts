@@ -131,18 +131,18 @@ describe("confirm_max", () => {
     expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "yes" })).toMatchObject({ accepted: false });
   });
 
-  it("refuses an answer for another movement or side (invalid_args)", () => {
+  it("refuses an answer for another movement or side (stale_hold, as D's reference host)", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
     expect(
       ctl.handleTool("confirm_max", { movement: "knee_extension", side: "right", answer: "yes" }),
     ).toEqual({
       accepted: false,
-      reason: "invalid_args",
+      reason: "stale_hold",
     });
     expect(ctl.handleTool("confirm_max", { movement: "knee_flexion", side: "left", answer: "yes" })).toEqual({
       accepted: false,
-      reason: "invalid_args",
+      reason: "stale_hold",
     });
     expect(ctl.phase).toBe("ask_max");
   });
@@ -150,10 +150,12 @@ describe("confirm_max", () => {
   it("not yet resumes the attempt with keep_going; keep reaching once, then wrong_phase", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
+    const deg = ctl.hold!.deg;
+    // The hold's degrees go back with every answer; only yes records them.
     expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "not_yet" })).toEqual({
       accepted: true,
       say: "keep_going",
-      data: { recorded: false, deg: null },
+      data: { recorded: false, deg },
     });
     expect(ctl.phase).toBe("attempt");
     expect(ctl.handleTool("keep_reaching", {})).toEqual({ accepted: true, say: "keep_going" });
@@ -163,9 +165,11 @@ describe("confirm_max", () => {
   it("it hurts asks the pain question (pain_ask); keep reaching after pain is refused (after_pain)", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "hurts" })).toMatchObject({
+    const deg = ctl.hold!.deg;
+    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "hurts" })).toEqual({
       accepted: true,
       say: "pain_ask",
+      data: { recorded: false, deg },
     });
     expect(ctl.phase).toBe("ask_pain");
     expect(ctl.step().kind).toBe("question");
@@ -195,6 +199,15 @@ describe("answer_can_move and set_limit_cause", () => {
     expect(saved.result.reason).toBe("no_active_movement");
   });
 
+  it("refuses a can move answer for another movement or side (stale_hold)", () => {
+    const ctl = setup(WEAK_KNEE);
+    reach(ctl, (c) => c.phase === "ask_can_move");
+    expect(
+      ctl.handleTool("answer_can_move", { movement: "knee_flexion", side: "left", canMove: true }),
+    ).toEqual({ accepted: false, reason: "stale_hold" });
+    expect(ctl.phase).toBe("ask_can_move");
+  });
+
   it("refuses can move outside its question, and the cause outside its question", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "attempt");
@@ -213,7 +226,7 @@ describe("answer_can_move and set_limit_cause", () => {
     const ctl = setup();
     runBlock(ctl, { target: () => 100, until: (c) => c.phase === "ask_cause" }, 300);
     expect(ctl.phase).toBe("ask_cause");
-    expect(ctl.handleTool("set_limit_cause", { cause: "weak" })).toEqual({ accepted: true });
+    expect(ctl.handleTool("set_limit_cause", { cause: "weak" })).toEqual({ accepted: true, say: "recorded" });
     expect(ctl.current.kind).toBe("result");
     const [saved] = saves(ctl.drain()).slice(-1);
     expect(saved.result.cause).toBe("weak");
@@ -266,6 +279,22 @@ describe("mark_pain (C-15: one pain stop rule)", () => {
       data: { action: "continue" },
     });
     expect(ctl.current.kind).toBe("setup");
+  });
+
+  it("a sharp pain at the same joint re-ask skips the region like a score of 6 (C-15)", () => {
+    const ctl = setup();
+    reach(ctl, (c) => c.phase === "attempt");
+    ctl.handleTool("mark_pain", { level: 8 });
+    ctl.acknowledge(1);
+    ctl.next(2);
+    expect(ctl.current.kind).toBe("reask");
+    expect(ctl.handleTool("mark_pain", { level: 2, sharp: true })).toEqual({
+      accepted: true,
+      say: "pain_stop",
+      data: { action: "stop_movement" },
+    });
+    const straight = saves(ctl.drain()).find((e) => e.item.movementId === "knee_extension")!;
+    expect(straight.result.reason).toBe("pain_today");
   });
 
   it("between movements, a pain at the rule makes the joint's next movement ask first", () => {
@@ -328,6 +357,14 @@ describe("pause and resume (C-16: the coach resumes only its own pause)", () => 
     expect(ctl.handleTool("pause", {})).toEqual({ accepted: false, reason: "not_allowed" });
   });
 
+  it("refuses a second pause and a resume with no pause (not_allowed, as D's host rules)", () => {
+    const ctl = setup();
+    reach(ctl, (c) => c.phase === "attempt");
+    expect(ctl.handleTool("resume", {})).toEqual({ accepted: false, reason: "not_allowed" });
+    expect(ctl.handleTool("pause", {})).toEqual({ accepted: true });
+    expect(ctl.handleTool("pause", {})).toEqual({ accepted: false, reason: "not_allowed" });
+  });
+
   it("resumes nothing after a safety stop", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "attempt");
@@ -343,6 +380,7 @@ describe("stop and repeat_instructions", () => {
     reach(ctl, (c) => c.phase === "attempt");
     expect(ctl.handleTool("stop", { reason: "faint" })).toEqual({
       accepted: true,
+      say: "tap_to_confirm",
       data: { preselected: "faint" },
     });
     expect(ctl.stopList?.preselect).toBe("faint");
@@ -360,6 +398,20 @@ describe("stop and repeat_instructions", () => {
     const r = ctl.handleTool("repeat_instructions", {});
     expect(r.accepted).toBe(true);
     expect(String(r.data?.text)).toContain("Slide your right heel along the bed");
+  });
+
+  it("shows the instruction card during a measurement, until the step changes", () => {
+    const ctl = setup();
+    reach(ctl, (c) => c.phase === "attempt");
+    expect(ctl.instructionsOpen).toBe(false);
+    expect(ctl.handleTool("repeat_instructions", {})).toMatchObject({ accepted: true });
+    expect(ctl.instructionsOpen).toBe(true);
+    // The screen closes it, or the next step does.
+    ctl.showInstructions(false);
+    expect(ctl.instructionsOpen).toBe(false);
+    ctl.showInstructions(true);
+    runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+    expect(ctl.instructionsOpen).toBe(false);
   });
 
   it("never throws, and gives a short state line for a new session", () => {

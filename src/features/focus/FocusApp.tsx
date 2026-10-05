@@ -55,6 +55,7 @@ import {
   CompletingScreen,
   ConsentScreen,
   DoneScreen,
+  FaintAskScreen,
   GaitSlot,
   IntroScreen,
   LeaveDialog,
@@ -432,11 +433,30 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               screen={s.route.screen}
               alsoShow={s.route.alsoShow}
               now={Date.now()}
-              next={{
-                label: t(lang, "assessment.common.backToToday"),
-                onClick: () => session.dispatch({ type: "SEEN" }),
-                name: "today",
-              }}
+              next={
+                s.route.then === "sf_faint_loc"
+                  ? {
+                      label: t(lang, "assessment.common.continue"),
+                      onClick: () => session.dispatch({ type: "SEEN" }),
+                      name: "continue",
+                    }
+                  : {
+                      label: t(lang, "assessment.common.backToToday"),
+                      onClick: () => session.dispatch({ type: "SEEN" }),
+                      name: "today",
+                    }
+              }
+            />
+          ),
+        };
+      case "faint_ask":
+        return {
+          screen: "faint_ask",
+          node: (
+            <FaintAskScreen
+              lang={lang}
+              back={s.route.screen}
+              onAnswer={(value) => session.dispatch({ type: "FAINT_ANSWER", value, now: Date.now() })}
             />
           ),
         };

@@ -263,6 +263,30 @@ describe("the stop list", () => {
     expect(ctl.current.kind).toBe("reask");
   });
 
+  it("a stop for pain on a result card asks the pain question before that joint's next movement", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    const run = runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+    ctl.requestStop(run.t);
+    // Nothing was running: no movement is stopped, the measured one keeps its value.
+    expect(ctl.stopList?.item).toBeNull();
+    ctl.stopRouted({ endsCheck: false, afterRest: false, then: "bt_pain_after" }, run.t + 500);
+    expect(ctl.current.kind).toBe("result");
+    ctl.next(run.t + 1000);
+    expect(ctl.current.kind).toBe("reask");
+    expect(ctl.current.kind === "reask" && ctl.current.item.movementId).toBe("knee_extension");
+  });
+
+  it("a stop for pain on the block card asks before the block's first movement", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    ctl.requestStop(10);
+    ctl.stopRouted({ endsCheck: false, afterRest: false, then: "bt_pain_after" }, 20);
+    expect(ctl.current.kind).toBe("block");
+    ctl.ready(30);
+    expect(ctl.current.kind === "reask" && ctl.current.item.movementId).toBe("knee_flexion");
+  });
+
   it("a stop that ends the check ends the range blocks", () => {
     const ctl = controller(protocolOf(KNEE));
     ctl.startBlock("lying", 0);
@@ -274,6 +298,73 @@ describe("the stop list", () => {
     expect(ctl.stopList?.preselect).toBe("chest");
     ctl.stopRouted({ endsCheck: true, afterRest: false }, run.t);
     expect(ctl.current.kind).toBe("ended");
+  });
+});
+
+describe("a region the re-ask skipped, and a rest before a block", () => {
+  const HIP = intake({ regions: [entry("hip", "right", ["stiffness"])] });
+
+  it("a later block of only that region's movements ends at once: saved as pain_today, no card, no minute", () => {
+    // Hip: extension and abduction standing, flexion lying. A pain stop on the extension, then 6 at
+    // the abduction's re-ask: the region is not measured today, in the lying block too.
+    const p = protocolOf(HIP);
+    expect(p.items.map((i) => `${i.movementId}:${i.block}`)).toEqual([
+      "hip_extension:standing",
+      "hip_abduction:standing",
+      "hip_flexion:lying",
+    ]);
+    const ctl = controller(p, { intake: HIP });
+    ctl.startBlock("standing", 0);
+    const run = runBlock(
+      ctl,
+      {
+        answerMax: (i) => (i.movementId === "hip_extension" ? "hurts" : "yes"),
+        pain: () => ({ level: 7 }),
+        reask: () => 6,
+      },
+      400,
+    );
+    expect(run.steps).toContain("reask:hip_abduction:right");
+    expect(ctl.current.kind).toBe("end");
+    ctl.startBlock("lying", run.t + 1000);
+    expect(ctl.current).toEqual({ kind: "end", block: "lying" });
+    const flexion = saves(ctl.drain()).find((e) => e.item.movementId === "hip_flexion")!;
+    expect(flexion.result.status).toBe("not_measured");
+    expect(flexion.result.reason).toBe("pain_today");
+  });
+
+  it("a block can start with a rest (after the walk stopped for tiredness), then its card", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0, { restFirst: true });
+    const s = ctl.current;
+    expect(s.kind).toBe("rest");
+    if (s.kind !== "rest") return;
+    expect(s.total).toBe(60_000);
+    expect(ctl.step()).toEqual({ kind: "timer", finished: false });
+    ctl.tick(59_000);
+    expect(ctl.current.kind).toBe("rest");
+    ctl.tick(60_000);
+    expect(ctl.current.kind).toBe("block");
+  });
+});
+
+describe("the live setup check while the start pose is taken", () => {
+  it("tells the coach a setup issue once, when it appears (P2 setup_issue)", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    const run = runBlock(
+      ctl,
+      {
+        // Someone stands right beside the person while the start pose is taken.
+        people: (lm, _t, c) =>
+          c.phase === "calibrating" ? [lm, lm.map((p) => ({ ...p, x: p.x + 0.04 }))] : [lm],
+        until: (c) => c.phase === "practice" || c.setupIssue !== null,
+      },
+      60,
+    );
+    expect(ctl.setupIssue).toBe("second_person");
+    const issues = bridges(run.events).filter((e) => e.type === "setup_issue");
+    expect(issues).toEqual([expect.objectContaining({ p: 2, type: "setup_issue", issue: "second_person" })]);
   });
 });
 

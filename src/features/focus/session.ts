@@ -13,12 +13,16 @@
  *     at the next movement and before the complete call, so nothing is lost offline for a while.
  *   - The stop list: the phone routes the answer with the v1 rules at once (stopRoute, C-2) and posts
  *     it (POST /api/focus/:id/stop), which stores the stopped movement's row, the locks and the counts.
+ *     A stop screen is a red flag for the coach (P0, after the screen shows). A stop during the walk
+ *     for tiredness rests a minute before the next range block's card; one for pain re-asks the pain
+ *     before the next movement of each joint the walk loads.
  *   - The complete call (POST /api/focus/:id/complete) once every part is done; then the findings.
  */
 import type { Lang } from "../../app/i18n";
 import type { BridgeEvent, CoachStopReason } from "../../coach/types";
 import type { RomMeasureResult } from "../../engine/rom/types";
 import { stopRoute, type StopRoute } from "../../medical/precheck";
+import type { RegionId } from "../../medical/body-map";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
 import type { StopOptionId } from "../../movements/types";
 import type { FocusApi, RomSaved } from "./api";
@@ -58,6 +62,12 @@ export interface SpokenLine {
   at: number;
 }
 
+/**
+ * The regions a walk loads (contract 2.5: a red flag in one of them removes the walk). After a walk
+ * stopped for pain, their joints ask the pain question before their next movement (2.6's re-ask).
+ */
+export const WALK_REGIONS: readonly RegionId[] = ["hip", "knee", "ankle_foot", "back_trunk"];
+
 export class FocusSession {
   model: FocusModel = initialModel();
   ctl: RomController | null = null;
@@ -75,6 +85,8 @@ export class FocusSession {
   private readonly outbox: { item: RomProtocolItem; result: RomMeasureResult }[] = [];
   private flushing: Promise<void> | null = null;
   private busy = false;
+  /** The walk stopped for tiredness or something else: the next range block starts with a rest. */
+  private restBeforeNext = false;
 
   constructor(api: FocusApi, opts: FocusSessionOptions) {
     this.api = api;
@@ -147,7 +159,11 @@ export class FocusSession {
     if (s.kind === "completing" && !s.error) void this.complete();
     if (s.kind === "part") {
       const part = this.model.data.parts[s.index];
-      if (part?.kind === "range") this.controller().startBlock(part.block, this.now());
+      if (part?.kind === "range") {
+        const restFirst = this.restBeforeNext;
+        this.restBeforeNext = false;
+        this.controller().startBlock(part.block, this.now(), { restFirst });
+      }
     }
   }
 
@@ -259,6 +275,10 @@ export class FocusSession {
     return this.outbox.length;
   }
 
+  private bridge(e: BridgeEvent): void {
+    for (const fn of this.bridgeListeners) fn(e);
+  }
+
   /** The walk is done or not taken today: the next part. */
   gaitDone(): void {
     const s = this.model.state;
@@ -304,7 +324,14 @@ export class FocusSession {
     const outside = this.stopOutside;
     this.stopOutside = null;
     if (route.endsCheck) this.dispatch({ type: "CHECK_ENDED", route });
-    else if (outside) this.gaitDone();
+    else if (outside) {
+      // The walk ends; the next part follows after a rest, or asks the pain first (v1 then).
+      if (route.afterRest) this.restBeforeNext = true;
+      if (route.then === "bt_pain_after") this.controller().reaskRegions(WALK_REGIONS, t);
+      this.gaitDone();
+    }
+    // Bridge rule 1: the app shows the screen first, then the coach hears the red flag.
+    if (route.screen) this.bridge({ p: 0, type: "red_flag", screen: route.screen, t });
     this.changed();
     if (check) {
       // The stop always reaches the server: it stores the movement's row, the dates and the locks.

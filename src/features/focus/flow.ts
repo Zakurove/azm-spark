@@ -18,12 +18,15 @@
  *   part         the parts in C-13 order: seated range, standing range, the walk (C's GaitStep slot),
  *                lying range (then sit before stand, in the RomController)
  *   stop_screen  a stop list answer with a screen (emergency, faint, fall, seek care)
+ *   faint_ask    after a faint or fall stop's screen, the v1 faint follow up (sf_faint_loc, Q33 (3),
+ *                O42): yes or not sure opens the emergency screen, no shows the stop's screen again
  *   completing   POST /api/focus/:id/complete, then the findings
  */
 import type { LockView } from "../assessment/api";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import {
   evaluatePrecheck,
+  faintFollowUp,
   visibleQuestions,
   type Answers,
   type AnswerValue,
@@ -112,6 +115,7 @@ export type FocusState =
   | { kind: "seek_care"; then: "parts" | "nothing" }
   | { kind: "part"; index: number }
   | { kind: "stop_screen"; route: FocusStopRoute }
+  | { kind: "faint_ask"; route: FocusStopRoute }
   | { kind: "completing"; error: boolean }
   | { kind: "done" }
   | { kind: "exit"; to: "today" | "findings" | "health" };
@@ -156,6 +160,7 @@ export type FocusEvent =
   | { type: "PART_DONE" }
   | { type: "CHECK_ENDED"; route: FocusStopRoute }
   | { type: "STOP_SCREEN"; route: FocusStopRoute }
+  | { type: "FAINT_ANSWER"; value: "yes" | "no" | "unsure"; now: number }
   | { type: "COMPLETED" }
   | { type: "COMPLETE_FAILED" }
   | { type: "EXIT"; to: "today" | "findings" | "health" };
@@ -425,7 +430,11 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
         return s.then === "nothing"
           ? go(m, { kind: "closed", why: "nothing" })
           : go(m, m.data.parts.length ? { kind: "part", index: 0 } : { kind: "completing", error: false });
-      if (s.kind === "stop_screen") return s.route.endsCheck ? go(m, { kind: "exit", to: "today" }) : m;
+      if (s.kind === "stop_screen") {
+        // A faint or a fall: the follow up once the person is settled (v1 S38b), then Today.
+        if (s.route.then === "sf_faint_loc") return go(m, { kind: "faint_ask", route: s.route });
+        return s.route.endsCheck ? go(m, { kind: "exit", to: "today" }) : m;
+      }
       return m;
     case "PART_DONE": {
       if (s.kind !== "part") return m;
@@ -436,6 +445,19 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
     }
     case "STOP_SCREEN":
       return go(m, { kind: "stop_screen", route: e.route });
+    case "FAINT_ANSWER": {
+      if (s.kind !== "faint_ask") return m;
+      // The pure rule the v1 server runs (faintFollowUp): yes or not sure is an emergency.
+      const out = faintFollowUp(e.value, e.now);
+      const { then: _then, ...route } = s.route;
+      void _then;
+      return out.status === "emergency"
+        ? go(m, {
+            kind: "stop_screen",
+            route: { ...route, screen: out.screen ?? "scr_emergency", alsoShow: [] },
+          })
+        : go(m, { kind: "stop_screen", route });
+    }
     case "CHECK_ENDED":
       // A stop ended the check (the server closed it): its screen, else back to Today.
       return e.route.screen

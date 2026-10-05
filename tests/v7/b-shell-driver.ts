@@ -31,6 +31,8 @@ export interface PersonPlan {
   cause?: LimitCause;
   /** The person's pose instead of the movement's own (a compensation): null keeps the movement's. */
   pose?: (item: RomProtocolItem, deg: number, t: number, ctl: RomController) => Landmark[] | null;
+  /** Everyone the camera sees (default the person alone): a second person walks in. */
+  people?: (person: Landmark[], t: number, ctl: RomController) => Landmark[][];
   /** Called before each frame: may act on the controller (STOP, a coach tool). */
   at?: (t: number, ctl: RomController) => void;
   /** Stops the run once true. */
@@ -148,7 +150,7 @@ export function runBlock(ctl: RomController, plan: PersonPlan = {}, seconds = 60
         const speed = 30 / fps;
         angle = Math.abs(goal - angle) <= speed ? goal : angle + Math.sign(goal - angle) * speed;
         const lm = plan.pose?.(s.item, angle, t, ctl) ?? movementPose(s.item.movementId, s.item.side)(angle);
-        const frame: Frame = { t, lm, poses: [lm], aspect: 1 };
+        const frame: Frame = { t, lm, poses: plan.people?.(lm, t, ctl) ?? [lm], aspect: 1 };
         ctl.feed(frame, { rollDeg: 0 });
         break;
       }

@@ -12,6 +12,7 @@ import { createFocusApi } from "../../src/features/focus/api";
 import { checkParts, painRegions, todayQuestions, type TodayQuestion } from "../../src/features/focus/flow";
 import { itemKey } from "../../src/features/focus/romController";
 import { FocusSession } from "../../src/features/focus/session";
+import type { BridgeEvent } from "../../src/coach/types";
 import type { Intake } from "../../src/medical/plan";
 import { benign } from "../precheck-fixtures";
 import { boothPass, member, startV7Api, v7Intake, type V7Harness } from "./a-harness";
@@ -216,6 +217,80 @@ describe("the focus shell end to end on the real routes", () => {
     expect(s.model.state.kind).toBe("stop_screen");
     s.dispatch({ type: "SEEN" });
     expect(s.model.state).toEqual({ kind: "exit", to: "today" });
+  }, 60_000);
+
+  it("a faint stop asks the faint follow up after its screen: yes opens the emergency screen (sf_faint_loc)", async () => {
+    const { s } = await session();
+    await s.load();
+    await answerAll(s, noFlags);
+    const events: BridgeEvent[] = [];
+    s.onBridge((e) => events.push(e));
+    runParts(s, {
+      at: (_t, ctl) => {
+        if (!s.stopListOpen && ctl.phase === "attempt") {
+          s.requestStop("faint");
+          void s.chooseStop("faint");
+        }
+      },
+    });
+    expect(s.model.state).toMatchObject({ kind: "stop_screen", route: { screen: "scr_faint" } });
+    // The coach hears the red flag after the app showed its screen (bridge rule 1).
+    expect(events.map((e) => e.type)).toEqual(expect.arrayContaining(["safety_stop", "red_flag"]));
+    expect(events.find((e) => e.type === "red_flag")).toMatchObject({ p: 0, screen: "scr_faint" });
+    s.dispatch({ type: "SEEN" });
+    expect(s.model.state.kind).toBe("faint_ask");
+    s.dispatch({ type: "FAINT_ANSWER", value: "yes", now: Date.now() });
+    expect(s.model.state).toMatchObject({ kind: "stop_screen", route: { screen: "scr_emergency" } });
+    s.dispatch({ type: "SEEN" });
+    expect(s.model.state).toEqual({ kind: "exit", to: "today" });
+  }, 60_000);
+
+  it("a fall stop's follow up answered no shows the fall screen again, then Today", async () => {
+    const { s } = await session();
+    await s.load();
+    await answerAll(s, noFlags);
+    runParts(s, {
+      at: (_t, ctl) => {
+        if (!s.stopListOpen && ctl.phase === "attempt") {
+          s.requestStop();
+          void s.chooseStop("fall");
+        }
+      },
+    });
+    const first = s.model.state;
+    expect(first.kind).toBe("stop_screen");
+    const screen = first.kind === "stop_screen" ? first.route.screen : null;
+    expect(["scr_fall", "scr_fall_seated"]).toContain(screen);
+    s.dispatch({ type: "SEEN" });
+    expect(s.model.state.kind).toBe("faint_ask");
+    s.dispatch({ type: "FAINT_ANSWER", value: "no", now: Date.now() });
+    expect(s.model.state).toMatchObject({ kind: "stop_screen", route: { screen } });
+    s.dispatch({ type: "SEEN" });
+    expect(s.model.state).toEqual({ kind: "exit", to: "today" });
+  }, 60_000);
+
+  it("a walk stopped for tiredness rests a minute before the next part's card", async () => {
+    const { s } = await session();
+    await s.load();
+    await answerAll(s, noFlags);
+    let rested = false;
+    for (let guard = 0; guard < 20 && s.model.state.kind === "part"; guard++) {
+      const part = s.model.data.parts[s.model.state.index];
+      if (part.kind === "gait") {
+        s.requestStop();
+        expect(s.stopListOpen).toBe(true);
+        await s.chooseStop("tired");
+        break;
+      }
+      runBlock(s.ctl!, {}, 900, 2_000_000 + guard * 1_000_000);
+    }
+    expect(s.model.state.kind).toBe("part");
+    const part = s.model.state.kind === "part" ? s.model.data.parts[s.model.state.index] : null;
+    expect(part).toEqual({ kind: "range", block: "lying" });
+    const step = s.ctl!.current;
+    expect(step.kind).toBe("rest");
+    rested = step.kind === "rest" && step.total === 5_000;
+    expect(rested).toBe(true);
   }, 60_000);
 
   it("the same joint re-ask through the shell: a pain stop on the knee bend, the knee straightening asks first", async () => {

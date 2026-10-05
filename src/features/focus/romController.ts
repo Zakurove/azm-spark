@@ -14,7 +14,8 @@
  *   measure  the runner: calibrating, practice and attempts (active), its questions (question), the
  *            rest between attempts (timer); a pain stop is its own step (safety)
  *   result   the movement's result (info)
- *   rest     after a stop for tiredness or something else, the v1 minute (timer)
+ *   rest     after a stop for tiredness or something else, the v1 minute (timer); also before a block's
+ *            card when the walk before it stopped for tiredness
  *   sit      after the lying block, sit on the edge of the bed for a minute before standing (timer,
  *            rom-protocol 6 sit_before_stand, engine.sitBeforeStandSeconds)
  *   end      the block is done; the shell moves to the next part of the check
@@ -107,10 +108,17 @@ export type RomStep =
   | { kind: "measure"; item: RomProtocolItem }
   | { kind: "pain_stop"; item: RomProtocolItem; result: RomMeasureResult }
   | { kind: "result"; item: RomProtocolItem; result: RomMeasureResult }
-  | { kind: "rest"; until: number; total: number }
+  /** `then: "block"`: a rest before the block's card (the walk before it stopped for tiredness). */
+  | { kind: "rest"; until: number; total: number; then?: "block" }
   | { kind: "sit"; until: number; total: number }
   | { kind: "end"; block: RomBlock }
   | { kind: "ended" };
+
+/** How a block starts. */
+export interface BlockStart {
+  /** The v1 minute's rest before the card (a stop for tiredness or something else just before). */
+  restFirst?: boolean;
+}
 
 /** What the shell does with the controller's output. */
 export type RomControllerEvent =
@@ -187,6 +195,10 @@ export class RomController implements CoachHost {
   private sink: RomControllerEvent[] = [];
   private listeners = new Set<() => void>();
   private stopListNow: StopListState | null = null;
+  /** The joint a stop for pain re-asks: the stopped movement's, else the one on the screen or next. */
+  private stopJoint: RomProtocolItem | null = null;
+  /** The instruction card over the measurement (the coach's repeat_instructions, or the screen). */
+  private instructionsShown = false;
   private pausedBy: PausedBy | null = null;
   private timerLeftMs: number | null = null;
   /** A safety stop happened in the current step: the coach may not resume anything. */
@@ -217,11 +229,48 @@ export class RomController implements CoachHost {
     return BLOCK_RUN_ORDER.filter((b) => this.items.some((i) => i.block === b && !i.skipped));
   }
 
-  /** Opens a block's card (confirm). The movements run in protocol order. */
-  startBlock(block: RomBlock, t: number): void {
+  /**
+   * Opens a block's card (confirm). The movements run in protocol order. A region the same joint
+   * re-ask skipped earlier today (pain_today) is not measured in this block either: its movements are
+   * saved as not measured at once, and a block left with nothing to measure ends without its card.
+   */
+  startBlock(block: RomBlock, t: number, how: BlockStart = {}): void {
     this.blockNow = block;
-    this.queue = this.items.filter((i) => i.block === block && !i.skipped);
     this.lastT = t;
+    this.runner = null;
+    this.safetyStopped = false;
+    this.pausedBy = null;
+    this.timerLeftMs = null;
+    const runs = this.items.filter((i) => i.block === block && !i.skipped);
+    for (const item of runs)
+      if (this.skippedRegions.has(item.region) && !this.results.has(itemKey(item)))
+        this.saveSkipped(item, "pain_today", t);
+    this.queue = runs.filter((i) => !this.skippedRegions.has(i.region));
+    if (!this.queue.length) {
+      this.go({ kind: "end", block });
+      return;
+    }
+    if (how.restFirst) {
+      const total = (this.opts.stopRestSeconds ?? STOP_REST_SECONDS) * 1000;
+      this.go({ kind: "rest", until: t + total, total, then: "block" });
+      return;
+    }
+    this.showBlock(t);
+  }
+
+  /**
+   * The joints of these regions ask the pain question before their next movement (after the walk
+   * stopped for pain: the walk loads every leg region and the back, contract 2.5's walk regions).
+   */
+  reaskRegions(regions: readonly RegionId[], t: number): void {
+    this.lastT = t;
+    for (const item of this.items)
+      if (regions.includes(item.region) && !item.skipped && !this.results.has(itemKey(item)))
+        this.reask.add(jointKey(item));
+  }
+
+  private showBlock(t: number): void {
+    const block = this.blockNow ?? "seated";
     this.go({
       kind: "block",
       block,
@@ -279,6 +328,19 @@ export class RomController implements CoachHost {
 
   get paused(): PausedBy | null {
     return this.pausedBy;
+  }
+
+  /** The instruction card is open over the measurement. */
+  get instructionsOpen(): boolean {
+    return this.instructionsShown;
+  }
+
+  /** Opens or closes the instruction card (a measurement only; the setup card is the instructions). */
+  showInstructions(open: boolean): void {
+    const next = open && this.stepNow.kind === "measure";
+    if (next === this.instructionsShown) return;
+    this.instructionsShown = next;
+    this.changed();
   }
 
   /** The milliseconds left of the runner's rest between attempts at `t`. */
@@ -349,14 +411,17 @@ export class RomController implements CoachHost {
     return false;
   }
 
-  /** The answer to the same joint re-ask (0 to 10). */
-  answerReask(level: number, t: number): boolean {
+  /**
+   * The answer to the same joint re-ask (0 to 10). A sudden sharp pain (the coach's mark_pain) stops
+   * like a score of 6 (C-15: a sharp pain stops at any level).
+   */
+  answerReask(level: number, t: number, sharp = false): boolean {
     const s = this.stepNow;
     if (s.kind !== "reask" || this.stopListNow) return false;
     this.lastT = t;
     const score = Math.max(0, Math.min(10, Math.round(level)));
     this.reask.delete(jointKey(s.item));
-    if (score >= PAIN_TODAY_SKIP_AT) {
+    if (score >= PAIN_TODAY_SKIP_AT || sharp) {
       // rom-protocol 6 pain_today: «Region not measured today»: this movement and the region's others.
       this.saveSkipped(s.item, "pain_today", t);
       this.skipRegion(s.item.region, "pain_today", t);
@@ -391,6 +456,7 @@ export class RomController implements CoachHost {
       t >= s.until
     ) {
       if (s.kind === "sit") this.go({ kind: "end", block: this.blockNow ?? "lying" });
+      else if (s.then === "block") this.showBlock(t);
       else this.nextItem(t);
       return;
     }
@@ -461,7 +527,8 @@ export class RomController implements CoachHost {
   /** Resume: the screen resumes any pause; the coach only its own (C-16). */
   resume(by: PausedBy, t: number): ToolResult {
     if (this.safetyStopped || this.stopListNow) return { accepted: false, reason: "safety_stop" };
-    if (this.pausedBy === null) return { accepted: false, reason: "wrong_phase" };
+    // D's host rules (hostRules.ts resumeRefusal): no pause to end is not_allowed.
+    if (this.pausedBy === null) return { accepted: false, reason: "not_allowed" };
     if (by === "coach" && this.pausedBy === "screen") return { accepted: false, reason: "paused_on_screen" };
     const s = this.stepNow;
     if (s.kind === "measure" && this.runner) {
@@ -527,6 +594,12 @@ export class RomController implements CoachHost {
       this.liveDeg = null;
       this.captionNow = null;
     } else if (s.kind === "setup" || s.kind === "reask") item = s.item;
+    // A stop for pain re-asks the stopped movement's joint, else the one on the screen, else the next.
+    this.stopJoint =
+      item ??
+      (s.kind === "result" || s.kind === "pain_stop" ? s.item : null) ??
+      this.queue[0] ??
+      this.lastMeasured;
     this.timerLeftMs = s.kind === "rest" || s.kind === "sit" ? Math.max(0, s.until - t) : this.timerLeftMs;
     this.stopListNow = { preselect, item };
     this.safetyStopped = true;
@@ -548,8 +621,10 @@ export class RomController implements CoachHost {
     if (item) {
       this.stoppedByList.add(itemKey(item));
       this.queue = this.queue.filter((i) => itemKey(i) !== itemKey(item));
-      if (outcome.then === "bt_pain_after") this.reask.add(jointKey(item));
     }
+    // v1 then bt_pain_after is the same joint re-ask in v7 (contract 2.6).
+    if (outcome.then === "bt_pain_after" && this.stopJoint) this.reask.add(jointKey(this.stopJoint));
+    this.stopJoint = null;
     if (outcome.endsCheck) {
       this.runner = null;
       this.go({ kind: "ended" });
@@ -639,21 +714,24 @@ export class RomController implements CoachHost {
         const a = args as ToolArgs["confirm_max"];
         if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
         if (!this.runner || s.kind !== "measure") return { accepted: false, reason: "wrong_phase" };
+        // An answer about another movement or side belongs to an older question (D's reference host).
         if (!item || a.movement !== item.movementId || a.side !== item.side)
-          return { accepted: false, reason: "invalid_args" };
+          return { accepted: false, reason: "stale_hold" };
         const phase = this.runner.phase;
         if (phase === "practice" || phase === "attempt" || phase === "calibrating")
           // Early answer: never buffered (a yes before the hold cannot be tied to a value).
           return { accepted: false, reason: "wrong_phase", say: "hold_still" };
+        const held = this.runner.currentHold?.deg ?? null;
         this.lastValid = null;
         const res = this.answerMax(a.answer, "voice", t);
         if (!res.accepted) return { accepted: false, reason: toolReason(res.reason) };
-        // Recorded now only with yes (a value that passed its quality gate); it hurts records after the pain answer.
-        const deg = a.answer === "yes" ? this.lastValid : null;
+        // Recorded now only with yes and a value that passed its quality gate; it hurts records after
+        // the pain answer. The hold's degrees go back with every answer.
+        const recorded = a.answer === "yes" && this.lastValid !== null;
         return {
           accepted: true,
           say: a.answer === "yes" ? "recorded" : a.answer === "not_yet" ? "keep_going" : "pain_ask",
-          data: { recorded: deg !== null, deg },
+          data: { recorded, deg: recorded ? this.lastValid : held },
         };
       }
       case "answer_can_move": {
@@ -661,7 +739,7 @@ export class RomController implements CoachHost {
         if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
         if (this.phase !== "ask_can_move") return { accepted: false, reason: "wrong_phase" };
         if (!item || a.movement !== item.movementId || a.side !== item.side)
-          return { accepted: false, reason: "invalid_args" };
+          return { accepted: false, reason: "stale_hold" };
         this.answerCanMove(a.canMove, t);
         return { accepted: true, say: a.canMove ? "lets_begin" : "not_today" };
       }
@@ -682,20 +760,24 @@ export class RomController implements CoachHost {
         if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
         if (this.phase !== "ask_cause") return { accepted: false, reason: "wrong_phase" };
         const res = this.answerCause(a.cause, "voice", t);
-        return res.accepted ? { accepted: true } : { accepted: false, reason: toolReason(res.reason) };
+        return res.accepted
+          ? { accepted: true, say: "recorded" }
+          : { accepted: false, reason: toolReason(res.reason) };
       }
       case "pause": {
         if (this.safetyStopped || this.stopListNow) return { accepted: false, reason: "safety_stop" };
         const kind = this.kindNow();
         if (kind !== "active" && kind !== "timer") return { accepted: false, reason: "not_allowed" };
-        return this.pause("coach", t) ? { accepted: true } : { accepted: false, reason: "wrong_phase" };
+        // D's host rules (pauseRefusal): a step already paused is not_allowed.
+        return this.pause("coach", t) ? { accepted: true } : { accepted: false, reason: "not_allowed" };
       }
       case "resume":
         return this.resume("coach", t);
       case "stop": {
         const a = args as ToolArgs["stop"];
         this.requestStop(t, a.reason);
-        return { accepted: true, data: { preselected: a.reason } };
+        // The person confirms the reason with a tap on the stop list (C-7).
+        return { accepted: true, say: "tap_to_confirm", data: { preselected: a.reason } };
       }
       case "next_step": {
         const { kind, finished } = this.step();
@@ -716,6 +798,8 @@ export class RomController implements CoachHost {
         const text = shown
           ? instructionLines(shown.movementId, shown.side, shown.position, this.opts.lang).join(" ")
           : "";
+        // 2.11: the instruction card shows (over a measurement; a setup card already is one).
+        this.showInstructions(true);
         return { accepted: true, data: { text } };
       }
     }
@@ -731,8 +815,8 @@ export class RomController implements CoachHost {
       return { accepted: false, reason: "invalid_args" };
     const s = this.stepNow;
     if (s.kind === "reask") {
-      this.answerReask(level, t);
-      const stop = level >= PAIN_TODAY_SKIP_AT;
+      this.answerReask(level, t, sharp);
+      const stop = level >= PAIN_TODAY_SKIP_AT || sharp;
       return {
         accepted: true,
         say: stop ? "pain_stop" : "lets_begin",
@@ -889,6 +973,8 @@ export class RomController implements CoachHost {
     const issue = res.ok ? null : (res.issues[0] ?? null);
     if (issue !== this.setupIssueNow) {
       this.setupIssueNow = issue;
+      // P2: the coach hears a new setup issue silently, and voices it only if asked (bridge rule 3).
+      if (issue) this.bridge({ p: 2, type: "setup_issue", issue, t: frame.t });
       this.changed();
     }
   }
@@ -1069,6 +1155,7 @@ export class RomController implements CoachHost {
 
   private go(step: RomStep): void {
     this.stepNow = step;
+    this.instructionsShown = false;
     if (step.kind !== "measure") {
       this.liveDeg = null;
       this.captionNow = null;

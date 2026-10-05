@@ -18,7 +18,7 @@ import type { AnswerValue, PrecheckEnv, Answers } from "../../medical/precheck";
 import { stopOptions } from "../../medical/precheck";
 import type { RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
 import type { GaitPlan } from "../../medical/gait-eligibility";
-import { CHECK_DATA, emergencyCallButton, screenText } from "../../movements/assessments";
+import { CHECK_DATA, emergencyCallButton, screenText, stopFollowUp } from "../../movements/assessments";
 import { GAIT_DATA } from "../../movements/gait";
 import { ROM_DATA } from "../../movements/rom";
 import type { ScreenId, StopOptionId } from "../../movements/types";
@@ -27,7 +27,7 @@ import { questionView, splitSentences } from "../assessment/flow/copy";
 import { AreaPicker } from "../assessment/flow/parts";
 import { MultiAnswerList } from "../assessment/shared/answers";
 import CheckIcon from "../assessment/shared/CheckIcon";
-import { BigNumber, SafetyHeading } from "../assessment/safety/parts";
+import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
 import { pausedLine, whenText } from "../assessment/safety/content";
 import type { LockView } from "../assessment/api";
 import { copyText, movementName, regionName } from "./copy";
@@ -664,6 +664,48 @@ export function SafetyScreen({
           <span>{next.label}</span>
         </button>
       </div>
+    </Glass>
+  );
+}
+
+/**
+ * The faint follow up (v1 S38b, sf_faint_loc, Q33 (3), O42) after a faint or a fall stop's screen,
+ * once the person is settled: «هل فقدت الوعي، ولو للحظة؟». Yes or Not sure open the emergency screen
+ * at once; No shows the stop's screen again with its lock. It waits for the answer: there is no timer
+ * (D-016). The stop's first sentence stays under the answers, as in v1.
+ */
+export function FaintAskScreen({
+  lang,
+  back,
+  onAnswer,
+}: {
+  lang: Lang;
+  /** The stop's screen (scr_faint, scr_fall, scr_fall_seated). */
+  back: ScreenId | null;
+  onAnswer(value: "yes" | "no" | "unsure"): void;
+}) {
+  const q = stopFollowUp("sf_faint_loc");
+  const title = useId();
+  const options: ZoneOption[] = q.options.map((o) => ({
+    value: o.value as string,
+    label: o.label[lang],
+    icon: o.value === "yes" ? "check" : o.value === "no" ? "close" : "help",
+    commitAtOnce: true,
+  }));
+  const intro = back ? (splitSentences(localizeDigits(lang, screenText(back, lang)))[0] ?? "") : "";
+  return (
+    <Glass className="fx-card fx-question fx-faint" tone="rose">
+      <h1 id={title} className="fx-title is-question" tabIndex={-1}>
+        {bidiText(lang, q.ask[lang])}
+      </h1>
+      <div className="fx-v1 fx-zones">
+        <AnswerZones
+          labelledBy={title}
+          options={options}
+          onAnswer={(v) => onAnswer(v as "yes" | "no" | "unsure")}
+        />
+      </div>
+      {intro && <Body lang={lang} text={intro} muted />}
     </Glass>
   );
 }

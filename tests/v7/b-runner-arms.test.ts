@@ -14,7 +14,9 @@ import { RANGE_RULES } from "../../src/engine/modes/rangeTest";
 import { RUNNER_RULES } from "../../src/engine/rom/runner";
 import type { RomEvent } from "../../src/engine/rom/types";
 import { testDef } from "../../src/movements/assessments";
-import { abductionPose, cuesOf, drive, kinds, runner } from "./b-driver";
+import { abductionPose, cuesOf, drive, item, kinds, runner } from "./b-driver";
+import { checkRomResult } from "../../server/modules/focus/validate";
+import { ROM_DATA } from "../../src/movements/rom";
 import { MOVEMENT_CASES, movementPose } from "./b-person";
 import { shift } from "./b-poses";
 
@@ -144,6 +146,51 @@ describe("the camera moved (v1 map 2.12)", () => {
     expect(res.status).toBe("not_measured");
     expect(res.reason).toBe("quality");
     expect(res.quality.retries).toBeLessThanOrEqual(RUNNER_RULES.maxRetries + 3);
+  });
+});
+
+describe("the repeats a stored result can carry (the server's quality.retries bound)", () => {
+  it("camera moves, then the wrong arm twice: the result stays within the bound the server accepts", () => {
+    const r = runner("shoulder_abduction");
+    let opened = 0;
+    let wasAttempt = false;
+    let shifts = 0;
+    let since: number | null = null;
+    const d = drive(
+      r,
+      {
+        rest: 0,
+        target: () => 120,
+        pose: (deg, t) => {
+          // Attempts 1 to 4: the stand slides after the start pose; 5 and 6: the left arm rises.
+          const wrong = opened >= 5 && opened <= 6;
+          const px = wrong ? abductionPose(deg, "left") : abductionPose(deg, "right");
+          const dx = since === null || t < since ? 0 : 0.04 * Math.min(1, (t - since) / 400);
+          return shift(px, ALL, shifts * 0.04 + dx, 0);
+        },
+      },
+      400,
+      {
+        at: (t, rr) => {
+          const inAttempt = rr.phase === "attempt";
+          if (inAttempt && !wasAttempt) opened++;
+          wasAttempt = inAttempt;
+          if (inAttempt && opened <= 4 && since === null) since = t + 300;
+          if (rr.phase === "calibrating" && since !== null) {
+            shifts++;
+            since = null;
+          }
+        },
+      },
+    );
+    const res = r.finish(d.t);
+    expect(attemptsOf(d.events).filter((a) => a.reasons.includes("camera_moved")).length).toBeGreaterThan(0);
+    expect(res.quality.retries).toBeLessThanOrEqual(
+      RUNNER_RULES.maxRetries + ROM_DATA.engine.scoredAttemptsMax,
+    );
+    expect(
+      checkRomResult(res as unknown as Record<string, unknown>, item("shoulder_abduction", "right")),
+    ).toMatchObject({ ok: true });
   });
 });
 

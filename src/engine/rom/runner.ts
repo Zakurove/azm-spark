@@ -1149,7 +1149,9 @@ export class RomRunner {
     report?: QualityReport,
   ): void {
     const a = this.att!;
-    if (why === "camera_moved" && this.repeated >= REPEATS_MAX) {
+    // The camera may move only while the retries still allowed fit in what a stored result can carry
+    // (the server's quality.retries bound): every repeat counts there, a camera move uses no retry.
+    if (why === "camera_moved" && this.repeated - this.retries >= REPEATS_MAX - RUNNER_RULES.maxRetries) {
       // A picture that never settles: not measured today, within what the stored result can carry.
       this.att = null;
       this.reports.push(a.monitor.report());

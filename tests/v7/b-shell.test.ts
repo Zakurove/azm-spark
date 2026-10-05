@@ -651,3 +651,18 @@ describe("the v1 warnings and helper briefings the start returns (C-2, C-16, v1.
     expect(partWarnings(["warn_ms_cool"], { kind: "gait" }, protocol)).toEqual([]);
   });
 });
+
+describe("a movement the server refuses (wave 2: never dropped silently)", () => {
+  it("is kept on the session with the refusal's code", async () => {
+    const api = {
+      saveRom: async () => ({ ok: false, error: { kind: "http", status: 400, code: "RESULT_INVALID" } }),
+    } as unknown as ConstructorParameters<typeof FocusSession>[0];
+    const s = new FocusSession(api, { lang: "en" });
+    s.model = { ...s.model, data: { ...s.model.data, check: { id: "c1" } as StartResponse } };
+    const item = { movementId: "knee_flexion", side: "right" } as never;
+    (s as unknown as { outbox: unknown[] }).outbox.push({ item, result: {} });
+    await s.flush();
+    expect(s.unsent).toBe(0);
+    expect(s.refused).toEqual([{ movementId: "knee_flexion", side: "right", code: "RESULT_INVALID" }]);
+  });
+});

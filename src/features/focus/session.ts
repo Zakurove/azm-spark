@@ -73,6 +73,11 @@ export class FocusSession {
   ctl: RomController | null = null;
   /** The server's grade of each saved movement (C-3), by movement and side. */
   readonly grades = new Map<string, RomSaved>();
+  /**
+   * Movements the server refused (an http answer that a retry will not change): kept here with the
+   * refusal's code, never dropped silently (the E2E hook and the review scripts read it).
+   */
+  readonly refused: { movementId: string; side: string; code: string }[] = [];
   /** A stop list opened outside a range part (the walk), with the coach's preselection. */
   stopOutside: { preselect: CoachStopReason | null } | null = null;
   /** The last local line, for the caption. */
@@ -272,8 +277,13 @@ export class FocusSession {
       const { item, result } = this.outbox[0];
       const r = await this.api.saveRom(check.id, result);
       if (r.ok) this.grades.set(itemKey(item), r.value);
-      else if (r.error.kind !== "http") return; // offline or a network error: try again later
-      // An http refusal (a skipped item, already saved) will not change on a retry.
+      else if (r.error.kind !== "http")
+        return; // offline or a network error: try again later
+      else {
+        // An http refusal (a skipped item, already saved, a result out of bounds) will not change on a
+        // retry: kept, not dropped silently.
+        this.refused.push({ movementId: item.movementId, side: item.side, code: r.error.code ?? "http" });
+      }
       this.outbox.shift();
       this.changed();
     }

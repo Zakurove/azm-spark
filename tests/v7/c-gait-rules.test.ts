@@ -529,6 +529,29 @@ describe("5.5 stiff knee", () => {
     });
   });
 
+  it("counts the peak alone only at 1.0 m/s or more for every walker, interim (CG-19, D-027 item 6)", () => {
+    const at = gaitPattern("stiff_knee").thresholds.speed!.interimAbsoluteAloneFrom_mps!;
+    expect(at).toBe(1);
+    expect(gaitPattern("stiff_knee").thresholds.interim).toMatchObject({
+      until: "GAIT-Q3",
+      fields: ["speed.interimAbsoluteAloneFrom_mps"],
+    });
+    // A healthy walker's low peak alone under 1.0 m/s (vc-ab-005: 43.8 against 54.7 at 0.8 m/s).
+    expect(
+      on(patterns({ side: { ...knee(44, 50), ...speed(at - 0.1) } }), "stiff_knee", "right"),
+    ).toMatchObject({
+      status: "not_assessed",
+      notAssessed: "slow_speed",
+    });
+    expect(fired(patterns({ side: { ...knee(44, 50), ...speed(at) } }))).toEqual([
+      "stiff_knee:right:possible",
+    ]);
+    // Under 1.0 m/s the pattern needs the between limb difference.
+    expect(fired(patterns({ side: { ...knee(44, 62), ...speed(at - 0.4) } }))).toEqual([
+      "stiff_knee:right:possible",
+    ]);
+  });
+
   it("counts the peak alone in a one sided condition only at 0.8 m/s or more", () => {
     const oneSided = {
       regions: [
@@ -540,7 +563,12 @@ describe("5.5 stiff knee", () => {
         },
       ],
     };
-    const at = GAIT_DATA.confidenceModel.unilateralAbsoluteFrom_mps;
+    // The approved 0.8 m/s, inside the interim 1.0 for every walker (CG-19) until the GAIT-Q3 tuning.
+    const at = Math.max(
+      GAIT_DATA.confidenceModel.unilateralAbsoluteFrom_mps,
+      gaitPattern("stiff_knee").thresholds.speed!.interimAbsoluteAloneFrom_mps!,
+    );
+    expect(GAIT_DATA.confidenceModel.unilateralAbsoluteFrom_mps).toBe(0.8);
     expect(
       on(
         patterns({ side: { ...knee(44, 50), ...speed(at - 0.1) }, intake: oneSided }),
@@ -838,6 +866,15 @@ describe("5.8 knee bends backwards (recurvatum)", () => {
   it("fires on the hyperextension past straight at the data thresholds", () => {
     const p = num(possible("recurvatum"), "hyperextension_gte");
     const l = num(likely("recurvatum"), "hyperextension_gte");
+    // Interim (CG-19, D-027 item 6): possible from 12 (10 before), likely 15 unchanged.
+    expect([p, l]).toEqual([12, 15]);
+    expect(gaitPattern("recurvatum").thresholds.interim).toMatchObject({
+      until: "GAIT-Q3",
+      fields: ["possible.hyperextension_gte"],
+      replaces: { "possible.hyperextension_gte": 10 },
+    });
+    // A healthy walker's 11.6 past straight (wbds-41-t01) is not seen.
+    expect(fired(patterns({ side: back(-11.6) }))).toEqual([]);
     expect(fired(patterns({ side: back(-p) }))).toEqual(["recurvatum:right:possible"]);
     expect(fired(patterns({ side: back(-l) }))).toEqual(["recurvatum:right:likely"]);
     expect(fired(patterns({ side: back(-p + 0.1) }))).toEqual([]);
@@ -866,6 +903,28 @@ describe("5.8 knee bends backwards (recurvatum)", () => {
 describe("5.9 straight knee at landing (quadriceps avoidance)", () => {
   const landing = (right: number, left: number) => ({
     knee_loading_peak: { left, right, shareLeft: 0, shareRight: 1 },
+  });
+
+  it("is not assessed under 0.5 m/s, interim (CG-19, D-027 item 6), like stiff knee's speed rule", () => {
+    const below = gaitPattern("quad_avoidance").thresholds.speed!.interimNotAssessedBelow_mps!;
+    expect(below).toBe(0.5);
+    expect(gaitPattern("quad_avoidance").thresholds.interim).toMatchObject({
+      until: "GAIT-Q3",
+      fields: ["speed.interimNotAssessedBelow_mps"],
+    });
+    // A healthy walker at 0.47 m/s whose knee does not bend at landing (wbds-25-t01: -0.5 against 13).
+    const slow = patterns({ side: { ...landing(-0.5, 13), speed_mps: { value: 0.47 } } });
+    expect(on(slow, "quad_avoidance", "right")).toMatchObject({
+      status: "not_assessed",
+      notAssessed: "slow_speed",
+    });
+    expect(fired(patterns({ side: { ...landing(-0.5, 13), speed_mps: { value: below } } }))).toEqual([
+      "quad_avoidance:right:possible",
+    ]);
+    // No speed (no height): not assessed either, as the stiff knee's speed rule reads it.
+    expect(
+      on(patterns({ side: { ...landing(-0.5, 13), speed_mps: { value: null } } }), "quad_avoidance", "right"),
+    ).toMatchObject({ status: "not_assessed", notAssessed: "no_height" });
   });
 
   it("is possible only, low, with the knee 10 or more below the other side", () => {

@@ -165,6 +165,8 @@ const N = {
     cappedBelow: num(T("stiff_knee").speed, "unilateralCappedBelow_mps", "stiff_knee.speed"),
     cappedNeedsDiff: num(T("stiff_knee").speed, "cappedNeedsDiffGte", "stiff_knee.speed"),
     absoluteAloneFrom: num(T("stiff_knee").speed, "absoluteAloneFrom_mps", "stiff_knee.speed"),
+    /** Interim (D-027 item 6, CG-19): for every walker the absolute peak alone counts only from here. */
+    interimAloneFrom: num(T("stiff_knee").speed, "interimAbsoluteAloneFrom_mps", "stiff_knee.speed"),
   },
   steppage: {
     pitch: num(T("steppage").possible, "foot_pitch_ic_lte", "steppage.possible"),
@@ -188,6 +190,12 @@ const N = {
   quad: {
     peak: num(T("quad_avoidance").possible, "knee_loading_peak_lte", "quad_avoidance.possible"),
     lower: num(T("quad_avoidance").possible, "lowerThanOtherSide_gte", "quad_avoidance.possible"),
+    /** Interim (D-027 item 6, CG-19): not assessed below this speed when the sign is seen. */
+    interimNotAssessedBelow: num(
+      T("quad_avoidance").speed,
+      "interimNotAssessedBelow_mps",
+      "quad_avoidance.speed",
+    ),
   },
   reduced: {
     diff: num(T("reduced_extension").possible, "tla_lower_than_other_gte", "reduced_extension.possible"),
@@ -785,10 +793,12 @@ function stiffKnee(c: Ctx): Draft[] {
     const absolute = low(s, N.stiff.peak);
     const between = diff !== null && diff >= N.stiff.diff;
     // «Below 0.5 m/s a one sided stiff knee is capped at possible and needs a between limb difference
-    // of 15 or more»; «in a one sided condition the absolute peak alone counts only at 0.8 m/s or more».
+    // of 15 or more»; «in a one sided condition the absolute peak alone counts only at 0.8 m/s or more»;
+    // interim (D-027 item 6, CG-19): «for every walker the absolute peak alone counts only at >= 1.0
+    // m/s; under it the pattern needs the between limb difference».
     const capped = c.speed === null || c.speed < N.stiff.cappedBelow;
     const aloneBlocked =
-      absoluteAloneBlocked(c, N.stiff.cappedBelow) ??
+      absoluteAloneBlocked(c, Math.max(N.stiff.cappedBelow, N.stiff.interimAloneFrom)) ??
       (c.oneSided
         ? absoluteAloneBlocked(c, Math.max(N.stiff.absoluteAloneFrom, UNILATERAL_ABSOLUTE_FROM))
         : null);
@@ -916,6 +926,10 @@ function quadAvoidance(c: Ctx): Draft[] {
     // «knee_loading_peak on S 5 or less and 10 or more below the other side».
     if (!(v <= N.quad.peak && present(m, s) && o !== null && o - v >= N.quad.lower))
       return { kind: "not_seen" };
+    // Interim (D-027 item 6, CG-19): «not assessed below 0.5 m/s (slow_speed) when the sign is seen,
+    // like stiff knee's speed rule; an unknown speed reads as too slow (no_height)».
+    const slow = absoluteAloneBlocked(c, N.quad.interimNotAssessedBelow);
+    if (slow) return { kind: "not_assessed", reason: slow };
     return {
       kind: "fired",
       status: "possible",

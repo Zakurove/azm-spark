@@ -635,10 +635,11 @@ const WIDE_FLAGS: readonly RomFlag[] = ["inconsistent", "gravityMode", "bentElbo
 /**
  * The retest band of a movement in degrees (rom-protocol 5.3 retest): «Band = MDC95 for the movement
  * and population, never below 10: on a limb affected by a neurological condition, shoulder flexion 18
- * ... and elbow 33 (lab) or 36 (home) (R19); lunge 10 ...; lying knee straightening 11 ...; all other
- * movements 10 until the bench test retest gives Azm's own value (R18). The arm raise to the side keeps
- * its v1.1 band (16, wide 20)». The elbow takes its home band for both elbow movements (FZ-1, D-026),
- * and the side arm raise's wide band follows v1.1 wideWhen (the conditions, or a flag of either check).
+ * ... and elbow 36 for both elbow movements (R19, the MDC95 measured at home); lunge 10 ...; lying knee
+ * straightening 11 ...; all other movements 10 until the bench test retest gives Azm's own value (R18).
+ * The arm raise to the side keeps its v1.1 band (16, wide 20)». The elbow band is keyed by its region
+ * (FZ-1, D-026 item 4), and the side arm raise's wide band follows v1.1 wideWhen (the conditions, or a
+ * flag of either check).
  */
 export function retestBandDeg(
   movementId: RomMovementId,
@@ -653,7 +654,6 @@ export function retestBandDeg(
   if (band && (band.position === undefined || band.position === position)) {
     if (band.deg !== undefined) deg = band.deg;
     if (neuro && band.neurologicalDeg !== undefined) deg = band.neurologicalDeg;
-    else if (neuro && band.neurologicalHomeDeg !== undefined) deg = band.neurologicalHomeDeg;
     if (band.wideDeg !== undefined && (neuro || flags.some((f) => WIDE_FLAGS.includes(f))))
       deg = band.wideDeg;
   }

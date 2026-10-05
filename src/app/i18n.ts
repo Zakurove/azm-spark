@@ -1,9 +1,4 @@
-import voiceScript from "./voice-script.json";
-import { CueId } from "../engine/types";
-
 export type Lang = "ar" | "en";
-
-export const CUE_TEXT: Record<CueId, { ar: string; en: string }> = voiceScript;
 
 export const T = {
   appName: { ar: "عَزم", en: "Azm" },

@@ -6,7 +6,15 @@
  */
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { earliestNextCheck } from "../../../src/medical/assessment";
+import { MIN_HOURS_BETWEEN_CHECKS } from "../../../src/medical/assessment";
+import {
+  V1_CHECK_JOINTS,
+  focusStoredJoints,
+  sharedUntil,
+  v1ResultJoints,
+  type CheckJoints,
+} from "../../../src/medical/check-joints";
+import type { BodyMapKey } from "../../../src/medical/body-map";
 import type { FocusToday, RomProtocol, RomReasonId } from "../../../src/medical/rom-protocol";
 import type { GaitPlan } from "../../../src/medical/gait-eligibility";
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
@@ -315,18 +323,99 @@ export function touchFocus(db: DatabaseSync, id: string, now: number): void {
 
 /* ----------------------------------------------------- the 48 hour rule */
 
+/** The checks completed inside the last 48 hours: only they can hold a start back. */
+const recentFrom = (now: number) => now - MIN_HOURS_BETWEEN_CHECKS * 60 * 60 * 1000;
+
 /**
- * The v1 schedule with the latest completed focus check counted in its 48 hour minimum (section 4,
- * "the 48 hour minimum is two way"): earliestNext is the later of the two, and canStart follows it.
- * The due date and the early flag are the v1 ones; without a completed focus check the schedule is
- * returned unchanged.
+ * The focus checks completed in the last 48 hours, each with the joints it measured (CT-3,
+ * src/medical/check-joints.ts): its rows with a value or attempts, and the walk's regions with a gait
+ * analysis.
+ */
+export function recentFocusJoints(db: DatabaseSync, userId: string, now: number): CheckJoints[] {
+  const checks = db
+    .prepare(
+      `SELECT c.id, c.completed, EXISTS(SELECT 1 FROM gait_analyses g WHERE g.check_id=c.id) AS walked
+       FROM focus_checks c WHERE c.user_id=? AND c.status='completed' AND c.completed>?`,
+    )
+    .all(userId, recentFrom(now)) as { id: string; completed: number; walked: number }[];
+  return checks.map((c) => {
+    const rows = db
+      .prepare("SELECT movement_id, side, value, attempts FROM rom_measurements WHERE check_id=?")
+      .all(c.id) as { movement_id: string; side: RomSide; value: number | null; attempts: string }[];
+    return {
+      completed: Number(c.completed),
+      joints: focusStoredJoints(
+        rows.map((r) => ({
+          movementId: r.movement_id as RomMovementId | DefaultOnlyId,
+          side: r.side,
+          value: r.value,
+          attempts: (JSON.parse(r.attempts) as unknown[]).length,
+        })),
+        Number(c.walked) === 1,
+      ),
+    };
+  });
+}
+
+/**
+ * The v1 checks completed in the last 48 hours, each with the joints its results loaded (check-v1
+ * areas[].loads): results with a value or attempts.
+ */
+export function recentV1Joints(db: DatabaseSync, userId: string, now: number): CheckJoints[] {
+  const rows = db
+    .prepare(
+      `SELECT a.id, a.completed, r.test_id, r.side, r.variant, r.value, r.attempts
+       FROM assessments a LEFT JOIN assessment_results r ON r.assessment_id=a.id
+       WHERE a.user_id=? AND a.status='completed' AND a.completed>?`,
+    )
+    .all(userId, recentFrom(now)) as {
+    id: string;
+    completed: number;
+    test_id: string | null;
+    side: "left" | "right" | "none" | null;
+    variant: string | null;
+    value: number | null;
+    attempts: string | null;
+  }[];
+  const out = new Map<string, { completed: number; joints: Set<BodyMapKey> }>();
+  for (const r of rows) {
+    const c = out.get(r.id) ?? { completed: Number(r.completed), joints: new Set<BodyMapKey>() };
+    out.set(r.id, c);
+    if (r.test_id === null || r.side === null) continue;
+    const tried = r.value !== null || (JSON.parse(r.attempts ?? "[]") as unknown[]).length > 0;
+    if (!tried) continue;
+    for (const j of v1ResultJoints({ testId: r.test_id as never, side: r.side, variant: r.variant }))
+      c.joints.add(j);
+  }
+  return [...out.values()];
+}
+
+/**
+ * The 48 hour minimum of a focus check that measures `joints` (CT-3, D-025 item 5): 48 hours after the
+ * latest focus or v1 check completed in the last 48 hours that shares one of them, or null.
+ */
+export function focusEarliestNext(
+  db: DatabaseSync,
+  userId: string,
+  joints: ReadonlySet<BodyMapKey>,
+  now: number,
+): number | null {
+  return sharedUntil([...recentFocusJoints(db, userId, now), ...recentV1Joints(db, userId, now)], joints);
+}
+
+/**
+ * The v1 schedule with the completed focus checks counted in its 48 hour minimum, both ways (section 4)
+ * and only where they share a joint with a v1 check (CT-3): a focus check that measured a joint a v1
+ * check loads (V1_CHECK_JOINTS, every joint its tests can load) holds it back for 48 hours, and one of
+ * the neck alone does not. earliestNext is the later of the two, and canStart follows it. The due date
+ * and the early flag are the v1 ones; without such a focus check the schedule is returned unchanged.
  */
 export function scheduleWithFocus<S extends { earliestNext: number | null; canStart: boolean }>(
   schedule: S,
-  lastFocusCompleted: number | null,
+  focusChecks: readonly CheckJoints[],
   now: number,
 ): S {
-  const focus = earliestNextCheck(lastFocusCompleted);
+  const focus = sharedUntil(focusChecks, V1_CHECK_JOINTS);
   if (focus === null || (schedule.earliestNext !== null && schedule.earliestNext >= focus)) return schedule;
   return { ...schedule, earliestNext: focus, canStart: now >= focus };
 }

@@ -86,7 +86,10 @@ export function viewFps(p: Pick<Prepared, "frameMs" | "series">, motion: Pick<Mo
   return ms > 0 ? (gaps * 1000) / ms : meanFps(p.frameMs);
 }
 
-/** 1000 ÷ the median gap between frames (0 with fewer than two frames): the probe's measure (A6a-3). */
+/**
+ * 1000 ÷ the median gap between frames (0 with fewer than two frames): A6a-3's first measure, which
+ * hides dropped frames. The floors read the mean (meanFps, viewFps; D-026 item 6).
+ */
 export function medianFps(frameMs: ArrayLike<number>): number {
   const gaps: number[] = [];
   for (let i = 1; i < frameMs.length; i++) gaps.push(frameMs[i] - frameMs[i - 1]);

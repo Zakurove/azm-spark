@@ -2,7 +2,7 @@
  * Types for the v7 runtime gait data, src/movements/gait/gait-v7.json (product v7 contract 2.1).
  *
  * The JSON is written by scripts/clinical/export-v7.mjs from local-docs/clinical/v7/gait-rules.json
- * (a draft until the clinical sign off). GaitData mirrors the exported JSON field by field;
+ * (signed off on 2026-10-04, D-025). GaitData mirrors the exported JSON field by field;
  * src/movements/gait/index.ts checks the JSON against it at compile time and
  * tests/v7/a-runtime-data.test.ts checks the literal id lists against the data in both directions.
  * Pure types and id lists, no DOM.
@@ -231,6 +231,19 @@ export interface GaitPatternTarget {
 }
 
 /** A pattern as the data writes it ("(structured)": the prose section, sides and labelRule are dropped). */
+/**
+ * An interim gait threshold (D-027 item 6, contract change log CG-19): a data change that reduces false
+ * findings in healthy walkers until the GAIT-Q3 tuning on Azm's own recordings. Its basis and the
+ * dataset evidence stay in the clinical source (local-docs).
+ */
+export interface GaitInterim {
+  until: "GAIT-Q3";
+  /** The threshold fields it sets, as paths inside the pattern's thresholds. */
+  fields: string[];
+  /** The values those fields held before, by path, where it changed one. */
+  replaces?: Record<string, number>;
+}
+
 export interface GaitPatternDef {
   id: GaitPatternId;
   /** shorter_stance only: the label by pain and prosthesis. */
@@ -264,13 +277,19 @@ export interface GaitPatternDef {
     withoutStaticCheck?: string;
     bilateralLikely?: Record<string, number>;
     speedRules?: Record<string, string>;
-    /** stiff_knee: the numbers of speedRules (D-024 item 4). */
+    /** The numbers of speedRules: stiff_knee's (D-024 item 4) and the interim ones (D-027 item 6). */
     speed?: {
-      bilateralNotAssessedBelow_mps: number;
-      unilateralCappedBelow_mps: number;
-      cappedNeedsDiffGte: number;
-      absoluteAloneFrom_mps: number;
+      bilateralNotAssessedBelow_mps?: number;
+      unilateralCappedBelow_mps?: number;
+      cappedNeedsDiffGte?: number;
+      absoluteAloneFrom_mps?: number;
+      /** stiff_knee, interim (CG-19): for every walker the absolute peak alone counts only from this speed. */
+      interimAbsoluteAloneFrom_mps?: number;
+      /** quad_avoidance, interim (CG-19): not assessed below this speed when the sign is seen. */
+      interimNotAssessedBelow_mps?: number;
     };
+    /** An interim threshold (D-027 item 6, CG-19): the fields it sets and the values they replace. */
+    interim?: GaitInterim;
     bilateral?: string;
   };
   caps?: Record<string, GaitStatus>;

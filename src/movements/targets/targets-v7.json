@@ -1,12 +1,11 @@
 {
   "id": "azm-v7-exercise-targets",
-  "version": "0.2.2",
-  "status": "DRAFT for clinical review. Nothing here is approved.",
+  "version": "1.0.0",
+  "status": "signed_off",
   "signoff": {
-    "approved": false,
+    "approved": true,
     "approvers": [
-      "Dr. Nasser Alharbi (PM&R)",
-      "Chaker Belhaj (fitness)"
+      "Dr. Nasser Alharbi (PM&R), medical"
     ]
   },
   "placeholders": {
@@ -3452,6 +3451,7 @@
         "beginner_friendly"
       ],
       "demands": [
+        "flexibility",
         "trunk_control"
       ],
       "contraindications": [
@@ -3530,6 +3530,7 @@
         "beginner_friendly"
       ],
       "demands": [
+        "flexibility",
         "trunk_control"
       ],
       "contraindications": [
@@ -4008,8 +4009,7 @@
       ],
       "painFriendly": false,
       "dose": {
-        "profile": "stretch_hold",
-        "text": "The trial used twice daily home stretching for 10 weeks."
+        "profile": "stretch_hold"
       },
       "cautions": null,
       "textSource": {
@@ -7443,7 +7443,9 @@
         "low_impact",
         "beginner_friendly"
       ],
-      "demands": [],
+      "demands": [
+        "flexibility"
+      ],
       "contraindications": [
         "neck_caution",
         "spine_surgery_recent"
@@ -7868,7 +7870,7 @@
       },
       {
         "finding": "no_active_movement",
-        "targets": "no active exercise for that movement; for the shoulder only, table_slides with the other hand helping if the clinicians allow (open question 5); show refer_care_team",
+        "targets": "no active exercise for that movement; for the shoulder only, table_slides with the other hand helping (self assisted, allowed at the sign off: EX-Q5); show refer_care_team",
         "perAction": 0,
         "priority": null
       },
@@ -8564,6 +8566,8 @@
     ],
     "selectionNumbers": {
       "itemsPerFindingMax": 2,
+      "findingSlotsShareMax": 0.5,
+      "findingSlotsRounding": "down",
       "gaitTargetNotSeenChecks": 2,
       "strengthenStaysAtPriority": 1
     }

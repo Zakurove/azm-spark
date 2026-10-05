@@ -9,8 +9,9 @@
  *   - events within 2 frames on 90% or more in the side views (the front views' contacts lag the
  *     truth, CG-2: measured below, not judged);
  *   - at least 6 clean cycles a side wherever the walk holds 6 the camera can see whole;
- *   - the rules quiet on every able bodied walker but the five whose own dataset angles carry the
- *     sign (HEALTHY_HITS, the C2 gap for the clinical review).
+ *   - the rules quiet on every able bodied walker but the one whose own dataset angles carry the
+ *     sign (HEALTHY_HITS); the interim thresholds of D-027 item 6 (CG-19) keep four more quiet
+ *     (HEALTHY_HITS_BEFORE_CG19).
  * Stroke survivors have no pass bar: c-mocap-report.test.ts writes their rule hits for the review.
  */
 import { beforeAll, describe, expect, it } from "vitest";

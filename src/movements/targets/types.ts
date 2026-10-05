@@ -3,7 +3,7 @@
  * contract 2.1 and 2.10).
  *
  * The JSON is written by scripts/clinical/export-v7.mjs from
- * local-docs/clinical/v7/exercise-targets.json (a draft until the clinical sign off). TargetsData
+ * local-docs/clinical/v7/exercise-targets.json (signed off on 2026-10-04, D-025). TargetsData
  * mirrors the exported JSON field by field; src/movements/targets/index.ts checks the JSON against it
  * at compile time and tests/v7/a-runtime-data.test.ts checks the literal id lists against the data.
  * Pure types and id lists, no DOM.
@@ -322,10 +322,14 @@ export interface TargetsMapping {
   };
   /**
    * The numbers of the selection prose (which stays in local-docs): «at most 2 items per limited movement
-   * or pattern», «a gait target when not seen at two checks», «strengthening stays at priority 1».
+   * or pattern», «finding items fill at most half of a session's exercise slots» (a share of the slots,
+   * rounded down: FZ-5, written at the sign off, D-026 item 4), «a gait target when not seen at two
+   * checks», «strengthening stays at priority 1».
    */
   selectionNumbers: {
     itemsPerFindingMax: number;
+    findingSlotsShareMax: number;
+    findingSlotsRounding: "down";
     gaitTargetNotSeenChecks: number;
     strengthenStaysAtPriority: number;
   };

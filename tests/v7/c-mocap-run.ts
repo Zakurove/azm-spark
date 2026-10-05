@@ -100,16 +100,25 @@ export function rulesForWalker(
 
 /**
  * Able bodied walkers whose own dataset angles carry a pattern's sign, so the rule fires on them as
- * written (the C2 gap for the clinical review, with the datasets' own numbers):
+ * written (the C2 gap CG-19, with the datasets' own numbers). Five fired before the interim gait
+ * thresholds of D-027 item 6 (CG-19); these keep them quiet:
  *   - vc-ab-005: the left knee bends 41 to 48 degrees in swing (Plug-in Gait, 15 strides), the right
- *     52 to 56; a woman born in the 1930s, 145 cm, at 0.8 m/s;
- *   - wbds-35-t04: the knees bend 77 and 62 degrees in swing (Visual3D mean curves), 15 apart;
- *   - wbds-25-t01: the left knee does not bend at landing (-1.4 degrees, the right 14.2) at 0.47 m/s;
- *   - wbds-41-t01 and wbds-41-t07: the left knee passes straight by 10.5 and 11.4 degrees in stance.
+ *     52 to 56; a woman born in the 1930s, 145 cm, at 0.8 m/s: the absolute peak alone counts only
+ *     from 1.0 m/s;
+ *   - wbds-25-t01: the left knee does not bend at landing (-1.4 degrees, the right 14.2) at 0.47 m/s:
+ *     quadriceps avoidance is not assessed under 0.5 m/s;
+ *   - wbds-41-t01 and wbds-41-t07: the left knee passes straight by 10.5 and 11.4 degrees in stance:
+ *     recurvatum is possible from 12.
+ * One still fires:
+ *   - wbds-35-t04: the knees bend 77 and 62 degrees in swing (Visual3D mean curves), 15 apart, at 1.1
+ *     m/s; the engine reads 59.3 and 74.5, a between limb difference of 15.2, at the rule's own 15.
  */
 export const HEALTHY_HITS: Readonly<Record<string, string[]>> = {
-  "vc-ab-005": ["stiff_knee:left:possible"],
   "wbds-35-t04": ["stiff_knee:left:possible"],
+};
+/** The able bodied walkers the interim thresholds of D-027 item 6 (CG-19) keep quiet, with what fired before. */
+export const HEALTHY_HITS_BEFORE_CG19: Readonly<Record<string, string[]>> = {
+  "vc-ab-005": ["stiff_knee:left:possible"],
   "wbds-25-t01": ["quad_avoidance:left:possible"],
   "wbds-41-t01": ["recurvatum:left:possible"],
   "wbds-41-t07": ["recurvatum:left:possible"],

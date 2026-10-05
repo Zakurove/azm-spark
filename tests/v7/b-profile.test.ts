@@ -340,6 +340,28 @@ describe("buildRomProfile: every joint movement and side (contract 2.7, C-4)", (
     expect(p.entries.filter((e) => e.source !== "default" && e.typical !== null)).toEqual([]);
   });
 
+  it("Parkinson's: a movement the set leaves out is stored grey, never typical, with no finding of its own (FZ-3)", () => {
+    const intake = intakeOf({
+      conditions: ["parkinsons"],
+      regions: [entry("shoulder", "right", ["stiffness"], { origin: "condition" })],
+    });
+    const rows = [
+      notMeasured("shoulder_abduction", "right", "not_measured_today", "not_in_set", "not_today"),
+    ];
+    const p = buildRomProfile({ intake, rows, now: 7 });
+    expect(at(p, "shoulder_abduction", "right")).toMatchObject({
+      source: "not_measured_today",
+      finding: "not_today",
+      reason: "not_in_set",
+      value: null,
+      typical: null,
+      percentOfNormal: null,
+    });
+    // The set's own targets cover the exercises: the left out movement gives no finding.
+    expect(romFindings(p, intake).some((f) => f.movementId === "shoulder_abduction")).toBe(false);
+    expect(bodyMapSummary(p)["shoulder:right"]).toBe("grey");
+  });
+
   it("keeps a stored row under its own source, with the typical value it was graded against", () => {
     const value = valueFor(FAHD, "knee_flexion", "right", "mild");
     const row = measured(FAHD, "knee_flexion", "right", "lying_back", value, { nValid: 1, median: value });
@@ -984,10 +1006,10 @@ describe("compareRom: the retest rule (rom-protocol 5.3, review B15)", () => {
       r.bands.shoulder_flexion!.neurologicalDeg,
     );
     expect(retestBandDeg("shoulder_flexion", "seated", ["stroke"])).toBe(18);
-    // «elbow 33 (lab) or 36 (home)»: home 36 for both elbow movements (FZ-1, D-026).
+    // «elbow 36 (the home MDC95 ...), for both elbow movements» (FZ-1, D-026 item 4, the sign off).
     for (const id of ["elbow_extension", "elbow_flexion"] as const) {
       expect(retestBandDeg(id, "seated", ["ms"])).toBe(36);
-      expect(retestBandDeg(id, "seated", ["ms"])).toBe(r.bands.elbow!.neurologicalHomeDeg);
+      expect(retestBandDeg(id, "seated", ["ms"])).toBe(r.bands.elbow!.neurologicalDeg);
       expect(retestBandDeg(id, "seated", [])).toBe(10);
     }
     // «lunge 10»; «lying knee straightening 11», other positions the default.

@@ -73,7 +73,7 @@ export interface LibraryExerciseV7Fields {
     repetitions?: number | number[];
     rounds?: number[];
   };
-  /** new exercises ship as draft until sign off; absent means approved (every existing entry) */
+  /** new exercises ship as draft until the Arabic review after the sign off (EX-Q15, D-025); absent means approved (every existing entry) */
   status?: "draft" | "approved";
   /**
    * The hip end range items of the exercise (exercise-targets newExercises[].hipEndRange), which the

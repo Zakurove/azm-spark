@@ -60,9 +60,21 @@ describe("the committed mocap subset", () => {
     }
   });
 
-  it("keeps the paretic side of each stroke survivor and none for the others", () => {
-    for (const id of of("vc-st-")) expect(["left", "right"]).toContain(loadMocap(id).subject.pareticSide);
-    for (const id of [...of("vc-ab-"), ...of("wbds-")]) expect(loadMocap(id).subject.pareticSide).toBeNull();
+  it("keeps the stroke workbook's paretic label and the dataset's knee peaks beside it, for stroke only", () => {
+    for (const id of of("vc-st-")) {
+      const s = loadMocap(id).subject;
+      expect(["left", "right"]).toContain(s.workbookPside);
+      expect(s.kneeSwingPeakDeg!.left).toBeGreaterThan(0);
+      expect(s.stifferKneeSide).toBe(s.kneeSwingPeakDeg!.left < s.kneeSwingPeakDeg!.right ? "left" : "right");
+    }
+    // The workbook's label and the stiffer knee disagree more often than not (README).
+    const differ = of("vc-st-").filter((id) => {
+      const s = loadMocap(id).subject;
+      return s.workbookPside !== s.stifferKneeSide;
+    });
+    expect(differ.length).toBeGreaterThanOrEqual(5);
+    for (const id of [...of("vc-ab-"), ...of("wbds-")])
+      expect(loadMocap(id).subject.workbookPside).toBeUndefined();
   });
 });
 
@@ -124,7 +136,7 @@ describe("a fixture seen by a phone", () => {
   });
 
   it("counts as present only the cycles whose contacts sit inside their pass", () => {
-    expect(EDGE_MS).toBe(200);
+    expect(EDGE_MS).toEqual({ start: 500, end: 200 });
     const fx = loadMocap("wbds-02-t04");
     const w = mocapWalk(fx, { view: "pad_side", nearSide: "left" });
     const ics = w.truth.ics.filter((e) => e.side === "left");

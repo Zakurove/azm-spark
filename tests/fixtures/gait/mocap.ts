@@ -42,7 +42,14 @@ export interface MocapSubject {
   /** Fukuchi: age in years and the dataset's group. */
   ageYears?: number;
   ageGroup?: "young" | "older";
-  pareticSide: Side | null;
+  /**
+   * Stroke survivors: the side the dataset's stroke workbook labels paretic ("P"), each leg's median
+   * knee peak in swing in the dataset's own Plug-in Gait angles, and the leg that bends less. The
+   * workbook's "P" leg bends more in 40 of its 50 walkers (README), so neither is called paretic here.
+   */
+  workbookPside?: Side;
+  kneeSwingPeakDeg?: Record<Side, number>;
+  stifferKneeSide?: Side;
 }
 
 export interface MocapEvent {
@@ -177,8 +184,8 @@ export interface MocapTruth {
   cadence: number;
   /**
    * The cycles a camera can see whole, per side: two initial contacts of a side with one of the other
-   * side's between, in one pass, both at least EDGE_MS inside the pass (a contact on the first or last
-   * frames of a pass has no peak around it to find).
+   * side's between, in one pass, the first at least EDGE_MS.start after the pass's first frame (the
+   * swing before a contact is what makes it a peak) and the last at least EDGE_MS.end before its last.
    */
   cycles: Record<Side, number>;
   passes: { from: number; to: number; dir: 1 | -1; facing: "toward" | "away" | "side" }[];
@@ -261,8 +268,8 @@ function cameraFor(fx: MocapFixture, spec: MocapViewSpec): Camera {
   return cam;
 }
 
-/** How far inside its pass a contact must be for its cycle to count as seen whole (MocapTruth.cycles). */
-export const EDGE_MS = 200;
+/** How far inside its pass a contact must be for its cycle to count as seen whole (MocapTruth.cycles), ms. */
+export const EDGE_MS = { start: 500, end: 200 } as const;
 
 const rotateY = (p: V, c: number, s: number): V => [c * p[0] + s * p[2], p[1], -s * p[0] + c * p[2]];
 
@@ -351,7 +358,7 @@ export function mocapWalk(fx: MocapFixture, spec: MocapViewSpec): MocapWalk {
         stepSum += ics[i].t - ics[i - 1].t;
         steps++;
       }
-    const inside = (e: MocapEvent) => e.t >= ps.t[0] + EDGE_MS && e.t <= end - EDGE_MS;
+    const inside = (e: MocapEvent) => e.t >= ps.t[0] + EDGE_MS.start && e.t <= end - EDGE_MS.end;
     for (const side of ["left", "right"] as const) {
       const own = ics.filter((e) => e.side === side);
       for (let i = 1; i < own.length; i++)

@@ -5,7 +5,7 @@
 "licence":"CC BY 4.0",
 "citation":"Fukuchi CA, Fukuchi RK, Duarte M. A public dataset of overground and treadmill walking kinematics and kinetics in healthy individuals. PeerJ 2018;6:e4640",
 "sourceFiles":["WBDS33static1.c3d","WBDS33walkT04.c3d"],
-"subject":{"group":"able_bodied","sex":"male","heightCm":172.3,"legLengthCm":88.0,"ageYears":63,"ageGroup":"older","pareticSide":null},
+"subject":{"group":"able_bodied","sex":"male","heightCm":172.3,"legLengthCm":88.0,"ageYears":63,"ageGroup":"older"},
 "mode":"treadmill",
 "fps":30,
 "jitterMs":4,

@@ -20,7 +20,7 @@ Sources (named per trial in tests/fixtures/gait/README.md and in each fixture's 
   2023;10:852. figshare collection 6503791: "c3d files ... of 138 able-bodied adults"
   (10.6084/m9.figshare.24192480, file 138_HealthyPiG.zip) and "... of 50 adults with stroke"
   (10.6084/m9.figshare.24192483, file 50_StrokePiG.zip); "Post-processed excel-files ... of 50 adults
-  with stroke" (10.6084/m9.figshare.24192495) for the paretic side. Files CC0 1.0; the article
+  with stroke" (10.6084/m9.figshare.24192495) for its paretic ("P") side labels. Files CC0 1.0; the article
   CC BY 4.0. Barefoot overground walking at a preferred speed on a 12 m walkway, Plug-in Gait full
   body, 100 Hz, events (Foot Strike, Foot Off) from Vicon Nexus checked by the authors.
 
@@ -70,7 +70,7 @@ Output (one JSON file per fixture, written compactly; prettier ignores tests/fix
 
   { "format": "azm-gait-mocap-1", "id", "dataset", "licence", "citation", "sourceFiles": [...],
     "subject": { "group", "sex", "heightCm", "legLengthCm", "ageYears" | "birthDecade",
-                 "pareticSide" },
+                 stroke only: "workbookPside", "kneeSwingPeakDeg", "stifferKneeSide" },
     "mode": "overground" | "treadmill", "fps": 30, "jitterMs": 4, "seed",
     "landmarks": [0, 2, 5, 11, ...], "synthetic": [...],
     "encoding": "delta",
@@ -90,9 +90,13 @@ Copyright (c) 2018 pyomeca; openpyxl only for --paretic):
 
 The cache holds the c3d files; a file that is not there is read from the dataset's zip on figshare
 with HTTP range requests (only that member is transferred, about 1 to 3 MB each) and kept in the
-cache. --only <id> writes one fixture. The paretic side of each stroke survivor is in SUBSET below;
---paretic re-derives it from the dataset's own stroke workbook (the walker's left and right knee
-curves against the workbook's paretic and non paretic curves, sheets in folder order) and prints it.
+cache. --only <id> writes one fixture. The workbook's "P" side of each stroke survivor is in SUBSET
+below; --paretic re-derives it from the dataset's own stroke workbook (the walker's left and right
+knee curves against the workbook's "Pside" and "Nside" curves, sheets in folder order) and prints
+it. The workbook's "P" leg is the one whose knee bends more in swing in 40 of its 50 walkers (the
+opposite of the usual picture after a stroke), so each stroke fixture also names the leg whose knee
+bends less in the dataset's own angles (stifferKneeSide) and the tests never take either for the
+paretic side without saying which.
 """
 from __future__ import annotations
 
@@ -606,6 +610,28 @@ def add_upper_body(pt: dict[int, np.ndarray], height_mm: float, up: np.ndarray, 
 # ---------------------------------------------------------------------------------------------
 
 
+def swing_knee_peaks(trials: list[Trial]) -> dict[str, float]:
+    """Each leg's median knee flexion peak in swing (toe off to the next contact), from the Plug-in
+    Gait knee angles the c3d holds."""
+    out = {}
+    for side, p in (("left", "L"), ("right", "R")):
+        peaks = []
+        for tr in trials:
+            k = tr.points.get(p + "KneeAngles")
+            if k is None:
+                continue
+            ics = [e[2] for e in tr.events if e[0] == side and e[1] == "ic"]
+            for to in (e[2] for e in tr.events if e[0] == side and e[1] == "to"):
+                nxt = [t for t in ics if t > to]
+                if not nxt:
+                    continue
+                a, b = int(round((to - tr.t0) * tr.rate)), int(round((nxt[0] - tr.t0) * tr.rate))
+                if a >= 0 and b < tr.n and np.isfinite(k[0, a : b + 1]).any():
+                    peaks.append(float(np.nanmax(k[0, a : b + 1])))
+        out[side] = float(np.median(peaks))
+    return out
+
+
 def to_room(v: np.ndarray, source: str) -> np.ndarray:
     """Lab to room: x along the walkway, y up, z across (right handed)."""
     if source.startswith("vc"):
@@ -680,9 +706,13 @@ def build(entry: dict, cache: str, info: dict) -> dict:
         if births:
             subject["birthDecade"] = f"{births[-1][:3]}0s"
         if source == "vc_st":
-            subject["pareticSide"] = entry["paretic"]
-        else:
-            subject["pareticSide"] = None
+            # The workbook's "P" (paretic) side, and the leg whose knee bends less in swing in the
+            # dataset's own Plug-in Gait angles: in 40 of the workbook's 50 walkers the "P" leg is the
+            # one that bends more, so the two can differ (README).
+            subject["workbookPside"] = entry["paretic"]
+            peaks = swing_knee_peaks(trials)
+            subject["kneeSwingPeakDeg"] = {k: round(v, 1) for k, v in peaks.items()}
+            subject["stifferKneeSide"] = min(peaks, key=lambda k: peaks[k])
     else:
         meta = info[entry["subject"]]
         height = float(meta["Height"]) * 10
@@ -693,7 +723,6 @@ def build(entry: dict, cache: str, info: dict) -> dict:
                 "legLengthCm": round(float(meta["LegLength"]) * 100, 1),
                 "ageYears": int(meta["Age"]),
                 "ageGroup": meta["AgeGroup"].lower(),
-                "pareticSide": None,
             }
         )
     wb = None if vc else Wbds(static)

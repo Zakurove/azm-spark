@@ -5,7 +5,7 @@
 "licence":"CC0 1.0 (figshare files); article CC BY 4.0",
 "citation":"Van Criekinge T et al. A full-body motion capture gait dataset of 138 able-bodied adults across the life span and 50 stroke survivors. Sci Data 2023;10:852",
 "sourceFiles":["50_StrokePiG/TVC15/TVC-15 Cal 03.c3d","50_StrokePiG/TVC15/BWA3.c3d","50_StrokePiG/TVC15/BWA4.c3d","50_StrokePiG/TVC15/BWA5.c3d"],
-"subject":{"group":"stroke","sex":null,"heightCm":170.0,"legLengthCm":90.0,"pareticSide":"left"},
+"subject":{"group":"stroke","sex":null,"heightCm":170.0,"legLengthCm":90.0,"workbookPside":"left","kneeSwingPeakDeg":{"left":45.4,"right":56.9},"stifferKneeSide":"left"},
 "mode":"overground",
 "fps":30,
 "jitterMs":4,

@@ -48,6 +48,7 @@ export function BlockCard({
   helper,
   warnings = [],
   stage,
+  waiting = false,
   onReady,
 }: {
   lang: Lang;
@@ -61,6 +62,11 @@ export function BlockCard({
   warnings?: ScreenId[];
   /** The camera's preview (the probe runs while it shows). */
   stage: React.ReactNode;
+  /**
+   * The camera's model probe of this block has not ended (C-10: the model is chosen before the block
+   * measures, never mid attempt): «جاهز» waits for it.
+   */
+  waiting?: boolean;
   onReady(): void;
 }) {
   const positions = [...new Set(items.map((i) => i.position))];
@@ -101,6 +107,12 @@ export function BlockCard({
             <CheckIcon name="camera" size={20} />
             <span>{tV7(lang, "rom.block.camera")}</span>
           </p>
+          {waiting && (
+            <p className="fx-meta" role="status" data-wait="camera">
+              <span className="fx-spinner is-small" aria-hidden="true" />
+              <span>{tV7(lang, "rom.block.cameraWait")}</span>
+            </p>
+          )}
         </Glass>
         <Actions
           items={[
@@ -109,6 +121,8 @@ export function BlockCard({
               onClick: onReady,
               name: "ready",
               icon: "check",
+              busy: waiting,
+              disabled: waiting,
             },
           ]}
         />

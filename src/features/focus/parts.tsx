@@ -19,6 +19,8 @@ export interface Action {
   kind?: "primary" | "secondary" | "quiet";
   icon?: string;
   busy?: boolean;
+  /** Not available yet (the camera's model probe of a block's card): shown, not tappable. */
+  disabled?: boolean;
   /** A test hook (data-action). */
   name?: string;
 }
@@ -28,8 +30,9 @@ export function Button({ a }: { a: Action }) {
     <button
       type="button"
       className={`fx-button is-${a.kind ?? "primary"}`}
-      onClick={a.onClick}
+      onClick={a.disabled ? undefined : a.onClick}
       aria-busy={a.busy || undefined}
+      disabled={a.disabled || undefined}
       data-action={a.name}
     >
       {a.icon && <CheckIcon name={a.icon} size={22} />}

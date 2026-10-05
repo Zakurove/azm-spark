@@ -77,7 +77,8 @@
     "lyingTitle": "Movements while lying down",
     "camera": "Put the phone on a steady stand and make sure you can see yourself in the picture.",
     "ready": "Ready",
-    "helperReady": "My helper is beside me. Ready"
+    "helperReady": "My helper is beside me. Ready",
+    "cameraWait": "One moment, the camera is getting ready."
   },
   "setup": {
     "kicker": "Movement {n} of {total}",

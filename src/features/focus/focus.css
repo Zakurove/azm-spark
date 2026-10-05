@@ -1690,6 +1690,16 @@
   border-top-color: #8065ad;
   animation: fx-spin 0.9s linear infinite;
 }
+.fx-spinner.is-small {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+}
+.fx-button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
 @keyframes fx-spin {
   to {
     transform: rotate(360deg);

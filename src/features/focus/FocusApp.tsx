@@ -132,6 +132,20 @@ function e2eOptions(): { person: boolean; fast: boolean; reach: number } {
 
 const clock = () => performance.now();
 
+/**
+ * Whether a block's card waits for the camera's model probe (C-10): from the card's first frame until
+ * the probe of this block ends; the camera still starting counts as waiting (its first frame starts the
+ * probe), a camera that failed or stopped does not (there is nothing to probe).
+ */
+export function blockWaitsForProbe(
+  blockKey: string | null,
+  camStatus: "idle" | "model" | "camera" | "running" | "error",
+  probe: { key: string; done: boolean } | null,
+): boolean {
+  if (blockKey === null || camStatus === "error" || camStatus === "idle") return false;
+  return !(probe?.key === blockKey && probe.done);
+}
+
 export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const e2e = useMemo(e2eOptions, []);
   const sessionRef = useRef<FocusSession | null>(null);
@@ -228,18 +242,24 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   );
   useWakeLock();
 
-  // The model: preloaded on the intro, probed at each block's card (C-10).
+  // The model: preloaded on the intro, probed at each block's card (C-10), and the card's «جاهز»
+  // waits for the probe, so the model is chosen before the block measures and never swapped mid
+  // attempt (a probe that switches to Lite rebuilds the pose source); a camera that cannot run has
+  // nothing to probe and does not hold the card.
   useEffect(() => {
     if (s.kind === "intro") focus.preload("rom");
   }, [s.kind, focus]);
-  const probedBlock = useRef<string>("");
+  const blockKey = rangeStep?.kind === "block" && s.kind === "part" ? `${s.index}` : null;
+  const [probe, setProbe] = useState<{ key: string; done: boolean } | null>(null);
   useEffect(() => {
-    if (rangeStep?.kind !== "block" || cam.status !== "running") return;
-    const key = `${s.kind === "part" ? s.index : ""}`;
-    if (probedBlock.current === key) return;
-    probedBlock.current = key;
-    void focus.probe("rom");
-  }, [rangeStep?.kind, cam.status, focus, s]);
+    if (blockKey === null || cam.status !== "running" || probe?.key === blockKey) return;
+    setProbe({ key: blockKey, done: false });
+    void focus
+      .probe("rom")
+      .catch(() => null)
+      .finally(() => setProbe((p) => (p?.key === blockKey ? { key: blockKey, done: true } : p)));
+  }, [blockKey, cam.status, focus, probe?.key]);
+  const blockWaiting = blockWaitsForProbe(blockKey, cam.status, probe);
 
   // Timers: the rests and the minute tick on without frames; the countdown is redrawn.
   const [now, setNow] = useState(clock);
@@ -612,7 +632,10 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
                 m.data.check!.protocol,
               )}
               stage={<Stage video={cam.video} frame={frame} highlight={[]} compact />}
-              onReady={() => c.ready(clock())}
+              waiting={blockWaiting}
+              onReady={() => {
+                if (!blockWaiting) c.ready(clock());
+              }}
             />
           ),
         };

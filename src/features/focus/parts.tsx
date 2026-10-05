@@ -191,7 +191,10 @@ export function TopBar({
           aria-valuemin={0}
           aria-valuemax={progress.total}
           aria-valuenow={progress.done}
-          aria-label={tV7(lang, "rom.shell.progress", { n: progress.done + 1, total: progress.total })}
+          aria-label={tV7(lang, "rom.shell.progress", {
+            n: Math.min(progress.done + 1, progress.total),
+            total: progress.total,
+          })}
         >
           {Array.from({ length: progress.total }, (_, i) => (
             <i
@@ -415,7 +418,7 @@ export function Dots({
   valid: number;
 }) {
   return (
-    <div className="fx-dots" aria-label={tV7(lang, "rom.measure.tries", { n: valid, total })}>
+    <div className="fx-dots" role="img" aria-label={tV7(lang, "rom.measure.tries", { n: valid, total })}>
       <i className={index === 0 ? "is-now is-practice" : "is-done is-practice"} />
       {Array.from({ length: total }, (_, i) => (
         <i key={i} className={i < valid ? "is-done" : i + 1 === index ? "is-now" : undefined} />

@@ -273,6 +273,10 @@
   font-weight: 700;
 }
 .fx-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
   color: var(--fx-purple-ink);
   font-weight: 700;
   text-underline-offset: 4px;
@@ -473,10 +477,21 @@
   color: var(--fx-muted);
   font-weight: 700;
 }
+/* v1's cells (flow.css .flow-scale-row): never under 46 px, so 5 and 6 (the pain stop's line) stay
+   apart for a stroke hand or a tremor; the card gives up some padding on a narrow phone. */
 .fx-scale {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(6, minmax(46px, 52px));
+  justify-content: center;
+  gap: 6px;
+}
+@media (max-width: 400px) {
+  .fx-scale {
+    gap: 5px;
+  }
+  .fx-card:has(.fx-scale) {
+    padding-inline: 12px;
+  }
 }
 .azm-check.fx .fx-scale-cell {
   min-height: 56px;
@@ -742,7 +757,6 @@
   gap: 10px;
 }
 .fx-joints-map .bm-views button {
-  min-height: 40px;
   padding: 0 14px;
 }
 .fx-joints-map .bm-figure {

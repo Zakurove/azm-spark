@@ -66,7 +66,8 @@ export function FindingsLinkList({
   return (
     <CheckRoot ui={{ lang }} page={false} className="check-results-page">
       <section className="pg-section" aria-labelledby={headingId} data-block="focus-findings">
-        <h2 id={headingId}>{tV7(lang, "rom.findings.title")}</h2>
+        {/* A title of its own: My results' movement check list below keeps its own empty state. */}
+        <h2 id={headingId}>{tV7(lang, "rom.findings.linkTitle")}</h2>
         <ul className="pg-history">
           {checks.map((c, i) => (
             <li key={c.id}>

@@ -44,7 +44,8 @@ describe("the findings link", () => {
     const html = renderToStaticMarkup(
       createElement(FindingsLinkList, { lang: "en", checks, onOpenFindings: vi.fn() }),
     );
-    expect(html).toContain(tV7("en", "rom.findings.title"));
+    // A title of its own, apart from My results' movement check list (UI review).
+    expect(html).toContain(tV7("en", "rom.findings.linkTitle"));
     expect(html.indexOf('data-focus-check="c"')).toBeLessThan(html.indexOf('data-focus-check="a"'));
     expect(html).toContain("Sunday 4 October");
     expect(html).toContain("Thursday 1 October");

@@ -258,6 +258,26 @@ export function FindingsBody({
             {view.changes && (
               <p className="fx-findings-lead">{bidiText(lang, tV7(lang, "rom.findings.changesNote"))}</p>
             )}
+            <ul className="fx-bar-key" aria-hidden="true">
+              <li>
+                <i className="is-band" />
+                <span>{tV7(lang, "rom.findings.keyBand")}</span>
+              </li>
+              <li>
+                <i className="is-typical" />
+                <span>{tV7(lang, "rom.findings.keyTypical")}</span>
+              </li>
+              {view.changes && (
+                <li>
+                  <i className="is-first" />
+                  <span>{tV7(lang, "rom.findings.keyFirst")}</span>
+                </li>
+              )}
+              <li>
+                <i className="is-value" />
+                <span>{tV7(lang, "rom.findings.keyValue")}</span>
+              </li>
+            </ul>
             {view.groups.map((g) => (
               <GroupCard key={g.cell} lang={lang} group={g} />
             ))}

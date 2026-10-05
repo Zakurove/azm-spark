@@ -76,3 +76,32 @@ describe("numbers with their unit (copy tone rule 9)", () => {
     expect(en.findings.walk.stepValue).toBe("{n} cm");
   });
 });
+
+describe("the low UI fixes (UI review)", () => {
+  const css = (f: string) =>
+    require("node:fs").readFileSync(
+      require("node:path").join(__dirname, "../../src/features/focus", f),
+      "utf8",
+    ) as string;
+
+  it("gives the pain cells v1's 46 to 52 px, the view buttons and the privacy link 44 px", () => {
+    const focus = css("focus.css");
+    expect(focus).toMatch(/\.fx-scale \{[^}]*grid-template-columns: repeat\(6, minmax\(46px, 52px\)\)/);
+    expect(focus).not.toMatch(/\.bm-views button \{[^}]*min-height: 40px/);
+    expect(focus).toMatch(/\.fx-link \{[^}]*min-height: 44px/);
+  });
+
+  it("names the try dots as an image, and never says part 4 of 3", async () => {
+    const { Dots, TopBar } = await import("../../src/features/focus/parts");
+    const dots = renderToStaticMarkup(createElement(Dots, { lang: "en", total: 3, index: 1, valid: 0 }));
+    expect(dots).toMatch(/class="fx-dots" role="img" aria-label=/);
+    const done = renderToStaticMarkup(createElement(TopBar, { lang: "en", progress: { done: 3, total: 3 } }));
+    expect(done).toContain('aria-label="Part 3 of 3"');
+  });
+
+  it("keeps the findings page's tall aside within the viewport and draws typical without gold", () => {
+    const findings = css("findings.css");
+    expect(findings).toMatch(/\.fx-findings-aside \{[^}]*max-height: calc\(100dvh - 92px\)/);
+    expect(findings).toMatch(/\.fx-bar-band \{\s*background: rgba\(93, 98, 109, 0\.2\);/);
+  });
+});

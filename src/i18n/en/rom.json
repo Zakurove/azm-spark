@@ -184,6 +184,11 @@
     "startCheck": "Start the check",
     "results": "All my results",
     "startPoint": "Your starting point",
-    "close": "Close the results"
+    "close": "Close the results",
+    "keyBand": "Typical range",
+    "keyTypical": "Typical",
+    "keyFirst": "Your starting point",
+    "keyValue": "This check",
+    "linkTitle": "Focused movement check results"
   }
 }

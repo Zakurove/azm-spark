@@ -115,11 +115,13 @@ export function analyseGaitView(input: GaitViewInput): GaitViewResult {
   const sensorRoll = input.rollDeg !== null && Number.isFinite(input.rollDeg) ? input.rollDeg : null;
   const roll = sensorRoll ?? (view === "side" ? pathRollDeg(input.frames) : null);
   // Side views take D-026 item 6's near limb rule: bouts on the hips and either ankle, each cycle
-  // gated on the hips and its own leg (cycles.ts).
+  // gated on the hips and its own leg (cycles.ts). The pad side view's swap rule follows the near leg
+  // (D-027 item 4).
   const p = prepare(input.frames, {
     rollDeg: roll,
     labels: kind === "side" ? "swaps" : "facing",
     bouts: kind === "side" ? "either_ankle" : "both_ankles",
+    ...(view === "pad_side" && input.nearSide ? { nearSide: input.nearSide } : {}),
   });
   const motion = passesOf(p, view, view === "pad_side" ? input.nearSide : undefined);
   const events = detectEvents(p, motion.passes, kind);

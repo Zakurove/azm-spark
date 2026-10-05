@@ -31,6 +31,8 @@ import { AreaPicker, TopDownDrawing } from "../assessment/flow/parts";
 import { MultiAnswerList } from "../assessment/shared/answers";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
+import { useArmedPress } from "../assessment/safety/hooks";
+import { SAFETY_TIMING } from "../assessment/safety/timing";
 import { pausedLine } from "../assessment/safety/content";
 import { fmtDate } from "../../app/i18n";
 import { TIME_ZONE } from "../progress/format";
@@ -1012,15 +1014,26 @@ export function StopListScreen({
   lang,
   env,
   preselect,
+  stopShown = true,
   onChoose,
 }: {
   lang: Lang;
   env: PrecheckEnv;
   preselect: CoachStopReason | null;
+  /**
+   * STOP was on the screen under the list (a range step or the walk): it stays visible and inert at
+   * its place at the bottom, with no row under it, so a second tap of a double tap lands on nothing
+   * (v1 S41).
+   */
+  stopShown?: boolean;
   onChoose(option: StopOptionId): void;
 }) {
   const shown = new Set(stopOptions(env));
   const title = useId();
+  // A double tap on STOP must never pick a reason: a row counts only for a press that started on it
+  // after the list opened, and not within 600 ms of a press that opened it (v1 useArmedPress,
+  // SAFETY_TIMING.stopArmMs, R3C-03 (6)). Keyboard and switch activation always count.
+  const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
   const group = (g: "urgent" | "other") =>
     CHECK_DATA.stopRouting.options.filter((o) => shown.has(o.id) && o.group === g);
   const row = (o: (typeof CHECK_DATA.stopRouting.options)[number]) => (
@@ -1029,7 +1042,9 @@ export function StopListScreen({
       type="button"
       className={`fx-stop-row${preselect === o.id ? " is-preselected" : ""}`}
       data-option={o.id}
-      onClick={() => onChoose(o.id)}
+      onClick={(e) => {
+        if (armed(e)) onChoose(o.id);
+      }}
     >
       <span className="fx-stop-row-icon" aria-hidden="true">
         <CheckIcon name={STOP_ICONS[o.id]} size={26} />
@@ -1039,7 +1054,7 @@ export function StopListScreen({
   );
   return (
     <div
-      className="fx-overlay"
+      className={`fx-overlay${stopShown ? " has-stop" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title}
@@ -1060,6 +1075,16 @@ export function StopListScreen({
           {group("other").map(row)}
         </section>
       </Glass>
+      {stopShown && (
+        <div className="fx-v1 fx-stopbar is-inert" aria-hidden="true">
+          <div className="safety-stop-zone is-inert">
+            <span className="safety-stop">
+              <CheckIcon name="stop-square" size={28} />
+              <span>{t(lang, "assessment.stop.button")}</span>
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

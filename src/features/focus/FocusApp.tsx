@@ -641,6 +641,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               onReady={() => {
                 if (!blockWaiting) c.ready(clock());
               }}
+              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -653,6 +654,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               lang={lang}
               item={step.item}
               onAnswer={(n) => c.answerReask(n, clock())}
+              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -668,6 +670,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               total={runs.length}
               turnSide={step.turnSide}
               onReady={() => c.ready(clock())}
+              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -692,7 +695,14 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       case "pain_stop":
         return {
           screen: "pain_stop",
-          node: <PainStopScreen lang={lang} item={step.item} onContinue={() => c.acknowledge(clock())} />,
+          node: (
+            <PainStopScreen
+              lang={lang}
+              item={step.item}
+              onContinue={() => c.acknowledge(clock())}
+              onStop={() => session.requestStop()}
+            />
+          ),
         };
       case "result": {
         const last = runs[runs.length - 1];
@@ -709,6 +719,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               intake={m.data.intake}
               last={!!last && itemKey(last) === itemKey(step.item)}
               onNext={() => c.next(clock())}
+              onStop={() => session.requestStop()}
             />
           ),
         };

@@ -50,6 +50,7 @@ export function BlockCard({
   stage,
   waiting = false,
   onReady,
+  onStop,
 }: {
   lang: Lang;
   block: RomBlock;
@@ -68,6 +69,8 @@ export function BlockCard({
    */
   waiting?: boolean;
   onReady(): void;
+  /** STOP while the camera runs (v1: on every camera, after and between state; D-016). */
+  onStop?: () => void;
 }) {
   const positions = [...new Set(items.map((i) => i.position))];
   const neck = items.some((i) => i.region === "neck");
@@ -127,6 +130,19 @@ export function BlockCard({
           ]}
         />
       </div>
+      {onStop && <StopBar onStop={onStop} />}
+    </div>
+  );
+}
+
+/**
+ * STOP, sticky at the bottom of a range step while the camera runs: the stop list and its urgent
+ * routes are always one tap away, between movements as during them (v1 UX principle 6, D-016).
+ */
+export function StopBar({ onStop }: { onStop(): void }) {
+  return (
+    <div className="fx-v1 fx-stopbar">
+      <StopButton onPress={onStop} />
     </div>
   );
 }
@@ -148,6 +164,7 @@ export function SetupCard({
   total,
   turnSide,
   onReady,
+  onStop,
 }: {
   lang: Lang;
   item: RomProtocolItem;
@@ -155,6 +172,7 @@ export function SetupCard({
   total: number;
   turnSide: boolean;
   onReady(): void;
+  onStop?: () => void;
 }) {
   const steps = instructionLines(item.movementId, item.side, item.position, lang);
   return (
@@ -188,6 +206,7 @@ export function SetupCard({
           items={[{ label: tV7(lang, "rom.setup.ready"), onClick: onReady, name: "ready", icon: "play" }]}
         />
       </div>
+      {onStop && <StopBar onStop={onStop} />}
     </div>
   );
 }
@@ -197,22 +216,27 @@ export function ReaskScreen({
   lang,
   item,
   onAnswer,
+  onStop,
 }: {
   lang: Lang;
   item: RomProtocolItem;
   onAnswer(n: number): void;
+  onStop?: () => void;
 }) {
   return (
-    <Glass className="fx-card fx-question" data-reask={item.movementId}>
-      <Kicker>{sideRegion(item, lang)}</Kicker>
-      <QuestionText lang={lang} id="fx-reask" text={copyText("pain_ask", lang)} />
-      <PainScale
-        lang={lang}
-        labelledBy="fx-reask"
-        nextLabel={t(lang, "assessment.common.next")}
-        onDone={onAnswer}
-      />
-    </Glass>
+    <>
+      <Glass className="fx-card fx-question" data-reask={item.movementId}>
+        <Kicker>{sideRegion(item, lang)}</Kicker>
+        <QuestionText lang={lang} id="fx-reask" text={copyText("pain_ask", lang)} />
+        <PainScale
+          lang={lang}
+          labelledBy="fx-reask"
+          nextLabel={t(lang, "assessment.common.next")}
+          onDone={onAnswer}
+        />
+      </Glass>
+      {onStop && <StopBar onStop={onStop} />}
+    </>
   );
 }
 
@@ -498,23 +522,28 @@ export function PainStopScreen({
   lang,
   item,
   onContinue,
+  onStop,
 }: {
   lang: Lang;
   item: RomProtocolItem;
   onContinue(): void;
+  onStop?: () => void;
 }) {
   return (
-    <Glass className="fx-card fx-safety is-pain" tone="rose">
-      <span className="fx-badge is-rose" aria-hidden="true">
-        <CheckIcon name="pause" size={28} />
-      </span>
-      <Kicker>{`${movementName(item.movementId, lang)} · ${sideRegion(item, lang)}`}</Kicker>
-      <Title>{tV7(lang, "rom.painStop.title")}</Title>
-      <Body lang={lang} text={copyText("pain_stop", lang)} />
-      <Actions
-        items={[{ label: t(lang, "assessment.common.continue"), onClick: onContinue, name: "continue" }]}
-      />
-    </Glass>
+    <>
+      <Glass className="fx-card fx-safety is-pain" tone="rose">
+        <span className="fx-badge is-rose" aria-hidden="true">
+          <CheckIcon name="pause" size={28} />
+        </span>
+        <Kicker>{`${movementName(item.movementId, lang)} · ${sideRegion(item, lang)}`}</Kicker>
+        <Title>{tV7(lang, "rom.painStop.title")}</Title>
+        <Body lang={lang} text={copyText("pain_stop", lang)} />
+        <Actions
+          items={[{ label: t(lang, "assessment.common.continue"), onClick: onContinue, name: "continue" }]}
+        />
+      </Glass>
+      {onStop && <StopBar onStop={onStop} />}
+    </>
   );
 }
 
@@ -548,6 +577,7 @@ export function ResultScreen({
   intake,
   last,
   onNext,
+  onStop,
 }: {
   lang: Lang;
   ctl: RomController;
@@ -557,6 +587,7 @@ export function ResultScreen({
   intake: (Intake & { sex: Sex }) | null;
   last: boolean;
   onNext(): void;
+  onStop?: () => void;
 }) {
   const def = movementDef(item.movementId);
   const norm = ctl.norm(item);
@@ -652,6 +683,7 @@ export function ResultScreen({
           ]}
         />
       </div>
+      {onStop && <StopBar onStop={onStop} />}
     </div>
   );
 }

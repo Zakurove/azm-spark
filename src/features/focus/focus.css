@@ -1610,6 +1610,23 @@
     opacity: 1;
   }
 }
+/* STOP stays at its place under the stop list, visible but inert (v1 S41): the list ends above it, so a
+   second tap of a double tap on the STOP point lands on nothing. */
+.fx-overlay.has-stop {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+.fx-overlay > .fx-stopbar.is-inert {
+  position: fixed;
+  inset-inline: 16px;
+  bottom: 0;
+  z-index: 51;
+}
+.azm-check.fx .fx-stopbar.is-inert .safety-stop {
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--fx-red);
+  box-shadow: inset 0 0 0 2px rgba(196, 69, 58, 0.5);
+  cursor: default;
+}
 .fx-stoplist,
 .fx-dialog {
   max-width: 600px;

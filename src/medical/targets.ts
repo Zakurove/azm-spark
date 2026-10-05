@@ -1187,6 +1187,22 @@ function targetedItem(p: Chosen, h: Intake, plan: Plan): TargetedItem {
 
 /* ------------------------------------------------------------ the week */
 
+/** A week the findings built (contract 2.10): what POST /api/program/targets stores and answers, and createWeekly words. */
+export interface TargetedBuild {
+  /** The rules' week, with its findings ref. */
+  weekly: WeeklyPlan;
+  /** Each day's finding items in their blocks: fixed for the weekly AI (sanitizeSelection). */
+  fixed: Selection;
+  /** The whole selection: each block's finding items, then the goal's or the sport's share. */
+  selection: Selection;
+  items: TargetedItem[];
+  /** The share's pool, which the weekly AI may arrange from: the default pool, never a draft. */
+  pool: LibraryExercise[];
+  targets: TargetRequest[];
+  referrals: ReferralId[];
+  unmet: TargetRequest[];
+}
+
 /**
  * The weekly plan built from the findings (5.8): the finding items of selectForTargets in their blocks,
  * then «the rest follows the goal or sport as today»: the rules' own selection (defaultSelection: the
@@ -1194,6 +1210,24 @@ function targetedItem(p: Chosen, h: Intake, plan: Plan): TargetedItem {
  * and the region ids applied last (review C01), fills each block to its size. Null exactly when
  * engineWeekly is null (plan not ready).
  */
+export function targetedBuild(
+  h: Intake,
+  plan: Plan,
+  rom: readonly RomFinding[],
+  gait: readonly GaitPatternResult[],
+  findingsRef: NonNullable<WeeklyPlan["findings"]>,
+  ctx: TargetContext = {},
+): TargetedBuild | null {
+  if (!engineWeekly(h, plan)) return null;
+  const context: TargetContext = { ...ctx, gait: ctx.gait ?? gait };
+  const { targets, referrals } = collectTargets({ intake: h, rom, gait });
+  const { selection: fixed, items, unmet } = selectForTargets(h, plan, programPool(h), targets, context);
+  const { selection, pool } = goalShare(h, plan, fixed, items, context);
+  const weekly = { ...buildWeekly(h, plan, selection, "engine", items), findings: findingsRef };
+  return { weekly, fixed, selection, items, pool, targets, referrals, unmet };
+}
+
+/** The weekly plan built from the findings (targetedBuild's week). Null exactly when engineWeekly is null. */
 export function targetedWeekly(
   h: Intake,
   plan: Plan,
@@ -1202,12 +1236,7 @@ export function targetedWeekly(
   findingsRef: NonNullable<WeeklyPlan["findings"]>,
   ctx: TargetContext = {},
 ): WeeklyPlan | null {
-  if (!engineWeekly(h, plan)) return null;
-  const context: TargetContext = { ...ctx, gait: ctx.gait ?? gait };
-  const { targets } = collectTargets({ intake: h, rom, gait });
-  const { selection, items } = selectForTargets(h, plan, programPool(h), targets, context);
-  const week = withGoalShare(h, plan, selection, items, context);
-  return { ...buildWeekly(h, plan, week, "engine", items), findings: findingsRef };
+  return targetedBuild(h, plan, rom, gait, findingsRef, ctx)?.weekly ?? null;
 }
 
 /**
@@ -1216,26 +1245,32 @@ export function targetedWeekly(
  * after them, up to the block's size. The share's items come from libraryPool(h), never a draft, minus
  * what the check closes and the finding items themselves.
  */
-export function withGoalShare(
+function goalShare(
   h: Intake,
   plan: Plan,
-  selection: Selection,
+  fixed: Selection,
   items: readonly TargetedItem[],
-  ctx: TargetContext = {},
-): Selection {
+  ctx: TargetContext,
+): { selection: Selection; pool: LibraryExercise[] } {
   const chosen = new Set(items.map((i) => i.exerciseId));
-  const share = candidatesOf(h, plan, libraryPool(h), programContraindications(h, ctx))
+  const pool = candidatesOf(h, plan, libraryPool(h), programContraindications(h, ctx))
     .map((c) => c.e)
     .filter((e) => !chosen.has(e.id));
-  const base = defaultSelection(h, plan, share);
+  const base = defaultSelection(h, plan, pool);
+  return { selection: withFixed(plan, base, fixed), pool };
+}
+
+/** Each block of each day: the fixed items first, then the other selection's, up to the block's size. */
+export function withFixed(plan: Pick<Plan, "days">, other: Selection, fixed: Selection): Selection {
   return {
     days: plan.days.map((_, d) => {
-      const f = selection.days[d] ?? { warmup: [], extra: [], cooldown: [] };
-      const b = base.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+      const f = fixed.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+      const b = other.days[d] ?? { warmup: [], extra: [], cooldown: [] };
       const fillTo = (mine: string[], theirs: string[], size: number) =>
         [...mine, ...theirs.filter((id) => !mine.includes(id))].slice(0, Math.max(size, mine.length));
       return {
         ...(b.focus ? { focus: b.focus } : {}),
+        ...(b.notes ? { notes: b.notes } : {}),
         warmup: fillTo(f.warmup, b.warmup, BLOCK_SIZES.warmup),
         extra: fillTo(f.extra, b.extra, BLOCK_SIZES.extra),
         cooldown: fillTo(f.cooldown, b.cooldown, BLOCK_SIZES.cooldown),

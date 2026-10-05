@@ -220,13 +220,19 @@ export function sanitizeSelection(
   plan: Plan,
   pool: LibraryExercise[],
   fallback: Selection,
+  /**
+   * v7 (contract 2.10): the items the findings fixed, kept first in their day and block whatever the
+   * model asks; the model fills the rest of each block from the pool.
+   */
+  fixed?: Selection,
 ): Selection {
   const ids = new Set(pool.map((e) => e.id));
   const rawDays: any[] = Array.isArray(raw?.days) ? raw.days : [];
   const days = plan.days.map((_, d) => {
     const r = rawDays[d] ?? {},
       f = fallback.days[d];
-    const used = new Set<string>();
+    const keep = fixed?.days[d] ?? { warmup: [], extra: [], cooldown: [] };
+    const used = new Set<string>([...keep.warmup, ...keep.extra, ...keep.cooldown]);
     const take = (list: unknown, max: number, fb: string[]) => {
       const out = (Array.isArray(list) ? list : [])
         .filter(
@@ -235,11 +241,16 @@ export function sanitizeSelection(
         .slice(0, max);
       return out.length ? out : fb.filter((x) => !used.has(x) && (used.add(x), true)).slice(0, max);
     };
-    const warmup = take(r.warmup, BLOCK_SIZES.warmup, f.warmup),
-      extra = take(r.extra, BLOCK_SIZES.extra, f.extra),
-      cooldown = take(r.cooldown, BLOCK_SIZES.cooldown, f.cooldown);
+    const block = (k: "warmup" | "extra" | "cooldown", list: unknown) => [
+      ...keep[k],
+      ...take(list, Math.max(0, BLOCK_SIZES[k] - keep[k].length), f[k]),
+    ];
+    const warmup = block("warmup", r.warmup),
+      extra = block("extra", r.extra),
+      cooldown = block("cooldown", r.cooldown);
+    const day = new Set([...warmup, ...extra, ...cooldown]);
     const notes = (Array.isArray(r.notes) ? r.notes : [])
-      .filter((n: any) => ids.has(n?.id))
+      .filter((n: any) => ids.has(n?.id) || (fixed !== undefined && day.has(n?.id)))
       .slice(0, 3)
       .map((n: any) => ({ id: n.id, ar: cleanText(n.ar, "ar", 140), en: cleanText(n.en, "en", 140) }))
       .filter((n: any) => n.ar && n.en);

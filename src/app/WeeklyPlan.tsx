@@ -9,6 +9,7 @@ import Icon from "./Icon";
 import ExerciseArt from "./ExerciseArt";
 import { guidedCopy } from "./guided-copy";
 import { cardKind } from "../medical/session";
+import { doseText } from "./weekly-dose";
 
 const copy = {
   ar: {
@@ -78,9 +79,7 @@ function Item({ item, lang, findings }: { item: WeeklyItem; lang: Lang; findings
   const n = (v: number) => fmtNum(v, lang);
   const digits = (s: string) => (lang === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s);
   const timer = cardKind(item) === "timer";
-  const dose = timer
-    ? g.doseHold(item.sets, item.holdSeconds ?? 0, n)
-    : g.doseReps(item.sets, item.reps ?? 8, n);
+  const dose = doseText(item, lang);
   const why = item.why?.[lang];
   // The result behind it: a range finding or the walk (a region or wheelchair reason is no result).
   const result = (item.reasonRefs ?? []).some((r) => r.kind === "rom" || r.kind === "gait");

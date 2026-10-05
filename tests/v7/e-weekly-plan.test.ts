@@ -60,6 +60,30 @@ describe("the Program tab's week with the findings' exercises", () => {
     for (const lang of ["ar", "en"] as const) expect(render(lang)).not.toMatch(/\{hold_/);
   });
 
+  it("says a held dose as the program page does: Arabic counts its seconds, a walk reads in minutes", () => {
+    // An isometric hold of the pain stable path (5 seconds, 10 times) and walking practice (10 minutes).
+    const weekly = {
+      ...targeted,
+      days: targeted.days.map((d, i) =>
+        i === shown
+          ? {
+              ...d,
+              warmup: [{ id: "quad_set", sets: 10, holdSeconds: 5 }, ...d.warmup.slice(1)],
+              extra: [{ id: "walking_practice", sets: 1, holdSeconds: 600 }, ...d.extra.slice(1)],
+            }
+          : d,
+      ),
+    };
+    const ar = text(render("ar", weekly)),
+      en = text(render("en", weekly));
+    expect(ar).toContain("١٠ مرات × ٥ ثوانٍ");
+    expect(ar).toContain("١٠ دقائق");
+    expect(ar).not.toContain("٥ ثانية");
+    expect(en).toContain("10 × 5 sec");
+    expect(en).toContain("10 minutes");
+    expect(en).not.toContain("600 sec");
+  });
+
   it("a week of the v1 rules shows no mark and no why", () => {
     const v1 = engineWeekly(FAHD, plan)!;
     const html = render("en", v1);

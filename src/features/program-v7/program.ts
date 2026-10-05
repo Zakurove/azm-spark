@@ -4,11 +4,10 @@
  * one why line, its dose and its days. The why lines, targets and reasons are the server's (rules before
  * AI); this module only arranges them for the page.
  */
-import { fmtDate, fmtNum, type Lang } from "../../app/i18n";
-import { guidedCopy } from "../../app/guided-copy";
-import { countPhrase } from "../../i18n";
+import { fmtDate, type Lang } from "../../app/i18n";
+import { doseText } from "../../app/weekly-dose";
 import { libraryById } from "../../medical/pool";
-import type { WeeklyItem, WeeklyPlan } from "../../medical/weekly";
+import type { WeeklyPlan } from "../../medical/weekly";
 import type { FocusCheckSummary } from "../focus/api";
 
 /** One exercise the findings chose, as the page shows it. */
@@ -30,23 +29,8 @@ export interface ProgramItemView {
 export const weekdayName = (day: number, lang: Lang) =>
   fmtDate(new Date(2026, 8, 6 + day), lang, { weekday: "long" });
 
-/**
- * A card's dose in words: a timer in seconds, or in minutes once a whole number of minutes (walking
- * practice), with its sets; a counter in repetitions (the guided card's own words).
- */
-export function doseText(item: Pick<WeeklyItem, "sets" | "reps" | "holdSeconds">, lang: Lang): string {
-  const g = guidedCopy(lang);
-  const n = (v: number) => fmtNum(v, lang);
-  const hold = item.holdSeconds ?? 0;
-  if (!hold) return g.doseReps(item.sets, item.reps ?? 8, n);
-  const minutes = hold >= 60 && hold % 60 === 0;
-  // English keeps the guided card's short seconds; Arabic counts them («٥ ثوانٍ», «٣٠ ثانية»).
-  if (!minutes && lang === "en") return g.doseHold(item.sets, hold, n);
-  const time = minutes ? countPhrase(lang, "min", hold / 60) : countPhrase(lang, "sec", hold);
-  if (item.sets === 1) return time;
-  const times = lang === "ar" ? (item.sets === 2 ? "مرتان" : `${n(item.sets)} مرات`) : `${n(item.sets)}`;
-  return `${times} × ${time}`;
-}
+/** A card's dose in words, the same words as the Program tab's week (app/weekly-dose.ts). */
+export { doseText };
 
 const BLOCKS = ["warmup", "extra", "cooldown"] as const;
 

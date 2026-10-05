@@ -88,6 +88,12 @@ export interface RomProfileEntry {
   gradeIgnoringPain: RomGrade | null;
   painLimited: boolean;
   painLevel: number | null;
+  /**
+   * The region's pain score before the movement (today's pain or the same joint re-ask), as the stored
+   * row keeps it; absent or null when unknown (a default or a row without one). causeResolution orders
+   * 6 and 11 read «today's pain is 4 or 5» from it (contract gap B4-G1, accepted in the wave 2 fixes).
+   */
+  painBefore?: number | null;
   cause: LimitCause | null;
   /** 1 valid attempt */
   provisional: boolean;

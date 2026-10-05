@@ -639,6 +639,36 @@ describe("romFindings: the limited results with their path, priority and line (e
       });
     });
 
+    it("6: today's pain 4 or 5 before the movement is irritable, with no pain score during it", () => {
+      const sore = intakeOf({ regions: [entry("knee", "right", ["pain"])] });
+      for (const before of [4, 5])
+        expect(pathOf(sore, "knee_flexion", { cause: "pain", painLevel: null, painBefore: before })).toBe(
+          "pain_irritable",
+        );
+      expect(pathOf(sore, "knee_flexion", { cause: "pain", painLevel: null, painBefore: 3 })).toBe(
+        "pain_stable",
+      );
+      // The rise counts from the score before: 2 then 3 is a rise of 1.
+      expect(pathOf(sore, "knee_flexion", { painLimited: true, painLevel: 3, painBefore: 2 })).toBe(
+        "pain_stable",
+      );
+      // An unknown score before in a body map pain or injury region reads as irritable (the safe side).
+      expect(pathOf(sore, "knee_flexion", { cause: "pain", painLevel: null, painBefore: null })).toBe(
+        "pain_irritable",
+      );
+      const stiff = intakeOf({ regions: [entry("knee", "right", ["stiffness"])] });
+      expect(pathOf(stiff, "knee_flexion", { cause: "pain", painLevel: null, painBefore: null })).toBe(
+        "pain_stable",
+      );
+    });
+
+    it("11: a body map pain region with today's pain 4 or 5 is irritable", () => {
+      const sore = intakeOf({ regions: [entry("knee", "right", ["pain"])] });
+      expect(pathOf(sore, "knee_flexion", { painBefore: 4 })).toBe("pain_irritable");
+      expect(pathOf(sore, "knee_flexion", { painBefore: 5 })).toBe("pain_irritable");
+      expect(pathOf(sore, "knee_flexion", { painBefore: 2 })).toBe("pain_stable");
+    });
+
     it("7: an injury older than 6 weeks, or surgery from 12 weeks or with loading clearance: rehab", () => {
       const injured = intakeOf({
         regions: [entry("knee", "right", ["injury"], { injury: { since: "6w_3m" } })],

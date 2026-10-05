@@ -221,6 +221,7 @@ function storedEntry(row: StoredRomRow, m: ProfileMovement, intake: Intake & { s
     gradeIgnoringPain: row.gradeIgnoringPain,
     painLimited: row.pain,
     painLevel: row.painLevel,
+    painBefore: row.painBefore,
     cause: row.cause,
     provisional: row.flags.includes("provisional"),
     approximate: row.flags.includes("approximate"),
@@ -335,20 +336,25 @@ function mapEntriesOf(intake: Intake, e: Pick<RomProfileEntry, "region" | "side"
 }
 
 /**
- * The region's score before the movement (today's pain), for «the pain rose by 2 or more during the
- * test» and «today's pain is 4 or 5». The profile entry does not carry it (contract gap B4-G1, proposal:
- * RomProfileEntry.painBefore, as StoredRomRow has it), so it is unknown here: the rise counts from 0, as
- * C-15 counts an unknown score before, and today's pain cannot be read.
+ * The region's score before the movement (today's pain, or the same joint re-ask's answer), for «the
+ * pain rose by 2 or more during the test» and «today's pain is 4 or 5»: the stored row's painBefore
+ * (B4-G1), unknown (null) for an entry without one.
  */
-function painBeforeOf(_e: RomProfileEntry): number | null {
-  return null;
+function painBeforeOf(e: RomProfileEntry): number | null {
+  return e.painBefore ?? null;
 }
 
-/** «irritable when the pain rose by 2 or more during the test, today's pain is 4 or 5, or an injury or surgery was under 3 months ago». */
+/**
+ * «irritable when the pain rose by 2 or more during the test, today's pain is 4 or 5, or an injury or
+ * surgery was under 3 months ago». The rise counts an unknown score before as 0, as C-15 does. Today's
+ * pain unknown in a region the body map marks with pain or an injury reads as irritable: the day asks
+ * that region's pain before any movement, so a missing score is the safe side's call, never stable.
+ */
 function painPath(e: RomProfileEntry, map: readonly RegionEntry[]): CausePath {
   const before = painBeforeOf(e);
   const rose = e.painLevel !== null && e.painLevel - (before ?? 0) >= PAIN_RISE_GTE;
-  const today = before !== null && (IRRITABLE.painToday ?? []).includes(before);
+  const painRegion = map.some((r) => r.problems.includes("pain") || r.problems.includes("injury"));
+  const today = before !== null ? (IRRITABLE.painToday ?? []).includes(before) : painRegion;
   const recent = map.some(
     (r) =>
       (r.problems.includes("injury") && inside(r.injury?.since, IRRITABLE_WINDOW)) ||

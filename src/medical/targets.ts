@@ -216,8 +216,10 @@ function romTargets(f: RomFinding, h: Intake, out: Draft[], referrals: ReferralI
   if (f.finding === "unknown") {
     if (f.noActiveMovement) {
       referrals.push("refer:care_team");
+      // Only the self assisted items fill it (selectForTargets, SELF_ASSISTED_SHOULDER).
       if (f.region === "shoulder")
-        for (const id of movementRow(f.movementId).mobility) add(id, f.priority, true);
+        for (const id of movementRow(f.movementId).mobility)
+          add(id, f.priority, PAIN_FRIENDLY_PATHS.includes(f.path));
       return;
     }
     // A camera movement the camera cannot measure: a residual joint after limb loss (rom-protocol 2.4).

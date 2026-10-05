@@ -6,9 +6,11 @@
  * synthetic walk are seen by the same phone. Node only (the files are read from disk); the e2e pose
  * source plays the synthetic walks of tests/fixtures/gait/catalog.ts.
  *
- * A fixture holds the room coordinates of 19 landmarks at 30 Hz (x along the walkway or belt, y up,
- * z across, millimetres), the standing calibration from the dataset's static trial, and the
- * dataset's own gait events. A view places the phone:
+ * A fixture (JSON text named <id>.mocap, so tests/fixtures.test.ts, which reads every .json under
+ * tests/fixtures as a movement check fixture, passes it by) holds the room coordinates of 19
+ * landmarks at 30 Hz (x along the walkway or belt, y up, z across, millimetres), the standing
+ * calibration from the dataset's static trial, and the dataset's own gait events. A view places
+ * the phone:
  *   side       overground side passes in both directions, the phone 3.5 m from the walking line at
  *              1.0 m (the near limb walking to the picture's right is the right one);
  *   front      the same passes from the end of the walkway, 1.0 m past the capture volume and
@@ -122,15 +124,15 @@ const cache = new Map<string, MocapFixture>();
 /** The ids of every committed mocap fixture, sorted. */
 export function mocapIds(): string[] {
   return readdirSync(MOCAP_DIR)
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => f.replace(/\.json$/, ""))
+    .filter((f) => f.endsWith(".mocap"))
+    .map((f) => f.replace(/\.mocap$/, ""))
     .sort();
 }
 
 export function loadMocap(id: string): MocapFixture {
   const hit = cache.get(id);
   if (hit) return hit;
-  const raw = JSON.parse(readFileSync(join(MOCAP_DIR, `${id}.json`), "utf8")) as FixtureFile &
+  const raw = JSON.parse(readFileSync(join(MOCAP_DIR, `${id}.mocap`), "utf8")) as FixtureFile &
     Omit<MocapFixture, "standing" | "passes">;
   if (raw.format !== "azm-gait-mocap-1" || raw.encoding !== "delta")
     throw new Error(`${id}: unknown mocap fixture format`);

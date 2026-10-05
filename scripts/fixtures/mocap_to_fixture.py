@@ -66,7 +66,8 @@ neighbour is missing (null). Events keep the dataset's times on the same clock (
 pass's first sample). The static trial gives the standing calibration: its own samples at 30 Hz,
 repeated to 3 s.
 
-Output (one JSON file per fixture, written compactly; prettier ignores tests/fixtures/**/*.json):
+Output (one JSON text per fixture, named <id>.mocap: tests/fixtures.test.ts reads every .json under
+tests/fixtures as a movement check fixture, and prettier leaves the extension alone):
 
   { "format": "azm-gait-mocap-1", "id", "dataset", "licence", "citation", "sourceFiles": [...],
     "subject": { "group", "sex", "heightCm", "legLengthCm", "ageYears" | "birthDecade",
@@ -938,7 +939,7 @@ def main() -> None:
         if args.only and e["id"] != args.only:
             continue
         fx = build(e, args.cache, info)
-        path = os.path.join(args.out, f"{e['id']}.json")
+        path = os.path.join(args.out, f"{e['id']}.mocap")
         with open(path, "w") as f:
             f.write(compact(fx))
         n = sum(len(p["t"]) for p in fx["passes"])

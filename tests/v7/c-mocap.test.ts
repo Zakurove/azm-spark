@@ -1,6 +1,6 @@
 /**
  * The motion capture gait fixtures (product v7 contract 6.1 and 8.3, step C2): the committed subset of
- * scripts/fixtures/mocap_to_fixture.py (tests/fixtures/gait/mocap/*.json, named per trial in
+ * scripts/fixtures/mocap_to_fixture.py (tests/fixtures/gait/mocap/*.mocap, named per trial in
  * tests/fixtures/gait/README.md) and their projection through the synthetic walker's phone
  * (tests/fixtures/gait/mocap.ts). The engine's acceptance on them is c-acceptance-mocap.test.ts.
  */

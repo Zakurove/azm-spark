@@ -9,7 +9,7 @@ shipped: the e2e pose source plays the synthetic walks by name, and the unit tes
 - `catalog.ts`: the named synthetic walks the e2e `FixturePoseSource` plays
   (`?e2eFixture=gait/<name>`, the standing calibration first), the speed and cadence pairs of the
   sweep, and the pattern walks of the acceptance.
-- `mocap/*.json` and `mocap.ts`: real walks from two open motion capture datasets, projected
+- `mocap/*.mocap` and `mocap.ts`: real walks from two open motion capture datasets, projected
   through the same phone as the synthetic walker (below). Node only: never in a browser bundle.
 
 The acceptance of contract 8.3 is `tests/v7/c-acceptance-synthetic.test.ts`,
@@ -40,7 +40,9 @@ Criekinge and Fukuchi walks below are the curve driven walks, each with its own 
 
 ## Motion capture fixtures
 
-Each file is one walker: the room coordinates (millimetres) of the 19 points that stand in for the
+Each file is one walker, JSON text named `<id>.mocap` (`tests/fixtures.test.ts` reads every `.json`
+under `tests/fixtures` as a movement check fixture): the room coordinates (millimetres) of the 19
+points that stand in for the
 MediaPipe landmarks the gait engine reads, at 30 Hz with frame time jitter, the standing calibration
 from the dataset's static trial, and the dataset's own gait events as the truth. `mocap.ts` places
 the phone for any view and projects every point through `gen-gait.ts`'s pinhole camera, with its

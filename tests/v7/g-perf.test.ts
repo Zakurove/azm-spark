@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   PerfMeter,
   RecentValues,
+  meanFps,
   medianFps,
   quantile,
   spread,
@@ -46,6 +47,25 @@ describe("medianFps", () => {
     expect(medianFps([0, 40, 80, 300, 340, 380])).toBe(25);
     expect(medianFps([5])).toBeNull();
     expect(medianFps([5, 5, 5])).toBeNull();
+  });
+});
+
+describe("meanFps (D-026 item 6: frame rate floors use the mean over the window)", () => {
+  it("is the frames over the window's span, so dropped frames count", () => {
+    const times = Array.from({ length: 31 }, (_, i) => i * (1000 / 30));
+    expect(meanFps(times)).toBe(30);
+    // A model that handles 3 of every 4 camera frames at 30 fps: gaps 33, 33, 67 ms.
+    const lossy = Array.from({ length: 120 }, (_, i) => i * (1000 / 30)).filter((_, i) => i % 4 !== 3);
+    expect(medianFps(lossy)).toBe(30);
+    expect(meanFps(lossy)).toBeCloseTo(22.5, 0);
+    expect(meanFps([5])).toBeNull();
+    expect(meanFps([5, 5])).toBeNull();
+  });
+
+  it("is the perf overlay's pose rate, as the probe and the gait gate read it", () => {
+    const m = new PerfMeter(1000);
+    for (let i = 0; i < 120; i++) if (i % 4 !== 3) m.model(i * (1000 / 30), i * (1000 / 30) + 12);
+    expect(m.snapshot().poseFps).toBeCloseTo(22.5, 0);
   });
 });
 

@@ -61,6 +61,12 @@ class FakeSource implements PoseSource {
   play(fps: number, ms = PROBE_MS + 100, from = 1000): void {
     for (let t = from; t <= from + ms; t += 1000 / fps) this.onFrame?.({ t, lm: [], poses: [] });
   }
+  /** Camera frames at `fps`, the model keeping only those `keep` says (a lossy stream). */
+  playSome(fps: number, keep: (k: number) => boolean, ms = PROBE_MS + 100, from = 1000): void {
+    let k = 0;
+    for (let t = from; t <= from + ms; t += 1000 / fps, k++)
+      if (keep(k)) this.onFrame?.({ t, lm: [], poses: [] });
+  }
 }
 
 class MemoryStorage {
@@ -214,6 +220,18 @@ describe("focusCameraSession", () => {
     sources[2].play(20, PROBE_MS + 100, 9000);
     expect(await probe).toEqual({ model: "full", fps: 20, switched: false });
     expect(getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it("reads the mean rate over the window: a model that keeps 3 of 4 frames at 30 fps is Lite for gait (D-026 item 6)", async () => {
+    const { cam, sources, running } = camera();
+    await running(1);
+    const probe = cam.probe("gait");
+    await settle();
+    sources[0].playSome(30, (k) => k % 4 !== 3);
+    const out = await probe;
+    expect(out).toMatchObject({ model: "lite", switched: true });
+    expect(out.fps!).toBeGreaterThan(22);
+    expect(out.fps!).toBeLessThan(23);
   });
 
   it("treats a miss after a pass in the same check as thermal: Lite to the end, nothing kept", async () => {

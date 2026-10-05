@@ -88,15 +88,15 @@ function deviceStorage(): Store | null {
   }
 }
 
-/** 1000 ÷ the median gap between frames (as QualityMonitor's fps), to 0.1; null under two frames. */
-function medianFps(times: readonly number[]): number | null {
-  const gaps: number[] = [];
-  for (let i = 1; i < times.length; i++) if (times[i] > times[i - 1]) gaps.push(times[i] - times[i - 1]);
-  if (!gaps.length) return null;
-  gaps.sort((a, b) => a - b);
-  const m = gaps.length >> 1;
-  const gap = gaps.length % 2 ? gaps[m] : (gaps[m - 1] + gaps[m]) / 2;
-  return Math.round(10000 / gap) / 10;
+/**
+ * The mean frame rate over the probe's window: (frames − 1) × 1000 ÷ its span, to 0.1; null under two
+ * frames. D-026 item 6: the floors use the mean over the window, not the median gap, so a model that
+ * keeps 3 of every 4 camera frames reads 22.5 at 30 fps, as the gait view gate reads it.
+ */
+function meanFps(times: readonly number[]): number | null {
+  if (times.length < 2) return null;
+  const span = times[times.length - 1] - times[0];
+  return span > 0 ? Math.round(((times.length - 1) * 10000) / span) / 10 : null;
 }
 
 /** Builds a pose source with the model the block needs, on the session's camera (`stream`). */
@@ -205,7 +205,7 @@ export function focusCameraSession(opts: FocusCameraOptions = {}): FocusCamera {
         offFrame();
         offStatus();
         if (backstop) clearTimeout(backstop);
-        resolve({ fps: medianFps(times), complete });
+        resolve({ fps: meanFps(times), complete });
       };
       const offFrame = session.onFrame((f) => {
         // Frames that stall past twice the probe end it unfinished (the camera error screens take over).

@@ -44,6 +44,17 @@ export function medianFps(times: readonly number[]): number | null {
   return gap === null ? null : Math.round(10000 / gap) / 10;
 }
 
+/**
+ * The mean frame rate over a window: (frames − 1) × 1000 ÷ its span in ms, to 0.1; null under two
+ * frames or an empty span. D-026 item 6: the frame rate floors (the C-10 model probe, the gait view
+ * gates) read the mean, so dropped frames count; the overlay shows the same number.
+ */
+export function meanFps(times: readonly number[]): number | null {
+  if (times.length < 2) return null;
+  const span = times[times.length - 1] - times[0];
+  return span > 0 ? Math.round(((times.length - 1) * 10000) / span) / 10 : null;
+}
+
 /** The last `capacity` values pushed, oldest first. */
 export class RecentValues {
   private readonly buf: number[] = [];
@@ -173,7 +184,7 @@ export class PerfMeter {
     const measures: Record<string, Spread> = {};
     for (const [name, w] of this.named) measures[name] = spread(w.values());
     return {
-      poseFps: medianFps(this.modelStarts.values()),
+      poseFps: meanFps(this.modelStarts.values()),
       modelMs: spread(this.modelDurations.values()),
       frameMs: spread(this.frameGaps.values()),
       longTasks: {

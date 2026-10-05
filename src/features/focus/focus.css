@@ -1491,6 +1491,83 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ——— the v1 warnings and the helper briefing (v1 S25, S26, S28) ——— */
+.fx-body.is-strong {
+  font-weight: 700;
+}
+.fx-warnings,
+.fx-brief {
+  display: grid;
+  gap: 14px;
+}
+.fx-warning-group {
+  display: grid;
+  gap: 8px;
+}
+.fx-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--fx-purple-tint);
+  color: var(--fx-ink);
+}
+.fx-warning.is-warn {
+  background: var(--fx-gold-tint);
+}
+.fx-warning svg {
+  flex: none;
+  margin-top: 5px;
+  color: var(--fx-purple-ink);
+}
+.fx-warning.is-warn svg {
+  color: var(--fx-gold-ink);
+}
+.fx-warning p {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.78;
+  font-weight: 600;
+}
+.fx-brief-picture {
+  max-width: 420px;
+}
+.azm-check.fx .flow-drawing {
+  margin: 0;
+}
+.azm-check.fx .flow-drawing svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+.azm-check.fx .flow-draw-bg {
+  fill: var(--fx-gold-tint);
+}
+.azm-check.fx .flow-draw-line {
+  stroke: rgba(28, 32, 41, 0.18);
+  stroke-width: 2;
+}
+.azm-check.fx .flow-draw-ink {
+  fill: var(--fx-ink);
+}
+.azm-check.fx .flow-draw-soft {
+  fill: #ffffff;
+  stroke: rgba(28, 32, 41, 0.14);
+  stroke-width: 1.5;
+}
+.azm-check.fx .flow-draw-accent {
+  fill: var(--fx-purple);
+}
+.azm-check.fx .flow-draw-dash {
+  fill: none;
+  stroke: var(--fx-purple);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+
 /* ——— safety ——— */
 .fx-safety .safety-heading {
   margin: 0;

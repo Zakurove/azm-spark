@@ -9,7 +9,19 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
 import { romRowsOf } from "../../server/modules/focus/store";
 import { createFocusApi } from "../../src/features/focus/api";
-import { checkParts, painRegions, todayQuestions, type TodayQuestion } from "../../src/features/focus/flow";
+import {
+  checkParts,
+  checkWarningsOf,
+  initialModel,
+  painRegions,
+  partWarnings,
+  reduce,
+  todayQuestions,
+  type FocusModel,
+  type StartResponse,
+  type TodayQuestion,
+} from "../../src/features/focus/flow";
+import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import { itemKey } from "../../src/features/focus/romController";
 import { FocusSession } from "../../src/features/focus/session";
 import { cellOf, jointsOf } from "../../src/features/focus/Screens";
@@ -102,7 +114,13 @@ const noFlags = (q: TodayQuestion) => (q.kind === "pain" ? 2 : q.kind === "rf" ?
 function runParts(s: FocusSession, plan: PersonPlan = {}, t0 = 2_000_000) {
   const ran: string[] = [];
   let t = t0;
-  for (let guard = 0; guard < 20 && s.model.state.kind === "part"; guard++) {
+  // The warnings of the whole check and a helper briefing are read and confirmed first.
+  const confirm = () => {
+    if (s.model.state.kind === "warnings") s.dispatch({ type: "SEEN" });
+    if (s.model.state.kind === "brief") s.dispatch({ type: "HELPER_READY" });
+  };
+  confirm();
+  for (let guard = 0; guard < 20 && s.model.state.kind === "part"; guard++, confirm()) {
     const part = s.model.data.parts[s.model.state.index];
     ran.push(part.kind === "range" ? part.block : "gait");
     if (part.kind === "gait") {
@@ -379,6 +397,22 @@ describe("the focus shell end to end on the real routes", () => {
     expect(s.model.state.kind === "postponed" && s.model.state.lock).toBeTruthy();
   });
 
+  it("an MS check reads warn_ms_cool once before the first part, then runs and completes", async () => {
+    const ms: Intake = v7Intake({
+      conditions: ["ms"],
+      regions: [{ region: "knee", side: "right", problems: ["stiffness"], origin: "person" }],
+      walking: { status: "no" },
+    });
+    const { s } = await session(ms);
+    await s.load();
+    await answerAll(s, noFlags);
+    expect(s.model.state).toEqual({ kind: "warnings" });
+    expect(s.model.data.check!.warnings).toContain("warn_ms_cool");
+    runParts(s);
+    await settle(s, "completing");
+    expect(s.model.state.kind).toBe("done");
+  }, 60_000);
+
   it("closes without the v7 body questions, and asks for the consent first", async () => {
     const { s } = await session(v7Intake(), []);
     await s.load();
@@ -437,5 +471,115 @@ describe("the day questions (2.5)", () => {
       null,
     );
     expect(qs.filter((q) => q.kind === "walk10m" || q.kind === "pdFreezing")).toEqual([]);
+  });
+});
+
+describe("the v1 warnings and helper briefings the start returns (C-2, C-16, v1.1 S25, S26 and S28)", () => {
+  const MS_CHAIR = v7Intake({
+    mobility: "wheelchair",
+    conditions: ["ms"],
+    regions: [
+      { region: "back_trunk", side: "axial", problems: ["stiffness"], origin: "person" },
+      { region: "knee", side: "right", problems: ["stiffness"], origin: "person" },
+    ],
+  });
+  const protocolOf = (intake: Intake) =>
+    buildRomProtocol({
+      intake: intake as Parameters<typeof buildRomProtocol>[0]["intake"],
+      setting: "booth",
+      today: { painByRegion: {}, redFlagRegions: [] },
+    });
+  const started = (r: Partial<StartResponse> & Pick<StartResponse, "protocol">): FocusModel => {
+    const m0 = initialModel();
+    const m: FocusModel = { state: { kind: "starting", error: null }, data: m0.data };
+    return reduce(m, {
+      type: "START_OK",
+      response: {
+        id: "c1",
+        kind: "baseline",
+        gait: null,
+        warnings: [],
+        helperRequired: [],
+        helperBriefing: {},
+        ...r,
+      },
+    });
+  };
+
+  it("shows the warnings of the whole check once before the first part, then the helper briefing, then the part", () => {
+    const protocol = protocolOf(MS_CHAIR);
+    let m = started({
+      protocol,
+      warnings: ["warn_sci_t6", "scr_helper_brief_trunk", "warn_ms_cool"],
+      helperRequired: ["rom_seated"],
+      helperBriefing: { trunk_control_seated: "scr_helper_brief_trunk" },
+    });
+    expect(m.state).toEqual({ kind: "warnings" });
+    expect(checkWarningsOf(m.data.check!.warnings)).toEqual(["warn_ms_cool"]);
+    m = reduce(m, { type: "SEEN" });
+    // The side bend in seated_armrests runs in the seated block: its briefing is a confirm step first.
+    expect(m.state).toEqual({ kind: "brief", index: 0, screen: "scr_helper_brief_trunk" });
+    expect(reduce(m, { type: "PART_DONE" }).state).toEqual(m.state);
+    m = reduce(m, { type: "HELPER_READY" });
+    expect(m.state).toEqual({ kind: "part", index: 0 });
+  });
+
+  it("goes straight to the first part when every warning is shown with its part", () => {
+    const m = started({ protocol: protocolOf(MS_CHAIR), warnings: ["warn_sci_t6", "warn_weak_shoulder"] });
+    expect(m.state).toEqual({ kind: "part", index: 0 });
+  });
+
+  it("shows the seek care screen of a red flag region first, then the warnings", () => {
+    let m = started({ protocol: protocolOf(MS_CHAIR), warnings: ["warn_ms_cool", "scr_stop_seek_care"] });
+    expect(m.state).toEqual({ kind: "seek_care", then: "parts" });
+    m = reduce(m, { type: "SEEN" });
+    expect(m.state).toEqual({ kind: "warnings" });
+    m = reduce(m, { type: "SEEN" });
+    expect(m.state).toEqual({ kind: "part", index: 0 });
+  });
+
+  it("the chair stand's briefing comes before the standing block and before the walk", () => {
+    const protocol = protocolOf(
+      v7Intake({
+        regions: [
+          { region: "shoulder", side: "right", problems: ["stiffness"], origin: "person" },
+          { region: "hip", side: "right", problems: ["stiffness"], origin: "person" },
+        ],
+      }),
+    );
+    const gait = {
+      offered: true,
+      modes: ["overground"],
+      padAllowed: false,
+      helperRequired: true,
+      antalgicOnly: false,
+      staticStance: false,
+      views: { overground: ["side"], walking_pad: [] },
+    } as unknown as GaitPlan;
+    let m = started({ protocol, gait, helperBriefing: { chair_stand_30s: "scr_helper_brief_stand" } });
+    const kinds = m.data.parts.map((p) => (p.kind === "range" ? p.block : "gait"));
+    expect(kinds).toEqual(["seated", "standing", "gait", "lying"]);
+    // The seated block has no side bend: no briefing before it.
+    expect(m.state).toEqual({ kind: "part", index: 0 });
+    m = reduce(m, { type: "PART_DONE" });
+    expect(m.state).toEqual({ kind: "brief", index: 1, screen: "scr_helper_brief_stand" });
+    m = reduce(m, { type: "HELPER_READY" });
+    expect(m.state).toEqual({ kind: "part", index: 1 });
+    m = reduce(m, { type: "PART_DONE" });
+    expect(m.state).toEqual({ kind: "brief", index: 2, screen: "scr_helper_brief_stand" });
+    m = reduce(reduce(m, { type: "HELPER_READY" }), { type: "PART_DONE" });
+    expect(m.state).toEqual({ kind: "part", index: 3 });
+  });
+
+  it("warn_sci_t6 goes with every part, and warn_weak_shoulder with a block that moves an arm", () => {
+    const protocol = protocolOf(FAHD);
+    const warnings: StartResponse["warnings"] = ["warn_sci_t6", "warn_weak_shoulder", "warn_ms_cool"];
+    expect(partWarnings(warnings, { kind: "range", block: "seated" }, protocol)).toEqual([
+      "warn_sci_t6",
+      "warn_weak_shoulder",
+    ]);
+    expect(partWarnings(warnings, { kind: "range", block: "lying" }, protocol)).toEqual(["warn_sci_t6"]);
+    expect(partWarnings(warnings, { kind: "gait" }, protocol)).toEqual(["warn_sci_t6"]);
+    expect(partWarnings(["warn_ms_cool"], { kind: "gait" }, protocol)).toEqual([]);
   });
 });

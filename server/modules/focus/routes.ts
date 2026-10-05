@@ -481,6 +481,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         const ctx = focusContext(s.intake, s.plan, setting)!;
         const lock = currentLock(db, u.id, now);
         const open = openFocusCheck(db, u.id);
+        const dose = s.lastCompleted?.precheck["fingerprint.pdDoseBucket"];
         const common = {
           setting,
           homeOpen: homeChecksOpen(),
@@ -493,6 +494,9 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           open: open && !isStale(open, now) ? { id: open.id } : null,
           lastCompleted: lastCompletedFocusAt(db, u.id),
           earliestNext: s.schedule.earliestNext,
+          // The {x} of warn_pd_timing (v1 R3C-30 (4)): the dose bucket kept with the last completed
+          // movement check, or null, which leaves the warning out (src/medical/precheck.ts).
+          lastPdDoseBucket: typeof dose === "string" ? dose : null,
         };
         const intake = s.intake;
         // Without the v7 answers no protocol can be built: the client asks for them first.

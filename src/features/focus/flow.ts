@@ -15,6 +15,13 @@
  *                items when the walk is planned
  *   starting     POST /api/focus (setting booth on a booth pass, else home)
  *   seek_care    a red flag region (rf_region yes): scr_stop_seek_care once, then the other regions
+ *   warnings     the v1 pre-check's warnings for the whole check (v1 S25: warn_ms_cool, warn_pd_timing,
+ *                scr_note_care and the rest), once before the first part; warn_sci_t6 and
+ *                warn_weak_shoulder go with their parts instead (v1 S28, partWarnings)
+ *   brief        the v1 helper briefing (S26, Q11) before a part the bridge maps it to: the chair
+ *                stand's before the standing block and the walk, the side lean's before the seated
+ *                block with the side bend in seated_armrests; a confirm step («المساعد بجانبي وقرأ
+ *                التعليمات»): the part starts only after the tap (v1.1)
  *   part         the parts in C-13 order: seated range, standing range, the walk (C's GaitStep slot),
  *                lying range (then sit before stand, in the RomController)
  *   stop_screen  a stop list answer with a screen (emergency, faint, fall, seek care)
@@ -41,7 +48,8 @@ import {
   type RomBlock,
   type RomProtocol,
 } from "../../medical/rom-protocol";
-import type { ScreenId } from "../../movements/types";
+import type { ScreenId, TestId } from "../../movements/types";
+import { WARNINGS_AT_TEST } from "../assessment/flow/copy";
 
 /** GET /api/focus/context as the server sends it (server/modules/focus/routes.ts). */
 export interface FocusContext {
@@ -57,6 +65,8 @@ export interface FocusContext {
   open: { id: string } | null;
   lastCompleted: number | null;
   earliestNext: number | null;
+  /** The {x} of warn_pd_timing: the dose bucket kept with the last completed check, or null (v1). */
+  lastPdDoseBucket?: string | null;
 }
 
 /** The 200 answer of POST /api/focus. */
@@ -67,7 +77,8 @@ export interface StartResponse {
   gait: GaitPlan | null;
   warnings: ScreenId[];
   helperRequired: string[];
-  helperBriefing: Record<string, unknown>;
+  /** The v1 helper briefing screen of each proxy test that needs a helper today (precheck helperBriefing). */
+  helperBriefing: Partial<Record<TestId, ScreenId>>;
 }
 
 /** The v1 stop route the stop answer gives (POST /api/focus/:id/stop). */
@@ -113,6 +124,8 @@ export type FocusState =
       lock: LockView | null;
     }
   | { kind: "seek_care"; then: "parts" | "nothing" }
+  | { kind: "warnings" }
+  | { kind: "brief"; index: number; screen: HelperBriefScreen }
   | { kind: "part"; index: number }
   | { kind: "stop_screen"; route: FocusStopRoute }
   | { kind: "faint_ask"; route: FocusStopRoute }
@@ -157,6 +170,8 @@ export type FocusEvent =
     }
   | { type: "RETRY" }
   | { type: "SEEN" }
+  /** The helper briefing's confirm tap (helperBriefing.confirmButton). */
+  | { type: "HELPER_READY" }
   | { type: "PART_DONE" }
   | { type: "CHECK_ENDED"; route: FocusStopRoute }
   | { type: "STOP_SCREEN"; route: FocusStopRoute }
@@ -253,6 +268,65 @@ export function checkParts(protocol: RomProtocol, gait: GaitPlan | null): FocusP
   return parts;
 }
 
+/** The v1 helper briefings (S26). */
+export type HelperBriefScreen = "scr_helper_brief_stand" | "scr_helper_brief_trunk";
+
+/**
+ * The warnings of the whole check (v1 S25, checkWarnings): every warning the start returned except
+ * those shown with a part (WARNINGS_AT_TEST: warn_sci_t6, warn_weak_shoulder and the two helper
+ * briefings) and the seek care screen of a red flag region, which has its own step.
+ */
+export function checkWarningsOf(warnings: readonly ScreenId[]): ScreenId[] {
+  return warnings.filter((w) => !WARNINGS_AT_TEST.includes(w) && w !== "scr_stop_seek_care");
+}
+
+const ARM_REGIONS: readonly RegionId[] = ["shoulder", "elbow", "forearm_wrist"];
+
+/**
+ * The warnings shown with a part, on the card the person confirms before it starts (v1 S28
+ * testWarnings: «warn_sci_t6 before every test», warn_weak_shoulder before the arm tests):
+ * warn_sci_t6 with every range block and the walk; warn_weak_shoulder with a block that moves an arm.
+ */
+export function partWarnings(
+  warnings: readonly ScreenId[],
+  part: FocusPart,
+  protocol: RomProtocol,
+): ScreenId[] {
+  const out: ScreenId[] = [];
+  if (warnings.includes("warn_sci_t6")) out.push("warn_sci_t6");
+  if (
+    part.kind === "range" &&
+    warnings.includes("warn_weak_shoulder") &&
+    protocol.items.some((i) => i.block === part.block && !i.skipped && ARM_REGIONS.includes(i.region))
+  )
+    out.push("warn_weak_shoulder");
+  return out;
+}
+
+/**
+ * The helper briefing before a part (v1.1: «the test starts only after the tap on
+ * helperBriefing.confirmButton»), as the pre-check bridge maps the proxy tests (focus-precheck.ts):
+ * the chair stand's (chair_stand_30s) before a standing block and the walk; the side lean's
+ * (trunk_control_seated) before the block with a side bend in seated_armrests. Null: none.
+ */
+export function briefFor(
+  part: FocusPart | undefined,
+  protocol: RomProtocol,
+  briefing: StartResponse["helperBriefing"],
+): HelperBriefScreen | null {
+  if (!part) return null;
+  const pick = (test: TestId): HelperBriefScreen | null => {
+    const screen = briefing[test];
+    return screen === "scr_helper_brief_stand" || screen === "scr_helper_brief_trunk" ? screen : null;
+  };
+  if (part.kind === "gait") return pick("chair_stand_30s");
+  if (part.block === "standing") return pick("chair_stand_30s");
+  const sideLean = protocol.items.some(
+    (i) => i.block === part.block && !i.skipped && i.position === "seated_armrests",
+  );
+  return sideLean ? pick("trunk_control_seated") : null;
+}
+
 /** The start body of POST /api/focus. */
 export function startBody(d: FocusData, device: { os: string; browser: string }) {
   const ctx = d.context!;
@@ -301,6 +375,20 @@ function toToday(m: FocusModel): FocusModel {
   const qs = m.data.intake ? todayQuestions(m.data.intake, ctx.protocol!, ctx.gait) : [];
   if (qs.length === 0) return go(m, { kind: "starting", error: null }, { todayQs: qs });
   return go(m, { kind: "today", index: 0 }, { todayQs: qs });
+}
+
+/** A part of the check: its helper briefing first when it has one, else the part. */
+function toPart(m: FocusModel, index: number): FocusModel {
+  const check = m.data.check;
+  if (index >= m.data.parts.length) return go(m, { kind: "completing", error: false });
+  const screen = check ? briefFor(m.data.parts[index], check.protocol, check.helperBriefing ?? {}) : null;
+  return go(m, screen ? { kind: "brief", index, screen } : { kind: "part", index });
+}
+
+/** After the start (and the seek care screen): the warnings of the whole check, then the first part. */
+function afterStart(m: FocusModel): FocusModel {
+  const warnings = m.data.check ? checkWarningsOf(m.data.check.warnings) : [];
+  return warnings.length ? go(m, { kind: "warnings" }) : toPart(m, 0);
 }
 
 /** The state after a context: closed, the consent, or the intro. */
@@ -368,9 +456,9 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       if (s.kind !== "starting") return m;
       const r = e.response;
       const parts = checkParts(r.protocol, r.gait);
-      const data = { check: r, parts };
+      const data = { check: { ...r, helperBriefing: r.helperBriefing ?? {} }, parts };
       if (r.warnings.includes("scr_stop_seek_care")) return go(m, { kind: "seek_care", then: "parts" }, data);
-      return go(m, parts.length ? { kind: "part", index: 0 } : { kind: "completing", error: false }, data);
+      return afterStart(go(m, s, data));
     }
     case "START_FAILED": {
       if (s.kind !== "starting" && s.kind !== "postponed") return m;
@@ -427,21 +515,19 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       return m;
     case "SEEN":
       if (s.kind === "seek_care")
-        return s.then === "nothing"
-          ? go(m, { kind: "closed", why: "nothing" })
-          : go(m, m.data.parts.length ? { kind: "part", index: 0 } : { kind: "completing", error: false });
+        return s.then === "nothing" ? go(m, { kind: "closed", why: "nothing" }) : afterStart(m);
+      if (s.kind === "warnings") return toPart(m, 0);
       if (s.kind === "stop_screen") {
         // A faint or a fall: the follow up once the person is settled (v1 S38b), then Today.
         if (s.route.then === "sf_faint_loc") return go(m, { kind: "faint_ask", route: s.route });
         return s.route.endsCheck ? go(m, { kind: "exit", to: "today" }) : m;
       }
       return m;
+    case "HELPER_READY":
+      return s.kind === "brief" ? go(m, { kind: "part", index: s.index }) : m;
     case "PART_DONE": {
       if (s.kind !== "part") return m;
-      const next = s.index + 1;
-      return next < m.data.parts.length
-        ? go(m, { kind: "part", index: next })
-        : go(m, { kind: "completing", error: false });
+      return toPart(m, s.index + 1);
     }
     case "STOP_SCREEN":
       return go(m, { kind: "stop_screen", route: e.route });

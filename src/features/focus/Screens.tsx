@@ -26,8 +26,8 @@ import { GAIT_DATA } from "../../movements/gait";
 import { ROM_DATA } from "../../movements/rom";
 import type { ScreenId, StopOptionId } from "../../movements/types";
 import type { CoachStopReason } from "../../coach/types";
-import { questionView, splitSentences } from "../assessment/flow/copy";
-import { AreaPicker } from "../assessment/flow/parts";
+import { fillTokens, pdTimingToken, questionView, splitSentences } from "../assessment/flow/copy";
+import { AreaPicker, TopDownDrawing } from "../assessment/flow/parts";
 import { MultiAnswerList } from "../assessment/shared/answers";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
@@ -36,7 +36,7 @@ import type { LockView } from "../assessment/api";
 import { BodyMap } from "../body-map/BodyMap";
 import { copyText, movementName, regionName } from "./copy";
 import { sideRegion } from "./names";
-import { checkParts, type ClosedWhy, type TodayQuestion } from "./flow";
+import { checkParts, type ClosedWhy, type HelperBriefScreen, type TodayQuestion } from "./flow";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Glass, Kicker, Loading, PainScale, Title } from "./parts";
 
@@ -628,6 +628,138 @@ export function StartingScreen({
   );
 }
 
+/* ----------------------------------------------- the v1 warnings and briefings */
+
+/** The display text of a v1 warning (v1 Plan.tsx warningText), or null when it cannot be shown whole. */
+export function warningText(id: ScreenId, lang: Lang, pdBucket: string | null): string | null {
+  const text = screenText(id, lang);
+  if (id !== "warn_pd_timing") return text;
+  // {x} is the last check's dose bucket; the card shows only when the bucket is known (v1).
+  const x = pdTimingToken(pdBucket, lang);
+  return x ? fillTokens(text, { x }) : null;
+}
+
+/** A v1 warning as a note card: a caution (warn_pain_high, warn_weak_shoulder) or good to know. */
+export function WarningNote({ lang, id, text }: { lang: Lang; id: ScreenId; text?: string }) {
+  const warn = id === "warn_pain_high" || id === "warn_weak_shoulder";
+  return (
+    <section
+      className={`fx-warning is-${warn ? "warn" : "info"}`}
+      aria-label={t(lang, warn ? "assessment.tone.warn" : "assessment.tone.info")}
+      data-warning={id}
+    >
+      <CheckIcon name={warn ? "alert-triangle" : "info"} size={22} />
+      <p>{bidiText(lang, localizeDigits(lang, text ?? screenText(id, lang)))}</p>
+    </section>
+  );
+}
+
+/**
+ * The warnings of the whole check, once before the first part (v1 S25): the data's text of each
+ * warning the start returned, except those shown with their part (warn_sci_t6 and
+ * warn_weak_shoulder on the part's card) and the helper briefings (their own step).
+ */
+export function WarningsScreen({
+  lang,
+  warnings,
+  pdBucket,
+  skippedForSore,
+  onContinue,
+}: {
+  lang: Lang;
+  warnings: ScreenId[];
+  pdBucket: string | null;
+  /** The movements a pressure sore leaves out today (scr_note_care names them, as v1 does). */
+  skippedForSore: RomProtocolItem[];
+  onContinue(): void;
+}) {
+  const cards = warnings
+    .map((id) => ({ id, text: warningText(id, lang, pdBucket) }))
+    .filter((c): c is { id: ScreenId; text: string } => c.text !== null);
+  return (
+    <Glass className="fx-card fx-warnings">
+      <span className="fx-badge is-gold" aria-hidden="true">
+        <CheckIcon name="info" size={28} />
+      </span>
+      <Title>{t(lang, "assessment.warnings.title")}</Title>
+      {cards.map((c) => (
+        <div key={c.id} className="fx-warning-group">
+          <WarningNote lang={lang} id={c.id} text={c.text} />
+          {c.id === "scr_note_care" &&
+            skippedForSore.map((i) => (
+              <p key={`${i.movementId}:${i.side}`} className="fx-body is-strong">
+                {bidiText(
+                  lang,
+                  t(lang, "assessment.warnings.skippedTest", {
+                    test: `${movementName(i.movementId, lang)} · ${sideRegion(i, lang)}`,
+                  }),
+                )}
+              </p>
+            ))}
+        </div>
+      ))}
+      <Actions
+        items={[{ label: t(lang, "assessment.warnings.continue"), onClick: onContinue, name: "continue" }]}
+      />
+    </Glass>
+  );
+}
+
+/**
+ * The v1 helper briefing (S26, Q11) before a part that needs a helper: the data's briefing sentence
+ * by sentence, the top down picture with the helper's place on the weaker side, and the confirm tap
+ * («المساعد بجانبي وقرأ التعليمات»); the part starts only after it (v1.1).
+ */
+export function HelperBriefScreen({
+  lang,
+  screen,
+  weaker,
+  onReady,
+}: {
+  lang: Lang;
+  screen: HelperBriefScreen;
+  /** The person's weaker side (the helper stands there), or null. */
+  weaker: "left" | "right" | null;
+  onReady(): void;
+}) {
+  const brief = CHECK_DATA.helperBriefing;
+  const sideLine = weaker
+    ? t(lang, "assessment.helper.weakerSide", {
+        side: t(lang, weaker === "left" ? "assessment.helper.sideLeft" : "assessment.helper.sideRight"),
+      })
+    : t(lang, "assessment.helper.noWeakerSide");
+  const stand = screen === "scr_helper_brief_stand";
+  return (
+    <Glass className="fx-card fx-brief" data-brief={screen}>
+      <Kicker>{t(lang, "assessment.helper.askToRead")}</Kicker>
+      <Title>{bidiText(lang, brief.heading[lang])}</Title>
+      <div className="fx-v1 fx-brief-picture">
+        <TopDownDrawing
+          alt={t(lang, stand ? "assessment.helper.altStand" : "assessment.helper.altTrunk")}
+          weaker={weaker}
+          stand={stand}
+        />
+      </div>
+      <div className="fx-sentences">
+        {splitSentences(screenText(screen, lang)).map((line, i) => (
+          <p key={i}>{bidiText(lang, line)}</p>
+        ))}
+      </div>
+      <p className="fx-body is-strong">{bidiText(lang, sideLine)}</p>
+      <Actions
+        items={[
+          {
+            label: localizeDigits(lang, brief.confirmButton[lang]),
+            onClick: onReady,
+            name: "helper_ready",
+            icon: "people",
+          },
+        ]}
+      />
+    </Glass>
+  );
+}
+
 /* ---------------------------------------------------------- safety screens */
 
 type SafetyKind = "emergency" | "ad" | "faint" | "fall" | "seekCare" | "postpone";
@@ -979,13 +1111,27 @@ export function DoneScreen({
 }
 
 /** The walk's slot (C-13: between the standing and the lying blocks): C's GaitStep, and «لن أمشي اليوم». */
-export function GaitSlot({ lang, children, onSkip }: { lang: Lang; children: ReactNode; onSkip(): void }) {
+export function GaitSlot({
+  lang,
+  children,
+  warnings = [],
+  onSkip,
+}: {
+  lang: Lang;
+  children: ReactNode;
+  /** The v1 warnings shown before the walk (warn_sci_t6, flow.ts partWarnings). */
+  warnings?: ScreenId[];
+  onSkip(): void;
+}) {
   return (
     <div className="fx-gait">
       <Glass className="fx-card fx-hero">
         <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
         <Title>{tV7(lang, "rom.gait.title")}</Title>
         <Body lang={lang} text={tV7(lang, "rom.gait.body")} />
+        {warnings.map((id) => (
+          <WarningNote key={id} lang={lang} id={id} />
+        ))}
       </Glass>
       {children}
       <Actions

@@ -57,6 +57,7 @@ import {
   DoneScreen,
   FaintAskScreen,
   GaitSlot,
+  HelperBriefScreen,
   IntroScreen,
   LeaveDialog,
   LoadErrorScreen,
@@ -66,7 +67,9 @@ import {
   StartingScreen,
   StopListScreen,
   TodayScreen,
+  WarningsScreen,
 } from "./Screens";
+import { checkWarningsOf, partWarnings } from "./flow";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
 import { tV7 } from "../../i18n/v7";
@@ -243,7 +246,12 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
 
   // The system Back asks before leaving mid check (v1 S15): one pushed history entry.
   const [leaving, setLeaving] = useState(false);
-  const midCheck = s.kind === "part" || s.kind === "question" || s.kind === "today";
+  const midCheck =
+    s.kind === "part" ||
+    s.kind === "question" ||
+    s.kind === "today" ||
+    s.kind === "warnings" ||
+    s.kind === "brief";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
   useLayoutEffect(() => {
@@ -272,7 +280,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const today = () => session.dispatch({ type: "EXIT", to: "today" });
   const parts = m.data.parts;
   const progress =
-    s.kind === "part"
+    s.kind === "part" || s.kind === "brief"
       ? { done: s.index, total: parts.length }
       : s.kind === "completing" || s.kind === "done"
         ? { done: parts.length, total: parts.length }
@@ -424,6 +432,35 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
+      case "warnings": {
+        const check = m.data.check!;
+        return {
+          screen: "warnings",
+          node: (
+            <WarningsScreen
+              lang={lang}
+              warnings={checkWarningsOf(check.warnings)}
+              pdBucket={m.data.context?.lastPdDoseBucket ?? null}
+              skippedForSore={check.protocol.items.filter((i) => i.skipped === "pressure_sore")}
+              onContinue={() => session.dispatch({ type: "SEEN" })}
+            />
+          ),
+        };
+      }
+      case "brief": {
+        const support = env?.ctx.support;
+        return {
+          screen: `brief_${s.screen}`,
+          node: (
+            <HelperBriefScreen
+              lang={lang}
+              screen={s.screen}
+              weaker={support === "left" || support === "right" ? support : null}
+              onReady={() => session.dispatch({ type: "HELPER_READY" })}
+            />
+          ),
+        };
+      }
       case "stop_screen":
         return {
           screen: "stop_screen",
@@ -465,7 +502,11 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
           return {
             screen: "gait",
             node: (
-              <GaitSlot lang={lang} onSkip={() => session.gaitDone()}>
+              <GaitSlot
+                lang={lang}
+                warnings={partWarnings(m.data.check!.warnings, part, m.data.check!.protocol)}
+                onSkip={() => session.gaitDone()}
+              >
                 <GaitStep
                   plan={m.data.check!.gait!}
                   checkId={m.data.check!.id}
@@ -534,6 +575,11 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               block={step.block}
               items={step.items}
               helper={step.helper}
+              warnings={partWarnings(
+                m.data.check!.warnings,
+                { kind: "range", block: step.block },
+                m.data.check!.protocol,
+              )}
               stage={<Stage video={cam.video} frame={frame} highlight={[]} compact />}
               onReady={() => c.ready(clock())}
             />

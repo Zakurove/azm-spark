@@ -26,7 +26,8 @@ import { Dial, scaleMax } from "./Dial";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Dots, Glass, Kicker, PainScale, Timer, Title } from "./parts";
 import type { RomController } from "./romController";
-import { QuestionText, sideRegion } from "./Screens";
+import { QuestionText, sideRegion, WarningNote } from "./Screens";
+import type { ScreenId } from "../../movements/types";
 import { Stage } from "./Stage";
 import type { RomSaved } from "./api";
 
@@ -45,6 +46,7 @@ export function BlockCard({
   block,
   items,
   helper,
+  warnings = [],
   stage,
   onReady,
 }: {
@@ -52,6 +54,11 @@ export function BlockCard({
   block: RomBlock;
   items: RomProtocolItem[];
   helper: boolean;
+  /**
+   * The v1 warnings of this block (flow.ts partWarnings: warn_sci_t6 before every block, and
+   * warn_weak_shoulder before an arm's), on the card the person confirms before it starts (v1 S28).
+   */
+  warnings?: ScreenId[];
   /** The camera's preview (the probe runs while it shows). */
   stage: React.ReactNode;
   onReady(): void;
@@ -63,6 +70,9 @@ export function BlockCard({
       <Glass className="fx-card fx-block">
         <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
         <Title>{tV7(lang, BLOCK_TITLE[block])}</Title>
+        {warnings.map((id) => (
+          <WarningNote key={id} lang={lang} id={id} />
+        ))}
         <div className="fx-chips">
           {positions.map((p) => (
             <span key={p} className="fx-pill">

@@ -58,3 +58,36 @@ describe("the intro on the booth path (D-017 item 1: no time is mentioned)", () 
     expect(html("home")).toContain('data-part="minutes"');
   });
 });
+
+describe("a body map whose joints the camera does not measure (copy review)", () => {
+  it("closes before the intro with its own line, not the safety one", async () => {
+    const { initialModel, reduce } = await import("../../src/features/focus/flow");
+    const context = {
+      intakeReady: true,
+      setting: "booth" as const,
+      homeOpen: false,
+      adultConfirmed: true,
+      consent: { focus_check: true, live_coach: false },
+      env: {} as never,
+      protocol: { rulesVersion: "x", items: [], deferred: [], notMeasured: [], sitBeforeStand: false },
+      gait: null,
+      lock: null,
+      open: null,
+      lastCompleted: null,
+      earliestNext: null,
+    };
+    const m = reduce(initialModel(), { type: "LOADED", context, intake: null, now: 0 });
+    expect(m.state).toEqual({ kind: "closed", why: "no_camera" });
+    const html = renderToStaticMarkup(
+      createElement(ClosedScreen, {
+        lang: "ar",
+        why: "no_camera",
+        now: 0,
+        onToday: () => {},
+        onHealth: () => {},
+      }),
+    );
+    expect(html).toContain("لا تقيس الكاميرا حاليًا حركة المفاصل التي حددتها على خريطة جسمك.");
+    expect(html).not.toContain("حرصًا على سلامتك");
+  });
+});

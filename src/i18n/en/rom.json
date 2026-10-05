@@ -45,7 +45,9 @@
     "rateTitle": "Let’s continue another time",
     "rateBody": "You started the check many times today. You can try again tomorrow.",
     "nothingTitle": "There is nothing to measure today",
-    "nothingBody": "For your safety, we will not measure today. You can try another day."
+    "nothingBody": "For your safety, we will not measure today. You can try another day.",
+    "noCameraTitle": "We do not measure these joints with the camera yet",
+    "noCameraBody": "The camera cannot measure the movement of the joints you marked on your body map yet."
   },
   "intro": {
     "title": "Your focused movement check",

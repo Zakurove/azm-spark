@@ -100,7 +100,17 @@ export interface FocusStopRoute {
 
 /** Why no check can start now. */
 export type ClosedWhy =
-  "intake" | "home_closed" | "locked" | "too_soon" | "plan" | "review" | "adult" | "rate" | "nothing";
+  | "intake"
+  | "home_closed"
+  | "locked"
+  | "too_soon"
+  | "plan"
+  | "review"
+  | "adult"
+  | "rate"
+  | "nothing"
+  /** The body map's joints have no camera movement and no walk is planned: nothing could ever start. */
+  | "no_camera";
 
 /** A day question of the focus check (2.5). */
 export type TodayQuestion =
@@ -408,6 +418,10 @@ function afterStart(m: FocusModel): FocusModel {
 /** The state after a context: closed, the consent, or the intro. */
 function opened(m: FocusModel, context: FocusContext, now: number): FocusState {
   if (!context.intakeReady || !context.env || !context.protocol) return { kind: "closed", why: "intake" };
+  // No camera movement in any marked joint (a wrist only map: forearm_wrist measures nothing) and no
+  // walk: another day would not help, so this is not the safety line of «nothing to measure today».
+  if (!context.protocol.items.length && !context.protocol.deferred.length && !context.gait?.offered)
+    return { kind: "closed", why: "no_camera" };
   if (context.setting === "home" && !context.homeOpen) return { kind: "closed", why: "home_closed" };
   if (context.lock) return { kind: "closed", why: "locked", lock: context.lock };
   if (context.earliestNext !== null && now < context.earliestNext)

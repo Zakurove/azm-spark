@@ -145,6 +145,9 @@ export function ClosedScreen({
     case "nothing":
       [title, body, icon] = [v("nothingTitle"), v("nothingBody"), "shield"];
       break;
+    case "no_camera":
+      [title, body, icon] = [v("noCameraTitle"), v("noCameraBody"), "camera"];
+      break;
   }
   return (
     <Glass className="fx-card" data-closed={why}>

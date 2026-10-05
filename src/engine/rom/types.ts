@@ -48,7 +48,12 @@ export type RomFlag =
   | "provisional"
   | "ageOutsideBand"
   | "modelLite"
-  | "helperPresent";
+  | "helperPresent"
+  /**
+   * The seated side bend (seated_armrests) reached its limit or leaned too fast (v1.1 side lean abort
+   * rules, coaching cues): the value is a lower bound, the lean held at the limit (v1.1 censoring).
+   */
+  | "censored";
 
 export interface RomRunnerOptions {
   item: RomProtocolItem;
@@ -62,6 +67,12 @@ export interface RomRunnerOptions {
   /** The norm's withinFrom (withinUpTo for lack movements) from normFor; a confirmed value short of it opens ask_cause once. null: never ask. */
   askCauseBelow: number | null;
   poseModel: "lite" | "full";
+  /**
+   * The seated side bend (trunk_lateral_flexion in seated_armrests) only: the side's best seated side
+   * lean at the last check («never beyond the person's best side lean at the last check», rom-protocol
+   * 3.12 and safety seated_side_lean_gate). Absent or null: a first check, the v1.1 limit of 30.
+   */
+  sideLeanBest?: number | null;
 }
 
 export interface RomHold {

@@ -98,6 +98,11 @@ export interface RomControllerOptions {
   sitSeconds?: number;
   /** The rest after a stop for tiredness or something else (default the v1 minute). */
   stopRestSeconds?: number;
+  /**
+   * The best seated side lean of each side at the last check (the seated side bend's limit, runner
+   * sideLeanBest); absent: a first check, the v1.1 limit of 30 (contract gap W2-6).
+   */
+  sideLeanBest?: Partial<Record<"left" | "right", number>>;
 }
 
 export type RomStep =
@@ -977,12 +982,14 @@ export class RomController implements CoachHost {
     const def = movementDef(item.movementId);
     const norm = this.norm(item);
     const askCauseBelow = def.kind === "lack" ? norm.withinUpTo : norm.withinFrom;
+    const leanBest = item.side === "none" ? undefined : this.opts.sideLeanBest?.[item.side];
     this.runner = new RomRunner({
       item,
       def,
       painBefore: this.painBefore(item),
       askCauseBelow,
       poseModel: this.opts.poseModel?.() ?? "full",
+      ...(leanBest !== undefined ? { sideLeanBest: leanBest } : {}),
       ...(this.opts.restSec !== undefined ? { restSec: this.opts.restSec } : {}),
     });
     this.lastMeasured = item;

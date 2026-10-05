@@ -10,7 +10,9 @@ import { MOVEMENT_ANGLES } from "../../src/engine/rom/angles";
 import { movementDef } from "../../src/movements/rom";
 import { ROM_MOVEMENT_IDS, type RomMovementId } from "../../src/movements/rom/types";
 import { checkRomResult } from "../../server/modules/focus/validate";
-import { drive, item, kinds, runner } from "./b-driver";
+import { cuesOf, drive, item, kinds, runner } from "./b-driver";
+import { SIDE_LEAN_RULES, sideLeanLimit } from "../../src/engine/rom/runner";
+import { TRUNK_RULES } from "../../src/engine/modes/trunkControl";
 import { UPPER_BODY, frontSeated, frontStanding, midOf, point, rotate } from "./b-poses";
 import { MOVEMENT_CASES, type MovementCase } from "./b-person";
 
@@ -109,5 +111,85 @@ describe("the other direction and the other side", () => {
     );
     expect(kinds(d.events, "hold")).toEqual([]);
     expect(r.finish(d.t).status).toBe("not_measured");
+  });
+});
+
+describe("the seated side bend's limits (rom-protocol 3.12, seated_side_lean_gate; v1.1 side lean aborts)", () => {
+  const leanRight = (d: number) => rotate(frontSeated(), UPPER_BODY, midOf(frontSeated(), 23, 24), -d);
+  const seatedLean = (best?: number) =>
+    runner("trunk_lateral_flexion", {
+      side: "right",
+      item: { position: "seated_armrests", graded: false, normId: null },
+      ...(best !== undefined ? { sideLeanBest: best } : {}),
+    });
+
+  it("reads v1's side lean rules (parity)", () => {
+    expect(SIDE_LEAN_RULES).toEqual({
+      firstCheckDeg: TRUNK_RULES.abortFirstCheckDeg,
+      beyondBestDeg: TRUNK_RULES.abortBeyondBestDeg,
+      speedDegPerSec: TRUNK_RULES.abortSpeedDegPerSec,
+      speedSec: TRUNK_RULES.abortSpeedSec,
+      speedSpanMs: TRUNK_RULES.speedSpanMs,
+      persistSec: TRUNK_RULES.persistSec,
+    });
+    expect(sideLeanLimit(null)).toBe(30);
+    expect(sideLeanLimit(18)).toBe(33);
+  });
+
+  it("at a first check, a lean to 40 ends each attempt at 30 with the cue back to the middle", () => {
+    const r = seatedLean();
+    const d = drive(r, { rest: 0, target: () => 40, pose: leanRight, speed: 20 }, 200);
+    const res = r.finish(d.t);
+    expect(res.status).toBe("measured");
+    expect(res.value).toBe(30);
+    expect(res.flags).toContain("censored");
+    for (const a of res.attempts) expect(a.value).toBeLessThanOrEqual(30);
+    expect(cuesOf(d.events).filter((c) => c === "test_trunk_to_middle").length).toBeGreaterThanOrEqual(3);
+    // No maximum question beyond the limit.
+    expect(kinds(d.events, "hold").every((e) => e.hold.deg <= 30)).toBe(true);
+  });
+
+  it("at a retest, the limit is the earlier best plus 15: a lean to 25 is measured as it is", () => {
+    const r = seatedLean(18);
+    const d = drive(r, { rest: 0, target: () => 25, pose: leanRight, speed: 20 }, 200);
+    const res = r.finish(d.t);
+    expect(res.status).toBe("measured");
+    expect(Math.abs(res.value! - 25)).toBeLessThanOrEqual(2);
+    expect(res.flags).not.toContain("censored");
+    expect(cuesOf(d.events)).not.toContain("test_trunk_to_middle");
+  });
+
+  it("at a retest after 18, a lean to 40 ends at 33", () => {
+    const r = seatedLean(18);
+    const d = drive(r, { rest: 0, target: () => 40, pose: leanRight, speed: 20 }, 200);
+    const res = r.finish(d.t);
+    expect(res.value).toBe(33);
+    expect(res.flags).toContain("censored");
+  });
+
+  it("a lean faster than 45 degrees a second ends the attempt with the cue", () => {
+    const r = seatedLean(18);
+    const d = drive(r, { rest: 0, target: () => 25, pose: leanRight, speed: 90 }, 200);
+    const res = r.finish(d.t);
+    expect(cuesOf(d.events)).toContain("test_trunk_to_middle");
+    expect(res.flags).toContain("censored");
+    expect(res.value!).toBeLessThanOrEqual(33);
+  });
+
+  it("the standing side bend has no such limit", () => {
+    const r = runner("trunk_lateral_flexion", { side: "right" });
+    const d = drive(
+      r,
+      {
+        rest: 0,
+        target: () => 40,
+        pose: (deg) => rotate(frontStanding(), UPPER_BODY, midOf(frontStanding(), 23, 24), -deg),
+        speed: 20,
+      },
+      200,
+    );
+    const res = r.finish(d.t);
+    expect(Math.abs(res.value! - 40)).toBeLessThanOrEqual(2);
+    expect(cuesOf(d.events)).not.toContain("test_trunk_to_middle");
   });
 });

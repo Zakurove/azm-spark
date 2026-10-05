@@ -608,6 +608,12 @@ export function ResultScreen({
               <span>{bidiText(lang, m)}</span>
             </p>
           ))}
+          {result.flags.includes("censored") && result.value !== null && (
+            <p className="fx-note" data-note="censored">
+              <CheckIcon name="shield" size={20} />
+              <span>{bidiText(lang, tV7(lang, "rom.result.censored"))}</span>
+            </p>
+          )}
           {tries.length > 0 && (
             <div className="fx-tries">
               <span>{tV7(lang, "rom.result.tries")}</span>

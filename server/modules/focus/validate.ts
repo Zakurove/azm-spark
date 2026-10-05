@@ -104,6 +104,7 @@ export const ROM_FLAGS = [
   "ageOutsideBand",
   "modelLite",
   "helperPresent",
+  "censored",
 ] as const;
 const romFlagsExact: Exact<(typeof ROM_FLAGS)[number], RomFlag> = true;
 /** QualityIssue (engine/quality.ts). */

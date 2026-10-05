@@ -107,7 +107,8 @@
     "quality": "The camera could not see the movement clearly enough, so we did not record it today.",
     "byChoice": "You stopped this movement, so we did not record it today.",
     "next": "Next movement",
-    "finish": "Continue"
+    "finish": "Continue",
+    "censored": "We stopped at this point for your safety, and you may be able to lean further."
   },
   "painStop": {
     "title": "We stopped this movement"

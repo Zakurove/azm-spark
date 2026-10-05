@@ -263,6 +263,12 @@ export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
     askCauseBelow: null,
     poseModel: "full",
     mirrored: !!o.mirrored,
+    // The seated side bend runs as a retest after a best at the norm mean (its limit 15 beyond), so
+    // the matrix's 100 percent lean is measured; the limits themselves are tested in
+    // b-runner-movements.test.ts (rom-protocol 3.12, the v1.1 side lean aborts).
+    ...(r.movement === "trunk_lateral_flexion" && r.position === "seated_armrests"
+      ? { sideLeanBest: normMean(r.movement, r.side) }
+      : {}),
     ...o.runner,
   });
   const events: RomEvent[] = [...runner.start(frames[0].t)];

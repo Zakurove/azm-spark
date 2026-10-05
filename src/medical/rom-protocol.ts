@@ -273,7 +273,7 @@ export const ROM_SAFETY_RULES: readonly { id: RomSafetyId; where: string }[] = O
   {
     id: "seated_side_lean_gate",
     where:
-      "buildRomProtocol (balance_support at home) and the v1 precheck of trunk_control_seated through applyPrecheckOutcome",
+      "buildRomProtocol (balance_support at home) and the v1 precheck of trunk_control_seated through applyPrecheckOutcome; the RomRunner's SIDE_LEAN_RULES (never beyond the last best side lean: v1.1's best plus 15, 30 at a first check, and the lean speed rule)",
   },
   {
     id: "sitting_balance",

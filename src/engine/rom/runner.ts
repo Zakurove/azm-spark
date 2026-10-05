@@ -78,6 +78,7 @@ import {
   type Tracked,
 } from "../modes/common";
 import { pictureShift, RANGE_RULES } from "../modes/rangeTest";
+import { TRUNK_RULES } from "../modes/trunkControl";
 import type { FeedEnv, QualitySummary } from "../modes/types";
 import { calibrate, cameraSide, MOVEMENT_ANGLES, type AngleContext, type RomCalibration } from "./angles";
 import { CompensationTracker, type CompensationHit, type HoldVerdict } from "./compensations";
@@ -137,6 +138,37 @@ export const RUNNER_RULES = {
   /** v1: the share of the start pose's frames with both hips seen for the trunk reference. */
   hipsVisibleShare: RANGE_RULES.hipsVisibleShare,
 } as const;
+
+/**
+ * The seated side bend's limits (trunk_lateral_flexion in seated_armrests; rom-protocol 3.12 and safety
+ * seated_side_lean_gate: «never beyond the person's best side lean at the last check»): v1.1's side
+ * lean abort rules, coaching cues (Q12, 4.3), from v1's TRUNK_RULES: the earlier best plus 15, 30 at a
+ * first check (or with no earlier best for the side, R3C-37 (1)), and a lean faster than 45 degrees per
+ * second (over 100 ms) for more than 0.2 s. At either the person hears test_trunk_to_middle and the
+ * attempt ends with the lean held so far, at most the limit, as a lower bound (censored, v1.1).
+ */
+export const SIDE_LEAN_RULES = {
+  firstCheckDeg: TRUNK_RULES.abortFirstCheckDeg,
+  beyondBestDeg: TRUNK_RULES.abortBeyondBestDeg,
+  speedDegPerSec: TRUNK_RULES.abortSpeedDegPerSec,
+  speedSec: TRUNK_RULES.abortSpeedSec,
+  speedSpanMs: TRUNK_RULES.speedSpanMs,
+  persistSec: TRUNK_RULES.persistSec,
+} as const;
+
+/** The lean limit of a seated side bend for a side's earlier best (null: a first check). */
+export const sideLeanLimit = (best: number | null | undefined): number =>
+  best === null || best === undefined || !Number.isFinite(best)
+    ? SIDE_LEAN_RULES.firstCheckDeg
+    : best + SIDE_LEAN_RULES.beyondBestDeg;
+
+/** The seated side bend's watch over one attempt. */
+interface LeanWatch {
+  over: Persist;
+  fast: Persist;
+  /** The filtered angle over the last speed span. */
+  samples: { t: number; deg: number }[];
+}
 
 /** The arm raises («رفع الذراع»): v1's wrong arm and camera moved rules (D-026 item 5). */
 const ARM_RAISES: ReadonlySet<RomMovementId> = new Set(["shoulder_flexion", "shoulder_abduction"]);
@@ -223,6 +255,8 @@ interface Attempt {
   painLevel: number | null;
   /** When the current question opened. */
   askT: number;
+  /** The seated side bend's lean limits (SIDE_LEAN_RULES), else null. */
+  lean: LeanWatch | null;
 }
 
 const clampTo = (kind: RomKind, v: number) =>
@@ -238,6 +272,8 @@ export class RomRunner {
   private readonly restSec: number;
   private readonly calibrationSec: number;
   private readonly mirrored: boolean;
+  /** The seated side bend's lean limit (sideLeanLimit), else null. */
+  private readonly leanLimit: number | null;
   private readonly sink: RomEvent[] = [];
 
   private phaseNow: RomPhase = "idle";
@@ -297,6 +333,10 @@ export class RomRunner {
     this.holdOpts = holdOptions(opts.def.kind);
     this.restSec = opts.restSec ?? ROM_DATA.engine.restBetweenAttemptsSeconds.min;
     this.calibrationSec = opts.def.calibrationSeconds ?? RUNNER_RULES.calibrationSec;
+    this.leanLimit =
+      opts.def.id === "trunk_lateral_flexion" && opts.item.position === "seated_armrests"
+        ? sideLeanLimit(opts.sideLeanBest)
+        : null;
   }
 
   get phase(): RomPhase {
@@ -762,6 +802,14 @@ export class RomRunner {
       pain: false,
       painLevel: null,
       askT: t,
+      lean:
+        this.leanLimit === null
+          ? null
+          : {
+              over: new Persist(SIDE_LEAN_RULES.persistSec),
+              fast: new Persist(SIDE_LEAN_RULES.speedSec),
+              samples: [],
+            },
     };
     this.comp.startAttempt(practice);
     this.setPhase(practice ? "practice" : "attempt", t, index);
@@ -805,6 +853,7 @@ export class RomRunner {
         this.repeat(t, "invalid", this.comp.invalid);
         return;
       }
+      if (a.lean && this.leanWatch(a, a.lean, t, f)) return;
       if (!a.practice) {
         const p = a.plateau.push(t, f);
         if (p !== null) this.sink.push({ kind: "plateau", deg: round1(p), t, attempt: a.index });
@@ -863,6 +912,70 @@ export class RomRunner {
       }
     }
     return false;
+  }
+
+  /**
+   * The seated side bend's limits (SIDE_LEAN_RULES) on the filtered angle (the lean toward the tested
+   * side): beyond the limit, or leaning further faster than the speed rule, for their time. True when
+   * the attempt ended.
+   */
+  private leanWatch(a: Attempt, w: LeanWatch, t: number, deg: number): boolean {
+    const limit = this.leanLimit!;
+    const span = SIDE_LEAN_RULES.speedSpanMs;
+    w.samples.push({ t, deg });
+    while (w.samples.length > 1 && w.samples[1].t <= t - span) w.samples.shift();
+    const prev = w.samples[0];
+    const dt = t - prev.t;
+    // Outward only: moving further into the lean, as v1 counts it (R3C-37 (3)); a quick return is
+    // what the cue asks for.
+    const speed = dt >= span && dt <= span + RUNNER_RULES.maxGapMs ? (deg - prev.deg) / (dt / 1000) : 0;
+    const outward = speed > SIDE_LEAN_RULES.speedDegPerSec && deg > 0;
+    if (w.over.update(t, deg > limit)) {
+      this.leanAbort(a, t, limit);
+      return true;
+    }
+    if (w.fast.update(t, outward)) {
+      this.leanAbort(a, t, Math.min(limit, Math.max(0, deg)));
+      return true;
+    }
+    return false;
+  }
+
+  /** The seated side bend reached a limit: the cue back to the middle, and the attempt ends with a lower bound. */
+  private leanAbort(a: Attempt, t: number, deg: number): void {
+    this.cue("test_trunk_to_middle", t);
+    const value = clampTo(this.kind, deg);
+    if (a.practice) {
+      this.endPractice(
+        t,
+        {
+          from: t,
+          to: t,
+          deg: value,
+          excursionDeg: value,
+          bandDeg: this.holdOpts.bandDeg,
+          smallExcursion: false,
+        },
+        null,
+      );
+      return;
+    }
+    const hold: RomHold = {
+      holdId: `${a.index}:${++this.holdCount}`,
+      deg: value,
+      t,
+      attempt: a.index,
+      excursionDeg: round1(Math.abs(value - (a.startDeg ?? 0))),
+      bandDeg: 3,
+      smallExcursion: false,
+    };
+    const held: HeldValue = {
+      hold,
+      verdict: { invalid: [], flagged: [], hits: [] },
+      answer: null,
+      source: null,
+    };
+    this.endWithValue(t, this.further(held, a.kept), ["censored"]);
   }
 
   private onHold(found: HoldFound, t: number): void {
@@ -989,7 +1102,7 @@ export class RomRunner {
   }
 
   /** A scored attempt ends with a value: yes, unconfirmed, «not yet» at the timeout, or it hurts below the pain rule. */
-  private endWithValue(t: number, held: HeldValue): void {
+  private endWithValue(t: number, held: HeldValue, extra: RomFlag[] = []): void {
     const a = this.att!;
     const q = a.monitor.report();
     if (!q.ok) {
@@ -1008,7 +1121,10 @@ export class RomRunner {
       painLimited,
       painLevel: a.painLevel,
       reasons: held.verdict.flagged.filter((id) => id !== "bent_elbow"),
-      flags: this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged, held.answer),
+      flags: [
+        ...this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged, held.answer),
+        ...extra,
+      ],
       quality: q,
       t0: a.t0,
       t1: t,
@@ -1196,7 +1312,7 @@ export class RomRunner {
     if (item.helperRequired) flags.add("helperPresent");
     if (this.scored.some((a) => a.flags.includes("bentElbow"))) flags.add("bentElbow");
     if (bestRec)
-      for (const f of ["smallExcursion", "wideHold", "unconfirmed"] as const)
+      for (const f of ["smallExcursion", "wideHold", "unconfirmed", "censored"] as const)
         if (bestRec.flags.includes(f)) flags.add(f);
     if (
       values.length > 1 &&

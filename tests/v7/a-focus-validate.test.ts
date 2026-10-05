@@ -108,7 +108,7 @@ describe("range results", () => {
     });
     expect(fieldOf(checkRomResult(pain, flex))).toBe("ok");
     expect(fieldOf(checkRomResult({ ...pain, painLimited: false }, flex))).toBe("value");
-    expect(ROM_FLAGS).toHaveLength(12);
+    expect(ROM_FLAGS).toHaveLength(13);
   });
 
   it("names the item it must match: movement, side and position", () => {

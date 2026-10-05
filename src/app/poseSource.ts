@@ -22,15 +22,52 @@ export const poseModelUrl = (model: "lite" | "full" = defaultModel()) =>
   `/models/pose_landmarker_${model}.task`;
 
 /**
- * Warms the HTTP cache while the person reads the setup guide, so the session starts quickly. Without
- * a model, the one the v1 choice loads.
+ * The model files a preload fetched or is fetching, by URL, until a pose source takes one (D-026
+ * item 6, GG-1). The source loads the preload's bytes instead of fetching the file a second time:
+ * two fetches of the same 9 MB file at once can fail in Chromium (ERR_CACHE_WRITE_FAILURE).
+ */
+const preloaded = new Map<string, Promise<Uint8Array>>();
+
+/**
+ * Downloads the model while the person reads the setup guide, so the session starts quickly; the
+ * pose source that starts next takes the bytes (a second preload of the same file joins the first).
+ * Without a model, the one the v1 choice loads.
  */
 export function preloadPoseAssets(model?: "lite" | "full") {
+  const url = poseModelUrl(model);
+  if (preloaded.has(url)) return;
   try {
-    void fetch(poseModelUrl(model)).catch(() => undefined);
+    const file = fetch(url).then(async (res) => {
+      if (!res.ok) throw new Error(`Failed to fetch model: ${url} (${res.status})`);
+      return new Uint8Array(await res.arrayBuffer());
+    });
+    preloaded.set(url, file);
+    // A failed preload is forgotten: the source then loads the file itself.
+    file.catch(() => {
+      if (preloaded.get(url) === file) preloaded.delete(url);
+    });
   } catch {
     /* offline or unsupported */
   }
+}
+
+/** The preload of a model file, taken once (null without one); it resolves null when it failed. */
+function takePreloaded(url: string): Promise<Uint8Array | null> | null {
+  const file = preloaded.get(url);
+  if (!file) return null;
+  preloaded.delete(url);
+  return file.catch(() => null);
+}
+
+/**
+ * A file that did not load, which is no reason to run the model on the CPU (D-026 item 6, GG-1): a
+ * failed fetch (Chromium «Failed to fetch», WebKit «Load failed», Gecko «NetworkError ...», MediaPipe's
+ * «Failed to fetch model», the WebAssembly binary's «... fetching of the wasm failed») or the
+ * WebAssembly loader script's error event. Anything else from the GPU attempt is the GPU's.
+ */
+export function isLoadError(err: unknown): boolean {
+  if (typeof Event !== "undefined" && err instanceof Event) return true;
+  return err instanceof Error && /fetch|network|load failed/i.test(err.message);
 }
 
 /**
@@ -109,16 +146,25 @@ export class CameraPoseSource implements PoseSource {
     this.onStatus?.("model");
     const vision = await FilesetResolver.forVisionTasks("/wasm");
     if (this.cancelled) return;
+    // The preload's bytes when there is one (waiting for it while it downloads), so the file is
+    // never fetched twice at once; else MediaPipe loads the file (D-026 item 6, GG-1).
+    const shared = takePreloaded(poseModelUrl(this.model));
+    const bytes = shared ? await shared : null;
+    if (this.cancelled) return;
+    const file = bytes ? { modelAssetBuffer: bytes } : { modelAssetPath: poseModelUrl(this.model) };
     const options = (delegate: "GPU" | "CPU") => ({
-      baseOptions: { modelAssetPath: poseModelUrl(this.model), delegate },
+      baseOptions: { ...file, delegate },
       runningMode: "VIDEO" as const,
       numPoses: this.numPoses,
     });
     let landmarker: PoseLandmarker;
     try {
       landmarker = await PoseLandmarker.createFromOptions(vision, options("GPU"));
-    } catch {
+    } catch (err) {
       if (this.cancelled) return;
+      // Only a real GPU error takes the CPU: a file that did not load fails the start, and the
+      // camera screens offer to try again.
+      if (isLoadError(err)) throw err;
       landmarker = await PoseLandmarker.createFromOptions(vision, options("CPU"));
     }
     if (this.cancelled) {

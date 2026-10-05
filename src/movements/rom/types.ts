@@ -3,7 +3,7 @@
  * 2.1 and 2.3).
  *
  * The JSON is written by scripts/clinical/export-v7.mjs from the clinical source
- * (local-docs/clinical/v7/rom-protocol.json, a draft until the clinical sign off). RomData mirrors the
+ * (local-docs/clinical/v7/rom-protocol.json, signed off on 2026-10-04, D-025). RomData mirrors the
  * exported JSON field by field; src/movements/rom/index.ts checks the JSON against it at compile time
  * (`raw satisfies Widen<RomData>`) and tests/v7/a-runtime-data.test.ts checks every literal id list
  * against the data in both directions. Pure types and id lists, no DOM.
@@ -254,6 +254,7 @@ export const ROM_REASON_IDS = [
   "deferred",
   "not_reached",
   "sitting_balance",
+  "not_in_set",
 ] as const;
 export type RomV7ReasonId = (typeof ROM_REASON_IDS)[number];
 
@@ -476,16 +477,14 @@ export interface RomFunctionalFloor {
 
 /**
  * A retest band (rom-protocol retest, review B15): the change in degrees that counts as real. `deg` holds
- * for everyone; `neurologicalDeg` on a limb affected by a neurological condition; the elbow's
- * neurological band is written twice in the rule, lab and home (contract change log, freeze step).
- * `position` names the position the band is for (lying knee straightening); `wideDeg` is the side arm
- * raise's wide band of v1.1.
+ * for everyone; `neurologicalDeg` on a limb affected by a neurological condition (the elbow's is the
+ * home value 36 for both elbow movements since the sign off, FZ-1 and D-026 item 4; the lab value is
+ * evidence in local-docs). `position` names the position the band is for (lying knee straightening);
+ * `wideDeg` is the side arm raise's wide band of v1.1.
  */
 export interface RomRetestBand {
   deg?: number;
   neurologicalDeg?: number;
-  neurologicalLabDeg?: number;
-  neurologicalHomeDeg?: number;
   position?: RomPositionId;
   wideDeg?: number;
 }

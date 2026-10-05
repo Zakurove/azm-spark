@@ -81,6 +81,19 @@ describe("the checks follow the data", () => {
     );
   });
 
+  it("the forward bend's hands on the thighs reads its distance from the data (B1-2, D-026 item 4)", () => {
+    // The sign off wrote v1's near reading into the clinical source: 0.25 shoulder widths, flag only.
+    expect(compensationDef("trunk_flexion", "hands_support")).toMatchObject({
+      effect: "flag",
+      flagAt: 0.25,
+      unit: "shoulder_widths",
+      when: "below",
+    });
+    expect(compensationDef("trunk_flexion", "hands_support").flagAt).toBe(RANGE_RULES.assistShoulderWidths);
+    // No placeholder level in code: the tracker reads flagAt and when from the data.
+    expect(COMPENSATIONS.trunk_flexion.find((c) => c.id === "hands_support")!.detect).toBeUndefined();
+  });
+
   it("position only checks: the seated lean back only seated, the knee bends only standing", () => {
     expect(checksFor("knee_extension", "lying_back").map((c) => c.id)).toEqual(["plane"]);
     expect(checksFor("knee_extension", "seated").map((c) => c.id)).toEqual(["plane", "seated_lean_back"]);
@@ -715,7 +728,7 @@ describe("the second criterion and the gravity mode", () => {
   });
 });
 
-describe("hands on the thighs in the forward bend (flag only, a placeholder distance: change log B1-2)", () => {
+describe("hands on the thighs in the forward bend (flag only, 0.25 shoulder widths from the data: B1-2)", () => {
   /** Bent forward 70 degrees at the hips, the arms hanging straight down from the shoulders. */
   function bent(): Landmark[] {
     let px = rotate(sideStanding(), UPPER_BODY, point(sideStanding(), 24), 70);

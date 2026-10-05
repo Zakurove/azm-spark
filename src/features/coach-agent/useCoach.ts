@@ -18,7 +18,7 @@
  *   - call end("done") when the segment is over ("user_end" when the person leaves it); unmounting ends
  *     it as the person's;
  *   - call unlockCoachAudio() (audio/context.ts) inside the tap that starts a coached block.
- * The returned state is CoachState (2.11) plus reopen, which 2.11's rule 1 needs and CoachState lacks.
+ * The returned state is CoachState (2.11), reopen included (D-026 item 8, DG-4).
  *
  * VITE_E2E builds only: ?e2eCoach=fake runs the segment on FakeLiveTransport with the e2e responder,
  * no token, no microphone and a silent speaker; window.e2eCoach plays the coach's events in a spec, and
@@ -33,9 +33,6 @@ import { Speaker } from "./audio/speaker";
 import { e2eCoachDeps } from "./e2eCoach";
 import { CoachSession, type CoachDeps, type CoachSnapshot } from "./session";
 import { GenaiTransport } from "./transport";
-
-/** CoachState and reopen (rule 1: after a P0 only the app opens the bridge again). */
-export type CoachControl = CoachState & { reopen(): void };
 
 const OFF: CoachSnapshot = Object.freeze({ mode: "off", speaking: false, captions: [] }) as CoachSnapshot;
 const CONNECTING: CoachSnapshot = Object.freeze({
@@ -60,7 +57,7 @@ function segmentKey(o: CoachOptions): string {
  * null options: coach off (preference off, no consent, flag off, or offline). Prewarms (token and
  * connect) when the segment's setup card shows (bridge rule 8).
  */
-export function useCoach(opts: CoachOptions | null): CoachControl {
+export function useCoach(opts: CoachOptions | null): CoachState {
   const [session, setSession] = useState<CoachSession | null>(null);
   const latest = useRef(opts);
   latest.current = opts;

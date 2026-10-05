@@ -9,6 +9,7 @@
  *   applyPrecheckOutcome  skips and helpers of a proceeding outcome onto the protocol and the gait plan
  *   GAIT_DAY_ITEMS        the two new gait day items, asked when the gait test is planned
  *   RF_REGION_ITEM        the region red flag item, asked per affected region of the day's protocol
+ *   keptDayAnswers        the day's answers a later step reads, the only ones a focus check keeps
  *
  * The start route runs, after its gates: buildRomProtocol, gaitPlanFor, focusPrecheckEnv,
  * evaluatePrecheck, then on proceed applyPrecheckOutcome (contract section 4).
@@ -18,8 +19,14 @@ import type { Intake } from "./plan";
 import type { RegionId } from "./body-map";
 import { REGION_IDS } from "./body-map";
 import type { GaitPlan } from "./gait-eligibility";
-import type { PrecheckEnv, PrecheckOutcome } from "./precheck";
-import type { FocusToday, RomProtocol, RomProtocolItem, RomReasonId } from "./rom-protocol";
+import { visibleQuestions, type Answers, type PrecheckEnv, type PrecheckOutcome } from "./precheck";
+import {
+  hasLowerLimbLoss,
+  type FocusToday,
+  type RomProtocol,
+  type RomProtocolItem,
+  type RomReasonId,
+} from "./rom-protocol";
 
 /** The upper limb regions: their seated items load the v1 arm raise. */
 const UPPER_LIMB: readonly RegionId[] = ["shoulder", "elbow", "forearm_wrist"];
@@ -212,4 +219,84 @@ export function rfRegionsToAsk(protocol: RomProtocol, gait: GaitPlan | null): Re
 /** A yes to rf_region shows the existing seek care screen once (contract 2.5): the start route's warnings. */
 export function redFlagWarnings(today: FocusToday): ScreenId[] {
   return today.redFlagRegions.length > 0 ? ["scr_stop_seek_care"] : [];
+}
+
+/* ------------------------------------------------- the day answers kept */
+
+/**
+ * The day's answers a later step reads, the only ones a focus check keeps (contract section 3
+ * focus_checks.today; R1-2, D-026 items 7 and 9), each only when it was asked (absent: not asked). They
+ * are numbers and yes or no answers only; no red flag answer is ever kept (E1-5), and the walk, freezing,
+ * transfer and orthosis answers live on in the frozen protocol and gait plan.
+ */
+export interface StoredFocusToday {
+  /** pain_ask per pain region of the body map, 0 to 10: the gait rules at complete (2.9) and the program. */
+  painByRegion: Partial<Record<RegionId, number>>;
+  /** pc_helper: someone beside the person today, for the coach's token (5.1). */
+  helperPresent?: boolean;
+  /** pc_steadi «fell» and «worry» (asked with the chair stand): the gait rules' careful_walking (CG-9). */
+  steadi?: { fell: boolean; worry: boolean };
+  /** pc_pd_on with Parkinson's: on (yes) or unsure; a no postpones the check (CG-18, like with like retests). */
+  pdState?: "on" | "unsure";
+  /** pc_stroke_push (asked with the seated side bend): the program's pusher (E1-5). */
+  pusher?: boolean;
+  /** pc_trunk_armrests (asked at home with the seated side bend): armrests or side guards on both sides, steady (E1-5 no_trunk_armrests). */
+  armrests?: boolean;
+  /**
+   * The seated side lean's day answers of seated_lean_gate (asked with the seated side bend, E1-5):
+   * pc_fall_sitting (a fall from sitting in the last 3 months), pc_pressure_sore (in a wheelchair or
+   * with SCI) and pc_sit_unsupported (sitting unsupported, without side supports or a chest strap).
+   */
+  seatedLean?: { fellSitting?: boolean; pressureSore?: boolean; sitsUnsupported?: "yes" | "no" | "unsure" };
+  /** pc_limb_leg_prosthesis, or the day's own answer, for a leg limb loss only (E1-5 standing_gate). */
+  prosthesisOn?: boolean;
+}
+
+/** A visible yes or no question's answer as a boolean; undefined when not asked or not answered. */
+function yesNo(shown: ReadonlySet<string>, answers: Answers, id: string): boolean | undefined {
+  if (!shown.has(id)) return undefined;
+  const v = answers[id];
+  return v === "yes" ? true : v === "no" ? false : undefined;
+}
+
+/**
+ * The day's answers the focus check keeps (StoredFocusToday) from the start's pre-check answers (an
+ * answer to a question the pre-check did not show is ignored, as evaluatePrecheck ignores it) and the
+ * day's own answers. Pure: the start route keeps exactly this.
+ */
+export function keptDayAnswers(
+  env: PrecheckEnv,
+  answers: Answers,
+  today: FocusToday,
+  intake: Intake,
+): StoredFocusToday {
+  const shown = new Set(visibleQuestions(env, answers));
+  const out: StoredFocusToday = { painByRegion: { ...today.painByRegion } };
+  if (today.helperPresent !== undefined) out.helperPresent = today.helperPresent;
+  const fell = yesNo(shown, answers, "pc_steadi:fell");
+  const worry = yesNo(shown, answers, "pc_steadi:worry");
+  if (fell !== undefined && worry !== undefined) out.steadi = { fell, worry };
+  // pc_pd_on: no postpones the check (it never reaches a kept day), unsure is recorded as v1 does.
+  const pd = shown.has("pc_pd_on") ? answers.pc_pd_on : undefined;
+  if (pd === "yes" || pd === "unsure") out.pdState = pd === "yes" ? "on" : "unsure";
+  const pusher = yesNo(shown, answers, "pc_stroke_push");
+  if (pusher !== undefined) out.pusher = pusher;
+  // pc_trunk_armrests is asked in the form of the person's position (Q12 (1)), one of the two.
+  const armrests =
+    yesNo(shown, answers, "pc_trunk_armrests:chair") ?? yesNo(shown, answers, "pc_trunk_armrests:wheelchair");
+  if (armrests !== undefined) out.armrests = armrests;
+  const lean: NonNullable<StoredFocusToday["seatedLean"]> = {};
+  const fellSitting = yesNo(shown, answers, "pc_fall_sitting");
+  if (fellSitting !== undefined) lean.fellSitting = fellSitting;
+  const pressureSore = yesNo(shown, answers, "pc_pressure_sore");
+  if (pressureSore !== undefined) lean.pressureSore = pressureSore;
+  const sits = shown.has("pc_sit_unsupported") ? answers.pc_sit_unsupported : undefined;
+  if (sits === "yes" || sits === "no" || sits === "unsure") lean.sitsUnsupported = sits;
+  if (Object.keys(lean).length) out.seatedLean = lean;
+  // As gaitPlanFor reads it: the day's own answer, else pc_limb_leg_prosthesis.
+  if (hasLowerLimbLoss(intake)) {
+    const on = today.prosthesisOn ?? yesNo(shown, answers, "pc_limb_leg_prosthesis");
+    if (on !== undefined) out.prosthesisOn = on;
+  }
+  return out;
 }

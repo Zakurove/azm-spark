@@ -11,6 +11,7 @@ import type {
   GaitSetup,
   GaitView,
   GaitViewResult,
+  GaitWalkPain,
   StaticStanceResult,
 } from "../../src/engine/gait/types";
 import type { GaitPlan } from "../../src/medical/gait-eligibility";
@@ -299,19 +300,20 @@ export interface InputSpec extends WalkSpec {
   rom?: RomProfileEntry[];
   setup?: GaitSetup;
   steadi?: { fell: boolean; worry: boolean };
-  walkPain?: GaitRulesInput["walkPain"];
+  /** Pain marked during the walk (CG-8), written into the analysis as C4's GaitController writes it. */
+  walkPain?: GaitWalkPain[];
 }
 
 export function input(s: InputSpec = {}): GaitRulesInput {
+  const analysis = s.analysis ?? walk(s);
   const out: GaitRulesInput = {
-    analysis: s.analysis ?? walk(s),
+    analysis: s.walkPain ? { ...analysis, walkPain: s.walkPain } : analysis,
     intake: intake(s.intake),
     romProfile: s.rom ? profile(s.rom) : null,
     today: { painByRegion: s.pain ?? {}, ...(s.steadi ? { steadi: s.steadi } : {}) },
     plan: plan(s.plan),
   };
   if (s.setup) out.setup = s.setup;
-  if (s.walkPain) out.walkPain = s.walkPain;
   return out;
 }
 

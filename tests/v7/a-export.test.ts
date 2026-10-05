@@ -385,6 +385,56 @@ describe("v7 clinical export: round trip to the committed files", () => {
     for (const name of ["rom", "gait", "targets"] as const)
       expect(JSON.stringify(data![name], null, 2) + "\n").toBe(committedText(name));
   });
+
+  it.skipIf(!process.env.AZM_CLINICAL_V7)(
+    "the real gait source marks the CG-19 thresholds interim, with their decision and dataset evidence (D-027 item 6)",
+    () => {
+      const gait = JSON.parse(readFileSync(join(process.env.AZM_CLINICAL_V7!, "gait-rules.json"), "utf8"));
+      const interim = (id: string) =>
+        gait.patterns.find((p: { id: string }) => p.id === id).thresholds.interim;
+      const walkers = {
+        stiff_knee: ["vc-ab-005"],
+        recurvatum: ["wbds-41-t01", "wbds-41-t07"],
+        quad_avoidance: ["wbds-25-t01"],
+      };
+      for (const [id, ids] of Object.entries(walkers)) {
+        const i = interim(id);
+        expect(i.until, id).toBe("GAIT-Q3");
+        expect(i.basis, id).toContain("D-027 item 6");
+        expect(i.basis, id).toContain("CG-19");
+        for (const w of ids) expect(i.evidence, id).toContain(w);
+        // The runtime keeps the mark and drops the basis and evidence (rule 2).
+        const runtime = (
+          committed("gait") as { patterns: { id: string; thresholds: { interim?: object } }[] }
+        ).patterns.find((p) => p.id === id)!.thresholds.interim;
+        expect(Object.keys(runtime!).sort(), id).toEqual(
+          Object.keys(i)
+            .filter((k) => k !== "basis" && k !== "evidence")
+            .sort(),
+        );
+      }
+    },
+  );
+
+  it.skipIf(!process.env.AZM_CLINICAL_V7)(
+    "the real sources' sign off record: only Nasser approved (D-025, 4 Oct 2026), Chaker has not reviewed yet",
+    () => {
+      const dir = process.env.AZM_CLINICAL_V7!;
+      for (const file of ["rom-protocol.json", "gait-rules.json", "exercise-targets.json"]) {
+        const { signoff } = JSON.parse(readFileSync(join(dir, file), "utf8"));
+        expect(signoff.approvers, file).toEqual(["Dr. Nasser Alharbi (PM&R), medical"]);
+        expect(signoff.signedOffBy, file).toBe("Dr. Nasser Alharbi (PM&R), medical");
+        expect(signoff.date, file).toBe("2026-10-04");
+        expect(signoff.note, file).toContain("Only Dr. Nasser Alharbi approved (D-025, 4 Oct 2026)");
+        expect(signoff.note, file).toContain("Chaker Belhaj has not reviewed yet");
+      }
+      for (const file of ["rom-protocol.md", "gait-rules.md", "exercise-targets.md"]) {
+        const status = readFileSync(join(dir, file), "utf8").split("\n")[2];
+        expect(status, file).toContain("Only Dr. Nasser Alharbi approved (D-025, 4 Oct 2026)");
+        expect(status, file).toContain("Chaker Belhaj has not reviewed yet");
+      }
+    },
+  );
 });
 
 describe("v7 clinical export: the required --input", () => {
@@ -619,6 +669,31 @@ describe("v7 clinical export: a new field anywhere reaches the output or fails (
       });
       expect(r.error, `${name} ${path}`).toContain(message);
     }
+  });
+
+  it("keeps who signed off, when and the decision in local-docs (the sign off record, D-025)", () => {
+    for (const name of ["rom", "gait", "targets"] as const) {
+      const r = exportWith(name, (s) => {
+        Object.assign(s.signoff, {
+          signedOffBy: "Dr. Nasser Alharbi (PM&R), medical",
+          date: "2026-10-04",
+          decision: "D-025",
+        });
+      });
+      expect(r.error, name).toBeUndefined();
+      const signoff = JSON.parse(r.text!).signoff;
+      expect(Object.keys(signoff), name).toEqual(
+        name === "rom" ? ["status", "approved", "approvers"] : ["approved", "approvers"],
+      );
+    }
+  });
+
+  it("keeps a limb loss level's sign off resolution in local-docs beside its question (ROM-Q7)", () => {
+    const r = exportWith("rom", (s) => {
+      s.limbLoss.levels[0].resolution = "ROM-Q7, signed off: not measured with the prosthesis on.";
+    });
+    expect(r.error).toBeUndefined();
+    expect(r.text).not.toContain("ROM-Q7");
   });
 });
 
@@ -985,7 +1060,7 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
       defaultDeg: 10,
       bands: {
         shoulder_flexion: { neurologicalDeg: 18 },
-        elbow: { neurologicalLabDeg: 33, neurologicalHomeDeg: 36 },
+        elbow: { neurologicalDeg: 36 },
         ankle_dorsiflexion_lunge: { deg: 10 },
         knee_extension: { deg: 11, position: "lying_back" },
         shoulder_abduction: { deg: 16, wideDeg: 20 },
@@ -998,6 +1073,10 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
     });
     const lists = rom.safety.find((s: Obj) => s.id === "after_surgery_precaution").hipPrecautions;
     expect(lists.anterior).toEqual({ extensionPastDeg: 20, externalRotationPastDeg: 50 });
+    // FZ-1 (D-026 item 4): one elbow band; the lab and home pair of the draft no longer exports.
+    const twice = romSource();
+    twice.retest.bands.elbow = { neurologicalLabDeg: 33, neurologicalHomeDeg: 36 };
+    expect(() => exportRom(twice)).toThrow("retest band elbow: unknown field neurologicalLabDeg");
     const b = romSource();
     b.sessionOrder.blocks = ["seated", "lying", "standing", "pool"];
     expect(() => exportRom(b)).toThrow("sessionOrder.blocks: pool is not a block");
@@ -1188,7 +1267,11 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
       unilateralCappedBelow_mps: 0.5,
       cappedNeedsDiffGte: 15,
       absoluteAloneFrom_mps: 0.8,
+      // Interim since the sign off apply step (D-027 item 6, CG-19).
+      interimAbsoluteAloneFrom_mps: 1,
     });
+    expect(pattern("quad_avoidance").thresholds.speed).toEqual({ interimNotAssessedBelow_mps: 0.5 });
+    expect(pattern("recurvatum").thresholds.possible).toEqual({ hyperextension_gte: 12 });
     expect(pattern("steppage").thresholds.likely).toMatchObject({
       possibleCyclesPctGte: 60,
       speed_mps_gte: 0.6,

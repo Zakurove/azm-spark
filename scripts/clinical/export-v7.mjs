@@ -767,6 +767,12 @@ export const PROBLEM_TYPE_NUMBERS = [
 export const SAFETY_NUMBERS = ["months", "weeks", "atOrAbove", "outOf", "riseAtOrAbove", "backPainAtOrAbove"];
 
 /**
+ * The sign off record beside the status (D-025): who signed off, when and the decision. Engineers read
+ * them in local-docs; the runtime keeps the status, approved and the approvers.
+ */
+export const SIGNOFF_RECORD = ["signedOffBy", "date", "decision"];
+
+/**
  * ROM prose the export drops, by object (rule 2 and the rule 3 field lists): engineers read it in
  * local-docs and the code that implements it quotes it. Known here so that any other field stops the
  * export.
@@ -776,7 +782,7 @@ export const ROM_PROSE = {
   problemTypes: ["rule", "programHint"],
   conditionAutoMap: ["regions", "problem", "ask2"],
   limbLoss: ["rule"],
-  limbLossLevel: ["openQuestion", "standing"],
+  limbLossLevel: ["openQuestion", "resolution", "standing"],
   positions: ["who"],
   inAffectedRegion: ["percentOfNormal", "finding", "bodyMap"],
   thresholds: [
@@ -843,15 +849,12 @@ function movementSet(entries, movements, where) {
   });
 }
 
-/** The fields of a retest band (D-024 item 4): a movement's band, the neurological limb's and the wide band. */
-export const RETEST_BAND_FIELDS = [
-  "deg",
-  "neurologicalDeg",
-  "neurologicalLabDeg",
-  "neurologicalHomeDeg",
-  "position",
-  "wideDeg",
-];
+/**
+ * The fields of a retest band (D-024 item 4): a movement's band, the neurological limb's and the wide
+ * band. One band per key: the elbow's lab and home pair of the draft became the home band at the sign
+ * off (FZ-1, D-026 item 4), so a band written twice stops the export.
+ */
+export const RETEST_BAND_FIELDS = ["deg", "neurologicalDeg", "position", "wideDeg"];
 
 /**
  * retest: the change bands compareRom reads (B4; review B15), copied from the rule in words, which
@@ -959,7 +962,7 @@ export function exportRom(source) {
     id: source.id,
     specVersion: source.specVersion,
     status: source.status,
-    signoff: take(source.signoff, ["status", "approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["status", "approved", "approvers"], "signoff", SIGNOFF_RECORD),
     conventions: take(source.conventions, ["sides"], "conventions", ROM_PROSE.conventions),
     engine: engineValues(source.engine),
     regions,
@@ -1109,7 +1112,7 @@ export function exportGait(source) {
     id: source.id,
     version: source.version,
     status: source.status,
-    signoff: take(source.signoff, ["approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["approved", "approvers"], "signoff", SIGNOFF_RECORD),
     grades: grades(source.grades),
     eligibility: strip(source.eligibility),
     capture: numbersOnly(source.capture),
@@ -1200,7 +1203,7 @@ export function exportTargets(source) {
     id: source.id,
     version: source.version,
     status: source.status,
-    signoff: take(source.signoff, ["approved", "approvers"], "signoff"),
+    signoff: take(source.signoff, ["approved", "approvers"], "signoff", SIGNOFF_RECORD),
     placeholders: strip(source.placeholders),
     taxonomy: strip(source.taxonomy),
     dose: dose(source.dose),
@@ -1416,12 +1419,6 @@ export const PROSE_NUMBER_EXEMPT = [
     file: "targets",
     path: "newExercises[*].textSource.niaTitle",
     why: "the title of the NIA exercise the text adapts",
-  },
-  {
-    file: "targets",
-    path: "newExercises[20].dose.text",
-    numbers: [10],
-    why: "the schedule of the trial behind the stretch (evidence)",
   },
   {
     file: "targets",

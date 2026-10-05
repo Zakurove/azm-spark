@@ -6,8 +6,17 @@
  */
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { earliestNextCheck } from "../../../src/medical/assessment";
-import type { FocusToday, RomProtocol, RomReasonId } from "../../../src/medical/rom-protocol";
+import { MIN_HOURS_BETWEEN_CHECKS } from "../../../src/medical/assessment";
+import {
+  V1_CHECK_JOINTS,
+  focusStoredJoints,
+  sharedUntil,
+  v1ResultJoints,
+  type CheckJoints,
+} from "../../../src/medical/check-joints";
+import type { BodyMapKey } from "../../../src/medical/body-map";
+import type { RomProtocol, RomReasonId } from "../../../src/medical/rom-protocol";
+import type { StoredFocusToday } from "../../../src/medical/focus-precheck";
 import type { GaitPlan } from "../../../src/medical/gait-eligibility";
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { MeasurementGrade } from "../../../src/medical/rom-norms";
@@ -17,6 +26,7 @@ import type {
   GaitQuality,
   GaitSetup,
   GaitViewResult,
+  GaitWalkPain,
   StaticStanceResult,
 } from "../../../src/engine/gait/types";
 import type { LimitCause, RomAttempt, RomFlag, RomMeasureResult } from "../../../src/engine/rom/types";
@@ -46,20 +56,38 @@ export interface FocusDevice {
 }
 
 /**
- * The day's answers a later step reads, the only ones kept (contract section 3, Gate A review): the
- * pain per region for the gait rules at complete, and helper present for the coach's token (C-12,
- * 5.1). The others (red flag regions, the walk and freezing answers, a prosthesis worn, a chair
- * transfer, an orthosis) did their work at the start and live on in the frozen protocol and gait
- * plan, so they are not kept: the v1 data map keeps nothing else from the pre-check either.
+ * The day's answers a later step reads, the only ones kept (contract section 3; R1-2, D-026 items 7
+ * and 9): the start keeps keptDayAnswers (src/medical/focus-precheck.ts), each answer only when it was
+ * asked. The others (red flag regions, the walk and freezing answers, a chair transfer, an orthosis)
+ * did their work at the start and live on in the frozen protocol and gait plan, so they are not kept.
  */
-export type StoredFocusToday = Pick<FocusToday, "painByRegion" | "helperPresent">;
+export type { StoredFocusToday };
 
-/** The kept part of the day's answers (StoredFocusToday). */
-export function storedToday(today: Pick<FocusToday, "painByRegion" | "helperPresent">): StoredFocusToday {
-  return {
-    painByRegion: { ...today.painByRegion },
-    ...(today.helperPresent !== undefined ? { helperPresent: today.helperPresent } : {}),
-  };
+const YES_NO_UNSURE: readonly unknown[] = ["yes", "no", "unsure"];
+const isBool = (v: unknown): v is boolean => typeof v === "boolean";
+
+/**
+ * The kept day's answers, field by field (StoredFocusToday): nothing else reaches the column or comes
+ * back from it, whatever the object holds (a row written before a field existed reads without it).
+ */
+export function storedToday(today: StoredFocusToday): StoredFocusToday {
+  const out: StoredFocusToday = { painByRegion: { ...today.painByRegion } };
+  if (isBool(today.helperPresent)) out.helperPresent = today.helperPresent;
+  const st = today.steadi;
+  if (st && isBool(st.fell) && isBool(st.worry)) out.steadi = { fell: st.fell, worry: st.worry };
+  if (today.pdState === "on" || today.pdState === "unsure") out.pdState = today.pdState;
+  if (isBool(today.pusher)) out.pusher = today.pusher;
+  if (isBool(today.armrests)) out.armrests = today.armrests;
+  const lean = today.seatedLean;
+  if (lean) {
+    const kept: NonNullable<StoredFocusToday["seatedLean"]> = {};
+    if (isBool(lean.fellSitting)) kept.fellSitting = lean.fellSitting;
+    if (isBool(lean.pressureSore)) kept.pressureSore = lean.pressureSore;
+    if (YES_NO_UNSURE.includes(lean.sitsUnsupported)) kept.sitsUnsupported = lean.sitsUnsupported;
+    if (Object.keys(kept).length) out.seatedLean = kept;
+  }
+  if (isBool(today.prosthesisOn)) out.prosthesisOn = today.prosthesisOn;
+  return out;
 }
 
 export interface FocusCheck {
@@ -114,7 +142,7 @@ function toCheck(r: FocusRow): FocusCheck {
     status: r.status,
     protocol: JSON.parse(r.protocol),
     gaitPlan: r.gait_plan === null ? null : JSON.parse(r.gait_plan),
-    today: storedToday(JSON.parse(r.today) as FocusToday),
+    today: storedToday(JSON.parse(r.today) as StoredFocusToday),
     precheck: JSON.parse(r.precheck),
     versions: JSON.parse(r.versions),
     device: JSON.parse(r.device),
@@ -126,13 +154,7 @@ function toCheck(r: FocusRow): FocusCheck {
   };
 }
 
-export type NewFocusCheck = Omit<
-  FocusCheck,
-  "id" | "status" | "active" | "completed" | "endedReason" | "today"
-> & {
-  /** The day's answers as the start received them; only StoredFocusToday is written. */
-  today: FocusToday;
-};
+export type NewFocusCheck = Omit<FocusCheck, "id" | "status" | "active" | "completed" | "endedReason">;
 
 /**
  * Stores a new open focus check after closing any other open one of the person (replaced): a person
@@ -313,20 +335,137 @@ export function touchFocus(db: DatabaseSync, id: string, now: number): void {
   db.prepare("UPDATE focus_checks SET active=? WHERE id=? AND status='open'").run(now, id);
 }
 
-/* ----------------------------------------------------- the 48 hour rule */
+/* ------------------------------------------- the seated side bend's limit */
 
 /**
- * The v1 schedule with the latest completed focus check counted in its 48 hour minimum (section 4,
- * "the 48 hour minimum is two way"): earliestNext is the later of the two, and canStart follows it.
- * The due date and the early flag are the v1 ones; without a completed focus check the schedule is
- * returned unchanged.
+ * The best seated side bend of each side at the person's earlier completed checks (D-027 item 2, W2-6):
+ * the focus checks' trunk_lateral_flexion measured seated on armrests, and the v1 side lean
+ * (trunk_control_seated), the larger of the two. The runner's limit reads it (v1.1 4.3: beyond the
+ * earlier best plus 15); null for a side never measured, which keeps the first check limit.
+ */
+export function sideLeanBest(
+  db: DatabaseSync,
+  userId: string,
+): { left: number | null; right: number | null } {
+  const focus = db
+    .prepare(
+      `SELECT m.side, MAX(m.value) AS best FROM rom_measurements m JOIN focus_checks c ON c.id=m.check_id
+       WHERE m.user_id=? AND c.status='completed' AND m.movement_id='trunk_lateral_flexion'
+         AND m.position='seated_armrests' AND m.source='measured' AND m.value IS NOT NULL
+       GROUP BY m.side`,
+    )
+    .all(userId) as { side: string; best: number }[];
+  const v1 = db
+    .prepare(
+      `SELECT r.side, MAX(r.value) AS best FROM assessment_results r JOIN assessments a ON a.id=r.assessment_id
+       WHERE r.user_id=? AND a.status='completed' AND r.test_id='trunk_control_seated' AND r.value IS NOT NULL
+       GROUP BY r.side`,
+    )
+    .all(userId) as { side: string; best: number }[];
+  const out: { left: number | null; right: number | null } = { left: null, right: null };
+  for (const r of [...focus, ...v1])
+    if (r.side === "left" || r.side === "right") {
+      const had = out[r.side];
+      out[r.side] = had === null ? Number(r.best) : Math.max(had, Number(r.best));
+    }
+  return out;
+}
+
+/* ----------------------------------------------------- the 48 hour rule */
+
+/** The checks completed inside the last 48 hours: only they can hold a start back. */
+const recentFrom = (now: number) => now - MIN_HOURS_BETWEEN_CHECKS * 60 * 60 * 1000;
+
+/**
+ * The focus checks completed in the last 48 hours, each with the joints it measured (CT-3,
+ * src/medical/check-joints.ts): its rows with a value or attempts, and the walk's regions with a gait
+ * analysis.
+ */
+export function recentFocusJoints(db: DatabaseSync, userId: string, now: number): CheckJoints[] {
+  const checks = db
+    .prepare(
+      `SELECT c.id, c.completed, EXISTS(SELECT 1 FROM gait_analyses g WHERE g.check_id=c.id) AS walked
+       FROM focus_checks c WHERE c.user_id=? AND c.status='completed' AND c.completed>?`,
+    )
+    .all(userId, recentFrom(now)) as { id: string; completed: number; walked: number }[];
+  return checks.map((c) => {
+    const rows = db
+      .prepare("SELECT movement_id, side, value, attempts FROM rom_measurements WHERE check_id=?")
+      .all(c.id) as { movement_id: string; side: RomSide; value: number | null; attempts: string }[];
+    return {
+      completed: Number(c.completed),
+      joints: focusStoredJoints(
+        rows.map((r) => ({
+          movementId: r.movement_id as RomMovementId | DefaultOnlyId,
+          side: r.side,
+          value: r.value,
+          attempts: (JSON.parse(r.attempts) as unknown[]).length,
+        })),
+        Number(c.walked) === 1,
+      ),
+    };
+  });
+}
+
+/**
+ * The v1 checks completed in the last 48 hours, each with the joints its results loaded (check-v1
+ * areas[].loads): results with a value or attempts.
+ */
+export function recentV1Joints(db: DatabaseSync, userId: string, now: number): CheckJoints[] {
+  const rows = db
+    .prepare(
+      `SELECT a.id, a.completed, r.test_id, r.side, r.variant, r.value, r.attempts
+       FROM assessments a LEFT JOIN assessment_results r ON r.assessment_id=a.id
+       WHERE a.user_id=? AND a.status='completed' AND a.completed>?`,
+    )
+    .all(userId, recentFrom(now)) as {
+    id: string;
+    completed: number;
+    test_id: string | null;
+    side: "left" | "right" | "none" | null;
+    variant: string | null;
+    value: number | null;
+    attempts: string | null;
+  }[];
+  const out = new Map<string, { completed: number; joints: Set<BodyMapKey> }>();
+  for (const r of rows) {
+    const c = out.get(r.id) ?? { completed: Number(r.completed), joints: new Set<BodyMapKey>() };
+    out.set(r.id, c);
+    if (r.test_id === null || r.side === null) continue;
+    const tried = r.value !== null || (JSON.parse(r.attempts ?? "[]") as unknown[]).length > 0;
+    if (!tried) continue;
+    for (const j of v1ResultJoints({ testId: r.test_id as never, side: r.side, variant: r.variant }))
+      c.joints.add(j);
+  }
+  return [...out.values()];
+}
+
+/**
+ * The 48 hour minimum of a focus check that measures `joints` (CT-3, D-025 item 5): 48 hours after the
+ * latest focus or v1 check completed in the last 48 hours that shares one of them, or null.
+ */
+export function focusEarliestNext(
+  db: DatabaseSync,
+  userId: string,
+  joints: ReadonlySet<BodyMapKey>,
+  now: number,
+): number | null {
+  return sharedUntil([...recentFocusJoints(db, userId, now), ...recentV1Joints(db, userId, now)], joints);
+}
+
+/**
+ * The v1 schedule with the completed focus checks counted in its 48 hour minimum, both ways (section 4)
+ * and only where they share a joint with a v1 check (CT-3): a focus check that measured a joint a v1
+ * check loads (V1_CHECK_JOINTS, every joint its tests can load) holds it back for 48 hours, and one of
+ * the neck alone does not. earliestNext is the later of the two, and canStart follows it. The due date
+ * and the early flag are the v1 ones; without such a focus check the schedule is returned unchanged.
  */
 export function scheduleWithFocus<S extends { earliestNext: number | null; canStart: boolean }>(
   schedule: S,
-  lastFocusCompleted: number | null,
+  focusChecks: readonly CheckJoints[],
   now: number,
 ): S {
-  const focus = earliestNextCheck(lastFocusCompleted);
+  const focus = sharedUntil(focusChecks, V1_CHECK_JOINTS);
   if (focus === null || (schedule.earliestNext !== null && schedule.earliestNext >= focus)) return schedule;
   return { ...schedule, earliestNext: focus, canStart: now >= focus };
 }
@@ -521,6 +660,8 @@ export interface StoredGait {
   metrics: GaitAnalysis["combined"];
   /** GaitAnalysis.staticStance (kept in the metrics column with combined). */
   staticStance: StaticStanceResult[];
+  /** GaitAnalysis.walkPain, the pain marked during the walk (CG-8; kept in the metrics column too). */
+  walkPain: GaitWalkPain[];
   findings: StoredGaitFindings;
   quality: GaitStoredView["quality"];
   replay: GaitAnalysis["replay"];
@@ -568,10 +709,14 @@ function toGait(r: GaitRowDb): StoredGait {
   };
 }
 
-/** The metrics column: GaitAnalysis.combined and the static stance results. */
-function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance"> {
-  const m = JSON.parse(json) as { combined: GaitAnalysis["combined"]; staticStance: StaticStanceResult[] };
-  return { metrics: m.combined, staticStance: m.staticStance };
+/** The metrics column: GaitAnalysis.combined, the static stance results and the walk's pain marks. */
+function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance" | "walkPain"> {
+  const m = JSON.parse(json) as {
+    combined: GaitAnalysis["combined"];
+    staticStance: StaticStanceResult[];
+    walkPain?: GaitWalkPain[];
+  };
+  return { metrics: m.combined, staticStance: m.staticStance, walkPain: m.walkPain ?? [] };
 }
 
 /** The patterns as stored: their lines are dropped, the rules write them again on read. */
@@ -591,7 +736,7 @@ export function saveGait(db: DatabaseSync, userId: string, g: Omit<StoredGait, "
     g.mode,
     JSON.stringify(g.views),
     JSON.stringify(g.setup),
-    JSON.stringify({ combined: g.metrics, staticStance: g.staticStance }),
+    JSON.stringify({ combined: g.metrics, staticStance: g.staticStance, walkPain: g.walkPain }),
     JSON.stringify(g.findings),
     JSON.stringify(g.quality),
     g.replay === null ? null : JSON.stringify(g.replay),

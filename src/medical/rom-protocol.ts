@@ -307,7 +307,7 @@ export function globalGate(intake: Intake): "global_gate" | "clearance_needed" |
 }
 
 /** A leg limb loss: a leg level on the body map, or the v1 condition lower_limb_unilateral. */
-function hasLowerLimbLoss(intake: Intake): boolean {
+export function hasLowerLimbLoss(intake: Intake): boolean {
   return (
     intake.conditions.includes("lower_limb_unilateral") ||
     (intake.regions ?? []).some(
@@ -541,6 +541,19 @@ function movementsOf(u: Unit, day: Day): RomMovementId[] {
   );
 }
 
+/**
+ * The camera movements of a unit that the Parkinson's set leaves out (rom-protocol 4.3 rule 11, reason
+ * not_in_set; FZ-3, D-026 item 4): «stored with source 'not_measured_today', reason 'not_in_set' ...
+ * the body map shows it grey, never typical (ROM-Q15); it gets no target of its own, since the set's own
+ * targets cover the exercises». Empty outside the set's regions and without Parkinson's.
+ */
+function outsideSetOf(u: Unit, day: Day): RomMovementId[] {
+  if (!day.parkinsons || !PD_REGIONS.has(u.region)) return [];
+  const row = regionRow(u.region);
+  const planned = new Set(movementsOf(u, day));
+  return [...row.measure, ...row.caution].filter((m) => !planned.has(m));
+}
+
 function positionBlock(m: RomMovementId, position: RomPositionId, day: Day): RomV7ReasonId | null {
   switch (position) {
     case "seated":
@@ -718,13 +731,13 @@ export function buildRomProtocol(input: RomProtocolInput): RomProtocol {
     }
   }
 
+  const sidesOf = (def: RomMovementDef, u: Unit): RomSide[] =>
+    u.side === "axial" ? (def.bothDirections ? ["right", "left"] : ["none"]) : [u.side];
   for (const u of units) {
     const row = regionRow(u.region);
     for (const m of movementsOf(u, day)) {
       const def = movementDef(m);
-      const sides: RomSide[] =
-        u.side === "axial" ? (def.bothDirections ? ["right", "left"] : ["none"]) : [u.side];
-      for (const side of sides) {
+      for (const side of sidesOf(def, u)) {
         if (notMeasured.has(keyOf(m, side))) continue;
         drafts.set(keyOf(m, side), draftItem(def, side, u, day, input.previous));
       }
@@ -744,6 +757,21 @@ export function buildRomProtocol(input: RomProtocolInput): RomProtocol {
       });
     }
   }
+  // Parkinson's: the camera movements the set leaves out in its regions, stored as not measured (4.3
+  // rule 11, FZ-3), after limb loss and the planned movements, which keep their own rows.
+  for (const u of units)
+    for (const m of outsideSetOf(u, day))
+      for (const side of sidesOf(movementDef(m), u)) {
+        const key = keyOf(m, side);
+        if (notMeasured.has(key) || drafts.has(key)) continue;
+        notMeasured.set(key, {
+          movementId: m,
+          side,
+          region: u.region,
+          source: "not_measured_today",
+          reason: "not_in_set",
+        });
+      }
 
   // The cap: at most maxMeasured runnable items, core movements first, then the session order.
   const cap =

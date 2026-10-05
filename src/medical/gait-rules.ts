@@ -34,6 +34,7 @@ import type {
   GaitSetup,
   GaitView,
   GaitViewResult,
+  GaitWalkPain,
 } from "../engine/gait/types";
 import { NEAR_LIMB_METRICS, combineViewMetrics } from "../engine/gait/combine";
 import { GAIT_ENGINE } from "../engine/gait/params";
@@ -44,6 +45,7 @@ import type {
   GaitFindingsInput,
   GaitPatternId,
   GaitPatternResult,
+  GaitResultFlag,
   GaitStatus,
   GaitSupportFinding,
   NotAssessedReason,
@@ -68,21 +70,13 @@ import type { Text } from "../movements/types";
 /* ---------------------------------------------------------------- input */
 
 /**
- * What evaluateGait reads: the contract's GaitFindingsInput (2.9) and three optional parts it does
- * not carry yet (contract gaps CG-7 to CG-9, step C3). Until A's gait route passes them, the rules
- * that need them do not apply: the orthosis of a side (setup), pain marked during the walk (walkPain)
- * and the day's falls and worry answers (today.steadi).
+ * What evaluateGait reads: the contract's GaitFindingsInput (2.9), with the walk's setup (CG-7), the
+ * pain marked during the walk in the analysis (GaitAnalysis.walkPain, CG-8) and the day's falls and
+ * worry answers (today.steadi, CG-9), as D-026 item 7 adds them. The gait route always passes the
+ * setup; a caller without one (the acceptance runs on recorded walks) reads the aid and the height
+ * from the intake, as C3 did before the setup was passed.
  */
-export interface GaitRulesInput extends GaitFindingsInput {
-  /** CG-7: the walk's setup (the POST body's, or gait_analyses.setup at complete): orthoses, the aid as walked, the height. */
-  setup?: GaitSetup;
-  /** CG-8: mark_pain during the walk, with its side when the person named one (gait-rules 1.5). */
-  walkPain?: { side: "left" | "right" | null; level: number }[];
-  today: GaitFindingsInput["today"] & {
-    /** CG-9: pc_steadi «fell» and «worry» today (short_steps careful_walking). */
-    steadi?: { fell: boolean; worry: boolean };
-  };
-}
+export type GaitRulesInput = Omit<GaitFindingsInput, "setup"> & { setup?: GaitSetup | null };
 
 type Side = "left" | "right";
 type ResultSide = GaitPatternResult["side"];
@@ -165,6 +159,8 @@ const N = {
     cappedBelow: num(T("stiff_knee").speed, "unilateralCappedBelow_mps", "stiff_knee.speed"),
     cappedNeedsDiff: num(T("stiff_knee").speed, "cappedNeedsDiffGte", "stiff_knee.speed"),
     absoluteAloneFrom: num(T("stiff_knee").speed, "absoluteAloneFrom_mps", "stiff_knee.speed"),
+    /** Interim (D-027 item 6, CG-19): for every walker the absolute peak alone counts only from here. */
+    interimAloneFrom: num(T("stiff_knee").speed, "interimAbsoluteAloneFrom_mps", "stiff_knee.speed"),
   },
   steppage: {
     pitch: num(T("steppage").possible, "foot_pitch_ic_lte", "steppage.possible"),
@@ -188,6 +184,12 @@ const N = {
   quad: {
     peak: num(T("quad_avoidance").possible, "knee_loading_peak_lte", "quad_avoidance.possible"),
     lower: num(T("quad_avoidance").possible, "lowerThanOtherSide_gte", "quad_avoidance.possible"),
+    /** Interim (D-027 item 6, CG-19): not assessed below this speed when the sign is seen. */
+    interimNotAssessedBelow: num(
+      T("quad_avoidance").speed,
+      "interimNotAssessedBelow_mps",
+      "quad_avoidance.speed",
+    ),
   },
   reduced: {
     diff: num(T("reduced_extension").possible, "tla_lower_than_other_gte", "reduced_extension.possible"),
@@ -221,6 +223,11 @@ const N = {
   uneven: {
     possible: num(
       gaitFinding("uneven_step_length").thresholds.possible,
+      "sr_step_length_gte",
+      "uneven_step_length",
+    ),
+    likely: num(
+      gaitFinding("uneven_step_length").thresholds.likely,
       "sr_step_length_gte",
       "uneven_step_length",
     ),
@@ -262,7 +269,7 @@ interface Ctx {
   rom: GaitFindingsInput["romProfile"];
   painByRegion: Partial<Record<RegionId, number>>;
   setup: GaitSetup | null;
-  walkPain: NonNullable<GaitRulesInput["walkPain"]>;
+  walkPain: GaitWalkPain[];
   steadi: { fell: boolean; worry: boolean } | null;
   pad: boolean;
   flags: ReadonlySet<Flag>;
@@ -404,7 +411,7 @@ function contextOf(input: GaitRulesInput): Ctx {
     rom: input.romProfile,
     painByRegion,
     setup: input.setup ?? null,
-    walkPain: input.walkPain ?? [],
+    walkPain: input.analysis.walkPain ?? [],
     steadi: input.today.steadi ?? null,
     pad: input.analysis.mode === "walking_pad",
     flags: new Set(input.analysis.flags),
@@ -456,6 +463,8 @@ interface Draft {
   side: ResultSide;
   status: GaitStatus;
   notAssessed?: NotAssessedReason;
+  /** What the result was read against (CG-16): norm_interim for the age and sex norms of 4.1. */
+  flags?: GaitResultFlag[];
   evidence: Evidence[];
   /** The views it read (the clean cycle and frame rate downgrades). */
   views: GaitViewResult[];
@@ -785,10 +794,12 @@ function stiffKnee(c: Ctx): Draft[] {
     const absolute = low(s, N.stiff.peak);
     const between = diff !== null && diff >= N.stiff.diff;
     // «Below 0.5 m/s a one sided stiff knee is capped at possible and needs a between limb difference
-    // of 15 or more»; «in a one sided condition the absolute peak alone counts only at 0.8 m/s or more».
+    // of 15 or more»; «in a one sided condition the absolute peak alone counts only at 0.8 m/s or more»;
+    // interim (D-027 item 6, CG-19): «for every walker the absolute peak alone counts only at >= 1.0
+    // m/s; under it the pattern needs the between limb difference».
     const capped = c.speed === null || c.speed < N.stiff.cappedBelow;
     const aloneBlocked =
-      absoluteAloneBlocked(c, N.stiff.cappedBelow) ??
+      absoluteAloneBlocked(c, Math.max(N.stiff.cappedBelow, N.stiff.interimAloneFrom)) ??
       (c.oneSided
         ? absoluteAloneBlocked(c, Math.max(N.stiff.absoluteAloneFrom, UNILATERAL_ABSOLUTE_FROM))
         : null);
@@ -916,6 +927,10 @@ function quadAvoidance(c: Ctx): Draft[] {
     // «knee_loading_peak on S 5 or less and 10 or more below the other side».
     if (!(v <= N.quad.peak && present(m, s) && o !== null && o - v >= N.quad.lower))
       return { kind: "not_seen" };
+    // Interim (D-027 item 6, CG-19): «not assessed below 0.5 m/s (slow_speed) when the sign is seen,
+    // like stiff knee's speed rule; an unknown speed reads as too slow (no_height)».
+    const slow = absoluteAloneBlocked(c, N.quad.interimNotAssessedBelow);
+    if (slow) return { kind: "not_assessed", reason: slow };
     return {
       kind: "fired",
       status: "possible",
@@ -1020,9 +1035,13 @@ function shortSteps(c: Ctx): Draft[] {
   const b = strideV !== null && bAt !== null && strideV < bAt;
   // (c) «cadence at or above the age and sex mean».
   const cc = cadV !== null && nm !== null && cadV >= nm.cadence;
+  // CG-16 (D-026 item 7): (a) and (c) read the age and sex norms of 4.1, which under call below 70 until
+  // the steady state tables are retrieved (review B10, GAIT-Q11), and they decide the result, so every
+  // result read with a norm carries norm_interim (the person's view adds the approximate label).
+  const flags: GaitResultFlag[] | undefined = nm ? ["norm_interim"] : undefined;
   // Possible: (b), or (a) and (c) only when the height is missing; likely: all three.
   const isPossible = b || (c.height === null && a && cc);
-  if (!isPossible) return [notSeen(id)];
+  if (!isPossible) return [{ ...notSeen(id), ...(flags ? { flags } : {}) }];
   const isLikely = a && b && cc;
   const evidence: Evidence[] = [];
   if (a) evidence.push(ev("step_length_m", undefined, stepV!, round3(aAt!)));
@@ -1040,6 +1059,7 @@ function shortSteps(c: Ctx): Draft[] {
       // caps: «noHeight: possible, padStepLength: possible» (pad step length rules until the belt is
       // measured, review B11); light touch.
       status: cap(isLikely ? "likely" : "possible", c.height === null || c.pad || lightTouch(c)),
+      ...(flags ? { flags } : {}),
       evidence,
       views: g.passed,
       grades: [step?.grade, stride?.grade, cad?.grade].filter((x): x is GaitGrade => x !== undefined),
@@ -1103,15 +1123,17 @@ function findings(c: Ctx, steppageOn: (s: Side) => boolean): GaitSupportFinding[
         present(fg.metrics.foot_pitch_ic, s, N.flat.share) &&
         !steppageOn(s)
       )
-        out.push({ id: "flat_or_forefoot_contact", side: s, value: p });
+        out.push({ id: "flat_or_forefoot_contact", side: s, value: p, status: null });
     }
-  // slow_speed: «overground side speed below the age and sex mean − 2 SD» (side view only).
+  // slow_speed: «overground side speed below the age and sex mean − 2 SD» (side view only), read
+  // against the 4.1 norms, so flagged norm_interim (CG-16); one rule, no status (CG-17).
   const sg = groupOf(c, gaitFinding("slow_speed").views);
   const speed = valueOf(sg.metrics.speed_mps);
   const nm = norm(c);
   if (!sg.reason && speed !== null && nm && speed < nm.speed.mean - N.slow.sdBelow * nm.speed.sd)
-    out.push({ id: "slow_speed", side: "none", value: speed });
-  // uneven_step_length: «sr_step_length possible 1.13», on the shorter step's side.
+    out.push({ id: "slow_speed", side: "none", value: speed, status: null, flags: ["norm_interim"] });
+  // uneven_step_length: «sr_step_length possible 1.13, likely 1.18», on the shorter step's side, with
+  // its status (CG-17).
   const ug = groupOf(c, gaitFinding("uneven_step_length").views);
   const sr = ug.metrics.sr_step_length;
   const ratio = valueOf(sr);
@@ -1119,7 +1141,12 @@ function findings(c: Ctx, steppageOn: (s: Side) => boolean): GaitSupportFinding[
     const l = sideOf(sr, "left");
     const r = sideOf(sr, "right");
     if (l !== null && r !== null && l !== r)
-      out.push({ id: "uneven_step_length", side: l < r ? "left" : "right", value: ratio });
+      out.push({
+        id: "uneven_step_length",
+        side: l < r ? "left" : "right",
+        value: ratio,
+        status: ratio >= N.uneven.likely ? "likely" : "possible",
+      });
   }
   return out;
 }
@@ -1248,7 +1275,7 @@ function rankOf(c: Ctx, d: Draft, id: ContributorId, fires: (p: GaitPatternId) =
     case "small_movements_condition":
       return hist(c.parkinsons);
     case "careful_walking":
-      // «pc_steadi fell or worry yes» (CG-9: not passed yet, so not named).
+      // «pc_steadi fell or worry yes» (CG-9: the kept day answers, D-026 item 7).
       return hist(c.steadi !== null && (c.steadi.fell || c.steadi.worry));
     case "knee_bend_limited":
       // «Pillar 1 knee flexion limited».
@@ -1569,6 +1596,7 @@ export function evaluateGait(input: GaitRulesInput): {
         status: d.status,
         confidence: confidenceOf(c, d),
         ...(d.notAssessed ? { notAssessed: d.notAssessed } : {}),
+        ...(d.flags ? { flags: [...d.flags] } : {}),
         evidence: d.evidence,
         contributors,
         targets,

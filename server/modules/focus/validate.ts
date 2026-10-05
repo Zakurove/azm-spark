@@ -40,6 +40,7 @@ import type {
   GaitSetup,
   GaitView,
   GaitViewResult,
+  GaitWalkPain,
   ReplayCycle,
   StaticStanceResult,
 } from "../../../src/engine/gait/types";
@@ -481,6 +482,8 @@ export const GAIT_LIMITS = {
   replayFrames: 45,
   replayBytes: 24 * 1024,
   stance: 2,
+  /** Pain marks during the walk (CG-8, GaitAnalysis.walkPain): a list bound, not a clinical number. */
+  walkPain: 10,
   /**
    * The whole analysis, serialized: the largest valid body (about 122 KB with numbers rounded as the
    * engine stores them, section 4) stays under it, and with the setup it stays under the route's
@@ -667,6 +670,21 @@ function checkStance(v: unknown): Check<StaticStanceResult[]> {
   return ok(v as StaticStanceResult[]);
 }
 
+/** The pain marked during the walk (CG-8): at most 10, each a side or none and a whole level 0 to 10. */
+function checkWalkPain(v: unknown): Check<GaitWalkPain[] | undefined> {
+  if (v === undefined) return ok(undefined);
+  if (!Array.isArray(v) || v.length > GAIT_LIMITS.walkPain) return fail("analysis.walkPain");
+  for (const p of v)
+    if (
+      !isPlainObject(p) ||
+      unknownKeys(p, ["side", "level"]).length ||
+      !(p.side === null || oneOf(p.side, LIMB_SIDES)) ||
+      !intIn(p.level, 0, 10)
+    )
+      return fail("analysis.walkPain");
+  return ok(v as GaitWalkPain[]);
+}
+
 const SETUP_KEYS = [
   "mode",
   "aid",
@@ -721,6 +739,7 @@ const ANALYSIS_KEYS = [
   "combined",
   "flags",
   "engineVersion",
+  "walkPain",
 ] as const;
 
 /** The gait body: the setup and the analysis, which must match the plan's mode and views. */
@@ -765,6 +784,8 @@ export function checkGaitBody(
   if (!combined.ok) return combined;
   if (!uniqueOf(a.flags, ANALYSIS_FLAGS, ANALYSIS_FLAGS.length)) return fail("analysis.flags");
   if (!isId(a.engineVersion)) return fail("analysis.engineVersion");
+  const walkPain = checkWalkPain(a.walkPain);
+  if (!walkPain.ok) return walkPain;
   if (jsonBytes(a) > GAIT_LIMITS.analysisBytes) return fail("analysis");
   return ok({ setup: setup.value, analysis: a as unknown as GaitAnalysis });
 }

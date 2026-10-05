@@ -169,6 +169,9 @@ function isLandmarkRef(v: unknown): v is LandmarkRef {
 
 /* ------------------------------------------------------------------ ROM */
 
+/** The one approver of the clinical sign off (D-025, 4 Oct 2026). Chaker Belhaj has not reviewed yet. */
+const SOLE_APPROVER = "Dr. Nasser Alharbi (PM&R), medical";
+
 describe("ROM runtime data (rom-v7.json)", () => {
   it("has the union checks compiled", () => expect(unions.every(Boolean)).toBe(true));
 
@@ -369,7 +372,7 @@ describe("ROM runtime data (rom-v7.json)", () => {
     expect(retest.defaultDeg).toBeGreaterThanOrEqual(retest.floorDeg);
     for (const [key, band] of Object.entries(retest.bands)) {
       expect([...ROM_MOVEMENT_IDS, ...REGION_IDS] as string[], key).toContain(key);
-      for (const v of [band.deg, band.neurologicalDeg, band.neurologicalLabDeg, band.neurologicalHomeDeg])
+      for (const v of [band.deg, band.neurologicalDeg, band.wideDeg])
         if (v !== undefined) expect(v, key).toBeGreaterThanOrEqual(retest.floorDeg);
       if (band.position)
         expect(
@@ -390,7 +393,8 @@ describe("ROM runtime data (rom-v7.json)", () => {
       "Unknown range of motion compensation: shoulder_flexion heel_lift",
     );
     expect(retestBand("knee_extension")).toEqual({ deg: 11, position: "lying_back" });
-    expect(retestBand("elbow")).toEqual({ neurologicalLabDeg: 33, neurologicalHomeDeg: 36 });
+    // FZ-1 (D-026 item 4): the home band 36 for both elbow movements, one band (the lab 33 is evidence).
+    expect(retestBand("elbow")).toEqual({ neurologicalDeg: 36 });
     expect(retestBand("neck_flexion")).toBeNull();
   });
 
@@ -406,7 +410,15 @@ describe("ROM runtime data (rom-v7.json)", () => {
     expect(ROM_RULES_VERSION).toBe(`rom_protocol_${ROM_DATA.specVersion}`);
     expect(NORMS_VERSION).toBe(`rom_norms_${ROM_DATA.specVersion}`);
     expect(ROM_ENGINE_VERSION).toBe("rom_engine_1");
-    expect(ROM_DATA.signoff.approved).toBe(false);
+  });
+
+  it("is signed off (D-025): Nasser approved every recommendation on 2026-10-04, version 1.0.0", () => {
+    expect(ROM_DATA.status).toBe("signed_off");
+    expect(ROM_DATA.signoff).toMatchObject({ status: "signed_off", approved: true });
+    // Only Nasser approved (D-025, 4 Oct 2026); Chaker has not reviewed yet.
+    expect(ROM_DATA.signoff.approvers).toEqual([SOLE_APPROVER]);
+    expect(ROM_DATA.specVersion).toBe("1.0.0");
+    expect(ROM_RULES_VERSION).toBe("rom_protocol_1.0.0");
   });
 });
 
@@ -512,7 +524,14 @@ describe("gait runtime data (gait-v7.json)", () => {
   it("serves its versions", () => {
     expect(GAIT_RULES_VERSION).toBe(`gait_rules_${GAIT_DATA.version}`);
     expect(GAIT_ENGINE_VERSION).toBe("gait_engine_1");
-    expect(GAIT_DATA.signoff.approved).toBe(false);
+  });
+
+  it("is signed off (D-025), version 1.0.0", () => {
+    expect(GAIT_DATA.status).toBe("signed_off");
+    expect(GAIT_DATA.signoff.approved).toBe(true);
+    expect(GAIT_DATA.signoff.approvers).toEqual([SOLE_APPROVER]);
+    expect(GAIT_DATA.version).toBe("1.0.0");
+    expect(GAIT_RULES_VERSION).toBe("gait_rules_1.0.0");
   });
 });
 
@@ -605,6 +624,59 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
 
   it("serves its version", () => {
     expect(TARGETS_VERSION).toBe(`targets_${TARGETS_DATA.version}`);
-    expect(TARGETS_DATA.signoff.approved).toBe(false);
+  });
+
+  it("is signed off (D-025), version 1.0.0; the new exercises stay drafts until the Arabic review (EX-Q15)", () => {
+    expect(TARGETS_DATA.status).toBe("signed_off");
+    expect(TARGETS_DATA.signoff.approved).toBe(true);
+    expect(TARGETS_DATA.signoff.approvers).toEqual([SOLE_APPROVER]);
+    expect(TARGETS_DATA.version).toBe("1.0.0");
+    expect(TARGETS_VERSION).toBe("targets_1.0.0");
+    expect(TARGETS_DATA.newExercises.every((e) => e.status === "draft")).toBe(true);
+  });
+
+  it("holds the D-025 grade rules: the residual knee or hip targets and the shoulder table slides, with no condition left", () => {
+    const rule = (finding: string) => TARGETS_DATA.mapping.gradeRules.find((r) => r.finding === finding)!;
+    // ROM-Q7 and review A13: active (the condition lived in the basis, which local-docs keeps).
+    expect(rule("not_measured_camera (residual joint after limb loss)")).toMatchObject({
+      targets:
+        "mobility:hip_extension above an above knee loss; mobility:knee_extension above a below knee loss; refer_measure",
+      perAction: 1,
+      priority: 1,
+    });
+    // EX-Q5: self assisted shoulder table slides with the care team line; no item for other joints.
+    const none = rule("no_active_movement").targets;
+    expect(none).toContain("for the shoulder only, table_slides with the other hand helping");
+    expect(none).toContain("show refer_care_team");
+    expect(none).not.toMatch(/if the clinicians allow|open question/);
+    expect(TARGETS_DATA.newExercises.find((e) => e.id === "table_slides")!.contraindications).toEqual([]);
+  });
+
+  it("writes the session caps as numbers: at most 2 items per finding, finding items at most half the slots, rounded down (FZ-5)", () => {
+    expect(TARGETS_DATA.mapping.selectionNumbers).toEqual({
+      itemsPerFindingMax: 2,
+      findingSlotsShareMax: 0.5,
+      findingSlotsRounding: "down",
+      gaitTargetNotSeenChecks: 2,
+      strengthenStaysAtPriority: 1,
+    });
+  });
+
+  it("gives every flexibility item the flexibility demand; the walking items keep their category (E1-9)", () => {
+    for (const e of TARGETS_DATA.newExercises.filter((x) => x.category === "flexibility"))
+      expect(e.demands, e.id).toContain("flexibility");
+    const byId = (id: string) => TARGETS_DATA.newExercises.find((x) => x.id === id)!;
+    expect(byId("seated_upper_back_extension").demands).toEqual(["flexibility", "trunk_control"]);
+    expect(byId("seated_pelvic_rock").demands).toEqual(["flexibility", "trunk_control"]);
+    expect(byId("chin_nod_hold").demands).toEqual(["flexibility"]);
+    expect(TARGETS_DATA.newExercises.filter((x) => x.category === "walking")).toHaveLength(3);
+  });
+
+  it("doses the standing hip flexor stretch by the stretch profile; the trial's schedule is evidence (FZ-6)", () => {
+    const e = TARGETS_DATA.newExercises.find((x) => x.id === "standing_hip_flexor_stretch")!;
+    expect(e.dose).toEqual({ profile: "stretch_hold" });
+    expect(
+      (library as { id: string; dose?: unknown }[]).find((x) => x.id === "standing_hip_flexor_stretch")!.dose,
+    ).toEqual({ profile: "stretch_hold" });
   });
 });

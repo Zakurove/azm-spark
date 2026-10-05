@@ -224,5 +224,7 @@ export interface CoachState {
   speaking: boolean;
   captions: { who: "coach" | "person"; text: string }[];
   push(e: BridgeEvent): void;
+  /** Bridge rule 1: after a P0 only the app opens the bridge again, once the person goes on (D-026 item 8, DG-4). */
+  reopen(): void;
   end(reason: string): void;
 }

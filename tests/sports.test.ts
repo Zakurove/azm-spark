@@ -111,4 +111,18 @@ describe("demand tags on the library (booth v2, B2)", () => {
       expect(n, d).toBeGreaterThanOrEqual(2);
     }
   });
+
+  it("tags the v7 drafts' flexibility items with flexibility too, and keeps the walking category (E1-9, D-026 item 4)", () => {
+    const drafts = (
+      library as { id: string; category: string; demands?: string[]; status?: string }[]
+    ).filter((e) => e.status === "draft");
+    for (const e of drafts.filter((x) => x.category === "flexibility"))
+      expect(e.demands, e.id).toContain("flexibility");
+    const demands = (id: string) => drafts.find((e) => e.id === id)!.demands;
+    expect(demands("seated_upper_back_extension")).toEqual(["flexibility", "trunk_control"]);
+    expect(demands("seated_pelvic_rock")).toEqual(["flexibility", "trunk_control"]);
+    expect(demands("chin_nod_hold")).toEqual(["flexibility"]);
+    for (const e of drafts) for (const d of e.demands ?? []) expect(DEMAND_TAGS, e.id).toContain(d);
+    expect(drafts.filter((e) => e.category === "walking").map((e) => e.id)).toHaveLength(3);
+  });
 });

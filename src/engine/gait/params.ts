@@ -153,8 +153,8 @@ export const FLAT_CONTACT_AT_OR_BELOW = need(
 export const SHARE_SIGNS = {
   /** stiff_knee possible: knee_swing_peak_lt 45 */
   knee_swing_peak: { below: 45 },
-  /** crouch possible: knee_stance_min_gte 15; recurvatum possible: hyperextension_gte 10 */
-  knee_stance_min: { atOrAbove: 15, hyperextensionAtOrAbove: 10 },
+  /** crouch possible: knee_stance_min_gte 15; recurvatum possible: hyperextension_gte 12 (interim, D-027 item 6, CG-19) */
+  knee_stance_min: { atOrAbove: 15, hyperextensionAtOrAbove: 12 },
   /** quad_avoidance possible: knee_loading_peak_lte 5 */
   knee_loading_peak: { atOrBelow: 5 },
   /** trendelenburg possible: pelvic_drop_gte 10 */

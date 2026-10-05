@@ -85,6 +85,21 @@ export interface StartResponse {
   helperRequired: string[];
   /** The v1 helper briefing screen of each proxy test that needs a helper today (precheck helperBriefing). */
   helperBriefing: Partial<Record<TestId, ScreenId>>;
+  /**
+   * Each side's best seated side bend at earlier checks, focus or v1 (D-027 item 2, W2-6): the runner's
+   * limit is that best plus 15; null for a side never measured (the first check limit).
+   */
+  sideLeanBest?: { left: number | null; right: number | null };
+}
+
+/** The controller's sideLeanBest from the start response: the sides with an earlier best, or none. */
+export function leanBestOf(check: StartResponse): Partial<Record<"left" | "right", number>> | undefined {
+  const out: Partial<Record<"left" | "right", number>> = {};
+  for (const side of ["left", "right"] as const) {
+    const v = check.sideLeanBest?.[side];
+    if (typeof v === "number" && Number.isFinite(v)) out[side] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** The v1 stop route the stop answer gives (POST /api/focus/:id/stop). */

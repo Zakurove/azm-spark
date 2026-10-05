@@ -35,11 +35,40 @@ describe("the focus check paragraph of the privacy notice", () => {
     expect(t("en", "privacy.kept.focus")).toMatch(/numbers only/);
     expect(t("en", "privacy.kept.focus")).toMatch(/skeleton lines with no picture/);
     expect(t("en", "privacy.purposes.focus")).toMatch(/usual for your sex and age/);
-    // Of the day's answers a focus check keeps only the pain score per area and the helper (R1-2).
-    expect(t("en", "privacy.kept.focus")).toMatch(
-      /pain score of each area and whether a helper was with you/,
-    );
-    expect(t("ar", "privacy.kept.focus")).toContain("درجة الألم في كل منطقة");
+    // Of the day's answers a focus check keeps only those a later step reads (R1-2, D-026 items 7 and
+    // 9), and the notice names each of them: the pain score per area and the pain marked during the
+    // walk, the helper, falls and the worry about falling, the Parkinson's medicine, the answers about
+    // sitting safely and the leg prosthesis. No red flag answer is ever kept (E1-5).
+    const en = t("en", "privacy.kept.focus");
+    for (const words of [
+      /pain score of each area/,
+      /pain you marked during the walk/,
+      /whether a helper was with you/,
+      /whether you have fallen or worry about falling/,
+      /whether your Parkinson’s medicine was working/,
+      /armrests/,
+      /lean or push to one side/,
+      /a fall from sitting/,
+      /a pressure sore/,
+      /sitting without support/,
+      /whether you wore your leg prosthesis/,
+    ])
+      expect(en).toMatch(words);
+    const ar = t("ar", "privacy.kept.focus");
+    for (const words of [
+      "درجة الألم في كل منطقة",
+      "الألم الذي ذكرته أثناء المشي",
+      "مرافق",
+      "تخشى السقوط",
+      "دواء باركنسون",
+      "مسندا الذراعين",
+      "تميل أو تدفع جسمك نحو جهة واحدة",
+      "السقوط من الجلوس",
+      "قرحة ضغط",
+      "الجلوس دون سند",
+      "طرفك الصناعي",
+    ])
+      expect(ar).toContain(words);
     for (const key of ["privacy.purposes.focus", "privacy.kept.focus"] as const)
       for (const lang of ["ar", "en"] as const)
         expect(wordingProblems(t(lang, key)), `${key} ${lang}`).toEqual([]);

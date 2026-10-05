@@ -350,6 +350,8 @@ describe("findingsView: the page's groups and rows", () => {
       ["stopped_symptom", tV7("ar", "rom.findings.stopped")],
       ["pain_today", tV7("ar", "rom.findings.safety")],
       ["red_flag", tV7("ar", "rom.findings.safety")],
+      // A movement the Parkinson's set leaves out in its regions (FZ-3): not part of this check.
+      ["not_in_set", tV7("ar", "rom.findings.notInCheck")],
     ];
     for (const [reason, line] of reasons) {
       const v = findingsView(

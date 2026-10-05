@@ -659,6 +659,62 @@ describe("Parkinson's movement set (rom-protocol 2.3 movementSet; review A10, D-
       });
   });
 
+  it("the movements the set leaves out in its regions are stored as not measured, never typical (FZ-3, D-026 item 4)", () => {
+    const p = build(pd(), { maxMeasured: 20 });
+    const outside = [
+      ["shoulder_abduction", "right"],
+      ["shoulder_abduction", "left"],
+      ["shoulder_extension", "right"],
+      ["shoulder_extension", "left"],
+      ["neck_lateral_flexion", "right"],
+      ["neck_lateral_flexion", "left"],
+      ["neck_flexion", "none"],
+      ["trunk_flexion", "none"],
+      ["hip_abduction", "right"],
+      ["hip_abduction", "left"],
+    ] as const;
+    for (const [m, side] of outside) {
+      expect(notMeasuredOf(p, m, side), `${m} ${side}`).toMatchObject({
+        source: "not_measured_today",
+        reason: "not_in_set",
+      });
+      expect(planned(p).some((i) => i.movementId === m && i.side === side)).toBe(false);
+    }
+    expect(p.notMeasured.filter((n) => n.reason === "not_in_set")).toHaveLength(outside.length);
+    expect(ROM_DATA.reasonIds.not_in_set).toContain("FZ-3");
+    // The set's own movements are planned, never stored as outside it.
+    for (const i of planned(p)) expect(notMeasuredOf(p, i.movementId, i.side)).toBeUndefined();
+    // A forward bend the person added is planned (seated, not graded), so it is not outside the set.
+    const added = pd({
+      regions: [
+        ...pdMap.filter((e) => e.region !== "back_trunk"),
+        entry("back_trunk", "axial", ["stiffness"]),
+      ],
+    });
+    expect(notMeasuredOf(build(added), "trunk_flexion", "none")).toBeUndefined();
+    // Only one shoulder on the map: only that side's left out movements.
+    const one = build(pd({ regions: [entry("shoulder", "right", ["stiffness"])] }));
+    expect(
+      one.notMeasured.filter((n) => n.reason === "not_in_set").map((n) => `${n.movementId}:${n.side}`),
+    ).toEqual(["shoulder_abduction:right", "shoulder_extension:right"]);
+    // Without Parkinson's nothing is outside a set.
+    expect(build(intake({ regions: pdMap })).notMeasured.some((n) => n.reason === "not_in_set")).toBe(false);
+  });
+
+  it("limb loss comes before the set: a residual shoulder stays not measured by the camera", () => {
+    const p = build(
+      pd({
+        regions: [...pdMap, entry("elbow", "left", ["limb_loss"], { limbLoss: { level: "above_elbow" } })],
+      }),
+    );
+    for (const m of ["shoulder_abduction", "shoulder_extension"])
+      expect(notMeasuredOf(p, m, "left"), m).toMatchObject({
+        source: "not_measured_camera",
+        reason: "not_measured_camera",
+      });
+    expect(notMeasuredOf(p, "shoulder_abduction", "right")?.reason).toBe("not_in_set");
+  });
+
   it("a region outside the set keeps the region table", () => {
     const p = build(pd({ regions: [...pdMap, entry("knee", "right", ["pain"])] }), { maxMeasured: 20 });
     expect(movementsIn(p, "knee")).toEqual(["knee_flexion", "knee_extension"]);

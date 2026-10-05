@@ -20,8 +20,8 @@
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { Route, RouteContext } from "../../http/types";
-import * as gaitRules from "../../../src/medical/gait-rules";
-import type { GaitPatternResult, GaitStoredView } from "../../../src/medical/gait-types";
+import { withGaitLines } from "../../../src/medical/gait-rules";
+import type { GaitStoredView } from "../../../src/medical/gait-types";
 import { hasV7Fields } from "../../../src/medical/plan";
 import {
   bodyMapSummary,
@@ -59,39 +59,18 @@ export interface FocusProfileResponse {
 const NONE = { error: "NONE" } as const;
 const CHECK_ID = new RegExp(`^${ID_PATH}$`);
 
-type PatternLines = (patterns: readonly Omit<GaitPatternResult, "lines">[]) => GaitPatternResult[];
-const EMPTY_LINES: GaitPatternResult["lines"] = {
-  pattern: { ar: "", en: "" },
-  reasons: null,
-  targets: [],
-  confidence: null,
-};
-/** The export of stream C (C3) that writes a stored pattern's lines again, by its name. */
-const WITH_GAIT_LINES = "withGaitLines";
-
 /**
- * The lines of the stored patterns, written again on read in both languages (2.9 GaitStoredView:
- * «lines recomputed on read»): stream C's withGaitLines (C3), which its branch exports for this route.
- * Until that branch is merged the module has no such export, and the patterns keep empty lines, which a
- * card reads as labels only (contract change log, B4). The export is looked up with `in` first, so a
- * test that mocks the gait rules without it reads as absent too.
+ * The walk of a check as its card reads it (GaitStoredView): the quality reports and models stay in
+ * storage, and the stored patterns' lines are written again on read in both languages (2.9: «lines
+ * recomputed on read») by stream C's withGaitLines.
  */
-function patternLines(): PatternLines {
-  const ns = gaitRules as unknown as Record<string, unknown>;
-  const fn = WITH_GAIT_LINES in ns ? ns[WITH_GAIT_LINES] : undefined;
-  return typeof fn === "function"
-    ? (fn as PatternLines)
-    : (patterns) => patterns.map((p) => ({ ...p, lines: EMPTY_LINES }));
-}
-
-/** The walk of a check as its card reads it (GaitStoredView): the quality reports and models stay in storage. */
 function gaitView(g: StoredGait, provisional: boolean): GaitStoredView {
   return {
     id: g.id,
     mode: g.mode,
     views: g.views.map(({ quality: _quality, poseModel: _poseModel, ...v }) => v),
     metrics: g.metrics,
-    patterns: patternLines()(g.findings.patterns),
+    patterns: withGaitLines(g.findings.patterns),
     findings: g.findings.findings,
     quality: g.quality,
     replay: g.replay,

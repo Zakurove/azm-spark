@@ -13,6 +13,7 @@ import {
   applyPrecheckOutcome,
   focusPrecheckEnv,
   gaitDayItems,
+  keptDayAnswers,
   missingGaitDayItems,
   proxyBaseTests,
   redFlagWarnings,
@@ -441,6 +442,119 @@ describe("GAIT_DAY_ITEMS: asked when the gait test is planned", () => {
     const g = gaitOf(pd);
     expect(missingGaitDayItems(g, pd, today())).toEqual(["pc_walk_10m", "pc_pd_freezing"]);
     expect(missingGaitDayItems(g, pd, today({ walk10m: true, pdFreezing: false }))).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------ the day answers kept */
+
+describe("keptDayAnswers: the day answers a later step reads (D-026 items 7 and 9)", () => {
+  /** The start's pre-check on the day's protocol and walk, the given answers filled with benign ones. */
+  const day = (
+    h: V7Intake,
+    given: Answers,
+    setting: "home" | "booth" = "home",
+    t: Partial<FocusToday> = {},
+  ) => {
+    const protocol = build(h, t, setting);
+    const env = focusPrecheckEnv(baseEnv(h, setting), protocol, gaitOf(h, t, setting, given));
+    return keptDayAnswers(env, fill(env, given), today(t), h);
+  };
+  const back = [entry("back_trunk", "axial", ["stiffness"])];
+  /** A stroke in a wheelchair with the back on the map: the seated side bend on armrests runs. */
+  const seatedLean = intake({
+    conditions: ["stroke"],
+    mobility: "wheelchair",
+    walking: { status: "no" },
+    regions: back,
+  });
+
+  it("keeps the pain per region and helper present as before (R1-2)", () => {
+    const kept = day(intake({ regions: back }), {}, "booth", {
+      painByRegion: { back_trunk: 3 },
+      helperPresent: true,
+    });
+    expect(kept).toMatchObject({ painByRegion: { back_trunk: 3 }, helperPresent: true });
+  });
+
+  it("keeps pc_steadi's fell and worry when the chair stand is asked, never unsteady (CG-9)", () => {
+    const walker = intake({ regions: back });
+    const kept = day(walker, {
+      "pc_steadi:fell": "yes",
+      "pc_steadi:unsteady": "yes",
+      "pc_steadi:worry": "no",
+    });
+    expect(kept.steadi).toEqual({ fell: true, worry: false });
+    expect(JSON.stringify(kept)).not.toMatch(/unsteady/);
+    // No chair stand today (a seated side bend, no walk): pc_steadi is not asked, so nothing is kept.
+    expect(day(seatedLean, { "pc_steadi:fell": "yes", "pc_steadi:worry": "yes" }).steadi).toBeUndefined();
+  });
+
+  it("keeps Parkinson's pc_pd_on as on or unsure, and nothing without Parkinson's (CG-18)", () => {
+    const pd = intake({ conditions: ["parkinsons"], regions: [entry("hip", "right", ["stiffness"])] });
+    expect(day(pd, { pc_pd_on: "yes" }).pdState).toBe("on");
+    expect(day(pd, { pc_pd_on: "unsure" }).pdState).toBe("unsure");
+    expect(day(intake({ regions: back }), { pc_pd_on: "unsure" }).pdState).toBeUndefined();
+  });
+
+  it("keeps the seated side lean's answers when the side bend on armrests runs (E1-5)", () => {
+    const kept = day(seatedLean, {
+      pc_stroke_push: "no",
+      "pc_trunk_armrests:wheelchair": "yes",
+      pc_fall_sitting: "no",
+      pc_pressure_sore: "no",
+      pc_sit_unsupported: "unsure",
+    });
+    expect(kept).toMatchObject({
+      pusher: false,
+      armrests: true,
+      seatedLean: { fellSitting: false, pressureSore: false, sitsUnsupported: "unsure" },
+    });
+    // At the booth the armrests are not asked (v1 pc_trunk_armrests is home only).
+    const booth = day(seatedLean, { pc_stroke_push: "yes", "pc_trunk_armrests:wheelchair": "no" }, "booth");
+    expect(booth.pusher).toBe(true);
+    expect(booth.armrests).toBeUndefined();
+    // No side bend on armrests today: none of them is asked or kept.
+    const standing = day(intake({ conditions: ["stroke"], regions: back }), { pc_stroke_push: "yes" });
+    expect(standing).not.toHaveProperty("pusher");
+    expect(standing).not.toHaveProperty("seatedLean");
+    expect(standing).not.toHaveProperty("armrests");
+  });
+
+  it("keeps whether the leg prosthesis is worn, for a leg limb loss only", () => {
+    const loss = intake({ conditions: ["lower_limb_unilateral"], regions: back });
+    expect(day(loss, { pc_limb_leg_prosthesis: "yes" }).prosthesisOn).toBe(true);
+    expect(day(loss, { pc_limb_leg_prosthesis: "no" }).prosthesisOn).toBe(false);
+    // The day's own answer (FocusToday.prosthesisOn) wins, as gaitPlanFor reads it.
+    expect(day(loss, { pc_limb_leg_prosthesis: "yes" }, "home", { prosthesisOn: false }).prosthesisOn).toBe(
+      false,
+    );
+    expect(day(intake({ regions: back }), {}, "home", { prosthesisOn: true })).not.toHaveProperty(
+      "prosthesisOn",
+    );
+  });
+
+  it("never keeps a red flag, a walk or freezing answer, a transfer or an orthosis (data minimisation)", () => {
+    const pd = intake({ conditions: ["parkinsons"], regions: [entry("hip", "right", ["stiffness"])] });
+    const kept = day(pd, {}, "booth", {
+      redFlagRegions: ["shoulder"],
+      walk10m: true,
+      pdFreezing: true,
+      transferChair: true,
+      orthosis: { right: "afo" },
+    });
+    expect(Object.keys(kept).sort()).toEqual(["painByRegion", "pdState", "steadi"]);
+    expect(JSON.stringify(kept)).not.toMatch(/redFlag|walk10m|pdFreezing|transfer|orthosis|afo|shoulder/);
+  });
+
+  it("ignores an answer to a question that was not asked", () => {
+    const kept = day(intake({ regions: back }), {
+      pc_stroke_push: "yes",
+      pc_fall_sitting: "yes",
+      pc_pressure_sore: "yes",
+      pc_limb_leg_prosthesis: "no",
+      pc_pd_on: "yes",
+    });
+    expect(Object.keys(kept).sort()).toEqual(["painByRegion", "steadi"]);
   });
 });
 

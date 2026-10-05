@@ -1,12 +1,11 @@
 {
   "id": "gait-rules",
-  "version": "0.2.2",
-  "status": "draft",
+  "version": "1.0.0",
+  "status": "signed_off",
   "signoff": {
-    "approved": false,
+    "approved": true,
     "approvers": [
-      "Dr. Nasser Alharbi (PM&R), medical",
-      "Chaker Belhaj, fitness"
+      "Dr. Nasser Alharbi (PM&R), medical"
     ]
   },
   "grades": {
@@ -41,7 +40,7 @@
       },
       {
         "item": "clearance no or unsure",
-        "rule": "stroke or SCI: no gait test (reason clearance_needed), as the global gate (review A17); a named exception (overground only, helper, short walk, never the pad) is open question Q1. Other conditions: overground allowed; walking pad not offered"
+        "rule": "stroke or SCI: no gait test (reason clearance_needed), as the global gate (review A17); the named exception (overground only, helper, short walk, never the pad) was not adopted at the sign off (GAIT-Q1: keep the gate). Other conditions: overground allowed; walking pad not offered"
       }
     ],
     "today": [
@@ -2081,13 +2080,21 @@
         "speedRules": {
           "bilateralBelow0.6": "not_assessed (slow_speed)",
           "below0.5": "unilateral capped at possible and needs a between limb difference >= 15",
-          "unilateralCondition": "absolute peak alone counts only at >= 0.8 m/s"
+          "unilateralCondition": "absolute peak alone counts only at >= 0.8 m/s",
+          "interimAbsoluteAlone": "interim: for every walker the absolute peak alone counts only at >= 1.0 m/s; under it the pattern needs the between limb difference (below: not_assessed, slow_speed, when the peak alone is low)"
         },
         "speed": {
           "bilateralNotAssessedBelow_mps": 0.6,
           "unilateralCappedBelow_mps": 0.5,
           "cappedNeedsDiffGte": 15,
-          "absoluteAloneFrom_mps": 0.8
+          "absoluteAloneFrom_mps": 0.8,
+          "interimAbsoluteAloneFrom_mps": 1
+        },
+        "interim": {
+          "until": "GAIT-Q3",
+          "fields": [
+            "speed.interimAbsoluteAloneFrom_mps"
+          ]
         },
         "type": "published"
       },
@@ -2326,10 +2333,19 @@
       ],
       "thresholds": {
         "possible": {
-          "hyperextension_gte": 10
+          "hyperextension_gte": 12
         },
         "likely": {
           "hyperextension_gte": 15
+        },
+        "interim": {
+          "until": "GAIT-Q3",
+          "fields": [
+            "possible.hyperextension_gte"
+          ],
+          "replaces": {
+            "possible.hyperextension_gte": 10
+          }
         },
         "type": "calc"
       },
@@ -2402,6 +2418,18 @@
           "lowerThanOtherSide_gte": 10
         },
         "likely": null,
+        "speedRules": {
+          "interimBelow0.5": "interim: not assessed below 0.5 m/s (slow_speed) when the sign is seen, like stiff knee's speed rule; an unknown speed reads as too slow (no_height)"
+        },
+        "speed": {
+          "interimNotAssessedBelow_mps": 0.5
+        },
+        "interim": {
+          "until": "GAIT-Q3",
+          "fields": [
+            "speed.interimNotAssessedBelow_mps"
+          ]
+        },
         "type": "calc"
       },
       "statusMax": "possible",

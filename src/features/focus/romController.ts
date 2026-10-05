@@ -114,8 +114,9 @@ export interface RomControllerOptions {
   /** The rest after a stop for tiredness or something else (default the v1 minute). */
   stopRestSeconds?: number;
   /**
-   * The best seated side lean of each side at the last check (the seated side bend's limit, runner
-   * sideLeanBest); absent: a first check, the v1.1 limit of 30 (contract gap W2-6).
+   * The best seated side lean of each side at earlier checks (the seated side bend's limit, runner
+   * sideLeanBest), from the start response (D-027 item 2, W2-6); absent for a side never measured: the
+   * v1.1 first check limit of 30.
    */
   sideLeanBest?: Partial<Record<"left" | "right", number>>;
 }

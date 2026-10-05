@@ -1422,12 +1422,6 @@ export const PROSE_NUMBER_EXEMPT = [
   },
   {
     file: "targets",
-    path: "newExercises[20].dose.text",
-    numbers: [10],
-    why: "the schedule of the trial behind the stretch (evidence)",
-  },
-  {
-    file: "targets",
     path: "contraindicationVocabulary[15].meaning",
     numbers: [8],
     why: "the boot period of a trial (evidence); the 6 month window is the rule",

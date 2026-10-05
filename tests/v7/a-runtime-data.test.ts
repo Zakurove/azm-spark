@@ -654,4 +654,12 @@ describe("exercise targets runtime data (targets-v7.json)", () => {
       strengthenStaysAtPriority: 1,
     });
   });
+
+  it("doses the standing hip flexor stretch by the stretch profile; the trial's schedule is evidence (FZ-6)", () => {
+    const e = TARGETS_DATA.newExercises.find((x) => x.id === "standing_hip_flexor_stretch")!;
+    expect(e.dose).toEqual({ profile: "stretch_hold" });
+    expect(
+      (library as { id: string; dose?: unknown }[]).find((x) => x.id === "standing_hip_flexor_stretch")!.dose,
+    ).toEqual({ profile: "stretch_hold" });
+  });
 });

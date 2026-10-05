@@ -4721,8 +4721,7 @@
   ],
   "painFriendly": false,
   "dose": {
-   "profile": "stretch_hold",
-   "text": "The trial used twice daily home stretching for 10 weeks."
+   "profile": "stretch_hold"
   },
   "hipEndRange": [
    "extension"

@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "../../app/i18n";
-import { t } from "../../i18n";
+import { localizeDigits, t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
 import type { RomMeasureResult } from "../../engine/rom/types";
@@ -70,19 +70,16 @@ export function BlockCard({
             </span>
           ))}
         </div>
-        <ul className="fx-joint-list">
-          {items.map((i) => (
-            <li key={`${i.movementId}:${i.side}`} className="fx-joint">
-              <span className="fx-joint-picture">
-                <MovementPicture movementId={i.movementId} side={i.side} lang={lang} size={52} />
-              </span>
-              <span className="fx-joint-text">
-                <b>{movementName(i.movementId, lang)}</b>
-                <span>{sideRegion(i, lang)}</span>
-              </span>
+        {/* A compact list: on this card the camera's picture matters most (the intro showed the joints). */}
+        <ol className="fx-block-moves">
+          {items.map((i, k) => (
+            <li key={`${i.movementId}:${i.side}`}>
+              <b aria-hidden="true">{localizeDigits(lang, String(k + 1))}</b>
+              <span>{movementName(i.movementId, lang)}</span>
+              <small>{sideRegion(i, lang)}</small>
             </li>
           ))}
-        </ul>
+        </ol>
         {block === "standing" && <Note lang={lang} icon="shield" text={copyText("support_line", lang)} />}
         {helper && <Note lang={lang} icon="people" text={copyText("helper_line", lang)} />}
         {neck && <Note lang={lang} icon="alert-triangle" text={copyText("neck_stop_line", lang)} />}

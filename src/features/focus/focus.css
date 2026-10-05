@@ -146,9 +146,11 @@
     color 0.2s ease,
     transform 0.2s var(--fx-ease);
 }
-.fx-chip:hover {
-  color: var(--fx-purple-ink);
-  background: #ffffff;
+@media (hover: hover) {
+  .fx-chip:hover {
+    color: var(--fx-purple-ink);
+    background: #ffffff;
+  }
 }
 .fx-chip.is-icon {
   padding: 0;
@@ -336,8 +338,10 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 14px 26px -14px rgba(214, 160, 20, 0.85);
 }
-.azm-check.fx .fx-button.is-primary:hover {
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .azm-check.fx .fx-button.is-primary:hover {
+    transform: translateY(-1px);
+  }
 }
 .azm-check.fx .fx-button.is-secondary {
   background: rgba(255, 255, 255, 0.9);
@@ -400,11 +404,13 @@
     box-shadow 0.25s ease,
     transform 0.2s var(--fx-ease);
 }
-.azm-check.fx .fx-choice:hover {
-  background: #fbf9fe;
-  box-shadow:
-    inset 0 0 0 1px #cdbdea,
-    0 12px 24px -16px rgba(111, 90, 160, 0.5);
+@media (hover: hover) {
+  .azm-check.fx .fx-choice:hover {
+    background: #fbf9fe;
+    box-shadow:
+      inset 0 0 0 1px #cdbdea,
+      0 12px 24px -16px rgba(111, 90, 160, 0.5);
+  }
 }
 .azm-check.fx .fx-choice[aria-pressed="true"] {
   background: var(--fx-purple-tint);
@@ -1004,6 +1010,54 @@
   font-size: 1rem;
   line-height: 1.65;
 }
+/* More steps below the card's edge fade out, so the card reads as one to scroll. */
+.fx-stage-sheet::after {
+  content: "";
+  position: sticky;
+  bottom: -16px;
+  display: block;
+  height: 30px;
+  margin: -30px -18px -16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.96));
+  pointer-events: none;
+}
+/* The block card's movements, one line each. */
+.fx-block-moves {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fx-block-moves li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--fx-ring);
+}
+.fx-block-moves b {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+  font-size: 0.88rem;
+}
+.fx-block-moves span {
+  font-weight: 800;
+}
+.fx-block-moves small {
+  color: var(--fx-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
 .fx-sheet-body {
   display: grid;
   gap: 8px;
@@ -1279,11 +1333,18 @@
 .azm-check.fx .fx-zones .safety-zone[data-value="hurts"] .safety-zone-mark {
   color: var(--fx-rose);
 }
-.azm-check.fx .fx-zones .safety-zone[data-value="hurts"]:hover {
-  background: #fdf7f6;
-}
+/* v1's hover tint stays off the answers on touch screens, where a tap would leave it looking chosen. */
 .azm-check.fx .fx-zones .safety-zone:hover {
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.94);
+}
+@media (hover: hover) {
+  .azm-check.fx .fx-zones .safety-zone:hover {
+    background: #fbf9fe;
+    transform: translateY(-1px);
+  }
+  .azm-check.fx .fx-zones .safety-zone[data-value="hurts"]:hover {
+    background: #fdf7f6;
+  }
 }
 .azm-check.fx .fx-zones .safety-zone[aria-pressed="true"] {
   background: var(--fx-purple-tint);
@@ -1504,8 +1565,10 @@
   line-height: 1.5;
   cursor: pointer;
 }
-.azm-check.fx .fx-stop-row:hover {
-  background: #fbf9fe;
+@media (hover: hover) {
+  .azm-check.fx .fx-stop-row:hover {
+    background: #fbf9fe;
+  }
 }
 .azm-check.fx .fx-stop-row.is-preselected {
   background: var(--fx-gold-tint);

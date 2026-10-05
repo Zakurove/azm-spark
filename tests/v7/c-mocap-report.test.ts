@@ -14,7 +14,14 @@ import { autoFillRegions } from "../../src/medical/body-map";
 import { gaitPatternShown } from "../../src/medical/gait-rules";
 import type { GaitPatternResult, GaitSupportFinding } from "../../src/medical/gait-types";
 import { eventErrors, median } from "./c-acceptance-helpers";
-import { HEALTHY_HITS, mocapAge, runAll, rulesForWalker, type MocapRun } from "./c-mocap-run";
+import {
+  HEALTHY_HITS,
+  HEALTHY_HITS_BEFORE_CG19,
+  mocapAge,
+  runAll,
+  rulesForWalker,
+  type MocapRun,
+} from "./c-mocap-run";
 
 /** The c3d files carry no age or sex for the stroke walkers: the norm lookups read a 60 year old man. */
 const STROKE_NORM_PERSON = { age: 60, sex: "male" as const };
@@ -157,15 +164,20 @@ function reportOf(rows: StrokeRow[], runs: Map<string, MocapRun>): string {
   lines.push("## For comparison: the able bodied walkers");
   lines.push("");
   lines.push(
-    "The same run on the 20 able bodied Van Criekinge walkers and the 30 Fukuchi treadmill walks (a person with no condition and no body map entry) fires on five, each confirmed by the dataset's own joint angles (`HEALTHY_HITS` in `tests/v7/c-mocap-run.ts`):",
+    "The same run on the 20 able bodied Van Criekinge walkers and the 30 Fukuchi treadmill walks (a person with no condition and no body map entry) fires on one, confirmed by the dataset's own joint angles (`HEALTHY_HITS` in `tests/v7/c-mocap-run.ts`):",
   );
   lines.push("");
-  for (const [id, hits] of Object.entries(HEALTHY_HITS)) {
+  const walker = (id: string, hits: string[]) => {
     const run = runs.get(id)!;
-    lines.push(
-      `- \`${id}\` (${run.fx.subject.sex ?? ""}, ${run.fx.subject.heightCm} cm, age ${mocapAge(run.fx)}${run.fx.subject.ageYears ? "" : " from the decade of birth"}, ${run.fx.passes[0].speedMps} m/s): ${hits.join(", ")}.`,
-    );
-  }
+    return `- \`${id}\` (${run.fx.subject.sex ?? ""}, ${run.fx.subject.heightCm} cm, age ${mocapAge(run.fx)}${run.fx.subject.ageYears ? "" : " from the decade of birth"}, ${run.fx.passes[0].speedMps} m/s): ${hits.join(", ")}.`;
+  };
+  for (const [id, hits] of Object.entries(HEALTHY_HITS)) lines.push(walker(id, hits));
+  lines.push("");
+  lines.push(
+    "The interim gait thresholds of D-027 item 6 (CG-19, until the GAIT-Q3 tuning) keep four others quiet, which fired before (`HEALTHY_HITS_BEFORE_CG19`):",
+  );
+  lines.push("");
+  for (const [id, hits] of Object.entries(HEALTHY_HITS_BEFORE_CG19)) lines.push(walker(id, hits));
   lines.push("");
   lines.push("## Front view contact timing (CG-2)");
   lines.push("");

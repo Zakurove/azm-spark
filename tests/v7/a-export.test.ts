@@ -387,6 +387,36 @@ describe("v7 clinical export: round trip to the committed files", () => {
   });
 
   it.skipIf(!process.env.AZM_CLINICAL_V7)(
+    "the real gait source marks the CG-19 thresholds interim, with their decision and dataset evidence (D-027 item 6)",
+    () => {
+      const gait = JSON.parse(readFileSync(join(process.env.AZM_CLINICAL_V7!, "gait-rules.json"), "utf8"));
+      const interim = (id: string) =>
+        gait.patterns.find((p: { id: string }) => p.id === id).thresholds.interim;
+      const walkers = {
+        stiff_knee: ["vc-ab-005"],
+        recurvatum: ["wbds-41-t01", "wbds-41-t07"],
+        quad_avoidance: ["wbds-25-t01"],
+      };
+      for (const [id, ids] of Object.entries(walkers)) {
+        const i = interim(id);
+        expect(i.until, id).toBe("GAIT-Q3");
+        expect(i.basis, id).toContain("D-027 item 6");
+        expect(i.basis, id).toContain("CG-19");
+        for (const w of ids) expect(i.evidence, id).toContain(w);
+        // The runtime keeps the mark and drops the basis and evidence (rule 2).
+        const runtime = (
+          committed("gait") as { patterns: { id: string; thresholds: { interim?: object } }[] }
+        ).patterns.find((p) => p.id === id)!.thresholds.interim;
+        expect(Object.keys(runtime!).sort(), id).toEqual(
+          Object.keys(i)
+            .filter((k) => k !== "basis" && k !== "evidence")
+            .sort(),
+        );
+      }
+    },
+  );
+
+  it.skipIf(!process.env.AZM_CLINICAL_V7)(
     "the real sources' sign off record: only Nasser approved (D-025, 4 Oct 2026), Chaker has not reviewed yet",
     () => {
       const dir = process.env.AZM_CLINICAL_V7!;
@@ -1237,7 +1267,11 @@ describe("v7 clinical export: the freeze step's numbers (D-023 item 5, D-024 ite
       unilateralCappedBelow_mps: 0.5,
       cappedNeedsDiffGte: 15,
       absoluteAloneFrom_mps: 0.8,
+      // Interim since the sign off apply step (D-027 item 6, CG-19).
+      interimAbsoluteAloneFrom_mps: 1,
     });
+    expect(pattern("quad_avoidance").thresholds.speed).toEqual({ interimNotAssessedBelow_mps: 0.5 });
+    expect(pattern("recurvatum").thresholds.possible).toEqual({ hyperextension_gte: 12 });
     expect(pattern("steppage").thresholds.likely).toMatchObject({
       possibleCyclesPctGte: 60,
       speed_mps_gte: 0.6,

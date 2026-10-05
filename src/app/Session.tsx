@@ -8,7 +8,8 @@ import { CueId, ExerciseDef, Frame, LM, SessionSummary, Severity } from "../engi
 import { FlowStage, FlowView, WorkoutFlow } from "../engine/workoutFlow";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
 import { CuePlayer, isVoiceLine } from "./audio";
-import { CUE_TEXT, fmtNum, Lang, pct as fmtPct, T } from "./i18n";
+import { fmtNum, Lang, pct as fmtPct, T } from "./i18n";
+import voiceScript from "./voice-script.json";
 import { drawOverlay } from "./overlay";
 import { CameraPoseSource, CameraStatus, PoseSource, TracePoseSource } from "./poseSource";
 import type { TraceOpts } from "../engine/traces";
@@ -35,6 +36,12 @@ import "./session.css";
  * no dialogs; the trial and the workouts keep the effort and summary dialogs, then call it too.
  */
 export type SessionVariant = "trial" | "workout" | "booth";
+
+/**
+ * The caption of every voice line, read from the voice script here (D-026 item 2): the camera screen
+ * is its only reader, so the lines ship in this lazy chunk and never in the landing's first script.
+ */
+const CUE_TEXT: Record<CueId, { ar: string; en: string }> = voiceScript;
 
 /** The standing figure of the sit to stand trace, head to feet (demo). */
 const STAND_BOX = { x0: 0.2, y0: 0.06, x1: 0.8, y1: 0.92 };

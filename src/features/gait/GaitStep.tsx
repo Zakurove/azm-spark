@@ -4,12 +4,16 @@
  * its provisional findings. Every pad safety step and the clear path step are confirm steps (C-16);
  * any pain answer ends the recording (C-15).
  *
- * Placeholder of step A5 (contract 1.3), replaced by C4: it renders nothing.
+ * The screens and the gait engine load lazily (GaitCapture.tsx), so the focus check's first chunk
+ * never carries them (section 9: the focus chunk and the gait engine have their own budgets).
  */
+import { lazy, Suspense } from "react";
 import type { Lang } from "../../app/i18n";
-import type { CoachPush } from "../../coach/types";
+import type { CoachPush, CoachStopReason } from "../../coach/types";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import type { GaitStoredView } from "../../medical/gait-types";
+import { Loading } from "../focus/parts";
+import { tV7 } from "../../i18n/v7";
 
 export interface GaitStepProps {
   plan: GaitPlan;
@@ -24,9 +28,26 @@ export interface GaitStepProps {
   painBefore?: number | null;
   /** The response of POST /api/focus/:id/gait (provisional until complete). */
   onDone(stored: GaitStoredView): void;
-  onStop(): void;
+  /**
+   * STOP, the coach's stop or a pain stop: the shell's stop list. `preselect` is the coach's reason or
+   * pain (contract gap C4-4: 2.8.4 gives onStop no argument; a caller that ignores it still works).
+   */
+  onStop(preselect?: CoachStopReason | null): void;
+  /** The walk ended with nothing to save, every part left out (contract gap C4-4; without it, onStop). */
+  onSkip?(): void;
+  /**
+   * The live coach for the walk's segment (D5): on when the person turned it on and consented
+   * (contract gap C4-4). Absent or false: the coach is off and the walk runs on its own voice.
+   */
+  coachOn?: boolean;
 }
 
-export function GaitStep(_props: GaitStepProps): null {
-  return null;
+const GaitCapture = lazy(() => import("./GaitCapture"));
+
+export function GaitStep(props: GaitStepProps) {
+  return (
+    <Suspense fallback={<Loading text={tV7(props.lang, "gait.kicker")} />}>
+      <GaitCapture {...props} />
+    </Suspense>
+  );
 }

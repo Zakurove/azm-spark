@@ -336,6 +336,8 @@ export class GaitController implements CoachHost {
   private index = 0;
   private readonly painBefore: number | null;
   private readonly opts: GaitControllerOptions;
+  /** The intake's walking aid, height and body map, for the setup (it may come after the walk starts). */
+  private intake: GaitControllerOptions["intake"];
   private readonly recordings = new Map<RecordingId, Recording>();
   private stance: {
     standing: GaitFrame[];
@@ -361,6 +363,7 @@ export class GaitController implements CoachHost {
 
   constructor(opts: GaitControllerOptions) {
     this.opts = opts;
+    this.intake = opts.intake ?? null;
     this.plan = opts.plan;
     this.painBefore = opts.painBefore ?? null;
     this.mode = opts.plan.modes.includes(opts.plan.defaultMode)
@@ -1097,9 +1100,15 @@ export class GaitController implements CoachHost {
 
   /* ---------------------------------------------------------- the result */
 
+  /** The intake, read once the walk started (the setup's aid, height and prosthesis side). */
+  setIntake(intake: GaitControllerOptions["intake"]): void {
+    this.intake = intake ?? null;
+    this.changed();
+  }
+
   /** The walk's setup as captured (2.8 GaitSetup; the gait route's bounds). */
   setup(): GaitSetup {
-    const intake = this.opts.intake ?? null;
+    const intake = this.intake ?? null;
     const walking = intake?.walking;
     const aid: WalkingAid | "none" = walking?.status === "with_aid" ? walking.aid : "none";
     const height = intake?.heightCm;

@@ -12,7 +12,7 @@
  */
 import type { GaitPatternId } from "../../../src/medical/gait-types";
 import type { Frame } from "../../../src/engine/types";
-import { walk, type Side, type WalkSpec } from "./gen-gait";
+import { singleLegStance, walk, type Side, type WalkSpec } from "./gen-gait";
 
 export interface GaitCatalogEntry {
   /** The name after "gait/". */
@@ -318,6 +318,21 @@ export const GAIT_CATALOG: readonly GaitCatalogEntry[] = [
     notes: "Six walks toward the phone, each followed by a walk away: a typical walk (front and back views).",
   },
   {
+    name: "overground-front-short",
+    spec: {
+      view: "front",
+      passes: 4,
+      passShiftM: 0.35,
+      seed: 905,
+      noise: 0.002,
+      jitterMs: 4,
+      speed: 1,
+      cadence: 120,
+    },
+    notes:
+      "Four walks toward the phone and back with steps of 0.5 m: the front and back views together give each side its clean cycles at the capture's first checkpoint (step C4).",
+  },
+  {
     name: "pad-side-right-weaker-right",
     spec: {
       view: "pad_side",
@@ -348,9 +363,35 @@ export const GAIT_CATALOG: readonly GaitCatalogEntry[] = [
   },
 ];
 
+/**
+ * The static single leg stance as the capture asks it (step C4): 4 s on both feet facing the phone,
+ * 10 s on the right leg, 3 s on both feet, 10 s on the left leg, at 30 frames a second on one clock.
+ */
+export function stanceFixtureFrames(): Frame[] {
+  const fps = 30;
+  const right = singleLegStance({ side: "right", dropDeg: 3, holdSec: 10, noise: 0.002, seed: 911 });
+  const left = singleLegStance({ side: "left", dropDeg: 3, holdSec: 10, noise: 0.002, seed: 912 });
+  const still = right.standing;
+  const out: Frame[] = [];
+  const push = (lm: Frame["lm"], aspect: number) => {
+    const t = (out.length * 1000) / fps;
+    out.push({ t, lm, poses: [lm], aspect });
+  };
+  const stand = (sec: number) => {
+    for (let i = 0; i < sec * fps; i++) push(still[i % still.length].lm, still[0].aspect);
+  };
+  stand(4);
+  for (const f of right.frames) push(f.lm, f.aspect);
+  stand(3);
+  for (const f of left.frames) push(f.lm, f.aspect);
+  stand(2);
+  return out;
+}
+
 /** The frames a camera delivers for a catalog walk: the standing calibration, then the walk. */
 export function gaitFixtureFrames(name: string): Frame[] | null {
   const key = name.startsWith("gait/") ? name.slice("gait/".length) : name;
+  if (key === "stance") return stanceFixtureFrames();
   const entry = GAIT_CATALOG.find((e) => e.name === key);
   if (!entry) return null;
   const w = walk(entry.spec);

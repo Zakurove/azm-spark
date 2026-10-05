@@ -1,1 +1,193 @@
-{}
+{
+  "kicker": "Walking check",
+  "intro": {
+    "title": "Let’s measure how you walk",
+    "overground": "You will walk to the phone and back a few times, then walk with the phone at your side if you have room.",
+    "pad": "You will walk on the walking pad at a speed that feels comfortable, with the phone at your side and then in front of you.",
+    "both": "You will walk on the floor or on the walking pad, at a speed that feels comfortable.",
+    "minutes": "This takes a few minutes.",
+    "start": "Let’s start"
+  },
+  "mode": {
+    "title": "Where will you walk today?",
+    "overground": "On the floor",
+    "overgroundNote": "A clear path about 6 metres long",
+    "pad": "On the walking pad",
+    "padNote": "With your helper beside you the whole time"
+  },
+  "gear": {
+    "title": "What are you wearing for the walk today?",
+    "shoes": "Are you wearing shoes?",
+    "shoesYes": "Yes",
+    "shoesNo": "No",
+    "brace": "Do you wear a brace on a leg?",
+    "braceNone": "No",
+    "braceAfo": "Ankle and foot",
+    "braceKnee": "Knee",
+    "braceKafo": "Long leg",
+    "side": "On which leg?",
+    "sideRight": "Right",
+    "sideLeft": "Left",
+    "sideBoth": "Both",
+    "next": "Next"
+  },
+  "path": {
+    "title": "Get your walking path ready",
+    "length": "You need about 6 metres.",
+    "ready": "The path is ready"
+  },
+  "place": {
+    "ready": "The phone is ready",
+    "frontTitle": "Place the phone at the end of the path",
+    "front1": "Stand the phone upright on a stand, at about hip height.",
+    "front2": "Put it about half a metre to the side of the path, not in it.",
+    "front3": "Mark the start at the far end, and a stop mark 1.5 metres behind the phone.",
+    "sideTitle": "Place the phone beside the path",
+    "side1": "Set the phone sideways on a stand, at about hip height.",
+    "side2": "Put it 3 to 4 metres from the path, facing its middle.",
+    "side3": "You will walk across the picture from one side to the other, there and back.",
+    "noRoom": "No room for this part",
+    "padSideTitle": "Place the phone on your {side} side",
+    "padSideMoveTitle": "Move the phone to your {side} side",
+    "padSide1": "Set the phone sideways on a stand, at about hip height.",
+    "padSide2": "Put it about 3 metres away, facing the middle of the belt.",
+    "padFrontTitle": "Place the phone in front of you",
+    "padFront1": "Stand the phone upright on a stand, about 1 metre high.",
+    "padFront2": "Put it 2 metres in front of the pad, in line with the belt.",
+    "level": "The phone is level",
+    "tilted": "Straighten the phone so it is level",
+    "preview": "Make sure your whole body shows in the picture."
+  },
+  "pad": {
+    "floorTitle": "Before you step on the pad",
+    "floor1": "The floor is level, with clear space behind the pad.",
+    "floor2": "Your helper stays close to the stop button.",
+    "autoTitle": "Speed by hand",
+    "autoWhy": "This keeps the speed the same for the whole walk.",
+    "supportTitle": "Your support and your helper",
+    "support1": "Hold the front bar, or a steady support on the side away from the phone.",
+    "support2": "Your helper stands behind you, on the phone’s side.",
+    "done": "Done",
+    "onTitle": "Step on the pad",
+    "on1": "Step on while the belt is stopped, and hold the support.",
+    "onReady": "I am on the pad",
+    "startTitle": "Start the pad",
+    "start1": "Start at the slowest speed and raise it until it feels like your comfortable walk.",
+    "startAgain": "Start the pad at the same speed, and hold the support until your walk settles.",
+    "walking": "I am walking",
+    "tooFast": "The slowest speed is too fast for me",
+    "warmTitle": "Two minutes to warm up",
+    "warm1": "Walk at your comfortable speed. We start measuring after the warm up.",
+    "stopTitle": "Stop the pad",
+    "stopped": "The pad has stopped",
+    "detailsTitle": "Two last questions",
+    "speed": "What speed did you walk at?",
+    "speedHint": "The number the pad shows.",
+    "less": "Less",
+    "more": "More",
+    "kmh": "km an hour",
+    "mph": "miles an hour",
+    "handrail": "How did you hold the support while walking?",
+    "handrailNone": "I did not hold it",
+    "handrailLight": "I touched it lightly",
+    "handrailFirm": "I held it firmly",
+    "next": "Next"
+  },
+  "stand": {
+    "frontTitle": "Stand at the start mark, facing the phone",
+    "sideTitle": "Stand in the middle of the picture, side on to the phone",
+    "padTitle": "Stand still on the stopped pad",
+    "body": "Stay still for 3 seconds.",
+    "seen": "We can see you well"
+  },
+  "walk": {
+    "frontTitle": "Walk toward the phone and past it, then back to the start",
+    "sideTitle": "Walk across the picture from one side to the other",
+    "sideBody": "Start and stop at least two steps outside the picture.",
+    "padTitle": "Walk at your comfortable speed",
+    "laps": "times there and back",
+    "passes": "times across",
+    "of": "of {n}",
+    "steps": "steps",
+    "seconds": "seconds",
+    "more": "One more time, please",
+    "moreBody": "We need a few more steps to see both sides clearly.",
+    "padMore": "A few more steps, please",
+    "checking": "Checking your steps",
+    "pause": "Pause",
+    "paused": "Paused",
+    "resume": "Continue"
+  },
+  "again": {
+    "title": "Tell us if the pain grows",
+    "body": "Walk again when you are ready, within your comfort.",
+    "walk": "Walk again"
+  },
+  "retry": {
+    "title": "Let’s do this part again",
+    "again": "Let’s try again",
+    "skip": "Go on without this part"
+  },
+  "stance": {
+    "placeTitle": "Standing on one leg",
+    "placeOverground": "Stand about 2 metres in front of the phone, beside something steady to hold.",
+    "placePad": "Stay on the stopped pad facing the phone, with your fingertips on the support.",
+    "ready": "Ready",
+    "standing": "Stand still on both feet",
+    "lift": "Lift your {side} foot",
+    "liftBody": "Put it down whenever you want.",
+    "down": "My foot is down",
+    "switch": "Now the other leg"
+  },
+  "hint": {
+    "no_person": "We cannot see you in the picture",
+    "second_person": "We see someone close to you. Your helper stays behind you",
+    "feet": "We need to see both feet",
+    "legs": "Move the phone a little so your whole leg shows",
+    "light": "More light helps us see your steps",
+    "level": "Straighten the phone so it is level"
+  },
+  "save": {
+    "saving": "Saving your walk",
+    "error": "We could not save your walk. Check your connection and try again.",
+    "again": "Try again"
+  },
+  "nothing": {
+    "title": "We did not measure your walk this time",
+    "body": "We will go on with the rest of the check.",
+    "next": "Continue"
+  },
+  "done": {
+    "title": "Your walk is saved",
+    "next": "Continue",
+    "later": "Your walking results are complete after the last part of the check."
+  },
+  "card": {
+    "title": "How you walk",
+    "cadence": "steps a minute",
+    "speed": "metres a second",
+    "step": "cm step length",
+    "padSpeed": "km an hour on the pad",
+    "replay": "One step cycle of your walk",
+    "unclear": "We could not see your steps clearly enough this time."
+  },
+  "side": {
+    "right": "right",
+    "left": "left"
+  },
+  "diagram": {
+    "phone": "Phone",
+    "start": "Start",
+    "stop": "Stop",
+    "path": "6 metres",
+    "offset": "0.5 metre",
+    "behind": "1.5 metres",
+    "far": "3 to 4 metres",
+    "pad": "Walking pad",
+    "padSide": "3 metres",
+    "padFront": "2 metres",
+    "helper": "Helper",
+    "support": "Support",
+    "you": "You"
+  }
+}

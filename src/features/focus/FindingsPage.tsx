@@ -139,7 +139,7 @@ export function FindingsScreen({
         <div className="fx-findings-empty">
           <Glass className="fx-card fx-hero">
             <span className="fx-badge is-violet" aria-hidden="true">
-              <CheckIcon name="people" size={28} />
+              <CheckIcon name="arm-side" size={28} />
             </span>
             <Title>{tV7(lang, "rom.findings.noneTitle")}</Title>
             <Body lang={lang} text={tV7(lang, "rom.findings.noneBody")} />
@@ -276,7 +276,7 @@ export function FindingsBody({
             <ul className="fx-walk" aria-labelledby={walkId}>
               {view.walk.map((w) => (
                 <li key={w.metric} data-metric={w.metric}>
-                  <span>{w.label}</span>
+                  <span className="fx-walk-label">{w.label}</span>
                   <b>{bidiText(lang, w.values)}</b>
                   {w.same && <span className="fx-pill">{tV7(lang, "rom.findings.change.same")}</span>}
                 </li>
@@ -340,7 +340,27 @@ function GroupCard({ lang, group }: { lang: Lang; group: GroupView }) {
         {group.rows.map((r) => (
           <Row key={r.key} lang={lang} row={r} />
         ))}
+        {group.unmeasured && (
+          <li className="fx-row fx-unmeasured" data-tone="grey">
+            <div className="fx-row-head">
+              <ul className="fx-unmeasured-names">
+                {group.unmeasured.names.map((n) => (
+                  <li key={n}>
+                    <b>{n}</b>
+                  </li>
+                ))}
+              </ul>
+              <span className="fx-tag is-grey">{group.unmeasured.label}</span>
+            </div>
+            <p className="fx-row-line">{bidiText(lang, group.unmeasured.line)}</p>
+          </li>
+        )}
       </ul>
+      {group.findings.map((f) => (
+        <p key={f} className="fx-row-finding fx-group-finding">
+          {bidiText(lang, f)}
+        </p>
+      ))}
     </Glass>
   );
 }
@@ -405,8 +425,8 @@ function Row({ lang, row }: { lang: Lang; row: RowView }) {
 }
 
 /**
- * The value on its scale: the typical band in gold, the typical mark, the starting point (hollow) and
- * today's value in the row's colour. It starts at the reading side, as the dial does; the numbers and
+ * The value on its scale: the within normal band in gold, the typical mark, the starting point (a
+ * hollow ring) and today's value. It starts at the reading side, as the dial does; the numbers and
  * lines say the same in words, so it is hidden from screen readers.
  */
 function Bar({ bar, tone }: { bar: BarView; tone: Tone }) {
@@ -426,7 +446,6 @@ function Bar({ bar, tone }: { bar: BarView; tone: Tone }) {
         <span className="fx-bar-typical" style={{ insetInlineStart: pct(bar.typical) }} />
       )}
       {bar.first !== null && <span className="fx-bar-first" style={{ insetInlineStart: pct(bar.first) }} />}
-      <span className="fx-bar-fill" style={{ width: pct(bar.value) }} />
       <span className="fx-bar-value" style={{ insetInlineStart: pct(bar.value) }} />
     </div>
   );

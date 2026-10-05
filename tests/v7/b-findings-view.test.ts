@@ -215,14 +215,18 @@ describe("findingsView: the page's groups and rows", () => {
     expect(en.groups.map((g) => g.title)).toEqual(["Right shoulder", "Right knee"]);
     const data = answer(FAHD, rows);
     for (const g of ar.groups) expect(g.tone).toBe(data.bodyMap[g.cell] ?? null);
-    // Each cell's movements: the camera's first, then the ones it never measures.
+    // Each cell's camera movements, measured or not; the ones the camera never measures share a line.
     expect(ar.groups[0].rows.map((r) => r.movementId)).toEqual([
       "shoulder_flexion",
       "shoulder_abduction",
       "shoulder_extension",
-      "shoulder_internal_rotation",
-      "shoulder_external_rotation",
     ]);
+    expect(ar.groups[0].unmeasured).toEqual({
+      names: ["تدوير الكتف إلى الداخل", "تدوير الكتف إلى الخارج"],
+      label: tV7("ar", "rom.findings.cameraNeverLabel"),
+      line: tV7("ar", "rom.findings.cameraNever"),
+    });
+    expect(ar.groups[1].unmeasured).toBeNull();
     expect(ar.checkId).toBe("c-latest");
   });
 
@@ -244,7 +248,7 @@ describe("findingsView: the page's groups and rows", () => {
     expect(en.others.slice(0, 3)).toEqual(["Neck", "Back or trunk", "Left shoulder"]);
   });
 
-  it("shows a measured movement against the typical value it was graded with: number, label, value line, finding line", () => {
+  it("shows a measured movement against the typical value it was graded with: number, label, the joint's line", () => {
     const knee = row(ar, "knee_flexion");
     const data = answer(FAHD, rows);
     const entry = data.profile.entries.find((e) => e.movementId === "knee_flexion" && e.side === "right")!;
@@ -256,9 +260,9 @@ describe("findingsView: the page's groups and rows", () => {
       caption: null,
       typical: deg("ar", entry.typical!),
       label: { text: romResultLine("label_marked").ar, tone: "marked" },
-      line: result("value_flexion", "ar", { value: 95, norm: entry.typical! }),
-      // Stroke on a limb the condition filled in: the upper motor neuron path, «may suggest weakness».
-      finding: romResultLine("finding_weak").ar,
+      // The number and the typical value say what value_flexion says: no sentence repeats them.
+      line: null,
+      finding: null,
       more: [romResultLine("finding_new").ar],
       change: null,
       findingId: "marked",
@@ -267,9 +271,11 @@ describe("findingsView: the page's groups and rows", () => {
     expect(knee.bar).toMatchObject({ value: 95, typical: entry.typical, first: null });
     expect(knee.bar!.band![0]).toBeGreaterThan(95);
     expect(knee.bar!.band![1]).toBe(knee.bar!.max);
-    expect(row(en, "knee_flexion").line).toBe(
-      result("value_flexion", "en", { value: 95, norm: entry.typical! }),
-    );
+    // Stroke on a limb the condition filled in: the upper motor neuron path, «may suggest weakness»,
+    // said once on the knee's card.
+    const kneeCard = ar.groups.find((g) => g.cell === "knee:right")!;
+    expect(kneeCard.findings).toEqual([romResultLine("finding_weak").ar]);
+    expect(row(en, "knee_flexion").typical).toBe(deg("en", entry.typical!));
   });
 
   it("shows a lack in degrees from straight, with the band from straight and no typical number", () => {
@@ -302,14 +308,26 @@ describe("findingsView: the page's groups and rows", () => {
       finding: null,
     });
     expect(row(ar, "shoulder_abduction").line).toBe(romCopy("not_reached_line").ar);
-    expect(row(ar, "shoulder_internal_rotation")).toMatchObject({
-      label: { text: romResultLine("label_default").ar, tone: "grey" },
+    // A movement the camera never measures, with no row, is grey all the same, never typical (ROM-Q15);
+    // one such movement takes the data's own label and line.
+    const neck = intakeOf([{ region: "neck", side: "axial", problems: ["stiffness"], origin: "person" }], {
+      conditions: [],
+    });
+    expect(findingsView(answer(neck, []), neck, "ar").groups[0].unmeasured).toEqual({
+      names: ["تدوير الرأس"],
+      label: romResultLine("label_default").ar,
       line: romCopy("default_line").ar,
     });
-    // No row here: the external rotation of an affected shoulder is grey, never typical (ROM-Q15).
-    expect(row(ar, "shoulder_external_rotation").label).toEqual({
-      text: romResultLine("label_default").ar,
-      tone: "grey",
+    const foot = intakeOf(
+      [{ region: "ankle_foot", side: "left", problems: ["stiffness"], origin: "person" }],
+      {
+        conditions: [],
+      },
+    );
+    expect(findingsView(answer(foot, []), foot, "en").groups[0].unmeasured).toEqual({
+      names: ["Pointing the foot down", "Foot up without weight"],
+      label: tV7("en", "rom.findings.cameraNeverLabel"),
+      line: tV7("en", "rom.findings.cameraNever"),
     });
     const reasons: [StoredRomRow["reason"], string][] = [
       ["quality", tV7("ar", "rom.result.quality")],
@@ -343,11 +361,15 @@ describe("findingsView: the page's groups and rows", () => {
       painLimited: true,
       painLevel: 4,
     });
-    expect(row(findingsView(answer(FAHD, [hurt]), FAHD, "ar"), "knee_flexion")).toMatchObject({
+    const hurtView = findingsView(answer(FAHD, [hurt]), FAHD, "ar");
+    expect(row(hurtView, "knee_flexion")).toMatchObject({
       label: { text: romResultLine("label_pain").ar, tone: "pain" },
-      finding: romResultLine("finding_pain").ar,
+      finding: null,
       more: [],
     });
+    expect(hurtView.groups.find((g) => g.cell === "knee:right")!.findings).toEqual([
+      romResultLine("finding_pain").ar,
+    ]);
     const stuck = measured(FAHD, "knee_flexion", "right", "lying_back", 0, {
       status: "not_measured",
       reason: "no_active_movement",
@@ -417,8 +439,9 @@ describe("findingsView: the page's groups and rows", () => {
       ["neck_lateral_flexion", "left", "To the left"],
       ["neck_flexion", "none", null],
       ["neck_extension", "none", null],
-      ["neck_rotation", "none", null],
     ]);
+    // The neck turn is never measured by the camera: one line under the card's rows.
+    expect(v.groups[0].unmeasured?.names).toEqual(["Head turn"]);
   });
 
   it("hides the joints that are absent, and keeps the map's colours in its legend", () => {
@@ -496,11 +519,16 @@ describe("findingsView: the changes since the starting point", () => {
 
   it("words each change from the starting point, more range or closer to straight, never better or worse", () => {
     expect(ar.changes).toBe(true);
+    // In Arabic each value is one left to right isolate, so its degree sign stays after the number.
+    const iso = (n: number) => `⁦${deg("ar", n)}⁩`;
     expect(row(ar, "knee_flexion").change).toEqual({
       direction: "better",
       text: tV7("ar", "rom.findings.change.more"),
-      values: tV7("ar", "rom.findings.change.values", { first: deg("ar", 90), latest: deg("ar", 120) }),
+      values: tV7("ar", "rom.findings.change.values", { first: iso(90), latest: iso(120) }),
     });
+    expect(row(en, "knee_flexion").change?.values).toBe(
+      tV7("en", "rom.findings.change.values", { first: deg("en", 90), latest: deg("en", 120) }),
+    );
     expect(row(en, "knee_extension").change).toMatchObject({
       direction: "better",
       text: tV7("en", "rom.findings.change.straighter"),

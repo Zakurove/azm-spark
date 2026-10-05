@@ -144,6 +144,8 @@
     "stopped": "This movement was stopped, so we did not record it today.",
     "safety": "For your safety, we did not measure this movement today.",
     "notInCheck": "This movement was not part of this check.",
+    "cameraNeverLabel": "Not measured by the camera",
+    "cameraNever": "The camera cannot measure these movements accurately enough, so we did not measure them.",
     "change": {
       "more": "More range than your starting point",
       "less": "Less range than your starting point",

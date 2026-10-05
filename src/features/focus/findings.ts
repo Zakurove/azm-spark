@@ -5,7 +5,9 @@
  * copy lines); the page's own words are the rom namespace's (src/i18n/{ar,en}/rom.json, findings).
  *
  *   groups   one card per body map cell of the history, in body order (the neck and the back have one
- *            cell for every direction), with its colour and one row per movement, measured or not
+ *            cell for every direction), with its colour, one row per camera movement, measured or
+ *            not, the movements the camera never measures on one line, and the joint's finding lines
+ *            once (what the limits «may suggest» is said of the joint, not repeated under each row)
  *   others   the cells counted as typical: not on the body map (4.3 rule 5)
  *   legend   the colours the body map shows, with their words
  *   walk     the walk's changes the page names: walking speed, step length, steps a minute
@@ -60,9 +62,12 @@ export interface RowView {
   label: { text: string; tone: Tone } | null;
   /** The approximate comparison and a first reading from one valid try. */
   notes: string[];
-  /** The value line (rom-protocol 7.4), or why the movement was not measured. */
+  /**
+   * The value line (rom-protocol 7.4) where it says more than the number and the typical value (a lack,
+   * the leg back, a position without a typical value), or why the movement was not measured.
+   */
   line: string | null;
-  /** The finding's line («may suggest»), or null. */
+  /** The finding's line of this movement alone: refer_measure, or a joint the person could not move. */
   finding: string | null;
   /** finding_new for a markedly limited result. */
   more: string[];
@@ -77,6 +82,10 @@ export interface GroupView {
   title: string;
   tone: Tone | null;
   rows: RowView[];
+  /** The movements the camera never measures in this joint (default only, 3.17), with their label and reason once. */
+  unmeasured: { names: string[]; label: string; line: string } | null;
+  /** The joint's finding lines («may suggest», «stopped because of pain»), each once, in row order. */
+  findings: string[];
 }
 
 export interface WalkView {
@@ -131,6 +140,12 @@ export function toneLabel(tone: Tone, lang: Lang): string {
 }
 
 const degrees = (lang: Lang, n: number) => interpolate(lang, `${Math.round(n)}°`);
+/**
+ * Degrees inside an Arabic sentence: one left to right isolate, so the sign stays after its number
+ * («١٣٢°», as the dial writes it) instead of moving to the number's other side.
+ */
+const isolatedDegrees = (lang: Lang, n: number) =>
+  lang === "ar" ? `\u2066${degrees(lang, n)}\u2069` : degrees(lang, n);
 
 /** A result line of the data with its tokens, the degree words in the page's language. */
 const resultText = (lang: Lang, key: RomResultKey, vars: Record<string, string | number> = {}) =>
@@ -179,11 +194,12 @@ function labelOf(e: RomProfileEntry, intake: Intake | null, lang: Lang): RowView
 
 /**
  * The value line of a measured row (rom-protocol 7.4, as the result card writes it): the leg back on
- * either side of the trunk line, the seated knee, a lack, a value with no typical value to compare, or
- * the value against the typical one. A knee straightening without a grade is the seated one (lying
- * always has a norm row).
+ * either side of the trunk line, the seated knee, a lack, a value with no typical value to compare. A
+ * value against its typical one (value_flexion) is the row's number and typical value already, so it
+ * has no line here. A knee straightening without a grade is the seated one (lying always has a norm
+ * row).
  */
-function valueLine(e: RomProfileEntry, lang: Lang): string {
+function valueLine(e: RomProfileEntry, lang: Lang): string | null {
   const v = e.value!;
   if (e.movementId === "hip_extension" && e.typical !== null)
     return v >= 0
@@ -197,7 +213,7 @@ function valueLine(e: RomProfileEntry, lang: Lang): string {
     return resultText(lang, "value_lack", { value: lack });
   }
   if (e.typical === null) return resultText(lang, "value_no_grade", { value: Math.abs(v) });
-  return resultText(lang, "value_flexion", { value: v, norm: e.typical });
+  return null;
 }
 
 /** Why a movement was not measured: the data's lines and the shell's, past tense on this page. */
@@ -273,7 +289,7 @@ function changeOf(e: RomProfileEntry, c: RomChange, lang: Lang): NonNullable<Row
         : lack
           ? "rom.findings.change.lessStraight"
           : "rom.findings.change.less";
-  const shown = (n: number) => degrees(lang, lack ? Math.max(0, n) : Math.abs(n));
+  const shown = (n: number) => isolatedDegrees(lang, lack ? Math.max(0, n) : Math.abs(n));
   return {
     direction: c.direction,
     text: tV7(lang, key),
@@ -313,7 +329,11 @@ function rowOf(
   } else {
     line = notMeasuredLine(e, lang);
   }
-  const finding = f && f.line[lang] ? f.line[lang] : null;
+  // A line of this movement alone stays on its row; the joint's lines go to its card (findingsView).
+  const finding =
+    f && (f.noActiveMovement || f.finding === "unknown" || f.finding === "no_grade") && f.line[lang]
+      ? f.line[lang]
+      : null;
   const lack = e.kind === "lack";
   return {
     key,
@@ -336,6 +356,22 @@ function rowOf(
     bar: measured ? barOf(e, data.profile.sex, data.profile.age, c) : null,
     findingId: e.finding,
   };
+}
+
+/**
+ * The movements the camera never measures in a joint of the history: «stored as not measured (grey)
+ * ... never typical» (3.17). One movement takes the data's label and line; several share the plural
+ * forms of the page.
+ */
+function unmeasuredOf(entries: readonly RomProfileEntry[], lang: Lang): NonNullable<GroupView["unmeasured"]> {
+  const names = entries.map((e) => jointName(e.movementId, lang));
+  return entries.length === 1
+    ? { names, label: romResultLine("label_default")[lang], line: romCopy("default_line")[lang] }
+    : {
+        names,
+        label: tV7(lang, "rom.findings.cameraNeverLabel"),
+        line: tV7(lang, "rom.findings.cameraNever"),
+      };
 }
 
 /** The title of a cell: the region, with its side for a limb («الركبة اليمنى»). */
@@ -378,12 +414,24 @@ export function findingsView(data: FocusProfile, intake: Intake | null, lang: La
     // A typical default or an absent joint is no row («no value, no default, no finding», 2.4).
     const shown = entries.filter((e) => e.source !== "default" && e.source !== "not_applicable");
     if (shown.length === 0) continue;
+    // The movements the camera never measures share one line (3.17, label_default and default_line).
+    const never = shown.filter((e) => !isCamera(e.movementId) && e.source === "not_measured_camera");
+    const rows = shown.filter((e) => !never.includes(e));
+    const lines: string[] = [];
+    for (const e of rows) {
+      const f = findings.get(`${e.movementId}:${e.side}`);
+      const line =
+        f && !f.noActiveMovement && f.finding !== "unknown" && f.finding !== "no_grade" ? f.line[lang] : "";
+      if (line && !lines.includes(line)) lines.push(line);
+    }
     const tone = data.bodyMap[cell];
     groups.push({
       cell,
       title: cellTitle(cell, lang),
       tone: tone && tone !== "none" ? tone : null,
-      rows: shown.map((e) => rowOf(e, data, findings, changes, intake, lang)),
+      rows: rows.map((e) => rowOf(e, data, findings, changes, intake, lang)),
+      unmeasured: never.length ? unmeasuredOf(never, lang) : null,
+      findings: lines,
     });
   }
   const shownTones = new Set(Object.values(data.bodyMap));

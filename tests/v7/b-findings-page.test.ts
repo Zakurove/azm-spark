@@ -135,9 +135,10 @@ describe("the findings page", () => {
       html.indexOf('data-cell="knee:right"><i'),
     );
     expect(html).toMatch(/data-movement="knee_flexion" data-side="right" data-finding="marked"/);
-    expect(html).toMatch(
-      /data-movement="shoulder_internal_rotation" data-side="right" data-finding="unknown"/,
-    );
+    // The movements the camera never measures: one line in their joint's card.
+    expect(html).toContain('class="fx-row fx-unmeasured"');
+    expect(html).toContain("Shoulder turn inward");
+    expect(html).toContain(tV7("en", "rom.findings.cameraNeverLabel"));
     expect(html).toContain(romResultLine("label_marked").en);
     expect(html).toContain(romResultLine("finding_new").en);
     expect(html).toContain(romResultLine("finding_weak").en);

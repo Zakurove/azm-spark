@@ -9,7 +9,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { analyseGaitView } from "../../src/engine/gait/analyse";
-import { peakTime } from "../../src/engine/gait/events";
+import { detectEvents, peakTime } from "../../src/engine/gait/events";
+import { passesOf } from "../../src/engine/gait/passes";
 import { footLength, prepare } from "../../src/engine/gait/preprocess";
 import { loadSmoke, overgroundFromPad } from "../fixtures/gait/smoke";
 import {
@@ -71,7 +72,7 @@ describe("G1's rendered pad walk through the real model", () => {
   });
 });
 
-describe("the pad side view's swap rule (D-027 item 4)", () => {
+describe("the pad side view's swap rule and foot detector (D-027 item 4)", () => {
   const pad = (over: Partial<WalkSpec> = {}): WalkSpec => ({
     view: "pad_side",
     nearSide: "right",
@@ -116,6 +117,29 @@ describe("the pad side view's swap rule (D-027 item 4)", () => {
     const w = walk(pad());
     const p = prepare(w.frames, { rollDeg: 0, labels: "swaps", nearSide: "right" }).series;
     expect(p.relabelled.every((v) => v === 0)).toBe(true);
+  });
+
+  it("falls back to the ankle when the foot index gives two toe offs in a near stride", () => {
+    const w = walk(pad());
+    // A foot index that swings back once more in the middle of each near swing (Lite's second toe off).
+    const strideMs = 1200;
+    const tos = w.truth.tos.filter((e) => e.side === "right").map((e) => e.t);
+    const frames = w.frames.map((f) => {
+      const lm = f.lm.map((q) => ({ ...q }));
+      for (const t of tos) {
+        const u = (f.t - (t + 0.3 * strideMs)) / 50;
+        if (Math.abs(u) < 2) lm[32] = { ...lm[32], x: lm[32].x - 0.25 * Math.exp(-u * u) };
+      }
+      return { ...f, lm };
+    });
+    const detectorOf = (fs: typeof frames) => {
+      const p = prepare(fs, { rollDeg: 0, labels: "swaps", bouts: "either_ankle", nearSide: "right" });
+      const motion = passesOf(p, "pad_side", "right");
+      const events = detectEvents(p, motion.passes, "side", true);
+      return [...new Set(events.filter((e) => e.side === "right").map((e) => e.detector))];
+    };
+    expect(detectorOf(w.frames)).toEqual(["zeni"]);
+    expect(detectorOf(frames)).toEqual(["ankle"]);
   });
 });
 

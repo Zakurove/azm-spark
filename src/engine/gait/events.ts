@@ -150,8 +150,18 @@ export function disagreement(a: number[][], b: number[][], frames: number): numb
   return total ? bad / total : 0;
 }
 
-/** Zeni events of one side in one side view pass, with the ankle fallback. */
-function sideEventsOf(p: Prepared, pass: Pass, passIndex: number, side: LimbSide): PassEvent[] {
+/**
+ * Zeni events of one side in one side view pass, with the ankle fallback. `padNear`: a pad side view's
+ * pass with its near limb, where a foot detector that gives more than one event of a kind in a near
+ * stride also falls back to the ankle (D-027 item 4, doubledInNearStride).
+ */
+function sideEventsOf(
+  p: Prepared,
+  pass: Pass,
+  passIndex: number,
+  side: LimbSide,
+  padNear: boolean,
+): PassEvent[] {
   const s = p.series;
   const leg = LEG[side];
   const heel = relative(s, leg.heel, pass);
@@ -171,7 +181,8 @@ function sideEventsOf(p: Prepared, pass: Pass, passIndex: number, side: LimbSide
   const fallback =
     footSeen < GAIT_ENGINE.gateShare ||
     disagreement([zIc.idx, zTo.idx], [aIc.idx, aTo.idx], GAIT_ENGINE.disagreeFrames) >
-      GAIT_ENGINE.disagreeShare;
+      GAIT_ENGINE.disagreeShare ||
+    (padNear && doubledInNearStride(s, pass, side, zIc.idx, zTo.idx));
   return fallback
     ? [
         ...toEvents(s, aIc, ankle, side, "ic", "ankle", passIndex),
@@ -181,6 +192,27 @@ function sideEventsOf(p: Prepared, pass: Pass, passIndex: number, side: LimbSide
         ...toEvents(s, zIc, heel, side, "ic", "zeni", passIndex),
         ...toEvents(s, zTo, toe, side, "to", "zeni", passIndex),
       ];
+}
+
+/**
+ * A foot detector that gives more than one event of a kind in a near stride (D-027 item 4, C2's GG-4
+ * proposal (d)): on the pad the hidden far leg laid on the near one, or a foot index that swings back,
+ * gives a second peak. Each kind happens once a stride, so the near strides are bounded mid way from
+ * that kind: by the near ankle's IC peaks for the far side's IC and the near side's TO, by its TO peaks
+ * for the near side's IC and the far side's TO.
+ */
+function doubledInNearStride(s: Series, pass: Pass, side: LimbSide, ics: number[], tos: number[]): boolean {
+  if (!pass.near) return false;
+  const nearAnkle = relative(s, LEG[pass.near].ankle, pass);
+  const byIc = passPeaks(nearAnkle, pass.start, pass.end, s.hz).idx;
+  const byTo = passPeaks(negate(nearAnkle), pass.start, pass.end, s.hz).idx;
+  const isNear = side === pass.near;
+  const twice = (events: number[], bounds: number[]) => {
+    for (let j = 0; j + 1 < bounds.length; j++)
+      if (events.filter((k) => k >= bounds[j] && k < bounds[j + 1]).length > 1) return true;
+    return false;
+  };
+  return twice(ics, isNear ? byTo : byIc) || twice(tos, isNear ? byIc : byTo);
 }
 
 /** Stenum front events (IC only) of one front view pass. */
@@ -197,12 +229,17 @@ function frontEventsOf(s: Series, pass: Pass, passIndex: number): PassEvent[] {
   ];
 }
 
-/** Every event of the view's passes, in time order. */
-export function detectEvents(p: Prepared, passes: readonly Pass[], kind: "side" | "front"): PassEvent[] {
+/** Every event of the view's passes, in time order; `pad` for a pad side view (its foot detector rule). */
+export function detectEvents(
+  p: Prepared,
+  passes: readonly Pass[],
+  kind: "side" | "front",
+  pad = false,
+): PassEvent[] {
   const out: PassEvent[] = [];
   passes.forEach((pass, i) => {
     if (kind === "front") out.push(...frontEventsOf(p.series, pass, i));
-    else for (const side of ["left", "right"] as const) out.push(...sideEventsOf(p, pass, i, side));
+    else for (const side of ["left", "right"] as const) out.push(...sideEventsOf(p, pass, i, side, pad));
   });
   return out.sort((a, b) => a.index - b.index || (a.type === b.type ? 0 : a.type === "ic" ? -1 : 1));
 }

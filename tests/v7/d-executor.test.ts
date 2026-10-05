@@ -198,6 +198,20 @@ describe("the can move question", () => {
 });
 
 describe("pain and stop (S0-2, C-15)", () => {
+  it("refuses the coach's own score to its pain question: the speech before it answered the maximum question", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    s.guard.heard("أقدر أكثر بس يوجعني", 1_000);
+    s.guard.question({ p: 1, type: "ask_pain", movement: "shoulder_flexion", side: "right", t: 2_000 });
+    // 2.4 s after the question, nobody speaking: mark_pain(0) never reaches the host.
+    s.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 0 } }], 4_400);
+    expect(s.results()[0]).toEqual({ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" });
+    // The person answers; the coach's call carries the person's score.
+    s.guard.heard("ثلاثة", 5_000);
+    s.ex.handle([{ id: "p2", name: "mark_pain", args: { level: 3 } }], 5_200);
+    expect(s.results()[1]).toMatchObject({ accepted: true });
+  });
+
   it("takes mark_pain only within 10 s of the person's speech, and stop always", () => {
     const host = new RefRomHost();
     const s = setup(host);

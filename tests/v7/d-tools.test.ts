@@ -303,6 +303,33 @@ describe("the S0-2 answer guard (D-022 item 2)", () => {
     expect(g.check("mark_pain", 12_001)).toEqual(refused);
   });
 
+  it("answers the pain question only with speech after it: the speech before it was another answer", () => {
+    const g = new AnswerGuard();
+    // «أقدر أكثر بس يوجعني» answers the maximum question; the pain question follows.
+    g.question(hold(1_000));
+    g.heard("أقدر أكثر بس يوجعني", 2_000);
+    g.question(ask("ask_pain", 3_000));
+    // 2.4 s later, nobody speaking since the question: the model's own mark_pain(0) is refused.
+    expect(g.check("mark_pain", 5_400, { level: 0 })).toEqual(refused);
+    expect(g.check("mark_pain", 5_400, { level: 2 })).toEqual(refused);
+    g.heard("تقريبًا ثلاثة", 6_000);
+    expect(g.check("mark_pain", 6_200, { level: 3 })).toBeNull();
+  });
+
+  it("refuses the same joint re-ask's score with no answer to it, within 10 s of the last speech", () => {
+    const g = new AnswerGuard();
+    g.heard("تقريبًا ثمانية", 1_000);
+    g.question(ask("ask_pain", 4_000));
+    expect(g.check("mark_pain", 6_000, { level: 2 })).toEqual(refused);
+  });
+
+  it("always takes a pain of 6 or more, or a sharp pain: it can only stop", () => {
+    const g = new AnswerGuard();
+    g.question(ask("ask_pain", 1_000));
+    expect(g.check("mark_pain", 1_500, { level: 6 })).toBeNull();
+    expect(g.check("mark_pain", 1_500, { level: 1, sharp: true })).toBeNull();
+  });
+
   it("always passes stop and the control tools", () => {
     const g = new AnswerGuard();
     g.question(hold(1_000));

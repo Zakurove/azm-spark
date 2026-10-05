@@ -12,6 +12,7 @@
 import { REGION_IDS, type RegionId } from "../medical/body-map";
 import { ROM_MOVEMENT_IDS, type RomMovementId, type RomSide } from "../movements/rom/types";
 import type { LimitCause, RomAnswer } from "../engine/rom/types";
+import { PAIN_STOP } from "../medical/pain-rule";
 import type { BridgeEvent, CoachBlock, CoachStopReason, ToolArgs, ToolName, ToolResult } from "./types";
 
 /* ------------------------------------------------------------ the sets */
@@ -293,7 +294,7 @@ const OPENED_BY = {
   answer_can_move: "ask_can_move",
   set_limit_cause: "ask_cause",
 } as const;
-type GuardedQuestion = (typeof OPENED_BY)[keyof typeof OPENED_BY];
+type GuardedQuestion = (typeof OPENED_BY)[keyof typeof OPENED_BY] | "ask_pain";
 
 /** S0-2: mark_pain is taken only within this long of the person's last speech. */
 export const PAIN_SPEECH_WINDOW_MS = 10_000;
@@ -308,6 +309,12 @@ export const ANSWER_GUARD_SAY = "ask_and_wait";
  * arrived in the last 10 s; otherwise the call is refused no_answer_heard with say ask_and_wait.
  * stop is always taken (it only preselects; the person confirms), as are the control tools.
  *
+ * The pain question is guarded too (wave 2 fix of D-022 item 2): mark_pain also answers the P1
+ * ask_pain (the pain question after «it hurts», and the same joint re-ask), so while a pain question
+ * is open with no speech after it, a mark_pain is refused, whatever was said before it (that speech
+ * answered the question before). The 10 s window stays for a spontaneous report. A pain of 6 or more,
+ * or a sharp pain, is always taken: it can only stop (C-15).
+ *
  * A call with no question of its kind open goes on to the host, which refuses it on its phase (an
  * early confirm_max is wrong_phase with hold_still, 2.11). Times are milliseconds on the clock of
  * BridgeEvent.t. One guard per Live session; the executor feeds it every P1 event it pushes
@@ -319,7 +326,12 @@ export class AnswerGuard {
 
   /** A question event was pushed: the answer tools it opens need speech after it. */
   question(e: BridgeEvent): void {
-    if (e.type === "end_range_hold" || e.type === "ask_can_move" || e.type === "ask_cause")
+    if (
+      e.type === "end_range_hold" ||
+      e.type === "ask_can_move" ||
+      e.type === "ask_cause" ||
+      e.type === "ask_pain"
+    )
       this.opened[e.type] = e.t;
   }
 
@@ -329,9 +341,17 @@ export class AnswerGuard {
   }
 
   /** Null when the call may go on to the host; else the refusal to send back. */
-  check(name: ToolName, now: number): ToolResult | null {
+  check(name: ToolName, now: number, args?: ToolArgs[ToolName]): ToolResult | null {
     const refused: ToolResult = { accepted: false, reason: "no_answer_heard", say: ANSWER_GUARD_SAY };
-    if (name === "mark_pain") return now - this.lastSpeech <= PAIN_SPEECH_WINDOW_MS ? null : refused;
+    if (name === "mark_pain") {
+      const a = args as ToolArgs["mark_pain"] | undefined;
+      // A pain that stops (6 or more, or sharp) is always taken: it can only stop the movement.
+      if (a && (a.level >= PAIN_STOP.atOrAbove || a.sharp === true)) return null;
+      // An open pain question needs the person's speech after it.
+      const asked = this.opened.ask_pain;
+      if (asked !== undefined && this.lastSpeech <= asked) return refused;
+      return now - this.lastSpeech <= PAIN_SPEECH_WINDOW_MS ? null : refused;
+    }
     if (name !== "confirm_max" && name !== "answer_can_move" && name !== "set_limit_cause") return null;
     const openedAt = this.opened[OPENED_BY[name]];
     if (openedAt === undefined) return null;
@@ -359,7 +379,7 @@ export function screenToolCall(
     return { ok: false, result: { accepted: false, reason: "not_in_block" } };
   const parsed = parseToolArgs(name, call.args);
   if (!parsed.ok) return { ok: false, result: { accepted: false, reason: "invalid_args" } };
-  const refused = guard.check(name, now);
+  const refused = guard.check(name, now, parsed.args);
   if (refused) return { ok: false, result: refused };
   return { ok: true, name, args: parsed.args };
 }

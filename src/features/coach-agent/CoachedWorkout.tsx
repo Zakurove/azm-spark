@@ -114,8 +114,12 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
   const { online } = useOnline();
   const on =
     !!status &&
-    (status.available || fakeCoachRun()) &&
-    liveCoachOn({ preference: props.preference, consent: status.consent, online });
+    liveCoachOn({
+      preference: props.preference,
+      consent: status.consent,
+      online,
+      available: status.available || fakeCoachRun(),
+    });
 
   // The stop list's context: the person's intake, read once the coach is on.
   const [intake, setIntake] = useState<Intake | null>(null);

@@ -59,12 +59,15 @@ describe("the range block's coach segment (C-6)", () => {
 });
 
 describe("the live coach switch (C-5)", () => {
-  it("is off by default and runs only with the switch, the consent and a network", () => {
+  it("is off by default and runs only with the switch, the consent, a network and the server's coach", () => {
+    const on = { preference: true, consent: true, online: true, available: true };
     expect(defaults.liveCoach).toBe(false);
-    expect(liveCoachOn({ preference: false, consent: true, online: true })).toBe(false);
-    expect(liveCoachOn({ preference: true, consent: false, online: true })).toBe(false);
-    expect(liveCoachOn({ preference: true, consent: true, online: false })).toBe(false);
-    expect(liveCoachOn({ preference: true, consent: true, online: true })).toBe(true);
+    expect(liveCoachOn({ ...on, preference: false })).toBe(false);
+    expect(liveCoachOn({ ...on, consent: false })).toBe(false);
+    expect(liveCoachOn({ ...on, online: false })).toBe(false);
+    // D-030 D5-12: GET /api/agent/status says the server cannot run the coach now (switched off, no key).
+    expect(liveCoachOn({ ...on, available: false })).toBe(false);
+    expect(liveCoachOn(on)).toBe(true);
   });
 
   it("names the range questions the host leaves to the coach", () => {

@@ -33,7 +33,7 @@ import { useCameraSession } from "../assessment/camera/session";
 import { useOrientation, useWakeLock } from "../assessment/camera/hooks";
 import type { Tilt } from "../../engine/quality";
 import "../assessment/safety/safety.css";
-import { useCoach } from "../coach-agent/useCoach";
+import { fakeCoachRun, useCoach, useCoachStatus } from "../coach-agent/useCoach";
 import { CueVoice } from "../coach-agent/LocalVoice";
 import { CoachCaption } from "../coach-agent/CoachCaption";
 import { COACH_ASK_LINES, liveCoachOn, romSegment } from "../coach-agent/hosts";
@@ -233,10 +233,14 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   // rom:<block>:1, then :2 after its fifth movement) with the RomController as its host; the walk's
   // segment is GaitStep's own.
   const { online } = useOnline();
+  const coachWanted = readPreferences().liveCoach && m.data.context?.consent.live_coach === true;
+  // D-030 D5-12: the server says it can run the coach now (the e2e fake coach needs no key).
+  const coachStatus = useCoachStatus(coachWanted);
   const coachOn = liveCoachOn({
     preference: readPreferences().liveCoach,
     consent: m.data.context?.consent.live_coach === true,
     online,
+    available: coachStatus?.available === true || fakeCoachRun(),
   });
   const lastSegment = useRef<CoachSegment | null>(null);
   let romSeg: CoachSegment | null = null;

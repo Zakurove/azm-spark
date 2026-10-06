@@ -26,7 +26,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { BridgeEvent, CoachOptions, CoachState } from "../../coach/types";
-import { coachDeviceId, mintCoachToken, sendUsageReport } from "./api";
+import { coachDeviceId, mintCoachToken, readCoachStatus, sendUsageReport, type CoachStatus } from "./api";
 import { coachAudioSupported } from "./audio/context";
 import { MicCapture } from "./audio/mic";
 import { Speaker } from "./audio/speaker";
@@ -144,6 +144,25 @@ const NO_MIC = {
   stop: noop,
   gate: noop,
 };
+
+/**
+ * GET /api/agent/status while `wanted` (the switch on and the consent given; D-030 D5-12): whether the
+ * server can run the coach now. null until it answers, or when it cannot be read.
+ */
+export function useCoachStatus(wanted: boolean): CoachStatus | null {
+  const [status, setStatus] = useState<CoachStatus | null>(null);
+  useEffect(() => {
+    if (!wanted) return;
+    let live = true;
+    void readCoachStatus().then((s) => {
+      if (live) setStatus(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [wanted]);
+  return wanted ? status : null;
+}
 
 /** VITE_E2E builds only: ?e2eCoach=fake runs every segment on the fake transport (no key, no Google). */
 export function fakeCoachRun(): boolean {

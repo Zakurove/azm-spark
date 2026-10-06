@@ -34,9 +34,17 @@ export function romSegment(
   return at >= ITEMS_PER_ROM_SEGMENT ? `rom:${block}:2` : `rom:${block}:1`;
 }
 
-/** C-5: the person's switch, the live_coach consent and a network. */
-export function liveCoachOn(s: { preference: boolean; consent: boolean; online: boolean }): boolean {
-  return s.preference && s.consent && s.online;
+/**
+ * C-5: the person's switch, the live_coach consent, a network, and the server able to run the coach now
+ * (GET /api/agent/status, D-030 D5-12: never a mint that can only fail).
+ */
+export function liveCoachOn(s: {
+  preference: boolean;
+  consent: boolean;
+  online: boolean;
+  available: boolean;
+}): boolean {
+  return s.preference && s.consent && s.online && s.available;
 }
 
 /** The range questions' voice lines (bridge rule 2): a host leaves them to the coach while it runs. */

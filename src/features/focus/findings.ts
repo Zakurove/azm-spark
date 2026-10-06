@@ -295,24 +295,36 @@ function valueText(e: RomProfileEntry, lang: Lang): string {
   return lang === "ar" ? `\u2067${text}\u2069` : text;
 }
 
-/** A change since the starting point, in words that name the range or the straightening, never better or worse. */
+/**
+ * A change since the starting point, in words that name the range or the straightening, never better or
+ * worse. A change without a verdict (a capped start, E3-4) shows its values alone, a capped value as
+ * «أكثر من {value}», v1.1's way.
+ */
 function changeOf(e: RomProfileEntry, c: RomChange, lang: Lang): NonNullable<RowView["change"]> {
   const lack = e.kind === "lack";
   const key =
-    c.direction === "same"
-      ? "rom.findings.change.same"
-      : c.direction === "better"
-        ? lack
-          ? "rom.findings.change.straighter"
-          : "rom.findings.change.more"
-        : lack
-          ? "rom.findings.change.lessStraight"
-          : "rom.findings.change.less";
-  const shown = (n: number) => isolatedDegrees(lang, lack ? Math.max(0, n) : Math.abs(n));
+    c.direction === "none"
+      ? null
+      : c.direction === "same"
+        ? "rom.findings.change.same"
+        : c.direction === "better"
+          ? lack
+            ? "rom.findings.change.straighter"
+            : "rom.findings.change.more"
+          : lack
+            ? "rom.findings.change.lessStraight"
+            : "rom.findings.change.less";
+  const shown = (n: number, capped?: true) => {
+    const degrees = isolatedDegrees(lang, lack ? Math.max(0, n) : Math.abs(n));
+    return capped ? tV7(lang, "rom.findings.moreThan", { value: degrees }) : degrees;
+  };
   return {
     direction: c.direction,
-    text: tV7(lang, key),
-    values: tV7(lang, "rom.findings.change.values", { first: shown(c.first), latest: shown(c.latest) }),
+    text: key ? tV7(lang, key) : "",
+    values: tV7(lang, "rom.findings.change.values", {
+      first: shown(c.first, c.firstCensored),
+      latest: shown(c.latest, c.latestCensored),
+    }),
   };
 }
 

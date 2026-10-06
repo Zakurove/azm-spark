@@ -139,5 +139,12 @@ export interface RomChange {
   first: number;
   latest: number;
   bandDeg: number;
-  direction: "better" | "worse" | "same";
+  /**
+   * "none": no verdict, as v1.1 reads a censored start (D-029 item 1, E3-4): the starting point is a
+   * seated side bend the runner capped (flag "censored"), a lower bound, so the values show alone.
+   */
+  direction: "better" | "worse" | "same" | "none";
+  /** The value is a lower bound (flag "censored", W2-6): shown «أكثر من {value}». Absent when not. */
+  firstCensored?: true;
+  latestCensored?: true;
 }

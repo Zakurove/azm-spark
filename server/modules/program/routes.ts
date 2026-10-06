@@ -29,7 +29,7 @@ import { buildFromCheck, storeWeekly } from "./hooks";
 export const BUILDS_PER_WINDOW = 10;
 const CHECK_ID = new RegExp(`^${ID_PATH}$`);
 
-/** The stored week was built from this check under the same rules and targets data. */
+/** The stored week was built from this check under the same rules, targets data and program rules (E2-6). */
 function sameBuild(stored: WeeklyPlan | undefined, built: WeeklyPlan): boolean {
   const a = stored?.findings;
   const b = built.findings!;
@@ -38,7 +38,8 @@ function sameBuild(stored: WeeklyPlan | undefined, built: WeeklyPlan): boolean {
     a.checkId === b.checkId &&
     a.romVersion === b.romVersion &&
     a.gaitVersion === b.gaitVersion &&
-    a.targetsVersion === b.targetsVersion
+    a.targetsVersion === b.targetsVersion &&
+    a.programVersion === b.programVersion
   );
 }
 

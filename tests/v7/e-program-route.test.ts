@@ -11,6 +11,7 @@ import { BUILDS_PER_WINDOW } from "../../server/modules/program/routes";
 import type { Intake } from "../../src/medical/plan";
 import type { RomProtocol, RomProtocolItem } from "../../src/medical/rom-protocol";
 import type { TargetReason } from "../../src/medical/target-types";
+import { PROGRAM_RULES_VERSION } from "../../src/medical/targets";
 import type { WeeklyItem, WeeklyPlan } from "../../src/medical/weekly";
 import { TARGETS_VERSION } from "../../src/movements/targets";
 import { fill } from "../precheck-fixtures";
@@ -190,6 +191,28 @@ describe("POST /api/program/targets", () => {
     expect(after.plan.version).toBe(before.plan.version);
   });
 
+  it("stores the program rules version, and builds again a week stored under another (D-029 item 1, E2-6)", async () => {
+    const cookie = await person();
+    const s = await check(cookie, { knee_flexion: 80 });
+    const first = (await targets(cookie)).data.weekly as WeeklyPlan;
+    expect(first.findings).toMatchObject({ checkId: s.id, programVersion: PROGRAM_RULES_VERSION });
+    // A week a release before this one built (its program rules then were others).
+    const db = h.db();
+    const row = db.prepare("SELECT user_id, plan FROM profiles WHERE plan LIKE ?").get(`%${s.id}%`) as {
+      user_id: string;
+      plan: string;
+    };
+    const plan = JSON.parse(row.plan);
+    plan.weekly.findings.programVersion = "program_0";
+    plan.weekly.findings.created = 1;
+    db.prepare("UPDATE profiles SET plan=? WHERE user_id=?").run(JSON.stringify(plan), row.user_id);
+    setTime(T0 + 2 * HOUR);
+    const again = (await targets(cookie)).data.weekly as WeeklyPlan;
+    expect(again.findings).toMatchObject({ checkId: s.id, programVersion: PROGRAM_RULES_VERSION });
+    expect(again.findings!.created).toBe(T0 + 2 * HOUR);
+    expect((await me(cookie)).plan.weekly).toEqual(again);
+  });
+
   it("answers a week already built from the same check as stored, and a refresh never replaces it", async () => {
     const cookie = await person();
     await check(cookie, { knee_flexion: 80 });
@@ -217,6 +240,54 @@ describe("POST /api/program/targets", () => {
     expect(named.status).toBe(200);
     expect(named.data.weekly.findings).toMatchObject({ checkId: first.id, gaitVersion: expect.any(String) });
     expect((await me(cookie)).plan.weekly!.findings!.checkId).toBe(first.id);
+  });
+
+  it("gives the walk's support findings their targets (D-029 item 1, E2-4)", async () => {
+    const cookie = await person();
+    const s = await check(cookie, { knee_flexion: 125 }, true);
+    // The walk's stored support findings: a slow walk (a finding with one rule).
+    const slow = { id: "slow_speed", side: "none", value: 0.6, status: null, flags: ["norm_interim"] };
+    const db = h.db();
+    const row = db.prepare("SELECT id, findings FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      id: string;
+      findings: string;
+    };
+    const stored = { ...JSON.parse(row.findings), findings: [slow] };
+    db.prepare("UPDATE gait_analyses SET findings=? WHERE id=?").run(JSON.stringify(stored), row.id);
+    const r = await targets(cookie);
+    expect(r.status).toBe(200);
+    const reason: TargetReason = { kind: "gait_finding", id: "slow_speed", side: "none", status: null };
+    const walking = (r.data.targets as { id: string; reasons: TargetReason[] }[]).find(
+      (t) => t.id === "practice:walking",
+    );
+    expect(walking?.reasons).toContainEqual(reason);
+    expect(reasonsOf(r.data.weekly)).toContainEqual(reason);
+  });
+
+  it("the showcase's retest 3 days after its baseline follows the re-test rule (D-029 item 1, E2-5)", async () => {
+    const cookie = await person();
+    // The baseline: the knee bend and the arm raise both limited.
+    await check(cookie, { knee_flexion: 80, shoulder_flexion: 100 });
+    setTime(T0 + 3 * DAY);
+    pass = await boothPass(h, T0 + 3 * DAY);
+    // The retest measures the knee alone (the showcase measures at most 2): within normal now, and
+    // beyond the band.
+    const retest = await check(cookie, { knee_flexion: 140 });
+    const r = await targets(cookie);
+    expect(r.status).toBe(200);
+    expect(r.data.weekly.findings.checkId).toBe(retest.id);
+    const list = r.data.targets as { id: string; priority: number; reasons: TargetReason[] }[];
+    const of = (movementId: string) =>
+      list.filter((t) => t.reasons.some((x) => x.kind === "rom" && x.movementId === movementId));
+    // The arm raise was not measured again: its targets are kept, range work included.
+    expect(of("shoulder_flexion").some((t) => t.id.startsWith("mobility:"))).toBe(true);
+    // The knee bend is within normal and better: only its strengthening stays, at priority 1.
+    const knee = of("knee_flexion");
+    expect(knee.length).toBeGreaterThan(0);
+    for (const t of knee) {
+      expect(t.id.startsWith("strengthen:")).toBe(true);
+      expect(t.priority).toBe(1);
+    }
   });
 
   it("limits the builds to 10 in 15 minutes (429 RATE_LIMIT)", async () => {

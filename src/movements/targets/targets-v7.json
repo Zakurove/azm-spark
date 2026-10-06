@@ -773,7 +773,8 @@
           ],
           "intensity": "to mild tightness or slight discomfort, never pain; no bouncing",
           "when": "after strength, balance or walking work, when the muscles are warm"
-        }
+        },
+        "evidenceGrade": "Moderate"
       },
       {
         "id": "mobility_reps",
@@ -794,7 +795,8 @@
           "daysPerWeek": "daily",
           "intensity": "slow and smooth, within the comfortable range",
           "when": "first in the session, as a warm up"
-        }
+        },
+        "evidenceGrade": "Very low"
       },
       {
         "id": "mobility_pain",
@@ -818,7 +820,8 @@
           },
           "noStretch": true,
           "when": "first in the session"
-        }
+        },
+        "evidenceGrade": "Low"
       },
       {
         "id": "strength_reps",
@@ -849,7 +852,8 @@
           "tooHeavyBelowReps": 8,
           "progression": "when 2 sets of 10 to 15 feel easy, add a little load or a stronger band",
           "breathing": "breathe out on the effort; never hold the breath"
-        }
+        },
+        "evidenceGrade": "High"
       },
       {
         "id": "strength_isometric",
@@ -869,7 +873,8 @@
             3
           ],
           "intensity": "a comfortable push, no pain, breathing normally"
-        }
+        },
+        "evidenceGrade": "Very low"
       },
       {
         "id": "balance_practice",
@@ -897,7 +902,8 @@
             20
           ],
           "minutesPerSession": 10
-        }
+        },
+        "evidenceGrade": "Low"
       },
       {
         "id": "walking_practice",
@@ -926,7 +932,8 @@
           ],
           "buildMinutesPerWeek": 5,
           "eligibility": "only for people who walk and pass gait-rules section 1; the helper and pad rules apply"
-        }
+        },
+        "evidenceGrade": "High"
       },
       {
         "id": "cue_walking",
@@ -959,7 +966,8 @@
             "bouts": 3,
             "minutes": 3
           }
-        }
+        },
+        "evidenceGrade": "High"
       }
     ],
     "sessionOrder": [
@@ -8612,6 +8620,11 @@
       "id": "why_wheelchair_shoulder",
       "ar": "لأنك تستخدم كرسيًا متحركًا، أضفنا تمارين تقوّي كتفيك وتحافظ على حركتهما.",
       "en": "Because you use a wheelchair, we added exercises that strengthen your shoulders and keep them moving."
+    },
+    {
+      "id": "why_arthritis",
+      "ar": "لأنك ذكرت أن التهاب المفاصل جزء من حالتك الطبية، أضفنا هذا التمرين.",
+      "en": "Because you told us arthritis is part of your medical condition, we added this exercise."
     }
   ]
 }

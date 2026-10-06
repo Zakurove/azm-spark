@@ -429,7 +429,7 @@ function Row({ lang, row }: { lang: Lang; row: RowView }) {
       )}
       {row.change && (
         <p className={`fx-change is-${row.change.direction}`} data-change={row.change.direction}>
-          <b>{row.change.text}</b>
+          {row.change.text && <b>{row.change.text}</b>}
           <span>{bidiText(lang, row.change.values)}</span>
         </p>
       )}

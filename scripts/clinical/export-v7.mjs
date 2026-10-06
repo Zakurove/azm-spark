@@ -1163,6 +1163,22 @@ export function exportGait(source) {
 /** Dose profile prose: the evidence, its strength and the proposal in words (the numbers object is kept). */
 const DOSE_PROSE = ["caveat", "strength", "proposal"];
 
+/**
+ * The evidence grade of a dose profile (D-029 item 1, E2-1: the exporter keeps the evidence field, as
+ * evidenceGrade, since a field named evidence is prose dropped at any depth), from its strength words:
+ * the grade they lead with outside brackets, the profile's headline grade (the clauses after it qualify
+ * it for a dose or a population, «Moderate for the exact numbers in disability groups»; a bracket holds
+ * a citation's own grade). Only the capitalised grades count («moderate to high intensity» is no
+ * grade). No grade fails the export.
+ */
+export function doseEvidence(strength, where) {
+  let text = String(strength ?? "");
+  for (let open = text; (text = text.replace(/\([^()]*\)/g, "")) !== open; open = text);
+  const named = [...text.matchAll(/\b(Very low|High|Moderate|Low)\b/g)].map((m) => m[1]);
+  if (!named.length) fail(`${where}: no evidence grade in ${JSON.stringify(strength)}`);
+  return named[0];
+}
+
 /** Mapping parts that are prose lists of the algorithm (merge, selection), implemented in code. */
 export const MAPPING_PROSE = ["merge", "selection", "whyLines"];
 
@@ -1191,7 +1207,10 @@ function causeResolution(mapping) {
 function dose(d) {
   knownFields(d, ["profiles", "sessionOrder"], "dose");
   return {
-    profiles: d.profiles.map((p) => take(p, ["id", "ar", "en", "numbers"], `dose ${p.id}`, DOSE_PROSE)),
+    profiles: d.profiles.map((p) => ({
+      ...take(p, ["id", "ar", "en", "numbers"], `dose ${p.id}`, DOSE_PROSE),
+      evidenceGrade: doseEvidence(p.strength, `dose ${p.id}`),
+    })),
     sessionOrder: strip(d.sessionOrder),
   };
 }

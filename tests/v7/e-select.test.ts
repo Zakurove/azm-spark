@@ -389,6 +389,10 @@ describe("the caps (exercise-targets 5.8 step 5)", () => {
     expect(itemFor(out, "mobility:knee_flexion")).toBeDefined();
     expect(itemFor(out, "strengthen:quadriceps")).toBeDefined();
     for (const i of out.items) expect(libraryById(i.exerciseId)!.painFriendly, i.exerciseId).toBe(true);
+    // The add on's items say why_arthritis, the knee's own range work its pain line (E2-9).
+    const arthritis = TARGETS_DATA.whyLines.find((w) => w.id === "why_arthritis")!;
+    expect(itemFor(out, "strengthen:quadriceps")!.why.en).toBe(arthritis.en);
+    expect(itemFor(out, "mobility:knee_flexion")!.why.en).not.toBe(arthritis.en);
   });
 
   it("a finding with one action and two items a grade takes both (a pain limited range)", () => {

@@ -123,7 +123,18 @@ describe("why_both and the other lines", () => {
     expect(whyLine([block, rom()]).en).toBe(template("why_wheelchair_shoulder").en);
   });
 
-  it("the arthritis add on is said by its range finding", () => {
+  it("the arthritis add on says why_arthritis (D-029 item 1, E2-9)", () => {
+    const line = template("why_arthritis");
+    expect(line.ar).toBe("لأنك ذكرت أن التهاب المفاصل جزء من حالتك الطبية، أضفنا هذا التمرين.");
+    expect(line.en).toBe(
+      "Because you told us arthritis is part of your medical condition, we added this exercise.",
+    );
+    // The add on's reasons lead with its own, then the range finding it was added to.
+    expect(whyLine([{ kind: "arthritis", region: "knee" }, rom({ finding: "pain_limited" })])).toEqual({
+      ar: line.ar,
+      en: line.en,
+    });
+    // A target the finding asks for itself keeps the finding's line.
     expect(whyLine([rom(), { kind: "arthritis", region: "knee" }])).toEqual(whyLine([rom()]));
     expect(whyLine([])).toEqual({ ar: "", en: "" });
   });

@@ -93,6 +93,8 @@ function shortReason(reason: string, intake: Intake, lang: Lang): string {
       return k.overhead;
     case "pain_upper":
       return k.painUpper;
+    case "region_recent":
+      return k.recentRegion;
     case "tracking_limbs":
       return k.limbs;
     default:

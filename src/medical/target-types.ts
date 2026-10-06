@@ -6,7 +6,7 @@
  */
 import type { RegionSide, RegionId } from "./body-map";
 import type { CausePath, RomFinding } from "./rom-types";
-import type { Confidence, GaitPatternId, GaitStatus } from "./gait-types";
+import type { Confidence, GaitPatternId, GaitStatus, GaitSupportFinding } from "./gait-types";
 import type { L, WeeklyItem } from "./weekly";
 import type { Evidence, RomMovementId, RomSide } from "../movements/rom/types";
 import type { HipEndRangeId } from "../movements/targets/types";
@@ -36,6 +36,16 @@ export type TargetReason =
       side: "left" | "right" | "both" | "none";
       status: GaitStatus;
       confidence: Confidence | null;
+    }
+  /**
+   * A support finding of the walk (gait-rules 5.12, exercise-targets 5.4): slow_speed and
+   * uneven_step_length give targets (D-029 item 1, E2-4), with the finding's own line as the why.
+   */
+  | {
+      kind: "gait_finding";
+      id: GaitSupportFinding["id"];
+      side: GaitSupportFinding["side"];
+      status: GaitSupportFinding["status"];
     }
   | { kind: "region_default"; region: RegionId; side: RegionSide }
   | { kind: "arthritis"; region: RegionId }
@@ -102,6 +112,11 @@ export interface WeeklyPlanFindingsRef {
   romVersion: string;
   gaitVersion: string | null;
   targetsVersion: string;
+  /**
+   * The program rules the week was built under (targets.ts PROGRAM_RULES_VERSION; D-029 item 1, E2-6):
+   * a week stored under other rules is built again. Absent on weeks built before it.
+   */
+  programVersion?: string;
   created: number;
 }
 

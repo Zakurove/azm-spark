@@ -37,6 +37,7 @@ export declare const COMPENSATION_UNITS: readonly string[];
 export declare const COMPENSATION_EFFECTS: readonly string[];
 export declare const V1_CUE_IDS: readonly string[];
 export declare function hipEndRange(items: string[], where: string): string[];
+export declare function doseEvidence(strength: unknown, where: string): "High" | "Moderate" | "Low" | "Very low";
 export declare function presentRegions(text: string, where: string): string[];
 export declare function exportRom(source: unknown): Record<string, unknown>;
 export declare function exportGait(source: unknown): Record<string, unknown>;

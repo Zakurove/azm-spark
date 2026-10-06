@@ -5,6 +5,7 @@ import { cardKind, type CardSlot } from "../medical/session";
 import { fmtNum, Lang, T } from "./i18n";
 import { copy } from "./product";
 import { guidedCopy } from "./guided-copy";
+import { labels } from "./platform-copy";
 import ExerciseArt from "./ExerciseArt";
 import Icon from "./Icon";
 
@@ -24,6 +25,12 @@ export interface CardResult {
 type Phase = "ready" | "running" | "paused" | "rest" | "effort";
 
 const RING = 2 * Math.PI * 46;
+
+/**
+ * The ring's minutes and seconds (E3-7): a size that keeps «10:00» inside the ring, smaller on a short
+ * phone, where the ring is smaller too (guided.css).
+ */
+const CLOCK_FACE = { fontSize: "min(46px, 6.4vh)" } as const;
 
 export default function GuidedCard({
   lang,
@@ -162,8 +169,27 @@ export default function GuidedCard({
             ? remaining / hold
             : 0
           : count / reps;
-  const big = resting || kind === "timer" ? n(Math.ceil(remaining / 1000)) : n(count);
-  const under = resting ? g.rest : kind === "timer" ? g.seconds : g.of(n(reps));
+  // v7 (D-029 item 1, E3-7): a timer of a minute or more (walking practice, an older adult's held
+  // stretch) shows minutes and seconds throughout, as the session's own clock does (Workout.tsx).
+  const timed = resting || kind === "timer";
+  const left = Math.ceil(remaining / 1000);
+  const clock = timed && (resting ? rest : hold) >= 60_000;
+  const big = !timed ? (
+    n(count)
+  ) : clock ? (
+    <bdi>
+      {n(Math.floor(left / 60))}:{n(left % 60).padStart(2, lang === "ar" ? "٠" : "0")}
+    </bdi>
+  ) : (
+    n(left)
+  );
+  const under = resting
+    ? g.rest
+    : kind === "timer"
+      ? clock
+        ? labels(lang).minutes
+        : g.seconds
+      : g.of(n(reps));
   const ring = (
     <svg className="gcard-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
       <defs>
@@ -187,7 +213,9 @@ export default function GuidedCard({
     <>
       {ring}
       <span className="gcard-ring-face">
-        <b key={kind === "counter" && !resting ? pulse : undefined}>{big}</b>
+        <b key={kind === "counter" && !resting ? pulse : undefined} style={clock ? CLOCK_FACE : undefined}>
+          {big}
+        </b>
         <small>{under}</small>
       </span>
     </>

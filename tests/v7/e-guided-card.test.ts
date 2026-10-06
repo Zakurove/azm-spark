@@ -74,6 +74,20 @@ describe("the guided card of a targeted item", () => {
     }
   });
 
+  it("a timer of a minute or more shows minutes and seconds, as the session's clock (D-029 item 1, E3-7)", () => {
+    const face = (html: string) => /<span class="gcard-ring-face">(.*?)<\/span>/.exec(html)![1];
+    const walk: WeeklyItem = { id: "walking_practice", sets: 1, holdSeconds: 600 };
+    expect(text(face(card("en", walk)))).toBe(" 10:00 minutes ");
+    expect(text(face(card("ar", walk)))).toBe(" ١٠:٠٠ دقيقة ");
+    expect(face(card("ar", walk))).toContain("<bdi>");
+    const minute: WeeklyItem = { id: "wall_hand_walk", sets: 1, holdSeconds: 60 };
+    expect(text(face(card("en", minute)))).toBe(" 1:00 minutes ");
+    // Under a minute the seconds read as before.
+    const hold: WeeklyItem = { id: "wall_hand_walk", sets: 1, holdSeconds: 30 };
+    expect(text(face(card("en", hold)))).toBe(" 30 seconds ");
+    expect(text(face(card("ar", hold)))).toBe(" ٣٠ ثانية ");
+  });
+
   it("a card of the v1 library shows no caution or credit, and its steps as they are", () => {
     const item: WeeklyItem = { id: "seated_marching", sets: 2, reps: 8 };
     const html = card("en", item);

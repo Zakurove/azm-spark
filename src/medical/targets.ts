@@ -27,12 +27,12 @@ import {
 import type { StoredFocusToday } from "./focus-precheck";
 import type { GaitPlan } from "./gait-eligibility";
 import { gaitPatternLines, gaitPatternShown } from "./gait-rules";
-import type { GaitPatternResult } from "./gait-types";
+import type { GaitPatternResult, GaitSupportFinding } from "./gait-types";
 import { adjustReps, adjustSets } from "./legacy-config";
 import type { Intake, Plan } from "./plan";
 import { configsFor, libraryPool, programPool } from "./pool";
 import { hasLowerLimbLoss, LIMB_LOSS_PRESENT_REGIONS } from "./rom-protocol";
-import type { CausePath, RomFinding, RomProfile } from "./rom-types";
+import type { CausePath, RomChange, RomFinding, RomProfile } from "./rom-types";
 import type {
   DoseProfileId,
   ExercisePosition,
@@ -55,12 +55,23 @@ import {
   type WeeklyItem,
   type WeeklyPlan,
 } from "./weekly";
+import { GAIT_DATA } from "../movements/gait";
 import { movementDef, ROM_DATA } from "../movements/rom";
 import type { Evidence, RomMovementId } from "../movements/rom/types";
 import { doseProfile, TARGETS_DATA } from "../movements/targets";
 import type { WhyLineId } from "../movements/targets/types";
 
 const MAPPING = TARGETS_DATA.mapping;
+
+/**
+ * The version of the program rules of this module and of the selection it calls (D-029 item 1, E2-6),
+ * stored with each targeted week (WeeklyPlanFindingsRef.programVersion): POST /api/program/targets
+ * answers a stored week only when it was built from the same check under the same range, gait, targets
+ * and program rules, so a release whose rules give another week builds it again. Raise it with every
+ * change that changes the week a check gives (targets.ts, contraindications.ts, the pools and weekly.ts).
+ * program_2: the support findings, the re-test rule and the data's evidence grades (D-029 item 1).
+ */
+export const PROGRAM_RULES_VERSION = "program_2";
 
 /* ------------------------------------------------------------- the data */
 
@@ -177,22 +188,33 @@ const PAIN_FRIENDLY_GAIT_RANGE: readonly string[] = [
 ];
 
 /**
+ * The profile of an action for an item that names none (the library's existing entries), and the
+ * profile whose evidence a target of that action takes: the first the taxonomy names for the action
+ * (taxonomy.actions[].dose: «strength_reps (or strength_isometric)», «mobility_reps (or mobility_pain)»,
+ * «walking_practice, cue_walking or strength_reps»).
+ */
+const ACTION_PROFILE: Record<TargetAction, DoseProfileId> = {
+  mobility: "mobility_reps",
+  stretch: "stretch_hold",
+  strengthen: "strength_reps",
+  balance: "balance_practice",
+  practice: "walking_practice",
+};
+
+/**
  * The evidence of a target, for the order of equal priorities (5.8 step 3: «sort by priority, then by
- * evidence strength of the target (High first)»). The runtime data keeps no evidence grade per target
- * (contract gap E2-1): until it does, a target takes the grade its action's dose profile gives in the
- * clinical source (dose.profiles[].strength): strength_reps «High for strength training in general»,
- * walking_practice «High for walking training», stretch_hold «Low for changing a limitation»,
- * balance_practice «Low at this dose», mobility_reps «Very low (expert practice)», and on the pain paths
- * mobility_pain «Low». With AZM_CLINICAL_V7, tests/v7/e-targets-source.test.ts reads those words.
+ * evidence strength of the target (High first)»): the evidence of its action's dose profile in the
+ * runtime data (D-029 item 1, E2-1; the exporter keeps it from the profile's strength words), and on
+ * the pain paths the range work's mobility_pain.
  */
 export const TARGET_EVIDENCE: Readonly<Record<TargetAction, Evidence>> = {
-  strengthen: "High",
-  practice: "High",
-  stretch: "Low",
-  balance: "Low",
-  mobility: "Very low",
+  strengthen: doseProfile(ACTION_PROFILE.strengthen).evidenceGrade,
+  practice: doseProfile(ACTION_PROFILE.practice).evidenceGrade,
+  stretch: doseProfile(ACTION_PROFILE.stretch).evidenceGrade,
+  balance: doseProfile(ACTION_PROFILE.balance).evidenceGrade,
+  mobility: doseProfile(ACTION_PROFILE.mobility).evidenceGrade,
 };
-export const PAIN_MOBILITY_EVIDENCE: Evidence = "Low";
+export const PAIN_MOBILITY_EVIDENCE: Evidence = doseProfile("mobility_pain").evidenceGrade;
 const EVIDENCE_RANK: readonly Evidence[] = ["High", "Moderate", "Low", "Very low"];
 
 /* ------------------------------------------------------ collect targets */
@@ -376,6 +398,36 @@ function gaitTargets(
   }
 }
 
+/**
+ * The priority of a support finding's targets (D-029 item 1, E2-4; the data's gaitStatusRules give
+ * support findings none, since they have no confidence): 2 when likely and for a finding with one rule
+ * (no status), 1 when possible.
+ */
+export const SUPPORT_PRIORITY = { likely: 2, single: 2, possible: 1 } as const;
+const RESULT_SIDES: readonly TargetRequest["side"][] = ["left", "right", "both", "none"];
+
+/**
+ * The targets of the walk's support findings (exercise-targets 5.4, the gaitPatterns rows
+ * «<id> (finding)»): slow_speed practice:walking, uneven_step_length practice:even_steps. The row's
+ * «when» of slow_speed («moderate to high intensity») is the walking practice's intensity, which its
+ * dose profile sets, so it gates nothing. A finding without a row (flat_or_forefoot_contact) gives none.
+ */
+function supportTargets(f: GaitSupportFinding, out: Draft[]): void {
+  const row = MAPPING.gaitPatterns.find((r) => r.pattern === f.id && r.label === `${f.id} (finding)`);
+  if (!row) return;
+  const side = row.side as TargetRequest["side"];
+  if (!RESULT_SIDES.includes(side)) throw new Error(`The targets data gives ${f.id} the side ${row.side}`);
+  const priority =
+    f.status === "possible"
+      ? SUPPORT_PRIORITY.possible
+      : f.status === "likely"
+        ? SUPPORT_PRIORITY.likely
+        : SUPPORT_PRIORITY.single;
+  const reason: TargetReason = { kind: "gait_finding", id: f.id, side: f.side, status: f.status };
+  for (const t of row.targets)
+    out.push({ id: t.id as TargetId, side, priority, painFriendlyOnly: false, reasons: [reason] });
+}
+
 /** The limbs and sides a limb loss took a region from (rom-protocol 2.4 Present). */
 function absentRegions(h: Intake): Set<string> {
   const out = new Set<string>();
@@ -548,16 +600,161 @@ export function collectTargets(input: {
   intake: Intake;
   rom: readonly RomFinding[];
   gait: readonly GaitPatternResult[];
+  /** The walk's support findings (5.4; D-029 item 1, E2-4). */
+  support?: readonly GaitSupportFinding[];
+  /** What the re-test rule removed: its strengthening stays at priority 1 (retestState; E2-5). */
+  maintenance?: RetestState["maintenance"];
 }): { targets: TargetRequest[]; referrals: ReferralId[] } {
   const h = input.intake;
   const drafts: Draft[] = [];
   const referrals: ReferralId[] = [];
   for (const f of input.rom) romTargets(f, h, drafts, referrals);
   for (const p of input.gait) gaitTargets(p, input.rom, drafts, referrals);
+  for (const f of input.support ?? []) supportTargets(f, drafts);
+  maintenanceTargets(h, input.rom, input.maintenance, drafts);
   const ids = v7Contraindications(h, null, null);
   regionDefaultTargets(h, ids, drafts);
   wheelchairBlock(h, input.rom, ids, drafts);
   return { targets: merge(drafts), referrals: [...new Set(referrals)] };
+}
+
+/* -------------------------------------------------------- the re-test rule */
+
+/**
+ * One completed check's results as the re-test rule reads them (exercise-targets 5.8 step 9; D-029
+ * item 1, E2-5). The route reads them from the stored rows of each of the person's completed checks.
+ */
+export interface CheckResults {
+  /** romFindings of the check, limited to the joints on the body map today (findingsOnMap). */
+  rom: readonly RomFinding[];
+  /** The check's range profile: a movement's new grade. */
+  profile: RomProfile | null;
+  /** The check's changes against the earlier checks (compareRom, as its findings page shows them). */
+  changes: readonly RomChange[];
+  /** Every result of the check's walk (shown, not seen, not assessed); null without a walk. */
+  gait: readonly GaitPatternResult[] | null;
+  /** The walk's support findings. */
+  support: readonly GaitSupportFinding[];
+  /** The views the walk recorded: a support finding is read on its own views only (gait-rules 5.12). */
+  walkViews: readonly string[];
+}
+
+/**
+ * What a check's program follows: its own results, the earlier ones the re-test rule keeps (after
+ * them), and what the rule removed, whose strengthening stays at priority 1 as maintenance.
+ */
+export interface RetestState {
+  rom: RomFinding[];
+  gait: GaitPatternResult[];
+  support: GaitSupportFinding[];
+  maintenance: { rom: RomFinding[]; gait: GaitPatternResult[] };
+}
+
+const RETEST = MAPPING.selectionNumbers;
+/** The same movement on the same side (a profile entry's movement id is the wider joint movement id). */
+const sameMovement = (a: { movementId: string; side: string }, b: { movementId: string; side: string }) =>
+  a.movementId === b.movementId && a.side === b.side;
+const patternKey = (p: Pick<GaitPatternResult, "pattern" | "label" | "side">) =>
+  `${p.pattern}|${p.label}|${p.side}`;
+const supportKey = (f: Pick<GaitSupportFinding, "id" | "side">) => `${f.id}|${f.side}`;
+/** The views each support finding is read on (gait-rules 5.12 findings[].views). */
+const SUPPORT_VIEWS = new Map(GAIT_DATA.findings.map((f) => [f.id, f.views as readonly string[]]));
+
+/**
+ * Whether a check saw a kept pattern's side no more: its walk assessed the pattern there (a «not seen»
+ * result, or the pattern shown on another side or label) and did not show it. A check without a walk,
+ * or whose walk could not assess the pattern on that side, does not count.
+ */
+function patternNotSeen(kept: GaitPatternResult, c: CheckResults): boolean {
+  const results = (c.gait ?? []).filter((r) => r.pattern === kept.pattern);
+  if (results.some((r) => r.status === "not_assessed" && (r.side === kept.side || r.side === "none")))
+    return false;
+  return results.some((r) => r.status === "not_seen" || gaitPatternShown(r));
+}
+
+/**
+ * The re-test rule (exercise-targets 5.8 step 9, sessionLines: «Re-test: a range target is removed only
+ * when the change rule of rom-protocol 5.3 is met (beyond the MDC band) and the new grade is within
+ * normal (review B15); a gait target when not seen at two checks; strengthening stays at priority 1 as
+ * maintenance»), folded over the person's completed checks, oldest first and the check the program is
+ * built from last, so each check passes on what its own program followed:
+ *   - a range finding measured again and still limited follows the new finding; one measured within
+ *     normal with a change «better» (compareRom: beyond the band, best and median) is removed, and its
+ *     strengthening stays at priority 1 as maintenance until the movement is limited again; any other
+ *     (within normal without that change, or not measured again) is kept as it was;
+ *   - a pattern of the walk is kept until it is not seen at gaitTargetNotSeenChecks checks in a row that
+ *     assessed it, then removed with its strengthening kept as maintenance; a support finding likewise,
+ *     on its own views (it has no strengthening).
+ */
+export function retestState(history: readonly CheckResults[]): RetestState {
+  let rom: RomFinding[] = [];
+  let maintenanceRom: RomFinding[] = [];
+  let gait: { result: GaitPatternResult; notSeen: number }[] = [];
+  let maintenanceGait: GaitPatternResult[] = [];
+  let support: { finding: GaitSupportFinding; notSeen: number }[] = [];
+  for (const c of history) {
+    const limited = (f: Pick<RomFinding, "movementId" | "side">) => c.rom.some((x) => sameMovement(x, f));
+    const nextRom: RomFinding[] = [...c.rom];
+    const nextMaintenanceRom = maintenanceRom.filter((f) => !limited(f));
+    for (const f of rom) {
+      if (limited(f)) continue;
+      const grade = c.profile?.entries.find((e) => sameMovement(e, f) && e.source === "measured")?.finding;
+      const better = c.changes.some((x) => sameMovement(x, f) && x.direction === "better");
+      if (grade === "within" && better) nextMaintenanceRom.push(f);
+      else nextRom.push(f);
+    }
+
+    const shown = (c.gait ?? []).filter(gaitPatternShown);
+    const seen = (p: GaitPatternResult) => shown.some((s) => patternKey(s) === patternKey(p));
+    const nextGait = shown.map((result) => ({ result, notSeen: 0 }));
+    const nextMaintenanceGait = maintenanceGait.filter((p) => !seen(p));
+    for (const k of gait) {
+      if (seen(k.result)) continue;
+      const notSeen = k.notSeen + (patternNotSeen(k.result, c) ? 1 : 0);
+      if (notSeen >= RETEST.gaitTargetNotSeenChecks) nextMaintenanceGait.push(k.result);
+      else nextGait.push({ result: k.result, notSeen });
+    }
+
+    const nextSupport = c.support.map((finding) => ({ finding, notSeen: 0 }));
+    for (const k of support) {
+      if (c.support.some((f) => supportKey(f) === supportKey(k.finding))) continue;
+      const views = SUPPORT_VIEWS.get(k.finding.id) ?? [];
+      const notSeen = k.notSeen + (c.walkViews.some((v) => views.includes(v)) ? 1 : 0);
+      if (notSeen < RETEST.gaitTargetNotSeenChecks) nextSupport.push({ finding: k.finding, notSeen });
+    }
+
+    [rom, maintenanceRom, gait, maintenanceGait, support] = [
+      nextRom,
+      nextMaintenanceRom,
+      nextGait,
+      nextMaintenanceGait,
+      nextSupport,
+    ];
+  }
+  return {
+    rom,
+    gait: gait.map((k) => k.result),
+    support: support.map((k) => k.finding),
+    maintenance: { rom: maintenanceRom, gait: maintenanceGait },
+  };
+}
+
+/**
+ * «strengthening stays at priority 1 as maintenance» (strengthenStaysAtPriority): of a removed range
+ * finding or pattern, only the strengthening targets, at that priority, with the result's own reason.
+ */
+function maintenanceTargets(
+  h: Intake,
+  rom: readonly RomFinding[],
+  maintenance: RetestState["maintenance"] | undefined,
+  out: Draft[],
+): void {
+  if (!maintenance) return;
+  const priority = priorityOf(RETEST.strengthenStaysAtPriority, "strengthenStaysAtPriority");
+  const all: Draft[] = [];
+  for (const f of maintenance.rom) romTargets(f, h, all, []);
+  for (const p of maintenance.gait) gaitTargets(p, rom, all, []);
+  for (const d of all) if (actionOf(d.id) === "strengthen") out.push({ ...d, priority });
 }
 
 /* ------------------------------------------------------------- why lines */
@@ -650,19 +847,49 @@ function gaitLine(r: Extract<TargetReason, { kind: "gait" }>): ReasonLine {
   };
 }
 
+/** The gait copy's line of a support finding (copy.metrics), keyed by its id. */
+const FINDING_LINES: Readonly<Partial<Record<GaitSupportFinding["id"], L>>> = {
+  slow_speed: GAIT_DATA.copy.metrics.slow_speed,
+  uneven_step_length: GAIT_DATA.copy.metrics.uneven_step_length,
+};
+
+/**
+ * A support finding's line (D-029 item 1, E2-4): why_gait with the finding's own line from the gait
+ * copy, on its side («خطوة ساقك {side_ar} ...»), as the walk's card words it.
+ */
+function findingLine(r: Extract<TargetReason, { kind: "gait_finding" }>): ReasonLine {
+  const own = needed(FINDING_LINES[r.id], `the gait copy line of ${r.id}`);
+  const i = r.side === "left" ? 1 : 0;
+  const words = GAIT_DATA.copy.placeholders;
+  const finding = {
+    ar: own.ar.replaceAll("{side_ar}", words.side_ar[i]),
+    en: own.en.replaceAll("{side_en}", words.side_en[i]),
+  };
+  const t = why("why_gait");
+  return {
+    line: {
+      ar: fill(t.ar, { gait_pattern_line_ar: finding.ar }),
+      en: fill(t.en, { gait_pattern_line_en: finding.en }),
+    },
+    clause: { ar: finding.ar.replace(/\.\s*$/, ""), en: inSentence(finding.en.replace(/\.\s*$/, "")) },
+  };
+}
+
 function reasonLine(r: TargetReason): ReasonLine | null {
   switch (r.kind) {
     case "rom":
       return romLine(r);
     case "gait":
       return gaitLine(r);
+    case "gait_finding":
+      return findingLine(r);
     case "region_default":
       return regionLine();
     case "mobility_default":
       return { line: why("why_wheelchair_shoulder"), clause: null };
     case "arthritis":
-      // The add on travels with its range finding's reason, which says why.
-      return null;
+      // The add on's own line (D-029 item 1, E2-9); its range finding's reason follows it in the list.
+      return { line: why("why_arthritis"), clause: null };
   }
 }
 
@@ -703,6 +930,10 @@ export interface TargetContext {
   gaitPlan?: GaitPlan | null;
   today?: StoredFocusToday | null;
   gait?: readonly GaitPatternResult[];
+  /** The walk's support findings, which give targets of their own (targetedBuild; D-029 item 1, E2-4). */
+  support?: readonly GaitSupportFinding[];
+  /** What the re-test rule removed, whose strengthening stays (targetedBuild; D-029 item 1, E2-5). */
+  maintenance?: RetestState["maintenance"];
 }
 
 /** A session's guided card slots (weekly.ts BLOCK_SIZES): «half of a session's exercise slots» counts them. */
@@ -841,6 +1072,7 @@ function findingKeys(t: TargetRequest): string[] {
     if (r.kind === "arthritis") keys.add(`arthritis:${r.region}`);
     else if (r.kind === "rom" && !addOn) keys.add(`rom:${r.movementId}:${r.side}`);
     else if (r.kind === "gait") keys.add(`gait:${r.pattern}:${r.label}:${r.side}`);
+    else if (r.kind === "gait_finding") keys.add(`gait_finding:${r.id}:${r.side}`);
   return keys.size ? [...keys] : [`target:${t.id}:${t.side}`];
 }
 
@@ -921,15 +1153,6 @@ const EXTRA_ORDER: Record<TargetAction, number> = {
 };
 
 /* ------------------------------------------------------------------ dose */
-
-/** The profile of an action for an item that names none (the library's existing entries). */
-const ACTION_PROFILE: Record<TargetAction, DoseProfileId> = {
-  mobility: "mobility_reps",
-  stretch: "stretch_hold",
-  strengthen: "strength_reps",
-  balance: "balance_practice",
-  practice: "walking_practice",
-};
 
 /** A target on the pain path: its items come from the pain friendly set for pain (not only early after surgery). */
 const painPath = (t: TargetRequest) =>
@@ -1321,7 +1544,13 @@ export function targetedBuild(
 ): TargetedBuild | null {
   if (!engineWeekly(h, plan)) return null;
   const context: TargetContext = { ...ctx, gait: ctx.gait ?? gait };
-  const { targets, referrals } = collectTargets({ intake: h, rom, gait });
+  const { targets, referrals } = collectTargets({
+    intake: h,
+    rom,
+    gait,
+    support: ctx.support ?? [],
+    maintenance: ctx.maintenance,
+  });
   const { selection: fixed, items, unmet } = selectForTargets(h, plan, programPool(h), targets, context);
   const { selection, pool } = goalShare(h, plan, fixed, items, context);
   const weekly = { ...buildWeekly(h, plan, selection, "engine", items), findings: findingsRef };

@@ -283,6 +283,15 @@ export function stepsOf(
   return hold ? e.steps[lang].map((s) => s.replaceAll(`{hold_${lang}}`, hold)) : e.steps[lang];
 }
 
+/**
+ * An exercise serves a result of the check, which its link opens: a range finding, a pattern of the
+ * walk or a support finding of the walk (E2-4). A region default, the wheelchair shoulder care and the
+ * arthritis add on come from the history.
+ */
+export function servesResult(reasons: readonly { kind: string }[] | undefined): boolean {
+  return (reasons ?? []).some((r) => r.kind === "rom" || r.kind === "gait" || r.kind === "gait_finding");
+}
+
 /** Arabic counted days: the singular, the dual, then the plural of 3 to 10 and the singular accusative from 11. */
 function arabicDays(n: number): string {
   if (n === 1) return "يوم واحد";

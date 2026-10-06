@@ -888,8 +888,8 @@ function reasonLine(r: TargetReason): ReasonLine | null {
     case "mobility_default":
       return { line: why("why_wheelchair_shoulder"), clause: null };
     case "arthritis":
-      // The add on travels with its range finding's reason, which says why.
-      return null;
+      // The add on's own line (D-029 item 1, E2-9); its range finding's reason follows it in the list.
+      return { line: why("why_arthritis"), clause: null };
   }
 }
 

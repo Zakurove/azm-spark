@@ -40,6 +40,8 @@ export const WHY_LINE_IDS = [
   "why_example_plan",
   "why_region",
   "why_wheelchair_shoulder",
+  /** The arthritis add on's own line (D-029 item 1, E2-9). */
+  "why_arthritis",
 ] as const;
 export type WhyLineId = (typeof WHY_LINE_IDS)[number];
 

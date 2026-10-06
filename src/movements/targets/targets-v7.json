@@ -8620,6 +8620,11 @@
       "id": "why_wheelchair_shoulder",
       "ar": "لأنك تستخدم كرسيًا متحركًا، أضفنا تمارين تقوّي كتفيك وتحافظ على حركتهما.",
       "en": "Because you use a wheelchair, we added exercises that strengthen your shoulders and keep them moving."
+    },
+    {
+      "id": "why_arthritis",
+      "ar": "لأنك ذكرت أن التهاب المفاصل جزء من حالتك الطبية، أضفنا هذا التمرين.",
+      "en": "Because you told us arthritis is part of your medical condition, we added this exercise."
     }
   ]
 }

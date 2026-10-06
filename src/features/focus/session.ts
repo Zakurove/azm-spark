@@ -21,7 +21,7 @@
 import type { Lang } from "../../app/i18n";
 import type { BridgeEvent, CoachStopReason } from "../../coach/types";
 import type { RomMeasureResult } from "../../engine/rom/types";
-import { stopRoute, type StopRoute } from "../../medical/precheck";
+import { emergencyAlsoShow, stopRoute, type StopRoute } from "../../medical/precheck";
 import type { RegionId } from "../../medical/body-map";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
 import type { StopOptionId } from "../../movements/types";
@@ -355,7 +355,12 @@ export class FocusSession {
     const route: FocusStopRoute = {
       option: local.option,
       screen: local.screen,
-      alsoShow: local.alsoShow,
+      // The emergency screen carries v1's dysreflexia screen for a spinal cord injury, as v1's flow and
+      // the server's stop route add it (O12 (1), D5-10).
+      alsoShow:
+        local.screen === "scr_emergency"
+          ? [...new Set([...local.alsoShow, ...emergencyAlsoShow(env)])]
+          : local.alsoShow,
       endsCheck: local.endsCheck,
       reason: local.reason,
       ...(local.then ? { then: local.then } : {}),

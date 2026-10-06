@@ -84,6 +84,21 @@ export class CuePlayer {
     void shared.play().catch(() => undefined);
   }
 
+  private static activity = new Set<(playing: boolean, severity: Severity) => void>();
+  /**
+   * Each line any player plays, from its start to its end (or cut): the live coach's microphone gate
+   * hears the app's own voice from every screen (v7 contract 2.11 bridge rules 1 and 3, D-030 D5-8).
+   */
+  static onActivity(fn: (playing: boolean, severity: Severity) => void): () => void {
+    CuePlayer.activity.add(fn);
+    return () => {
+      CuePlayer.activity.delete(fn);
+    };
+  }
+  private static report(playing: boolean, severity: Severity): void {
+    for (const fn of [...CuePlayer.activity]) fn(playing, severity);
+  }
+
   private fileCache = new Map<string, Promise<HTMLAudioElement | null>>();
   private activeAudio?: HTMLAudioElement;
   private generation = 0;
@@ -171,6 +186,7 @@ export class CuePlayer {
       }
       if (started && !ended) {
         ended = true;
+        CuePlayer.report(false, severity);
         onEnd?.();
       }
       // The waiting count plays once this line has ended (never after a stop: stop clears it).
@@ -197,6 +213,7 @@ export class CuePlayer {
       try {
         await target.play();
         started = true;
+        CuePlayer.report(true, severity);
         if (generation === this.generation) this.endActive = finish;
         else finish();
         return true;
@@ -228,6 +245,7 @@ export class CuePlayer {
     u.onend = finish;
     u.onerror = finish;
     started = true;
+    CuePlayer.report(true, severity);
     this.endActive = finish;
     speechSynthesis.speak(u);
     return true;

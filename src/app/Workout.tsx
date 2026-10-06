@@ -25,6 +25,9 @@ import PlacementGuide from "./PlacementGuide";
  */
 const WorkoutCoach =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/coach-agent/CoachedWorkout")) : null;
+/** D-030 E3-3: the wheelchair setup line, once before the first seated item (v7 builds only). */
+const WheelchairSetupLine =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/coach-agent/WheelchairSetupLine")) : null;
 
 export interface WorkoutRun {
   id: string;
@@ -318,6 +321,11 @@ export default function Workout({
                 </button>
               </p>
             ))}
+          {stage === "setup" && WheelchairSetupLine && !run.demo && (
+            <Suspense fallback={null}>
+              <WheelchairSetupLine lang={lang} />
+            </Suspense>
+          )}
           {stage === "setup" && (
             <p className="workout-attest" id="workout-attest">
               {c.attest}

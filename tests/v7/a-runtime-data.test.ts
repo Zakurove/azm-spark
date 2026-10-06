@@ -523,7 +523,8 @@ describe("gait runtime data (gait-v7.json)", () => {
 
   it("serves its versions", () => {
     expect(GAIT_RULES_VERSION).toBe(`gait_rules_${GAIT_DATA.version}`);
-    expect(GAIT_ENGINE_VERSION).toBe("gait_engine_1");
+    // D-030 C4-1: version 2 since the pad side view masks the far leg's false contacts (D-028 item 2).
+    expect(GAIT_ENGINE_VERSION).toBe("gait_engine_2");
   });
 
   it("is signed off (D-025), version 1.0.0", () => {

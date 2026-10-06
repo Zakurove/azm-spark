@@ -276,6 +276,13 @@ export default function GaitCapture(props: GaitStepProps) {
     [ctl],
   );
   ctl.instructions = () => instructionText(ctl, lang);
+  // What of B's slot shows (D-030 C4-7): told whenever it changes.
+  const chrome = walkChrome(ctl);
+  const onChrome = useRef(props.onChrome);
+  onChrome.current = props.onChrome;
+  useEffect(() => {
+    onChrome.current?.({ hero: chrome.hero, skip: chrome.skip });
+  }, [chrome.hero, chrome.skip]);
   // E2E builds only: the review screenshots and the specs read the walk (and play the coach's calls).
   useEffect(() => {
     if (import.meta.env.VITE_E2E !== "1") return;
@@ -732,10 +739,19 @@ const NO_SKIP: ReadonlySet<string> = new Set([
   "done",
 ]);
 
+/**
+ * What the walk shows of B's slot (D-030 C4-7): its title card on the walk's first card only, and its
+ * «لن أمشي اليوم» while nothing was recorded and the person is not set up to walk.
+ */
+export function walkChrome(ctl: GaitController): { hero: boolean; skip: boolean } {
+  const s = ctl.current;
+  return { hero: s.id === "intro", skip: !(ctl.anythingRecorded || NO_SKIP.has(s.id)) };
+}
+
 export function GaitScreen(props: GaitScreenProps) {
   const { ctl } = props;
   const s = ctl.current;
-  const skipOff = ctl.anythingRecorded || NO_SKIP.has(s.id);
+  const skipOff = !walkChrome(ctl).skip;
   return (
     <div className="gx-root" data-step={s.id} data-rec={s.rec} data-skip={skipOff ? "off" : "on"}>
       <StepScreen {...props} />

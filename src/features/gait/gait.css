@@ -1,15 +1,8 @@
 /* ——— The walk (product v7 contract 2.8.4, step C4) ———
    The focus check's family (focus.css): a warm light stage, glass cards, gold for the one action,
    purple for the phone and the person's own marks, Cairo, large numerals, gentle transitions that
-   reduced motion turns off. No hard dark borders. The walk sits in B's slot (GaitSlot): its title
-   card shows on the walk's first card only, and its «لن أمشي اليوم» while nothing was recorded. */
-
-.fx-gait:has(> .gx-root:not([data-step="intro"])) > .fx-hero {
-  display: none;
-}
-.fx-gait:has(> .gx-root[data-skip="off"]) > .fx-actions {
-  display: none;
-}
+   reduced motion turns off. No hard dark borders. The walk sits in B's slot (GaitSlot), which shows
+   its title card and its «لن أمشي اليوم» as the walk tells it (walkChrome, D-030 C4-7). */
 
 .gx-root,
 .gx-flow {

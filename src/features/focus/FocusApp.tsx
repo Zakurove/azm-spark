@@ -313,6 +313,8 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
 
   // The system Back asks before leaving mid check (v1 S15): one pushed history entry.
   const [leaving, setLeaving] = useState(false);
+  // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
+  const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
   const midCheck =
     s.kind === "part" ||
     s.kind === "question" ||
@@ -600,6 +602,8 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
                 lang={lang}
                 warnings={partWarnings(m.data.check!.warnings, part, m.data.check!.protocol)}
                 onSkip={() => session.gaitDone()}
+                hero={walkChrome.hero}
+                skip={walkChrome.skip}
               >
                 <GaitStep
                   plan={m.data.check!.gait!}
@@ -611,6 +615,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
                   onDone={() => session.gaitDone()}
                   onStop={(preselect) => session.requestStop(preselect ?? null)}
                   onSkip={() => session.gaitDone()}
+                  onChrome={setWalkChrome}
                 />
               </GaitSlot>
             ),

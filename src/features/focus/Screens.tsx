@@ -1281,27 +1281,39 @@ export function GaitSlot({
   children,
   warnings = [],
   onSkip,
+  hero = true,
+  skip = true,
 }: {
   lang: Lang;
   children: ReactNode;
   /** The v1 warnings shown before the walk (warn_sci_t6, flow.ts partWarnings). */
   warnings?: ScreenId[];
   onSkip(): void;
+  /** The walk says what of the slot shows (D-030 C4-7): the title card on its first card only. */
+  hero?: boolean;
+  /** And «لن أمشي اليوم» while nothing was recorded and the person is not set up to walk. */
+  skip?: boolean;
 }) {
   return (
     <div className="fx-gait">
-      <Glass className="fx-card fx-hero">
-        <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
-        <Title>{tV7(lang, "rom.gait.title")}</Title>
-        <Body lang={lang} text={tV7(lang, "rom.gait.body")} />
-        {warnings.map((id) => (
-          <WarningNote key={id} lang={lang} id={id} />
-        ))}
-      </Glass>
+      {hero && (
+        <Glass className="fx-card fx-hero">
+          <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
+          <Title>{tV7(lang, "rom.gait.title")}</Title>
+          <Body lang={lang} text={tV7(lang, "rom.gait.body")} />
+          {warnings.map((id) => (
+            <WarningNote key={id} lang={lang} id={id} />
+          ))}
+        </Glass>
+      )}
       {children}
-      <Actions
-        items={[{ label: tV7(lang, "rom.gait.skip"), onClick: onSkip, kind: "secondary", name: "skip_walk" }]}
-      />
+      {skip && (
+        <Actions
+          items={[
+            { label: tV7(lang, "rom.gait.skip"), onClick: onSkip, kind: "secondary", name: "skip_walk" },
+          ]}
+        />
+      )}
     </div>
   );
 }

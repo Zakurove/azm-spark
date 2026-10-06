@@ -112,6 +112,11 @@ export interface WeeklyPlanFindingsRef {
   romVersion: string;
   gaitVersion: string | null;
   targetsVersion: string;
+  /**
+   * The program rules the week was built under (targets.ts PROGRAM_RULES_VERSION; D-029 item 1, E2-6):
+   * a week stored under other rules is built again. Absent on weeks built before it.
+   */
+  programVersion?: string;
   created: number;
 }
 

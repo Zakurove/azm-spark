@@ -18,6 +18,7 @@ import { hasV7Fields, type Intake, type Plan } from "../../../src/medical/plan";
 import { buildRomProfile, compareRom, romFindings } from "../../../src/medical/rom-profile";
 import {
   findingsOnMap,
+  PROGRAM_RULES_VERSION,
   retestState,
   targetedBuild,
   type CheckResults,
@@ -52,6 +53,7 @@ export function buildFromCheck(
     romVersion: check.versions.rom,
     gaitVersion: walk ? walk.rulesVersion : null,
     targetsVersion: TARGETS_VERSION,
+    programVersion: PROGRAM_RULES_VERSION,
     created: now,
   };
   return targetedBuild(intake, plan, state.rom, state.gait, ref, {

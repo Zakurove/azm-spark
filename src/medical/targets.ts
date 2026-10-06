@@ -63,6 +63,16 @@ import type { WhyLineId } from "../movements/targets/types";
 
 const MAPPING = TARGETS_DATA.mapping;
 
+/**
+ * The version of the program rules of this module and of the selection it calls (D-029 item 1, E2-6),
+ * stored with each targeted week (WeeklyPlanFindingsRef.programVersion): POST /api/program/targets
+ * answers a stored week only when it was built from the same check under the same range, gait, targets
+ * and program rules, so a release whose rules give another week builds it again. Raise it with every
+ * change that changes the week a check gives (targets.ts, contraindications.ts, the pools and weekly.ts).
+ * program_2: the support findings, the re-test rule and the data's evidence grades (D-029 item 1).
+ */
+export const PROGRAM_RULES_VERSION = "program_2";
+
 /* ------------------------------------------------------------- the data */
 
 function needed<T>(v: T | undefined | null, what: string): T {

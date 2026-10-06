@@ -33,8 +33,23 @@ function inputFor(block: CoachBlock, lang: "ar" | "en"): InstructionInput {
 }
 
 describe("buildInstruction", () => {
-  it("is version coach_si_1", () => {
-    expect(COACH_SI_VERSION).toBe("coach_si_1");
+  it("is version coach_si_2", () => {
+    expect(COACH_SI_VERSION).toBe("coach_si_2");
+  });
+
+  it("records a pain number at once and asks where at most once, afterwards (D-030 D5-9)", () => {
+    // The smoke run (qa/v7/coach-smoke.md, run 1): the coach asked where the pain was, twice, before it
+    // marked a pain of 7, about 70 s late.
+    for (const block of BLOCKS)
+      for (const lang of LANGS) {
+        const si = buildInstruction(inputFor(block, lang));
+        expect(si, `${block} ${lang}`).toContain(
+          "When the person gives a pain number, call mark_pain with it at once, before any other question.",
+        );
+        expect(si, `${block} ${lang}`).toContain(
+          "Ask where it hurts at most once, and only after the app has answered; never wait for the place to call mark_pain.",
+        );
+      }
   });
 
   for (const block of BLOCKS)

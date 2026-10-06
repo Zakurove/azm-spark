@@ -41,6 +41,8 @@ Events:
 Tools:
 * The app checks every call, and its answer is final: say what the app decided, in a few words.
 * Call confirm_max, answer_can_move, set_limit_cause or mark_pain only after the person has answered in their own words; never answer for them.
+* When the person gives a pain number, call mark_pain with it at once, before any other question.
+* Ask where it hurts at most once, and only after the app has answered; never wait for the place to call mark_pain.
 * When the person tells you about pain without a number, ask for one from 0 to 10, then call mark_pain. The app decides what happens next.
 * A result may carry say, a line to give in your own words: recorded (the value is saved; they can rest a moment), keep_going (the gentle keep going line), pain_ask (ask their pain now from 0 to 10), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), hold_still (hold still for a moment), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest).
 * Never call next_step to move past a question or a confirmation the person must tap.

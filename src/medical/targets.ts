@@ -178,22 +178,33 @@ const PAIN_FRIENDLY_GAIT_RANGE: readonly string[] = [
 ];
 
 /**
+ * The profile of an action for an item that names none (the library's existing entries), and the
+ * profile whose evidence a target of that action takes: the first the taxonomy names for the action
+ * (taxonomy.actions[].dose: «strength_reps (or strength_isometric)», «mobility_reps (or mobility_pain)»,
+ * «walking_practice, cue_walking or strength_reps»).
+ */
+const ACTION_PROFILE: Record<TargetAction, DoseProfileId> = {
+  mobility: "mobility_reps",
+  stretch: "stretch_hold",
+  strengthen: "strength_reps",
+  balance: "balance_practice",
+  practice: "walking_practice",
+};
+
+/**
  * The evidence of a target, for the order of equal priorities (5.8 step 3: «sort by priority, then by
- * evidence strength of the target (High first)»). The runtime data keeps no evidence grade per target
- * (contract gap E2-1): until it does, a target takes the grade its action's dose profile gives in the
- * clinical source (dose.profiles[].strength): strength_reps «High for strength training in general»,
- * walking_practice «High for walking training», stretch_hold «Low for changing a limitation»,
- * balance_practice «Low at this dose», mobility_reps «Very low (expert practice)», and on the pain paths
- * mobility_pain «Low». With AZM_CLINICAL_V7, tests/v7/e-targets-source.test.ts reads those words.
+ * evidence strength of the target (High first)»): the evidence of its action's dose profile in the
+ * runtime data (D-029 item 1, E2-1; the exporter keeps it from the profile's strength words), and on
+ * the pain paths the range work's mobility_pain.
  */
 export const TARGET_EVIDENCE: Readonly<Record<TargetAction, Evidence>> = {
-  strengthen: "High",
-  practice: "High",
-  stretch: "Low",
-  balance: "Low",
-  mobility: "Very low",
+  strengthen: doseProfile(ACTION_PROFILE.strengthen).evidenceGrade,
+  practice: doseProfile(ACTION_PROFILE.practice).evidenceGrade,
+  stretch: doseProfile(ACTION_PROFILE.stretch).evidenceGrade,
+  balance: doseProfile(ACTION_PROFILE.balance).evidenceGrade,
+  mobility: doseProfile(ACTION_PROFILE.mobility).evidenceGrade,
 };
-export const PAIN_MOBILITY_EVIDENCE: Evidence = "Low";
+export const PAIN_MOBILITY_EVIDENCE: Evidence = doseProfile("mobility_pain").evidenceGrade;
 const EVIDENCE_RANK: readonly Evidence[] = ["High", "Moderate", "Low", "Very low"];
 
 /* ------------------------------------------------------ collect targets */
@@ -1132,15 +1143,6 @@ const EXTRA_ORDER: Record<TargetAction, number> = {
 };
 
 /* ------------------------------------------------------------------ dose */
-
-/** The profile of an action for an item that names none (the library's existing entries). */
-const ACTION_PROFILE: Record<TargetAction, DoseProfileId> = {
-  mobility: "mobility_reps",
-  stretch: "stretch_hold",
-  strengthen: "strength_reps",
-  balance: "balance_practice",
-  practice: "walking_practice",
-};
 
 /** A target on the pain path: its items come from the pain friendly set for pain (not only early after surgery). */
 const painPath = (t: TargetRequest) =>

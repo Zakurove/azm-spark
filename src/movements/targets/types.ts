@@ -15,7 +15,7 @@ import type { RegionId } from "../../medical/body-map";
 import type { DemandTag } from "../../medical/sports";
 import type { CausePath } from "../../medical/rom-types";
 import type { DoseProfileId, ExercisePosition, TargetAction, TargetId } from "../../medical/target-types";
-import type { RomMovementId } from "../rom/types";
+import type { Evidence, RomMovementId } from "../rom/types";
 import type { Text } from "../types";
 
 /** The dose profiles (exercise-targets dose.profiles). */
@@ -140,6 +140,11 @@ export interface DoseProfile {
     floorMarkSpacingPct?: number;
     defaultBouts?: { bouts: number; minutes: number };
   };
+  /**
+   * The evidence grade of the profile (D-029 item 1, E2-1): the lowest grade its strength words name
+   * outside brackets (scripts/clinical/export-v7.mjs doseEvidence). A target's evidence is its action's.
+   */
+  evidenceGrade: Evidence;
 }
 
 export interface TargetRef {

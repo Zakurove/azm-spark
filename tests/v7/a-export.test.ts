@@ -310,7 +310,13 @@ function targetsSource(): Obj {
     wordingRules: "Arabic first",
     taxonomy: t.taxonomy,
     dose: {
-      profiles: t.dose.profiles.map((p: Obj) => ({ ...p, basis: [["ACSM11", "60 s"]], caveat: "c" })),
+      // The source words of each profile's evidence (D-029 item 1, E2-1): the grade the export keeps.
+      profiles: t.dose.profiles.map(({ evidenceGrade, ...p }: Obj) => ({
+        ...p,
+        basis: [["ACSM11", "60 s"]],
+        caveat: "c",
+        strength: `${evidenceGrade} for the dose (source like)`,
+      })),
       sessionOrder: withReviewFields(t.dose.sessionOrder),
     },
     libraryTags: t.libraryTags.map((x: Obj) => ({ ...x, note: "Overhead" })),
@@ -1490,7 +1496,10 @@ describe("v7 clinical export: gait and targets sections", () => {
     expect(t.mapping).not.toHaveProperty("whyLines");
     expect(t.mapping).not.toHaveProperty("merge");
     expect(t.mapping).not.toHaveProperty("selection");
-    expect(t.dose.profiles.every((p: Obj) => Object.keys(p).join() === "id,ar,en,numbers")).toBe(true);
+    // D-029 item 1, E2-1: the evidence grade is kept beside the numbers; the strength words are not.
+    expect(
+      t.dose.profiles.every((p: Obj) => Object.keys(p).join() === "id,ar,en,numbers,evidenceGrade"),
+    ).toBe(true);
   });
 
   it("strip removes the dropped fields at any depth and leaves the rest", () => {

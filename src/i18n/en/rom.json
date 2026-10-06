@@ -195,5 +195,9 @@
     "keyValue": "This check",
     "linkTitle": "Focused movement check results",
     "moreThan": "more than {value}"
+  },
+  "today": {
+    "body": "We measure the joints linked to your medical condition and compare them with what is typical for your age and sex, then look at your walk if you walk.",
+    "results": "Your latest results"
   }
 }

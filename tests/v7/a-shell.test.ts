@@ -100,7 +100,7 @@ describe("the lazy link slots for B and E", () => {
       expect(app).toMatch(new RegExp(`${name} &&[^(]*\\(\\s+<LazyPart lang=\\{lang\\}>\\s+<${name}\\b`));
   });
 
-  it("are placeholders that render nothing, with their final props", () => {
+  it("render with their final props: Today shows the focus check card, the two links wait for data", () => {
     const today: FocusTodayEntryProps = {
       lang: "ar",
       owner: "u1",
@@ -118,7 +118,10 @@ describe("the lazy link slots for B and E", () => {
       onOpenProgram: vi.fn(),
       onOpenFindings: vi.fn(),
     };
-    expect(renderToStaticMarkup(createElement(FocusTodayEntry, today))).toBe("");
+    const card = renderToStaticMarkup(createElement(FocusTodayEntry, today));
+    expect(card).toContain("قياس الحركة المركّز");
+    expect(card).toContain("ابدأ القياس");
+    expect(card).not.toContain("نتائج آخر قياس");
     expect(renderToStaticMarkup(createElement(FindingsLink, results))).toBe("");
     expect(renderToStaticMarkup(createElement(ProgramLink, program))).toBe("");
   });

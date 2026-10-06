@@ -256,7 +256,9 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     else setSafety(next);
   };
 
-  if (!on) return null;
+  // Before the pain question the coach needs everything above; once the workout is coached, its
+  // stop list, a stop's screen and a held timer stay on the screen whatever the network does.
+  if (!on && !host) return null;
   const asking = !host;
   return (
     <CheckRoot ui={{ lang }} page={false} className="fx coach-workout">

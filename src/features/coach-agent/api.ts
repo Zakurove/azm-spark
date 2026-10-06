@@ -6,6 +6,8 @@
  * origin check would answer 403). The wire types are the server's (server/modules/agent/types.ts).
  */
 import type { TokenRequest, TokenResponse, UsageReport } from "../../../server/modules/agent/types";
+import type { StopOptionId } from "../../movements/types";
+import { tabBoothPass } from "../focus/api";
 import type { MintResult } from "./session";
 
 /** localStorage key of the random per install id (5.1 deviceId). */
@@ -148,4 +150,36 @@ export async function giveCoachConsent(fetchImpl: typeof fetch = fetch): Promise
   } catch {
     return false;
   }
+}
+
+/**
+ * POST /api/agent/stop (D-030 D5-7): the person's stop list answer in a coached workout, so the server
+ * sets the stop's next day lock as a check's stop does. A lost call is tried twice more at once; any
+ * answer from the server is final. True once the server kept it. Never throws.
+ */
+export async function sendWorkoutStop(
+  workoutId: string,
+  option: StopOptionId,
+  fetchImpl: typeof fetch = fetch,
+  boothPass: () => string | null = tabBoothPass,
+): Promise<boolean> {
+  const pass = boothPass();
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await fetchImpl("/api/agent/stop", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Azm-Request": "1",
+          ...(pass ? { "X-Azm-Booth": pass } : {}),
+        },
+        body: JSON.stringify({ workoutId, option }),
+      });
+      return res.ok;
+    } catch {
+      /* no network: once more */
+    }
+  }
+  return false;
 }

@@ -119,6 +119,34 @@ describe("every existing library entry, tagged (libraryTags)", () => {
   });
 });
 
+describe("the words of every entry (D-029 item 1, E3-8)", () => {
+  it("write a range in words, never with a dash", () => {
+    const DASH = /[\u002D\u2010-\u2015\u2212]/;
+    for (const e of LIBRARY)
+      for (const lang of ["ar", "en"] as const)
+        for (const t of [
+          e.name[lang],
+          e.description[lang],
+          ...e.steps[lang],
+          e.cautions?.[lang],
+          e.credit?.[lang],
+        ])
+          if (t) expect(DASH.test(t), `${e.id} ${lang}: ${t}`).toBe(false);
+  });
+
+  it('the v1 holds read «من 15 إلى 30 ثانية» / "15 to 30 seconds", as the new exercises write them', () => {
+    const step = (id: string, lang: "ar" | "en") => libraryById(id)!.steps[lang].join(" ");
+    for (const id of ["shoulder_stretch", "chest_opener", "upper_back_stretch"]) {
+      expect(step(id, "ar")).toContain("استمر من 15 إلى 30 ثانية");
+      expect(step(id, "en")).toContain("Hold for 15 to 30 seconds");
+    }
+    expect(step("stomach_vacuum", "ar")).toContain("استمر من 10 إلى 15 ثانية");
+    expect(step("stomach_vacuum", "en")).toContain("Hold for 10 to 15 seconds");
+    expect(step("seated_hip_adduction", "ar")).toContain("استمر من 2 إلى 3 ثوانٍ");
+    expect(step("seated_hip_adduction", "en")).toContain("Hold for 2 to 3 seconds");
+  });
+});
+
 describe("the new exercises, entered as drafts (newExercises)", () => {
   it("follow the existing entries, one entry each, every one a draft", () => {
     expect(NEW.length).toBe(65);

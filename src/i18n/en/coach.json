@@ -1,6 +1,40 @@
 {
   "name": "Live coach",
   "consent": {
-    "title": "Before you turn on the Live coach"
+    "title": "Before you turn on the Live coach",
+    "intro": "The Live coach is a voice service of Google that runs outside the Kingdom. When you turn it on, we send it your voice during your checks and workouts, with the following information only.",
+    "sentPart": "Your language, and the part of the check or workout you are in.",
+    "sentRange": "In the movement check: the names of the movements, the side, the position, and the typical range of each movement, rounded.",
+    "sentWalk": "In the walking check: where you walk, the camera views, the kind of walking aid you use, and whether a helper is with you.",
+    "sentWorkout": "In a workout: the exercise names with their sets, repetitions, holds and rest, as the screen shows them.",
+    "sentEvents": "What happens as you go: the degrees we measure, your pain scores from 0 to 10, your answers and the names of the steps.",
+    "sides": "The movement names and their sides show which side of your body you are working on, and the typical range depends on your sex and age.",
+    "never": "We never send your name, email, age, sex, the names of your medical conditions, your medicines, anything you write yourself, your report, the words of your findings or the reasons given for your exercises, and never any picture, video or points of your body.",
+    "retention": "Google may keep the conversation for a short time after it ends. We do not keep its text.",
+    "off": "You can turn it off at any time in A voice that fits you. The buttons always work.",
+    "agree": "I agree, turn on the Live coach",
+    "notNow": "Not now",
+    "error": "We could not save your consent. Please try again."
+  },
+  "setting": {
+    "note": "A voice coach that talks with you during your checks and workouts. The buttons always work.",
+    "unavailable": "The Live coach is not available right now.",
+    "pause": "How long does the coach wait when you stop talking?",
+    "pauseShort": "A little",
+    "pauseMedium": "Longer",
+    "pauseLong": "Longest"
+  },
+  "workout": {
+    "painTitle": "Before we start: how much pain do you have now?",
+    "painHint": "Choose a number from 0, no pain, to 10, the worst pain you can imagine.",
+    "painSkip": "Skip this question",
+    "painOk": "Go on only within what feels comfortable, and stop if the pain grows.",
+    "paused": "The timer is paused",
+    "goOn": "Go on"
+  },
+  "status": {
+    "connecting": "Connecting the Live coach",
+    "live": "The Live coach is with you",
+    "local": "Going on with the buttons and the recorded voice"
   }
 }

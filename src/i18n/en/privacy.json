@@ -11,7 +11,8 @@
     "check": "To measure how you move in the movement check, so you can see for yourself how your movement changes over time.",
     "focus": "To compare how far your joints move and how you walk with what is usual for your sex and age, and to build your program from it.",
     "sessions": "To keep your exercise sessions and their results in your account.",
-    "safety": "To keep you safe during the check. We count safety events by day, without your name or any link to you."
+    "safety": "To keep you safe during the check. We count safety events by day, without your name or any link to you.",
+    "coach": "So the Live coach can talk with you during your checks and workouts, when you turn it on and agree to it."
   },
   "kept": {
     "heading": "What we keep",
@@ -33,13 +34,15 @@
   "receivers": {
     "heading": "Who receives your data",
     "railway": "Railway, the company that runs our servers in the Netherlands.",
-    "openai": "OpenAI, a company outside Saudi Arabia, reads your medical report when you choose to send it and agree to it, and prepares your weekly plan. We never send it your name, your email or any contact details, and your medical condition reaches the weekly plan as codes only."
+    "openai": "OpenAI, a company outside Saudi Arabia, reads your medical report when you choose to send it and agree to it, and prepares your weekly plan. We never send it your name, your email or any contact details, and your medical condition reaches the weekly plan as codes only.",
+    "google": "Google, a company outside Saudi Arabia, runs the Live coach when you turn it on and agree to it. It receives your voice during your checks and workouts, the names of the movements or exercises with their sides and the typical range rounded, and what happens as you go: degrees, pain scores and answers. It never receives your name, email, age, sex, medical condition, medicines, or any picture or video."
   },
   "retention": {
     "heading": "How long we keep your data",
     "account": "We keep your account, your answers and your results while your account exists. When you ask us to delete your account, we delete it within 30 days, backups included.",
     "report": "Azm does not keep your medical report. OpenAI may keep it for up to 30 days for safety checks only, and does not use it to train its models.",
-    "pause": "When a check is paused for your safety, the pause is deleted as soon as it ends."
+    "pause": "When a check is paused for your safety, the pause is deleted as soon as it ends.",
+    "google": "We do not keep the text of your conversations with the Live coach. Google may keep a conversation for a short time after it ends, and keeps logs for safety checks for up to 55 days."
   },
   "rights": {
     "heading": "Your rights",

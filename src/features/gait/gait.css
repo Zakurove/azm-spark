@@ -1,0 +1,550 @@
+/* ——— The walk (product v7 contract 2.8.4, step C4) ———
+   The focus check's family (focus.css): a warm light stage, glass cards, gold for the one action,
+   purple for the phone and the person's own marks, Cairo, large numerals, gentle transitions that
+   reduced motion turns off. No hard dark borders. The walk sits in B's slot (GaitSlot): its title
+   card shows on the walk's first card only, and its «لن أمشي اليوم» while nothing was recorded. */
+
+.fx-gait:has(> .gx-root:not([data-step="intro"])) > .fx-hero {
+  display: none;
+}
+.fx-gait:has(> .gx-root[data-skip="off"]) > .fx-actions {
+  display: none;
+}
+
+.gx-root,
+.gx-flow {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+.gx-split,
+.gx-capture {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+.gx-step {
+  gap: 14px;
+}
+
+/* ——— the placement drawings ——— */
+.gx-art {
+  display: grid;
+  place-items: center;
+  padding: 10px 6px;
+  border-radius: 24px;
+  background:
+    radial-gradient(60% 60% at 50% 45%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
+    linear-gradient(160deg, #f6f1fb, #fbf6ea);
+}
+.gx-placement {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  max-height: 260px;
+  overflow: visible;
+  font-family: Cairo, system-ui, sans-serif;
+}
+.gx-path {
+  fill: rgba(248, 203, 68, 0.16);
+  stroke: rgba(227, 171, 31, 0.55);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 5;
+}
+.gx-mark {
+  stroke: #e3ab1f;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.gx-mark.is-stop {
+  stroke: #cdbdea;
+}
+.gx-arrow {
+  fill: none;
+  stroke: #8065ad;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 2 6;
+}
+.gx-arrow.is-back {
+  stroke: #b9a6d8;
+}
+.gx-arrow-head {
+  fill: #8065ad;
+}
+.gx-cone {
+  fill: rgba(128, 101, 173, 0.1);
+}
+.gx-phone-body {
+  fill: #ffffff;
+  stroke: #6c56a5;
+  stroke-width: 2;
+}
+.gx-phone-lens {
+  fill: #6c56a5;
+}
+.gx-span line {
+  stroke: #b9a6d8;
+  stroke-width: 1.3;
+}
+.gx-span circle {
+  fill: #b9a6d8;
+}
+.gx-label {
+  fill: #4f3c7c;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+.gx-label.is-start {
+  text-anchor: start;
+}
+.gx-label.is-end {
+  text-anchor: end;
+}
+.gx-label.is-muted,
+.gx-label.is-span {
+  fill: #6b707a;
+  font-weight: 700;
+}
+.gx-label.is-phone {
+  fill: #4f3c7c;
+}
+.gx-walker-halo {
+  fill: rgba(248, 203, 68, 0.28);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gx-breathe 2.6s ease-in-out infinite;
+}
+.gx-walker-dot {
+  fill: #e3ab1f;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+.gx-pad-body {
+  fill: #f4f0f8;
+  stroke: #cdbdea;
+  stroke-width: 1.5;
+}
+.gx-belt {
+  stroke: #e2dbee;
+  stroke-width: 1.4;
+}
+.gx-bar,
+.gx-support {
+  fill: #d9cdee;
+}
+@keyframes gx-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.35;
+  }
+}
+
+/* ——— the level of the phone, over the preview ——— */
+.gx-level {
+  color: var(--fx-rose);
+}
+.gx-level.is-level {
+  color: var(--fx-purple-ink);
+}
+
+/* ——— choices and small answers ——— */
+.gx-choices {
+  display: grid;
+  gap: 12px;
+}
+.azm-check.fx .gx-choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 84px;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--fx-ink);
+  text-align: start;
+  box-shadow:
+    inset 0 0 0 1px #e4def0,
+    0 10px 22px -16px rgba(46, 34, 82, 0.45);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.25s ease;
+}
+@media (hover: hover) {
+  .azm-check.fx .gx-choice:hover {
+    background: #fbf9fe;
+    box-shadow:
+      inset 0 0 0 1px #cdbdea,
+      0 12px 24px -16px rgba(111, 90, 160, 0.5);
+  }
+}
+.gx-choice-text {
+  display: grid;
+  gap: 2px;
+}
+.gx-choice-text b {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.gx-choice-text small {
+  color: var(--fx-muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.gx-field {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.gx-field legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-size: 1.12rem;
+  font-weight: 800;
+}
+.gx-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.azm-check.fx .gx-segmented button {
+  flex: 1 1 auto;
+  min-height: 56px;
+  min-width: 88px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--fx-ink);
+  font-size: 1.08rem;
+  font-weight: 750;
+  box-shadow: inset 0 0 0 1px #e4def0;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.azm-check.fx .gx-segmented button.is-on {
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+  box-shadow: 0 0 0 2px #b9a6d8;
+}
+.azm-check.fx .gx-segmented.is-small button {
+  min-height: 48px;
+  font-size: 0.98rem;
+}
+.gx-speed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.gx-speed .fx-chip {
+  width: 56px;
+  height: 56px;
+}
+.gx-speed-value {
+  display: grid;
+  justify-items: center;
+  min-width: 140px;
+}
+.gx-speed-value b {
+  font-size: 3.2rem;
+  line-height: 1.1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--fx-ink);
+}
+.gx-speed-value span {
+  color: var(--fx-muted);
+  font-weight: 700;
+}
+
+/* ——— the capture ——— */
+.gx-capture .fx-stage-box {
+  height: min(44vh, 400px);
+}
+.gx-capture.is-stand .fx-stage-box,
+.gx-capture.is-warm .fx-stage-box {
+  height: min(40vh, 360px);
+}
+.gx-sheet {
+  gap: 12px;
+}
+.gx-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.gx-sheet-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.gx-sheet .fx-prompt-main {
+  font-size: 1.4rem;
+  line-height: 1.5;
+}
+.gx-sheet .fx-prompt-sub {
+  font-size: 1.05rem;
+}
+.gx-counter {
+  display: grid;
+  justify-items: center;
+  flex: none;
+  min-width: 110px;
+  padding: 8px 12px;
+  border-radius: 22px;
+  background: var(--fx-purple-tint);
+}
+.gx-counter b {
+  font-size: 3.4rem;
+  line-height: 1.05;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--fx-purple-ink);
+}
+.gx-counter span {
+  color: var(--fx-purple-ink);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-align: center;
+}
+.gx-counter em {
+  font-style: normal;
+  color: var(--fx-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.gx-ring {
+  display: grid;
+  justify-items: center;
+  flex: none;
+  gap: 2px;
+}
+.gx-ring b {
+  font-size: 2.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.gx-ring > span {
+  color: var(--fx-muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.gx-passes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gx-passes i {
+  display: block;
+  flex: 1;
+  max-width: 64px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e8e3ef;
+  transition: background 0.35s ease;
+}
+.gx-passes i.is-now {
+  background: linear-gradient(90deg, #b9a6d8, #6c56a5);
+}
+.gx-passes i.is-done {
+  background: #f2c443;
+}
+.gx-pause {
+  justify-self: start;
+}
+.gx-steps b {
+  font-variant-numeric: tabular-nums;
+}
+.gx-checking {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.gx-checking .fx-spinner {
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
+}
+.gx-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: #ece6f4;
+  overflow: hidden;
+}
+.gx-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f6d36b, #e9b52c);
+  transition: inline-size 0.3s linear;
+}
+
+/* ——— the result card ——— */
+.gx-card {
+  gap: 16px;
+}
+.gx-card-head {
+  display: grid;
+  gap: 12px;
+}
+.gx-numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-numbers li {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: var(--fx-ring);
+}
+.gx-numbers b {
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--fx-purple-ink);
+}
+.gx-numbers span {
+  color: var(--fx-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.gx-replay-box {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 24px;
+  background:
+    radial-gradient(60% 60% at 50% 40%, #ffffff 0%, rgba(255, 255, 255, 0) 75%),
+    linear-gradient(170deg, #f3eef9 0%, #fbf8f1 100%);
+}
+.gx-replay-box figcaption {
+  color: var(--fx-muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.gx-replay {
+  width: min(100%, 220px);
+  height: 220px;
+}
+.gx-bone {
+  stroke: rgba(128, 101, 173, 0.78);
+  stroke-linecap: round;
+}
+.gx-bone.is-side {
+  stroke: #e3ab1f;
+}
+.gx-head {
+  fill: #ffffff;
+  stroke: rgba(128, 101, 173, 0.78);
+  stroke-width: 0.006;
+}
+.gx-replay-floor {
+  stroke: #e2dbee;
+}
+.gx-patterns {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-patterns > li {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--fx-ring);
+}
+.gx-pattern-line {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.75;
+  font-weight: 700;
+}
+.gx-target {
+  color: var(--fx-purple-ink);
+  font-weight: 650;
+}
+.gx-approx {
+  background: var(--fx-gold-tint);
+  color: var(--fx-gold-ink);
+}
+.gx-done {
+  justify-items: start;
+}
+
+/* ——— wide screens ——— */
+@media (min-width: 900px) {
+  .fx-main:has(.gx-split),
+  .fx-main:has(.gx-capture) {
+    max-width: 1080px;
+  }
+  .gx-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .gx-split > .fx-stopbar {
+    grid-column: 1 / -1;
+  }
+  .gx-capture {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas:
+      "stage sheet"
+      "stage stop";
+    align-items: start;
+  }
+  .gx-capture > .fx-stage {
+    grid-area: stage;
+  }
+  .gx-capture > .gx-sheet {
+    grid-area: sheet;
+  }
+  .gx-capture > .fx-stopbar {
+    grid-area: stop;
+    position: static;
+  }
+  .gx-capture .fx-stage-box,
+  .gx-capture.is-stand .fx-stage-box,
+  .gx-capture.is-warm .fx-stage-box {
+    height: min(70vh, 560px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gx-walker-halo {
+    animation: none;
+  }
+  .gx-progress i,
+  .gx-passes i,
+  .azm-check.fx .gx-choice,
+  .azm-check.fx .gx-segmented button {
+    transition: none;
+  }
+}

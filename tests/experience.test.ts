@@ -5,11 +5,14 @@ import { SavedSession } from "../src/app/product";
 afterEach(() => vi.unstubAllGlobals());
 it("recovers from malformed or unavailable stored preferences", () => {
   // Booth v2 A6: the voice is off by default.
+  // v7 (contract D5): the live coach is off by default, with the shortest pause.
   const fallback = {
     voice: "off",
     safetyCheckIn: false,
     voicePack: "",
     checkSound: "",
+    liveCoach: false,
+    coachPause: 800,
   };
   vi.stubGlobal("localStorage", { getItem: () => "{broken" });
   expect(readPreferences()).toEqual(fallback);
@@ -22,6 +25,8 @@ it("recovers from malformed or unavailable stored preferences", () => {
         safetyCheckIn: "yes",
         voicePack: ["x"],
         checkSound: "captionsOnly",
+        liveCoach: "yes",
+        coachPause: 900,
       }),
   });
   expect(readPreferences()).toEqual(fallback);
@@ -34,7 +39,14 @@ it("keeps the voice on or off as chosen on this device since booth v2 (A6)", () 
     vi.stubGlobal("localStorage", {
       getItem: () => JSON.stringify({ voice: stored, voiceV: 2 }),
     });
-    expect(readPreferences()).toEqual({ voice, safetyCheckIn: false, voicePack: "", checkSound: "" });
+    expect(readPreferences()).toEqual({
+      voice,
+      safetyCheckIn: false,
+      voicePack: "",
+      checkSound: "",
+      liveCoach: false,
+      coachPause: 800,
+    });
   }
 });
 it("reads a voice stored before booth v2 as off: earlier builds saved their default with any setting", () => {
@@ -44,7 +56,14 @@ it("reads a voice stored before booth v2 as off: earlier builds saved their defa
     vi.stubGlobal("localStorage", {
       getItem: () => JSON.stringify({ voice: stored, pace: 0.85, focus: true, voicePack: "x" }),
     });
-    expect(readPreferences()).toEqual({ voice: "off", safetyCheckIn: false, voicePack: "x", checkSound: "" });
+    expect(readPreferences()).toEqual({
+      voice: "off",
+      safetyCheckIn: false,
+      voicePack: "x",
+      checkSound: "",
+      liveCoach: false,
+      coachPause: 800,
+    });
   }
 });
 it("saves the voice with its marker, so the choice is kept", () => {

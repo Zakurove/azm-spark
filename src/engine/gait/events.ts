@@ -49,8 +49,18 @@
  *   SOFTWARE.
  */
 import { findPeaks } from "../signal/peaks";
-import { GAIT_ENGINE } from "./params";
-import { LEG, runs, visibleShare, type Prepared, type Series } from "./preprocess";
+import { GAIT_ENGINE, PAD_FAR_MASK } from "./params";
+import {
+  footLength,
+  LEG,
+  nearestFrame,
+  pointOf,
+  rollTurn,
+  runs,
+  visibleShare,
+  type Prepared,
+  type Series,
+} from "./preprocess";
 import { midX } from "./kinematics";
 import type { Pass } from "./passes";
 import type { GaitEvent } from "./types";
@@ -151,9 +161,40 @@ export function disagreement(a: number[][], b: number[][], frames: number): numb
 }
 
 /**
+ * The far leg's contacts that lie on the near leg (D-028 item 2, AP-7): on the pad the model often lays
+ * the hidden far leg on the near one, and its heel then peaks with the near heel. A far peak whose
+ * point (`id`) the model drew within PAD_FAR_MASK of a foot length of the near leg's same point, in a
+ * frame at the peak (its nearest frame and the ones either side, since the smoothing spreads a short
+ * drawing over the samples around it), is that drawing, not a contact, and is masked. A true far
+ * contact sits a step from the near foot.
+ */
+function maskOnNear(p: Prepared, pk: Peaks, id: number, nearId: number, within: number): Peaks {
+  const s = p.series;
+  const turn = rollTurn(null);
+  const onNear = (k: number) => {
+    const i = nearestFrame(p.frameMs, s.t[k] * 1000);
+    for (let j = Math.max(0, i - 1); j <= Math.min(p.frames.length - 1, i + 1); j++) {
+      const a = pointOf(p.frames[j], id, turn);
+      const b = pointOf(p.frames[j], nearId, turn);
+      if (a && b && Math.hypot(a[0] - b[0], a[1] - b[1]) <= within) return true;
+    }
+    return false;
+  };
+  const out: Peaks = { idx: [], prom: [] };
+  pk.idx.forEach((k, i) => {
+    if (onNear(k)) return;
+    out.idx.push(k);
+    out.prom.push(pk.prom[i]);
+  });
+  return out;
+}
+
+/**
  * Zeni events of one side in one side view pass, with the ankle fallback. `padNear`: a pad side view's
  * pass with its near limb, where a foot detector that gives more than one event of a kind in a near
- * stride also falls back to the ankle (D-027 item 4, doubledInNearStride).
+ * stride also falls back to the ankle (D-027 item 4, doubledInNearStride), and where the far leg's
+ * contacts that lie on the near leg are masked first (D-028 item 2, maskOnNear; `foot` is the walk's
+ * foot length).
  */
 function sideEventsOf(
   p: Prepared,
@@ -161,6 +202,7 @@ function sideEventsOf(
   passIndex: number,
   side: LimbSide,
   padNear: boolean,
+  foot: number,
 ): PassEvent[] {
   const s = p.series;
   const leg = LEG[side];
@@ -168,10 +210,18 @@ function sideEventsOf(
   const toe = negate(relative(s, leg.toe, pass));
   const ankle = relative(s, leg.ankle, pass);
   const ankleBack = negate(ankle);
-  const zIc = passPeaks(heel, pass.start, pass.end, s.hz);
-  const zTo = passPeaks(toe, pass.start, pass.end, s.hz);
-  const aIc = passPeaks(ankle, pass.start, pass.end, s.hz);
-  const aTo = passPeaks(ankleBack, pass.start, pass.end, s.hz);
+  let zIc = passPeaks(heel, pass.start, pass.end, s.hz);
+  let zTo = passPeaks(toe, pass.start, pass.end, s.hz);
+  let aIc = passPeaks(ankle, pass.start, pass.end, s.hz);
+  let aTo = passPeaks(ankleBack, pass.start, pass.end, s.hz);
+  if (padNear && pass.near && pass.near !== side && foot > 0) {
+    const near = LEG[pass.near];
+    const within = PAD_FAR_MASK.footShare * foot;
+    zIc = maskOnNear(p, zIc, leg.heel, near.heel, within);
+    zTo = maskOnNear(p, zTo, leg.toe, near.toe, within);
+    aIc = maskOnNear(p, aIc, leg.ankle, near.ankle, within);
+    aTo = maskOnNear(p, aTo, leg.ankle, near.ankle, within);
+  }
   const fromMs = s.t[pass.start] * 1000;
   const toMs = s.t[pass.end - 1] * 1000;
   const footSeen = Math.min(
@@ -237,9 +287,11 @@ export function detectEvents(
   pad = false,
 ): PassEvent[] {
   const out: PassEvent[] = [];
+  const foot = pad ? footLength(p.series) : 0;
   passes.forEach((pass, i) => {
     if (kind === "front") out.push(...frontEventsOf(p.series, pass, i));
-    else for (const side of ["left", "right"] as const) out.push(...sideEventsOf(p, pass, i, side, pad));
+    else
+      for (const side of ["left", "right"] as const) out.push(...sideEventsOf(p, pass, i, side, pad, foot));
   });
   return out.sort((a, b) => a.index - b.index || (a.type === b.type ? 0 : a.type === "ic" ? -1 : 1));
 }

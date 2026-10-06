@@ -116,6 +116,16 @@ export const GAIT_ENGINE = {
  */
 export const PAD_SWAP = { jumpFootShare: 0.5, exchangeCostFootShare: 0.25 } as const;
 
+/**
+ * The pad side view's far leg mask (D-028 item 2, AP-7): the model often lays the hidden far leg on the
+ * near one, and the far heel then peaks with the near heel at a visibility no gate catches. A far
+ * contact (a heel, foot index or ankle peak of the far leg) whose point lies within a quarter of a foot
+ * length of the near leg's same point at that sample is masked before the events are kept. An
+ * engineering margin (no clinical number), the swap rule's scale, to be judged on the team's videos
+ * with the rest of D-027 item 4 (e).
+ */
+export const PAD_FAR_MASK = { footShare: 0.25 } as const;
+
 function range([from, to]: number[]): number[] {
   const out: number[] = [];
   for (let i = from; i <= to; i++) out.push(i);

@@ -18,12 +18,21 @@ export interface Preferences {
    * C05): voice or the screen reader; empty until it has been asked.
    */
   checkSound: "" | "voice" | "screenReader";
+  /**
+   * The live coach «المدرّب المباشر» (product v7 C-5): off by default; on only after the live_coach
+   * consent, and only in a v7 build. Per device.
+   */
+  liveCoach: boolean;
+  /** How long the person may pause before their turn ends for the live coach (5.1 silenceMs). */
+  coachPause: 800 | 1200 | 1600;
 }
 export const defaults: Preferences = {
   voice: "off",
   safetyCheckIn: false,
   voicePack: "",
   checkSound: "",
+  liveCoach: false,
+  coachPause: 800,
 };
 /**
  * Marks a voice choice made since booth v2. Earlier builds stored their default ("full") whenever any
@@ -38,6 +47,8 @@ export function readPreferences(): Preferences {
       safetyCheckIn: p.safetyCheckIn === true,
       voicePack: typeof p.voicePack === "string" ? p.voicePack : "",
       checkSound: p.checkSound === "voice" || p.checkSound === "screenReader" ? p.checkSound : "",
+      liveCoach: p.liveCoach === true,
+      coachPause: p.coachPause === 1200 || p.coachPause === 1600 ? p.coachPause : 800,
     };
   } catch {
     return { ...defaults };

@@ -25,6 +25,7 @@ import type {
 } from "../../coach/types";
 import {
   EMERGENCY_REASONS,
+  TAP_TO_CONFIRM,
   nextStepRefusal,
   pauseRefusal,
   resumeRefusal,
@@ -48,6 +49,12 @@ export interface SessionScreen {
   stopExercise(): void;
   /** Pain below the rule: the pain_ok line, stay within comfort. */
   painOk(): void;
+  /**
+   * False while the step on the screen has no pause the app can make (step D5: a camera set and a
+   * guided card keep their own controls, STOP and the card's pause); the coach is then told to use them.
+   * Absent: every active and timer step can pause.
+   */
+  canPause?(): boolean;
 }
 
 const yesNo = (v: boolean) => (v ? "yes" : "no");
@@ -146,6 +153,8 @@ export class SessionHost implements CoachHost {
       case "pause": {
         const no = pauseRefusal(this.control());
         if (no) return no;
+        if (this.screen.canPause?.() === false)
+          return { accepted: false, reason: "not_allowed", say: TAP_TO_CONFIRM };
         this.screen.pause();
         this.pausedBy = "coach";
         return { accepted: true };

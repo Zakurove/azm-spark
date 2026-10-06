@@ -145,12 +145,17 @@ const NO_MIC = {
   gate: noop,
 };
 
-function coachDeps(): CoachDeps {
-  if (
+/** VITE_E2E builds only: ?e2eCoach=fake runs every segment on the fake transport (no key, no Google). */
+export function fakeCoachRun(): boolean {
+  return (
     import.meta.env.VITE_E2E === "1" &&
     typeof location !== "undefined" &&
     new URLSearchParams(location.search).get("e2eCoach") === "fake"
-  )
+  );
+}
+
+function coachDeps(): CoachDeps {
+  if (fakeCoachRun())
     return e2eCoachDeps({
       hooks: window as unknown as Record<string, unknown>,
       listen: windowEvents,

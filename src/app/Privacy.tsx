@@ -22,6 +22,13 @@ import { V7_UI } from "./v7flag";
  */
 const FOCUS_PURPOSES: I18nKey[] = V7_UI ? ["privacy.purposes.focus"] : [];
 const FOCUS_KEPT: I18nKey[] = V7_UI ? ["privacy.kept.focus"] : [];
+/**
+ * v7 (step D5, C-8, C-12): the live coach's purpose, its processor and transfer outside the Kingdom,
+ * and Google's retention. A default build shows none of them.
+ */
+const COACH_PURPOSES: I18nKey[] = V7_UI ? ["privacy.purposes.coach"] : [];
+const COACH_RECEIVERS: I18nKey[] = V7_UI ? ["privacy.receivers.google"] : [];
+const COACH_RETENTION: I18nKey[] = V7_UI ? ["privacy.retention.google"] : [];
 
 /**
  * The company responsible for the data and the contact for rights requests (Q32 (1), (4)).
@@ -90,6 +97,7 @@ export default function Privacy({
             "privacy.purposes.plan",
             "privacy.purposes.check",
             ...FOCUS_PURPOSES,
+            ...COACH_PURPOSES,
             "privacy.purposes.sessions",
             "privacy.purposes.safety",
           ])}
@@ -112,10 +120,15 @@ export default function Privacy({
           <p>{bidiText(lang, CHECK_DATA.boundary.storageNotice[lang])}</p>
         </Section>
         <Section heading={t(lang, "privacy.receivers.heading")}>
-          {list(["privacy.receivers.railway", "privacy.receivers.openai"])}
+          {list(["privacy.receivers.railway", "privacy.receivers.openai", ...COACH_RECEIVERS])}
         </Section>
         <Section heading={t(lang, "privacy.retention.heading")}>
-          {list(["privacy.retention.account", "privacy.retention.report", "privacy.retention.pause"])}
+          {list([
+            "privacy.retention.account",
+            "privacy.retention.report",
+            ...COACH_RETENTION,
+            "privacy.retention.pause",
+          ])}
         </Section>
         <Section heading={t(lang, "privacy.rights.heading")}>
           {list([

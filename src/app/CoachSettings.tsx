@@ -4,7 +4,7 @@
  * welcome; Nasser tries and picks the voices himself, nothing is generated here), and the movement
  * check's optional check in. Gold for the one action, purple accents, every option 48 px or more.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n";
 import { Lang } from "./i18n";
 import { Preferences, ui } from "./experience";
@@ -12,6 +12,13 @@ import { CuePlayer } from "./audio";
 import { installedPack, VOICE_PACKS } from "./voicePacks";
 import Dialog from "./Dialog";
 import Icon from "./Icon";
+
+/**
+ * The live coach «المدرّب المباشر» (product v7 D5): its switch, its consent and its pause, in a v7
+ * build only (the env test written inline, so a default build drops the chunk, A2-1).
+ */
+const LiveCoachSetting =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/coach-agent/LiveCoachSetting")) : null;
 
 /** One setting as a switch: a title, one line under it and a toggle of fixed width. */
 function SwitchRow({
@@ -133,6 +140,11 @@ export default function CoachSettings({
         <small>{c.voiceNote}</small>
         {blocked && <p role="status">{c.voiceBlocked}</p>}
       </div>
+      {LiveCoachSetting && (
+        <Suspense fallback={null}>
+          <LiveCoachSetting lang={lang} value={value} onChange={onChange} />
+        </Suspense>
+      )}
       {/* The movement check's optional check in (D-016): per device, off by default. */}
       <SwitchRow
         on={value.safetyCheckIn}

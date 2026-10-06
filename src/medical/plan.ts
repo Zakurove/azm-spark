@@ -6,7 +6,8 @@ import {
   getMinimumRecoveryHours,
 } from "./legacy-config";
 import { Setup } from "../app/product";
-import { CONDITION_TYPES, libraryPool } from "./pool";
+import { CAMERA_TWINS, CONDITION_TYPES, libraryById, libraryPool } from "./pool";
+import { regionOpenPositions, v7Contraindications, type RegionIdKind } from "./contraindications";
 import { CAMERA_DEMANDS, isSportId, sportById, type SportId } from "./sports";
 import {
   REGION_PAIN_IDS,
@@ -264,9 +265,31 @@ export function scheduleFits(days: number[], recoveryHours: number) {
   return s.every((d, i) => (s[(i + 1) % s.length] - d + 7 || 7) * 24 >= recoveryHours);
 }
 /**
+ * The body map's region ids the camera part reads (D-029 item 1, E2-8): a surgery not cleared under
+ * 3 months, a surgery under 12 weeks, an injury under 6 weeks. Only a v7 intake has a body map, so a v1
+ * intake holds none.
+ */
+const CAMERA_REGION_KINDS: readonly RegionIdKind[] = [
+  "region_not_cleared",
+  "region_early_post_op",
+  "region_acute_injury",
+];
+function recentRegionIds(h: Intake): Set<string> {
+  if (!h.regions?.length) return new Set();
+  return new Set(
+    [...v7Contraindications(h, null, null)].filter((id) =>
+      CAMERA_REGION_KINDS.some((kind) => id.startsWith(`${kind}:`)),
+    ),
+  );
+}
+
+/**
  * Why a camera movement is left out for this intake ("" when it is not). The last rule that applies
  * names the reason, as before. A stable chair is assumed (booth v2, B6), so no movement waits for a
- * chair tick any more.
+ * chair tick any more. v7 (D-029 item 1, E2-8): a recent surgery or injury on the body map closes the
+ * camera movements of that region as the library's region rules close an exercise (regionOpenPositions,
+ * read on the movement's library entry: the regions of its targets, its load, not pain friendly), and
+ * names the reason, since it is the reason that matters most.
  */
 function exclusionOf(id: string, h: Intake): string {
   let excluded = "";
@@ -288,6 +311,9 @@ function exclusionOf(id: string, h: Intake): string {
       h.conditions.includes("lower_limb_unilateral"))
   )
     excluded = "standing";
+  const recent = recentRegionIds(h);
+  const entry = libraryById(CAMERA_TWINS[id] ?? id);
+  if (recent.size && entry && regionOpenPositions(entry, recent) === null) excluded = "region_recent";
   return excluded;
 }
 export function createPlan(h: Intake): Plan {

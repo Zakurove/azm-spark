@@ -356,6 +356,11 @@ export const reasonText: Record<string, { ar: string; en: string }> = {
     ar: "استُبعدت بسبب ألم الجزء العلوي أو الظهر؛ لا نطبّق تعديلًا غير متحقق منه.",
     en: "Excluded for reported upper body or back pain; unsupported modifications are not applied.",
   },
+  // v7 (D-029 item 1, E2-8): a recent surgery or injury on the body map.
+  region_recent: {
+    ar: "استُبعدت بسبب جراحة أو إصابة حديثة ذكرتها في هذه المنطقة.",
+    en: "Excluded for a recent surgery or injury you reported in this area.",
+  },
   overhead: {
     ar: "لديك تعليمات بتجنّب الحركة فوق الرأس.",
     en: "You reported a restriction on overhead movement.",

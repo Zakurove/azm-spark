@@ -55,6 +55,7 @@ export function buildFromCheck(
     gaitPlan: check.gaitPlan,
     today: check.today,
     gait,
+    support: walk ? walk.findings.findings : [],
   });
 }
 

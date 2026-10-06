@@ -7,7 +7,7 @@
 import { fmtDate, type Lang } from "../../app/i18n";
 import { doseText } from "../../app/weekly-dose";
 import { libraryById } from "../../medical/pool";
-import type { WeeklyPlan } from "../../medical/weekly";
+import { servesResult, type WeeklyPlan } from "../../medical/weekly";
 import type { FocusCheckSummary } from "../focus/api";
 
 /** One exercise the findings chose, as the page shows it. */
@@ -61,7 +61,7 @@ export function programItems(weekly: WeeklyPlan, lang: Lang): ProgramItemView[] 
           dose: doseText(item, lang),
           days: [name],
           why: item.why[lang],
-          result: (item.reasonRefs ?? []).some((r) => r.kind === "rom" || r.kind === "gait"),
+          result: servesResult(item.reasonRefs),
         });
       }
   const all = [...out.values()];

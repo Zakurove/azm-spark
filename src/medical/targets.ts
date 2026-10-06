@@ -27,7 +27,7 @@ import {
 import type { StoredFocusToday } from "./focus-precheck";
 import type { GaitPlan } from "./gait-eligibility";
 import { gaitPatternLines, gaitPatternShown } from "./gait-rules";
-import type { GaitPatternResult } from "./gait-types";
+import type { GaitPatternResult, GaitSupportFinding } from "./gait-types";
 import { adjustReps, adjustSets } from "./legacy-config";
 import type { Intake, Plan } from "./plan";
 import { configsFor, libraryPool, programPool } from "./pool";
@@ -55,6 +55,7 @@ import {
   type WeeklyItem,
   type WeeklyPlan,
 } from "./weekly";
+import { GAIT_DATA } from "../movements/gait";
 import { movementDef, ROM_DATA } from "../movements/rom";
 import type { Evidence, RomMovementId } from "../movements/rom/types";
 import { doseProfile, TARGETS_DATA } from "../movements/targets";
@@ -376,6 +377,36 @@ function gaitTargets(
   }
 }
 
+/**
+ * The priority of a support finding's targets (D-029 item 1, E2-4; the data's gaitStatusRules give
+ * support findings none, since they have no confidence): 2 when likely and for a finding with one rule
+ * (no status), 1 when possible.
+ */
+export const SUPPORT_PRIORITY = { likely: 2, single: 2, possible: 1 } as const;
+const RESULT_SIDES: readonly TargetRequest["side"][] = ["left", "right", "both", "none"];
+
+/**
+ * The targets of the walk's support findings (exercise-targets 5.4, the gaitPatterns rows
+ * «<id> (finding)»): slow_speed practice:walking, uneven_step_length practice:even_steps. The row's
+ * «when» of slow_speed («moderate to high intensity») is the walking practice's intensity, which its
+ * dose profile sets, so it gates nothing. A finding without a row (flat_or_forefoot_contact) gives none.
+ */
+function supportTargets(f: GaitSupportFinding, out: Draft[]): void {
+  const row = MAPPING.gaitPatterns.find((r) => r.pattern === f.id && r.label === `${f.id} (finding)`);
+  if (!row) return;
+  const side = row.side as TargetRequest["side"];
+  if (!RESULT_SIDES.includes(side)) throw new Error(`The targets data gives ${f.id} the side ${row.side}`);
+  const priority =
+    f.status === "possible"
+      ? SUPPORT_PRIORITY.possible
+      : f.status === "likely"
+        ? SUPPORT_PRIORITY.likely
+        : SUPPORT_PRIORITY.single;
+  const reason: TargetReason = { kind: "gait_finding", id: f.id, side: f.side, status: f.status };
+  for (const t of row.targets)
+    out.push({ id: t.id as TargetId, side, priority, painFriendlyOnly: false, reasons: [reason] });
+}
+
 /** The limbs and sides a limb loss took a region from (rom-protocol 2.4 Present). */
 function absentRegions(h: Intake): Set<string> {
   const out = new Set<string>();
@@ -548,12 +579,15 @@ export function collectTargets(input: {
   intake: Intake;
   rom: readonly RomFinding[];
   gait: readonly GaitPatternResult[];
+  /** The walk's support findings (5.4; D-029 item 1, E2-4). */
+  support?: readonly GaitSupportFinding[];
 }): { targets: TargetRequest[]; referrals: ReferralId[] } {
   const h = input.intake;
   const drafts: Draft[] = [];
   const referrals: ReferralId[] = [];
   for (const f of input.rom) romTargets(f, h, drafts, referrals);
   for (const p of input.gait) gaitTargets(p, input.rom, drafts, referrals);
+  for (const f of input.support ?? []) supportTargets(f, drafts);
   const ids = v7Contraindications(h, null, null);
   regionDefaultTargets(h, ids, drafts);
   wheelchairBlock(h, input.rom, ids, drafts);
@@ -650,12 +684,42 @@ function gaitLine(r: Extract<TargetReason, { kind: "gait" }>): ReasonLine {
   };
 }
 
+/** The gait copy's line of a support finding (copy.metrics), keyed by its id. */
+const FINDING_LINES: Readonly<Partial<Record<GaitSupportFinding["id"], L>>> = {
+  slow_speed: GAIT_DATA.copy.metrics.slow_speed,
+  uneven_step_length: GAIT_DATA.copy.metrics.uneven_step_length,
+};
+
+/**
+ * A support finding's line (D-029 item 1, E2-4): why_gait with the finding's own line from the gait
+ * copy, on its side («خطوة ساقك {side_ar} ...»), as the walk's card words it.
+ */
+function findingLine(r: Extract<TargetReason, { kind: "gait_finding" }>): ReasonLine {
+  const own = needed(FINDING_LINES[r.id], `the gait copy line of ${r.id}`);
+  const i = r.side === "left" ? 1 : 0;
+  const words = GAIT_DATA.copy.placeholders;
+  const finding = {
+    ar: own.ar.replaceAll("{side_ar}", words.side_ar[i]),
+    en: own.en.replaceAll("{side_en}", words.side_en[i]),
+  };
+  const t = why("why_gait");
+  return {
+    line: {
+      ar: fill(t.ar, { gait_pattern_line_ar: finding.ar }),
+      en: fill(t.en, { gait_pattern_line_en: finding.en }),
+    },
+    clause: { ar: finding.ar.replace(/\.\s*$/, ""), en: inSentence(finding.en.replace(/\.\s*$/, "")) },
+  };
+}
+
 function reasonLine(r: TargetReason): ReasonLine | null {
   switch (r.kind) {
     case "rom":
       return romLine(r);
     case "gait":
       return gaitLine(r);
+    case "gait_finding":
+      return findingLine(r);
     case "region_default":
       return regionLine();
     case "mobility_default":
@@ -703,6 +767,8 @@ export interface TargetContext {
   gaitPlan?: GaitPlan | null;
   today?: StoredFocusToday | null;
   gait?: readonly GaitPatternResult[];
+  /** The walk's support findings, which give targets of their own (targetedBuild; D-029 item 1, E2-4). */
+  support?: readonly GaitSupportFinding[];
 }
 
 /** A session's guided card slots (weekly.ts BLOCK_SIZES): «half of a session's exercise slots» counts them. */
@@ -841,6 +907,7 @@ function findingKeys(t: TargetRequest): string[] {
     if (r.kind === "arthritis") keys.add(`arthritis:${r.region}`);
     else if (r.kind === "rom" && !addOn) keys.add(`rom:${r.movementId}:${r.side}`);
     else if (r.kind === "gait") keys.add(`gait:${r.pattern}:${r.label}:${r.side}`);
+    else if (r.kind === "gait_finding") keys.add(`gait_finding:${r.id}:${r.side}`);
   return keys.size ? [...keys] : [`target:${t.id}:${t.side}`];
 }
 
@@ -1321,7 +1388,7 @@ export function targetedBuild(
 ): TargetedBuild | null {
   if (!engineWeekly(h, plan)) return null;
   const context: TargetContext = { ...ctx, gait: ctx.gait ?? gait };
-  const { targets, referrals } = collectTargets({ intake: h, rom, gait });
+  const { targets, referrals } = collectTargets({ intake: h, rom, gait, support: ctx.support ?? [] });
   const { selection: fixed, items, unmet } = selectForTargets(h, plan, programPool(h), targets, context);
   const { selection, pool } = goalShare(h, plan, fixed, items, context);
   const weekly = { ...buildWeekly(h, plan, selection, "engine", items), findings: findingsRef };

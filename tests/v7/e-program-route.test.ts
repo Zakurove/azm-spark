@@ -219,6 +219,28 @@ describe("POST /api/program/targets", () => {
     expect((await me(cookie)).plan.weekly!.findings!.checkId).toBe(first.id);
   });
 
+  it("gives the walk's support findings their targets (D-029 item 1, E2-4)", async () => {
+    const cookie = await person();
+    const s = await check(cookie, { knee_flexion: 125 }, true);
+    // The walk's stored support findings: a slow walk (a finding with one rule).
+    const slow = { id: "slow_speed", side: "none", value: 0.6, status: null, flags: ["norm_interim"] };
+    const db = h.db();
+    const row = db.prepare("SELECT id, findings FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      id: string;
+      findings: string;
+    };
+    const stored = { ...JSON.parse(row.findings), findings: [slow] };
+    db.prepare("UPDATE gait_analyses SET findings=? WHERE id=?").run(JSON.stringify(stored), row.id);
+    const r = await targets(cookie);
+    expect(r.status).toBe(200);
+    const reason: TargetReason = { kind: "gait_finding", id: "slow_speed", side: "none", status: null };
+    const walking = (r.data.targets as { id: string; reasons: TargetReason[] }[]).find(
+      (t) => t.id === "practice:walking",
+    );
+    expect(walking?.reasons).toContainEqual(reason);
+    expect(reasonsOf(r.data.weekly)).toContainEqual(reason);
+  });
+
   it("limits the builds to 10 in 15 minutes (429 RATE_LIMIT)", async () => {
     const cookie = await person();
     const a = await check(cookie, { knee_flexion: 80 });

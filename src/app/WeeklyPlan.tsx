@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plan } from "../medical/plan";
-import { libraryById, stepsOf, summaryText, WeeklyItem, WeeklyPlan } from "../medical/weekly";
+import { libraryById, servesResult, stepsOf, summaryText, WeeklyItem, WeeklyPlan } from "../medical/weekly";
 import { V7_UI } from "./v7flag";
 import { EXERCISES } from "../exercises/defs";
 import { Lang, fmtDate, fmtNum } from "./i18n";
@@ -82,7 +82,7 @@ function Item({ item, lang, findings }: { item: WeeklyItem; lang: Lang; findings
   const dose = doseText(item, lang);
   const why = item.why?.[lang];
   // The result behind it: a range finding or the walk (a region or wheelchair reason is no result).
-  const result = (item.reasonRefs ?? []).some((r) => r.kind === "rom" || r.kind === "gait");
+  const result = servesResult(item.reasonRefs);
   return (
     <details className="weekly-item" {...(why ? { "data-from-results": "" } : {})}>
       <summary>

@@ -740,6 +740,7 @@ const ANALYSIS_KEYS = [
   "flags",
   "engineVersion",
   "walkPain",
+  "outcome",
 ] as const;
 
 /** The gait body: the setup and the analysis, which must match the plan's mode and views. */
@@ -786,6 +787,8 @@ export function checkGaitBody(
   if (!isId(a.engineVersion)) return fail("analysis.engineVersion");
   const walkPain = checkWalkPain(a.walkPain);
   if (!walkPain.ok) return walkPain;
+  if (a.outcome !== undefined && a.outcome !== "pain_limited" && a.outcome !== "stopped")
+    return fail("analysis.outcome");
   if (jsonBytes(a) > GAIT_LIMITS.analysisBytes) return fail("analysis");
   return ok({ setup: setup.value, analysis: a as unknown as GaitAnalysis });
 }

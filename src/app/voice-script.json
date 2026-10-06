@@ -393,8 +393,8 @@
     "en": "Hold the support, and your helper will stop the pad."
   },
   "gait_pad_other_side": {
-    "ar": "الآن ينقل مرافقك الهاتف إلى الجهة الأخرى من جهاز المشي. استمر في المشي بالسرعة نفسها.",
-    "en": "Now your helper moves the phone to the other side of the walking pad. Keep walking at the same speed."
+    "ar": "الآن ينقل مرافقك الهاتف إلى الجهة الأخرى من جهاز المشي والجهاز متوقف. ثم ابدأ من جديد بالسرعة نفسها.",
+    "en": "Now your helper moves the phone to the other side of the walking pad while the belt is stopped. Then start again at the same speed."
   },
   "gait_walk_past_phone": {
     "ar": "امشِ متجاوزًا الهاتف دون أن تبطئ، ثم توقف عند العلامة خلفه.",

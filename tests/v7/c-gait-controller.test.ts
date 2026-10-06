@@ -6,6 +6,7 @@
  * recording; the shared rule ends the test, pain_limited; walkPain kept for the rules), the coach's
  * tools on every step kind (the 2.11 gait row), and a body the gait route accepts.
  */
+import { setupLine } from "../../src/features/gait/copy";
 import { describe, expect, it } from "vitest";
 import {
   CAPTURE_LIMITS,
@@ -331,6 +332,7 @@ describe("the recordings", () => {
     ]);
     expect(body.analysis.views.every((v) => v.quality.gatePassed)).toBe(true);
     expect(body.analysis.flags).toContain("handrail_light");
+    expect(body.analysis.outcome).toBeUndefined();
     expect(checkGaitBody(body as never, PAD).ok).toBe(true);
   });
 
@@ -477,6 +479,8 @@ describe("pain during the walk (C-15, the 2.11 gait row)", () => {
       // The completed clean cycles are kept: the body holds the walk so far, with the pain.
       expect(run.ctl.anythingRecorded).toBe(true);
       expect(run.ctl.body()!.analysis.walkPain).toEqual([{ side: null, level }]);
+      // D-030 C4-5: the stored walk keeps why it ended.
+      expect(run.ctl.body()!.analysis.outcome).toBe("pain_limited");
       // Nothing resumes after a safety stop.
       expect(run.ctl.handleTool("resume", {})).toMatchObject({ accepted: false, reason: "safety_stop" });
     }
@@ -499,6 +503,7 @@ describe("pain during the walk (C-15, the 2.11 gait row)", () => {
     expect(run.ctl.stopList).toEqual({ preselect: null });
     expect(run.ctl.step().kind).toBe("safety");
     expect(run.events.at(-1)).toMatchObject({ p: 0, type: "safety_stop", reason: "user_stop" });
+    expect(run.ctl.body()!.analysis.outcome).toBe("stopped");
     const pad = controller(PAD);
     pad.ctl.confirm(pad.t);
     pad.ctl.chooseMode("walking_pad", pad.t);
@@ -582,6 +587,24 @@ describe("the coach's tools on the gait steps (2.11 host table, C-16)", () => {
       accepted: false,
       reason: "not_in_block",
     });
+  });
+
+  it("says the phone moves to the pad's other side while the belt is stopped (D-030 C4-3)", () => {
+    const run = controller(PAD);
+    run.ctl.confirm(run.t);
+    run.ctl.chooseMode("walking_pad", run.t);
+    tapTo(run, "stand");
+    expect(run.lines.map((l) => l.line)).not.toContain("gait_pad_other_side");
+    record(run, walk({ ...spec("pad-side-right"), durationSec: 33 }));
+    expect(run.ctl.current).toEqual({ id: "pad_stop", rec: "pad_side_a" });
+    run.lines.length = 0;
+    run.ctl.confirm(run.t);
+    expect(run.ctl.current).toEqual({ id: "place", rec: "pad_side_b" });
+    expect(run.lines.map((l) => l.line)).toEqual(["gait_pad_other_side"]);
+    // The line itself matches the flow: the belt stops for the move, then starts again.
+    expect(setupLine("pad_other_side", "en")).toMatch(/while the belt is stopped/);
+    expect(setupLine("pad_other_side", "en")).not.toMatch(/keep walking/i);
+    expect(setupLine("pad_other_side", "ar")).toContain("والجهاز متوقف");
   });
 
   it("says the setup lines with the voice pack unless the live coach speaks for the app", () => {

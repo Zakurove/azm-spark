@@ -20,11 +20,20 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Route } from "../../http/types";
 import { COACH_SI_VERSION, buildHistory, buildInstruction } from "../../../src/coach/instruction";
 import { toolDeclarations } from "../../../src/coach/tools";
-import { riyadhDate } from "../../../src/medical/precheck";
+import { riyadhDate, stopOptions, stopRoute, type PrecheckEnv } from "../../../src/medical/precheck";
 import type { Setting } from "../../../src/movements/types";
 import { runSteps, type RunPlan } from "../../guided";
-import { RESUME_WINDOW_MS, homeClosed } from "../assessments/common";
-import { countProduct, currentLock, profileOf, transaction } from "../assessments/store";
+import { RESUME_WINDOW_MS, applyLock, emergencyAlsoShow, homeClosed } from "../assessments/common";
+import { checkContextOf, personState } from "../assessments/state";
+import {
+  countProduct,
+  countSafetyEvent,
+  currentLock,
+  profileOf,
+  reportChange,
+  reportFaint,
+  transaction,
+} from "../assessments/store";
 import { boothWindow } from "../booth/config";
 import { validPass } from "../booth/store";
 import { activeConsent } from "../consents/store";
@@ -34,7 +43,7 @@ import { checkContext, workoutContext, type CoachContext } from "./context";
 import { minutesFor, segmentsFor, SESSION_SEGMENTS } from "./segments";
 import { TokenError, agentConfig, coachSetup, mintToken } from "./token";
 import type { TokenResponse } from "./types";
-import { parseTokenRequest, parseUsageReport } from "./validate";
+import { parseStopRequest, parseTokenRequest, parseUsageReport } from "./validate";
 
 /* --------------------------------------------------------------- limits */
 
@@ -110,6 +119,55 @@ export const agentRoutes: Route[] = [
       json(200, {
         available: agentConfig() !== null,
         consent: activeConsent(db, rc.user!.id, "live_coach") !== null,
+      });
+    },
+  },
+  {
+    // A stop list answer in a coached workout (D-030 D5-7): v1's routing on the person's stored intake,
+    // the stop's next day lock and the dates the next check reads (Q33 (2), (3)), as a check's stop sets
+    // them, and the anonymous safety count. The phone has shown the stop's screen already.
+    method: "POST",
+    path: /^\/api\/agent\/stop$/,
+    auth: "user",
+    handle(rc) {
+      const { db, body, json } = rc;
+      const u = rc.user!;
+      const now = Date.now();
+      const parsed = parseStopRequest(body);
+      if (!parsed.ok) return json(400, { error: "STOP_INVALID", field: parsed.field });
+      const { workoutId, option } = parsed.value;
+      if (!db.prepare("SELECT 1 FROM workouts WHERE id=? AND user_id=?").get(workoutId, u.id))
+        return json(404, { error: "NOT_FOUND" });
+      const s = personState(db, u.id, now);
+      if (!s) return json(409, { error: "PLAN_REQUIRED" });
+      const setting: Setting = boothPassHolds(rc.req, db, now) ? "booth" : "home";
+      const position = "position" in s.context ? s.context.position : "chair";
+      const env: PrecheckEnv = {
+        setting,
+        ctx: checkContextOf(s.intake, s.plan, position),
+        setup: s.setup,
+        firstCheck: false,
+        unresolvedChangeReported: false,
+        lastCheckLasting: false,
+        baseTests: [],
+      };
+      if (!stopOptions(env).includes(option)) return json(400, { error: "STOP_INVALID", field: "option" });
+      const route = stopRoute(option, env);
+      const lock = transaction(db, () => {
+        countSafetyEvent(db, `workout:stop:${option}`, "none", setting, now);
+        if (route.stores === "changeReported") reportChange(db, u.id, riyadhDate(now));
+        if (route.stores === "faintReported") reportFaint(db, u.id, riyadhDate(now));
+        return applyLock(rc, route.lock, now);
+      });
+      json(200, {
+        route: {
+          ...route,
+          alsoShow:
+            route.screen === "scr_emergency"
+              ? [...new Set([...route.alsoShow, ...emergencyAlsoShow(env)])]
+              : route.alsoShow,
+        },
+        lock,
       });
     },
   },

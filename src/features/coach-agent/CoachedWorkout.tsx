@@ -35,7 +35,7 @@ import { useOnline } from "../assessment/shared/useOnline";
 import { FaintAskScreen, SafetyScreen, StopListScreen } from "../focus/Screens";
 import { Glass, Kicker, useModal } from "../focus/parts";
 import { readIntake } from "../gait/api";
-import { readCoachStatus, type CoachStatus } from "./api";
+import { readCoachStatus, sendWorkoutStop, type CoachStatus } from "./api";
 import { unlockCoachAudio } from "./audio/context";
 import { CoachCaption } from "./CoachCaption";
 import { liveCoachOn } from "./hosts";
@@ -114,8 +114,12 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
   const { online } = useOnline();
   const on =
     !!status &&
-    (status.available || fakeCoachRun()) &&
-    liveCoachOn({ preference: props.preference, consent: status.consent, online });
+    liveCoachOn({
+      preference: props.preference,
+      consent: status.consent,
+      online,
+      available: status.available || fakeCoachRun(),
+    });
 
   // The stop list's context: the person's intake, read once the coach is on.
   const [intake, setIntake] = useState<Intake | null>(null);
@@ -245,6 +249,8 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     pushRef.current({ p: 0, type: "safety_stop", reason: "stop_list", t: t0 });
     // Bridge rule 1: the app shows the screen first, then the coach hears the red flag.
     if (route.screen) pushRef.current({ p: 0, type: "red_flag", screen: route.screen, t: t0 });
+    // The server sets the stop's next day lock as a check's stop does (D-030 D5-7), and counts it.
+    void sendWorkoutStop(latest.current.workoutId, option);
     if (!next) {
       host?.clearStop();
       coach.reopen();

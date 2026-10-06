@@ -9,7 +9,7 @@
  * (rom.rf_region_ask). The interface words are the rom namespace's (src/i18n/{ar,en}/rom.json) and
  * the v1 check's common words.
  */
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import { countPhrase, interpolate, localizeDigits, t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
@@ -1033,6 +1033,15 @@ const STOP_ICONS: Record<StopOptionId, string> = {
 };
 
 /**
+ * D-030 D5-11: the coach's preselected answer comes into view when the list opens (on a phone the other
+ * reasons sit below the urgent group, under the inert STOP); the list keeps the urgent options first.
+ */
+export function scrollPreselected(root: ParentNode | null, preselect: string): void {
+  const row = root?.querySelector<HTMLElement>(`.fx-stop-row[data-option="${preselect}"]`);
+  row?.scrollIntoView?.({ block: "center" });
+}
+
+/**
  * The stop list (S41, Q31): the data's options for this person, symptoms and falls first, one tap each
  * (no Next, no «pressed by mistake» row, O43). The coach's reason is preselected and highlighted; the
  * person confirms it with the tap (C-7).
@@ -1066,6 +1075,9 @@ export function StopListScreen({
   const modal = useModal(undefined, () =>
     document.querySelector<HTMLElement>(".fx-stopbar:not(.is-inert) .safety-stop"),
   );
+  useEffect(() => {
+    if (preselect) scrollPreselected(modal.ref.current, preselect);
+  }, [preselect, modal.ref]);
   const group = (g: "urgent" | "other") =>
     CHECK_DATA.stopRouting.options.filter((o) => shown.has(o.id) && o.group === g);
   const row = (o: (typeof CHECK_DATA.stopRouting.options)[number]) => (
@@ -1269,27 +1281,39 @@ export function GaitSlot({
   children,
   warnings = [],
   onSkip,
+  hero = true,
+  skip = true,
 }: {
   lang: Lang;
   children: ReactNode;
   /** The v1 warnings shown before the walk (warn_sci_t6, flow.ts partWarnings). */
   warnings?: ScreenId[];
   onSkip(): void;
+  /** The walk says what of the slot shows (D-030 C4-7): the title card on its first card only. */
+  hero?: boolean;
+  /** And «لن أمشي اليوم» while nothing was recorded and the person is not set up to walk. */
+  skip?: boolean;
 }) {
   return (
     <div className="fx-gait">
-      <Glass className="fx-card fx-hero">
-        <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
-        <Title>{tV7(lang, "rom.gait.title")}</Title>
-        <Body lang={lang} text={tV7(lang, "rom.gait.body")} />
-        {warnings.map((id) => (
-          <WarningNote key={id} lang={lang} id={id} />
-        ))}
-      </Glass>
+      {hero && (
+        <Glass className="fx-card fx-hero">
+          <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
+          <Title>{tV7(lang, "rom.gait.title")}</Title>
+          <Body lang={lang} text={tV7(lang, "rom.gait.body")} />
+          {warnings.map((id) => (
+            <WarningNote key={id} lang={lang} id={id} />
+          ))}
+        </Glass>
+      )}
       {children}
-      <Actions
-        items={[{ label: tV7(lang, "rom.gait.skip"), onClick: onSkip, kind: "secondary", name: "skip_walk" }]}
-      />
+      {skip && (
+        <Actions
+          items={[
+            { label: tV7(lang, "rom.gait.skip"), onClick: onSkip, kind: "secondary", name: "skip_walk" },
+          ]}
+        />
+      )}
     </div>
   );
 }

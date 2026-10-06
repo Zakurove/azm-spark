@@ -6,6 +6,8 @@
 import type { CoachEndReason } from "../../../src/coach/events";
 import type { ToolName } from "../../../src/coach/types";
 import { isToolName } from "../../../src/coach/tools";
+import { isStopOption } from "../../../src/medical/precheck";
+import type { StopOptionId } from "../../../src/movements/types";
 import { SILENCE_MS, type SilenceMs } from "./token";
 import type { TokenRequest, UsageReport } from "./types";
 
@@ -147,4 +149,19 @@ export function parseUsageReport(body: unknown): Parsed<UsageReport> {
       endReason: b.endReason as CoachEndReason,
     },
   };
+}
+
+/* -------------------------------------------------------------- stop */
+
+const STOP_KEYS = ["workoutId", "option"] as const;
+
+/** POST /api/agent/stop's body (D-030 D5-7): the workout and the person's stop list answer. */
+export function parseStopRequest(body: unknown): Parsed<{ workoutId: string; option: StopOptionId }> {
+  if (!isRecord(body)) return { ok: false, field: "body" };
+  const extra = unknownKey(body, STOP_KEYS);
+  if (extra) return { ok: false, field: extra };
+  const { workoutId, option } = body;
+  if (typeof workoutId !== "string" || !ID.test(workoutId)) return { ok: false, field: "workoutId" };
+  if (typeof option !== "string" || !isStopOption(option)) return { ok: false, field: "option" };
+  return { ok: true, value: { workoutId, option } };
 }

@@ -37,6 +37,7 @@
 import type { LockView } from "../assessment/api";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import {
+  emergencyAlsoShow,
   evaluatePrecheck,
   faintFollowUp,
   visibleQuestions,
@@ -599,10 +600,15 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       const out = faintFollowUp(e.value, e.now);
       const { then: _then, ...route } = s.route;
       void _then;
+      // The emergency screen carries v1's dysreflexia screen for a spinal cord injury (O12 (1), D5-10).
       return out.status === "emergency"
         ? go(m, {
             kind: "stop_screen",
-            route: { ...route, screen: out.screen ?? "scr_emergency", alsoShow: [] },
+            route: {
+              ...route,
+              screen: out.screen ?? "scr_emergency",
+              alsoShow: emergencyAlsoShow(m.data.context?.env ?? null),
+            },
           })
         : go(m, { kind: "stop_screen", route });
     }

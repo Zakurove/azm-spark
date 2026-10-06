@@ -31,8 +31,11 @@ import type { GaitView } from "../engine/gait/types";
 import { roundTypical, safeToken } from "./events";
 import type { CoachBlock, CoachSegment } from "./types";
 
-/** Stored with every coach session (agent_sessions.instruction_version). */
-export const COACH_SI_VERSION = "coach_si_1";
+/**
+ * Stored with every coach session (agent_sessions.instruction_version). coach_si_2 (D-030 D5-9): a
+ * pain number is marked at once, and the place is asked at most once, after the app answered.
+ */
+export const COACH_SI_VERSION = "coach_si_2";
 
 /* ------------------------------------------------------ the instruction */
 
@@ -177,6 +180,8 @@ function tools(block: CoachBlock): string[] {
     block === "rom"
       ? "Call confirm_max, answer_can_move, set_limit_cause or mark_pain only after the person has answered in their own words; never answer for them."
       : "Call mark_pain only after the person has told you about their pain in their own words; never answer for them.",
+    "When the person gives a pain number, call mark_pain with it at once, before any other question.",
+    "Ask where it hurts at most once, and only after the app has answered; never wait for the place to call mark_pain.",
     "When the person tells you about pain without a number, ask for one from 0 to 10, then call mark_pain. The app decides what happens next.",
     `A result may carry say, a line to give in your own words: ${SAY[block]}.`,
     "Never call next_step to move past a question or a confirmation the person must tap.",

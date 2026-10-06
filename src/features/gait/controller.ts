@@ -673,6 +673,8 @@ export class GaitController implements CoachHost {
       this.say("gait_walk_past_phone", "info");
       this.say("gait_turn_slowly", "info");
     }
+    // The belt is stopped while the helper moves the phone to the pad's other side (D-030 C4-3).
+    if (s.id === "place" && s.rec === "pad_side_b") this.say("gait_pad_other_side", "info");
     this.bridge({ p: 3, type: "step_start", label: s.rec ? `${s.id}_${s.rec}` : s.id, t: now });
     this.changed();
   }
@@ -1192,6 +1194,8 @@ export class GaitController implements CoachHost {
     const analysis = combineViews(views, stance, setup);
     analysis.engineVersion = analysis.engineVersion || ENGINE_VERSION;
     if (this.walkPain.length) analysis.walkPain = this.walkPain.slice(0, 10);
+    // Why the walk ended early, kept with it (D-030 C4-5): the card says the pain line.
+    if (this.outcome === "pain_limited" || this.outcome === "stopped") analysis.outcome = this.outcome;
     return { setup, analysis };
   }
 

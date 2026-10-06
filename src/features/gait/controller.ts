@@ -1194,6 +1194,8 @@ export class GaitController implements CoachHost {
     const analysis = combineViews(views, stance, setup);
     analysis.engineVersion = analysis.engineVersion || ENGINE_VERSION;
     if (this.walkPain.length) analysis.walkPain = this.walkPain.slice(0, 10);
+    // Why the walk ended early, kept with it (D-030 C4-5): the card says the pain line.
+    if (this.outcome === "pain_limited" || this.outcome === "stopped") analysis.outcome = this.outcome;
     return { setup, analysis };
   }
 

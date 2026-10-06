@@ -141,6 +141,8 @@ export interface GaitStoredView {
   replay: ReplayCycle | null;
   /** True from the gait POST until complete recomputes the patterns with the lying block's range rows (C-13). */
   provisional: boolean;
+  /** Why the walk ended early (GaitAnalysis.outcome, D-030 C4-5); absent for a walk that finished. */
+  outcome?: GaitAnalysis["outcome"];
   rulesVersion: string;
   created: number;
 }

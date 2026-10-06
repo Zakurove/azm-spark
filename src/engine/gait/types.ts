@@ -174,4 +174,12 @@ export interface GaitAnalysis {
   engineVersion: string;
   /** Pain marked during the walk, in order (CG-8); absent or empty when none was marked. */
   walkPain?: GaitWalkPain[];
+  /**
+   * Why the walk ended early (D-030 C4-5): a pain at or over the rule (C-15), or a stop; absent for a
+   * walk that finished. The gait card says the pain line for a pain limited walk.
+   */
+  outcome?: GaitOutcomeStored;
 }
+
+/** The early ends a stored walk keeps (GaitAnalysis.outcome, GaitStoredView.outcome). */
+export type GaitOutcomeStored = "pain_limited" | "stopped";

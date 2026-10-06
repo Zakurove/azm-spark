@@ -388,6 +388,7 @@ function storedFrom(body: ReturnType<GaitController["body"]> & object): GaitStor
     },
     replay: a.replay,
     provisional: true,
+    ...(a.outcome ? { outcome: a.outcome } : {}),
     rulesVersion: "",
     created: Date.now(),
   };

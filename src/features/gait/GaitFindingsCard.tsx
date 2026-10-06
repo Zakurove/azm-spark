@@ -59,6 +59,8 @@ export function GaitFindingsCard({ gait, lang }: GaitFindingsCardProps) {
     .filter((s): s is { f: (typeof gait.findings)[number]; line: string } => s.line !== null);
   const flags = gait.quality.flags;
   const notes: string[] = [];
+  // The walk ended because of the pain (C-15, D-030 C4-5).
+  if (gait.outcome === "pain_limited") notes.push(qualityLine("pain_limited", lang));
   if (flags.includes("handrail_firm")) notes.push(qualityLine("handrail_held", lang));
   else if (flags.includes("handrail_light")) notes.push(qualityLine("handrail_light", lang));
   if (gait.quality.timingOnly) notes.push(qualityLine("quality_timing_only", lang));

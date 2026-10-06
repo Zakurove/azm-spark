@@ -332,6 +332,7 @@ describe("the recordings", () => {
     ]);
     expect(body.analysis.views.every((v) => v.quality.gatePassed)).toBe(true);
     expect(body.analysis.flags).toContain("handrail_light");
+    expect(body.analysis.outcome).toBeUndefined();
     expect(checkGaitBody(body as never, PAD).ok).toBe(true);
   });
 
@@ -478,6 +479,8 @@ describe("pain during the walk (C-15, the 2.11 gait row)", () => {
       // The completed clean cycles are kept: the body holds the walk so far, with the pain.
       expect(run.ctl.anythingRecorded).toBe(true);
       expect(run.ctl.body()!.analysis.walkPain).toEqual([{ side: null, level }]);
+      // D-030 C4-5: the stored walk keeps why it ended.
+      expect(run.ctl.body()!.analysis.outcome).toBe("pain_limited");
       // Nothing resumes after a safety stop.
       expect(run.ctl.handleTool("resume", {})).toMatchObject({ accepted: false, reason: "safety_stop" });
     }
@@ -500,6 +503,7 @@ describe("pain during the walk (C-15, the 2.11 gait row)", () => {
     expect(run.ctl.stopList).toEqual({ preselect: null });
     expect(run.ctl.step().kind).toBe("safety");
     expect(run.events.at(-1)).toMatchObject({ p: 0, type: "safety_stop", reason: "user_stop" });
+    expect(run.ctl.body()!.analysis.outcome).toBe("stopped");
     const pad = controller(PAD);
     pad.ctl.confirm(pad.t);
     pad.ctl.chooseMode("walking_pad", pad.t);

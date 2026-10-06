@@ -662,6 +662,8 @@ export interface StoredGait {
   staticStance: StaticStanceResult[];
   /** GaitAnalysis.walkPain, the pain marked during the walk (CG-8; kept in the metrics column too). */
   walkPain: GaitWalkPain[];
+  /** GaitAnalysis.outcome, why the walk ended early (D-030 C4-5; kept in the metrics column too). */
+  outcome?: GaitAnalysis["outcome"];
   findings: StoredGaitFindings;
   quality: GaitStoredView["quality"];
   replay: GaitAnalysis["replay"];
@@ -709,14 +711,23 @@ function toGait(r: GaitRowDb): StoredGait {
   };
 }
 
-/** The metrics column: GaitAnalysis.combined, the static stance results and the walk's pain marks. */
-function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance" | "walkPain"> {
+/**
+ * The metrics column: GaitAnalysis.combined, the static stance results, the walk's pain marks and why
+ * it ended early.
+ */
+function gaitMetricsOf(json: string): Pick<StoredGait, "metrics" | "staticStance" | "walkPain" | "outcome"> {
   const m = JSON.parse(json) as {
     combined: GaitAnalysis["combined"];
     staticStance: StaticStanceResult[];
     walkPain?: GaitWalkPain[];
+    outcome?: GaitAnalysis["outcome"];
   };
-  return { metrics: m.combined, staticStance: m.staticStance, walkPain: m.walkPain ?? [] };
+  return {
+    metrics: m.combined,
+    staticStance: m.staticStance,
+    walkPain: m.walkPain ?? [],
+    ...(m.outcome ? { outcome: m.outcome } : {}),
+  };
 }
 
 /** The patterns as stored: their lines are dropped, the rules write them again on read. */
@@ -736,7 +747,12 @@ export function saveGait(db: DatabaseSync, userId: string, g: Omit<StoredGait, "
     g.mode,
     JSON.stringify(g.views),
     JSON.stringify(g.setup),
-    JSON.stringify({ combined: g.metrics, staticStance: g.staticStance, walkPain: g.walkPain }),
+    JSON.stringify({
+      combined: g.metrics,
+      staticStance: g.staticStance,
+      walkPain: g.walkPain,
+      ...(g.outcome ? { outcome: g.outcome } : {}),
+    }),
     JSON.stringify(g.findings),
     JSON.stringify(g.quality),
     g.replay === null ? null : JSON.stringify(g.replay),

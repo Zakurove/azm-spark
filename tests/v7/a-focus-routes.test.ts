@@ -958,6 +958,20 @@ describe("POST /api/focus/:id/gait", () => {
     expect((await h.call(`/focus/${s.id}/gait`, body, cookie)).data).toEqual({ error: "ALREADY_SAVED" });
   });
 
+  it("keeps the walk's outcome and answers it with the walk (D-030 C4-5)", async () => {
+    const { cookie } = await person();
+    const s = await started(cookie);
+    const body = gaitBody(s.gait!, "overground") as { analysis: Record<string, unknown> };
+    body.analysis.outcome = "pain_limited";
+    const r = await h.call(`/focus/${s.id}/gait`, body, cookie);
+    expect(r.status).toBe(200);
+    expect(r.data.outcome).toBe("pain_limited");
+    const row = h.db().prepare("SELECT metrics FROM gait_analyses WHERE check_id=?").get(s.id) as {
+      metrics: string;
+    };
+    expect(JSON.parse(row.metrics).outcome).toBe("pain_limited");
+  });
+
   it("accepts the largest valid body (3 views, 200 events and 120 cycles each, 45 frames) under the body limit", async () => {
     const { cookie } = await person();
     const s = await started(cookie);

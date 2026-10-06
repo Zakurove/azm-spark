@@ -442,6 +442,7 @@ function storedAnalysis(g: StoredGait): GaitAnalysis {
     flags: g.quality.flags,
     engineVersion: g.engineVersion,
     ...(g.walkPain.length ? { walkPain: g.walkPain } : {}),
+    ...(g.outcome ? { outcome: g.outcome } : {}),
   };
 }
 
@@ -458,6 +459,7 @@ function gaitView(g: StoredGait, patterns: GaitPatternResult[], provisional: boo
     quality: g.quality,
     replay: g.replay,
     provisional,
+    ...(g.outcome ? { outcome: g.outcome } : {}),
     rulesVersion: g.rulesVersion,
     created: g.created,
   };
@@ -803,6 +805,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           metrics: analysis.combined,
           staticStance: analysis.staticStance,
           walkPain: analysis.walkPain ?? [],
+          ...(analysis.outcome ? { outcome: analysis.outcome } : {}),
           findings: { patterns: storedPatterns(ev.patterns), findings: ev.findings },
           quality,
           replay: analysis.replay,

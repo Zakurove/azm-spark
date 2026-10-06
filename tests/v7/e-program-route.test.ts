@@ -241,6 +241,32 @@ describe("POST /api/program/targets", () => {
     expect(reasonsOf(r.data.weekly)).toContainEqual(reason);
   });
 
+  it("the showcase's retest 3 days after its baseline follows the re-test rule (D-029 item 1, E2-5)", async () => {
+    const cookie = await person();
+    // The baseline: the knee bend and the arm raise both limited.
+    await check(cookie, { knee_flexion: 80, shoulder_flexion: 100 });
+    setTime(T0 + 3 * DAY);
+    pass = await boothPass(h, T0 + 3 * DAY);
+    // The retest measures the knee alone (the showcase measures at most 2): within normal now, and
+    // beyond the band.
+    const retest = await check(cookie, { knee_flexion: 140 });
+    const r = await targets(cookie);
+    expect(r.status).toBe(200);
+    expect(r.data.weekly.findings.checkId).toBe(retest.id);
+    const list = r.data.targets as { id: string; priority: number; reasons: TargetReason[] }[];
+    const of = (movementId: string) =>
+      list.filter((t) => t.reasons.some((x) => x.kind === "rom" && x.movementId === movementId));
+    // The arm raise was not measured again: its targets are kept, range work included.
+    expect(of("shoulder_flexion").some((t) => t.id.startsWith("mobility:"))).toBe(true);
+    // The knee bend is within normal and better: only its strengthening stays, at priority 1.
+    const knee = of("knee_flexion");
+    expect(knee.length).toBeGreaterThan(0);
+    for (const t of knee) {
+      expect(t.id.startsWith("strengthen:")).toBe(true);
+      expect(t.priority).toBe(1);
+    }
+  });
+
   it("limits the builds to 10 in 15 minutes (429 RATE_LIMIT)", async () => {
     const cookie = await person();
     const a = await check(cookie, { knee_flexion: 80 });

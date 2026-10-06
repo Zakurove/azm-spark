@@ -32,7 +32,7 @@ import { adjustReps, adjustSets } from "./legacy-config";
 import type { Intake, Plan } from "./plan";
 import { configsFor, libraryPool, programPool } from "./pool";
 import { hasLowerLimbLoss, LIMB_LOSS_PRESENT_REGIONS } from "./rom-protocol";
-import type { CausePath, RomFinding, RomProfile } from "./rom-types";
+import type { CausePath, RomChange, RomFinding, RomProfile } from "./rom-types";
 import type {
   DoseProfileId,
   ExercisePosition,
@@ -581,6 +581,8 @@ export function collectTargets(input: {
   gait: readonly GaitPatternResult[];
   /** The walk's support findings (5.4; D-029 item 1, E2-4). */
   support?: readonly GaitSupportFinding[];
+  /** What the re-test rule removed: its strengthening stays at priority 1 (retestState; E2-5). */
+  maintenance?: RetestState["maintenance"];
 }): { targets: TargetRequest[]; referrals: ReferralId[] } {
   const h = input.intake;
   const drafts: Draft[] = [];
@@ -588,10 +590,150 @@ export function collectTargets(input: {
   for (const f of input.rom) romTargets(f, h, drafts, referrals);
   for (const p of input.gait) gaitTargets(p, input.rom, drafts, referrals);
   for (const f of input.support ?? []) supportTargets(f, drafts);
+  maintenanceTargets(h, input.rom, input.maintenance, drafts);
   const ids = v7Contraindications(h, null, null);
   regionDefaultTargets(h, ids, drafts);
   wheelchairBlock(h, input.rom, ids, drafts);
   return { targets: merge(drafts), referrals: [...new Set(referrals)] };
+}
+
+/* -------------------------------------------------------- the re-test rule */
+
+/**
+ * One completed check's results as the re-test rule reads them (exercise-targets 5.8 step 9; D-029
+ * item 1, E2-5). The route reads them from the stored rows of each of the person's completed checks.
+ */
+export interface CheckResults {
+  /** romFindings of the check, limited to the joints on the body map today (findingsOnMap). */
+  rom: readonly RomFinding[];
+  /** The check's range profile: a movement's new grade. */
+  profile: RomProfile | null;
+  /** The check's changes against the earlier checks (compareRom, as its findings page shows them). */
+  changes: readonly RomChange[];
+  /** Every result of the check's walk (shown, not seen, not assessed); null without a walk. */
+  gait: readonly GaitPatternResult[] | null;
+  /** The walk's support findings. */
+  support: readonly GaitSupportFinding[];
+  /** The views the walk recorded: a support finding is read on its own views only (gait-rules 5.12). */
+  walkViews: readonly string[];
+}
+
+/**
+ * What a check's program follows: its own results, the earlier ones the re-test rule keeps (after
+ * them), and what the rule removed, whose strengthening stays at priority 1 as maintenance.
+ */
+export interface RetestState {
+  rom: RomFinding[];
+  gait: GaitPatternResult[];
+  support: GaitSupportFinding[];
+  maintenance: { rom: RomFinding[]; gait: GaitPatternResult[] };
+}
+
+const RETEST = MAPPING.selectionNumbers;
+/** The same movement on the same side (a profile entry's movement id is the wider joint movement id). */
+const sameMovement = (a: { movementId: string; side: string }, b: { movementId: string; side: string }) =>
+  a.movementId === b.movementId && a.side === b.side;
+const patternKey = (p: Pick<GaitPatternResult, "pattern" | "label" | "side">) =>
+  `${p.pattern}|${p.label}|${p.side}`;
+const supportKey = (f: Pick<GaitSupportFinding, "id" | "side">) => `${f.id}|${f.side}`;
+/** The views each support finding is read on (gait-rules 5.12 findings[].views). */
+const SUPPORT_VIEWS = new Map(GAIT_DATA.findings.map((f) => [f.id, f.views as readonly string[]]));
+
+/**
+ * Whether a check saw a kept pattern's side no more: its walk assessed the pattern there (a «not seen»
+ * result, or the pattern shown on another side or label) and did not show it. A check without a walk,
+ * or whose walk could not assess the pattern on that side, does not count.
+ */
+function patternNotSeen(kept: GaitPatternResult, c: CheckResults): boolean {
+  const results = (c.gait ?? []).filter((r) => r.pattern === kept.pattern);
+  if (results.some((r) => r.status === "not_assessed" && (r.side === kept.side || r.side === "none")))
+    return false;
+  return results.some((r) => r.status === "not_seen" || gaitPatternShown(r));
+}
+
+/**
+ * The re-test rule (exercise-targets 5.8 step 9, sessionLines: «Re-test: a range target is removed only
+ * when the change rule of rom-protocol 5.3 is met (beyond the MDC band) and the new grade is within
+ * normal (review B15); a gait target when not seen at two checks; strengthening stays at priority 1 as
+ * maintenance»), folded over the person's completed checks, oldest first and the check the program is
+ * built from last, so each check passes on what its own program followed:
+ *   - a range finding measured again and still limited follows the new finding; one measured within
+ *     normal with a change «better» (compareRom: beyond the band, best and median) is removed, and its
+ *     strengthening stays at priority 1 as maintenance until the movement is limited again; any other
+ *     (within normal without that change, or not measured again) is kept as it was;
+ *   - a pattern of the walk is kept until it is not seen at gaitTargetNotSeenChecks checks in a row that
+ *     assessed it, then removed with its strengthening kept as maintenance; a support finding likewise,
+ *     on its own views (it has no strengthening).
+ */
+export function retestState(history: readonly CheckResults[]): RetestState {
+  let rom: RomFinding[] = [];
+  let maintenanceRom: RomFinding[] = [];
+  let gait: { result: GaitPatternResult; notSeen: number }[] = [];
+  let maintenanceGait: GaitPatternResult[] = [];
+  let support: { finding: GaitSupportFinding; notSeen: number }[] = [];
+  for (const c of history) {
+    const limited = (f: Pick<RomFinding, "movementId" | "side">) => c.rom.some((x) => sameMovement(x, f));
+    const nextRom: RomFinding[] = [...c.rom];
+    const nextMaintenanceRom = maintenanceRom.filter((f) => !limited(f));
+    for (const f of rom) {
+      if (limited(f)) continue;
+      const grade = c.profile?.entries.find((e) => sameMovement(e, f) && e.source === "measured")?.finding;
+      const better = c.changes.some((x) => sameMovement(x, f) && x.direction === "better");
+      if (grade === "within" && better) nextMaintenanceRom.push(f);
+      else nextRom.push(f);
+    }
+
+    const shown = (c.gait ?? []).filter(gaitPatternShown);
+    const seen = (p: GaitPatternResult) => shown.some((s) => patternKey(s) === patternKey(p));
+    const nextGait = shown.map((result) => ({ result, notSeen: 0 }));
+    const nextMaintenanceGait = maintenanceGait.filter((p) => !seen(p));
+    for (const k of gait) {
+      if (seen(k.result)) continue;
+      const notSeen = k.notSeen + (patternNotSeen(k.result, c) ? 1 : 0);
+      if (notSeen >= RETEST.gaitTargetNotSeenChecks) nextMaintenanceGait.push(k.result);
+      else nextGait.push({ result: k.result, notSeen });
+    }
+
+    const nextSupport = c.support.map((finding) => ({ finding, notSeen: 0 }));
+    for (const k of support) {
+      if (c.support.some((f) => supportKey(f) === supportKey(k.finding))) continue;
+      const views = SUPPORT_VIEWS.get(k.finding.id) ?? [];
+      const notSeen = k.notSeen + (c.walkViews.some((v) => views.includes(v)) ? 1 : 0);
+      if (notSeen < RETEST.gaitTargetNotSeenChecks) nextSupport.push({ finding: k.finding, notSeen });
+    }
+
+    [rom, maintenanceRom, gait, maintenanceGait, support] = [
+      nextRom,
+      nextMaintenanceRom,
+      nextGait,
+      nextMaintenanceGait,
+      nextSupport,
+    ];
+  }
+  return {
+    rom,
+    gait: gait.map((k) => k.result),
+    support: support.map((k) => k.finding),
+    maintenance: { rom: maintenanceRom, gait: maintenanceGait },
+  };
+}
+
+/**
+ * «strengthening stays at priority 1 as maintenance» (strengthenStaysAtPriority): of a removed range
+ * finding or pattern, only the strengthening targets, at that priority, with the result's own reason.
+ */
+function maintenanceTargets(
+  h: Intake,
+  rom: readonly RomFinding[],
+  maintenance: RetestState["maintenance"] | undefined,
+  out: Draft[],
+): void {
+  if (!maintenance) return;
+  const priority = priorityOf(RETEST.strengthenStaysAtPriority, "strengthenStaysAtPriority");
+  const all: Draft[] = [];
+  for (const f of maintenance.rom) romTargets(f, h, all, []);
+  for (const p of maintenance.gait) gaitTargets(p, rom, all, []);
+  for (const d of all) if (actionOf(d.id) === "strengthen") out.push({ ...d, priority });
 }
 
 /* ------------------------------------------------------------- why lines */
@@ -769,6 +911,8 @@ export interface TargetContext {
   gait?: readonly GaitPatternResult[];
   /** The walk's support findings, which give targets of their own (targetedBuild; D-029 item 1, E2-4). */
   support?: readonly GaitSupportFinding[];
+  /** What the re-test rule removed, whose strengthening stays (targetedBuild; D-029 item 1, E2-5). */
+  maintenance?: RetestState["maintenance"];
 }
 
 /** A session's guided card slots (weekly.ts BLOCK_SIZES): «half of a session's exercise slots» counts them. */
@@ -1388,7 +1532,13 @@ export function targetedBuild(
 ): TargetedBuild | null {
   if (!engineWeekly(h, plan)) return null;
   const context: TargetContext = { ...ctx, gait: ctx.gait ?? gait };
-  const { targets, referrals } = collectTargets({ intake: h, rom, gait, support: ctx.support ?? [] });
+  const { targets, referrals } = collectTargets({
+    intake: h,
+    rom,
+    gait,
+    support: ctx.support ?? [],
+    maintenance: ctx.maintenance,
+  });
   const { selection: fixed, items, unmet } = selectForTargets(h, plan, programPool(h), targets, context);
   const { selection, pool } = goalShare(h, plan, fixed, items, context);
   const weekly = { ...buildWeekly(h, plan, selection, "engine", items), findings: findingsRef };

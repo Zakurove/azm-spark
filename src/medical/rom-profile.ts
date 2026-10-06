@@ -705,9 +705,27 @@ export function compareRom(
     const sign = MOVEMENTS.get(id)!.kind === "lack" ? -1 : 1;
     const best = (l.value! - f.value!) * sign;
     const median = l.median === null || f.median === null ? 0 : (l.median - f.median) * sign;
-    const direction =
-      best > bandDeg && median > bandDeg ? "better" : best < -bandDeg && median < -bandDeg ? "worse" : "same";
-    out.push({ movementId: id, side: l.side, first: f.value!, latest: l.value!, bandDeg, direction });
+    // v1.1 censoring (D-029 item 1, E3-4): a capped start is a lower bound, so no verdict; a capped
+    // retest value (at least the earlier best plus 15, W2-6) keeps the verdict its change gives.
+    const firstCensored = f.flags.includes("censored");
+    const latestCensored = l.flags.includes("censored");
+    const direction = firstCensored
+      ? "none"
+      : best > bandDeg && median > bandDeg
+        ? "better"
+        : best < -bandDeg && median < -bandDeg
+          ? "worse"
+          : "same";
+    out.push({
+      movementId: id,
+      side: l.side,
+      first: f.value!,
+      latest: l.value!,
+      bandDeg,
+      direction,
+      ...(firstCensored ? { firstCensored: true as const } : {}),
+      ...(latestCensored ? { latestCensored: true as const } : {}),
+    });
   }
   return out;
 }

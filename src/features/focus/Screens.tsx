@@ -9,7 +9,7 @@
  * (rom.rf_region_ask). The interface words are the rom namespace's (src/i18n/{ar,en}/rom.json) and
  * the v1 check's common words.
  */
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import { countPhrase, interpolate, localizeDigits, t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
@@ -1033,6 +1033,15 @@ const STOP_ICONS: Record<StopOptionId, string> = {
 };
 
 /**
+ * D-030 D5-11: the coach's preselected answer comes into view when the list opens (on a phone the other
+ * reasons sit below the urgent group, under the inert STOP); the list keeps the urgent options first.
+ */
+export function scrollPreselected(root: ParentNode | null, preselect: string): void {
+  const row = root?.querySelector<HTMLElement>(`.fx-stop-row[data-option="${preselect}"]`);
+  row?.scrollIntoView?.({ block: "center" });
+}
+
+/**
  * The stop list (S41, Q31): the data's options for this person, symptoms and falls first, one tap each
  * (no Next, no «pressed by mistake» row, O43). The coach's reason is preselected and highlighted; the
  * person confirms it with the tap (C-7).
@@ -1066,6 +1075,9 @@ export function StopListScreen({
   const modal = useModal(undefined, () =>
     document.querySelector<HTMLElement>(".fx-stopbar:not(.is-inert) .safety-stop"),
   );
+  useEffect(() => {
+    if (preselect) scrollPreselected(modal.ref.current, preselect);
+  }, [preselect, modal.ref]);
   const group = (g: "urgent" | "other") =>
     CHECK_DATA.stopRouting.options.filter((o) => shown.has(o.id) && o.group === g);
   const row = (o: (typeof CHECK_DATA.stopRouting.options)[number]) => (

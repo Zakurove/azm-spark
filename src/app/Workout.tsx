@@ -17,6 +17,7 @@ import Icon from "./Icon";
 import { api } from "./api";
 import { primeAudio } from "./audio";
 import PlacementGuide from "./PlacementGuide";
+import { doseText } from "./weekly-dose";
 
 /**
  * Step D5: the live coach of a workout, a lazy part of v7 builds only (the default build keeps none of
@@ -383,7 +384,6 @@ export default function Workout({
 function queueRows(steps: SessionStep[], lang: Lang): Row[] {
   const rows: Row[] = [];
   const num = (v: number) => fmtNum(v, lang);
-  const g = guidedCopy(lang);
   steps.forEach((s, i) => {
     if (s.kind === "camera") {
       const last = rows[rows.length - 1];
@@ -410,9 +410,8 @@ function queueRows(steps: SessionStep[], lang: Lang): Row[] {
       from: i,
       to: i + 1,
       name: libraryById(item.id)?.name[lang] ?? item.id,
-      dose: item.holdSeconds
-        ? g.doseHold(item.sets, item.holdSeconds, num)
-        : `${num(item.sets)} × ${num(item.reps ?? 8)}`,
+      // The week's and the Program page's words for a card's dose (D-030 E3-6).
+      dose: doseText(item, lang),
     });
   });
   return rows;

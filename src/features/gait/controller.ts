@@ -673,6 +673,8 @@ export class GaitController implements CoachHost {
       this.say("gait_walk_past_phone", "info");
       this.say("gait_turn_slowly", "info");
     }
+    // The belt is stopped while the helper moves the phone to the pad's other side (D-030 C4-3).
+    if (s.id === "place" && s.rec === "pad_side_b") this.say("gait_pad_other_side", "info");
     this.bridge({ p: 3, type: "step_start", label: s.rec ? `${s.id}_${s.rec}` : s.id, t: now });
     this.changed();
   }

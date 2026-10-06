@@ -1173,6 +1173,8 @@ function PlaceScreen({
       </Glass>
       <div className="fx-side">
         <Glass className="fx-card">
+          {/* The belt is stopped while the helper moves the phone (D-030 C4-3). */}
+          {rec === "pad_side_b" && <Body lang={lang} text={setupLine("pad_other_side", lang)} />}
           <Lines lang={lang} lines={lines} />
           {stage(
             true,

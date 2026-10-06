@@ -123,6 +123,21 @@ describe("the walk's screens", () => {
   });
 });
 
+describe("the pad's second side view (D-030 C4-3)", () => {
+  it("says the helper moves the phone while the belt is stopped, then the belt starts again", () => {
+    const ctl = new GaitController({ plan: PLAN, poseModel: () => "full" });
+    ctl.start(0);
+    ctl.confirm(0);
+    ctl.chooseMode("walking_pad", 0);
+    const at = ctl.plannedSteps.findIndex((x) => x.id === "place" && x.rec === "pad_side_b");
+    (ctl as unknown as { go(index: number, now: number): void }).go(at, 0);
+    expect(ctl.current).toEqual({ id: "place", rec: "pad_side_b" });
+    for (const lang of ["ar", "en"] as const)
+      expect(TEXT(render(ctl, lang))).toContain(GAIT_DATA.copy.setup.pad_other_side[lang]);
+    expect(GAIT_DATA.copy.setup.pad_other_side.en).not.toMatch(/keep walking/i);
+  });
+});
+
 /* ------------------------------------------------------------ the card */
 
 function pattern(over: Partial<GaitPatternResult> = {}): GaitPatternResult {

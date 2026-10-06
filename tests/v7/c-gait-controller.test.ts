@@ -6,6 +6,7 @@
  * recording; the shared rule ends the test, pain_limited; walkPain kept for the rules), the coach's
  * tools on every step kind (the 2.11 gait row), and a body the gait route accepts.
  */
+import { setupLine } from "../../src/features/gait/copy";
 import { describe, expect, it } from "vitest";
 import {
   CAPTURE_LIMITS,
@@ -582,6 +583,24 @@ describe("the coach's tools on the gait steps (2.11 host table, C-16)", () => {
       accepted: false,
       reason: "not_in_block",
     });
+  });
+
+  it("says the phone moves to the pad's other side while the belt is stopped (D-030 C4-3)", () => {
+    const run = controller(PAD);
+    run.ctl.confirm(run.t);
+    run.ctl.chooseMode("walking_pad", run.t);
+    tapTo(run, "stand");
+    expect(run.lines.map((l) => l.line)).not.toContain("gait_pad_other_side");
+    record(run, walk({ ...spec("pad-side-right"), durationSec: 33 }));
+    expect(run.ctl.current).toEqual({ id: "pad_stop", rec: "pad_side_a" });
+    run.lines.length = 0;
+    run.ctl.confirm(run.t);
+    expect(run.ctl.current).toEqual({ id: "place", rec: "pad_side_b" });
+    expect(run.lines.map((l) => l.line)).toEqual(["gait_pad_other_side"]);
+    // The line itself matches the flow: the belt stops for the move, then starts again.
+    expect(setupLine("pad_other_side", "en")).toMatch(/while the belt is stopped/);
+    expect(setupLine("pad_other_side", "en")).not.toMatch(/keep walking/i);
+    expect(setupLine("pad_other_side", "ar")).toContain("والجهاز متوقف");
   });
 
   it("says the setup lines with the voice pack unless the live coach speaks for the app", () => {

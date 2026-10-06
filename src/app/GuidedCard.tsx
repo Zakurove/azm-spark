@@ -26,6 +26,12 @@ type Phase = "ready" | "running" | "paused" | "rest" | "effort";
 
 const RING = 2 * Math.PI * 46;
 
+/**
+ * The ring's minutes and seconds (E3-7): a size that keeps «10:00» inside the ring, smaller on a short
+ * phone, where the ring is smaller too (guided.css).
+ */
+const CLOCK_FACE = { fontSize: "min(46px, 6.4vh)" } as const;
+
 export default function GuidedCard({
   lang,
   item,
@@ -207,7 +213,9 @@ export default function GuidedCard({
     <>
       {ring}
       <span className="gcard-ring-face">
-        <b key={kind === "counter" && !resting ? pulse : undefined}>{big}</b>
+        <b key={kind === "counter" && !resting ? pulse : undefined} style={clock ? CLOCK_FACE : undefined}>
+          {big}
+        </b>
         <small>{under}</small>
       </span>
     </>

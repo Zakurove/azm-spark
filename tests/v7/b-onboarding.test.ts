@@ -157,8 +157,16 @@ describe("the session's build calls (session.ts)", () => {
     ],
   };
 
-  function session(onboarding: boolean, calls: string[]) {
+  function session(onboarding: boolean, calls: string[], walked = true) {
     const api = {
+      saveRom: async () => ({ ok: true, value: { saved: true, grade: {}, typical: null } }),
+      complete: async () => {
+        calls.push("complete");
+        return {
+          ok: true,
+          value: { status: "completed", profile: {}, findings: [], gait: walked ? { id: "g1" } : null },
+        };
+      },
       programTargets: async () => {
         calls.push("targets");
         return { ok: true, value: { weekly: week } };
@@ -171,13 +179,10 @@ describe("the session's build calls (session.ts)", () => {
     return new FocusSession(api, { lang: "en", onboarding });
   }
   const settle = async (s: FocusSession) => {
-    for (let i = 0; i < 50 && !s.build?.done; i++) await new Promise((r) => setTimeout(r, 2));
+    for (let i = 0; i < 100 && !s.build?.done; i++) await new Promise((r) => setTimeout(r, 2));
   };
-
-  it("builds the targeted week after the check, with the build animation's summary", async () => {
-    const calls: string[] = [];
-    const s = session(true, calls);
-    expect(s.model.data.onboarding).toBe(true);
+  /** A session at the end of a check with one knee movement waiting to be posted. */
+  function ending(s: FocusSession, value: number | null) {
     s.model = {
       state: { kind: "completing", error: true },
       data: {
@@ -189,14 +194,28 @@ describe("the session's build calls (session.ts)", () => {
         } as unknown as StartResponse,
       },
     };
-    // COMPLETED from completing (the error flag keeps the complete call out of this test).
-    s.model = { ...s.model, state: { kind: "completing", error: false } };
-    (s as unknown as { busy: boolean }).busy = true;
-    s.dispatch({ type: "COMPLETED" });
-    expect(s.model.state).toEqual({ kind: "build", from: "check" });
+    (s as unknown as { outbox: unknown[] }).outbox.push({ item: KNEE, result: { value } });
+    // Retry from the complete call's error: the movement is posted, the check completes, the build runs.
+    s.dispatch({ type: "RETRY" });
+  }
+
+  it("builds the targeted week after the check, with the build animation's summary", async () => {
+    const calls: string[] = [];
+    const s = session(true, calls);
+    expect(s.model.data.onboarding).toBe(true);
+    ending(s, 120);
     await settle(s);
-    expect(calls).toEqual(["targets"]);
+    expect(s.model.state).toEqual({ kind: "build", from: "check" });
+    expect(calls).toEqual(["complete", "targets"]);
     expect(s.build).toEqual({ done: true, summary: { joints: 1, walk: true, exercises: 2 } });
+  });
+
+  it("counts only the joints measured with a value, and the walk only when the check kept one", async () => {
+    const calls: string[] = [];
+    const s = session(true, calls, false);
+    ending(s, null);
+    await settle(s);
+    expect(s.build).toEqual({ done: true, summary: { joints: 0, walk: false, exercises: 2 } });
   });
 
   it("builds from the history when nothing can be measured", async () => {

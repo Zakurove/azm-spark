@@ -89,6 +89,10 @@ export class FocusSession {
    * check, what the build animation shows.
    */
   build: { done: boolean; summary?: BuildSummary } | null = null;
+  /** The movements the server saved with a value, by movement and side (the build's joints). */
+  private readonly measuredKeys = new Set<string>();
+  /** The completed check kept a walk (the build's summary). */
+  private walked = false;
   ctl: RomController | null = null;
   /** The server's grade of each saved movement (C-3), by movement and side. */
   readonly grades = new Map<string, RomSaved>();
@@ -259,6 +263,7 @@ export class FocusSession {
     const check = this.model.data.check;
     const r = check && this.outbox.length === 0 ? await this.api.complete(check.id) : null;
     this.busy = false;
+    if (r?.ok) this.walked = r.value.gait !== null;
     this.dispatch(r?.ok ? { type: "COMPLETED" } : { type: "COMPLETE_FAILED" });
   }
 
@@ -287,11 +292,14 @@ export class FocusSession {
     this.changed();
   }
 
-  /** The build animation's summary: the joints of the check's movements, the walk, the exercises. */
+  /**
+   * The build animation's summary: the joints measured (a movement the server saved with a value),
+   * whether the check kept a walk, and the exercises the findings chose.
+   */
   private summaryOf(exercises: number): BuildSummary {
-    const check = this.model.data.check;
-    const items = check?.protocol.items.filter((i) => !i.skipped) ?? [];
-    return { joints: jointsOf(items).length, walk: check?.gait?.offered === true, exercises };
+    const items =
+      this.model.data.check?.protocol.items.filter((i) => this.measuredKeys.has(itemKey(i))) ?? [];
+    return { joints: jointsOf(items).length, walk: this.walked, exercises };
   }
 
   /** The controller's output: results to post, the coach's events, the local lines, the part's end. */
@@ -331,8 +339,10 @@ export class FocusSession {
     while (this.outbox.length) {
       const { item, result } = this.outbox[0];
       const r = await this.api.saveRom(check.id, result);
-      if (r.ok) this.grades.set(itemKey(item), r.value);
-      else if (r.error.kind !== "http")
+      if (r.ok) {
+        this.grades.set(itemKey(item), r.value);
+        if (result.value !== null) this.measuredKeys.add(itemKey(item));
+      } else if (r.error.kind !== "http")
         return; // offline or a network error: try again later
       else {
         // An http refusal (a skipped item, already saved, a result out of bounds) will not change on a

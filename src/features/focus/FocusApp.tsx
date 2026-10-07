@@ -817,8 +817,9 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
 
 /**
  * The program's build (D-032 item 3): the build animation (ProgramBuild, its own lazy part) while the
- * program is built; the program opens once the animation ended and the build call is done. Until the
- * call is done a quiet line says what is happening.
+ * program is built; the program opens once the animation ended and the build call is done. If the call
+ * is still running then (the weekly AI can take longer than the animation), a quiet line says the
+ * program is opening, which the animation's «برنامجك جاهز» leads to.
  */
 function BuildScreen({
   lang,
@@ -846,7 +847,7 @@ function BuildScreen({
         </Suspense>
       )}
       {/* While the server builds after the animation (or with no animation to play), a quiet line. */}
-      {(!ProgramBuild || played) && !done && <Loading text={tV7(lang, "rom.onboarding.building")} />}
+      {(!ProgramBuild || played) && !done && <Loading text={tV7(lang, "rom.onboarding.opening")} />}
     </div>
   );
 }

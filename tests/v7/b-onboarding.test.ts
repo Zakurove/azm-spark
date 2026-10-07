@@ -19,7 +19,7 @@ import {
   type StartResponse,
 } from "../../src/features/focus/flow";
 import { FocusSession } from "../../src/features/focus/session";
-import { weekExercises, type FocusApi } from "../../src/features/focus/api";
+import type { FocusApi } from "../../src/features/focus/api";
 import ProgramBuild from "../../src/features/onboarding/ProgramBuild";
 import ProgramWaiting from "../../src/features/program-v7/ProgramWaiting";
 import { ProgramLinkCard } from "../../src/features/program-v7/ProgramLink";
@@ -147,14 +147,7 @@ describe("the focus check of a person whose program waits for it (flow.ts)", () 
 
 describe("the session's build calls (session.ts)", () => {
   const week = {
-    days: [
-      {
-        warmup: [{ id: "a", why: { ar: "س", en: "w" } }],
-        extra: [{ id: "b", why: { ar: "س", en: "w" } }, { id: "c" }],
-        cooldown: [],
-      },
-      { warmup: [{ id: "a", why: { ar: "س", en: "w" } }], extra: [], cooldown: [] },
-    ],
+    days: [{ warmup: [{ id: "a", why: { ar: "س", en: "w" } }], extra: [], cooldown: [] }],
   };
 
   function session(onboarding: boolean, calls: string[], walked = true) {
@@ -173,7 +166,7 @@ describe("the session's build calls (session.ts)", () => {
       },
       programHistory: async () => {
         calls.push("history");
-        return { ok: true, value: { ok: true, exercises: 4 } };
+        return { ok: true, value: { ok: true } };
       },
     } as unknown as FocusApi;
     return new FocusSession(api, { lang: "en", onboarding });
@@ -181,6 +174,14 @@ describe("the session's build calls (session.ts)", () => {
   const settle = async (s: FocusSession) => {
     for (let i = 0; i < 100 && !s.build?.done; i++) await new Promise((r) => setTimeout(r, 2));
   };
+  /** Every summary the build animation was given while the build ran (the session's changes). */
+  function summaries(s: FocusSession): unknown[] {
+    const seen: unknown[] = [];
+    s.subscribe(() => {
+      if (s.build) seen.push(s.build.summary);
+    });
+    return seen;
+  }
   /** A session at the end of a check with one knee movement waiting to be posted. */
   function ending(s: FocusSession, value: number | null) {
     s.model = {
@@ -203,11 +204,17 @@ describe("the session's build calls (session.ts)", () => {
     const calls: string[] = [];
     const s = session(true, calls);
     expect(s.model.data.onboarding).toBe(true);
+    const seen = summaries(s);
     ending(s, 120);
     await settle(s);
     expect(s.model.state).toEqual({ kind: "build", from: "check" });
     expect(calls).toEqual(["complete", "targets"]);
-    expect(s.build).toEqual({ done: true, summary: { joints: 1, walk: true, exercises: 2 } });
+    // The summary is set once, as the build starts: the animation would start again on a new one, and
+    // the week's exercises come only with the build's answer, so none are counted.
+    const summary = { joints: 1, walk: true, exercises: 0 };
+    expect(s.build).toEqual({ done: true, summary });
+    expect(seen).toEqual(seen.map(() => summary));
+    expect(seen.length).toBeGreaterThan(1);
   });
 
   it("counts only the joints measured with a value, and the walk only when the check kept one", async () => {
@@ -215,23 +222,21 @@ describe("the session's build calls (session.ts)", () => {
     const s = session(true, calls, false);
     ending(s, null);
     await settle(s);
-    expect(s.build).toEqual({ done: true, summary: { joints: 0, walk: false, exercises: 2 } });
+    expect(s.build).toEqual({ done: true, summary: { joints: 0, walk: false, exercises: 0 } });
   });
 
   it("builds from the history when nothing can be measured", async () => {
     const calls: string[] = [];
     const s = session(true, calls);
+    const seen = summaries(s);
     s.dispatch({ type: "LOADED", context: context(EMPTY), intake: null, now: 0 });
     expect(s.model.state).toEqual({ kind: "build", from: "history" });
     await settle(s);
     expect(calls).toEqual(["history"]);
-    // Nothing measured and no walk: the animation builds on the history.
-    expect(s.build).toEqual({ done: true, summary: { joints: 0, walk: false, exercises: 4 } });
-  });
-
-  it("counts each exercise with a why line once (weekExercises)", () => {
-    expect(weekExercises(week as never)).toBe(2);
-    expect(weekExercises(null)).toBe(0);
+    // Nothing measured and no walk: the animation builds on the history, with one summary throughout.
+    const summary = { joints: 0, walk: false, exercises: 0 };
+    expect(s.build).toEqual({ done: true, summary });
+    expect(seen).toEqual(seen.map(() => summary));
   });
 });
 

@@ -28,7 +28,7 @@ import { emergencyAlsoShow, stopRoute, type StopRoute } from "../../medical/prec
 import type { RegionId } from "../../medical/body-map";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
 import type { StopOptionId } from "../../movements/types";
-import { weekExercises, type FocusApi, type RomSaved } from "./api";
+import type { FocusApi, RomSaved } from "./api";
 import { jointsOf } from "./joints";
 import {
   initialModel,
@@ -75,7 +75,10 @@ export interface SpokenLine {
  */
 export const WALK_REGIONS: readonly RegionId[] = ["hip", "knee", "ankle_foot", "back_trunk"];
 
-/** What the build animation shows (D-032 item 3): the joints measured, the walk, the exercises chosen. */
+/**
+ * What the build animation shows (D-032 item 3): the joints measured, the walk, the exercises chosen
+ * (none counted: the build answers them later, see buildProgram).
+ */
 export interface BuildSummary {
   joints: number;
   walk: boolean;
@@ -271,41 +274,33 @@ export class FocusSession {
    * The program's build (D-032 item 3): the targeted week after the check, or the history's program.
    * A network failure is tried again twice; the program page then shows its own way on, and the server
    * reads a completed check as the end of the wait in any case.
+   *
+   * The animation's summary is set once, as the build starts: the animation plans its beats from it and
+   * would start again on a new one. The week's exercises are known only when the build answers (after
+   * the weekly AI, usually once the animation has ended), so the summary counts none (the animation's
+   * fewest cards).
    */
   private async buildProgram(from: "check" | "history"): Promise<void> {
-    // The history's program measured nothing and kept no walk: the animation builds on the history.
-    const history: BuildSummary = { joints: 0, walk: false, exercises: 0 };
-    this.build = { done: false, summary: from === "check" ? this.summaryOf(0) : history };
+    // From the history: nothing measured and no walk, so the animation builds on the history.
+    const summary = from === "check" ? this.summaryOf() : { joints: 0, walk: false, exercises: 0 };
+    this.build = { done: false, summary };
     this.changed();
     for (let i = 0; i < 3; i++) {
-      if (from === "check") {
-        const r = await this.api.programTargets();
-        if (r.ok) {
-          this.build = { done: true, summary: this.summaryOf(weekExercises(r.value.weekly)) };
-          break;
-        }
-        if (r.error.kind === "http") break;
-      } else {
-        const r = await this.api.programHistory();
-        if (r.ok) {
-          this.build = { done: true, summary: { ...history, exercises: r.value.exercises ?? 0 } };
-          break;
-        }
-        if (r.error.kind === "http") break;
-      }
+      const r = from === "check" ? await this.api.programTargets() : await this.api.programHistory();
+      if (r.ok || r.error.kind === "http") break;
     }
-    this.build = { ...this.build, done: true };
+    this.build = { done: true, summary };
     this.changed();
   }
 
   /**
-   * The build animation's summary: the joints measured (a movement the server saved with a value),
-   * whether the check kept a walk, and the exercises the findings chose.
+   * The build animation's summary after a check: the joints measured (a movement the server saved with
+   * a value) and whether the check kept a walk.
    */
-  private summaryOf(exercises: number): BuildSummary {
+  private summaryOf(): BuildSummary {
     const items =
       this.model.data.check?.protocol.items.filter((i) => this.measuredKeys.has(itemKey(i))) ?? [];
-    return { joints: jointsOf(items).length, walk: this.walked, exercises };
+    return { joints: jointsOf(items).length, walk: this.walked, exercises: 0 };
   }
 
   /** The controller's output: results to post, the coach's events, the local lines, the part's end. */

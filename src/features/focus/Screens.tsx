@@ -456,7 +456,7 @@ export function DayScreen({
   };
   return (
     <div className="fx-day">
-      <Glass className="fx-card fx-question fx-day-card" data-today="day">
+      <Glass className="fx-card fx-question fx-day-card">
         <Kicker>{tV7(lang, "rom.precheck.kicker")}</Kicker>
         <h1 ref={heading} id={titleId} className="fx-title" tabIndex={-1}>
           {tV7(lang, "rom.day.title")}
@@ -558,7 +558,7 @@ export function SkipTodayScreen({
 }) {
   const heading = useFocusOnMount<HTMLHeadingElement>();
   return (
-    <Glass className="fx-card fx-skip" data-screen-part="skip_today">
+    <Glass className="fx-card fx-skip">
       <span className="fx-badge is-violet" aria-hidden="true">
         <CheckIcon name="calendar" size={28} />
       </span>

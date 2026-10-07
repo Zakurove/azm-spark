@@ -546,6 +546,12 @@ function Pages() {
               // D-032 item 3: after the build the program exists; the wait for the check has ended.
               if (to === "program" || to === "program_tab")
                 setAccount((a) => (a ? { ...a, awaitingCheck: false } : a));
+              // Any other way out while the program waits (not now, or Back during the build) reads the
+              // wait again: the server ends it once a check has completed.
+              else if (account.awaitingCheck === true)
+                void api<AccountState>("/auth/me")
+                  .then((me) => setAccount((a) => (a ? { ...a, awaitingCheck: me.awaitingCheck } : a)))
+                  .catch(() => {});
               if (to === "findings") go({ page: "findings", checkId: null });
               else if (to === "health") go(null, "health", true);
               else if (to === "program") go({ page: "program" });

@@ -10,6 +10,7 @@
  *     at once, and the Program tab says the check can refine it later.
  *   - «لا أستطيع استخدام الكاميرا» on the intro builds the program from the history.
  *   - A yes to the worry question: one calm screen, and the program still waits.
+ *   - Back during the build: Today shows the program, since the completed check ended the wait.
  * Skipped under the default config, whose server has the flags off.
  */
 import { expect, test, type Page } from "@playwright/test";
@@ -213,4 +214,26 @@ test("a yes to the worry question: one calm screen, and the program still waits"
   await expect(page.locator('[data-screen="skip_today"]')).not.toContainText("997");
   await page.locator('[data-screen="skip_today"] [data-action="today"]').click();
   await expect(page.locator("[data-program-waiting]")).toBeVisible();
+});
+
+test("Back during the build: Today shows the program, since the completed check ended the wait", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await newcomer(page, "en", base);
+  // The build runs long enough on the server to go Back during it.
+  await page.route("**/api/program/targets", async (route) => {
+    await new Promise((r) => setTimeout(r, 5000));
+    await route.continue();
+  });
+  await page.goto(url("/?focus=1&e2ePerson=1&e2eFast=1", "en"));
+  await page.locator('[data-screen="intro"] [data-action="start"]').click();
+  await calmDay(page);
+  await expect.poll(async () => (await state(page)).kind, { timeout: 20_000 }).toBe("part");
+  await runRange(page);
+  await expect.poll(async () => (await state(page)).kind, { timeout: 60_000 }).toBe("build");
+  await page.goBack();
+  await expect(page.locator(".next-workout")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("[data-program-waiting]")).toHaveCount(0);
 });

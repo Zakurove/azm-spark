@@ -99,8 +99,10 @@
     0 0 0 1px rgba(28, 32, 41, 0.05),
     0 34px 70px -42px rgba(46, 34, 82, 0.45),
     0 6px 16px -8px rgba(46, 34, 82, 0.08);
+  animation: pb-enter 640ms var(--ease) both;
 }
 .is-still .pb-stage {
+  animation: none;
   width: min(100%, 520px, calc((100dvh - 440px) * 360 / 420));
   min-width: min(100%, 240px);
 }
@@ -240,6 +242,16 @@
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pb-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
   }
   to {
     opacity: 1;

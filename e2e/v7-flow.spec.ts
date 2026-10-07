@@ -119,6 +119,13 @@ async function calmDay(page: Page): Promise<void> {
   await day.locator('[data-action="start"]').click();
 }
 
+/** The build animation (D-032 item 4) plays before the program opens: skip it, as a person may. */
+async function passBuild(page: Page) {
+  const skip = page.locator('.pb-skip[data-action="skip"]');
+  await expect(skip).toBeVisible({ timeout: 60_000 });
+  await skip.click();
+}
+
 test("the health form leads to the check, whose end plays the build and opens the program", async ({
   page,
 }) => {
@@ -154,7 +161,8 @@ test("the health form leads to the check, whose end plays the build and opens th
   await calmDay(page);
   await expect.poll(async () => (await state(page)).kind, { timeout: 20_000 }).toBe("part");
   await runRange(page);
-  // The build (the animation's stub plays at once), then the program page with its why lines.
+  // The build animation, then the program page with its why lines.
+  await passBuild(page);
   await expect(page.locator('[data-screen="program"]')).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".pv7-why").first()).toBeVisible();
   expect((await (await page.request.get("/api/auth/me")).json()).awaitingCheck).toBe(false);
@@ -171,6 +179,7 @@ test("nothing the camera can measure: the history builds the program at once", a
   await page.setViewportSize({ width: 390, height: 844 });
   await newcomer(page, "en", wrist);
   await page.goto(url("/?focus=1", "en"));
+  await passBuild(page);
   await expect(page.locator('[data-program-link="history"]')).toContainText(
     "Your movement check can refine it later.",
     {
@@ -186,6 +195,7 @@ test("«لا أستطيع استخدام الكاميرا» builds the program f
   await newcomer(page, "ar", base);
   await page.goto("/?focus=1&e2ePerson=1");
   await page.locator('[data-action="no_camera"]').click();
+  await passBuild(page);
   await expect(page.locator('[data-program-link="history"]')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator(".plan-card")).toBeVisible();
 });

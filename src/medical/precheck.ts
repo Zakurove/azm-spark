@@ -261,9 +261,14 @@ const SIDES: readonly Side[] = ["left", "right"];
 const otherSide = (s: Side): Side => (s === "left" ? "right" : "left");
 const SCI_CONDITIONS = ["sci_complete", "sci_incomplete"];
 /** Spec 4.4 helper rules: at home another adult must be present for the chair stand. */
-const CHAIR_STAND_HELPER_CONDITIONS = ["parkinsons", "stroke", "sci_incomplete", "cerebral_palsy"];
+export const CHAIR_STAND_HELPER_CONDITIONS: readonly string[] = [
+  "parkinsons",
+  "stroke",
+  "sci_incomplete",
+  "cerebral_palsy",
+];
 /** Spec 4.3 helper rules: at home another adult must be present for the side lean. */
-const SIDE_LEAN_HELPER_CONDITIONS = [
+export const SIDE_LEAN_HELPER_CONDITIONS: readonly string[] = [
   "sci_complete",
   "sci_incomplete",
   "stroke",
@@ -272,7 +277,7 @@ const SIDE_LEAN_HELPER_CONDITIONS = [
   "ms",
 ];
 /** Spec 4.4 variant rules: hands allowed for these conditions (stroke only with a weaker side). */
-const ARMS_ASSISTED_CONDITIONS = ["sci_incomplete", "cerebral_palsy"];
+export const ARMS_ASSISTED_CONDITIONS: readonly string[] = ["sci_incomplete", "cerebral_palsy"];
 /** Spec 3.3: warn_weak_shoulder before the arm tests after stroke. */
 const ARM_TESTS: readonly TestId[] = ["shoulder_abduction", "arm_curl_30s"];
 /** Spec 4.4 pushing arm: the chair stand is skipped when both hands are out; reason by priority. */

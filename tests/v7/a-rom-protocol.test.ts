@@ -490,11 +490,13 @@ describe("positions (rom-protocol 2.5)", () => {
     // Not asked: yes for everyone, no with SCI (asked of everyone else with SCI; not asked at neck level).
     expect(ext({ mobility: "seated" }).position).toBe("seated_forward");
     expect(ext({ mobility: "wheelchair", conditions: ["sci_incomplete"] }).skipped).toBe("sitting_balance");
-    // A wheelchair user: transfer_chair_ask yes and pc_transfer_chair yes today.
+    // A wheelchair user: the intake's transfer_chair_ask yes stands for the day (D-032 item 2: no day
+    // question); a day's own no still counts.
     const chair = {
       mobility: "wheelchair" as const,
       romFlags: { ...flags, sitUnsupported: "yes" as const, transferChair: true },
     };
+    expect(ext(chair)).toMatchObject({ position: "seated_forward" });
     expect(ext(chair, today({ transferChair: true }))).toMatchObject({ position: "seated_forward" });
     expect(ext(chair, today({ transferChair: false })).skipped).toBe("sitting_balance");
     expect(
@@ -939,11 +941,16 @@ describe("every safety id of rom-protocol 6", () => {
       expect(itemOf(p, "shoulder_extension").skipped).toBeUndefined();
     },
     weak_shoulder: () => {
-      // pc_weak_shoulder is a v1 pre-check item: the bridge (applyPrecheckOutcome) skips the shoulder.
-      expect(ROM_SAFETY_RULES.find((r) => r.id === "weak_shoulder")!.where).toContain("applyPrecheckOutcome");
+      // D-032 item 2: a painful weaker shoulder is the day's pain question, 6 or more (pain_today).
+      expect(ROM_SAFETY_RULES.find((r) => r.id === "weak_shoulder")!.where).toContain("pain_today");
+      const p = build(intake({ regions: [entry("shoulder", "right", ["weakness"])] }), {
+        today: today({ painByRegion: { shoulder: 6 } }),
+      });
+      expect(itemOf(p, "shoulder_flexion").skipped).toBe("pain_today");
     },
     sci_t6: () => {
-      expect(ROM_SAFETY_RULES.find((r) => r.id === "sci_t6")!.where).toContain("evaluatePrecheck");
+      // D-032 item 2: warn_sci_t6 once, on the intro's safety card; the stop list keeps the AD signs.
+      expect(ROM_SAFETY_RULES.find((r) => r.id === "sci_t6")!.where).toContain("sciWarningOnce");
     },
     limb_loss: () => {
       const p = build(
@@ -967,9 +974,7 @@ describe("every safety id of rom-protocol 6", () => {
         intake({ mobility: "wheelchair", regions: [entry("back_trunk", "axial", ["stiffness"])] }),
       );
       expect(itemOf(p, "trunk_lateral_flexion").position).toBe("seated_armrests");
-      expect(ROM_SAFETY_RULES.find((r) => r.id === "seated_side_lean_gate")!.where).toContain(
-        "trunk_control_seated",
-      );
+      expect(ROM_SAFETY_RULES.find((r) => r.id === "seated_side_lean_gate")!.where).toContain("dayOutcome");
     },
     sitting_balance: () => {
       const p = build(

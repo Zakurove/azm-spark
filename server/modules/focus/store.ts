@@ -57,9 +57,10 @@ export interface FocusDevice {
 
 /**
  * The day's answers a later step reads, the only ones kept (contract section 3; R1-2, D-026 items 7
- * and 9): the start keeps keptDayAnswers (src/medical/focus-precheck.ts), each answer only when it was
- * asked. The others (red flag regions, the walk and freezing answers, a chair transfer, an orthosis)
- * did their work at the start and live on in the frozen protocol and gait plan, so they are not kept.
+ * and 9): the start keeps keptDay (src/medical/focus-precheck.ts; D-032 item 2), each answer only when
+ * the day's one screen asked it. The others (the worry answer, the walk and freezing answers, an
+ * orthosis) did their work at the start and live on in the frozen protocol and gait plan, so they are
+ * not kept. Checks kept before D-032 may still hold pdState and the seated lean's answers.
  */
 export type { StoredFocusToday };
 

@@ -1,8 +1,8 @@
 /**
- * The focus check (product v7 contract 1.2, stream B, step B3): the shell that runs a protocol end to
- * end: the v1 pre-check through the bridge, the today questions with rf_region, the range blocks in
- * C-13 order with the stop list and sit before stand, the gait step (GaitStep, C) between the standing
- * and lying blocks, and the complete call, then the findings. It loads its own data (GET
+ * The focus check (product v7 contract 1.2, stream B, step B3; D-032): the shell that runs a protocol
+ * end to end: the day's one screen (D-032 item 2), the range blocks in C-13 order with the stop list and
+ * sit before stand, the gait step (GaitStep, C) between the standing and lying blocks, and the complete
+ * call, then the findings. It loads its own data (GET
  * /api/focus/context) and implements CoachHost for the range blocks (C-16) through its RomController.
  *
  * The logic is in session.ts (the flow, the calls, the controller) and romController.ts; this page
@@ -11,11 +11,15 @@
  * plays the local lines when the voice is on (off by default) and passes the coach's events to the
  * coach (the live coach is off by default; stream D wires it, C-5).
  *
- * src/app/App.tsx opens it at /?focus=1 for a signed in person, in a VITE_V7=1 build only. On a
- * VITE_E2E=1 build, ?e2ePerson=1 plays a simulated person instead of the camera (e2e/PersonSource.ts)
- * and ?e2eFast=1 shortens the rests.
+ * src/app/App.tsx opens it at /?focus=1 for a signed in person, in a VITE_V7=1 build only, and right
+ * after the health form for a person whose program waits for the check (D-032 item 3, `onboarding`):
+ * the end then plays the program's build and opens the program. On a VITE_E2E=1 build, ?e2ePerson=1
+ * plays a simulated person instead of the camera (e2e/PersonSource.ts) and ?e2eFast=1 shortens the
+ * rests.
  */
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -47,7 +51,8 @@ import { FINDING_LABEL, voiceLineOf } from "./copy";
 import { movementDef, romResultLine } from "../../movements/rom";
 import { FocusSession } from "./session";
 import { itemKey, type RomController } from "./romController";
-import { TopBar, Page } from "./parts";
+import { Loading, TopBar, Page } from "./parts";
+import { tV7 } from "../../i18n/v7";
 import {
   BlockCard,
   MeasureScreen,
@@ -61,36 +66,47 @@ import {
   ClosedScreen,
   CompletingScreen,
   ConsentScreen,
+  DayScreen,
   DoneScreen,
   FaintAskScreen,
   GaitSlot,
-  HelperBriefScreen,
   IntroScreen,
   LeaveDialog,
   LoadErrorScreen,
   LoadingScreen,
-  QuestionScreen,
-  RegionSeekCareScreen,
   SafetyScreen,
+  SkipTodayScreen,
   StartingScreen,
   StopListScreen,
-  TodayScreen,
+  WalkPainScreen,
   WalkSkippedScreen,
-  WarningsScreen,
 } from "./Screens";
-import { checkWarningsOf, partWarnings } from "./flow";
+import { sciWarningOnce, todayItems, type FocusExitTo } from "./flow";
+import { dayAreas } from "../../medical/focus-precheck";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
 import "./focus.css";
 
-/** Where the focus check leaves to. */
-export type FocusExit = "today" | "findings" | "health";
+/** Where the focus check leaves to (after a build, D-032 item 3: the program page or the Program tab). */
+export type FocusExit = FocusExitTo;
+
+/**
+ * The program's build animation (D-032 item 3), its own lazy part: VITE_V7=1 builds only, the env
+ * tested inline as for the v7 pages in App.tsx.
+ */
+const ProgramBuild =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../onboarding/ProgramBuild")) : null;
 
 export interface FocusAppProps {
   lang: Lang;
   onLanguage(): void;
   /** The signed in person's id: the owner of the check's waiting calls, as in the v1 check. */
   owner: string;
+  /**
+   * The person's program waits for the check (D-032 item 3): the end builds it, and «لا أستطيع
+   * استخدام الكاميرا» builds it from the history.
+   */
+  onboarding?: boolean;
   /**
    * Leaves the focus check: "findings" after a completed check, "health" to answer the v7 intake
    * questions (409 INTAKE_UPDATE_REQUIRED), else "today".
@@ -152,7 +168,7 @@ export function blockWaitsForProbe(
   return !(probe?.key === blockKey && probe.done);
 }
 
-export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
+export default function FocusApp({ lang, onLanguage, onExit, onboarding = false }: FocusAppProps) {
   const e2e = useMemo(e2eOptions, []);
   const sessionRef = useRef<FocusSession | null>(null);
   const focus = useMemo(() => {
@@ -170,6 +186,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       lang,
       now: clock,
       device: focusDevice(),
+      onboarding,
       poseModel: () => focus.model,
       ...(e2e.fast ? { restSec: 1, sitSeconds: 8, stopRestSeconds: 6 } : {}),
     });
@@ -315,14 +332,11 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const [leaving, setLeaving] = useState(false);
   // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
   const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
-  const midCheck =
-    s.kind === "part" ||
-    s.kind === "question" ||
-    s.kind === "today" ||
-    s.kind === "warnings" ||
-    s.kind === "brief" ||
-    s.kind === "walk_pain" ||
-    s.kind === "walk_skipped";
+  // The build animation ended (its Continue or Skip): the shell's page comes back (D-032 item 3).
+  const [buildPlayed, setBuildPlayed] = useState(false);
+  // Leaving asks first only once the check runs; the day's screen leaves at once, nothing is lost
+  // there (D-032 item 2: no extra confirmation that is not about stopping).
+  const midCheck = s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
   useLayoutEffect(() => {
@@ -351,9 +365,9 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const today = () => session.dispatch({ type: "EXIT", to: "today" });
   const parts = m.data.parts;
   const progress =
-    s.kind === "part" || s.kind === "brief" || s.kind === "walk_pain" || s.kind === "walk_skipped"
+    s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped"
       ? { done: s.index, total: parts.length }
-      : s.kind === "completing" || s.kind === "done"
+      : s.kind === "completing" || s.kind === "done" || s.kind === "build"
         ? { done: parts.length, total: parts.length }
         : null;
   const entry =
@@ -368,7 +382,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       progress={progress}
       sound={{ on: soundOn, toggle: toggleSound }}
       onLanguage={entry ? onLanguage : null}
-      onLeave={s.kind === "done" ? null : midCheck ? () => setLeaving(true) : today}
+      onLeave={s.kind === "done" || s.kind === "build" ? null : midCheck ? () => setLeaving(true) : today}
     />
   );
   const env = m.data.context?.env ?? null;
@@ -426,6 +440,8 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               protocol={m.data.context!.protocol!}
               gait={m.data.context!.gait}
               setting={m.data.context!.setting}
+              sciWarning={sciWarningOnce(m.data.context!.env)}
+              onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               onStart={() => {
                 CuePlayer.unlock();
                 if (coachOn) unlockCoachAudio();
@@ -436,29 +452,15 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
-      case "question":
-        return {
-          screen: "question",
-          node: (
-            <QuestionScreen
-              key={s.id}
-              lang={lang}
-              env={env!}
-              answers={m.data.answers}
-              id={s.id}
-              onAnswer={(value) => session.dispatch({ type: "ANSWER", id: s.id, value, now: Date.now() })}
-            />
-          ),
-        };
       case "today":
         return {
-          screen: `today_${m.data.todayQs[s.index].kind}`,
+          screen: "today",
           node: (
-            <TodayScreen
-              key={s.index}
+            <DayScreen
               lang={lang}
-              q={m.data.todayQs[s.index]}
-              onAnswer={(value) => session.dispatch({ type: "TODAY", value })}
+              areas={dayAreas(m.data.context!.protocol!, m.data.context!.gait)}
+              itemsFor={(today) => todayItems(m.data, today)}
+              onDone={(today) => session.dispatch({ type: "DAY_DONE", today })}
             />
           ),
         };
@@ -488,67 +490,26 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
-      case "seek_care":
+      case "skip_today":
         return {
-          screen: "seek_care",
-          node:
-            s.then === "parts" ? (
-              <RegionSeekCareScreen
-                lang={lang}
-                regions={m.data.today.redFlagRegions}
-                onContinue={() => session.dispatch({ type: "SEEN" })}
-              />
-            ) : (
-              <SafetyScreen
-                lang={lang}
-                screen="scr_stop_seek_care"
-                now={Date.now()}
-                next={{
-                  label: t(lang, "assessment.common.continue"),
-                  onClick: () => session.dispatch({ type: "SEEN" }),
-                  name: "continue",
-                }}
-              />
-            ),
-        };
-      case "warnings": {
-        const check = m.data.check!;
-        return {
-          screen: "warnings",
+          screen: "skip_today",
           node: (
-            <WarningsScreen
+            <SkipTodayScreen
               lang={lang}
-              warnings={checkWarningsOf(check.warnings)}
-              pdBucket={m.data.context?.lastPdDoseBucket ?? null}
-              skippedForSore={check.protocol.items.filter((i) => i.skipped === "pressure_sore")}
-              onContinue={() => session.dispatch({ type: "SEEN" })}
+              onToday={today}
+              onUrgent={() => session.dispatch({ type: "URGENT" })}
             />
           ),
         };
-      }
-      case "brief": {
-        const support = env?.ctx.support;
-        return {
-          screen: `brief_${s.screen}`,
-          node: (
-            <HelperBriefScreen
-              lang={lang}
-              screen={s.screen}
-              weaker={support === "left" || support === "right" ? support : null}
-              onReady={() => session.dispatch({ type: "HELPER_READY" })}
-            />
-          ),
-        };
-      }
       case "walk_pain":
         return {
           screen: "walk_pain",
           node: (
-            <TodayScreen
+            <WalkPainScreen
               key={`${s.index}:${s.k}`}
               lang={lang}
-              q={{ kind: "pain", region: s.regions[s.k] }}
-              onAnswer={(value) => session.answerWalkPain(Number(value))}
+              region={s.regions[s.k]}
+              onAnswer={(value) => session.answerWalkPain(value)}
             />
           ),
         };
@@ -600,7 +561,6 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             node: (
               <GaitSlot
                 lang={lang}
-                warnings={partWarnings(m.data.check!.warnings, part, m.data.check!.protocol)}
                 onSkip={() => session.gaitDone()}
                 hero={walkChrome.hero}
                 skip={walkChrome.skip}
@@ -657,6 +617,35 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
+      case "build": {
+        // The animation is a whole screen of its own (its wordmark and Skip), so it plays outside the
+        // shell's page; the page comes back for a quiet line if the build still runs when it ends.
+        const summary = session.build?.summary;
+        if (ProgramBuild && !buildPlayed)
+          return {
+            screen: `build_${s.from}`,
+            bare: true,
+            node: (
+              <Suspense fallback={null}>
+                <ProgramBuild
+                  lang={lang}
+                  onDone={() => setBuildPlayed(true)}
+                  {...(summary ? { summary } : {})}
+                />
+              </Suspense>
+            ),
+          };
+        return {
+          screen: `build_${s.from}`,
+          node: (
+            <BuildWait
+              lang={lang}
+              done={session.build?.done === true}
+              onBuilt={() => session.dispatch({ type: "BUILT" })}
+            />
+          ),
+        };
+      }
       case "exit":
         return { screen: "exit", node: <LoadingScreen lang={lang} /> };
     }
@@ -680,13 +669,10 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               block={step.block}
               items={step.items}
               helper={step.helper}
-              warnings={partWarnings(
-                m.data.check!.warnings,
-                { kind: "range", block: step.block },
-                m.data.check!.protocol,
-              )}
               stage={<Stage video={cam.video} frame={frame} highlight={[]} compact />}
               waiting={blockWaiting}
+              cameraError={cam.status === "error"}
+              onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               onReady={() => {
                 if (coachOn) unlockCoachAudio();
                 if (!blockWaiting) c.ready(clock());
@@ -809,15 +795,21 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
         page={false}
         className="fx"
       >
-        <Page
-          lang={lang}
-          top={top}
-          screen={content.screen}
-          step={"step" in content ? content.step : undefined}
-          wide={!!rangeStep && rangeStep.kind === "measure"}
-        >
-          {content.node}
-        </Page>
+        {"bare" in content ? (
+          <div className="fx-bare" data-screen={content.screen}>
+            {content.node}
+          </div>
+        ) : (
+          <Page
+            lang={lang}
+            top={top}
+            screen={content.screen}
+            step={"step" in content ? content.step : undefined}
+            wide={!!rangeStep && rangeStep.kind === "measure"}
+          >
+            {content.node}
+          </Page>
+        )}
         {/* The live coach's words while it speaks (voice and captions together, step D5). */}
         {!stopOpen && <CoachCaption coach={coach} lang={lang} />}
         {stopOpen && env && (
@@ -846,4 +838,19 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       </CheckRoot>
     </FocusCameraContext.Provider>
   );
+}
+
+/**
+ * The program's build (D-032 item 3) once its animation has ended, or with no animation to play: the
+ * program opens as soon as the build call is done. Until then (the weekly AI can take longer than the
+ * animation) a quiet line says the program is opening, which the animation's «برنامجك جاهز» leads to.
+ */
+function BuildWait({ lang, done, onBuilt }: { lang: Lang; done: boolean; onBuilt(): void }) {
+  const built = useRef(false);
+  useEffect(() => {
+    if (!done || built.current) return;
+    built.current = true;
+    onBuilt();
+  }, [done, onBuilt]);
+  return done ? null : <Loading text={tV7(lang, "rom.onboarding.opening")} />;
 }

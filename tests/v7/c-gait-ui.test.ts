@@ -89,9 +89,12 @@ describe("the walk's screens", () => {
         expect(intro).toContain(GAIT_DATA.copy.setup.helper_needed[lang]);
         expect(intro).toContain(GAIT_DATA.copy.setup.stop_any_time[lang]);
         if (mode === "walking_pad") {
-          for (const id of ["pad_floor", "pad_auto_off", "pad_support", "pad_on"] as const)
-            expect(ids).toContain(id);
-          expect(out.find((o) => o.id === "pad_floor")!.html).toContain(GAIT_DATA.copy.setup.pad_key[lang]);
+          for (const id of ["pad_check", "pad_on"] as const) expect(ids).toContain(id);
+          // D-032 item 2: every pad safety step on one checklist with one Ready.
+          const check = out.find((o) => o.id === "pad_check")!.html;
+          expect(check).toContain(GAIT_DATA.copy.setup.pad_key[lang]);
+          expect(check).toContain(GAIT_DATA.copy.setup.pad_auto_off[lang]);
+          expect(check.match(/data-action="ready"/g)).toHaveLength(1);
         } else
           expect(out.find((o) => o.id === "clear_path")!.html).toContain(
             GAIT_DATA.copy.setup.clear_path[lang],
@@ -114,7 +117,9 @@ describe("the walk's screens", () => {
     ctl.confirm(0);
     ctl.chooseMode("walking_pad", 0);
     ctl.setGear({ shoes: true, brace: null }, 0);
-    for (let i = 0; i < 3; i++) ctl.confirm(0);
+    // The pad safety checklist: one Ready (D-032 item 2).
+    expect(ctl.current.id).toBe("pad_check");
+    ctl.confirm(0);
     expect(ctl.current).toEqual({ id: "place", rec: "pad_side_a" });
     expect(render(ctl, "ar")).toContain("ضع الهاتف على جهتك اليمنى");
     expect(render(ctl, "en")).toContain("Place the phone on your right side");

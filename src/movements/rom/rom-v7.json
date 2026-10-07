@@ -6040,12 +6040,12 @@
     },
     {
       "id": "red_flags",
-      "rule": "In the region: a hot, red, swollen joint; fever; a new deformity; cannot take weight on the leg since an injury; new numbness or weakness",
-      "action": "Not measured; seek care screen (existing scr_stop_seek_care)"
+      "rule": "Anything new or worrying today (the day's one yes or no question, day_worry_ask: chest pain, fainting, a hot swollen joint, new weakness or numbness and the like). It replaces the per region red flag question (rf_region) and the separate v1 pre-check screens (D-032)",
+      "action": "The whole check is skipped today (postpone, next day lock): one calm screen (day_skip_title, day_skip_body) that suggests checking with a doctor if it is new, with a way to the emergency screen (day_skip_urgent). FocusToday.redFlagRegions stays in the data model and is no longer asked"
     },
     {
       "id": "pain_today",
-      "rule": "Today's pain in this region 6 or more out of 10",
+      "rule": "Today's pain in this region 6 or more out of 10 (the day's one pain question, day_pain_ask: every area of today's check on one screen)",
       "action": "Region not measured today (pain_today)",
       "atOrAbove": 6,
       "outOf": 10
@@ -6086,13 +6086,13 @@
     },
     {
       "id": "weak_shoulder",
-      "rule": "pc_weak_shoulder yes (a painful or loose weaker shoulder)",
-      "action": "That shoulder not measured (R46)"
+      "rule": "A painful weaker shoulder: the day's pain question in the shoulder, at the pain_today cut (pc_weak_shoulder is no longer asked in the focus check, D-032)",
+      "action": "That shoulder not measured today (pain_today)"
     },
     {
       "id": "sci_t6",
       "rule": "SCI at T6 or above",
-      "action": "warn_sci_t6 before every test; AD signs in the stop list (R46)"
+      "action": "warn_sci_t6 once, on the intro's safety card (no longer before every test, D-032); AD signs in the stop list; the emergency screen carries the dysreflexia screen (R46)"
     },
     {
       "id": "limb_loss",
@@ -6107,7 +6107,7 @@
     {
       "id": "seated_side_lean_gate",
       "rule": "Seated side bend (trunk_lateral_flexion, seated_armrests)",
-      "action": "The approved v1.1 side lean gate word for word: pc_trunk_armrests by position (armrests_needed); helper for SCI, stroke, CP, Parkinson's and MS (helper_needed); excluded with pc_stroke_push yes (pusher), a chest strap or lateral trunk supports, pc_sit_unsupported no or not sure and pc_fall_sitting yes (booth only), back pain 6 or more, pc_pressure_sore yes. Never beyond the last best side lean",
+      "action": "The v1.1 side lean gate's helper rule: helper for SCI, stroke, CP, Parkinson's and MS (helper_needed), answered by the day's one helper question (day_helper_ask); the chair with armrests is the setup's instruction (seated_armrests); back pain 6 or more (the day's pain question). The day items pc_trunk_armrests, pc_stroke_push, pc_sit_unsupported, pc_fall_sitting and pc_pressure_sore are not asked in the focus check (D-032). Never beyond the last best side lean",
       "backPainAtOrAbove": 6
     },
     {
@@ -6128,7 +6128,7 @@
     {
       "id": "limb_loss_standing",
       "rule": "Lower limb loss",
-      "action": "Standing tests only with the prosthesis on, otherwise standing_not_allowed"
+      "action": "Standing tests only with the prosthesis on (the day's question day_prosthesis_ask), otherwise standing_not_allowed"
     }
   ],
   "reasonIds": {
@@ -6140,12 +6140,12 @@
     "surgery_not_cleared": "Surgery in the last 3 months without clearance for active movement",
     "surgery_precaution": "A movement the surgical team said to avoid",
     "spine_surgery": "Neck or back surgery in the last 3 months",
-    "red_flag": "A red flag in the region; seek care screen",
+    "red_flag": "A red flag in the region; seek care screen (not asked since D-032: the day's worry question skips the whole check)",
     "osteoporosis": "Bending forward with osteoporosis or a spine fracture",
     "neck_caution": "Neck instability or dizziness with head movement",
     "standing_not_allowed": "Standing movement not allowed by mobility or restrictions, or no one beside with balance_support",
     "no_overhead": "Restriction no_overhead (arm raises)",
-    "weak_shoulder": "pc_weak_shoulder yes",
+    "weak_shoulder": "pc_weak_shoulder yes (not asked since D-032: a painful shoulder is pain_today)",
     "limb_absent": "The joint is absent (limb loss): not applicable",
     "segment_unreliable": "A landmark of the angle lies on an absent part while the joint itself is absent: not applicable (a present residual joint uses not_measured_camera instead)",
     "quality": "Quality gate failed after 2 extra attempts (v1.1)",
@@ -6422,6 +6422,46 @@
     "sit_unsupported_ask": {
       "ar": "هل تستطيع الجلوس نحو 30 ثانية دون أن تستند إلى ظهر الكرسي، ودون أن تمسك بشيء بيديك؟",
       "en": "Can you sit for about 30 seconds without leaning on the backrest and without holding on with your hands?"
+    },
+    "day_pain_ask": {
+      "ar": "هل تشعر اليوم بألم في أي من هذه المناطق؟ اختر كل منطقة تؤلمك، وقيّم ألمها من 0 إلى 10.",
+      "en": "Do you have pain today in any of these areas? Choose each area that hurts, and rate it from 0 to 10."
+    },
+    "day_pain_none": {
+      "ar": "لا ألم اليوم",
+      "en": "No pain today"
+    },
+    "day_worry_ask": {
+      "ar": "هل لديك اليوم شيء جديد أو مقلق، مثل ألم في الصدر، أو إغماء، أو مفصل ساخن ومتورم، أو ضعف أو خدر جديد؟",
+      "en": "Anything new or worrying today, such as chest pain, fainting, a hot swollen joint, or new weakness or numbness?"
+    },
+    "day_skip_title": {
+      "ar": "لنؤجل القياس اليوم",
+      "en": "Let’s skip the check today"
+    },
+    "day_skip_body": {
+      "ar": "إذا كان ما تشعر به جديدًا عليك، فتحدث مع طبيبك قبل قياسك القادم.",
+      "en": "If this is new for you, check with your doctor before your next check."
+    },
+    "day_skip_urgent": {
+      "ar": "الأمر عاجل الآن",
+      "en": "It’s urgent right now"
+    },
+    "day_prosthesis_ask": {
+      "ar": "هل تلبس طرفك الصناعي للساق الآن؟",
+      "en": "Are you wearing your leg prosthesis now?"
+    },
+    "day_unsteady_ask": {
+      "ar": "هل سقطت خلال السنة الماضية، أو تشعر بعدم الثبات أو تخشى السقوط عند الوقوف أو المشي؟",
+      "en": "In the past year, have you fallen, or do you feel unsteady or worry about falling when you stand or walk?"
+    },
+    "day_helper_ask": {
+      "ar": "هل معك أحد اليوم؟",
+      "en": "Is someone with you today?"
+    },
+    "day_helper_note": {
+      "ar": "شخص بالغ يبقى بجانبك وأنت تقف وتمشي.",
+      "en": "An adult who can stay beside you while you stand and walk."
     }
   },
   "cues": {

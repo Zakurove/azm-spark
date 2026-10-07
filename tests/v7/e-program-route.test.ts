@@ -14,7 +14,6 @@ import type { TargetReason } from "../../src/medical/target-types";
 import { PROGRAM_RULES_VERSION } from "../../src/medical/targets";
 import type { WeeklyItem, WeeklyPlan } from "../../src/medical/weekly";
 import { TARGETS_VERSION } from "../../src/movements/targets";
-import { fill } from "../precheck-fixtures";
 import { gaitBody, romBody } from "./a-focus-bodies";
 import {
   DAY,
@@ -73,8 +72,7 @@ async function started(cookie: string) {
     "/focus",
     {
       setting: "booth",
-      answers: fill(c.data.env),
-      today: { painByRegion: {}, redFlagRegions: [], walk10m: true },
+      today: { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: false, walk10m: true },
       device: { os: "iOS", browser: "Safari" },
       include: { rom: true, gait: true },
     },

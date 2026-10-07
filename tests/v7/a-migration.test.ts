@@ -116,7 +116,7 @@ const agentRow = (id: string, segment = "rom:seated:1", ref = "f1") =>
 
 describe("migration 005 (focus check tables)", () => {
   it("is registered as version 5, named v7, after 004", () => {
-    expect(migrations.map((m) => m.version)).toEqual([1, 2, 3, 4, 5]);
+    expect(migrations.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
     const m = migrations[4];
     expect(m).toMatchObject({ version: 5, name: "v7" });
     // New tables only: no existing table is altered, dropped or rewritten.
@@ -135,7 +135,9 @@ describe("migration 005 (focus check tables)", () => {
       before.filter((t) => t !== "schema_migrations"),
     );
     const text = schemaText(db);
-    const out = runMigrations(db, { dbPath: file });
+    // Migration 005 alone (006 has its own test, tests/v7/e-check-first.test.ts).
+    const upTo5 = migrations.filter((m) => m.version <= 5);
+    const out = runMigrations(db, { dbPath: file, migrations: upTo5 });
     expect(out.applied).toEqual([5]);
     expect(out.schema).toBe(5);
     expect(out.backup).not.toBeNull();
@@ -159,16 +161,25 @@ describe("migration 005 (focus check tables)", () => {
       expect((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n).toBe(0);
     // The upgraded file has the same schema text as a fresh one.
     const fresh = join(dir, "fresh.sqlite");
-    runMigrations(openDb(fresh), { dbPath: fresh });
+    runMigrations(openDb(fresh), { dbPath: fresh, migrations: upTo5 });
     expect(schemaText(openDb(fresh))).toEqual(schemaText(db));
   });
 
   it("is applied once through the runner", () => {
     const file = join(dir, "once.sqlite");
     const db = schema4(file);
-    expect(runMigrations(db, { dbPath: file }).applied).toEqual([5]);
-    expect(runMigrations(db, { dbPath: file })).toEqual({ applied: [], backup: null, schema: 5 });
-    expect(runMigrations(db, { dbPath: file })).toEqual({ applied: [], backup: null, schema: 5 });
+    const upTo5 = migrations.filter((m) => m.version <= 5);
+    expect(runMigrations(db, { dbPath: file, migrations: upTo5 }).applied).toEqual([5]);
+    expect(runMigrations(db, { dbPath: file, migrations: upTo5 })).toEqual({
+      applied: [],
+      backup: null,
+      schema: 5,
+    });
+    expect(runMigrations(db, { dbPath: file, migrations: upTo5 })).toEqual({
+      applied: [],
+      backup: null,
+      schema: 5,
+    });
     expect(db.prepare("SELECT version, name FROM schema_migrations WHERE version=5").all()).toEqual([
       { version: 5, name: "v7" },
     ]);

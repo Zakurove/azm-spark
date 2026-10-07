@@ -72,6 +72,13 @@ export interface FocusApi {
   profile(checkId: string | null): Promise<ApiResult<FocusProfile>>;
   /** The person's focus checks, newest first. */
   checks(): Promise<ApiResult<{ checks: FocusCheckSummary[] }>>;
+  /**
+   * D-032 item 3: the week built from the latest completed check (POST /api/program/targets), the
+   * program of a person whose program waited for the check.
+   */
+  programTargets(): Promise<ApiResult<unknown>>;
+  /** D-032 item 3: the history builds the program (POST /api/program/history). */
+  programHistory(): Promise<ApiResult<{ ok: true }>>;
 }
 
 export interface FocusApiOptions {
@@ -147,5 +154,7 @@ export function createFocusApi(opts: FocusApiOptions = {}): FocusApi {
         checkId === null ? "/focus/profile" : `/focus/profile?checkId=${encodeURIComponent(checkId)}`,
       ),
     checks: () => call("GET", "/focus"),
+    programTargets: () => call("POST", "/program/targets", {}),
+    programHistory: () => call("POST", "/program/history", {}),
   };
 }

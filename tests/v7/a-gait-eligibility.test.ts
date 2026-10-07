@@ -11,12 +11,12 @@ import {
   GAIT_PAD_PAIN_NOW_FROM,
   GAIT_PAIN_SKIP_AT,
   gaitPlanFor,
+  helperMattersForWalk,
   type GaitPlan,
 } from "../../src/medical/gait-eligibility";
 import type { Answers } from "../../src/medical/precheck";
 import { PAIN_STOP } from "../../src/medical/pain-rule";
 import { GAIT_DATA } from "../../src/movements/gait";
-import { CHECK_DATA } from "../../src/movements/assessments";
 import { entry, intake, today, type V7Intake } from "./a-fixtures";
 import type { FocusToday } from "../../src/medical/rom-protocol";
 
@@ -247,6 +247,31 @@ describe("gait-rules modeChoice", () => {
   });
 });
 
+describe("the walking pad at home (D-032 item 1)", () => {
+  it("offers the pad at home with its existing views once someone is with the person", () => {
+    const alone = plan(intake(), {}, calm, "home");
+    expect(alone).toMatchObject({ offered: true, padAllowed: false, modes: ["overground"] });
+    const helped = plan(intake(), { helperPresent: true }, calm, "home");
+    expect(helped).toMatchObject({ offered: true, padAllowed: true, modes: ["overground", "walking_pad"] });
+    expect(helped.views.walking_pad).toEqual(plan(intake(), {}, calm, "booth").views.walking_pad);
+  });
+
+  it("asks whether someone is there only when it changes the walk", () => {
+    // A calm walker: the pad needs someone there.
+    expect(helperMattersForWalk(intake(), today(), "home", calm)).toBe(true);
+    // A walker with an aid needs someone beside them (and never gets the pad).
+    expect(
+      helperMattersForWalk(intake({ walking: { status: "with_aid", aid: "cane" } }), today(), "home"),
+    ).toBe(true);
+    // No walk today, or the booth's staff: nothing to ask.
+    expect(helperMattersForWalk(intake({ walking: { status: "no" } }), today(), "home", calm)).toBe(false);
+    expect(helperMattersForWalk(intake(), today({ walk10m: false }), "home", calm)).toBe(false);
+    expect(helperMattersForWalk(intake(), today(), "booth", calm)).toBe(false);
+    // Overground alone, no helper needed and no pad (clearance not sure): nothing to ask.
+    expect(helperMattersForWalk(intake({ clearance: "unsure" }), today(), "home", calm)).toBe(false);
+  });
+});
+
 describe("views and the static stance", () => {
   it("overground toward and away, plus side passes; the pad's side views start with the affected side", () => {
     const left = plan(intake({ regions: [entry("knee", "left", ["pain"])] }));
@@ -301,14 +326,14 @@ describe("parity with the clinical text of eligibility", () => {
   it("the gate rows", () => {
     expect(gate.map((g) => g.item)).toEqual([
       "intake.walking",
-      "pc_walk_10m (new, asked at each gait test)",
+      "pc_walk_10m (asked on the day's one screen when a walk is planned)",
       "restriction no_weight_bearing or no_exercise",
       "lower limb loss",
-      "pc_surgery_recent with back, hip, knee, ankle or foot not cleared",
+      "recent surgery to the back, hip, knee, ankle or foot not cleared (the body map of the intake, surgery_not_cleared; pc_surgery_recent is no longer asked, D-032)",
       "clearance no or unsure",
     ]);
     expect(gate[1].rule).toContain("walk_needs_hands_on_help");
-    expect(gate[3].rule).toContain("pc_limb_leg_prosthesis yes");
+    expect(gate[3].rule).toContain("day_prosthesis_ask yes");
     expect(gate[5].rule).toContain("stroke or SCI: no gait test (reason clearance_needed)");
     expect(gate[5].rule).toContain("walking pad not offered");
   });
@@ -320,37 +345,58 @@ describe("parity with the clinical text of eligibility", () => {
     expect(
       row(`leg, hip or back pain ${GAIT_ANTALGIC_PAIN[0]} or ${GAIT_ANTALGIC_PAIN[1]} today`).action,
     ).toContain("only the antalgic label");
-    expect(row(`pc_pain_now ${GAIT_PAD_PAIN_NOW_FROM} to 8 elsewhere`).action).toContain("pad not offered");
-    expect(row("pc_pain_now >= 9").action).toContain("postpone");
-    // pc_pain_now 9 or more postpones through the v1 pre-check itself.
-    const v1 = CHECK_DATA.precheck.find((q) => q.id === "pc_pain_now")!;
-    expect(v1.actions.some((a) => a.do === "postpone" && a.if.gte === 9)).toBe(true);
+    expect(row(`pain ${GAIT_PAD_PAIN_NOW_FROM} to 8 today in an area that is not a leg`).action).toContain(
+      "pad not offered",
+    );
+    // D-032 item 2: anything new or worrying today skips the whole check (the v1 9 or more is not asked).
+    expect(row("day_worry_ask yes").action).toContain("skipped today");
   });
 
   it("the pain thresholds read the numbers copied next to the words (freeze step)", () => {
     expect(row("leg, hip or back pain 6 or more today").painAtOrAbove).toBe(GAIT_PAIN_SKIP_AT);
     expect(row("leg, hip or back pain 4 or 5 today").pain).toEqual([...GAIT_ANTALGIC_PAIN]);
     expect(GAIT_DATA.confidenceModel.painDayAntalgic).toEqual([...GAIT_ANTALGIC_PAIN]);
-    expect(row("pc_pain_now 6 to 8 elsewhere").painNow?.[0]).toBe(GAIT_PAD_PAIN_NOW_FROM);
-    expect(row("pc_pain_now >= 9").painNowAtOrAbove).toBe(9);
+    expect(row("pain 6 to 8 today in an area that is not a leg").painNow?.[0]).toBe(GAIT_PAD_PAIN_NOW_FROM);
     // The pad's pain limit is one below the skip.
     expect(GAIT_DATA.eligibility.modeChoice.padPainAtOrBelow).toBe(GAIT_PAIN_SKIP_AT - 1);
   });
 
   it("the helper rows: each one requires a helper and keeps the pad off", () => {
     for (const needle of [
-      "pc_steadi any yes",
-      "pc_walking_aid yes",
+      "day_unsteady_ask yes",
+      "an aid in the intake",
       "restriction balance_support",
-      "pc_pd_dizzy_standing yes",
       "pc_pd_freezing yes",
     ]) {
       const action = row(needle).action;
       expect(action, needle).toContain("helper required");
       expect(action, needle).toContain("pad not offered");
     }
-    expect(row("pc_arthritis_flare in hip, knee, ankle or foot").action).toContain("pad not offered");
-    expect(row("pc_helper").action).toContain("no -> skip with reason helper_needed");
-    expect(row("pc_helper").action).toContain("staff count as helper at the booth");
+    // Parkinson's dizziness on standing is not asked since D-032: no pad with Parkinson's.
+    expect(row("pc_pd_dizzy_standing").action).toContain("pad not offered");
+    expect(row("day_helper_ask").action).toContain("skipped (helper_needed)");
+    expect(row("day_helper_ask").action).toContain("staff count as helper at the booth");
+  });
+
+  it("the day's one screen's answers: unsteady and the pain in another area (D-032 item 2)", () => {
+    const steady = { ...calm };
+    for (const k of ["pc_steadi:fell", "pc_steadi:unsteady", "pc_steadi:worry"]) delete steady[k];
+    // unsteady no stands for the STEADI three answered no: the pad is possible.
+    expect(plan(intake(), { unsteady: false }, steady).padAllowed).toBe(true);
+    expect(plan(intake(), {}, steady).padAllowed).toBe(false);
+    // unsteady yes: someone beside the walker, and no pad.
+    expect(plan(intake(), { unsteady: true }, steady)).toMatchObject({
+      helperRequired: true,
+      padAllowed: false,
+    });
+    // The pain in an area that is not a leg, hip or back stands for pc_pain_now when it is not given.
+    const noPainNow = { ...steady };
+    delete noPainNow.pc_pain_now;
+    expect(plan(intake(), { unsteady: false, painByRegion: { shoulder: 6 } }, noPainNow).padAllowed).toBe(
+      false,
+    );
+    expect(plan(intake(), { unsteady: false, painByRegion: { shoulder: 5 } }, noPainNow).padAllowed).toBe(
+      true,
+    );
   });
 });

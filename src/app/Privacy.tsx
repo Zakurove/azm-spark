@@ -16,9 +16,9 @@ import { V7_UI } from "./v7flag";
  * v7 (D-024 item 5, A5-14 with A2-14): the focus check's purpose and what it keeps, beside the
  * movement check's lines. A v7 intake adds sex, height and the body map; the focus check keeps range
  * and walking results as numbers, one step as skeleton lines, and of the day's answers only those a
- * later step reads (D-026 items 7 and 9, keptDayAnswers): the pain per area and during the walk, the
- * helper, falls and the worry about falling, the Parkinson's medicine, the seated lean's answers and
- * the leg prosthesis. A default build shows neither line.
+ * later step reads (D-026 items 7 and 9; D-032 item 2, keptDay): the pain per area and during the
+ * walk, someone with the person, a fall or unsteadiness, and the leg prosthesis. A default build shows
+ * neither line.
  */
 const FOCUS_PURPOSES: I18nKey[] = V7_UI ? ["privacy.purposes.focus"] : [];
 const FOCUS_KEPT: I18nKey[] = V7_UI ? ["privacy.kept.focus"] : [];

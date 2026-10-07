@@ -83,6 +83,12 @@ const FindingsLink =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/FindingsLink")) : null;
 const ProgramLink =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/ProgramLink")) : null;
+/**
+ * D-032 item 3 (the tests come before the program): the one card Today and the Program tab show while
+ * the program waits for the movement check, VITE_V7=1 builds only and tested inline as above.
+ */
+const ProgramWaiting =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/ProgramWaiting")) : null;
 const checkApi = () => import("../features/assessment/api");
 /** Sends what a movement check left in its outbox (loads the flow's code first). */
 const flushPendingCheckCalls = (owner: string) =>
@@ -311,9 +317,15 @@ function Pages() {
   }, [page, editing, run]);
   const onWeekly = (w: WeeklyPlan) =>
     setAccount((a) => (a && a.plan ? { ...a, plan: { ...a.plan, weekly: w } } : a));
-  const onSaved = (s: { intake: Intake; plan: Plan }) => {
+  const onSaved = (s: { intake: Intake; plan: Plan; awaitingCheck?: boolean }) => {
     setAccount((a) => (a ? { ...a, ...s } : null));
     setEditing(false);
+    // D-032 item 3 (VITE_V7 builds): a program that waits for the movement check goes straight to it.
+    if (V7_UI && s.awaitingCheck === true && s.plan.status !== "review") {
+      history.replaceState({}, "", v7Url({ page: "focus" }));
+      setV7Page({ page: "focus" });
+      return;
+    }
     setPage("program");
     // S02: offered once after the intake, only while home checks are open and the plan is not in review.
     if (CHECK_UI && s.plan.status !== "review")
@@ -529,13 +541,23 @@ function Pages() {
             lang={lang}
             onLanguage={toggleLanguage}
             owner={account.user.id}
-            onExit={(to: FocusExit) =>
-              to === "findings"
-                ? go({ page: "findings", checkId: null })
-                : to === "health"
-                  ? go(null, "health", true)
-                  : go(null)
-            }
+            onboarding={V7_UI && account.awaitingCheck === true}
+            onExit={(to: FocusExit) => {
+              // D-032 item 3: after the build the program exists; the wait for the check has ended.
+              if (to === "program" || to === "program_tab")
+                setAccount((a) => (a ? { ...a, awaitingCheck: false } : a));
+              // Any other way out while the program waits (not now, or Back during the build) reads the
+              // wait again: the server ends it once a check has completed.
+              else if (account.awaitingCheck === true)
+                void api<AccountState>("/auth/me")
+                  .then((me) => setAccount((a) => (a ? { ...a, awaitingCheck: me.awaitingCheck } : a)))
+                  .catch(() => {});
+              if (to === "findings") go({ page: "findings", checkId: null });
+              else if (to === "health") go(null, "health", true);
+              else if (to === "program") go({ page: "program" });
+              else if (to === "program_tab") go(null, "program");
+              else go(null);
+            }}
           />
         </LazyPage>
       );
@@ -629,6 +651,8 @@ function Pages() {
     history.replaceState({}, "", v7Url(next));
     setV7Page(next);
   };
+  /** D-032 item 3 (VITE_V7 builds): the program waits for the movement check. */
+  const awaiting = !!ProgramWaiting && account.awaitingCheck === true;
   // v7 (contract 1.3, A5-12): the focus check's entry, after the movement check's slot.
   const focusEntry = FocusTodayEntry && h && p && (
     <LazyPart lang={lang}>
@@ -795,6 +819,8 @@ function Pages() {
                 initial={h}
                 onSaved={onSaved}
                 onCancel={h ? () => setEditing(false) : undefined}
+                // D-032 item 3: the movement check comes right after the form.
+                nextCheck={V7_UI && (!h || account.awaitingCheck === true)}
               />
             </LazyPart>
           ) : (
@@ -855,6 +881,11 @@ function Pages() {
                         {focusEntry}
                       </>
                     )
+                  ) : awaiting ? (
+                    // D-032 item 3: one clear card in place of the program until the movement check.
+                    <LazyPart lang={lang}>
+                      <ProgramWaiting lang={lang} onStart={() => openV7({ page: "focus" })} />
+                    </LazyPart>
                   ) : (
                     <>
                       {page === "program" && h.goal === "sport" && h.sport && (
@@ -952,6 +983,7 @@ function Pages() {
                             plan={p}
                             onOpenProgram={() => openV7({ page: "program" })}
                             onOpenFindings={() => openV7({ page: "findings", checkId: null })}
+                            onStartCheck={() => openV7({ page: "focus" })}
                           />
                         </LazyPart>
                       )}

@@ -10,9 +10,10 @@
  *     the phone's placement, confirm; 3 s standing, active; the laps, active); the static single leg
  *     stance when planned (its place, confirm; the hold on each leg, active); the side recording (its
  *     placement, confirm, or no room for it; 3 s standing; the passes);
- *   - walking pad: every pad safety step of gait-rules eligibility.padSafety as a confirm step (the
- *     floor, clear space and the stop control or safety key; the foot speed control off; the support
- *     away from the phone); then per planned view: the phone's placement (confirm), the person on the
+ *   - walking pad: the pad safety steps of gait-rules eligibility.padSafety as one checklist with one
+ *     Ready (D-032 item 2: the floor, clear space and the stop control or safety key; the foot speed
+ *     control off; the support away from the phone), a confirm step; then per planned view: the
+ *     phone's placement (confirm), the person on the
  *     stopped belt (confirm), 3 s standing (active), the belt up to the comfortable speed (confirm),
  *     the 2 minute warm up before the first view (timer), the recording (active); the pad stopped
  *     (confirm); the static stance when planned; the speed and the handrail hold (question).
@@ -129,9 +130,7 @@ export type GaitStepId =
   | "mode"
   | "gear"
   | "clear_path"
-  | "pad_floor"
-  | "pad_auto_off"
-  | "pad_support"
+  | "pad_check"
   | "place"
   | "pad_on"
   | "stand"
@@ -163,9 +162,7 @@ export const STEP_KIND: Record<GaitStepId, CoachStepKind> = {
   mode: "question",
   gear: "question",
   clear_path: "confirm",
-  pad_floor: "confirm",
-  pad_auto_off: "confirm",
-  pad_support: "confirm",
+  pad_check: "confirm",
   place: "confirm",
   pad_on: "confirm",
   stand: "active",
@@ -203,8 +200,7 @@ export const CAMERA_STEPS: ReadonlySet<GaitStepId> = new Set([
 const STEP_LINE: Partial<Record<GaitStepId, string>> = {
   intro: "gait_stop_any_time",
   clear_path: "gait_clear_path",
-  pad_floor: "gait_pad_key",
-  pad_auto_off: "gait_pad_auto_off",
+  pad_check: "gait_pad_key",
   pad_on: "gait_pad_start",
   stance: "gait_single_leg_static",
   retry: "gait_quality_retry",
@@ -419,7 +415,8 @@ export class GaitController implements CoachHost {
       out.push({ id: "saving" }, { id: "done" });
       return out;
     }
-    const out: GaitStep[] = [...head, { id: "pad_floor" }, { id: "pad_auto_off" }, { id: "pad_support" }];
+    // The pad safety steps as one checklist with one Ready (D-032 item 2).
+    const out: GaitStep[] = [...head, { id: "pad_check" }];
     // Per view: the phone placed while the belt is stopped, 3 s standing on the stopped belt (the view's
     // calibration), the belt up to the comfortable speed, the recording, the belt stopped again. The
     // person steps on once, before the first view, and warms up once (contract gap C4-3).

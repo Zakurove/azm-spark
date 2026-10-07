@@ -211,3 +211,23 @@
     transition: none;
   }
 }
+
+/* ——— the program waits for the movement check (D-032 item 3) ——— */
+.pv7-wait {
+  gap: 12px;
+  padding: 24px 24px 22px;
+}
+.pv7-wait-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: linear-gradient(140deg, #fbe7a4, #f2c443);
+  color: #6f540c;
+  box-shadow: 0 12px 26px -16px rgba(214, 160, 20, 0.85);
+}
+.pv7-wait h2 {
+  font-size: 1.3rem;
+  line-height: 1.5;
+}

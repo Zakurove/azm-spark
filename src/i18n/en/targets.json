@@ -30,6 +30,14 @@
     "findings": "My results",
     "buildTitle": "Let your program follow your results",
     "buildBody": "We choose exercises for your movement results, each with a clear reason.",
-    "build": "See your new program"
+    "build": "See your new program",
+    "historyTitle": "We built your program from your health history",
+    "historyBody": "Your movement check can refine it later.",
+    "historyStart": "Start the movement check"
+  },
+  "waiting": {
+    "title": "Your program is waiting for your movement check",
+    "body": "First we measure how your joints move and how you walk, then we build your program on it.",
+    "start": "Start"
   }
 }

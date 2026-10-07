@@ -36,6 +36,8 @@ const CHECK_TABLES = [
 ];
 /** Tables of 005_v7 (product v7 contract section 3). */
 const V7_TABLES = ["agent_sessions", "focus_checks", "gait_analyses", "rom_measurements"];
+/** D-032 item 3 (migration 006): the wait for the movement check. */
+const D032_TABLES = ["check_first"];
 const VERSIONS = migrations.map((m) => m.version);
 const LATEST = VERSIONS[VERSIONS.length - 1];
 /** A migration after every real one, for the tests that add their own. */
@@ -123,9 +125,9 @@ describe("runMigrations", () => {
     const file = join(dir, "fresh.sqlite");
     const out = runMigrations(openDb(file), { dbPath: file });
     expect(out).toEqual({ applied: VERSIONS, backup: null, schema: LATEST });
-    expect(VERSIONS).toEqual([1, 2, 3, 4, 5]);
+    expect(VERSIONS).toEqual([1, 2, 3, 4, 5, 6]);
     expect(tableNames(openDb(file))).toEqual(
-      [...TABLES, ...CHECK_TABLES, ...V7_TABLES, "schema_migrations"].sort(),
+      [...TABLES, ...CHECK_TABLES, ...V7_TABLES, ...D032_TABLES, "schema_migrations"].sort(),
     );
     expect(existsSync(join(dir, "backups"))).toBe(false);
   });
@@ -157,27 +159,27 @@ describe("runMigrations", () => {
   });
 
   it("brings a legacy database and a schema 1 database to the latest schema with every old row intact", () => {
-    // Straight from the Azm 5.0 file: 001 to 005 in one transaction, after one backup.
+    // Straight from the Azm 5.0 file: 001 to the latest in one transaction, after one backup.
     const legacy = legacyFile();
     const before = dump(openDb(legacy));
     const db = openDb(legacy);
     const out = runMigrations(db, { dbPath: legacy });
-    expect(out.applied).toEqual([1, 2, 3, 4, 5]);
-    expect(out.schema).toBe(5);
+    expect(out.applied).toEqual(VERSIONS);
+    expect(out.schema).toBe(LATEST);
     expect(dump(db)).toEqual(before);
-    for (const t of [...CHECK_TABLES, ...V7_TABLES])
+    for (const t of [...CHECK_TABLES, ...V7_TABLES, ...D032_TABLES])
       expect((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n).toBe(0);
 
-    // A database at schema 1 gets 002 to 005, after a pre-2 backup.
+    // A database at schema 1 gets 002 to the latest, after a pre-2 backup.
     const one = legacyFile("one.sqlite");
     const oneDb = openDb(one);
     runMigrations(oneDb, { dbPath: one, migrations: migrations.filter((m) => m.version === 1) });
     oneDb.prepare("INSERT INTO users VALUES(?,?,?,?,?)").run("u2", "second@example.test", "Second", "x:y", 2);
     const atOne = dump(oneDb);
     const up = runMigrations(oneDb, { dbPath: one });
-    expect(up.applied).toEqual([2, 3, 4, 5]);
-    expect(up.schema).toBe(5);
-    expect(logged(oneDb)).toEqual([1, 2, 3, 4, 5]);
+    expect(up.applied).toEqual(VERSIONS.slice(1));
+    expect(up.schema).toBe(LATEST);
+    expect(logged(oneDb)).toEqual(VERSIONS);
     expect(dump(oneDb)).toEqual(atOne);
     expect(basename(up.backup!)).toMatch(/-pre-2\.sqlite$/);
     expect(dump(openDb(up.backup!))).toEqual(atOne);
@@ -242,7 +244,7 @@ describe("runMigrations", () => {
         ('a3','u2','baseline','home','abandoned','{}','{}','[]','{}','{}',3,'postponed'),
         ('a4','u2','baseline','home','abandoned','{}','{}','[]','{}','{}',4,'stale');`);
     const out = runMigrations(db, { dbPath: file });
-    expect(out.applied).toEqual([3, 4, 5]);
+    expect(out.applied).toEqual([3, 4, 5, 6]);
     expect(basename(out.backup!)).toMatch(/-pre-3\.sqlite$/);
     expect(db.prepare("SELECT * FROM check_locks ORDER BY user_id").all()).toEqual([
       { user_id: "u1", until: 100, releasable_by_clearance: 1 },

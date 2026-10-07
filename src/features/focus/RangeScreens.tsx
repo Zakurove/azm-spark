@@ -27,8 +27,7 @@ import { Dial, scaleMax } from "./Dial";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Dots, Glass, Kicker, PainScale, Timer, Title } from "./parts";
 import type { RomController } from "./romController";
-import { QuestionText, sideRegion, WarningNote } from "./Screens";
-import type { ScreenId } from "../../movements/types";
+import { QuestionText, sideRegion } from "./Screens";
 import { Stage } from "./Stage";
 import type { RomSaved } from "./api";
 
@@ -41,15 +40,19 @@ const BLOCK_TITLE: Record<
   lying: "rom.block.lyingTitle",
 };
 
-/** A block's card (C-16 confirm): the position, the movements, the support, helper and neck lines. */
+/**
+ * A block's card (C-16 confirm): the position, the movements, the support, helper and neck lines. The
+ * v1 warnings no longer repeat here before every block (D-032 item 2): the intro says them once.
+ */
 export function BlockCard({
   lang,
   block,
   items,
   helper,
-  warnings = [],
   stage,
   waiting = false,
+  cameraError = false,
+  onNoCamera,
   onReady,
   onStop,
 }: {
@@ -57,11 +60,6 @@ export function BlockCard({
   block: RomBlock;
   items: RomProtocolItem[];
   helper: boolean;
-  /**
-   * The v1 warnings of this block (flow.ts partWarnings: warn_sci_t6 before every block, and
-   * warn_weak_shoulder before an arm's), on the card the person confirms before it starts (v1 S28).
-   */
-  warnings?: ScreenId[];
   /** The camera's preview (the probe runs while it shows). */
   stage: React.ReactNode;
   /**
@@ -69,6 +67,10 @@ export function BlockCard({
    * measures, never mid attempt): «جاهز» waits for it.
    */
   waiting?: boolean;
+  /** The camera cannot open (refused, none, busy): a calm line, and the way on without it. */
+  cameraError?: boolean;
+  /** D-032 item 3, a person whose program waits for the check: «لا أستطيع استخدام الكاميرا». */
+  onNoCamera?: () => void;
   onReady(): void;
   /** STOP while the camera runs (v1: on every camera, after and between state; D-016). */
   onStop?: () => void;
@@ -80,9 +82,6 @@ export function BlockCard({
       <Glass className="fx-card fx-block">
         <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
         <Title>{tV7(lang, BLOCK_TITLE[block])}</Title>
-        {warnings.map((id) => (
-          <WarningNote key={id} lang={lang} id={id} />
-        ))}
         <div className="fx-chips">
           {positions.map((p) => (
             <span key={p} className="fx-pill">
@@ -113,15 +112,29 @@ export function BlockCard({
             <CheckIcon name="camera" size={20} />
             <span>{tV7(lang, "rom.block.camera")}</span>
           </p>
-          {waiting && (
+          {waiting && !cameraError && (
             <p className="fx-meta" role="status" data-wait="camera">
               <span className="fx-spinner is-small" aria-hidden="true" />
               <span>{tV7(lang, "rom.block.cameraWait")}</span>
             </p>
           )}
+          {cameraError && (
+            <p className="fx-note" role="status" data-camera="error">
+              <CheckIcon name="camera" size={20} />
+              <span>{bidiText(lang, tV7(lang, "rom.block.cameraError"))}</span>
+            </p>
+          )}
         </Glass>
         <Actions
           items={[
+            cameraError && onNoCamera
+              ? {
+                  label: tV7(lang, "rom.onboarding.noCamera"),
+                  onClick: onNoCamera,
+                  kind: "secondary",
+                  name: "no_camera",
+                }
+              : null,
             {
               label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
               onClick: onReady,
@@ -159,7 +172,11 @@ function Note({ lang, icon, text }: { lang: Lang; icon: string; text: string }) 
   );
 }
 
-/** A movement's setup card (C-16 confirm, rom-protocol 1.1 step 1): the picture, the instructions. */
+/**
+ * A movement's setup card (C-16 confirm, rom-protocol 1.1 step 1): the picture, the instructions, and
+ * who stands beside. The safety lines the intro and the block's card already say are not repeated on
+ * every movement (D-032 item 2).
+ */
 export function SetupCard({
   lang,
   item,
@@ -200,10 +217,6 @@ export function SetupCard({
             ))}
           </ol>
           {item.helperRequired && <Note lang={lang} icon="people" text={copyText("helper_line", lang)} />}
-          {item.region === "neck" && (
-            <Note lang={lang} icon="alert-triangle" text={copyText("neck_stop_line", lang)} />
-          )}
-          <Body lang={lang} text={copyText("safety_always", lang)} muted />
         </Glass>
         <Actions
           items={[{ label: tV7(lang, "rom.setup.ready"), onClick: onReady, name: "ready", icon: "play" }]}

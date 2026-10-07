@@ -1,34 +1,33 @@
 /**
- * The screens of the focus check around the range blocks (product v7 contract B3): loading, closed,
- * the consent, the intro, the v1 pre-check questions and the day questions (rf_region), the start,
- * the safety screens (an emergency or a postpone answer, the seek care screen of a red flag region,
- * a stop list answer with a screen), the stop list, the walk's slot, saving and the end.
+ * The screens of the focus check around the range blocks (product v7 contract B3; D-032): loading,
+ * closed, the consent, the intro with the safety lines once, the day's one screen and its calm skip
+ * screen, the start, the safety screens (an emergency, a stop list answer with a screen), the stop
+ * list, the walk's slot, saving and the end.
  *
- * The clinical words are the data's: the v1 pre-check (questionView), the v1 safety screens
- * (screenText), the stop list (check-v1 stopRouting), the range copy (rom-v7.json), rf_region
- * (rom.rf_region_ask). The interface words are the rom namespace's (src/i18n/{ar,en}/rom.json) and
- * the v1 check's common words.
+ * The clinical words are the data's: the day's one screen (rom-v7.json copy day_*, the walk's day items
+ * of gait-v7.json), the v1 safety screens (screenText), the stop list (check-v1 stopRouting), the range
+ * copy (rom-v7.json). The interface words are the rom namespace's (src/i18n/{ar,en}/rom.json) and the
+ * v1 check's common words.
  */
 import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import { countPhrase, interpolate, localizeDigits, t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
-import type { AnswerValue, PrecheckEnv, Answers } from "../../medical/precheck";
+import type { PrecheckEnv } from "../../medical/precheck";
 import { stopOptions } from "../../medical/precheck";
-import { REGION_IDS, type BodyMapKey, type RegionId } from "../../medical/body-map";
-import type { RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
+import type { BodyMapKey, RegionId } from "../../medical/body-map";
+import type { DayItem } from "../../medical/focus-precheck";
+import type { FocusToday, RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
 import type { BodyMapColour } from "../../medical/rom-types";
-import type { RomSide } from "../../movements/rom/types";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import { CHECK_DATA, emergencyCallButton, screenText, stopFollowUp } from "../../movements/assessments";
 import { GAIT_DATA } from "../../movements/gait";
 import { ROM_DATA } from "../../movements/rom";
 import type { ScreenId, StopOptionId } from "../../movements/types";
 import type { CoachStopReason } from "../../coach/types";
-import { fillTokens, pdTimingToken, questionView, splitSentences } from "../assessment/flow/copy";
-import { AreaPicker, TopDownDrawing } from "../assessment/flow/parts";
-import { MultiAnswerList } from "../assessment/shared/answers";
+import { splitSentences } from "../assessment/flow/copy";
+import { AreaPicker } from "../assessment/flow/parts";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
 import { useArmedPress } from "../assessment/safety/hooks";
@@ -40,7 +39,7 @@ import type { LockView } from "../assessment/api";
 import { BodyMap } from "../body-map/BodyMap";
 import { copyText, movementName, regionName } from "./copy";
 import { sideRegion } from "./names";
-import { checkParts, type ClosedWhy, type HelperBriefScreen, type TodayQuestion } from "./flow";
+import { checkParts, type ClosedWhy } from "./flow";
 import { MovementPicture } from "./MovementPicture";
 import {
   Actions,
@@ -248,32 +247,9 @@ export function minutesOf(items: readonly RomProtocolItem[]): number {
   return Math.max(1, Math.round(items.length * ROM_DATA.sessionOrder.minutesPerMovement));
 }
 
-/** A joint of the day: a region and a side, with its movements in protocol order. */
-export interface JointGroup {
-  key: string;
-  region: RegionId;
-  side: RomSide;
-  items: RomProtocolItem[];
-}
-
-/** The joints of the day's movements in body order (the region list, the right side first). */
-export function jointsOf(items: readonly RomProtocolItem[]): JointGroup[] {
-  const groups = new Map<string, JointGroup>();
-  for (const i of items) {
-    const key = `${i.region}:${i.side}`;
-    const g = groups.get(key) ?? { key, region: i.region, side: i.side, items: [] };
-    g.items.push(i);
-    groups.set(key, g);
-  }
-  const rank = { right: 0, left: 1, none: 2 } as const;
-  return [...groups.values()].sort(
-    (a, b) => REGION_IDS.indexOf(a.region) - REGION_IDS.indexOf(b.region) || rank[a.side] - rank[b.side],
-  );
-}
-
-/** The body map cell of a joint (the neck and the back have one, axial). */
-export const cellOf = (g: Pick<JointGroup, "region" | "side">): BodyMapKey =>
-  (g.side === "none" ? `${g.region}:axial` : `${g.region}:${g.side}`) as BodyMapKey;
+/** The joints of the day's movements (joints.ts), as the intro lists them. */
+export { cellOf, jointsOf, type JointGroup } from "./joints";
+import { cellOf, jointsOf } from "./joints";
 
 /**
  * Which joints we will measure, and why (plan 1.7): the affected joints of the history, each with its
@@ -285,6 +261,8 @@ export function IntroScreen({
   protocol,
   gait,
   setting = "booth",
+  sciWarning = false,
+  onNoCamera,
   onStart,
 }: {
   lang: Lang;
@@ -292,6 +270,13 @@ export function IntroScreen({
   gait: GaitPlan | null;
   /** D-017 item 1: no time is mentioned anywhere on the booth path; the minutes show at home only. */
   setting?: "home" | "booth";
+  /** v1's warn_sci_t6 once, on the safety card (D-032 item 2: no longer before every part). */
+  sciWarning?: boolean;
+  /**
+   * D-032 item 3, a person whose program waits for the check: «لا أستطيع استخدام الكاميرا», which
+   * builds the program from the history.
+   */
+  onNoCamera?: () => void;
   onStart(): void;
 }) {
   const runs = protocol.items.filter((i) => !i.skipped);
@@ -364,9 +349,20 @@ export function IntroScreen({
         <h2 className="fx-h2">{tV7(lang, "rom.intro.safety")}</h2>
         <Body lang={lang} text={copyText("safety_always", lang)} />
         <Body lang={lang} text={copyText("stop_line", lang)} />
+        {sciWarning && <WarningNote lang={lang} id="warn_sci_t6" />}
       </Glass>
       <Actions
-        items={[{ label: tV7(lang, "rom.intro.start"), onClick: onStart, name: "start", icon: "play" }]}
+        items={[
+          onNoCamera
+            ? {
+                label: tV7(lang, "rom.onboarding.noCamera"),
+                onClick: onNoCamera,
+                kind: "quiet",
+                name: "no_camera",
+              }
+            : null,
+          { label: tV7(lang, "rom.intro.start"), onClick: onStart, name: "start", icon: "play" },
+        ]}
       />
     </div>
   );
@@ -375,223 +371,238 @@ export function IntroScreen({
 /** «الركبة اليمنى» · "Right knee": the region and the side, as the person sees them. */
 export { sideRegion } from "./names";
 
-/* ---------------------------------------------------------- the questions */
+/* ------------------------------------------------- the day's one screen (D-032 item 2) */
 
-/** One v1 pre-check question (C-2): the data's text in the form questionForm chooses. */
-export function QuestionScreen({
+/** The yes or no question of a day item, in the data's words. */
+function dayQuestion(item: Exclude<DayItem, "pain">, lang: Lang): string {
+  switch (item) {
+    case "worry":
+      return copyText("day_worry_ask", lang);
+    case "prosthesis":
+      return copyText("day_prosthesis_ask", lang);
+    case "walk10m":
+      return GAIT_DATA.copy.setup.pc_walk_10m[lang];
+    case "pdFreezing":
+      return GAIT_DATA.copy.setup.pc_pd_freezing[lang];
+    case "unsteady":
+      return copyText("day_unsteady_ask", lang);
+    case "helper":
+      return copyText("day_helper_ask", lang);
+  }
+}
+
+/** The yes or no answers of the day's one screen. */
+type DayAnswers = Pick<
+  FocusToday,
+  "worrying" | "prosthesisOn" | "walk10m" | "pdFreezing" | "unsteady" | "helperPresent"
+>;
+
+/** The FocusToday field of a yes or no day item. */
+const DAY_FIELD: Record<Exclude<DayItem, "pain">, keyof DayAnswers> = {
+  worry: "worrying",
+  prosthesis: "prosthesisOn",
+  walk10m: "walk10m",
+  pdFreezing: "pdFreezing",
+  unsteady: "unsteady",
+  helper: "helperPresent",
+};
+
+/**
+ * The day's one screen (D-032 item 2): today's pain in the areas of the check (each area that hurts
+ * with its 0 to 10, or no pain today), the one worry question, and only the walk's questions the walk
+ * plan needs, someone with the person asked once. The items follow the answers (itemsFor, the pure
+ * dayItems); after a yes to the worry question nothing else is asked and the button goes on to the
+ * calm skip screen. One button: the check starts once every shown item is answered.
+ */
+export function DayScreen({
   lang,
-  env,
-  answers,
-  id,
+  areas,
+  itemsFor,
+  onDone,
+}: {
+  lang: Lang;
+  /** The areas of today's check the pain question covers (dayAreas). */
+  areas: readonly RegionId[];
+  /** The items of the screen for the answers so far. */
+  itemsFor(today: FocusToday): DayItem[];
+  onDone(today: FocusToday): void;
+}) {
+  const [answers, setAnswers] = useState<DayAnswers>({});
+  const [pain, setPain] = useState<Record<string, number | null>>({});
+  const [none, setNone] = useState(false);
+  const [tried, setTried] = useState(false);
+  const titleId = useId();
+  const heading = useFocusOnMount<HTMLHeadingElement>();
+  const painByRegion = Object.fromEntries(
+    Object.entries(pain).filter((e): e is [string, number] => typeof e[1] === "number"),
+  ) as FocusToday["painByRegion"];
+  const today: FocusToday = { painByRegion, redFlagRegions: [], ...answers };
+  const items = itemsFor(today);
+  const painDone = none || (Object.keys(pain).length > 0 && Object.values(pain).every((v) => v !== null));
+  const worry = answers.worrying === true;
+  // After a yes to the worry question the check is skipped: the pain needs no answer then.
+  const answered = (item: DayItem) =>
+    item === "pain" ? painDone || worry : typeof answers[DAY_FIELD[item]] === "boolean";
+  const complete = items.every(answered);
+  const missing = (item: DayItem) => tried && !answered(item);
+  const finish = () => {
+    if (!complete) return setTried(true);
+    // Only the answers of the items shown travel: an answer a later yes hid is dropped.
+    const shown = new Set(items);
+    const out: FocusToday = { painByRegion: none ? {} : painByRegion, redFlagRegions: [] };
+    for (const item of items) if (item !== "pain") out[DAY_FIELD[item]] = answers[DAY_FIELD[item]];
+    if (!shown.has("pain")) out.painByRegion = {};
+    onDone(out);
+  };
+  return (
+    <div className="fx-day">
+      <Glass className="fx-card fx-question fx-day-card">
+        <Kicker>{tV7(lang, "rom.precheck.kicker")}</Kicker>
+        <h1 ref={heading} id={titleId} className="fx-title" tabIndex={-1}>
+          {tV7(lang, "rom.day.title")}
+        </h1>
+        {items.map((item) => {
+          const id = `${titleId}-${item}`;
+          if (item === "pain")
+            return (
+              <section
+                key={item}
+                className={`fx-day-item is-pain${missing(item) ? " is-missing" : ""}`}
+                data-day={item}
+                aria-labelledby={id}
+              >
+                <QuestionText
+                  lang={lang}
+                  id={id}
+                  text={copyText("day_pain_ask", lang)}
+                  as="h2"
+                  focus={false}
+                />
+                <div className="fx-v1">
+                  <AreaPicker
+                    labelledBy={id}
+                    areas={areas.map((r) => ({ id: r, label: regionName(r, lang) }))}
+                    value={none ? {} : pain}
+                    scale
+                    noneLabel={copyText("day_pain_none", lang)}
+                    none={none}
+                    onNone={() => {
+                      setNone(true);
+                      setPain({});
+                    }}
+                    onChange={(v) => {
+                      setNone(false);
+                      setPain(v);
+                    }}
+                  />
+                </div>
+              </section>
+            );
+          const field = DAY_FIELD[item];
+          const value = answers[field];
+          return (
+            <section
+              key={item}
+              className={`fx-day-item${missing(item) ? " is-missing" : ""}`}
+              data-day={item}
+              aria-labelledby={id}
+            >
+              <QuestionText lang={lang} id={id} text={dayQuestion(item, lang)} as="h2" focus={false} />
+              {item === "helper" && (
+                <p className="fx-q-more">{bidiText(lang, copyText("day_helper_note", lang))}</p>
+              )}
+              <Choices
+                lang={lang}
+                labelledBy={id}
+                layout="row"
+                chosen={value === undefined ? null : value ? "yes" : "no"}
+                choices={[
+                  { value: "yes", label: copyText("ans_yes", lang) },
+                  { value: "no", label: copyText("ans_no", lang) },
+                ]}
+                onPick={(v) => setAnswers((a) => ({ ...a, [field]: v === "yes" }))}
+              />
+            </section>
+          );
+        })}
+        {tried && !complete && (
+          <p className="fx-hint" role="alert">
+            {tV7(lang, "rom.day.missing")}
+          </p>
+        )}
+      </Glass>
+      <Actions
+        items={[
+          worry
+            ? { label: t(lang, "assessment.common.continue"), onClick: finish, name: "continue" }
+            : { label: tV7(lang, "rom.day.start"), onClick: finish, name: "start", icon: "play" },
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * A yes to the worry question (D-032 item 2): one calm screen. The check is skipped today and the
+ * person is told to check with their doctor if it is new; «الأمر عاجل الآن» opens the emergency screen,
+ * the only screen with the ambulance number.
+ */
+export function SkipTodayScreen({
+  lang,
+  onToday,
+  onUrgent,
+}: {
+  lang: Lang;
+  onToday(): void;
+  onUrgent(): void;
+}) {
+  const heading = useFocusOnMount<HTMLHeadingElement>();
+  return (
+    <Glass className="fx-card fx-skip">
+      <span className="fx-badge is-violet" aria-hidden="true">
+        <CheckIcon name="calendar" size={28} />
+      </span>
+      <h1 ref={heading} className="fx-title" tabIndex={-1}>
+        {bidiText(lang, copyText("day_skip_title", lang))}
+      </h1>
+      <Body lang={lang} text={copyText("day_skip_body", lang)} />
+      <div className="fx-actions is-column">
+        <button type="button" className="fx-button is-primary" onClick={onToday} data-action="today">
+          <span>{t(lang, "assessment.common.backToToday")}</span>
+        </button>
+        <button type="button" className="fx-link-button" onClick={onUrgent} data-action="urgent">
+          <CheckIcon name="alert-triangle" size={20} />
+          <span>{bidiText(lang, copyText("day_skip_urgent", lang))}</span>
+        </button>
+      </div>
+    </Glass>
+  );
+}
+
+/**
+ * The walk's pain question (walk_pain, after a pain stop in a region the walk loads): the region, the
+ * pain now, 0 to 10 (rom-protocol 6 pain_during: ask before any other movement of the same joint).
+ */
+export function WalkPainScreen({
+  lang,
+  region,
   onAnswer,
 }: {
   lang: Lang;
-  env: PrecheckEnv;
-  answers: Answers;
-  id: string;
-  onAnswer(value: AnswerValue): void;
+  region: RegionId;
+  onAnswer(level: number): void;
 }) {
-  const view = questionView(env, answers, id, lang);
   const title = useId();
-  // Each question takes focus when it opens (v1 CheckShell: focus to the h1 on every screen change).
-  const heading = useFocusOnMount<HTMLHeadingElement>();
-  let control: ReactNode;
-  if (view.kind === "scale")
-    control = (
+  return (
+    <Glass className="fx-card fx-question" data-today="pain">
+      <Kicker>{regionName(region, lang)}</Kicker>
+      <QuestionText lang={lang} id={title} text={copyText("pain_ask", lang)} />
       <PainScale
         lang={lang}
         labelledBy={title}
         nextLabel={t(lang, "assessment.common.next")}
         onDone={onAnswer}
       />
-    );
-  else if (view.kind === "areaChips")
-    control = <AreaChips lang={lang} labelledBy={title} areas={view.areas ?? []} onDone={onAnswer} />;
-  else if (view.kind === "areaScale")
-    control = <AreaScale lang={lang} labelledBy={title} areas={view.areas ?? []} onDone={onAnswer} />;
-  else
-    control = (
-      <Choices
-        lang={lang}
-        labelledBy={title}
-        choices={view.options.map((o) => ({ value: o.value, label: o.label }))}
-        onPick={onAnswer}
-      />
-    );
-  return (
-    <Glass className="fx-card fx-question" data-question={id}>
-      <Kicker>{view.groupHeading ?? tV7(lang, "rom.precheck.kicker")}</Kicker>
-      <h1
-        ref={heading}
-        id={title}
-        className={`fx-title is-question${view.question.length > 110 ? " is-long" : ""}`}
-        tabIndex={-1}
-      >
-        {bidiText(lang, view.question)}
-      </h1>
-      {view.list && (
-        <div className="fx-list">
-          {view.listHeading && <p className="fx-list-heading">{bidiText(lang, view.listHeading)}</p>}
-          <ul>
-            {view.list.map((l, i) => (
-              <li key={i}>{bidiText(lang, l)}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {control}
-    </Glass>
-  );
-}
-
-function AreaChips({
-  lang,
-  labelledBy,
-  areas,
-  onDone,
-}: {
-  lang: Lang;
-  labelledBy: string;
-  areas: { id: string; label: string }[];
-  onDone(v: string[]): void;
-}) {
-  const [chosen, setChosen] = useState<string[]>([]);
-  const [tried, setTried] = useState(false);
-  return (
-    <div className="fx-v1">
-      {tried && !chosen.length && <p className="fx-hint">{t(lang, "assessment.precheck.areas.pickOne")}</p>}
-      <MultiAnswerList
-        labelledBy={labelledBy}
-        options={areas.map((a) => ({ value: a.id, label: a.label }))}
-        value={chosen}
-        onChange={setChosen}
-      />
-      <Actions
-        items={[
-          {
-            label: t(lang, "assessment.common.next"),
-            name: "next",
-            onClick: () => (chosen.length ? onDone(chosen) : setTried(true)),
-          },
-        ]}
-      />
-    </div>
-  );
-}
-
-function AreaScale({
-  lang,
-  labelledBy,
-  areas,
-  onDone,
-}: {
-  lang: Lang;
-  labelledBy: string;
-  areas: { id: string; label: string }[];
-  onDone(v: Record<string, number>): void;
-}) {
-  const [value, setValue] = useState<Record<string, number | null>>({});
-  const [none, setNone] = useState(false);
-  const [tried, setTried] = useState(false);
-  const complete = none || (Object.keys(value).length > 0 && Object.values(value).every((v) => v !== null));
-  return (
-    <div className="fx-v1">
-      <p className="fx-meta">{t(lang, "assessment.precheck.areas.hint")}</p>
-      {tried && !complete && <p className="fx-hint">{t(lang, "assessment.common.chooseToContinue")}</p>}
-      <AreaPicker
-        labelledBy={labelledBy}
-        areas={areas}
-        value={none ? {} : value}
-        scale
-        noneLabel={t(lang, "assessment.precheck.areas.none")}
-        none={none}
-        onNone={() => {
-          setNone(true);
-          setValue({});
-        }}
-        onChange={(v) => {
-          setNone(false);
-          setValue(v);
-        }}
-      />
-      <Actions
-        items={[
-          {
-            label: t(lang, "assessment.common.next"),
-            name: "next",
-            onClick: () =>
-              complete ? onDone(none ? {} : (value as Record<string, number>)) : setTried(true),
-          },
-        ]}
-      />
-    </div>
-  );
-}
-
-/** A day question (2.5): the pain now of a region, rf_region, the transfer, the walk's two items. */
-export function TodayScreen({
-  lang,
-  q,
-  onAnswer,
-}: {
-  lang: Lang;
-  q: TodayQuestion;
-  onAnswer(v: number | boolean): void;
-}) {
-  const title = useId();
-  const yesNo = (
-    <Choices
-      lang={lang}
-      labelledBy={title}
-      layout="row"
-      choices={[
-        { value: "yes", label: copyText("ans_yes", lang) },
-        { value: "no", label: copyText("ans_no", lang) },
-      ]}
-      onPick={(v) => onAnswer(v === "yes")}
-    />
-  );
-  let kicker = "";
-  let question = "";
-  let control: ReactNode = yesNo;
-  switch (q.kind) {
-    case "pain":
-      kicker = regionName(q.region, lang);
-      question = copyText("pain_ask", lang);
-      control = (
-        <PainScale
-          lang={lang}
-          labelledBy={title}
-          nextLabel={t(lang, "assessment.common.next")}
-          onDone={onAnswer}
-        />
-      );
-      break;
-    case "rf": {
-      // The question names the region in its lead («في الركبة اليوم:»): no kicker.
-      const leg = ["hip", "knee", "ankle_foot"].includes(q.region);
-      question = tV7(lang, leg ? "rom.rf_region_ask_leg" : "rom.rf_region_ask", {
-        region: regionName(q.region, lang, true),
-      });
-      break;
-    }
-    case "transfer":
-      question = copyText("transfer_chair_ask", lang);
-      break;
-    case "walk10m":
-      kicker = tV7(lang, "rom.gait.title");
-      question = GAIT_DATA.copy.setup.pc_walk_10m[lang];
-      break;
-    case "pdFreezing":
-      kicker = tV7(lang, "rom.gait.title");
-      question = GAIT_DATA.copy.setup.pc_pd_freezing[lang];
-      break;
-  }
-  return (
-    <Glass className="fx-card fx-question" data-today={q.kind}>
-      {kicker && <Kicker>{kicker}</Kicker>}
-      <QuestionText lang={lang} id={title} text={question} lead={q.kind === "rf"} />
-      {control}
     </Glass>
   );
 }
@@ -606,16 +617,19 @@ export function QuestionText({
   text,
   lead = false,
   as = "h1",
+  focus = true,
 }: {
   lang: Lang;
   id: string;
   text: string;
   lead?: boolean;
   as?: "h1" | "h2";
+  /** Takes focus when it opens (off for the questions of a screen with its own heading). */
+  focus?: boolean;
 }) {
   const H = as;
   // The question takes focus when it opens: a new screen's, or a question opening over the measurement.
-  const ref = useFocusOnMount<HTMLHeadingElement>();
+  const ref = useFocusOnMount<HTMLHeadingElement>(focus);
   const colon = lead ? text.indexOf(":") : -1;
   if (colon > 0) {
     const place = text.slice(0, colon + 1);
@@ -678,16 +692,7 @@ export function StartingScreen({
   );
 }
 
-/* ----------------------------------------------- the v1 warnings and briefings */
-
-/** The display text of a v1 warning (v1 Plan.tsx warningText), or null when it cannot be shown whole. */
-export function warningText(id: ScreenId, lang: Lang, pdBucket: string | null): string | null {
-  const text = screenText(id, lang);
-  if (id !== "warn_pd_timing") return text;
-  // {x} is the last check's dose bucket; the card shows only when the bucket is known (v1).
-  const x = pdTimingToken(pdBucket, lang);
-  return x ? fillTokens(text, { x }) : null;
-}
+/* ------------------------------------------------------------- a v1 warning */
 
 /** A v1 warning as a note card: a caution (warn_pain_high, warn_weak_shoulder) or good to know. */
 export function WarningNote({ lang, id, text }: { lang: Lang; id: ScreenId; text?: string }) {
@@ -701,112 +706,6 @@ export function WarningNote({ lang, id, text }: { lang: Lang; id: ScreenId; text
       <CheckIcon name={warn ? "alert-triangle" : "info"} size={22} />
       <p>{bidiText(lang, localizeDigits(lang, text ?? screenText(id, lang)))}</p>
     </section>
-  );
-}
-
-/**
- * The warnings of the whole check, once before the first part (v1 S25): the data's text of each
- * warning the start returned, except those shown with their part (warn_sci_t6 and
- * warn_weak_shoulder on the part's card) and the helper briefings (their own step).
- */
-export function WarningsScreen({
-  lang,
-  warnings,
-  pdBucket,
-  skippedForSore,
-  onContinue,
-}: {
-  lang: Lang;
-  warnings: ScreenId[];
-  pdBucket: string | null;
-  /** The movements a pressure sore leaves out today (scr_note_care names them, as v1 does). */
-  skippedForSore: RomProtocolItem[];
-  onContinue(): void;
-}) {
-  const cards = warnings
-    .map((id) => ({ id, text: warningText(id, lang, pdBucket) }))
-    .filter((c): c is { id: ScreenId; text: string } => c.text !== null);
-  return (
-    <Glass className="fx-card fx-warnings">
-      <span className="fx-badge is-gold" aria-hidden="true">
-        <CheckIcon name="info" size={28} />
-      </span>
-      <Title>{t(lang, "assessment.warnings.title")}</Title>
-      {cards.map((c) => (
-        <div key={c.id} className="fx-warning-group">
-          <WarningNote lang={lang} id={c.id} text={c.text} />
-          {c.id === "scr_note_care" &&
-            skippedForSore.map((i) => (
-              <p key={`${i.movementId}:${i.side}`} className="fx-body is-strong">
-                {bidiText(
-                  lang,
-                  t(lang, "assessment.warnings.skippedTest", {
-                    test: `${movementName(i.movementId, lang)} · ${sideRegion(i, lang)}`,
-                  }),
-                )}
-              </p>
-            ))}
-        </div>
-      ))}
-      <Actions
-        items={[{ label: t(lang, "assessment.warnings.continue"), onClick: onContinue, name: "continue" }]}
-      />
-    </Glass>
-  );
-}
-
-/**
- * The v1 helper briefing (S26, Q11) before a part that needs a helper: the data's briefing sentence
- * by sentence, the top down picture with the helper's place on the weaker side, and the confirm tap
- * («المساعد بجانبي وقرأ التعليمات»); the part starts only after it (v1.1).
- */
-export function HelperBriefScreen({
-  lang,
-  screen,
-  weaker,
-  onReady,
-}: {
-  lang: Lang;
-  screen: HelperBriefScreen;
-  /** The person's weaker side (the helper stands there), or null. */
-  weaker: "left" | "right" | null;
-  onReady(): void;
-}) {
-  const brief = CHECK_DATA.helperBriefing;
-  const sideLine = weaker
-    ? t(lang, "assessment.helper.weakerSide", {
-        side: t(lang, weaker === "left" ? "assessment.helper.sideLeft" : "assessment.helper.sideRight"),
-      })
-    : t(lang, "assessment.helper.noWeakerSide");
-  const stand = screen === "scr_helper_brief_stand";
-  return (
-    <Glass className="fx-card fx-brief" data-brief={screen}>
-      <Kicker>{t(lang, "assessment.helper.askToRead")}</Kicker>
-      <Title>{bidiText(lang, brief.heading[lang])}</Title>
-      <div className="fx-v1 fx-brief-picture">
-        <TopDownDrawing
-          alt={t(lang, stand ? "assessment.helper.altStand" : "assessment.helper.altTrunk")}
-          weaker={weaker}
-          stand={stand}
-        />
-      </div>
-      <div className="fx-sentences">
-        {splitSentences(screenText(screen, lang)).map((line, i) => (
-          <p key={i}>{bidiText(lang, line)}</p>
-        ))}
-      </div>
-      <p className="fx-body is-strong">{bidiText(lang, sideLine)}</p>
-      <Actions
-        items={[
-          {
-            label: localizeDigits(lang, brief.confirmButton[lang]),
-            onClick: onReady,
-            name: "helper_ready",
-            icon: "people",
-          },
-        ]}
-      />
-    </Glass>
   );
 }
 
@@ -922,54 +821,6 @@ export function SafetyScreen({
           data-action={next.name}
         >
           <span>{next.label}</span>
-        </button>
-      </div>
-    </Glass>
-  );
-}
-
-/**
- * A red flag region (rf_region yes, contract 2.5): the region's own screen. It names the regions that
- * will not be measured today, keeps v1's seek care advice (scr_stop_seek_care) without its «لنتوقف هنا»
- * and its rest line (the check goes on with the other areas), with the 937 call the text names, then
- * «تابع قياس المناطق الأخرى». v1's whole screen stays for a check with nothing else to measure.
- */
-export function RegionSeekCareScreen({
-  lang,
-  regions,
-  onContinue,
-}: {
-  lang: Lang;
-  regions: readonly RegionId[];
-  onContinue(): void;
-}) {
-  const names = regions.map((r) => regionName(r, lang, true));
-  const joined =
-    names.length < 2
-      ? (names[0] ?? "")
-      : lang === "ar"
-        ? `${names.slice(0, -1).join("، ")} و${names[names.length - 1]}`
-        : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-  // The advice of scr_stop_seek_care from its third sentence: past «Let's stop here» and the rest line.
-  const advice = splitSentences(localizeDigits(lang, screenText("scr_stop_seek_care", lang))).slice(2);
-  return (
-    <Glass className="fx-card fx-safety is-seekCare" data-screen-part="region_seek_care">
-      <span className="fx-badge is-violet" aria-hidden="true">
-        <CheckIcon name="shield" size={28} />
-      </span>
-      <Title>{bidiText(lang, tV7(lang, "rom.seekCare.title", { region: joined }))}</Title>
-      <div className="fx-sentences">
-        {advice.map((line, i) => (
-          <p key={i}>{bidiText(lang, line)}</p>
-        ))}
-      </div>
-      <div className="fx-actions is-column">
-        <a className="fx-button is-secondary" href="tel:937" data-action="call937">
-          <CheckIcon name="phone-call" size={22} />
-          <span>{t(lang, "assessment.common.call937")}</span>
-        </a>
-        <button type="button" className="fx-button is-primary" onClick={onContinue} data-action="continue">
-          <span>{tV7(lang, "rom.seekCare.continue")}</span>
         </button>
       </div>
     </Glass>
@@ -1279,15 +1130,12 @@ export function WalkSkippedScreen({ lang, onContinue }: { lang: Lang; onContinue
 export function GaitSlot({
   lang,
   children,
-  warnings = [],
   onSkip,
   hero = true,
   skip = true,
 }: {
   lang: Lang;
   children: ReactNode;
-  /** The v1 warnings shown before the walk (warn_sci_t6, flow.ts partWarnings). */
-  warnings?: ScreenId[];
   onSkip(): void;
   /** The walk says what of the slot shows (D-030 C4-7): the title card on its first card only. */
   hero?: boolean;
@@ -1301,9 +1149,6 @@ export function GaitSlot({
           <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
           <Title>{tV7(lang, "rom.gait.title")}</Title>
           <Body lang={lang} text={tV7(lang, "rom.gait.body")} />
-          {warnings.map((id) => (
-            <WarningNote key={id} lang={lang} id={id} />
-          ))}
         </Glass>
       )}
       {children}

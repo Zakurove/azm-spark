@@ -59,15 +59,12 @@
     "preview": "Make sure your whole body shows in the picture."
   },
   "pad": {
-    "floorTitle": "Before you step on the pad",
+    "checkTitle": "Get the walking pad ready",
     "floor1": "The floor is level, with clear space behind the pad.",
     "floor2": "Your helper stays close to the stop button.",
-    "autoTitle": "Speed by hand",
-    "autoWhy": "This keeps the speed the same for the whole walk.",
-    "supportTitle": "Your support and your helper",
     "support1": "Hold the front bar, or a steady support on the side away from the phone.",
     "support2": "Your helper stands behind you, on the phone’s side.",
-    "done": "Done",
+    "checkReady": "Everything is ready",
     "onTitle": "Step on the pad",
     "on1": "Step on while the belt is stopped, and hold the support.",
     "onReady": "I am on the pad",

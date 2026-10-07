@@ -96,6 +96,22 @@ const PLACEMENT: Record<RecordingId, PlacementKind> = {
   pad_front: "pad_front",
 };
 
+/**
+ * The walking pad's safety steps as one checklist (D-032 item 2; gait-rules eligibility.padSafety): the
+ * floor and the space behind, the helper by the stop control, the safety key, the speed set by hand,
+ * and the support away from the phone with the helper behind.
+ */
+export function padChecklist(lang: Lang): string[] {
+  return [
+    gt(lang, "pad.floor1"),
+    gt(lang, "pad.floor2"),
+    setupLine("pad_key", lang),
+    setupLine("pad_auto_off", lang),
+    gt(lang, "pad.support1"),
+    gt(lang, "pad.support2"),
+  ];
+}
+
 /** The step's main instruction, for the coach's repeat_instructions (2.11) and screen readers. */
 export function instructionText(ctl: GaitController, lang: Lang): string {
   const s = ctl.current;
@@ -104,12 +120,8 @@ export function instructionText(ctl: GaitController, lang: Lang): string {
   switch (s.id) {
     case "clear_path":
       return setupLine("clear_path", lang);
-    case "pad_floor":
-      return `${gt(lang, "pad.floor1")} ${setupLine("pad_key", lang)}`;
-    case "pad_auto_off":
-      return setupLine("pad_auto_off", lang);
-    case "pad_support":
-      return `${gt(lang, "pad.support1")} ${gt(lang, "pad.support2")}`;
+    case "pad_check":
+      return padChecklist(lang).join(" ");
     case "pad_on":
       return gt(lang, "pad.on1");
     case "pad_start":
@@ -850,36 +862,21 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
         </>,
         ready(gt(lang, "path.ready")),
       );
-    case "pad_floor":
+    case "pad_check":
       return card(
         <>
           <Kicker>{gt(lang, "kicker")}</Kicker>
-          <Title>{gt(lang, "pad.floorTitle")}</Title>
-          <Lines
-            lang={lang}
-            lines={[gt(lang, "pad.floor1"), gt(lang, "pad.floor2"), setupLine("pad_key", lang)]}
-          />
+          <Title>{gt(lang, "pad.checkTitle")}</Title>
+          <ul className="gx-checklist">
+            {padChecklist(lang).map((line) => (
+              <li key={line}>
+                <CheckIcon name="check" size={20} />
+                <span>{bidiText(lang, line)}</span>
+              </li>
+            ))}
+          </ul>
         </>,
-        ready(gt(lang, "pad.done")),
-      );
-    case "pad_auto_off":
-      return card(
-        <>
-          <Kicker>{gt(lang, "kicker")}</Kicker>
-          <Title>{gt(lang, "pad.autoTitle")}</Title>
-          <Body lang={lang} text={setupLine("pad_auto_off", lang)} />
-          <Body lang={lang} text={gt(lang, "pad.autoWhy")} muted />
-        </>,
-        ready(gt(lang, "pad.done")),
-      );
-    case "pad_support":
-      return card(
-        <>
-          <Kicker>{gt(lang, "kicker")}</Kicker>
-          <Title>{gt(lang, "pad.supportTitle")}</Title>
-          <Lines lang={lang} lines={[gt(lang, "pad.support1"), gt(lang, "pad.support2")]} />
-        </>,
-        ready(gt(lang, "pad.done")),
+        ready(gt(lang, "pad.checkReady")),
       );
     case "place":
       return <PlaceScreen lang={lang} ctl={ctl} stage={stage} onStop={onStop} />;

@@ -128,9 +128,7 @@ describe("the walk's steps and their kinds (C-16)", () => {
   it("are info, confirm, question, timer, active or safety as C-16 lists them", () => {
     const confirm: GaitStepId[] = [
       "clear_path",
-      "pad_floor",
-      "pad_auto_off",
-      "pad_support",
+      "pad_check",
       "place",
       "pad_on",
       "pad_start",
@@ -166,7 +164,7 @@ describe("the walk's steps and their kinds (C-16)", () => {
     ]);
   });
 
-  it("asks the mode when the pad is allowed, and puts every pad safety step as a confirm step", () => {
+  it("asks the mode when the pad is allowed, and puts the pad safety steps as one checklist confirm step (D-032 item 2)", () => {
     const run = controller(PAD);
     expect(run.ctl.plannedSteps.map((s) => s.id)).toContain("mode");
     run.ctl.confirm(run.t);
@@ -176,9 +174,7 @@ describe("the walk's steps and their kinds (C-16)", () => {
       "intro",
       "mode",
       "gear",
-      "pad_floor",
-      "pad_auto_off",
-      "pad_support",
+      "pad_check",
       "place:pad_side_a",
       "pad_on:pad_side_a",
       "stand:pad_side_a",
@@ -524,8 +520,8 @@ describe("the coach's tools on the gait steps (2.11 host table, C-16)", () => {
     expect(run.ctl.handleTool("next_step", {})).toMatchObject({ accepted: false, say: "tap_to_confirm" });
     run.ctl.chooseMode("walking_pad", run.t);
     run.ctl.setGear({ shoes: true, brace: null }, run.t);
-    // Each pad safety step and the placement are the person's or the helper's taps.
-    for (const id of ["pad_floor", "pad_auto_off", "pad_support", "place", "pad_on"] as const) {
+    // The pad safety checklist and the placement are the person's or the helper's taps.
+    for (const id of ["pad_check", "place", "pad_on"] as const) {
       expect(run.ctl.current.id).toBe(id);
       expect(run.ctl.handleTool("next_step", {})).toEqual({
         accepted: false,

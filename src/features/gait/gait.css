@@ -541,3 +541,24 @@
     transition: none;
   }
 }
+
+/* The walking pad's safety steps as one checklist (D-032 item 2). */
+.gx-checklist {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-checklist li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+.gx-checklist li svg {
+  flex: none;
+  margin-top: 6px;
+  color: var(--fx-purple-deep, #6c56a5);
+}

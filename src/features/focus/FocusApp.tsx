@@ -1,8 +1,8 @@
 /**
- * The focus check (product v7 contract 1.2, stream B, step B3): the shell that runs a protocol end to
- * end: the v1 pre-check through the bridge, the today questions with rf_region, the range blocks in
- * C-13 order with the stop list and sit before stand, the gait step (GaitStep, C) between the standing
- * and lying blocks, and the complete call, then the findings. It loads its own data (GET
+ * The focus check (product v7 contract 1.2, stream B, step B3; D-032): the shell that runs a protocol
+ * end to end: the day's one screen (D-032 item 2), the range blocks in C-13 order with the stop list and
+ * sit before stand, the gait step (GaitStep, C) between the standing and lying blocks, and the complete
+ * call, then the findings. It loads its own data (GET
  * /api/focus/context) and implements CoachHost for the range blocks (C-16) through its RomController.
  *
  * The logic is in session.ts (the flow, the calls, the controller) and romController.ts; this page
@@ -61,24 +61,23 @@ import {
   ClosedScreen,
   CompletingScreen,
   ConsentScreen,
+  DayScreen,
   DoneScreen,
   FaintAskScreen,
   GaitSlot,
-  HelperBriefScreen,
   IntroScreen,
   LeaveDialog,
   LoadErrorScreen,
   LoadingScreen,
-  QuestionScreen,
-  RegionSeekCareScreen,
   SafetyScreen,
+  SkipTodayScreen,
   StartingScreen,
   StopListScreen,
-  TodayScreen,
+  WalkPainScreen,
   WalkSkippedScreen,
-  WarningsScreen,
 } from "./Screens";
-import { checkWarningsOf, partWarnings } from "./flow";
+import { sciWarningOnce, todayItems } from "./flow";
+import { dayAreas } from "../../medical/focus-precheck";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
 import "./focus.css";
@@ -316,13 +315,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
   const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
   const midCheck =
-    s.kind === "part" ||
-    s.kind === "question" ||
-    s.kind === "today" ||
-    s.kind === "warnings" ||
-    s.kind === "brief" ||
-    s.kind === "walk_pain" ||
-    s.kind === "walk_skipped";
+    s.kind === "part" || s.kind === "today" || s.kind === "walk_pain" || s.kind === "walk_skipped";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
   useLayoutEffect(() => {
@@ -351,7 +344,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const today = () => session.dispatch({ type: "EXIT", to: "today" });
   const parts = m.data.parts;
   const progress =
-    s.kind === "part" || s.kind === "brief" || s.kind === "walk_pain" || s.kind === "walk_skipped"
+    s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped"
       ? { done: s.index, total: parts.length }
       : s.kind === "completing" || s.kind === "done"
         ? { done: parts.length, total: parts.length }
@@ -426,6 +419,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               protocol={m.data.context!.protocol!}
               gait={m.data.context!.gait}
               setting={m.data.context!.setting}
+              sciWarning={sciWarningOnce(m.data.context!.env)}
               onStart={() => {
                 CuePlayer.unlock();
                 if (coachOn) unlockCoachAudio();
@@ -436,29 +430,15 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
-      case "question":
-        return {
-          screen: "question",
-          node: (
-            <QuestionScreen
-              key={s.id}
-              lang={lang}
-              env={env!}
-              answers={m.data.answers}
-              id={s.id}
-              onAnswer={(value) => session.dispatch({ type: "ANSWER", id: s.id, value, now: Date.now() })}
-            />
-          ),
-        };
       case "today":
         return {
-          screen: `today_${m.data.todayQs[s.index].kind}`,
+          screen: "today",
           node: (
-            <TodayScreen
-              key={s.index}
+            <DayScreen
               lang={lang}
-              q={m.data.todayQs[s.index]}
-              onAnswer={(value) => session.dispatch({ type: "TODAY", value })}
+              areas={dayAreas(m.data.context!.protocol!, m.data.context!.gait)}
+              itemsFor={(today) => todayItems(m.data, today)}
+              onDone={(today) => session.dispatch({ type: "DAY_DONE", today })}
             />
           ),
         };
@@ -488,67 +468,26 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
-      case "seek_care":
+      case "skip_today":
         return {
-          screen: "seek_care",
-          node:
-            s.then === "parts" ? (
-              <RegionSeekCareScreen
-                lang={lang}
-                regions={m.data.today.redFlagRegions}
-                onContinue={() => session.dispatch({ type: "SEEN" })}
-              />
-            ) : (
-              <SafetyScreen
-                lang={lang}
-                screen="scr_stop_seek_care"
-                now={Date.now()}
-                next={{
-                  label: t(lang, "assessment.common.continue"),
-                  onClick: () => session.dispatch({ type: "SEEN" }),
-                  name: "continue",
-                }}
-              />
-            ),
-        };
-      case "warnings": {
-        const check = m.data.check!;
-        return {
-          screen: "warnings",
+          screen: "skip_today",
           node: (
-            <WarningsScreen
+            <SkipTodayScreen
               lang={lang}
-              warnings={checkWarningsOf(check.warnings)}
-              pdBucket={m.data.context?.lastPdDoseBucket ?? null}
-              skippedForSore={check.protocol.items.filter((i) => i.skipped === "pressure_sore")}
-              onContinue={() => session.dispatch({ type: "SEEN" })}
+              onToday={today}
+              onUrgent={() => session.dispatch({ type: "URGENT" })}
             />
           ),
         };
-      }
-      case "brief": {
-        const support = env?.ctx.support;
-        return {
-          screen: `brief_${s.screen}`,
-          node: (
-            <HelperBriefScreen
-              lang={lang}
-              screen={s.screen}
-              weaker={support === "left" || support === "right" ? support : null}
-              onReady={() => session.dispatch({ type: "HELPER_READY" })}
-            />
-          ),
-        };
-      }
       case "walk_pain":
         return {
           screen: "walk_pain",
           node: (
-            <TodayScreen
+            <WalkPainScreen
               key={`${s.index}:${s.k}`}
               lang={lang}
-              q={{ kind: "pain", region: s.regions[s.k] }}
-              onAnswer={(value) => session.answerWalkPain(Number(value))}
+              region={s.regions[s.k]}
+              onAnswer={(value) => session.answerWalkPain(value)}
             />
           ),
         };
@@ -600,7 +539,6 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             node: (
               <GaitSlot
                 lang={lang}
-                warnings={partWarnings(m.data.check!.warnings, part, m.data.check!.protocol)}
                 onSkip={() => session.gaitDone()}
                 hero={walkChrome.hero}
                 skip={walkChrome.skip}
@@ -680,11 +618,6 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               block={step.block}
               items={step.items}
               helper={step.helper}
-              warnings={partWarnings(
-                m.data.check!.warnings,
-                { kind: "range", block: step.block },
-                m.data.check!.protocol,
-              )}
               stage={<Stage video={cam.video} frame={frame} highlight={[]} compact />}
               waiting={blockWaiting}
               onReady={() => {

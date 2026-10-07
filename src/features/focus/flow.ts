@@ -1,27 +1,19 @@
 /**
- * The focus check's shell (product v7 contract B3, C-2, C-13, C-14, 2.5 and section 4): everything
+ * The focus check's shell (product v7 contract B3, C-2, C-13, 2.5 and section 4; D-032): everything
  * around the range blocks, as a pure state machine the FocusApp renders. Pure, no DOM.
  *
  *   loading      GET /api/auth/me (the intake) and GET /api/focus/context
- *   closed       nothing can start today: the v7 body questions are missing (health), home checks are
- *                closed without a booth pass (C-14), a lock, the 48 hours, no plan, a plan in review
+ *   closed       nothing can start today: the v7 body questions are missing (health), a lock, the 48
+ *                hours, no plan, a plan in review (home is open for v7, D-032 item 1; home_closed stays
+ *                for an older server)
  *   consent      the focus_check consent (C-8), once
- *   intro        which joints we will check, and why (plan 1.7)
- *   question     the v1 pre-check through the bridge (C-2): visibleQuestions of the context's env, one
- *                a screen; the phone evaluates the answers at once (evaluatePrecheck), so an emergency,
- *                an AD answer or a postpone shows its screen without waiting for the network
- *   today        the day's questions (2.5): the pain now of each body map pain region, rf_region for
- *                each region of the day (rfRegionsToAsk), the transfer to a steady chair, the gait day
- *                items when the walk is planned
+ *   intro        which joints we will check, and why (plan 1.7), with the safety lines once
+ *   today        the day's one screen (D-032 item 2): today's pain in the areas of the check, one yes
+ *                or no question for anything new or worrying, and only the walk's questions the walk
+ *                plan needs, someone with the person asked once (focus-precheck.ts dayItems)
+ *   skip_today   a yes to the worry question: one calm screen, the check skipped today (the start call
+ *                records it and its next day lock); its «الأمر عاجل الآن» opens the emergency screen
  *   starting     POST /api/focus (setting booth on a booth pass, else home)
- *   seek_care    a red flag region (rf_region yes): scr_stop_seek_care once, then the other regions
- *   warnings     the v1 pre-check's warnings for the whole check (v1 S25: warn_ms_cool, warn_pd_timing,
- *                scr_note_care and the rest), once before the first part; warn_sci_t6 and
- *                warn_weak_shoulder go with their parts instead (v1 S28, partWarnings)
- *   brief        the v1 helper briefing (S26, Q11) before a part the bridge maps it to: the chair
- *                stand's before the standing block and the walk, the side lean's before the seated
- *                block with the side bend in seated_armrests; a confirm step («المساعد بجانبي وقرأ
- *                التعليمات»): the part starts only after the tap (v1.1)
  *   part         the parts in C-13 order: seated range, standing range, the walk (C's GaitStep slot),
  *                lying range (then sit before stand, in the RomController)
  *   walk_pain    before the walk, after a pain stop in a region the walk loads (rom-protocol 6
@@ -36,16 +28,8 @@
  */
 import type { LockView } from "../assessment/api";
 import type { GaitPlan } from "../../medical/gait-eligibility";
-import {
-  emergencyAlsoShow,
-  evaluatePrecheck,
-  faintFollowUp,
-  visibleQuestions,
-  type Answers,
-  type AnswerValue,
-  type PrecheckEnv,
-} from "../../medical/precheck";
-import { gaitDayItems, rfRegionsToAsk } from "../../medical/focus-precheck";
+import { emergencyAlsoShow, faintFollowUp, type PrecheckEnv } from "../../medical/precheck";
+import { dayItems, missingDayItems, type DayItem } from "../../medical/focus-precheck";
 import { REGION_IDS, type RegionId } from "../../medical/body-map";
 import type { Intake, Sex } from "../../medical/plan";
 import {
@@ -56,7 +40,6 @@ import {
   type RomProtocol,
 } from "../../medical/rom-protocol";
 import type { ScreenId, TestId } from "../../movements/types";
-import { WARNINGS_AT_TEST } from "../assessment/flow/copy";
 
 /** GET /api/focus/context as the server sends it (server/modules/focus/routes.ts). */
 export interface FocusContext {
@@ -84,7 +67,7 @@ export interface StartResponse {
   gait: GaitPlan | null;
   warnings: ScreenId[];
   helperRequired: string[];
-  /** The v1 helper briefing screen of each proxy test that needs a helper today (precheck helperBriefing). */
+  /** The v1 helper briefing screens (none since D-032 item 2: the part's card says who stands beside). */
   helperBriefing: Partial<Record<TestId, ScreenId>>;
   /**
    * Each side's best seated side bend at earlier checks, focus or v1 (D-027 item 2, W2-6): the runner's
@@ -128,14 +111,6 @@ export type ClosedWhy =
   /** The body map's joints have no camera movement and no walk is planned: nothing could ever start. */
   | "no_camera";
 
-/** A day question of the focus check (2.5). */
-export type TodayQuestion =
-  | { kind: "pain"; region: RegionId }
-  | { kind: "rf"; region: RegionId }
-  | { kind: "transfer" }
-  | { kind: "walk10m" }
-  | { kind: "pdFreezing" };
-
 /** A part of the check after the start, in C-13 order. */
 export type FocusPart = { kind: "range"; block: RomBlock } | { kind: "gait" };
 
@@ -145,8 +120,8 @@ export type FocusState =
   | { kind: "closed"; why: ClosedWhy; until?: number | null; lock?: LockView | null }
   | { kind: "consent"; saving: boolean; error: boolean }
   | { kind: "intro" }
-  | { kind: "question"; id: string }
-  | { kind: "today"; index: number }
+  | { kind: "today" }
+  | { kind: "skip_today"; lock: LockView | null }
   | { kind: "starting"; error: "network" | "server" | null }
   | {
       kind: "postponed";
@@ -155,27 +130,23 @@ export type FocusState =
       alsoShow: ScreenId[];
       lock: LockView | null;
     }
-  | { kind: "seek_care"; then: "parts" | "nothing" }
-  | { kind: "warnings" }
-  | { kind: "brief"; index: number; screen: HelperBriefScreen }
   | { kind: "part"; index: number }
-  | { kind: "walk_pain"; index: number; regions: RegionId[]; k: number; then: "brief" | "part" }
+  | { kind: "walk_pain"; index: number; regions: RegionId[]; k: number }
   | { kind: "walk_skipped"; index: number }
   | { kind: "stop_screen"; route: FocusStopRoute }
   | { kind: "faint_ask"; route: FocusStopRoute }
   | { kind: "completing"; error: boolean }
   | { kind: "done" }
-  | { kind: "exit"; to: "today" | "findings" | "health" };
+  | { kind: "exit"; to: FocusExitTo };
+
+/** Where the focus check leaves to: the portal's Today, the findings or the health form. */
+export type FocusExitTo = "today" | "findings" | "health";
 
 export interface FocusData {
   context: FocusContext | null;
   intake: (Intake & { sex: Sex }) | null;
-  answers: Answers;
+  /** The day's answers (the day's one screen). */
   today: FocusToday;
-  /** The day questions of this check, fixed when the pre-check ends. */
-  todayQs: TodayQuestion[];
-  /** The screens visited, for Back (question ids, or today:<index>). */
-  trail: string[];
   check: StartResponse | null;
   parts: FocusPart[];
   /** The walk's pain gate ran (the session's WALK_GATE, once per check). */
@@ -194,8 +165,10 @@ export type FocusEvent =
   | { type: "CONSENT_SAVED" }
   | { type: "CONSENT_FAILED" }
   | { type: "BEGIN" }
-  | { type: "ANSWER"; id: string; value: AnswerValue; now: number }
-  | { type: "TODAY"; value: number | boolean }
+  /** The day's one screen is answered (D-032 item 2). */
+  | { type: "DAY_DONE"; today: FocusToday }
+  /** «الأمر عاجل الآن» on the calm skip screen: the emergency screen. */
+  | { type: "URGENT" }
   | { type: "BACK" }
   | { type: "START_OK"; response: StartResponse }
   | {
@@ -206,9 +179,7 @@ export type FocusEvent =
     }
   | { type: "RETRY" }
   | { type: "SEEN" }
-  /** The helper briefing's confirm tap (helperBriefing.confirmButton). */
-  | { type: "HELPER_READY" }
-  /** The walk's pain gate (RomController.walkGate), when the walk's part or its briefing opens. */
+  /** The walk's pain gate (RomController.walkGate), when the walk's part opens. */
   | { type: "WALK_GATE"; skip: boolean; ask: RegionId[] }
   /** The pain now of the region walk_pain asks about (0 to 10). */
   | { type: "WALK_PAIN"; value: number }
@@ -218,7 +189,7 @@ export type FocusEvent =
   | { type: "FAINT_ANSWER"; value: "yes" | "no" | "unsure"; now: number }
   | { type: "COMPLETED" }
   | { type: "COMPLETE_FAILED" }
-  | { type: "EXIT"; to: "today" | "findings" | "health" };
+  | { type: "EXIT"; to: FocusExitTo };
 
 export const EMPTY_TODAY: FocusToday = { painByRegion: {}, redFlagRegions: [] };
 
@@ -228,10 +199,7 @@ export function initialModel(): FocusModel {
     data: {
       context: null,
       intake: null,
-      answers: {},
       today: { ...EMPTY_TODAY, painByRegion: {}, redFlagRegions: [] },
-      todayQs: [],
-      trail: [],
       check: null,
       parts: [],
     },
@@ -254,46 +222,24 @@ export function painRegions(intake: Pick<Intake, "regions">): RegionId[] {
   return REGION_IDS.filter((r) => marked.has(r));
 }
 
-/**
- * The day questions, in order (2.5): the pain now of each pain region, then rf_region for each region
- * of the day's protocol and walk, then the transfer to a steady chair (a wheelchair user who can
- * transfer, rom-protocol transfer_chair_ask), then the gait day items when the walk is planned.
- */
-export function todayQuestions(
-  intake: Intake,
-  protocol: RomProtocol,
-  gait: GaitPlan | null,
-): TodayQuestion[] {
-  const qs: TodayQuestion[] = painRegions(intake).map((region) => ({ kind: "pain" as const, region }));
-  for (const region of rfRegionsToAsk(protocol, gait)) qs.push({ kind: "rf", region });
-  if (intake.mobility === "wheelchair" && intake.romFlags?.transferChair === true)
-    qs.push({ kind: "transfer" });
-  for (const id of gaitDayItems(gait, intake))
-    qs.push({ kind: id === "pc_walk_10m" ? "walk10m" : "pdFreezing" });
-  return qs;
+/** The day's one screen's items for these answers (focus-precheck.ts dayItems on the context's preview). */
+export function todayItems(d: Pick<FocusData, "context" | "intake">, today: FocusToday): DayItem[] {
+  const ctx = d.context;
+  if (!ctx?.protocol || !d.intake) return ["worry"];
+  return dayItems({ intake: d.intake, setting: ctx.setting, protocol: ctx.protocol, gait: ctx.gait, today });
 }
 
-/** The day's answers with one more answer. */
-export function answerToday(today: FocusToday, q: TodayQuestion, value: number | boolean): FocusToday {
-  switch (q.kind) {
-    case "pain":
-      return { ...today, painByRegion: { ...today.painByRegion, [q.region]: Number(value) } };
-    case "rf": {
-      const others = today.redFlagRegions.filter((r) => r !== q.region);
-      return { ...today, redFlagRegions: value === true ? [...others, q.region] : others };
-    }
-    case "transfer":
-      return { ...today, transferChair: value === true };
-    case "walk10m":
-      return { ...today, walk10m: value === true };
-    case "pdFreezing":
-      return { ...today, pdFreezing: value === true };
-  }
-}
-
-/** pc_helper answered yes for any test: someone is beside the person today (FocusToday.helperPresent). */
-export function helperPresentOf(answers: Answers): boolean {
-  return Object.entries(answers).some(([id, v]) => id.startsWith("pc_helper") && v === "yes");
+/** The day items of these answers still without one (the start needs every one). */
+export function todayMissing(d: Pick<FocusData, "context" | "intake">, today: FocusToday): DayItem[] {
+  const ctx = d.context;
+  if (!ctx?.protocol || !d.intake) return typeof today.worrying === "boolean" ? [] : ["worry"];
+  return missingDayItems({
+    intake: d.intake,
+    setting: ctx.setting,
+    protocol: ctx.protocol,
+    gait: ctx.gait,
+    today,
+  });
 }
 
 /** The parts of the check in C-13 order: seated, standing, the walk, lying (the blocks with a movement today). */
@@ -308,72 +254,24 @@ export function checkParts(protocol: RomProtocol, gait: GaitPlan | null): FocusP
   return parts;
 }
 
-/** The v1 helper briefings (S26). */
-export type HelperBriefScreen = "scr_helper_brief_stand" | "scr_helper_brief_trunk";
-
 /**
- * The warnings of the whole check (v1 S25, checkWarnings): every warning the start returned except
- * those shown with a part (WARNINGS_AT_TEST: warn_sci_t6, warn_weak_shoulder and the two helper
- * briefings) and the seek care screen of a red flag region, which has its own step.
+ * Whether the intro's safety card carries v1's warn_sci_t6 (D-032 item 2: once, not before every
+ * part): the stop list shows the dysreflexia signs, a spinal cord injury at T6 or above or of an
+ * unknown level (precheck.ts stopSciT6).
  */
-export function checkWarningsOf(warnings: readonly ScreenId[]): ScreenId[] {
-  return warnings.filter((w) => !WARNINGS_AT_TEST.includes(w) && w !== "scr_stop_seek_care");
+export function sciWarningOnce(env: PrecheckEnv | null): boolean {
+  if (!env) return false;
+  const sci = env.ctx.conditions.some((c) => c === "sci_complete" || c === "sci_incomplete");
+  const flag = env.setup?.sciT6;
+  return flag === true || (flag === undefined && sci);
 }
 
-const ARM_REGIONS: readonly RegionId[] = ["shoulder", "elbow", "forearm_wrist"];
-
-/**
- * The warnings shown with a part, on the card the person confirms before it starts (v1 S28
- * testWarnings: «warn_sci_t6 before every test», warn_weak_shoulder before the arm tests):
- * warn_sci_t6 with every range block and the walk; warn_weak_shoulder with a block that moves an arm.
- */
-export function partWarnings(
-  warnings: readonly ScreenId[],
-  part: FocusPart,
-  protocol: RomProtocol,
-): ScreenId[] {
-  const out: ScreenId[] = [];
-  if (warnings.includes("warn_sci_t6")) out.push("warn_sci_t6");
-  if (
-    part.kind === "range" &&
-    warnings.includes("warn_weak_shoulder") &&
-    protocol.items.some((i) => i.block === part.block && !i.skipped && ARM_REGIONS.includes(i.region))
-  )
-    out.push("warn_weak_shoulder");
-  return out;
-}
-
-/**
- * The helper briefing before a part (v1.1: «the test starts only after the tap on
- * helperBriefing.confirmButton»), as the pre-check bridge maps the proxy tests (focus-precheck.ts):
- * the chair stand's (chair_stand_30s) before a standing block and the walk; the side lean's
- * (trunk_control_seated) before the block with a side bend in seated_armrests. Null: none.
- */
-export function briefFor(
-  part: FocusPart | undefined,
-  protocol: RomProtocol,
-  briefing: StartResponse["helperBriefing"],
-): HelperBriefScreen | null {
-  if (!part) return null;
-  const pick = (test: TestId): HelperBriefScreen | null => {
-    const screen = briefing[test];
-    return screen === "scr_helper_brief_stand" || screen === "scr_helper_brief_trunk" ? screen : null;
-  };
-  if (part.kind === "gait") return pick("chair_stand_30s");
-  if (part.block === "standing") return pick("chair_stand_30s");
-  const sideLean = protocol.items.some(
-    (i) => i.block === part.block && !i.skipped && i.position === "seated_armrests",
-  );
-  return sideLean ? pick("trunk_control_seated") : null;
-}
-
-/** The start body of POST /api/focus. */
+/** The start body of POST /api/focus: the day's one screen's answers. */
 export function startBody(d: FocusData, device: { os: string; browser: string }) {
   const ctx = d.context!;
   return {
     setting: ctx.setting,
-    answers: d.answers,
-    today: { ...d.today, ...(helperPresentOf(d.answers) ? { helperPresent: true } : {}) },
+    today: d.today,
     device,
     include: { rom: true, gait: ctx.gait?.offered === true },
   };
@@ -386,49 +284,10 @@ const go = (m: FocusModel, state: FocusState, data: Partial<FocusData> = {}): Fo
   data: { ...m.data, ...data },
 });
 
-/** The screen after the pre-check question `answered`: the next one, the day questions, or the start. */
-function afterPrecheck(m: FocusModel, answers: Answers, now: number): FocusModel {
-  const ctx = m.data.context!;
-  const env = ctx.env!;
-  const outcome = evaluatePrecheck(env, answers, now);
-  if (outcome.status === "emergency" || outcome.status === "ad" || outcome.status === "postpone")
-    // The screen shows at once; the start call records the stop and its lock (the server's own
-    // evaluation of the same answers answers 409 POSTPONE).
-    return go(
-      m,
-      {
-        kind: "postponed",
-        status: outcome.status,
-        screen: outcome.screen ?? null,
-        alsoShow: outcome.alsoShow ?? [],
-        lock: null,
-      },
-      { answers },
-    );
-  const next = visibleQuestions(env, answers).find((id) => !(id in answers));
-  if (next) return go(m, { kind: "question", id: next }, { answers });
-  return toToday(go(m, m.state, { answers }));
-}
-
-function toToday(m: FocusModel): FocusModel {
-  const ctx = m.data.context!;
-  const qs = m.data.intake ? todayQuestions(m.data.intake, ctx.protocol!, ctx.gait) : [];
-  if (qs.length === 0) return go(m, { kind: "starting", error: null }, { todayQs: qs });
-  return go(m, { kind: "today", index: 0 }, { todayQs: qs });
-}
-
-/** A part of the check: its helper briefing first when it has one, else the part. */
+/** A part of the check, or the end once every part ran. */
 function toPart(m: FocusModel, index: number): FocusModel {
-  const check = m.data.check;
   if (index >= m.data.parts.length) return go(m, { kind: "completing", error: false });
-  const screen = check ? briefFor(m.data.parts[index], check.protocol, check.helperBriefing ?? {}) : null;
-  return go(m, screen ? { kind: "brief", index, screen } : { kind: "part", index });
-}
-
-/** After the start (and the seek care screen): the warnings of the whole check, then the first part. */
-function afterStart(m: FocusModel): FocusModel {
-  const warnings = m.data.check ? checkWarningsOf(m.data.check.warnings) : [];
-  return warnings.length ? go(m, { kind: "warnings" }) : toPart(m, 0);
+  return go(m, { kind: "part", index });
 }
 
 /** The state after a context: closed, the consent, or the intro. */
@@ -463,69 +322,49 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       return s.kind === "consent" ? go(m, { kind: "intro" }) : m;
     case "CONSENT_FAILED":
       return s.kind === "consent" ? go(m, { kind: "consent", saving: false, error: true }) : m;
-    case "BEGIN": {
-      if (s.kind !== "intro" || !m.data.context?.env) return m;
-      const first = visibleQuestions(m.data.context.env, m.data.answers).find(
-        (id) => !(id in m.data.answers),
-      );
-      return first ? go(m, { kind: "question", id: first }, { trail: [] }) : toToday(go(m, s, { trail: [] }));
-    }
-    case "ANSWER": {
-      if (s.kind !== "question" || s.id !== e.id) return m;
-      const answers = { ...m.data.answers, [e.id]: e.value };
-      // Answers of questions no longer shown are dropped (a changed earlier answer hides them).
-      const env = m.data.context!.env!;
-      const shown = new Set(visibleQuestions(env, answers));
-      for (const id of Object.keys(answers)) if (!shown.has(id)) delete answers[id];
-      return afterPrecheck(go(m, s, { trail: [...m.data.trail, e.id] }), answers, e.now);
-    }
-    case "TODAY": {
+    case "BEGIN":
+      return s.kind === "intro" && m.data.context?.env ? go(m, { kind: "today" }) : m;
+    case "DAY_DONE": {
       if (s.kind !== "today") return m;
-      const q = m.data.todayQs[s.index];
-      const today = answerToday(m.data.today, q, e.value);
-      const trail = [...m.data.trail, `today:${s.index}`];
-      if (s.index + 1 < m.data.todayQs.length)
-        return go(m, { kind: "today", index: s.index + 1 }, { today, trail });
-      return go(m, { kind: "starting", error: null }, { today, trail });
+      const today: FocusToday = { ...e.today, redFlagRegions: [...e.today.redFlagRegions] };
+      // Every item the screen shows needs its answer; a yes to the worry question needs no other.
+      if (todayMissing(m.data, today).length) return m;
+      if (today.worrying === true) return go(m, { kind: "skip_today", lock: null }, { today });
+      return go(m, { kind: "starting", error: null }, { today });
     }
-    case "BACK": {
-      if (s.kind !== "question" && s.kind !== "today") return m;
-      const trail = [...m.data.trail];
-      const prev = trail.pop();
-      if (prev === undefined) return go(m, { kind: "intro" }, { trail });
-      if (prev.startsWith("today:")) return go(m, { kind: "today", index: Number(prev.slice(6)) }, { trail });
-      return go(m, { kind: "question", id: prev }, { trail });
-    }
+    case "URGENT":
+      // The emergency screen with v1's dysreflexia screen for a spinal cord injury (D5-10).
+      return s.kind === "skip_today"
+        ? go(m, {
+            kind: "postponed",
+            status: "emergency",
+            screen: "scr_emergency",
+            alsoShow: emergencyAlsoShow(m.data.context?.env ?? null),
+            lock: s.lock,
+          })
+        : m;
+    case "BACK":
+      return s.kind === "today" ? go(m, { kind: "intro" }) : m;
     case "START_OK": {
       if (s.kind !== "starting") return m;
       const r = e.response;
       const parts = checkParts(r.protocol, r.gait);
-      const data = { check: { ...r, helperBriefing: r.helperBriefing ?? {} }, parts };
-      if (r.warnings.includes("scr_stop_seek_care")) return go(m, { kind: "seek_care", then: "parts" }, data);
-      return afterStart(go(m, s, data));
+      return toPart(go(m, s, { check: { ...r, helperBriefing: r.helperBriefing ?? {} }, parts }), 0);
     }
     case "START_FAILED": {
-      if (s.kind !== "starting" && s.kind !== "postponed") return m;
+      if (s.kind !== "starting" && s.kind !== "skip_today" && s.kind !== "postponed") return m;
       if (e.kind === "network")
-        return s.kind === "postponed" ? m : go(m, { kind: "starting", error: "network" });
+        return s.kind === "starting" ? go(m, { kind: "starting", error: "network" }) : m;
       const body = e.body ?? {};
       switch (e.code) {
         case "POSTPONE": {
-          const status = (body.status as "postpone" | "emergency" | "ad") ?? "postpone";
-          return go(m, {
-            kind: "postponed",
-            status,
-            screen: (body.screen as ScreenId | null) ?? null,
-            alsoShow: (body.alsoShow as ScreenId[]) ?? [],
-            lock: (body.lock as LockView | null) ?? null,
-          });
+          // The server's lock (its {when} line) joins the screen the phone already shows.
+          const lock = (body.lock as LockView | null) ?? null;
+          if (s.kind === "postponed") return go(m, { ...s, lock });
+          return go(m, { kind: "skip_today", lock });
         }
-        case "NOTHING_TO_MEASURE": {
-          const warnings = (body.warnings as ScreenId[] | undefined) ?? [];
-          return warnings.includes("scr_stop_seek_care")
-            ? go(m, { kind: "seek_care", then: "nothing" })
-            : go(m, { kind: "closed", why: "nothing" });
-        }
+        case "NOTHING_TO_MEASURE":
+          return go(m, { kind: "closed", why: "nothing" });
         case "LOCKED": {
           const { error: _e, ...lock } = body as Record<string, unknown>;
           void _e;
@@ -549,7 +388,7 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
         case "RATE_LIMIT":
           return go(m, { kind: "closed", why: "rate" });
         default:
-          return s.kind === "postponed" ? m : go(m, { kind: "starting", error: "server" });
+          return s.kind === "starting" ? go(m, { kind: "starting", error: "server" }) : m;
       }
     }
     case "RETRY":
@@ -558,9 +397,6 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       if (s.kind === "load_error") return go(m, { kind: "loading" });
       return m;
     case "SEEN":
-      if (s.kind === "seek_care")
-        return s.then === "nothing" ? go(m, { kind: "closed", why: "nothing" }) : afterStart(m);
-      if (s.kind === "warnings") return toPart(m, 0);
       if (s.kind === "walk_skipped") return toPart(m, s.index + 1);
       if (s.kind === "stop_screen") {
         // A faint or a fall: the follow up once the person is settled (v1 S38b), then Today.
@@ -568,17 +404,11 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
         return s.route.endsCheck ? go(m, { kind: "exit", to: "today" }) : m;
       }
       return m;
-    case "HELPER_READY":
-      return s.kind === "brief" ? go(m, { kind: "part", index: s.index }) : m;
     case "WALK_GATE": {
-      if ((s.kind !== "part" && s.kind !== "brief") || m.data.parts[s.index]?.kind !== "gait") return m;
+      if (s.kind !== "part" || m.data.parts[s.index]?.kind !== "gait") return m;
       if (e.skip) return go(m, { kind: "walk_skipped", index: s.index }, { walkGated: true });
       if (e.ask.length)
-        return go(
-          m,
-          { kind: "walk_pain", index: s.index, regions: [...e.ask], k: 0, then: s.kind },
-          { walkGated: true },
-        );
+        return go(m, { kind: "walk_pain", index: s.index, regions: [...e.ask], k: 0 }, { walkGated: true });
       return go(m, s, { walkGated: true });
     }
     case "WALK_PAIN": {
@@ -586,7 +416,7 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       // The one shared rule's cut (C-15, gait-rules eligibility.today): 6 or more postpones the walk.
       if (e.value >= PAIN_TODAY_SKIP_AT) return go(m, { kind: "walk_skipped", index: s.index });
       if (s.k + 1 < s.regions.length) return go(m, { ...s, k: s.k + 1 });
-      return s.then === "brief" ? toPart(m, s.index) : go(m, { kind: "part", index: s.index });
+      return go(m, { kind: "part", index: s.index });
     }
     case "PART_DONE": {
       if (s.kind !== "part") return m;

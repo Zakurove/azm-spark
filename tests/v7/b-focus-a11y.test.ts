@@ -4,7 +4,8 @@
  *   - The measurement's column stays mounted for the whole movement: Page keys <main> by the step, the
  *     phase only names data-screen (no replayed entrance, no lost focus at each phase).
  *   - STOP is first in the measurement's focus order and has focus when no question is open; a
- *     question's heading takes focus when it opens (QuestionScreen, QuestionText, FaintAskScreen).
+ *     screen's heading takes focus when it opens (the day's one screen and its calm skip screen,
+ *     QuestionText, FaintAskScreen).
  *   - The stop list and the leave dialog are modal (v1 CheckDialog's behaviour): inert page, focus on
  *     the heading, Tab kept inside, focus returned; Escape stays in the check on the leave dialog only.
  */
@@ -32,7 +33,10 @@ describe("focus and modality in the focus shell", () => {
 
   it("focuses each question's heading when it opens", () => {
     const screens = read("Screens.tsx");
-    expect(between(screens, "export function QuestionScreen", "function AreaChips")).toMatch(
+    expect(between(screens, "export function DayScreen", "export function SkipTodayScreen")).toMatch(
+      /useFocusOnMount/,
+    );
+    expect(between(screens, "export function SkipTodayScreen", "export function WalkPainScreen")).toMatch(
       /useFocusOnMount/,
     );
     expect(between(screens, "export function QuestionText", "export function StartingScreen")).toMatch(

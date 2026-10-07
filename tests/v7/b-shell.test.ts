@@ -1,9 +1,10 @@
 /**
  * Step B3, row B3 of contract section 10: «the focus shell runs a protocol end to end on fixtures
- * (pre-check, today questions with rf_region, blocks in C-13 order, stop list, sit before stand, the
- * same joint re-ask)». A FocusSession (the shell without its screens) runs whole checks on the real
- * focus routes (the A harness, FOCUS_RULES, AZM_V7 on, a booth pass) with a simulated person in front
- * of the camera (b-shell-driver.ts), and the server's rows are read back.
+ * (the day's questions, blocks in C-13 order, stop list, sit before stand, the same joint re-ask)»;
+ * since D-032 item 2 the day's questions are one screen. A FocusSession (the shell without its
+ * screens) runs whole checks on the real focus routes (the A harness, FOCUS_RULES, AZM_V7 on, a booth
+ * pass) with a simulated person in front of the camera (b-shell-driver.ts), and the server's rows are
+ * read back.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
@@ -11,24 +12,21 @@ import { romRowsOf } from "../../server/modules/focus/store";
 import { createFocusApi } from "../../src/features/focus/api";
 import {
   checkParts,
-  checkWarningsOf,
   initialModel,
   painRegions,
-  partWarnings,
   reduce,
-  todayQuestions,
+  sciWarningOnce,
+  todayItems,
   type FocusModel,
   type StartResponse,
-  type TodayQuestion,
 } from "../../src/features/focus/flow";
-import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import { itemKey } from "../../src/features/focus/romController";
 import { FocusSession } from "../../src/features/focus/session";
 import { cellOf, jointsOf } from "../../src/features/focus/Screens";
-import { buildRomProtocol } from "../../src/medical/rom-protocol";
+import { buildRomProtocol, type FocusToday } from "../../src/medical/rom-protocol";
+import { dayAnswerField, type DayItem } from "../../src/medical/focus-precheck";
 import type { BridgeEvent } from "../../src/coach/types";
 import type { Intake } from "../../src/medical/plan";
-import { benign } from "../precheck-fixtures";
 import { boothPass, member, startV7Api, v7Intake, type V7Harness } from "./a-harness";
 import { runBlock, type PersonPlan } from "./b-shell-driver";
 
@@ -89,38 +87,43 @@ const settle = async (s: FocusSession, kind: string) => {
   for (let i = 0; i < 200 && s.model.state.kind === kind; i++) await new Promise((r) => setTimeout(r, 5));
 };
 
-/** Answers the pre-check with benign answers, and the day questions with `today`. */
-async function answerAll(s: FocusSession, today: (q: TodayQuestion) => number | boolean) {
+/**
+ * Answers the day's one screen (D-032 item 2): calm answers with `over` on top, each item the screen
+ * shows for them, as the screen sends them.
+ */
+async function answerDay(s: FocusSession, over: Partial<FocusToday> = {}) {
   s.dispatch({ type: "BEGIN" });
-  const asked: string[] = [];
-  while (s.model.state.kind === "question") {
-    const id = s.model.state.id;
-    asked.push(id);
-    s.dispatch({ type: "ANSWER", id, value: benign(id), now: Date.now() });
+  expect(s.model.state.kind).toBe("today");
+  const calm: FocusToday = {
+    painByRegion: {},
+    redFlagRegions: [],
+    worrying: false,
+    walk10m: true,
+    unsteady: false,
+    helperPresent: true,
+    pdFreezing: false,
+    prosthesisOn: true,
+    ...over,
+  };
+  const items: DayItem[] = todayItems(s.model.data, calm);
+  const today: FocusToday = {
+    painByRegion: items.includes("pain") ? calm.painByRegion : {},
+    redFlagRegions: [],
+  };
+  for (const item of items) {
+    const field = dayAnswerField(item);
+    if (field) Object.assign(today, { [field]: calm[field] });
   }
-  const day: TodayQuestion[] = [];
-  while (s.model.state.kind === "today") {
-    const q = s.model.data.todayQs[s.model.state.index];
-    day.push(q);
-    s.dispatch({ type: "TODAY", value: today(q) });
-  }
+  s.dispatch({ type: "DAY_DONE", today });
   await settle(s, "starting");
-  return { asked, day };
+  return { items, today };
 }
-
-const noFlags = (q: TodayQuestion) => (q.kind === "pain" ? 2 : q.kind === "rf" ? false : true);
 
 /** Runs the parts after the start: range parts with the simulated person, the walk not taken today. */
 function runParts(s: FocusSession, plan: PersonPlan = {}, t0 = 2_000_000) {
   const ran: string[] = [];
   let t = t0;
-  // The warnings of the whole check and a helper briefing are read and confirmed first.
-  const confirm = () => {
-    if (s.model.state.kind === "warnings") s.dispatch({ type: "SEEN" });
-    if (s.model.state.kind === "brief") s.dispatch({ type: "HELPER_READY" });
-  };
-  confirm();
-  for (let guard = 0; guard < 20 && s.model.state.kind === "part"; guard++, confirm()) {
+  for (let guard = 0; guard < 20 && s.model.state.kind === "part"; guard++) {
     const part = s.model.data.parts[s.model.state.index];
     ran.push(part.kind === "range" ? part.block : "gait");
     if (part.kind === "gait") {
@@ -135,20 +138,16 @@ function runParts(s: FocusSession, plan: PersonPlan = {}, t0 = 2_000_000) {
 }
 
 describe("the focus shell end to end on the real routes", () => {
-  it("runs Fahd's check: pre-check, the day questions, the parts in C-13 order, every movement saved, complete", async () => {
+  it("runs Fahd's check: the day's one screen, the parts in C-13 order, every movement saved, complete", async () => {
     const { s } = await session();
     await s.load();
     expect(s.model.state.kind).toBe("intro");
     const ctx = s.model.data.context!;
     expect(ctx.setting).toBe("booth");
-    const { asked, day } = await answerAll(s, noFlags);
-    expect(asked.length).toBeGreaterThan(0);
-    // The day questions: the knee's pain now, rf_region for each region of the day, the walk's 10 m.
-    expect(day.filter((q) => q.kind === "pain")).toEqual([{ kind: "pain", region: "knee" }]);
-    expect(day.filter((q) => q.kind === "rf").map((q) => (q as { region: string }).region)).toEqual(
-      expect.arrayContaining(["shoulder", "elbow", "knee"]),
-    );
-    expect(day.some((q) => q.kind === "walk10m")).toBe(true);
+    const { items } = await answerDay(s, { painByRegion: { knee: 2 } });
+    // One screen (D-032 item 2): the pain of today's areas, the worry question, the walk and
+    // unsteadiness; at the booth the staff are there, so nobody is asked about.
+    expect(items).toEqual(["pain", "worry", "walk10m", "unsteady"]);
 
     expect(s.model.state.kind).toBe("part");
     const check = s.model.data.check!;
@@ -178,31 +177,38 @@ describe("the focus shell end to end on the real routes", () => {
     expect(s.unsent).toBe(0);
   }, 60_000);
 
-  it("a red flag region shows the seek care screen once, and its movements are not measured (red_flag)", async () => {
+  it("a yes to the worry question shows the calm screen at once; the server records the skip and its lock", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, (q) => (q.kind === "rf" ? q.region === "elbow" : noFlags(q)));
-    expect(s.model.state).toEqual({ kind: "seek_care", then: "parts" });
-    const check = s.model.data.check!;
-    const elbow = check.protocol.items.filter((i) => i.region === "elbow");
-    expect(elbow.length).toBeGreaterThan(0);
-    for (const i of elbow) expect(i.skipped).toBe("red_flag");
-    s.dispatch({ type: "SEEN" });
-    expect(s.model.state).toEqual({ kind: "part", index: 0 });
-    runParts(s);
-    await settle(s, "completing");
-    const rows = romRowsOf(h.db(), check.id);
-    for (const i of elbow) {
-      const row = rows.find((r) => r.movementId === i.movementId);
-      expect(row?.source).toBe("not_measured_today");
-      expect(row?.reason).toBe("red_flag");
-    }
-  }, 60_000);
+    s.dispatch({ type: "BEGIN" });
+    // After a yes nothing else is asked.
+    expect(todayItems(s.model.data, { painByRegion: {}, redFlagRegions: [], worrying: true })).toEqual([
+      "pain",
+      "worry",
+    ]);
+    s.dispatch({ type: "DAY_DONE", today: { painByRegion: {}, redFlagRegions: [], worrying: true } });
+    expect(s.model.state).toEqual({ kind: "skip_today", lock: null });
+    for (let i = 0; i < 100 && s.model.state.kind === "skip_today" && !s.model.state.lock; i++)
+      await new Promise((r) => setTimeout(r, 5));
+    expect(s.model.state.kind === "skip_today" && s.model.state.lock).toBeTruthy();
+    expect(s.model.data.check).toBeNull();
+    // «الأمر عاجل الآن»: the emergency screen.
+    s.dispatch({ type: "URGENT" });
+    expect(s.model.state).toMatchObject({ kind: "postponed", status: "emergency", screen: "scr_emergency" });
+  });
+
+  it("a start without an answer to a shown item is held on the screen", async () => {
+    const { s } = await session();
+    await s.load();
+    s.dispatch({ type: "BEGIN" });
+    s.dispatch({ type: "DAY_DONE", today: { painByRegion: {}, redFlagRegions: [], worrying: false } });
+    expect(s.model.state.kind).toBe("today");
+  });
 
   it("the stop list mid movement: the server stores the stopped movement, the check goes on and completes", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     let stopped: string | null = null;
     runParts(s, {
       at: (_t, ctl) => {
@@ -225,7 +231,7 @@ describe("the focus shell end to end on the real routes", () => {
   it("a second stop choice with no stop list open does nothing (a double tap)", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     const posted: string[] = [];
     const api = (s as unknown as { api: { stop: (...a: unknown[]) => Promise<unknown> } }).api;
     const stop = api.stop.bind(api);
@@ -256,7 +262,7 @@ describe("the focus shell end to end on the real routes", () => {
   it("a stop that ends the check leaves for Today after its screen", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     runParts(s, {
       at: (_t, ctl) => {
         if (!s.stopListOpen && ctl.phase === "attempt") {
@@ -273,7 +279,7 @@ describe("the focus shell end to end on the real routes", () => {
   it("a faint stop asks the faint follow up after its screen: yes opens the emergency screen (sf_faint_loc)", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     const events: BridgeEvent[] = [];
     s.onBridge((e) => events.push(e));
     runParts(s, {
@@ -299,7 +305,7 @@ describe("the focus shell end to end on the real routes", () => {
   it("a fall stop's follow up answered no shows the fall screen again, then Today", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     runParts(s, {
       at: (_t, ctl) => {
         if (!s.stopListOpen && ctl.phase === "attempt") {
@@ -323,7 +329,7 @@ describe("the focus shell end to end on the real routes", () => {
   it("a walk stopped for tiredness rests a minute before the next part's card", async () => {
     const { s } = await session();
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     let rested = false;
     for (let guard = 0; guard < 20 && s.model.state.kind === "part"; guard++) {
       const part = s.model.data.parts[s.model.state.index];
@@ -352,7 +358,7 @@ describe("the focus shell end to end on the real routes", () => {
     });
     const { s } = await session(knee);
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     const steps: string[] = [];
     runParts(s, {
       answerMax: (i) => (i.movementId === "knee_flexion" ? "hurts" : "yes"),
@@ -379,31 +385,13 @@ describe("the focus shell end to end on the real routes", () => {
     expect(rows.find((r) => r.movementId === "knee_extension")?.painBefore).toBe(3);
   }, 60_000);
 
-  it("an emergency answer shows its screen at once and the server records the lock", async () => {
-    const { s } = await session();
-    await s.load();
-    s.dispatch({ type: "BEGIN" });
-    let guard = 0;
-    while (s.model.state.kind === "question" && guard++ < 50) {
-      const id = s.model.state.id;
-      s.dispatch({ type: "ANSWER", id, value: id === "pc_urgent" ? "yes" : benign(id), now: Date.now() });
-    }
-    expect(s.model.state.kind).toBe("postponed");
-    if (s.model.state.kind !== "postponed") return;
-    expect(s.model.state.status).toBe("emergency");
-    expect(s.model.state.screen).toBe("scr_emergency");
-    for (let i = 0; i < 100 && s.model.state.kind === "postponed" && !s.model.state.lock; i++)
-      await new Promise((r) => setTimeout(r, 5));
-    expect(s.model.state.kind === "postponed" && s.model.state.lock).toBeTruthy();
-  });
-
   it("a hip pain stop at 7 and a re-ask of 7 in the standing block: no walk today (gait-rules eligibility.today)", async () => {
     const hip: Intake = v7Intake({
       regions: [{ region: "hip", side: "right", problems: ["stiffness"], origin: "person" }],
     });
     const { s } = await session(hip);
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     expect(s.model.data.parts.map((p) => (p.kind === "range" ? p.block : "gait"))).toEqual([
       "standing",
       "gait",
@@ -435,14 +423,14 @@ describe("the focus shell end to end on the real routes", () => {
     });
     const { s } = await session(hip);
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     runBlock(
       s.ctl!,
       { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 3 }) },
       900,
       2_000_000,
     );
-    expect(s.model.state).toEqual({ kind: "walk_pain", index: 1, regions: ["hip"], k: 0, then: "part" });
+    expect(s.model.state).toEqual({ kind: "walk_pain", index: 1, regions: ["hip"], k: 0 });
     s.answerWalkPain(3);
     expect(s.model.state).toEqual({ kind: "part", index: 1 });
     expect(s.walkBefore).toBe(3);
@@ -454,7 +442,7 @@ describe("the focus shell end to end on the real routes", () => {
     });
     const { s } = await session(hip);
     await s.load();
-    await answerAll(s, noFlags);
+    await answerDay(s);
     runBlock(
       s.ctl!,
       { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 3 }) },
@@ -465,7 +453,7 @@ describe("the focus shell end to end on the real routes", () => {
     expect(s.model.state).toEqual({ kind: "walk_skipped", index: 1 });
   }, 60_000);
 
-  it("an MS check reads warn_ms_cool once before the first part, then runs and completes", async () => {
+  it("an MS check goes straight to its first part: no warnings screen (D-032 item 2), then runs and completes", async () => {
     const ms: Intake = v7Intake({
       conditions: ["ms"],
       regions: [{ region: "knee", side: "right", problems: ["stiffness"], origin: "person" }],
@@ -473,9 +461,9 @@ describe("the focus shell end to end on the real routes", () => {
     });
     const { s } = await session(ms);
     await s.load();
-    await answerAll(s, noFlags);
-    expect(s.model.state).toEqual({ kind: "warnings" });
-    expect(s.model.data.check!.warnings).toContain("warn_ms_cool");
+    await answerDay(s);
+    expect(s.model.state).toEqual({ kind: "part", index: 0 });
+    expect(s.model.data.check!.warnings).toEqual([]);
     runParts(s);
     await settle(s, "completing");
     expect(s.model.state.kind).toBe("done");
@@ -514,8 +502,8 @@ describe("the intro's joints (plan 1.7: which joints we will measure)", () => {
   });
 });
 
-describe("the day questions (2.5)", () => {
-  it("asks the pain of each pain or injury region in body order, then rf_region, then the walk", () => {
+describe("the day's one screen (2.5, D-032 item 2)", () => {
+  it("covers the pain of each pain or injury region in body order", () => {
     const intake = v7Intake({
       regions: [
         { region: "knee", side: "right", problems: ["pain"], origin: "person" },
@@ -532,25 +520,24 @@ describe("the day questions (2.5)", () => {
     expect(painRegions(intake)).toEqual(["shoulder", "knee"]);
   });
 
-  it("includes nothing for the walk when it is not planned", () => {
-    const qs = todayQuestions(
-      v7Intake({ walking: { status: "no" } }),
-      { rulesVersion: "x", items: [], deferred: [], notMeasured: [], sitBeforeStand: false },
-      null,
+  it("asks nothing about the walk when it is not planned", () => {
+    const intake = v7Intake({ walking: { status: "no" } }) as FocusModel["data"]["intake"];
+    const items = todayItems(
+      {
+        intake,
+        context: {
+          setting: "booth",
+          protocol: { rulesVersion: "x", items: [], deferred: [], notMeasured: [], sitBeforeStand: false },
+          gait: null,
+        } as never,
+      },
+      { painByRegion: {}, redFlagRegions: [] },
     );
-    expect(qs.filter((q) => q.kind === "walk10m" || q.kind === "pdFreezing")).toEqual([]);
+    expect(items).toEqual(["worry"]);
   });
 });
 
-describe("the v1 warnings and helper briefings the start returns (C-2, C-16, v1.1 S25, S26 and S28)", () => {
-  const MS_CHAIR = v7Intake({
-    mobility: "wheelchair",
-    conditions: ["ms"],
-    regions: [
-      { region: "back_trunk", side: "axial", problems: ["stiffness"], origin: "person" },
-      { region: "knee", side: "right", problems: ["stiffness"], origin: "person" },
-    ],
-  });
+describe("after the start (D-032 item 2: no warnings screen, no helper briefing, no seek care step)", () => {
   const protocolOf = (intake: Intake) =>
     buildRomProtocol({
       intake: intake as Parameters<typeof buildRomProtocol>[0]["intake"],
@@ -574,81 +561,29 @@ describe("the v1 warnings and helper briefings the start returns (C-2, C-16, v1.
     });
   };
 
-  it("shows the warnings of the whole check once before the first part, then the helper briefing, then the part", () => {
-    const protocol = protocolOf(MS_CHAIR);
-    let m = started({
-      protocol,
-      warnings: ["warn_sci_t6", "scr_helper_brief_trunk", "warn_ms_cool"],
+  it("goes straight to the first part whatever an older server returns", () => {
+    const m = started({
+      protocol: protocolOf(FAHD),
+      warnings: ["warn_sci_t6", "scr_helper_brief_trunk", "warn_ms_cool", "scr_stop_seek_care"],
       helperRequired: ["rom_seated"],
       helperBriefing: { trunk_control_seated: "scr_helper_brief_trunk" },
     });
-    expect(m.state).toEqual({ kind: "warnings" });
-    expect(checkWarningsOf(m.data.check!.warnings)).toEqual(["warn_ms_cool"]);
-    m = reduce(m, { type: "SEEN" });
-    // The side bend in seated_armrests runs in the seated block: its briefing is a confirm step first.
-    expect(m.state).toEqual({ kind: "brief", index: 0, screen: "scr_helper_brief_trunk" });
-    expect(reduce(m, { type: "PART_DONE" }).state).toEqual(m.state);
-    m = reduce(m, { type: "HELPER_READY" });
     expect(m.state).toEqual({ kind: "part", index: 0 });
+    expect(m.data.parts.map((p) => (p.kind === "range" ? p.block : "gait"))).toEqual(["seated", "lying"]);
+    expect(reduce(m, { type: "PART_DONE" }).state).toEqual({ kind: "part", index: 1 });
   });
 
-  it("goes straight to the first part when every warning is shown with its part", () => {
-    const m = started({ protocol: protocolOf(MS_CHAIR), warnings: ["warn_sci_t6", "warn_weak_shoulder"] });
-    expect(m.state).toEqual({ kind: "part", index: 0 });
-  });
-
-  it("shows the seek care screen of a red flag region first, then the warnings", () => {
-    let m = started({ protocol: protocolOf(MS_CHAIR), warnings: ["warn_ms_cool", "scr_stop_seek_care"] });
-    expect(m.state).toEqual({ kind: "seek_care", then: "parts" });
-    m = reduce(m, { type: "SEEN" });
-    expect(m.state).toEqual({ kind: "warnings" });
-    m = reduce(m, { type: "SEEN" });
-    expect(m.state).toEqual({ kind: "part", index: 0 });
-  });
-
-  it("the chair stand's briefing comes before the standing block and before the walk", () => {
-    const protocol = protocolOf(
-      v7Intake({
-        regions: [
-          { region: "shoulder", side: "right", problems: ["stiffness"], origin: "person" },
-          { region: "hip", side: "right", problems: ["stiffness"], origin: "person" },
-        ],
-      }),
-    );
-    const gait = {
-      offered: true,
-      modes: ["overground"],
-      padAllowed: false,
-      helperRequired: true,
-      antalgicOnly: false,
-      staticStance: false,
-      views: { overground: ["side"], walking_pad: [] },
-    } as unknown as GaitPlan;
-    let m = started({ protocol, gait, helperBriefing: { chair_stand_30s: "scr_helper_brief_stand" } });
-    const kinds = m.data.parts.map((p) => (p.kind === "range" ? p.block : "gait"));
-    expect(kinds).toEqual(["seated", "standing", "gait", "lying"]);
-    // The seated block has no side bend: no briefing before it.
-    expect(m.state).toEqual({ kind: "part", index: 0 });
-    m = reduce(m, { type: "PART_DONE" });
-    expect(m.state).toEqual({ kind: "brief", index: 1, screen: "scr_helper_brief_stand" });
-    m = reduce(m, { type: "HELPER_READY" });
-    expect(m.state).toEqual({ kind: "part", index: 1 });
-    m = reduce(m, { type: "PART_DONE" });
-    expect(m.state).toEqual({ kind: "brief", index: 2, screen: "scr_helper_brief_stand" });
-    m = reduce(reduce(m, { type: "HELPER_READY" }), { type: "PART_DONE" });
-    expect(m.state).toEqual({ kind: "part", index: 3 });
-  });
-
-  it("warn_sci_t6 goes with every part, and warn_weak_shoulder with a block that moves an arm", () => {
-    const protocol = protocolOf(FAHD);
-    const warnings: StartResponse["warnings"] = ["warn_sci_t6", "warn_weak_shoulder", "warn_ms_cool"];
-    expect(partWarnings(warnings, { kind: "range", block: "seated" }, protocol)).toEqual([
-      "warn_sci_t6",
-      "warn_weak_shoulder",
-    ]);
-    expect(partWarnings(warnings, { kind: "range", block: "lying" }, protocol)).toEqual(["warn_sci_t6"]);
-    expect(partWarnings(warnings, { kind: "gait" }, protocol)).toEqual(["warn_sci_t6"]);
-    expect(partWarnings(["warn_ms_cool"], { kind: "gait" }, protocol)).toEqual([]);
+  it("says the SCI warning once on the intro for a spinal cord injury at T6 or above or of an unknown level", () => {
+    const env = (conditions: string[], sciT6?: boolean) =>
+      ({
+        ctx: { conditions },
+        setup: sciT6 === undefined ? null : { sciT6 },
+      }) as never;
+    expect(sciWarningOnce(env(["sci_incomplete"]))).toBe(true);
+    expect(sciWarningOnce(env(["sci_complete"], true))).toBe(true);
+    expect(sciWarningOnce(env(["sci_complete"], false))).toBe(false);
+    expect(sciWarningOnce(env(["stroke"]))).toBe(false);
+    expect(sciWarningOnce(null)).toBe(false);
   });
 });
 

@@ -243,10 +243,8 @@ test.describe("videos", () => {
       const context = await browser.newContext({
         viewport,
         deviceScaleFactor,
-        recordVideo: {
-          dir,
-          size: { width: viewport.width * deviceScaleFactor, height: viewport.height * deviceScaleFactor },
-        },
+        // The screencast's frames are in CSS pixels: a larger size would only pad them.
+        recordVideo: { dir, size: viewport },
       });
       const page = await context.newPage();
       await page.goto(`/?programBuild=preview${q}`);

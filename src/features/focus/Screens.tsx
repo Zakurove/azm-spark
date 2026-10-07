@@ -357,7 +357,7 @@ export function IntroScreen({
             ? {
                 label: tV7(lang, "rom.onboarding.noCamera"),
                 onClick: onNoCamera,
-                kind: "secondary",
+                kind: "quiet",
                 name: "no_camera",
               }
             : null,
@@ -439,10 +439,11 @@ export function DayScreen({
   const today: FocusToday = { painByRegion, redFlagRegions: [], ...answers };
   const items = itemsFor(today);
   const painDone = none || (Object.keys(pain).length > 0 && Object.values(pain).every((v) => v !== null));
-  const answered = (item: DayItem) =>
-    item === "pain" ? painDone : typeof answers[DAY_FIELD[item]] === "boolean";
-  const complete = items.every(answered);
   const worry = answers.worrying === true;
+  // After a yes to the worry question the check is skipped: the pain needs no answer then.
+  const answered = (item: DayItem) =>
+    item === "pain" ? painDone || worry : typeof answers[DAY_FIELD[item]] === "boolean";
+  const complete = items.every(answered);
   const missing = (item: DayItem) => tried && !answered(item);
   const finish = () => {
     if (!complete) return setTried(true);

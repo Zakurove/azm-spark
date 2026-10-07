@@ -844,7 +844,8 @@ function BuildScreen({
           <ProgramBuild lang={lang} onDone={() => setPlayed(true)} {...(summary ? { summary } : {})} />
         </Suspense>
       )}
-      {(!played || !done) && <Loading text={tV7(lang, "rom.onboarding.building")} />}
+      {/* While the server builds after the animation (or with no animation to play), a quiet line. */}
+      {(!ProgramBuild || played) && !done && <Loading text={tV7(lang, "rom.onboarding.building")} />}
     </div>
   );
 }

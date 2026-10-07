@@ -16,9 +16,11 @@
  * stored (the v1 data map only), nor any free text. Nothing here logs. Errors are { error: CODE }; a
  * 400 names the field that failed.
  *
- * Home focus checks stay closed exactly like v1 home checks (C-14): the start and every later result
- * (rom, gait, complete) call homeClosed, and a signed in booth check needs a valid booth pass
- * (X-Azm-Booth). A stop never does, as v1 safetyCheck: a safety answer always reaches the check.
+ * D-032 item 1 opens the v7 focus check to everyone signed in, from anywhere: home is open whenever
+ * the v7 routes are (AZM_V7=1, focusHomeOpen), with no booth code. A booth team's pass still gives a
+ * booth check (setting booth, X-Azm-Booth), but it is never required; a signed in booth setting
+ * without a valid pass is refused (403 BOOTH_REQUIRED), so the setting the client sends cannot claim
+ * the booth's staff. The v1 movement checks keep their own home gate (homeClosed) unchanged.
  */
 import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
@@ -56,7 +58,7 @@ import {
 import { TARGETS_VERSION } from "../../../src/movements/targets";
 import type { CheckPosition, ScreenId, Setting } from "../../../src/movements/types";
 import { adultConfirmedAt } from "../account/store";
-import { boothWindow, homeChecksOpen } from "../booth/config";
+import { boothWindow } from "../booth/config";
 import { validPass } from "../booth/store";
 import { activeConsent } from "../consents/store";
 import {
@@ -128,6 +130,24 @@ export function v7Enabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.AZM_V7 === "1";
 }
 
+/**
+ * D-032 item 1 (replacing C-14 for v7): a v7 focus check may run at home, for everyone signed in, as
+ * soon as the v7 routes run (AZM_V7=1). The v1 home gate (homeClosed, HOME_CHECKS_READY and
+ * AZM_CHECK_HOME) keeps the v1 movement checks closed exactly as before.
+ */
+export function focusHomeOpen(env: NodeJS.ProcessEnv = process.env): boolean {
+  return v7Enabled(env);
+}
+
+/**
+ * The home gate of a v7 focus check (the start, its results and the coach's token): open with the v7
+ * routes (focusHomeOpen); were they ever reached without the flag, the v1 gate answers (403
+ * HOME_CLOSED), the safe side. True when the refusal was sent.
+ */
+export function focusHomeClosed(ctx: RouteContext, setting: string): boolean {
+  return !focusHomeOpen() && homeClosed(ctx, setting);
+}
+
 const NOT_FOUND = { error: "NOT_FOUND" } as const;
 
 /**
@@ -188,7 +208,7 @@ function oneView(plan: GaitPlan): GaitPlan {
 
 const header = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-/** C-14: a valid booth pass (X-Azm-Booth) while the booth is open, as the booth journey checks it. */
+/** A valid booth pass (X-Azm-Booth) while the booth is open, as the booth journey checks it (a booth team's check). */
 function boothPassHolds(req: IncomingMessage, db: DatabaseSync, now: number): boolean {
   return boothWindow(now).open && validPass(db, header(req.headers["x-azm-booth"]), now) !== null;
 }
@@ -231,7 +251,8 @@ function ownCheck(ctx: RouteContext): FocusCheck | null {
 /**
  * The owner's open check for a result (rom, gait, complete), or the error already sent: a stale
  * check is closed first and refused (409 NOT_OPEN with its new status), a same day lock refuses it
- * (409 LOCKED), and a check that is not open is refused (409 NOT_OPEN). Then homeClosed (C-14).
+ * (409 LOCKED), and a check that is not open is refused (409 NOT_OPEN). Then the home gate, open
+ * for v7 (focusHomeClosed, D-032 item 1).
  */
 function openCheck(ctx: RouteContext, now: number): FocusCheck | null {
   const c = ownCheck(ctx);
@@ -250,7 +271,7 @@ function openCheck(ctx: RouteContext, now: number): FocusCheck | null {
     ctx.json(409, { error: "LOCKED", ...lockView(lock, now, "return") });
     return null;
   }
-  if (homeClosed(ctx, c.setting)) return null;
+  if (focusHomeClosed(ctx, c.setting)) return null;
   return c;
 }
 
@@ -258,9 +279,9 @@ function openCheck(ctx: RouteContext, now: number): FocusCheck | null {
  * The owner's check for a stop. A safety stop is never refused because the server closed the check
  * first (a stale close, a new start): its lock and counts must still reach the server, as in v1
  * (safetyCheck). The check is taken when it is open (a stale one is closed first, `closed` says so)
- * or closed less than a day after its last activity; a closed check is never reopened. Nor is it
- * refused because home closed meanwhile (no homeClosed, as v1 safetyCheck): a stop only records
- * locks, dates, counts and not measured rows, and never measures (Gate A review).
+ * or closed less than a day after its last activity; a closed check is never reopened. Nor does it
+ * read the home gate (as v1 safetyCheck): a stop only records locks, dates, counts and not measured
+ * rows, and never measures (Gate A review).
  */
 function stopCheck(ctx: RouteContext, now: number): { c: FocusCheck; closed: boolean } | null {
   const c = ownCheck(ctx);
@@ -481,7 +502,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (!rules) return json(503, RULES_PENDING);
         const s = personState(db, u.id, now);
         if (!s) return json(409, { error: "PLAN_REQUIRED" });
-        // The setting of the preview: a booth check when the request carries a valid booth pass.
+        // The setting of the preview: a booth check when the request carries a valid booth pass, else
+        // home, which is open for v7 (D-032 item 1).
         const setting: Setting = boothPassHolds(rc.req, db, now) ? "booth" : "home";
         const review = reviewReason(s.intake, s.plan, setting);
         if (review) return json(409, { error: "REVIEW", reason: review });
@@ -491,7 +513,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         const dose = s.lastCompleted?.precheck["fingerprint.pdDoseBucket"];
         const common = {
           setting,
-          homeOpen: homeChecksOpen(),
+          homeOpen: focusHomeOpen(),
           adultConfirmed: adultConfirmedAt(db, u.id) !== null,
           consent: {
             focus_check: activeConsent(db, u.id, "focus_check") !== null,
@@ -545,8 +567,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         const parsed = checkFocusStart(body);
         if (!parsed.ok) return json(400, { error: "START_INVALID", field: parsed.field });
         const { setting, answers, today, device, include } = parsed.value;
-        // C-14: home stays closed as v1 home checks; a signed in booth check needs a booth pass.
-        if (homeClosed(rc, setting)) return;
+        // D-032 item 1: home is open for v7; a signed in booth check still needs a booth pass.
+        if (focusHomeClosed(rc, setting)) return;
         if (setting === "booth" && !boothPassHolds(rc.req, db, now))
           return json(403, { error: "BOOTH_REQUIRED" });
         if (!rules) return json(503, RULES_PENDING);

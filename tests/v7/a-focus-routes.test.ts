@@ -1,7 +1,8 @@
 /**
  * The focus check routes (product v7 contract section 4, C-2, C-3, C-4, C-13, C-14), run with the
  * test rules of tests/v7/a-focus-rules.ts in place of the A2 and A4 rules (bound at Gate A): the
- * start in its order of checks with every error code, home closed and the booth pass, the two way
+ * start in its order of checks with every error code, home open for v7 (D-032 item 1) and the booth
+ * pass, the two way
  * 48 hour rule, the frozen protocol and what is stored (ids and numbers, the v1 data map, never raw
  * answers); the server's own grade of each range result; the gait body with its bounds and the
  * provisional findings; the v1 stop list with its locks, counts and the not measured rows; complete
@@ -217,16 +218,27 @@ const countOf = (metric: string, key = "") =>
 /* ------------------------------------------------------------------ start */
 
 describe("POST /api/focus: the order of checks", () => {
-  it("refuses a home start with HOME_CLOSED right after the parse, before anything else", async () => {
-    const { cookie } = await person(v1Intake(), []);
-    // No v7 intake, no consent: HOME_CLOSED still answers first (C-14).
-    const r = await h.call("/focus", startBody({}, { setting: "home" }), cookie);
-    expect(r).toMatchObject({ status: 403, data: { error: "HOME_CLOSED" } });
+  it("takes a home start without a booth code: home is open for v7 (D-032 item 1)", async () => {
+    const v1 = await person(v1Intake(), []);
+    // No v7 intake: the start goes past the home gate to the intake's own check.
+    const r = await h.call("/focus", startBody({}, { setting: "home" }), v1.cookie);
+    expect(r).toMatchObject({ status: 409, data: { error: "INTAKE_UPDATE_REQUIRED" } });
     // A body that does not parse is refused first.
-    expect((await h.call("/focus", { setting: "home" }, cookie)).data).toEqual({
+    expect((await h.call("/focus", { setting: "home" }, v1.cookie)).data).toEqual({
       error: "START_INVALID",
       field: "answers",
     });
+    // A member with the v7 intake starts at home with no booth pass, and the check is a home check.
+    const { cookie } = await person();
+    const ctx = await h.call("/focus/context", undefined, cookie);
+    expect(ctx.data).toMatchObject({ setting: "home", homeOpen: true });
+    const s = await h.call("/focus", startBody(fill(ctx.data.env, {} as never), { setting: "home" }), cookie);
+    expect(s.status).toBe(200);
+    expect(h.db().prepare("SELECT setting FROM focus_checks WHERE id=?").get(s.data.id)).toEqual({
+      setting: "home",
+    });
+    // The v1 movement check keeps its own home gate, closed as before.
+    expect((await h.call("/assessments/context", undefined, cookie)).data).toMatchObject({ homeOpen: false });
   });
 
   it("refuses a booth start without a valid booth pass (BOOTH_REQUIRED)", async () => {
@@ -677,7 +689,7 @@ describe("GET /api/focus/context", () => {
     expect(c.data).toMatchObject({
       intakeReady: true,
       setting: "booth",
-      homeOpen: false,
+      homeOpen: true,
       consent: { focus_check: true, live_coach: true },
       lock: null,
       open: null,
@@ -894,17 +906,14 @@ describe("POST /api/focus/:id/rom", () => {
     });
   });
 
-  it("refuses a home check's results while home checks are closed (HOME_CLOSED), never its stops", async () => {
+  it("takes a home check's results, its stops and its complete: home is open for v7 (D-032 item 1)", async () => {
     const { cookie } = await person();
     const s = await started(cookie);
     h.db().prepare("UPDATE focus_checks SET setting='home' WHERE id=?").run(s.id);
     const knee = item(s.protocol, "knee_flexion");
-    expect((await h.call(`/focus/${s.id}/rom`, romBody(knee, 130), cookie)).data).toEqual({
-      error: "HOME_CLOSED",
-    });
-    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).data).toEqual({ error: "HOME_CLOSED" });
-    // A stop is a safety answer: it is taken (v1 safetyCheck never checks homeClosed).
+    expect((await h.call(`/focus/${s.id}/rom`, romBody(knee, 130), cookie)).status).toBe(200);
     expect((await h.call(`/focus/${s.id}/stop`, { option: "tired" }, cookie)).status).toBe(200);
+    expect((await h.call(`/focus/${s.id}/complete`, {}, cookie)).data).toMatchObject({ status: "completed" });
   });
 });
 
@@ -1340,17 +1349,14 @@ describe("POST /api/focus/:id/stop", () => {
     });
   });
 
-  it("takes a safety stop of a home check after home closes: its lock, dates and counts (v1 safetyCheck)", async () => {
-    // Home open (AZM_CHECK_HOME=1) at the start, as a decision opening home for v7 (D-021) would do.
-    process.env.AZM_CHECK_HOME = "1";
+  it("takes a safety stop of a home check: its lock, dates and counts (v1 safetyCheck)", async () => {
+    // A home check with no booth pass (D-032 item 1).
     const { cookie, id } = await person();
     const ctx = await h.call("/focus/context", undefined, cookie);
     expect(ctx.data.setting).toBe("home");
     const r = await h.call("/focus", startBody(fill(ctx.data.env, {} as never), { setting: "home" }), cookie);
     expect(r.status).toBe(200);
     const s = r.data as { id: string };
-    // Home closes again while the check is open (AZM_CHECK_HOME is read on every request).
-    delete process.env.AZM_CHECK_HOME;
     const db = h.db();
     const safetyBefore =
       (

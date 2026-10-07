@@ -258,3 +258,21 @@ export function gaitPlanFor(
     },
   };
 }
+
+/**
+ * D-032 item 1: the walking pad is offered at home too, with its existing steps and a helper beside
+ * the person (modeChoice: «booth or clinic staff present, or a helper at home»). Whether the day's one
+ * helper question can change today's walk: with someone there, the walk would be offered and either
+ * needs that person beside the walker or offers the pad. Never at the booth, where the staff count as
+ * the helper.
+ */
+export function helperMattersForWalk(
+  intake: Intake,
+  today: FocusToday,
+  setting: "home" | "booth",
+  precheckAnswers: Answers = {},
+): boolean {
+  if (setting === "booth") return false;
+  const withHelper = gaitPlanFor(intake, { ...today, helperPresent: true }, setting, precheckAnswers);
+  return withHelper.offered && (withHelper.helperRequired || withHelper.padAllowed);
+}

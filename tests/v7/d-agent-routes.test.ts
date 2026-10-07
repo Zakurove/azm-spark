@@ -4,8 +4,8 @@
  * token endpoint stubbed (one fetch; the test's own calls to the API go through).
  *
  * The token route checks, in order: AZM_V7 (404), the coach switched on with a key (503), the body
- * (400 AGENT_INVALID), the live_coach consent (403), an open ref of the person (409 NOT_OPEN), home
- * closed for a range or gait segment (403 HOME_CLOSED), the segment of the ref (400), the rate limits
+ * (400 AGENT_INVALID), the live_coach consent (403), an open ref of the person (409 NOT_OPEN), the
+ * focus check's home gate, open for v7 (D-032 item 1), the segment of the ref (400), the rate limits
  * (429 RATE_LIMIT), then the budget (429 BUDGET), and mints from stored state only.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -301,7 +301,7 @@ describe("POST /api/agent/token: the order of checks", () => {
     expect(google).toHaveLength(1);
   });
 
-  it("answers 403 HOME_CLOSED for a range or gait segment of a home check (C-14)", async () => {
+  it("mints a range segment of a home check: home is open for v7 (D-032 item 1)", async () => {
     const intake = v7Intake();
     const cookie = await member(h, `agent-home-${++emailCounter}@example.test`, intake, [
       "focus_check",
@@ -329,9 +329,9 @@ describe("POST /api/agent/token: the order of checks", () => {
       { block: "rom", segment: seg.segment, lang: "en", ref: { checkId: id }, deviceId: newDevice() },
       cookie,
     );
-    expect(r.status).toBe(403);
-    expect(r.data).toEqual({ error: "HOME_CLOSED" });
-    expect(google).toHaveLength(0);
+    expect(r.status).toBe(200);
+    expect(r.data).toMatchObject({ token: "auth_tokens/tok123" });
+    expect(google).toHaveLength(1);
   });
 
   it("answers 400 AGENT_INVALID for a segment the check does not have", async () => {

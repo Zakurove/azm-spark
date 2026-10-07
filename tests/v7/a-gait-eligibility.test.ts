@@ -11,6 +11,7 @@ import {
   GAIT_PAD_PAIN_NOW_FROM,
   GAIT_PAIN_SKIP_AT,
   gaitPlanFor,
+  helperMattersForWalk,
   type GaitPlan,
 } from "../../src/medical/gait-eligibility";
 import type { Answers } from "../../src/medical/precheck";
@@ -244,6 +245,31 @@ describe("gait-rules modeChoice", () => {
     const pd = intake({ conditions: ["parkinsons"] });
     expect(plan(pd, {}, calm).padAllowed).toBe(false);
     expect(plan(pd, { pdFreezing: false }, { ...calm, pc_pd_dizzy_standing: "no" }).padAllowed).toBe(true);
+  });
+});
+
+describe("the walking pad at home (D-032 item 1)", () => {
+  it("offers the pad at home with its existing views once someone is with the person", () => {
+    const alone = plan(intake(), {}, calm, "home");
+    expect(alone).toMatchObject({ offered: true, padAllowed: false, modes: ["overground"] });
+    const helped = plan(intake(), { helperPresent: true }, calm, "home");
+    expect(helped).toMatchObject({ offered: true, padAllowed: true, modes: ["overground", "walking_pad"] });
+    expect(helped.views.walking_pad).toEqual(plan(intake(), {}, calm, "booth").views.walking_pad);
+  });
+
+  it("asks whether someone is there only when it changes the walk", () => {
+    // A calm walker: the pad needs someone there.
+    expect(helperMattersForWalk(intake(), today(), "home", calm)).toBe(true);
+    // A walker with an aid needs someone beside them (and never gets the pad).
+    expect(
+      helperMattersForWalk(intake({ walking: { status: "with_aid", aid: "cane" } }), today(), "home"),
+    ).toBe(true);
+    // No walk today, or the booth's staff: nothing to ask.
+    expect(helperMattersForWalk(intake({ walking: { status: "no" } }), today(), "home", calm)).toBe(false);
+    expect(helperMattersForWalk(intake(), today({ walk10m: false }), "home", calm)).toBe(false);
+    expect(helperMattersForWalk(intake(), today(), "booth", calm)).toBe(false);
+    // Overground alone, no helper needed and no pad (clearance not sure): nothing to ask.
+    expect(helperMattersForWalk(intake({ clearance: "unsure" }), today(), "home", calm)).toBe(false);
   });
 });
 

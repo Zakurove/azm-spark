@@ -8,8 +8,8 @@
  *
  * The coach is an enhancement, never a dependency (C-5): every refusal here leaves the segment to the
  * local voice pack and the buttons. The token route checks, in the order of 5.1: the body, the
- * live_coach consent, an open ref of the person, home closed for a range or gait segment (C-14), the
- * segment of the ref, the rate limits, then the budget. It then builds the instruction, the block's
+ * live_coach consent, an open ref of the person, the focus check's home gate for a range or gait
+ * segment (open for v7, D-032 item 1), the segment of the ref, the rate limits, then the budget. It then builds the instruction, the block's
  * tools and the history from stored state only (C-12), mints the token with one fetch, and reserves
  * the segment's minutes once the mint succeeded. The API key never leaves the server; a failed mint
  * is logged by its status only. Errors are { error: CODE }; a 400 names the first bad field.
@@ -23,7 +23,7 @@ import { toolDeclarations } from "../../../src/coach/tools";
 import { riyadhDate, stopOptions, stopRoute, type PrecheckEnv } from "../../../src/medical/precheck";
 import type { Setting } from "../../../src/movements/types";
 import { runSteps, type RunPlan } from "../../guided";
-import { RESUME_WINDOW_MS, applyLock, emergencyAlsoShow, homeClosed } from "../assessments/common";
+import { RESUME_WINDOW_MS, applyLock, emergencyAlsoShow } from "../assessments/common";
 import { checkContextOf, personState } from "../assessments/state";
 import {
   countProduct,
@@ -37,6 +37,7 @@ import {
 import { boothWindow } from "../booth/config";
 import { validPass } from "../booth/store";
 import { activeConsent } from "../consents/store";
+import { focusHomeClosed } from "../focus/routes";
 import { ownFocusCheck, type FocusCheck } from "../focus/store";
 import { decide, ownSession, reserve, segmentSession, storeUsage, type ReservationAsk } from "./budget";
 import { checkContext, workoutContext, type CoachContext } from "./context";
@@ -195,7 +196,7 @@ export const agentRoutes: Route[] = [
       if ("checkId" in req.ref) {
         const check = openFocus(db, req.ref.checkId, u.id, now);
         if (!check) return json(409, NOT_OPEN);
-        if (homeClosed(rc, check.setting)) return;
+        if (focusHomeClosed(rc, check.setting)) return;
         const seg = segmentsFor(check.protocol, check.gaitPlan).find((s) => s.segment === req.segment);
         if (!seg || seg.block !== req.block) return json(400, { error: "AGENT_INVALID", field: "segment" });
         ref = check.id;

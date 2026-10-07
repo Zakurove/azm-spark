@@ -130,5 +130,14 @@ export function focusEnvBase(
   };
 }
 
-/** The empty day: no pain and no red flag, for the protocol preview of GET /api/focus/context. */
-export const PREVIEW_TODAY: FocusToday = { painByRegion: {}, redFlagRegions: [] };
+/**
+ * The day of the preview (GET /api/focus/context, and the start's check of the day's one screen):
+ * no pain and no red flag, with someone with the person and the prosthesis on (D-032 item 2), so the
+ * preview shows what could run and the day's one screen asks what decides it.
+ */
+export const PREVIEW_TODAY: FocusToday = {
+  painByRegion: {},
+  redFlagRegions: [],
+  helperPresent: true,
+  prosthesisOn: true,
+};

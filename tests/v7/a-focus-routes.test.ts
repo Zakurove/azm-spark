@@ -53,7 +53,6 @@ vi.mock("../../src/medical/gait-rules", () => ({
 import { setLock } from "../../server/modules/assessments/store";
 import { romRowsOf } from "../../server/modules/focus/store";
 import { lockView } from "../../server/modules/assessments/common";
-import { fill } from "../precheck-fixtures";
 import type { RomProtocol, RomProtocolItem } from "../../src/medical/rom-protocol";
 import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import { ROM_RULES_VERSION, NORMS_VERSION, movementDef } from "../../src/movements/rom";
@@ -121,40 +120,40 @@ async function person(intake = v7Intake(), consents = ["focus_check"]) {
 
 const booth = () => ({ "x-azm-booth": pass });
 
-/** Benign answers for the pre-check environment the context gives (booth with the pass). */
-async function answersFor(cookie: string, given: Record<string, unknown> = {}) {
-  const c = await h.call("/focus/context", undefined, cookie, "GET", booth());
-  if (c.status !== 200 || !c.data.env) throw new Error(`context ${c.status} ${JSON.stringify(c.data)}`);
-  return fill(c.data.env, given as never);
-}
+/**
+ * The day's one screen answered calmly (D-032 item 2): nothing new or worrying, steady, walks 10 m, no
+ * one with the person; `day` over it.
+ */
+const CALM_DAY = {
+  painByRegion: {},
+  redFlagRegions: [],
+  worrying: false,
+  unsteady: false,
+  walk10m: true,
+  helperPresent: false,
+};
 
-function startBody(answers: unknown, over: Record<string, unknown> = {}) {
+function startBody(day: Record<string, unknown> = {}, over: Record<string, unknown> = {}) {
   return {
     setting: "booth",
-    answers,
-    today: { painByRegion: {}, redFlagRegions: [], walk10m: true },
+    today: { ...CALM_DAY, ...day },
     device: DEVICE,
     include: { rom: true, gait: true },
     ...over,
   };
 }
 
-async function start(
-  cookie: string,
-  over: Record<string, unknown> = {},
-  given: Record<string, unknown> = {},
-) {
-  const answers = await answersFor(cookie, given);
-  return h.call("/focus", startBody(answers, over), cookie, "POST", booth());
+async function start(cookie: string, over: Record<string, unknown> = {}, day: Record<string, unknown> = {}) {
+  return h.call("/focus", startBody(day, over), cookie, "POST", booth());
 }
 
 /** A started booth focus check: its id, protocol and gait plan. */
 async function started(
   cookie: string,
   over: Record<string, unknown> = {},
-  given: Record<string, unknown> = {},
+  day: Record<string, unknown> = {},
 ) {
-  const r = await start(cookie, over, given);
+  const r = await start(cookie, over, day);
   if (r.status !== 200) throw new Error(`start ${r.status} ${JSON.stringify(r.data)}`);
   return r.data as { id: string; protocol: RomProtocol; gait: GaitPlan | null; kind: string };
 }
@@ -226,13 +225,13 @@ describe("POST /api/focus: the order of checks", () => {
     // A body that does not parse is refused first.
     expect((await h.call("/focus", { setting: "home" }, v1.cookie)).data).toEqual({
       error: "START_INVALID",
-      field: "answers",
+      field: "today",
     });
     // A member with the v7 intake starts at home with no booth pass, and the check is a home check.
     const { cookie } = await person();
     const ctx = await h.call("/focus/context", undefined, cookie);
     expect(ctx.data).toMatchObject({ setting: "home", homeOpen: true });
-    const s = await h.call("/focus", startBody(fill(ctx.data.env, {} as never), { setting: "home" }), cookie);
+    const s = await h.call("/focus", startBody({}, { setting: "home" }), cookie);
     expect(s.status).toBe(200);
     expect(h.db().prepare("SELECT setting FROM focus_checks WHERE id=?").get(s.data.id)).toEqual({
       setting: "home",
@@ -243,23 +242,25 @@ describe("POST /api/focus: the order of checks", () => {
 
   it("refuses a booth start without a valid booth pass (BOOTH_REQUIRED)", async () => {
     const { cookie } = await person();
-    const answers = await answersFor(cookie);
-    expect((await h.call("/focus", startBody(answers), cookie)).data).toEqual({ error: "BOOTH_REQUIRED" });
+    expect((await h.call("/focus", startBody(), cookie)).data).toEqual({ error: "BOOTH_REQUIRED" });
     expect(
-      (await h.call("/focus", startBody(answers), cookie, "POST", { "x-azm-booth": "f".repeat(64) })).data,
+      (await h.call("/focus", startBody(), cookie, "POST", { "x-azm-booth": "f".repeat(64) })).data,
     ).toEqual({ error: "BOOTH_REQUIRED" });
     // A pass of the booth day stops holding once the booth is closed (another day).
     setTime(T0 + 2 * DAY);
-    expect((await h.call("/focus", startBody(answers), cookie, "POST", booth())).data).toEqual({
+    expect((await h.call("/focus", startBody(), cookie, "POST", booth())).data).toEqual({
       error: "BOOTH_REQUIRED",
     });
   });
 
   it("names the first bad field of a start body (START_INVALID)", async () => {
     const { cookie } = await person();
-    const answers = await answersFor(cookie);
     const bad: [Record<string, unknown>, string][] = [
       [{ extra: 1 }, "extra"],
+      // D-032 item 2: the day's one screen travels as today, with no v1 pre-check answers.
+      [{ answers: {} }, "answers"],
+      [{ today: { ...CALM_DAY, worrying: "no" } }, "today.worrying"],
+      [{ today: { ...CALM_DAY, unsteady: 1 } }, "today.unsteady"],
       [{ setting: "clinic" }, "setting"],
       [{ today: { painByRegion: { knee: 11 }, redFlagRegions: [] } }, "today.painByRegion"],
       [{ today: { painByRegion: { toe: 2 }, redFlagRegions: [] } }, "today.painByRegion"],
@@ -272,7 +273,7 @@ describe("POST /api/focus: the order of checks", () => {
       [{ include: { rom: true } }, "include.gait"],
     ];
     for (const [over, field] of bad)
-      expect((await h.call("/focus", startBody(answers, over), cookie, "POST", booth())).data).toEqual({
+      expect((await h.call("/focus", startBody({}, over), cookie, "POST", booth())).data).toEqual({
         error: "START_INVALID",
         field,
       });
@@ -308,10 +309,9 @@ describe("POST /api/focus: the order of checks", () => {
 
   it("refuses while a same day lock holds (LOCKED), with the lock as v1 shows it", async () => {
     const { cookie, id } = await person();
-    const answers = await answersFor(cookie);
     const until = T0 + 3 * HOUR;
     setLock(h.db(), id, { until, releasableByClearance: false }, T0);
-    const r = await h.call("/focus", startBody(answers), cookie, "POST", booth());
+    const r = await h.call("/focus", startBody(), cookie, "POST", booth());
     expect(r.status).toBe(409);
     expect(r.data).toEqual({
       error: "LOCKED",
@@ -476,22 +476,66 @@ describe("POST /api/focus: the order of checks", () => {
     expect((await start(walker.cookie, { include: { rom: true, gait: false } })).status).toBe(200);
   });
 
-  it("postpones like v1: counts the start and the reason, keeps no check, sets the lock", async () => {
+  it("skips the check today on a yes to the worry question: counts it, keeps no check, sets the next day lock (D-032)", async () => {
     const { cookie, id } = await person();
     const before = countOf("focus_started");
-    const r = await start(cookie, {}, { pc_unwell: "yes" });
+    const r = await start(cookie, {}, { worrying: true });
     expect(r.status).toBe(409);
     expect(r.data).toMatchObject({ error: "POSTPONE", status: "postpone", reason: "unwell" });
+    expect(r.data.lock).toMatchObject({ until: expect.any(Number) });
     expect(countOf("focus_started")).toBe(before + 1);
     const db = h.db();
     expect(
       db
         .prepare(
-          "SELECT count FROM safety_events WHERE reason='focus:precheck:unwell' AND test_id='precheck'",
+          "SELECT count FROM safety_events WHERE reason='focus:precheck:day_worry' AND test_id='precheck'",
         )
         .get(),
     ).toMatchObject({ count: 1 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM focus_checks WHERE user_id=?").get(id)).toEqual({ n: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM check_locks WHERE user_id=?").get(id)).toEqual({ n: 1 });
+    // After a yes nothing else is needed: a start with the worry answer alone is taken.
+    const other = await person();
+    const alone = await h.call(
+      "/focus",
+      startBody({}, { today: { painByRegion: {}, redFlagRegions: [], worrying: true } }),
+      other.cookie,
+      "POST",
+      booth(),
+    );
+    expect(alone.data).toMatchObject({ error: "POSTPONE" });
+    // The lock holds to its end: no question of the day releases it.
+    expect((await start(cookie)).data).toMatchObject({ error: "LOCKED" });
+  });
+
+  it("needs every item the day's one screen asked (D-032 item 2)", async () => {
+    const { cookie } = await person();
+    const day = (t: Record<string, unknown>) =>
+      startBody({}, { today: { painByRegion: {}, redFlagRegions: [], ...t } });
+    const call = (t: Record<string, unknown>) => h.call("/focus", day(t), cookie, "POST", booth());
+    expect((await call({})).data).toEqual({ error: "START_INVALID", field: "today.worrying" });
+    expect((await call({ worrying: false })).data).toEqual({
+      error: "START_INVALID",
+      field: "today.walk10m",
+    });
+    expect((await call({ worrying: false, walk10m: true })).data).toEqual({
+      error: "START_INVALID",
+      field: "today.unsteady",
+    });
+    // At home someone with the person is asked once (the pad needs a helper).
+    const home = await h.call(
+      "/focus",
+      startBody(
+        {},
+        {
+          setting: "home",
+          today: { painByRegion: {}, redFlagRegions: [], worrying: false, walk10m: true, unsteady: false },
+        },
+      ),
+      cookie,
+    );
+    expect(home.data).toEqual({ error: "START_INVALID", field: "today.helperPresent" });
+    expect((await call({ worrying: false, walk10m: true, unsteady: false })).status).toBe(200);
   });
 
   it("refuses a day with nothing to measure (NOTHING_TO_MEASURE)", async () => {
@@ -501,9 +545,7 @@ describe("POST /api/focus: the order of checks", () => {
       warnings: expect.any(Array),
     });
     // Every region with a red flag and no walk: the seek care screen comes with the refusal.
-    const r = await start(cookie, {
-      today: { painByRegion: {}, redFlagRegions: ["knee", "shoulder"] },
-    });
+    const r = await start(cookie, {}, { redFlagRegions: ["knee", "shoulder"] });
     expect(r.status).toBe(409);
     expect(r.data.error).toBe("NOTHING_TO_MEASURE");
     expect(r.data.warnings).toContain("scr_stop_seek_care");
@@ -511,21 +553,17 @@ describe("POST /api/focus: the order of checks", () => {
 
   it("needs the gait day items when the day plans a walk (2.5 GAIT_DAY_ITEMS)", async () => {
     const { cookie } = await person();
-    expect((await start(cookie, { today: { painByRegion: {}, redFlagRegions: [] } })).data).toEqual({
+    const calm = { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: false };
+    expect((await start(cookie, { today: calm })).data).toEqual({
       error: "START_INVALID",
       field: "today.walk10m",
     });
     // Without the walk today the item is not needed.
-    const noWalk = await start(cookie, {
-      today: { painByRegion: {}, redFlagRegions: [] },
-      include: { rom: true, gait: false },
-    });
+    const noWalk = await start(cookie, { today: calm, include: { rom: true, gait: false } });
     expect(noWalk.status).toBe(200);
     const pd = await person(v7Intake({ conditions: ["parkinsons"] }));
     expect((await start(pd.cookie)).data).toEqual({ error: "START_INVALID", field: "today.pdFreezing" });
-    const r = await start(pd.cookie, {
-      today: { painByRegion: {}, redFlagRegions: [], walk10m: true, pdFreezing: false },
-    });
+    const r = await start(pd.cookie, { today: { ...calm, walk10m: true, pdFreezing: false } });
     expect(r.status).toBe(200);
   });
 
@@ -542,9 +580,14 @@ describe("POST /api/focus: the order of checks", () => {
 describe("POST /api/focus: a booth start", () => {
   it("freezes the day's protocol and gait plan and stores ids, numbers and the data map only", async () => {
     const { cookie, id } = await person();
-    const answers = await answersFor(cookie);
-    const today = { painByRegion: { knee: 3 }, redFlagRegions: [], helperPresent: true, walk10m: true };
-    const r = await h.call("/focus", startBody(answers, { today }), cookie, "POST", booth());
+    const today = {
+      painByRegion: { knee: 3 },
+      redFlagRegions: [],
+      worrying: false,
+      unsteady: false,
+      walk10m: true,
+    };
+    const r = await h.call("/focus", startBody({}, { today }), cookie, "POST", booth());
     expect(r.status).toBe(200);
     expect(r.data).toMatchObject({
       kind: "baseline",
@@ -579,11 +622,10 @@ describe("POST /api/focus: a booth start", () => {
     expect(JSON.parse(row.protocol as string)).toEqual(p);
     expect(JSON.parse(row.gait_plan as string)).toEqual(r.data.gait);
     // Of the day's answers only those a later step reads are kept (the gait recompute at complete
-    // reads the pain and pc_steadi's fell and worry, the coach's token helper present); the rest
-    // live on in the frozen protocol (D-026 items 7 and 9).
+    // reads the pain and unsteadiness as pc_steadi's fell and worry); the rest live on in the frozen
+    // protocol (D-026 items 7 and 9). At the booth nobody is asked about: the staff are there.
     expect(JSON.parse(row.today as string)).toEqual({
       painByRegion: { knee: 3 },
-      helperPresent: true,
       steadi: { fell: false, worry: false },
     });
     expect(JSON.parse(row.device as string)).toEqual(DEVICE);
@@ -603,9 +645,7 @@ describe("POST /api/focus: a booth start", () => {
 
   it("names the seek care screen for a red flag region and leaves its items not measured", async () => {
     const { cookie } = await person();
-    const r = await start(cookie, {
-      today: { painByRegion: {}, redFlagRegions: ["shoulder"], walk10m: true },
-    });
+    const r = await start(cookie, {}, { redFlagRegions: ["shoulder"] });
     expect(r.status).toBe(200);
     expect(r.data.warnings).toContain("scr_stop_seek_care");
     const p: RomProtocol = r.data.protocol;
@@ -619,6 +659,8 @@ describe("POST /api/focus: a booth start", () => {
     const today = {
       painByRegion: { knee: 4 },
       redFlagRegions: ["shoulder"],
+      worrying: false,
+      unsteady: false,
       walk10m: true,
       pdFreezing: false,
       prosthesisOn: false,
@@ -633,14 +675,15 @@ describe("POST /api/focus: a booth start", () => {
     const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(r.data.id) as {
       today: string;
     };
-    // The gait rules read the pain, pc_steadi's fell and worry and Parkinson's pc_pd_on (CG-9, CG-18);
-    // no leg limb loss, so no prosthesis answer.
+    // The gait rules read the pain and unsteadiness as pc_steadi's fell and worry (CG-9); pc_pd_on is
+    // no longer asked (D-032 item 2), and no leg limb loss, so no prosthesis answer.
     expect(JSON.parse(row.today)).toEqual({
       painByRegion: { knee: 4 },
       steadi: { fell: false, worry: false },
-      pdState: "on",
     });
-    expect(row.today).not.toMatch(/redFlag|walk10m|pdFreezing|prosthesis|transfer|orthosis|afo|shoulder/);
+    expect(row.today).not.toMatch(
+      /redFlag|walk10m|pdFreezing|prosthesis|transfer|orthosis|afo|shoulder|worrying|unsteady/,
+    );
   });
 
   it("leaves out a part the person does not include today", async () => {
@@ -794,9 +837,7 @@ describe("POST /api/focus/:id/rom", () => {
 
   it("refuses what is not in the protocol, a skipped item, a second save and a stale client", async () => {
     const { cookie } = await person();
-    const s = await started(cookie, {
-      today: { painByRegion: { shoulder: 7 }, redFlagRegions: [], walk10m: true },
-    });
+    const s = await started(cookie, {}, { painByRegion: { shoulder: 7 } });
     expect((await h.call(`/focus/${s.id}/rom`, { movementId: "elbow", side: "right" }, cookie)).data).toEqual(
       {
         error: "RESULT_INVALID",
@@ -1354,7 +1395,7 @@ describe("POST /api/focus/:id/stop", () => {
     const { cookie, id } = await person();
     const ctx = await h.call("/focus/context", undefined, cookie);
     expect(ctx.data.setting).toBe("home");
-    const r = await h.call("/focus", startBody(fill(ctx.data.env, {} as never), { setting: "home" }), cookie);
+    const r = await h.call("/focus", startBody({}, { setting: "home" }), cookie);
     expect(r.status).toBe(200);
     const s = r.data as { id: string };
     const db = h.db();
@@ -1425,9 +1466,7 @@ describe("POST /api/focus/:id/complete", () => {
       }),
     );
     // A red flag on the elbows (not a leg or the back, so the walk stays offered).
-    const s = await started(cookie, {
-      today: { painByRegion: { hip: 2 }, redFlagRegions: ["elbow"], walk10m: true },
-    });
+    const s = await started(cookie, {}, { painByRegion: { hip: 2 }, redFlagRegions: ["elbow"] });
     const p = s.protocol;
     // 4 elbow items with a red flag; 10 others, of which 8 run today and 2 are deferred.
     expect(p.items.filter((i) => i.skipped === "red_flag").length).toBe(4);
@@ -1541,11 +1580,7 @@ describe("POST /api/focus/:id/complete", () => {
 
   it("gives the rules at complete the stored setup, the walk's pain marks and the kept day answers (D-026 item 7)", async () => {
     const { cookie } = await person(v7Intake({ conditions: ["parkinsons"] }));
-    const s = await started(
-      cookie,
-      { today: { painByRegion: {}, redFlagRegions: [], walk10m: true, pdFreezing: false } },
-      { "pc_steadi:fell": "yes", "pc_steadi:worry": "no", pc_pd_on: "unsure" },
-    );
+    const s = await started(cookie, {}, { pdFreezing: false, unsteady: true });
     const body = gaitBody(s.gait!, "overground");
     const setup = { ...body.setup, aid: "cane", orthosis: { right: "afo" } };
     const walkPain = [
@@ -1563,8 +1598,7 @@ describe("POST /api/focus/:id/complete", () => {
     expect(posted.analysis.walkPain).toEqual(walkPain);
     expect(posted.today).toEqual({
       painByRegion: {},
-      steadi: { fell: true, worry: false },
-      pdState: "unsure",
+      steadi: { fell: true, worry: true },
     });
     // The marks are kept with the walk (the metrics column, beside the static stance), never a word.
     const row = h.db().prepare("SELECT metrics FROM gait_analyses WHERE check_id=?").get(s.id) as {

@@ -1,23 +1,23 @@
 /**
- * The pre-check bridge of the focus check (product v7 contract C-2 and 2.5, 8.1 A "the pre-check
- * bridge (proxy tests, skip mapping, helper mapping, a postpone path end to end)" and "rf_region"):
- * the v1 pre-check runs unchanged on proxy base tests chosen from the day's protocol and gait plan, and
- * its skips and helper requirements come back onto the v7 items. The gait day items and the region red
- * flag item are checked against the data.
+ * The pre-check of the focus check (product v7 contract C-2 and 2.5; D-032 item 2): the day's one
+ * screen (dayAreas, dayItems, missingDayItems, dayOutcome, keptDay), and the v1 bridge it goes through
+ * unchanged (proxy tests, skip mapping, helper mapping), which the v1 pre-check also drives. The gait
+ * day items and the day's copy are checked against the data.
  */
 import { describe, expect, it } from "vitest";
 import {
   GAIT_DAY_ITEMS,
-  RF_REGION_ITEM,
-  RF_REGION_LEG,
   applyPrecheckOutcome,
+  dayAreas,
+  dayItems,
+  dayOutcome,
   focusPrecheckEnv,
   gaitDayItems,
-  keptDayAnswers,
+  keptDay,
+  missingDayItems,
   missingGaitDayItems,
   proxyBaseTests,
-  redFlagWarnings,
-  rfRegionsToAsk,
+  type DayInput,
 } from "../../src/medical/focus-precheck";
 import { buildRomProtocol, type FocusToday, type RomProtocol } from "../../src/medical/rom-protocol";
 import { autoFillRegions } from "../../src/medical/body-map";
@@ -33,7 +33,6 @@ import type { CheckContext } from "../../src/medical/assessment";
 import { GAIT_DATA } from "../../src/movements/gait";
 import { ROM_DATA } from "../../src/movements/rom";
 import { wordingProblems } from "../../scripts/wording-rules.mjs";
-import { V7_DICTIONARIES, tV7 } from "../../src/i18n/v7";
 import { NOW, fill } from "../precheck-fixtures";
 import { entry, intake, itemOf, running, today, type V7Intake } from "./a-fixtures";
 
@@ -421,10 +420,9 @@ describe("GAIT_DAY_ITEMS: asked when the gait test is planned", () => {
       expect(line.en.length, id).toBeGreaterThan(0);
     }
     expect(
-      GAIT_DATA.eligibility.today.some((r) =>
-        r.item.startsWith("pc_pd_freezing yes (new, Parkinson's only)"),
-      ),
+      GAIT_DATA.eligibility.today.some((r) => r.item.startsWith("pc_pd_freezing yes (Parkinson's only")),
     ).toBe(true);
+    expect(GAIT_DATA.eligibility.gate.some((r) => r.item.startsWith("pc_walk_10m"))).toBe(true);
   });
 
   it("pc_walk_10m for every walker; pc_pd_freezing for Parkinson's only; none without a gait test", () => {
@@ -445,162 +443,26 @@ describe("GAIT_DAY_ITEMS: asked when the gait test is planned", () => {
   });
 });
 
-/* ------------------------------------------------ the day answers kept */
+/* ------------------------------------------------ the day's one screen (D-032 item 2) */
 
-describe("keptDayAnswers: the day answers a later step reads (D-026 items 7 and 9)", () => {
-  /** The start's pre-check on the day's protocol and walk, the given answers filled with benign ones. */
-  const day = (
-    h: V7Intake,
-    given: Answers,
-    setting: "home" | "booth" = "home",
-    t: Partial<FocusToday> = {},
-  ) => {
-    const protocol = build(h, t, setting);
-    const env = focusPrecheckEnv(baseEnv(h, setting), protocol, gaitOf(h, t, setting, given));
-    return keptDayAnswers(env, fill(env, given), today(t), h);
-  };
-  const back = [entry("back_trunk", "axial", ["stiffness"])];
-  /** A stroke in a wheelchair with the back on the map: the seated side bend on armrests runs. */
-  const seatedLean = intake({
-    conditions: ["stroke"],
-    mobility: "wheelchair",
-    walking: { status: "no" },
-    regions: back,
-  });
-
-  it("keeps the pain per region and helper present as before (R1-2)", () => {
-    const kept = day(intake({ regions: back }), {}, "booth", {
-      painByRegion: { back_trunk: 3 },
-      helperPresent: true,
-    });
-    expect(kept).toMatchObject({ painByRegion: { back_trunk: 3 }, helperPresent: true });
-  });
-
-  it("keeps pc_steadi's fell and worry when the chair stand is asked, never unsteady (CG-9)", () => {
-    const walker = intake({ regions: back });
-    const kept = day(walker, {
-      "pc_steadi:fell": "yes",
-      "pc_steadi:unsteady": "yes",
-      "pc_steadi:worry": "no",
-    });
-    expect(kept.steadi).toEqual({ fell: true, worry: false });
-    expect(JSON.stringify(kept)).not.toMatch(/unsteady/);
-    // No chair stand today (a seated side bend, no walk): pc_steadi is not asked, so nothing is kept.
-    expect(day(seatedLean, { "pc_steadi:fell": "yes", "pc_steadi:worry": "yes" }).steadi).toBeUndefined();
-  });
-
-  it("keeps Parkinson's pc_pd_on as on or unsure, and nothing without Parkinson's (CG-18)", () => {
-    const pd = intake({ conditions: ["parkinsons"], regions: [entry("hip", "right", ["stiffness"])] });
-    expect(day(pd, { pc_pd_on: "yes" }).pdState).toBe("on");
-    expect(day(pd, { pc_pd_on: "unsure" }).pdState).toBe("unsure");
-    expect(day(intake({ regions: back }), { pc_pd_on: "unsure" }).pdState).toBeUndefined();
-  });
-
-  it("keeps the seated side lean's answers when the side bend on armrests runs (E1-5)", () => {
-    const kept = day(seatedLean, {
-      pc_stroke_push: "no",
-      "pc_trunk_armrests:wheelchair": "yes",
-      pc_fall_sitting: "no",
-      pc_pressure_sore: "no",
-      pc_sit_unsupported: "unsure",
-    });
-    expect(kept).toMatchObject({
-      pusher: false,
-      armrests: true,
-      seatedLean: { fellSitting: false, pressureSore: false, sitsUnsupported: "unsure" },
-    });
-    // At the booth the armrests are not asked (v1 pc_trunk_armrests is home only).
-    const booth = day(seatedLean, { pc_stroke_push: "yes", "pc_trunk_armrests:wheelchair": "no" }, "booth");
-    expect(booth.pusher).toBe(true);
-    expect(booth.armrests).toBeUndefined();
-    // No side bend on armrests today: none of them is asked or kept.
-    const standing = day(intake({ conditions: ["stroke"], regions: back }), { pc_stroke_push: "yes" });
-    expect(standing).not.toHaveProperty("pusher");
-    expect(standing).not.toHaveProperty("seatedLean");
-    expect(standing).not.toHaveProperty("armrests");
-  });
-
-  it("keeps whether the leg prosthesis is worn, for a leg limb loss only", () => {
-    const loss = intake({ conditions: ["lower_limb_unilateral"], regions: back });
-    expect(day(loss, { pc_limb_leg_prosthesis: "yes" }).prosthesisOn).toBe(true);
-    expect(day(loss, { pc_limb_leg_prosthesis: "no" }).prosthesisOn).toBe(false);
-    // The day's own answer (FocusToday.prosthesisOn) wins, as gaitPlanFor reads it.
-    expect(day(loss, { pc_limb_leg_prosthesis: "yes" }, "home", { prosthesisOn: false }).prosthesisOn).toBe(
-      false,
-    );
-    expect(day(intake({ regions: back }), {}, "home", { prosthesisOn: true })).not.toHaveProperty(
-      "prosthesisOn",
-    );
-  });
-
-  it("never keeps a red flag, a walk or freezing answer, a transfer or an orthosis (data minimisation)", () => {
-    const pd = intake({ conditions: ["parkinsons"], regions: [entry("hip", "right", ["stiffness"])] });
-    const kept = day(pd, {}, "booth", {
-      redFlagRegions: ["shoulder"],
-      walk10m: true,
-      pdFreezing: true,
-      transferChair: true,
-      orthosis: { right: "afo" },
-    });
-    expect(Object.keys(kept).sort()).toEqual(["painByRegion", "pdState", "steadi"]);
-    expect(JSON.stringify(kept)).not.toMatch(/redFlag|walk10m|pdFreezing|transfer|orthosis|afo|shoulder/);
-  });
-
-  it("ignores an answer to a question that was not asked", () => {
-    const kept = day(intake({ regions: back }), {
-      pc_stroke_push: "yes",
-      pc_fall_sitting: "yes",
-      pc_pressure_sore: "yes",
-      pc_limb_leg_prosthesis: "no",
-      pc_pd_on: "yes",
-    });
-    expect(Object.keys(kept).sort()).toEqual(["painByRegion", "steadi"]);
-  });
+/** The preview of the context (someone there, the prosthesis on) and the answers so far. */
+const PREVIEW: Partial<FocusToday> = { helperPresent: true, prosthesisOn: true };
+const dayOf = (
+  h: V7Intake,
+  answers: Partial<FocusToday> = {},
+  setting: "home" | "booth" = "home",
+): DayInput => ({
+  intake: h,
+  setting,
+  protocol: build(h, PREVIEW, setting),
+  gait: gaitOf(h, PREVIEW, setting),
+  today: today(answers),
 });
+const back = [entry("back_trunk", "axial", ["stiffness"])];
+const knee = [entry("knee", "right", ["pain"])];
 
-/* ---------------------------------------------------- region red flags today */
-
-describe("rf_region (contract 2.5)", () => {
-  /** The rf_region lines of the rom namespace (D-024, A4-7), as the dictionaries hold them. */
-  const line = (lang: "ar" | "en", key: "rf_region_ask" | "rf_region_ask_leg") =>
-    (V7_DICTIONARIES[lang].rom as Record<string, string>)[key];
-
-  it("is the item id rf_region, with Arabic and English copy in the rom namespace that passes the wording rules", () => {
-    expect(RF_REGION_ITEM).toBe("rf_region");
-    for (const key of ["rf_region_ask", "rf_region_ask_leg"] as const) {
-      for (const lang of ["ar", "en"] as const) {
-        expect(line(lang, key).trim().length, `${key} ${lang}`).toBeGreaterThan(0);
-        expect(wordingProblems(line(lang, key)), `${key} ${lang}`).toEqual([]);
-        expect(line(lang, key), `${key} ${lang}`).toContain("{region}");
-      }
-    }
-    expect(tV7("en", "rom.rf_region_ask", { region: "knee" })).toMatch(/^Today, in your knee: /);
-    // The leg version adds the weight bearing sign; the answers are the data's yes and no.
-    expect(line("en", "rf_region_ask_leg")).toContain("stand on");
-    expect(line("en", "rf_region_ask")).not.toContain("stand on");
-    expect(RF_REGION_LEG).toEqual(["hip", "knee", "ankle_foot"]);
-    expect(ROM_DATA.copy.ans_yes.ar).toBe("نعم");
-    expect(ROM_DATA.copy.ans_no.ar).toBe("لا");
-  });
-
-  it("covers every sign of the red_flags rule", () => {
-    const rule = ROM_DATA.safety.find((s) => s.id === "red_flags")!.rule;
-    for (const sign of [
-      "hot",
-      "red",
-      "swollen",
-      "fever",
-      "new deformity",
-      "cannot take weight on the leg",
-      "new numbness or weakness",
-    ])
-      expect(rule, sign).toContain(sign);
-    const en = line("en", "rf_region_ask_leg").toLowerCase();
-    for (const word of ["hot", "red", "swollen", "fever", "shape", "stand on", "numbness", "weakness"])
-      expect(en, word).toContain(word);
-  });
-
-  it("asks once for each affected region with a movement to run today, and the leg and back regions when the gait test is planned", () => {
+describe("dayAreas: the areas of today's check, which the one pain question covers", () => {
+  it("each affected region with a movement to run today, and the leg and back regions when the walk is planned", () => {
     const h = intake({
       regions: [
         entry("knee", "both", ["pain"]),
@@ -609,27 +471,226 @@ describe("rf_region (contract 2.5)", () => {
         entry("hip", "left", ["stiffness"]),
       ],
     });
-    expect(rfRegionsToAsk(build(h), noGait)).toEqual(["hip", "knee"]);
-    expect(rfRegionsToAsk(build(h, { painByRegion: { knee: 8 } }), noGait)).toEqual(["hip"]);
+    expect(dayAreas(build(h), noGait)).toEqual(["hip", "knee"]);
+    expect(dayAreas(build(h, { painByRegion: { knee: 8 } }), noGait)).toEqual(["hip"]);
     const ankle = intake({
       regions: [entry("ankle_foot", "right", ["injury"], { injury: { since: "lt6w" } })],
     });
-    expect(rfRegionsToAsk(build(ankle), noGait)).toEqual([]);
-    expect(rfRegionsToAsk(build(ankle), gaitOf(ankle))).toEqual(["ankle_foot"]);
+    expect(dayAreas(build(ankle), noGait)).toEqual([]);
+    expect(dayAreas(build(ankle), gaitOf(ankle))).toEqual(["ankle_foot"]);
+  });
+});
+
+describe("dayItems: one short screen (D-032 item 2)", () => {
+  it("a walker with knee pain: the pain, the worry question, the walk, unsteadiness, and someone with them for the pad", () => {
+    expect(dayItems(dayOf(intake({ regions: knee })))).toEqual([
+      "pain",
+      "worry",
+      "walk10m",
+      "unsteady",
+      "helper",
+    ]);
+    // At the booth the staff stand beside the person: nobody is asked about.
+    expect(dayItems(dayOf(intake({ regions: knee }), {}, "booth"))).toEqual([
+      "pain",
+      "worry",
+      "walk10m",
+      "unsteady",
+    ]);
   });
 
-  it("a yes skips the region (red_flag), removes the gait test for a leg or the back, and names the seek care screen", () => {
-    const h = intake({ regions: [entry("knee", "right", ["pain"]), entry("elbow", "right", ["pain"])] });
-    const t = { redFlagRegions: ["knee" as const] };
-    const p = build(h, t);
-    expect(itemOf(p, "knee_flexion").skipped).toBe("red_flag");
-    expect(itemOf(p, "elbow_extension").skipped).toBeUndefined();
-    expect(gaitOf(h, t).reason).toBe("red_flag");
-    expect(redFlagWarnings(today(t))).toEqual(["scr_stop_seek_care"]);
-    expect(redFlagWarnings(today())).toEqual([]);
-    // Every measurable item skipped: the start answers NOTHING_TO_MEASURE after the seek care screen.
-    const all = build(intake({ regions: [entry("knee", "right", ["pain"])] }), t);
-    expect(all.items.every((i) => i.skipped === "red_flag")).toBe(true);
+  it("after a yes to the worry question nothing else is asked", () => {
+    expect(dayItems(dayOf(intake({ regions: knee }), { worrying: true }))).toEqual(["pain", "worry"]);
+  });
+
+  it("no walk and nothing standing: the pain and the worry question only", () => {
+    const seated = intake({
+      mobility: "seated",
+      walking: { status: "no" },
+      regions: [entry("elbow", "right", ["pain"])],
+    });
+    expect(dayItems(dayOf(seated))).toEqual(["pain", "worry"]);
+    // A body map without pain or a measured area: the worry question alone has nothing before it.
+    const none = intake({
+      mobility: "seated",
+      walking: { status: "no" },
+      regions: [entry("forearm_wrist", "right", ["pain"])],
+    });
+    expect(dayItems(dayOf(none))).toEqual(["worry"]);
+  });
+
+  it("Parkinson's: freezing after the walk question; a helper rule asks for someone at home", () => {
+    const pd = intake({ conditions: ["parkinsons"], regions: [entry("hip", "right", ["stiffness"])] });
+    expect(dayItems(dayOf(pd))).toEqual(["pain", "worry", "walk10m", "pdFreezing", "unsteady", "helper"]);
+  });
+
+  it("a leg limb loss: the prosthesis first; without it no walk and no standing items, so nothing more", () => {
+    const loss = intake({
+      conditions: ["lower_limb_unilateral"],
+      regions: [
+        entry("knee", "left", ["stiffness"]),
+        entry("hip", "left", ["limb_loss"], { limbLoss: { level: "below_knee" } }),
+      ],
+    });
+    const on = dayItems(dayOf(loss, { prosthesisOn: true }));
+    expect(on.slice(0, 4)).toEqual(["pain", "worry", "prosthesis", "walk10m"]);
+    expect(dayItems(dayOf(loss, { prosthesisOn: false }))).not.toContain("walk10m");
+    expect(dayItems(dayOf(loss, { prosthesisOn: false }))).not.toContain("unsteady");
+  });
+
+  it("a walk that cannot be done today (no to the 10 metres) asks no more about the walk", () => {
+    const seatedWalker = intake({ mobility: "seated", regions: [entry("elbow", "right", ["pain"])] });
+    expect(dayItems(dayOf(seatedWalker, { walk10m: false }))).toEqual(["pain", "worry", "walk10m"]);
+  });
+
+  it("missingDayItems names each item without its answer; the pain has none to miss", () => {
+    const d = dayOf(intake({ regions: knee }));
+    expect(missingDayItems(d)).toEqual(["worry", "walk10m", "unsteady", "helper"]);
+    expect(
+      missingDayItems({
+        ...d,
+        today: today({ worrying: false, walk10m: true, unsteady: false, helperPresent: false }),
+      }),
+    ).toEqual([]);
+    expect(missingDayItems({ ...d, today: today({ worrying: true }) })).toEqual([]);
+  });
+
+  it("the day's copy is the data's, Arabic first with complete English, and passes the wording rules", () => {
+    for (const key of [
+      "day_pain_ask",
+      "day_pain_none",
+      "day_worry_ask",
+      "day_skip_title",
+      "day_skip_body",
+      "day_skip_urgent",
+      "day_prosthesis_ask",
+      "day_unsteady_ask",
+      "day_helper_ask",
+      "day_helper_note",
+    ] as const)
+      for (const lang of ["ar", "en"] as const) {
+        const text = ROM_DATA.copy[key][lang];
+        expect(text.trim().length, `${key} ${lang}`).toBeGreaterThan(0);
+        expect(wordingProblems(text), `${key} ${lang}`).toEqual([]);
+      }
+    // The one worry question names the signs D-032 names.
+    for (const sign of ["chest pain", "fainting", "hot swollen joint", "new weakness or numbness"])
+      expect(ROM_DATA.copy.day_worry_ask.en, sign).toContain(sign);
+    expect(ROM_DATA.copy.day_helper_ask.en).toBe("Is someone with you today?");
+  });
+});
+
+describe("dayOutcome: the day's answers as a pre-check outcome", () => {
+  it("a yes to the worry question skips the check today with a next day lock", () => {
+    const o = dayOutcome({
+      intake: intake({ regions: knee }),
+      setting: "home",
+      today: today({ worrying: true }),
+    });
+    expect(o).toMatchObject({ status: "postpone", lock: { until: "next_day" }, skips: [] });
+  });
+
+  it("proceeds and keeps the highest pain today and the leg prosthesis in the data map", () => {
+    const o = dayOutcome({
+      intake: intake({ regions: knee }),
+      setting: "home",
+      today: today({ worrying: false, painByRegion: { knee: 4, back_trunk: 2 } }),
+    });
+    expect(o).toMatchObject({ status: "proceed", skips: [], helperRequired: [] });
+    expect(o.stored.painNow).toBe(4);
+  });
+
+  it("the chair stand's helper rule at home: unsteady, an aid or the conditions need someone; none there skips the standing items and the walk", () => {
+    const steady = intake({ regions: knee });
+    expect(
+      dayOutcome({ intake: steady, setting: "home", today: today({ unsteady: false }) }).helperRequired,
+    ).toEqual([]);
+    const unsteady = dayOutcome({ intake: steady, setting: "home", today: today({ unsteady: true }) });
+    expect(unsteady.helperRequired).toEqual(["chair_stand_30s"]);
+    expect(unsteady.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "helper_needed" }]);
+    const helped = dayOutcome({
+      intake: steady,
+      setting: "home",
+      today: today({ unsteady: true, helperPresent: true }),
+    });
+    expect(helped.skips).toEqual([]);
+    expect(helped.stored["fingerprint.helperPresent"]).toEqual(["chair_stand_30s"]);
+    const aid = intake({ walking: { status: "with_aid", aid: "cane" }, regions: knee });
+    expect(dayOutcome({ intake: aid, setting: "home", today: today() }).helperRequired).toEqual([
+      "chair_stand_30s",
+    ]);
+    // At the booth the staff are there: no helper rule.
+    expect(dayOutcome({ intake: aid, setting: "booth", today: today({ unsteady: true }) }).skips).toEqual([]);
+  });
+
+  it("the side lean's helper rule at home: SCI, stroke, CP, Parkinson's and MS", () => {
+    const stroke = intake({
+      conditions: ["stroke"],
+      mobility: "wheelchair",
+      walking: { status: "no" },
+      regions: back,
+    });
+    const alone = dayOutcome({ intake: stroke, setting: "home", today: today() });
+    expect(alone.helperRequired).toContain("trunk_control_seated");
+    expect(alone.skips.filter((x) => x.testId === "trunk_control_seated").map((x) => x.side)).toEqual([
+      "left",
+      "right",
+    ]);
+    // Applied through the bridge: the seated side bend does not run without someone there.
+    const protocol = build(stroke, {}, "home");
+    const applied = applyPrecheckOutcome(protocol, noGait, alone);
+    expect(
+      applied.protocol.items
+        .filter((i) => i.position === "seated_armrests")
+        .every((i) => i.skipped === "helper_needed"),
+    ).toBe(true);
+    const helped = applyPrecheckOutcome(
+      protocol,
+      noGait,
+      dayOutcome({ intake: stroke, setting: "home", today: today({ helperPresent: true }) }),
+    );
+    expect(
+      helped.protocol.items
+        .filter((i) => i.position === "seated_armrests")
+        .every((i) => !i.skipped && i.helperRequired),
+    ).toBe(true);
+  });
+});
+
+describe("keptDay: the day answers a later step reads (D-026 items 7 and 9)", () => {
+  it("keeps the pain per region, and someone with the person, unsteadiness and the prosthesis when asked", () => {
+    const t = today({
+      painByRegion: { knee: 3 },
+      worrying: false,
+      unsteady: true,
+      helperPresent: true,
+      walk10m: true,
+    });
+    expect(keptDay(t, ["pain", "worry", "walk10m", "unsteady", "helper"])).toEqual({
+      painByRegion: { knee: 3 },
+      helperPresent: true,
+      steadi: { fell: true, worry: true },
+    });
+    expect(keptDay(today({ prosthesisOn: false }), ["worry", "prosthesis"])).toEqual({
+      painByRegion: {},
+      prosthesisOn: false,
+    });
+  });
+
+  it("never keeps the worry answer, a red flag, the walk or freezing answers, a transfer or an orthosis (data minimisation)", () => {
+    const kept = keptDay(
+      today({
+        worrying: false,
+        redFlagRegions: ["shoulder"],
+        walk10m: true,
+        pdFreezing: true,
+        transferChair: true,
+        orthosis: { right: "afo" },
+        helperPresent: true,
+      }),
+      ["worry", "walk10m", "pdFreezing"],
+    );
+    expect(kept).toEqual({ painByRegion: {} });
   });
 });
 

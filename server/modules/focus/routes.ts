@@ -2,9 +2,10 @@
  * Focus check routes (product v7 contract section 4, C-2, C-3, C-4, C-13, C-14), behind AZM_V7 (C-9):
  *
  *   GET  /api/focus/context        what the client needs before a focus check: the intake state, the
- *                                  consents, the pre-check environment and a preview of the protocol
- *   POST /api/focus                start: the v1 pre-check through the bridge, the range protocol and
- *                                  the gait plan built and frozen on the server
+ *                                  consents, the pre-check environment (the stop list's) and a preview
+ *                                  of the protocol and the walk
+ *   POST /api/focus                start: the day's one screen (D-032 item 2) through the v1 bridge,
+ *                                  the range protocol and the gait plan built and frozen on the server
  *   POST /api/focus/:id/rom        one movement and side; the server grades it (C-3)
  *   POST /api/focus/:id/gait       the walk's setup and analysis; provisional findings (C-13)
  *   POST /api/focus/:id/stop       the v1 stop list answer, its screens and locks
@@ -12,8 +13,8 @@
  *   GET  /api/focus                the person's focus checks
  *
  * Rules before AI: every decision comes from the pure modules, which the server runs on the raw
- * answers and measurements; a client grade or finding is never trusted. Raw pre-check answers are never
- * stored (the v1 data map only), nor any free text. Nothing here logs. Errors are { error: CODE }; a
+ * answers and measurements; a client grade or finding is never trusted. Raw day answers are never
+ * stored (the kept day answers and the v1 data map only), nor any free text. Nothing here logs. Errors are { error: CODE }; a
  * 400 names the field that failed.
  *
  * D-032 item 1 opens the v7 focus check to everyone signed in, from anywhere: home is open whenever
@@ -26,13 +27,7 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import type { BodyGate, Route, RouteContext } from "../../http/types";
-import {
-  evaluatePrecheck,
-  releasesLock,
-  riyadhDate,
-  stopOptions,
-  stopRoute,
-} from "../../../src/medical/precheck";
+import { riyadhDate, stopOptions, stopRoute } from "../../../src/medical/precheck";
 import { buildRomProfile, romFindings } from "../../../src/medical/rom-profile";
 import { evaluateGait } from "../../../src/medical/gait-rules";
 import type { GaitPlan } from "../../../src/medical/gait-eligibility";
@@ -40,7 +35,13 @@ import type { GaitPatternResult, GaitStoredView } from "../../../src/medical/gai
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { RomNotMeasured, RomProtocol, RomProtocolItem } from "../../../src/medical/rom-protocol";
 import { focusPlanJoints } from "../../../src/medical/check-joints";
-import { keptDayAnswers } from "../../../src/medical/focus-precheck";
+import {
+  dayAnswerField,
+  dayItems,
+  dayOutcome,
+  keptDay,
+  missingDayItems,
+} from "../../../src/medical/focus-precheck";
 import type { GaitAnalysis, GaitSetup } from "../../../src/engine/gait/types";
 import { GAIT_ENGINE_VERSION, GAIT_RULES_VERSION } from "../../../src/movements/gait";
 import {
@@ -73,16 +74,12 @@ import { ID_PATH, storedPrecheck } from "../assessments/routes";
 import { checkContextOf, personState, type PersonState } from "../assessments/state";
 import {
   DAY_MS,
-  clearChange,
-  clearFaint,
-  clearLock,
   countProduct,
   countSafetyEvent,
   currentLock,
   profileOf,
   reportChange,
   reportFaint,
-  resolveLasting,
   transaction,
 } from "../assessments/store";
 import {
@@ -204,6 +201,29 @@ function oneView(plan: GaitPlan): GaitPlan {
       walking_pad: plan.views.walking_pad.slice(0, 1),
     },
   };
+}
+
+/**
+ * The preview of the day (GET /api/focus/context, and the start's check of the day's one screen): the
+ * protocol and the walk with PREVIEW_TODAY (someone with the person and the prosthesis on, D-032 item
+ * 2), the showcase's cap and one view included.
+ */
+function previewOf(
+  rules: FocusRules,
+  intake: V7Intake,
+  setting: Setting,
+  previous: RomProtocol | null,
+  showcase: boolean,
+): { protocol: RomProtocol; gait: GaitPlan } {
+  const protocol = rules.buildRomProtocol({
+    intake,
+    setting,
+    today: PREVIEW_TODAY,
+    previous,
+    ...(showcase ? { maxMeasured: SHOWCASE_MAX_MEASURED } : {}),
+  });
+  const plan = rules.gaitPlanFor(intake, PREVIEW_TODAY, setting, {});
+  return { protocol, gait: showcase ? oneView(plan) : plan };
 }
 
 const header = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -533,15 +553,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (!rules.hasV7Fields(intake))
           return json(200, { intakeReady: false, ...common, env: null, protocol: null, gait: null });
         const showcase = isShowcase(u.email);
-        const protocol = rules.buildRomProtocol({
-          intake,
-          setting,
-          today: PREVIEW_TODAY,
-          previous: firstCompletedFocus(db, u.id)?.protocol ?? null,
-          ...(showcase ? { maxMeasured: SHOWCASE_MAX_MEASURED } : {}),
-        });
-        const plan = rules.gaitPlanFor(intake, PREVIEW_TODAY, setting, {});
-        const gait = showcase ? oneView(plan) : plan;
+        const previous = firstCompletedFocus(db, u.id)?.protocol ?? null;
+        const { protocol, gait } = previewOf(rules, intake, setting, previous, showcase);
         const env = rules.focusPrecheckEnv(focusEnvBase(db, u.id, s, ctx, setting), protocol, gait);
         // The 48 hour minimum of the preview's joints (CT-3): only checks that share one of them count.
         const earliestNext = focusEarliestNext(
@@ -566,7 +579,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           return json(429, { error: "RATE_LIMIT" });
         const parsed = checkFocusStart(body);
         if (!parsed.ok) return json(400, { error: "START_INVALID", field: parsed.field });
-        const { setting, answers, today, device, include } = parsed.value;
+        const { setting, today, device, include } = parsed.value;
         // D-032 item 1: home is open for v7; a signed in booth check still needs a booth pass.
         if (focusHomeClosed(rc, setting)) return;
         if (setting === "booth" && !boothPassHolds(rc.req, db, now))
@@ -576,42 +589,57 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (!s) return json(409, { error: "PLAN_REQUIRED" });
         const review = reviewReason(s.intake, s.plan, setting);
         if (review) return json(409, { error: "REVIEW", reason: review });
-        const ctx = focusContext(s.intake, s.plan, setting)!;
         const intake = s.intake;
         if (!rules.hasV7Fields(intake)) return json(409, { error: "INTAKE_UPDATE_REQUIRED" });
         const consent = activeConsent(db, u.id, "focus_check");
         if (!consent) return json(403, { error: "CONSENT_REQUIRED" });
         if (adultConfirmedAt(db, u.id) === null) return json(403, { error: "ADULT_REQUIRED" });
 
-        // The day's protocol and gait plan, and the pre-check environment they give (pure).
+        // The day's one screen (D-032 item 2): every item it asked, from the preview the context gave,
+        // carries its answer (the walk's day items with them).
         const showcase = isShowcase(u.email);
+        const previous = firstCompletedFocus(db, u.id)?.protocol ?? null;
+        const preview = previewOf(rules, intake, setting, previous, showcase);
+        const missing = missingDayItems({
+          intake,
+          setting,
+          protocol: include.rom ? preview.protocol : { ...preview.protocol, items: [] },
+          gait: include.gait ? preview.gait : null,
+          today,
+        });
+        if (missing.length)
+          return json(400, {
+            error: "START_INVALID",
+            field: `today.${dayAnswerField(missing[0]) ?? "painByRegion"}`,
+          });
+
+        // The day's protocol and gait plan, and the pre-check environment they give (pure).
         const built = rules.buildRomProtocol({
           intake,
           setting,
           today,
-          previous: firstCompletedFocus(db, u.id)?.protocol ?? null,
+          previous,
           ...(showcase ? { maxMeasured: SHOWCASE_MAX_MEASURED } : {}),
         });
         // A part the person leaves out today is kept for the record, not measured (by choice).
         const protocol: RomProtocol = include.rom
           ? built
           : { ...built, items: built.items.map((i) => (i.skipped ? i : { ...i, skipped: "by_choice" })) };
-        const planned = include.gait ? rules.gaitPlanFor(intake, today, setting, answers) : null;
+        const planned = include.gait ? rules.gaitPlanFor(intake, today, setting, {}) : null;
         const gait = planned && showcase ? oneView(planned) : planned;
         // The gait day items (2.5 GAIT_DAY_ITEMS) are asked when the day plans a walk: a start that
-        // walks carries their answers (pc_walk_10m, and pc_pd_freezing with Parkinson's).
-        if (gait?.offered) {
+        // walks carries their answers (pc_walk_10m, and pc_pd_freezing with Parkinson's). After a yes to
+        // the worry question the screen asks nothing else.
+        if (gait?.offered && today.worrying !== true) {
           if (today.walk10m === undefined)
             return json(400, { error: "START_INVALID", field: "today.walk10m" });
           if (intake.conditions.includes("parkinsons") && today.pdFreezing === undefined)
             return json(400, { error: "START_INVALID", field: "today.pdFreezing" });
         }
-        const env = rules.focusPrecheckEnv(focusEnvBase(db, u.id, s, ctx, setting), protocol, gait);
 
+        // A lock holds to its end: the day's one screen has no question that releases it (D-032).
         const lock = currentLock(db, u.id, now);
-        // A releasable lock (recent_change) is released at once by a yes to pc_change_cleared.
-        const released = lock !== null && releasesLock(lock, env, answers);
-        if (lock && !released) return json(409, { error: "LOCKED", ...lockView(lock, now, "return") });
+        if (lock) return json(409, { error: "LOCKED", ...lockView(lock, now, "return") });
         // The 48 hour minimum counts the checks of either kind completed in the last 48 hours that share
         // a joint with today's (section 4, two way; CT-3): the range items that run and, with the walk,
         // the regions it measures.
@@ -619,17 +647,14 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         const earliest = focusEarliestNext(db, u.id, joints, now);
         if (earliest !== null && now < earliest) return json(409, { error: "TOO_SOON", until: earliest });
 
-        const outcome = evaluatePrecheck(env, answers, now);
-        if (outcome.status === "incomplete") return json(400, { error: "START_INVALID", field: "answers" });
+        // The day's answers as a pre-check outcome (D-032 item 2): a yes to the worry question skips
+        // the check today with a next day lock; otherwise the v1.1 helper rules at home.
+        const outcome = dayOutcome({ intake, setting, today });
         if (outcome.status !== "proceed") {
           const view = transaction(db, () => {
-            if (released) clearLock(db, u.id);
             // Today's answers overrule a focus check left open: it takes no more results.
             closeOpenFocusChecks(db, u.id, "replaced");
-            if (typeof outcome.stored.changeReported === "string")
-              reportChange(db, u.id, outcome.stored.changeReported);
-            if (outcome.faintReportedCleared) clearFaint(db, u.id);
-            countSafetyEvent(db, `focus:precheck:${outcome.reason}`, "precheck", setting, now);
+            countSafetyEvent(db, "focus:precheck:day_worry", "precheck", setting, now);
             countProduct(db, "focus_started", "", setting, now);
             return applyLock(rc, outcome.lock, now);
           });
@@ -644,7 +669,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         }
 
         const applied = rules.applyPrecheckOutcome(protocol, gait, outcome);
-        // rf_region (2.5): a red flag region shows the seek care screen once before the other regions.
+        // A red flag region (FocusToday.redFlagRegions, no longer asked since D-032) still shows the seek
+        // care screen once before the other regions, for a client that sends one.
         const warnings: ScreenId[] = [...outcome.warnings];
         if (today.redFlagRegions.length && !warnings.includes("scr_stop_seek_care"))
           warnings.push("scr_stop_seek_care");
@@ -653,12 +679,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (!runnable && !walks) return json(409, { error: "NOTHING_TO_MEASURE", warnings });
 
         const kind = lastCompletedFocus(db, u.id) ? ("retest" as const) : ("baseline" as const);
+        const asked = dayItems({ intake, setting, protocol: preview.protocol, gait: preview.gait, today });
         const id = transaction(db, () => {
-          if (released) clearLock(db, u.id);
-          if (typeof outcome.stored.changeCleared === "string")
-            clearChange(db, u.id, outcome.stored.changeCleared);
-          if (outcome.faintReportedCleared) clearFaint(db, u.id);
-          if (outcome.followUpResolved && s.lasting) resolveLasting(db, u.id, s.lasting.id);
           countProduct(db, "focus_started", "", setting, now);
           return createFocusCheck(db, {
             userId: u.id,
@@ -667,7 +689,7 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
             protocol: applied.protocol,
             gaitPlan: applied.gait,
             // Only the day's answers a later step reads, each when it was asked (D-026 items 7 and 9).
-            today: keptDayAnswers(env, answers, today, intake),
+            today: keptDay(today, asked),
             precheck: storedPrecheck(outcome, consent, undefined),
             versions: {
               rom: ROM_RULES_VERSION,
@@ -689,7 +711,8 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           gait: applied.gait,
           warnings,
           helperRequired: applied.helperRequired,
-          helperBriefing: outcome.helperBriefing ?? {},
+          // The separate helper briefing is cut (D-032 item 2): the part's card says who stands beside.
+          helperBriefing: {},
           // The seated side bend's limit reads each side's earlier best (D-027 item 2, W2-6).
           sideLeanBest: sideLeanBest(db, u.id),
         });

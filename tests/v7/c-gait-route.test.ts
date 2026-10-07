@@ -14,7 +14,6 @@ import type { GaitPatternResult } from "../../src/medical/gait-types";
 import type { RomProtocol } from "../../src/medical/rom-protocol";
 import { GAIT_RULES_VERSION } from "../../src/movements/gait";
 import type { GaitAnalysis } from "../../src/engine/gait/types";
-import { fill } from "../precheck-fixtures";
 import { romBody } from "./a-focus-bodies";
 import { MINUTE, T0, boothPass, member, startV7Api, v7Intake, type V7Harness } from "./a-harness";
 import { SETUP, view } from "./c-gait-rules-fixtures";
@@ -63,13 +62,12 @@ describe("the gait route runs the server's gait rules", () => {
     const intake = v7Intake();
     const cookie = await member(h, "c3-gait@example.test", intake, ["focus_check"]);
     const booth = { "x-azm-booth": pass };
-    const c = await h.call("/focus/context", undefined, cookie, "GET", booth);
+    await h.call("/focus/context", undefined, cookie, "GET", booth);
     const start = await h.call(
       "/focus",
       {
         setting: "booth",
-        answers: fill(c.data.env),
-        today: { painByRegion: {}, redFlagRegions: [], walk10m: true },
+        today: { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: false, walk10m: true },
         device: { os: "iOS", browser: "Safari" },
         include: { rom: true, gait: true },
       },

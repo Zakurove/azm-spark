@@ -26,7 +26,6 @@ import { gradeMeasurement, typicalValue } from "../../src/medical/rom-norms";
 import { ROM_RULES_VERSION } from "../../src/movements/rom";
 import { GAIT_RULES_VERSION } from "../../src/movements/gait";
 import type { ToolResult } from "../../src/coach/types";
-import { fill } from "../precheck-fixtures";
 import { gaitBody, romBody } from "./a-focus-bodies";
 import { MINUTE, T0, boothPass, member, startV7Api, v7Intake, type V7Harness } from "./a-harness";
 
@@ -147,8 +146,7 @@ describe("the app's focus routes on the real rules", () => {
       "/focus",
       {
         setting: "booth",
-        answers: fill(c.data.env),
-        today: { painByRegion: {}, redFlagRegions: [], walk10m: true },
+        today: { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: false, walk10m: true },
         device: { os: "iOS", browser: "Safari" },
         include: { rom: true, gait: true },
       },
@@ -205,9 +203,8 @@ describe("the app's focus routes on the real rules", () => {
   });
 });
 
-describe("the day answers a focus check keeps, on the real pre-check (D-026 item 9, E1-5)", () => {
+describe("the day answers a focus check keeps, from the day's one screen (D-026 item 9, D-032 item 2)", () => {
   let h: V7Harness;
-  let pass = "";
   beforeAll(async () => {
     h = await startV7Api(FOCUS_RULES);
   });
@@ -218,16 +215,15 @@ describe("the day answers a focus check keeps, on the real pre-check (D-026 item
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(T0);
     process.env.AZM_V7 = "1";
-    pass = await boothPass(h, T0);
   });
   afterEach(() => {
     vi.useRealTimers();
     for (const k of ["AZM_V7", "AZM_BOOTH_DATES", "AZM_BOOTH_CODE"]) delete process.env[k];
   });
 
-  it("keep the seated side lean's answers of a check that bends seated on armrests, and no red flag", async () => {
-    // A stroke in a wheelchair with the back on the map: the side bend runs seated on armrests, so the
-    // v1 side lean's questions are asked (pc_trunk_armrests only at home, so not at the booth).
+  it("a stroke in a wheelchair bends seated on armrests at home with someone there; alone, the side bend waits", async () => {
+    // A stroke in a wheelchair with the back on the map: the side bend runs seated on armrests, and
+    // the side lean's helper rule asks for someone at home (the day's one helper question).
     const intake = v7Intake({
       mobility: "wheelchair",
       walking: { status: "no" },
@@ -235,37 +231,31 @@ describe("the day answers a focus check keeps, on the real pre-check (D-026 item
       regions: [{ region: "back_trunk", side: "axial", problems: ["stiffness"], origin: "person" }],
     });
     const cookie = await member(h, "gate-lean@example.test", intake, ["focus_check"]);
-    const booth = { "x-azm-booth": pass };
-    const c = await h.call("/focus/context", undefined, cookie, "GET", booth);
+    const c = await h.call("/focus/context", undefined, cookie);
     expect(c.status).toBe(200);
-    const answers = fill(c.data.env, {
-      pc_stroke_push: "no",
-      pc_fall_sitting: "no",
-      pc_pressure_sore: "no",
-      pc_sit_unsupported: "yes",
+    const body = (today: Record<string, unknown>) => ({
+      setting: "home",
+      today: { painByRegion: { back_trunk: 2 }, redFlagRegions: [], worrying: false, ...today },
+      device: { os: "iOS", browser: "Safari" },
+      include: { rom: true, gait: false },
     });
-    const start = await h.call(
-      "/focus",
-      {
-        setting: "booth",
-        answers,
-        today: { painByRegion: { back_trunk: 2 }, redFlagRegions: [] },
-        device: { os: "iOS", browser: "Safari" },
-        include: { rom: true, gait: false },
-      },
-      cookie,
-      "POST",
-      booth,
-    );
-    expect(start.status, JSON.stringify(start.data)).toBe(200);
-    const s = start.data as { id: string; protocol: RomProtocol };
-    expect(s.protocol.items.some((i) => i.position === "seated_armrests" && !i.skipped)).toBe(true);
-    const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(s.id) as { today: string };
-    expect(JSON.parse(row.today)).toEqual({
-      painByRegion: { back_trunk: 2 },
-      pusher: false,
-      seatedLean: { fellSitting: false, pressureSore: false, sitsUnsupported: "yes" },
+    // The helper question is asked: a start without its answer is refused.
+    expect((await h.call("/focus", body({}), cookie)).data).toEqual({
+      error: "START_INVALID",
+      field: "today.helperPresent",
     });
+    const alone = await h.call("/focus", body({ helperPresent: false }), cookie);
+    expect(alone.status, JSON.stringify(alone.data)).toBe(200);
+    const lean = (p: RomProtocol) => p.items.filter((i) => i.position === "seated_armrests");
+    expect(lean(alone.data.protocol).every((i) => i.skipped === "helper_needed")).toBe(true);
+    const helped = await h.call("/focus", body({ helperPresent: true }), cookie);
+    expect(helped.status, JSON.stringify(helped.data)).toBe(200);
+    expect(lean(helped.data.protocol).every((i) => !i.skipped && i.helperRequired)).toBe(true);
+    const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(helped.data.id) as {
+      today: string;
+    };
+    // Only the pain and someone with the person are kept; no red flag, no worry answer.
+    expect(JSON.parse(row.today)).toEqual({ painByRegion: { back_trunk: 2 }, helperPresent: true });
   });
 });
 

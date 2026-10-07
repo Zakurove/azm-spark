@@ -15,7 +15,6 @@ import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import type { Intake, Sex } from "../../src/medical/plan";
 import type { RomProtocol, RomProtocolItem } from "../../src/medical/rom-protocol";
 import { bodyMapSummary, buildRomProfile, compareRom, romFindings } from "../../src/medical/rom-profile";
-import { fill } from "../precheck-fixtures";
 import { gaitBody, romBody } from "./a-focus-bodies";
 import {
   DAY,
@@ -75,8 +74,7 @@ async function started(cookie: string) {
     "/focus",
     {
       setting: "booth",
-      answers: fill(c.data.env),
-      today: { painByRegion: {}, redFlagRegions: [], walk10m: true },
+      today: { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: false, walk10m: true },
       device: { os: "iOS", browser: "Safari" },
       include: { rom: true, gait: true },
     },

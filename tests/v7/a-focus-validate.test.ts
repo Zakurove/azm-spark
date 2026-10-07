@@ -138,11 +138,10 @@ describe("the start and the day's answers", () => {
     expect(fieldOf(checkToday([]))).toBe("today");
   });
 
-  it("needs every part of the start body", () => {
+  it("needs every part of the start body; the day's one screen travels as today (D-032 item 2)", () => {
     const body = {
       setting: "booth",
-      answers: {},
-      today: { painByRegion: {}, redFlagRegions: [] },
+      today: { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: true },
       device: { os: "Android", browser: "Chrome" },
       include: { rom: true, gait: false },
     };
@@ -152,7 +151,11 @@ describe("the start and the day's answers", () => {
       void _drop;
       expect(fieldOf(checkFocusStart(rest)), key).not.toBe("ok");
     }
-    expect(fieldOf(checkFocusStart({ ...body, answers: { pc_setting: "home" } }))).toBe("answers");
+    // No v1 pre-check answers any more.
+    expect(fieldOf(checkFocusStart({ ...body, answers: {} }))).toBe("answers");
+    expect(fieldOf(checkFocusStart({ ...body, today: { ...body.today, worrying: "yes" } }))).toBe(
+      "today.worrying",
+    );
   });
 
   it("checks a stop: a v1 option, with both the movement and the side or neither", () => {

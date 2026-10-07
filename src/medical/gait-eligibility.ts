@@ -5,10 +5,11 @@
  *
  * Rules before AI: the clinical source writes eligibility in words (GAIT_DATA.eligibility). Each rule
  * is written here by hand quoting its row, and tests/v7/a-gait-eligibility.test.ts reads the
- * thresholds and the lists back from the data. The day's answers come from FocusToday (the v7 items)
- * and from the v1 pre-check answers the focus check reuses (C-2): pc_steadi, pc_walking_aid,
+ * thresholds and the lists back from the data. The day's answers come from FocusToday: since D-032
+ * item 2 the focus check's one day screen fills it (the pain per area, unsteady, the walk's items, the
+ * prosthesis and someone with the person). The v1 pre-check answers (pc_steadi, pc_walking_aid,
  * pc_pd_dizzy_standing, pc_pain_now, pc_pain_areas, pc_surgery_recent, pc_arthritis_flare,
- * pc_limb_leg_prosthesis and pc_helper.
+ * pc_limb_leg_prosthesis and pc_helper) are still read when given, as before.
  */
 import { globalGate, standingGate, type FocusToday } from "./rom-protocol";
 import type { Intake } from "./plan";
@@ -77,19 +78,25 @@ export const GAIT_PAD_CONDITIONS: readonly {
   checkedBy: "gaitPlanFor" | "capture setup (C)";
 }[] = Object.freeze([
   { text: "no walking aid", checkedBy: "gaitPlanFor" },
-  { text: "pc_steadi all no", checkedBy: "gaitPlanFor" },
+  { text: "day_unsteady_ask no", checkedBy: "gaitPlanFor" },
   { text: "no balance_support restriction", checkedBy: "gaitPlanFor" },
   { text: "no freezing", checkedBy: "gaitPlanFor" },
-  { text: "no dizziness on standing", checkedBy: "gaitPlanFor" },
+  {
+    text: "no dizziness on standing (Parkinson's: not asked since D-032, so no pad)",
+    checkedBy: "gaitPlanFor",
+  },
   { text: "leg, hip or back pain 5 or less today", checkedBy: "gaitPlanFor" },
   { text: "clearance yes", checkedBy: "gaitPlanFor" },
-  { text: "no flare in a leg joint", checkedBy: "gaitPlanFor" },
+  { text: "pain today in another area no higher than padPainAtOrBelow", checkedBy: "gaitPlanFor" },
   {
     text: "pad has a front bar, or a stable support on the side away from the phone, within reach (review B12)",
     checkedBy: "capture setup (C)",
   },
   { text: "comfortable speed not below the pad's lowest speed", checkedBy: "capture setup (C)" },
-  { text: "booth or clinic staff present, or a helper at home", checkedBy: "gaitPlanFor" },
+  {
+    text: "booth or clinic staff present, or a helper at home (day_helper_ask yes)",
+    checkedBy: "gaitPlanFor",
+  },
 ]);
 
 /* --------------------------------------------------------------- answers */
@@ -97,6 +104,19 @@ export const GAIT_PAD_CONDITIONS: readonly {
 const answer = (answers: Answers, id: string): AnswerValue | undefined => answers[id];
 const yes = (answers: Answers, id: string) => answer(answers, id) === "yes";
 const STEADI = ["fell", "unsteady", "worry"].map((part) => `pc_steadi:${part}`);
+
+/**
+ * The highest pain today in an area that is not a leg, hip or back (the day's pain question, D-032):
+ * «pc_pain_now 6 to 8 elsewhere» when the v1 pain now is not given.
+ */
+function painElsewhere(today: FocusToday): number {
+  return Math.max(
+    0,
+    ...Object.entries(today.painByRegion)
+      .filter(([r]) => !LEG_BACK_REGIONS.includes(r as RegionId))
+      .map(([, v]) => v ?? 0),
+  );
+}
 
 /** The highest leg, hip or back pain today, from the body map pain questions and the v1 pain areas. */
 function legPainToday(today: FocusToday, answers: Answers): number {
@@ -215,7 +235,9 @@ export function gaitPlanFor(
   // today: who needs a helper beside them («helper required; pad not offered»).
   const parkinsons = intake.conditions.includes("parkinsons");
   const aid = walking === "with_aid" || yes(answers, "pc_walking_aid");
-  const steadiYes = STEADI.some((id) => yes(answers, id));
+  // day_unsteady_ask (D-032 item 2) stands for the STEADI three; their v1 answers still count when given.
+  const steadiYes = today.unsteady === true || STEADI.some((id) => yes(answers, id));
+  const steadiNo = today.unsteady === false || STEADI.every((id) => answer(answers, id) === "no");
   const balance = intake.restrictions.includes("balance_support");
   const dizzy = yes(answers, "pc_pd_dizzy_standing");
   const freezing = today.pdFreezing === true;
@@ -225,11 +247,11 @@ export function gaitPlanFor(
     setting === "booth" || today.helperPresent === true || yes(answers, "pc_helper:chair_stand_30s");
   if (helperRequired && !helperPresent) return notOffered("helper_needed");
 
-  const painNow = answer(answers, "pc_pain_now");
+  const painNow = answer(answers, "pc_pain_now") ?? painElsewhere(today);
   // modeChoice.padAllowedWhenAll (the setup items are the capture's): every answer must be a calm one.
   const padAllowed =
     !aid &&
-    STEADI.every((id) => answer(answers, id) === "no") &&
+    steadiNo &&
     !balance &&
     (parkinsons ? today.pdFreezing === false : !freezing) &&
     (parkinsons ? answer(answers, "pc_pd_dizzy_standing") === "no" : !dizzy) &&

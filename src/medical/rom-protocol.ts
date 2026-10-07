@@ -36,15 +36,28 @@ import type { ReasonId } from "../movements/types";
 export type RomReasonId = keyof RomData["reasonIds"] | ReasonId;
 export type RomBlock = "seated" | "standing" | "lying";
 export interface FocusToday {
-  /** pain_ask per pain region of the body map, 0 to 10. */
+  /**
+   * The day's one pain question (D-032 item 2, day_pain_ask): 0 to 10 per area of today's check that
+   * hurts; an area left out has no pain today.
+   */
   painByRegion: Partial<Record<RegionId, number>>;
-  /** Regions with a red flag today (rom-protocol 6 red_flags): the answers of the rf_region item, one per affected region on the day's protocol. */
+  /**
+   * Regions with a red flag today (rom-protocol 6 red_flags). Since D-032 item 2 no question fills it
+   * (the day's worry question skips the whole check instead); the rules still read it.
+   */
   redFlagRegions: RegionId[];
-  /** pc_limb_leg_prosthesis */
+  /**
+   * day_worry_ask (D-032 item 2): anything new or worrying today. Yes skips the check today; the start
+   * always carries the answer.
+   */
+  worrying?: boolean;
+  /** day_unsteady_ask (D-032 item 2): a fall in the past year, unsteadiness or a worry about falling (the STEADI three). */
+  unsteady?: boolean;
+  /** day_prosthesis_ask (pc_limb_leg_prosthesis before D-032) */
   prosthesisOn?: boolean;
-  /** pc_transfer_chair */
+  /** pc_transfer_chair: not asked since D-032 item 2; the intake's transfer_chair_ask stands for it. */
   transferChair?: boolean;
-  /** pc_helper */
+  /** day_helper_ask (D-032 item 2, pc_helper before): someone is with the person today. */
   helperPresent?: boolean;
   /** pc_walk_10m (gait) */
   walk10m?: boolean;
@@ -240,7 +253,8 @@ const POSITION_REASON_ORDER: readonly RomV7ReasonId[] = [
 /**
  * Where each safety id of rom-protocol 6 is enforced, in data order (a test keeps it complete).
  * buildRomProtocol applies the ones it can decide from the intake and the day's answers; the others
- * belong to the v1 pre-check through the bridge (focus-precheck.ts), the shared pain rule or the runner.
+ * belong to the day's one screen through the bridge (focus-precheck.ts), the shared pain rule or the
+ * runner.
  */
 export const ROM_SAFETY_RULES: readonly { id: RomSafetyId; where: string }[] = Object.freeze([
   {
@@ -258,22 +272,35 @@ export const ROM_SAFETY_RULES: readonly { id: RomSafetyId; where: string }[] = O
   },
   { id: "spine_surgery", where: "buildRomProtocol: spine_surgery for the neck or back region" },
   { id: "acute_injury", where: "buildRomProtocol: acute_injury for the region and side" },
-  { id: "red_flags", where: "buildRomProtocol: red_flag from FocusToday.redFlagRegions (rf_region)" },
-  { id: "pain_today", where: "buildRomProtocol: pain_today from FocusToday.painByRegion" },
+  {
+    id: "red_flags",
+    where:
+      "dayOutcome (focus precheck): the day's worry question skips the check today (D-032); buildRomProtocol still reads FocusToday.redFlagRegions",
+  },
+  {
+    id: "pain_today",
+    where: "buildRomProtocol: pain_today from FocusToday.painByRegion (the day's one pain question)",
+  },
   { id: "pain_during", where: "painStopRule, the shared pain rule, called by the RomRunner (B)" },
   { id: "achilles", where: "buildRomProtocol: achilles for the knee to wall lunge" },
   { id: "osteoporosis", where: "buildRomProtocol: osteoporosis for the forward bend" },
   { id: "neck_caution", where: "buildRomProtocol: neck_caution for the neck region" },
   { id: "standing_tests", where: "buildRomProtocol: standingGate and the standing helper rules" },
   { id: "no_overhead", where: "buildRomProtocol: no_overhead for the arm raises" },
-  { id: "weak_shoulder", where: "the v1 precheck item pc_weak_shoulder through applyPrecheckOutcome" },
-  { id: "sci_t6", where: "the v1 precheck: evaluatePrecheck warns warn_sci_t6; AD signs in stopOptions" },
+  {
+    id: "weak_shoulder",
+    where: "buildRomProtocol: pain_today, the day's pain question in the shoulder (D-032)",
+  },
+  {
+    id: "sci_t6",
+    where: "the intro's safety card shows warn_sci_t6 once (flow.ts sciWarningOnce); AD signs in stopOptions",
+  },
   { id: "limb_loss", where: "buildRomProtocol: limb_absent and not_measured_camera (limb loss levels)" },
   { id: "never", where: "the RomRunner (B): active movement only, no push after pain" },
   {
     id: "seated_side_lean_gate",
     where:
-      "buildRomProtocol (balance_support at home) and the v1 precheck of trunk_control_seated through applyPrecheckOutcome; the RomRunner's SIDE_LEAN_RULES (never beyond the last best side lean: v1.1's best plus 15, 30 at a first check, and the lean speed rule)",
+      "buildRomProtocol (balance_support at home), the side lean's helper rule of dayOutcome (focus precheck) through applyPrecheckOutcome (D-032); the RomRunner's SIDE_LEAN_RULES (never beyond the last best side lean: v1.1's best plus 15, 30 at a first check, and the lean speed rule)",
   },
   {
     id: "sitting_balance",
@@ -405,7 +432,9 @@ function dayOf(input: RomProtocolInput, gate: "clearance_needed" | null): Day {
     today,
     gate,
     standing: standingGate(intake, setting, today),
-    seatedForward: sits && (!wheelchair || (transfers && today.transferChair === true)),
+    // The intake's transfer_chair_ask stands for the day (D-032 item 2: no day question); a day's own
+    // no still counts.
+    seatedForward: sits && (!wheelchair || (transfers && today.transferChair !== false)),
     sitsUnsupported: sits,
     lying: !wheelchair || transfers,
     sideLean:

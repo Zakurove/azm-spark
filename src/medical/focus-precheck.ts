@@ -1,25 +1,36 @@
 /**
- * The pre-check bridge of the focus check (product v7 contract C-2 and 2.5). The focus check reuses
- * the v1 pre-check, its locks, stop routing and screens through their pure functions, unchanged: it
- * runs evaluatePrecheck on proxy base tests chosen from the day's protocol and gait plan, then brings
- * the outcome's skips and helper requirements back onto the v7 items. Pure, no DOM.
+ * The pre-check of the focus check (product v7 contract C-2 and 2.5; D-032 item 2). Since D-032 the
+ * focus check asks every question of the day on one short screen: today's pain in the areas of the
+ * check, one yes or no question for anything new or worrying, and only the walk's questions the walk
+ * plan needs (with someone with the person asked once). Its answers come back onto the v7 items
+ * through the v1 bridge, unchanged: a proceeding outcome's skips and helper requirements. Pure, no DOM.
  *
- *   proxyBaseTests        the v1 tests whose pre-check items the focus check needs
- *   focusPrecheckEnv      the PrecheckEnv for evaluatePrecheck and visibleQuestions
+ *   dayAreas              the areas of today's check, which the one pain question covers
+ *   dayItems              the items of the day's one screen for the answers so far
+ *   missingDayItems       the items still without an answer (the start needs every one)
+ *   dayOutcome            the day's answers as a pre-check outcome: a skip today, or the helper rules
+ *   keptDay               the day's answers a later step reads, the only ones a focus check keeps
+ *   proxyBaseTests        the v1 tests whose rules and stop list the focus check needs
+ *   focusPrecheckEnv      the PrecheckEnv of the stop list and the screens
  *   applyPrecheckOutcome  skips and helpers of a proceeding outcome onto the protocol and the gait plan
- *   GAIT_DAY_ITEMS        the two new gait day items, asked when the gait test is planned
- *   RF_REGION_ITEM        the region red flag item, asked per affected region of the day's protocol
- *   keptDayAnswers        the day's answers a later step reads, the only ones a focus check keeps
+ *   GAIT_DAY_ITEMS        the two gait day items, asked when the gait test is planned
  *
- * The start route runs, after its gates: buildRomProtocol, gaitPlanFor, focusPrecheckEnv,
- * evaluatePrecheck, then on proceed applyPrecheckOutcome (contract section 4).
+ * The start route runs, after its gates: buildRomProtocol, gaitPlanFor, focusPrecheckEnv, then
+ * dayOutcome and on proceed applyPrecheckOutcome (contract section 4).
  */
-import { TEST_ID_LIST, type ScreenId, type TestId } from "../movements/types";
+import { TEST_ID_LIST, type TestId } from "../movements/types";
 import type { Intake } from "./plan";
 import type { RegionId } from "./body-map";
 import { REGION_IDS } from "./body-map";
-import type { GaitPlan } from "./gait-eligibility";
-import { visibleQuestions, type Answers, type PrecheckEnv, type PrecheckOutcome } from "./precheck";
+import { helperMattersForWalk, type GaitPlan } from "./gait-eligibility";
+import {
+  CHAIR_STAND_HELPER_CONDITIONS,
+  SIDE_LEAN_HELPER_CONDITIONS,
+  type PrecheckEnv,
+  type PrecheckOutcome,
+  type SkipItem,
+  type StoredPrecheck,
+} from "./precheck";
 import {
   hasLowerLimbLoss,
   type FocusToday,
@@ -187,27 +198,28 @@ export function missingGaitDayItems(
   );
 }
 
-/* ---------------------------------------------------- region red flags */
+/* ------------------------------------------------ the day's one screen (D-032 item 2) */
 
-/** The region red flag item, asked per affected region of the day's protocol (above). */
-export const RF_REGION_ITEM: "rf_region" = "rf_region";
+/** An item of the day's one screen, in the order it shows. */
+export type DayItem = "pain" | "worry" | "prosthesis" | "walk10m" | "pdFreezing" | "unsteady" | "helper";
+
+/** The day's one screen for a person: the intake, the setting, the preview of what could run, the answers so far. */
+export interface DayInput {
+  intake: Intake;
+  setting: "home" | "booth";
+  /** The context's preview of the day (what could run with someone there and a prosthesis on). */
+  protocol: RomProtocol;
+  gait: GaitPlan | null;
+  /** The answers so far. */
+  today: FocusToday;
+}
 
 /**
- * The rf_region question is copy of the rom namespace (D-024, A4-7): rom.rf_region_ask, and
- * rom.rf_region_ask_leg for these leg regions, which adds the weight bearing sign. Drafted by A from
- * the data's rule text (rom-protocol 6 red_flags: «a hot, red, swollen joint; fever; a new deformity;
- * cannot take weight on the leg since an injury; new numbness or weakness»); the clinical sign off
- * reviews it with the rest of the copy. {region} is the region's name (ROM_DATA.regions label), and
- * the answers are the data's ans_yes and ans_no.
+ * The areas of today's check, in body order, which the one pain question covers: every affected region
+ * with a movement that runs today, and, when the walk is planned, every leg and back region of the body
+ * map (their pain decides the walk even when no movement of theirs runs).
  */
-export const RF_REGION_LEG: readonly RegionId[] = Object.freeze(["hip", "knee", "ankle_foot"]);
-
-/**
- * The regions to ask rf_region about, once each, in body order: every affected region with a movement
- * that runs today, and, when the gait test is planned, every leg and back region of the body map (their
- * red flags stop the gait test even when no movement of theirs runs).
- */
-export function rfRegionsToAsk(protocol: RomProtocol, gait: GaitPlan | null): RegionId[] {
+export function dayAreas(protocol: RomProtocol, gait: GaitPlan | null): RegionId[] {
   const ask = new Set<RegionId>(protocol.items.filter(runs).map((i) => i.region));
   if (gait?.offered) {
     for (const x of [...protocol.items, ...protocol.deferred, ...protocol.notMeasured])
@@ -216,9 +228,152 @@ export function rfRegionsToAsk(protocol: RomProtocol, gait: GaitPlan | null): Re
   return REGION_IDS.filter((r) => ask.has(r));
 }
 
-/** A yes to rf_region shows the existing seek care screen once (contract 2.5): the start route's warnings. */
-export function redFlagWarnings(today: FocusToday): ScreenId[] {
-  return today.redFlagRegions.length > 0 ? ["scr_stop_seek_care"] : [];
+/**
+ * v1.1 4.4 at home, the chair stand's helper rule as the bridge carries it to the standing items and
+ * the walk: Parkinson's, a stroke, an incomplete spinal cord injury or cerebral palsy, an aid in the
+ * intake, or day_unsteady_ask yes (the STEADI three in one question).
+ */
+export function standingHelperRule(
+  intake: Pick<Intake, "conditions" | "walking">,
+  today: FocusToday,
+): boolean {
+  return (
+    intake.conditions.some((c) => CHAIR_STAND_HELPER_CONDITIONS.includes(c)) ||
+    intake.walking?.status === "with_aid" ||
+    today.unsteady === true
+  );
+}
+
+/** rom-protocol 6 seated_side_lean_gate: «helper for SCI, stroke, CP, Parkinson's and MS» at home. */
+export function sideLeanHelperRule(intake: Pick<Intake, "conditions">): boolean {
+  return intake.conditions.some((c) => SIDE_LEAN_HELPER_CONDITIONS.includes(c));
+}
+
+/** What could run today from the preview and the answers so far. */
+function dayParts(input: DayInput) {
+  const { intake, protocol, gait, today } = input;
+  const items = protocol.items.filter(runs);
+  const limb = hasLowerLimbLoss(intake);
+  const standing = items.some(isStanding);
+  const walks = gait?.offered === true;
+  // Without the prosthesis on, no standing test and no walk (rom-protocol limb_loss_standing).
+  const legs = !(limb && today.prosthesisOn === false);
+  return {
+    items,
+    limb,
+    standing,
+    walks,
+    standToday: standing && legs,
+    walkPlanned: walks && legs,
+    walkToday: walks && legs && today.walk10m !== false,
+  };
+}
+
+/**
+ * Whether someone with the person changes today, at home: a part that runs only with a helper (a
+ * standing item's own rule, the side lean's helper rule, the chair stand's helper rule for the standing
+ * items and the walk), or a walk that needs someone beside the walker or would offer the pad.
+ */
+function helperMatters(input: DayInput): boolean {
+  if (input.setting === "booth") return false;
+  const { intake, today } = input;
+  const p = dayParts(input);
+  const own = p.items.some((i) => i.helperRequired && (!isStanding(i) || p.standToday));
+  const sideLean = p.items.some(isSideLean) && sideLeanHelperRule(intake);
+  const stand = (p.standToday || p.walkToday) && standingHelperRule(intake, today);
+  // Before the unsteadiness answer the pad is still possible: the question shows from the start.
+  const walk =
+    p.walkToday &&
+    helperMattersForWalk(intake, { ...today, unsteady: today.unsteady ?? false }, input.setting);
+  return own || sideLean || stand || walk;
+}
+
+/**
+ * The items of the day's one screen for the answers so far, in order (a later item can follow from an
+ * earlier answer): the pain of today's areas; the one worry question, after whose yes nothing else
+ * matters; the prosthesis with a leg limb loss; the walk's two day items; the one unsteadiness
+ * question when the standing items or the walk run; someone with the person, once, when it changes
+ * the day.
+ */
+export function dayItems(input: DayInput): DayItem[] {
+  const { intake, protocol, gait, today } = input;
+  const out: DayItem[] = [];
+  if (dayAreas(protocol, gait).length) out.push("pain");
+  out.push("worry");
+  if (today.worrying === true) return out;
+  const p = dayParts(input);
+  if (p.limb && (p.standing || p.walks)) out.push("prosthesis");
+  if (p.walkPlanned)
+    for (const id of gaitDayItems(gait, intake)) out.push(id === "pc_walk_10m" ? "walk10m" : "pdFreezing");
+  if (p.standToday || p.walkToday) out.push("unsteady");
+  if (helperMatters(input)) out.push("helper");
+  return out;
+}
+
+/** The answer of each day item in FocusToday (the pain question has none: an area left out has no pain). */
+const ANSWER_OF: Record<Exclude<DayItem, "pain">, keyof FocusToday> = {
+  worry: "worrying",
+  prosthesis: "prosthesisOn",
+  walk10m: "walk10m",
+  pdFreezing: "pdFreezing",
+  unsteady: "unsteady",
+  helper: "helperPresent",
+};
+
+/** The FocusToday field a day item writes, or null for the pain question. */
+export const dayAnswerField = (item: DayItem): keyof FocusToday | null =>
+  item === "pain" ? null : ANSWER_OF[item];
+
+/** The day items still without an answer (the start needs every one: 400 START_INVALID). */
+export function missingDayItems(input: DayInput): DayItem[] {
+  return dayItems(input).filter((item) => {
+    const field = dayAnswerField(item);
+    return field !== null && typeof input.today[field] !== "boolean";
+  });
+}
+
+/**
+ * The day's answers as a pre-check outcome (D-032 item 2), so the v1 bridge applies them unchanged:
+ * day_worry_ask yes skips the check today (postpone, next day lock); otherwise it proceeds with the
+ * v1.1 helper rules at home, on the proxy tests: the chair stand's (the standing items and the walk)
+ * and the side lean's (the seated side bend), each skipped (helper_needed) without someone there. The
+ * stored data map keeps the highest pain today, the leg prosthesis and the tests with a helper.
+ */
+export function dayOutcome(input: Pick<DayInput, "intake" | "setting" | "today">): PrecheckOutcome {
+  const { intake, setting, today } = input;
+  const stored: StoredPrecheck = {};
+  const pains = Object.values(today.painByRegion).filter((n): n is number => typeof n === "number");
+  stored.painNow = pains.length ? Math.max(...pains) : 0;
+  if (hasLowerLimbLoss(intake) && today.prosthesisOn !== undefined)
+    stored["fingerprint.legProsthesis"] = today.prosthesisOn;
+  const base = { variants: [], warnings: [], setupUpdates: {}, stored };
+  if (today.worrying === true)
+    return {
+      ...base,
+      status: "postpone",
+      reason: "unwell",
+      screen: "scr_postpone_unwell",
+      lock: { reason: "unwell", until: "next_day" },
+      skips: [],
+      helperRequired: [],
+    };
+  const helperRequired: TestId[] = [];
+  const skips: SkipItem[] = [];
+  const present = today.helperPresent === true;
+  if (setting === "home") {
+    if (standingHelperRule(intake, today)) {
+      helperRequired.push("chair_stand_30s");
+      if (!present) skips.push({ testId: "chair_stand_30s", side: "none", reason: "helper_needed" });
+    }
+    if (sideLeanHelperRule(intake)) {
+      helperRequired.push("trunk_control_seated");
+      if (!present)
+        for (const side of ["left", "right"] as const)
+          skips.push({ testId: "trunk_control_seated", side, reason: "helper_needed" });
+    }
+    if (present && helperRequired.length) stored["fingerprint.helperPresent"] = [...helperRequired];
+  }
+  return { ...base, status: "proceed", skips, helperRequired };
 }
 
 /* ------------------------------------------------- the day answers kept */
@@ -227,7 +382,9 @@ export function redFlagWarnings(today: FocusToday): ScreenId[] {
  * The day's answers a later step reads, the only ones a focus check keeps (contract section 3
  * focus_checks.today; R1-2, D-026 items 7 and 9), each only when it was asked (absent: not asked). They
  * are numbers and yes or no answers only; no red flag answer is ever kept (E1-5), and the walk, freezing,
- * transfer and orthosis answers live on in the frozen protocol and gait plan.
+ * transfer and orthosis answers live on in the frozen protocol and gait plan. Since D-032 item 2 the
+ * day's one screen asks only the pain, someone with the person, unsteadiness and the leg prosthesis
+ * (keptDay); pdState, pusher, armrests and seatedLean stay readable on the checks kept before it.
  */
 export interface StoredFocusToday {
   /** pain_ask per pain region of the body map, 0 to 10: the gait rules at complete (2.9) and the program. */
@@ -252,51 +409,17 @@ export interface StoredFocusToday {
   prosthesisOn?: boolean;
 }
 
-/** A visible yes or no question's answer as a boolean; undefined when not asked or not answered. */
-function yesNo(shown: ReadonlySet<string>, answers: Answers, id: string): boolean | undefined {
-  if (!shown.has(id)) return undefined;
-  const v = answers[id];
-  return v === "yes" ? true : v === "no" ? false : undefined;
-}
-
 /**
- * The day's answers the focus check keeps (StoredFocusToday) from the start's pre-check answers (an
- * answer to a question the pre-check did not show is ignored, as evaluatePrecheck ignores it) and the
- * day's own answers. Pure: the start route keeps exactly this.
+ * The day's answers the focus check keeps (StoredFocusToday) from the day's one screen (D-032 item 2):
+ * the pain per area, and each of someone with the person, unsteadiness and the leg prosthesis when the
+ * screen asked it. Unsteadiness stands for the STEADI three, so steadi keeps it as both fell and worry
+ * (the gait rules' careful_walking reads either). Pure: the start route keeps exactly this.
  */
-export function keptDayAnswers(
-  env: PrecheckEnv,
-  answers: Answers,
-  today: FocusToday,
-  intake: Intake,
-): StoredFocusToday {
-  const shown = new Set(visibleQuestions(env, answers));
+export function keptDay(today: FocusToday, items: readonly DayItem[]): StoredFocusToday {
   const out: StoredFocusToday = { painByRegion: { ...today.painByRegion } };
-  if (today.helperPresent !== undefined) out.helperPresent = today.helperPresent;
-  const fell = yesNo(shown, answers, "pc_steadi:fell");
-  const worry = yesNo(shown, answers, "pc_steadi:worry");
-  if (fell !== undefined && worry !== undefined) out.steadi = { fell, worry };
-  // pc_pd_on: no postpones the check (it never reaches a kept day), unsure is recorded as v1 does.
-  const pd = shown.has("pc_pd_on") ? answers.pc_pd_on : undefined;
-  if (pd === "yes" || pd === "unsure") out.pdState = pd === "yes" ? "on" : "unsure";
-  const pusher = yesNo(shown, answers, "pc_stroke_push");
-  if (pusher !== undefined) out.pusher = pusher;
-  // pc_trunk_armrests is asked in the form of the person's position (Q12 (1)), one of the two.
-  const armrests =
-    yesNo(shown, answers, "pc_trunk_armrests:chair") ?? yesNo(shown, answers, "pc_trunk_armrests:wheelchair");
-  if (armrests !== undefined) out.armrests = armrests;
-  const lean: NonNullable<StoredFocusToday["seatedLean"]> = {};
-  const fellSitting = yesNo(shown, answers, "pc_fall_sitting");
-  if (fellSitting !== undefined) lean.fellSitting = fellSitting;
-  const pressureSore = yesNo(shown, answers, "pc_pressure_sore");
-  if (pressureSore !== undefined) lean.pressureSore = pressureSore;
-  const sits = shown.has("pc_sit_unsupported") ? answers.pc_sit_unsupported : undefined;
-  if (sits === "yes" || sits === "no" || sits === "unsure") lean.sitsUnsupported = sits;
-  if (Object.keys(lean).length) out.seatedLean = lean;
-  // As gaitPlanFor reads it: the day's own answer, else pc_limb_leg_prosthesis.
-  if (hasLowerLimbLoss(intake)) {
-    const on = today.prosthesisOn ?? yesNo(shown, answers, "pc_limb_leg_prosthesis");
-    if (on !== undefined) out.prosthesisOn = on;
-  }
+  if (items.includes("helper") && today.helperPresent !== undefined) out.helperPresent = today.helperPresent;
+  if (items.includes("unsteady") && today.unsteady !== undefined)
+    out.steadi = { fell: today.unsteady, worry: today.unsteady };
+  if (items.includes("prosthesis") && today.prosthesisOn !== undefined) out.prosthesisOn = today.prosthesisOn;
   return out;
 }

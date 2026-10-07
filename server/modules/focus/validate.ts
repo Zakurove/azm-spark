@@ -16,7 +16,6 @@
  */
 import { REGION_IDS, type RegionId } from "../../../src/medical/body-map";
 import { walkingAids, type WalkingAid } from "../../../src/medical/plan";
-import type { Answers } from "../../../src/medical/precheck";
 import type { FocusToday, RomProtocolItem, RomReasonId } from "../../../src/medical/rom-protocol";
 import type { GaitMode, GaitPlan } from "../../../src/medical/gait-eligibility";
 import type {
@@ -57,14 +56,7 @@ import {
   type RomSide,
 } from "../../../src/movements/rom/types";
 import { REASON_IDS, STOP_OPTION_IDS, type StopOptionId } from "../../../src/movements/types";
-import {
-  checkAnswers,
-  isId,
-  isPlainObject,
-  jsonBytes,
-  unknownKeys,
-  type Check,
-} from "../assessments/validate";
+import { isId, isPlainObject, jsonBytes, unknownKeys, type Check } from "../assessments/validate";
 
 const fail = (field: string) => ({ ok: false, field }) as const;
 const ok = <T>(value: T) => ({ ok: true, value }) as const;
@@ -195,9 +187,12 @@ export interface FocusDeviceBody {
   browser: string;
 }
 
+/**
+ * The start body (contract section 4; D-032 item 2): the day's one screen travels as `today`, so a
+ * start carries no v1 pre-check answers any more.
+ */
 export interface FocusStartBody {
   setting: "home" | "booth";
-  answers: Answers;
   today: FocusToday;
   device: FocusDeviceBody;
   include: { rom: boolean; gait: boolean };
@@ -211,6 +206,8 @@ export function checkToday(v: unknown): Check<FocusToday> {
     [
       "painByRegion",
       "redFlagRegions",
+      "worrying",
+      "unsteady",
       "prosthesisOn",
       "transferChair",
       "helperPresent",
@@ -230,7 +227,15 @@ export function checkToday(v: unknown): Check<FocusToday> {
     painByRegion: pain as Partial<Record<RegionId, number>>,
     redFlagRegions: [...(v.redFlagRegions as RegionId[])],
   };
-  for (const key of ["prosthesisOn", "transferChair", "helperPresent", "walk10m", "pdFreezing"] as const) {
+  for (const key of [
+    "worrying",
+    "unsteady",
+    "prosthesisOn",
+    "transferChair",
+    "helperPresent",
+    "walk10m",
+    "pdFreezing",
+  ] as const) {
     const x = v[key];
     if (x === undefined) continue;
     if (!bool(x)) return fail(`today.${key}`);
@@ -252,14 +257,12 @@ export function checkFocusDevice(v: unknown): Check<FocusDeviceBody> {
   return ok({ os: v.os, browser: v.browser });
 }
 
-const START_KEYS = ["setting", "answers", "today", "device", "include"] as const;
+const START_KEYS = ["setting", "today", "device", "include"] as const;
 
 export function checkFocusStart(body: Record<string, unknown>): Check<FocusStartBody> {
   const extra = extraKey(body, START_KEYS, "");
   if (extra) return fail(extra);
   if (!oneOf(body.setting, ["home", "booth"] as const)) return fail("setting");
-  const answers = checkAnswers(body.answers);
-  if (!answers.ok) return answers;
   const today = checkToday(body.today);
   if (!today.ok) return today;
   const device = checkFocusDevice(body.device);
@@ -270,7 +273,6 @@ export function checkFocusStart(body: Record<string, unknown>): Check<FocusStart
   if (!bool(include.gait)) return fail("include.gait");
   return ok({
     setting: body.setting,
-    answers: answers.value,
     today: today.value,
     device: device.value,
     include: { rom: include.rom, gait: include.gait },

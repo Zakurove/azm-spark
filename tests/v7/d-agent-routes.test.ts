@@ -20,7 +20,6 @@ import { typicalValue } from "../../src/medical/rom-norms";
 import type { RomProtocol } from "../../src/medical/rom-protocol";
 import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import type { Intake } from "../../src/medical/plan";
-import { fill } from "../precheck-fixtures";
 import { MINUTE, PASSWORD, T0, boothPass, startV7Api, userId, v7Intake, type V7Harness } from "./a-harness";
 
 const KEY = "test-gemini-key-SECRET-7f3a9c";
@@ -137,8 +136,14 @@ async function started(
     "/focus",
     {
       setting: "booth",
-      answers: fill(c.data.env),
-      today: { painByRegion: {}, redFlagRegions: [], walk10m: true, ...today },
+      today: {
+        painByRegion: {},
+        redFlagRegions: [],
+        worrying: false,
+        unsteady: false,
+        walk10m: true,
+        ...today,
+      },
       device: { os: "iOS", browser: "Safari" },
       include: { rom: true, gait: true },
     },
@@ -552,13 +557,19 @@ describe("C-12: only the listed data reaches Google or the history", () => {
     // The stored name is the harness's member name.
     const name = (await h.call("/auth/me", undefined, cookie)).data.user.name as string;
     const booth = { "x-azm-booth": pass };
-    const c = await h.call("/focus/context", undefined, cookie, "GET", booth);
+    await h.call("/focus/context", undefined, cookie, "GET", booth);
     const s = await h.call(
       "/focus",
       {
         setting: "booth",
-        answers: fill(c.data.env),
-        today: { painByRegion: {}, redFlagRegions: [], walk10m: true, pdFreezing: false },
+        today: {
+          painByRegion: {},
+          redFlagRegions: [],
+          worrying: false,
+          unsteady: false,
+          walk10m: true,
+          pdFreezing: false,
+        },
         device: { os: "iOS", browser: "Safari" },
         include: { rom: true, gait: true },
       },

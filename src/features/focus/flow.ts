@@ -25,6 +25,9 @@
  *   faint_ask    after a faint or fall stop's screen, the v1 faint follow up (sf_faint_loc, Q33 (3),
  *                O42): yes or not sure opens the emergency screen, no shows the stop's screen again
  *   completing   POST /api/focus/:id/complete, then the findings
+ *   build        D-032 item 3, a person whose program waits for the check: the build animation while
+ *                the program is built, from the check's findings, or from the history when nothing can
+ *                be measured or the person cannot use a camera; then the program opens
  */
 import type { LockView } from "../assessment/api";
 import type { GaitPlan } from "../../medical/gait-eligibility";
@@ -114,6 +117,12 @@ export type ClosedWhy =
 /** A part of the check after the start, in C-13 order. */
 export type FocusPart = { kind: "range"; block: RomBlock } | { kind: "gait" };
 
+/**
+ * Where the program of a person awaiting the check comes from (D-032 item 3): the check's findings, or
+ * the history when nothing can be measured or the person cannot use a camera.
+ */
+export type BuildFrom = "check" | "history";
+
 export type FocusState =
   | { kind: "loading" }
   | { kind: "load_error" }
@@ -137,10 +146,14 @@ export type FocusState =
   | { kind: "faint_ask"; route: FocusStopRoute }
   | { kind: "completing"; error: boolean }
   | { kind: "done" }
+  | { kind: "build"; from: BuildFrom }
   | { kind: "exit"; to: FocusExitTo };
 
-/** Where the focus check leaves to: the portal's Today, the findings or the health form. */
-export type FocusExitTo = "today" | "findings" | "health";
+/**
+ * Where the focus check leaves to: the portal's Today, the findings or the health form; after a build
+ * (D-032 item 3) the program page of the findings, or the portal's Program tab for the history's.
+ */
+export type FocusExitTo = "today" | "findings" | "health" | "program" | "program_tab";
 
 export interface FocusData {
   context: FocusContext | null;
@@ -151,6 +164,8 @@ export interface FocusData {
   parts: FocusPart[];
   /** The walk's pain gate ran (the session's WALK_GATE, once per check). */
   walkGated?: boolean;
+  /** The person's program waits for the check (D-032 item 3): the end builds it. */
+  onboarding?: boolean;
 }
 
 export interface FocusModel {
@@ -189,11 +204,15 @@ export type FocusEvent =
   | { type: "FAINT_ANSWER"; value: "yes" | "no" | "unsure"; now: number }
   | { type: "COMPLETED" }
   | { type: "COMPLETE_FAILED" }
+  /** «لا أستطيع استخدام الكاميرا» (D-032 item 3): the history builds the program now. */
+  | { type: "BUILD"; from: BuildFrom }
+  /** The build animation ended and the program is built: the program opens. */
+  | { type: "BUILT" }
   | { type: "EXIT"; to: FocusExitTo };
 
 export const EMPTY_TODAY: FocusToday = { painByRegion: {}, redFlagRegions: [] };
 
-export function initialModel(): FocusModel {
+export function initialModel(onboarding = false): FocusModel {
   return {
     state: { kind: "loading" },
     data: {
@@ -202,6 +221,7 @@ export function initialModel(): FocusModel {
       today: { ...EMPTY_TODAY, painByRegion: {}, redFlagRegions: [] },
       check: null,
       parts: [],
+      ...(onboarding ? { onboarding: true } : {}),
     },
   };
 }
@@ -295,15 +315,15 @@ function opened(m: FocusModel, context: FocusContext, now: number): FocusState {
   if (!context.intakeReady || !context.env || !context.protocol) return { kind: "closed", why: "intake" };
   // No camera movement in any marked joint (a wrist only map: forearm_wrist measures nothing) and no
   // walk: another day would not help, so this is not the safety line of «nothing to measure today».
+  // D-032 item 3: for a person whose program waits for the check, the history builds it at once.
   if (!context.protocol.items.length && !context.protocol.deferred.length && !context.gait?.offered)
-    return { kind: "closed", why: "no_camera" };
+    return m.data.onboarding ? { kind: "build", from: "history" } : { kind: "closed", why: "no_camera" };
   if (context.setting === "home" && !context.homeOpen) return { kind: "closed", why: "home_closed" };
   if (context.lock) return { kind: "closed", why: "locked", lock: context.lock };
   if (context.earliestNext !== null && now < context.earliestNext)
     return { kind: "closed", why: "too_soon", until: context.earliestNext };
   if (!context.adultConfirmed) return { kind: "closed", why: "adult" };
   if (!context.consent.focus_check) return { kind: "consent", saving: false, error: false };
-  void m;
   return { kind: "intro" };
 }
 
@@ -314,7 +334,13 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
       return go(m, opened(m, e.context, e.now), { context: e.context, intake: e.intake });
     case "LOAD_FAILED":
       if (e.code === "PLAN_REQUIRED") return go(m, { kind: "closed", why: "plan" });
-      if (e.code === "REVIEW") return go(m, { kind: "closed", why: "review" });
+      // A ready plan whose person the check cannot measure (a bed user, D-032 item 3): the history
+      // builds the program at once.
+      if (e.code === "REVIEW")
+        return go(
+          m,
+          m.data.onboarding ? { kind: "build", from: "history" } : { kind: "closed", why: "review" },
+        );
       return go(m, { kind: "load_error" });
     case "CONSENT_SAVING":
       return s.kind === "consent" ? go(m, { kind: "consent", saving: true, error: false }) : m;
@@ -448,9 +474,21 @@ export function reduce(m: FocusModel, e: FocusEvent): FocusModel {
         ? go(m, { kind: "stop_screen", route: e.route })
         : go(m, { kind: "exit", to: "today" });
     case "COMPLETED":
-      return s.kind === "completing" ? go(m, { kind: "done" }) : m;
+      // D-032 item 3: the program's build first, then the program page with each exercise's why line.
+      if (s.kind !== "completing") return m;
+      return go(m, m.data.onboarding ? { kind: "build", from: "check" } : { kind: "done" });
     case "COMPLETE_FAILED":
       return s.kind === "completing" ? go(m, { kind: "completing", error: true }) : m;
+    case "BUILD":
+      // «لا أستطيع استخدام الكاميرا»: before the check, or on a camera that cannot open.
+      if (!m.data.onboarding || e.from !== "history") return m;
+      return s.kind === "intro" || s.kind === "today" || s.kind === "part"
+        ? go(m, { kind: "build", from: "history" })
+        : m;
+    case "BUILT":
+      return s.kind === "build"
+        ? go(m, { kind: "exit", to: s.from === "check" ? "program" : "program_tab" })
+        : m;
     case "EXIT":
       return go(m, { kind: "exit", to: e.to });
   }

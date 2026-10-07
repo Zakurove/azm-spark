@@ -16,11 +16,10 @@ import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
 import type { PrecheckEnv } from "../../medical/precheck";
 import { stopOptions } from "../../medical/precheck";
-import { REGION_IDS, type BodyMapKey, type RegionId } from "../../medical/body-map";
+import type { BodyMapKey, RegionId } from "../../medical/body-map";
 import type { DayItem } from "../../medical/focus-precheck";
 import type { FocusToday, RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
 import type { BodyMapColour } from "../../medical/rom-types";
-import type { RomSide } from "../../movements/rom/types";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import { CHECK_DATA, emergencyCallButton, screenText, stopFollowUp } from "../../movements/assessments";
 import { GAIT_DATA } from "../../movements/gait";
@@ -248,32 +247,9 @@ export function minutesOf(items: readonly RomProtocolItem[]): number {
   return Math.max(1, Math.round(items.length * ROM_DATA.sessionOrder.minutesPerMovement));
 }
 
-/** A joint of the day: a region and a side, with its movements in protocol order. */
-export interface JointGroup {
-  key: string;
-  region: RegionId;
-  side: RomSide;
-  items: RomProtocolItem[];
-}
-
-/** The joints of the day's movements in body order (the region list, the right side first). */
-export function jointsOf(items: readonly RomProtocolItem[]): JointGroup[] {
-  const groups = new Map<string, JointGroup>();
-  for (const i of items) {
-    const key = `${i.region}:${i.side}`;
-    const g = groups.get(key) ?? { key, region: i.region, side: i.side, items: [] };
-    g.items.push(i);
-    groups.set(key, g);
-  }
-  const rank = { right: 0, left: 1, none: 2 } as const;
-  return [...groups.values()].sort(
-    (a, b) => REGION_IDS.indexOf(a.region) - REGION_IDS.indexOf(b.region) || rank[a.side] - rank[b.side],
-  );
-}
-
-/** The body map cell of a joint (the neck and the back have one, axial). */
-export const cellOf = (g: Pick<JointGroup, "region" | "side">): BodyMapKey =>
-  (g.side === "none" ? `${g.region}:axial` : `${g.region}:${g.side}`) as BodyMapKey;
+/** The joints of the day's movements (joints.ts), as the intro lists them. */
+export { cellOf, jointsOf, type JointGroup } from "./joints";
+import { cellOf, jointsOf } from "./joints";
 
 /**
  * Which joints we will measure, and why (plan 1.7): the affected joints of the history, each with its
@@ -286,6 +262,7 @@ export function IntroScreen({
   gait,
   setting = "booth",
   sciWarning = false,
+  onNoCamera,
   onStart,
 }: {
   lang: Lang;
@@ -295,6 +272,11 @@ export function IntroScreen({
   setting?: "home" | "booth";
   /** v1's warn_sci_t6 once, on the safety card (D-032 item 2: no longer before every part). */
   sciWarning?: boolean;
+  /**
+   * D-032 item 3, a person whose program waits for the check: «لا أستطيع استخدام الكاميرا», which
+   * builds the program from the history.
+   */
+  onNoCamera?: () => void;
   onStart(): void;
 }) {
   const runs = protocol.items.filter((i) => !i.skipped);
@@ -370,7 +352,17 @@ export function IntroScreen({
         {sciWarning && <WarningNote lang={lang} id="warn_sci_t6" />}
       </Glass>
       <Actions
-        items={[{ label: tV7(lang, "rom.intro.start"), onClick: onStart, name: "start", icon: "play" }]}
+        items={[
+          onNoCamera
+            ? {
+                label: tV7(lang, "rom.onboarding.noCamera"),
+                onClick: onNoCamera,
+                kind: "secondary",
+                name: "no_camera",
+              }
+            : null,
+          { label: tV7(lang, "rom.intro.start"), onClick: onStart, name: "start", icon: "play" },
+        ]}
       />
     </div>
   );

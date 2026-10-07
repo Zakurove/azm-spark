@@ -51,6 +51,8 @@ export function BlockCard({
   helper,
   stage,
   waiting = false,
+  cameraError = false,
+  onNoCamera,
   onReady,
   onStop,
 }: {
@@ -65,6 +67,10 @@ export function BlockCard({
    * measures, never mid attempt): «جاهز» waits for it.
    */
   waiting?: boolean;
+  /** The camera cannot open (refused, none, busy): a calm line, and the way on without it. */
+  cameraError?: boolean;
+  /** D-032 item 3, a person whose program waits for the check: «لا أستطيع استخدام الكاميرا». */
+  onNoCamera?: () => void;
   onReady(): void;
   /** STOP while the camera runs (v1: on every camera, after and between state; D-016). */
   onStop?: () => void;
@@ -106,15 +112,29 @@ export function BlockCard({
             <CheckIcon name="camera" size={20} />
             <span>{tV7(lang, "rom.block.camera")}</span>
           </p>
-          {waiting && (
+          {waiting && !cameraError && (
             <p className="fx-meta" role="status" data-wait="camera">
               <span className="fx-spinner is-small" aria-hidden="true" />
               <span>{tV7(lang, "rom.block.cameraWait")}</span>
             </p>
           )}
+          {cameraError && (
+            <p className="fx-note" role="status" data-camera="error">
+              <CheckIcon name="camera" size={20} />
+              <span>{bidiText(lang, tV7(lang, "rom.block.cameraError"))}</span>
+            </p>
+          )}
         </Glass>
         <Actions
           items={[
+            cameraError && onNoCamera
+              ? {
+                  label: tV7(lang, "rom.onboarding.noCamera"),
+                  onClick: onNoCamera,
+                  kind: "secondary",
+                  name: "no_camera",
+                }
+              : null,
             {
               label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
               onClick: onReady,

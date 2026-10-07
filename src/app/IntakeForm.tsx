@@ -45,6 +45,11 @@ const IntakeV7Review =
   import.meta.env.VITE_V7 === "1"
     ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7Review })))
     : null;
+/** D-032 item 3: «التالي: قياس حركتك» on the last button when the movement check comes next. */
+const IntakeV7NextCheck =
+  import.meta.env.VITE_V7 === "1"
+    ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7NextCheck })))
+    : null;
 type StepKind = "about" | "health" | "body" | "goal" | "review";
 const STEP_KINDS: readonly StepKind[] = V7_UI
   ? ["about", "health", "body", "goal", "review"]
@@ -170,11 +175,17 @@ export default function IntakeForm({
   initial,
   onSaved,
   onCancel,
+  nextCheck = false,
 }: {
   lang: Lang;
   initial: Intake | null;
-  onSaved: (v: { intake: Intake; plan: Plan }) => void;
+  onSaved: (v: { intake: Intake; plan: Plan; awaitingCheck?: boolean }) => void;
   onCancel?: () => void;
+  /**
+   * D-032 item 3 (VITE_V7 builds): the movement check comes right after the form (a new profile, or a
+   * program still waiting for the check), so the last button reads «التالي: قياس حركتك».
+   */
+  nextCheck?: boolean;
 }) {
   const c = labels(lang),
     // A stable chair is assumed (B6): a chair saved before is dropped from the equipment answer.
@@ -678,7 +689,21 @@ export default function IntakeForm({
         )}
         <div className="intake-actions">
           <button className="cta" disabled={busy} type="submit">
-            {busy ? c.busy : step === last ? (initial ? c.save : c.create) : c.continue}
+            {busy ? (
+              c.busy
+            ) : step === last ? (
+              nextCheck && IntakeV7NextCheck ? (
+                <Suspense fallback={initial ? c.save : c.create}>
+                  <IntakeV7NextCheck lang={lang} />
+                </Suspense>
+              ) : initial ? (
+                c.save
+              ) : (
+                c.create
+              )
+            ) : (
+              c.continue
+            )}
             <Icon name="arrow" size={18} />
           </button>
           {step > 0 ? (

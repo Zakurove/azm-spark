@@ -72,5 +72,6 @@
     "walking": "Walking",
     "regions": "Affected parts",
     "none": "None"
-  }
+  },
+  "nextCheck": "Next: your movement check"
 }

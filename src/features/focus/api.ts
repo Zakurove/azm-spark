@@ -72,6 +72,31 @@ export interface FocusApi {
   profile(checkId: string | null): Promise<ApiResult<FocusProfile>>;
   /** The person's focus checks, newest first. */
   checks(): Promise<ApiResult<{ checks: FocusCheckSummary[] }>>;
+  /**
+   * D-032 item 3: the week built from the latest completed check (POST /api/program/targets), the
+   * program of a person whose program waited for the check.
+   */
+  programTargets(): Promise<ApiResult<{ weekly: ProgramWeek }>>;
+  /** D-032 item 3: the history builds the program (POST /api/program/history). */
+  programHistory(): Promise<ApiResult<{ ok: true }>>;
+}
+
+/** The week of POST /api/program/targets as the build counts it: each day's blocks and their items. */
+export interface ProgramWeek {
+  days: {
+    warmup: { id: string; why?: unknown }[];
+    extra: { id: string; why?: unknown }[];
+    cooldown: { id: string; why?: unknown }[];
+  }[];
+}
+
+/** The exercises the findings chose in a targeted week: each item with a why line, once (program.ts programItems). */
+export function weekExercises(week: ProgramWeek | null | undefined): number {
+  const ids = new Set<string>();
+  for (const day of week?.days ?? [])
+    for (const block of [day.warmup, day.extra, day.cooldown])
+      for (const item of block ?? []) if (item.why) ids.add(item.id);
+  return ids.size;
 }
 
 export interface FocusApiOptions {
@@ -147,5 +172,7 @@ export function createFocusApi(opts: FocusApiOptions = {}): FocusApi {
         checkId === null ? "/focus/profile" : `/focus/profile?checkId=${encodeURIComponent(checkId)}`,
       ),
     checks: () => call("GET", "/focus"),
+    programTargets: () => call("POST", "/program/targets", {}),
+    programHistory: () => call("POST", "/program/history", {}),
   };
 }

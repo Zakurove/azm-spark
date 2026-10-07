@@ -79,7 +79,8 @@
     "ready": "Ready",
     "helperReady": "My helper is beside me. Ready",
     "cameraWait": "One moment, the camera is getting ready.",
-    "lyingHelper": "While you lie down, your companion or one of our team taps the buttons for you."
+    "lyingHelper": "While you lie down, your companion or one of our team taps the buttons for you.",
+    "cameraError": "We cannot open the camera. Allow the browser to use it, then try again."
   },
   "setup": {
     "kicker": "Movement {n} of {total}",
@@ -198,5 +199,9 @@
   "today": {
     "body": "We measure the joints linked to your medical condition and compare them with what is typical for your age and sex, then look at your walk if you walk.",
     "results": "Your latest results"
+  },
+  "onboarding": {
+    "noCamera": "I can’t use a camera",
+    "building": "Building your program"
   }
 }

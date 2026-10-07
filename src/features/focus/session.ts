@@ -17,6 +17,9 @@
  *     for tiredness rests a minute before the next range block's card; one for pain re-asks the pain
  *     before the next movement of each joint the walk loads.
  *   - The complete call (POST /api/focus/:id/complete) once every part is done; then the findings.
+ *   - D-032 item 3, a person whose program waits for the check: the build (POST /api/program/targets
+ *     after the check, POST /api/program/history when nothing can be measured or there is no
+ *     camera), while the build animation plays; the program opens once both are done.
  */
 import type { Lang } from "../../app/i18n";
 import type { BridgeEvent, CoachStopReason } from "../../coach/types";
@@ -25,7 +28,8 @@ import { emergencyAlsoShow, stopRoute, type StopRoute } from "../../medical/prec
 import type { RegionId } from "../../medical/body-map";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
 import type { StopOptionId } from "../../movements/types";
-import type { FocusApi, RomSaved } from "./api";
+import { weekExercises, type FocusApi, type RomSaved } from "./api";
+import { jointsOf } from "./joints";
 import {
   initialModel,
   leanBestOf,
@@ -50,6 +54,8 @@ export interface FocusSessionOptions {
   device?: { os: string; browser: string };
   /** The camera's pose model (C-10), read at each movement's start. */
   poseModel?: () => PoseModel;
+  /** The person's program waits for the check (D-032 item 3): the end builds it. */
+  onboarding?: boolean;
   /** Controller timing (E2E fast timing). */
   restSec?: number;
   sitSeconds?: number;
@@ -69,8 +75,20 @@ export interface SpokenLine {
  */
 export const WALK_REGIONS: readonly RegionId[] = ["hip", "knee", "ankle_foot", "back_trunk"];
 
+/** What the build animation shows (D-032 item 3): the joints measured, the walk, the exercises chosen. */
+export interface BuildSummary {
+  joints: number;
+  walk: boolean;
+  exercises: number;
+}
+
 export class FocusSession {
-  model: FocusModel = initialModel();
+  model: FocusModel;
+  /**
+   * The program's build (D-032 item 3): null before it, then whether the call is done and, after a
+   * check, what the build animation shows.
+   */
+  build: { done: boolean; summary?: BuildSummary } | null = null;
   ctl: RomController | null = null;
   /** The server's grade of each saved movement (C-3), by movement and side. */
   readonly grades = new Map<string, RomSaved>();
@@ -97,6 +115,7 @@ export class FocusSession {
   constructor(api: FocusApi, opts: FocusSessionOptions) {
     this.api = api;
     this.opts = opts;
+    this.model = initialModel(opts.onboarding === true);
   }
 
   /** The language changed on the page (the coach's repeated instructions follow it). */
@@ -163,6 +182,7 @@ export class FocusSession {
     if (s.kind === "starting" && s.error === null) void this.start();
     if (s.kind === "skip_today") void this.recordPostpone();
     if (s.kind === "completing" && !s.error) void this.complete();
+    if (s.kind === "build" && !this.build) void this.buildProgram(s.from);
     if (s.kind === "part" && this.model.data.parts[s.index]?.kind === "gait") {
       // The walk's pain gate: a pain stop in a region the walk loads earlier in the check postpones
       // the walk (6 or more, sharp, a region not measured today for pain) or asks its pain first.
@@ -240,6 +260,38 @@ export class FocusSession {
     const r = check && this.outbox.length === 0 ? await this.api.complete(check.id) : null;
     this.busy = false;
     this.dispatch(r?.ok ? { type: "COMPLETED" } : { type: "COMPLETE_FAILED" });
+  }
+
+  /**
+   * The program's build (D-032 item 3): the targeted week after the check, or the history's program.
+   * A network failure is tried again twice; the program page then shows its own way on, and the server
+   * reads a completed check as the end of the wait in any case.
+   */
+  private async buildProgram(from: "check" | "history"): Promise<void> {
+    this.build = { done: false, ...(from === "check" ? { summary: this.summaryOf(0) } : {}) };
+    this.changed();
+    for (let i = 0; i < 3; i++) {
+      if (from === "check") {
+        const r = await this.api.programTargets();
+        if (r.ok) {
+          this.build = { done: true, summary: this.summaryOf(weekExercises(r.value.weekly)) };
+          break;
+        }
+        if (r.error.kind === "http") break;
+      } else {
+        const r = await this.api.programHistory();
+        if (r.ok || r.error.kind === "http") break;
+      }
+    }
+    this.build = { ...this.build, done: true };
+    this.changed();
+  }
+
+  /** The build animation's summary: the joints of the check's movements, the walk, the exercises. */
+  private summaryOf(exercises: number): BuildSummary {
+    const check = this.model.data.check;
+    const items = check?.protocol.items.filter((i) => !i.skipped) ?? [];
+    return { joints: jointsOf(items).length, walk: check?.gait?.offered === true, exercises };
   }
 
   /** The controller's output: results to post, the coach's events, the local lines, the part's end. */

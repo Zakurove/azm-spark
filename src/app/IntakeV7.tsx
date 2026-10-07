@@ -1251,6 +1251,14 @@ export function IntakeV7StepName({ lang }: { lang: Lang }) {
   return <>{tV7(lang, "intake7.step")}</>;
 }
 
+/**
+ * D-032 item 3: the health form's last button when the movement check comes next (a new profile, or a
+ * person whose program still waits for the check): «التالي: قياس حركتك».
+ */
+export function IntakeV7NextCheck({ lang }: { lang: Lang }) {
+  return <>{tV7(lang, "intake7.nextCheck")}</>;
+}
+
 /** The step's rows on the review step. */
 export function IntakeV7Review({ lang, value }: { lang: Lang; value: V7Answers }) {
   const walking = value.walking;

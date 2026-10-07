@@ -11,11 +11,15 @@
  * plays the local lines when the voice is on (off by default) and passes the coach's events to the
  * coach (the live coach is off by default; stream D wires it, C-5).
  *
- * src/app/App.tsx opens it at /?focus=1 for a signed in person, in a VITE_V7=1 build only. On a
- * VITE_E2E=1 build, ?e2ePerson=1 plays a simulated person instead of the camera (e2e/PersonSource.ts)
- * and ?e2eFast=1 shortens the rests.
+ * src/app/App.tsx opens it at /?focus=1 for a signed in person, in a VITE_V7=1 build only, and right
+ * after the health form for a person whose program waits for the check (D-032 item 3, `onboarding`):
+ * the end then plays the program's build and opens the program. On a VITE_E2E=1 build, ?e2ePerson=1
+ * plays a simulated person instead of the camera (e2e/PersonSource.ts) and ?e2eFast=1 shortens the
+ * rests.
  */
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -47,7 +51,8 @@ import { FINDING_LABEL, voiceLineOf } from "./copy";
 import { movementDef, romResultLine } from "../../movements/rom";
 import { FocusSession } from "./session";
 import { itemKey, type RomController } from "./romController";
-import { TopBar, Page } from "./parts";
+import { Loading, TopBar, Page } from "./parts";
+import { tV7 } from "../../i18n/v7";
 import {
   BlockCard,
   MeasureScreen,
@@ -76,20 +81,32 @@ import {
   WalkPainScreen,
   WalkSkippedScreen,
 } from "./Screens";
-import { sciWarningOnce, todayItems } from "./flow";
+import { sciWarningOnce, todayItems, type FocusExitTo } from "./flow";
 import { dayAreas } from "../../medical/focus-precheck";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
 import "./focus.css";
 
-/** Where the focus check leaves to. */
-export type FocusExit = "today" | "findings" | "health";
+/** Where the focus check leaves to (after a build, D-032 item 3: the program page or the Program tab). */
+export type FocusExit = FocusExitTo;
+
+/**
+ * The program's build animation (D-032 item 3), its own lazy part: VITE_V7=1 builds only, the env
+ * tested inline as for the v7 pages in App.tsx.
+ */
+const ProgramBuild =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../onboarding/ProgramBuild")) : null;
 
 export interface FocusAppProps {
   lang: Lang;
   onLanguage(): void;
   /** The signed in person's id: the owner of the check's waiting calls, as in the v1 check. */
   owner: string;
+  /**
+   * The person's program waits for the check (D-032 item 3): the end builds it, and «لا أستطيع
+   * استخدام الكاميرا» builds it from the history.
+   */
+  onboarding?: boolean;
   /**
    * Leaves the focus check: "findings" after a completed check, "health" to answer the v7 intake
    * questions (409 INTAKE_UPDATE_REQUIRED), else "today".
@@ -151,7 +168,7 @@ export function blockWaitsForProbe(
   return !(probe?.key === blockKey && probe.done);
 }
 
-export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
+export default function FocusApp({ lang, onLanguage, onExit, onboarding = false }: FocusAppProps) {
   const e2e = useMemo(e2eOptions, []);
   const sessionRef = useRef<FocusSession | null>(null);
   const focus = useMemo(() => {
@@ -169,6 +186,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       lang,
       now: clock,
       device: focusDevice(),
+      onboarding,
       poseModel: () => focus.model,
       ...(e2e.fast ? { restSec: 1, sitSeconds: 8, stopRestSeconds: 6 } : {}),
     });
@@ -346,7 +364,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
   const progress =
     s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped"
       ? { done: s.index, total: parts.length }
-      : s.kind === "completing" || s.kind === "done"
+      : s.kind === "completing" || s.kind === "done" || s.kind === "build"
         ? { done: parts.length, total: parts.length }
         : null;
   const entry =
@@ -361,7 +379,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
       progress={progress}
       sound={{ on: soundOn, toggle: toggleSound }}
       onLanguage={entry ? onLanguage : null}
-      onLeave={s.kind === "done" ? null : midCheck ? () => setLeaving(true) : today}
+      onLeave={s.kind === "done" || s.kind === "build" ? null : midCheck ? () => setLeaving(true) : today}
     />
   );
   const env = m.data.context?.env ?? null;
@@ -420,6 +438,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               gait={m.data.context!.gait}
               setting={m.data.context!.setting}
               sciWarning={sciWarningOnce(m.data.context!.env)}
+              onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               onStart={() => {
                 CuePlayer.unlock();
                 if (coachOn) unlockCoachAudio();
@@ -595,6 +614,18 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
             />
           ),
         };
+      case "build":
+        return {
+          screen: `build_${s.from}`,
+          node: (
+            <BuildScreen
+              lang={lang}
+              done={session.build?.done === true}
+              summary={session.build?.summary}
+              onBuilt={() => session.dispatch({ type: "BUILT" })}
+            />
+          ),
+        };
       case "exit":
         return { screen: "exit", node: <LoadingScreen lang={lang} /> };
     }
@@ -620,6 +651,8 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               helper={step.helper}
               stage={<Stage video={cam.video} frame={frame} highlight={[]} compact />}
               waiting={blockWaiting}
+              cameraError={cam.status === "error"}
+              onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               onReady={() => {
                 if (coachOn) unlockCoachAudio();
                 if (!blockWaiting) c.ready(clock());
@@ -778,5 +811,40 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
         )}
       </CheckRoot>
     </FocusCameraContext.Provider>
+  );
+}
+
+/**
+ * The program's build (D-032 item 3): the build animation (ProgramBuild, its own lazy part) while the
+ * program is built; the program opens once the animation ended and the build call is done. Until the
+ * call is done a quiet line says what is happening.
+ */
+function BuildScreen({
+  lang,
+  done,
+  summary,
+  onBuilt,
+}: {
+  lang: Lang;
+  done: boolean;
+  summary?: { joints: number; walk: boolean; exercises: number };
+  onBuilt(): void;
+}) {
+  const [played, setPlayed] = useState(false);
+  const built = useRef(false);
+  useEffect(() => {
+    if (!played || !done || built.current) return;
+    built.current = true;
+    onBuilt();
+  }, [played, done, onBuilt]);
+  return (
+    <div className="fx-build" data-build={done ? "done" : "building"}>
+      {ProgramBuild && (
+        <Suspense fallback={null}>
+          <ProgramBuild lang={lang} onDone={() => setPlayed(true)} {...(summary ? { summary } : {})} />
+        </Suspense>
+      )}
+      {(!played || !done) && <Loading text={tV7(lang, "rom.onboarding.building")} />}
+    </div>
   );
 }

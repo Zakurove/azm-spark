@@ -594,7 +594,7 @@ function Gait({ g }: { g: GaitFrame | null }) {
             className="pb-lane"
             x={LANE_X0}
             y={LANES[leg] - 4}
-            width={NOW_X - LANE_X0 + 4}
+            width={STAGE.w - 2 * LANE_X0}
             height="8"
             rx="4"
           />

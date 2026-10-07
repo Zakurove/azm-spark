@@ -29,7 +29,9 @@ import {
   beatAt,
   buildPlan,
   frameAt,
-  slotCenter,
+  cardSpot,
+  CARD_FROM,
+  RINGS,
   type BeatId,
   type BuildPlan,
 } from "../../src/features/onboarding/programBuildScene";
@@ -220,14 +222,15 @@ describe("the drawing", () => {
     expect(ready.cards).toHaveLength(8);
     expect(plan.rows).toBe(2);
     ready.cards.forEach((c, i) => {
-      const [x, y] = slotCenter(plan.cards[i].day, plan.cards[i].row, plan.rows);
+      const [x, y] = cardSpot(plan, i);
       expect(c.at[0]).toBeCloseTo(x, 5);
       expect(c.at[1]).toBeCloseTo(y, 5);
       expect(c.scale).toBeCloseTo(1, 5);
     });
-    // The cards leave from the core.
+    // The cards leave from the core, inside its inner ring.
     const launch = frameAt(plan, eng.start + 1).engine!.cards[0];
-    expect(Math.hypot(launch.at[0] - CORE[0], launch.at[1] - CORE[1])).toBeLessThan(1);
+    expect(launch.at).toEqual(CARD_FROM);
+    expect(Math.hypot(launch.at[0] - CORE[0], launch.at[1] - CORE[1])).toBeLessThan(RINGS[0]);
   });
 
   it("is the same picture for the same moment (no randomness between renders)", () => {

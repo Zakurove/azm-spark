@@ -327,7 +327,7 @@ export function sidePose(phase: number): Pose {
   const armL = armAt(shL, -0.7 * (l.flex - 6));
   return {
     head,
-    nose: [head[0] + 7.5, head[1] + 1.5],
+    nose: [head[0] + 4.5, head[1] + 1.5],
     shR,
     shL,
     elR: armR.el,
@@ -420,11 +420,17 @@ export const WEEK = { x0: 22, w: 40, gap: 6 } as const;
 export const weekTop = (rows: number) => (rows > 1 ? 318 : 336);
 /** A day's height: one card, or two stacked. */
 export const slotHeight = (rows: number) => (rows > 1 ? 84 : 52);
-/** Where a card sits in its day. */
-export const slotCenter = (day: number, row: number, rows = 1): Pt => [
-  WEEK.x0 + day * (WEEK.w + WEEK.gap) + WEEK.w / 2,
-  weekTop(rows) + (rows > 1 ? 25 + row * 34 : 26),
-];
+/** Where card `i` of the plan sits in its day: alone it is centred, two share the day. */
+export function cardSpot(plan: BuildPlan, i: number): Pt {
+  const { day, row } = plan.cards[i];
+  const stack = plan.cards.filter((c) => c.day === day).length;
+  return [
+    WEEK.x0 + day * (WEEK.w + WEEK.gap) + WEEK.w / 2,
+    weekTop(plan.rows) + slotHeight(plan.rows) / 2 + (row - (stack - 1) / 2) * 34,
+  ];
+}
+/** Where the cards leave the core: its lower edge, under the check. */
+export const CARD_FROM: Pt = [CORE[0], CORE[1] + 24];
 const CARD = { at: 640, gap: 72, ms: 460 } as const;
 const CHECK_AT = 1480;
 
@@ -731,13 +737,13 @@ function engineAt(plan: BuildPlan, u: number): EngineFrame {
       const k = step(u, 420 + d * 45, 300);
       return { opacity: k, lift: 1 - easeOut(k) };
     }),
-    cards: plan.cards.map((c, i) => {
+    cards: plan.cards.map((_, i) => {
       const launch = CARD.at + i * CARD.gap;
       const k = step(u, launch, CARD.ms);
-      const to = slotCenter(c.day, c.row, plan.rows);
-      const via: Pt = [lerp(CORE[0], to[0], 0.75), CORE[1] + 30];
+      const to = cardSpot(plan, i);
+      const via: Pt = [lerp(CARD_FROM[0], to[0], 0.8), CARD_FROM[1] + 26];
       return {
-        at: bezier(CORE, via, to, easeInOut(k)),
+        at: bezier(CARD_FROM, via, to, easeInOut(k)),
         scale: lerp(0.3, 1, easeBack(k)),
         angle: (1 - k) * (i % 2 ? 10 : -10),
         opacity: step(u, launch, 90),

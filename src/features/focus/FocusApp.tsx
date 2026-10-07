@@ -332,8 +332,9 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
   const [leaving, setLeaving] = useState(false);
   // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
   const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
-  const midCheck =
-    s.kind === "part" || s.kind === "today" || s.kind === "walk_pain" || s.kind === "walk_skipped";
+  // Leaving asks first only once the check runs; the day's screen leaves at once, nothing is lost
+  // there (D-032 item 2: no extra confirmation that is not about stopping).
+  const midCheck = s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
   useLayoutEffect(() => {

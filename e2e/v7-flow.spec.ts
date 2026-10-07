@@ -189,6 +189,17 @@ test("«لا أستطيع استخدام الكاميرا» builds the program f
   await expect(page.locator(".plan-card")).toBeVisible();
 });
 
+test("the day's screen leaves at once: nothing has started, so no leave question", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await newcomer(page, "en", base);
+  await page.goto(url("/?focus=1&e2ePerson=1", "en"));
+  await page.locator('[data-screen="intro"] [data-action="start"]').click();
+  await expect(page.locator('[data-screen="today"]')).toBeVisible();
+  await page.locator('[data-action="leave"]').first().click();
+  await expect(page.locator('[data-screen="leave"]')).toHaveCount(0);
+  await expect(page.locator("[data-program-waiting]")).toBeVisible();
+});
+
 test("a yes to the worry question: one calm screen, and the program still waits", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await newcomer(page, "ar", base);

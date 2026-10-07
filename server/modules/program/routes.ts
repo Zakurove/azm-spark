@@ -20,7 +20,9 @@
  * person's wait for the check (check_first). POST /api/program/history ends it from the history when
  * nothing can be measured or the person cannot use a camera:
  *
- *   200 { ok: true, from }          the program is the plan of the history (the wait ended, or there was none)
+ *   200 { ok: true, from, exercises }  the program is the plan of the history (the wait ended, or there
+ *                                   was none); exercises counts the plan's exercises, for the build
+ *                                   animation
  *   400 HISTORY_INVALID { field }   a body with any key
  *   409 PLAN_REQUIRED               no ready plan
  */
@@ -106,7 +108,7 @@ export const programRoutes: Route[] = [
       if (!p || p.plan.status !== "ready") return json(409, { error: "PLAN_REQUIRED" });
       // The plan the intake made is the program; the check can refine it later.
       clearAwaiting(db, u.id, "history", Date.now());
-      json(200, { ok: true, from: programFrom(db, u.id) });
+      json(200, { ok: true, from: programFrom(db, u.id), exercises: p.plan.exercises.length });
     },
   },
 ];

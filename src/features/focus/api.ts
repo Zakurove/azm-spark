@@ -77,8 +77,8 @@ export interface FocusApi {
    * program of a person whose program waited for the check.
    */
   programTargets(): Promise<ApiResult<{ weekly: ProgramWeek }>>;
-  /** D-032 item 3: the history builds the program (POST /api/program/history). */
-  programHistory(): Promise<ApiResult<{ ok: true }>>;
+  /** D-032 item 3: the history builds the program (POST /api/program/history), its exercises counted. */
+  programHistory(): Promise<ApiResult<{ ok: true; exercises?: number }>>;
 }
 
 /** The week of POST /api/program/targets as the build counts it: each day's blocks and their items. */

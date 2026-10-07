@@ -94,11 +94,11 @@ describe("a first profile saved with AZM_V7=1 awaits the check (D-032 item 3)", 
       field: "why",
     });
     const r = await h.call("/program/history", {}, cookie);
-    expect(r.data).toEqual({ ok: true, from: "history" });
+    expect(r.data).toMatchObject({ ok: true, from: "history", exercises: expect.any(Number) });
     expect((await h.call("/auth/me", undefined, cookie)).data.awaitingCheck).toBe(false);
     expect((await workout(cookie)).status).toBe(200);
     // Once ended it stays ended; the route is a v7 route.
-    expect((await h.call("/program/history", {}, cookie)).data).toEqual({ ok: true, from: "history" });
+    expect((await h.call("/program/history", {}, cookie)).data).toMatchObject({ ok: true, from: "history" });
     delete process.env.AZM_V7;
     expect((await h.call("/program/history", {}, cookie)).status).toBe(404);
   });

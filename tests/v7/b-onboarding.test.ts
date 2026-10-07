@@ -173,7 +173,7 @@ describe("the session's build calls (session.ts)", () => {
       },
       programHistory: async () => {
         calls.push("history");
-        return { ok: true, value: { ok: true } };
+        return { ok: true, value: { ok: true, exercises: 4 } };
       },
     } as unknown as FocusApi;
     return new FocusSession(api, { lang: "en", onboarding });
@@ -225,7 +225,8 @@ describe("the session's build calls (session.ts)", () => {
     expect(s.model.state).toEqual({ kind: "build", from: "history" });
     await settle(s);
     expect(calls).toEqual(["history"]);
-    expect(s.build).toEqual({ done: true });
+    // Nothing measured and no walk: the animation builds on the history.
+    expect(s.build).toEqual({ done: true, summary: { joints: 0, walk: false, exercises: 4 } });
   });
 
   it("counts each exercise with a why line once (weekExercises)", () => {

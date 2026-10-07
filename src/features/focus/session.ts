@@ -273,7 +273,9 @@ export class FocusSession {
    * reads a completed check as the end of the wait in any case.
    */
   private async buildProgram(from: "check" | "history"): Promise<void> {
-    this.build = { done: false, ...(from === "check" ? { summary: this.summaryOf(0) } : {}) };
+    // The history's program measured nothing and kept no walk: the animation builds on the history.
+    const history: BuildSummary = { joints: 0, walk: false, exercises: 0 };
+    this.build = { done: false, summary: from === "check" ? this.summaryOf(0) : history };
     this.changed();
     for (let i = 0; i < 3; i++) {
       if (from === "check") {
@@ -285,7 +287,11 @@ export class FocusSession {
         if (r.error.kind === "http") break;
       } else {
         const r = await this.api.programHistory();
-        if (r.ok || r.error.kind === "http") break;
+        if (r.ok) {
+          this.build = { done: true, summary: { ...history, exercises: r.value.exercises ?? 0 } };
+          break;
+        }
+        if (r.error.kind === "http") break;
       }
     }
     this.build = { ...this.build, done: true };

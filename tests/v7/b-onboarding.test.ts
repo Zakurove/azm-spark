@@ -265,6 +265,15 @@ describe("the build animation's slot (src/features/onboarding/ProgramBuild.tsx, 
       /const ProgramBuild =\s*import\.meta\.env\.VITE_V7 === "1" \? lazy\(\(\) => import\("\.\.\/onboarding\/ProgramBuild"\)\) : null;/,
     );
     expect(app).toMatch(/case "build":/);
+    // The animation is a whole screen of its own (its wordmark and Skip): it plays outside the shell's
+    // page and top bar, which come back for the quiet line if the build still runs when it ends.
+    expect(app).toMatch(
+      /if \(ProgramBuild && !buildPlayed\)\s*return \{\s*screen: `build_\$\{s\.from\}`,\s*bare: true,/,
+    );
+    expect(app).toMatch(
+      /"bare" in content \? \(\s*<div className="fx-bare" data-screen=\{content\.screen\}>/,
+    );
+    expect(app).toMatch(/onDone=\{\(\) => setBuildPlayed\(true\)\}/);
   });
 });
 

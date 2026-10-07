@@ -332,6 +332,8 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
   const [leaving, setLeaving] = useState(false);
   // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
   const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
+  // The build animation ended (its Continue or Skip): the shell's page comes back (D-032 item 3).
+  const [buildPlayed, setBuildPlayed] = useState(false);
   // Leaving asks first only once the check runs; the day's screen leaves at once, nothing is lost
   // there (D-032 item 2: no extra confirmation that is not about stopping).
   const midCheck = s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped";
@@ -615,18 +617,35 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
             />
           ),
         };
-      case "build":
+      case "build": {
+        // The animation is a whole screen of its own (its wordmark and Skip), so it plays outside the
+        // shell's page; the page comes back for a quiet line if the build still runs when it ends.
+        const summary = session.build?.summary;
+        if (ProgramBuild && !buildPlayed)
+          return {
+            screen: `build_${s.from}`,
+            bare: true,
+            node: (
+              <Suspense fallback={null}>
+                <ProgramBuild
+                  lang={lang}
+                  onDone={() => setBuildPlayed(true)}
+                  {...(summary ? { summary } : {})}
+                />
+              </Suspense>
+            ),
+          };
         return {
           screen: `build_${s.from}`,
           node: (
-            <BuildScreen
+            <BuildWait
               lang={lang}
               done={session.build?.done === true}
-              summary={session.build?.summary}
               onBuilt={() => session.dispatch({ type: "BUILT" })}
             />
           ),
         };
+      }
       case "exit":
         return { screen: "exit", node: <LoadingScreen lang={lang} /> };
     }
@@ -776,15 +795,21 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
         page={false}
         className="fx"
       >
-        <Page
-          lang={lang}
-          top={top}
-          screen={content.screen}
-          step={"step" in content ? content.step : undefined}
-          wide={!!rangeStep && rangeStep.kind === "measure"}
-        >
-          {content.node}
-        </Page>
+        {"bare" in content ? (
+          <div className="fx-bare" data-screen={content.screen}>
+            {content.node}
+          </div>
+        ) : (
+          <Page
+            lang={lang}
+            top={top}
+            screen={content.screen}
+            step={"step" in content ? content.step : undefined}
+            wide={!!rangeStep && rangeStep.kind === "measure"}
+          >
+            {content.node}
+          </Page>
+        )}
         {/* The live coach's words while it speaks (voice and captions together, step D5). */}
         {!stopOpen && <CoachCaption coach={coach} lang={lang} />}
         {stopOpen && env && (
@@ -816,38 +841,16 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
 }
 
 /**
- * The program's build (D-032 item 3): the build animation (ProgramBuild, its own lazy part) while the
- * program is built; the program opens once the animation ended and the build call is done. If the call
- * is still running then (the weekly AI can take longer than the animation), a quiet line says the
- * program is opening, which the animation's «برنامجك جاهز» leads to.
+ * The program's build (D-032 item 3) once its animation has ended, or with no animation to play: the
+ * program opens as soon as the build call is done. Until then (the weekly AI can take longer than the
+ * animation) a quiet line says the program is opening, which the animation's «برنامجك جاهز» leads to.
  */
-function BuildScreen({
-  lang,
-  done,
-  summary,
-  onBuilt,
-}: {
-  lang: Lang;
-  done: boolean;
-  summary?: { joints: number; walk: boolean; exercises: number };
-  onBuilt(): void;
-}) {
-  const [played, setPlayed] = useState(false);
+function BuildWait({ lang, done, onBuilt }: { lang: Lang; done: boolean; onBuilt(): void }) {
   const built = useRef(false);
   useEffect(() => {
-    if (!played || !done || built.current) return;
+    if (!done || built.current) return;
     built.current = true;
     onBuilt();
-  }, [played, done, onBuilt]);
-  return (
-    <div className="fx-build" data-build={done ? "done" : "building"}>
-      {ProgramBuild && (
-        <Suspense fallback={null}>
-          <ProgramBuild lang={lang} onDone={() => setPlayed(true)} {...(summary ? { summary } : {})} />
-        </Suspense>
-      )}
-      {/* While the server builds after the animation (or with no animation to play), a quiet line. */}
-      {(!ProgramBuild || played) && !done && <Loading text={tV7(lang, "rom.onboarding.opening")} />}
-    </div>
-  );
+  }, [done, onBuilt]);
+  return done ? null : <Loading text={tV7(lang, "rom.onboarding.opening")} />;
 }

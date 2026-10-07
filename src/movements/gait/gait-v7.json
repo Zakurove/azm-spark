@@ -23,7 +23,7 @@
         "rule": "no -> not offered; without_aid or with_aid -> continue"
       },
       {
-        "item": "pc_walk_10m (new, asked at each gait test)",
+        "item": "pc_walk_10m (asked on the day's one screen when a walk is planned)",
         "rule": "no -> not offered, reason walk_needs_hands_on_help"
       },
       {
@@ -32,10 +32,10 @@
       },
       {
         "item": "lower limb loss",
-        "rule": "only with the prosthesis on (pc_limb_leg_prosthesis yes); never on crutches without a prosthesis"
+        "rule": "only with the prosthesis on (the day's question day_prosthesis_ask yes); never on crutches without a prosthesis"
       },
       {
-        "item": "pc_surgery_recent with back, hip, knee, ankle or foot not cleared",
+        "item": "recent surgery to the back, hip, knee, ankle or foot not cleared (the body map of the intake, surgery_not_cleared; pc_surgery_recent is no longer asked, D-032)",
         "rule": "not offered today"
       },
       {
@@ -45,20 +45,11 @@
     ],
     "today": [
       {
-        "item": "pc_urgent yes",
-        "action": "emergency route (existing)"
+        "item": "day_worry_ask yes (the day's one yes or no question; it replaces pc_urgent, pc_unwell, pc_change and the region red flags)",
+        "action": "the whole check is skipped today (postpone, next day lock); one calm screen with a way to the emergency screen (D-032)"
       },
       {
-        "item": "pc_unwell yes or pc_change yes",
-        "action": "postpone (existing)"
-      },
-      {
-        "item": "pc_pain_now >= 9",
-        "painNowAtOrAbove": 9,
-        "action": "postpone (existing)"
-      },
-      {
-        "item": "leg, hip or back pain 6 or more today (pc_pain_areas with pc_pain_now)",
+        "item": "leg, hip or back pain 6 or more today (the day's pain question, day_pain_ask)",
         "painAtOrAbove": 6,
         "action": "postpone the gait test (review A08: one shared rule, skip at 6 or more)"
       },
@@ -71,19 +62,19 @@
         "action": "test runs; only the antalgic label can be shown and the weakness and tightness contributors are suppressed (review A08)"
       },
       {
-        "item": "pc_pain_now 6 to 8 elsewhere (not a leg, hip or back)",
+        "item": "pain 6 to 8 today in an area that is not a leg, hip or back (the day's pain question)",
         "painNow": [
           6,
           8
         ],
-        "action": "existing high pain warning; overground allowed; pad not offered"
+        "action": "overground allowed; pad not offered"
       },
       {
-        "item": "pc_steadi any yes",
+        "item": "day_unsteady_ask yes (a fall in the past year, unsteadiness or a worry about falling: the STEADI three in one question)",
         "action": "helper required; pad not offered"
       },
       {
-        "item": "pc_walking_aid yes or an aid in the intake",
+        "item": "an aid in the intake (walking with_aid)",
         "action": "helper required; walk with the usual aid; pad not offered"
       },
       {
@@ -91,48 +82,40 @@
         "action": "helper required; pad not offered"
       },
       {
-        "item": "pc_pd_dizzy_standing yes",
-        "action": "helper required; pad not offered"
-      },
-      {
-        "item": "pc_pd_freezing yes (new, Parkinson's only)",
+        "item": "pc_pd_freezing yes (Parkinson's only, asked on the day's one screen)",
         "action": "helper required; pad not offered; turns slow and wide"
       },
       {
-        "item": "pc_pd_on, pc_pd_dose",
-        "action": "recorded with the result for like with like re-tests"
+        "item": "Parkinson's: dizziness on standing (pc_pd_dizzy_standing) is no longer asked (D-032)",
+        "action": "pad not offered with Parkinson's; overground as the other rows decide"
       },
       {
-        "item": "pc_arthritis_flare in hip, knee, ankle or foot",
-        "action": "overground with the warning; pad not offered"
-      },
-      {
-        "item": "pc_ms_heat, SCI autonomic dysreflexia items",
-        "action": "existing rules"
-      },
-      {
-        "item": "pc_helper",
-        "action": "asked at home when a helper is required; no -> skip with reason helper_needed; staff count as helper at the booth"
+        "item": "day_helper_ask («هل معك أحد اليوم؟»), asked once at home when someone beside the person changes the day: a helper rule, or the pad",
+        "action": "no -> the parts that need a helper are skipped (helper_needed), and no pad; staff count as helper at the booth"
       },
       {
         "item": "knee orthosis (KAFO or a locked knee brace) on a side",
         "action": "recorded; stiff knee not assessed on that side (knee_orthosis_on_S, review A14)"
+      },
+      {
+        "item": "not asked in the focus check since D-032: pc_pain_worse, pc_arthritis_flare, pc_pd_on, pc_pd_dose, pc_ms_heat, the SCI dysreflexia items, pc_walking_aid, pc_stand_no_hands",
+        "action": "the day's pain and worry questions cover a flare or a new pain; the stop list keeps the dysreflexia signs and the emergency screen carries the dysreflexia screen"
       }
     ],
     "modeChoice": {
       "default": "overground",
       "padAllowedWhenAll": [
         "no walking aid",
-        "pc_steadi all no",
+        "day_unsteady_ask no",
         "no balance_support restriction",
         "no freezing",
-        "no dizziness on standing",
+        "no dizziness on standing (Parkinson's: not asked since D-032, so no pad)",
         "leg, hip or back pain 5 or less today",
         "clearance yes",
-        "no flare in a leg joint",
+        "pain today in another area no higher than padPainAtOrBelow",
         "pad has a front bar, or a stable support on the side away from the phone, within reach (review B12)",
         "comfortable speed not below the pad's lowest speed",
-        "booth or clinic staff present, or a helper at home"
+        "booth or clinic staff present, or a helper at home (day_helper_ask yes)"
       ],
       "padPainAtOrBelow": 5
     },

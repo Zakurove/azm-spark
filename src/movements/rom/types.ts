@@ -353,6 +353,17 @@ export const ROM_COPY_KEYS = [
   "deferred_line",
   "not_reached_line",
   "sit_unsupported_ask",
+  // The day's one screen of the focus check (D-032 item 2).
+  "day_pain_ask",
+  "day_pain_none",
+  "day_worry_ask",
+  "day_skip_title",
+  "day_skip_body",
+  "day_skip_urgent",
+  "day_prosthesis_ask",
+  "day_unsteady_ask",
+  "day_helper_ask",
+  "day_helper_note",
 ] as const;
 
 /** The 24 correction cues (rom-protocol cues). */

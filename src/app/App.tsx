@@ -213,8 +213,40 @@ export default function App() {
         <PerfOverlay />
       </Suspense>
     </>
+  ) : ProgramBuild && programBuildEntry ? (
+    <ProgramBuildPreview />
   ) : (
     <Pages />
+  );
+}
+/**
+ * D-032 item 4: the program build animation on its own, /?programBuild=preview (VITE_V7=1 builds only,
+ * the env test written inline), for review and e2e/v7-build-anim.spec.ts. &lang=en for English; any of
+ * &joints=, &walk=0 or 1 and &exercises= gives it a summary. Skip or Continue plays it again and counts
+ * the calls in data-done.
+ */
+const ProgramBuild =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/onboarding/ProgramBuild")) : null;
+const programBuildEntry = import.meta.env.VITE_V7 === "1" && qs.get("programBuild") === "preview";
+function ProgramBuildPreview() {
+  const [done, setDone] = useState(0);
+  const lang: Lang = qs.get("lang") === "en" ? "en" : "ar";
+  const count = (key: string, fallback: number) => Number(qs.get(key) ?? fallback);
+  const summary = ["joints", "walk", "exercises"].some((key) => qs.has(key))
+    ? { joints: count("joints", 3), walk: qs.get("walk") !== "0", exercises: count("exercises", 6) }
+    : undefined;
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  }, [lang]);
+  return (
+    <div data-done={done}>
+      {ProgramBuild && (
+        <LazyPage lang={lang}>
+          <ProgramBuild key={done} lang={lang} summary={summary} onDone={() => setDone((n) => n + 1)} />
+        </LazyPage>
+      )}
+    </div>
   );
 }
 function Pages() {

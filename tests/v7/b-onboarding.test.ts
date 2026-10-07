@@ -5,7 +5,7 @@
  * it from the history at once. The reducer, the session's build calls, the build animation's stub, the
  * waiting card and the history card of the Program tab.
  */
-import { createElement, type ComponentType } from "react";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -240,23 +240,14 @@ describe("the session's build calls (session.ts)", () => {
   });
 });
 
-describe("the build animation's slot (src/features/onboarding/ProgramBuild.tsx, a stub for now)", () => {
-  it("keeps the agreed signature and renders nothing", () => {
+describe("the build animation's slot (src/features/onboarding/ProgramBuild.tsx)", () => {
+  it("keeps the agreed signature (the animation itself is tested in program-build.test.ts)", () => {
     const typed: (props: {
       lang: Lang;
       onDone(): void;
       summary?: { joints: number; walk: boolean; exercises: number };
     }) => JSX.Element | null = ProgramBuild;
-    expect(
-      renderToStaticMarkup(
-        createElement(typed as ComponentType<never>, { lang: "ar", onDone: () => {} } as never),
-      ),
-    ).toBe("");
-    const src = readFileSync(join(__dirname, "../../src/features/onboarding/ProgramBuild.tsx"), "utf8");
-    // onDone once, on mount.
-    expect(src).toMatch(
-      /useEffect\(\(\) => \{\s*if \(done\.current\) return;\s*done\.current = true;\s*onDone\.current\(\);/,
-    );
+    expect(typeof typed).toBe("function");
   });
 
   it("is imported lazily, VITE_V7=1 builds only, and played at the two points", () => {

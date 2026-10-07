@@ -17,6 +17,7 @@ import { acceptConsent } from "./modules/consents/store";
 import { v7Enabled } from "./modules/focus/routes";
 import { pruneAgentSessions } from "./modules/focus/store";
 import { afterIntakeSaved } from "./modules/program/hooks";
+import { isAwaiting, markAwaiting } from "./modules/program/awaiting";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -92,6 +93,11 @@ export function createApi(
     return v.n > max;
   }
   const userView = (u: any) => ({ id: u.id, name: u.name, email: u.email, role: "member" });
+  /**
+   * D-032 item 3, with AZM_V7=1 only: the program waits for the movement check. Absent with the flag
+   * off, so a default server answers exactly as before.
+   */
+  const awaitingView = (id: string) => (v7Enabled() ? { awaitingCheck: isAwaiting(db, id) } : {});
   const profile = (id: string) => {
     const p = db.prepare("SELECT * FROM profiles WHERE user_id=?").get(id) as any;
     if (!p) return { intake: null, plan: null };
@@ -256,11 +262,11 @@ export function createApi(
           Date.now() + 86400000 * 7,
         );
         cookie(fresh, 604800);
-        return json(200, { user: userView(account), ...profile(account.id) });
+        return json(200, { user: userView(account), ...profile(account.id), ...awaitingView(account.id) });
       }
       if (!u) return json(401, { error: "AUTH_REQUIRED" });
       if (route === "/api/auth/me" && req.method === "GET")
-        return json(200, { user: userView(u), ...profile(u.id) });
+        return json(200, { user: userView(u), ...profile(u.id), ...awaitingView(u.id) });
       if (route === "/api/auth/logout" && req.method === "POST") {
         db.prepare("DELETE FROM sessions WHERE token=?").run(token);
         cookie("", 0);
@@ -314,6 +320,9 @@ export function createApi(
         db.prepare(
           "INSERT INTO profiles VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET intake=excluded.intake,plan=excluded.plan,version=excluded.version",
         ).run(u.id, JSON.stringify(body), JSON.stringify(plan), version);
+        // D-032 item 3: a first profile saved with AZM_V7=1 has no program until the movement check;
+        // a profile saved before keeps its program (no row).
+        if (v7Enabled() && !old) markAwaiting(db, u.id, Date.now());
         // v7 (product v7 contract 2.10): the targeted weekly follows the new intake (stream E). The
         // intake is saved whatever the hook does; a failure is logged by its name only.
         if (v7Enabled())
@@ -322,7 +331,7 @@ export function createApi(
           } catch (error) {
             console.error("AZM intake hook failed", error instanceof Error ? error.name : "Error");
           }
-        return json(200, { intake: body, plan: { ...plan, version } });
+        return json(200, { intake: body, plan: { ...plan, version }, ...awaitingView(u.id) });
       }
       if (route === "/api/sessions" && req.method === "GET") {
         const rows = db
@@ -334,6 +343,8 @@ export function createApi(
         const p = profile(u.id);
         if (!p.plan || p.plan.status !== "ready" || body.version !== p.plan.version)
           return json(409, { error: "PLAN_REQUIRED" });
+        // D-032 item 3: no program, so no workout, until the movement check (AZM_V7=1 only).
+        if (v7Enabled() && isAwaiting(db, u.id)) return json(409, { error: "AWAITING_CHECK" });
         const demo = body.demo === true;
         if (!demo) {
           const active = db

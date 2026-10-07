@@ -15,6 +15,14 @@
  *   409 PLAN_REQUIRED               no ready plan
  *   409 INTAKE_UPDATE_REQUIRED      the intake has no v7 fields (the findings need sex and the body map)
  *   429 RATE_LIMIT                  more than 10 builds in 15 minutes
+ *
+ * D-032 item 3 (the tests come before the program): a week built from a completed check ends a
+ * person's wait for the check (check_first). POST /api/program/history ends it from the history when
+ * nothing can be measured or the person cannot use a camera:
+ *
+ *   200 { ok: true, from }          the program is the plan of the history (the wait ended, or there was none)
+ *   400 HISTORY_INVALID { field }   a body with any key
+ *   409 PLAN_REQUIRED               no ready plan
  */
 import type { Route } from "../../http/types";
 import { hasV7Fields } from "../../../src/medical/plan";
@@ -24,6 +32,7 @@ import { ID_PATH } from "../assessments/routes";
 import { profileOf } from "../assessments/store";
 import { lastCompletedFocus, ownFocusCheck } from "../focus/store";
 import { buildFromCheck, storeWeekly } from "./hooks";
+import { clearAwaiting, programFrom } from "./awaiting";
 
 /** Contract section 4: 10 per user per 15 minutes (the route's window). */
 export const BUILDS_PER_WINDOW = 10;
@@ -72,6 +81,8 @@ export const programRoutes: Route[] = [
         weekly = (await createWeekly(p.intake, p.plan, process.env.OPENAI_API_KEY, build)) ?? build.weekly;
         storeWeekly(db, u.id, p.plan, weekly);
       }
+      // D-032 item 3: the targeted week is the program; the wait for the check ends.
+      clearAwaiting(db, u.id, "check", Date.now());
       json(200, {
         weekly,
         version: p.plan.version,
@@ -79,6 +90,23 @@ export const programRoutes: Route[] = [
         referrals: build.referrals,
         unmet: build.unmet,
       });
+    },
+  },
+  {
+    method: "POST",
+    path: /^\/api\/program\/history$/,
+    auth: "user",
+    handle(ctx) {
+      const { db, json } = ctx;
+      const u = ctx.user!;
+      const body = (ctx.body ?? {}) as Record<string, unknown>;
+      const extra = Object.keys(body)[0];
+      if (extra !== undefined) return json(400, { error: "HISTORY_INVALID", field: extra });
+      const p = profileOf(db, u.id);
+      if (!p || p.plan.status !== "ready") return json(409, { error: "PLAN_REQUIRED" });
+      // The plan the intake made is the program; the check can refine it later.
+      clearAwaiting(db, u.id, "history", Date.now());
+      json(200, { ok: true, from: programFrom(db, u.id) });
     },
   },
 ];

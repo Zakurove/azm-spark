@@ -151,8 +151,25 @@ export function v7Intake(over: Partial<Intake> = {}): Intake {
   });
 }
 
-/** A member with this intake saved; `consents` are accepted (the flag must be on for the v7 kinds). */
+/**
+ * A member with this intake saved and a program; `consents` are accepted (the flag must be on for the
+ * v7 kinds). Since D-032 item 3 a first profile saved with AZM_V7=1 waits for the movement check: the
+ * member's program is then the history's (POST /api/program/history, as for someone who cannot use a
+ * camera), so its workouts start. newcomer() keeps the wait.
+ */
 export async function member(
+  h: V7Harness,
+  email: string,
+  intake: Intake,
+  consents: string[] = [],
+): Promise<string> {
+  const cookie = await newcomer(h, email, intake, consents);
+  if (process.env.AZM_V7 === "1") await h.call("/program/history", {}, cookie);
+  return cookie;
+}
+
+/** A member with this intake saved who, with AZM_V7=1, still waits for the movement check (D-032 item 3). */
+export async function newcomer(
   h: V7Harness,
   email: string,
   intake: Intake,

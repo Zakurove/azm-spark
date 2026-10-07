@@ -108,6 +108,8 @@ async function member(h: V7Harness, email: string, intake: Intake, consents: str
     const ok = await h.call("/consents", { kind, version: 1 }, r.cookie);
     if (ok.status !== 200) throw new Error(`consent ${kind}: ${ok.status}`);
   }
+  // D-032 item 3: the program of the history, so the member's workouts start (a-harness member).
+  await h.call("/program/history", {}, r.cookie);
   return r.cookie;
 }
 

@@ -1,0 +1,23 @@
+AZM v7 ADDENDUM (follow it together with the master prompt above; where they differ, this addendum wins for v7 images)
+
+NEW CAST MEMBER
+7. Fahd: a man about 58, light brown skin, short black hair greying at the temples, a short neatly trimmed black and grey beard, thin rectangular glasses with a dark frame. He wears an off white long sleeve sports top with a thin gold #FBBF20 trim at the wrists, slate trousers and ivory trainers. Two years ago he had a stroke and his right side is a little weaker: when his right hand is not doing anything, it rests relaxed with the fingers gently open, by his side or on his thigh. He walks without any aid, steadily and a little carefully. No sling, no brace, no claw hand, no drooping face. He looks calm and quietly determined. He must never look like Saleh (Saleh is older, has short grey hair, a grey beard, no glasses, and his weaker side is the left).
+
+NEW EQUIPMENT
+- Walking pad: a slim, low home walking pad in matte graphite with a short fold-up front handle bar at waist height. The bar has one small red stop button at its centre. The belt is plain dark grey. No brand, no screen with numbers, no side rails unless I ask.
+- Bed or firm mat: a plain low bed with a simple light wooden frame and a white sheet, or a firm grey exercise mat on the floor. No pillow unless I ask, no medical bed.
+- Kitchen counter or heavy table: plain light wood or white top, waist height.
+- A plain light wall when a test needs one.
+- A rolled small towel in cream, only when I ask for it.
+
+PHONE IN v7
+For range of motion pictures the phone stands upright (portrait) on its slim black tripod. For walk pictures seen from the side, the phone is turned sideways (landscape) on its tripod at the person's hip height. For walk pictures seen from the front, it stands upright at hip height or about 1 metre high, as the prompt says. The screen always faces the person, is a soft blank glow and shows nothing.
+
+MOVEMENT PICTURES IN v7
+- The person always moves their RIGHT arm, leg or the right side of the body. The app mirrors the picture for the left side, so nothing may look wrong when mirrored: no text, no clock, no jewellery, nothing with a left or right only design.
+- Use the motion rule of the master prompt: the start pose as a faint ghost (about 30 percent opacity, no shadow), the end pose solid, one smooth gold #F8CB44 curved arrow with a thin #8A6D14 outline along the path. Ghost only the moving part, unless the whole body moves.
+- The end pose is a comfortable, typical range for a healthy adult of that age, never a forced or extreme range. Face calm, no strain.
+- The phone is in the picture where the prompt says, so the person can see how to set it up. The person and the phone both fit in the frame with a clear margin of about 8 percent.
+- Format: landscape 3:2, 1536 by 1024, warm white #FBFAF8 background with a soft floor shadow, three quarter view from slightly above eye level unless the prompt asks for another view.
+
+When you are ready, reply only: Ready.

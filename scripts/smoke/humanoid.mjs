@@ -197,6 +197,18 @@ export function armAbductionDeg(skel, side) {
   return deg(Math.acos(Math.max(-1, Math.min(1, dot(arm, down)))));
 }
 
+/** The 3D bend of an elbow: 180 minus the angle between the upper arm and the forearm at the elbow (0 straight). */
+export function elbowFlexionDeg(skel, side) {
+  const j = skel.joints;
+  const r = side === "right";
+  const sh = j[r ? J.SH_R : J.SH_L];
+  const el = j[r ? J.ELB_R : J.ELB_L];
+  const wr = j[r ? J.WR_R : J.WR_L];
+  const u = norm(sub(sh, el));
+  const w = norm(sub(wr, el));
+  return 180 - deg(Math.acos(Math.max(-1, Math.min(1, dot(u, w)))));
+}
+
 /** The camera's axes: forward, right and up (the shader builds the same). */
 function cameraAxes(cam) {
   const fw = norm(sub(cam.target, cam.pos));

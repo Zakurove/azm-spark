@@ -10,6 +10,7 @@ import {
   SCENARIOS,
   feetDown,
   framePoints,
+  movementTruthDeg,
   scenarioTruth,
   smokeQuery,
 } from "../../scripts/smoke/scenarios.mjs";
@@ -127,6 +128,71 @@ describe("the gait scenario: the walking pad, side view", () => {
     const b = skeleton(gait.poseAt(truth.standing.to - 0.1));
     for (const i of [J.ANK_L, J.ANK_R, J.WR_L, J.HEAD]) expect(a.joints[i]).toEqual(b.joints[i]);
   });
+});
+
+describe("the seated home scenarios (D-034 item 1)", () => {
+  const SEATED = [
+    "rom-seated-shoulder-flexion-right",
+    "rom-seated-shoulder-flexion-right-150",
+    "rom-seated-shoulder-abduction-right",
+    "rom-seated-elbow-flexion-right",
+  ] as const;
+  /** The movement's gate landmarks of the right side, as humanoid joints. */
+  const GATE: Record<string, number[]> = {
+    shoulder_flexion: [J.SH_R, J.ELB_R],
+    shoulder_abduction: [J.SH_L, J.SH_R, J.ELB_R],
+    elbow_flexion: [J.SH_R, J.ELB_R, J.WR_R],
+  };
+
+  it("are the arm raise to the front (to 120 and to 150), the arm raise to the side and the elbow bend", () => {
+    expect(Object.keys(SCENARIOS).filter((id) => id.startsWith("rom-seated-"))).toEqual([...SEATED]);
+  });
+
+  for (const id of SEATED)
+    describe(id, () => {
+      const sc = SCENARIOS[id];
+      const truth = scenarioTruth(sc);
+      const def = romData.movements.find((m) => m.id === truth.movement)!;
+
+      it("is a movement, position and view of the data, 1.2 to 1.5 m from a 3:4 portrait phone", () => {
+        expect(def.positions.map((p) => p.id)).toContain(truth.position);
+        expect(truth.view).toBe(def.view);
+        expect(sc.camera.pos[2]).toBeGreaterThanOrEqual(1.2);
+        expect(sc.camera.pos[2]).toBeLessThanOrEqual(1.5);
+        expect(sc.width / sc.height).toBeCloseTo(3 / 4, 9);
+        // Closer than the data's distance: what the fix lets through.
+        expect(sc.camera.pos[2]).toBeLessThan(([] as number[]).concat(def.distanceM)[0]);
+      });
+
+      it("holds the end angle in every loop (the goniometer), and the picture reads close to it", () => {
+        for (const hold of truth.holds)
+          for (const t of [hold.from + 0.01, (hold.from + hold.to) / 2, hold.to - 0.01])
+            expect(movementTruthDeg(truth.movement, skeleton(sc.poseAt(t)), "right")).toBeCloseTo(
+              truth.endDeg,
+              6,
+            );
+        expect(movementTruthDeg(truth.movement, skeleton(sc.poseAt(0)), "right")).toBeCloseTo(
+          truth.startDeg,
+          6,
+        );
+        // Sitting 30 degrees turned moves the elbow bend's picture by 2 degrees; the others are exact.
+        expect(Math.abs(truth.projected.endDeg - truth.endDeg)).toBeLessThan(2.5);
+      });
+
+      it("keeps the measured landmarks in the picture and the feet out of it", () => {
+        for (let t = 0; t < sc.seconds; t += 0.5) {
+          const p = framePoints(sc, skeleton(sc.poseAt(t)));
+          for (const j of GATE[truth.movement]) {
+            expect(p[j].x, `${t} s, joint ${j}`).toBeGreaterThan(0.03);
+            expect(p[j].x).toBeLessThan(0.97);
+            expect(p[j].y).toBeGreaterThan(0.03);
+            expect(p[j].y).toBeLessThan(0.97);
+          }
+          for (const j of [J.ANK_L, J.ANK_R, J.HEEL_L, J.HEEL_R, J.TOE_L, J.TOE_R])
+            expect(p[j].y > 1 || p[j].x > 1 || p[j].x < 0, `${t} s, joint ${j}`).toBe(true);
+        }
+      });
+    });
 });
 
 describe("smokeQuery", () => {

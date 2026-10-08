@@ -10,6 +10,18 @@
  *   gait-pad-side                  a walk on the walking pad seen from the side (gait-rules capture
  *                                  walking_pad.side: 2.5 to 3.5 m, lens 0.8 to 1.3 m, 30 s per view
  *                                  after the 3 s standing calibration).
+ *   rom-seated-*                   Nasser's first real test at home (D-034 item 1): seated 1.2 to 1.5 m
+ *                                  from a phone in portrait (3:4, a front camera's narrower picture), so
+ *                                  the legs are out of the picture: the arm raise to the front to 120
+ *                                  (side view, 1.3 m, the lens near head height, the hips below the
+ *                                  picture) and to 150 (1.5 m, the lens at shoulder height, the feet
+ *                                  out of the picture), the arm raise to the side to 140 (front view, the hips at the
+ *                                  picture's bottom edge, the raised hand out of it) and the elbow bend
+ *                                  to 135 (side view sitting 30 degrees turned toward the phone, as
+ *                                  people do; the view still reads side, the lens at shoulder height,
+ *                                  the feet out of the picture). The same 14 s loop. Chromium's fake
+ *                                  camera gives 30 fps whatever the file; 60 fps is covered by the
+ *                                  generated fixtures (tests/v7/b-fixtures-home.test.ts).
  *
  * The truth is computed from the same kinematics the renderer draws, so it is exact for the rendered
  * person: the arm's 3D abduction (the goniometer) and the same angle on the projected joints (the
@@ -17,7 +29,7 @@
  * design, not clinical numbers: the end angle and the cadence are chosen inside ordinary ranges and
  * nothing in the app reads them. Dev only.
  */
-import { BODY, J, armAbductionDeg, project, skeleton, standingPose } from "./humanoid.mjs";
+import { BODY, J, armAbductionDeg, elbowFlexionDeg, project, skeleton, standingPose } from "./humanoid.mjs";
 
 const rad = (d) => (d * Math.PI) / 180;
 const deg = (r) => (r * 180) / Math.PI;
@@ -76,6 +88,83 @@ function romShoulderAbduction({ id, side, startDeg, endDeg }) {
     meta: { movement: "shoulder_abduction", side, position: "seated", view: "front", startDeg, endDeg, phases: at },
   };
 }
+
+/**
+ * A seated range movement at home (D-034 item 1): the person on a chair, one arm moving through the
+ * 14 s loop of romShoulderAbduction, the phone `camera` away. Side views turn the tested side to the
+ * phone (the camera looks along -z from +z, so facing +x shows the right side). The tested arm's
+ * angle at time t is the movement's: the arm's elevation in the sagittal plane (shoulder_flexion), in
+ * the frontal plane (shoulder_abduction), or the elbow's bend with the arm by the side (elbow_flexion).
+ */
+function romSeated({ id, movement, side, startDeg, endDeg, camera, width, height, fps, turnDeg = 0 }) {
+  const phases = { still: 3, raise: 2.5, hold: 4, lower: 2.5, rest: 2 };
+  const seconds = Object.values(phases).reduce((a, b) => a + b, 0);
+  const at = {};
+  let t0 = 0;
+  for (const [k, v] of Object.entries(phases)) {
+    at[k] = [t0, t0 + v];
+    t0 += v;
+  }
+  const angle = (t) => {
+    const x = ((t % seconds) + seconds) % seconds;
+    if (x < at.raise[0]) return startDeg;
+    if (x < at.hold[0]) return lerp(startDeg, endDeg, ease((x - at.raise[0]) / phases.raise));
+    if (x < at.lower[0]) return endDeg;
+    if (x < at.rest[0]) return lerp(endDeg, startDeg, ease((x - at.lower[0]) / phases.lower));
+    return startDeg;
+  };
+  const view = movement === "shoulder_abduction" ? "front" : "side";
+  // A side view may sit turned toward the phone by turnDeg (the view still reads side under 36 degrees).
+  const turn = (turnDeg * Math.PI) / 180;
+  const fwd =
+    view === "front"
+      ? [0, 0, 1]
+      : side === "right"
+        ? [Math.cos(turn), 0, Math.sin(turn)]
+        : [-Math.cos(turn), 0, Math.sin(turn)];
+  const moving = side === "right" ? "r" : "l";
+  const still = moving === "r" ? "l" : "r";
+  const poseAt = (t) => {
+    const a = angle(t);
+    const base = {
+      ...standingPose(fwd),
+      hip: { l: 90, r: 90 },
+      knee: { l: 90, r: 90 },
+      ankle: { l: 0, r: 0 },
+      shoulderAbd: { l: 6, r: 6 },
+      shoulderFlex: { l: 0, r: 0 },
+      elbow: { l: 8, r: 8 },
+    };
+    if (movement === "shoulder_flexion")
+      // Thumb up, elbow straight: the arm turns in the sagittal plane only.
+      return {
+        ...base,
+        shoulderAbd: { [moving]: 0, [still]: 6 },
+        shoulderFlex: { [moving]: a, [still]: 0 },
+        elbow: { [moving]: 4, [still]: 8 },
+      };
+    if (movement === "shoulder_abduction")
+      return { ...base, shoulderAbd: { [moving]: a, [still]: startDeg }, elbow: { [moving]: 4, [still]: 8 } };
+    // elbow_flexion: the upper arm by the side, the forearm turning forward and up.
+    return { ...base, shoulderAbd: { [moving]: 0, [still]: 6 }, elbow: { [moving]: a, [still]: 8 } };
+  };
+  return {
+    id,
+    kind: "rom",
+    width,
+    height,
+    fps,
+    seconds,
+    loops: true,
+    camera,
+    scene: { chair: true, wallZ: -1.4 },
+    poseAt,
+    meta: { movement, side, position: "seated", view, startDeg, endDeg, phases: at, turnDeg },
+  };
+}
+
+/** The home phone of the seated scenarios: portrait 3:4, level, a 56 degree tall picture (a front camera's 4:3 crop). */
+const homeCamera = (distance, height) => ({ pos: [0, height, distance], target: [0, height, 0], fovY: 56 });
 
 /* ------------------------------------------------------------------ the gait scenario */
 
@@ -259,7 +348,57 @@ export const SCENARIOS = Object.freeze({
     endDeg: 135,
   }),
   "gait-pad-side": gaitPadSide({ id: "gait-pad-side", cadence: 100, padKmh: 3 }),
+  "rom-seated-shoulder-flexion-right": romSeated({
+    id: "rom-seated-shoulder-flexion-right",
+    movement: "shoulder_flexion",
+    side: "right",
+    startDeg: 4,
+    endDeg: 120,
+    camera: homeCamera(1.3, 1.22),
+    width: 540,
+    height: 720,
+    fps: 30,
+  }),
+  "rom-seated-shoulder-flexion-right-150": romSeated({
+    id: "rom-seated-shoulder-flexion-right-150",
+    movement: "shoulder_flexion",
+    side: "right",
+    startDeg: 4,
+    endDeg: 150,
+    camera: homeCamera(1.5, 1.1),
+    width: 540,
+    height: 720,
+    fps: 30,
+  }),
+  "rom-seated-shoulder-abduction-right": romSeated({
+    id: "rom-seated-shoulder-abduction-right",
+    movement: "shoulder_abduction",
+    side: "right",
+    startDeg: 8,
+    endDeg: 140,
+    camera: homeCamera(1.45, 1.22),
+    width: 540,
+    height: 720,
+    fps: 30,
+  }),
+  "rom-seated-elbow-flexion-right": romSeated({
+    id: "rom-seated-elbow-flexion-right",
+    movement: "elbow_flexion",
+    side: "right",
+    startDeg: 6,
+    endDeg: 135,
+    camera: homeCamera(1.3, 0.95),
+    width: 540,
+    height: 720,
+    fps: 30,
+    turnDeg: 30,
+  }),
 });
+
+/** The movement's angle on the 3D skeleton (the goniometer): the arm's elevation from the trunk, or the elbow's bend. */
+export function movementTruthDeg(movement, skel, side) {
+  return movement === "elbow_flexion" ? elbowFlexionDeg(skel, side) : armAbductionDeg(skel, side);
+}
 
 /** The joints in the picture (normalised, y down), for framing checks and the landmark truth. */
 export function framePoints(sc, skel) {
@@ -284,6 +423,32 @@ function projectedAbduction(sc, skel, hipSkel, side) {
   const u = [E[0] - S[0], E[1] - S[1]];
   const w = [MH[0] - MS[0], MH[1] - MS[1]];
   return deg(Math.acos((u[0] * w[0] + u[1] * w[1]) / (Math.hypot(...u) * Math.hypot(...w))));
+}
+
+/** The angle at b from a to c, degrees, on two picture points [x, y]. */
+const angleAt = (a, b, c) => {
+  const u = [a[0] - b[0], a[1] - b[1]];
+  const w = [c[0] - b[0], c[1] - b[1]];
+  return deg(Math.acos(Math.max(-1, Math.min(1, (u[0] * w[0] + u[1] * w[1]) / (Math.hypot(...u) * Math.hypot(...w))))));
+};
+
+/**
+ * The movement's angle on the projected joints (rom-protocol definitions): shoulder_flexion
+ * ang(E - S, H - S) with the same side's hip, elbow_flexion 180 - ang(S - E, W - E); the side arm raise
+ * as projectedAbduction.
+ */
+function projectedMovement(sc, skel, startSkel, movement, side) {
+  if (movement === "shoulder_abduction") return projectedAbduction(sc, skel, startSkel, side);
+  const px = (p) => {
+    const q = project(p, sc.camera, sc.width, sc.height);
+    return [q.x * sc.width, q.y * sc.height];
+  };
+  const j = skel.joints;
+  const r = side === "right";
+  const S = px(j[r ? J.SH_R : J.SH_L]);
+  const E = px(j[r ? J.ELB_R : J.ELB_L]);
+  if (movement === "shoulder_flexion") return angleAt(E, S, px(j[r ? J.HIP_R : J.HIP_L]));
+  return 180 - angleAt(S, E, px(j[r ? J.WR_R : J.WR_L]));
 }
 
 /** Whether each sole is on what the feet stand on (within 1 mm), from the rendered kinematics. */
@@ -335,22 +500,24 @@ export function scenarioTruth(sc) {
     const m = sc.meta;
     const start = skeleton(sc.poseAt(0));
     const holdMid = skeleton(sc.poseAt((m.phases.hold[0] + m.phases.hold[1]) / 2));
+    const seated = sc.id.startsWith("rom-seated-");
     return {
       ...base,
       movement: m.movement,
       side: m.side,
       position: m.position,
       view: m.view,
-      startDeg: round(armAbductionDeg(start, m.side), 3),
-      endDeg: round(armAbductionDeg(holdMid, m.side), 3),
+      startDeg: round(movementTruthDeg(m.movement, start, m.side), 3),
+      endDeg: round(movementTruthDeg(m.movement, holdMid, m.side), 3),
       holds: [{ from: m.phases.hold[0], to: m.phases.hold[1], deg: m.endDeg }],
       phases: m.phases,
       projected: {
-        startDeg: round(projectedAbduction(sc, start, start, m.side), 3),
-        endDeg: round(projectedAbduction(sc, holdMid, start, m.side), 3),
+        startDeg: round(projectedMovement(sc, start, start, m.movement, m.side), 3),
+        endDeg: round(projectedMovement(sc, holdMid, start, m.movement, m.side), 3),
       },
-      notes:
-        "The video loops: every loop is still 3 s, raise 2.5 s, hold 4 s at the end angle, lower 2.5 s, rest 2 s. endDeg is the arm's 3D abduction (the goniometer); projected is ang(E - S, MHf - MS) on the projected joints with the mid hip of the start pose.",
+      notes: seated
+        ? `Seated at home (D-034 item 1): the phone ${sc.camera.pos[2]} m away at ${sc.camera.pos[1]} m, portrait 3:4, the legs out of the picture. The video loops: every loop is still 3 s, raise 2.5 s, hold 4 s at the end angle, lower 2.5 s, rest 2 s. endDeg is the movement's 3D angle (the goniometer); projected is the movement's angle on the projected joints.`
+        : "The video loops: every loop is still 3 s, raise 2.5 s, hold 4 s at the end angle, lower 2.5 s, rest 2 s. endDeg is the arm's 3D abduction (the goniometer); projected is ang(E - S, MHf - MS) on the projected joints with the mid hip of the start pose.",
     };
   }
   const m = sc.meta;

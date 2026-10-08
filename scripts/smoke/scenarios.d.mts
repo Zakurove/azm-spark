@@ -20,7 +20,15 @@ export interface RomScenario extends Scenario {
 export interface GaitScenario extends Scenario {
   kind: "gait";
 }
-export declare const SCENARIOS: Readonly<{ "rom-shoulder-abduction-right": RomScenario; "gait-pad-side": GaitScenario }>;
+export declare const SCENARIOS: Readonly<{
+  "rom-shoulder-abduction-right": RomScenario;
+  "gait-pad-side": GaitScenario;
+  "rom-seated-shoulder-flexion-right": RomScenario;
+  "rom-seated-shoulder-flexion-right-150": RomScenario;
+  "rom-seated-shoulder-abduction-right": RomScenario;
+  "rom-seated-elbow-flexion-right": RomScenario;
+}>;
+export declare function movementTruthDeg(movement: string, skel: Skeleton, side: "left" | "right"): number;
 export declare function framePoints(sc: Scenario, skel: Skeleton): { x: number; y: number; depth: number }[];
 
 interface TruthBase {

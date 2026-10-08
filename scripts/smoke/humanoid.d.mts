@@ -76,6 +76,7 @@ export interface SceneProps {
 export declare function standingPose(fwd: Vec3, at?: [number, number]): Required<Pose>;
 export declare function skeleton(pose: Pose): Skeleton;
 export declare function armAbductionDeg(skel: Skeleton, side: "left" | "right"): number;
+export declare function elbowFlexionDeg(skel: Skeleton, side: "left" | "right"): number;
 export declare function project(point: Vec3, cam: Camera, w: number, h: number): { x: number; y: number; depth: number };
 export declare function createRenderer(canvas: HTMLCanvasElement): {
   gl: WebGL2RenderingContext;

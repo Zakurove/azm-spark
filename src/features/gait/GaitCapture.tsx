@@ -18,6 +18,7 @@ import type { Tilt } from "../../engine/quality";
 import type { Frame } from "../../engine/types";
 import { localizeDigits } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
+import { tV7 } from "../../i18n/v7";
 import type { GaitStoredView } from "../../medical/gait-types";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CountdownRing } from "../assessment/safety/parts";
@@ -1185,7 +1186,13 @@ function PlaceScreen({
   return (
     <div className="gx-flow gx-split is-place" data-step="place" data-rec={rec}>
       <Glass className="fx-card fx-figure gx-figure">
-        <Kicker>{gt(lang, "kicker")}</Kicker>
+        {/* D-034 item 5: the phone's setup says nothing has started, and Ready stays on screen. */}
+        <div className="fx-figure-head">
+          <Kicker>{gt(lang, "kicker")}</Kicker>
+          <span className="fx-pill is-waiting" data-state="not-started">
+            {tV7(lang, "rom.setup.notStarted")}
+          </span>
+        </div>
         <div className="gx-art">
           <Placement kind={PLACEMENT[rec]} side={near} lang={lang} label={title} />
         </div>
@@ -1207,25 +1214,26 @@ function PlaceScreen({
           )}
           <p className="fx-meta">{gt(lang, "place.preview")}</p>
         </Glass>
-        <Actions
-          items={[
-            rec === "overground_side"
-              ? {
-                  label: gt(lang, "place.noRoom"),
-                  name: "no_room",
-                  kind: "secondary",
-                  onClick: () => ctl.skipView(performance.now()),
-                }
-              : null,
-            {
-              label: gt(lang, "place.ready"),
-              name: "ready",
-              icon: "check",
-              onClick: () => ctl.confirm(performance.now()),
-            },
-          ]}
-        />
       </div>
+      <Actions
+        sticky
+        items={[
+          rec === "overground_side"
+            ? {
+                label: gt(lang, "place.noRoom"),
+                name: "no_room",
+                kind: "secondary",
+                onClick: () => ctl.skipView(performance.now()),
+              }
+            : null,
+          {
+            label: gt(lang, "place.ready"),
+            name: "ready",
+            icon: "check",
+            onClick: () => ctl.confirm(performance.now()),
+          },
+        ]}
+      />
     </div>
   );
 }

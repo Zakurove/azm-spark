@@ -82,8 +82,11 @@ describe("the walk's screens", () => {
         const place = out.find((o) => o.id === "place")!.html;
         expect(place).toContain('role="img"');
         expect(place).toContain("gx-placement");
-        // D-034 item 4: no red STOP; the shell's X stops the walk.
+        // D-034 item 4: no red STOP; the shell's X stops the walk. Item 5: the phone's setup says
+        // nothing has started, and its Ready is in the sticky bar.
         expect(place).not.toContain("safety-stop");
+        expect(place).toContain('data-state="not-started"');
+        expect(place).toMatch(/<div class="fx-actions is-sticky">(?:(?!<\/div>).)*data-action="ready"/s);
         // The intro names the helper the plan needs and the stop line.
         const intro = out[0].html;
         expect(intro).toContain(GAIT_DATA.copy.setup.helper_needed[lang]);

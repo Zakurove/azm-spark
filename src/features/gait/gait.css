@@ -503,6 +503,9 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
   }
+  .gx-split > .fx-actions.is-sticky {
+    grid-column: 1 / -1;
+  }
   .gx-capture {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     grid-template-areas: "stage sheet";

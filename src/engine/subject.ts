@@ -21,10 +21,10 @@
  *
  * The anchor (SubjectLockOptions.anchor): "hip", the default, is the above (v1). "body" is the v7
  * range runner's (D-034 item 1: seated at home 1.2 to 1.5 m from the phone, the legs and hips out of
- * the picture): the jump is the median, over the face, the shoulders and the hips (BODY_POINTS), of
- * how far each point moved since the last trusted frame, each read whatever its visibility, as v1
- * reads the mid hip. A swap to another person moves every point; the model moving one or two of them
- * does not. In the real model smoke the model moved single points with the arm: the guessed hips of
+ * the picture): the jump is the smaller of the mid hip's move (v1) and the median, over the face, the
+ * shoulders and the hips (BODY_POINTS), of how far each point moved since the last trusted frame, each
+ * read whatever its visibility, as v1 reads the mid hip. A swap to another person moves every point;
+ * the model moving one or two of them, or a quick lean over still hips, does not. In the real model smoke the model moved single points with the arm: the guessed hips of
  * the seated arm raise to the front (Lite, the hips below the picture) by up to 0.13 of the picture's
  * height between two frames, and the near shoulder of the same raise seen a little turned (Full) by
  * more than half a shoulder width, so either anchor alone paused the attempt for the whole raise
@@ -393,16 +393,19 @@ export class SubjectLock {
 
   /**
    * How far a pose's anchor moved from the subject's last trusted place (pixel space): the mid hip
-   * (v1), or with the anchor "body" the median move of BODY_POINTS (the class comment).
+   * (v1), or with the anchor "body" the smaller of that and the median move of BODY_POINTS (the class
+   * comment): a swap to another person moves both, the model moving the hips alone, or a quick lean of
+   * the upper body over still hips, moves one.
    */
   private distanceTo(px: Landmark[], s: LockState): number {
+    const point = trackPoint(px);
+    const hip = point ? dist(point, s.ref) : Infinity;
     if (this.anchorMode === "body") {
       const now = bodyPoints(px);
       const moves = now.flatMap((q, k) => (q && s.refBody[k] ? [dist(q, s.refBody[k]!)] : []));
-      if (moves.length >= BODY_MIN_POINTS) return median(moves);
+      if (moves.length >= BODY_MIN_POINTS) return Math.min(hip, median(moves));
     }
-    const hip = trackPoint(px);
-    return hip ? dist(hip, s.ref) : Infinity;
+    return hip;
   }
 
   /** Two poses on the same body: the median of their BODY_POINTS' distances within the jump limit. */

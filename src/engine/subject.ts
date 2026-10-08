@@ -19,16 +19,16 @@
  *     frames, which makes the attempt invalid.
  * All thresholds are marked tune at booth in the spec.
  *
- * The anchor (SubjectLockOptions.anchor): "hip", the default, is the above (v1). "shoulders" is the
- * v7 range runner's (D-034 item 1: seated at home 1.2 to 1.5 m from the phone, the legs and hips out
- * of the picture): the jump is measured on the mid shoulder (whatever the shoulders' visibility, as v1
- * reads the mid hip: in a side view the far shoulder is placed beside the near one), else on the mid
- * hip as v1. The model guesses hips it cannot see
- * with a high visibility, inside the picture, and the guess swings with the arm: in the real model
- * smoke of the seated arm raise to the front (Lite) the mid hip moved up to 0.13 of the picture's
- * height between two frames while the shoulders moved under 0.05, so the hip anchor paused the attempt
- * for the whole raise. The shoulders are in the picture in every range position, and a swap to
- * another person moves them as far as the hips.
+ * The anchor (SubjectLockOptions.anchor): "hip", the default, is the above (v1). "body" is the v7
+ * range runner's (D-034 item 1: seated at home 1.2 to 1.5 m from the phone, the legs and hips out of
+ * the picture): the jump is the median, over the face, the shoulders and the hips (BODY_POINTS), of
+ * how far each point moved since the last trusted frame, each read whatever its visibility, as v1
+ * reads the mid hip. A swap to another person moves every point; the model moving one or two of them
+ * does not. In the real model smoke the model moved single points with the arm: the guessed hips of
+ * the seated arm raise to the front (Lite, the hips below the picture) by up to 0.13 of the picture's
+ * height between two frames, and the near shoulder of the same raise seen a little turned (Full) by
+ * more than half a shoulder width, so either anchor alone paused the attempt for the whole raise
+ * (the reference stays put after a jump).
  */
 import {
   dist,
@@ -83,8 +83,8 @@ export const SUBJECT_RULES = {
 export type PauseReason = "unlocked" | "lost" | "jump" | "overlap";
 
 export interface SubjectLockOptions {
-  /** The point the jump rule follows: "hip" (v1, the default) or "shoulders" (v7 range, see above). */
-  anchor?: "hip" | "shoulders";
+  /** What the jump rule follows: "hip" (v1, the default) or "body" (v7 range, see above). */
+  anchor?: "hip" | "body";
 }
 
 export interface SubjectPick {
@@ -178,8 +178,8 @@ interface LockState {
   anchor: Pt;
   /** Last trusted mid hip, pixel space. */
   ref: Pt;
-  /** The anchor "shoulders": the last trusted frame's mid shoulder, null without both shoulder points. */
-  refShoulder: Pt | null;
+  /** The anchor "body": the last trusted frame's BODY_POINTS (pixel space, null where not a finite number). */
+  refBody: (Pt | null)[];
   /** Body width used for the jump and touch rules, pixel space (see minWidthPerTrunk). */
   width: number;
 }
@@ -191,7 +191,7 @@ export class SubjectLock {
   private run = 0;
   private touchedAny = false;
 
-  private readonly anchorMode: "hip" | "shoulders";
+  private readonly anchorMode: "hip" | "body";
 
   constructor(
     private readonly rules: typeof SUBJECT_RULES = SUBJECT_RULES,
@@ -205,7 +205,7 @@ export class SubjectLock {
   }
 
   /** The point the jump rule follows (SubjectLockOptions.anchor). */
-  get anchorKind(): "hip" | "shoulders" {
+  get anchorKind(): "hip" | "body" {
     return this.anchorMode;
   }
 
@@ -247,7 +247,7 @@ export class SubjectLock {
       lastT: null,
       anchor: hip,
       ref: { ...hip },
-      refShoulder: shoulderPoint(p),
+      refBody: bodyPoints(p),
       width,
     };
     return true;
@@ -345,7 +345,13 @@ export class SubjectLock {
       }
     });
     const subject = people[k];
-    const others = people.filter((_, j) => j !== k);
+    // The anchor "body": a pose whose body lies on the subject's (its median point within the jump
+    // limit) is the model finding the subject twice, not a second person (the real model smoke: a
+    // ghost of the person while the arm rose, 1 to 2 percent of the frames): no overlap, no touch.
+    const others = people.filter(
+      (o, j) =>
+        j !== k && !(this.anchorMode === "body" && this.sameBody(o.px, subject.px, s.width, jumpLimit)),
+    );
     const jump = best / s.width;
 
     if (!(jump <= jumpLimit)) {
@@ -362,7 +368,7 @@ export class SubjectLock {
     }
 
     s.ref = trackPoint(subject.px) ?? s.ref;
-    s.refShoulder = shoulderPoint(subject.px);
+    s.refBody = bodyPoints(subject.px);
     const box = poseBox(subject.px);
     let overlap = 0;
     for (const o of others) {
@@ -387,13 +393,24 @@ export class SubjectLock {
 
   /**
    * How far a pose's anchor moved from the subject's last trusted place (pixel space): the mid hip
-   * (v1), or with the anchor "shoulders" the mid shoulder (the class comment).
+   * (v1), or with the anchor "body" the median move of BODY_POINTS (the class comment).
    */
   private distanceTo(px: Landmark[], s: LockState): number {
-    const shoulder = this.anchorMode === "shoulders" ? shoulderPoint(px) : null;
-    if (shoulder && s.refShoulder) return dist(shoulder, s.refShoulder);
+    if (this.anchorMode === "body") {
+      const now = bodyPoints(px);
+      const moves = now.flatMap((q, k) => (q && s.refBody[k] ? [dist(q, s.refBody[k]!)] : []));
+      if (moves.length >= BODY_MIN_POINTS) return median(moves);
+    }
     const hip = trackPoint(px);
     return hip ? dist(hip, s.ref) : Infinity;
+  }
+
+  /** Two poses on the same body: the median of their BODY_POINTS' distances within the jump limit. */
+  private sameBody(a: Landmark[], b: Landmark[], width: number, limit: number): boolean {
+    const pa = bodyPoints(a);
+    const pb = bodyPoints(b);
+    const d = pa.flatMap((q, k) => (q && pb[k] ? [dist(q, pb[k]!)] : []));
+    return d.length >= BODY_MIN_POINTS && median(d) / width <= limit;
   }
 
   private count(p: SubjectPick): SubjectPick {
@@ -410,9 +427,30 @@ export class SubjectLock {
   }
 }
 
-/** The mid shoulder whatever the shoulders' visibility, or null when one is not a finite number. */
-const shoulderPoint = (p: Landmark[]): Pt | null =>
-  finitePoint(p[LM.l_shoulder]) && finitePoint(p[LM.r_shoulder]) ? midShoulder(p) : null;
+/** The anchor "body": the nose, the eyes, the ears, the shoulders and the hips. */
+const BODY_POINTS: readonly number[] = [
+  LM.nose,
+  LM.l_eye,
+  LM.r_eye,
+  LM.l_ear,
+  LM.r_ear,
+  LM.l_shoulder,
+  LM.r_shoulder,
+  LM.l_hip,
+  LM.r_hip,
+];
+/** Fewer finite points than this: the anchor "body" reads the mid hip as v1. */
+const BODY_MIN_POINTS = 5;
+
+/** A pose's BODY_POINTS (pixel space), null where not a finite number. */
+const bodyPoints = (p: Landmark[]): (Pt | null)[] =>
+  BODY_POINTS.map((i) => (finitePoint(p[i]) ? { x: p[i].x, y: p[i].y } : null));
+
+const median = (xs: number[]): number => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
 
 /**
  * The point the lock follows: the mid hip (whatever the hips' visibility, see body.ts midHip), or

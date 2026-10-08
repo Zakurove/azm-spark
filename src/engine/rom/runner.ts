@@ -65,8 +65,8 @@
  *   - A view the movement is not filmed in (at the start pose, or in an attempt's report) plays one calm
  *     line per movement, «turn your side to the phone» or «face the phone» (viewCue); the movement's
  *     plane check and compensation rules decide whether the attempt counts.
- *   - The subject lock follows the shoulders (SubjectLock anchor "shoulders"): the model's guess of a
- *     hip outside the picture swings with the arm, and never pauses scoring.
+ *   - The subject lock follows the whole body (SubjectLock anchor "body"): the model moving a guessed
+ *     hip or the raised arm's shoulder never pauses scoring; a swap to another person still does.
  *   - The dial's landmarks lose one frame jumps before the One Euro filter (despike.ts).
  *   - The arm raises to the front and to the back read the start trunk line in a frame whose hip is
  *     hidden or at the picture's edge (angles.ts hipInPicture), so their hip never fails an attempt.
@@ -359,7 +359,7 @@ export class RomRunner {
     this.opts = opts;
     this.kind = opts.def.kind;
     this.mirrored = !!opts.mirrored;
-    this.lock = opts.subject ?? new SubjectLock(SUBJECT_RULES, { anchor: "shoulders" });
+    this.lock = opts.subject ?? new SubjectLock(SUBJECT_RULES, { anchor: "body" });
     this.tracker = new SubjectTracker(this.lock);
     this.comp = new CompensationTracker(opts.def, opts.item.position);
     this.holdOpts = holdOptions(opts.def.kind);

@@ -177,7 +177,7 @@ describe("the v7 setup check frames only the landmarks a movement needs", () => 
   });
 });
 
-describe("the v7 subject lock follows the shoulders (D-034 item 1)", () => {
+describe("the v7 subject lock follows the whole body (D-034 item 1)", () => {
   /**
    * A seated side view with the hips below the picture. The model guesses them, with a high
    * visibility, inside the picture, and the guess swings with the arm: in the real model smoke of the
@@ -209,13 +209,30 @@ describe("the v7 subject lock follows the shoulders (D-034 item 1)", () => {
     return lock.pausedShare;
   };
 
-  it("the hips guessed below the shoulders: v1's hip anchor pauses on each step, the shoulders anchor does not", () => {
+  it("the hips guessed below the shoulders: v1's hip anchor pauses on each step, the body anchor does not", () => {
     expect(pausedShare(new SubjectLock())).toBeGreaterThan(SUBJECT_RULES.maxPausedShare);
-    expect(pausedShare(new SubjectLock(SUBJECT_RULES, { anchor: "shoulders" }))).toBe(0);
+    expect(pausedShare(new SubjectLock(SUBJECT_RULES, { anchor: "body" }))).toBe(0);
+  });
+
+  it("the model finding the person twice is not a second person; a real one beside still counts", () => {
+    const me = frontPose(0.6);
+    // A ghost: the same body a little off, its hands on the subject's arm.
+    const ghost = me.map((q, i) => ({ ...q, x: q.x + (i >= 13 && i <= 22 ? 0.03 : 0.004), y: q.y + 0.004 }));
+    const body = new SubjectLock(SUBJECT_RULES, { anchor: "body" });
+    body.lock([me], 0.75);
+    const twice = body.pick([me, ghost], 0.75, 33);
+    expect(twice).toMatchObject({ paused: false, touching: false, others: 0 });
+    // v1 reads the ghost as a second person touching the subject.
+    const v1 = new SubjectLock();
+    v1.lock([me], 0.75);
+    expect(v1.pick([me, ghost], 0.75, 33).touching).toBe(true);
+    // A person standing beside, overlapping the subject's box: still a second person.
+    const beside = frontPose(0.6, 0.07);
+    expect(body.pick([me, beside], 0.75, 66)).toMatchObject({ paused: true, reason: "overlap", others: 1 });
   });
 
   it("a swap to another person still pauses", () => {
-    const lock = new SubjectLock(SUBJECT_RULES, { anchor: "shoulders" });
+    const lock = new SubjectLock(SUBJECT_RULES, { anchor: "body" });
     const me = frontPose(0.6);
     const other = frontPose(0.6, 0.3);
     lock.lock([me], 0.75);
@@ -225,14 +242,14 @@ describe("the v7 subject lock follows the shoulders (D-034 item 1)", () => {
     expect(swap.reason).toBe("jump");
   });
 
-  it("the range runner's own lock is the shoulders anchor", () => {
+  it("the range runner's own lock is the body anchor", () => {
     const r = new RomRunner({
       item: item("elbow_flexion"),
       def: movementDef("elbow_flexion"),
       askCauseBelow: null,
       poseModel: "full",
     });
-    expect(r.lock.anchorKind).toBe("shoulders");
+    expect(r.lock.anchorKind).toBe("body");
     expect(new SubjectLock().anchorKind).toBe("hip");
   });
 });

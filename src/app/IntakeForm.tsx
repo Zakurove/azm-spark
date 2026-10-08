@@ -849,7 +849,8 @@ export default function IntakeForm({
             {consentField}
           </>
         )}
-        {error && (
+        {/* v7: the missing answers note leaves once the step is complete. */}
+        {error && !(V7_UI && error === "INTAKE_INVALID" && valid) && (
           <p className="form-error" role="alert">
             {errorText(error, lang)}
           </p>

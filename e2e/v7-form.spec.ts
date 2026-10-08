@@ -142,8 +142,11 @@ for (const lang of ["ar", "en"] as const) {
     // Continue before the confirmation: the map asks for it.
     await cta(page).click();
     await expect(card.locator(".intake7-fill .intake7-missing")).toBeVisible();
+    await expect(card.locator(".form-error")).toBeVisible();
     await card.locator(".intake7-confirm").click();
     await expect(card.locator(".intake7-confirm")).toHaveAttribute("aria-pressed", "true");
+    // Complete now: the note leaves.
+    await expect(card.locator(".form-error")).toHaveCount(0);
     // A part added by hand: one quick choice.
     await card.locator('.bm-cell[data-cell="knee:left"]').click();
     const knee = card.locator('.intake7-card[data-region="knee:left"]');

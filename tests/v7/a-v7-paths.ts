@@ -13,7 +13,7 @@ import { join } from "node:path";
  * contract 2.10 rule 2; it reads no v7 data).
  */
 export const V7_ONLY =
-  /^src\/(features\/(focus|gait|coach-agent|program-v7|showcase|body-map|onboarding)\/|coach\/|engine\/(rom|gait|signal)\/|movements\/(rom|gait|targets)\/|medical\/(rom-|gait-|target|focus-|pain-rule|body-map-autofill)|i18n\/v7\.ts|i18n\/(ar|en)\/(intake7|rom|gait|coach|targets|showcase)\.json|app\/IntakeV7\.tsx)/;
+  /^src\/(features\/(focus|gait|coach-agent|program-v7|showcase|body-map|onboarding|visuals)\/|coach\/|engine\/(rom|gait|signal)\/|movements\/(rom|gait|targets)\/|medical\/(rom-|gait-|target|focus-|pain-rule|body-map-autofill)|i18n\/v7\.ts|i18n\/(ar|en)\/(intake7|rom|gait|coach|targets|showcase)\.json|app\/IntakeV7\.tsx)/;
 
 /** The E2E only modules of v7 (stream G): the smoke page and the performance overlay. */
 export const E2E_ONLY = /^src\/features\/smoke\//;

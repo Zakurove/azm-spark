@@ -46,6 +46,7 @@ import {
 import { gt, num, qualityLine, setupLine, sideWord } from "./copy";
 import { GaitFindingsCard } from "./GaitFindingsCard";
 import type { GaitStepProps } from "./GaitStep";
+import { Illustration } from "../visuals/Illustration";
 import { Placement, type PlacementKind } from "./Placement";
 import "./gait.css";
 
@@ -867,6 +868,17 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
         <>
           <Kicker>{gt(lang, "kicker")}</Kicker>
           <Title>{gt(lang, "pad.checkTitle")}</Title>
+          <Illustration
+            group="walk"
+            name="v7_walk_pad_safety"
+            lang={lang}
+            className="gx-placement"
+            alt={
+              lang === "ar"
+                ? "فهد بجانب جهاز المشي المتوقف وسارة قرب زر الإيقاف"
+                : "Fahd beside the stopped walking pad with Sara near the stop button"
+            }
+          />
           <ul className="gx-checklist">
             {padChecklist(lang).map((line) => (
               <li key={line}>

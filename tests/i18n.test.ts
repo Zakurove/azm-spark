@@ -21,6 +21,8 @@ import {
 import { fmtTime } from "../src/app/i18n";
 import { testDef } from "../src/movements/assessments";
 import { V7_DICTIONARIES, V7_NAMESPACES } from "../src/i18n/v7";
+import arLandingV7 from "../src/i18n/ar/landing.json?v7";
+import enLandingV7 from "../src/i18n/en/landing.json?v7";
 
 const DIR = join(__dirname, "../src/i18n");
 const files = (lang: string) =>
@@ -58,8 +60,16 @@ describe("dictionaries", () => {
     const ns = file.replace(/\.json$/, "");
     const registered = (lang: "ar" | "en") =>
       ({ ...DICTIONARIES[lang], ...V7_DICTIONARIES[lang] }) as Record<string, unknown>;
-    expect(registered("ar")[ns]).toEqual(read("ar", file));
-    expect(registered("en")[ns]).toEqual(read("en", file));
+    for (const lang of ["ar", "en"] as const) {
+      const dictionary = read(lang, file) as Record<string, unknown>;
+      if (ns === "landing") {
+        const { v7, ...shared } = dictionary;
+        expect(registered(lang)[ns]).toEqual(shared);
+        expect(lang === "ar" ? arLandingV7 : enLandingV7).toEqual(v7);
+      } else {
+        expect(registered(lang)[ns]).toEqual(dictionary);
+      }
+    }
     for (const [key, value] of Object.entries(en)) {
       if (key === "") continue; // an empty namespace
       expect(typeof value, `${file} ${key}`).toBe("string");

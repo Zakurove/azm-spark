@@ -4,6 +4,10 @@ import { Lang, fmtNum, pct } from "./i18n";
 import { formatNumber, t, unitWord, type I18nKey } from "../i18n";
 import Brand from "./Brand";
 import Icon from "./Icon";
+// @v7-only-begin
+import { lazy, Suspense } from "react";
+const LandingV7 = import.meta.env.VITE_V7 === "1" ? lazy(() => import("./LandingV7")) : null;
+// @v7-only-end
 
 /*
  * Landing for people and families (technical plan, "Landing page reimagining", phase 1 part of F15):
@@ -246,6 +250,14 @@ export default function Landing({
             </div>
           )}
         </section>
+
+        {/* @v7-only-begin */}
+        {LandingV7 && (
+          <Suspense fallback={null}>
+            <LandingV7 lang={lang} />
+          </Suspense>
+        )}
+        {/* @v7-only-end */}
 
         <section className="ld-close">
           <h2>{t(lang, "landing.close.title")}</h2>

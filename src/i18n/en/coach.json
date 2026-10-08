@@ -16,6 +16,7 @@
     "notNow": "Not now",
     "error": "We could not save your consent. Please try again."
   },
+  "formConsent": "When the sound is on, the Live coach, a Google voice service outside the Kingdom, hears my voice and gets the names and sides of my movements, their usual ranges, the degrees, my walking aid, my pain scores and my answers, never my name, a picture or a video.",
   "setting": {
     "note": "A voice coach that talks with you during your checks and workouts. The buttons always work.",
     "unavailable": "The Live coach is not available right now.",

@@ -89,19 +89,17 @@ describe("the focus check of a person whose program waits for it (flow.ts)", () 
     });
   });
 
-  it("«لا أستطيع استخدام الكاميرا» builds from the history from the intro, the day screen or a part", () => {
+  it("«لا أستطيع استخدام الكاميرا» builds from the history from the intro or a part", () => {
     const intro = loaded(true, { ...EMPTY, items: [KNEE] });
     expect(intro.state).toEqual({ kind: "intro" });
     expect(reduce(intro, { type: "BUILD", from: "history" }).state).toEqual({
       kind: "build",
       from: "history",
     });
-    const today = reduce(intro, { type: "BEGIN" });
-    expect(today.state).toEqual({ kind: "today" });
-    expect(reduce(today, { type: "BUILD", from: "history" }).state).toEqual({
-      kind: "build",
-      from: "history",
-    });
+    // D-034 item 4: the intro's start starts the check at once (no day screen).
+    const starting = reduce(intro, { type: "BEGIN" });
+    expect(starting.state).toEqual({ kind: "starting", error: null });
+    expect(reduce(starting, { type: "BUILD", from: "history" })).toBe(starting);
     const part: FocusModel = { ...intro, state: { kind: "part", index: 0 } };
     expect(reduce(part, { type: "BUILD", from: "history" }).state).toEqual({
       kind: "build",
@@ -110,8 +108,11 @@ describe("the focus check of a person whose program waits for it (flow.ts)", () 
     // Only while the program waits, and never from a safety screen.
     const other = loaded(false, { ...EMPTY, items: [KNEE] });
     expect(reduce(other, { type: "BUILD", from: "history" })).toBe(other);
-    const skip: FocusModel = { ...intro, state: { kind: "skip_today", lock: null } };
-    expect(reduce(skip, { type: "BUILD", from: "history" })).toBe(skip);
+    const safety: FocusModel = {
+      ...intro,
+      state: { kind: "postponed", status: "postpone", screen: null, alsoShow: [], lock: null },
+    };
+    expect(reduce(safety, { type: "BUILD", from: "history" })).toBe(safety);
   });
 
   it("after the check completes: the build, then the program page with its why lines", () => {
@@ -133,14 +134,14 @@ describe("the focus check of a person whose program waits for it (flow.ts)", () 
     expect(reduce(plain, { type: "COMPLETED" }).state).toEqual({ kind: "done" });
   });
 
-  it("«سأقرر لاحقًا» just leaves: the exit to Today, no build", () => {
+  it("has no consent page (D-034 item 4): without the consent yet, the intro; leaving goes to Today, no build", () => {
     const m = run(initialModel(true), {
       type: "LOADED",
       context: context({ ...EMPTY, items: [KNEE] }, { consent: { focus_check: false, live_coach: false } }),
       intake: null,
       now: 0,
     });
-    expect(m.state.kind).toBe("consent");
+    expect(m.state.kind).toBe("intro");
     expect(reduce(m, { type: "EXIT", to: "today" }).state).toEqual({ kind: "exit", to: "today" });
   });
 });

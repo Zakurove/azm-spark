@@ -65,8 +65,6 @@ import {
 import {
   ClosedScreen,
   CompletingScreen,
-  ConsentScreen,
-  DayScreen,
   DoneScreen,
   FaintAskScreen,
   GaitSlot,
@@ -75,14 +73,12 @@ import {
   LoadErrorScreen,
   LoadingScreen,
   SafetyScreen,
-  SkipTodayScreen,
   StartingScreen,
   StopListScreen,
   WalkPainScreen,
   WalkSkippedScreen,
 } from "./Screens";
-import { sciWarningOnce, todayItems, type FocusExitTo } from "./flow";
-import { dayAreas } from "../../medical/focus-precheck";
+import { sciWarningOnce, type FocusExitTo } from "./flow";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
 import "./focus.css";
@@ -370,12 +366,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
       : s.kind === "completing" || s.kind === "done" || s.kind === "build"
         ? { done: parts.length, total: parts.length }
         : null;
-  const entry =
-    s.kind === "loading" ||
-    s.kind === "consent" ||
-    s.kind === "intro" ||
-    s.kind === "closed" ||
-    s.kind === "load_error";
+  const entry = s.kind === "loading" || s.kind === "intro" || s.kind === "closed" || s.kind === "load_error";
   const top = (
     <TopBar
       lang={lang}
@@ -418,19 +409,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
             />
           ),
         };
-      case "consent":
-        return {
-          screen: "consent",
-          node: (
-            <ConsentScreen
-              lang={lang}
-              saving={s.saving}
-              error={s.error}
-              onAgree={() => void session.consent()}
-              onLater={today}
-            />
-          ),
-        };
       case "intro":
         return {
           screen: "intro",
@@ -450,18 +428,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                 orientation.askAgain();
                 session.dispatch({ type: "BEGIN" });
               }}
-            />
-          ),
-        };
-      case "today":
-        return {
-          screen: "today",
-          node: (
-            <DayScreen
-              lang={lang}
-              areas={dayAreas(m.data.context!.protocol!, m.data.context!.gait)}
-              itemsFor={(today) => todayItems(m.data, today)}
-              onDone={(today) => session.dispatch({ type: "DAY_DONE", today })}
             />
           ),
         };
@@ -488,17 +454,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               lock={s.lock}
               now={Date.now()}
               next={{ label: t(lang, "assessment.common.backToToday"), onClick: today, name: "today" }}
-            />
-          ),
-        };
-      case "skip_today":
-        return {
-          screen: "skip_today",
-          node: (
-            <SkipTodayScreen
-              lang={lang}
-              onToday={today}
-              onUrgent={() => session.dispatch({ type: "URGENT" })}
             />
           ),
         };

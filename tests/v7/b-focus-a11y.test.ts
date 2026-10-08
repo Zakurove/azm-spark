@@ -33,12 +33,8 @@ describe("focus and modality in the focus shell", () => {
 
   it("focuses each question's heading when it opens", () => {
     const screens = read("Screens.tsx");
-    expect(between(screens, "export function DayScreen", "export function SkipTodayScreen")).toMatch(
-      /useFocusOnMount/,
-    );
-    expect(between(screens, "export function SkipTodayScreen", "export function WalkPainScreen")).toMatch(
-      /useFocusOnMount/,
-    );
+    // D-034 item 4: the day screen and its calm skip screen are gone.
+    expect(screens).not.toMatch(/export function DayScreen|export function SkipTodayScreen/);
     expect(between(screens, "export function QuestionText", "export function StartingScreen")).toMatch(
       /useFocusOnMount/,
     );

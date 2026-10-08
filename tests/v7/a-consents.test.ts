@@ -185,3 +185,38 @@ describe("the focus check consent text (version 1)", () => {
     expect(tV7("en", "rom.consent.pointVideo")).toContain("processed on your phone only");
   });
 });
+
+describe("the health form's consent lines (D-034 item 4: no consent page in the check)", () => {
+  it("cover the movement results and the camera numbers, and say the video never leaves the phone", () => {
+    expect(tV7("en", "rom.formConsent")).toContain("movement and walking results");
+    expect(tV7("en", "rom.formConsent")).toContain("the video never leaves my phone");
+    expect(tV7("ar", "rom.formConsent")).toContain("نتائج قياس حركتي ومشيي");
+    expect(tV7("ar", "rom.formConsent")).toContain("الفيديو لا يغادر هاتفي");
+  });
+
+  it("say truthfully what the Live coach hears and gets when the sound is on (C-12)", () => {
+    const en = tV7("en", "coach.formConsent");
+    for (const word of [
+      "sound is on",
+      "Google",
+      "outside the Kingdom",
+      "voice",
+      "pain scores",
+      "never my name",
+    ])
+      expect(en).toContain(word);
+    expect(en).toMatch(/never my name, a picture or a video/);
+    const ar = tV7("ar", "coach.formConsent");
+    for (const word of ["الصوت مشغّلًا", "Google", "خارج المملكة", "صوتي", "ولا يصله اسمي", "فيديو"])
+      expect(ar).toContain(word);
+  });
+
+  it("hold no disclaimer and no dash", () => {
+    for (const lang of ["ar", "en"] as const)
+      for (const key of ["rom.formConsent", "coach.formConsent"] as const) {
+        const text = tV7(lang, key);
+        expect(disclaimersIn(lang, text)).toEqual([]);
+        expect(text).not.toMatch(/[‐-―-]/);
+      }
+  });
+});

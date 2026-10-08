@@ -1,15 +1,16 @@
 /**
- * The focus check (product v7 contract 1.2, stream B, step B3; D-032): the shell that runs a protocol
- * end to end: the day's one screen (D-032 item 2), the range blocks in C-13 order with the stop list and
- * sit before stand, the gait step (GaitStep, C) between the standing and lying blocks, and the complete
+ * The focus check (product v7 contract 1.2, stream B, step B3; D-032, D-034): the shell that runs a
+ * protocol end to end: from the intro straight to the range blocks (D-034 item 4: no consent page, no
+ * day screen) in C-13 order with the stop list (from the X, no red STOP) and sit before stand, the gait
+ * step (GaitStep, C) between the standing and lying blocks, and the complete
  * call, then the findings. It loads its own data (GET
  * /api/focus/context) and implements CoachHost for the range blocks (C-16) through its RomController.
  *
  * The logic is in session.ts (the flow, the calls, the controller) and romController.ts; this page
  * renders them, owns the one camera of the check (focusCameraSession, C-10, shared with the walk's
  * step through FocusCameraContext), feeds the frames to the controller, keeps the timers ticking,
- * plays the local lines when the voice is on (off by default) and passes the coach's events to the
- * coach (the live coach is off by default; stream D wires it, C-5).
+ * and voices the check with its one sound switch (D-034 item 3, on by default in a v7 build): the Live
+ * coach when the server allows it, else the phone's own speech; off, silent.
  *
  * src/app/App.tsx opens it at /?focus=1 for a signed in person, in a VITE_V7=1 build only, and right
  * after the health form for a person whose program waits for the check (D-032 item 3, `onboarding`):
@@ -29,16 +30,17 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { Lang } from "../../app/i18n";
-import { CuePlayer, isVoiceLine } from "../../app/audio";
-import { readPreferences, savePreferences } from "../../app/experience";
+import { isVoiceLine } from "../../app/audio";
 import type { Frame } from "../../engine/types";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { useCameraSession } from "../assessment/camera/session";
 import { useOrientation, useWakeLock } from "../assessment/camera/hooks";
 import type { Tilt } from "../../engine/quality";
 import "../assessment/safety/safety.css";
-import { fakeCoachRun, useCoach, useCoachStatus } from "../coach-agent/useCoach";
+import { coachLog, fakeCoachRun, useCoach, useCoachStatus } from "../coach-agent/useCoach";
 import { CueVoice } from "../coach-agent/LocalVoice";
+import { PhoneVoice } from "../coach-agent/phoneVoice";
+import { readSound, saveSound } from "../coach-agent/sound";
 import { CoachCaption } from "../coach-agent/CoachCaption";
 import { COACH_ASK_LINES, liveCoachOn, romSegment } from "../coach-agent/hosts";
 import { unlockCoachAudio } from "../coach-agent/audio/context";
@@ -47,7 +49,7 @@ import { useOnline } from "../assessment/shared/useOnline";
 import { GaitStep } from "../gait/GaitStep";
 import { focusCameraSession, FocusCameraContext, type FocusSourceFactory } from "./camera";
 import { createFocusApi } from "./api";
-import { FINDING_LABEL, voiceLineOf } from "./copy";
+import { FINDING_LABEL, lineText, voiceLineOf } from "./copy";
 import { movementDef, romResultLine } from "../../movements/rom";
 import { FocusSession } from "./session";
 import { itemKey, type RomController } from "./romController";
@@ -215,49 +217,69 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
   const part = s.kind === "part" ? m.data.parts[s.index] : null;
   const rangeStep = part?.kind === "range" && ctl ? ctl.current : null;
 
-  // The local lines: the voice pack when the voice is on (off by default), the caption always.
-  const [soundOn, setSoundOn] = useState(() => readPreferences().voice === "full");
-  const player = useMemo(() => new CuePlayer(lang), []);
-  useEffect(() => player.setLang(lang), [lang, player]);
+  // D-034 item 3: ONE voice control, the speaker button (on by default in a v7 build). Sound on: the
+  // Live coach runs when the server allows it, and otherwise every line is spoken with the phone's own
+  // speech (PhoneVoice: ar-SA, else any Arabic; English for the English interface). Sound off: silent.
+  // The captions show either way.
+  const [soundOn, setSoundOn] = useState(() => readSound());
+  const phone = useMemo(() => new PhoneVoice(lang), []);
+  useEffect(() => phone.setLang(lang), [lang, phone]);
   useEffect(() => {
-    player.muted = !soundOn;
-  }, [soundOn, player]);
-  // Step D5: while the live coach runs, the lines go through its local voice (the mic gate sees each
-  // one) and the range questions are the coach's to ask (bridge rule 2, D-12).
-  const voice = useMemo(() => new CueVoice(player), [player]);
+    phone.muted = !soundOn;
+    if (!soundOn) phone.stop();
+  }, [soundOn, phone]);
+  useEffect(() => () => phone.stop(), [phone]);
+  // While the live coach runs, the lines go through its local voice (the mic gate sees each one) and
+  // the range questions are the coach's to ask (bridge rule 2, D-12).
+  const voice = useMemo(() => new CueVoice(phone), [phone]);
   const coachMode = useRef<CoachMode>("off");
   useEffect(
     () =>
       session.onLine((l) => {
+        if (!soundOn) return;
         const id = voiceLineOf(l.line);
-        if (!soundOn || !isVoiceLine(id)) return;
         const severity = l.severity === "safety" ? "safety" : l.severity === "warn" ? "warn" : "info";
-        if (coachMode.current === "off") void player.line(id, severity);
-        else if (!COACH_ASK_LINES.has(id)) voice.say(id, severity);
+        if (coachMode.current === "off") {
+          if (isVoiceLine(id)) void phone.line(id, severity);
+          else void phone.say(lineText(l.line, lang), severity);
+        } else if (isVoiceLine(id) && !COACH_ASK_LINES.has(id)) voice.say(id, severity);
       }),
-    [session, soundOn, player, voice],
+    [session, soundOn, phone, voice, lang],
   );
+  /** Inside a tap (iOS): the phone's speech and the coach's audio may play from now on. */
+  const unlockSound = () => {
+    if (!soundOn) return;
+    PhoneVoice.unlock();
+    unlockCoachAudio();
+  };
   const toggleSound = () => {
     const on = !soundOn;
     setSoundOn(on);
-    if (on) CuePlayer.unlock();
-    savePreferences({ ...readPreferences(), voice: on ? "full" : "off" });
+    saveSound(on);
+    if (on) {
+      PhoneVoice.unlock();
+      unlockCoachAudio();
+    }
   };
 
-  // The coach is an enhancement, never a dependency (C-5): off by default. With the person's switch,
-  // the live_coach consent and a network (step D5), each range block is a coach segment (C-6:
-  // rom:<block>:1, then :2 after its fifth movement) with the RomController as its host; the walk's
-  // segment is GaitStep's own.
+  // The coach is an enhancement, never a dependency (C-5). With the sound on and a network, after the
+  // start (which records the live_coach consent from the health form's, D-034 item 4) the server says
+  // whether it can run the coach now (GET /api/agent/status, D-030 D5-12; the e2e fake coach needs no
+  // key). Each range block is then a coach segment (C-6: rom:<block>:1, then :2 after its fifth
+  // movement) with the RomController as its host; the walk's segment is GaitStep's own.
   const { online } = useOnline();
-  const coachWanted = readPreferences().liveCoach && m.data.context?.consent.live_coach === true;
-  // D-030 D5-12: the server says it can run the coach now (the e2e fake coach needs no key).
-  const coachStatus = useCoachStatus(coachWanted);
+  const checkId = m.data.check?.id ?? null;
+  const coachStatus = useCoachStatus(soundOn && checkId !== null, checkId);
   const coachOn = liveCoachOn({
-    preference: readPreferences().liveCoach,
-    consent: m.data.context?.consent.live_coach === true,
+    preference: soundOn,
+    consent: coachStatus?.consent === true || fakeCoachRun(),
     online,
     available: coachStatus?.available === true || fakeCoachRun(),
   });
+  useEffect(() => {
+    if (soundOn && checkId && coachStatus && !coachOn)
+      coachLog("the phone's own voice speaks the check", { ...coachStatus, online });
+  }, [soundOn, checkId, coachStatus, coachOn, online]);
   const lastSegment = useRef<CoachSegment | null>(null);
   let romSeg: CoachSegment | null = null;
   if (part?.kind === "range" && ctl && m.data.check) {
@@ -454,8 +476,8 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               wheelchair={m.data.intake?.mobility === "wheelchair"}
               onStart={() => {
-                CuePlayer.unlock();
-                if (coachOn) unlockCoachAudio();
+                // iOS: the first speech or audio must start from a tap (D-034 item 3).
+                unlockSound();
                 // iOS: the motion permission is asked inside a tap (v1's camera primer does the same).
                 orientation.askAgain();
                 session.dispatch({ type: "BEGIN" });
@@ -560,6 +582,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                   painBefore={session.walkBefore}
                   coach={(e) => coach.push(e)}
                   coachOn={coachOn}
+                  sound={soundOn}
                   onDone={() => session.gaitDone()}
                   onStop={(preselect) => session.requestStop(preselect ?? null)}
                   stopRef={walkStop}
@@ -663,7 +686,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               cameraError={cam.status === "error"}
               onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               onReady={() => {
-                if (coachOn) unlockCoachAudio();
+                unlockSound();
                 if (!blockWaiting) c.ready(clock());
               }}
             />
@@ -693,7 +716,13 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               total={runs.length}
               turnSide={step.turnSide}
               wheelchair={m.data.intake?.mobility === "wheelchair"}
-              onReady={() => c.ready(clock())}
+              onReady={() => {
+                // D-034 item 5: Ready starts the movement: «لنبدأ» on screen (the measurement's first
+                // line) and by voice, spoken inside the tap (iOS lets it play from here on).
+                unlockSound();
+                if (soundOn) void phone.say(tV7(lang, "rom.measure.letsStart"), "info");
+                c.ready(clock());
+              }}
             />
           ),
         };

@@ -13,8 +13,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
-import { CuePlayer, isVoiceLine } from "../../app/audio";
-import { readPreferences } from "../../app/experience";
+import { isVoiceLine } from "../../app/audio";
 import type { Tilt } from "../../engine/quality";
 import type { Frame } from "../../engine/types";
 import { localizeDigits } from "../../i18n";
@@ -32,6 +31,7 @@ import { useCoach } from "../coach-agent/useCoach";
 import { CueVoice } from "../coach-agent/LocalVoice";
 import { CoachCaption } from "../coach-agent/CoachCaption";
 import { unlockCoachAudio } from "../coach-agent/audio/context";
+import { PhoneVoice } from "../coach-agent/phoneVoice";
 import {
   CAMERA_STEPS,
   CAPTURE_RULES,
@@ -247,12 +247,19 @@ export default function GaitCapture(props: GaitStepProps) {
     return () => clearInterval(id);
   }, [ctl, clock]);
 
-  // The voice pack (off by default): the controller's lines when the voice is on, through the coach's
-  // local voice while the live coach runs (its mic gate sees every local line, D-12).
-  const player = useMemo(() => new CuePlayer(lang), []);
+  // D-034 item 3: the shell's one sound switch (props.sound). Sound on and no live coach: the
+  // controller's lines with the phone's own speech; through the coach's local voice while the coach
+  // runs (its mic gate sees every local line, D-12). Sound off: silent, the captions stay.
+  const soundOn = props.sound === true;
+  const player = useMemo(() => new PhoneVoice(lang), []);
   const voice = useMemo(() => new CueVoice(player), [player]);
   useEffect(() => player.setLang(lang), [lang, player]);
+  useEffect(() => {
+    player.muted = !soundOn;
+  }, [player, soundOn]);
   useEffect(() => () => player.stop(), [player]);
+  const soundRef = useRef(soundOn);
+  soundRef.current = soundOn;
   // The walk's coach segment (C-6: gait), with the GaitController as its host (step D5): on with the
   // person's switch, the live_coach consent and a network (props.coachOn), else off (C-5).
   const coach = useCoach(
@@ -267,7 +274,7 @@ export default function GaitCapture(props: GaitStepProps) {
   useEffect(
     () =>
       ctl.onLine((line, severity) => {
-        if (readPreferences().voice !== "full" || !isVoiceLine(line)) return;
+        if (!soundRef.current || !isVoiceLine(line)) return;
         if (coachMode.current === "off") void player.line(line, severity);
         else voice.say(line, severity);
       }),

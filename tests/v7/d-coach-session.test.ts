@@ -62,6 +62,7 @@ function harness(o: Options = {}) {
   const voice = new FakeVoice();
   const audioSessions: boolean[] = [];
   const measures: { name: string; start: number; duration: number }[] = [];
+  const logs: { message: string; data?: Record<string, unknown> }[] = [];
   let online = o.online ?? true;
   let handlers: { offline(): void; online(): void; hidden(): void } | null = null;
   const deps: CoachDeps = {
@@ -90,6 +91,7 @@ function harness(o: Options = {}) {
     },
     audioSession: (live) => audioSessions.push(live),
     measure: (name, start, duration) => measures.push({ name, start, duration }),
+    log: (message, data) => logs.push({ message, ...(data ? { data } : {}) }),
     tickMs: 50,
   };
   const host = o.host ?? new RefRomHost();
@@ -122,6 +124,7 @@ function harness(o: Options = {}) {
     host,
     audioSessions,
     measures,
+    logs,
     live,
     sent,
     contexts,
@@ -440,6 +443,9 @@ describe("the microphone (rule 3)", () => {
     h.session.start();
     await run(1000);
     expect(h.session.getSnapshot().mode).toBe("local");
+    // D-034 item 3: never silent: the console says the microphone was refused and the coach fell back.
+    expect(h.logs.some((l) => l.message.includes("microphone"))).toBe(true);
+    expect(h.logs.some((l) => l.message.includes("local voice"))).toBe(true);
     h.push(movementResult());
     await run(5000);
     expect(h.mints).toHaveLength(1);
@@ -561,6 +567,11 @@ describe("the fallbacks of rule 6, each within 1 s, with the test going on by bu
       h.session.start();
       await run(100);
       expect(h.session.getSnapshot().mode, error).toBe("local");
+      // D-034 item 3: a refused token is never silent (the page's console says why).
+      expect(
+        h.logs.some((l) => l.message.includes("token") && l.data?.error === error),
+        error,
+      ).toBe(true);
       h.push(movementResult());
       await run(2000);
       expect(h.mints, error).toHaveLength(1);

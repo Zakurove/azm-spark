@@ -95,7 +95,8 @@ export class CuePlayer {
       CuePlayer.activity.delete(fn);
     };
   }
-  private static report(playing: boolean, severity: Severity): void {
+  /** A line started or ended: every activity listener hears it (the phone's speech reports here too). */
+  static report(playing: boolean, severity: Severity): void {
     for (const fn of [...CuePlayer.activity]) fn(playing, severity);
   }
 

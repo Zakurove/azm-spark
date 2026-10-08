@@ -80,6 +80,12 @@ export interface CoachDeps {
   measure?(name: CoachMeasure, start: number, duration: number): void;
   /** The bridge's tick (default 100 ms). */
   tickMs?: number;
+  /**
+   * D-034 item 3: why the coach is not live is never silent: a refused token, a failed connection, a
+   * refused microphone and each fallback are written here (the page's console). Never the token or
+   * any key: the status, the server's error code and the reason only.
+   */
+  log?(message: string, data?: Record<string, unknown>): void;
 }
 
 /**
@@ -314,7 +320,8 @@ export class CoachSession {
       model: minted.token.model,
       apiVersion: minted.token.apiVersion,
       history,
-    }).catch(() => {
+    }).catch((e: unknown) => {
+      this.deps.log?.("connection failed", { message: e instanceof Error ? e.message : String(e) });
       if (this.transport === t) this.fallback("fallback_error");
     });
   }
@@ -338,6 +345,7 @@ export class CoachSession {
     if (this.ended) return null;
     if (res.ok) this.deps.measure?.("azm:coach_mint", asked, this.deps.now() - asked);
     if (!res.ok) {
+      this.deps.log?.("token refused", { status: res.status, error: res.error, segment: this.opts.segment });
       if (res.error === "BUDGET" || FINAL_STATUS.has(res.status)) this.noCoach = true;
       if (this.snap.mode === "connecting")
         this.fallback(
@@ -449,8 +457,10 @@ export class CoachSession {
         this.responseTokens += e.responseTokens;
         return;
       case "error":
+        this.deps.log?.("connection error", { code: e.code });
         return this.fallback("fallback_error");
       case "close":
+        this.deps.log?.("connection closed", { code: e.code });
         // S0-3: the connection limit, the token's own end (1011 "auth token has expired") or the end
         // a goAway announced is not an error.
         return this.fallback(
@@ -481,6 +491,7 @@ export class CoachSession {
   /** Rule 6: the segment goes on with the local voice. */
   private fallback(reason: CoachEndReason): void {
     if (this.ended || (this.snap.mode !== "live" && this.snap.mode !== "connecting")) return;
+    this.deps.log?.("local voice", { reason, segment: this.opts.segment });
     this.detach();
     this.stopMic();
     this.speaker.flush();
@@ -535,8 +546,9 @@ export class CoachSession {
         if (this.snap.mode === "live" && this.bridge.micOpen && this.mic === mic)
           this.transport?.sendAudio(pcm);
       })
-      .catch(() => {
+      .catch((e: unknown) => {
         if (this.mic !== mic) return;
+        this.deps.log?.("microphone refused", { name: e instanceof Error ? e.name : String(e) });
         this.mic = null;
         // A refused microphone is not asked again in this segment.
         this.noCoach = true;

@@ -46,6 +46,11 @@ export interface GaitStepProps {
    * (contract gap C4-4). Absent or false: the coach is off and the walk runs on its own voice.
    */
   coachOn?: boolean;
+  /**
+   * D-034 item 3: the shell's one sound switch. On: the walk's lines are spoken (the live coach's when
+   * it runs, else the phone's own speech); off or absent: silent, the captions stay.
+   */
+  sound?: boolean;
   /** What of B's slot shows now (D-030 C4-7): its title card and its skip (walkChrome). */
   onChrome?(chrome: { hero: boolean; skip: boolean }): void;
 }

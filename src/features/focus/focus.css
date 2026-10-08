@@ -315,7 +315,15 @@
   z-index: 5;
   margin: 0 -16px;
   padding: 18px 16px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(248, 245, 239, 0) 0%, rgba(248, 245, 239, 0.94) 38%);
+  background: linear-gradient(180deg, rgba(248, 245, 239, 0) 0, rgba(248, 245, 239, 0.98) 18px);
+}
+/* A Ready still waiting for the camera stays solid over the page under it (no text shows through). */
+.azm-check.fx .fx-actions.is-sticky .fx-button:disabled,
+.azm-check.fx .fx-actions.is-sticky .fx-button[aria-busy="true"] {
+  opacity: 1;
+  background: #ece6d8;
+  color: var(--fx-muted);
+  box-shadow: none;
 }
 .fx-split > .fx-actions.is-sticky {
   grid-column: 1 / -1;

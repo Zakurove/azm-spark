@@ -23,7 +23,7 @@ describe("the focus check's words", () => {
       createElement(LeaveDialog, { lang: "ar", onStay: () => {}, onStop: () => {}, onLeave: () => {} }),
     );
     expect(html).toContain("هل تريد التوقف؟");
-    expect(html).toContain("وتبدأ من جديد في المرة القادمة.");
+    expect(html).toContain("وإن أنهيت القياس الآن فلن يكتمل.");
     expect(html).toContain("توقّف الآن");
     expect(html).toContain("أنهِ القياس");
     expect(html).toContain("تابع القياس");

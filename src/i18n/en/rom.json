@@ -25,7 +25,7 @@
     "startError": "The check did not start. Your answers are still here, so you can try again.",
     "stay": "Stay in the check",
     "stopTitle": "Do you want to stop?",
-    "stopBody": "If you feel unwell or need a rest, choose Stop now and we ask you why. If you leave the check now, it will not be completed, and next time you start again.",
+    "stopBody": "If you feel unwell or need a rest, choose Stop now and we ask you why. If you leave the check now, it will not be completed.",
     "stopNow": "Stop now"
   },
   "closed": {

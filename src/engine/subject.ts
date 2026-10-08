@@ -18,6 +18,17 @@
  *     (quality.ts). `touched` is true when a second person touched the subject in any of those
  *     frames, which makes the attempt invalid.
  * All thresholds are marked tune at booth in the spec.
+ *
+ * The anchor (SubjectLockOptions.anchor): "hip", the default, is the above (v1). "shoulders" is the
+ * v7 range runner's (D-034 item 1: seated at home 1.2 to 1.5 m from the phone, the legs and hips out
+ * of the picture): the jump is measured on the mid shoulder (whatever the shoulders' visibility, as v1
+ * reads the mid hip: in a side view the far shoulder is placed beside the near one), else on the mid
+ * hip as v1. The model guesses hips it cannot see
+ * with a high visibility, inside the picture, and the guess swings with the arm: in the real model
+ * smoke of the seated arm raise to the front (Lite) the mid hip moved up to 0.13 of the picture's
+ * height between two frames while the shoulders moved under 0.05, so the hip anchor paused the attempt
+ * for the whole raise. The shoulders are in the picture in every range position, and a swap to
+ * another person moves them as far as the hips.
  */
 import {
   dist,
@@ -70,6 +81,11 @@ export const SUBJECT_RULES = {
 } as const;
 
 export type PauseReason = "unlocked" | "lost" | "jump" | "overlap";
+
+export interface SubjectLockOptions {
+  /** The point the jump rule follows: "hip" (v1, the default) or "shoulders" (v7 range, see above). */
+  anchor?: "hip" | "shoulders";
+}
 
 export interface SubjectPick {
   /** The subject's landmarks, normalized as the model gave them, or null when not trusted in this frame. */
@@ -162,6 +178,8 @@ interface LockState {
   anchor: Pt;
   /** Last trusted mid hip, pixel space. */
   ref: Pt;
+  /** The anchor "shoulders": the last trusted frame's mid shoulder, null without both shoulder points. */
+  refShoulder: Pt | null;
   /** Body width used for the jump and touch rules, pixel space (see minWidthPerTrunk). */
   width: number;
 }
@@ -173,10 +191,22 @@ export class SubjectLock {
   private run = 0;
   private touchedAny = false;
 
-  constructor(private readonly rules: typeof SUBJECT_RULES = SUBJECT_RULES) {}
+  private readonly anchorMode: "hip" | "shoulders";
+
+  constructor(
+    private readonly rules: typeof SUBJECT_RULES = SUBJECT_RULES,
+    opts: SubjectLockOptions = {},
+  ) {
+    this.anchorMode = opts.anchor ?? "hip";
+  }
 
   get locked(): boolean {
     return this.state !== null;
+  }
+
+  /** The point the jump rule follows (SubjectLockOptions.anchor). */
+  get anchorKind(): "hip" | "shoulders" {
+    return this.anchorMode;
   }
 
   /** Calibration mid hip in pixel space, or null before a lock. */
@@ -212,7 +242,14 @@ export class SubjectLock {
       this.rules.minWidthPerTrunk * (Number.isFinite(trunk) ? trunk : 0),
       1e-3,
     );
-    this.state = { aspect: a, lastT: null, anchor: hip, ref: { ...hip }, width };
+    this.state = {
+      aspect: a,
+      lastT: null,
+      anchor: hip,
+      ref: { ...hip },
+      refShoulder: shoulderPoint(p),
+      width,
+    };
     return true;
   }
 
@@ -301,8 +338,7 @@ export class SubjectLock {
     let k = 0;
     let best = Infinity;
     people.forEach((p, j) => {
-      const hip = trackPoint(p.px);
-      const d = hip ? dist(hip, s.ref) : Infinity;
+      const d = this.distanceTo(p.px, s);
       if (d < best) {
         best = d;
         k = j;
@@ -325,7 +361,8 @@ export class SubjectLock {
       });
     }
 
-    s.ref = trackPoint(subject.px)!;
+    s.ref = trackPoint(subject.px) ?? s.ref;
+    s.refShoulder = shoulderPoint(subject.px);
     const box = poseBox(subject.px);
     let overlap = 0;
     for (const o of others) {
@@ -348,6 +385,17 @@ export class SubjectLock {
     });
   }
 
+  /**
+   * How far a pose's anchor moved from the subject's last trusted place (pixel space): the mid hip
+   * (v1), or with the anchor "shoulders" the mid shoulder (the class comment).
+   */
+  private distanceTo(px: Landmark[], s: LockState): number {
+    const shoulder = this.anchorMode === "shoulders" ? shoulderPoint(px) : null;
+    if (shoulder && s.refShoulder) return dist(shoulder, s.refShoulder);
+    const hip = trackPoint(px);
+    return hip ? dist(hip, s.ref) : Infinity;
+  }
+
   private count(p: SubjectPick): SubjectPick {
     if (p.paused) {
       this.pausedFrames++;
@@ -361,6 +409,10 @@ export class SubjectLock {
     return this.pick(posesOf(frame), frame.aspect ?? this.state?.aspect, frame.t);
   }
 }
+
+/** The mid shoulder whatever the shoulders' visibility, or null when one is not a finite number. */
+const shoulderPoint = (p: Landmark[]): Pt | null =>
+  finitePoint(p[LM.l_shoulder]) && finitePoint(p[LM.r_shoulder]) ? midShoulder(p) : null;
 
 /**
  * The point the lock follows: the mid hip (whatever the hips' visibility, see body.ts midHip), or

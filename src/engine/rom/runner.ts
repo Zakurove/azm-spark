@@ -57,11 +57,31 @@
  *     extra and names the arm to use; the mid hip and the face moving the same way since the start pose
  *     (camera moved, front view with the trunk reference, as v1) repeats it without a retry and takes
  *     the start pose again after the rest. Both repeats stay events: the stored result never holds them.
+ *
+ * D-034 item 1 (Nasser's first real test: seated at home 1.2 to 1.5 m from his iPhone, the legs out
+ * of the picture, every movement «not measured»):
+ *   - The quality gate needs only the movement's own landmarks in the picture (rom/quality.ts): close is
+ *     fine, too far only beyond the model's limit, and the view never blocks.
+ *   - A view the movement is not filmed in (at the start pose, or in an attempt's report) plays one calm
+ *     line per movement, «turn your side to the phone» or «face the phone» (viewCue); the movement's
+ *     plane check and compensation rules decide whether the attempt counts.
+ *   - The subject lock follows the shoulders (SubjectLock anchor "shoulders"): the model's guess of a
+ *     hip outside the picture swings with the arm, and never pauses scoring.
+ *   - The dial's landmarks lose one frame jumps before the One Euro filter (despike.ts).
+ *   - The arm raises to the front and to the back read the start trunk line in a frame whose hip is
+ *     hidden or at the picture's edge (angles.ts hipInPicture), so their hip never fails an attempt.
  */
 import { PoseSmoother } from "../oneEuro";
 import { toPixelSpace } from "../geometry";
-import { QualityMonitor, type QualityIssue, type QualityReport } from "../quality";
-import { SubjectLock } from "../subject";
+import {
+  QUALITY_RULES,
+  QualityMonitor,
+  ratioOfPixel,
+  viewOfRatio,
+  type QualityIssue,
+  type QualityReport,
+} from "../quality";
+import { SUBJECT_RULES, SubjectLock } from "../subject";
 import type { Frame, Landmark } from "../types";
 import type { Pt } from "../body";
 import {
@@ -82,6 +102,7 @@ import { TRUNK_RULES } from "../modes/trunkControl";
 import type { FeedEnv, QualitySummary } from "../modes/types";
 import { calibrate, cameraSide, MOVEMENT_ANGLES, type AngleContext, type RomCalibration } from "./angles";
 import { CompensationTracker, type CompensationHit, type HoldVerdict } from "./compensations";
+import { PoseDespiker } from "./despike";
 import { HoldDetector, holdOptions, PlateauDetector, type HoldFound, type HoldOptions } from "./hold";
 import { movementLandmarks, romQualityConfig } from "./quality";
 import type {
@@ -233,8 +254,14 @@ interface Attempt {
   monitor: QualityMonitor;
   /** The quality gate reads the attempt up to its hold, and again after «not yet». */
   monitoring: boolean;
-  /** The existing One Euro on the subject's landmarks (oneEuro.ts PoseSmoother): the dial's angle. */
+  /** The existing One Euro on the subject's landmarks (oneEuro.ts PoseSmoother): the angle the hold reads. */
   smoother: PoseSmoother;
+  /**
+   * The dial shown to the person: one frame jumps out of the landmarks (despike.ts), then its own One
+   * Euro, so a glitch never shows (D-034 item 1). The hold keeps its own chain above, whose 0.5 s
+   * median already drops such a frame, and its timing (the 8.2 acceptance and the v1 parity).
+   */
+  display: { despiker: PoseDespiker; smoother: PoseSmoother };
   /** v1's running median over the dial's angle: the angle the hold, the plateau and the checks read. */
   median: RunningMedian;
   hold: HoldDetector;
@@ -321,13 +348,18 @@ export class RomRunner {
   /* pause */
   private pausedFrom: RomPhase | null = null;
 
+  /** The view line was played (one calm cue per movement, D-034 item 1). */
+  private viewCued = false;
+  /** The view ratio of the frames while the start pose is taken, over the last calibration second. */
+  private readonly viewWatch: { t: number; ratio: number | null }[] = [];
+
   constructor(opts: RomRunnerOptions) {
     if (opts.def.id !== opts.item.movementId)
       throw new Error(`RomRunner: item ${opts.item.movementId} with the definition of ${opts.def.id}`);
     this.opts = opts;
     this.kind = opts.def.kind;
     this.mirrored = !!opts.mirrored;
-    this.lock = opts.subject ?? new SubjectLock();
+    this.lock = opts.subject ?? new SubjectLock(SUBJECT_RULES, { anchor: "shoulders" });
     this.tracker = new SubjectTracker(this.lock);
     this.comp = new CompensationTracker(opts.def, opts.item.position);
     this.holdOpts = holdOptions(opts.def.kind);
@@ -639,8 +671,12 @@ export class RomRunner {
     return { side: this.opts.item.side, mirrored: this.mirrored, rollDeg };
   }
 
-  private context(): AngleContext {
-    return { ...this.ctxBase(this.lastRoll ?? this.calRoll), calibration: this.cal! };
+  private context(aspect?: number): AngleContext {
+    return {
+      ...this.ctxBase(this.lastRoll ?? this.calRoll),
+      calibration: this.cal!,
+      ...(aspect !== undefined ? { aspect } : {}),
+    };
   }
 
   /** The start pose landmarks the calibration needs (the hip of the arm raise to the front may hide: gravity mode). */
@@ -678,6 +714,7 @@ export class RomRunner {
     }
     const tr = this.track(frame);
     const px = tr.pick.paused ? null : tr.px;
+    if (px) this.watchView(t, px);
     if (!px || !this.calibrationGate(px)) {
       this.calBuf = [];
       return;
@@ -707,8 +744,66 @@ export class RomRunner {
     this.camSide = this.majorityCameraSide();
     this.fixed = this.fixPicture();
     this.comp.calibrate(this.calBuf, { ...base, calibration: this.cal });
+    const view = this.startView();
     this.calBuf = [];
     this.startAttempt(t, this.practiceNeeded());
+    if (view !== null && view !== "unknown" && view !== this.opts.def.view) this.viewCue(t);
+  }
+
+  /**
+   * The view while the start pose is taken: once a second of the person's frames (calibrationSec) reads
+   * a view the movement is not filmed in, its one calm line plays, even when that view keeps the start
+   * pose from being taken (a side arm raise seen from the side hides the far shoulder).
+   */
+  private watchView(t: number, px: Landmark[]): void {
+    if (this.viewCued) return;
+    const w = this.viewWatch;
+    w.push({ t, ratio: ratioOfPixel(px) });
+    const from = t - this.calibrationSec * 1000;
+    while (w.length > 1 && w[1].t <= from) w.shift();
+    if (w[0].t > from) return;
+    const ratios = w.map((s) => s.ratio).filter((r): r is number => r !== null);
+    if (ratios.length / w.length < QUALITY_RULES.minViewShare) return;
+    const view = viewOfRatio(median(ratios));
+    if (view !== "unknown" && view !== this.opts.def.view) this.viewCue(t);
+  }
+
+  /** The view of the start pose (the median view ratio of its frames), null without frames. */
+  private startView(): ReturnType<typeof viewOfRatio> | null {
+    if (!this.calBuf.length) return null;
+    const ratios = this.calBuf.map((s) => ratioOfPixel(s.px)).filter((r): r is number => r !== null);
+    if (ratios.length / this.calBuf.length < QUALITY_RULES.minViewShare) return "unknown";
+    return viewOfRatio(median(ratios));
+  }
+
+  /** An attempt's report advises a view the movement is not filmed in: the view line, once. */
+  private advise(q: QualityReport, t: number): void {
+    if (q.advice?.includes("wrong_view")) this.viewCue(t);
+  }
+
+  /**
+   * One calm line when the picture is not the movement's view (D-034 item 1: the view never blocks): a
+   * side view asks the measured side to the phone (an axial side view: the side the camera sees, else
+   * the right), a front view asks the person to face it. At most once per movement.
+   */
+  private viewCue(t: number): void {
+    if (this.viewCued) return;
+    this.viewCued = true;
+    const def = this.opts.def;
+    if (def.view === "front") {
+      this.cue("check_face_phone", t);
+      return;
+    }
+    const seen =
+      this.camSide === null
+        ? null
+        : this.mirrored
+          ? this.camSide === "left"
+            ? "right"
+            : "left"
+          : this.camSide;
+    const side = def.axial ? (seen ?? "right") : this.opts.item.side === "left" ? "left" : "right";
+    this.cue(side === "left" ? "check_left_side_to_phone" : "check_right_side_to_phone", t);
   }
 
   /** v1 4.1: the arm by the side at the start (the tested arm, and both for the side arm raise), at or under the relaxed angle. */
@@ -790,6 +885,7 @@ export class RomRunner {
       ),
       monitoring: true,
       smoother: new PoseSmoother(),
+      display: { despiker: new PoseDespiker(ROM_DATA.engine.visibilityMin), smoother: new PoseSmoother() },
       median: new RunningMedian(RUNNER_RULES.holdMedianSec * 1000),
       hold,
       plateau: new PlateauDetector(this.holdOpts),
@@ -833,17 +929,27 @@ export class RomRunner {
     return v !== null && Number.isFinite(v) ? v : null;
   }
 
+  /** The dial shown: the movement angle of the landmarks without one frame jumps (despike.ts), One Euro filtered. */
+  private shownAngle(a: Attempt, frame: Frame, tr: Tracked, ctx: AngleContext): number | null {
+    if (!tr.raw) return null;
+    const steady = a.display.despiker.push(tr.raw, frame.t);
+    const smoothed = toPixelSpace(a.display.smoother.smooth(steady, frame.t), frame.aspect);
+    const v = MOVEMENT_ANGLES[this.opts.def.id](smoothed, ctx);
+    return v !== null && Number.isFinite(v) ? v : null;
+  }
+
   private attempting(frame: Frame): void {
     const a = this.att!;
     const t = frame.t;
     const tr = this.track(frame);
     if (a.monitoring) a.monitor.feedPick(frame, tr.pick);
     const px = tr.pick.paused ? null : tr.px;
-    const ctx = this.context();
+    const ctx = this.context(frame.aspect);
     const angle = px ? MOVEMENT_ANGLES[this.opts.def.id](px, ctx) : null;
     const dial = px ? this.dialAngle(a, frame, tr, ctx) : null;
+    const shown = px ? this.shownAngle(a, frame, tr, ctx) : null;
     if (px && angle !== null && Number.isFinite(angle) && dial !== null) {
-      this.sink.push({ kind: "live", deg: round1(dial), t });
+      if (shown !== null) this.sink.push({ kind: "live", deg: round1(shown), t });
       const f = a.median.push(t, dial);
       if (a.arm && this.armWatch(a.arm, t, px, ctx, f)) return;
       if (a.startDeg === null) a.startDeg = f;
@@ -1014,8 +1120,10 @@ export class RomRunner {
     const t = frame.t;
     const tr = this.track(frame);
     const px = tr.pick.paused ? null : tr.px;
-    const dial = px ? this.dialAngle(a, frame, tr, this.context()) : null;
-    if (dial !== null) this.sink.push({ kind: "live", deg: round1(dial), t });
+    // The hold's filter follows the frames while the question is open, as before.
+    if (px) this.dialAngle(a, frame, tr, this.context(frame.aspect));
+    const shown = px ? this.shownAngle(a, frame, tr, this.context(frame.aspect)) : null;
+    if (shown !== null) this.sink.push({ kind: "live", deg: round1(shown), t });
     if (t < this.answerDeadline || !a.current) return;
     // «No answer within 10 s: the hold is recorded as unconfirmed.» A small hold needs «نعم»: the attempt goes on.
     const held = a.current;
@@ -1063,6 +1171,7 @@ export class RomRunner {
     this.att = null;
     const q = a.monitor.report();
     this.reports.push(q);
+    this.advise(q, t);
     if (!found) this.noHoldTries++;
     const flagged = verdict?.flagged ?? [];
     this.practiceRec = {
@@ -1111,6 +1220,7 @@ export class RomRunner {
     }
     this.att = null;
     this.reports.push(q);
+    this.advise(q, t);
     const painLimited = held.answer === "hurts" || a.pain;
     const rec: RomAttempt = {
       index: a.index,
@@ -1162,6 +1272,7 @@ export class RomRunner {
     this.att = null;
     const q = report ?? a.monitor.report();
     this.reports.push(q);
+    this.advise(q, t);
     const reasons = why === "no_hold" ? ["no_hold", ...q.issues] : ids;
     // As v1: every quality issue of a repeated attempt is reported.
     for (const i of q.issues) this.retryIssues.add(i);

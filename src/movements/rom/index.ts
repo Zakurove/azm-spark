@@ -38,8 +38,12 @@ export const ROM_DATA: RomData = checked as unknown as RomData;
 export const ROM_RULES_VERSION = `rom_protocol_${ROM_DATA.specVersion}`;
 /** The norms ship inside the ROM data, so they carry its spec version. */
 export const NORMS_VERSION = `rom_norms_${ROM_DATA.specVersion}`;
-/** The runner's version, stored with every measurement (bumped by stream B when the runner changes). */
-export const ROM_ENGINE_VERSION = "rom_engine_1";
+/**
+ * The runner's version, stored with every measurement (bumped by stream B when the runner changes).
+ * rom_engine_2: D-034 item 1, the range gate after Nasser's first real test (its own landmarks only,
+ * close is fine, the view a line, the shoulders anchor, the arm raises' hidden hip, the dial despiked).
+ */
+export const ROM_ENGINE_VERSION = "rom_engine_2";
 
 function missing(kind: string, id: string): never {
   throw new Error(`Unknown range of motion ${kind}: ${id}`);

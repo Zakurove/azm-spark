@@ -115,7 +115,8 @@ function trunkRef(p: Landmark[]): number | null {
   return arm > 1e-3 ? arm * TRUNK_PER_UPPER_ARM : null;
 }
 
-function ratioOfPixel(p: Landmark[]): number | null {
+/** Pixel space shoulder width ÷ trunk length of a pose already in pixel space, or null (see viewRatio). */
+export function ratioOfPixel(p: Landmark[]): number | null {
   // One visible shoulder is enough: in a side view the model still places the far shoulder.
   if (!visible(p, LM.l_shoulder) && !visible(p, LM.r_shoulder)) return null;
   const t = trunkRef(p);
@@ -175,12 +176,25 @@ export function estimateDistanceM(trunkOverHeight: number, aspect?: number): num
   return CAMERA_MODEL.nominalTrunkM / (Math.max(trunkOverHeight, 1e-6) * 2 * verticalTan);
 }
 
+/**
+ * How the camera distance can fail an attempt or a setup.
+ *   - "band" (v1): too close or too far against the test's setup distance (distanceIssue).
+ *   - "trackable" (v7, D-034 item 1): never too close, since the angle does not depend on the
+ *     distance and a body part that leaves the picture is out_of_frame (the gate's own 3 percent
+ *     margin); too far only beyond the pose model's limit, CAMERA_MODEL.maxDistanceM («People further
+ *     than about 4 m ... are out of scope», research rom.md [S31]), where the measured landmarks are
+ *     too small to track. The setup copy keeps the movement's suggested distance.
+ */
+export type DistanceRule = "band" | "trackable";
+
 /** too_close, too_far or null for an estimated distance against a test's setup distance. */
 export function distanceIssue(
   estimateM: number | null,
   band: readonly [number, number],
+  rule: DistanceRule = "band",
 ): "too_close" | "too_far" | null {
   if (estimateM === null) return null;
+  if (rule === "trackable") return estimateM > CAMERA_MODEL.maxDistanceM ? "too_far" : null;
   const tol = CAMERA_MODEL.distanceTolerance;
   if (estimateM < band[0] * (1 - tol)) return "too_close";
   if (estimateM > Math.min(CAMERA_MODEL.maxDistanceM, band[1] * (1 + tol))) return "too_far";
@@ -247,6 +261,14 @@ export interface QualityConfig {
    * so the view retry cue names that side.
    */
   weaker?: Side | null;
+  /** How the distance fails an attempt (DistanceRule); absent: "band", as v1. */
+  distanceRule?: DistanceRule;
+  /**
+   * A view the test does not accept fails the attempt (v1, absent or true). False (v7, D-034 item 1):
+   * the view is advice (QualityReport.advice) for one calm cue, never a block; if the view really is
+   * wrong, the movement's own plane check and its compensation rules decide.
+   */
+  viewBlocks?: boolean;
 }
 
 export interface QualityOptions {
@@ -331,6 +353,11 @@ export interface QualityReport {
   distanceM: number | null;
   /** In the order to act on them; the first one gives `cue`. */
   issues: QualityIssue[];
+  /**
+   * Issues that never fail the attempt, for a calm cue: a view the movement is not filmed in when the
+   * view does not block (QualityConfig.viewBlocks false, v7). Absent for a gate whose view blocks (v1).
+   */
+  advice?: QualityIssue[];
   /** Gate landmarks under the minimum visibility in too many frames (empty when visible). */
   missing: number[];
   /** The retry cue for the first issue (retryCue), null when the attempt is ok or `testId` is null. */
@@ -467,10 +494,11 @@ export class QualityMonitor {
     const touched = r.some((x) => x.touching);
 
     const found = new Set<QualityIssue>();
+    const viewBlocks = c.viewBlocks !== false;
     if (notVisible) found.add("not_visible");
     if (n && inFrameShare < c.minInFrameShare) found.add("out_of_frame");
-    if (n && !viewOk) found.add("wrong_view");
-    const d = distanceIssue(distanceM, c.distanceM);
+    if (n && !viewOk && viewBlocks) found.add("wrong_view");
+    const d = distanceIssue(distanceM, c.distanceM, c.distanceRule);
     if (d) found.add(d);
     if (n && fps < c.minFps) found.add("low_fps");
     if (pausedShare > c.maxPausedShare) found.add("paused");
@@ -493,6 +521,7 @@ export class QualityMonitor {
       distance: distance === null ? null : round(distance),
       distanceM: distanceM === null ? null : round(distanceM, 2),
       issues,
+      ...(viewBlocks ? {} : { advice: n && !viewOk && view !== "unknown" ? ["wrong_view" as const] : [] }),
       missing,
       cue:
         issues.length && c.testId !== null ? retryCue(issues[0], c.testId, c.side, missing, c.weaker) : null,
@@ -625,6 +654,13 @@ export interface SetupConfig {
   armRoom: boolean;
   /** Chair stand: the declared weaker side, which puts the phone toward the other side (4.4). */
   weaker?: Side | null;
+  /**
+   * How the distance reads (DistanceRule); absent: "band", as v1. "trackable" also makes the room for
+   * the arms (armRoom, a too close reading) a warning: the framing names what must show.
+   */
+  distanceRule?: DistanceRule;
+  /** A view the test does not accept is an issue (absent or true, v1) or only a warning (false, v7). */
+  viewBlocks?: boolean;
 }
 
 // SPEC-GAP: stand-headroom. "From the head at full stand" cannot be seen while the person sits
@@ -797,10 +833,18 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
   const warnings: SetupIssue[] = [];
 
   if (!found.has("no_person")) {
-    for (const k of ["second_person", "framing", "arm_room"] as const) if (majority(k)) found.add(k);
-    const d = distanceIssue(distanceM, cfg.distanceM);
+    const trackable = cfg.distanceRule === "trackable";
+    for (const k of ["second_person", "framing"] as const) if (majority(k)) found.add(k);
+    if (majority("arm_room")) {
+      if (trackable) warnings.push("arm_room");
+      else found.add("arm_room");
+    }
+    const d = distanceIssue(distanceM, cfg.distanceM, cfg.distanceRule);
     if (d) found.add(d);
-    if (!cfg.views.includes(view)) found.add("wrong_view");
+    if (!cfg.views.includes(view)) {
+      if (cfg.viewBlocks === false) warnings.push("wrong_view");
+      else found.add("wrong_view");
+    }
     if (light !== null && light < SETUP_RULES.lightMin) found.add("light");
   }
   const tilt = opts.tilt;

@@ -633,7 +633,7 @@ describe("POST /api/focus: a booth start", () => {
       rom: ROM_RULES_VERSION,
       norms: NORMS_VERSION,
       gait: GAIT_RULES_VERSION,
-      romEngine: "rom_engine_1",
+      romEngine: "rom_engine_2",
       gaitEngine: GAIT_ENGINE_VERSION,
     });
     // The pre-check keeps the v1 data map and the consent, never a raw answer.

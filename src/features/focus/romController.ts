@@ -1021,7 +1021,9 @@ export class RomController implements CoachHost {
     const askCauseBelow = def.kind === "lack" ? norm.withinUpTo : norm.withinFrom;
     const leanBest = item.side === "none" ? undefined : this.opts.sideLeanBest?.[item.side];
     this.runner = new RomRunner({
-      item,
+      // D-034 item 4: «can you move this joint» is never asked, also for a protocol frozen before it:
+      // the person tries, and a movement they cannot do ends as not measured, with no blame.
+      item: item.askCanMove ? { ...item, askCanMove: false } : item,
       def,
       painBefore: this.painBefore(item),
       askCauseBelow,

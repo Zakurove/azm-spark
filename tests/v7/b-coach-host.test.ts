@@ -178,34 +178,14 @@ describe("confirm_max", () => {
 });
 
 describe("answer_can_move and set_limit_cause", () => {
-  it("answers the can move question of a weak joint: lets_begin or not_today", () => {
-    const yes = setup(WEAK_KNEE);
-    reach(yes, (c) => c.phase === "ask_can_move");
-    expect(yes.step().kind).toBe("question");
-    expect(yes.handleTool("answer_can_move", { ...KNEE_BEND, canMove: true })).toEqual({
-      accepted: true,
-      say: "lets_begin",
-    });
-    expect(yes.phase).toBe("calibrating");
-
-    const no = setup(WEAK_KNEE);
-    reach(no, (c) => c.phase === "ask_can_move");
-    expect(no.handleTool("answer_can_move", { ...KNEE_BEND, canMove: false })).toEqual({
-      accepted: true,
-      say: "not_today",
-    });
-    expect(no.current.kind).toBe("result");
-    const [saved] = saves(no.drain());
-    expect(saved.result.reason).toBe("no_active_movement");
-  });
-
-  it("refuses a can move answer for another movement or side (stale_hold)", () => {
+  it("never asks the can move question of a weak joint (D-034 item 4): answer_can_move has no question", () => {
     const ctl = setup(WEAK_KNEE);
-    reach(ctl, (c) => c.phase === "ask_can_move");
-    expect(
-      ctl.handleTool("answer_can_move", { movement: "knee_flexion", side: "left", canMove: true }),
-    ).toEqual({ accepted: false, reason: "stale_hold" });
-    expect(ctl.phase).toBe("ask_can_move");
+    reach(ctl, (c) => c.phase === "calibrating");
+    expect(ctl.phase).toBe("calibrating");
+    expect(ctl.handleTool("answer_can_move", { ...KNEE_BEND, canMove: true })).toEqual({
+      accepted: false,
+      reason: "wrong_phase",
+    });
   });
 
   it("refuses can move outside its question, and the cause outside its question", () => {
@@ -535,16 +515,6 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
         return c;
       },
       accepts: ["set_limit_cause"],
-    },
-    {
-      name: "the can move question",
-      kind: "question",
-      reach: () => {
-        const c = setup(WEAK_KNEE);
-        reach(c, (x) => x.phase === "ask_can_move");
-        return c;
-      },
-      accepts: ["answer_can_move"],
     },
     {
       name: "a pause made on the screen",

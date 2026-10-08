@@ -112,6 +112,7 @@
     "typical": "Typical",
     "tries": "Tries",
     "quality": "The camera could not see the movement clearly enough, so we did not record it today.",
+    "notToday": "That is fine. We did not measure this movement today.",
     "byChoice": "You stopped this movement, so we did not record it today.",
     "next": "Next movement",
     "finish": "Continue",

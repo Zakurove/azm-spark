@@ -674,3 +674,37 @@ describe("the result card and the findings page read one knee history", () => {
     expect(label("left")).toBe(romResultLine("label_within").en);
   });
 });
+
+describe("a movement a weak joint could not do (D-034 item 4)", () => {
+  it("ends as not measured with no blame: no camera line, a calm one", async () => {
+    const { resultView } = await import("../../src/features/focus/copy");
+    const item = {
+      movementId: "elbow_flexion",
+      side: "right",
+      region: "elbow",
+      position: "seated",
+      block: "seated",
+      order: 1,
+      priority: "core",
+      verdict: "measure",
+      normId: null,
+      graded: true,
+      askCanMove: false,
+      helperRequired: false,
+      approximate: false,
+    } as const;
+    const nothing = { value: null, nValid: 0, flags: [], reason: "quality" } as unknown as RomMeasureResult;
+    const weak = intakeOf([{ region: "elbow", side: "right", problems: ["weakness"], origin: "person" }]);
+    const stiff = intakeOf([{ region: "elbow", side: "right", problems: ["stiffness"], origin: "person" }]);
+    for (const lang of ["ar", "en"] as const) {
+      const ui = (k: string) => tV7(lang, `rom.${k}` as never);
+      const calm = resultView(item, nothing, "not_today", null, weak, lang, ui);
+      expect(calm.line).toBe(tV7(lang, "rom.result.notToday"));
+      expect(calm.line).not.toBe(tV7(lang, "rom.result.quality"));
+      // Without weakness in the joint, the camera line stays (its setup can be fixed next time).
+      expect(resultView(item, nothing, "not_today", null, stiff, lang, ui).line).toBe(
+        tV7(lang, "rom.result.quality"),
+      );
+    }
+  });
+});

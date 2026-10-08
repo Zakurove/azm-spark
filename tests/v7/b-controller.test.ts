@@ -49,6 +49,20 @@ function controller(protocol: RomProtocol, over: Partial<RomControllerOptions> =
 
 const keysOf = (items: readonly RomProtocolItem[]) => items.map(itemKey);
 
+describe("no «can you move this joint» (D-034 item 4)", () => {
+  it("never asks it, even for a protocol kept before D-034 that says askCanMove: the person just tries", () => {
+    const p = protocolOf(KNEE);
+    const old: RomProtocol = { ...p, items: p.items.map((i) => ({ ...i, askCanMove: true })) };
+    const ctl = controller(old);
+    ctl.startBlock("lying", 0);
+    ctl.ready(10);
+    expect(ctl.current.kind).toBe("setup");
+    ctl.ready(20);
+    expect(ctl.current.kind).toBe("measure");
+    expect(ctl.phase).toBe("calibrating");
+  });
+});
+
 describe("the range blocks in C-13 order", () => {
   it("runs the blocks with a movement today as seated, standing, lying, each in protocol order", () => {
     const p = protocolOf(MIXED);

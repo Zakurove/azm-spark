@@ -336,8 +336,10 @@ export function missingDayItems(input: DayInput): DayItem[] {
  * The day's answers as a pre-check outcome (D-032 item 2), so the v1 bridge applies them unchanged:
  * day_worry_ask yes skips the check today (postpone, next day lock); otherwise it proceeds with the
  * v1.1 helper rules at home, on the proxy tests: the chair stand's (the standing items and the walk)
- * and the side lean's (the seated side bend), each skipped (helper_needed) without someone there. The
- * stored data map keeps the highest pain today, the leg prosthesis and the tests with a helper.
+ * and the side lean's (the seated side bend), each a helper line since D-034 item 2 (never a skip:
+ * the day screen and its helper question are gone). Since D-034 the client sends no day answers
+ * (pain before 0 per area), so a start always proceeds. The stored data map keeps the highest pain
+ * today, the leg prosthesis and the tests with a helper.
  */
 export function dayOutcome(input: Pick<DayInput, "intake" | "setting" | "today">): PrecheckOutcome {
   const { intake, setting, today } = input;
@@ -357,21 +359,16 @@ export function dayOutcome(input: Pick<DayInput, "intake" | "setting" | "today">
       skips: [],
       helperRequired: [],
     };
+  // D-034 item 2: a helper is a line, not a gate. The helper rules still mark the standing items, the
+  // walk and the side bend as needing someone beside the person (their cards say so and the block's
+  // «جاهز» confirms it), but no part is skipped for want of a helper: no day question asks any more.
   const helperRequired: TestId[] = [];
   const skips: SkipItem[] = [];
-  const present = today.helperPresent === true;
   if (setting === "home") {
-    if (standingHelperRule(intake, today)) {
-      helperRequired.push("chair_stand_30s");
-      if (!present) skips.push({ testId: "chair_stand_30s", side: "none", reason: "helper_needed" });
-    }
-    if (sideLeanHelperRule(intake)) {
-      helperRequired.push("trunk_control_seated");
-      if (!present)
-        for (const side of ["left", "right"] as const)
-          skips.push({ testId: "trunk_control_seated", side, reason: "helper_needed" });
-    }
-    if (present && helperRequired.length) stored["fingerprint.helperPresent"] = [...helperRequired];
+    if (standingHelperRule(intake, today)) helperRequired.push("chair_stand_30s");
+    if (sideLeanHelperRule(intake)) helperRequired.push("trunk_control_seated");
+    if (today.helperPresent === true && helperRequired.length)
+      stored["fingerprint.helperPresent"] = [...helperRequired];
   }
   return { ...base, status: "proceed", skips, helperRequired };
 }

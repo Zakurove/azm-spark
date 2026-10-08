@@ -121,6 +121,19 @@ export interface ResultView {
   more: string[];
 }
 
+/** The body map marks weakness in the item's joint, on its side (or both sides, or the trunk). */
+export function weakAt(
+  intake: Pick<Intake, "regions"> | null,
+  item: Pick<RomProtocolItem, "region" | "side">,
+): boolean {
+  return (intake?.regions ?? []).some(
+    (e) =>
+      e.region === item.region &&
+      (item.side === "none" || e.side === item.side || e.side === "both" || e.side === "axial") &&
+      e.problems.includes("weakness"),
+  );
+}
+
 /** Knee straightening lying: «label_uncertain replaces label_within» for these histories (7.4). */
 const UNCERTAIN_PROBLEMS = ["injury", "after_surgery", "limb_loss"] as const;
 const UNCERTAIN_CONDITIONS = ["arthritis", "cerebral_palsy"];
@@ -145,16 +158,21 @@ export function resultView(
   const more: string[] = [];
   const v = result.value;
   if (v === null) {
+    // D-034 item 4: nobody asks whether a weak joint can move any more; the person tries, and a
+    // movement of a weak joint the camera could not measure ends calmly, with no blame on anyone.
+    const quality = result.reason === "quality" || result.reason === "no_hold";
     const line =
       result.reason === "no_active_movement"
         ? copyText("no_active_movement", lang)
         : result.reason === "pain_stop"
           ? copyText("pain_stop", lang)
-          : result.reason === "quality" || result.reason === "no_hold"
-            ? ui("result.quality")
-            : result.reason === "by_choice"
-              ? ui("result.byChoice")
-              : copyText("not_today_safety", lang);
+          : quality && weakAt(intake, item)
+            ? ui("result.notToday")
+            : quality
+              ? ui("result.quality")
+              : result.reason === "by_choice"
+                ? ui("result.byChoice")
+                : copyText("not_today_safety", lang);
     const shown: RomFindingId = result.reason === "pain_stop" ? "pain_limited" : finding;
     const labelKey = FINDING_LABEL[shown];
     return {

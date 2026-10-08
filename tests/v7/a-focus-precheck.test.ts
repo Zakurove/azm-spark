@@ -600,14 +600,14 @@ describe("dayOutcome: the day's answers as a pre-check outcome", () => {
     expect(o.stored.painNow).toBe(4);
   });
 
-  it("the chair stand's helper rule at home: unsteady, an aid or the conditions need someone; none there skips the standing items and the walk", () => {
+  it("the chair stand's helper rule at home: unsteady, an aid or the conditions need someone; a line, never a skip (D-034 item 2)", () => {
     const steady = intake({ regions: knee });
     expect(
       dayOutcome({ intake: steady, setting: "home", today: today({ unsteady: false }) }).helperRequired,
     ).toEqual([]);
     const unsteady = dayOutcome({ intake: steady, setting: "home", today: today({ unsteady: true }) });
     expect(unsteady.helperRequired).toEqual(["chair_stand_30s"]);
-    expect(unsteady.skips).toEqual([{ testId: "chair_stand_30s", side: "none", reason: "helper_needed" }]);
+    expect(unsteady.skips).toEqual([]);
     const helped = dayOutcome({
       intake: steady,
       setting: "home",
@@ -632,17 +632,15 @@ describe("dayOutcome: the day's answers as a pre-check outcome", () => {
     });
     const alone = dayOutcome({ intake: stroke, setting: "home", today: today() });
     expect(alone.helperRequired).toContain("trunk_control_seated");
-    expect(alone.skips.filter((x) => x.testId === "trunk_control_seated").map((x) => x.side)).toEqual([
-      "left",
-      "right",
-    ]);
-    // Applied through the bridge: the seated side bend does not run without someone there.
+    // D-034 item 2: a helper is a line, not a gate: nothing is skipped for want of one.
+    expect(alone.skips).toEqual([]);
+    // Applied through the bridge: the seated side bend runs, with someone beside the person.
     const protocol = build(stroke, {}, "home");
     const applied = applyPrecheckOutcome(protocol, noGait, alone);
     expect(
       applied.protocol.items
         .filter((i) => i.position === "seated_armrests")
-        .every((i) => i.skipped === "helper_needed"),
+        .every((i) => !i.skipped && i.helperRequired),
     ).toBe(true);
     const helped = applyPrecheckOutcome(
       protocol,

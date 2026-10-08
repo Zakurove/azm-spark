@@ -406,11 +406,16 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
     if (s.kind === "exit") onExit(s.to);
   }, [s, onExit]);
 
-  // E2E builds only: the review screenshots and the specs read the session.
+  // E2E builds only: the review screenshots and the specs read the session, and the coach's mode and
+  // captions (as the coached workout's hook), for the real coach smoke (D-034 item 3).
   useEffect(() => {
     if (import.meta.env.VITE_E2E !== "1") return;
     (window as unknown as { azmFocus?: FocusSession }).azmFocus = session;
   }, [session]);
+  useEffect(() => {
+    if (import.meta.env.VITE_E2E !== "1") return;
+    (window as unknown as { azmCoach?: unknown }).azmCoach = { mode: coach.mode, captions: coach.captions };
+  }, [coach.mode, coach.captions]);
 
   const today = () => session.dispatch({ type: "EXIT", to: "today" });
   const parts = m.data.parts;
@@ -824,6 +829,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
         )}
         {/* The live coach's words while it speaks (voice and captions together, step D5). */}
         {!stopOpen && <CoachCaption coach={coach} lang={lang} />}
+        <span hidden data-coach-mode={coach.mode} />
         {stopOpen && env && (
           <StopListScreen
             lang={lang}

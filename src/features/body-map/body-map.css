@@ -217,22 +217,31 @@
   grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-}
-.intake7-who .age-field span,
-.intake7-who legend {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 10px;
-}
-.intake7-who .intake-choices button {
-  min-width: 72px;
-  justify-content: center;
+  margin: 22px 0 8px;
 }
 .intake7-who .age-field {
   max-width: none;
+  margin: 0;
+  gap: 0;
 }
 .intake7-who fieldset {
   margin: 0;
+  padding: 0;
+}
+/* The age label and the sex legend on one line, the field and the buttons on the next. */
+.intake7-who .age-field > span,
+.intake7-who legend {
+  display: block;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.intake7-who .intake-choices button {
+  min-width: 72px;
+  min-height: 49px;
+  justify-content: center;
 }
 .intake7-height input {
   max-width: 170px;
@@ -482,6 +491,14 @@
 .intake-yesno .intake-choices button {
   min-width: 72px;
   justify-content: center;
+}
+/* The restrictions list, after a yes. */
+.intake-restrictions {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fbf8ff;
+  box-shadow: 0 0 0 1px #ece4f7;
 }
 .intake7-foot {
   font-size: 12px;

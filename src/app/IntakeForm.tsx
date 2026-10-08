@@ -210,6 +210,8 @@ export default function IntakeForm({
   const [prefilled, setPrefilled] = useState<Set<string>>(new Set()),
     [reportInfo, setReportInfo] = useState<ReportResult | null>(null);
   // v7: the "Your body" step's working state, and the report's body map suggestions.
+  // v7: the restrictions start as one yes or no; a yes shows the list.
+  const [restrictYes, setRestrictYes] = useState(false);
   const [v7ui, setV7ui] = useState<V7Ui | null>(null),
     [reportRegions, setReportRegions] = useState<{ regions: ReportRegion[]; pain: string[] } | null>(null);
   const applyExtraction = (r: ReportResult) => {
@@ -282,6 +284,7 @@ export default function IntakeForm({
   const choices = (
     field: "conditions" | "pain" | "restrictions" | "equipment",
     options: readonly string[],
+    withNone = true,
   ) => (
     <div className={`intake-choices ${field === "conditions" ? "conditions-grid" : ""}`}>
       {options.map((o) => (
@@ -296,7 +299,7 @@ export default function IntakeForm({
           {name(o)}
         </button>
       ))}
-      {["pain", "restrictions", "equipment"].includes(field) && (
+      {withNone && ["pain", "restrictions", "equipment"].includes(field) && (
         <button
           type="button"
           className={!draft[field].length ? "selected" : ""}
@@ -343,6 +346,7 @@ export default function IntakeForm({
     </fieldset>
   );
   const kind = STEP_KINDS[step];
+  const restricted = restrictYes || draft.restrictions.length > 0;
   const last = STEP_KINDS.length - 1;
   const body = intakeBody(draft);
   const aboutValid = draft.age >= 18 && draft.age <= 100 && draft.conditions.length > 0;
@@ -352,7 +356,8 @@ export default function IntakeForm({
     ? kind === "about"
       ? aboutValid && !!draft.mobility && v7ui?.fillReady === true && v7AboutReady(draft)
       : kind === "body"
-        ? draft.regions !== undefined &&
+        ? (!restricted || draft.restrictions.length > 0) &&
+          draft.regions !== undefined &&
           draft.romFlags !== undefined &&
           !!draft.symptoms &&
           !!draft.recentChange &&
@@ -438,13 +443,33 @@ export default function IntakeForm({
       {choices("conditions", conditions)}
     </fieldset>
   );
+  /** v7: does a doctor limit the person's movement, yes or no; a yes shows the list to tick. */
   const restrictionField = (
-    <fieldset>
+    <fieldset className="intake-yesno" data-field="restrictions">
       <legend>
         {c.restriction}
         {mark("restrictions")}
       </legend>
-      {choices("restrictions", restrictionOptions)}
+      <div className="intake-choices">
+        {(["yes", "no"] as const).map((v) => (
+          <button
+            type="button"
+            key={v}
+            data-value={v}
+            aria-pressed={restricted === (v === "yes")}
+            className={restricted === (v === "yes") ? "selected" : ""}
+            onClick={() => {
+              setRestrictYes(v === "yes");
+              if (v === "no") set("restrictions", []);
+            }}
+          >
+            {c[v]}
+          </button>
+        ))}
+      </div>
+      {restricted && (
+        <div className="intake-restrictions">{choices("restrictions", restrictionOptions, false)}</div>
+      )}
     </fieldset>
   );
   /** v7: how the person exercises, as four buttons. */

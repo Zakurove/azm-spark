@@ -150,6 +150,9 @@ function e2eOptions(): { person: boolean; fast: boolean; reach: number } {
 
 const clock = () => performance.now();
 
+/** The measurement's phases a pause can hold (the Pause control's), when the X's dialog opens. */
+const PAUSABLE: ReadonlySet<string> = new Set(["calibrating", "practice", "attempt", "rest"]);
+
 /**
  * Whether a block's card waits for the camera's model probe (C-10): from the card's first frame until
  * the probe of this block ends; the camera still starting counts as waiting (its first frame starts the
@@ -324,22 +327,51 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
     return () => clearInterval(id);
   }, [part, session]);
 
-  // The system Back asks before leaving mid check (v1 S15): one pushed history entry.
+  // The system Back and the X ask before leaving mid check (v1 S15): one pushed history entry. Since
+  // D-034 item 4 there is no red STOP: the X's dialog holds the stop and leave options, and a
+  // measurement running under it waits (paused) until the person chooses.
   const [leaving, setLeaving] = useState(false);
+  const pausedForLeave = useRef(false);
+  // The walk's own stop (GaitCapture registers it): the X's «توقّف الآن» stops the walk through it.
+  const walkStop = useRef<(() => void) | null>(null);
   // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
   const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
   // The build animation ended (its Continue or Skip): the shell's page comes back (D-032 item 3).
   const [buildPlayed, setBuildPlayed] = useState(false);
-  // Leaving asks first only once the check runs; the day's screen leaves at once, nothing is lost
-  // there (D-032 item 2: no extra confirmation that is not about stopping).
+  // Leaving asks first only once the check runs; the intro leaves at once, nothing is lost there
+  // (D-032 item 2: no extra confirmation that is not about stopping).
   const midCheck = s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
+  const openLeave = () => {
+    const c = session.ctl;
+    const rangeNow = s.kind === "part" && m.data.parts[s.index]?.kind === "range";
+    if (rangeNow && c?.current.kind === "measure" && PAUSABLE.has(c.phase ?? "")) {
+      c.pause("screen", clock());
+      pausedForLeave.current = true;
+    }
+    setLeaving(true);
+  };
+  const openLeaveRef = useRef(openLeave);
+  openLeaveRef.current = openLeave;
+  const closeLeave = (then: "stay" | "stop" | "leave") => {
+    setLeaving(false);
+    const paused = pausedForLeave.current;
+    pausedForLeave.current = false;
+    if (then === "stay" && paused) session.ctl?.resume("screen", clock());
+    if (then === "stop") {
+      // The walk stops through its own controller (its partial walk is kept); a range step through the
+      // RomController; both open the stop list, which asks why.
+      if (part?.kind === "gait" && walkStop.current) walkStop.current();
+      else session.requestStop();
+    }
+    if (then === "leave") today();
+  };
   useLayoutEffect(() => {
     window.history.pushState({ azmFocus: 1 }, "");
     const onPop = () => {
       if (midRef.current) {
-        setLeaving(true);
+        openLeaveRef.current();
         window.history.pushState({ azmFocus: 1 }, "");
       } else onExit("today");
     };
@@ -373,7 +405,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
       progress={progress}
       sound={{ on: soundOn, toggle: toggleSound }}
       onLanguage={entry ? onLanguage : null}
-      onLeave={s.kind === "done" || s.kind === "build" ? null : midCheck ? () => setLeaving(true) : today}
+      onLeave={s.kind === "done" || s.kind === "build" ? null : midCheck ? openLeave : today}
     />
   );
   const env = m.data.context?.env ?? null;
@@ -530,6 +562,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                   coachOn={coachOn}
                   onDone={() => session.gaitDone()}
                   onStop={(preselect) => session.requestStop(preselect ?? null)}
+                  stopRef={walkStop}
                   onSkip={() => session.gaitDone()}
                   onChrome={setWalkChrome}
                 />
@@ -633,7 +666,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                 if (coachOn) unlockCoachAudio();
                 if (!blockWaiting) c.ready(clock());
               }}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -646,7 +678,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               lang={lang}
               item={step.item}
               onAnswer={(n) => c.answerReask(n, clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -663,7 +694,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               turnSide={step.turnSide}
               wheelchair={m.data.intake?.mobility === "wheelchair"}
               onReady={() => c.ready(clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -684,7 +714,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               frame={frame}
               clock={clock}
               now={tNow}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -699,7 +728,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                 c.acknowledge(clock());
                 coach.reopen();
               }}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -718,7 +746,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               intake={m.data.intake}
               last={!!last && itemKey(last) === itemKey(step.item)}
               onNext={() => c.next(clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -736,7 +763,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               {...(step.kind === "sit" && step.last ? { last: step.last } : {})}
               standing={step.kind === "sit" && step.standing !== undefined}
               onNext={() => c.next(clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -785,11 +811,9 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
           <LeaveDialog
             lang={lang}
             lying={part?.kind === "range" && part.block === "lying"}
-            onStay={() => setLeaving(false)}
-            onLeave={() => {
-              setLeaving(false);
-              today();
-            }}
+            onStay={() => closeLeave("stay")}
+            onStop={() => closeLeave("stop")}
+            onLeave={() => closeLeave("leave")}
           />
         )}
       </CheckRoot>

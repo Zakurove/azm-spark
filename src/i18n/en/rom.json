@@ -23,10 +23,10 @@
     "saving": "Saving your results",
     "saveError": "Your results are not saved yet. Make sure you are online, then try again.",
     "startError": "The check did not start. Your answers are still here, so you can try again.",
-    "leaveTitle": "Leave the check now?",
-    "leaveBody": "If you leave now, this check will not be completed, and next time you start again.",
     "stay": "Stay in the check",
-    "leaveConfirm": "Yes, leave the check"
+    "stopTitle": "Do you want to stop?",
+    "stopBody": "If you feel unwell or need a rest, choose Stop now and we ask you why. If you leave the check now, it will not be completed, and next time you start again.",
+    "stopNow": "Stop now"
   },
   "closed": {
     "intakeTitle": "We need your body map first",
@@ -59,7 +59,8 @@
     "safety": "For your safety",
     "start": "Start",
     "order": "In this order",
-    "walkStep": "Walking"
+    "walkStep": "Walking",
+    "stopHow": "To stop at any time, tap the ✕ at the top of the screen."
   },
   "pain": {
     "outOf": "out of 10"

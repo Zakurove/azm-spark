@@ -10,6 +10,7 @@ import { CheckRoot } from "../../src/features/assessment/shared/CheckRoot";
 import { IntroScreen } from "../../src/features/focus/Screens";
 import { ROM_DATA } from "../../src/movements/rom";
 import { screenText } from "../../src/movements/assessments";
+import { tV7 } from "../../src/i18n/v7";
 
 const TEXT = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 /** A screen inside the check's root (the answers' context), as the focus app renders it. */
@@ -37,5 +38,9 @@ describe("the intro says the safety lines once (D-032 item 2)", () => {
     expect(TEXT(intro(true))).toContain(warn);
     expect(TEXT(intro(false))).not.toContain(warn);
     expect(TEXT(intro(false))).toContain(ROM_DATA.copy.stop_line.en);
+  });
+
+  it("says once how to stop now that there is no red STOP: the X at the top (D-034 item 4)", () => {
+    expect(TEXT(intro(false))).toContain(tV7("en", "rom.intro.stopHow"));
   });
 });

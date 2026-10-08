@@ -26,7 +26,6 @@ import { CameraSession, useCameraSession } from "../assessment/camera/session";
 import { useOrientation } from "../assessment/camera/hooks";
 import { useFocusCamera } from "../focus/camera";
 import { Actions, Body, Glass, Kicker, Loading, Timer, Title } from "../focus/parts";
-import { StopBar } from "../focus/RangeScreens";
 import { Stage } from "../focus/Stage";
 import { readIntake, saveGait } from "./api";
 import { useCoach } from "../coach-agent/useCoach";
@@ -312,7 +311,16 @@ export default function GaitCapture(props: GaitStepProps) {
     posted.current = true;
     void saveGait(checkId, body);
   };
-  // STOP and the coach's stop: the shell's stop list, with the coach's reason preselected.
+  // The shell's X «توقّف الآن» (D-034 item 4: no red STOP on the walk's screens) stops the walk here.
+  const stopRef = props.stopRef;
+  useEffect(() => {
+    if (!stopRef) return;
+    stopRef.current = () => ctl.requestStop(clock());
+    return () => {
+      stopRef.current = null;
+    };
+  }, [stopRef, ctl, clock]);
+  // A stop (the X's or the coach's): the shell's stop list, with the coach's reason preselected.
   const stopList = ctl.stopList;
   const onStopRef = useRef(onStop);
   onStopRef.current = onStop;
@@ -372,14 +380,7 @@ export default function GaitCapture(props: GaitStepProps) {
   );
   return (
     <>
-      <GaitScreen
-        lang={lang}
-        ctl={ctl}
-        now={now}
-        clock={clock}
-        stage={stage}
-        onStop={() => ctl.requestStop(clock())}
-      />
+      <GaitScreen lang={lang} ctl={ctl} now={now} clock={clock} stage={stage} />
       {/* The live coach's words while it speaks (voice and captions together, step D5). */}
       <CoachCaption coach={coach} lang={lang} />
     </>
@@ -423,7 +424,6 @@ export interface GaitScreenProps {
   clock(): number;
   /** The camera stage (compact for a preview), with things over the picture. */
   stage(compact: boolean, children?: ReactNode): ReactNode;
-  onStop(): void;
 }
 
 function Lines({ lang, lines }: { lang: Lang; lines: string[] }) {
@@ -772,12 +772,11 @@ export function GaitScreen(props: GaitScreenProps) {
   );
 }
 
-function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
+function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
   const s = ctl.current;
   const rec = s.rec;
   const plan = ctl.plan;
   const tap = () => ctl.confirm(clock());
-  const stopBar = <StopBar onStop={onStop} />;
   const card = (body: ReactNode, actions: ReactNode, opts: { tone?: "gold" | "violet" | "rose" } = {}) => (
     <div className={`gx-flow is-${s.id}`} data-step={s.id} data-rec={rec}>
       <Glass className="fx-card gx-step" tone={opts.tone}>
@@ -891,7 +890,7 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
         ready(gt(lang, "pad.checkReady")),
       );
     case "place":
-      return <PlaceScreen lang={lang} ctl={ctl} stage={stage} onStop={onStop} />;
+      return <PlaceScreen lang={lang} ctl={ctl} stage={stage} />;
     case "pad_on":
       return (
         <div className="gx-flow gx-split is-pad_on" data-step="pad_on" data-rec={rec}>
@@ -902,7 +901,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
             {stage(true, <Hint lang={lang} ctl={ctl} />)}
           </Glass>
           <Actions items={[{ label: gt(lang, "pad.onReady"), name: "ready", icon: "check", onClick: tap }]} />
-          {stopBar}
         </div>
       );
     case "stand": {
@@ -925,7 +923,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
             <p className="fx-prompt-sub">{gt(lang, "stand.body")}</p>
             <Progress label={gt(lang, "stand.progress")} share={ctl.standingShare()} />
           </Glass>
-          {stopBar}
         </div>
       );
     }
@@ -952,7 +949,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
               { label: gt(lang, "pad.walking"), name: "ready", icon: "check", onClick: tap },
             ]}
           />
-          {stopBar}
         </div>
       );
     }
@@ -966,11 +962,10 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
             <Timer lang={lang} leftMs={ctl.timerLeft(now)} totalMs={ctl.timerTotal} size={132} />
             <PauseChip lang={lang} ctl={ctl} clock={clock} />
           </Glass>
-          {stopBar}
         </div>
       );
     case "walk":
-      return <WalkScreen lang={lang} ctl={ctl} stage={stage} onStop={onStop} clock={clock} />;
+      return <WalkScreen lang={lang} ctl={ctl} stage={stage} clock={clock} />;
     case "walk_again":
       return card(
         <>
@@ -982,7 +977,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
           <Actions
             items={[{ label: gt(lang, "again.walk"), name: "walk_again", icon: "play", onClick: tap }]}
           />
-          {stopBar}
         </>,
         { tone: "rose" },
       );
@@ -1010,7 +1004,6 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
               },
             ]}
           />
-          {stopBar}
         </>,
       );
     case "pad_stop":
@@ -1020,10 +1013,7 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
           <Title>{gt(lang, "pad.stopTitle")}</Title>
           <Body lang={lang} text={setupLine("pad_stop", lang)} />
         </>,
-        <>
-          {ready(gt(lang, "pad.stopped"))}
-          {stopBar}
-        </>,
+        <>{ready(gt(lang, "pad.stopped"))}</>,
       );
     case "stance_place":
       return (
@@ -1046,11 +1036,10 @@ function StepScreen({ lang, ctl, now, clock, stage, onStop }: GaitScreenProps) {
             </Glass>
             {ready(gt(lang, "stance.ready"))}
           </div>
-          {stopBar}
         </div>
       );
     case "stance":
-      return <StanceScreen lang={lang} ctl={ctl} now={now} clock={clock} stage={stage} onStop={onStop} />;
+      return <StanceScreen lang={lang} ctl={ctl} now={now} clock={clock} stage={stage} />;
     case "pad_details":
       return (
         <div className="gx-flow is-pad_details" data-step="pad_details">
@@ -1157,12 +1146,10 @@ function PlaceScreen({
   lang,
   ctl,
   stage,
-  onStop,
 }: {
   lang: Lang;
   ctl: GaitController;
   stage: GaitScreenProps["stage"];
-  onStop(): void;
 }) {
   const rec = ctl.current.rec!;
   const near = ctl.viewsOf(rec)[0]?.nearSide ?? "right";
@@ -1232,7 +1219,6 @@ function PlaceScreen({
           ]}
         />
       </div>
-      <StopBar onStop={onStop} />
     </div>
   );
 }
@@ -1241,13 +1227,11 @@ function WalkScreen({
   lang,
   ctl,
   stage,
-  onStop,
   clock,
 }: {
   lang: Lang;
   ctl: GaitController;
   stage: GaitScreenProps["stage"];
-  onStop(): void;
   clock(): number;
 }) {
   const rec = ctl.current.rec!;
@@ -1347,7 +1331,6 @@ function WalkScreen({
         )}
         <PauseChip lang={lang} ctl={ctl} clock={clock} />
       </Glass>
-      <StopBar onStop={onStop} />
     </div>
   );
 }
@@ -1358,14 +1341,12 @@ function StanceScreen({
   now,
   clock,
   stage,
-  onStop,
 }: {
   lang: Lang;
   ctl: GaitController;
   now: number;
   clock(): number;
   stage: GaitScreenProps["stage"];
-  onStop(): void;
 }) {
   const st = ctl.stanceNow(now);
   const hold = CAPTURE_RULES.stanceHoldSec * 1000;
@@ -1418,7 +1399,6 @@ function StanceScreen({
         )}
         <PauseChip lang={lang} ctl={ctl} clock={clock} />
       </Glass>
-      <StopBar onStop={onStop} />
     </div>
   );
 }

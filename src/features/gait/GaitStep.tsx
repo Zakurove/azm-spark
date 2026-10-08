@@ -36,6 +36,12 @@ export interface GaitStepProps {
   /** The walk ended with nothing to save, every part left out (contract gap C4-4; without it, onStop). */
   onSkip?(): void;
   /**
+   * D-034 item 4: there is no red STOP on the walk's screens. The walk puts its own stop here (the
+   * GaitController's, which keeps the partial walk and opens the stop list through onStop), for the
+   * shell's X and its «توقّف الآن».
+   */
+  stopRef?: { current: (() => void) | null };
+  /**
    * The live coach for the walk's segment (D5): on when the person turned it on and consented
    * (contract gap C4-4). Absent or false: the coach is off and the walk runs on its own voice.
    */

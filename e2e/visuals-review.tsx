@@ -57,9 +57,7 @@ function Review() {
     );
     if (index < 0) throw new Error(`Unknown review step ${name}`);
     (ctl as unknown as { go(index: number, now: number): void }).go(index, 0);
-    content = (
-      <GaitScreen lang={lang} ctl={ctl} now={0} clock={() => 0} stage={() => null} onStop={nothing} />
-    );
+    content = <GaitScreen lang={lang} ctl={ctl} now={0} clock={() => 0} stage={() => null} />;
   } else {
     const name = query.get("movement") ?? "shoulder_flexion";
     const wheelchair = name.endsWith("_wheelchair");

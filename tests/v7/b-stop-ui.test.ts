@@ -1,9 +1,8 @@
 /**
- * Wave 2 fixes (UI review): STOP is on every range step while the camera runs (the block card, the setup
- * card, the re-ask, the pain stop and the result card, as v1 has it on every camera, after and between
- * state), and the stop list keeps v1's guard against a double tap: a row counts only for a press that
- * started on it after the list opened, never within 600 ms of the press that opened it (useArmedPress,
- * SAFETY_TIMING.stopArmMs), and STOP stays visible and inert at its place with no row under it (S41).
+ * D-034 item 4: no red STOP on any check or walk screen; the X at the top stays and opens the stop
+ * and leave options (the leave dialog with «توقّف الآن», which opens the stop list). The stop list keeps
+ * v1's guard against a double tap: a row counts only for a press that started on it after the list
+ * opened, never within 600 ms of the press that opened it (useArmedPress, SAFETY_TIMING.stopArmMs).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,9 +10,16 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CheckRoot } from "../../src/features/assessment/shared/CheckRoot";
-import { BlockCard, PainStopScreen, ReaskScreen, SetupCard } from "../../src/features/focus/RangeScreens";
-import { StopListScreen } from "../../src/features/focus/Screens";
+import {
+  BlockCard,
+  PainStopScreen,
+  ReaskScreen,
+  SetupCard,
+  TimerScreen,
+} from "../../src/features/focus/RangeScreens";
+import { LeaveDialog, StopListScreen } from "../../src/features/focus/Screens";
 import { buildRomProtocol } from "../../src/medical/rom-protocol";
+import { tV7 } from "../../src/i18n/v7";
 import { entry, intake, today } from "./a-fixtures";
 
 const inRoot = (el: ReactElement) =>
@@ -26,11 +32,11 @@ const items = buildRomProtocol({
   setting: "booth",
   today: today(),
 }).items.filter((i) => i.block === "lying");
-const STOP = /class="safety-stop"[^>]*aria-label/;
+const STOP = /safety-stop|fx-stopbar/;
+const read = (f: string) => readFileSync(join(__dirname, "../../src", f), "utf8");
 
-describe("STOP on every range step while the camera runs", () => {
-  const stop = () => {};
-  it("is on the block card, the setup card, the re-ask and the pain stop", () => {
+describe("no red STOP on the check's screens (D-034 item 4)", () => {
+  it("is on none of the block card, the setup card, the re-ask, the pain stop and the timers", () => {
     const pages = [
       createElement(BlockCard, {
         lang: "ar",
@@ -39,7 +45,6 @@ describe("STOP on every range step while the camera runs", () => {
         helper: false,
         stage: null,
         onReady: () => {},
-        onStop: stop,
       }),
       createElement(SetupCard, {
         lang: "ar",
@@ -48,22 +53,34 @@ describe("STOP on every range step while the camera runs", () => {
         total: 2,
         turnSide: false,
         onReady: () => {},
-        onStop: stop,
       }),
-      createElement(ReaskScreen, { lang: "ar", item: items[0], onAnswer: () => {}, onStop: stop }),
-      createElement(PainStopScreen, { lang: "ar", item: items[0], onContinue: () => {}, onStop: stop }),
+      createElement(ReaskScreen, { lang: "ar", item: items[0], onAnswer: () => {} }),
+      createElement(PainStopScreen, { lang: "ar", item: items[0], onContinue: () => {} }),
+      createElement(TimerScreen, { lang: "ar", kind: "rest", leftMs: 30_000, totalMs: 60_000 }),
     ];
-    for (const el of pages) expect(inRoot(el)).toMatch(STOP);
+    for (const el of pages) expect(inRoot(el)).not.toMatch(STOP);
   });
 
-  it("is wired from the shell on every range step, the result card included", () => {
-    const app = readFileSync(join(__dirname, "../../src/features/focus/FocusApp.tsx"), "utf8");
-    expect(app.match(/onStop=\{\(\) => session\.requestStop\(\)\}/g)?.length).toBeGreaterThanOrEqual(7);
+  it("is gone from the measurement, the walk and the shell's range steps", () => {
+    expect(read("features/focus/RangeScreens.tsx")).not.toMatch(/StopButton|StopBar/);
+    expect(read("features/gait/GaitCapture.tsx")).not.toMatch(/StopButton|StopBar/);
+    expect(read("features/focus/FocusApp.tsx")).not.toMatch(/onStop=\{\(\) => session\.requestStop\(\)\}/);
+  });
+
+  it("the X opens the stop and leave options: «توقّف الآن», leave the check, stay", () => {
+    const html = inRoot(
+      createElement(LeaveDialog, { lang: "ar", onStay: () => {}, onLeave: () => {}, onStop: () => {} }),
+    );
+    expect(html).toContain(tV7("ar", "rom.shell.stopTitle"));
+    expect(html).toMatch(/data-action="stop_now"/);
+    expect(html).toMatch(/data-action="leave_confirm"/);
+    expect(html).toMatch(/data-action="stay"/);
+    expect(html.indexOf('data-action="stop_now"')).toBeLessThan(html.indexOf('data-action="leave_confirm"'));
   });
 });
 
 describe("the stop list's guard against a double tap (v1 S41)", () => {
-  it("keeps STOP visible and inert at its place, the list ending above it", () => {
+  it("opens with no STOP under it (D-034 item 4: the X opened it)", () => {
     const html = inRoot(
       createElement(StopListScreen, {
         lang: "ar",
@@ -72,9 +89,8 @@ describe("the stop list's guard against a double tap (v1 S41)", () => {
         onChoose: () => {},
       }),
     );
-    expect(html).toMatch(/class="fx-overlay has-stop"/);
-    expect(html).toMatch(/fx-stopbar is-inert" aria-hidden="true"/);
-    expect(html).not.toMatch(/<button[^>]*class="safety-stop"/);
+    expect(html).toMatch(/class="fx-overlay"/);
+    expect(html).not.toMatch(STOP);
   });
 
   it("counts a row only for an armed press (useArmedPress with SAFETY_TIMING.stopArmMs)", () => {
@@ -114,7 +130,6 @@ describe("the lying block for a person alone (UI review)", () => {
         leftMs: 30_000,
         totalMs: 60_000,
         last: { item: items[1], result },
-        onStop: () => {},
       }),
     );
     expect(sitting).toContain("آخر حركة");
@@ -127,7 +142,6 @@ describe("the lying block for a person alone (UI review)", () => {
         totalMs: 60_000,
         standing: true,
         onNext: () => {},
-        onStop: () => {},
       }),
     );
     expect(standing).toContain("يمكنك الوقوف الآن ببطء");

@@ -285,6 +285,11 @@ export function IntroScreen({
         <h2 className="fx-h2">{tV7(lang, "rom.intro.safety")}</h2>
         <Body lang={lang} text={copyText("safety_always", lang)} />
         <Body lang={lang} text={copyText("stop_line", lang)} />
+        {/* D-034 item 4: no red STOP on the check's screens; the X at the top stops. */}
+        <p className="fx-note" data-note="stop-how">
+          <CheckIcon name="close" size={20} />
+          <span>{bidiText(lang, tV7(lang, "rom.intro.stopHow"))}</span>
+        </p>
         {sciWarning && <WarningNote lang={lang} id="warn_sci_t6" />}
       </Glass>
       <Actions
@@ -613,7 +618,7 @@ const STOP_ICONS: Record<StopOptionId, string> = {
 
 /**
  * D-030 D5-11: the coach's preselected answer comes into view when the list opens (on a phone the other
- * reasons sit below the urgent group, under the inert STOP); the list keeps the urgent options first.
+ * reasons sit below the urgent group); the list keeps the urgent options first.
  */
 export function scrollPreselected(root: ParentNode | null, preselect: string): void {
   const row = root?.querySelector<HTMLElement>(`.fx-stop-row[data-option="${preselect}"]`);
@@ -623,37 +628,29 @@ export function scrollPreselected(root: ParentNode | null, preselect: string): v
 /**
  * The stop list (S41, Q31): the data's options for this person, symptoms and falls first, one tap each
  * (no Next, no «pressed by mistake» row, O43). The coach's reason is preselected and highlighted; the
- * person confirms it with the tap (C-7).
+ * person confirms it with the tap (C-7). Since D-034 item 4 it opens from the X's «توقّف الآن» (there is
+ * no red STOP under it any more), from the coach's stop or from a pain stop of the walk.
  */
 export function StopListScreen({
   lang,
   env,
   preselect,
-  stopShown = true,
   onChoose,
 }: {
   lang: Lang;
   env: PrecheckEnv;
   preselect: CoachStopReason | null;
-  /**
-   * STOP was on the screen under the list (a range step or the walk): it stays visible and inert at
-   * its place at the bottom, with no row under it, so a second tap of a double tap lands on nothing
-   * (v1 S41).
-   */
-  stopShown?: boolean;
   onChoose(option: StopOptionId): void;
 }) {
   const shown = new Set(stopOptions(env));
   const title = useId();
-  // A double tap on STOP must never pick a reason: a row counts only for a press that started on it
-  // after the list opened, and not within 600 ms of a press that opened it (v1 useArmedPress,
-  // SAFETY_TIMING.stopArmMs, R3C-03 (6)). Keyboard and switch activation always count.
+  // A double tap on the press that opened it must never pick a reason: a row counts only for a press
+  // that started on it after the list opened, and not within 600 ms of a press that opened it (v1
+  // useArmedPress, SAFETY_TIMING.stopArmMs, R3C-03 (6)). Keyboard and switch activation always count.
   const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
   // A modal list (v1 S41): the page behind inert, focus on its question, Tab kept inside, no Escape
-  // (a safety list stays until it is answered), and focus back on STOP when it closes.
-  const modal = useModal(undefined, () =>
-    document.querySelector<HTMLElement>(".fx-stopbar:not(.is-inert) .safety-stop"),
-  );
+  // (a safety list stays until it is answered), and focus back where it was when it closes.
+  const modal = useModal();
   useEffect(() => {
     if (preselect) scrollPreselected(modal.ref.current, preselect);
   }, [preselect, modal.ref]);
@@ -679,7 +676,7 @@ export function StopListScreen({
     <div
       ref={modal.ref}
       onKeyDown={modal.onKeyDown}
-      className={`fx-overlay${stopShown ? " has-stop" : ""}`}
+      className="fx-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title}
@@ -700,33 +697,28 @@ export function StopListScreen({
           {group("other").map(row)}
         </section>
       </Glass>
-      {stopShown && (
-        <div className="fx-v1 fx-stopbar is-inert" aria-hidden="true">
-          <div className="safety-stop-zone is-inert">
-            <span className="safety-stop">
-              <CheckIcon name="stop-square" size={28} />
-              <span>{t(lang, "assessment.stop.button")}</span>
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 /**
- * Leaving mid check: what is kept, stay or leave (v1 S15's question). In the lying block, the sit
+ * The X mid check (D-034 item 4: there is no red STOP): the stop and leave options. «توقّف الآن» opens
+ * the stop list, which asks why (an urgent reason leads to its screen, the others rest or go on);
+ * leaving ends the check here (v1 S15's question); staying goes back to it. In the lying block, the sit
  * before stand line too (rom-protocol 6 sit_before_stand: after any lying test).
  */
 export function LeaveDialog({
   lang,
   lying = false,
   onStay,
+  onStop,
   onLeave,
 }: {
   lang: Lang;
   lying?: boolean;
   onStay(): void;
+  /** «توقّف الآن»: the stop list (absent: leave and stay only). */
+  onStop?: () => void;
   onLeave(): void;
 }) {
   const title = useId();
@@ -745,26 +737,34 @@ export function LeaveDialog({
     >
       <Glass className="fx-card fx-dialog">
         <h1 id={title} className="fx-title" tabIndex={-1}>
-          {tV7(lang, "rom.shell.leaveTitle")}
+          {tV7(lang, "rom.shell.stopTitle")}
         </h1>
-        <Body lang={lang} text={tV7(lang, "rom.shell.leaveBody")} />
+        <Body lang={lang} text={tV7(lang, "rom.shell.stopBody")} />
         {lying && (
           <p className="fx-note">
             <CheckIcon name="info" size={20} />
             <span>{bidiText(lang, copyText("sit_before_stand", lang))}</span>
           </p>
         )}
-        <Actions
-          items={[
-            {
-              label: tV7(lang, "rom.shell.leaveConfirm"),
-              onClick: onLeave,
-              kind: "secondary",
-              name: "leave_confirm",
-            },
-            { label: tV7(lang, "rom.shell.stay"), onClick: onStay, name: "stay" },
-          ]}
-        />
+        <div className="fx-actions is-column">
+          {onStop && (
+            <button type="button" className="fx-button is-stop" onClick={onStop} data-action="stop_now">
+              <CheckIcon name="stop-square" size={22} />
+              <span>{tV7(lang, "rom.shell.stopNow")}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="fx-button is-secondary"
+            onClick={onLeave}
+            data-action="leave_confirm"
+          >
+            <span>{tV7(lang, "rom.shell.leave")}</span>
+          </button>
+          <button type="button" className="fx-button is-primary" onClick={onStay} data-action="stay">
+            <span>{tV7(lang, "rom.shell.stay")}</span>
+          </button>
+        </div>
       </Glass>
     </div>
   );

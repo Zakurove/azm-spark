@@ -57,8 +57,14 @@ describe("gait-rules eligibility.gate", () => {
     expect(plan(intake({ walking: { status: "with_aid", aid: "cane" } })).offered).toBe(true);
   });
 
-  it("pc_walk_10m no: not offered (walk_needs_hands_on_help); not answered yet: still planned", () => {
-    expect(notOffered(plan(intake(), { walk10m: false }))).toBe("walk_needs_hands_on_help");
+  it("pc_walk_10m no: still offered overground with someone beside as a line, no pad (D-034 item 2)", () => {
+    expect(plan(intake(), { walk10m: false })).toMatchObject({
+      offered: true,
+      helperRequired: true,
+      padAllowed: false,
+      modes: ["overground"],
+    });
+    expect(plan(intake(), { walk10m: false }, calm, "home").offered).toBe(true);
     expect(plan(intake(), { walk10m: true }).offered).toBe(true);
     expect(plan(intake(), {}).offered).toBe(true);
   });
@@ -196,17 +202,35 @@ describe("gait-rules eligibility.today", () => {
     expect(plan(arthritis, {}, flare("shoulder_left"))).toMatchObject({ offered: true, padAllowed: true });
   });
 
-  it("pc_helper at home: a required helper must be present; at the booth the staff count", () => {
+  it("a helper is a line, never a gate: the walk is offered at home with or without someone there (D-034 item 2)", () => {
     const h = intake({ walking: { status: "with_aid", aid: "cane" } });
     expect(plan(h, {}, calm, "booth").offered).toBe(true);
     expect(plan(h, { helperPresent: true }, calm, "home").offered).toBe(true);
-    const absent = plan(h, { helperPresent: false }, calm, "home");
-    expect(absent.offered).toBe(false);
-    // «pc_helper ... no -> skip with reason helper_needed» (D-024, A4-2).
-    expect(notOffered(absent)).toBe("helper_needed");
+    for (const helperPresent of [false, undefined]) {
+      const alone = plan(h, { helperPresent }, calm, "home");
+      expect(alone, String(helperPresent)).toMatchObject({
+        offered: true,
+        helperRequired: true,
+        padAllowed: false,
+        modes: ["overground"],
+        views: { overground: ["front", "back", "side"], walking_pad: [] },
+      });
+      expect(alone.reason).toBeUndefined();
+    }
+    // Nasser's first real test: a stroke, walking with a cane, no one there today.
+    const stroke = intake({
+      conditions: ["stroke"],
+      clearance: "yes",
+      walking: { status: "with_aid", aid: "cane" },
+    });
+    expect(plan(stroke, { helperPresent: false, unsteady: true }, {}, "home")).toMatchObject({
+      offered: true,
+      helperRequired: true,
+      modes: ["overground"],
+    });
     expect(plan(h, {}, { ...calm, "pc_helper:chair_stand_30s": "yes" }, "home").offered).toBe(true);
-    // Without a helper requirement nothing is asked.
-    expect(plan(intake(), {}, calm, "home").offered).toBe(true);
+    // Without a helper requirement there is no line.
+    expect(plan(intake(), {}, calm, "home")).toMatchObject({ offered: true, helperRequired: false });
   });
 
   it("knee orthosis: recorded, the plan is unchanged", () => {
@@ -259,10 +283,11 @@ describe("the walking pad at home (D-032 item 1)", () => {
   it("asks whether someone is there only when it changes the walk", () => {
     // A calm walker: the pad needs someone there.
     expect(helperMattersForWalk(intake(), today(), "home", calm)).toBe(true);
-    // A walker with an aid needs someone beside them (and never gets the pad).
+    // A walker with an aid walks overground with or without someone (the helper is a line, D-034
+    // item 2) and never gets the pad: the answer changes nothing.
     expect(
       helperMattersForWalk(intake({ walking: { status: "with_aid", aid: "cane" } }), today(), "home"),
-    ).toBe(true);
+    ).toBe(false);
     // No walk today, or the booth's staff: nothing to ask.
     expect(helperMattersForWalk(intake({ walking: { status: "no" } }), today(), "home", calm)).toBe(false);
     expect(helperMattersForWalk(intake(), today({ walk10m: false }), "home", calm)).toBe(false);
@@ -332,6 +357,7 @@ describe("parity with the clinical text of eligibility", () => {
       "recent surgery to the back, hip, knee, ankle or foot not cleared (the body map of the intake, surgery_not_cleared; pc_surgery_recent is no longer asked, D-032)",
       "clearance no or unsure",
     ]);
+    // D-034 item 2: pc_walk_10m no is a helper line in the code, no longer a gate (FM-5, as above).
     expect(gate[1].rule).toContain("walk_needs_hands_on_help");
     expect(gate[3].rule).toContain("day_prosthesis_ask yes");
     expect(gate[5].rule).toContain("stroke or SCI: no gait test (reason clearance_needed)");
@@ -374,6 +400,9 @@ describe("parity with the clinical text of eligibility", () => {
     }
     // Parkinson's dizziness on standing is not asked since D-032: no pad with Parkinson's.
     expect(row("pc_pd_dizzy_standing").action).toContain("pad not offered");
+    // D-034 item 2: the code no longer skips the walk without a helper (a line, never a gate); the
+    // clinical row still says so until the tech lead re-exports it (contract change log, FM-5). This
+    // fails once the row changes, so the parity is written again then.
     expect(row("day_helper_ask").action).toContain("skipped (helper_needed)");
     expect(row("day_helper_ask").action).toContain("staff count as helper at the booth");
   });

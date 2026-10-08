@@ -42,7 +42,8 @@ const BLOCK_TITLE: Record<
 
 /**
  * A block's card (C-16 confirm): the position, the movements, the support, helper and neck lines. The
- * v1 warnings no longer repeat here before every block (D-032 item 2): the intro says them once.
+ * v1 warnings no longer repeat here before every block (D-032 item 2): the intro says them once. D-034
+ * item 5: its title says nothing has started yet, and its Ready is always on screen (sticky).
  */
 export function BlockCard({
   lang,
@@ -77,8 +78,8 @@ export function BlockCard({
   return (
     <div className="fx-split">
       <Glass className="fx-card fx-block">
-        <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
-        <Title>{tV7(lang, BLOCK_TITLE[block])}</Title>
+        <Kicker>{tV7(lang, BLOCK_TITLE[block])}</Kicker>
+        <Title>{tV7(lang, "rom.block.notStarted")}</Title>
         <div className="fx-chips">
           {positions.map((p) => (
             <span key={p} className="fx-pill">
@@ -122,27 +123,28 @@ export function BlockCard({
             </p>
           )}
         </Glass>
-        <Actions
-          items={[
-            cameraError && onNoCamera
-              ? {
-                  label: tV7(lang, "rom.onboarding.noCamera"),
-                  onClick: onNoCamera,
-                  kind: "secondary",
-                  name: "no_camera",
-                }
-              : null,
-            {
-              label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
-              onClick: onReady,
-              name: "ready",
-              icon: "check",
-              busy: waiting,
-              disabled: waiting,
-            },
-          ]}
-        />
       </div>
+      <Actions
+        sticky
+        items={[
+          cameraError && onNoCamera
+            ? {
+                label: tV7(lang, "rom.onboarding.noCamera"),
+                onClick: onNoCamera,
+                kind: "secondary",
+                name: "no_camera",
+              }
+            : null,
+          {
+            label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
+            onClick: onReady,
+            name: "ready",
+            icon: "check",
+            busy: waiting,
+            disabled: waiting,
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -159,7 +161,8 @@ function Note({ lang, icon, text }: { lang: Lang; icon: string; text: string }) 
 /**
  * A movement's setup card (C-16 confirm, rom-protocol 1.1 step 1): the picture, the instructions, and
  * who stands beside. The safety lines the intro and the block's card already say are not repeated on
- * every movement (D-032 item 2).
+ * every movement (D-032 item 2). D-034 item 5: it says the movement has not started, and its Ready is
+ * always on screen (sticky); the measurement then opens with «لنبدأ».
  */
 export function SetupCard({
   lang,
@@ -182,7 +185,12 @@ export function SetupCard({
   return (
     <div className="fx-split" data-movement={item.movementId}>
       <Glass className="fx-card fx-figure">
-        <Kicker>{tV7(lang, "rom.setup.kicker", { n, total })}</Kicker>
+        <div className="fx-figure-head">
+          <Kicker>{tV7(lang, "rom.setup.kicker", { n, total })}</Kicker>
+          <span className="fx-pill is-waiting" data-state="not-started">
+            {tV7(lang, "rom.setup.notStarted")}
+          </span>
+        </div>
         <div className="fx-figure-art">
           <MovementPicture
             movementId={item.movementId}
@@ -208,10 +216,11 @@ export function SetupCard({
           </ol>
           {item.helperRequired && <Note lang={lang} icon="people" text={copyText("helper_line", lang)} />}
         </Glass>
-        <Actions
-          items={[{ label: tV7(lang, "rom.setup.ready"), onClick: onReady, name: "ready", icon: "play" }]}
-        />
       </div>
+      <Actions
+        sticky
+        items={[{ label: tV7(lang, "rom.setup.ready"), onClick: onReady, name: "ready", icon: "play" }]}
+      />
     </div>
   );
 }
@@ -291,9 +300,11 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
     if (!asking) pauseRef.current?.focus({ preventScroll: true });
   }, [asking]);
   const value = phase === "ask_max" && hold ? hold.deg : live;
+  // D-034 item 5: after Ready the measurement says «لنبدأ» clearly (and the voice says it, FocusApp),
+  // with the start position under it, before the first attempt.
   const prompt =
     phase === "calibrating"
-      ? tV7(lang, "rom.measure.start")
+      ? tV7(lang, "rom.measure.letsStart")
       : phase === "practice"
         ? tV7(lang, "rom.measure.practice")
         : phase === "attempt"
@@ -308,8 +319,8 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       ? copyText("practice", lang)
       : phase === "attempt"
         ? tV7(lang, "rom.measure.move")
-        : phase === "calibrating" && issue
-          ? t(lang, `assessment.setup.issue.${issue}` as never)
+        : phase === "calibrating"
+          ? tV7(lang, "rom.measure.start")
           : "";
   const restLeft = phase === "rest" ? ctl.restLeft(now) : 0;
   // v1's 2 m sizes (UX spec 4.1), stepped down only as far as the answers need to fit above STOP: a

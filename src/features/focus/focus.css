@@ -307,6 +307,19 @@
   flex-direction: column;
   align-items: stretch;
 }
+/* D-034 item 5: Ready always on screen, at the bottom above the phone's home bar, on a soft fade of
+   the page's own light (no hard edge). A direct child of the step, so it sticks from the step's top. */
+.fx-actions.is-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 -16px;
+  padding: 18px 16px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(248, 245, 239, 0) 0%, rgba(248, 245, 239, 0.94) 38%);
+}
+.fx-split > .fx-actions.is-sticky {
+  grid-column: 1 / -1;
+}
 .azm-check.fx .fx-button {
   display: inline-flex;
   flex: 1 1 auto;
@@ -755,6 +768,19 @@
   font-size: 0.95rem;
   font-weight: 700;
   justify-self: start;
+}
+/* «لم نبدأ بعد» on a movement's card (D-034 item 5): calm, beside the movement's number. */
+.fx-figure-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.fx-pill.is-waiting {
+  background: rgba(241, 235, 250, 0.85);
+  color: var(--fx-purple-ink);
+  font-size: 0.95rem;
 }
 .fx-pill.is-violet {
   background: var(--fx-purple-tint);

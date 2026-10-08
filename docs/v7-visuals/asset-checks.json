@@ -99,49 +99,49 @@
     "file": "public/illustrations/v7/rom/v7_rom_ankle_dorsiflexion_lunge.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 34992,
+    "bytes": 27862,
     "quality": 90,
-    "sha256": "db999f4fb497cea4815cfa48febbdd5a36dc211afee7db7dc5971856fe44efb9"
+    "sha256": "52f902d44f8115c82c4b846b40d833accd11c1542ed9ce00f69dda60f7ad7d6f"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_ankle_dorsiflexion_lunge_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 14262,
+    "bytes": 11284,
     "quality": 90,
-    "sha256": "ad565aaaffee8cdceba51a6e8dd05460a1256c6d79acc204b5b9593de5d693b8"
+    "sha256": "3be3df8e6af7b76559f9d586606ececd8203bdbb60950c6f0a96341b5642a7b5"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_elbow_extension.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 34142,
+    "bytes": 26792,
     "quality": 90,
-    "sha256": "58493dbde14231bacd8d97ae8a159e3c5a0c9c6f79092192f4315fbad92109be"
+    "sha256": "a6cf93c8ee9de3221585d1c582f947335630924979ac0bfd7cfc1cbb7ff2b7d6"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_elbow_extension_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 12798,
+    "bytes": 9990,
     "quality": 90,
-    "sha256": "afb356e58126f5e1b84714de833621e5cd3e5060570a710dcaa5bc0b644e4f01"
+    "sha256": "ba7faafaae1a3aedd2ef15465002c4bee9df933f9c1d295587ef832fb87179ae"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_elbow_flexion.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 33354,
+    "bytes": 26394,
     "quality": 90,
-    "sha256": "be228b3bfd20f5766d847fbb9f3eda873e762552d61dc420400faca0fe24d1ca"
+    "sha256": "5adbe346cc9c541543d122de65f1aee8bb4cd3e650be91246b9b56e4c68b9861"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_elbow_flexion_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 13358,
+    "bytes": 10476,
     "quality": 90,
-    "sha256": "30cb817210ee878209060d366c6601d20280613bdc98e0c809d79b950f6b80c6"
+    "sha256": "9b1cabd6f049a0de79a95bc5a38366f17f940ae4b9b4e0f4d0531bf0bbb34f0d"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_hip_abduction.webp",
@@ -163,97 +163,97 @@
     "file": "public/illustrations/v7/rom/v7_rom_hip_extension.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 29620,
+    "bytes": 23098,
     "quality": 90,
-    "sha256": "6e273db0bff552cf8131b55b4102d3c15cee54fe99c8593a65762096c37d6320"
+    "sha256": "4457325e6b79fc890cebfaca5b0eaea4c133f86e7dbe0c71f824b35cbc75d5a6"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_hip_extension_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 12142,
+    "bytes": 9338,
     "quality": 90,
-    "sha256": "5d49d9eca1a117311cda08371e24faff9c86c4144106f2510cdd52ea43d4be27"
+    "sha256": "bc55acbd8c2675147929fe9f138fa1d87653d534cecb97c92780105adebb87c6"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_hip_flexion.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 31888,
+    "bytes": 28486,
     "quality": 90,
-    "sha256": "9d646269ec37b71a44a792e949d2a8a8b7c3f01cb4f83116058fccfef0b8334a"
+    "sha256": "01079e7b80bb583c33835e3a98872312e686246582d34a8d78b654e3d98396a6"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_hip_flexion_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 11970,
+    "bytes": 10420,
     "quality": 90,
-    "sha256": "23c9f003386f9d1e79d505fc4cf86cbbbdfff0d2adbb38143d5de6b8af1dfccd"
+    "sha256": "5a229341e44b6bef632079501600f4a4a50fbc19398415527754dca6eb7d12f2"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_knee_extension.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 30282,
+    "bytes": 26602,
     "quality": 90,
-    "sha256": "76d3385646d54c26975bac682b82de5c5cd7a9464cc35438414ece7dcd3d4545"
+    "sha256": "33b95e52572d131db62ca724c1502ac411d61d560e143bc0c474021aeb546d60"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_knee_extension_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 11516,
+    "bytes": 9934,
     "quality": 90,
-    "sha256": "f5b9f766a900c6cbb47039afdde536cb4f2ff1a0b95f67adc83d0e842eb02815"
+    "sha256": "c908acd8d722e4a10f304b98a4afe6969194b3552bab7851faee80e04e0dcb77"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_knee_flexion.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 30382,
+    "bytes": 27346,
     "quality": 90,
-    "sha256": "a05f162d28f811ebe17b73ecc393e1246eef528ae2198f9ae5d5192de4e005a8"
+    "sha256": "e14b04b9cea9e116310f92f0eff57982f8af1ef8a86f9eee82c4110325dd732e"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_knee_flexion_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 11640,
+    "bytes": 10098,
     "quality": 90,
-    "sha256": "9781d564956bfd433f8e97b2a9fd5fc64b5876217383b1ff86bdeb81adca470a"
+    "sha256": "b59a6bb57db758af6c0484ad379ec45ea7460d7ebd40ce9cc27241ddada468f0"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_neck_extension.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 29228,
+    "bytes": 24848,
     "quality": 90,
-    "sha256": "bf0138722d3c93fa0e9fe9518eade47885a46e5ff15f261fc4b8603c5c5d3cbd"
+    "sha256": "18f94c2621c234ad5fa08050acd6fc72d8fbdc033ec9843cba97dc9b006a9686"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_neck_extension_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 11894,
+    "bytes": 9626,
     "quality": 90,
-    "sha256": "e28ece4760ba701f52c17c3a7d314d86ab2e95b7cf5d1fe4ae16cf685ba470b0"
+    "sha256": "037b45d00146390ad7db6b6e8c4ca5b3090538b2a98261a4133ede7696d93bf2"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_neck_flexion.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 28984,
+    "bytes": 24730,
     "quality": 90,
-    "sha256": "7c79a204fda20dbf272f3b14ce62782ad2ca88f0183e046372a11fca0980a156"
+    "sha256": "a1c397a8219933bf4465957a89e4d9168b81e7eaa0e0fc3272a3c10552860737"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_neck_flexion_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 11660,
+    "bytes": 9804,
     "quality": 90,
-    "sha256": "d528de711b2e1d4de37df8e425acb2fcdbd60334b059f5578f0933d7b0210219"
+    "sha256": "89601be4a106c6766e7fb9627a3727089336e4a89003ab99884de2ae6a8165b0"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_neck_lateral_flexion.webp",
@@ -291,49 +291,49 @@
     "file": "public/illustrations/v7/rom/v7_rom_shoulder_extension.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 27920,
+    "bytes": 21990,
     "quality": 90,
-    "sha256": "aab984631055bba32f976f9ee13a65dfa71bbaa6df92e106d6aec87fdac7337c"
+    "sha256": "fde48bbc51923b29044a1bb8c94d3cd87dbfd83a09057c6a44501ee78c500500"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_shoulder_extension_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 10758,
+    "bytes": 8178,
     "quality": 90,
-    "sha256": "e8a25ad7a8965b17a9b554bb38b19840a43fb280cd5c4d2b71e30553c94cb913"
+    "sha256": "905e5ed7ffb7d9d4aa8dbeee05189d1f7b7c9bd6c2498d2b8615b17c1edd7f29"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_shoulder_flexion.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 29426,
+    "bytes": 24312,
     "quality": 90,
-    "sha256": "4bb05712ef3256084b82bf0fad674c77df629cbab903b7519e86997f6a47eb7c"
+    "sha256": "e10fafe6f9165d2f3eb0cd7b19a7be6c451a0879ebe992b87c7f750a80986ad9"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_shoulder_flexion_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 11110,
+    "bytes": 9062,
     "quality": 90,
-    "sha256": "6203c322e7258c70abaeb2da3d9a5a338cc8bbff5382b86a440616796ccf8b72"
+    "sha256": "c061c9e8dfece5b22d35137fba23b76d118f1c1adabc6fe1b13b1e1a545714e9"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_trunk_flexion.webp",
     "width": 1200,
     "height": 800,
-    "bytes": 31690,
+    "bytes": 27874,
     "quality": 90,
-    "sha256": "265b8182d17d607c5b91be586d3a7e1df4c7913d7659e95a7c3e49b2dee3eabd"
+    "sha256": "03e2c1e7fad149151bb290f4d0ae574c93caa6f5b4e85dbb950e7dd45b0d83bc"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_trunk_flexion_600.webp",
     "width": 600,
     "height": 400,
-    "bytes": 12610,
+    "bytes": 10904,
     "quality": 90,
-    "sha256": "c78e7b952d72e641f3f614bda6c06586912ca29812f5c04f09cc7142d5c78532"
+    "sha256": "eec5ea8a692b626857433cf5134efb5f45dd0c6e564304faea50351b421c3c5e"
   },
   {
     "file": "public/illustrations/v7/rom/v7_rom_trunk_lateral_flexion.webp",

@@ -56,3 +56,8 @@ Movement loops, MP4 files, and video playback were excluded at the user's reques
 بقي تعديل المستخدم السابق في `README.md` دون تغيير ودون إدراجه في التزامات هذا العمل. لم يُفتح ملف `.env.local` أو يُطبع أو يُعدّل، ولم تُعدّل الملفات المحظورة.
 
 The user's preexisting `README.md` change remains untouched and outside these commits. `.env.local` was not opened, printed, or edited, and the prohibited directories were not modified.
+
+**Tech lead review (8 October 2026) / مراجعة قائد التقنية**
+
+- The masters and the review screenshots are kept privately in `local-docs/visuals/v7-masters/` and `local-docs/qa/v7/visuals-screenshots/`, not in the public repository, so the links to `masters/` and `screenshots/` above point to those folders.
+- In the 12 side view movement pictures the phone stood in front of the person, while the steps say to turn the side toward the phone. The person and the moving limb were right (facing right shows the right side). The phone and tripod were removed from those 12, so each picture is now exactly what the phone sees; the steps say where it goes. The originals are kept in `local-docs/visuals/v7-masters/with-phone/`. The front view pictures, the walk pictures and the landing pictures are unchanged.

@@ -1,6 +1,6 @@
 /**
  * D-026 item 5 (change log DG-5): the focus shell never switches the audio session while the coach is
- * live. It unlocks the voice with CuePlayer.unlock (src/app/audio.ts), which D's hunk keeps from
+ * live. It unlocks the voice with PhoneVoice.unlock, which calls CuePlayer.unlock (src/app/audio.ts), which D's hunk keeps from
  * resetting a live coach's play-and-record session, and never with the v1 flow's unlockAudio()
  * (src/features/assessment/flow/voice.ts), which sets the session to playback inside a tap.
  */
@@ -26,8 +26,12 @@ describe("the focus shell and the audio session (DG-5)", () => {
     expect(bad).toEqual([]);
   });
 
-  it("unlocks the voice with CuePlayer.unlock inside the taps that start the check and turn the sound on", () => {
+  it("unlocks the voice inside the taps that start the check, Ready and the sound button (D-034 item 3)", () => {
     const app = readFileSync(join(DIR, "FocusApp.tsx"), "utf8");
-    expect(app.match(/CuePlayer\.unlock\(\)/g)?.length).toBeGreaterThanOrEqual(2);
+    // PhoneVoice.unlock: the phone's speech's first utterance from a tap, and CuePlayer.unlock.
+    expect(app.match(/PhoneVoice\.unlock\(\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(app.match(/unlockSound\(\)/g)?.length).toBeGreaterThanOrEqual(3);
+    const voice = readFileSync(join(DIR, "../coach-agent/phoneVoice.ts"), "utf8");
+    expect(voice).toMatch(/CuePlayer\.unlock\(\)/);
   });
 });

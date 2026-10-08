@@ -1,7 +1,7 @@
 /**
  * Step C4: the walk's screens and the gait card, rendered on the server. Each step of an overground
- * and a pad walk shows its own screen (the phone's placement drawing on the placement steps, STOP on
- * every step once the person is set up to walk, «لن أمشي اليوم» given way to it then), in Arabic and
+ * and a pad walk shows its own screen (the phone's placement drawing on the placement steps; no red STOP
+ * since D-034 item 4, the shell's X stops the walk; «لن أمشي اليوم» hidden once set up), in Arabic and
  * English with no missing copy; the card shows the pattern lines only while provisional (C-13), the
  * possible reasons, program lines and referrals once final, the approximate label on a result read
  * against the interim norms (CG-16, AP-12), the no pattern line, and the quality notes.
@@ -44,7 +44,6 @@ const render = (ctl: GaitController, lang: "ar" | "en") =>
       clock: () => 0,
       stage: (compact: boolean) =>
         createElement("div", { className: compact ? "stage is-compact" : "stage" }),
-      onStop: () => undefined,
     }),
   );
 
@@ -83,7 +82,11 @@ describe("the walk's screens", () => {
         const place = out.find((o) => o.id === "place")!.html;
         expect(place).toContain('role="img"');
         expect(place).toContain("gx-placement");
-        expect(place).toContain("safety-stop");
+        // D-034 item 4: no red STOP; the shell's X stops the walk. Item 5: the phone's setup says
+        // nothing has started, and its Ready is in the sticky bar.
+        expect(place).not.toContain("safety-stop");
+        expect(place).toContain('data-state="not-started"');
+        expect(place).toMatch(/<div class="fx-actions is-sticky">(?:(?!<\/div>).)*data-action="ready"/s);
         // The intro names the helper the plan needs and the stop line.
         const intro = out[0].html;
         expect(intro).toContain(GAIT_DATA.copy.setup.helper_needed[lang]);
@@ -101,13 +104,13 @@ describe("the walk's screens", () => {
           );
       });
 
-  it("gives the slot's skip way to STOP once the person is set up to walk", () => {
+  it("hides the slot's skip once the person is set up to walk, with no red STOP (D-034 item 4)", () => {
     const { ctl, out } = screens("walking_pad", "ar");
     expect(out[0].html).toContain('data-skip="on"');
     expect(ctl.current.id).toBe("stand");
     const stand = render(ctl, "ar");
     expect(stand).toContain('data-skip="off"');
-    expect(stand).toContain("safety-stop");
+    expect(stand).not.toContain("safety-stop");
     expect(out.find((o) => o.id === "pad_on")!.html).toContain('data-skip="off"');
   });
 

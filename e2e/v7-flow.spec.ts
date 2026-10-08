@@ -1,15 +1,17 @@
 /**
- * D-032 in the real app (VITE_V7=1 and AZM_V7=1, e2e/v7-flow.config.ts): the tests come before the
- * program, and the focus check is open at home with one short day screen.
+ * D-032 and D-034 in the real app (VITE_V7=1 and AZM_V7=1, e2e/v7-flow.config.ts): the tests come
+ * before the program, and the focus check is open at home with no extra step before it starts.
  *   - A new profile waits for the check: Today and the Program tab show one card in place of the
  *     program; the health form's last button reads «التالي: قياس حركتك» and opens the check; the check
- *     runs with the simulated person (?e2ePerson=1&e2eFast=1) from the day's one screen to the end;
- *     the build animation (a stub for now) plays; the program page opens with each exercise's why line;
- *     the program is then on Today and the Program tab.
+ *     runs with the simulated person (?e2ePerson=1&e2eFast=1) from the intro straight to the parts
+ *     (D-034 item 4: no consent page, the start records the consents; no day screen) to the end; the
+ *     build animation plays; the program page opens with each exercise's why line; the program is then
+ *     on Today and the Program tab.
  *   - Nothing the camera can measure (a wrist only body map, no walk): the history builds the program
  *     at once, and the Program tab says the check can refine it later.
  *   - «لا أستطيع استخدام الكاميرا» on the intro builds the program from the history.
- *   - A yes to the worry question: one calm screen, and the program still waits.
+ *   - The camera setup says nothing has started, Ready on screen; the X opens the stop and leave
+ *     options (no red STOP, D-034 items 4 and 5); the sound is on by default (item 3).
  *   - Back during the build: Today shows the program, since the completed check ended the wait.
  * Skipped under the default config, whose server has the flags off.
  */
@@ -53,7 +55,10 @@ const wrist = {
 const url = (path: string, lang: Lang) =>
   lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path;
 
-/** A fresh account with its intake saved (the server marks the program as waiting) and the consent. */
+/**
+ * A fresh account with its intake saved (the server marks the program as waiting). No consent is
+ * posted: the check's start records it from the health form's (D-034 item 4).
+ */
 async function newcomer(page: Page, lang: Lang, intake: Record<string, unknown>): Promise<void> {
   await page.goto(url("/?e2eGallery=loading", lang));
   const headers = { Origin: new URL(page.url()).origin, "X-Azm-Request": "1" };
@@ -70,11 +75,6 @@ async function newcomer(page: Page, lang: Lang, intake: Record<string, unknown>)
   const saved = await page.request.put("/api/intake", { headers, data: intake });
   expect(saved.status()).toBe(200);
   expect((await saved.json()).awaitingCheck).toBe(true);
-  const consent = await page.request.post("/api/consents", {
-    headers,
-    data: { kind: "focus_check", version: 1 },
-  });
-  expect(consent.status()).toBe(200);
 }
 
 /** The focus shell's state (window.azmFocus, VITE_E2E builds). */
@@ -99,8 +99,7 @@ async function runRange(page: Page): Promise<void> {
     } else if (w.step === "result" || w.step === "sit" || w.step === "rest") {
       const next = page.locator('[data-action="next"]:not([disabled])');
       if (await next.count()) await next.first().click();
-    } else if (w.phase === "ask_max" || w.phase === "ask_can_move")
-      await page.locator('.safety-zone[data-value="yes"]').first().click();
+    } else if (w.phase === "ask_max") await page.locator('.safety-zone[data-value="yes"]').first().click();
     else if (w.phase === "ask_pain") {
       await page.locator('.fx-scale-cell[data-value="1"]').first().click();
       await page.locator('[data-action="next"]').first().click();
@@ -108,15 +107,6 @@ async function runRange(page: Page): Promise<void> {
     await page.waitForTimeout(150);
   }
   throw new Error("the range blocks did not end");
-}
-
-/** The day's one screen: no pain today, nothing new or worrying, then Start. */
-async function calmDay(page: Page): Promise<void> {
-  const day = page.locator('[data-screen="today"]');
-  await expect(day).toBeVisible();
-  await day.locator('[data-day="pain"] .check-answer').last().click();
-  await day.locator('[data-day="worry"] .fx-choice[data-value="no"]').click();
-  await day.locator('[data-action="start"]').click();
 }
 
 /** The build animation (D-032 item 4) plays before the program opens: skip it, as a person may. */
@@ -158,8 +148,9 @@ test("the health form leads to the check, whose end plays the build and opens th
   await page.goto("/?focus=1&e2ePerson=1&e2eFast=1");
   await expect(page.locator('[data-screen="intro"]')).toBeVisible();
   await page.locator('[data-screen="intro"] [data-action="start"]').click();
-  await calmDay(page);
+  // D-034 item 4: straight to the check: no consent page, no day screen.
   await expect.poll(async () => (await state(page)).kind, { timeout: 20_000 }).toBe("part");
+  await expect(page.locator('[data-screen="consent"], [data-screen="today"]')).toHaveCount(0);
   await runRange(page);
   // The build animation, then the program page with its why lines.
   await passBuild(page);
@@ -200,30 +191,39 @@ test("«لا أستطيع استخدام الكاميرا» builds the program f
   await expect(page.locator(".plan-card")).toBeVisible();
 });
 
-test("the day's screen leaves at once: nothing has started, so no leave question", async ({ page }) => {
+test("the intro starts the check at once; the setup says nothing has started; the X stops or leaves (D-034)", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await newcomer(page, "en", base);
   await page.goto(url("/?focus=1&e2ePerson=1", "en"));
-  await page.locator('[data-screen="intro"] [data-action="start"]').click();
-  await expect(page.locator('[data-screen="today"]')).toBeVisible();
+  // The intro leaves at once: nothing has started, so no leave question.
   await page.locator('[data-action="leave"]').first().click();
   await expect(page.locator('[data-screen="leave"]')).toHaveCount(0);
   await expect(page.locator("[data-program-waiting]")).toBeVisible();
-});
-
-test("a yes to the worry question: one calm screen, and the program still waits", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await newcomer(page, "ar", base);
-  await page.goto("/?focus=1&e2ePerson=1");
+  await page.goto(url("/?focus=1&e2ePerson=1", "en"));
+  // The sound is on by default (item 3).
+  await expect(page.locator('.fx-top [aria-pressed="true"]')).toHaveCount(1);
   await page.locator('[data-screen="intro"] [data-action="start"]').click();
-  const day = page.locator('[data-screen="today"]');
-  await day.locator('[data-day="worry"] .fx-choice[data-value="yes"]').click();
-  await expect(day.locator('[data-day="walk10m"], [data-day="unsteady"]')).toHaveCount(0);
-  await day.locator('[data-action="continue"]').click();
-  await expect(page.locator('[data-screen="skip_today"]')).toContainText("لنؤجل القياس اليوم");
-  await expect(page.locator('[data-screen="skip_today"]')).not.toContainText("997");
-  await page.locator('[data-screen="skip_today"] [data-action="today"]').click();
-  await expect(page.locator("[data-program-waiting]")).toBeVisible();
+  // The camera setup: «not started yet», no red STOP, Ready on screen without scrolling (item 5).
+  const block = page.locator('[data-screen^="block_"]');
+  await expect(block).toContainText("we haven’t started yet");
+  await expect(page.locator(".safety-stop")).toHaveCount(0);
+  const ready = block.locator('[data-action="ready"]');
+  await expect(ready).toBeInViewport();
+  // The consents were recorded by the start (item 4).
+  const ctx = await (await page.request.get("/api/focus/context")).json();
+  expect(ctx.consent).toEqual({ focus_check: true, live_coach: true });
+  // The X mid check: the stop and leave options; «Stop now» opens the stop list.
+  await page.locator('[data-action="leave"]').first().click();
+  const dialog = page.locator('[data-screen="leave"]');
+  await expect(dialog).toContainText("Do you want to stop?");
+  await expect(dialog.locator('[data-action="stop_now"]')).toBeVisible();
+  await dialog.locator('[data-action="stay"]').click();
+  await expect(dialog).toHaveCount(0);
+  await page.locator('[data-action="leave"]').first().click();
+  await page.locator('[data-screen="leave"] [data-action="stop_now"]').click();
+  await expect(page.locator('[data-screen="stop_list"]')).toBeVisible();
 });
 
 test("Back during the build: Today shows the program, since the completed check ended the wait", async ({
@@ -239,7 +239,6 @@ test("Back during the build: Today shows the program, since the completed check 
   });
   await page.goto(url("/?focus=1&e2ePerson=1&e2eFast=1", "en"));
   await page.locator('[data-screen="intro"] [data-action="start"]').click();
-  await calmDay(page);
   await expect.poll(async () => (await state(page)).kind, { timeout: 20_000 }).toBe("part");
   await runRange(page);
   await expect.poll(async () => (await state(page)).kind, { timeout: 60_000 }).toBe("build");

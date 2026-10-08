@@ -3,9 +3,8 @@
  * (browser checks of the same are in the wave 2 entry of the contract change log).
  *   - The measurement's column stays mounted for the whole movement: Page keys <main> by the step, the
  *     phase only names data-screen (no replayed entrance, no lost focus at each phase).
- *   - STOP is first in the measurement's focus order and has focus when no question is open; a
- *     screen's heading takes focus when it opens (the day's one screen and its calm skip screen,
- *     QuestionText, FaintAskScreen).
+ *   - No red STOP since D-034 item 4: Pause has focus when no question is open; a screen's heading
+ *     takes focus when it opens (QuestionText, FaintAskScreen).
  *   - The stop list and the leave dialog are modal (v1 CheckDialog's behaviour): inert page, focus on
  *     the heading, Tab kept inside, focus returned; Escape stays in the check on the leave dialog only.
  */
@@ -25,20 +24,16 @@ describe("focus and modality in the focus shell", () => {
     expect(read("FocusApp.tsx")).toMatch(/step: `measure:\$\{itemKey\(step\.item\)\}`/);
   });
 
-  it("puts STOP first in the measurement and focuses it while no question is open", () => {
+  it("has no STOP in the measurement (D-034 item 4) and focuses Pause while no question is open", () => {
     const measure = between(read("RangeScreens.tsx"), "export function MeasureScreen", "function Question(");
-    expect(measure.indexOf("<StopButton")).toBeLessThan(measure.indexOf("<Stage"));
-    expect(measure).toMatch(/if \(!asking\) stopRef\.current\?\.focus/);
+    expect(measure).not.toMatch(/StopButton|stopbar/);
+    expect(measure).toMatch(/if \(!asking\) pauseRef\.current\?\.focus/);
   });
 
   it("focuses each question's heading when it opens", () => {
     const screens = read("Screens.tsx");
-    expect(between(screens, "export function DayScreen", "export function SkipTodayScreen")).toMatch(
-      /useFocusOnMount/,
-    );
-    expect(between(screens, "export function SkipTodayScreen", "export function WalkPainScreen")).toMatch(
-      /useFocusOnMount/,
-    );
+    // D-034 item 4: the day screen and its calm skip screen are gone.
+    expect(screens).not.toMatch(/export function DayScreen|export function SkipTodayScreen/);
     expect(between(screens, "export function QuestionText", "export function StartingScreen")).toMatch(
       /useFocusOnMount/,
     );
@@ -48,7 +43,7 @@ describe("focus and modality in the focus shell", () => {
   it("makes the stop list and the leave dialog modal, Escape staying on the leave dialog only", () => {
     const screens = read("Screens.tsx");
     const list = between(screens, "export function StopListScreen", "export function LeaveDialog");
-    expect(list).toMatch(/useModal\(undefined,/);
+    expect(list).toMatch(/useModal\(\)/);
     expect(list).toMatch(/ref=\{modal\.ref\}/);
     const leave = between(
       screens,

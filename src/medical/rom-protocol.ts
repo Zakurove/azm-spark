@@ -19,7 +19,7 @@ import { ROM_DATA, ROM_RULES_VERSION, defaultDef, movementDef, regionRow } from 
 import { DEFAULT_ONLY_IDS, ROM_MOVEMENT_IDS } from "../movements/rom/types";
 import { AXIAL_REGIONS, REGION_IDS } from "./body-map";
 import type { Intake } from "./plan";
-import type { HipAvoidId, LimbLossLevel, ProblemType, RegionEntry, RegionId } from "./body-map";
+import type { HipAvoidId, LimbLossLevel, RegionEntry, RegionId } from "./body-map";
 import type {
   JointMovementId,
   RomData,
@@ -76,7 +76,10 @@ export interface RomProtocolItem {
   verdict: "measure" | "caution";
   normId: string | null;
   graded: boolean;
-  /** Weakness in the region: can_move_ask before the movement. */
+  /**
+   * can_move_ask before the movement: false since D-034 item 4 (the question is gone; a protocol kept
+   * before it may still say true, and the RomController no longer asks it either way).
+   */
   askCanMove: boolean;
   helperRequired: boolean;
   approximate: boolean;
@@ -479,7 +482,6 @@ function unitsOf(regions: readonly RegionEntry[]): Unit[] {
   return [...units.values()];
 }
 
-const hasProblem = (u: Unit, p: ProblemType) => u.entries.some((e) => e.problems.includes(p));
 /** «Surgery ... less than 3 months ago»; without a surgery answer the safe reading (recent). */
 const surgeryUnder3m = (e: RegionEntry) =>
   e.problems.includes("after_surgery") && (!e.surgery || UNDER_3_MONTHS.has(e.surgery.since));
@@ -668,10 +670,9 @@ function draftItem(
   const { position, reason } = choosePosition(def, side, day, previous);
   const p = def.positions.find((x) => x.id === position)!;
   const helperRequired = needsHelper(def, position, u, day);
-  let skipped: RomReasonId | undefined = safetyReason(u, def.id, day) ?? reason ?? undefined;
-  // At home a helper must be present today; at the booth the staff stand beside the person.
-  if (!skipped && helperRequired && day.setting === "home" && day.today.helperPresent !== true)
-    skipped = "helper_needed";
+  // D-034 item 2: a helper is a line, not a gate. The movement runs with its helper line, and the
+  // block's «جاهز» says the helper is beside the person (no day question asks it any more).
+  const skipped: RomReasonId | undefined = safetyReason(u, def.id, day) ?? reason ?? undefined;
   const item: RomProtocolItem = {
     movementId: def.id,
     side,
@@ -683,8 +684,9 @@ function draftItem(
     verdict: def.verdict,
     normId: p.normId,
     graded: p.graded,
-    // «Weakness or paralysis: ... First ask whether the person can move the joint on their own».
-    askCanMove: hasProblem(u, "weakness"),
+    // D-034 item 4: «can you move this joint» is no longer asked; the person tries, and a movement
+    // they cannot do ends as not measured, with no blame.
+    askCanMove: false,
     helperRequired,
     // Caution movements, and the arm raises and the lunge in the person's view as well (B17).
     approximate: def.verdict === "caution" || def.approximateInPersonView,

@@ -137,13 +137,14 @@ describe("region table: the affected regions only, affected side only", () => {
 /* ---------------------------------------------------- problem type rules */
 
 describe("problem type rules (rom-protocol 2.2)", () => {
-  it("weakness: can_move_ask before each movement of that region and side", () => {
+  it("weakness: can_move_ask is never asked (D-034 item 4); the movements of the region still run", () => {
     const p = build(
       intake({ regions: [entry("elbow", "right", ["weakness"]), entry("knee", "right", ["stiffness"])] }),
     );
-    expect(itemOf(p, "elbow_extension").askCanMove).toBe(true);
-    expect(itemOf(p, "elbow_flexion").askCanMove).toBe(true);
-    expect(itemOf(p, "knee_flexion").askCanMove).toBe(false);
+    for (const id of ["elbow_extension", "elbow_flexion", "knee_flexion"] as const) {
+      expect(itemOf(p, id).askCanMove).toBe(false);
+      expect(itemOf(p, id).skipped).toBeUndefined();
+    }
   });
 
   it("injury in the last 6 weeks: region not measured (acute_injury); older: measured", () => {
@@ -417,7 +418,10 @@ describe("positions (rom-protocol 2.5)", () => {
     expect(lunge(weak, "booth")).toMatchObject({ helperRequired: true });
     expect(lunge(weak, "booth").skipped).toBeUndefined(); // staff stand beside at the booth
     expect(lunge(weak, "home", true).skipped).toBeUndefined();
-    expect(lunge(weak, "home", false).skipped).toBe("helper_needed");
+    // D-034 item 2: a helper is a line, not a gate: at home the lunge runs with its helper line.
+    expect(lunge(weak, "home", false)).toMatchObject({ helperRequired: true });
+    expect(lunge(weak, "home", false).skipped).toBeUndefined();
+    expect(lunge(weak, "home").skipped).toBeUndefined();
     const stroke = intake({ conditions: ["stroke"], regions: [entry("ankle_foot", "right", ["stiffness"])] });
     expect(lunge(stroke, "booth").helperRequired).toBe(true);
     const stiff = intake({ regions: [entry("ankle_foot", "right", ["stiffness"])] });

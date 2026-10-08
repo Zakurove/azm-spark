@@ -295,11 +295,31 @@ describe("POST /api/focus: the order of checks", () => {
     });
   });
 
-  it("needs the focus check consent and the adult confirmation", async () => {
-    const noConsent = await person(v7Intake(), []);
-    expect((await h.call("/focus", startBody({}), noConsent.cookie, "POST", booth())).data).toEqual({
+  it("records the focus check and Live coach consents from the health form's consent at the start (D-034 item 4)", async () => {
+    const fresh = await person(v7Intake(), []);
+    const active = (kind: string) =>
+      h
+        .db()
+        .prepare("SELECT COUNT(*) AS n FROM consents WHERE user_id=? AND kind=? AND revoked_at IS NULL")
+        .get(fresh.id, kind) as { n: number };
+    expect(active("focus_check").n).toBe(0);
+    expect((await h.call("/focus", startBody({}), fresh.cookie, "POST", booth())).status).toBe(200);
+    expect(active("focus_check").n).toBe(1);
+    expect(active("live_coach").n).toBe(1);
+    // Without the health form's consent nothing is recorded and the start is refused.
+    const none = await person(v7Intake(), []);
+    const row = h.db().prepare("SELECT intake FROM profiles WHERE user_id=?").get(none.id) as {
+      intake: string;
+    };
+    h.db()
+      .prepare("UPDATE profiles SET intake=? WHERE user_id=?")
+      .run(JSON.stringify({ ...JSON.parse(row.intake), consent: false }), none.id);
+    expect((await h.call("/focus", startBody({}), none.cookie, "POST", booth())).data).toEqual({
       error: "CONSENT_REQUIRED",
     });
+  });
+
+  it("needs the adult confirmation", async () => {
     const minor = await person();
     h.db().prepare("DELETE FROM adult_confirmations WHERE user_id=?").run(minor.id);
     expect((await h.call("/focus", startBody({}), minor.cookie, "POST", booth())).data).toEqual({
@@ -508,34 +528,25 @@ describe("POST /api/focus: the order of checks", () => {
     expect((await start(cookie)).data).toMatchObject({ error: "LOCKED" });
   });
 
-  it("needs every item the day's one screen asked (D-032 item 2)", async () => {
+  it("needs no day answers: no day screen, pain before 0 in each area (D-034 item 4)", async () => {
     const { cookie } = await person();
-    const day = (t: Record<string, unknown>) =>
-      startBody({}, { today: { painByRegion: {}, redFlagRegions: [], ...t } });
-    const call = (t: Record<string, unknown>) => h.call("/focus", day(t), cookie, "POST", booth());
-    expect((await call({})).data).toEqual({ error: "START_INVALID", field: "today.worrying" });
-    expect((await call({ worrying: false })).data).toEqual({
-      error: "START_INVALID",
-      field: "today.walk10m",
-    });
-    expect((await call({ worrying: false, walk10m: true })).data).toEqual({
-      error: "START_INVALID",
-      field: "today.unsteady",
-    });
-    // At home someone with the person is asked once (the pad needs a helper).
-    const home = await h.call(
+    const bare = await h.call(
       "/focus",
-      startBody(
-        {},
-        {
-          setting: "home",
-          today: { painByRegion: {}, redFlagRegions: [], worrying: false, walk10m: true, unsteady: false },
-        },
-      ),
+      startBody({}, { today: { painByRegion: {}, redFlagRegions: [] } }),
       cookie,
+      "POST",
+      booth(),
     );
-    expect(home.data).toEqual({ error: "START_INVALID", field: "today.helperPresent" });
-    expect((await call({ worrying: false, walk10m: true, unsteady: false })).status).toBe(200);
+    expect(bare.status).toBe(200);
+    expect(bare.data.gait?.offered).toBe(true);
+    // At home too, with no one asked about: the start proceeds.
+    const home = await person();
+    const r = await h.call(
+      "/focus",
+      startBody({}, { setting: "home", today: { painByRegion: { knee: 0 }, redFlagRegions: [] } }),
+      home.cookie,
+    );
+    expect(r.status).toBe(200);
   });
 
   it("refuses a day with nothing to measure (NOTHING_TO_MEASURE)", async () => {
@@ -551,19 +562,10 @@ describe("POST /api/focus: the order of checks", () => {
     expect(r.data.warnings).toContain("scr_stop_seek_care");
   });
 
-  it("needs the gait day items when the day plans a walk (2.5 GAIT_DAY_ITEMS)", async () => {
-    const { cookie } = await person();
-    const calm = { painByRegion: {}, redFlagRegions: [], worrying: false, unsteady: false };
-    expect((await start(cookie, { today: calm })).data).toEqual({
-      error: "START_INVALID",
-      field: "today.walk10m",
-    });
-    // Without the walk today the item is not needed.
-    const noWalk = await start(cookie, { today: calm, include: { rom: true, gait: false } });
-    expect(noWalk.status).toBe(200);
+  it("walks with no gait day items: the walk's own card lets the person leave it out (D-034 item 4)", async () => {
+    const calm = { painByRegion: {}, redFlagRegions: [] };
     const pd = await person(v7Intake({ conditions: ["parkinsons"] }));
-    expect((await start(pd.cookie)).data).toEqual({ error: "START_INVALID", field: "today.pdFreezing" });
-    const r = await start(pd.cookie, { today: { ...calm, walk10m: true, pdFreezing: false } });
+    const r = await start(pd.cookie, { today: calm });
     expect(r.status).toBe(200);
   });
 

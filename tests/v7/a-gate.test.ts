@@ -221,9 +221,10 @@ describe("the day answers a focus check keeps, from the day's one screen (D-026 
     for (const k of ["AZM_V7", "AZM_BOOTH_DATES", "AZM_BOOTH_CODE"]) delete process.env[k];
   });
 
-  it("a stroke in a wheelchair bends seated on armrests at home with someone there; alone, the side bend waits", async () => {
+  it("a stroke in a wheelchair bends seated on armrests at home with a helper line, never a question (D-034 item 2)", async () => {
     // A stroke in a wheelchair with the back on the map: the side bend runs seated on armrests, and
-    // the side lean's helper rule asks for someone at home (the day's one helper question).
+    // the side lean's helper rule marks it as needing someone beside the person: a line on its card,
+    // not a gate (no day screen asks any more).
     const intake = v7Intake({
       mobility: "wheelchair",
       walking: { status: "no" },
@@ -233,29 +234,26 @@ describe("the day answers a focus check keeps, from the day's one screen (D-026 
     const cookie = await member(h, "gate-lean@example.test", intake, ["focus_check"]);
     const c = await h.call("/focus/context", undefined, cookie);
     expect(c.status).toBe(200);
-    const body = (today: Record<string, unknown>) => ({
-      setting: "home",
-      today: { painByRegion: { back_trunk: 2 }, redFlagRegions: [], worrying: false, ...today },
-      device: { os: "iOS", browser: "Safari" },
-      include: { rom: true, gait: false },
-    });
-    // The helper question is asked: a start without its answer is refused.
-    expect((await h.call("/focus", body({}), cookie)).data).toEqual({
-      error: "START_INVALID",
-      field: "today.helperPresent",
-    });
-    const alone = await h.call("/focus", body({ helperPresent: false }), cookie);
-    expect(alone.status, JSON.stringify(alone.data)).toBe(200);
+    const r = await h.call(
+      "/focus",
+      {
+        setting: "home",
+        today: { painByRegion: { back_trunk: 0 }, redFlagRegions: [] },
+        device: { os: "iOS", browser: "Safari" },
+        include: { rom: true, gait: false },
+      },
+      cookie,
+    );
+    expect(r.status, JSON.stringify(r.data)).toBe(200);
     const lean = (p: RomProtocol) => p.items.filter((i) => i.position === "seated_armrests");
-    expect(lean(alone.data.protocol).every((i) => i.skipped === "helper_needed")).toBe(true);
-    const helped = await h.call("/focus", body({ helperPresent: true }), cookie);
-    expect(helped.status, JSON.stringify(helped.data)).toBe(200);
-    expect(lean(helped.data.protocol).every((i) => !i.skipped && i.helperRequired)).toBe(true);
-    const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(helped.data.id) as {
+    expect(lean(r.data.protocol).length).toBeGreaterThan(0);
+    expect(lean(r.data.protocol).every((i) => !i.skipped && i.helperRequired)).toBe(true);
+    expect(r.data.helperRequired).toContain("rom_seated");
+    const row = h.db().prepare("SELECT today FROM focus_checks WHERE id=?").get(r.data.id) as {
       today: string;
     };
-    // Only the pain and someone with the person are kept; no red flag, no worry answer.
-    expect(JSON.parse(row.today)).toEqual({ painByRegion: { back_trunk: 2 }, helperPresent: true });
+    // Only the pain before (0, D-034) is kept; no helper answer was asked, no red flag, no worry.
+    expect(JSON.parse(row.today)).toEqual({ painByRegion: { back_trunk: 0 } });
   });
 });
 

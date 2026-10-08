@@ -503,14 +503,12 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
   }
-  .gx-split > .fx-stopbar {
+  .gx-split > .fx-actions.is-sticky {
     grid-column: 1 / -1;
   }
   .gx-capture {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    grid-template-areas:
-      "stage sheet"
-      "stage stop";
+    grid-template-areas: "stage sheet";
     align-items: start;
   }
   .gx-capture > .fx-stage {
@@ -518,10 +516,6 @@
   }
   .gx-capture > .gx-sheet {
     grid-area: sheet;
-  }
-  .gx-capture > .fx-stopbar {
-    grid-area: stop;
-    position: static;
   }
   .gx-capture .fx-stage-box,
   .gx-capture.is-stand .fx-stage-box,

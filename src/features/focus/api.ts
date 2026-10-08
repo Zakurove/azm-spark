@@ -1,6 +1,6 @@
 /**
  * The focus check's calls (product v7 contract section 4): the intake (GET /api/auth/me), the context,
- * the focus_check consent, the start, each range result, a stop and the complete call, and the
+ * the start (which records the consents since D-034 item 4), each range result, a stop and the complete call, and the
  * findings' reads (the person's checks, GET /api/focus, and a check's profile, GET
  * /api/focus/profile). Every call
  * returns an ApiResult instead of throwing (the v1 check's shape, src/features/assessment/api.ts), so
@@ -59,7 +59,6 @@ export interface FocusCheckSummary {
 export interface FocusApi {
   me(): Promise<ApiResult<{ intake: Intake | null }>>;
   context(): Promise<ApiResult<FocusContext>>;
-  consent(): Promise<ApiResult<unknown>>;
   start(body: unknown): Promise<ApiResult<StartResponse>>;
   saveRom(id: string, result: RomMeasureResult): Promise<ApiResult<RomSaved>>;
   stop(
@@ -138,7 +137,6 @@ export function createFocusApi(opts: FocusApiOptions = {}): FocusApi {
   return {
     me: () => call("GET", "/auth/me"),
     context: () => call("GET", "/focus/context"),
-    consent: () => call("POST", "/consents", { kind: "focus_check", version: 1 }),
     start: (body) => call("POST", "/focus", body),
     saveRom: (id, result) => call("POST", `/focus/${id}/rom`, result),
     stop: (id, option, ref) =>

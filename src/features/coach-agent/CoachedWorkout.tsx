@@ -293,13 +293,7 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
         </p>
       )}
       {safety?.kind === "list" && (
-        <StopListScreen
-          lang={lang}
-          env={env}
-          preselect={safety.preselect}
-          stopShown={false}
-          onChoose={choose}
-        />
+        <StopListScreen lang={lang} env={env} preselect={safety.preselect} onChoose={choose} />
       )}
       {safety?.kind === "screen" && (
         <SafetyOverlay>

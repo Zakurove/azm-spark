@@ -12,6 +12,7 @@
     "continue": "Continue",
     "notNow": "I will decide later"
   },
+  "formConsent": "I also agree that my movement and walking results are kept in my account: only the numbers the camera works out, and the video never leaves my phone.",
   "shell": {
     "brand": "Azm",
     "name": "Focused movement check",
@@ -22,10 +23,10 @@
     "saving": "Saving your results",
     "saveError": "Your results are not saved yet. Make sure you are online, then try again.",
     "startError": "The check did not start. Your answers are still here, so you can try again.",
-    "leaveTitle": "Leave the check now?",
-    "leaveBody": "If you leave now, this check will not be completed, and next time you start again.",
     "stay": "Stay in the check",
-    "leaveConfirm": "Yes, leave the check"
+    "stopTitle": "Do you want to stop?",
+    "stopBody": "If you feel unwell or need a rest, choose Stop now and we ask you why. If you leave the check now, it will not be completed.",
+    "stopNow": "Stop now"
   },
   "closed": {
     "intakeTitle": "We need your body map first",
@@ -58,15 +59,8 @@
     "safety": "For your safety",
     "start": "Start",
     "order": "In this order",
-    "walkStep": "Walking"
-  },
-  "precheck": {
-    "kicker": "Before we start"
-  },
-  "day": {
-    "title": "How are you today?",
-    "start": "Start the check",
-    "missing": "Answer each question to start."
+    "walkStep": "Walking",
+    "stopHow": "To stop at any time, tap the ✕ at the top of the screen."
   },
   "pain": {
     "outOf": "out of 10"
@@ -80,11 +74,13 @@
     "helperReady": "My helper is beside me. Ready",
     "cameraWait": "One moment, the camera is getting ready.",
     "lyingHelper": "While you lie down, your companion or one of our team taps the buttons for you.",
-    "cameraError": "We cannot open the camera. Allow the browser to use it, then try again."
+    "cameraError": "We cannot open the camera. Allow the browser to use it, then try again.",
+    "notStarted": "Set up your phone, we haven’t started yet"
   },
   "setup": {
     "kicker": "Movement {n} of {total}",
-    "ready": "Ready, let’s start"
+    "ready": "Ready, let’s start",
+    "notStarted": "Not started yet"
   },
   "instruction": {
     "seatedHands": "Rest your hands at the sides of the chair.",
@@ -105,13 +101,15 @@
     "hold": "Hold",
     "instructions": "Instructions",
     "hideInstructions": "Hide the instructions",
-    "fromStraight": "from straight"
+    "fromStraight": "from straight",
+    "letsStart": "Let’s start"
   },
   "result": {
     "kicker": "Result",
     "typical": "Typical",
     "tries": "Tries",
     "quality": "The camera could not see the movement clearly enough, so we did not record it today.",
+    "notToday": "That is fine. We did not measure this movement today.",
     "byChoice": "You stopped this movement, so we did not record it today.",
     "next": "Next movement",
     "finish": "Continue",

@@ -43,12 +43,22 @@ export function Button({ a }: { a: Action }) {
   );
 }
 
-/** The actions of a screen: the gold one last in reading order, at the end of the row. */
-export function Actions({ items }: { items: (Action | null | false | undefined)[] }) {
+/**
+ * The actions of a screen: the gold one last in reading order, at the end of the row. `sticky` keeps
+ * them at the bottom of the screen above the phone's home bar (D-034 item 5: Ready always on screen);
+ * they must then be a direct child of the step, so the bar sticks from the step's top.
+ */
+export function Actions({
+  items,
+  sticky = false,
+}: {
+  items: (Action | null | false | undefined)[];
+  sticky?: boolean;
+}) {
   const list = items.filter((a): a is Action => !!a);
   if (!list.length) return null;
   return (
-    <div className="fx-actions">
+    <div className={`fx-actions${sticky ? " is-sticky" : ""}`}>
       {list.map((a, i) => (
         <Button key={i} a={a} />
       ))}

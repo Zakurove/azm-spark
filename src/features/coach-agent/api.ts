@@ -127,12 +127,20 @@ export async function readCoachStatus(fetchImpl: typeof fetch = fetch): Promise<
       credentials: "same-origin",
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // D-034 item 3: never silent.
+      console.warn("[azm coach] status refused", { status: res.status });
+      return null;
+    }
     const body: unknown = await res.json();
-    return isRecord(body) && typeof body.available === "boolean" && typeof body.consent === "boolean"
-      ? { available: body.available, consent: body.consent }
-      : null;
-  } catch {
+    const status =
+      isRecord(body) && typeof body.available === "boolean" && typeof body.consent === "boolean"
+        ? { available: body.available, consent: body.consent }
+        : null;
+    if (!status?.available || !status.consent) console.info("[azm coach] status", status ?? body);
+    return status;
+  } catch (e) {
+    console.warn("[azm coach] status failed", { message: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }

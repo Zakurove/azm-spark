@@ -276,12 +276,28 @@ describe("POST /api/agent/token: the order of checks", () => {
   });
 
   it("answers 403 CONSENT_REQUIRED without an active live_coach consent", async () => {
+    // D-034 item 4: the check's start records it from the health form's consent, the first time.
     const st = await started(v7Intake(), ["focus_check"]);
-    expect((await token(tokenBody(st), st.cookie)).data).toEqual({ error: "CONSENT_REQUIRED" });
-    expect((await h.call("/consents", { kind: "live_coach", version: 1 }, st.cookie)).status).toBe(200);
     expect((await token(tokenBody(st), st.cookie)).status).toBe(200);
     expect((await h.call("/consents/live_coach", undefined, st.cookie, "DELETE")).status).toBe(200);
     expect((await token(tokenBody(st), st.cookie)).data).toEqual({ error: "CONSENT_REQUIRED" });
+    // A withdrawn consent stays withdrawn at the next start.
+    const again = await h.call(
+      "/focus",
+      {
+        setting: "home",
+        today: { painByRegion: {}, redFlagRegions: [] },
+        device: { os: "iOS", browser: "Safari" },
+        include: { rom: true, gait: false },
+      },
+      st.cookie,
+    );
+    expect(again.status).toBe(200);
+    expect((await token(tokenBody({ ...st, id: again.data.id }), st.cookie)).data).toEqual({
+      error: "CONSENT_REQUIRED",
+    });
+    expect((await h.call("/consents", { kind: "live_coach", version: 1 }, st.cookie)).status).toBe(200);
+    expect((await token(tokenBody({ ...st, id: again.data.id }), st.cookie)).status).toBe(200);
   });
 
   it("answers 409 NOT_OPEN for a check that is not the person's, missing, closed or stale", async () => {

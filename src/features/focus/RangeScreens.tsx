@@ -20,7 +20,7 @@ import type { RomBlock, RomProtocolItem } from "../../medical/rom-protocol";
 import type { Intake, Sex } from "../../medical/plan";
 import { movementDef, ROM_DATA } from "../../movements/rom";
 import CheckIcon from "../assessment/shared/CheckIcon";
-import { AnswerZones, StopButton } from "../assessment/safety/parts";
+import { AnswerZones } from "../assessment/safety/parts";
 import { useFoldFit } from "../assessment/safety/hooks";
 import { copyText, instructionLines, lineText, movementName, positionName, resultView } from "./copy";
 import { Dial, scaleMax } from "./Dial";
@@ -42,7 +42,8 @@ const BLOCK_TITLE: Record<
 
 /**
  * A block's card (C-16 confirm): the position, the movements, the support, helper and neck lines. The
- * v1 warnings no longer repeat here before every block (D-032 item 2): the intro says them once.
+ * v1 warnings no longer repeat here before every block (D-032 item 2): the intro says them once. D-034
+ * item 5: its title says nothing has started yet, and its Ready is always on screen (sticky).
  */
 export function BlockCard({
   lang,
@@ -54,7 +55,6 @@ export function BlockCard({
   cameraError = false,
   onNoCamera,
   onReady,
-  onStop,
 }: {
   lang: Lang;
   block: RomBlock;
@@ -72,16 +72,14 @@ export function BlockCard({
   /** D-032 item 3, a person whose program waits for the check: «لا أستطيع استخدام الكاميرا». */
   onNoCamera?: () => void;
   onReady(): void;
-  /** STOP while the camera runs (v1: on every camera, after and between state; D-016). */
-  onStop?: () => void;
 }) {
   const positions = [...new Set(items.map((i) => i.position))];
   const neck = items.some((i) => i.region === "neck");
   return (
     <div className="fx-split">
       <Glass className="fx-card fx-block">
-        <Kicker>{tV7(lang, "rom.shell.name")}</Kicker>
-        <Title>{tV7(lang, BLOCK_TITLE[block])}</Title>
+        <Kicker>{tV7(lang, BLOCK_TITLE[block])}</Kicker>
+        <Title>{tV7(lang, "rom.block.notStarted")}</Title>
         <div className="fx-chips">
           {positions.map((p) => (
             <span key={p} className="fx-pill">
@@ -125,40 +123,28 @@ export function BlockCard({
             </p>
           )}
         </Glass>
-        <Actions
-          items={[
-            cameraError && onNoCamera
-              ? {
-                  label: tV7(lang, "rom.onboarding.noCamera"),
-                  onClick: onNoCamera,
-                  kind: "secondary",
-                  name: "no_camera",
-                }
-              : null,
-            {
-              label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
-              onClick: onReady,
-              name: "ready",
-              icon: "check",
-              busy: waiting,
-              disabled: waiting,
-            },
-          ]}
-        />
       </div>
-      {onStop && <StopBar onStop={onStop} />}
-    </div>
-  );
-}
-
-/**
- * STOP, sticky at the bottom of a range step while the camera runs: the stop list and its urgent
- * routes are always one tap away, between movements as during them (v1 UX principle 6, D-016).
- */
-export function StopBar({ onStop }: { onStop(): void }) {
-  return (
-    <div className="fx-v1 fx-stopbar">
-      <StopButton onPress={onStop} />
+      <Actions
+        sticky
+        items={[
+          cameraError && onNoCamera
+            ? {
+                label: tV7(lang, "rom.onboarding.noCamera"),
+                onClick: onNoCamera,
+                kind: "secondary",
+                name: "no_camera",
+              }
+            : null,
+          {
+            label: tV7(lang, helper || block === "lying" ? "rom.block.helperReady" : "rom.block.ready"),
+            onClick: onReady,
+            name: "ready",
+            icon: "check",
+            busy: waiting,
+            disabled: waiting,
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -175,7 +161,8 @@ function Note({ lang, icon, text }: { lang: Lang; icon: string; text: string }) 
 /**
  * A movement's setup card (C-16 confirm, rom-protocol 1.1 step 1): the picture, the instructions, and
  * who stands beside. The safety lines the intro and the block's card already say are not repeated on
- * every movement (D-032 item 2).
+ * every movement (D-032 item 2). D-034 item 5: it says the movement has not started, and its Ready is
+ * always on screen (sticky); the measurement then opens with «لنبدأ».
  */
 export function SetupCard({
   lang,
@@ -185,7 +172,6 @@ export function SetupCard({
   turnSide,
   wheelchair = false,
   onReady,
-  onStop,
 }: {
   lang: Lang;
   item: RomProtocolItem;
@@ -194,13 +180,17 @@ export function SetupCard({
   turnSide: boolean;
   wheelchair?: boolean;
   onReady(): void;
-  onStop?: () => void;
 }) {
   const steps = instructionLines(item.movementId, item.side, item.position, lang);
   return (
     <div className="fx-split" data-movement={item.movementId}>
       <Glass className="fx-card fx-figure">
-        <Kicker>{tV7(lang, "rom.setup.kicker", { n, total })}</Kicker>
+        <div className="fx-figure-head">
+          <Kicker>{tV7(lang, "rom.setup.kicker", { n, total })}</Kicker>
+          <span className="fx-pill is-waiting" data-state="not-started">
+            {tV7(lang, "rom.setup.notStarted")}
+          </span>
+        </div>
         <div className="fx-figure-art">
           <MovementPicture
             movementId={item.movementId}
@@ -226,11 +216,11 @@ export function SetupCard({
           </ol>
           {item.helperRequired && <Note lang={lang} icon="people" text={copyText("helper_line", lang)} />}
         </Glass>
-        <Actions
-          items={[{ label: tV7(lang, "rom.setup.ready"), onClick: onReady, name: "ready", icon: "play" }]}
-        />
       </div>
-      {onStop && <StopBar onStop={onStop} />}
+      <Actions
+        sticky
+        items={[{ label: tV7(lang, "rom.setup.ready"), onClick: onReady, name: "ready", icon: "play" }]}
+      />
     </div>
   );
 }
@@ -240,12 +230,10 @@ export function ReaskScreen({
   lang,
   item,
   onAnswer,
-  onStop,
 }: {
   lang: Lang;
   item: RomProtocolItem;
   onAnswer(n: number): void;
-  onStop?: () => void;
 }) {
   return (
     <>
@@ -259,7 +247,6 @@ export function ReaskScreen({
           onDone={onAnswer}
         />
       </Glass>
-      {onStop && <StopBar onStop={onStop} />}
     </>
   );
 }
@@ -276,7 +263,6 @@ export interface MeasureProps {
   clock(): number;
   /** The time of the last redraw (the countdowns). */
   now: number;
-  onStop(): void;
 }
 
 /** The scale's end of a movement, fixed while it runs (the dial never jumps). */
@@ -290,9 +276,10 @@ function useScale(item: RomProtocolItem, ctl: RomController, live: number | null
 
 /**
  * The measurement (rom-protocol 1.1): the camera with the body's lines, the dial with the typical
- * band and the hold ring, the phase's prompt, the correction caption, the questions, STOP.
+ * band and the hold ring, the phase's prompt, the correction caption, the questions. No STOP since
+ * D-034 item 4: the X at the top opens the stop and leave options.
  */
-export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, now, onStop }: MeasureProps) {
+export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, now }: MeasureProps) {
   const phase = ctl.phase ?? "idle";
   const def = movementDef(item.movementId);
   const norm = ctl.norm(item);
@@ -306,16 +293,18 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
   const issue = phase === "calibrating" ? ctl.setupIssue : null;
   const asking =
     phase === "ask_max" || phase === "ask_pain" || phase === "ask_cause" || phase === "ask_can_move";
-  // STOP is first in the focus order and has focus when the measurement opens (v1 S34), and again
-  // when a question closes; a question that opens takes it (QuestionText).
-  const stopRef = useRef<HTMLButtonElement>(null);
+  // Pause has focus when the measurement opens and again when a question closes (STOP had it before
+  // D-034 item 4); a question that opens takes it (QuestionText).
+  const pauseRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!asking) stopRef.current?.focus({ preventScroll: true });
+    if (!asking) pauseRef.current?.focus({ preventScroll: true });
   }, [asking]);
   const value = phase === "ask_max" && hold ? hold.deg : live;
+  // D-034 item 5: after Ready the measurement says «لنبدأ» clearly (and the voice says it, FocusApp),
+  // with the start position under it, before the first attempt.
   const prompt =
     phase === "calibrating"
-      ? tV7(lang, "rom.measure.start")
+      ? tV7(lang, "rom.measure.letsStart")
       : phase === "practice"
         ? tV7(lang, "rom.measure.practice")
         : phase === "attempt"
@@ -330,8 +319,8 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       ? copyText("practice", lang)
       : phase === "attempt"
         ? tV7(lang, "rom.measure.move")
-        : phase === "calibrating" && issue
-          ? t(lang, `assessment.setup.issue.${issue}` as never)
+        : phase === "calibrating"
+          ? tV7(lang, "rom.measure.start")
           : "";
   const restLeft = phase === "rest" ? ctl.restLeft(now) : 0;
   // v1's 2 m sizes (UX spec 4.1), stepped down only as far as the answers need to fit above STOP: a
@@ -347,9 +336,6 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       data-movement={item.movementId}
       data-asking={asking ? (phase === "ask_max" ? "max" : "other") : undefined}
     >
-      <div className="fx-v1 fx-stopbar is-measure">
-        <StopButton onPress={onStop} buttonRef={stopRef} />
-      </div>
       <Stage video={video} frame={frame} highlight={highlight}>
         <div className="fx-stage-top">
           <span className="fx-pill is-glass">
@@ -405,6 +391,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
             )}
             {(phase === "practice" || phase === "attempt" || phase === "calibrating" || phase === "rest") && (
               <button
+                ref={pauseRef}
                 type="button"
                 className="fx-chip"
                 onClick={() => ctl.pause("screen", clock())}
@@ -558,12 +545,10 @@ export function PainStopScreen({
   lang,
   item,
   onContinue,
-  onStop,
 }: {
   lang: Lang;
   item: RomProtocolItem;
   onContinue(): void;
-  onStop?: () => void;
 }) {
   return (
     <>
@@ -578,7 +563,6 @@ export function PainStopScreen({
           items={[{ label: t(lang, "assessment.common.continue"), onClick: onContinue, name: "continue" }]}
         />
       </Glass>
-      {onStop && <StopBar onStop={onStop} />}
     </>
   );
 }
@@ -613,7 +597,6 @@ export function ResultScreen({
   intake,
   last,
   onNext,
-  onStop,
 }: {
   lang: Lang;
   ctl: RomController;
@@ -623,7 +606,6 @@ export function ResultScreen({
   intake: (Intake & { sex: Sex }) | null;
   last: boolean;
   onNext(): void;
-  onStop?: () => void;
 }) {
   const def = movementDef(item.movementId);
   const norm = ctl.norm(item);
@@ -725,7 +707,6 @@ export function ResultScreen({
           ]}
         />
       </div>
-      {onStop && <StopBar onStop={onStop} />}
     </div>
   );
 }
@@ -739,7 +720,6 @@ export function TimerScreen({
   last,
   standing = false,
   onNext,
-  onStop,
 }: {
   lang: Lang;
   kind: "rest" | "sit";
@@ -750,7 +730,6 @@ export function TimerScreen({
   /** The sit minute is over: «يمكنك الوقوف الآن ببطء» and the way on. */
   standing?: boolean;
   onNext?: () => void;
-  onStop(): void;
 }) {
   const lastValue = last && last.result.value !== null ? Math.abs(last.result.value) : null;
   return (
@@ -782,9 +761,6 @@ export function TimerScreen({
           />
         )}
       </Glass>
-      <div className="fx-v1 fx-stopbar">
-        <StopButton onPress={onStop} />
-      </div>
     </div>
   );
 }

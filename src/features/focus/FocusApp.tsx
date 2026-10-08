@@ -1,15 +1,16 @@
 /**
- * The focus check (product v7 contract 1.2, stream B, step B3; D-032): the shell that runs a protocol
- * end to end: the day's one screen (D-032 item 2), the range blocks in C-13 order with the stop list and
- * sit before stand, the gait step (GaitStep, C) between the standing and lying blocks, and the complete
+ * The focus check (product v7 contract 1.2, stream B, step B3; D-032, D-034): the shell that runs a
+ * protocol end to end: from the intro straight to the range blocks (D-034 item 4: no consent page, no
+ * day screen) in C-13 order with the stop list (from the X, no red STOP) and sit before stand, the gait
+ * step (GaitStep, C) between the standing and lying blocks, and the complete
  * call, then the findings. It loads its own data (GET
  * /api/focus/context) and implements CoachHost for the range blocks (C-16) through its RomController.
  *
  * The logic is in session.ts (the flow, the calls, the controller) and romController.ts; this page
  * renders them, owns the one camera of the check (focusCameraSession, C-10, shared with the walk's
  * step through FocusCameraContext), feeds the frames to the controller, keeps the timers ticking,
- * plays the local lines when the voice is on (off by default) and passes the coach's events to the
- * coach (the live coach is off by default; stream D wires it, C-5).
+ * and voices the check with its one sound switch (D-034 item 3, on by default in a v7 build): the Live
+ * coach when the server allows it, else the phone's own speech; off, silent.
  *
  * src/app/App.tsx opens it at /?focus=1 for a signed in person, in a VITE_V7=1 build only, and right
  * after the health form for a person whose program waits for the check (D-032 item 3, `onboarding`):
@@ -29,16 +30,17 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { Lang } from "../../app/i18n";
-import { CuePlayer, isVoiceLine } from "../../app/audio";
-import { readPreferences, savePreferences } from "../../app/experience";
+import { isVoiceLine } from "../../app/audio";
 import type { Frame } from "../../engine/types";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { useCameraSession } from "../assessment/camera/session";
 import { useOrientation, useWakeLock } from "../assessment/camera/hooks";
 import type { Tilt } from "../../engine/quality";
 import "../assessment/safety/safety.css";
-import { fakeCoachRun, useCoach, useCoachStatus } from "../coach-agent/useCoach";
+import { coachLog, fakeCoachRun, useCoach, useCoachStatus } from "../coach-agent/useCoach";
 import { CueVoice } from "../coach-agent/LocalVoice";
+import { PhoneVoice } from "../coach-agent/phoneVoice";
+import { readSound, saveSound } from "../coach-agent/sound";
 import { CoachCaption } from "../coach-agent/CoachCaption";
 import { COACH_ASK_LINES, liveCoachOn, romSegment } from "../coach-agent/hosts";
 import { unlockCoachAudio } from "../coach-agent/audio/context";
@@ -47,7 +49,7 @@ import { useOnline } from "../assessment/shared/useOnline";
 import { GaitStep } from "../gait/GaitStep";
 import { focusCameraSession, FocusCameraContext, type FocusSourceFactory } from "./camera";
 import { createFocusApi } from "./api";
-import { FINDING_LABEL, voiceLineOf } from "./copy";
+import { FINDING_LABEL, lineText, voiceLineOf } from "./copy";
 import { movementDef, romResultLine } from "../../movements/rom";
 import { FocusSession } from "./session";
 import { itemKey, type RomController } from "./romController";
@@ -65,8 +67,6 @@ import {
 import {
   ClosedScreen,
   CompletingScreen,
-  ConsentScreen,
-  DayScreen,
   DoneScreen,
   FaintAskScreen,
   GaitSlot,
@@ -75,14 +75,12 @@ import {
   LoadErrorScreen,
   LoadingScreen,
   SafetyScreen,
-  SkipTodayScreen,
   StartingScreen,
   StopListScreen,
   WalkPainScreen,
   WalkSkippedScreen,
 } from "./Screens";
-import { sciWarningOnce, todayItems, type FocusExitTo } from "./flow";
-import { dayAreas } from "../../medical/focus-precheck";
+import { sciWarningOnce, type FocusExitTo } from "./flow";
 import { Stage } from "./Stage";
 import { t } from "../../i18n";
 import "./focus.css";
@@ -154,6 +152,9 @@ function e2eOptions(): { person: boolean; fast: boolean; reach: number } {
 
 const clock = () => performance.now();
 
+/** The measurement's phases a pause can hold (the Pause control's), when the X's dialog opens. */
+const PAUSABLE: ReadonlySet<string> = new Set(["calibrating", "practice", "attempt", "rest"]);
+
 /**
  * Whether a block's card waits for the camera's model probe (C-10): from the card's first frame until
  * the probe of this block ends; the camera still starting counts as waiting (its first frame starts the
@@ -216,49 +217,69 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
   const part = s.kind === "part" ? m.data.parts[s.index] : null;
   const rangeStep = part?.kind === "range" && ctl ? ctl.current : null;
 
-  // The local lines: the voice pack when the voice is on (off by default), the caption always.
-  const [soundOn, setSoundOn] = useState(() => readPreferences().voice === "full");
-  const player = useMemo(() => new CuePlayer(lang), []);
-  useEffect(() => player.setLang(lang), [lang, player]);
+  // D-034 item 3: ONE voice control, the speaker button (on by default in a v7 build). Sound on: the
+  // Live coach runs when the server allows it, and otherwise every line is spoken with the phone's own
+  // speech (PhoneVoice: ar-SA, else any Arabic; English for the English interface). Sound off: silent.
+  // The captions show either way.
+  const [soundOn, setSoundOn] = useState(() => readSound());
+  const phone = useMemo(() => new PhoneVoice(lang), []);
+  useEffect(() => phone.setLang(lang), [lang, phone]);
   useEffect(() => {
-    player.muted = !soundOn;
-  }, [soundOn, player]);
-  // Step D5: while the live coach runs, the lines go through its local voice (the mic gate sees each
-  // one) and the range questions are the coach's to ask (bridge rule 2, D-12).
-  const voice = useMemo(() => new CueVoice(player), [player]);
+    phone.muted = !soundOn;
+    if (!soundOn) phone.stop();
+  }, [soundOn, phone]);
+  useEffect(() => () => phone.stop(), [phone]);
+  // While the live coach runs, the lines go through its local voice (the mic gate sees each one) and
+  // the range questions are the coach's to ask (bridge rule 2, D-12).
+  const voice = useMemo(() => new CueVoice(phone), [phone]);
   const coachMode = useRef<CoachMode>("off");
   useEffect(
     () =>
       session.onLine((l) => {
+        if (!soundOn) return;
         const id = voiceLineOf(l.line);
-        if (!soundOn || !isVoiceLine(id)) return;
         const severity = l.severity === "safety" ? "safety" : l.severity === "warn" ? "warn" : "info";
-        if (coachMode.current === "off") void player.line(id, severity);
-        else if (!COACH_ASK_LINES.has(id)) voice.say(id, severity);
+        if (coachMode.current === "off") {
+          if (isVoiceLine(id)) void phone.line(id, severity);
+          else void phone.say(lineText(l.line, lang), severity);
+        } else if (isVoiceLine(id) && !COACH_ASK_LINES.has(id)) voice.say(id, severity);
       }),
-    [session, soundOn, player, voice],
+    [session, soundOn, phone, voice, lang],
   );
+  /** Inside a tap (iOS): the phone's speech and the coach's audio may play from now on. */
+  const unlockSound = () => {
+    if (!soundOn) return;
+    PhoneVoice.unlock();
+    unlockCoachAudio();
+  };
   const toggleSound = () => {
     const on = !soundOn;
     setSoundOn(on);
-    if (on) CuePlayer.unlock();
-    savePreferences({ ...readPreferences(), voice: on ? "full" : "off" });
+    saveSound(on);
+    if (on) {
+      PhoneVoice.unlock();
+      unlockCoachAudio();
+    }
   };
 
-  // The coach is an enhancement, never a dependency (C-5): off by default. With the person's switch,
-  // the live_coach consent and a network (step D5), each range block is a coach segment (C-6:
-  // rom:<block>:1, then :2 after its fifth movement) with the RomController as its host; the walk's
-  // segment is GaitStep's own.
+  // The coach is an enhancement, never a dependency (C-5). With the sound on and a network, after the
+  // start (which records the live_coach consent from the health form's, D-034 item 4) the server says
+  // whether it can run the coach now (GET /api/agent/status, D-030 D5-12; the e2e fake coach needs no
+  // key). Each range block is then a coach segment (C-6: rom:<block>:1, then :2 after its fifth
+  // movement) with the RomController as its host; the walk's segment is GaitStep's own.
   const { online } = useOnline();
-  const coachWanted = readPreferences().liveCoach && m.data.context?.consent.live_coach === true;
-  // D-030 D5-12: the server says it can run the coach now (the e2e fake coach needs no key).
-  const coachStatus = useCoachStatus(coachWanted);
+  const checkId = m.data.check?.id ?? null;
+  const coachStatus = useCoachStatus(soundOn && checkId !== null, checkId);
   const coachOn = liveCoachOn({
-    preference: readPreferences().liveCoach,
-    consent: m.data.context?.consent.live_coach === true,
+    preference: soundOn,
+    consent: coachStatus?.consent === true || fakeCoachRun(),
     online,
     available: coachStatus?.available === true || fakeCoachRun(),
   });
+  useEffect(() => {
+    if (soundOn && checkId && coachStatus && !coachOn)
+      coachLog("the phone's own voice speaks the check", { ...coachStatus, online });
+  }, [soundOn, checkId, coachStatus, coachOn, online]);
   const lastSegment = useRef<CoachSegment | null>(null);
   let romSeg: CoachSegment | null = null;
   if (part?.kind === "range" && ctl && m.data.check) {
@@ -328,22 +349,51 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
     return () => clearInterval(id);
   }, [part, session]);
 
-  // The system Back asks before leaving mid check (v1 S15): one pushed history entry.
+  // The system Back and the X ask before leaving mid check (v1 S15): one pushed history entry. Since
+  // D-034 item 4 there is no red STOP: the X's dialog holds the stop and leave options, and a
+  // measurement running under it waits (paused) until the person chooses.
   const [leaving, setLeaving] = useState(false);
+  const pausedForLeave = useRef(false);
+  // The walk's own stop (GaitCapture registers it): the X's «توقّف الآن» stops the walk through it.
+  const walkStop = useRef<(() => void) | null>(null);
   // What of the walk's slot shows, as the walk says (D-030 C4-7); its first card shows both.
   const [walkChrome, setWalkChrome] = useState({ hero: true, skip: true });
   // The build animation ended (its Continue or Skip): the shell's page comes back (D-032 item 3).
   const [buildPlayed, setBuildPlayed] = useState(false);
-  // Leaving asks first only once the check runs; the day's screen leaves at once, nothing is lost
-  // there (D-032 item 2: no extra confirmation that is not about stopping).
+  // Leaving asks first only once the check runs; the intro leaves at once, nothing is lost there
+  // (D-032 item 2: no extra confirmation that is not about stopping).
   const midCheck = s.kind === "part" || s.kind === "walk_pain" || s.kind === "walk_skipped";
   const midRef = useRef(midCheck);
   midRef.current = midCheck;
+  const openLeave = () => {
+    const c = session.ctl;
+    const rangeNow = s.kind === "part" && m.data.parts[s.index]?.kind === "range";
+    if (rangeNow && c?.current.kind === "measure" && PAUSABLE.has(c.phase ?? "")) {
+      c.pause("screen", clock());
+      pausedForLeave.current = true;
+    }
+    setLeaving(true);
+  };
+  const openLeaveRef = useRef(openLeave);
+  openLeaveRef.current = openLeave;
+  const closeLeave = (then: "stay" | "stop" | "leave") => {
+    setLeaving(false);
+    const paused = pausedForLeave.current;
+    pausedForLeave.current = false;
+    if (then === "stay" && paused) session.ctl?.resume("screen", clock());
+    if (then === "stop") {
+      // The walk stops through its own controller (its partial walk is kept); a range step through the
+      // RomController; both open the stop list, which asks why.
+      if (part?.kind === "gait" && walkStop.current) walkStop.current();
+      else session.requestStop();
+    }
+    if (then === "leave") today();
+  };
   useLayoutEffect(() => {
     window.history.pushState({ azmFocus: 1 }, "");
     const onPop = () => {
       if (midRef.current) {
-        setLeaving(true);
+        openLeaveRef.current();
         window.history.pushState({ azmFocus: 1 }, "");
       } else onExit("today");
     };
@@ -356,11 +406,16 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
     if (s.kind === "exit") onExit(s.to);
   }, [s, onExit]);
 
-  // E2E builds only: the review screenshots and the specs read the session.
+  // E2E builds only: the review screenshots and the specs read the session, and the coach's mode and
+  // captions (as the coached workout's hook), for the real coach smoke (D-034 item 3).
   useEffect(() => {
     if (import.meta.env.VITE_E2E !== "1") return;
     (window as unknown as { azmFocus?: FocusSession }).azmFocus = session;
   }, [session]);
+  useEffect(() => {
+    if (import.meta.env.VITE_E2E !== "1") return;
+    (window as unknown as { azmCoach?: unknown }).azmCoach = { mode: coach.mode, captions: coach.captions };
+  }, [coach.mode, coach.captions]);
 
   const today = () => session.dispatch({ type: "EXIT", to: "today" });
   const parts = m.data.parts;
@@ -370,19 +425,14 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
       : s.kind === "completing" || s.kind === "done" || s.kind === "build"
         ? { done: parts.length, total: parts.length }
         : null;
-  const entry =
-    s.kind === "loading" ||
-    s.kind === "consent" ||
-    s.kind === "intro" ||
-    s.kind === "closed" ||
-    s.kind === "load_error";
+  const entry = s.kind === "loading" || s.kind === "intro" || s.kind === "closed" || s.kind === "load_error";
   const top = (
     <TopBar
       lang={lang}
       progress={progress}
       sound={{ on: soundOn, toggle: toggleSound }}
       onLanguage={entry ? onLanguage : null}
-      onLeave={s.kind === "done" || s.kind === "build" ? null : midCheck ? () => setLeaving(true) : today}
+      onLeave={s.kind === "done" || s.kind === "build" ? null : midCheck ? openLeave : today}
     />
   );
   const env = m.data.context?.env ?? null;
@@ -418,19 +468,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
             />
           ),
         };
-      case "consent":
-        return {
-          screen: "consent",
-          node: (
-            <ConsentScreen
-              lang={lang}
-              saving={s.saving}
-              error={s.error}
-              onAgree={() => void session.consent()}
-              onLater={today}
-            />
-          ),
-        };
       case "intro":
         return {
           screen: "intro",
@@ -444,24 +481,12 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               wheelchair={m.data.intake?.mobility === "wheelchair"}
               onStart={() => {
-                CuePlayer.unlock();
-                if (coachOn) unlockCoachAudio();
+                // iOS: the first speech or audio must start from a tap (D-034 item 3).
+                unlockSound();
                 // iOS: the motion permission is asked inside a tap (v1's camera primer does the same).
                 orientation.askAgain();
                 session.dispatch({ type: "BEGIN" });
               }}
-            />
-          ),
-        };
-      case "today":
-        return {
-          screen: "today",
-          node: (
-            <DayScreen
-              lang={lang}
-              areas={dayAreas(m.data.context!.protocol!, m.data.context!.gait)}
-              itemsFor={(today) => todayItems(m.data, today)}
-              onDone={(today) => session.dispatch({ type: "DAY_DONE", today })}
             />
           ),
         };
@@ -488,17 +513,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               lock={s.lock}
               now={Date.now()}
               next={{ label: t(lang, "assessment.common.backToToday"), onClick: today, name: "today" }}
-            />
-          ),
-        };
-      case "skip_today":
-        return {
-          screen: "skip_today",
-          node: (
-            <SkipTodayScreen
-              lang={lang}
-              onToday={today}
-              onUrgent={() => session.dispatch({ type: "URGENT" })}
             />
           ),
         };
@@ -573,8 +587,10 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                   painBefore={session.walkBefore}
                   coach={(e) => coach.push(e)}
                   coachOn={coachOn}
+                  sound={soundOn}
                   onDone={() => session.gaitDone()}
                   onStop={(preselect) => session.requestStop(preselect ?? null)}
+                  stopRef={walkStop}
                   onSkip={() => session.gaitDone()}
                   onChrome={setWalkChrome}
                 />
@@ -675,10 +691,9 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               cameraError={cam.status === "error"}
               onNoCamera={onboarding ? () => session.dispatch({ type: "BUILD", from: "history" }) : undefined}
               onReady={() => {
-                if (coachOn) unlockCoachAudio();
+                unlockSound();
                 if (!blockWaiting) c.ready(clock());
               }}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -691,7 +706,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               lang={lang}
               item={step.item}
               onAnswer={(n) => c.answerReask(n, clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -707,8 +721,13 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               total={runs.length}
               turnSide={step.turnSide}
               wheelchair={m.data.intake?.mobility === "wheelchair"}
-              onReady={() => c.ready(clock())}
-              onStop={() => session.requestStop()}
+              onReady={() => {
+                // D-034 item 5: Ready starts the movement: «لنبدأ» on screen (the measurement's first
+                // line) and by voice, spoken inside the tap (iOS lets it play from here on).
+                unlockSound();
+                if (soundOn) void phone.say(tV7(lang, "rom.measure.letsStart"), "info");
+                c.ready(clock());
+              }}
             />
           ),
         };
@@ -729,7 +748,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               frame={frame}
               clock={clock}
               now={tNow}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -744,7 +762,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                 c.acknowledge(clock());
                 coach.reopen();
               }}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -763,7 +780,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               intake={m.data.intake}
               last={!!last && itemKey(last) === itemKey(step.item)}
               onNext={() => c.next(clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -781,7 +797,6 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               {...(step.kind === "sit" && step.last ? { last: step.last } : {})}
               standing={step.kind === "sit" && step.standing !== undefined}
               onNext={() => c.next(clock())}
-              onStop={() => session.requestStop()}
             />
           ),
         };
@@ -814,6 +829,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
         )}
         {/* The live coach's words while it speaks (voice and captions together, step D5). */}
         {!stopOpen && <CoachCaption coach={coach} lang={lang} />}
+        <span hidden data-coach-mode={coach.mode} />
         {stopOpen && env && (
           <StopListScreen
             lang={lang}
@@ -830,11 +846,9 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
           <LeaveDialog
             lang={lang}
             lying={part?.kind === "range" && part.block === "lying"}
-            onStay={() => setLeaving(false)}
-            onLeave={() => {
-              setLeaving(false);
-              today();
-            }}
+            onStay={() => closeLeave("stay")}
+            onStop={() => closeLeave("stop")}
+            onLeave={() => closeLeave("leave")}
           />
         )}
       </CheckRoot>

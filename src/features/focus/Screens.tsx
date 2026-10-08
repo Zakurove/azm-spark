@@ -1,15 +1,14 @@
 /**
- * The screens of the focus check around the range blocks (product v7 contract B3; D-032): loading,
- * closed, the consent, the intro with the safety lines once, the day's one screen and its calm skip
- * screen, the start, the safety screens (an emergency, a stop list answer with a screen), the stop
- * list, the walk's slot, saving and the end.
+ * The screens of the focus check around the range blocks (product v7 contract B3; D-032, D-034):
+ * loading, closed, the intro with the safety lines once, the start, the safety screens (an emergency,
+ * a stop list answer with a screen), the stop list, the walk's slot, saving and the end. Since D-034
+ * item 4 there is no consent page (the health form's consent covers it) and no day screen.
  *
- * The clinical words are the data's: the day's one screen (rom-v7.json copy day_*, the walk's day items
- * of gait-v7.json), the v1 safety screens (screenText), the stop list (check-v1 stopRouting), the range
- * copy (rom-v7.json). The interface words are the rom namespace's (src/i18n/{ar,en}/rom.json) and the
+ * The clinical words are the data's: the v1 safety screens (screenText), the stop list (check-v1
+ * stopRouting), the range copy (rom-v7.json). The interface words are the rom namespace's (src/i18n/{ar,en}/rom.json) and the
  * v1 check's common words.
  */
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import { countPhrase, interpolate, localizeDigits, t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
@@ -17,17 +16,14 @@ import { tV7 } from "../../i18n/v7";
 import type { PrecheckEnv } from "../../medical/precheck";
 import { stopOptions } from "../../medical/precheck";
 import type { BodyMapKey, RegionId } from "../../medical/body-map";
-import type { DayItem } from "../../medical/focus-precheck";
-import type { FocusToday, RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
+import type { RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
 import type { BodyMapColour } from "../../medical/rom-types";
 import type { GaitPlan } from "../../medical/gait-eligibility";
 import { CHECK_DATA, emergencyCallButton, screenText, stopFollowUp } from "../../movements/assessments";
-import { GAIT_DATA } from "../../movements/gait";
 import { ROM_DATA } from "../../movements/rom";
 import type { ScreenId, StopOptionId } from "../../movements/types";
 import type { CoachStopReason } from "../../coach/types";
 import { splitSentences } from "../assessment/flow/copy";
-import { AreaPicker } from "../assessment/flow/parts";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones, BigNumber, SafetyHeading, type ZoneOption } from "../assessment/safety/parts";
 import { useArmedPress } from "../assessment/safety/hooks";
@@ -41,18 +37,7 @@ import { copyText, movementName, regionName } from "./copy";
 import { sideRegion } from "./names";
 import { checkParts, type ClosedWhy } from "./flow";
 import { MovementPicture } from "./MovementPicture";
-import {
-  Actions,
-  Body,
-  Choices,
-  Glass,
-  Kicker,
-  Loading,
-  PainScale,
-  Title,
-  useFocusOnMount,
-  useModal,
-} from "./parts";
+import { Actions, Body, Glass, Kicker, Loading, PainScale, Title, useFocusOnMount, useModal } from "./parts";
 
 /* ---------------------------------------------------------------- entry */
 
@@ -185,63 +170,6 @@ export function ClosedScreen({
   );
 }
 
-/** The focus_check consent (C-8): what is kept, where, and the way out. The words are A's (rom.consent). */
-export function ConsentScreen({
-  lang,
-  saving,
-  error,
-  onAgree,
-  onLater,
-}: {
-  lang: Lang;
-  saving: boolean;
-  error: boolean;
-  onAgree(): void;
-  onLater(): void;
-}) {
-  const [agreed, setAgreed] = useState(false);
-  const [tried, setTried] = useState(false);
-  const c = (k: string) => tV7(lang, `rom.consent.${k}` as never);
-  const box = useId();
-  return (
-    <Glass className="fx-card fx-consent">
-      <span className="fx-badge is-violet" aria-hidden="true">
-        <CheckIcon name="shield" size={28} />
-      </span>
-      <Title>{c("title")}</Title>
-      <Body lang={lang} text={c("body")} />
-      <ul className="fx-points">
-        {["pointKept", "pointProfile", "pointVideo", "pointWhere", "pointWithdraw"].map((k) => (
-          <li key={k}>
-            <CheckIcon name="check" size={20} />
-            <span>{bidiText(lang, c(k))}</span>
-          </li>
-        ))}
-      </ul>
-      <a className="fx-link" href="/privacy" target="_blank" rel="noreferrer">
-        {c("privacyLink")}
-      </a>
-      <label className={`fx-agree${tried && !agreed ? " is-missing" : ""}`} htmlFor={box}>
-        <input id={box} type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-        <span>{bidiText(lang, c("agree"))}</span>
-      </label>
-      {tried && !agreed && <p className="fx-hint">{t(lang, "assessment.common.chooseToContinue")}</p>}
-      {error && <p className="fx-hint">{t(lang, "assessment.state.error.body")}</p>}
-      <Actions
-        items={[
-          { label: c("notNow"), onClick: onLater, kind: "secondary", name: "later" },
-          {
-            label: c("continue"),
-            busy: saving,
-            name: "agree",
-            onClick: () => (agreed ? onAgree() : setTried(true)),
-          },
-        ]}
-      />
-    </Glass>
-  );
-}
-
 /** The minutes of the day's movements (sessionOrder.minutesPerMovement). */
 export function minutesOf(items: readonly RomProtocolItem[]): number {
   return Math.max(1, Math.round(items.length * ROM_DATA.sessionOrder.minutesPerMovement));
@@ -357,6 +285,11 @@ export function IntroScreen({
         <h2 className="fx-h2">{tV7(lang, "rom.intro.safety")}</h2>
         <Body lang={lang} text={copyText("safety_always", lang)} />
         <Body lang={lang} text={copyText("stop_line", lang)} />
+        {/* D-034 item 4: no red STOP on the check's screens; the X at the top stops. */}
+        <p className="fx-note" data-note="stop-how">
+          <CheckIcon name="close" size={20} />
+          <span>{bidiText(lang, tV7(lang, "rom.intro.stopHow"))}</span>
+        </p>
         {sciWarning && <WarningNote lang={lang} id="warn_sci_t6" />}
       </Glass>
       <Actions
@@ -378,214 +311,6 @@ export function IntroScreen({
 
 /** «الركبة اليمنى» · "Right knee": the region and the side, as the person sees them. */
 export { sideRegion } from "./names";
-
-/* ------------------------------------------------- the day's one screen (D-032 item 2) */
-
-/** The yes or no question of a day item, in the data's words. */
-function dayQuestion(item: Exclude<DayItem, "pain">, lang: Lang): string {
-  switch (item) {
-    case "worry":
-      return copyText("day_worry_ask", lang);
-    case "prosthesis":
-      return copyText("day_prosthesis_ask", lang);
-    case "walk10m":
-      return GAIT_DATA.copy.setup.pc_walk_10m[lang];
-    case "pdFreezing":
-      return GAIT_DATA.copy.setup.pc_pd_freezing[lang];
-    case "unsteady":
-      return copyText("day_unsteady_ask", lang);
-    case "helper":
-      return copyText("day_helper_ask", lang);
-  }
-}
-
-/** The yes or no answers of the day's one screen. */
-type DayAnswers = Pick<
-  FocusToday,
-  "worrying" | "prosthesisOn" | "walk10m" | "pdFreezing" | "unsteady" | "helperPresent"
->;
-
-/** The FocusToday field of a yes or no day item. */
-const DAY_FIELD: Record<Exclude<DayItem, "pain">, keyof DayAnswers> = {
-  worry: "worrying",
-  prosthesis: "prosthesisOn",
-  walk10m: "walk10m",
-  pdFreezing: "pdFreezing",
-  unsteady: "unsteady",
-  helper: "helperPresent",
-};
-
-/**
- * The day's one screen (D-032 item 2): today's pain in the areas of the check (each area that hurts
- * with its 0 to 10, or no pain today), the one worry question, and only the walk's questions the walk
- * plan needs, someone with the person asked once. The items follow the answers (itemsFor, the pure
- * dayItems); after a yes to the worry question nothing else is asked and the button goes on to the
- * calm skip screen. One button: the check starts once every shown item is answered.
- */
-export function DayScreen({
-  lang,
-  areas,
-  itemsFor,
-  onDone,
-}: {
-  lang: Lang;
-  /** The areas of today's check the pain question covers (dayAreas). */
-  areas: readonly RegionId[];
-  /** The items of the screen for the answers so far. */
-  itemsFor(today: FocusToday): DayItem[];
-  onDone(today: FocusToday): void;
-}) {
-  const [answers, setAnswers] = useState<DayAnswers>({});
-  const [pain, setPain] = useState<Record<string, number | null>>({});
-  const [none, setNone] = useState(false);
-  const [tried, setTried] = useState(false);
-  const titleId = useId();
-  const heading = useFocusOnMount<HTMLHeadingElement>();
-  const painByRegion = Object.fromEntries(
-    Object.entries(pain).filter((e): e is [string, number] => typeof e[1] === "number"),
-  ) as FocusToday["painByRegion"];
-  const today: FocusToday = { painByRegion, redFlagRegions: [], ...answers };
-  const items = itemsFor(today);
-  const painDone = none || (Object.keys(pain).length > 0 && Object.values(pain).every((v) => v !== null));
-  const worry = answers.worrying === true;
-  // After a yes to the worry question the check is skipped: the pain needs no answer then.
-  const answered = (item: DayItem) =>
-    item === "pain" ? painDone || worry : typeof answers[DAY_FIELD[item]] === "boolean";
-  const complete = items.every(answered);
-  const missing = (item: DayItem) => tried && !answered(item);
-  const finish = () => {
-    if (!complete) return setTried(true);
-    // Only the answers of the items shown travel: an answer a later yes hid is dropped.
-    const shown = new Set(items);
-    const out: FocusToday = { painByRegion: none ? {} : painByRegion, redFlagRegions: [] };
-    for (const item of items) if (item !== "pain") out[DAY_FIELD[item]] = answers[DAY_FIELD[item]];
-    if (!shown.has("pain")) out.painByRegion = {};
-    onDone(out);
-  };
-  return (
-    <div className="fx-day">
-      <Glass className="fx-card fx-question fx-day-card">
-        <Kicker>{tV7(lang, "rom.precheck.kicker")}</Kicker>
-        <h1 ref={heading} id={titleId} className="fx-title" tabIndex={-1}>
-          {tV7(lang, "rom.day.title")}
-        </h1>
-        {items.map((item) => {
-          const id = `${titleId}-${item}`;
-          if (item === "pain")
-            return (
-              <section
-                key={item}
-                className={`fx-day-item is-pain${missing(item) ? " is-missing" : ""}`}
-                data-day={item}
-                aria-labelledby={id}
-              >
-                <QuestionText
-                  lang={lang}
-                  id={id}
-                  text={copyText("day_pain_ask", lang)}
-                  as="h2"
-                  focus={false}
-                />
-                <div className="fx-v1">
-                  <AreaPicker
-                    labelledBy={id}
-                    areas={areas.map((r) => ({ id: r, label: regionName(r, lang) }))}
-                    value={none ? {} : pain}
-                    scale
-                    noneLabel={copyText("day_pain_none", lang)}
-                    none={none}
-                    onNone={() => {
-                      setNone(true);
-                      setPain({});
-                    }}
-                    onChange={(v) => {
-                      setNone(false);
-                      setPain(v);
-                    }}
-                  />
-                </div>
-              </section>
-            );
-          const field = DAY_FIELD[item];
-          const value = answers[field];
-          return (
-            <section
-              key={item}
-              className={`fx-day-item${missing(item) ? " is-missing" : ""}`}
-              data-day={item}
-              aria-labelledby={id}
-            >
-              <QuestionText lang={lang} id={id} text={dayQuestion(item, lang)} as="h2" focus={false} />
-              {item === "helper" && (
-                <p className="fx-q-more">{bidiText(lang, copyText("day_helper_note", lang))}</p>
-              )}
-              <Choices
-                lang={lang}
-                labelledBy={id}
-                layout="row"
-                chosen={value === undefined ? null : value ? "yes" : "no"}
-                choices={[
-                  { value: "yes", label: copyText("ans_yes", lang) },
-                  { value: "no", label: copyText("ans_no", lang) },
-                ]}
-                onPick={(v) => setAnswers((a) => ({ ...a, [field]: v === "yes" }))}
-              />
-            </section>
-          );
-        })}
-        {tried && !complete && (
-          <p className="fx-hint" role="alert">
-            {tV7(lang, "rom.day.missing")}
-          </p>
-        )}
-      </Glass>
-      <Actions
-        items={[
-          worry
-            ? { label: t(lang, "assessment.common.continue"), onClick: finish, name: "continue" }
-            : { label: tV7(lang, "rom.day.start"), onClick: finish, name: "start", icon: "play" },
-        ]}
-      />
-    </div>
-  );
-}
-
-/**
- * A yes to the worry question (D-032 item 2): one calm screen. The check is skipped today and the
- * person is told to check with their doctor if it is new; «الأمر عاجل الآن» opens the emergency screen,
- * the only screen with the ambulance number.
- */
-export function SkipTodayScreen({
-  lang,
-  onToday,
-  onUrgent,
-}: {
-  lang: Lang;
-  onToday(): void;
-  onUrgent(): void;
-}) {
-  const heading = useFocusOnMount<HTMLHeadingElement>();
-  return (
-    <Glass className="fx-card fx-skip">
-      <span className="fx-badge is-violet" aria-hidden="true">
-        <CheckIcon name="calendar" size={28} />
-      </span>
-      <h1 ref={heading} className="fx-title" tabIndex={-1}>
-        {bidiText(lang, copyText("day_skip_title", lang))}
-      </h1>
-      <Body lang={lang} text={copyText("day_skip_body", lang)} />
-      <div className="fx-actions is-column">
-        <button type="button" className="fx-button is-primary" onClick={onToday} data-action="today">
-          <span>{t(lang, "assessment.common.backToToday")}</span>
-        </button>
-        <button type="button" className="fx-link-button" onClick={onUrgent} data-action="urgent">
-          <CheckIcon name="alert-triangle" size={20} />
-          <span>{bidiText(lang, copyText("day_skip_urgent", lang))}</span>
-        </button>
-      </div>
-    </Glass>
-  );
-}
 
 /**
  * The walk's pain question (walk_pain, after a pain stop in a region the walk loads): the region, the
@@ -893,7 +618,7 @@ const STOP_ICONS: Record<StopOptionId, string> = {
 
 /**
  * D-030 D5-11: the coach's preselected answer comes into view when the list opens (on a phone the other
- * reasons sit below the urgent group, under the inert STOP); the list keeps the urgent options first.
+ * reasons sit below the urgent group); the list keeps the urgent options first.
  */
 export function scrollPreselected(root: ParentNode | null, preselect: string): void {
   const row = root?.querySelector<HTMLElement>(`.fx-stop-row[data-option="${preselect}"]`);
@@ -903,37 +628,29 @@ export function scrollPreselected(root: ParentNode | null, preselect: string): v
 /**
  * The stop list (S41, Q31): the data's options for this person, symptoms and falls first, one tap each
  * (no Next, no «pressed by mistake» row, O43). The coach's reason is preselected and highlighted; the
- * person confirms it with the tap (C-7).
+ * person confirms it with the tap (C-7). Since D-034 item 4 it opens from the X's «توقّف الآن» (there is
+ * no red STOP under it any more), from the coach's stop or from a pain stop of the walk.
  */
 export function StopListScreen({
   lang,
   env,
   preselect,
-  stopShown = true,
   onChoose,
 }: {
   lang: Lang;
   env: PrecheckEnv;
   preselect: CoachStopReason | null;
-  /**
-   * STOP was on the screen under the list (a range step or the walk): it stays visible and inert at
-   * its place at the bottom, with no row under it, so a second tap of a double tap lands on nothing
-   * (v1 S41).
-   */
-  stopShown?: boolean;
   onChoose(option: StopOptionId): void;
 }) {
   const shown = new Set(stopOptions(env));
   const title = useId();
-  // A double tap on STOP must never pick a reason: a row counts only for a press that started on it
-  // after the list opened, and not within 600 ms of a press that opened it (v1 useArmedPress,
-  // SAFETY_TIMING.stopArmMs, R3C-03 (6)). Keyboard and switch activation always count.
+  // A double tap on the press that opened it must never pick a reason: a row counts only for a press
+  // that started on it after the list opened, and not within 600 ms of a press that opened it (v1
+  // useArmedPress, SAFETY_TIMING.stopArmMs, R3C-03 (6)). Keyboard and switch activation always count.
   const armed = useArmedPress(SAFETY_TIMING.stopArmMs);
   // A modal list (v1 S41): the page behind inert, focus on its question, Tab kept inside, no Escape
-  // (a safety list stays until it is answered), and focus back on STOP when it closes.
-  const modal = useModal(undefined, () =>
-    document.querySelector<HTMLElement>(".fx-stopbar:not(.is-inert) .safety-stop"),
-  );
+  // (a safety list stays until it is answered), and focus back where it was when it closes.
+  const modal = useModal();
   useEffect(() => {
     if (preselect) scrollPreselected(modal.ref.current, preselect);
   }, [preselect, modal.ref]);
@@ -959,7 +676,7 @@ export function StopListScreen({
     <div
       ref={modal.ref}
       onKeyDown={modal.onKeyDown}
-      className={`fx-overlay${stopShown ? " has-stop" : ""}`}
+      className="fx-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title}
@@ -980,33 +697,28 @@ export function StopListScreen({
           {group("other").map(row)}
         </section>
       </Glass>
-      {stopShown && (
-        <div className="fx-v1 fx-stopbar is-inert" aria-hidden="true">
-          <div className="safety-stop-zone is-inert">
-            <span className="safety-stop">
-              <CheckIcon name="stop-square" size={28} />
-              <span>{t(lang, "assessment.stop.button")}</span>
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 /**
- * Leaving mid check: what is kept, stay or leave (v1 S15's question). In the lying block, the sit
+ * The X mid check (D-034 item 4: there is no red STOP): the stop and leave options. «توقّف الآن» opens
+ * the stop list, which asks why (an urgent reason leads to its screen, the others rest or go on);
+ * leaving ends the check here (v1 S15's question); staying goes back to it. In the lying block, the sit
  * before stand line too (rom-protocol 6 sit_before_stand: after any lying test).
  */
 export function LeaveDialog({
   lang,
   lying = false,
   onStay,
+  onStop,
   onLeave,
 }: {
   lang: Lang;
   lying?: boolean;
   onStay(): void;
+  /** «توقّف الآن»: the stop list (absent: leave and stay only). */
+  onStop?: () => void;
   onLeave(): void;
 }) {
   const title = useId();
@@ -1025,26 +737,34 @@ export function LeaveDialog({
     >
       <Glass className="fx-card fx-dialog">
         <h1 id={title} className="fx-title" tabIndex={-1}>
-          {tV7(lang, "rom.shell.leaveTitle")}
+          {tV7(lang, "rom.shell.stopTitle")}
         </h1>
-        <Body lang={lang} text={tV7(lang, "rom.shell.leaveBody")} />
+        <Body lang={lang} text={tV7(lang, "rom.shell.stopBody")} />
         {lying && (
           <p className="fx-note">
             <CheckIcon name="info" size={20} />
             <span>{bidiText(lang, copyText("sit_before_stand", lang))}</span>
           </p>
         )}
-        <Actions
-          items={[
-            {
-              label: tV7(lang, "rom.shell.leaveConfirm"),
-              onClick: onLeave,
-              kind: "secondary",
-              name: "leave_confirm",
-            },
-            { label: tV7(lang, "rom.shell.stay"), onClick: onStay, name: "stay" },
-          ]}
-        />
+        <div className="fx-actions is-column">
+          {onStop && (
+            <button type="button" className="fx-button is-stop" onClick={onStop} data-action="stop_now">
+              <CheckIcon name="stop-square" size={22} />
+              <span>{tV7(lang, "rom.shell.stopNow")}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="fx-button is-secondary"
+            onClick={onLeave}
+            data-action="leave_confirm"
+          >
+            <span>{tV7(lang, "rom.shell.leave")}</span>
+          </button>
+          <button type="button" className="fx-button is-primary" onClick={onStay} data-action="stay">
+            <span>{tV7(lang, "rom.shell.stay")}</span>
+          </button>
+        </div>
       </Glass>
     </div>
   );

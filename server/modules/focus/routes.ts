@@ -4,8 +4,9 @@
  *   GET  /api/focus/context        what the client needs before a focus check: the intake state, the
  *                                  consents, the pre-check environment (the stop list's) and a preview
  *                                  of the protocol and the walk
- *   POST /api/focus                start: the day's one screen (D-032 item 2) through the v1 bridge,
- *                                  the range protocol and the gait plan built and frozen on the server
+ *   POST /api/focus                start: the consents from the health form (D-034), the day (no day
+ *                                  screen since D-034: pain before 0) through the v1 bridge, the range
+ *                                  protocol and the gait plan built and frozen on the server
  *   POST /api/focus/:id/rom        one movement and side; the server grades it (C-3)
  *   POST /api/focus/:id/gait       the walk's setup and analysis; provisional findings (C-13)
  *   POST /api/focus/:id/stop       the v1 stop list answer, its screens and locks
@@ -35,13 +36,7 @@ import type { GaitPatternResult, GaitStoredView } from "../../../src/medical/gai
 import type { RomFindingId, RomSource, StoredRomRow } from "../../../src/medical/rom-types";
 import type { RomNotMeasured, RomProtocol, RomProtocolItem } from "../../../src/medical/rom-protocol";
 import { focusPlanJoints } from "../../../src/medical/check-joints";
-import {
-  dayAnswerField,
-  dayItems,
-  dayOutcome,
-  keptDay,
-  missingDayItems,
-} from "../../../src/medical/focus-precheck";
+import { dayItems, dayOutcome, keptDay } from "../../../src/medical/focus-precheck";
 import type { GaitAnalysis, GaitSetup } from "../../../src/engine/gait/types";
 import { GAIT_ENGINE_VERSION, GAIT_RULES_VERSION } from "../../../src/movements/gait";
 import {
@@ -61,7 +56,7 @@ import type { CheckPosition, ScreenId, Setting } from "../../../src/movements/ty
 import { adultConfirmedAt } from "../account/store";
 import { boothWindow } from "../booth/config";
 import { validPass } from "../booth/store";
-import { activeConsent } from "../consents/store";
+import { acceptConsent, activeConsent, hasConsentRow } from "../consents/store";
 import {
   RESUME_WINDOW_MS,
   SAFETY_LATE_MS,
@@ -591,27 +586,25 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
         if (review) return json(409, { error: "REVIEW", reason: review });
         const intake = s.intake;
         if (!rules.hasV7Fields(intake)) return json(409, { error: "INTAKE_UPDATE_REQUIRED" });
-        const consent = activeConsent(db, u.id, "focus_check");
+        // D-034 item 4: the health form's consent checkbox covers the movement results and the Live
+        // coach (its two lines say so), so the check has no consent page: the focus_check and
+        // live_coach consents are recorded when a check first starts, if the health consent exists.
+        const healthConsent = intake.consent === true;
+        const consent =
+          activeConsent(db, u.id, "focus_check") ??
+          (healthConsent ? acceptConsent(db, u.id, "focus_check", now) : null);
         if (!consent) return json(403, { error: "CONSENT_REQUIRED" });
         if (adultConfirmedAt(db, u.id) === null) return json(403, { error: "ADULT_REQUIRED" });
+        // The Live coach's consent once, the first time: a person who withdrew it keeps it withdrawn.
+        if (healthConsent && !hasConsentRow(db, u.id, "live_coach"))
+          acceptConsent(db, u.id, "live_coach", now);
 
-        // The day's one screen (D-032 item 2): every item it asked, from the preview the context gave,
-        // carries its answer (the walk's day items with them).
+        // D-034 item 4: there is no day screen any more. A start needs no day answers: the client
+        // sends today's pain as 0 in each area (pain before = 0), and the walk's day items, unsteadiness,
+        // the prosthesis and someone with the person are no longer asked (a helper is a line, item 2).
         const showcase = isShowcase(u.email);
         const previous = firstCompletedFocus(db, u.id)?.protocol ?? null;
         const preview = previewOf(rules, intake, setting, previous, showcase);
-        const missing = missingDayItems({
-          intake,
-          setting,
-          protocol: include.rom ? preview.protocol : { ...preview.protocol, items: [] },
-          gait: include.gait ? preview.gait : null,
-          today,
-        });
-        if (missing.length)
-          return json(400, {
-            error: "START_INVALID",
-            field: `today.${dayAnswerField(missing[0]) ?? "painByRegion"}`,
-          });
 
         // The day's protocol and gait plan, and the pre-check environment they give (pure).
         const built = rules.buildRomProtocol({
@@ -627,15 +620,6 @@ export function focusRoutesWith(rules: FocusRules | null): Route[] {
           : { ...built, items: built.items.map((i) => (i.skipped ? i : { ...i, skipped: "by_choice" })) };
         const planned = include.gait ? rules.gaitPlanFor(intake, today, setting, {}) : null;
         const gait = planned && showcase ? oneView(planned) : planned;
-        // The gait day items (2.5 GAIT_DAY_ITEMS) are asked when the day plans a walk: a start that
-        // walks carries their answers (pc_walk_10m, and pc_pd_freezing with Parkinson's). After a yes to
-        // the worry question the screen asks nothing else.
-        if (gait?.offered && today.worrying !== true) {
-          if (today.walk10m === undefined)
-            return json(400, { error: "START_INVALID", field: "today.walk10m" });
-          if (intake.conditions.includes("parkinsons") && today.pdFreezing === undefined)
-            return json(400, { error: "START_INVALID", field: "today.pdFreezing" });
-        }
 
         // A lock holds to its end: the day's one screen has no question that releases it (D-032).
         const lock = currentLock(db, u.id, now);

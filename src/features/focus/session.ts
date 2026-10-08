@@ -4,9 +4,9 @@
  * taps and the camera frames; nothing here touches the DOM, so the tests run a whole check on the real
  * focus routes with a simulated person (tests/v7/b-shell.test.ts).
  *
- *   - The day's one screen and the start: flow.ts, with the start call when the state asks for it. A
- *     yes to the worry question shows the calm skip screen at once and the start call records it and
- *     its next day lock in the background (D-032 item 2).
+ *   - The start: flow.ts, with the start call when the state asks for it. Since D-034 item 4 the
+ *     intro's start goes straight to it: no consent page (the server records the consents from the
+ *     health form's) and no day screen (pain before 0 in each area).
  *   - The range parts: one RomController for the whole check (the same joint re-ask crosses blocks);
  *     each range part starts its block and ends at the block's end step.
  *   - Each saved movement is posted in order (POST /api/focus/:id/rom); a failed post is tried again
@@ -176,18 +176,10 @@ export class FocusSession {
     this.dispatch({ type: "LOADED", context: context.value, intake, now: Date.now() });
   }
 
-  /** The focus_check consent (C-8). */
-  async consent(): Promise<void> {
-    this.dispatch({ type: "CONSENT_SAVING" });
-    const r = await this.api.consent();
-    this.dispatch(r.ok ? { type: "CONSENT_SAVED" } : { type: "CONSENT_FAILED" });
-  }
-
   private enter(): void {
     const s = this.model.state;
     if (s.kind === "loading") void this.load();
     if (s.kind === "starting" && s.error === null) void this.start();
-    if (s.kind === "skip_today") void this.recordPostpone();
     if (s.kind === "completing" && !s.error) void this.complete();
     if (s.kind === "build" && !this.build) void this.buildProgram(s.from);
     if (s.kind === "part" && this.model.data.parts[s.index]?.kind === "gait") {
@@ -243,19 +235,6 @@ export class FocusSession {
     else if (r.error.kind === "http")
       this.dispatch({ type: "START_FAILED", kind: "http", code: r.error.code, body: r.error.body });
     else this.dispatch({ type: "START_FAILED", kind: "network" });
-  }
-
-  /** A yes to the worry question: the calm screen shows at once, the start call records the skip. */
-  private async recordPostpone(): Promise<void> {
-    if (this.model.data.check || this.busy) return;
-    this.busy = true;
-    // The walk is left out: after the worry question's yes the screen asks nothing else.
-    const body = startBody(this.model.data, this.opts.device ?? { os: "unknown", browser: "unknown" });
-    const r = await this.api.start({ ...body, include: { rom: true, gait: false } });
-    this.busy = false;
-    // The server's answer brings the lock's {when} line (409 POSTPONE); the local screen stays.
-    if (!r.ok && r.error.kind === "http" && r.error.code === "POSTPONE")
-      this.dispatch({ type: "START_FAILED", kind: "http", code: "POSTPONE", body: r.error.body });
   }
 
   private async complete(): Promise<void> {

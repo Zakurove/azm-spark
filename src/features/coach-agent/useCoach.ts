@@ -147,9 +147,10 @@ const NO_MIC = {
 
 /**
  * GET /api/agent/status while `wanted` (the switch on and the consent given; D-030 D5-12): whether the
- * server can run the coach now. null until it answers, or when it cannot be read.
+ * server can run the coach now. null until it answers, or when it cannot be read. A new `key` reads it
+ * again (D-034 item 3: the focus check reads it once its start recorded the live_coach consent).
  */
-export function useCoachStatus(wanted: boolean): CoachStatus | null {
+export function useCoachStatus(wanted: boolean, key: string | null = null): CoachStatus | null {
   const [status, setStatus] = useState<CoachStatus | null>(null);
   useEffect(() => {
     if (!wanted) return;
@@ -160,7 +161,7 @@ export function useCoachStatus(wanted: boolean): CoachStatus | null {
     return () => {
       live = false;
     };
-  }, [wanted]);
+  }, [wanted, key]);
   return wanted ? status : null;
 }
 
@@ -194,5 +195,15 @@ function coachDeps(): CoachDeps {
     listen: windowEvents,
     audioSession: setCoachAudioSession,
     measure: userTiming,
+    log: coachLog,
   };
+}
+
+/** D-034 item 3: the coach's refusals and fallbacks in the console, never silent (no token, no key). */
+export function coachLog(message: string, data?: Record<string, unknown>): void {
+  try {
+    console.warn(`[azm coach] ${message}`, data ?? {});
+  } catch {
+    /* no console */
+  }
 }

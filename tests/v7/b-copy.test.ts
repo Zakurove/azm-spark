@@ -18,13 +18,14 @@ const strings = (o: unknown): string[] =>
   typeof o === "string" ? [o] : o && typeof o === "object" ? Object.values(o).flatMap(strings) : [];
 
 describe("the focus check's words", () => {
-  it("leave with «أنهِ القياس», stay with «تابع القياس», and say the check starts again next time", () => {
+  it("stop with «توقّف الآن», leave with «أنهِ القياس», stay with «تابع القياس», and say the check starts again next time", () => {
     const html = renderToStaticMarkup(
-      createElement(LeaveDialog, { lang: "ar", onStay: () => {}, onLeave: () => {} }),
+      createElement(LeaveDialog, { lang: "ar", onStay: () => {}, onStop: () => {}, onLeave: () => {} }),
     );
-    expect(html).toContain("هل تريد إنهاء القياس الآن؟");
-    expect(html).toContain("إذا خرجت الآن فلن يكتمل هذا القياس، وتبدأ من جديد في المرة القادمة.");
-    expect(html).toContain("نعم، أنهِ القياس");
+    expect(html).toContain("هل تريد التوقف؟");
+    expect(html).toContain("وإن أنهيت القياس الآن فلن يكتمل.");
+    expect(html).toContain("توقّف الآن");
+    expect(html).toContain("أنهِ القياس");
     expect(html).toContain("تابع القياس");
     expect(html).not.toContain("محفوظ");
   });
@@ -84,11 +85,10 @@ describe("the low UI fixes (UI review)", () => {
       "utf8",
     ) as string;
 
-  it("gives the pain cells v1's 46 to 52 px, the view buttons and the privacy link 44 px", () => {
+  it("gives the pain cells v1's 46 to 52 px and the view buttons 44 px", () => {
     const focus = css("focus.css");
     expect(focus).toMatch(/\.fx-scale \{[^}]*grid-template-columns: repeat\(6, minmax\(46px, 52px\)\)/);
     expect(focus).not.toMatch(/\.bm-views button \{[^}]*min-height: 40px/);
-    expect(focus).toMatch(/\.fx-link \{[^}]*min-height: 44px/);
   });
 
   it("names the try dots as an image, and never says part 4 of 3", async () => {

@@ -1,135 +1,181 @@
 /* The body map (product v7 contract 2.2) and the intake step around it (src/app/IntakeV7.tsx).
-   Light background, Cairo, gold focus and the soft purple selection of the portal (styles.css). */
+   Light background, Cairo, gold focus and the soft purple selection of the portal (styles.css).
+   D-034 item 5: a soft rounded figure on a light stage, affected areas glow purple with a halo, no
+   hard lines, large touch targets. */
 
 .bm {
   display: grid;
   justify-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 .bm-views {
   display: inline-flex;
   gap: 4px;
   padding: 4px;
   border-radius: 999px;
-  background: #f1f3ef;
+  background: #f3f0f8;
 }
 .bm-views button {
   min-height: 44px;
-  padding: 0 20px;
+  padding: 0 22px;
+  border: 0;
   border-radius: 999px;
+  background: none;
   font-size: 13px;
-  color: var(--ink);
+  color: var(--muted);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .bm-views button[aria-pressed="true"] {
   background: white;
   color: var(--select-ink);
   font-weight: 700;
-  box-shadow: 0 1px 6px rgba(37, 49, 46, 0.1);
+  box-shadow: 0 2px 10px rgba(79, 60, 124, 0.12);
 }
 /* The figure is drawn left to right in both languages: left and right are the person's own. */
 .bm-figure {
   position: relative;
   direction: ltr;
-  width: 240px;
+  width: 264px;
   max-width: 100%;
   aspect-ratio: 240 / 440;
+}
+.bm-edit .bm-figure {
+  border-radius: 28px;
+  background:
+    radial-gradient(120% 60% at 50% 100%, rgba(248, 203, 68, 0.12), transparent 60%),
+    radial-gradient(90% 55% at 50% 30%, rgba(128, 101, 173, 0.08), transparent 70%), #fdfcff;
+  box-shadow: 0 0 0 1px #efeaf6;
 }
 .bm-art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
-.bm-outline > * {
-  fill: #d6dcd5;
-  stroke: #d6dcd5;
-  stroke-width: 5;
+.bm-skin > * {
+  stroke: #e2d9ef;
+  stroke-width: 1.6;
   stroke-linejoin: round;
-}
-.bm-body > * {
-  fill: #f4f6f2;
-}
-.bm-outline .bm-arm,
-.bm-outline .bm-leg,
-.bm-body .bm-arm,
-.bm-body .bm-leg {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.bm-outline .bm-arm {
-  stroke-width: 29;
-}
-.bm-outline .bm-leg {
-  stroke-width: 37;
-}
-.bm-body .bm-arm {
-  stroke: #f4f6f2;
-  stroke-width: 24;
-}
-.bm-body .bm-leg {
-  stroke: #f4f6f2;
-  stroke-width: 32;
 }
 .bm-detail {
   fill: none;
-  stroke: #d6dcd5;
+  stroke: #e6deef;
   stroke-width: 2;
   stroke-linecap: round;
 }
+/* A lit area: a soft halo that grows in. */
+.bm-glow {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  scale: 0.7;
+  transition:
+    opacity 0.35s ease,
+    scale 0.35s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+.bm-glow[data-lit="true"] {
+  opacity: 1;
+  scale: 1;
+}
 .bm-side {
   position: absolute;
-  top: 0;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 1px 6px rgba(79, 60, 124, 0.1);
   font-size: 12px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--select-ink);
+}
+.bm-side::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
 }
 .bm-side-start {
-  left: 0;
+  left: 8px;
 }
 .bm-side-end {
-  right: 0;
+  right: 8px;
 }
-/* A cell: a 44 px target centred on its point, with a visible dot. */
+/* A cell: a 48 px target centred on its point, with a visible dot. */
 .bm-cell {
   position: absolute;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
   padding: 0;
+  border: 0;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .bm-dot {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: white;
-  box-shadow: 0 0 0 2px #cdbdea;
+  box-shadow:
+    0 0 0 2px #d5c8ec,
+    0 2px 6px rgba(79, 60, 124, 0.12);
   transition:
-    width 0.15s ease,
-    height 0.15s ease,
-    background 0.15s ease;
+    width 0.25s ease,
+    height 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
 }
-.bm-edit .bm-cell:hover .bm-dot {
-  background: var(--select-fill);
+@media (hover: hover) {
+  .bm-edit .bm-cell:not([aria-pressed="true"]):hover .bm-dot {
+    background: var(--select-fill);
+    box-shadow:
+      0 0 0 2px #b9a6dc,
+      0 2px 8px rgba(79, 60, 124, 0.16);
+  }
 }
 .bm-cell[aria-pressed="true"] .bm-dot {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   background: var(--select-dot);
-  box-shadow: var(--select-glow);
+  box-shadow:
+    0 0 0 3px white,
+    0 0 0 9px rgba(128, 101, 173, 0.16),
+    0 6px 16px rgba(79, 60, 124, 0.3);
+  animation: bm-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1.3);
+}
+@keyframes bm-pop {
+  0% {
+    scale: 0.6;
+  }
+  60% {
+    scale: 1.18;
+  }
+  100% {
+    scale: 1;
+  }
 }
 .bm-cell:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 1px;
 }
 .bm-mark .bm-dot {
-  width: 24px;
-  height: 24px;
-  box-shadow: 0 0 0 3px white;
+  width: 22px;
+  height: 22px;
+  box-shadow:
+    0 0 0 3px white,
+    0 4px 10px rgba(46, 34, 82, 0.2);
 }
 .bm-within .bm-dot {
   background: var(--green);
@@ -147,12 +193,17 @@
   background: #b9bfb8;
 }
 @media (prefers-reduced-motion: reduce) {
-  .bm-dot {
+  .bm-dot,
+  .bm-glow,
+  .bm-views button {
     transition: none;
+  }
+  .bm-cell[aria-pressed="true"] .bm-dot {
+    animation: none;
   }
 }
 
-/* ------------------------------------------------- the intake step (IntakeV7) */
+/* ------------------------------------------------- the intake steps (IntakeV7) */
 
 .intake7-intro {
   font-size: 13px;
@@ -160,32 +211,150 @@
   color: var(--muted);
   margin: -12px 0 6px;
 }
+/* The first step: the age beside sex. */
+.intake7-who {
+  display: grid;
+  grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.intake7-who .age-field span,
+.intake7-who legend {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.intake7-who .intake-choices button {
+  min-width: 72px;
+  justify-content: center;
+}
+.intake7-who .age-field {
+  max-width: none;
+}
+.intake7-who fieldset {
+  margin: 0;
+}
 .intake7-height input {
   max-width: 170px;
 }
+.intake7-about .intake-mobility .intake-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+/* The condition questions, right under the conditions. */
+.intake7-block {
+  border-radius: 16px;
+  background: #fbf8ff;
+  box-shadow: 0 0 0 1px #ece4f7;
+  padding: 4px 16px;
+  margin: -10px 0 24px;
+}
+.intake7-block fieldset {
+  margin: 14px 0;
+}
+.intake7-block legend {
+  line-height: 1.8;
+}
+/* The second step: the map, then its parts. */
+.intake7-mapsection h3 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
 .intake7-map {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 26px;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
-}
-.intake7-none {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 .intake7-cards {
   display: grid;
   gap: 12px;
   min-width: 0;
 }
-.intake7-card {
-  border-radius: 14px;
-  background: #fafbf8;
-  box-shadow: 0 0 0 1px var(--line);
-  padding: 14px 16px 4px;
+/* The parts filled from the condition, and the one confirmation. */
+.intake7-fill {
+  border-radius: 18px;
+  background: linear-gradient(180deg, #faf7ff, #ffffff);
+  box-shadow: 0 0 0 1px #e9e0f6;
+  padding: 14px 16px 16px;
 }
-.intake7-card[data-origin="condition"],
-.intake7-card[data-origin="report"] {
-  background: #fcfaff;
+.intake7-fill-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--select-ink);
+  margin: 0 0 6px;
+}
+.intake7-fill-kicker::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--select-dot);
+  box-shadow: 0 0 0 4px rgba(128, 101, 173, 0.16);
+}
+.intake7-fill ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--ink);
+}
+.intake7-confirm {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 0 0 1.5px #d9cdee;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--select-ink);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.intake7-confirm[aria-pressed="true"] {
+  background: var(--select-dot);
+  color: white;
+  box-shadow: 0 8px 20px rgba(79, 60, 124, 0.22);
+}
+.intake7-confirm[aria-pressed="true"] .choice-check {
+  background: white;
+  border-color: white;
+  color: var(--select-dot);
+}
+.intake7-confirm:focus-visible,
+.intake7-chips button:focus-visible,
+.intake7-remove:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+/* A part the person added: one quick choice. */
+.intake7-card {
+  border-radius: 16px;
+  background: white;
+  box-shadow:
+    0 0 0 1px #ece6f4,
+    0 6px 18px rgba(79, 60, 124, 0.06);
+  padding: 10px 14px 4px;
+  animation: intake7-in 0.3s ease;
+}
+@keyframes intake7-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
 }
 .intake7-card header {
   display: flex;
@@ -194,57 +363,76 @@
   gap: 12px;
 }
 .intake7-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   margin: 0;
 }
-.intake7-card-actions {
-  display: flex;
-  gap: 14px;
+.intake7-card h4::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--select-dot);
+  box-shadow: 0 0 0 4px rgba(128, 101, 173, 0.16);
 }
-.intake7-card header .text-button {
-  min-height: 44px;
-  font-size: 12px;
+.intake7-remove {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
 }
-.intake7-summary {
-  font-size: 13px;
-  line-height: 1.8;
-  color: var(--select-ink);
-  margin: 0 0 10px;
+.intake7-remove:hover {
+  background: #f5f2f9;
 }
 .intake7-card fieldset {
-  margin: 14px 0;
+  margin: 8px 0 12px;
+}
+.intake7-card legend {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.intake7-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.intake7-chips button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #f6f4f9;
+  font-size: 13px;
+  color: var(--ink);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+}
+.intake7-chips button.selected {
+  background: #ede5f9;
+  box-shadow: var(--select-glow);
+  color: var(--select-ink);
+  font-weight: 700;
 }
 .intake7-missing {
   font-size: 12px;
   color: var(--red);
-  margin: 6px 0 10px;
+  margin: 8px 0 4px;
 }
-.intake7-block {
-  border-radius: 16px;
-  background: #fbf8ff;
-  box-shadow: 0 0 0 1px #e7def5;
-  padding: 16px 18px;
-  margin: 24px 0;
-}
-.intake7-block h3 {
-  font-size: 16px;
-  margin: 0 0 6px;
-}
-.intake7-block fieldset {
-  margin: 14px 0;
-}
-.intake7-block .cta {
-  margin-top: 6px;
-}
-.intake7-confirm p {
-  font-size: 14px;
-  line-height: 1.9;
-  margin: 0 0 10px;
+.intake7-none {
+  display: grid;
 }
 .intake7-suggest {
   display: grid;
   gap: 8px;
-  margin: 16px 0;
 }
 .intake7-suggest h4 {
   font-size: 13px;
@@ -274,17 +462,51 @@
 .intake7-suggest li .intake-choices button {
   min-height: 44px;
 }
+/* The safety questions: short rows of buttons. */
+.intake7-safety {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid #efedf3;
+}
+.intake7-safety h3 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+.intake7-safety fieldset {
+  margin: 18px 0;
+}
+.intake7-safety legend {
+  line-height: 1.8;
+}
+.intake7-safety .intake-choices button,
+.intake-yesno .intake-choices button {
+  min-width: 72px;
+  justify-content: center;
+}
 .intake7-foot {
   font-size: 12px;
   color: var(--muted);
   margin: -4px 0 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .intake7-card {
+    animation: none;
+  }
+  .intake7-confirm,
+  .intake7-chips button {
+    transition: none;
+  }
 }
 @media (max-width: 760px) {
   .intake7-map {
     grid-template-columns: minmax(0, 1fr);
     justify-items: stretch;
   }
+  .intake7-map .bm {
+    justify-self: center;
+    width: 100%;
+  }
   .intake7-card {
-    padding: 12px 12px 2px;
+    padding: 8px 12px 2px;
   }
 }

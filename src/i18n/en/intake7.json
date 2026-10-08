@@ -1,5 +1,9 @@
 {
-  "step": "Your body",
+  "steps": {
+    "about": "Condition and movement",
+    "body": "Your body and safety",
+    "goal": "Goal and schedule"
+  },
   "sex": {
     "legend": "Sex",
     "male": "Male",
@@ -22,10 +26,7 @@
     "invalid": "Enter a height between 120 and 220 centimetres."
   },
   "conditions": {
-    "title": "From your medical condition",
-    "apply": "Show the parts on the map",
-    "confirmMany": "We will measure these parts of your body. Is that right?",
-    "fillAgain": "Fill in the map from your medical condition"
+    "title": "From your medical condition"
   },
   "map": {
     "label": "Your body map",
@@ -34,15 +35,25 @@
     "back": "Back",
     "yourRight": "Your right",
     "yourLeft": "Your left",
-    "help": "Tap each part that is affected, then choose the kind of problem.",
+    "help": "Tap any part to add it or take it off.",
     "none": "No part of my body is affected",
     "cell": "{region}, {side}",
     "right": "right side",
     "left": "left side",
     "both": "both sides",
     "remove": "Remove",
-    "change": "Change",
-    "done": "Done"
+    "fromCondition": "We filled in the map from your medical condition",
+    "groupSide": "{problems} {side}: {regions}",
+    "groupAxial": "{problems}: {regions}",
+    "onSide": {
+      "right": "on the right side",
+      "left": "on the left side",
+      "both": "on both sides"
+    },
+    "confirm": "These parts are right",
+    "confirmNeeded": "Confirm the parts, or tap the map to change them.",
+    "added": "What is the problem in this part?",
+    "emptyNeeded": "Tap the parts that are affected, or choose that no part is affected."
   },
   "since": {
     "lt6w": "In the last 6 weeks",
@@ -73,5 +84,14 @@
     "regions": "Affected parts",
     "none": "None"
   },
-  "nextCheck": "Next: your movement check"
+  "nextCheck": "Next: your movement check",
+  "problem": {
+    "pain": "Pain",
+    "stiffness": "Stiffness",
+    "weakness": "Weakness",
+    "injury": "Injury",
+    "after_surgery": "After surgery",
+    "limb_loss": "Limb loss"
+  },
+  "consent": "I agree to store my health answers in my account to prepare my program, and I agree to keep my movement and walk results; video never leaves my phone."
 }

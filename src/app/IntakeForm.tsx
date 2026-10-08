@@ -26,10 +26,15 @@ import { V7_UI } from "./v7flag";
 import type { V7Ui } from "./IntakeV7";
 
 /**
- * v7 (product v7 contract 1.2 and 2.2): a VITE_V7 build adds the "Your body" step (sex, the body
- * map, walking, height, the safety answers) after "Movement and precautions", loaded on demand, and
- * writes pain[] from the body map instead of asking the v1 pain question. A default build keeps the
- * four steps exactly as before and loads none of it.
+ * v7 (product v7 contract 1.2 and 2.2, shortened by D-034 item 5): a VITE_V7 build has three short
+ * steps, their v7 parts loaded on demand (src/app/IntakeV7.tsx):
+ *   1. «حالتك وحركتك»: age, sex, the conditions with their side, how the person exercises, walking;
+ *   2. «جسمك وسلامتك»: the body map filled from the condition, then the safety questions (warning
+ *      signs, clearance, recent change, restrictions, and the v7 safety answers);
+ *   3. «هدفك ووقتك»: the goal, equipment, days, time and length, and the consent.
+ * It no longer asks the diagnosis notes, the medications or the v1 support side (the map gives it),
+ * writes pain[] from the body map, and has no review step (local-docs/qa/v7/form-trim.md). A default
+ * build keeps the four v1 steps exactly as before and loads none of it.
  */
 // The lazy imports test the env inline, like App.tsx's VITE_E2E gallery: Vite 8 chunks before it
 // folds a constant imported from another module, so `V7_UI ? lazy(...)` left an orphan IntakeV7
@@ -37,9 +42,17 @@ import type { V7Ui } from "./IntakeV7";
 // wait in a plain Suspense: importing LazyPage here moved React's jsx runtime out of the landing's
 // chunk, and a part that fails to load reaches the page's own boundary (App's LazyPage).
 const IntakeV7 = import.meta.env.VITE_V7 === "1" ? lazy(() => import("./IntakeV7")) : null;
+const IntakeV7About =
+  import.meta.env.VITE_V7 === "1"
+    ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7About })))
+    : null;
 const IntakeV7StepName =
   import.meta.env.VITE_V7 === "1"
     ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7StepName })))
+    : null;
+const IntakeV7Consent =
+  import.meta.env.VITE_V7 === "1"
+    ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7Consent })))
     : null;
 const IntakeV7Review =
   import.meta.env.VITE_V7 === "1"
@@ -51,19 +64,18 @@ const IntakeV7NextCheck =
     ? lazy(() => import("./IntakeV7").then((m) => ({ default: m.IntakeV7NextCheck })))
     : null;
 type StepKind = "about" | "health" | "body" | "goal" | "review";
+/** v7 (D-034 item 5): three steps; the v1 health questions are shared between the first two. */
 const STEP_KINDS: readonly StepKind[] = V7_UI
-  ? ["about", "health", "body", "goal", "review"]
+  ? ["about", "body", "goal"]
   : ["about", "health", "goal", "review"];
 /** The label of each v1 step in labels().steps. */
 const V1_STEP: Record<Exclude<StepKind, "body">, number> = { about: 0, health: 1, goal: 2, review: 3 };
-/** The "Your body" step is done: sex, walking, the regions and the safety answers complete, height valid if given. */
-function v7Ready(d: Pick<Intake, "sex" | "walking" | "regions" | "romFlags" | "heightCm">): boolean {
+/** The v7 first step's own answers: sex, walking (bed walks no) and a valid height if given. */
+function v7AboutReady(d: Pick<Intake, "sex" | "walking" | "heightCm">): boolean {
   const h = d.heightCm;
   return (
     d.sex !== undefined &&
     d.walking !== undefined &&
-    d.regions !== undefined &&
-    d.romFlags !== undefined &&
     (h === undefined || (Number.isInteger(h) && h >= HEIGHT_CM.min && h <= HEIGHT_CM.max))
   );
 }
@@ -307,19 +319,52 @@ export default function IntakeForm({
       </select>
     </label>
   );
+  /** v7: a yes or no question as buttons (the v1 form keeps its selects). */
+  const yesNo = (field: "symptoms" | "recentChange" | "clearance", title: string) => (
+    <fieldset className="intake-yesno" data-field={field}>
+      <legend>
+        {title}
+        {mark(field)}
+      </legend>
+      <div className="intake-choices">
+        {(field === "clearance" ? (["yes", "no", "unsure"] as const) : (["yes", "no"] as const)).map((v) => (
+          <button
+            type="button"
+            key={v}
+            data-value={v}
+            aria-pressed={draft[field] === v}
+            className={draft[field] === v ? "selected" : ""}
+            onClick={() => set(field, v as never)}
+          >
+            {c[v]}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
   const kind = STEP_KINDS[step];
   const last = STEP_KINDS.length - 1;
   const body = intakeBody(draft);
-  const valid =
-    kind === "about"
-      ? draft.age >= 18 && draft.age <= 100 && draft.conditions.length > 0
+  const aboutValid = draft.age >= 18 && draft.age <= 100 && draft.conditions.length > 0;
+  const goalValid =
+    draft.days.length > 0 && draft.days.length <= 4 && (draft.goal !== "sport" || !!draft.sport);
+  const valid = V7_UI
+    ? kind === "about"
+      ? aboutValid && !!draft.mobility && v7ui?.fillReady === true && v7AboutReady(draft)
+      : kind === "body"
+        ? draft.regions !== undefined &&
+          draft.romFlags !== undefined &&
+          !!draft.symptoms &&
+          !!draft.recentChange &&
+          !!draft.clearance
+        : goalValid && validateIntake(body)
+    : kind === "about"
+      ? aboutValid
       : kind === "health"
         ? !!draft.mobility && !!draft.symptoms && !!draft.recentChange && !!draft.clearance
-        : kind === "body"
-          ? v7Ready(draft)
-          : kind === "goal"
-            ? draft.days.length > 0 && draft.days.length <= 4 && (draft.goal !== "sport" || !!draft.sport)
-            : validateIntake(body);
+        : kind === "goal"
+          ? goalValid
+          : validateIntake(body);
   const submit = async () => {
     if (!valid) {
       setError("INTAKE_INVALID");
@@ -344,13 +389,13 @@ export default function IntakeForm({
     fmtDate(new Date(2026, 8, 6 + i), lang, { weekday: "short" }),
   );
   const stepName = (k: StepKind) =>
-    k === "body"
-      ? IntakeV7StepName && (
-          <Suspense fallback={null}>
-            <IntakeV7StepName lang={lang} />
-          </Suspense>
-        )
-      : c.steps[V1_STEP[k]];
+    V7_UI && IntakeV7StepName && (k === "about" || k === "body" || k === "goal") ? (
+      <Suspense fallback={k === "body" ? null : c.steps[V1_STEP[k]]}>
+        <IntakeV7StepName lang={lang} kind={k} />
+      </Suspense>
+    ) : (
+      c.steps[V1_STEP[k as Exclude<StepKind, "body">]]
+    );
   const v7Value = {
     sex: draft.sex,
     regions: draft.regions,
@@ -358,6 +403,73 @@ export default function IntakeForm({
     heightCm: draft.heightCm,
     romFlags: draft.romFlags,
   };
+  const v7Part = {
+    lang,
+    context: { conditions: draft.conditions, mobility: draft.mobility },
+    value: v7Value,
+    ui: v7ui,
+    onUi: setV7ui,
+    onChange: (v: Partial<Intake>) => setDraft((d) => ({ ...d, ...v })),
+  };
+  const ageField = (
+    <label className="field age-field">
+      <span>
+        {c.age}
+        {mark("age")}
+      </span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min="18"
+        max="100"
+        required
+        value={draft.age || ""}
+        onChange={(e) => set("age", Number(e.target.value))}
+      />
+    </label>
+  );
+  const conditionField = (
+    <fieldset>
+      <legend>
+        {c.condition}
+        {mark("conditions")}
+      </legend>
+      <p className="field-help">{c.conditionHelp}</p>
+      {choices("conditions", conditions)}
+    </fieldset>
+  );
+  const restrictionField = (
+    <fieldset>
+      <legend>
+        {c.restriction}
+        {mark("restrictions")}
+      </legend>
+      {choices("restrictions", restrictionOptions)}
+    </fieldset>
+  );
+  /** v7: how the person exercises, as four buttons. */
+  const mobilityField = (
+    <fieldset className="intake-mobility">
+      <legend>
+        {c.mobility}
+        {mark("mobility")}
+      </legend>
+      <div className="intake-choices">
+        {(["seated", "wheelchair", "standing", "bed"] as const).map((o) => (
+          <button
+            type="button"
+            key={o}
+            data-value={o}
+            aria-pressed={draft.mobility === o}
+            className={draft.mobility === o ? "selected" : ""}
+            onClick={() => set("mobility", o)}
+          >
+            {name(o)}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
   // The review: v7 shows its rows after mobility, and the body map replaces the v1 pain row.
   const reviewRows = (
     [
@@ -385,6 +497,34 @@ export default function IntakeForm({
       [c.time, fmtTime(draft.time, lang)],
     ] as [string, string][]
   ).filter(([k]) => !V7_UI || k !== c.pain);
+  const consentField = (
+    <>
+      <label className="consent">
+        <input
+          type="checkbox"
+          required
+          checked={draft.consent}
+          onChange={(e) => set("consent", e.target.checked)}
+        />
+        <span>
+          {V7_UI && IntakeV7Consent ? (
+            <Suspense fallback={c.consent}>
+              <IntakeV7Consent lang={lang} />
+            </Suspense>
+          ) : (
+            c.consent
+          )}
+        </span>
+      </label>
+      {/* H5: the health data consent names where the data is stored, and links the notice (Q32 (1)). */}
+      <p className="field-help intake-storage">
+        {CHECK_DATA.boundary.storageNotice[lang]}{" "}
+        <a href={privacyHref(lang)} target="_blank" rel="noreferrer">
+          {t(lang, "privacy.link")}
+        </a>
+      </p>
+    </>
+  );
   const reviewRow = ([k, v]: [string, string]) => (
     <div key={k}>
       <dt>{k}</dt>
@@ -462,7 +602,20 @@ export default function IntakeForm({
           {fmtNum(step + 1, lang)} / {fmtNum(STEP_KINDS.length, lang)}
         </p>
         <h2>{stepName(kind)}</h2>
-        {kind === "about" && (
+        {kind === "about" && V7_UI && IntakeV7About && (
+          <>
+            <Suspense fallback={null}>
+              <IntakeV7About
+                {...v7Part}
+                age={ageField}
+                conditionField={conditionField}
+                mobilityField={mobilityField}
+              />
+            </Suspense>
+            {initial === null && !reportInfo && <ReportUpload lang={lang} onExtracted={applyExtraction} />}
+          </>
+        )}
+        {kind === "about" && !V7_UI && (
           <>
             <label className="field age-field">
               <span>
@@ -570,15 +723,18 @@ export default function IntakeForm({
         {kind === "body" && IntakeV7 && (
           <Suspense fallback={null}>
             <IntakeV7
-              lang={lang}
-              context={{ conditions: draft.conditions, mobility: draft.mobility }}
-              value={v7Value}
-              ui={v7ui}
+              {...v7Part}
               report={reportRegions}
               earlierPain={initial && initial.regions === undefined ? initial.pain : []}
               showMissing={error === "INTAKE_INVALID"}
-              onUi={setV7ui}
-              onChange={(v) => setDraft((d) => ({ ...d, ...v }))}
+              safety={
+                <>
+                  {yesNo("symptoms", c.symptoms)}
+                  {yesNo("clearance", c.clearance)}
+                  {yesNo("recentChange", c.recentChange)}
+                  {restrictionField}
+                </>
+              }
             />
           </Suspense>
         )}
@@ -649,6 +805,7 @@ export default function IntakeForm({
                 </select>
               </label>
             </div>
+            {V7_UI && consentField}
           </>
         )}
         {kind === "review" && (
@@ -664,22 +821,7 @@ export default function IntakeForm({
               )}
               {reviewRows.slice(3).map(reviewRow)}
             </dl>
-            <label className="consent">
-              <input
-                type="checkbox"
-                required
-                checked={draft.consent}
-                onChange={(e) => set("consent", e.target.checked)}
-              />
-              <span>{c.consent}</span>
-            </label>
-            {/* H5: the health data consent names where the data is stored, and links the notice (Q32 (1)). */}
-            <p className="field-help intake-storage">
-              {CHECK_DATA.boundary.storageNotice[lang]}{" "}
-              <a href={privacyHref(lang)} target="_blank" rel="noreferrer">
-                {t(lang, "privacy.link")}
-              </a>
-            </p>
+            {consentField}
           </>
         )}
         {error && (

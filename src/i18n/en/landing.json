@@ -62,5 +62,37 @@
   },
   "footer": {
     "brandline": "Azm. Training is still yours."
+  },
+  "v7": {
+    "range": {
+      "title": "We measure only your affected joints",
+      "body": "Your medical condition and your body map decide which joints we measure, then we compare how far they move with what is typical for people of your age and sex.",
+      "points": {
+        "move": "You move as far as you can without pain, and the camera reads the angle of the movement.",
+        "result": "The result of each movement appears in plain words, and your body map is coloured by the results.",
+        "again": "With each new check you see where your movement stands, between your starting point and typical."
+      },
+      "alt": "Fahd seated raising his right arm in front of his phone with a gold arc showing the movement path"
+    },
+    "walk": {
+      "title": "We read the way you walk, step by step",
+      "body": "If you walk, even with an aid, we measure the timing of your steps on a walking pad or on level ground, and compare your right side with your left. Then we tell you what your walk may suggest.",
+      "points": {
+        "reasons": "We link what we see in your walk to your range results and your medical condition, to name the possible reasons.",
+        "sure": "We tell you how sure we are about each observation.",
+        "program": "We add stretches to your program for what may be tight, and strengthening for what may be weak."
+      },
+      "alt": "Fahd walking at an easy pace with his phone beside the path"
+    },
+    "coach": {
+      "title": "A coach that talks with you as you move",
+      "body": "An AI voice coach that joins your checks and workouts, and never overrides your plan or the safety rules. It stays off until you turn it on, and every question it asks has buttons on the screen.",
+      "points": {
+        "max": "At the end of a movement, it asks whether that is as far as you can go.",
+        "hurts": "It hears you when you say “it hurts”, so it notes your pain and asks no more of you.",
+        "pain": "It asks about your pain when you say a movement hurts, and repeats the instructions whenever you ask."
+      },
+      "alt": "Latifa raising her right arm as soft voice rings reach her from the phone"
+    }
   }
 }

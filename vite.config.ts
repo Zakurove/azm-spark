@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createApi } from "./server/api";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { v7Landing } from "./scripts/v7-landing-plugin";
 
 const CHECK_DATA = fileURLToPath(new URL("./src/movements/check-v1.json", import.meta.url));
 const VOICE_PACKS = fileURLToPath(new URL("./public/cues/packs/index.json", import.meta.url));
@@ -42,6 +43,7 @@ const voicePacks = () => jsonModule("virtual:voice-packs", VOICE_PACKS);
 
 export default defineConfig({
   plugins: [
+    v7Landing(),
     react(),
     checkUnitForms(),
     voicePacks(),

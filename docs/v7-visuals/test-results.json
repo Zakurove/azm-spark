@@ -1,0 +1,84 @@
+{
+  "checkedOn": "2026-10-08",
+  "branch": "v7-visuals",
+  "startingCommit": "cef5aca",
+  "scope": {
+    "ar": "صور ثابتة فقط حسب طلب المستخدم",
+    "en": "Still images only as requested by the user"
+  },
+  "commands": [
+    {
+      "command": "npm run check",
+      "result": "passed"
+    },
+    {
+      "command": "npm test",
+      "result": "passed",
+      "filesPassed": 276,
+      "filesSkipped": 1,
+      "testsPassed": 6288,
+      "testsSkipped": 20
+    },
+    {
+      "command": "npm run format:check",
+      "result": "passed"
+    },
+    {
+      "command": "npm run build",
+      "result": "passed"
+    },
+    {
+      "command": "VITE_V7=1 npm run build",
+      "result": "passed"
+    },
+    {
+      "command": "npm run e2e",
+      "result": "passed",
+      "testsPassed": 238,
+      "testsSkipped": 86,
+      "minutes": 27.1
+    }
+  ],
+  "visualReview": {
+    "languages": [
+      "ar",
+      "en"
+    ],
+    "viewports": [
+      {
+        "width": 390,
+        "height": 844
+      },
+      {
+        "width": 1440,
+        "height": 900
+      }
+    ],
+    "beforeScreens": 168,
+    "afterScreens": 168,
+    "landingDetails": 12,
+    "journeyScreens": 4,
+    "layoutErrors": 0,
+    "browserChecks": 24,
+    "accessibilityViolations": 0
+  },
+  "assets": {
+    "distinctPngMasters": 29,
+    "nativePortraitCopies": 3,
+    "webpFiles": 56,
+    "widths": [
+      1200,
+      600
+    ],
+    "largestWebpBytes": 64094
+  },
+  "defaultFirstScriptIdentical": true,
+  "localJourney": {
+    "createdAccount": true,
+    "completedRequestedRightSideProfile": true,
+    "boothCodeAccepted": true,
+    "startedFromToday": true,
+    "reachedFirstMovementSetup": true,
+    "physicalMovementPerformed": false
+  }
+}

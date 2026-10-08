@@ -285,6 +285,7 @@ export function IntroScreen({
   protocol,
   gait,
   setting = "booth",
+  wheelchair = false,
   onStart,
 }: {
   lang: Lang;
@@ -292,6 +293,7 @@ export function IntroScreen({
   gait: GaitPlan | null;
   /** D-017 item 1: no time is mentioned anywhere on the booth path; the minutes show at home only. */
   setting?: "home" | "booth";
+  wheelchair?: boolean;
   onStart(): void;
 }) {
   const runs = protocol.items.filter((i) => !i.skipped);
@@ -326,7 +328,13 @@ export function IntroScreen({
             {joints.map((g) => (
               <li key={g.key} className="fx-joint-card">
                 <span className="fx-joint-picture" aria-hidden="true">
-                  <MovementPicture movementId={g.items[0].movementId} side={g.side} lang={lang} size={52} />
+                  <MovementPicture
+                    movementId={g.items[0].movementId}
+                    side={g.side}
+                    lang={lang}
+                    size={52}
+                    wheelchair={wheelchair}
+                  />
                 </span>
                 <span className="fx-joint-card-text">
                   <b>{sideRegion(g, lang)}</b>

@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "file": "/assets/index-BUT6FpAN.js",
+    "bytes": 277284,
+    "gzip": 90506,
+    "sha256": "7331bfb1f5a4d7dacca85622ed2a89f670234b588b15655dda282b59bd441022"
+  },
+  "after": {
+    "file": "/assets/index-BUT6FpAN.js",
+    "bytes": 277284,
+    "sha256": "7331bfb1f5a4d7dacca85622ed2a89f670234b588b15655dda282b59bd441022"
+  },
+  "identical": true
+}

@@ -86,6 +86,7 @@ const V7_FACADES = [
   "src/features/focus/FindingsLink.tsx",
   "src/features/program-v7/ProgramLink.tsx",
   "src/app/IntakeV7.tsx",
+  "src/app/LandingV7.tsx",
 ];
 const E2E_FACADES = ["src/features/smoke/SmokePage.tsx", "src/features/smoke/PerfOverlay.tsx"];
 

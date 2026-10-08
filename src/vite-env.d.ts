@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare module "*landing.json?v7" {
+  const copy: (typeof import("./i18n/en/landing.json"))["v7"];
+  export default copy;
+}
+
 interface ImportMetaEnv {
   /** "1" on the Playwright build: enables FixturePoseSource (contract v3 K). Never set in production. */
   readonly VITE_E2E?: string;

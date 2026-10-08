@@ -426,6 +426,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               protocol={m.data.context!.protocol!}
               gait={m.data.context!.gait}
               setting={m.data.context!.setting}
+              wheelchair={m.data.intake?.mobility === "wheelchair"}
               onStart={() => {
                 CuePlayer.unlock();
                 if (coachOn) unlockCoachAudio();
@@ -719,6 +720,7 @@ export default function FocusApp({ lang, onLanguage, onExit }: FocusAppProps) {
               n={indexOf(step.item)}
               total={runs.length}
               turnSide={step.turnSide}
+              wheelchair={m.data.intake?.mobility === "wheelchair"}
               onReady={() => c.ready(clock())}
               onStop={() => session.requestStop()}
             />

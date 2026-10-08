@@ -166,6 +166,7 @@ export function SetupCard({
   n,
   total,
   turnSide,
+  wheelchair = false,
   onReady,
   onStop,
 }: {
@@ -174,6 +175,7 @@ export function SetupCard({
   n: number;
   total: number;
   turnSide: boolean;
+  wheelchair?: boolean;
   onReady(): void;
   onStop?: () => void;
 }) {
@@ -183,7 +185,13 @@ export function SetupCard({
       <Glass className="fx-card fx-figure">
         <Kicker>{tV7(lang, "rom.setup.kicker", { n, total })}</Kicker>
         <div className="fx-figure-art">
-          <MovementPicture movementId={item.movementId} side={item.side} lang={lang} size={208} />
+          <MovementPicture
+            movementId={item.movementId}
+            side={item.side}
+            lang={lang}
+            size={208}
+            wheelchair={wheelchair}
+          />
         </div>
         <Title>{movementName(item.movementId, lang)}</Title>
         <div className="fx-chips">
@@ -645,7 +653,13 @@ export function ResultScreen({
           />
         ) : (
           <div className="fx-figure-art">
-            <MovementPicture movementId={item.movementId} side={item.side} lang={lang} size={160} />
+            <MovementPicture
+              movementId={item.movementId}
+              side={item.side}
+              lang={lang}
+              size={160}
+              wheelchair={intake?.mobility === "wheelchair"}
+            />
           </div>
         )}
         {view.label && <span className={`fx-label is-${view.finding}`}>{view.label}</span>}

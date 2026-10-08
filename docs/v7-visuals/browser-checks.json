@@ -1,0 +1,586 @@
+[
+  {
+    "lang": "ar",
+    "width": 390,
+    "reducedMotion": "reduce",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_phone_600.webp",
+        "lazy": true,
+        "alt": "فهد جالس يرفع ذراعه اليمنى أمام هاتفه مع قوس ذهبي يوضح مسار الحركة",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_phone_600.webp",
+        "lazy": true,
+        "alt": "فهد يمشي بخطوات هادئة وهاتفه إلى جانب المسار",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_phone_600.webp",
+        "lazy": true,
+        "alt": "لطيفة ترفع ذراعها اليمنى وحلقات صوت هادئة تصلها من الهاتف",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 390,
+    "reducedMotion": "reduce",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "الميل إلى الجانب، الجهة اليسرى، باستخدام الكرسي المتحرك",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 390,
+    "reducedMotion": "reduce",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "انقل الهاتف إلى جهتك اليسرى",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_phone_600.webp",
+        "lazy": true,
+        "alt": "فهد جالس يرفع ذراعه اليمنى أمام هاتفه مع قوس ذهبي يوضح مسار الحركة",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_phone_600.webp",
+        "lazy": true,
+        "alt": "فهد يمشي بخطوات هادئة وهاتفه إلى جانب المسار",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_phone_600.webp",
+        "lazy": true,
+        "alt": "لطيفة ترفع ذراعها اليمنى وحلقات صوت هادئة تصلها من الهاتف",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "الميل إلى الجانب، الجهة اليسرى، باستخدام الكرسي المتحرك",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "انقل الهاتف إلى جهتك اليسرى",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_600.webp",
+        "lazy": true,
+        "alt": "فهد جالس يرفع ذراعه اليمنى أمام هاتفه مع قوس ذهبي يوضح مسار الحركة",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_600.webp",
+        "lazy": true,
+        "alt": "فهد يمشي بخطوات هادئة وهاتفه إلى جانب المسار",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_600.webp",
+        "lazy": true,
+        "alt": "لطيفة ترفع ذراعها اليمنى وحلقات صوت هادئة تصلها من الهاتف",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "الميل إلى الجانب، الجهة اليسرى، باستخدام الكرسي المتحرك",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "انقل الهاتف إلى جهتك اليسرى",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_600.webp",
+        "lazy": true,
+        "alt": "فهد جالس يرفع ذراعه اليمنى أمام هاتفه مع قوس ذهبي يوضح مسار الحركة",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_600.webp",
+        "lazy": true,
+        "alt": "فهد يمشي بخطوات هادئة وهاتفه إلى جانب المسار",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_600.webp",
+        "lazy": true,
+        "alt": "لطيفة ترفع ذراعها اليمنى وحلقات صوت هادئة تصلها من الهاتف",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "الميل إلى الجانب، الجهة اليسرى، باستخدام الكرسي المتحرك",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "ar",
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "انقل الهاتف إلى جهتك اليسرى",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 390,
+    "reducedMotion": "reduce",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_phone_600.webp",
+        "lazy": true,
+        "alt": "Fahd seated raising his right arm in front of his phone with a gold arc showing the movement path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_phone_600.webp",
+        "lazy": true,
+        "alt": "Fahd walking at an easy pace with his phone beside the path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_phone_600.webp",
+        "lazy": true,
+        "alt": "Latifa raising her right arm as soft voice rings reach her from the phone",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 390,
+    "reducedMotion": "reduce",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "Bending to the side, left side, using a wheelchair",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 390,
+    "reducedMotion": "reduce",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "Move the phone to your left side",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_phone_600.webp",
+        "lazy": true,
+        "alt": "Fahd seated raising his right arm in front of his phone with a gold arc showing the movement path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_phone_600.webp",
+        "lazy": true,
+        "alt": "Fahd walking at an easy pace with his phone beside the path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_phone_600.webp",
+        "lazy": true,
+        "alt": "Latifa raising her right arm as soft voice rings reach her from the phone",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "Bending to the side, left side, using a wheelchair",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "Move the phone to your left side",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_600.webp",
+        "lazy": true,
+        "alt": "Fahd seated raising his right arm in front of his phone with a gold arc showing the movement path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_600.webp",
+        "lazy": true,
+        "alt": "Fahd walking at an easy pace with his phone beside the path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_600.webp",
+        "lazy": true,
+        "alt": "Latifa raising her right arm as soft voice rings reach her from the phone",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "Bending to the side, left side, using a wheelchair",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "Move the phone to your left side",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "target": "landing",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_range_600.webp",
+        "lazy": true,
+        "alt": "Fahd seated raising his right arm in front of his phone with a gold arc showing the movement path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_walk_600.webp",
+        "lazy": true,
+        "alt": "Fahd walking at an easy pace with his phone beside the path",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      },
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/landing/v7_landing_coach_600.webp",
+        "lazy": true,
+        "alt": "Latifa raising her right arm as soft voice rings reach her from the phone",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "target": "movement",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/rom/v7_rom_trunk_lateral_flexion_wheelchair_600.webp",
+        "lazy": true,
+        "alt": "Bending to the side, left side, using a wheelchair",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  },
+  {
+    "lang": "en",
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "target": "walk",
+    "images": [
+      {
+        "source": "http://127.0.0.1:5950/illustrations/v7/walk/v7_walk_pad_side_600.webp",
+        "lazy": true,
+        "alt": "Move the phone to your left side",
+        "animation": "none",
+        "fit": "contain",
+        "fits": true
+      }
+    ],
+    "videos": 0,
+    "violations": [],
+    "errors": []
+  }
+]

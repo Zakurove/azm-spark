@@ -1,12 +1,6 @@
-/**
- * Where the phone goes for each part of the walk (product v7 plan 2.5 «Setup: phone placement for
- * side and front, or the walking pad»; gait-rules capture): a calm top down drawing with the
- * distances of the gait data, the person's own side for the pad's side views. Light, gold for the
- * marks, purple for the phone and its view, no hard dark lines. Pure SVG, no animation beyond the
- * walker's soft pulse, which reduced motion turns off (gait.css).
- */
 import type { Lang } from "../../app/i18n";
 import { tV7 } from "../../i18n/v7";
+import { Illustration } from "../visuals/Illustration";
 
 export type PlacementKind = "overground_front" | "overground_side" | "pad_side" | "pad_front" | "stance";
 
@@ -101,22 +95,6 @@ function Walker({ x, y, label }: { x: number; y: number; label?: string }) {
   );
 }
 
-function Pad({ x, y, w, h, lang }: { x: number; y: number; w: number; h: number; lang: Lang }) {
-  const stripes = [];
-  for (let sy = y + 16; sy < y + h - 8; sy += 12)
-    stripes.push(<line key={sy} x1={x + 8} y1={sy} x2={x + w - 8} y2={sy} className="gx-belt" />);
-  return (
-    <g className="gx-pad">
-      <rect x={x} y={y} width={w} height={h} rx={12} className="gx-pad-body" />
-      {stripes}
-      <rect x={x - 6} y={y - 8} width={w + 12} height={7} rx={3.5} className="gx-bar" />
-      <text x={x + w / 2} y={y - 14} className="gx-label is-muted">
-        {t(lang, "support")}
-      </text>
-    </g>
-  );
-}
-
 /** One placement drawing, with a summary for screen readers. */
 export function Placement({
   kind,
@@ -131,6 +109,24 @@ export function Placement({
   /** The drawing's name for screen readers (the step's title). */
   label: string;
 }) {
+  if (kind !== "stance") {
+    const names = {
+      pad_side: "v7_walk_pad_side",
+      pad_front: "v7_walk_pad_front",
+      overground_side: "v7_walk_side_path",
+      overground_front: "v7_walk_front_path",
+    };
+    return (
+      <Illustration
+        group="walk"
+        name={names[kind]}
+        alt={label}
+        lang={lang}
+        className={`gx-placement is-${kind}`}
+        mirror={side === "left" && kind.endsWith("side")}
+      />
+    );
+  }
   return (
     <svg
       className={`gx-placement is-${kind}`}
@@ -140,69 +136,6 @@ export function Placement({
       direction="ltr"
       lang={lang}
     >
-      {kind === "overground_front" && (
-        <g>
-          <rect x={104} y={16} width={64} height={216} rx={10} className="gx-path" />
-          <line x1={104} y1={24} x2={168} y2={24} className="gx-mark" />
-          <text x={94} y={28} className="gx-label is-end">
-            {t(lang, "start")}
-          </text>
-          <line x1={104} y1={226} x2={168} y2={226} className="gx-mark is-stop" />
-          <text x={94} y={230} className="gx-label is-end">
-            {t(lang, "stop")}
-          </text>
-          <Walker x={136} y={44} />
-          <path d="M136 62 L136 142" className="gx-arrow" markerEnd="url(#gx-head)" />
-          <Span from={[84, 24]} to={[84, 168]} label={t(lang, "path")} side={-1} />
-          <Phone
-            x={210}
-            y={168}
-            landscape={false}
-            to={[142, 40]}
-            label={t(lang, "phone")}
-            labelAt={{ x: 228, y: 150, anchor: "start" }}
-          />
-          <Span from={[168, 198]} to={[210, 198]} label={t(lang, "offset")} below />
-          <Span from={[250, 168]} to={[250, 226]} label={t(lang, "behind")} />
-        </g>
-      )}
-      {kind === "overground_side" && (
-        <g>
-          <rect x={22} y={34} width={276} height={50} rx={10} className="gx-path" />
-          <Walker x={84} y={59} />
-          <path d="M104 52 L236 52" className="gx-arrow" markerEnd="url(#gx-head)" />
-          <path d="M236 68 L104 68" className="gx-arrow is-back" markerEnd="url(#gx-head)" />
-          <Phone x={160} y={192} landscape to={[160, 70]} label={t(lang, "phone")} />
-          <Span from={[214, 86]} to={[214, 184]} label={t(lang, "far")} />
-        </g>
-      )}
-      {kind === "pad_side" && (
-        <g>
-          <Pad x={128} y={44} w={64} h={130} lang={lang} />
-          <Walker x={160} y={104} label={t(lang, "you")} />
-          {side === "right" ? (
-            <>
-              <Phone x={282} y={112} landscape to={[160, 112]} label={t(lang, "phone")} />
-              <Span from={[196, 150]} to={[270, 150]} label={t(lang, "padSide")} />
-              <Walker x={214} y={196} label={t(lang, "helper")} />
-            </>
-          ) : (
-            <>
-              <Phone x={38} y={112} landscape to={[160, 112]} label={t(lang, "phone")} />
-              <Span from={[50, 150]} to={[124, 150]} label={t(lang, "padSide")} />
-              <Walker x={106} y={196} label={t(lang, "helper")} />
-            </>
-          )}
-        </g>
-      )}
-      {kind === "pad_front" && (
-        <g>
-          <Pad x={128} y={92} w={64} h={120} lang={lang} />
-          <Walker x={160} y={140} label={t(lang, "you")} />
-          <Phone x={160} y={26} landscape={false} to={[160, 150]} label={t(lang, "phone")} />
-          <Span from={[214, 30]} to={[214, 92]} label={t(lang, "padFront")} />
-        </g>
-      )}
       {kind === "stance" && (
         <g>
           <Walker x={160} y={150} label={t(lang, "you")} />

@@ -1,8 +1,10 @@
 /**
  * The intake form in both builds (product v7 contract C-9, 1.2): a default build keeps the four steps
- * and the v1 pain question exactly as before; a VITE_V7 build adds the "Your body" step after
- * "Movement and precautions" (its own lazily loaded chunk) and drops the v1 pain question, which the
- * body map answers (pain[] is written from it, contract 2.2 rule 3).
+ * and the v1 questions exactly as before; a VITE_V7 build has three short steps (D-034 item 5:
+ * «حالتك وحركتك», «جسمك وسلامتك», «هدفك ووقتك», its v7 parts in their own lazily loaded chunk). It no
+ * longer asks the diagnosis notes, the medications, the v1 support side or the v1 pain question (the
+ * body map answers them: pain[] is written from it, contract 2.2 rule 3, and the support side
+ * follows its weakness), and has no review step: the consent closes the goal step.
  *
  * A default build spreads a saved intake into its draft, so a v7 intake (saved by a VITE_V7 build on
  * staging, or before a rollback of the build flag) brings its sex, body map, walking, height and
@@ -12,16 +14,37 @@
  * entries of its region, so the intake can always be saved.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PassThrough } from "node:stream";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToPipeableStream, renderToStaticMarkup } from "react-dom/server";
 import { validateIntake, type Intake } from "../../src/medical/plan";
 import type { RegionEntry } from "../../src/medical/body-map";
 
 async function load(v7: boolean) {
   vi.resetModules();
+  vi.stubEnv("VITE_V7", v7 ? "1" : "");
   vi.doMock("../../src/app/v7flag", () => ({ V7_UI: v7 }));
   return await import("../../src/app/IntakeForm");
 }
+/** The form's first step once every lazy part has loaded. */
+async function firstStep(v7: boolean, lang: "ar" | "en", initial: Intake | null = null): Promise<string> {
+  const IntakeForm = await form(v7);
+  return new Promise((resolve, reject) => {
+    let html = "";
+    const out = new PassThrough();
+    out.on("data", (chunk) => (html += chunk));
+    out.on("end", () => resolve(html));
+    const stream = renderToPipeableStream(createElement(IntakeForm, { lang, initial, onSaved: () => {} }), {
+      onAllReady: () => stream.pipe(out),
+      onError: reject,
+    });
+  });
+}
+const plain = (html: string) =>
+  html
+    .replace(/<!-- -->/g, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
 async function form(v7: boolean) {
   return (await load(v7)).default;
 }
@@ -61,6 +84,7 @@ const savedV7: Intake = {
 describe("the intake form", () => {
   afterEach(() => {
     vi.doUnmock("../../src/app/v7flag");
+    vi.unstubAllEnvs();
     vi.resetModules();
   });
 
@@ -74,13 +98,60 @@ describe("the intake form", () => {
     expect(html).toContain("الحركة والاحتياطات");
   });
 
-  it("adds the Your body step in a v7 build", async () => {
+  it("keeps the v1 first step in a default build: the diagnosis notes and the medications", async () => {
+    const text = plain(await firstStep(false, "ar"));
+    for (const line of ["العمر", "ما حالتك الطبية؟", "تفاصيل التشخيص أو تعليمات الطبيب", "الأدوية الحالية"])
+      expect(text).toContain(line);
+    expect(text).not.toContain("الجنس");
+    expect(text).not.toContain("كيف تتمرّن عادةً؟");
+  });
+
+  it("has three short steps in a v7 build (D-034 item 5)", async () => {
     const IntakeForm = await form(true);
     const html = renderToStaticMarkup(
       createElement(IntakeForm, { lang: "en", initial: null, onSaved: () => {} }),
     );
-    expect(steps(html)).toBe(5);
-    expect(html).toContain("1 / 5");
+    expect(steps(html)).toBe(3);
+    expect(html).toContain("1 / 3");
+    const loaded = plain(await firstStep(true, "ar"));
+    for (const name of ["حالتك وحركتك", "جسمك وسلامتك", "هدفك ووقتك"]) expect(loaded).toContain(name);
+    expect(loaded).not.toContain("المراجعة");
+  });
+
+  it("asks age and sex, the conditions, how the person exercises and walking first, and nothing the rules do not read", async () => {
+    for (const lang of ["ar", "en"] as const) {
+      const html = await firstStep(true, lang);
+      // The form card, after the step list.
+      const text = plain(html.slice(html.indexOf('class="intake-card"')));
+      const order = (
+        lang === "ar"
+          ? ["العمر", "الجنس", "ما حالتك الطبية؟", "كيف تتمرّن عادةً؟", "هل تستطيع المشي؟"]
+          : ["Age", "Sex", "Which conditions apply to you?", "How do you usually exercise?", "Can you walk?"]
+      ).map((line) => text.indexOf(line));
+      expect(order.every((at) => at >= 0)).toBe(true);
+      expect([...order].sort((a, b) => a - b)).toEqual(order);
+      // How the person exercises is four buttons.
+      expect(html.match(/class="intake-mobility"/g)).toHaveLength(1);
+      expect(html.match(/<button[^>]*data-value="(seated|wheelchair|standing|bed)"/g)).toHaveLength(4);
+    }
+    const text = plain(await firstStep(true, "ar"));
+    for (const gone of [
+      "تفاصيل التشخيص أو تعليمات الطبيب",
+      "الأدوية الحالية",
+      "هل يحتاج أحد جانبي جسمك إلى مراعاة خاصة؟",
+      "هل تؤلمك إحدى هذه المناطق عند الحركة؟",
+    ])
+      expect(text).not.toContain(gone);
+  });
+
+  it("asks the side of a stroke on the first step, under the conditions", async () => {
+    const html = await firstStep(true, "en", { ...v1, conditions: ["stroke"] });
+    const text = plain(html.slice(html.indexOf('class="intake-card"')));
+    expect(text).toContain("Which side is weaker?");
+    expect(text.indexOf("Which side is weaker?")).toBeGreaterThan(
+      text.indexOf("Which conditions apply to you?"),
+    );
+    expect(text.indexOf("Which side is weaker?")).toBeLessThan(text.indexOf("How do you usually exercise?"));
   });
 });
 

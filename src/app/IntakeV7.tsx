@@ -1,22 +1,26 @@
 /**
- * The v7 part of the intake (product v7 contract 1.2 and 2.2): the "Your body" step. Sex, walking and
- * its aid, height for walkers, the condition questions that fill the body map (rom-protocol 2.3, the
- * person confirms), the body map with each region's problem types and follow up questions
- * (rom-protocol 2.2 and 6), the report's region suggestions (applied only by a tap), and the safety
- * questions of RomIntakeFlags.
+ * The v7 parts of the intake (product v7 contract 1.2 and 2.2; shortened by D-034 item 5). A v7 form
+ * has three steps:
+ *   1. «حالتك وحركتك» (IntakeV7About): age and sex, the conditions with their side or pattern
+ *      (rom-protocol 2.3), how the person exercises, walking with its aid and an optional height.
+ *   2. «جسمك وسلامتك» (IntakeV7): the body map, filled from the condition answers at once (the person
+ *      confirms it, or taps a part to add or take it off; only a part added by hand asks one quick
+ *      choice of its problem, and the injury or surgery questions only with that problem), then the
+ *      safety questions: IntakeForm's warning signs, clearance, recent change and restrictions, and
+ *      the questions of RomIntakeFlags that decide which tests are offered.
+ *   3. the goal and schedule, with the consent (IntakeForm).
  *
  * IntakeForm loads this module only in a VITE_V7 build (`import.meta.env.VITE_V7 === "1" ?
- * lazy(...) : null`), so a default build has none of it. The step keeps its working state (V7Ui) in IntakeForm, so it survives moving
- * between steps, and writes the intake's v7 fields (V7Answers) on every change: a field stays
- * undefined until its answers are complete, which keeps Continue closed. Clinical lines come from
- * the range data (romCopy, regions, problem types, movement names); the step's own lines are in the
- * intake7 namespace (tV7).
+ * lazy(...) : null`), so a default build has none of it. The working state (V7Ui) lives in
+ * IntakeForm, so it survives moving between steps, and each part writes the intake's v7 fields
+ * (V7Answers) on every change: a field stays undefined until its answers are complete, which keeps
+ * Continue closed. Clinical lines come from the range data (romCopy, regions, problem types,
+ * movement names); the parts' own lines are in the intake7 namespace (tV7).
  */
 import { useEffect, useState, type ReactNode } from "react";
 import type { Lang } from "./i18n";
 import { labels } from "./platform-copy";
 import Icon from "./Icon";
-import { interpolate } from "../i18n";
 import { tV7 } from "../i18n/v7";
 import BodyMap, { entryLabel, regionName } from "../features/body-map/BodyMap";
 import {
@@ -38,6 +42,7 @@ import {
   regionQuestions,
   romFlagQuestions,
   type AutoFillAnswer,
+  type BodyMapKey,
   type HipAvoidId,
   type LimbLossLevel,
   type ProblemType,
@@ -45,6 +50,7 @@ import {
   type RegionEntry,
   type RegionId,
   type RegionQuestionId,
+  type RegionSide,
   type ReportRegion,
   type RomFlagContext,
   type RomFlagQuestionId,
@@ -64,7 +70,8 @@ import { ROM_DATA, movementDef, romCopy } from "../movements/rom";
 import type { RomCopyKey, RomMovementId } from "../movements/rom/types";
 
 /** The v7 fields of the intake this step writes. */
-export type V7Answers = Pick<Intake, "sex" | "regions" | "walking" | "heightCm" | "romFlags">;
+export type V7Answers = Pick<Intake, "sex" | "regions" | "walking" | "heightCm" | "romFlags"> &
+  Partial<Pick<Intake, "support">>;
 
 type Side = "right" | "left";
 type MsLimb = "right_arm" | "left_arm" | "right_leg" | "left_leg";
@@ -73,14 +80,13 @@ export interface FillDraft {
   stroke?: Side;
   cerebral_palsy?: { pattern?: "one_side" | "both_legs" | "all_limbs"; side?: Side };
   ms?: MsLimb[];
-  parkinsons?: boolean;
   sci_complete?: "neck" | "back";
   sci_incomplete?: "neck" | "back";
   lower_limb_unilateral?: { side?: Side; level?: "below_knee" | "above_knee" };
   upper_limb_unilateral?: { side?: Side; level?: "below_elbow" | "above_elbow" };
 }
 
-/** The step's working state, kept by IntakeForm. */
+/** The step's working state, kept by IntakeForm across its steps. */
 export interface V7Ui {
   sex?: Sex;
   walking?: Walking["status"];
@@ -91,9 +97,14 @@ export interface V7Ui {
   /** «لا يتأثر أي جزء من جسمي»: regions []. */
   none: boolean;
   flags: Partial<RomIntakeFlags>;
+  /** The answers of the condition questions (the first step). */
   fill: FillDraft;
-  /** ask: the condition questions show; confirm: the fill is on the map, waiting for the person's yes. */
-  fillStage: "ask" | "confirm" | "done";
+  /** The condition answers now on the map (JSON of AutoFillAnswer[]), null before any. */
+  filled: string | null;
+  /** Every condition question has its answer (the first step can go on). */
+  fillReady: boolean;
+  /** The person confirmed the parts filled from the condition («هذه المناطق صحيحة»). */
+  confirmed: boolean;
   /** The spinal cord injury is at neck level (sitting balance is then no without asking). */
   sciNeck: boolean;
   /** Suggestions the person added. */
@@ -120,18 +131,25 @@ export const FILL_ANSWERS = {
   upper_limb_unilateral: ["below_elbow", "above_elbow"],
 } as const;
 type FillCondition = keyof typeof FILL_ANSWERS;
+const isFillCondition = (c: string): c is FillCondition => c in FILL_ANSWERS;
 
-/** The condition questions with answers to tap (arthritis has none: its question titles the map). */
+/**
+ * The condition questions with answers to tap. Arthritis has none (its question titles the map), and
+ * Parkinson's is not asked (D-034 item 5): both of its answers fill the same map, which the person
+ * then confirms on the map itself.
+ */
 export function fillQuestions(conditions: readonly string[]) {
   return autoFillQuestions(conditions).filter(
-    (q): q is typeof q & { condition: FillCondition } => q.answers.length > 0 && q.condition in FILL_ANSWERS,
+    (q): q is typeof q & { condition: Exclude<FillCondition, "parkinsons"> } =>
+      q.answers.length > 0 && isFillCondition(q.condition) && q.condition !== "parkinsons",
   );
 }
 
-/** The condition answers, or null while a question has none. */
+/** The condition answers, or null while a question has none. Parkinson's fills its map without asking. */
 export function fillAnswers(fill: FillDraft, conditions: readonly string[]): AutoFillAnswer[] | null {
   const out: AutoFillAnswer[] = [];
-  for (const { condition } of fillQuestions(conditions)) {
+  for (const { condition } of autoFillQuestions(conditions)) {
+    if (!isFillCondition(condition)) continue;
     if (condition === "stroke") {
       if (!fill.stroke) return null;
       out.push({ condition, weakerSide: fill.stroke });
@@ -146,8 +164,7 @@ export function fillAnswers(fill: FillDraft, conditions: readonly string[]): Aut
       if (!fill.ms?.length) return null;
       out.push({ condition, limbs: [...fill.ms] });
     } else if (condition === "parkinsons") {
-      if (fill.parkinsons === undefined) return null;
-      out.push({ condition, confirmed: fill.parkinsons });
+      out.push({ condition, confirmed: true });
     } else if (condition === "sci_complete" || condition === "sci_incomplete") {
       const level = fill[condition];
       if (!level) return null;
@@ -165,10 +182,100 @@ export function fillAnswers(fill: FillDraft, conditions: readonly string[]): Aut
   return out;
 }
 
+const SIDES = ["right", "left"] as const;
+const MS_LIMBS = FILL_ANSWERS.ms;
+/** Every answer a condition question can have, for reading the answers back from a saved map. */
+function candidates(condition: Exclude<FillCondition, "parkinsons">): FillDraft[] {
+  switch (condition) {
+    case "stroke":
+      return SIDES.map((stroke) => ({ stroke }));
+    case "cerebral_palsy":
+      return [
+        { cerebral_palsy: { pattern: "all_limbs" } },
+        ...SIDES.map((side) => ({ cerebral_palsy: { pattern: "one_side" as const, side } })),
+        { cerebral_palsy: { pattern: "both_legs" } },
+      ];
+    case "ms":
+      // Every non empty set of limbs.
+      return Array.from({ length: 15 }, (_, i) => ({
+        ms: MS_LIMBS.filter((_, b) => ((i + 1) >> b) & 1),
+      }));
+    case "sci_complete":
+    case "sci_incomplete":
+      return (["neck", "back"] as const).map((level) => ({ [condition]: level }));
+    case "lower_limb_unilateral":
+    case "upper_limb_unilateral":
+      return SIDES.flatMap((side) =>
+        FILL_ANSWERS[condition].map((level) => ({ [condition]: { side, level } })),
+      );
+  }
+}
+
+/**
+ * The condition answers a saved map was filled from (editing a saved intake). For each question, the
+ * answer that fits the map best: the most of its parts on the map with their problem types, less those
+ * missing (a part the person took off still fits). A question no answer fits stays open, and is asked
+ * again.
+ */
+export function inferFill(saved: readonly RegionEntry[], conditions: readonly string[]): FillDraft {
+  const onMap = (e: RegionEntry, cell: BodyMapKey) =>
+    saved.some(
+      (s) =>
+        entryCells(s).includes(cell) &&
+        e.problems.every((p) => s.problems.includes(p)) &&
+        (!e.limbLoss || s.limbLoss?.level === e.limbLoss.level),
+    );
+  let fill: FillDraft = {};
+  for (const { condition } of fillQuestions(conditions)) {
+    let best: { draft: FillDraft; score: number } | null = null;
+    for (const draft of candidates(condition)) {
+      const answers = fillAnswers(draft, [condition]);
+      if (!answers) continue;
+      const cells = autoFillRegions(answers).flatMap((e) => entryCells(e).map((cell) => onMap(e, cell)));
+      const score = cells.filter(Boolean).length * 2 - cells.length;
+      if (score > (best?.score ?? 0)) best = { draft, score };
+    }
+    if (best) fill = { ...fill, ...best.draft };
+  }
+  return fill;
+}
+
+const sciAtNeck = (answers: readonly AutoFillAnswer[]) =>
+  answers.some(
+    (a) => (a.condition === "sci_complete" || a.condition === "sci_incomplete") && a.level === "neck",
+  );
+
+/**
+ * The map after the condition answers (D-034 item 5): once every question has its answer, the parts
+ * they fill go on the map at once, origin "condition", beside the parts the person added; a changed
+ * answer replaces the filled parts and asks for the confirmation again. The same state when nothing
+ * changed.
+ */
+export function applyFill(ui: V7Ui, conditions: readonly string[]): V7Ui {
+  const answers = fillAnswers(ui.fill, conditions);
+  const key = answers === null ? null : JSON.stringify(answers);
+  if (answers === null || key === ui.filled)
+    return ui.fillReady === (answers !== null) ? ui : { ...ui, fillReady: answers !== null };
+  const filled = autoFillRegions(answers);
+  return {
+    ...ui,
+    drafts: mergeRegionDrafts(
+      ui.drafts.filter((d) => d.origin !== "condition"),
+      filled,
+    ),
+    none: filled.length ? false : ui.none,
+    filled: key,
+    fillReady: true,
+    confirmed: false,
+    sciNeck: sciAtNeck(answers),
+  };
+}
+
 /** The step's state for an intake: its saved v7 answers, or a fresh start. */
 export function initialUi(value: V7Answers, conditions: readonly string[]): V7Ui {
   const regions = value.regions;
-  const saved = regions !== undefined && regions.length > 0;
+  const fill = regions ? inferFill(regions, conditions) : {};
+  const answers = fillAnswers(fill, conditions);
   return {
     sex: value.sex,
     walking: value.walking?.status,
@@ -177,9 +284,12 @@ export function initialUi(value: V7Answers, conditions: readonly string[]): V7Ui
     drafts: regions ? [...regions] : [],
     none: regions !== undefined && regions.length === 0,
     flags: value.romFlags ? { ...value.romFlags } : {},
-    fill: {},
-    fillStage: fillQuestions(conditions).length && !saved ? "ask" : "done",
-    sciNeck: false,
+    fill,
+    // A saved map stays as it was saved: its answers count as already on the map, and confirmed.
+    filled: regions && answers ? JSON.stringify(answers) : null,
+    fillReady: answers !== null,
+    confirmed: regions !== undefined,
+    sciNeck: answers ? sciAtNeck(answers) : false,
     used: [],
   };
 }
@@ -202,15 +312,36 @@ function flagContext(ui: V7Ui, ctx: IntakeV7Context): RomFlagContext {
 }
 
 /**
+ * The v1 support answer from the map (D-034 item 5, the question is no longer asked): the side of
+ * the weakness when only one side has it, as a stroke on the right gives; otherwise none.
+ */
+export function supportOf(
+  drafts: readonly Pick<RegionEntry, "region" | "side" | "problems">[],
+): Intake["support"] {
+  const sides = new Set<Side>();
+  for (const d of drafts) {
+    if (!limbOf(d.region) || !d.problems.includes("weakness")) continue;
+    if (d.side === "right" || d.side === "both") sides.add("right");
+    if (d.side === "left" || d.side === "both") sides.add("left");
+  }
+  return sides.size === 1 ? [...sides][0] : "none";
+}
+
+/** Whether the map waits for the person's confirmation of the parts filled from the condition. */
+const awaitsConfirm = (ui: V7Ui) =>
+  !ui.none && !ui.confirmed && ui.drafts.some((d) => d.origin === "condition");
+
+/**
  * The intake's v7 fields from the step's state. A field is undefined until complete: the regions
- * while a card misses an answer or the condition fill waits for the person's yes, the flags while a
- * safety question is open. Mobility bed walks no (contract 2.2 rule 1). Height only for walkers; a
- * typed height that is out of range stays as typed, so validation keeps Continue closed.
+ * while a part misses an answer or the filled parts wait for the person's confirmation, the flags while
+ * a safety question is open. Mobility bed walks no (contract 2.2 rule 1). Height only for walkers; a
+ * typed height that is out of range stays as typed, so validation keeps Continue closed. Support
+ * follows the map (supportOf).
  */
 export function stepAnswers(ui: V7Ui, ctx: IntakeV7Context): V7Answers {
   let regions: RegionEntry[] | undefined;
   if (ui.none) regions = [];
-  else if (ui.drafts.length && ui.fillStage !== "confirm") {
+  else if (ui.drafts.length && !awaitsConfirm(ui)) {
     const finals = ui.drafts.map(finalizeRegion);
     if (finals.every((f): f is RegionEntry => f !== null)) regions = inBodyOrder(finals);
   }
@@ -232,6 +363,7 @@ export function stepAnswers(ui: V7Ui, ctx: IntakeV7Context): V7Answers {
     walking,
     heightCm,
     romFlags: finalizeRomFlags(ui.flags, flagContext(ui, ctx)) ?? undefined,
+    support: supportOf(ui.none ? [] : ui.drafts),
   };
 }
 
@@ -296,7 +428,7 @@ export function levelName(lang: Lang, level: LimbLossLevel): string {
 const sinceName = (lang: Lang, since: SinceBucket) => tV7(lang, `intake7.since.${since}`);
 const listOf = (lang: Lang, items: string[]) =>
   lang === "ar"
-    ? items.join("، و")
+    ? items.join(items.length < 3 ? " و" : "، و")
     : items.length < 3
       ? items.join(" and ")
       : `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
@@ -570,7 +702,14 @@ function RegionQuestion({
   }
 }
 
-/** One region on the map: its problem types and their questions. */
+/** The quick choice of a part the person adds: the most common first (D-034 item 5). */
+const QUICK_PROBLEMS: readonly ProblemType[] = ["pain", "stiffness", "weakness", "injury", "after_surgery"];
+const quickName = (lang: Lang, p: ProblemType) => tV7(lang, `intake7.problem.${p}`);
+
+/**
+ * A part the person added (or a report suggestion): one quick choice of the problem, and the injury
+ * or surgery questions only when that problem is chosen. Parts filled from the condition have no card.
+ */
 function RegionCard({
   lang,
   draft,
@@ -584,74 +723,70 @@ function RegionCard({
   onChange(d: RegionDraft): void;
   onRemove(): void;
 }) {
-  const oneSide = draft.side === "left" || draft.side === "right";
-  // Limb loss on one side of a limb only; a chosen one stays visible so it can be unticked.
-  const problems = PROBLEM_TYPES.filter(
-    (p) => p !== "limb_loss" || (oneSide && limbOf(draft.region)) || draft.problems.includes(p),
-  );
+  // Limb loss comes from the condition; a chosen one stays visible so it can be unticked.
+  const problems: ProblemType[] = [
+    ...QUICK_PROBLEMS,
+    ...(draft.problems.includes("limb_loss") ? (["limb_loss"] as const) : []),
+  ];
   const title = entryLabel(lang, draft.region, draft.side);
   const complete = finalizeRegion(draft) !== null;
-  // A complete card (a fill, a saved answer) starts folded to one line; an open one has its questions.
-  const [open, setOpen] = useState(!complete);
-  const folded = complete && !open;
   return (
     <article
       className="intake7-card"
       data-origin={draft.origin}
       data-region={`${draft.region}:${draft.side}`}
-      data-folded={folded}
+      data-complete={complete}
     >
       <header>
         <h4>{title}</h4>
-        <span className="intake7-card-actions">
-          {complete && (
-            <button
-              type="button"
-              className="text-button"
-              aria-expanded={!folded}
-              onClick={() => setOpen(folded)}
-            >
-              {tV7(lang, folded ? "intake7.map.change" : "intake7.map.done")}
-            </button>
-          )}
-          <button type="button" className="text-button" onClick={onRemove}>
-            {tV7(lang, "intake7.map.remove")}
-          </button>
-        </span>
+        <button
+          type="button"
+          className="intake7-remove"
+          aria-label={`${tV7(lang, "intake7.map.remove")}: ${title}`}
+          onClick={onRemove}
+        >
+          <Icon name="close" size={14} />
+        </button>
       </header>
-      {folded ? (
-        <p className="intake7-summary">
-          {draft.problems.map((p) => problemName(lang, p)).join(lang === "ar" ? "، " : ", ")}
+      {showMissing && !complete && (
+        <p className="intake7-missing" role="alert">
+          {tV7(lang, "intake7.needsAnswers")}
         </p>
-      ) : (
-        <>
-          {showMissing && !complete && (
-            <p className="intake7-missing" role="alert">
-              {tV7(lang, "intake7.needsAnswers")}
-            </p>
-          )}
-          <Checks
-            legend={copy(lang, "problem_ask")}
-            options={problems.map((p) => ({ value: p, label: problemName(lang, p) }))}
-            values={draft.problems}
-            onToggle={(p) =>
-              onChange({
-                ...draft,
-                problems: PROBLEM_TYPES.filter((x) => toggle(draft.problems, p).includes(x)),
-              })
-            }
-          />
-          {regionQuestions(draft).map((q) => (
-            <RegionQuestion key={q} lang={lang} q={q} draft={draft} onChange={onChange} />
-          ))}
-        </>
       )}
+      <fieldset className="intake7-quick">
+        <legend>{tV7(lang, "intake7.map.added")}</legend>
+        <div className="intake7-chips">
+          {problems.map((p) => {
+            const on = draft.problems.includes(p);
+            return (
+              <button
+                type="button"
+                key={p}
+                data-problem={p}
+                aria-pressed={on}
+                className={on ? "selected" : ""}
+                onClick={() =>
+                  onChange({
+                    ...draft,
+                    problems: PROBLEM_TYPES.filter((x) => toggle(draft.problems, p).includes(x)),
+                  })
+                }
+              >
+                {quickName(lang, p)}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+      {regionQuestions(draft).map((q) => (
+        <RegionQuestion key={q} lang={lang} q={q} draft={draft} onChange={onChange} />
+      ))}
     </article>
   );
 }
 
-/** The condition questions that fill the map. */
-function FillBlock({
+/** The condition questions (the first step): the side or the pattern, which fill the map at once. */
+function FillQuestions({
   lang,
   ui,
   conditions,
@@ -663,31 +798,16 @@ function FillBlock({
   onUi(ui: V7Ui): void;
 }) {
   const fill = ui.fill;
-  const setFill = (patch: FillDraft) => onUi({ ...ui, fill: { ...fill, ...patch } });
+  const setFill = (patch: FillDraft) => onUi(applyFill({ ...ui, fill: { ...fill, ...patch } }, conditions));
   const sides = (): Option<Side>[] => [
     { value: "right", label: copy(lang, "side_right") },
     { value: "left", label: copy(lang, "side_left") },
   ];
-  const answers = fillAnswers(fill, conditions);
-  const apply = () => {
-    if (!answers) return;
-    const filled = autoFillRegions(answers);
-    const pdOnly = answers.every((a) => a.condition === "parkinsons");
-    onUi({
-      ...ui,
-      drafts: mergeRegionDrafts(ui.drafts, filled),
-      none: false,
-      sciNeck: answers.some(
-        (a) => (a.condition === "sci_complete" || a.condition === "sci_incomplete") && a.level === "neck",
-      ),
-      fillStage: pdOnly ? "done" : "confirm",
-    });
-    if (pdOnly && answers.some((a) => a.condition === "parkinsons" && !a.confirmed)) focusMap();
-  };
+  const questions = fillQuestions(conditions);
+  if (!questions.length) return null;
   return (
-    <section className="intake7-block" aria-labelledby="intake7-fill-title">
-      <h3 id="intake7-fill-title">{tV7(lang, "intake7.conditions.title")}</h3>
-      {fillQuestions(conditions).map((q) => {
+    <section className="intake7-block intake7-fill-ask" aria-label={tV7(lang, "intake7.conditions.title")}>
+      {questions.map((q) => {
         const ask = q.ask[lang];
         const answer = (i: number) => q.answers[i][lang];
         switch (q.condition) {
@@ -732,34 +852,15 @@ function FillBlock({
                 onToggle={(v) => setFill({ ms: toggle(fill.ms ?? [], v) })}
               />
             );
-          case "parkinsons":
-            return (
-              <Choices
-                key={q.condition}
-                legend={ask}
-                options={FILL_ANSWERS.parkinsons.map((v, i) => ({ value: v, label: answer(i) }))}
-                value={fill.parkinsons}
-                onPick={(v) => setFill({ parkinsons: v })}
-              />
-            );
           case "sci_complete":
-            return (
-              <Choices
-                key={q.condition}
-                legend={ask}
-                options={FILL_ANSWERS.sci_complete.map((v, i) => ({ value: v, label: answer(i) }))}
-                value={fill.sci_complete}
-                onPick={(v) => setFill({ sci_complete: v })}
-              />
-            );
           case "sci_incomplete":
             return (
               <Choices
                 key={q.condition}
                 legend={ask}
-                options={FILL_ANSWERS.sci_incomplete.map((v, i) => ({ value: v, label: answer(i) }))}
-                value={fill.sci_incomplete}
-                onPick={(v) => setFill({ sci_incomplete: v })}
+                options={FILL_ANSWERS[q.condition].map((v, i) => ({ value: v, label: answer(i) }))}
+                value={fill[q.condition]}
+                onPick={(v) => setFill({ [q.condition]: v })}
               />
             );
           case "lower_limb_unilateral":
@@ -786,10 +887,6 @@ function FillBlock({
             );
         }
       })}
-      <button type="button" className="cta" disabled={!answers} onClick={apply}>
-        {tV7(lang, "intake7.conditions.apply")}
-        <Icon name="arrow" size={18} />
-      </button>
     </section>
   );
 }
@@ -830,28 +927,35 @@ function LimbFill<L extends string>({
   );
 }
 
-function focusMap() {
-  if (typeof document === "undefined") return;
-  const map = document.getElementById("intake7-map");
-  map?.scrollIntoView({ behavior: "smooth", block: "start" });
-  map?.focus({ preventScroll: true });
-}
-
-/** The line that asks the person to confirm the filled map (confirm_regions, rom-protocol 2.3). */
-export function confirmLine(lang: Lang, drafts: readonly RegionDraft[]): string {
-  const filled = drafts.filter((d) => d.origin === "condition");
-  const sides = new Set(filled.map((d) => d.side));
-  const side = sides.size === 1 ? [...sides][0] : null;
-  if (filled.length === 0 || (side !== "right" && side !== "left"))
-    return tV7(lang, "intake7.conditions.confirmMany");
-  const names = inBodyOrder(filled).map((d) => {
-    const name = regionName(lang, d.region);
-    return lang === "en" ? name.toLowerCase() : name;
-  });
-  return interpolate(lang, copy(lang, "confirm_regions"), {
-    regions: listOf(lang, names),
-    sideF: ROM_DATA.sideWords.sideF[side],
-    side: ROM_DATA.sideWords.side[side],
+/**
+ * The parts filled from the condition, in a few lines: each problem and side with its parts, for
+ * example «ضعف في الجهة اليمنى: الكتف، والمرفق، ...» or "Stiffness: neck, and back or trunk".
+ */
+export function fillSummary(lang: Lang, drafts: readonly RegionDraft[]): string[] {
+  const groups = new Map<string, { side: RegionSide; problems: ProblemType[]; regions: RegionId[] }>();
+  for (const d of inBodyOrder(drafts.filter((x) => x.origin === "condition"))) {
+    const key = `${d.side}|${d.problems.join("+")}`;
+    const g = groups.get(key) ?? { side: d.side, problems: d.problems, regions: [] };
+    g.regions.push(d.region);
+    groups.set(key, g);
+  }
+  const lower = (text: string, i = 1) => (lang === "en" && i > 0 ? text.toLowerCase() : text);
+  return [...groups.values()].map((g) => {
+    const problems = listOf(
+      lang,
+      g.problems.map((p, i) => lower(quickName(lang, p), i)),
+    );
+    const regions = listOf(
+      lang,
+      g.regions.map((r) => lower(regionName(lang, r))),
+    );
+    return g.side === "axial"
+      ? tV7(lang, "intake7.map.groupAxial", { problems, regions })
+      : tV7(lang, "intake7.map.groupSide", {
+          problems,
+          side: tV7(lang, `intake7.map.onSide.${g.side as Exclude<RegionSide, "axial">}`),
+          regions,
+        });
   });
 }
 
@@ -989,94 +1093,79 @@ function FlagQuestion({
   }
 }
 
-/* ------------------------------------------------------------------ the step */
+/* ------------------------------------------------------------------ the steps */
 
-export interface IntakeV7Props {
+/** What both v7 parts of the form share: the working state and the intake's v7 fields. */
+interface PartProps {
   lang: Lang;
-  /** The answers of the steps before: conditions and mobility. */
+  /** The answers of the form so far that the v7 parts read: conditions and mobility. */
   context: IntakeV7Context;
   /** The intake's v7 fields (the saved answers when editing). */
   value: V7Answers;
-  /** The step's working state, kept by IntakeForm; null on the first visit. */
+  /** The working state, kept by IntakeForm; null before the first part ran. */
   ui: V7Ui | null;
-  /** The report reading's suggestions (AZM_V7 servers) and its v1 pain areas. */
-  report?: { regions: ReportRegion[]; pain: string[] } | null;
-  /** The v1 pain areas of an intake saved before v7, offered on the map. */
-  earlierPain?: readonly string[];
-  /** After a Continue that could not go on: name the cards that still need answers. */
-  showMissing?: boolean;
   onUi(ui: V7Ui): void;
   onChange(v: V7Answers): void;
 }
 
-/** The "Your body" step of the intake (v7). */
-export default function IntakeV7({
-  lang,
-  context,
-  value,
-  ui: kept,
-  report = null,
-  earlierPain = [],
-  showMissing = false,
-  onUi,
-  onChange,
-}: IntakeV7Props) {
-  const c = labels(lang);
-  const ui = kept ?? initialUi(value, context.conditions);
+/**
+ * The working state of a part: the kept one (or a fresh one) with the condition answers applied. It
+ * is stored back when it differs (the first visit, a condition ticked or unticked), and the intake's
+ * v7 fields follow it on every change.
+ */
+function usePart({ context, value, ui: kept, onUi, onChange }: PartProps): V7Ui {
+  const ui = applyFill(kept ?? initialUi(value, context.conditions), context.conditions);
+  useEffect(() => {
+    if (ui !== kept) onUi(ui);
+  });
   const answers = stepAnswers(ui, context);
   const answersKey = JSON.stringify(answers);
-  // The intake's v7 fields follow the step's state, also after an earlier step changed the context.
   useEffect(() => {
     onChange(answers);
   }, [answersKey]);
+  return ui;
+}
 
+export interface IntakeV7AboutProps extends PartProps {
+  /** IntakeForm's own fields, placed by this part: the age, the conditions and mobility. */
+  age: ReactNode;
+  conditionField: ReactNode;
+  mobilityField: ReactNode;
+}
+
+/**
+ * The first step of a v7 form (D-034 item 5), «حالتك وحركتك»: the age with sex, the conditions with
+ * their side or pattern (which fill the body map), how the person exercises, and walking with its aid
+ * and an optional height.
+ */
+export function IntakeV7About(props: IntakeV7AboutProps) {
+  const { lang, context, onUi, age, conditionField, mobilityField } = props;
+  const c = labels(lang);
+  const ui = usePart(props);
   const set = (patch: Partial<V7Ui>) => onUi({ ...ui, ...patch });
   const walks = ui.walking === "with_aid" || ui.walking === "without_aid";
-  const heightTyped = ui.height.trim() !== "";
   const heightValid =
-    !heightTyped ||
+    ui.height.trim() === "" ||
     (Number.isInteger(Number(ui.height)) &&
       Number(ui.height) >= HEIGHT_CM.min &&
       Number(ui.height) <= HEIGHT_CM.max);
-  const drafts = inBodyOrder(ui.drafts);
-  const cells = new Set(ui.drafts.flatMap(entryCells));
-  const covered = (s: Suggestion) =>
-    s.side === "unknown"
-      ? ui.drafts.some((d) => d.region === s.region)
-      : entryCells({ region: s.region, side: s.side }).every((k) => cells.has(k));
-  const offers = suggestionsFor(report, earlierPain);
-  const open = (list: Suggestion[]) => list.filter((s) => !ui.used.includes(s.key) && !covered(s));
-  const add = (s: Suggestion, side: RegionDraft["side"]) =>
-    set({
-      drafts: mergeRegionDrafts(ui.drafts, [
-        { region: s.region, side, problems: [...s.problems], origin: s.origin },
-      ]),
-      none: false,
-      used: [...ui.used, s.key],
-    });
-  const updateDraft = (at: RegionDraft, next: RegionDraft) =>
-    set({ drafts: ui.drafts.map((d) => (d.region === at.region && d.side === at.side ? next : d)) });
-  const removeDraft = (at: RegionDraft) =>
-    set({ drafts: ui.drafts.filter((d) => !(d.region === at.region && d.side === at.side)) });
-  const mapTitle = context.conditions.includes("arthritis")
-    ? (ROM_DATA.conditionAutoMap.find((r) => r.condition === "arthritis")?.ask[lang] ??
-      copy(lang, "region_ask"))
-    : copy(lang, "region_ask");
-  const questions = fillQuestions(context.conditions);
-  const flagQuestions = romFlagQuestions(flagContext(ui, context));
-
   return (
-    <div className="intake7">
-      <p className="intake7-intro">{copy(lang, "intro")}</p>
-      <Choices
-        legend={tV7(lang, "intake7.sex.legend")}
-        options={[
-          { value: "male" as const, label: tV7(lang, "intake7.sex.male") },
-          { value: "female" as const, label: tV7(lang, "intake7.sex.female") },
-        ]}
-        value={ui.sex}
-        onPick={(sex) => set({ sex })}
-      />
+    <div className="intake7 intake7-about">
+      <div className="intake7-who">
+        {age}
+        <Choices
+          legend={tV7(lang, "intake7.sex.legend")}
+          options={[
+            { value: "male" as const, label: tV7(lang, "intake7.sex.male") },
+            { value: "female" as const, label: tV7(lang, "intake7.sex.female") },
+          ]}
+          value={ui.sex}
+          onPick={(sex) => set({ sex })}
+        />
+      </div>
+      {conditionField}
+      <FillQuestions lang={lang} ui={ui} conditions={context.conditions} onUi={onUi} />
+      {mobilityField}
       {context.mobility !== "bed" && (
         <Choices
           legend={tV7(lang, "intake7.walking.legend")}
@@ -1120,69 +1209,100 @@ export default function IntakeV7({
           )}
         </div>
       )}
-      {questions.length > 0 && ui.fillStage === "ask" && (
-        <FillBlock lang={lang} ui={ui} conditions={context.conditions} onUi={onUi} />
-      )}
-      {ui.fillStage === "confirm" && (
-        <section className="intake7-block intake7-confirm" aria-live="polite">
-          <p>{confirmLine(lang, ui.drafts)}</p>
-          <div className="intake-choices">
-            <button type="button" onClick={() => set({ fillStage: "done" })}>
-              {copy(lang, "ans_yes")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                set({ fillStage: "done" });
-                focusMap();
-              }}
-            >
-              {copy(lang, "change_it")}
-            </button>
-          </div>
-        </section>
-      )}
-      <section
-        className="intake7-mapsection"
-        id="intake7-map"
-        tabIndex={-1}
-        aria-labelledby="intake7-map-title"
-      >
+    </div>
+  );
+}
+
+export interface IntakeV7Props extends PartProps {
+  /** The report reading's suggestions (AZM_V7 servers) and its v1 pain areas. */
+  report?: { regions: ReportRegion[]; pain: string[] } | null;
+  /** The v1 pain areas of an intake saved before v7, offered on the map. */
+  earlierPain?: readonly string[];
+  /** After a Continue that could not go on: name what still needs an answer. */
+  showMissing?: boolean;
+  /** IntakeForm's own safety questions, first in the safety part: warning signs, clearance, recent change, restrictions. */
+  safety?: ReactNode;
+}
+
+/**
+ * The second step of a v7 form, «جسمك وسلامتك»: the body map, filled from the condition (the person
+ * confirms it, or taps a part to add or take it off; a part added by hand gets one quick choice of
+ * its problem), then the safety questions.
+ */
+export default function IntakeV7(props: IntakeV7Props) {
+  const { lang, context, onUi, report = null, earlierPain = [], showMissing = false, safety } = props;
+  const ui = usePart(props);
+  const set = (patch: Partial<V7Ui>) => onUi({ ...ui, ...patch });
+  const cells = new Set(ui.drafts.flatMap(entryCells));
+  const covered = (s: Suggestion) =>
+    s.side === "unknown"
+      ? ui.drafts.some((d) => d.region === s.region)
+      : entryCells({ region: s.region, side: s.side }).every((k) => cells.has(k));
+  const offers = suggestionsFor(report, earlierPain);
+  const open = (list: Suggestion[]) => list.filter((s) => !ui.used.includes(s.key) && !covered(s));
+  const add = (s: Suggestion, side: RegionDraft["side"]) =>
+    set({
+      drafts: mergeRegionDrafts(ui.drafts, [
+        { region: s.region, side, problems: [...s.problems], origin: s.origin },
+      ]),
+      none: false,
+      used: [...ui.used, s.key],
+    });
+  const updateDraft = (at: RegionDraft, next: RegionDraft) =>
+    set({ drafts: ui.drafts.map((d) => (d.region === at.region && d.side === at.side ? next : d)) });
+  const removeDraft = (at: RegionDraft) =>
+    set({ drafts: ui.drafts.filter((d) => !(d.region === at.region && d.side === at.side)) });
+  const mapTitle = context.conditions.includes("arthritis")
+    ? (ROM_DATA.conditionAutoMap.find((r) => r.condition === "arthritis")?.ask[lang] ??
+      copy(lang, "region_ask"))
+    : copy(lang, "region_ask");
+  const summary = fillSummary(lang, ui.drafts);
+  // Each part the person added (or took from the report) has its card; a filled part only when it misses an answer.
+  const cards = inBodyOrder(ui.drafts).filter((d) => d.origin !== "condition" || finalizeRegion(d) === null);
+  const flagQuestions = romFlagQuestions(flagContext(ui, context));
+  return (
+    <div className="intake7">
+      <p className="intake7-intro">{copy(lang, "intro")}</p>
+      <section className="intake7-mapsection" aria-labelledby="intake7-map-title">
         <h3 id="intake7-map-title">{mapTitle}</h3>
         <p className="field-help">{tV7(lang, "intake7.map.help")}</p>
-        {questions.length > 0 && ui.fillStage === "done" && (
-          <button type="button" className="text-button" onClick={() => set({ fillStage: "ask" })}>
-            {tV7(lang, "intake7.conditions.fillAgain")}
-          </button>
-        )}
         <div className="intake7-map">
-          <div>
-            <BodyMap
-              mode="edit"
-              lang={lang}
-              value={ui.drafts.map((d) => ({
-                region: d.region,
-                side: d.side,
-                problems: d.problems,
-                origin: d.origin,
-              }))}
-              onChange={(next) => set({ drafts: syncDrafts(ui.drafts, next), none: false })}
-            />
-            {ui.drafts.length === 0 && (
-              <div className="intake-choices intake7-none">
+          <BodyMap
+            mode="edit"
+            lang={lang}
+            value={ui.drafts.map((d) => ({
+              region: d.region,
+              side: d.side,
+              problems: d.problems,
+              origin: d.origin,
+            }))}
+            onChange={(next) => set({ drafts: syncDrafts(ui.drafts, next), none: false })}
+          />
+          <div className="intake7-cards">
+            {summary.length > 0 && (
+              <section className="intake7-fill" data-confirmed={ui.confirmed} aria-live="polite">
+                <p className="intake7-fill-kicker">{tV7(lang, "intake7.map.fromCondition")}</p>
+                <ul>
+                  {summary.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
                 <button
                   type="button"
-                  aria-pressed={ui.none}
-                  className={ui.none ? "selected" : ""}
-                  onClick={() => set({ none: !ui.none })}
+                  className="intake7-confirm"
+                  aria-pressed={ui.confirmed}
+                  onClick={() => set({ confirmed: !ui.confirmed })}
                 >
-                  <span className="choice-check">{ui.none && <Icon name="check" size={12} />}</span>
-                  {tV7(lang, "intake7.map.none")}
+                  <span className="choice-check">{ui.confirmed && <Icon name="check" size={12} />}</span>
+                  {tV7(lang, "intake7.map.confirm")}
                 </button>
-              </div>
+                {showMissing && awaitsConfirm(ui) && (
+                  <p className="intake7-missing" role="alert">
+                    {tV7(lang, "intake7.map.confirmNeeded")}
+                  </p>
+                )}
+              </section>
             )}
-          </div>
-          <div className="intake7-cards">
             {(
               [
                 ["report", open(offers.report)],
@@ -1202,7 +1322,7 @@ export default function IntakeV7({
                 </div>
               ) : null,
             )}
-            {drafts.map((d) => (
+            {cards.map((d) => (
               <RegionCard
                 key={`${d.region}:${d.side}`}
                 lang={lang}
@@ -1212,11 +1332,30 @@ export default function IntakeV7({
                 onRemove={() => removeDraft(d)}
               />
             ))}
+            {ui.drafts.length === 0 && (
+              <div className="intake-choices intake7-none">
+                <button
+                  type="button"
+                  aria-pressed={ui.none}
+                  className={ui.none ? "selected" : ""}
+                  onClick={() => set({ none: !ui.none })}
+                >
+                  <span className="choice-check">{ui.none && <Icon name="check" size={12} />}</span>
+                  {tV7(lang, "intake7.map.none")}
+                </button>
+                {showMissing && !ui.none && (
+                  <p className="intake7-missing" role="alert">
+                    {tV7(lang, "intake7.map.emptyNeeded")}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
       <section className="intake7-safety" aria-labelledby="intake7-safety-title">
         <h3 id="intake7-safety-title">{tV7(lang, "intake7.safety.title")}</h3>
+        {safety}
         {flagQuestions.map((q) => (
           <FlagQuestion
             key={q.side ? `${q.id}:${q.side}` : q.id}
@@ -1246,9 +1385,28 @@ export function syncDrafts(drafts: readonly RegionDraft[], next: readonly Region
   });
 }
 
-/** The step's name, for the intake's step list. */
-export function IntakeV7StepName({ lang }: { lang: Lang }) {
-  return <>{tV7(lang, "intake7.step")}</>;
+/** The name of a step of a v7 form, for the intake's step list. */
+export function IntakeV7StepName({ lang, kind }: { lang: Lang; kind: "about" | "body" | "goal" }) {
+  return <>{tV7(lang, `intake7.steps.${kind}`)}</>;
+}
+
+/**
+ * The consent of a v7 form (D-034 item 4: the check has no consent page of its own, and the server
+ * records the focus_check and live_coach consents at the check's start from this one): the health
+ * answers (the v1 line), the movement and walk results with the video that never leaves the phone
+ * (rom.formConsent), and what the Live coach hears and gets when the sound is on (coach.formConsent,
+ * C-12). One sentence per line.
+ */
+export function IntakeV7Consent({ lang }: { lang: Lang }) {
+  return (
+    <>
+      {[labels(lang).consent, tV7(lang, "rom.formConsent"), tV7(lang, "coach.formConsent")].map((line) => (
+        <span className="intake7-consent-line" key={line}>
+          {line}
+        </span>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -1259,7 +1417,7 @@ export function IntakeV7NextCheck({ lang }: { lang: Lang }) {
   return <>{tV7(lang, "intake7.nextCheck")}</>;
 }
 
-/** The step's rows on the review step. */
+/** The v7 rows of an intake's answers (the My condition page). */
 export function IntakeV7Review({ lang, value }: { lang: Lang; value: V7Answers }) {
   const walking = value.walking;
   const walkingText = !walking

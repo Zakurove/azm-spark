@@ -6,8 +6,8 @@
  *
  *   AZM_E2E_PORT=<port> npx playwright test -c e2e/v7-flow.config.ts      (npm run e2e:v7)
  *
- * The specs it runs (e2e/v7-*.spec.ts but the real model smoke) skip themselves under the default
- * config (e2e/playwright.config.ts), whose server has the flags off.
+ * The specs it runs (e2e/v7-flow.spec.ts, and e2e/v7-form.spec.ts for the health form of D-034 item 5)
+ * skip themselves under the default config (e2e/playwright.config.ts), whose server has the flags off.
  */
 import { defineConfig, devices } from "@playwright/test";
 import { mkdirSync } from "node:fs";
@@ -27,7 +27,7 @@ mkdirSync(E2E_DATA, { recursive: true });
 
 export default defineConfig({
   testDir: HERE,
-  testMatch: /v7-flow\.spec\.ts$/,
+  testMatch: /v7-(flow|form)\.spec\.ts$/,
   fullyParallel: false,
   workers: 1,
   retries: 0,

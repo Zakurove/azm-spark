@@ -1,8 +1,8 @@
 /**
- * The body map component (product v7 contract 2.2): a front and a back outline with one 44 px target
+ * The body map component (product v7 contract 2.2): a front and a back figure with one 48 px target
  * per region and side, in edit mode (the intake) and summary mode (the findings page). Left and right
  * are the person's own, so each view names its sides and the figure never mirrors with the page
- * direction.
+ * direction. D-034 item 5: a soft rounded figure, and each affected area glows with a halo.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -14,6 +14,7 @@ import BodyMap, {
   cellLabel,
   cellPoint,
   entryLabel,
+  smoothPath,
   toggleBodyMapCell,
   type BodyMapProps,
 } from "../../src/features/body-map/BodyMap";
@@ -52,7 +53,7 @@ describe("the cells", () => {
     expect(cellPoint("back_trunk:axial", "front").x).toBe(120);
   });
 
-  it("keeps every two targets apart at the 240 px figure (no overlapping 44 px targets)", () => {
+  it("keeps every two targets apart (44 units: 48 px at the intake's 264 px figure, so no 48 px targets overlap)", () => {
     for (const view of ["front", "back"] as const)
       for (const a of BODY_MAP_CELLS)
         for (const b of BODY_MAP_CELLS) {
@@ -63,12 +64,28 @@ describe("the cells", () => {
         }
   });
 
-  it("sizes each target 44 px in the stylesheet", () => {
+  it("sizes each target 48 px in the stylesheet, at least the contract's 44 px", () => {
     const css = readFileSync(join(__dirname, "../../src/features/body-map/body-map.css"), "utf8");
     const rule = css.match(/\.bm-cell \{[^}]*\}/)![0];
-    expect(rule).toContain("width: 44px");
-    expect(rule).toContain("height: 44px");
+    expect(rule).toContain("width: 48px");
+    expect(rule).toContain("height: 48px");
     expect(css).toMatch(/\.bm-figure \{[^}]*direction: ltr/);
+    expect(css).toMatch(/\.bm-figure \{[^}]*width: 264px/);
+  });
+
+  it("draws the figure as one smooth closed outline with no hard lines", () => {
+    const d = smoothPath([
+      [0, 0],
+      [10, 0],
+      [10, 10],
+    ]);
+    expect(d.startsWith("M0 0C")).toBe(true);
+    expect(d.endsWith("0 0Z")).toBe(true);
+    expect(d.match(/C/g)).toHaveLength(3);
+    const css = readFileSync(join(__dirname, "../../src/features/body-map/body-map.css"), "utf8");
+    // No black or dark outline on the figure: its rim is a soft lavender.
+    expect(css).toMatch(/\.bm-skin > \* \{[^}]*stroke: #e2d9ef/);
+    expect(css).not.toMatch(/stroke: (#000|black)/);
   });
 
   it("names a cell and an entry by region and side, in both languages", () => {
@@ -133,6 +150,26 @@ describe("edit mode", () => {
     const pressed = [...html.matchAll(/data-cell="([^"]+)"[^>]*aria-pressed="true"/g)].map((m) => m[1]);
     expect(pressed.sort()).toEqual(["knee:left", "knee:right", "shoulder:right"]);
   });
+
+  it("lights the halo of each affected area in purple, and keeps the others ready to fade in", () => {
+    const html = render("en", [shoulderRight, kneesBoth]);
+    const glows = [
+      ...html.matchAll(
+        /data-glow="([^"]+)" data-lit="(true|false)"[^>]*fill="url\(#\w+?(purple|within|mild|marked|grey)\)"/g,
+      ),
+    ];
+    expect(glows).toHaveLength(14);
+    expect(
+      glows
+        .filter((m) => m[2] === "true")
+        .map((m) => m[1])
+        .sort(),
+    ).toEqual(["knee:left", "knee:right", "shoulder:right"]);
+    expect(new Set(glows.map((m) => m[3]))).toEqual(new Set(["purple"]));
+    // The forearm's halo follows the arm: turned one way on the right, the other way on the left.
+    expect(html).toContain('<g transform="rotate(17 47 214)">');
+    expect(html).toContain('<g transform="rotate(-17 193 214)">');
+  });
 });
 
 describe("the props (contract 2.2 with D-024, A2-5)", () => {
@@ -166,5 +203,9 @@ describe("summary mode", () => {
     expect(html).toContain('aria-label="Knee, right side: markedly limited"');
     expect(html).toContain('aria-label="Neck"');
     expect(html).not.toContain("hip:left");
+    // Each coloured cell glows in its own colour; the others have no halo.
+    expect(html).toMatch(/data-glow="knee:right" data-lit="true"[^>]*fill="url\(#\w+marked\)"/);
+    expect(html).toMatch(/data-glow="neck:axial" data-lit="true"[^>]*fill="url\(#\w+grey\)"/);
+    expect(html.match(/data-glow=/g)).toHaveLength(2);
   });
 });

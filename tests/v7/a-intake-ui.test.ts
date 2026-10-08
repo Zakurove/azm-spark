@@ -12,6 +12,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import IntakeV7, {
   FILL_ANSWERS,
   IntakeV7About,
+  IntakeV7Consent,
   IntakeV7Review,
   answerAchilles,
   applyFill,
@@ -31,6 +32,8 @@ import IntakeV7, {
 } from "../../src/app/IntakeV7";
 import { autoFillRegions, type RegionEntry } from "../../src/medical/body-map";
 import { ROM_DATA, romCopy } from "../../src/movements/rom";
+import { labels } from "../../src/app/platform-copy";
+import { tV7 } from "../../src/i18n/v7";
 
 const plain = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 const ctx = (conditions: string[] = ["none"], mobility = "standing") => ({ conditions, mobility });
@@ -581,6 +584,23 @@ describe("the second step on screen", () => {
     const text = plain(render({ context: ctx(["arthritis"]), lang: "en" }));
     expect(text).toContain("Which of your joints does your medical condition affect?");
     expect(text).toContain(romCopy("arthritis_type_ask").en);
+  });
+});
+
+describe("the consent (D-034 item 4: it covers the check)", () => {
+  it("names the health answers, the movement and walk results with the video, and the Live coach", () => {
+    for (const lang of ["ar", "en"] as const) {
+      const html = renderToStaticMarkup(createElement(IntakeV7Consent, { lang }));
+      const lines = [...html.matchAll(/<span class="intake7-consent-line">([^<]*)<\/span>/g)].map(
+        (m) => m[1],
+      );
+      expect(lines).toEqual(
+        [labels(lang).consent, tV7(lang, "rom.formConsent"), tV7(lang, "coach.formConsent")].map((l) =>
+          l.replace(/"/g, "&quot;"),
+        ),
+      );
+    }
+    expect(tV7("ar", "rom.formConsent")).toContain("والفيديو لا يغادر هاتفي");
   });
 });
 

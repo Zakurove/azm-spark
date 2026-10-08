@@ -12,6 +12,7 @@
     "continue": "Continue",
     "notNow": "I will decide later"
   },
+  "formConsent": "I also agree that my movement and walking results are kept in my account: only the numbers the camera works out, and the video never leaves my phone.",
   "shell": {
     "brand": "Azm",
     "name": "Focused movement check",

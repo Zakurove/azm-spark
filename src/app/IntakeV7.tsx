@@ -1391,12 +1391,22 @@ export function IntakeV7StepName({ lang, kind }: { lang: Lang; kind: "about" | "
 }
 
 /**
- * The consent line of a v7 form (D-034 item 4): the health answers, and the movement and walk results
- * the check keeps; the video never leaves the phone. It covers the check, which no longer has its own
- * consent page.
+ * The consent of a v7 form (D-034 item 4: the check has no consent page of its own, and the server
+ * records the focus_check and live_coach consents at the check's start from this one): the health
+ * answers (the v1 line), the movement and walk results with the video that never leaves the phone
+ * (rom.formConsent), and what the Live coach hears and gets when the sound is on (coach.formConsent,
+ * C-12). One sentence per line.
  */
 export function IntakeV7Consent({ lang }: { lang: Lang }) {
-  return <>{tV7(lang, "intake7.consent")}</>;
+  return (
+    <>
+      {[labels(lang).consent, tV7(lang, "rom.formConsent"), tV7(lang, "coach.formConsent")].map((line) => (
+        <span className="intake7-consent-line" key={line}>
+          {line}
+        </span>
+      ))}
+    </>
+  );
 }
 
 /**

@@ -92,6 +92,5 @@
     "injury": "Injury",
     "after_surgery": "After surgery",
     "limb_loss": "Limb loss"
-  },
-  "consent": "I agree to store my health answers in my account to prepare my program, and I agree to keep my movement and walk results; video never leaves my phone."
+  }
 }

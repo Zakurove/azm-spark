@@ -492,6 +492,13 @@
   min-width: 72px;
   justify-content: center;
 }
+/* The consent of a v7 form: one sentence per line. */
+.intake7-consent-line {
+  display: block;
+}
+.intake7-consent-line + .intake7-consent-line {
+  margin-top: 6px;
+}
 /* The restrictions list, after a yes. */
 .intake-restrictions {
   margin-top: 10px;

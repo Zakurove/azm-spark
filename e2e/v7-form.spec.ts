@@ -159,9 +159,12 @@ for (const lang of ["ar", "en"] as const) {
 
     // Step 3: the goal and schedule, and the consent that covers the check.
     await expect(card.locator(".goal-grid")).toBeVisible();
+    // The health answers, the movement and walk results (the video never leaves the phone), and the Live coach.
+    await expect(card.locator(".consent .intake7-consent-line")).toHaveCount(3);
     await expect(card.locator(".consent")).toContainText(
-      L("ولا يغادر الفيديو هاتفي", "video never leaves my phone"),
+      L("والفيديو لا يغادر هاتفي", "the video never leaves my phone"),
     );
+    await expect(card.locator(".consent")).toContainText(L("«المدرّب المباشر»", "the Live coach"));
     await card.locator(".consent input").check();
     await shot(page, `${lang}-3-goal`);
     await expect(cta(page)).toContainText(L("التالي: قياس حركتك", "Next: your movement check"));

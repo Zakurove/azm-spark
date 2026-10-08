@@ -45,7 +45,10 @@ describe("romQualityConfig reads the movement's data", () => {
       const s = romSetupConfig(def, side, { cameraSide: "right" });
       expect(s.testId).toBeNull();
       expect(s.tiltMaxDeg).toBe(def.levelWithinDeg ?? E.phoneLevelToleranceDeg);
-      for (const i of c.gate) expect(s.framing).toContain(i);
+      // The setup frames what the start pose needs (the arm raise to the front's hip may be out of
+      // the picture: gravity mode, D-034 item 1).
+      for (const i of romQualityConfig(def, side, { cameraSide: "right", gravityMode: true }).gate)
+        expect(s.framing).toContain(i);
       expect(s.armRoom).toBe(def.frameMarginArmLengths !== undefined);
     });
   }
@@ -86,11 +89,19 @@ describe("the gate landmarks of each side", () => {
     expect(readSide(def, "right", true)).toBe("left");
   });
 
-  it("the arm raise to the front gates the hip, except in gravity mode", () => {
+  it("the arm raises to the front and to the back never fail an attempt for the hip (D-034 item 1)", () => {
+    // A frame whose hip is hidden or at the picture's edge reads the start trunk line (angles.ts).
     const def = movementDef("shoulder_flexion");
-    expect(romQualityConfig(def, "left").gate).toEqual([11, 13, 23]);
-    expect(romQualityConfig(def, "left", { gravityMode: true }).gate).toEqual([11, 13]);
-    expect(romQualityConfig(def, "left", { gravityMode: true }).optional).toContain(23);
+    for (const gravityMode of [false, true]) {
+      expect(romQualityConfig(def, "left", { gravityMode }).gate).toEqual([11, 13]);
+      expect(romQualityConfig(def, "left", { gravityMode }).optional).toContain(23);
+    }
+    const back = movementDef("shoulder_extension");
+    expect(romQualityConfig(back, "right").gate).toEqual([12, 14]);
+    expect(romQualityConfig(back, "right").optional).toContain(24);
+    // The start pose still needs the hip for the trunk line of the arm raise to the back.
+    expect(romSetupConfig(back, "right").framing).toEqual([12, 14, 24]);
+    expect(romSetupConfig(def, "left").framing).toEqual([11, 13]);
   });
 
   it("an axial side view reads the camera side; an axial front view reads both", () => {
@@ -103,10 +114,8 @@ describe("the gate landmarks of each side", () => {
     expect(readSide(movementDef("trunk_lateral_flexion"), "left", false)).toBeNull();
     // MS and MH: both shoulders and both hips.
     expect(romQualityConfig(movementDef("trunk_lateral_flexion"), "left").gate).toEqual([11, 12, 23, 24]);
-    // Either knee is framed.
-    expect(romSetupConfig(movementDef("trunk_lateral_flexion"), "left").framing).toEqual(
-      expect.arrayContaining([25, 26]),
-    );
+    // The knees are optional: never framed (D-034 item 1), the trunk is.
+    expect(romSetupConfig(movementDef("trunk_lateral_flexion"), "left").framing).toEqual([11, 12, 23, 24]);
   });
 
   it("the head tilt's ears or eyes are not a gate (the angle reads either), only reported", () => {

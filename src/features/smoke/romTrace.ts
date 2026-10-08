@@ -9,7 +9,7 @@
  * built; the runner's recorded value is the one the pass bar compares with the truth. A harness
  * reading, not a clinical rule: it decides nothing in the app. Pure, no DOM.
  */
-import { posesOf, SubjectLock } from "../../engine/subject";
+import { posesOf, SUBJECT_RULES, SubjectLock } from "../../engine/subject";
 import { toPixelSpace } from "../../engine/geometry";
 import { calibrate, MOVEMENT_ANGLES, type RomCalibration } from "../../engine/rom/angles";
 import { movementDef } from "../../movements/rom";
@@ -79,7 +79,8 @@ export interface RomTraceSummary {
 const tenth = (v: number | null) => (v === null ? null : Math.round(v * 10) / 10);
 
 export class RomAngleTrace {
-  private readonly lock = new SubjectLock();
+  /** The range runner's own lock (the body anchor, D-034 item 1), so the page follows whom the runner follows. */
+  private readonly lock = new SubjectLock(SUBJECT_RULES, { anchor: "body" });
   private readonly calMs: number;
   private readonly windowMs: number;
   private readonly pick: "max" | "min";

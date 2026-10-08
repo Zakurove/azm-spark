@@ -18,6 +18,17 @@
  *     (quality.ts). `touched` is true when a second person touched the subject in any of those
  *     frames, which makes the attempt invalid.
  * All thresholds are marked tune at booth in the spec.
+ *
+ * The anchor (SubjectLockOptions.anchor): "hip", the default, is the above (v1). "body" is the v7
+ * range runner's (D-034 item 1: seated at home 1.2 to 1.5 m from the phone, the legs and hips out of
+ * the picture): the jump is the smaller of the mid hip's move (v1) and the median, over the face, the
+ * shoulders and the hips (BODY_POINTS), of how far each point moved since the last trusted frame, each
+ * read whatever its visibility, as v1 reads the mid hip. A swap to another person moves every point;
+ * the model moving one or two of them, or a quick lean over still hips, does not. In the real model smoke the model moved single points with the arm: the guessed hips of
+ * the seated arm raise to the front (Lite, the hips below the picture) by up to 0.13 of the picture's
+ * height between two frames, and the near shoulder of the same raise seen a little turned (Full) by
+ * more than half a shoulder width, so either anchor alone paused the attempt for the whole raise
+ * (the reference stays put after a jump).
  */
 import {
   dist,
@@ -70,6 +81,11 @@ export const SUBJECT_RULES = {
 } as const;
 
 export type PauseReason = "unlocked" | "lost" | "jump" | "overlap";
+
+export interface SubjectLockOptions {
+  /** What the jump rule follows: "hip" (v1, the default) or "body" (v7 range, see above). */
+  anchor?: "hip" | "body";
+}
 
 export interface SubjectPick {
   /** The subject's landmarks, normalized as the model gave them, or null when not trusted in this frame. */
@@ -162,6 +178,8 @@ interface LockState {
   anchor: Pt;
   /** Last trusted mid hip, pixel space. */
   ref: Pt;
+  /** The anchor "body": the last trusted frame's BODY_POINTS (pixel space, null where not a finite number). */
+  refBody: (Pt | null)[];
   /** Body width used for the jump and touch rules, pixel space (see minWidthPerTrunk). */
   width: number;
 }
@@ -173,10 +191,22 @@ export class SubjectLock {
   private run = 0;
   private touchedAny = false;
 
-  constructor(private readonly rules: typeof SUBJECT_RULES = SUBJECT_RULES) {}
+  private readonly anchorMode: "hip" | "body";
+
+  constructor(
+    private readonly rules: typeof SUBJECT_RULES = SUBJECT_RULES,
+    opts: SubjectLockOptions = {},
+  ) {
+    this.anchorMode = opts.anchor ?? "hip";
+  }
 
   get locked(): boolean {
     return this.state !== null;
+  }
+
+  /** The point the jump rule follows (SubjectLockOptions.anchor). */
+  get anchorKind(): "hip" | "body" {
+    return this.anchorMode;
   }
 
   /** Calibration mid hip in pixel space, or null before a lock. */
@@ -212,7 +242,14 @@ export class SubjectLock {
       this.rules.minWidthPerTrunk * (Number.isFinite(trunk) ? trunk : 0),
       1e-3,
     );
-    this.state = { aspect: a, lastT: null, anchor: hip, ref: { ...hip }, width };
+    this.state = {
+      aspect: a,
+      lastT: null,
+      anchor: hip,
+      ref: { ...hip },
+      refBody: bodyPoints(p),
+      width,
+    };
     return true;
   }
 
@@ -301,15 +338,20 @@ export class SubjectLock {
     let k = 0;
     let best = Infinity;
     people.forEach((p, j) => {
-      const hip = trackPoint(p.px);
-      const d = hip ? dist(hip, s.ref) : Infinity;
+      const d = this.distanceTo(p.px, s);
       if (d < best) {
         best = d;
         k = j;
       }
     });
     const subject = people[k];
-    const others = people.filter((_, j) => j !== k);
+    // The anchor "body": a pose whose body lies on the subject's (its median point within the jump
+    // limit) is the model finding the subject twice, not a second person (the real model smoke: a
+    // ghost of the person while the arm rose, 1 to 2 percent of the frames): no overlap, no touch.
+    const others = people.filter(
+      (o, j) =>
+        j !== k && !(this.anchorMode === "body" && this.sameBody(o.px, subject.px, s.width, jumpLimit)),
+    );
     const jump = best / s.width;
 
     if (!(jump <= jumpLimit)) {
@@ -325,7 +367,8 @@ export class SubjectLock {
       });
     }
 
-    s.ref = trackPoint(subject.px)!;
+    s.ref = trackPoint(subject.px) ?? s.ref;
+    s.refBody = bodyPoints(subject.px);
     const box = poseBox(subject.px);
     let overlap = 0;
     for (const o of others) {
@@ -348,6 +391,31 @@ export class SubjectLock {
     });
   }
 
+  /**
+   * How far a pose's anchor moved from the subject's last trusted place (pixel space): the mid hip
+   * (v1), or with the anchor "body" the smaller of that and the median move of BODY_POINTS (the class
+   * comment): a swap to another person moves both, the model moving the hips alone, or a quick lean of
+   * the upper body over still hips, moves one.
+   */
+  private distanceTo(px: Landmark[], s: LockState): number {
+    const point = trackPoint(px);
+    const hip = point ? dist(point, s.ref) : Infinity;
+    if (this.anchorMode === "body") {
+      const now = bodyPoints(px);
+      const moves = now.flatMap((q, k) => (q && s.refBody[k] ? [dist(q, s.refBody[k]!)] : []));
+      if (moves.length >= BODY_MIN_POINTS) return Math.min(hip, median(moves));
+    }
+    return hip;
+  }
+
+  /** Two poses on the same body: the median of their BODY_POINTS' distances within the jump limit. */
+  private sameBody(a: Landmark[], b: Landmark[], width: number, limit: number): boolean {
+    const pa = bodyPoints(a);
+    const pb = bodyPoints(b);
+    const d = pa.flatMap((q, k) => (q && pb[k] ? [dist(q, pb[k]!)] : []));
+    return d.length >= BODY_MIN_POINTS && median(d) / width <= limit;
+  }
+
   private count(p: SubjectPick): SubjectPick {
     if (p.paused) {
       this.pausedFrames++;
@@ -361,6 +429,31 @@ export class SubjectLock {
     return this.pick(posesOf(frame), frame.aspect ?? this.state?.aspect, frame.t);
   }
 }
+
+/** The anchor "body": the nose, the eyes, the ears, the shoulders and the hips. */
+const BODY_POINTS: readonly number[] = [
+  LM.nose,
+  LM.l_eye,
+  LM.r_eye,
+  LM.l_ear,
+  LM.r_ear,
+  LM.l_shoulder,
+  LM.r_shoulder,
+  LM.l_hip,
+  LM.r_hip,
+];
+/** Fewer finite points than this: the anchor "body" reads the mid hip as v1. */
+const BODY_MIN_POINTS = 5;
+
+/** A pose's BODY_POINTS (pixel space), null where not a finite number. */
+const bodyPoints = (p: Landmark[]): (Pt | null)[] =>
+  BODY_POINTS.map((i) => (finitePoint(p[i]) ? { x: p[i].x, y: p[i].y } : null));
+
+const median = (xs: number[]): number => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
 
 /**
  * The point the lock follows: the mid hip (whatever the hips' visibility, see body.ts midHip), or

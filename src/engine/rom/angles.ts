@@ -62,6 +62,7 @@
  */
 import { LM, type Landmark } from "../types";
 import { finitePoint, visible } from "../body";
+import { QUALITY_RULES } from "../quality";
 import { cross, dot, downVector, median, norm, signedAngle, sub } from "../modes/common";
 import { ROM_DATA, movementDef } from "../../movements/rom";
 import type { RomMovementDef, RomMovementId, RomSide } from "../../movements/rom/types";
@@ -76,6 +77,11 @@ export interface AngleContext {
   rollDeg: number | null;
   /** start pose medians (trunk line, hip position, segment lengths, neutral head) */
   calibration: RomCalibration;
+  /**
+   * The frame's aspect (width ÷ height), for the picture's edges in pixel space (the arm raises' hip,
+   * hipInPicture); absent: the picture's sides are not checked, only its top and bottom.
+   */
+  aspect?: number;
 }
 export interface RomCalibration {
   t: number;
@@ -389,6 +395,30 @@ function gravityDown(ctx: AngleContext): Pt | null {
   return ctx.rollDeg === null ? null : downVector(ctx.rollDeg);
 }
 
+/**
+ * The arm raises' hip in this frame: seen, and inside the picture with the quality gate's margin
+ * (QUALITY_RULES.margin). D-034 item 1: seated at home the hips sit at the picture's bottom edge or
+ * below it, and the model still places them there with a high visibility, moving with the arm (the
+ * real model smoke: the hip of the seated arm raise to the front outside the margin in 15 percent of
+ * the frames). Such a hip is hidden, as v1.1 4.1 reads a hip the wheelchair hides.
+ */
+function hipInPicture(r: Roles, ctx: AngleContext): boolean {
+  if (!r.seen("H")) return false;
+  const H = r.at("H");
+  const m = QUALITY_RULES.margin;
+  const a = ctx.aspect !== undefined && Number.isFinite(ctx.aspect) && ctx.aspect > 0 ? ctx.aspect : null;
+  return H.y >= m && H.y <= 1 - m && (a === null || (H.x >= m * a && H.x <= (1 - m) * a));
+}
+
+/**
+ * The start pose's trunk line downward (shoulder to hip, the calibration's medians), the reference of
+ * an arm raise in a frame whose hip is hidden (hipInPicture); null without one.
+ */
+function startTrunkDown(ctx: AngleContext): Pt | null {
+  const tl = ctx.calibration.trunkLine;
+  return tl ? sub(tl.base, tl.top) : null;
+}
+
 /*
  * shoulder_flexion. Definition: "theta = ang(E - S, H - S): the unsigned 2D angle between the upper
  * arm (shoulder to elbow) and the trunk line (shoulder to same side hip), in pixel space." Zero: "0 =
@@ -396,14 +426,15 @@ function gravityDown(ctx: AngleContext): Pt | null {
  * the elbow lies on the face side of the trunk line (the side of the nose, landmark 0); otherwise
  * the attempt is extension and is not scored here."
  * Read as the arm's turn from the trunk line toward the nose: an elbow behind the trunk line reads 0,
- * an arm past overhead stays at 180. Gravity mode: against the start trunk line (gravityDown).
+ * an arm past overhead stays at 180. Gravity mode: against the start trunk line (gravityDown). A frame
+ * whose hip is hidden (hipInPicture, D-034 item 1) reads the start trunk line as gravity mode does.
  */
 const shoulderFlexion: AngleFn = (px, ctx) => {
   const gravity = ctx.calibration.gravityMode;
   const r = limb("shoulder_flexion", px, ctx);
-  if (!r || !r.gate(gravity ? ["H"] : [])) return null;
+  if (!r || !r.gate(["H"])) return null;
   const S = r.at("S");
-  const trunk = gravity ? gravityDown(ctx) : sub(r.at("H"), S);
+  const trunk = gravity || !hipInPicture(r, ctx) ? gravityDown(ctx) : sub(r.at("H"), S);
   if (!trunk || norm(trunk) < 1e-9) return null;
   const face = noseSide(px, S, trunk);
   if (face === null) return null;
@@ -435,12 +466,14 @@ const shoulderAbduction: AngleFn = (px, ctx) => {
  * the elbow lies on the back side of the trunk line (opposite the nose)." Zero: "0 = arm along the
  * trunk." Direction: "Elbow behind the trunk line."
  * Read as the arm's turn from the trunk line away from the nose; 0 while the elbow is on the face side.
+ * A frame whose hip is hidden (hipInPicture, D-034 item 1) reads the start trunk line.
  */
 const shoulderExtension: AngleFn = (px, ctx) => {
   const r = limb("shoulder_extension", px, ctx);
-  if (!r || !r.gate()) return null;
+  if (!r || !r.gate(["H"])) return null;
   const S = r.at("S");
-  const trunk = sub(r.at("H"), S);
+  const trunk = hipInPicture(r, ctx) ? sub(r.at("H"), S) : startTrunkDown(ctx);
+  if (!trunk || norm(trunk) < 1e-9) return null;
   const face = noseSide(px, S, trunk);
   if (face === null) return null;
   const theta = turnFrom(trunk, sub(r.at("E"), S)) * face;

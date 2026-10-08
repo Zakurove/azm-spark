@@ -409,7 +409,7 @@ describe("ROM runtime data (rom-v7.json)", () => {
     expect(() => regionRow("head" as RegionId)).toThrow("Unknown range of motion region");
     expect(ROM_RULES_VERSION).toBe(`rom_protocol_${ROM_DATA.specVersion}`);
     expect(NORMS_VERSION).toBe(`rom_norms_${ROM_DATA.specVersion}`);
-    expect(ROM_ENGINE_VERSION).toBe("rom_engine_1");
+    expect(ROM_ENGINE_VERSION).toBe("rom_engine_2");
   });
 
   it("is signed off (D-025): Nasser approved every recommendation on 2026-10-04, version 1.0.0", () => {

@@ -456,6 +456,17 @@ describe("MOVEMENT_ANGLES", () => {
         for (const g of def.gate) {
           const roles = typeof g === "string" ? [g] : g.anyOf;
           if (roles.includes("MHf")) continue; // the fixed mid hip comes from the calibration
+          // The arm raises to the front and back read the start trunk line without their hip (D-034 item 1).
+          if ((c.id === "shoulder_flexion" || c.id === "shoulder_extension") && roles.includes("H")) {
+            const hipless = px.map((q) => ({ ...q }));
+            for (const i of roleIds(def.landmarks.H, side)) hipless[i].visibility = 0.2;
+            expectAngle(
+              MOVEMENT_ANGLES[c.id](hipless, { ...base(c.side), calibration: cal }),
+              MOVEMENT_ANGLES[c.id](px, { ...base(c.side), calibration: cal })!,
+              "the start trunk line",
+            );
+            continue;
+          }
           const hidden = px.map((q) => ({ ...q }));
           for (const r of roles) for (const i of roleIds(def.landmarks[r], side)) hidden[i].visibility = 0.2;
           expect(MOVEMENT_ANGLES[c.id](hidden, { ...base(c.side), calibration: cal }), `${roles}`).toBeNull();

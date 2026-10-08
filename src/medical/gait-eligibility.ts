@@ -10,6 +10,14 @@
  * prosthesis and someone with the person). The v1 pre-check answers (pc_steadi, pc_walking_aid,
  * pc_pd_dizzy_standing, pc_pain_now, pc_pain_areas, pc_surgery_recent, pc_arthritis_flare,
  * pc_limb_leg_prosthesis and pc_helper) are still read when given, as before.
+ *
+ * D-034 item 2 (Nasser's first real test: a stroke with no helper got no walk): the overground walk is
+ * offered to everyone who walks, with or without an aid. A helper is a line on the walk's screens
+ * (helperRequired, GaitCapture's helper note), never a gate: no one there today, or «لا» to walking 10
+ * metres without someone holding you, keeps the walk overground with that line and no pad. Only the
+ * hard stops of the rules remain: the intake's walking, a red flag today, the restrictions, the
+ * prosthesis, a surgery not cleared, the clearance and the global gate, and the pain of the day. The
+ * walking pad keeps its rules and its checklist (modeChoice, padSafety).
  */
 import { globalGate, standingGate, type FocusToday } from "./rom-protocol";
 import type { Intake } from "./plan";
@@ -19,8 +27,12 @@ import type { AnswerValue, Answers } from "./precheck";
 export type GaitMode = "overground" | "walking_pad";
 export type GaitNotOffered =
   | "not_walking"
+  /** Not returned since D-034 item 2 (a helper line); kept for plans stored before. */
   | "walk_needs_hands_on_help"
-  /** A required helper is not there today: «pc_helper ... no -> skip with reason helper_needed» (D-024, A4-2). */
+  /**
+   * A required helper is not there today: «pc_helper ... no -> skip with reason helper_needed» (D-024,
+   * A4-2). Not returned since D-034 item 2 (a helper line); kept for plans stored before.
+   */
   | "helper_needed"
   | "restriction"
   | "prosthesis_off"
@@ -217,9 +229,6 @@ export function gaitPlanFor(
   if (gate) return notOffered(gate);
   // rf_region (contract 2.5): a red flag in a leg region or the back today.
   if (today.redFlagRegions.some((r) => LEG_BACK_REGIONS.includes(r))) return notOffered("red_flag");
-  // «pc_walk_10m: no -> not offered, reason walk_needs_hands_on_help»; not answered yet: still planned,
-  // the day item is asked when gait is planned (GAIT_DAY_ITEMS).
-  if (today.walk10m === false) return notOffered("walk_needs_hands_on_help");
   // «restriction no_weight_bearing or no_exercise: not offered».
   if (intake.restrictions.includes("no_weight_bearing") || intake.restrictions.includes("no_exercise"))
     return notOffered("restriction");
@@ -241,15 +250,19 @@ export function gaitPlanFor(
   const balance = intake.restrictions.includes("balance_support");
   const dizzy = yes(answers, "pc_pd_dizzy_standing");
   const freezing = today.pdFreezing === true;
-  const helperRequired = steadiYes || aid || balance || dizzy || freezing;
-  // «pc_helper: asked at home when a helper is required; no -> skip ...; staff count as helper at the booth».
+  // «pc_walk_10m: no -> not offered, reason walk_needs_hands_on_help» was a gate: since D-034 item 2 it
+  // is someone beside the walker, as a line (FAC 0 to 2 need another person's hands).
+  const handsOnHelp = today.walk10m === false;
+  const helperRequired = steadiYes || aid || balance || dizzy || freezing || handsOnHelp;
+  // «staff count as helper at the booth». A required helper who is not there no longer skips the walk
+  // (D-034 item 2: «pc_helper ... no -> skip» is a line, never a gate); the pad still needs someone.
   const helperPresent =
     setting === "booth" || today.helperPresent === true || yes(answers, "pc_helper:chair_stand_30s");
-  if (helperRequired && !helperPresent) return notOffered("helper_needed");
 
   const painNow = answer(answers, "pc_pain_now") ?? painElsewhere(today);
   // modeChoice.padAllowedWhenAll (the setup items are the capture's): every answer must be a calm one.
   const padAllowed =
+    !handsOnHelp &&
     !aid &&
     steadiNo &&
     !balance &&
@@ -284,9 +297,9 @@ export function gaitPlanFor(
 /**
  * D-032 item 1: the walking pad is offered at home too, with its existing steps and a helper beside
  * the person (modeChoice: «booth or clinic staff present, or a helper at home»). Whether the day's one
- * helper question can change today's walk: with someone there, the walk would be offered and either
- * needs that person beside the walker or offers the pad. Never at the booth, where the staff count as
- * the helper.
+ * helper question can change today's walk: with someone there, the pad would be offered. The
+ * overground walk is offered either way (a helper is a line, D-034 item 2). Never at the booth, where
+ * the staff count as the helper.
  */
 export function helperMattersForWalk(
   intake: Intake,
@@ -296,5 +309,5 @@ export function helperMattersForWalk(
 ): boolean {
   if (setting === "booth") return false;
   const withHelper = gaitPlanFor(intake, { ...today, helperPresent: true }, setting, precheckAnswers);
-  return withHelper.offered && (withHelper.helperRequired || withHelper.padAllowed);
+  return withHelper.offered && withHelper.padAllowed;
 }

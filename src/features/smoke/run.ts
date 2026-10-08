@@ -20,7 +20,7 @@ import { movementDef } from "../../movements/rom";
 import type { RomPositionId } from "../../movements/rom/types";
 import type { RomRunnerOptions } from "../../engine/rom/types";
 import type { GaitSetup, GaitViewInput, GaitViewResult } from "../../engine/gait/types";
-import { SubjectLock } from "../../engine/subject";
+import { SUBJECT_RULES, SubjectLock } from "../../engine/subject";
 import type { Frame } from "../../engine/types";
 import { BUDGETS } from "./budgets";
 import { GaitCapture, harnessCadence, trackingShare, type HarnessCadence } from "./gaitCapture";
@@ -97,8 +97,16 @@ export interface SmokeResult {
     harness: HarnessCadence;
     tracking: ReturnType<typeof trackingShare>;
   };
-  /** frames=1: the subject's landmarks, [ms from the first frame, [x, y, visibility] x 33]. */
-  landmarks?: { frames: [number, [number, number, number][]][] };
+  /**
+   * frames=1: the subject's landmarks, [ms from the first frame, [x, y, visibility] x 33]; and every
+   * frame as the camera gave it, every pose the model returned (none when it found nobody), with the
+   * picture's aspect, so a run replays off line through the runners exactly (D-034 item 1).
+   */
+  landmarks?: {
+    frames: [number, [number, number, number][]][];
+    poses?: [number, [number, number, number][][]][];
+    aspect?: number | null;
+  };
 }
 
 const BLOCK: Record<RomPositionId, RomBlock> = {
@@ -160,6 +168,8 @@ export class SmokeRun {
   private readonly startedAt = new Date().toISOString();
   private readonly times: number[] = [];
   private readonly landmarks: [number, [number, number, number][]][] = [];
+  private readonly allPoses: [number, [number, number, number][][]][] = [];
+  private aspect: number | null = null;
   private readonly listeners = new Set<(live: SmokeLive) => void>();
   private live: SmokeLive;
   private probe: ProbeResult | null = null;
@@ -176,7 +186,8 @@ export class SmokeRun {
   private tracking = false;
   // gait
   private capture: GaitCapture | null = null;
-  private dumpLock = new SubjectLock();
+  /** The subject of the landmark dump: the range runner's lock (the body anchor, D-034 item 1). */
+  private dumpLock = new SubjectLock(SUBJECT_RULES, { anchor: "body" });
 
   constructor(
     private readonly spec: SmokeSpec,
@@ -266,6 +277,12 @@ export class SmokeRun {
   }
 
   private keepLandmarks(f: Frame): void {
+    const all = f.poses ?? (f.lm.length ? [f.lm] : []);
+    this.aspect ??= f.aspect ?? null;
+    this.allPoses.push([
+      Math.round(f.t - this.firstT!),
+      all.map((pose) => pose.map((p) => [r4(p.x), r4(p.y), r2(p.visibility)])),
+    ]);
     if (!this.dumpLock.locked) {
       const poses = f.poses ?? (f.lm.length ? [f.lm] : []);
       if (!poses.length || !this.dumpLock.lock(poses, f.aspect)) return;
@@ -313,7 +330,7 @@ export class SmokeRun {
         item: romItem(spec),
         def: movementDef(spec.movement),
         mirrored: spec.mirrored,
-        subject: new SubjectLock(),
+        // The runner's own subject lock, as the app's range controller gives it none.
         painBefore: 0,
         // The run never asks what stopped the person (open question 8: null switches it off).
         askCauseBelow: null,
@@ -387,7 +404,7 @@ export class SmokeRun {
     } else {
       result.gait = this.gaitResult(spec);
     }
-    if (spec.frames) result.landmarks = { frames: this.landmarks };
+    if (spec.frames) result.landmarks = { frames: this.landmarks, poses: this.allPoses, aspect: this.aspect };
     this.ended = result;
     this.emit({ status: status === "done" ? "done" : "error" });
     this.finish?.(result);

@@ -39,7 +39,7 @@ import type { RomMovementId, RomPositionId, RomSide } from "../../src/movements/
 import type { Fixture } from "./format";
 
 export type Profile = "chair" | "wheelchair" | "standing" | "weaker_left" | "weaker_right";
-export type AspectName = "9:16" | "16:9" | "1:1";
+export type AspectName = "9:16" | "16:9" | "1:1" | "3:4";
 type Side = "left" | "right";
 
 export const PROFILES: readonly Profile[] = [
@@ -53,6 +53,8 @@ export const FRAME_SIZE: Record<AspectName, { w: number; h: number }> = {
   "9:16": { w: 720, h: 1280 },
   "16:9": { w: 1280, h: 720 },
   "1:1": { w: 960, h: 960 },
+  /** A phone front camera's 4:3 picture held upright (D-034: Nasser's iPhone at home). */
+  "3:4": { w: 960, h: 1280 },
 };
 export const aspectOf = (a: AspectName) => FRAME_SIZE[a].w / FRAME_SIZE[a].h;
 
@@ -562,7 +564,19 @@ export interface GenSpec {
   fps: number;
   durationSec: number;
   seed: number;
-  camera?: { distance?: number; height?: number; x?: number; rollDeg?: number; mirror?: boolean };
+  camera?: {
+    distance?: number;
+    height?: number;
+    x?: number;
+    rollDeg?: number;
+    mirror?: boolean;
+    /**
+     * The lens's field of view across the picture's short side, degrees (default 50, the app's own
+     * assumption, CAMERA_MODEL.shortSideFovDeg). A narrower lens shows a person bigger at the same
+     * distance, so the app's distance proxy reads them closer than they are.
+     */
+    fovShortDeg?: number;
+  };
   subject?: {
     yaw?: number;
     x?: number;
@@ -594,6 +608,18 @@ export interface GenSpec {
   jolts?: { at: number; dx: number; dy: number }[];
   /** Scripted occlusion of subject landmarks (seconds). */
   occlusions?: { landmarks: number[]; from: number; to: number; visibility?: number }[];
+  /**
+   * The subject's landmarks outside the picture, as a pose model guesses them: their place drifts by
+   * this much noise (a share of the image height) besides the landmark noise, each frame on its own
+   * random stream, so specs without it keep their frames. Their visibility stays the low one below.
+   */
+  offFrame?: { noise: number };
+  /**
+   * Single frame landmark jumps (a pose model's glitch): every `every`th frame from `from` (frame
+   * index), the listed subject landmarks jump by (dx, dy) shares of the image height, with their
+   * visibility kept, for that one frame.
+   */
+  glitches?: { every: number; from?: number; landmarks: number[]; dx: number; dy: number };
   /** Shuffle the pose order every frame, as the model does not keep it. */
   shuffle?: boolean;
   /**
@@ -731,7 +757,9 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
     roll: (spec.camera?.rollDeg ?? 0) * D2R,
     mirror: spec.camera?.mirror ?? false,
   };
-  const f = Math.min(size.w, size.h) / 2 / Math.tan(25 * D2R);
+  const f = Math.min(size.w, size.h) / 2 / Math.tan(((spec.camera?.fovShortDeg ?? 50) / 2) * D2R);
+  // The off picture drift draws from its own stream, so the main one stays aligned.
+  const rOff = rng((spec.seed ^ 0x0ff5ca1e) >>> 0);
   const yaw = spec.subject?.yaw ?? cd.yaw;
   const scale = spec.subject?.scale ?? 1;
   const dims: BodyDims = Object.fromEntries(
@@ -948,6 +976,19 @@ export function generate(spec: GenSpec): Fixture<GenTruth> {
         z: q.z,
         visibility: Math.min(1, Math.max(0, vis[k])),
       }));
+      if (pp.role === "subject" && spec.offFrame)
+        lm.forEach((q, k) => {
+          const p = lmks[k];
+          if (p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1) return;
+          q.x += (gauss(rOff) * spec.offFrame!.noise) / aspect;
+          q.y += gauss(rOff) * spec.offFrame!.noise;
+        });
+      const g = spec.glitches;
+      if (pp.role === "subject" && g && i >= (g.from ?? 0) && (i - (g.from ?? 0)) % g.every === 0)
+        for (const k of g.landmarks) {
+          lm[k].x += g.dx / aspect;
+          lm[k].y += g.dy;
+        }
       poses.push({ role: pp.role, lm });
     }
 

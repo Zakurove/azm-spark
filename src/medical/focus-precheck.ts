@@ -99,8 +99,9 @@ function proxiedBy(testId: TestId, side: string, item: RomProtocolItem): boolean
  * Only the items that run today change: an item the v7 rules skipped keeps its reason, and deferred
  * items stay deferred. The gait test follows its own eligibility rows (gaitPlanFor reads the same v1
  * answers); from the chair stand it takes the helper: a required helper keeps it overground with
- * someone beside («It is the only mode for anyone with a helper requirement»), and a missing one
- * (pc_helper no: helper_needed) means no gait test. The arm or leg with limb loss follows the v7 rule
+ * someone beside («It is the only mode for anyone with a helper requirement»), present or not: since
+ * D-034 item 2 a missing one (pc_helper no: helper_needed) is the helper line on the walk's screens,
+ * never a skip of the walk. The arm or leg with limb loss follows the v7 rule
  * (V7_DECIDES). helperRequired lists the blocks that run today with someone beside the person.
  */
 export function applyPrecheckOutcome(
@@ -135,19 +136,7 @@ export function applyPrecheckOutcome(
   let nextGait = gait ? { ...gait, views: { ...gait.views } } : null;
   if (nextGait?.offered) {
     const noHelper = skips.some((s) => s.testId === "chair_stand_30s" && s.reason === "helper_needed");
-    if (noHelper) {
-      nextGait = {
-        ...nextGait,
-        offered: false,
-        reason: "helper_needed",
-        modes: [],
-        padAllowed: false,
-        helperRequired: false,
-        antalgicOnly: false,
-        staticStance: false,
-        views: { overground: [], walking_pad: [] },
-      };
-    } else if (helpers.has("chair_stand_30s")) {
+    if (noHelper || helpers.has("chair_stand_30s")) {
       nextGait = {
         ...nextGait,
         helperRequired: true,

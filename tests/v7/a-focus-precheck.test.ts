@@ -231,7 +231,7 @@ describe("applyPrecheckOutcome: skips", () => {
     expect(out.gait).toEqual(g);
   });
 
-  it("no helper for the chair stand at home: the standing items and the gait test do not run", () => {
+  it("no helper for the chair stand at home: the standing items do not run, the walk runs overground with the helper line (D-034 item 2)", () => {
     const h = intake({
       walking: { status: "with_aid", aid: "cane" },
       regions: [entry("hip", "right", ["stiffness"])],
@@ -244,9 +244,15 @@ describe("applyPrecheckOutcome: skips", () => {
       outcome({ skips: [{ testId: "chair_stand_30s", side: "none", reason: "helper_needed" }] }),
     );
     expect(itemOf(out.protocol, "hip_extension").skipped).toBe("helper_needed");
-    expect(out.gait!.offered).toBe(false);
-    // The gait test's own reason is the same helper_needed (D-024, A4-2).
-    expect(out.gait!.reason).toBe("helper_needed");
+    // A helper is a line on the walk's screens, never a gate (D-034 item 2): overground, no pad.
+    expect(out.gait).toMatchObject({
+      offered: true,
+      helperRequired: true,
+      padAllowed: false,
+      modes: ["overground"],
+      views: { overground: ["front", "back", "side"], walking_pad: [] },
+    });
+    expect(out.gait!.reason).toBeUndefined();
   });
 
   it("the v7 limb loss rule decides the arm with limb loss, not the v1 arm raise skip", () => {

@@ -20,6 +20,20 @@
  *   - an { anyOf } entry (neck_lateral_flexion «ears or eyes»): the angle needs one of them per frame and
  *     returns null otherwise; their landmarks are reported as optional.
  * Optional roles never fail an attempt (v1: their visible share is reported).
+ *
+ * D-034 item 1 (Nasser's first real test: seated at home 1.2 to 1.5 m away, the legs out of the
+ * picture, every movement «not measured» with too_close): a movement needs only the landmarks it
+ * measures, the gate above, inside the picture with the gate's 3 percent margin.
+ *   - The distance (DistanceRule "trackable"): never too close while those landmarks are in the
+ *     picture (out_of_frame says when they are not); too far only beyond the pose model's 4 m limit
+ *     (research rom.md [S31]). The setup copy keeps the movement's suggested distance (distanceM).
+ *   - The view (viewBlocks false): never a block, but advice for one calm cue (the runner's
+ *     viewCue); if the view really is wrong, the movement's plane check and its compensation rules
+ *     decide.
+ *   - The setup check frames only what the start pose needs (the calibration's gate), never a
+ *     knee, an ankle or an optional landmark, and the arm room is a warning.
+ *   - The hip of the arm raises to the front and to the back never fails an attempt: a frame whose
+ *     hip is hidden or at the picture's edge reads the start trunk line (HIDDEN_HIP_ROLE).
  */
 import { QUALITY_RULES, SETUP_RULES, type QualityConfig, type SetupConfig, type ViewClass } from "../quality";
 import { LM } from "../types";
@@ -38,6 +52,16 @@ const OTHER_IDS = {
 
 /** The movements whose hip gives way to gravity mode when hidden at calibration (v1.1 4.1, review B16). */
 const GRAVITY_HIP_ROLE: Partial<Record<RomMovementId, string>> = { shoulder_flexion: "H" };
+
+/**
+ * The arm raises whose hip a frame may lack (D-034 item 1): their angle reads the start trunk line in a
+ * frame whose hip is hidden (angles.ts hipInPicture), so the hip never fails an attempt. The start pose
+ * still needs it for the arm raise to the back (its trunk line).
+ */
+const HIDDEN_HIP_ROLE: Partial<Record<RomMovementId, string>> = {
+  shoulder_flexion: "H",
+  shoulder_extension: "H",
+};
 
 /**
  * The model side whose landmarks a movement reads, as the angles read it (angles.ts): a limb movement's
@@ -128,7 +152,12 @@ export function romQualityConfig(
   side: RomSide,
   opts: RomQualityOptions = {},
 ): QualityConfig {
-  const { gate, optional } = movementLandmarks(def, side, opts);
+  const lm = movementLandmarks(def, side, opts);
+  const hip = HIDDEN_HIP_ROLE[def.id];
+  const hipIds =
+    hip === undefined ? [] : roleIds(def, hip, readSide(def, side, !!opts.mirrored, opts.cameraSide ?? null));
+  const gate = lm.gate.filter((i) => !hipIds.includes(i));
+  const optional = unique([...lm.optional, ...lm.gate.filter((i) => hipIds.includes(i))]);
   return {
     testId: null,
     side,
@@ -143,14 +172,18 @@ export function romQualityConfig(
     minInFrameShare: QUALITY_RULES.minInFrameShare,
     margin: QUALITY_RULES.margin,
     maxPausedShare: QUALITY_RULES.maxPausedShare,
+    distanceRule: "trackable",
+    viewBlocks: false,
   };
 }
 
 /**
- * The live setup check of a v7 movement for one side (setupCheck): every landmark the movement's roles
- * name inside the frame margin; the movement's view and distance; the phone level within the
- * movement's levelWithinDeg, else engine.phoneLevelToleranceDeg; the room for both arms of the side arm
- * raise («frame margin 1.3 arm lengths each side (v1.1 4.1)», the v1 check, SETUP_RULES.armRoomFactor).
+ * The live setup check of a v7 movement for one side (setupCheck): the landmarks the start pose needs
+ * (the calibration's gate: the hip of the arm raise to the front may be out of the picture, gravity
+ * mode) inside the frame margin; the movement's view and the distance as warnings only, too far beyond
+ * the model's limit (D-034 item 1); the phone level within the movement's levelWithinDeg, else
+ * engine.phoneLevelToleranceDeg; the room for both arms of the side arm raise («frame margin 1.3 arm
+ * lengths each side (v1.1 4.1)», the v1 check, SETUP_RULES.armRoomFactor) as a warning.
  */
 export function romSetupConfig(
   def: RomMovementDef,
@@ -160,13 +193,15 @@ export function romSetupConfig(
   return {
     testId: null,
     side,
-    framing: movementLandmarks(def, side, opts).all,
+    framing: movementLandmarks(def, side, { ...opts, gravityMode: true }).gate,
     views: movementViews(def),
     distanceM: distanceBand(def),
     margin: QUALITY_RULES.margin,
     tiltMaxDeg: def.levelWithinDeg ?? ROM_DATA.engine.phoneLevelToleranceDeg,
     tiltWarnDeg: null,
     armRoom: def.frameMarginArmLengths !== undefined,
+    distanceRule: "trackable",
+    viewBlocks: false,
   };
 }
 

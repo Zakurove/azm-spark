@@ -192,6 +192,9 @@ describe("a range run", () => {
     // frames=1 keeps the subject's landmarks for replay off line.
     expect(result.landmarks!.frames.length).toBe(40);
     expect(result.landmarks!.frames[0][1]).toHaveLength(33);
+    // And every pose of every frame, so a run replays off line through the runner exactly.
+    expect(result.landmarks!.poses!.length).toBe(40);
+    expect(result.landmarks!.poses![0][1][0]).toHaveLength(33);
   });
 
   it("probes the model first when asked to choose (model=auto)", async () => {

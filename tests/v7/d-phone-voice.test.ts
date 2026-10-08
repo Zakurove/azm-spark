@@ -170,3 +170,17 @@ describe("PhoneVoice: every v7 line with the phone's own speech", () => {
     expect(ended).toBe(1);
   });
 });
+
+describe("PhoneVoice and the engine's queue", () => {
+  it("cancels only to cut a line of its own that still plays (a cancel with nothing playing can drop the next line)", async () => {
+    const s = fakeSpeech([MAJED]);
+    const v = new PhoneVoice("ar", { speech: s.port, utterance: make });
+    await v.say("لنبدأ", "info");
+    expect(s.cancelled()).toBe(0);
+    s.said[0].end();
+    await v.line("rom_ask_max", "info");
+    expect(s.cancelled()).toBe(0);
+    await v.line("rom_pain_stop", "safety");
+    expect(s.cancelled()).toBe(1);
+  });
+});

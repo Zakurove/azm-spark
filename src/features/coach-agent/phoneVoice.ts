@@ -137,7 +137,10 @@ export class PhoneVoice {
       voice = this.voiceNow();
       if (!voice) return false;
     }
-    this.stop();
+    // Cut only a line of this voice that still plays: a cancel with nothing playing can make some
+    // engines drop the utterance that follows it.
+    if (this.endActive) this.stop();
+    else this.generation++;
     const generation = this.generation;
     this.activeRank = rank;
     let ended = false;

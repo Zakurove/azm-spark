@@ -144,6 +144,15 @@ export const RUNNER_RULES = {
   holdMedianSec: 0.5,
   /** Contract 2.6 keepReaching: «Extends the attempt by 10 s». */
   keepReachingSec: 10,
+  /**
+   * D-034 (the tech lead, from the check's review): with the «can you move it» question gone, a joint
+   * that cannot move must not wait out the 20 s of each try. No movement beyond the hold band from the
+   * start pose's angle toward the end range within this many seconds ends the attempt (an interface
+   * time, not a clinical number) ...
+   */
+  noMovementSec: 8,
+  /** ... and this many such attempts end the movement as not measured, no_active_movement, as a «no» did. */
+  noMovementTries: 2,
   /** v1.1 maxRetries: «up to 2 extra» (rom-protocol 1.1 step 7; the server's MAX_RETRIES). */
   maxRetries: 2,
   /** v1 SPEC-GAP wrong-arm: the other arm held at this angle or more while the asked arm stays relaxed. */
@@ -269,6 +278,13 @@ interface Attempt {
   /** The first filtered angle and the time the movement started (it left the hold band around it). */
   startDeg: number | null;
   firstMove: number | null;
+  /**
+   * The angle's level (the median of the filtered angle over the hold's second, as hold.ts reads «the
+   * movement started» for a small hold) went beyond the hold band from the start pose's angle toward
+   * the end range (noMovementDue).
+   */
+  moved: boolean;
+  level: RunningMedian;
   /** Milliseconds added to the attempt's clock: questions, keep reaching. */
   extendMs: number;
   /** The hold asked about now (phase ask_max), or answered «it hurts» (phase ask_pain). */
@@ -331,6 +347,10 @@ export class RomRunner {
   private readonly retryIssues = new Set<QualityIssue>();
   private readonly reports: QualityReport[] = [];
   private noHoldTries = 0;
+  /** Attempts ended with no movement from the start pose (RUNNER_RULES.noMovementSec). */
+  private noMoveTries = 0;
+  /** An attempt of this movement moved: the joint moves, so later tries keep the full 20 s (noMovementDue). */
+  private everMoved = false;
   private holdCount = 0;
   /** Every hold answered or timed out (first answer per hold wins, across attempts). */
   private readonly answered = new Set<string>();
@@ -891,6 +911,8 @@ export class RomRunner {
       plateau: new PlateauDetector(this.holdOpts),
       startDeg: null,
       firstMove: null,
+      moved: false,
+      level: new RunningMedian(ROM_DATA.engine.holdSeconds * 1000),
       extendMs: 0,
       current: null,
       kept: null,
@@ -954,6 +976,11 @@ export class RomRunner {
       if (a.arm && this.armWatch(a.arm, t, px, ctx, f)) return;
       if (a.startDeg === null) a.startDeg = f;
       else if (a.firstMove === null && Math.abs(f - a.startDeg) > this.holdOpts.bandDeg) a.firstMove = t;
+      const level = a.level.push(t, f);
+      if (this.cal && this.holdOpts.direction * (level - this.cal.startDeg) > this.holdOpts.bandDeg) {
+        a.moved = true;
+        this.everMoved = true;
+      }
       this.emitHits(this.comp.frame({ t, px, ctx, angle: f }));
       if (!a.practice && this.comp.invalid.length) {
         this.repeat(t, "invalid", this.comp.invalid);
@@ -970,7 +997,46 @@ export class RomRunner {
         return;
       }
     }
+    if (this.noMovementDue(a, t)) {
+      this.noMovement(t);
+      return;
+    }
     if (t >= this.deadline(a)) this.timeout(t);
+  }
+
+  /**
+   * No attempt of this movement has moved yet, and this one read the angle but for noMovementSec its
+   * level never went beyond the hold band from the start pose's angle (the calibration's median) toward
+   * the end range. Once the joint has moved it can: later tries keep the full attempt time.
+   */
+  private noMovementDue(a: Attempt, t: number): boolean {
+    return (
+      !this.everMoved &&
+      !a.moved &&
+      a.startDeg !== null &&
+      t - a.t0 - a.extendMs >= RUNNER_RULES.noMovementSec * 1000
+    );
+  }
+
+  /**
+   * No movement from the start pose (D-034): the attempt ends as one without a hold (no_hold, the
+   * practice or a repeat); at the second, the movement ends not measured with no blame: reason
+   * no_active_movement and its line («لا بأس. سنسجّل ذلك، وسيراعيه برنامجك.»), as a «no» to «can you move
+   * it» did. The hold and its question are not touched.
+   */
+  private noMovement(t: number): void {
+    const a = this.att!;
+    this.noMoveTries++;
+    const last = this.noMoveTries >= RUNNER_RULES.noMovementTries;
+    if (a.practice) this.endPractice(t, null, null, !last);
+    else {
+      this.noHoldTries++;
+      this.repeat(t, "no_hold", [], undefined, !last);
+    }
+    if (!last || this.finished) return;
+    this.notMeasured = "no_active_movement";
+    this.cue("no_active_movement", t);
+    this.end(t);
   }
 
   /**
@@ -1166,7 +1232,12 @@ export class RomRunner {
     this.repeat(t, "no_hold", []);
   }
 
-  private endPractice(t: number, found: HoldFound | null, verdict: HoldVerdict | null): void {
+  private endPractice(
+    t: number,
+    found: HoldFound | null,
+    verdict: HoldVerdict | null,
+    thenRest = true,
+  ): void {
     const a = this.att!;
     this.att = null;
     const q = a.monitor.report();
@@ -1193,7 +1264,7 @@ export class RomRunner {
     this.practiceDone = true;
     this.comp.endPractice();
     this.sink.push({ kind: "attempt", record: this.practiceRec });
-    this.rest(t);
+    if (thenRest) this.rest(t);
   }
 
   private holdFlags(
@@ -1257,6 +1328,7 @@ export class RomRunner {
     why: "invalid" | "quality" | "no_hold" | "wrong_arm" | "camera_moved",
     ids: string[],
     report?: QualityReport,
+    thenRetry = true,
   ): void {
     const a = this.att!;
     // The camera may move only while the retries still allowed fit in what a stored result can carry
@@ -1293,6 +1365,8 @@ export class RomRunner {
     this.repeated++;
     this.sink.push({ kind: "attempt", record: rec });
     if (why === "quality" && q.issues.length) this.sink.push({ kind: "quality", issue: q.issues[0], t });
+    // The movement ends here without a retry (the second attempt with no movement, noMovement).
+    if (!thenRetry) return;
     if (why === "camera_moved") {
       // v1 map 2.12: a moved picture is not the person's failure and uses no retry; the start pose is
       // taken again in the new picture after the rest, and the same attempt follows.

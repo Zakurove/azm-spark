@@ -10,7 +10,7 @@ import { MOVEMENT_ANGLES } from "../../src/engine/rom/angles";
 import type { Landmark } from "../../src/engine/types";
 import type { RomMovementId } from "../../src/movements/rom/types";
 import { ROM_DATA } from "../../src/movements/rom";
-import type { GenSpec } from "../fixtures/gen";
+import { romRestDeg, type GenSpec } from "../fixtures/gen";
 import { romSpec, runRom, type RomRun } from "./b-fixtures";
 
 const VIEW_LINES = ["check_face_phone", "check_left_side_to_phone", "check_right_side_to_phone"];
@@ -143,5 +143,83 @@ describe("one frame landmark jumps never move the dial (D-034 item 1)", () => {
         worst = Math.max(worst, Math.abs(a - 135));
     }
     expect(worst).toBeGreaterThan(10);
+  });
+});
+
+describe("a joint that cannot move does not wait out the 20 s tries (D-034)", () => {
+  const still = (movement: RomMovementId, over: Partial<Parameters<typeof romSpec>[0]> = {}) => {
+    const rest = romSpec({
+      name: `rom/home-runner/still-${movement}`,
+      movement,
+      position: "seated",
+      side: "right",
+      aspect: "16:9",
+      peak: 0,
+      fps: 30,
+      ...over,
+    });
+    return rest;
+  };
+
+  it("no movement from the start pose: two 8 s tries, then not measured with no blame", () => {
+    for (const movement of ["shoulder_flexion", "elbow_extension", "elbow_flexion"] as const) {
+      // The person stays at the start pose (a repetition to the start pose's own angle).
+      const run = runRom(still(movement, { peak: romRestDeg(movement, "seated"), durationSec: 60 }));
+      const r = run.result;
+      expect({ status: r.status, reason: r.reason, ok: r.quality.ok }, movement).toEqual({
+        status: "not_measured",
+        reason: "no_active_movement",
+        ok: true,
+      });
+      expect(r.value).toBeNull();
+      const lines = run.events.flatMap((e) =>
+        e.kind === "cue" && e.cue === "no_active_movement" ? [e.t] : [],
+      );
+      expect(lines).toHaveLength(1);
+      // The start pose (about 1 s), 8 s, the 5 s rest, 8 s: done long before one 20 s try and its rest.
+      const done = run.events.find((e) => e.kind === "done")!.t;
+      expect(done).toBeLessThan(23_000);
+      expect(run.records.map((a) => `${a.outcome}:${a.reasons.join("+")}`)).toEqual([
+        "practice:no_hold",
+        "retry:no_hold",
+      ]);
+      expect(run.holds).toEqual([]);
+    }
+  });
+
+  it("a person who starts 6 s into each try is measured as before", () => {
+    const base = romSpec({
+      name: "rom/home-runner/slow-start",
+      movement: "shoulder_flexion",
+      position: "seated",
+      side: "right",
+      aspect: "16:9",
+      peak: 150,
+      fps: 30,
+      starts: [7, 23, 39, 55],
+    });
+    const run = runRom(base);
+    expect(run.result.status).toBe("measured");
+    expect(run.result.nValid).toBe(3);
+    expect(Math.abs(run.result.value! - 150)).toBeLessThanOrEqual(5);
+    expect(run.events.some((e) => e.kind === "cue" && e.cue === "no_active_movement")).toBe(false);
+  });
+
+  it("one try without movement, then a movement: measured (the hold and its question unchanged)", () => {
+    const base = romSpec({
+      name: "rom/home-runner/late-mover",
+      movement: "elbow_flexion",
+      position: "seated",
+      side: "right",
+      aspect: "16:9",
+      peak: 130,
+      fps: 30,
+      // The practice passes with no movement (ends at 8 s), the next tries move.
+      starts: [16, 32, 48, 64],
+    });
+    const run = runRom(base);
+    expect(run.records[0]).toMatchObject({ outcome: "practice", reasons: ["no_hold"] });
+    expect(run.result.status).toBe("measured");
+    expect(Math.abs(run.result.value! - 130)).toBeLessThanOrEqual(5);
   });
 });

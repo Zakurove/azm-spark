@@ -224,6 +224,8 @@ export async function runCoachLab(
           break;
         case "turnComplete":
           turns++;
+          // One turn's words apart from the next one's.
+          if (said && !said.endsWith(" ")) said += " ";
           if (heard.trim()) answeredAt ??= deps.now();
           lastTurnAt = deps.now();
           break;

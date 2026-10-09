@@ -70,7 +70,8 @@ const COPY = {
     signInLink: "تسجيل الدخول",
     consent: "وافق على المدرّب المباشر في نموذج حالتك الطبية أولًا، ثم أعد الاختبار.",
     cameraFailed: "لم تعمل الكاميرا، فجرى الاختبار دونها:",
-    seconds: (ms: number) => `${(ms / 1000).toLocaleString("ar", { maximumFractionDigits: 1 })} ث`,
+    seconds: (ms: number) =>
+      `${(ms / 1000).toLocaleString("ar", { maximumFractionDigits: ms < 1000 ? 2 : 1 })} ث`,
   },
   en: {
     title: "Coach connection test",
@@ -106,7 +107,8 @@ const COPY = {
     signInLink: "Sign in",
     consent: "Agree to the live coach in your health form first, then run the test again.",
     cameraFailed: "The camera did not start, so the test ran without it:",
-    seconds: (ms: number) => `${(ms / 1000).toLocaleString("en", { maximumFractionDigits: 1 })} s`,
+    seconds: (ms: number) =>
+      `${(ms / 1000).toLocaleString("en", { maximumFractionDigits: ms < 1000 ? 2 : 1 })} s`,
   },
 } as const;
 

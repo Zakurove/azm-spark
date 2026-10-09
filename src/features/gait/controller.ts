@@ -1285,13 +1285,19 @@ export class GaitController implements CoachHost {
     return out;
   }
 
+  /** A diagnostic line: the option's, else the browser console (none outside a browser, the tests). */
+  private log(line: string): void {
+    if (this.opts.log) this.opts.log(line);
+    else if (typeof window !== "undefined") console.info(line);
+  }
+
   /** The end of the walk's lines: each recording, or that nothing was recorded and why. */
   private logEnd(): void {
     const kept = [...this.recordings.values()].filter((r) => !r.skipped && r.recorder.seconds >= 1);
     for (const r of kept) this.logCheck(r, "end");
     if (!kept.length) {
       const left = [...this.recordings.values()].filter((r) => r.skipped).map((r) => r.id);
-      (this.opts.log ?? ((l: string) => console.info(l)))(
+      this.log(
         `[azm gait] end: not analysed (nothing recorded${left.length ? `; left out ${left.join(", ")}` : ""})`,
       );
     }
@@ -1309,7 +1315,7 @@ export class GaitController implements CoachHost {
       `[azm gait] ${what} ${r.id}: passes ${d.passes}, steps ${d.steps}, ${d.seconds} s, ` +
       `cycles ${d.cleanCycles.left}/${d.cleanCycles.right}, visible ${d.visibleShare ?? "none"}, ` +
       `fps ${d.fps ?? "none"}, ${verdict}`;
-    (this.opts.log ?? ((l: string) => console.info(l)))(line);
+    this.log(line);
   }
 
   /** Clean cycles a side over a recording's views together (the view group, C3-1). */

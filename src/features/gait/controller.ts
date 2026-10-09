@@ -1220,6 +1220,30 @@ export class GaitController implements CoachHost {
     );
   }
 
+  /**
+   * The gait lab (D-035 item 4): the current or last recording read now, without changing the walk
+   * (the capture itself reads only at its checkpoints, 2.8).
+   */
+  analyseNow(): GaitViewResult[] {
+    const s = this.current;
+    const r = s.rec ? this.recordings.get(s.rec) : [...this.recordings.values()].pop();
+    return r ? this.analyseRecording(r, this.setup()) : [];
+  }
+
+  /** The gait lab's «finish now»: the recording is read as it is and the walk goes on, kept. */
+  finishNow(now: number): boolean {
+    const s = this.current;
+    if (s.id !== "walk" || !s.rec) return false;
+    const r = this.recOf(s.rec);
+    this.pendingCheck = false;
+    r.checkedAt = now;
+    r.results = this.analyseRecording(r, this.setup());
+    r.gatePassed = walkVerdict(r.results).level === "full";
+    this.logCheck(r, "check");
+    this.finishRecording(r, now);
+    return true;
+  }
+
   /* ---------------------------------------------------------- diagnostics */
 
   /** What each recording found so far (D-035 item 4): the gait lab shows it, the log writes it. */

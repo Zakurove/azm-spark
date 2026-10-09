@@ -333,6 +333,36 @@ export const GAIT_CATALOG: readonly GaitCatalogEntry[] = [
       "Four walks toward the phone and back with steps of 0.5 m: the front and back views together give each side its clean cycles at the capture's first checkpoint (step C4).",
   },
   {
+    name: "home-side",
+    spec: {
+      view: "side",
+      passes: 6,
+      seed: 908,
+      home: { pathM: 3 },
+      passShiftM: 0.3,
+      camera: { distance: 3 },
+      noise: 0.002,
+      jitterMs: 8,
+    },
+    notes:
+      "At home (D-035 item 2): six passes across the picture and back on a 3 m path, 3 m from a phone on a shelf, each turn in place inside the picture.",
+  },
+  {
+    name: "home-wall",
+    spec: {
+      view: "front",
+      passes: 4,
+      seed: 909,
+      home: { farM: 4.5, nearM: 1.2 },
+      passShiftM: 0.4,
+      camera: { lateral: 0.3 },
+      noise: 0.002,
+      jitterMs: 8,
+    },
+    notes:
+      "At home (D-035 item 2): four walks toward a phone standing against a wall, each turning a step before it and walking back, nobody leaving the picture.",
+  },
+  {
     name: "pad-side-right-weaker-right",
     spec: {
       view: "pad_side",

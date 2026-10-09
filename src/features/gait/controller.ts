@@ -36,7 +36,13 @@ import { analyseGaitGroup, analyseStaticStance, combineViews } from "../../engin
 import { LiveStepCounter, type LiveFacing } from "../../engine/gait/live";
 import { ENGINE_VERSION, GAIT_ENGINE, GAIT_MVP } from "../../engine/gait/params";
 import { GaitRecorder } from "../../engine/gait/recorder";
-import { walkVerdict, type WalkLevel, type WalkReason } from "../../engine/gait/verdict";
+import {
+  groupPassed,
+  isTimingReading,
+  walkVerdict,
+  type WalkLevel,
+  type WalkReason,
+} from "../../engine/gait/verdict";
 import type {
   GaitAnalysis,
   GaitFrame,
@@ -1338,7 +1344,12 @@ export class GaitController implements CoachHost {
     for (const id of order) {
       const r = this.recordings.get(id);
       if (!r || r.skipped || r.recorder.seconds < 1) continue;
-      views.push(...this.analyseRecording(r, setup));
+      const results = this.analyseRecording(r, setup);
+      // D-035 item 4: a view that neither passed its group's gate nor gave a timing only reading keeps
+      // its quality (the reasons, stored as the walk's diagnostic) and none of its numbers, so a walk
+      // the model tracked badly never shows or stores a cadence.
+      const passed = groupPassed(results);
+      views.push(...results.map((v) => (passed || isTimingReading(v) ? v : { ...v, metrics: {} })));
     }
     if (!views.length) return null;
     const stance: StaticStanceResult[] = [];

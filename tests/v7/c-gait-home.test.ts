@@ -208,6 +208,9 @@ describe("a recording that gives nothing (item 4: never end with nothing)", () =
     const body = run.ctl.body()!;
     expect(body.analysis.views.map((v) => v.view)).toEqual(["side"]);
     expect(body.analysis.views[0].quality.issues).toContain("wrong_view");
+    // The diagnostic keeps the reasons and no number of a walk that was not read.
+    expect(body.analysis.views[0].metrics).toEqual({});
+    expect(body.analysis.combined).toEqual({});
     expect(checkGaitBody(body as never, HOME).ok).toBe(true);
     const d = run.ctl.diagnostics()[0];
     expect(d).toMatchObject({ rec: "overground_side", level: "none" });

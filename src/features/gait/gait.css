@@ -30,6 +30,20 @@
     radial-gradient(60% 60% at 50% 45%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
     linear-gradient(160deg, #f6f1fb, #fbf6ea);
 }
+figure.gx-art {
+  margin: 0;
+  gap: 8px;
+}
+/* D-035 item 2: one plain line under the walk's picture. */
+.gx-art-caption {
+  margin: 0;
+  padding: 0 8px 4px;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: #5b3f8f;
+}
 .gx-placement {
   width: 100%;
   max-width: 420px;

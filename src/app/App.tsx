@@ -204,20 +204,8 @@ const EXIT_URLS: Partial<Record<ExitTarget, string>> = {
   demo: "/?demo=1&autostart=1",
   signIn: "/?app=1",
 };
-/**
- * The walk lab (D-035 item 4): /?gaitlab=side|front, VITE_V7 builds only, signed in or not, never
- * saving (the env test written inline, so a default build has no chunk for it).
- */
-const GaitLab = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/gait/GaitLab")) : null;
-const gaitLabEntry = GaitLab ? qs.get("gaitlab") : null;
 /** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
 export default function App() {
-  if (GaitLab && gaitLabEntry)
-    return (
-      <Suspense fallback={null}>
-        <GaitLab view={gaitLabEntry} />
-      </Suspense>
-    );
   return PerfOverlay && perfEntry ? (
     <>
       <Pages />
@@ -261,7 +249,22 @@ function ProgramBuildPreview() {
     </div>
   );
 }
+/**
+ * The walk lab (D-035 item 4): /?gaitlab=side|front, VITE_V7 builds only, signed in or not, never
+ * saving (the env test written inline, so a default build has no chunk for it); else the portal.
+ */
+const GaitLab = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/gait/GaitLab")) : null;
+const gaitLabEntry = GaitLab ? qs.get("gaitlab") : null;
 function Pages() {
+  return GaitLab && gaitLabEntry ? (
+    <Suspense fallback={null}>
+      <GaitLab view={gaitLabEntry} />
+    </Suspense>
+  ) : (
+    <PortalPages />
+  );
+}
+function PortalPages() {
   const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar"),
     [account, setAccount] = useState<AccountState | null>(null),
     [loading, setLoading] = useState(true),

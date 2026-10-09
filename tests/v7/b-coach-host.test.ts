@@ -202,12 +202,15 @@ describe("answer_can_move and set_limit_cause", () => {
   });
 
   it("answers the cause question once the scored attempts end short of normal", () => {
-    // A knee that bends to 100 (typical 130 or more): the cause question opens after the third attempt.
+    // A knee that bends to 100 (typical 130 or more): the cause question opens after the attempt that
+    // records the value (one valid attempt, D-035).
     const ctl = setup();
     runBlock(ctl, { target: () => 100, until: (c) => c.phase === "ask_cause" }, 300);
     expect(ctl.phase).toBe("ask_cause");
     expect(ctl.handleTool("set_limit_cause", { cause: "weak" })).toEqual({ accepted: true, say: "recorded" });
     expect(ctl.current.kind).toBe("result");
+    // The card may offer one more try: its result is saved once the card is left.
+    ctl.next(1e6);
     const [saved] = saves(ctl.drain()).slice(-1);
     expect(saved.result.cause).toBe("weak");
   });

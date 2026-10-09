@@ -721,3 +721,85 @@ describe("the phone's roll and tilt (FeedEnv, rom-protocol true vertical, the se
     expect(ctl.setupIssue).toBe("tilt");
   });
 });
+
+describe("the second try from the result card (D-035 item 1)", () => {
+  const BEND = MOVEMENT_CASES.knee_flexion;
+  const atCard = () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    const run = runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+    return { ctl, run };
+  };
+
+  it("a result whose card may offer one more try is saved when the card is left", () => {
+    const { ctl, run } = atCard();
+    const s = ctl.current;
+    if (s.kind !== "result") throw new Error("no result card");
+    expect(s.item.movementId).toBe("knee_flexion");
+    expect(s.result).toMatchObject({ status: "measured", nValid: 1 });
+    expect(saves(run.events)).toEqual([]);
+    expect(ctl.canTryAgain).toBe(true);
+    expect(ctl.next(run.t + 500)).toBe(true);
+    const saved = saves(ctl.drain());
+    expect(saved.map((e) => [itemKey(e.item), e.result.value])).toEqual([
+      ["knee_flexion:right", s.result.value],
+    ]);
+  });
+
+  it("one more try runs the same movement again, keeps the further value and is saved once; never a third", () => {
+    const { ctl, run } = atCard();
+    const first = ctl.current.kind === "result" ? ctl.current.result : null;
+    expect(ctl.tryAgain(run.t + 200)).toBe(true);
+    expect(ctl.current.kind).toBe("measure");
+    expect(ctl.phase).toBe("calibrating");
+    expect(saves(ctl.drain())).toEqual([]);
+    const again = runBlock(
+      ctl,
+      { target: () => BEND.target + 10, until: (c) => c.current.kind === "result" },
+      120,
+      run.t + 200,
+    );
+    const s = ctl.current;
+    if (s.kind !== "result") throw new Error("no result card");
+    expect(s.result.nValid).toBe(2);
+    expect(s.result.attempts.map((a) => a.index)).toEqual([1, 2]);
+    expect(s.result.value).toBeGreaterThan(first!.value!);
+    expect(ctl.canTryAgain).toBe(false);
+    expect(ctl.tryAgain(again.t + 100)).toBe(false);
+    // Nothing more to offer: the second try's result is saved at once, the only save of the movement.
+    ctl.next(again.t + 500);
+    const saved = [...saves(again.events), ...saves(ctl.drain())];
+    expect(saved).toHaveLength(1);
+    expect(saved[0].result).toMatchObject({ nValid: 2, value: s.result.value });
+  });
+
+  it("a stop during the second try keeps the first value: saved, the stop list opens over its card", () => {
+    const { ctl, run } = atCard();
+    const first = ctl.current.kind === "result" ? ctl.current.result : null;
+    ctl.tryAgain(run.t + 200);
+    ctl.drain();
+    ctl.requestStop(run.t + 1500);
+    expect(ctl.current.kind).toBe("result");
+    expect(ctl.stopList).toEqual({ preselect: null, item: null });
+    const saved = saves(ctl.drain());
+    expect(saved).toHaveLength(1);
+    expect(saved[0].result).toMatchObject({ status: "measured", value: first!.value, nValid: 1 });
+  });
+
+  it("the stop list opened from a result card saves that result first", () => {
+    const { ctl, run } = atCard();
+    ctl.requestStop(run.t + 300);
+    const saved = saves(ctl.drain());
+    expect(saved.map((e) => itemKey(e.item))).toEqual(["knee_flexion:right"]);
+    expect(ctl.canTryAgain).toBe(false);
+  });
+
+  it("the lying block's last movement goes into the sit minute, saved at once (no second try there)", () => {
+    const ctl = controller(protocolOf(KNEE));
+    ctl.startBlock("lying", 0);
+    const run = runBlock(ctl, { until: (c) => c.current.kind === "sit" }, 400);
+    const keys = saves(run.events).map((e) => itemKey(e.item));
+    expect(keys).toContain("knee_extension:right");
+    expect(keys).toContain("knee_flexion:right");
+  });
+});

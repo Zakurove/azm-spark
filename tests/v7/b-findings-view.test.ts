@@ -305,10 +305,15 @@ describe("findingsView: the page's groups and rows", () => {
     expect(ext.bar!.typical).toBeNull();
   });
 
-  it("notes the approximate comparison the person sees, and a first reading from one valid try", () => {
+  it("notes the approximate comparison the person sees, and a first reading stored provisional", () => {
     expect(row(ar, "shoulder_flexion").notes).toContain(romResultLine("label_approximate").ar);
+    // D-035: one valid try is graded as it is; a row stored provisional before keeps its note.
     const one = [measured(FAHD, "knee_flexion", "right", "lying_back", 95, { nValid: 1 })];
-    expect(row(findingsView(answer(FAHD, one), FAHD, "ar"), "knee_flexion").notes).toEqual([
+    expect(row(findingsView(answer(FAHD, one), FAHD, "ar"), "knee_flexion").notes).toEqual([]);
+    const older = [
+      measured(FAHD, "knee_flexion", "right", "lying_back", 95, { nValid: 1 }, { flags: ["provisional"] }),
+    ];
+    expect(row(findingsView(answer(FAHD, older), FAHD, "ar"), "knee_flexion").notes).toEqual([
       romResultLine("label_provisional").ar,
     ]);
   });

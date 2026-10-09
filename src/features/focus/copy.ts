@@ -12,7 +12,7 @@ import { interpolate } from "../../i18n";
 import { tV7 } from "../../i18n/v7";
 import type { Intake } from "../../medical/plan";
 import type { RomProtocolItem } from "../../medical/rom-protocol";
-import { shownApproximate, normFor } from "../../medical/rom-norms";
+import { MIN_VALID_FOR_GRADE, shownApproximate, normFor } from "../../medical/rom-norms";
 import type { RomFindingId } from "../../medical/rom-types";
 import type { RomMeasureResult } from "../../engine/rom/types";
 import { cueLine } from "../../movements/assessments";
@@ -219,7 +219,8 @@ export function resultView(
       label = romResultLine("label_uncertain")[lang];
   }
   if (finding === "marked") more.push(romResultLine("finding_new")[lang]);
-  if (result.nValid === 1) notes.push(romResultLine("label_provisional")[lang]);
+  // D-035: one valid attempt records the value, graded as it is (MIN_VALID_FOR_GRADE).
+  if (result.nValid < MIN_VALID_FOR_GRADE) notes.push(romResultLine("label_provisional")[lang]);
   const pick = intake
     ? normFor(
         item.movementId,
@@ -229,6 +230,8 @@ export function resultView(
         item.side === "none" ? undefined : item.side,
       )
     : null;
-  if (shownApproximate(def, pick, v, result.flags)) notes.push(romResultLine("label_approximate")[lang]);
+  // D-035: a compensation that no longer discards the attempt shows the approximate label too.
+  if (shownApproximate(def, pick, v, result.flags) || result.flags.includes("approximate"))
+    notes.push(romResultLine("label_approximate")[lang]);
   return { value, typical, line, label, finding, notes, more };
 }

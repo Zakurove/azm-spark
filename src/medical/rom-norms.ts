@@ -427,6 +427,31 @@ export function gradeBand(def: RomMovementDef, pick: NormPick): GradeBand {
 
 /* -------------------------------------------------------- the server grade */
 
+/**
+ * D-035 item 1: the valid attempts a value needs to be graded as it is in the MVP, where one valid
+ * attempt records the value. The data writes engine.minValidForGrade 2 (contract change log R7-3, a
+ * gap with its proposal): under it the grade would be provisional for everyone.
+ */
+export const MIN_VALID_FOR_GRADE = 1;
+
+/**
+ * D-035 item 1: a compensation at its invalid level no longer discards the attempt; the value is then
+ * approximate. Read from the raw attempts the server checked (C-3): the value's own valid attempt
+ * carries the id of a check whose effect is invalid.
+ */
+export function compensatedValue(result: RomMeasureResult): boolean {
+  if (result.value === null) return false;
+  const invalid = new Set(
+    movementDef(result.movementId)
+      .compensations.filter((c) => c.effect === "invalid")
+      .map((c) => c.id as string),
+  );
+  // A result rebuilt from a stored row may carry no attempts (the findings page's regrade).
+  return (result.attempts ?? []).some(
+    (a) => a.outcome === "valid" && a.value === result.value && a.reasons.some((r) => invalid.has(r)),
+  );
+}
+
 /** Flags the server derives itself (C-3): the client's copies are replaced, never trusted. */
 const DERIVED_FLAGS: readonly RomFlag[] = [
   "provisional",
@@ -443,7 +468,8 @@ function unique<T>(xs: readonly T[]): T[] {
  * What the server stores with each measurement (C-3), from the result and the intake: the norm pick, z,
  * grade and percent; the finding with painPrecedence (5.3: pain_limited when the end range was confirmed
  * with «it hurts» or a pain stop happened, the degree grade kept as gradeIgnoringPain); provisional
- * under engine.minValidForGrade valid attempts; approximate per thresholds.approximate; no_grade
+ * under MIN_VALID_FOR_GRADE valid attempts (D-035); approximate per thresholds.approximate or a
+ * compensated value (D-035, compensatedValue); no_grade
  * without a norm. A result without a value is not graded: unknown when the person could not move the
  * joint on their own (no_active_movement, the program never counts it as typical), else not_today.
  */
@@ -464,8 +490,9 @@ export function gradeMeasurement(result: RomMeasureResult, intake: Intake & { se
   const side = result.side === "none" ? undefined : result.side;
   const pick = normFor(def.id, result.position, intake.sex, intake.age, side);
   const derived: RomFlag[] = [];
-  if (result.nValid < ROM_DATA.engine.minValidForGrade) derived.push("provisional");
-  if (isApproximate(def, value, measured) || sdUnknown(pick)) derived.push("approximate");
+  if (result.nValid < MIN_VALID_FOR_GRADE) derived.push("provisional");
+  if (isApproximate(def, value, measured) || sdUnknown(pick) || compensatedValue(result))
+    derived.push("approximate");
   if (pick?.flags.includes("ageOutsideBand")) derived.push("ageOutsideBand");
   if (overRead(def.id, value)) derived.push("elevationOverRead");
   const flags = unique([...measured, ...derived]);

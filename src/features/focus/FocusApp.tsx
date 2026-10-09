@@ -780,6 +780,7 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
               intake={m.data.intake}
               last={!!last && itemKey(last) === itemKey(step.item)}
               onNext={() => c.next(clock())}
+              onAgain={() => c.tryAgain(clock())}
             />
           ),
         };

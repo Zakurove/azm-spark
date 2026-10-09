@@ -377,7 +377,8 @@ describe("buildRomProfile: every joint movement and side (contract 2.7, C-4)", (
       z: row.norm!.z,
       finding: "mild",
       gradeIgnoringPain: "mild",
-      provisional: true,
+      // D-035: one valid attempt is graded as it is (MIN_VALID_FOR_GRADE 1).
+      provisional: false,
       measuredAt: row.created,
       checkId: "check1",
       reason: null,
@@ -515,18 +516,23 @@ describe("romFindings: the limited results with their path, priority and line (e
     });
   });
 
-  it("gives each grade its priority: mild 2, marked and pain limited 3, one lower with one valid try", () => {
+  it("gives each grade its priority: mild 2, marked and pain limited 3, one lower when stored provisional", () => {
+    // D-035: a value from one valid try is no longer provisional; a row stored provisional before
+    // (an earlier engine) keeps its lower priority.
     const one = { nValid: 1 };
-    const cases: [RomMovementId, number, Partial<RomMeasureResult>, 1 | 2 | 3][] = [
-      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "mild"), {}, 2],
-      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "marked"), {}, 3],
-      ["knee_flexion", 100, { painLimited: true, painLevel: 3 }, 3],
-      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "mild"), one, 1],
-      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "marked"), one, 2],
-      ["knee_flexion", 100, { painLimited: true, painLevel: 3, ...one }, 2],
+    const cases: [RomMovementId, number, Partial<RomMeasureResult>, 1 | 2 | 3, boolean][] = [
+      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "mild"), {}, 2, false],
+      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "marked"), {}, 3, false],
+      ["knee_flexion", 100, { painLimited: true, painLevel: 3 }, 3, false],
+      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "mild"), one, 2, false],
+      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "mild"), one, 1, true],
+      ["knee_flexion", valueFor(FAHD, "knee_flexion", "right", "marked"), one, 2, true],
+      ["knee_flexion", 100, { painLimited: true, painLevel: 3, ...one }, 2, true],
     ];
-    for (const [id, value, over, priority] of cases) {
-      const e = entryOf(FAHD, measured(FAHD, id, "right", "lying_back", value, over));
+    for (const [id, value, over, priority, provisional] of cases) {
+      const row = measured(FAHD, id, "right", "lying_back", value, over);
+      if (provisional) row.flags = [...row.flags, "provisional"];
+      const e = entryOf(FAHD, row);
       expect(findingPriority(e), `${value} ${JSON.stringify(over)}`).toBe(priority);
     }
   });

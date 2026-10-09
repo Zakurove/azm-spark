@@ -10,7 +10,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CheckRoot } from "../../src/features/assessment/shared/CheckRoot";
-import { BlockCard, MeasureScreen, SetupCard } from "../../src/features/focus/RangeScreens";
+import { BlockCard, MeasureScreen, ResultScreen, SetupCard } from "../../src/features/focus/RangeScreens";
 import { RomController } from "../../src/features/focus/romController";
 import { buildRomProtocol } from "../../src/medical/rom-protocol";
 import { tV7 } from "../../src/i18n/v7";
@@ -94,5 +94,52 @@ describe("the camera setup says nothing has started, with Ready always on screen
     expect(css).toMatch(
       /\.fx-actions\.is-sticky \{[^}]*position: sticky;[^}]*bottom: 0;[^}]*env\(safe-area-inset-bottom\)/s,
     );
+  });
+});
+
+describe("the result card offers one more try only when the person may take it (D-035 item 1)", () => {
+  /** A controller on the knee bend's result card, measured with one valid attempt. */
+  const atCard = async () => {
+    const { runBlock } = await import("./b-shell-driver");
+    const ctl = new RomController({ protocol, painByRegion: {}, intake: KNEE, lang: "en", restSec: 1 });
+    ctl.startBlock("lying", 0);
+    const run = runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+    return { ctl, run };
+  };
+  const card = (lang: "ar" | "en", ctl: RomController, onAgain?: () => void) => {
+    const s = ctl.current;
+    if (s.kind !== "result") throw new Error("no result card");
+    return inRoot(
+      lang,
+      createElement(ResultScreen, {
+        lang,
+        ctl,
+        item: s.item,
+        result: s.result,
+        saved: null,
+        intake: KNEE,
+        last: false,
+        onNext: () => {},
+        ...(onAgain ? { onAgain } : {}),
+      }),
+    );
+  };
+
+  for (const lang of ["ar", "en"] as const)
+    it(`a quiet «try once more» beside Next, Next last (${lang})`, async () => {
+      const { ctl } = await atCard();
+      const html = card(lang, ctl, () => {});
+      expect(html).toContain(tV7(lang, "rom.result.again"));
+      expect(html).toMatch(/data-action="again"[^]*data-action="next"/);
+      expect(html).toMatch(/class="fx-button is-quiet"[^>]*data-action="again"/);
+    });
+
+  it("never after the second try, nor without the shell's handler", async () => {
+    const { ctl, run } = await atCard();
+    expect(card("en", ctl)).not.toContain('data-action="again"');
+    const { runBlock } = await import("./b-shell-driver");
+    ctl.tryAgain(run.t + 100);
+    runBlock(ctl, { until: (c) => c.current.kind === "result" }, 120, run.t + 100);
+    expect(card("en", ctl, () => {})).not.toContain('data-action="again"');
   });
 });

@@ -1334,12 +1334,11 @@ export class RomController implements CoachHost {
   }
 
   private go(step: RomStep): void {
-    // Leaving a result card (to anything but its own second try) saves its result.
-    if (
-      this.pendingSave &&
-      !(step.kind === "measure" && itemKey(step.item) === itemKey(this.pendingSave.item))
-    )
-      this.flushSave();
+    // Leaving a result card (to anything but the card itself or its own second try) saves its result.
+    const p = this.pendingSave;
+    const same =
+      (step.kind === "measure" || step.kind === "result") && p && itemKey(step.item) === itemKey(p.item);
+    if (p && !same) this.flushSave();
     this.stepNow = step;
     this.instructionsShown = false;
     if (step.kind !== "measure") {

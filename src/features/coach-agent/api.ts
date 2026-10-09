@@ -38,13 +38,25 @@ function isTokenResponse(v: unknown): v is TokenResponse {
 }
 
 /** POST /api/agent/token. Never throws: a refusal carries its status and code, no network is status 0. */
-export async function mintCoachToken(
-  req: TokenRequest,
+export function mintCoachToken(req: TokenRequest, fetchImpl: typeof fetch = fetch): Promise<MintResult> {
+  return postToken("/api/agent/token", req, fetchImpl);
+}
+
+/**
+ * POST /api/agent/lab-token (D-035 item 4): the connection test's one minute token, the same answer as
+ * a segment's. Never throws.
+ */
+export function mintLabToken(
+  req: { lang: "ar" | "en"; deviceId: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<MintResult> {
+  return postToken("/api/agent/lab-token", req, fetchImpl);
+}
+
+async function postToken(path: string, req: unknown, fetchImpl: typeof fetch): Promise<MintResult> {
   let res: Response;
   try {
-    res = await fetchImpl("/api/agent/token", {
+    res = await fetchImpl(path, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-Azm-Request": "1" },

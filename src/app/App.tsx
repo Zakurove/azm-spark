@@ -204,8 +204,24 @@ const EXIT_URLS: Partial<Record<ExitTarget, string>> = {
   demo: "/?demo=1&autostart=1",
   signIn: "/?app=1",
 };
+/**
+ * D-035 item 4: the coach's connection test, /?coachlab=1 (VITE_V7=1 builds only, the env test written
+ * inline), signed in; &lang=en for English. Each stage of the Live coach's connection on this phone.
+ */
+const CoachLab =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/coach-agent/CoachLab")) : null;
+const coachLabEntry = import.meta.env.VITE_V7 === "1" && qs.get("coachlab") === "1";
+function CoachLabPage() {
+  const lang: Lang = qs.get("lang") === "en" ? "en" : "ar";
+  return CoachLab ? (
+    <LazyPage lang={lang}>
+      <CoachLab lang={lang} />
+    </LazyPage>
+  ) : null;
+}
 /** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
 export default function App() {
+  if (CoachLab && coachLabEntry) return <CoachLabPage />;
   return PerfOverlay && perfEntry ? (
     <>
       <Pages />

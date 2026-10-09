@@ -52,7 +52,10 @@ describe("migration 006 (check_first)", () => {
     const five = new DatabaseSync(":memory:");
     runMigrations(five, { dbPath: ":memory:", migrations: migrations.filter((x) => x.version <= 5) });
     const before = five.prepare("SELECT name, tbl_name, sql FROM sqlite_master ORDER BY name").all();
-    expect(runMigrations(five, { dbPath: ":memory:" }).applied).toEqual([6]);
+    expect(
+      runMigrations(five, { dbPath: ":memory:", migrations: migrations.filter((x) => x.version <= 6) })
+        .applied,
+    ).toEqual([6]);
     const after = five.prepare("SELECT name, tbl_name, sql FROM sqlite_master ORDER BY name").all() as {
       tbl_name: string;
     }[];

@@ -221,7 +221,6 @@ function CoachLabPage() {
 }
 /** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
 export default function App() {
-  if (CoachLab && coachLabEntry) return <CoachLabPage />;
   return PerfOverlay && perfEntry ? (
     <>
       <Pages />
@@ -231,6 +230,8 @@ export default function App() {
     </>
   ) : ProgramBuild && programBuildEntry ? (
     <ProgramBuildPreview />
+  ) : CoachLab && coachLabEntry ? (
+    <CoachLabPage />
   ) : (
     <Pages />
   );

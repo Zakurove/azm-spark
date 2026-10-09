@@ -14,7 +14,7 @@
  * ?e2eCoach=fake run on the fake coach (no token, no Google) with the real microphone and speaker.
  */
 import { useEffect, useRef, useState } from "react";
-import type { Lang } from "../../app/i18n";
+import { fmtNum, type Lang } from "../../app/i18n";
 import Icon from "../../app/Icon";
 import { coachDeviceId, mintLabToken, sendUsageReport } from "./api";
 import { audioSessionType, coachAudioContext, unlockCoachAudio } from "./audio/context";
@@ -34,6 +34,9 @@ import { FakeLiveTransport } from "./fake";
 import { PhoneVoice } from "./phoneVoice";
 import { GenaiTransport } from "./transport";
 import "./coach.css";
+
+/** A step's time in seconds: to the hundredth under a second, to the tenth above. */
+const seconds = (ms: number) => (ms < 1000 ? Math.round(ms / 10) / 100 : Math.round(ms / 100) / 10);
 
 const COPY = {
   ar: {
@@ -70,8 +73,7 @@ const COPY = {
     signInLink: "تسجيل الدخول",
     consent: "وافق على المدرّب المباشر في نموذج حالتك الطبية أولًا، ثم أعد الاختبار.",
     cameraFailed: "لم تعمل الكاميرا، فجرى الاختبار دونها:",
-    seconds: (ms: number) =>
-      `${(ms / 1000).toLocaleString("ar", { maximumFractionDigits: ms < 1000 ? 2 : 1 })} ث`,
+    seconds: (ms: number) => `${fmtNum(seconds(ms), "ar")} ث`,
   },
   en: {
     title: "Coach connection test",
@@ -107,8 +109,7 @@ const COPY = {
     signInLink: "Sign in",
     consent: "Agree to the live coach in your health form first, then run the test again.",
     cameraFailed: "The camera did not start, so the test ran without it:",
-    seconds: (ms: number) =>
-      `${(ms / 1000).toLocaleString("en", { maximumFractionDigits: ms < 1000 ? 2 : 1 })} s`,
+    seconds: (ms: number) => `${fmtNum(seconds(ms), "en")} s`,
   },
 } as const;
 

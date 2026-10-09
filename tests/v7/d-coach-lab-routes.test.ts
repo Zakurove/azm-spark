@@ -7,6 +7,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { FOCUS_RULES } from "../../server/modules/focus/precheck";
 import { LAB_QUESTION, LAB_SEGMENT, LAB_SI_VERSION } from "../../server/modules/agent/lab";
+import { DatabaseSync } from "node:sqlite";
+import { migrations } from "../../server/db/migrations";
+import { runMigrations } from "../../server/db/migrate";
 import { PASSWORD, T0, startV7Api, type V7Harness } from "./a-harness";
 
 const KEY = "test-gemini-key-SECRET-lab-41c";
@@ -206,5 +209,31 @@ describe("the usage report's failure (D-035 item 3)", () => {
       const r = await h.call("/agent/usage", report(id, { failure }), cookie);
       expect(r.data, JSON.stringify(failure)).toEqual({ error: "USAGE_INVALID", field: "failure" });
     }
+  });
+});
+
+describe("migration 007 (coach_failure)", () => {
+  it("adds one nullable column to agent_sessions and leaves every row and definition as it was", () => {
+    const m = migrations.find((x) => x.version === 7)!;
+    expect(m).toMatchObject({ version: 7, name: "coach_failure" });
+    expect(m.sql.trim()).toBe("ALTER TABLE agent_sessions ADD COLUMN failure TEXT;");
+    const db = new DatabaseSync(":memory:");
+    runMigrations(db, { dbPath: ":memory:", migrations: migrations.filter((x) => x.version <= 6) });
+    db.exec(
+      "INSERT INTO users(id,email,name,password,created) VALUES('u1','a@example.test','A','x',1);" +
+        "INSERT INTO agent_sessions(id,user_id,block,segment,ref,day,device,model,instruction_version,minutes_reserved,minted,end_reason) VALUES('s1','u1','rom','rom:seated:1','c1','2026-10-09','d','m','coach_si_2',4,1,'fallback_error');",
+    );
+    const others = () =>
+      db
+        .prepare("SELECT name, sql FROM sqlite_master WHERE tbl_name <> 'agent_sessions' ORDER BY name")
+        .all();
+    const before = others();
+    expect(runMigrations(db, { dbPath: ":memory:" }).applied).toEqual([7]);
+    expect(others()).toEqual(before);
+    expect(db.prepare("SELECT end_reason, failure FROM agent_sessions WHERE id='s1'").get()).toEqual({
+      end_reason: "fallback_error",
+      failure: null,
+    });
+    db.close();
   });
 });

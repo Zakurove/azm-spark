@@ -203,6 +203,7 @@ function sideEventsOf(
   side: LimbSide,
   padNear: boolean,
   foot: number,
+  doubledRule = padNear,
 ): PassEvent[] {
   const s = p.series;
   const leg = LEG[side];
@@ -232,7 +233,7 @@ function sideEventsOf(
     footSeen < GAIT_ENGINE.gateShare ||
     disagreement([zIc.idx, zTo.idx], [aIc.idx, aTo.idx], GAIT_ENGINE.disagreeFrames) >
       GAIT_ENGINE.disagreeShare ||
-    (padNear && doubledInNearStride(s, pass, side, zIc.idx, zTo.idx));
+    (doubledRule && doubledInNearStride(s, pass, side, zIc.idx, zTo.idx));
   return fallback
     ? [
         ...toEvents(s, aIc, ankle, side, "ic", "ankle", passIndex),
@@ -279,19 +280,26 @@ function frontEventsOf(s: Series, pass: Pass, passIndex: number): PassEvent[] {
   ];
 }
 
-/** Every event of the view's passes, in time order; `pad` for a pad side view (its foot detector rule). */
+/**
+ * Every event of the view's passes, in time order; `pad` for a pad side view (its foot detector rule
+ * and its far leg mask). `near`: the overground side view's timing reading (D-035 item 2), which masks
+ * the far leg's contacts that lie on the near leg as the pad does, without the pad's doubled stride
+ * rule (a pass at home holds its stop and turn, whose small steps double a kind in a stride).
+ */
 export function detectEvents(
   p: Prepared,
   passes: readonly Pass[],
   kind: "side" | "front",
   pad = false,
+  near = false,
 ): PassEvent[] {
   const out: PassEvent[] = [];
-  const foot = pad ? footLength(p.series) : 0;
+  const foot = pad || near ? footLength(p.series) : 0;
   passes.forEach((pass, i) => {
     if (kind === "front") out.push(...frontEventsOf(p.series, pass, i));
     else
-      for (const side of ["left", "right"] as const) out.push(...sideEventsOf(p, pass, i, side, pad, foot));
+      for (const side of ["left", "right"] as const)
+        out.push(...sideEventsOf(p, pass, i, side, pad || near, foot, pad));
   });
   return out.sort((a, b) => a.index - b.index || (a.type === b.type ? 0 : a.type === "ic" ? -1 : 1));
 }

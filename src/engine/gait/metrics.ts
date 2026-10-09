@@ -82,6 +82,13 @@ export interface MetricInput {
   fps: number;
   /** Timing only whatever the frame rate: the MVP's timing only reading of a view below its gate (GAIT_MVP). */
   timingOnly?: boolean;
+  /**
+   * The MVP's timing only reading: cadence from the clean cycles' strides, 120 over their median
+   * (two steps in each stride, so only the same leg's two contacts are read, and one stride the model
+   * misread does not move it), not from the step ending each cycle, whose other leg's contact a side
+   * view at home often hides (D-035 item 2).
+   */
+  cadenceFromStrides?: boolean;
 }
 
 type Sided = Record<LimbSide, number[]>;
@@ -232,9 +239,18 @@ export function viewMetrics(m: MetricInput): Partial<Record<GaitMetricId, GaitMe
   }
   const stepTimes = [...step.left, ...step.right];
   const stepSum = stepTimes.reduce((a, b) => a + b, 0);
+  const strideTimes = bounded("stride_time_s", [...stride.left, ...stride.right]);
+  const strideMid = median(strideTimes);
   put(
     "cadence",
-    whole("cadence", view, stepSum > 0 ? (60 * stepTimes.length) / stepSum : null, stepTimes.length),
+    m.cadenceFromStrides
+      ? whole(
+          "cadence",
+          view,
+          strideMid !== null && strideMid > 0 ? 120 / strideMid : null,
+          2 * strideTimes.length,
+        )
+      : whole("cadence", view, stepSum > 0 ? (60 * stepTimes.length) / stepSum : null, stepTimes.length),
   );
   put("step_time_s", perSide("step_time_s", view, step));
   put("stride_time_s", perSide("stride_time_s", view, stride));

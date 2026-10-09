@@ -38,7 +38,25 @@ export interface GaitLabState {
   status: "running" | "done";
   view: GaitLabView;
   result: GaitLabResult | null;
+  /**
+   * VITE_E2E builds with frames=1: the subject's landmarks of each recording (the real model smoke
+   * keeps them as a regression): [t, x, y, visibility of each of KEPT_LANDMARKS], to 4 decimals.
+   */
+  frames?: { rec: string; aspect: number; standing: number[][]; frames: number[][] }[];
 }
+
+/** The landmarks the smoke keeps: the face (the facing), the arms and the legs. */
+export const KEPT_LANDMARKS: readonly number[] = [
+  0, 2, 5, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+];
+const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
+const rowOf = (f: { t: number; lm: { x: number; y: number; visibility?: number }[] }) => [
+  Math.round(f.t * 10) / 10,
+  ...KEPT_LANDMARKS.flatMap((id) => {
+    const q = f.lm[id];
+    return q ? [r4(q.x), r4(q.y), r4(q.visibility ?? 0)] : [0, 0, 0];
+  }),
+];
 
 export interface GaitLabResult {
   view: GaitLabView;
@@ -335,12 +353,23 @@ export default function GaitLab({ view: asked }: { view: string }) {
     setResult(resultOf(ctl, view, lang, focus.model, heightCm));
   }, [step.id, result, ctl, view, lang, focus.model, heightCm]);
   useEffect(() => {
+    const keep = import.meta.env.VITE_E2E === "1" && qs.get("frames") === "1" && result;
     (window as unknown as { __azmGaitLab?: GaitLabState }).__azmGaitLab = {
       status: result ? "done" : "running",
       view,
       result,
+      ...(keep
+        ? {
+            frames: ctl.recordedFrames().map((r) => ({
+              rec: r.rec,
+              aspect: r.frames[0]?.aspect ?? r.standing[0]?.aspect ?? 1,
+              standing: r.standing.map(rowOf),
+              frames: r.frames.map(rowOf),
+            })),
+          }
+        : {}),
     };
-  }, [result, view]);
+  }, [result, view, ctl, qs]);
 
   const restart = () => {
     setResult(null);

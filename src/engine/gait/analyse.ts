@@ -23,7 +23,7 @@
  */
 import { buildCycles, type Cycle } from "./cycles";
 import { combineViews as combine } from "./combine";
-import { detectEvents } from "./events";
+import { detectEvents, type PassEvent } from "./events";
 import { dropAt } from "./kinematics";
 import { viewMetrics } from "./metrics";
 import {
@@ -40,7 +40,7 @@ import { viewFps, viewQuality } from "./quality";
 import { replayOf } from "./replay";
 import { beltMps, pxPerMetre } from "./scale";
 import { standingZeros } from "./standing";
-import { consistent, groupPassed } from "./verdict";
+import { consistent, groupPassed, trustedPasses } from "./verdict";
 import type {
   GaitAnalysis,
   GaitCycle,
@@ -146,6 +146,7 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
     const motion = passesOf(p, view, near, steady);
     const events = detectEvents(p, motion.passes, kind, view === "pad_side");
     const cycles = buildCycles(p, motion, events, kind, isOverground(view), steady);
+    if (timingOnly) trustedPasses(cycles);
     const fps = viewFps(p, motion);
     const metrics = viewMetrics({
       p,
@@ -158,6 +159,7 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
       rollKnown: roll !== null,
       fps,
       timingOnly,
+      cadenceFromStrides: timingOnly,
     });
     const quality = viewQuality({
       p,
@@ -173,11 +175,69 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
   if (timing) {
     // The MVP's timing only reading (GAIT_MVP, D-035 item 2): kept only when the model tracked the
     // walk consistently and a clean cycle was found, at a frame rate the data reads.
-    const t = read(STEADY_TIMING, true);
+    const t = view === "side" ? readNear() : read(STEADY_TIMING, true);
+    // The guard: the passes it kept (trustedPasses) hold mostly clean steady cycles.
     const found = t.quality.cleanCycles.left > 0 || t.quality.cleanCycles.right > 0;
-    if (!found || !consistent(t.cycles) || t.quality.medianFps < GAIT_ENGINE.recordAgainBelowFps) return null;
+    const kept = new Set(t.cycles.filter((c) => c.clean).map((c) => c.pass));
+    const keptCycles = t.cycles.filter((c) => kept.has(c.pass));
+    if (!found || !consistent(keptCycles) || t.quality.medianFps < GAIT_ENGINE.recordAgainBelowFps)
+      return null;
     return resultOf(t, null);
   }
+  /**
+   * The overground side view's timing reading (D-035 item 2): each pass read as the pad side view
+   * reads its walk (D-027 item 4, D-028 item 2), on its near limb: the legs' labels by the near leg's
+   * own track, the far leg's contacts that lie on the near leg masked, each cycle gated on the hips and
+   * the near leg. At home the far leg hides behind the near one for most of each stride and the model
+   * lays it on the near one (G1's real model walk, GG-4), so the both legs rules lose the walk.
+   */
+  function readNear() {
+    const prepared = {
+      right: prepare(input.frames, {
+        rollDeg: roll,
+        labels: "swaps",
+        bouts: "either_ankle",
+        nearSide: "right",
+      }),
+      left: prepare(input.frames, {
+        rollDeg: roll,
+        labels: "swaps",
+        bouts: "either_ankle",
+        nearSide: "left",
+      }),
+    };
+    const motion = passesOf(prepared.right, view, undefined, STEADY_TIMING);
+    const events: PassEvent[] = [];
+    const cycles: Cycle[] = [];
+    for (const side of ["right", "left"] as const) {
+      const own = detectEvents(prepared[side], motion.passes, "side", false, true).filter(
+        (e) => motion.passes[e.pass]?.near === side,
+      );
+      events.push(...own);
+      cycles.push(...buildCycles(prepared[side], motion, own, "side", true, STEADY_TIMING, true));
+    }
+    events.sort((a, b) => a.index - b.index || (a.type === b.type ? 0 : a.type === "ic" ? -1 : 1));
+    cycles.sort((a, b) => a.k0 - b.k0 || (a.side === "left" ? -1 : 1));
+    trustedPasses(cycles);
+    const p0 = prepared.right;
+    const fps = viewFps(p0, motion);
+    const metrics = viewMetrics({
+      p: p0,
+      view,
+      motion,
+      cycles,
+      zeros,
+      pxPerM: null,
+      beltMps: null,
+      rollKnown: roll !== null,
+      fps,
+      timingOnly: true,
+      cadenceFromStrides: true,
+    });
+    const quality = viewQuality({ p: p0, motion, cycles, noViewPasses: false, timing: true });
+    return { motion, events, cycles, metrics, quality };
+  }
+
   const r = read(STEADY_FULL, false);
   return resultOf(
     r,

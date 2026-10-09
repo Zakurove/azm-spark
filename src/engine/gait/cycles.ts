@@ -94,6 +94,8 @@ export function buildCycles(
   kind: "side" | "front",
   overground: boolean,
   steady: SteadyRules = STEADY_FULL,
+  /** Overground side passes gated on their near limb, as the pad side view (the MVP's timing reading). */
+  nearTiming = false,
 ): Cycle[] {
   const s = p.series;
   const out: Cycle[] = [];
@@ -130,7 +132,7 @@ export function buildCycles(
     // The pad side view gates timing on the near limb (D-026 item 6): every cycle's visibility gate
     // reads the hips and the near leg, the far leg's too, which hides behind the near one for a part
     // of each stride; no far leg kinematics are read in a side view (metrics.ts, near cycles only).
-    const padNear = !overground && kind === "side" ? pass.near : undefined;
+    const padNear = (!overground || nearTiming) && kind === "side" ? pass.near : undefined;
     for (const c of passCycles) {
       if (c.clean && mid !== null) {
         const st = c.times.icEnd - c.times.ic;

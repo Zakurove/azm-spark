@@ -1230,6 +1230,15 @@ export class GaitController implements CoachHost {
     return r ? this.analyseRecording(r, this.setup()) : [];
   }
 
+  /** The gait lab's kept landmarks (VITE_E2E builds, the real model smoke): each recording's frames. */
+  recordedFrames(): { rec: RecordingId; standing: GaitFrame[]; frames: GaitFrame[] }[] {
+    return [...this.recordings.values()].map((r) => ({
+      rec: r.id,
+      standing: [...r.standing],
+      frames: r.recorder.frames(),
+    }));
+  }
+
   /** The gait lab's «finish now»: the recording is read as it is and the walk goes on, kept. */
   finishNow(now: number): boolean {
     const s = this.current;

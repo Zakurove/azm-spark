@@ -11,7 +11,8 @@
  *   <dir>/<scenario>.joints.json  every joint projected into the picture per frame (normalised)
  *   <dir>/<scenario>.y4m          with --y4m: the file Chromium's fake camera plays (to-y4m.mjs)
  *
- * Scenarios: rom-shoulder-abduction-right, gait-pad-side (scenarios.mjs). Use the absolute path
+ * Scenarios: rom-shoulder-abduction-right, gait-pad-side, the rom-seated-* and gait-home-* ones
+ * (scenarios.mjs). Use the absolute path
  * /Users/nasser/Development/Azm6.0/local-docs/qa/v7/videos for <dir> (git ignored, never committed).
  * Each frame is drawn by the procedural humanoid's shader in Chromium on the GPU (Metal on macOS) at
  * `--scale` times the size and averaged down by ffmpeg, so edges are smooth like a camera picture.
@@ -82,7 +83,9 @@ function writeTruth(sc, opts, outDir, extra = {}) {
   const frames = Math.round(seconds * sc.fps);
   const joints = [];
   for (let i = 0; i < frames; i++)
-    joints.push(framePoints(sc, skeleton(sc.poseAt(i / sc.fps))).map((p) => [round4(p.x), round4(p.y)]));
+    joints.push(
+      framePoints(sc, skeleton(sc.poseAt(sc.sampleAt ? sc.sampleAt(i) : i / sc.fps))).map((p) => [round4(p.x), round4(p.y)]),
+    );
   const truth = scenarioTruth(sc);
   const out = { ...truth, frames, seconds, smokeQuery: smokeQuery(truth), ...extra };
   writeFileSync(join(outDir, `${sc.id}.truth.json`), JSON.stringify(out, null, 2) + "\n");
@@ -114,7 +117,8 @@ async function renderOne(page, sc, opts, outDir) {
   const done = new Promise((res, rej) => ff.on("close", (code) => (code === 0 ? res() : rej(new Error(`ffmpeg ${code}`)))));
   const t0 = Date.now();
   for (let i = 0; i < frames; i++) {
-    const skel = skeleton(sc.poseAt(i / sc.fps));
+    // A scenario may draw frame i at its own time (the home walks' jitter, D-035).
+    const skel = skeleton(sc.poseAt(sc.sampleAt ? sc.sampleAt(i) : i / sc.fps));
     const png = await page.evaluate(([s, c, sc2]) => window.draw(s, c, sc2), [skel, sc.camera, sc.scene]);
     if (!ff.stdin.write(Buffer.from(png, "base64"))) await new Promise((r) => ff.stdin.once("drain", r));
     if (i % 150 === 0) process.stdout.write(`  ${sc.id}: frame ${i}/${frames}\r`);

@@ -37,6 +37,29 @@ export function consistent(cycles: readonly Pick<GaitCycle, "clean" | "drop">[])
 }
 
 /**
+ * The same guard pass by pass, for the timing only reading: the clean cycles of a pass whose steady
+ * cycles are mostly dropped for order, swap, duration or visibility are not trusted either (the model
+ * lost that pass; a home walk's other passes may be fine), and are dropped for order. Mutates and
+ * returns the cycles.
+ */
+export function trustedPasses<C extends Pick<GaitCycle, "clean" | "drop"> & { pass: number }>(
+  cycles: C[],
+): C[] {
+  const passes = new Set(cycles.map((c) => c.pass));
+  for (const pass of passes) {
+    const own = cycles.filter((c) => c.pass === pass);
+    if (!own.some((c) => c.drop !== "turn" && c.drop !== "pass_edge")) continue;
+    if (consistent(own)) continue;
+    for (const c of own)
+      if (c.clean) {
+        c.clean = false;
+        c.drop = "order";
+      }
+  }
+  return cycles;
+}
+
+/**
  * A view read for timing only below the data's gate: the MVP's reading, or a 20 to 24 fps view with
  * too few clean cycles (which gives no frontal or angle metric). Its clean cycles never count toward
  * the gait rules' gate, so no pattern is read from it.

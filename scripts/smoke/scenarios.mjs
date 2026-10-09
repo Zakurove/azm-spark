@@ -22,6 +22,15 @@
  *                                  the feet out of the picture). The same 14 s loop. Chromium's fake
  *                                  camera gives 30 fps whatever the file; 60 fps is covered by the
  *                                  generated fixtures (tests/v7/b-fixtures-home.test.ts).
+ *   gait-home-side                 D-035 item 2, the walk at home, side view: a phone on a shelf 3 m
+ *                                  from the walking line, landscape; six passes across the whole
+ *                                  picture and back (about 3.7 m), each ending in a stop and a turn in
+ *                                  place inside the picture; 104 steps a minute; each frame drawn at its
+ *                                  30 fps time plus up to 8 ms of jitter (a phone's uneven frames).
+ *   gait-home-wall                 D-035 item 2, the walk at home, front view: a phone standing against
+ *                                  a wall at 1 m, portrait; four walks toward it from 5 m, each turning
+ *                                  in place 1.6 m before the phone and walking back, with a turn at the
+ *                                  far end; 108 steps a minute; nobody leaves the picture.
  *
  * The truth is computed from the same kinematics the renderer draws, so it is exact for the rendered
  * person: the arm's 3D abduction (the goniometer) and the same angle on the projected joints (the
@@ -338,7 +347,184 @@ function gaitPadSide({ id, cadence, padKmh }) {
   };
 }
 
+/* ------------------------------------------------------------------ the home walks (D-035) */
+
+/**
+ * The integral of the walk's amplitude over a pass of D seconds that eases in and out over R seconds
+ * (0.5 - 0.5 cos), at tau seconds: the distance walked over v (the pelvis moves at v times it).
+ */
+function rampedDistance(tau, D, T) {
+  const up = (x) => x / 2 - (T / (2 * Math.PI)) * Math.sin((Math.PI * x) / T);
+  if (tau <= 0) return 0;
+  if (tau < T) return up(tau);
+  if (tau <= D - T) return T / 2 + (tau - T);
+  const u = Math.min(tau, D) - (D - T);
+  return T / 2 + (D - 2 * T) + (u - up(u));
+}
+
+/**
+ * An overground walk at home: the pad walker's joint angles (padWalker) with the pelvis carried forward
+ * at the walking speed, so the stance foot stays on the floor; each pass eases in and out over one
+ * step (half a stride: people reach their pace within a step or two) and ends in a stop; a turn in place rotates the standing person through `via` (facing the
+ * phone for a side walk). Passes start on alternating phases of the gait cycle (either foot first).
+ * `points` are the pelvis's turn points on the floor [x, z], in order; the walk starts standing at the
+ * first, facing the second.
+ */
+function homeWalk({ id, view, cadence, stepM, points, turnSec, camera, width, height, fps, jitterMs, phases }) {
+  const T = 120 / cadence;
+  /** The ease in and out: one step. */
+  const R = T / 2;
+  const v = (stepM * cadence) / 60;
+  const walker = padWalker({ v, T, heelAhead: 0.2, pitchIc: 12, pitchTo: -55 });
+  const standSec = 4;
+  const segs = [];
+  let t = standSec;
+  const dir = (a, b) => {
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return [(b[0] - a[0]) / d, 0, (b[1] - a[1]) / d];
+  };
+  for (let i = 0; i + 1 < points.length; i++) {
+    const from = points[i];
+    const to = points[i + 1];
+    const fwd = dir(from, to);
+    const dist = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const D = dist / v + R;
+    segs.push({ kind: "walk", t0: t, t1: t + D, from, fwd, phase: phases[i % phases.length] });
+    t += D;
+    if (i + 2 < points.length) {
+      const next = dir(to, points[i + 2]);
+      segs.push({ kind: "turn", t0: t, t1: t + turnSec, at: to, fromFwd: fwd, toFwd: next });
+      t += turnSec;
+    }
+  }
+  const seconds = round(t + 1.5, 6);
+  const first = segs[0];
+  const yaw = (f) => Math.atan2(f[2], f[0]);
+  const poseAt = (time) => {
+    if (time < standSec) return { ...standingPose(first.fwd, first.from) };
+    const seg = segs.find((s) => time >= s.t0 && time < s.t1) ?? segs[segs.length - 1];
+    if (seg.kind === "turn" || time >= seg.t1) {
+      if (seg.kind !== "turn") {
+        const at = [seg.from[0] + seg.fwd[0] * (seg.t1 - seg.t0 - R) * v, seg.from[1] + seg.fwd[2] * (seg.t1 - seg.t0 - R) * v];
+        return { ...standingPose(seg.fwd, at) };
+      }
+      // Turn in place: the facing turns through the phone's side (the shorter way for a side walk).
+      const share = ease((time - seg.t0) / (seg.t1 - seg.t0));
+      const a0 = yaw(seg.fromFwd);
+      let d = yaw(seg.toFwd) - a0;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      // Half a turn: through facing +z (the phone) for a side walk, through +x for a walk toward it.
+      if (Math.abs(Math.abs(d) - Math.PI) < 1e-6) {
+        const via = view === "side" ? [0, 0, 1] : [1, 0, 0];
+        const mid = yaw(via);
+        let h = mid - a0;
+        while (h > Math.PI) h -= 2 * Math.PI;
+        while (h < -Math.PI) h += 2 * Math.PI;
+        d = Math.sign(h) * Math.PI;
+      }
+      const a = a0 + d * share;
+      return { ...standingPose([Math.cos(a), 0, Math.sin(a)], seg.at) };
+    }
+    const tau = time - seg.t0;
+    const D = seg.t1 - seg.t0;
+    const amp = tau < R ? ease(tau / R) : tau > D - R ? 1 - ease((tau - (D - R)) / R) : 1;
+    const s = rampedDistance(tau, D, R) * v;
+    const at = [seg.from[0] + seg.fwd[0] * s, seg.from[1] + seg.fwd[2] * s];
+    const stand = standingPose(seg.fwd, at);
+    const phi = (((tau / T + seg.phase) % 1) + 1) % 1;
+    const w = walker.angles(phi);
+    const mix = (side, k) => lerp(stand[k][side], w[side][k], amp);
+    const arm = (side) => lerp(0, 0.45 * (w[side === "r" ? "l" : "r"].hip - 8), amp);
+    return {
+      ...stand,
+      hip: { l: mix("l", "hip"), r: mix("r", "hip") },
+      knee: { l: mix("l", "knee"), r: mix("r", "knee") },
+      ankle: { l: mix("l", "ankle"), r: mix("r", "ankle") },
+      shoulderFlex: { l: arm("l"), r: arm("r") },
+      elbow: { l: 8 + amp * (6 + 0.3 * Math.max(0, arm("l"))), r: 8 + amp * (6 + 0.3 * Math.max(0, arm("r"))) },
+      trunkLean: 3 * amp,
+      headPitch: 2 * amp,
+    };
+  };
+  // Jitter: frame i is drawn at its time plus up to jitterMs (seeded), as a phone's uneven frames.
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const jitter = Array.from({ length: Math.ceil(seconds * fps) + 2 }, () => (2 * rnd() - 1) * (jitterMs ?? 0));
+  return {
+    id,
+    kind: "gait",
+    width,
+    height,
+    fps,
+    seconds,
+    loops: false,
+    camera,
+    scene: { wallZ: camera.wallZ ?? -1.4 },
+    poseAt,
+    sampleAt: (i) => Math.max(0, i / fps + jitter[i] / 1000),
+    meta: {
+      home: true,
+      view,
+      lab: view,
+      mode: "overground",
+      cadenceSpm: cadence,
+      strideTimeS: T,
+      stepM,
+      standing: [0, standSec],
+      segs,
+      rocker: walker.ROCKER,
+      jitterMs: jitterMs ?? 0,
+    },
+  };
+}
+
+/** A home walk's contact events by design, in seconds: per pass, right IC at its phase 0, left at 0.5. */
+function homeEvents(m) {
+  const T = m.strideTimeS;
+  const out = [];
+  for (const s of m.segs) {
+    if (s.kind !== "walk") continue;
+    for (const [side, shift] of [
+      ["right", 0],
+      ["left", 0.5],
+    ])
+      for (let k = -1; ; k++) {
+        const at = s.t0 + (k + shift - s.phase) * T;
+        if (at > s.t1 + 1e-9) break;
+        if (at < s.t0 - 1e-9) continue;
+        out.push({ side, type: "ic", t: round(at, 6) });
+      }
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
 /* ------------------------------------------------------------------ catalogue and truth */
+
+/**
+ * The side walk's path: across the whole picture (about 3.7 m, the turns inside it), 3 m from the
+ * phone; the wall walk's turn points.
+ */
+const SIDE_PATH = [
+  [-1.85, 0],
+  [1.85, 0],
+  [-1.8, 0],
+  [1.9, 0],
+  [-1.85, 0],
+  [1.8, 0],
+  [-1.85, 0],
+];
+const WALL_PATH = [
+  [0.2, -5],
+  [0.2, -1.6],
+  [0.2, -4.9],
+  [0.2, -1.6],
+  [0.2, -5.1],
+  [0.2, -1.6],
+  [0.2, -5],
+  [0.2, -1.6],
+  [0.2, -5],
+];
 
 export const SCENARIOS = Object.freeze({
   "rom-shoulder-abduction-right": romShoulderAbduction({
@@ -348,6 +534,36 @@ export const SCENARIOS = Object.freeze({
     endDeg: 135,
   }),
   "gait-pad-side": gaitPadSide({ id: "gait-pad-side", cadence: 100, padKmh: 3 }),
+  "gait-home-side": homeWalk({
+    id: "gait-home-side",
+    view: "side",
+    cadence: 104,
+    stepM: 0.62,
+    points: SIDE_PATH,
+    turnSec: 1.8,
+    // A phone on a shelf 3 m from the line, landscape, the lens at 1 m, a 46 degree tall picture.
+    camera: { pos: [0, 1, 3], target: [0, 1, 0], fovY: 46, wallZ: -1.4 },
+    width: 960,
+    height: 540,
+    fps: 30,
+    jitterMs: 8,
+    phases: [0, 0.35, 0.7, 0.15, 0.5, 0.85],
+  }),
+  "gait-home-wall": homeWalk({
+    id: "gait-home-wall",
+    view: "front",
+    cadence: 108,
+    stepM: 0.65,
+    points: WALL_PATH,
+    turnSec: 1.8,
+    // A phone standing against a wall at 1 m, portrait, a front camera's 70 degree tall picture.
+    camera: { pos: [0, 1, 0], target: [0, 1, -1], fovY: 70, wallZ: -6.5 },
+    width: 540,
+    height: 960,
+    fps: 30,
+    jitterMs: 0,
+    phases: [0, 0.4, 0.75, 0.2, 0.55, 0.9, 0.3, 0.65],
+  }),
   "rom-seated-shoulder-flexion-right": romSeated({
     id: "rom-seated-shoulder-flexion-right",
     movement: "shoulder_flexion",
@@ -521,6 +737,27 @@ export function scenarioTruth(sc) {
     };
   }
   const m = sc.meta;
+  if (m.home) {
+    const stand = skeleton(sc.poseAt(0));
+    const events = homeEvents(m);
+    const walks = m.segs.filter((s) => s.kind === "walk");
+    return {
+      ...base,
+      view: m.view,
+      lab: m.lab,
+      mode: m.mode,
+      cadenceSpm: m.cadenceSpm,
+      strideTimeS: m.strideTimeS,
+      heightCm: round((stand.joints[J.HEAD][1] + 0.14) * 100, 1),
+      standing: { from: m.standing[0], to: m.standing[1] },
+      walk: { from: round(walks[0].t0, 6), to: round(walks[walks.length - 1].t1, 6) },
+      passes: walks.map((s) => ({ from: round(s.t0, 6), to: round(s.t1, 6) })),
+      jitterMs: m.jitterMs,
+      events,
+      notes:
+        "A walk at home (D-035 item 2): stand still for 4 s, then passes that ease in and out over one step and stop, each followed by a turn in place inside the picture. cadenceSpm is exact for every step (the steps keep their timing while they ease); events are the right and left initial contacts by design. Frames are drawn at their time plus the jitter.",
+    };
+  }
   const events = designEvents(m);
   // Standing height: the top of the hair (the head centre plus 0.14 m in humanoid.mjs) above the deck.
   const stand = skeleton(sc.poseAt(0));
@@ -548,6 +785,13 @@ export function scenarioTruth(sc) {
 /** The smoke page's options for a video (contract A6a-5: everything but the name comes from the page URL). */
 export function smokeQuery(truth) {
   const q = new URLSearchParams();
+  if (truth.lab) {
+    // The walk lab (D-035 item 4) runs the capture itself: no windows, the person's height only.
+    q.set("gaitlab", truth.lab);
+    q.set("auto", "1");
+    q.set("height", String(Math.round(truth.heightCm)));
+    return q.toString();
+  }
   q.set("kind", truth.kind);
   if (truth.kind === "rom") {
     q.set("movement", truth.movement);

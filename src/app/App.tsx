@@ -215,7 +215,7 @@ export default function App() {
     </>
   ) : ProgramBuild && programBuildEntry ? (
     <ProgramBuildPreview />
-  ) : RomLab && qs.has("romlab") ? (
+  ) : RomLab && romLabEntry ? (
     <RomLabEntry />
   ) : (
     <Pages />
@@ -226,6 +226,7 @@ export default function App() {
  * VITE_V7 builds only, signed in or not, never saving (the env test written inline).
  */
 const RomLab = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/RomLab")) : null;
+const romLabEntry = import.meta.env.VITE_V7 === "1" && qs.has("romlab");
 function RomLabEntry() {
   const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar");
   return RomLab ? (

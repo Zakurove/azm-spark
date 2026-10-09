@@ -1123,10 +1123,15 @@ export class CompensationTracker {
     }
   }
 
-  /** The checks read at the hold, over the hold window [from, to], with the hold's angle. */
+  /**
+   * The checks read at the hold, over the hold window [from, to], with the hold's angle. A check read at
+   * the hold judges that hold only (D-035: a hold the person goes on from, «ليس بعد», never marks a later
+   * one); a check that fired during the movement stays with the attempt.
+   */
   atHold(from: number, to: number, holdDeg: number): HoldVerdict {
     const hits: CompensationHit[] = [];
     const flagged: CompensationId[] = [];
+    const here: CompensationId[] = [];
     for (const st of this.states) {
       const a = this.active(st.spec);
       const inHold = st.samples.filter((s) => s.t >= from && s.t <= to);
@@ -1141,18 +1146,18 @@ export class CompensationTracker {
         const need = st.def.forSeconds ?? 0;
         const short = need > 0 ? st.okSec < need : !st.okAny;
         if (!st.invalid && holdDeg >= win[0] && short) {
-          st.invalid = true;
+          here.push(st.spec.id);
           this.hitAtHold(st, v ?? 0, to, hits);
         }
         continue;
       }
       if (st.def.effect === "invalid" && st.spec.at === "hold" && fired && !st.invalid) {
-        st.invalid = true;
+        here.push(st.spec.id);
         this.hitAtHold(st, v ?? o ?? 0, to, hits);
       }
       if (st.def.effect === "flag" && fired) flagged.push(st.spec.id);
     }
-    return { invalid: this.invalid, flagged, hits };
+    return { invalid: [...new Set([...this.invalid, ...here])], flagged, hits };
   }
 
   private hitAtHold(st: CheckState, value: number, t: number, hits: CompensationHit[]): void {

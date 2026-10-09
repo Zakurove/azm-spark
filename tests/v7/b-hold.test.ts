@@ -13,6 +13,8 @@ import {
   PLATEAU_RULES,
   PlateauDetector,
   holdOptions,
+  MVP_HOLD,
+  mvpHoldOptions,
   type HoldFound,
 } from "../../src/engine/rom/hold";
 import { ROM_DATA } from "../../src/movements/rom";
@@ -290,5 +292,100 @@ describe("PlateauDetector: the coach may get ready", () => {
     // Never at the start pose.
     const still = new PlateauDetector(opts);
     for (let i = 0; i < 90; i++) expect(still.push((i / 30) * 1000, 4)).toBeNull();
+  });
+});
+
+describe("D-035: the MVP hold, a lenient plateau", () => {
+  /** A seeded jitter in degrees, uniform in [-amp, amp]. */
+  const jitter = (amp: number, seed = 7) => {
+    let x = seed;
+    return () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      return (x / 2147483648) * 2 * amp - amp;
+    };
+  };
+
+  it("its numbers: about 8 degrees either side of the median for about 0.6 s, the trend under 8 degrees per second", () => {
+    expect(MVP_HOLD).toEqual({
+      halfBandDeg: 8,
+      seconds: 0.6,
+      maxSlopeDegPerSec: PLATEAU_RULES.maxDegPerSec,
+      bandShareOfExcursion: 1 / 3,
+    });
+    const o = mvpHoldOptions("flexion");
+    expect(o.bandDeg).toBe(8);
+    expect(o.holdMs).toBe(600);
+    expect(o.around).toBe("median");
+    expect(o.minExcursionDeg).toBe(E.minExcursionDeg);
+    expect(mvpHoldOptions("lack").direction).toBe(-1);
+  });
+
+  it("a held top with phone jitter of 6 degrees either side is a hold, valued at the plateau's median", () => {
+    const j = jitter(6);
+    const holds = feed(
+      new HoldDetector(mvpHoldOptions("flexion")),
+      raise(135, 1, 2, 3),
+      8,
+      30,
+      (s) => raise(135, 1, 2, 3)(s) + j(),
+    );
+    expect(holds).toHaveLength(1);
+    expect(Math.abs(holds[0].deg - 135)).toBeLessThanOrEqual(3);
+    // Found within about 0.6 s of reaching the top (the trend reads the end of the rise out).
+    expect(holds[0].to / 1000).toBeGreaterThanOrEqual(3.5);
+    expect(holds[0].to / 1000).toBeLessThan(3.9);
+  });
+
+  it("the filtered angle wandering 7 degrees either side still holds; 10 degrees does not", () => {
+    const wobble = (amp: number) => (s: number) =>
+      s < 1 ? 0 : s < 3 ? 60 * (s - 1) : 120 + amp * Math.sin(2 * Math.PI * 3 * s);
+    expect(feed(new HoldDetector(mvpHoldOptions("flexion")), wobble(7), 6)).toHaveLength(1);
+    expect(feed(new HoldDetector(mvpHoldOptions("flexion")), wobble(10), 6)).toHaveLength(0);
+  });
+
+  it("a slow raise is never read as its top: 20 degrees per second fits the band but not the trend", () => {
+    const slow = (s: number) => (s < 1 ? 0 : Math.min(140, 20 * (s - 1)));
+    const holds = feed(new HoldDetector(mvpHoldOptions("flexion")), slow, 10);
+    expect(holds).toHaveLength(1);
+    // Only at the top (140 from 8 s).
+    expect(holds[0].from / 1000).toBeGreaterThan(7.6);
+    expect(Math.abs(holds[0].deg - 140)).toBeLessThan(3);
+  });
+
+  it("never at rest: a still start pose with jitter is no hold", () => {
+    const j = jitter(5, 3);
+    const det = new HoldDetector({ ...mvpHoldOptions("flexion"), startDeg: 6 });
+    expect(
+      feed(
+        det,
+        () => 6,
+        20,
+        30,
+        () => 6 + j(),
+      ),
+    ).toHaveLength(0);
+    // A slow wander at rest within the protocol's movement (3 degrees) either side is no hold either.
+    expect(
+      feed(new HoldDetector({ ...mvpHoldOptions("flexion"), startDeg: 6 }), (s) => 6 + 2.5 * Math.sin(s), 20),
+    ).toHaveLength(0);
+  });
+
+  it("the progress grows through the hold window, and is full at the hold", () => {
+    const det = new HoldDetector(mvpHoldOptions("flexion"));
+    const seen: number[] = [];
+    let at: number | null = null;
+    for (let i = 0; i <= 6 * 30 && at === null; i++) {
+      const s = i / 30;
+      const v = raise(120, 1, 2, 3)(s);
+      if (det.push(s * 1000, v, v)) at = s;
+      seen.push(det.progress);
+    }
+    expect(at).not.toBeNull();
+    expect(seen[seen.length - 1]).toBe(1);
+    expect(seen.some((p) => p > 0 && p < 1)).toBe(true);
+    // At rest, nothing.
+    expect(seen.slice(0, 20).every((p) => p === 0)).toBe(true);
+    det.rearm(at! * 1000 + 1);
+    expect(det.progress).toBe(0);
   });
 });

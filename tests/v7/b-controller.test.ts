@@ -294,7 +294,7 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
     const run = runBlock(
       ctl,
       {
-        answerMax: (i, _h, k) => (i.movementId === "knee_flexion" && k === 2 ? "hurts" : "yes"),
+        answerMax: (i, h) => (i.movementId === "knee_flexion" && h.attempt === 1 ? "hurts" : "yes"),
         pain: () => ({ level: 1 }),
       },
       400,

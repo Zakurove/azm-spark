@@ -124,7 +124,8 @@ describe("one frame landmark jumps never move the dial (D-034 item 1)", () => {
         ? [e.deg]
         : [],
     );
-    expect(held.length).toBeGreaterThan(30);
+    // One valid attempt (D-035): the practice's and the attempt's plateaus.
+    expect(held.length).toBeGreaterThan(15);
     for (const deg of held) expect(Math.abs(deg - 135)).toBeLessThanOrEqual(3);
     // The old dial (the One Euro alone) on the same frames jumps by more than 10 degrees.
     const euro = new PoseSmoother();
@@ -200,7 +201,7 @@ describe("a joint that cannot move does not wait out the 20 s tries (D-034)", ()
     });
     const run = runRom(base);
     expect(run.result.status).toBe("measured");
-    expect(run.result.nValid).toBe(3);
+    expect(run.result.nValid).toBe(1);
     expect(Math.abs(run.result.value! - 150)).toBeLessThanOrEqual(5);
     expect(run.events.some((e) => e.kind === "cue" && e.cue === "no_active_movement")).toBe(false);
   });

@@ -129,7 +129,7 @@ const PROFILE_CASES: { profile: Profile; side: Side; peak: number }[] = [
 ];
 const FOUR = raiseStarts(4);
 
-describe("whole checks: practice and three raises, v7 against v1", () => {
+describe("whole checks: practice and three raises, v7 (one valid attempt, D-035) against v1", () => {
   const settings: { aspect: AspectName; fps: number }[] = [
     { aspect: "9:16", fps: 30 },
     { aspect: "16:9", fps: 30 },
@@ -149,9 +149,10 @@ describe("whole checks: practice and three raises, v7 against v1", () => {
         const v7 = runV7(frames, c.side).res;
         expect(v1.status).toBe("measured");
         expect(v7.status).toBe("measured");
-        expect(v7.nValid).toBe(3);
+        // D-035: one valid attempt records the value; it equals v1's first raise within 2 degrees.
+        expect(v7.nValid).toBe(1);
+        expect(Math.abs(v7.value! - v1.attempts[0].value!)).toBeLessThanOrEqual(2);
         expect(Math.abs(v7.value! - v1.value!)).toBeLessThanOrEqual(2);
-        expect(Math.abs(v7.median! - v1.median!)).toBeLessThanOrEqual(2);
         v7.attempts.forEach((a, k) =>
           expect(Math.abs(a.value! - v1.attempts[k].value!)).toBeLessThanOrEqual(2),
         );

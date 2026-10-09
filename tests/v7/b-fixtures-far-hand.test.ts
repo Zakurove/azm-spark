@@ -55,26 +55,24 @@ describe("seated hip flexion with the other hand resting on the other knee (far 
         const run = runRom(spec);
         expect(run.result.status).toBe("measured");
         expect(Math.abs(run.result.value! - truth)).toBeLessThanOrEqual(VALUE_TOLERANCE_DEG);
-        expect(
-          run.events.filter((e) => e.kind === "compensation" && e.id === "assisted" && e.level === "invalid"),
-        ).toEqual([]);
+        // The resting hand never reads as an assisted lift (D-035: the value would be approximate).
+        expect(run.result.flags).not.toContain("approximate");
+        expect(run.result.attempts.every((a) => !a.reasons.includes("assisted"))).toBe(true);
       });
 
   it("finds the other hand reaching across to pull the tested knee (its depth at the tested knee)", () => {
     const { spec } = seatedHipSpec(75, "left", "right", "16:9");
     const run = runRom(spec);
-    const invalid = run.events.filter(
-      (e) => e.kind === "compensation" && e.id === "assisted" && e.level === "invalid",
-    );
-    expect(invalid.length).toBeGreaterThan(0);
+    // D-035: the assisted lift flags the attempt (approximate) instead of repeating it.
+    expect(run.result.attempts[0].reasons).toContain("assisted");
+    expect(run.result.flags).toContain("approximate");
   });
 
   it("still finds the tested side's own hand on the tested knee", () => {
     const { spec } = seatedHipSpec(75, "right", "right", "16:9");
     const run = runRom(spec);
-    const invalid = run.events.filter(
-      (e) => e.kind === "compensation" && e.id === "assisted" && e.level === "invalid",
-    );
-    expect(invalid.length).toBeGreaterThan(0);
+    // D-035: the assisted lift flags the attempt (approximate) instead of repeating it.
+    expect(run.result.attempts[0].reasons).toContain("assisted");
+    expect(run.result.flags).toContain("approximate");
   });
 });

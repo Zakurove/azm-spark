@@ -55,7 +55,7 @@ import { romRowsOf } from "../../server/modules/focus/store";
 import { lockView } from "../../server/modules/assessments/common";
 import type { RomProtocol, RomProtocolItem } from "../../src/medical/rom-protocol";
 import type { GaitPlan } from "../../src/medical/gait-eligibility";
-import { ROM_RULES_VERSION, NORMS_VERSION, movementDef } from "../../src/movements/rom";
+import { ROM_ENGINE_VERSION, ROM_RULES_VERSION, NORMS_VERSION, movementDef } from "../../src/movements/rom";
 import { GAIT_RULES_VERSION, GAIT_ENGINE_VERSION } from "../../src/movements/gait";
 import { testRules, TEST_TYPICAL } from "./a-focus-rules";
 import { gaitBody, romBody } from "./a-focus-bodies";
@@ -635,7 +635,7 @@ describe("POST /api/focus: a booth start", () => {
       rom: ROM_RULES_VERSION,
       norms: NORMS_VERSION,
       gait: GAIT_RULES_VERSION,
-      romEngine: "rom_engine_2",
+      romEngine: ROM_ENGINE_VERSION,
       gaitEngine: GAIT_ENGINE_VERSION,
     });
     // The pre-check keeps the v1 data map and the consent, never a raw answer.

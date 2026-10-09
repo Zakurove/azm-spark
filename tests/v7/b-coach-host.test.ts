@@ -50,19 +50,19 @@ describe("next_step (C-16: the coach never advances past a confirmation)", () =>
 
   it("is refused on a question (the maximum) and a timer (the rest), and on an unfinished measurement", () => {
     const ctl = setup();
-    const run = reach(ctl, (c) => c.phase === "attempt");
+    reach(ctl, (c) => c.phase === "practice");
     expect(ctl.step()).toEqual({ kind: "active", finished: false });
     expect(ctl.handleTool("next_step", {})).toMatchObject({ accepted: false, reason: "not_allowed" });
-    reach(ctl, (c) => c.phase === "ask_max");
-    expect(ctl.step().kind).toBe("question");
+    // The rest after the practice (one valid attempt follows it, D-035).
+    reach(ctl, (c) => c.phase === "rest");
+    expect(ctl.step().kind).toBe("timer");
     expect(ctl.handleTool("next_step", {})).toEqual({
       accepted: false,
       reason: "not_allowed",
       say: "tap_to_confirm",
     });
-    ctl.answerMax("yes", "button", run.t + 20_000);
-    expect(ctl.phase).toBe("rest");
-    expect(ctl.step().kind).toBe("timer");
+    reach(ctl, (c) => c.phase === "ask_max");
+    expect(ctl.step().kind).toBe("question");
     expect(ctl.handleTool("next_step", {})).toEqual({
       accepted: false,
       reason: "not_allowed",
@@ -496,12 +496,11 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
       accepts: [],
     },
     {
-      name: "the rest between attempts",
+      name: "the rest after the practice",
       kind: "timer",
       reach: () => {
         const c = setup();
-        const run = reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
-        c.answerMax("yes", "button", run.t + 100);
+        reach(c, (x) => x.phase === "rest");
         return c;
       },
       accepts: ["pause"],

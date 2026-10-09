@@ -27,6 +27,12 @@
  * finished measurement, resume resumes only a pause the coach made, and every tool call is applied at
  * once and final (C-17). The app is authoritative: the coach's answers go through the same runner
  * methods as the buttons.
+ *
+ * D-035 item 1 (the MVP runner): one valid attempt records the value, and the result card offers one
+ * more try only if the person wants it (tryAgain, never a third). The server keeps one row per
+ * movement (409 ALREADY_SAVED), so a result that can still be tried again is saved when the person
+ * leaves its card (any step after it: «التالي», the stop list, the end of the check), or after the
+ * second try. The hold ring is the runner's own hold progress.
  */
 import type { Lang } from "../../app/i18n";
 import type {
@@ -113,6 +119,11 @@ export interface RomControllerOptions {
   sitSeconds?: number;
   /** The rest after a stop for tiredness or something else (default the v1 minute). */
   stopRestSeconds?: number;
+  /**
+   * Every runner event as it comes, with the movement it belongs to (D-035 item 4: the range test page's
+   * live diagnostics). Nothing in the check reads it.
+   */
+  onRunnerEvents?: (item: RomProtocolItem, events: readonly RomEvent[]) => void;
   /**
    * The best seated side lean of each side at earlier checks (the seated side bend's limit, runner
    * sideLeanBest), from the start response (D-027 item 2, W2-6); absent for a side never measured: the
@@ -248,7 +259,8 @@ export class RomController implements CoachHost {
   private readonly gate = new FeedbackGate();
   private captionNow: GateMessage | null = null;
   private liveDeg: number | null = null;
-  private holdRing = { anchor: null as number | null, since: 0, start: null as number | null, progress: 0 };
+  /** D-035: a measured result whose card still offers one more try; saved once the card is left. */
+  private pendingSave: { item: RomProtocolItem; result: RomMeasureResult } | null = null;
   private setupFrames: SetupFrame[] = [];
   private setupIssueNow: SetupIssue | null = null;
   private attemptNow = 0;
@@ -344,9 +356,43 @@ export class RomController implements CoachHost {
     return this.liveDeg;
   }
 
-  /** The hold ring, 0 to 1: how long the angle has stayed still near its end range (a picture only). */
+  /** The hold ring, 0 to 1: the runner's own hold progress (D-035), full while the question is open. */
   get holdProgress(): number {
-    return this.holdRing.progress;
+    return this.stepNow.kind === "measure" ? (this.runner?.holdProgress ?? 0) : 0;
+  }
+
+  /**
+   * D-035: the result card on the screen may offer one more try (the movement measured with one valid
+   * attempt, not pain limited, no second try yet).
+   */
+  get canTryAgain(): boolean {
+    const s = this.stepNow;
+    return s.kind === "result" && !this.stopListNow && !!this.runner?.canTryAgain;
+  }
+
+  /** «محاولة أخرى» on the result card (D-035): one more try of the same movement, never a third. */
+  tryAgain(t: number): boolean {
+    const s = this.stepNow;
+    if (s.kind !== "result" || !this.canTryAgain || !this.runner) return false;
+    this.lastT = t;
+    // The first result is kept by the runner; the card's save waits for the second try's result.
+    this.pendingSave = null;
+    const events = this.runner.again(t);
+    this.liveDeg = null;
+    this.captionNow = null;
+    this.setupFrames = [];
+    this.setupIssueNow = null;
+    this.go({ kind: "measure", item: s.item });
+    this.bridge({
+      p: 3,
+      type: "step_start",
+      label: "measure",
+      movement: s.item.movementId,
+      side: s.item.side,
+      t,
+    });
+    this.take(s.item, events, t);
+    return true;
   }
 
   /** The attempt now (0 the practice, 1 to 3 scored) and the valid scored attempts so far. */
@@ -686,7 +732,18 @@ export class RomController implements CoachHost {
     }
     const s = this.stepNow;
     let item: RomProtocolItem | null = null;
-    if (s.kind === "measure" && this.runner) {
+    if (s.kind === "measure" && this.runner && this.results.has(itemKey(s.item))) {
+      // D-035: a stop during the second try keeps the first value: the movement is saved as measured
+      // and the stop list names no movement (as from its result card).
+      const r = this.runner;
+      if (!r.done && r.phase !== "stopped") r.stop("user_stop", t);
+      const result = r.finish(t);
+      this.results.set(itemKey(s.item), result);
+      this.sink.push({ kind: "save", item: s.item, result });
+      this.stopJoint = s.item;
+      // The stop list opens over the movement's result card (the first value).
+      this.go({ kind: "result", item: s.item, result });
+    } else if (s.kind === "measure" && this.runner) {
       // The movement stops for good and keeps no value: the server stores its not measured row with
       // the stop's reason (v1 resultOnStop), so nothing is saved from here.
       item = s.item;
@@ -697,11 +754,13 @@ export class RomController implements CoachHost {
       this.captionNow = null;
     } else if (s.kind === "setup" || s.kind === "reask") item = s.item;
     // A stop for pain re-asks the stopped movement's joint, else the one on the screen, else the next.
-    this.stopJoint =
+    this.stopJoint ??=
       item ??
       (s.kind === "result" || s.kind === "pain_stop" ? s.item : null) ??
       this.queue[0] ??
       this.lastMeasured;
+    // The result card's save goes now: the stop list may end the check (D-035).
+    this.flushSave();
     this.timerLeftMs = s.kind === "rest" || s.kind === "sit" ? Math.max(0, s.until - t) : this.timerLeftMs;
     this.stopListNow = { preselect, item };
     this.safetyStopped = true;
@@ -1038,7 +1097,6 @@ export class RomController implements CoachHost {
     this.captionNow = null;
     this.setupFrames = [];
     this.setupIssueNow = null;
-    this.resetRing(null);
     this.go({ kind: "measure", item });
     this.bridge({
       p: 3,
@@ -1094,25 +1152,9 @@ export class RomController implements CoachHost {
     }
   }
 
-  private resetRing(start: number | null): void {
-    this.holdRing = { anchor: null, since: 0, start, progress: 0 };
-  }
-
-  /** The hold ring follows the dial: full after a still second near the end range (a picture only). */
-  private ring(deg: number, t: number): void {
-    const r = this.holdRing;
-    if (r.start === null) r.start = deg;
-    const band = ROM_DATA.engine.holdBandDeg;
-    const moved = Math.abs(deg - r.start) >= ROM_DATA.engine.minExcursionDeg;
-    if (r.anchor === null || Math.abs(deg - r.anchor) > band) {
-      r.anchor = deg;
-      r.since = t;
-    }
-    r.progress = moved ? Math.min(1, (t - r.since) / (ROM_DATA.engine.holdSeconds * 1000)) : 0;
-  }
-
   /** The runner's events: the view, the lines, the coach's events, the end of the movement. */
   private take(item: RomProtocolItem, events: RomEvent[], t: number, frame = false): void {
+    if (events.length) this.opts.onRunnerEvents?.(item, events);
     const gateEvents: GateMessage[] = [];
     let compensated = false;
     let changed = false;
@@ -1120,10 +1162,7 @@ export class RomController implements CoachHost {
       switch (e.kind) {
         case "phase":
           changed = true;
-          if (e.phase === "practice" || e.phase === "attempt") {
-            if (e.attempt !== this.attemptNow || e.phase === "practice") this.resetRing(null);
-            this.attemptNow = e.attempt;
-          }
+          if (e.phase === "practice" || e.phase === "attempt") this.attemptNow = e.attempt;
           if (e.phase === "ask_can_move")
             this.bridge({ p: 1, type: "ask_can_move", movement: item.movementId, side: item.side, t: e.t });
           if (e.phase === "ask_pain")
@@ -1131,18 +1170,15 @@ export class RomController implements CoachHost {
           if (e.phase === "ask_cause")
             this.bridge({ p: 1, type: "ask_cause", movement: item.movementId, side: item.side, t: e.t });
           if (e.phase === "rest") {
-            this.resetRing(null);
             const total = (this.opts.restSec ?? ROM_DATA.engine.restBetweenAttemptsSeconds.min) * 1000;
             this.restUntil = { until: e.t + total, total };
           }
           break;
         case "live":
           this.liveDeg = e.deg;
-          this.ring(e.deg, e.t);
           changed = true;
           break;
         case "hold":
-          this.holdRing.progress = 1;
           this.bridge({
             p: 1,
             type: "end_range_hold",
@@ -1234,12 +1270,14 @@ export class RomController implements CoachHost {
     const r = this.runner;
     if (!r) return;
     const result = r.finish(t);
-    this.record(item, result);
+    // D-035: the result card may offer one more try; its save waits until the card is left.
+    const more = this.queue.some((i) => !this.skippedRegions.has(i.region));
+    const sitNext = this.blockNow === "lying" && this.opts.protocol.sitBeforeStand && !more;
+    this.record(item, result, r.canTryAgain && !sitNext);
     // The lying block's last measurement: straight into the sit before stand minute with its result,
     // so a person lying alone never stands up to tap a result card first (rom-protocol 6
     // sit_before_stand: sit on the edge of the bed for about a minute before standing).
-    const more = this.queue.some((i) => !this.skippedRegions.has(i.region));
-    if (this.blockNow === "lying" && this.opts.protocol.sitBeforeStand && !more) {
+    if (sitNext) {
       this.runner = null;
       this.startSit(t, { item, result });
       return;
@@ -1253,9 +1291,13 @@ export class RomController implements CoachHost {
     this.line("sit_before_stand", "info");
   }
 
-  private record(item: RomProtocolItem, result: RomMeasureResult): void {
+  private record(item: RomProtocolItem, result: RomMeasureResult, later = false): void {
     this.results.set(itemKey(item), result);
-    this.sink.push({ kind: "save", item, result });
+    if (later) this.pendingSave = { item, result };
+    else {
+      this.pendingSave = null;
+      this.sink.push({ kind: "save", item, result });
+    }
     this.bridge({
       p: 3,
       type: "movement_result",
@@ -1283,7 +1325,21 @@ export class RomController implements CoachHost {
     this.sink.push({ kind: "bridge", event });
   }
 
+  /** The result card's save, when it waited for the person to leave the card (D-035). */
+  private flushSave(): void {
+    const p = this.pendingSave;
+    if (!p) return;
+    this.pendingSave = null;
+    this.sink.push({ kind: "save", item: p.item, result: p.result });
+  }
+
   private go(step: RomStep): void {
+    // Leaving a result card (to anything but its own second try) saves its result.
+    if (
+      this.pendingSave &&
+      !(step.kind === "measure" && itemKey(step.item) === itemKey(this.pendingSave.item))
+    )
+      this.flushSave();
     this.stepNow = step;
     this.instructionsShown = false;
     if (step.kind !== "measure") {

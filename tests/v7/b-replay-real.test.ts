@@ -55,7 +55,8 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
         issues: r.quality.issues,
         retries: r.quality.retries,
       }).toEqual({ status: "measured", reason: null, issues: [], retries: 0 });
-      expect(r.nValid).toBe(3);
+      // D-035: one valid attempt records the value.
+      expect(r.nValid).toBe(1);
       expect(Math.abs(r.value! - run.truthDeg), `${r.value} for ${run.truthDeg}`).toBeLessThanOrEqual(
         BAR_DEG,
       );

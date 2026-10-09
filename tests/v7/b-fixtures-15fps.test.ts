@@ -14,62 +14,14 @@ import { matrixProblems, movementMatrix, runRom, type RomCase } from "./b-fixtur
 
 const FPS = 15;
 
-/** The cases at 15 fps whose holds come late (or, once, a false heel lift repeat), with what was seen. */
+/**
+ * The cases at 15 fps whose holds come late, with what was seen. Since D-035 (the MVP hold, its value
+ * read over the plateau the person holds) none is late and every value is within 5 degrees; one false
+ * heel lift (a repeat before) is a flag.
+ */
 export const LATE_HOLD_15FPS: Readonly<Record<string, readonly string[]>> = {
-  "rom/shoulder_flexion/seated/left-100-9x16-15fps": ["repetition 2: hold 1.6 s after plateau start + 1 s"],
-  "rom/shoulder_flexion/seated/right-100-9x16-15fps": ["repetition 1: hold 3.13 s after plateau start + 1 s"],
-  "rom/shoulder_abduction/seated/left-75-9x16-15fps": ["repetition 1: hold 3.44 s after plateau start + 1 s"],
-  "rom/elbow_extension/seated/left-50-9x16-15fps": ["repetition 3: hold 2.03 s after plateau start + 1 s"],
-  "rom/elbow_extension/seated/left-100-9x16-15fps": [
-    "repetition 1: hold 2.07 s after plateau start + 1 s",
-    "repetition 3: hold 3.93 s after plateau start + 1 s",
-  ],
-  "rom/elbow_flexion/seated/right-75-9x16-15fps": ["repetition 3: hold 1.64 s after plateau start + 1 s"],
-  "rom/hip_flexion/lying_back/left-75-9x16-15fps": ["repetition 1: hold 1.84 s after plateau start + 1 s"],
-  "rom/hip_abduction/standing_supported/left-50-9x16-15fps": [
-    "repetition 1: hold 4.3 s after plateau start + 1 s",
-    "repetition 3: hold 1.97 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/left-100-9x16-15fps": [
-    "repetition 1: hold 4.43 s after plateau start + 1 s",
-    "repetition 3: hold 3.1 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/left-50-16x9-15fps": [
-    "repetition 1: hold 1.63 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/right-25-9x16-15fps": [
-    "repetition 2: hold 1.7 s after plateau start + 1 s",
-    "repetition 3: hold 1.83 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/right-50-9x16-15fps": [
-    "repetition 2: hold 2.04 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/right-75-9x16-15fps": [
-    "repetition 1: hold 1.57 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/right-100-9x16-15fps": [
-    "repetition 1: hold 2.44 s after plateau start + 1 s",
-    "repetition 3: hold 1.9 s after plateau start + 1 s",
-  ],
-  "rom/knee_flexion/lying_back/right-25-9x16-15fps": [
-    "repetition 1: hold 1.84 s after plateau start + 1 s",
-    "repetition 2: hold 1.96 s after plateau start + 1 s",
-  ],
-  "rom/knee_extension/lying_back/left-75-9x16-15fps": ["repetition 1: hold 2.16 s after plateau start + 1 s"],
-  "rom/knee_extension/lying_back/left-100-9x16-15fps": [
-    "repetition 3: hold 1.77 s after plateau start + 1 s",
-  ],
-  "rom/knee_extension/lying_back/right-25-9x16-15fps": [
-    "repetition 1: hold 1.64 s after plateau start + 1 s",
-  ],
-  "rom/knee_extension/lying_back/right-75-9x16-15fps": ["repetition 3: hold 1.7 s after plateau start + 1 s"],
-  "rom/knee_extension/seated/right-75-9x16-15fps": ["repetition 3: hold 2.11 s after plateau start + 1 s"],
-  "rom/ankle_dorsiflexion_lunge/standing_supported/right-50-9x16-15fps": [
-    "1 repeats: heel_lift",
-    "compensation heel_lift invalid at 9865 ms",
-  ],
-  "rom/neck_flexion/seated/cam-left-50-9x16-15fps": ["repetition 2: hold 2.1 s after plateau start + 1 s"],
-  "rom/neck_extension/seated/cam-left-25-9x16-15fps": ["repetition 1: hold 1.57 s after plateau start + 1 s"],
+  // The heel lift read at 15 fps in portrait (the false repeat before D-035 is a flag now).
+  "rom/ankle_dorsiflexion_lunge/standing_supported/right-50-9x16-15fps": ["attempt 1 approximate: heel_lift"],
 };
 
 function at15(c: RomCase): RomCase {
@@ -104,14 +56,12 @@ for (const movement of ROM_MOVEMENT_IDS)
   });
 
 describe("the 15 fps list", () => {
-  it("holds late holds of measured cases, all but one portrait, and one heel lift repeat", () => {
+  it("holds late holds of measured cases, all portrait, and one heel lift flag", () => {
     const all = Object.entries(LATE_HOLD_15FPS);
-    expect(all.length).toBeLessThanOrEqual(23);
-    expect(all.filter(([name]) => name.includes("-16x9-")).length).toBeLessThanOrEqual(1);
+    expect(all.length).toBeLessThanOrEqual(1);
+    expect(all.filter(([name]) => name.includes("-16x9-")).length).toBe(0);
     for (const [, problems] of all)
       for (const p of problems)
-        expect(p).toMatch(
-          /^repetition \d: hold [\d.]+ s after|^1 repeats: heel_lift$|^compensation heel_lift invalid/,
-        );
+        expect(p).toMatch(/^repetition \d: hold [\d.]+ s after|^attempt 1 approximate: heel_lift$/);
   });
 });

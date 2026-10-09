@@ -112,7 +112,7 @@ describe("the camera moved (v1 map 2.12)", () => {
     const res = r.finish(d.t);
     expect(res.status).toBe("measured");
     expect(res.retries).toBe(0);
-    expect(res.nValid).toBe(3);
+    expect(res.nValid).toBe(1);
   });
 
   it("a picture that never settles stops after the server's bound of repeats (not measured, quality)", () => {

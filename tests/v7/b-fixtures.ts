@@ -26,7 +26,8 @@
  */
 import type { Frame } from "../../src/engine/types";
 import type { FeedEnv } from "../../src/engine/modes/types";
-import { RomRunner } from "../../src/engine/rom/runner";
+import { RomRunner, RUNNER_RULES } from "../../src/engine/rom/runner";
+import { MVP_HOLD } from "../../src/engine/rom/hold";
 import type {
   RomAnswer,
   RomAttempt,
@@ -38,7 +39,7 @@ import type {
 import { typicalValue } from "../../src/medical/rom-norms";
 import type { RomProtocolItem } from "../../src/medical/rom-protocol";
 import type { Sex } from "../../src/medical/plan";
-import { movementDef, ROM_DATA } from "../../src/movements/rom";
+import { movementDef } from "../../src/movements/rom";
 import {
   ROM_MOVEMENT_IDS,
   type CompensationId,
@@ -300,36 +301,32 @@ export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
 
 /* ------------------------------------------------------------------ the 8.2 acceptance */
 
-/** The engine's hold second (rom-protocol engine.holdSeconds). */
-const ROM_DATA_HOLD_SEC = ROM_DATA.engine.holdSeconds;
+/** The runner's hold window (D-035 MVP_HOLD; the protocol's engine.holdSeconds before it). */
+const HOLD_WINDOW_SEC = MVP_HOLD.seconds;
 
 /** «recorded value within 5 degrees of the generator's truth» (8.2, plan acceptance). */
 export const VALUE_TOLERANCE_DEG = 5;
-/** «the hold found within 1.5 s of the true plateau start plus the hold second» (8.2). */
+/** «the hold found within 1.5 s of the true plateau start plus the hold second» (8.2; the hold window since D-035). */
 export const HOLD_TOLERANCE_SEC = 1.5;
 
 /**
- * Each scored repetition's hold: the first hold of its window answered «نعم», and its delay after
- * plateau start + the hold second; null when the runner found no hold in it (a missed hold). The
- * repetitions read are those up to the one that recorded the last scored attempt (the spare after it,
- * and those of a run that ended early, are not).
+ * Each valid attempt's hold: the last hold of the attempt before its record (the one its value came
+ * from), and its delay after the moment it could first be found: the hold window after its
+ * repetition's plateau start, or after the attempt opened when the person was still holding an earlier
+ * repetition's end then (the scripted person holds HOLD_SEC, longer than the practice's rest); null
+ * when the attempt's hold lies in no repetition's plateau (a hold away from an end).
  */
 export function plateauHolds(run: RomRun): { rep: number; t: number | null; delaySec: number | null }[] {
-  const spec = run.fx.meta.spec!;
   const reps = run.fx.truth.rom!.reps;
-  const holdSec = ROM_DATA_HOLD_SEC;
-  const lastT = Math.max(0, ...run.result.attempts.map((a) => a.t1)) / 1000;
-  const used = reps.slice(1).filter((r) => r.start <= lastT);
-  const scored = Math.max(used.length, 3);
-  return reps.slice(1, 1 + scored).map((r, k) => {
-    const h = run.holds.find(
-      (x) => x.t / 1000 >= r.start && x.t / 1000 <= r.plateauTo + 0.5 && personAnswer(spec, x.t) === "yes",
-    );
-    return {
-      rep: k + 1,
-      t: h ? h.t : null,
-      delaySec: h ? Math.round((h.t / 1000 - (r.plateauFrom + holdSec)) * 100) / 100 : null,
-    };
+  const holdSec = HOLD_WINDOW_SEC;
+  const valid = run.result.attempts.filter((a) => a.outcome === "valid");
+  if (!valid.length) return [{ rep: 1, t: null, delaySec: null }];
+  return valid.map((a) => {
+    const h = run.holds.filter((x) => x.attempt === a.index && x.t <= a.t1).pop();
+    const rep = h ? reps.find((r) => h.t / 1000 >= r.start && h.t / 1000 <= r.plateauTo + 0.5) : undefined;
+    if (!h || !rep) return { rep: a.index, t: h?.t ?? null, delaySec: null };
+    const ready = Math.max(rep.plateauFrom, a.t0 / 1000) + holdSec;
+    return { rep: a.index, t: h.t, delaySec: Math.round((h.t / 1000 - ready) * 100) / 100 };
   });
 }
 
@@ -349,25 +346,14 @@ export function strayHolds(run: RomRun): RomHold[] {
  * long at 2.5 m) and elbow extension (the lack's sign flips near straight); at noise 0.002 one late hold
  * in 2,200 runs. Asserted exactly, so a change that fixes or moves one shows here.
  */
-export const LATE_HOLD_CASES: Readonly<Record<string, readonly string[]>> = {
-  "rom/shoulder_flexion/seated/right-75-9x16-30fps": ["repetition 1: hold 1.57 s after plateau start + 1 s"],
-  "rom/hip_extension/standing_supported/right-100-9x16-24fps": [
-    "repetition 1: hold 1.79 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/left-75-9x16-30fps-helper": [
-    "repetition 1: hold 2.36 s after plateau start + 1 s",
-  ],
-  "rom/hip_abduction/standing_supported/right-50-9x16-24fps": [
-    "repetition 2: hold 1.71 s after plateau start + 1 s",
-  ],
-};
+export const LATE_HOLD_CASES: Readonly<Record<string, readonly string[]>> = {};
 
 /** Every way a matrix run misses the 8.2 acceptance (empty when it meets it). */
 export function matrixProblems(c: RomCase, run: RomRun): string[] {
   const res = run.result;
   const out: string[] = [];
   if (res.status !== "measured") out.push(`status ${res.status} (${res.reason})`);
-  if (res.nValid !== 3) out.push(`${res.nValid} valid attempts`);
+  if (res.nValid !== RUNNER_RULES.validAttempts) out.push(`${res.nValid} valid attempts`);
   if (res.retries)
     out.push(
       `${res.retries} repeats: ${run.records
@@ -380,13 +366,13 @@ export function matrixProblems(c: RomCase, run: RomRun): string[] {
   for (const a of res.attempts)
     if (a.value === null || Math.abs(a.value - c.truthDeg) > VALUE_TOLERANCE_DEG)
       out.push(`attempt ${a.index} value ${a.value} for ${c.truthDeg}`);
-  for (const e of run.events)
-    if (e.kind === "compensation" && e.level === "invalid")
-      out.push(`compensation ${e.id} invalid at ${e.t} ms`);
+  // D-035: a check at its invalid level flags the value approximate; a clean movement never is.
+  for (const a of res.attempts)
+    if (a.flags.includes("approximate")) out.push(`attempt ${a.index} approximate: ${a.reasons.join("+")}`);
   for (const h of plateauHolds(run))
     if (h.delaySec === null || Math.abs(h.delaySec) > HOLD_TOLERANCE_SEC)
       out.push(
-        `repetition ${h.rep}: hold ${h.delaySec === null ? "not found" : `${h.delaySec} s`} after plateau start + 1 s`,
+        `repetition ${h.rep}: hold ${h.delaySec === null ? "not found" : `${h.delaySec} s`} after plateau start + ${HOLD_WINDOW_SEC} s`,
       );
   return out;
 }
@@ -903,12 +889,10 @@ function firstCase(movement: RomMovementId): { position: RomPositionId; side: Ro
 export const TREMOR = { amp: 2.5, hz: 0.8 } as const;
 
 /**
- * «tremor gives wideHold after 2 tries» (8.2): the person holds each end with the tremor. The practice
- * and the first attempt end without a hold (20 s after the first movement each, engine
- * attemptTimeoutSeconds), so they are held 21 s; the repeated first attempt, under the wide band, and the
- * two after it hold for the usual time. Without landmark noise (TREMOR_NOISE): the tremor's hold signal
- * spans 3.5 degrees over every second, between the two bands; landmark noise moves a second's span by
- * about a degree either way, so a noisy tremor sometimes holds in 3 degrees by chance (change log B2-7).
+ * «tremor gives wideHold after 2 tries» (8.2) under the protocol's 3 degree hold. Since D-035 the MVP
+ * hold (8 degrees either side) holds such a tremor at once: the person holds each end with it for the
+ * usual time, and the first attempt records the value. Without landmark noise (TREMOR_NOISE), as
+ * before (change log B2-7).
  */
 export const TREMOR_NOISE = 0;
 export function tremorSpec(movement: RomMovementId, aspect: AspectName = "16:9"): GenSpec {
@@ -920,9 +904,7 @@ export function tremorSpec(movement: RomMovementId, aspect: AspectName = "16:9")
     ...c,
     aspect,
     peak: endAngle(movement, c.position, 75, c.side),
-    reps: 5,
-    starts: [1.5, 30, 57, 73, 89],
-    rep: (k) => ({ tremor: TREMOR, ...(k <= 1 ? { hold: 21 } : {}) }),
+    rep: { tremor: TREMOR },
     noise: TREMOR_NOISE,
     noiseFace: TREMOR_NOISE,
     notes: `${movement}: a tremor of ${TREMOR.amp} degrees at ${TREMOR.hz} Hz at every end`,
@@ -930,10 +912,12 @@ export function tremorSpec(movement: RomMovementId, aspect: AspectName = "16:9")
 }
 
 /**
- * «no hold gives no_hold» (8.2): from the end of the start pose the angle never settles (20 degrees
- * toward the end range and back every 2 s, wider than even the 5 degree band over any second), so the
- * practice and the first attempt with its two repeats end without a hold.
+ * «no hold gives no_hold» (8.2): from the end of the start pose the angle never settles (NO_HOLD_WANDER:
+ * 40 degrees toward the end range and back every 1.2 s, so no 0.6 s of it stays within the MVP hold's
+ * 8 degrees either side; a slower wave's turns are steady tops, D-035), so the practice and the first
+ * attempt with its two repeats end without a hold.
  */
+export const NO_HOLD_WANDER = { amp: 40, periodSec: 1.2 } as const;
 export function noHoldSpec(movement: RomMovementId, aspect: AspectName = "16:9"): GenSpec {
   const c = firstCase(movement);
   const name = `rom/${movement}/${c.position}/no-hold-${aspect === "9:16" ? "9x16" : "16x9"}`;
@@ -947,7 +931,15 @@ export function noHoldSpec(movement: RomMovementId, aspect: AspectName = "16:9")
     reps: 1,
     starts: [200],
     durationSec: 110,
-    motions: [{ kind: "rom_wander", from: 1.5, to: 110, amp: toward * 20, periodSec: 2 }],
+    motions: [
+      {
+        kind: "rom_wander",
+        from: 1.5,
+        to: 110,
+        amp: toward * NO_HOLD_WANDER.amp,
+        periodSec: NO_HOLD_WANDER.periodSec,
+      },
+    ],
     notes: `${movement}: the angle never settles`,
   });
 }

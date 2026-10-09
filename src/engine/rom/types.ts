@@ -83,7 +83,8 @@ export interface RomHold {
   t: number;
   attempt: number;
   excursionDeg: number;
-  bandDeg: 3 | 5;
+  /** The hold band read (degrees): the MVP hold's 8 either side (D-035), or the protocol's 3 or 5. */
+  bandDeg: number;
   smallExcursion: boolean;
 }
 
@@ -93,9 +94,13 @@ export type RomEvent =
   | { kind: "live"; deg: number; t: number }
   /** Velocity under 8 degrees per second for 0.4 s inside a 3 degree band (tunable): the coach may get ready. */
   | { kind: "plateau"; deg: number; t: number; attempt: number }
-  /** The end range hold (engine.holdBandDeg for engine.holdSeconds after minExcursionDeg): the maximum question opens. */
+  /** The end range hold (hold.ts MVP_HOLD after a real movement, D-035): the maximum question opens. */
   | { kind: "hold"; hold: RomHold }
-  | { kind: "compensation"; id: CompensationId; level: "cue" | "invalid"; value: number; t: number }
+  /**
+   * A compensation check fired (D-035): `cue` when it is the movement's one calm line (spoken), `flag`
+   * when it is only noted (every other hit; a check at its invalid level flags the value approximate).
+   */
+  | { kind: "compensation"; id: CompensationId; level: "cue" | "flag"; value: number; t: number }
   /**
    * A local voice pack line to play (cues, ask_max when the coach is off, recorded, pain_stop ...); the
    * side arm raise plays its v1 lines (test_abd_still, test_abd_side; D-024 item 2).

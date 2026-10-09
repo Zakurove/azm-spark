@@ -55,8 +55,9 @@ describe("a compensation's local line plays within 1 s of its onset", () => {
         rest: 5,
         target: () => 100,
         pose: (deg, t) => {
-          // In the first scored attempt, 1 s after the arm passes 60 degrees, the trunk leans 8 degrees.
-          if (r.phase === "attempt" && deg >= 60 && leanFrom === Infinity) leanFrom = t + 1000;
+          // In the first scored attempt, 0.2 s after the arm passes 60 degrees (on the way up: no line
+          // during the hold, D-035), the trunk leans 8 degrees.
+          if (r.phase === "attempt" && deg >= 60 && leanFrom === Infinity) leanFrom = t + 200;
           return abductionPose(deg, "right", t >= leanFrom ? 8 : 0);
         },
       },

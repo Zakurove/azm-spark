@@ -195,6 +195,72 @@ describe("the seated home scenarios (D-034 item 1)", () => {
     });
 });
 
+describe("the D-035 home scenarios: never perfectly still, nobody answering", () => {
+  const MVP = [
+    "rom-mvp-shoulder-flexion-drift-right",
+    "rom-mvp-elbow-flexion-right",
+    "rom-mvp-elbow-extension-right",
+  ] as const;
+  const GATE: Record<string, number[]> = {
+    shoulder_flexion: [J.SH_R, J.ELB_R],
+    elbow_flexion: [J.SH_R, J.ELB_R, J.WR_R],
+    elbow_extension: [J.SH_R, J.ELB_R, J.WR_R],
+  };
+
+  it("are the drifting arm raise to the front and both elbow movements", () => {
+    expect(Object.keys(SCENARIOS).filter((id) => id.startsWith("rom-mvp-"))).toEqual([...MVP]);
+  });
+
+  for (const id of MVP)
+    describe(id, () => {
+      const sc = SCENARIOS[id];
+      const truth = scenarioTruth(sc);
+      const def = romData.movements.find((m) => m.id === truth.movement)!;
+
+      it("is a movement, position and view of the data, close to a 3:4 portrait phone, never answered", () => {
+        expect(def.positions.map((p) => p.id)).toContain(truth.position);
+        expect(truth.view).toBe(def.view);
+        expect(sc.camera.pos[2]).toBeGreaterThanOrEqual(1.2);
+        expect(sc.camera.pos[2]).toBeLessThanOrEqual(1.5);
+        expect(sc.width / sc.height).toBeCloseTo(3 / 4, 9);
+        expect(new URLSearchParams(truth.smokeQuery!).get("answer")).toBe("none");
+        expect(new URLSearchParams(truth.smokeQuery!).get("movement")).toBe(truth.movement);
+      });
+
+      it("the truth reads the movement without the jitter; the picture moves with it", () => {
+        const truthPose = sc.truthPoseAt!;
+        const hold = truth.holds[0];
+        for (const t of [hold.from + 0.01, (hold.from + hold.to) / 2, hold.to - 0.01])
+          expect(movementTruthDeg(truth.movement, skeleton(truthPose(t)), "right")).toBeCloseTo(
+            truth.endDeg,
+            2,
+          );
+        // The person's own angle wobbles a little at the top (the tremor), never more than 2 degrees.
+        const wobble = [0, 0.1, 0.2, 0.3, 0.4].map((dt) =>
+          movementTruthDeg(truth.movement, skeleton(sc.poseAt(hold.from + 1 + dt)), "right"),
+        );
+        expect(Math.max(...wobble) - Math.min(...wobble)).toBeGreaterThan(0.5);
+        for (const w of wobble) expect(Math.abs(w - truth.endDeg)).toBeLessThan(2.5);
+        // Sitting turned (and the arm drifting out) moves the picture's angle a few degrees.
+        expect(Math.abs(truth.projected.endDeg - truth.endDeg)).toBeLessThan(6);
+      });
+
+      it("keeps the measured landmarks in the picture and the feet out of it", () => {
+        for (let t = 0; t < sc.seconds; t += 0.5) {
+          const p = framePoints(sc, skeleton(sc.poseAt(t)));
+          for (const j of GATE[truth.movement]) {
+            expect(p[j].x, `${t} s, joint ${j}`).toBeGreaterThan(0.03);
+            expect(p[j].x).toBeLessThan(0.97);
+            expect(p[j].y).toBeGreaterThan(0.03);
+            expect(p[j].y).toBeLessThan(0.97);
+          }
+          for (const j of [J.ANK_L, J.ANK_R, J.HEEL_L, J.HEEL_R, J.TOE_L, J.TOE_R])
+            expect(p[j].y > 1 || p[j].x > 1 || p[j].x < 0, `${t} s, joint ${j}`).toBe(true);
+        }
+      });
+    });
+});
+
 describe("smokeQuery", () => {
   it("gives the smoke page the run's options from the truth", () => {
     const q = new URLSearchParams(smokeQuery(scenarioTruth(rom)));

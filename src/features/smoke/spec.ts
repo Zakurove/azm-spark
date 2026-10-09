@@ -6,7 +6,8 @@
  *
  *   kind=rom   movement, side (left, right, or none for an axial movement without directions),
  *              position (default the movement's first), mirrored=1, timeoutSec (default 150),
- *              traceSec (the angle trace's shortest run, default 30)
+ *              traceSec (the angle trace's shortest run, default 30), answer=none (nobody answers
+ *              the maximum question: its timeout is the answer, D-035; default yes after 600 ms)
  *   kind=gait  view, nearSide (pad side views), mode (overground or walking_pad), padKmh (pad
  *              views), heightCm, and the video's windows in seconds from its first frame:
  *              standFrom, standTo (the standing calibration), walkFrom, walkTo (the walk)
@@ -46,6 +47,8 @@ export interface RomSmokeSpec extends SmokeCommon {
   timeoutSec: number;
   /** The angle trace runs at least this long (s), so a run without a runner still reads the video. */
   traceSec: number;
+  /** D-035: "none" never answers the maximum question (Nasser's silence); "yes" after 600 ms. */
+  answer: "yes" | "none";
 }
 
 export interface GaitSmokeSpec extends SmokeCommon {
@@ -116,6 +119,7 @@ function romSpec(q: URLSearchParams, common: SmokeCommon): RomSmokeSpec {
     mirrored: q.get("mirrored") === "1",
     timeoutSec: num(q, "timeoutSec", { positive: true }) ?? 150,
     traceSec: num(q, "traceSec", { positive: true }) ?? 30,
+    answer: q.get("answer") === "none" ? "none" : "yes",
   };
 }
 

@@ -49,6 +49,7 @@ export function replay(input: ReplayInput, answerDelayMs = 600): RomDriverReport
       mirrored: false,
       timeoutSec: 240,
       traceSec: 30,
+      answer: "yes",
     }),
     def: movementDef(input.movement),
     mirrored: false,

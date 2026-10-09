@@ -12,6 +12,8 @@ export interface Scenario {
   camera: Camera;
   scene: SceneProps;
   poseAt(t: number): Pose;
+  /** The pose the truth reads, without the person's jitter (D-035 rom-mvp-*); absent: poseAt. */
+  truthPoseAt?: (t: number) => Pose;
   meta: Record<string, unknown>;
 }
 export interface RomScenario extends Scenario {
@@ -27,6 +29,9 @@ export declare const SCENARIOS: Readonly<{
   "rom-seated-shoulder-flexion-right-150": RomScenario;
   "rom-seated-shoulder-abduction-right": RomScenario;
   "rom-seated-elbow-flexion-right": RomScenario;
+  "rom-mvp-shoulder-flexion-drift-right": RomScenario;
+  "rom-mvp-elbow-flexion-right": RomScenario;
+  "rom-mvp-elbow-extension-right": RomScenario;
 }>;
 export declare function movementTruthDeg(movement: string, skel: Skeleton, side: "left" | "right"): number;
 export declare function framePoints(sc: Scenario, skel: Skeleton): { x: number; y: number; depth: number }[];
@@ -53,6 +58,8 @@ export interface RomTruth extends TruthBase {
   holds: { from: number; to: number; deg: number }[];
   phases: Record<string, [number, number]>;
   projected: { startDeg: number; endDeg: number };
+  /** The smoke page's query when it is not the movement's own (D-035: answer=none). */
+  smokeQuery?: string;
 }
 export interface GaitEventTruth {
   side: "left" | "right";

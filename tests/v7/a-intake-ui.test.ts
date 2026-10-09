@@ -577,6 +577,19 @@ describe("the second step on screen", () => {
     expect(text).not.toContain(romCopy("transfer_chair_ask").ar);
   });
 
+  it("lists the answer that lets the person go ahead first: no for bones and neck, yes for sitting and the foot (D-035 item 5)", () => {
+    const html = render({ context: ctx(["stroke"]), ui: fahd({ confirmed: true }) });
+    const first = (id: "bones_ask" | "neck_ask" | "sit_unsupported_ask" | "foot_lift_ask") => {
+      const at = html.indexOf(romCopy(id).ar);
+      expect(at, id).toBeGreaterThan(0);
+      return plain(html.slice(at).match(/<button[^>]*>.*?<\/button>/s)![0]).trim();
+    };
+    expect(first("bones_ask")).toBe(romCopy("ans_no").ar);
+    expect(first("neck_ask")).toBe(romCopy("ans_no").ar);
+    expect(first("sit_unsupported_ask")).toBe(romCopy("ans_yes").ar);
+    expect(first("foot_lift_ask")).toBe(romCopy("ans_yes").ar);
+  });
+
   it("asks the chair transfer in a wheelchair, and titles the map with the arthritis question and its type", () => {
     expect(plain(render({ context: ctx(["none"], "wheelchair"), lang: "en" }))).toContain(
       romCopy("transfer_chair_ask").en,

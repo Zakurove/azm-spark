@@ -46,11 +46,17 @@ export default function ReportUpload({
   lang,
   onExtracted,
   opened = false,
+  card = false,
 }: {
   lang: Lang;
   onExtracted: (r: ReportResult) => void;
   /** Starts with the panel open (tests); the intake starts with the link. */
   opened?: boolean;
+  /**
+   * D-035 item 5 (a v7 form): a standout card before the questions instead of the link, since the
+   * report reading is a feature to show: the document with a spark, the title and one line.
+   */
+  card?: boolean;
 }) {
   const c = labels(lang);
   const [busy, setBusy] = useState(false),
@@ -59,6 +65,21 @@ export default function ReportUpload({
     [paste, setPaste] = useState(false),
     [text, setText] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  if (!open && card)
+    return (
+      <button type="button" className="report-card" onClick={() => setOpen(true)}>
+        <span className="report-card-icon" data-icon="report" aria-hidden="true">
+          <Icon name="report" size={28} />
+        </span>
+        <span className="report-card-text">
+          <b>{c.reportTitle}</b>
+          <span>{c.reportCardLine}</span>
+        </span>
+        <span className="report-card-go" aria-hidden="true">
+          <Icon name="arrow" size={18} />
+        </span>
+      </button>
+    );
   if (!open)
     return (
       <button type="button" className="text-button report-open" onClick={() => setOpen(true)}>

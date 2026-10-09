@@ -87,6 +87,18 @@ type Draft = Omit<Intake, "symptoms" | "recentChange" | "clearance" | "mobility"
   mobility: Intake["mobility"] | "";
 };
 /**
+ * D-035 item 5: each safety question's answers in the order the buttons show them, the answer that
+ * lets the person go ahead first (no warning sign, no recent change, no restriction, cleared by the
+ * doctor). Same values, only the order.
+ */
+export const SAFETY_ANSWERS = {
+  symptoms: ["no", "yes"],
+  recentChange: ["no", "yes"],
+  restrictions: ["no", "yes"],
+  clearance: ["yes", "no", "unsure"],
+} as const;
+
+/**
  * The intake the form validates and saves, from its draft. A VITE_V7 build writes pain[] from the
  * body map (contract 2.2 rule 3; the v1 pain question is not asked). A default build asks neither
  * the body map nor walking, yet a saved v7 intake brings them into the draft, so it keeps them in
@@ -330,7 +342,7 @@ export default function IntakeForm({
         {mark(field)}
       </legend>
       <div className="intake-choices">
-        {(field === "clearance" ? (["yes", "no", "unsure"] as const) : (["yes", "no"] as const)).map((v) => (
+        {SAFETY_ANSWERS[field].map((v) => (
           <button
             type="button"
             key={v}
@@ -451,7 +463,7 @@ export default function IntakeForm({
         {mark("restrictions")}
       </legend>
       <div className="intake-choices">
-        {(["yes", "no"] as const).map((v) => (
+        {SAFETY_ANSWERS.restrictions.map((v) => (
           <button
             type="button"
             key={v}
@@ -629,6 +641,10 @@ export default function IntakeForm({
         <h2>{stepName(kind)}</h2>
         {kind === "about" && V7_UI && IntakeV7About && (
           <>
+            {/* D-035 item 5: the report reading is shown first, as a standout card. */}
+            {initial === null && !reportInfo && (
+              <ReportUpload lang={lang} onExtracted={applyExtraction} card />
+            )}
             <Suspense fallback={null}>
               <IntakeV7About
                 {...v7Part}
@@ -637,7 +653,6 @@ export default function IntakeForm({
                 mobilityField={mobilityField}
               />
             </Suspense>
-            {initial === null && !reportInfo && <ReportUpload lang={lang} onExtracted={applyExtraction} />}
           </>
         )}
         {kind === "about" && !V7_UI && (

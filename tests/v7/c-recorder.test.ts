@@ -110,4 +110,44 @@ describe("LiveStepCounter", () => {
     expect(facings.has("away")).toBe(true);
     expect(facings.has(null)).toBe(true);
   });
+
+  // D-035 item 2: passes are counted by the change of direction, so nobody needs to leave the picture.
+  const FACE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  for (const face of [true, false])
+    it(`counts a walk to a phone against a wall and back by the direction in depth (face ${face ? "seen" : "never seen"})`, () => {
+      const w = walk({
+        view: "front",
+        passes: 3,
+        seed: 21,
+        home: { farM: 4.5, nearM: 1.2 },
+        passShiftM: 0.3,
+        camera: { lateral: 0.3 },
+        noise: 0.002,
+        jitterMs: 8,
+        ...(face ? {} : { occlude: [{ from: 0, to: 1e6, landmarks: FACE, visibility: 0.05 }] }),
+      });
+      const c = new LiveStepCounter("front");
+      let r = { steps: 0, passes: 0, facing: null as string | null };
+      for (const f of w.frames) r = c.feed(f);
+      // Three toward and three away passes, each turn inside the picture.
+      expect(r.passes).toBe(6);
+    });
+
+  it("counts a side walk that turns inside the picture on a 3 m path", () => {
+    const w = walk({
+      view: "side",
+      passes: 6,
+      seed: 22,
+      home: { pathM: 3 },
+      passShiftM: 0.3,
+      camera: { distance: 3 },
+      noise: 0.002,
+      jitterMs: 8,
+    });
+    const c = new LiveStepCounter("side");
+    let r = { steps: 0, passes: 0, facing: null as string | null };
+    for (const f of w.frames) r = c.feed(f);
+    expect(r.passes).toBe(6);
+    expect(Math.abs(r.steps - w.truth.ics.length)).toBeLessThanOrEqual(6);
+  });
 });

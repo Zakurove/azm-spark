@@ -55,7 +55,10 @@ export interface GaitPlan {
   antalgicOnly: boolean;
   /** the single leg stance check (capture.staticSingleLegStance) runs */
   staticStance: boolean;
-  /** Views in capture order per mode (capture.walking_pad: the affected side first, then the other side, then the front). */
+  /**
+   * Views in capture order per mode (capture.walking_pad: the affected side first, then the other side,
+   * then the front; overground, D-035 item 2: the side view first, the front and back offered after it).
+   */
   views: {
     overground: ("front" | "back" | "side")[];
     walking_pad: { view: "pad_side" | "pad_front"; nearSide?: "left" | "right" }[];
@@ -286,7 +289,7 @@ export function gaitPlanFor(
     // capture.staticSingleLegStance: «under the v1.1 standing gate (H6 rule 2)».
     staticStance: standingGate(intake, setting, { ...today, prosthesisOn }) === null,
     views: {
-      overground: ["front", "back", "side"],
+      overground: ["side", "front", "back"],
       walking_pad: padAllowed
         ? [{ view: "pad_side", nearSide: near }, { view: "pad_side", nearSide: other }, { view: "pad_front" }]
         : [],

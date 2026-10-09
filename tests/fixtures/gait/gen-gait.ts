@@ -834,8 +834,10 @@ export function walk(spec: WalkSpec): Walk {
     const tMs = startMs + tau * 1000;
     if (tMs <= lastMs) continue;
     lastMs = tMs;
-    const segIndex = segments.findIndex((s) => tau >= s.from && tau < s.to);
-    const seg = segments[segIndex] ?? segments[segments.length - 1];
+    // A jittered first frame before the walk's start belongs to its first segment.
+    const found = segments.findIndex((s) => tau >= s.from && tau < s.to);
+    const segIndex = found >= 0 ? found : tau < 0 && spec.home ? 0 : segments.length - 1;
+    const seg = segments[segIndex];
     if (seg.pass) {
       const st: PoseState = {
         tau: tau - seg.from + (seg.pass.phase ?? 0),
@@ -903,11 +905,20 @@ export function walk(spec: WalkSpec): Walk {
           ? [-1, 0, 0]
           : [1, 0, 0]
         : [0, 0, 1];
-  const stOrigin: V = spec.view === "front" || spec.view === "back" ? [0, 0, -3] : [0, 0, 0];
+  let stOrigin: V = spec.view === "front" || spec.view === "back" ? [0, 0, -3] : [0, 0, 0];
+  let stFacing = stHeading;
+  const first = segments[0]?.pass;
+  if (spec.home && first) {
+    // A home walk starts from where its person stood still for the calibration, facing the way off.
+    const lead = -0.25 * g.stride + b.ankle[0];
+    const start = add(first.origin, mul(first.heading, g.speed * (first.phase ?? 0) + lead));
+    stOrigin = sub(start, mul(first.heading, b.ankle[0]));
+    stFacing = first.heading;
+  }
   for (let i = 0; i < Math.floor(standingSec * fps); i++) {
     const tMs = startMs - (standingSec + 2) * 1000 + (i * 1000) / fps;
-    const room = roomPose(spec, b, g, { tau: null, heading: stHeading, origin: stOrigin }).lm;
-    standing.push(toFrame(room, stHeading, tMs, () => {}));
+    const room = roomPose(spec, b, g, { tau: null, heading: stFacing, origin: stOrigin }).lm;
+    standing.push(toFrame(room, stFacing, tMs, () => {}));
   }
 
   // Truth: events while the heel is in the picture; the model's angles over one cycle.

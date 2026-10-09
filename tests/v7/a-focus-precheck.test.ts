@@ -250,7 +250,7 @@ describe("applyPrecheckOutcome: skips", () => {
       helperRequired: true,
       padAllowed: false,
       modes: ["overground"],
-      views: { overground: ["front", "back", "side"], walking_pad: [] },
+      views: { overground: ["side", "front", "back"], walking_pad: [] },
     });
     expect(out.gait!.reason).toBeUndefined();
   });

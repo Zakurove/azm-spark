@@ -431,10 +431,12 @@ export default function GaitLab({ view: asked }: { view: string }) {
             </dl>
             <p className="fx-meta" data-live="events">
               {say(lang, "events")}:{" "}
-              {events
-                .slice(-10)
-                .map((e) => `${e.side === "right" ? "R" : "L"} ${(e.t / 1000).toFixed(2)}`)
-                .join("  ") || "none"}
+              <span className="gx-lab-events">
+                {events
+                  .slice(-10)
+                  .map((e) => `${e.side === "right" ? "R" : "L"} ${(e.t / 1000).toFixed(2)}`)
+                  .join("  ") || "none"}
+              </span>
             </p>
             {step.id === "place" && (
               <Body lang={lang} text={gt(lang, view === "front" ? "place.front3" : "place.side3")} />

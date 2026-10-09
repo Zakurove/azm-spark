@@ -27,11 +27,13 @@ const GATES = qualityGates as unknown as GaitData["qualityGates"];
 
 /**
  * The engine's version, stored with every analysis (GaitAnalysis.engineVersion). Version 2 (D-030
- * C4-1): the pad side view masks the far leg's false contacts (D-028 item 2, PAD_FAR_MASK).
+ * C4-1): the pad side view masks the far leg's false contacts (D-028 item 2, PAD_FAR_MASK). Version 3
+ * (D-035 item 2): front and back passes by the direction in depth, no leg track across a turn that
+ * faces the phone, and the timing only reading of a recording below its gate (GAIT_MVP).
  */
 // Kept here so the engine chunk never imports src/movements/gait/index.ts (D-023 gap 16);
 // tests/v7/c-params.test.ts holds it equal to GAIT_ENGINE_VERSION of that file.
-export const ENGINE_VERSION = "gait_engine_2";
+export const ENGINE_VERSION = "gait_engine_3";
 
 function step(name: string): GaitData["preprocessing"][number] {
   const s = PREPROCESSING.find((p) => p.step === name);

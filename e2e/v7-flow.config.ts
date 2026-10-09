@@ -27,7 +27,7 @@ mkdirSync(E2E_DATA, { recursive: true });
 
 export default defineConfig({
   testDir: HERE,
-  testMatch: /v7-(flow|form)\.spec\.ts$/,
+  testMatch: /v7-(flow|form|romlab)\.spec\.ts$/,
   fullyParallel: false,
   workers: 1,
   retries: 0,

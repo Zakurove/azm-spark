@@ -204,8 +204,22 @@ const EXIT_URLS: Partial<Record<ExitTarget, string>> = {
   demo: "/?demo=1&autostart=1",
   signIn: "/?app=1",
 };
+/**
+ * D-035 item 4: the range test page, /?romlab=<movement>&side=right|left (/?romlab=1 lists them),
+ * VITE_V7 builds only, signed in or not, never saving (the env test written inline).
+ */
+const RomLab = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/RomLab")) : null;
+function RomLabEntry() {
+  const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar");
+  return RomLab ? (
+    <LazyPage lang={lang}>
+      <RomLab lang={lang} onLanguage={() => setLang((l) => (l === "ar" ? "en" : "ar"))} />
+    </LazyPage>
+  ) : null;
+}
 /** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
 export default function App() {
+  if (RomLab && qs.has("romlab")) return <RomLabEntry />;
   return PerfOverlay && perfEntry ? (
     <>
       <Pages />

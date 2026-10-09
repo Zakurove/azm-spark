@@ -34,6 +34,11 @@ describe("a range run", () => {
       mirrored: false,
       timeoutSec: 150,
       traceSec: 30,
+      answer: "yes",
+    });
+    // D-035: answer=none leaves the maximum question unanswered (its timeout is the answer).
+    expect(ok("r", "kind=rom&movement=elbow_flexion&side=right&answer=none")).toMatchObject({
+      answer: "none",
     });
     const s = ok(
       "r",

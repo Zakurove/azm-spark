@@ -33,6 +33,15 @@
  *   - After a hold fires the detector waits; `rearm(t)` (after «ليس بعد», or an unconfirmed small hold)
  *     lets the next hold fire once a whole window lies after t, at any angle: a person who cannot go
  *     further after «ليس بعد» is asked again, and the runner keeps the further value.
+ *
+ * D-035 item 1 (Nasser's second real test, v7.1 on an iPhone: the dial showed his angle and he held
+ * it, yet nothing was measured): the runner reads a lenient plateau, MVP_HOLD (mvpHoldOptions). A
+ * steady top is the filtered angle within about 8 degrees either side of the window's median for about
+ * 0.6 s, its trend under the plateau hint's 8 degrees per second (a slow raise is not a top), after a
+ * real movement from the start pose (the protocol's: engine.minExcursionDeg for a value, a small hold
+ * from engine.holdBandDeg that the person confirms). The value is still the plateau's median (Hampel,
+ * then the median of the window's angles). The protocol's own 3 degrees for 1.0 s stay in holdOptions
+ * for the record and the coach's plateau hint.
  */
 import { hampel } from "../signal/hampel";
 import { median } from "../modes/common";
@@ -65,13 +74,32 @@ export interface HoldOptions {
   direction: 1 | -1;
   /** The start pose's angle (RomCalibration.startDeg), for small holds; null: not known. */
   startDeg?: number | null;
+  /**
+   * The band: the highest minus the lowest filtered angle of the window ("spread", the protocol's
+   * reading), or the most any reading lies from the window's median ("median", D-035).
+   */
   bandDeg: number;
   holdMs: number;
   minExcursionDeg: number;
   maxGapMs: number;
+  /** How the band is read (default "spread"). */
+  around?: "spread" | "median";
+  /** The window's least squares trend must stay under this, degrees per second (null or absent: not read). */
+  maxSlopeDegPerSec?: number | null;
+  /**
+   * How far the level must lie toward the end range, from the furthest point and (for a small hold)
+   * from the start pose, for the person to have moved (default bandDeg, the protocol's reading).
+   */
+  moveDeg?: number;
+  /**
+   * A small hold (an excursion under minExcursionDeg, which the person must confirm) holds steadier
+   * and longer: the filtered angle's spread over the last holdMs at most bandDeg (D-035: the
+   * protocol's own 3 degrees for 1.0 s, so a resting arm's drift never asks the question).
+   */
+  small?: { holdMs: number; bandDeg: number };
 }
 
-/** The hold options of a movement kind, from ROM_DATA.engine. */
+/** The hold options of a movement kind, from ROM_DATA.engine (rom-protocol 1.1 step 4's own words). */
 export function holdOptions(kind: RomKind): HoldOptions {
   const e = ROM_DATA.engine;
   return {
@@ -81,6 +109,61 @@ export function holdOptions(kind: RomKind): HoldOptions {
     minExcursionDeg: e.minExcursionDeg,
     maxGapMs: HOLD_RULES.maxGapMs,
   };
+}
+
+/**
+ * D-035 item 1, the MVP hold (interface numbers the tech lead set, not clinical ones; contract change
+ * log R7-1): about 8 degrees either side of the window's median, for about 0.6 s, the window's trend
+ * under the plateau hint's 8 degrees per second (PLATEAU_RULES.maxDegPerSec), so a slow raise is never
+ * read as its top.
+ */
+export const MVP_HOLD = {
+  halfBandDeg: 8,
+  seconds: 0.6,
+  maxSlopeDegPerSec: PLATEAU_RULES.maxDegPerSec,
+  /**
+   * A movement under 24 degrees holds within a third of its excursion either side (at least the
+   * protocol's 3): the 8 degrees would take in most of a small movement's rise.
+   */
+  bandShareOfExcursion: 1 / 3,
+} as const;
+
+/** The runner's hold options (D-035): MVP_HOLD with the data's minimum excursion and v1's gap. */
+export function mvpHoldOptions(kind: RomKind): HoldOptions {
+  return {
+    ...holdOptions(kind),
+    bandDeg: MVP_HOLD.halfBandDeg,
+    holdMs: MVP_HOLD.seconds * 1000,
+    around: "median",
+    maxSlopeDegPerSec: MVP_HOLD.maxSlopeDegPerSec,
+    // A movement: beyond the data's wide band (engine.wideHoldBandDeg, 5) from the furthest point and
+    // the start pose; a resting arm's drift on the real model reaches 3 to 4 degrees and asked the
+    // question at rest. A small hold (under engine.minExcursionDeg) still needs «نعم».
+    moveDeg: ROM_DATA.engine.wideHoldBandDeg,
+    // A small hold keeps the protocol's own steadiness (step 4: 3 degrees for 1.0 s).
+    small: { holdMs: ROM_DATA.engine.holdSeconds * 1000, bandDeg: ROM_DATA.engine.holdBandDeg },
+  };
+}
+
+/** The least squares slope of filtered readings, degrees per second (0 with fewer than two times). */
+function slopeOf(xs: readonly { t: number; f: number }[]): number {
+  const n = xs.length;
+  if (n < 2) return 0;
+  let mt = 0;
+  let mf = 0;
+  for (const s of xs) {
+    mt += s.t;
+    mf += s.f;
+  }
+  mt /= n;
+  mf /= n;
+  let num = 0;
+  let den = 0;
+  for (const s of xs) {
+    num += (s.t - mt) * (s.f - mf);
+    den += (s.t - mt) ** 2;
+  }
+  return den > 0 ? (num / den) * 1000 : 0;
 }
 
 /** A hold the detector found. */
@@ -107,8 +190,9 @@ interface Sample {
 export class HoldDetector {
   private buf: Sample[] = [];
   private lastT: number | null = null;
-  /** The filtered angle furthest from the end range in this attempt. */
+  /** The filtered angle furthest from the end range in this attempt, and when it was last reached. */
   private away: number | null = null;
+  private awayT = -Infinity;
   /** A hold fired; the next one waits for rearm(). */
   private latched = false;
   private band: number;
@@ -131,12 +215,15 @@ export class HoldDetector {
     this.buf = [];
     this.lastT = null;
     this.away = null;
+    this.awayT = -Infinity;
     this.latched = false;
+    this.progressNow = 0;
   }
 
   /** The next hold may fire once a whole window lies after `t` (the furthest point is kept). */
   rearm(t: number): void {
     this.latched = false;
+    this.progressNow = 0;
     this.buf = this.buf.filter((s) => s.t >= t);
   }
 
@@ -145,43 +232,138 @@ export class HoldDetector {
     return this.away === null ? 0 : this.opts.direction * (f - this.away);
   }
 
+  /**
+   * How far the angle is into a hold now, 0 to 1 in fifths of the hold window: the longest recent
+   * stretch (a fifth, two fifths ... or the whole window) that is steady as a hold is (the band, the
+   * trend, the excursion). A picture for the screen, and the runner's «during the hold».
+   */
+  get progress(): number {
+    return this.progressNow;
+  }
+
+  /** The last hold's window: its level (the median filtered angle), the band it held in, its frames' own angles. */
+  get window(): { level: number; band: number; raws: readonly number[] } | null {
+    return this.lastWindow;
+  }
+
+  private lastWindow: { level: number; band: number; raws: number[] } | null = null;
+
+  private progressNow = 0;
+
+  /** Whether readings are steady as a hold: the band, the trend and a real movement (the level beyond the band). */
+  private steady(xs: readonly Sample[]): {
+    ok: boolean;
+    level: number;
+    excursionDeg: number;
+    band: number;
+  } {
+    const fs = xs.map((s) => s.f);
+    const level = median(fs)!;
+    let band = this.band;
+    const no = { ok: false, level, excursionDeg: 0, band };
+    if (this.opts.around === "median") {
+      // A small movement's top is held within a share of the movement (never under a movement's
+      // moveDeg): the end of its rise is never most of a window that reads «steady» (D-035).
+      band = Math.min(
+        this.band,
+        Math.max(this.opts.moveDeg ?? this.band, MVP_HOLD.bandShareOfExcursion * this.excursion(level)),
+      );
+      for (const f of fs) if (Math.abs(f - level) > band) return no;
+      // The filtered angle lags the frames: the last third of the window's own angles (their median)
+      // must still be at the level, so a movement that goes on is no top yet.
+      const tail = xs.filter((x) => x.t >= xs[xs.length - 1].t - this.opts.holdMs / 3).map((x) => x.raw);
+      if (Math.abs(median(tail)! - level) > band) return no;
+    } else if (Math.max(...fs) - Math.min(...fs) > this.band) return no;
+    const max = this.opts.maxSlopeDegPerSec;
+    if (max !== null && max !== undefined && Math.abs(slopeOf(xs)) > max) return no;
+    // The median reading (D-035): the angle came toward the end range before the window and stopped;
+    // an angle still going away from it (its furthest point inside the window) is no top.
+    if (this.opts.around === "median" && this.awayT >= xs[0].t) return no;
+    const excursionDeg = this.excursion(level);
+    const move = this.opts.moveDeg ?? this.band;
+    if (excursionDeg <= move) return no;
+    const start = this.opts.startDeg ?? null;
+    if (
+      excursionDeg < this.opts.minExcursionDeg &&
+      start !== null &&
+      this.opts.direction * (level - start) <= move
+    )
+      return no;
+    // The median reading (D-035): a small hold is a small movement from the start pose. A level far
+    // from it with a small excursion is an attempt that began away from the start pose (the arm still
+    // up after the practice): no top of a movement yet.
+    if (
+      this.opts.around === "median" &&
+      excursionDeg < this.opts.minExcursionDeg &&
+      start !== null &&
+      this.opts.direction * (level - start) >= this.opts.minExcursionDeg + move
+    )
+      return no;
+    return { ok: true, level, excursionDeg, band };
+  }
+
+  private updateProgress(t: number): void {
+    if (this.latched) {
+      this.progressNow = 1;
+      return;
+    }
+    let p = 0;
+    for (const q of [0.2, 0.4, 0.6, 0.8, 1]) {
+      const from = t - q * this.opts.holdMs;
+      const xs = this.buf.filter((s) => s.t >= from);
+      if (xs.length < 2 || xs[0].t > from + this.opts.holdMs * 0.1 || !this.steady(xs).ok) break;
+      p = q;
+    }
+    this.progressNow = p;
+  }
+
   /** One reading: the filtered and the raw angle of a frame. Returns the hold when one is found. */
   push(t: number, filtered: number, raw: number): HoldFound | null {
     if (!Number.isFinite(filtered) || !Number.isFinite(raw)) return null;
     if (this.lastT !== null && t - this.lastT > this.opts.maxGapMs) this.buf = [];
     this.lastT = t;
     const d = this.opts.direction;
-    if (this.away === null || d * (filtered - this.away) < 0) this.away = filtered;
-    this.buf.push({ t, f: filtered, raw });
-    const from = t - this.opts.holdMs;
-    while (this.buf.length > 1 && this.buf[1].t <= from) this.buf.shift();
-    if (this.latched || this.buf[0].t > from) return null;
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (const s of this.buf) {
-      lo = Math.min(lo, s.f);
-      hi = Math.max(hi, s.f);
+    if (this.away === null || d * (filtered - this.away) < 0) {
+      this.away = filtered;
+      this.awayT = t;
     }
-    if (hi - lo > this.band) return null;
-    const level = median(this.buf.map((s) => s.f))!;
-    const excursionDeg = this.excursion(level);
-    if (excursionDeg <= this.band) return null;
-    const start = this.opts.startDeg ?? null;
-    if (
-      excursionDeg < this.opts.minExcursionDeg &&
-      start !== null &&
-      this.opts.direction * (level - start) <= this.band
-    )
-      return null;
+    this.buf.push({ t, f: filtered, raw });
+    const keep = t - Math.max(this.opts.holdMs, this.opts.small?.holdMs ?? 0);
+    while (this.buf.length > 1 && this.buf[1].t <= keep) this.buf.shift();
+    this.updateProgress(t);
+    const w = this.windowOf(t, this.opts.holdMs);
+    if (this.latched || !w) return null;
+    const { ok, level, excursionDeg, band } = this.steady(w);
+    if (!ok) return null;
+    const smallExcursion = excursionDeg < this.opts.minExcursionDeg;
+    let win = w;
+    if (smallExcursion && this.opts.small) {
+      // A small hold: the protocol's steadiness over its own window.
+      const sw = this.windowOf(t, this.opts.small.holdMs);
+      if (!sw) return null;
+      const fs = sw.map((x) => x.f);
+      if (Math.max(...fs) - Math.min(...fs) > this.opts.small.bandDeg) return null;
+      win = sw;
+    }
     this.latched = true;
+    this.progressNow = 1;
+    this.lastWindow = { level, band, raws: win.map((x) => x.raw) };
     return {
-      from: this.buf[0].t,
+      from: win[0].t,
       to: t,
-      deg: holdValue(this.buf.map((s) => s.raw))!,
+      deg: holdValue(win.map((x) => x.raw))!,
       excursionDeg,
       bandDeg: this.band,
-      smallExcursion: excursionDeg < this.opts.minExcursionDeg,
+      smallExcursion,
     };
+  }
+
+  /** The readings of the last `ms` (from the last one at or before t - ms), or null while fewer are kept. */
+  private windowOf(t: number, ms: number): Sample[] | null {
+    const from = t - ms;
+    let k = -1;
+    for (let i = 0; i < this.buf.length && this.buf[i].t <= from; i++) k = i;
+    return k < 0 ? null : this.buf.slice(k);
   }
 }
 

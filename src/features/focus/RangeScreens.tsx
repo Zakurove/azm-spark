@@ -18,7 +18,8 @@ import type { Frame } from "../../engine/types";
 import { movementLandmarks } from "../../engine/rom/quality";
 import type { RomBlock, RomProtocolItem } from "../../medical/rom-protocol";
 import type { Intake, Sex } from "../../medical/plan";
-import { movementDef, ROM_DATA } from "../../movements/rom";
+import { movementDef } from "../../movements/rom";
+import { RUNNER_RULES } from "../../engine/rom/runner";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones } from "../assessment/safety/parts";
 import { useFoldFit } from "../assessment/safety/hooks";
@@ -288,7 +289,8 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
   const max = useScale(item, ctl, live);
   const highlight = useMemo(() => movementLandmarks(def, item.side).gate, [def, item.side]);
   const att = ctl.attempt;
-  const scored = ROM_DATA.engine.scoredAttemptsMax;
+  // D-035: one valid attempt records the value; a second only when the person asks for it.
+  const scored = Math.max(RUNNER_RULES.validAttempts, att.index);
   const caption = ctl.caption;
   const issue = phase === "calibrating" ? ctl.setupIssue : null;
   const asking =
@@ -308,7 +310,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       : phase === "practice"
         ? tV7(lang, "rom.measure.practice")
         : phase === "attempt"
-          ? tV7(lang, "rom.measure.attempt", { n: att.index, total: scored })
+          ? tV7(lang, att.index > RUNNER_RULES.validAttempts ? "rom.measure.again" : "rom.measure.now")
           : phase === "rest"
             ? tV7(lang, "rom.measure.rest")
             : phase === "paused"
@@ -597,6 +599,7 @@ export function ResultScreen({
   intake,
   last,
   onNext,
+  onAgain,
 }: {
   lang: Lang;
   ctl: RomController;
@@ -606,6 +609,8 @@ export function ResultScreen({
   intake: (Intake & { sex: Sex }) | null;
   last: boolean;
   onNext(): void;
+  /** D-035: «حاول مرة أخرى», when the card may offer one more try (ctl.canTryAgain). */
+  onAgain?: () => void;
 }) {
   const def = movementDef(item.movementId);
   const norm = ctl.norm(item);
@@ -698,6 +703,14 @@ export function ResultScreen({
         </Glass>
         <Actions
           items={[
+            onAgain &&
+              ctl.canTryAgain && {
+                label: tV7(lang, "rom.result.again"),
+                onClick: onAgain,
+                kind: "quiet",
+                name: "again",
+                icon: "refresh",
+              },
             {
               label: tV7(lang, last ? "rom.result.finish" : "rom.result.next"),
               onClick: onNext,

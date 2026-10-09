@@ -18,6 +18,8 @@ import {
   PERCENT_OF_NORMAL_MIN_N,
   PHONE_BIAS,
   SD_CAP,
+  MIN_VALID_FOR_GRADE,
+  compensatedValue,
   gradeBand,
   gradeMeasurement,
   gradeValue,
@@ -510,10 +512,38 @@ describe("gradeMeasurement (what the server stores, C-3)", () => {
     expect(g.gradeIgnoringPain).toBe("marked");
   });
 
-  it("provisional with 1 valid attempt (engine.minValidForGrade 2)", () => {
+  it("one valid attempt is graded as it is (D-035 MIN_VALID_FOR_GRADE 1; the data's 2 is gap R7-3)", () => {
     expect(ROM_DATA.engine.minValidForGrade).toBe(2);
-    expect(gradeMeasurement(result({ nValid: 1 }), intake("male", 40)).flags).toContain("provisional");
+    expect(MIN_VALID_FOR_GRADE).toBe(1);
+    expect(gradeMeasurement(result({ nValid: 1 }), intake("male", 40)).flags).not.toContain("provisional");
     expect(gradeMeasurement(result({ nValid: 2 }), intake("male", 40)).flags).not.toContain("provisional");
+  });
+
+  it("a value whose own attempt carries a check at its invalid level is approximate (D-035)", () => {
+    const attempt = (reasons: string[]) => ({
+      index: 1,
+      outcome: "valid" as const,
+      value: 120,
+      answer: "yes" as const,
+      answerSource: "timeout" as const,
+      painLimited: false,
+      painLevel: null,
+      reasons,
+      flags: [],
+      quality: { ok: true } as never,
+      t0: 0,
+      t1: 1,
+    });
+    const flagsOf = (reasons: string[]) =>
+      gradeMeasurement(
+        result({ movementId: "knee_flexion", value: 120, nValid: 1, attempts: [attempt(reasons)] }),
+        intake("male", 40),
+      ).flags;
+    expect(flagsOf(["assisted"])).toContain("approximate");
+    expect(flagsOf([])).not.toContain("approximate");
+    expect(
+      compensatedValue(result({ movementId: "knee_flexion", value: 120, attempts: [attempt(["plane"])] })),
+    ).toBe(true);
   });
 
   it("no_grade without a norm (a position with normId null): value and progress only", () => {

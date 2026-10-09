@@ -339,6 +339,8 @@ export class SmokeRun {
       this.driver = new RomSmokeDriver(runner, {
         now: this.now,
         onFeed: (ms) => this.deps.onMeasure?.("azm:rom_feed", ms),
+        // D-035: answer=none, nobody answers the maximum question (its timeout is the answer).
+        ...(spec.answer === "none" ? { answerDelayMs: Number.POSITIVE_INFINITY } : {}),
       });
       this.driver.start(t);
     } catch (err) {

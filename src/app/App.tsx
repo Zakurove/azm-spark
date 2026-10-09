@@ -232,9 +232,25 @@ export default function App() {
     <ProgramBuildPreview />
   ) : CoachLab && coachLabEntry ? (
     <CoachLabPage />
+  ) : RomLab && romLabEntry ? (
+    <RomLabEntry />
   ) : (
     <Pages />
   );
+}
+/**
+ * D-035 item 4: the range test page, /?romlab=<movement>&side=right|left (/?romlab=1 lists them),
+ * VITE_V7 builds only, signed in or not, never saving (the env test written inline).
+ */
+const RomLab = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/focus/RomLab")) : null;
+const romLabEntry = import.meta.env.VITE_V7 === "1" && qs.has("romlab");
+function RomLabEntry() {
+  const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar");
+  return RomLab ? (
+    <LazyPage lang={lang}>
+      <RomLab lang={lang} onLanguage={() => setLang((l) => (l === "ar" ? "en" : "ar"))} />
+    </LazyPage>
+  ) : null;
 }
 /**
  * D-032 item 4: the program build animation on its own, /?programBuild=preview (VITE_V7=1 builds only,

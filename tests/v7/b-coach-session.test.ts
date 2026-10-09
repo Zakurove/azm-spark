@@ -119,7 +119,8 @@ describe("the RomController through D's coach segment (DG-7)", () => {
     h.call("c2", "confirm_max", { ...KNEE_BEND, answer: "yes" });
     expect(h.reply("c2")).toEqual({ accepted: true, say: "recorded", data: { recorded: true, deg } });
     expect(h.ctl.attempt.valid).toBe(1);
-    expect(h.ctl.phase).toBe("rest");
+    // D-035: one valid attempt records the value; the knee's short value asks what stopped it.
+    expect(h.ctl.phase).toBe("ask_cause");
     h.session.end("done");
   });
 

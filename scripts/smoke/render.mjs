@@ -87,7 +87,8 @@ function writeTruth(sc, opts, outDir, extra = {}) {
       framePoints(sc, skeleton(sc.poseAt(sc.sampleAt ? sc.sampleAt(i) : i / sc.fps))).map((p) => [round4(p.x), round4(p.y)]),
     );
   const truth = scenarioTruth(sc);
-  const out = { ...truth, frames, seconds, smokeQuery: smokeQuery(truth), ...extra };
+  // A truth may ask for its own query (D-035: answer=none); else the movement's.
+  const out = { ...truth, frames, seconds, smokeQuery: truth.smokeQuery ?? smokeQuery(truth), ...extra };
   writeFileSync(join(outDir, `${sc.id}.truth.json`), JSON.stringify(out, null, 2) + "\n");
   writeFileSync(
     join(outDir, `${sc.id}.joints.json`),

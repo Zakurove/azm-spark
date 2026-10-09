@@ -35,7 +35,7 @@ describe("every measured movement through the runner", () => {
       expect(res.status, JSON.stringify(kinds(d.events, "attempt").map((e) => e.record.reasons))).toBe(
         "measured",
       );
-      expect(res.nValid).toBe(3);
+      expect(res.nValid).toBe(1);
       expect(Math.abs(res.value! - c.target)).toBeLessThanOrEqual(2);
       for (const a of res.attempts) expect(Math.abs(a.value! - c.target)).toBeLessThanOrEqual(2);
       expect(res.retries).toBe(0);
@@ -144,7 +144,8 @@ describe("the seated side bend's limits (rom-protocol 3.12, seated_side_lean_gat
     expect(res.value).toBe(30);
     expect(res.flags).toContain("censored");
     for (const a of res.attempts) expect(a.value).toBeLessThanOrEqual(30);
-    expect(cuesOf(d.events).filter((c) => c === "test_trunk_to_middle").length).toBeGreaterThanOrEqual(3);
+    // The practice and the one scored attempt (D-035) each end at the limit with the safety line.
+    expect(cuesOf(d.events).filter((c) => c === "test_trunk_to_middle").length).toBeGreaterThanOrEqual(2);
     // No maximum question beyond the limit.
     expect(kinds(d.events, "hold").every((e) => e.hold.deg <= 30)).toBe(true);
   });

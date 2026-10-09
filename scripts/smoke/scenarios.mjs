@@ -31,6 +31,18 @@
  *                                  a wall at 1 m, portrait; four walks toward it from 5 m, each turning
  *                                  in place 1.6 m before the phone and walking back, with a turn at the
  *                                  far end; 108 steps a minute; nobody leaves the picture.
+ *   rom-mvp-*                      D-035 (Nasser's second real test, v7.1, seated at home, nobody
+ *                                  answering «is this your maximum»): the same home phone, with a
+ *                                  person who is never perfectly still (jitter: a small tremor of the
+ *                                  moving arm, about 1.5 degrees at 5 to 7 Hz, and the trunk swaying
+ *                                  about 1.5 degrees at 0.35 Hz), sitting a little turned toward the
+ *                                  phone: the arm raise to the front to 145 drifting 15 degrees out to
+ *                                  the side as it rises, the elbow bend to 135, the elbow
+ *                                  straightening from 90 to 5, and the knee straightening seated from
+ *                                  90 to 8 (the phone low at the data's 2 m, so the legs are in it).
+ *                                  Their truth asks the smoke page not to answer (smokeQuery
+ *                                  answer=none); it is computed on the pose without the jitter
+ *                                  (truthPoseAt).
  *
  * The truth is computed from the same kinematics the renderer draws, so it is exact for the rendered
  * person: the arm's 3D abduction (the goniometer) and the same angle on the projected joints (the
@@ -105,7 +117,21 @@ function romShoulderAbduction({ id, side, startDeg, endDeg }) {
  * angle at time t is the movement's: the arm's elevation in the sagittal plane (shoulder_flexion), in
  * the frontal plane (shoulder_abduction), or the elbow's bend with the arm by the side (elbow_flexion).
  */
-function romSeated({ id, movement, side, startDeg, endDeg, camera, width, height, fps, turnDeg = 0 }) {
+function romSeated({
+  id,
+  movement,
+  side,
+  startDeg,
+  endDeg,
+  camera,
+  width,
+  height,
+  fps,
+  turnDeg = 0,
+  driftAbdDeg = 0,
+  jitter = null,
+  answer = null,
+}) {
   const phases = { still: 3, raise: 2.5, hold: 4, lower: 2.5, rest: 2 };
   const seconds = Object.values(phases).reduce((a, b) => a + b, 0);
   const at = {};
@@ -123,6 +149,12 @@ function romSeated({ id, movement, side, startDeg, endDeg, camera, width, height
     return startDeg;
   };
   const view = movement === "shoulder_abduction" ? "front" : "side";
+  // D-035: a person never perfectly still (rom-mvp-*): a tremor of the moving arm and a trunk sway.
+  const tremor = (t) =>
+    jitter ? jitter.tremorDeg * (0.6 * Math.sin(2 * Math.PI * 5 * t) + 0.4 * Math.sin(2 * Math.PI * 7.3 * t + 1)) : 0;
+  const sway = (t) => (jitter ? jitter.swayDeg * Math.sin(2 * Math.PI * 0.35 * t) : 0);
+  /** How far the movement is from its start, 0 to 1 (the drift to the side grows with it). */
+  const progress = (a) => (endDeg === startDeg ? 0 : (a - startDeg) / (endDeg - startDeg));
   // A side view may sit turned toward the phone by turnDeg (the view still reads side under 36 degrees).
   const turn = (turnDeg * Math.PI) / 180;
   const fwd =
@@ -133,8 +165,10 @@ function romSeated({ id, movement, side, startDeg, endDeg, camera, width, height
         : [-Math.cos(turn), 0, Math.sin(turn)];
   const moving = side === "right" ? "r" : "l";
   const still = moving === "r" ? "l" : "r";
-  const poseAt = (t) => {
-    const a = angle(t);
+  const poseOf = (t, clean) => {
+    const a = angle(t) + (clean ? 0 : tremor(t));
+    const lean = clean ? 0 : sway(t);
+    const drift = driftAbdDeg * Math.max(0, Math.min(1, progress(angle(t))));
     const base = {
       ...standingPose(fwd),
       hip: { l: 90, r: 90 },
@@ -143,20 +177,25 @@ function romSeated({ id, movement, side, startDeg, endDeg, camera, width, height
       shoulderAbd: { l: 6, r: 6 },
       shoulderFlex: { l: 0, r: 0 },
       elbow: { l: 8, r: 8 },
+      trunkLean: lean,
     };
     if (movement === "shoulder_flexion")
-      // Thumb up, elbow straight: the arm turns in the sagittal plane only.
+      // Thumb up, elbow straight: the arm turns in the sagittal plane, drifting out to the side by drift.
       return {
         ...base,
-        shoulderAbd: { [moving]: 0, [still]: 6 },
+        shoulderAbd: { [moving]: drift, [still]: 6 },
         shoulderFlex: { [moving]: a, [still]: 0 },
         elbow: { [moving]: 4, [still]: 8 },
       };
     if (movement === "shoulder_abduction")
       return { ...base, shoulderAbd: { [moving]: a, [still]: startDeg }, elbow: { [moving]: 4, [still]: 8 } };
-    // elbow_flexion: the upper arm by the side, the forearm turning forward and up.
+    if (movement === "knee_extension")
+      // Seated, the thigh on the chair: the shank straightens forward from hanging (the knee's bend a).
+      return { ...base, knee: { [moving]: a, [still]: 90 } };
+    // elbow_flexion and elbow_extension: the upper arm by the side, the forearm turning forward and up.
     return { ...base, shoulderAbd: { [moving]: 0, [still]: 6 }, elbow: { [moving]: a, [still]: 8 } };
   };
+  const poseAt = (t) => poseOf(t, false);
   return {
     id,
     kind: "rom",
@@ -168,7 +207,21 @@ function romSeated({ id, movement, side, startDeg, endDeg, camera, width, height
     camera,
     scene: { chair: true, wallZ: -1.4 },
     poseAt,
-    meta: { movement, side, position: "seated", view, startDeg, endDeg, phases: at, turnDeg },
+    // The truth reads the pose without the jitter (the goniometer of the movement itself).
+    ...(jitter ? { truthPoseAt: (t) => poseOf(t, true) } : {}),
+    meta: {
+      movement,
+      side,
+      position: "seated",
+      view,
+      startDeg,
+      endDeg,
+      phases: at,
+      turnDeg,
+      ...(driftAbdDeg ? { driftAbdDeg } : {}),
+      ...(jitter ? { jitter } : {}),
+      ...(answer ? { answer } : {}),
+    },
   };
 }
 
@@ -609,11 +662,84 @@ export const SCENARIOS = Object.freeze({
     fps: 30,
     turnDeg: 30,
   }),
+  "rom-mvp-shoulder-flexion-drift-right": romSeated({
+    id: "rom-mvp-shoulder-flexion-drift-right",
+    movement: "shoulder_flexion",
+    side: "right",
+    startDeg: 4,
+    endDeg: 145,
+    camera: homeCamera(1.5, 1.1),
+    width: 540,
+    height: 720,
+    fps: 30,
+    turnDeg: 15,
+    driftAbdDeg: 15,
+    jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
+    answer: "none",
+  }),
+  "rom-mvp-elbow-flexion-right": romSeated({
+    id: "rom-mvp-elbow-flexion-right",
+    movement: "elbow_flexion",
+    side: "right",
+    startDeg: 6,
+    endDeg: 135,
+    camera: homeCamera(1.3, 0.95),
+    width: 540,
+    height: 720,
+    fps: 30,
+    turnDeg: 25,
+    jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
+    answer: "none",
+  }),
+  "rom-mvp-knee-extension-right": romSeated({
+    id: "rom-mvp-knee-extension-right",
+    movement: "knee_extension",
+    side: "right",
+    startDeg: 90,
+    endDeg: 8,
+    // The legs in the picture: the phone at the data's 2 m (rom-protocol knee_extension 2 to 3 m),
+    // low (0.55 m), aimed 0.4 m ahead of the hips so the straightened foot stays in the portrait picture.
+    camera: { pos: [0.4, 0.55, 2], target: [0.4, 0.55, 0], fovY: 56 },
+    width: 540,
+    height: 720,
+    fps: 30,
+    turnDeg: 10,
+    jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
+    answer: "none",
+  }),
+  "rom-mvp-elbow-extension-right": romSeated({
+    id: "rom-mvp-elbow-extension-right",
+    movement: "elbow_extension",
+    side: "right",
+    startDeg: 90,
+    endDeg: 5,
+    camera: homeCamera(1.3, 0.95),
+    width: 540,
+    height: 720,
+    fps: 30,
+    turnDeg: 25,
+    jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
+    answer: "none",
+  }),
 });
 
 /** The movement's angle on the 3D skeleton (the goniometer): the arm's elevation from the trunk, or the elbow's bend. */
 export function movementTruthDeg(movement, skel, side) {
-  return movement === "elbow_flexion" ? elbowFlexionDeg(skel, side) : armAbductionDeg(skel, side);
+  if (movement === "knee_extension") return kneeBendDeg(skel, side);
+  return movement === "elbow_flexion" || movement === "elbow_extension"
+    ? elbowFlexionDeg(skel, side)
+    : armAbductionDeg(skel, side);
+}
+
+/** The 3D bend of a knee: 180 minus the angle at the knee from the hip to the ankle (0 straight). */
+function kneeBendDeg(skel, side) {
+  const j = skel.joints;
+  const r = side === "right";
+  const [h, k, a] = [j[r ? J.HIP_R : J.HIP_L], j[r ? J.KNEE_R : J.KNEE_L], j[r ? J.ANK_R : J.ANK_L]];
+  const u = [h[0] - k[0], h[1] - k[1], h[2] - k[2]];
+  const w = [a[0] - k[0], a[1] - k[1], a[2] - k[2]];
+  const dotUW = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+  return 180 - deg(Math.acos(Math.max(-1, Math.min(1, dotUW / (Math.hypot(...u) * Math.hypot(...w))))));
 }
 
 /** The joints in the picture (normalised, y down), for framing checks and the landmark truth. */
@@ -661,6 +787,8 @@ function projectedMovement(sc, skel, startSkel, movement, side) {
   };
   const j = skel.joints;
   const r = side === "right";
+  if (movement === "knee_extension")
+    return 180 - angleAt(px(j[r ? J.HIP_R : J.HIP_L]), px(j[r ? J.KNEE_R : J.KNEE_L]), px(j[r ? J.ANK_R : J.ANK_L]));
   const S = px(j[r ? J.SH_R : J.SH_L]);
   const E = px(j[r ? J.ELB_R : J.ELB_L]);
   if (movement === "shoulder_flexion") return angleAt(E, S, px(j[r ? J.HIP_R : J.HIP_L]));
@@ -714,9 +842,11 @@ export function scenarioTruth(sc) {
   };
   if (sc.kind === "rom") {
     const m = sc.meta;
-    const start = skeleton(sc.poseAt(0));
-    const holdMid = skeleton(sc.poseAt((m.phases.hold[0] + m.phases.hold[1]) / 2));
-    const seated = sc.id.startsWith("rom-seated-");
+    const truthPose = sc.truthPoseAt ?? sc.poseAt;
+    const start = skeleton(truthPose(0));
+    const holdMid = skeleton(truthPose((m.phases.hold[0] + m.phases.hold[1]) / 2));
+    const seated = sc.id.startsWith("rom-seated-") || sc.id.startsWith("rom-mvp-");
+    const truthQuery = m.answer === "none" ? { smokeQuery: `${smokeQuery({ kind: "rom", ...m })}&answer=none` } : {};
     return {
       ...base,
       movement: m.movement,
@@ -731,8 +861,9 @@ export function scenarioTruth(sc) {
         startDeg: round(projectedMovement(sc, start, start, m.movement, m.side), 3),
         endDeg: round(projectedMovement(sc, holdMid, start, m.movement, m.side), 3),
       },
+      ...truthQuery,
       notes: seated
-        ? `Seated at home (D-034 item 1): the phone ${sc.camera.pos[2]} m away at ${sc.camera.pos[1]} m, portrait 3:4, the legs out of the picture. The video loops: every loop is still 3 s, raise 2.5 s, hold 4 s at the end angle, lower 2.5 s, rest 2 s. endDeg is the movement's 3D angle (the goniometer); projected is the movement's angle on the projected joints.`
+        ? `Seated at home (D-034 item 1): the phone ${sc.camera.pos[2]} m away at ${sc.camera.pos[1]} m, portrait 3:4, the legs out of the picture. The video loops: every loop is still 3 s, raise 2.5 s, hold 4 s at the end angle, lower 2.5 s, rest 2 s. endDeg is the movement's 3D angle (the goniometer); projected is the movement's angle on the projected joints.${m.jitter ? ` D-035: the person is never perfectly still (a tremor of ${m.jitter.tremorDeg} degrees of the moving arm at 5 to 7 Hz, a trunk sway of ${m.jitter.swayDeg} degrees at 0.35 Hz), sitting ${m.turnDeg} degrees turned${m.driftAbdDeg ? `, the arm drifting ${m.driftAbdDeg} degrees out to the side as it rises` : ""}; the truth is read without the jitter, and the smoke page never answers the maximum question.` : ""}`
         : "The video loops: every loop is still 3 s, raise 2.5 s, hold 4 s at the end angle, lower 2.5 s, rest 2 s. endDeg is the arm's 3D abduction (the goniometer); projected is ang(E - S, MHf - MS) on the projected joints with the mid hip of the start pose.",
     };
   }

@@ -42,8 +42,10 @@ export const NORMS_VERSION = `rom_norms_${ROM_DATA.specVersion}`;
  * The runner's version, stored with every measurement (bumped by stream B when the runner changes).
  * rom_engine_2: D-034 item 1, the range gate after Nasser's first real test (its own landmarks only,
  * close is fine, the view a line, the shoulders anchor, the arm raises' hidden hip, the dial despiked).
+ * rom_engine_3: D-035 item 1, the MVP runner after Nasser's second real test (compensations only flag,
+ * one calm line per movement, the lenient plateau hold, no answer counts as yes, one valid attempt).
  */
-export const ROM_ENGINE_VERSION = "rom_engine_2";
+export const ROM_ENGINE_VERSION = "rom_engine_3";
 
 function missing(kind: string, id: string): never {
   throw new Error(`Unknown range of motion ${kind}: ${id}`);

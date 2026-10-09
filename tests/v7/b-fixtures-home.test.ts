@@ -17,6 +17,7 @@
 import { appendFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { GenSpec } from "../fixtures/gen";
+import { RUNNER_RULES } from "../../src/engine/rom/runner";
 import type { RomMovementId, RomPositionId } from "../../src/movements/rom/types";
 import { MATRIX_JITTER_MS, romSpec, runRom, VALUE_TOLERANCE_DEG, type RomRun } from "./b-fixtures";
 
@@ -225,7 +226,8 @@ describe("seated at home, 1.2 to 1.5 m, the legs out of the picture (D-034 item 
         reason: null,
         issues: [],
       });
-      expect(r.nValid).toBe(3);
+      // D-035: one valid attempt records the value.
+      expect(r.nValid).toBe(RUNNER_RULES.validAttempts);
       for (const a of r.attempts)
         expect(Math.abs(a.value! - c.peak), `attempt ${a.index}`).toBeLessThanOrEqual(VALUE_TOLERANCE_DEG);
       // The dial never jumps away from a resting arm (a one frame landmark jump is not an angle).

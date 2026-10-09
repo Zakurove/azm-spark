@@ -54,7 +54,7 @@ export interface RomDriverReport {
   /** Quality issues by id, and the local lines the runner asked to play by id. */
   issues: Record<string, number>;
   cues: Record<string, number>;
-  compensations: { id: string; level: "cue" | "invalid"; value: number; t: number }[];
+  compensations: { id: string; level: "cue" | "flag"; value: number; t: number }[];
 }
 
 const count = (into: Record<string, number>, key: string) => {

@@ -1,0 +1,129 @@
+/* The range test page (D-035 item 4): the check's own screens with a diagnostics panel under them. */
+.rl-page {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.rl-note {
+  color: var(--fx-muted);
+  font-size: 0.95rem;
+}
+.rl-index .rl-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.rl-index .rl-list li {
+  display: grid;
+  gap: 6px;
+}
+.rl-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rl-links a {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.rl-verdict {
+  border-radius: 20px;
+}
+.rl-verdict.is-measured {
+  background: var(--fx-gold-tint);
+}
+.rl-verdict.is-not_measured,
+.rl-verdict.is-stopped {
+  background: var(--fx-rose-tint);
+}
+.rl-verdict-line {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--fx-ink);
+  margin: 0 0 8px;
+}
+.rl-diag-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.rl-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 10px 0 14px;
+}
+.rl-grid dt {
+  color: var(--fx-muted);
+}
+.rl-grid dd {
+  margin: 0;
+  font-weight: 700;
+  color: var(--fx-ink);
+  overflow-wrap: anywhere;
+}
+.rl-bar {
+  display: block;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--fx-purple-tint);
+  overflow: hidden;
+}
+.rl-bar i {
+  display: block;
+  height: 100%;
+  background: var(--fx-gold-deep);
+  transition: width 0.15s linear;
+}
+.rl-seen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rl-seen span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.rl-seen .is-seen {
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+}
+.rl-seen .is-hidden {
+  background: var(--fx-rose-tint);
+  color: var(--fx-rose);
+}
+.rl-log {
+  margin: 6px 0 12px;
+  padding-inline-start: 18px;
+  font-size: 0.85rem;
+  color: var(--fx-ink);
+  max-height: 260px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.rl-log .is-cue,
+.rl-log .is-compensation {
+  color: var(--fx-purple-ink);
+  font-weight: 700;
+}
+.rl-log .is-attempt {
+  color: var(--fx-gold-ink);
+  font-weight: 700;
+}
+.rl-json pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  color: var(--fx-ink);
+}

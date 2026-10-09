@@ -523,8 +523,10 @@ describe("gait runtime data (gait-v7.json)", () => {
 
   it("serves its versions", () => {
     expect(GAIT_RULES_VERSION).toBe(`gait_rules_${GAIT_DATA.version}`);
-    // D-030 C4-1: version 2 since the pad side view masks the far leg's false contacts (D-028 item 2).
-    expect(GAIT_ENGINE_VERSION).toBe("gait_engine_2");
+    // D-030 C4-1: version 2 since the pad side view masks the far leg's false contacts (D-028 item 2);
+    // D-035 item 2: version 3, the walk at home (front passes by the direction in depth, the timing
+    // only reading below the gate).
+    expect(GAIT_ENGINE_VERSION).toBe("gait_engine_3");
   });
 
   it("is signed off (D-025), version 1.0.0", () => {

@@ -32,10 +32,17 @@
  */
 import { capture as captureData, eligibility as eligibilityData } from "../../movements/gait/gait-v7.json";
 import type { GaitData } from "../../movements/gait/types";
-import { analyseGaitView, analyseStaticStance, combineViews } from "../../engine/gait/analyse";
+import { analyseGaitGroup, analyseStaticStance, combineViews } from "../../engine/gait/analyse";
 import { LiveStepCounter, type LiveFacing } from "../../engine/gait/live";
-import { ENGINE_VERSION, GAIT_ENGINE } from "../../engine/gait/params";
+import { ENGINE_VERSION, GAIT_ENGINE, GAIT_MVP } from "../../engine/gait/params";
 import { GaitRecorder } from "../../engine/gait/recorder";
+import {
+  groupPassed,
+  isTimingReading,
+  walkVerdict,
+  type WalkLevel,
+  type WalkReason,
+} from "../../engine/gait/verdict";
 import type {
   GaitAnalysis,
   GaitFrame,
@@ -138,6 +145,7 @@ export type GaitStepId =
   | "pad_warm_up"
   | "walk"
   | "walk_again"
+  | "front_offer"
   | "retry"
   | "pad_stop"
   | "stance_place"
@@ -170,6 +178,7 @@ export const STEP_KIND: Record<GaitStepId, CoachStepKind> = {
   pad_warm_up: "timer",
   walk: "active",
   walk_again: "confirm",
+  front_offer: "question",
   retry: "question",
   pad_stop: "confirm",
   stance_place: "confirm",
@@ -205,6 +214,12 @@ const STEP_LINE: Partial<Record<GaitStepId, string>> = {
   stance: "gait_single_leg_static",
   retry: "gait_quality_retry",
 };
+
+/**
+ * The overground walk's spoken lines: screen lines of the gait namespace (gait.json walk.sideSay and
+ * walk.frontSay), said with the phone's own speech by GaitCapture (not voice pack lines).
+ */
+export const WALK_LINE = { side: "gait.walk.sideSay", front: "gait.walk.frontSay" } as const;
 
 /* ------------------------------------------------------------- recordings */
 
@@ -257,6 +272,11 @@ interface Recording {
   skipped: boolean;
   /** The recording passed its group's gate at its last check. */
   gatePassed: boolean;
+  /** Walk frames, and those with both hips and both ankles seen. */
+  walkFrames: number;
+  seenFrames: number;
+  /** The time of the last checkpoint: the next one waits for a step after it. */
+  checkedAt: number | null;
 }
 
 /** One leg of the static stance: its frames, from the person lifting it. */
@@ -284,7 +304,45 @@ export interface GaitControllerOptions {
   poseModel?: () => "lite" | "full";
   /** E2E fast timing: the warm up in seconds (default 2 minutes). */
   warmUpSec?: number;
+  /**
+   * Where the walk's diagnostic lines go (D-035 item 4): each checkpoint and the end, «[azm gait] ...»
+   * with the passes counted, the clean cycles a side, the share of frames with the legs seen, the frame
+   * rate and the reasons. Default: the browser console (never a landmark or a picture).
+   */
+  log?: (line: string) => void;
 }
+
+/** What a recording found (D-035 item 4): the lab shows it, the log writes it, the card reads its level. */
+export interface RecordingDiagnostics {
+  rec: RecordingId;
+  /** Passes counted live (by the change of direction), and steps. */
+  passes: number;
+  steps: number;
+  /** Seconds walked (pauses left out). */
+  seconds: number;
+  /** The lowest frame rate of the recording's views (mean inside the passes), or null before a checkpoint. */
+  fps: number | null;
+  /** The share of the walk's frames with both hips and both ankles seen (0 to 1), or null before frames. */
+  visibleShare: number | null;
+  /** Clean cycles a side (the verdict's group). */
+  cleanCycles: { left: number; right: number };
+  level: WalkLevel | null;
+  reasons: WalkReason[];
+  cadence: number | null;
+  stepTime: { left: number | null; right: number | null };
+  /** Each view's quality issues. */
+  views: {
+    view: GaitView;
+    issues: string[];
+    cleanCycles: { left: number; right: number };
+    gapShare: number;
+  }[];
+  skipped: boolean;
+}
+
+/** The calm line a failed recording shows: what to change (D-035 item 2). */
+export type RetryReason =
+  "side_on" | "face_phone" | "no_person" | "light" | "whole_body" | "more_steps" | "one_person";
 
 const EMPTY_LM = (): Landmark[] => Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));
 const median = (xs: number[]): number | null => {
@@ -407,11 +465,17 @@ export class GaitController implements CoachHost {
     if (p.modes.length > 1 && !this.padTooFast) head.push({ id: "mode" });
     head.push({ id: "gear" });
     if (this.mode === "overground") {
+      // D-035 item 2: the side view first (the most reliable); the front view offered after it, or at
+      // once when there is no room for the side view (skipView).
       const out = [...head, { id: "clear_path" } as GaitStep];
-      const front = p.views.overground.filter((v) => v === "front" || v === "back");
-      if (front.length) out.push(...this.recordingSteps("overground_front"));
+      const side = p.views.overground.includes("side");
+      const front = p.views.overground.some((v) => v === "front" || v === "back");
+      if (side) out.push(...this.recordingSteps("overground_side"));
+      if (front) {
+        if (side) out.push({ id: "front_offer" });
+        out.push(...this.recordingSteps("overground_front"));
+      }
       if (p.staticStance) out.push({ id: "stance_place" }, { id: "stance" });
-      if (p.views.overground.includes("side")) out.push(...this.recordingSteps("overground_side"));
       out.push({ id: "saving" }, { id: "done" });
       return out;
     }
@@ -599,6 +663,9 @@ export class GaitController implements CoachHost {
         done: false,
         skipped: false,
         gatePassed: false,
+        walkFrames: 0,
+        seenFrames: 0,
+        checkedAt: null,
       };
       this.recordings.set(id, r);
     }
@@ -662,14 +729,15 @@ export class GaitController implements CoachHost {
         switchUntil: null,
         lock: new SubjectLock(),
       };
+    if (s.id === "saving") this.logEnd();
     if (s.id === "pad_start" && this.padStartedAt === null) this.padStartedAt = now;
     if (s.id === "pad_stop") this.padEndedAt = now;
     const line = STEP_LINE[s.id];
     if (line) this.say(line, "info");
-    if (s.id === "walk" && s.rec === "overground_front") {
-      this.say("gait_walk_past_phone", "info");
-      this.say("gait_turn_slowly", "info");
-    }
+    // D-035 item 2: the walk's own line (the screen's copy, gait.walk.*Say): nobody walks past the
+    // phone or leaves the picture; stopping or turning and walking back counts.
+    if (s.id === "walk" && s.rec === "overground_front") this.say(WALK_LINE.front, "info");
+    if (s.id === "walk" && s.rec === "overground_side") this.say(WALK_LINE.side, "info");
     // The belt is stopped while the helper moves the phone to the pad's other side (D-030 C4-3).
     if (s.id === "place" && s.rec === "pad_side_b") this.say("gait_pad_other_side", "info");
     this.bridge({ p: 3, type: "step_start", label: s.rec ? `${s.id}_${s.rec}` : s.id, t: now });
@@ -733,15 +801,43 @@ export class GaitController implements CoachHost {
     return true;
   }
 
-  /** «No room for this view»: the overground side recording is left out. */
+  /**
+   * «No room for this view»: the overground side recording is left out; the front view follows at
+   * once when the plan has it (D-035 item 2), else the walk goes on to its end.
+   */
   skipView(now: number): boolean {
     const s = this.current;
     if (s.id !== "place" || s.rec !== "overground_side") return false;
     this.recOf(s.rec).skipped = true;
-    this.go(
-      this.steps.findIndex((x) => x.id === "saving"),
-      now,
-    );
+    const front = this.steps.findIndex((x) => x.id === "place" && x.rec === "overground_front");
+    if (front >= 0) {
+      const offer = this.steps.findIndex((x) => x.id === "front_offer");
+      if (offer >= 0) this.steps.splice(offer, 1);
+      this.go(
+        this.steps.findIndex((x) => x.id === "place" && x.rec === "overground_front"),
+        now,
+      );
+      return true;
+    }
+    this.go(this.afterRecording("overground_side"), now);
+    return true;
+  }
+
+  /** The step after a recording's walk (the next step that is not that recording's). */
+  private afterRecording(rec: RecordingId): number {
+    const last = this.steps.map((x) => x.rec).lastIndexOf(rec);
+    return Math.min(this.steps.length - 1, last + 1);
+  }
+
+  /** The offer of the front view after the side view (D-035 item 2): add it, or finish without it. */
+  frontChoice(add: boolean, now: number): boolean {
+    if (this.current.id !== "front_offer") return false;
+    if (add) {
+      this.nextStep(now);
+      return true;
+    }
+    this.recOf("overground_front").skipped = true;
+    this.go(this.afterRecording("overground_front"), now);
     return true;
   }
 
@@ -760,10 +856,29 @@ export class GaitController implements CoachHost {
       this.go(at, now);
       return true;
     }
-    r.skipped = true;
+    // Go on: the recording is kept with its reasons (D-035 item 4: a walk never ends with nothing).
+    r.done = true;
     this.steps.splice(this.index, 1);
     this.go(this.index, now);
     return true;
+  }
+
+  /**
+   * The calm line of the re-record step: what to change (D-035 item 2), from the recording's last
+   * check, or null before one.
+   */
+  retryReason(): RetryReason | null {
+    const s = this.current;
+    const r = s.rec ? this.recordings.get(s.rec) : undefined;
+    if (!r) return null;
+    const reasons = walkVerdict(r.results).reasons;
+    const fps = Math.min(...r.results.map((v) => v.quality.medianFps));
+    if (r.results.some((v) => v.quality.issues.includes("not_one_person"))) return "one_person";
+    if (!r.results.length || (r.walkFrames > 0 && r.seenFrames / r.walkFrames < 0.2)) return "no_person";
+    if (reasons.includes("wrong_view")) return r.id === "overground_front" ? "face_phone" : "side_on";
+    if (Number.isFinite(fps) && fps < CAPTURE_RULES.recordAgainBelowFps) return "light";
+    if (reasons.includes("visibility") || reasons.includes("tracking")) return "whole_body";
+    return "more_steps";
   }
 
   private resetRecording(r: Recording): void {
@@ -782,6 +897,9 @@ export class GaitController implements CoachHost {
     fresh.skipped = false;
     fresh.gatePassed = false;
     fresh.rolls = [];
+    fresh.walkFrames = 0;
+    fresh.seenFrames = 0;
+    fresh.checkedAt = null;
   }
 
   /** The pad's speed (km/h or mph, as the pad shows it) and the handrail hold, after the walk. */
@@ -928,6 +1046,8 @@ export class GaitController implements CoachHost {
     const { lm, crowded } = this.pickSubject(r.lock, frame);
     const g: GaitFrame = { t: frame.t, lm: lm ?? EMPTY_LM(), aspect: frame.aspect ?? 1 };
     r.recorder.push(g);
+    r.walkFrames++;
+    if (lm && seen(lm, HIPS_ANKLES)) r.seenFrames++;
     if (roll !== null && Number.isFinite(roll)) r.rolls.push(roll);
     if (r.lastT !== null) r.activeMs += Math.min(500, Math.max(0, frame.t - r.lastT));
     r.lastT = frame.t;
@@ -952,6 +1072,8 @@ export class GaitController implements CoachHost {
     if (r.id.startsWith("pad")) return r.activeMs >= r.target * 1000;
     if (r.activeMs >= CAPTURE_LIMITS.overgroundMaxSec * 1000) return true;
     const runs = r.id === "overground_front" ? 2 * r.target : r.target;
+    // After a checkpoint that asked for more, the next waits for a step (the person walks on).
+    if (r.checkedAt !== null && (r.lastStepAt === null || r.lastStepAt <= r.checkedAt)) return false;
     return r.passes >= runs && r.lastStepAt !== null && t - r.lastStepAt >= CAPTURE_LIMITS.restAfterPassMs;
   }
 
@@ -1019,27 +1141,34 @@ export class GaitController implements CoachHost {
     }
   }
 
-  /** The checkpoint: analyse the recording's views, then go on, ask for more, or ask to record again. */
+  /**
+   * The checkpoint: analyse the recording's views, then go on, ask for more, or ask to record again.
+   * A recording is done once its verdict is full or timing only (D-035 item 2: 3 clean cycles a side
+   * across the passes, GAIT_MVP); below that it adds laps, passes or seconds up to its most, then asks
+   * for a calm re-record with what to change.
+   */
   private check(r: Recording, now: number): void {
     this.pendingCheck = false;
+    r.checkedAt = now;
     r.results = this.analyseRecording(r, this.setup());
+    const verdict = walkVerdict(r.results);
     const fps = Math.min(...r.results.map((v) => v.quality.medianFps));
     const bad = r.results.some(
       (v) => v.quality.issues.includes("wrong_view") || v.quality.issues.includes("not_one_person"),
     );
     const low = r.results.length > 0 && Number.isFinite(fps) && fps < CAPTURE_RULES.recordAgainBelowFps;
-    r.gatePassed = r.results.length > 0 && this.groupGate(r.results);
-    const cycles = this.groupCycles(r.results);
+    r.gatePassed = verdict.level === "full";
     this.bridge({
       p: 3,
       type: "pass_done",
       view: r.views[0]?.view ?? "side",
-      cleanCycles: Math.min(cycles.left, cycles.right),
-      needed: CAPTURE_RULES.cleanCycles,
+      cleanCycles: Math.min(verdict.cleanCycles.left, verdict.cleanCycles.right),
+      needed: GAIT_MVP.timingCyclesPerSide,
       t: now,
     });
+    this.logCheck(r, "check");
     if (low || bad || r.results.length === 0) return this.askRetry(r, now);
-    if (r.gatePassed) return this.finishRecording(r, now);
+    if (verdict.level !== "none") return this.finishRecording(r, now);
     if (r.id.startsWith("pad")) {
       const base = r.id === "pad_front" ? CAPTURE_RULES.padFrontSec : CAPTURE_RULES.padSideSec;
       const limit = base * CAPTURE_LIMITS.padLimitFactor;
@@ -1058,8 +1187,8 @@ export class GaitController implements CoachHost {
       this.changed();
       return;
     }
-    // Overground at its most passes: the views keep what they have; the rules mark what is not assessed.
-    this.finishRecording(r, now);
+    // At its most passes with nothing to show: what to change, then again or go on with it kept.
+    this.askRetry(r, now);
   }
 
   private askRetry(r: Recording, now: number): void {
@@ -1077,25 +1206,116 @@ export class GaitController implements CoachHost {
     const frames = r.recorder.frames();
     if (frames.length < 2) return [];
     const roll = median(r.rolls);
-    const out: GaitViewResult[] = [];
-    for (const v of r.views) {
-      try {
-        out.push(
-          analyseGaitView({
-            view: v.view,
-            ...(v.nearSide ? { nearSide: v.nearSide } : {}),
-            setup,
-            standing: r.standing,
-            frames,
-            poseModel: r.poseModel,
-            rollDeg: roll,
-          }),
-        );
-      } catch {
-        /* a view the engine cannot read is left out */
-      }
+    // The recording's views read together (C3-1), timing only below the group's gate (D-035 item 2).
+    return analyseGaitGroup(
+      r.views.map((v) => ({
+        view: v.view,
+        ...(v.nearSide ? { nearSide: v.nearSide } : {}),
+        setup,
+        standing: r.standing,
+        frames,
+        poseModel: r.poseModel,
+        rollDeg: roll,
+      })),
+    );
+  }
+
+  /**
+   * The gait lab (D-035 item 4): the current or last recording read now, without changing the walk
+   * (the capture itself reads only at its checkpoints, 2.8).
+   */
+  analyseNow(): GaitViewResult[] {
+    const s = this.current;
+    const r = s.rec ? this.recordings.get(s.rec) : [...this.recordings.values()].pop();
+    return r ? this.analyseRecording(r, this.setup()) : [];
+  }
+
+  /** The gait lab's kept landmarks (VITE_E2E builds, the real model smoke): each recording's frames. */
+  recordedFrames(): { rec: RecordingId; standing: GaitFrame[]; frames: GaitFrame[] }[] {
+    return [...this.recordings.values()].map((r) => ({
+      rec: r.id,
+      standing: [...r.standing],
+      frames: r.recorder.frames(),
+    }));
+  }
+
+  /** The gait lab's «finish now»: the recording is read as it is and the walk goes on, kept. */
+  finishNow(now: number): boolean {
+    const s = this.current;
+    if (s.id !== "walk" || !s.rec) return false;
+    const r = this.recOf(s.rec);
+    this.pendingCheck = false;
+    r.checkedAt = now;
+    r.results = this.analyseRecording(r, this.setup());
+    r.gatePassed = walkVerdict(r.results).level === "full";
+    this.logCheck(r, "check");
+    this.finishRecording(r, now);
+    return true;
+  }
+
+  /* ---------------------------------------------------------- diagnostics */
+
+  /** What each recording found so far (D-035 item 4): the gait lab shows it, the log writes it. */
+  diagnostics(): RecordingDiagnostics[] {
+    const out: RecordingDiagnostics[] = [];
+    for (const r of this.recordings.values()) {
+      const v = walkVerdict(r.results);
+      const fps = r.results.length ? Math.min(...r.results.map((x) => x.quality.medianFps)) : null;
+      out.push({
+        rec: r.id,
+        passes: r.passes,
+        steps: r.steps,
+        seconds: Math.round(r.activeMs / 100) / 10,
+        fps: fps === null || !Number.isFinite(fps) ? null : Math.round(fps * 10) / 10,
+        visibleShare: r.walkFrames ? Math.round((1000 * r.seenFrames) / r.walkFrames) / 1000 : null,
+        cleanCycles: v.cleanCycles,
+        level: r.results.length ? v.level : null,
+        reasons: r.results.length ? v.reasons : [],
+        cadence: v.cadence,
+        stepTime: v.stepTime,
+        views: r.results.map((x) => ({
+          view: x.view,
+          issues: [...x.quality.issues],
+          cleanCycles: x.quality.cleanCycles,
+          gapShare: x.quality.gapShare,
+        })),
+        skipped: r.skipped,
+      });
     }
     return out;
+  }
+
+  /** A diagnostic line: the option's, else the browser console (none outside a browser, the tests). */
+  private log(line: string): void {
+    if (this.opts.log) this.opts.log(line);
+    else if (typeof window !== "undefined") console.info(line);
+  }
+
+  /** The end of the walk's lines: each recording, or that nothing was recorded and why. */
+  private logEnd(): void {
+    const kept = [...this.recordings.values()].filter((r) => !r.skipped && r.recorder.seconds >= 1);
+    for (const r of kept) this.logCheck(r, "end");
+    if (!kept.length) {
+      const left = [...this.recordings.values()].filter((r) => r.skipped).map((r) => r.id);
+      this.log(
+        `[azm gait] end: not analysed (nothing recorded${left.length ? `; left out ${left.join(", ")}` : ""})`,
+      );
+    }
+  }
+
+  /** One diagnostic line (D-035 item 4): numbers and reasons only, never a landmark. */
+  private logCheck(r: Recording, what: "check" | "end"): void {
+    const d = this.diagnostics().find((x) => x.rec === r.id);
+    if (!d) return;
+    const verdict =
+      d.level === "none"
+        ? `not analysed (${d.reasons.join(", ") || "no reason"})`
+        : `${d.level}, cadence ${d.cadence ?? "none"}`;
+    const line =
+      `[azm gait] ${what} ${r.id}: passes ${d.passes}, steps ${d.steps}, ${d.seconds} s, ` +
+      `cycles ${d.cleanCycles.left}/${d.cleanCycles.right}, visible ${d.visibleShare ?? "none"}, ` +
+      `fps ${d.fps ?? "none"}, ${verdict}`;
+    this.log(line);
   }
 
   /** Clean cycles a side over a recording's views together (the view group, C3-1). */
@@ -1104,12 +1324,6 @@ export class GaitController implements CoachHost {
       (a, v) => ({ left: a.left + v.quality.cleanCycles.left, right: a.right + v.quality.cleanCycles.right }),
       { left: 0, right: 0 },
     );
-  }
-
-  private groupGate(results: readonly GaitViewResult[]): boolean {
-    const c = this.groupCycles(results);
-    const fpsOk = results.every((v) => v.quality.medianFps >= GAIT_ENGINE.timingOnlyFps);
-    return fpsOk && c.left >= CAPTURE_RULES.cleanCycles && c.right >= CAPTURE_RULES.cleanCycles;
   }
 
   /* ---------------------------------------------------------- the result */
@@ -1165,11 +1379,16 @@ export class GaitController implements CoachHost {
     const setup = this.setup();
     const views: GaitViewResult[] = [];
     const order: RecordingId[] =
-      this.mode === "overground" ? ["overground_front", "overground_side"] : this.padRecordings();
+      this.mode === "overground" ? ["overground_side", "overground_front"] : this.padRecordings();
     for (const id of order) {
       const r = this.recordings.get(id);
       if (!r || r.skipped || r.recorder.seconds < 1) continue;
-      views.push(...this.analyseRecording(r, setup));
+      const results = this.analyseRecording(r, setup);
+      // D-035 item 4: a view that neither passed its group's gate nor gave a timing only reading keeps
+      // its quality (the reasons, stored as the walk's diagnostic) and none of its numbers, so a walk
+      // the model tracked badly never shows or stores a cadence.
+      const passed = groupPassed(results);
+      views.push(...results.map((v) => (passed || isTimingReading(v) ? v : { ...v, metrics: {} })));
     }
     if (!views.length) return null;
     const stance: StaticStanceResult[] = [];

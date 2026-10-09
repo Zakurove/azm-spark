@@ -213,7 +213,7 @@ describe("gait-rules eligibility.today", () => {
         helperRequired: true,
         padAllowed: false,
         modes: ["overground"],
-        views: { overground: ["front", "back", "side"], walking_pad: [] },
+        views: { overground: ["side", "front", "back"], walking_pad: [] },
       });
       expect(alone.reason).toBeUndefined();
     }
@@ -298,9 +298,9 @@ describe("the walking pad at home (D-032 item 1)", () => {
 });
 
 describe("views and the static stance", () => {
-  it("overground toward and away, plus side passes; the pad's side views start with the affected side", () => {
+  it("overground side passes first, then toward and away (D-035 item 2); the pad's side views start with the affected side", () => {
     const left = plan(intake({ regions: [entry("knee", "left", ["pain"])] }));
-    expect(left.views.overground).toEqual(["front", "back", "side"]);
+    expect(left.views.overground).toEqual(["side", "front", "back"]);
     expect(left.views.walking_pad).toEqual([
       { view: "pad_side", nearSide: "left" },
       { view: "pad_side", nearSide: "right" },
@@ -317,7 +317,7 @@ describe("views and the static stance", () => {
   it("no pad views when the pad is not offered; no views at all when gait is not offered", () => {
     const aid = plan(intake({ walking: { status: "with_aid", aid: "cane" } }));
     expect(aid.views.walking_pad).toEqual([]);
-    expect(aid.views.overground).toEqual(["front", "back", "side"]);
+    expect(aid.views.overground).toEqual(["side", "front", "back"]);
     const no = plan(intake({ walking: { status: "no" } }));
     expect(no).toMatchObject({ offered: false, modes: [], padAllowed: false, staticStance: false });
     expect(no.views).toEqual({ overground: [], walking_pad: [] });

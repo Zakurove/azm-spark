@@ -11,7 +11,8 @@
  *                and the near leg, D-026 item 6) under 0.5, which the pre-processing filled by
  *                interpolation
  *   gatePassed   at least 6 clean cycles per side, at 20 fps or more («under 20: record again»)
- *   timingOnly   20 to 24 fps: «timing and cadence only»
+ *   timingOnly   20 to 24 fps: «timing and cadence only»; or the MVP's timing only reading of a view
+ *                below its gate (GAIT_MVP, D-035 item 2), at 20 fps or more
  *   issues       what lowered the view: too_few_cycles, low_fps (under 25), gaps (over 15%),
  *                visibility and swap (the gate failed and cycles were dropped for that reason; a
  *                side view's far leg dropped for visibility does not count),
@@ -137,6 +138,8 @@ export interface QualityInput {
   cycles: readonly Cycle[];
   /** The recording has bouts but the view found none of its passes (front without toward, back without away). */
   noViewPasses: boolean;
+  /** The MVP's timing only reading of a view below its gate (GAIT_MVP): timingOnly whatever the frame rate. */
+  timing?: boolean;
 }
 
 /** The view's quality report (GaitQuality). */
@@ -156,15 +159,18 @@ export function viewQuality(q: QualityInput): GaitQuality {
   const gaps = gapShare(q.p, q.motion);
   const enough =
     clean.left >= GAIT_ENGINE.cleanCyclesPerSide && clean.right >= GAIT_ENGINE.cleanCyclesPerSide;
-  const gatePassed = enough && fps >= GAIT_ENGINE.recordAgainBelowFps;
-  const timingOnly = fps >= GAIT_ENGINE.recordAgainBelowFps && fps < GAIT_ENGINE.fullFps;
+  // The timing only reading never passes the full gate: its cycles keep turn steps (GAIT_MVP).
+  const gatePassed = enough && fps >= GAIT_ENGINE.recordAgainBelowFps && q.timing !== true;
+  const timingOnly =
+    fps >= GAIT_ENGINE.recordAgainBelowFps && (q.timing === true || fps < GAIT_ENGINE.fullFps);
   const passSamples = q.motion.passes.reduce((n, p) => n + (p.end - p.start), 0);
   const analysedSamples = q.motion.passes.reduce(
     (n, p) => n + analysedRuns(p, q.motion.excluded).reduce((m, [a, b]) => m + b - a, 0),
     0,
   );
   const issues = new Set<GaitQualityIssue>();
-  if (!enough) issues.add("too_few_cycles");
+  // The timing only reading is below the data's gate by definition (its cycles keep turn steps).
+  if (!enough || q.timing === true) issues.add("too_few_cycles");
   if (fps < GAIT_ENGINE.fullFps) issues.add("low_fps");
   if (gaps > GAIT_ENGINE.gapShareMax) issues.add("gaps");
   if (!enough && drops.get("visibility")) issues.add("visibility");

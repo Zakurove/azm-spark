@@ -144,3 +144,49 @@ export function overgroundFromPad(
     truth: { cadence: s.truth.cadence, ics, tos },
   };
 }
+
+/** The walk lab's kept landmarks (D-035 item 4, e2e/v7-gaitlab-smoke.spec.ts): format azm-gait-smoke-2. */
+interface HomeSmokeFile {
+  format: string;
+  model: "full" | "lite";
+  lab: "side" | "front";
+  aspect: number;
+  heightCm: number;
+  landmarks: number[];
+  truth: { cadence: number; strideSec: number };
+  standing: number[][];
+  frames: number[][];
+}
+
+export interface HomeSmokeWalk {
+  model: "full" | "lite";
+  lab: "side" | "front";
+  heightCm: number;
+  /** The capture's standing calibration and walk frames as the lab recorded them (the subject's landmarks). */
+  standing: GaitFrame[];
+  frames: GaitFrame[];
+  truth: { cadence: number; strideSec: number };
+}
+
+/** A walk lab run of the real model on a rendered walk at home (D-035 items 2 and 4). */
+export function loadHomeSmoke(path: string): HomeSmokeWalk {
+  const f = JSON.parse(
+    readFileSync(path.includes("/") ? path : join(DIR, `${path}.smoke`), "utf8"),
+  ) as HomeSmokeFile;
+  if (f.format !== "azm-gait-smoke-2") throw new Error(`${path}: unknown smoke fixture format`);
+  const toFrame = ([t, ...v]: number[]): GaitFrame => {
+    const lm: Landmark[] = Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));
+    f.landmarks.forEach((id, i) => {
+      lm[id] = { x: v[3 * i], y: v[3 * i + 1], z: 0, visibility: v[3 * i + 2] };
+    });
+    return { t, lm, aspect: f.aspect };
+  };
+  return {
+    model: f.model,
+    lab: f.lab,
+    heightCm: f.heightCm,
+    standing: f.standing.map(toFrame),
+    frames: f.frames.map(toFrame),
+    truth: f.truth,
+  };
+}

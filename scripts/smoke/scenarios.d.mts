@@ -12,6 +12,8 @@ export interface Scenario {
   camera: Camera;
   scene: SceneProps;
   poseAt(t: number): Pose;
+  /** The time frame i is drawn at (the home walks' jitter); default i / fps. */
+  sampleAt?(i: number): number;
   meta: Record<string, unknown>;
 }
 export interface RomScenario extends Scenario {
@@ -23,6 +25,8 @@ export interface GaitScenario extends Scenario {
 export declare const SCENARIOS: Readonly<{
   "rom-shoulder-abduction-right": RomScenario;
   "gait-pad-side": GaitScenario;
+  "gait-home-side": GaitScenario;
+  "gait-home-wall": GaitScenario;
   "rom-seated-shoulder-flexion-right": RomScenario;
   "rom-seated-shoulder-flexion-right-150": RomScenario;
   "rom-seated-shoulder-abduction-right": RomScenario;
@@ -73,6 +77,10 @@ export interface GaitTruth extends TruthBase {
   walk: { from: number; to: number };
   strides: { left: number; right: number };
   events: GaitEventTruth[];
+  /** The walks at home (D-035): the walk lab's view; their truths have no pad fields. */
+  lab?: "side" | "front";
+  passes?: { from: number; to: number }[];
+  jitterMs?: number;
 }
 export type Truth = RomTruth | GaitTruth;
 export declare function scenarioTruth(sc: RomScenario): RomTruth;

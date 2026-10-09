@@ -42,6 +42,7 @@ import {
   type GearAnswer,
   type Orthosis,
   type RecordingId,
+  WALK_LINE,
 } from "./controller";
 import { gt, num, qualityLine, setupLine, sideWord } from "./copy";
 import { GaitFindingsCard } from "./GaitFindingsCard";
@@ -132,15 +133,18 @@ export function instructionText(ctl: GaitController, lang: Lang): string {
     case "stance":
     case "stance_place":
       return setupLine("single_leg_static", lang);
+    case "front_offer":
+      return `${gt(lang, "offer.title")} ${gt(lang, "offer.body")}`;
     case "place":
-      if (rec === "overground_front") return `${gt(lang, "place.front1")} ${gt(lang, "place.front2")}`;
-      if (rec === "overground_side") return `${gt(lang, "place.side1")} ${gt(lang, "place.side2")}`;
+      if (rec === "overground_front")
+        return `${gt(lang, "place.front1")} ${gt(lang, "place.front2")} ${gt(lang, "place.front3")}`;
+      if (rec === "overground_side")
+        return `${gt(lang, "place.side1")} ${gt(lang, "place.side2")} ${gt(lang, "place.side3")}`;
       if (rec === "pad_front") return `${gt(lang, "place.padFront1")} ${gt(lang, "place.padFront2")}`;
       return `${gt(lang, "place.padSide1")} ${gt(lang, "place.padSide2")}${side ? "" : ""}`;
     case "walk":
-      if (rec === "overground_front")
-        return `${setupLine("walk_past_phone", lang)} ${setupLine("turn_slowly", lang)}`;
-      if (rec === "overground_side") return `${gt(lang, "walk.sideTitle")}. ${gt(lang, "walk.sideBody")}`;
+      if (rec === "overground_front") return gt(lang, "walk.frontSay");
+      if (rec === "overground_side") return gt(lang, "walk.sideSay");
       return gt(lang, "walk.padTitle");
     default:
       return setupLine("stop_any_time", lang);
@@ -272,10 +276,18 @@ export default function GaitCapture(props: GaitStepProps) {
   ctl.coachOn = props.coachOn === true;
   const coachMode = useRef(coach.mode);
   coachMode.current = coach.mode;
+  const langRef = useRef(lang);
+  langRef.current = lang;
   useEffect(
     () =>
       ctl.onLine((line, severity) => {
-        if (!soundRef.current || !isVoiceLine(line)) return;
+        if (!soundRef.current) return;
+        // D-035 item 2: the walk's own lines are screen lines (gait.walk.*Say), said by the phone.
+        if (line === WALK_LINE.side || line === WALK_LINE.front) {
+          if (coachMode.current === "off") void player.say(gt(langRef.current, line.slice(5)), severity);
+          return;
+        }
+        if (!isVoiceLine(line)) return;
         if (coachMode.current === "off") void player.line(line, severity);
         else voice.say(line, severity);
       }),
@@ -421,6 +433,29 @@ function storedFrom(body: ReturnType<GaitController["body"]> & object): GaitStor
     rulesVersion: "",
     created: Date.now(),
   };
+}
+
+/**
+ * What to change next time, when the walk gave nothing (D-035 item 2): the line of the most useful
+ * recording's reason, or null when a recording was read.
+ */
+function endReason(ctl: GaitController, lang: Lang): string | null {
+  const d = ctl.diagnostics().filter((x) => !x.skipped && x.level !== null);
+  if (!d.length || d.some((x) => x.level !== "none")) return null;
+  const reason = d[0].reasons[0];
+  const key =
+    reason === "wrong_view"
+      ? d[0].rec === "overground_front"
+        ? "face_phone"
+        : "side_on"
+      : reason === "low_fps"
+        ? "light"
+        : reason === "visibility" || reason === "tracking"
+          ? "whole_body"
+          : reason === "no_person"
+            ? "no_person"
+            : "more_steps";
+  return gt(lang, `retry.reason.${key}`);
 }
 
 /* -------------------------------------------------------------- screens */
@@ -748,6 +783,7 @@ const NO_SKIP: ReadonlySet<string> = new Set([
   "pad_warm_up",
   "walk",
   "walk_again",
+  "front_offer",
   "retry",
   "pad_stop",
   "stance_place",
@@ -988,12 +1024,36 @@ function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
         </>,
         { tone: "rose" },
       );
+    case "front_offer":
+      return card(
+        <>
+          <Kicker>{gt(lang, "kicker")}</Kicker>
+          <Title size="question">{gt(lang, "offer.title")}</Title>
+          <Body lang={lang} text={gt(lang, "offer.body")} />
+        </>,
+        <Actions
+          items={[
+            {
+              label: gt(lang, "offer.finish"),
+              name: "finish_walk",
+              kind: "secondary",
+              onClick: () => ctl.frontChoice(false, clock()),
+            },
+            {
+              label: gt(lang, "offer.add"),
+              name: "add_front",
+              icon: "arrow-forward",
+              onClick: () => ctl.frontChoice(true, clock()),
+            },
+          ]}
+        />,
+      );
     case "retry":
       return card(
         <>
           <Kicker>{gt(lang, "kicker")}</Kicker>
           <Title>{gt(lang, "retry.title")}</Title>
-          <Body lang={lang} text={qualityLine("quality_retry", lang)} />
+          <Body lang={lang} text={gt(lang, `retry.reason.${ctl.retryReason() ?? "more_steps"}`)} />
         </>,
         <>
           <Actions
@@ -1117,7 +1177,7 @@ function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
             <Title>{gt(lang, "done.title")}</Title>
             {stored?.provisional && <Body lang={lang} text={gt(lang, "done.later")} muted />}
           </Glass>
-          {stored && <GaitFindingsCard gait={stored} lang={lang} />}
+          {stored && <GaitFindingsCard gait={stored} lang={lang} reason={endReason(ctl, lang)} />}
           <Actions
             items={[
               {
@@ -1193,9 +1253,15 @@ function PlaceScreen({
             {tV7(lang, "rom.setup.notStarted")}
           </span>
         </div>
-        <div className="gx-art">
+        <figure className="gx-art">
           <Placement kind={PLACEMENT[rec]} side={near} lang={lang} label={title} />
-        </div>
+          {/* D-035 item 2: what the picture means at home, in one line. */}
+          {(rec === "overground_side" || rec === "overground_front") && (
+            <figcaption className="gx-art-caption" data-caption={rec}>
+              {gt(lang, rec === "overground_side" ? "place.sideCaption" : "place.frontCaption")}
+            </figcaption>
+          )}
+        </figure>
         <Title>{title}</Title>
       </Glass>
       <div className="fx-side">
@@ -1261,7 +1327,7 @@ function WalkScreen({
         : gt(lang, "walk.padTitle");
   const sub =
     kind === "front"
-      ? setupLine("walk_past_phone", lang)
+      ? gt(lang, "walk.frontBody")
       : kind === "side"
         ? gt(lang, "walk.sideBody")
         : gt(lang, "walk.padBody");

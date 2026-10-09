@@ -266,7 +266,22 @@ function ProgramBuildPreview() {
     </div>
   );
 }
+/**
+ * The walk lab (D-035 item 4): /?gaitlab=side|front, VITE_V7 builds only, signed in or not, never
+ * saving (the env test written inline, so a default build has no chunk for it); else the portal.
+ */
+const GaitLab = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/gait/GaitLab")) : null;
+const gaitLabEntry = GaitLab ? qs.get("gaitlab") : null;
 function Pages() {
+  return GaitLab && gaitLabEntry ? (
+    <Suspense fallback={null}>
+      <GaitLab view={gaitLabEntry} />
+    </Suspense>
+  ) : (
+    <PortalPages />
+  );
+}
+function PortalPages() {
   const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar"),
     [account, setAccount] = useState<AccountState | null>(null),
     [loading, setLoading] = useState(true),

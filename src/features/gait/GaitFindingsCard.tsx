@@ -10,18 +10,54 @@
  *     carries the existing approximate label «مقارنة تقريبية» (D-028, AP-12);
  *   - the quality notes of the clinical copy: the handrail held or touched, timing only, the pad.
  * No result shown and the gate passed: the no pattern line; no view passed: the walk was not clear.
+ * A walk read for timing only (D-035 item 2, the MVP's home walk: 3 clean cycles a side across the
+ * passes, below the full gate) shows its steps a minute and each side's step time with the clinical
+ * timing only line, and no pattern line at all (the patterns were not assessed). A walk that gave
+ * nothing shows the unclear line and, at the end of the walk, what to change next time.
  */
 import type { Lang } from "../../app/i18n";
 import { bidiText } from "../../i18n/rich";
 import type { GaitPatternResult, GaitStoredView } from "../../medical/gait-types";
 import { romResultLine } from "../../movements/rom";
-import { gt, noPatternLine, num, qualityLine, referralLine, supportLine } from "./copy";
+import { gt, noPatternLine, num, qualityLine, referralLine, sideWord, supportLine } from "./copy";
 import { Replay } from "./Replay";
 import "./gait.css";
 
 export interface GaitFindingsCardProps {
   gait: GaitStoredView;
   lang: Lang;
+  /** At the end of the walk: what to change next time, when the walk gave nothing (gait.retry.reason.*). */
+  reason?: string | null;
+}
+
+/** MVP_TIMING_CYCLES: GAIT_MVP.timingCyclesPerSide, the timing only level's clean cycles a side. */
+const MVP_TIMING_CYCLES = 3;
+const FULL_CYCLES = 6;
+
+/**
+ * What a stored walk gave (D-035 item 2; engine/gait/verdict.ts on the stored view, which keeps each
+ * view's clean cycles and the walk's quality): full (a view passed its gate, or the toward and away
+ * views together), timing (timing only, 3 clean cycles a side in a group and a cadence) or none.
+ */
+export function storedLevel(
+  gait: Pick<GaitStoredView, "views" | "quality" | "metrics">,
+): "full" | "timing" | "none" {
+  if (gait.quality.gatePassed) return "full";
+  const groups: { left: number; right: number }[] = [];
+  const toward = gait.views.filter((v) => v.view === "front" || v.view === "back");
+  if (toward.length)
+    groups.push(
+      toward.reduce((a, v) => ({ left: a.left + v.cleanCycles.left, right: a.right + v.cleanCycles.right }), {
+        left: 0,
+        right: 0,
+      }),
+    );
+  for (const v of gait.views) if (v.view !== "front" && v.view !== "back") groups.push(v.cleanCycles);
+  const enough = (n: number) => groups.some((g) => g.left >= n && g.right >= n);
+  if (!gait.quality.timingOnly && enough(FULL_CYCLES)) return "full";
+  if (gait.quality.timingOnly && typeof gait.metrics.cadence?.value === "number" && enough(MVP_TIMING_CYCLES))
+    return "timing";
+  return "none";
 }
 
 /** A result the person is shown (gait-rules 5.0: possible or likely, at low confidence or more). */
@@ -51,8 +87,26 @@ function Approximate({ lang }: { lang: Lang }) {
   return <span className="fx-pill gx-approx">{romResultLine("label_approximate")[lang]}</span>;
 }
 
-export function GaitFindingsCard({ gait, lang }: GaitFindingsCardProps) {
-  const numbers = keyNumbers(gait, lang);
+/** The timing only level's numbers: steps a minute and each side's step time (seconds). */
+function timingNumbers(gait: Pick<GaitStoredView, "metrics">, lang: Lang) {
+  const out = keyNumbers({ metrics: { cadence: gait.metrics.cadence } }, lang);
+  const step = gait.metrics.step_time_s?.sides;
+  for (const side of ["right", "left"] as const) {
+    const v = step?.[side];
+    if (typeof v === "number")
+      out.push({
+        id: `step_time_${side}`,
+        value: num(lang, v, 2),
+        label: gt(lang, "card.stepTime", { side: sideWord(side, lang) }),
+      });
+  }
+  return out;
+}
+
+export function GaitFindingsCard({ gait, lang, reason }: GaitFindingsCardProps) {
+  const level = storedLevel(gait);
+  const numbers =
+    level === "full" ? keyNumbers(gait, lang) : level === "timing" ? timingNumbers(gait, lang) : [];
   const results = gait.patterns.filter(shown);
   const supports = gait.findings
     .map((f) => ({ f, line: supportLine(f.id, f.side, lang) }))
@@ -63,7 +117,7 @@ export function GaitFindingsCard({ gait, lang }: GaitFindingsCardProps) {
   if (gait.outcome === "pain_limited") notes.push(qualityLine("pain_limited", lang));
   if (flags.includes("handrail_firm")) notes.push(qualityLine("handrail_held", lang));
   else if (flags.includes("handrail_light")) notes.push(qualityLine("handrail_light", lang));
-  if (gait.quality.timingOnly) notes.push(qualityLine("quality_timing_only", lang));
+  if (gait.quality.timingOnly && level !== "none") notes.push(qualityLine("quality_timing_only", lang));
   if (gait.mode === "walking_pad") notes.push(qualityLine("pad_compare", lang));
   return (
     <section
@@ -90,8 +144,11 @@ export function GaitFindingsCard({ gait, lang }: GaitFindingsCardProps) {
           <figcaption>{gt(lang, "card.replay")}</figcaption>
         </figure>
       )}
-      {!gait.quality.gatePassed ? (
-        <p className="fx-body is-muted">{gt(lang, "card.unclear")}</p>
+      {level === "timing" ? null : level === "none" ? (
+        <>
+          <p className="fx-body is-muted">{gt(lang, "card.unclear")}</p>
+          {reason && <p className="fx-body gx-reason">{bidiText(lang, reason)}</p>}
+        </>
       ) : results.length === 0 ? (
         <p className="fx-body">{bidiText(lang, noPatternLine(lang))}</p>
       ) : (
@@ -125,7 +182,7 @@ export function GaitFindingsCard({ gait, lang }: GaitFindingsCardProps) {
           ))}
         </ul>
       )}
-      {gait.quality.gatePassed &&
+      {level === "full" &&
         supports.map(({ f, line }) => (
           <p key={f.id} className="fx-body is-muted gx-support-line" data-finding={f.id}>
             {bidiText(lang, line)} {f.flags?.includes("norm_interim") && <Approximate lang={lang} />}

@@ -53,6 +53,14 @@ export interface WalkSpec {
   passes?: number;
   /** Overground: each pass starts up to this many metres earlier or later along its line (seeded), so its steps land at other places in the picture. */
   passShiftM?: number;
+  /**
+   * Overground at home (D-035 item 2): the walker stops and turns inside the picture and never leaves
+   * it. Side: passes across a path `pathM` long (default 3), centred on the phone's axis, a turn in
+   * place facing the phone at each end. Front: a phone standing against a wall; passes toward it from
+   * `farM` (default 5) to `nearM` (default 1.2) in front of it, a turn in place there, and away again,
+   * with a turn at the far end. `turnSec` is each turn's time (default 1.6).
+   */
+  home?: { pathM?: number; nearM?: number; farM?: number; turnSec?: number };
   rollDeg?: number;
   /** Landmark noise, sd in units of the picture height. */
   noise?: number;
@@ -549,8 +557,9 @@ interface Segment {
   from: number;
   to: number;
   /** Walking passes hold a heading and a line origin; turns and absences hold neither. */
-  pass?: { heading: V; origin: V; kind: WalkTruth["passes"][number]["kind"] };
-  turn?: { at: V; fromHeading: V; toHeading: V };
+  /** phase: seconds into the gait cycle at the pass's start (home walks start on either foot). */
+  pass?: { heading: V; origin: V; kind: WalkTruth["passes"][number]["kind"]; phase?: number };
+  turn?: { at: V; fromHeading: V; toHeading: V; via?: V };
 }
 
 /** The phone: a level pinhole (optionally rolled) at `pos` looking along −z. */
@@ -623,6 +632,7 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
     const k = order[drawn++ % order.length];
     return mul(heading, (2 * ((k + shiftR()) / order.length) - 1) * spec.passShiftM!);
   };
+  if (spec.home) return homeSegmentsOf(spec, g, spec.home);
   if (spec.view === "side") {
     const half = 4.8;
     for (let i = 0; i < (spec.passes ?? 4); i++) {
@@ -669,6 +679,66 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
       turn: { at: [0, 0, far], fromHeading: [0, 0, -1], toHeading: [0, 0, 1] },
     });
     t += turnSec;
+  }
+  return out;
+}
+
+/**
+ * The home walks (WalkSpec.home): every turn is in the picture, a stop and a turn in place. A pass
+ * starts walking at once and ends walking at its turn point (the generator has no speeding up).
+ */
+function homeSegmentsOf(spec: WalkSpec, g: Gait, home: NonNullable<WalkSpec["home"]>): Segment[] {
+  const out: Segment[] = [];
+  const turnSec = home.turnSec ?? 1.6;
+  const n = spec.passes ?? 4;
+  // roomPose puts the pelvis at origin + heading · (speed · tau + lead) while walking and at
+  // at + heading · ankle while standing: each pass starts where the last turn stood.
+  const ankle = bodyOf(spec.heightM ?? 1.7).ankle[0];
+  const lead = -0.25 * g.stride + ankle;
+  // passShiftM also starts each pass at a seeded phase of the gait cycle, on either foot.
+  const phaseR = spec.passShiftM ? rng((spec.seed ?? 1) * 104729 + 7) : null;
+  const pass = (from: V, to: V, kind: WalkTruth["passes"][number]["kind"]) => {
+    const heading = unit(sub(to, from));
+    const dur = len(sub(to, from)) / g.speed;
+    const phase = phaseR ? phaseR() * g.strideSec : 0;
+    const origin = sub(from, mul(heading, lead + g.speed * phase));
+    out.push({ from: t, to: t + dur, pass: { heading, origin, kind, phase } });
+    t += dur;
+    return heading;
+  };
+  const turnAt = (pelvis: V, fromHeading: V, via: V) => {
+    out.push({
+      from: t,
+      to: t + turnSec,
+      turn: { at: sub(pelvis, mul(fromHeading, ankle)), fromHeading, toHeading: mul(fromHeading, -1), via },
+    });
+    t += turnSec;
+  };
+  let t = 0;
+  // passShiftM: each turn point moves up to this far along the path (seeded), so the feet land at other
+  // places in each pass, as a person's do.
+  const shiftR = spec.passShiftM ? rng((spec.seed ?? 1) * 7919 + 17) : null;
+  const shift = () => (shiftR ? (2 * shiftR() - 1) * spec.passShiftM! : 0);
+  if (spec.view === "side") {
+    const half = (home.pathM ?? 3) / 2;
+    let start: V = [-half, 0, 0];
+    for (let i = 0; i < n; i++) {
+      const dir = i % 2 === 0 ? 1 : -1;
+      const end: V = [dir * half + shift(), 0, 0];
+      const heading = pass(start, end, dir > 0 ? "right" : "left");
+      // A turn in place through facing the phone (+z).
+      turnAt(end, heading, [0, 0, 1]);
+      start = end;
+    }
+    return out;
+  }
+  const near: V = [0, 0, -(home.nearM ?? 1.2)];
+  let far: V = [0, 0, -(home.farM ?? 5)];
+  for (let i = 0; i < n; i++) {
+    turnAt(near, pass(far, near, "toward"), [1, 0, 0]);
+    const next: V = [0, 0, -(home.farM ?? 5) + shift()];
+    turnAt(next, pass(near, next, "away"), [1, 0, 0]);
+    far = next;
   }
   return out;
 }
@@ -764,9 +834,16 @@ export function walk(spec: WalkSpec): Walk {
     const tMs = startMs + tau * 1000;
     if (tMs <= lastMs) continue;
     lastMs = tMs;
-    const seg = segments.find((s) => tau >= s.from && tau < s.to) ?? segments[segments.length - 1];
+    // A jittered first frame before the walk's start belongs to its first segment.
+    const found = segments.findIndex((s) => tau >= s.from && tau < s.to);
+    const segIndex = found >= 0 ? found : tau < 0 && spec.home ? 0 : segments.length - 1;
+    const seg = segments[segIndex];
     if (seg.pass) {
-      const st: PoseState = { tau: tau - seg.from, heading: seg.pass.heading, origin: seg.pass.origin };
+      const st: PoseState = {
+        tau: tau - seg.from + (seg.pass.phase ?? 0),
+        heading: seg.pass.heading,
+        origin: seg.pass.origin,
+      };
       let room = roomPose(spec, b, g, st).lm;
       if (pad) {
         const back = mul(unit(seg.pass.heading), -g.speed * (tau - seg.from));
@@ -785,8 +862,30 @@ export function walk(spec: WalkSpec): Walk {
     } else if (seg.turn) {
       const share = (tau - seg.from) / (seg.to - seg.from);
       const a = Math.PI * share;
-      const heading = unit(add(mul(seg.turn.fromHeading, Math.cos(a)), mul([1, 0, 0], Math.sin(a))));
-      const room = roomPose(spec, b, g, { tau: null, heading, origin: seg.turn.at }).lm;
+      const via = seg.turn.via ?? [1, 0, 0];
+      const heading = unit(add(mul(seg.turn.fromHeading, Math.cos(a)), mul(via, Math.sin(a))));
+      const prev = segments[segIndex - 1]?.pass;
+      const next = segments[segIndex + 1]?.pass;
+      let room: V[];
+      if (spec.home && prev) {
+        // A home turn in place (WalkSpec.home): the last walking pose turned toward `via`, then the
+        // next pass's first pose turned from it, so the legs never jump while the walker is side on.
+        const before = share < 0.5 || !next;
+        const prevSeg = segments[segIndex - 1];
+        const pose = before
+          ? roomPose(spec, b, g, { ...prev, tau: prevSeg.to - prevSeg.from + (prev.phase ?? 0) }).lm
+          : roomPose(spec, b, g, { ...next!, tau: next!.phase ?? 0 }).lm;
+        const from = before ? prev.heading : next!.heading;
+        // The angle about the vertical that turns `from` to `heading`.
+        const angle = Math.atan2(cross(from, heading)[1], dot(from, heading));
+        const pivot = mul(add(pose[23], pose[24]), 0.5);
+        const c = Math.cos(angle);
+        const sn = Math.sin(angle);
+        room = pose.map((P) => {
+          const d = sub(P, pivot);
+          return add(pivot, [d[0] * c + d[2] * sn, d[1], -d[0] * sn + d[2] * c]);
+        });
+      } else room = roomPose(spec, b, g, { tau: null, heading, origin: seg.turn.at }).lm;
       frames.push(toFrame(room, heading, tMs, () => {}));
     } else {
       // The walker is gone (a turn out of the picture): the model finds nobody.
@@ -806,11 +905,20 @@ export function walk(spec: WalkSpec): Walk {
           ? [-1, 0, 0]
           : [1, 0, 0]
         : [0, 0, 1];
-  const stOrigin: V = spec.view === "front" || spec.view === "back" ? [0, 0, -3] : [0, 0, 0];
+  let stOrigin: V = spec.view === "front" || spec.view === "back" ? [0, 0, -3] : [0, 0, 0];
+  let stFacing = stHeading;
+  const first = segments[0]?.pass;
+  if (spec.home && first) {
+    // A home walk starts from where its person stood still for the calibration, facing the way off.
+    const lead = -0.25 * g.stride + b.ankle[0];
+    const start = add(first.origin, mul(first.heading, g.speed * (first.phase ?? 0) + lead));
+    stOrigin = sub(start, mul(first.heading, b.ankle[0]));
+    stFacing = first.heading;
+  }
   for (let i = 0; i < Math.floor(standingSec * fps); i++) {
     const tMs = startMs - (standingSec + 2) * 1000 + (i * 1000) / fps;
-    const room = roomPose(spec, b, g, { tau: null, heading: stHeading, origin: stOrigin }).lm;
-    standing.push(toFrame(room, stHeading, tMs, () => {}));
+    const room = roomPose(spec, b, g, { tau: null, heading: stFacing, origin: stOrigin }).lm;
+    standing.push(toFrame(room, stFacing, tMs, () => {}));
   }
 
   // Truth: events while the heel is in the picture; the model's angles over one cycle.
@@ -822,15 +930,17 @@ export function walk(spec: WalkSpec): Walk {
     passes.push({ from: startMs + seg.from * 1000, to: startMs + seg.to * 1000, kind: seg.pass.kind });
     for (const side of ["left", "right"] as const) {
       const off = side === "left" ? 0 : 0.5;
+      const phase = seg.pass.phase ?? 0;
       for (let k = -1; ; k++) {
         const tIc = (k + off) * strideSec;
-        if (tIc > seg.to - seg.from) break;
-        for (const [type, tt] of [
+        if (tIc - phase > seg.to - seg.from) break;
+        for (const [type, at] of [
           ["ic", tIc],
           ["to", tIc + g.leg[side].stance * strideSec],
         ] as const) {
+          const tt = at - phase;
           if (tt < 0 || tt >= seg.to - seg.from) continue;
-          const st: PoseState = { tau: tt, heading: seg.pass.heading, origin: seg.pass.origin };
+          const st: PoseState = { tau: at, heading: seg.pass.heading, origin: seg.pass.origin };
           let room = roomPose(spec, b, g, st).lm;
           if (pad) room = room.map((P) => add(P, mul(unit(seg.pass!.heading), -g.speed * tt)));
           const q = project(cam, room[LEG_IDS[side].heel]);

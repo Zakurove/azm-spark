@@ -23,6 +23,7 @@
  */
 import { filtfilt, filtfiltPadlen, lowpassSos } from "../signal/butterworth";
 import { hampel } from "../signal/hampel";
+import { VIEW_RATIO } from "../body";
 import { effectiveAspect } from "../geometry";
 import { GAIT_ENGINE, PAD_SWAP, REPLAY_LANDMARK_IDS } from "./params";
 import type { GaitFrame } from "./types";
@@ -200,13 +201,26 @@ function exchange(s: Pick<Series, "x" | "y">, pairs: readonly [number, number][]
  * ankle, heel and foot index) predicted from its last two samples at constant velocity. When both
  * legs' points sit nearer the other track's prediction than their own (each ankle trajectory has
  * jumped onto the other's path), the leg labels of that sample are exchanged. Threshold free: a
- * crossing of the legs, where the points are near both predictions, never exchanges.
+ * crossing of the legs, where the points are near both predictions, never exchanges. A sample whose
+ * body faces the phone or away (the shoulders as wide as the engine's square on view, VIEW_RATIO) is
+ * not tracked: a home walk turns there in the picture (D-035 item 2), the legs pass slowly through each
+ * other, and no track may carry a label across the turn; after it the model's labels start again.
  */
 function swapLegs(s: Series, relabelled: Uint8Array): void {
+  const sideOn = (k: number) => {
+    const sx = s.x[11][k] - s.x[12][k];
+    const sy = s.y[11][k] - s.y[12][k];
+    const tx = (s.x[11][k] + s.x[12][k] - s.x[23][k] - s.x[24][k]) / 2;
+    const ty = (s.y[11][k] + s.y[12][k] - s.y[23][k] - s.y[24][k]) / 2;
+    const ratio = Math.hypot(sx, sy) / Math.hypot(tx, ty);
+    // Without the shoulders and hips the sample is tracked, as before.
+    return !Number.isFinite(ratio) || ratio < VIEW_RATIO.frontMin;
+  };
   const finiteAt = (k: number) =>
     k >= 0 &&
     k < s.n &&
-    SWAP_POINTS.every(([a, b]) => Number.isFinite(s.x[a][k] + s.y[a][k] + s.x[b][k] + s.y[b][k]));
+    SWAP_POINTS.every(([a, b]) => Number.isFinite(s.x[a][k] + s.y[a][k] + s.x[b][k] + s.y[b][k])) &&
+    sideOn(k);
   const predict = (id: number, k: number): [number, number] => {
     const x1 = s.x[id][k - 1];
     const y1 = s.y[id][k - 1];

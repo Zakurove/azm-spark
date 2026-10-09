@@ -202,7 +202,7 @@ export const RUNNER_RULES = {
    * D-035 item 1: the hold must be this steady (a share of the hold window, hold.ts progress) before the
    * one calm line is held back: «no cue at all during the hold».
    */
-  quietFromHoldProgress: 0.5,
+  quietFromHoldProgress: 0.4,
   /**
    * D-035: the hold's value reads its plateau on while the person stays at it, up to this many seconds
    * after the window (more frames than the 0.6 s window at a low frame rate; an interface time).

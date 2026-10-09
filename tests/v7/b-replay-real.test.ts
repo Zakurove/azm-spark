@@ -29,13 +29,15 @@ const load = (file: string): RealRun =>
 const BAR_DEG = 10;
 
 describe("the real model on the seated home videos, replayed (D-034 item 1)", () => {
-  it("has the four measured runs and the lock run", () => {
+  it("has the six measured runs and the lock run", () => {
     expect(readdirSync(DIR).sort()).toEqual([
       "elbow-flexion-1.3m-full.json.gz",
+      "elbow-flexion-jitter-1.3m-full.json.gz",
       "lock-hips-guessed-lite.json.gz",
       "shoulder-abduction-1.45m-full.json.gz",
       "shoulder-flexion-1.3m-full.json.gz",
       "shoulder-flexion-1.5m-full.json.gz",
+      "shoulder-flexion-drift-1.5m-full.json.gz",
     ]);
   });
 
@@ -44,6 +46,9 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
     "shoulder-flexion-1.3m-full.json.gz",
     "shoulder-flexion-1.5m-full.json.gz",
     "elbow-flexion-1.3m-full.json.gz",
+    // D-035: a person never perfectly still, the arm raise drifting out to the side.
+    "elbow-flexion-jitter-1.3m-full.json.gz",
+    "shoulder-flexion-drift-1.5m-full.json.gz",
   ])
     it(`${file}: measured within the 8.4 bar, nothing repeated`, () => {
       const run = load(file);
@@ -68,6 +73,9 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
     "shoulder-flexion-1.3m-full.json.gz",
     "shoulder-flexion-1.5m-full.json.gz",
     "elbow-flexion-1.3m-full.json.gz",
+    // D-035: a person never perfectly still, the arm raise drifting out to the side.
+    "elbow-flexion-jitter-1.3m-full.json.gz",
+    "shoulder-flexion-drift-1.5m-full.json.gz",
   ])
     it(`${file}: nobody answering the maximum question, still measured (D-035)`, () => {
       const run = load(file);

@@ -27,11 +27,13 @@
  *                                  person who is never perfectly still (jitter: a small tremor of the
  *                                  moving arm, about 1.5 degrees at 5 to 7 Hz, and the trunk swaying
  *                                  about 1.5 degrees at 0.35 Hz), sitting a little turned toward the
- *                                  phone: the arm raise to the front to 140 drifting 20 degrees out to
- *                                  the side as it rises, the elbow bend to 135 and the elbow
- *                                  straightening from 90 to 5. Their truth asks the smoke page not to
- *                                  answer (smokeQuery answer=none); it is computed on the pose without
- *                                  the jitter (truthPoseAt).
+ *                                  phone: the arm raise to the front to 145 drifting 15 degrees out to
+ *                                  the side as it rises, the elbow bend to 135, the elbow
+ *                                  straightening from 90 to 5, and the knee straightening seated from
+ *                                  90 to 8 (the phone low at the data's 2 m, so the legs are in it).
+ *                                  Their truth asks the smoke page not to answer (smokeQuery
+ *                                  answer=none); it is computed on the pose without the jitter
+ *                                  (truthPoseAt).
  *
  * The truth is computed from the same kinematics the renderer draws, so it is exact for the rendered
  * person: the arm's 3D abduction (the goniometer) and the same angle on the projected joints (the
@@ -178,6 +180,9 @@ function romSeated({
       };
     if (movement === "shoulder_abduction")
       return { ...base, shoulderAbd: { [moving]: a, [still]: startDeg }, elbow: { [moving]: 4, [still]: 8 } };
+    if (movement === "knee_extension")
+      // Seated, the thigh on the chair: the shank straightens forward from hanging (the knee's bend a).
+      return { ...base, knee: { [moving]: a, [still]: 90 } };
     // elbow_flexion and elbow_extension: the upper arm by the side, the forearm turning forward and up.
     return { ...base, shoulderAbd: { [moving]: 0, [still]: 6 }, elbow: { [moving]: a, [still]: 8 } };
   };
@@ -446,13 +451,13 @@ export const SCENARIOS = Object.freeze({
     movement: "shoulder_flexion",
     side: "right",
     startDeg: 4,
-    endDeg: 140,
-    camera: homeCamera(1.4, 1.15),
+    endDeg: 145,
+    camera: homeCamera(1.5, 1.1),
     width: 540,
     height: 720,
     fps: 30,
-    turnDeg: 20,
-    driftAbdDeg: 20,
+    turnDeg: 15,
+    driftAbdDeg: 15,
     jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
     answer: "none",
   }),
@@ -467,6 +472,22 @@ export const SCENARIOS = Object.freeze({
     height: 720,
     fps: 30,
     turnDeg: 25,
+    jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
+    answer: "none",
+  }),
+  "rom-mvp-knee-extension-right": romSeated({
+    id: "rom-mvp-knee-extension-right",
+    movement: "knee_extension",
+    side: "right",
+    startDeg: 90,
+    endDeg: 8,
+    // The legs in the picture: the phone at the data's 2 m (rom-protocol knee_extension 2 to 3 m),
+    // low (0.55 m), aimed 0.4 m ahead of the hips so the straightened foot stays in the portrait picture.
+    camera: { pos: [0.4, 0.55, 2], target: [0.4, 0.55, 0], fovY: 56 },
+    width: 540,
+    height: 720,
+    fps: 30,
+    turnDeg: 10,
     jitter: { tremorDeg: 1.5, swayDeg: 1.5 },
     answer: "none",
   }),
@@ -488,9 +509,21 @@ export const SCENARIOS = Object.freeze({
 
 /** The movement's angle on the 3D skeleton (the goniometer): the arm's elevation from the trunk, or the elbow's bend. */
 export function movementTruthDeg(movement, skel, side) {
+  if (movement === "knee_extension") return kneeBendDeg(skel, side);
   return movement === "elbow_flexion" || movement === "elbow_extension"
     ? elbowFlexionDeg(skel, side)
     : armAbductionDeg(skel, side);
+}
+
+/** The 3D bend of a knee: 180 minus the angle at the knee from the hip to the ankle (0 straight). */
+function kneeBendDeg(skel, side) {
+  const j = skel.joints;
+  const r = side === "right";
+  const [h, k, a] = [j[r ? J.HIP_R : J.HIP_L], j[r ? J.KNEE_R : J.KNEE_L], j[r ? J.ANK_R : J.ANK_L]];
+  const u = [h[0] - k[0], h[1] - k[1], h[2] - k[2]];
+  const w = [a[0] - k[0], a[1] - k[1], a[2] - k[2]];
+  const dotUW = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+  return 180 - deg(Math.acos(Math.max(-1, Math.min(1, dotUW / (Math.hypot(...u) * Math.hypot(...w))))));
 }
 
 /** The joints in the picture (normalised, y down), for framing checks and the landmark truth. */
@@ -538,6 +571,8 @@ function projectedMovement(sc, skel, startSkel, movement, side) {
   };
   const j = skel.joints;
   const r = side === "right";
+  if (movement === "knee_extension")
+    return 180 - angleAt(px(j[r ? J.HIP_R : J.HIP_L]), px(j[r ? J.KNEE_R : J.KNEE_L]), px(j[r ? J.ANK_R : J.ANK_L]));
   const S = px(j[r ? J.SH_R : J.SH_L]);
   const E = px(j[r ? J.ELB_R : J.ELB_L]);
   if (movement === "shoulder_flexion") return angleAt(E, S, px(j[r ? J.HIP_R : J.HIP_L]));

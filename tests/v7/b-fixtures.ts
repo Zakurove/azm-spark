@@ -348,6 +348,32 @@ export function strayHolds(run: RomRun): RomHold[] {
  */
 export const LATE_HOLD_CASES: Readonly<Record<string, readonly string[]>> = {};
 
+/**
+ * D-035: a whole movement under the data's wide band (engine.wideHoldBandDeg, 5 degrees) is no
+ * movement for the MVP hold (on the real model a resting arm drifts 3 to 4 degrees and asked the
+ * question at rest): the hip's extension at 25 percent of its norm mean (4.3 degrees) is not measured
+ * (no_active_movement) or found late, exactly as listed. Contract change log R7-1.
+ */
+export const UNDER_MOVE_CASES: Readonly<Record<string, readonly string[]>> = {
+  "rom/hip_extension/standing_supported/left-25-16x9-30fps": [
+    "status not_measured (no_active_movement)",
+    "0 valid attempts",
+    "value null for 4.3",
+    "repetition 1: hold not found after plateau start + 0.6 s",
+  ],
+  "rom/hip_extension/standing_supported/right-25-9x16-30fps": [
+    "1 repeats: no_hold",
+    "repetition 1: hold 2.5 s after plateau start + 0.6 s",
+  ],
+  "rom/hip_extension/standing_supported/right-25-16x9-30fps": [
+    "status not_measured (no_active_movement)",
+    "0 valid attempts",
+    "1 repeats: no_hold, no_hold",
+    "value null for 4.3",
+    "repetition 1: hold not found after plateau start + 0.6 s",
+  ],
+};
+
 /** Every way a matrix run misses the 8.2 acceptance (empty when it meets it). */
 export function matrixProblems(c: RomCase, run: RomRun): string[] {
   const res = run.result;

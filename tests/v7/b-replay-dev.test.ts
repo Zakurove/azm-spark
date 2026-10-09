@@ -4,7 +4,8 @@
  *
  *   AZM_REPLAY_DIR=<smoke results folder with frames=1 runs> \
  *   AZM_REPLAY_TRUTH_DIR=<the videos folder with <id>.truth.json> \
- *   AZM_REPLAY_OUT=<file for one JSON line per run> npx vitest run tests/v7/b-replay-dev.test.ts
+ *   AZM_REPLAY_OUT=<file for one JSON line per run> \
+ *   AZM_REPLAY_ANSWER_MS=<ms, or none: nobody answers the maximum question> npx vitest run tests/v7/b-replay-dev.test.ts
  */
 import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -30,7 +31,9 @@ describe.skipIf(!DIR)("real model smoke runs, replayed off line", () => {
         aspect: res.landmarks.aspect ?? (res.camera.width ?? 1) / (res.camera.height ?? 1),
         poses: res.landmarks.poses,
       };
-      const report = replay(input);
+      // AZM_REPLAY_ANSWER_MS: how long the person takes to answer the maximum question; none never does (D-035).
+      const answer = process.env.AZM_REPLAY_ANSWER_MS;
+      const report = replay(input, answer === "none" ? Number.POSITIVE_INFINITY : Number(answer ?? 600));
       const id = f.replace(/-(full|lite|auto)\.json$/, "");
       const truthFile = TRUTH ? join(TRUTH, `${id}.truth.json`) : null;
       const truth = truthFile && existsSync(truthFile) ? JSON.parse(readFileSync(truthFile, "utf8")) : null;

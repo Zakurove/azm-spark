@@ -9,7 +9,14 @@
  */
 import { describe, expect, it } from "vitest";
 import type { RomMovementId } from "../../src/movements/rom/types";
-import { HOLD_SEC, LATE_HOLD_CASES, matrixProblems, movementMatrix, runRom } from "./b-fixtures";
+import {
+  HOLD_SEC,
+  LATE_HOLD_CASES,
+  UNDER_MOVE_CASES,
+  matrixProblems,
+  movementMatrix,
+  runRom,
+} from "./b-fixtures";
 
 const MOVEMENTS: RomMovementId[] = [
   "trunk_lateral_flexion",
@@ -24,7 +31,7 @@ for (const movement of MOVEMENTS)
     for (const c of movementMatrix(movement))
       it(c.name, () => {
         const run = runRom(c.spec, { mirrored: c.mirrored });
-        expect(matrixProblems(c, run)).toEqual(LATE_HOLD_CASES[c.name] ?? []);
+        expect(matrixProblems(c, run)).toEqual(LATE_HOLD_CASES[c.name] ?? UNDER_MOVE_CASES[c.name] ?? []);
       });
   });
 
@@ -35,7 +42,7 @@ describe("the late holds", () => {
     for (const [name, problems] of all) {
       expect(name).toMatch(/-9x16-/);
       for (const p of problems) {
-        const m = /^repetition \d: hold ([\d.]+) s after plateau start \+ 1 s$/.exec(p);
+        const m = /^repetition \d: hold ([\d.]+) s after plateau start \+ [\d.]+ s$/.exec(p);
         expect(m, p).not.toBeNull();
         expect(Number(m![1])).toBeLessThan(HOLD_SEC - 1);
       }

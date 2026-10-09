@@ -31,6 +31,7 @@ export declare const SCENARIOS: Readonly<{
   "rom-seated-elbow-flexion-right": RomScenario;
   "rom-mvp-shoulder-flexion-drift-right": RomScenario;
   "rom-mvp-elbow-flexion-right": RomScenario;
+  "rom-mvp-knee-extension-right": RomScenario;
   "rom-mvp-elbow-extension-right": RomScenario;
 }>;
 export declare function movementTruthDeg(movement: string, skel: Skeleton, side: "left" | "right"): number;

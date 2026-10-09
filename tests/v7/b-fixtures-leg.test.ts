@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { RomMovementId } from "../../src/movements/rom/types";
-import { LATE_HOLD_CASES, matrixProblems, movementMatrix, runRom } from "./b-fixtures";
+import { LATE_HOLD_CASES, UNDER_MOVE_CASES, matrixProblems, movementMatrix, runRom } from "./b-fixtures";
 
 const MOVEMENTS: RomMovementId[] = [
   "hip_flexion",
@@ -25,6 +25,6 @@ for (const movement of MOVEMENTS)
     for (const c of movementMatrix(movement))
       it(c.name, () => {
         const run = runRom(c.spec, { mirrored: c.mirrored });
-        expect(matrixProblems(c, run)).toEqual(LATE_HOLD_CASES[c.name] ?? []);
+        expect(matrixProblems(c, run)).toEqual(LATE_HOLD_CASES[c.name] ?? UNDER_MOVE_CASES[c.name] ?? []);
       });
   });

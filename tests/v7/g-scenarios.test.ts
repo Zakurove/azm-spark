@@ -199,15 +199,17 @@ describe("the D-035 home scenarios: never perfectly still, nobody answering", ()
   const MVP = [
     "rom-mvp-shoulder-flexion-drift-right",
     "rom-mvp-elbow-flexion-right",
+    "rom-mvp-knee-extension-right",
     "rom-mvp-elbow-extension-right",
   ] as const;
   const GATE: Record<string, number[]> = {
     shoulder_flexion: [J.SH_R, J.ELB_R],
     elbow_flexion: [J.SH_R, J.ELB_R, J.WR_R],
     elbow_extension: [J.SH_R, J.ELB_R, J.WR_R],
+    knee_extension: [J.HIP_R, J.KNEE_R, J.ANK_R],
   };
 
-  it("are the drifting arm raise to the front and both elbow movements", () => {
+  it("are the drifting arm raise to the front, both elbow movements and the knee straightening", () => {
     expect(Object.keys(SCENARIOS).filter((id) => id.startsWith("rom-mvp-"))).toEqual([...MVP]);
   });
 
@@ -221,7 +223,8 @@ describe("the D-035 home scenarios: never perfectly still, nobody answering", ()
         expect(def.positions.map((p) => p.id)).toContain(truth.position);
         expect(truth.view).toBe(def.view);
         expect(sc.camera.pos[2]).toBeGreaterThanOrEqual(1.2);
-        expect(sc.camera.pos[2]).toBeLessThanOrEqual(1.5);
+        // The knee needs the legs in the picture: the phone low, at the data's 2 m.
+        expect(sc.camera.pos[2]).toBeLessThanOrEqual(truth.movement === "knee_extension" ? 2 : 1.5);
         expect(sc.width / sc.height).toBeCloseTo(3 / 4, 9);
         expect(new URLSearchParams(truth.smokeQuery!).get("answer")).toBe("none");
         expect(new URLSearchParams(truth.smokeQuery!).get("movement")).toBe(truth.movement);
@@ -245,7 +248,8 @@ describe("the D-035 home scenarios: never perfectly still, nobody answering", ()
         expect(Math.abs(truth.projected.endDeg - truth.endDeg)).toBeLessThan(6);
       });
 
-      it("keeps the measured landmarks in the picture and the feet out of it", () => {
+      it("keeps the measured landmarks in the picture, the feet out of it for the arm movements", () => {
+        const arm = truth.movement !== "knee_extension";
         for (let t = 0; t < sc.seconds; t += 0.5) {
           const p = framePoints(sc, skeleton(sc.poseAt(t)));
           for (const j of GATE[truth.movement]) {
@@ -254,8 +258,9 @@ describe("the D-035 home scenarios: never perfectly still, nobody answering", ()
             expect(p[j].y).toBeGreaterThan(0.03);
             expect(p[j].y).toBeLessThan(0.97);
           }
-          for (const j of [J.ANK_L, J.ANK_R, J.HEEL_L, J.HEEL_R, J.TOE_L, J.TOE_R])
-            expect(p[j].y > 1 || p[j].x > 1 || p[j].x < 0, `${t} s, joint ${j}`).toBe(true);
+          if (arm)
+            for (const j of [J.ANK_L, J.ANK_R, J.HEEL_L, J.HEEL_R, J.TOE_L, J.TOE_R])
+              expect(p[j].y > 1 || p[j].x > 1 || p[j].x < 0, `${t} s, joint ${j}`).toBe(true);
         }
       });
     });

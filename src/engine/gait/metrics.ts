@@ -80,6 +80,8 @@ export interface MetricInput {
   rollKnown: boolean;
   /** The view's processed frame rate, the mean over its frames (GaitQuality.medianFps, D-026 item 6). */
   fps: number;
+  /** Timing only whatever the frame rate: the MVP's timing only reading of a view below its gate (GAIT_MVP). */
+  timingOnly?: boolean;
 }
 
 type Sided = Record<LimbSide, number[]>;
@@ -214,7 +216,7 @@ export function viewMetrics(m: MetricInput): Partial<Record<GaitMetricId, GaitMe
   const clean = cycles.filter((c) => c.clean);
   const out: Partial<Record<GaitMetricId, GaitMetricValue>> = {};
   if (m.fps < GAIT_ENGINE.recordAgainBelowFps || !clean.length) return out;
-  const timingOnly = m.fps < GAIT_ENGINE.fullFps;
+  const timingOnly = m.timingOnly === true || m.fps < GAIT_ENGINE.fullFps;
   const put = (id: GaitMetricId, v: GaitMetricValue | null) => {
     if (!v || !metricInView(id, view)) return;
     if (timingOnly && !TIMING_METRICS.includes(id)) return;

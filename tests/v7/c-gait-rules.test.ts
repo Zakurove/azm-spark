@@ -99,6 +99,26 @@ describe("views and gates", () => {
     expect(on(out, "stiff_knee", "none")?.status).toBe("not_seen");
   });
 
+  it("never reads a pattern from a view read for timing only below its gate (D-035 item 2, GAIT_MVP)", () => {
+    // The MVP's timing only reading of a home walk: its clean cycles keep turn steps, so however many
+    // there are, the side view's patterns are not assessed, even with a ratio past the likely threshold.
+    const l = num(likely("shorter_stance"), "sr_single_support_gte");
+    const timing = view({
+      view: "side",
+      metrics: { sr_single_support: { value: l, left: l, right: 1 / l } },
+      cycles: { left: 9, right: 9 },
+      gatePassed: false,
+      issues: ["too_few_cycles"],
+    });
+    timing.quality.timingOnly = true;
+    const out = patterns({ views: [timing] });
+    expect(on(out, "shorter_stance", "right")).toBeUndefined();
+    expect(on(out, "shorter_stance", "none")).toMatchObject({
+      status: "not_assessed",
+      notAssessed: "gate_failed",
+    });
+  });
+
   it("passes a view group on the clean cycles of its views together (per side and per view group)", () => {
     // Toward passes give the right side's steady cycles and away passes the left's: neither view alone
     // has 6 a side, the group has 10.

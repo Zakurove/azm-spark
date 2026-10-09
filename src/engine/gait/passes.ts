@@ -5,8 +5,12 @@
  *   - Walking direction d (side views): overground, the sign of the mid hip's x motion over the
  *     pass; on the pad, the sign of the mean x of foot index minus heel (the foot points forward).
  *   - Overground side passes are the runs of one direction; overground front and back passes are the
- *     runs of one facing (a face landmark visible: toward the phone). A run shorter than the turn
- *     margin is part of its neighbour.
+ *     runs of one direction in depth (D-035 item 2): toward the phone while the body grows in the
+ *     picture, away while it shrinks, read with the camera model below at GAIT_MVP.departSpeedMps or
+ *     more (standing and turning in place carry the run's direction); a bout with no such motion
+ *     falls back to the facing (a face landmark visible: toward the phone). So a person who walks to a
+ *     phone against a wall, stops or turns before it and walks back gives a toward and an away pass,
+ *     and never has to leave the picture. A run shorter than the turn margin is part of its neighbour.
  *   - Turns: a change of direction or facing, or a sample whose sideways motion is larger than its
  *     forward motion, each with the 1 s margins of the rule on both sides. Motion is measured over
  *     the margin (half before, half after the sample) and compared in metres with the camera model
@@ -17,7 +21,7 @@
  */
 import { VIEW_RATIO } from "../body";
 import { CAMERA_MODEL, estimateDistanceM } from "../quality";
-import { GAIT_ENGINE } from "./params";
+import { GAIT_ENGINE, GAIT_MVP, STEADY_FULL, type SteadyRules } from "./params";
 import { LEG, nearestFrame, runs, type Prepared, type Series } from "./preprocess";
 import { midX, trunkLengthAt } from "./kinematics";
 import type { GaitView } from "./types";
@@ -57,20 +61,28 @@ export function focalLength(aspect: number): number {
 const isOverground = (v: GaitView) => v === "side" || v === "front" || v === "back";
 const isSide = (v: GaitView) => v === "side" || v === "pad_side";
 
-/** Mid hip x velocity and the body size's rate of depth change, over the turn margin around each sample. */
+/**
+ * Mid hip x velocity and the body size's rate of depth change, over the data's turn margin around each
+ * sample; `toward`, the speed toward the phone in metres a second (negative walking away): with the
+ * size s = f·L ÷ D of a trunk L (CAMERA_MODEL.nominalTrunkM) at a distance D, D' = −f·L·s' ÷ s².
+ */
 function motionAt(s: Series, aspect: number) {
   const h = Math.max(1, Math.round((GAIT_ENGINE.turnMarginSec / 2) * s.hz));
   const dt = (2 * h) / s.hz;
   const f = focalLength(aspect);
   const vx = new Float64Array(s.n).fill(Number.NaN);
   const depth = new Float64Array(s.n).fill(Number.NaN);
+  const toward = new Float64Array(s.n).fill(Number.NaN);
   for (let k = h; k + h < s.n; k++) {
     vx[k] = (midX(s, 23, 24, k + h) - midX(s, 23, 24, k - h)) / dt;
     const size = trunkLengthAt(s, k);
     const ds = (trunkLengthAt(s, k + h) - trunkLengthAt(s, k - h)) / dt;
-    if (size > 0) depth[k] = (f * Math.abs(ds)) / size;
+    if (size > 0) {
+      depth[k] = (f * Math.abs(ds)) / size;
+      toward[k] = (f * CAMERA_MODEL.nominalTrunkM * ds) / (size * size);
+    }
   }
-  return { vx, depth };
+  return { vx, depth, toward };
 }
 
 /** Marks every sample within the turn margin of `k` (both sides) inside [a, b). */
@@ -130,12 +142,22 @@ function wrongViewSamples(s: Series, view: GaitView, a: number, b: number): [num
   return [wrong, seen];
 }
 
-/** Passes, exclusions and the view check of one prepared view. */
-export function passesOf(p: Prepared, view: GaitView, nearSide: LimbSide | undefined): Motion {
+/**
+ * Passes, exclusions and the view check of one prepared view. `steady` sets the turn margin: the data's
+ * (STEADY_FULL) or the MVP's timing only reading (STEADY_TIMING, GAIT_MVP).
+ */
+export function passesOf(
+  p: Prepared,
+  view: GaitView,
+  nearSide: LimbSide | undefined,
+  steady: SteadyRules = STEADY_FULL,
+): Motion {
   const s = p.series;
   const excluded = new Uint8Array(s.n);
   const passes: Pass[] = [];
-  const margin = Math.round(GAIT_ENGINE.turnMarginSec * s.hz);
+  const margin = Math.round(steady.turnMarginSec * s.hz);
+  // Runs shorter than the data's turn margin belong to their neighbour, whatever the margin excluded.
+  const minRun = Math.round(GAIT_ENGINE.turnMarginSec * s.hz);
   let wrong = 0;
   let seen = 0;
   for (const [a, b] of s.bouts) {
@@ -179,12 +201,12 @@ export function passesOf(p: Prepared, view: GaitView, nearSide: LimbSide | undef
     return { passes, excluded, wrongViewShare: seen ? wrong / seen : 0 };
   }
 
-  const { vx, depth } = motionAt(s, p.aspect);
+  const { vx, depth, toward } = motionAt(s, p.aspect);
   for (const [a, b] of s.bouts) {
     if (view === "side") {
       const dir: (1 | -1 | null)[] = [];
       for (let k = 0; k < s.n; k++) dir[k] = vx[k] > 0 ? 1 : vx[k] < 0 ? -1 : null;
-      const parts = labelRuns(dir, a, b, margin);
+      const parts = labelRuns(dir, a, b, minRun);
       parts.forEach(([pa, pb, d], i) => {
         if (i > 0) markAround(excluded, pa, margin, a, b);
         passes.push({
@@ -200,11 +222,19 @@ export function passesOf(p: Prepared, view: GaitView, nearSide: LimbSide | undef
       for (let k = a; k < b; k++) if (depth[k] > Math.abs(vx[k])) markAround(excluded, k, margin, a, b);
       continue;
     }
-    // Front and back views: passes by facing, analysed 1.5 to 4 m from the phone.
+    // Front and back views: passes by the direction in depth (the facing where the bout never walks
+    // in depth), analysed 1.5 to 4 m from the phone.
     const facing: ("toward" | "away" | null)[] = [];
-    for (let k = 0; k < s.n; k++)
-      facing[k] = p.faceSeen[nearestFrame(p.frameMs, s.t[k] * 1000)] ? "toward" : "away";
-    const parts = labelRuns(facing, a, b, margin);
+    let moved = false;
+    for (let k = 0; k < s.n; k++) {
+      const w = k >= a && k < b ? toward[k] : Number.NaN;
+      facing[k] = w >= GAIT_MVP.departSpeedMps ? "toward" : w <= -GAIT_MVP.departSpeedMps ? "away" : null;
+      if (facing[k]) moved = true;
+    }
+    if (!moved)
+      for (let k = 0; k < s.n; k++)
+        facing[k] = p.faceSeen[nearestFrame(p.frameMs, s.t[k] * 1000)] ? "toward" : "away";
+    const parts = labelRuns(facing, a, b, minRun);
     parts.forEach(([pa, pb, f], i) => {
       if (i > 0) markAround(excluded, pa, margin, a, b);
       if ((view === "front") === (f === "toward"))

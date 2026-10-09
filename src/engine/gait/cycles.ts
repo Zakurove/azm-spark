@@ -55,7 +55,7 @@
  *   SOFTWARE.
  */
 import type { PassEvent } from "./events";
-import { GAIT_ENGINE } from "./params";
+import { GAIT_ENGINE, STEADY_FULL, type SteadyRules } from "./params";
 import { EXCLUDED, type Motion } from "./passes";
 import { LEG, visibleShare, type Prepared } from "./preprocess";
 import { correctOrder } from "./spatiotemporal";
@@ -82,13 +82,18 @@ export interface Cycle extends GaitCycle {
   trunkOk: boolean;
 }
 
-/** The cycles of a view, in time order, each clean or with the reason it was dropped. */
+/**
+ * The cycles of a view, in time order, each clean or with the reason it was dropped. `steady` sets the
+ * steps dropped at an in view start, stop or turn: the data's (STEADY_FULL) or the MVP's timing only
+ * reading (STEADY_TIMING).
+ */
 export function buildCycles(
   p: Prepared,
   motion: Motion,
   events: readonly PassEvent[],
   kind: "side" | "front",
   overground: boolean,
+  steady: SteadyRules = STEADY_FULL,
 ): Cycle[] {
   const s = p.series;
   const out: Cycle[] = [];
@@ -111,7 +116,7 @@ export function buildCycles(
       .map((c) => c.times.icEnd - c.times.ic);
     const mid = median(strides);
     if (overground && ics.length) {
-      const { first, last } = GAIT_ENGINE.dropSteps;
+      const { first, last } = steady.dropSteps;
       const edge = new Set<number>();
       const startSeen = pass.turnAtStart || (mid !== null && s.t[ics[0].index] - s.t[pass.start] > mid);
       const endSeen =

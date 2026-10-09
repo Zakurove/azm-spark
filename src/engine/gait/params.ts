@@ -110,6 +110,49 @@ export const GAIT_ENGINE = {
 } as const;
 
 /**
+ * The walk at home for the MVP (D-035 item 2; contract change log, wt/fix-gait GW-1 and GW-2), an MVP
+ * interim until the team's own recordings (8.4). A home walk turns inside the picture: on a 3 m path
+ * the 1 s turn margins and the two steps dropped at each in view start, stop or turn leave no cycle, so
+ * the view fails its gate whatever the walk. gait-rules qualityGates say what a view below its 6 clean
+ * cycles a side gives after the added passes: «then timing only or record again», and research gait.md
+ * section 6: «If the gate fails, re-record, or report timing only»; timing is the strongest signal from
+ * one camera (gait.md section 0 item 1). A view that fails its gate is therefore read again for timing
+ * only, with these engineering numbers (no clinical threshold; the patterns keep the full gate):
+ *   - timingCyclesPerSide: the clean cycles a side, across the passes of the view group, that make a
+ *     timing only result (the capture's target; myogait's own minimum per side, quality.ts);
+ *   - turnMarginSec and dropSteps: the turn with 0.3 s either side and one step at each in view start,
+ *     stop or turn are left out, instead of 1 s and two steps (the timing only reading never reads an
+ *     angle; set on the generator's home walks, tests/v7/c-home-walk.test.ts);
+ *   - cleanShareMin: of the cycles those rules keep, at least half pass every other check (order, swap,
+ *     duration, visibility), so a walk the model tracks badly never gives a timing only result (the
+ *     guard: G1's real model walk made overground, c-pad-near-limb);
+ *   - departSpeedMps: front and back views read walking toward or away from the body's size changing
+ *     in the picture (the camera model of passes.ts); under this speed in depth the person stands or
+ *     turns (a slow walk is 0.4 m/s and more, the gait fixtures' slowest).
+ */
+export const GAIT_MVP = {
+  timingCyclesPerSide: 3,
+  turnMarginSec: 0.3,
+  dropSteps: { first: 1, last: 1 },
+  cleanShareMin: 0.5,
+  departSpeedMps: 0.15,
+} as const;
+
+/** The steady state rules a reading of a view uses: the data's (the full gate), or the MVP's timing only ones. */
+export interface SteadyRules {
+  turnMarginSec: number;
+  dropSteps: { first: number; last: number };
+}
+export const STEADY_FULL: SteadyRules = {
+  turnMarginSec: GAIT_ENGINE.turnMarginSec,
+  dropSteps: GAIT_ENGINE.dropSteps,
+};
+export const STEADY_TIMING: SteadyRules = {
+  turnMarginSec: GAIT_MVP.turnMarginSec,
+  dropSteps: GAIT_MVP.dropSteps,
+};
+
+/**
  * The pad side view's swap rule (D-027 item 4, C2's GG-4 proposal (b)): the leg labels are exchanged
  * only where the near leg's own track jumps more than half a foot length from its prediction. Where it
  * may, an exchanged sample costs a quarter of a foot length, so the model's own labels stand unless the

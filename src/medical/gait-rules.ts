@@ -38,6 +38,7 @@ import type {
 } from "../engine/gait/types";
 import { NEAR_LIMB_METRICS, combineViewMetrics } from "../engine/gait/combine";
 import { GAIT_ENGINE } from "../engine/gait/params";
+import { isTimingReading } from "../engine/gait/verdict";
 import type {
   Confidence,
   ContributorId,
@@ -292,8 +293,11 @@ function groupOf(c: Ctx, views: readonly GaitView[]): Group {
   if (known) return known;
   const inViews = c.analysis.views.filter((v) => views.includes(v.view));
   const rightView = inViews.filter((v) => !v.quality.issues.includes("wrong_view"));
-  // «under 20 fps: record again» (C1-16): such a view gives nothing to read.
-  const usable = rightView.filter((v) => v.quality.medianFps >= GAIT_ENGINE.recordAgainBelowFps);
+  // «under 20 fps: record again» (C1-16): such a view gives nothing to read. A view read for timing
+  // only below its gate (the MVP's home walk reading, D-035 item 2) gives its timing and no pattern.
+  const usable = rightView.filter(
+    (v) => v.quality.medianFps >= GAIT_ENGINE.recordAgainBelowFps && !isTimingReading(v),
+  );
   const cycles = (s: Side, vs: readonly GaitViewResult[]) =>
     vs.reduce((n, v) => n + v.quality.cleanCycles[s], 0);
   const enough = (s: Side, vs: readonly GaitViewResult[]) => cycles(s, vs) >= GAIT_ENGINE.cleanCyclesPerSide;

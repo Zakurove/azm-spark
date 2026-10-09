@@ -10,6 +10,12 @@
  * passes facing the phone, as the "back" view the passes walking away (the back view is the away
  * passes of the overground front view, gait-rules capture.overground.front).
  *
+ * Readings. analyseGaitView is the data's reading (the 1 s turn margins, two steps dropped at each in
+ * view start, stop or turn, the full gate of 6 clean cycles a side). analyseGaitGroup reads the views of
+ * one recording together and, when the group is below that gate, reads each view again for timing only
+ * (analyseGaitTiming; GAIT_MVP, D-035 item 2: a home walk turns inside the picture), kept only when the
+ * model tracked the walk consistently (verdict.ts consistent). verdict.ts says what the walk gave.
+ *
  * Roll. Angles are read against true vertical when the phone roll is known (rollDeg); for overground
  * side passes without it, the roll is the tilt of the mid hip's path, which is level in the room (the
  * hips walk near the lens height, so depth hardly moves them in the picture); else the picture's
@@ -20,13 +26,21 @@ import { combineViews as combine } from "./combine";
 import { detectEvents } from "./events";
 import { dropAt } from "./kinematics";
 import { viewMetrics } from "./metrics";
-import { ENGINE_VERSION, GAIT_ENGINE, STORED_LIMITS } from "./params";
+import {
+  ENGINE_VERSION,
+  GAIT_ENGINE,
+  STEADY_FULL,
+  STEADY_TIMING,
+  STORED_LIMITS,
+  type SteadyRules,
+} from "./params";
 import { passesOf } from "./passes";
 import { LEG, pointOf, prepare, rollTurn, visibleShare } from "./preprocess";
 import { viewFps, viewQuality } from "./quality";
 import { replayOf } from "./replay";
 import { beltMps, pxPerMetre } from "./scale";
 import { standingZeros } from "./standing";
+import { consistent, groupPassed } from "./verdict";
 import type {
   GaitAnalysis,
   GaitCycle,
@@ -37,6 +51,7 @@ import type {
   GaitView,
   GaitViewInput,
   GaitViewResult,
+  ReplayCycle,
   StaticStanceInput,
   StaticStanceResult,
 } from "./types";
@@ -109,7 +124,7 @@ const toCycle = (c: Cycle): GaitCycle => {
   return out;
 };
 
-export function analyseGaitView(input: GaitViewInput): GaitViewResult {
+function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null {
   const view = input.view;
   const kind = isSideView(view) ? "side" : "front";
   const sensorRoll = input.rollDeg !== null && Number.isFinite(input.rollDeg) ? input.rollDeg : null;
@@ -123,41 +138,110 @@ export function analyseGaitView(input: GaitViewInput): GaitViewResult {
     bouts: kind === "side" ? "either_ankle" : "both_ankles",
     ...(view === "pad_side" && input.nearSide ? { nearSide: input.nearSide } : {}),
   });
-  const motion = passesOf(p, view, view === "pad_side" ? input.nearSide : undefined);
-  const events = detectEvents(p, motion.passes, kind, view === "pad_side");
-  const cycles = buildCycles(p, motion, events, kind, isOverground(view));
   const zeros = standingZeros(input.standing, kind, roll);
-  const fps = viewFps(p, motion);
-  const metrics = viewMetrics({
-    p,
-    view,
-    motion,
-    cycles,
-    zeros,
-    pxPerM: view === "side" ? pxPerMetre(zeros.heightPx, input.setup.heightCm) : null,
-    beltMps: view === "pad_side" ? beltMps(input.setup) : null,
-    rollKnown: roll !== null,
-    fps,
-  });
-  const quality = viewQuality({
-    p,
-    motion,
-    cycles,
-    noViewPasses: (view === "front" || view === "back") && p.series.bouts.length > 0 && !motion.passes.length,
-  });
-  const replay = quality.gatePassed ? replayOf(p, cycles, replaySide(input, metrics, cycles)) : null;
-  const result: GaitViewResult = {
-    view,
-    poseModel: input.poseModel,
-    events: events.slice(0, STORED_LIMITS.eventsPerView).map(toEvent),
-    cycles: cycles.slice(0, STORED_LIMITS.cyclesPerView).map(toCycle),
-    metrics,
-    quality,
-    replay,
+  const near = view === "pad_side" ? input.nearSide : undefined;
+
+  /** One reading of the view with a set of steady state rules. */
+  const read = (steady: SteadyRules, timingOnly: boolean) => {
+    const motion = passesOf(p, view, near, steady);
+    const events = detectEvents(p, motion.passes, kind, view === "pad_side");
+    const cycles = buildCycles(p, motion, events, kind, isOverground(view), steady);
+    const fps = viewFps(p, motion);
+    const metrics = viewMetrics({
+      p,
+      view,
+      motion,
+      cycles,
+      zeros,
+      pxPerM: view === "side" ? pxPerMetre(zeros.heightPx, input.setup.heightCm) : null,
+      beltMps: view === "pad_side" ? beltMps(input.setup) : null,
+      rollKnown: roll !== null,
+      fps,
+      timingOnly,
+    });
+    const quality = viewQuality({
+      p,
+      motion,
+      cycles,
+      noViewPasses:
+        (view === "front" || view === "back") && p.series.bouts.length > 0 && !motion.passes.length,
+      timing: timingOnly,
+    });
+    return { motion, events, cycles, metrics, quality };
   };
-  if (view === "pad_side" && input.nearSide) result.nearSide = input.nearSide;
-  return result;
+
+  if (timing) {
+    // The MVP's timing only reading (GAIT_MVP, D-035 item 2): kept only when the model tracked the
+    // walk consistently and a clean cycle was found, at a frame rate the data reads.
+    const t = read(STEADY_TIMING, true);
+    const found = t.quality.cleanCycles.left > 0 || t.quality.cleanCycles.right > 0;
+    if (!found || !consistent(t.cycles) || t.quality.medianFps < GAIT_ENGINE.recordAgainBelowFps) return null;
+    return resultOf(t, null);
+  }
+  const r = read(STEADY_FULL, false);
+  return resultOf(
+    r,
+    r.quality.gatePassed ? replayOf(p, r.cycles, replaySide(input, r.metrics, r.cycles)) : null,
+  );
+
+  function resultOf(x: ReturnType<typeof read>, replay: ReplayCycle | null): GaitViewResult {
+    const result: GaitViewResult = {
+      view,
+      poseModel: input.poseModel,
+      events: x.events.slice(0, STORED_LIMITS.eventsPerView).map(toEvent),
+      cycles: x.cycles.slice(0, STORED_LIMITS.cyclesPerView).map(toCycle),
+      metrics: x.metrics,
+      quality: x.quality,
+      replay,
+    };
+    if (view === "pad_side" && input.nearSide) result.nearSide = input.nearSide;
+    return result;
+  }
 }
+
+/** One view of a walk, the data's reading (contract 2.8): every metric its clean cycles give, the full gate. */
+export function analyseGaitView(input: GaitViewInput): GaitViewResult {
+  return readView(input, false)!;
+}
+
+/**
+ * The MVP's timing only reading of one view (GAIT_MVP, D-035 item 2): the turn itself and one step at
+ * each in view start, stop or turn left out, the timing metrics only, quality.timingOnly true and the
+ * full gate never passed; null when the model did not track the walk consistently or no clean cycle
+ * was found.
+ */
+export function analyseGaitTiming(input: GaitViewInput): GaitViewResult | null {
+  return readView(input, true);
+}
+
+/**
+ * The views of one recording, read together (C3-1: the overground toward and away passes are one
+ * group): the data's reading, or, when the group is below its gate (6 clean cycles a side, summed over
+ * its views), the timing only reading of each view that gives one (else its data reading, kept for its
+ * reasons). A view the engine cannot read is left out.
+ */
+export function analyseGaitGroup(inputs: readonly GaitViewInput[]): GaitViewResult[] {
+  const full: GaitViewResult[] = [];
+  for (const input of inputs) {
+    try {
+      full.push(analyseGaitView(input));
+    } catch {
+      /* a view the engine cannot read is left out */
+    }
+  }
+  if (!full.length || groupPassed(full)) return full;
+  return full.map((v) => {
+    const input = inputs.find((i) => i.view === v.view && i.nearSide === v.nearSide);
+    if (!input) return v;
+    try {
+      return analyseGaitTiming(input) ?? v;
+    } catch {
+      return v;
+    }
+  });
+}
+
+export { consistent, groupPassed, isTimingReading } from "./verdict";
 
 /**
  * The static single leg stance check (gait-rules 2.4): the hip line's tilt with the other leg lifted,

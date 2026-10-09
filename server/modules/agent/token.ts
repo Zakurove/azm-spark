@@ -98,7 +98,8 @@ export function coachSetup(cfg: AgentConfig, s: SetupInput): object {
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voice } } },
     },
     systemInstruction: { parts: [{ text: s.instruction }] },
-    tools: [{ functionDeclarations: s.tools }],
+    // The connection test (D-035 item 4) has no tools: an empty declaration list is left out.
+    ...(s.tools.length ? { tools: [{ functionDeclarations: s.tools }] } : {}),
     realtimeInputConfig: {
       automaticActivityDetection: {
         startOfSpeechSensitivity: "START_SENSITIVITY_LOW",

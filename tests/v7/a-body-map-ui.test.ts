@@ -145,6 +145,32 @@ describe("edit mode", () => {
     expect(plain(render("en", []))).toContain("Your right");
   });
 
+  it("names the neck and the back or trunk on the figure, in both views and languages (D-035 item 5)", () => {
+    for (const lang of ["ar", "en"] as const) {
+      const html = render(lang, []);
+      const tags = [...html.matchAll(/class="bm-tag" data-tag="([^"]+)"[^>]*>([^<]+)</g)].map((m) => [
+        m[1],
+        m[2],
+      ]);
+      expect(tags).toEqual(
+        lang === "ar"
+          ? [
+              ["neck", "الرقبة"],
+              ["back_trunk", "الظهر والجذع"],
+            ]
+          : [
+              ["neck", "Neck"],
+              ["back_trunk", "Back or trunk"],
+            ],
+      );
+    }
+    // A summary keeps its marks only.
+    const summary = renderToStaticMarkup(
+      createElement(BodyMap, { lang: "ar", mode: "summary", colours: { "neck:axial": "pain" } }),
+    );
+    expect(summary).not.toContain("bm-tag");
+  });
+
   it("presses the cells on the map, both cells for a both entry", () => {
     const html = render("en", [shoulderRight, kneesBoth]);
     const pressed = [...html.matchAll(/data-cell="([^"]+)"[^>]*aria-pressed="true"/g)].map((m) => m[1]);

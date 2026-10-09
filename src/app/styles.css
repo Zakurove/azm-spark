@@ -2645,3 +2645,88 @@ img {
   direction: ltr;
   white-space: nowrap;
 }
+
+/* D-035 item 5: the medical report card of the v7 form, before its questions. A premium card on the
+   light page: a gold to purple rim, a purple tile with the document and its gold spark, one line. */
+.report-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 80px;
+  margin: 4px 0 26px;
+  padding: 16px 18px;
+  border: 1.5px solid transparent;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, #fffdf5 0%, #f8f4ff 100%) padding-box,
+    linear-gradient(135deg, #f8cb44 0%, #c9b3ec 55%, #6f5aa0 100%) border-box;
+  box-shadow:
+    0 14px 34px rgba(99, 82, 141, 0.14),
+    0 2px 8px rgba(248, 203, 68, 0.16);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.report-card:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 18px 40px rgba(99, 82, 141, 0.18),
+    0 2px 10px rgba(248, 203, 68, 0.22);
+}
+.report-card:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+.report-card-icon {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #6f5aa0 0%, #937bc6 100%);
+  color: white;
+  box-shadow:
+    0 8px 18px rgba(111, 90, 160, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.report-card-icon svg path:last-child {
+  fill: var(--gold);
+  stroke: var(--gold);
+}
+.report-card-text {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.report-card-text b {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.report-card-text span {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.report-card-go {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: white;
+  color: #6f5aa0;
+  box-shadow: 0 0 0 1px #ece6f6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-card {
+    transition: none;
+  }
+}

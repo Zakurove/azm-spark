@@ -83,6 +83,23 @@ for (const lang of ["ar", "en"] as const) {
       L("هل يحتاج أحد جانبي جسمك إلى مراعاة خاصة؟", "Should we account for one side?"),
     ])
       await expect(card).not.toContainText(gone);
+    // D-035 item 5: the medical report is a standout card, before the questions.
+    const report = card.locator(".report-card");
+    await expect(report).toContainText(L("عندك تقرير طبي؟", "Have a medical report?"));
+    await expect(report).toContainText(
+      L(
+        "ارفع تقريرك الطبي، ونقرأه لك ونملأ حالتك",
+        "Upload your medical report, we read it and fill in your condition",
+      ),
+    );
+    const above = await report.evaluate(
+      (el) =>
+        el.getBoundingClientRect().top < document.querySelector(".age-field")!.getBoundingClientRect().top,
+    );
+    expect(above).toBe(true);
+    await expect(card.locator(".intake-mobility legend")).toContainText(
+      L("ما الوضعية الأنسب لك في التمرين؟", "Which position suits you best for exercise?"),
+    );
     await shot(page, `${lang}-1-condition-empty`);
 
     // Step 1: age and sex, a stroke with its side, how the person exercises, walking.
@@ -113,7 +130,33 @@ for (const lang of ["ar", "en"] as const) {
       ),
     ]);
     await expect(card.locator(".intake7-card")).toHaveCount(0);
+    // D-035 item 5: the neck and the back or trunk are named on the figure.
+    await expect(card.locator('.bm-tag[data-tag="neck"]')).toHaveText(L("الرقبة", "Neck"));
+    await expect(card.locator('.bm-tag[data-tag="back_trunk"]')).toHaveText(
+      L("الظهر والجذع", "Back or trunk"),
+    );
     await view(page, ".intake7-mapsection", `${lang}-2-map-filled`);
+    // D-035 item 5: the answer that lets the person go ahead is each safety question's first button.
+    for (const [field, first] of [
+      ["symptoms", "no"],
+      ["recentChange", "no"],
+      ["restrictions", "no"],
+      ["clearance", "yes"],
+    ])
+      await expect(card.locator(`[data-field="${field}"] button`).first()).toHaveAttribute(
+        "data-value",
+        first,
+      );
+    const yes = L("نعم", "Yes");
+    const no = L("لا", "No");
+    for (const [q, first] of [
+      [L("هشاشة في العظام", "weak bones"), no],
+      [L("رقبتك غير مستقرة", "neck is unstable"), no],
+      [L("ترفع مقدمة قدمك", "lift the front of your foot"), yes],
+      [L("الجلوس نحو 30 ثانية", "sit for about 30 seconds"), yes],
+    ])
+      await expect(fieldset(page, q).locator("button").first()).toHaveText(first);
+    await view(page, ".intake7-safety", `${lang}-2-safety-order`);
     // The safety questions come after the map.
     await card.locator('[data-field="symptoms"] button[data-value="no"]').click();
     await card.locator('[data-field="clearance"] button[data-value="yes"]').click();
@@ -126,15 +169,13 @@ for (const lang of ["ar", "en"] as const) {
     await expect(restrictions.locator(".intake-restrictions button")).toHaveCount(5);
     await restrictions.locator('button[data-value="no"]').click();
     await expect(restrictions.locator(".intake-restrictions")).toHaveCount(0);
+    // No for weak bones and the neck, yes for the foot: each the first button now.
     for (const q of [
       L("هشاشة في العظام", "weak bones"),
       L("رقبتك غير مستقرة", "neck is unstable"),
       L("ترفع مقدمة قدمك", "lift the front of your foot"),
     ])
-      await fieldset(page, q)
-        .locator("button")
-        .nth(q.includes("قدم") || q.includes("foot") ? 0 : 1)
-        .click();
+      await fieldset(page, q).locator("button").first().click();
     await fieldset(page, L("الجلوس نحو 30 ثانية", "sit for about 30 seconds"))
       .locator("button")
       .first()

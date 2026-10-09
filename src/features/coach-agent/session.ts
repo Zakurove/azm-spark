@@ -8,22 +8,29 @@
  *
  *   - Prewarm (rule 8): start() mints and connects at once, when the segment's setup card shows; a
  *     token whose new session window passed before the connect is minted again once (a re-mint).
- *   - Fallback to local (rule 6): a transport error or close, a setupComplete later than 3 s, two
- *     questions without coach audio, the network going offline, the microphone refused, a token
- *     refused. A reconnect is tried only at the next boundary (range: a movement's result; gait: a
- *     pass; session: a new step), with a re-mint; a refusal that does not pass with time (the budget,
- *     no consent, the coach switched off) keeps the segment local.
+ *   - Fallback to local (rule 6): a transport error or close, two questions without coach audio, the
+ *     network going offline, the microphone refused, a token refused. A reconnect is tried only at the
+ *     next boundary (range: a movement's result; gait: a pass; session: a new step), with a re-mint; a
+ *     refusal that does not pass with time (the budget, no consent, the coach switched off) keeps the
+ *     segment local.
+ *   - Slow is not failed (D-035 item 3): with no setupComplete 3 s after the connect, the local voice
+ *     takes over (fallback_slow is reported) while the same connection goes on in the background, up
+ *     to the transport's 15 s; at its setupComplete the coach takes over, told where the person is.
+ *   - The audio session is play-and-record before the microphone is asked (D-035 item 3: iOS keeps
+ *     the check's playback type and the capture then cannot start), and playback again after.
+ *   - Every failure keeps its stage, name and message (coach/failure.ts), sent in the usage report.
  *   - Rotation (rule 7, S0-3): after goAway, or from the earlier of setupComplete + 9.5 min and the
  *     token's expiresAt - 60 s, the next boundary starts a new session for the rest of the segment:
  *     a re-mint, and the server's history with the host's snapshot. A 1011 close after 595 s is the
  *     connection limit (go_away), not an error, and so is the close that follows a goAway.
  *   - The usage report (5.2) describes the whole segment so far: sent at each fallback, when the page
  *     hides and at the end; never for a segment that had no session.
- *   - While live the audio session is play-and-record (rule 3), and playback again after it.
+ *   - While the microphone is open the audio session is play-and-record (rule 3), and playback after.
  * Every event a host pushes is stamped with this session's clock, so the answer guard (S0-2) and the
  * event lines never depend on the host's clock.
  */
 import { closeEndReason, rotateAt, SLOW_SETUP_MS, type CoachEndReason } from "../../coach/events";
+import { coachFailure, type CoachFailure } from "../../coach/failure";
 import { AnswerGuard } from "../../coach/tools";
 import type { BridgeEvent, CoachMode, CoachOptions, LiveTransport, TransportEvent } from "../../coach/types";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../../server/modules/agent/types";
@@ -74,8 +81,10 @@ export interface CoachDeps {
   silenceMs?: SilenceMs;
   /** The page's offline, online and hide events; returns the way to stop listening. */
   listen?(h: { offline(): void; online(): void; hidden(): void }): () => void;
-  /** Rule 3: play-and-record while the coach is live, playback after. */
+  /** Rule 3: play-and-record while the microphone is open (asked before it), playback after. */
   audioSession?(live: boolean): void;
+  /** Called as a connection starts, before the token is asked (useCoach: preload the SDK chunk). */
+  prepare?(): void;
   /** Section 9 timings for the perf overlay (User Timing measures named azm:*, DG-1), on the clock of now. */
   measure?(name: CoachMeasure, start: number, duration: number): void;
   /** The bridge's tick (default 100 ms). */
@@ -174,6 +183,8 @@ export class CoachSession {
   private expiresAt = Infinity;
   /** Rule 2: the local voice asked the coach's question; that late coach turn is not played. */
   private dropTurn = false;
+  /** The last failure of the segment (D-035 item 3), sent in every report after it. */
+  private failure: CoachFailure | null = null;
 
   constructor(
     private readonly opts: CoachOptions,
@@ -193,7 +204,15 @@ export class CoachSession {
         flushCoach: () => this.speaker.flush(),
         micGate: (open) => this.mic?.gate(open),
         duck: (on) => this.speaker.duck(on),
-        onFallback: (reason) => this.fallback(reason),
+        onFallback: (reason) =>
+          this.fallback(reason, {
+            stage: "playback",
+            name: "NoCoachAudio",
+            message:
+              this.speaker.audible === false
+                ? "the audio context is not running"
+                : "two questions without coach audio",
+          }),
         onAskedLocally: () => {
           this.dropTurn = true;
           this.speaker.flush();
@@ -293,6 +312,7 @@ export class CoachSession {
     if (this.minting || this.ended || this.noCoach || this.transport) return;
     this.minting = true;
     this.setMode("connecting");
+    this.deps.prepare?.();
     this.startMic();
     let minted: { token: TokenResponse; newSessionAt: number } | null = null;
     try {
@@ -311,9 +331,7 @@ export class CoachSession {
     const t = this.deps.transport();
     this.attach(t);
     this.connectStart = this.deps.now();
-    this.setupTimer = setTimeout(() => {
-      if (this.transport === t && this.liveSince === null) this.fallback("fallback_slow");
-    }, SLOW_SETUP_MS);
+    this.setupTimer = setTimeout(() => this.slow(t), SLOW_SETUP_MS);
     const history = again ? this.withSnapshot(minted.token.history) : minted.token.history;
     t.connect({
       token: minted.token.token,
@@ -321,9 +339,24 @@ export class CoachSession {
       apiVersion: minted.token.apiVersion,
       history,
     }).catch((e: unknown) => {
-      this.deps.log?.("connection failed", { message: e instanceof Error ? e.message : String(e) });
-      if (this.transport === t) this.fallback("fallback_error");
+      const failure = coachFailure("socket", e);
+      this.deps.log?.("connection failed", { ...failure });
+      if (this.transport === t) this.fallback("fallback_error", failure);
     });
+  }
+
+  /**
+   * No setupComplete 3 s after the connect (D-035 item 3): the local voice speaks from now on, and the
+   * connection goes on; its setupComplete hands over to the coach, its failure ends it.
+   */
+  private slow(t: LiveTransport): void {
+    this.setupTimer = null;
+    if (this.ended || this.transport !== t || this.liveSince !== null || this.snap.mode !== "connecting")
+      return;
+    this.deps.log?.("slow to connect: the local voice speaks meanwhile", { segment: this.opts.segment });
+    this.lastEnd = "fallback_slow";
+    this.setMode("local");
+    this.sendReport("fallback_slow");
   }
 
   private async mintToken(): Promise<{ token: TokenResponse; newSessionAt: number } | null> {
@@ -354,6 +387,7 @@ export class CoachSession {
             : res.status === 0 && !this.deps.online()
               ? "offline"
               : "fallback_error",
+          coachFailure("token", { name: res.status ? `HTTP_${res.status}` : "NETWORK", message: res.error }),
         );
       return null;
     }
@@ -369,19 +403,23 @@ export class CoachSession {
     return { token: res.token, newSessionAt: at(res.token.newSessionExpiresAt) };
   }
 
-  /** The server's history with the host's state line, for a new session in the segment (rule 7). */
-  private withSnapshot(history: TokenResponse["history"]): TokenResponse["history"] {
-    let state = "";
+  /** The host's state line, one clean line of at most 200 characters ("" without one). */
+  private hostState(): string {
     try {
-      state = this.opts.host
+      return this.opts.host
         .snapshot()
         .replace(/[[\]\r\n]+/g, " ")
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 200);
     } catch {
-      /* a host without a state line */
+      return "";
     }
+  }
+
+  /** The server's history with the host's state line, for a new session in the segment (rule 7). */
+  private withSnapshot(history: TokenResponse["history"]): TokenResponse["history"] {
+    const state = this.hostState();
     const i = history.findIndex((h) => h.role === "user");
     if (!state || i < 0) return history;
     return history.map((h, k) => (k === i ? { ...h, text: `${h.text}\n[CTX now ${state}]` } : h));
@@ -458,16 +496,28 @@ export class CoachSession {
         return;
       case "error":
         this.deps.log?.("connection error", { code: e.code });
-        return this.fallback("fallback_error");
-      case "close":
-        this.deps.log?.("connection closed", { code: e.code });
+        return this.fallback(
+          "fallback_error",
+          coachFailure(this.liveSince === null ? "socket" : "live", { name: e.code, message: e.code }),
+        );
+      case "close": {
+        this.deps.log?.("connection closed", { code: e.code, reason: e.reason });
         // S0-3: the connection limit, the token's own end (1011 "auth token has expired") or the end
         // a goAway announced is not an error.
-        return this.fallback(
+        const reason =
           this.rotateDue || now >= this.expiresAt - EXPIRY_CLOSE_SLACK_MS
             ? "go_away"
-            : closeEndReason(e.code, this.liveSince === null ? 0 : now - this.liveSince),
+            : closeEndReason(e.code, this.liveSince === null ? 0 : now - this.liveSince);
+        return this.fallback(
+          reason,
+          reason === "fallback_error"
+            ? coachFailure(this.liveSince === null ? "socket" : "live", {
+                name: `closed_${e.code}`,
+                message: `closed_${e.code}${e.reason ? `: ${e.reason}` : ""}`,
+              })
+            : undefined,
         );
+      }
     }
   }
 
@@ -481,17 +531,26 @@ export class CoachSession {
       this.deps.measure?.("azm:coach_connect", this.connectStart, now - this.connectStart);
     this.rotateDue = false;
     this.rotateAtTime = rotateAt(now, this.expiresAt);
-    if (!this.audioHeld) {
-      this.audioHeld = true;
-      this.deps.audioSession?.(true);
-    }
+    this.holdAudio();
+    // A slow connection that completed in the background: the coach takes over from the local voice,
+    // told silently where the person is now.
+    const late = this.snap.mode === "local";
+    this.lastEnd = null;
     this.setMode("live");
+    const state = late ? this.hostState() : "";
+    if (state) this.transport?.sendContext(`[CTX now ${state}]`, false);
   }
 
-  /** Rule 6: the segment goes on with the local voice. */
-  private fallback(reason: CoachEndReason): void {
-    if (this.ended || (this.snap.mode !== "live" && this.snap.mode !== "connecting")) return;
-    this.deps.log?.("local voice", { reason, segment: this.opts.segment });
+  /**
+   * Rule 6: the segment goes on with the local voice. Also ends a slow connection still going in the
+   * background (mode local with a transport). `failure` says why (D-035 item 3).
+   */
+  private fallback(reason: CoachEndReason, failure?: CoachFailure): void {
+    const mode = this.snap.mode;
+    if (this.ended || (mode !== "live" && mode !== "connecting" && !(mode === "local" && this.transport)))
+      return;
+    if (failure) this.failure = failure;
+    this.deps.log?.("local voice", { reason, segment: this.opts.segment, ...(failure ? { failure } : {}) });
     this.detach();
     this.stopMic();
     this.speaker.flush();
@@ -506,7 +565,7 @@ export class CoachSession {
   /** The page hid (a lock, another app): the coach stops listening and the report goes. */
   private hidden(): void {
     if (this.ended) return;
-    if (this.snap.mode === "local") this.sendReport(this.lastEnd ?? "user_end");
+    if (this.snap.mode === "local" && !this.transport) this.sendReport(this.lastEnd ?? "user_end");
     else this.fallback("user_end");
   }
 
@@ -540,6 +599,8 @@ export class CoachSession {
     const mic = this.deps.mic();
     if (!mic) return;
     this.mic = mic;
+    // Before the microphone is asked: iOS cannot start a capture in a playback session (D-035 item 3).
+    this.holdAudio();
     mic.gate(this.bridge.micOpen);
     mic
       .start((pcm) => {
@@ -548,12 +609,22 @@ export class CoachSession {
       })
       .catch((e: unknown) => {
         if (this.mic !== mic) return;
-        this.deps.log?.("microphone refused", { name: e instanceof Error ? e.name : String(e) });
+        const failure = coachFailure("mic", e);
+        this.deps.log?.("microphone refused", { ...failure });
         this.mic = null;
         // A refused microphone is not asked again in this segment.
         this.noCoach = true;
-        this.fallback("fallback_error");
+        this.failure = failure;
+        this.fallback("fallback_error", failure);
+        // Already local: the session the microphone held is released all the same.
+        this.releaseAudio();
       });
+  }
+
+  private holdAudio(): void {
+    if (this.audioHeld) return;
+    this.audioHeld = true;
+    this.deps.audioSession?.(true);
   }
 
   private stopMic(): void {
@@ -610,6 +681,7 @@ export class CoachSession {
       responseTokens: this.usageSeen ? clampInt(this.responseTokens, LIMITS.tokens) : null,
       firstAudioMs: audio.length ? { p50: percentile(audio, 50), p90: percentile(audio, 90) } : null,
       endReason,
+      failure: this.failure,
     });
   }
 }

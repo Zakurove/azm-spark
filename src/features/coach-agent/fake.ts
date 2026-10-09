@@ -31,6 +31,8 @@ export interface FakeScript {
   setupMs?: number | null;
   /** connect fails at once with this code, as a socket that cannot open. */
   failConnect?: string;
+  /** connect fails this long after it was called (a slow socket that then closes, D-035 item 3). */
+  failAfter?: { ms: number; code: string; detail?: string };
   /** Events played this long after connect. */
   timeline?: { at: number; event: TransportEvent }[];
   /** Called after each thing the app sends, to answer it (fake.after schedules a reply). */
@@ -59,8 +61,11 @@ export class FakeLiveTransport implements LiveTransport {
     if (this.script.failConnect) return Promise.reject(new TransportError(this.script.failConnect));
     for (const step of this.script.timeline ?? []) this.after(step.at, step.event);
     const setupMs = this.script.setupMs === undefined ? 300 : this.script.setupMs;
-    if (setupMs === null) return new Promise<void>(() => undefined);
+    const fail = this.script.failAfter;
     return new Promise<void>((resolve, reject) => {
+      if (fail)
+        this.schedule(fail.ms, () => reject(new TransportError(fail.code, "socket", fail.detail ?? "")));
+      if (setupMs === null) return;
       this.schedule(setupMs, () => {
         if (this.ended) return reject(new TransportError("closed"));
         this.record({ kind: "history", turns: opts.history });

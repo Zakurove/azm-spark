@@ -441,6 +441,8 @@ const yesNo = (lang: Lang): Option<boolean>[] => [
   { value: true, label: copy(lang, "ans_yes") },
   { value: false, label: copy(lang, "ans_no") },
 ];
+/** D-035 item 5: a safety question whose no lets the person go ahead lists no first. */
+const noYes = (lang: Lang): Option<boolean>[] => [...yesNo(lang)].reverse();
 const yesNoUnsure = (lang: Lang): Option<YesNoUnsure>[] => [
   { value: "yes", label: copy(lang, "ans_yes") },
   { value: "no", label: copy(lang, "ans_no") },
@@ -1004,7 +1006,10 @@ function SuggestionRow({
   );
 }
 
-/** The safety questions (RomIntakeFlags). */
+/**
+ * The safety questions (RomIntakeFlags). D-035 item 5: the answer that lets the person go ahead is the
+ * first button: no for weak bones and the neck, yes for sitting unsupported and lifting the foot.
+ */
 function FlagQuestion({
   lang,
   id,
@@ -1025,7 +1030,7 @@ function FlagQuestion({
       return (
         <Choices
           legend={legend}
-          options={yesNo(lang)}
+          options={noYes(lang)}
           value={flags.osteoporosis}
           onPick={(v) => set({ osteoporosis: v })}
         />
@@ -1034,7 +1039,7 @@ function FlagQuestion({
       return (
         <Choices
           legend={legend}
-          options={yesNo(lang)}
+          options={noYes(lang)}
           value={flags.neckCaution}
           onPick={(v) => set({ neckCaution: v })}
         />

@@ -14,7 +14,7 @@
  * the segment's minutes once the mint succeeded. The API key never leaves the server; a failed mint
  * is logged by its status only. Errors are { error: CODE }; a 400 names the first bad field.
  */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import type { Route } from "../../http/types";
@@ -42,9 +42,18 @@ import { ownFocusCheck, type FocusCheck } from "../focus/store";
 import { decide, ownSession, reserve, segmentSession, storeUsage, type ReservationAsk } from "./budget";
 import { checkContext, workoutContext, type CoachContext } from "./context";
 import { minutesFor, segmentsFor, SESSION_SEGMENTS } from "./segments";
+import {
+  LAB_MINUTES,
+  LAB_SEGMENT,
+  LAB_SI_VERSION,
+  isLabRef,
+  labHistory,
+  labInstruction,
+  labRef,
+} from "./lab";
 import { TokenError, agentConfig, coachSetup, mintToken } from "./token";
 import type { TokenResponse } from "./types";
-import { parseStopRequest, parseTokenRequest, parseUsageReport } from "./validate";
+import { parseLabRequest, parseStopRequest, parseTokenRequest, parseUsageReport } from "./validate";
 
 /* --------------------------------------------------------------- limits */
 
@@ -290,6 +299,74 @@ export const agentRoutes: Route[] = [
     },
   },
   {
+    // The coach's connection test (D-035 item 4, /?coachlab=1): a one minute token with the lab's own
+    // instruction and no tools, for the signed in person with the live_coach consent (their voice goes
+    // to Google as in the coach). The same rate limits and budget as a segment; each run is its own
+    // row (block session, segment lab), and nothing about the person is sent.
+    method: "POST",
+    path: /^\/api\/agent\/lab-token$/,
+    auth: "user",
+    async handle(rc) {
+      const { db, body, json, limited } = rc;
+      const u = rc.user!;
+      const now = Date.now();
+      const cfg = agentConfig();
+      if (!cfg) return json(503, UNAVAILABLE);
+      const parsed = parseLabRequest(body);
+      if (!parsed.ok) return json(400, { error: "AGENT_INVALID", field: parsed.field });
+      const req = parsed.value;
+      if (!activeConsent(db, u.id, "live_coach")) return json(403, { error: "CONSENT_REQUIRED" });
+      const device = sha256(req.deviceId);
+      if (
+        limited(`agent-token:${u.id}`, TOKEN_LIMITS.user, HOUR_MS) ||
+        limited(`agent-device:${device}`, TOKEN_LIMITS.device, HOUR_MS) ||
+        limited(`agent-ip:${rc.ip}`, TOKEN_LIMITS.ip, HOUR_MS)
+      )
+        return json(429, { error: "RATE_LIMIT" });
+      const ask: ReservationAsk = {
+        userId: u.id,
+        block: "session",
+        segment: LAB_SEGMENT,
+        ref: labRef(randomUUID()),
+        day: riyadhDate(now),
+        device,
+        model: cfg.model,
+        instructionVersion: LAB_SI_VERSION,
+        minutes: LAB_MINUTES,
+        now,
+      };
+      const before = decide(db, ask, cfg);
+      if (!before.ok) return json(429, { error: "BUDGET", minutesLeft: before.minutesLeft });
+      const setup = coachSetup(cfg, {
+        instruction: labInstruction(req.lang),
+        tools: [],
+        lang: req.lang,
+        silenceMs: req.silenceMs ?? DEFAULT_SILENCE_MS,
+      });
+      let minted: Awaited<ReturnType<typeof mintToken>>;
+      try {
+        minted = await mintToken(cfg, setup, LAB_MINUTES);
+      } catch (error) {
+        console.error("AZM agent lab token failed", error instanceof TokenError ? error.status : 0);
+        return json(502, { error: "TOKEN_FAILED" });
+      }
+      const reservation = reserve(db, ask, cfg);
+      if (!reservation.ok) return json(429, { error: "BUDGET", minutesLeft: reservation.minutesLeft });
+      const out: TokenResponse = {
+        sessionId: reservation.id,
+        token: minted.name,
+        model: cfg.model,
+        apiVersion: cfg.apiVersion,
+        voice: cfg.voice,
+        expiresAt: minted.expireTime,
+        newSessionExpiresAt: minted.newSessionExpireTime,
+        history: labHistory(req.lang),
+        minutesLeft: reservation.minutesLeft,
+      };
+      json(200, out);
+    },
+  },
+  {
     method: "POST",
     path: /^\/api\/agent\/usage$/,
     auth: "user",
@@ -315,7 +392,8 @@ export const agentRoutes: Route[] = [
             : "home"
           : (ownFocusCheck(db, session.ref, u.id)?.setting ?? "home");
       transaction(db, () => {
-        if (storeUsage(db, session, report, now))
+        // The connection test's runs are no fallback of the product (D-035 item 4).
+        if (storeUsage(db, session, report, now) && !isLabRef(session.ref))
           countProduct(db, "coach_fallback", report.endReason, setting, now);
       });
       json(200, { ok: true });

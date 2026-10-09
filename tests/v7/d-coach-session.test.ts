@@ -497,7 +497,7 @@ describe("the fallbacks of rule 6, each within 1 s, with the test going on by bu
     expect(host.buttonMax("yes")).toBe(true);
   });
 
-  it("falls back on a slow setupComplete at 3 s and never goes live on that socket", async () => {
+  it("goes local on a slow setupComplete at 3 s, and live on that socket when it completes (D-035 item 3)", async () => {
     const h = harness({ setupMs: 4000 });
     h.session.start();
     await run(2999);
@@ -506,7 +506,9 @@ describe("the fallbacks of rule 6, each within 1 s, with the test going on by bu
     expect(h.session.getSnapshot().mode).toBe("local");
     expect(h.reports.at(-1)).toMatchObject({ endReason: "fallback_slow" });
     await run(2000);
-    expect(h.session.getSnapshot().mode).toBe("local");
+    expect(h.session.getSnapshot().mode).toBe("live");
+    expect(h.transports).toHaveLength(1);
+    expect(h.mints).toHaveLength(1);
   });
 
   it("falls back offline: at once when offline at the start, within 1 s when the network drops", async () => {
@@ -744,6 +746,7 @@ describe("the usage report (5.2)", () => {
         responseTokens: 240,
         firstAudioMs: null,
         endReason: "done",
+        failure: null,
       },
     ]);
     expect(h.session.getSnapshot().mode).toBe("off");

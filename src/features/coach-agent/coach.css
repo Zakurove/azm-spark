@@ -222,3 +222,236 @@
     animation: none;
   }
 }
+
+/* ——— The coach's connection test, /?coachlab=1 (D-035 item 4) ———
+   A light page: the steps as a calm list with a gold tick or a soft red cross, no hard borders. */
+.coach-lab {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 28px 16px 64px;
+  display: grid;
+  gap: 18px;
+  font-family: "Cairo", system-ui, sans-serif;
+  color: var(--ink);
+  background: #fdfcff;
+  min-height: 100vh;
+}
+.coach-lab header h1 {
+  margin: 4px 0 8px;
+  font-size: 26px;
+  line-height: 1.4;
+}
+.coach-lab header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.coach-lab-options {
+  display: grid;
+  gap: 10px;
+}
+.coach-lab-toggle {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  text-align: start;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 0 0 1px #ece6f6;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.coach-lab-toggle span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.coach-lab-toggle small {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.coach-lab-switch {
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: #e7e1f0;
+  position: relative;
+  transition: background 0.2s ease;
+}
+.coach-lab-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(79, 60, 124, 0.2);
+  transition: inset-inline-start 0.2s ease;
+}
+.coach-lab-toggle[aria-pressed="true"] .coach-lab-switch {
+  background: var(--select-dot);
+}
+.coach-lab-toggle[aria-pressed="true"] .coach-lab-switch::after {
+  inset-inline-start: 21px;
+}
+.coach-lab-video {
+  width: 120px;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 14px;
+  background: #efeaf6;
+  transform: scaleX(-1);
+}
+.coach-lab-run {
+  justify-self: stretch;
+  min-height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.coach-lab-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.coach-lab-steps li {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 0 0 1px #f0ecf6;
+}
+.coach-lab-steps li[data-status="skipped"],
+.coach-lab-steps li[data-status="waiting"] {
+  opacity: 0.6;
+}
+.coach-lab-mark {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f1ecf8;
+  color: var(--select-ink);
+}
+li[data-status="ok"] .coach-lab-mark {
+  background: var(--gold);
+  color: #3b2f12;
+}
+li[data-status="failed"] .coach-lab-mark {
+  background: #f8e3e1;
+  color: var(--red);
+}
+.coach-lab-spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #d5c8ec;
+  border-top-color: var(--select-dot);
+  animation: coach-lab-spin 0.9s linear infinite;
+}
+@keyframes coach-lab-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+.coach-lab-step {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.coach-lab-step small {
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.coach-lab code,
+.coach-lab pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  direction: ltr;
+  text-align: left;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.coach-lab-step code {
+  color: var(--red);
+}
+.coach-lab-prompt {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff7dc;
+  font-weight: 700;
+  text-align: center;
+}
+.coach-lab-words {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.coach-lab-words dt {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.coach-lab-words dd {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.coach-lab-verdict {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #f7f3fd 0%, #ffffff 70%);
+  box-shadow:
+    0 0 0 1px #ece6f6,
+    0 12px 32px rgba(99, 82, 141, 0.08);
+}
+.coach-lab-verdict h2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  font-size: 18px;
+}
+.coach-lab[data-verdict="pass"] .coach-lab-verdict h2 {
+  color: var(--green);
+}
+.coach-lab-verdict h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+.coach-lab-verdict ul {
+  margin: 0;
+  padding-inline-start: 18px;
+}
+.coach-lab-verdict pre {
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f6f3fa;
+}
+.coach-lab-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .coach-lab-spin {
+    animation: none;
+  }
+}

@@ -90,6 +90,15 @@ export default function Icon({ name, size = 24 }: { name: string; size?: number 
         <path d="M12 6v6l4 2" />
       </>
     ),
+    // D-035 item 5: a medical report, a document with a spark (the spark is the last path).
+    report: (
+      <>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5" />
+        <path d="M14 3v4h4M14 3l4 4v4" />
+        <path d="M8.5 10.5h5M8.5 14h3" />
+        <path d="m18 14 .9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+      </>
+    ),
     spark: (
       <>
         <path d="m13 2-8 12h6l-1 8 9-13h-7z" />

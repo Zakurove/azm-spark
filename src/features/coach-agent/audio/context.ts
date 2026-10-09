@@ -4,6 +4,12 @@
  * worklet downsamples to 16 kHz and the 24 kHz chunks are resampled by Web Audio, so no context is
  * forced to a rate the microphone does not run at (live.md 14). iOS starts a context only from a tap:
  * unlockCoachAudio() is called inside the tap that starts a coached block, beside CuePlayer.unlock().
+ *
+ * The audio session (D-035 item 3): the check's taps set navigator.audioSession.type to "playback" so
+ * the iOS silent switch does not mute the voice. WebKit on iOS keeps that type as a category override
+ * and then never applies PlayAndRecord when a capture starts, so the coach's microphone cannot run.
+ * setCaptureAudioSession() sets play-and-record right before the microphone is asked (MicCapture), and
+ * the session sets playback again when the coach stops listening (useCoach setCoachAudioSession).
  */
 
 let shared: AudioContext | null = null;
@@ -18,9 +24,33 @@ export function coachAudioContext(): AudioContext {
 export function unlockCoachAudio(): void {
   try {
     const c = coachAudioContext();
-    if (c.state === "suspended") void c.resume().catch(() => undefined);
+    const state = c.state as string;
+    if (state === "suspended" || state === "interrupted") void c.resume().catch(() => undefined);
   } catch {
     /* no Web Audio: the coach falls back to the local voice */
+  }
+}
+
+type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
+
+/** navigator.audioSession.type, or null where the browser has no audio session API (all but Safari). */
+export function audioSessionType(): string | null {
+  try {
+    const nav = navigator as AudioSessionNavigator;
+    return nav.audioSession ? nav.audioSession.type : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Before the microphone is asked: the audio session allows a capture (play-and-record). Never throws. */
+export function setCaptureAudioSession(): void {
+  try {
+    const nav = navigator as AudioSessionNavigator;
+    if (nav.audioSession && nav.audioSession.type !== "play-and-record")
+      nav.audioSession.type = "play-and-record";
+  } catch {
+    /* not supported */
   }
 }
 

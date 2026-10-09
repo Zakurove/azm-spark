@@ -63,6 +63,16 @@ const AXIAL_POINT: Record<"neck" | "back_trunk", readonly [number, number]> = {
   neck: [120, 70],
   back_trunk: [120, 170],
 };
+/**
+ * D-035 item 5: the two middle points are named on the figure in the intake, so nobody wonders what
+ * they are: the neck's name beside it (to its side, clear of the head and the shoulders), the back or
+ * trunk's under it (between the elbows). In viewBox units; the neck's tag starts there, the trunk's is
+ * centred on it.
+ */
+const AXIAL_TAG: Record<"neck" | "back_trunk", readonly [number, number]> = {
+  neck: [140, 68],
+  back_trunk: [120, 198],
+};
 
 /**
  * The glow of each region on the person's right side, front view: its centre, radii and turn (degrees,
@@ -334,6 +344,18 @@ export function BodyMap(props: BodyMapProps) {
         <span className="bm-side bm-side-end" aria-hidden="true">
           {yours(view === "front" ? "left" : "right")}
         </span>
+        {props.mode === "edit" &&
+          (["neck", "back_trunk"] as const).map((region) => (
+            <span
+              key={region}
+              className="bm-tag"
+              data-tag={region}
+              aria-hidden="true"
+              style={{ left: pct(AXIAL_TAG[region][0] / W), top: pct(AXIAL_TAG[region][1] / H) }}
+            >
+              {regionName(lang, region)}
+            </span>
+          ))}
         {BODY_MAP_CELLS.map((key) => {
           const p = cellPoint(key, view);
           const at = { left: pct(p.x / W), top: pct(p.y / H) };

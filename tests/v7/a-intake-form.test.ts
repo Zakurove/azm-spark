@@ -103,7 +103,7 @@ describe("the intake form", () => {
     for (const line of ["العمر", "ما حالتك الطبية؟", "تفاصيل التشخيص أو تعليمات الطبيب", "الأدوية الحالية"])
       expect(text).toContain(line);
     expect(text).not.toContain("الجنس");
-    expect(text).not.toContain("كيف تتمرّن عادةً؟");
+    expect(text).not.toContain("ما الوضعية الأنسب لك في التمرين؟");
   });
 
   it("has three short steps in a v7 build (D-034 item 5)", async () => {
@@ -125,8 +125,14 @@ describe("the intake form", () => {
       const text = plain(html.slice(html.indexOf('class="intake-card"')));
       const order = (
         lang === "ar"
-          ? ["العمر", "الجنس", "ما حالتك الطبية؟", "كيف تتمرّن عادةً؟", "هل تستطيع المشي؟"]
-          : ["Age", "Sex", "Which conditions apply to you?", "How do you usually exercise?", "Can you walk?"]
+          ? ["العمر", "الجنس", "ما حالتك الطبية؟", "ما الوضعية الأنسب لك في التمرين؟", "هل تستطيع المشي؟"]
+          : [
+              "Age",
+              "Sex",
+              "Which conditions apply to you?",
+              "Which position suits you best for exercise?",
+              "Can you walk?",
+            ]
       ).map((line) => text.indexOf(line));
       expect(order.every((at) => at >= 0)).toBe(true);
       expect([...order].sort((a, b) => a - b)).toEqual(order);
@@ -151,7 +157,56 @@ describe("the intake form", () => {
     expect(text.indexOf("Which side is weaker?")).toBeGreaterThan(
       text.indexOf("Which conditions apply to you?"),
     );
-    expect(text.indexOf("Which side is weaker?")).toBeLessThan(text.indexOf("How do you usually exercise?"));
+    expect(text.indexOf("Which side is weaker?")).toBeLessThan(
+      text.indexOf("Which position suits you best for exercise?"),
+    );
+  });
+
+  it("asks the position that suits the person, with the same four answers (D-035 item 5)", async () => {
+    const { labels } = await import("../../src/app/platform-copy");
+    expect(labels("ar").mobility).toBe("ما الوضعية الأنسب لك في التمرين؟");
+    expect(labels("en").mobility).toBe("Which position suits you best for exercise?");
+    const html = await firstStep(true, "ar");
+    expect([...html.matchAll(/data-value="(seated|wheelchair|standing|bed)"/g)].map((m) => m[1])).toEqual([
+      "seated",
+      "wheelchair",
+      "standing",
+      "bed",
+    ]);
+  });
+
+  it("opens a v7 form with the medical report as a standout card, before the questions (D-035 item 5)", async () => {
+    for (const lang of ["ar", "en"] as const) {
+      const html = await firstStep(true, lang);
+      const card = html.match(/<button[^>]*class="report-card"[^>]*>.*?<\/button>/s)?.[0] ?? "";
+      expect(card, lang).not.toBe("");
+      expect(plain(card)).toContain(lang === "ar" ? "عندك تقرير طبي؟" : "Have a medical report?");
+      expect(plain(card)).toContain(
+        lang === "ar"
+          ? "ارفع تقريرك الطبي، ونقرأه لك ونملأ حالتك"
+          : "Upload your medical report, we read it and fill in your condition",
+      );
+      // The icon: a document with a spark.
+      expect(card).toContain('data-icon="report"');
+      const text = plain(html.slice(html.indexOf('class="intake-card"')));
+      expect(text.indexOf(lang === "ar" ? "عندك تقرير طبي؟" : "Have a medical report?")).toBeLessThan(
+        text.indexOf(lang === "ar" ? "العمر" : "Age"),
+      );
+    }
+    // A default build keeps its secondary link under the questions.
+    const v1 = await firstStep(false, "ar");
+    expect(v1).toContain("report-open");
+    expect(v1).not.toContain("report-card");
+  });
+
+  it("lists the answer that lets the person go ahead first in each safety question (D-035 item 5)", async () => {
+    const { SAFETY_ANSWERS } = await load(true);
+    expect(SAFETY_ANSWERS).toEqual({
+      symptoms: ["no", "yes"],
+      recentChange: ["no", "yes"],
+      restrictions: ["no", "yes"],
+      clearance: ["yes", "no", "unsure"],
+    });
   });
 });
 

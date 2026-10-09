@@ -534,3 +534,45 @@
     padding: 8px 12px 2px;
   }
 }
+
+/* D-035 item 5: the neck and the back or trunk named on the figure (the cells' own names are their
+   aria labels, so the tags are hidden from screen readers). A soft pill with a short lead to its point;
+   it never takes a tap. */
+.bm-tag {
+  position: absolute;
+  z-index: 1;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 6px rgba(79, 60, 124, 0.14);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--select-ink);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.bm-tag[data-tag="neck"] {
+  transform: translateY(-50%);
+}
+.bm-tag[data-tag="neck"]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  width: 9px;
+  height: 1.5px;
+  background: #cdbdea;
+}
+.bm-tag[data-tag="back_trunk"] {
+  transform: translate(-50%, 0);
+}
+.bm-tag[data-tag="back_trunk"]::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 1.5px;
+  height: 7px;
+  background: #cdbdea;
+}

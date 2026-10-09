@@ -125,7 +125,7 @@ describe("runMigrations", () => {
     const file = join(dir, "fresh.sqlite");
     const out = runMigrations(openDb(file), { dbPath: file });
     expect(out).toEqual({ applied: VERSIONS, backup: null, schema: LATEST });
-    expect(VERSIONS).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(VERSIONS).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(tableNames(openDb(file))).toEqual(
       [...TABLES, ...CHECK_TABLES, ...V7_TABLES, ...D032_TABLES, "schema_migrations"].sort(),
     );
@@ -244,7 +244,7 @@ describe("runMigrations", () => {
         ('a3','u2','baseline','home','abandoned','{}','{}','[]','{}','{}',3,'postponed'),
         ('a4','u2','baseline','home','abandoned','{}','{}','[]','{}','{}',4,'stale');`);
     const out = runMigrations(db, { dbPath: file });
-    expect(out.applied).toEqual([3, 4, 5, 6]);
+    expect(out.applied).toEqual([3, 4, 5, 6, 7]);
     expect(basename(out.backup!)).toMatch(/-pre-3\.sqlite$/);
     expect(db.prepare("SELECT * FROM check_locks ORDER BY user_id").all()).toEqual([
       { user_id: "u1", until: 100, releasable_by_clearance: 1 },

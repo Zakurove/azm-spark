@@ -37,7 +37,8 @@ export const labels = (l: Lang) =>
         diagnosis: "تفاصيل التشخيص أو تعليمات الطبيب",
         medications: "الأدوية الحالية",
         optional: "اختياري",
-        mobility: "كيف تتمرّن عادةً؟",
+        // D-035 item 5: a position question, so someone who does not exercise yet can answer it.
+        mobility: "ما الوضعية الأنسب لك في التمرين؟",
         support: "هل يحتاج أحد جانبي جسمك إلى مراعاة خاصة؟",
         pain: "هل تؤلمك إحدى هذه المناطق عند الحركة؟",
         restriction: "هل لديك تعليمات طبية تحدّ من حركتك؟",
@@ -106,6 +107,8 @@ export const labels = (l: Lang) =>
         resume: "متابعة الجلسة",
         signOutError: "تعذّر الخروج. حاول مرة أخرى.",
         reportTitle: "عندك تقرير طبي؟",
+        // D-035 item 5: the card that opens the report reading in a v7 form.
+        reportCardLine: "ارفع تقريرك الطبي، ونقرأه لك ونملأ حالتك",
         reportBody: "صوّر صفحة التقرير أو الصق نصه، فنعبّئ منه إجاباتك مسبقًا، ثم نسألك عمّا تبقّى فقط.",
         // Booth v2 (B8, option A): one plain line; pressing «اقرأ تقريري» is the consent.
         reportNotice: "يقرأ عزم تقريرك مرة واحدة ليملأ إجاباتك، ولا يحتفظ به.",
@@ -157,7 +160,7 @@ export const labels = (l: Lang) =>
         diagnosis: "Diagnosis details or clinician instructions",
         medications: "Current medications",
         optional: "Optional",
-        mobility: "How do you usually exercise?",
+        mobility: "Which position suits you best for exercise?",
         support: "Should we account for one side?",
         pain: "Do any of these areas hurt during movement?",
         restriction: "Do you have any movement restrictions?",
@@ -229,6 +232,7 @@ export const labels = (l: Lang) =>
         resume: "Resume session",
         signOutError: "Could not sign out. Please try again.",
         reportTitle: "Have a medical report?",
+        reportCardLine: "Upload your medical report, we read it and fill in your condition",
         reportBody:
           "Photograph the report page or paste its text. We prefill your answers from it, then ask only what is still missing.",
         // Booth v2 (B8, option A): one plain line; pressing Read my report is the consent.

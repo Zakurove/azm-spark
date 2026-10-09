@@ -32,7 +32,7 @@ import { MicCapture } from "./audio/mic";
 import { Speaker } from "./audio/speaker";
 import { e2eCoachDeps } from "./e2eCoach";
 import { CoachSession, type CoachDeps, type CoachSnapshot } from "./session";
-import { GenaiTransport } from "./transport";
+import { GenaiTransport, preloadGenai } from "./transport";
 
 const OFF: CoachSnapshot = Object.freeze({ mode: "off", speaking: false, captions: [] }) as CoachSnapshot;
 const CONNECTING: CoachSnapshot = Object.freeze({
@@ -94,7 +94,10 @@ export function useCoach(opts: CoachOptions | null): CoachState {
 
 /* --------------------------------------------------- the browser */
 
-/** Rule 3: play-and-record while the coach is live (where supported), playback after. Never throws. */
+/**
+ * Rule 3: play-and-record while the coach's microphone is open (set before it is asked: iOS cannot
+ * start a capture in a playback session, D-035 item 3), playback after. Never throws.
+ */
 export function setCoachAudioSession(live: boolean): void {
   try {
     const nav = navigator as Navigator & { audioSession?: { type: string } };
@@ -194,6 +197,7 @@ function coachDeps(): CoachDeps {
     deviceId: () => coachDeviceId(),
     listen: windowEvents,
     audioSession: setCoachAudioSession,
+    prepare: preloadGenai,
     measure: userTiming,
     log: coachLog,
   };

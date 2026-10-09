@@ -77,9 +77,12 @@ export class FakeMic {
   refuse = false;
   gates: boolean[] = [];
   level = 0;
+  /** Called as start() is called, before the microphone is asked (the order of the audio session). */
+  onStart: (() => void) | null = null;
   private onChunk: ((pcm: ArrayBuffer) => void) | null = null;
   async start(onChunk: (pcm: ArrayBuffer) => void) {
-    if (this.refuse) throw new Error("NotAllowedError");
+    this.onStart?.();
+    if (this.refuse) throw new DOMException("Permission denied", "NotAllowedError");
     this.started = true;
     this.onChunk = onChunk;
   }

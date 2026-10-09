@@ -20,11 +20,15 @@
  * landmarks. The SDK is imported lazily, so it lives in the coach's own chunk (8.8).
  */
 import type { LiveServerMessage } from "@google/genai";
+import { CoachStageError, type CoachFailStage } from "../../coach/failure";
 import type { LiveConnectOptions, LiveTransport, ToolResult, TransportEvent } from "../../coach/types";
 
 /** What the microphone frames are declared as (live.md 6: 16 kHz mono 16 bit little endian). */
 export const MIC_MIME = "audio/pcm;rate=16000";
-/** A socket that has not completed its setup by then is given up (the session falls back at 3 s). */
+/**
+ * A socket that has not completed its setup by then is given up. The session lets the local voice
+ * speak from 3 s (SLOW_SETUP_MS) and keeps this connection going until then (D-035 item 3).
+ */
 export const CONNECT_TIMEOUT_MS = 15_000;
 
 /* ------------------------------------------------------------- base64 */
@@ -136,6 +140,7 @@ export interface GenaiSdk {
         model: string;
         config: Record<string, never>;
         callbacks: {
+          onopen?: (() => void) | null;
           onmessage: (m: ServerMessage) => void;
           onerror?: ((e: unknown) => void) | null;
           onclose?: ((e: { code: number; reason: string }) => void) | null;
@@ -145,15 +150,47 @@ export interface GenaiSdk {
   };
 }
 
-/** A connect that did not reach setupComplete (the session falls back to the local voice). */
-export class TransportError extends Error {
-  constructor(readonly code: string) {
-    super(code);
+/**
+ * A connect that did not reach setupComplete (the session falls back to the local voice). Its code
+ * (sdk_load, socket_error, closed_<code>, connect_timeout) is the failure's name and its stage says
+ * how far it got (D-035 item 3): sdk, socket (never opened), setup (opened, then no setupComplete).
+ * The message adds Google's close reason or the browser's error text.
+ */
+export class TransportError extends CoachStageError {
+  constructor(code: string, stage: CoachFailStage = "socket", detail = "") {
+    super(stage, code, detail ? `${code}: ${detail}` : code);
     this.name = "TransportError";
   }
 }
 
-const loadGenai = async (): Promise<GenaiSdk> => (await import("@google/genai")) as unknown as GenaiSdk;
+/** How far a connection got: the SDK loaded, the socket opened, setupComplete (the lab page shows them). */
+export type TransportStage = "sdk" | "open" | "setup";
+
+let genai: Promise<GenaiSdk> | null = null;
+/** The SDK chunk, loaded once (a failed load is tried again next time). */
+const loadGenai = (): Promise<GenaiSdk> => {
+  genai ??= (import("@google/genai") as unknown as Promise<GenaiSdk>).catch((e: unknown) => {
+    genai = null;
+    throw e;
+  });
+  return genai;
+};
+
+/**
+ * Starts loading the SDK chunk while the token is minted (D-035 item 3: on a phone the chunk's
+ * download was part of the 3 s the coach had to connect). Never throws.
+ */
+export function preloadGenai(): void {
+  void loadGenai().catch(() => undefined);
+}
+
+/** A message of whatever an SDK callback or a rejected promise gave. */
+function textOf(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  const m = (e as { message?: unknown } | null)?.message;
+  return typeof m === "string" ? m : "";
+}
 
 /**
  * GenaiTransport: one connection per instance (a new segment session is a new transport). Events are
@@ -167,6 +204,9 @@ export class GenaiTransport implements LiveTransport {
   private giveUp: ((e: TransportError) => void) | null = null;
   /** A socket that failed before the transport was open (it may fail right as the setup completes). */
   private failedEarly: TransportError | null = null;
+  /** The socket opened (onopen): a failure after it is the setup's, not the socket's. */
+  private opened = false;
+  private stageListeners = new Set<(stage: TransportStage, ms: number) => void>();
 
   constructor(
     private readonly load: () => Promise<GenaiSdk> = loadGenai,
@@ -180,30 +220,40 @@ export class GenaiTransport implements LiveTransport {
     let sdk: GenaiSdk;
     try {
       sdk = await this.load();
-    } catch {
-      throw new TransportError("sdk_load");
+    } catch (e) {
+      throw new TransportError("sdk_load", "sdk", textOf(e));
     }
     if (this.ended) throw new TransportError("closed");
+    this.stage("sdk", t0);
     const ai = new sdk.GoogleGenAI({ apiKey: opts.token, httpOptions: { apiVersion: opts.apiVersion } });
     let timer: ReturnType<typeof setTimeout> | undefined;
     const failed = new Promise<never>((_, reject) => {
       this.giveUp = reject;
-      timer = setTimeout(() => reject(new TransportError("connect_timeout")), this.timeoutMs);
+      timer = setTimeout(
+        () => reject(new TransportError("connect_timeout", this.opened ? "setup" : "socket")),
+        this.timeoutMs,
+      );
     });
+    const early = () => (this.opened ? "setup" : "socket");
     const opening = ai.live.connect({
       model: opts.model,
       config: {},
       callbacks: {
+        onopen: () => {
+          this.opened = true;
+          this.stage("open", t0);
+        },
         onmessage: (m) => {
           if (!this.open || this.ended) return;
           for (const e of mapServerMessage(m)) this.emit(e);
         },
-        onerror: () => {
-          if (!this.open) this.failEarly(new TransportError("socket_error"));
+        onerror: (e) => {
+          if (!this.open) this.failEarly(new TransportError("socket_error", early(), textOf(e)));
           else if (!this.ended) this.emit({ type: "error", code: "socket_error" });
         },
         onclose: (e) => {
-          if (!this.open) this.failEarly(new TransportError(`closed_${e?.code ?? 0}`));
+          if (!this.open)
+            this.failEarly(new TransportError(`closed_${e?.code ?? 0}`, early(), e?.reason ?? ""));
           else if (!this.ended) {
             this.ended = true;
             this.emit({ type: "close", code: e?.code ?? 0, reason: e?.reason ?? "" });
@@ -217,7 +267,9 @@ export class GenaiTransport implements LiveTransport {
     } catch (error) {
       // A session that completes after the app gave up is closed at once.
       void opening.then((s) => s.close()).catch(() => undefined);
-      throw error instanceof TransportError ? error : new TransportError("connect_failed");
+      throw error instanceof TransportError
+        ? error
+        : new TransportError("connect_failed", early(), textOf(error));
     } finally {
       clearTimeout(timer);
       this.giveUp = null;
@@ -235,7 +287,19 @@ export class GenaiTransport implements LiveTransport {
       }),
     );
     this.open = true;
+    this.stage("setup", t0);
     this.emit({ type: "setupComplete", ms: Math.round(this.clock() - t0) });
+  }
+
+  /** How far the connection got, with the ms since connect() (the lab page's steps). */
+  onStage(fn: (stage: TransportStage, ms: number) => void): () => void {
+    this.stageListeners.add(fn);
+    return () => this.stageListeners.delete(fn);
+  }
+
+  private stage(stage: TransportStage, t0: number): void {
+    const ms = Math.round(this.clock() - t0);
+    for (const fn of [...this.stageListeners]) fn(stage, ms);
   }
 
   sendAudio(pcm16k: ArrayBuffer): void {

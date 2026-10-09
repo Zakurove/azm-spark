@@ -28,7 +28,7 @@ export class Speaker {
     return this.streamer?.playing ?? false;
   }
 
-  /** False while the context cannot sound: suspended (iOS starts it only from a tap) or closed. */
+  /** False while the context cannot sound: suspended (iOS starts it only from a tap), interrupted or closed. */
   get audible(): boolean {
     try {
       return this.context().state === "running";
@@ -42,7 +42,9 @@ export class Speaker {
     if (this.closed || pcm24k.byteLength < 2) return;
     const s = this.get();
     if (!s) return;
-    if (s.context.state === "suspended") void s.context.resume().catch(() => undefined);
+    // iOS: suspended until a tap, or interrupted while the audio session changes (D-035 item 3).
+    const state = s.context.state as string;
+    if (state === "suspended" || state === "interrupted") void s.context.resume().catch(() => undefined);
     s.addPCM16(new Uint8Array(pcm24k));
   }
 

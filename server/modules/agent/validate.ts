@@ -4,6 +4,7 @@
  * bad field). No free text is accepted anywhere (C-12).
  */
 import type { CoachEndReason } from "../../../src/coach/events";
+import { isCoachFailure } from "../../../src/coach/failure";
 import type { ToolName } from "../../../src/coach/types";
 import { isToolName } from "../../../src/coach/tools";
 import { isStopOption } from "../../../src/medical/precheck";
@@ -66,6 +67,26 @@ export function parseTokenRequest(body: unknown): Parsed<TokenRequest> {
   };
 }
 
+const LAB_KEYS = ["lang", "deviceId", "silenceMs"] as const;
+
+/** POST /api/agent/lab-token's body (D-035 item 4): the language, the device id and the pause length. */
+export function parseLabRequest(
+  body: unknown,
+): Parsed<{ lang: "ar" | "en"; deviceId: string; silenceMs?: SilenceMs }> {
+  if (!isRecord(body)) return { ok: false, field: "body" };
+  const extra = unknownKey(body, LAB_KEYS);
+  if (extra) return { ok: false, field: extra };
+  const { lang, deviceId, silenceMs } = body;
+  if (lang !== "ar" && lang !== "en") return { ok: false, field: "lang" };
+  if (typeof deviceId !== "string" || !DEVICE_ID.test(deviceId)) return { ok: false, field: "deviceId" };
+  if (silenceMs !== undefined && !SILENCE_MS.includes(silenceMs as SilenceMs))
+    return { ok: false, field: "silenceMs" };
+  return {
+    ok: true,
+    value: { lang, deviceId, ...(silenceMs !== undefined ? { silenceMs: silenceMs as SilenceMs } : {}) },
+  };
+}
+
 /* ------------------------------------------------------------- usage */
 
 export const END_REASONS: readonly CoachEndReason[] = [
@@ -87,6 +108,7 @@ const USAGE_KEYS = [
   "responseTokens",
   "firstAudioMs",
   "endReason",
+  "failure",
 ] as const;
 /** 5.2 bounds, and engineering bounds where 5.2 gives none (a Live connection lasts at most 10 minutes). */
 export const USAGE_LIMITS = {
@@ -98,7 +120,11 @@ export const USAGE_LIMITS = {
   firstAudioMs: 60_000,
 } as const;
 
-/** POST /api/agent/usage's body (5.2): every field present, null only where 5.2 allows it. */
+/**
+ * POST /api/agent/usage's body (5.2): every field present, null only where 5.2 allows it. `failure`
+ * (D-035 item 3) may be absent (a client from before it) or null; when given, a known stage, a clean
+ * name and a clean message (src/coach/failure.ts).
+ */
 export function parseUsageReport(body: unknown): Parsed<UsageReport> {
   if (!isRecord(body)) return { ok: false, field: "body" };
   const extra = unknownKey(body, USAGE_KEYS);
@@ -134,6 +160,8 @@ export function parseUsageReport(body: unknown): Parsed<UsageReport> {
   )
     return { ok: false, field: "firstAudioMs" };
   if (!END_REASONS.includes(b.endReason as CoachEndReason)) return { ok: false, field: "endReason" };
+  if (b.failure !== undefined && b.failure !== null && !isCoachFailure(b.failure))
+    return { ok: false, field: "failure" };
   return {
     ok: true,
     value: {
@@ -147,6 +175,9 @@ export function parseUsageReport(body: unknown): Parsed<UsageReport> {
       firstAudioMs:
         fa === null ? null : { p50: (fa as { p50: number }).p50, p90: (fa as { p90: number }).p90 },
       endReason: b.endReason as CoachEndReason,
+      failure: isCoachFailure(b.failure)
+        ? { stage: b.failure.stage, name: b.failure.name, message: b.failure.message }
+        : null,
     },
   };
 }

@@ -116,7 +116,7 @@ const agentRow = (id: string, segment = "rom:seated:1", ref = "f1") =>
 
 describe("migration 005 (focus check tables)", () => {
   it("is registered as version 5, named v7, after 004", () => {
-    expect(migrations.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(migrations.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     const m = migrations[4];
     expect(m).toMatchObject({ version: 5, name: "v7" });
     // New tables only: no existing table is altered, dropped or rewritten.
@@ -229,6 +229,8 @@ describe("migration 005 (focus check tables)", () => {
       "end_reason",
       "minted",
       "reported",
+      // Migration 007 (D-035 item 3): why the segment did not run, as { stage, name, message }.
+      "failure",
     ]);
 
     db.exec(focusCheck());

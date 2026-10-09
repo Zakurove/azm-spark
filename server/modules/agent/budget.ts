@@ -18,15 +18,20 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { CoachBlock, CoachSegment, ToolName } from "../../../src/coach/types";
 import type { CoachEndReason } from "../../../src/coach/events";
+import type { CoachFailure } from "../../../src/coach/failure";
 import { transaction } from "../assessments/store";
 import { EXPIRY_MARGIN_MINUTES, NEW_SESSION_WINDOW_MS, type AgentConfig } from "./token";
+import type { LAB_SEGMENT } from "./lab";
 import type { UsageReport } from "./types";
+
+/** A row's segment: a coach segment, or the connection test's (D-035 item 4, lab.ts). */
+export type SessionSegment = CoachSegment | typeof LAB_SEGMENT;
 
 export interface AgentSession {
   id: string;
   userId: string;
   block: CoachBlock;
-  segment: CoachSegment;
+  segment: SessionSegment;
   /** The focus check or the workout. */
   ref: string;
   remints: number;
@@ -44,6 +49,8 @@ export interface AgentSession {
   promptTokens: number | null;
   responseTokens: number | null;
   endReason: CoachEndReason | null;
+  /** D-035 item 3: the last failure a report named (migration 007), or null. */
+  failure: CoachFailure | null;
   minted: number;
   reported: number | null;
 }
@@ -52,7 +59,7 @@ interface Row {
   id: string;
   user_id: string;
   block: CoachBlock;
-  segment: CoachSegment;
+  segment: SessionSegment;
   ref: string;
   remints: number;
   day: string;
@@ -67,6 +74,7 @@ interface Row {
   prompt_tokens: number | null;
   response_tokens: number | null;
   end_reason: CoachEndReason | null;
+  failure?: string | null;
   minted: number;
   reported: number | null;
 }
@@ -93,6 +101,7 @@ function toSession(r: Row): AgentSession {
     promptTokens: num(r.prompt_tokens),
     responseTokens: num(r.response_tokens),
     endReason: r.end_reason,
+    failure: r.failure ? (JSON.parse(r.failure) as CoachFailure) : null,
     minted: Number(r.minted),
     reported: num(r.reported),
   };
@@ -103,7 +112,7 @@ export function segmentSession(
   db: DatabaseSync,
   userId: string,
   ref: string,
-  segment: CoachSegment,
+  segment: SessionSegment,
 ): AgentSession | null {
   const r = db
     .prepare("SELECT * FROM agent_sessions WHERE user_id=? AND ref=? AND segment=?")
@@ -149,7 +158,7 @@ const left = (n: number) => Math.max(0, Math.floor(n * 10 + 1e-9) / 10);
 export interface ReservationAsk {
   userId: string;
   block: CoachBlock;
-  segment: CoachSegment;
+  segment: SessionSegment;
   ref: string;
   /** The Riyadh day of now. */
   day: string;
@@ -240,14 +249,15 @@ export const FALLBACK_REASONS: readonly CoachEndReason[] = [
  * Stores a usage report on its session row (5.2): minutes_used = min(durationSec / 60, reserved), the
  * reservation being the summed lives of the segment's tokens (no session can run longer), never below
  * what an earlier report counted (the count is never lowered); the other fields describe
- * the segment so far and replace the earlier report's. Returns whether this report newly records a
- * fallback reason, so the route counts each fallback once.
+ * the segment so far and replace the earlier report's, except the failure (D-035 item 3), which a
+ * report without one never clears. Returns whether this report newly records a fallback reason, so
+ * the route counts each fallback once.
  */
 export function storeUsage(db: DatabaseSync, s: AgentSession, r: UsageReport, now: number): boolean {
   const reported = Math.min(r.durationSec / 60, s.minutesReserved);
   const used = Math.max(s.minutesUsed ?? 0, reported);
   db.prepare(
-    "UPDATE agent_sessions SET minutes_used=?, connect_ms=?, turns=?, tool_calls=?, prompt_tokens=?, response_tokens=?, end_reason=?, reported=? WHERE id=?",
+    "UPDATE agent_sessions SET minutes_used=?, connect_ms=?, turns=?, tool_calls=?, prompt_tokens=?, response_tokens=?, end_reason=?, failure=COALESCE(?, failure), reported=? WHERE id=?",
   ).run(
     used,
     r.connectMs,
@@ -256,6 +266,7 @@ export function storeUsage(db: DatabaseSync, s: AgentSession, r: UsageReport, no
     r.promptTokens,
     r.responseTokens,
     r.endReason,
+    r.failure ? JSON.stringify(r.failure) : null,
     now,
     s.id,
   );

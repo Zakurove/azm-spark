@@ -3,6 +3,7 @@
  * coach hook (src/features/coach-agent, D4) imports them as types only.
  */
 import type { CoachEndReason } from "../../../src/coach/events";
+import type { CoachFailure } from "../../../src/coach/failure";
 import type { HistoryTurn } from "../../../src/coach/instruction";
 import type { CoachBlock, CoachSegment, ToolName } from "../../../src/coach/types";
 import type { SilenceMs } from "./token";
@@ -57,4 +58,9 @@ export interface UsageReport {
   /** event to first audio, P1 only */
   firstAudioMs: { p50: number; p90: number } | null;
   endReason: CoachEndReason;
+  /**
+   * D-035 item 3: why the coach did not run or stopped (the stage, the error's name and its cleaned
+   * message), null when nothing failed. Optional on the wire: a client from before D-035 sends none.
+   */
+  failure?: CoachFailure | null;
 }

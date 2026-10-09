@@ -343,7 +343,8 @@ export default function CoachLab({ lang }: { lang: Lang }) {
           </span>
         </button>
       </div>
-      {withCamera && <video ref={video} className="coach-lab-video" muted playsInline autoPlay />}
+      {/* The camera's preview shows while a run with the camera goes on. */}
+      {withCamera && busy && <video ref={video} className="coach-lab-video" muted playsInline autoPlay />}
       <button type="button" className="cta coach-lab-run" onClick={run} disabled={busy}>
         <Icon name="sound" size={18} />
         {busy ? c.running : result ? c.again : c.run}

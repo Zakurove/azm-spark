@@ -78,7 +78,7 @@ const ar = {
   aboutConditionBody: "اختر كل ما ينطبق عليك.",
   aboutClearance: "هل أذن لك طبيبك بممارسة الرياضة؟",
   clearance: { yes: "نعم", no: "لا", unsure: "لست متأكدًا" },
-  aboutPositionTitle: "كيف تتمرّن عادة؟",
+  aboutPositionTitle: "ما الوضعية الأنسب لك في التمرين؟",
   aboutPositionBody: "نضبط الحركات والكاميرا على وضعيتك.",
   positions: {
     seated: "جالسًا على كرسي",
@@ -243,7 +243,7 @@ const en: Copy = {
   aboutConditionBody: "Choose all that apply to you.",
   aboutClearance: "Has your doctor cleared you to exercise?",
   clearance: { yes: "Yes", no: "No", unsure: "Not sure" },
-  aboutPositionTitle: "How do you usually exercise?",
+  aboutPositionTitle: "Which position suits you best for exercise?",
   aboutPositionBody: "The movements and the camera follow your position.",
   positions: {
     seated: "Seated on a chair",

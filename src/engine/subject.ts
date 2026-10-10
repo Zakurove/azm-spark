@@ -75,6 +75,9 @@
  *   - The walk: back from the side the walker left by, or within a walker's reach of where they were
  *     lost; lost too close to the phone (the legs below the picture: the front and back part), back
  *     smaller by up to walkSizeRatioPerSec more each second unseen (walking away again).
+ *   - A new start in the same test (`newPlace`: the walk's part 2, facing the phone 4 to 5 m away, the
+ *     phone left where it stood): still held, the person found again anywhere and at any distance, the
+ *     one with their look from before first, never someone followed as another person all along.
  *   - People in front don't pause: another person pauses only when their body in the picture covers a
  *     point the step needs (`setNeeds`, by default the face, arms, hips and legs in the picture);
  *     someone crossing in front elsewhere, or behind, changes nothing.
@@ -176,6 +179,11 @@ export const SUBJECT_RULES = {
   lookBlend: 0.2,
   /** One who comes back with no look yet waits this long (ms) for one, then counts without. */
   lookWaitMs: 700,
+  /**
+   * After `newPlace`, one who comes back without the person's look from before waits this long (ms)
+   * from it, so the person, if they come, is taken first (their look the same).
+   */
+  movedWaitMs: 4000,
 } as const;
 
 export type PauseReason = "unlocked" | "lost" | "jump" | "overlap";
@@ -389,6 +397,15 @@ interface LockState {
   /** D-038 item 2: last seen too close to the phone (a knee or an ankle below the picture). */
   near: boolean;
   /**
+   * D-038 items 2 and 4: the subject starts the next part of the test elsewhere (`newPlace`, at
+   * `movedAt`): until found again, one who comes back may be anywhere in the picture and nearer or
+   * further away. Their look from before (`before`) only ranks and prefers: seen from another side,
+   * open clothes can look another colour, so the look starts again from the new view.
+   */
+  moved: boolean;
+  movedAt: number;
+  before: Look | null;
+  /**
    * D-038 item 2: the pose at the subject's place had another person's look: the place is not trusted
    * until the subject is found again as one coming back (comingBack, look included).
    */
@@ -590,6 +607,24 @@ export class SubjectLock {
     return this.holding;
   }
 
+  /**
+   * D-038 items 2 and 4: the same test goes on with its person starting elsewhere (the walk's part 2,
+   * toward the phone and back from 4 to 5 m in front of it, the phone left where it stood). The lock
+   * stays held; until the person is found again, one who comes back is taken wherever they are in the
+   * picture and up to walkSizeRatioMax nearer or further, but never someone followed as another person
+   * all along: one with the person's look from before at once, anyone else new only movedWaitMs after
+   * this (the torso proportions, now seen from the front, only rank). The look starts again from the
+   * new view (open clothes seen from the front can be another colour than from the side).
+   */
+  newPlace(): void {
+    const s = this.state;
+    if (!s) return;
+    s.moved = true;
+    s.movedAt = this.clock;
+    s.before = s.look ?? s.before;
+    s.look = null;
+  }
+
   /** D-038 item 2: the points the step needs (the cover rule); null for KEY_POINTS. */
   setNeeds(points: readonly number[] | null): void {
     this.needed = points;
@@ -717,6 +752,9 @@ export class SubjectLock {
       vel: { ...ZERO },
       look: same && before ? before.look : null,
       near: false,
+      moved: false,
+      movedAt: 0,
+      before: null,
       recheck: false,
     };
     this.searching = false;
@@ -928,6 +966,7 @@ export class SubjectLock {
     st.seenT = this.clock;
     st.lostAt = null;
     st.recheck = false;
+    st.moved = false;
     st.near = [LM.l_knee, LM.r_knee, LM.l_ankle, LM.r_ankle].some(
       (i) => finitePoint(subject!.raw[i]) && subject!.raw[i].y > 1,
     );
@@ -1087,10 +1126,12 @@ export class SubjectLock {
     const unseenSec = Math.max(0, this.clock - s.seenT) / 1000;
     const r = this.rules.returnSizeRatio;
     // The front and back walk: lost too close to the phone, back smaller as they walk away.
-    const smaller =
-      this.mode === "walk" && this.crowd && s.near
+    const smaller = s.moved
+      ? this.rules.walkSizeRatioMax
+      : this.mode === "walk" && this.crowd && s.near
         ? Math.min(this.rules.walkSizeRatioMax, r + this.rules.walkSizeRatioPerSec * unseenSec)
         : r;
+    const larger = s.moved ? this.rules.walkSizeRatioMax : r;
     const edge = s.xShare < 0.5 ? 0 : 1;
     // The walk: left the picture by an edge, back from that edge; lost inside it (behind someone), back
     // within a walker's reach of where they were.
@@ -1102,19 +1143,31 @@ export class SubjectLock {
       const body = trunkOf(p.px);
       if (!(body.size > 0) || !(s.size > 0)) continue;
       const ratio = body.size / s.size;
-      if (ratio > r || ratio < 1 / smaller) continue;
+      if (ratio > larger || ratio < 1 / smaller) continue;
       const x = xShareOf(p.raw);
       if (
+        !s.moved &&
         this.mode === "walk" &&
         !(atEdge && Math.abs(x - edge) <= this.rules.returnEdgeShare) &&
         !(!atEdge && Math.abs(x - s.xShare) <= reach)
       )
         continue;
       const look = p.look ?? c?.look ?? null;
-      const d = lookDistance(s.look, look);
-      if (d && d.min >= this.rules.lookDifferent) continue;
-      if (!d && s.look && this.looksOn && c && this.clock - c.born < this.rules.lookWaitMs) continue;
+      const ref = s.moved ? s.before : s.look;
+      const d = lookDistance(ref, look);
+      if (!s.moved && d && d.min >= this.rules.lookDifferent) continue;
+      if (!d && ref && this.looksOn && c && this.clock - c.born < this.rules.lookWaitMs) continue;
+      // A new place: the person's own look at once; anyone else new only after movedWaitMs.
       if (
+        s.moved &&
+        ref &&
+        this.looksOn &&
+        !(d && d.mean <= this.rules.lookSame) &&
+        this.clock - s.movedAt < this.rules.movedWaitMs
+      )
+        continue;
+      if (
+        !s.moved &&
         this.crowd &&
         this.mode === "stay" &&
         Math.abs(x - s.xShare) > this.rules.returnPlaceShare &&

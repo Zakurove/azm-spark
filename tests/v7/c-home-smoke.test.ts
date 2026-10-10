@@ -6,8 +6,9 @@
  * turning 1.6 m before it, 108 steps a minute), from e2e/v7-gaitlab-smoke.spec.ts, as a regression:
  *   - read as the capture reads a recording (analyseGaitGroup), each walk gives a reading, full or
  *     timing only, with the cadence within 5% of the truth (contract 8.4's bar);
- *   - replayed through the capture itself (GaitController: the standing calibration, the walk, the
- *     passes counted by the change of direction, the checkpoints), the same.
+ *   - the side walks replayed through the capture itself (GaitController: the standing calibration,
+ *     the walk, the passes counted as walks across the picture, the end after the fixed 4 passes;
+ *     D-036 item 6 walks the side view only), the same.
  * Before this change the side walks gave no clean cycle with either model (every cycle dropped for a
  * swap or the order), and the capture asked for the walk again.
  */
@@ -69,8 +70,8 @@ describe("the real model's walks at home, replayed through the capture", () => {
       aspect: f.aspect,
     }));
 
-  for (const name of RUNS)
-    it(`ends the walk with its cadence within 5% (${name})`, () => {
+  for (const name of RUNS.filter((n) => n.includes("-side-")))
+    it(`ends the walk after its 4 passes with its cadence within 5% (${name})`, () => {
       const s = loadHomeSmoke(name);
       const ctl = new GaitController({
         plan: plan(s.lab),
@@ -93,7 +94,7 @@ describe("the real model's walks at home, replayed through the capture", () => {
         t = f.t;
       }
       for (let i = 0; i < 3 && ctl.current.id === "walk"; i++) {
-        t += CAPTURE_LIMITS.restAfterPassMs + 100;
+        t += CAPTURE_LIMITS.afterLastPassMs + 100;
         ctl.tick(t);
       }
       // The capture ended the recording itself, at a checkpoint (the lab's run ended there too).
@@ -103,6 +104,6 @@ describe("the real model's walks at home, replayed through the capture", () => {
       expect(v.level).not.toBe("none");
       expect(Math.abs(v.cadence! / s.truth.cadence - 1)).toBeLessThan(0.05);
       const d = ctl.diagnostics()[0];
-      expect(d.passes).toBeGreaterThanOrEqual(4);
+      expect(d.passes).toBe(4);
     });
 });

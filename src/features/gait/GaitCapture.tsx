@@ -1,11 +1,12 @@
 /**
- * The walk's screens (product v7 contract 2.8.4, stream C, step C4; plan 2.5): the setup with the
- * phone's placement for the side and front views, every pad safety step and the clear path as taps
- * (C-16 confirm steps), the live capture with the walker's lines over the picture, a step counter, the
- * laps, passes or seconds, and calm hints, the static single leg stance, the pad's speed and handrail,
- * and the result card (labels only while provisional). GaitController holds the logic; this file wires
- * it to the camera (the focus check's one camera, C-10), the voice pack (off by default), the coach's
- * events and the gait route.
+ * The walk's screens (product v7 contract 2.8.4, stream C, step C4; plan 2.5; D-036 item 6: one walk,
+ * the side view): the setup with the phone's placement (one clear instruction and picture: across
+ * the picture and back, side on to the phone), every pad safety step and the clear path as taps
+ * (C-16 confirm steps), the live capture with the walker's lines over the picture, a step counter,
+ * «pass N of 4» or the pad's seconds, «I have finished» always there, and calm hints, the static single
+ * leg stance, the pad's speed and handrail, and the result card (labels only while provisional).
+ * GaitController holds the logic; this file wires it to the camera (the focus check's one camera,
+ * C-10), the voice pack (off by default), the coach's events and the gait route.
  *
  * Loaded lazily by GaitStep, so the focus check's first chunk never carries the gait engine (section 9).
  * VITE_E2E builds only: ?e2eGait=1 plays the gait fixtures (tests/fixtures/gait/catalog.ts) for each
@@ -84,14 +85,13 @@ export function fixtureFor(ctl: GaitController): string {
     case "pad_side_b":
       return ctl.viewsOf(rec)[0]?.nearSide === "left" ? "gait/pad-side-left" : "gait/pad-side-right";
     default:
-      return "gait/overground-front-short";
+      return "gait/overground-side";
   }
 }
 
 /* -------------------------------------------------------------- helpers */
 
 const PLACEMENT: Record<RecordingId, PlacementKind> = {
-  overground_front: "overground_front",
   overground_side: "overground_side",
   pad_side_a: "pad_side",
   pad_side_b: "pad_side",
@@ -133,17 +133,12 @@ export function instructionText(ctl: GaitController, lang: Lang): string {
     case "stance":
     case "stance_place":
       return setupLine("single_leg_static", lang);
-    case "front_offer":
-      return `${gt(lang, "offer.title")} ${gt(lang, "offer.body")}`;
     case "place":
-      if (rec === "overground_front")
-        return `${gt(lang, "place.front1")} ${gt(lang, "place.front2")} ${gt(lang, "place.front3")}`;
       if (rec === "overground_side")
         return `${gt(lang, "place.side1")} ${gt(lang, "place.side2")} ${gt(lang, "place.side3")}`;
       if (rec === "pad_front") return `${gt(lang, "place.padFront1")} ${gt(lang, "place.padFront2")}`;
       return `${gt(lang, "place.padSide1")} ${gt(lang, "place.padSide2")}${side ? "" : ""}`;
     case "walk":
-      if (rec === "overground_front") return gt(lang, "walk.frontSay");
       if (rec === "overground_side") return gt(lang, "walk.sideSay");
       return gt(lang, "walk.padTitle");
     default:
@@ -151,9 +146,9 @@ export function instructionText(ctl: GaitController, lang: Lang): string {
   }
 }
 
-/** The kind of a stand or walk step's view: front (facing the phone), side, or the pad. */
-const viewKindOf = (rec: RecordingId | undefined): "front" | "side" | "pad" =>
-  rec === "overground_front" ? "front" : rec === "overground_side" ? "side" : "pad";
+/** The kind of a stand or walk step's view: the overground side walk, or the pad. */
+const viewKindOf = (rec: RecordingId | undefined): "side" | "pad" =>
+  rec === "overground_side" ? "side" : "pad";
 
 /* --------------------------------------------------------------- the step */
 
@@ -445,9 +440,7 @@ function endReason(ctl: GaitController, lang: Lang): string | null {
   const reason = d[0].reasons[0];
   const key =
     reason === "wrong_view"
-      ? d[0].rec === "overground_front"
-        ? "face_phone"
-        : "side_on"
+      ? "side_on"
       : reason === "low_fps"
         ? "light"
         : reason === "visibility" || reason === "tracking"
@@ -764,14 +757,25 @@ function ModeIcon({ kind }: { kind: "floor" | "pad" }) {
   );
 }
 
-/** The lap or pass now (from 1) of the target, under what it counts («ذهابًا وإيابًا»). */
-function Counter({ value, label, of }: { value: string; label: string; of: string }) {
+/** The pass now (from 1) of the fixed target («المرة ٢ من ٤»), read whole by a screen reader. */
+function Counter({ value, label, of, total }: { value: string; label: string; of: string; total: string }) {
   return (
-    <div className="gx-counter" aria-live="polite">
-      <span>{label}</span>
-      <b>{value}</b>
-      <em>{of}</em>
+    <div className="gx-counter" aria-live="polite" role="status" aria-label={total} data-counter={total}>
+      <span aria-hidden="true">{label}</span>
+      <b aria-hidden="true">{value}</b>
+      <em aria-hidden="true">{of}</em>
     </div>
+  );
+}
+
+/** The walk's direction over the side path's picture: across, both ways (D-036 item 6). */
+function AcrossArrow() {
+  return (
+    <svg className="gx-across" viewBox="0 0 240 24" aria-hidden="true" focusable="false">
+      <path d="M14 12 H226" />
+      <path d="M26 3 L12 12 L26 21" />
+      <path d="M214 3 L228 12 L214 21" />
+    </svg>
   );
 }
 
@@ -783,7 +787,6 @@ const NO_SKIP: ReadonlySet<string> = new Set([
   "pad_warm_up",
   "walk",
   "walk_again",
-  "front_offer",
   "retry",
   "pad_stop",
   "stance_place",
@@ -837,7 +840,9 @@ function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
     case "intro": {
       const both = plan.modes.length > 1;
       const lines = [
-        gt(lang, both ? "intro.both" : ctl.mode === "walking_pad" ? "intro.pad" : "intro.overground"),
+        gt(lang, both ? "intro.both" : ctl.mode === "walking_pad" ? "intro.pad" : "intro.overground", {
+          n: localizeDigits(lang, String(CAPTURE_RULES.sidePasses)),
+        }),
         gt(lang, "intro.minutes"),
       ];
       return card(
@@ -1024,36 +1029,14 @@ function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
         </>,
         { tone: "rose" },
       );
-    case "front_offer":
-      return card(
-        <>
-          <Kicker>{gt(lang, "kicker")}</Kicker>
-          <Title size="question">{gt(lang, "offer.title")}</Title>
-          <Body lang={lang} text={gt(lang, "offer.body")} />
-        </>,
-        <Actions
-          items={[
-            {
-              label: gt(lang, "offer.finish"),
-              name: "finish_walk",
-              kind: "secondary",
-              onClick: () => ctl.frontChoice(false, clock()),
-            },
-            {
-              label: gt(lang, "offer.add"),
-              name: "add_front",
-              icon: "arrow-forward",
-              onClick: () => ctl.frontChoice(true, clock()),
-            },
-          ]}
-        />,
-      );
     case "retry":
+      // D-036 item 6: one calm «try once more», with «go on» always beside it.
       return card(
         <>
           <Kicker>{gt(lang, "kicker")}</Kicker>
           <Title>{gt(lang, "retry.title")}</Title>
           <Body lang={lang} text={gt(lang, `retry.reason.${ctl.retryReason() ?? "more_steps"}`)} />
+          <Body lang={lang} text={gt(lang, "retry.body")} muted />
         </>,
         <>
           <Actions
@@ -1224,24 +1207,20 @@ function PlaceScreen({
   const moved =
     rec === "pad_side_b" || (rec === "pad_front" && ctl.plannedSteps.some((x) => x.rec === "pad_side_a"));
   const titleKey =
-    rec === "overground_front"
-      ? "place.frontTitle"
-      : rec === "overground_side"
-        ? "place.sideTitle"
-        : rec === "pad_front"
-          ? "place.padFrontTitle"
-          : moved
-            ? "place.padSideMoveTitle"
-            : "place.padSideTitle";
+    rec === "overground_side"
+      ? "place.sideTitle"
+      : rec === "pad_front"
+        ? "place.padFrontTitle"
+        : moved
+          ? "place.padSideMoveTitle"
+          : "place.padSideTitle";
   const title = gt(lang, titleKey, { side: sideWord(near, lang) });
   const lines =
-    rec === "overground_front"
-      ? [gt(lang, "place.front1"), gt(lang, "place.front2"), gt(lang, "place.front3")]
-      : rec === "overground_side"
-        ? [gt(lang, "place.side1"), gt(lang, "place.side2"), gt(lang, "place.side3")]
-        : rec === "pad_front"
-          ? [gt(lang, "place.padFront1"), gt(lang, "place.padFront2")]
-          : [gt(lang, "place.padSide1"), gt(lang, "place.padSide2")];
+    rec === "overground_side"
+      ? [gt(lang, "place.side1"), gt(lang, "place.side2"), gt(lang, "place.side3")]
+      : rec === "pad_front"
+        ? [gt(lang, "place.padFront1"), gt(lang, "place.padFront2")]
+        : [gt(lang, "place.padSide1"), gt(lang, "place.padSide2")];
   const level = ctl.hint !== "level";
   return (
     <div className="gx-flow gx-split is-place" data-step="place" data-rec={rec}>
@@ -1255,10 +1234,11 @@ function PlaceScreen({
         </div>
         <figure className="gx-art">
           <Placement kind={PLACEMENT[rec]} side={near} lang={lang} label={title} />
-          {/* D-035 item 2: what the picture means at home, in one line. */}
-          {(rec === "overground_side" || rec === "overground_front") && (
-            <figcaption className="gx-art-caption" data-caption={rec}>
-              {gt(lang, rec === "overground_side" ? "place.sideCaption" : "place.frontCaption")}
+          {/* D-036 item 6: the walk goes across the picture, side on to the phone, never toward it. */}
+          {rec === "overground_side" && (
+            <figcaption className="gx-art-caption is-across" data-caption={rec}>
+              <AcrossArrow />
+              <span>{gt(lang, "place.sideCaption")}</span>
             </figcaption>
           )}
         </figure>
@@ -1284,14 +1264,6 @@ function PlaceScreen({
       <Actions
         sticky
         items={[
-          rec === "overground_side"
-            ? {
-                label: gt(lang, "place.noRoom"),
-                name: "no_room",
-                kind: "secondary",
-                onClick: () => ctl.skipView(performance.now()),
-              }
-            : null,
           {
             label: gt(lang, "place.ready"),
             name: "ready",
@@ -1318,23 +1290,13 @@ function WalkScreen({
   const rec = ctl.current.rec!;
   const live = ctl.live();
   const pad = rec.startsWith("pad");
-  const kind = viewKindOf(rec);
-  const title =
-    kind === "front"
-      ? gt(lang, "walk.frontTitle")
-      : kind === "side"
-        ? gt(lang, "walk.sideTitle")
-        : gt(lang, "walk.padTitle");
-  const sub =
-    kind === "front"
-      ? gt(lang, "walk.frontBody")
-      : kind === "side"
-        ? gt(lang, "walk.sideBody")
-        : gt(lang, "walk.padBody");
+  const title = pad ? gt(lang, "walk.padTitle") : gt(lang, "walk.sideTitle");
+  const sub = pad ? gt(lang, "walk.padBody") : gt(lang, "walk.sideBody");
   const phase = live?.phase ?? "walking";
   const paused = ctl.pausedBy !== null;
   const left = live && pad ? Math.max(0, live.plannedSeconds - live.seconds) : 0;
-  const base = rec === "pad_front" ? CAPTURE_RULES.padFrontSec : CAPTURE_RULES.padSideSec;
+  // D-036 item 6: «pass N of 4», the pass being walked, never beyond the fixed target.
+  const passNow = live ? Math.min(live.passes + 1, live.target) : 0;
   return (
     <div
       className="gx-flow gx-capture is-walk"
@@ -1370,26 +1332,15 @@ function WalkScreen({
       <Glass className="fx-card fx-sheet gx-sheet">
         <div className="gx-sheet-row">
           <div className="gx-sheet-text">
-            <p className="fx-prompt-main">
-              {paused
-                ? gt(lang, "walk.paused")
-                : phase === "more"
-                  ? gt(lang, pad ? "walk.padMore" : "walk.more")
-                  : title}
-            </p>
-            {!paused &&
-              (phase === "more" && !pad ? (
-                <p className="fx-prompt-sub">{gt(lang, "walk.moreBody")}</p>
-              ) : (
-                sub && <p className="fx-prompt-sub">{bidiText(lang, sub)}</p>
-              ))}
+            <p className="fx-prompt-main">{paused ? gt(lang, "walk.paused") : title}</p>
+            {!paused && sub && <p className="fx-prompt-sub">{bidiText(lang, sub)}</p>}
           </div>
           {live &&
             (pad ? (
               <div className="gx-ring">
                 <CountdownRing
                   leftMs={left * 1000}
-                  totalMs={Math.max(live.plannedSeconds, base) * 1000}
+                  totalMs={live.plannedSeconds * 1000}
                   size={112}
                   label={<b>{localizeDigits(lang, String(left))}</b>}
                 />
@@ -1397,9 +1348,13 @@ function WalkScreen({
               </div>
             ) : (
               <Counter
-                value={localizeDigits(lang, String(Math.min(live.passes + 1, live.target)))}
-                label={gt(lang, kind === "front" ? "walk.laps" : "walk.passes")}
+                value={localizeDigits(lang, String(passNow))}
+                label={gt(lang, "walk.pass")}
                 of={gt(lang, "walk.of", { n: localizeDigits(lang, String(live.target)) })}
+                total={gt(lang, "walk.passOf", {
+                  n: localizeDigits(lang, String(passNow)),
+                  total: localizeDigits(lang, String(live.target)),
+                })}
               />
             ))}
         </div>
@@ -1410,7 +1365,20 @@ function WalkScreen({
             ))}
           </div>
         )}
-        <PauseChip lang={lang} ctl={ctl} clock={clock} />
+        <div className="gx-walk-actions">
+          <PauseChip lang={lang} ctl={ctl} clock={clock} />
+          {/* D-036 item 6: always a way to go on; the walk is read with what it holds. */}
+          <button
+            type="button"
+            className="fx-chip gx-finish"
+            onClick={() => ctl.finishWalk(clock())}
+            data-action="finish_walk"
+            disabled={phase === "checking"}
+          >
+            <CheckIcon name="check" size={20} />
+            <span>{gt(lang, "walk.finish")}</span>
+          </button>
+        </div>
       </Glass>
     </div>
   );

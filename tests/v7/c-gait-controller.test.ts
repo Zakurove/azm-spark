@@ -1,8 +1,8 @@
 /**
  * Step C4: the walk's controller (src/features/gait/controller.ts) on the gait fixtures: the steps of
  * each mode with their C-16 kinds (every pad safety step and the clear path step are confirm steps),
- * the recordings that add laps, passes or seconds until each side has its clean cycles (D-026 item 6,
- * D-027 item 4, D-028 item 2), the calm re-record, the pain rule of C-15 (any mark_pain ends the
+ * the recordings with their fixed target (D-036 item 6: the side walk's passes, the pad view's
+ * seconds, never raised), the calm «try once more», the pain rule of C-15 (any mark_pain ends the
  * recording; the shared rule ends the test, pain_limited; walkPain kept for the rules), the coach's
  * tools on every step kind (the 2.11 gait row), and a body the gait route accepts.
  */
@@ -116,9 +116,9 @@ function record(run: Run, w: { standing: GaitFrame[]; frames: GaitFrame[] }): vo
   }
   expect(run.ctl.current.id).toBe("walk");
   play(run, camera(w.frames, run.t + 40));
-  // Overground the person stops after the last pass: the clock, then the analysis on the next tick.
+  // Overground the recording ends a moment after the last pass: the clock, then the analysis.
   for (let i = 0; i < 3 && run.ctl.current.id === "walk"; i++) {
-    run.t += CAPTURE_LIMITS.restAfterPassMs + 100;
+    run.t += CAPTURE_LIMITS.afterLastPassMs + 100;
     run.ctl.tick(run.t);
   }
 }
@@ -146,7 +146,7 @@ describe("the walk's steps and their kinds (C-16)", () => {
     expect(STEP_KIND.intro).toBe("info");
   });
 
-  it("walks overground: the clear path, the side recording, the front offered, the toward and away recording, the stance (D-035 item 2)", () => {
+  it("walks overground as one walk: the clear path, the side recording, the stance (D-036 item 6)", () => {
     const run = controller({ ...BASE, staticStance: true });
     expect(run.ctl.plannedSteps.map((s) => (s.rec ? `${s.id}:${s.rec}` : s.id))).toEqual([
       "intro",
@@ -155,10 +155,6 @@ describe("the walk's steps and their kinds (C-16)", () => {
       "place:overground_side",
       "stand:overground_side",
       "walk:overground_side",
-      "front_offer",
-      "place:overground_front",
-      "stand:overground_front",
-      "walk:overground_front",
       "stance_place",
       "stance",
       "saving",
@@ -206,9 +202,9 @@ describe("the walk's steps and their kinds (C-16)", () => {
   it("follows a one view plan (the showcase walks one view)", () => {
     const run = controller({
       ...PAD,
-      views: { overground: ["front"], walking_pad: [{ view: "pad_side", nearSide: "right" }] },
+      views: { overground: ["side"], walking_pad: [{ view: "pad_side", nearSide: "right" }] },
     });
-    expect(run.ctl.viewsOf("overground_front")).toEqual([{ view: "front" }]);
+    expect(run.ctl.viewsOf("overground_side")).toEqual([{ view: "side" }]);
     run.ctl.confirm(run.t);
     run.ctl.chooseMode("walking_pad", run.t);
     expect(run.ctl.plannedSteps.filter((s) => s.id === "walk").map((s) => s.rec)).toEqual(["pad_side_a"]);
@@ -230,10 +226,8 @@ describe("the walk's steps and their kinds (C-16)", () => {
   it("holds its numbers equal to the gait data", () => {
     expect(CAPTURE_RULES.standingSec).toBe(GAIT_DATA.capture.common.standingCalibration_s);
     expect(CAPTURE_RULES.padSideSec).toBe(GAIT_DATA.capture.walking_pad.side.durationPerView_s);
-    expect(CAPTURE_RULES.frontLaps).toBe(4);
-    expect(CAPTURE_RULES.frontMaxLaps).toBe(6);
+    expect(CAPTURE_RULES.sidePasses).toBe(GAIT_DATA.capture.overground.side.passes);
     expect(CAPTURE_RULES.sidePasses).toBe(4);
-    expect(CAPTURE_RULES.sideMaxPasses).toBe(6);
     expect(CAPTURE_RULES.warmUpMin).toBe(2);
     expect(CAPTURE_RULES.familiarisedMin).toBe(6);
     expect(CAPTURE_RULES.cleanCycles).toBe(6);
@@ -244,61 +238,109 @@ describe("the walk's steps and their kinds (C-16)", () => {
 /* ---------------------------------------------------------- the recordings */
 
 describe("the recordings", () => {
-  it("records the side passes and the overground toward and away walk, each passing its gate", () => {
+  it("records the side walk's 4 passes and ends a moment after the last one, passing its gate (D-036 item 6)", () => {
     const run = controller(BASE);
     tapTo(run, "place");
     run.ctl.confirm(run.t);
-    record(run, walk(spec("overground-side")));
-    expect(run.ctl.current.id).toBe("front_offer");
-    expect(run.ctl.frontChoice(true, run.t)).toBe(true);
-    expect(run.ctl.current).toEqual({ id: "place", rec: "overground_front" });
-    run.ctl.confirm(run.t);
-    // Steps of 0.5 m: 4 laps give each side its cycles over the front and back views together.
-    record(run, walk({ ...spec("overground-front"), passes: 4, speed: 1, cadence: 120 }));
+    const w = walk(spec("overground-side"));
+    // The counter says «pass N of 4» and never more, and the target never grows.
+    expect(run.ctl.current.id).toBe("stand");
+    play(run, camera(w.standing, run.t + 40));
+    const seen: { passes: number; target: number }[] = [];
+    for (const f of camera(w.frames, run.t + 40)) {
+      run.ctl.feed(f, { rollDeg: 0 });
+      run.ctl.tick(f.t);
+      run.t = f.t;
+      const live = run.ctl.live();
+      if (live) seen.push({ passes: live.passes, target: live.target });
+    }
+    for (let i = 0; i < 3 && run.ctl.current.id === "walk"; i++) {
+      run.t += CAPTURE_LIMITS.afterLastPassMs + 100;
+      run.ctl.tick(run.t);
+    }
+    expect(seen.every((x) => x.target === 4 && x.passes <= 4)).toBe(true);
+    expect(seen.at(-1)?.passes).toBe(4);
     expect(run.ctl.current.id).toBe("saving");
     const body = run.ctl.body()!;
-    expect(body.analysis.views.map((v) => v.view)).toEqual(["side", "front", "back"]);
-    // C3-1: front counts with back.
-    const [side, front, back] = body.analysis.views;
-    expect(front.quality.cleanCycles.left + back.quality.cleanCycles.left).toBeGreaterThanOrEqual(6);
-    expect(front.quality.cleanCycles.right + back.quality.cleanCycles.right).toBeGreaterThanOrEqual(6);
+    expect(body.analysis.views.map((v) => v.view)).toEqual(["side"]);
+    const [side] = body.analysis.views;
     expect(side.quality.gatePassed).toBe(true);
+    // GW-3: the stored quality keeps what the capture counted.
+    expect(side.quality.capture).toMatchObject({ passes: 4, tries: 1 });
+    expect(side.quality.capture!.steps).toBeGreaterThan(10);
+    expect(side.quality.capture!.seconds).toBeGreaterThan(10);
     expect(checkGaitBody(body as never, BASE).ok).toBe(true);
-    // The coach heard each checkpoint (the gait boundary of bridge rules 6 and 7).
-    expect(run.events.filter((e) => e.type === "pass_done").length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("ends the toward and away walk at 3 clean cycles a side, timing only below the full gate (D-035 item 2)", () => {
-    // Steps of 0.67 m (CG-1): the window holds about one cycle a side each way, so the views never reach
-    // the full gate (6 a side); the timing only reading of the 4 laps has its 3 a side (GAIT_MVP).
-    const run = controller({ ...BASE, views: { overground: ["front", "back"], walking_pad: [] } });
-    tapTo(run, "place");
-    run.ctl.confirm(run.t);
-    const w = walk(spec("overground-front"));
-    record(run, w);
+    // The coach heard the end of the recording (the gait boundary of bridge rules 6 and 7).
     expect(run.events.filter((e) => e.type === "pass_done")).toHaveLength(1);
-    expect(run.ctl.current.id).toBe("saving");
-    const body = run.ctl.body()!;
-    expect(body.analysis.views.map((v) => v.view)).toEqual(["front", "back"]);
-    const v = walkVerdict(body.analysis.views);
-    expect(v.level).toBe("timing");
-    expect(Math.abs(v.cadence! / w.truth.cadence - 1)).toBeLessThan(0.05);
-    expect(checkGaitBody(body as never, BASE).ok).toBe(true);
   });
 
-  it("asks one more side pass, up to 6, while a side lacks its 3 clean cycles", () => {
+  it("never walks the plan's front and back views; a plan without the side view walks nothing overground", () => {
+    const run = controller({ ...BASE, views: { overground: ["front", "back"], walking_pad: [] } });
+    expect(run.ctl.plannedSteps.map((s) => s.id)).toEqual(["intro", "gear", "clear_path", "saving", "done"]);
+    tapTo(run, "saving");
+    expect(run.ctl.body()).toBeNull();
+    run.ctl.nothingSaved(run.t);
+    expect(run.ctl.current.id).toBe("nothing");
+    run.ctl.leave();
+    expect(run.ctl.leaving).toBe(true);
+  });
+
+  it("keeps its fixed target: a walk that gives too little asks once to try again, then goes on kept (D-036 item 6)", () => {
     const run = controller({ ...BASE, views: { overground: ["side"], walking_pad: [] } });
     tapTo(run, "place");
     run.ctl.confirm(run.t);
-    // Four passes of a person who stops in the picture after the first step of each (a 1 m path):
-    // too few steps for 3 clean cycles a side.
-    const short = walk({ view: "side", passes: 4, seed: 93, home: { pathM: 1 }, camera: { distance: 3 } });
+    // Passes of a person who turns in the picture after two steps (a 1.6 m path): each counts, but
+    // they hold too few steps for 3 clean cycles a side.
+    const short = walk({ view: "side", passes: 5, seed: 93, home: { pathM: 1.6 }, camera: { distance: 3 } });
     record(run, short);
-    expect(run.ctl.current.id).toBe("walk");
-    const live = run.ctl.live()!;
-    expect(live.target).toBeGreaterThan(CAPTURE_RULES.sidePasses);
-    expect(live.target).toBeLessThanOrEqual(CAPTURE_RULES.sideMaxPasses);
-    expect(live.phase).toBe("more");
+    expect(run.ctl.current).toEqual({ id: "retry", rec: "overground_side" });
+    expect(run.ctl.retryReason()).toBe("more_steps");
+    expect(run.ctl.diagnostics()[0]).toMatchObject({ target: 4, tries: 1, level: "none" });
+    // Try once more: the phone's placement, then the same fixed target.
+    expect(run.ctl.retry(true, run.t)).toBe(true);
+    expect(run.ctl.current).toEqual({ id: "place", rec: "overground_side" });
+    run.ctl.confirm(run.t);
+    record(run, short);
+    // The second try gave too little as well: no third, the walk goes on with it kept.
+    expect(run.ctl.current.id).toBe("saving");
+    const body = run.ctl.body()!;
+    expect(walkVerdict(body.analysis.views).level).toBe("none");
+    expect(body.analysis.views[0].quality.capture).toMatchObject({ passes: 4, tries: 2 });
+    expect(checkGaitBody(body as never, BASE).ok).toBe(true);
+  });
+
+  it("reads the walk at once on «I have finished», always there while walking (D-036 item 6)", () => {
+    const run = walking();
+    expect(run.ctl.live()!.phase).toBe("walking");
+    expect(run.ctl.finishWalk(run.t)).toBe(true);
+    // Five seconds of walking is too little: the calm «try once more», or go on with it kept.
+    expect(run.ctl.current).toEqual({ id: "retry", rec: "overground_side" });
+    expect(run.ctl.retry(false, run.t)).toBe(true);
+    expect(run.ctl.current.id).toBe("saving");
+    expect(run.ctl.body()!.analysis.views.map((v) => v.view)).toEqual(["side"]);
+    // Nothing to finish outside a walk.
+    expect(run.ctl.finishWalk(run.t)).toBe(false);
+  });
+
+  it("ends an overground walk at its most time, whatever was counted", () => {
+    const run = controller({ ...BASE, views: { overground: ["side"], walking_pad: [] } });
+    tapTo(run, "place");
+    run.ctl.confirm(run.t);
+    const w = walk(spec("overground-side"));
+    play(run, camera(w.standing, run.t + 40));
+    // The person stands still in the picture: no pass, no step from the model's jitter.
+    const still = w.standing;
+    const frames: Frame[] = [];
+    for (let i = 0; frames.length < (CAPTURE_LIMITS.overgroundMaxSec + 2) * 30; i++) {
+      const f = still[i % still.length];
+      frames.push({ t: run.t + 40 + i * 33.3, lm: f.lm, poses: [f.lm], aspect: f.aspect });
+    }
+    play(run, frames);
+    run.ctl.tick(run.t + 300);
+    const d = run.ctl.diagnostics()[0];
+    expect(d.passes).toBe(0);
+    expect(d.steps).toBe(0);
+    expect(run.ctl.current).toEqual({ id: "retry", rec: "overground_side" });
   });
 
   it("records each pad view, the warm up timer between, and gives a body with the pad's setup", () => {
@@ -330,72 +372,48 @@ describe("the recordings", () => {
       "pad_front:",
     ]);
     expect(body.analysis.views.every((v) => v.quality.gatePassed)).toBe(true);
+    // Each view recorded its fixed seconds (D-036 item 6), never more.
+    expect(body.analysis.views.map((v) => Math.round(v.quality.capture!.seconds))).toEqual([30, 30, 20]);
     expect(body.analysis.flags).toContain("handrail_light");
     expect(body.analysis.outcome).toBeUndefined();
     expect(checkGaitBody(body as never, PAD).ok).toBe(true);
   });
 
-  it("keeps a pad view recording until each side has its clean cycles (D-028 item 2)", () => {
-    // The far foot hidden for the first 25 s: the 30 s checkpoint lacks the cycles; the walk goes on.
-    const run = controller({ ...PAD, views: { ...PAD.views, walking_pad: [PAD.views.walking_pad[0]] } });
-    run.ctl.confirm(run.t);
-    run.ctl.chooseMode("walking_pad", run.t);
-    tapTo(run, "stand");
-    const w = walk({ ...spec("pad-side-right"), durationSec: 60 });
-    const t0 = w.frames[0].t;
-    const frames = w.frames.map((f) =>
-      f.t - t0 < 25_000
-        ? { ...f, lm: f.lm.map((q, i) => ([27, 29, 31].includes(i) ? { ...q, visibility: 0.2 } : q)) }
-        : f,
-    );
-    record(run, { standing: w.standing, frames });
-    expect(run.ctl.current.id).toBe("pad_stop");
-    const r = run.ctl.body()!.analysis.views[0];
-    expect(r.quality.gatePassed).toBe(true);
-    const seconds = run.events.filter((e) => e.type === "pass_done").length;
-    expect(seconds).toBeGreaterThanOrEqual(2);
-  });
-
-  it("asks for a calm re-record when a pad view's time limit passes without the cycles", () => {
+  it("reads a pad view at its fixed seconds; too little asks once to try again, then goes on kept (D-036 item 6)", () => {
     const run = controller({ ...PAD, views: { ...PAD.views, walking_pad: [PAD.views.walking_pad[0]] } });
     run.ctl.confirm(run.t);
     run.ctl.chooseMode("walking_pad", run.t);
     tapTo(run, "stand");
     const w = walk({ ...spec("pad-side-right"), durationSec: 70 });
-    const frames = w.frames.map((f) => ({
-      ...f,
-      lm: f.lm.map((q, i) => ([27, 29, 31].includes(i) ? { ...q, visibility: 0.2 } : q)),
-    }));
-    record(run, { standing: w.standing, frames });
+    const hidden = (frames: GaitFrame[]) =>
+      frames.map((f) => ({
+        ...f,
+        lm: f.lm.map((q, i) => ([27, 29, 31].includes(i) ? { ...q, visibility: 0.2 } : q)),
+      }));
+    record(run, { standing: w.standing, frames: hidden(w.frames) });
     expect(run.ctl.current).toEqual({ id: "retry", rec: "pad_side_a" });
     expect(run.lines.map((l) => l.line)).toContain("gait_quality_retry");
-    // Try again: the person keeps walking, the recording starts again.
+    // The fixed 30 s, never raised.
+    expect(run.ctl.diagnostics()[0].seconds).toBeLessThanOrEqual(30.1);
+    // Try once more: the person keeps walking, the recording starts again.
     expect(run.ctl.retry(true, run.t)).toBe(true);
     expect(run.ctl.current).toEqual({ id: "walk", rec: "pad_side_a" });
     expect(run.ctl.live()!.seconds).toBe(0);
-  });
-
-  it("goes on without a view the person leaves out", () => {
-    const run = controller({ ...BASE, views: { overground: ["side"], walking_pad: [] } });
-    tapTo(run, "place");
-    expect(run.ctl.skipView(run.t)).toBe(true);
-    expect(run.ctl.current.id).toBe("saving");
-    expect(run.ctl.body()).toBeNull();
-    run.ctl.nothingSaved(run.t);
-    expect(run.ctl.current.id).toBe("nothing");
-    run.ctl.leave();
-    expect(run.ctl.leaving).toBe(true);
+    play(run, camera(hidden(w.frames).slice(0, 1000), run.t + 40));
+    run.ctl.tick(run.t + 300);
+    // The second try: no third, the walk goes on with the view kept.
+    expect(run.ctl.current).toEqual({ id: "pad_stop", rec: "pad_side_a" });
   });
 
   it("measures the static single leg stance on each leg", () => {
     const run = controller({
       ...BASE,
       staticStance: true,
-      views: { overground: ["front", "back"], walking_pad: [] },
+      views: { overground: ["side"], walking_pad: [] },
     });
     tapTo(run, "place");
     run.ctl.confirm(run.t);
-    record(run, walk(spec("overground-front")));
+    record(run, walk(spec("overground-side")));
     expect(run.ctl.current.id).toBe("stance_place");
     run.ctl.confirm(run.t);
     expect(run.ctl.current.id).toBe("stance");
@@ -578,7 +596,7 @@ describe("the coach's tools on the gait steps (2.11 host table, C-16)", () => {
       data: { text: "Walk past the phone." },
     });
     expect(run.ctl.snapshot()).toMatch(
-      /^gait step=walk mode=overground recording=overground_side passes=\d+ cycles=0\/0$/,
+      /^gait step=walk mode=overground recording=overground_side passes=\d\/4 cycles=0\/0$/,
     );
     expect(
       run.ctl.handleTool("confirm_max", { movement: "knee_flexion", side: "right", answer: "yes" }),

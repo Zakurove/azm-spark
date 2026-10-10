@@ -2,7 +2,7 @@
   "kicker": "Walking check",
   "intro": {
     "title": "Let’s measure how you walk",
-    "overground": "You will walk across the picture and back a few times, side on to the phone. You can then add a walk toward the phone if you like.",
+    "overground": "You will walk across the picture and back {n} times, side on to the phone.",
     "pad": "You will walk on the walking pad at a speed that feels comfortable, with the phone at your side and then in front of you.",
     "both": "You will walk on the floor or on the walking pad, at a speed that feels comfortable.",
     "minutes": "This takes a few minutes.",
@@ -38,17 +38,11 @@
   },
   "place": {
     "ready": "The phone is ready",
-    "frontTitle": "Place the phone at the end of your path",
-    "front1": "Stand the phone upright against a wall or on a shelf, at about hip height.",
-    "front2": "Start about 4 metres away, facing the phone.",
-    "front3": "Walk toward the phone, stop a step or two before it, turn and walk back.",
-    "frontCaption": "Toward the phone, a turn before it, and back",
     "sideTitle": "Place the phone to see you from the side",
-    "side1": "Stand the phone against a wall or on a shelf, at about hip height. Sideways is best.",
-    "side2": "Walk about 3 metres away from the phone, side on to it.",
-    "side3": "Walk across the picture, stop, turn and walk back. You do not need to leave the picture.",
-    "sideCaption": "Side on to the phone, about 3 metres away, across and back",
-    "noRoom": "No room for this part",
+    "side1": "Stand the phone sideways on a shelf or against a wall, at about hip height.",
+    "side2": "Your path runs across the picture, about 3 metres from the phone.",
+    "side3": "Walk across and back with your side to the phone. Do not walk toward it.",
+    "sideCaption": "Across the picture and back, side on to the phone",
     "padSideTitle": "Place the phone on your {side} side",
     "padSideMoveTitle": "Move the phone to your {side} side",
     "padSide1": "Set the phone sideways on a stand, at about hip height.",
@@ -93,53 +87,41 @@
     "next": "Next"
   },
   "stand": {
-    "frontTitle": "Stand about 4 metres from the phone, facing it",
-    "sideTitle": "Stand side on to the phone, about 3 metres away",
+    "sideTitle": "Stand at one end of your path, side on to the phone",
     "padTitle": "Stand still on the stopped pad",
     "body": "Stay still for 3 seconds.",
     "seen": "We can see you well",
     "progress": "Recording how you stand"
   },
   "walk": {
-    "frontTitle": "Walk toward the phone, turn before it and walk back",
     "sideTitle": "Walk across the picture and back",
-    "sideBody": "Stop and turn inside the picture whenever you like. Each way counts.",
-    "frontBody": "You do not need to walk past the phone. Each way counts.",
-    "sideSay": "Walk across the picture, stop, turn and walk back, at your usual pace.",
-    "frontSay": "Walk toward the phone, turn a step or two before it, and walk back, at your usual pace.",
+    "sideBody": "Turn at each end. Each walk across counts.",
+    "sideSay": "Walk across the picture and back, side on to the phone, at your usual pace.",
     "padTitle": "Walk at your comfortable speed",
-    "laps": "There and back",
-    "passes": "Across the picture",
+    "pass": "Pass",
+    "passOf": "Pass {n} of {total}",
     "of": "of {n}",
     "steps": "steps",
     "seconds": "seconds",
-    "more": "One more time, please",
-    "moreBody": "We need a few more steps to see both sides clearly.",
-    "padMore": "A few more steps, please",
     "checking": "Checking your steps",
     "pause": "Pause",
     "paused": "Paused",
     "resume": "Continue",
-    "padBody": "Keep walking until the count ends."
+    "padBody": "Keep walking until the count ends.",
+    "finish": "I have finished"
   },
   "again": {
     "title": "Tell us if the pain grows",
     "body": "Walk again when you are ready, within your comfort.",
     "walk": "Walk again"
   },
-  "offer": {
-    "title": "Add a walk toward the phone?",
-    "body": "It is optional and takes about a minute. We see your walk from the front as well.",
-    "add": "Add it",
-    "finish": "Finish the walk"
-  },
   "retry": {
-    "title": "Let’s do this part again",
-    "again": "Let’s try again",
+    "title": "Let’s walk once more",
+    "again": "Try once more",
     "skip": "Go on with what we have",
+    "body": "Or go on: we keep what we recorded.",
     "reason": {
-      "side_on": "Stand side on to the phone, about 3 metres away, and walk across the picture.",
-      "face_phone": "Face the phone and walk toward it, then turn before it and walk back.",
+      "side_on": "Walk across the picture with your side to the phone, not toward it.",
       "no_person": "We could not see you. Check that your whole body shows in the picture.",
       "light": "Turn on more light, and keep the phone still.",
       "whole_body": "Move the phone back a little, so your feet show the whole time.",
@@ -164,7 +146,9 @@
     "feet": "We need to see both feet",
     "legs": "Move the phone a little so your whole leg shows",
     "light": "More light helps us see your steps",
-    "level": "Straighten the phone so it is level"
+    "level": "Straighten the phone so it is level",
+    "across": "Walk across the picture, not toward the phone",
+    "further": "Walk a little further each way, across the picture"
   },
   "save": {
     "saving": "Saving your walk",

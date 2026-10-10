@@ -44,6 +44,22 @@ figure.gx-art {
   font-weight: 600;
   color: #5b3f8f;
 }
+/* D-036 item 6: the side walk's caption leads with its direction, across the picture both ways. */
+.gx-art-caption.is-across {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.gx-across {
+  display: block;
+  width: min(220px, 70%);
+  height: auto;
+  fill: none;
+  stroke: #6c56a5;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .gx-placement {
   width: 100%;
   max-width: 420px;
@@ -373,6 +389,17 @@ figure.gx-art {
 }
 .gx-pause {
   justify-self: start;
+}
+/* D-036 item 6: pause, and «I have finished» always beside it. */
+.gx-walk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.gx-finish[disabled] {
+  opacity: 0.55;
 }
 .gx-steps b {
   font-variant-numeric: tabular-nums;

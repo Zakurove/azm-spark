@@ -242,6 +242,12 @@ export const SHARE_SIGNS = {
 export const STORED_LIMITS = { eventsPerView: 200, cyclesPerView: 120, replayFrames: 45 } as const;
 
 /**
+ * The bounds of the capture's counts kept with a view's quality (GaitCaptureCounts, GW-3; the gait
+ * route's, server/modules/focus/validate.ts): list bounds, not clinical numbers.
+ */
+export const CAPTURE_COUNT_MAX = { passes: 100, steps: 2000, seconds: 600, tries: 9 } as const;
+
+/**
  * The bounds of a stored metric value by its unit (section 4; server/modules/focus/validate.ts
  * GAIT_UNIT_BOUNDS, held equal by tests/v7/c-params.test.ts). A cycle's value outside them can only
  * come from broken tracking, and the engine leaves it out, so a body it builds is never refused.

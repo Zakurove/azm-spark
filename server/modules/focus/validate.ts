@@ -43,6 +43,7 @@ import type {
   ReplayCycle,
   StaticStanceResult,
 } from "../../../src/engine/gait/types";
+import { CAPTURE_COUNT_MAX } from "../../../src/engine/gait/params";
 import { GAIT_DATA } from "../../../src/movements/gait";
 import { GAIT_METRIC_IDS } from "../../../src/movements/gait/types";
 import { ROM_DATA, movementDef } from "../../../src/movements/rom";
@@ -582,7 +583,7 @@ function checkGaitQuality(v: unknown, field: string): Check<GaitQuality> {
   if (!isPlainObject(v)) return fail(field);
   const extra = extraKey(
     v,
-    ["cleanCycles", "medianFps", "gapShare", "gatePassed", "timingOnly", "issues"],
+    ["cleanCycles", "medianFps", "gapShare", "gatePassed", "timingOnly", "issues", "capture"],
     `${field}.`,
   );
   if (extra) return fail(extra);
@@ -599,6 +600,19 @@ function checkGaitQuality(v: unknown, field: string): Check<GaitQuality> {
   if (!bool(v.gatePassed)) return fail(`${field}.gatePassed`);
   if (!bool(v.timingOnly)) return fail(`${field}.timingOnly`);
   if (!uniqueOf(v.issues, GAIT_QUALITY_ISSUES, GAIT_QUALITY_ISSUES.length)) return fail(`${field}.issues`);
+  // GW-3 (D-036 item 6): the capture's counts of the recording, optional (a walk stored before has none).
+  if (v.capture !== undefined) {
+    const c = v.capture;
+    if (
+      !isPlainObject(c) ||
+      unknownKeys(c, ["passes", "steps", "seconds", "tries"]).length ||
+      !intIn(c.passes, 0, CAPTURE_COUNT_MAX.passes) ||
+      !intIn(c.steps, 0, CAPTURE_COUNT_MAX.steps) ||
+      !inRange(c.seconds, 0, CAPTURE_COUNT_MAX.seconds) ||
+      !intIn(c.tries, 1, CAPTURE_COUNT_MAX.tries)
+    )
+      return fail(`${field}.capture`);
+  }
   return ok(v as unknown as GaitQuality);
 }
 

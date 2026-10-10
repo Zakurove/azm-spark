@@ -286,7 +286,7 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
     valid(res);
   });
 
-  it("«not yet» then a hold that is not further: the first hold's value stands", () => {
+  it("«not yet» then a hold that is not further: never asked again, the first hold's value stands (D-037)", () => {
     const r = runner("shoulder_abduction");
     const d = drive(
       r,
@@ -297,12 +297,16 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
       }),
       200,
     );
+    // The lower hold asks nothing: the reach time ends with the hold answered, calmly.
+    expect(kinds(d.events, "hold")).toHaveLength(1);
+    expect(cuesOf(d.events).filter((c) => c === "ask_max")).toHaveLength(1);
     const res = r.finish(d.t);
     expect(res.attempts.map((a) => a.value)).toEqual([110]);
-    expect(res.attempts.map((a) => a.answer)).toEqual(["yes"]);
+    expect(res.attempts.map((a) => a.answer)).toEqual(["not_yet"]);
+    valid(res);
   });
 
-  it("«not yet» and no further hold: at the attempt's time the kept value is recorded with its answer", () => {
+  it("«not yet» and no further hold: at the end of the reach time the kept value is recorded with its answer", () => {
     const r = runner("shoulder_abduction");
     let low = false;
     const d = drive(
@@ -313,11 +317,15 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
           low = true;
           return { answer: "not_yet" };
         },
-        // After «not yet» the arm comes down to rest and stays there until the clock ends.
+        // After «not yet» the arm comes down to rest and stays there.
         pose: (deg) => abductionPose(low && r.phase === "attempt" ? 5 : deg),
       }),
       200,
     );
+    // «not yet» puts the attempt back in its phase right after the question.
+    const asked = d.phases.findIndex((p) => p.phase === "ask_max");
+    const answeredAt = d.phases[asked + 1].t;
+    expect(d.phases[asked + 1].phase).toBe("attempt");
     const res = r.finish(d.t);
     expect(res.attempts[0]).toMatchObject({
       index: 1,
@@ -326,7 +334,8 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
       answerSource: "button",
     });
     const first = kinds(d.events, "attempt").find((e) => e.record.index === 1)!.record;
-    expect(first.t1 - first.t0).toBeGreaterThanOrEqual(E.attemptTimeoutSeconds * 1000);
+    expect(first.t1 - answeredAt).toBeGreaterThanOrEqual(RUNNER_RULES.reachSec * 1000);
+    expect(first.t1 - answeredAt).toBeLessThan(RUNNER_RULES.reachSec * 1000 + 200);
     expect(res.status).toBe("measured");
     valid(res);
   });
@@ -373,10 +382,13 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
     const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
     const old = r.currentHold!;
     r.answerMax(old.holdId, "not_yet", "button", d.t + 100);
-    // Still at 100: a new hold after a full second.
-    const d2 = drive(r, abduct(100, { answer: () => null, t0: d.t + 100, rest: 100 }), 5, {
-      until: (rr) => rr.phase === "ask_max",
-    });
+    // On to 120 (D-037 item 2: only a hold further on asks again).
+    const d2 = drive(
+      r,
+      { ...abduct(120, { answer: () => null, t0: d.t + 100, rest: 100 }), startDelay: 0 },
+      10,
+      { until: (rr) => rr.phase === "ask_max" },
+    );
     const next = r.currentHold!;
     expect(next.holdId).not.toBe(old.holdId);
     expect(r.answerMax("1:999", "yes", "voice", d2.t + 10)).toMatchObject({
@@ -454,15 +466,17 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
     expect(r2.keepReaching(d2.t)).toMatchObject({ accepted: false, reason: "after_pain" });
   });
 
-  it("keep reaching gives a slow mover time to reach a further hold", () => {
-    // After «not yet» the arm rests for 15 s, then rises slowly to 120 (12 degrees per second, faster
-    // than a top's trend, so no hold on the way): the attempt's own clock ends first.
-    const run = (keep: boolean) => {
+  it("after «not yet» a tap and the voice get the same reach time; keep reaching runs it from its call (D-037)", () => {
+    // After «not yet» the arm rests, then rises slowly to 120 (12 degrees per second, faster than a
+    // top's trend, so no hold on the way). Rising from 2 s it is out beyond the hold answered when the
+    // reach time ends, and is asked at its new top; rising from 8 s it is still under that hold when the
+    // reach time ends, and the hold answered stands, with no question.
+    const run = (keep: boolean, riseAt: number, keepAt = 50) => {
       const r = runner("shoulder_abduction");
       const d = drive(r, abduct(80, { answer: () => null }), 40, { until: (rr) => rr.phase === "ask_max" });
       const t0 = d.t + 100;
       r.answerMax(r.currentHold!.holdId, "not_yet", "voice", t0);
-      if (keep) expect(r.keepReaching(t0 + 50).accepted).toBe(true);
+      if (keep) expect(r.keepReaching(t0 + keepAt).accepted).toBe(true);
       const after = drive(
         r,
         {
@@ -471,15 +485,19 @@ describe("the maximum question (rom-protocol 1.1 step 5)", () => {
           answer: () => ({ answer: "yes" }),
           t0,
           pose: (_deg, t) =>
-            abductionPose(t < t0 + 15_000 ? 5 : Math.min(120, 5 + ((t - t0 - 15_000) / 1000) * 12)),
+            abductionPose(t < t0 + riseAt ? 5 : Math.min(120, 5 + ((t - t0 - riseAt) / 1000) * 12)),
         },
         60,
         { until: (rr) => rr.phase === "rest" || rr.done },
       );
       return kinds(after.events, "attempt").find((e) => e.record.index === 1)!.record;
     };
-    expect(run(false)).toMatchObject({ value: 80, answer: "not_yet" });
-    expect(run(true)).toMatchObject({ value: 120, answer: "yes" });
+    for (const keep of [false, true]) {
+      expect(run(keep, 2_000)).toMatchObject({ value: 120, answer: "yes" });
+      expect(run(keep, 8_000)).toMatchObject({ value: 80, answer: "not_yet" });
+    }
+    // The coach's keep going line 3 s after the answer starts the reach time again from it.
+    expect(run(true, 8_000, 3_000)).toMatchObject({ value: 120, answer: "yes" });
   });
 
   it("a small excursion hold is asked, recorded with smallExcursion when confirmed, and not recorded unconfirmed", () => {
@@ -1091,6 +1109,8 @@ describe("every line the runner plays has a voice line", () => {
       runner("shoulder_abduction"),
       abduct(100, {
         answer: (_h, k) => (k === 1 ? { answer: "not_yet" } : { answer: "hurts" }),
+        // D-037 item 2: only a hold further on asks again.
+        further: () => 120,
         pain: { level: 7 },
       }),
     );

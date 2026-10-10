@@ -31,8 +31,9 @@
  *   - A gap between readings longer than v1's sustained window gap (RANGE_RULES.maxGapMs, 250 ms) breaks
  *     the window, as v1 SustainedPeak does; a shorter gap (one unseen frame) does not.
  *   - After a hold fires the detector waits; `rearm(t)` (after «ليس بعد», or an unconfirmed small hold)
- *     lets the next hold fire once a whole window lies after t, at any angle: a person who cannot go
- *     further after «ليس بعد» is asked again, and the runner keeps the further value.
+ *     lets the next hold fire once a whole window lies after t, at any angle, and the runner keeps the
+ *     further value. After «ليس بعد» the runner asks again only for a hold further on (D-037 item 2,
+ *     runner.ts reachAsks): the same plateau found again a window later is not a new question.
  *
  * D-035 item 1 (Nasser's second real test, v7.1 on an iPhone: the dial showed his angle and he held
  * it, yet nothing was measured): the runner reads a lenient plateau, MVP_HOLD (mvpHoldOptions). A

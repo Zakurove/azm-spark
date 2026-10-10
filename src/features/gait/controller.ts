@@ -425,8 +425,9 @@ export class GaitController implements CoachHost {
   } | null = null;
   /**
    * The walker, one person for the whole walk (D-037 item 4: the booth, many people in the picture):
-   * taken on the person the walk is for when they are first seen, followed through the standing
-   * calibration, every pass and the stance; another person is never measured, drawn or counted.
+   * taken at the standing calibration (taken again at each calibration step, the walker kept while
+   * there), followed through every pass, a try once more and the stance; another person is never
+   * measured, drawn or counted. Released only after the walk's 10 s unseen.
    */
   private readonly lock = new SubjectLock(SUBJECT_RULES, {
     mode: "stay",
@@ -973,9 +974,9 @@ export class GaitController implements CoachHost {
     const s = this.current;
     if (this.stopList || this.stoppedNow || this.pausedByNow) return;
     // The walker in this frame: the lock is first taken at the standing calibration, then follows
-    // them on every camera frame, whatever the step.
-    // Walking across the picture, leaving it at each pass's end is normal (the lock's "walk" rules);
-    // standing for a calibration or on the pad, the person stays (its "stay" rules).
+    // them on every camera frame, whatever the step. Walking across the picture, leaving it at each
+    // pass's end is normal (the lock's "walk" rules: back from the side they left by); standing for a
+    // calibration or on the pad, the person stays (its "stay" rules).
     this.lock.setMode(s.id === "walk" && s.rec === "overground_side" ? "walk" : "stay");
     const picks = PICK_STEPS.has(s.id) || this.lock.locked;
     if (this.retake && (s.id === "stand" || s.id === "stance")) {

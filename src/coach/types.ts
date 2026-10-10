@@ -46,6 +46,27 @@ export type BridgeEvent =
       t: number;
     }
   | { p: 2; type: "setup_issue"; issue: string; t: number }
+  /**
+   * D-037 item 1: words the coach says out loud at once, in its own words, for a person who stands
+   * far from the phone and cannot read the screen. `lines` are the app's own copy on the screen now,
+   * in the session's language (never the person's words). kind step: the step's setup or movement,
+   * waiting until the coach is free; correction: a correction the screen shows (one at a time, never
+   * the same one again within a few seconds); progress: the walk's count, said only when the coach is
+   * free at once.
+   */
+  | {
+      p: 2;
+      type: "say";
+      kind: CoachSayKind;
+      /** An id like token naming the words: setup, move, again, walk, check_face_phone, across ... */
+      key: string;
+      movement?: RomMovementId;
+      side?: RomSide;
+      /** How the person stands to the phone (the movement's view and the side tested). */
+      face?: CoachFacing;
+      lines: readonly string[];
+      t: number;
+    }
   | { p: 3; type: "step_start"; label: string; movement?: RomMovementId; side?: RomSide; t: number }
   | { p: 3; type: "attempt_saved"; movement: RomMovementId; side: RomSide; deg: number | null; t: number }
   | {
@@ -65,6 +86,16 @@ export type BridgeEvent =
   | { p: 3; type: "tool_applied"; name: ToolName; accepted: boolean; t: number };
 /** What a host or a step hands its events to (GaitStep and Session take one, 2.8.4). */
 export type CoachPush = (e: BridgeEvent) => void;
+/** D-037 item 1: what a say line is (BridgeEvent say). */
+export type CoachSayKind = "step" | "correction" | "progress";
+/**
+ * D-037 item 1: which way the person faces the phone. phone: face it (a front view movement);
+ * right_side or left_side: that side toward it (a side view movement of that side); side: either side
+ * toward it (a side view movement of the trunk or the neck, or the walk).
+ */
+export type CoachFacing = "phone" | "right_side" | "left_side" | "side";
+/** A say line before the session stamps it (CoachHost.explain). */
+export type CoachSay = Omit<Extract<BridgeEvent, { type: "say" }>, "t">;
 
 /* ---------------------------------------------------------------- tools */
 
@@ -151,6 +182,12 @@ export interface CoachHost {
   handleTool<N extends ToolName>(name: N, args: ToolArgs[N]): ToolResult;
   /** A short state line for a new session's history (current step, phase). */
   snapshot(): string;
+  /**
+   * D-037 item 1: the say line of the step showing now (its setup, its movement, the walk's
+   * instruction), or null. A new coach session says it once it is live, since the step's own say
+   * line went out before the session could hear it.
+   */
+  explain?(): CoachSay | null;
 }
 
 /* ------------------------------------------------------------ transport */

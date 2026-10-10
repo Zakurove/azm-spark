@@ -14,10 +14,20 @@
  *      While any local line plays the mic gate is closed with audioStreamEnd and the coach's voice
  *      ducks; the gate opens 300 ms after the line ends.
  *   4. P3 (context): coalesced and sent silently every 5 s; a rep count keeps only its latest line.
- *   5. At most one turnComplete true per 2 s; P0 is exempt, and the context waiting goes before a
- *      question, so the question is the last line the coach reads.
+ *   5. At most one turnComplete true per 2 s; P0 is exempt, a say line (rule 9) never holds a question
+ *      back, and the context waiting goes before a question, so the question is the last line the
+ *      coach reads.
  * And from rule 6: two questions in a row that the coach did not voice in time report fallback_slow;
  * the session then falls back to local (rules 6 to 8 live in session.ts).
+ *   9. D-037 item 1, say lines (the person stands far away and cannot read the screen): the step's
+ *      setup or movement, a correction, the walk's count, sent with turnComplete true so the coach
+ *      says them in its own words without being asked. One step line waits (the latest; a new step
+ *      or a question drops it) and one correction or count line (the latest). They go only while
+ *      the coach is live, free (not speaking, no reply to come: a turn the app started, a tool result
+ *      or the person's words, SAY_TIMING.replyWaitMs at most without audio), with no question waiting,
+ *      and within rule 5's gap; the step line first. A correction is never said again within
+ *      SAY_TIMING.correctionRepeatMs, and a correction or a count that could not go in time is
+ *      dropped. In local mode and after a P0 none is said (the screens carry them).
  *
  * Who speaks what. Only the coach while it is on (D-036 item 1). The host owns its screen and its
  * local lines; a workout says its corrections (P2) and its safety line (P0) through the LocalVoice it
@@ -26,10 +36,23 @@
  * question aloud itself. Pure, no DOM: the session wires the transport, the speaker, the microphone
  * and the clock.
  */
-import { BRIDGE_DEFAULTS, MIC_REOPEN_MS, P1_WITHOUT_AUDIO_LIMIT, formatEvent } from "../../coach/events";
+import {
+  BRIDGE_DEFAULTS,
+  MIC_REOPEN_MS,
+  P1_WITHOUT_AUDIO_LIMIT,
+  SAY_TIMING,
+  formatEvent,
+} from "../../coach/events";
 import type { BridgeEvent, BridgeOptions, CoachMode, LiveTransport, LocalVoice } from "../../coach/types";
 
 type P1Event = Extract<BridgeEvent, { p: 1 }>;
+type SayEvent = Extract<BridgeEvent, { type: "say" }>;
+
+/** A say line waiting for the coach to be free (rule 9). */
+interface PendingSay {
+  e: SayEvent;
+  at: number;
+}
 
 /** The local line of each question (the range data's copy, voice-script.json), for local mode. */
 export const LOCAL_ASK: Record<P1Event["type"], string> = {
@@ -78,7 +101,10 @@ export class EventBridge {
   private readonly t0: number;
   private current: CoachMode = "off";
   private stopped = false;
+  /** The last turnComplete true the app sent: any (a say line waits rule 5's gap after it) ... */
   private lastTrigger = -Infinity;
+  /** ... and the last P0 or question (a question waits rule 5's gap only after these, never a say line). */
+  private lastAsk = -Infinity;
   private lastFlush: number;
   /** Lines waiting for the next silent send, in order. */
   private context: string[] = [];
@@ -93,6 +119,15 @@ export class EventBridge {
   private micIsOpen = true;
   private reopenAt: number | null = null;
   private readonly offPlaying: () => void;
+  /** Rule 9: the step's say line waiting, and a correction or count waiting. */
+  private sayStep: PendingSay | null = null;
+  private sayCue: PendingSay | null = null;
+  /** Rule 9: when each correction was last said. */
+  private readonly saidAt = new Map<string, number>();
+  /** Rule 9: a reply of the coach to come (a turn the app started, a tool result, the person's words). */
+  private reply: { since: number; heard: boolean } | null = null;
+  /** Rule 9: a step's say line went out since the coach was last live. */
+  private stepSent = false;
 
   constructor(
     private readonly transport: Pick<LiveTransport, "sendContext"> &
@@ -121,6 +156,7 @@ export class EventBridge {
     if (this.current === "off") return;
     if (e.p === 0) return this.p0(e, now);
     if (this.stopped) return;
+    if (e.type === "say") return this.say(e, now);
     if (e.p === 1) return this.p1(e, now);
     if (e.p === 2) {
       if (this.current === "live") this.transport.sendContext(this.line(e), false);
@@ -148,11 +184,16 @@ export class EventBridge {
     }
     if (this.current === "live" && this.context.length && now - this.lastFlush >= this.opts.contextFlushMs)
       this.flush(now);
+    this.trySay(now);
   }
 
   /** The coach's voice: true for every chunk the session plays, false when it went idle. */
   coachSpeaking(speaking: boolean, now: number): void {
     this.speaking = speaking;
+    if (this.reply) {
+      if (speaking) this.reply.heard = true;
+      else if (this.reply.heard) this.reply = null;
+    }
     const q = this.question;
     if (!q || q.sentAt === null || q.voiced || q.asked) return;
     // Chunks of the sentence the question cut are not the coach asking it.
@@ -168,6 +209,23 @@ export class EventBridge {
     this.stopped = false;
   }
 
+  /**
+   * Rule 9: a step's say line waits, or one went out since the coach was last live (the session then
+   * has no step of the host's to say when it goes live).
+   */
+  get stepLineKnown(): boolean {
+    return this.sayStep !== null || this.stepSent;
+  }
+
+  /**
+   * Rule 9: the coach was handed a tool result, or the person spoke: a say line waits until the
+   * coach's reply has ended (or SAY_TIMING.replyWaitMs passed without its audio).
+   */
+  awaitReply(now: number): void {
+    if (this.current === "off") return;
+    this.reply = { since: now, heard: false };
+  }
+
   setMode(mode: CoachMode): void {
     const prev = this.current;
     this.current = mode;
@@ -176,11 +234,17 @@ export class EventBridge {
       this.context = [];
       this.repLine.clear();
       this.question = null;
+      this.dropSays();
+      this.reply = null;
+      this.stepSent = false;
       return;
     }
     if (mode === "local") {
       this.context = [];
       this.repLine.clear();
+      this.dropSays();
+      this.reply = null;
+      this.stepSent = false;
       const q = this.question;
       if (q && !q.asked && !q.voiced) this.askLocally(q, now);
       return;
@@ -192,6 +256,7 @@ export class EventBridge {
       // while the coach was away; the v7 checks have none).
       const q = this.question;
       if (q && !q.voiced && q.sentAt === null) this.trySend(q, now);
+      this.trySay(now);
     }
   }
 
@@ -200,6 +265,7 @@ export class EventBridge {
     this.offPlaying();
     this.question = null;
     this.context = [];
+    this.dropSays();
   }
 
   /* ------------------------------------------------------------ rules */
@@ -207,6 +273,7 @@ export class EventBridge {
   private p0(e: BridgeEvent, now: number): void {
     this.stopped = true;
     this.question = null;
+    this.dropSays();
     this.hooks.flushCoach?.();
     // Only in local mode (D-036 item 1: while the coach is on, the coach says it). The host's own
     // safety line stands for the stop line; a correction or a question playing does not (a safety line
@@ -217,6 +284,8 @@ export class EventBridge {
       this.flush(now);
       this.transport.sendContext(this.line(e), true);
       this.lastTrigger = now;
+      this.lastAsk = now;
+      this.reply = { since: now, heard: false };
     } else if (this.current === "connecting") this.context.push(this.line(e));
   }
 
@@ -231,11 +300,15 @@ export class EventBridge {
       afterIdle: false,
     };
     this.question = q;
+    // Rule 9: the question takes over; what waited to be said is about a moment that has passed.
+    this.dropSays();
     if (this.current === "local") this.askLocally(q, now);
     else if (this.current === "live") this.trySend(q, now);
   }
 
   private p3(e: BridgeEvent): void {
+    // Rule 9: a new step drops what waited to be said about the last one (its host says the new one).
+    if (e.type === "step_start") this.dropSays();
     if (this.current === "local") return;
     const text = this.line(e);
     if (e.type === "reps") {
@@ -249,14 +322,76 @@ export class EventBridge {
     this.context.push(text);
   }
 
-  /** Rule 5: a question waits until 2 s after the last turn the app started; the context goes first. */
+  /**
+   * Rule 5: a question waits until 2 s after the last P0 or question the app sent; the context goes
+   * first. A say line never holds it back (rule 9): the question cuts the coach's say line short.
+   */
   private trySend(q: Question, now: number): void {
-    if (now - this.lastTrigger < this.opts.minGapMs) return;
+    if (now - this.lastAsk < this.opts.minGapMs) return;
     this.flush(now);
     this.transport.sendContext(this.line(q.e), true);
     q.sentAt = now;
     q.afterIdle = this.speaking;
     this.lastTrigger = now;
+    this.lastAsk = now;
+    this.reply = { since: now, heard: false };
+  }
+
+  /**
+   * Rule 9: a say line waits in its slot (the step's, or the correction's and count's); a correction
+   * said within SAY_TIMING.correctionRepeatMs is not said again. Nothing waits in local mode: the
+   * screens carry every line (D-036 item 1).
+   */
+  private say(e: SayEvent, now: number): void {
+    if (this.current === "local" || !e.lines.length) return;
+    if (e.kind === "step") {
+      this.sayStep = { e, at: now };
+      this.sayCue = null;
+    } else {
+      const last = e.kind === "correction" ? this.saidAt.get(e.key) : undefined;
+      if (last !== undefined && now - last < SAY_TIMING.correctionRepeatMs) return;
+      this.sayCue = { e, at: now };
+    }
+    this.trySay(now);
+  }
+
+  /** Rule 9: the waiting say line goes once the coach is free, the step's first. */
+  private trySay(now: number): void {
+    if (this.current !== "live" || this.stopped) return;
+    const cue = this.sayCue;
+    const stale = cue?.e.kind === "progress" ? SAY_TIMING.progressStaleMs : SAY_TIMING.correctionStaleMs;
+    if (cue && now - cue.at > stale) this.sayCue = null;
+    const next = this.sayStep ?? this.sayCue;
+    if (!next) return;
+    // A question waiting to be sent or voiced goes first.
+    const q = this.question;
+    if (q && !q.voiced && !q.asked && !q.late) return;
+    if (this.speaking || this.replyToCome(now) || now - this.lastTrigger < this.opts.minGapMs) return;
+    if (next === this.sayStep) {
+      this.sayStep = null;
+      this.stepSent = true;
+    } else this.sayCue = null;
+    if (next.e.kind === "correction") this.saidAt.set(next.e.key, now);
+    this.flush(now);
+    this.transport.sendContext(this.line(next.e), true);
+    this.lastTrigger = now;
+    this.reply = { since: now, heard: false };
+  }
+
+  /** A reply of the coach is still to come or playing (rule 9). */
+  private replyToCome(now: number): boolean {
+    const r = this.reply;
+    if (!r) return false;
+    if (!r.heard && now - r.since >= SAY_TIMING.replyWaitMs) {
+      this.reply = null;
+      return false;
+    }
+    return true;
+  }
+
+  private dropSays(): void {
+    this.sayStep = null;
+    this.sayCue = null;
   }
 
   /**

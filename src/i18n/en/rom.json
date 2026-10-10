@@ -86,6 +86,10 @@
     "seatedHands": "Rest your hands at the sides of the chair.",
     "hold": "Hold for a moment."
   },
+  "say": {
+    "distanceRange": "Place the phone about {from} to {to} metres away, so you show in the picture.",
+    "distanceAbout": "Place the phone about {m} metres away, so you show in the picture."
+  },
   "measure": {
     "start": "Take the start position and hold still",
     "practice": "Practice",

@@ -47,7 +47,7 @@ test("one movement with the real runner: nobody answers, it is measured, nothing
   await expect(page.locator('[data-verdict="measured"]')).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".rl-verdict-line")).toHaveText(/^Measured: \d+°$/);
   const json = JSON.parse((await page.locator('[data-diag="json"]').textContent()) ?? "{}");
-  expect(json).toMatchObject({ mv: "elbow_flexion", status: "measured", nValid: 1, engine: "rom_engine_3" });
+  expect(json).toMatchObject({ mv: "elbow_flexion", status: "measured", nValid: 1, engine: "rom_engine_4" });
   expect(json.tries.at(-1)).toEqual(expect.arrayContaining(["valid", "yes/timeout"]));
   await expect(page.locator('[data-diag="attempts"]')).toContainText("attempt 1: valid");
   expect(posts).toEqual([]);

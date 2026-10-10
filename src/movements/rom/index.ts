@@ -44,8 +44,10 @@ export const NORMS_VERSION = `rom_norms_${ROM_DATA.specVersion}`;
  * close is fine, the view a line, the shoulders anchor, the arm raises' hidden hip, the dial despiked).
  * rom_engine_3: D-035 item 1, the MVP runner after Nasser's second real test (compensations only flag,
  * one calm line per movement, the lenient plateau hold, no answer counts as yes, one valid attempt).
+ * rom_engine_4: D-036 and D-037 after Nasser's third and fourth real tests (an impossible reading held
+ * at the plausible end, real reach time after «I can do more», one person locked across the block).
  */
-export const ROM_ENGINE_VERSION = "rom_engine_3";
+export const ROM_ENGINE_VERSION = "rom_engine_4";
 
 function missing(kind: string, id: string): never {
   throw new Error(`Unknown range of motion ${kind}: ${id}`);

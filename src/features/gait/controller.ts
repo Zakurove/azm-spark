@@ -28,6 +28,10 @@
  * 4: stored on failure). «I have finished» on the walk's screen reads the recording at once, and an
  * overground recording ends at 2 minutes whatever happens. The analysis runs at the end only
  * (analyseGaitView is never fed live: the recorder and the live counter are, 2.8).
+ * D-037 item 1 (Nasser stands far from the phone and cannot read it): with the screen's language set
+ * (lang), each step hands the coach its say line (say.ts: the phone's place and distance, walking
+ * across the picture side on, never toward the phone), the pass count now and then and each hint;
+ * explain() gives the step showing now to a coach session that has just gone live.
  * Pain (C-15, the 2.11 gait row): any mark_pain ends the recording and is kept for the rules
  * (GaitAnalysis.walkPain); painStopRule against the walk's score before (painBefore, W2-5, D-027
  * item 1) ends the test, labelled pain_limited, with the completed clean cycles kept; below it the
@@ -66,14 +70,17 @@ import type { Intake, WalkingAid } from "../../medical/plan";
 import type {
   BridgeEvent,
   CoachHost,
+  CoachSay,
   CoachStepKind,
   CoachStopReason,
   ToolArgs,
   ToolName,
   ToolResult,
 } from "../../coach/types";
+import type { Lang } from "../../app/i18n";
 import { EMERGENCY_REASONS, pauseRefusal, resumeRefusal, type PausedBy } from "../coach-agent/hostRules";
 import { pressNextStep, ScreenActions } from "../../coach/actions";
+import { gaitStepSay, hintSay, passSaid, passSay } from "./say";
 
 const CAPTURE = captureData as unknown as GaitData["capture"];
 const PAD_SAFETY = (eligibilityData as unknown as GaitData["eligibility"]).padSafety;
@@ -312,6 +319,8 @@ export interface GaitControllerOptions {
   poseModel?: () => "lite" | "full";
   /** E2E fast timing: the warm up in seconds (default 2 minutes). */
   warmUpSec?: number;
+  /** The language of the coach's say lines (D-037 item 1); the screen may change it (GaitController.lang). */
+  lang?: Lang;
   /**
    * Where the walk's diagnostic lines go (D-035 item 4): the end of each recording and of the walk, «[azm gait] ...»
    * with the passes counted, the clean cycles a side, the share of frames with the legs seen, the frame
@@ -432,9 +441,15 @@ export class GaitController implements CoachHost {
   coachLive = false;
   /** The live coach was asked for this walk (the screen starts its audio inside the first tap). */
   coachOn = false;
+  /**
+   * D-037 item 1: the language of the say lines the coach says out loud (each step's setup and
+   * instruction, the pass count now and then, the hints); null: none (set by the screen).
+   */
+  lang: Lang | null;
 
   constructor(opts: GaitControllerOptions) {
     this.opts = opts;
+    this.lang = opts.lang ?? null;
     this.intake = opts.intake ?? null;
     this.plan = opts.plan;
     this.painBefore = opts.painBefore ?? null;
@@ -465,6 +480,10 @@ export class GaitController implements CoachHost {
   }
   private bridge(e: BridgeEvent): void {
     for (const fn of [...this.bridges]) fn(e);
+  }
+  /** A say line for the coach (D-037 item 1, bridge rule 9), in the screen's language. */
+  private sayLine(line: CoachSay | null, t: number): void {
+    if (line) this.bridge({ ...line, t });
   }
   private say(line: string, severity: "info" | "warn" | "safety"): void {
     // While the live coach speaks for the app, it gives the instructions; safety lines stay local.
@@ -735,6 +754,8 @@ export class GaitController implements CoachHost {
     // The belt is stopped while the helper moves the phone to the pad's other side (D-030 C4-3).
     if (s.id === "place" && s.rec === "pad_side_b") this.say("gait_pad_other_side", "info");
     this.bridge({ p: 3, type: "step_start", label: s.rec ? `${s.id}_${s.rec}` : s.id, t: now });
+    // D-037 item 1: the coach says the step's setup or instruction out loud.
+    if (this.lang) this.sayLine(gaitStepSay(this, s, this.lang), now);
     this.changed();
   }
 
@@ -967,7 +988,11 @@ export class GaitController implements CoachHost {
   private setHint(h: GaitHint | null): void {
     if (h === this.hintNow) return;
     this.hintNow = h;
-    if (h) this.bridge({ p: 2, type: "setup_issue", issue: h, t: this.lastT });
+    if (h) {
+      this.bridge({ p: 2, type: "setup_issue", issue: h, t: this.lastT });
+      // D-037 item 1: the coach says the hint, calmly (never the same one within a few seconds).
+      if (this.lang) this.sayLine(hintSay(h, this.lang), this.lastT);
+    }
     this.changed();
   }
 
@@ -1081,6 +1106,9 @@ export class GaitController implements CoachHost {
     if (passes <= r.passes) return false;
     r.passes = passes;
     if (!r.id.startsWith("pad") && r.reachedAt === null && r.passes >= r.target) r.reachedAt = t;
+    // D-037 item 1: the pass count now and then (passSaid), only if the coach is free at once.
+    if (this.lang && !r.id.startsWith("pad") && passSaid(passes, r.target))
+      this.sayLine(passSay(passes, r.target, this.lang), t);
     return true;
   }
 
@@ -1557,6 +1585,12 @@ export class GaitController implements CoachHost {
 
   /** The instruction text of the step now, for repeat_instructions (set by the screen in its language). */
   instructions: () => string = () => "";
+
+  /** D-037 item 1: the say line of the step showing now, for a coach session that has just gone live. */
+  explain(): CoachSay | null {
+    if (!this.lang || this.stopList || this.stoppedNow) return null;
+    return gaitStepSay(this, this.current, this.lang);
+  }
 
   private tool(name: ToolName, args: ToolArgs[ToolName], now: number): ToolResult {
     switch (name) {

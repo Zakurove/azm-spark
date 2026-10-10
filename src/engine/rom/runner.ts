@@ -94,6 +94,16 @@
  *     steady top), no movement, the wrong arm or a moved picture. A try with a hold always counts:
  *     the quality gate's report is stored with it, never a reason to discard it.
  *   - The pain stop and the stop list are unchanged.
+ *
+ * D-037 item 2 (Nasser's fourth real test: «I can do more» gave no time, the same hold asked again at
+ * once). «Not yet» opens the reach time (RUNNER_RULES.reach*): the hold detector rearms after the
+ * answer and found the same plateau again a window (0.6 s) later, so the question came back before the
+ * person could move. Now a hold after «not yet» asks again only when it lies clearly further than the
+ * hold answered (reachFurtherDeg in the movement's direction), or a little further once the person had
+ * reachAskAfterSec; a hold that is not further never asks. With no question by the end of reachSec
+ * (from «not yet», or from the coach's keep reaching) the hold answered is taken, calmly, with no new
+ * question; a person still out beyond it, on the way further, has until the attempt's own time from
+ * the answer. No question is open meanwhile, so the silence counts as yes timeout never cuts it short.
  */
 import { PoseSmoother } from "../oneEuro";
 import { toPixelSpace } from "../geometry";
@@ -174,8 +184,20 @@ export const RUNNER_RULES = {
    * 0.003, 24 to 30 fps) missed or delayed holds in portrait pictures through the 0.3 s median.
    */
   holdMedianSec: 0.5,
-  /** Contract 2.6 keepReaching: «Extends the attempt by 10 s». */
+  /**
+   * Contract 2.6 keepReaching: «Extends the attempt by 10 s». After D-037 item 2 the reach time below is
+   * what counts after «not yet»; keep reaching starts it again from its call.
+   */
   keepReachingSec: 10,
+  /**
+   * D-037 item 2 (interface numbers, no clinical one): after «not yet» a hold asks again only when it
+   * lies at least this many degrees further than the hold answered, in the movement's direction ...
+   */
+  reachFurtherDeg: 5,
+  /** ... or, once the person has had this many seconds, further than the hold band (engine.holdBandDeg) ... */
+  reachAskAfterSec: 6,
+  /** ... and with no new question within this many seconds, the hold answered is taken, with no question. */
+  reachSec: 12,
   /**
    * D-034 (the tech lead, from the check's review): with the «can you move it» question gone, a joint
    * that cannot move must not wait out the 20 s of each try. No movement beyond the hold band from the
@@ -340,6 +362,13 @@ interface Attempt {
   kept: HeldValue | null;
   /** «not yet» was the last answer and keep reaching was not used since. */
   reachOpen: boolean;
+  /**
+   * D-037 item 2: the reach time after «not yet»: from the answer, the hold answered (the further of it
+   * and the kept one), and when it ends.
+   */
+  reach: { from: number; deg: number; until: number } | null;
+  /** The last filtered angle of the attempt (the reach reads it), or null before one. */
+  lastF: number | null;
   /** A pain answer or «it hurts» in this attempt. */
   pain: boolean;
   painLevel: number | null;
@@ -506,7 +535,11 @@ export class RomRunner {
   get holdProgress(): number {
     if (this.phaseNow === "ask_max") return 1;
     if (this.phaseNow !== "practice" && this.phaseNow !== "attempt") return 0;
-    return this.att?.hold.progress ?? 0;
+    const a = this.att;
+    if (!a) return 0;
+    // D-037 item 2: after «not yet» the ring fills only beyond the hold answered (a hold there never asks).
+    if (a.reach && !this.beyondReach(a, a.lastF, RUNNER_RULES.reachFurtherDeg)) return 0;
+    return a.hold.progress;
   }
 
   /**
@@ -617,6 +650,10 @@ export class RomRunner {
       a.reachOpen = true;
       a.monitoring = true;
       a.hold.rearm(t);
+      // D-037 item 2: real time to go further; only a hold further on than this one asks again.
+      const d = this.holdOpts.direction;
+      const deg = a.kept && d * (a.kept.hold.deg - held.hold.deg) > 0 ? a.kept.hold.deg : held.hold.deg;
+      a.reach = { from: t, deg, until: t + RUNNER_RULES.reachSec * 1000 };
       this.setPhase("attempt", t);
       // safety never: «no prompt to push further after pain is reported»: no keep_going after a pain answer.
       if (!a.pain) this.cue("keep_going", t);
@@ -678,6 +715,8 @@ export class RomRunner {
     this.tLast = Math.max(this.tLast, t);
     a.reachOpen = false;
     a.extendMs += RUNNER_RULES.keepReachingSec * 1000;
+    // D-037 item 2: the reach time runs from the coach's keep going line.
+    if (a.reach) a.reach.until = Math.max(a.reach.until, t + RUNNER_RULES.reachSec * 1000);
     return { accepted: true, events: this.drain() };
   }
 
@@ -1093,6 +1132,8 @@ export class RomRunner {
       current: null,
       kept: null,
       reachOpen: false,
+      reach: null,
+      lastF: null,
       pain: false,
       painLevel: null,
       askT: t,
@@ -1151,6 +1192,7 @@ export class RomRunner {
     if (px && angle !== null && Number.isFinite(angle) && dial !== null) {
       if (shown !== null) this.sink.push({ kind: "live", deg: round1(shown), t });
       const f = a.median.push(t, dial);
+      a.lastF = f;
       if (a.arm && this.armWatch(a.arm, t, px, ctx, f)) return;
       const move = this.moveDeg();
       if (a.startDeg === null) a.startDeg = f;
@@ -1170,15 +1212,57 @@ export class RomRunner {
       const found = a.hold.push(t, f, angle);
       this.emitHits(hits, this.mayCue(a));
       if (found) {
-        this.onHold(found, t);
-        return;
+        // D-037 item 2: after «not yet» only a hold further on asks again; any other rolls on.
+        if (!a.reach || this.reachAsks(a.reach, found, t)) {
+          this.onHold(found, t);
+          return;
+        }
+        a.hold.rearm(t);
       }
     }
     if (this.noMovementDue(a, t)) {
       this.noMovement(t);
       return;
     }
+    if (a.reach) {
+      if (t >= a.reach.until) this.reachEnd(a, t);
+      return;
+    }
     if (t >= this.deadline(a)) this.timeout(t);
+  }
+
+  /** The filtered angle lies at least `by` degrees beyond the hold answered «not yet» (D-037 item 2). */
+  private beyondReach(a: Attempt, f: number | null, by: number): boolean {
+    return !!a.reach && f !== null && this.holdOpts.direction * (f - a.reach.deg) >= by;
+  }
+
+  /**
+   * D-037 item 2: a hold during the reach time asks again when it lies at least reachFurtherDeg beyond
+   * the hold answered, or beyond the hold band once the person has had reachAskAfterSec. A small hold
+   * (a small excursion) never asks here.
+   */
+  private reachAsks(r: NonNullable<Attempt["reach"]>, found: HoldFound, t: number): boolean {
+    if (found.smallExcursion) return false;
+    const beyond = this.holdOpts.direction * (found.deg - r.deg);
+    if (beyond >= RUNNER_RULES.reachFurtherDeg) return true;
+    return beyond > ROM_DATA.engine.holdBandDeg && t - r.from >= RUNNER_RULES.reachAskAfterSec * 1000;
+  }
+
+  /**
+   * D-037 item 2: the reach time is over with no new question. A person still out beyond the hold
+   * answered (on the way further) has until the attempt's own time from the answer; otherwise the hold
+   * answered is taken, calmly, as the attempt's own time would (timeout: the kept value with its
+   * answer; a small hold still needs «نعم», so its attempt is tried again).
+   */
+  private reachEnd(a: Attempt, t: number): void {
+    const r = a.reach!;
+    if (
+      this.beyondReach(a, a.lastF, RUNNER_RULES.reachFurtherDeg) &&
+      t < r.from + ROM_DATA.engine.attemptTimeoutSeconds * 1000
+    )
+      return;
+    a.reach = null;
+    this.timeout(t);
   }
 
   /**
@@ -1390,6 +1474,7 @@ export class RomRunner {
     this.openPlateau(a, t);
     a.monitoring = false;
     a.reachOpen = false;
+    a.reach = null;
     a.askT = t;
     // A steadier top further on, while the question is open, is a new window after this one.
     a.hold.rearm(t);

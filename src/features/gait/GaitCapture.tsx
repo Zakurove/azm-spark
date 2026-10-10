@@ -258,6 +258,8 @@ export default function GaitCapture(props: GaitStepProps) {
   );
   ctl.coachLive = coach.mode === "live";
   ctl.coachOn = props.coachOn === true;
+  // D-037 item 1: the coach says each step's setup and instruction, the passes and the hints out loud.
+  ctl.lang = lang;
   // D-036 item 2: the buttons the Live coach may press on the person's spoken words, the very calls of
   // the taps (never the pad's safety checklist, a question or a stop).
   useScreenActions(ctl.actions, gaitScreenActions(ctl, clock));

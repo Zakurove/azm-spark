@@ -8,7 +8,9 @@
  * the S0 round trips (live-spike.md 4) used them and the model copied them into its tool calls. Every
  * number is rounded, the typical value to 5 degrees as the history writes it (C-12), and every string
  * field is reduced to an id like token, so no sentence, bracket or new line can enter the context:
- * nothing the person says ever travels in an event.
+ * nothing the person says ever travels in an event. The one exception is a say line (D-037 item 1):
+ * after its bracket it carries the app's own copy of the screen now (the instruction lines, a
+ * correction, the walk's count), with brackets and line breaks taken out.
  */
 import type { BridgeEvent, BridgeOptions } from "./types";
 
@@ -69,6 +71,14 @@ function fields(e: BridgeEvent): [string, string][] {
       ];
     case "setup_issue":
       return [["issue", safeToken(e.issue)]];
+    case "say":
+      return [
+        ["kind", e.kind],
+        ["key", safeToken(e.key)],
+        ...(e.movement ? ([["mv", e.movement]] as [string, string][]) : []),
+        ...(e.side ? ([["side", e.side]] as [string, string][]) : []),
+        ...(e.face ? ([["face", e.face]] as [string, string][]) : []),
+      ];
     case "step_start":
       return [
         ["label", safeToken(e.label)],
@@ -121,7 +131,21 @@ export function formatEvent(e: BridgeEvent, t0: number): string {
   const rest = fields(e)
     .map(([k, v]) => ` ${k}=${v}`)
     .join("");
-  return `[EVT t=${seconds.toFixed(1)} type=${e.type}${rest}]`;
+  const head = `[EVT t=${seconds.toFixed(1)} type=${e.type}${rest}]`;
+  return e.type === "say" ? `${head} ${sayText(e.lines)}` : head;
+}
+
+/** A say line's words are the app's own copy; even so no bracket or line break enters the context. */
+export const SAY_TEXT_MAX = 600;
+
+/** The words of a say line after its bracket: the lines in order, one space apart, at most SAY_TEXT_MAX characters. */
+export function sayText(lines: readonly string[]): string {
+  const text = lines
+    .map((l) => l.replace(/[[\]\r\n]+/g, " ").trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ");
+  return text.length > SAY_TEXT_MAX ? text.slice(0, SAY_TEXT_MAX).trimEnd() : text;
 }
 
 /* --------------------------------------------------- the bridge rules */
@@ -129,11 +153,28 @@ export function formatEvent(e: BridgeEvent, t0: number): string {
 /**
  * Bridge rules 1 to 4: a P0 (safety stop, red flag) and a P1 (the range questions) go with
  * turnComplete true, so the coach speaks now; a P2 (correction) and a P3 (context) go silently, with
- * turnComplete false (S0: a silent line never started a reply, live-spike.md 5).
+ * turnComplete false (S0: a silent line never started a reply, live-spike.md 5). D-037 item 1: a say
+ * line goes with turnComplete true too, once the coach is free (bridge rule 9).
  */
 export function triggersTurn(e: BridgeEvent): boolean {
-  return e.p <= 1;
+  return e.p <= 1 || e.type === "say";
 }
+
+/**
+ * Bridge rule 9 (D-037 item 1), the say lines' timing, interface times and no clinical number:
+ *   - replyWaitMs: after the app started a turn, the coach was handed a tool result or the person
+ *     spoke, a say line waits for the coach's reply to end; a reply with no audio counts as over after
+ *     this long;
+ *   - correctionRepeatMs: the same correction is never said again within this long;
+ *   - correctionStaleMs: a correction not said within this long is dropped (the screen moved on);
+ *   - progressStaleMs: the walk's count not said within this long is dropped.
+ */
+export const SAY_TIMING = Object.freeze({
+  replyWaitMs: 3000,
+  correctionRepeatMs: 10_000,
+  correctionStaleMs: 4000,
+  progressStaleMs: 2500,
+});
 
 /** The bridge's timing (2.11 BridgeOptions), unchanged by S0 (live-spike.md 11). */
 export const BRIDGE_DEFAULTS: Readonly<BridgeOptions> = Object.freeze({

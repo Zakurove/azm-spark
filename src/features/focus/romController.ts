@@ -30,6 +30,12 @@
  * every tool call is applied at once and final (C-17). The app is authoritative: the coach's answers
  * go through the same runner methods as the buttons.
  *
+ * D-037 item 1 (Nasser stands far from the phone and cannot read it): each step hands the coach its
+ * say line (coachSay.ts): the block's card, the movement's setup with the side or the front to the
+ * phone, the movement when the measurement starts, the rest and the next try, and each correction
+ * the camera's caption shows (a setup issue once it lasts SETUP_SAY_AFTER_MS). explain() gives the
+ * step showing now to a coach session that has just gone live.
+ *
  * D-035 item 1 (the MVP runner): one valid attempt records the value, and the result card offers one
  * more try only if the person wants it (tryAgain, never a third). The server keeps one row per
  * movement (409 ALREADY_SAVED), so a result that can still be tried again is saved when the person
@@ -41,6 +47,7 @@ import { pressNextStep, ScreenActions } from "../../coach/actions";
 import type {
   BridgeEvent,
   CoachHost,
+  CoachSay,
   CoachStepKind,
   CoachStopReason,
   ToolArgs,
@@ -80,6 +87,7 @@ import { movementDef, ROM_DATA } from "../../movements/rom";
 import type { RomCopyKey, RomCueId } from "../../movements/rom/types";
 import type { CheckCueId } from "../../movements/types";
 import { instructionLines } from "./copy";
+import { againSay, blockSay, correctionSay, moveSay, restSay, setupIssueSay, setupSay } from "./coachSay";
 import { SAFETY_TIMING } from "../assessment/safety/timing";
 
 export type PoseModel = "lite" | "full";
@@ -104,6 +112,11 @@ export const STOP_REST_SECONDS: number = SAFETY_TIMING.stopRestSec;
 export const SIT_STAND_MS = 6000;
 /** How much of the last frames the live setup check reads while the start pose is taken (v1: the last second). */
 const SETUP_WINDOW_MS = 1000;
+/**
+ * D-037 item 1: a setup issue the caption shows is said by the coach once it has lasted this long (an
+ * interface time: a passing issue of a frame or two is never said).
+ */
+export const SETUP_SAY_AFTER_MS = 1000;
 
 export interface RomControllerOptions {
   /** The check's protocol as the start answered it (skips and helpers applied). */
@@ -227,7 +240,7 @@ const PHASE_KIND: Record<RomPhase, CoachStepKind> = {
 /**
  * The runner's corrections that only a voice said before D-036 item 1 (the view, the still phone, the
  * arm to use, back to the middle): with no phone speech, each is shown as the camera's caption, as a
- * compensation's line is.
+ * compensation's line is, and the Live coach says each caption once it shows (D-037 item 1).
  */
 const SHOWN_CORRECTIONS: ReadonlySet<string> = new Set([
   "check_face_phone",
@@ -283,6 +296,11 @@ export class RomController implements CoachHost {
   private pendingSave: { item: RomProtocolItem; result: RomMeasureResult } | null = null;
   private setupFrames: SetupFrame[] = [];
   private setupIssueNow: SetupIssue | null = null;
+  /** D-037 item 1: when the setup issue now appeared, and whether the coach was handed it. */
+  private setupIssueSince = 0;
+  private setupIssueSaid = false;
+  /** The runner's last phase in this measurement (the next try's say line follows a rest). */
+  private phaseBefore: RomPhase | null = null;
   private attemptNow = 0;
   private validNow = 0;
   /** The value of the last valid attempt (the coach's confirm_max result). */
@@ -352,6 +370,7 @@ export class RomController implements CoachHost {
       helper: this.queue.some((i) => i.helperRequired),
     });
     this.bridge({ p: 3, type: "step_start", label: `block_${block}`, t });
+    this.say(blockSay(block, this.queue, this.opts.lang), t);
   }
 
   /* ---------------------------------------------------------------- the view */
@@ -411,6 +430,8 @@ export class RomController implements CoachHost {
       side: s.item.side,
       t,
     });
+    this.phaseBefore = null;
+    this.say(moveSay(s.item, false, this.opts.lang), t);
     this.take(s.item, events, t);
     return true;
   }
@@ -865,6 +886,34 @@ export class RomController implements CoachHost {
     return parts.join(" ");
   }
 
+  /**
+   * D-037 item 1: the say line of the step showing now, for a coach session that has just gone live:
+   * the block's card, the setup card, the movement while it is taken or tried, the rest between tries.
+   * Nothing over the stop list, a question, a result or a timer step.
+   */
+  explain(): CoachSay | null {
+    if (this.stopListNow) return null;
+    const s = this.stepNow;
+    const lang = this.opts.lang;
+    switch (s.kind) {
+      case "block":
+        return blockSay(s.block, s.items, lang);
+      case "setup":
+        return setupSay(s.item, s.turnSide, lang);
+      case "measure": {
+        const phase = this.runner?.phase;
+        // The start pose before the first try (attempt 0) leads to the practice.
+        if (phase === "practice" || (phase === "calibrating" && this.attemptNow === 0))
+          return moveSay(s.item, ROM_DATA.engine.practice > 0, lang);
+        if (phase === "calibrating" || phase === "attempt") return moveSay(s.item, false, lang);
+        if (phase === "rest") return restSay(s.item, lang);
+        return null;
+      }
+      default:
+        return null;
+    }
+  }
+
   /* --------------------------------------------------------------- private */
 
   private kindNow(): CoachStepKind {
@@ -1084,6 +1133,7 @@ export class RomController implements CoachHost {
       prev.side !== item.side;
     this.go({ kind: "setup", item, turnSide });
     this.bridge({ p: 3, type: "step_start", label: "setup", movement: item.movementId, side: item.side, t });
+    this.say(setupSay(item, turnSide, this.opts.lang), t);
   }
 
   private startMeasure(item: RomProtocolItem, t: number): void {
@@ -1118,6 +1168,9 @@ export class RomController implements CoachHost {
       side: item.side,
       t,
     });
+    this.phaseBefore = null;
+    // The first try of a movement is its practice (engine.practice).
+    this.say(moveSay(item, ROM_DATA.engine.practice > 0, this.opts.lang), t);
     this.take(item, this.runner.start(t), t);
   }
 
@@ -1158,9 +1211,16 @@ export class RomController implements CoachHost {
     const issue = res.ok ? null : (res.issues[0] ?? null);
     if (issue !== this.setupIssueNow) {
       this.setupIssueNow = issue;
-      // P2: the coach hears a new setup issue silently, and voices it only if asked (bridge rule 3).
+      this.setupIssueSince = frame.t;
+      this.setupIssueSaid = false;
+      // P2: the coach hears a new setup issue silently at once (bridge rule 3) ...
       if (issue) this.bridge({ p: 2, type: "setup_issue", issue, t: frame.t });
       this.changed();
+    }
+    // ... and says it once it has lasted a moment (D-037 item 1: the caption is too far to read).
+    if (issue && !this.setupIssueSaid && frame.t - this.setupIssueSince >= SETUP_SAY_AFTER_MS) {
+      this.setupIssueSaid = true;
+      this.say(setupIssueSay(issue, this.opts.lang), frame.t);
     }
   }
 
@@ -1174,6 +1234,11 @@ export class RomController implements CoachHost {
       switch (e.kind) {
         case "phase":
           changed = true;
+          // D-037 item 1: the rest between tries, and the next try after it, are said.
+          if (e.phase === "rest") this.say(restSay(item, this.opts.lang), e.t);
+          if (e.phase === "attempt" && this.phaseBefore === "rest")
+            this.say(againSay(item, this.opts.lang), e.t);
+          this.phaseBefore = e.phase;
           if (e.phase === "practice" || e.phase === "attempt") this.attemptNow = e.attempt;
           if (e.phase === "ask_can_move")
             this.bridge({ p: 1, type: "ask_can_move", movement: item.movementId, side: item.side, t: e.t });
@@ -1259,7 +1324,12 @@ export class RomController implements CoachHost {
     if (frame || gateEvents.length) {
       const out = this.gate.step(t, null, gateEvents);
       for (const m of out.speak) this.line(m.id as Line, m.severity === "safety" ? "safety" : "warn");
-      if ((out.shown?.id ?? null) !== (this.captionNow?.id ?? null)) changed = true;
+      const shown = out.shown?.id ?? null;
+      if (shown !== (this.captionNow?.id ?? null)) {
+        changed = true;
+        // D-037 item 1 (reversing D-036 item 8's «only if asked»): the coach says the new caption.
+        if (shown) this.say(correctionSay(shown, this.opts.lang), t);
+      }
       this.captionNow = out.shown;
     }
     const r = this.runner;
@@ -1338,6 +1408,11 @@ export class RomController implements CoachHost {
 
   private bridge(event: BridgeEvent): void {
     this.sink.push({ kind: "bridge", event });
+  }
+
+  /** A say line for the coach (D-037 item 1, bridge rule 9). */
+  private say(line: CoachSay, t: number): void {
+    this.bridge({ ...line, t });
   }
 
   /** The result card's save, when it waited for the person to leave the card (D-035). */

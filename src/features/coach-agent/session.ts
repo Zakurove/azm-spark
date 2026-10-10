@@ -30,13 +30,23 @@
  *     (holdVoice, CuePlayer.holdForCoach): only the coach speaks. Local mode releases it.
  *   - D-036 item 2: next_step presses the host's screen buttons (host.actions); the answer guard takes
  *     it only when the person spoke while that very screen showed.
+ *   - D-037 item 1: the coach says the hosts' say lines out loud (bridge rule 9); a tool call or the
+ *     person's words make them wait for the coach's reply, and once the session is first live the
+ *     step on the screen is said (CoachHost.explain), since its own line went out before.
  * Every event a host pushes is stamped with this session's clock, so the answer guard (S0-2) and the
  * event lines never depend on the host's clock.
  */
 import { closeEndReason, rotateAt, SLOW_SETUP_MS, type CoachEndReason } from "../../coach/events";
 import { coachFailure, type CoachFailure } from "../../coach/failure";
 import { AnswerGuard } from "../../coach/tools";
-import type { BridgeEvent, CoachMode, CoachOptions, LiveTransport, TransportEvent } from "../../coach/types";
+import type {
+  BridgeEvent,
+  CoachMode,
+  CoachOptions,
+  CoachSay,
+  LiveTransport,
+  TransportEvent,
+} from "../../coach/types";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../../server/modules/agent/types";
 import type { SilenceMs } from "../../../server/modules/agent/token";
 import { EventBridge } from "./bridge";
@@ -194,6 +204,8 @@ export class CoachSession {
   private voiceHeld = false;
   /** The last failure of the segment (D-035 item 3), sent in every report after it. */
   private failure: CoachFailure | null = null;
+  /** The step on the screen was handed to the coach once the session went live (D-037 item 1). */
+  private explained = false;
 
   constructor(
     private readonly opts: CoachOptions,
@@ -476,6 +488,8 @@ export class CoachSession {
         return this.update();
       case "inputTranscript":
         this.guard.heard(e.text, now);
+        // D-037 item 1 (bridge rule 9): the coach answers the person first; a say line waits.
+        if (e.text.trim()) this.bridge.awaitReply(now);
         this.captions.personText(e.text, e.final);
         return this.update();
       case "interrupted":
@@ -487,6 +501,9 @@ export class CoachSession {
         this.captions.turnComplete();
         return this.update();
       case "toolCall":
+        // Bridge rule 9: a say line the call brings (a press opens the next step) waits for the
+        // coach's reply to the tool result.
+        this.bridge.awaitReply(now);
         return this.executor.handle(e.calls, now);
       case "toolCallCancellation":
         return this.executor.cancel(e.ids, now);
@@ -543,6 +560,25 @@ export class CoachSession {
     this.setMode("live");
     const state = late ? this.hostState() : "";
     if (state) this.transport?.sendContext(`[CTX now ${state}]`, false);
+    // D-037 item 1: the step on the screen is said once the coach can speak: its say line went out
+    // before this session heard anything (a new segment, a slow connection that went local).
+    if (!this.explained || late) this.explainNow(now);
+  }
+
+  /**
+   * The host's say line of the step showing now (CoachHost.explain), to the bridge, unless the bridge
+   * already has the step's own line (it waited while the session connected). Never throws.
+   */
+  private explainNow(now: number): void {
+    this.explained = true;
+    if (this.bridge.stepLineKnown) return;
+    let say: CoachSay | null = null;
+    try {
+      say = this.opts.host.explain?.() ?? null;
+    } catch {
+      say = null;
+    }
+    if (say) this.bridge.push({ ...say, t: now }, now);
   }
 
   /**

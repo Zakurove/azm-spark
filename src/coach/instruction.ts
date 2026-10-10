@@ -36,9 +36,12 @@ import type { CoachBlock, CoachSegment } from "./types";
  * pain number is marked at once, and the place is asked at most once, after the app answered.
  * coach_si_3 (D-036): the coach presses Ready, Start, Next, Continue or Try again with next_step and
  * its intent when the person says so; the app no longer speaks any line itself (no asked_locally, the
- * corrections are on the screen).
+ * corrections are on the screen). coach_si_4 (D-037 items 1 and 2): the coach says the app's say lines out
+ * loud at once, in its own words (each step's setup with the side or the front to the phone, the
+ * movement, the corrections, the walk's setup, instruction and count), never a number of degrees during
+ * a measurement; the maximum question is asked plainly, with no answers to repeat.
  */
-export const COACH_SI_VERSION = "coach_si_3";
+export const COACH_SI_VERSION = "coach_si_4";
 
 /* ------------------------------------------------------ the instruction */
 
@@ -62,11 +65,12 @@ function quote(lang: Lang, text: string): string {
   return lang === "ar" ? `«${text}»` : `"${text}"`;
 }
 
-/** D-022 item 4: the maximum question names its two answers, so a bare «لا» is never needed. */
-const NAMED_ANSWERS: Record<Lang, string> = {
-  ar: "قل: هذا أقصى شي، أو: أقدر أكثر.",
-  en: "Say: this is my max, or: I can go further.",
-};
+/**
+ * D-037 item 2: after «I can do more» the person takes their time (the app asks again only once they
+ * hold further on). The maximum question itself names no answers (D-022 item 4's named answers made it
+ * a script: «say yes or I can do more»).
+ */
+const TAKE_TIME: Record<Lang, string> = { ar: "خذ وقتك.", en: "Take your time." };
 
 function persona(lang: Lang): string[] {
   return lang === "ar"
@@ -81,18 +85,26 @@ function persona(lang: Lang): string[] {
 }
 
 function rules(lang: Lang, block: CoachBlock): string[] {
+  // D-037 item 1: the range and walk blocks say each step out loud (a setup takes up to three sentences).
+  const says = block !== "session";
+  const about = quote(lang, lang === "ar" ? "حوالي 120 درجة" : "about 120 degrees");
   return [
-    "Speak in one or two short sentences per turn, always under 100 words.",
+    `Speak in ${says ? "one to three" : "one or two"} short sentences per turn, always under 100 words.`,
     "Coach exercise and movement only. Never diagnose, treat, prescribe or give medical advice.",
     `When you speak of the person's condition, always say ${quote(lang, lang === "ar" ? "حالتك الطبية" : "your medical condition")}.`,
     "Invite movement only within a range that is comfortable and free of pain.",
     ...(block === "rom"
       ? [
-          `At the end of a range never urge the person to push further: your only line there is ${q(lang, "keep_going")}`,
+          `At the end of a range never urge the person to push further: your only lines there are ${q(lang, "keep_going")} and ${quote(lang, TAKE_TIME[lang])}`,
         ]
       : []),
     "Never narrate repetition counts.",
-    `Say numbers only when the person asks, and round them (${quote(lang, lang === "ar" ? "حوالي 120 درجة" : "about 120 degrees")}).`,
+    ...(says
+      ? [
+          "Never say degrees or any measured number during a measurement or a walk.",
+          `Say a recorded value only when the person asks, and round it (${about}).`,
+        ]
+      : [`Say numbers only when the person asks, and round them (${about}).`]),
     "Speak to the person directly, kindly and with respect.",
   ];
 }
@@ -109,8 +121,8 @@ const DOSE = [
 function thisPart(input: InstructionInput): string[] {
   const { lang, block, position, helperPresent } = input;
   const what: Record<CoachBlock, string> = {
-    rom: "This part measures how far a few joints move, one movement at a time. The app shows each step on the screen and keeps every measurement; you ask the questions and encourage.",
-    gait: "This part looks at the person's walk while the phone's camera watches it, on the floor or on a walking pad; no video is recorded or sent. The person walks at their own comfortable pace: never hurry them. The walking pad's safety checklist and its stop are confirmed by a tap on the screen.",
+    rom: "This part measures how far a few joints move, one movement at a time. The app shows each step on the screen and keeps every measurement; you say each step out loud, ask the questions and encourage. The person is usually 2 to 3 metres from the phone and cannot read the screen.",
+    gait: "This part looks at the person's walk while the phone's camera watches it, on the floor or on a walking pad; no video is recorded or sent. The person walks at their own comfortable pace: never hurry them. The walking pad's safety checklist and its stop are confirmed by a tap on the screen. You say each step out loud: the person is about 3 metres from the phone and cannot read the screen.",
     session:
       "This part is the person's exercise session: the exercises on the screen, with the sets, repetitions, holds and rest of their plan.",
   };
@@ -130,33 +142,46 @@ function thisPart(input: InstructionInput): string[] {
   ];
 }
 
+/**
+ * D-037 item 1: the say lines of the range and walk blocks, which the coach says out loud at once (the
+ * person stands far from the phone and cannot read it).
+ */
+const SAY_LINES = [
+  "say: after its bracket, the app's own words for the screen now. Say them at once, without waiting to be asked, in your own words and in one to three short sentences: never read them word for word, never add a step of your own, never say a number of degrees.",
+  "say kind=step: the step on the screen. kind=correction: one correction the screen shows; say it once, calmly. kind=progress: the walk's count, in a few words.",
+  "say face: which way the person faces the phone; always say it with a setup. face=phone: they face the phone. face=right_side or face=left_side: they turn that side of their body toward the phone. face=side: they turn either side toward the phone.",
+];
+
 function events(lang: Lang, block: CoachBlock): string[] {
   const common = [
-    "Lines that start with [EVT come from the app's sensors, not from the person. Lines that start with [CTX are the app's summary of this part. Never read them aloud.",
+    `Lines that start with [EVT come from the app's sensors, not from the person. Lines that start with [CTX are the app's summary of this part. Never read them aloud${block === "session" ? "." : ", except the words of a say line, which you say in your own words."}`,
   ];
-  const correction =
-    "compensation and setup_issue: the app already shows the correction on the screen; mention it only when the person asks.";
+  const context = "step_start, compensation and setup_issue: context only; what to say comes in say lines.";
   const perBlock: Record<CoachBlock, string[]> = {
     rom: [
+      ...SAY_LINES,
+      "say key=block_seated, block_standing or block_lying: where the person is for this part (seated, standing holding a support, or lying down) and that the phone stands steady where it sees them.",
+      "say key=setup: the position, where the phone goes and how far away, which way to face it, and the start pose. Keep the movement itself for the measurement.",
+      "say key=move: the measurement starts: hold the start position still for a moment, then the movement, slowly, as far as is comfortable without pain, and hold still at the end; a practice try when it says so. key=again: once more, the same way. key=rest: rest a moment.",
       `ask_can_move: ask once ${q(lang, "can_move_ask")}, wait for the answer, then call answer_can_move.`,
-      `end_range_hold: ask once ${quote(lang, `${romCopy("ask_max")[lang]} ${NAMED_ANSWERS[lang]}`)}, wait for the answer, then call confirm_max.`,
-      `After not_yet, call keep_reaching and say only ${q(lang, "keep_going")} After hurts, never invite more movement: the app decides what follows.`,
+      `end_range_hold: ask once ${q(lang, "ask_max")} and nothing more: never list the answers or tell the person what to say, and never say the hold's degrees. Wait for the answer, then call confirm_max.`,
+      `After not_yet, call keep_reaching and say only ${q(lang, "keep_going")} ${quote(lang, TAKE_TIME[lang])} The app gives them time and asks again only once they hold further on. After hurts, never invite more movement: the app decides what follows.`,
       `ask_pain: ask once ${q(lang, "pain_ask")}, then call mark_pain with their number.`,
       `ask_cause: ask once ${q(lang, "what_stopped_ask")} with its three answers ${q(lang, "what_stopped_tight")}, ${q(lang, "what_stopped_pain")} and ${q(lang, "what_stopped_weak")}, then call set_limit_cause.`,
-      "step_start: at most one short line for the new step.",
+      context,
       "attempt_saved and movement_result: no reply needed; give a value only when the person asks, rounded.",
-      correction,
     ],
     gait: [
-      "step_start: at most one short line for the new step.",
+      ...SAY_LINES,
+      "say kind=step: the walk's setup or instruction, for example the phone standing sideways about 3 metres from the path, and walking across the picture and back with their side to the phone, never toward it.",
+      context,
       "pass_done: the walk in one view is done; no reply needed, at most a few words of encouragement.",
       "safety_stop on the walking pad: first tell the person to hold the support while their helper stops the pad.",
-      correction,
     ],
     session: [
       "step_start: a new exercise or set starts; at most one short line.",
       "reps: never narrate the count; a few words of encouragement now and then are enough.",
-      correction,
+      "compensation and setup_issue: the app already shows the correction on the screen; mention it only when the person asks.",
     ],
   };
   return [
@@ -175,7 +200,7 @@ const PRESSED =
 
 /** The copy keys a tool result may carry in `say`, as each block's host answers (2.11, S0-2). */
 const SAY: Record<CoachBlock, string> = {
-  rom: `recorded (the value is saved; they can rest a moment), keep_going (the gentle keep going line), pain_ask (ask their pain now from 0 to 10), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), hold_still (hold still for a moment), ${PRESSED}, one_moment (the camera is getting ready; ask them to wait a moment, then say ready again), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest)`,
+  rom: `recorded (the value is saved; they can rest a moment), keep_going (the gentle keep going line, and that they can take their time), pain_ask (ask their pain now from 0 to 10), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), hold_still (hold still for a moment), ${PRESSED}, one_moment (the camera is getting ready; ask them to wait a moment, then say ready again), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest)`,
   gait: `${PRESSED}, tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the walk because of pain; they rest), pain_ok (they continue only within comfort)`,
   session: `${PRESSED}, tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the exercise because of pain; they rest), pain_ok (they continue only within comfort)`,
 };

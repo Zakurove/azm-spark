@@ -79,8 +79,8 @@ export function useSpeechSequence(
         setIndex(i);
         // The caption's tap plays this line again (3.0). A line already on the screen as its heading
         // is not repeated in the strip above it.
-        // The caption is kept in the page's digits, so its replay name never reads «997» inside
-        // Arabic (Q30).
+        // The caption's digits go through localizeDigits, so they are Western in Arabic too (D-036
+        // item 3), whatever digits the line was written in.
         if (line?.onScreen) uiRef.current.clearCaption();
         else if (line)
           uiRef.current.showCaption(

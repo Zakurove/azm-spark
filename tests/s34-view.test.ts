@@ -1,6 +1,6 @@
 /**
  * The S34 view rendered to markup for every preview state, in Arabic and English (no DOM): STOP is
- * first, the copy has no dash characters, Arabic shows Arabic Indic digits, the side lean and the
+ * first, the copy has no dash characters, Arabic shows Western digits (D-036 item 3), the side lean and the
  * arm raise show no measured value during the test (O3, O4, O28), and the timed count is never
  * a spoken line.
  */
@@ -67,7 +67,7 @@ describe("S34 view, every preview state in both languages", () => {
         const first = html.indexOf("<button");
         expect(html.slice(first, first + 120), name).toContain("s34-stop");
         expect(text(html), name).not.toMatch(DASH);
-        if (lang === "ar") expect(text(html).replace(/\bT6\b/g, ""), name).not.toMatch(/[0-9]/);
+        if (lang === "ar") expect(text(html), name).not.toMatch(/[٠-٩٫]/);
       }
     });
   }

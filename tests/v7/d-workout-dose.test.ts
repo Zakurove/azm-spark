@@ -1,8 +1,8 @@
 /**
  * D-030 item 2, E3-6: the session's exercise list (Workout.tsx) says a guided card's dose with the one
  * doseText of the week and the Program page (src/app/weekly-dose.ts): Arabic counts its seconds
- * («١٠ مرات × ٥ ثوانٍ»), a whole number of minutes reads as minutes («١٠ دقائق», not 600 seconds), and
- * repetitions read in words. The camera movements keep «٣ × ٩».
+ * («10 مرات × 5 ثوانٍ»), a whole number of minutes reads as minutes («10 دقائق», not 600 seconds), and
+ * repetitions read in words. The camera movements keep «3 × 9».
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -68,9 +68,9 @@ describe("the session's exercise list (E3-6)", () => {
       const cards = [...today.warmup, ...today.extra, ...today.cooldown].map((i) => doseText(i, lang));
       const shown = doses(lang);
       for (const d of cards) expect(shown, `${lang}: ${d}`).toContain(d);
-      expect(shown).toContain(lang === "ar" ? "٣ × ٩" : "3 × 9");
+      expect(shown).toContain(lang === "ar" ? "3 × 9" : "3 × 9");
     }
-    expect(doses("ar")).toContain("١٠ مرات × ٥ ثوانٍ");
-    expect(doses("ar")).toContain("١٠ دقائق");
+    expect(doses("ar")).toContain("10 مرات × 5 ثوانٍ");
+    expect(doses("ar")).toContain("10 دقائق");
   });
 });

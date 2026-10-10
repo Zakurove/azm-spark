@@ -58,10 +58,8 @@ const DATA = check as unknown as {
   boundary: Record<string, Record<Lang, string>>;
   tests: { id: string; name: Record<Lang, string> }[];
 };
-/** A data text as the page shows it: Arabic Indic digits in Arabic (Q30). */
-const shown = (text: string, lang: Lang) =>
-  lang === "ar" ? text.replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : text;
-const testName = (id: string, lang: Lang) => shown(DATA.tests.find((x) => x.id === id)!.name[lang], lang);
+/** A test's name as the page shows it: as written, Western digits in both languages (D-036 item 3). */
+const testName = (id: string, lang: Lang) => DATA.tests.find((x) => x.id === id)!.name[lang];
 
 const measured = (value: number, detail: Record<string, unknown> = {}): Outcome => ({
   status: "measured",
@@ -196,7 +194,7 @@ for (const lang of LANGS) {
       );
       await expect(page.locator(".rs-skips")).toHaveCount(0);
       await expect(page.locator(".rs-card").first()).toContainText(
-        lang === "ar" ? "١٢١ درجة" : "121 degrees",
+        lang === "ar" ? "121 درجة" : "121 degrees",
       );
       // No comparison and no verdict for a guest.
       await expect(page.locator(".pg-pill")).toHaveCount(0);
@@ -427,7 +425,7 @@ for (const lang of LANGS) {
       await expect(page.locator(".pg-trend svg[role='img']")).toBeVisible();
       // Sessions as n of every 10.
       await expect(page.locator('[data-block="sessions"]')).toContainText(
-        lang === "ar" ? "٨ من كل ١٠" : "8 of every 10",
+        lang === "ar" ? "8 من كل 10" : "8 of every 10",
       );
       // The history opens the read only view of a check; Back returns to its row.
       const rows = page.locator(".pg-history-row");
@@ -525,7 +523,7 @@ for (const lang of LANGS) {
       await today(open.context, { checks: { assessments: [open.check] } });
       const resume = slot.locator('[data-variant="resume"]');
       await expect(resume.locator("h2")).toHaveText(a.entry.resume.title);
-      await expect(resume).toContainText(lang === "ar" ? "الاختبار ٢ من ٣" : "test 2 of 3");
+      await expect(resume).toContainText(lang === "ar" ? "الاختبار 2 من 3" : "test 2 of 3");
       await expect(resume.locator(".ghost")).toHaveText(a.entry.resume.cta);
 
       // Paused, blocked, too soon: never on Today; My results says so.

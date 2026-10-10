@@ -27,6 +27,7 @@ const SIZES = [
 type Size = (typeof SIZES)[number];
 const url = (path: string, lang: Lang) =>
   lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path;
+/** Digits as a person may type them: Arabic Indic in Arabic, read as numbers (the page shows 0 to 9). */
 const digits = (lang: Lang, n: number) =>
   lang === "ar" ? String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : String(n);
 

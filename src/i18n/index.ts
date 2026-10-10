@@ -5,17 +5,18 @@
  *   t("ar", "assessment.intro.title")            nested objects or flat keys inside a namespace
  *   t("en", "progress.nextDue", { date: "..." }) {name} interpolation
  *
- * Numbers passed in vars are written with fmtNum (Arabic Indic digits in Arabic). ASCII digits in
- * Arabic text are shown in Arabic Indic digits too, so a sentence never mixes the two systems
- * (localizeDigits). A number followed by {unit}, where unit is a unit form id of the check data
- * (deg, bends, stands, sec) or "min" (minutes, assessment.units.min), is written with the right
- * Arabic plural form (countPhrase): «دقيقة واحدة», «دقيقتين», «٥ دقائق», «٢١ دقيقة».
+ * Numbers passed in vars are written with fmtNum: Western digits 0 to 9 in both languages (D-036
+ * item 3, replacing council Q30's Arabic Indic digits). Any Arabic Indic digit left in Arabic text is
+ * made Western too, so a sentence never mixes the two systems (localizeDigits). A number followed by
+ * {unit}, where unit is a unit form id of the check data (deg, bends, stands, sec) or "min" (minutes,
+ * assessment.units.min), is written with the right Arabic plural form (countPhrase): «دقيقة واحدة»,
+ * «دقيقتين», «5 دقائق», «21 دقيقة».
  *
  * To add a namespace: create the JSON file in both folders and add it to DICTS below. The key sets
  * of Arabic and English must be identical; tests/i18n.test.ts and the compile time check below
  * enforce it.
  */
-import { fmtNum, type Lang } from "../app/i18n";
+import { fmtNum, westernDigits, type Lang } from "../app/i18n";
 // Only the unit forms of the check data (vite.config.ts), so the landing does not load all of it.
 import unitForms from "virtual:check-unit-forms";
 import { UNIT_FORM_IDS, type UnitFormId, type UnitForms } from "../movements/types";
@@ -56,22 +57,14 @@ export type Vars = Record<string, string | number>;
 
 /* ---------------------------------------------------------------- numbers */
 
-const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
-
 /**
- * Shows the ASCII digits of Arabic text in Arabic Indic digits (council Q30, progress.digits in the
- * check data), 997 and 937 included (٩٩٧ and ٩٣٧): only the tel: href of a call link stays ASCII.
- * Digits attached to a Latin letter stay as they are (codes such as T6). Digits are mapped one by one
- * (with ٫ as the decimal mark), so a year or a code is never grouped. English text is unchanged.
+ * The digits of Arabic text as shown: Western 0 to 9 (D-036 item 3, progress.digits of the check data,
+ * replacing council Q30's Arabic Indic digits). ASCII digits pass through as they are (997 and 937
+ * included); any Arabic Indic (٠ to ٩) or Persian (۰ to ۹) digit becomes 0 to 9, ٫ between two digits
+ * becomes "." and ٬ between two digits becomes "," (westernDigits). English text is unchanged.
  */
 export function localizeDigits(lang: Lang, text: string): string {
-  if (lang !== "ar") return text;
-  return text.replace(/\d+(?:\.\d+)?/g, (run, offset: number) => {
-    const before = text[offset - 1] ?? "";
-    const after = text[offset + run.length] ?? "";
-    if (/[A-Za-z]/.test(before) || /[A-Za-z]/.test(after)) return run;
-    return run.replace(/\d/g, (d) => ARABIC_DIGITS[Number(d)]).replace(".", "٫");
-  });
+  return lang === "ar" ? westernDigits(text) : text;
 }
 
 // SPEC-GAP: negative-numbers. Copy may not hold a minus sign (rule 4) and the spec does not say how a
@@ -121,7 +114,7 @@ export function unitWord(lang: Lang, unit: CountUnit, n: number): string {
 
 /**
  * A number with its unit word. In Arabic the one and two forms stand for the number and the word
- * together (درجة واحدة, درجتين); every other form follows the number (٥ درجات, ١١ درجة).
+ * together (درجة واحدة, درجتين); every other form follows the number (5 درجات, 11 درجة).
  * English: 1 degree, 16 degrees.
  */
 export function countPhrase(lang: Lang, unit: CountUnit, n: number): string {
@@ -140,7 +133,7 @@ export function countPhrase(lang: Lang, unit: CountUnit, n: number): string {
  * Fills {name} tokens. Numbers go through formatNumber. "{x} {unit}" with a number x and a unit form
  * id as unit becomes countPhrase(unit, x); a {unit} on its own with a unit form id gets the generic
  * word (Arabic zero form, English other form). Unknown tokens are left in place. Arabic text first
- * has its own ASCII digits localized (localizeDigits); string vars are inserted as given.
+ * has its own digits made Western (localizeDigits); string vars are inserted as given.
  */
 export function interpolate(lang: Lang, template: string, vars: Vars = {}): string {
   const unit = vars.unit;
@@ -148,7 +141,7 @@ export function interpolate(lang: Lang, template: string, vars: Vars = {}): stri
   const paired = isUnitFormId(unit)
     ? text
         // A range in Arabic: a first number of the one or two form takes its word too («نحو دقيقة
-        // واحدة إلى ٣ دقائق», «دقيقتين إلى ٣ دقائق»); Arabic never writes ١ or ٢ with the noun.
+        // واحدة إلى 3 دقائق», «دقيقتين إلى 3 دقائق»); Arabic never writes 1 or 2 with the noun.
         .replace(/\{(\w+)\} إلى \{(\w+)\} \{unit\}/g, (whole, from: string, to: string) => {
           const a = vars[from];
           if (lang !== "ar" || typeof a !== "number") return whole;

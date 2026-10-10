@@ -1,14 +1,15 @@
 /**
  * The range screens of the focus check (product v7 plan 1.5 and 1.7, contract B3): a block's card, a
- * movement's setup card (the picture and the instructions), the measurement (the camera, the live dial
- * against the typical band, the hold ring, the questions with their large buttons), the result of the
- * movement, the pain stop, the rests and the sit before stand minute.
+ * movement's setup card (the picture and the instructions), the measurement (the camera, the live range
+ * meter against the typical band with its hold ring, no number on it since D-036 item 4, the questions
+ * with their large buttons), the result of the movement (its words, the degrees small), the pain stop,
+ * the rests and the sit before stand minute.
  *
  * The questions keep their buttons on screen whatever the coach does (rom-protocol 1.1 step 5): the
  * maximum question's three answers are the v1 answer zones (contract section 7), large enough to be
  * tapped by a helper or the booth staff while the person holds the end of the movement.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Lang } from "../../app/i18n";
 import { localizeDigits, t } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
@@ -24,7 +25,7 @@ import CheckIcon from "../assessment/shared/CheckIcon";
 import { AnswerZones } from "../assessment/safety/parts";
 import { useFoldFit } from "../assessment/safety/hooks";
 import { copyText, instructionLines, lineText, movementName, positionName, resultView } from "./copy";
-import { Dial, scaleMax } from "./Dial";
+import { RangeMeter, type MeterReading } from "./Dial";
 import { MovementPicture } from "./MovementPicture";
 import { Actions, Body, Choices, Dots, Glass, Kicker, PainScale, Timer, Title } from "./parts";
 import type { RomController } from "./romController";
@@ -266,27 +267,19 @@ export interface MeasureProps {
   now: number;
 }
 
-/** The scale's end of a movement, fixed while it runs (the dial never jumps). */
-function useScale(item: RomProtocolItem, ctl: RomController, live: number | null): number {
-  const norm = ctl.norm(item);
-  const kind = movementDef(item.movementId).kind;
-  const seen = useRef(0);
-  if (live !== null) seen.current = Math.max(seen.current, Math.abs(live));
-  return scaleMax(kind, norm.typical, kind === "lack" ? norm.withinUpTo : norm.withinFrom, seen.current);
-}
-
 /**
- * The measurement (rom-protocol 1.1): the camera with the body's lines, the dial with the typical
- * band and the hold ring, the phase's prompt, the correction caption, the questions. No STOP since
- * D-034 item 4: the X at the top opens the stop and leave options.
+ * The measurement (rom-protocol 1.1): the camera with the body's lines, the range meter with the
+ * typical band and the hold ring (no number, D-036 item 4), the phase's prompt, the correction caption,
+ * the questions. No STOP since D-034 item 4: the X at the top opens the stop and leave options.
+ *
+ * The meter reads the controller each animation frame (`read`): a new angle does not render this
+ * screen, only a new phase, caption or question does.
  */
 export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, now }: MeasureProps) {
   const phase = ctl.phase ?? "idle";
   const def = movementDef(item.movementId);
   const norm = ctl.norm(item);
-  const live = ctl.live;
   const hold = ctl.hold;
-  const max = useScale(item, ctl, live);
   const highlight = useMemo(() => movementLandmarks(def, item.side).gate, [def, item.side]);
   const att = ctl.attempt;
   // D-035: one valid attempt records the value; a second only when the person asks for it.
@@ -301,7 +294,18 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
   useEffect(() => {
     if (!asking) pauseRef.current?.focus({ preventScroll: true });
   }, [asking]);
-  const value = phase === "ask_max" && hold ? hold.deg : live;
+  // The live reading, taken by the meter each animation frame (never React state at frame rate).
+  const read = useRef<() => MeterReading>(() => ({ value: null, hold: null }));
+  read.current = () => {
+    const now = ctl.phase;
+    if (now === "calibrating" || now === "paused") return { value: null, hold: null };
+    return { value: ctl.live, hold: now === "attempt" || now === "practice" ? ctl.holdProgress : null };
+  };
+  const meterLabels = {
+    band: tV7(lang, "rom.measure.band"),
+    you: tV7(lang, "rom.measure.you"),
+    hold: tV7(lang, "rom.measure.hold"),
+  };
   // D-034 item 5: after Ready the measurement says «لنبدأ» clearly (and the voice says it, FocusApp),
   // with the start position under it, before the first attempt.
   const prompt =
@@ -416,17 +420,15 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
         )}
         {!asking && phase !== "rest" && (
           <div className="fx-sheet-body">
-            <Dial
+            <RangeMeter
               lang={lang}
               kind={def.kind}
-              value={phase === "calibrating" || phase === "paused" ? null : value}
+              mode="live"
+              read={() => read.current()}
               typical={norm.typical}
               withinFrom={norm.withinFrom}
               withinUpTo={norm.withinUpTo}
-              hold={phase === "attempt" || phase === "practice" ? ctl.holdProgress : null}
-              max={max}
-              typicalLabel={tV7(lang, "rom.measure.band")}
-              {...(def.kind === "lack" ? { caption: tV7(lang, "rom.measure.fromStraight") } : {})}
+              labels={meterLabels}
             />
             <div className="fx-prompt" data-fold>
               {prompt && <p className="fx-prompt-main">{prompt}</p>}
@@ -447,7 +449,23 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
           </div>
         )}
         {phase === "ask_max" && hold && (
-          <Question lang={lang} id="fx-ask-max" text={copyText("ask_max", lang)} held={hold.deg}>
+          <Question
+            lang={lang}
+            id="fx-ask-max"
+            text={copyText("ask_max", lang)}
+            held={
+              <RangeMeter
+                lang={lang}
+                kind={def.kind}
+                mode="held"
+                value={hold.deg}
+                typical={norm.typical}
+                withinFrom={norm.withinFrom}
+                withinUpTo={norm.withinUpTo}
+                labels={meterLabels}
+              />
+            }
+          >
             <div className="fx-v1 fx-zones" data-fold>
               <AnswerZones
                 labelledBy="fx-ask-max"
@@ -525,17 +543,13 @@ function Question({
   lang: Lang;
   id: string;
   text: string;
-  held?: number;
+  /** The held position, on a small meter (no number on the live screen, D-036 item 4). */
+  held?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="fx-ask" data-question={id}>
-      {held !== undefined && (
-        <p className="fx-held" dir="ltr">
-          <b>{bidiText(lang, `${Math.abs(held)}`)}</b>
-          <sup>°</sup>
-        </p>
-      )}
+      {held && <div className="fx-held">{held}</div>}
       <QuestionText lang={lang} id={id} text={text} as="h2" />
       {children}
     </div>
@@ -569,27 +583,11 @@ export function PainStopScreen({
   );
 }
 
-/** The count up of a result's number (eased out; at once with reduced motion). */
-function useCountUp(to: number | null, ms = 1100): number | null {
-  const [v, setV] = useState<number | null>(to === null ? null : 0);
-  useEffect(() => {
-    if (to === null) return setV(null);
-    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches)
-      return setV(to);
-    let raf = 0;
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      const p = Math.max(0, Math.min(1, (now - t0) / ms));
-      setV(Math.round(to * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [to, ms]);
-  return v;
-}
-
-/** The result of one movement (plan 1.7): «Your knee bends to 95 degrees; typical for you is about 135». */
+/**
+ * The result of one movement (plan 1.7): «Your knee bends to 95 degrees; typical for you is about 135».
+ * D-036 item 4: the words lead (the label and the line); the meter settles where the person reached,
+ * and the degrees are small under it.
+ */
 export function ResultScreen({
   lang,
   ctl,
@@ -622,15 +620,7 @@ export function ResultScreen({
   const view = resultView(item, result, finding, typical, intake, lang, (k) =>
     tV7(lang, `rom.${k}` as never),
   );
-  const shown = useCountUp(
-    view.value === null ? null : result.value === null ? null : Math.max(0, result.value),
-  );
-  const max = scaleMax(
-    def.kind,
-    norm.typical,
-    def.kind === "lack" ? norm.withinUpTo : norm.withinFrom,
-    Math.abs(result.value ?? 0),
-  );
+  const reached = view.value === null || result.value === null ? null : result.value;
   const tries = result.attempts.filter((a) => a.outcome === "valid");
   return (
     <div className="fx-split fx-result" data-finding={view.finding} data-value={result.value ?? ""}>
@@ -638,18 +628,26 @@ export function ResultScreen({
         <Kicker>{tV7(lang, "rom.result.kicker")}</Kicker>
         <Title>{movementName(item.movementId, lang)}</Title>
         <span className="fx-pill is-violet">{sideRegion(item, lang)}</span>
-        {view.value !== null ? (
-          <Dial
+        {reached !== null ? (
+          <RangeMeter
             lang={lang}
             kind={def.kind}
-            value={shown}
+            mode="final"
+            value={Math.max(0, reached)}
             typical={view.typical}
             withinFrom={norm.withinFrom}
             withinUpTo={norm.withinUpTo}
-            max={max}
-            final
-            typicalLabel={tV7(lang, "rom.measure.band")}
-            {...(def.kind === "lack" ? { caption: tV7(lang, "rom.measure.fromStraight") } : {})}
+            labels={{
+              band: tV7(lang, "rom.measure.band"),
+              you: tV7(lang, "rom.measure.you"),
+              hold: tV7(lang, "rom.measure.hold"),
+            }}
+            degrees={
+              <>
+                <bdi dir="ltr">{`${Math.abs(reached)}°`}</bdi>
+                {def.kind === "lack" && <span>{tV7(lang, "rom.measure.fromStraight")}</span>}
+              </>
+            }
           />
         ) : (
           <div className="fx-figure-art">

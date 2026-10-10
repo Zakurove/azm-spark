@@ -4,30 +4,16 @@
  * measured in gold. Without a picture (the E2E person, a camera that has not started) the lines are
  * drawn on the page's light. The box is forced LTR, so the mirrored picture never flips with RTL.
  * Video never leaves the phone: the element is only drawn here.
+ *
+ * D-036 item 5: the lines are the steady skeleton (src/app/skeleton.ts), smoothed with the v1
+ * camera exercise's filter, one person followed, joints fading rather than jumping. They are drawn on
+ * a canvas from a requestAnimationFrame loop; each camera frame is fed to the skeleton once, and the
+ * box's size is read only when it changes (a ResizeObserver), so no frame forces a layout.
  */
 import { useEffect, useRef, type ReactNode } from "react";
 import { containBox } from "../assessment/camera/CameraVideo";
+import { drawSkeleton, SteadySkeleton } from "../../app/skeleton";
 import type { Frame } from "../../engine/types";
-
-const BONES: readonly [number, number][] = [
-  [11, 12],
-  [11, 13],
-  [13, 15],
-  [12, 14],
-  [14, 16],
-  [11, 23],
-  [12, 24],
-  [23, 24],
-  [23, 25],
-  [25, 27],
-  [24, 26],
-  [26, 28],
-  [27, 31],
-  [28, 32],
-  [27, 29],
-  [28, 30],
-];
-const JOINTS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 
 export interface StageProps {
   video: HTMLVideoElement | null;
@@ -44,8 +30,15 @@ export function Stage({ video, frame, highlight, children, compact }: StageProps
   const holder = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const box = useRef<HTMLDivElement>(null);
-  const lit = useRef(new Set(highlight));
-  lit.current = new Set(highlight);
+  const lit = useRef<ReadonlySet<number>>(new Set(highlight));
+  const key = highlight.join(",");
+  const litKey = useRef(key);
+  if (litKey.current !== key) {
+    litKey.current = key;
+    lit.current = new Set(highlight);
+  }
+  const small = useRef(!!compact);
+  small.current = !!compact;
 
   useEffect(() => {
     const v = video;
@@ -59,66 +52,66 @@ export function Stage({ video, frame, highlight, children, compact }: StageProps
   }, [video]);
 
   useEffect(() => {
+    const b = box.current;
+    const size = { w: b?.clientWidth ?? 0, h: b?.clientHeight ?? 0 };
+    const observer =
+      b && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver((entries) => {
+            const r = entries[entries.length - 1]?.contentRect;
+            if (r) {
+              size.w = r.width;
+              size.h = r.height;
+            }
+          })
+        : null;
+    if (b) observer?.observe(b);
+    const skeleton = new SteadySkeleton();
     let raf = 0;
-    const draw = () => {
+    let painted = false;
+    const draw = (now: number) => {
       raf = requestAnimationFrame(draw);
       const c = canvas.current;
-      const b = box.current;
       if (!c || !b) return;
-      const w = b.clientWidth;
-      const h = b.clientHeight;
+      // Without a ResizeObserver (old browsers) the size is read each frame, as before.
+      if (!observer) {
+        size.w = b.clientWidth;
+        size.h = b.clientHeight;
+      }
+      const { w, h } = size;
       const f = frame.current;
-      const a = f?.aspect ?? (video?.videoWidth ?? 9) / (video?.videoHeight || 16);
-      const fit = containBox(w, h, a && Number.isFinite(a) ? a : 9 / 16);
+      if (f) skeleton.push(f);
+      const pose = skeleton.pose(now);
       const dpr = Math.min(2, window.devicePixelRatio || 1);
-      if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
-        c.width = Math.round(w * dpr);
-        c.height = Math.round(h * dpr);
+      const cw = Math.round(w * dpr);
+      const ch = Math.round(h * dpr);
+      const resized = c.width !== cw || c.height !== ch;
+      if (resized) {
+        c.width = cw;
+        c.height = ch;
       }
       const ctx = c.getContext("2d");
       if (!ctx) return;
+      if (!pose) {
+        // Nothing to show: clear once, then leave the canvas alone.
+        if (painted || resized) ctx.clearRect(0, 0, cw, ch);
+        painted = false;
+        return;
+      }
+      const a = f?.aspect ?? (video?.videoWidth ?? 9) / (video?.videoHeight || 16);
+      const fit = containBox(w, h, a && Number.isFinite(a) ? a : 9 / 16);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const lm = f?.lm;
-      if (!lm) return;
-      const pt = (k: number) => ({ x: fit.x + lm[k].x * fit.w, y: fit.y + lm[k].y * fit.h });
-      const seen = (k: number) => (lm[k]?.visibility ?? 0) >= 0.5;
-      const on = lit.current;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      for (const [line, width, gold] of [
-        ["rgba(255, 255, 255, 0.92)", 11, false],
-        ["rgba(128, 101, 173, 0.82)", 6, false],
-        ["#e9b52c", 7, true],
-      ] as const) {
-        ctx.strokeStyle = line;
-        ctx.lineWidth = width;
-        for (const [i, j] of BONES) {
-          if (!seen(i) || !seen(j)) continue;
-          if (gold && !(on.has(i) && on.has(j))) continue;
-          const A = pt(i);
-          const B = pt(j);
-          ctx.beginPath();
-          ctx.moveTo(A.x, A.y);
-          ctx.lineTo(B.x, B.y);
-          ctx.stroke();
-        }
-      }
-      for (const k of JOINTS) {
-        if (!seen(k)) continue;
-        const P = pt(k);
-        ctx.beginPath();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.arc(P.x, P.y, on.has(k) ? 9 : 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.fillStyle = on.has(k) ? "#e3ab1f" : "#6c56a5";
-        ctx.arc(P.x, P.y, on.has(k) ? 6 : 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      drawSkeleton(ctx, pose, (x, y) => ({ x: fit.x + x * fit.w, y: fit.y + y * fit.h }), {
+        highlight: lit.current,
+        compact: small.current,
+      });
+      painted = true;
     };
     raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+    };
   }, [video, frame]);
 
   return (

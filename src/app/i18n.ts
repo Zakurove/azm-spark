@@ -40,7 +40,7 @@ export const T = {
   validReps: { ar: "دون ملاحظة", en: "without flags" },
   partialReps: { ar: "مدى أقصر", en: "shorter range" },
   compReps: { ar: "مع ملاحظة", en: "with movement flags" },
-  rpeTitle: { ar: "قدّر جهدك من ٠ إلى ١٠", en: "How hard was that, from 0 to 10?" },
+  rpeTitle: { ar: "قدّر جهدك من 0 إلى 10", en: "How hard was that, from 0 to 10?" },
   rpeHigh: { ar: "جهدك مرتفع، خذ راحةً كاملة قبل المواصلة", en: "High effort. Take a proper rest." },
   summaryTitle: { ar: "ملخص الجلسة", en: "Session summary" },
   bestRom: { ar: "أوسع مدى وصلت إليه", en: "Best range reached" },
@@ -69,24 +69,47 @@ export const T = {
 
 export type Dict = typeof T;
 
+/**
+ * The locale of every Arabic number and date (D-036 item 3): Arabic words with Western digits 0 to 9
+ * and "." as the decimal mark (the latn numbering system), replacing council Q30's Arabic Indic digits.
+ * Build every Arabic Intl formatter with it, never with plain "ar" or "ar-SA".
+ */
+export const AR_LOCALE = "ar-SA-u-nu-latn";
+
+/**
+ * Western digits for any text (D-036 item 3): Arabic Indic (U+0660 to U+0669) and Extended Arabic
+ * Indic or Persian (U+06F0 to U+06F9) digits become 0 to 9, the Arabic decimal mark ٫ between two
+ * digits becomes "." and the Arabic thousands mark ٬ between two digits becomes ",". Text stored or
+ * written before D-036 (old weekly summaries, a model's Arabic) reads in the same digits as the page.
+ */
+export function westernDigits(text: string): string {
+  return text
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/(\d)\u066b(?=\d)/g, "$1.")
+    .replace(/(\d)\u066c(?=\d)/g, "$1,");
+}
+
+/** A number for display: Western digits in both languages (D-036), grouped («1,234.5» · "1,234.5"). */
 export function fmtNum(n: number, lang: Lang): string {
-  return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US").format(n);
+  return new Intl.NumberFormat(lang === "ar" ? AR_LOCALE : "en-US").format(n);
 }
 
 /**
  * A date or time for display. Every date uses the Gregorian calendar (Q30): on some browsers ar-SA
  * defaults to the Umm al-Qura calendar, which would show Hijri dates on one screen and Gregorian ones
- * on another. Arabic month names and Arabic Indic digits come with the ar-SA locale.
+ * on another. Arabic month names come with the Arabic locale and the digits are Western (D-036):
+ * «الأحد، 4 أكتوبر 2026».
  */
 export function fmtDate(value: Date | number, lang: Lang, options: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en-GB", {
+  return new Intl.DateTimeFormat(lang === "ar" ? AR_LOCALE : "en-GB", {
     ...options,
     calendar: "gregory",
   }).format(value);
 }
 
 export function pct(n: number, lang: Lang): string {
-  return new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", {
+  return new Intl.NumberFormat(lang === "ar" ? AR_LOCALE : "en-US", {
     style: "percent",
     maximumFractionDigits: 0,
   }).format(n);
@@ -94,13 +117,14 @@ export function pct(n: number, lang: Lang): string {
 
 /**
  * A session time "HH:MM" as the check writes clock times: 12 hour, no leading zero, with the same
- * am and pm words («٩:٠٠ صباحًا» · "9:00 am"). Anything else is shown as it is, digits localized.
+ * am and pm words («9:00 صباحًا» · "9:00 am"), Western digits in both languages (D-036), whatever digits
+ * the time was written in. Anything else is shown as it is, with any Arabic Indic digits made Western
+ * in Arabic.
  */
 export const fmtTime = (t: string, l: Lang) => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(t);
-  const local = (s: string) => (l === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s);
-  if (!m) return local(t);
+  const m = /^(\d{1,2}):(\d{2})$/.exec(westernDigits(t));
+  if (!m) return l === "ar" ? westernDigits(t) : t;
   const h = Number(m[1]) % 24;
   const suffix = h < 12 ? { ar: "صباحًا", en: "am" } : { ar: "مساءً", en: "pm" };
-  return `${local(`${h % 12 || 12}:${m[2]}`)} ${suffix[l]}`;
+  return `${h % 12 || 12}:${m[2]} ${suffix[l]}`;
 };

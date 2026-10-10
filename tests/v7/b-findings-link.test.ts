@@ -54,7 +54,7 @@ describe("the findings link", () => {
       createElement(FindingsLinkList, { lang: "ar", checks: checks.slice(0, 1), onOpenFindings: vi.fn() }),
     );
     expect(ar).toContain('dir="rtl"');
-    expect(ar).toContain("٤ أكتوبر");
+    expect(ar).toContain("4 أكتوبر");
     // One check is no starting point of anything yet.
     expect(ar).not.toContain(tV7("ar", "rom.findings.startPoint"));
   });

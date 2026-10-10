@@ -4,7 +4,7 @@
     {
       "id": "openai-ash",
       "name": {
-        "ar": "الصوت ١",
+        "ar": "الصوت 1",
         "en": "Voice 1"
       },
       "provider": "OpenAI",

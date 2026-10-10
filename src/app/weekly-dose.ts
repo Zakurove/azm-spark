@@ -2,7 +2,7 @@
  * A guided card's dose in words, as the Program tab's week (WeeklyPlan.tsx) and the program page
  * (program-v7) show it (stream E, step E3): a timer in seconds, or in minutes once a whole number of
  * minutes (walking practice), with its sets; a counter in repetitions (the guided card's own words).
- * Arabic counts its seconds («٥ ثوانٍ», «٣٠ ثانية»); English keeps the guided card's short seconds
+ * Arabic counts its seconds («5 ثوانٍ», «30 ثانية»); English keeps the guided card's short seconds
  * («30 sec»). The v1 week's holds (15 to 30 seconds) read as they did.
  */
 import { countPhrase } from "../i18n";

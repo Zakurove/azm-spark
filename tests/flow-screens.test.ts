@@ -467,7 +467,7 @@ describe("test preparation (S28, S31, S32)", () => {
       const { html, text } = screen(m, lang);
       expect(text).toContain(textOf(screenText("warn_sci_t6", lang)));
       expect(html).not.toContain("tel:");
-      expect(html).not.toContain(lang === "ar" ? "٩٩٧" : "997");
+      expect(html).not.toMatch(/997|٩٩٧/);
     }
   });
 
@@ -548,7 +548,7 @@ describe("small rules", () => {
       when: { token: "sameDay_clock", time: { hour: 3, minute: 15, suffix: "pm" } },
     });
     const ar = screen(m, "ar").html;
-    expect(ar).toContain('<bdi dir="ltr">٣:١٥</bdi>');
+    expect(ar).toContain('<bdi dir="ltr">3:15</bdi>');
     expect(screen(m, "en").text).toContain("You can try again after 3:15 pm.");
   });
 

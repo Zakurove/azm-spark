@@ -162,7 +162,7 @@ function OfferPage({ lang }: { lang: Lang }) {
 
 /**
  * A pre-check question: its counter is a bar with no numbers (C10). The booth page counts the guest
- * steps instead («الخطوة ١ من ٦»), whose total is fixed, so the counter text shows at phone width.
+ * steps instead («الخطوة 1 من 6»), whose total is fixed, so the counter text shows at phone width.
  */
 function QuestionPage({ lang, steps = false }: { lang: Lang; steps?: boolean }) {
   const q = precheckItem("pc_urgent");

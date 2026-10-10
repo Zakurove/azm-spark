@@ -6,7 +6,7 @@ import type { Lang } from "./i18n";
  * complete English; the numbers are filled in by the screens.
  */
 type Num = (n: number) => string;
-/** «٨ تكرارات», «مجموعتان × ٨ تكرارات», «٣ مجموعات × ١٠ تكرارات». */
+/** «8 تكرارات», «مجموعتان × 8 تكرارات», «3 مجموعات × 10 تكرارات». */
 const arReps = (sets: number, reps: number, f: Num) => {
   const r = `${f(reps)} ${reps >= 3 && reps <= 10 ? "تكرارات" : "تكرارًا"}`;
   if (sets === 1) return r;

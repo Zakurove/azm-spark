@@ -50,26 +50,28 @@ describe("the focus check's words", () => {
 });
 
 describe("numbers with their unit (copy tone rule 9)", () => {
-  it("never puts «درجتين» or «درجة واحدة» under the digits of the dial", async () => {
-    const { Dial, dialUnit } = await import("../../src/features/focus/Dial");
-    expect(dialUnit("ar", 1)).toBe("درجة");
-    expect(dialUnit("ar", 2)).toBe("درجة");
-    expect(dialUnit("ar", 5)).toBe("درجات");
-    expect(dialUnit("ar", 12)).toBe("درجة");
-    expect(dialUnit("en", 1)).toBe("degree");
-    const html = renderToStaticMarkup(
-      createElement(Dial, {
-        lang: "ar",
-        kind: "flexion",
-        value: 2,
-        typical: null,
-        withinFrom: null,
-        withinUpTo: null,
-        max: 30,
-        typicalLabel: "المعتاد",
-      }),
-    );
-    expect(html).not.toContain("درجتين");
+  it("puts no number and no unit word on the range meter (D-036 item 4)", async () => {
+    const { RangeMeter } = await import("../../src/features/focus/Dial");
+    for (const lang of ["ar", "en"] as const)
+      for (const mode of ["live", "held", "final"] as const) {
+        const html = renderToStaticMarkup(
+          createElement(RangeMeter, {
+            lang,
+            kind: "flexion",
+            mode,
+            value: 2,
+            read: () => ({ value: 2, hold: 0.5 }),
+            typical: 150,
+            withinFrom: 130,
+            withinUpTo: null,
+            labels: { band: "المعتاد", you: "أنت", hold: "اثبت" },
+          }),
+        );
+        const text = html.replace(/<[^>]*>/g, " ");
+        expect(text, `${lang} ${mode}`).not.toMatch(/[0-9\u0660-\u0669°]/);
+        expect(text).not.toContain("درجتين");
+        expect(text).not.toContain("درجة");
+      }
   });
 
   it("writes a step length in centimetres as «سم», as the intake writes the height", () => {

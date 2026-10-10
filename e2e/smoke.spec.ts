@@ -190,7 +190,7 @@ for (const lang of LANGS) {
       await expect(page.locator('input[type="checkbox"], [role="timer"], .section-kicker')).toHaveCount(0);
       // The program lists each exercise once.
       const rows = page.locator(".workout-queue > div");
-      // Booth v2 (D): the Arabic row takes the Arabic comma (a middle dot reads as the zero «٠»).
+      // Booth v2 (D): the Arabic row takes the Arabic comma (in Arabic a middle dot reads as a zero).
       const sep = lang === "ar" ? "، " : " · ";
       await expect(rows.first()).toContainText(sep);
       const names = await rows.locator("strong").allTextContents();

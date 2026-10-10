@@ -1,6 +1,6 @@
 /**
- * src/i18n: dictionaries for new feature copy, t(), interpolation, Arabic digits and the Arabic unit
- * plural forms of the movement check data.
+ * src/i18n: dictionaries for new feature copy, t(), interpolation, Western digits (D-036) and the
+ * Arabic unit plural forms of the movement check data.
  */
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
@@ -106,15 +106,15 @@ describe("t()", () => {
     expect(tr("en", "progress.flat.key")).toBe("Level T6");
   });
 
-  it("fills {name} and shows Arabic digits in Arabic", () => {
+  it("fills {name} and shows Western digits in Arabic (D-036 item 3)", () => {
     expect(tr("en", "assessment.intro.body", { name: "Sara" })).toBe("It takes about 8 to 10 minutes, Sara.");
-    expect(tr("ar", "assessment.intro.body", { name: "سارة" })).toBe("يستغرق نحو ٨ إلى ١٠ دقائق، يا سارة.");
+    expect(tr("ar", "assessment.intro.body", { name: "سارة" })).toBe("يستغرق نحو 8 إلى 10 دقائق، يا سارة.");
     // Latin codes keep their digits.
     expect(tr("ar", "progress.flat.key")).toBe("مستوى T6");
   });
 
   it("writes a number and its unit with the Arabic plural form", () => {
-    expect(tr("ar", "progress.band", { band: 16, unit: "deg" })).toBe("التغير حتى ١٦ درجة");
+    expect(tr("ar", "progress.band", { band: 16, unit: "deg" })).toBe("التغير حتى 16 درجة");
     expect(tr("ar", "progress.band", { band: 2, unit: "deg" })).toBe("التغير حتى درجتين");
     expect(tr("en", "progress.band", { band: 4, unit: "stands" })).toBe("A change of up to 4 stands");
     expect(tr("en", "progress.band", { band: 1, unit: "stands" })).toBe("A change of up to 1 stand");
@@ -135,20 +135,22 @@ describe("t()", () => {
 
 describe("numbers and digits", () => {
   it("formats numbers with fmtNum and refuses a negative number", () => {
-    expect(formatNumber("ar", 30)).toBe("٣٠");
+    expect(formatNumber("ar", 30)).toBe("30");
     expect(formatNumber("en", 30)).toBe("30");
     expect(() => formatNumber("en", -5)).toThrow(RangeError);
     expect(() => interpolate("ar", "{x}", { x: -1 })).toThrow(/direction in words/);
     expect(() => formatNumber("ar", Number.NaN)).toThrow(RangeError);
   });
 
-  it("localizes ASCII digits in Arabic (997 and 937 too, Q30), except Latin codes", () => {
-    expect(localizeDigits("ar", "يستغرق نحو 8 إلى 10 دقائق")).toBe("يستغرق نحو ٨ إلى ١٠ دقائق");
-    expect(localizeDigits("ar", "قارورة 1.5 لتر")).toBe("قارورة ١٫٥ لتر");
-    expect(localizeDigits("ar", "عام 2026")).toBe("عام ٢٠٢٦");
+  it("keeps Western digits in Arabic (997 and 937 too, D-036 item 3) and makes Arabic Indic ones Western", () => {
+    expect(localizeDigits("ar", "يستغرق نحو 8 إلى 10 دقائق")).toBe("يستغرق نحو 8 إلى 10 دقائق");
+    expect(localizeDigits("ar", "قارورة 1.5 لتر")).toBe("قارورة 1.5 لتر");
+    expect(localizeDigits("ar", "عام 2026")).toBe("عام 2026");
     expect(localizeDigits("ar", "المستوى T6 أو أعلى")).toBe("المستوى T6 أو أعلى");
-    expect(localizeDigits("ar", "اتصل بالرقم 997 أو 937")).toBe("اتصل بالرقم ٩٩٧ أو ٩٣٧");
-    expect(t("ar", "assessment.common.call937")).toContain("٩٣٧");
+    expect(localizeDigits("ar", "اتصل بالرقم 997 أو 937")).toBe("اتصل بالرقم 997 أو 937");
+    expect(localizeDigits("ar", "يستغرق نحو ٨ إلى ١٠ دقائق")).toBe("يستغرق نحو 8 إلى 10 دقائق");
+    expect(localizeDigits("ar", "قارورة ١٫٥ لتر")).toBe("قارورة 1.5 لتر");
+    expect(t("ar", "assessment.common.call937")).toContain("937");
     expect(localizeDigits("en", "8 to 10 minutes")).toBe("8 to 10 minutes");
   });
 
@@ -188,10 +190,10 @@ describe("Arabic unit plural forms (progress.unitForms)", () => {
   it("lets the Arabic one and two forms stand for the number and the word", () => {
     expect(countPhrase("ar", "deg", 1)).toBe("درجة واحدة");
     expect(countPhrase("ar", "bends", 2)).toBe("مرتين");
-    expect(countPhrase("ar", "stands", 7)).toBe("٧ مرات");
-    expect(countPhrase("ar", "deg", 16)).toBe("١٦ درجة");
-    expect(countPhrase("ar", "deg", 120)).toBe("١٢٠ درجة");
-    expect(countPhrase("ar", "deg", 0)).toBe("٠ درجة");
+    expect(countPhrase("ar", "stands", 7)).toBe("7 مرات");
+    expect(countPhrase("ar", "deg", 16)).toBe("16 درجة");
+    expect(countPhrase("ar", "deg", 120)).toBe("120 درجة");
+    expect(countPhrase("ar", "deg", 0)).toBe("0 درجة");
     expect(countPhrase("en", "deg", 1)).toBe("1 degree");
     expect(countPhrase("en", "deg", 16)).toBe("16 degrees");
   });
@@ -203,7 +205,7 @@ describe("Arabic unit plural forms (progress.unitForms)", () => {
       "ارتفعت ذراعك اليمنى إلى درجة واحدة من جانبك.",
     );
     expect(interpolate("ar", abduction.resultSentence.ar, { side: side.ar, value: 95, unit: "deg" })).toBe(
-      "ارتفعت ذراعك اليمنى إلى ٩٥ درجة من جانبك.",
+      "ارتفعت ذراعك اليمنى إلى 95 درجة من جانبك.",
     );
     expect(interpolate("en", abduction.resultSentence.en, { side: side.en, value: 95, unit: "deg" })).toBe(
       "Your right arm rose to 95 degrees from your side.",
@@ -216,7 +218,7 @@ describe("Arabic unit plural forms (progress.unitForms)", () => {
         seconds: 30,
         variant: stand.resultTokens.variant.standard.ar,
       }),
-    ).toBe("وقفت وقوفًا كاملًا ١٢ مرة خلال ٣٠ ثانية.");
+    ).toBe("وقفت وقوفًا كاملًا 12 مرة خلال 30 ثانية.");
   });
 
   it("recognizes unit form ids", () => {
@@ -226,13 +228,13 @@ describe("Arabic unit plural forms (progress.unitForms)", () => {
   });
 });
 
-describe("dates always use the Gregorian calendar (Q30)", () => {
+describe("dates always use the Gregorian calendar (Q30), with Western digits (D-036)", () => {
   it("fmtDate gives Gregorian months in Arabic, whatever the default calendar of ar-SA", async () => {
     const { fmtDate } = await import("../src/app/i18n");
     const d = new Date(Date.UTC(2026, 9, 11, 9, 0, 0));
     const ar = fmtDate(d, "ar", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Riyadh" });
     expect(ar).toContain("أكتوبر");
-    expect(ar).toContain("٢٠٢٦");
+    expect(ar).toContain("2026");
     expect(fmtDate(d, "en", { day: "numeric", month: "long", timeZone: "Asia/Riyadh" })).toBe("11 October");
   });
 
@@ -259,10 +261,10 @@ describe("dates always use the Gregorian calendar (Q30)", () => {
 
 describe("the portal's session time (fmtTime)", () => {
   it("is a 12 hour time with the check's am and pm words, never a leading zero", () => {
-    // «٠٩:٠٠» read as dots in Arabic; the check's clock times already read «٣:١٥ مساءً».
-    expect(fmtTime("09:00", "ar")).toBe("٩:٠٠ صباحًا");
+    // No leading zero, as the check's clock times read («3:15 مساءً»), in Western digits (D-036).
+    expect(fmtTime("09:00", "ar")).toBe("9:00 صباحًا");
     expect(fmtTime("09:00", "en")).toBe("9:00 am");
-    expect(fmtTime("18:30", "ar")).toBe("٦:٣٠ مساءً");
+    expect(fmtTime("18:30", "ar")).toBe("6:30 مساءً");
     expect(fmtTime("12:05", "en")).toBe("12:05 pm");
     expect(fmtTime("00:15", "en")).toBe("12:15 am");
     expect(fmtTime("later", "en")).toBe("later");

@@ -76,9 +76,9 @@ describe("the Program tab's week with the findings' exercises", () => {
     };
     const ar = text(render("ar", weekly)),
       en = text(render("en", weekly));
-    expect(ar).toContain("١٠ مرات × ٥ ثوانٍ");
-    expect(ar).toContain("١٠ دقائق");
-    expect(ar).not.toContain("٥ ثانية");
+    expect(ar).toContain("10 مرات × 5 ثوانٍ");
+    expect(ar).toContain("10 دقائق");
+    expect(ar).not.toContain("5 ثانية");
     expect(en).toContain("10 × 5 sec");
     expect(en).toContain("10 minutes");
     expect(en).not.toContain("600 sec");

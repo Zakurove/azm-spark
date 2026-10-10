@@ -245,9 +245,9 @@ export function packEntry(id,voices,ids,has){
 }
 
 // The friendly name of the pack in the coach settings (C40): its place in the list, never the
-// provider's voice id. Arabic first, with Arabic Indic digits.
+// provider's voice id. Arabic first, with Western digits as the whole interface (D-036 item 3).
 export function packName(n){
- return {ar:`الصوت ${String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)])}`,en:`Voice ${n}`};
+ return {ar:`الصوت ${n}`,en:`Voice ${n}`};
 }
 
 // The index with the pack added (or replaced where it was, keeping its name). The default stays; a

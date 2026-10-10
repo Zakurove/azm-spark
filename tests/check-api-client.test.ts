@@ -545,17 +545,17 @@ describe("shared UI helpers", () => {
     expect(minutesUnit("en", 21)).toBe("minutes");
     // Durations pass unit "min": the oblique dual after a preposition, never a numeral with it.
     expect(t("ar", "assessment.afterIntake.body", { minutesFrom: 16, minutesTo: 21, unit: "min" })).toContain(
-      "نحو ١٦ إلى ٢١ دقيقة",
+      "نحو 16 إلى 21 دقيقة",
     );
     expect(t("ar", "assessment.afterIntake.body", { minutesFrom: 8, minutesTo: 10, unit: "min" })).toContain(
-      "نحو ٨ إلى ١٠ دقائق",
+      "نحو 8 إلى 10 دقائق",
     );
-    // A range that starts at one or two minutes writes the word, not ١ or ٢, in Arabic.
+    // A range that starts at one or two minutes writes the word, not 1 or 2, in Arabic.
     expect(t("ar", "assessment.plan.meta", { minutesFrom: 1, minutesTo: 2, unit: "min" })).toContain(
       "نحو دقيقة واحدة إلى دقيقتين",
     );
     expect(t("ar", "assessment.plan.meta", { minutesFrom: 2, minutesTo: 3, unit: "min" })).toContain(
-      "نحو دقيقتين إلى ٣ دقائق",
+      "نحو دقيقتين إلى 3 دقائق",
     );
     expect(t("en", "assessment.plan.meta", { minutesFrom: 1, minutesTo: 2, unit: "min" })).toContain(
       "1 to 2 minutes",

@@ -281,7 +281,7 @@ describe("findingsView: the page's groups and rows", () => {
       change: null,
       findingId: "marked",
     });
-    expect(knee.value).toBe("٩٥°");
+    expect(knee.value).toBe("95°");
     expect(knee.bar).toMatchObject({ value: 95, typical: entry.typical, first: null });
     expect(knee.bar!.band![0]).toBeGreaterThan(95);
     expect(knee.bar!.band![1]).toBe(knee.bar!.max);
@@ -539,7 +539,7 @@ describe("findingsView: the page's groups and rows", () => {
   it("dates the check in both languages, Gregorian, in Riyadh", () => {
     expect(en.date).toBe("Sunday, 4 October 2026");
     expect(ar.date).toContain("أكتوبر");
-    expect(ar.date).toContain("٢٠٢٦");
+    expect(ar.date).toContain("2026");
   });
 });
 
@@ -644,7 +644,7 @@ describe("findingsView: the changes since the starting point", () => {
       },
     ]);
     const arWalk = findingsView(answer(FAHD, latest, first, walk), FAHD, "ar").walk;
-    expect(arWalk[0].values).toContain("٠٫٩٥");
+    expect(arWalk[0].values).toContain("0.95");
   });
 });
 

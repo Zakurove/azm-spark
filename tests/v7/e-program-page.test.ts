@@ -77,10 +77,10 @@ describe("programItems", () => {
     expect(doseText({ sets: 2, holdSeconds: 30 }, "en")).toBe("2 × 30 sec");
     expect(doseText({ sets: 1, holdSeconds: 600 }, "en")).toBe("10 minutes");
     expect(doseText({ sets: 3, holdSeconds: 180 }, "en")).toBe("3 × 3 minutes");
-    expect(doseText({ sets: 1, holdSeconds: 600 }, "ar")).toBe("١٠ دقائق");
-    expect(doseText({ sets: 2, holdSeconds: 30 }, "ar")).toBe("مرتان × ٣٠ ثانية");
-    // Arabic counts the seconds: «٥ ثوانٍ».
-    expect(doseText({ sets: 10, holdSeconds: 5 }, "ar")).toBe("١٠ مرات × ٥ ثوانٍ");
+    expect(doseText({ sets: 1, holdSeconds: 600 }, "ar")).toBe("10 دقائق");
+    expect(doseText({ sets: 2, holdSeconds: 30 }, "ar")).toBe("مرتان × 30 ثانية");
+    // Arabic counts the seconds: «5 ثوانٍ».
+    expect(doseText({ sets: 10, holdSeconds: 5 }, "ar")).toBe("10 مرات × 5 ثوانٍ");
     expect(doseText({ sets: 10, holdSeconds: 5 }, "en")).toBe("10 × 5 sec");
   });
 });

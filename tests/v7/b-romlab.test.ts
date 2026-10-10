@@ -64,7 +64,7 @@ describe("the range test page", () => {
 
   it("the verdict: measured with its value, or not measured with the reason and the tries' reasons", () => {
     expect(verdictOf(result({}), true, "en")).toEqual({ kind: "measured", text: "Measured: 132°" });
-    expect(verdictOf(result({}), true, "ar")).toEqual({ kind: "measured", text: "قيست: ١٣٢°" });
+    expect(verdictOf(result({}), true, "ar")).toEqual({ kind: "measured", text: "قيست: 132°" });
     const tries = [1, 1, 1].map((index) => ({ index, outcome: "retry", reasons: ["no_hold"] }));
     const not = verdictOf(
       result({ status: "not_measured", reason: "quality", value: null, attempts: tries as never }),

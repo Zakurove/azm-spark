@@ -166,7 +166,7 @@ describe("the guided card (D)", () => {
     expect(en).toContain("Set 1 of 2");
     expect(en).toContain('aria-label="Count a rep, 0 of 8"');
     expect(en).toContain("of 8");
-    expect(card("ar", item)).toContain("المجموعة ١ من ٢");
+    expect(card("ar", item)).toContain("المجموعة 1 من 2");
     expect(en).toContain("3 of 9");
   });
 
@@ -178,7 +178,7 @@ describe("the guided card (D)", () => {
     expect(html).toContain(">25<");
     expect(html).toContain(guidedCopy("en").start);
     expect(html).toContain(guidedCopy("en").slot.warmup);
-    expect(card("ar", item, "warmup")).toContain(">٢٥<");
+    expect(card("ar", item, "warmup")).toContain(">25<");
   });
 
   it("names the equipment a card needs", () => {

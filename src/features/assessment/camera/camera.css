@@ -40,11 +40,12 @@
   font-weight: 700;
   line-height: 1.35;
 }
-/* The counter and the test name are drawn apart by a short rule, never a dot (a dot reads as ٠). */
+/* The counter and the test name are drawn apart by a short rule, never a dot (in Arabic a dot reads
+   as a zero). */
 .azm-check .s34-parts {
   display: inline;
 }
-/* Parts are drawn apart by a short upright rule, never a dot (a middle dot reads as ٠). */
+/* Parts are drawn apart by a short upright rule, never a dot (in Arabic a middle dot reads as a zero). */
 .azm-check .s34-part + .s34-part::before,
 .azm-check .s34-title-part + .s34-title-part::before {
   content: "";
@@ -116,7 +117,7 @@
   flex-basis: 100%;
   margin: 0;
 }
-/* Below 420 px the title row keeps to one line: the counter only («الاختبار ٣ من ٤»); the test name
+/* Below 420 px the title row keeps to one line: the counter only («الاختبار 3 من 4»); the test name
    stays in its accessible name and is said in the caption and the steps. */
 @media (max-width: 419.98px) {
   .azm-check .s34-title {

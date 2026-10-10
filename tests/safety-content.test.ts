@@ -285,14 +285,14 @@ describe("S36 to S40b: calls, number, cards (map 2.7, Q22, O12)", () => {
     expect([none.paused, none.kept]).toEqual([null, null]);
   });
 
-  it("{when} per Q33 (4): tomorrow at midnight, tomorrow after a clock time, digits per Q30", () => {
+  it("{when} per Q33 (4): tomorrow at midnight, tomorrow after a clock time, Western digits (D-036)", () => {
     // 12:00 Riyadh + 12 h = 00:00 tomorrow: "tomorrow".
     expect(whenText(NOW + 12 * 3600e3, NOW, "en")).toBe("tomorrow");
     expect(whenText(NOW + 12 * 3600e3, NOW, "ar")).toBe("غدًا");
     // 20:00 Riyadh + 8 h = 04:00 tomorrow: "tomorrow after 4:00 am".
     const evening = NOW + 8 * 3600e3;
     expect(whenText(evening + 8 * 3600e3, evening, "en")).toBe("tomorrow after 4:00 am");
-    expect(whenText(evening + 8 * 3600e3, evening, "ar")).toBe("غدًا بعد الساعة ٤:٠٠ صباحًا");
+    expect(whenText(evening + 8 * 3600e3, evening, "ar")).toBe("غدًا بعد الساعة 4:00 صباحًا");
     expect(pausedLine(evening + 8 * 3600e3, evening, "en")).toBe(
       "Today’s check has been postponed for your safety. You can try again tomorrow after 4:00 am.",
     );

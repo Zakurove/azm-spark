@@ -113,16 +113,16 @@ describe("S36 to S40b", () => {
       expect(html).not.toContain("check-exit");
       expect(html).toContain("check-safety-heading");
       expect(html).toContain('href="tel:997"');
-      expect(html).toContain(lang === "ar" ? 'aria-label="اتصل بالرقم ٩ ٩ ٧"' : 'aria-label="Call 9 9 7"');
-      expect(html).toContain(`<bdi class="safety-number-value">${lang === "ar" ? "٩٩٧" : "997"}</bdi>`);
+      expect(html).toContain(lang === "ar" ? 'aria-label="اتصل بالرقم 9 9 7"' : 'aria-label="Call 9 9 7"');
+      // Western digits in both languages (D-036 item 3).
+      expect(html).toContain('<bdi class="safety-number-value">997</bdi>');
+      if (lang === "ar") expect(html).not.toMatch(/[٠-٩]/);
       // The call comes first in the footer, before the way out.
       const footer = html.slice(html.indexOf("check-footer"));
       expect(footer.indexOf("tel:997")).toBeLessThan(footer.indexOf("<button"));
       // Every sentence of the text is on the screen; at the booth the staff line.
       for (const s of CHECK_DATA.screens.scr_emergency[lang].split(/(?<=[.!?؟])\s+/u))
-        expect(html.replace(/<[^>]+>/g, "")).toContain(
-          lang === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s,
-        );
+        expect(html.replace(/<[^>]+>/g, "")).toContain(s);
       expect(html).toContain(
         lang === "ar" ? "فريقنا قريب منك في الجناح." : "Our team is close by at the booth.",
       );
@@ -130,15 +130,15 @@ describe("S36 to S40b", () => {
     });
   }
 
-  it("keeps a clock time whole in the paused line (Arabic: one left to right run, never ٠٦:٩)", () => {
+  it("keeps a clock time whole in the paused line (Arabic: one left to right run, never 06:9)", () => {
     const html = renderToStaticMarkup(
       createElement(CheckRoot, {
         ui: { lang: "ar" },
         children: createElement(TextWithTimes, { text: "يمكنك المحاولة غدًا بعد الساعة 9:06 صباحًا." }),
       }),
     );
-    expect(html).toContain('<bdi dir="ltr">٩:٠٦</bdi>');
-    expect(html).not.toContain("<bdi>٩</bdi>");
+    expect(html).toContain('<bdi dir="ltr">9:06</bdi>');
+    expect(html).not.toContain("<bdi>9</bdi>");
     const en = renderToStaticMarkup(
       createElement(CheckRoot, {
         ui: { lang: "en" },
@@ -182,7 +182,7 @@ describe("S36 to S40b", () => {
     expect(fall).toContain('data-safety-screen="scr_fall_seated"');
     expect(fall).not.toContain("safety-number-value");
     expect(fall).not.toContain("tel:");
-    expect(fall).not.toContain("٩٩٧");
+    expect(fall).not.toContain("997");
   });
 
   it("S38b asks the faint question with no 997 call (D-016)", () => {
@@ -252,7 +252,7 @@ describe("S46 to S49", () => {
     const pushed = render(SCREENS.S48, model({ kind: "after.pushed", i: 2, side: 0 }), { lang: "en" });
     expect(pushed).toContain("Did you push with your hands to stand up?");
     const count = render(SCREENS.S48, model({ kind: "after.count", i: 2, side: 0 }), { lang: "ar" });
-    expect(count).toContain('<p class="safety-count"><bdi><bdi>١١</bdi></bdi></p>');
+    expect(count).toContain('<p class="safety-count"><bdi><bdi>11</bdi></bdi></p>');
   });
 
   it("S49 asks the general form with the meaning words bold, Yes and No", () => {

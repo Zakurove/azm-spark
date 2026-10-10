@@ -19,7 +19,7 @@ const saad = () => planFor(storyBase(SAAD_EXTRACTION), SAAD_GOAL.goal, SAAD_GOAL
 describe("the reading chips", () => {
   it("show what Saad's report says, in reading order, with no pain noted", () => {
     expect(readingChips(SAAD_EXTRACTION, "ar").map((c) => [c.kind, c.value])).toEqual([
-      ["age", "٢٢ سنة"],
+      ["age", "22 سنة"],
       ["condition", "إصابة غير كاملة في الحبل الشوكي"],
       ["mobility", "يستخدم كرسيًا متحركًا"],
       ["pain", "لا ألم حالي مذكور"],
@@ -63,7 +63,7 @@ describe("the medical engine view", () => {
     ]);
     const ar = engineView(intake, plan, "ar", reasonText);
     expect(ar.excluded[0].note).toBe("ليس لمستخدمي الكرسي المتحرك");
-    expect(ar.adapted[1].value).toMatch(/^[٠-٩]+ × [٠-٩]+$/);
+    expect(ar.adapted[1].value).toMatch(/^[0-9]+ × [0-9]+$/);
   });
 
   it("a visitor with no condition keeps the usual dose; no weights leave the curl out", () => {

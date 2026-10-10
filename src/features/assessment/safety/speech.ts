@@ -62,7 +62,7 @@ export function splitSentences(text: string): string[] {
     .filter(Boolean);
 }
 
-/** The emergency numbers read one digit at a time in English speech (Q22, Q30): "9 9 7". */
+/** The emergency numbers read one digit at a time in English speech (Q22): "9 9 7". */
 export function spokenNumbers(text: string): string {
   return text.replace(/\b(997|937)\b/g, (n) => n.split("").join(" "));
 }

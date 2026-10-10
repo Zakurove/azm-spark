@@ -259,7 +259,7 @@ for (const lang of LANGS) {
     const range = Number(await page.locator('[data-screen="results"]').getAttribute("data-range"));
     expect(range).toBeGreaterThan(20);
     expect(range).toBeLessThan(180);
-    await expect(page.locator(".bx-stats > div").first().locator("b")).toHaveText(lang === "ar" ? "٥" : "5");
+    await expect(page.locator(".bx-stats > div").first().locator("b")).toHaveText(lang === "ar" ? "5" : "5");
     await expect(page.locator("[data-example] .bx-tag")).toHaveText(T[lang].example);
     await expect(page.locator(".bx-dots i.done")).toHaveCount(4);
 

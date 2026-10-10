@@ -38,7 +38,7 @@ describe("the live coach paragraph of the privacy notice", () => {
     expect(en("privacy.retention.google")).toMatch(/do not keep the text/);
     expect(en("privacy.retention.google")).toMatch(/short time.*55 days/);
     expect(t("ar", "privacy.receivers.google")).toContain("خارج المملكة");
-    expect(t("ar", "privacy.retention.google")).toContain("٥٥ يومًا");
+    expect(t("ar", "privacy.retention.google")).toContain("55 يومًا");
     for (const key of KEYS)
       for (const lang of ["ar", "en"] as const)
         expect(wordingProblems(t(lang, key)), `${key} ${lang}`).toEqual([]);

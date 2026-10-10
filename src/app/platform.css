@@ -1343,7 +1343,7 @@
   color: #5b4590;
   margin-top: -6px;
 }
-/* The dose reads apart from the name (in Arabic the middle dot sits close to the zero «٠»). */
+/* The dose reads apart from the name (in Arabic a middle dot reads as a zero). */
 .workout-dose {
   /* Darker than --muted, which reads at 4.3:1 on the current row's purple tint (AA needs 4.5). */
   color: #5f6672;
@@ -3437,8 +3437,9 @@
     min-width: 112px;
   }
 }
+/* D-036 item 3: Western digits 0 to 9 in Arabic, the list numbers too. */
 [dir="rtl"] .weekly-item-body ol {
-  list-style-type: arabic-indic;
+  list-style-type: decimal;
 }
 
 /* Today hero: light, per brand direction (no dark surfaces) */

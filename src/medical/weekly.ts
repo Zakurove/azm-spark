@@ -1,3 +1,4 @@
+import { westernDigits } from "../app/i18n";
 import { Intake, Plan } from "./plan";
 import {
   CAMERA_TWINS,
@@ -25,7 +26,7 @@ export interface WeeklyItem extends WeeklyItemV7Fields {
   note?: L;
   /**
    * v7 (E1-8, D-026 item 9): the hold the steps of a targeted item name with {hold_ar} and {hold_en}
-   * («٣٠ ثانية», «لحظة» on the pain path), resolved when the item was built (stepsOf).
+   * («30 ثانية», «لحظة» on the pain path), resolved when the item was built (stepsOf).
    */
   hold?: L;
 }
@@ -196,7 +197,10 @@ export function defaultSelection(h: Intake, plan: Plan, pool: LibraryExercise[])
   return { days };
 }
 
-const toArabicDigits = (s: string) => s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+/**
+ * A model's text as shown: no dashes, single spaces, حالتك الطبية, and in Arabic Western digits 0 to 9
+ * with "." as the decimal mark (D-036 item 3), whatever digits the model wrote.
+ */
 export function cleanText(s: unknown, lang: "ar" | "en", max: number): string {
   if (typeof s !== "string") return "";
   const joiner = lang === "ar" ? "، " : ", ";
@@ -205,7 +209,7 @@ export function cleanText(s: unknown, lang: "ar" | "en", max: number): string {
     .replace(/\s+-\s+/g, joiner)
     .replace(/\s+/g, " ")
     .trim();
-  if (lang === "ar") out = out.replace(/حالتك الصحية/g, "حالتك الطبية");
+  if (lang === "ar") out = westernDigits(out.replace(/حالتك الصحية/g, "حالتك الطبية"));
   return out.slice(0, max);
 }
 const cleanL = (v: any, max: number): L | null => {
@@ -272,14 +276,16 @@ export function sanitizeSelection(
 /**
  * An exercise's steps for one weekly item: a targeted item's hold in place of the {hold_ar} and
  * {hold_en} its steps name (E1-8; selectForTargets resolves it from the dose profile and the age, «لحظة»
- * on the pain path). Other steps are shown as they are.
+ * on the pain path). Other steps are shown as they are. A hold stored before D-036 («٣٠ ثانية») is
+ * shown in Western digits («30 ثانية»).
  */
 export function stepsOf(
   e: Pick<LibraryExercise, "steps">,
   item: Pick<WeeklyItem, "hold">,
   lang: "ar" | "en",
 ): string[] {
-  const hold = item.hold?.[lang];
+  const stored = item.hold?.[lang];
+  const hold = stored && lang === "ar" ? westernDigits(stored) : stored;
   return hold ? e.steps[lang].map((s) => s.replaceAll(`{hold_${lang}}`, hold)) : e.steps[lang];
 }
 
@@ -303,13 +309,14 @@ function arabicDays(n: number): string {
 /**
  * The summary of a weekly plan as shown. A plan stored before F-6 (v5.0 and early 6.0) keeps the
  * rules text «خطة من ١ أيام» or «خطة من ٢ أيام» until it is rebuilt; it reads with the singular or
- * the dual, as new plans do (R-13). Any other summary is shown as it is.
+ * the dual, as new plans do (R-13). A summary stored before D-036 holds Arabic Indic digits («خطة من
+ * ٣ أيام»): every Arabic summary is shown in Western digits (D-036 item 3), «خطة من 3 أيام».
  */
 export function summaryText(summary: L, lang: "ar" | "en"): string {
   if (lang !== "ar") return summary.en;
-  return summary.ar.replace(
-    /^خطة من ([١٢]) أيام /,
-    (_, n: string) => `خطة من ${arabicDays(n === "١" ? 1 : 2)} `,
+  return westernDigits(summary.ar).replace(
+    /^خطة من ([12]) أيام /,
+    (_, n: string) => `خطة من ${arabicDays(Number(n))} `,
   );
 }
 
@@ -389,21 +396,17 @@ export function buildWeekly(
     (targeted.length
       ? {
           // v7: a week built from the findings (contract 2.10).
-          ar: toArabicDigits(
-            `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ونتائج قياس حركتك. في كل يوم تمارين اخترناها لنتائجك، ولكل منها سبب واضح، ${
-              sportName ? `وبقية الجلسة تبني ما تحتاجه ${sportName.ar}.` : "وبقية الجلسة لهدفك."
-            }`,
-          ),
+          ar: `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ونتائج قياس حركتك. في كل يوم تمارين اخترناها لنتائجك، ولكل منها سبب واضح، ${
+            sportName ? `وبقية الجلسة تبني ما تحتاجه ${sportName.ar}.` : "وبقية الجلسة لهدفك."
+          }`,
           en: `A ${n} day weekly plan built on your medical condition and your movement results. Each day holds exercises chosen for your results, each with a clear reason, and the rest of the session ${
             sportName ? `builds what ${sportName.en} asks of you.` : "follows your goal."
           }`,
         }
       : {
-          ar: toArabicDigits(
-            sportName
-              ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`
-              : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`,
-          ),
+          ar: sportName
+            ? `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية ومتّجهة نحو ${sportName.ar}. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`
+            : `خطة من ${arabicDays(n)} في الأسبوع، مبنية على حالتك الطبية. كل يوم يبدأ بإحماء، ${middle.ar}، وينتهي بتهدئة.`,
           en: sportName
             ? `A ${n} day weekly plan built on your medical condition and aimed at ${sportName.en}. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`
             : `A ${n} day weekly plan built on your medical condition. Each day opens with a warm up, ${middle.en}, and closes with a cool down.`,

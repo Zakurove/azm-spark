@@ -42,7 +42,7 @@ export function ValueNumber({
   const { lang } = useCheckUi();
   const parts = valueParts(lang, unit, value);
   if (censored) {
-    // «أكثر من ١٥» in place of the number, with the unit word beside it (spec 4.3, S51).
+    // «أكثر من 15» in place of the number, with the unit word beside it (spec 4.3, S51).
     const text = `${moreThan(lang, value)} ${parts.unit}`;
     return (
       <span className={`pg-number is-text${big ? " is-big" : ""}`}>

@@ -202,7 +202,7 @@ export const EXERCISES: ExerciseDef[] = [
     targetReps: 10,
     camera: {
       en: "Turn your side to the camera (45 to 90°), 1 to 2 m away, arm fully visible.",
-      ar: "وجّه جانبك إلى الكاميرا (بزاوية ٤٥ إلى ٩٠ درجة) على بعد متر إلى مترين، بحيث تظهر ذراعك كاملة.",
+      ar: "وجّه جانبك إلى الكاميرا (بزاوية 45 إلى 90 درجة) على بعد متر إلى مترين، بحيث تظهر ذراعك كاملة.",
     },
   },
   {
@@ -258,7 +258,7 @@ export const EXERCISES: ExerciseDef[] = [
     targetReps: 5,
     camera: {
       en: "Turn the chair 45° to the camera, 2 to 3 m away, whole body in frame.",
-      ar: "ضع الكرسي بزاوية ٤٥ درجة من الكاميرا على بعد مترين إلى ثلاثة، بحيث يظهر جسمك كاملًا.",
+      ar: "ضع الكرسي بزاوية 45 درجة من الكاميرا على بعد مترين إلى ثلاثة، بحيث يظهر جسمك كاملًا.",
     },
   },
 ];

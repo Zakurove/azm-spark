@@ -47,7 +47,7 @@ export const SAAD = {
   /** The story in three short lines, shown beside his report. */
   story: [
     {
-      ar: "سعد، ٢٢ سنة، كان يلعب كرة القدم مع أصدقائه كل عصر.",
+      ar: "سعد، 22 سنة، كان يلعب كرة القدم مع أصدقائه كل عصر.",
       en: "Saad, 22, played football with his friends every afternoon.",
     },
     {

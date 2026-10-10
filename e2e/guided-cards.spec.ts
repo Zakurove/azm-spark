@@ -114,7 +114,7 @@ test("a session: the warm up cards, then the camera part; a card done counts (ar
   await expect(card).toHaveAttribute("data-slot", "warmup");
   await expect(card).toHaveAttribute("data-kind", "timer");
   await expect(page.locator(".gcard-slot")).toContainText(g.slot.warmup);
-  await expect(page.locator(".gcard-num").first()).toHaveText("١");
+  await expect(page.locator(".gcard-num").first()).toHaveText("1");
   await expect(page.locator(".gcard [role=timer]")).toBeVisible();
   await page.getByRole("button", { name: g.start }).click();
   await expect(card).toHaveAttribute("data-phase", "running");
@@ -126,7 +126,7 @@ test("a session: the warm up cards, then the camera part; a card done counts (ar
   await page.locator(".gcard-rpe button").nth(3).click();
   await done.click();
   // The second warm up card, skipped.
-  await expect(page.locator(".gcard-slot b")).toContainText("٢");
+  await expect(page.locator(".gcard-slot b")).toContainText("2");
   await page.getByRole("button", { name: g.skipExercise }).click();
   // The camera part opens with one screen.
   await expect(page.locator(".workout-camera-kicker")).toHaveText(g.cameraKicker);

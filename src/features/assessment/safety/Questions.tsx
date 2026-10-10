@@ -259,8 +259,8 @@ const COUNT_MAX = 60;
 
 /**
  * The count at the phone (S48 count check), 0 to 60, with the S30 stepper look (CountStepper): minus
- * and plus, or typed with Arabic Indic and Persian digits read as numbers, shown back in the page's
- * digits (Q30). The flow stores it with countSource 'self' (O22).
+ * and plus, or typed with Arabic Indic and Persian digits read as numbers, shown back in Western
+ * digits (D-036 item 3). The flow stores it with countSource 'self' (O22).
  */
 export function CountInput({ initial, onDone }: { initial: number; onDone(n: number): void }) {
   const { lang } = useCheckUi();
@@ -295,7 +295,7 @@ export function CountInput({ initial, onDone }: { initial: number; onDone(n: num
   );
 }
 
-/** A number in the page's digits (Q30). */
+/** A number as the page shows it: Western digits in both languages (D-036 item 3). */
 function localDigits(lang: "ar" | "en", n: number): string {
   return localizeDigits(lang, String(n));
 }

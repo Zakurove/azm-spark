@@ -3,7 +3,7 @@
  * person's own count check (S48, countSource 'self') and the staff count correction at the booth
  * (S57, countSource 'staff'). The buttons are named assessment.count.decrease and increase (SVG minus
  * and plus, never the characters). The field takes the numeric keypad; Arabic Indic and Persian
- * digits are read (parseNumberInput, 0.2) and the value shows back in the page's digits (Q30).
+ * digits are read (parseNumberInput, 0.2) and the value shows back in Western digits (D-036 item 3).
  *
  * The parent owns the text, so a Continue or Save outside the stepper reads what was typed.
  */

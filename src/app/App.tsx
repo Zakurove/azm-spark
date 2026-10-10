@@ -168,7 +168,7 @@ function countOf(
 }
 /**
  * The Arabic noun under a stat tile's number (the number stands above it): the plural after 2 to 10,
- * the singular after 1 and after 11 and more («٣ جلسات في الأسبوع», «٢٠ دقيقة»).
+ * the singular after 1 and after 11 and more («3 جلسات في الأسبوع», «20 دقيقة»).
  */
 function tileNoun(n: number, plural: string, singular: string) {
   const form = new Intl.PluralRules("ar").select(n);

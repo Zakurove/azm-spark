@@ -97,9 +97,11 @@ it("names the number of days in Arabic with the singular, the dual and the plura
   };
   expect(summary([2]).ar).toContain("خطة من يوم واحد في الأسبوع");
   expect(summary([0, 3]).ar).toContain("خطة من يومين في الأسبوع");
-  expect(summary([0, 2, 4]).ar).toContain("خطة من ٣ أيام في الأسبوع");
+  expect(summary([0, 2, 4]).ar).toContain("خطة من 3 أيام في الأسبوع");
   for (const days of [[2], [0, 3], [0, 2, 4]]) {
-    expect(summary(days).ar).not.toMatch(/[١٢] أيام/);
+    expect(summary(days).ar).not.toMatch(/[12١٢] أيام/);
+    // Western digits in Arabic (D-036 item 3).
+    expect(summary(days).ar).not.toMatch(/[٠-٩]/);
     expect(summary(days).en).toContain(`A ${days.length} day weekly plan`);
   }
 });
@@ -137,7 +139,10 @@ it("reads a stored v5.0 summary with the right day count (R-13, before F-6 every
   const old = (n: string) => ({ ar: `خطة من ${n} أيام ${rest}`, en: `A plan of ${n} days.` });
   expect(summaryText(old("١"), "ar")).toBe(`خطة من يوم واحد ${rest}`);
   expect(summaryText(old("٢"), "ar")).toBe(`خطة من يومين ${rest}`);
-  expect(summaryText(old("٣"), "ar")).toBe(`خطة من ٣ أيام ${rest}`);
+  // Stored with Arabic Indic digits, shown with Western ones (D-036 item 3).
+  expect(summaryText(old("٣"), "ar")).toBe(`خطة من 3 أيام ${rest}`);
+  expect(summaryText(old("1"), "ar")).toBe(`خطة من يوم واحد ${rest}`);
+  expect(summaryText(old("2"), "ar")).toBe(`خطة من يومين ${rest}`);
   expect(summaryText(old("٢"), "en")).toBe("A plan of ٢ days.");
   // A summary the model wrote, or today's rules text, is shown as it is.
   const fresh = { ar: "خطة من يومين في الأسبوع.", en: "A 2 day weekly plan." };

@@ -94,7 +94,7 @@ describe("the intake form", () => {
       createElement(IntakeForm, { lang: "ar", initial: null, onSaved: () => {} }),
     );
     expect(steps(html)).toBe(4);
-    expect(html).toContain("١ / ٤");
+    expect(html).toContain("1 / 4");
     expect(html).toContain("الحركة والاحتياطات");
   });
 

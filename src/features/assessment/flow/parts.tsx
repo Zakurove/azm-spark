@@ -70,7 +70,7 @@ export function Emphasized({ text, words }: { text: string; words: readonly stri
 }
 
 /**
- * A text holding a clock time («بعد الساعة ٣:١٥ مساءً»): the time is one left to right unit, so its
+ * A text holding a clock time («بعد الساعة 3:15 مساءً»): the time is one left to right unit, so its
  * hours never swap with its minutes inside right to left text; the rest reads as bidiText.
  */
 export function TimeText({ text }: { text: string }) {
@@ -347,8 +347,8 @@ export function AreaPicker({
 /**
  * A kilogram value between two 56 px icon buttons (SVG minus and plus with text names, never the
  * characters), also typed with the numeric keypad. Typed Arabic Indic or Persian digits and ٫ or ,
- * are read (parseNumberInput); the value snaps to 0.5 kg inside the range and shows back in the
- * page's digits (١٫٥).
+ * are read (parseNumberInput); the value snaps to 0.5 kg inside the range and shows back in Western
+ * digits in both languages (1.5, D-036 item 3).
  */
 export function KgStepper({
   kind,

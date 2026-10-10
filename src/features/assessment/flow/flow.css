@@ -606,7 +606,7 @@
   min-height: var(--h-cta);
 }
 
-/* Headings on the check screens break into even lines (never a lone «١٠.» or a ragged third line). */
+/* Headings on the check screens break into even lines (never a lone «10.» or a ragged third line). */
 .azm-check :is(h1, h2) {
   text-wrap: balance;
 }

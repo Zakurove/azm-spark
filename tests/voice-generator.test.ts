@@ -216,7 +216,7 @@ describe("voice packs from the generator (D-016 item 5)", () => {
   });
 
   it("names a new pack by its place, Arabic first, and a pack keeps its name (C40)", () => {
-    expect(packName(2)).toEqual({ ar: "الصوت ٢", en: "Voice 2" });
+    expect(packName(2)).toEqual({ ar: "الصوت 2", en: "Voice 2" });
     const entry = (id: string) => ({ id, provider: "Google Gemini", voices: { ar: "x", en: "x" } }) as never;
     const added = withPack(index, entry("gemini-achird"));
     expect(added.packs.map((p) => p.name)).toEqual([index.packs[0].name, packName(2)]);

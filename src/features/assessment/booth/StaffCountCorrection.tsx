@@ -5,7 +5,7 @@
  * countSource 'staff'. Shown only in booth mode, so it never appears at home.
  *
  * The count uses the S48 stepper (CountStepper: one fewer, one more, or typed on the numeric keypad
- * with Arabic Indic and Persian digits normalised, 0.2) and shows back in the page's digits; a whole
+ * with Arabic Indic and Persian digits normalised, 0.2) and shows back in Western digits (D-036); a whole
  * count from 0 to 60, else the range line under the field.
  */
 import { useId, useState } from "react";

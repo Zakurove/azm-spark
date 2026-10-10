@@ -1175,8 +1175,10 @@ export class RomController implements CoachHost {
           }
           break;
         case "live":
+          // D-036 item 4: the live meter reads the angle each animation frame (ctl.live), so a new
+          // angle does not render the page; at 30 to 60 frames a second those renders shared the main
+          // thread with the pose model and made the skeleton stutter.
           this.liveDeg = e.deg;
-          changed = true;
           break;
         case "hold":
           this.bridge({

@@ -255,8 +255,9 @@ function RomLabEntry() {
 /**
  * D-032 item 4: the program build animation on its own, /?programBuild=preview (VITE_V7=1 builds only,
  * the env test written inline), for review and e2e/v7-build-anim.spec.ts. &lang=en for English; any of
- * &joints=, &walk=0 or 1 and &exercises= gives it a summary. Skip or Continue plays it again and counts
- * the calls in data-done.
+ * &joints=, &walk=0 or 1 and &exercises= gives it a summary; &late=<ms> makes the program ready only
+ * that long after the start (D-037 item 5: the animation then waits at its end). Skip or Continue plays
+ * it again and counts the calls in data-done.
  */
 const ProgramBuild =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/onboarding/ProgramBuild")) : null;
@@ -268,15 +269,29 @@ function ProgramBuildPreview() {
   const summary = ["joints", "walk", "exercises"].some((key) => qs.has(key))
     ? { joints: count("joints", 3), walk: qs.get("walk") !== "0", exercises: count("exercises", 6) }
     : undefined;
+  const late = qs.has("late") ? count("late", 0) : 0;
+  const [ready, setReady] = useState(late <= 0);
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   }, [lang]);
+  useEffect(() => {
+    if (late <= 0) return;
+    setReady(false);
+    const timer = setTimeout(() => setReady(true), late);
+    return () => clearTimeout(timer);
+  }, [late, done]);
   return (
     <div data-done={done}>
       {ProgramBuild && (
         <LazyPage lang={lang}>
-          <ProgramBuild key={done} lang={lang} summary={summary} onDone={() => setDone((n) => n + 1)} />
+          <ProgramBuild
+            key={done}
+            lang={lang}
+            summary={summary}
+            ready={ready}
+            onDone={() => setDone((n) => n + 1)}
+          />
         </LazyPage>
       )}
     </div>

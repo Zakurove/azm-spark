@@ -88,7 +88,7 @@
 .pb-stage {
   position: relative;
   width: min(100%, 520px);
-  width: min(100%, 520px, calc((100dvh - 290px) * 360 / 420));
+  width: min(100%, 520px, calc((100dvh - 320px) * 360 / 420));
   aspect-ratio: 360 / 420;
   border-radius: 30px;
   overflow: hidden;
@@ -103,8 +103,8 @@
 }
 .is-still .pb-stage {
   animation: none;
-  width: min(100%, 520px, calc((100dvh - 440px) * 360 / 420));
-  min-width: min(100%, 240px);
+  width: min(100%, 520px, calc((100dvh - 470px) * 360 / 420));
+  min-width: min(100%, 220px);
 }
 .pb-scene {
   position: absolute;
@@ -160,7 +160,21 @@
   text-align: center;
 }
 .pb-caption-text {
-  animation: pb-rise 420ms var(--ease) both;
+  animation: pb-rise 520ms var(--ease) both;
+}
+/* What the beat reads or makes, quieter, under the caption (D-037 item 5). */
+.pb-detail {
+  min-height: 1.6rem;
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: center;
+}
+.pb-detail-text {
+  display: inline-block;
+  animation: pb-fade 640ms 160ms var(--ease) both;
 }
 .is-ready .pb-caption {
   font-size: 1.5rem;
@@ -211,6 +225,24 @@
   font-weight: 600;
   color: var(--muted);
 }
+.pb-list li.is-now {
+  color: var(--ink);
+  font-weight: 700;
+}
+.pb-list li.is-todo {
+  color: #6b6f7a;
+}
+/* A line still to come (a soft ring), and the one being read now (a gold ring): no motion. */
+.pb-mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #e3dfea;
+}
+.is-now .pb-mark {
+  box-shadow: inset 0 0 0 3px var(--gold);
+}
 
 /* ——— the one action ——— */
 .pb-actions {
@@ -246,6 +278,14 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+@keyframes pb-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 @keyframes pb-enter {
@@ -643,6 +683,12 @@
   fill: none;
   stroke: var(--gold);
   stroke-width: 2;
+}
+/* the program is late: a soft ring goes out of the core while it waits */
+.pb-wait {
+  fill: none;
+  stroke: var(--purple-soft);
+  stroke-width: 1.6;
 }
 .pb-trail {
   fill: none;

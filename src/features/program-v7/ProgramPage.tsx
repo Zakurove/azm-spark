@@ -230,6 +230,8 @@ export function ProgramBody({
           muted
         />
       </Glass>
+      {/* D-037 item 6: the exercises the camera follows now, to try or to show (first, so the booth finds it). */}
+      <DemoLink lang={lang} onOpen={() => onExit("demos")} />
       {items.length > 0 && (
         <ol className="pv7-items">
           {items.map((item) => (
@@ -237,8 +239,6 @@ export function ProgramBody({
           ))}
         </ol>
       )}
-      {/* D-037 item 6: the exercises the camera follows now, to try or to show. */}
-      <DemoLink lang={lang} onOpen={() => onExit("demos")} />
       <Actions items={actions} />
     </div>
   );

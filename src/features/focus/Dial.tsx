@@ -1,15 +1,25 @@
 /**
- * The live dial of a range movement (product v7 plan 1.5 and 1.7, rom-protocol 1.1 step 3): the angle
- * on a half circle against the typical band for the person, with the hold ring around the large
- * number. The person's own angle is purple; the typical band and the typical mark are gold. The arc
- * starts at the reading side (mirrored in Arabic); the number is never mirrored.
+ * The range meter of a movement (D-036 item 4, replacing the numbered dial of product v7 plan 1.5): a
+ * picture to take in at a glance from 2 m, with no number at all on the live screen. A half circle is
+ * the movement's range; the typical band for the person's age and sex is softly shaded in gold on it;
+ * a marker shows where the person is now, the purple line filling behind it; while the person holds,
+ * a ring around the marker fills and the word «اثبت» shows in the middle, and a full ring turns gold
+ * with a check; in the typical band the band brightens and the marker turns gold. The arc starts at
+ * the reading side (mirrored in Arabic).
+ *
+ *   - live: the angle and the hold are read each animation frame (`read`), and the marker, the line
+ *     and the ring move by attributes written from requestAnimationFrame, eased, never by React state
+ *     at frame rate (smooth at 30 fps on a phone);
+ *   - held: the question's held position, still, the ring full;
+ *   - final: the result: the marker settles at the value; the degrees may show, small, under it.
  *
  * The band is the grade's within normal band (rom-norms gradeBand): from withinFrom up for flexion and
- * signed movements, from 0 to withinUpTo for the lack movements (the degrees short of straight). The
- * scale ends at a round number above the typical value, so a small movement still fills the dial.
+ * signed movements, from 0 to withinUpTo for the lack movements (the degrees short of straight, where
+ * the marker moving toward the start is the person straightening). The scale ends at a round number
+ * above the typical value and the band (scaleMax), and grows smoothly if the person goes past it.
  */
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
-import { localizeDigits, pluralForm, unitWord } from "../../i18n";
 import type { RomKind } from "../../movements/rom/types";
 
 /** Round steps of the scale's end. */
@@ -21,146 +31,274 @@ export function scaleMax(kind: RomKind, typical: number | null, band: number | n
   return STEPS.find((s) => s >= want) ?? Math.ceil(want / 30) * 30;
 }
 
-const R = 132;
+const W = 320;
 const CX = 160;
-const CY = 168;
+const CY = 164;
+const R = 134;
+/** The arc's length (a half circle). */
+const L = Math.PI * R;
+/** The hold ring around the marker. */
+const RING_R = 27;
+const RING_C = 2 * Math.PI * RING_R;
+/** The half circle from the start (the reading side) to the end. */
+const ARC = `M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`;
 
-/** A point of the half circle at a share of the scale (0 the start, 1 the end), at radius r. */
-function at(share: number, r: number): { x: number; y: number } {
+/** A point of the half circle at a share of the scale (0 the start, 1 the end). */
+export function meterPoint(share: number): { x: number; y: number } {
   const a = Math.PI * (1 - Math.max(0, Math.min(1, share)));
-  return { x: CX + r * Math.cos(a), y: CY - r * Math.sin(a) };
+  return { x: CX + R * Math.cos(a), y: CY - R * Math.sin(a) };
 }
 
-/** The arc from one share to another at radius r (always the upper half circle). */
-function arc(from: number, to: number, r: number): string {
-  const a = at(from, r);
-  const b = at(to, r);
-  return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${r} ${r} 0 0 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+/** The band on the scale, as shares (null without one). */
+export function bandShares(
+  kind: RomKind,
+  withinFrom: number | null,
+  withinUpTo: number | null,
+  max: number,
+): { from: number; to: number } | null {
+  if (kind === "lack") return withinUpTo === null ? null : { from: 0, to: Math.min(1, withinUpTo / max) };
+  return withinFrom === null ? null : { from: Math.min(1, withinFrom / max), to: 1 };
 }
 
-/**
- * The unit word under the dial's digits. In Arabic the one and two forms carry the number themselves
- * («درجة واحدة», «درجتين»: copy tone rule 9), so under «١°» or «٢°» the generic word «درجة» stands;
- * every other count keeps its form («٥ درجات», «١١ درجة»).
- */
-export function dialUnit(lang: Lang, n: number): string {
-  const form = pluralForm(lang, n);
-  return lang === "ar" && (form === "one" || form === "two")
-    ? unitWord(lang, "deg", 0)
-    : unitWord(lang, "deg", n);
+/** The value is in the typical band (the gentle reached state). */
+export function inBand(
+  kind: RomKind,
+  value: number | null,
+  withinFrom: number | null,
+  withinUpTo: number | null,
+): boolean {
+  if (value === null) return false;
+  if (kind === "lack") return withinUpTo !== null && Math.abs(value) <= withinUpTo;
+  return withinFrom !== null && value >= withinFrom;
 }
 
-export interface DialProps {
-  lang: Lang;
-  kind: RomKind;
+export interface MeterReading {
   /** The angle now (the movement's convention), or null before the joint is seen. */
   value: number | null;
+  /** The hold, 0 to 1; null when the person is not in a try (no ring). */
+  hold: number | null;
+}
+
+export interface RangeMeterProps {
+  lang: Lang;
+  kind: RomKind;
   typical: number | null;
   withinFrom: number | null;
   withinUpTo: number | null;
-  /** The hold ring, 0 to 1; null hides it. */
-  hold?: number | null;
-  /** The scale's end (keep it fixed for a movement so the dial never jumps). */
-  max: number;
-  /** A smaller dial for the result card. */
-  compact?: boolean;
-  /** Words under the number (the unit by default). */
-  caption?: string;
-  /** The typical mark's label («المعتاد»). */
-  typicalLabel: string;
-  /** The value is final (the result): the arc settles, no live glow. */
-  final?: boolean;
+  /** live: read each frame; held: the question's held position; final: the result. */
+  mode: "live" | "held" | "final";
+  /** live: the reading now, called once per animation frame. */
+  read?: () => MeterReading;
+  /** held and final: the value. */
+  value?: number | null;
+  /** The words of the meter (no number): the band, the marker, the hold. */
+  labels: { band: string; you: string; hold: string };
+  /** final: the measured degrees, shown small under the meter (D-036 item 4). */
+  degrees?: ReactNode;
 }
 
-export function Dial(p: DialProps) {
-  const shown = p.value === null ? null : Math.round(Math.abs(p.value));
-  const share = p.value === null ? 0 : Math.max(0, p.value) / p.max;
+const reducedMotion = () =>
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Easing of the live marker and ring (ms): calm, still close to the movement. */
+const FOLLOW_MS = 110;
+const RING_MS = 90;
+const SCALE_MS = 320;
+/** The result's settle (ease out), as the count up it replaces. */
+const SETTLE_MS = 1100;
+
+export function RangeMeter(p: RangeMeterProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const knob = useRef<SVGGElement>(null);
+  const fill = useRef<SVGPathElement>(null);
+  const band = useRef<SVGPathElement>(null);
+  const ring = useRef<SVGCircleElement>(null);
+  const props = useRef(p);
+  props.current = p;
   const lack = p.kind === "lack";
-  const bandFrom = lack ? 0 : p.withinFrom !== null ? p.withinFrom / p.max : null;
-  const bandTo = lack ? (p.withinUpTo !== null ? p.withinUpTo / p.max : null) : 1;
-  // A lack movement's typical value sits at the start of the scale (straight or nearly): its band shows
-  // it, and a mark there would sit under the knob.
-  const typicalShare = p.typical === null || lack ? null : Math.max(0, p.typical) / p.max;
-  const tick = typicalShare === null ? null : { a: at(typicalShare, R + 22), b: at(typicalShare, R + 36) };
-  // The typical value's label sits outside the arc, kept inside the picture at the ends of the scale.
-  const labelAt = typicalShare === null ? null : at(typicalShare, R + 50);
-  const label = labelAt && { x: Math.max(26, Math.min(294, labelAt.x)), y: Math.min(labelAt.y, CY - 26) };
-  const end = at(share, R);
-  // The hold ring sits around the knob, where the person holds: it fills over the hold second.
-  const ringR = 24;
-  const ringC = 2 * Math.PI * ringR;
-  const hold = p.hold ?? null;
   const rtl = p.lang === "ar";
-  // The arc fills from the reading side: a mirror for Arabic around the dial's middle.
-  const flip = rtl ? `translate(${2 * CX} 0) scale(-1 1)` : undefined;
-  const mirrorX = (x: number) => (rtl ? 2 * CX - x : x);
+  const fixed = p.mode === "live" ? null : (p.value ?? null);
+  const max0 = scaleMax(p.kind, p.typical, lack ? p.withinUpTo : p.withinFrom, Math.abs(fixed ?? 0));
+  const share0 = p.mode === "held" && fixed !== null ? Math.max(0, Math.min(1, fixed / max0)) : 0;
+  const band0 = bandShares(p.kind, p.withinFrom, p.withinUpTo, max0);
+  const at0 = meterPoint(share0);
+  const state0 = p.mode === "held" ? "done" : p.mode === "final" ? "final" : "wait";
+  const in0 = p.mode === "held" && inBand(p.kind, fixed, p.withinFrom, p.withinUpTo);
+
+  useEffect(() => {
+    let raf = 0;
+    let last: number | null = null;
+    let share = share0;
+    let hold = p.mode === "held" ? 1 : 0;
+    let max = max0;
+    let seen = Math.abs(fixed ?? 0);
+    const t0 = performance.now();
+    const still = reducedMotion();
+    // What is on screen now (-1: nothing written yet, so the first frame writes everything).
+    const shown = { share: -1, hold: -1, from: -1, to: -1, state: "", band: "" };
+    const tick = (now: number) => {
+      const q = props.current;
+      const dt = last === null ? 16 : Math.max(0, Math.min(200, now - last));
+      last = now;
+      const reading: MeterReading =
+        q.mode === "live"
+          ? (q.read?.() ?? { value: null, hold: null })
+          : { value: q.value ?? null, hold: q.mode === "held" ? 1 : null };
+      const v = reading.value;
+      const isLack = q.kind === "lack";
+      if (v !== null) seen = Math.max(seen, Math.abs(v));
+      const maxGoal = scaleMax(q.kind, q.typical, isLack ? q.withinUpTo : q.withinFrom, seen);
+      max = still ? maxGoal : max + (maxGoal - max) * (1 - Math.exp(-dt / SCALE_MS));
+      const goal = v === null ? 0 : Math.max(0, Math.min(1, v / max));
+      if (q.mode === "final") {
+        const k = still ? 1 : Math.min(1, (now - t0) / SETTLE_MS);
+        share = goal * (1 - Math.pow(1 - k, 3));
+      } else if (q.mode === "held" || still) share = goal;
+      else share += (goal - share) * (1 - Math.exp(-dt / FOLLOW_MS));
+      const holdGoal = reading.hold === null ? 0 : Math.max(0, Math.min(1, reading.hold));
+      hold = still || holdGoal < hold ? holdGoal : hold + (holdGoal - hold) * (1 - Math.exp(-dt / RING_MS));
+
+      // Attributes are written only when they change.
+      if (Math.abs(share - shown.share) > 0.0004) {
+        shown.share = share;
+        const pt = meterPoint(share);
+        knob.current?.setAttribute("transform", `translate(${pt.x.toFixed(2)} ${pt.y.toFixed(2)})`);
+        const f = fill.current;
+        if (f) {
+          f.setAttribute("stroke-dasharray", `${(share * L).toFixed(2)} ${(2 * L).toFixed(0)}`);
+          f.style.opacity = share > 0.012 && v !== null ? "1" : "0";
+        }
+      }
+      if (Math.abs(hold - shown.hold) > 0.002) {
+        shown.hold = hold;
+        ring.current?.setAttribute("stroke-dashoffset", (RING_C * (1 - hold)).toFixed(2));
+      }
+      const b = bandShares(q.kind, q.withinFrom, q.withinUpTo, max);
+      const bel = band.current;
+      if (b && bel && (Math.abs(b.from - shown.from) > 0.0005 || Math.abs(b.to - shown.to) > 0.0005)) {
+        shown.from = b.from;
+        shown.to = b.to;
+        bel.setAttribute("stroke-dasharray", `${((b.to - b.from) * L).toFixed(2)} ${(2 * L).toFixed(0)}`);
+        bel.setAttribute("stroke-dashoffset", (-b.from * L).toFixed(2));
+      }
+      const state =
+        q.mode === "final"
+          ? "final"
+          : v === null
+            ? "wait"
+            : hold >= 0.995 && reading.hold !== null
+              ? "done"
+              : reading.hold !== null && holdGoal > 0.02
+                ? "hold"
+                : "move";
+      const reached = inBand(q.kind, v, q.withinFrom, q.withinUpTo) ? "in" : "out";
+      const r = root.current;
+      if (r && state !== shown.state) {
+        shown.state = state;
+        r.dataset.state = state;
+      }
+      if (r && reached !== shown.band) {
+        shown.band = reached;
+        r.dataset.band = reached;
+      }
+      const settled = q.mode !== "live" && Math.abs(share - goal) < 0.0005 && Math.abs(maxGoal - max) < 0.05;
+      if (!settled) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // The loop reads the latest props itself; it restarts only when the mode or the fixed value changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.mode, fixed]);
+
+  const flip = rtl ? `translate(${W} 0) scale(-1 1)` : undefined;
+  const hasBand = band0 !== null;
   return (
     <div
-      className={`fx-dial${p.compact ? " is-compact" : ""}${p.final ? " is-final" : ""}`}
-      data-value={shown ?? ""}
-      data-hold={hold === null ? "" : hold.toFixed(2)}
+      ref={root}
+      className={`fx-meter is-${p.mode}`}
+      data-mode={p.mode}
+      data-state={state0}
+      data-band={in0 ? "in" : "out"}
+      data-kind={p.kind}
     >
-      <svg viewBox="0 0 320 196" aria-hidden="true">
-        <defs>
-          <linearGradient id="fx-dial-live" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#b9a6d8" />
-            <stop offset="1" stopColor="#6c56a5" />
-          </linearGradient>
-          <linearGradient id="fx-dial-band" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#f6d36b" />
-            <stop offset="1" stopColor="#e3ab1f" />
-          </linearGradient>
-        </defs>
-        <g transform={flip}>
-          <path d={arc(0, 1, R)} className="fx-dial-track" />
-          {bandFrom !== null && bandTo !== null && bandTo > bandFrom && (
-            <path d={arc(bandFrom, Math.min(1, bandTo), R + 18)} className="fx-dial-band" />
-          )}
-          {p.value !== null && share > 0.001 && (
-            <path d={arc(0, Math.min(1, share), R)} className="fx-dial-live" />
-          )}
-          {tick && <line x1={tick.a.x} y1={tick.a.y} x2={tick.b.x} y2={tick.b.y} className="fx-dial-tick" />}
-          {p.value !== null && hold !== null && (
-            <g className="fx-dial-ring" data-full={hold >= 1 ? "" : undefined}>
-              <circle cx={end.x} cy={end.y} r={ringR} className="fx-dial-ring-track" />
+      <div className="fx-meter-arc">
+        <svg viewBox={`0 0 ${W} 178`} aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="fx-meter-fill" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#c9b9e4" />
+              <stop offset="1" stopColor="#6c56a5" />
+            </linearGradient>
+            <linearGradient id="fx-meter-band" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#fde49a" />
+              <stop offset="1" stopColor="#f8cb44" />
+            </linearGradient>
+          </defs>
+          <g transform={flip}>
+            <path d={ARC} className="fx-meter-track" />
+            {hasBand && (
+              <path
+                ref={band}
+                d={ARC}
+                className="fx-meter-band"
+                strokeDasharray={`${((band0.to - band0.from) * L).toFixed(2)} ${(2 * L).toFixed(0)}`}
+                strokeDashoffset={(-band0.from * L).toFixed(2)}
+              />
+            )}
+            {!lack && (
+              <path
+                ref={fill}
+                d={ARC}
+                className="fx-meter-fill"
+                strokeDasharray={`${(share0 * L).toFixed(2)} ${(2 * L).toFixed(0)}`}
+                style={{ opacity: share0 > 0.012 ? 1 : 0 }}
+              />
+            )}
+            <g
+              ref={knob}
+              className="fx-meter-marker"
+              transform={`translate(${at0.x.toFixed(2)} ${at0.y.toFixed(2)})`}
+            >
+              <circle r={RING_R + 9} className="fx-meter-glow" />
+              <circle r={RING_R} className="fx-meter-ring-track" />
               <circle
-                cx={end.x}
-                cy={end.y}
-                r={ringR}
-                className="fx-dial-ring-fill"
-                strokeDasharray={ringC}
-                strokeDashoffset={ringC * (1 - Math.max(0, Math.min(1, hold)))}
-                transform={`rotate(-90 ${end.x.toFixed(2)} ${end.y.toFixed(2)})`}
+                ref={ring}
+                r={RING_R}
+                className="fx-meter-ring"
+                strokeDasharray={RING_C.toFixed(2)}
+                strokeDashoffset={(p.mode === "held" ? 0 : RING_C).toFixed(2)}
+                transform="rotate(-90)"
+              />
+              <circle r={16} className="fx-meter-knob" />
+              <circle r={6.5} className="fx-meter-core" />
+              <path
+                d="M -6.5 0.5 L -2 5 L 7 -5"
+                className="fx-meter-check"
+                transform={rtl ? "scale(-1 1)" : undefined}
               />
             </g>
+          </g>
+        </svg>
+        <div className="fx-meter-centre">
+          {p.mode === "live" && (
+            <span className="fx-meter-hold" aria-hidden="true">
+              {p.labels.hold}
+            </span>
           )}
-          {p.value !== null && <circle cx={end.x} cy={end.y} r={13} className="fx-dial-knob" />}
-        </g>
-        {label && p.typical !== null && (
-          // Isolated left to right (LRI ... PDI): the degree sign follows the number in both languages,
-          // as on the large readout.
-          <text x={mirrorX(label.x)} y={label.y} className="fx-dial-typical" textAnchor="middle">
-            {`\u2066${localizeDigits(p.lang, String(Math.round(Math.abs(p.typical))))}°\u2069`}
-          </text>
-        )}
-      </svg>
-      <div className="fx-dial-readout">
-        {shown === null ? (
-          <i className="fx-dial-wait" aria-hidden="true" />
-        ) : (
-          <b dir="ltr">
-            {localizeDigits(p.lang, String(shown))}
-            <sup>°</sup>
-          </b>
-        )}
-        {shown !== null && <span>{p.caption ?? dialUnit(p.lang, shown)}</span>}
+          {p.mode !== "held" && hasBand && (
+            <p className="fx-meter-legend">
+              <span>
+                <i className="is-you" aria-hidden="true" />
+                {p.labels.you}
+              </span>
+              <span>
+                <i className="is-band" aria-hidden="true" />
+                {p.labels.band}
+              </span>
+            </p>
+          )}
+        </div>
       </div>
-      {p.typical !== null && (
-        <p className="fx-dial-legend">
-          <i aria-hidden="true" />
-          <span>{p.typicalLabel}</span>
-        </p>
-      )}
+      {p.mode === "final" && p.degrees && <p className="fx-meter-degrees">{p.degrees}</p>}
     </div>
   );
 }

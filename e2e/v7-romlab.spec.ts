@@ -35,6 +35,15 @@ test("one movement with the real runner: nobody answers, it is measured, nothing
     timeout: 10_000,
   });
   await expect(page.locator('[data-diag="seen"]')).toContainText("R elbow seen");
+  // D-036 item 4: the live meter moves with the person (drawn from requestAnimationFrame) and the
+  // measuring screen shows no number of the angle and no degree sign.
+  const meter = page.locator('.fx-measure .fx-meter[data-mode="live"]');
+  await expect(meter).toHaveAttribute("data-state", /move|hold|done/, { timeout: 20_000 });
+  const marker = meter.locator(".fx-meter-marker");
+  const before = await marker.getAttribute("transform");
+  await expect.poll(() => marker.getAttribute("transform"), { timeout: 10_000 }).not.toBe(before);
+  expect(await meter.innerText()).not.toMatch(/[0-9٠-٩°]/);
+  expect(await page.locator(".fx-measure").innerText()).not.toContain("°");
   await expect(page.locator('[data-verdict="measured"]')).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".rl-verdict-line")).toHaveText(/^Measured: \d+°$/);
   const json = JSON.parse((await page.locator('[data-diag="json"]').textContent()) ?? "{}");

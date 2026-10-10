@@ -119,6 +119,18 @@ export interface GaitQuality {
   /** 20 to 24 fps */
   timingOnly: boolean;
   issues: GaitQualityIssue[];
+  /**
+   * What the capture counted while recording the view (contract gap GW-3, D-036 item 6), so a stored
+   * walk can be diagnosed later: absent on a walk stored before it.
+   */
+  capture?: GaitCaptureCounts;
+}
+/** The capture's own counts of a recording (GW-3): live passes and steps, active seconds, the try (1 or 2). */
+export interface GaitCaptureCounts {
+  passes: number;
+  steps: number;
+  seconds: number;
+  tries: number;
 }
 /** One cycle for the skeleton replay: 15 fps, landmarks 0, 11 to 16, 23 to 32, x and y to 3 decimals. No video. */
 export interface ReplayCycle {

@@ -202,6 +202,7 @@ export function romSetupConfig(
     armRoom: def.frameMarginArmLengths !== undefined,
     distanceRule: "trackable",
     viewBlocks: false,
+    ignoreBehind: true,
   };
 }
 

@@ -19,6 +19,7 @@ import {
   subjectOf,
   type SubjectPick,
 } from "../src/engine/subject";
+import { setupCheck, type SetupConfig } from "../src/engine/quality";
 import type { Frame, Landmark } from "../src/engine/types";
 import { frameOf, person, type PersonSpec } from "./fixtures/people";
 
@@ -227,5 +228,43 @@ describe("the walk: the walker leaves the picture at each pass's end", () => {
     stay.lock(posesOf(stand), ASPECT, stand.t);
     const picks = frames.map((f) => stay.pickFrame(f));
     expect(picks.some((p, i) => p.lm && p.index === bIndex[i])).toBe(true);
+  });
+});
+
+describe("the setup check reads the locked person only", () => {
+  const cfg: SetupConfig = {
+    testId: null,
+    side: "right",
+    framing: [0, 11, 12, 23, 24, 27, 28],
+    views: ["front", "side", "oblique", "unknown"],
+    distanceM: [0.3, 8],
+    margin: 0.02,
+    tiltMaxDeg: 30,
+    tiltWarnDeg: null,
+    armRoom: false,
+    distanceRule: "trackable",
+    viewBlocks: false,
+  };
+  const frames = (subject: number | undefined, b: Landmark[]) =>
+    Array.from({ length: 10 }, (_, k) => ({
+      t: k * 33,
+      poses: [b, person({ x: 0.3, height: 0.6 }, ASPECT)],
+      aspect: ASPECT,
+      ...(subject !== undefined ? { subject } : {}),
+    }));
+
+  it("never reads B's framing: B in the middle with the feet cut off, A framed", () => {
+    const b = person({ x: 0.5, y: 0.75, height: 0.75 }, ASPECT);
+    // Before any lock, the person nearest the centre (B) is read; with the lock, A.
+    expect(setupCheck(frames(undefined, b), cfg).issues).toContain("framing");
+    expect(setupCheck(frames(1, b), cfg).issues).not.toContain("framing");
+  });
+
+  it("v7: someone behind A over them in the picture is not a second person in the way", () => {
+    const behind = person({ x: 0.32, y: 0.45, height: 0.3 }, ASPECT);
+    expect(setupCheck(frames(1, behind), cfg).issues).toContain("second_person");
+    expect(setupCheck(frames(1, behind), { ...cfg, ignoreBehind: true }).issues).not.toContain(
+      "second_person",
+    );
   });
 });

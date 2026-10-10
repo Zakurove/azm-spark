@@ -288,8 +288,9 @@ describe("the way to the demo exercises", () => {
       expect(html).toContain('data-screen="program"');
       expect(html).toContain("data-demo-link");
       expect(text(html)).toContain(tV7(lang, "targets.demo.button"));
-      // After the exercises, before the page's own actions.
-      expect(html.indexOf("data-demo-link")).toBeGreaterThan(html.lastIndexOf("pv7-item"));
+      // Right under the heading, before the exercises and the page's own actions (easy to find in the booth).
+      expect(html.indexOf("data-demo-link")).toBeGreaterThan(html.indexOf("pv7-hero"));
+      expect(html.indexOf("data-demo-link")).toBeLessThan(html.indexOf("pv7-item"));
       expect(html.indexOf("data-demo-link")).toBeLessThan(html.indexOf('data-action="findings"'));
     }
     const card = DemoLink({ lang: "ar", onOpen: () => exits.push("demos") });

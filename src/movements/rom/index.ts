@@ -46,8 +46,11 @@ export const NORMS_VERSION = `rom_norms_${ROM_DATA.specVersion}`;
  * one calm line per movement, the lenient plateau hold, no answer counts as yes, one valid attempt).
  * rom_engine_4: D-036 and D-037 after Nasser's third and fourth real tests (an impossible reading held
  * at the plausible end, real reach time after «I can do more», one person locked across the block).
+ * rom_engine_5: D-038 item 1 after Nasser's fifth real test (no maximum question: the furthest steady
+ * hold, still about 1 s, is recorded automatically; a hold clearly further on within about 3 s
+ * replaces it).
  */
-export const ROM_ENGINE_VERSION = "rom_engine_4";
+export const ROM_ENGINE_VERSION = "rom_engine_5";
 
 function missing(kind: string, id: string): never {
   throw new Error(`Unknown range of motion ${kind}: ${id}`);

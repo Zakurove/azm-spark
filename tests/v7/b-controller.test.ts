@@ -117,9 +117,7 @@ describe("the range blocks in C-13 order", () => {
 
 describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () => {
   const hurtsOnKneeBend = {
-    answerMax: (i: RomProtocolItem) =>
-      i.movementId === "knee_flexion" ? ("hurts" as const) : ("yes" as const),
-    pain: () => ({ level: 6 }),
+    hurts: (i: RomProtocolItem) => (i.movementId === "knee_flexion" ? { level: 6 } : null),
   };
 
   it("a pain stop on knee_flexion, then knee_extension asks first", () => {
@@ -167,11 +165,7 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
     expect(lying[0]).toBe("hip_flexion:right");
     const ctl = controller(p, { intake: h });
     ctl.startBlock("lying", 0);
-    const run = runBlock(
-      ctl,
-      { answerMax: (i) => (i.movementId === "hip_flexion" ? "hurts" : "yes"), pain: () => ({ level: 7 }) },
-      600,
-    );
+    const run = runBlock(ctl, { hurts: (i) => (i.movementId === "hip_flexion" ? { level: 7 } : null) }, 600);
     expect(run.steps).toContain("pain_stop:hip_flexion:right");
     expect(run.steps.filter((s) => s.startsWith("reask"))).toEqual([]);
   });
@@ -186,8 +180,7 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
       const run = runBlock(
         ctl,
         {
-          answerMax: (i) => (i.movementId === "neck_lateral_flexion" && i.side === "right" ? "hurts" : "yes"),
-          pain: () => ({ level: 6 }),
+          hurts: (i) => (i.movementId === "neck_lateral_flexion" && i.side === "right" ? { level: 6 } : null),
           reask: () => 6,
         },
         600,
@@ -211,8 +204,7 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
       const run = runBlock(
         ctl,
         {
-          answerMax: (i) => (i.movementId === "neck_lateral_flexion" && i.side === "right" ? "hurts" : "yes"),
-          pain: () => ({ level: 6 }),
+          hurts: (i) => (i.movementId === "neck_lateral_flexion" && i.side === "right" ? { level: 6 } : null),
           reask: () => 3,
         },
         900,
@@ -235,8 +227,7 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
       const run = runBlock(
         ctl,
         {
-          answerMax: (i) => (i.movementId === "trunk_flexion" ? "hurts" : "yes"),
-          pain: () => ({ level: 6 }),
+          hurts: (i) => (i.movementId === "trunk_flexion" ? { level: 6 } : null),
           reask: () => 7,
         },
         600,
@@ -294,8 +285,7 @@ describe("the same joint re-ask (contract 2.6, rom-protocol 6 pain_during)", () 
     const run = runBlock(
       ctl,
       {
-        answerMax: (i, h) => (i.movementId === "knee_flexion" && h.attempt === 1 ? "hurts" : "yes"),
-        pain: () => ({ level: 1 }),
+        hurts: (i, attempt) => (i.movementId === "knee_flexion" && attempt === 1 ? { level: 1 } : null),
       },
       400,
     );
@@ -487,8 +477,7 @@ describe("a region the re-ask skipped, and a rest before a block", () => {
     const run = runBlock(
       ctl,
       {
-        answerMax: (i) => (i.movementId === "hip_extension" ? "hurts" : "yes"),
-        pain: () => ({ level: 7 }),
+        hurts: (i) => (i.movementId === "hip_extension" ? { level: 7 } : null),
         reask: () => 6,
       },
       400,
@@ -566,12 +555,23 @@ describe("corrections and lines", () => {
     expect(spoken! - from).toBeLessThanOrEqual(1000);
   });
 
-  it("plays the runner's phase lines and asks the maximum question locally", () => {
+  it("plays the runner's phase lines, and never a maximum question (D-038 item 1)", () => {
     const ctl = controller(protocolOf(KNEE));
     ctl.startBlock("lying", 0);
     const run = runBlock(ctl, { until: (c) => c.current.kind === "result" }, 200);
     const said = lines(run.events);
-    for (const l of ["practice", "ask_max", "recorded", "again"] as const) expect(said).toContain(l);
+    for (const l of ["practice", "recorded", "again"] as const) expect(said).toContain(l);
+    expect(said).not.toContain("ask_max");
+    // The coach hears the hold in hand and the value recorded as its say lines («hold there», «done»).
+    const says = bridges(run.events).filter((e) => e.type === "say");
+    const hold = says.findIndex((e) => e.type === "say" && e.key === "hold");
+    const done = says.findIndex((e) => e.type === "say" && e.key === "done");
+    expect(hold).toBeGreaterThanOrEqual(0);
+    expect(done).toBeGreaterThan(hold);
+    expect(says[hold]).toMatchObject({ kind: "progress", movement: "knee_flexion" });
+    expect(says[done]).toMatchObject({ kind: "step", movement: "knee_flexion" });
+    for (const e of [says[hold], says[done]])
+      for (const l of e.type === "say" ? e.lines : []) expect(l).not.toMatch(/\d/);
   });
 });
 
@@ -597,16 +597,14 @@ describe("the typical value of a position without a matched norm (rom-protocol 3
     expect(ctl.norm(lyingKnee).typical).toBeGreaterThan(100);
   });
 
-  it("tells the coach no typical at the hold and in the result of an ungraded movement", () => {
+  it("tells the coach no typical in the result of an ungraded movement", () => {
     const p = protocolOf(MS_CHAIR);
     const ctl = controller(p, { intake: MS_CHAIR });
     ctl.startBlock("seated", 0);
     const run = runBlock(ctl, {}, 900);
     const events = bridges(run.events);
-    const trunk = events.filter(
-      (e) => (e.type === "end_range_hold" || e.type === "movement_result") && e.movement === "trunk_flexion",
-    );
-    expect(trunk.length).toBeGreaterThanOrEqual(2);
+    const trunk = events.filter((e) => e.type === "movement_result" && e.movement === "trunk_flexion");
+    expect(trunk.length).toBeGreaterThanOrEqual(1);
     for (const e of trunk) expect("typical" in e && e.typical).toBeNull();
   });
 });
@@ -622,8 +620,7 @@ describe("the walk after the range blocks (gait-rules eligibility.today, rom-pro
     runBlock(
       ctl,
       {
-        answerMax: (i) => (i.movementId === "hip_extension" ? "hurts" : "yes"),
-        pain: () => ({ level: 7 }),
+        hurts: (i) => (i.movementId === "hip_extension" ? { level: 7 } : null),
         reask: () => 7,
       },
       600,
@@ -634,11 +631,7 @@ describe("the walk after the range blocks (gait-rules eligibility.today, rom-pro
   it("a pain stop at 6 on the last standing movement: the walk is not offered today", () => {
     const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
     ctl.startBlock("standing", 0);
-    runBlock(
-      ctl,
-      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 6 }) },
-      600,
-    );
+    runBlock(ctl, { hurts: (i) => (i.movementId === "hip_abduction" ? { level: 6 } : null) }, 600);
     expect(ctl.current.kind).toBe("end");
     expect(ctl.walkGate(WALK).skip).toBe(true);
   });
@@ -646,11 +639,7 @@ describe("the walk after the range blocks (gait-rules eligibility.today, rom-pro
   it("a pain stop by a rise of 2 below 6: the walk asks the hip's pain first; 6 or more then skips the walk and the hip", () => {
     const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
     ctl.startBlock("standing", 0);
-    runBlock(
-      ctl,
-      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 4 }) },
-      600,
-    );
+    runBlock(ctl, { hurts: (i) => (i.movementId === "hip_abduction" ? { level: 4 } : null) }, 600);
     expect(ctl.walkGate(WALK)).toEqual({ skip: false, ask: ["hip"], before: 2 });
     ctl.answerWalkPain("hip", 3, 1_000_000);
     expect(ctl.walkGate(WALK)).toEqual({ skip: false, ask: [], before: 3 });
@@ -664,11 +653,7 @@ describe("the walk after the range blocks (gait-rules eligibility.today, rom-pro
   it("a walk re-ask of 6 skips the walk and the region's later movements (pain_today)", () => {
     const ctl = controller(protocolOf(HIP), { intake: HIP, painByRegion: { hip: 2 } });
     ctl.startBlock("standing", 0);
-    runBlock(
-      ctl,
-      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 4 }) },
-      600,
-    );
+    runBlock(ctl, { hurts: (i) => (i.movementId === "hip_abduction" ? { level: 4 } : null) }, 600);
     ctl.answerWalkPain("hip", 6, 1_000_000);
     expect(ctl.walkGate(WALK).skip).toBe(true);
     ctl.startBlock("lying", 1_000_100);

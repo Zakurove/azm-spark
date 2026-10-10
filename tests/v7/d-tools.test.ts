@@ -2,7 +2,8 @@
  * Stream D, step D1: the coach's tools (product v7 contract 2.11, C-7): the tool set of each block,
  * their behaviour, the REST shaped declarations the token locks in (5.1), the strict argument parser,
  * and the checks a call passes before a host sees it, with the S0-2 guard (D-022 item 2): an answer
- * tool is accepted only after the person's own speech.
+ * tool is accepted only after the person's own speech. D-038 item 1: confirm_max and set_limit_cause are
+ * gone with the maximum and cause questions; keep_reaching needs the person's words.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -24,11 +25,9 @@ import { STOP_OPTION_IDS } from "../../src/movements/types";
 import { wordingProblems } from "../../scripts/wording-rules.mjs";
 
 const ALL: ToolName[] = [
-  "confirm_max",
   "answer_can_move",
   "keep_reaching",
   "mark_pain",
-  "set_limit_cause",
   "pause",
   "resume",
   "stop",
@@ -58,10 +57,8 @@ describe("the tool sets and their behaviour (2.11)", () => {
 
   it("make the answer tools and stop BLOCKING and the control tools NON_BLOCKING with their scheduling", () => {
     expect(TOOL_BEHAVIOR).toEqual({
-      confirm_max: { behavior: "BLOCKING" },
       answer_can_move: { behavior: "BLOCKING" },
       mark_pain: { behavior: "BLOCKING" },
-      set_limit_cause: { behavior: "BLOCKING" },
       stop: { behavior: "BLOCKING" },
       keep_reaching: { behavior: "NON_BLOCKING", scheduling: "SILENT" },
       repeat_instructions: { behavior: "NON_BLOCKING", scheduling: "WHEN_IDLE" },
@@ -73,7 +70,8 @@ describe("the tool sets and their behaviour (2.11)", () => {
 
   it("knows its tool names", () => {
     for (const n of ALL) expect(isToolName(n)).toBe(true);
-    for (const n of ["record_range", "", "toString", "__proto__"]) expect(isToolName(n)).toBe(false);
+    for (const n of ["record_range", "", "toString", "__proto__", "confirm_max", "set_limit_cause"])
+      expect(isToolName(n)).toBe(false);
   });
 });
 
@@ -97,17 +95,13 @@ describe("toolDeclarations", () => {
   });
 
   it("builds the parameters from the unions of 2.11", () => {
-    expect(decl("rom", "confirm_max").parameters).toMatchObject({
+    expect(decl("rom", "answer_can_move").parameters).toMatchObject({
       type: "OBJECT",
       properties: {
         movement: { type: "STRING", enum: [...ROM_MOVEMENT_IDS] },
         side: { type: "STRING", enum: ["left", "right", "none"] },
-        answer: { type: "STRING", enum: ["yes", "not_yet", "hurts"] },
+        canMove: { type: "BOOLEAN" },
       },
-      required: ["movement", "side", "answer"],
-    });
-    expect(decl("rom", "answer_can_move").parameters).toMatchObject({
-      properties: { canMove: { type: "BOOLEAN" } },
       required: ["movement", "side", "canMove"],
     });
     for (const block of BLOCKS)
@@ -119,10 +113,6 @@ describe("toolDeclarations", () => {
         },
         required: ["level"],
       });
-    expect(decl("rom", "set_limit_cause").parameters).toMatchObject({
-      properties: { cause: { type: "STRING", enum: ["tight", "pain", "weak"] } },
-      required: ["cause"],
-    });
     expect(decl("session", "stop").parameters).toMatchObject({
       properties: { reason: { type: "STRING", enum: STOP_REASONS } },
       required: ["reason"],
@@ -145,17 +135,19 @@ describe("toolDeclarations", () => {
   });
 
   it("says when to call each tool and when never to (2.11, 5.3)", () => {
-    const max = decl("rom", "confirm_max").description;
-    expect(max).toContain("«هل هذا أقصى ما تستطيع؟»");
-    expect(max).toContain("Never call it before an end_range_hold event");
-    expect(decl("rom", "keep_reaching").description).toMatch(/Never call it after/);
+    // D-038 item 1: no maximum question to answer; keep_reaching on «I can do more» or «wait».
+    expect(decl("rom", "confirm_max")).toBeUndefined();
+    expect(decl("rom", "set_limit_cause")).toBeUndefined();
+    const keep = decl("rom", "keep_reaching").description;
+    for (const word of ["«أقدر أكثر»", "«انتظر»", "I can do more", "wait"]) expect(keep).toContain(word);
+    expect(keep).toMatch(/Never call it on your own, after any pain/);
     const next = decl("rom", "next_step").description;
     expect(next).toMatch(/right after the person says in their own words that they are ready/);
     expect(next).toMatch(/Never call it on your own/);
     expect(next).toMatch(/never for a question, a pain score, a stop or a safety screen/);
     for (const word of ["«جاهز»", "«التالي»", "«مرة ثانية»", "let's go"]) expect(next).toContain(word);
     expect(decl("rom", "resume").description).toMatch(/Never call it after a safety stop/);
-    for (const n of ["confirm_max", "answer_can_move", "set_limit_cause", "mark_pain"])
+    for (const n of ["answer_can_move", "mark_pain"])
       expect(decl("rom", n).description, n).toMatch(/own words/);
   });
 
@@ -179,11 +171,6 @@ describe("parseToolArgs", () => {
     expect(parseToolArgs(name, raw), `${name} ${JSON.stringify(raw)}`).toEqual({ ok: false });
 
   it("takes every tool's valid arguments", () => {
-    expect(ok("confirm_max", { movement: "shoulder_flexion", side: "right", answer: "not_yet" })).toEqual({
-      movement: "shoulder_flexion",
-      side: "right",
-      answer: "not_yet",
-    });
     expect(ok("answer_can_move", { movement: "neck_flexion", side: "none", canMove: false })).toEqual({
       movement: "neck_flexion",
       side: "none",
@@ -195,8 +182,6 @@ describe("parseToolArgs", () => {
       sharp: true,
       location: "knee",
     });
-    for (const cause of ["tight", "pain", "weak"])
-      expect(ok("set_limit_cause", { cause })).toEqual({ cause });
     for (const reason of STOP_REASONS) expect(ok("stop", { reason })).toEqual({ reason });
     for (const n of ["keep_reaching", "pause", "resume", "repeat_instructions"] as ToolName[]) {
       expect(ok(n, {})).toEqual({});
@@ -210,17 +195,16 @@ describe("parseToolArgs", () => {
   });
 
   it("refuses unknown keys, wrong enums, missing fields and values that are not objects", () => {
-    const max = { movement: "shoulder_flexion", side: "right", answer: "yes" };
-    bad("confirm_max", { ...max, extra: 1 });
-    bad("confirm_max", { ...max, movement: "wrist_flexion" });
-    bad("confirm_max", { ...max, side: "R" });
-    bad("confirm_max", { ...max, answer: "no" });
-    bad("confirm_max", { movement: "shoulder_flexion", side: "right" });
-    for (const raw of [null, undefined, "yes", 3, [max], true]) bad("confirm_max", raw);
+    const can = { movement: "neck_flexion", side: "none", canMove: true };
+    bad("answer_can_move", { ...can, extra: 1 });
+    bad("answer_can_move", { ...can, movement: "wrist_flexion" });
+    bad("answer_can_move", { ...can, side: "R" });
+    for (const raw of [null, undefined, "yes", 3, [can], true]) bad("answer_can_move", raw);
     bad("answer_can_move", { movement: "neck_flexion", side: "none", canMove: "true" });
     bad("answer_can_move", { movement: "neck_flexion", side: "none" });
-    bad("set_limit_cause", { cause: "stiff" });
-    bad("set_limit_cause", {});
+    // D-038 item 1: the retired tools are no tools.
+    bad("confirm_max" as ToolName, { movement: "shoulder_flexion", side: "right", answer: "yes" });
+    bad("set_limit_cause" as ToolName, { cause: "tight" });
     for (const n of ["keep_reaching", "pause", "resume", "next_step", "repeat_instructions"] as ToolName[]) {
       bad(n, { now: true });
       bad(n, "go");
@@ -230,8 +214,8 @@ describe("parseToolArgs", () => {
     bad("next_step", { intent: "skip" });
     bad("next_step", { intent: "ready", extra: 1 });
     bad(
-      "confirm_max",
-      JSON.parse('{"movement":"shoulder_flexion","side":"right","answer":"yes","__proto__":{}}'),
+      "answer_can_move",
+      JSON.parse('{"movement":"shoulder_flexion","side":"right","canMove":true,"__proto__":{}}'),
     );
     bad("unknown_tool" as ToolName, {});
   });
@@ -254,38 +238,29 @@ describe("parseToolArgs", () => {
 });
 
 describe("the S0-2 answer guard (D-022 item 2)", () => {
-  const hold = (t: number) =>
-    ({
-      p: 1,
-      type: "end_range_hold",
-      holdId: "h",
-      movement: "shoulder_flexion",
-      side: "right",
-      deg: 120,
-      typical: 165,
-      t,
-    }) as const;
-  const ask = (type: "ask_can_move" | "ask_cause" | "ask_pain", t: number) =>
+  const canMoveAsk = (t: number) =>
+    ({ p: 1, type: "ask_can_move", movement: "shoulder_flexion", side: "right", t }) as const;
+  const ask = (type: "ask_can_move" | "ask_pain", t: number) =>
     ({ p: 1, type, movement: "shoulder_flexion", side: "right", t }) as const;
   const refused = { accepted: false, reason: "no_answer_heard", say: ANSWER_GUARD_SAY };
 
   it("refuses an answer tool called after the question with no speech from the person", () => {
     const g = new AnswerGuard();
-    g.question(hold(10_000));
-    expect(g.check("confirm_max", 11_000)).toEqual(refused);
+    g.question(canMoveAsk(10_000));
+    expect(g.check("answer_can_move", 11_000)).toEqual(refused);
     expect(ANSWER_GUARD_SAY).toBe("ask_and_wait");
   });
 
   it("accepts it once the person's speech arrived after the question", () => {
     const g = new AnswerGuard();
     g.heard("نعم", 9_000);
-    g.question(hold(10_000));
+    g.question(canMoveAsk(10_000));
     // Speech before the question does not answer it.
-    expect(g.check("confirm_max", 10_500)).toEqual(refused);
+    expect(g.check("answer_can_move", 10_500)).toEqual(refused);
     g.heard("   ", 10_600);
-    expect(g.check("confirm_max", 10_700)).toEqual(refused);
-    g.heard("إيه هذا أقصى شي", 11_000);
-    expect(g.check("confirm_max", 11_500)).toBeNull();
+    expect(g.check("answer_can_move", 10_700)).toEqual(refused);
+    g.heard("إيه أقدر", 11_000);
+    expect(g.check("answer_can_move", 11_500)).toBeNull();
   });
 
   it("ties each answer tool to the question that opens it", () => {
@@ -293,21 +268,14 @@ describe("the S0-2 answer guard (D-022 item 2)", () => {
     g.question(ask("ask_can_move", 1_000));
     g.heard("أقدر", 2_000);
     expect(g.check("answer_can_move", 2_100)).toBeNull();
-    g.question(hold(5_000));
-    g.heard("نعم", 6_000);
-    g.question(ask("ask_cause", 7_000));
-    // The cause question has had no answer yet; the maximum question has.
-    expect(g.check("set_limit_cause", 7_500)).toEqual(refused);
-    expect(g.check("confirm_max", 7_500)).toBeNull();
-    g.heard("شد", 8_000);
-    expect(g.check("set_limit_cause", 8_200)).toBeNull();
+    g.question(ask("ask_can_move", 5_000));
+    // The new question has had no answer yet.
+    expect(g.check("answer_can_move", 5_500)).toEqual(refused);
   });
 
   it("leaves an answer tool with no open question to the host (an early answer is the host's wrong_phase)", () => {
     const g = new AnswerGuard();
-    expect(g.check("confirm_max", 1_000)).toBeNull();
     expect(g.check("answer_can_move", 1_000)).toBeNull();
-    expect(g.check("set_limit_cause", 1_000)).toBeNull();
   });
 
   it("takes mark_pain only within 10 s of the person's speech", () => {
@@ -322,9 +290,9 @@ describe("the S0-2 answer guard (D-022 item 2)", () => {
 
   it("answers the pain question only with speech after it: the speech before it was another answer", () => {
     const g = new AnswerGuard();
-    // «أقدر أكثر بس يوجعني» answers the maximum question; the pain question follows.
-    g.question(hold(1_000));
-    g.heard("أقدر أكثر بس يوجعني", 2_000);
+    // «أقدر» answers the can move question; the pain question follows.
+    g.question(canMoveAsk(1_000));
+    g.heard("أقدر", 2_000);
     g.question(ask("ask_pain", 3_000));
     // 2.4 s later, nobody speaking since the question: the model's own mark_pain(0) is refused.
     expect(g.check("mark_pain", 5_400, { level: 0 })).toEqual(refused);
@@ -349,9 +317,18 @@ describe("the S0-2 answer guard (D-022 item 2)", () => {
 
   it("always passes stop and the control tools", () => {
     const g = new AnswerGuard();
-    g.question(hold(1_000));
-    for (const n of ["stop", "keep_reaching", "pause", "resume", "repeat_instructions"] as ToolName[])
+    g.question(canMoveAsk(1_000));
+    for (const n of ["stop", "pause", "resume", "repeat_instructions"] as ToolName[])
       expect(g.check(n, 2_000), n).toBeNull();
+  });
+
+  it("takes keep_reaching only within 10 s of the person's words (D-038 item 1), never on the model's own", () => {
+    const g = new AnswerGuard();
+    expect(g.check("keep_reaching", 1_000)).toEqual(refused);
+    g.heard("أقدر أكثر", 2_000);
+    expect(g.check("keep_reaching", 2_500)).toBeNull();
+    expect(g.check("keep_reaching", 12_000)).toBeNull();
+    expect(g.check("keep_reaching", 12_001)).toEqual(refused);
   });
 
   describe("next_step presses a button only on the person's words on that screen (D-036 item 2)", () => {
@@ -403,32 +380,35 @@ describe("the S0-2 answer guard (D-022 item 2)", () => {
 describe("screenToolCall", () => {
   it("answers unknown_tool, not_in_block, invalid_args and no_answer_heard before a host sees the call", () => {
     const g = new AnswerGuard();
-    g.question({ p: 1, type: "ask_cause", movement: "knee_flexion", side: "left", t: 1_000 });
+    g.question({ p: 1, type: "ask_can_move", movement: "knee_flexion", side: "left", t: 1_000 });
     expect(screenToolCall("rom", { name: "record_range", args: {} }, g, 2_000)).toEqual({
       ok: false,
       result: { accepted: false, reason: "unknown_tool" },
     });
+    expect(screenToolCall("rom", { name: "confirm_max", args: {} }, g, 2_000)).toEqual({
+      ok: false,
+      result: { accepted: false, reason: "unknown_tool" },
+    });
+    const can = { movement: "knee_flexion", side: "left", canMove: true };
+    expect(screenToolCall("gait", { name: "answer_can_move", args: can }, g, 2_000)).toEqual({
+      ok: false,
+      result: { accepted: false, reason: "not_in_block" },
+    });
     expect(
-      screenToolCall(
-        "gait",
-        { name: "confirm_max", args: { movement: "knee_flexion", side: "left", answer: "yes" } },
-        g,
-        2_000,
-      ),
-    ).toEqual({ ok: false, result: { accepted: false, reason: "not_in_block" } });
-    expect(screenToolCall("rom", { name: "set_limit_cause", args: { cause: "cold" } }, g, 2_000)).toEqual({
+      screenToolCall("rom", { name: "answer_can_move", args: { ...can, canMove: "yes" } }, g, 2_000),
+    ).toEqual({
       ok: false,
       result: { accepted: false, reason: "invalid_args" },
     });
-    expect(screenToolCall("rom", { name: "set_limit_cause", args: { cause: "tight" } }, g, 2_000)).toEqual({
+    expect(screenToolCall("rom", { name: "answer_can_move", args: can }, g, 2_000)).toEqual({
       ok: false,
       result: { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" },
     });
-    g.heard("أحس بشد", 2_500);
-    expect(screenToolCall("rom", { name: "set_limit_cause", args: { cause: "tight" } }, g, 3_000)).toEqual({
+    g.heard("إيه أقدر", 2_500);
+    expect(screenToolCall("rom", { name: "answer_can_move", args: can }, g, 3_000)).toEqual({
       ok: true,
-      name: "set_limit_cause",
-      args: { cause: "tight" },
+      name: "answer_can_move",
+      args: can,
     });
     expect(screenToolCall("session", { name: "stop", args: { reason: "chest" } }, g, 3_000)).toEqual({
       ok: true,

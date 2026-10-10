@@ -5,12 +5,12 @@
  */
 import type { CoachEndReason } from "../../../src/coach/events";
 import { isCoachFailure } from "../../../src/coach/failure";
-import type { ToolName } from "../../../src/coach/types";
 import { isToolName } from "../../../src/coach/tools";
 import { isStopOption } from "../../../src/medical/precheck";
+import { demoExercise } from "../../../src/features/program-v7/demoCatalog";
 import type { StopOptionId } from "../../../src/movements/types";
 import { SILENCE_MS, type SilenceMs } from "./token";
-import type { TokenRequest, UsageReport } from "./types";
+import { RETIRED_TOOL_NAMES, type TokenRequest, type UsageReport, type UsageToolName } from "./types";
 
 type Parsed<T> = { ok: true; value: T } | { ok: false; field: string };
 
@@ -19,7 +19,7 @@ const DEVICE_ID = /^[A-Za-z0-9_-]{16,64}$/;
 const SEGMENT = {
   rom: /^rom:(seated|standing|lying):(1|2)$/,
   gait: /^gait$/,
-  session: /^session:(1|2)$/,
+  session: /^(session:(1|2)|demo)$/,
 } as const;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -34,7 +34,11 @@ const isNum = (v: unknown, min: number, max: number): v is number =>
 
 const TOKEN_KEYS = ["block", "segment", "lang", "ref", "deviceId", "silenceMs"] as const;
 
-/** POST /api/agent/token's body (5.1). The segment must match the block, and the ref its kind. */
+/**
+ * POST /api/agent/token's body (5.1). The segment must match the block, and the ref its kind. D-038
+ * item 3: a demo exercise is block session, segment demo, with the ref { demo: its exercise id, run: a
+ * random id of the run } and no workout; a workout's parts are session:1 and session:2.
+ */
 export function parseTokenRequest(body: unknown): Parsed<TokenRequest> {
   if (!isRecord(body)) return { ok: false, field: "body" };
   const extra = unknownKey(body, TOKEN_KEYS);
@@ -43,14 +47,27 @@ export function parseTokenRequest(body: unknown): Parsed<TokenRequest> {
   if (block !== "rom" && block !== "gait" && block !== "session") return { ok: false, field: "block" };
   if (typeof segment !== "string" || !SEGMENT[block].test(segment)) return { ok: false, field: "segment" };
   if (lang !== "ar" && lang !== "en") return { ok: false, field: "lang" };
-  const refKey = block === "session" ? "workoutId" : "checkId";
-  if (
-    !isRecord(ref) ||
-    Object.keys(ref).length !== 1 ||
-    typeof ref[refKey] !== "string" ||
-    !ID.test(ref[refKey])
-  )
-    return { ok: false, field: "ref" };
+  const demo = segment === "demo";
+  if (demo) {
+    if (
+      !isRecord(ref) ||
+      unknownKey(ref, ["demo", "run"]) ||
+      typeof ref.demo !== "string" ||
+      !demoExercise(ref.demo) ||
+      typeof ref.run !== "string" ||
+      !ID.test(ref.run)
+    )
+      return { ok: false, field: "ref" };
+  } else {
+    const refKey = block === "session" ? "workoutId" : "checkId";
+    if (
+      !isRecord(ref) ||
+      Object.keys(ref).length !== 1 ||
+      typeof ref[refKey] !== "string" ||
+      !ID.test(ref[refKey])
+    )
+      return { ok: false, field: "ref" };
+  }
   if (typeof deviceId !== "string" || !DEVICE_ID.test(deviceId)) return { ok: false, field: "deviceId" };
   if (silenceMs !== undefined && !SILENCE_MS.includes(silenceMs as SilenceMs))
     return { ok: false, field: "silenceMs" };
@@ -60,7 +77,11 @@ export function parseTokenRequest(body: unknown): Parsed<TokenRequest> {
       block,
       segment: segment as TokenRequest["segment"],
       lang,
-      ref: block === "session" ? { workoutId: ref[refKey] as string } : { checkId: ref[refKey] as string },
+      ref: demo
+        ? { demo: ref.demo as string, run: ref.run as string }
+        : block === "session"
+          ? { workoutId: ref.workoutId as string }
+          : { checkId: ref.checkId as string },
       deviceId,
       ...(silenceMs !== undefined ? { silenceMs: silenceMs as SilenceMs } : {}),
     },
@@ -136,17 +157,17 @@ export function parseUsageReport(body: unknown): Parsed<UsageReport> {
   if (!isNum(b.durationSec, 0, USAGE_LIMITS.durationSec)) return { ok: false, field: "durationSec" };
   if (!isInt(b.turns, 0, USAGE_LIMITS.turns)) return { ok: false, field: "turns" };
   if (!isRecord(b.toolCalls)) return { ok: false, field: "toolCalls" };
-  const toolCalls: Partial<Record<ToolName, { ok: number; rejected: number }>> = {};
+  const toolCalls: Partial<Record<UsageToolName, { ok: number; rejected: number }>> = {};
   for (const [name, c] of Object.entries(b.toolCalls)) {
     if (
-      !isToolName(name) ||
+      !(isToolName(name) || (RETIRED_TOOL_NAMES as readonly string[]).includes(name)) ||
       !isRecord(c) ||
       unknownKey(c, ["ok", "rejected"]) ||
       !isInt(c.ok, 0, USAGE_LIMITS.toolCalls) ||
       !isInt(c.rejected, 0, USAGE_LIMITS.toolCalls)
     )
       return { ok: false, field: "toolCalls" };
-    toolCalls[name] = { ok: c.ok, rejected: c.rejected };
+    toolCalls[name as UsageToolName] = { ok: c.ok, rejected: c.rejected };
   }
   for (const k of ["promptTokens", "responseTokens"] as const)
     if (b[k] !== null && !isInt(b[k], 0, USAGE_LIMITS.tokens)) return { ok: false, field: k };
@@ -184,15 +205,26 @@ export function parseUsageReport(body: unknown): Parsed<UsageReport> {
 
 /* -------------------------------------------------------------- stop */
 
-const STOP_KEYS = ["workoutId", "option"] as const;
+const STOP_KEYS = ["workoutId", "demo", "option"] as const;
 
-/** POST /api/agent/stop's body (D-030 D5-7): the workout and the person's stop list answer. */
-export function parseStopRequest(body: unknown): Parsed<{ workoutId: string; option: StopOptionId }> {
+/**
+ * POST /api/agent/stop's body (D-030 D5-7): the workout and the person's stop list answer, or (D-038
+ * item 3) the demo exercise in place of a workout.
+ */
+export function parseStopRequest(
+  body: unknown,
+): Parsed<({ workoutId: string } | { demo: string }) & { option: StopOptionId }> {
   if (!isRecord(body)) return { ok: false, field: "body" };
   const extra = unknownKey(body, STOP_KEYS);
   if (extra) return { ok: false, field: extra };
-  const { workoutId, option } = body;
-  if (typeof workoutId !== "string" || !ID.test(workoutId)) return { ok: false, field: "workoutId" };
+  const { workoutId, demo, option } = body;
+  if (demo !== undefined) {
+    if (workoutId !== undefined) return { ok: false, field: "workoutId" };
+    if (typeof demo !== "string" || !demoExercise(demo)) return { ok: false, field: "demo" };
+  } else if (typeof workoutId !== "string" || !ID.test(workoutId)) return { ok: false, field: "workoutId" };
   if (typeof option !== "string" || !isStopOption(option)) return { ok: false, field: "option" };
-  return { ok: true, value: { workoutId, option } };
+  return {
+    ok: true,
+    value: demo !== undefined ? { demo: demo as string, option } : { workoutId: workoutId as string, option },
+  };
 }

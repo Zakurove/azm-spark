@@ -5,9 +5,9 @@
  * with their large buttons), the result of the movement (its words, the degrees small), the pain stop,
  * the rests and the sit before stand minute.
  *
- * The questions keep their buttons on screen whatever the coach does (rom-protocol 1.1 step 5): the
- * maximum question's three answers are the v1 answer zones (contract section 7), large enough to be
- * tapped by a helper or the booth staff while the person holds the end of the movement.
+ * The questions keep their buttons on screen whatever the coach does (rom-protocol 1.1 step 5), the
+ * yes and no of «can you move it» as the v1 answer zones (contract section 7). D-038 item 1: there is
+ * no maximum question and no cause question; a hold in hand shows «Hold there» until it is recorded.
  */
 import { useEffect, useMemo, useRef } from "react";
 import type { Lang } from "../../app/i18n";
@@ -27,7 +27,7 @@ import { useFoldFit } from "../assessment/safety/hooks";
 import { copyText, instructionLines, lineText, movementName, positionName, resultView } from "./copy";
 import { RangeMeter, type MeterReading } from "./Dial";
 import { MovementPicture } from "./MovementPicture";
-import { Actions, Body, Choices, Dots, Glass, Kicker, PainScale, Timer, Title } from "./parts";
+import { Actions, Body, Dots, Glass, Kicker, PainScale, Timer, Title } from "./parts";
 import type { RomController } from "./romController";
 import { QuestionText, sideRegion } from "./Screens";
 import { Stage } from "./Stage";
@@ -286,8 +286,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
   const scored = Math.max(RUNNER_RULES.validAttempts, att.index);
   const caption = ctl.caption;
   const issue = phase === "calibrating" ? ctl.setupIssue : null;
-  const asking =
-    phase === "ask_max" || phase === "ask_pain" || phase === "ask_cause" || phase === "ask_can_move";
+  const asking = phase === "ask_can_move";
   // Pause has focus when the measurement opens and again when a question closes (STOP had it before
   // D-034 item 4); a question that opens takes it (QuestionText).
   const pauseRef = useRef<HTMLButtonElement>(null);
@@ -306,6 +305,8 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
     you: tV7(lang, "rom.measure.you"),
     hold: tV7(lang, "rom.measure.hold"),
   };
+  // D-038 item 1: a hold in hand is recorded with no question: «Hold there» while it settles.
+  const holding = phase === "attempt" && hold !== null;
   // D-034 item 5: after Ready the measurement says «لنبدأ» clearly (and the voice says it, FocusApp),
   // with the start position under it, before the first attempt.
   const prompt =
@@ -313,21 +314,25 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       ? tV7(lang, "rom.measure.letsStart")
       : phase === "practice"
         ? tV7(lang, "rom.measure.practice")
-        : phase === "attempt"
-          ? tV7(lang, att.index > RUNNER_RULES.validAttempts ? "rom.measure.again" : "rom.measure.now")
-          : phase === "rest"
-            ? tV7(lang, "rom.measure.rest")
-            : phase === "paused"
-              ? tV7(lang, "rom.measure.paused")
-              : "";
+        : holding
+          ? tV7(lang, "rom.measure.holding")
+          : phase === "attempt"
+            ? tV7(lang, att.index > RUNNER_RULES.validAttempts ? "rom.measure.again" : "rom.measure.now")
+            : phase === "rest"
+              ? tV7(lang, "rom.measure.rest")
+              : phase === "paused"
+                ? tV7(lang, "rom.measure.paused")
+                : "";
   const sub =
     phase === "practice"
       ? copyText("practice", lang)
-      : phase === "attempt"
-        ? tV7(lang, "rom.measure.move")
-        : phase === "calibrating"
-          ? tV7(lang, "rom.measure.start")
-          : "";
+      : holding
+        ? tV7(lang, "rom.measure.holdingSub")
+        : phase === "attempt"
+          ? tV7(lang, "rom.measure.move")
+          : phase === "calibrating"
+            ? tV7(lang, "rom.measure.start")
+            : "";
   const restLeft = phase === "rest" ? ctl.restLeft(now) : 0;
   // v1's 2 m sizes (UX spec 4.1), stepped down only as far as the answers need to fit above STOP: a
   // person 2 to 3 m from the phone cannot scroll or read small type (v1 useFoldFit levels).
@@ -340,7 +345,8 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
       data-fit={fit}
       data-phase={phase}
       data-movement={item.movementId}
-      data-asking={asking ? (phase === "ask_max" ? "max" : "other") : undefined}
+      data-asking={asking ? "other" : undefined}
+      data-holding={holding ? "" : undefined}
     >
       <Stage video={video} frame={frame} highlight={highlight}>
         <div className="fx-stage-top">
@@ -448,47 +454,6 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
             </div>
           </div>
         )}
-        {phase === "ask_max" && hold && (
-          <Question
-            lang={lang}
-            id="fx-ask-max"
-            text={copyText("ask_max", lang)}
-            held={
-              <RangeMeter
-                lang={lang}
-                kind={def.kind}
-                mode="held"
-                value={hold.deg}
-                typical={norm.typical}
-                withinFrom={norm.withinFrom}
-                withinUpTo={norm.withinUpTo}
-                labels={meterLabels}
-              />
-            }
-          >
-            <div className="fx-v1 fx-zones" data-fold>
-              <AnswerZones
-                labelledBy="fx-ask-max"
-                options={[
-                  { value: "yes", label: copyText("ans_yes", lang), icon: "check", commitAtOnce: true },
-                  {
-                    value: "not_yet",
-                    label: copyText("ans_not_yet", lang),
-                    icon: "arrow-up",
-                    commitAtOnce: true,
-                  },
-                  {
-                    value: "hurts",
-                    label: copyText("ans_hurts", lang),
-                    icon: "alert-triangle",
-                    commitAtOnce: true,
-                  },
-                ]}
-                onAnswer={(v) => ctl.answerMax(v as "yes" | "not_yet" | "hurts", "button", clock())}
-              />
-            </div>
-          </Question>
-        )}
         {phase === "ask_can_move" && (
           <Question lang={lang} id="fx-can-move" text={copyText("can_move_ask", lang)}>
             <div className="fx-v1 fx-zones" data-fold>
@@ -503,31 +468,6 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
             </div>
           </Question>
         )}
-        {phase === "ask_pain" && (
-          <Question lang={lang} id="fx-pain" text={copyText("pain_ask", lang)}>
-            <PainScale
-              lang={lang}
-              labelledBy="fx-pain"
-              readout={false}
-              nextLabel={t(lang, "assessment.common.next")}
-              onDone={(level) => ctl.answerPain(level, false, "button", clock())}
-            />
-          </Question>
-        )}
-        {phase === "ask_cause" && (
-          <Question lang={lang} id="fx-cause" text={copyText("what_stopped_ask", lang)}>
-            <Choices
-              lang={lang}
-              labelledBy="fx-cause"
-              choices={[
-                { value: "tight", label: copyText("what_stopped_tight", lang) },
-                { value: "pain", label: copyText("what_stopped_pain", lang) },
-                { value: "weak", label: copyText("what_stopped_weak", lang) },
-              ]}
-              onPick={(v) => ctl.answerCause(v as "tight" | "pain" | "weak", "button", clock())}
-            />
-          </Question>
-        )}
       </Glass>
     </div>
   );
@@ -537,19 +477,15 @@ function Question({
   lang,
   id,
   text,
-  held,
   children,
 }: {
   lang: Lang;
   id: string;
   text: string;
-  /** The held position, on a small meter (no number on the live screen, D-036 item 4). */
-  held?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="fx-ask" data-question={id}>
-      {held && <div className="fx-held">{held}</div>}
       <QuestionText lang={lang} id={id} text={text} as="h2" />
       {children}
     </div>

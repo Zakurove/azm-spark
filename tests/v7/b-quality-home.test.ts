@@ -246,7 +246,6 @@ describe("the v7 subject lock follows the whole body (D-034 item 1)", () => {
     const r = new RomRunner({
       item: item("elbow_flexion"),
       def: movementDef("elbow_flexion"),
-      askCauseBelow: null,
       poseModel: "full",
     });
     expect(r.lock.anchorKind).toBe("body");

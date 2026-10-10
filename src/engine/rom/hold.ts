@@ -30,19 +30,20 @@
  *     maximum question: over 20 s a still angle's lowest reading sits about 3 degrees under its middle.
  *   - A gap between readings longer than v1's sustained window gap (RANGE_RULES.maxGapMs, 250 ms) breaks
  *     the window, as v1 SustainedPeak does; a shorter gap (one unseen frame) does not.
- *   - After a hold fires the detector waits; `rearm(t)` (after «ليس بعد», or an unconfirmed small hold)
- *     lets the next hold fire once a whole window lies after t, at any angle, and the runner keeps the
- *     further value. After «ليس بعد» the runner asks again only for a hold further on (D-037 item 2,
- *     runner.ts reachAsks): the same plateau found again a window later is not a new question.
+ *   - After a hold fires the detector waits; `rearm(t)` lets the next hold fire once a whole window lies
+ *     after t, at any angle. D-038 item 1: the runner holds the first hold in hand and takes a later one
+ *     only when it lies clearly further on (runner.ts furtherHold): the same plateau found again a window
+ *     later changes nothing.
  *
  * D-035 item 1 (Nasser's second real test, v7.1 on an iPhone: the dial showed his angle and he held
  * it, yet nothing was measured): the runner reads a lenient plateau, MVP_HOLD (mvpHoldOptions). A
- * steady top is the filtered angle within about 8 degrees either side of the window's median for about
- * 0.6 s, its trend under the plateau hint's 8 degrees per second (a slow raise is not a top), after a
- * real movement from the start pose (the protocol's: engine.minExcursionDeg for a value, a small hold
- * from engine.holdBandDeg that the person confirms). The value is still the plateau's median (Hampel,
- * then the median of the window's angles). The protocol's own 3 degrees for 1.0 s stay in holdOptions
- * for the record and the coach's plateau hint.
+ * steady top is the filtered angle within about 8 degrees either side of the window's median, its trend
+ * under the plateau hint's 8 degrees per second (a slow raise is not a top), after a real movement from
+ * the start pose (the protocol's: engine.minExcursionDeg for a value; a small hold from
+ * engine.holdBandDeg is flagged smallExcursion). The value is still the plateau's median (Hampel, then
+ * the median of the window's angles). The protocol's own 3 degrees for 1.0 s stay in holdOptions for
+ * the record and the coach's plateau hint. D-038 item 1: with no question to confirm it any more, the
+ * hold records the value, so it must be still for about 1 s (MVP_HOLD.seconds, 0.6 s before).
  */
 import { hampel } from "../signal/hampel";
 import { median } from "../modes/common";
@@ -58,8 +59,7 @@ export const HOLD_RULES = {
 /**
  * The plateau the coach may get ready on (contract 2.6 RomEvent plateau: «Velocity under 8 degrees per
  * second for 0.4 s inside a 3 degree band (tunable)»), a central difference on the One Euro output
- * (contract 6.1). The band is engine.holdBandDeg. Only a hint: the maximum question waits for the hold
- * (P1_AT "hold", live-spike 11).
+ * (contract 6.1). The band is engine.holdBandDeg. Only a hint: the value waits for the hold.
  */
 export const PLATEAU_RULES = { maxDegPerSec: 8, seconds: 0.4 } as const;
 
@@ -114,13 +114,14 @@ export function holdOptions(kind: RomKind): HoldOptions {
 
 /**
  * D-035 item 1, the MVP hold (interface numbers the tech lead set, not clinical ones; contract change
- * log R7-1): about 8 degrees either side of the window's median, for about 0.6 s, the window's trend
+ * log R7-1): about 8 degrees either side of the window's median, for about 1 s (D-038 item 1: «still
+ * about 1 s», 0.6 s before it), the window's trend
  * under the plateau hint's 8 degrees per second (PLATEAU_RULES.maxDegPerSec), so a slow raise is never
  * read as its top.
  */
 export const MVP_HOLD = {
   halfBandDeg: 8,
-  seconds: 0.6,
+  seconds: 1,
   maxSlopeDegPerSec: PLATEAU_RULES.maxDegPerSec,
   /**
    * A movement under 24 degrees holds within a third of its excursion either side (at least the
@@ -139,7 +140,7 @@ export function mvpHoldOptions(kind: RomKind): HoldOptions {
     maxSlopeDegPerSec: MVP_HOLD.maxSlopeDegPerSec,
     // A movement: beyond the data's wide band (engine.wideHoldBandDeg, 5) from the furthest point and
     // the start pose; a resting arm's drift on the real model reaches 3 to 4 degrees and asked the
-    // question at rest. A small hold (under engine.minExcursionDeg) still needs «نعم».
+    // question at rest. A small hold (under engine.minExcursionDeg) is flagged smallExcursion.
     moveDeg: ROM_DATA.engine.wideHoldBandDeg,
     // A small hold keeps the protocol's own steadiness (step 4: 3 degrees for 1.0 s).
     small: { holdMs: ROM_DATA.engine.holdSeconds * 1000, bandDeg: ROM_DATA.engine.holdBandDeg },

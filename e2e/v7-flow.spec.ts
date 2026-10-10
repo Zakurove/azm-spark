@@ -98,7 +98,7 @@ const state = (page: Page) =>
     return { kind: s.model.state.kind, step: c?.current?.kind ?? null, phase: c?.phase ?? null };
   });
 
-/** The range blocks with every hold answered yes, until the check leaves its parts. */
+/** The range blocks (D-038 item 1: each hold records itself, no question), until the check leaves its parts. */
 async function runRange(page: Page): Promise<void> {
   const t0 = Date.now();
   while (Date.now() - t0 < 90_000) {
@@ -110,11 +110,9 @@ async function runRange(page: Page): Promise<void> {
     } else if (w.step === "result" || w.step === "sit" || w.step === "rest") {
       const next = page.locator('[data-action="next"]:not([disabled])');
       if (await next.count()) await next.first().click();
-    } else if (w.phase === "ask_max") await page.locator('.safety-zone[data-value="yes"]').first().click();
-    else if (w.phase === "ask_pain") {
-      await page.locator('.fx-scale-cell[data-value="1"]').first().click();
-      await page.locator('[data-action="next"]').first().click();
-    } else if (w.phase === "ask_cause") await page.locator('.fx-choice[data-value="tight"]').first().click();
+    }
+    // Never a maximum or a cause question (D-038 item 1).
+    expect(w.phase === null || !w.phase.startsWith("ask_") || w.phase === "ask_can_move").toBe(true);
     await page.waitForTimeout(150);
   }
   throw new Error("the range blocks did not end");
@@ -180,7 +178,7 @@ async function demoExercises(page: Page) {
   await expect(page.locator(".sum-note")).toHaveText("تمرين تجريبي: لا يُحفظ في برنامجك ولا في جلساتك.");
   await page.locator(".modal-actions .ghost").click();
   await expect(list).toBeVisible();
-  // Nothing of the demo was posted: no workout, no set, no coach.
+  // Nothing of the demo was posted: no workout, no set (the coach is off on this server: no key).
   expect(sent).toEqual([]);
   // English, left to right.
   await list.locator(".fx-top .fx-chip").first().click();

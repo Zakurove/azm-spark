@@ -13,7 +13,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Brand from "../../app/Brand";
 import type { Lang } from "../../app/i18n";
-import { primeAudio } from "../../app/audio";
 import { readPreferences, savePreferences, type Preferences } from "../../app/experience";
 import { preloadPoseAssets } from "../../app/poseSource";
 import type { SessionSummary } from "../../engine/types";
@@ -291,8 +290,7 @@ function Journey({
           lang={lang}
           onBack={() => dispatch({ type: "BACK" })}
           onAnswer={(unwell) => {
-            // Inside the tap: iOS lets the coach's voice play later only if a tap started the audio.
-            if (!unwell && prefs.voice !== "off") primeAudio(lang);
+            // D-038 item 3: the camera set plays no recorded voice, so there is no audio to start.
             setDemoCam(false);
             dispatch({ type: "SAFETY", unwell });
           }}
@@ -356,8 +354,6 @@ function Journey({
       {menu && (
         <StaffMenu
           lang={lang}
-          voice={prefs.voice === "full"}
-          onVoice={(on) => updatePrefs({ ...prefs, voice: on ? "full" : "off" })}
           onLanguage={onLanguage}
           onReset={reset}
           onOff={onOff}
@@ -406,16 +402,12 @@ function WellDone({ lang, summary }: { lang: Lang; summary: SessionSummary }) {
 
 function StaffMenu({
   lang,
-  voice,
-  onVoice,
   onLanguage,
   onReset,
   onOff,
   onClose,
 }: {
   lang: Lang;
-  voice: boolean;
-  onVoice(on: boolean): void;
   onLanguage(): void;
   onReset(): void;
   onOff(): void;
@@ -455,21 +447,6 @@ function StaffMenu({
         >
           <BoothIcon name="globe" />
           {k.staffLanguage}
-        </button>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={voice}
-          className={`bx-menu-item switch${voice ? " on" : ""}`}
-          onClick={() => onVoice(!voice)}
-          data-action="voice"
-        >
-          <BoothIcon name="sound" />
-          <span>{k.staffVoice}</span>
-          <span className="bx-switch" aria-hidden="true">
-            <i />
-          </span>
-          <small>{voice ? k.voiceOn : k.voiceOff}</small>
         </button>
         <button type="button" className="bx-menu-item quiet" onClick={onOff} data-action="off">
           <BoothIcon name="power" />

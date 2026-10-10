@@ -3,8 +3,8 @@
  * by the client (the event bridge sends these lines) and the server (the system instruction explains
  * them). Pure, no DOM.
  *
- * One event is one compact line (live.md 7): "[EVT t=42.1 type=end_range_hold mv=shoulder_flexion
- * side=right deg=118 typical=165]". Sides are written as the words the tools take (left, right, none):
+ * One event is one compact line (live.md 7): "[EVT t=42.1 type=movement_result mv=shoulder_flexion
+ * side=right deg=118 typical=165 finding=within]". Sides are written as the words the tools take (left, right, none):
  * the S0 round trips (live-spike.md 4) used them and the model copied them into its tool calls. Every
  * number is rounded, the typical value to 5 degrees as the history writes it (C-12), and every string
  * field is reduced to an id like token, so no sentence, bracket or new line can enter the context:
@@ -49,15 +49,7 @@ function fields(e: BridgeEvent): [string, string][] {
       return [["reason", e.reason]];
     case "red_flag":
       return [["screen", safeToken(e.screen)]];
-    case "end_range_hold":
-      return [
-        ["mv", e.movement],
-        ["side", e.side],
-        ["deg", whole(e.deg)],
-        ["typical", typical(e.typical)],
-      ];
     case "ask_pain":
-    case "ask_cause":
     case "ask_can_move":
       return [
         ["mv", e.movement],
@@ -122,8 +114,8 @@ function fields(e: BridgeEvent): [string, string][] {
 }
 
 /**
- * One compact line, live.md 7: "[EVT t=42.1 type=end_range_hold mv=shoulder_flexion side=right deg=118
- * typical=165]". `t` and `t0` are milliseconds on the same clock; the line carries seconds since `t0`
+ * One compact line, live.md 7: "[EVT t=42.1 type=ask_pain mv=shoulder_flexion side=right]". `t` and
+ * `t0` are milliseconds on the same clock; the line carries seconds since `t0`
  * with one decimal. Numbers rounded; no free text from the person.
  */
 export function formatEvent(e: BridgeEvent, t0: number): string {
@@ -182,9 +174,6 @@ export const BRIDGE_DEFAULTS: Readonly<BridgeOptions> = Object.freeze({
   contextFlushMs: 5000,
   localFallbackMs: 1500,
 });
-
-/** When end_range_hold is sent: at the confirmed hold (S0, live-spike.md 11), not at the plateau. */
-export const P1_AT: "hold" | "plateau" = "hold";
 
 /** Rule 3: the mic reopens this long after a local line ends. */
 export const MIC_REOPEN_MS = 300;

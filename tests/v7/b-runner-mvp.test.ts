@@ -190,10 +190,10 @@ function report(c: MvpCase, run: RomRun) {
   );
 }
 
-describe("D-035: the MVP runner at home, nobody answering the maximum question", () => {
+describe("D-035: the MVP runner at home, recorded with no question (D-038 item 1)", () => {
   for (const c of CASES)
     it(c.name, () => {
-      const run = runRom(mvpSpec(c), { answer: () => null });
+      const run = runRom(mvpSpec(c));
       report(c, run);
       const r = run.result;
       if (c.expect === "not_measured") {
@@ -202,7 +202,7 @@ describe("D-035: the MVP runner at home, nobody answering the maximum question",
       }
       expect({ status: r.status, reason: r.reason }).toEqual({ status: "measured", reason: null });
       expect(r.nValid).toBe(RUNNER_RULES.validAttempts);
-      expect(r.attempts[0]).toMatchObject({ outcome: "valid", answer: "yes", answerSource: "timeout" });
+      expect(r.attempts[0]).toMatchObject({ outcome: "valid", answer: null, answerSource: null });
       // A compensated value reads the compensation too: the bar is the real model's for a clean one.
       if (!c.compensated)
         expect(Math.abs(r.value! - c.peak), `${r.value} for ${c.peak}`).toBeLessThanOrEqual(BAR_DEG);
@@ -215,13 +215,13 @@ describe("D-035: the MVP runner at home, nobody answering the maximum question",
       ).toBeLessThanOrEqual(1);
     });
 
-  it("Nasser's elbow: the held 135 with no answer is recorded as 135", () => {
-    const run = runRom(mvpSpec(CASES[0]), { answer: () => null });
+  it("Nasser's elbow: the held 135 is recorded as 135, with no question", () => {
+    const run = runRom(mvpSpec(CASES[0]));
     expect(run.result).toMatchObject({ status: "measured", value: 135, nValid: 1 });
     const hold = run.holds[run.holds.length - 1];
     const rec = run.result.attempts[0];
-    // The question waited its 10 s, then the silence counted as yes.
-    expect(rec.t1 - hold.t).toBeGreaterThanOrEqual(ROM_DATA.engine.answerTimeoutSeconds * 1000 - 50);
+    // D-038 item 1: recorded once the hold's own time is over.
+    expect(rec.t1 - hold.t).toBeGreaterThanOrEqual(RUNNER_RULES.settleSec * 1000 - 50);
     expect(rec.flags).not.toContain("unconfirmed");
   });
 });

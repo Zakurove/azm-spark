@@ -77,9 +77,8 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
     "elbow-flexion-jitter-1.3m-full.json.gz",
     "shoulder-flexion-drift-1.5m-full.json.gz",
   ])
-    it(`${file}: nobody answering the maximum question, still measured (D-035)`, () => {
+    it(`${file}: recorded with no question at all (D-038 item 1)`, () => {
       const run = load(file);
-      // No answer ever comes: the question's timeout is the answer.
       const report = replay(run, 1e9);
       const r = report.result!;
       const file2 = process.env.AZM_MVP_REPORT;
@@ -87,7 +86,7 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
         appendFileSync(
           file2,
           JSON.stringify({
-            name: `replay ${file}, no answer`,
+            name: `replay ${file}, no question`,
             truth: run.truthDeg,
             status: r.status,
             reason: r.reason,
@@ -100,7 +99,7 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
           }) + "\n",
         );
       expect({ status: r.status, reason: r.reason }).toEqual({ status: "measured", reason: null });
-      expect(r.attempts.map((a) => [a.answer, a.answerSource])).toEqual([["yes", "timeout"]]);
+      expect(r.attempts.map((a) => [a.answer, a.answerSource])).toEqual([[null, null]]);
       expect(Math.abs(r.value! - run.truthDeg), `${r.value} for ${run.truthDeg}`).toBeLessThanOrEqual(
         BAR_DEG,
       );

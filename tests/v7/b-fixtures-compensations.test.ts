@@ -43,7 +43,8 @@ describe("a fixture for every compensation of the data", () => {
  * Compensations that cancel the movement's own angle in the picture (the hip's extension read against
  * a trunk that tilts forward as far): the try may show no movement at all, a try without a value,
  * repeated as no_hold (D-035: only a try without a value is repeated), or going on to the next
- * repetition within its time; then measured clean.
+ * repetition within its time; then measured clean, or (D-038 item 1) recorded at the compensated
+ * repetition's end, approximate with the check.
  */
 const HIDES_MOVEMENT = new Set(["hip_extension trunk_tilt"]);
 
@@ -55,13 +56,21 @@ function check(c: CompensationFixture, aspect: "16:9" | "9:16") {
   const inRep = (t: number) => t / 1000 >= rep.start && t / 1000 <= rep.end;
   const first = scored(run.records)[0];
   const res = run.result;
-  if (HIDES_MOVEMENT.has(`${c.movement} ${c.id}`) && (first.outcome === "retry" || !inRep(first.t1))) {
+  // D-038 item 1: the value is recorded a few seconds after its hold; the hold is in the repetition.
+  const heldAt = run.holds.filter((h) => h.attempt === first.index && h.t <= first.t1).pop()?.t ?? first.t1;
+  if (HIDES_MOVEMENT.has(`${c.movement} ${c.id}`) && (first.outcome === "retry" || !inRep(heldAt))) {
     // No movement seen in the compensated repetition: the try ends without a value (no_hold), or goes
     // on to the next repetition within its own time; either way the clean value is recorded.
     if (first.outcome === "retry") expect(first.reasons).toEqual(["no_hold"]);
     expect(compensationEvents(run.events, c.id).some((e) => inRep(e.t))).toBe(true);
     expect(res).toMatchObject({ status: "measured", nValid: 1 });
-    for (const a of res.attempts) expect(Math.abs(a.value! - truth)).toBeLessThanOrEqual(VALUE_TOLERANCE_DEG);
+    // D-038 item 1: no question turns away the hold the compensation left at the repetition's end, so
+    // it may be recorded; then it carries the check and is approximate, never a clean value.
+    for (const a of res.attempts)
+      if (Math.abs(a.value! - truth) > VALUE_TOLERANCE_DEG) {
+        expect(a.reasons).toContain(c.firesAs ?? c.id);
+        expect(a.flags).toContain("approximate");
+      }
     return;
   }
   // Measured on the compensated attempt itself: nothing repeated, one valid attempt (D-035).
@@ -70,7 +79,7 @@ function check(c: CompensationFixture, aspect: "16:9" | "9:16") {
   expect(res.retries).toBe(0);
   expect(scored(run.records).filter((a) => a.outcome !== "valid")).toEqual([]);
   expect(first).toMatchObject({ index: 1, outcome: "valid" });
-  expect(inRep(first.t1)).toBe(true);
+  expect(inRep(heldAt)).toBe(true);
   // At most one calm line in the whole movement.
   expect(run.events.filter((e) => e.kind === "compensation" && e.level === "cue").length).toBeLessThanOrEqual(
     1,

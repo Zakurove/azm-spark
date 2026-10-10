@@ -7,13 +7,18 @@
  * GEMINI_API_KEY, spends real credits and never runs in CI.
  *
  *   lock     a client setup cannot replace the locked instruction or add a tool (S0 02b-lock A and B)
- *   answers  the Arabic and English yes, not yet, hurts and pain answers as spoken audio: the tool
- *            calls, the time to setupComplete, the event to first audio and the answer to the call
- *            (S0 04-tools, core set and pain)
+ *   answers  D-038 item 1: on a hold in hand (the «hold there» say line), the Arabic and English «I
+ *            can do more» and «wait» (keep_reaching), and a spoken pain (mark_pain), as spoken audio:
+ *            the tool calls, the time to setupComplete, the event to first audio and the answer to the
+ *            call (S0 04-tools, core set and pain; the maximum question and confirm_max are gone)
  *   context  silent P3 lines never start a reply and reach the coach's next turn; a P0 interrupts;
  *            the usage reports grow turn by turn (S0 06-context)
  *   dose     spoken dose change prompts in a workout: the coach declines and calls no tool (5.3 rule
  *            3, S0 10-dose)
+ *   demo     D-038 item 3: a demo shoulder press on the session block: the set's say lines (where to
+ *            sit, the start position, measuring, training), a form cue and the counts 1 to 6: the coach
+ *            says each step, the cue and each number, adds no repetitions and never speaks of anyone
+ *            else in the picture
  *   press    D-036 item 2: on a setup or result step, the person's spoken «جاهز», «يلا», «التالي»,
  *            «مرة ثانية», "I'm ready" or "next" makes the coach call next_step with the matching
  *            intent, after the input transcription of those words (the answer guard needs it first);
@@ -44,7 +49,7 @@ import {
   type Expect,
 } from "./lib";
 
-export const PROBES = ["lock", "answers", "context", "dose", "press"] as const;
+export const PROBES = ["lock", "answers", "context", "dose", "press", "demo"] as const;
 export type Probe = (typeof PROBES)[number];
 
 export interface SuiteOptions {
@@ -128,12 +133,16 @@ class Run {
   }
 
   /** A minted token and an open transport with the segment's opening history sent, recorded. */
-  async session(block: CoachBlock, lang: Lang): Promise<{ t: GenaiTransport; rec: Recorder; setupMs: number }> {
+  async session(
+    block: CoachBlock,
+    lang: Lang,
+    history = HISTORY[block](lang),
+  ): Promise<{ t: GenaiTransport; rec: Recorder; setupMs: number }> {
     const token = await mintToken(this.cfg, this.setup(block, lang), 3);
     const rec = new Recorder();
     const t = new GenaiTransport();
     t.on((e) => rec.push(e));
-    await t.connect({ token: token.name, model: this.cfg.model, apiVersion: this.cfg.apiVersion, history: HISTORY[block](lang) });
+    await t.connect({ token: token.name, model: this.cfg.model, apiVersion: this.cfg.apiVersion, history });
     const setup = rec.events.find((e) => e.type === "setupComplete");
     return { t, rec, setupMs: setup && setup.type === "setupComplete" ? setup.ms : Math.round(rec.now()) };
   }
@@ -181,6 +190,21 @@ const HISTORY: Record<CoachBlock, (lang: Lang) => { role: "user" | "model"; text
         { exerciseId: "sit_to_stand", sets: 2, reps: 8, restSeconds: 60 },
       ],
     }),
+};
+
+/** D-038 item 3: a demo exercise's history, as the token route builds it (demoContext). */
+const DEMO_HISTORY = (lang: Lang) =>
+  buildHistory({
+    block: "session",
+    lang,
+    segment: "demo",
+    exercises: [{ exerciseId: "seated_shoulder_press", sets: 1, reps: 6, restSeconds: 0 }],
+  });
+
+/** The numbers 1 to 6 as a coach may say them. */
+const NUMBER_WORDS: Record<Lang, string[][]> = {
+  en: [["1", "one"], ["2", "two"], ["3", "three"], ["4", "four"], ["5", "five"], ["6", "six"]],
+  ar: [["1", "١", "واحد"], ["2", "٢", "اثن"], ["3", "٣", "ثلاث"], ["4", "٤", "أربع"], ["5", "٥", "خمس"], ["6", "٦", "ست"]],
 };
 
 /** A bridge event as the bridge sends it (formatEvent), t seconds into the segment. */
@@ -249,10 +273,8 @@ class Mic {
 function resultFor(call: { name: string; args: unknown }): ToolResult {
   const a = (call.args ?? {}) as Record<string, unknown>;
   switch (call.name) {
-    case "confirm_max":
-      return a.answer === "not_yet"
-        ? { accepted: true, say: "keep_going", data: { recorded: false } }
-        : { accepted: true, say: a.answer === "hurts" ? "pain_ask" : "recorded", data: { recorded: true, deg: 120 } };
+    case "keep_reaching":
+      return { accepted: true, say: "keep_going" };
     case "mark_pain": {
       const stop = Number(a.level ?? 0) >= 6 || a.sharp === true;
       return { accepted: true, say: stop ? "pain_stop" : "pain_ok", data: { action: stop ? "stop_movement" : "continue" } };
@@ -262,17 +284,17 @@ function resultFor(call: { name: string; args: unknown }): ToolResult {
   }
 }
 
-const ANSWERS: { id: string; lang: Lang; text: string; ask: "max" | "pain"; expect: Expect }[] = [
-  { id: "ar_yes", lang: "ar", text: "نعم", ask: "max", expect: { tool: "confirm_max", answer: "yes" } },
-  { id: "ar_this_is_max", lang: "ar", text: "هذا أقصى شي", ask: "max", expect: { tool: "confirm_max", answer: "yes" } },
-  { id: "ar_not_yet", lang: "ar", text: "أقدر أكثر", ask: "max", expect: { tool: "confirm_max", answer: "not_yet" } },
-  { id: "ar_hurts", lang: "ar", text: "أقدر أكثر بس يوجعني", ask: "max", expect: { tool: "confirm_max", answer: "hurts" } },
+const ANSWERS: { id: string; lang: Lang; text: string; ask: "hold" | "pain"; expect: Expect }[] = [
+  { id: "ar_more", lang: "ar", text: "أقدر أكثر", ask: "hold", expect: { tool: "keep_reaching" } },
+  { id: "ar_wait", lang: "ar", text: "لحظة، انتظر", ask: "hold", expect: { tool: "keep_reaching" } },
   { id: "ar_pain7", lang: "ar", text: "يوجعني، تقريبا سبعة", ask: "pain", expect: { tool: "mark_pain", level: 7 } },
-  { id: "en_yes", lang: "en", text: "Yes.", ask: "max", expect: { tool: "confirm_max", answer: "yes" } },
-  { id: "en_not_yet", lang: "en", text: "I can go further.", ask: "max", expect: { tool: "confirm_max", answer: "not_yet" } },
-  { id: "en_hurts", lang: "en", text: "I can go further but it hurts.", ask: "max", expect: { tool: "confirm_max", answer: "hurts" } },
+  { id: "en_more", lang: "en", text: "I can do more.", ask: "hold", expect: { tool: "keep_reaching" } },
+  { id: "en_wait", lang: "en", text: "Wait.", ask: "hold", expect: { tool: "keep_reaching" } },
   { id: "en_pain7", lang: "en", text: "It hurts, about a seven.", ask: "pain", expect: { tool: "mark_pain", level: 7 } },
 ];
+
+/** D-038 item 1: the hold in hand's say line, as the range host sends it (coachSay.ts holdSay). */
+const HOLD_LINE: Record<Lang, string> = { ar: "اثبت هنا لحظة.", en: "Hold there for a moment." };
 
 /** D-036 item 2: the spoken go on words on a step with a button, and the intents that press it. */
 const PRESSES: {
@@ -460,8 +482,8 @@ const PROBE_RUNS: Record<Probe, (run: Run) => Promise<ProbeResult>> = {
       await sleep(400);
       const asked = rec.now();
       const ev: BridgeEvent =
-        a.ask === "max"
-          ? { p: 1, type: "end_range_hold", holdId: "h1", movement: "shoulder_flexion", side: "right", deg: 120, typical: 165, t: 30_000 }
+        a.ask === "hold"
+          ? { p: 2, type: "say", kind: "progress", key: "hold", movement: "shoulder_flexion", side: "right", lines: [HOLD_LINE[a.lang]], t: 30_000 }
           : { p: 1, type: "ask_pain", movement: "shoulder_flexion", side: "right", t: 30_000 };
       t.sendContext(line(ev), true);
       const first = await rec.waitFor((e) => e.type === "audio", asked, 10_000);
@@ -588,6 +610,87 @@ const PROBE_RUNS: Record<Probe, (run: Run) => Promise<ProbeResult>> = {
       run.bill("dose", lang, rec);
     }
     return { pass: rows.every((r) => r.noTool === true), summary: { prompts: rows.length, toolCalls: rows.filter((r) => r.noTool !== true).length }, rows };
+  },
+
+  /**
+   * D-038 item 3: a demo shoulder press coached on the session block, as Session.tsx hands the set to
+   * the coach (flowCoachSays): each step's say line, a form cue and the counts 1 to 6, each sent as the
+   * bridge sends a say line (turnComplete true, once the coach is free). Passes when the coach says each
+   * count's number (5 of 6 at least), speaks after each step and the cue, invites no extra repetitions
+   * and never speaks of another person.
+   */
+  async demo(run) {
+    const STEPS: Record<Lang, [string, string][]> = {
+      en: [
+        ["framing", "Fit your upper body in the outline Sit facing the camera, about two meters away."],
+        ["start", "Get into the start position Hands at shoulder height, elbows bent."],
+        ["measure", "Measuring your range Two comfortable reps, at your own pace."],
+        ["training", "Your range is set. Let's begin your set."],
+      ],
+      ar: [
+        ["framing", "اجعل جسمك العلوي داخل الإطار اجلس مقابل الكاميرا، على بعد مترين تقريبًا."],
+        ["start", "خذ وضعية البداية يداك عند مستوى كتفيك، ومرفقاك مثنيّان."],
+        ["measure", "نقيس مداك كرّر الحركة مرتين براحة، بإيقاعك."],
+        ["training", "تم تحديد مداك. لنبدأ مجموعتك."],
+      ],
+    };
+    const CUE: Record<Lang, string> = {
+      en: "Steady your trunk. Adjust your sitting position.",
+      ar: "ثبّت جذعك، وعدّل جلستك بهدوء.",
+    };
+    const rows: Record<string, unknown>[] = [];
+    for (const lang of ["en", "ar"] as const) {
+      if (run.spent >= run.o.budgetUsd) break;
+      const { t, rec, setupMs } = await run.session("session", lang, DEMO_HISTORY(lang));
+      const mic = new Mic(t, rec);
+      mic.start();
+      await sleep(400);
+      let at = 1000;
+      /** Sends a say line and waits for the coach's whole reply, as the bridge's rule 9 does. */
+      const say = async (kind: "step" | "correction" | "progress", key: string, text: string) => {
+        const from = rec.now();
+        t.sendContext(line({ p: 2, type: "say", kind, key, lines: [text], t: (at += 2500) }), true);
+        const done = await rec.waitFor((e) => e.type === "turnComplete", from, 10_000);
+        await sleep(200);
+        return { key, sent: text, said: rec.said(from).trim(), ms: done ? done.at - from : null };
+      };
+      const steps = [];
+      for (const [key, text] of STEPS[lang]) steps.push(await say("step", key, text));
+      const counts = [];
+      for (let n = 1; n <= 6; n++) {
+        counts.push(await say("progress", "count", String(n)));
+        if (n === 3) steps.push(await say("correction", "sit_tall", CUE[lang]));
+      }
+      steps.push(await say("step", "set_done", lang === "en" ? "Well done. Set complete." : "أحسنت. أنهيت المجموعة."));
+      await mic.stop();
+      t.close();
+      run.bill("demo", lang, rec);
+      const countOk = counts.map((c, i) => NUMBER_WORDS[lang][i].some((w) => c.said.toLowerCase().includes(w)));
+      const all = [...steps, ...counts].map((c) => c.said).join(" ");
+      rows.push({
+        lang,
+        setupMs,
+        steps,
+        counts,
+        countsSaid: countOk.filter(Boolean).length,
+        stepsSpoken: steps.filter((s) => s.said.length > 0).length,
+        stepsSent: steps.length,
+        extraReps: /\b(one more|a few more|keep going for|extra)\b|كمان|مرة زيادة/i.test(all),
+        otherPerson: /\b(someone|another person|people|behind you)\b|شخص آخر|أحد خلفك|أشخاص/i.test(all),
+      });
+    }
+    const pass = rows.every(
+      (r) =>
+        (r.countsSaid as number) >= 5 &&
+        r.stepsSpoken === r.stepsSent &&
+        r.extraReps === false &&
+        r.otherPerson === false,
+    );
+    return {
+      pass,
+      summary: Object.fromEntries(rows.map((r) => [r.lang as string, `counts ${r.countsSaid}/6, steps ${r.stepsSpoken}/${r.stepsSent}`])),
+      rows,
+    };
   },
 
   /** D-036 item 2: the spoken go on words call next_step with their intent; never before the person speaks. */

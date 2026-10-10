@@ -312,8 +312,7 @@ describe("the focus shell end to end on the real routes", () => {
     await begin(s);
     const steps: string[] = [];
     runParts(s, {
-      answerMax: (i) => (i.movementId === "knee_flexion" ? "hurts" : "yes"),
-      pain: () => ({ level: 7 }),
+      hurts: (i) => (i.movementId === "knee_flexion" ? { level: 7 } : null),
       reask: () => 3,
       at: (_t, ctl) => {
         const c = ctl.current;
@@ -351,8 +350,7 @@ describe("the focus shell end to end on the real routes", () => {
     runBlock(
       s.ctl!,
       {
-        answerMax: (i) => (i.movementId === "hip_extension" ? "hurts" : "yes"),
-        pain: () => ({ level: 7 }),
+        hurts: (i) => (i.movementId === "hip_extension" ? { level: 7 } : null),
         reask: () => 7,
       },
       900,
@@ -377,7 +375,7 @@ describe("the focus shell end to end on the real routes", () => {
     await begin(s);
     runBlock(
       s.ctl!,
-      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 3 }) },
+      { hurts: (i) => (i.movementId === "hip_abduction" ? { level: 3 } : null) },
       900,
       2_000_000,
     );
@@ -396,7 +394,7 @@ describe("the focus shell end to end on the real routes", () => {
     await begin(s);
     runBlock(
       s.ctl!,
-      { answerMax: (i) => (i.movementId === "hip_abduction" ? "hurts" : "yes"), pain: () => ({ level: 3 }) },
+      { hurts: (i) => (i.movementId === "hip_abduction" ? { level: 3 } : null) },
       900,
       2_000_000,
     );

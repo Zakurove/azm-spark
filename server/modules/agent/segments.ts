@@ -28,6 +28,8 @@ export interface SegmentMinutes {
   romMax: number;
   gait: number;
   session: number;
+  /** D-038 item 3: a demo exercise (one short set). */
+  demo: number;
 }
 
 /** Google closes a Live connection at 10 minutes, with no goAway (S0-3, live-spike.md 9). */
@@ -35,13 +37,18 @@ export const CONNECTION_LIMIT_MINUTES = 10;
 /** A segment's minutes plus the 1 minute margin stay within the connection (5.1). */
 export const MAX_SEGMENT_MINUTES = CONNECTION_LIMIT_MINUTES - 1;
 
-/** The defaults of 5.4: rom_per_item:1.5,rom_extra:1,rom_max:9,gait:5,session:9. */
+/**
+ * The defaults of 5.4: rom_per_item:1.5,rom_extra:1,rom_max:9,gait:5,session:9, and demo:3 (D-038 item
+ * 3: a demo set of 4 to 6 repetitions with its setup takes 1 to 2 minutes; its token life and its
+ * reservation stay short so a few demos never use up the day's minutes).
+ */
 export const DEFAULT_SEGMENT_MINUTES: Readonly<SegmentMinutes> = Object.freeze({
   romPerItem: ROM_DATA.sessionOrder.minutesPerMovement,
   romExtra: 1,
   romMax: MAX_SEGMENT_MINUTES,
   gait: 5,
   session: MAX_SEGMENT_MINUTES,
+  demo: 3,
 });
 
 const KEYS: Record<string, keyof SegmentMinutes> = {
@@ -50,6 +57,7 @@ const KEYS: Record<string, keyof SegmentMinutes> = {
   rom_max: "romMax",
   gait: "gait",
   session: "session",
+  demo: "demo",
 };
 
 /**
@@ -66,7 +74,8 @@ export function parseSegmentMinutes(raw: string | undefined): SegmentMinutes {
     if (key === "romExtra" ? n < 0 : n <= 0) continue;
     out[key] = n;
   }
-  for (const k of ["romMax", "gait", "session"] as const) out[k] = Math.min(out[k], MAX_SEGMENT_MINUTES);
+  for (const k of ["romMax", "gait", "session", "demo"] as const)
+    out[k] = Math.min(out[k], MAX_SEGMENT_MINUTES);
   return out;
 }
 
@@ -80,6 +89,8 @@ export type CheckSegment =
 
 /** The two parts of a workout. */
 export const SESSION_SEGMENTS: readonly CoachSegment[] = Object.freeze(["session:1", "session:2"]);
+/** D-038 item 3: a demo exercise's one segment (no workout). */
+export const DEMO_SEGMENT = "demo" as const satisfies CoachSegment;
 
 /**
  * The coach segments of a stored protocol and gait plan, in the order the check runs them (C-13:

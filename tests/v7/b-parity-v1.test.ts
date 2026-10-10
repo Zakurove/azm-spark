@@ -35,20 +35,17 @@ import { item } from "./b-driver";
 type Side = "left" | "right";
 const V1 = testDef("shoulder_abduction");
 
-/** The v7 runner over frames, answering «نعم» at each hold. */
+/** The v7 runner over frames (D-038 item 1: each hold is recorded on its own). */
 function runV7(frames: Frame[], side: Side) {
   const r = new RomRunner({
     item: item("shoulder_abduction", side),
     def: movementDef("shoulder_abduction"),
-    askCauseBelow: null,
     poseModel: "full",
   });
   const events: RomEvent[] = [...r.start(frames[0].t)];
   for (const f of frames) {
-    const evs = r.feed(f, { rollDeg: 0 });
-    events.push(...evs);
-    for (const e of evs)
-      if (e.kind === "hold") events.push(...r.answerMax(e.hold.holdId, "yes", "button", f.t).events);
+    if (r.done) break;
+    events.push(...r.feed(f, { rollDeg: 0 }));
   }
   return { r, events, res: r.finish(frames[frames.length - 1].t) };
 }

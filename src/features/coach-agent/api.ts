@@ -178,7 +178,8 @@ export async function giveCoachConsent(fetchImpl: typeof fetch = fetch): Promise
  * answer from the server is final. True once the server kept it. Never throws.
  */
 export async function sendWorkoutStop(
-  workoutId: string,
+  /** The workout, or (D-038 item 3) a demo exercise's run, whose stop has no workout. */
+  of: string | { demo: string },
   option: StopOptionId,
   fetchImpl: typeof fetch = fetch,
   boothPass: () => string | null = tabBoothPass,
@@ -194,7 +195,7 @@ export async function sendWorkoutStop(
           "X-Azm-Request": "1",
           ...(pass ? { "X-Azm-Booth": pass } : {}),
         },
-        body: JSON.stringify({ workoutId, option }),
+        body: JSON.stringify(typeof of === "string" ? { workoutId: of, option } : { demo: of.demo, option }),
       });
       return res.ok;
     } catch {

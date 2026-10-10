@@ -4,7 +4,8 @@
  *   - Nasser's field test: arms resting down first, then limited reps; the set calibrates only from
  *     the start position, counts every rep after the 2 measuring reps, and ends on the effort
  *     question, with the elbow range in the summary;
- *   - the voice is off by default and the large speaker button is remembered on the device;
+ *   - D-038 item 3: no recorded voice clip in any exercise: the trial has no speaker button (no Live
+ *     coach can run there) and loads or plays no clip;
  *   - nobody in the picture: the calm outline and its line; Stop goes back.
  */
 import { expect, test, type Page } from "@playwright/test";
@@ -37,8 +38,8 @@ test("Nasser's case: resting arms are never the range, and the limited reps coun
   page.on("pageerror", (e) => errors.push(e.message));
   await openTrial(page, "ar", "nasser");
   const s = sessionCopy("ar");
-  // the voice is off by default
-  await expect(page.locator(".cam2-sound")).toHaveAttribute("aria-pressed", "false");
+  // no voice clip and no speaker button: no Live coach can run in the trial (D-038 item 3)
+  await expect(page.locator(".cam2-sound")).toHaveCount(0);
   // arms resting down: the start position is asked for, the calibration has not started
   await expect(page.locator(".cam2")).toHaveAttribute("data-stage", "start", { timeout: 10_000 });
   await expect(page.locator(".cam2-start h2")).toHaveText(s.startTitle);
@@ -61,20 +62,28 @@ test("Nasser's case: resting arms are never the range, and the limited reps coun
   expect(errors).toEqual([]);
 });
 
-test("the speaker button turns the voice on and is remembered on this device (en)", async ({ page }) => {
+test("no recorded voice clip is loaded or played in a whole set (D-038 item 3, en)", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as { azmAudio: string[] };
+    w.azmAudio = [];
+    const Real = window.Audio;
+    window.Audio = function (src?: string) {
+      w.azmAudio.push(`new ${src ?? ""}`);
+      return new Real(src);
+    } as unknown as typeof Audio;
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      w.azmAudio.push(`play ${this.currentSrc || this.src}`);
+      return play.call(this);
+    };
+  });
   await openTrial(page, "en", "full");
-  const sound = page.locator(".cam2-sound");
-  await expect(sound).toHaveAttribute("aria-pressed", "false");
-  await expect(sound).toHaveAttribute("aria-label", sessionCopy("en").soundOff);
-  const box = await sound.boundingBox();
-  expect(box!.height).toBeGreaterThanOrEqual(56);
-  await sound.click();
-  await expect(sound).toHaveAttribute("aria-pressed", "true");
-  await expect(sound).toHaveClass(/\bon\b/);
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("azm.coach") ?? "{}"));
-  expect(stored.voice).toBe("full");
-  await openTrial(page, "en", "full");
-  await expect(page.locator(".cam2-sound")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".cam2-sound")).toHaveCount(0);
+  await expect(page.locator(".cam2")).toHaveAttribute("data-count", /^[2-9]/, { timeout: 40_000 });
+  await expect(page.locator("#rpe-title")).toBeVisible({ timeout: 40_000 });
+  const audio = await page.evaluate(() => (window as unknown as { azmAudio: string[] }).azmAudio);
+  expect(audio.filter((a) => /\.mp3|cues\//.test(a))).toEqual([]);
 });
 
 test("nobody in the picture: the calm outline and one line; Stop goes back (en)", async ({ page }) => {

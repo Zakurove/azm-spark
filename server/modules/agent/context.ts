@@ -4,8 +4,8 @@
  * and walking aid, or the workout's stored plan. Nothing a client sends reaches the coach. What leaves
  * the server is exactly C-12's list: the range items (movement ids and names, sides, positions and
  * typical values rounded to 5 degrees, which depend on sex and age, as the live_coach consent says),
- * the walk's modes, views, aid type and helper, or the workout's exercise names and dose; never a why
- * line, a note, a reason or any free text.
+ * the walk's modes, views, aid type and helper, or the workout's (or a demo exercise's) exercise names
+ * and dose; never a why line, a note, a reason or any free text.
  */
 import type { CoachSegment } from "../../../src/coach/types";
 import type { HistoryInput, InstructionInput, SessionHistoryItem } from "../../../src/coach/instruction";
@@ -13,6 +13,7 @@ import type { Intake } from "../../../src/medical/plan";
 import { positionTypical } from "../../../src/medical/rom-norms";
 import type { SessionStep } from "../../../src/medical/session";
 import type { Lang } from "../../../src/movements/types";
+import type { DemoExercise } from "../../../src/features/program-v7/demoCatalog";
 import { runSteps, type RunPlan } from "../../guided";
 import type { FocusCheck } from "../focus/store";
 import type { CheckSegment } from "./segments";
@@ -106,6 +107,22 @@ export function remainingExercises(
     }
   }
   return out;
+}
+
+/**
+ * D-038 item 3: a demo exercise (segment demo): the session block's instruction, with the one exercise
+ * and its demo repetitions as the history's dose (one set, no rest). Nothing about the person is sent.
+ */
+export function demoContext(d: DemoExercise, lang: Lang): CoachContext {
+  return {
+    instruction: { lang, block: "session", position: null, helperPresent: false },
+    history: {
+      block: "session",
+      lang,
+      segment: "demo",
+      exercises: [{ exerciseId: d.id, sets: 1, reps: d.reps, restSeconds: 0 }],
+    },
+  };
 }
 
 /**

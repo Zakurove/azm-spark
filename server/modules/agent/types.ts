@@ -8,14 +8,24 @@ import type { HistoryTurn } from "../../../src/coach/instruction";
 import type { CoachBlock, CoachSegment, ToolName } from "../../../src/coach/types";
 import type { SilenceMs } from "./token";
 
+/**
+ * The tool names a usage report may count: today's tools, and the ones D-038 item 1 retired
+ * (confirm_max, set_limit_cause), which a phone still on the earlier client may report.
+ */
+export const RETIRED_TOOL_NAMES = ["confirm_max", "set_limit_cause"] as const;
+export type UsageToolName = ToolName | (typeof RETIRED_TOOL_NAMES)[number];
+
 /** POST /api/agent/token (5.1). */
 export interface TokenRequest {
   block: CoachBlock;
-  /** One of segmentsFor(stored protocol, gait plan), or a workout's session:1 and session:2. */
+  /** One of segmentsFor(stored protocol, gait plan), a workout's session:1 and session:2, or demo. */
   segment: CoachSegment;
   lang: "ar" | "en";
-  /** rom and gait: an open focus check; session: a workout of today. */
-  ref: { checkId: string } | { workoutId: string };
+  /**
+   * rom and gait: an open focus check; session: a workout of today, or (segment demo, D-038 item 3) a
+   * demo exercise and the random id of its run, with no workout.
+   */
+  ref: { checkId: string } | { workoutId: string } | { demo: string; run: string };
   /** 16 to 64 of [A-Za-z0-9_-], random per install (localStorage azm.device); stored only as its SHA-256. */
   deviceId: string;
   /** The person's pause length preference (S0: 800 by default). */
@@ -51,7 +61,7 @@ export interface UsageReport {
   durationSec: number;
   /** 0 to 500 */
   turns: number;
-  toolCalls: Partial<Record<ToolName, { ok: number; rejected: number }>>;
+  toolCalls: Partial<Record<UsageToolName, { ok: number; rejected: number }>>;
   /** summed usageMetadata */
   promptTokens: number | null;
   responseTokens: number | null;

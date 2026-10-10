@@ -97,6 +97,26 @@ describe("POST /api/agent/stop, a stop list answer in a coached workout", () => 
     expect(extra.data).toEqual({ error: "STOP_INVALID", field: "note" });
   });
 
+  it("takes a demo exercise's stop with no workout (D-038 item 3): the same lock, counted as a demo's", async () => {
+    const cookie = await member(h, `stop-${++n}@example.test`, v7Intake(), []);
+    const user = await userId(h, cookie);
+    const before = safetyCount("demo:stop:chest");
+    const r = await h.call("/agent/stop", { demo: "seated_biceps_curl", option: "chest" }, cookie);
+    expect(r.status, JSON.stringify(r.data)).toBe(200);
+    expect(r.data.route).toMatchObject({ option: "chest", screen: "scr_emergency" });
+    expect(currentLock(h.db(), user, Date.now())).not.toBeNull();
+    expect(safetyCount("demo:stop:chest")).toBe(before + 1);
+    // Nothing of a workout is stored for it.
+    expect(h.db().prepare("SELECT COUNT(*) AS n FROM workouts WHERE user_id=?").get(user)).toEqual({ n: 0 });
+    for (const body of [
+      { demo: "hip_flexion", option: "chest" },
+      { demo: "seated_biceps_curl", workoutId: "0f0e0d0c-0b0a-4908-8706-050403020100", option: "chest" },
+    ]) {
+      const bad = await h.call("/agent/stop", body, cookie);
+      expect(bad.status, JSON.stringify(body)).toBe(400);
+    }
+  });
+
   it("needs a signed in person, and does not exist without AZM_V7", async () => {
     const { cookie, id } = await withWorkout();
     expect((await h.call("/agent/stop", { workoutId: id, option: "chest" }, "")).status).toBe(401);

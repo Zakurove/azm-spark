@@ -20,13 +20,11 @@
  *      frame, more than the 3 degree band (change log B1-3), and step B2's fixtures at 24 to 30 fps missed
  *      or delayed holds through v1's 0.3 s median (RANGE_RULES.medianSec, rangeTest.ts measures through it
  *      before its hold rule).
- *   4. The hold (hold.ts): the `hold` event, phase ask_max, the local line ask_max.
- *   5. «هل هذا أقصى ما تستطيع؟»: answerMax (buttons or the coach, first answer per hold wins). Yes
- *      records the hold; not yet resumes the attempt («A later hold replaces the value only if it is
- *      further»); it hurts records the value as pain limited and asks the pain question (answerPain);
- *      «No answer within 10 s: the hold is recorded as unconfirmed» (engine.answerTimeoutSeconds).
- *   6. «ما الذي أوقفك أكثر؟» once per movement (answerCause), when the confirmed value is short of
- *      askCauseBelow (the controller passes null to switch it off).
+ *   4. The hold (hold.ts): the `hold` event.
+ *   5. D-038 item 1 replaces the maximum question («هل هذا أقصى ما تستطيع؟», answerMax, its answers and
+ *      its 10 s): the hold is recorded automatically (see the D-038 note below).
+ *   6. «ما الذي أوقفك أكثر؟» followed only a value confirmed with a yes; D-038 item 1 took it out with the
+ *      maximum question (the result's cause is null; the findings read the body map's paths).
  *   7. Compensation checks (compensations.ts): «A cue plays at most once per attempt; an invalid attempt
  *      is coached, not stored, and repeated (up to 2 extra), then not measured today (quality) as in v1.1.»
  *   8. «No hold within 20 s of the first movement: the attempt ends as no_hold and is repeated»
@@ -48,8 +46,8 @@
  *     found with it carries wideHold.
  *   - A pause stops the clock; a resumed attempt starts again (same index, nothing stored), a resumed
  *     question asks again.
- *   - A pain stop keeps the hold in hand (asked, answered «it hurts», or kept after «not yet») as a pain
- *     limited attempt when the attempt passed its checks, and the movement stops with reason pain_stop.
+ *   - A pain stop keeps the hold in hand (D-038: the hold waiting to be recorded) as a pain limited
+ *     attempt, and the movement stops with reason pain_stop.
  *   - A stop by the person (stop "user_stop", or finish before the end) keeps no value: status stopped,
  *     reason by_choice until the controller writes the stop list's reason (v1 resultOnStop).
  *   - The arm raises keep v1's two picture rules (D-026 item 5, change log B1-12; rangeTest.ts): the
@@ -85,9 +83,6 @@
  *     (compensation event level flag).
  *   - The hold is MVP_HOLD (hold.ts): about 8 degrees either side for about 0.6 s after a real
  *     movement; its value the plateau's median.
- *   - The maximum question: no answer within engine.answerTimeoutSeconds counts as yes (answer yes,
- *     source timeout; a small hold still needs «نعم»). A steadier top further on while it is open
- *     replaces the hold (the person went on without answering).
  *   - One valid attempt records the value (RUNNER_RULES.validAttempts) and the movement is done; a
  *     second try only when the person asks for it (again), never a third.
  *   - Only a try without a value is repeated: no hold (the movement's own landmarks unseen, or no
@@ -95,15 +90,22 @@
  *     the quality gate's report is stored with it, never a reason to discard it.
  *   - The pain stop and the stop list are unchanged.
  *
- * D-037 item 2 (Nasser's fourth real test: «I can do more» gave no time, the same hold asked again at
- * once). «Not yet» opens the reach time (RUNNER_RULES.reach*): the hold detector rearms after the
- * answer and found the same plateau again a window (0.6 s) later, so the question came back before the
- * person could move. Now a hold after «not yet» asks again only when it lies clearly further than the
- * hold answered (reachFurtherDeg in the movement's direction), or a little further once the person had
- * reachAskAfterSec; a hold that is not further never asks. With no question by the end of reachSec
- * (from «not yet», or from the coach's keep reaching) the hold answered is taken, calmly, with no new
- * question; a person still out beyond it, on the way further, has until the attempt's own time from
- * the answer. No question is open meanwhile, so the silence counts as yes timeout never cuts it short.
+ * D-038 item 1 (Nasser's fifth real test, v7.4: «Is this your most ROM? Remove this question»), engine
+ * rom_engine_5. There is no maximum question any more: no ask_max phase, no answer buttons, no
+ * confirm_max, and none of D-037's reach time after «not yet». The range is recorded automatically:
+ *   - at the furthest steady hold: the MVP hold (hold.ts MVP_HOLD, about 8 degrees either side of its
+ *     median, still for about 1 s) is the value in hand, and the plateau's median keeps reading while
+ *     the person stays at it (plateauMaxSec);
+ *   - a hold clearly further on (RUNNER_RULES.furtherDeg in the movement's direction) within
+ *     RUNNER_RULES.settleSec of the last one replaces it, and its own time starts; a smaller wobble
+ *     never does;
+ *   - once that time is over the value is recorded and the movement moves on; a person still out
+ *     beyond the hold (on the way further) has until the attempt's own time, so a slow reach is never
+ *     cut at a pause;
+ *   - keepReaching (the coach's keep_reaching on «I can do more» or «wait») gives keepReachingSec more.
+ * The `hold` event marks each hold in hand (the coach's «hold there»), the `attempt` event the value
+ * recorded (its «done»). A small hold (under engine.minExcursionDeg) is recorded the same way, with its
+ * smallExcursion flag. Recorded values carry no answer (answer and answerSource null).
  */
 import { PoseSmoother } from "../oneEuro";
 import { toPixelSpace } from "../geometry";
@@ -150,9 +152,7 @@ import { movementLandmarks, romQualityConfig } from "./quality";
 import type {
   AnswerResult,
   AnswerSource,
-  LimitCause,
   PainResult,
-  RomAnswer,
   RomAttempt,
   RomEvent,
   RomFlag,
@@ -185,19 +185,18 @@ export const RUNNER_RULES = {
    */
   holdMedianSec: 0.5,
   /**
-   * Contract 2.6 keepReaching: «Extends the attempt by 10 s». After D-037 item 2 the reach time below is
-   * what counts after «not yet»; keep reaching starts it again from its call.
+   * D-038 item 1 (interface numbers, no clinical one): after a hold, a hold at least furtherDeg further
+   * on (in the movement's direction) within this many seconds replaces it; then the value is recorded.
    */
-  keepReachingSec: 10,
+  settleSec: 3,
+  /** ... «clearly further»: a smaller difference (a wobble at the top) never replaces the hold. */
+  furtherDeg: 5,
   /**
-   * D-037 item 2 (interface numbers, no clinical one): after «not yet» a hold asks again only when it
-   * lies at least this many degrees further than the hold answered, in the movement's direction ...
+   * The coach's keep_reaching («I can do more», «wait»): the hold in hand waits at least this many more
+   * seconds for a further one (contract 2.6 keepReaching extends the attempt; D-038 «a few more
+   * seconds»), and the attempt's clock gets them too.
    */
-  reachFurtherDeg: 5,
-  /** ... or, once the person has had this many seconds, further than the hold band (engine.holdBandDeg) ... */
-  reachAskAfterSec: 6,
-  /** ... and with no new question within this many seconds, the hold answered is taken, with no question. */
-  reachSec: 12,
+  keepReachingSec: 6,
   /**
    * D-034 (the tech lead, from the check's review): with the «can you move it» question gone, a joint
    * that cannot move must not wait out the 20 s of each try. No movement beyond the hold band from the
@@ -227,7 +226,7 @@ export const RUNNER_RULES = {
   quietFromHoldProgress: 0.4,
   /**
    * D-035: the hold's value reads its plateau on while the person stays at it, up to this many seconds
-   * after the window (more frames than the 0.6 s window at a low frame rate; an interface time).
+   * after the window (more frames than the hold window at a low frame rate; an interface time).
    */
   plateauMaxSec: 2,
   /** v1 SPEC-GAP frame-persistence: a picture rule holds this long before it counts. */
@@ -306,8 +305,6 @@ type Cue = RomCueId | RomCopyKey | CheckCueId;
 interface HeldValue {
   hold: RomHold;
   verdict: HoldVerdict;
-  answer: RomAnswer | "unconfirmed" | null;
-  source: AnswerSource | null;
 }
 
 /** v1's arm raise watches over one attempt (rangeTest.ts AttemptState). */
@@ -330,7 +327,7 @@ interface Attempt {
   arm: ArmWatch | null;
   t0: number;
   monitor: QualityMonitor;
-  /** The quality gate reads the attempt up to its hold, and again after «not yet». */
+  /** The quality gate reads the attempt up to its first hold. */
   monitoring: boolean;
   /** The existing One Euro on the subject's landmarks (oneEuro.ts PoseSmoother): the angle the hold reads. */
   smoother: PoseSmoother;
@@ -354,32 +351,23 @@ interface Attempt {
    */
   moved: boolean;
   level: RunningMedian;
-  /** Milliseconds added to the attempt's clock: questions, keep reaching. */
+  /** Milliseconds added to the attempt's clock: keep reaching. */
   extendMs: number;
-  /** The hold asked about now (phase ask_max), or answered «it hurts» (phase ask_pain). */
+  /** D-038 item 1: the hold in hand, recorded once `settleUntil` has passed (a further hold replaces it). */
   current: HeldValue | null;
-  /** The furthest hold answered «not yet» (it stands unless a later hold is further). */
-  kept: HeldValue | null;
-  /** «not yet» was the last answer and keep reaching was not used since. */
-  reachOpen: boolean;
-  /**
-   * D-037 item 2: the reach time after «not yet»: from the answer, the hold answered (the further of it
-   * and the kept one), and when it ends.
-   */
-  reach: { from: number; deg: number; until: number } | null;
-  /** The last filtered angle of the attempt (the reach reads it), or null before one. */
+  /** When the hold in hand is recorded, unless a further hold comes first. */
+  settleUntil: number;
+  /** The last filtered angle of the attempt (beyond the hold in hand, or not), or null before one. */
   lastF: number | null;
-  /** A pain answer or «it hurts» in this attempt. */
+  /** A pain report in this attempt. */
   pain: boolean;
   painLevel: number | null;
-  /** When the current question opened. */
-  askT: number;
   /** The seated side bend's lean limits (SIDE_LEAN_RULES), else null. */
   lean: LeanWatch | null;
   /** A hold was found in this attempt: no calm line after it (D-035). */
   heldOnce: boolean;
   /**
-   * The plateau of the hold asked about (D-035 «the value is that plateau's median»): the hold window's
+   * The plateau of the hold in hand (D-035 «the value is that plateau's median»): the hold window's
    * level and the frames' own angles, from the window on while the person stays at it (within the hold's
    * band, at most RUNNER_RULES.plateauMaxSec after the window).
    */
@@ -471,18 +459,13 @@ export class RomRunner {
   /** An attempt of this movement moved: the joint moves, so later tries keep the full 20 s (noMovementDue). */
   private everMoved = false;
   private holdCount = 0;
-  /** Every hold answered or timed out (first answer per hold wins, across attempts). */
-  private readonly answered = new Set<string>();
   private restUntil = 0;
-  private answerDeadline = 0;
 
   /* outcome */
   private notMeasured: RomReasonId | null = null;
   private stopReason: "pain_stop" | "user_stop" | null = null;
   private painStopped = false;
   private maxPain: number | null = null;
-  private cause: LimitCause | null = null;
-  private causeAsked = false;
 
   /* pause */
   private pausedFrom: RomPhase | null = null;
@@ -523,9 +506,9 @@ export class RomRunner {
     return this.finished;
   }
 
-  /** The hold the maximum question is about (phase ask_max), else null. */
+  /** D-038 item 1: the hold in hand, recorded once its time is over (a further hold replaces it), else null. */
   get currentHold(): RomHold | null {
-    return this.phaseNow === "ask_max" ? (this.att?.current?.hold ?? null) : null;
+    return this.phaseNow === "attempt" ? (this.att?.current?.hold ?? null) : null;
   }
 
   /** The calibration of the start pose, once taken. */
@@ -533,14 +516,15 @@ export class RomRunner {
     return this.cal;
   }
 
-  /** How far the angle is into the hold now, 0 to 1 (hold.ts progress; 1 while the question is open). */
+  /**
+   * How far the angle is into the hold now, 0 to 1 (hold.ts progress). D-038 item 1: full while a hold
+   * is in hand, unless the person is clearly further on, where a further hold fills it again.
+   */
   get holdProgress(): number {
-    if (this.phaseNow === "ask_max") return 1;
     if (this.phaseNow !== "practice" && this.phaseNow !== "attempt") return 0;
     const a = this.att;
     if (!a) return 0;
-    // D-037 item 2: after «not yet» the ring fills only beyond the hold answered (a hold there never asks).
-    if (a.reach && !this.beyondReach(a, a.lastF, RUNNER_RULES.reachFurtherDeg)) return 0;
+    if (a.current && !this.beyond(a, a.lastF)) return 1;
     return a.hold.progress;
   }
 
@@ -617,14 +601,11 @@ export class RomRunner {
       case "attempt":
         this.attempting(frame);
         break;
-      case "ask_max":
-        this.askingMax(frame);
-        break;
       case "rest":
         this.resting(frame);
         break;
       default:
-        // ask_can_move, ask_pain, ask_cause, paused: the subject is followed, nothing is measured.
+        // ask_can_move, paused: the subject is followed, nothing is measured.
         this.track(frame);
         break;
     }
@@ -643,47 +624,10 @@ export class RomRunner {
     return this.drain();
   }
 
-  answerMax(holdId: string, answer: RomAnswer, source: AnswerSource, t: number): AnswerResult {
-    const a = this.att;
-    if (this.phaseNow === "stopped") return this.reject("stopped");
-    if (this.answered.has(holdId)) return this.reject("already_answered");
-    if (this.phaseNow !== "ask_max" || !a?.current) return this.reject("wrong_phase");
-    if (a.current.hold.holdId !== holdId) return this.reject("stale_hold");
-    this.tLast = Math.max(this.tLast, t);
-    const held = a.current;
-    this.answered.add(holdId);
-    held.answer = answer;
-    held.source = source;
-    a.extendMs += Math.max(0, t - a.askT);
-    if (answer === "yes") {
-      this.endWithValue(t, this.further(held, a.kept));
-    } else if (answer === "not_yet") {
-      if (!held.hold.smallExcursion || a.kept === null) a.kept = this.further(held, a.kept);
-      a.current = null;
-      a.reachOpen = true;
-      a.monitoring = true;
-      a.hold.rearm(t);
-      // D-037 item 2: real time to go further; only a hold further on than this one asks again.
-      const d = this.holdOpts.direction;
-      const deg = a.kept && d * (a.kept.hold.deg - held.hold.deg) > 0 ? a.kept.hold.deg : held.hold.deg;
-      a.reach = { from: t, deg, until: t + RUNNER_RULES.reachSec * 1000 };
-      this.setPhase("attempt", t);
-      // safety never: «no prompt to push further after pain is reported»: no keep_going after a pain answer.
-      if (!a.pain) this.cue("keep_going", t);
-    } else {
-      // «It hurts: the value is recorded as pain limited; the pain question follows (0 to 10).»
-      a.current = this.further(held, a.kept);
-      a.current.answer = "hurts";
-      a.current.source = source;
-      a.pain = true;
-      a.reachOpen = false;
-      a.askT = t;
-      this.setPhase("ask_pain", t);
-      this.cue("pain_ask", t);
-    }
-    return { accepted: true, events: this.drain() };
-  }
-
+  /**
+   * A pain report (the coach's mark_pain, C-15): any pain marks the attempt's value pain limited; the
+   * one shared pain rule may stop the movement (the hold in hand is then kept, pain limited).
+   */
   answerPain(level: number, sharp: boolean, _source: AnswerSource, t: number): PainResult {
     if (this.phaseNow === "stopped") return { ...this.reject("stopped"), action: "continue" };
     if (this.finished || this.phaseNow === "idle")
@@ -695,7 +639,6 @@ export class RomRunner {
     if (a) {
       // A report of no pain (the coach's mark_pain 0) leaves the value as it is; any pain marks it.
       if (stored > 0 || sharp) a.pain = true;
-      a.reachOpen = false;
       a.painLevel = Math.max(a.painLevel ?? 0, stored);
     }
     const rule = painStopRule(level, sharp, this.opts.painBefore ?? null);
@@ -703,33 +646,23 @@ export class RomRunner {
       this.painStop(t);
       return { accepted: true, action: "stop_movement", events: this.drain() };
     }
-    if (this.phaseNow === "ask_pain" && a?.current) {
-      // Below the rule: the pain limited value stands and the attempts go on.
-      this.endWithValue(t, a.current);
-    }
     return { accepted: true, action: "continue", events: this.drain() };
   }
 
-  answerCause(cause: LimitCause, _source: AnswerSource, t: number): AnswerResult {
-    if (this.phaseNow === "stopped") return this.reject("stopped");
-    if (this.phaseNow !== "ask_cause")
-      return this.reject(this.causeAsked && this.finished ? "already_answered" : "wrong_phase");
-    this.tLast = Math.max(this.tLast, t);
-    this.cause = cause;
-    this.end(t);
-    return { accepted: true, events: this.drain() };
-  }
-
+  /**
+   * The coach's keep_reaching (D-038 item 1: «I can do more», «wait»): the hold in hand waits
+   * keepReachingSec more for a further one, and the attempt's clock gets them too. Never after pain.
+   */
   keepReaching(t: number): AnswerResult {
     const a = this.att;
     if (this.phaseNow === "stopped") return this.reject("stopped");
     if (a && a.pain) return this.reject("after_pain");
-    if (this.phaseNow !== "attempt" || !a || !a.reachOpen) return this.reject("wrong_phase");
+    if ((this.phaseNow !== "attempt" && this.phaseNow !== "practice") || !a)
+      return this.reject("wrong_phase");
     this.tLast = Math.max(this.tLast, t);
-    a.reachOpen = false;
-    a.extendMs += RUNNER_RULES.keepReachingSec * 1000;
-    // D-037 item 2: the reach time runs from the coach's keep going line.
-    if (a.reach) a.reach.until = Math.max(a.reach.until, t + RUNNER_RULES.reachSec * 1000);
+    const more = RUNNER_RULES.keepReachingSec * 1000;
+    a.extendMs += more;
+    if (a.current) a.settleUntil = Math.max(a.settleUntil, t + more);
     return { accepted: true, events: this.drain() };
   }
 
@@ -748,7 +681,6 @@ export class RomRunner {
     this.tLast = Math.max(this.tLast, t);
     const from = this.pausedFrom;
     this.pausedFrom = null;
-    const a = this.att;
     switch (from) {
       case "calibrating":
         this.beginCalibration(t);
@@ -759,23 +691,13 @@ export class RomRunner {
         this.att = null;
         this.startAttempt(t, from === "practice");
         break;
-      case "ask_max":
-        if (a) {
-          a.askT = t;
-          this.answerDeadline = t + ROM_DATA.engine.answerTimeoutSeconds * 1000;
-        }
-        this.setPhase("ask_max", t);
-        this.cue("ask_max", t);
-        break;
       case "rest":
         this.rest(t);
         break;
       default:
         // A question: asked again.
         this.setPhase(from, t);
-        if (from === "ask_pain") this.cue("pain_ask", t);
-        else if (from === "ask_cause") this.cue("what_stopped_ask", t);
-        else if (from === "ask_can_move") this.cue("can_move_ask", t);
+        if (from === "ask_can_move") this.cue("can_move_ask", t);
         break;
     }
     return { accepted: true, events: this.drain() };
@@ -798,11 +720,6 @@ export class RomRunner {
     this.tLast = Math.max(this.tLast, t);
     if (this.againActive && !this.finished && this.phaseNow !== "stopped") {
       this.endAgain(t);
-      this.drain();
-    }
-    if (this.phaseNow === "ask_cause") {
-      // The optional question left unanswered: the movement is complete.
-      this.end(t);
       this.drain();
     }
     const completed = this.finished;
@@ -1144,13 +1061,10 @@ export class RomRunner {
       level: new RunningMedian(ROM_DATA.engine.holdSeconds * 1000),
       extendMs: 0,
       current: null,
-      kept: null,
-      reachOpen: false,
-      reach: null,
+      settleUntil: 0,
       lastF: null,
       pain: false,
       painLevel: null,
-      askT: t,
       lean:
         this.leanLimit === null
           ? null
@@ -1167,7 +1081,7 @@ export class RomRunner {
     this.cue(practice ? "practice" : "again", t);
   }
 
-  /** «No hold within 20 s of the first movement» (before any movement, 20 s from the attempt's start), plus pauses for questions and keep reaching. */
+  /** «No hold within 20 s of the first movement» (before any movement, 20 s from the attempt's start), plus keep reaching. */
   private deadline(a: Attempt): number {
     return (a.firstMove ?? a.t0) + ROM_DATA.engine.attemptTimeoutSeconds * 1000 + a.extendMs;
   }
@@ -1207,7 +1121,8 @@ export class RomRunner {
       if (shown !== null) this.sink.push({ kind: "live", deg: round1(shown), t });
       const f = a.median.push(t, dial);
       a.lastF = f;
-      if (a.arm && this.armWatch(a.arm, t, px, ctx, f)) return;
+      // v1's arm raise rules read the attempt up to its first hold (D-038: not while a hold is in hand).
+      if (a.arm && !a.current && this.armWatch(a.arm, t, px, ctx, f)) return;
       const move = this.moveDeg();
       if (a.startDeg === null) a.startDeg = f;
       else if (a.firstMove === null && Math.abs(f - a.startDeg) > move) a.firstMove = t;
@@ -1223,60 +1138,44 @@ export class RomRunner {
         const p = a.plateau.push(t, f);
         if (p !== null) this.sink.push({ kind: "plateau", deg: round1(p), t, attempt: a.index });
       }
+      // D-038 item 1: the hold in hand reads its plateau on while the person stays at it.
+      if (a.current) this.extendPlateau(a, f, angle, t);
       const found = a.hold.push(t, f, angle);
       this.emitHits(hits, this.mayCue(a));
       if (found) {
-        // D-037 item 2: after «not yet» only a hold further on asks again; any other rolls on.
-        if (!a.reach || this.reachAsks(a.reach, found, t)) {
+        if (!a.current) {
           this.onHold(found, t);
-          return;
-        }
-        a.hold.rearm(t);
+          if (this.att !== a) return;
+        } else this.furtherHold(a, found, t);
       }
+    }
+    if (a.current) {
+      if (t >= a.settleUntil) this.settled(a, t);
+      return;
     }
     if (this.noMovementDue(a, t)) {
       this.noMovement(t);
       return;
     }
-    if (a.reach) {
-      if (t >= a.reach.until) this.reachEnd(a, t);
-      return;
-    }
     if (t >= this.deadline(a)) this.timeout(t);
   }
 
-  /** The filtered angle lies at least `by` degrees beyond the hold answered «not yet» (D-037 item 2). */
-  private beyondReach(a: Attempt, f: number | null, by: number): boolean {
-    return !!a.reach && f !== null && this.holdOpts.direction * (f - a.reach.deg) >= by;
+  /** D-038 item 1: the filtered angle lies clearly further on (furtherDeg) than the hold in hand. */
+  private beyond(a: Attempt, f: number | null): boolean {
+    return (
+      !!a.current &&
+      f !== null &&
+      this.holdOpts.direction * (f - a.current.hold.deg) >= RUNNER_RULES.furtherDeg
+    );
   }
 
   /**
-   * D-037 item 2: a hold during the reach time asks again when it lies at least reachFurtherDeg beyond
-   * the hold answered, or beyond the hold band once the person has had reachAskAfterSec. A small hold
-   * (a small excursion) never asks here.
+   * D-038 item 1: the hold in hand's time is over: it is recorded, unless the person is still out
+   * clearly beyond it (on the way further), who has until the attempt's own time.
    */
-  private reachAsks(r: NonNullable<Attempt["reach"]>, found: HoldFound, t: number): boolean {
-    if (found.smallExcursion) return false;
-    const beyond = this.holdOpts.direction * (found.deg - r.deg);
-    if (beyond >= RUNNER_RULES.reachFurtherDeg) return true;
-    return beyond > ROM_DATA.engine.holdBandDeg && t - r.from >= RUNNER_RULES.reachAskAfterSec * 1000;
-  }
-
-  /**
-   * D-037 item 2: the reach time is over with no new question. A person still out beyond the hold
-   * answered (on the way further) has until the attempt's own time from the answer; otherwise the hold
-   * answered is taken, calmly, as the attempt's own time would (timeout: the kept value with its
-   * answer; a small hold still needs «نعم», so its attempt is tried again).
-   */
-  private reachEnd(a: Attempt, t: number): void {
-    const r = a.reach!;
-    if (
-      this.beyondReach(a, a.lastF, RUNNER_RULES.reachFurtherDeg) &&
-      t < r.from + ROM_DATA.engine.attemptTimeoutSeconds * 1000
-    )
-      return;
-    a.reach = null;
-    this.timeout(t);
+  private settled(a: Attempt, t: number): void {
+    if (this.beyond(a, a.lastF) && t < this.deadline(a)) return;
+    this.endWithValue(t, a.current!);
   }
 
   /**
@@ -1416,13 +1315,8 @@ export class RomRunner {
       bandDeg: 3,
       smallExcursion: false,
     };
-    const held: HeldValue = {
-      hold,
-      verdict: { invalid: [], flagged: [], hits: [] },
-      answer: null,
-      source: null,
-    };
-    this.endWithValue(t, this.further(held, a.kept), ["censored"]);
+    const held: HeldValue = { hold, verdict: { invalid: [], flagged: [], hits: [] } };
+    this.endWithValue(t, this.further(held, a.current), ["censored"]);
   }
 
   /** The plateau of a hold just found: its window, read on while the person stays (D-035). */
@@ -1440,10 +1334,10 @@ export class RomRunner {
   }
 
   /**
-   * One more frame of the plateau while the question is open: its own angle joins the value while the
+   * One more frame of the plateau of the hold in hand: its own angle joins the value while the
    * filtered angle stays within the hold's band of the window's level; the plateau closes at the first
-   * frame away from it, or after plateauMaxSec. The hold asked about takes the plateau's value (whole
-   * degrees), so the question shows the value that is recorded.
+   * frame away from it, or after plateauMaxSec. The hold in hand takes the plateau's value (whole
+   * degrees), so the value recorded is the plateau's median.
    */
   private extendPlateau(a: Attempt, f: number, raw: number, t: number): void {
     const p = a.top;
@@ -1473,6 +1367,10 @@ export class RomRunner {
     };
   }
 
+  /**
+   * The attempt's first hold: the practice ends at it; a scored attempt holds it in hand (D-038 item
+   * 1), to be recorded once settleSec has passed unless a further hold replaces it.
+   */
   private onHold(found: HoldFound, t: number): void {
     const a = this.att!;
     a.heldOnce = true;
@@ -1483,104 +1381,54 @@ export class RomRunner {
       this.endPractice(t, found, verdict);
       return;
     }
-    const hold = this.holdOf(a, found, t);
-    a.current = { hold, verdict, answer: null, source: null };
-    this.openPlateau(a, t);
     a.monitoring = false;
-    a.reachOpen = false;
-    a.reach = null;
-    a.askT = t;
-    // A steadier top further on, while the question is open, is a new window after this one.
-    a.hold.rearm(t);
-    this.answerDeadline = t + ROM_DATA.engine.answerTimeoutSeconds * 1000;
-    this.setPhase("ask_max", t);
-    this.sink.push({ kind: "hold", hold });
-    this.cue("ask_max", t);
-  }
-
-  private askingMax(frame: Frame): void {
-    const a = this.att!;
-    const t = frame.t;
-    const tr = this.track(frame);
-    const px = tr.pick.paused ? null : tr.px;
-    const ctx = this.context(frame.aspect);
-    // The hold's filter follows the frames while the question is open, as before.
-    const dial = px ? this.dialAngle(a, frame, tr, ctx) : null;
-    const shown = px ? this.shownAngle(a, frame, tr, ctx) : null;
-    if (shown !== null) this.sink.push({ kind: "live", deg: round1(shown), t });
-    const angle = px ? MOVEMENT_ANGLES[this.opts.def.id](px, ctx) : null;
-    if (px && dial !== null && angle !== null && Number.isFinite(angle) && a.current) {
-      const f = a.median.push(t, dial);
-      this.extendPlateau(a, f, angle, t);
-      // The checks keep their samples for a later hold; silent while the question is open (D-035).
-      this.emitHits(this.comp.frame({ t, px, ctx, angle: f }), false);
-      const found = a.hold.push(t, f, angle);
-      if (found) this.furtherTop(a, found, t);
-    }
-    if (t < this.answerDeadline || !a.current) return;
-    // D-035: no answer within the time counts as yes. A small hold needs «نعم»: the attempt goes on.
-    const held = a.current;
-    this.answered.add(held.hold.holdId);
-    if (held.hold.smallExcursion) {
-      // No answer: the question's time counts toward the attempt's 20 s (only an answered question pauses it).
-      a.current = null;
-      a.monitoring = true;
-      a.hold.rearm(t);
-      this.setPhase("attempt", t);
-      return;
-    }
-    a.extendMs += Math.max(0, t - a.askT);
-    held.answer = "yes";
-    held.source = "timeout";
-    this.endWithValue(t, this.further(held, a.kept));
+    this.takeHold(a, found, verdict, t);
   }
 
   /**
-   * A steady top found while the maximum question is open (D-035): further than the asked hold by more
-   * than a movement (moveDeg), it replaces it (the person went on to their end without answering) and the question
-   * starts again for it, without its line again; otherwise the window rolls on.
+   * D-038 item 1: a hold found while one is in hand replaces it when it lies clearly further on
+   * (furtherDeg in the movement's direction); otherwise the window rolls on.
    */
-  private furtherTop(a: Attempt, found: HoldFound, t: number): void {
-    const cur = a.current!;
+  private furtherHold(a: Attempt, found: HoldFound, t: number): void {
     const d = this.holdOpts.direction;
-    if (d * (found.deg - cur.hold.deg) <= this.moveDeg() || found.smallExcursion) {
+    if (d * (clampTo(this.kind, found.deg) - a.current!.hold.deg) < RUNNER_RULES.furtherDeg) {
       a.hold.rearm(t);
       return;
     }
-    const hold = this.holdOf(a, found, t);
     const verdict = this.comp.atHold(found.from, found.to, found.deg);
     this.emitHits(verdict.hits, false);
-    this.answered.add(cur.hold.holdId);
-    a.current = { hold, verdict, answer: null, source: null };
+    this.takeHold(a, found, verdict, t);
+  }
+
+  /** The hold in hand from now on, its plateau, its time, and the `hold` event (the coach's «hold there»). */
+  private takeHold(a: Attempt, found: HoldFound, verdict: HoldVerdict, t: number): void {
+    const hold = this.holdOf(a, found, t);
+    a.current = { hold, verdict };
     this.openPlateau(a, t);
-    a.extendMs += Math.max(0, t - a.askT);
-    a.askT = t;
+    a.settleUntil = t + RUNNER_RULES.settleSec * 1000;
+    // A further top is a new window after this one.
     a.hold.rearm(t);
-    this.answerDeadline = t + ROM_DATA.engine.answerTimeoutSeconds * 1000;
     this.sink.push({ kind: "hold", hold });
   }
 
-  /** The further of a hold and the one kept after «not yet» (a later hold replaces the value only if further). */
-  private further(held: HeldValue, kept: HeldValue | null): HeldValue {
-    if (!kept) return held;
-    const d = this.holdOpts.direction;
-    return d * (held.hold.deg - kept.hold.deg) >= 0
-      ? held
-      : { ...kept, answer: held.answer, source: held.source };
+  /** The further of two holds (the seated side bend's lean limit against the hold in hand). */
+  private further(held: HeldValue, other: HeldValue | null): HeldValue {
+    if (!other) return held;
+    return this.holdOpts.direction * (held.hold.deg - other.hold.deg) >= 0 ? held : other;
   }
 
-  /** The attempt's clock ran out: the value kept after «not yet» stands, else no hold. */
+  /** The attempt's clock ran out without a hold: no hold (the practice, or a repeat). */
   private timeout(t: number): void {
     const a = this.att!;
     if (a.practice) {
       this.endPractice(t, null, null);
       return;
     }
-    if (a.kept && !a.kept.hold.smallExcursion) {
-      this.endWithValue(t, a.kept);
+    if (a.current) {
+      this.endWithValue(t, a.current);
       return;
     }
-    if (!a.kept) this.noHoldTries++;
+    this.noHoldTries++;
     this.repeat(t, "no_hold", []);
   }
 
@@ -1608,7 +1456,7 @@ export class RomRunner {
       reasons: found
         ? [...new Set([...this.comp.invalid, ...flagged.filter((id) => id !== "bent_elbow")])]
         : ["no_hold"],
-      flags: found ? this.holdFlags(found.smallExcursion, found.bandDeg, flagged, null) : [],
+      flags: found ? this.holdFlags(found.smallExcursion, found.bandDeg, flagged) : [],
       quality: q,
       t0: a.t0,
       t1: t,
@@ -1619,17 +1467,11 @@ export class RomRunner {
     if (thenRest) this.rest(t);
   }
 
-  private holdFlags(
-    small: boolean,
-    band: number,
-    flagged: CompensationId[],
-    answer: RomAnswer | "unconfirmed" | null,
-  ): RomFlag[] {
+  private holdFlags(small: boolean, band: number, flagged: CompensationId[]): RomFlag[] {
     const f: RomFlag[] = [];
     if (small) f.push("smallExcursion");
     if (band === ROM_DATA.engine.wideHoldBandDeg && band !== this.holdOpts.bandDeg) f.push("wideHold");
     if (flagged.includes("bent_elbow")) f.push("bentElbow");
-    if (answer === "unconfirmed") f.push("unconfirmed");
     return f;
   }
 
@@ -1642,8 +1484,8 @@ export class RomRunner {
   }
 
   /**
-   * A scored attempt ends with a value: yes (or no answer, D-035), «not yet» at the timeout, or it hurts
-   * below the pain rule. The quality gate's report is kept with it, never a reason to repeat it: a hold
+   * A scored attempt ends with a value: the hold in hand once its time is over (D-038 item 1), or the
+   * seated side bend's lean limit. The quality gate's report is kept with it, never a reason to repeat it: a hold
    * means the movement's own landmarks were seen (D-035 «only a truly invisible joint»). One valid
    * attempt records the value; the second try (again) is the person's choice.
    */
@@ -1653,19 +1495,20 @@ export class RomRunner {
     this.att = null;
     this.reports.push(q);
     this.advise(q, t);
-    const painLimited = held.answer === "hurts" || a.pain;
+    const painLimited = a.pain;
     const end = holdAtPlausibleEnd(this.opts.def.id, this.kind, held.hold.deg);
     const rec: RomAttempt = {
       index: a.index,
       outcome: "valid",
       value: end.value,
-      answer: held.answer,
-      answerSource: held.source,
+      // D-038 item 1: recorded at the hold, with no question asked.
+      answer: null,
+      answerSource: null,
       painLimited,
       painLevel: a.painLevel,
       reasons: this.compReasons(held.verdict),
       flags: [
-        ...this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged, held.answer),
+        ...this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged),
         ...(held.verdict.invalid.length || end.held ? (["approximate"] as const) : []),
         ...extra,
       ],
@@ -1787,34 +1630,16 @@ export class RomRunner {
     } else this.startAttempt(frame.t, this.practiceNeeded());
   }
 
-  /** The scored attempts are done: the cause question once when the confirmed value is short, then done. */
+  /** The scored attempts are done (D-038 item 1: no cause question any more). */
   private complete(t: number): void {
-    const below = this.opts.askCauseBelow;
-    const best = this.best();
-    const bestRec = best === null ? null : this.scored.find((a) => a.value === best)!;
-    const short = best !== null && below !== null && this.holdOpts.direction * (best - below) < 0;
-    const painLimited = this.scored.some((a) => a.painLimited);
-    // A yes by silence (D-035) asks nothing more: the person is not answering now.
-    if (
-      short &&
-      bestRec?.answer === "yes" &&
-      bestRec.answerSource !== "timeout" &&
-      !painLimited &&
-      !this.causeAsked
-    ) {
-      this.causeAsked = true;
-      this.setPhase("ask_cause", t);
-      this.cue("what_stopped_ask", t);
-      return;
-    }
     this.end(t);
   }
 
   /** The pain rule stopped the movement: the hold in hand counts as pain limited when its attempt passed its checks. */
   private painStop(t: number): void {
     const a = this.att;
-    const held = a?.current ?? a?.kept ?? null;
-    if (a && !a.practice && held && (!held.hold.smallExcursion || held.answer === "hurts")) {
+    const held = a?.current ?? null;
+    if (a && !a.practice && held) {
       // D-035: a compensation or the quality gate never drops the value in hand.
       const q = a.monitor.report();
       this.reports.push(q);
@@ -1822,14 +1647,13 @@ export class RomRunner {
         index: a.index,
         outcome: "valid",
         value: held.hold.deg,
-        answer:
-          held.answer === "not_yet" || held.answer === "yes" || held.answer === "hurts" ? held.answer : null,
-        answerSource: held.answer ? held.source : null,
+        answer: null,
+        answerSource: null,
         painLimited: true,
         painLevel: a.painLevel,
         reasons: this.compReasons(held.verdict),
         flags: [
-          ...this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged, held.answer),
+          ...this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged),
           ...(held.verdict.invalid.length ? (["approximate"] as const) : []),
         ],
         quality: q,
@@ -1909,7 +1733,8 @@ export class RomRunner {
       painLimited,
       painLevel: this.maxPain,
       painBefore: this.opts.painBefore ?? null,
-      cause: this.cause,
+      // D-038 item 1: the cause question went with the maximum question.
+      cause: null,
       attempts: [...this.scored],
       practice: this.practiceRec ? [this.practiceRec] : [],
       retries: this.retries,

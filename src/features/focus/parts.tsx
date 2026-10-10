@@ -291,52 +291,6 @@ export function Body({ lang, text, muted }: { lang: Lang; text: string; muted?: 
   return <p className={`fx-body${muted ? " is-muted" : ""}`}>{bidiText(lang, text)}</p>;
 }
 
-export interface Choice {
-  value: string;
-  label: string;
-  icon?: string;
-  tone?: "gold" | "rose" | "plain";
-}
-
-/** Big answers, one tap each (the answer is the person's: no default, no preselection). */
-export function Choices({
-  lang,
-  choices,
-  onPick,
-  labelledBy,
-  chosen,
-  layout = "column",
-}: {
-  lang: Lang;
-  choices: Choice[];
-  onPick(value: string): void;
-  labelledBy?: string;
-  chosen?: string | null;
-  layout?: "column" | "row";
-}) {
-  return (
-    <div className={`fx-choices is-${layout}`} role="group" aria-labelledby={labelledBy}>
-      {choices.map((c) => (
-        <button
-          key={c.value}
-          type="button"
-          className={`fx-choice is-${c.tone ?? "plain"}`}
-          aria-pressed={chosen === c.value}
-          data-value={c.value}
-          onClick={() => onPick(c.value)}
-        >
-          {c.icon && (
-            <span className="fx-choice-icon" aria-hidden="true">
-              <CheckIcon name={c.icon} size={26} />
-            </span>
-          )}
-          <span className="fx-choice-label">{bidiText(lang, c.label)}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /**
  * The 0 to 10 scale: select, then Next (v1 O11b), the chosen number large. The ends name what 0 and
  * 10 mean.

@@ -7,7 +7,7 @@
  *   AZM_E2E_PORT=<port> npx playwright test -c e2e/v7-flow.config.ts      (npm run e2e:v7)
  *
  * The specs it runs (e2e/v7-flow.spec.ts, e2e/v7-form.spec.ts for the health form of D-034 item 5,
- * e2e/v7-gait.spec.ts for the walk at home and its lab of D-035, e2e/v7-coach-lab.spec.ts for the coach's connection test of D-035 item 4, and e2e/v7-coach-act.spec.ts for the coach pressing Ready on the person's words, D-036 item 2) skip themselves under the
+ * e2e/v7-gait.spec.ts for the walk at home and its lab of D-035, e2e/v7-coach-lab.spec.ts for the coach's connection test of D-035 item 4, and e2e/v7-coach-act.spec.ts for the coach pressing Ready on the person's words, D-036 item 2, and e2e/v7-demo-coach.spec.ts for the Live coach of a demo exercise, D-038 item 3) skip themselves under the
  * default config (e2e/playwright.config.ts), whose server has the flags off. The connection test runs
  * twice: in Chromium with its fake microphone and camera, and in Playwright's WebKit as an iPhone (the
  * closest proxy to iPhone Safari: it has navigator.audioSession and its capture rules).
@@ -30,7 +30,7 @@ mkdirSync(E2E_DATA, { recursive: true });
 
 export default defineConfig({
   testDir: HERE,
-  testMatch: /v7-(flow|form|gait|coach-lab|coach-act|romlab)\.spec\.ts$/,
+  testMatch: /v7-(flow|form|gait|coach-lab|coach-act|romlab|demo-coach)\.spec\.ts$/,
   fullyParallel: false,
   workers: 1,
   retries: 0,

@@ -88,7 +88,9 @@
   },
   "say": {
     "distanceRange": "Place the phone about {from} to {to} metres away, so you show in the picture.",
-    "distanceAbout": "Place the phone about {m} metres away, so you show in the picture."
+    "distanceAbout": "Place the phone about {m} metres away, so you show in the picture.",
+    "hold": "Hold there for a moment.",
+    "done": "Done, that is recorded."
   },
   "measure": {
     "start": "Take the start position and hold still",
@@ -103,6 +105,8 @@
     "typical": "Typical",
     "band": "Typical for your age and sex",
     "hold": "Hold",
+    "holding": "Hold there",
+    "holdingSub": "Recording the furthest point you reached",
     "you": "You",
     "instructions": "Instructions",
     "hideInstructions": "Hide the instructions",

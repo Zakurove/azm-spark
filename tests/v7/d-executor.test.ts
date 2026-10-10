@@ -39,125 +39,68 @@ function setup(host: CoachHost) {
   return { ex, sent, pushed, guard, results };
 }
 
-const holdEvent = (t: number): BridgeEvent => ({
+const canMoveAsk = (t: number): BridgeEvent => ({
   p: 1,
-  type: "end_range_hold",
-  holdId: "h1",
+  type: "ask_can_move",
   movement: "shoulder_flexion",
   side: "right",
-  deg: 118,
-  typical: 166,
   t,
 });
-const max = (answer: "yes" | "not_yet" | "hurts", id = "c1") => ({
+const canMoveCall = (canMove: boolean, id = "c1") => ({
   id,
-  name: "confirm_max",
-  args: { movement: "shoulder_flexion", side: "right", answer },
+  name: "answer_can_move",
+  args: { movement: "shoulder_flexion", side: "right", canMove },
 });
 
-describe("the maximum question", () => {
-  it("records the person's spoken yes and tells the coach the result", () => {
+describe("an answer the person never gave (S0-2)", () => {
+  it("is refused and nothing is recorded; the answer after the person spoke is taken", () => {
     const host = new RefRomHost();
     const s = setup(host);
-    host.openHold("h1", 118);
-    s.guard.question(holdEvent(1000));
-    s.guard.heard("إيه، هذا أقصى شي", 2200);
-    s.ex.handle([max("yes")], 2500);
-    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
-    expect(s.sent).toEqual([
+    host.askCanMove();
+    s.guard.heard("something earlier", 500);
+    s.guard.question(canMoveAsk(1000));
+    s.ex.handle([canMoveCall(true)], 1800);
+    expect(s.results()).toEqual([{ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }]);
+    expect(host.canMove).toEqual([]);
+    expect(host.calls).toEqual([]);
+    expect(s.ex.stats()).toEqual({ answer_can_move: { ok: 0, rejected: 1 } });
+    s.guard.heard("إيه", 2200);
+    s.ex.handle([canMoveCall(true, "c2")], 2500);
+    expect(host.canMove).toEqual([{ value: true, via: "voice" }]);
+  });
+});
+
+describe("keep_reaching (D-038 item 1: «I can do more», «wait»)", () => {
+  it("is taken only on the person's words in the last 10 s, never on the model's own", () => {
+    const host = new RefRomHost();
+    const s = setup(host);
+    s.ex.handle([{ id: "k1", name: "keep_reaching", args: {} }], 1000);
+    expect(s.results()[0]).toEqual({ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" });
+    expect(host.calls).toEqual([]);
+    s.guard.heard("أقدر أكثر", 2000);
+    s.ex.handle([{ id: "k2", name: "keep_reaching", args: {} }], 2500);
+    expect(s.results()[1]).toEqual({ accepted: true, say: "keep_going" });
+    s.ex.handle([{ id: "k3", name: "keep_reaching", args: {} }], 2000 + 10_001);
+    expect(s.results()[2]).toMatchObject({ accepted: false, reason: "no_answer_heard" });
+  });
+
+  it("has no maximum question or cause question to answer any more", () => {
+    const s = setup(new RefRomHost());
+    s.ex.handle(
       [
         {
-          id: "c1",
+          id: "x1",
           name: "confirm_max",
-          response: { accepted: true, say: "recorded", data: { recorded: true, deg: 118 } },
+          args: { movement: "shoulder_flexion", side: "right", answer: "yes" },
         },
+        { id: "x2", name: "set_limit_cause", args: { cause: "tight" } },
       ],
+      100,
+    );
+    expect(s.results()).toEqual([
+      { accepted: false, reason: "unknown_tool" },
+      { accepted: false, reason: "unknown_tool" },
     ]);
-    expect(s.ex.stats()).toEqual({ confirm_max: { ok: 1, rejected: 0 } });
-  });
-
-  it("refuses an answer the person never gave (S0-2) and records nothing", () => {
-    const host = new RefRomHost();
-    const s = setup(host);
-    host.openHold("h1", 118);
-    s.guard.heard("something earlier", 500);
-    s.guard.question(holdEvent(1000));
-    s.ex.handle([max("yes")], 1800);
-    expect(s.results()).toEqual([{ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }]);
-    expect(host.answers).toEqual([]);
-    expect(host.calls).toEqual([]);
-    expect(s.ex.stats()).toEqual({ confirm_max: { ok: 0, rejected: 1 } });
-  });
-
-  it("refuses an early answer before the hold with hold_still, and takes it at the hold", () => {
-    const host = new RefRomHost();
-    const s = setup(host);
-    s.guard.heard("yes", 900);
-    s.ex.handle([max("yes", "c1")], 1000);
-    expect(s.results()).toEqual([{ accepted: false, reason: "wrong_phase", say: "hold_still" }]);
-    // The hold opens and asks again; the person answers once more.
-    host.openHold("h1", 121);
-    s.guard.question(holdEvent(3000));
-    s.guard.heard("yes", 4000);
-    s.ex.handle([max("yes", "c2")], 4300);
-    expect(s.results()[1]).toEqual({ accepted: true, say: "recorded", data: { recorded: true, deg: 121 } });
-    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 121 }]);
-  });
-
-  it("lets the first answer win when a tap and a spoken answer race", () => {
-    const tapFirst = new RefRomHost();
-    const a = setup(tapFirst);
-    tapFirst.openHold("h1", 118);
-    a.guard.question(holdEvent(1000));
-    a.guard.heard("أقدر أكثر", 2000);
-    expect(tapFirst.buttonMax("yes")).toBe(true);
-    a.ex.handle([max("not_yet")], 2300);
-    expect(a.results()).toEqual([{ accepted: false, reason: "wrong_phase" }]);
-    expect(tapFirst.answers).toEqual([{ answer: "yes", via: "button", deg: 118 }]);
-
-    const voiceFirst = new RefRomHost();
-    const b = setup(voiceFirst);
-    voiceFirst.openHold("h1", 118);
-    b.guard.question(holdEvent(1000));
-    b.guard.heard("نعم", 2000);
-    b.ex.handle([max("yes")], 2300);
-    expect(voiceFirst.buttonMax("not_yet")).toBe(false);
-    expect(voiceFirst.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
-  });
-
-  it("applies a second spoken answer for the same hold no more (live-spike.md 4: no cancellation came)", () => {
-    const host = new RefRomHost();
-    const s = setup(host);
-    host.openHold("h1", 118);
-    s.guard.question(holdEvent(1000));
-    s.guard.heard("نعم", 2000);
-    s.ex.handle([max("yes", "c1")], 2300);
-    s.guard.heard("أقدر أكثر بس يوجعني", 2600);
-    s.ex.handle([max("hurts", "c2")], 3400);
-    expect(s.results()[1].accepted).toBe(false);
-    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
-  });
-});
-
-describe("the cause question", () => {
-  const ask: BridgeEvent = { p: 1, type: "ask_cause", movement: "shoulder_flexion", side: "right", t: 500 };
-
-  it("records the spoken cause only while the question is open and after the person spoke", () => {
-    const host = new RefRomHost();
-    const s = setup(host);
-    s.guard.heard("tight", 100);
-    s.ex.handle([{ id: "x1", name: "set_limit_cause", args: { cause: "tight" } }], 200);
-    expect(s.results()[0]).toEqual({ accepted: false, reason: "wrong_phase" });
-    host.askCause();
-    s.guard.question(ask);
-    s.ex.handle([{ id: "x2", name: "set_limit_cause", args: { cause: "weak" } }], 900);
-    expect(s.results()[1]).toEqual({ accepted: false, reason: "no_answer_heard", say: "ask_and_wait" });
-    s.guard.heard("أحس بشد", 1500);
-    s.ex.handle([{ id: "x3", name: "set_limit_cause", args: { cause: "tight" } }], 2000);
-    expect(s.results()[2]).toEqual({ accepted: true, say: "recorded" });
-    expect(host.causes).toEqual(["tight"]);
-    s.ex.handle([{ id: "x4", name: "set_limit_cause", args: { cause: "pain" } }], 2100);
-    expect(s.results()[3]).toEqual({ accepted: false, reason: "wrong_phase" });
   });
 });
 
@@ -247,15 +190,12 @@ describe("pain and stop (S0-2, C-15)", () => {
   it("never lets keep_reaching through after pain", () => {
     const host = new RefRomHost();
     const s = setup(host);
-    host.openHold("h1", 100);
-    s.guard.question(holdEvent(0));
-    s.guard.heard("not yet", 1000);
-    s.ex.handle([max("not_yet")], 1200);
+    s.guard.heard("I can do more", 1000);
     s.ex.handle([{ id: "k1", name: "keep_reaching", args: {} }], 1300);
-    expect(s.results()[1]).toEqual({ accepted: true, say: "keep_going" });
+    expect(s.results()[0]).toEqual({ accepted: true, say: "keep_going" });
     s.ex.handle([{ id: "p1", name: "mark_pain", args: { level: 3 } }], 1400);
     s.ex.handle([{ id: "k2", name: "keep_reaching", args: {} }], 1500);
-    expect(s.results()[3]).toEqual({ accepted: false, reason: "after_pain" });
+    expect(s.results()[2]).toEqual({ accepted: false, reason: "after_pain" });
   });
 });
 
@@ -329,14 +269,16 @@ describe("cancellations (C-17)", () => {
   it("leaves an applied call as applied and tells the coach what the app did", () => {
     const host = new RefRomHost();
     const s = setup(host);
-    host.openHold("h1", 118);
-    s.guard.question(holdEvent(1000));
+    host.askCanMove();
+    s.guard.question(canMoveAsk(1000));
     s.guard.heard("yes", 2000);
-    s.ex.handle([max("yes", "c7")], 2200);
+    s.ex.handle([canMoveCall(true, "c7")], 2200);
     s.ex.cancel(["c7"], 2500);
-    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
-    expect(host.phase).toBe("done");
-    expect(s.pushed).toEqual([{ p: 3, type: "tool_applied", name: "confirm_max", accepted: true, t: 2500 }]);
+    expect(host.canMove).toEqual([{ value: true, via: "voice" }]);
+    expect(host.phase).toBe("attempt");
+    expect(s.pushed).toEqual([
+      { p: 3, type: "tool_applied", name: "answer_can_move", accepted: true, t: 2500 },
+    ]);
     // A second cancellation of the same call says nothing more.
     s.ex.cancel(["c7"], 2600);
     expect(s.pushed).toHaveLength(1);
@@ -361,7 +303,7 @@ describe("the checks before the host", () => {
     s.ex.handle(
       [
         { id: "a", name: "record_range", args: {} },
-        { id: "b", name: "confirm_max", args: { movement: "knee_flexion", side: "left", answer: "yes" } },
+        { id: "b", name: "answer_can_move", args: { movement: "knee_flexion", side: "left", canMove: true } },
         { id: "c", name: "mark_pain", args: { level: 7.5 } },
         { id: "d", name: "stop", args: { reason: "ad_signs" } },
       ],
@@ -376,7 +318,7 @@ describe("the checks before the host", () => {
     ]);
     // An unknown name is not a tool, so it has no count.
     expect(s.ex.stats()).toEqual({
-      confirm_max: { ok: 0, rejected: 1 },
+      answer_can_move: { ok: 0, rejected: 1 },
       mark_pain: { ok: 0, rejected: 1 },
       stop: { ok: 0, rejected: 1 },
     });

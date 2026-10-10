@@ -508,6 +508,85 @@ describe("POST /api/agent/token: the token", () => {
     expect(second.data.sessionId).not.toBe(r.data.sessionId);
   });
 
+  it("mints a demo exercise's coach with no workout (D-038 item 3): segment demo, its own row per run", async () => {
+    const st = await started();
+    const run = "5f0c9a1e-2b3d-4c5e-8f60-718293a4b5c6";
+    const body = {
+      block: "session",
+      segment: "demo",
+      lang: "ar",
+      ref: { demo: "seated_shoulder_press", run },
+      deviceId: newDevice(),
+    };
+    const r = await token(body, st.cookie);
+    expect(r.status, JSON.stringify(r.data)).toBe(200);
+    // The session block's tools and instruction; the one exercise and its demo reps in the history.
+    const setup = google[0].body.bidiGenerateContentSetup;
+    expect(setup.tools).toEqual([{ functionDeclarations: toolDeclarations("session") }]);
+    expect(setup.systemInstruction.parts[0].text).toBe(
+      buildInstruction({ lang: "ar", block: "session", position: null, helperPresent: false }),
+    );
+    const lines = r.data.history[0].text.split("\n");
+    expect(lines[0]).toBe("[CTX block=session segment=demo lang=ar]");
+    expect(lines.slice(1)).toEqual([
+      expect.stringMatching(/^\[CTX ex=1 id=seated_shoulder_press name="[^"]+" sets=1 reps=6 rest=0\]$/),
+    ]);
+    // The short demo segment: 3 minutes, its token life the window and the margin beside them.
+    expect(google[0].body.expireTime).toBe(new Date(T0 + (2 + 3 + 1) * MINUTE).toISOString());
+    // Logged in agent_sessions like any coach session, on a ref of the run; nothing else stored.
+    expect(row(r.data.sessionId)).toMatchObject({
+      user_id: st.user,
+      block: "session",
+      segment: "demo",
+      ref: `demo:${run}`,
+      instruction_version: COACH_SI_VERSION,
+      minutes_reserved: life(3),
+    });
+    expect(h.db().prepare("SELECT COUNT(*) AS n FROM workouts WHERE user_id=?").get(st.user)).toEqual({
+      n: 0,
+    });
+    // The same run re-mints on its row; another run is a row of its own.
+    const again = await token({ ...body, deviceId: newDevice() }, st.cookie);
+    expect(again.data.sessionId).toBe(r.data.sessionId);
+    expect(row(r.data.sessionId).remints).toBe(1);
+    const other = await token(
+      {
+        ...body,
+        ref: { demo: "sit_to_stand", run: "6a1d0b2f-3c4e-4d6f-9071-8293a4b5c6d7" },
+        deviceId: newDevice(),
+      },
+      st.cookie,
+    );
+    expect(other.status).toBe(200);
+    expect(other.data.sessionId).not.toBe(r.data.sessionId);
+  });
+
+  it("refuses a demo that is no demo exercise, a demo ref on a workout segment and a workout ref on demo", async () => {
+    const st = await started();
+    const w = await workout(st.cookie);
+    const run = "5f0c9a1e-2b3d-4c5e-8f60-718293a4b5c6";
+    const base = { block: "session", lang: "en", deviceId: newDevice() };
+    for (const body of [
+      { ...base, segment: "demo", ref: { demo: "hip_flexion", run } },
+      { ...base, segment: "demo", ref: { demo: "seated_shoulder_press", run: "not-a-uuid" } },
+      { ...base, segment: "demo", ref: { demo: "seated_shoulder_press" } },
+      { ...base, segment: "demo", ref: { demo: "seated_shoulder_press", run, extra: 1 } },
+      { ...base, segment: "demo", ref: { workoutId: w.id } },
+      { ...base, segment: "session:1", ref: { demo: "seated_shoulder_press", run } },
+      { ...base, block: "rom", segment: "demo", ref: { demo: "seated_shoulder_press", run } },
+    ]) {
+      const r = await token(body, st.cookie);
+      expect(r.status, JSON.stringify(body)).toBe(400);
+    }
+    // Still the coach's checks: the live_coach consent.
+    const noConsent = await member(h, `agent-${++emailCounter}@example.test`, v7Intake(), []);
+    const r = await token(
+      { ...base, segment: "demo", ref: { demo: "seated_shoulder_press", run } },
+      noConsent,
+    );
+    expect(r.data).toEqual({ error: "CONSENT_REQUIRED" });
+  });
+
   it("refuses a workout that is not the person's, ended or of another day (409 NOT_OPEN)", async () => {
     const st = await started();
     const other = await started();

@@ -196,18 +196,14 @@ describe("the voice choice in the coach settings", () => {
     expect(chosen).toMatch(/aria-pressed="true"[^>]*>Voice 2</);
   });
 
-  it("has one voice switch and the check in switch, no pace, no focus view, no eyebrow (C40)", () => {
+  it("has the check in switch and no recorded voice switch (D-038 item 3), no pace, no focus view, no eyebrow (C40)", () => {
     for (const lang of ["ar", "en"] as const) {
       const html = render(lang, defaults);
-      expect(html.match(/role="switch"/g)).toHaveLength(2);
-      expect(html).toMatch(
-        /data-setting="voice"[^>]*>|role="switch" aria-checked="true" data-setting="voice"/,
-      );
+      expect(html.match(/role="switch"/g)).toHaveLength(1);
+      expect(html).toContain('data-setting="safety-check-in"');
+      expect(html).not.toContain('data-setting="voice"');
       expect(html).not.toMatch(/AZM COACH|eyebrow|focus-option/);
     }
-    expect(render("en", { ...defaults, voice: "off" })).toContain(
-      'aria-checked="false" data-setting="voice"',
-    );
   });
 
   it("is not shown while a single pack is installed", async () => {

@@ -115,14 +115,12 @@ const count = (n: number, t: number): BridgeEvent => ({
   lines: [`Pass ${n} of 4`],
   t,
 });
+/** A range question (P1): the can move question (D-038 item 1 took the maximum question out). */
 const hold = (t: number): BridgeEvent => ({
   p: 1,
-  type: "end_range_hold",
-  holdId: "h1",
+  type: "ask_can_move",
   movement: "shoulder_flexion",
   side: "right",
-  deg: 118,
-  typical: 166,
   t,
 });
 
@@ -181,7 +179,7 @@ describe("bridge rule 9: say lines go with turnComplete true once the coach is f
     expect(s.turns()).toHaveLength(1);
     // The question comes at once all the same, and the correction waiting is dropped.
     s.bridge.push(hold(T0 + 1200), s.at(1200));
-    expect(s.turns().at(-1)).toContain("type=end_range_hold");
+    expect(s.turns().at(-1)).toContain("type=ask_can_move");
     s.run(8000);
     expect(s.turns()).toHaveLength(2);
   });
@@ -358,17 +356,24 @@ describe("the range steps hand the coach their words (RomController)", () => {
     expect(last.face).toBe(last.side === "left" ? "left_side" : "right_side");
   });
 
-  it("the rest after the practice and the next try are said; the hold is a question, never a say line", () => {
+  it("the rest, the next try, the hold in hand and the value recorded are said (D-038 item 1: no question)", () => {
     const ctl = rom(SHOULDER);
     ctl.startBlock("seated", 0);
     const run = runBlock(ctl, { until: (c) => c.current.kind === "result" }, 200);
     const events = bridges(run.events);
     const keys = says(events).map((e) => e.key);
-    expect(keys.slice(0, 5)).toEqual(["block_seated", "setup", "move", "rest", "again"]);
+    expect(keys.slice(0, 7)).toEqual(["block_seated", "setup", "move", "rest", "again", "hold", "done"]);
     expect(says(events).find((e) => e.key === "again")!.lines[0]).toBe(romCopy("again").en);
-    // The question comes after the next try's line, never as one.
-    const ask = events.findIndex((e) => e.type === "end_range_hold");
-    expect(ask).toBeGreaterThan(events.findIndex((e) => e.type === "say" && e.key === "again"));
+    expect(says(events).find((e) => e.key === "hold")!).toMatchObject({
+      kind: "progress",
+      lines: ["Hold there for a moment."],
+    });
+    expect(says(events).find((e) => e.key === "done")!).toMatchObject({
+      kind: "step",
+      lines: ["Done, that is recorded."],
+    });
+    // No question of any kind.
+    expect(events.some((e) => e.p === 1)).toBe(false);
   });
 
   it("a correction the caption shows is said once (D-036 item 8's «only if asked» reversed)", () => {

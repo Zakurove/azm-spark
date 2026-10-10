@@ -1,9 +1,9 @@
 /**
  * The range of motion runner (src/engine/rom/runner.ts, product v7 contract 2.6 and 8.1): a whole
- * movement with a simulated person, the phase machine (every method in every phase), the maximum, pain,
- * cause and can move questions with the coach seam's rules (first answer per hold wins, early answers
- * rejected, keep reaching only right after «not yet»), the quality gate, no hold, the wide band,
- * compensations, pause and stop, and every result the server's validator accepts.
+ * movement with a simulated person, the phase machine (every method in every phase), pain, the cause
+ * and can move questions, keep reaching, the quality gate, no hold, the wide band, compensations, pause
+ * and stop, and every result the server's validator accepts. D-038 item 1: no maximum question; the
+ * automatic record itself is tests/v7/b-runner-auto.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { RomRunner, ROM_VALUE_BOUNDS, RUNNER_RULES } from "../../src/engine/rom/runner";
@@ -64,19 +64,12 @@ describe("the runner's rules read the data and v1", () => {
 });
 
 describe("a whole movement", () => {
-  it("calibration, one practice, one scored attempt confirmed by yes, the result (D-035)", () => {
+  it("calibration, one practice, one scored attempt recorded at its hold, the result (D-035, D-038)", () => {
     const r = runner("shoulder_abduction");
     const d = drive(r, abduct(120), 120);
-    expect(d.phases.map((p) => p.phase)).toEqual([
-      "calibrating",
-      "practice",
-      "rest",
-      "attempt",
-      "ask_max",
-      "done",
-    ]);
+    expect(d.phases.map((p) => p.phase)).toEqual(["calibrating", "practice", "rest", "attempt", "done"]);
     expect(d.phases.filter((p) => p.phase === "attempt").map((p) => p.attempt)).toEqual([1]);
-    expect(cuesOf(d.events)).toEqual(["practice", "again", "ask_max", "recorded"]);
+    expect(cuesOf(d.events)).toEqual(["practice", "again", "recorded"]);
     const holds = kinds(d.events, "hold").map((e) => e.hold);
     expect(holds).toHaveLength(1);
     for (const h of holds) {
@@ -113,7 +106,7 @@ describe("a whole movement", () => {
       engineVersion: ROM_ENGINE_VERSION,
     });
     expect(res.attempts.map((a) => [a.index, a.outcome, a.value, a.answer, a.answerSource])).toEqual([
-      [1, "valid", 120, "yes", "button"],
+      [1, "valid", 120, null, null],
     ]);
     expect(res.practice).toHaveLength(1);
     expect(res.practice[0]).toMatchObject({ index: 0, outcome: "practice", value: 120, answer: null });
@@ -137,8 +130,8 @@ describe("a whole movement", () => {
     expect(r.done).toBe(false);
     expect(r.canTryAgain).toBe(false);
     const d2 = drive(r, abduct(130, { t0: d.t + 1000 }), 120);
-    expect(d2.phases.map((p) => p.phase)).toEqual(["attempt", "ask_max", "done"]);
-    expect(cuesOf(d2.events)).toEqual(["again", "ask_max", "recorded"]);
+    expect(d2.phases.map((p) => p.phase)).toEqual(["attempt", "done"]);
+    expect(cuesOf(d2.events)).toEqual(["again", "recorded"]);
     const res = r.finish(d2.t);
     expect(res.attempts.map((a) => [a.index, a.value])).toEqual([
       [1, 100],
@@ -269,272 +262,66 @@ const stepUp = (t: number) => {
   return 120;
 };
 
-describe("the maximum question (rom-protocol 1.1 step 5)", () => {
-  it("«not yet»: the attempt goes on and a further hold replaces the value", () => {
+describe("no maximum question (D-038 item 1; the whole rule is b-runner-auto.test.ts)", () => {
+  it("a steadier top further on within 3 s replaces the hold in hand: a pause on the way up is no value", () => {
     const r = runner("shoulder_abduction");
-    const d = drive(
-      r,
-      abduct(100, {
-        answer: (h) => (h.deg < 120 ? { answer: "not_yet" } : { answer: "yes" }),
-        further: () => 125,
-      }),
-      150,
-    );
-    expect(cuesOf(d.events).filter((c) => c === "keep_going")).toHaveLength(1);
-    const res = r.finish(d.t);
-    expect(res.attempts.map((a) => a.value)).toEqual([125]);
-    valid(res);
-  });
-
-  it("«not yet» then a hold that is not further: never asked again, the first hold's value stands (D-037)", () => {
-    const r = runner("shoulder_abduction");
-    const d = drive(
-      r,
-      abduct(110, {
-        answer: (_h, k) => (k % 2 ? { answer: "not_yet" } : { answer: "yes" }),
-        // The arm sags after «not yet» and holds lower.
-        further: () => 100,
-      }),
-      200,
-    );
-    // The lower hold asks nothing: the reach time ends with the hold answered, calmly.
-    expect(kinds(d.events, "hold")).toHaveLength(1);
-    expect(cuesOf(d.events).filter((c) => c === "ask_max")).toHaveLength(1);
-    const res = r.finish(d.t);
-    expect(res.attempts.map((a) => a.value)).toEqual([110]);
-    expect(res.attempts.map((a) => a.answer)).toEqual(["not_yet"]);
-    valid(res);
-  });
-
-  it("«not yet» and no further hold: at the end of the reach time the kept value is recorded with its answer", () => {
-    const r = runner("shoulder_abduction");
-    let low = false;
-    const d = drive(
-      r,
-      abduct(100, {
-        answer: (h) => {
-          if (h.attempt !== 1) return { answer: "yes" };
-          low = true;
-          return { answer: "not_yet" };
-        },
-        // After «not yet» the arm comes down to rest and stays there.
-        pose: (deg) => abductionPose(low && r.phase === "attempt" ? 5 : deg),
-      }),
-      200,
-    );
-    // «not yet» puts the attempt back in its phase right after the question.
-    const asked = d.phases.findIndex((p) => p.phase === "ask_max");
-    const answeredAt = d.phases[asked + 1].t;
-    expect(d.phases[asked + 1].phase).toBe("attempt");
-    const res = r.finish(d.t);
-    expect(res.attempts[0]).toMatchObject({
-      index: 1,
-      value: 100,
-      answer: "not_yet",
-      answerSource: "button",
-    });
-    const first = kinds(d.events, "attempt").find((e) => e.record.index === 1)!.record;
-    expect(first.t1 - answeredAt).toBeGreaterThanOrEqual(RUNNER_RULES.reachSec * 1000);
-    expect(first.t1 - answeredAt).toBeLessThan(RUNNER_RULES.reachSec * 1000 + 200);
-    expect(res.status).toBe("measured");
-    valid(res);
-  });
-
-  it("an early answer before the hold is rejected (wrong_phase) and never buffered; the hold asks", () => {
-    const r = runner("shoulder_abduction");
-    let early: ReturnType<RomRunner["answerMax"]> | null = null;
-    drive(r, abduct(100), 30, {
-      at: (t, rr) => {
-        if (!early && rr.phase === "attempt") early = rr.answerMax("1:1", "yes", "voice", t);
-      },
-      until: (rr) => rr.phase === "ask_max",
-    });
-    expect(early).toMatchObject({ accepted: false, reason: "wrong_phase" });
-    expect(r.phase).toBe("ask_max");
-    expect(r.currentHold).not.toBeNull();
-  });
-
-  it("the first answer per hold wins: a button and the voice racing", () => {
-    const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
-    const hold = r.currentHold!;
-    const first = r.answerMax(hold.holdId, "not_yet", "button", d.t + 100);
-    const second = r.answerMax(hold.holdId, "yes", "voice", d.t + 150);
-    expect(first.accepted).toBe(true);
-    expect(second).toMatchObject({ accepted: false, reason: "already_answered" });
-    expect(r.phase).toBe("attempt");
-  });
-
-  it("a late answer to a hold already answered is already_answered", () => {
-    const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
-    const hold = r.currentHold!;
-    expect(r.answerMax(hold.holdId, "yes", "button", d.t + 100).accepted).toBe(true);
-    expect(r.phase).toBe("done");
-    expect(r.answerMax(hold.holdId, "yes", "voice", d.t + 400)).toMatchObject({
-      accepted: false,
-      reason: "already_answered",
-    });
-  });
-
-  it("an answer to an earlier hold is stale", () => {
-    const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
-    const old = r.currentHold!;
-    r.answerMax(old.holdId, "not_yet", "button", d.t + 100);
-    // On to 120 (D-037 item 2: only a hold further on asks again).
-    const d2 = drive(
-      r,
-      { ...abduct(120, { answer: () => null, t0: d.t + 100, rest: 100 }), startDelay: 0 },
-      10,
-      { until: (rr) => rr.phase === "ask_max" },
-    );
-    const next = r.currentHold!;
-    expect(next.holdId).not.toBe(old.holdId);
-    expect(r.answerMax("1:999", "yes", "voice", d2.t + 10)).toMatchObject({
-      accepted: false,
-      reason: "stale_hold",
-    });
-    expect(r.answerMax(old.holdId, "yes", "voice", d2.t + 20)).toMatchObject({
-      accepted: false,
-      reason: "already_answered",
-    });
-    expect(r.answerMax(next.holdId, "yes", "voice", d2.t + 30)).toMatchObject({ accepted: true });
-  });
-
-  it("no answer within 10 s counts as yes (D-035, engine.answerTimeoutSeconds)", () => {
-    const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 120);
-    const holds = kinds(d.events, "hold");
-    const records = kinds(d.events, "attempt").filter((e) => e.record.index > 0);
-    expect(records).toHaveLength(1);
-    expect(records[0].record.t1 - holds[0].hold.t).toBeCloseTo(E.answerTimeoutSeconds * 1000, -2);
-    const res = r.finish(d.t);
-    expect(res).toMatchObject({ status: "measured", value: 100, nValid: 1 });
-    expect(res.attempts.map((a) => [a.answer, a.answerSource])).toEqual([["yes", "timeout"]]);
-    expect(res.attempts[0].flags).not.toContain("unconfirmed");
-    expect(res.flags).not.toContain("unconfirmed");
-    // A yes by silence asks nothing more.
-    expect(d.phases.map((p) => p.phase)).not.toContain("ask_cause");
-    valid(res);
-  });
-
-  it("a steadier top further on while the question is open replaces the hold (no answer, D-035)", () => {
-    const r = runner("shoulder_abduction", { askCauseBelow: 170 });
-    // A pause at 80 on the way up, then on to 120 without answering.
-    const d = drive(
-      r,
-      {
-        rest: 5,
-        target: () => 120,
-        answer: () => null,
-        pose: (_deg, t) => abductionPose(stepUp(t)),
-      },
-      120,
-    );
+    // A pause at 80 on the way up, then on to 120.
+    const d = drive(r, { rest: 5, target: () => 120, pose: (_deg, t) => abductionPose(stepUp(t)) }, 120);
     const holds = kinds(d.events, "hold").map((e) => e.hold);
     expect(holds.map((h) => Math.round(h.deg / 10) * 10)).toEqual([80, 120]);
-    expect(cuesOf(d.events).filter((c) => c === "ask_max")).toHaveLength(1);
+    expect(holds[1].t - holds[0].t).toBeLessThan(RUNNER_RULES.settleSec * 1000);
     const res = r.finish(d.t);
     expect(res).toMatchObject({ status: "measured", value: 120, nValid: 1 });
-    expect(res.attempts[0]).toMatchObject({ answer: "yes", answerSource: "timeout" });
-    expect(d.phases.map((p) => p.phase)).not.toContain("ask_cause");
+    expect(res.attempts[0]).toMatchObject({ answer: null, answerSource: null });
     valid(res);
   });
 
-  it("keep reaching extends the attempt by 10 s, only right after «not yet»", () => {
+  it("the hold in hand is the one current hold, and none outside an attempt", () => {
     const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
-    expect(r.keepReaching(d.t)).toMatchObject({ accepted: false, reason: "wrong_phase" });
-    r.answerMax(r.currentHold!.holdId, "not_yet", "voice", d.t + 100);
-    expect(r.keepReaching(d.t + 200)).toMatchObject({ accepted: true });
-    // Once per «not yet».
-    expect(r.keepReaching(d.t + 300)).toMatchObject({ accepted: false, reason: "wrong_phase" });
+    expect(r.currentHold).toBeNull();
+    const d = drive(r, abduct(100), 30, { until: (rr) => rr.currentHold !== null });
+    expect(r.phase).toBe("attempt");
+    expect(r.currentHold).toMatchObject({ deg: 100, attempt: 1 });
+    expect(r.holdProgress).toBe(1);
+    drive(r, abduct(100, { rest: 100, t0: d.t }), 10);
+    expect(r.done).toBe(true);
+    expect(r.currentHold).toBeNull();
   });
 
-  it("keep reaching is rejected after «it hurts» and after a pain answer (safety coach_end_range)", () => {
-    const r = runner("shoulder_abduction", { painBefore: 2 });
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
-    r.answerPain(3, false, "voice", d.t + 50);
-    r.answerMax(r.currentHold!.holdId, "not_yet", "voice", d.t + 100);
-    expect(r.keepReaching(d.t + 200)).toMatchObject({ accepted: false, reason: "after_pain" });
-    // And no keep_going line after a pain report (safety never).
-    const r2 = runner("shoulder_abduction");
-    const d2 = drive(r2, abduct(100, { answer: () => ({ answer: "hurts" }), pain: { level: 1 } }), 30, {
-      until: (rr) => rr.phase === "ask_pain",
-    });
-    expect(r2.keepReaching(d2.t)).toMatchObject({ accepted: false, reason: "after_pain" });
-  });
-
-  it("after «not yet» a tap and the voice get the same reach time; keep reaching runs it from its call (D-037)", () => {
-    // After «not yet» the arm rests, then rises slowly to 120 (12 degrees per second, faster than a
-    // top's trend, so no hold on the way). Rising from 2 s it is out beyond the hold answered when the
-    // reach time ends, and is asked at its new top; rising from 8 s it is still under that hold when the
-    // reach time ends, and the hold answered stands, with no question.
-    const run = (keep: boolean, riseAt: number, keepAt = 50) => {
-      const r = runner("shoulder_abduction");
-      const d = drive(r, abduct(80, { answer: () => null }), 40, { until: (rr) => rr.phase === "ask_max" });
-      const t0 = d.t + 100;
-      r.answerMax(r.currentHold!.holdId, "not_yet", "voice", t0);
-      if (keep) expect(r.keepReaching(t0 + keepAt).accepted).toBe(true);
-      const after = drive(
-        r,
-        {
-          rest: 80,
-          target: () => 80,
-          answer: () => ({ answer: "yes" }),
-          t0,
-          pose: (_deg, t) =>
-            abductionPose(t < t0 + riseAt ? 5 : Math.min(120, 5 + ((t - t0 - riseAt) / 1000) * 12)),
-        },
-        60,
-        { until: (rr) => rr.phase === "rest" || rr.done },
-      );
-      return kinds(after.events, "attempt").find((e) => e.record.index === 1)!.record;
-    };
-    for (const keep of [false, true]) {
-      expect(run(keep, 2_000)).toMatchObject({ value: 120, answer: "yes" });
-      expect(run(keep, 8_000)).toMatchObject({ value: 80, answer: "not_yet" });
-    }
-    // The coach's keep going line 3 s after the answer starts the reach time again from it.
-    expect(run(true, 8_000, 3_000)).toMatchObject({ value: 120, answer: "yes" });
-  });
-
-  it("a small excursion hold is asked, recorded with smallExcursion when confirmed, and not recorded unconfirmed", () => {
+  it("a small excursion hold is recorded with smallExcursion, with no confirmation", () => {
     // 9 degrees from the start pose: beyond the 8 degree band, under the 10 degree minimum excursion.
-    const confirmed = runner("shoulder_abduction");
-    const d = drive(confirmed, abduct(14), 120);
-    const res = confirmed.finish(d.t);
+    const r = runner("shoulder_abduction");
+    const d = drive(r, abduct(14), 120);
+    const res = r.finish(d.t);
     expect(res.status).toBe("measured");
     expect(res.attempts.every((a) => a.flags.includes("smallExcursion"))).toBe(true);
     expect(res.flags).toContain("smallExcursion");
     valid(res);
-    const silent = runner("shoulder_abduction");
-    const s = drive(silent, abduct(14, { answer: () => null }), 200);
-    const sres = silent.finish(s.t);
-    // Unconfirmed small holds never count (no answer is a yes only for a full hold): the attempts end
-    // without a value and are repeated.
-    expect(sres.attempts).toEqual([]);
-    expect(sres.status).toBe("not_measured");
-    valid(sres);
   });
 });
 
 describe("pain (C-15, rom-protocol 6 pain_during)", () => {
-  it("«it hurts» records the value as pain limited and asks the pain question; below the rule the value stands", () => {
-    const r = runner("shoulder_abduction", { painBefore: 3 });
-    const d = drive(r, abduct(100, { answer: () => ({ answer: "hurts" }), pain: { level: 4 } }), 120);
-    expect(d.phases.map((p) => p.phase)).toContain("ask_pain");
-    expect(cuesOf(d.events)).toContain("pain_ask");
-    const res = r.finish(d.t);
-    expect(res.status).toBe("measured");
-    expect(res.attempts[0]).toMatchObject({ painLimited: true, painLevel: 4, answer: "hurts" });
-    expect(res.painLimited).toBe(true);
-    expect(res.painLevel).toBe(4);
-    expect(res.painBefore).toBe(3);
+  /** The scored attempt's hold in hand, then a pain report, then the person stays at the hold. */
+  const painAtHold = (level: number, sharp: boolean, before: number | null) => {
+    const r = runner("shoulder_abduction", { painBefore: before });
+    const d = drive(r, abduct(100), 60, { until: (rr) => rr.currentHold !== null });
+    const res = r.answerPain(level, sharp, "voice", d.t + 100);
+    const after = drive(r, abduct(100, { rest: 100, t0: d.t + 100 }), 10);
+    return { r, res, events: [...d.events, ...res.events, ...after.events], t: after.t };
+  };
+
+  it("a pain below the rule while the hold is in hand: the value stands, pain limited", () => {
+    const { r, res, t } = painAtHold(4, false, 3);
+    expect(res).toMatchObject({ accepted: true, action: "continue" });
+    const out = r.finish(t);
+    expect(out.status).toBe("measured");
+    expect(out.attempts[0]).toMatchObject({ painLimited: true, painLevel: 4, answer: null });
+    expect(out.painLimited).toBe(true);
+    expect(out.painLevel).toBe(4);
+    expect(out.painBefore).toBe(3);
     // A pain limited value offers no second try.
     expect(r.canTryAgain).toBe(false);
-    valid(res);
+    valid(out);
   });
 
   for (const [level, sharp, before, stops] of [
@@ -546,14 +333,13 @@ describe("pain (C-15, rom-protocol 6 pain_during)", () => {
     [1, true, 0, true],
   ] as const) {
     it(`pain ${level}${sharp ? " sharp" : ""} with ${before} before: ${stops ? "stops" : "goes on"}`, () => {
-      const r = runner("shoulder_abduction", { painBefore: before });
-      const d = drive(r, abduct(100, { answer: () => ({ answer: "hurts" }), pain: { level, sharp } }), 120);
-      const res = r.finish(d.t);
+      const { r, events, t } = painAtHold(level, sharp, before);
+      const res = r.finish(t);
       if (stops) {
         expect(r.phase).toBe("stopped");
-        expect(kinds(d.events, "stop")).toEqual([expect.objectContaining({ reason: "pain_stop" })]);
-        expect(cuesOf(d.events)).toContain("pain_stop");
-        // The last valid hold is kept as pain limited.
+        expect(kinds(events, "stop")).toEqual([expect.objectContaining({ reason: "pain_stop" })]);
+        expect(cuesOf(events)).toContain("pain_stop");
+        // The hold in hand is kept as pain limited.
         expect(res).toMatchObject({
           status: "stopped",
           reason: "pain_stop",
@@ -585,9 +371,9 @@ describe("pain (C-15, rom-protocol 6 pain_during)", () => {
     valid(out);
   });
 
-  it("stop(pain_stop) keeps the hold being asked about as pain limited", () => {
+  it("stop(pain_stop) keeps the hold in hand as pain limited", () => {
     const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
+    const d = drive(r, abduct(100), 30, { until: (rr) => rr.currentHold !== null });
     const evs = r.stop("pain_stop", d.t + 100);
     expect(evs.map((e) => e.kind)).toEqual(["attempt", "cue", "phase", "stop"]);
     const res = r.finish(d.t + 200);
@@ -598,44 +384,13 @@ describe("pain (C-15, rom-protocol 6 pain_during)", () => {
 });
 
 describe("the cause question (rom-protocol 1.1 step 6, open question 8)", () => {
-  it("opens once when the confirmed value is short of the norm's within limit, and records the answer", () => {
-    const r = runner("shoulder_abduction", { askCauseBelow: 150 });
-    const d = drive(r, abduct(100, { cause: "tight" }), 120);
-    expect(d.phases.filter((p) => p.phase === "ask_cause")).toHaveLength(1);
-    expect(cuesOf(d.events)).toContain("what_stopped_ask");
+  it("is gone with the maximum question (D-038 item 1): never asked, the result's cause is null", () => {
+    const r = runner("shoulder_abduction");
+    const d = drive(r, abduct(100), 120);
+    expect(cuesOf(d.events)).not.toContain("what_stopped_ask");
     const res = r.finish(d.t);
-    expect(res).toMatchObject({ status: "measured", cause: "tight" });
-    valid(res);
-  });
-
-  it("not when the value reaches it, not when switched off, not when pain limited", () => {
-    const at = (over: Parameters<typeof runner>[1], script: Script) => {
-      const r = runner("shoulder_abduction", over);
-      return drive(r, script, 120).phases.some((p) => p.phase === "ask_cause");
-    };
-    expect(at({ askCauseBelow: 90 }, abduct(100))).toBe(false);
-    expect(at({ askCauseBelow: null }, abduct(100))).toBe(false);
-    expect(
-      at({ askCauseBelow: 150 }, abduct(100, { answer: () => ({ answer: "hurts" }), pain: { level: 1 } })),
-    ).toBe(false);
-  });
-
-  it("a lack movement is short above its within limit", () => {
-    const r = runner("elbow_extension", { askCauseBelow: 5 });
-    const d = drive(
-      r,
-      { rest: 90, target: () => 20, pose: (deg) => elbowExtensionPose(deg), speed: 40, cause: "weak" },
-      120,
-    );
-    expect(r.finish(d.t).cause).toBe("weak");
-  });
-
-  it("left unanswered, finish gives the measured result without a cause", () => {
-    const r = runner("shoulder_abduction", { askCauseBelow: 150 });
-    const d = drive(r, abduct(100), 120, { until: (rr) => rr.phase === "ask_cause" });
-    const res = r.finish(d.t + 5000);
     expect(res).toMatchObject({ status: "measured", cause: null, nValid: 1 });
-    expect(r.done).toBe(true);
+    expect("answerCause" in r).toBe(false);
     valid(res);
   });
 });
@@ -772,7 +527,6 @@ describe("attempts that do not count", () => {
     const d = drive(
       r,
       abduct(100, {
-        answer: () => ({ answer: "yes", after: 2 }),
         pose: (deg, t) => {
           if (r.phase !== "attempt") topAt = null;
           else if (deg >= 100 && topAt === null) topAt = t;
@@ -846,17 +600,18 @@ describe("pause and stop", () => {
     expect(out.quality.retries).toBe(0);
   });
 
-  it("a pause during the question asks again when resumed", () => {
+  it("a pause with a hold in hand drops it: the attempt starts again when resumed (D-038 item 1)", () => {
     const r = runner("shoulder_abduction");
-    const d = drive(r, abduct(100, { answer: () => null }), 30, { until: (rr) => rr.phase === "ask_max" });
-    const hold = r.currentHold!;
+    const d = drive(r, abduct(100), 30, { until: (rr) => rr.currentHold !== null });
     r.pause(d.t + 100);
     expect(r.currentHold).toBeNull();
+    // Nothing is recorded while paused, however long.
     const res = r.resume(d.t + 20_000);
-    expect(cuesOf(res.events)).toEqual(["ask_max"]);
-    expect(r.currentHold?.holdId).toBe(hold.holdId);
-    // The answer clock starts again: no unconfirmed record from the paused time.
-    expect(r.answerMax(hold.holdId, "yes", "button", d.t + 20_500).accepted).toBe(true);
+    expect(kinds(res.events, "attempt")).toEqual([]);
+    expect(cuesOf(res.events)).toEqual(["again"]);
+    expect(r.phase).toBe("attempt");
+    const rest = drive(r, abduct(100, { t0: d.t + 20_000 }), 60);
+    expect(r.finish(rest.t)).toMatchObject({ status: "measured", value: 100, nValid: 1 });
   });
 
   it("a stop by the person keeps no value; resume is rejected after a stop", () => {
@@ -865,7 +620,7 @@ describe("pause and stop", () => {
     const evs = r.stop("user_stop", d.t);
     expect(kinds(evs, "stop")).toEqual([expect.objectContaining({ reason: "user_stop" })]);
     expect(r.resume(d.t + 10)).toMatchObject({ accepted: false, reason: "stopped" });
-    expect(r.answerMax("x", "yes", "button", d.t + 20)).toMatchObject({ accepted: false, reason: "stopped" });
+    expect(r.keepReaching(d.t + 20)).toMatchObject({ accepted: false, reason: "stopped" });
     const res = r.finish(d.t + 30);
     expect(res).toMatchObject({
       status: "stopped",
@@ -889,34 +644,23 @@ describe("pause and stop", () => {
 
 /* ------------------------------------------------------------------ the phase machine */
 
-type Setup = { r: RomRunner; t: number; holdId: string };
+type Setup = { r: RomRunner; t: number };
 
 /** A fresh runner in each phase. */
 const PHASES: Record<RomPhase, () => Setup> = {
-  idle: () => ({ r: runner("shoulder_abduction"), t: 0, holdId: "9:9" }),
+  idle: () => ({ r: runner("shoulder_abduction"), t: 0 }),
   ask_can_move: () => {
     const r = runner("shoulder_abduction", { item: { askCanMove: true } });
     r.start(0);
-    return { r, t: 0, holdId: "9:9" };
+    return { r, t: 0 };
   },
   calibrating: () => {
     const r = runner("shoulder_abduction");
     r.start(0);
-    return { r, t: 0, holdId: "9:9" };
+    return { r, t: 0 };
   },
   practice: () => until("practice"),
   attempt: () => until("attempt"),
-  ask_max: () => {
-    const s = until("ask_max", { answer: () => null });
-    return { ...s, holdId: s.r.currentHold!.holdId };
-  },
-  ask_pain: () => {
-    const s = until("ask_max", { answer: () => null });
-    const holdId = s.r.currentHold!.holdId;
-    s.r.answerMax(holdId, "hurts", "button", s.t + 10);
-    return { ...s, t: s.t + 10, holdId };
-  },
-  ask_cause: () => until("ask_cause", {}, { askCauseBelow: 170 }),
   rest: () => until("rest"),
   paused: () => {
     const s = until("attempt");
@@ -931,15 +675,15 @@ const PHASES: Record<RomPhase, () => Setup> = {
   done: () => {
     const r = runner("shoulder_abduction");
     const d = drive(r, abduct(100), 120);
-    return { r, t: d.t, holdId: "9:9" };
+    return { r, t: d.t };
   },
 };
 
-function until(phase: RomPhase, over: Partial<Script> = {}, opts: Parameters<typeof runner>[1] = {}): Setup {
-  const r = runner("shoulder_abduction", opts);
-  const d = drive(r, abduct(100, over), 120, { until: (rr) => rr.phase === phase });
+function until(phase: RomPhase): Setup {
+  const r = runner("shoulder_abduction");
+  const d = drive(r, abduct(100), 120, { until: (rr) => rr.phase === phase });
   expect(r.phase).toBe(phase);
-  return { r, t: d.t, holdId: "9:9" };
+  return { r, t: d.t };
 }
 
 const ALL = Object.keys(PHASES) as RomPhase[];
@@ -958,18 +702,6 @@ describe("every method in every phase", () => {
         }
       });
 
-      it("answerMax", () => {
-        const { r, t, holdId } = PHASES[phase]();
-        const res = r.answerMax(holdId, "yes", "button", t + 1);
-        if (phase === "ask_max") expect(res.accepted).toBe(true);
-        else
-          expect(res).toMatchObject({
-            accepted: false,
-            reason:
-              phase === "stopped" ? "stopped" : phase === "ask_pain" ? "already_answered" : "wrong_phase",
-          });
-      });
-
       it("answerPain below the rule (1, 0 before)", () => {
         const { r, t } = PHASES[phase]();
         const res = r.answerPain(1, false, "button", t + 1);
@@ -978,8 +710,7 @@ describe("every method in every phase", () => {
         else if (phase === "stopped") expect(res).toMatchObject({ accepted: false, reason: "stopped" });
         else {
           expect(res).toMatchObject({ accepted: true, action: "continue" });
-          // After «it hurts» the pain limited value is recorded and the movement is done (D-035).
-          expect(r.phase).toBe(phase === "ask_pain" ? "done" : phase);
+          expect(r.phase).toBe(phase);
         }
       });
 
@@ -995,26 +726,16 @@ describe("every method in every phase", () => {
         }
       });
 
-      it("answerCause", () => {
+      it("keepReaching", () => {
         const { r, t } = PHASES[phase]();
-        const res = r.answerCause("tight", "button", t + 1);
-        if (phase === "ask_cause") {
-          expect(res.accepted).toBe(true);
-          expect(r.phase).toBe("done");
-        } else
+        const res = r.keepReaching(t + 1);
+        // D-038 item 1: the coach may give a few more seconds in a try, never elsewhere.
+        if (phase === "practice" || phase === "attempt") expect(res.accepted).toBe(true);
+        else
           expect(res).toMatchObject({
             accepted: false,
             reason: phase === "stopped" ? "stopped" : "wrong_phase",
           });
-      });
-
-      it("keepReaching", () => {
-        const { r, t } = PHASES[phase]();
-        const res = r.keepReaching(t + 1);
-        expect(res).toMatchObject({
-          accepted: false,
-          reason: phase === "stopped" ? "stopped" : phase === "ask_pain" ? "after_pain" : "wrong_phase",
-        });
       });
 
       it("pause", () => {
@@ -1070,7 +791,6 @@ describe("every method in every phase", () => {
         new RomRunner({
           item: item("knee_flexion"),
           def: movementDef("shoulder_abduction"),
-          askCauseBelow: null,
           poseModel: "full",
         }),
     ).toThrow();
@@ -1088,10 +808,11 @@ describe("events", () => {
     const holds: RomHold[] = kinds([...d.events, ...d2.events], "hold").map((e) => e.hold);
     expect(holds.map((h) => h.attempt)).toEqual([1, 2]);
     expect(holds.map((h) => h.holdId)).toEqual(["1:1", "2:2"]);
+    // D-038 item 1: no question phase of any kind.
     const asked: RomEvent[] = [...d.events, ...d2.events].filter(
-      (e) => e.kind === "phase" && e.phase === "ask_max",
+      (e) => e.kind === "phase" && e.phase.startsWith("ask_"),
     );
-    expect(asked).toHaveLength(2);
+    expect(asked).toHaveLength(0);
     valid(r.finish(d2.t));
   });
 });
@@ -1104,28 +825,19 @@ describe("every line the runner plays has a voice line", () => {
       const d = drive(r, s, 150);
       for (const c of cuesOf([...d.events, ...extra(r, d.t)])) heard.add(c);
     };
-    listen(runner("shoulder_abduction", { askCauseBelow: 150 }), abduct(100, { cause: "tight" }));
-    listen(
-      runner("shoulder_abduction"),
-      abduct(100, {
-        answer: (_h, k) => (k === 1 ? { answer: "not_yet" } : { answer: "hurts" }),
-        // D-037 item 2: only a hold further on asks again.
-        further: () => 120,
-        pain: { level: 7 },
-      }),
-    );
+    listen(runner("shoulder_abduction"), abduct(100, { further: () => 120 }));
+    const hurt = runner("shoulder_abduction");
+    const d = drive(hurt, abduct(100), 60, { until: (rr) => rr.currentHold !== null });
+    for (const c of cuesOf([...d.events, ...hurt.answerPain(7, false, "voice", d.t + 10).events]))
+      heard.add(c);
     const can = runner("shoulder_abduction", { item: { askCanMove: true } });
     for (const c of cuesOf([...can.start(0), ...can.answerCanMove(false, 10)])) heard.add(c);
     expect([...heard]).toEqual(
       expect.arrayContaining([
         "practice",
         "again",
-        "ask_max",
         "recorded",
-        "keep_going",
-        "pain_ask",
         "pain_stop",
-        "what_stopped_ask",
         "can_move_ask",
         "no_active_movement",
       ]),

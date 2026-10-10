@@ -16,13 +16,13 @@
  */
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type { CoachBlock, CoachSegment, ToolName } from "../../../src/coach/types";
+import type { CoachBlock, CoachSegment } from "../../../src/coach/types";
 import type { CoachEndReason } from "../../../src/coach/events";
 import type { CoachFailure } from "../../../src/coach/failure";
 import { transaction } from "../assessments/store";
 import { EXPIRY_MARGIN_MINUTES, NEW_SESSION_WINDOW_MS, type AgentConfig } from "./token";
 import type { LAB_SEGMENT } from "./lab";
-import type { UsageReport } from "./types";
+import type { UsageReport, UsageToolName } from "./types";
 
 /** A row's segment: a coach segment, or the connection test's (D-035 item 4, lab.ts). */
 export type SessionSegment = CoachSegment | typeof LAB_SEGMENT;
@@ -45,7 +45,7 @@ export interface AgentSession {
   minutesUsed: number | null;
   connectMs: number | null;
   turns: number | null;
-  toolCalls: Partial<Record<ToolName, { ok: number; rejected: number }>> | null;
+  toolCalls: Partial<Record<UsageToolName, { ok: number; rejected: number }>> | null;
   promptTokens: number | null;
   responseTokens: number | null;
   endReason: CoachEndReason | null;

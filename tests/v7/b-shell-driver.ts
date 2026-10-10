@@ -2,11 +2,10 @@
  * A simulated person for the focus shell's range blocks (tests/v7/b-controller.test.ts, b-shell.test.ts):
  * the person reads the RomController's step and acts on it as a person at the buttons would, after a
  * short delay: taps «جاهز» on the cards, answers the questions, holds still while the start pose is
- * taken, moves to a target and holds it in the attempts, comes back in the rests, and taps on after a
- * result. Frames come from the movement poses of b-person.ts at the person's angle. Clearly synthetic.
+ * taken, moves to a target and holds it in the attempts (D-038 item 1: the hold is recorded on its own,
+ * no question), comes back in the rests, and taps on after a result. Frames come from the movement poses of b-person.ts at the person's angle. Clearly synthetic.
  */
 import type { Frame, Landmark } from "../../src/engine/types";
-import type { LimitCause, RomAnswer, RomHold } from "../../src/engine/rom/types";
 import type { RomProtocolItem } from "../../src/medical/rom-protocol";
 import {
   itemKey,
@@ -33,16 +32,15 @@ import { MOVEMENT_CASES, movementPose } from "./b-person";
 export interface PersonPlan {
   /** The angle the person reaches in an attempt (default the movement case's target). */
   target?: (item: RomProtocolItem, attempt: number) => number;
-  /** The answer to the maximum question (default yes); null leaves it unanswered. */
-  answerMax?: (item: RomProtocolItem, hold: RomHold, k: number) => RomAnswer | null;
-  /** The pain score after «it hurts», and a sharp pain. */
-  pain?: (item: RomProtocolItem) => { level: number; sharp?: boolean };
+  /**
+   * A pain the person reports once the hold is in hand (D-038 item 1: as the coach's mark_pain does),
+   * by movement and attempt; null reports none.
+   */
+  hurts?: (item: RomProtocolItem, attempt: number) => { level: number; sharp?: boolean } | null;
   /** The answer to the same joint re-ask. */
   reask?: (item: RomProtocolItem) => number;
   /** The answer to «can you move this joint on your own» (default yes). */
   canMove?: (item: RomProtocolItem) => boolean;
-  /** The answer to «what stopped you most» (default tight). */
-  cause?: LimitCause;
   /** The person's pose instead of the movement's own (a compensation): null keeps the movement's. */
   pose?: (item: RomProtocolItem, deg: number, t: number, ctl: RomController) => Landmark[] | null;
   /** Everyone the camera sees (default the person alone): a second person walks in. */
@@ -81,8 +79,6 @@ export function runBlock(ctl: RomController, plan: PersonPlan = {}, seconds = 60
   const steps: string[] = [];
   let angle = 0;
   let goal = 0;
-  let held: string | null = null;
-  let holds = 0;
   let lastStep = "";
   let lastPhase = "";
   let stepAt = t0;
@@ -148,29 +144,12 @@ export function runBlock(ctl: RomController, plan: PersonPlan = {}, seconds = 60
         }
         if (phase === "ask_can_move")
           after(0.5, "can", () => ctl.answerCanMove(plan.canMove?.(s.item) ?? true, t));
-        if (phase === "ask_max") {
-          const hold = ctl.hold;
-          if (hold && held !== hold.holdId) {
-            held = hold.holdId;
-            holds++;
-            stepAt = t;
-            acted = "";
-          }
-          if (hold)
-            after(0.6, `max:${hold.holdId}`, () => {
-              const a = plan.answerMax ? plan.answerMax(s.item, hold, holds) : "yes";
-              if (a === null) return;
-              ctl.answerMax(a, "button", t);
-              if (a === "not_yet") goal = goal + (c.target > c.rest ? 5 : -5);
-            });
+        const hold = phase === "attempt" ? ctl.hold : null;
+        const hurt = hold ? (plan.hurts?.(s.item, hold.attempt) ?? null) : null;
+        if (hold && hurt && acted !== `pain:${hold.holdId}`) {
+          acted = `pain:${hold.holdId}`;
+          ctl.answerPain(hurt.level, !!hurt.sharp, "voice", t);
         }
-        if (phase === "ask_pain")
-          after(0.8, "pain", () => {
-            const p = plan.pain?.(s.item) ?? { level: 2 };
-            ctl.answerPain(p.level, !!p.sharp, "button", t);
-          });
-        if (phase === "ask_cause")
-          after(1, "cause", () => ctl.answerCause(plan.cause ?? "tight", "button", t));
         const speed = 30 / fps;
         angle = Math.abs(goal - angle) <= speed ? goal : angle + Math.sign(goal - angle) * speed;
         const level =

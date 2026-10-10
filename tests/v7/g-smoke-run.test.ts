@@ -185,7 +185,8 @@ describe("a range run", () => {
     await flush();
     for (const f of frames.slice(0, 60)) cam.emit(f);
     const result = await done;
-    expect(seen).toMatchObject({ poseModel: "lite", askCauseBelow: null, painBefore: 0, mirrored: false });
+    expect(seen).toMatchObject({ poseModel: "lite", painBefore: 0, mirrored: false });
+    expect(seen).not.toHaveProperty("askCauseBelow");
     expect(seen!.item.movementId).toBe("shoulder_abduction");
     expect(result.rom!.runner).toMatchObject({ status: "done", result: { status: "measured", value: 148 } });
     expect(fed).toBe(40);

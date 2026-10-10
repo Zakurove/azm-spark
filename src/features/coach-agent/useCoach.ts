@@ -11,9 +11,8 @@
  *   - keep the same host and LocalVoice objects for the whole segment (useMemo or useRef): a new host
  *     or local voice, like a new block, segment, language or check, ends the session and starts
  *     another, which costs a re-mint;
- *   - push every BridgeEvent; a workout says its corrections (P2) and safety lines (P0) through the
- *     LocalVoice given in the options (the v7 checks give SILENT_VOICE: only the coach speaks, D-036
- *     item 1); while mode is not off, never ask a P1 question aloud: the coach asks it;
+ *   - push every BridgeEvent; every host gives SILENT_VOICE (D-036 item 1, D-038 item 3: only the
+ *     coach speaks); while mode is not off, never ask a P1 question aloud: the coach asks it;
  *   - register the screen's buttons the coach may press in host.actions (useScreenActions, D-036
  *     item 2);
  *   - after a P0 call reopen() when the person goes on (the coach can never reopen);
@@ -27,7 +26,6 @@
  * the usage reports go to the route for the row the e2e seed writes (e2eCoach.ts).
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CuePlayer } from "../../app/audio";
 import type { BridgeEvent, CoachOptions, CoachState } from "../../coach/types";
 import { coachDeviceId, mintCoachToken, readCoachStatus, sendUsageReport, type CoachStatus } from "./api";
 import { coachAudioSupported } from "./audio/context";
@@ -52,7 +50,12 @@ const noEnd: (reason: string) => void = noop;
 
 /** The key of a segment: a new session for a new block, segment, language or check. */
 function segmentKey(o: CoachOptions): string {
-  const ref = "checkId" in o.ref ? `c:${o.ref.checkId}` : `w:${o.ref.workoutId}`;
+  const ref =
+    "checkId" in o.ref
+      ? `c:${o.ref.checkId}`
+      : "demo" in o.ref
+        ? `d:${o.ref.demo}:${o.ref.run}`
+        : `w:${o.ref.workoutId}`;
   return `${o.block}|${o.segment}|${o.lang}|${ref}`;
 }
 
@@ -180,9 +183,6 @@ export function fakeCoachRun(): boolean {
   );
 }
 
-/** D-036 item 1: no recorded voice plays while a Live coach session is on. */
-const holdVoice = (on: boolean) => CuePlayer.holdForCoach(on);
-
 function coachDeps(): CoachDeps {
   if (fakeCoachRun())
     return {
@@ -192,7 +192,6 @@ function coachDeps(): CoachDeps {
         report: (r) => sendUsageReport(r),
         measure: userTiming,
       }),
-      holdVoice,
     };
   return {
     now: () => performance.now(),
@@ -207,7 +206,6 @@ function coachDeps(): CoachDeps {
     listen: windowEvents,
     audioSession: setCoachAudioSession,
     prepare: preloadGenai,
-    holdVoice,
     measure: userTiming,
     log: coachLog,
   };

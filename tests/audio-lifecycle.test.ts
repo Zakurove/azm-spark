@@ -35,14 +35,15 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllGlobals());
+// D-038 item 3: no exercise plays a recorded line (no counts any more); the v1 check's lines remain.
 it("does not speak a pending cue after stopping or muting", async () => {
   const player = new CuePlayer("ar");
-  const first = player.count(1);
+  const first = player.line("check_go", "info");
   player.stop();
   pending[0].onerror();
   await first;
   expect(speak).not.toHaveBeenCalled();
-  const next = player.count(2);
+  const next = player.line("check_saved", "info");
   player.muted = true;
   pending[1].oncanplaythrough();
   await next;
@@ -50,7 +51,7 @@ it("does not speak a pending cue after stopping or muting", async () => {
 });
 it("pauses an active recording on stop", async () => {
   const player = new CuePlayer("ar"),
-    run = player.count(1);
+    run = player.line("check_go", "info");
   pending[0].oncanplaythrough();
   await run;
   expect(pending[0].play).toHaveBeenCalledOnce();
@@ -64,48 +65,56 @@ it("only falls back to a local voice", async () => {
     getVoices: () => [{ lang: "ar-SA", localService: false }],
   });
   const player = new CuePlayer("ar"),
-    run = player.count(1);
+    run = player.line("check_go", "info");
   pending[0].onerror();
   await run;
   expect(speak).not.toHaveBeenCalled();
 });
-it("never lets a count cut off an active safety instruction", async () => {
+it("never lets a lower line cut off an active safety instruction", async () => {
   const player = new CuePlayer("ar"),
-    warning = player.cue("stop_rest", "safety");
+    warning = player.line("check_stop_now", "safety");
   pending[0].oncanplaythrough();
   await warning;
-  expect(await player.count(1)).toBe(false);
+  expect(await player.line("check_go", "info")).toBe(false);
   expect(pending).toHaveLength(1);
   expect(pending[0].pause).not.toHaveBeenCalled();
 });
-it("interrupts a count immediately for safety", async () => {
+it("interrupts a line immediately for safety", async () => {
   const player = new CuePlayer("ar"),
-    count = player.count(1);
+    line = player.line("check_go", "info");
   pending[0].oncanplaythrough();
-  await count;
-  const warning = player.cue("stop_rest", "safety");
+  await line;
+  const warning = player.line("check_stop_now", "safety");
   expect(pending[0].pause).toHaveBeenCalledOnce();
   pending[1].oncanplaythrough();
   await warning;
   expect(pending[1].play).toHaveBeenCalledOnce();
 });
+it("has no counts, cue lines or coach hold any more (D-038 item 3)", () => {
+  const p = CuePlayer.prototype as unknown as Record<string, unknown>;
+  expect(p.count).toBeUndefined();
+  expect(p.cue).toBeUndefined();
+  const c = CuePlayer as unknown as Record<string, unknown>;
+  expect(c.holdForCoach).toBeUndefined();
+  expect(c.onActivity).toBeUndefined();
+});
 it("says when a line ends (onEnd): at its end, when it is cut off, never for a line that did not start", async () => {
   const player = new CuePlayer("ar");
   const ends: string[] = [];
-  const run = player.line("count_1", "info", () => ends.push("one"));
+  const run = player.line("check_go", "info", () => ends.push("one"));
   pending[0].oncanplaythrough();
   expect(await run).toBe(true);
   (pending[0] as unknown as { onended: () => void }).onended();
   expect(ends).toEqual(["one"]);
   // Cut off by stop: a paused element fires no ended event, the player says it ended.
-  const second = player.line("count_2", "info", () => ends.push("two"));
+  const second = player.line("check_saved", "info", () => ends.push("two"));
   pending[1].oncanplaythrough();
   await second;
   player.stop();
   expect(ends).toEqual(["one", "two"]);
   // Did not start (muted): no end.
   player.muted = true;
-  expect(await player.line("count_3", "info", () => ends.push("three"))).toBe(false);
+  expect(await player.line("check_go", "info", () => ends.push("three"))).toBe(false);
   expect(ends).toEqual(["one", "two"]);
 });
 it("unlocks audio with silence inside a tap (S01, S02)", () => {

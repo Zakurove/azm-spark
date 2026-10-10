@@ -14,7 +14,7 @@
  *             refusal (the rules' week on the phone)
  *   rules     a heart condition holds the plan for review and skips the camera; yes to the safety
  *             question stops calmly with 997
- *   staff     the staff menu (new visitor, language, the coach voice), Alt Shift N, the idle reset
+ *   staff     the staff menu (new visitor, language), Alt Shift N, the idle reset
  *   design    56 px targets, nothing linked to the parked check, no console errors
  */
 import AxeBuilder from "@axe-core/playwright";
@@ -155,8 +155,8 @@ async function cameraToResults(page: Page, lang: Lang) {
   const cam = page.locator(".cam2");
   await expect(cam).toBeVisible();
   await expect(cam).toHaveAttribute("data-variant", "booth");
-  // Voice off by default, with the speaker button.
-  await expect(page.locator(".cam2-sound")).toHaveAttribute("aria-pressed", "false");
+  // D-038 item 3: no recorded voice clip, and no speaker button (no Live coach at the booth's set).
+  await expect(page.locator(".cam2-sound")).toHaveCount(0);
   await expect(cam).toHaveAttribute("data-stage", "training", { timeout: 30_000 });
   await expect(page.locator("[data-done]")).toContainText(T[lang].wellDone, { timeout: 40_000 });
   await expect(page.locator('[data-screen="results"]')).toBeVisible({ timeout: 10_000 });
@@ -501,9 +501,7 @@ test("yes to the safety question: a calm stop with the emergency line, then the 
 
 /* ------------------------------------------------------------------ staff tools */
 
-test("the staff menu: new visitor, the language, the coach voice; the shortcut resets anywhere", async ({
-  page,
-}) => {
+test("the staff menu: new visitor, the language; the shortcut resets anywhere", async ({ page }) => {
   const errors = watchConsole(page);
   await staffIn(page, "ar");
   await page.locator('[data-door="self"]').click();
@@ -512,13 +510,8 @@ test("the staff menu: new visitor, the language, the coach voice; the shortcut r
   await page.locator('[data-action="staff"]').click();
   const menu = page.getByRole("dialog", { name: T.ar.staff });
   await expect(menu).toBeVisible();
-  // The voice is off by default; the switch is remembered on this device.
-  const voice = menu.locator('[data-action="voice"]');
-  await expect(voice).toHaveAttribute("aria-checked", "false");
-  await voice.click();
-  await expect(voice).toHaveAttribute("aria-checked", "true");
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("azm.coach") ?? "{}"));
-  expect(stored.voice).toBe("full");
+  // D-038 item 3: no recorded coach voice, so no voice switch in the menu.
+  await expect(menu.locator('[data-action="voice"]')).toHaveCount(0);
   // The language: the same step, now in English.
   await menu.locator('[data-action="language"]').click();
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");

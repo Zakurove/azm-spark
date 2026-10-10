@@ -8,7 +8,6 @@ import { CueId, EngineEvent, ExerciseDef, Frame, LM, SessionSummary, Severity } 
 import type { BridgeEvent, CoachPush } from "../coach/types";
 import { FlowStage, FlowView, WorkoutFlow } from "../engine/workoutFlow";
 import { EXERCISES, variantForProfile } from "../exercises/defs";
-import { CuePlayer, isVoiceLine } from "./audio";
 import { fmtNum, Lang, pct as fmtPct, T } from "./i18n";
 import voiceScript from "./voice-script.json";
 import { drawOverlay } from "./overlay";
@@ -31,7 +30,13 @@ import "./session.css";
  *   full bleed live video (a calm mannequin on a light stage in the demo);
  *   a light glass panel with the range arc, the large rep count and the person's own top;
  *   one caption line from the calm feedback gate (feedbackGate.ts);
- *   a large speaker button (the voice is off by default, remembered per device) and Stop.
+ *   a large speaker button that turns the Live coach on and off (when the caller can coach the set)
+ *   and Stop.
+ *
+ * D-038 item 3: no recorded voice clip plays here, in any exercise, workout, demo, trial or booth set.
+ * The Live coach is the only voice: the set hands it its steps, form cues and counts as say lines
+ * (flowCoachSays) when a coach is on; without one the screen is silent and its captions carry every
+ * line.
  *
  * The set itself runs in WorkoutFlow (engine/workoutFlow.ts): the outline, the start position,
  * the 2 rep calibration and the counted set. `variant` "booth" ends with `onComplete(summary)` and
@@ -44,6 +49,8 @@ export type SessionVariant = "trial" | "workout" | "booth";
  * is its only reader, so the lines ship in this lazy chunk and never in the landing's first script.
  */
 const CUE_TEXT: Record<CueId, { ar: string; en: string }> = voiceScript;
+/** Every line of the voice script by its id (the coach's say lines read the words the clips said). */
+const LINE_TEXT: Record<string, { ar: string; en: string } | undefined> = voiceScript;
 
 /** The standing figure of the sit to stand trace, head to feet (demo). */
 const STAND_BOX = { x0: 0.2, y0: 0.06, x1: 0.8, y1: 0.92 };
@@ -91,8 +98,7 @@ const INITIAL_UI: Ui = {
 
 /**
  * Step D5 (contract 2.11, the WorkoutFlow row): a set's engine events as the coach hears them: a
- * counted rep as the count (P3), a correction (P2, the gate has said it already), the trunk safety
- * stop (P0).
+ * counted rep as the count (P3), a correction (P2, context), the trunk safety stop (P0).
  */
 export function flowCoachEvents(
   events: EngineEvent[],
@@ -107,6 +113,66 @@ export function flowCoachEvents(
     else if (ev.kind === "flag") out.push({ p: 2, type: "compensation", kind: ev.cue, value: ev.value, t });
     else if (ev.kind === "stop") out.push({ p: 0, type: "safety_stop", reason: "trunk_safety", t });
   }
+  return out;
+}
+
+/** The gate's lines a stage's own say line carries (flowCoachSays): never said twice. */
+const STAGE_LINES = new Set(["start_position", "calibration", "range_ready"]);
+
+/**
+ * D-038 item 3: what the Live coach says of a set, the words the recorded voice clips said before
+ * (which no longer play): each stage's step (where to sit, the start position, the two measuring
+ * repetitions, training starts, the set done), each form cue the gate lets through as a correction
+ * (said once, calmly), and each counted repetition's number as a count (said at once or not at all).
+ * Pure: `before` is the stage the coach last heard (null at the start).
+ */
+export function flowCoachSays(
+  view: Pick<FlowView, "stage" | "speak" | "events">,
+  before: FlowStage | null,
+  exerciseId: string,
+  lang: Lang,
+  t: number,
+): BridgeEvent[] {
+  const s = sessionCopy(lang);
+  const out: BridgeEvent[] = [];
+  const step = (key: string, lines: string[]) =>
+    out.push({ p: 2, type: "say", kind: "step", key, lines: lines.filter(Boolean), t });
+  if (view.stage !== before)
+    switch (view.stage) {
+      case "framing":
+        step("framing", [
+          exerciseId === "sit_to_stand" ? s.framingTitleRise : s.framingTitle,
+          exerciseId === "sit_to_stand"
+            ? s.framingBodyRise
+            : exerciseId === "seated_biceps_curl"
+              ? s.framingBodySide
+              : s.framingBody,
+        ]);
+        break;
+      case "start":
+        step("start", [s.startTitle, s.start[exerciseId] ?? ""]);
+        break;
+      case "calibrating":
+        step("measure", [s.measureTitle, s.measureBody]);
+        break;
+      case "training":
+        step("training", [LINE_TEXT.training?.[lang] ?? ""]);
+        break;
+      case "finished":
+        step("set_done", [LINE_TEXT.set_done?.[lang] ?? ""]);
+        break;
+      default:
+        break;
+    }
+  for (const m of view.speak) {
+    if (STAGE_LINES.has(m.id)) continue;
+    const text =
+      (m.voice ? LINE_TEXT[m.voice]?.[lang] : undefined) ?? s.messages[m.id] ?? LINE_TEXT[m.id]?.[lang] ?? "";
+    if (text) out.push({ p: 2, type: "say", kind: "correction", key: m.id, lines: [text], t });
+  }
+  for (const ev of view.events)
+    if (ev.kind === "rep" && ev.cls !== "partial")
+      out.push({ p: 2, type: "say", kind: "progress", key: "count", lines: [String(ev.count)], t });
   return out;
 }
 
@@ -136,15 +202,24 @@ export default function SessionScreen(props: {
   /** The trial (older callers); same as variant "trial". */
   trial?: boolean;
   onRegister?: () => void;
-  /** Step D5: a coached workout's set hands the coach its events (flowCoachEvents). */
+  /**
+   * Step D5: a coached workout's set hands the coach its events (flowCoachEvents) and, D-038 item 3,
+   * what the coach says of it (flowCoachSays).
+   */
   coach?: CoachPush;
   /**
    * D-036 item 2: a coached workout's set offers the coach its summary's Continue program to press on
-   * the person's spoken words (null when there is none, or after the set's safety stop).
+   * the person's spoken words (null when there is none, or after the set's safety stop). D-038 item 3:
+   * a demo run offers going back to the list, and Repeat for «again».
    */
-  onCoachButton?: (button: { name: "continue"; press(): void } | null) => void;
+  onCoachButton?: (button: { name: "continue" | "exit"; press(): void; again?(): void } | null) => void;
+  /**
+   * D-038 item 3: the speaker button turns the Live coach on and off (the caller's switch). Absent:
+   * no coach can run here (the trial, the booth, a build without v7), no speaker button.
+   */
+  sound?: { on: boolean; toggle(): void };
 }) {
-  const { lang, setup, exerciseId, demo, preferences, onPreferences, onExit, onRestart, onDemo } = props;
+  const { lang, setup, exerciseId, demo, onExit, onRestart, onDemo } = props;
   const variant: SessionVariant = props.variant ?? (props.trial ? "trial" : "workout");
   const trial = variant === "trial";
   const c = copy(lang),
@@ -185,7 +260,6 @@ export default function SessionScreen(props: {
   const [end, setEnd] = useState<null | "rpe" | "summary" | "done">(null);
   const [rpe, setRpe] = useState<number | null>(null);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
-  const [muted, setMuted] = useState(preferences.voice === "off");
   const [moments, setMoments] = useState<RepMoment[]>([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -193,20 +267,29 @@ export default function SessionScreen(props: {
   const [fit, setFit] = useState<"cover" | "contain">("cover");
   // S0: the set ended on the trunk safety stop (the RPE and summary dialogs say so).
   const [safetyStop, setSafetyStop] = useState(false);
-  const player = useMemo(() => new CuePlayer(lang), [lang]);
   const coachRef = useRef(props.coach);
   coachRef.current = props.coach;
   // D-036 item 2: the summary's Continue program for a coached workout's coach (never after a safety
-  // stop: going on is then the person's own tap), the same call as the button.
+  // stop: going on is then the person's own tap), the same call as the button. D-038 item 3: a demo
+  // run's summary offers back to the list and, for «again», Repeat.
   const continueRef = useRef(props.onContinue);
   continueRef.current = props.onContinue;
+  const leaveRef = useRef({ exit: onExit, again: onRestart });
+  leaveRef.current = { exit: onExit, again: onRestart };
   const offerButton = props.onCoachButton;
   const canGoOn = end === "summary" && !trial && !safetyStop && !!props.onContinue;
+  const canLeaveDemo = end === "summary" && !trial && !safetyStop && !props.onContinue && !!props.unsaved;
   useEffect(() => {
     if (!offerButton) return;
-    offerButton(canGoOn ? { name: "continue", press: () => continueRef.current?.() } : null);
+    offerButton(
+      canGoOn
+        ? { name: "continue", press: () => continueRef.current?.() }
+        : canLeaveDemo
+          ? { name: "exit", press: () => leaveRef.current.exit(), again: () => leaveRef.current.again() }
+          : null,
+    );
     return () => offerButton(null);
-  }, [offerButton, canGoOn]);
+  }, [offerButton, canGoOn, canLeaveDemo]);
 
   const pipe = useRef({
     flow: null as WorkoutFlow | null,
@@ -217,6 +300,8 @@ export default function SessionScreen(props: {
     flash: new Set<number>(),
     flashUntil: 0,
     captionId: null as string | null,
+    /** The stage the coach last heard (flowCoachSays), null before the first frame. */
+    coachStage: null as FlowStage | null,
     ui: INITIAL_UI,
     fit: "cover" as "cover" | "contain",
     stopSource: null as null | (() => void),
@@ -225,14 +310,6 @@ export default function SessionScreen(props: {
   const captionText = useCallback(
     (m: GateMessage): string => s.messages[m.id] ?? (m.id in CUE_TEXT ? CUE_TEXT[m.id as CueId][lang] : ""),
     [s, lang],
-  );
-
-  const say = useCallback(
-    (m: GateMessage) => {
-      if (!m.voice || !isVoiceLine(m.voice)) return;
-      void player.line(m.voice, m.severity);
-    },
-    [player],
   );
 
   /** The set's summary from the flow, with the fields every save carries. */
@@ -264,7 +341,6 @@ export default function SessionScreen(props: {
       if (P.over) return;
       P.over = true;
       P.stopSource?.();
-      if (how === "done") void player.cue("set_done", "praise");
       if (how === "safety") setSafetyStop(true);
       setMoments([...(P.flow?.moments ?? [])]);
       if (variant === "booth") {
@@ -275,7 +351,7 @@ export default function SessionScreen(props: {
       setEnd("rpe");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [player, variant, buildSummary, props.onComplete],
+    [variant, buildSummary, props.onComplete],
   );
 
   const onFrame = useCallback(
@@ -355,10 +431,13 @@ export default function SessionScreen(props: {
         hold.style.opacity = v.startHold > 0.01 ? "1" : "0";
       }
 
-      for (const m of v.speak) say(m);
-      for (const ev of v.events) if (ev.kind === "rep" && ev.cls !== "partial") void player.count(ev.count);
+      // D-038 item 3: no voice clip; a Live coach says the steps, the form cues and the counts.
       const push = coachRef.current;
-      if (push) for (const e of flowCoachEvents(v.events, exerciseId, v.target, now)) push(e);
+      if (push) {
+        for (const e of flowCoachEvents(v.events, exerciseId, v.target, now)) push(e);
+        for (const e of flowCoachSays(v, P.coachStage, exerciseId, lang, now)) push(e);
+      }
+      P.coachStage = v.stage;
       if (v.stage === "training" && !P.startedAt) P.startedAt = Date.now();
 
       const next: Ui = {
@@ -385,7 +464,7 @@ export default function SessionScreen(props: {
       if (v.stage === "finished") finishSet("done");
       else if (v.stage === "stopped") finishSet("safety");
     },
-    [contextSet, def, noVideo, say, player, captionText, finishSet, exerciseId, lang],
+    [contextSet, def, noVideo, captionText, finishSet, exerciseId, lang],
   );
 
   // source lifecycle
@@ -399,6 +478,7 @@ export default function SessionScreen(props: {
     P.startedAt = 0;
     P.ui = INITIAL_UI;
     P.captionId = null;
+    P.coachStage = null;
     setView(INITIAL_UI);
     (async () => {
       try {
@@ -447,10 +527,6 @@ export default function SessionScreen(props: {
     };
   }, [demo, exerciseId, attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => () => player.stop(), [player]);
-  useEffect(() => {
-    player.muted = muted;
-  }, [muted, player]);
   // A propped phone must not dim or lock mid set.
   useEffect(() => {
     if (noVideo) return;
@@ -494,7 +570,6 @@ export default function SessionScreen(props: {
   }, []);
 
   const stopNow = useCallback(() => {
-    player.stop();
     const P = pipe.current;
     const stage = P.flow?.stage;
     if (!P.over && (stage === "training" || stage === "finished")) {
@@ -504,7 +579,7 @@ export default function SessionScreen(props: {
     P.over = true;
     P.stopSource?.(); // camera and pose halt at once: privacy and battery
     onExit();
-  }, [onExit, player, finishSet]);
+  }, [onExit, finishSet]);
 
   // Escape always stops; focus lands on STOP when the set starts
   useEffect(() => {
@@ -518,14 +593,6 @@ export default function SessionScreen(props: {
   useEffect(() => {
     if (view.stage === "training") stopBtnRef.current?.focus({ preventScroll: true });
   }, [view.stage]);
-
-  const toggleSound = () => {
-    const next = !muted;
-    // Inside the tap: iOS lets the voice play later only if a tap started the audio.
-    if (!next) CuePlayer.unlock();
-    setMuted(next);
-    onPreferences({ ...preferences, voice: next ? "off" : "full" });
-  };
 
   const saveAndSummarize = async (rpeVal: number | null) => {
     if (saving) return;
@@ -584,16 +651,19 @@ export default function SessionScreen(props: {
             </span>
           ) : null}
         </div>
-        <button
-          type="button"
-          className={`cam2-sound cam2-glass${muted ? "" : " on"}`}
-          onClick={toggleSound}
-          aria-pressed={!muted}
-          aria-label={muted ? s.soundOff : s.soundOn}
-        >
-          <SpeakerIcon muted={muted} />
-          <span>{s.sound}</span>
-        </button>
+        {props.sound && (
+          <button
+            type="button"
+            className={`cam2-sound cam2-glass${props.sound.on ? " on" : ""}`}
+            onClick={props.sound.toggle}
+            aria-pressed={props.sound.on}
+            aria-label={props.sound.on ? s.soundOn : s.soundOff}
+            data-action="coach_sound"
+          >
+            <SpeakerIcon muted={!props.sound.on} />
+            <span>{s.sound}</span>
+          </button>
+        )}
       </header>
 
       <div

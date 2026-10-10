@@ -2007,40 +2007,6 @@
   color: var(--bx-muted);
   font-weight: 650;
 }
-.bx-menu-item.switch span:first-of-type {
-  flex: 1;
-}
-.bx-menu-item small {
-  min-width: 44px;
-  font-size: 13px;
-  color: var(--bx-muted);
-}
-.bx-switch {
-  position: relative;
-  width: 46px;
-  height: 28px;
-  border-radius: 999px;
-  background: #e4e0d8;
-  transition: background 0.2s ease;
-}
-.bx-switch i {
-  position: absolute;
-  top: 3px;
-  inset-inline-start: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(28, 32, 41, 0.2);
-  transition: inset-inline-start 0.2s var(--bx-ease);
-}
-.bx-menu-item.on .bx-switch {
-  background: var(--bx-purple);
-}
-.bx-menu-item.on .bx-switch i {
-  inset-inline-start: 21px;
-}
-
 /* ——— the idle note ——— */
 .bx-idle {
   position: fixed;

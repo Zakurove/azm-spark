@@ -16,7 +16,6 @@ import GuidedCard, { type CardResult } from "./GuidedCard";
 import Brand from "./Brand";
 import Icon from "./Icon";
 import { api } from "./api";
-import { primeAudio } from "./audio";
 import PlacementGuide from "./PlacementGuide";
 import { doseText } from "./weekly-dose";
 
@@ -179,7 +178,7 @@ export default function Workout({
     if (stage === "done") return onExit();
     if (stage === "cooldown") return setStage("done");
     if (stage === "setup") return enter(0);
-    if (!run.demo && preferences.voice !== "off") primeAudio(lang);
+    // D-038 item 3: no recorded voice to start: the Live coach is the only voice.
     setStage("set");
   };
   // Beside every screen below at the same place, so the coach stays mounted from step to step.
@@ -187,7 +186,7 @@ export default function Workout({
     <Suspense fallback={null}>
       <WorkoutCoach
         lang={lang}
-        workoutId={run.id}
+        of={{ workoutId: run.id }}
         preference={preferences.liveCoach}
         stage={stage}
         index={index}
@@ -233,6 +232,15 @@ export default function Workout({
         onContinue={next}
         coach={WorkoutCoach ? toCoach : undefined}
         onCoachButton={WorkoutCoach ? setSetButton : undefined}
+        // D-038 item 3: the speaker button turns the Live coach on and off (the coach settings' switch).
+        sound={
+          WorkoutCoach && !run.demo
+            ? {
+                on: preferences.liveCoach,
+                toggle: () => onPreferences({ ...preferences, liveCoach: !preferences.liveCoach }),
+              }
+            : undefined
+        }
       />,
     );
   }

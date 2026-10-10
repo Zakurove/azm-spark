@@ -637,6 +637,8 @@ export default function FocusApp({ lang, onLanguage, onExit, onboarding = false 
                   lang={lang}
                   onDone={() => setBuildPlayed(true)}
                   {...(summary ? { summary } : {})}
+                  // D-037 item 5: it plays out when the program is ready early, and waits when it is late.
+                  ready={session.build?.done === true}
                 />
               </Suspense>
             ),

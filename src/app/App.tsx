@@ -89,6 +89,15 @@ const ProgramLink =
  */
 const ProgramWaiting =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/ProgramWaiting")) : null;
+/**
+ * D-037 item 6 (VITE_V7=1 builds only, tested inline as above): the demo exercises, the exercises the
+ * camera follows now, each run on the camera workout's screen with nothing saved; and the card that
+ * opens them on the Program tab (the program page has its own).
+ */
+const DemoExercises =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/DemoExercises")) : null;
+const DemoLink =
+  import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/program-v7/DemoLink")) : null;
 const checkApi = () => import("../features/assessment/api");
 /** Sends what a movement check left in its outbox (loads the flow's code first). */
 const flushPendingCheckCalls = (owner: string) =>
@@ -255,8 +264,9 @@ function RomLabEntry() {
 /**
  * D-032 item 4: the program build animation on its own, /?programBuild=preview (VITE_V7=1 builds only,
  * the env test written inline), for review and e2e/v7-build-anim.spec.ts. &lang=en for English; any of
- * &joints=, &walk=0 or 1 and &exercises= gives it a summary. Skip or Continue plays it again and counts
- * the calls in data-done.
+ * &joints=, &walk=0 or 1 and &exercises= gives it a summary; &late=<ms> makes the program ready only
+ * that long after the start (D-037 item 5: the animation then waits at its end). Skip or Continue plays
+ * it again and counts the calls in data-done.
  */
 const ProgramBuild =
   import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/onboarding/ProgramBuild")) : null;
@@ -268,15 +278,29 @@ function ProgramBuildPreview() {
   const summary = ["joints", "walk", "exercises"].some((key) => qs.has(key))
     ? { joints: count("joints", 3), walk: qs.get("walk") !== "0", exercises: count("exercises", 6) }
     : undefined;
+  const late = qs.has("late") ? count("late", 0) : 0;
+  const [ready, setReady] = useState(late <= 0);
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   }, [lang]);
+  useEffect(() => {
+    if (late <= 0) return;
+    setReady(false);
+    const timer = setTimeout(() => setReady(true), late);
+    return () => clearTimeout(timer);
+  }, [late, done]);
   return (
     <div data-done={done}>
       {ProgramBuild && (
         <LazyPage lang={lang}>
-          <ProgramBuild key={done} lang={lang} summary={summary} onDone={() => setDone((n) => n + 1)} />
+          <ProgramBuild
+            key={done}
+            lang={lang}
+            summary={summary}
+            ready={ready}
+            onDone={() => setDone((n) => n + 1)}
+          />
         </LazyPage>
       )}
     </div>
@@ -325,7 +349,10 @@ function PortalPages() {
     [v7Page, setV7Page] = useState<V7Page | null>(v7Entry),
     // v7: a completed focus check, as the findings link loaded it (null while it loads); My results
     // then hides the movement check's empty state (D-027 item 3).
-    [focusDone, setFocusDone] = useState<boolean | null>(null);
+    [focusDone, setFocusDone] = useState<boolean | null>(null),
+    // D-037 item 6: the demo exercises are open over the page they were opened from (the program page
+    // or the Program tab), which shows again when they close. No address of their own.
+    [demos, setDemos] = useState(false);
   const c = labels(lang);
   /** The short tab names (D-018: اليوم · برنامجي · نتائجي · حالتي); page titles keep the full names. */
   const navLabel = (key: Page) => (key === "results" ? t(lang, "progress.nav.label") : c.nav[key]);
@@ -605,6 +632,18 @@ function PortalPages() {
         />
       </LazyPage>
     );
+  if (DemoExercises && demos)
+    return (
+      <LazyPage lang={lang}>
+        <DemoExercises
+          lang={lang}
+          onLanguage={toggleLanguage}
+          preferences={preferences}
+          onPreferences={updatePreferences}
+          onBack={() => setDemos(false)}
+        />
+      </LazyPage>
+    );
   if (v7Page) {
     /** Opens another v7 page, or closes them on a portal tab (healthEdit: the health form open). */
     const go = (next: V7Page | null, tab: Page = "today", healthEdit = false) => {
@@ -665,9 +704,11 @@ function PortalPages() {
             lang={lang}
             onLanguage={toggleLanguage}
             onExit={(to: ProgramExit) =>
-              to === "findings"
-                ? go({ page: "findings", checkId: null })
-                : go(null, to === "program" ? "program" : "today")
+              to === "demos"
+                ? setDemos(true)
+                : to === "findings"
+                  ? go({ page: "findings", checkId: null })
+                  : go(null, to === "program" ? "program" : "today")
             }
           />
         </LazyPage>
@@ -1093,6 +1134,12 @@ function PortalPages() {
                             </button>
                           </div>
                         </section>
+                      )}
+                      {/* D-037 item 6: the exercises the camera follows now, after the program's card. */}
+                      {page === "program" && DemoLink && (
+                        <LazyPart lang={lang}>
+                          <DemoLink lang={lang} onOpen={() => setDemos(true)} />
+                        </LazyPart>
                       )}
                       {/* C43: why this program lives on the Program tab only, in two short lines (B7). */}
                       {page === "program" && (

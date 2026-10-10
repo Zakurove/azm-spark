@@ -6,6 +6,9 @@ import { Lang } from "./i18n";
  */
 const ar = {
   demo: "عرض توضيحي",
+  /** A demo exercise with the real camera (D-037 item 6): its tag and its summary's line. */
+  demoRun: "تجريبي",
+  demoRunNote: "تمرين تجريبي: لا يُحفظ في برنامجك ولا في جلساتك.",
   sound: "الصوت",
   soundOn: "الصوت يعمل. اضغط لإيقافه",
   soundOff: "الصوت متوقف. اضغط لتشغيله",
@@ -40,6 +43,8 @@ const ar = {
 
 const en: typeof ar = {
   demo: "Demo",
+  demoRun: "Demo",
+  demoRunNote: "A demo exercise: it is not saved to your program or your sessions.",
   sound: "Sound",
   soundOn: "Sound is on. Tap to turn it off",
   soundOff: "Sound is off. Tap to turn it on",

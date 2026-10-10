@@ -1,11 +1,12 @@
 /**
- * The program build animation (D-032 item 4): its plan and every drawn position, pure and free of the
- * DOM, so the beats, their order, the summary handling and the drawing are tested in node
- * (tests/v7/program-build.test.ts). Times are in ms from the start. Positions are in the stage's units
- * (360 by 420), drawn left to right; the stage is mirrored for Arabic, so the walk, the cards and the
- * week read in the page's direction.
+ * The program build animation (D-032 item 4, slowed by D-037 item 5): its plan and every drawn
+ * position, pure and free of the DOM, so the beats, their order, the summary handling, the wait for
+ * the program and the drawing are tested in node (tests/v7/program-build.test.ts). Times are in ms
+ * from the start. Positions are in the stage's units (360 by 420), drawn left to right; the stage is
+ * mirrored for Arabic, so the walk, the cards and the week read in the page's direction.
  *
- * One caption a beat (programBuildCopy.ts):
+ * About eleven calm seconds that feel like real work, one caption and one line of what is being read
+ * a beat (programBuildCopy.ts):
  *   history      the body of the health form's body map is scanned in, the affected joints light up in
  *                purple, and two records (the condition, the body map) slide in and link to them;
  *   camera       a pose skeleton of tracked points snaps onto the body and raises an arm, a gold angle
@@ -13,9 +14,12 @@
  *   walk         the skeleton turns side on and takes two steps while timing bars stream below it,
  *                gold for the right foot and purple for the left (the walk);
  *   historyUsed  in place of the walk when there was none: the records come back and are read again;
- *   engineer     everything flows as light into a gold and purple core of turning rings, then the
- *                exercise cards (stretch, strengthen, walk) drop into the seven days of a week.
- * Nothing drawn holds text or a number, so nothing looks like a result of the person's own.
+ *   choose       everything flows as light into a gold and purple core of turning rings, and the
+ *                exercise cards (stretch, strengthen, walk) come out of it one by one;
+ *   week         the seven days of a week rise and each card drops into its day, then the check.
+ * The program call runs meanwhile: ready early, the animation still plays out; late, it waits at the
+ * check with the rings turning (BuildDirector). Nothing drawn holds text or a number, so nothing looks
+ * like a result of the person's own.
  */
 
 /** What the flow knows once the program is built; the animation uses it lightly. */
@@ -28,7 +32,7 @@ export interface BuildSummary {
   exercises: number;
 }
 
-export type BeatId = "history" | "camera" | "walk" | "historyUsed" | "engineer";
+export type BeatId = "history" | "camera" | "walk" | "historyUsed" | "choose" | "week";
 export interface Beat {
   id: BeatId;
   start: number;
@@ -46,21 +50,29 @@ export interface BuildPlan {
   beats: readonly Beat[];
   /** How many joints light up (0 to MAX_JOINTS). */
   joints: number;
+  /** The joints the camera measured, as the summary counts them (the camera beat's line). */
+  measured: number;
   cards: readonly BuildCard[];
   /** The rows of cards a day holds: 1, or 2 when there are more cards than days. */
   rows: number;
+  /**
+   * The check starts: a program that is not ready yet holds the animation here (the rings turning, a
+   * soft pulse) until it is.
+   */
+  hold: number;
   /** «برنامجك جاهز» and Continue. */
   end: number;
-  /** The rings have come to rest: the frame loop stops (and the reduced motion still is drawn). */
+  /** The rings have come to rest: the frame loop stops. */
   settle: number;
 }
 
 export const BEAT_MS: Readonly<Record<BeatId, number>> = {
-  history: 1400,
-  camera: 1500,
-  walk: 1400,
-  historyUsed: 900,
-  engineer: 1800,
+  history: 2200,
+  camera: 2400,
+  walk: 2200,
+  historyUsed: 1500,
+  choose: 2000,
+  week: 2200,
 };
 export const DEFAULT_SUMMARY: Readonly<BuildSummary> = { joints: 3, walk: true, exercises: 6 };
 export const MAX_JOINTS = 8;
@@ -69,6 +81,12 @@ export const MAX_CARDS = 10;
 export const SETTLE_MS = 1600;
 /** The most one frame may advance: a hidden tab or a stalled phone resumes where it was. */
 export const MAX_FRAME_MS = 64;
+/** The check's place in the week beat: it starts this long before «برنامجك جاهز». */
+export const CHECK_LEAD_MS = 420;
+/** Waiting this long at the hold, the caption says the program is being finished. */
+export const WAIT_LINE_MS = 700;
+/** Reduced motion: each line of the still's list is ticked after this long (no motion at all). */
+export const STILL_STEP_MS = 500;
 /** The days the cards take: every other day first, then the days between. */
 const DAY_ORDER = [0, 2, 4, 6, 1, 3, 5] as const;
 
@@ -76,11 +94,12 @@ const whole = (n: number, fallback: number) => (Number.isFinite(n) ? Math.max(0,
 
 export function buildPlan(summary?: BuildSummary): BuildPlan {
   const s = summary ?? DEFAULT_SUMMARY;
-  const joints = Math.min(MAX_JOINTS, whole(s.joints, DEFAULT_SUMMARY.joints));
+  const measured = whole(s.joints, DEFAULT_SUMMARY.joints);
+  const joints = Math.min(MAX_JOINTS, measured);
   const walk = s.walk === true;
   const order: BeatId[] = ["history"];
   if (joints > 0) order.push("camera");
-  order.push(walk ? "walk" : "historyUsed", "engineer");
+  order.push(walk ? "walk" : "historyUsed", "choose", "week");
   let at = 0;
   const beats = order.map((id) => {
     const beat = { id, start: at, end: at + BEAT_MS[id] };
@@ -94,41 +113,101 @@ export function buildPlan(summary?: BuildSummary): BuildPlan {
     day: DAY_ORDER[i % 7],
     row: i < 7 ? 0 : 1,
   }));
-  return { beats, joints, cards, rows: n > 7 ? 2 : 1, end: at, settle: at + SETTLE_MS };
+  return {
+    beats,
+    joints,
+    measured,
+    cards,
+    rows: n > 7 ? 2 : 1,
+    hold: at - CHECK_LEAD_MS,
+    end: at,
+    settle: at + SETTLE_MS,
+  };
 }
 
 /** The beat playing at `t`; null once the program is ready. */
 export const beatAt = (plan: BuildPlan, t: number): Beat | null => plan.beats.find((b) => t < b.end) ?? null;
 const beatOf = (plan: BuildPlan, id: BeatId) => plan.beats.find((b) => b.id === id);
 
+/** Reduced motion: the still's list is ticked line by line, «برنامجك جاهز» after the last. */
+export const stillEnd = (plan: BuildPlan) => plan.beats.length * STILL_STEP_MS;
+/** Reduced motion: the lines of the list ticked at `t` of the still's own clock. */
+export const stillDone = (plan: BuildPlan, t: number) =>
+  Math.min(plan.beats.length, Math.max(0, Math.floor(t / STILL_STEP_MS)));
+
 /**
- * The animation's clock and its one way out: Skip (any time) and Continue (once ready) each end it by
- * calling `done` exactly once. The component advances it once a frame.
+ * The animation's clock, its wait for the program and its one way out: Skip (any time) and Continue
+ * (once ready) each end it by calling `done` exactly once. The component advances it once a frame.
+ *
+ * The program call runs while it plays. Ready early, it plays out. Not ready at the hold (the check),
+ * it stops there and counts the wait in `idle`, which keeps the rings turning, until `setReady`. Under
+ * reduced motion (`still`) the clock ticks the still's list instead (STILL_STEP_MS a line) and waits
+ * on its last line the same way.
  */
 export class BuildDirector {
-  t: number;
+  /** The moment drawn (ms); in the still, the list's own clock. */
+  t = 0;
+  /** How long it has waited at the hold for the program (ms). */
+  idle = 0;
   private closed = false;
+  private ready: boolean;
+  private still: boolean;
   constructor(
     readonly plan: BuildPlan,
     private readonly done: () => void,
     still = false,
+    ready = true,
   ) {
-    this.t = still ? plan.settle : 0;
+    this.still = still;
+    this.ready = ready;
+  }
+  /** The time of «برنامجك جاهز». */
+  get end() {
+    return this.still ? stillEnd(this.plan) : this.plan.end;
+  }
+  /** Where it waits for a program that is not ready. */
+  get hold() {
+    return this.still ? stillEnd(this.plan) - 1 : this.plan.hold;
+  }
+  /** Everything has come to rest. */
+  get last() {
+    return this.still ? stillEnd(this.plan) : this.plan.settle;
   }
   get finished() {
-    return this.t >= this.plan.end;
+    return this.t >= this.end;
+  }
+  /** It waits at the hold for the program. */
+  get waiting() {
+    return !this.ready && this.t >= this.hold;
   }
   get beat() {
-    return beatAt(this.plan, this.t);
+    return this.still ? null : beatAt(this.plan, this.t);
+  }
+  get isStill() {
+    return this.still;
   }
   /** One frame of `dt` ms (at most MAX_FRAME_MS); false once everything has come to rest. */
   tick(dt: number): boolean {
-    this.t = Math.min(this.plan.settle, this.t + Math.min(MAX_FRAME_MS, Math.max(0, dt)));
-    return this.t < this.plan.settle;
+    const d = Math.min(MAX_FRAME_MS, Math.max(0, dt));
+    let next = Math.min(this.last, this.t + d);
+    if (!this.ready && next > this.hold) {
+      this.idle += next - Math.max(this.t, this.hold);
+      next = Math.max(this.t, this.hold);
+    }
+    this.t = next;
+    return this.t < this.last || !this.ready;
   }
-  /** Reduced motion turned on midway: straight to the still. */
+  /** The program call is done (it never goes back). */
+  setReady(ready: boolean) {
+    if (ready) this.ready = true;
+  }
+  /** Reduced motion turned on midway: the still's list, ticked as far as the drawing had come. */
   toStill() {
-    this.t = this.plan.settle;
+    if (this.still) return;
+    const i = this.plan.beats.findIndex((b) => this.t < b.end);
+    this.still = true;
+    this.t = Math.min(this.hold, (i < 0 ? this.plan.beats.length : i) * STILL_STEP_MS);
+    if (this.ready && i < 0) this.t = stillEnd(this.plan);
   }
   skip() {
     this.close();
@@ -370,18 +449,18 @@ export function arcTicks(c: Pt, r1: number, r2: number, deg: number, every: numb
 
 /* ------------------------------------------------------------------ the beats' timing */
 
-const LEVEL_MS = 320;
+const LEVEL_MS = 420;
 /** A layer's opacity: each beat has its level, reached in `ms` from the level of the beat before. */
 function level(plan: BuildPlan, t: number, levels: Partial<Record<BeatId, number>>, ms = LEVEL_MS) {
   const i = plan.beats.findIndex((b) => t < b.end);
-  if (i < 0) return levels.engineer ?? 0;
+  if (i < 0) return levels.week ?? 0;
   const to = levels[plan.beats[i].id] ?? 0;
   const from = i === 0 ? 0 : (levels[plan.beats[i - 1].id] ?? 0);
   return lerp(from, to, easeInOut(step(t, plan.beats[i].start, ms)));
 }
 
-/** history: the scan line comes down the body. */
-const SCAN = { from: 36, to: 348, at: 80, ms: 860 } as const;
+/** history: the scan line comes down the body, slowly, as a reading. */
+const SCAN = { from: 36, to: 348, at: 120, ms: 1500 } as const;
 const scanY = (u: number) => lerp(SCAN.from, SCAN.to, easeSine(step(u, SCAN.at, SCAN.ms)));
 /** When the scan line reaches `y`. */
 const scanTime = (y: number) =>
@@ -397,21 +476,21 @@ export const RECORD = { w: 94, h: 60 } as const;
 export const VIEW = { x: 14, y: 14, w: 332, h: 334 } as const;
 
 /** camera: the arm rises, then holds while the ring fills. */
-const RAISE = { at: 300, ms: 800 } as const;
-const HOLD = { at: 1100, ms: 300 } as const;
+const RAISE = { at: 520, ms: 1150 } as const;
+const HOLD = { at: 1720, ms: 460 } as const;
 export const cameraArm = (u: number) =>
   ARM_REST + (ARM_TOP - ARM_REST) * easeInOut(step(u, RAISE.at, RAISE.ms));
 
-/** walk: the turn side on, then a stride a second. */
-export const WALK_TURN_MS = 320;
-export const STRIDE_MS = 1000;
+/** walk: the turn side on, then a stride about a second. */
+export const WALK_TURN_MS = 450;
+export const STRIDE_MS = 1050;
 export const walkPhase = (u: number) => Math.max(0, (u - WALK_TURN_MS) / STRIDE_MS);
 export const LANES = { right: 320, left: 337 } as const;
 /** Where a foot lands: the bars start here and stream back with the ground. */
 export const NOW_X = PELVIS_X + legAt(0).ankle[0];
 export const LANE_X0 = 36;
 
-/** engineer: the core, the week and when each card leaves the core. */
+/** choose and week: the core, the week and where each card is chosen and lands. */
 export const CORE: Pt = [180, 160];
 export const RINGS = [32, 47, 62] as const;
 const SPIN = [0.12, -0.08, 0.045] as const;
@@ -429,10 +508,34 @@ export function cardSpot(plan: BuildPlan, i: number): Pt {
     weekTop(plan.rows) + slotHeight(plan.rows) / 2 + (row - (stack - 1) / 2) * 34,
   ];
 }
-/** Where the cards leave the core: its lower edge, under the check. */
-export const CARD_FROM: Pt = [CORE[0], CORE[1] + 24];
-const CARD = { at: 640, gap: 72, ms: 460 } as const;
-const CHECK_AT = 1480;
+/** Where the cards come out of the core: its centre, inside the inner ring. */
+export const CARD_FROM: Pt = CORE;
+/** The chosen cards' size on their arc over the core. */
+export const PICK_SCALE = 0.82;
+/** Where card `i` waits once chosen: on an arc over the core, in reading order. */
+export function pickSpot(plan: BuildPlan, i: number): Pt {
+  const n = plan.cards.length;
+  const r = n > 7 ? 114 : 104;
+  const a = rad(196 + 148 * (n > 1 ? i / (n - 1) : 0.5));
+  return [CORE[0] + r * Math.cos(a), CORE[1] + r * Math.sin(a)];
+}
+/** choose: when each card comes out of the core, and how long it takes to its place on the arc. */
+const PICK = { at: 760, ms: 560, end: 1950 } as const;
+const pickGap = (n: number) => Math.min(170, (PICK.end - PICK.at - PICK.ms) / Math.max(1, n - 1));
+/**
+ * week: when each card leaves the arc for its day, its flight and the glow of its landing; the last
+ * glow has faded before the check, so a wait for the program holds a quiet week.
+ */
+const DROP = { at: 300, ms: 560, land: 300, slack: 40 } as const;
+const dropGap = (n: number) =>
+  Math.min(
+    190,
+    (BEAT_MS.week - CHECK_LEAD_MS - DROP.slack - DROP.at - DROP.ms - DROP.land) / Math.max(1, n - 1),
+  );
+/** The check, in the week beat. */
+const CHECK_AT = BEAT_MS.week - CHECK_LEAD_MS;
+/** The soft pulse of the core while it waits for the program, once every this long. */
+const WAIT_PULSE_MS = 1600;
 
 /* ------------------------------------------------------------------ the frame */
 
@@ -483,60 +586,62 @@ export interface EngineFrame {
     badges: { kind: SourceKind; angle: number; scale: number }[];
     check: number;
     burst: number;
+    /** Waiting for the program: a soft ring going out of the core (0 to 1), 0 when not waiting. */
+    wait: number;
   };
   slots: { opacity: number; lift: number }[];
   cards: { at: Pt; scale: number; angle: number; opacity: number; landed: number }[];
 }
 
-/** Everything drawn at `t`. */
-export function frameAt(plan: BuildPlan, t: number): Frame {
+/** Everything drawn at `t`; `idle` is how long the animation has waited at the hold for the program. */
+export function frameAt(plan: BuildPlan, t: number, idle = 0): Frame {
   const hist = plan.beats[0];
   const used = beatOf(plan, "historyUsed");
   const cam = beatOf(plan, "camera");
   const walk = beatOf(plan, "walk");
-  const eng = beatOf(plan, "engineer")!;
+  const choose = beatOf(plan, "choose")!;
 
   // The body, scanned in and dimmed while the skeleton works.
   const body = {
     opacity: level(plan, t, { history: 1, camera: 0.16, historyUsed: 1 }),
     reveal: t < hist.end ? scanY(t) + 1 : STAGE.h,
     scanY: scanY(t),
-    scan: step(t, 40, 120) * (1 - step(t, 840, 160)),
+    scan: step(t, 60, 160) * (1 - step(t, SCAN.at + SCAN.ms + 20, 240)),
   };
 
   const usedLate = used && t >= used.start ? t - used.start : -1;
   const jl = level(plan, t, { history: 1, camera: 0.6, historyUsed: 1 });
   const joints = jointSpots(plan.joints).map((at, j) => {
     const lit = scanTime(at[1]);
-    const pulse = usedLate >= 0 ? step(usedLate, 260 + j * 70, 700) : step(t, lit, 700);
-    return { at, on: step(t, lit, 260), pulse, opacity: jl };
+    const pulse = usedLate >= 0 ? step(usedLate, 360 + j * 90, 900) : step(t, lit, 900);
+    return { at, on: step(t, lit, 300), pulse, opacity: jl };
   });
 
   // The records: in with the scan, and again (read once more) when there was no walk.
   const again = usedLate >= 0 && cam !== undefined;
   const recordIn = (i: number) =>
-    again ? step(usedLate, 120 + i * 100, 380) : usedLate >= 0 ? 1 : step(t, 260 + i * 160, 420);
+    again ? step(usedLate, 160 + i * 140, 480) : usedLate >= 0 ? 1 : step(t, 420 + i * 260, 560);
   const spots = jointSpots(plan.joints);
   const records = {
     opacity: level(plan, t, { history: 1, historyUsed: 1 }),
     cards: RECORDS.map((p, i) => {
       const k = recordIn(i);
       const at: Pt = [p[0] + (i === 0 ? -28 : 28) * (1 - easeOut(k)), p[1]];
-      return { at, opacity: k, shimmer: usedLate >= 0 ? step(usedLate, 380 + i * 90, 420) : 0 };
+      return { at, opacity: k, shimmer: usedLate >= 0 ? step(usedLate, 520 + i * 130, 560) : 0 };
     }),
     links: spots.length
       ? [
           {
             from: [RECORDS[0][0] + RECORD.w, RECORDS[0][1] + RECORD.h / 2] as Pt,
             to: spots[0],
-            draw: usedLate >= 0 ? step(usedLate, 450, 300) : step(t, 700, 320),
-            flow: usedLate >= 0 ? step(usedLate, 700, 320) : step(t, 1000, 360),
+            draw: usedLate >= 0 ? step(usedLate, 640, 380) : step(t, 1240, 380),
+            flow: usedLate >= 0 ? step(usedLate, 1000, 420) : step(t, 1620, 520),
           },
           {
             from: [RECORDS[1][0], RECORDS[1][1] + RECORD.h / 2] as Pt,
             to: spots[Math.min(1, spots.length - 1)],
-            draw: usedLate >= 0 ? step(usedLate, 520, 300) : step(t, 820, 320),
-            flow: usedLate >= 0 ? step(usedLate, 780, 320) : step(t, 1120, 360),
+            draw: usedLate >= 0 ? step(usedLate, 730, 380) : step(t, 1410, 380),
+            flow: usedLate >= 0 ? step(usedLate, 1090, 420) : step(t, 1790, 520),
           },
         ]
       : [],
@@ -551,8 +656,8 @@ export function frameAt(plan: BuildPlan, t: number): Frame {
   const hud = {
     opacity: level(plan, t, { camera: 1, walk: 1 }),
     bottom,
-    band: VIEW.y + mod1(t / 1300) * (bottom - VIEW.y - 34),
-    live: 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t / 170)),
+    band: VIEW.y + mod1(t / 1700) * (bottom - VIEW.y - 34),
+    live: 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t / 260)),
   };
 
   return {
@@ -560,9 +665,9 @@ export function frameAt(plan: BuildPlan, t: number): Frame {
     joints,
     records,
     hud,
-    skeleton: skeletonAt(plan, t, cam, walk, eng),
-    gait: gaitAt(plan, t, walk, eng),
-    engine: t >= eng.start ? engineAt(plan, t - eng.start) : null,
+    skeleton: skeletonAt(plan, t, cam, walk, choose),
+    gait: gaitAt(plan, t, walk, choose),
+    engine: t >= choose.start ? engineAt(plan, t - choose.start, idle) : null,
   };
 }
 
@@ -575,8 +680,8 @@ function skeletonAt(plan: BuildPlan, t: number, cam?: Beat, walk?: Beat, eng?: B
   const lock = (l: Landmark[], u: number, at: number) =>
     l.map((m) => ({
       at: pose[m],
-      size: lerp(13, 7.5, easeOut(step(u, at, 240))),
-      opacity: step(u, at, 120),
+      size: lerp(13, 7.5, easeOut(step(u, at, 300))),
+      opacity: step(u, at, 160),
     }));
   if (walk && t >= walk.start) {
     const u = Math.min(t, walk.end) - walk.start;
@@ -593,22 +698,22 @@ function skeletonAt(plan: BuildPlan, t: number, cam?: Beat, walk?: Beat, eng?: B
   }
   const s0 = t - first.start;
   const cu = cam ? t - cam.start : -1;
-  const camOn = cam ? 1 - step(t, cam.end, 180) : 0;
+  const camOn = cam ? 1 - step(t, cam.end, 240) : 0;
   return {
     pose,
     opacity: level(plan, t, { camera: 1, walk: 1 }),
-    bones: step(s0, 90, 260),
-    pop: LANDMARKS.map((_, i) => easeBack(step(s0, 30 + i * 14, 240))),
+    bones: step(s0, 120, 380),
+    pop: LANDMARKS.map((_, i) => easeBack(step(s0, 40 + i * 20, 300))),
     gold,
     reticles,
     arc: {
       deg: cam ? cameraArm(Math.min(cu, cam.end - cam.start)) : ARM_REST,
-      opacity: step(cu, 320, 160) * camOn,
+      opacity: step(cu, RAISE.at + 20, 200) * camOn,
     },
     hold: {
       at: pose.wrR,
       progress: step(cu, HOLD.at, HOLD.ms),
-      opacity: step(cu, HOLD.at - 40, 100) * camOn,
+      opacity: step(cu, HOLD.at - 60, 140) * camOn,
       pulse: step(cu, HOLD.at + HOLD.ms, 420),
     },
   };
@@ -656,7 +761,7 @@ const SPARKS = new WeakMap<BuildPlan, Spark[]>();
 function sparksOf(plan: BuildPlan): Spark[] {
   const known = SPARKS.get(plan);
   if (known) return known;
-  const eng = beatOf(plan, "engineer")!;
+  const eng = beatOf(plan, "choose")!;
   const f = frameAt(plan, eng.start - 1);
   const from: Pt[] = [];
   if (f.skeleton && f.skeleton.opacity > 0.3) for (const l of LANDMARKS) from.push(f.skeleton.pose[l]);
@@ -681,8 +786,8 @@ function sparksOf(plan: BuildPlan): Spark[] {
     return {
       from: start,
       via,
-      delay: rand() * 300,
-      ms: 400 + rand() * 220,
+      delay: rand() * 760,
+      ms: 560 + rand() * 300,
       r: 1.2 + rand() * 1.6,
       gold: i % 3 !== 2,
     };
@@ -697,14 +802,18 @@ const SOURCE: Partial<Record<BeatId, SourceKind>> = { history: "record", camera:
 export const sourcesOf = (plan: BuildPlan): SourceKind[] =>
   plan.beats.flatMap((b) => (SOURCE[b.id] ? [SOURCE[b.id]!] : []));
 
-/** The rings' turn: full speed while building, then slowing to rest by `settle`. */
-function spin(u: number, speed: number) {
-  const run = BEAT_MS.engineer;
+/**
+ * The rings' turn: full speed while choosing, setting the week and waiting for the program (`idle`),
+ * then slowing to rest by `settle`.
+ */
+function spin(u: number, speed: number, idle: number) {
+  const run = BEAT_MS.choose + BEAT_MS.week;
   const tau = Math.min(SETTLE_MS, Math.max(0, u - run));
-  return speed * (Math.min(u, run) + tau - (tau * tau) / (2 * SETTLE_MS));
+  return speed * (Math.min(u, run) + idle + tau - (tau * tau) / (2 * SETTLE_MS));
 }
 
-function engineAt(plan: BuildPlan, u: number): EngineFrame {
+/** choose and week, `u` from the start of choose. */
+function engineAt(plan: BuildPlan, u: number, idle: number): EngineFrame {
   const sparks: EngineFrame["sparks"] = [];
   for (const s of sparksOf(plan)) {
     const k = (u - s.delay) / s.ms;
@@ -718,36 +827,53 @@ function engineAt(plan: BuildPlan, u: number): EngineFrame {
       gold: s.gold,
     });
   }
-  const absorb = Math.exp(-(((u - 560) / 160) ** 2));
+  const w = u - BEAT_MS.choose;
+  const absorb = Math.exp(-(((u - 900) / 260) ** 2));
+  const breathe = 1 + 0.07 * Math.sin(idle / 320);
+  const n = plan.cards.length;
   return {
     sparks,
     core: {
-      glow: easeOut(step(u, 120, 420)) * (1 + 0.22 * absorb),
-      disc: easeBack(step(u, 160, 380)),
-      rings: RINGS.map((_, i) => ({ scale: easeBack(step(u, 200 + i * 90, 460)), angle: spin(u, SPIN[i]) })),
+      glow: easeOut(step(u, 120, 600)) * (1 + 0.22 * absorb) * breathe,
+      disc: easeBack(step(u, 200, 520)),
+      rings: RINGS.map((_, i) => ({
+        scale: easeBack(step(u, 280 + i * 120, 600)),
+        angle: spin(u, SPIN[i], idle),
+      })),
       badges: sourcesOf(plan).map((kind, i, all) => ({
         kind,
-        angle: -90 + (i * 360) / all.length + spin(u, SPIN[2]),
-        scale: easeBack(step(u, 420 + i * 140, 380)),
+        angle: -90 + (i * 360) / all.length + spin(u, SPIN[2], idle),
+        scale: easeBack(step(u, 560 + i * 200, 420)),
       })),
-      check: easeInOut(step(u, CHECK_AT, 300)),
-      burst: step(u, CHECK_AT, 700),
+      check: easeInOut(step(w, CHECK_AT, 300)),
+      burst: step(w, CHECK_AT, 700),
+      wait: idle > 0 ? mod1(idle / WAIT_PULSE_MS) : 0,
     },
     slots: Array.from({ length: 7 }, (_, d) => {
-      const k = step(u, 420 + d * 45, 300);
+      const k = step(w, 60 + d * 60, 420);
       return { opacity: k, lift: 1 - easeOut(k) };
     }),
     cards: plan.cards.map((_, i) => {
-      const launch = CARD.at + i * CARD.gap;
-      const k = step(u, launch, CARD.ms);
+      // Chosen: out of the core to its place on the arc.
+      const pickAt = PICK.at + i * pickGap(n);
+      const p = step(u, pickAt, PICK.ms);
+      const pick = pickSpot(plan, i);
+      // Set in the week: from the arc down to its day.
+      const dropAt = DROP.at + i * dropGap(n);
+      const d = step(w, dropAt, DROP.ms);
       const to = cardSpot(plan, i);
-      const via: Pt = [lerp(CARD_FROM[0], to[0], 0.8), CARD_FROM[1] + 26];
+      const via: Pt = [lerp(pick[0], to[0], 0.5), lerp(pick[1], to[1], 0.35) - 18];
+      const chosen: Pt = [
+        lerp(CARD_FROM[0], pick[0], easeOut(p)),
+        lerp(CARD_FROM[1], pick[1], easeOut(p)) +
+          (p >= 1 && d <= 0 ? 1.4 * Math.sin((u - pickAt) / 420 + i) : 0),
+      ];
       return {
-        at: bezier(CARD_FROM, via, to, easeInOut(k)),
-        scale: lerp(0.3, 1, easeBack(k)),
-        angle: (1 - k) * (i % 2 ? 10 : -10),
-        opacity: step(u, launch, 90),
-        landed: step(u, launch + CARD.ms, 380),
+        at: d > 0 ? bezier(pick, via, to, easeInOut(d)) : chosen,
+        scale: d > 0 ? lerp(PICK_SCALE, 1, easeBack(d)) : lerp(0.3, PICK_SCALE, easeBack(p)),
+        angle: d > 0 ? Math.sin(Math.PI * d) * (i % 2 ? 8 : -8) : (1 - p) * (i % 2 ? 10 : -10),
+        opacity: step(u, pickAt, 120),
+        landed: step(w, dropAt + DROP.ms, DROP.land),
       };
     }),
   };

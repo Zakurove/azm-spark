@@ -85,6 +85,8 @@ const V7_FACADES = [
   "src/features/focus/FocusTodayEntry.tsx",
   "src/features/focus/FindingsLink.tsx",
   "src/features/program-v7/ProgramLink.tsx",
+  "src/features/program-v7/DemoExercises.tsx",
+  "src/features/program-v7/DemoLink.tsx",
   "src/app/IntakeV7.tsx",
   "src/app/LandingV7.tsx",
 ];

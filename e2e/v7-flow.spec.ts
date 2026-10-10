@@ -5,8 +5,9 @@
  *     program; the health form's last button reads «التالي: قياس حركتك» and opens the check; the check
  *     runs with the simulated person (?e2ePerson=1&e2eFast=1) from the intro straight to the parts
  *     (D-034 item 4: no consent page, the start records the consents; no day screen) to the end; the
- *     build animation plays; the program page opens with each exercise's why line; the program is then
- *     on Today and the Program tab.
+ *     build animation plays; the program page opens with each exercise's why line; its «عرض تمارين
+ *     تجريبية» opens the camera exercises, one of which runs on the camera screen and posts nothing
+ *     (D-037 item 6); the program is then on Today and the Program tab, whose card opens them too.
  *   - Nothing the camera can measure (a wrist only body map, no walk): the history builds the program
  *     at once, and the Program tab says the check can refine it later.
  *   - «لا أستطيع استخدام الكاميرا» on the intro builds the program from the history.
@@ -16,9 +17,19 @@
  * Skipped under the default config, whose server has the flags off.
  */
 import { expect, test, type Page } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { signUpAddress } from "./sign-up";
 
 test.skip(process.env.AZM_E2E_V7 !== "1", "runs with e2e/v7-flow.config.ts (the v7 flags on)");
+
+/** AZM_SHOTS_DIR=<dir>: the demo exercises' review screenshots too (390 x 844, Arabic and English). */
+const SHOTS = process.env.AZM_SHOTS_DIR;
+async function shot(page: Page, name: string) {
+  if (!SHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  await page.screenshot({ path: join(SHOTS, `${name}.png`), animations: "disabled" });
+}
 
 type Lang = "ar" | "en";
 
@@ -116,6 +127,88 @@ async function passBuild(page: Page) {
   await skip.click();
 }
 
+/** Stops a camera set mid way with its Stop button, unless the set has already ended. */
+async function stopSet(page: Page) {
+  if (!(await page.locator("#rpe-title").isVisible()))
+    await page.locator(".cam2-stop button").first().click();
+}
+
+/**
+ * D-037 item 6: from the program page, «عرض تمارين تجريبية» opens the camera exercises; Start runs one
+ * on the camera workout's screen (a synthetic person in place of the camera, ?e2eTrace=full) that
+ * counts its reps; its end comes back to the list; and nothing of it is posted. Back to the program.
+ */
+async function demoExercises(page: Page) {
+  // The program page again, with the synthetic person for the camera screen (read when it loads).
+  await page.goto("/?targets=1&e2eTrace=full");
+  await expect(page.locator('[data-screen="program"]')).toBeVisible({ timeout: 30_000 });
+  const link = page.locator('[data-screen="program"] [data-demo-link]');
+  await expect(link).toContainText("عرض تمارين تجريبية");
+  await link.scrollIntoViewIfNeeded();
+  await shot(page, "ar-program-demo-button");
+  const sent: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() !== "GET" && r.url().includes("/api/")) sent.push(`${r.method()} ${r.url()}`);
+  });
+  await link.locator('[data-action="demos"]').click();
+  const list = page.locator('[data-screen="demo_exercises"]');
+  await expect(list).toBeVisible();
+  await expect(list).toContainText("نبني مكتبة التمارين، وهذه مجموعة منها");
+  await expect(list.locator("[data-exercise]")).toHaveCount(3);
+  expect(
+    await list.locator("[data-exercise]").evaluateAll((els) => els.map((e) => e.dataset.exercise)),
+  ).toEqual(["seated_shoulder_press", "seated_biceps_curl", "sit_to_stand"]);
+  // Large tap targets.
+  const start = list.locator('[data-exercise="seated_shoulder_press"] [data-action="demo_start"]');
+  expect((await start.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  await shot(page, "ar-demo-list");
+  // The shoulder press on the camera screen: the outline, the start position, measuring, counting.
+  await start.click();
+  const cam = page.locator(".cam2");
+  await expect(cam).toBeVisible();
+  await expect(page.locator(".cam2-title b")).toHaveText("ضغط الكتف جالسًا");
+  await expect(page.locator(".cam2-tag")).toHaveText("تجريبي");
+  await expect(cam).toHaveAttribute("data-stage", "training", { timeout: 30_000 });
+  await expect(cam).toHaveAttribute("data-count", /^[1-9]/, { timeout: 30_000 });
+  await shot(page, "ar-demo-started");
+  // Stop (unless the set already ended): the effort question and the summary say it is not saved;
+  // «اختر تمرينًا آخر» is the list.
+  await stopSet(page);
+  await expect(page.locator("#rpe-title")).toBeVisible();
+  await expect(page.locator(".modal-actions")).toBeVisible();
+  await page.locator(".modal-actions .ghost").click();
+  await expect(page.locator(".sum-note")).toHaveText("تمرين تجريبي: لا يُحفظ في برنامجك ولا في جلساتك.");
+  await page.locator(".modal-actions .ghost").click();
+  await expect(list).toBeVisible();
+  // Nothing of the demo was posted: no workout, no set, no coach.
+  expect(sent).toEqual([]);
+  // English, left to right.
+  await list.locator(".fx-top .fx-chip").first().click();
+  await expect(list).toHaveAttribute("dir", "ltr");
+  await expect(list).toContainText("We’re building the exercise library; here is a set of them.");
+  await shot(page, "en-demo-list");
+  await list.locator('[data-exercise="seated_biceps_curl"] [data-action="demo_start"]').click();
+  await expect(page.locator(".cam2-title b")).toHaveText("Seated Biceps Curl");
+  await expect(page.locator(".cam2-tag")).toHaveText("Demo");
+  await expect(cam).toHaveAttribute("data-stage", /^(start|calibrating|training)$/, { timeout: 30_000 });
+  await expect(cam).toHaveAttribute("data-stage", "training", { timeout: 30_000 });
+  await shot(page, "en-demo-started");
+  // Stop, then back to the list.
+  await stopSet(page);
+  await expect(page.locator("#rpe-title")).toBeVisible();
+  await page.locator(".modal-actions .ghost").click();
+  await page.locator(".modal-actions .ghost").click();
+  await expect(list).toBeVisible();
+  expect(sent).toEqual([]);
+  // The program page in English with its button, then back to Arabic and to the program.
+  await list.locator('[data-action="program"]').click();
+  await expect(page.locator('[data-screen="program"]')).toBeVisible();
+  await page.locator('[data-screen="program"] [data-demo-link]').scrollIntoViewIfNeeded();
+  await shot(page, "en-program-demo-button");
+  await page.locator(".fx-top .fx-chip").first().click();
+  await expect(page.locator('[data-screen="program"]')).toHaveAttribute("dir", "rtl");
+}
+
 test("the health form leads to the check, whose end plays the build and opens the program", async ({
   page,
 }) => {
@@ -157,11 +250,24 @@ test("the health form leads to the check, whose end plays the build and opens th
   await expect(page.locator('[data-screen="program"]')).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".pv7-why").first()).toBeVisible();
   expect((await (await page.request.get("/api/auth/me")).json()).awaitingCheck).toBe(false);
+  // D-037 item 6: the demo exercises from the program page.
+  await demoExercises(page);
   // The program is now on the Program tab and on Today.
   await page.locator('[data-action="program"]').last().click();
   await expect(page.locator(".plan-card")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("[data-program-waiting]")).toHaveCount(0);
   await expect(page.locator('[data-program-link="built"]')).toBeVisible();
+  // The Program tab opens the demo exercises too, and their close comes back to it.
+  const tabLink = page.locator(".portal-main [data-demo-link]");
+  await expect(tabLink).toContainText("عرض تمارين تجريبية");
+  await tabLink.scrollIntoViewIfNeeded();
+  await shot(page, "ar-program-tab-demo-button");
+  await tabLink.locator('[data-action="demos"]').click();
+  await expect(page.locator('[data-screen="demo_exercises"]')).toBeVisible();
+  await page.locator('[data-screen="demo_exercises"] [data-action="leave"]').click();
+  await expect(page.locator(".plan-card")).toBeVisible();
+  // Demo runs did not count: the workouts list is as empty as before.
+  expect((await (await page.request.get("/api/sessions")).json()).records).toEqual([]);
   await page.locator(".portal-sidebar nav button").nth(0).click();
   await expect(page.locator(".next-workout")).toBeVisible();
 });

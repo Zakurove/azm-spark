@@ -1,15 +1,23 @@
 /**
- * "Building your program" (D-032 item 4): after the health form, the range of motion check and the
- * walk, about six seconds that show the medical information and the camera's computer vision turning
- * into a training program, then «برنامجك جاهز» and Continue. Skip ends it from the start; both call
- * onDone. Light background, Cairo, gold and purple, Arabic first and mirrored for English.
+ * "Building your program" (D-032 item 4, D-037 item 5): after the health form, the range of motion
+ * check and the walk, about eleven calm seconds that show the medical information and the camera's
+ * computer vision turning into a training program: the health form read, the range of motion, the
+ * walk, the exercises chosen, the week set, each with its caption and a quieter line of what it reads
+ * (the joints measured are the person's own count). Then «برنامجك جاهز» and Continue. Skip ends it at
+ * any time; both call onDone. Light background, Cairo, gold and purple, Arabic first and mirrored for
+ * English.
  *
- * The beats, the summary handling and every drawn position are in programBuildScene.ts (pure, tested in
- * node); this file draws a frame of it in SVG once a requestAnimationFrame. With reduced motion it is a
- * calm still of the final state with every caption and Continue. The captions are in a polite live
- * region. Loaded lazily (VITE_V7 builds), never in the first script.
+ * The program call runs meanwhile (`ready`, true once it is done): ready early, the animation still
+ * plays out; late, it waits at the check with the rings turning and «نضع اللمسات الأخيرة», and goes on
+ * the moment the program is ready. With no `ready` (the preview) the program counts as ready.
+ *
+ * The beats, the summary handling, the wait and every drawn position are in programBuildScene.ts (pure,
+ * tested in node); this file draws a frame of it in SVG once a requestAnimationFrame (transforms and
+ * opacity of a few dozen shapes). With reduced motion it is a calm still of the final week, its list of
+ * stages ticked one by one in about two seconds with no motion at all, then Continue. The captions are
+ * in a polite live region. Loaded lazily (VITE_V7 builds), never in the first script.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type { Lang } from "../../app/i18n";
 import { buildCopy } from "./programBuildCopy";
 import {
@@ -28,6 +36,7 @@ import {
   STAGE,
   VIEW,
   PEDESTAL,
+  WAIT_LINE_MS,
   WEEK,
   arcTicks,
   arcWedge,
@@ -36,6 +45,8 @@ import {
   easeBack,
   frameAt,
   slotHeight,
+  stillDone,
+  stillEnd,
   weekTop,
   type BuildPlan,
   type CardKind,
@@ -52,54 +63,73 @@ export default function ProgramBuild(props: {
   lang: Lang;
   onDone(): void;
   summary?: { joints: number; walk: boolean; exercises: number };
+  /** The program call is done (default true): until then the animation waits at its end. */
+  ready?: boolean;
 }) {
   const { lang, summary } = props;
+  const ready = props.ready !== false;
   const plan = useMemo(() => buildPlan(summary), [summary?.joints, summary?.walk, summary?.exercises]);
   const still = useReducedMotion();
   const onDone = useRef(props.onDone);
   onDone.current = props.onDone;
-  const director = useMemo(() => new BuildDirector(plan, () => onDone.current(), still), [plan]);
-  const [t, setT] = useState(director.t);
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
+  const director = useMemo(
+    () => new BuildDirector(plan, () => onDone.current(), still, readyRef.current),
+    [plan],
+  );
+  const [clock, setClock] = useState({ t: director.t, idle: director.idle });
   const skipRef = useRef<HTMLButtonElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const refocus = useRef(false);
 
   useEffect(() => {
-    if (still) {
-      director.toStill();
-      setT(director.t);
-      return;
-    }
+    director.setReady(ready);
+  }, [director, ready]);
+
+  useEffect(() => {
+    if (still) director.toStill();
     let frame = 0;
     let last = -1;
+    let shown = "";
     const draw = (now: number) => {
       const wasReady = director.finished;
-      director.tick(last < 0 ? 0 : now - last);
+      const more = director.tick(last < 0 ? 0 : now - last);
       last = now;
       // Skip leaves when the program is ready: its focus goes on to Continue.
       if (!wasReady && director.finished && document.activeElement === skipRef.current)
         refocus.current = true;
-      setT(director.t);
-      if (director.t < plan.settle) frame = requestAnimationFrame(draw);
+      // The still draws nothing new between its ticks: it renders only when its list or line changes.
+      const key = director.isStill
+        ? `${stillDone(plan, director.t)}|${director.finished}|${director.idle >= WAIT_LINE_MS}`
+        : "";
+      if (!director.isStill || key !== shown) {
+        shown = key;
+        setClock({ t: director.t, idle: director.idle });
+      }
+      if (more) frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [director, still, plan]);
+  }, [director, still, plan, ready]);
 
-  const ready = t >= plan.end;
+  // The director's mode: it turns to the still (reduced motion turned on midway) and keeps it.
+  const drawnStill = director.isStill;
+  const finished = clock.t >= (drawnStill ? stillEnd(plan) : plan.end);
   useEffect(() => {
-    if (ready && refocus.current) {
+    if (finished && refocus.current) {
       refocus.current = false;
       continueRef.current?.focus();
     }
-  }, [ready]);
+  }, [finished]);
 
   return (
     <ProgramBuildView
       lang={lang}
       plan={plan}
-      t={t}
-      still={still}
+      t={clock.t}
+      idle={clock.idle}
+      still={drawnStill}
       onSkip={() => director.skip()}
       onContinue={() => director.continue()}
       skipRef={skipRef}
@@ -129,8 +159,11 @@ function useReducedMotion(): boolean {
 export interface ProgramBuildViewProps {
   lang: Lang;
   plan: BuildPlan;
+  /** The moment drawn (ms); under reduced motion, the still's list clock. */
   t: number;
-  /** Reduced motion: the composed still of the final state. */
+  /** How long it has waited at its end for the program (ms). */
+  idle?: number;
+  /** Reduced motion: the still of the final week and its ticked list. */
   still: boolean;
   onSkip(): void;
   onContinue(): void;
@@ -138,11 +171,12 @@ export interface ProgramBuildViewProps {
   continueRef?: Ref<HTMLButtonElement>;
 }
 
-/** The page at one moment: the stage, the status line and the one action. */
+/** The page at one moment: the stage, the status lines and the one action. */
 export function ProgramBuildView({
   lang,
   plan,
   t,
+  idle = 0,
   still,
   onSkip,
   onContinue,
@@ -150,19 +184,23 @@ export function ProgramBuildView({
   continueRef,
 }: ProgramBuildViewProps) {
   const c = buildCopy(lang);
-  const beat = beatAt(plan, t);
-  const ready = !beat;
+  const beat = still ? null : beatAt(plan, t);
+  const ready = still ? t >= stillEnd(plan) : !beat;
+  // The program is late: past the end of the story, the line says it is being finished.
+  const finishing = !ready && idle >= WAIT_LINE_MS;
+  const done = still ? stillDone(plan, t) : 0;
   const rtl = lang === "ar";
+  const caption = ready ? c.ready : finishing ? c.finishing : beat ? c.beats[beat.id] : c.building;
   return (
     <div
-      className={`pb${still ? " is-still" : ""}${ready ? " is-ready" : ""}`}
+      className={`pb${still ? " is-still" : ""}${ready ? " is-ready" : ""}${finishing ? " is-waiting" : ""}`}
       lang={lang}
       dir={rtl ? "rtl" : "ltr"}
-      data-beat={beat ? beat.id : "ready"}
+      data-beat={ready ? "ready" : finishing ? "waiting" : beat ? beat.id : "list"}
     >
       <div className="pb-top">
         <img className="pb-logo" src="/brand/azm-logo.webp" alt={c.brand} />
-        {!still && !ready && (
+        {!ready && (
           <button ref={skipRef} type="button" className="pb-skip" data-action="skip" onClick={onSkip}>
             {c.skip}
           </button>
@@ -170,14 +208,21 @@ export function ProgramBuildView({
       </div>
       <div className="pb-main">
         <div className="pb-stage">
-          <Scene plan={plan} t={t} rtl={rtl} />
+          {/* The still is the final week, its check drawn once the program is ready: nothing moves. */}
+          <Scene
+            plan={plan}
+            t={still ? plan.settle : t}
+            idle={still ? 0 : idle}
+            rtl={rtl}
+            unchecked={still && !ready}
+          />
         </div>
         <div className="pb-status">
           {still ? (
             <ul className="pb-list">
-              {plan.beats.map((b) => (
-                <li key={b.id}>
-                  <Tick />
+              {plan.beats.map((b, i) => (
+                <li key={b.id} className={i < done ? "is-done" : i === done ? "is-now" : "is-todo"}>
+                  {i < done ? <Tick /> : <span className="pb-mark" aria-hidden="true" />}
                   {c.beats[b.id]}
                 </li>
               ))}
@@ -197,10 +242,22 @@ export function ProgramBuildView({
           )}
           <p className="pb-caption" role="status" aria-live="polite">
             {ready ? <Tick big /> : <span className="pb-spin" aria-hidden="true" />}
-            <span key={beat ? beat.id : "ready"} className="pb-caption-text">
-              {beat ? c.beats[beat.id] : c.ready}
+            <span
+              key={ready ? "ready" : finishing ? "waiting" : beat ? beat.id : "list"}
+              className="pb-caption-text"
+            >
+              {caption}
             </span>
           </p>
+          {!still && (
+            <p className="pb-detail">
+              {beat && !finishing && (
+                <span key={beat.id} className="pb-detail-text">
+                  {c.detail(beat.id, plan.measured)}
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div className="pb-actions">
           {ready && (
@@ -242,8 +299,25 @@ const FIGURE_AT = `translate(${FIGURE.x} ${FIGURE.y}) scale(${FIGURE.s})`;
  * One frame of the story in the stage's units, no text and no numbers. Drawn left to right; the stage
  * is mirrored for Arabic (CSS), except the check, which reads the same in both.
  */
-function Scene({ plan, t, rtl }: { plan: BuildPlan; t: number; rtl: boolean }) {
-  const f = frameAt(plan, t);
+const Scene = memo(function Scene({
+  plan,
+  t,
+  idle,
+  rtl,
+  unchecked = false,
+}: {
+  plan: BuildPlan;
+  t: number;
+  idle: number;
+  rtl: boolean;
+  /** The still before the program is ready: the final week without its check. */
+  unchecked?: boolean;
+}) {
+  const drawn = frameAt(plan, t, idle);
+  const f =
+    unchecked && drawn.engine
+      ? { ...drawn, engine: { ...drawn.engine, core: { ...drawn.engine.core, check: 0 } } }
+      : drawn;
   return (
     <svg className="pb-scene" viewBox={`0 0 ${STAGE.w} ${STAGE.h}`} aria-hidden="true" focusable="false">
       <Defs reveal={f.body.reveal} />
@@ -256,7 +330,7 @@ function Scene({ plan, t, rtl }: { plan: BuildPlan; t: number; rtl: boolean }) {
       {f.engine && <Engine e={f.engine} plan={plan} rtl={rtl} />}
     </svg>
   );
-}
+});
 
 function Defs({ reveal }: { reveal: number }) {
   return (
@@ -702,6 +776,9 @@ function Engine({ e, plan, rtl }: { e: EngineFrame; plan: BuildPlan; rtl: boolea
         <circle r={88 * core.glow} fill="url(#pb-core)" />
         {core.burst > 0 && core.burst < 1 && (
           <circle className="pb-burst" r={24 + 80 * core.burst} opacity={0.55 * (1 - core.burst)} />
+        )}
+        {core.wait > 0 && (
+          <circle className="pb-wait" r={34 + 84 * core.wait} opacity={0.5 * (1 - core.wait)} />
         )}
         {core.rings.map((ring, i) => (
           <g

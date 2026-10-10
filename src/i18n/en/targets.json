@@ -39,5 +39,27 @@
     "title": "Your program is waiting for your movement check",
     "body": "First we measure how your joints move and how you walk, then we build your program on it.",
     "start": "Start"
+  },
+  "demo": {
+    "button": "Show demo exercises",
+    "kicker": "Demo exercises",
+    "title": "Try the camera exercises",
+    "intro": "We’re building the exercise library; here is a set of them.",
+    "note": "The camera counts your reps and guides you in each one, and nothing here is saved to your program.",
+    "listLabel": "The demo exercises",
+    "start": "Start",
+    "startName": "Start {name}",
+    "area": {
+      "shoulders": "Shoulders and arms",
+      "elbows": "Elbows and arms",
+      "legs": "Hips and knees"
+    },
+    "view": {
+      "front": "Seated, facing the camera",
+      "side": "Seated, your side to the camera",
+      "angle": "From a chair set at an angle to the camera"
+    },
+    "linkTitle": "Exercises the camera follows",
+    "linkBody": "We’re building the exercise library; here is a set of them to try now."
   }
 }

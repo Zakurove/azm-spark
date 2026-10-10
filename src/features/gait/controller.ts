@@ -1176,7 +1176,8 @@ export class GaitController implements CoachHost {
 
   /**
    * The end of a recording: analyse its views, then go on with what they gave (full or timing only,
-   * D-035 item 2: 3 clean cycles a side across the passes, GAIT_MVP). Not enough asks one calm «try
+   * D-035 item 2; D-037 item 3: 2 clean cycles a side, or 5 in all with 1 on each side, across the
+   * passes, GAIT_MVP). Only a walk that gave nothing usable asks one calm «try
    * once more» with what to change (D-036 item 6); after the second try the walk goes on with it
    * kept (D-035 item 4: stored on failure). The target is never raised.
    */

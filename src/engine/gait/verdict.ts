@@ -8,8 +8,8 @@
  * each other view is its own. A group is
  *   full    6 clean cycles a side summed over its views of the right view at 20 fps or more, none of
  *           them a timing only reading (the gait rules' own group gate);
- *   timing  else, GAIT_MVP.timingCyclesPerSide (3) clean cycles a side summed over its timing only
- *           readings, and a cadence among them;
+ *   timing  else, enough clean cycles summed over its timing only readings (timingEnough: 2 a side,
+ *           or 5 in all with 1 on each side, D-037 item 3), and a cadence among them;
  *   none    else.
  * The walk's level is its best group's. The numbers shown for a timing level come from the timing only
  * readings of its timing groups only, never from a view that failed both (a walk the model tracked
@@ -39,17 +39,21 @@ export function consistent(cycles: readonly Pick<GaitCycle, "clean" | "drop">[])
 /**
  * The same guard pass by pass, for the timing only reading: the clean cycles of a pass whose steady
  * cycles are mostly dropped for order, swap, duration or visibility are not trusted either (the model
- * lost that pass; a home walk's other passes may be fine), and are dropped for order. Mutates and
+ * lost that pass; a home walk's other passes may be fine), and are dropped for order. `nearLed`: an
+ * overground side view's timing reading, led by the near leg (cycles.ts timingEvents), judges a pass
+ * by its near leg's cycles (the far leg's half strides are the model's, not a lost pass). Mutates and
  * returns the cycles.
  */
-export function trustedPasses<C extends Pick<GaitCycle, "clean" | "drop"> & { pass: number }>(
+export function trustedPasses<C extends Pick<GaitCycle, "clean" | "drop"> & { pass: number; near?: boolean }>(
   cycles: C[],
+  nearLed = false,
 ): C[] {
   const passes = new Set(cycles.map((c) => c.pass));
   for (const pass of passes) {
     const own = cycles.filter((c) => c.pass === pass);
-    if (!own.some((c) => c.drop !== "turn" && c.drop !== "pass_edge")) continue;
-    if (consistent(own)) continue;
+    const judged = nearLed && own.some((c) => c.near) ? own.filter((c) => c.near) : own;
+    if (!judged.some((c) => c.drop !== "turn" && c.drop !== "pass_edge")) continue;
+    if (consistent(judged)) continue;
     for (const c of own)
       if (c.clean) {
         c.clean = false;
@@ -62,10 +66,25 @@ export function trustedPasses<C extends Pick<GaitCycle, "clean" | "drop"> & { pa
 /**
  * A view read for timing only below the data's gate: the MVP's reading, or a 20 to 24 fps view with
  * too few clean cycles (which gives no frontal or angle metric). Its clean cycles never count toward
- * the gait rules' gate, so no pattern is read from it.
+ * the gait rules' gate, so no pattern is read from it. Timing only and not passed: the MVP's reading
+ * never passes the gate, and a 20 to 24 fps view passes it with its 6 clean cycles a side (the same
+ * views as «timing only with too_few_cycles» before D-037 item 3, when the MVP's reading named
+ * too_few_cycles whatever its count, so a stored walk reads as it did).
  */
 export function isTimingReading(v: Pick<GaitViewResult, "quality">): boolean {
-  return v.quality.timingOnly && v.quality.issues.includes("too_few_cycles");
+  return v.quality.timingOnly && !v.quality.gatePassed;
+}
+
+/**
+ * Whether a timing only group's clean cycles make a result (GAIT_MVP, D-037 item 3): 2 a side, or 5 in
+ * all with 1 on each side.
+ */
+export function timingEnough(c: { left: number; right: number }): boolean {
+  const low = Math.min(c.left, c.right);
+  return (
+    low >= GAIT_MVP.timingCyclesPerSide ||
+    (low >= GAIT_MVP.timingCyclesMinSide && c.left + c.right >= GAIT_MVP.timingCyclesTotal)
+  );
 }
 
 const usableForGate = (v: Pick<GaitViewResult, "quality">) =>
@@ -165,8 +184,7 @@ export function walkVerdict(views: readonly ViewLike[]): WalkVerdict {
     .filter(
       (g) =>
         g.length &&
-        sum(g, "left") >= GAIT_MVP.timingCyclesPerSide &&
-        sum(g, "right") >= GAIT_MVP.timingCyclesPerSide &&
+        timingEnough({ left: sum(g, "left"), right: sum(g, "right") }) &&
         g.some((v) => v.metrics.cadence?.value != null),
     );
   if (timing.length) {

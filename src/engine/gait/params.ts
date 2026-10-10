@@ -29,11 +29,14 @@ const GATES = qualityGates as unknown as GaitData["qualityGates"];
  * The engine's version, stored with every analysis (GaitAnalysis.engineVersion). Version 2 (D-030
  * C4-1): the pad side view masks the far leg's false contacts (D-028 item 2, PAD_FAR_MASK). Version 3
  * (D-035 item 2): front and back passes by the direction in depth, no leg track across a turn that
- * faces the phone, and the timing only reading of a recording below its gate (GAIT_MVP).
+ * faces the phone, and the timing only reading of a recording below its gate (GAIT_MVP). Version 4
+ * (D-037 item 3): the side view's timing reading led by the near leg (each event in its phase of the
+ * stride, the far leg's contacts in step with the near leg's, the stride band), and the timing result
+ * on 2 clean cycles a side or 5 in all.
  */
 // Kept here so the engine chunk never imports src/movements/gait/index.ts (D-023 gap 16);
 // tests/v7/c-params.test.ts holds it equal to GAIT_ENGINE_VERSION of that file.
-export const ENGINE_VERSION = "gait_engine_3";
+export const ENGINE_VERSION = "gait_engine_4";
 
 function step(name: string): GaitData["preprocessing"][number] {
   const s = PREPROCESSING.find((p) => p.step === name);
@@ -120,8 +123,25 @@ export const GAIT_ENGINE = {
  * section 6: «If the gate fails, re-record, or report timing only»; timing is the strongest signal from
  * one camera (gait.md section 0 item 1). A view that fails its gate is therefore read again for timing
  * only, with these engineering numbers (no clinical threshold; the patterns keep the full gate):
- *   - timingCyclesPerSide: the clean cycles a side, across the passes of the view group, that make a
- *     timing only result (the capture's target; myogait's own minimum per side, quality.ts);
+ *   - timingCyclesPerSide, or timingCyclesTotal with timingCyclesMinSide: the clean cycles across the
+ *     passes of the view group that make a timing only result (verdict.ts timingEnough): 2 a side, or 5
+ *     in all with 1 on each side. D-037 item 3 (Nasser's fourth test: 4 passes, 21 steps, 3 and 2 clean
+ *     cycles, the cadence and step times computed, then refused at 3 a side): a phone's side view sees
+ *     about 5 steps a pass, one or two cycles; the cadence is 120 over the median stride of every clean
+ *     cycle, so 4 or 5 strides read it steadily, and each side's step time is that side's median (one
+ *     cycle on a side is still a measured step, shown with the timing only line). Was 3 a side;
+ *   - strideBand: the timing reading of an overground side view checks each stride against the walk's
+ *     median near leg stride (cycles.ts, D-037 item 3), within 25% either way: both legs' strides take
+ *     the same time in a steady walk (stride time varies by a few percent), and a far leg contact the
+ *     model misplaced (the far heel laid on the near one, G1's real model walk) makes a stride about
+ *     half as long;
+ *   - phase: that reading reads each event between a cycle's two ICs only in its phase of the stride
+ *     (cycles.ts timingEvents), as a share of the stride from the IC: the other leg's TO ends the first
+ *     double support (about 0.1, later in a slow or affected walk), its IC comes near the middle (0.5;
+ *     0.3 and 0.7 are a step time asymmetry above 2), and the leg's own TO after more than half the
+ *     stride (stance is about 0.6 of it, over 0.5 in any walk and rarely over 0.8). An event outside
+ *     its phase is the model laying one leg on the other for a moment (G1's and the lab's real model
+ *     walks: a far IC and a near TO just after each near IC), not the walk;
  *   - turnMarginSec and dropSteps: the turn with 0.3 s either side and one step at each in view start,
  *     stop or turn are left out, instead of 1 s and two steps (the timing only reading never reads an
  *     angle; set on the generator's home walks, tests/v7/c-home-walk.test.ts);
@@ -133,7 +153,15 @@ export const GAIT_ENGINE = {
  *     turns (a slow walk is 0.4 m/s and more, the gait fixtures' slowest).
  */
 export const GAIT_MVP = {
-  timingCyclesPerSide: 3,
+  timingCyclesPerSide: 2,
+  timingCyclesTotal: 5,
+  timingCyclesMinSide: 1,
+  strideBand: [0.75, 1.25] as [number, number],
+  phase: {
+    oppTo: [0, 0.3] as [number, number],
+    oppIc: [0.3, 0.7] as [number, number],
+    to: [0.45, 0.85] as [number, number],
+  },
   turnMarginSec: 0.3,
   dropSteps: { first: 1, last: 1 },
   cleanShareMin: 0.5,

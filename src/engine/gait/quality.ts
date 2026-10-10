@@ -10,7 +10,8 @@
  *   gapShare     the share of analysed frames with a gate landmark (23 to 32; side views: the hips
  *                and the near leg, D-026 item 6) under 0.5, which the pre-processing filled by
  *                interpolation
- *   gatePassed   at least 6 clean cycles per side, at 20 fps or more («under 20: record again»)
+ *   gatePassed   at least 6 clean cycles per side, at 20 fps or more («under 20: record again»); never
+ *                for the MVP's timing only reading (verdict.ts isTimingReading: timing only, not passed)
  *   timingOnly   20 to 24 fps: «timing and cadence only»; or the MVP's timing only reading of a view
  *                below its gate (GAIT_MVP, D-035 item 2), at 20 fps or more
  *   issues       what lowered the view: too_few_cycles, low_fps (under 25), gaps (over 15%),
@@ -169,8 +170,10 @@ export function viewQuality(q: QualityInput): GaitQuality {
     0,
   );
   const issues = new Set<GaitQualityIssue>();
-  // The timing only reading is below the data's gate by definition (its cycles keep turn steps).
-  if (!enough || q.timing === true) issues.add("too_few_cycles");
+  // The timing only reading never passes the data's gate (its cycles keep turn steps; gatePassed and
+  // timingOnly say so), and names too_few_cycles only when it has fewer than the gate's 6 a side: a
+  // timing reading of 6 and 8 clean cycles named too_few_cycles before (D-037 item 3).
+  if (!enough) issues.add("too_few_cycles");
   if (fps < GAIT_ENGINE.fullFps) issues.add("low_fps");
   if (gaps > GAIT_ENGINE.gapShareMax) issues.add("gaps");
   if (!enough && drops.get("visibility")) issues.add("visibility");

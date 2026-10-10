@@ -176,10 +176,13 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
     // The MVP's timing only reading (GAIT_MVP, D-035 item 2): kept only when the model tracked the
     // walk consistently and a clean cycle was found, at a frame rate the data reads.
     const t = view === "side" ? readNear() : read(STEADY_TIMING, true);
-    // The guard: the passes it kept (trustedPasses) hold mostly clean steady cycles.
+    // The guard: the passes it kept (trustedPasses) hold mostly clean steady cycles (the side view's
+    // near leg cycles: its reading is led by the near leg, D-037 item 3).
     const found = t.quality.cleanCycles.left > 0 || t.quality.cleanCycles.right > 0;
     const kept = new Set(t.cycles.filter((c) => c.clean).map((c) => c.pass));
-    const keptCycles = t.cycles.filter((c) => kept.has(c.pass));
+    const inKept = t.cycles.filter((c) => kept.has(c.pass));
+    const nearKept = inKept.filter((c) => c.near);
+    const keptCycles = view === "side" && nearKept.length ? nearKept : inKept;
     if (!found || !consistent(keptCycles) || t.quality.medianFps < GAIT_ENGINE.recordAgainBelowFps)
       return null;
     return resultOf(t, null);
@@ -218,7 +221,7 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
     }
     events.sort((a, b) => a.index - b.index || (a.type === b.type ? 0 : a.type === "ic" ? -1 : 1));
     cycles.sort((a, b) => a.k0 - b.k0 || (a.side === "left" ? -1 : 1));
-    trustedPasses(cycles);
+    trustedPasses(cycles, true);
     const p0 = prepared.right;
     const fps = viewFps(p0, motion);
     const metrics = viewMetrics({

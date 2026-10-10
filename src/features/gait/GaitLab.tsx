@@ -5,8 +5,8 @@
  * side walk, so /?gaitlab=front (and any other value) opens the same side walk.
  *   - live: the skeleton over the picture, the steps and passes counted (one walk across the picture
  *     each, of the fixed target), the clean cycles a side, the share of frames with the legs seen, the
- *     frame rate, the contacts found and the gate (full: 6 a side; timing only: 3 a side across the
- *     passes);
+ *     frame rate, the contacts found and the gate (full: 6 a side; timing only: 2 a side, or 5 in all
+ *     with 1 on each side, across the passes, D-037 item 3);
  *   - at the end: the verdict in one line («Cadence 104 steps a minute, right step 0.58 s, left
  *     0.62 s», or «Not analysed because ...») and a JSON block to screenshot.
  * Query: lang=en (Arabic first), model=full|lite (the device's remembered model, as the smoke page
@@ -110,7 +110,10 @@ const REASON_TEXT: Record<WalkReason, { ar: string; en: string }> = {
   low_fps: { ar: "الإطارات أقل من 20 في الثانية", en: "under 20 frames a second" },
   visibility: { ar: "القدمان لم تظهرا بوضوح", en: "the feet were not seen clearly" },
   tracking: { ar: "لم نتابع الساقين بثبات", en: "the legs were not followed steadily" },
-  too_few_steps: { ar: "الخطوات النظيفة أقل من 3 لكل جهة", en: "fewer than 3 clean cycles a side" },
+  too_few_steps: {
+    ar: "الخطوات النظيفة أقل من 2 لكل جهة، أو أقل من 5 في المجموع",
+    en: "fewer than 2 clean cycles a side, or 5 in all",
+  },
 };
 
 const r2 = (v: number) => Math.round(v * 100) / 100;

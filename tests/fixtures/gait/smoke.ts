@@ -190,3 +190,22 @@ export function loadHomeSmoke(path: string): HomeSmokeWalk {
     truth: f.truth,
   };
 }
+
+/**
+ * Frames seen through a narrower picture (D-037 item 3): the part of the picture from x0 to x1 (shares
+ * of its width) becomes the whole picture, as a phone held upright or nearer the path sees the same
+ * walk; a landmark outside it is under the visibility floor, as the model gives a point it cannot see.
+ * The real model's rendered walk across a landscape picture becomes a walk of about 5 steps a pass
+ * that leaves the picture at each end.
+ */
+export function narrowerPicture(frames: readonly GaitFrame[], x0: number, x1: number): GaitFrame[] {
+  const w = x1 - x0;
+  return frames.map((f) => ({
+    ...f,
+    aspect: f.aspect * w,
+    lm: f.lm.map((q) => {
+      const x = (q.x - x0) / w;
+      return { ...q, x, visibility: x < 0 || x > 1 ? Math.min(q.visibility, 0.1) : q.visibility };
+    }),
+  }));
+}

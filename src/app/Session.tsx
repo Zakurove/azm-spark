@@ -12,7 +12,8 @@ import { CuePlayer, isVoiceLine } from "./audio";
 import { fmtNum, Lang, pct as fmtPct, T } from "./i18n";
 import voiceScript from "./voice-script.json";
 import { drawOverlay } from "./overlay";
-import { CameraPoseSource, CameraStatus, PoseSource, TracePoseSource } from "./poseSource";
+import { CameraPoseSource, CameraStatus, LOCK_NUM_POSES, PoseSource, TracePoseSource } from "./poseSource";
+import { lockedFrame, SUBJECT_RULES, SubjectLock } from "../engine/subject";
 import type { TraceOpts } from "../engine/traces";
 import { camCopy } from "./camera-copy";
 import { sessionCopy } from "./session-copy";
@@ -209,6 +210,8 @@ export default function SessionScreen(props: {
 
   const pipe = useRef({
     flow: null as WorkoutFlow | null,
+    /** The person the set is for, one per set (D-037 item 4: the booth, many people in the picture). */
+    lock: new SubjectLock(SUBJECT_RULES, { ignoreBehind: true }),
     over: false,
     startedAt: 0,
     flash: new Set<number>(),
@@ -279,7 +282,8 @@ export default function SessionScreen(props: {
     (raw: Frame) => {
       const P = pipe.current;
       if (P.over || !P.flow) return;
-      const v: FlowView = P.flow.step(raw);
+      // Only the locked person is measured, drawn and cued (D-037 item 4).
+      const v: FlowView = P.flow.step(lockedFrame(P.lock, raw));
       const now = performance.now();
 
       // The caption: a new cue about a joint makes that joint glow for 2 s.
@@ -390,6 +394,7 @@ export default function SessionScreen(props: {
     let cancelled = false;
     const P = pipe.current;
     P.flow = new WorkoutFlow(def, profile, variantDef.requiredLandmarks, def.targetReps);
+    P.lock = new SubjectLock(SUBJECT_RULES, { ignoreBehind: true });
     P.over = false;
     P.startedAt = 0;
     P.ui = INITIAL_UI;
@@ -408,7 +413,8 @@ export default function SessionScreen(props: {
               ? new EmptyPoseSource()
               : new TracePoseSource(exerciseId, E2E_TRACES[e2eTrace] ?? {});
         } else {
-          const cam = new CameraPoseSource(videoRef.current!);
+          // Two people, so another one never takes the set's person's pose (D-037 item 4).
+          const cam = new CameraPoseSource(videoRef.current!, { numPoses: LOCK_NUM_POSES });
           cam.onStatus = setCamStatus;
           src = cam;
         }

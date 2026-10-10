@@ -92,11 +92,30 @@ export function videoAspect(v: Pick<HTMLVideoElement, "videoWidth" | "videoHeigh
   return v.videoWidth > 0 && v.videoHeight > 0 ? v.videoWidth / v.videoHeight : undefined;
 }
 
+/**
+ * How many people the model looks for on a camera screen that follows one locked person (D-037 item 4:
+ * the booth, many people in the picture): the range measurement, the walk and the camera workouts.
+ * With 1 the model keeps only the person most prominent to it, so when it loses the screen's person
+ * for a moment (a turn, someone passing) it can come back on another one; with 2 it returns both, and
+ * the screen's lock (engine/subject.ts) keeps its person. The model runs its person detector only
+ * while it follows fewer people than this, and one landmark run for each person it follows. Measured
+ * per frame with the real model (Chromium, Apple M4 GPU, D-037; a phone takes about 1.45 times as
+ * long: the walk ran at about 49 fps with Full and 2 on Nasser's iPhone):
+ *   Full: 1 pose 8.5 ms; 2 poses 14 ms alone, 15.4 ms with two people, 16 ms with three;
+ *         3 poses 14 ms alone, 22 ms with two people, 23.7 ms with three;
+ *   Lite: 1 pose 7.4 ms; 2 poses 13.7 to 13.9 ms; 3 poses 13.9 ms alone, 20.6 ms with two people.
+ * 3 keeps the detector running whenever two people are in the picture (about 31 fps on the phone
+ * with Full, near the walk's 25 fps floor), so 2 it is: about 45 fps with two or three people, and a
+ * third person is not followed while two are. The v1 movement check has the same 2 (spec 4.0,
+ * CHECK_DATA.engine.pose.numPoses).
+ */
+export const LOCK_NUM_POSES = 2;
+
 export interface CameraPoseOptions {
   /**
-   * How many people the model looks for. Workouts and the trial keep the default of 1. The
-   * movement check passes 2 (CHECK_DATA.engine.pose.numPoses, spec 4.0) and picks its subject
-   * from `Frame.poses` with SubjectLock.
+   * How many people the model looks for (default 1). The movement check passes 2
+   * (CHECK_DATA.engine.pose.numPoses, spec 4.0); the range measurement, the walk and the camera
+   * workouts LOCK_NUM_POSES; each picks its person from `Frame.poses` with SubjectLock.
    */
   numPoses?: number;
   /**

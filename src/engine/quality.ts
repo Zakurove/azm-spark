@@ -34,7 +34,7 @@ import {
   VIEW_RATIO,
   visible,
 } from "./body";
-import { effectiveAspect, toPixelSpace } from "./geometry";
+import { effectiveAspect, toPixelSpace, trunkLength } from "./geometry";
 import { nearestCentre, SUBJECT_RULES, type SubjectPick } from "./subject";
 import { Frame, Landmark, LM } from "./types";
 
@@ -661,6 +661,11 @@ export interface SetupConfig {
   distanceRule?: DistanceRule;
   /** A view the test does not accept is an issue (absent or true, v1) or only a warning (false, v7). */
   viewBlocks?: boolean;
+  /**
+   * D-037 item 4 (v7): another person behind the person (a trunk under SUBJECT_RULES.behindShare of
+   * theirs: further from the phone) is never a second person in the way; absent, v1: every overlap.
+   */
+  ignoreBehind?: boolean;
 }
 
 // SPEC-GAP: stand-headroom. "From the head at full stand" cannot be seen while the person sits
@@ -706,6 +711,12 @@ export interface SetupFrame {
   t: number;
   poses: Landmark[][];
   aspect?: number;
+  /**
+   * The screen's locked person (subject.ts subjectOf: the index in `poses`, -1 not seen), so the check
+   * reads only that person and never another one in the picture (D-037 item 4); undefined: the person
+   * nearest the centre, before any lock.
+   */
+  subject?: number;
 }
 
 /** Phone tilt from level upright, in degrees: roll around the camera axis and pitch of that axis. */
@@ -795,8 +806,8 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
   for (const f of frames) {
     const a = effectiveAspect(f.aspect);
     aspects.push(a);
-    const i = nearestCentre(f.poses, a);
-    if (i < 0) {
+    const i = f.subject !== undefined ? f.subject : nearestCentre(f.poses, a);
+    if (i < 0 || !isPerson(f.poses[i])) {
       bump("no_person");
       continue;
     }
@@ -804,8 +815,10 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
     const lm = f.poses[i];
     const p = toPixelSpace(lm, a);
     const box = poseBox(p);
+    const size = cfg.ignoreBehind ? trunkLength(lm, a) : Number.NaN;
     const crowded = f.poses.some((o, j) => {
       if (j === i || !isPerson(o)) return false;
+      if (size > 0 && trunkLength(o, a) < SUBJECT_RULES.behindShare * size) return false;
       const ob = poseBox(toPixelSpace(o, a));
       return !!box && !!ob && overlapShare(box, ob) > SUBJECT_RULES.overlapMax;
     });

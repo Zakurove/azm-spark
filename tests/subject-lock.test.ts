@@ -182,15 +182,19 @@ describe("SubjectLock on the fixtures", () => {
     expect(lock.pausedShare).toBe(0);
   });
 
-  it("pauses after the phone slips, until the flow locks again", () => {
+  it("pauses after the phone slips, until the flow locks again (or the lock's release, D-037)", () => {
     const fx = generate({ ...base, jolts: [{ at: 2, dx: 0.1, dy: 0.02 }] });
     const frames = fixtureFrames(fx);
     const { lock, picks } = track(fx);
     const slip = frames.findIndex((f) => f.t >= 2000);
+    // Within the release time the moved picture's person is not trusted; at it, the person then in
+    // the picture is locked (the same person here, a new generation).
+    const released = frames.findIndex((f) => f.t - frames[slip - 1].t >= SUBJECT_RULES.releaseMs);
     expect(picks[slip].reason).toBe("jump");
-    expect(picks.slice(slip).every((p) => p.paused && p.lm === null)).toBe(true);
+    expect(picks.slice(slip, released).every((p) => p.paused && p.lm === null)).toBe(true);
     expect(picks.slice(0, slip).every((p) => !p.paused)).toBe(true);
-    expect(lock.pausedRun).toBe(frames.length - slip);
+    expect(picks.slice(released).every((p) => !p.paused && p.lm !== null)).toBe(true);
+    expect(lock.generation).toBe(2);
     lock.lock(posesOf(frames[slip]), frames[slip].aspect);
     expect(lock.pausedRun).toBe(0);
     expect(frames.slice(slip).every((f) => !lock.pickFrame(f).paused)).toBe(true);

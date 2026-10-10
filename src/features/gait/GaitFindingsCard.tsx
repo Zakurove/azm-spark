@@ -10,12 +10,13 @@
  *     carries the existing approximate label «مقارنة تقريبية» (D-028, AP-12);
  *   - the quality notes of the clinical copy: the handrail held or touched, timing only, the pad.
  * No result shown and the gate passed: the no pattern line; no view passed: the walk was not clear.
- * A walk read for timing only (D-035 item 2, the MVP's home walk: 3 clean cycles a side across the
- * passes, below the full gate) shows its steps a minute and each side's step time with the clinical
+ * A walk read for timing only (D-035 item 2, the MVP's home walk: 2 clean cycles a side, or 5 in all
+ * with 1 on each side, across the passes, below the full gate, D-037 item 3) shows its steps a minute and each side's step time with the clinical
  * timing only line, and no pattern line at all (the patterns were not assessed). A walk that gave
  * nothing shows the unclear line and, at the end of the walk, what to change next time.
  */
 import type { Lang } from "../../app/i18n";
+import { timingEnough } from "../../engine/gait/verdict";
 import { bidiText } from "../../i18n/rich";
 import type { GaitPatternResult, GaitStoredView } from "../../medical/gait-types";
 import { romResultLine } from "../../movements/rom";
@@ -30,14 +31,13 @@ export interface GaitFindingsCardProps {
   reason?: string | null;
 }
 
-/** MVP_TIMING_CYCLES: GAIT_MVP.timingCyclesPerSide, the timing only level's clean cycles a side. */
-const MVP_TIMING_CYCLES = 3;
 const FULL_CYCLES = 6;
 
 /**
  * What a stored walk gave (D-035 item 2; engine/gait/verdict.ts on the stored view, which keeps each
  * view's clean cycles and the walk's quality): full (a view passed its gate, or the toward and away
- * views together), timing (timing only, 3 clean cycles a side in a group and a cadence) or none.
+ * views together), timing (timing only, enough clean cycles in a group, verdict.ts timingEnough: 2 a
+ * side, or 5 in all with 1 on each side, D-037 item 3; and a cadence) or none.
  */
 export function storedLevel(
   gait: Pick<GaitStoredView, "views" | "quality" | "metrics">,
@@ -55,7 +55,11 @@ export function storedLevel(
   for (const v of gait.views) if (v.view !== "front" && v.view !== "back") groups.push(v.cleanCycles);
   const enough = (n: number) => groups.some((g) => g.left >= n && g.right >= n);
   if (!gait.quality.timingOnly && enough(FULL_CYCLES)) return "full";
-  if (gait.quality.timingOnly && typeof gait.metrics.cadence?.value === "number" && enough(MVP_TIMING_CYCLES))
+  if (
+    gait.quality.timingOnly &&
+    typeof gait.metrics.cadence?.value === "number" &&
+    groups.some((g) => timingEnough(g))
+  )
     return "timing";
   return "none";
 }

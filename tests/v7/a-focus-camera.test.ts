@@ -29,8 +29,7 @@ import {
   type FocusCameraOptions,
   type PoseModel,
 } from "../../src/features/focus/camera";
-import type { PoseSource } from "../../src/app/poseSource";
-import { CHECK_DATA } from "../../src/movements/assessments";
+import { LOCK_NUM_POSES, type PoseSource } from "../../src/app/poseSource";
 import { GAIT_DATA } from "../../src/movements/gait";
 import { ROM_DATA } from "../../src/movements/rom";
 import type { Frame } from "../../src/engine/types";
@@ -350,7 +349,9 @@ describe("the default pose source", () => {
       numPoses: number;
     };
     expect(options.baseOptions.modelAssetPath).toBe("/models/pose_landmarker_full.task");
-    expect(options.numPoses).toBe(CHECK_DATA.engine.pose.numPoses);
+    // D-037 item 4: two people, so another person never takes the locked person's pose.
+    expect(options.numPoses).toBe(LOCK_NUM_POSES);
+    expect(LOCK_NUM_POSES).toBe(2);
     expect(getUserMedia).toHaveBeenCalledOnce();
     expect(getUserMedia.mock.calls[0][0].video.frameRate).toEqual({
       ideal: GAIT_DATA.capture.common.cameraFps,

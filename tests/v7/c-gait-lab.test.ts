@@ -43,7 +43,7 @@ describe("the lab's verdict line", () => {
       reasons: ["wrong_view", "too_few_steps"],
     };
     expect(verdictLine(none, "en")).toBe(
-      "Not analysed because the wrong view for this recording, fewer than 3 clean cycles a side.",
+      "Not analysed because the wrong view for this recording, fewer than 2 clean cycles a side, or 5 in all.",
     );
     expect(verdictLine(none, "ar").startsWith("لم يُحلَّل لأن")).toBe(true);
   });

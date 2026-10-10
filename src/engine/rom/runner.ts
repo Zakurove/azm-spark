@@ -445,6 +445,8 @@ export class RomRunner {
   /* calibration */
   private readonly rounds = new CalibrationRounds();
   private relockPending = true;
+  /** The person the start pose was taken on (the lock's generation), D-037 item 4. */
+  private calGen = -1;
   private calBuf: { t: number; px: Landmark[]; roll: number | null }[] = [];
   private cal: RomCalibration | null = null;
   private calRoll: number | null = null;
@@ -594,6 +596,17 @@ export class RomRunner {
     if (this.finished || this.phaseNow === "idle" || this.phaseNow === "stopped") return [];
     const t = frame.t;
     this.tLast = Math.max(this.tLast, t);
+    // D-037 item 4: the person the start pose was taken on left the picture and the lock now follows
+    // another one (after its release time): the start pose is taken again, on them.
+    if (
+      this.cal &&
+      this.calGen >= 0 &&
+      this.lock.generation !== this.calGen &&
+      (this.phaseNow === "practice" || this.phaseNow === "attempt" || this.phaseNow === "rest")
+    ) {
+      this.att = null;
+      this.beginCalibration(t);
+    }
     const roll = env.rollDeg ?? null;
     if (roll !== null && Number.isFinite(roll)) this.lastRoll = roll;
     switch (this.phaseNow) {
@@ -971,6 +984,7 @@ export class RomRunner {
     const spread = Math.max(...angles) - Math.min(...angles);
     if (spread > this.rounds.tolerance(RUNNER_RULES.calibrationStillDeg, t)) return;
     this.cal = { ...cal, t };
+    this.calGen = this.lock.generation;
     this.calRoll = roll;
     this.camSide = this.majorityCameraSide();
     this.fixed = this.fixPicture();

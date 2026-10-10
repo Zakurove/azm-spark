@@ -61,10 +61,19 @@ export interface WalkSpec {
    * with a turn at the far end. `turnSec` is each turn's time (default 1.6).
    */
   home?: { pathM?: number; nearM?: number; farM?: number; turnSec?: number };
+  /**
+   * Overground side, out of the picture to turn: the path's length (default 9.6 m) and each turn's
+   * time out of the picture (default 1.5 s); each pass then starts at a seeded phase of the gait cycle.
+   */
+  sidePath?: { pathM?: number; turnSec?: number };
   rollDeg?: number;
   /** Landmark noise, sd in units of the picture height. */
   noise?: number;
-  camera?: { distance?: number; height?: number; lateral?: number };
+  /**
+   * The phone: its distance, lens height and sideways offset (m); `portrait` holds a side view's
+   * phone upright (720x1280: the picture about 2.8 m wide at 3 m, so a pass across it is about 5 steps).
+   */
+  camera?: { distance?: number; height?: number; lateral?: number; portrait?: boolean };
   /** Leg labels exchanged in these ranges of walk time (seconds). */
   swaps?: { from: number; to: number }[];
   /** Away passes labelled as if facing the phone (every left and right label exchanged). */
@@ -572,11 +581,11 @@ export interface Camera {
 }
 
 export function cameraOf(spec: Pick<WalkSpec, "view" | "camera" | "rollDeg">): Camera {
-  const side = spec.view === "side" || spec.view === "pad_side";
+  const c = spec.camera ?? {};
+  const side = (spec.view === "side" || spec.view === "pad_side") && !c.portrait;
   const w = side ? 1280 : 720;
   const h = side ? 720 : 1280;
   const f = Math.min(w, h) / 2 / Math.tan(25 * D2R);
-  const c = spec.camera ?? {};
   const pos: V =
     spec.view === "side"
       ? [0, c.height ?? 1.0, c.distance ?? 3.5]
@@ -614,7 +623,7 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
     out.push({ from: 0, to: spec.durationSec ?? 30, pass: { heading, origin, kind: "pad" } });
     return out;
   }
-  const turnSec = 1.5;
+  const turnSec = spec.view === "side" ? (spec.sidePath?.turnSec ?? 1.5) : 1.5;
   let t = 0;
   // Its own random numbers, so a walk without shifts draws exactly as before; stratified, so the
   // passes' starts spread over the whole range.
@@ -634,17 +643,23 @@ function segmentsOf(spec: WalkSpec, g: Gait): Segment[] {
   };
   if (spec.home) return homeSegmentsOf(spec, g, spec.home);
   if (spec.view === "side") {
-    const half = 4.8;
+    const half = (spec.sidePath?.pathM ?? 9.6) / 2;
+    // sidePath also starts each pass at a seeded phase of the gait cycle (a person's first step into
+    // the picture lands on either foot), at the same place.
+    const phaseR = spec.sidePath ? rng((spec.seed ?? 1) * 104729 + 11) : null;
     for (let i = 0; i < (spec.passes ?? 4); i++) {
       const dir = i % 2 === 0 ? 1 : -1;
       const dur = (2 * half) / g.speed;
+      const phase = phaseR ? phaseR() * g.strideSec : 0;
+      const heading: V = [dir, 0, 0];
       out.push({
         from: t,
         to: t + dur,
         pass: {
-          heading: [dir, 0, 0],
-          origin: add([-dir * half - dir * 0.6, 0, 0], shift([dir, 0, 0])),
+          heading,
+          origin: add(add([-dir * half - dir * 0.6, 0, 0], shift(heading)), mul(heading, -g.speed * phase)),
           kind: dir > 0 ? "right" : "left",
+          ...(phaseR ? { phase } : {}),
         },
       });
       t += dur;

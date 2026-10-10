@@ -12,8 +12,10 @@
  *     out, and with it every bone it ends.
  *
  * What this helper does instead, for display only (what the engines measure is unchanged):
- *   - one person: the pose nearest the one drawn last (the first time, the one nearest the frame's
- *     centre, as SubjectLock locks);
+ *   - one person, the screen's locked person (D-037 item 4: the booth, many people in the picture):
+ *     the pose the screen's lock marked in the frame (subject.ts subjectOf: the range measurement,
+ *     the walk), nothing while that person is not seen, and nobody else ever; a frame no lock read
+ *     (a block card's preview) is followed by the skeleton's own SubjectLock, the same rules;
  *   - the v1 filter on every point: oneEuro.ts OneEuro with the defaults PoseSmoother uses (minCutoff
  *     1.7, beta 0.3), fed each camera frame once, on the frames' own clock;
  *   - a joint the model does not see keeps its last place (a guess never moves it), and one unseen for
@@ -26,7 +28,7 @@
  */
 import { isPerson } from "../engine/body";
 import { OneEuro } from "../engine/oneEuro";
-import { nearestCentre, posesOf } from "../engine/subject";
+import { posesOf, SUBJECT_RULES, SubjectLock, subjectOf } from "../engine/subject";
 import type { Frame, Landmark } from "../engine/types";
 
 /** The body's lines: arms, trunk, legs and feet. */
@@ -88,24 +90,6 @@ interface Track {
 const finite = (q: Landmark | undefined): q is Landmark =>
   !!q && Number.isFinite(q.x) && Number.isFinite(q.y) && Number.isFinite(q.visibility);
 
-/** The middle of a pose's trunk (its seen shoulders and hips, else any seen point), or null. */
-function centreOf(p: Landmark[]): { x: number; y: number } | null {
-  let sx = 0;
-  let sy = 0;
-  let n = 0;
-  for (const set of [[11, 12, 23, 24], POINTS]) {
-    for (const i of set) {
-      const q = p[i];
-      if (!finite(q) || q.visibility < SKELETON_RULES.hideBelow) continue;
-      sx += q.x;
-      sy += q.y;
-      n++;
-    }
-    if (n) return { x: sx / n, y: sy / n };
-  }
-  return null;
-}
-
 /**
  * The display pose of one camera stage: `push` each new camera frame once, `pose(now)` at each
  * animation frame (it advances the fades on the display's clock).
@@ -115,9 +99,10 @@ export class SteadySkeleton {
   /** The joint is shown (the two thresholds' state). */
   private on: boolean[] = [];
   private alphaNow: number[] = [];
-  private centre: { x: number; y: number } | null = null;
   private lastNow: number | null = null;
   private last: Frame | null = null;
+  /** The person followed in frames no screen lock read (the same rules as the screens', D-037 item 4). */
+  private lock = new SubjectLock(SUBJECT_RULES, { ignoreBehind: true });
 
   constructor() {
     this.reset();
@@ -128,33 +113,26 @@ export class SteadySkeleton {
     this.tracks = Array.from({ length: 33 }, () => null);
     this.on = Array.from({ length: 33 }, () => false);
     this.alphaNow = Array.from({ length: 33 }, () => 0);
-    this.centre = null;
     this.lastNow = null;
     this.last = null;
+    this.lock = new SubjectLock(SUBJECT_RULES, { ignoreBehind: true });
   }
 
-  /** The pose of a frame this skeleton follows: the one nearest the pose drawn last. */
+  /**
+   * The person of a frame this skeleton draws: the one the screen's lock marked (nobody while that
+   * person is not seen), else the one its own lock follows. Never another person.
+   */
   private pick(frame: Frame): Landmark[] | null {
-    const poses = posesOf(frame).filter((p) => isPerson(p));
-    if (!poses.length) return null;
-    if (poses.length === 1) return poses[0];
-    const a = frame.aspect && frame.aspect > 0 ? frame.aspect : 1;
-    if (!this.centre) {
-      const i = nearestCentre(poses, frame.aspect);
-      return i < 0 ? null : poses[i];
+    const poses = posesOf(frame);
+    const marked = subjectOf(frame);
+    if (marked !== undefined) {
+      const lm = marked >= 0 ? (poses[marked] ?? null) : null;
+      // The own lock stays on the screen's person, for a frame no lock reads later.
+      if (lm && isPerson(lm)) this.lock.lock([lm], frame.aspect, frame.t);
+      return lm && isPerson(lm) ? lm : null;
     }
-    let best: Landmark[] | null = null;
-    let bestD = Infinity;
-    for (const p of poses) {
-      const c = centreOf(p);
-      if (!c) continue;
-      const d = Math.hypot((c.x - this.centre.x) * a, c.y - this.centre.y);
-      if (d < bestD) {
-        bestD = d;
-        best = p;
-      }
-    }
-    return best;
+    if (!this.lock.locked && !this.lock.lock(poses, frame.aspect, frame.t)) return null;
+    return this.lock.pick(poses, frame.aspect, frame.t).lm;
   }
 
   /**
@@ -182,7 +160,6 @@ export class SteadySkeleton {
       tr.y = tr.fy.filter(q.y, t);
       tr.seenT = t;
     }
-    if (lm) this.centre = centreOf(lm) ?? this.centre;
   }
 
   /** The pose to draw at display time `now` (ms), the fades advanced; null when nothing shows or fades in. */

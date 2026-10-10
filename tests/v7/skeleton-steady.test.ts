@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { PoseSmoother } from "../../src/engine/oneEuro";
 import type { Frame, Landmark } from "../../src/engine/types";
 import { drawSkeleton, SKELETON_BONES, SKELETON_RULES, SteadySkeleton } from "../../src/app/skeleton";
+import { markSubject } from "../../src/engine/subject";
 
 /** A standing person centred at (cx, 0.5), every landmark seen. */
 function person(cx: number, vis = 0.95): Landmark[] {
@@ -181,5 +182,37 @@ describe("the steady skeleton (D-036 item 5)", () => {
     const fills = calls.filter((c) => c.op === "fill");
     expect(fills.filter((c) => c.alpha === 0.4)).toHaveLength(2);
     expect(fills.some((c) => c.alpha === 0)).toBe(false);
+  });
+
+  it("draws only the screen's locked person: the pose its lock marked, nothing while unseen (D-037 item 4)", () => {
+    const steady = new SteadySkeleton();
+    const a = person(0.35);
+    const b = person(0.6);
+    // The screen's lock marked A (index 1 in the model's order), then marked nobody (A unseen).
+    for (let k = 0; k < 20; k++) {
+      const f = frame(k * 33, [b, a]);
+      markSubject(f, 1);
+      steady.push(f);
+    }
+    expect(steady.pose(20 * 33)!.pts[11]!.x).toBeCloseTo(a[11].x, 2);
+    for (let k = 20; k < 60; k++) {
+      const f = frame(k * 33, [b]);
+      markSubject(f, -1);
+      steady.push(f);
+    }
+    // Faded out where A was: B is never drawn.
+    const pose = steady.pose(60 * 33 + 2000);
+    expect(pose).toBeNull();
+  });
+
+  it("follows its own locked person when no screen lock reads the frames: B coming closer is not drawn", () => {
+    const steady = new SteadySkeleton();
+    const a = person(0.4);
+    for (let k = 0; k < 20; k++) steady.push(frame(k * 33, [a]));
+    // B comes in at the middle of the picture, larger (nearer the phone), first in the model's order.
+    const b = person(0.5).map((q) => ({ ...q, y: 0.5 + (q.y - 0.5) * 1.4 }));
+    for (let k = 20; k < 80; k++) steady.push(frame(k * 33, [b, a]));
+    const pose = steady.pose(80 * 33)!;
+    expect(pose.pts[11]!.x).toBeCloseTo(a[11].x, 2);
   });
 });

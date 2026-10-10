@@ -360,6 +360,39 @@ interface Attempt {
 const clampTo = (kind: RomKind, v: number) =>
   Math.max(ROM_VALUE_BOUNDS[kind][0], Math.min(ROM_VALUE_BOUNDS[kind][1], Math.round(v)));
 
+/**
+ * The far end a body can plausibly reach in a movement (D-036 follow up): its norms' widest mean plus
+ * four SDs, at least 15 degrees past the mean. A reading past it is the tracker, not the joint (a wrist
+ * hidden behind the upper arm read an elbow bend of 178 degrees, a straightening of minus 30), so the
+ * value is held at that end and marked approximate. Only the far end is held: a small range is never
+ * changed. Null when the movement has no norm rows.
+ */
+export function plausibleEnd(movementId: RomMovementId, kind: RomKind): number | null {
+  const rows = ROM_DATA.norms.filter((n) => n.movement === movementId).flatMap((n) => n.rows);
+  const ends = rows
+    .filter((r): r is typeof r & { sd: number } => Number.isFinite(r.mean) && typeof r.sd === "number")
+    .map((r) => {
+      const reach = Math.max(4 * r.sd, 15);
+      return kind === "lack" ? r.mean - reach : Math.abs(r.mean) + reach;
+    });
+  if (!ends.length) return null;
+  return Math.round(kind === "lack" ? Math.min(...ends) : Math.max(...ends));
+}
+
+/** A recorded value held at its plausible end, and whether it was held. */
+export function holdAtPlausibleEnd(
+  movementId: RomMovementId,
+  kind: RomKind,
+  v: number,
+): { value: number; held: boolean } {
+  const end = plausibleEnd(movementId, kind);
+  if (end === null) return { value: v, held: false };
+  if (kind === "lack" && v < end) return { value: end, held: true };
+  if (kind === "flexion" && v > end) return { value: end, held: true };
+  if (kind === "signed" && Math.abs(v) > end) return { value: Math.sign(v) * end, held: true };
+  return { value: v, held: false };
+}
+
 export class RomRunner {
   readonly lock: SubjectLock;
   private readonly opts: RomRunnerOptions;
@@ -1522,10 +1555,11 @@ export class RomRunner {
     this.reports.push(q);
     this.advise(q, t);
     const painLimited = held.answer === "hurts" || a.pain;
+    const end = holdAtPlausibleEnd(this.opts.def.id, this.kind, held.hold.deg);
     const rec: RomAttempt = {
       index: a.index,
       outcome: "valid",
-      value: held.hold.deg,
+      value: end.value,
       answer: held.answer,
       answerSource: held.source,
       painLimited,
@@ -1533,7 +1567,7 @@ export class RomRunner {
       reasons: this.compReasons(held.verdict),
       flags: [
         ...this.holdFlags(held.hold.smallExcursion, held.hold.bandDeg, held.verdict.flagged, held.answer),
-        ...(held.verdict.invalid.length ? (["approximate"] as const) : []),
+        ...(held.verdict.invalid.length || end.held ? (["approximate"] as const) : []),
         ...extra,
       ],
       quality: q,

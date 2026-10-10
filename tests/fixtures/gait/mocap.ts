@@ -169,7 +169,8 @@ export interface MocapViewSpec {
   seed?: number;
   /** Landmark noise, sd in units of the picture height (default 0.002). */
   noise?: number;
-  camera?: { distance?: number; height?: number; lateral?: number };
+  /** `landscape`: a front or back view's phone laid sideways (1280x720, D-038 item 4). */
+  camera?: { distance?: number; height?: number; lateral?: number; landscape?: boolean };
   /** Seconds between passes, the walker out of the picture (default 2). */
   gapSec?: number;
   /** First walk frame time, ms (default 10000). */
@@ -254,7 +255,7 @@ function headingOf(view: GaitView, dir: 1 | -1, near: Side): V {
 
 function cameraFor(fx: MocapFixture, spec: MocapViewSpec): Camera {
   const c = spec.camera ?? {};
-  const cam = cameraOf({ view: spec.view });
+  const cam = cameraOf({ view: spec.view, camera: { landscape: c.landscape } });
   if (spec.view === "side") cam.pos = [0, c.height ?? 1.0, c.distance ?? 3.5];
   else if (spec.view === "front" || spec.view === "back") {
     // 1.0 m past the furthest hip position of the walk along the walkway.

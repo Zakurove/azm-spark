@@ -99,8 +99,15 @@ export function medianFps(frameMs: ArrayLike<number>): number {
   return m !== null && m > 0 ? 1000 / m : 0;
 }
 
-/** The share of the analysed frames with a gate landmark under the visibility floor. */
-export function gapShare(p: Prepared, motion: Motion): number {
+/**
+ * The share of the analysed frames with a gate landmark under the visibility floor; `gate` the front
+ * and back views' gate landmarks (the data's 23 to 32, or the MVP reading's, GAIT_MVP).
+ */
+export function gapShare(
+  p: Prepared,
+  motion: Motion,
+  gate: readonly number[] = GAIT_ENGINE.gateLandmarks,
+): number {
   let analysed = 0;
   let filled = 0;
   for (const pass of motion.passes) {
@@ -115,7 +122,7 @@ export function gapShare(p: Prepared, motion: Motion): number {
           LEG[pass.near].heel,
           LEG[pass.near].toe,
         ]
-      : GAIT_ENGINE.gateLandmarks;
+      : gate;
     for (const [a, b] of analysedRuns(pass, motion.excluded)) {
       const from = lowerBound(p.frameMs, p.series.t[a] * 1000 - 1e-6);
       const to = lowerBound(p.frameMs, p.series.t[b - 1] * 1000 + 1e-6);
@@ -141,6 +148,8 @@ export interface QualityInput {
   noViewPasses: boolean;
   /** The MVP's timing only reading of a view below its gate (GAIT_MVP): timingOnly whatever the frame rate. */
   timing?: boolean;
+  /** Front and back views: the gate landmarks of the gap share (SteadyRules.frontGate). */
+  gate?: readonly number[];
 }
 
 /** The view's quality report (GaitQuality). */
@@ -157,7 +166,7 @@ export function viewQuality(q: QualityInput): GaitQuality {
       drops.set(c.drop, (drops.get(c.drop) ?? 0) + 1);
     }
   }
-  const gaps = gapShare(q.p, q.motion);
+  const gaps = gapShare(q.p, q.motion, q.gate);
   const enough =
     clean.left >= GAIT_ENGINE.cleanCyclesPerSide && clean.right >= GAIT_ENGINE.cleanCyclesPerSide;
   // The timing only reading never passes the full gate: its cycles keep turn steps (GAIT_MVP).

@@ -2801,6 +2801,68 @@
         "en": "We did not see a walking pattern today that needs special exercises, among the patterns this check looks for."
       }
     },
+    "patternNames": {
+      "antalgic": {
+        "ar": "قد يشير مشيك إلى مشية الألم (تخفيف الحمل عن ساقك {side_ar}).",
+        "en": "Your walk may suggest an antalgic gait (sparing your {side_en} leg)."
+      },
+      "short_stance": {
+        "ar": "قد يشير مشيك إلى عرج (وقوف أقصر على ساقك {side_ar}).",
+        "en": "Your walk may suggest a limp (a shorter stance on your {side_en} leg)."
+      },
+      "prosthetic_side": {
+        "ar": "قد يشير مشيك إلى عرج مع الطرف الصناعي (وقوف أقصر على ساقك {side_ar}).",
+        "en": "Your walk may suggest a prosthetic limp (a shorter stance on your {side_en} leg)."
+      },
+      "trendelenburg": {
+        "ar": "قد يشير مشيك إلى مشية ترندلنبرغ (عند الوقوف على ساقك {side_ar}).",
+        "en": "Your walk may suggest a Trendelenburg gait (when you stand on your {side_en} leg)."
+      },
+      "duchenne_lean": {
+        "ar": "قد يشير مشيك إلى ميلان دوشين (ميل جذعك نحو ساقك {side_ar}).",
+        "en": "Your walk may suggest a Duchenne lean (your upper body leans over your {side_en} leg)."
+      },
+      "waddling": {
+        "ar": "قد يشير مشيك إلى المشية المتمايلة (تمايل من جهة إلى أخرى).",
+        "en": "Your walk may suggest a waddling gait (a sway from side to side)."
+      },
+      "stiff_knee": {
+        "ar": "قد يشير مشيك إلى مشية الركبة المتيبسة (ركبتك {side_ar}).",
+        "en": "Your walk may suggest a stiff knee gait (your {side_en} knee)."
+      },
+      "stiff_knee_both": {
+        "ar": "قد يشير مشيك إلى مشية الركبة المتيبسة (في الركبتين).",
+        "en": "Your walk may suggest a stiff knee gait (in both knees)."
+      },
+      "steppage": {
+        "ar": "قد يشير مشيك إلى مشية القدم المتدلية، وتسمى مشية الخطوة العالية (قدمك {side_ar}).",
+        "en": "Your walk may suggest a foot drop gait, known as steppage (your {side_en} foot)."
+      },
+      "crouch": {
+        "ar": "قد يشير مشيك إلى مشية القرفصاء (ركبتان منثنيتان أثناء الوقوف).",
+        "en": "Your walk may suggest a crouch gait (both knees stay bent as you stand)."
+      },
+      "knee_stays_bent": {
+        "ar": "قد يشير مشيك إلى مشية بركبة منثنية (ركبتك {side_ar}).",
+        "en": "Your walk may suggest a bent knee gait (your {side_en} knee)."
+      },
+      "recurvatum": {
+        "ar": "قد يشير مشيك إلى فرط بسط الركبة (ركبتك {side_ar}).",
+        "en": "Your walk may suggest knee hyperextension (your {side_en} knee)."
+      },
+      "quad_avoidance": {
+        "ar": "قد يشير مشيك إلى مشية تتجنب ثني الركبة (ركبتك {side_ar}).",
+        "en": "Your walk may suggest a quadriceps avoidance gait (your {side_en} knee)."
+      },
+      "reduced_extension": {
+        "ar": "قد يشير مشيك إلى نقص بسط الورك (ساقك {side_ar}).",
+        "en": "Your walk may suggest reduced hip extension (your {side_en} leg)."
+      },
+      "short_steps": {
+        "ar": "قد يشير مشيك إلى مشية الخطوات القصيرة.",
+        "en": "Your walk may suggest a short stepping gait."
+      }
+    },
     "contributorsLead": {
       "ar": "ومن الأسباب الممكنة {list}.",
       "en": "Possible reasons include {list}."

@@ -59,9 +59,11 @@ export type ContributorId = keyof GaitData["copy"]["contributors"];
  * What a result was read against. norm_interim: the age and sex norms of gait-rules 4.1 (Fang 2018,
  * Hollman 2011), which under call below 70 until the steady state tables are retrieved (review B10,
  * GAIT-Q11): the person's view shows the result with the existing approximate label (D-026 item 7,
- * CG-16).
+ * CG-16). mvp_reading (D-038 item 4): read from the MVP's reading of a walk below the data's gate of 6
+ * clean cycles a side (the side walk's timing reading, the toward and away walk's frontal reading, 2
+ * clean cycles a side): possible at low confidence at most, shown with the provisional label.
  */
-export type GaitResultFlag = "norm_interim";
+export type GaitResultFlag = "norm_interim" | "mvp_reading";
 
 export interface GaitPatternResult {
   pattern: GaitPatternId;
@@ -85,7 +87,11 @@ export interface GaitPatternResult {
   targets: { id: TargetId; side: "left" | "right" | "both" | "none" }[];
   /** refer_prosthetist, refer_afo, refer_new_or_worse ... */
   referrals: string[];
-  lines: { pattern: Text; reasons: Text | null; targets: Text[]; confidence: Text | null };
+  /**
+   * name: the recognised gait name with "may suggest" and the side (D-038 item 4), shown above the
+   * pattern's plain line; empty, as the others, when the result is not shown.
+   */
+  lines: { pattern: Text; name: Text; reasons: Text | null; targets: Text[]; confidence: Text | null };
   /** Absent: read against no norm (CG-16). */
   flags?: GaitResultFlag[];
 }

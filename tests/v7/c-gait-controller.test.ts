@@ -153,7 +153,7 @@ describe("the walk's steps and their kinds (C-16)", () => {
     expect(STEP_KIND.intro).toBe("info");
   });
 
-  it("walks overground as one walk: the clear path, the side recording, the stance (D-036 item 6)", () => {
+  it("walks overground as one walk in two parts: the clear path, the side passes, then toward the phone and back, the stance (D-038 item 4)", () => {
     const run = controller({ ...BASE, staticStance: true });
     expect(run.ctl.plannedSteps.map((s) => (s.rec ? `${s.id}:${s.rec}` : s.id))).toEqual([
       "intro",
@@ -162,6 +162,9 @@ describe("the walk's steps and their kinds (C-16)", () => {
       "place:overground_side",
       "stand:overground_side",
       "walk:overground_side",
+      "place:overground_front",
+      "stand:overground_front",
+      "walk:overground_front",
       "stance_place",
       "stance",
       "saving",
@@ -267,7 +270,8 @@ describe("the recordings", () => {
     }
     expect(seen.every((x) => x.target === 4 && x.passes <= 4)).toBe(true);
     expect(seen.at(-1)?.passes).toBe(4);
-    expect(run.ctl.current.id).toBe("saving");
+    // D-038 item 4: right after the side passes, part 2 (toward the phone and back); left out here.
+    expect(run.ctl.current).toEqual({ id: "place", rec: "overground_front" });
     const body = run.ctl.body()!;
     expect(body.analysis.views.map((v) => v.view)).toEqual(["side"]);
     const [side] = body.analysis.views;
@@ -281,8 +285,20 @@ describe("the recordings", () => {
     expect(run.events.filter((e) => e.type === "pass_done")).toHaveLength(1);
   });
 
-  it("never walks the plan's front and back views; a plan without the side view walks nothing overground", () => {
-    const run = controller({ ...BASE, views: { overground: ["front", "back"], walking_pad: [] } });
+  it("walks the plan's front and back views as part 2 alone when the plan has no side view; a plan with neither walks nothing overground", () => {
+    const front = controller({ ...BASE, views: { overground: ["front", "back"], walking_pad: [] } });
+    expect(front.ctl.plannedSteps.map((s) => (s.rec ? `${s.id}:${s.rec}` : s.id))).toEqual([
+      "intro",
+      "gear",
+      "clear_path",
+      "place:overground_front",
+      "stand:overground_front",
+      "walk:overground_front",
+      "saving",
+      "done",
+    ]);
+    expect(front.ctl.viewsOf("overground_front")).toEqual([{ view: "front" }, { view: "back" }]);
+    const run = controller({ ...BASE, views: { overground: [], walking_pad: [] } });
     expect(run.ctl.plannedSteps.map((s) => s.id)).toEqual(["intro", "gear", "clear_path", "saving", "done"]);
     tapTo(run, "saving");
     expect(run.ctl.body()).toBeNull();

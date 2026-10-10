@@ -192,6 +192,9 @@ describe("buildInstruction", () => {
     expect(gait).toContain(
       "walking across the picture and back with their side to the phone, never toward it",
     );
+    // D-038 item 4: part 2, toward the phone and back, twice, with its turn said at once.
+    expect(gait).toContain("walking toward the phone and back, twice, starting 4 to 5 metres away");
+    expect(gait).toContain("say key=hint_turn_1 or hint_turn_2 (part 2, each lap)");
     // A workout has no say lines; its corrections stay on the screen.
     const session = buildInstruction(inputFor("session", "en"));
     expect(session).not.toContain("say kind=step");

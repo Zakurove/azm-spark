@@ -41,13 +41,30 @@ describe("v7 still illustrations", () => {
   });
 
   it("mirrors both walking side views but leaves front views unmirrored", () => {
-    for (const kind of ["pad_side", "pad_front", "overground_side", "overground_front"] as const) {
+    for (const kind of ["pad_side", "pad_front", "overground_side"] as const) {
       const html = render(
         createElement(Placement, { kind, lang: "en", side: "left", label: "Phone placement" }),
       );
       expect(html.includes("is-mirrored")).toBe(kind.endsWith("side"));
       expect(html).toContain('alt="Phone placement"');
       expect(html).toContain('loading="lazy"');
+    }
+  });
+
+  it("draws part 2 of the walk from above: the phone where it stood, the start, the turn (D-038 item 4)", () => {
+    // The walk toward a phone beside the path (v7_walk_front_path) is another setup: part 2 keeps the
+    // phone sideways where it stood for the side passes, so its own drawing says where to start and turn.
+    for (const lang of ["en", "ar"] as const) {
+      const html = render(
+        createElement(Placement, { kind: "overground_front", lang, side: "left", label: "Part 2" }),
+      );
+      expect(html).toContain('aria-label="Part 2"');
+      expect(html).not.toContain("v7_walk_front_path");
+      expect(html).not.toContain("is-mirrored");
+      for (const word of lang === "en"
+        ? ["Start", "4 to 5 metres", "Turn", "about 2 metres", "Phone"]
+        : ["البداية", "4 إلى 5 أمتار", "استدر هنا", "مترين تقريبًا", "الهاتف"])
+        expect(html, word).toContain(word);
     }
   });
 

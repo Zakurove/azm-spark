@@ -7,11 +7,13 @@
  * Steps, each with its C-16 kind (the coach presses a step's button only on the person's spoken words,
  * through the buttons the screen registers in `actions`, D-036 item 2; the pad's checklist stays a tap):
  *   - intro (info), the mode when both are allowed (question), the shoes and a leg brace (question);
- *   - overground (D-036 item 6: one walk, the side view only): the clear path (confirm); the side
+ *   - overground (D-038 item 4: one walk in two parts): the clear path (confirm); part 1, the side
  *     recording (the phone's placement, confirm; 3 s standing, active; the passes across the picture,
- *     active); the static single leg stance when planned (its place, confirm; the hold on each leg,
- *     active). The plan's front and back views are not walked: the findings that need them are not
- *     assessed, and the card simply leaves them out;
+ *     active); part 2, right after it with the phone left where it is, the toward and away recording
+ *     of the plan's front and back views (its own screen and picture, confirm; 3 s standing facing the
+ *     phone 4 to 5 m away, active; the laps toward the phone and back, active, with a «turn» cue as
+ *     the feet near the picture's bottom); the static single leg stance when planned (its place,
+ *     confirm; the hold on each leg, active);
  *   - walking pad: the pad safety steps of gait-rules eligibility.padSafety as one checklist with one
  *     Ready (D-032 item 2: the floor, clear space and the stop control or safety key; the foot speed
  *     control off; the support away from the phone), a confirm step; then per planned view: the
@@ -21,17 +23,20 @@
  *     (confirm); the static stance when planned; the speed and the handrail hold (question).
  * Capture (D-036 item 6): a fixed target that finishes. The side recording walks its fixed number of
  * passes (gait-rules capture.overground.side.passes, 4; each pass one walk across the picture, counted
- * by sidePasses.ts) and ends a moment after the last one; a pad view records its fixed seconds. The
- * target never grows. The recording is then read with whatever it holds (full, timing only, or not
- * enough). Not enough asks one calm «try once more», with «go on» always beside it; a second try that
- * gives too little goes on by itself. Every recording is kept and posted with its reasons (D-035 item
- * 4: stored on failure). «I have finished» on the walk's screen reads the recording at once, and an
- * overground recording ends at 2 minutes whatever happens. The analysis runs at the end only
- * (analyseGaitView is never fed live: the recorder and the live counter are, 2.8).
+ * by sidePasses.ts) and ends a moment after the last one; the toward and away recording its 2 laps
+ * (D-038 item 4: «twice»; each lap toward the phone and back, counted by frontLaps.ts) and ends a
+ * moment after the second walk back; a pad view records its fixed seconds. The target never grows.
+ * The recording is then read with whatever it holds (full, timing only, or not enough). Not enough
+ * asks one calm «try once more», with «go on» always beside it; a second try that gives too little
+ * goes on by itself. Every recording is kept and posted with its reasons (D-035 item 4: stored on
+ * failure). «I have finished» on the walk's screen reads the recording at once, and an overground
+ * recording ends at 2 minutes whatever happens. The analysis runs at the end only (analyseGaitView is
+ * never fed live: the recorder and the live counter are, 2.8).
  * D-037 item 1 (Nasser stands far from the phone and cannot read it): with the screen's language set
  * (lang), each step hands the coach its say line (say.ts: the phone's place and distance, walking
- * across the picture side on, never toward the phone), the pass count now and then and each hint;
- * explain() gives the step showing now to a coach session that has just gone live.
+ * across the picture side on in part 1, toward the phone and back in part 2), the pass or lap count
+ * now and then, each hint and each lap's «turn»; explain() gives the step showing now to a coach
+ * session that has just gone live.
  * Pain (C-15, the 2.11 gait row): any mark_pain ends the recording and is kept for the rules
  * (GaitAnalysis.walkPain); painStopRule against the walk's score before (painBefore, W2-5, D-027
  * item 1) ends the test, labelled pain_limited, with the completed clean cycles kept; below it the
@@ -80,7 +85,7 @@ import type {
 import type { Lang } from "../../app/i18n";
 import { EMERGENCY_REASONS, pauseRefusal, resumeRefusal, type PausedBy } from "../coach-agent/hostRules";
 import { pressNextStep, ScreenActions } from "../../coach/actions";
-import { gaitStepSay, hintSay, passSaid, passSay } from "./say";
+import { gaitStepSay, hintSay, lapSay, passSaid, passSay } from "./say";
 
 const CAPTURE = captureData as unknown as GaitData["capture"];
 const PAD_SAFETY = (eligibilityData as unknown as GaitData["eligibility"]).padSafety;
@@ -121,6 +126,12 @@ export const CAPTURE_RULES = {
  */
 export const CAPTURE_LIMITS = {
   afterLastPassMs: 2000,
+  /**
+   * D-038 item 4: the walk toward the phone and back, «twice» (Nasser's words), and its end 3 s after
+   * the second walk back is counted (about a third of the way back: the person reaches the start).
+   */
+  frontLaps: 2,
+  afterLastLapMs: 3000,
   overgroundMaxSec: 120,
   maxTries: 2,
   stanceSwitchMs: 3000,
@@ -135,8 +146,11 @@ const HEIGHT_CM = { min: 120, max: 220 } as const;
 
 /* ---------------------------------------------------------------- steps */
 
-/** A recording of the walk: the overground side one (D-036 item 6), or a pad view. */
-export type RecordingId = "overground_side" | "pad_side_a" | "pad_side_b" | "pad_front";
+/**
+ * A recording of the walk: overground the side one (part 1, D-036 item 6) and the toward and away one
+ * (part 2, the front and back views, D-038 item 4), or a pad view.
+ */
+export type RecordingId = "overground_side" | "overground_front" | "pad_side_a" | "pad_side_b" | "pad_front";
 
 export type GaitStepId =
   | "intro"
@@ -223,7 +237,7 @@ const STEP_LINE: Partial<Record<GaitStepId, string>> = {
  * The overground walk's line (gait.json walk.sideSay): shown on the walk's screen and given to the Live
  * coach, which says it in its own words (D-036 items 1 and 6: no phone speech, one side walk).
  */
-export const WALK_LINE = { side: "gait.walk.sideSay" } as const;
+export const WALK_LINE = { side: "gait.walk.sideSay", front: "gait.walk.frontSay" } as const;
 
 /* ------------------------------------------------------------- recordings */
 
@@ -237,7 +251,10 @@ export interface GearAnswer {
 export interface LiveView {
   /** Steps counted live (LiveStepCounter, never stored). */
   steps: number;
-  /** Passes walked (never more than the target), and the fixed target (D-036 item 6; 0 on the pad). */
+  /**
+   * Passes walked (part 1) or laps toward the phone and back (part 2), never more than the target, and
+   * the fixed target (D-036 item 6, D-038 item 4; 0 on the pad).
+   */
   passes: number;
   target: number;
   /** Pad views: seconds recorded, and the fixed seconds of the view. */
@@ -252,10 +269,11 @@ export interface LiveView {
 
 /**
  * «across»: the person walks toward or away from the phone in the side recording; «further»: they
- * turn back too soon for a walk across to count (D-036 item 6).
+ * turn back too soon for a walk across to count (D-036 item 6); «turn»: walking toward the phone in
+ * the toward and away recording, the feet near the picture's bottom (D-038 item 4).
  */
 export type GaitHint =
-  "no_person" | "second_person" | "feet" | "legs" | "light" | "level" | "across" | "further";
+  "no_person" | "second_person" | "feet" | "legs" | "light" | "level" | "across" | "further" | "turn";
 
 /** The walker in one frame (GaitController.walker). */
 interface Walker {
@@ -276,10 +294,13 @@ interface Recording {
   counter: LiveStepCounter;
   rolls: number[];
   poseModel: "lite" | "full";
-  /** The fixed target (D-036 item 6): overground the passes, on the pad the seconds. It never grows. */
+  /**
+   * The fixed target (D-036 item 6): the side passes, the laps toward the phone and back (D-038 item
+   * 4), on the pad the seconds. It never grows.
+   */
   target: number;
   steps: number;
-  /** Passes counted live (may pass the target while the walk ends; the screen never shows more). */
+  /** Passes (or laps) counted live (may pass the target while the walk ends; the screen never shows more). */
   passes: number;
   /** When the target was reached (overground), or null. */
   reachedAt: number | null;
@@ -371,7 +392,15 @@ export interface RecordingDiagnostics {
 }
 
 /** The calm line a failed recording shows: what to change (D-035 item 2). */
-export type RetryReason = "side_on" | "no_person" | "light" | "whole_body" | "more_steps" | "one_person";
+export type RetryReason =
+  | "side_on"
+  | "no_person"
+  | "light"
+  | "whole_body"
+  | "more_steps"
+  | "one_person"
+  | "front_start"
+  | "front_turn";
 
 const EMPTY_LM = (): Landmark[] => Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));
 const median = (xs: number[]): number | null => {
@@ -522,10 +551,12 @@ export class GaitController implements CoachHost {
     if (p.modes.length > 1 && !this.padTooFast) head.push({ id: "mode" });
     head.push({ id: "gear" });
     if (this.mode === "overground") {
-      // D-036 item 6: one walk, the side view only (across the picture and back). The plan's front
-      // and back views are not walked.
+      // D-038 item 4: one walk in two parts, the side passes and right after them, the phone left
+      // where it is, the walk toward it and back (the plan's front and back views).
       const out = [...head, { id: "clear_path" } as GaitStep];
       if (p.views.overground.includes("side")) out.push(...this.recordingSteps("overground_side"));
+      if (p.views.overground.some((v) => v === "front" || v === "back"))
+        out.push(...this.recordingSteps("overground_front"));
       if (p.staticStance) out.push({ id: "stance_place" }, { id: "stance" });
       out.push({ id: "saving" }, { id: "done" });
       return out;
@@ -569,6 +600,10 @@ export class GaitController implements CoachHost {
   /** The engine views a recording gives, from the plan. */
   viewsOf(rec: RecordingId): { view: GaitView; nearSide?: "left" | "right" }[] {
     if (rec === "overground_side") return [{ view: "side" }];
+    if (rec === "overground_front")
+      return this.plan.views.overground
+        .filter((v): v is "front" | "back" => v === "front" || v === "back")
+        .map((view) => ({ view }));
     if (rec === "pad_front") return [{ view: "pad_front" }];
     const sides = this.plan.views.walking_pad.filter((v) => v.view === "pad_side");
     const v = sides[rec === "pad_side_a" ? 0 : 1];
@@ -675,7 +710,13 @@ export class GaitController implements CoachHost {
     if (!r) {
       const pad = id.startsWith("pad");
       const view: GaitView =
-        id === "overground_side" ? "side" : id === "pad_front" ? "pad_front" : "pad_side";
+        id === "overground_side"
+          ? "side"
+          : id === "overground_front"
+            ? "front"
+            : id === "pad_front"
+              ? "pad_front"
+              : "pad_side";
       const maxSec = pad
         ? (id === "pad_front" ? CAPTURE_RULES.padFrontSec : CAPTURE_RULES.padSideSec) + 10
         : CAPTURE_LIMITS.overgroundMaxSec + 10;
@@ -713,6 +754,8 @@ export class GaitController implements CoachHost {
     switch (id) {
       case "overground_side":
         return CAPTURE_RULES.sidePasses;
+      case "overground_front":
+        return CAPTURE_LIMITS.frontLaps;
       case "pad_front":
         return CAPTURE_RULES.padFrontSec;
       default:
@@ -769,8 +812,9 @@ export class GaitController implements CoachHost {
     if (s.id === "pad_stop") this.padEndedAt = now;
     const line = STEP_LINE[s.id];
     if (line) this.say(line, "info");
-    // D-035 item 2: the walk's own line (the screen's copy, gait.walk.sideSay).
+    // D-035 item 2: the walk's own line (the screen's copy, gait.walk.sideSay or frontSay).
     if (s.id === "walk" && s.rec === "overground_side") this.say(WALK_LINE.side, "info");
+    if (s.id === "walk" && s.rec === "overground_front") this.say(WALK_LINE.front, "info");
     // The belt is stopped while the helper moves the phone to the pad's other side (D-030 C4-3).
     if (s.id === "place" && s.rec === "pad_side_b") this.say("gait_pad_other_side", "info");
     this.bridge({ p: 3, type: "step_start", label: s.rec ? `${s.id}_${s.rec}` : s.id, t: now });
@@ -876,6 +920,12 @@ export class GaitController implements CoachHost {
     if (r.results.some((v) => v.quality.issues.includes("not_one_person")) || share(r.crowdedFrames) > 0.3)
       return "one_person";
     if (!r.results.length || (r.walkFrames > 0 && r.seenFrames / r.walkFrames < 0.2)) return "no_person";
+    if (r.id === "overground_front") {
+      // D-038 item 4: the walk toward the phone and back. Its feet lost near the phone: turn sooner;
+      // else too few steps in view: start further away and walk straight toward it.
+      if (Number.isFinite(fps) && fps < CAPTURE_RULES.recordAgainBelowFps) return "light";
+      return reasons.includes("visibility") ? "front_turn" : "front_start";
+    }
     // Walking toward or away from the phone in the side recording (Nasser's third test, D-036 item 6).
     if (reasons.includes("wrong_view") || share(r.depthFrames) > 0.3) return "side_on";
     if (Number.isFinite(fps) && fps < CAPTURE_RULES.recordAgainBelowFps) return "light";
@@ -1021,8 +1071,10 @@ export class GaitController implements CoachHost {
     this.hintNow = h;
     if (h) {
       this.bridge({ p: 2, type: "setup_issue", issue: h, t: this.lastT });
-      // D-037 item 1: the coach says the hint, calmly (never the same one within a few seconds).
-      if (this.lang) this.sayLine(hintSay(h, this.lang), this.lastT);
+      // D-037 item 1: the coach says the hint, calmly (never the same one within a few seconds); the
+      // turn of each lap is its own line (D-038 item 4: the laps come closer than that).
+      const lap = h === "turn" ? (this.recording?.passes ?? 0) + 1 : undefined;
+      if (this.lang) this.sayLine(hintSay(h, this.lang, lap), this.lastT);
     }
     this.changed();
   }
@@ -1079,14 +1131,16 @@ export class GaitController implements CoachHost {
     r.lastT = frame.t;
     const live = r.counter.feed(counted && counted !== lm ? { ...g, lm: counted } : g);
     if (live.steps > r.steps) r.steps = live.steps;
-    this.countPasses(r, live.passes, frame.t);
+    const front = r.id === "overground_front";
+    this.countPasses(r, front ? live.laps : live.passes, frame.t);
     if (live.depth) {
       r.depthFrames++;
       this.acrossUntil = frame.t + ACROSS_HINT_MS;
     }
     // A calm hint: another person over the walker; the side walk toward or away from the phone
-    // (D-036 item 6: «walk across the picture, not toward the phone»); on the pad also the feet out of
-    // the picture or nobody (overground the walker leaves the picture at the ends of the path).
+    // (D-036 item 6: «walk across the picture, not toward the phone»); the walk toward the phone with
+    // the feet near the picture's bottom: «turn» (D-038 item 4); on the pad also the feet out of the
+    // picture or nobody (overground the walker leaves the picture at the ends of the path).
     const pad = r.id.startsWith("pad");
     this.setHint(
       crowded
@@ -1097,23 +1151,33 @@ export class GaitController implements CoachHost {
               ? null
               : "feet"
             : "no_person"
-          : frame.t < this.acrossUntil
-            ? "across"
-            : live.short
-              ? "further"
-              : null,
+          : front
+            ? live.close && r.reachedAt === null
+              ? "turn"
+              : null
+            : frame.t < this.acrossUntil
+              ? "across"
+              : live.short
+                ? "further"
+                : null,
     );
     if (this.finishDue(r, frame.t)) this.pendingCheck = true;
     this.changed();
   }
 
-  /** The passes counted live; the time the fixed target was reached (overground). True on a change. */
+  /**
+   * The passes (or the laps toward the phone and back) counted live; the time the fixed target was
+   * reached (overground). True on a change.
+   */
   private countPasses(r: Recording, passes: number, t: number): boolean {
     if (passes <= r.passes) return false;
     r.passes = passes;
     if (!r.id.startsWith("pad") && r.reachedAt === null && r.passes >= r.target) r.reachedAt = t;
-    // D-037 item 1: the pass count now and then (passSaid), only if the coach is free at once.
-    if (this.lang && !r.id.startsWith("pad") && passSaid(passes, r.target))
+    // D-037 item 1: the pass count now and then (passSaid), only if the coach is free at once; the
+    // walk toward the phone: «once more» after each lap but the last (D-038 item 4).
+    if (this.lang && r.id === "overground_front") {
+      if (passes < r.target) this.sayLine(lapSay(passes, r.target, this.lang), t);
+    } else if (this.lang && !r.id.startsWith("pad") && passSaid(passes, r.target))
       this.sayLine(passSay(passes, r.target, this.lang), t);
     return true;
   }
@@ -1125,7 +1189,9 @@ export class GaitController implements CoachHost {
   private finishDue(r: Recording, t: number): boolean {
     if (r.id.startsWith("pad")) return r.activeMs >= r.target * 1000;
     if (r.activeMs >= CAPTURE_LIMITS.overgroundMaxSec * 1000) return true;
-    return r.reachedAt !== null && t - r.reachedAt >= CAPTURE_LIMITS.afterLastPassMs;
+    const after =
+      r.id === "overground_front" ? CAPTURE_LIMITS.afterLastLapMs : CAPTURE_LIMITS.afterLastPassMs;
+    return r.reachedAt !== null && t - r.reachedAt >= after;
   }
 
   private feedWarmUp(who: Walker): void {
@@ -1187,7 +1253,9 @@ export class GaitController implements CoachHost {
     if (this.pendingCheck) return this.check(r, now);
     if (r.done) return;
     // The person may leave the picture or stand still after a pass: no frame then says it ended.
-    const counted = !r.id.startsWith("pad") && this.countPasses(r, r.counter.poll(now).passes, now);
+    const polled = r.id.startsWith("pad") ? null : r.counter.poll(now);
+    const counted =
+      polled !== null && this.countPasses(r, r.id === "overground_front" ? polled.laps : polled.passes, now);
     if (this.finishDue(r, now)) {
       this.pendingCheck = true;
       this.changed();
@@ -1422,7 +1490,8 @@ export class GaitController implements CoachHost {
   body(): GaitBody | null {
     const setup = this.setup();
     const views: GaitViewResult[] = [];
-    const order: RecordingId[] = this.mode === "overground" ? ["overground_side"] : this.padRecordings();
+    const order: RecordingId[] =
+      this.mode === "overground" ? ["overground_side", "overground_front"] : this.padRecordings();
     for (const id of order) {
       const r = this.recordings.get(id);
       if (!r || r.skipped || r.recorder.seconds < 1) continue;

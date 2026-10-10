@@ -52,7 +52,11 @@ gives a side view walk the far leg the real model reports (G1's kept landmarks: 
 in about 46% of the frames, the far ankle in about 12%, where the legs cross in the picture), for the
 near limb regressions of `tests/v7/c-pad-near-limb.test.ts`; `smoke.ts`'s `overgroundFromPad` makes G1's
 real model pad walk an overground side walk (each pass moved at the belt speed, the return passes
-mirrored with their labels exchanged) for the same file's fail safe test.
+mirrored with their labels exchanged) for the same file's fail safe test. D-038 item 4 (the walk toward
+the phone and back, the phone left sideways where it stood for the side passes): the generator's
+`camera.landscape` lays a front view's phone sideways (1280x720), the catalog's `home-toward-back` is
+that walk at home, and `smoke.ts`'s `shorterPicture` cuts G1's rendered walk toward a portrait phone to
+a landscape picture's 50 degrees, for `tests/v7/c-gait-front-walk.test.ts`.
 `scripts/fixtures/mocap_to_fixture.py` writes the files (its header gives the method and the usage; it reads the c3d files with ezc3d 1.7.2, MIT License, Copyright (c) 2018
 pyomeca, fetching only the named members of the figshare zips).
 

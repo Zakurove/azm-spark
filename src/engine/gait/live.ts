@@ -18,6 +18,9 @@
  *     growing or shrinking at GAIT_MVP's departSpeedMps or more). The pad: one run.
  *   - depth and short (the side view): the person walks toward or away from the phone, or turns back
  *     too soon to count, for a calm hint.
+ *   - laps and close (the overground toward and away walk, D-038 item 4): the walks toward the phone
+ *     and back, from the body's size in the picture (frontLaps.ts), and the feet near the picture's
+ *     bottom while walking toward it, the moment to turn.
  *   - facing: side when the shoulders are side on (VIEW_RATIO.sideMax of the engine), else toward the
  *     phone when a face landmark is visible and away otherwise; null without the hips and shoulders.
  * Pure, no DOM.
@@ -27,6 +30,7 @@ import { CAMERA_MODEL } from "../quality";
 import { GAIT_ENGINE, GAIT_MVP } from "./params";
 import { focalLength } from "./passes";
 import { faceVisible, pointOf, rollTurn } from "./preprocess";
+import { FrontLapCounter } from "./frontLaps";
 import { SidePassCounter } from "./sidePasses";
 import type { GaitFrame, GaitView } from "./types";
 
@@ -40,6 +44,10 @@ export interface LiveCount {
   depth: boolean;
   /** The overground side view: a walk just turned back too soon to count as a pass. */
   short: boolean;
+  /** The overground toward and away walk: laps walked (toward the phone and back, frontLaps.ts). */
+  laps: number;
+  /** The overground toward and away walk: walking toward with the feet near the picture's bottom. */
+  close: boolean;
 }
 
 /**
@@ -72,6 +80,8 @@ export class LiveStepCounter {
   private turning: { dir: number; since: number } | null = null;
   /** The overground side view's passes (sidePasses.ts). */
   private readonly side: SidePassCounter | null;
+  /** The overground toward and away walk's laps (frontLaps.ts). */
+  private readonly lapCounter: FrontLapCounter | null;
   /** The trunk's length in the picture (the step floor's scale), smoothed. */
   private trunk = Number.NaN;
 
@@ -80,6 +90,7 @@ export class LiveStepCounter {
     this.overgroundSide = view === "side";
     this.overgroundFront = view === "front" || view === "back";
     this.side = this.overgroundSide ? new SidePassCounter() : null;
+    this.lapCounter = this.overgroundFront ? new FrontLapCounter() : null;
   }
 
   /** The clock without a frame (the person out of the picture): the side view's walk may end. */
@@ -90,12 +101,15 @@ export class LiveStepCounter {
 
   private out(facing: LiveFacing): LiveCount {
     const side = this.side?.state();
+    const laps = this.lapCounter?.state();
     return {
       steps: this.steps,
       passes: this.passes,
       facing,
       depth: side?.depth ?? false,
       short: side?.short ?? false,
+      laps: laps?.laps ?? 0,
+      close: laps?.close ?? false,
     };
   }
 
@@ -156,8 +170,10 @@ export class LiveStepCounter {
 
   feed(f: GaitFrame): LiveCount {
     const facing = this.facingOf(f);
-    // The side view's passes come from the body's centre, whatever the feet (sidePasses.ts).
+    // The side view's passes come from the body's centre, whatever the feet (sidePasses.ts); the
+    // toward and away walk's laps from the body's size (frontLaps.ts).
     if (this.side) this.passes = this.side.feed(f.t, f.lm).passes;
+    this.lapCounter?.feed(f.t, f.lm, f.aspect);
     const la = pointOf(f, 27, turn);
     const ra = pointOf(f, 28, turn);
     const lh = pointOf(f, 23, turn);

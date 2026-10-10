@@ -11,13 +11,22 @@
  *   - the quality notes of the clinical copy: the handrail held or touched, timing only, the pad.
  * No result shown and the gate passed: the no pattern line; no view passed: the walk was not clear.
  * A walk read for timing only (D-035 item 2, the MVP's home walk: 2 clean cycles a side, or 5 in all
- * with 1 on each side, across the passes, below the full gate, D-037 item 3) shows its steps a minute and each side's step time with the clinical
- * timing only line, and no pattern line at all (the patterns were not assessed). A walk that gave
- * nothing shows the unclear line and, at the end of the walk, what to change next time.
+ * with 1 on each side, across the passes, below the full gate, D-037 item 3) shows its steps a minute
+ * and each side's step time with the clinical timing only line. A walk that gave nothing shows the
+ * unclear line and, at the end of the walk, what to change next time.
+ * D-038 item 4 (the walk in two parts, the gait types by name): each result shown leads with its
+ * recognised name, «may suggest» and the side (lines.name: «قد يشير مشيك إلى مشية ترندلنبرغ ...»), its
+ * plain line under it; a result of the MVP's reading (flags mvp_reading: the side walk's timing
+ * reading gives the antalgic walk, the walk toward the phone and back the frontal ones) carries the
+ * provisional label beside its confidence. The result stays honest about each part: a part recorded
+ * but not read says so in one calm line («we could not see your walk from the front clearly enough»),
+ * never as a list of what was not assessed; a side walk read for timing only beside a front walk that
+ * was read says the timing line for the side alone.
  */
 import type { Lang } from "../../app/i18n";
 import { timingEnough } from "../../engine/gait/verdict";
 import { bidiText } from "../../i18n/rich";
+import type { GaitMetricId } from "../../engine/gait/types";
 import type { GaitPatternResult, GaitStoredView } from "../../medical/gait-types";
 import { romResultLine } from "../../movements/rom";
 import { gt, noPatternLine, num, qualityLine, referralLine, sideWord, supportLine } from "./copy";
@@ -62,6 +71,45 @@ export function storedLevel(
   )
     return "timing";
   return "none";
+}
+
+/** The metrics of a side view read for timing only (engine/gait/metrics.ts TIMING_METRICS). */
+const TIMING_IDS: ReadonlySet<string> = new Set<GaitMetricId>([
+  "cadence",
+  "step_time_s",
+  "stride_time_s",
+  "stance_pct",
+  "swing_pct",
+  "single_support_s",
+  "sr_single_support",
+  "sr_stance",
+]);
+/** The frontal plane metrics of a front or back view (engine/gait/metrics.ts FRONTAL_METRICS). */
+const FRONTAL_IDS: ReadonlySet<string> = new Set<GaitMetricId>([
+  "pelvic_drop",
+  "trunk_lean_peak",
+  "trunk_sway_range",
+  "swing_lateral_path",
+  "hip_hike",
+  "step_width_ratio",
+]);
+
+/**
+ * What each part of a stored walk gave (D-038 item 4): the side views (side, pad_side) read in full
+ * (an angle or a length beside the timing), for timing only, or not at all; the front and back views
+ * (front, back, pad_front) read (a frontal plane metric) or not; and which parts were recorded.
+ */
+export function walkParts(gait: Pick<GaitStoredView, "views">) {
+  const side = gait.views.filter((v) => v.view === "side" || v.view === "pad_side");
+  const front = gait.views.filter((v) => v.view === "front" || v.view === "back" || v.view === "pad_front");
+  const sideFull = side.some((v) => Object.keys(v.metrics).some((id) => !TIMING_IDS.has(id)));
+  return {
+    sideRecorded: side.length > 0,
+    frontRecorded: front.length > 0,
+    sideFull,
+    sideTiming: !sideFull && side.some((v) => typeof v.metrics.cadence?.value === "number"),
+    frontRead: front.some((v) => Object.keys(v.metrics).some((id) => FRONTAL_IDS.has(id))),
+  };
 }
 
 /** A result the person is shown (gait-rules 5.0: possible or likely, at low confidence or more). */
@@ -116,12 +164,24 @@ export function GaitFindingsCard({ gait, lang, reason }: GaitFindingsCardProps) 
     .map((f) => ({ f, line: supportLine(f.id, f.side, lang) }))
     .filter((s): s is { f: (typeof gait.findings)[number]; line: string } => s.line !== null);
   const flags = gait.quality.flags;
+  const parts = walkParts(gait);
   const notes: string[] = [];
   // The walk ended because of the pain (C-15, D-030 C4-5).
   if (gait.outcome === "pain_limited") notes.push(qualityLine("pain_limited", lang));
   if (flags.includes("handrail_firm")) notes.push(qualityLine("handrail_held", lang));
   else if (flags.includes("handrail_light")) notes.push(qualityLine("handrail_light", lang));
-  if (gait.quality.timingOnly && level !== "none") notes.push(qualityLine("quality_timing_only", lang));
+  // Timing only (D-038 item 4): the side walk's own line when the front walk was read; the clinical
+  // line when nothing gave more than timing; none when a part was read beyond timing and the other
+  // gave nothing or was read (the lines below say what was not seen).
+  if (parts.sideTiming)
+    notes.push(parts.frontRead ? gt(lang, "card.timingSide") : qualityLine("quality_timing_only", lang));
+  else if (gait.quality.timingOnly && level !== "none" && !parts.sideFull && !parts.frontRead)
+    notes.push(qualityLine("quality_timing_only", lang));
+  // One calm line for a part recorded but not read, when the other part was (never a list).
+  if (parts.frontRecorded && !parts.frontRead && (parts.sideFull || parts.sideTiming))
+    notes.push(gt(lang, "card.notCheckedFront"));
+  if (parts.sideRecorded && !parts.sideFull && !parts.sideTiming && parts.frontRead)
+    notes.push(gt(lang, "card.notCheckedSide"));
   if (gait.mode === "walking_pad") notes.push(qualityLine("pad_compare", lang));
   return (
     <section
@@ -148,20 +208,31 @@ export function GaitFindingsCard({ gait, lang, reason }: GaitFindingsCardProps) 
           <figcaption>{gt(lang, "card.replay")}</figcaption>
         </figure>
       )}
-      {level === "timing" ? null : level === "none" ? (
-        <>
-          <p className="fx-body is-muted">{gt(lang, "card.unclear")}</p>
-          {reason && <p className="fx-body gx-reason">{bidiText(lang, reason)}</p>}
-        </>
-      ) : results.length === 0 ? (
-        <p className="fx-body">{bidiText(lang, noPatternLine(lang))}</p>
-      ) : (
+      {results.length > 0 ? (
         <ul className="gx-patterns">
           {results.map((p, i) => (
-            <li key={`${p.pattern}:${p.side}:${i}`} data-pattern={p.pattern} data-status={p.status}>
-              <p className="gx-pattern-line">{bidiText(lang, p.lines.pattern[lang])}</p>
+            <li
+              key={`${p.pattern}:${p.side}:${i}`}
+              data-pattern={p.pattern}
+              data-label={p.label}
+              data-side={p.side}
+              data-status={p.status}
+              data-provisional={p.flags?.includes("mvp_reading") || undefined}
+            >
+              {/* D-038 item 4: the recognised name first, «may suggest» with the side. */}
+              {p.lines.name?.[lang] ? (
+                <>
+                  <p className="gx-pattern-name">{bidiText(lang, p.lines.name[lang])}</p>
+                  <p className="gx-pattern-line is-plain">{bidiText(lang, p.lines.pattern[lang])}</p>
+                </>
+              ) : (
+                <p className="gx-pattern-line">{bidiText(lang, p.lines.pattern[lang])}</p>
+              )}
               <div className="fx-chips">
                 {p.lines.confidence && <span className="fx-pill is-violet">{p.lines.confidence[lang]}</span>}
+                {p.flags?.includes("mvp_reading") && (
+                  <span className="fx-pill gx-provisional">{gt(lang, "card.provisional")}</span>
+                )}
                 {p.flags?.includes("norm_interim") && <Approximate lang={lang} />}
               </div>
               {!gait.provisional && p.lines.reasons && (
@@ -185,6 +256,13 @@ export function GaitFindingsCard({ gait, lang, reason }: GaitFindingsCardProps) 
             </li>
           ))}
         </ul>
+      ) : level === "timing" ? null : level === "none" ? (
+        <>
+          <p className="fx-body is-muted">{gt(lang, "card.unclear")}</p>
+          {reason && <p className="fx-body gx-reason">{bidiText(lang, reason)}</p>}
+        </>
+      ) : (
+        <p className="fx-body">{bidiText(lang, noPatternLine(lang))}</p>
       )}
       {level === "full" &&
         supports.map(({ f, line }) => (

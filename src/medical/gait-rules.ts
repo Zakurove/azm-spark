@@ -18,7 +18,14 @@
  *                     group»; C3-1), and a limb's kinematics on the pad need its own 6 in the views
  *                     where it was nearest. Their metrics are combined as combineViews does (the near
  *                     limb rule). No view of the list: not assessed, wrong_view; a group short of
- *                     cycles: gate_failed.
+ *                     cycles: gate_failed. D-038 item 4: below the gate, shorter stance (timing) reads
+ *                     the side walk's MVP timing reading, and Trendelenburg, the Duchenne lean and
+ *                     waddling the toward and away walk's MVP frontal reading, on 2 clean cycles a side
+ *                     (GAIT_MVP.patternCyclesPerSide); such a result is possible at low confidence at
+ *                     most, flagged mvp_reading (the provisional label). Every other pattern keeps the
+ *                     full gate.
+ *   Names (D-038 4)   every shown result also carries its recognised name with "may suggest" and the
+ *                     side (lines.name, copy.patternNames).
  *   Firing (5.0)      a side's median beyond the threshold, and for a sign read cycle by cycle the
  *                     sign in 60% or more of that side's clean cycles (GaitMetricValue.share).
  *   Confidence (5.0)  the cap of the weakest sign (the data's confidenceCap and the grades measured
@@ -37,7 +44,7 @@ import type {
   GaitWalkPain,
 } from "../engine/gait/types";
 import { NEAR_LIMB_METRICS, combineViewMetrics } from "../engine/gait/combine";
-import { GAIT_ENGINE } from "../engine/gait/params";
+import { GAIT_ENGINE, GAIT_MVP } from "../engine/gait/params";
 import { isTimingReading } from "../engine/gait/verdict";
 import type {
   Confidence,
@@ -256,7 +263,11 @@ const BOTH_LEG_CONDITIONS: readonly string[] = [
 interface Group {
   /** The analysis's views in the pattern's list. */
   inViews: GaitViewResult[];
-  /** Of those, the ones read: the right body view at 20 fps or more, when the group passed its gate. */
+  /**
+   * Of those, the ones read: the right body view at 20 fps or more, when the group passed its gate;
+   * or, for a pattern the MVP's reading may give (MVP_PATTERNS), its views read below the gate
+   * (isTimingReading) with 2 clean cycles a side (D-038 item 4).
+   */
   passed: GaitViewResult[];
   metrics: Metrics;
   /** wrong_view or gate_failed when no view can be read. */
@@ -287,22 +298,32 @@ interface Ctx {
   groups: Map<string, Group>;
 }
 
-function groupOf(c: Ctx, views: readonly GaitView[]): Group {
-  const key = [...views].sort().join(",");
+function groupOf(c: Ctx, views: readonly GaitView[], mvp = false): Group {
+  const key = `${[...views].sort().join(",")}${mvp ? ":mvp" : ""}`;
   const known = c.groups.get(key);
   if (known) return known;
   const inViews = c.analysis.views.filter((v) => views.includes(v.view));
   const rightView = inViews.filter((v) => !v.quality.issues.includes("wrong_view"));
-  // «under 20 fps: record again» (C1-16): such a view gives nothing to read. A view read for timing
-  // only below its gate (the MVP's home walk reading, D-035 item 2) gives its timing and no pattern.
-  const usable = rightView.filter(
-    (v) => v.quality.medianFps >= GAIT_ENGINE.recordAgainBelowFps && !isTimingReading(v),
-  );
+  // «under 20 fps: record again» (C1-16): such a view gives nothing to read. A view read below its
+  // gate (the MVP's home walk reading, D-035 item 2) gives its timing, and a pattern only through the
+  // MVP group below.
+  const atFloor = (v: GaitViewResult) => v.quality.medianFps >= GAIT_ENGINE.recordAgainBelowFps;
+  const usable = rightView.filter((v) => atFloor(v) && !isTimingReading(v));
   const cycles = (s: Side, vs: readonly GaitViewResult[]) =>
     vs.reduce((n, v) => n + v.quality.cleanCycles[s], 0);
   const enough = (s: Side, vs: readonly GaitViewResult[]) => cycles(s, vs) >= GAIT_ENGINE.cleanCyclesPerSide;
   // C3-1: the toward and away passes are one group (each pass's steady cycle can fall on one side).
-  const passed = usable.length && SIDES.every((s) => enough(s, usable)) ? usable : [];
+  const full = usable.length && SIDES.every((s) => enough(s, usable)) ? usable : [];
+  // D-038 item 4: below the gate, a pattern the MVP's reading may give reads the group's MVP readings
+  // (the side walk's timing reading, the toward and away walk's frontal reading) once they hold
+  // GAIT_MVP.patternCyclesPerSide clean cycles a side; its results are possible at low confidence at
+  // most, with the provisional label (mvpReading).
+  const readings = mvp && !full.length ? rightView.filter((v) => isTimingReading(v) && atFloor(v)) : [];
+  const passed = full.length
+    ? full
+    : readings.length && SIDES.every((s) => cycles(s, readings) >= GAIT_MVP.patternCyclesPerSide)
+      ? readings
+      : [];
   const reason: NotAssessedReason | null = !rightView.length
     ? "wrong_view"
     : !passed.length
@@ -578,7 +599,7 @@ function absoluteAloneBlocked(c: Ctx, minSpeed: number): NotAssessedReason | nul
 /** 5.1 Shorter stance on one side: antalgic, prosthetic side, or short stance. */
 function shorterStance(c: Ctx): Draft[] {
   const id: GaitPatternId = "shorter_stance";
-  const g = groupOf(c, gaitPattern(id).views);
+  const g = groupOf(c, gaitPattern(id).views, true);
   if (g.reason) return [notAssessed(id, g.reason)];
   const m = g.metrics.sr_single_support;
   const ratio = valueOf(m);
@@ -647,7 +668,7 @@ function trendelenburg(c: Ctx): Draft[] {
   const id: GaitPatternId = "trendelenburg";
   // «Not assessed: firm handrail hold on the pad (handrail_held)».
   if (firmHold(c)) return [notAssessed(id, "handrail_held")];
-  const g = groupOf(c, gaitPattern(id).views);
+  const g = groupOf(c, gaitPattern(id).views, true);
   if (g.reason) return [notAssessed(id, g.reason)];
   const drop = g.metrics.pelvic_drop;
   return perSide(id, g, false, (s) => {
@@ -704,7 +725,7 @@ function duchenne(c: Ctx): Draft[] {
   // «Not assessed: walker; handrail_held (firm hold on the pad)».
   if (c.aid === "walker") return [notAssessed(id, "aid_or_orthosis")];
   if (firmHold(c)) return [notAssessed(id, "handrail_held")];
-  const g = groupOf(c, gaitPattern(id).views);
+  const g = groupOf(c, gaitPattern(id).views, true);
   if (g.reason) return [notAssessed(id, g.reason)];
   const sway = g.metrics.trunk_sway_range;
   const lean = g.metrics.trunk_lean_peak;
@@ -730,7 +751,7 @@ function duchenne(c: Ctx): Draft[] {
 function waddling(c: Ctx): Draft[] {
   const id: GaitPatternId = "waddling";
   if (firmHold(c)) return [notAssessed(id, "handrail_held")];
-  const g = groupOf(c, gaitPattern(id).views);
+  const g = groupOf(c, gaitPattern(id).views, true);
   if (g.reason) return [notAssessed(id, g.reason)];
   const drop = g.metrics.pelvic_drop;
   const sway = g.metrics.trunk_sway_range;
@@ -1191,8 +1212,17 @@ const resultSides = (side: ResultSide): Side[] => (side === "left" || side === "
  * never below low on its own (trendelenburg «possible, low», waddling and quad_avoidance «possible
  * only; capped at low»); each other downgrade is one level lower, and below low is not shown.
  */
+/**
+ * D-038 item 4: a result read from the MVP's reading of a walk below the data's gate (the side walk's
+ * timing reading, the toward and away walk's frontal reading; groupOf with its MVP group): its views
+ * are the walk's MVP readings.
+ */
+export const mvpReading = (d: { views: readonly Pick<GaitViewResult, "quality">[] }) =>
+  d.views.some(isTimingReading);
+
 function confidenceOf(c: Ctx, d: Draft): Confidence | null {
   if ((d.status !== "possible" && d.status !== "likely") || d.hidden) return null;
+  const early = mvpReading(d);
   const def = gaitPattern(d.pattern);
   const order = (x: Confidence) => LEVELS.indexOf(x);
   let level = order(c.pad && def.confidenceCapPad ? def.confidenceCapPad : def.confidenceCap);
@@ -1212,12 +1242,15 @@ function confidenceOf(c: Ctx, d: Draft): Confidence | null {
         .reduce((n, v) => n + v.quality.cleanCycles[s], 0),
     ),
   );
-  if (cycles < FULL_CYCLES) level--;
-  if (d.views.some((v) => v.quality.timingOnly)) level--;
+  // The MVP's reading stands in place of the full gate's cycles and frame rate (D-038 item 4): it is
+  // never above low (below), so its few cycles are its label, not a further downgrade.
+  if (!early && cycles < FULL_CYCLES) level--;
+  if (!early && d.views.some((v) => v.quality.timingOnly)) level--;
   if (kind.timing && firmHold(c)) level--;
   if (kind.betweenLimb && farLimb(c)) level--;
   if (kind.foot && c.pad && c.flags.has("not_familiarised")) level--;
   if (!sides.some((s) => affected(c, s))) level--;
+  if (early) level = Math.min(level, 0);
   return level < 0 ? null : LEVELS[level];
 }
 
@@ -1521,14 +1554,27 @@ function patternCopy(p: Pick<GaitPatternResult, "pattern" | "label" | "status">)
 }
 
 /**
+ * The recognised name of a result (D-038 item 4: «قد يشير مشيك إلى مشية ترندلنبرغ ...»), by its label
+ * (steppage's two lines share one name), on its side.
+ */
+export function gaitPatternName(p: Pick<GaitPatternResult, "pattern" | "label" | "side">): Text {
+  const key = p.pattern === "steppage" ? "steppage" : p.label;
+  const t = COPY.patternNames[key as keyof typeof COPY.patternNames];
+  if (!t) throw new Error(`gait rules: no pattern name ${key}`);
+  return withSide(t, p.side);
+}
+
+/**
  * The person's lines of a result, from its stored fields (the server writes them again on read, in
- * both languages): the pattern on its side, with «سنتحقق من ذلك مرة أخرى» when possible at low
- * confidence; the possible reasons; the program lines (exercise-targets gaitStatusRules: every target
- * when likely, or possible at moderate or high confidence; the first one only when possible at low);
- * how sure we are. A result that is not shown has no lines.
+ * both languages): the recognised name on its side (D-038 item 4); the pattern on its side, with
+ * «سنتحقق من ذلك مرة أخرى» when possible at low confidence; the possible reasons; the program lines
+ * (exercise-targets gaitStatusRules: every target when likely, or possible at moderate or high
+ * confidence; the first one only when possible at low); how sure we are. A result that is not shown
+ * has no lines.
  */
 export function gaitPatternLines(p: Omit<GaitPatternResult, "lines">): GaitPatternResult["lines"] {
-  if (!gaitPatternShown(p)) return { pattern: EMPTY, reasons: null, targets: [], confidence: null };
+  if (!gaitPatternShown(p))
+    return { pattern: EMPTY, name: EMPTY, reasons: null, targets: [], confidence: null };
   const lowPossible = p.status === "possible" && p.confidence === "low";
   const line = withSide(patternCopy(p), p.side);
   const pattern = lowPossible
@@ -1548,6 +1594,7 @@ export function gaitPatternLines(p: Omit<GaitPatternResult, "lines">): GaitPatte
   const level = p.confidence!;
   return {
     pattern,
+    name: gaitPatternName(p),
     reasons,
     targets: lowPossible ? targets.slice(0, 1) : targets,
     confidence: {
@@ -1598,6 +1645,14 @@ export function evaluateGait(input: GaitRulesInput): {
   // painDayRule: «only the antalgic label can be shown» (C3-2).
   if (c.painDay)
     for (const [id, list] of drafts) if (id !== "shorter_stance") for (const d of list) d.hidden = true;
+
+  // D-038 item 4: a result of the MVP's reading is possible at most, labelled provisional.
+  for (const list of drafts.values())
+    for (const d of list)
+      if ((d.status === "possible" || d.status === "likely") && mvpReading(d)) {
+        d.status = "possible";
+        d.flags = [...(d.flags ?? []), "mvp_reading"];
+      }
 
   const patterns: GaitPatternResult[] = [];
   for (const id of GAIT_PATTERN_IDS)

@@ -48,7 +48,13 @@ export function pattern(
     contributors: [],
     targets: [],
     referrals: [],
-    lines: { pattern: { ar: "", en: "" }, reasons: null, targets: [], confidence: null },
+    lines: {
+      pattern: { ar: "", en: "" },
+      name: { ar: "", en: "" },
+      reasons: null,
+      targets: [],
+      confidence: null,
+    },
     ...over,
   };
 }

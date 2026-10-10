@@ -121,6 +121,27 @@ export const GAIT_COPY_METRIC_KEYS = [
   "slow_speed",
 ] as const;
 /** Pattern lines by label (antalgic, short_stance, the pattern ids and their side variants). */
+/**
+ * The patterns' names by label (D-038 item 4): the recognised gait name with "may suggest" and the side,
+ * shown above the pattern's plain line (steppage has one name for both of its lines).
+ */
+export const GAIT_COPY_PATTERN_NAME_KEYS = [
+  "antalgic",
+  "short_stance",
+  "prosthetic_side",
+  "trendelenburg",
+  "duchenne_lean",
+  "waddling",
+  "stiff_knee",
+  "stiff_knee_both",
+  "steppage",
+  "crouch",
+  "knee_stays_bent",
+  "recurvatum",
+  "quad_avoidance",
+  "reduced_extension",
+  "short_steps",
+] as const;
 export const GAIT_COPY_PATTERN_KEYS = [
   "antalgic",
   "short_stance",
@@ -573,6 +594,7 @@ export interface GaitData {
     placeholders: { side_ar: string[]; side_en: string[]; digitsAr: string };
     metrics: Record<(typeof GAIT_COPY_METRIC_KEYS)[number], Text>;
     patterns: Record<(typeof GAIT_COPY_PATTERN_KEYS)[number], Text>;
+    patternNames: Record<(typeof GAIT_COPY_PATTERN_NAME_KEYS)[number], Text>;
     contributorsLead: Text;
     contributorsJoin: Text;
     contributors: Record<GaitContributorId, Text>;

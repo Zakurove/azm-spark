@@ -164,6 +164,10 @@ function pattern(over: Partial<GaitPatternResult> = {}): GaitPatternResult {
         ar: "قد تشير طريقة مشيك إلى أن حوضك ينخفض.",
         en: "Your walk may suggest that your hips dip.",
       },
+      name: {
+        ar: "قد يشير مشيك إلى مشية ترندلنبرغ (عند الوقوف على ساقك اليمنى).",
+        en: "Your walk may suggest a Trendelenburg gait (when you stand on your right leg).",
+      },
       reasons: { ar: "ومن الأسباب الممكنة ضعف.", en: "Possible reasons include weaker hip muscles." },
       targets: [{ ar: "لذلك أضفنا إلى برنامجك تمارين.", en: "So we added exercises to your program." }],
       confidence: { ar: "مدى تأكدنا: متوسط", en: "How sure we are: Moderate" },
@@ -232,7 +236,9 @@ describe("the gait card", () => {
     expect(card(stored({ patterns: [pattern({ status: "not_seen", confidence: null })] }), "ar")).toContain(
       GAIT_DATA.copy.patterns.no_pattern.ar,
     );
-    const unclear = card(stored({ quality: { gatePassed: false, timingOnly: false, flags: [] } }));
+    const unclear = card(
+      stored({ patterns: [], quality: { gatePassed: false, timingOnly: false, flags: [] } }),
+    );
     expect(unclear).toContain("We could not see your steps clearly enough this time.");
     expect(unclear).not.toContain("Your walk may suggest");
   });
@@ -281,5 +287,138 @@ describe("the gait card", () => {
     expect(html).toContain("gx-replay");
     expect(html).toContain("gx-bone is-side");
     expect(html).not.toMatch(/<img|<video/);
+  });
+});
+
+describe("part 2 of the walk: toward the phone and back, twice (D-038 item 4)", () => {
+  /** A controller on part 2's placement, with the side passes left out (no frames). */
+  function part2(): GaitController {
+    const ctl = new GaitController({
+      plan: { ...PLAN, modes: ["overground"], views: { ...PLAN.views, overground: ["front", "back"] } },
+      poseModel: () => "full",
+    });
+    ctl.start(0);
+    for (let i = 0; i < 10 && ctl.current.id !== "place"; i++)
+      if (ctl.current.id === "gear") ctl.setGear({ shoes: true, brace: null }, 0);
+      else ctl.confirm(0);
+    return ctl;
+  }
+
+  for (const lang of ["ar", "en"] as const)
+    it(`gives part 2 its own screen and drawing: the phone where it is, the start, the turn, twice (${lang})`, () => {
+      const ctl = part2();
+      expect(ctl.current).toEqual({ id: "place", rec: "overground_front" });
+      const html = render(ctl, lang);
+      const text = TEXT(html);
+      expect(html).toContain('data-part="2"');
+      expect(html).toContain("is-overground_front");
+      expect(html).toContain('data-caption="overground_front"');
+      expect(html).not.toContain("v7_walk_front_path");
+      for (const line of lang === "en"
+        ? [
+            "Now walk toward the phone and back, twice",
+            "Leave the phone where it is.",
+            "Stand facing the phone, about 4 to 5 metres away.",
+            "Turn when you are about 2 metres away, before your feet leave the picture.",
+            "Walk back to where you started, then do it once more.",
+            "I am ready",
+          ]
+        : [
+            "الآن امشِ نحو الهاتف وارجع، مرتين",
+            "اترك الهاتف في مكانه.",
+            // (the digits sit in their own direction runs on the screen)
+            "قف ووجهك للهاتف، على بعد",
+            "أمتار تقريبًا.",
+            "قبل أن تخرج قدماك من الصورة",
+            "ارجع إلى حيث بدأت، ثم كرر ذلك مرة أخرى.",
+            "أنا جاهز",
+          ])
+        expect(text).toContain(line);
+      expect(instructionText(ctl, lang)).toContain(lang === "en" ? "about 2 metres away" : "مترين تقريبًا");
+      expect(fixtureFor(ctl)).toBe("gait/home-toward-back");
+      // Its standing, facing the phone, then the walk: «toward and back 1 of 2».
+      ctl.confirm(0);
+      expect(render(ctl, lang)).toContain(
+        lang === "en" ? "Stand facing the phone, about 4 to 5 metres away" : "قف ووجهك للهاتف",
+      );
+    });
+});
+
+describe("the gait card names the patterns and says calmly what each part gave (D-038 item 4)", () => {
+  const sideTiming = {
+    view: "side" as const,
+    metrics: {
+      cadence: { id: "cadence" as const, value: 104, n: 8, unit: "steps/min", grade: "A" as const },
+    },
+    cleanCycles: { left: 4, right: 4 },
+  };
+  const sideFull = {
+    ...sideTiming,
+    metrics: {
+      ...sideTiming.metrics,
+      knee_swing_peak: { id: "knee_swing_peak" as const, value: 62, n: 8, unit: "deg", grade: "B" as const },
+    },
+    cleanCycles: { left: 8, right: 8 },
+  };
+  const frontRead = {
+    view: "front" as const,
+    metrics: {
+      pelvic_drop: { id: "pelvic_drop" as const, value: 4, n: 4, unit: "deg", grade: "C" as const },
+    },
+    cleanCycles: { left: 2, right: 2 },
+  };
+  const frontNone = { view: "front" as const, metrics: {}, cleanCycles: { left: 0, right: 0 } };
+  const timing = { gatePassed: false, timingOnly: true, flags: [] };
+
+  it("leads each shown pattern with its name, «may suggest» and the side, its plain line under it, provisional when read below the gate", () => {
+    const p = pattern({
+      confidence: "low",
+      flags: ["mvp_reading"],
+      lines: {
+        ...pattern().lines,
+        name: {
+          ar: "قد يشير مشيك إلى مشية ترندلنبرغ (عند الوقوف على ساقك اليمنى).",
+          en: "Your walk may suggest a Trendelenburg gait (when you stand on your right leg).",
+        },
+        confidence: { ar: "مدى تأكدنا: منخفض", en: "How sure we are: Low" },
+      },
+    });
+    for (const lang of ["ar", "en"] as const) {
+      const html = card(stored({ views: [sideTiming, frontRead], quality: timing, patterns: [p] }), lang);
+      expect(html).toContain('class="gx-pattern-name"');
+      expect(TEXT(html)).toContain(p.lines.name[lang]);
+      expect(TEXT(html)).toContain(p.lines.pattern[lang]);
+      expect(TEXT(html)).toContain(lang === "en" ? "Provisional" : "نتيجة أولية");
+      expect(html).toContain('data-provisional="true"');
+      // The name comes before the plain line.
+      expect(html.indexOf("gx-pattern-name")).toBeLessThan(html.indexOf("gx-pattern-line"));
+    }
+    expect(card(stored({ patterns: [pattern()] }))).not.toContain("Provisional");
+  });
+
+  it("says the side walk's timing line alone when part 2 was read, and one calm line for a part not seen", () => {
+    const both = TEXT(card(stored({ views: [sideTiming, frontRead], quality: timing, patterns: [] })));
+    expect(both).toContain("From the side we saw the timing of your steps clearly");
+    expect(both).not.toContain(GAIT_DATA.copy.quality.quality_timing_only.en);
+    expect(both).not.toContain("could not see your walk from");
+    const noFront = TEXT(card(stored({ views: [sideTiming, frontNone], quality: timing, patterns: [] })));
+    expect(noFront).toContain(GAIT_DATA.copy.quality.quality_timing_only.en);
+    expect(noFront).toContain("This time we could not see your walk from the front clearly enough");
+    const noSide = TEXT(
+      card(
+        stored({
+          views: [{ view: "side", metrics: {}, cleanCycles: { left: 0, right: 0 } }, frontRead],
+          quality: timing,
+          patterns: [],
+        }),
+      ),
+    );
+    expect(noSide).toContain("This time we could not see your walk from the side clearly enough");
+    expect(noSide).not.toContain(GAIT_DATA.copy.quality.quality_timing_only.en);
+    const full = TEXT(
+      card(stored({ views: [sideFull, frontRead], quality: { ...timing, gatePassed: true } })),
+    );
+    expect(full).not.toContain("timing of your steps");
+    expect(full).not.toContain("could not see your walk from");
   });
 });

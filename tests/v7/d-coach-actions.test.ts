@@ -294,6 +294,33 @@ describe("the walk's buttons (GaitCapture)", () => {
     expect((GAIT_PRESS.walk_again as { intents: readonly string[] }).intents).toEqual(["again", ...GO_ON]);
   });
 
+  it("on the calm re-record, try again records once more and go on keeps what was recorded", () => {
+    const retry = vi.fn((_again: boolean, _t: number) => true);
+    const step = { id: "retry" as const, rec: "overground_side" as const };
+    const ctl = { current: step, stopList: null, stopped: false, retry } as unknown as GaitController;
+    const e = gaitScreenActions(ctl, () => 2000)!;
+    const a = new ScreenActions();
+    a.show(e.key, () => e.actions, e.alive);
+    expect(a.press("again")).toMatchObject({ accepted: true, say: "trying_again" });
+    expect(a.press("continue")).toMatchObject({ accepted: true, say: "continuing" });
+    expect(retry.mock.calls).toEqual([
+      [true, 2000],
+      [false, 2000],
+    ]);
+  });
+
+  it("while walking, «I have finished» reads the recording now", () => {
+    const finishWalk = vi.fn((_t: number) => true);
+    const step = { id: "walk" as const, rec: "overground_side" as const };
+    const ctl = { current: step, stopList: null, stopped: false, finishWalk } as unknown as GaitController;
+    const e = gaitScreenActions(ctl, () => 3000)!;
+    const a = new ScreenActions();
+    a.show(e.key, () => e.actions, e.alive);
+    expect(a.press("again")).toMatchObject({ accepted: false });
+    expect(a.press("next")).toMatchObject({ accepted: true, say: "continuing" });
+    expect(finishWalk.mock.calls).toEqual([[3000]]);
+  });
+
   it("never the pad's safety checklist or its stop, a question, a recording, a timer or a safety step", () => {
     const never: GaitStepId[] = [
       "pad_check",

@@ -19,13 +19,15 @@ import type {
   ToolResult,
 } from "../../src/coach/types";
 import { ControlHost, RefGaitHost, RefRomHost } from "./d-coach-harness";
+import { GO_ON } from "../../src/coach/actions";
 
 type Response = { id: string; name: string; response: ToolResult; scheduling?: string };
 
 function setup(host: CoachHost) {
   const sent: Response[][] = [];
   const pushed: BridgeEvent[] = [];
-  const guard = new AnswerGuard();
+  // As the session: a press needs the person's words while the host's screen now showed (D-036 item 2).
+  const guard = new AnswerGuard(() => host.actions?.current ?? null);
   const ex = new ToolExecutor(
     host.block,
     () => host,
@@ -429,7 +431,6 @@ function screenStub(): SessionScreen {
   return {
     pause() {},
     resume() {},
-    next() {},
     instructions: () => "Stand tall.",
     openStopList() {},
     stopExercise() {},
@@ -441,11 +442,15 @@ const KINDS: CoachStepKind[] = ["info", "confirm", "question", "timer", "safety"
 const CONTROL: Record<"pause" | "next_step" | "repeat_instructions" | "stop", (k: CoachStepKind) => boolean> =
   {
     pause: (k) => k === "active" || k === "timer",
-    next_step: (k) => k === "info",
+    // D-036 item 2: the screen's own button, on the person's words, on any step but a safety one.
+    next_step: (k) => k !== "safety",
     repeat_instructions: () => true,
     stop: () => true,
   };
-const ARGS: Partial<Record<ToolName, unknown>> = { stop: { reason: "choice" } };
+const ARGS: Partial<Record<ToolName, unknown>> = {
+  stop: { reason: "choice" },
+  next_step: { intent: "next" },
+};
 
 describe("every control tool in every step kind, for every block (C-16)", () => {
   for (const block of ["rom", "gait", "session"] as CoachBlock[])
@@ -455,7 +460,12 @@ describe("every control tool in every step kind, for every block (C-16)", () => 
           const host = block === "session" ? new SessionHost(screenStub()) : new ControlHost(block);
           if (host instanceof SessionHost) host.setStep(kind, kind);
           else host.kind = kind;
+          // The screen shows a Next button, and the person said «التالي» while it showed.
+          host.actions.show("screen", () => [
+            { name: "next", intents: GO_ON, say: "next_one", press: () => true },
+          ]);
           const s = setup(host);
+          s.guard.heard("التالي", 50);
           s.ex.handle([{ id: "1", name, args: ARGS[name as ToolName] ?? {} }], 100);
           expect(s.results()[0].accepted, `${block} ${kind} ${name}`).toBe(allowed(kind));
           expect(TOOL_SETS[block]).toContain(name);

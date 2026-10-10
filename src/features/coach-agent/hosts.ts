@@ -5,14 +5,13 @@
  *   - One Live session per coach segment (C-6): a range block is rom:<block>:1, split after its fifth
  *     measured movement into rom:<block>:2, as the token route's segmentsFor builds them; the walk is
  *     gait (C4's GaitStep owns it); a workout is session:1 then session:2 (Workout.tsx owns it).
- *   - The coach is an enhancement, never a dependency, and off by default (C-5): it runs only with the
- *     person's switch on, the live_coach consent and a network.
- *   - While it runs, the host never asks a range question aloud (bridge rule 2, D-12): the coach asks
- *     it, or the bridge's local voice when the coach is late.
+ *   - The coach is an enhancement, never a dependency (C-5): it runs only with the person's switch on,
+ *     the live_coach consent and a network.
+ *   - Only the coach speaks (D-036 item 1): the range questions are its to ask, and their buttons are
+ *     on the screen in every mode.
  */
 import type { CoachSegment } from "../../coach/types";
 import type { RomBlock, RomProtocol, RomProtocolItem } from "../../medical/rom-protocol";
-import { LOCAL_ASK } from "./bridge";
 
 /** C-6: a block with more than this many measured movements splits into two segments (segments.ts). */
 export const ITEMS_PER_ROM_SEGMENT = 5;
@@ -46,6 +45,3 @@ export function liveCoachOn(s: {
 }): boolean {
   return s.preference && s.consent && s.online && s.available;
 }
-
-/** The range questions' voice lines (bridge rule 2): a host leaves them to the coach while it runs. */
-export const COACH_ASK_LINES: ReadonlySet<string> = new Set(Object.values(LOCAL_ASK).map((a) => a.line));

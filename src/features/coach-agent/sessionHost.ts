@@ -11,8 +11,12 @@
  * unchanged and the screen shows the pain_ok line (stay within comfort).
  * stop: the stop list opens with the coach's reason preselected and highlighted, the emergency options
  * first for chest, stroke_signs, faint, breath and fall; the person confirms there, and only then does
- * the screen call safetyStop() and push the P0. Pure, no DOM.
+ * the screen call safetyStop() and push the P0.
+ * next_step (D-036 item 2): on the person's spoken words, the screen's button for the intent, as the
+ * workout registers it in `actions` (its Start training and Next set, never the setup's attestation),
+ * never over the stop list or a stop's screen. Pure, no DOM.
  */
+import { pressNextStep, ScreenActions } from "../../coach/actions";
 import { safeToken } from "../../coach/events";
 import { painStopRule } from "../../medical/pain-rule";
 import type {
@@ -26,7 +30,6 @@ import type {
 import {
   EMERGENCY_REASONS,
   TAP_TO_CONFIRM,
-  nextStepRefusal,
   pauseRefusal,
   resumeRefusal,
   type HostControl,
@@ -39,8 +42,6 @@ export interface SessionScreen {
   pause(): void;
   /** The coach ended its own pause. */
   resume(): void;
-  /** The next card, or the next exercise after a finished one. */
-  next(): void;
   /** The text of the instruction card now on the screen. */
   instructions(): string;
   /** The stop list with this option preselected and highlighted; the emergency options first when asked. */
@@ -61,6 +62,8 @@ const yesNo = (v: boolean) => (v ? "yes" : "no");
 
 export class SessionHost implements CoachHost {
   readonly block = "session" as const;
+  /** The buttons of the workout's screen now (D-036 item 2), registered by the workout. */
+  readonly actions = new ScreenActions();
   private kind: CoachStepKind = "info";
   private ended = false;
   private pausedBy: PausedBy = null;
@@ -166,12 +169,8 @@ export class SessionHost implements CoachHost {
         this.pausedBy = null;
         return { accepted: true };
       }
-      case "next_step": {
-        const no = nextStepRefusal(this.control());
-        if (no) return no;
-        this.screen.next();
-        return { accepted: true };
-      }
+      case "next_step":
+        return pressNextStep(this.actions, this.control(), (args as ToolArgs["next_step"]).intent);
       case "repeat_instructions":
         return { accepted: true, data: { text: this.screen.instructions() } };
     }

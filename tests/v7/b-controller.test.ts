@@ -317,7 +317,7 @@ describe("sit before stand (rom-protocol 6 sit_before_stand)", () => {
     expect(s.total).toBe(ROM_DATA.engine.sitBeforeStandSeconds * 1000);
     expect(lines(run.events)).toContain("sit_before_stand");
     expect(ctl.step()).toEqual({ kind: "timer", finished: false });
-    expect(ctl.handleTool("next_step", {})).toEqual({
+    expect(ctl.handleTool("next_step", { intent: "next" })).toEqual({
       accepted: false,
       reason: "not_allowed",
       say: "tap_to_confirm",

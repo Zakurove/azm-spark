@@ -225,7 +225,6 @@ function fakeScreen() {
   const api: SessionScreen = {
     pause: () => calls.push("pause"),
     resume: () => calls.push("resume"),
-    next: () => calls.push("next"),
     instructions: () => "Raise both arms slowly.",
     openStopList: (reason, emergencyFirst) => calls.push(`stop:${reason}:${emergencyFirst}`),
     stopExercise: () => calls.push("stopExercise"),
@@ -295,10 +294,12 @@ describe("the session host through D's coach segment on a workout", () => {
     const reply = (id: string) =>
       live.sent.flatMap((s) => (s.kind === "toolResponse" ? s.responses : [])).find((r) => r.id === id)
         ?.response;
-    // The rest between sets is a timer: the coach cannot skip it, but may pause it.
+    // The rest between sets is a timer: while it runs it has no button the coach may press (D-036
+    // item 2: Next set only once the rest is over), but the coach may pause it.
     host.setStep(WORKOUT_STEP_KIND.rest, "rest");
     session.push({ p: 3, type: "step_start", label: "rest", t: 0 });
-    call("c1", "next_step", {});
+    live.emit({ type: "inputTranscript", text: "التالي", final: true });
+    call("c1", "next_step", { intent: "next" });
     expect(reply("c1")).toEqual({ accepted: false, reason: "not_allowed", say: "tap_to_confirm" });
     call("c2", "pause", {});
     expect(reply("c2")).toEqual({ accepted: true });

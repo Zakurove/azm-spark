@@ -11,9 +11,11 @@
  *   - keep the same host and LocalVoice objects for the whole segment (useMemo or useRef): a new host
  *     or local voice, like a new block, segment, language or check, ends the session and starts
  *     another, which costs a re-mint;
- *   - push every BridgeEvent; say the corrections (P2) and the safety lines (P0) through the LocalVoice
- *     given in the options, as without a coach; while mode is not off, never ask a P1 question aloud:
- *     the coach asks it, or the local voice when the coach is late or the mode is local;
+ *   - push every BridgeEvent; a workout says its corrections (P2) and safety lines (P0) through the
+ *     LocalVoice given in the options (the v7 checks give SILENT_VOICE: only the coach speaks, D-036
+ *     item 1); while mode is not off, never ask a P1 question aloud: the coach asks it;
+ *   - register the screen's buttons the coach may press in host.actions (useScreenActions, D-036
+ *     item 2);
  *   - after a P0 call reopen() when the person goes on (the coach can never reopen);
  *   - call end("done") when the segment is over ("user_end" when the person leaves it); unmounting ends
  *     it as the person's;
@@ -25,6 +27,7 @@
  * the usage reports go to the route for the row the e2e seed writes (e2eCoach.ts).
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { CuePlayer } from "../../app/audio";
 import type { BridgeEvent, CoachOptions, CoachState } from "../../coach/types";
 import { coachDeviceId, mintCoachToken, readCoachStatus, sendUsageReport, type CoachStatus } from "./api";
 import { coachAudioSupported } from "./audio/context";
@@ -177,14 +180,20 @@ export function fakeCoachRun(): boolean {
   );
 }
 
+/** D-036 item 1: no recorded voice plays while a Live coach session is on. */
+const holdVoice = (on: boolean) => CuePlayer.holdForCoach(on);
+
 function coachDeps(): CoachDeps {
   if (fakeCoachRun())
-    return e2eCoachDeps({
-      hooks: window as unknown as Record<string, unknown>,
-      listen: windowEvents,
-      report: (r) => sendUsageReport(r),
-      measure: userTiming,
-    });
+    return {
+      ...e2eCoachDeps({
+        hooks: window as unknown as Record<string, unknown>,
+        listen: windowEvents,
+        report: (r) => sendUsageReport(r),
+        measure: userTiming,
+      }),
+      holdVoice,
+    };
   return {
     now: () => performance.now(),
     wallNow: () => Date.now(),
@@ -198,6 +207,7 @@ function coachDeps(): CoachDeps {
     listen: windowEvents,
     audioSession: setCoachAudioSession,
     prepare: preloadGenai,
+    holdVoice,
     measure: userTiming,
     log: coachLog,
   };

@@ -8,13 +8,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   EMERGENCY_REASONS,
   TAP_TO_CONFIRM,
-  nextStepRefusal,
   pauseRefusal,
   resumeRefusal,
   type HostControl,
 } from "../../src/features/coach-agent/hostRules";
 import { SessionHost, type SessionScreen } from "../../src/features/coach-agent/sessionHost";
 import { COACH_STOP_REASONS } from "../../src/coach/tools";
+import { GO_ON } from "../../src/coach/actions";
 import type { CoachStepKind } from "../../src/coach/types";
 
 const KINDS: CoachStepKind[] = ["info", "confirm", "question", "timer", "safety", "active"];
@@ -26,16 +26,7 @@ const state = (kind: CoachStepKind, extra: Partial<HostControl> = {}): HostContr
 });
 
 describe("the step kind rules of C-16", () => {
-  it("lets next_step pass an info card or a finished active step only", () => {
-    expect(nextStepRefusal(state("info"))).toBeNull();
-    expect(nextStepRefusal({ ...state("active"), step: { kind: "active", finished: true } })).toBeNull();
-    expect(nextStepRefusal(state("active"))).toEqual({ accepted: false, reason: "not_allowed" });
-    for (const kind of ["confirm", "question", "timer", "safety"] as const)
-      expect(nextStepRefusal(state(kind)), kind).toEqual({
-        accepted: false,
-        reason: "not_allowed",
-        say: TAP_TO_CONFIRM,
-      });
+  it("asks for a tap with tap_to_confirm", () => {
     expect(TAP_TO_CONFIRM).toBe("tap_to_confirm");
   });
 
@@ -78,7 +69,6 @@ function screen(text = "Stand tall and lift slowly.") {
     calls: [],
     pause: vi.fn(() => s.calls.push("pause")),
     resume: vi.fn(() => s.calls.push("resume")),
-    next: vi.fn(() => s.calls.push("next")),
     instructions: vi.fn(() => text),
     openStopList: vi.fn((reason: string, first: boolean) => s.calls.push(`stopList:${reason}:${first}`)),
     stopExercise: vi.fn(() => s.calls.push("stopExercise")),
@@ -100,28 +90,44 @@ describe("SessionHost", () => {
     const h = new SessionHost(s);
     h.setStep("active", "sit_to_stand set 2");
     expect(h.step()).toEqual({ kind: "active", finished: false });
-    expect(h.handleTool("next_step", {})).toEqual({ accepted: false, reason: "not_allowed" });
     h.finished();
     expect(h.step()).toEqual({ kind: "active", finished: true });
-    expect(h.handleTool("next_step", {})).toEqual({ accepted: true });
-    expect(s.calls).toEqual(["next"]);
     expect(h.snapshot()).toBe(
       "session step=sit_to_stand_set_2 kind=active finished=yes paused=no stopped=no",
     );
   });
 
-  it("refuses next_step on every confirm, question, timer and safety step", () => {
-    const s = screen();
-    const h = new SessionHost(s);
-    for (const kind of ["confirm", "question", "timer", "safety"] as const) {
+  it("presses the button the workout's screen offers (D-036 item 2), on any step kind but safety", () => {
+    const h = new SessionHost(screen());
+    const pressed: string[] = [];
+    // No button on the screen: nothing to press, whatever the step.
+    for (const kind of ["info", "confirm", "question", "timer", "active"] as const) {
       h.setStep(kind, kind);
-      expect(h.handleTool("next_step", {}), kind).toEqual({
+      expect(h.handleTool("next_step", { intent: "next" }), kind).toEqual({
         accepted: false,
         reason: "not_allowed",
         say: "tap_to_confirm",
       });
     }
-    expect(s.next).not.toHaveBeenCalled();
+    h.setStep("confirm", "intro");
+    h.actions.show("0:intro:start", () => [
+      { name: "start", intents: GO_ON, say: "starting", press: () => void pressed.push("start") },
+    ]);
+    expect(h.handleTool("next_step", { intent: "again" })).toMatchObject({ accepted: false });
+    expect(h.handleTool("next_step", { intent: "start" })).toEqual({
+      accepted: true,
+      say: "starting",
+      data: { pressed: "start" },
+    });
+    expect(pressed).toEqual(["start"]);
+    // Never over the stop list or a stop's screen.
+    h.setStep("safety", "stop_list");
+    expect(h.handleTool("next_step", { intent: "start" })).toEqual({
+      accepted: false,
+      reason: "safety_stop",
+      say: "tap_to_confirm",
+    });
+    expect(pressed).toEqual(["start"]);
   });
 
   it("resumes a coach pause, never a screen pause", () => {
@@ -146,9 +152,9 @@ describe("SessionHost", () => {
     h.safetyStop();
     expect(h.step().kind).toBe("safety");
     expect(h.handleTool("resume", {})).toEqual({ accepted: false, reason: "safety_stop" });
-    expect(h.handleTool("next_step", {})).toEqual({
+    expect(h.handleTool("next_step", { intent: "next" })).toEqual({
       accepted: false,
-      reason: "not_allowed",
+      reason: "safety_stop",
       say: "tap_to_confirm",
     });
     expect(s.calls).toEqual(["pause"]);
@@ -231,13 +237,21 @@ describe("SessionHost", () => {
       accepted: false,
       reason: "not_in_block",
     });
-    const broken = new SessionHost({
-      ...screen(),
-      next: () => {
-        throw new Error("screen gone");
+    const broken = new SessionHost(screen());
+    broken.actions.show("k", () => [
+      {
+        name: "start",
+        intents: GO_ON,
+        say: "starting",
+        press: () => {
+          throw new Error("screen gone");
+        },
       },
-    });
+    ]);
     // A screen that failed to act is reported as not done.
-    expect(broken.handleTool("next_step", {})).toEqual({ accepted: false, reason: "not_allowed" });
+    expect(broken.handleTool("next_step", { intent: "start" })).toEqual({
+      accepted: false,
+      reason: "not_allowed",
+    });
   });
 });

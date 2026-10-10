@@ -4,7 +4,8 @@
  * GaitCapture.tsx renders it, hands it the person's taps and the camera frames, and posts its result;
  * nothing here touches the DOM, so the tests run whole walks on the gait fixtures.
  *
- * Steps, each with its C-16 kind (the coach can never pass a step the person or the helper must tap):
+ * Steps, each with its C-16 kind (the coach presses a step's button only on the person's spoken words,
+ * through the buttons the screen registers in `actions`, D-036 item 2; the pad's checklist stays a tap):
  *   - intro (info), the mode when both are allowed (question), the shoes and a leg brace (question);
  *   - overground: the clear path (confirm); the toward and away recording (the front and back views:
  *     the phone's placement, confirm; 3 s standing, active; the laps, active); the static single leg
@@ -66,13 +67,8 @@ import type {
   ToolName,
   ToolResult,
 } from "../../coach/types";
-import {
-  EMERGENCY_REASONS,
-  nextStepRefusal,
-  pauseRefusal,
-  resumeRefusal,
-  type PausedBy,
-} from "../coach-agent/hostRules";
+import { EMERGENCY_REASONS, pauseRefusal, resumeRefusal, type PausedBy } from "../coach-agent/hostRules";
+import { pressNextStep, ScreenActions } from "../../coach/actions";
 
 const CAPTURE = captureData as unknown as GaitData["capture"];
 const PAD_SAFETY = (eligibilityData as unknown as GaitData["eligibility"]).padSafety;
@@ -369,6 +365,8 @@ const LEG_IDS = { left: [23, 25, 27], right: [24, 26, 28] } as const;
  */
 export class GaitController implements CoachHost {
   readonly block = "gait" as const;
+  /** The buttons of the step now that the coach may press (D-036 item 2), registered by the screen. */
+  readonly actions = new ScreenActions();
   readonly plan: GaitPlan;
   mode: GaitMode;
   gear: GearAnswer | null = null;
@@ -1548,17 +1546,8 @@ export class GaitController implements CoachHost {
         return this.pause("coach", now);
       case "resume":
         return this.resume("coach", now);
-      case "next_step": {
-        const no = nextStepRefusal(this.control());
-        if (no) return no;
-        const s = this.current;
-        if (s.id === "done" || s.id === "nothing") {
-          this.leave();
-          return { accepted: true };
-        }
-        this.confirm(now);
-        return { accepted: true };
-      }
+      case "next_step":
+        return pressNextStep(this.actions, this.control(), (args as ToolArgs["next_step"]).intent);
       case "repeat_instructions":
         return { accepted: true, data: { text: this.instructions() } };
       default:

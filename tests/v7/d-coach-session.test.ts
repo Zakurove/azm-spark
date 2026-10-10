@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoachSession, type CoachDeps, type MintResult } from "../../src/features/coach-agent/session";
 import { FakeLiveTransport, type FakeScript } from "../../src/features/coach-agent/fake";
 import { SessionHost, type SessionScreen } from "../../src/features/coach-agent/sessionHost";
+import { GO_ON } from "../../src/coach/actions";
 import { ROTATE_AFTER_SETUP_MS } from "../../src/coach/events";
 import type { BridgeEvent, CoachHost, CoachSegment, TransportEvent } from "../../src/coach/types";
 import type { TokenRequest, TokenResponse, UsageReport } from "../../server/modules/agent/types";
@@ -297,7 +298,7 @@ describe("the maximum question", () => {
     });
   });
 
-  it("asks with the local voice when the coach's audio cannot be heard (a context never unlocked)", async () => {
+  it("never asks with the local voice while live, even when the coach cannot be heard (D-036 item 1)", async () => {
     const h = harness();
     h.speaker.audible = false;
     h.session.start();
@@ -306,7 +307,9 @@ describe("the maximum question", () => {
     await run(600);
     h.emit(coachAudio(2));
     await run(900);
-    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+    expect(h.voice.said).toEqual([]);
+    // The question's buttons are on the screen; a second unheard question falls back (rule 6).
+    expect(h.session.getSnapshot().mode).toBe("live");
   });
 
   it("refuses the coach's own answer when the person said nothing after the question (S0-2)", async () => {
@@ -348,22 +351,19 @@ describe("the maximum question", () => {
     expect(host.answers).toEqual([]);
   });
 
-  it("asks with the local voice when the coach is late, and drops the late coach turn", async () => {
+  it("lets a late coach ask the question itself: no local voice and no asked_locally (D-036 item 1)", async () => {
     const h = harness();
     (h.host as RefRomHost).openHold("h1", 118);
     h.session.start();
     await run(900);
     h.push(hold());
     await run(1500);
-    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
-    expect(h.contexts().at(-1)!.text).toContain("type=asked_locally what=ask_max");
+    expect(h.voice.said).toEqual([]);
+    expect(h.contexts().some((c) => c.text.includes("asked_locally"))).toBe(false);
     h.emit(coachAudio());
     h.emit({ type: "outputTranscript", text: "هل هذا أقصى ما تستطيع؟" });
-    expect(h.speaker.chunks).toBe(0);
-    expect(h.session.getSnapshot().captions).toEqual([]);
-    h.emit({ type: "turnComplete" });
-    h.emit(coachAudio());
     expect(h.speaker.chunks).toBe(1);
+    expect(h.session.getSnapshot().captions.map((c) => c.who)).toEqual(["coach"]);
   });
 });
 
@@ -455,7 +455,7 @@ describe("the microphone (rule 3)", () => {
 /* ------------------------------------------------------------- P0 */
 
 describe("a safety stop (rule 1)", () => {
-  it("flushes the coach's voice, plays the local stop line and sends the stop at once", async () => {
+  it("flushes the coach's voice and sends the stop at once; no local line while live (D-036 item 1)", async () => {
     const h = harness();
     h.session.start();
     await run(900);
@@ -464,7 +464,7 @@ describe("a safety stop (rule 1)", () => {
     h.push({ p: 0, type: "safety_stop", reason: "pain_stop", t: Date.now() });
     expect(h.speaker.flushes).toBe(1);
     expect(h.session.getSnapshot().speaking).toBe(false);
-    expect(h.voice.said).toEqual([{ line: "stop_rest", severity: "safety" }]);
+    expect(h.voice.said).toEqual([]);
     expect(h.contexts().at(-1)).toMatchObject({ turnComplete: true });
     expect(h.contexts().at(-1)!.text).toContain("type=safety_stop reason=pain_stop");
     // Only P0 passes until the app reopens.
@@ -832,7 +832,6 @@ describe("a workout segment with the session host", () => {
       stopList,
       pause() {},
       resume() {},
-      next() {},
       instructions: () => "Stand tall.",
       openStopList: (reason) => stopList.push(reason),
       stopExercise() {},
@@ -917,7 +916,7 @@ describe("a gait segment with the reference gait host", () => {
     h.emit(call("g1", "mark_pain", { level: 3, location: "knee" }));
     expect(gait.recording).toBe(false);
     expect(gait.recordingsEnded).toEqual([3]);
-    // Walking again is the person's tap: the coach cannot pass it.
+    // Nothing on the screen for the coach to press (no button registered): walking again is a tap.
     h.emit(call("g2", "next_step", {}));
     expect(gait.step()).toEqual({ kind: "confirm", finished: false });
     gait.walk();
@@ -935,36 +934,45 @@ describe("a gait segment with the reference gait host", () => {
     ]);
   });
 
-  it("never passes the setup taps or a pad safety step for the person (C-16)", async () => {
+  it("presses the screen's Ready only on the person's words, never on its own or on a pad safety step (D-036 item 2)", async () => {
     const gait = new RefGaitHost();
     const h = harness({ host: gait, segment: "gait" });
     h.session.start();
     await run(900);
-    const taps: GaitStepId[] = [
-      "clear_path",
-      "support_nearby",
-      "helper_present",
-      "pad_floor_and_stop_key",
-      "pad_auto_speed_off",
-      "pad_step_on_stopped",
-      "pad_handrail",
-      "pad_support_side",
-      "pad_warm_up",
-    ];
-    for (const id of taps) {
+    const pressed: string[] = [];
+    const showReady = (id: GaitStepId) => {
       gait.show(id);
-      h.emit(call(id, "next_step", {}));
-    }
-    gait.show("intro");
-    h.emit(call("intro", "next_step", {}));
-    gait.walk();
-    gait.passDone();
-    h.emit(call("walk", "next_step", {}));
+      return gait.actions.show(id, () => [
+        { name: "ready", intents: GO_ON, say: "starting", press: () => void pressed.push(id) },
+      ]);
+    };
+    // The model on its own, with the screen's Ready showing and nothing said: refused.
+    showReady("clear_path");
+    h.emit(call("own", "next_step", { intent: "ready" }));
+    // The person says they are ready: pressed.
+    h.emit(heard("جاهز"));
+    h.emit(call("said", "next_step", { intent: "ready" }));
+    // A second call after the press, on the next screen, with no new words: refused.
+    showReady("support_nearby");
+    h.emit(call("again", "next_step", { intent: "ready" }));
+    // A pad safety step shows no button for the coach: nothing to press, whatever was said.
+    gait.show("pad_floor_and_stop_key");
+    gait.actions.show("pad_floor_and_stop_key", () => []);
+    h.emit(heard("جاهز"));
+    h.emit(call("safety", "next_step", { intent: "ready" }));
+    // Words said more than 10 s before the call press nothing.
+    showReady("pad_step_on_stopped");
+    h.emit(heard("جاهز"));
+    await run(10_100);
+    h.emit(call("stale", "next_step", { intent: "ready" }));
     expect(responses(h)).toEqual([
-      ...taps.map((id) => [id, { accepted: false, reason: "not_allowed", say: "tap_to_confirm" }]),
-      ["intro", { accepted: true }],
-      ["walk", { accepted: true }],
+      ["own", { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }],
+      ["said", { accepted: true, say: "starting", data: { pressed: "ready" } }],
+      ["again", { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }],
+      ["safety", { accepted: false, reason: "not_allowed", say: "tap_to_confirm" }],
+      ["stale", { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" }],
     ]);
+    expect(pressed).toEqual(["clear_path"]);
   });
 
   it("comes back after a fallback only at the end of a pass, with the host's state", async () => {

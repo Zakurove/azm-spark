@@ -1,6 +1,6 @@
 /**
- * D-034 item 3: one voice control, the speaker button; on by default in a v7 build, the person's
- * choice kept per device.
+ * D-034 item 3 and D-036 item 1: one voice control, the speaker button, which turns the Live coach on
+ * or off (the only voice); on by default in a v7 build, the person's choice kept per device.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -41,7 +41,7 @@ describe("the sound switch", () => {
   });
 });
 
-describe("the focus check and the walk follow the one switch (D-034 item 3)", () => {
+describe("the focus check and the walk follow the one switch (D-034 item 3, D-036 item 1)", () => {
   const read = (f: string) => readFileSync(join(__dirname, "../../src/features", f), "utf8");
   it("runs the Live coach on the sound switch, never on the separate Live coach setting", () => {
     const app = read("focus/FocusApp.tsx");
@@ -50,13 +50,15 @@ describe("the focus check and the walk follow the one switch (D-034 item 3)", ()
     expect(app).toMatch(/preference: soundOn/);
     // The status is read once the check started (its start records the live_coach consent).
     expect(app).toMatch(/useCoachStatus\(soundOn && checkId !== null, checkId\)/);
-    expect(app).toMatch(/sound=\{soundOn\}/);
+    // The walk's coach follows the same switch.
+    expect(app).toMatch(/coachOn=\{coachOn\}/);
   });
 
-  it("speaks the walk's lines with the phone's own voice on the shell's switch", () => {
-    const walk = read("gait/GaitCapture.tsx");
-    expect(walk).not.toMatch(/readPreferences|new CuePlayer/);
-    expect(walk).toMatch(/new PhoneVoice\(lang\)/);
-    expect(walk).toMatch(/props\.sound === true/);
+  it("has no voice but the Live coach: the check and the walk give it the silent local voice", () => {
+    for (const f of ["focus/FocusApp.tsx", "gait/GaitCapture.tsx"]) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/readPreferences|new CuePlayer|CueVoice|PhoneVoice|speechSynthesis/);
+      expect(src, f).toMatch(/local: SILENT_VOICE/);
+    }
   });
 });

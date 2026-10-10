@@ -12,15 +12,16 @@
  *     hip or back score today, a pain stop ends the test pain_limited, the setup and pad safety taps
  *     are confirm steps), before C4 builds the real GaitController;
  *   - ControlHost, a host made of the shared step kind rules only, for any block.
+ * Every host presses next_step on the buttons a test shows in its `actions` (D-036 item 2).
  */
 import { painStopRule } from "../../src/medical/pain-rule";
 import {
   EMERGENCY_REASONS,
-  nextStepRefusal,
   pauseRefusal,
   resumeRefusal,
   type PausedBy,
 } from "../../src/features/coach-agent/hostRules";
+import { pressNextStep, ScreenActions } from "../../src/coach/actions";
 import type {
   CoachBlock,
   CoachHost,
@@ -149,6 +150,8 @@ type Phase = "attempt" | "ask_max" | "ask_can_move" | "ask_cause" | "done" | "st
  */
 export class RefRomHost implements CoachHost {
   readonly block = "rom" as const;
+  /** The screen's buttons the coach may press (D-036 item 2); a test shows them. */
+  readonly actions = new ScreenActions();
   phase: Phase = "attempt";
   item: { movement: RomMovementId; side: RomSide } = { movement: "shoulder_flexion", side: "right" };
   hold: { holdId: string; deg: number; answered: boolean } | null = null;
@@ -251,7 +254,7 @@ export class RefRomHost implements CoachHost {
         return { accepted: true };
       }
       case "next_step":
-        return nextStepRefusal(control) ?? { accepted: true };
+        return pressNextStep(this.actions, control, (args as ToolArgs["next_step"]).intent);
       case "stop":
         this.stopList.push((args as ToolArgs["stop"]).reason);
         return { accepted: true, say: "tap_to_confirm" };
@@ -313,6 +316,8 @@ export type GaitStepId = keyof typeof GAIT_STEPS;
  */
 export class RefGaitHost implements CoachHost {
   readonly block = "gait" as const;
+  /** The screen's buttons the coach may press (D-036 item 2); a test shows them. */
+  readonly actions = new ScreenActions();
   stepId: GaitStepId = "intro";
   finished = false;
   recording = false;
@@ -396,7 +401,7 @@ export class RefGaitHost implements CoachHost {
         return { accepted: true };
       }
       case "next_step":
-        return nextStepRefusal(control) ?? { accepted: true };
+        return pressNextStep(this.actions, control, (args as ToolArgs["next_step"]).intent);
       case "repeat_instructions":
         return { accepted: true, data: { text: "Walk at your own comfortable pace." } };
     }
@@ -425,7 +430,8 @@ export class ControlHost implements CoachHost {
   snapshot() {
     return `${this.block} kind=${this.kind}`;
   }
-  handleTool<N extends ToolName>(name: N, _args: ToolArgs[N]): ToolResult {
+  readonly actions = new ScreenActions();
+  handleTool<N extends ToolName>(name: N, args: ToolArgs[N]): ToolResult {
     const control = { step: this.step(), pausedBy: this.pausedBy, stopped: this.stopped };
     if (name === "pause") {
       const no = pauseRefusal(control);
@@ -437,7 +443,8 @@ export class ControlHost implements CoachHost {
       if (!no) this.pausedBy = null;
       return no ?? { accepted: true };
     }
-    if (name === "next_step") return nextStepRefusal(control) ?? { accepted: true };
+    if (name === "next_step")
+      return pressNextStep(this.actions, control, (args as ToolArgs["next_step"]).intent);
     return { accepted: true };
   }
 }

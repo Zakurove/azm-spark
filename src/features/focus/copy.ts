@@ -81,16 +81,11 @@ export function copyText(key: RomCopyKey, lang: Lang): string {
   return romCopy(key)[lang];
 }
 
-/** The words of a local line the runner plays: a range cue, a range copy line, or a v1 check cue. */
+/** The words of a line of the runner (its caption): a range cue, a range copy line, or a v1 check cue. */
 export function lineText(line: RomCueId | RomCopyKey | CheckCueId, lang: Lang): string {
   if (line in ROM_DATA.cues) return romCue(line as RomCueId)[lang];
   if (line in ROM_DATA.copy) return romCopy(line as RomCopyKey)[lang];
   return cueLine(line as CheckCueId)[lang];
-}
-
-/** The voice pack line of a local line (src/app/voice-script.json): rom_<key> for the range lines. */
-export function voiceLineOf(line: RomCueId | RomCopyKey | CheckCueId): string {
-  return line in ROM_DATA.cues || line in ROM_DATA.copy ? `rom_${line}` : line;
 }
 
 /** The label of a finding on a result card (rom-protocol 7.4). */

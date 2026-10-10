@@ -1,8 +1,8 @@
 /**
  * The spoken side of the safety screens (UX spec S36, 3.0, 4.3; council O12 (4), O24-2, 7.2-12): the
  * sentence split of display and speech lines, the O12 interim gate on Arabic synthesis, the sequence
- * player (every line shown in order, spoken when a voice may read it, never stuck on a voice that does
- * not end), and the chime made on the phone.
+ * player (every line shown in order for its reading time; never spoken, D-036 item 1), and the chime
+ * made on the phone.
  */
 import { describe, expect, it } from "vitest";
 import { CHECK_DATA, cueLine } from "../src/movements/assessments";
@@ -18,11 +18,7 @@ import {
   spokenNumbers,
   SYNTH_APPROVED,
 } from "../src/features/assessment/safety/speech";
-import {
-  SequencePlayer,
-  speakLimitMs,
-  type SpeechDeps,
-} from "../src/features/assessment/safety/speechPlayer";
+import { SequencePlayer, type TimerDeps } from "../src/features/assessment/safety/speechPlayer";
 import {
   base64,
   CHIME_SEGMENTS,
@@ -114,27 +110,12 @@ describe("the O12 (4) interim gate on Arabic speech synthesis", () => {
   });
 });
 
-/** A fake page: a clock, and a voice that ends a line when told to. */
-function fakeDeps(opts: { voice: boolean; loading?: boolean }) {
+/** A fake page clock. */
+function fakeDeps() {
   let now = 0;
   const timers: { at: number; fn: () => void; id: number }[] = [];
   let nextId = 1;
-  const spoken: string[] = [];
-  let pending: (() => void) | null = null;
-  const voice = opts.voice ? ({ lang: "en-GB" } as SpeechSynthesisVoice) : null;
-  const deps: SpeechDeps = {
-    // The voice list is known at once, unless the test models a list that is still loading.
-    voiceNow: () => (opts.loading ? undefined : voice),
-    voiceFor: async () => voice,
-    speak(text, _lang, _voice, done) {
-      spoken.push(text);
-      pending = done;
-    },
-    cancel() {
-      const p = pending;
-      pending = null;
-      p?.();
-    },
+  const deps: TimerDeps = {
     setTimeout(fn, ms) {
       const id = nextId++;
       timers.push({ at: now + ms, fn, id });
@@ -145,11 +126,9 @@ function fakeDeps(opts: { voice: boolean; loading?: boolean }) {
       if (i >= 0) timers.splice(i, 1);
     },
   };
-  const flush = () => new Promise((r) => setTimeout(r, 0));
   return {
     deps,
-    spoken,
-    async advance(ms: number) {
+    advance(ms: number) {
       const end = now + ms;
       for (;;) {
         timers.sort((a, b) => a.at - b.at);
@@ -158,16 +137,8 @@ function fakeDeps(opts: { voice: boolean; loading?: boolean }) {
         timers.shift();
         now = next.at;
         next.fn();
-        await flush();
       }
       now = end;
-      await flush();
-    },
-    async endLine() {
-      const p = pending;
-      pending = null;
-      p?.();
-      await flush();
     },
   };
 }
@@ -178,142 +149,38 @@ const LINES = [
   { display: "Call 997.", speech: "Call 9 9 7.", severity: "safety" as const },
 ];
 
-describe("the sequence player", () => {
-  it("shows every line in order, speaks the lines that have speech, and ends", async () => {
-    const f = fakeDeps({ voice: true });
-    const shown: [number, boolean][] = [];
-    let ended = false;
-    new SequencePlayer(f.deps).play(LINES, {
-      lang: "en",
-      soundOn: () => true,
-      onLine: (i, speaking) => shown.push([i, speaking]),
-      onEnd: () => (ended = true),
-    });
-    await f.advance(0);
-    expect(shown).toEqual([[0, true]]);
-    await f.endLine();
-    expect(shown).toEqual([
-      [0, true],
-      [1, false],
-    ]);
-    await f.advance(readMs("Shown only."));
-    expect(shown[2]).toEqual([2, true]);
-    await f.endLine();
-    expect(ended).toBe(true);
-    expect(f.spoken).toEqual(["Stop now.", "Call 9 9 7."]);
-  });
-
-  it("steps through the text by reading time with the sound off or no local voice", async () => {
-    for (const [voice, sound] of [
-      [false, true],
-      [true, false],
-    ] as const) {
-      const f = fakeDeps({ voice });
-      const shown: [number, boolean][] = [];
-      let ended = false;
-      new SequencePlayer(f.deps).play(LINES, {
-        lang: "ar",
-        soundOn: () => sound,
-        onLine: (i, speaking) => shown.push([i, speaking]),
-        onEnd: () => (ended = true),
-      });
-      await f.advance(0);
-      await f.advance(20_000);
-      expect(shown).toEqual([
-        [0, false],
-        [1, false],
-        [2, false],
-      ]);
-      expect(ended).toBe(true);
-      expect(f.spoken).toEqual([]);
-    }
-  });
-
-  it("shows the first line at once while the voice list loads, then speaks it", async () => {
-    const f = fakeDeps({ voice: true, loading: true });
-    const shown: [number, boolean][] = [];
-    new SequencePlayer(f.deps).play([LINES[0]], {
-      lang: "en",
-      soundOn: () => true,
-      onLine: (i, speaking) => shown.push([i, speaking]),
-      onEnd: () => undefined,
-    });
-    expect(shown).toEqual([[0, false]]);
-    await f.advance(0);
-    expect(shown).toEqual([
-      [0, false],
-      [0, true],
-    ]);
-    expect(f.spoken).toEqual(["Stop now."]);
-  });
-
-  it("moves on when a voice never ends a line", async () => {
-    const f = fakeDeps({ voice: true });
+describe("the sequence player (D-036 item 1: shown, never spoken)", () => {
+  it("shows every line in order for its reading time, then ends", () => {
+    const f = fakeDeps();
     const shown: number[] = [];
-    new SequencePlayer(f.deps).play([LINES[0], LINES[2]], {
-      lang: "en",
-      soundOn: () => true,
-      onLine: (i) => shown.push(i),
-      onEnd: () => undefined,
-    });
-    await f.advance(0);
-    await f.advance(speakLimitMs("Stop now.") + 1);
+    let ended = false;
+    new SequencePlayer(f.deps).play(LINES, { onLine: (i) => shown.push(i), onEnd: () => (ended = true) });
+    expect(shown).toEqual([0]);
+    f.advance(readMs("Stop now.") - 1);
+    expect(shown).toEqual([0]);
+    f.advance(1);
     expect(shown).toEqual([0, 1]);
-  });
-
-  it("stops at once, and after the Sound goes off keeps showing the rest without a voice", async () => {
-    const f = fakeDeps({ voice: true });
-    const shown: [number, boolean][] = [];
-    let sound = true;
-    const player = new SequencePlayer(f.deps);
-    player.play(LINES, {
-      lang: "en",
-      soundOn: () => sound,
-      onLine: (i, speaking) => shown.push([i, speaking]),
-      onEnd: () => undefined,
-    });
-    await f.advance(0);
-    sound = false;
-    player.silence();
-    await f.advance(20_000);
-    expect(shown).toEqual([
-      [0, true],
-      [1, false],
-      [2, false],
-    ]);
-    const g = fakeDeps({ voice: false });
-    const seen: number[] = [];
-    const p2 = new SequencePlayer(g.deps);
-    p2.play(LINES, { lang: "en", soundOn: () => false, onLine: (i) => seen.push(i), onEnd: () => undefined });
-    await g.advance(0);
-    p2.stop();
-    await g.advance(20_000);
-    expect(seen).toEqual([0]);
-  });
-});
-
-describe("ending a sequence at a line boundary (S38b When, R3C-07)", () => {
-  it("finishes the line being spoken, then starts no further line and does not call onEnd", async () => {
-    const f = fakeDeps({ voice: true });
-    const shown: number[] = [];
-    let ended = false;
-    let due = false;
-    new SequencePlayer(f.deps).play(LINES, {
-      lang: "en",
-      soundOn: () => true,
-      onLine: (i) => shown.push(i),
-      onEnd: () => (ended = true),
-      beforeLine: () => !due,
-    });
-    await f.advance(0);
-    expect(shown).toEqual([0]);
-    // The question is due while "Stop now." is being spoken: the sentence is never cut.
-    due = true;
-    expect(f.spoken).toEqual(["Stop now."]);
-    await f.endLine();
-    await f.advance(20_000);
-    expect(shown).toEqual([0]);
+    f.advance(readMs("Shown only."));
+    expect(shown).toEqual([0, 1, 2]);
     expect(ended).toBe(false);
+    f.advance(readMs("Call 997."));
+    expect(ended).toBe(true);
+  });
+
+  it("stops at once, and a new play starts over", () => {
+    const f = fakeDeps();
+    const seen: number[] = [];
+    let ended = false;
+    const player = new SequencePlayer(f.deps);
+    player.play(LINES, { onLine: (i) => seen.push(i), onEnd: () => (ended = true) });
+    player.stop();
+    f.advance(20_000);
+    expect(seen).toEqual([0]);
+    expect(ended).toBe(false);
+    player.play([LINES[2]], { onLine: (i) => seen.push(i), onEnd: () => (ended = true) });
+    f.advance(20_000);
+    expect(seen).toEqual([0, 0]);
+    expect(ended).toBe(true);
   });
 });
 

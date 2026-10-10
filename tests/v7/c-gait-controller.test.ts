@@ -17,6 +17,7 @@ import {
   type GaitStepId,
 } from "../../src/features/gait/controller";
 import type { BridgeEvent } from "../../src/coach/types";
+import { gaitScreenActions } from "../../src/features/gait/coachActions";
 import type { GaitFrame } from "../../src/engine/gait/types";
 import type { Frame } from "../../src/engine/types";
 import type { GaitPlan } from "../../src/medical/gait-eligibility";
@@ -77,6 +78,12 @@ function controller(plan: GaitPlan, over: Partial<GaitControllerOptions> = {}): 
   ctl.onLine((line, severity) => run.lines.push({ line, severity }));
   ctl.start(run.t);
   return run;
+}
+
+/** The walk screen's registration of the buttons the coach may press (GaitCapture's useScreenActions). */
+function show(run: Run): void {
+  const e = gaitScreenActions(run.ctl, () => run.t);
+  if (e) run.ctl.actions.show(e.key, () => e.actions, e.alive);
 }
 
 /** The frames a camera gives for walker frames, from `base` on (times keep increasing across views). */
@@ -448,8 +455,9 @@ describe("pain during the walk (C-15, the 2.11 gait row)", () => {
     expect(run.ctl.current).toEqual({ id: "walk_again", rec: "overground_side" });
     expect(run.ctl.step()).toEqual({ kind: "confirm", finished: false });
     expect(run.ctl.walkPain).toEqual([{ side: null, level: 4 }]);
-    // The coach cannot walk the person on: the tap is theirs.
-    expect(run.ctl.handleTool("next_step", {})).toMatchObject({
+    // Without the screen's buttons the coach presses nothing (the walk registers walk again, D-036
+    // item 2, and the answer guard takes it only on the person's words).
+    expect(run.ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({
       accepted: false,
       reason: "not_allowed",
       say: "tap_to_confirm",
@@ -516,29 +524,49 @@ describe("pain during the walk (C-15, the 2.11 gait row)", () => {
 /* ------------------------------------------------------------ the coach */
 
 describe("the coach's tools on the gait steps (2.11 host table, C-16)", () => {
-  it("refuses next_step on every confirm, question, timer and safety step and passes an info card", () => {
+  it("presses the setup's Start and Ready (D-036 item 2), never a question, the pad's checklist or a timer", () => {
     const run = controller(PAD);
-    expect(run.ctl.handleTool("next_step", {})).toEqual({ accepted: true });
+    show(run);
+    expect(run.ctl.handleTool("next_step", { intent: "start" })).toEqual({
+      accepted: true,
+      say: "starting",
+      data: { pressed: "start" },
+    });
     expect(run.ctl.current.id).toBe("mode");
-    expect(run.ctl.handleTool("next_step", {})).toMatchObject({ accepted: false, say: "tap_to_confirm" });
+    show(run);
+    expect(run.ctl.handleTool("next_step", { intent: "next" })).toMatchObject({
+      accepted: false,
+      say: "tap_to_confirm",
+    });
     run.ctl.chooseMode("walking_pad", run.t);
     run.ctl.setGear({ shoes: true, brace: null }, run.t);
-    // The pad safety checklist and the placement are the person's or the helper's taps.
-    for (const id of ["pad_check", "place", "pad_on"] as const) {
+    // The pad safety checklist is the person's or the helper's tap.
+    expect(run.ctl.current.id).toBe("pad_check");
+    show(run);
+    expect(run.ctl.handleTool("next_step", { intent: "ready" })).toEqual({
+      accepted: false,
+      reason: "not_allowed",
+      say: "tap_to_confirm",
+    });
+    expect(run.ctl.current.id).toBe("pad_check");
+    run.ctl.confirm(run.t);
+    // The phone's placement and the person on the stopped belt: Ready on their words.
+    for (const id of ["place", "pad_on"] as const) {
       expect(run.ctl.current.id).toBe(id);
-      expect(run.ctl.handleTool("next_step", {})).toEqual({
-        accepted: false,
-        reason: "not_allowed",
-        say: "tap_to_confirm",
-      });
-      expect(run.ctl.current.id).toBe(id);
-      run.ctl.confirm(run.t);
+      show(run);
+      expect(run.ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: true });
     }
     play(run, camera(walk(spec("pad-side-right")).standing, run.t + 40));
-    run.ctl.confirm(run.t);
+    expect(run.ctl.current.id).toBe("pad_start");
+    show(run);
+    expect(run.ctl.handleTool("next_step", { intent: "start" })).toMatchObject({ accepted: true });
     expect(run.ctl.current.id).toBe("pad_warm_up");
     expect(run.ctl.step().kind).toBe("timer");
-    expect(run.ctl.handleTool("next_step", {})).toMatchObject({ accepted: false, reason: "not_allowed" });
+    show(run);
+    expect(run.ctl.handleTool("next_step", { intent: "next" })).toMatchObject({
+      accepted: false,
+      reason: "not_allowed",
+    });
   });
 
   it("pauses an active or timer step; a screen pause resumes only from the screen", () => {

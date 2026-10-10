@@ -132,6 +132,11 @@ export default function SessionScreen(props: {
   onRegister?: () => void;
   /** Step D5: a coached workout's set hands the coach its events (flowCoachEvents). */
   coach?: CoachPush;
+  /**
+   * D-036 item 2: a coached workout's set offers the coach its summary's Continue program to press on
+   * the person's spoken words (null when there is none, or after the set's safety stop).
+   */
+  onCoachButton?: (button: { name: "continue"; press(): void } | null) => void;
 }) {
   const { lang, setup, exerciseId, demo, preferences, onPreferences, onExit, onRestart, onDemo } = props;
   const variant: SessionVariant = props.variant ?? (props.trial ? "trial" : "workout");
@@ -185,6 +190,17 @@ export default function SessionScreen(props: {
   const player = useMemo(() => new CuePlayer(lang), [lang]);
   const coachRef = useRef(props.coach);
   coachRef.current = props.coach;
+  // D-036 item 2: the summary's Continue program for a coached workout's coach (never after a safety
+  // stop: going on is then the person's own tap), the same call as the button.
+  const continueRef = useRef(props.onContinue);
+  continueRef.current = props.onContinue;
+  const offerButton = props.onCoachButton;
+  const canGoOn = end === "summary" && !trial && !safetyStop && !!props.onContinue;
+  useEffect(() => {
+    if (!offerButton) return;
+    offerButton(canGoOn ? { name: "continue", press: () => continueRef.current?.() } : null);
+    return () => offerButton(null);
+  }, [offerButton, canGoOn]);
 
   const pipe = useRef({
     flow: null as WorkoutFlow | null,

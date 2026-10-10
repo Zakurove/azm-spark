@@ -10,12 +10,11 @@
  * reference. /?romlab=1 lists the movements as links.
  *
  * Nothing is posted: the controller's saves are dropped here, and no check is started. Video never
- * leaves the phone. The lines play with the phone's own voice (the sound button), as the check does
- * when the Live coach is off.
+ * leaves the phone. Nothing is spoken: the check uses no phone speech (D-036 item 1), and the page runs
+ * no Live coach; the screens carry every line, as the check does without the coach.
  */
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
-import { isVoiceLine } from "../../app/audio";
 import type { Frame } from "../../engine/types";
 import type { RomEvent, RomMeasureResult } from "../../engine/rom/types";
 import { movementLandmarks } from "../../engine/rom/quality";
@@ -30,14 +29,12 @@ import type { RomBlock, RomProtocol, RomProtocolItem } from "../../medical/rom-p
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import { useCameraSession } from "../assessment/camera/session";
 import { useOrientation } from "../assessment/camera/hooks";
-import { PhoneVoice } from "../coach-agent/phoneVoice";
 import { focusCameraSession } from "./camera";
-import { instructionLines, lineText, movementName, positionName, voiceLineOf } from "./copy";
+import { instructionLines, movementName, positionName } from "./copy";
 import { sideRegion } from "./names";
 import { Actions, Glass, Kicker, Page, Title, TopBar } from "./parts";
 import { MeasureScreen, ResultScreen } from "./RangeScreens";
 import { RomController } from "./romController";
-import { tV7 } from "../../i18n/v7";
 import { localizeDigits } from "../../i18n";
 import "../assessment/safety/safety.css";
 import "./focus.css";
@@ -344,30 +341,15 @@ function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolIte
   ctlRef.current = ctl;
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [soundOn, setSoundOn] = useState(true);
-  // One voice for the page; its language follows the screen's.
-  const phone = useMemo(() => new PhoneVoice(lang), []);
-  useEffect(() => phone.setLang(lang), [lang, phone]);
-  useEffect(() => {
-    phone.muted = !soundOn;
-    if (!soundOn) phone.stop();
-  }, [soundOn, phone]);
-  useEffect(() => () => phone.stop(), [phone]);
 
-  // The controller's output: the lines are spoken, the saves dropped (a test page never saves).
+  // The controller's output is dropped (a test page never saves, and nothing is spoken).
   useEffect(
     () =>
       ctl.subscribe(() => {
-        for (const e of ctl.drain()) {
-          if (e.kind !== "line" || !soundOn) continue;
-          const id = voiceLineOf(e.line);
-          const severity = e.severity === "safety" ? "safety" : e.severity === "warn" ? "warn" : "info";
-          if (isVoiceLine(id)) void phone.line(id, severity);
-          else void phone.say(lineText(e.line, lang), severity);
-        }
+        ctl.drain();
         redraw();
       }),
-    [ctl, phone, soundOn, lang],
+    [ctl],
   );
 
   const orientation = useOrientation();
@@ -396,12 +378,9 @@ function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolIte
   }, [ctl]);
 
   const start = () => {
-    PhoneVoice.unlock();
     const t = clock();
     ctl.startBlock(item.block, t);
     ctl.ready(t);
-    // As the check: «لنبدأ» is said inside the tap (iOS lets the phone's voice play from here on).
-    if (soundOn) void phone.say(tV7(lang, "rom.measure.letsStart"), "info");
     ctl.ready(t);
     setStarted(true);
   };
@@ -485,20 +464,10 @@ function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolIte
   const fr = log.current.frames;
   const fps = fr.length > 1 ? Math.round(((fr.length - 1) * 1000) / (fr[fr.length - 1] - fr[0])) : 0;
   return (
-    <CheckRoot
-      ui={{ lang, sound: { on: soundOn, toggle: () => setSoundOn((s) => !s) } }}
-      page={false}
-      className="fx"
-    >
+    <CheckRoot ui={{ lang }} page={false} className="fx">
       <Page
         lang={lang}
-        top={
-          <TopBar
-            lang={lang}
-            onLanguage={onLanguage}
-            sound={{ on: soundOn, toggle: () => setSoundOn((s) => !s) }}
-          />
-        }
+        top={<TopBar lang={lang} onLanguage={onLanguage} />}
         screen={`romlab_${step.kind}${ctl.phase ? `_${ctl.phase}` : ""}`}
         step={`romlab:${item.movementId}:${step.kind === "measure" ? "measure" : step.kind}`}
         wide={step.kind === "measure"}

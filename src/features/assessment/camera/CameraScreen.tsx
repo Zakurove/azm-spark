@@ -29,7 +29,6 @@ import {
   type StaffReadout,
 } from "./controller";
 import {
-  speakText,
   useCameraCues,
   useOrientation,
   useReducedMotion,
@@ -109,10 +108,6 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
   const cues = useCameraCues(true);
   const cuesRef = useRef(cues);
   cuesRef.current = cues;
-  const langRef = useRef(lang);
-  langRef.current = lang;
-  const soundRef = useRef(ui.sound.on);
-  soundRef.current = ui.sound.on;
   const [snap, setSnap] = useState<CamSnapshot>(() => ctrl.snapshot(performance.now()));
   // The staff readout of the arm raise (booth staff settings, F-1): redrawn with the HUD.
   const [readout, setReadout] = useState<StaffReadout | null>(null);
@@ -134,10 +129,8 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
     (out: CamOutput) => {
       for (const e of out.events) dispatch(e);
       if (out.cues.length) cuesRef.current.push(out.cues);
-      for (const n of out.notes) {
-        cuesRef.current.note(n);
-        if (n.speak && n.key) speakText(t(langRef.current, n.key), langRef.current, soundRef.current);
-      }
+      // A note is captioned (D-036 item 1: no phone speech reads it).
+      for (const n of out.notes) cuesRef.current.note(n);
     },
     [dispatch],
   );
@@ -196,12 +189,11 @@ function LiveCamera({ model, dispatch }: ScreenProps) {
     if (motionNeeded) dispatch({ type: "MOTION_REFUSED" });
   }, [motionNeeded, dispatch]);
 
-  // O35: the stillness offer is said with a voice on the device and captioned.
+  // O35: the stillness offer is captioned (D-036 item 1: no phone speech reads it).
   const offer = snap.calibrationOffer;
   useEffect(() => {
     if (!offer) return;
     cuesRef.current.note({ key: "assessment.setup.stillness.body", severity: "info" });
-    speakText(t(lang, "assessment.setup.stillness.body"), lang, ui.sound.on);
   }, [offer]);
 
   useAnnouncements(snap, ctrl.test, model, lang, ui.showCaption);

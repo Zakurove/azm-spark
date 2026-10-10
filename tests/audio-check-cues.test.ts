@@ -1,18 +1,19 @@
 /**
- * Movement check cues in the CuePlayer: every check cue id is a voice line, and while its MP3 does
- * not exist yet the line falls back to a voice on the device, in the right language and with the
- * vocalized arTts text in Arabic (contract v2, section A).
+ * Movement check cues in the CuePlayer: every check cue id is a voice line. A line whose MP3 does not
+ * exist is not said: the phone's own speech is never used (D-036 item 1), even on a phone that has it
+ * (the stub below records any use). While a Live coach session is on, no recording plays at all.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CuePlayer, isVoiceLine } from "../src/app/audio";
 import voiceScript from "../src/app/voice-script.json";
-import { CHECK_DATA, cueLine } from "../src/movements/assessments";
+import { CHECK_DATA } from "../src/movements/assessments";
 
 type FakeAudio = {
   src?: string;
   onerror: () => void;
   oncanplaythrough: () => void;
   play: ReturnType<typeof vi.fn>;
+  pause: ReturnType<typeof vi.fn>;
 };
 type Voice = { lang: string; localService: boolean; name: string };
 let pending: FakeAudio[];
@@ -78,40 +79,20 @@ describe("check cues in the voice script", () => {
   });
 });
 
-describe("speech fallback for a missing recording", () => {
-  it("asks for the MP3 first, then speaks the arTts text with an Arabic Saudi voice", async () => {
-    const player = new CuePlayer("ar");
-    const run = player.line("check_are_you_ok", "safety");
-    expect(pending[0].src).toBe("/cues/packs/openai-ash/ar/check_are_you_ok.mp3");
-    pending[0].onerror();
-    expect(await run).toBe(true);
-    expect(spoken).toHaveLength(1);
-    expect(spoken[0].text).toBe(cueLine("check_are_you_ok").arTts);
-    expect(spoken[0].text).not.toBe(cueLine("check_are_you_ok").ar);
-    expect(spoken[0].lang).toBe("ar-SA");
-    expect(spoken[0].voice?.name).toBe("Arabic Saudi");
-  });
-
-  it("speaks the English text with an English voice in English", async () => {
-    const player = new CuePlayer("en");
-    const run = player.line("test_trunk_to_middle");
-    expect(pending[0].src).toBe("/cues/packs/openai-ash/en/test_trunk_to_middle.mp3");
-    pending[0].onerror();
-    await run;
-    expect(spoken).toEqual([
-      expect.objectContaining({ text: "Slowly now, come back to the middle.", lang: "en-GB" }),
-    ]);
-    expect(spoken[0].voice?.name).toBe("English UK");
-  });
-
-  it("uses any local voice of the language when the exact one is missing", async () => {
-    voices = voices.filter((v) => v.lang !== "ar-SA");
-    const player = new CuePlayer("ar");
-    const run = player.line("check_go");
-    pending[0].onerror();
-    await run;
-    expect(spoken[0].voice?.name).toBe("Arabic Egypt");
-    expect(spoken[0].lang).toBe("ar-SA");
+describe("a missing recording (D-036 item 1: never the phone's speech)", () => {
+  it("asks for the MP3, and when it is missing says nothing (the caption carries the line)", async () => {
+    for (const [lang, id] of [
+      ["ar", "check_are_you_ok"],
+      ["en", "test_trunk_to_middle"],
+    ] as const) {
+      pending = [];
+      const player = new CuePlayer(lang);
+      const run = player.line(id, "safety");
+      expect(pending[0].src).toBe(`/cues/packs/openai-ash/${lang}/${id}.mp3`);
+      pending[0].onerror();
+      expect(await run).toBe(false);
+    }
+    expect(spoken).toEqual([]);
   });
 
   it("plays the recording when it exists", async () => {
@@ -123,48 +104,55 @@ describe("speech fallback for a missing recording", () => {
     expect(spoken).toEqual([]);
   });
 
-  it("waits for a voice list that loads late", async () => {
-    const all = voices;
-    voices = [];
+  it("frees the player after a missing line, so the next line plays", async () => {
     const player = new CuePlayer("ar");
-    const run = player.line("check_stop_now", "safety");
+    const missing = player.line("check_stop_now", "safety");
     pending[0].onerror();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(listeners).toHaveLength(1);
-    voices = all;
-    listeners[0]();
-    expect(await run).toBe(true);
-    expect(spoken[0].text).toBe(cueLine("check_stop_now").arTts);
-    expect(listeners).toHaveLength(0);
-  });
-
-  it("gives up quietly when no voice arrives, and never speaks after a stop", async () => {
-    vi.useFakeTimers();
-    voices = [];
-    const player = new CuePlayer("ar");
-    const run = player.line("check_go");
-    pending[0].onerror();
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(await run).toBe(false);
-    expect(spoken).toEqual([]);
-
-    const again = player.line("check_ready");
-    pending[1].onerror();
-    await vi.advanceTimersByTimeAsync(0);
-    player.stop();
-    voices = [{ lang: "ar-SA", localService: true, name: "Arabic Saudi" }];
-    listeners.forEach((l) => l());
-    expect(await again).toBe(false);
+    expect(await missing).toBe(false);
+    const next = player.line("check_go");
+    pending[1].oncanplaythrough();
+    expect(await next).toBe(true);
     expect(spoken).toEqual([]);
   });
+});
 
-  it("never uses a remote voice", async () => {
-    voices = [{ lang: "ar-SA", localService: false, name: "Cloud Arabic" }];
+describe("no recording while a Live coach session is on (D-036 item 1)", () => {
+  afterEach(() => CuePlayer.holdForCoach(false));
+
+  it("refuses every line and count while held, stops a line playing, and plays again once released", async () => {
     const player = new CuePlayer("ar");
-    const run = player.line("check_go");
-    pending[0].onerror();
-    expect(await run).toBe(false);
+    const playing = player.line("check_go");
+    pending[0].oncanplaythrough();
+    expect(await playing).toBe(true);
+    const ends: boolean[] = [];
+    const off = CuePlayer.onActivity((p) => ends.push(p));
+    CuePlayer.holdForCoach(true);
+    // The line playing is cut (its end is reported; so are the lines earlier tests left playing) and
+    // nothing new starts.
+    expect(pending[0].pause).toHaveBeenCalled();
+    expect(ends.length).toBeGreaterThan(0);
+    expect(ends.every((p) => p === false)).toBe(true);
+    expect(CuePlayer.coachHeld).toBe(true);
+    expect(await player.line("check_ready")).toBe(false);
+    expect(await player.count(3)).toBe(false);
+    expect(await new CuePlayer("en").cue("stop_rest", "safety")).toBe(false);
+    CuePlayer.holdForCoach(false);
+    expect(CuePlayer.coachHeld).toBe(false);
+    const after = player.line("check_ready");
+    pending.at(-1)!.oncanplaythrough();
+    expect(await after).toBe(true);
+    off();
     expect(spoken).toEqual([]);
+  });
+
+  it("counts each session once: two sessions on, one off still holds", () => {
+    CuePlayer.holdForCoach(true);
+    CuePlayer.holdForCoach(true);
+    CuePlayer.holdForCoach(false);
+    expect(CuePlayer.coachHeld).toBe(true);
+    CuePlayer.holdForCoach(false);
+    expect(CuePlayer.coachHeld).toBe(false);
+    CuePlayer.holdForCoach(false);
+    expect(CuePlayer.coachHeld).toBe(false);
   });
 });

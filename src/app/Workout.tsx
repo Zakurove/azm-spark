@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { CoachPush } from "../coach/types";
+import type { WorkoutButton } from "../features/coach-agent/workoutCoach";
 import { Plan } from "../medical/plan";
 import { libraryById } from "../medical/pool";
 import { planRest, sessionSteps, type CardSlot, type SessionDay, type SessionStep } from "../medical/session";
@@ -103,6 +104,8 @@ export default function Workout({
   // Step D5: the coach may hold a timer; the camera sets hand their events to the coach.
   const [paused, setPaused] = useState(false);
   const coachPush = useRef<CoachPush | null>(null);
+  // D-036 item 2: a camera set's button the coach may press on the person's words (its Continue program).
+  const [setButton, setSetButton] = useState<WorkoutButton | null>(null);
   const toCoach = useMemo<CoachPush>(() => (e) => coachPush.current?.(e), []);
   useEffect(() => {
     if (paused || (stage !== "warmup" && stage !== "rest" && stage !== "cooldown")) return;
@@ -171,6 +174,14 @@ export default function Workout({
     setPaused(false);
     setStage(o.stage === "warmup" ? "intro" : o.stage);
   };
+  /** The interval screen's main button (and the coach's press of it, D-036 item 2). */
+  const press = () => {
+    if (stage === "done") return onExit();
+    if (stage === "cooldown") return setStage("done");
+    if (stage === "setup") return enter(0);
+    if (!run.demo && preferences.voice !== "off") primeAudio(lang);
+    setStage("set");
+  };
   // Beside every screen below at the same place, so the coach stays mounted from step to step.
   const coach = WorkoutCoach && !run.demo && (
     <Suspense fallback={null}>
@@ -186,7 +197,9 @@ export default function Workout({
         onPause={setPaused}
         push={coachPush}
         onStopExercise={stopExercise}
-        onNext={onExit}
+        remaining={remaining}
+        press={press}
+        setButton={setButton}
         onExit={onExit}
       />
     </Suspense>
@@ -219,6 +232,7 @@ export default function Workout({
         onSave={save}
         onContinue={next}
         coach={WorkoutCoach ? toCoach : undefined}
+        onCoachButton={WorkoutCoach ? setSetButton : undefined}
       />,
     );
   }
@@ -268,13 +282,6 @@ export default function Workout({
     cooldown: c.finish,
     done: c.exit,
   }[stage];
-  const press = () => {
-    if (stage === "done") return onExit();
-    if (stage === "cooldown") return setStage("done");
-    if (stage === "setup") return enter(0);
-    if (!run.demo && preferences.voice !== "off") primeAudio(lang);
-    setStage("set");
-  };
   const position = steps.find((s) => s.kind === "camera")?.prescription.setup.position ?? "chair";
   const hasCamera = steps.some((s) => s.kind === "camera");
   const cameraSets = steps.filter((s) => s.kind === "camera").length;

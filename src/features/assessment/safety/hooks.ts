@@ -1,7 +1,8 @@
 /**
- * React side of the safety screens: the spoken sequence with its captions, the chime, the wake lock,
- * the double tap guard and fitting the answers above the fold (UX spec S36 to S49, 4.3, 4.6, 5.10
- * useCues, useWakeLock). Every timer runs on the phone and never waits for the network.
+ * React side of the safety screens: the sequence of captions (never spoken: the app uses no phone
+ * speech, D-036 item 1), the chime, the wake lock, the double tap guard and fitting the answers above
+ * the fold (UX spec S36 to S49, 4.3, 4.6, 5.10 useCues, useWakeLock). Every timer runs on the phone and
+ * never waits for the network.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { localizeDigits } from "../../../i18n";
@@ -25,18 +26,15 @@ export interface SequenceState {
   index: number | null;
   /** True once every line has been shown. */
   done: boolean;
-  /** Whether a voice is reading the line being shown now (read at the moment of the call). */
-  speaking(): boolean;
   /** Listen again: from the first line (of `lines`, or of other lines such as a longer Listen form). */
   replay(other?: readonly SpeechLine[]): void;
   stop(): void;
 }
 
 /**
- * Plays `lines` once when the screen opens (after `delayMs`, so a screen reader reads the focused
- * heading first), showing each line in the caption slot while it plays. Listen again replays. The
- * Sound setting is read at each line; turning it off silences the voice and the text keeps stepping.
- * `key` changes when the text changes (a new screen or language), which starts it over.
+ * Steps through `lines` once when the screen opens (after `delayMs`, so a screen reader reads the
+ * focused heading first), showing each line in the caption slot for its reading time. Listen again
+ * replays. `key` changes when the text changes (a new screen or language), which starts it over.
  */
 export function useSpeechSequence(
   lines: readonly SpeechLine[],
@@ -45,16 +43,12 @@ export function useSpeechSequence(
     autoplay?: boolean;
     delayMs?: number;
     onEnd?: () => void;
-    /** Asked before each line after the first: false ends the sequence at the end of the line before. */
-    beforeLine?: () => boolean;
   },
 ): SequenceState {
   const ui = useCheckUi();
   const uiRef = useLatest(ui);
   const linesRef = useLatest(lines);
   const onEndRef = useLatest(opts.onEnd);
-  const beforeRef = useLatest(opts.beforeLine);
-  const speakingNow = useRef(false);
   const player = useRef<SequencePlayer | null>(null);
   const playing = useRef<readonly SpeechLine[]>(lines);
   const [index, setIndex] = useState<number | null>(null);
@@ -66,16 +60,8 @@ export function useSpeechSequence(
     const list = other ?? linesRef.current;
     playing.current = list;
     player.current.play(list, {
-      lang: uiRef.current.lang,
-      soundOn: () => uiRef.current.sound.on,
-      beforeLine() {
-        const go = beforeRef.current?.() ?? true;
-        if (!go) speakingNow.current = false;
-        return go;
-      },
-      onLine(i, speaking) {
+      onLine(i) {
         const line = list[i];
-        speakingNow.current = speaking;
         setIndex(i);
         // The caption's tap plays this line again (3.0). A line already on the screen as its heading
         // is not repeated in the strip above it.
@@ -86,12 +72,11 @@ export function useSpeechSequence(
           uiRef.current.showCaption(
             localizeDigits(uiRef.current.lang, line.display),
             line.severity,
-            speaking,
+            false,
             () => start([line]),
           );
       },
       onEnd() {
-        speakingNow.current = false;
         setIndex(null);
         setDone(true);
         uiRef.current.clearCaption();
@@ -119,24 +104,16 @@ export function useSpeechSequence(
     [],
   );
 
-  // Sound off: the voice stops at once; the text keeps stepping (captions carry everything).
-  useEffect(() => {
-    if (!ui.sound.on) player.current?.silence();
-  }, [ui.sound.on]);
-
   const stop = useCallback(() => {
     player.current?.stop();
-    speakingNow.current = false;
     setIndex(null);
     uiRef.current.clearCaption();
   }, []);
-  const speaking = useCallback(() => speakingNow.current && uiRef.current.sound.on, []);
 
   return {
     mark: index === null ? null : (playing.current[index]?.mark ?? null),
     index,
     done,
-    speaking,
     replay: start,
     stop,
   };

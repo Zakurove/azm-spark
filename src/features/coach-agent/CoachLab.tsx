@@ -4,12 +4,13 @@
  * (labRun.ts) and shows each stage with a tick and its time, or the exact error, then a verdict with
  * its reasons and the technical details to copy, so Nasser and the tech lead read the same thing.
  *
- *   - The tap does what the focus check's tap does (the phone's voice unlock, which sets the iOS audio
- *     session to playback, and the coach's AudioContext), so the test meets the check's conditions.
+ *   - The tap does what the focus check's tap does (the coach's AudioContext; the check has no phone
+ *     voice to unlock since D-036 item 1), so the test meets the check's conditions.
  *   - «مع تشغيل الكاميرا» opens the front camera first and keeps it on, as the range and walk screens
  *     do, and checks that it still runs once the microphone starts.
- *   - «كما قبل إصلاح iOS» asks for the microphone without setting play-and-record first, as v7.1 did: on
- *     an iPhone the microphone step then fails with InvalidStateError, which proves the cause.
+ *   - «كما قبل إصلاح iOS» sets the audio session to playback in the tap and asks for the microphone
+ *     without setting play-and-record first, as v7.1 did: on an iPhone the microphone step then fails
+ *     with InvalidStateError, which proves the cause.
  * Nothing is saved but the run's usage row (its cost and its failure). VITE_E2E builds with
  * ?e2eCoach=fake run on the fake coach (no token, no Google) with the real microphone and speaker.
  */
@@ -31,7 +32,7 @@ import {
   type LabStepId,
 } from "./labRun";
 import { FakeLiveTransport } from "./fake";
-import { PhoneVoice } from "./phoneVoice";
+import { CuePlayer } from "../../app/audio";
 import { GenaiTransport } from "./transport";
 import "./coach.css";
 
@@ -170,9 +171,9 @@ export default function CoachLab({ lang }: { lang: Lang }) {
 
   const run = () => {
     if (busy) return;
-    // Inside the tap, as the focus check's tap: the phone's voice (iOS: the playback session) and the
-    // coach's AudioContext.
-    PhoneVoice.unlock();
+    // Inside the tap, as the focus check's tap: the coach's AudioContext. As before the iOS fix, the
+    // v7.1 tap also set the playback session (its voice unlock).
+    if (asBefore) CuePlayer.unlock();
     unlockCoachAudio();
     const sessionAtTap = audioSessionType();
     setBusy(true);

@@ -132,14 +132,14 @@ describe("playing from the chosen pack", () => {
     expect(spoken).toEqual([]);
   });
 
-  it("speaks with a voice on the device when neither pack has the line", async () => {
+  it("says nothing when neither pack has the line: never the phone's speech (D-036 item 1)", async () => {
     choose("gemini-achird");
     const run = new CuePlayer("ar").line("check_go");
     created[0].onerror();
     await tick();
     created[1].onerror();
-    expect(await run).toBe(true);
-    expect(spoken).toHaveLength(1);
+    expect(await run).toBe(false);
+    expect(spoken).toEqual([]);
   });
 
   it("asks the default pack only once when no pack is chosen or the chosen one is gone", async () => {

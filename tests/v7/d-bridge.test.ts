@@ -2,6 +2,7 @@
  * Stream D, step D4: the event bridge (product v7 contract 2.11 EventBridge, bridge rules 1 to 5 and
  * the "two P1 events without coach audio" trigger of rule 6; 8.6). The transport records what is sent,
  * the local voice is a fake that plays until the test ends its line, and every time is explicit.
+ * D-036 item 1: while the coach is on, only the coach speaks; the local voice speaks in local mode only.
  */
 import { describe, expect, it, vi } from "vitest";
 import { EventBridge, LOCAL_ASK, P0_LINE } from "../../src/features/coach-agent/bridge";
@@ -56,7 +57,6 @@ function setup(mode: CoachMode = "live") {
     micGate: vi.fn(),
     duck: vi.fn(),
     onFallback: vi.fn(),
-    onAskedLocally: vi.fn(),
     onFirstAudio: vi.fn(),
   };
   const bridge = new EventBridge(transport, local, {}, hooks);
@@ -110,12 +110,12 @@ const reps = (t: number, count: number, exercise = "sit_to_stand"): BridgeEvent 
 const lean = (t: number): BridgeEvent => ({ p: 2, type: "compensation", kind: "trunk_lean", value: 14, t });
 
 describe("rule 1: a P0 acts first and closes the bridge to all but P0", () => {
-  it("flushes the coach, says the local stop line, then sends the event with turnComplete true", () => {
+  it("flushes the coach and sends the event with turnComplete true; no local line while the coach is on", () => {
     const s = setup();
     s.bridge.push(saved(T0 + 10), s.at(10));
     s.bridge.push(stop(T0 + 100), s.at(100));
     expect(s.hooks.flushCoach).toHaveBeenCalledTimes(1);
-    expect(s.local.said).toEqual([{ line: P0_LINE, severity: "safety" }]);
+    expect(s.local.said).toEqual([]);
     expect(P0_LINE).toBe("stop_rest");
     // The context waiting goes first, silently, then the stop.
     expect(s.sent).toEqual([
@@ -131,20 +131,21 @@ describe("rule 1: a P0 acts first and closes the bridge to all but P0", () => {
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_pain_stop"]);
   });
 
-  it("says the stop line over a correction playing (only the host's own safety line stands for it)", () => {
-    const s = setup();
+  it("in local mode, says the stop line over a correction playing (only the host's own safety line stands for it)", () => {
+    const s = setup("local");
     s.local.say("rom_no_lean", "warn");
     s.bridge.push(stop(T0), s.at(0));
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean", P0_LINE]);
   });
 
-  it("is sent at once even right after a P1, and cancels the question's local fallback", () => {
+  it("is sent at once even right after a P1, and closes the question", () => {
     const s = setup();
     s.bridge.push(hold(T0), s.at(0));
     s.bridge.push(stop(T0 + 300), s.at(300));
     expect(s.sent.map((x) => x.turnComplete)).toEqual([true, true]);
     s.run(5000);
-    expect(s.local.said.map((x) => x.line)).toEqual([P0_LINE]);
+    expect(s.local.said).toEqual([]);
+    expect(s.hooks.onFallback).not.toHaveBeenCalled();
   });
 
   it("passes only P0 until the app reopens it", () => {
@@ -156,7 +157,7 @@ describe("rule 1: a P0 acts first and closes the bridge to all but P0", () => {
     s.bridge.push(saved(T0 + 2700), s.at(2700));
     s.run(9000);
     expect(s.sent).toHaveLength(1);
-    expect(s.local.said).toHaveLength(1);
+    expect(s.local.said).toHaveLength(0);
     s.bridge.push({ p: 0, type: "red_flag", screen: "scr_emergency", t: T0 + 9100 }, s.at(9100));
     expect(s.sent).toHaveLength(2);
     s.bridge.reopen(s.at(9200));
@@ -172,7 +173,7 @@ describe("rule 1: a P0 acts first and closes the bridge to all but P0", () => {
   });
 });
 
-describe("rule 2: a P1 question goes to the coach, and to the local voice when the coach is late", () => {
+describe("rule 2: a P1 question goes to the coach; nothing else asks it while the coach is on", () => {
   it("sends the question with turnComplete true and stays quiet when the coach speaks in time", () => {
     const s = setup();
     s.bridge.push(hold(T0), s.at(0));
@@ -184,23 +185,17 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     expect(s.hooks.onFirstAudio).toHaveBeenCalledWith(700);
   });
 
-  it("asks with the local voice 1.5 s after the question and tells the coach silently", () => {
+  it("never asks with the local voice while live: a late coach still asks it (D-036 item 1)", () => {
     const s = setup();
     expect(BRIDGE_DEFAULTS.localFallbackMs).toBe(1500);
     s.bridge.push(hold(T0), s.at(0));
-    s.run(1450);
+    s.run(4000);
     expect(s.local.said).toEqual([]);
-    s.run(1500);
-    expect(s.local.said).toEqual([{ line: "rom_ask_max", severity: "warn" }]);
-    expect(s.hooks.onAskedLocally).toHaveBeenCalledTimes(1);
-    expect(s.sent.at(-1)).toEqual({
-      text: formatEvent({ p: 3, type: "asked_locally", what: "ask_max", t: T0 + 1500 }, T0),
-      turnComplete: false,
-      at: T0 + 1500,
-    });
-    // Late coach audio does not count as the coach voicing it.
-    s.bridge.coachSpeaking(true, s.at(1600));
-    expect(s.hooks.onFirstAudio).not.toHaveBeenCalled();
+    expect(s.sent).toEqual([{ text: s.line(hold(T0)), turnComplete: true, at: T0 }]);
+    expect(s.sent.some((x) => x.text.includes("asked_locally"))).toBe(false);
+    // The coach's late audio is its question, voiced.
+    s.bridge.coachSpeaking(true, s.at(4100));
+    expect(s.hooks.onFirstAudio).toHaveBeenCalledWith(4100);
   });
 
   it("counts the coach's old sentence, still playing when the question went, as no answer to it", () => {
@@ -217,7 +212,7 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     expect(s.hooks.onFirstAudio).toHaveBeenCalledWith(700);
   });
 
-  it("asks locally when the old sentence never stops after the question", () => {
+  it("never asks locally while live, even when the coach's old sentence never stops after the question", () => {
     const s = setup();
     s.bridge.coachSpeaking(true, s.at(0));
     s.bridge.push(hold(T0 + 100), s.at(100));
@@ -225,27 +220,7 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
       s.bridge.coachSpeaking(true, s.at(t));
       s.bridge.tick(s.at(t));
     }
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
-  });
-
-  it("waits for a correction to end before it asks locally, and tells the coach only then", () => {
-    const s = setup();
-    s.bridge.push(hold(T0), s.at(0));
-    // The host says a correction just before the local fallback: the question would be refused.
-    s.local.say("rom_shoulder_down", "warn");
-    s.run(1500);
-    s.run(2000);
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_shoulder_down"]);
-    expect(s.hooks.onAskedLocally).not.toHaveBeenCalled();
-    expect(s.sent.filter((x) => x.text.includes("asked_locally"))).toEqual([]);
-    // The correction ends; 300 ms later the question is asked and the coach told.
-    s.at(2000);
-    s.local.end();
-    s.run(2250);
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_shoulder_down"]);
-    s.run(2400);
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_shoulder_down", "rom_ask_max"]);
-    expect(s.hooks.onAskedLocally).toHaveBeenCalledTimes(1);
+    expect(s.local.said).toEqual([]);
   });
 
   it("in local mode, asks once the line playing ends", () => {
@@ -258,12 +233,12 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean", "rom_ask_max"]);
   });
 
-  it("maps every question to its local line and asked_locally name", () => {
+  it("maps every question to its local line", () => {
     expect(LOCAL_ASK).toEqual({
-      end_range_hold: { line: "rom_ask_max", what: "ask_max" },
-      ask_pain: { line: "rom_pain_ask", what: "ask_pain" },
-      ask_cause: { line: "rom_what_stopped_ask", what: "ask_cause" },
-      ask_can_move: { line: "rom_can_move_ask", what: "ask_can_move" },
+      end_range_hold: "rom_ask_max",
+      ask_pain: "rom_pain_ask",
+      ask_cause: "rom_what_stopped_ask",
+      ask_can_move: "rom_can_move_ask",
     });
     const s = setup("local");
     s.bridge.push({ p: 1, type: "ask_can_move", movement: "neck_flexion", side: "none", t: T0 }, s.at(0));
@@ -299,23 +274,24 @@ describe("rule 2: a P1 question goes to the coach, and to the local voice when t
     expect(s.hooks.onFirstAudio).toHaveBeenCalledWith(400);
   });
 
-  it("while connecting, asks locally at 1.5 s and tells the coach silently once live", () => {
+  it("while connecting, never asks locally: the coach asks once live", () => {
     const s = setup("connecting");
     s.bridge.push(hold(T0), s.at(0));
     s.run(1500);
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+    expect(s.local.said).toEqual([]);
     s.at(2200);
     s.bridge.setMode("live");
-    expect(s.sent).toEqual([
-      {
-        text: [
-          s.line(hold(T0)),
-          formatEvent({ p: 3, type: "asked_locally", what: "ask_max", t: T0 + 1500 }, T0),
-        ].join("\n"),
-        turnComplete: false,
-        at: T0 + 2200,
-      },
-    ]);
+    expect(s.sent).toEqual([{ text: s.line(hold(T0)), turnComplete: true, at: T0 + 2200 }]);
+  });
+
+  it("has the coach ask a question the local voice asked while the coach was away, once it is live", () => {
+    const s = setup("local");
+    s.bridge.push(hold(T0), s.at(0));
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+    s.local.end();
+    s.at(3000);
+    s.bridge.setMode("live");
+    expect(s.sent).toEqual([{ text: s.line(hold(T0)), turnComplete: true, at: T0 + 3000 }]);
   });
 });
 

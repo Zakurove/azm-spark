@@ -816,10 +816,11 @@ export class GaitController implements CoachHost {
     if (s.id === "stand" || s.id === "stance") this.retake = true;
     // D-038 item 2: the phone placed again (a try once more, the pad's other side, the stance) changes
     // the picture: the next calibration takes its person again, the walker kept when found. The front
-    // and back part (D-038 item 4) leaves the phone where it is, but the walker now faces it: their
-    // torso reads wider than from the side, so its start is a calibration between steps too (the
-    // walker kept when found, else the one standing ready, never a bystander followed all along).
-    if (s.id === "place" || s.id === "stance_place") this.lock.hold(false);
+    // and back part (D-038 item 4) leaves the phone where it is: the same walk, still held, with the
+    // walker starting it elsewhere (4 to 5 m in front of the phone, facing it, smaller than on the side
+    // path): found again wherever they are, never someone followed all along, never another look.
+    if (s.id === "place" && s.rec === "overground_front") this.lock.newPlace();
+    else if (s.id === "place" || s.id === "stance_place") this.lock.hold(false);
     if (s.id === "stand" && s.rec) {
       const r = this.recOf(s.rec);
       r.standing = [];

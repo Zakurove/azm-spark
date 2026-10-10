@@ -5,6 +5,10 @@
  *
  *   - It runs with the person's switch, the live_coach consent, the coach available on the server and
  *     a network (C-5: off by default). A demo workout has no coach.
+ *   - D-038 item 3: a demo exercise (DemoExercises) runs it too, as a workout's camera set: its one
+ *     segment is demo (no workout id), with no pain question (the run's Start tap starts the coach's
+ *     audio), and it ends a moment after the set's summary shows (`over`). Nothing is saved; a stop's
+ *     lock and count are a workout's.
  *   - Before the first step one tap asks the pain now (CT-2): the answer is the session host's score
  *     before, a skip counts as 0, and the tap starts the coach's audio (D-18).
  *   - Each screen of the workout is a step of the session host with its C-16 kind. The coach runs as
@@ -21,16 +25,15 @@
  *     workout offers (workoutButton: Start training, Next set once the rest is over, Continue program
  *     after a set, Exit on the end card), never the setup's attestation, a guided card's controls,
  *     the effort question or anything while the stop list or a stop's screen is open.
- *   - D-036 item 1: the recorded voice (the counts, the corrections, the stop line) never plays while
- *     the Live coach session is on (CuePlayer.holdForCoach); it comes back if the coach falls back.
+ *   - D-038 item 3: no recorded voice at all (it gave the counts, the corrections and the stop line
+ *     before): the coach says the set's steps, form cues and counts (Session's say lines), and without
+ *     it the screen is silent and carries every line. The coach's local voice is SILENT_VOICE.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import type { Position } from "../../app/product";
-import { CuePlayer } from "../../app/audio";
-import { GO_ON, PRESS_SAY } from "../../coach/actions";
-import { readPreferences } from "../../app/experience";
-import type { CoachPush, CoachSegment } from "../../coach/types";
+import { AGAIN, GO_ON, PRESS_SAY } from "../../coach/actions";
+import type { CoachPush, CoachSegment, DemoRef } from "../../coach/types";
 import type { Intake } from "../../medical/plan";
 import type { SessionStep } from "../../medical/session";
 import type { StopOptionId } from "../../movements/types";
@@ -46,7 +49,7 @@ import { readCoachStatus, sendWorkoutStop, type CoachStatus } from "./api";
 import { unlockCoachAudio } from "./audio/context";
 import { CoachCaption } from "./CoachCaption";
 import { liveCoachOn } from "./hosts";
-import { CueVoice } from "./LocalVoice";
+import { SILENT_VOICE } from "./LocalVoice";
 import { SessionHost, type SessionScreen } from "./sessionHost";
 import { fakeCoachRun, useCoach } from "./useCoach";
 import { useScreenActions } from "./useScreenActions";
@@ -86,7 +89,8 @@ export const CLOSING_MS = 10_000;
 
 export interface CoachedWorkoutProps {
   lang: Lang;
-  workoutId: string;
+  /** The workout, or (D-038 item 3) a demo exercise's run: coached as a workout's set, nothing saved. */
+  of: { workoutId: string } | DemoRef;
   /** The person's switch (Preferences.liveCoach). */
   preference: boolean;
   stage: WorkoutStage;
@@ -109,6 +113,8 @@ export interface CoachedWorkoutProps {
   setButton: WorkoutButton | null;
   /** A stop that ends the workout, after its screen. */
   onExit(): void;
+  /** D-038 item 3: a demo's set is over (its summary shows): the segment ends after the closing words. */
+  over?: boolean;
 }
 
 /** The step's name for the coach: the exercise of a camera set or a card, else the screen. */
@@ -120,6 +126,7 @@ function stepLabel(stage: WorkoutStage, step: SessionStep | null): string {
 
 export default function CoachedWorkout(props: CoachedWorkoutProps) {
   const { lang } = props;
+  const demo = "demo" in props.of;
   const latest = useRef(props);
   latest.current = props;
 
@@ -192,19 +199,18 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     setHost(new SessionHost(screen, plan.painBefore ?? null));
   };
 
-  // The local voice (the voice pack, muted with it), through which the bridge says its stop line.
-  const player = useMemo(() => new CuePlayer(lang), []);
-  const voice = useMemo(() => new CueVoice(player), [player]);
-  useEffect(() => player.setLang(lang), [lang, player]);
+  // D-038 item 3: a demo has no pain question: its Start tap started the coach's audio, and a pain
+  // report is read against no score before (the stricter rule).
   useEffect(() => {
-    player.muted = readPreferences().voice === "off";
-    return () => player.stop();
-  }, [player]);
+    if (!demo || !on || host) return;
+    plan.answerPain(null);
+    setHost(new SessionHost(screen, null));
+  }, [demo, on, host, plan, screen]);
 
+  // D-038 item 3: no recorded voice: the coach is the only voice (the bridge says no local line).
+  const ref = props.of;
   const coach = useCoach(
-    on && host && segment
-      ? { block: "session", segment, lang, ref: { workoutId: props.workoutId }, host, local: voice }
-      : null,
+    on && host && segment ? { block: "session", segment, lang, ref, host, local: SILENT_VOICE } : null,
   );
   const pushRef = useRef(coach.push);
   pushRef.current = coach.push;
@@ -213,14 +219,20 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     if (import.meta.env.VITE_E2E !== "1") return;
     (window as unknown as { azmCoach?: unknown }).azmCoach = { mode: coach.mode, captions: coach.captions };
   }, [coach.mode, coach.captions]);
-  const coachOn = coach.mode !== "off";
+  // The set's events go to the coach; its step say lines are also kept by the host, for a session
+  // that goes live after them (D-038 item 3).
   useEffect(() => {
     const target = props.push;
-    target.current = coachOn ? (e) => pushRef.current(e) : null;
+    target.current = host
+      ? (e) => {
+          host.noteSay(e);
+          pushRef.current(e);
+        }
+      : null;
     return () => {
       target.current = null;
     };
-  }, [coachOn, props.push]);
+  }, [host, props.push]);
 
   // Each screen is a step: its kind (the stop list's while it is open), a new part at a step, and the
   // coach hears the step's start.
@@ -237,9 +249,9 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     // A new step is never held (the host's setStep ended its pause too).
     if (latest.current.paused) latest.current.onPause(false);
     const now = performance.now();
-    setSegment(plan.boundary(now));
+    setSegment(demo ? "demo" : plan.boundary(now));
     pushRef.current({ p: 3, type: "step_start", label, t: now });
-  }, [host, stepKey, listOpen, label, plan, props.stage]);
+  }, [host, stepKey, listOpen, label, plan, props.stage, demo]);
 
   // D-036 item 2: the button the coach may press on the person's spoken words, the same call as the
   // tap (none before the pain question, nor while the stop list or a stop's screen is open).
@@ -260,6 +272,10 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
               say: BUTTON_SAY[button.name],
               press: () => button.press(),
             },
+            // D-038 item 3: a demo's summary offers Repeat for «again».
+            ...(button.again
+              ? [{ name: "again", intents: AGAIN, say: PRESS_SAY.again, press: () => button.again!() }]
+              : []),
           ],
         }
       : null,
@@ -269,11 +285,12 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
   // microphone does not stay open on the end card (leaving earlier ends it as the person's).
   const endRef = useRef(coach.end);
   endRef.current = coach.end;
+  const finished = props.stage === "done" || !!props.over;
   useEffect(() => {
-    if (props.stage !== "done") return;
+    if (!finished) return;
     const id = setTimeout(() => endRef.current("done"), CLOSING_MS);
     return () => clearTimeout(id);
-  }, [props.stage]);
+  }, [finished]);
 
   useEffect(() => {
     if (!painOk) return;
@@ -295,8 +312,10 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     pushRef.current({ p: 0, type: "safety_stop", reason: "stop_list", t: t0 });
     // Bridge rule 1: the app shows the screen first, then the coach hears the red flag.
     if (route.screen) pushRef.current({ p: 0, type: "red_flag", screen: route.screen, t: t0 });
-    // The server sets the stop's next day lock as a check's stop does (D-030 D5-7), and counts it.
-    void sendWorkoutStop(latest.current.workoutId, option);
+    // The server sets the stop's next day lock as a check's stop does (D-030 D5-7), and counts it; a
+    // demo's stop too, with no workout (D-038 item 3).
+    const of = latest.current.of;
+    void sendWorkoutStop("demo" in of ? { demo: of.demo } : of.workoutId, option);
     if (!next) {
       host?.clearStop();
       coach.reopen();

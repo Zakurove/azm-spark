@@ -73,14 +73,12 @@ function setup(mode: CoachMode = "live") {
   return { bridge, sent, transport, local, hooks, at, run, line };
 }
 
+/** A range question (P1): the can move question (D-038 item 1 took the maximum question out). */
 const hold = (t: number): BridgeEvent => ({
   p: 1,
-  type: "end_range_hold",
-  holdId: "h1",
+  type: "ask_can_move",
   movement: "shoulder_flexion",
   side: "right",
-  deg: 118,
-  typical: 166,
   t,
 });
 const askPain = (t: number): BridgeEvent => ({
@@ -230,25 +228,21 @@ describe("rule 2: a P1 question goes to the coach; nothing else asks it while th
     expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean"]);
     s.local.end();
     s.run(400);
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean", "rom_ask_max"]);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_no_lean", "rom_can_move_ask"]);
   });
 
   it("maps every question to its local line", () => {
+    // D-038 item 1: no maximum or cause question any more.
     expect(LOCAL_ASK).toEqual({
-      end_range_hold: "rom_ask_max",
       ask_pain: "rom_pain_ask",
-      ask_cause: "rom_what_stopped_ask",
       ask_can_move: "rom_can_move_ask",
     });
     const s = setup("local");
     s.bridge.push({ p: 1, type: "ask_can_move", movement: "neck_flexion", side: "none", t: T0 }, s.at(0));
     s.local.end();
     s.run(400);
-    s.bridge.push(
-      { p: 1, type: "ask_cause", movement: "neck_flexion", side: "none", t: T0 + 410 },
-      s.at(410),
-    );
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_can_move_ask", "rom_what_stopped_ask"]);
+    s.bridge.push({ p: 1, type: "ask_pain", movement: "neck_flexion", side: "none", t: T0 + 410 }, s.at(410));
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_can_move_ask", "rom_pain_ask"]);
   });
 
   it("asks at once in local mode and sends nothing", () => {
@@ -287,7 +281,7 @@ describe("rule 2: a P1 question goes to the coach; nothing else asks it while th
   it("has the coach ask a question the local voice asked while the coach was away, once it is live", () => {
     const s = setup("local");
     s.bridge.push(hold(T0), s.at(0));
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_can_move_ask"]);
     s.local.end();
     s.at(3000);
     s.bridge.setMode("live");
@@ -449,7 +443,7 @@ describe("modes", () => {
     s.bridge.push(hold(T0), s.at(0));
     s.at(600);
     s.bridge.setMode("local");
-    expect(s.local.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+    expect(s.local.said.map((x) => x.line)).toEqual(["rom_can_move_ask"]);
     s.run(6000);
     expect(s.sent).toHaveLength(1);
   });

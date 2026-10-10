@@ -29,11 +29,9 @@
  *      SAY_TIMING.correctionRepeatMs, and a correction or a count that could not go in time is
  *      dropped. In local mode and after a P0 none is said (the screens carry them).
  *
- * Who speaks what. Only the coach while it is on (D-036 item 1). The host owns its screen and its
- * local lines; a workout says its corrections (P2) and its safety line (P0) through the LocalVoice it
- * gave useCoach (its recorded voice, which never plays while a Live coach session is on), so the mic
- * gate sees every local line. While the coach is on (mode is not off) the host never asks a P1
- * question aloud itself. Pure, no DOM: the session wires the transport, the speaker, the microphone
+ * Who speaks what. Only the coach (D-036 item 1, D-038 item 3): every host gives useCoach the silent
+ * local voice, so the local voice rules above say nothing; they stay for the LocalVoice interface. The
+ * host owns its screen; while the coach is on (mode is not off) it never asks a P1 question aloud. Pure, no DOM: the session wires the transport, the speaker, the microphone
  * and the clock.
  */
 import {
@@ -56,9 +54,7 @@ interface PendingSay {
 
 /** The local line of each question (the range data's copy, voice-script.json), for local mode. */
 export const LOCAL_ASK: Record<P1Event["type"], string> = {
-  end_range_hold: "rom_ask_max",
   ask_pain: "rom_pain_ask",
-  ask_cause: "rom_what_stopped_ask",
   ask_can_move: "rom_can_move_ask",
 };
 /** The local line of a P0 when the host's own safety line is not playing: «توقف فورًا واسترح.» */

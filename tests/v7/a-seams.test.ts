@@ -178,15 +178,7 @@ describe("medical seams", () => {
 describe("engine seams", () => {
   it("export the RomRunner class and the gait analysis of 2.6 and 2.8", () => {
     expect(typeof RomRunner).toBe("function");
-    for (const m of [
-      "start",
-      "feed",
-      "answerCanMove",
-      "answerMax",
-      "answerPain",
-      "answerCause",
-      "keepReaching",
-    ])
+    for (const m of ["start", "feed", "answerCanMove", "answerPain", "keepReaching"])
       expect(typeof (RomRunner.prototype as unknown as Record<string, unknown>)[m], m).toBe("function");
     for (const m of ["pause", "resume", "stop", "finish"])
       expect(typeof (RomRunner.prototype as unknown as Record<string, unknown>)[m], m).toBe("function");

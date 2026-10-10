@@ -3,8 +3,9 @@
  * phone and cannot read it). Each say line carries the screen's own copy in the person's language: the
  * block's card, a movement's setup (the position, where the phone goes and how far, which way to face
  * it), the movement when the measurement starts, the rest and the next try, and the corrections the
- * camera's caption shows. The coach says them in its own words (bridge rule 9). Never a number of
- * degrees: the live meter has none (D-036 item 4). Pure, no DOM.
+ * camera's caption shows, and since D-038 item 1 the hold in hand («hold there») and the value recorded
+ * («done»). The coach says them in its own words (bridge rule 9). Never a number of degrees: the live
+ * meter has none (D-036 item 4). Pure, no DOM.
  */
 import type { Lang } from "../../app/i18n";
 import type { CoachFacing, CoachSay } from "../../coach/types";
@@ -186,5 +187,34 @@ export function setupIssueSay(issue: SetupIssue, lang: Lang): CoachSay {
     kind: "correction",
     key: `setup_${issue}`,
     lines: [t(lang, `assessment.setup.issue.${issue}` as never)],
+  };
+}
+
+/**
+ * D-038 item 1: a hold in hand, the coach's short «hold there» (a count like line: said only when the
+ * coach is free at once, never late). No number of degrees.
+ */
+export function holdSay(item: RomProtocolItem, lang: Lang): CoachSay {
+  return {
+    p: 2,
+    type: "say",
+    kind: "progress",
+    key: "hold",
+    movement: item.movementId,
+    side: item.side,
+    lines: [tV7(lang, "rom.say.hold")],
+  };
+}
+
+/** D-038 item 1: the value is recorded (no question): the coach's short «done». */
+export function doneSay(item: RomProtocolItem, lang: Lang): CoachSay {
+  return {
+    p: 2,
+    type: "say",
+    kind: "step",
+    key: "done",
+    movement: item.movementId,
+    side: item.side,
+    lines: [tV7(lang, "rom.say.done")],
   };
 }

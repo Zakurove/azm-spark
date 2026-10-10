@@ -26,8 +26,8 @@
  *   - The usage report (5.2) describes the whole segment so far: sent at each fallback, when the page
  *     hides and at the end; never for a segment that had no session.
  *   - While the microphone is open the audio session is play-and-record (rule 3), and playback after.
- *   - D-036 item 1: while the session is on (connecting or live) no recorded line plays anywhere
- *     (holdVoice, CuePlayer.holdForCoach): only the coach speaks. Local mode releases it.
+ *   - D-036 item 1 and D-038 item 3: only the coach speaks; no screen plays a recorded line (the
+ *     hold on recordings that this session kept while on went with them).
  *   - D-036 item 2: next_step presses the host's screen buttons (host.actions); the answer guard takes
  *     it only when the person spoke while that very screen showed.
  *   - D-037 item 1: the coach says the hosts' say lines out loud (bridge rule 9); a tool call or the
@@ -99,11 +99,6 @@ export interface CoachDeps {
   audioSession?(live: boolean): void;
   /** Called as a connection starts, before the token is asked (useCoach: preload the SDK chunk). */
   prepare?(): void;
-  /**
-   * D-036 item 1: true while the session is on (connecting or live), false when it fell back to local
-   * or ended: no recorded voice plays while it is held (useCoach: CuePlayer.holdForCoach).
-   */
-  holdVoice?(on: boolean): void;
   /** Section 9 timings for the perf overlay (User Timing measures named azm:*, DG-1), on the clock of now. */
   measure?(name: CoachMeasure, start: number, duration: number): void;
   /** The bridge's tick (default 100 ms). */
@@ -200,8 +195,6 @@ export class CoachSession {
   private rotateDue = false;
   private rotateAtTime = Infinity;
   private expiresAt = Infinity;
-  /** The recorded voice is held for this session (D-036 item 1). */
-  private voiceHeld = false;
   /** The last failure of the segment (D-035 item 3), sent in every report after it. */
   private failure: CoachFailure | null = null;
   /** The step on the screen was handed to the coach once the session went live (D-037 item 1). */
@@ -269,7 +262,6 @@ export class CoachSession {
   start(): void {
     if (this.started || this.ended) return;
     this.started = true;
-    this.holdVoice(true);
     this.offWindow =
       this.deps.listen?.({
         offline: () => this.fallback("offline"),
@@ -304,7 +296,6 @@ export class CoachSession {
     this.detach();
     this.stopMic();
     this.releaseAudio();
-    this.holdVoice(false);
     this.bridge.setMode("off");
     this.ended = true;
     if (this.tickTimer) clearInterval(this.tickTimer);
@@ -679,19 +670,10 @@ export class CoachSession {
     this.deps.audioSession?.(false);
   }
 
-  /** D-036 item 1: the recorded voice is held while the session is on, once per session. */
-  private holdVoice(on: boolean): void {
-    if (this.voiceHeld === on) return;
-    this.voiceHeld = on;
-    this.deps.holdVoice?.(on);
-  }
-
   /* ------------------------------------------------------ the state */
 
   private setMode(mode: CoachMode): void {
     if (this.snap.mode === mode) return;
-    // Local mode lets the recorded voice back (a workout's); connecting and live hold it.
-    if (!this.ended) this.holdVoice(mode === "connecting" || mode === "live");
     this.bridge.setMode(mode);
     this.snap = { ...this.snap, mode };
     this.notify();

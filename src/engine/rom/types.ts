@@ -21,19 +21,16 @@ import type { SubjectLock } from "../subject";
 import type { CheckCueId } from "../../movements/types";
 
 export type RomPhase =
-  | "idle"
-  | "calibrating"
-  | "practice"
-  | "attempt"
-  | "ask_can_move"
-  | "ask_max"
-  | "ask_pain"
-  | "ask_cause"
-  | "rest"
-  | "paused"
-  | "stopped"
-  | "done";
+  "idle" | "calibrating" | "practice" | "attempt" | "ask_can_move" | "rest" | "paused" | "stopped" | "done";
+/**
+ * The answers of the maximum question, kept for the rows stored before D-038 item 1 (rom_engine_5
+ * records the hold with no question: answer and answerSource null).
+ */
 export type RomAnswer = "yes" | "not_yet" | "hurts";
+/**
+ * What stopped the person most (the cause question, rom-protocol 1.1 step 6): kept for the rows stored
+ * before D-038 item 1, which took the question out (rom_engine_5 stores cause null).
+ */
 export type LimitCause = "tight" | "pain" | "weak";
 export type AnswerSource = "button" | "voice" | "timeout";
 export type RomFlag =
@@ -64,8 +61,6 @@ export interface RomRunnerOptions {
   restSec?: number;
   /** The region's pain today (pain_ask), for the pain_during rule. Null or absent (a region that is not a body map pain region) counts as 0. */
   painBefore?: number | null;
-  /** The norm's withinFrom (withinUpTo for lack movements) from normFor; a confirmed value short of it opens ask_cause once. null: never ask. */
-  askCauseBelow: number | null;
   poseModel: "lite" | "full";
   /**
    * The seated side bend (trunk_lateral_flexion in seated_armrests) only: the side's best seated side
@@ -94,7 +89,10 @@ export type RomEvent =
   | { kind: "live"; deg: number; t: number }
   /** Velocity under 8 degrees per second for 0.4 s inside a 3 degree band (tunable): the coach may get ready. */
   | { kind: "plateau"; deg: number; t: number; attempt: number }
-  /** The end range hold (hold.ts MVP_HOLD after a real movement, D-035): the maximum question opens. */
+  /**
+   * The end range hold (hold.ts MVP_HOLD after a real movement, D-035): D-038 item 1, the hold in hand,
+   * recorded once RUNNER_RULES.settleSec has passed unless a further hold (a new event) replaces it.
+   */
   | { kind: "hold"; hold: RomHold }
   /**
    * A compensation check fired (D-035): `cue` when it is the movement's one calm line (spoken), `flag`
@@ -102,8 +100,8 @@ export type RomEvent =
    */
   | { kind: "compensation"; id: CompensationId; level: "cue" | "flag"; value: number; t: number }
   /**
-   * A local voice pack line to play (cues, ask_max when the coach is off, recorded, pain_stop ...); the
-   * side arm raise plays its v1 lines (test_abd_still, test_abd_side; D-024 item 2).
+   * A line of the runner (cues, recorded, pain_stop ...), shown on the screen or said by the coach; the
+   * side arm raise has its v1 lines (test_abd_still, test_abd_side; D-024 item 2).
    */
   | { kind: "cue"; cue: RomCueId | RomCopyKey | CheckCueId; t: number }
   | { kind: "quality"; issue: QualityIssue; t: number }
@@ -132,7 +130,7 @@ export interface RomAttempt {
 
 export interface AnswerResult {
   accepted: boolean;
-  reason?: "wrong_phase" | "stale_hold" | "already_answered" | "stopped" | "after_pain";
+  reason?: "wrong_phase" | "stopped" | "after_pain";
   events: RomEvent[];
 }
 export interface PainResult extends AnswerResult {

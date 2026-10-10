@@ -233,7 +233,9 @@ describe("SessionHost", () => {
 
   it("answers a range tool with not_in_block and never throws", () => {
     const h = new SessionHost(screen());
-    expect(h.handleTool("confirm_max", { movement: "knee_flexion", side: "left", answer: "yes" })).toEqual({
+    expect(
+      h.handleTool("answer_can_move", { movement: "knee_flexion", side: "left", canMove: true }),
+    ).toEqual({
       accepted: false,
       reason: "not_in_block",
     });

@@ -54,7 +54,6 @@ export function replay(input: ReplayInput, answerDelayMs = 600): RomDriverReport
     def: movementDef(input.movement),
     mirrored: false,
     painBefore: 0,
-    askCauseBelow: null,
     poseModel: input.model,
   });
   const driver = new RomSmokeDriver(runner, { answerDelayMs, now: () => 0 });

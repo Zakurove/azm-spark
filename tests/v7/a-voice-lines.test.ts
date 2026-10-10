@@ -39,11 +39,10 @@ const ROM_SPOKEN: readonly RomCopyKey[] = [
   "again",
   "recorded",
   "keep_going",
-  // The questions (P1, asked locally when the coach is off or has not started within 1.5 s).
+  // The questions (P1, asked locally when the coach is off or has not started within 1.5 s); D-038
+  // item 1 took the maximum question (ask_max) and the cause question (what_stopped_ask) out.
   "can_move_ask",
-  "ask_max",
   "pain_ask",
-  "what_stopped_ask",
   // What happens next.
   "pain_stop",
   "no_active_movement",

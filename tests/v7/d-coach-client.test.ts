@@ -2,8 +2,8 @@
  * Stream D, step D4: the coach's client parts around the session (product v7 contract 5.1, 5.2,
  * 2.11 LocalVoice and useCoach, bridge rule 3): the token request and the usage report as the routes
  * expect them (fetch with keepalive and X-Azm-Request, never sendBeacon), the install's device id, the
- * local voice over CuePlayer (playing from the request to the end of the line, for the mic gate), the
- * audio session hunk of app/audio.ts, and useCoach's states before a session exists.
+ * silent local voice (D-038 item 3), the audio session hunk of app/audio.ts, and useCoach's states
+ * before a session exists.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
@@ -14,7 +14,7 @@ import {
   mintCoachToken,
   sendUsageReport,
 } from "../../src/features/coach-agent/api";
-import { CueVoice, type CueLike } from "../../src/features/coach-agent/LocalVoice";
+import { SILENT_VOICE } from "../../src/features/coach-agent/LocalVoice";
 import { CoachSession } from "../../src/features/coach-agent/session";
 import { E2E_COACH_SESSION_ID, SilentSpeaker, e2eCoachDeps } from "../../src/features/coach-agent/e2eCoach";
 import { setCoachAudioSession, useCoach, userTiming } from "../../src/features/coach-agent/useCoach";
@@ -154,67 +154,12 @@ describe("the device id (5.1 deviceId)", () => {
 
 /* ---------------------------------------------------- the local voice */
 
-class FakePlayer implements CueLike {
-  calls: { id: string; severity: string; onEnd?: () => void; started: (v: boolean) => void }[] = [];
-  stops = 0;
-  line(id: string, severity: "praise" | "info" | "warn" | "safety" = "info", onEnd?: () => void) {
-    return new Promise<boolean>((started) => this.calls.push({ id, severity, onEnd, started }));
-  }
-  stop() {
-    this.stops++;
-  }
-}
-
-describe("CueVoice, the local voice over CuePlayer", () => {
-  it("plays from the request to the end of the line, for the mic gate", async () => {
-    const player = new FakePlayer();
-    const voice = new CueVoice(player as unknown as CueLike);
-    const seen: boolean[] = [];
-    voice.onPlaying((p) => seen.push(p));
-    voice.say("rom_ask_max", "warn");
-    expect(voice.playing).toBe(true);
-    expect(seen).toEqual([true]);
-    expect(player.calls.map((c) => [c.id, c.severity])).toEqual([["rom_ask_max", "warn"]]);
-    player.calls[0].started(true);
-    await Promise.resolve();
-    expect(voice.playing).toBe(true);
-    player.calls[0].onEnd?.();
-    expect(voice.playing).toBe(false);
-    expect(seen).toEqual([true, false]);
-  });
-
-  it("ends a line the player refused, ignores unknown lines and says a playing line once", async () => {
-    const player = new FakePlayer();
-    const voice = new CueVoice(player as unknown as CueLike);
-    voice.say("not_a_line", "info");
-    expect(player.calls).toEqual([]);
-    voice.say("rom_no_lean", "warn");
-    voice.say("rom_no_lean", "warn");
-    expect(player.calls).toHaveLength(1);
-    player.calls[0].started(false);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(voice.playing).toBe(false);
-  });
-
-  it("keeps playing while a newer line plays after an older one was cut", async () => {
-    const player = new FakePlayer();
-    const voice = new CueVoice(player as unknown as CueLike);
-    voice.say("rom_ask_max", "warn");
-    voice.say("stop_rest", "safety");
-    player.calls[0].onEnd?.();
-    expect(voice.playing).toBe(true);
-    player.calls[1].onEnd?.();
-    expect(voice.playing).toBe(false);
-  });
-
-  it("stops every line", () => {
-    const player = new FakePlayer();
-    const voice = new CueVoice(player as unknown as CueLike);
-    voice.say("rom_ask_max", "warn");
-    voice.stopAll();
-    expect(player.stops).toBe(1);
-    expect(voice.playing).toBe(false);
+describe("the local voice (D-038 item 3)", () => {
+  it("is silent everywhere: SILENT_VOICE says nothing, and CueVoice is gone", async () => {
+    const mod = (await import("../../src/features/coach-agent/LocalVoice")) as Record<string, unknown>;
+    expect(mod.CueVoice).toBeUndefined();
+    expect(SILENT_VOICE.playing).toBe(false);
+    expect(SILENT_VOICE.say("rom_pain_ask", "warn")).toBeUndefined();
   });
 });
 

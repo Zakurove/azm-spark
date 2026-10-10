@@ -132,7 +132,7 @@ describe("the spike's helpers", () => {
 
 describe("the spike's command line", () => {
   it("names the four probes of DG-2 and D-036's press in both the runner and the suite", () => {
-    expect([...RUN_PROBES]).toEqual(["lock", "answers", "context", "dose", "press"]);
+    expect([...RUN_PROBES]).toEqual(["lock", "answers", "context", "dose", "press", "demo"]);
     expect([...PROBES]).toEqual([...RUN_PROBES]);
     for (const p of RUN_PROBES) expect(PLAN[p]).toBeTruthy();
   });
@@ -175,6 +175,6 @@ describe("the spike's command line", () => {
     const check = spawnSync(process.execPath, [RUN, "--check"], { cwd: ROOT, env, encoding: "utf8" });
     expect(check.stderr).toBe("");
     expect(check.status).toBe(0);
-    expect(check.stdout.trim()).toBe("suite built: lock, answers, context, dose, press");
+    expect(check.stdout.trim()).toBe("suite built: lock, answers, context, dose, press, demo");
   }, 60_000);
 });

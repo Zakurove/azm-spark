@@ -11,6 +11,7 @@
  * Captions are for display only (live.md 10); nothing here is stored or sent. Pure, no DOM.
  */
 import type { Lang } from "../../movements/types";
+import { westernDigits } from "../../app/i18n";
 
 /** S0-6: a turn shows at most this many characters per second of its audio. */
 export const CAPTION_CHARS_PER_SECOND = 25;
@@ -105,13 +106,17 @@ export class CaptionFilter {
     this.coach = null;
   }
 
-  /** The lines to show, oldest first. */
+  /**
+   * The lines to show, oldest first. D-036 item 3: Western digits in the Arabic interface, also when
+   * the transcription writes the coach's counts (D-038 item 3) in Arabic digits.
+   */
   list(): Caption[] {
     return this.entries
       .map((e) => ({
         who: e.who,
-        text:
+        text: westernDigits(
           e.who === "coach" ? cut(e.text, Math.floor(e.audioSec * CAPTION_CHARS_PER_SECOND)) : e.text.trim(),
+        ),
       }))
       .filter((c) => c.text.length > 0)
       .slice(-CAPTION_LINES);

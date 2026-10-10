@@ -1,7 +1,8 @@
 /**
  * Stream D, step D1: the bridge event line (product v7 contract 2.11 formatEvent, live.md 7) and the
  * shared bridge rules every coach part reads (2.11 rules 1 to 8, with the S0 values of D-022:
- * P1_AT "hold", localFallbackMs 1500, the segment rotation and the 1011 close of S0-3).
+ * localFallbackMs 1500, the segment rotation and the 1011 close of S0-3; D-038 item 1 took the maximum
+ * question's end_range_hold out).
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -9,7 +10,6 @@ import {
   CONNECTION_LIMIT_CLOSE_MS,
   EXPIRY_MARGIN_MS,
   MIC_REOPEN_MS,
-  P1_AT,
   P1_WITHOUT_AUDIO_LIMIT,
   ROTATE_AFTER_SETUP_MS,
   SLOW_SETUP_MS,
@@ -26,17 +26,17 @@ const at = (s: number) => T0 + s * 1000;
 describe("formatEvent", () => {
   it("writes the compact line of live.md 7: seconds since the start, the type, then the fields", () => {
     const e: BridgeEvent = {
-      p: 1,
-      type: "end_range_hold",
-      holdId: "h1",
+      p: 3,
+      type: "movement_result",
       movement: "shoulder_flexion",
       side: "right",
       deg: 117.6,
       typical: 166,
+      finding: "mild",
       t: at(42.14),
     };
     expect(formatEvent(e, T0)).toBe(
-      "[EVT t=42.1 type=end_range_hold mv=shoulder_flexion side=right deg=118 typical=165]",
+      "[EVT t=42.1 type=movement_result mv=shoulder_flexion side=right deg=118 typical=165 finding=mild]",
     );
   });
 
@@ -46,7 +46,6 @@ describe("formatEvent", () => {
         { p: 0, type: "safety_stop", reason: "pain_stop", t: at(1) },
         { p: 0, type: "red_flag", screen: "scr_stop_seek_care", t: at(2) },
         { p: 1, type: "ask_pain", movement: "knee_flexion", side: "left", t: at(3) },
-        { p: 1, type: "ask_cause", movement: "knee_flexion", side: "left", t: at(4) },
         { p: 1, type: "ask_can_move", movement: "neck_flexion", side: "none", t: at(5) },
         {
           p: 2,
@@ -74,16 +73,15 @@ describe("formatEvent", () => {
         },
         { p: 3, type: "reps", exercise: "sit_to_stand", count: 4, target: 8, t: at(11) },
         { p: 3, type: "pass_done", view: "pad_side", cleanCycles: 7, needed: 6, t: at(12) },
-        { p: 3, type: "asked_locally", what: "ask_max", t: at(13) },
+        { p: 3, type: "asked_locally", what: "ask_pain", t: at(13) },
         { p: 3, type: "tool_applied", name: "mark_pain", accepted: true, t: at(14) },
-        { p: 3, type: "tool_applied", name: "confirm_max", accepted: false, t: at(15) },
+        { p: 3, type: "tool_applied", name: "keep_reaching", accepted: false, t: at(15) },
       ] as BridgeEvent[]
     ).map((e) => formatEvent(e, T0));
     expect(lines).toEqual([
       "[EVT t=1.0 type=safety_stop reason=pain_stop]",
       "[EVT t=2.0 type=red_flag screen=scr_stop_seek_care]",
       "[EVT t=3.0 type=ask_pain mv=knee_flexion side=left]",
-      "[EVT t=4.0 type=ask_cause mv=knee_flexion side=left]",
       "[EVT t=5.0 type=ask_can_move mv=neck_flexion side=none]",
       "[EVT t=6.0 type=compensation mv=shoulder_flexion kind=trunk_lean value=12]",
       "[EVT t=6.5 type=compensation kind=sit_tall]",
@@ -95,9 +93,9 @@ describe("formatEvent", () => {
       "[EVT t=10.0 type=movement_result mv=hip_flexion side=right deg=98 typical=120 finding=mild]",
       "[EVT t=11.0 type=reps exercise=sit_to_stand count=4 target=8]",
       "[EVT t=12.0 type=pass_done view=pad_side clean=7 needed=6]",
-      "[EVT t=13.0 type=asked_locally what=ask_max]",
+      "[EVT t=13.0 type=asked_locally what=ask_pain]",
       "[EVT t=14.0 type=tool_applied name=mark_pain accepted=yes]",
-      "[EVT t=15.0 type=tool_applied name=confirm_max accepted=no]",
+      "[EVT t=15.0 type=tool_applied name=keep_reaching accepted=no]",
     ]);
   });
 
@@ -105,13 +103,13 @@ describe("formatEvent", () => {
     const line = (typical: number | null) =>
       formatEvent(
         {
-          p: 1,
-          type: "end_range_hold",
-          holdId: "h",
+          p: 3,
+          type: "movement_result",
           movement: "knee_flexion",
           side: "left",
           deg: 90,
           typical,
+          finding: "mild",
           t: T0,
         },
         T0,
@@ -155,7 +153,6 @@ describe("the shared bridge rules", () => {
 
   it("keeps the contract defaults and the values S0 set (D-022)", () => {
     expect(BRIDGE_DEFAULTS).toEqual({ minGapMs: 2000, contextFlushMs: 5000, localFallbackMs: 1500 });
-    expect(P1_AT).toBe("hold");
     expect(MIC_REOPEN_MS).toBe(300);
     expect(SLOW_SETUP_MS).toBe(3000);
     expect(P1_WITHOUT_AUDIO_LIMIT).toBe(2);

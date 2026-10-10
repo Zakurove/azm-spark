@@ -55,6 +55,8 @@ export const WORKOUT_STEP_KIND: Record<WorkoutStage, CoachStepKind> = {
 export interface WorkoutButton {
   name: "start" | "next_set" | "finish" | "exit" | "continue";
   press(): void;
+  /** D-038 item 3: a demo run's summary also offers Repeat, for «again». */
+  again?(): void;
 }
 
 /**

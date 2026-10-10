@@ -1,22 +1,14 @@
 /**
  * A simulated person for the RomRunner tests (tests/v7/b-*.test.ts): the person follows the runner's
  * phases (still at the start pose while it calibrates, moves to the attempt's target and holds it,
- * comes back to the start in the rest) and answers its questions after a delay, as a person with the
- * buttons or the coach would. The pose of each frame comes from a builder of the movement angle. Clearly
+ * comes back to the start in the rest). D-038 item 1: there is no maximum or cause question; after a
+ * hold the person may go on further (`further`). The pose of each frame comes from a builder of the movement angle. Clearly
  * synthetic.
  */
 import type { Frame, Landmark } from "../../src/engine/types";
 import type { FeedEnv } from "../../src/engine/modes/types";
 import { RomRunner } from "../../src/engine/rom/runner";
-import type {
-  AnswerSource,
-  LimitCause,
-  RomAnswer,
-  RomEvent,
-  RomHold,
-  RomPhase,
-  RomRunnerOptions,
-} from "../../src/engine/rom/types";
+import type { RomEvent, RomPhase, RomRunnerOptions } from "../../src/engine/rom/types";
 import type { RomProtocolItem } from "../../src/medical/rom-protocol";
 import { movementDef } from "../../src/movements/rom";
 import type { RomMovementId, RomPositionId, RomSide } from "../../src/movements/rom/types";
@@ -102,19 +94,12 @@ export function runner(
   return new RomRunner({
     item: item(movementId, side ?? "right", itemOver),
     def: movementDef(movementId),
-    askCauseBelow: null,
     poseModel: "full",
     ...opts,
   });
 }
 
 /* ------------------------------------------------------------------ the simulated person */
-
-export interface ScriptAnswer {
-  answer: RomAnswer;
-  after?: number;
-  source?: AnswerSource;
-}
 
 export interface Script {
   /** The angle of the start pose. */
@@ -125,14 +110,10 @@ export interface Script {
   speed?: number;
   /** Seconds the person waits after an attempt opens before moving. */
   startDelay?: number;
-  /** The answer to the maximum question of a hold, after `after` seconds (default yes by button after 0.6 s). Null: no answer. */
-  answer?: (hold: RomHold, k: number) => ScriptAnswer | null;
-  /** After «not yet», the angle to go on to (default: stay). */
+  /** After the attempt's first hold, the angle the person goes on to (default: stay). */
   further?: (index: number) => number;
-  /** The pain score after «it hurts» (default 2), and whether it is sharp. */
-  pain?: { level: number; sharp?: boolean; after?: number };
-  /** The answer to the cause question. */
-  cause?: LimitCause;
+  /** Seconds after the first hold before the person goes on further (default 0.5). */
+  furtherAfter?: number;
   /** A wobble added to the angle (tremor): amplitude in degrees and frequency. */
   tremor?: { amp: number; hz: number };
   /** The pose of an angle at a time. */
@@ -175,16 +156,14 @@ export function drive(
   let goal = s.rest;
   let moveAt = t0;
   let opened = 0;
-  let holds = 0;
-  let prev: RomPhase | null = null;
+  let held = -1;
   const pending: { at: number; run: (at: number) => RomEvent[] }[] = [];
   const take = (evs: RomEvent[], t: number) => {
     for (const e of evs) {
       events.push(e);
       if (e.kind === "phase") {
         phases.push({ phase: e.phase, t: e.t, attempt: e.attempt });
-        // A new attempt (an attempt after «not yet» comes back from ask_max and goes on where it was).
-        if ((e.phase === "practice" || e.phase === "attempt") && prev !== "ask_max") {
+        if (e.phase === "practice" || e.phase === "attempt") {
           opened++;
           goal = s.target(e.attempt, opened);
           moveAt = t + (s.startDelay ?? 0.5) * 1000;
@@ -193,35 +172,19 @@ export function drive(
           goal = s.rest;
           moveAt = t;
         }
-        if (e.phase === "ask_pain") {
-          const p = s.pain ?? { level: 2 };
-          pending.push({
-            at: t + (p.after ?? 0.8) * 1000,
-            run: (at) => r.answerPain(p.level, !!p.sharp, "button", at).events,
-          });
-        }
-        if (e.phase === "ask_cause" && s.cause) {
-          const c = s.cause;
-          pending.push({ at: t + 1000, run: (at) => r.answerCause(c, "button", at).events });
-        }
-        prev = e.phase;
       }
-      if (e.kind === "hold") {
-        const k = ++holds;
-        const answerOf = s.answer ?? ((): ScriptAnswer => ({ answer: "yes" }));
-        const a = answerOf(e.hold, k);
-        if (a)
-          pending.push({
-            at: t + (a.after ?? 0.6) * 1000,
-            run: (at) => {
-              const res = r.answerMax(e.hold.holdId, a.answer, a.source ?? "button", at);
-              if (res.accepted && a.answer === "not_yet" && s.further) {
-                goal = s.further(e.hold.attempt);
-                moveAt = at;
-              }
-              return res.events;
-            },
-          });
+      // D-038 item 1: after the attempt's first hold the person may go on further.
+      if (e.kind === "hold" && s.further && held !== opened) {
+        held = opened;
+        const to = s.further(e.hold.attempt);
+        pending.push({
+          at: t + (s.furtherAfter ?? 0.5) * 1000,
+          run: () => {
+            goal = to;
+            moveAt = 0;
+            return [];
+          },
+        });
       }
     }
   };
@@ -231,7 +194,6 @@ export function drive(
     opened++;
     goal = s.target(r.phase === "practice" ? 0 : 1, opened);
     moveAt = t0 + (s.startDelay ?? 0.5) * 1000;
-    prev = r.phase;
   }
   const n = Math.round(seconds * fps);
   const stop = () => r.done || r.phase === "stopped" || !!hooks.until?.(r);

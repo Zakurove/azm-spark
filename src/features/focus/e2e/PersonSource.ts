@@ -66,13 +66,11 @@ export class PersonSource implements PoseSource {
       const target = c.rest + (c.target - c.rest) * (this.opts.reach ?? 1);
       const now = `${phase}:${attempt}`;
       if (now !== this.phase) {
-        const before = this.phase;
         this.phase = now;
         if (phase === "practice" || phase === "attempt") {
-          // After «ليس بعد» the same attempt goes on: a little further. A new attempt goes to the target.
-          const again = before === `ask_max:${attempt}`;
-          this.goal = again ? this.goal + (c.target > c.rest ? 6 : -6) : target;
-          this.moveAt = t + (again ? 400 : 700);
+          // A new attempt goes to the target (D-038 item 1: no question; the hold records itself).
+          this.goal = target;
+          this.moveAt = t + 700;
         }
         if (phase === "rest" || phase === "calibrating") {
           this.goal = c.rest;

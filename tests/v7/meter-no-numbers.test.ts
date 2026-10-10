@@ -148,13 +148,15 @@ describe("the live measuring screen shows no numbers (D-036 item 4)", () => {
       {
         until: (c) =>
           c.current.kind === "measure" &&
-          c.phase === phase &&
-          (phase !== "attempt" || (c.live !== null && Math.abs(c.live) > 20)),
+          (phase === "holding"
+            ? c.phase === "attempt" && c.hold !== null
+            : c.phase === phase && (phase !== "attempt" || (c.live !== null && Math.abs(c.live) > 20))),
       },
       120,
     );
     const s = ctl.current;
-    if (s.kind !== "measure" || ctl.phase !== phase) throw new Error(`never reached ${phase}`);
+    const at = phase === "holding" ? "attempt" : phase;
+    if (s.kind !== "measure" || ctl.phase !== at) throw new Error(`never reached ${phase}`);
     return { ctl, item: s.item, t: run.t };
   };
   const screen = (lang: "ar" | "en", phase: string) => {
@@ -177,7 +179,8 @@ describe("the live measuring screen shows no numbers (D-036 item 4)", () => {
   };
 
   for (const lang of LANGS)
-    for (const phase of ["calibrating", "attempt", "ask_max"] as const)
+    // D-038 item 1: «holding» is an attempt with its hold in hand («Hold there», no question).
+    for (const phase of ["calibrating", "attempt", "holding"] as const)
       it(`${phase} (${lang})`, () => {
         const { html, ctl } = screen(lang, phase);
         // The meter itself: no digit and no degree sign.
@@ -186,12 +189,16 @@ describe("the live measuring screen shows no numbers (D-036 item 4)", () => {
         expect(textOf(html)).not.toContain("°");
         expect(html).not.toMatch(/fx-dial-readout|fx-dial-typical|fx-dial-tick/);
         if (phase !== "calibrating") {
-          const angle = phase === "ask_max" ? ctl.hold?.deg : ctl.live;
+          const angle = phase === "holding" ? ctl.hold?.deg : ctl.live;
           expect(angle, "the angle is known on this screen").toEqual(expect.any(Number));
           const shown = String(Math.round(Math.abs(angle!)));
           expect(textOf(html)).not.toMatch(new RegExp(`(^|[^0-9])${shown}([^0-9]|$)`));
         }
-        if (phase === "ask_max") expect(html).toMatch(/<div class="fx-held"><div class="fx-meter is-held"/);
+        if (phase === "holding") {
+          expect(html).toContain("data-holding");
+          expect(html).toContain(lang === "ar" ? "اثبت هنا" : "Hold there");
+          expect(html).not.toMatch(/data-question/);
+        }
       });
 
   it("a new angle does not render the page: the controller notifies phases, not frames", () => {
@@ -211,12 +218,12 @@ describe("the live measuring screen shows no numbers (D-036 item 4)", () => {
           if (ctl.phase === "attempt" && ctl.live !== last) moved++;
           last = ctl.live;
         },
-        until: (c) => c.phase === "ask_max",
+        until: (c) => c.hold !== null,
       },
       120,
     );
     off();
-    expect(ctl.phase).toBe("ask_max");
+    expect(ctl.hold).not.toBeNull();
     expect(moved).toBeGreaterThan(20);
     expect(notified).toBeLessThan(moved / 4);
   });

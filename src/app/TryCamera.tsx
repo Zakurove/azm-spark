@@ -4,7 +4,6 @@ import { camCopy } from "./camera-copy";
 import { Preferences } from "./experience";
 import { Position } from "./product";
 import { preloadPoseAssets } from "./poseSource";
-import { primeAudio } from "./audio";
 import Brand from "./Brand";
 import Icon from "./Icon";
 import PlacementGuide from "./PlacementGuide";
@@ -131,13 +130,7 @@ export default function TryCamera({
             <p>{k.placeBody}</p>
             <PlacementGuide lang={lang} position={position} />
             <div className="try-actions">
-              <button
-                className="cta try-start"
-                onClick={() => {
-                  if (preferences.voice !== "off") primeAudio(lang);
-                  setStep("session");
-                }}
-              >
+              <button className="cta try-start" onClick={() => setStep("session")}>
                 <Icon name="camera" size={19} />
                 {k.start}
               </button>

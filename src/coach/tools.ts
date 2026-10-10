@@ -8,10 +8,13 @@
  * applies it at once and answers (C-17); the model says what the app decided. The descriptions say
  * when to call each tool and when never to (live.md 8: the model performs best with precise tools
  * and single calls). They are copy the model reads, so they keep the wording rules (5.3).
+ *
+ * D-038 item 1: confirm_max is gone with the maximum question (the hold is recorded automatically), and
+ * set_limit_cause with the cause question that followed a confirmed maximum; keep_reaching gives a
+ * person who says «I can do more» or «wait» a few more seconds.
  */
 import { REGION_IDS, type RegionId } from "../medical/body-map";
 import { ROM_MOVEMENT_IDS, type RomMovementId, type RomSide } from "../movements/rom/types";
-import type { LimitCause, RomAnswer } from "../engine/rom/types";
 import { PAIN_STOP } from "../medical/pain-rule";
 import { COACH_INTENTS } from "./actions";
 import type {
@@ -28,11 +31,9 @@ import type {
 
 export const TOOL_SETS: Record<CoachBlock, readonly ToolName[]> = {
   rom: [
-    "confirm_max",
     "answer_can_move",
     "keep_reaching",
     "mark_pain",
-    "set_limit_cause",
     "pause",
     "resume",
     "stop",
@@ -47,10 +48,8 @@ export const TOOL_BEHAVIOR: Record<
   ToolName,
   { behavior: "BLOCKING" | "NON_BLOCKING"; scheduling?: "SILENT" | "WHEN_IDLE" | "INTERRUPT" }
 > = {
-  confirm_max: { behavior: "BLOCKING" },
   answer_can_move: { behavior: "BLOCKING" },
   mark_pain: { behavior: "BLOCKING" },
-  set_limit_cause: { behavior: "BLOCKING" },
   stop: { behavior: "BLOCKING" },
   keep_reaching: { behavior: "NON_BLOCKING", scheduling: "SILENT" },
   repeat_instructions: { behavior: "NON_BLOCKING", scheduling: "WHEN_IDLE" },
@@ -61,7 +60,7 @@ export const TOOL_BEHAVIOR: Record<
 
 const TOOL_NAMES = Object.keys(TOOL_BEHAVIOR) as ToolName[];
 
-/** True for the ten tool names of 2.11 (a model may call any name). */
+/** True for the tool names of 2.11 (a model may call any name; confirm_max is gone since D-038). */
 export function isToolName(name: unknown): name is ToolName {
   return typeof name === "string" && (TOOL_NAMES as string[]).includes(name);
 }
@@ -69,8 +68,6 @@ export function isToolName(name: unknown): name is ToolName {
 /* ------------------------------------------------------- the unions */
 
 const SIDES: readonly RomSide[] = ["left", "right", "none"];
-const ANSWERS: readonly RomAnswer[] = ["yes", "not_yet", "hurts"];
-const CAUSES: readonly LimitCause[] = ["tight", "pain", "weak"];
 /** The stop options the coach may preselect (C-7): v1 StopOptionId without ad_signs. */
 export const COACH_STOP_REASONS: readonly CoachStopReason[] = [
   "chest",
@@ -111,22 +108,6 @@ const side: Schema = {
 };
 
 const DECLARATIONS: Record<ToolName, Omit<Declaration, "name" | "behavior">> = {
-  confirm_max: {
-    description:
-      "Call right after the person answers the question «هل هذا أقصى ما تستطيع؟» (Is this as far as you can go?), " +
-      "with their answer in their own words. yes: this is their maximum. not_yet: they will try a little further. " +
-      "hurts: they could go further but it hurts. Never call it before an end_range_hold event, never answer for " +
-      "the person, and never suggest pushing further after pain.",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        movement,
-        side,
-        answer: { type: "STRING", enum: [...ANSWERS], description: "yes, not_yet or hurts." },
-      },
-      required: ["movement", "side", "answer"],
-    },
-  },
   answer_can_move: {
     description:
       "Call after an ask_can_move event, once the person says in their own words whether they can move this " +
@@ -140,8 +121,10 @@ const DECLARATIONS: Record<ToolName, Omit<Declaration, "name" | "behavior">> = {
   },
   keep_reaching: {
     description:
-      "Call right after the person answered not_yet, while they try to reach a little further, then say only " +
-      "the gentle keep going line. Never call it after hurts, after any pain, or after a maximum was recorded.",
+      "Call when the person says during a measurement that they can go further or asks you to wait, for " +
+      "example «أقدر أكثر», «لحظة», «انتظر», I can do more, wait: the app waits a few more seconds before it " +
+      "records the hold. Then say only the gentle keep going line. Never call it on your own, after any pain, " +
+      "or once the value was recorded.",
   },
   mark_pain: {
     description:
@@ -157,16 +140,6 @@ const DECLARATIONS: Record<ToolName, Omit<Declaration, "name" | "behavior">> = {
         location: { type: "STRING", enum: [...REGION_IDS] },
       },
       required: ["level"],
-    },
-  },
-  set_limit_cause: {
-    description:
-      "Call after an ask_cause event, once the person says in their own words what stopped them most: tight " +
-      "(tightness or stiffness), pain, or weak (weakness or heaviness). Never call it before they answer.",
-    parameters: {
-      type: "OBJECT",
-      properties: { cause: { type: "STRING", enum: [...CAUSES] } },
-      required: ["cause"],
     },
   },
   pause: {
@@ -258,13 +231,6 @@ function parse(name: ToolName, raw: unknown): ToolArgs[ToolName] | null {
       if (raw.intent === undefined) return { intent: "next" };
       return oneOf<CoachIntent>(raw.intent, COACH_INTENTS) ? { intent: raw.intent } : null;
     }
-    case "confirm_max": {
-      if (!isPlain(raw) || !keysWithin(raw, ["movement", "side", "answer"])) return null;
-      const { movement, side, answer } = raw;
-      if (!oneOf<RomMovementId>(movement, ROM_MOVEMENT_IDS) || !oneOf(side, SIDES) || !oneOf(answer, ANSWERS))
-        return null;
-      return { movement, side, answer };
-    }
     case "answer_can_move": {
       if (!isPlain(raw) || !keysWithin(raw, ["movement", "side", "canMove"])) return null;
       const { movement, side, canMove } = raw;
@@ -294,10 +260,6 @@ function parse(name: ToolName, raw: unknown): ToolArgs[ToolName] | null {
         ...(location !== undefined ? { location } : {}),
       };
     }
-    case "set_limit_cause": {
-      if (!isPlain(raw) || !keysWithin(raw, ["cause"]) || !oneOf(raw.cause, CAUSES)) return null;
-      return { cause: raw.cause };
-    }
     case "stop": {
       if (!isPlain(raw) || !keysWithin(raw, ["reason"]) || !oneOf(raw.reason, COACH_STOP_REASONS))
         return null;
@@ -320,9 +282,7 @@ export function parseToolArgs<N extends ToolName>(
 
 /** The answer tools of S0-2 and the question event that opens each one. */
 const OPENED_BY = {
-  confirm_max: "end_range_hold",
   answer_can_move: "ask_can_move",
-  set_limit_cause: "ask_cause",
 } as const;
 type GuardedQuestion = (typeof OPENED_BY)[keyof typeof OPENED_BY] | "ask_pain";
 
@@ -335,18 +295,21 @@ export const ANSWER_GUARD_SAY = "ask_and_wait";
 
 /**
  * D-022 item 2 (S0-2). The model sometimes asks its question and then calls the answer tool itself,
- * before the person says anything (8 of 133 questions, live-spike.md 4). So confirm_max,
- * answer_can_move and set_limit_cause are taken only when the person's speech (an input
+ * before the person says anything (8 of 133 questions, live-spike.md 4). So answer_can_move (and
+ * confirm_max and set_limit_cause before D-038) is taken only when the person's speech (an input
  * transcription with text) arrived after the question that opened them, and mark_pain only when it
  * arrived in the last 10 s; otherwise the call is refused no_answer_heard with say ask_and_wait.
  * stop is always taken (it only preselects; the person confirms), as are pause, resume and
  * repeat_instructions.
  *
  * The pain question is guarded too (wave 2 fix of D-022 item 2): mark_pain also answers the P1
- * ask_pain (the pain question after «it hurts», and the same joint re-ask), so while a pain question
+ * ask_pain (the same joint re-ask), so while a pain question
  * is open with no speech after it, a mark_pain is refused, whatever was said before it (that speech
  * answered the question before). The 10 s window stays for a spontaneous report. A pain of 6 or more,
  * or a sharp pain, is always taken: it can only stop (C-15).
+ *
+ * keep_reaching (D-038 item 1) makes the app wait for the person, so it is taken only within 10 s of
+ * their speech («I can do more», «wait»), never on the model's own.
  *
  * next_step presses a button on the screen for the person (D-036 item 2), so it is guarded the same
  * way: with a button on the screen, it is taken only when the person spoke while that screen was
@@ -355,8 +318,8 @@ export const ANSWER_GUARD_SAY = "ask_and_wait";
  * so a second call after a press, or the model on its own, presses nothing. With no button on the
  * screen the call goes on, and the host answers that there is nothing to press.
  *
- * A call with no question of its kind open goes on to the host, which refuses it on its phase (an
- * early confirm_max is wrong_phase with hold_still, 2.11). Times are milliseconds on the clock of
+ * A call with no question of its kind open goes on to the host, which refuses it on its phase. Times
+ * are milliseconds on the clock of
  * BridgeEvent.t. One guard per Live session; the executor feeds it every P1 event it pushes
  * (whoever voices the question, the coach or the local pack) and every input transcription.
  */
@@ -371,13 +334,7 @@ export class AnswerGuard {
 
   /** A question event was pushed: the answer tools it opens need speech after it. */
   question(e: BridgeEvent): void {
-    if (
-      e.type === "end_range_hold" ||
-      e.type === "ask_can_move" ||
-      e.type === "ask_cause" ||
-      e.type === "ask_pain"
-    )
-      this.opened[e.type] = e.t;
+    if (e.type === "ask_can_move" || e.type === "ask_pain") this.opened[e.type] = e.t;
   }
 
   /** An input transcription arrived; only text counts as speech. */
@@ -404,6 +361,7 @@ export class AnswerGuard {
       if (on === null) return null;
       return this.spokeOn === on && now - this.lastSpeech <= PRESS_SPEECH_WINDOW_MS ? null : refused;
     }
+    if (name === "keep_reaching") return now - this.lastSpeech <= PRESS_SPEECH_WINDOW_MS ? null : refused;
     if (name === "mark_pain") {
       const a = args as ToolArgs["mark_pain"] | undefined;
       // A pain that stops (6 or more, or sharp) is always taken: it can only stop the movement.
@@ -413,7 +371,7 @@ export class AnswerGuard {
       if (asked !== undefined && this.lastSpeech <= asked) return refused;
       return now - this.lastSpeech <= PAIN_SPEECH_WINDOW_MS ? null : refused;
     }
-    if (name !== "confirm_max" && name !== "answer_can_move" && name !== "set_limit_cause") return null;
+    if (name !== "answer_can_move") return null;
     const openedAt = this.opened[OPENED_BY[name]];
     if (openedAt === undefined) return null;
     return this.lastSpeech > openedAt ? null : refused;

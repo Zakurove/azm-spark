@@ -16,12 +16,23 @@ const FPS = 15;
 
 /**
  * The cases at 15 fps whose holds come late, with what was seen. Since D-035 (the MVP hold, its value
- * read over the plateau the person holds) none is late and every value is within 5 degrees; one false
- * heel lift (a repeat before) is a flag.
+ * read over the plateau the person holds) every value is within 5 degrees; one false heel lift (a
+ * repeat before) is a flag. D-038 item 1 (the hold still for about 1 s, 0.6 s before): one portrait hip
+ * abduction finds its hold later, and the hip's extension at 25 percent (4.3 degrees, under the MVP
+ * hold's movement, as UNDER_MOVE_CASES at 30 fps) is not measured.
  */
 export const LATE_HOLD_15FPS: Readonly<Record<string, readonly string[]>> = {
   // The heel lift read at 15 fps in portrait (the false repeat before D-035 is a flag now).
   "rom/ankle_dorsiflexion_lunge/standing_supported/right-50-9x16-15fps": ["attempt 1 approximate: heel_lift"],
+  "rom/hip_abduction/standing_supported/left-25-9x16-15fps": [
+    "repetition 1: hold 2.9 s after plateau start + 1 s",
+  ],
+  "rom/hip_extension/standing_supported/left-25-16x9-15fps": [
+    "status not_measured (no_active_movement)",
+    "0 valid attempts",
+    "value null for 4.3",
+    "repetition 1: hold not found after plateau start + 1 s",
+  ],
 };
 
 function at15(c: RomCase): RomCase {
@@ -56,12 +67,14 @@ for (const movement of ROM_MOVEMENT_IDS)
   });
 
 describe("the 15 fps list", () => {
-  it("holds late holds of measured cases, all portrait, and one heel lift flag", () => {
+  it("holds late holds of measured cases, all portrait, one heel lift flag and the hip's 4.3 degrees", () => {
     const all = Object.entries(LATE_HOLD_15FPS);
-    expect(all.length).toBeLessThanOrEqual(1);
-    expect(all.filter(([name]) => name.includes("-16x9-")).length).toBe(0);
-    for (const [, problems] of all)
-      for (const p of problems)
-        expect(p).toMatch(/^repetition \d: hold [\d.]+ s after|^attempt 1 approximate: heel_lift$/);
+    expect(all.length).toBeLessThanOrEqual(3);
+    const under = (name: string) => name.includes("/hip_extension/") && name.includes("-25-");
+    expect(all.filter(([name]) => name.includes("-16x9-") && !under(name)).length).toBe(0);
+    for (const [name, problems] of all)
+      if (!under(name))
+        for (const p of problems)
+          expect(p).toMatch(/^repetition \d: hold [\d.]+ s after|^attempt 1 approximate: heel_lift$/);
   });
 });

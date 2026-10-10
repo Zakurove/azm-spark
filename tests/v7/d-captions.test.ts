@@ -87,6 +87,18 @@ describe("CaptionFilter", () => {
     expect(f.list()).toEqual([{ who: "coach", text: "توقف الآن" }]);
   });
 
+  it("shows the coach's counts in Western digits (D-036 item 3, D-038 item 3)", () => {
+    const f = new CaptionFilter("ar");
+    f.audio(SECOND);
+    f.coachText("٣");
+    f.turnComplete();
+    f.personText("خلصت ٦", true);
+    expect(f.list()).toEqual([
+      { who: "coach", text: "3" },
+      { who: "person", text: "خلصت 6" },
+    ]);
+  });
+
   it("keeps the person's words beside the coach's, a finished turn as its own line", () => {
     const f = new CaptionFilter("ar");
     f.audio(SECOND);

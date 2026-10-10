@@ -12,7 +12,6 @@ import type { CompensationId, RomMovementId, RomSide } from "../movements/rom/ty
 import type { Lang, StopOptionId } from "../movements/types";
 import type { CueId, Severity } from "../engine/types";
 import type { GaitView } from "../engine/gait/types";
-import type { LimitCause, RomAnswer } from "../engine/rom/types";
 import type { RegionId } from "../medical/body-map";
 import type { RomBlock } from "../medical/rom-protocol";
 import type { RomFindingId } from "../medical/rom-types";
@@ -24,18 +23,11 @@ export type CoachBlock = "rom" | "gait" | "session";
 export type BridgeEvent =
   | { p: 0; type: "safety_stop"; reason: "pain_stop" | "user_stop" | "trunk_safety" | "stop_list"; t: number }
   | { p: 0; type: "red_flag"; screen: string; t: number }
-  | {
-      p: 1;
-      type: "end_range_hold";
-      holdId: string;
-      movement: RomMovementId;
-      side: RomSide;
-      deg: number;
-      typical: number | null;
-      t: number;
-    }
+  /**
+   * D-038 item 1: no end_range_hold question (and no ask_cause) any more; a hold in hand is a say line
+   * («hold there»).
+   */
   | { p: 1; type: "ask_pain"; movement: RomMovementId; side: RomSide; t: number }
-  | { p: 1; type: "ask_cause"; movement: RomMovementId; side: RomSide; t: number }
   | { p: 1; type: "ask_can_move"; movement: RomMovementId; side: RomSide; t: number }
   | {
       p: 2;
@@ -81,7 +73,7 @@ export type BridgeEvent =
     }
   | { p: 3; type: "reps"; exercise: string; count: number; target: number; t: number }
   | { p: 3; type: "pass_done"; view: GaitView; cleanCycles: number; needed: number; t: number }
-  | { p: 3; type: "asked_locally"; what: "ask_max" | "ask_pain" | "ask_cause" | "ask_can_move"; t: number }
+  | { p: 3; type: "asked_locally"; what: "ask_pain" | "ask_can_move"; t: number }
   /** The outcome of a tool call whose cancellation arrived after the app applied it (C-17). */
   | { p: 3; type: "tool_applied"; name: ToolName; accepted: boolean; t: number };
 /** What a host or a step hands its events to (GaitStep and Session take one, 2.8.4). */
@@ -100,11 +92,9 @@ export type CoachSay = Omit<Extract<BridgeEvent, { type: "say" }>, "t">;
 /* ---------------------------------------------------------------- tools */
 
 export type ToolName =
-  | "confirm_max"
   | "answer_can_move"
   | "keep_reaching"
   | "mark_pain"
-  | "set_limit_cause"
   | "pause"
   | "resume"
   | "stop"
@@ -122,12 +112,10 @@ export type CoachStopReason = Extract<
   "chest" | "stroke_signs" | "faint" | "breath" | "fall" | "pain" | "tired" | "choice" | "other"
 >;
 export interface ToolArgs {
-  confirm_max: { movement: RomMovementId; side: RomSide; answer: RomAnswer };
   answer_can_move: { movement: RomMovementId; side: RomSide; canMove: boolean };
   keep_reaching: Record<string, never>;
   /** level integer 0 to 10; location when the person names it (the rule does not need it, C-15). */
   mark_pain: { level: number; sharp?: boolean; location?: RegionId };
-  set_limit_cause: { cause: LimitCause };
   pause: Record<string, never>;
   resume: Record<string, never>;
   stop: { reason: CoachStopReason };
@@ -151,7 +139,7 @@ export interface ToolResult {
     | "paused_on_screen"
     /** D-022 (S0-2): an answer tool with no speech from the person since the question (mark_pain: in the last 10 s). */
     | "no_answer_heard";
-  /** A copy key the coach should convey in its own words (for example keep_going, recorded, pain_stop, hold_still, tap_to_confirm). */
+  /** A copy key the coach should convey in its own words (for example keep_going, pain_stop, tap_to_confirm). */
   say?: string;
   data?: Record<string, number | string | boolean | null>;
 }
@@ -164,7 +152,7 @@ export interface ToolResult {
  * each pad safety step of gait-rules eligibility.padSafety, helper present pc_helper, the v1 helper briefing, "ready").
  * D-036 item 2: a setup's Ready, Start or Next may also be pressed on the person's spoken words (next_step and
  * the screen's ScreenActions); a question, a safety step and the safety checklists stay the person's taps.
- * question: pre-check, today questions, rf_region, pain, can move, cause, maximum. timer: rest, the sit before stand minute.
+ * question: pre-check, today questions, rf_region, pain, can move. timer: rest, the sit before stand minute.
  * safety: the stop list, the emergency screen, seek care, a pain stop. active: a measurement, a walk, an exercise.
  */
 export type CoachStepKind = "info" | "confirm" | "question" | "timer" | "safety" | "active";
@@ -261,13 +249,22 @@ export interface LocalVoice {
 
 /* ------------------------------------------------------------ the hook */
 
-/** A coach segment (C-6, 5.1): rom:seated:1, rom:seated:2, rom:standing:1, rom:lying:1, gait, session:1, session:2. */
-export type CoachSegment = `rom:${RomBlock}:${1 | 2}` | "gait" | `session:${1 | 2}`;
+/**
+ * A coach segment (C-6, 5.1): rom:seated:1, rom:seated:2, rom:standing:1, rom:lying:1, gait,
+ * session:1, session:2, and (D-038 item 3) demo: a demo exercise, coached as a workout's set, with
+ * nothing saved.
+ */
+export type CoachSegment = `rom:${RomBlock}:${1 | 2}` | "gait" | `session:${1 | 2}` | "demo";
+/** D-038 item 3: a demo exercise's run (its exercise id and a random id of the run). */
+export interface DemoRef {
+  demo: string;
+  run: string;
+}
 export interface CoachOptions {
   block: CoachBlock;
   segment: CoachSegment;
   lang: Lang;
-  ref: { checkId: string } | { workoutId: string };
+  ref: { checkId: string } | { workoutId: string } | DemoRef;
   host: CoachHost;
   local: LocalVoice;
 }

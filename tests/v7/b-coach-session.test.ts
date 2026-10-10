@@ -87,40 +87,23 @@ beforeEach(() => vi.useFakeTimers({ now: T0 }));
 afterEach(() => vi.useRealTimers());
 
 describe("the RomController through D's coach segment (DG-7)", () => {
-  it("records the person's spoken yes at the hold, through the answer guard and the executor", async () => {
+  it("tells the coach «hold there» and «done» at a hold, with no question (D-038 item 1)", async () => {
     const h = setup();
     h.ctl.startBlock("lying", 0);
     h.session.start();
     await run(900);
     expect(h.session.getSnapshot().mode).toBe("live");
-    // The person bends the knee to the first scored hold; the hold's P1 goes to the coach.
-    const toHold = runBlock(
-      h.ctl,
-      { answerMax: () => null, until: (c) => c.phase === "ask_max" && c.attempt.index === 1 },
-      300,
-    );
-    const p1 = bridges(toHold.events).filter((e) => e.type === "end_range_hold");
-    h.pipe(p1.slice(-1));
-    const asked = h
-      .live()
-      .sent.flatMap((s) => (s.kind === "context" ? [s] : []))
-      .at(-1)!;
-    expect(asked.turnComplete).toBe(true);
-    expect(asked.text).toContain("type=end_range_hold mv=knee_flexion side=right");
-    // A yes the coach makes up before the person spoke is refused (S0-2) and the question stays open.
-    h.call("c1", "confirm_max", { ...KNEE_BEND, answer: "yes" });
+    // The person bends the knee to the first scored hold; it is recorded on its own.
+    const toResult = runBlock(h.ctl, { until: (c) => c.current.kind === "result" }, 300);
+    const events = bridges(toResult.events);
+    expect(events.some((e) => e.p === 1)).toBe(false);
+    const keys = events.flatMap((e) => (e.type === "say" ? [e.key] : []));
+    expect(keys).toEqual(expect.arrayContaining(["hold", "done"]));
+    // «I can do more» from a person gives a few more seconds; the model's own call is refused.
+    h.call("c1", "keep_reaching", {});
     expect(h.reply("c1")).toMatchObject({ accepted: false, reason: "no_answer_heard" });
-    expect(h.ctl.phase).toBe("ask_max");
-    // The coach asks; the person says yes; the coach's call records the hold.
-    const deg = h.ctl.hold!.deg;
-    await run(1200);
-    h.live().emit({ type: "inputTranscript", text: "نعم", final: true });
-    await run(800);
     h.call("c2", "confirm_max", { ...KNEE_BEND, answer: "yes" });
-    expect(h.reply("c2")).toEqual({ accepted: true, say: "recorded", data: { recorded: true, deg } });
-    expect(h.ctl.attempt.valid).toBe(1);
-    // D-035: one valid attempt records the value; the knee's short value asks what stopped it.
-    expect(h.ctl.phase).toBe("ask_cause");
+    expect(h.reply("c2")).toMatchObject({ accepted: false, reason: "unknown_tool" });
     h.session.end("done");
   });
 

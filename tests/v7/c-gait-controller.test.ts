@@ -643,7 +643,7 @@ describe("the coach's tools on the gait steps (2.11 host table, C-16)", () => {
       /^gait step=walk mode=overground recording=overground_side passes=\d\/4 cycles=0\/0$/,
     );
     expect(
-      run.ctl.handleTool("confirm_max", { movement: "knee_flexion", side: "right", answer: "yes" }),
+      run.ctl.handleTool("answer_can_move", { movement: "knee_flexion", side: "right", canMove: true }),
     ).toEqual({
       accepted: false,
       reason: "not_in_block",

@@ -195,7 +195,7 @@ describe("the range steps' buttons (FocusApp)", () => {
     expect(ctl.current.kind).not.toBe("result");
   });
 
-  it("no button on a measurement, its questions and rests, a pain stop, the re-ask or the running sit minute", () => {
+  it("no button on a measurement (its hold in hand too) and rests, a pain stop, the re-ask or the running sit minute", () => {
     const ctl = rom();
     const seen = new Set<string>();
     runBlock(
@@ -216,7 +216,7 @@ describe("the range steps' buttons (FocusApp)", () => {
       },
       400,
     );
-    expect([...seen]).toEqual(expect.arrayContaining(["measure:calibrating", "measure:ask_max", "sit"]));
+    expect([...seen]).toEqual(expect.arrayContaining(["measure:calibrating", "measure:attempt", "sit"]));
     // Once the minute is over, «متابعة».
     expect(names(romButtons(ctl))).toEqual([["next", GO_ON]]);
     // A pain stop and the re-ask after it.
@@ -404,7 +404,6 @@ const CHECK = "0b6f1c1e-1d2a-4c8e-9a1b-2f3c4d5e6f70";
 
 function coached(host: CoachHost) {
   const transports: FakeLiveTransport[] = [];
-  const holds: boolean[] = [];
   const deps: CoachDeps = {
     now: () => Date.now(),
     wallNow: () => Date.now(),
@@ -439,7 +438,6 @@ function coached(host: CoachHost) {
     mic: () => null,
     speaker: () => new SilentSpeaker(() => Date.now()),
     deviceId: () => "device_abcdefghijklmnop",
-    holdVoice: (on) => holds.push(on),
     tickMs: 50,
   };
   const session = new CoachSession(
@@ -462,7 +460,7 @@ function coached(host: CoachHost) {
     live()
       .sent.flatMap((s) => (s.kind === "toolResponse" ? s.responses : []))
       .find((r) => r.id === id)?.response;
-  return { session, holds, said, call, reply };
+  return { session, said, call, reply };
 }
 
 describe("a coached range block: the person says «جاهز» and the coach presses Ready (D-036 item 2)", () => {
@@ -514,16 +512,6 @@ describe("a coached range block: the person says «جاهز» and the coach pres
     expect(h.reply("over")).toMatchObject({ accepted: false });
     expect(ctl.stopList).not.toBeNull();
     h.session.end("done");
-  });
-
-  it("holds the recorded voice while the session is on, and lets it go at the end", async () => {
-    const ctl = rom();
-    const h = coached(ctl);
-    h.session.start();
-    await vi.advanceTimersByTimeAsync(400);
-    expect(h.holds).toEqual([true]);
-    h.session.end("done");
-    expect(h.holds).toEqual([true, false]);
   });
 });
 

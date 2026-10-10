@@ -225,12 +225,33 @@ describe("a demo run records nothing (D-037 item 6)", () => {
       expect(props.exerciseId).toBe(d.id);
       expect(props.demo).toBe(false);
       expect(props.unsaved).toBe(true);
-      for (const key of RECORDING) expect(props[key], key).toBeUndefined();
-      // Every function the screen was given: back to the list, again, and the mannequin.
+      // D-038 item 3: the Live coach's wiring (its events, its buttons, the set's end, the sound
+      // switch) is no recording: nothing that saves reaches the screen.
+      for (const key of ["onSave", "onContinue", "setNumber"]) expect(props[key], key).toBeUndefined();
+      // Every function the screen was given: back to the list, again, the mannequin, and the coach's.
       const fns = Object.entries(props).filter(([, v]) => typeof v === "function");
-      expect(fns.map(([k]) => k).sort()).toEqual(["onDemo", "onExit", "onPreferences", "onRestart"]);
-      for (const [, fn] of fns) await (fn as (...a: unknown[]) => unknown)(defaults);
+      expect(fns.map(([k]) => k).sort()).toEqual([
+        "coach",
+        "onCoachButton",
+        "onComplete",
+        "onDemo",
+        "onExit",
+        "onPreferences",
+        "onRestart",
+      ]);
+      for (const [k, fn] of fns)
+        if (k !== "coach" && k !== "onCoachButton" && k !== "onComplete")
+          await (fn as (...a: unknown[]) => unknown)(defaults);
+      (props.coach as (e: unknown) => void)({
+        p: 3,
+        type: "reps",
+        exercise: d.id,
+        count: 1,
+        target: 6,
+        t: 1,
+      });
       expect(runs).toEqual([null, { id: d.id, simulated: false, n: 1 }, { id: d.id, simulated: true, n: 1 }]);
+      expect(props.sound).toMatchObject({ on: expect.any(Boolean) });
     }
     // The list too.
     renderToStaticMarkup(list("en"));
@@ -251,8 +272,12 @@ describe("a demo run records nothing (D-037 item 6)", () => {
     ]) {
       const s = source(f);
       expect(s, f).not.toMatch(/from "(\.\.\/\.\.\/app\/api|\.\/api|\.\.\/assessment\/api)"/);
-      expect(s, f).not.toMatch(/\bfetch\(|\/workouts|\/sessions|CoachedWorkout|useCoach/);
+      expect(s, f).not.toMatch(/\bfetch\(|\/workouts|\/sessions|useCoach|workoutId/);
     }
+    // D-038 item 3: the demo's Live coach is a workout's, on a demo ref with no workout id.
+    const demo = source("src/features/program-v7/DemoExercises.tsx");
+    expect(demo).toMatch(/import\("\.\.\/coach-agent\/CoachedWorkout"\)/);
+    expect(demo).toMatch(/of=\{\{ demo: d\.id, run: runId \}\}/);
     // The camera screen saves only through the onSave it is given.
     const session = source("src/app/Session.tsx");
     expect(session).not.toMatch(/from "\.\/api"/);

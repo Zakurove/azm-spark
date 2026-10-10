@@ -41,9 +41,6 @@ const ar = {
   staff: "قائمة الفريق",
   staffReset: "زائر جديد",
   staffLanguage: "English",
-  staffVoice: "صوت المدرب",
-  voiceOn: "يعمل",
-  voiceOff: "متوقف",
   staffOff: "أوقف وضع الجناح",
   close: "إغلاق",
 
@@ -208,9 +205,6 @@ const en: Copy = {
   staff: "Staff menu",
   staffReset: "New visitor",
   staffLanguage: "العربية",
-  staffVoice: "Coach voice",
-  voiceOn: "On",
-  voiceOff: "Off",
   staffOff: "Turn off booth mode",
   close: "Close",
 

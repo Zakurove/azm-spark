@@ -332,17 +332,9 @@
     "ar": "هل تستطيع تحريك هذا المفصل بنفسك، ولو قليلًا؟",
     "en": "Can you move this joint on your own, even a little?"
   },
-  "rom_ask_max": {
-    "ar": "هل هذا أقصى ما تستطيع؟",
-    "en": "Is this as far as you can go?"
-  },
   "rom_pain_ask": {
     "ar": "ما مقدار الألم الذي تشعر به الآن؟ الرقم 0 يعني لا ألم، والرقم 10 يعني أشد ألم يمكنك تخيله.",
     "en": "How much pain do you feel now? 0 means no pain, and 10 means the worst pain you can imagine."
-  },
-  "rom_what_stopped_ask": {
-    "ar": "ما الذي أوقفك أكثر؟",
-    "en": "What stopped you most?"
   },
   "rom_pain_stop": {
     "ar": "سنتوقف عن هذه الحركة الآن. لا تتجاوز حد الألم أبدًا.",

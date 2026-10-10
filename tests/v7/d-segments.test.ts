@@ -97,7 +97,8 @@ describe("segmentsFor", () => {
 
 describe("segment minutes (5.1)", () => {
   it("are ceil(items x 1.5 + 1) for a range segment, 5 for the walk and 9 for a workout part", () => {
-    expect(M).toEqual({ romPerItem: 1.5, romExtra: 1, romMax: 9, gait: 5, session: 9 });
+    // D-038 item 3: a demo exercise's segment is 3 minutes (one short set, no workout).
+    expect(M).toEqual({ romPerItem: 1.5, romExtra: 1, romMax: 9, gait: 5, session: 9, demo: 3 });
     // rom-protocol sessionOrder: about 1.5 minutes per movement (read from the data, C-1).
     expect(M.romPerItem).toBe(ROM_DATA.sessionOrder.minutesPerMovement);
     const rom = (n: number) => minutesFor({ block: "rom", items: Array(n).fill(item(1, "seated")) }, M);

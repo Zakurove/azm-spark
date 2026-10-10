@@ -332,8 +332,6 @@ export class SmokeRun {
         mirrored: spec.mirrored,
         // The runner's own subject lock, as the app's range controller gives it none.
         painBefore: 0,
-        // The run never asks what stopped the person (open question 8: null switches it off).
-        askCauseBelow: null,
         poseModel: this.deps.camera.model,
       });
       this.driver = new RomSmokeDriver(runner, {

@@ -10,11 +10,14 @@
  * walk tests (src/movements, src/engine/modes) are measurements, not exercises, and are not listed.
  *
  * A demo run is the very camera screen of a workout set with nothing recorded: no workout is started
- * (POST /api/workouts), no set is saved (no onSave, POST /api/workouts/:id/sets), no Live coach session
- * is opened (no coach), so nothing counts toward the program, the weekly dose or the workouts.
+ * (POST /api/workouts), no set is saved (no onSave, POST /api/workouts/:id/sets), so nothing counts
+ * toward the program, the weekly dose or the workouts. D-038 item 3: the Live coach runs it as a
+ * workout's set (segment demo, its ref the exercise and a random id of the run, no workout id); its
+ * session is logged in agent_sessions like any coach session's, and nothing else is stored.
  */
 import type { Lang } from "../../app/i18n";
 import type { Setup } from "../../app/product";
+import type { SessionStep } from "../../medical/session";
 import { EXERCISES } from "../../exercises/defs";
 
 export type DemoArea = "shoulders" | "elbows" | "legs";
@@ -79,8 +82,8 @@ export interface DemoRun {
 /**
  * What the camera screen gets for a demo run: the real camera (`demo` false, unless the camera could
  * not open and the person chose to watch the mannequin), the workout's screen and its counting, marked
- * `unsaved`, with no onSave, no onContinue, no coach and no coach button. Only the ways back to the list
- * (`onExit`), again (`onRestart`) and to the mannequin (`onDemo`).
+ * `unsaved`, with no onSave and no onContinue. Only the ways back to the list (`onExit`), again
+ * (`onRestart`) and to the mannequin (`onDemo`). The coach's props are DemoRunScreen's (D-038 item 3).
  */
 export function demoSessionProps(
   d: DemoExercise,
@@ -98,4 +101,29 @@ export function demoSessionProps(
     onRestart: on.again,
     onDemo: on.simulate,
   };
+}
+
+/**
+ * D-038 item 3: the demo's one camera set, as the coach's workout steps name it (its instruction text,
+ * its label): one set of the demo's repetitions, no rest, nothing recorded.
+ */
+export function demoCoachStep(d: DemoExercise): SessionStep {
+  return {
+    kind: "camera",
+    prescription: { exerciseId: d.id, setup: d.setup, sets: 1, reps: d.reps, restSeconds: 0, reason: "demo" },
+    setNumber: 1,
+  };
+}
+
+/** A random id for a demo run's coach segment (a UUID v4, as the token route checks). */
+export function newDemoRunId(rand: (bytes: Uint8Array) => Uint8Array = defaultRandom): string {
+  const b = rand(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+function defaultRandom(bytes: Uint8Array): Uint8Array {
+  return globalThis.crypto.getRandomValues(bytes);
 }

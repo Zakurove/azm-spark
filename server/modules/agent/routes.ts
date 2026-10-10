@@ -6,6 +6,11 @@
  * while AZM_AGENT_ENABLED is off or GEMINI_API_KEY is missing; the usage report does not, since it
  * asks nothing of Google and a segment that ran before the switch went off still reports.
  *
+ * D-038 item 3: a demo exercise's coach (block session, segment demo) has no workout: its ref is the
+ * exercise and a random id of the run, its row's ref demo:<run> (one row per run, so a run's re-mints
+ * stay on it), its minutes the short demo segment's. The checks are the same: signed in, the
+ * live_coach consent, the rate limits and the budget; nothing of the demo is saved.
+ *
  * The coach is an enhancement, never a dependency (C-5): every refusal here leaves the segment to the
  * local voice pack and the buttons. The token route checks, in the order of 5.1: the body, the
  * live_coach consent, an open ref of the person, the focus check's home gate for a range or gait
@@ -40,8 +45,9 @@ import { activeConsent } from "../consents/store";
 import { focusHomeClosed } from "../focus/routes";
 import { ownFocusCheck, type FocusCheck } from "../focus/store";
 import { decide, ownSession, reserve, segmentSession, storeUsage, type ReservationAsk } from "./budget";
-import { checkContext, workoutContext, type CoachContext } from "./context";
-import { minutesFor, segmentsFor, SESSION_SEGMENTS } from "./segments";
+import { checkContext, demoContext, workoutContext, type CoachContext } from "./context";
+import { DEMO_SEGMENT, minutesFor, segmentsFor, SESSION_SEGMENTS } from "./segments";
+import { demoExercise } from "../../../src/features/program-v7/demoCatalog";
 import {
   LAB_MINUTES,
   LAB_SEGMENT,
@@ -145,8 +151,13 @@ export const agentRoutes: Route[] = [
       const now = Date.now();
       const parsed = parseStopRequest(body);
       if (!parsed.ok) return json(400, { error: "STOP_INVALID", field: parsed.field });
-      const { workoutId, option } = parsed.value;
-      if (!db.prepare("SELECT 1 FROM workouts WHERE id=? AND user_id=?").get(workoutId, u.id))
+      const { option } = parsed.value;
+      // D-038 item 3: a demo exercise's stop has no workout; its lock and count are a workout's.
+      const demo = "demo" in parsed.value;
+      if (
+        !("demo" in parsed.value) &&
+        !db.prepare("SELECT 1 FROM workouts WHERE id=? AND user_id=?").get(parsed.value.workoutId, u.id)
+      )
         return json(404, { error: "NOT_FOUND" });
       const s = personState(db, u.id, now);
       if (!s) return json(409, { error: "PLAN_REQUIRED" });
@@ -164,7 +175,10 @@ export const agentRoutes: Route[] = [
       if (!stopOptions(env).includes(option)) return json(400, { error: "STOP_INVALID", field: "option" });
       const route = stopRoute(option, env);
       const lock = transaction(db, () => {
-        countSafetyEvent(db, `workout:stop:${option}`, "none", setting, now);
+        countSafetyEvent(db, `${demo ? "demo" : "workout"}:stop:${option}`, "none", setting, now);
+        // A demo is shown in the booth on the presenter's account (D-037 item 6): its stop shows its
+        // screen and is counted, but sets no next day lock and stores nothing on the account.
+        if (demo) return null;
         if (route.stores === "changeReported") reportChange(db, u.id, riyadhDate(now));
         if (route.stores === "faintReported") reportFaint(db, u.id, riyadhDate(now));
         return applyLock(rc, route.lock, now);
@@ -215,6 +229,14 @@ export const agentRoutes: Route[] = [
           const intake = profileOf(db, u.id)?.intake;
           return intake ? checkContext(check, intake, seg, req.lang) : null;
         };
+      } else if ("demo" in req.ref) {
+        const d = demoExercise(req.ref.demo);
+        if (!d || req.block !== "session" || req.segment !== DEMO_SEGMENT)
+          return json(400, { error: "AGENT_INVALID", field: "segment" });
+        ref = `demo:${req.ref.run}`;
+        minutes = cfg.segmentMinutes.demo;
+        setting = () => (boothPassHolds(rc.req, db, now) ? "booth" : "home");
+        context = () => demoContext(d, req.lang);
       } else {
         const workout = openWorkout(db, req.ref.workoutId, u.id, now);
         if (!workout) return json(409, NOT_OPEN);

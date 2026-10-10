@@ -227,9 +227,9 @@ export interface RomRun {
 const AT_END_DEG = 3;
 
 /**
- * The simulated person's answer to a maximum question at time t: «نعم» when the script holds a
- * repetition's end (the angle within the hold band of its end angle, in its plateau or the last of its
- * rise), else «ليس بعد» (at rest, or still moving).
+ * Whether the script holds a repetition's end at time t (the angle within the hold band of its end
+ * angle, in its plateau or the last of its rise): «yes», else «not_yet» (at rest, or still moving). The
+ * maximum question this answered is gone (D-038 item 1); it now tells a hold at an end from a stray one.
  */
 export function personAnswer(spec: GenSpec, t: number): RomAnswer {
   const sec = t / 1000;
@@ -244,10 +244,6 @@ export function personAnswer(spec: GenSpec, t: number): RomAnswer {
 
 export interface RunOptions {
   mirrored?: boolean;
-  /** The answer to each maximum question (default personAnswer), null for none. */
-  answer?: (hold: RomHold, k: number) => RomAnswer | null;
-  /** Seconds after the hold the answer comes (default 0.6, as tests/v7/b-driver.ts). */
-  answerAfter?: number;
   env?: FeedEnv;
   item?: Partial<RomProtocolItem>;
   runner?: Partial<RomRunnerOptions>;
@@ -255,7 +251,7 @@ export interface RunOptions {
   frames?: (frames: Frame[]) => Frame[];
 }
 
-/** The runner over a fixture, answering each maximum question as a person at the buttons would. */
+/** The runner over a fixture (D-038 item 1: no question, the hold is recorded on its own). */
 export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
   const r = spec.rom!;
   const fx = generate(spec);
@@ -264,7 +260,6 @@ export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
   const runner = new RomRunner({
     item: item(r.movement, r.side, { position: r.position, ...o.item }),
     def: movementDef(r.movement),
-    askCauseBelow: null,
     poseModel: "full",
     mirrored: !!o.mirrored,
     // The seated side bend runs as a retest after a best at the norm mean (its limit 15 beyond), so
@@ -277,25 +272,15 @@ export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
   });
   const events: RomEvent[] = [...runner.start(frames[0].t)];
   const holds: RomHold[] = [];
-  const pending: { at: number; hold: RomHold; answer: RomAnswer }[] = [];
-  const after = (o.answerAfter ?? 0.6) * 1000;
-  const take = (evs: RomEvent[], t: number) => {
+  const take = (evs: RomEvent[]) => {
     for (const e of evs) {
       events.push(e);
-      if (e.kind === "hold") {
-        holds.push(e.hold);
-        const a = o.answer ? o.answer(e.hold, holds.length) : personAnswer(spec, e.hold.t);
-        if (a) pending.push({ at: t + after, hold: e.hold, answer: a });
-      }
+      if (e.kind === "hold") holds.push(e.hold);
     }
   };
   for (const f of frames) {
-    while (pending.length && pending[0].at <= f.t) {
-      const p = pending.shift()!;
-      take(runner.answerMax(p.hold.holdId, p.answer, "button", p.at).events, p.at);
-    }
     if (runner.done || runner.phase === "stopped") break;
-    take(runner.feed(f, o.env ?? { rollDeg: 0 }), f.t);
+    take(runner.feed(f, o.env ?? { rollDeg: 0 }));
   }
   const result = runner.finish(frames[frames.length - 1].t);
   const records = events.flatMap((e) => (e.kind === "attempt" ? [e.record] : []));
@@ -333,7 +318,7 @@ export function plateauHolds(run: RomRun): { rep: number; t: number | null; dela
   });
 }
 
-/** Holds asked away from a repetition's end (answered «ليس بعد» by the person). */
+/** Holds away from a repetition's end (a stray hold: at rest, or on the way). */
 export function strayHolds(run: RomRun): RomHold[] {
   const spec = run.fx.meta.spec!;
   return run.holds.filter((h) => personAnswer(spec, h.t) !== "yes");
@@ -347,9 +332,15 @@ export function strayHolds(run: RomRun): RomHold[] {
  * case is measured with every value within 5 degrees. A seed sweep (5 more seeds of every case) puts
  * the rate at about 3 percent of portrait runs, most of them hip abduction (its hip line is about 62 px
  * long at 2.5 m) and elbow extension (the lack's sign flips near straight); at noise 0.002 one late hold
- * in 2,200 runs. Asserted exactly, so a change that fixes or moves one shows here.
+ * in 2,200 runs. Asserted exactly, so a change that fixes or moves one shows here. D-038 item 1 (the
+ * hold still for about 1 s, 0.6 s before): one portrait hip abduction at 24 fps finds its hold later,
+ * while the person still holds; its value is within 5 degrees.
  */
-export const LATE_HOLD_CASES: Readonly<Record<string, readonly string[]>> = {};
+export const LATE_HOLD_CASES: Readonly<Record<string, readonly string[]>> = {
+  "rom/hip_abduction/standing_supported/right-50-9x16-24fps": [
+    "repetition 1: hold 2 s after plateau start + 1 s",
+  ],
+};
 
 /**
  * D-035: a whole movement under the data's wide band (engine.wideHoldBandDeg, 5 degrees) is no
@@ -362,18 +353,17 @@ export const UNDER_MOVE_CASES: Readonly<Record<string, readonly string[]>> = {
     "status not_measured (no_active_movement)",
     "0 valid attempts",
     "value null for 4.3",
-    "repetition 1: hold not found after plateau start + 0.6 s",
+    "repetition 1: hold not found after plateau start + 1 s",
   ],
   "rom/hip_extension/standing_supported/right-25-9x16-30fps": [
     "1 repeats: no_hold",
-    "repetition 1: hold 2.5 s after plateau start + 0.6 s",
+    "repetition 1: hold 2 s after plateau start + 1 s",
   ],
   "rom/hip_extension/standing_supported/right-25-16x9-30fps": [
     "status not_measured (no_active_movement)",
     "0 valid attempts",
-    "1 repeats: no_hold, no_hold",
     "value null for 4.3",
-    "repetition 1: hold not found after plateau start + 0.6 s",
+    "repetition 1: hold not found after plateau start + 1 s",
   ],
 };
 

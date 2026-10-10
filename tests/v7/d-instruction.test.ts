@@ -33,8 +33,8 @@ function inputFor(block: CoachBlock, lang: "ar" | "en"): InstructionInput {
 }
 
 describe("buildInstruction", () => {
-  it("is version coach_si_4 (D-037: the coach says each step out loud, the maximum question is plain)", () => {
-    expect(COACH_SI_VERSION).toBe("coach_si_4");
+  it("is version coach_si_5 (D-038: no maximum question; the coach counts and cues every exercise)", () => {
+    expect(COACH_SI_VERSION).toBe("coach_si_5");
   });
 
   it("records a pain number at once and asks where at most once, afterwards (D-030 D5-9)", () => {
@@ -87,6 +87,21 @@ describe("buildInstruction", () => {
       }
   });
 
+  it("never speaks of another person in the picture; an unseen person hears two lines only (D-038)", () => {
+    for (const block of BLOCKS)
+      for (const lang of LANGS) {
+        const si = buildInstruction(inputFor(block, lang));
+        expect(si, `${block} ${lang}`).toContain(
+          "Never mention other people in the picture, a crowd, or anyone behind or beside the person, even when you see them or a line tells you about them.",
+        );
+        expect(si).toContain(
+          lang === "ar"
+            ? "say only «لحظة، نكمل حين نراك بوضوح.» or «ارجع إلى داخل الصورة.»"
+            : `say only "One moment, we'll go on when we can see you clearly." or "Step back into the picture."`,
+        );
+      }
+  });
+
   it("names every stop reason of 5.3 item 6 and the screen in every block and both languages", () => {
     for (const block of BLOCKS)
       for (const lang of LANGS) {
@@ -111,7 +126,12 @@ describe("buildInstruction", () => {
           `${block === "session" ? "one or two" : "one to three"} short sentences per turn, always under 100 words`,
         );
         expect(si).toContain("Never diagnose, treat, prescribe or give medical advice.");
-        expect(si).toContain("Never narrate repetition counts.");
+        // D-038 item 3: an exercise's counts are the coach's (from the app's count lines).
+        if (block === "session")
+          expect(si).toContain(
+            "Count the repetitions out loud from the app's count lines only, the number alone; never count on your own.",
+          );
+        else expect(si).toContain("Never narrate repetition counts.");
         expect(si).toContain("Lines that start with [EVT come from the app's sensors, not from the person.");
       }
     }
@@ -130,34 +150,38 @@ describe("buildInstruction", () => {
   it("puts the Arabic answer list of S0-4 in the Arabic range block only", () => {
     const ar = buildInstruction(inputFor("rom", "ar"));
     expect(ar).toContain("A short reply that sounds like na'am is the Arabic word «نعم» (yes)");
-    expect(ar).toContain("«هذا أقصى شي»");
-    expect(ar).toContain("«أقدر أكثر»");
-    expect(ar).toContain("«لا أقدر أكثر»");
-    expect(ar).toContain("call no tool until the answer is clear");
+    // D-038 item 1: «I can do more» and «wait» are keep_reaching; no maximum question's answers.
+    expect(ar).toContain("«أقدر أكثر»، «باقي»، «لسه»، «لحظة»، «انتظر»، «شوي بعد» is keep_reaching");
+    expect(ar).not.toContain("«هذا أقصى شي»");
+    expect(ar).not.toContain("What stopped you most?");
     expect(buildInstruction(inputFor("rom", "en"))).not.toContain("na'am");
     // The other blocks keep the general Arabic answers (pain, stop) without the range questions.
     const gait = buildInstruction(inputFor("gait", "ar"));
     expect(gait).toContain("«نعم»");
-    expect(gait).not.toContain("«هذا أقصى شي»");
+    expect(gait).not.toContain("keep_reaching");
   });
 
-  it("asks the maximum question plainly, never with a script of answers (D-037 item 2)", () => {
+  it("never asks the maximum or the cause question: «hold there», «done» and keep_reaching (D-038 item 1)", () => {
     const ar = buildInstruction(inputFor("rom", "ar"));
     const en = buildInstruction(inputFor("rom", "en"));
-    expect(romCopy("ask_max")).toEqual({ ar: "هل هذا أقصى ما تستطيع؟", en: "Is this as far as you can go?" });
-    expect(ar).toContain(`end_range_hold: ask once «${romCopy("ask_max").ar}» and nothing more`);
-    expect(en).toContain(`end_range_hold: ask once "${romCopy("ask_max").en}" and nothing more`);
     for (const si of [ar, en]) {
-      expect(si).toContain("never list the answers or tell the person what to say");
-      expect(si).toContain("never say the hold's degrees");
-      expect(si).not.toMatch(/Say: this is my max|I can go further\."|قل: هذا أقصى شي/);
+      expect(si).not.toContain(romCopy("ask_max").en);
+      expect(si).not.toContain(romCopy("ask_max").ar);
+      expect(si).not.toMatch(/end_range_hold|confirm_max|set_limit_cause|ask_cause/);
+      expect(si).toContain(
+        "The app records each measurement on its own at the person's furthest steady hold: never ask whether it is as far as they can go, and never ask them to confirm it.",
+      );
+      expect(si).toContain(
+        "say key=hold: the person holds the end of the movement; say only a few calm words",
+      );
+      expect(si).toContain("key=done: the value is recorded");
     }
-    // «I can do more» gives time: keep going, take your time; the app asks again only further on.
+    // «I can do more» or «wait» gives a few more seconds: keep going, take your time.
     expect(ar).toContain(`say only «${romCopy("keep_going").ar}» «خذ وقتك.»`);
     expect(en).toContain(`say only "${romCopy("keep_going").en}" "Take your time."`);
-    expect(en).toContain("The app gives them time and asks again only once they hold further on.");
+    expect(en).toContain("The app waits a few more seconds and records their furthest hold.");
     // The other range questions and the only end range line come from the data too.
-    for (const key of ["can_move_ask", "pain_ask", "what_stopped_ask", "keep_going"] as const) {
+    for (const key of ["can_move_ask", "pain_ask", "keep_going"] as const) {
       expect(ar, key).toContain(romCopy(key).ar);
       expect(en, key).toContain(romCopy(key).en);
     }
@@ -195,10 +219,13 @@ describe("buildInstruction", () => {
     // D-038 item 4: part 2, toward the phone and back, twice, with its turn said at once.
     expect(gait).toContain("walking toward the phone and back, twice, starting 4 to 5 metres away");
     expect(gait).toContain("say key=hint_turn_1 or hint_turn_2 (part 2, each lap)");
-    // A workout has no say lines; its corrections stay on the screen.
+    // D-038 item 3: a workout (or a demo exercise) is the coach's alone: its steps, cues and counts.
     const session = buildInstruction(inputFor("session", "en"));
-    expect(session).not.toContain("say kind=step");
-    expect(session).toContain("mention it only when the person asks");
+    expect(session).toContain("you are the only voice");
+    expect(session).toContain("kind=progress key=count: the repetition just counted; say only that number");
+    expect(session).toContain("kind=correction: a form cue the screen shows; say it once, calmly");
+    expect(session).toContain("[CTX segment=demo]: a demo exercise the person tries; nothing is saved.");
+    expect(session).not.toContain("mention it only when the person asks");
   });
 
   it("names only the block's own tools", () => {
@@ -212,8 +239,7 @@ describe("buildInstruction", () => {
         for (const tool of ["mark_pain", "stop"]) expect(si).toContain(tool);
       }
     const rom = buildInstruction(inputFor("rom", "en"));
-    for (const tool of ["confirm_max", "answer_can_move", "set_limit_cause", "keep_reaching", "next_step"])
-      expect(rom).toContain(tool);
+    for (const tool of ["answer_can_move", "keep_reaching", "next_step"]) expect(rom).toContain(tool);
   });
 
   it("says where the person is and whether a helper is with them, from stored state only", () => {

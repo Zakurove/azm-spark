@@ -12,7 +12,8 @@
  *            region's remaining movements (pain_today), else the answer is that movement's painBefore
  *   setup    the movement's card: the picture, the instructions, turn your other side (confirm)
  *   measure  the runner: calibrating, practice and attempts (active), its questions (question), the
- *            rest between attempts (timer); a pain stop is its own step (safety)
+ *            rest between attempts (timer); a pain stop is its own step (safety). D-038 item 1: no
+ *            maximum question; the hold in hand is recorded automatically (runner.ts)
  *   result   the movement's result (info)
  *   rest     after a stop for tiredness or something else, the v1 minute (timer); also before a block's
  *            card when the walk before it stopped for tiredness
@@ -35,6 +36,10 @@
  * phone, the movement when the measurement starts, the rest and the next try, and each correction
  * the camera's caption shows (a setup issue once it lasts SETUP_SAY_AFTER_MS). explain() gives the
  * step showing now to a coach session that has just gone live.
+ *
+ * D-038 item 1: the coach hears each hold in hand as a say line («hold there») and the value recorded
+ * as another («done»); keep_reaching («I can do more», «wait») gives a few more seconds. There is no
+ * confirm_max, and no cause question (set_limit_cause) any more: it followed a confirmed yes.
  *
  * D-035 item 1 (the MVP runner): one valid attempt records the value, and the result card offers one
  * more try only if the person wants it (tryAgain, never a third). The server keeps one row per
@@ -62,8 +67,6 @@ import { CROWD_LOCK, markSubject, SUBJECT_RULES, SubjectLock, subjectOf } from "
 import type {
   AnswerResult,
   AnswerSource,
-  LimitCause,
-  RomAnswer,
   RomEvent,
   RomHold,
   RomMeasureResult,
@@ -89,7 +92,17 @@ import type { RomCopyKey, RomCueId } from "../../movements/rom/types";
 import type { CheckCueId } from "../../movements/types";
 import { tV7 } from "../../i18n/v7";
 import { instructionLines } from "./copy";
-import { againSay, blockSay, correctionSay, moveSay, restSay, setupIssueSay, setupSay } from "./coachSay";
+import {
+  againSay,
+  blockSay,
+  correctionSay,
+  doneSay,
+  holdSay,
+  moveSay,
+  restSay,
+  setupIssueSay,
+  setupSay,
+} from "./coachSay";
 import { SAFETY_TIMING } from "../assessment/safety/timing";
 
 export type PoseModel = "lite" | "full";
@@ -248,9 +261,6 @@ const PHASE_KIND: Record<RomPhase, CoachStepKind> = {
   practice: "active",
   attempt: "active",
   ask_can_move: "question",
-  ask_max: "question",
-  ask_pain: "question",
-  ask_cause: "question",
   rest: "timer",
   paused: "active",
   stopped: "safety",
@@ -323,8 +333,6 @@ export class RomController implements CoachHost {
   private phaseBefore: RomPhase | null = null;
   private attemptNow = 0;
   private validNow = 0;
-  /** The value of the last valid attempt (the coach's confirm_max result). */
-  private lastValid: number | null = null;
   /** The runner's rest between attempts: when it ends (the screen's ring). */
   private restUntil: { until: number; total: number } | null = null;
   private lastT = 0;
@@ -424,7 +432,7 @@ export class RomController implements CoachHost {
     return this.stepNow.kind === "measure" && this.runner ? this.runner.phase : null;
   }
 
-  /** The hold the maximum question is about. */
+  /** D-038 item 1: the hold in hand (recorded once its time is over), or null. */
   get hold(): RomHold | null {
     return this.runner?.currentHold ?? null;
   }
@@ -434,7 +442,7 @@ export class RomController implements CoachHost {
     return this.liveDeg;
   }
 
-  /** The hold ring, 0 to 1: the runner's own hold progress (D-035), full while the question is open. */
+  /** The hold ring, 0 to 1: the runner's own hold progress (D-035), full while a hold is in hand. */
   get holdProgress(): number {
     return this.stepNow.kind === "measure" ? (this.runner?.holdProgress ?? 0) : 0;
   }
@@ -731,14 +739,6 @@ export class RomController implements CoachHost {
     return true;
   }
 
-  answerMax(answer: RomAnswer, source: AnswerSource, t: number): AnswerResult {
-    const hold = this.runner?.currentHold;
-    if (!this.runner || this.stopListNow) return { accepted: false, reason: "wrong_phase", events: [] };
-    const res = this.runner.answerMax(hold?.holdId ?? "", answer, source, t);
-    this.take(this.currentItem()!, res.events, t);
-    return res;
-  }
-
   answerPain(level: number, sharp: boolean, source: AnswerSource, t: number) {
     if (!this.runner || this.stopListNow)
       return { accepted: false, reason: "wrong_phase" as const, events: [], action: "continue" as const };
@@ -787,13 +787,6 @@ export class RomController implements CoachHost {
       this.skipRegion(region, "pain_today", t);
     }
     this.changed();
-  }
-
-  answerCause(cause: LimitCause, source: AnswerSource, t: number): AnswerResult {
-    if (!this.runner || this.stopListNow) return { accepted: false, reason: "wrong_phase", events: [] };
-    const res = this.runner.answerCause(cause, source, t);
-    this.take(this.currentItem()!, res.events, t);
-    return res;
   }
 
   keepReaching(t: number): AnswerResult {
@@ -1056,30 +1049,6 @@ export class RomController implements CoachHost {
     const s = this.stepNow;
     const item = this.currentItem();
     switch (name) {
-      case "confirm_max": {
-        const a = args as ToolArgs["confirm_max"];
-        if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
-        if (!this.runner || s.kind !== "measure") return { accepted: false, reason: "wrong_phase" };
-        // An answer about another movement or side belongs to an older question (D's reference host).
-        if (!item || a.movement !== item.movementId || a.side !== item.side)
-          return { accepted: false, reason: "stale_hold" };
-        const phase = this.runner.phase;
-        if (phase === "practice" || phase === "attempt" || phase === "calibrating")
-          // Early answer: never buffered (a yes before the hold cannot be tied to a value).
-          return { accepted: false, reason: "wrong_phase", say: "hold_still" };
-        const held = this.runner.currentHold?.deg ?? null;
-        this.lastValid = null;
-        const res = this.answerMax(a.answer, "voice", t);
-        if (!res.accepted) return { accepted: false, reason: toolReason(res.reason) };
-        // Recorded now only with yes and a value that passed its quality gate; it hurts records after
-        // the pain answer. The hold's degrees go back with every answer.
-        const recorded = a.answer === "yes" && this.lastValid !== null;
-        return {
-          accepted: true,
-          say: a.answer === "yes" ? "recorded" : a.answer === "not_yet" ? "keep_going" : "pain_ask",
-          data: { recorded, deg: recorded ? this.lastValid : held },
-        };
-      }
       case "answer_can_move": {
         const a = args as ToolArgs["answer_can_move"];
         if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
@@ -1090,8 +1059,9 @@ export class RomController implements CoachHost {
         return { accepted: true, say: a.canMove ? "lets_begin" : "not_today" };
       }
       case "keep_reaching": {
+        // D-038 item 1: «I can do more», «wait»: the hold in hand waits a few more seconds.
         if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
-        if (!this.runner) return { accepted: false, reason: "wrong_phase" };
+        if (!this.runner || s.kind !== "measure") return { accepted: false, reason: "wrong_phase" };
         const res = this.keepReaching(t);
         return res.accepted
           ? { accepted: true, say: "keep_going" }
@@ -1100,15 +1070,6 @@ export class RomController implements CoachHost {
       case "mark_pain": {
         const a = args as ToolArgs["mark_pain"];
         return this.markPain(a.level, a.sharp === true, t);
-      }
-      case "set_limit_cause": {
-        const a = args as ToolArgs["set_limit_cause"];
-        if (this.stopListNow || this.safetyStopped) return { accepted: false, reason: "safety_stop" };
-        if (this.phase !== "ask_cause") return { accepted: false, reason: "wrong_phase" };
-        const res = this.answerCause(a.cause, "voice", t);
-        return res.accepted
-          ? { accepted: true, say: "recorded" }
-          : { accepted: false, reason: toolReason(res.reason) };
       }
       case "pause": {
         if (this.safetyStopped || this.stopListNow) return { accepted: false, reason: "safety_stop" };
@@ -1141,6 +1102,8 @@ export class RomController implements CoachHost {
         return { accepted: true, data: { text } };
       }
     }
+    // A tool the range blocks no longer have (confirm_max and set_limit_cause, D-038 item 1).
+    return { accepted: false, reason: "not_in_block" };
   }
 
   /**
@@ -1250,8 +1213,6 @@ export class RomController implements CoachHost {
 
   private startMeasure(item: RomProtocolItem, t: number): void {
     const def = movementDef(item.movementId);
-    const norm = this.norm(item);
-    const askCauseBelow = def.kind === "lack" ? norm.withinUpTo : norm.withinFrom;
     const leanBest = item.side === "none" ? undefined : this.opts.sideLeanBest?.[item.side];
     this.runner = new RomRunner({
       // D-034 item 4: «can you move this joint» is never asked, also for a protocol frozen before it:
@@ -1259,7 +1220,6 @@ export class RomController implements CoachHost {
       item: item.askCanMove ? { ...item, askCanMove: false } : item,
       def,
       painBefore: this.painBefore(item),
-      askCauseBelow,
       poseModel: this.opts.poseModel?.() ?? "full",
       subject: this.lock,
       ...(leanBest !== undefined ? { sideLeanBest: leanBest } : {}),
@@ -1297,7 +1257,6 @@ export class RomController implements CoachHost {
       item: { ...item, skipped: reason },
       def: movementDef(item.movementId),
       painBefore: this.painBefore(item),
-      askCauseBelow: null,
       poseModel: this.opts.poseModel?.() ?? "full",
     });
     r.start(t);
@@ -1367,10 +1326,6 @@ export class RomController implements CoachHost {
           if (e.phase === "practice" || e.phase === "attempt") this.attemptNow = e.attempt;
           if (e.phase === "ask_can_move")
             this.bridge({ p: 1, type: "ask_can_move", movement: item.movementId, side: item.side, t: e.t });
-          if (e.phase === "ask_pain")
-            this.bridge({ p: 1, type: "ask_pain", movement: item.movementId, side: item.side, t: e.t });
-          if (e.phase === "ask_cause")
-            this.bridge({ p: 1, type: "ask_cause", movement: item.movementId, side: item.side, t: e.t });
           if (e.phase === "rest") {
             const total = (this.opts.restSec ?? ROM_DATA.engine.restBetweenAttemptsSeconds.min) * 1000;
             this.restUntil = { until: e.t + total, total };
@@ -1383,16 +1338,8 @@ export class RomController implements CoachHost {
           this.liveDeg = e.deg;
           break;
         case "hold":
-          this.bridge({
-            p: 1,
-            type: "end_range_hold",
-            holdId: e.hold.holdId,
-            movement: item.movementId,
-            side: item.side,
-            deg: e.hold.deg,
-            typical: this.norm(item).typical,
-            t: e.hold.t,
-          });
+          // D-038 item 1: a hold in hand, recorded unless a further one comes: «hold there».
+          this.say(holdSay(item, this.opts.lang), e.hold.t);
           changed = true;
           break;
         case "compensation":
@@ -1424,7 +1371,8 @@ export class RomController implements CoachHost {
         case "attempt":
           if (e.record.outcome === "valid") {
             this.validNow++;
-            this.lastValid = e.record.value;
+            // D-038 item 1: recorded with no question: «done».
+            this.say(doneSay(item, this.opts.lang), e.record.t1);
             this.bridge({
               p: 3,
               type: "attempt_saved",

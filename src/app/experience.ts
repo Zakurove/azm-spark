@@ -1,11 +1,11 @@
 import { Lang } from "./i18n";
 import { RepClass } from "../engine/types";
+/**
+ * The person's settings, per device. D-038 item 3: the recorded coach voice and its switch (C40,
+ * booth v2 A6: guidance and counts during a workout) are gone with the voice clips of the exercises;
+ * the Live coach is their only voice (liveCoach).
+ */
 export interface Preferences {
-  /**
-   * The coach's voice (C40): on gives guidance and counts; off leaves the captions. Off by default
-   * (booth v2 A6); the large speaker button of the camera screen turns it on, per device.
-   */
-  voice: "full" | "off";
   /**
    * The movement check's optional check in (D-016): during a camera test, «هل أنت بخير؟» after 5 s out
    * of the picture or 10 s without movement. Per device, off by default, never used at the booth.
@@ -27,23 +27,16 @@ export interface Preferences {
   coachPause: 800 | 1200 | 1600;
 }
 export const defaults: Preferences = {
-  voice: "off",
   safetyCheckIn: false,
   voicePack: "",
   checkSound: "",
   liveCoach: false,
   coachPause: 800,
 };
-/**
- * Marks a voice choice made since booth v2. Earlier builds stored their default ("full") whenever any
- * coach setting changed, so a voice stored without this marker was never chosen and reads as off.
- */
-const VOICE_MARK = 2;
 export function readPreferences(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem("azm.coach") ?? "{}");
     return {
-      voice: p.voiceV === VOICE_MARK && p.voice === "full" ? "full" : "off",
       safetyCheckIn: p.safetyCheckIn === true,
       voicePack: typeof p.voicePack === "string" ? p.voicePack : "",
       checkSound: p.checkSound === "voice" || p.checkSound === "screenReader" ? p.checkSound : "",
@@ -56,7 +49,7 @@ export function readPreferences(): Preferences {
 }
 export function savePreferences(p: Preferences) {
   try {
-    localStorage.setItem("azm.coach", JSON.stringify({ ...p, voiceV: VOICE_MARK }));
+    localStorage.setItem("azm.coach", JSON.stringify(p));
   } catch {
     /* Settings still work for this visit. */
   }
@@ -66,8 +59,6 @@ export const ui = (lang: Lang) =>
   lang === "ar"
     ? {
         coachSettings: "صوت يناسبك",
-        voiceSwitch: "صوت المدرّب",
-        voiceSwitchNote: "إرشاد وعدّ أثناء التمرين. تبقى التعليمات مكتوبة دائمًا.",
         preview: "استمع إلى عزم",
         voiceChoice: "اختر الصوت",
         close: "تم",
@@ -116,8 +107,6 @@ export const ui = (lang: Lang) =>
       }
     : {
         coachSettings: "A voice that fits you",
-        voiceSwitch: "Coach voice",
-        voiceSwitchNote: "Guidance and counts during your workout. Captions stay on.",
         preview: "Hear your coach",
         voiceChoice: "Choose a voice",
         close: "Done",

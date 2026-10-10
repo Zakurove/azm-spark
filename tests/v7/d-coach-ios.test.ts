@@ -97,14 +97,12 @@ function harness(o: { script?: FakeScript; micRefused?: boolean; mint?: (n: numb
 }
 
 const run = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+/** A range question (P1): the can move question (D-038 item 1 took the maximum question out). */
 const hold = (): BridgeEvent => ({
   p: 1,
-  type: "end_range_hold",
-  holdId: "h1",
+  type: "ask_can_move",
   movement: "shoulder_flexion",
   side: "right",
-  deg: 118,
-  typical: 166,
   t: Date.now(),
 });
 const movementResult = (): BridgeEvent => ({
@@ -173,9 +171,9 @@ describe("the coach on iOS (D-035 item 3)", () => {
     expect(h.session.getSnapshot().mode).toBe("local");
     expect(h.reports.at(-1)).toMatchObject({ endReason: "fallback_slow", connectMs: null, failure: null });
     // The local voice asks meanwhile; the microphone stays open for the coach.
-    h.host.openHold("h1", 118);
+    h.host.askCanMove();
     h.push(hold());
-    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
+    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_can_move_ask"]);
     expect(h.mic.stopped).toBe(false);
     await run(3000);
     expect(h.session.getSnapshot().mode).toBe("live");

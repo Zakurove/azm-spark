@@ -5,29 +5,43 @@
  * outline, the start position, the two measuring reps, then the counted set with its feedback), and the
  * screen's ways out come back to this list.
  *
- * Nothing of a demo run is recorded: no workout is started, the screen gets no onSave and no coach, and
- * it says the exercise is not saved (demoSessionProps). Opened from the program page and the Program
- * tab by src/app/App.tsx, VITE_V7=1 builds only (a lazy chunk of its own). The focus check's family:
- * a warm light stage, glass cards, Cairo, gold for Start, purple for the person's marks. Phone first.
+ * Nothing of a demo run is recorded: no workout is started, the screen gets no onSave, and it says the
+ * exercise is not saved (demoSessionProps). Opened from the program page and the Program tab by
+ * src/app/App.tsx, VITE_V7=1 builds only (a lazy chunk of its own). The focus check's family: a warm
+ * light stage, glass cards, Cairo, gold for Start, purple for the person's marks. Phone first.
+ *
+ * D-038 item 3: the Live coach runs a demo as it runs a workout's camera set (CoachedWorkout, segment
+ * demo, no workout id): it says the setup, counts, says the form cues and encourages, and goes back to
+ * the list or repeats on the person's words. No recorded voice plays; without the coach the screen is
+ * silent with its captions. The speaker button is the checks' sound switch (azm.sound, on by default
+ * in a v7 build), and Start's tap starts the coach's audio (iOS).
  */
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "../../app/i18n";
 import type { Preferences } from "../../app/experience";
-import { primeAudio } from "../../app/audio";
 import { preloadPoseAssets } from "../../app/poseSource";
 import Session from "../../app/Session";
+import type { CoachPush } from "../../coach/types";
+import { unlockCoachAudio } from "../coach-agent/audio/context";
+import { readSound, saveSound } from "../coach-agent/sound";
+import type { WorkoutButton } from "../coach-agent/workoutCoach";
 import { tV7 } from "../../i18n/v7";
 import { CheckRoot } from "../assessment/shared/CheckRoot";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { Actions, Body, Glass, Kicker, Page, Title, TopBar } from "../focus/parts";
 import {
   DEMO_EXERCISES,
+  demoCoachStep,
   demoExercise,
   demoName,
   demoSessionProps,
+  newDemoRunId,
   type DemoExercise,
   type DemoRun,
 } from "./demoCatalog";
+
+/** The Live coach of a demo run, as a workout's (its own lazy chunk, as Workout.tsx loads it). */
+const DemoCoach = lazy(() => import("../coach-agent/CoachedWorkout"));
 import "../focus/focus.css";
 import "./program.css";
 
@@ -66,8 +80,8 @@ export default function DemoExercises({
       onLanguage={onLanguage}
       onBack={onBack}
       onStart={(id) => {
-        // Inside the tap: iOS lets the counting voice play later only if a tap started the audio.
-        if (preferences.voice !== "off") primeAudio(lang);
+        // Inside the tap: iOS lets the coach's voice play later only if a tap started its audio.
+        if (readSound()) unlockCoachAudio();
         setRun({ id, simulated: false, n: 0 });
       }}
     />
@@ -76,8 +90,9 @@ export default function DemoExercises({
 
 /**
  * A demo run: the camera workout's own screen for the exercise, with the props of demoSessionProps
- * only (nothing that records). Its ways out set the next run: null back to the list, the same exercise
- * again, or its mannequin when the camera cannot open.
+ * only (nothing that records), and the Live coach as a workout's camera set has it (D-038 item 3). Its
+ * ways out set the next run: null back to the list, the same exercise again, or its mannequin when the
+ * camera cannot open.
  */
 export function DemoRunScreen({
   lang,
@@ -93,19 +108,64 @@ export function DemoRunScreen({
   onRun(next: DemoRun | null): void;
 }) {
   const d = demoExercise(run.id);
+  // The coach of this run: its events, the summary's buttons it may press, and the sound switch.
+  const push = useRef<CoachPush | null>(null);
+  const toCoach = useMemo<CoachPush>(() => (e) => push.current?.(e), []);
+  const [button, setButton] = useState<WorkoutButton | null>(null);
+  const [over, setOver] = useState(false);
+  const [sound, setSound] = useState(() => readSound());
+  // A new run (Repeat) is a new coach segment with its own id.
+  const runId = useMemo(() => newDemoRunId(), [run.id, run.n]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setOver(false), [runId]);
   if (!d) return null;
+  const ways = {
+    back: () => onRun(null),
+    again: () => onRun({ ...run, n: run.n + 1 }),
+    simulate: () => onRun({ ...run, simulated: true, n: run.n + 1 }),
+  };
+  const toggle = () => {
+    const on = !sound;
+    setSound(on);
+    saveSound(on);
+    if (on) unlockCoachAudio();
+  };
   return (
-    <Session
-      key={`${run.id}-${run.n}`}
-      lang={lang}
-      preferences={preferences}
-      onPreferences={onPreferences}
-      {...demoSessionProps(d, run, {
-        back: () => onRun(null),
-        again: () => onRun({ ...run, n: run.n + 1 }),
-        simulate: () => onRun({ ...run, simulated: true, n: run.n + 1 }),
-      })}
-    />
+    <>
+      <Session
+        key={`${run.id}-${run.n}`}
+        lang={lang}
+        preferences={preferences}
+        onPreferences={onPreferences}
+        {...demoSessionProps(d, run, ways)}
+        coach={run.simulated ? undefined : toCoach}
+        onCoachButton={setButton}
+        sound={run.simulated ? undefined : { on: sound, toggle }}
+        onComplete={() => setOver(true)}
+      />
+      {!run.simulated && (
+        <Suspense fallback={null}>
+          <DemoCoach
+            key={runId}
+            lang={lang}
+            of={{ demo: d.id, run: runId }}
+            preference={sound}
+            stage="set"
+            index={0}
+            step={demoCoachStep(d)}
+            position={d.setup.position}
+            paused={false}
+            onPause={() => undefined}
+            push={push}
+            onStopExercise={ways.back}
+            remaining={0}
+            press={ways.back}
+            setButton={button}
+            onExit={ways.back}
+            over={over}
+          />
+        </Suspense>
+      )}
+    </>
   );
 }
 

@@ -8,7 +8,6 @@
 import { describe, expect, it } from "vitest";
 import { buildInstruction, type InstructionInput } from "../../src/coach/instruction";
 import type { CoachBlock } from "../../src/coach/types";
-import { ui } from "../../src/app/experience";
 import { labels } from "../../src/app/platform-copy";
 import { tV7 } from "../../src/i18n/v7";
 
@@ -42,7 +41,6 @@ describe("the live coach's name (D-026 item 3)", () => {
 
   it("leaves the recorded voice pack its own name", () => {
     for (const lang of LANGS) {
-      expect(ui(lang).voiceSwitch).toBe(VOICE_PACK[lang]);
       expect(labels(lang).neural).toBe(VOICE_PACK[lang]);
       expect(tV7(lang, "coach.name")).not.toBe(VOICE_PACK[lang]);
     }

@@ -14,13 +14,18 @@
  * the screen call safetyStop() and push the P0.
  * next_step (D-036 item 2): on the person's spoken words, the screen's button for the intent, as the
  * workout registers it in `actions` (its Start training and Next set, never the setup's attestation),
- * never over the stop list or a stop's screen. Pure, no DOM.
+ * never over the stop list or a stop's screen.
+ * explain (D-038 item 3): the set's step line showing now (noteSay keeps the latest), for a coach
+ * session that has just gone live, since the step's own line went out before it could hear it.
+ * Pure, no DOM.
  */
 import { pressNextStep, ScreenActions } from "../../coach/actions";
 import { safeToken } from "../../coach/events";
 import { painStopRule } from "../../medical/pain-rule";
 import type {
+  BridgeEvent,
   CoachHost,
+  CoachSay,
   CoachStepKind,
   CoachStopReason,
   ToolArgs,
@@ -69,6 +74,8 @@ export class SessionHost implements CoachHost {
   private pausedBy: PausedBy = null;
   private stopped = false;
   private label = "start";
+  /** D-038 item 3: the step's say line showing now (the set's stage), for explain. */
+  private sayNow: CoachSay | null = null;
 
   /** painBefore: the one tap pain answer before the workout (CT-2), null when skipped (counts as 0). */
   constructor(
@@ -78,10 +85,24 @@ export class SessionHost implements CoachHost {
 
   /** The screen shows a new step; a new step is not paused. */
   setStep(kind: CoachStepKind, label: string): void {
+    if (label !== this.label) this.sayNow = null;
     this.kind = kind;
     this.label = label;
     this.ended = false;
     this.pausedBy = null;
+  }
+
+  /** D-038 item 3: an event of the screen's; a step's say line is the one explain gives. */
+  noteSay(e: BridgeEvent): void {
+    if (e.type !== "say" || e.kind !== "step") return;
+    const { t: _t, ...line } = e;
+    void _t;
+    this.sayNow = line;
+  }
+
+  /** D-038 item 3: the set's step showing now, for a session that has just gone live. */
+  explain(): CoachSay | null {
+    return this.stopped || this.kind === "safety" ? null : this.sayNow;
   }
 
   /** The active step on the screen has ended (the set is done). */

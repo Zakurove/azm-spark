@@ -7,7 +7,6 @@ it("recovers from malformed or unavailable stored preferences", () => {
   // Booth v2 A6: the voice is off by default.
   // v7 (contract D5): the live coach is off by default, with the shortest pause.
   const fallback = {
-    voice: "off",
     safetyCheckIn: false,
     voicePack: "",
     checkSound: "",
@@ -31,52 +30,24 @@ it("recovers from malformed or unavailable stored preferences", () => {
   });
   expect(readPreferences()).toEqual(fallback);
 });
-it("keeps the voice on or off as chosen on this device since booth v2 (A6)", () => {
-  for (const [stored, voice] of [
-    ["off", "off"],
-    ["full", "full"],
-  ] as const) {
-    vi.stubGlobal("localStorage", {
-      getItem: () => JSON.stringify({ voice: stored, voiceV: 2 }),
-    });
-    expect(readPreferences()).toEqual({
-      voice,
-      safetyCheckIn: false,
-      voicePack: "",
-      checkSound: "",
-      liveCoach: false,
-      coachPause: 800,
-    });
-  }
-});
-it("reads a voice stored before booth v2 as off: earlier builds saved their default with any setting", () => {
-  // The C40 build stored voice "full" (its default) whenever any coach setting changed, and the
-  // guidance only mode of a build before it stored "essential": neither was a choice of the voice.
-  for (const stored of ["off", "full", "essential"]) {
-    vi.stubGlobal("localStorage", {
-      getItem: () => JSON.stringify({ voice: stored, pace: 0.85, focus: true, voicePack: "x" }),
-    });
-    expect(readPreferences()).toEqual({
-      voice: "off",
-      safetyCheckIn: false,
-      voicePack: "x",
-      checkSound: "",
-      liveCoach: false,
-      coachPause: 800,
-    });
-  }
-});
-it("saves the voice with its marker, so the choice is kept", () => {
-  const store = new Map<string, string>();
+it("keeps no recorded coach voice setting any more (D-038 item 3): an old stored voice is ignored", () => {
+  const store = new Map<string, string>([
+    ["azm.coach", JSON.stringify({ voice: "full", voiceV: 2, voicePack: "x" })],
+  ]);
   vi.stubGlobal("localStorage", {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => store.set(k, v),
   });
-  expect(defaults.voice).toBe("off");
-  savePreferences({ ...defaults, voice: "full" });
-  expect(readPreferences().voice).toBe("full");
-  savePreferences({ ...defaults, voice: "off" });
-  expect(readPreferences().voice).toBe("off");
+  expect(readPreferences()).toEqual({
+    safetyCheckIn: false,
+    voicePack: "x",
+    checkSound: "",
+    liveCoach: false,
+    coachPause: 800,
+  });
+  expect(defaults).not.toHaveProperty("voice");
+  savePreferences({ ...defaults, liveCoach: true });
+  expect(JSON.parse(store.get("azm.coach")!)).toEqual({ ...defaults, liveCoach: true });
 });
 it("keeps the movement check's optional check in per device, off by default (D-016)", () => {
   vi.stubGlobal("localStorage", { getItem: () => null });

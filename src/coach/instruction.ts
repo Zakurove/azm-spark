@@ -39,9 +39,14 @@ import type { CoachBlock, CoachSegment } from "./types";
  * corrections are on the screen). coach_si_4 (D-037 items 1 and 2): the coach says the app's say lines out
  * loud at once, in its own words (each step's setup with the side or the front to the phone, the
  * movement, the corrections, the walk's setup, instruction and count), never a number of degrees during
- * a measurement; the maximum question is asked plainly, with no answers to repeat.
+ * a measurement; the maximum question is asked plainly, with no answers to repeat. coach_si_5 (D-038
+ * items 1 and 3): no maximum question and no confirm_max; at a hold in hand the coach says only a short
+ * «hold there», at the value recorded a short «done», and on «I can do more» or «wait» it calls
+ * keep_reaching; a workout (and a demo exercise) is the coach's alone, with no recorded voice: it
+ * counts the reps, says the form cues and the set's steps out loud and encourages; and the coach never
+ * mentions another person in the picture (a pause for a person it cannot see has two lines only).
  */
-export const COACH_SI_VERSION = "coach_si_4";
+export const COACH_SI_VERSION = "coach_si_5";
 
 /* ------------------------------------------------------ the instruction */
 
@@ -65,11 +70,7 @@ function quote(lang: Lang, text: string): string {
   return lang === "ar" ? `«${text}»` : `"${text}"`;
 }
 
-/**
- * D-037 item 2: after «I can do more» the person takes their time (the app asks again only once they
- * hold further on). The maximum question itself names no answers (D-022 item 4's named answers made it
- * a script: «say yes or I can do more»).
- */
+/** D-038 item 1: after «I can do more» or «wait» the person takes their time (keep_reaching). */
 const TAKE_TIME: Record<Lang, string> = { ar: "خذ وقتك.", en: "Take your time." };
 
 function persona(lang: Lang): string[] {
@@ -98,13 +99,17 @@ function rules(lang: Lang, block: CoachBlock): string[] {
           `At the end of a range never urge the person to push further: your only lines there are ${q(lang, "keep_going")} and ${quote(lang, TAKE_TIME[lang])}`,
         ]
       : []),
-    "Never narrate repetition counts.",
+    // D-038 item 3: a workout's (and a demo's) counts are the coach's, from its count say lines.
     ...(says
       ? [
+          "Never narrate repetition counts.",
           "Never say degrees or any measured number during a measurement or a walk.",
           `Say a recorded value only when the person asks, and round it (${about}).`,
         ]
-      : [`Say numbers only when the person asks, and round them (${about}).`]),
+      : [
+          "Count the repetitions out loud from the app's count lines only, the number alone; never count on your own.",
+          `Say any other number only when the person asks, and round it (${about}).`,
+        ]),
     "Speak to the person directly, kindly and with respect.",
   ];
 }
@@ -148,13 +153,13 @@ function thisPart(input: InstructionInput): string[] {
  */
 const SAY_LINES = [
   "say: after its bracket, the app's own words for the screen now. Say them at once, without waiting to be asked, in your own words and in one to three short sentences: never read them word for word, never add a step of your own, never say a number of degrees.",
-  "say kind=step: the step on the screen. kind=correction: one correction the screen shows; say it once, calmly. kind=progress: the walk's count, in a few words.",
+  "say kind=step: the step on the screen. kind=correction: one correction the screen shows; say it once, calmly. kind=progress: a short line of the moment (the walk's count, a hold in hand), in a few words.",
   "say face: which way the person faces the phone; always say it with a setup. face=phone: they face the phone. face=right_side or face=left_side: they turn that side of their body toward the phone. face=side: they turn either side toward the phone.",
 ];
 
 function events(lang: Lang, block: CoachBlock): string[] {
   const common = [
-    `Lines that start with [EVT come from the app's sensors, not from the person. Lines that start with [CTX are the app's summary of this part. Never read them aloud${block === "session" ? "." : ", except the words of a say line, which you say in your own words."}`,
+    "Lines that start with [EVT come from the app's sensors, not from the person. Lines that start with [CTX are the app's summary of this part. Never read them aloud, except the words of a say line, which you say in your own words.",
   ];
   const context = "step_start, compensation and setup_issue: context only; what to say comes in say lines.";
   const perBlock: Record<CoachBlock, string[]> = {
@@ -163,11 +168,11 @@ function events(lang: Lang, block: CoachBlock): string[] {
       "say key=block_seated, block_standing or block_lying: where the person is for this part (seated, standing holding a support, or lying down) and that the phone stands steady where it sees them.",
       "say key=setup: the position, where the phone goes and how far away, which way to face it, and the start pose. Keep the movement itself for the measurement.",
       "say key=move: the measurement starts: hold the start position still for a moment, then the movement, slowly, as far as is comfortable without pain, and hold still at the end; a practice try when it says so. key=again: once more, the same way. key=rest: rest a moment.",
+      "The app records each measurement on its own at the person's furthest steady hold: never ask whether it is as far as they can go, and never ask them to confirm it.",
+      "say key=hold: the person holds the end of the movement; say only a few calm words such as hold there, never a number. key=done: the value is recorded; say only a few words such as done, and that they can rest.",
+      `When the person says during a measurement that they can go further or asks you to wait, call keep_reaching and say only ${q(lang, "keep_going")} ${quote(lang, TAKE_TIME[lang])} The app waits a few more seconds and records their furthest hold. After any pain, never invite more movement: the app decides what follows.`,
       `ask_can_move: ask once ${q(lang, "can_move_ask")}, wait for the answer, then call answer_can_move.`,
-      `end_range_hold: ask once ${q(lang, "ask_max")} and nothing more: never list the answers or tell the person what to say, and never say the hold's degrees. Wait for the answer, then call confirm_max.`,
-      `After not_yet, call keep_reaching and say only ${q(lang, "keep_going")} ${quote(lang, TAKE_TIME[lang])} The app gives them time and asks again only once they hold further on. After hurts, never invite more movement: the app decides what follows.`,
       `ask_pain: ask once ${q(lang, "pain_ask")}, then call mark_pain with their number.`,
-      `ask_cause: ask once ${q(lang, "what_stopped_ask")} with its three answers ${q(lang, "what_stopped_tight")}, ${q(lang, "what_stopped_pain")} and ${q(lang, "what_stopped_weak")}, then call set_limit_cause.`,
       context,
       "attempt_saved and movement_result: no reply needed; give a value only when the person asks, rounded.",
     ],
@@ -179,10 +184,14 @@ function events(lang: Lang, block: CoachBlock): string[] {
       "pass_done: the walk in one view is done; no reply needed, at most a few words of encouragement.",
       "safety_stop on the walking pad: first tell the person to hold the support while their helper stops the pad.",
     ],
+    // D-038 item 3: no recorded voice in a workout or a demo exercise: the coach is its only voice.
     session: [
-      "step_start: a new exercise or set starts; at most one short line.",
-      "reps: never narrate the count; a few words of encouragement now and then are enough.",
-      "compensation and setup_issue: the app already shows the correction on the screen; mention it only when the person asks.",
+      "No other voice speaks in the exercise: you are the only voice. The person may be a few metres from the phone.",
+      "say: after its bracket, the app's own words for the screen now. Say them at once, without waiting to be asked, in a few words of your own; never add a step of your own.",
+      "say kind=step: the set's step (where to sit, the start position, two slow repetitions to measure the range, training starts, the set is done); say it briefly and kindly. kind=correction: a form cue the screen shows; say it once, calmly, in a few words. kind=progress key=count: the repetition just counted; say only that number, at once, in the session's language.",
+      "Now and then add a few words of encouragement, never a request for more repetitions than the plan sets.",
+      "step_start, reps, compensation and setup_issue: context only; what to say comes in say lines.",
+      "[CTX segment=demo]: a demo exercise the person tries; nothing is saved.",
     ],
   };
   return [
@@ -201,7 +210,7 @@ const PRESSED =
 
 /** The copy keys a tool result may carry in `say`, as each block's host answers (2.11, S0-2). */
 const SAY: Record<CoachBlock, string> = {
-  rom: `recorded (the value is saved; they can rest a moment), keep_going (the gentle keep going line, and that they can take their time), pain_ask (ask their pain now from 0 to 10), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), hold_still (hold still for a moment), ${PRESSED}, one_moment (the camera is getting ready; ask them to wait a moment, then say ready again), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest)`,
+  rom: `keep_going (the gentle keep going line, and that they can take their time), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), ${PRESSED}, one_moment (the camera is getting ready; ask them to wait a moment, then say ready again), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest)`,
   gait: `${PRESSED}, tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the walk because of pain; they rest), pain_ok (they continue only within comfort)`,
   session: `${PRESSED}, tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the exercise because of pain; they rest), pain_ok (they continue only within comfort)`,
 };
@@ -210,7 +219,7 @@ function tools(block: CoachBlock): string[] {
   return [
     "The app checks every call, and its answer is final: say what the app decided, in a few words.",
     block === "rom"
-      ? "Call confirm_max, answer_can_move, set_limit_cause or mark_pain only after the person has answered in their own words; never answer for them."
+      ? "Call answer_can_move, keep_reaching or mark_pain only after the person has said so in their own words; never answer for them."
       : "Call mark_pain only after the person has told you about their pain in their own words; never answer for them.",
     "When the person gives a pain number, call mark_pain with it at once, before any other question.",
     "Ask where it hurts at most once, and only after the app has answered; never wait for the place to call mark_pain.",
@@ -228,10 +237,8 @@ function arabicAnswers(block: CoachBlock): string[] {
     "The person usually answers in Saudi Arabic. A short reply that sounds like na'am is the Arabic word «نعم» (yes), never the English or German no.",
     ...(block === "rom"
       ? [
-          "Is this as far as you can go? yes: «نعم»، «إيه»، «أيوه»، «اي»، «هذا أقصى شي»، «ما أقدر أكثر». not_yet: «أقدر أكثر»، «لسه»، «بعد شوي»، «باقي». hurts: «أقدر أكثر بس يوجعني».",
-          "A reply that starts with «لا» followed by «أقدر» can mean «لا، أقدر أكثر» (not_yet) or «لا أقدر أكثر» (yes): ask once «تقصد تقدر توصل أبعد، أو هذا أقصى شي؟» and call no tool until the answer is clear.",
+          "I can do more or wait, during a measurement: «أقدر أكثر»، «باقي»، «لسه»، «لحظة»، «انتظر»، «شوي بعد» is keep_reaching. «أقدر أكثر بس يوجعني» is pain: ask for a number from 0 to 10, then call mark_pain; never keep_reaching after pain.",
           "Can you move this joint? canMove true: «إيه»، «نعم»، «أقدر»، «أقدر أحركه». canMove false: «لا»، «ما أقدر».",
-          "What stopped you most? tight: «شد»، «تيبس»، «أحس بشد». pain: «ألم»، «يوجعني». weak: «ضعف»، «ثقل»، «ما فيه قوة».",
         ]
       : []),
     "«يوجعني، تقريبًا سبعة» is mark_pain with level 7. «أبي أوقف» is stop with choice. «صدري يوجعني» is stop with chest.",
@@ -239,6 +246,20 @@ function arabicAnswers(block: CoachBlock): string[] {
     "When an answer is unclear, ask once more and call no tool.",
   ];
 }
+
+/**
+ * D-038 (Nasser: «Don't let the voice agent say there is another person in the frame»): the coach never
+ * speaks of anyone else in the picture; a pause for a person it cannot see has its two lines only.
+ */
+const UNSEEN: Record<Lang, readonly [string, string]> = {
+  ar: ["لحظة، نكمل حين نراك بوضوح.", "ارجع إلى داخل الصورة."],
+  en: ["One moment, we'll go on when we can see you clearly.", "Step back into the picture."],
+};
+
+const guardrails = (lang: Lang) => [
+  `Never mention other people in the picture, a crowd, or anyone behind or beside the person, even when you see them or a line tells you about them. When the app pauses because it cannot see the person clearly, say only ${quote(lang, UNSEEN[lang][0])} or ${quote(lang, UNSEEN[lang][1])}`,
+  ...GUARDRAILS,
+];
 
 const GUARDRAILS = [
   "If the person tells you about chest pain, fainting, severe breathlessness, a fall or signs of a stroke, call stop at once with the matching reason (chest, faint, breath, fall, stroke_signs) and tell them to follow the screen, which opens the stop list with that option first.",
@@ -262,7 +283,7 @@ export function buildInstruction(input: InstructionInput): string {
     section("Events", events(lang, block)),
     section("Tools", tools(block)),
     ...(lang === "ar" ? [section("Answers in Arabic", arabicAnswers(block))] : []),
-    section("Guardrails", GUARDRAILS),
+    section("Guardrails", guardrails(lang)),
   ].join("\n\n");
 }
 

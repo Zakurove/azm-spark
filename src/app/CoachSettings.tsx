@@ -1,8 +1,9 @@
 /**
- * Coach settings (C40, D-016 items 2 and 5), per device: the coach's voice on or off (on gives
- * guidance and counts), the voice pack picker once two packs are installed (a tap plays the pack's
- * welcome; Nasser tries and picks the voices himself, nothing is generated here), and the movement
- * check's optional check in. Gold for the one action, purple accents, every option 48 px or more.
+ * Coach settings (C40, D-016 items 2 and 5), per device: the voice pack picker once two packs are
+ * installed (a tap plays the pack's welcome; Nasser tries and picks the voices himself, nothing is
+ * generated here), the Live coach (v7), and the movement check's optional check in. D-038 item 3: the
+ * recorded coach voice's switch (guidance and counts during a workout) is gone with the exercises'
+ * voice clips. Gold for the one action, purple accents, every option 48 px or more.
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n";
@@ -103,14 +104,6 @@ export default function CoachSettings({
         </button>
       </div>
       <h2 id="coach-settings-title">{c.coachSettings}</h2>
-      <SwitchRow
-        on={value.voice !== "off"}
-        icon="sound"
-        title={c.voiceSwitch}
-        note={c.voiceSwitchNote}
-        setting="voice"
-        onChange={(on) => onChange({ ...value, voice: on ? "full" : "off" })}
-      />
       {/* D-016 item 5: the installed voice packs, per device; choosing one plays its welcome. */}
       {VOICE_PACKS.length > 1 && (
         <fieldset className="settings-field voice-packs" data-setting="voice-pack">

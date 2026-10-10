@@ -1,7 +1,7 @@
 /**
  * Drives B's RomRunner in a real model smoke run (product v7 contract 8.4 and 2.6, stream G, step
- * G1) as a person at the buttons would: yes at each maximum question, yes to "can you move it", no
- * pain (0, not sharp), "tight" if the cause is asked, each `answerDelayMs` after the question on the
+ * G1) as a person at the buttons would: yes to "can you move it" (D-038 item 1: no maximum or cause
+ * question, the hold is recorded on its own), `answerDelayMs` after the question on the
  * runner's own clock (the frames' times). It records the events, the holds, the answers and the time
  * of every feed (section 9: RomRunner.feed 2 ms p95). Pure, no DOM; the smoke page feeds it frames.
  *
@@ -15,16 +15,7 @@ import { spread, type Spread } from "./perf";
 
 export type RomRunnerLike = Pick<
   RomRunner,
-  | "start"
-  | "feed"
-  | "answerCanMove"
-  | "answerMax"
-  | "answerPain"
-  | "answerCause"
-  | "stop"
-  | "finish"
-  | "phase"
-  | "done"
+  "start" | "feed" | "answerCanMove" | "stop" | "finish" | "phase" | "done"
 >;
 
 export interface RomDriverOptions {
@@ -36,7 +27,7 @@ export interface RomDriverOptions {
   onFeed?: (ms: number) => void;
 }
 
-type AnswerKind = "can_move" | "max" | "pain" | "cause";
+type AnswerKind = "can_move";
 
 export interface RomDriverReport {
   status: "done" | "timeout" | "stopped" | "error";
@@ -64,7 +55,7 @@ const count = (into: Record<string, number>, key: string) => {
 export class RomSmokeDriver {
   private readonly delay: number;
   private readonly now: () => number;
-  private readonly pending: { kind: AnswerKind; due: number; holdId?: string }[] = [];
+  private readonly pending: { kind: AnswerKind; due: number }[] = [];
   private readonly feedDurations: number[] = [];
   private readonly log: Omit<RomDriverReport, "status" | "result" | "frames" | "feedMs" | "error"> = {
     events: {},
@@ -157,8 +148,8 @@ export class RomSmokeDriver {
     }
   }
 
-  private schedule(kind: AnswerKind, t: number, holdId?: string): void {
-    this.pending.push({ kind, due: t + this.delay, ...(holdId ? { holdId } : {}) });
+  private schedule(kind: AnswerKind, t: number): void {
+    this.pending.push({ kind, due: t + this.delay });
   }
 
   private answerDue(t: number): void {
@@ -171,26 +162,9 @@ export class RomSmokeDriver {
     }
   }
 
-  private answer(a: { kind: AnswerKind; holdId?: string }, t: number): void {
-    const r = this.runner;
-    if (a.kind === "can_move") {
-      this.log.answers.push({ kind: a.kind, t, accepted: true });
-      this.handle(r.answerCanMove(true, t), t);
-      return;
-    }
-    const res =
-      a.kind === "max"
-        ? r.answerMax(a.holdId!, "yes", "button", t)
-        : a.kind === "pain"
-          ? r.answerPain(0, false, "button", t)
-          : r.answerCause("tight", "button", t);
-    this.log.answers.push({
-      kind: a.kind,
-      t,
-      accepted: res.accepted,
-      ...(res.reason ? { reason: res.reason } : {}),
-    });
-    this.handle(res.events, t);
+  private answer(a: { kind: AnswerKind }, t: number): void {
+    this.log.answers.push({ kind: a.kind, t, accepted: true });
+    this.handle(this.runner.answerCanMove(true, t), t);
   }
 
   private handle(events: RomEvent[], t: number): void {
@@ -200,12 +174,9 @@ export class RomSmokeDriver {
         case "phase":
           this.log.phases.push([e.phase, e.t]);
           if (e.phase === "ask_can_move") this.schedule("can_move", t);
-          else if (e.phase === "ask_pain") this.schedule("pain", t);
-          else if (e.phase === "ask_cause") this.schedule("cause", t);
           break;
         case "hold":
           this.log.holds.push(e.hold);
-          this.schedule("max", t, e.hold.holdId);
           break;
         case "quality":
           count(this.log.issues, e.issue);

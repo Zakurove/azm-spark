@@ -141,14 +141,12 @@ function harness(o: Options = {}) {
 }
 
 const run = (ms: number) => vi.advanceTimersByTimeAsync(ms);
-const hold = (deg = 118): BridgeEvent => ({
+/** A range question (P1): the can move question (D-038 item 1 took the maximum question out). */
+const question = (): BridgeEvent => ({
   p: 1,
-  type: "end_range_hold",
-  holdId: "h1",
+  type: "ask_can_move",
   movement: "shoulder_flexion",
   side: "right",
-  deg,
-  typical: 166,
   t: Date.now(),
 });
 const coachAudio = (seconds = 0.5): TransportEvent => ({
@@ -244,8 +242,8 @@ describe("the section 9 measures for the perf overlay (DG-1, D-026 item 8)", () 
       { name: "azm:coach_mint", start: T0, duration: 250 },
       { name: "azm:coach_connect", start: T0 + 250, duration: 900 },
     ]);
-    host.openHold("h1", 118);
-    h.push(hold());
+    host.askCanMove();
+    h.push(question());
     const sentAt = Date.now();
     await run(640);
     h.emit(coachAudio());
@@ -256,17 +254,17 @@ describe("the section 9 measures for the perf overlay (DG-1, D-026 item 8)", () 
 
 /* ------------------------------------------------ the range questions */
 
-describe("the maximum question", () => {
+describe("a range question (the can move question; D-038 item 1 took the maximum question out)", () => {
   it("asks through the coach, records the spoken yes and tells the coach the result", async () => {
     const h = harness();
     const host = h.host as RefRomHost;
     h.session.start();
     await run(900);
-    host.openHold("h1", 118);
-    h.push(hold());
+    host.askCanMove();
+    h.push(question());
     const asked = h.contexts().at(-1)!;
     expect(asked.turnComplete).toBe(true);
-    expect(asked.text).toContain("type=end_range_hold mv=shoulder_flexion side=right deg=118 typical=165");
+    expect(asked.text).toContain("type=ask_can_move mv=shoulder_flexion side=right");
     await run(650);
     h.emit(coachAudio(1.5));
     expect(h.session.getSnapshot().speaking).toBe(true);
@@ -274,15 +272,15 @@ describe("the maximum question", () => {
     expect(h.voice.said).toEqual([]);
     h.emit(heard("إيه، هذا أقصى شي"));
     await run(1100);
-    h.emit(call("c1", "confirm_max", { movement: "shoulder_flexion", side: "right", answer: "yes" }));
-    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
+    h.emit(call("c1", "answer_can_move", { movement: "shoulder_flexion", side: "right", canMove: true }));
+    expect(host.canMove).toEqual([{ value: true, via: "voice" }]);
     expect(h.sent().at(-1)).toEqual({
       kind: "toolResponse",
       responses: [
         {
           id: "c1",
-          name: "confirm_max",
-          response: { accepted: true, say: "recorded", data: { recorded: true, deg: 118 } },
+          name: "answer_can_move",
+          response: { accepted: true, say: "lets_begin" },
         },
       ],
     });
@@ -291,7 +289,7 @@ describe("the maximum question", () => {
     expect(h.reports.at(-1)).toMatchObject({
       sessionId: SID,
       connectMs: 900,
-      toolCalls: { confirm_max: { ok: 1, rejected: 0 } },
+      toolCalls: { answer_can_move: { ok: 1, rejected: 0 } },
       firstAudioMs: { p50: 650, p90: 650 },
       turns: 1,
       endReason: "done",
@@ -303,7 +301,7 @@ describe("the maximum question", () => {
     h.speaker.audible = false;
     h.session.start();
     await run(900);
-    h.push(hold());
+    h.push(question());
     await run(600);
     h.emit(coachAudio(2));
     await run(900);
@@ -319,49 +317,49 @@ describe("the maximum question", () => {
     await run(900);
     h.emit(heard("before the question"));
     await run(500);
-    host.openHold("h1", 118);
-    h.push(hold());
+    host.askCanMove();
+    h.push(question());
     h.emit(coachAudio());
     await run(1800);
-    h.emit(call("c1", "confirm_max", { movement: "shoulder_flexion", side: "right", answer: "yes" }));
+    h.emit(call("c1", "answer_can_move", { movement: "shoulder_flexion", side: "right", canMove: true }));
     expect(h.sent().at(-1)).toMatchObject({
       responses: [{ response: { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" } }],
     });
-    expect(host.answers).toEqual([]);
+    expect(host.canMove).toEqual([]);
     h.emit(heard("نعم"));
     await run(1000);
-    h.emit(call("c2", "confirm_max", { movement: "shoulder_flexion", side: "right", answer: "yes" }));
-    expect(host.answers).toEqual([{ answer: "yes", via: "voice", deg: 118 }]);
+    h.emit(call("c2", "answer_can_move", { movement: "shoulder_flexion", side: "right", canMove: true }));
+    expect(host.canMove).toEqual([{ value: true, via: "voice" }]);
   });
 
-  it("refuses an early answer with hold_still, and the hold asks again", async () => {
+  it("refuses an early answer (wrong_phase), and the question asks again", async () => {
     const h = harness();
     const host = h.host as RefRomHost;
     h.session.start();
     await run(900);
     h.emit(heard("yes"));
-    h.emit(call("c1", "confirm_max", { movement: "shoulder_flexion", side: "right", answer: "yes" }));
+    h.emit(call("c1", "answer_can_move", { movement: "shoulder_flexion", side: "right", canMove: true }));
     expect(h.sent().at(-1)).toMatchObject({
-      responses: [{ response: { accepted: false, reason: "wrong_phase", say: "hold_still" } }],
+      responses: [{ response: { accepted: false, reason: "wrong_phase" } }],
     });
     await run(2500);
-    host.openHold("h1", 120);
-    h.push(hold(120));
+    host.askCanMove();
+    h.push(question());
     expect(h.contexts().filter((c) => c.turnComplete)).toHaveLength(1);
-    expect(host.answers).toEqual([]);
+    expect(host.canMove).toEqual([]);
   });
 
   it("lets a late coach ask the question itself: no local voice and no asked_locally (D-036 item 1)", async () => {
     const h = harness();
-    (h.host as RefRomHost).openHold("h1", 118);
+    (h.host as RefRomHost).askCanMove();
     h.session.start();
     await run(900);
-    h.push(hold());
+    h.push(question());
     await run(1500);
     expect(h.voice.said).toEqual([]);
     expect(h.contexts().some((c) => c.text.includes("asked_locally"))).toBe(false);
     h.emit(coachAudio());
-    h.emit({ type: "outputTranscript", text: "هل هذا أقصى ما تستطيع؟" });
+    h.emit({ type: "outputTranscript", text: "هل تستطيع تحريك هذا المفصل بنفسك؟" });
     expect(h.speaker.chunks).toBe(1);
     expect(h.session.getSnapshot().captions.map((c) => c.who)).toEqual(["coach"]);
   });
@@ -470,10 +468,10 @@ describe("a safety stop (rule 1)", () => {
     // Only P0 passes until the app reopens.
     h.voice.end();
     await run(3000);
-    h.push(hold());
+    h.push(question());
     expect(h.contexts().filter((c) => c.turnComplete)).toHaveLength(1);
     h.session.reopen();
-    h.push(hold());
+    h.push(question());
     expect(h.contexts().filter((c) => c.turnComplete)).toHaveLength(2);
   });
 });
@@ -491,10 +489,10 @@ describe("the fallbacks of rule 6, each within 1 s, with the test going on by bu
     expect(h.live().sent.at(-1)).toEqual({ kind: "close" });
     expect(h.reports.at(-1)).toMatchObject({ endReason: "fallback_error", sessionId: SID });
     expect(h.audioSessions).toEqual([true, false]);
-    host.openHold("h1", 118);
-    h.push(hold());
-    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_ask_max"]);
-    expect(host.buttonMax("yes")).toBe(true);
+    host.askCanMove();
+    h.push(question());
+    expect(h.voice.said.map((x) => x.line)).toEqual(["rom_can_move_ask"]);
+    expect(host.buttonCanMove(true)).toBe(true);
   });
 
   it("goes local on a slow setupComplete at 3 s, and live on that socket when it completes (D-035 item 3)", async () => {
@@ -529,7 +527,7 @@ describe("the fallbacks of rule 6, each within 1 s, with the test going on by bu
     const h = harness();
     h.session.start();
     await run(900);
-    h.push(hold());
+    h.push(question());
     await run(4000);
     // The first question's local line has played to its end (a waiting question is asked only then).
     h.voice.end();
@@ -708,18 +706,18 @@ describe("a cancellation after the app applied the call (C-17)", () => {
     const host = h.host as RefRomHost;
     h.session.start();
     await run(900);
-    host.openHold("h1", 118);
-    h.push(hold());
+    host.askCanMove();
+    h.push(question());
     h.emit(coachAudio());
     await run(1500);
     h.emit(heard("نعم"));
-    h.emit(call("c1", "confirm_max", { movement: "shoulder_flexion", side: "right", answer: "yes" }));
+    h.emit(call("c1", "answer_can_move", { movement: "shoulder_flexion", side: "right", canMove: true }));
     h.emit({ type: "toolCallCancellation", ids: ["c1"] });
-    expect(host.answers).toHaveLength(1);
-    expect(host.phase).toBe("done");
+    expect(host.canMove).toHaveLength(1);
+    expect(host.phase).toBe("attempt");
     await run(5000);
     expect(h.contexts().at(-1)).toMatchObject({ turnComplete: false });
-    expect(h.contexts().at(-1)!.text).toContain("type=tool_applied name=confirm_max accepted=yes");
+    expect(h.contexts().at(-1)!.text).toContain("type=tool_applied name=answer_can_move accepted=yes");
   });
 });
 
@@ -753,7 +751,7 @@ describe("the usage report (5.2)", () => {
     expect(h.mic.stopped).toBe(true);
     expect(h.speaker.closed).toBe(true);
     expect(h.audioSessions.at(-1)).toBe(false);
-    h.push(hold());
+    h.push(question());
     expect(h.live().sent.at(-1)).toEqual({ kind: "close" });
     h.session.end("done");
     expect(h.reports).toHaveLength(1);

@@ -1,7 +1,8 @@
 /**
  * Step B3 (product v7 contract C-16, C-17 and the 2.11 host table): the RomController as the CoachHost
  * of the range blocks. Every tool against the step kinds and runner phases it meets: the coach answers
- * only the question asked, presses only the screen's own Ready, Next or Try again (D-036 item 2) and
+ * only the question asked (D-038 item 1: there is no maximum or cause question, the coach's
+ * keep_reaching gives a few more seconds), presses only the screen's own Ready, Next or Try again (D-036 item 2) and
  * never a question, a timer or a safety step, resumes only its own pause and never after a safety
  * stop, and every call is applied at once and final. The tool results carry the say keys the coach's instruction explains (D-8).
  */
@@ -22,10 +23,13 @@ function setup(h = KNEE, painByRegion = {}): RomController {
   return ctl;
 }
 
-/** Drives the block with the simulated person until `until` holds; the person never answers the maximum question. */
-function reach(ctl: RomController, until: (c: RomController) => boolean, answerMax: "yes" | null = null) {
-  return runBlock(ctl, { answerMax: () => answerMax, until }, 300);
+/** Drives the block with the simulated person until `until` holds. */
+function reach(ctl: RomController, until: (c: RomController) => boolean) {
+  return runBlock(ctl, { until }, 300);
 }
+
+/** A scored attempt with its hold in hand (D-038 item 1: recorded a few seconds later). */
+const holding = (c: RomController) => c.phase === "attempt" && c.attempt.index === 1 && c.hold !== null;
 
 const KNEE_BEND = { movement: "knee_flexion" as const, side: "right" as const };
 
@@ -71,7 +75,7 @@ describe("next_step (D-036 item 2: the coach presses the screen's button on the 
     expect(ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: true });
   });
 
-  it("never presses on a question (the maximum), a timer (the rest) or a measurement", () => {
+  it("never presses on a timer (the rest) or a measurement, a hold in hand included", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "practice");
     show(ctl);
@@ -83,11 +87,11 @@ describe("next_step (D-036 item 2: the coach presses the screen's button on the 
     reach(ctl, (c) => c.phase === "rest");
     show(ctl);
     expect(ctl.handleTool("next_step", { intent: "continue" })).toMatchObject({ accepted: false });
-    reach(ctl, (c) => c.phase === "ask_max");
+    reach(ctl, holding);
     show(ctl);
-    expect(ctl.step().kind).toBe("question");
+    expect(ctl.step().kind).toBe("active");
     expect(ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: false });
-    expect(ctl.phase).toBe("ask_max");
+    expect(ctl.phase).toBe("attempt");
   });
 
   it("presses a result card's Next, and its Try again while one more try is offered", () => {
@@ -156,80 +160,45 @@ describe("next_step (D-036 item 2: the coach presses the screen's button on the 
   });
 });
 
-describe("confirm_max", () => {
-  it("is refused before the hold (wrong_phase, hold_still) and never buffered", () => {
+describe("no maximum question (D-038 item 1): the hold in hand and keep_reaching", () => {
+  it("has no confirm_max: the hold is recorded on its own, the coach told «hold there» then «done»", () => {
     const ctl = setup();
-    reach(ctl, (c) => c.phase === "attempt");
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "yes" })).toEqual({
+    const run = reach(ctl, (c) => c.current.kind === "result");
+    expect(ctl.handleTool("confirm_max" as never, { ...KNEE_BEND, answer: "yes" } as never)).toMatchObject({
       accepted: false,
-      reason: "wrong_phase",
-      say: "hold_still",
     });
-    // The hold that follows asks again.
-    reach(ctl, (c) => c.phase === "ask_max");
-    expect(ctl.hold).not.toBeNull();
+    const s = ctl.current;
+    if (s.kind !== "result") throw new Error("no result");
+    expect(s.result.attempts[0]).toMatchObject({ outcome: "valid", answer: null, answerSource: null });
+    const says = run.events.flatMap((e) =>
+      e.kind === "bridge" && e.event.type === "say" ? [e.event.key] : [],
+    );
+    expect(says).toEqual(expect.arrayContaining(["hold", "done"]));
+    expect(says.indexOf("done")).toBeGreaterThan(says.indexOf("hold"));
   });
 
-  it("records yes at the hold, once: data recorded with the value, say recorded; a second answer is already_answered", () => {
+  it("keep_reaching on «I can do more» or «wait» while the hold is in hand: keep_going, a few more seconds", () => {
     const ctl = setup();
-    reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
-    const deg = ctl.hold!.deg;
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "yes" })).toEqual({
-      accepted: true,
-      say: "recorded",
-      data: { recorded: true, deg },
-    });
-    expect(ctl.attempt.valid).toBe(1);
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "yes" })).toMatchObject({ accepted: false });
-  });
-
-  it("refuses an answer for another movement or side (stale_hold, as D's reference host)", () => {
-    const ctl = setup();
-    reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
-    expect(
-      ctl.handleTool("confirm_max", { movement: "knee_extension", side: "right", answer: "yes" }),
-    ).toEqual({
-      accepted: false,
-      reason: "stale_hold",
-    });
-    expect(ctl.handleTool("confirm_max", { movement: "knee_flexion", side: "left", answer: "yes" })).toEqual({
-      accepted: false,
-      reason: "stale_hold",
-    });
-    expect(ctl.phase).toBe("ask_max");
-  });
-
-  it("not yet resumes the attempt with keep_going; keep reaching once, then wrong_phase", () => {
-    const ctl = setup();
-    reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
-    const deg = ctl.hold!.deg;
-    // The hold's degrees go back with every answer; only yes records them.
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "not_yet" })).toEqual({
-      accepted: true,
-      say: "keep_going",
-      data: { recorded: false, deg },
-    });
-    expect(ctl.phase).toBe("attempt");
+    const run = reach(ctl, holding);
+    const at = run.t;
     expect(ctl.handleTool("keep_reaching", {})).toEqual({ accepted: true, say: "keep_going" });
-    expect(ctl.handleTool("keep_reaching", {})).toEqual({ accepted: false, reason: "wrong_phase" });
+    // The hold in hand waits: still not recorded 4 s on (its own 3 s are over).
+    runBlock(ctl, { until: (c) => c.current.kind === "result" }, 4, at);
+    expect(ctl.current.kind).toBe("measure");
+    expect(ctl.hold).not.toBeNull();
+    runBlock(ctl, { until: (c) => c.current.kind === "result" }, 10, at + 4000);
+    expect(ctl.current.kind).toBe("result");
   });
 
-  it("it hurts asks the pain question (pain_ask); keep reaching after pain is refused (after_pain)", () => {
-    const ctl = setup();
-    reach(ctl, (c) => c.phase === "ask_max" && c.attempt.index === 1);
-    const deg = ctl.hold!.deg;
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "hurts" })).toEqual({
-      accepted: true,
-      say: "pain_ask",
-      data: { recorded: false, deg },
-    });
-    expect(ctl.phase).toBe("ask_pain");
-    expect(ctl.step().kind).toBe("question");
+  it("keep reaching after a pain report is refused (after_pain)", () => {
+    const ctl = setup(KNEE, { knee: 3 });
+    reach(ctl, holding);
+    expect(ctl.handleTool("mark_pain", { level: 4 })).toMatchObject({ accepted: true });
     expect(ctl.handleTool("keep_reaching", {})).toEqual({ accepted: false, reason: "after_pain" });
   });
 });
 
-describe("answer_can_move and set_limit_cause", () => {
+describe("answer_can_move (the cause question and set_limit_cause are gone, D-038 item 1)", () => {
   it("never asks the can move question of a weak joint (D-034 item 4): answer_can_move has no question", () => {
     const ctl = setup(WEAK_KNEE);
     reach(ctl, (c) => c.phase === "calibrating");
@@ -240,31 +209,25 @@ describe("answer_can_move and set_limit_cause", () => {
     });
   });
 
-  it("refuses can move outside its question, and the cause outside its question", () => {
+  it("refuses can move outside its question; set_limit_cause is no tool of the range blocks", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "attempt");
     expect(ctl.handleTool("answer_can_move", { ...KNEE_BEND, canMove: true })).toEqual({
       accepted: false,
       reason: "wrong_phase",
     });
-    expect(ctl.handleTool("set_limit_cause", { cause: "tight" })).toEqual({
+    expect(ctl.handleTool("set_limit_cause" as never, { cause: "tight" } as never)).toMatchObject({
       accepted: false,
-      reason: "wrong_phase",
     });
   });
 
-  it("answers the cause question once the scored attempts end short of normal", () => {
-    // A knee that bends to 100 (typical 130 or more): the cause question opens after the attempt that
-    // records the value (one valid attempt, D-035).
+  it("a value short of normal is saved with no cause and no question", () => {
     const ctl = setup();
-    runBlock(ctl, { target: () => 100, until: (c) => c.phase === "ask_cause" }, 300);
-    expect(ctl.phase).toBe("ask_cause");
-    expect(ctl.handleTool("set_limit_cause", { cause: "weak" })).toEqual({ accepted: true, say: "recorded" });
+    runBlock(ctl, { target: () => 100, until: (c) => c.current.kind === "result" }, 300);
     expect(ctl.current.kind).toBe("result");
-    // The card may offer one more try: its result is saved once the card is left.
     ctl.next(1e6);
     const [saved] = saves(ctl.drain()).slice(-1);
-    expect(saved.result.cause).toBe("weak");
+    expect(saved.result).toMatchObject({ status: "measured", cause: null });
   });
 });
 
@@ -289,7 +252,7 @@ describe("mark_pain (C-15: one pain stop rule)", () => {
     });
     expect(ctl.current.kind).toBe("pain_stop");
     expect(ctl.handleTool("resume", {})).toEqual({ accepted: false, reason: "safety_stop" });
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "yes" })).toMatchObject({ accepted: false });
+    expect(ctl.handleTool("keep_reaching", {})).toMatchObject({ accepted: false });
   });
 
   it("a sharp pain stops at any level", () => {
@@ -386,10 +349,8 @@ describe("pause and resume (C-16: the coach resumes only its own pause)", () => 
     expect(after.until - (s.until + 30_000)).toBeCloseTo(s.until - (run.t + 10_000), 6);
   });
 
-  it("refuses a pause on a question or a confirmation (not_allowed)", () => {
+  it("refuses a pause on a confirmation (not_allowed)", () => {
     const ctl = setup();
-    expect(ctl.handleTool("pause", {})).toEqual({ accepted: false, reason: "not_allowed" });
-    reach(ctl, (c) => c.phase === "ask_max");
     expect(ctl.handleTool("pause", {})).toEqual({ accepted: false, reason: "not_allowed" });
   });
 
@@ -421,8 +382,8 @@ describe("stop and repeat_instructions", () => {
     });
     expect(ctl.stopList?.preselect).toBe("faint");
     expect(ctl.step().kind).toBe("safety");
-    // Nothing more is answered for the stopped movement.
-    expect(ctl.handleTool("confirm_max", { ...KNEE_BEND, answer: "yes" })).toEqual({
+    // Nothing more is done for the stopped movement.
+    expect(ctl.handleTool("keep_reaching", {})).toEqual({
       accepted: false,
       reason: "safety_stop",
     });
@@ -452,7 +413,7 @@ describe("stop and repeat_instructions", () => {
 
   it("never throws, and gives a short state line for a new session", () => {
     const ctl = setup();
-    expect(() => ctl.handleTool("confirm_max", null as never)).not.toThrow();
+    expect(() => ctl.handleTool("mark_pain", null as never)).not.toThrow();
     expect(ctl.snapshot()).toMatch(/^block=lying step=block/);
     reach(ctl, (c) => c.phase === "attempt");
     expect(ctl.snapshot()).toMatch(/step=measure movement=knee_flexion side=right phase=attempt attempt=\d/);
@@ -464,11 +425,9 @@ describe("stop and repeat_instructions", () => {
 describe("every tool at every step kind of the range blocks (2.11 host table, C-16)", () => {
   type Tool = Parameters<RomController["handleTool"]>[0];
   const TOOLS: [Tool, Record<string, unknown>][] = [
-    ["confirm_max", { ...KNEE_BEND, answer: "yes" }],
     ["answer_can_move", { ...KNEE_BEND, canMove: true }],
     ["keep_reaching", {}],
     ["mark_pain", { level: 0 }],
-    ["set_limit_cause", { cause: "tight" }],
     ["pause", {}],
     ["resume", {}],
     ["stop", { reason: "tired" }],
@@ -506,7 +465,7 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
         reach(c, (x) => x.phase === "practice");
         return c;
       },
-      accepts: ["pause"],
+      accepts: ["pause", "keep_reaching"],
     },
     {
       name: "an attempt",
@@ -516,39 +475,17 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
         reach(c, (x) => x.phase === "attempt");
         return c;
       },
-      accepts: ["pause"],
+      accepts: ["pause", "keep_reaching"],
     },
     {
-      name: "the maximum question",
-      kind: "question",
-      reach: () => {
-        const c = setup();
-        reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
-        return c;
-      },
-      accepts: ["confirm_max"],
-    },
-    {
-      name: "right after not yet",
+      name: "a hold in hand",
       kind: "active",
       reach: () => {
         const c = setup();
-        const run = reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
-        c.answerMax("not_yet", "button", run.t + 100);
+        reach(c, holding);
         return c;
       },
       accepts: ["keep_reaching", "pause"],
-    },
-    {
-      name: "the pain question",
-      kind: "question",
-      reach: () => {
-        const c = setup();
-        const run = reach(c, (x) => x.phase === "ask_max" && x.attempt.index === 1);
-        c.answerMax("hurts", "button", run.t + 100);
-        return c;
-      },
-      accepts: [],
     },
     {
       name: "the rest after the practice",
@@ -559,16 +496,6 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
         return c;
       },
       accepts: ["pause"],
-    },
-    {
-      name: "the cause question",
-      kind: "question",
-      reach: () => {
-        const c = setup();
-        runBlock(c, { target: () => 100, until: (x) => x.phase === "ask_cause" }, 300);
-        return c;
-      },
-      accepts: ["set_limit_cause"],
     },
     {
       name: "a pause made on the screen",
@@ -671,7 +598,7 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
           });
         if (tool === "resume" && state.name === "a pause made on the screen")
           expect(r.reason).toBe("paused_on_screen");
-        if (state.kind === "safety" && ["confirm_max", "pause", "resume"].includes(tool))
+        if (state.kind === "safety" && ["keep_reaching", "pause", "resume"].includes(tool))
           expect(r.reason).toBe("safety_stop");
       }
     });

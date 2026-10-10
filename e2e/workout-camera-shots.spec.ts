@@ -1,7 +1,7 @@
 /**
  * Review screenshots of the camera screen (booth v2, contract A7) at 390 x 844 (2x) and 1280 x 800, in
  * Arabic and English, walked with the synthetic trace source (?e2eTrace=): the outline, the start
- * position and its hold, measuring the range, the range ready with the voice on, the count, a
+ * position and its hold, measuring the range, the range ready, the count, a
  * coaching cue, the effort question and the summary. Runs only with AZM_SHOTS_DIR set:
  *
  *   AZM_SHOTS_DIR=../Azm6.0/local-docs/screens/booth-v2/engine npm run e2e -- workout-camera-shots
@@ -76,10 +76,10 @@ for (const size of SIZES) {
       await expect(page.locator(".cam2-dots i.on")).toHaveCount(1, { timeout: 15_000 });
       await page.waitForTimeout(700);
       await shot("measuring");
-      await page.locator(".cam2-sound").click();
+      // D-038 item 3: no recorded voice and no speaker button in the trial.
       await atStage(page, "training");
       await page.waitForTimeout(900);
-      await shot("range-ready-voice-on");
+      await shot("range-ready");
       await expect(page.locator(".cam2")).toHaveAttribute("data-count", "3", { timeout: 20_000 });
       await expect(page.locator(".cam2-caption")).toHaveCount(0, { timeout: 10_000 });
       await shot("count");

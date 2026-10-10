@@ -305,16 +305,16 @@ describe("D-035: the MVP hold, a lenient plateau", () => {
     };
   };
 
-  it("its numbers: about 8 degrees either side of the median for about 0.6 s, the trend under 8 degrees per second", () => {
+  it("its numbers: about 8 degrees either side of the median for about 1 s (D-038), the trend under 8 degrees per second", () => {
     expect(MVP_HOLD).toEqual({
       halfBandDeg: 8,
-      seconds: 0.6,
+      seconds: 1,
       maxSlopeDegPerSec: PLATEAU_RULES.maxDegPerSec,
       bandShareOfExcursion: 1 / 3,
     });
     const o = mvpHoldOptions("flexion");
     expect(o.bandDeg).toBe(8);
-    expect(o.holdMs).toBe(600);
+    expect(o.holdMs).toBe(1000);
     expect(o.around).toBe("median");
     expect(o.minExcursionDeg).toBe(E.minExcursionDeg);
     expect(mvpHoldOptions("lack").direction).toBe(-1);
@@ -331,9 +331,9 @@ describe("D-035: the MVP hold, a lenient plateau", () => {
     );
     expect(holds).toHaveLength(1);
     expect(Math.abs(holds[0].deg - 135)).toBeLessThanOrEqual(3);
-    // Found within about 0.6 s of reaching the top (the trend reads the end of the rise out).
-    expect(holds[0].to / 1000).toBeGreaterThanOrEqual(3.5);
-    expect(holds[0].to / 1000).toBeLessThan(3.9);
+    // Found about 1 s after reaching the top (the trend reads the end of the rise out).
+    expect(holds[0].to / 1000).toBeGreaterThanOrEqual(3.9);
+    expect(holds[0].to / 1000).toBeLessThan(4.3);
   });
 
   it("the filtered angle wandering 7 degrees either side still holds; 10 degrees does not", () => {
@@ -348,7 +348,7 @@ describe("D-035: the MVP hold, a lenient plateau", () => {
     const holds = feed(new HoldDetector(mvpHoldOptions("flexion")), slow, 10);
     expect(holds).toHaveLength(1);
     // Only at the top (140 from 8 s).
-    expect(holds[0].from / 1000).toBeGreaterThan(7.6);
+    expect(holds[0].from / 1000).toBeGreaterThanOrEqual(7.6);
     expect(Math.abs(holds[0].deg - 140)).toBeLessThan(3);
   });
 

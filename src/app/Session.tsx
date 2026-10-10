@@ -114,6 +114,11 @@ export default function SessionScreen(props: {
   setup: Setup;
   exerciseId: string;
   demo: boolean;
+  /**
+   * D-037 item 6: a demo exercise with the real camera, from the demo list. The caller passes no
+   * onSave, so nothing is recorded; the screen tags it and its dialogs say it is not saved.
+   */
+  unsaved?: boolean;
   targetReps?: number;
   setNumber?: number;
   onSave?: (summary: SessionSummary, moments: RepMoment[]) => Promise<void>;
@@ -565,6 +570,8 @@ export default function SessionScreen(props: {
           <b>{def.name[lang]}</b>
           {demo ? (
             <span className="cam2-tag">{s.demo}</span>
+          ) : props.unsaved ? (
+            <span className="cam2-tag">{s.demoRun}</span>
           ) : props.setNumber ? (
             <span className="cam2-tag">
               {s.setLabel} {fmtNum(props.setNumber, lang)}
@@ -707,7 +714,7 @@ export default function SessionScreen(props: {
           )}
           <p className="eyebrow">{demo ? c.demoSummary : c.resultIntro}</p>
           <h2 id="rpe-title">{t("rpeTitle")}</h2>
-          {demo && <p>{c.demoNotSaved}</p>}
+          {demo ? <p>{c.demoNotSaved}</p> : props.unsaved && <p>{s.demoRunNote}</p>}
           <div className="rpe-grid">
             {Array.from({ length: 11 }, (_, i) => (
               <button
@@ -796,7 +803,15 @@ export default function SessionScreen(props: {
           </div>
           <RepReview reps={moments} lang={lang} demo={demo} />
           <p className="sum-note">
-            {demo ? c.demoNotSaved : trial ? k.trialNote : saved ? t("saveNote") : c.saveFailed}
+            {demo
+              ? c.demoNotSaved
+              : props.unsaved
+                ? s.demoRunNote
+                : trial
+                  ? k.trialNote
+                  : saved
+                    ? t("saveNote")
+                    : c.saveFailed}
           </p>
           <div className="modal-actions">
             {trial ? (

@@ -20,12 +20,16 @@ import { CheckRoot } from "../assessment/shared/CheckRoot";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { Actions, Body, Glass, Kicker, Loading, Page, Title, TopBar } from "../focus/parts";
 import { createProgramApi, type ProgramApi, type ProgramTargets } from "./api";
+import { DemoLink } from "./DemoLink";
 import { programItems, type ProgramItemView } from "./program";
 import "../focus/focus.css";
 import "./program.css";
 
-/** Where the program page leaves to: the portal's Today or Program tab, or the findings page. */
-export type ProgramExit = "today" | "program" | "findings";
+/**
+ * Where the program page leaves to: the portal's Today or Program tab, the findings page, or the demo
+ * exercises (D-037 item 6).
+ */
+export type ProgramExit = "today" | "program" | "findings" | "demos";
 
 export interface ProgramPageProps {
   lang: Lang;
@@ -233,6 +237,8 @@ export function ProgramBody({
           ))}
         </ol>
       )}
+      {/* D-037 item 6: the exercises the camera follows now, to try or to show. */}
+      <DemoLink lang={lang} onOpen={() => onExit("demos")} />
       <Actions items={actions} />
     </div>
   );

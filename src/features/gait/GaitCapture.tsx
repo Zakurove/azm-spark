@@ -757,7 +757,7 @@ function ModeIcon({ kind }: { kind: "floor" | "pad" }) {
   );
 }
 
-/** The pass now (from 1) of the fixed target («المرة ٢ من ٤»), read whole by a screen reader. */
+/** The pass now (from 1) of the fixed target («المرة 2 من 4»), read whole by a screen reader. */
 function Counter({ value, label, of, total }: { value: string; label: string; of: string; total: string }) {
   return (
     <div className="gx-counter" aria-live="polite" role="status" aria-label={total} data-counter={total}>

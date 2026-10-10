@@ -1,7 +1,7 @@
 /**
  * The live spike suite (product v7 contract 8.6; DG-2, D-026 item 1, D-027 item 7):
  *
- *   npm run spike:live                          every probe: lock, answers, context, dose
+ *   npm run spike:live                          every probe: lock, answers, context, dose, press
  *   npm run spike:live -- --probes lock,dose    some probes
  *   npm run spike:live -- --budget 0.5          stop starting probes past this many dollars (default 1)
  *   npm run spike:live -- --plan                list the probes and exit (no key, no network)
@@ -20,12 +20,13 @@ import { build } from "esbuild";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../..");
-export const PROBES = ["lock", "answers", "context", "dose"];
+export const PROBES = ["lock", "answers", "context", "dose", "press"];
 export const PLAN = {
   lock: "a client setup cannot replace the locked instruction or add a tool (S0 02b-lock A and B)",
   answers: "the Arabic and English yes, not yet, hurts and pain answers spoken: tool calls, setupComplete, event to first audio",
   context: "silent P3 lines start no reply and reach the next turn; a P0 interrupts; usage grows (S0 06-context)",
   dose: "spoken dose change prompts in a workout: the coach declines and calls no tool (5.3 rule 3, S0 10-dose)",
+  press: "D-036 item 2: spoken ready, let's go, next and again call next_step with their intent, after their transcription; own calls counted",
 };
 
 /** The command line: --probes a,b, --budget n, --plan, --check. Unknown probes or numbers exit 2. */

@@ -1,10 +1,12 @@
 /**
- * The gait lab (D-035 item 4): /?gaitlab=side or /?gaitlab=front, VITE_V7 builds only, signed in or
- * not, never saving. It runs the walk's capture alone (the GaitController of the focus check, with the
- * real camera and the real model) so Nasser and the tech lead share one reference:
- *   - live: the skeleton over the picture, the steps and passes counted (by the change of direction),
- *     the clean cycles a side, the share of frames with the legs seen, the frame rate, the contacts
- *     found and the gate (full: 6 a side; timing only: 3 a side across the passes);
+ * The gait lab (D-035 item 4): /?gaitlab=side, VITE_V7 builds only, signed in or not, never saving.
+ * It runs the walk's capture alone (the GaitController of the focus check, with the real camera and
+ * the real model) so Nasser and the tech lead share one reference. Since D-036 item 6 the walk is one
+ * side walk, so /?gaitlab=front (and any other value) opens the same side walk.
+ *   - live: the skeleton over the picture, the steps and passes counted (one walk across the picture
+ *     each, of the fixed target), the clean cycles a side, the share of frames with the legs seen, the
+ *     frame rate, the contacts found and the gate (full: 6 a side; timing only: 3 a side across the
+ *     passes);
  *   - at the end: the verdict in one line («Cadence 104 steps a minute, right step 0.58 s, left
  *     0.62 s», or «Not analysed because ...») and a JSON block to screenshot.
  * Query: lang=en (Arabic first), model=full|lite (the device's remembered model, as the smoke page
@@ -31,7 +33,8 @@ import { gt } from "./copy";
 import "../focus/focus.css";
 import "./gait.css";
 
-export type GaitLabView = "side" | "front";
+/** The lab's walk: the side view only (D-036 item 6). */
+export type GaitLabView = "side";
 
 /** The lab's state on window (the real model smoke reads it). */
 export interface GaitLabState {
@@ -79,7 +82,6 @@ export interface GaitLabResult {
 const L = {
   title: { ar: "مختبر المشي", en: "Walk lab" },
   side: { ar: "المنظر الجانبي", en: "Side view" },
-  front: { ar: "المنظر الأمامي", en: "Front view" },
   never: { ar: "صفحة اختبار لا تحفظ شيئًا.", en: "A test page that saves nothing." },
   start: { ar: "ابدأ", en: "Start" },
   finish: { ar: "أنهِ الآن", en: "Finish now" },
@@ -173,18 +175,16 @@ const LAB_INTAKE = (heightCm: number | null): Intake => ({
   ...(heightCm ? { heightCm } : {}),
 });
 
-function planFor(view: GaitLabView): GaitPlan {
-  return {
-    offered: true,
-    modes: ["overground"],
-    defaultMode: "overground",
-    padAllowed: false,
-    helperRequired: false,
-    antalgicOnly: false,
-    staticStance: false,
-    views: { overground: view === "front" ? ["front", "back"] : ["side"], walking_pad: [] },
-  };
-}
+const LAB_PLAN: GaitPlan = {
+  offered: true,
+  modes: ["overground"],
+  defaultMode: "overground",
+  padAllowed: false,
+  helperRequired: false,
+  antalgicOnly: false,
+  staticStance: false,
+  views: { overground: ["side"], walking_pad: [] },
+};
 
 function resultOf(
   ctl: GaitController,
@@ -234,9 +234,9 @@ function resultOf(
   };
 }
 
-export default function GaitLab({ view: asked }: { view: string }) {
+export default function GaitLab(_props: { view: string }) {
   const qs = useMemo(() => new URLSearchParams(location.search), []);
-  const view: GaitLabView = asked === "front" ? "front" : "side";
+  const view: GaitLabView = "side";
   const lang: Lang = qs.get("lang") === "en" ? "en" : "ar";
   const auto = qs.get("auto") === "1";
   const heightCm = Number(qs.get("height")) || null;
@@ -259,7 +259,7 @@ export default function GaitLab({ view: asked }: { view: string }) {
   const ctl = useMemo(
     () =>
       new GaitController({
-        plan: planFor(view),
+        plan: LAB_PLAN,
         painBefore: null,
         intake: { walking: { status: "without_aid" }, ...(heightCm ? { heightCm } : {}), regions: [] },
         poseModel: () => focus.model,
@@ -378,9 +378,7 @@ export default function GaitLab({ view: asked }: { view: string }) {
     setRun((n) => n + 1);
   };
 
-  const d = ctl
-    .diagnostics()
-    .find((x) => x.rec === (view === "front" ? "overground_front" : "overground_side"));
+  const d = ctl.diagnostics().find((x) => x.rec === "overground_side");
   const lv = ctl.live();
   const verdict = live ? walkVerdict(live.views) : null;
   const events: GaitEvent[] = (live?.views ?? [])
@@ -429,7 +427,7 @@ export default function GaitLab({ view: asked }: { view: string }) {
               <div>
                 <dt>{say(lang, "passes")}</dt>
                 <dd data-live="passes">
-                  {d?.passes ?? 0} / {view === "front" ? 2 * (lv?.target ?? 0) : (lv?.target ?? 0)}
+                  {d?.passes ?? 0} / {lv?.target ?? d?.target ?? 0}
                 </dd>
               </div>
               <div>
@@ -467,12 +465,8 @@ export default function GaitLab({ view: asked }: { view: string }) {
                   .join("  ") || "none"}
               </span>
             </p>
-            {step.id === "place" && (
-              <Body lang={lang} text={gt(lang, view === "front" ? "place.front3" : "place.side3")} />
-            )}
-            {step.id === "walk" && (
-              <Body lang={lang} text={gt(lang, view === "front" ? "walk.frontSay" : "walk.sideSay")} />
-            )}
+            {step.id === "place" && <Body lang={lang} text={gt(lang, "place.side3")} />}
+            {step.id === "walk" && <Body lang={lang} text={gt(lang, "walk.sideSay")} />}
             {step.id === "retry" && (
               <Body lang={lang} text={gt(lang, `retry.reason.${ctl.retryReason() ?? "more_steps"}`)} />
             )}

@@ -6,10 +6,11 @@
  *
  * Steps, each with its C-16 kind (the coach can never pass a step the person or the helper must tap):
  *   - intro (info), the mode when both are allowed (question), the shoes and a leg brace (question);
- *   - overground: the clear path (confirm); the toward and away recording (the front and back views:
- *     the phone's placement, confirm; 3 s standing, active; the laps, active); the static single leg
- *     stance when planned (its place, confirm; the hold on each leg, active); the side recording (its
- *     placement, confirm, or no room for it; 3 s standing; the passes);
+ *   - overground (D-036 item 6: one walk, the side view only): the clear path (confirm); the side
+ *     recording (the phone's placement, confirm; 3 s standing, active; the passes across the picture,
+ *     active); the static single leg stance when planned (its place, confirm; the hold on each leg,
+ *     active). The plan's front and back views are not walked: the findings that need them are not
+ *     assessed, and the card simply leaves them out;
  *   - walking pad: the pad safety steps of gait-rules eligibility.padSafety as one checklist with one
  *     Ready (D-032 item 2: the floor, clear space and the stop control or safety key; the foot speed
  *     control off; the support away from the phone), a confirm step; then per planned view: the
@@ -17,12 +18,15 @@
  *     stopped belt (confirm), 3 s standing (active), the belt up to the comfortable speed (confirm),
  *     the 2 minute warm up before the first view (timer), the recording (active); the pad stopped
  *     (confirm); the static stance when planned; the speed and the handrail hold (question).
- * Capture: the overground recordings add laps or passes, up to 6, until each side has its clean
- * cycles (D-026 item 6, CG-1; D-027 item 4; front counts with back, C3-1). A pad view records its
- * duration, then keeps recording until each side has its clean cycles (D-028 item 2), up to twice the
- * duration (contract gap C4-2), and then asks for a calm re-record. A frame rate under the record again
- * floor, the wrong view or nobody the lock can hold asks for it at once. The analysis runs at those
- * checkpoints only (analyseGaitView is never fed live: the recorder and the live counter are, 2.8).
+ * Capture (D-036 item 6): a fixed target that finishes. The side recording walks its fixed number of
+ * passes (gait-rules capture.overground.side.passes, 4; each pass one walk across the picture, counted
+ * by sidePasses.ts) and ends a moment after the last one; a pad view records its fixed seconds. The
+ * target never grows. The recording is then read with whatever it holds (full, timing only, or not
+ * enough). Not enough asks one calm «try once more», with «go on» always beside it; a second try that
+ * gives too little goes on by itself. Every recording is kept and posted with its reasons (D-035 item
+ * 4: stored on failure). «I have finished» on the walk's screen reads the recording at once, and an
+ * overground recording ends at 2 minutes whatever happens. The analysis runs at the end only
+ * (analyseGaitView is never fed live: the recorder and the live counter are, 2.8).
  * Pain (C-15, the 2.11 gait row): any mark_pain ends the recording and is kept for the rules
  * (GaitAnalysis.walkPain); painStopRule against the walk's score before (painBefore, W2-5, D-027
  * item 1) ends the test, labelled pain_limited, with the completed clean cycles kept; below it the
@@ -34,7 +38,7 @@ import { capture as captureData, eligibility as eligibilityData } from "../../mo
 import type { GaitData } from "../../movements/gait/types";
 import { analyseGaitGroup, analyseStaticStance, combineViews } from "../../engine/gait/analyse";
 import { LiveStepCounter, type LiveFacing } from "../../engine/gait/live";
-import { ENGINE_VERSION, GAIT_ENGINE, GAIT_MVP } from "../../engine/gait/params";
+import { CAPTURE_COUNT_MAX, ENGINE_VERSION, GAIT_ENGINE, GAIT_MVP } from "../../engine/gait/params";
 import { GaitRecorder } from "../../engine/gait/recorder";
 import {
   groupPassed,
@@ -45,6 +49,7 @@ import {
 } from "../../engine/gait/verdict";
 import type {
   GaitAnalysis,
+  GaitCaptureCounts,
   GaitFrame,
   GaitSetup,
   GaitView,
@@ -89,12 +94,8 @@ export const CAPTURE_RULES = {
   padFrontSec: CAPTURE.walking_pad.front.duration_s,
   /** «hip, knee and ankle visibility >= 0.5 in 90% of warm up frames» */
   padGate: CAPTURE.walking_pad.setupGate,
-  /** overground toward passes, each with its walk away (the back view), and their most */
-  frontLaps: CAPTURE.overground.front.passesToward,
-  frontMaxLaps: CAPTURE.overground.front.maxPasses,
-  /** overground side passes, and their most */
+  /** overground side passes: the walk's fixed target (D-036 item 6, it never grows) */
   sidePasses: CAPTURE.overground.side.passes,
-  sideMaxPasses: CAPTURE.overground.side.maxPasses,
   /** «single leg stance on each leg for up to 10 s» */
   stanceHoldSec: CAPTURE.staticSingleLegStance.holdMax_s,
   /** «warm up 2 min»; «familiarised flag only when total pad time >= 6 min» */
@@ -107,16 +108,17 @@ export const CAPTURE_RULES = {
 } as const;
 
 /**
- * Engineering choices of the capture, no clinical number (each in the contract change log, step C4):
- * a pad view keeps recording up to twice its duration and is checked again every 10 s (C4-2); a lap
- * or pass target is reached once no step came for 1.5 s; an overground recording stops at 3 minutes
- * whatever happens (the recorder's memory); the person has 3 s to change legs in the static stance.
+ * Engineering choices of the capture, no clinical number (D-036 item 6): the side recording ends 2 s
+ * after its last pass is counted (the person reaches the end of the path); an overground recording
+ * ends at 2 minutes whatever happens (and the recorder keeps no more); a recording is tried at most
+ * twice (one «try once more»); a subject the lock lost after a jump for 5 frames in a row is found
+ * again; the person has 3 s to change legs in the static stance.
  */
 export const CAPTURE_LIMITS = {
-  padLimitFactor: 2,
-  recheckSec: 10,
-  restAfterPassMs: 1500,
-  overgroundMaxSec: 180,
+  afterLastPassMs: 2000,
+  overgroundMaxSec: 120,
+  maxTries: 2,
+  relockFrames: 5,
   stanceSwitchMs: 3000,
 } as const;
 
@@ -129,8 +131,8 @@ const HEIGHT_CM = { min: 120, max: 220 } as const;
 
 /* ---------------------------------------------------------------- steps */
 
-/** A recording of the walk: the overground toward and away one gives the front and back views. */
-export type RecordingId = "overground_front" | "overground_side" | "pad_side_a" | "pad_side_b" | "pad_front";
+/** A recording of the walk: the overground side one (D-036 item 6), or a pad view. */
+export type RecordingId = "overground_side" | "pad_side_a" | "pad_side_b" | "pad_front";
 
 export type GaitStepId =
   | "intro"
@@ -145,7 +147,6 @@ export type GaitStepId =
   | "pad_warm_up"
   | "walk"
   | "walk_again"
-  | "front_offer"
   | "retry"
   | "pad_stop"
   | "stance_place"
@@ -178,7 +179,6 @@ export const STEP_KIND: Record<GaitStepId, CoachStepKind> = {
   pad_warm_up: "timer",
   walk: "active",
   walk_again: "confirm",
-  front_offer: "question",
   retry: "question",
   pad_stop: "confirm",
   stance_place: "confirm",
@@ -217,7 +217,8 @@ const STEP_LINE: Partial<Record<GaitStepId, string>> = {
 
 /**
  * The overground walk's spoken lines: screen lines of the gait namespace (gait.json walk.sideSay and
- * walk.frontSay), said with the phone's own speech by GaitCapture (not voice pack lines).
+ * walk.frontSay), said with the phone's own speech by GaitCapture (not voice pack lines). Since D-036
+ * item 6 only the side line is said (the walk has no front view).
  */
 export const WALK_LINE = { side: "gait.walk.sideSay", front: "gait.walk.frontSay" } as const;
 
@@ -233,20 +234,25 @@ export interface GearAnswer {
 export interface LiveView {
   /** Steps counted live (LiveStepCounter, never stored). */
   steps: number;
-  /** Laps (overground front) or passes (overground side) walked, and the target now. */
+  /** Passes walked (never more than the target), and the fixed target (D-036 item 6; 0 on the pad). */
   passes: number;
   target: number;
-  /** Pad views: seconds recorded, and the planned seconds (the target grows while it keeps recording). */
+  /** Pad views: seconds recorded, and the fixed seconds of the view. */
   seconds: number;
   plannedSeconds: number;
   facing: LiveFacing;
-  /** «checking»: the analysis of a checkpoint is running; «more»: one more lap or pass is asked. */
-  phase: "standing" | "walking" | "checking" | "more";
+  /** «checking»: the target is reached (or the person finished) and the recording is being read. */
+  phase: "standing" | "walking" | "checking";
   /** A calm hint about the picture, or null. */
   hint: GaitHint | null;
 }
 
-export type GaitHint = "no_person" | "second_person" | "feet" | "legs" | "light" | "level";
+/**
+ * «across»: the person walks toward or away from the phone in the side recording; «further»: they
+ * turn back too soon for a walk across to count (D-036 item 6).
+ */
+export type GaitHint =
+  "no_person" | "second_person" | "feet" | "legs" | "light" | "level" | "across" | "further";
 
 interface Recording {
   id: RecordingId;
@@ -258,25 +264,32 @@ interface Recording {
   lock: SubjectLock;
   rolls: number[];
   poseModel: "lite" | "full";
-  /** Overground: the laps or passes asked now; pad: the seconds asked now. */
+  /** The fixed target (D-036 item 6): overground the passes, on the pad the seconds. It never grows. */
   target: number;
   steps: number;
+  /** Passes counted live (may pass the target while the walk ends; the screen never shows more). */
   passes: number;
+  /** When the target was reached (overground), or null. */
+  reachedAt: number | null;
+  /** The try now: 1, or 2 after «try once more» (CAPTURE_LIMITS.maxTries). */
+  tries: number;
   /** Active recording time (ms), pauses left out. */
   activeMs: number;
   lastT: number | null;
-  lastStepAt: number | null;
-  /** The analysed views at the last checkpoint. */
+  /** The analysed views at the end of the recording. */
   results: GaitViewResult[];
   done: boolean;
   skipped: boolean;
   /** The recording passed its group's gate at its last check. */
   gatePassed: boolean;
-  /** Walk frames, and those with both hips and both ankles seen. */
+  /**
+   * Walk frames, those with both hips and both ankles seen, those with another person over the
+   * walker, and those walking toward or away from the phone (the side walk).
+   */
   walkFrames: number;
   seenFrames: number;
-  /** The time of the last checkpoint: the next one waits for a step after it. */
-  checkedAt: number | null;
+  crowdedFrames: number;
+  depthFrames: number;
 }
 
 /** One leg of the static stance: its frames, from the person lifting it. */
@@ -305,7 +318,7 @@ export interface GaitControllerOptions {
   /** E2E fast timing: the warm up in seconds (default 2 minutes). */
   warmUpSec?: number;
   /**
-   * Where the walk's diagnostic lines go (D-035 item 4): each checkpoint and the end, «[azm gait] ...»
+   * Where the walk's diagnostic lines go (D-035 item 4): the end of each recording and of the walk, «[azm gait] ...»
    * with the passes counted, the clean cycles a side, the share of frames with the legs seen, the frame
    * rate and the reasons. Default: the browser console (never a landmark or a picture).
    */
@@ -315,12 +328,15 @@ export interface GaitControllerOptions {
 /** What a recording found (D-035 item 4): the lab shows it, the log writes it, the card reads its level. */
 export interface RecordingDiagnostics {
   rec: RecordingId;
-  /** Passes counted live (by the change of direction), and steps. */
+  /** Passes counted live (one walk across the picture each), and steps. */
   passes: number;
   steps: number;
+  /** The fixed target, and the try (1, or 2 after «try once more»). */
+  target: number;
+  tries: number;
   /** Seconds walked (pauses left out). */
   seconds: number;
-  /** The lowest frame rate of the recording's views (mean inside the passes), or null before a checkpoint. */
+  /** The lowest frame rate of the recording's views (mean inside the passes), or null before its end. */
   fps: number | null;
   /** The share of the walk's frames with both hips and both ankles seen (0 to 1), or null before frames. */
   visibleShare: number | null;
@@ -341,8 +357,7 @@ export interface RecordingDiagnostics {
 }
 
 /** The calm line a failed recording shows: what to change (D-035 item 2). */
-export type RetryReason =
-  "side_on" | "face_phone" | "no_person" | "light" | "whole_body" | "more_steps" | "one_person";
+export type RetryReason = "side_on" | "no_person" | "light" | "whole_body" | "more_steps" | "one_person";
 
 const EMPTY_LM = (): Landmark[] => Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));
 const median = (xs: number[]): number | null => {
@@ -360,6 +375,8 @@ function coveredMs(frames: readonly { t: number }[]): number {
   return Math.round(frames[n - 1].t - frames[0].t + (frames[n - 1].t - frames[n - 2].t));
 }
 const HIPS_ANKLES = [23, 24, 27, 28] as const;
+/** How long the «walk across» hint stays after the person last walked toward or away from the phone. */
+const ACROSS_HINT_MS = 3000;
 const FEET = [27, 28, 29, 30, 31, 32] as const;
 const LEG_IDS = { left: [23, 25, 27], right: [24, 26, 28] } as const;
 
@@ -405,6 +422,8 @@ export class GaitController implements CoachHost {
   private timer: { until: number; total: number; left: number | null } | null = null;
   private pendingCheck = false;
   private hintNow: GaitHint | null = null;
+  /** The «walk across» hint shows until then (ms). */
+  private acrossUntil = -Infinity;
   private padStartedAt: number | null = null;
   private padEndedAt: number | null = null;
   private warmGate: { seen: number; total: number } = { seen: 0, total: 0 };
@@ -465,16 +484,10 @@ export class GaitController implements CoachHost {
     if (p.modes.length > 1 && !this.padTooFast) head.push({ id: "mode" });
     head.push({ id: "gear" });
     if (this.mode === "overground") {
-      // D-035 item 2: the side view first (the most reliable); the front view offered after it, or at
-      // once when there is no room for the side view (skipView).
+      // D-036 item 6: one walk, the side view only (across the picture and back). The plan's front
+      // and back views are not walked.
       const out = [...head, { id: "clear_path" } as GaitStep];
-      const side = p.views.overground.includes("side");
-      const front = p.views.overground.some((v) => v === "front" || v === "back");
-      if (side) out.push(...this.recordingSteps("overground_side"));
-      if (front) {
-        if (side) out.push({ id: "front_offer" });
-        out.push(...this.recordingSteps("overground_front"));
-      }
+      if (p.views.overground.includes("side")) out.push(...this.recordingSteps("overground_side"));
       if (p.staticStance) out.push({ id: "stance_place" }, { id: "stance" });
       out.push({ id: "saving" }, { id: "done" });
       return out;
@@ -517,10 +530,6 @@ export class GaitController implements CoachHost {
 
   /** The engine views a recording gives, from the plan. */
   viewsOf(rec: RecordingId): { view: GaitView; nearSide?: "left" | "right" }[] {
-    if (rec === "overground_front")
-      return this.plan.views.overground
-        .filter((v): v is "front" | "back" => v === "front" || v === "back")
-        .map((view) => ({ view }));
     if (rec === "overground_side") return [{ view: "side" }];
     if (rec === "pad_front") return [{ view: "pad_front" }];
     const sides = this.plan.views.walking_pad.filter((v) => v.view === "pad_side");
@@ -561,19 +570,15 @@ export class GaitController implements CoachHost {
     const pad = s.rec.startsWith("pad");
     return {
       steps: r.steps,
-      passes: s.rec === "overground_front" ? Math.floor(r.passes / 2) : r.passes,
+      // D-036 item 6: «pass N of 4», never beyond the target.
+      passes: pad ? 0 : Math.min(r.passes, r.target),
       target: pad ? 0 : r.target,
-      seconds: Math.round(r.activeMs / 1000),
+      // The pad's fixed seconds, never more on the screen.
+      seconds: pad ? Math.min(r.target, Math.round(r.activeMs / 1000)) : Math.round(r.activeMs / 1000),
       plannedSeconds: pad ? r.target : 0,
       facing: null,
       phase:
-        s.id === "stand"
-          ? "standing"
-          : this.pendingCheck
-            ? "checking"
-            : r.results.length && !r.done
-              ? "more"
-              : "walking",
+        s.id === "stand" ? "standing" : this.pendingCheck || r.reachedAt !== null ? "checking" : "walking",
       hint: this.hintNow,
     };
   }
@@ -632,17 +637,9 @@ export class GaitController implements CoachHost {
     if (!r) {
       const pad = id.startsWith("pad");
       const view: GaitView =
-        id === "overground_side"
-          ? "side"
-          : id === "overground_front"
-            ? "front"
-            : id === "pad_front"
-              ? "pad_front"
-              : "pad_side";
+        id === "overground_side" ? "side" : id === "pad_front" ? "pad_front" : "pad_side";
       const maxSec = pad
-        ? (id === "pad_front" ? CAPTURE_RULES.padFrontSec : CAPTURE_RULES.padSideSec) *
-            CAPTURE_LIMITS.padLimitFactor +
-          10
+        ? (id === "pad_front" ? CAPTURE_RULES.padFrontSec : CAPTURE_RULES.padSideSec) + 10
         : CAPTURE_LIMITS.overgroundMaxSec + 10;
       r = {
         id,
@@ -653,29 +650,30 @@ export class GaitController implements CoachHost {
         lock: new SubjectLock(),
         rolls: [],
         poseModel: this.opts.poseModel?.() ?? "full",
-        target: this.firstTarget(id),
+        target: this.targetOf(id),
         steps: 0,
         passes: 0,
+        reachedAt: null,
+        tries: 1,
         activeMs: 0,
         lastT: null,
-        lastStepAt: null,
         results: [],
         done: false,
         skipped: false,
         gatePassed: false,
         walkFrames: 0,
         seenFrames: 0,
-        checkedAt: null,
+        crowdedFrames: 0,
+        depthFrames: 0,
       };
       this.recordings.set(id, r);
     }
     return r;
   }
 
-  private firstTarget(id: RecordingId): number {
+  /** The recording's fixed target (D-036 item 6): the side passes, or the pad view's seconds. */
+  private targetOf(id: RecordingId): number {
     switch (id) {
-      case "overground_front":
-        return CAPTURE_RULES.frontLaps;
       case "overground_side":
         return CAPTURE_RULES.sidePasses;
       case "pad_front":
@@ -706,6 +704,7 @@ export class GaitController implements CoachHost {
     const s = this.current;
     this.pausedByNow = null;
     this.hintNow = null;
+    this.acrossUntil = -Infinity;
     this.timer = null;
     if (s.id === "pad_warm_up") {
       const total = (this.opts.warmUpSec ?? CAPTURE_RULES.warmUpMin * 60) * 1000;
@@ -734,9 +733,7 @@ export class GaitController implements CoachHost {
     if (s.id === "pad_stop") this.padEndedAt = now;
     const line = STEP_LINE[s.id];
     if (line) this.say(line, "info");
-    // D-035 item 2: the walk's own line (the screen's copy, gait.walk.*Say): nobody walks past the
-    // phone or leaves the picture; stopping or turning and walking back counts.
-    if (s.id === "walk" && s.rec === "overground_front") this.say(WALK_LINE.front, "info");
+    // D-035 item 2: the walk's own line (the screen's copy, gait.walk.sideSay).
     if (s.id === "walk" && s.rec === "overground_side") this.say(WALK_LINE.side, "info");
     // The belt is stopped while the helper moves the phone to the pad's other side (D-030 C4-3).
     if (s.id === "place" && s.rec === "pad_side_b") this.say("gait_pad_other_side", "info");
@@ -802,52 +799,16 @@ export class GaitController implements CoachHost {
   }
 
   /**
-   * «No room for this view»: the overground side recording is left out; the front view follows at
-   * once when the plan has it (D-035 item 2), else the walk goes on to its end.
+   * The calm «try once more» (D-036 item 6: offered once): walk the recording again (true), or go on
+   * with what it holds (false), which is kept and posted with its reasons.
    */
-  skipView(now: number): boolean {
-    const s = this.current;
-    if (s.id !== "place" || s.rec !== "overground_side") return false;
-    this.recOf(s.rec).skipped = true;
-    const front = this.steps.findIndex((x) => x.id === "place" && x.rec === "overground_front");
-    if (front >= 0) {
-      const offer = this.steps.findIndex((x) => x.id === "front_offer");
-      if (offer >= 0) this.steps.splice(offer, 1);
-      this.go(
-        this.steps.findIndex((x) => x.id === "place" && x.rec === "overground_front"),
-        now,
-      );
-      return true;
-    }
-    this.go(this.afterRecording("overground_side"), now);
-    return true;
-  }
-
-  /** The step after a recording's walk (the next step that is not that recording's). */
-  private afterRecording(rec: RecordingId): number {
-    const last = this.steps.map((x) => x.rec).lastIndexOf(rec);
-    return Math.min(this.steps.length - 1, last + 1);
-  }
-
-  /** The offer of the front view after the side view (D-035 item 2): add it, or finish without it. */
-  frontChoice(add: boolean, now: number): boolean {
-    if (this.current.id !== "front_offer") return false;
-    if (add) {
-      this.nextStep(now);
-      return true;
-    }
-    this.recOf("overground_front").skipped = true;
-    this.go(this.afterRecording("overground_front"), now);
-    return true;
-  }
-
-  /** The calm re-record: try the recording again (true) or go on without it (false). */
   retry(again: boolean, now: number): boolean {
     const s = this.current;
     if (s.id !== "retry" || !s.rec) return false;
     const r = this.recOf(s.rec);
-    if (again) {
+    if (again && r.tries < CAPTURE_LIMITS.maxTries) {
       this.resetRecording(r);
+      r.tries++;
       // Overground: back to placing the phone; on the pad the person keeps walking, the recording restarts.
       const at = s.rec.startsWith("pad")
         ? this.steps.findIndex((x) => x.id === "walk" && x.rec === s.rec)
@@ -873,25 +834,29 @@ export class GaitController implements CoachHost {
     if (!r) return null;
     const reasons = walkVerdict(r.results).reasons;
     const fps = Math.min(...r.results.map((v) => v.quality.medianFps));
-    if (r.results.some((v) => v.quality.issues.includes("not_one_person"))) return "one_person";
+    const share = (n: number) => (r.walkFrames > 0 ? n / r.walkFrames : 0);
+    if (r.results.some((v) => v.quality.issues.includes("not_one_person")) || share(r.crowdedFrames) > 0.3)
+      return "one_person";
     if (!r.results.length || (r.walkFrames > 0 && r.seenFrames / r.walkFrames < 0.2)) return "no_person";
-    if (reasons.includes("wrong_view")) return r.id === "overground_front" ? "face_phone" : "side_on";
+    // Walking toward or away from the phone in the side recording (Nasser's third test, D-036 item 6).
+    if (reasons.includes("wrong_view") || share(r.depthFrames) > 0.3) return "side_on";
     if (Number.isFinite(fps) && fps < CAPTURE_RULES.recordAgainBelowFps) return "light";
     if (reasons.includes("visibility") || reasons.includes("tracking")) return "whole_body";
     return "more_steps";
   }
 
+  /** A recording walked again: everything but its try (the target is the same fixed one). */
   private resetRecording(r: Recording): void {
     const fresh = this.recordings.get(r.id);
     if (!fresh) return;
     fresh.recorder.reset();
     fresh.counter = new LiveStepCounter(r.views[0]?.view ?? "side");
-    fresh.target = this.firstTarget(r.id);
+    fresh.target = this.targetOf(r.id);
     fresh.steps = 0;
     fresh.passes = 0;
+    fresh.reachedAt = null;
     fresh.activeMs = 0;
     fresh.lastT = null;
-    fresh.lastStepAt = null;
     fresh.results = [];
     fresh.done = false;
     fresh.skipped = false;
@@ -899,7 +864,8 @@ export class GaitController implements CoachHost {
     fresh.rolls = [];
     fresh.walkFrames = 0;
     fresh.seenFrames = 0;
-    fresh.checkedAt = null;
+    fresh.crowdedFrames = 0;
+    fresh.depthFrames = 0;
   }
 
   /** The pad's speed (km/h or mph, as the pad shows it) and the handrail hold, after the walk. */
@@ -1028,6 +994,37 @@ export class GaitController implements CoachHost {
     return this.pickSubject(r.lock, frame).lm;
   }
 
+  /**
+   * The walker in a walk frame (D-036 item 6). `lm`: the lock's trusted subject, as pickSubject (the
+   * recorder keeps only these, so the analysis never reads two people). `counted`: what the pass
+   * counter reads, also the subject while another person overlaps it (a helper beside the walker: the
+   * body's centre is the same). The lock keeps the place it last trusted after a jump, so a walker who
+   * left the picture and came back elsewhere (or whose hips the model placed off for a moment) was
+   * never followed again: every later pass was lost (Nasser's third test, «the walks were not
+   * counted»). After relockFrames such frames in a row the lock is taken again, on the person nearest
+   * the picture's centre.
+   */
+  private walkSubject(
+    r: Recording,
+    frame: Frame,
+  ): { lm: Landmark[] | null; counted: Landmark[] | null; crowded: boolean } {
+    const poses = posesOf(frame);
+    const lock = r.lock;
+    if (!lock.locked && (!poses.length || !lock.lock(poses, frame.aspect)))
+      return { lm: null, counted: null, crowded: false };
+    let pick = lock.pick(poses, frame.aspect, frame.t);
+    if (
+      pick.reason === "jump" &&
+      lock.pausedRun >= CAPTURE_LIMITS.relockFrames &&
+      lock.lock(poses, frame.aspect)
+    )
+      pick = lock.pick(poses, frame.aspect, frame.t);
+    const crowded = pick.paused && pick.others > 0 && (pick.touching || pick.overlap > 0);
+    if (!pick.lm) return { lm: null, counted: null, crowded };
+    if (pick.paused) return { lm: null, counted: pick.reason === "overlap" ? pick.lm : null, crowded };
+    return { lm: pick.lm, counted: pick.lm, crowded: false };
+  }
+
   private feedStanding(r: Recording, frame: Frame, roll: number | null): void {
     const { lm, crowded } = this.pickSubject(r.lock, frame);
     if (!lm || !seen(lm, HIPS_ANKLES))
@@ -1043,38 +1040,61 @@ export class GaitController implements CoachHost {
 
   private feedWalk(r: Recording, frame: Frame, roll: number | null): void {
     if (r.done || this.pendingCheck) return;
-    const { lm, crowded } = this.pickSubject(r.lock, frame);
+    const { lm, counted, crowded } = this.walkSubject(r, frame);
     const g: GaitFrame = { t: frame.t, lm: lm ?? EMPTY_LM(), aspect: frame.aspect ?? 1 };
     r.recorder.push(g);
     r.walkFrames++;
     if (lm && seen(lm, HIPS_ANKLES)) r.seenFrames++;
+    if (crowded) r.crowdedFrames++;
     if (roll !== null && Number.isFinite(roll)) r.rolls.push(roll);
     if (r.lastT !== null) r.activeMs += Math.min(500, Math.max(0, frame.t - r.lastT));
     r.lastT = frame.t;
-    const live = r.counter.feed(g);
-    if (live.steps > r.steps) {
-      r.steps = live.steps;
-      r.lastStepAt = frame.t;
+    const live = r.counter.feed(counted && counted !== lm ? { ...g, lm: counted } : g);
+    if (live.steps > r.steps) r.steps = live.steps;
+    this.countPasses(r, live.passes, frame.t);
+    if (live.depth) {
+      r.depthFrames++;
+      this.acrossUntil = frame.t + ACROSS_HINT_MS;
     }
-    if (live.passes > r.passes) r.passes = live.passes;
-    // A calm hint: another person over the walker; on the pad also the feet out of the picture or
-    // nobody (overground the walker leaves the picture between passes and comes close to the lens at
-    // the end of each walk toward it, as the capture asks).
+    // A calm hint: another person over the walker; the side walk toward or away from the phone
+    // (D-036 item 6: «walk across the picture, not toward the phone»); on the pad also the feet out of
+    // the picture or nobody (overground the walker leaves the picture at the ends of the path).
     const pad = r.id.startsWith("pad");
     this.setHint(
-      crowded ? "second_person" : !pad ? null : lm ? (seen(lm, FEET) ? null : "feet") : "no_person",
+      crowded
+        ? "second_person"
+        : pad
+          ? lm
+            ? seen(lm, FEET)
+              ? null
+              : "feet"
+            : "no_person"
+          : frame.t < this.acrossUntil
+            ? "across"
+            : live.short
+              ? "further"
+              : null,
     );
-    if (this.checkpointDue(r, frame.t)) this.pendingCheck = true;
+    if (this.finishDue(r, frame.t)) this.pendingCheck = true;
     this.changed();
   }
 
-  private checkpointDue(r: Recording, t: number): boolean {
+  /** The passes counted live; the time the fixed target was reached (overground). True on a change. */
+  private countPasses(r: Recording, passes: number, t: number): boolean {
+    if (passes <= r.passes) return false;
+    r.passes = passes;
+    if (!r.id.startsWith("pad") && r.reachedAt === null && r.passes >= r.target) r.reachedAt = t;
+    return true;
+  }
+
+  /**
+   * The recording is over (D-036 item 6): the pad view's fixed seconds; overground a moment after the
+   * last pass of the fixed target, or at the most time.
+   */
+  private finishDue(r: Recording, t: number): boolean {
     if (r.id.startsWith("pad")) return r.activeMs >= r.target * 1000;
     if (r.activeMs >= CAPTURE_LIMITS.overgroundMaxSec * 1000) return true;
-    const runs = r.id === "overground_front" ? 2 * r.target : r.target;
-    // After a checkpoint that asked for more, the next waits for a step (the person walks on).
-    if (r.checkedAt !== null && (r.lastStepAt === null || r.lastStepAt <= r.checkedAt)) return false;
-    return r.passes >= runs && r.lastStepAt !== null && t - r.lastStepAt >= CAPTURE_LIMITS.restAfterPassMs;
+    return r.reachedAt !== null && t - r.reachedAt >= CAPTURE_LIMITS.afterLastPassMs;
   }
 
   private feedWarmUp(frame: Frame): void {
@@ -1117,7 +1137,7 @@ export class GaitController implements CoachHost {
 
   /* ---------------------------------------------------------------- ticks */
 
-  /** The clock: the warm up timer, the stance's change of legs, and a due checkpoint's analysis. */
+  /** The clock: the warm up timer, the stance's change of legs, and the end of a recording. */
   tick(now: number): void {
     this.lastT = now;
     const s = this.current;
@@ -1134,29 +1154,40 @@ export class GaitController implements CoachHost {
     if (s.id !== "walk" || !s.rec || this.pausedByNow) return;
     const r = this.recOf(s.rec);
     if (this.pendingCheck) return this.check(r, now);
-    // Overground the person stops after the last pass, so no frame may say the target was reached.
-    if (!r.done && this.checkpointDue(r, now)) {
+    if (r.done) return;
+    // The person may leave the picture or stand still after a pass: no frame then says it ended.
+    const counted = !r.id.startsWith("pad") && this.countPasses(r, r.counter.poll(now).passes, now);
+    if (this.finishDue(r, now)) {
       this.pendingCheck = true;
       this.changed();
-    }
+    } else if (counted) this.changed();
   }
 
   /**
-   * The checkpoint: analyse the recording's views, then go on, ask for more, or ask to record again.
-   * A recording is done once its verdict is full or timing only (D-035 item 2: 3 clean cycles a side
-   * across the passes, GAIT_MVP); below that it adds laps, passes or seconds up to its most, then asks
-   * for a calm re-record with what to change.
+   * «I have finished» on the walk's screen (D-036 item 6: always a way to go on): the recording is read
+   * now with whatever it holds, as at its end.
+   */
+  finishWalk(now: number): boolean {
+    const s = this.current;
+    if (s.id !== "walk" || !s.rec || this.stopList || this.stoppedNow) return false;
+    const r = this.recOf(s.rec);
+    if (r.done) return false;
+    this.pausedByNow = null;
+    this.check(r, now);
+    return true;
+  }
+
+  /**
+   * The end of a recording: analyse its views, then go on with what they gave (full or timing only,
+   * D-035 item 2: 3 clean cycles a side across the passes, GAIT_MVP). Not enough asks one calm «try
+   * once more» with what to change (D-036 item 6); after the second try the walk goes on with it
+   * kept (D-035 item 4: stored on failure). The target is never raised.
    */
   private check(r: Recording, now: number): void {
     this.pendingCheck = false;
-    r.checkedAt = now;
     r.results = this.analyseRecording(r, this.setup());
+    // The wrong view, a frame rate under the floor or nothing read all give a level of none.
     const verdict = walkVerdict(r.results);
-    const fps = Math.min(...r.results.map((v) => v.quality.medianFps));
-    const bad = r.results.some(
-      (v) => v.quality.issues.includes("wrong_view") || v.quality.issues.includes("not_one_person"),
-    );
-    const low = r.results.length > 0 && Number.isFinite(fps) && fps < CAPTURE_RULES.recordAgainBelowFps;
     r.gatePassed = verdict.level === "full";
     this.bridge({
       p: 3,
@@ -1167,27 +1198,7 @@ export class GaitController implements CoachHost {
       t: now,
     });
     this.logCheck(r, "check");
-    if (low || bad || r.results.length === 0) return this.askRetry(r, now);
-    if (verdict.level !== "none") return this.finishRecording(r, now);
-    if (r.id.startsWith("pad")) {
-      const base = r.id === "pad_front" ? CAPTURE_RULES.padFrontSec : CAPTURE_RULES.padSideSec;
-      const limit = base * CAPTURE_LIMITS.padLimitFactor;
-      if (r.target < limit) {
-        r.target = Math.min(limit, r.target + CAPTURE_LIMITS.recheckSec);
-        this.changed();
-        return;
-      }
-      // D-028 item 2: the capture's time limit passed without each side's cycles: a calm re-record.
-      return this.askRetry(r, now);
-    }
-    const max = r.id === "overground_front" ? CAPTURE_RULES.frontMaxLaps : CAPTURE_RULES.sideMaxPasses;
-    if (r.target < max && r.activeMs < CAPTURE_LIMITS.overgroundMaxSec * 1000) {
-      // One more lap or pass (D-026 item 6, CG-1; D-027 item 4); the gate is never lowered.
-      r.target++;
-      this.changed();
-      return;
-    }
-    // At its most passes with nothing to show: what to change, then again or go on with it kept.
+    if (verdict.level !== "none" || r.tries >= CAPTURE_LIMITS.maxTries) return this.finishRecording(r, now);
     this.askRetry(r, now);
   }
 
@@ -1222,7 +1233,7 @@ export class GaitController implements CoachHost {
 
   /**
    * The gait lab (D-035 item 4): the current or last recording read now, without changing the walk
-   * (the capture itself reads only at its checkpoints, 2.8).
+   * (the capture itself reads only at a recording's end, 2.8).
    */
   analyseNow(): GaitViewResult[] {
     const s = this.current;
@@ -1245,7 +1256,6 @@ export class GaitController implements CoachHost {
     if (s.id !== "walk" || !s.rec) return false;
     const r = this.recOf(s.rec);
     this.pendingCheck = false;
-    r.checkedAt = now;
     r.results = this.analyseRecording(r, this.setup());
     r.gatePassed = walkVerdict(r.results).level === "full";
     this.logCheck(r, "check");
@@ -1265,6 +1275,8 @@ export class GaitController implements CoachHost {
         rec: r.id,
         passes: r.passes,
         steps: r.steps,
+        target: r.target,
+        tries: r.tries,
         seconds: Math.round(r.activeMs / 100) / 10,
         fps: fps === null || !Number.isFinite(fps) ? null : Math.round(fps * 10) / 10,
         visibleShare: r.walkFrames ? Math.round((1000 * r.seenFrames) / r.walkFrames) / 1000 : null,
@@ -1312,7 +1324,7 @@ export class GaitController implements CoachHost {
         ? `not analysed (${d.reasons.join(", ") || "no reason"})`
         : `${d.level}, cadence ${d.cadence ?? "none"}`;
     const line =
-      `[azm gait] ${what} ${r.id}: passes ${d.passes}, steps ${d.steps}, ${d.seconds} s, ` +
+      `[azm gait] ${what} ${r.id}: try ${d.tries}, passes ${d.passes} of ${d.target}, steps ${d.steps}, ${d.seconds} s, ` +
       `cycles ${d.cleanCycles.left}/${d.cleanCycles.right}, visible ${d.visibleShare ?? "none"}, ` +
       `fps ${d.fps ?? "none"}, ${verdict}`;
     this.log(line);
@@ -1378,17 +1390,28 @@ export class GaitController implements CoachHost {
   body(): GaitBody | null {
     const setup = this.setup();
     const views: GaitViewResult[] = [];
-    const order: RecordingId[] =
-      this.mode === "overground" ? ["overground_side", "overground_front"] : this.padRecordings();
+    const order: RecordingId[] = this.mode === "overground" ? ["overground_side"] : this.padRecordings();
     for (const id of order) {
       const r = this.recordings.get(id);
       if (!r || r.skipped || r.recorder.seconds < 1) continue;
       const results = this.analyseRecording(r, setup);
       // D-035 item 4: a view that neither passed its group's gate nor gave a timing only reading keeps
       // its quality (the reasons, stored as the walk's diagnostic) and none of its numbers, so a walk
-      // the model tracked badly never shows or stores a cadence.
+      // the model tracked badly never shows or stores a cadence. GW-3: each view's quality also keeps
+      // what the capture counted, so a stored walk can be read again later.
       const passed = groupPassed(results);
-      views.push(...results.map((v) => (passed || isTimingReading(v) ? v : { ...v, metrics: {} })));
+      const capture: GaitCaptureCounts = {
+        passes: Math.min(r.passes, CAPTURE_COUNT_MAX.passes),
+        steps: Math.min(r.steps, CAPTURE_COUNT_MAX.steps),
+        seconds: Math.min(Math.round(r.activeMs / 100) / 10, CAPTURE_COUNT_MAX.seconds),
+        tries: r.tries,
+      };
+      views.push(
+        ...results.map((v) => {
+          const kept = passed || isTimingReading(v) ? v : { ...v, metrics: {} };
+          return { ...kept, quality: { ...kept.quality, capture } };
+        }),
+      );
     }
     if (!views.length) return null;
     const stance: StaticStanceResult[] = [];
@@ -1513,7 +1536,14 @@ export class GaitController implements CoachHost {
     const r = s.rec ? this.recordings.get(s.rec) : undefined;
     if (r) {
       const c = this.groupCycles(r.results);
-      parts.push(`passes=${r.passes}`, `cycles=${c.left}/${c.right}`);
+      const pad = r.id.startsWith("pad");
+      parts.push(
+        pad
+          ? `seconds=${Math.round(r.activeMs / 1000)}/${r.target}`
+          : `passes=${Math.min(r.passes, r.target)}/${r.target}`,
+        `cycles=${c.left}/${c.right}`,
+      );
+      if (r.tries > 1) parts.push(`try=${r.tries}`);
     }
     if (this.pausedByNow) parts.push(`paused=${this.pausedByNow}`);
     if (this.stopList) parts.push("stop_list=open");

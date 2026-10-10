@@ -316,7 +316,7 @@ describe("focusCameraSession", () => {
 });
 
 describe("the default pose source", () => {
-  it("is the camera with three poses and the chosen model, on the session's camera at the gait frame rate", async () => {
+  it("is the camera with two poses and the chosen model, on the session's camera at the gait frame rate", async () => {
     let loop: FrameRequestCallback | undefined;
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -349,9 +349,9 @@ describe("the default pose source", () => {
       numPoses: number;
     };
     expect(options.baseOptions.modelAssetPath).toBe("/models/pose_landmarker_full.task");
-    // D-037 item 4: several people, so another person never takes the locked person's pose.
+    // D-037 item 4: two people, so another person never takes the locked person's pose.
     expect(options.numPoses).toBe(LOCK_NUM_POSES);
-    expect(LOCK_NUM_POSES).toBe(3);
+    expect(LOCK_NUM_POSES).toBe(2);
     expect(getUserMedia).toHaveBeenCalledOnce();
     expect(getUserMedia.mock.calls[0][0].video.frameRate).toEqual({
       ideal: GAIT_DATA.capture.common.cameraFps,

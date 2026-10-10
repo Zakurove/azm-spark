@@ -35,7 +35,7 @@
  * range part), the walk (features/gait/controller.ts, `mode: "walk"`), the v1 check (modes/*) and the
  * camera workouts (app/Session.tsx), and the skeleton drawing (app/skeleton.ts) draws the person the
  * lock marked in the frame (`subjectOf`). The pose model looks for several people wherever a lock
- * runs (numPoses 2 or 3), so another person never takes the model's one pose.
+ * runs (2 people, app/poseSource.ts LOCK_NUM_POSES), so another person never takes its one pose.
  *   - Taking the lock (`lock`, or by itself after a release): the person the step is for is the one
  *     in the picture (both shoulders inside it), not a small figure in the background (a trunk under
  *     half the largest one's), nearest the centre (`acquireIndex`). `lock` called again at the next

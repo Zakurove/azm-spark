@@ -408,7 +408,7 @@ export default function SessionScreen(props: {
               ? new EmptyPoseSource()
               : new TracePoseSource(exerciseId, E2E_TRACES[e2eTrace] ?? {});
         } else {
-          // Several people, so another one never takes the set's person's pose (D-037 item 4).
+          // Two people, so another one never takes the set's person's pose (D-037 item 4).
           const cam = new CameraPoseSource(videoRef.current!, { numPoses: LOCK_NUM_POSES });
           cam.onStatus = setCamStatus;
           src = cam;

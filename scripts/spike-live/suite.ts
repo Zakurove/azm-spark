@@ -14,6 +14,11 @@
  *            the usage reports grow turn by turn (S0 06-context)
  *   dose     spoken dose change prompts in a workout: the coach declines and calls no tool (5.3 rule
  *            3, S0 10-dose)
+ *   press    D-036 item 2: on a setup or result step, the person's spoken «جاهز», «يلا», «التالي»,
+ *            «مرة ثانية», "I'm ready" or "next" makes the coach call next_step with the matching
+ *            intent, after the input transcription of those words (the answer guard needs it first);
+ *            the calls the model makes on its own before the person speaks are counted (ownPresses):
+ *            the answer guard refuses them, as the app does
  */
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -39,7 +44,7 @@ import {
   type Expect,
 } from "./lib";
 
-export const PROBES = ["lock", "answers", "context", "dose"] as const;
+export const PROBES = ["lock", "answers", "context", "dose", "press"] as const;
 export type Probe = (typeof PROBES)[number];
 
 export interface SuiteOptions {
@@ -267,6 +272,65 @@ const ANSWERS: { id: string; lang: Lang; text: string; ask: "max" | "pain"; expe
   { id: "en_not_yet", lang: "en", text: "I can go further.", ask: "max", expect: { tool: "confirm_max", answer: "not_yet" } },
   { id: "en_hurts", lang: "en", text: "I can go further but it hurts.", ask: "max", expect: { tool: "confirm_max", answer: "hurts" } },
   { id: "en_pain7", lang: "en", text: "It hurts, about a seven.", ask: "pain", expect: { tool: "mark_pain", level: 7 } },
+];
+
+/** D-036 item 2: the spoken go on words on a step with a button, and the intents that press it. */
+const PRESSES: {
+  id: string;
+  lang: Lang;
+  block: CoachBlock;
+  step: BridgeEvent;
+  text: string;
+  intents: string[];
+}[] = [
+  {
+    id: "ar_ready_setup",
+    lang: "ar",
+    block: "rom",
+    step: { p: 3, type: "step_start", label: "setup", movement: "shoulder_flexion", side: "right", t: 20_000 },
+    text: "جاهز",
+    intents: ["ready", "start"],
+  },
+  {
+    id: "ar_yalla_walk",
+    lang: "ar",
+    block: "gait",
+    step: { p: 3, type: "step_start", label: "place_overground_side", t: 20_000 },
+    text: "يلا نبدأ",
+    intents: ["start", "ready"],
+  },
+  {
+    id: "ar_next_result",
+    lang: "ar",
+    block: "rom",
+    step: { p: 3, type: "movement_result", movement: "shoulder_flexion", side: "right", deg: 150, typical: 165, finding: "mild", t: 20_000 },
+    text: "التالي",
+    intents: ["next", "continue"],
+  },
+  {
+    id: "ar_again_result",
+    lang: "ar",
+    block: "rom",
+    step: { p: 3, type: "movement_result", movement: "shoulder_flexion", side: "right", deg: 150, typical: 165, finding: "mild", t: 20_000 },
+    text: "خلني أحاول مرة ثانية",
+    intents: ["again"],
+  },
+  {
+    id: "en_ready_setup",
+    lang: "en",
+    block: "rom",
+    step: { p: 3, type: "step_start", label: "setup", movement: "shoulder_flexion", side: "right", t: 20_000 },
+    text: "I'm ready.",
+    intents: ["ready", "start"],
+  },
+  {
+    id: "en_next_walk",
+    lang: "en",
+    block: "gait",
+    step: { p: 3, type: "step_start", label: "done", t: 20_000 },
+    text: "Okay, next.",
+    intents: ["next", "continue"],
+  },
 ];
 
 /** The fields of a raw server message the lock probe reads. */
@@ -524,5 +588,83 @@ const PROBE_RUNS: Record<Probe, (run: Run) => Promise<ProbeResult>> = {
       run.bill("dose", lang, rec);
     }
     return { pass: rows.every((r) => r.noTool === true), summary: { prompts: rows.length, toolCalls: rows.filter((r) => r.noTool !== true).length }, rows };
+  },
+
+  /** D-036 item 2: the spoken go on words call next_step with their intent; never before the person speaks. */
+  async press(run) {
+    const rows: Record<string, unknown>[] = [];
+    for (const a of PRESSES) {
+      if (run.spent >= run.o.budgetUsd) break;
+      const { t, rec, setupMs } = await run.session(a.block, a.lang);
+      const handled = new Set<string>();
+      let spoke = false;
+      const spontaneous: string[] = [];
+      t.on((e) => {
+        if (e.type !== "toolCall") return;
+        for (const c of e.calls) {
+          if (handled.has(c.id)) continue;
+          handled.add(c.id);
+          // The answer guard refuses a press before the person spoke on the screen (D-036 item 2).
+          if (!spoke) {
+            spontaneous.push(c.name);
+            t.sendToolResponse([{ id: c.id, name: c.name, response: { accepted: false, reason: "no_answer_heard", say: "ask_and_wait" } }]);
+          }
+        }
+      });
+      const mic = new Mic(t, rec);
+      mic.start();
+      await sleep(400);
+      const shown = rec.now();
+      // The step shows: the coach may say a line about it (and invite the person to say ready).
+      t.sendContext(line(a.step), true);
+      await rec.waitFor((e) => e.type === "turnComplete", shown, 15_000);
+      await sleep(1500);
+      spoke = true;
+      const spoken = await mic.say(run.speech(a.text, a.lang));
+      await rec.waitFor((e) => e.type === "toolCall", spoken.start, 9000);
+      await sleep(800);
+      const calls = rec.toolCalls(spoken.start);
+      if (calls.length)
+        t.sendToolResponse(
+          calls.map((c) => ({
+            id: c.id,
+            name: c.name,
+            response:
+              c.name === "next_step"
+                ? { accepted: true, say: "starting", data: { pressed: "ready" } }
+                : { accepted: false, reason: "not_allowed" },
+          })),
+        );
+      await rec.waitFor((e) => e.type === "turnComplete", rec.now(), 12_000);
+      await mic.stop();
+      t.close();
+      const press = calls.find((c) => c.name === "next_step");
+      const intent = ((press?.args ?? {}) as { intent?: unknown }).intent ?? null;
+      // The answer guard needs the person's words (an input transcription) before the call.
+      const firstWords = rec.events.find(
+        (e) => e.type === "inputTranscript" && e.at >= spoken.start && e.text.trim().length > 0,
+      );
+      const wordsBeforeCall = !!press && !!firstWords && firstWords.at <= press.at;
+      rows.push({
+        id: a.id,
+        heard: rec.heard(spoken.start),
+        wordsBeforeCall,
+        calls: calls.map((c) => ({ name: c.name, args: c.args, msAfterSpeechEnd: Math.round(c.at - spoken.speechEnd) })),
+        intent,
+        correct: !!press && a.intents.includes(String(intent)) && wordsBeforeCall,
+        spontaneous,
+        setupMs,
+        reply: rec.said(spoken.start).slice(0, 200),
+      });
+      run.bill("press", a.id, rec);
+    }
+    const correct = rows.filter((r) => r.correct === true).length;
+    // Calls on its own are refused by the answer guard in the app (as here): counted, not failed.
+    const ownPresses = rows.filter((r) => (r.spontaneous as string[]).includes("next_step")).length;
+    return {
+      pass: rows.length === PRESSES.length && correct === rows.length,
+      summary: { trials: rows.length, correct, ownPresses },
+      rows,
+    };
   },
 };

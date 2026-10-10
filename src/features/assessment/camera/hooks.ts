@@ -294,21 +294,3 @@ export function useCameraCues(active: boolean): CameraCues {
     busyUntil: () => queue.busyUntil,
   };
 }
-
-/**
- * Speaks an interface line with a voice on the device (never a speech service), for the one line the
- * spec asks to hear that has no recording: the stillness offer of the calibration (S34d, O35).
- */
-export function speakText(text: string, lang: Lang, soundOn: boolean): void {
-  if (!soundOn || typeof speechSynthesis === "undefined") return;
-  const tag = lang === "ar" ? "ar" : "en";
-  const voice = speechSynthesis
-    .getVoices()
-    .find((v) => v.localService && v.lang.toLowerCase().startsWith(tag));
-  if (!voice) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = voice.lang;
-  u.voice = voice;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(u);
-}

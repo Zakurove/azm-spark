@@ -7,13 +7,13 @@
  *   idle reset    booth guest check only: no touch for 3 minutes on S50 (the QR above stays visible
  *                 and scannable: the question is a sheet at the bottom with no scrim) or 5 minutes on
  *                 the other screens that allow it (tools.ts idleWaitMs). "Are you still here?" is
- *                 spoken with the phone's own voice and shown, with a 30 s countdown and a 64 px
- *                 "I am still here"; at 0 the next visitor starts without a confirm. Never on camera,
- *                 stop list or safety screens.
+ *                 shown (never spoken: the app uses no phone speech, D-036 item 1), with a 30 s
+ *                 countdown and a 64 px "I am still here"; at 0 the next visitor starts without a
+ *                 confirm. Never on camera, stop list or safety screens.
  *   new visitor   NewVisitorButton (S50) asks the same confirm.
  *
  * Starting for the next visitor (startNextVisitor): the flow clears everything of the visit
- * (STAFF_RESET), the check's session keys go (booth mode stays), speech stops, and while online the
+ * (STAFF_RESET), the check's session keys go (booth mode stays), and while online the
  * page loads again with location.replace, so the camera, the cue queue and the page memory start
  * fresh and browser Back cannot reach the last visitor's screens. Offline the flow's own reset is
  * kept (a reload needs the network until booth phones get a service worker, O18).
@@ -28,16 +28,7 @@ import type { FlowEvent, FlowModel } from "../flowMachine";
 import { CheckDialog } from "../shared/CheckDialog";
 import { useCheckUi } from "../shared/CheckUi";
 import { clearSnapshot } from "../useCheckFlow";
-import { speakLocal, stopSpeaking } from "./speech";
-import {
-  idleStep,
-  idleWaitMs,
-  isStaffShortcut,
-  LONG_PRESS_MS,
-  secondsLeft,
-  IDLE_COUNTDOWN_MS,
-  type IdlePhase,
-} from "./tools";
+import { idleStep, idleWaitMs, isStaffShortcut, LONG_PRESS_MS, secondsLeft, type IdlePhase } from "./tools";
 import "./booth.css";
 
 type Dispatch = (e: FlowEvent) => void;
@@ -67,7 +58,6 @@ export interface NextVisitorOptions {
 
 /** Starts for the next visitor (S57): see the file comment. Logs no stop. */
 export function startNextVisitor(dispatch: Dispatch, o: NextVisitorOptions): void {
-  stopSpeaking();
   dispatch({ type: "STAFF_RESET" });
   clearVisitStorage();
   if (o.guest && o.online) (o.reload ?? (() => location.replace(location.href)))();
@@ -310,19 +300,8 @@ export function BoothLayer({ model, dispatch, reload, now = Date.now, personSeen
     if (phase.kind === "reset") next();
   }, [phase.kind]);
 
-  // The question is spoken (the phone's own voice) when the sound is on, and always shown.
+  // The question is shown (D-036 item 1: no phone speech).
   const asking = phase.kind === "asking" && active;
-  useEffect(() => {
-    if (!asking) return;
-    if (ui.sound.on) {
-      const s = Math.round(IDLE_COUNTDOWN_MS / 1000);
-      speakLocal(
-        `${t(ui.lang, "assessment.booth.idleTitle")} ${t(ui.lang, "assessment.booth.idleBody", { s, unit: "sec" })}`,
-        ui.lang,
-      );
-    }
-    return () => stopSpeaking();
-  }, [asking]);
 
   if (!ui.booth) return null;
   return (

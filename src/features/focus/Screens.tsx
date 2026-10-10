@@ -638,11 +638,17 @@ export function StopListScreen({
   lang,
   env,
   preselect,
+  note = null,
   onChoose,
 }: {
   lang: Lang;
   env: PrecheckEnv;
   preselect: CoachStopReason | null;
+  /**
+   * A safety line above the question, which no voice says any more (D-036 item 1): on a walking pad
+   * that may still run, «hold the support, your helper will stop the pad».
+   */
+  note?: string | null;
   onChoose(option: StopOptionId): void;
 }) {
   const shown = new Set(stopOptions(env));
@@ -686,6 +692,11 @@ export function StopListScreen({
       data-screen="stop_list"
     >
       <Glass className="fx-card fx-stoplist">
+        {note && (
+          <p className="fx-stay-put" role="alert" data-note="safety">
+            {bidiText(lang, note)}
+          </p>
+        )}
         <p className="fx-stay-put">{bidiText(lang, t(lang, "assessment.stop.stayPut"))}</p>
         <h1 id={title} className="fx-title" tabIndex={-1}>
           {bidiText(lang, CHECK_DATA.stopRouting.ask[lang])}

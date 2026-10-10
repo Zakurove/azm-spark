@@ -33,8 +33,8 @@ function inputFor(block: CoachBlock, lang: "ar" | "en"): InstructionInput {
 }
 
 describe("buildInstruction", () => {
-  it("is version coach_si_2", () => {
-    expect(COACH_SI_VERSION).toBe("coach_si_2");
+  it("is version coach_si_3 (D-036: the coach presses the screen's buttons on the person's words)", () => {
+    expect(COACH_SI_VERSION).toBe("coach_si_3");
   });
 
   it("records a pain number at once and asks where at most once, afterwards (D-030 D5-9)", () => {

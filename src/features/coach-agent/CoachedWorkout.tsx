@@ -17,11 +17,18 @@
  *     answer stops the running exercise and the workout goes on. A pain at or over the rule (C-15)
  *     stops the exercise at once; below it the screen shows the pain_ok line.
  *   - The coach's words show as a caption (voice and captions together).
+ *   - D-036 item 2: on the person's spoken words the coach presses the screen's main button the
+ *     workout offers (workoutButton: Start training, Next set once the rest is over, Continue program
+ *     after a set, Exit on the end card), never the setup's attestation, a guided card's controls,
+ *     the effort question or anything while the stop list or a stop's screen is open.
+ *   - D-036 item 1: the recorded voice (the counts, the corrections, the stop line) never plays while
+ *     the Live coach session is on (CuePlayer.holdForCoach); it comes back if the coach falls back.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
 import type { Position } from "../../app/product";
 import { CuePlayer } from "../../app/audio";
+import { GO_ON, PRESS_SAY } from "../../coach/actions";
 import { readPreferences } from "../../app/experience";
 import type { CoachPush, CoachSegment } from "../../coach/types";
 import type { Intake } from "../../medical/plan";
@@ -42,6 +49,7 @@ import { liveCoachOn } from "./hosts";
 import { CueVoice } from "./LocalVoice";
 import { SessionHost, type SessionScreen } from "./sessionHost";
 import { fakeCoachRun, useCoach } from "./useCoach";
+import { useScreenActions } from "./useScreenActions";
 import {
   WORKOUT_STEP_KIND,
   WorkoutCoachPlan,
@@ -49,9 +57,11 @@ import {
   afterStopChoice,
   afterStopScreen,
   exerciseRuns,
+  workoutButton,
   workoutInstructions,
   workoutStopEnv,
   workoutStopRoute,
+  type WorkoutButton,
   type WorkoutSafety,
   type WorkoutStage,
 } from "./workoutCoach";
@@ -59,6 +69,15 @@ import "../focus/focus.css";
 import "./coach.css";
 
 const c = (lang: Lang, key: string) => tV7(lang, `coach.${key}` as never);
+
+/** What the coach says once it pressed a workout's button (D-036 item 2). */
+const BUTTON_SAY: Record<WorkoutButton["name"], string> = {
+  start: PRESS_SAY.starting,
+  next_set: PRESS_SAY.next,
+  finish: PRESS_SAY.continuing,
+  exit: PRESS_SAY.continuing,
+  continue: PRESS_SAY.continuing,
+};
 
 /** How long the pain_ok line stays (or until the next step). */
 export const PAIN_OK_MS = 8000;
@@ -82,8 +101,12 @@ export interface CoachedWorkoutProps {
   push: { current: CoachPush | null };
   /** The running exercise stops now: a camera set goes back to its opening screen, a card is skipped. */
   onStopExercise(): void;
-  /** The coach's next_step on the end card. */
-  onNext(): void;
+  /** The interval screen's timer, in seconds left (its button waits for it). */
+  remaining: number;
+  /** The interval screen's main button (Start training, Next set, Finish, Exit). */
+  press(): void;
+  /** The camera set's own button the coach may press now (its Continue program), or null. */
+  setButton: WorkoutButton | null;
   /** A stop that ends the workout, after its screen. */
   onExit(): void;
 }
@@ -145,7 +168,6 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     () => ({
       pause: () => latest.current.onPause(true),
       resume: () => latest.current.onPause(false),
-      next: () => latest.current.onNext(),
       instructions: () => workoutInstructions(latest.current.stage, latest.current.step, latest.current.lang),
       openStopList: (reason) => setSafety({ kind: "list", preselect: reason }),
       stopExercise: () => {
@@ -218,6 +240,30 @@ export default function CoachedWorkout(props: CoachedWorkoutProps) {
     setSegment(plan.boundary(now));
     pushRef.current({ p: 3, type: "step_start", label, t: now });
   }, [host, stepKey, listOpen, label, plan, props.stage]);
+
+  // D-036 item 2: the button the coach may press on the person's spoken words, the same call as the
+  // tap (none before the pain question, nor while the stop list or a stop's screen is open).
+  const button =
+    props.stage === "set"
+      ? props.setButton
+      : workoutButton(props.stage, props.remaining, () => latest.current.press());
+  useScreenActions(
+    host?.actions,
+    host && button && !listOpen
+      ? {
+          key: `${stepKey}:${button.name}`,
+          alive: () => `${latest.current.index}:${latest.current.stage}` === stepKey,
+          actions: [
+            {
+              name: button.name,
+              intents: GO_ON,
+              say: BUTTON_SAY[button.name],
+              press: () => button.press(),
+            },
+          ],
+        }
+      : null,
+  );
 
   // The workout is over: the segment ends once the coach had time for its closing words, so the
   // microphone does not stay open on the end card (leaving earlier ends it as the person's).

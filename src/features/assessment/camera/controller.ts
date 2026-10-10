@@ -105,8 +105,6 @@ export interface CamNote {
   severity: CueSeverity;
   /** Cleared after this long (the "Good" line of a fixed issue). */
   clearAfterMs?: number;
-  /** Also said with a voice on the device (a line the spec asks to hear that has no recording). */
-  speak?: boolean;
 }
 
 export interface CamOutput {
@@ -677,9 +675,8 @@ export class CameraController {
         this.retryUntil = t + this.timing.retrySec * 1000;
         const x = s as { issue: string };
         const fix = fixOf(x.issue, this.test.testId, this.test.side, this.test.weaker);
-        // R3C-24: a touch speaks to the helper with the device voice (until its recording is approved
-        // by ear) and shows the line as the caption.
-        if (fix.fix === "touched") this.note("assessment.retry.touchedHelper", "info", true);
+        // R3C-24: a touch shows the helper's line as the caption (D-036 item 1: no phone speech).
+        if (fix.fix === "touched") this.note("assessment.retry.touchedHelper", "info");
         else if (fix.cue) this.pushCue(fix.cue, "retry", t);
         break;
       }
@@ -1125,7 +1122,7 @@ export class CameraController {
       last: this.practiceFails >= PRACTICE_FAIL_LIMIT,
     };
     const fix = fixOf(issue, this.test.testId, this.test.side, this.test.weaker);
-    if (fix.fix === "touched") this.note("assessment.retry.touchedHelper", "info", true);
+    if (fix.fix === "touched") this.note("assessment.retry.touchedHelper", "info");
     else if (fix.cue) this.pushCue(fix.cue, "retry", t, true, undefined, true);
   }
 
@@ -1318,7 +1315,6 @@ export class CameraController {
           this.noteOnce(
             this.test.setting === "booth" ? "assessment.test.stopBooth" : "assessment.intro.howToStop",
             "info",
-            true,
           );
         this.emit({ type: "SETUP_OK" }, t);
       }
@@ -1382,14 +1378,14 @@ export class CameraController {
     this.pushCue(id, source, t, true, undefined, true);
   }
 
-  private note(key: I18nKey, severity: CueSeverity, speak = false): void {
-    this.out.notes.push({ key, severity, ...(speak ? { speak } : {}) });
+  private note(key: I18nKey, severity: CueSeverity): void {
+    this.out.notes.push({ key, severity });
   }
 
-  private noteOnce(key: I18nKey, severity: CueSeverity, speak = false): void {
+  private noteOnce(key: I18nKey, severity: CueSeverity): void {
     if (this.said.has(key)) return;
     this.said.add(key);
-    this.note(key, severity, speak);
+    this.note(key, severity);
   }
 }
 

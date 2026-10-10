@@ -6,7 +6,8 @@
  *   - live: what the coach says while it speaks (the S0-6 captions of captions.ts), kept for 2 s after
  *     its turn, then nothing while it listens (the screen's own controls stay clear; the browser shows
  *     its own microphone mark);
- *   - local (the coach could not run): «نكمل بالأزرار والصوت المسجل» for 6 s, then nothing;
+ *   - local (the coach could not run): «نكمل بالأزرار على الشاشة» for 6 s, then nothing (D-036 item 1:
+ *     no other voice takes over);
  *   - off: nothing.
  * No live region: the coach's voice already says it (UX spec 4.3). The dot breathes while the coach
  * speaks, and stands still with reduced motion.

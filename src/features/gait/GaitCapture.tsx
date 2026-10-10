@@ -6,7 +6,9 @@
  * «pass N of 4» or the pad's seconds, «I have finished» always there, and calm hints, the static single
  * leg stance, the pad's speed and handrail, and the result card (labels only while provisional).
  * GaitController holds the logic; this file wires it to the camera (the focus check's one camera,
- * C-10), the voice pack (off by default), the coach's events and the gait route.
+ * C-10), the coach's events and the buttons the coach may press on the person's spoken words (D-036
+ * item 2, coachActions.ts), and the gait route. Only the Live coach speaks (D-036 item 1): without it
+ * the walk is silent and its screens carry every line.
  *
  * Loaded lazily by GaitStep, so the focus check's first chunk never carries the gait engine (section 9).
  * VITE_E2E builds only: ?e2eGait=1 plays the gait fixtures (tests/fixtures/gait/catalog.ts) for each
@@ -14,7 +16,6 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Lang } from "../../app/i18n";
-import { isVoiceLine } from "../../app/audio";
 import type { Tilt } from "../../engine/quality";
 import type { Frame } from "../../engine/types";
 import { localizeDigits } from "../../i18n";
@@ -30,10 +31,11 @@ import { Actions, Body, Glass, Kicker, Loading, Timer, Title } from "../focus/pa
 import { Stage } from "../focus/Stage";
 import { readIntake, saveGait } from "./api";
 import { useCoach } from "../coach-agent/useCoach";
-import { CueVoice } from "../coach-agent/LocalVoice";
+import { SILENT_VOICE } from "../coach-agent/LocalVoice";
 import { CoachCaption } from "../coach-agent/CoachCaption";
 import { unlockCoachAudio } from "../coach-agent/audio/context";
-import { PhoneVoice } from "../coach-agent/phoneVoice";
+import { useScreenActions } from "../coach-agent/useScreenActions";
+import { gaitScreenActions } from "./coachActions";
 import {
   CAMERA_STEPS,
   CAPTURE_RULES,
@@ -43,7 +45,6 @@ import {
   type GearAnswer,
   type Orthosis,
   type RecordingId,
-  WALK_LINE,
 } from "./controller";
 import { gt, num, qualityLine, setupLine, sideWord } from "./copy";
 import { GaitFindingsCard } from "./GaitFindingsCard";
@@ -247,47 +248,19 @@ export default function GaitCapture(props: GaitStepProps) {
     return () => clearInterval(id);
   }, [ctl, clock]);
 
-  // D-034 item 3: the shell's one sound switch (props.sound). Sound on and no live coach: the
-  // controller's lines with the phone's own speech; through the coach's local voice while the coach
-  // runs (its mic gate sees every local line, D-12). Sound off: silent, the captions stay.
-  const soundOn = props.sound === true;
-  const player = useMemo(() => new PhoneVoice(lang), []);
-  const voice = useMemo(() => new CueVoice(player), [player]);
-  useEffect(() => player.setLang(lang), [lang, player]);
-  useEffect(() => {
-    player.muted = !soundOn;
-  }, [player, soundOn]);
-  useEffect(() => () => player.stop(), [player]);
-  const soundRef = useRef(soundOn);
-  soundRef.current = soundOn;
   // The walk's coach segment (C-6: gait), with the GaitController as its host (step D5): on with the
-  // person's switch, the live_coach consent and a network (props.coachOn), else off (C-5).
+  // shell's sound switch, the live_coach consent and a network (props.coachOn), else off (C-5). Only
+  // the Live coach speaks (D-036 item 1): no local voice, the screens carry every line.
   const coach = useCoach(
     props.coachOn
-      ? { block: "gait", segment: "gait", lang, ref: { checkId }, host: ctl, local: voice }
+      ? { block: "gait", segment: "gait", lang, ref: { checkId }, host: ctl, local: SILENT_VOICE }
       : null,
   );
   ctl.coachLive = coach.mode === "live";
   ctl.coachOn = props.coachOn === true;
-  const coachMode = useRef(coach.mode);
-  coachMode.current = coach.mode;
-  const langRef = useRef(lang);
-  langRef.current = lang;
-  useEffect(
-    () =>
-      ctl.onLine((line, severity) => {
-        if (!soundRef.current) return;
-        // D-035 item 2: the walk's own lines are screen lines (gait.walk.*Say), said by the phone.
-        if (line === WALK_LINE.side || line === WALK_LINE.front) {
-          if (coachMode.current === "off") void player.say(gt(langRef.current, line.slice(5)), severity);
-          return;
-        }
-        if (!isVoiceLine(line)) return;
-        if (coachMode.current === "off") void player.line(line, severity);
-        else voice.say(line, severity);
-      }),
-    [ctl, player, voice],
-  );
+  // D-036 item 2: the buttons the Live coach may press on the person's spoken words, the very calls of
+  // the taps (never the pad's safety checklist, a question or a stop).
+  useScreenActions(ctl.actions, gaitScreenActions(ctl, clock));
   // The coach's events (2.11): every step start, checkpoint, hint and safety stop, to the walk's own
   // segment and to the shell's coach (off during the walk).
   const coachRef = useRef(props.coach);
@@ -335,6 +308,21 @@ export default function GaitCapture(props: GaitStepProps) {
       stopRef.current = null;
     };
   }, [stopRef, ctl, clock]);
+  // D-036 item 1: on a walking pad that may still run, a stop's safety line (hold the support, the
+  // helper stops the pad) is no longer spoken: the shell's stop list shows it.
+  const padStop = useRef(false);
+  useEffect(
+    () =>
+      ctl.onLine((line) => {
+        if (line === "gait_pad_stop") padStop.current = true;
+      }),
+    [ctl],
+  );
+  const stopNote = () => {
+    const note = padStop.current ? setupLine("pad_stop", lang) : null;
+    padStop.current = false;
+    return note;
+  };
   // A stop (the X's or the coach's): the shell's stop list, with the coach's reason preselected.
   const stopList = ctl.stopList;
   const onStopRef = useRef(onStop);
@@ -342,7 +330,7 @@ export default function GaitCapture(props: GaitStepProps) {
   useEffect(() => {
     if (!stopList) return;
     postPartial();
-    onStopRef.current(stopList.preselect);
+    onStopRef.current(stopList.preselect, stopNote());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopList]);
   // A pain stop (C-15): the walk ends, kept; the stop list opens with pain, so the shell asks the
@@ -350,7 +338,7 @@ export default function GaitCapture(props: GaitStepProps) {
   useEffect(() => {
     if (ctl.outcome !== "pain_limited") return;
     postPartial();
-    onStopRef.current("pain");
+    onStopRef.current("pain", stopNote());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctl.outcome]);
 

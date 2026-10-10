@@ -13,7 +13,16 @@ import { REGION_IDS, type RegionId } from "../medical/body-map";
 import { ROM_MOVEMENT_IDS, type RomMovementId, type RomSide } from "../movements/rom/types";
 import type { LimitCause, RomAnswer } from "../engine/rom/types";
 import { PAIN_STOP } from "../medical/pain-rule";
-import type { BridgeEvent, CoachBlock, CoachStopReason, ToolArgs, ToolName, ToolResult } from "./types";
+import { COACH_INTENTS } from "./actions";
+import type {
+  BridgeEvent,
+  CoachBlock,
+  CoachIntent,
+  CoachStopReason,
+  ToolArgs,
+  ToolName,
+  ToolResult,
+} from "./types";
 
 /* ------------------------------------------------------------ the sets */
 
@@ -184,9 +193,24 @@ const DECLARATIONS: Record<ToolName, Omit<Declaration, "name" | "behavior">> = {
   },
   next_step: {
     description:
-      "Call when the person is ready to move on from an instruction card, or after a finished measurement, " +
-      "walk or exercise. Never use it to move past a question or a confirmation the person must tap, a rest " +
-      "timer or a safety screen.",
+      "Call right after the person says in their own words that they are ready, want to start, go on, see " +
+      "the next step or try again, for example «جاهز», «يلا», «ابدأ», «التالي», «كمّل», «مرة ثانية», " +
+      "I am ready, let's go, start, next, continue, again. intent: what they said (ready, start, next, " +
+      "continue or again). The app presses the matching button on the screen for them and answers what it " +
+      "did; say it in a few words, for example starting now. Never call it on your own or because you " +
+      "think they are ready, and never for a question, a pain score, a stop or a safety screen: those stay " +
+      "theirs to answer or tap.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        intent: {
+          type: "STRING",
+          enum: [...COACH_INTENTS],
+          description: "ready, start, next, continue or again, as the person said it.",
+        },
+      },
+      required: ["intent"],
+    },
   },
   repeat_instructions: {
     description:
@@ -223,11 +247,17 @@ function parse(name: ToolName, raw: unknown): ToolArgs[ToolName] | null {
     case "keep_reaching":
     case "pause":
     case "resume":
-    case "next_step":
     case "repeat_instructions":
       // A call without parameters may arrive with no args at all.
       if (raw === undefined || raw === null) return {};
       return isPlain(raw) && Object.keys(raw).length === 0 ? {} : null;
+    case "next_step": {
+      // A call without its intent (an older habit of the model) is read as next.
+      if (raw === undefined || raw === null) return { intent: "next" };
+      if (!isPlain(raw) || !keysWithin(raw, ["intent"])) return null;
+      if (raw.intent === undefined) return { intent: "next" };
+      return oneOf<CoachIntent>(raw.intent, COACH_INTENTS) ? { intent: raw.intent } : null;
+    }
     case "confirm_max": {
       if (!isPlain(raw) || !keysWithin(raw, ["movement", "side", "answer"])) return null;
       const { movement, side, answer } = raw;
@@ -298,6 +328,8 @@ type GuardedQuestion = (typeof OPENED_BY)[keyof typeof OPENED_BY] | "ask_pain";
 
 /** S0-2: mark_pain is taken only within this long of the person's last speech. */
 export const PAIN_SPEECH_WINDOW_MS = 10_000;
+/** D-036 item 2: next_step presses a button only within this long of the person's speech. */
+export const PRESS_SPEECH_WINDOW_MS = 10_000;
 /** The copy key of a refused answer tool: ask once more and wait for the person (D-022 item 2). */
 export const ANSWER_GUARD_SAY = "ask_and_wait";
 
@@ -307,13 +339,21 @@ export const ANSWER_GUARD_SAY = "ask_and_wait";
  * answer_can_move and set_limit_cause are taken only when the person's speech (an input
  * transcription with text) arrived after the question that opened them, and mark_pain only when it
  * arrived in the last 10 s; otherwise the call is refused no_answer_heard with say ask_and_wait.
- * stop is always taken (it only preselects; the person confirms), as are the control tools.
+ * stop is always taken (it only preselects; the person confirms), as are pause, resume and
+ * repeat_instructions.
  *
  * The pain question is guarded too (wave 2 fix of D-022 item 2): mark_pain also answers the P1
  * ask_pain (the pain question after «it hurts», and the same joint re-ask), so while a pain question
  * is open with no speech after it, a mark_pain is refused, whatever was said before it (that speech
  * answered the question before). The 10 s window stays for a spontaneous report. A pain of 6 or more,
  * or a sharp pain, is always taken: it can only stop (C-15).
+ *
+ * next_step presses a button on the screen for the person (D-036 item 2), so it is guarded the same
+ * way: with a button on the screen, it is taken only when the person spoke while that screen was
+ * already showing (its id in the host's ScreenActions, `screen`), in the last 10 s; otherwise
+ * no_answer_heard with ask_and_wait. Speech on an earlier screen never presses the next one's button,
+ * so a second call after a press, or the model on its own, presses nothing. With no button on the
+ * screen the call goes on, and the host answers that there is nothing to press.
  *
  * A call with no question of its kind open goes on to the host, which refuses it on its phase (an
  * early confirm_max is wrong_phase with hold_still, 2.11). Times are milliseconds on the clock of
@@ -323,6 +363,11 @@ export const ANSWER_GUARD_SAY = "ask_and_wait";
 export class AnswerGuard {
   private opened: Partial<Record<GuardedQuestion, number>> = {};
   private lastSpeech = -Infinity;
+  /** The screen showing when the person last spoke (ScreenActions.current), or null. */
+  private spokeOn: number | null = null;
+
+  /** `screen`: the id of the screen showing now with its buttons (the host's ScreenActions.current). */
+  constructor(private readonly screen: () => number | null = () => null) {}
 
   /** A question event was pushed: the answer tools it opens need speech after it. */
   question(e: BridgeEvent): void {
@@ -337,12 +382,28 @@ export class AnswerGuard {
 
   /** An input transcription arrived; only text counts as speech. */
   heard(text: string, now: number): void {
-    if (text.trim().length > 0) this.lastSpeech = Math.max(this.lastSpeech, now);
+    if (text.trim().length === 0) return;
+    this.lastSpeech = Math.max(this.lastSpeech, now);
+    this.spokeOn = this.screenNow();
+  }
+
+  private screenNow(): number | null {
+    try {
+      return this.screen();
+    } catch {
+      return null;
+    }
   }
 
   /** Null when the call may go on to the host; else the refusal to send back. */
   check(name: ToolName, now: number, args?: ToolArgs[ToolName]): ToolResult | null {
     const refused: ToolResult = { accepted: false, reason: "no_answer_heard", say: ANSWER_GUARD_SAY };
+    if (name === "next_step") {
+      // No button on the screen: the host answers that there is nothing to press.
+      const on = this.screenNow();
+      if (on === null) return null;
+      return this.spokeOn === on && now - this.lastSpeech <= PRESS_SPEECH_WINDOW_MS ? null : refused;
+    }
     if (name === "mark_pain") {
       const a = args as ToolArgs["mark_pain"] | undefined;
       // A pain that stops (6 or more, or sharp) is always taken: it can only stop the movement.
@@ -364,7 +425,7 @@ export class AnswerGuard {
 /**
  * The checks a tool call passes before a host sees it, in order: a known tool (unknown_tool), one of
  * the block's tools (not_in_block), strict arguments (invalid_args), then the answer guard
- * (no_answer_heard). The executor sends a refusal back at once; a call that passes goes to
+ * (no_answer_heard, also for next_step's press). The executor sends a refusal back at once; a call that passes goes to
  * host.handleTool, which validates it against the engine state (C-17).
  */
 export function screenToolCall(

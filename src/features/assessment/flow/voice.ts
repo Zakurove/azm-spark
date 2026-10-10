@@ -1,13 +1,12 @@
 /**
- * The voice of the flow screens (UX spec principle 4, 3.0 caption slot, 4.3): every line the app
- * speaks shows its exact display text in the caption slot while it plays, then the slot collapses.
+ * The voice of the flow screens (UX spec principle 4, 3.0 caption slot, 4.3): every line shows its
+ * exact display text in the caption slot while it plays, then the slot collapses.
  *
  *   cue lines     the recording of the chosen voice pack, then of the default pack
- *                 (src/app/voicePacks.ts), or, until one exists, the device's own voice reading the
- *                 vocalised arTts line (never a remote speech service)
- *   data texts    the device's voice reading the speech form (arTts) or the display text
+ *                 (src/app/voicePacks.ts); a cue with no recording is not said
+ *   data texts    never said: the app uses no phone speech (D-036 item 1)
  *
- * When the sound is off, in captionsOnly or screen reader mode, or when nothing can play, the caption
+ * When the sound is off, in captionsOnly or screen reader mode, or when nothing plays, the caption
  * still shows for about the time the line takes, and the hidden announcer reads it (the caption is
  * marked as not speaking). A new screen, a Sound toggle to off or a new sequence stops the voice.
  *
@@ -15,7 +14,6 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { readPreferences } from "../../../app/experience";
-import type { Lang } from "../../../app/i18n";
 import { cueUrls } from "../../../app/voicePacks";
 import type { CheckCueId } from "../../../movements/types";
 import type { SoundMode } from "../flowMachine";
@@ -24,8 +22,6 @@ import { cueSpeech, type SpeechItem, type SpeechLine } from "./copy";
 
 /** Delay between focus moving to the h1 and an entry line (3.0, 4.3), so the two never overlap. */
 export const ENTRY_DELAY_MS = 800;
-
-const SPEECH_LANG: Record<Lang, string> = { ar: "ar-SA", en: "en-GB" };
 
 /** About how long a caption stays when nothing plays it: reading time, at least 2.5 s. */
 export function captionMs(text: string): number {
@@ -59,17 +55,6 @@ export function unlockAudio(): void {
   shared ??= new Audio();
   shared.src = SILENCE;
   void shared.play().catch(() => undefined);
-  if (typeof speechSynthesis !== "undefined") speechSynthesis.getVoices();
-}
-
-function localVoice(lang: Lang): SpeechSynthesisVoice | undefined {
-  if (typeof speechSynthesis === "undefined") return undefined;
-  const tag = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
-  const voices = speechSynthesis.getVoices().filter((v) => v.localService);
-  return (
-    voices.find((v) => tag(v) === SPEECH_LANG[lang].toLowerCase()) ??
-    voices.find((v) => tag(v).startsWith(lang))
-  );
 }
 
 /** Plays a recording to its end; false when it cannot (missing file, blocked, error). */
@@ -103,28 +88,6 @@ function playFile(url: string, token: { stopped: boolean }): Promise<boolean> {
       }
       if (done) clearInterval(check);
     }, 100);
-  });
-}
-
-/** Reads a text with a voice on the device; false when there is none. */
-function speakText(text: string, lang: Lang, token: { stopped: boolean }): Promise<boolean> {
-  const voice = localVoice(lang);
-  if (!voice || typeof SpeechSynthesisUtterance === "undefined") return Promise.resolve(false);
-  return new Promise((resolve) => {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = SPEECH_LANG[lang];
-    u.voice = voice;
-    u.onend = () => resolve(true);
-    u.onerror = () => resolve(true);
-    speechSynthesis.speak(u);
-    const check = setInterval(() => {
-      if (token.stopped) {
-        speechSynthesis.cancel();
-        clearInterval(check);
-        resolve(true);
-      }
-    }, 100);
-    u.addEventListener("end", () => clearInterval(check));
   });
 }
 
@@ -163,8 +126,7 @@ export interface Voice {
 
 /**
  * The flow screens' voice. `mode` is the sound check result (null before it: the voice is on).
- * `allowSpeechSynthesis` false keeps the device voice from reading data texts (O12 interim for the
- * safety texts): recordings still play, and every line still shows as a caption.
+ * Recordings play; every line shows as a caption.
  */
 export function useVoice(mode: SoundMode | null): Voice {
   const ui = useCheckUi();
@@ -176,7 +138,6 @@ export function useVoice(mode: SoundMode | null): Voice {
   const stop = useCallback(() => {
     token.current.stopped = true;
     token.current = { stopped: true };
-    if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
     shared?.pause();
     setCurrent(null);
   }, []);
@@ -200,14 +161,11 @@ export function useVoice(mode: SoundMode | null): Voice {
         if (onScreen) u.clearCaption();
         else u.showCaption(line.display, severity, hear, () => void play([item], opts));
         let played = false;
-        if (hear) {
-          if ("cue" in item)
-            for (const url of cueUrls(u.lang, item.cue, readPreferences().voicePack)) {
-              played = await playFile(url, run);
-              if (played || run.stopped) break;
-            }
-          if (!played && !run.stopped) played = await speakText(line.speech ?? line.display, u.lang, run);
-        }
+        if (hear && "cue" in item)
+          for (const url of cueUrls(u.lang, item.cue, readPreferences().voicePack)) {
+            played = await playFile(url, run);
+            if (played || run.stopped) break;
+          }
         if (run.stopped) return;
         if (!played) {
           // Nothing heard: the caption stays for its reading time and the announcer reads it.
@@ -227,7 +185,6 @@ export function useVoice(mode: SoundMode | null): Voice {
   useEffect(() => {
     if (!ui.sound.on) {
       token.current.stopped = true;
-      if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
       shared?.pause();
     }
   }, [ui.sound.on]);
@@ -236,7 +193,6 @@ export function useVoice(mode: SoundMode | null): Voice {
   useEffect(
     () => () => {
       token.current.stopped = true;
-      if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
       shared?.pause();
     },
     [],

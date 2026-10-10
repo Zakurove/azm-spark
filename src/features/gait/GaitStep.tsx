@@ -31,8 +31,10 @@ export interface GaitStepProps {
   /**
    * STOP, the coach's stop or a pain stop: the shell's stop list. `preselect` is the coach's reason or
    * pain (contract gap C4-4: 2.8.4 gives onStop no argument; a caller that ignores it still works).
+   * `note`: a safety line the stop list shows above its question (D-036 item 1: on a walking pad that
+   * may still run, «hold the support, your helper will stop the pad», which no voice says any more).
    */
-  onStop(preselect?: CoachStopReason | null): void;
+  onStop(preselect?: CoachStopReason | null, note?: string | null): void;
   /** The walk ended with nothing to save, every part left out (contract gap C4-4; without it, onStop). */
   onSkip?(): void;
   /**
@@ -42,15 +44,11 @@ export interface GaitStepProps {
    */
   stopRef?: { current: (() => void) | null };
   /**
-   * The live coach for the walk's segment (D5): on when the person turned it on and consented
-   * (contract gap C4-4). Absent or false: the coach is off and the walk runs on its own voice.
+   * The live coach for the walk's segment (D5): on with the shell's sound switch and the consent
+   * (contract gap C4-4). Absent or false: the coach is off and the walk is silent, on its screens
+   * (D-036 item 1: only the Live coach speaks).
    */
   coachOn?: boolean;
-  /**
-   * D-034 item 3: the shell's one sound switch. On: the walk's lines are spoken (the live coach's when
-   * it runs, else the phone's own speech); off or absent: silent, the captions stay.
-   */
-  sound?: boolean;
   /** What of B's slot shows now (D-030 C4-7): its title card and its skip (walkChrome). */
   onChrome?(chrome: { hero: boolean; skip: boolean }): void;
 }

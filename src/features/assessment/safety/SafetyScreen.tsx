@@ -45,9 +45,6 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
   const [openedAt] = useState(() => Date.now());
   const view = state.kind === "safety" ? safetyView(state, model.data, lang, openedAt) : null;
   const key = view ? `${view.id}:${state.kind === "safety" ? state.screen : ""}:${lang}` : "none";
-  // S38: the faint question is due (20 s passed) while a sentence was being spoken: it opens at the
-  // end of that sentence (R3C-07 (2)).
-  const askDue = useRef(false);
   const asked = useRef(false);
   const askFaint = () => {
     if (asked.current) return;
@@ -60,37 +57,18 @@ export function SafetyScreen({ model, dispatch }: ScreenProps) {
   const onCard = view?.kind === "emergency" || view?.kind === "ad";
   const card = (lines: readonly SpeechLine[]) =>
     onCard ? lines.map((l) => ({ ...l, onScreen: true })) : lines;
-  const seq = useSpeechSequence(card(view?.speech ?? []), {
-    key,
-    beforeLine: () => {
-      if (!askDue.current) return true;
-      askFaint();
-      return false;
-    },
-    onEnd: () => {
-      if (askDue.current) askFaint();
-    },
-  });
+  const seq = useSpeechSequence(card(view?.speech ?? []), { key });
   useWakeLock(true);
 
-  // S38 (R3C-07): the faint question 20 s after S38 opened. A sentence being spoken then is finished
-  // first, at most 5 s more, so no safety sentence is cut mid word; with no voice playing (Sound off,
-  // blocked, an error) it opens at 20 s. The "seen seated" camera trigger is not part of the rule. The
-  // sequence stops, so the question's own cue takes over.
+  // S38 (R3C-07): the faint question 20 s after S38 opened (no sentence is spoken to finish first: the
+  // app uses no phone speech, D-036 item 1). The "seen seated" camera trigger is not part of the rule.
+  // The sequence stops, so the question's own cue takes over.
   const seqRef = useRef(seq);
   seqRef.current = seq;
   useEffect(() => {
     if (!view?.askFaint || view.kind !== "faint") return;
-    let wait: ReturnType<typeof setTimeout> | undefined;
-    const timer = setTimeout(() => {
-      if (!seqRef.current.speaking()) return askFaint();
-      askDue.current = true;
-      wait = setTimeout(askFaint, SAFETY_TIMING.faintAskSentenceMs);
-    }, SAFETY_TIMING.faintAskAfterMs);
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(wait);
-    };
+    const timer = setTimeout(askFaint, SAFETY_TIMING.faintAskAfterMs);
+    return () => clearTimeout(timer);
   }, [view?.askFaint, view?.kind]);
 
   // A touch on the screen opens the faint question (O42), except on a control: on S39 at any time, on

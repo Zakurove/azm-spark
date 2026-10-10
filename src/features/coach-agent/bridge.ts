@@ -2,39 +2,41 @@
  * The event bridge (product v7 contract 2.11 EventBridge, stream D, step D4): what the coach hears of
  * the app, and when. Hosts push their events (BridgeEvent); the bridge applies rules 1 to 5:
  *
- *   1. P0 (a safety stop, a red flag): the coach's voice is flushed at once, the local stop line plays
- *      unless the host's own safety line already does, then the event goes with turnComplete true.
- *      After a P0 only P0 passes until the app (never the model) calls reopen().
- *   2. P1 (the range questions): sent with turnComplete true when the question opens. If the coach
- *      has not started to speak within localFallbackMs (1.5 s), the local voice asks it and the coach
- *      is told asked_locally silently. In local mode the local voice asks at once.
- *   3. P2 (corrections): the host has already said them through its FeedbackGate; the coach gets them
- *      silently at once. While any local line plays the mic gate is closed with audioStreamEnd and the
- *      coach's voice ducks; the gate opens 300 ms after the line ends.
+ *   1. P0 (a safety stop, a red flag): the coach's voice is flushed at once, then the event goes with
+ *      turnComplete true. After a P0 only P0 passes until the app (never the model) calls reopen().
+ *      The local stop line plays only once the segment fell back to local (D-036 item 1: while the
+ *      coach is on, only the coach speaks), and not over the host's own safety line.
+ *   2. P1 (the range questions): sent with turnComplete true when the question opens; its buttons are
+ *      on the screen in every mode. While the coach is on nothing else asks it (D-036 item 1): a
+ *      question the coach has not started to voice within localFallbackMs (1.5 s) only counts toward
+ *      rule 6. In local mode the local voice asks at once (the v7 checks have none: their screens ask).
+ *   3. P2 (corrections): the host has its own caption for them; the coach gets them silently at once.
+ *      While any local line plays the mic gate is closed with audioStreamEnd and the coach's voice
+ *      ducks; the gate opens 300 ms after the line ends.
  *   4. P3 (context): coalesced and sent silently every 5 s; a rep count keeps only its latest line.
  *   5. At most one turnComplete true per 2 s; P0 is exempt, and the context waiting goes before a
  *      question, so the question is the last line the coach reads.
  * And from rule 6: two questions in a row that the coach did not voice in time report fallback_slow;
- * the session then falls back to the local voice (rules 6 to 8 live in session.ts).
+ * the session then falls back to local (rules 6 to 8 live in session.ts).
  *
- * Who speaks what. The host owns its screen and its local lines: it says its corrections (P2) and its
- * safety line (P0) through the LocalVoice it gave useCoach, as it would without a coach, so the mic
- * gate sees every local line. While the coach is on (mode is not off) the host never asks a P1 question
- * aloud itself: the bridge has the coach ask it, or the local voice. Pure, no DOM: the session wires
- * the transport, the speaker, the microphone and the clock.
+ * Who speaks what. Only the coach while it is on (D-036 item 1). The host owns its screen and its
+ * local lines; a workout says its corrections (P2) and its safety line (P0) through the LocalVoice it
+ * gave useCoach (its recorded voice, which never plays while a Live coach session is on), so the mic
+ * gate sees every local line. While the coach is on (mode is not off) the host never asks a P1
+ * question aloud itself. Pure, no DOM: the session wires the transport, the speaker, the microphone
+ * and the clock.
  */
 import { BRIDGE_DEFAULTS, MIC_REOPEN_MS, P1_WITHOUT_AUDIO_LIMIT, formatEvent } from "../../coach/events";
 import type { BridgeEvent, BridgeOptions, CoachMode, LiveTransport, LocalVoice } from "../../coach/types";
 
 type P1Event = Extract<BridgeEvent, { p: 1 }>;
-type AskedWhat = Extract<BridgeEvent, { type: "asked_locally" }>["what"];
 
-/** The local line of each question (the range data's copy, voice-script.json) and its asked_locally name. */
-export const LOCAL_ASK: Record<P1Event["type"], { line: string; what: AskedWhat }> = {
-  end_range_hold: { line: "rom_ask_max", what: "ask_max" },
-  ask_pain: { line: "rom_pain_ask", what: "ask_pain" },
-  ask_cause: { line: "rom_what_stopped_ask", what: "ask_cause" },
-  ask_can_move: { line: "rom_can_move_ask", what: "ask_can_move" },
+/** The local line of each question (the range data's copy, voice-script.json), for local mode. */
+export const LOCAL_ASK: Record<P1Event["type"], string> = {
+  end_range_hold: "rom_ask_max",
+  ask_pain: "rom_pain_ask",
+  ask_cause: "rom_what_stopped_ask",
+  ask_can_move: "rom_can_move_ask",
 };
 /** The local line of a P0 when the host's own safety line is not playing: «توقف فورًا واسترح.» */
 export const P0_LINE = "stop_rest";
@@ -48,10 +50,8 @@ export interface BridgeHooks {
   micGate?: (open: boolean) => void;
   /** Rule 3: the coach's voice at 30% while a local line plays (Speaker.duck). */
   duck?: (on: boolean) => void;
-  /** Rule 6: too many questions without coach audio; the session falls back to the local voice. */
+  /** Rule 6: too many questions without coach audio; the session falls back to local. */
   onFallback?: (reason: "fallback_slow") => void;
-  /** Rule 2: the local voice asked a question the coach had been sent (the session drops that turn). */
-  onAskedLocally?: () => void;
   /** Section 9 and 5.2: from a question's send to the coach's first audio, in ms. */
   onFirstAudio?: (ms: number) => void;
 }
@@ -62,10 +62,12 @@ interface Question {
   at: number;
   /** When it was sent to the coach, or null. */
   sentAt: number | null;
-  /** The local voice asked it. */
+  /** The local voice asked it (local mode). */
   asked: boolean;
   /** The coach started to speak after it was sent. */
   voiced: boolean;
+  /** The coach had not voiced it within localFallbackMs (counted once toward rule 6). */
+  late: boolean;
   /** The coach was still speaking when it was sent: its audio counts once that old turn has stopped. */
   afterIdle: boolean;
 }
@@ -138,8 +140,11 @@ export class EventBridge {
     const q = this.question;
     if (q && !q.asked && !q.voiced) {
       // In local mode a question that waited for a line to end is asked as soon as it can be.
-      if (this.current === "local" || now - q.at >= this.opts.localFallbackMs) this.askLocally(q, now);
-      else if (this.current === "live" && q.sentAt === null) this.trySend(q, now);
+      if (this.current === "local") this.askLocally(q, now);
+      else if (this.current === "live") {
+        if (q.sentAt === null) this.trySend(q, now);
+        else if (!q.late && now - q.at >= this.opts.localFallbackMs) this.missedBy(q);
+      }
     }
     if (this.current === "live" && this.context.length && now - this.lastFlush >= this.opts.contextFlushMs)
       this.flush(now);
@@ -183,8 +188,10 @@ export class EventBridge {
     if (mode === "live" && prev !== "live") {
       this.missed = 0;
       this.flush(now);
+      // An open question the coach has not voiced is its to ask now (a local voice, if any, said it
+      // while the coach was away; the v7 checks have none).
       const q = this.question;
-      if (q && !q.asked && !q.voiced && q.sentAt === null) this.trySend(q, now);
+      if (q && !q.voiced && q.sentAt === null) this.trySend(q, now);
     }
   }
 
@@ -201,9 +208,11 @@ export class EventBridge {
     this.stopped = true;
     this.question = null;
     this.hooks.flushCoach?.();
-    // The host's own safety line stands for the stop line; a correction or a question playing does
-    // not (a safety line preempts it in CuePlayer), so a user_stop over a correction is still said.
-    if (!(this.local.playingSafety ?? this.local.playing)) this.local.say(P0_LINE, "safety");
+    // Only in local mode (D-036 item 1: while the coach is on, the coach says it). The host's own
+    // safety line stands for the stop line; a correction or a question playing does not (a safety line
+    // preempts it in CuePlayer), so a user_stop over a correction is still said.
+    if (this.current === "local" && !(this.local.playingSafety ?? this.local.playing))
+      this.local.say(P0_LINE, "safety");
     if (this.current === "live") {
       this.flush(now);
       this.transport.sendContext(this.line(e), true);
@@ -212,7 +221,15 @@ export class EventBridge {
   }
 
   private p1(e: P1Event, now: number): void {
-    const q: Question = { e, at: now, sentAt: null, asked: false, voiced: false, afterIdle: false };
+    const q: Question = {
+      e,
+      at: now,
+      sentAt: null,
+      asked: false,
+      voiced: false,
+      late: false,
+      afterIdle: false,
+    };
     this.question = q;
     if (this.current === "local") this.askLocally(q, now);
     else if (this.current === "live") this.trySend(q, now);
@@ -243,29 +260,27 @@ export class EventBridge {
   }
 
   /**
-   * Rule 2: the local voice asks; the coach is told silently (now when live, else once it is). While a
-   * local line plays (a correction at the same rank would make CuePlayer refuse the question) and for
-   * 300 ms after it, the question waits: nothing is marked asked, the coach is told nothing and its
-   * turn is kept; a later tick asks it.
+   * Rule 2 in local mode: the local voice asks. While a local line plays (a correction at the same
+   * rank would make CuePlayer refuse the question) and for 300 ms after it, the question waits; a
+   * later tick asks it.
    */
   private askLocally(q: Question, now: number): void {
     if (this.localPlaying || this.local.playing || (this.reopenAt !== null && now < this.reopenAt)) return;
     q.asked = true;
-    const ask = LOCAL_ASK[q.e.type];
-    this.local.say(ask.line, "warn");
-    const told = this.line({ p: 3, type: "asked_locally", what: ask.what, t: now });
-    if (this.current === "live") {
-      if (q.sentAt === null) this.transport.sendContext([this.line(q.e), told].join("\n"), false);
-      else {
-        this.transport.sendContext(told, false);
-        this.hooks.onAskedLocally?.();
-        // Rule 6: the coach was sent the question and did not voice it in time.
-        if (++this.missed >= P1_WITHOUT_AUDIO_LIMIT) {
-          this.missed = 0;
-          this.hooks.onFallback?.("fallback_slow");
-        }
-      }
-    } else if (this.current === "connecting") this.context.push(this.line(q.e), told);
+    this.local.say(LOCAL_ASK[q.e.type], "warn");
+  }
+
+  /**
+   * Rule 6: the coach was sent the question and has not voiced it in time. Nothing else asks it while
+   * the coach is on (D-036 item 1); its late audio still plays, and two such questions in a row fall
+   * back to local.
+   */
+  private missedBy(q: Question): void {
+    q.late = true;
+    if (++this.missed >= P1_WITHOUT_AUDIO_LIMIT) {
+      this.missed = 0;
+      this.hooks.onFallback?.("fallback_slow");
+    }
   }
 
   private flush(now: number): void {

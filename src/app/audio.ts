@@ -12,43 +12,10 @@ export function isVoiceLine(id: string): id is VoiceLine {
   return Object.prototype.hasOwnProperty.call(voiceScript, id);
 }
 
-/** Language tag of the speech fallback. */
-const SPEECH_LANG: Record<Lang, string> = { ar: "ar-SA", en: "en-GB" };
-
-/**
- * A voice installed on the device for the language, preferring the exact tag (ar-SA, en-GB).
- * Remote voices are never used: they would send the text to a speech service.
- */
-function localVoice(lang: Lang): SpeechSynthesisVoice | undefined {
-  const tag = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
-  const voices = speechSynthesis.getVoices().filter((v) => v.localService);
-  return (
-    voices.find((v) => tag(v) === SPEECH_LANG[lang].toLowerCase()) ??
-    voices.find((v) => tag(v).startsWith(lang))
-  );
-}
-
-/** Some browsers load the voice list after the first request for it: wait briefly for it. */
-function voicesLoaded(timeoutMs = 1000): Promise<void> {
-  if (speechSynthesis.getVoices().length || typeof speechSynthesis.addEventListener !== "function")
-    return Promise.resolve();
-  return new Promise((resolve) => {
-    const done = () => {
-      clearTimeout(timer);
-      speechSynthesis.removeEventListener("voiceschanged", done);
-      resolve();
-    };
-    const timer = setTimeout(done, timeoutMs);
-    speechSynthesis.addEventListener("voiceschanged", done);
-  });
-}
-
 // iOS only lets an audio element play sound if a tap started it. One element is started
 // inside the tap that opens the camera, and every later cue plays through it.
 let shared: HTMLAudioElement | null = null;
 export function primeAudio(lang: Lang) {
-  // Asking for the voices early lets the browser load them before a fallback needs one.
-  if (typeof speechSynthesis !== "undefined") speechSynthesis.getVoices();
   if (typeof Audio === "undefined") return;
   shared ??= new Audio();
   // Every pack carries the welcome (scripts/generate-voice.mjs), so the chosen pack's file exists.
@@ -61,7 +28,9 @@ const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfA
 
 /**
  * Packaged neural recordings from the chosen voice pack, then the default pack (src/app/voicePacks.ts).
- * No speech service is contacted during a session.
+ * No speech service is contacted during a session, and the phone's own speech is never used (D-036
+ * item 1): a line with no recording is not said, its caption carries it. While a Live coach session is
+ * on (holdForCoach), no recording plays at all: only the coach speaks.
  */
 export class CuePlayer {
   /**
@@ -77,7 +46,6 @@ export class CuePlayer {
     } catch {
       /* not supported */
     }
-    if (typeof speechSynthesis !== "undefined") speechSynthesis.getVoices();
     if (typeof Audio === "undefined") return;
     shared ??= new Audio();
     shared.src = SILENCE;
@@ -95,9 +63,26 @@ export class CuePlayer {
       CuePlayer.activity.delete(fn);
     };
   }
-  /** A line started or ended: every activity listener hears it (the phone's speech reports here too). */
+  /** A line started or ended: every activity listener hears it. */
   static report(playing: boolean, severity: Severity): void {
     for (const fn of [...CuePlayer.activity]) fn(playing, severity);
+  }
+
+  /** Live coach sessions on now (connecting or live), each counted once. */
+  private static coachHolds = 0;
+  /** The players with a line playing now, which a coach session that comes on cuts. */
+  private static sounding = new Set<CuePlayer>();
+  /**
+   * D-036 item 1: a Live coach session came on (true) or went (false). While one is on, no recording
+   * plays (a line or a count asked for is refused, and a line playing now stops): only the coach speaks.
+   */
+  static holdForCoach(on: boolean): void {
+    CuePlayer.coachHolds = Math.max(0, CuePlayer.coachHolds + (on ? 1 : -1));
+    if (on) for (const p of [...CuePlayer.sounding]) p.stop();
+  }
+  /** True while a Live coach session is on. */
+  static get coachHeld(): boolean {
+    return CuePlayer.coachHolds > 0;
   }
 
   private fileCache = new Map<string, Promise<HTMLAudioElement | null>>();
@@ -127,7 +112,7 @@ export class CuePlayer {
     this.activeAudio?.pause();
     this.activeAudio = undefined;
     this.activePriority = -1;
-    if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+    CuePlayer.sounding.delete(this);
     // A line cut off here has ended too (a paused element fires no ended event).
     const end = this.endActive;
     this.endActive = undefined;
@@ -172,7 +157,8 @@ export class CuePlayer {
    */
   async line(id: VoiceLine, severity: Severity = "info", onEnd?: () => void): Promise<boolean> {
     const rank = priority[severity];
-    if (this.muted || this.activePriority > rank || (this.activePriority === rank && rank < 3)) return false;
+    if (this.muted || CuePlayer.coachHeld) return false;
+    if (this.activePriority > rank || (this.activePriority === rank && rank < 3)) return false;
     this.stop();
     const generation = this.generation;
     this.activePriority = rank;
@@ -184,6 +170,7 @@ export class CuePlayer {
         this.activePriority = -1;
         this.activeAudio = undefined;
         if (this.endActive === finish) this.endActive = undefined;
+        CuePlayer.sounding.delete(this);
       }
       if (started && !ended) {
         ended = true;
@@ -198,58 +185,37 @@ export class CuePlayer {
       }
     };
     const el = await this.file(id);
-    if (this.muted || generation !== this.generation) return false;
-    if (el) {
-      const target = shared ?? el;
-      if (target !== el) target.src = el.src;
-      this.activeAudio = target;
-      try {
-        target.currentTime = 0;
-      } catch {
-        /* not seekable yet */
-      }
-      target.playbackRate = 1;
-      target.onended = finish;
-      target.onerror = finish;
-      try {
-        await target.play();
-        started = true;
-        CuePlayer.report(true, severity);
-        if (generation === this.generation) this.endActive = finish;
-        else finish();
-        return true;
-      } catch {
-        finish();
-        return false;
-      }
-    }
-    // No recording (a missing MP3, such as a check cue before its file is generated): speak the
-    // line with a voice on the device, the vocalized arTts text in Arabic and the enTts text (for
-    // speech only, such as the welcome that names the brand clearly) in English.
-    if (typeof speechSynthesis === "undefined") {
+    if (generation !== this.generation) return false;
+    // No recording (a missing MP3): nothing is said, the line's caption carries it (D-036 item 1); and
+    // nothing at all while a Live coach session is on.
+    if (this.muted || CuePlayer.coachHeld || !el) {
       finish();
       return false;
     }
-    await voicesLoaded();
-    if (this.muted || generation !== this.generation) return false;
-    const voice = localVoice(this.lang);
-    if (!voice) {
+    const target = shared ?? el;
+    if (target !== el) target.src = el.src;
+    this.activeAudio = target;
+    try {
+      target.currentTime = 0;
+    } catch {
+      /* not seekable yet */
+    }
+    target.playbackRate = 1;
+    target.onended = finish;
+    target.onerror = finish;
+    try {
+      await target.play();
+      started = true;
+      CuePlayer.report(true, severity);
+      if (generation === this.generation) {
+        this.endActive = finish;
+        CuePlayer.sounding.add(this);
+      } else finish();
+      return true;
+    } catch {
       finish();
       return false;
     }
-    const spoken = voiceScript[id] as { ar: string; en: string; arTts?: string; enTts?: string };
-    const u = new SpeechSynthesisUtterance(
-      this.lang === "ar" ? (spoken.arTts ?? spoken.ar) : (spoken.enTts ?? spoken.en),
-    );
-    u.lang = SPEECH_LANG[this.lang];
-    u.voice = voice;
-    u.onend = finish;
-    u.onerror = finish;
-    started = true;
-    CuePlayer.report(true, severity);
-    this.endActive = finish;
-    speechSynthesis.speak(u);
-    return true;
   }
   cue(id: CueId, severity: Severity = id === "stop_rest" ? "safety" : "warn") {
     return this.line(id, severity);
@@ -260,7 +226,7 @@ export class CuePlayer {
    * a safety line, and a stop drops it.
    */
   count(n: number): Promise<boolean> {
-    if (n < 1 || n > 10 || this.muted) return Promise.resolve(false);
+    if (n < 1 || n > 10 || this.muted || CuePlayer.coachHeld) return Promise.resolve(false);
     if (this.activePriority >= 0) {
       this.queuedCount = this.activePriority < priority.safety ? n : null;
       return Promise.resolve(false);

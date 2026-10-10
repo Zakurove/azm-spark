@@ -5,8 +5,7 @@
  * host never asks a range question aloud (the bridge asks it when the coach is late, bridge rule 2).
  */
 import { describe, expect, it } from "vitest";
-import { COACH_ASK_LINES, liveCoachOn, romSegment } from "../../src/features/coach-agent/hosts";
-import { LOCAL_ASK } from "../../src/features/coach-agent/bridge";
+import { liveCoachOn, romSegment } from "../../src/features/coach-agent/hosts";
 import { segmentsFor } from "../../server/modules/agent/segments";
 import { buildRomProtocol, type RomProtocol, type RomProtocolItem } from "../../src/medical/rom-protocol";
 import { defaults } from "../../src/app/experience";
@@ -68,13 +67,5 @@ describe("the live coach switch (C-5)", () => {
     // D-030 D5-12: GET /api/agent/status says the server cannot run the coach now (switched off, no key).
     expect(liveCoachOn({ ...on, available: false })).toBe(false);
     expect(liveCoachOn(on)).toBe(true);
-  });
-
-  it("names the range questions the host leaves to the coach", () => {
-    expect([...COACH_ASK_LINES].sort()).toEqual(
-      Object.values(LOCAL_ASK)
-        .map((a) => a.line)
-        .sort(),
-    );
   });
 });

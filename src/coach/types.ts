@@ -16,6 +16,7 @@ import type { LimitCause, RomAnswer } from "../engine/rom/types";
 import type { RegionId } from "../medical/body-map";
 import type { RomBlock } from "../medical/rom-protocol";
 import type { RomFindingId } from "../medical/rom-types";
+import type { ScreenActions } from "./actions";
 
 /* --------------------------------------------------------------- events */
 
@@ -78,6 +79,12 @@ export type ToolName =
   | "stop"
   | "next_step"
   | "repeat_instructions";
+/**
+ * D-036 item 2: what the person said they want, in their own words (next_step presses the screen's
+ * button for it). ready: «جاهز», "I'm ready". start: «يلا», «ابدأ», "let's go", "start". next: «التالي»,
+ * "next". continue: «كمّل», "continue", "go on". again: «مرة ثانية», "try again".
+ */
+export type CoachIntent = "ready" | "start" | "next" | "continue" | "again";
 /** The stop options the coach may preselect (a subset of v1 StopOptionId, src/movements/types.ts). */
 export type CoachStopReason = Extract<
   StopOptionId,
@@ -93,7 +100,8 @@ export interface ToolArgs {
   pause: Record<string, never>;
   resume: Record<string, never>;
   stop: { reason: CoachStopReason };
-  next_step: Record<string, never>;
+  /** D-036 item 2: the person's spoken intent; a call without it is read as next. */
+  next_step: { intent: CoachIntent };
   repeat_instructions: Record<string, never>;
 }
 
@@ -123,6 +131,8 @@ export interface ToolResult {
  * The kind of the step a host shows (C-16).
  * info: an instruction card. confirm: a tap the person or the helper must make (gait setup clear path and support nearby,
  * each pad safety step of gait-rules eligibility.padSafety, helper present pc_helper, the v1 helper briefing, "ready").
+ * D-036 item 2: a setup's Ready, Start or Next may also be pressed on the person's spoken words (next_step and
+ * the screen's ScreenActions); a question, a safety step and the safety checklists stay the person's taps.
  * question: pre-check, today questions, rf_region, pain, can move, cause, maximum. timer: rest, the sit before stand minute.
  * safety: the stop list, the emergency screen, seek care, a pain stop. active: a measurement, a walk, an exercise.
  */
@@ -130,6 +140,11 @@ export type CoachStepKind = "info" | "confirm" | "question" | "timer" | "safety"
 /** Implemented by the focus RomController (B), the GaitController (C) and the session controller (D). */
 export interface CoachHost {
   readonly block: CoachBlock;
+  /**
+   * D-036 item 2: the buttons of the screen showing now, which next_step presses on the person's
+   * spoken words; each screen registers its own. Absent: next_step has nothing to press.
+   */
+  readonly actions?: ScreenActions;
   /** The current step's kind and whether an active step has finished. */
   step(): { kind: CoachStepKind; finished: boolean };
   /** The app is authoritative: validate against the engine state, apply at once, answer (C-17). Never throws. */

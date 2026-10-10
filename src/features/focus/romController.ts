@@ -23,10 +23,12 @@
  * there is no way back into a stopped test); the stop list's answer is routed by the shell (the server
  * stores the stopped movement's not measured row) and given back with `stopRouted`.
  *
- * The coach never advances past a confirmation (C-16): next_step moves only a result card (info) or a
- * finished measurement, resume resumes only a pause the coach made, and every tool call is applied at
- * once and final (C-17). The app is authoritative: the coach's answers go through the same runner
- * methods as the buttons.
+ * The coach presses a button only on the person's spoken words (D-036 item 2, replacing C-16 for the
+ * setup and next steps): next_step presses the button the screen registered in `actions` for the
+ * intent (the block's and the setup's Ready, the result's Next and Try again), never over the stop
+ * list or a pain stop, and never a question's answer. resume resumes only a pause the coach made, and
+ * every tool call is applied at once and final (C-17). The app is authoritative: the coach's answers
+ * go through the same runner methods as the buttons.
  *
  * D-035 item 1 (the MVP runner): one valid attempt records the value, and the result card offers one
  * more try only if the person wants it (tryAgain, never a third). The server keeps one row per
@@ -35,6 +37,7 @@
  * second try. The hold ring is the runner's own hold progress.
  */
 import type { Lang } from "../../app/i18n";
+import { pressNextStep, ScreenActions } from "../../coach/actions";
 import type {
   BridgeEvent,
   CoachHost,
@@ -221,6 +224,21 @@ const PHASE_KIND: Record<RomPhase, CoachStepKind> = {
   done: "active",
 };
 
+/**
+ * The runner's corrections that only a voice said before D-036 item 1 (the view, the still phone, the
+ * arm to use, back to the middle): with no phone speech, each is shown as the camera's caption, as a
+ * compensation's line is.
+ */
+const SHOWN_CORRECTIONS: ReadonlySet<string> = new Set([
+  "check_face_phone",
+  "check_left_side_to_phone",
+  "check_right_side_to_phone",
+  "check_phone_still",
+  "check_left_arm",
+  "check_right_arm",
+  "test_trunk_to_middle",
+]);
+
 /** The runner's own answer reasons as tool results (B1-14: stopped is safety_stop). */
 function toolReason(r: AnswerResult["reason"]): ToolResult["reason"] {
   return r === "stopped" ? "safety_stop" : r;
@@ -228,6 +246,8 @@ function toolReason(r: AnswerResult["reason"]): ToolResult["reason"] {
 
 export class RomController implements CoachHost {
   readonly block = "rom" as const;
+  /** The buttons of the screen now that the coach may press (D-036 item 2), registered by the shell. */
+  readonly actions = new ScreenActions();
   private readonly opts: RomControllerOptions;
   private readonly items: RomProtocolItem[];
   private stepNow: RomStep = { kind: "idle" };
@@ -944,20 +964,12 @@ export class RomController implements CoachHost {
         // The person confirms the reason with a tap on the stop list (C-7).
         return { accepted: true, say: "tap_to_confirm", data: { preselected: a.reason } };
       }
-      case "next_step": {
-        const { kind, finished } = this.step();
-        if (kind === "info" && s.kind === "result") {
-          this.next(t);
-          return { accepted: true };
-        }
-        if (kind === "active" && finished) {
-          this.next(t);
-          return { accepted: true };
-        }
-        if (kind === "confirm" || kind === "question" || kind === "timer" || kind === "safety")
-          return { accepted: false, reason: "not_allowed", say: "tap_to_confirm" };
-        return { accepted: false, reason: "not_allowed" };
-      }
+      case "next_step":
+        return pressNextStep(
+          this.actions,
+          { step: this.step(), stopped: !!this.stopListNow },
+          (args as ToolArgs["next_step"]).intent,
+        );
       case "repeat_instructions": {
         const shown = "item" in s ? s.item : (this.queue[0] ?? null);
         const text = shown
@@ -1207,8 +1219,9 @@ export class RomController implements CoachHost {
           }
           break;
         case "cue":
-          if (compensated) {
-            // A compensation's line: a one off warn event of the gate, never a condition (2.6).
+          if (compensated || SHOWN_CORRECTIONS.has(e.cue)) {
+            // A compensation's line, or a correction (D-036 item 1: the screen carries it): a one off
+            // warn event of the gate, never a condition (2.6), shown as the camera's caption.
             gateEvents.push({ id: e.cue, severity: "warn", voice: e.cue });
             compensated = false;
           } else {

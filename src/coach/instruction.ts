@@ -34,8 +34,11 @@ import type { CoachBlock, CoachSegment } from "./types";
 /**
  * Stored with every coach session (agent_sessions.instruction_version). coach_si_2 (D-030 D5-9): a
  * pain number is marked at once, and the place is asked at most once, after the app answered.
+ * coach_si_3 (D-036): the coach presses Ready, Start, Next, Continue or Try again with next_step and
+ * its intent when the person says so; the app no longer speaks any line itself (no asked_locally, the
+ * corrections are on the screen).
  */
-export const COACH_SI_VERSION = "coach_si_2";
+export const COACH_SI_VERSION = "coach_si_3";
 
 /* ------------------------------------------------------ the instruction */
 
@@ -107,7 +110,7 @@ function thisPart(input: InstructionInput): string[] {
   const { lang, block, position, helperPresent } = input;
   const what: Record<CoachBlock, string> = {
     rom: "This part measures how far a few joints move, one movement at a time. The app shows each step on the screen and keeps every measurement; you ask the questions and encourage.",
-    gait: "This part looks at the person's walk while the phone's camera watches it, on the floor or on a walking pad; no video is recorded or sent. The person walks at their own comfortable pace: never hurry them. The safety steps of the setup are confirmed by a tap on the screen.",
+    gait: "This part looks at the person's walk while the phone's camera watches it, on the floor or on a walking pad; no video is recorded or sent. The person walks at their own comfortable pace: never hurry them. The walking pad's safety checklist and its stop are confirmed by a tap on the screen.",
     session:
       "This part is the person's exercise session: the exercises on the screen, with the sets, repetitions, holds and rest of their plan.",
   };
@@ -132,7 +135,7 @@ function events(lang: Lang, block: CoachBlock): string[] {
     "Lines that start with [EVT come from the app's sensors, not from the person. Lines that start with [CTX are the app's summary of this part. Never read them aloud.",
   ];
   const correction =
-    "compensation and setup_issue: the app has already said the correction aloud; mention it only when the person asks.";
+    "compensation and setup_issue: the app already shows the correction on the screen; mention it only when the person asks.";
   const perBlock: Record<CoachBlock, string[]> = {
     rom: [
       `ask_can_move: ask once ${q(lang, "can_move_ask")}, wait for the answer, then call answer_can_move.`,
@@ -140,7 +143,6 @@ function events(lang: Lang, block: CoachBlock): string[] {
       `After not_yet, call keep_reaching and say only ${q(lang, "keep_going")} After hurts, never invite more movement: the app decides what follows.`,
       `ask_pain: ask once ${q(lang, "pain_ask")}, then call mark_pain with their number.`,
       `ask_cause: ask once ${q(lang, "what_stopped_ask")} with its three answers ${q(lang, "what_stopped_tight")}, ${q(lang, "what_stopped_pain")} and ${q(lang, "what_stopped_weak")}, then call set_limit_cause.`,
-      "asked_locally: the app has already asked that question aloud; do not repeat it, wait for the answer.",
       "step_start: at most one short line for the new step.",
       "attempt_saved and movement_result: no reply needed; give a value only when the person asks, rounded.",
       correction,
@@ -148,6 +150,7 @@ function events(lang: Lang, block: CoachBlock): string[] {
     gait: [
       "step_start: at most one short line for the new step.",
       "pass_done: the walk in one view is done; no reply needed, at most a few words of encouragement.",
+      "safety_stop on the walking pad: first tell the person to hold the support while their helper stops the pad.",
       correction,
     ],
     session: [
@@ -166,12 +169,15 @@ function events(lang: Lang, block: CoachBlock): string[] {
   ];
 }
 
+/** The copy keys of next_step's press (D-036 item 2), in every block. */
+const PRESSED =
+  "starting (the step starts now), next_one (the next step is on the screen), trying_again (one more try starts), continuing (they go on)";
+
 /** The copy keys a tool result may carry in `say`, as each block's host answers (2.11, S0-2). */
 const SAY: Record<CoachBlock, string> = {
-  rom: "recorded (the value is saved; they can rest a moment), keep_going (the gentle keep going line), pain_ask (ask their pain now from 0 to 10), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), hold_still (hold still for a moment), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest)",
-  gait: "tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the walk because of pain; they rest), pain_ok (they continue only within comfort)",
-  session:
-    "tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the exercise because of pain; they rest), pain_ok (they continue only within comfort)",
+  rom: `recorded (the value is saved; they can rest a moment), keep_going (the gentle keep going line), pain_ask (ask their pain now from 0 to 10), lets_begin (they can begin the movement), not_today (that is fine; the movement is noted and not measured today), hold_still (hold still for a moment), ${PRESSED}, one_moment (the camera is getting ready; ask them to wait a moment, then say ready again), tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask the question once more and wait for their answer), pain_stop (the app stopped this movement because of pain; they rest)`,
+  gait: `${PRESSED}, tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the walk because of pain; they rest), pain_ok (they continue only within comfort)`,
+  session: `${PRESSED}, tap_to_confirm (ask them to tap the button on the screen), ask_and_wait (ask once more and wait for their answer), pain_stop (the app stopped the exercise because of pain; they rest), pain_ok (they continue only within comfort)`,
 };
 
 function tools(block: CoachBlock): string[] {
@@ -184,7 +190,9 @@ function tools(block: CoachBlock): string[] {
     "Ask where it hurts at most once, and only after the app has answered; never wait for the place to call mark_pain.",
     "When the person tells you about pain without a number, ask for one from 0 to 10, then call mark_pain. The app decides what happens next.",
     `A result may carry say, a line to give in your own words: ${SAY[block]}.`,
-    "Never call next_step to move past a question or a confirmation the person must tap.",
+    "When the person says they are ready, want to start, go on, see the next step or try again, call next_step at once with that intent (ready, start, next, continue or again): the app presses the button on the screen for them. Then say what the app did in a few words.",
+    "Call next_step only right after the person said so in their own words, never on your own. It never answers a question, a pain score, a stop or a safety screen for them: those stay theirs to answer or tap.",
+    "On a screen with a Ready or Start button, you may tell the person once that they can simply say ready when they are set.",
   ];
 }
 
@@ -201,6 +209,7 @@ function arabicAnswers(block: CoachBlock): string[] {
         ]
       : []),
     "«يوجعني، تقريبًا سبعة» is mark_pain with level 7. «أبي أوقف» is stop with choice. «صدري يوجعني» is stop with chest.",
+    "Ready and going on: «جاهز»، «جاهزة»، «تمام جاهز» is next_step with ready. «يلا»، «ابدأ»، «نبدأ»، «خلنا نبدأ» is next_step with start. «التالي»، «اللي بعده»، «خلصت» is next_step with next. «كمّل»، «كمل»، «نكمل»، «تابع» is next_step with continue. «مرة ثانية»، «أعيد»، «خلني أحاول مرة ثانية» is next_step with again.",
     "When an answer is unclear, ask once more and call no tool.",
   ];
 }

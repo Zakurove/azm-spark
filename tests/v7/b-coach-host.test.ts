@@ -1,12 +1,13 @@
 /**
  * Step B3 (product v7 contract C-16, C-17 and the 2.11 host table): the RomController as the CoachHost
  * of the range blocks. Every tool against the step kinds and runner phases it meets: the coach answers
- * only the question asked, never advances past a confirmation, a question, a timer or a safety step,
- * resumes only its own pause and never after a safety stop, and every call is applied at once and
- * final. The tool results carry the say keys the coach's instruction explains (D-8).
+ * only the question asked, presses only the screen's own Ready, Next or Try again (D-036 item 2) and
+ * never a question, a timer or a safety step, resumes only its own pause and never after a safety
+ * stop, and every call is applied at once and final. The tool results carry the say keys the coach's instruction explains (D-8).
  */
 import { describe, expect, it } from "vitest";
 import { RomController } from "../../src/features/focus/romController";
+import { romScreenActions } from "../../src/features/focus/coachActions";
 import { buildRomProtocol, type RomProtocol } from "../../src/medical/rom-protocol";
 import { entry, intake, today } from "./a-fixtures";
 import { runBlock, saves } from "./b-shell-driver";
@@ -28,57 +29,104 @@ function reach(ctl: RomController, until: (c: RomController) => boolean, answerM
 
 const KNEE_BEND = { movement: "knee_flexion" as const, side: "right" as const };
 
-describe("next_step (C-16: the coach never advances past a confirmation)", () => {
-  it("is refused on the block card and the setup card (confirm) with tap_to_confirm", () => {
+/** The shell's registration of the range step's buttons (FocusApp's useScreenActions), at time `t`. */
+function show(ctl: RomController, t = 0, blockWaiting = false): void {
+  const e = romScreenActions(ctl, { clock: () => t, blockWaiting });
+  if (e) ctl.actions.show(e.key, () => e.actions, e.alive);
+}
+
+describe("next_step (D-036 item 2: the coach presses the screen's button on the person's words)", () => {
+  it("presses the block card's and the setup card's Ready, which starts the movement", () => {
     const ctl = setup();
     expect(ctl.step().kind).toBe("confirm");
-    expect(ctl.handleTool("next_step", {})).toEqual({
+    // Nothing on the screen yet: nothing to press.
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toEqual({
       accepted: false,
       reason: "not_allowed",
       say: "tap_to_confirm",
+    });
+    show(ctl, 100);
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toEqual({
+      accepted: true,
+      say: "starting",
+      data: { pressed: "ready" },
+    });
+    expect(ctl.current.kind).toBe("setup");
+    show(ctl, 200);
+    for (const intent of ["start"] as const)
+      expect(ctl.handleTool("next_step", { intent })).toMatchObject({ accepted: true, say: "starting" });
+    expect(ctl.current.kind).toBe("measure");
+  });
+
+  it("waits with the block card's Ready while the camera's model probe runs (one_moment)", () => {
+    const ctl = setup();
+    show(ctl, 100, true);
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toEqual({
+      accepted: false,
+      reason: "wrong_phase",
+      say: "one_moment",
     });
     expect(ctl.current.kind).toBe("block");
-    ctl.ready(100);
-    expect(ctl.current.kind).toBe("setup");
-    expect(ctl.handleTool("next_step", {})).toEqual({
-      accepted: false,
-      reason: "not_allowed",
-      say: "tap_to_confirm",
-    });
-    expect(ctl.current.kind).toBe("setup");
+    show(ctl, 100, false);
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: true });
   });
 
-  it("is refused on a question (the maximum) and a timer (the rest), and on an unfinished measurement", () => {
+  it("never presses on a question (the maximum), a timer (the rest) or a measurement", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "practice");
-    expect(ctl.step()).toEqual({ kind: "active", finished: false });
-    expect(ctl.handleTool("next_step", {})).toMatchObject({ accepted: false, reason: "not_allowed" });
-    // The rest after the practice (one valid attempt follows it, D-035).
+    show(ctl);
+    expect(ctl.actions.list()).toEqual([]);
+    expect(ctl.handleTool("next_step", { intent: "next" })).toMatchObject({
+      accepted: false,
+      reason: "not_allowed",
+    });
     reach(ctl, (c) => c.phase === "rest");
-    expect(ctl.step().kind).toBe("timer");
-    expect(ctl.handleTool("next_step", {})).toEqual({
-      accepted: false,
-      reason: "not_allowed",
-      say: "tap_to_confirm",
-    });
+    show(ctl);
+    expect(ctl.handleTool("next_step", { intent: "continue" })).toMatchObject({ accepted: false });
     reach(ctl, (c) => c.phase === "ask_max");
+    show(ctl);
     expect(ctl.step().kind).toBe("question");
-    expect(ctl.handleTool("next_step", {})).toEqual({
-      accepted: false,
-      reason: "not_allowed",
-      say: "tap_to_confirm",
-    });
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: false });
+    expect(ctl.phase).toBe("ask_max");
   });
 
-  it("moves a result card (info) on", () => {
+  it("presses a result card's Next, and its Try again while one more try is offered", () => {
     const ctl = setup();
     runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
     expect(ctl.step()).toEqual({ kind: "info", finished: false });
-    expect(ctl.handleTool("next_step", {})).toEqual({ accepted: true });
+    show(ctl, 5000);
+    if (ctl.canTryAgain) {
+      expect(ctl.handleTool("next_step", { intent: "again" })).toEqual({
+        accepted: true,
+        say: "trying_again",
+        data: { pressed: "again" },
+      });
+      expect(ctl.current.kind).toBe("measure");
+      runBlock(ctl, { until: (c) => c.current.kind === "result" }, 300);
+      show(ctl, 9000);
+      // Never a third try.
+      expect(ctl.canTryAgain).toBe(false);
+      expect(ctl.handleTool("next_step", { intent: "again" })).toMatchObject({ accepted: false });
+    }
+    expect(ctl.handleTool("next_step", { intent: "next" })).toEqual({
+      accepted: true,
+      say: "next_one",
+      data: { pressed: "next" },
+    });
     expect(ctl.current.kind).toBe("setup");
   });
 
-  it("is refused on a safety step: a pain stop and the stop list", () => {
+  it("presses nothing once the app moved past the screen (a second call after the first press)", () => {
+    const ctl = setup();
+    show(ctl, 100);
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: true });
+    // The setup card shows, but the page has not registered its buttons yet: the block's are stale.
+    expect(ctl.current.kind).toBe("setup");
+    expect(ctl.handleTool("next_step", { intent: "ready" })).toMatchObject({ accepted: false });
+    expect(ctl.current.kind).toBe("setup");
+  });
+
+  it("is refused on a safety step: a pain stop and the stop list, buttons or not", () => {
     const ctl = setup();
     reach(ctl, (c) => c.phase === "attempt");
     expect(ctl.handleTool("mark_pain", { level: 7 })).toMatchObject({
@@ -87,20 +135,24 @@ describe("next_step (C-16: the coach never advances past a confirmation)", () =>
     });
     expect(ctl.current.kind).toBe("pain_stop");
     expect(ctl.step().kind).toBe("safety");
-    expect(ctl.handleTool("next_step", {})).toEqual({
+    show(ctl);
+    expect(ctl.handleTool("next_step", { intent: "continue" })).toEqual({
       accepted: false,
-      reason: "not_allowed",
+      reason: "safety_stop",
       say: "tap_to_confirm",
     });
+    expect(ctl.current.kind).toBe("pain_stop");
     ctl.acknowledge(1);
     expect(ctl.current.kind).toBe("result");
+    show(ctl, 1);
     ctl.requestStop(2);
     expect(ctl.step().kind).toBe("safety");
-    expect(ctl.handleTool("next_step", {})).toEqual({
+    expect(ctl.handleTool("next_step", { intent: "next" })).toEqual({
       accepted: false,
-      reason: "not_allowed",
+      reason: "safety_stop",
       say: "tap_to_confirm",
     });
+    expect(ctl.current.kind).toBe("result");
   });
 });
 
@@ -420,12 +472,12 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
     ["pause", {}],
     ["resume", {}],
     ["stop", { reason: "tired" }],
-    ["next_step", {}],
+    ["next_step", { intent: "next" }],
     ["repeat_instructions", {}],
   ];
   /** Each state: how to reach it, its C-16 kind, and the tools the host table accepts there. */
   const STATES: { name: string; kind: string; reach: () => RomController; accepts: Tool[] }[] = [
-    { name: "the block card", kind: "confirm", reach: () => setup(), accepts: [] },
+    { name: "the block card", kind: "confirm", reach: () => setup(), accepts: ["next_step"] },
     {
       name: "the setup card",
       kind: "confirm",
@@ -434,7 +486,7 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
         c.ready(0);
         return c;
       },
-      accepts: [],
+      accepts: ["next_step"],
     },
     {
       name: "the start pose",
@@ -605,12 +657,18 @@ describe("every tool at every step kind of the range blocks (2.11 host table, C-
       expect(state.reach().step().kind).toBe(state.kind);
       for (const [tool, args] of TOOLS) {
         const ctl = state.reach();
+        // The shell shows the step's buttons the coach may press (D-036 item 2).
+        show(ctl);
         const r = ctl.handleTool(tool, args as never);
         const want = ALWAYS.includes(tool) || state.accepts.includes(tool);
         expect(r.accepted, `${tool} at ${state.name}: ${JSON.stringify(r)}`).toBe(want);
-        // A step the person must tap is theirs: the coach is told to ask for the tap.
-        if (tool === "next_step" && !want && state.kind !== "active")
-          expect(r).toEqual({ accepted: false, reason: "not_allowed", say: "tap_to_confirm" });
+        // A step with no button for the coach is the person's: the coach is told to ask for the tap.
+        if (tool === "next_step" && !want)
+          expect(r).toEqual({
+            accepted: false,
+            reason: state.kind === "safety" ? "safety_stop" : "not_allowed",
+            say: "tap_to_confirm",
+          });
         if (tool === "resume" && state.name === "a pause made on the screen")
           expect(r.reason).toBe("paused_on_screen");
         if (state.kind === "safety" && ["confirm_max", "pause", "resume"].includes(tool))

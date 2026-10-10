@@ -131,10 +131,10 @@ describe("render gates", () => {
   });
 });
 
-describe("speech fallback", () => {
+describe("a missing recording (D-036 item 1)", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("speaks the enTts text in English when the recording is missing", async () => {
+  it("is never spoken with the phone's speech, even with a voice on the device", async () => {
     const spoken: string[] = [];
     const pending: { onerror: () => void }[] = [];
     vi.stubGlobal(
@@ -164,8 +164,8 @@ describe("speech fallback", () => {
     });
     const run = new CuePlayer("en").line("preview");
     pending[0].onerror();
-    expect(await run).toBe(true);
-    expect(spoken).toEqual([script.preview.enTts]);
+    expect(await run).toBe(false);
+    expect(spoken).toEqual([]);
   });
 });
 

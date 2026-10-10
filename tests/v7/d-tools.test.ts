@@ -9,6 +9,7 @@ import {
   ANSWER_GUARD_SAY,
   AnswerGuard,
   PAIN_SPEECH_WINDOW_MS,
+  PRESS_SPEECH_WINDOW_MS,
   TOOL_BEHAVIOR,
   TOOL_SETS,
   isToolName,
@@ -126,8 +127,15 @@ describe("toolDeclarations", () => {
       properties: { reason: { type: "STRING", enum: STOP_REASONS } },
       required: ["reason"],
     });
-    for (const n of ["keep_reaching", "pause", "resume", "next_step", "repeat_instructions"])
+    for (const n of ["keep_reaching", "pause", "resume", "repeat_instructions"])
       expect(decl("rom", n).parameters, n).toBeUndefined();
+    // D-036 item 2: next_step carries the person's intent, in every block.
+    for (const block of BLOCKS)
+      expect(decl(block, "next_step").parameters).toMatchObject({
+        type: "OBJECT",
+        properties: { intent: { type: "STRING", enum: ["ready", "start", "next", "continue", "again"] } },
+        required: ["intent"],
+      });
   });
 
   it("offers only stop options that are coach reasons (C-7): never the AD option", () => {
@@ -141,9 +149,11 @@ describe("toolDeclarations", () => {
     expect(max).toContain("«هل هذا أقصى ما تستطيع؟»");
     expect(max).toContain("Never call it before an end_range_hold event");
     expect(decl("rom", "keep_reaching").description).toMatch(/Never call it after/);
-    expect(decl("rom", "next_step").description).toMatch(
-      /Never use it to move past a question or a confirmation/,
-    );
+    const next = decl("rom", "next_step").description;
+    expect(next).toMatch(/right after the person says in their own words that they are ready/);
+    expect(next).toMatch(/Never call it on your own/);
+    expect(next).toMatch(/never for a question, a pain score, a stop or a safety screen/);
+    for (const word of ["«جاهز»", "«التالي»", "«مرة ثانية»", "let's go"]) expect(next).toContain(word);
     expect(decl("rom", "resume").description).toMatch(/Never call it after a safety stop/);
     for (const n of ["confirm_max", "answer_can_move", "set_limit_cause", "mark_pain"])
       expect(decl("rom", n).description, n).toMatch(/own words/);
@@ -188,11 +198,15 @@ describe("parseToolArgs", () => {
     for (const cause of ["tight", "pain", "weak"])
       expect(ok("set_limit_cause", { cause })).toEqual({ cause });
     for (const reason of STOP_REASONS) expect(ok("stop", { reason })).toEqual({ reason });
-    for (const n of ["keep_reaching", "pause", "resume", "next_step", "repeat_instructions"] as ToolName[]) {
+    for (const n of ["keep_reaching", "pause", "resume", "repeat_instructions"] as ToolName[]) {
       expect(ok(n, {})).toEqual({});
       expect(ok(n, undefined)).toEqual({});
       expect(ok(n, null)).toEqual({});
     }
+    for (const intent of ["ready", "start", "next", "continue", "again"])
+      expect(ok("next_step", { intent })).toEqual({ intent });
+    // An older call without its intent reads as next.
+    for (const raw of [{}, undefined, null]) expect(ok("next_step", raw)).toEqual({ intent: "next" });
   });
 
   it("refuses unknown keys, wrong enums, missing fields and values that are not objects", () => {
@@ -212,6 +226,9 @@ describe("parseToolArgs", () => {
       bad(n, "go");
       bad(n, []);
     }
+    bad("next_step", { intent: "stop" });
+    bad("next_step", { intent: "skip" });
+    bad("next_step", { intent: "ready", extra: 1 });
     bad(
       "confirm_max",
       JSON.parse('{"movement":"shoulder_flexion","side":"right","answer":"yes","__proto__":{}}'),
@@ -333,15 +350,53 @@ describe("the S0-2 answer guard (D-022 item 2)", () => {
   it("always passes stop and the control tools", () => {
     const g = new AnswerGuard();
     g.question(hold(1_000));
-    for (const n of [
-      "stop",
-      "keep_reaching",
-      "pause",
-      "resume",
-      "next_step",
-      "repeat_instructions",
-    ] as ToolName[])
+    for (const n of ["stop", "keep_reaching", "pause", "resume", "repeat_instructions"] as ToolName[])
       expect(g.check(n, 2_000), n).toBeNull();
+  });
+
+  describe("next_step presses a button only on the person's words on that screen (D-036 item 2)", () => {
+    let screen: number | null = null;
+    const guard = () => new AnswerGuard(() => screen);
+
+    it("passes with no button on the screen: the host answers there is nothing to press", () => {
+      screen = null;
+      expect(guard().check("next_step", 1_000)).toBeNull();
+    });
+
+    it("refuses with a button on the screen and no words while it showed", () => {
+      screen = 1;
+      const g = guard();
+      expect(g.check("next_step", 1_000)).toEqual(refused);
+      // Words said on the screen before this one never press this one's button.
+      screen = 0;
+      g.heard("جاهز", 900);
+      screen = 1;
+      expect(g.check("next_step", 1_000)).toEqual(refused);
+      // Silence (an empty transcription) is no words.
+      g.heard("  ", 1_050);
+      expect(g.check("next_step", 1_100)).toEqual(refused);
+    });
+
+    it("accepts words said while the screen showed, within 10 s", () => {
+      expect(PRESS_SPEECH_WINDOW_MS).toBe(10_000);
+      screen = 4;
+      const g = guard();
+      g.heard("جاهز", 2_000);
+      expect(g.check("next_step", 2_500)).toBeNull();
+      expect(g.check("next_step", 12_000)).toBeNull();
+      expect(g.check("next_step", 12_001)).toEqual(refused);
+      // The app moved on to the next screen: those words press nothing there.
+      screen = 5;
+      expect(g.check("next_step", 2_600)).toEqual(refused);
+    });
+
+    it("never throws when the screen cannot be read", () => {
+      const g = new AnswerGuard(() => {
+        throw new Error("gone");
+      });
+      g.heard("يلا", 1_000);
+      expect(g.check("next_step", 1_100)).toBeNull();
+    });
   });
 });
 

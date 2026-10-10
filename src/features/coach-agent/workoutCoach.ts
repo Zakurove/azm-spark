@@ -45,6 +45,44 @@ export const WORKOUT_STEP_KIND: Record<WorkoutStage, CoachStepKind> = {
   done: "info",
 };
 
+/**
+ * D-036 item 2: a button of the workout's screen the Live coach may press on the person's spoken
+ * words, as the workout gives it: the camera movement card's Start training, Next set once the rest is
+ * over, the warm up's Start training and the cool down's Finish once their timer has run out, a camera
+ * set's Continue program (never after its safety stop), and the end card's Exit. Never the setup's
+ * Ready (it attests the person's health), a guided card's own controls or the effort question.
+ */
+export interface WorkoutButton {
+  name: "start" | "next_set" | "finish" | "exit" | "continue";
+  press(): void;
+}
+
+/**
+ * The interval screen's main button the coach may press now (the camera set's own comes from the set),
+ * or null: the setup's attestation never, a timer's button only once its time has run out.
+ */
+export function workoutButton(
+  stage: WorkoutStage,
+  secondsLeft: number,
+  press: () => void,
+): WorkoutButton | null {
+  const over = secondsLeft <= 0;
+  switch (stage) {
+    case "intro":
+      return { name: "start", press };
+    case "warmup":
+      return over ? { name: "start", press } : null;
+    case "rest":
+      return over ? { name: "next_set", press } : null;
+    case "cooldown":
+      return over ? { name: "finish", press } : null;
+    case "done":
+      return { name: "exit", press };
+    default:
+      return null;
+  }
+}
+
 /** A workout part's minutes (C-6: up to two of 9 minutes; 5.4 session:9), as the token route reserves them. */
 export const WORKOUT_SEGMENT_MS = 9 * 60_000;
 

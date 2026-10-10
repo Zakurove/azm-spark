@@ -1,8 +1,13 @@
 /**
  * The local voice of a coached segment (product v7 contract 2.11 LocalVoice, C-5, bridge rules 1 to 3,
- * stream D, step D4): the recorded voice pack through CuePlayer, the same lines the app says without a
- * coach. The bridge uses it for P0 and for a question the coach did not ask in time; the host says its
- * own corrections and safety lines through it, so every local line reaches the mic gate.
+ * stream D, step D4).
+ *
+ * The v7 checks have none (D-036 item 1: only the Live coach speaks; with no coach the screens are
+ * silent and carry every instruction): they give the coach SILENT_VOICE. A workout keeps its recorded
+ * voice pack through CueVoice and CuePlayer, the same lines it says without a coach, and never while a
+ * Live coach session is on (CuePlayer.holdForCoach): the bridge says its P0 line and asks a question
+ * locally only once the segment fell back to local; the host says its own corrections and safety lines
+ * through it, so every local line reaches the mic gate.
  *
  * playing is true from the moment a line is asked for until it ends, was cut or could not start, so the
  * microphone closes before the first sound (rule 3: Gemini must never hear the app's own voice as the
@@ -105,3 +110,12 @@ export class CueVoice implements LocalVoice {
     for (const fn of [...this.listeners]) fn(playing);
   }
 }
+
+/** No local voice at all (D-036 item 1): the v7 checks' screens carry every line, silently. */
+export const SILENT_VOICE: LocalVoice = Object.freeze({
+  say: () => undefined,
+  stopAll: () => undefined,
+  playing: false,
+  playingSafety: false,
+  onPlaying: () => () => undefined,
+});

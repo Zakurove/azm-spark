@@ -1,10 +1,10 @@
 /**
  * The step kind rules every coach host applies to the control tools (product v7 contract C-16 and the
  * 2.11 host table, stream D, step D4), shared by the session host (D), and open to the focus
- * RomController (B3) and the GaitController (C4), so the coach can never pass a confirmation the
- * person or the helper must make, nor restart a pause made on the screen or anything after a safety
- * stop. Each function returns the refusal to send back, or null when the host should apply the call.
- * Pure, no DOM.
+ * RomController (B3) and the GaitController (C4), so the coach can never restart a pause made on the
+ * screen or anything after a safety stop. Each function returns the refusal to send back, or null when
+ * the host should apply the call. next_step is no longer a step kind rule: it presses the screen's own
+ * button on the person's spoken words (D-036 item 2, src/coach/actions.ts pressNextStep). Pure, no DOM.
  */
 import type { CoachStepKind, CoachStopReason, ToolResult } from "../../coach/types";
 
@@ -30,14 +30,6 @@ export const EMERGENCY_REASONS: readonly CoachStopReason[] = [
   "breath",
   "fall",
 ];
-
-/** next_step: an info card, or an active step that has finished. A step the person must tap is theirs. */
-export function nextStepRefusal(s: HostControl): ToolResult | null {
-  const { kind, finished } = s.step;
-  if (kind === "info" || (kind === "active" && finished)) return null;
-  if (kind === "active") return { accepted: false, reason: "not_allowed" };
-  return { accepted: false, reason: "not_allowed", say: TAP_TO_CONFIRM };
-}
 
 /** pause: an active or timer step that is not paused yet, never after a safety stop. */
 export function pauseRefusal(s: HostControl): ToolResult | null {

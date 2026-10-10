@@ -26,6 +26,10 @@
  *   - The usage report (5.2) describes the whole segment so far: sent at each fallback, when the page
  *     hides and at the end; never for a segment that had no session.
  *   - While the microphone is open the audio session is play-and-record (rule 3), and playback after.
+ *   - D-036 item 1: while the session is on (connecting or live) no recorded line plays anywhere
+ *     (holdVoice, CuePlayer.holdForCoach): only the coach speaks. Local mode releases it.
+ *   - D-036 item 2: next_step presses the host's screen buttons (host.actions); the answer guard takes
+ *     it only when the person spoke while that very screen showed.
  * Every event a host pushes is stamped with this session's clock, so the answer guard (S0-2) and the
  * event lines never depend on the host's clock.
  */
@@ -85,6 +89,11 @@ export interface CoachDeps {
   audioSession?(live: boolean): void;
   /** Called as a connection starts, before the token is asked (useCoach: preload the SDK chunk). */
   prepare?(): void;
+  /**
+   * D-036 item 1: true while the session is on (connecting or live), false when it fell back to local
+   * or ended: no recorded voice plays while it is held (useCoach: CuePlayer.holdForCoach).
+   */
+  holdVoice?(on: boolean): void;
   /** Section 9 timings for the perf overlay (User Timing measures named azm:*, DG-1), on the clock of now. */
   measure?(name: CoachMeasure, start: number, duration: number): void;
   /** The bridge's tick (default 100 ms). */
@@ -148,7 +157,7 @@ export class CoachSession {
   private snap: CoachSnapshot = { mode: "connecting", speaking: false, captions: [] };
   private readonly listeners = new Set<() => void>();
   private readonly bridge: EventBridge;
-  private readonly guard = new AnswerGuard();
+  private readonly guard: AnswerGuard;
   private readonly executor: ToolExecutor;
   private readonly captions: CaptionFilter;
   private readonly speaker: SpeakerLike;
@@ -181,8 +190,8 @@ export class CoachSession {
   private rotateDue = false;
   private rotateAtTime = Infinity;
   private expiresAt = Infinity;
-  /** Rule 2: the local voice asked the coach's question; that late coach turn is not played. */
-  private dropTurn = false;
+  /** The recorded voice is held for this session (D-036 item 1). */
+  private voiceHeld = false;
   /** The last failure of the segment (D-035 item 3), sent in every report after it. */
   private failure: CoachFailure | null = null;
 
@@ -190,6 +199,8 @@ export class CoachSession {
     private readonly opts: CoachOptions,
     private readonly deps: CoachDeps,
   ) {
+    // D-036 item 2: a press needs the person's speech while the host's screen now was showing.
+    this.guard = new AnswerGuard(() => opts.host.actions?.current ?? null);
     this.captions = new CaptionFilter(opts.lang);
     this.speaker = deps.speaker();
     this.bridge = new EventBridge(
@@ -213,10 +224,6 @@ export class CoachSession {
                 ? "the audio context is not running"
                 : "two questions without coach audio",
           }),
-        onAskedLocally: () => {
-          this.dropTurn = true;
-          this.speaker.flush();
-        },
         onFirstAudio: (ms) => {
           this.firstAudio.push(ms);
           this.deps.measure?.("azm:coach_first_audio", this.deps.now() - ms, ms);
@@ -250,6 +257,7 @@ export class CoachSession {
   start(): void {
     if (this.started || this.ended) return;
     this.started = true;
+    this.holdVoice(true);
     this.offWindow =
       this.deps.listen?.({
         offline: () => this.fallback("offline"),
@@ -284,6 +292,7 @@ export class CoachSession {
     this.detach();
     this.stopMic();
     this.releaseAudio();
+    this.holdVoice(false);
     this.bridge.setMode("off");
     this.ended = true;
     if (this.tickTimer) clearInterval(this.tickTimer);
@@ -442,7 +451,6 @@ export class CoachSession {
     this.transport = null;
     if (this.liveSince !== null) this.liveMs += this.deps.now() - this.liveSince;
     this.liveSince = null;
-    this.dropTurn = false;
     this.executor.newConnection();
     try {
       t.close();
@@ -458,14 +466,12 @@ export class CoachSession {
       case "setupComplete":
         return this.onSetup(now);
       case "audio":
-        if (this.dropTurn) return;
         this.speaker.play(e.pcm24k);
         this.captions.audio(e.pcm24k.byteLength);
         // Audio nobody can hear never counts as the coach asking (rule 2 then asks with the local voice).
         if (this.speaker.audible !== false) this.bridge.coachSpeaking(true, now);
         return this.update();
       case "outputTranscript":
-        if (this.dropTurn) return;
         this.captions.coachText(e.text);
         return this.update();
       case "inputTranscript":
@@ -475,12 +481,10 @@ export class CoachSession {
       case "interrupted":
         this.speaker.flush();
         this.captions.interrupted();
-        this.dropTurn = false;
         return this.update();
       case "turnComplete":
         this.turns++;
         this.captions.turnComplete();
-        this.dropTurn = false;
         return this.update();
       case "toolCall":
         return this.executor.handle(e.calls, now);
@@ -639,10 +643,19 @@ export class CoachSession {
     this.deps.audioSession?.(false);
   }
 
+  /** D-036 item 1: the recorded voice is held while the session is on, once per session. */
+  private holdVoice(on: boolean): void {
+    if (this.voiceHeld === on) return;
+    this.voiceHeld = on;
+    this.deps.holdVoice?.(on);
+  }
+
   /* ------------------------------------------------------ the state */
 
   private setMode(mode: CoachMode): void {
     if (this.snap.mode === mode) return;
+    // Local mode lets the recorded voice back (a workout's); connecting and live hold it.
+    if (!this.ended) this.holdVoice(mode === "connecting" || mode === "live");
     this.bridge.setMode(mode);
     this.snap = { ...this.snap, mode };
     this.notify();

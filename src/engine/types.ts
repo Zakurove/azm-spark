@@ -1,4 +1,5 @@
 /** Core shared types for the Azm 5.0 adaptation engine (pure TS, no DOM). */
+import type { Look } from "./look";
 
 export interface Landmark {
   x: number; // normalized [0,1] image coords
@@ -27,6 +28,12 @@ export interface Frame {
    * Undefined for sources that only know one pose (synthetic traces).
    */
   poses?: Landmark[][];
+  /**
+   * D-038 item 2: each pose's look (look.ts: the colour of the torso and the upper legs), in the order
+   * of `poses`, on the frames the camera source sampled the picture (a few a second); null where a
+   * pose's look could not be read. Undefined on the other frames and for every other source.
+   */
+  looks?: (Look | null)[];
 }
 
 // MediaPipe BlazePose landmark indices

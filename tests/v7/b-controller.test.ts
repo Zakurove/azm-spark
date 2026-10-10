@@ -531,9 +531,10 @@ describe("the live setup check while the start pose is taken", () => {
       },
       60,
     );
-    expect(ctl.setupIssue).toBe("second_person");
+    // D-038 item 2: about the person only («unclear»), never «second_person».
+    expect(ctl.setupIssue).toBe("unclear");
     const issues = bridges(run.events).filter((e) => e.type === "setup_issue");
-    expect(issues).toEqual([expect.objectContaining({ p: 2, type: "setup_issue", issue: "second_person" })]);
+    expect(issues).toEqual([expect.objectContaining({ p: 2, type: "setup_issue", issue: "unclear" })]);
   });
 });
 

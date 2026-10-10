@@ -28,12 +28,25 @@
  */
 import { createContext, useContext, useRef } from "react";
 import { capture } from "../../movements/gait/gait-v7.json";
-import { CameraPoseSource, LOCK_NUM_POSES, preloadPoseAssets, type PoseSource } from "../../app/poseSource";
+import {
+  CameraPoseSource,
+  LOCK_NUM_POSES,
+  preloadPoseAssets,
+  WALK_NUM_POSES,
+  type PoseSource,
+} from "../../app/poseSource";
 import { CameraSession, type PoseSourceFactory } from "../assessment/camera/session";
 
 export type PoseModel = "lite" | "full";
 /** The block a probe is for: a range block or the gait capture. */
 export type ProbeKind = "rom" | "gait";
+
+/**
+ * D-038 item 2: how many people the model looks for in each block (app/poseSource.ts, measured): 3 for
+ * the range, 2 for the walk (its 25 fps floor). A probe for a block that looks for another number
+ * rebuilds the pose source on the same camera, at the block's setup card, before it measures.
+ */
+export const PROBE_POSES: Readonly<Record<ProbeKind, number>> = { rom: LOCK_NUM_POSES, gait: WALK_NUM_POSES };
 
 /** The processed frame rate Full must sustain in the probe (C-10, section 9). */
 export const PROBE_FLOOR_FPS: Readonly<Record<ProbeKind, number>> = {
@@ -99,18 +112,22 @@ function meanFps(times: readonly number[]): number | null {
   return span > 0 ? Math.round(((times.length - 1) * 10000) / span) / 10 : null;
 }
 
-/** Builds a pose source with the model the block needs, on the session's camera (`stream`). */
+/**
+ * Builds a pose source with the model the block needs, looking for `numPoses` people (PROBE_POSES), on
+ * the session's camera (`stream`).
+ */
 export type FocusSourceFactory = (
   video: HTMLVideoElement,
   stream: () => Promise<MediaStream>,
   model: PoseModel,
+  numPoses: number,
 ) => PoseSource | Promise<PoseSource>;
 
 export interface FocusCameraOptions {
   /**
-   * Builds each pose source. Default: the camera looking for LOCK_NUM_POSES people (each screen's
-   * SubjectLock keeps its one person, D-037 item 4) with the chosen model, or on a VITE_E2E=1 build
-   * ?e2eFixture=<name>.
+   * Builds each pose source. Default: the camera looking for the block's PROBE_POSES people and
+   * reading their looks (each screen's SubjectLock keeps its one person, D-037 item 4, D-038 item 2)
+   * with the chosen model, or on a VITE_E2E=1 build ?e2eFixture=<name>.
    */
   createSource?: FocusSourceFactory;
   /** Where the outcome is kept; default localStorage, null keeps nothing. */
@@ -152,6 +169,7 @@ async function defaultSource(
   video: HTMLVideoElement,
   stream: () => Promise<MediaStream>,
   model: PoseModel,
+  numPoses: number,
 ): Promise<PoseSource> {
   if (import.meta.env.VITE_E2E === "1") {
     const name = new URLSearchParams(location.search).get("e2eFixture");
@@ -160,7 +178,8 @@ async function defaultSource(
       return new FixturePoseSource(name);
     }
   }
-  return new CameraPoseSource(video, { numPoses: LOCK_NUM_POSES, model, stream });
+  // D-038 item 2: several people and their looks, so the screen's lock keeps its person in a crowd.
+  return new CameraPoseSource(video, { numPoses, model, stream, looks: true });
 }
 
 /** The camera of one focus check (C-10). */
@@ -181,10 +200,11 @@ export function focusCameraSession(opts: FocusCameraOptions = {}): FocusCamera {
   const planned = (kind: ProbeKind): PoseModel =>
     thermal || missed.has(kind) || rememberedModel(kind, now(), storage) === "lite" ? "lite" : "full";
   let model: PoseModel = planned("rom");
+  let poses = PROBE_POSES.rom;
 
   const factory: PoseSourceFactory = async (video, stream) => {
     built = true;
-    const source = await create(video, stream, model);
+    const source = await create(video, stream, model, poses);
     sourceKind = source.kind;
     return source;
   };
@@ -219,8 +239,11 @@ export function focusCameraSession(opts: FocusCameraOptions = {}): FocusCamera {
       });
     });
 
-  const use = async (next: PoseModel) => {
-    if (next === model) return;
+  /** The block's model and people (fixture frames know no people count: never rebuilt for it). */
+  const use = async (next: PoseModel, nextPoses = poses) => {
+    const samePoses = nextPoses === poses || sourceKind === "trace";
+    poses = nextPoses;
+    if (next === model && samePoses) return;
     model = next;
     await session.replaceSource();
   };
@@ -232,11 +255,14 @@ export function focusCameraSession(opts: FocusCameraOptions = {}): FocusCamera {
     },
     preload(kind) {
       const m = planned(kind);
-      if (!built) model = m;
+      if (!built) {
+        model = m;
+        poses = PROBE_POSES[kind];
+      }
       preloadPoseAssets(m);
     },
     async probe(kind) {
-      await use(planned(kind));
+      await use(planned(kind), PROBE_POSES[kind]);
       const { fps, complete } = await measure();
       if (!complete || fps === null || sourceKind !== "camera" || model === "lite")
         return { model, fps, switched: false };

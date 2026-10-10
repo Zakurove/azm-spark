@@ -67,7 +67,7 @@ import type {
   GaitWalkPain,
   StaticStanceResult,
 } from "../../engine/gait/types";
-import { posesOf, SUBJECT_RULES, SubjectLock } from "../../engine/subject";
+import { CROWD_LOCK, posesOf, SUBJECT_RULES, SubjectLock } from "../../engine/subject";
 import type { Frame, Landmark } from "../../engine/types";
 import type { GaitMode, GaitPlan } from "../../medical/gait-eligibility";
 import { painStopRule } from "../../medical/pain-rule";
@@ -270,10 +270,13 @@ export interface LiveView {
 /**
  * «across»: the person walks toward or away from the phone in the side recording; «further»: they
  * turn back too soon for a walk across to count (D-036 item 6); «turn»: walking toward the phone in
- * the toward and away recording, the feet near the picture's bottom (D-038 item 4).
+ * the toward and away recording, the feet near the picture's bottom (D-038 item 4). «unclear»: the
+ * walk paused because the walker is not seen clearly (someone over them); its words and the coach's
+ * speak only about the walker, never of anyone else (D-038 item 5: «one moment, we go on when we can
+ * see you clearly»).
  */
 export type GaitHint =
-  "no_person" | "second_person" | "feet" | "legs" | "light" | "level" | "across" | "further" | "turn";
+  "no_person" | "unclear" | "feet" | "legs" | "light" | "level" | "across" | "further" | "turn";
 
 /** The walker in one frame (GaitController.walker). */
 interface Walker {
@@ -284,6 +287,23 @@ interface Walker {
 const NOBODY: Walker = { lm: null, counted: null, crowded: false };
 /** The steps whose frames are the walker's: the lock is taken on the first of them. */
 const PICK_STEPS: ReadonlySet<string> = new Set(["stand", "walk", "pad_warm_up", "stance"]);
+
+/** D-038 item 2: the walk reads the hips, the legs and the feet: someone else over them pauses it. */
+const WALK_NEEDS: readonly number[] = [23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+
+/** The walk's one lock (D-037 item 4, the crowd-proof lock of D-038 item 2). */
+function walkLock(): SubjectLock {
+  const lock = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, mode: "stay" });
+  lock.setNeeds(WALK_NEEDS);
+  return lock;
+}
+
+/**
+ * D-038 item 2: the walker unseen this long in a walk recording is not just turning at a pass's end
+ * (a turn out of the picture takes 2 to 3 s): the hint asks them back into the picture (an interface
+ * time). The recording goes on and the lock waits for the same walker.
+ */
+export const WALKER_GONE_MS = 6000;
 
 interface Recording {
   id: RecordingId;
@@ -465,15 +485,17 @@ export class GaitController implements CoachHost {
    * The walker, one person for the whole walk (D-037 item 4: the booth, many people in the picture):
    * taken at the standing calibration (taken again at each calibration step, the walker kept while
    * there), followed through every pass, a try once more and the stance; another person is never
-   * measured, drawn or counted. Released only after the walk's 10 s unseen.
+   * measured, drawn or counted. D-038 item 2, the crowd-proof lock: held from the first walk
+   * recording to the end (free again only while the phone is placed again: a try once more, the pad's
+   * other side, the stance), so never handed to anyone else: the walker leaving at each pass's end, or
+   * walking toward and away from the phone, is waited for and taken back by their size, their look and
+   * where they went; someone over the walker pauses only over the hips and legs the walk reads.
    */
-  private readonly lock = new SubjectLock(SUBJECT_RULES, {
-    mode: "stay",
-    releaseMs: SUBJECT_RULES.walkReleaseMs,
-    ignoreBehind: true,
-  });
+  private readonly lock = walkLock();
   /** A calibration step started: the lock is taken again on its first frame (the walker kept when there). */
   private retake = false;
+  /** D-038 item 2: the walker unseen for WALKER_GONE_MS in a walk recording (the hint asks them back). */
+  private walkerGone = false;
   private pausedByNow: PausedBy = null;
   private stoppedNow = false;
   private timer: { until: number; total: number; left: number | null } | null = null;
@@ -792,6 +814,12 @@ export class GaitController implements CoachHost {
       this.warmGate = { seen: 0, total: 0 };
     }
     if (s.id === "stand" || s.id === "stance") this.retake = true;
+    // D-038 item 2: the phone placed again (a try once more, the pad's other side, the stance) changes
+    // the picture: the next calibration takes its person again, the walker kept when found. The front
+    // and back part (D-038 item 4) leaves the phone where it is, but the walker now faces it: their
+    // torso reads wider than from the side, so its start is a calibration between steps too (the
+    // walker kept when found, else the one standing ready, never a bystander followed all along).
+    if (s.id === "place" || s.id === "stance_place") this.lock.hold(false);
     if (s.id === "stand" && s.rec) {
       const r = this.recOf(s.rec);
       r.standing = [];
@@ -1045,14 +1073,17 @@ export class GaitController implements CoachHost {
     const s = this.current;
     if (this.stopList || this.stoppedNow || this.pausedByNow) return;
     // The walker in this frame: the lock is first taken at the standing calibration, then follows
-    // them on every camera frame, whatever the step. Walking across the picture, leaving it at each
-    // pass's end is normal (the lock's "walk" rules: back from the side they left by); standing for a
-    // calibration or on the pad, the person stays (its "stay" rules).
-    this.lock.setMode(s.id === "walk" && s.rec === "overground_side" ? "walk" : "stay");
+    // them on every camera frame, whatever the step. Walking (overground: across the picture, and
+    // toward and away from the phone), leaving it at each pass's end is normal (the lock's "walk"
+    // rules: back from the side they left by, or within reach of where they were lost, grown or
+    // shrunk); standing for a calibration or on the pad, the person stays (its "stay" rules).
+    this.lock.setMode(s.id === "walk" && s.rec?.startsWith("overground") ? "walk" : "stay");
+    // D-038 item 2: from the first walk recording to the end, the walk is one test: never another walker.
+    if (s.id === "walk") this.lock.hold(true);
     const picks = PICK_STEPS.has(s.id) || this.lock.locked;
     if (this.retake && (s.id === "stand" || s.id === "stance")) {
       const poses = posesOf(frame);
-      if (poses.length && this.lock.lock(poses, frame.aspect, frame.t)) this.retake = false;
+      if (poses.length && this.lock.lock(poses, frame.aspect, frame.t, frame.looks)) this.retake = false;
     }
     const who = picks ? this.walker(frame) : NOBODY;
     if (s.id === "stand" && s.rec) return this.feedStanding(this.recOf(s.rec), frame, env.rollDeg, who);
@@ -1066,7 +1097,9 @@ export class GaitController implements CoachHost {
     }
   }
 
-  private setHint(h: GaitHint | null): void {
+  private setHint(hint: GaitHint | null): void {
+    // D-038 item 2: the walker gone much longer than a turn at a pass's end: a calm «come back».
+    const h = this.walkerGone && hint !== "unclear" ? "no_person" : hint;
     if (h === this.hintNow) return;
     this.hintNow = h;
     if (h) {
@@ -1095,10 +1128,11 @@ export class GaitController implements CoachHost {
     const lock = this.lock;
     if (!lock.locked) {
       const poses = posesOf(frame);
-      if (!poses.length || !lock.lock(poses, frame.aspect, frame.t))
+      if (!poses.length || !lock.lock(poses, frame.aspect, frame.t, frame.looks))
         return { lm: null, counted: null, crowded: false };
     }
     const pick = lock.pickFrame(frame);
+    this.walkerGone = this.current.id === "walk" && lock.lostMs >= WALKER_GONE_MS;
     const crowded = pick.paused && pick.others > 0 && (pick.touching || pick.overlap > 0);
     if (!pick.lm) return { lm: null, counted: null, crowded };
     if (pick.paused) return { lm: null, counted: pick.reason === "overlap" ? pick.lm : null, crowded };
@@ -1107,8 +1141,7 @@ export class GaitController implements CoachHost {
 
   private feedStanding(r: Recording, frame: Frame, roll: number | null, who: Walker): void {
     const { lm, crowded } = who;
-    if (!lm || !seen(lm, HIPS_ANKLES))
-      return this.setHint(lm ? "feet" : crowded ? "second_person" : "no_person");
+    if (!lm || !seen(lm, HIPS_ANKLES)) return this.setHint(lm ? "feet" : crowded ? "unclear" : "no_person");
     this.setHint(null);
     if (roll !== null && Number.isFinite(roll)) r.rolls.push(roll);
     r.standing.push({ t: frame.t, lm, aspect: frame.aspect ?? 1 });
@@ -1144,7 +1177,7 @@ export class GaitController implements CoachHost {
     const pad = r.id.startsWith("pad");
     this.setHint(
       crowded
-        ? "second_person"
+        ? "unclear"
         : pad
           ? lm
             ? seen(lm, FEET)
@@ -1213,8 +1246,7 @@ export class GaitController implements CoachHost {
     if (!st) return;
     const now = frame.t;
     const { lm, crowded } = who;
-    if (!lm || !seen(lm, HIPS_ANKLES))
-      return this.setHint(lm ? "feet" : crowded ? "second_person" : "no_person");
+    if (!lm || !seen(lm, HIPS_ANKLES)) return this.setHint(lm ? "feet" : crowded ? "unclear" : "no_person");
     this.setHint(null);
     const g: GaitFrame = { t: now, lm, aspect: frame.aspect ?? 1 };
     const phase = this.stanceNow(now).phase;

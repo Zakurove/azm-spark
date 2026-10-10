@@ -35,7 +35,7 @@ import {
   visible,
 } from "./body";
 import { effectiveAspect, toPixelSpace, trunkLength } from "./geometry";
-import { nearestCentre, SUBJECT_RULES, type SubjectPick } from "./subject";
+import { coveredPoints, nearestCentre, SUBJECT_RULES, type SubjectPick } from "./subject";
 import { Frame, Landmark, LM } from "./types";
 
 export { VIEW_RATIO } from "./body";
@@ -666,6 +666,12 @@ export interface SetupConfig {
    * theirs: further from the phone) is never a second person in the way; absent, v1: every overlap.
    */
   ignoreBehind?: boolean;
+  /**
+   * D-038 item 2 (v7): another person is in the way only when their body in the picture covers one of
+   * the framing landmarks (subject.ts coveredPoints, the crowd lock's rule), never for a box overlap
+   * elsewhere; absent, v1: the box overlap.
+   */
+  cover?: boolean;
 }
 
 // SPEC-GAP: stand-headroom. "From the head at full stand" cannot be seen while the person sits
@@ -819,7 +825,9 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
     const crowded = f.poses.some((o, j) => {
       if (j === i || !isPerson(o)) return false;
       if (size > 0 && trunkLength(o, a) < SUBJECT_RULES.behindShare * size) return false;
-      const ob = poseBox(toPixelSpace(o, a));
+      const op = toPixelSpace(o, a);
+      if (cfg.cover) return coveredPoints(op, p, cfg.framing, a).length > 0;
+      const ob = poseBox(op);
       return !!box && !!ob && overlapShare(box, ob) > SUBJECT_RULES.overlapMax;
     });
     if (crowded) bump("second_person");

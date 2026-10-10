@@ -28,7 +28,7 @@
  */
 import { isPerson } from "../engine/body";
 import { OneEuro } from "../engine/oneEuro";
-import { posesOf, SUBJECT_RULES, SubjectLock, subjectOf } from "../engine/subject";
+import { CROWD_LOCK, posesOf, SUBJECT_RULES, SubjectLock, subjectOf } from "../engine/subject";
 import type { Frame, Landmark } from "../engine/types";
 
 /** The body's lines: arms, trunk, legs and feet. */
@@ -101,8 +101,8 @@ export class SteadySkeleton {
   private alphaNow: number[] = [];
   private lastNow: number | null = null;
   private last: Frame | null = null;
-  /** The person followed in frames no screen lock read (the same rules as the screens', D-037 item 4). */
-  private lock = new SubjectLock(SUBJECT_RULES, { ignoreBehind: true });
+  /** The person followed in frames no screen lock read (the same rules as the screens', D-037 item 4, D-038 item 2). */
+  private lock = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
 
   constructor() {
     this.reset();
@@ -115,7 +115,7 @@ export class SteadySkeleton {
     this.alphaNow = Array.from({ length: 33 }, () => 0);
     this.lastNow = null;
     this.last = null;
-    this.lock = new SubjectLock(SUBJECT_RULES, { ignoreBehind: true });
+    this.lock = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
   }
 
   /**
@@ -127,12 +127,16 @@ export class SteadySkeleton {
     const marked = subjectOf(frame);
     if (marked !== undefined) {
       const lm = marked >= 0 ? (poses[marked] ?? null) : null;
-      // The own lock stays on the screen's person, for a frame no lock reads later.
-      if (lm && isPerson(lm)) this.lock.lock([lm], frame.aspect, frame.t);
+      // The own lock stays on the screen's person, for a frame no lock reads later (taken again on
+      // them when the screen's lock took someone new).
+      if (lm && isPerson(lm) && !this.lock.lock([lm], frame.aspect, frame.t)) {
+        this.lock.unlock();
+        this.lock.lock([lm], frame.aspect, frame.t);
+      }
       return lm && isPerson(lm) ? lm : null;
     }
-    if (!this.lock.locked && !this.lock.lock(poses, frame.aspect, frame.t)) return null;
-    return this.lock.pick(poses, frame.aspect, frame.t).lm;
+    if (!this.lock.locked && !this.lock.lock(poses, frame.aspect, frame.t, frame.looks)) return null;
+    return this.lock.pick(poses, frame.aspect, frame.t, frame.looks).lm;
   }
 
   /**

@@ -1,18 +1,25 @@
 /**
  * D-037 item 4 on the range measurement: one person locked (the booth, many people in the picture).
- * The runner follows the range part's one lock (romController: SubjectLock anchor "body", others
- * behind ignored); another person who comes into the picture, nearer the phone and in its middle, is
- * never measured, and a person who replaces the measured one (after the lock's release) has the start
- * pose taken again on them, never measured against the other's. Clearly synthetic.
+ * The runner follows the range part's one lock (romController: the crowd lock of D-038 item 2, anchor
+ * "body", held from the block's first movement); another person who comes into the picture, nearer the
+ * phone and in its middle, is never measured. D-038 item 2: the measured person gone mid try while
+ * another stands there, the other is never measured and no start pose is taken on them; a lock that is
+ * not held (the v1 lock's 2 s release) would take the start pose again on the other, never measuring
+ * them against the first one's. Clearly synthetic.
  */
 import { describe, expect, it } from "vitest";
-import { SUBJECT_RULES, SubjectLock, subjectOf } from "../../src/engine/subject";
+import { CROWD_LOCK, SUBJECT_RULES, SubjectLock, subjectOf } from "../../src/engine/subject";
 import type { Frame } from "../../src/engine/types";
 import { person } from "../fixtures/people";
 import { romSpec } from "../fixtures/rom/build";
 import { runRom } from "./b-fixtures";
 
-const lockOf = () => new SubjectLock(SUBJECT_RULES, { anchor: "body", ignoreBehind: true });
+/** The range part's lock (romController): the crowd lock, held while the block's movements run. */
+const lockOf = () => {
+  const lock = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, anchor: "body" });
+  lock.hold(true);
+  return lock;
+};
 
 const spec = romSpec({
   name: "rom/lock/shoulder_flexion",
@@ -49,11 +56,34 @@ describe("another person on the range measurement's camera (D-037 item 4)", () =
       expect(run.runner.lock.generation).toBe(1);
     });
 
-  it("A leaves for longer than the release time while B stands there: the start pose is taken again, on B", () => {
+  it("D-038 item 2: A leaves mid try while B stands there: B is never measured, no start pose on B", () => {
     const b = person({ x: 0.14, height: 0.7 }, 9 / 16);
     let leftAt = Infinity;
     const run = runRom(spec, {
       runner: { subject: lockOf() },
+      frames: (frames) => {
+        const cut = frames[Math.floor(frames.length / 3)].t;
+        leftAt = cut;
+        return frames.map((f) => {
+          const own = f.poses ?? [f.lm];
+          const poses = f.t < cut ? [...own, b] : [b];
+          return { ...f, lm: poses[0], poses } as Frame;
+        });
+      },
+    });
+    const phases = run.events.flatMap((e) => (e.kind === "phase" ? [{ phase: e.phase, t: e.t }] : []));
+    expect(phases.some((p) => p.phase === "calibrating" && p.t > leftAt)).toBe(false);
+    expect(run.holds.every((h) => h.t < leftAt)).toBe(true);
+    expect(run.events.some((e) => e.kind === "live" && e.t > leftAt + 100)).toBe(false);
+    for (const f of run.frames) if (f.t > leftAt && subjectOf(f) !== undefined) expect(subjectOf(f)).toBe(-1);
+    expect(run.runner.lock.generation).toBe(1);
+  });
+
+  it("the v1 lock (not held, 2 s): A leaves for longer while B stands there: the start pose is taken again, on B", () => {
+    const b = person({ x: 0.14, height: 0.7 }, 9 / 16);
+    let leftAt = Infinity;
+    const run = runRom(spec, {
+      runner: { subject: new SubjectLock(SUBJECT_RULES, { anchor: "body", ignoreBehind: true }) },
       frames: (frames) => {
         // A is followed until the first attempt is under way, then leaves; B stands still.
         const cut = frames[Math.floor(frames.length / 3)].t;

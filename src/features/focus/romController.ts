@@ -56,9 +56,9 @@ import type {
 } from "../../coach/types";
 import { FeedbackGate, type GateMessage } from "../../engine/feedbackGate";
 import { setupCheck, type SetupFrame, type SetupIssue, type Tilt } from "../../engine/quality";
-import { romSetupConfig } from "../../engine/rom/quality";
+import { movementLandmarks, romSetupConfig } from "../../engine/rom/quality";
 import { RomRunner } from "../../engine/rom/runner";
-import { SUBJECT_RULES, SubjectLock, subjectOf } from "../../engine/subject";
+import { CROWD_LOCK, markSubject, SUBJECT_RULES, SubjectLock, subjectOf } from "../../engine/subject";
 import type {
   AnswerResult,
   AnswerSource,
@@ -87,6 +87,7 @@ import type { RomFindingId } from "../../medical/rom-types";
 import { movementDef, ROM_DATA } from "../../movements/rom";
 import type { RomCopyKey, RomCueId } from "../../movements/rom/types";
 import type { CheckCueId } from "../../movements/types";
+import { tV7 } from "../../i18n/v7";
 import { instructionLines } from "./copy";
 import { againSay, blockSay, correctionSay, moveSay, restSay, setupIssueSay, setupSay } from "./coachSay";
 import { SAFETY_TIMING } from "../assessment/safety/timing";
@@ -94,6 +95,12 @@ import { SAFETY_TIMING } from "../assessment/safety/timing";
 export type PoseModel = "lite" | "full";
 export type Line = RomCueId | RomCopyKey | CheckCueId;
 export type PausedBy = "coach" | "screen";
+/**
+ * A live setup issue of the range measurement. D-038 item 2: the setup check's «second_person» is
+ * «unclear» here: its caption and the coach speak only about the person («one moment, we go on when we
+ * can see you clearly»), never of anyone else in the picture.
+ */
+export type RomSetupIssue = Exclude<SetupIssue, "second_person"> | "unclear";
 
 /**
  * What the shell knows of the phone with each frame: the picture's roll for the runner (FeedEnv, the
@@ -118,6 +125,18 @@ const SETUP_WINDOW_MS = 1000;
  * interface time: a passing issue of a frame or two is never said).
  */
 export const SETUP_SAY_AFTER_MS = 1000;
+/**
+ * D-038 item 2: the person measured unseen this long (the lock's clock) pauses the measurement until
+ * they are back (an interface time: the model missing a person for a moment pauses nothing).
+ */
+export const LOST_PAUSE_MS = 1500;
+/**
+ * D-038 item 2: someone over the landmarks the movement needs for this long in a try (the lock's
+ * clock): the screen and the coach say «one moment, we go on when we can see you clearly», at most
+ * once every UNCLEAR_SAY_EVERY_MS (interface times).
+ */
+export const UNCLEAR_AFTER_MS = 1000;
+export const UNCLEAR_SAY_EVERY_MS = 10000;
 
 export interface RomControllerOptions {
   /** The check's protocol as the start answered it (skips and helpers applied). */
@@ -296,7 +315,7 @@ export class RomController implements CoachHost {
   /** D-035: a measured result whose card still offers one more try; saved once the card is left. */
   private pendingSave: { item: RomProtocolItem; result: RomMeasureResult } | null = null;
   private setupFrames: SetupFrame[] = [];
-  private setupIssueNow: SetupIssue | null = null;
+  private setupIssueNow: RomSetupIssue | null = null;
   /** D-037 item 1: when the setup issue now appeared, and whether the coach was handed it. */
   private setupIssueSince = 0;
   private setupIssueSaid = false;
@@ -313,9 +332,19 @@ export class RomController implements CoachHost {
    * The person measured, one for the whole range part (D-037 item 4: the booth, many people in the
    * picture): every movement's runner follows them with this lock, and it follows them on every
    * camera frame between the movements, so a movement's calibration keeps them while they are there
-   * and another person in the picture is never measured, drawn or cued.
+   * and another person in the picture is never measured, drawn or cued. D-038 item 2, the crowd-proof
+   * lock: held from the block's first start pose to the block's end, never handed to anyone else.
+   * Between blocks (the card, the person moving to the next position) and while the block's first
+   * start pose is taken, it keeps the person when found, else takes one new in the picture (never
+   * someone who stood there all along), or after 20 s without anyone, someone standing ready. Someone
+   * in front pauses only over the movement's own landmarks.
    */
-  private readonly lock = new SubjectLock(SUBJECT_RULES, { anchor: "body", ignoreBehind: true });
+  private readonly lock = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, anchor: "body" });
+  /** D-038 item 2: the measurement waits (the runner paused) for its person, out of the picture. */
+  private lostNow = false;
+  /** D-038 item 2: someone covers what the movement needs, in a try; and when that was last said. */
+  private unclearNow = false;
+  private unclearSaidAt = -Infinity;
 
   constructor(opts: RomControllerOptions) {
     this.opts = opts;
@@ -371,6 +400,8 @@ export class RomController implements CoachHost {
 
   private showBlock(t: number): void {
     const block = this.blockNow ?? "seated";
+    // D-038 item 2: a block's card is between steps (the person may change place): the lock is free.
+    this.lock.hold(false);
     this.go({
       kind: "block",
       block,
@@ -455,8 +486,13 @@ export class RomController implements CoachHost {
   }
 
   /** The first live setup issue while the start pose is taken (calibrating), or null. */
-  get setupIssue(): SetupIssue | null {
+  get setupIssue(): RomSetupIssue | null {
     return this.setupIssueNow;
+  }
+
+  /** D-038 item 2: in a try, the person is not seen clearly (someone over them): a neutral caption. */
+  get unclear(): boolean {
+    return this.unclearNow;
   }
 
   get stopList(): StopListState | null {
@@ -465,6 +501,11 @@ export class RomController implements CoachHost {
 
   get paused(): PausedBy | null {
     return this.pausedBy;
+  }
+
+  /** D-038 item 2: the measurement waits for its person, who is out of the picture (or hidden). */
+  get lost(): boolean {
+    return this.lostNow;
   }
 
   /** The instruction card is open over the measurement. */
@@ -592,9 +633,67 @@ export class RomController implements CoachHost {
     const rollDeg = env.rollDeg ?? env.tilt?.rollDeg ?? null;
     // The runner first: its lock marks the frame's person, whom the setup check reads (D-037 item 4).
     const events = this.runner.feed(frame, { rollDeg });
+    // A frame the lock found nobody in (a calibration waiting for its person) is nobody's.
+    if (this.lock.locked && subjectOf(frame) === undefined) markSubject(frame, -1);
     if (phase === "calibrating") this.watchSetup(s.item, frame, env.tilt ?? null);
     else if (this.setupIssueNow !== null) this.setupIssueNow = null;
     this.take(s.item, events, frame.t, true);
+    this.watchLock(s.item, frame.t);
+  }
+
+  /**
+   * D-038 item 2. Once a start pose is taken (a try runs), the block's test is under way: the lock is
+   * held to the block's end. The person measured out of the picture (or hidden) for LOST_PAUSE_MS
+   * while the start pose is taken or a try runs: the runner pauses (its clock stops, nothing is
+   * measured) and the screen and the coach say calmly to step back; a held lock never takes anyone
+   * else. The same person back, the try starts again (the runner's resume: nothing of it is kept, no
+   * try is used).
+   */
+  private watchLock(item: RomProtocolItem, t: number): void {
+    const r = this.runner;
+    if (!r || this.stepNow.kind !== "measure") return;
+    if (r.phase === "practice" || r.phase === "attempt" || r.phase === "rest") this.lock.hold(true);
+    // Someone over what the movement needs, in a try: a neutral line about the person only.
+    const unclear =
+      (r.phase === "practice" || r.phase === "attempt") && this.lock.coveredMs >= UNCLEAR_AFTER_MS;
+    if (unclear !== this.unclearNow) {
+      this.unclearNow = unclear;
+      if (unclear && t - this.unclearSaidAt >= UNCLEAR_SAY_EVERY_MS) {
+        this.unclearSaidAt = t;
+        this.say(this.unclearSay(), t);
+      }
+      this.changed();
+    }
+    if (!this.lostNow) {
+      const active = r.phase === "calibrating" || r.phase === "practice" || r.phase === "attempt";
+      if (!active || this.pausedBy !== null || this.lock.lostMs < LOST_PAUSE_MS) return;
+      const events = r.pause(t);
+      if (!events.length) return;
+      this.lostNow = true;
+      this.take(item, events, t);
+      this.say(
+        {
+          p: 2,
+          type: "say",
+          kind: "correction",
+          key: "subject_lost",
+          lines: [tV7(this.opts.lang, "rom.measure.back")],
+        },
+        t,
+      );
+      this.changed();
+    } else if (this.lock.lostMs === 0 && this.lock.locked) {
+      const res = r.resume(t);
+      this.lostNow = false;
+      this.take(item, res.events, t);
+      this.changed();
+    }
+  }
+
+  /** «One moment, we go on when we can see you clearly»: about the person only (D-038 item 2). */
+  private unclearSay(): CoachSay {
+    const lines = [tV7(this.opts.lang, "rom.measure.unclear")];
+    return { p: 2, type: "say", kind: "correction", key: "unclear", lines };
   }
 
   /** Time passes without a frame (timers): ends a rest, the sit before stand minute. */
@@ -1167,6 +1266,10 @@ export class RomController implements CoachHost {
       ...(this.opts.restSec !== undefined ? { restSec: this.opts.restSec } : {}),
     });
     this.lastMeasured = item;
+    // D-038 item 2: someone in front pauses only over this movement's own landmarks.
+    this.lock.setNeeds(movementLandmarks(def, item.side, { gravityMode: true }).gate);
+    this.lostNow = false;
+    this.unclearNow = false;
     this.liveDeg = null;
     this.attemptNow = 0;
     this.validNow = 0;
@@ -1228,7 +1331,9 @@ export class RomController implements CoachHost {
     const res = setupCheck(this.setupFrames, romSetupConfig(movementDef(item.movementId), item.side), {
       tilt,
     });
-    const issue = res.ok ? null : (res.issues[0] ?? null);
+    const first = res.ok ? null : (res.issues[0] ?? null);
+    // D-038 item 2: never a word about anyone else, to the coach or on the screen.
+    const issue: RomSetupIssue | null = first === "second_person" ? "unclear" : first;
     if (issue !== this.setupIssueNow) {
       this.setupIssueNow = issue;
       this.setupIssueSince = frame.t;
@@ -1240,7 +1345,7 @@ export class RomController implements CoachHost {
     // ... and says it once it has lasted a moment (D-037 item 1: the caption is too far to read).
     if (issue && !this.setupIssueSaid && frame.t - this.setupIssueSince >= SETUP_SAY_AFTER_MS) {
       this.setupIssueSaid = true;
-      this.say(setupIssueSay(issue, this.opts.lang), frame.t);
+      this.say(issue === "unclear" ? this.unclearSay() : setupIssueSay(issue, this.opts.lang), frame.t);
     }
   }
 

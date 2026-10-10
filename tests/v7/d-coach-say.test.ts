@@ -418,7 +418,11 @@ describe("the range steps hand the coach their words (RomController)", () => {
     );
     const said = bridges(run.events).filter((e) => e.type === "say" && e.kind === "correction");
     expect(said).toEqual([
-      expect.objectContaining({ key: "setup_second_person", lines: ["Someone else in the middle"] }),
+      // D-038 item 2: about the person only, never anyone else in the picture.
+      expect.objectContaining({
+        key: "unclear",
+        lines: ["One moment, we’ll go on when we can see you clearly"],
+      }),
     ]);
     expect(said[0].t - seenAt!).toBeGreaterThanOrEqual(SETUP_SAY_AFTER_MS - 100);
   });

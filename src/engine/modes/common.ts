@@ -293,7 +293,7 @@ export class SubjectTracker {
 
   /** Locks on the person nearest the centre; false when nobody is in the frame. */
   lockOn(frame: Frame): boolean {
-    return this.lock.lock(posesOf(frame), frame.aspect);
+    return this.lock.lock(posesOf(frame), frame.aspect, frame.t, frame.looks);
   }
 
   track(frame: Frame): Tracked {

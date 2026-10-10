@@ -285,7 +285,8 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
   // D-035: one valid attempt records the value; a second only when the person asks for it.
   const scored = Math.max(RUNNER_RULES.validAttempts, att.index);
   const caption = ctl.caption;
-  const issue = phase === "calibrating" ? ctl.setupIssue : null;
+  // D-038 item 2: someone over the person in a try reads as the start pose's «unclear»: about them only.
+  const issue = phase === "calibrating" ? ctl.setupIssue : ctl.unclear ? "unclear" : null;
   const asking =
     phase === "ask_max" || phase === "ask_pain" || phase === "ask_cause" || phase === "ask_can_move";
   // Pause has focus when the measurement opens and again when a question closes (STOP had it before
@@ -318,7 +319,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
           : phase === "rest"
             ? tV7(lang, "rom.measure.rest")
             : phase === "paused"
-              ? tV7(lang, "rom.measure.paused")
+              ? tV7(lang, ctl.lost ? "rom.measure.back" : "rom.measure.paused")
               : "";
   const sub =
     phase === "practice"
@@ -367,7 +368,11 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
           <p className={`fx-caption${caption ? " is-warn" : ""}`} role="status">
             {bidiText(
               lang,
-              caption ? lineText(caption, lang) : t(lang, `assessment.setup.issue.${issue}` as never),
+              caption
+                ? lineText(caption, lang)
+                : issue === "unclear"
+                  ? tV7(lang, "rom.measure.unclear")
+                  : t(lang, `assessment.setup.issue.${issue}` as never),
             )}
           </p>
         )}
@@ -433,7 +438,7 @@ export function MeasureScreen({ lang, ctl, item, n, total, video, frame, clock, 
             <div className="fx-prompt" data-fold>
               {prompt && <p className="fx-prompt-main">{prompt}</p>}
               {sub && <p className="fx-prompt-sub">{bidiText(lang, sub)}</p>}
-              {phase === "paused" && (
+              {phase === "paused" && !ctl.lost && (
                 <Actions
                   items={[
                     {

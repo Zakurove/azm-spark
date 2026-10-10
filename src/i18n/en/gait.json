@@ -126,7 +126,7 @@
       "light": "Turn on more light, and keep the phone still.",
       "whole_body": "Move the phone back a little, so your feet show the whole time.",
       "more_steps": "Walk a little further each way, across the whole picture.",
-      "one_person": "Only you in the picture, please. Your helper stays behind you."
+      "one_person": "We could not see you clearly the whole time."
     }
   },
   "stance": {
@@ -142,7 +142,7 @@
   },
   "hint": {
     "no_person": "We cannot see you in the picture",
-    "second_person": "We see someone close to you. Your helper stays behind you",
+    "unclear": "One moment, we’ll go on when we can see you clearly",
     "feet": "We need to see both feet",
     "legs": "Move the phone a little so your whole leg shows",
     "light": "More light helps us see your steps",

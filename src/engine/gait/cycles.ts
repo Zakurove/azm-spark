@@ -164,7 +164,7 @@ export function buildCycles(
         if (st < lo * ref || st > hi * ref) drop(c, "duration");
       }
       if (c.clean) {
-        const share = visibleShare(p, gateLandmarksOf(padNear ?? c.side, kind), c.icStart, c.icEnd);
+        const share = visibleShare(p, gateLandmarksOf(padNear ?? c.side, kind, steady), c.icStart, c.icEnd);
         if (share < GAIT_ENGINE.gateShare) drop(c, "visibility");
       }
       if (c.clean)
@@ -264,8 +264,8 @@ function timingEvents(
  * knee is under the floor in about half the frames, G1's smoke), and a far leg's cycle is kept only
  * where that leg passes its own gate.
  */
-function gateLandmarksOf(side: LimbSide, kind: "side" | "front"): readonly number[] {
-  if (kind === "front") return GAIT_ENGINE.gateLandmarks;
+function gateLandmarksOf(side: LimbSide, kind: "side" | "front", steady: SteadyRules): readonly number[] {
+  if (kind === "front") return steady.frontGate;
   const leg = LEG[side];
   return [LEG.left.hip, LEG.right.hip, leg.knee, leg.ankle, leg.heel, leg.toe];
 }

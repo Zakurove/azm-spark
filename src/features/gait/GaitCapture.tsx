@@ -1,10 +1,13 @@
 /**
- * The walk's screens (product v7 contract 2.8.4, stream C, step C4; plan 2.5; D-036 item 6: one walk,
- * the side view): the setup with the phone's placement (one clear instruction and picture: across
- * the picture and back, side on to the phone), every pad safety step and the clear path as taps
- * (C-16 confirm steps), the live capture with the walker's lines over the picture, a step counter,
- * «pass N of 4» or the pad's seconds, «I have finished» always there, and calm hints, the static single
- * leg stance, the pad's speed and handrail, and the result card (labels only while provisional).
+ * The walk's screens (product v7 contract 2.8.4, stream C, step C4; plan 2.5; D-036 item 6 and D-038
+ * item 4: one walk in two parts): the setup with the phone's placement (part 1, one clear instruction
+ * and picture: across the picture and back, side on to the phone; part 2, its own screen and drawing:
+ * the phone left where it is, toward it and back, twice, from 4 to 5 m, turning about 2 m before it),
+ * every pad safety step and the clear path as taps (C-16 confirm steps), the live capture with the
+ * walker's lines over the picture, a step counter, «pass N of 4», «toward and back N of 2» or the
+ * pad's seconds, «I have finished» always there, and calm hints («turn» as the feet near the
+ * picture's bottom), the static single leg stance, the pad's speed and handrail, and the result card
+ * (labels only while provisional).
  * GaitController holds the logic; this file wires it to the camera (the focus check's one camera,
  * C-10), the coach's events and the buttons the coach may press on the person's spoken words (D-036
  * item 2, coachActions.ts), and the gait route. Only the Live coach speaks (D-036 item 1): without it
@@ -80,6 +83,8 @@ export function fixtureFor(ctl: GaitController): string {
   switch (rec) {
     case "overground_side":
       return "gait/overground-side";
+    case "overground_front":
+      return "gait/home-toward-back";
     case "pad_front":
       return "gait/pad-front";
     case "pad_side_a":
@@ -94,6 +99,7 @@ export function fixtureFor(ctl: GaitController): string {
 
 const PLACEMENT: Record<RecordingId, PlacementKind> = {
   overground_side: "overground_side",
+  overground_front: "overground_front",
   pad_side_a: "pad_side",
   pad_side_b: "pad_side",
   pad_front: "pad_front",
@@ -137,19 +143,34 @@ export function instructionText(ctl: GaitController, lang: Lang): string {
     case "place":
       if (rec === "overground_side")
         return `${gt(lang, "place.side1")} ${gt(lang, "place.side2")} ${gt(lang, "place.side3")}`;
+      if (rec === "overground_front") return frontLines(lang).join(" ");
       if (rec === "pad_front") return `${gt(lang, "place.padFront1")} ${gt(lang, "place.padFront2")}`;
       return `${gt(lang, "place.padSide1")} ${gt(lang, "place.padSide2")}${side ? "" : ""}`;
     case "walk":
       if (rec === "overground_side") return gt(lang, "walk.sideSay");
+      if (rec === "overground_front") return gt(lang, "walk.frontSay");
       return gt(lang, "walk.padTitle");
     default:
       return setupLine("stop_any_time", lang);
   }
 }
 
-/** The kind of a stand or walk step's view: the overground side walk, or the pad. */
-const viewKindOf = (rec: RecordingId | undefined): "side" | "pad" =>
-  rec === "overground_side" ? "side" : "pad";
+/** The kind of a stand or walk step's view: the overground side walk, the walk toward the phone, or the pad. */
+const viewKindOf = (rec: RecordingId | undefined): "side" | "front" | "pad" =>
+  rec === "overground_side" ? "side" : rec === "overground_front" ? "front" : "pad";
+
+/** Part 2's instruction (D-038 item 4): the phone where it is, start, turn, back, twice. */
+export function frontLines(lang: Lang): string[] {
+  return [
+    gt(lang, "place.front1"),
+    gt(lang, "place.front2"),
+    gt(lang, "place.front3"),
+    gt(lang, "place.front4"),
+  ];
+}
+
+/** The overground walk has part 2, toward the phone and back (the plan's front and back views). */
+const hasFront = (ctl: GaitController) => ctl.plannedSteps.some((x) => x.rec === "overground_front");
 
 /* --------------------------------------------------------------- the step */
 
@@ -203,9 +224,12 @@ export default function GaitCapture(props: GaitStepProps) {
         const id = setInterval(fn, ms);
         return () => clearInterval(id);
       };
-      // A spec may play another fixture for the next recording (window.azmGaitFixture, "empty": nobody).
-      const pick = (window as unknown as { azmGaitFixture?: string }).azmGaitFixture;
-      return new FixturePoseSource(pick || fixtureFor(ctl), { clock: { now: clock, every: realEvery } });
+      // A spec may play another fixture for the next recording (window.azmGaitFixture, "empty": nobody),
+      // or another one for one recording's own fixture (window.azmGaitFixtures, by fixtureFor's name).
+      const w = window as unknown as { azmGaitFixture?: string; azmGaitFixtures?: Record<string, string> };
+      const own = fixtureFor(ctl);
+      const pick = w.azmGaitFixtures?.[own] ?? w.azmGaitFixture;
+      return new FixturePoseSource(pick || own, { clock: { now: clock, every: realEvery } });
     });
   }, [ctl, e2e.gait, clock]);
   const session = e2eCam ?? focus.session;
@@ -769,6 +793,18 @@ function AcrossArrow() {
   );
 }
 
+/** The walk's direction in part 2 (D-038 item 4): toward the phone and back. */
+function TowardArrow() {
+  return (
+    <svg className="gx-toward" viewBox="0 0 64 40" aria-hidden="true" focusable="false">
+      <path d="M22 4 V36" />
+      <path d="M14 27 L22 36 L30 27" />
+      <path d="M42 36 V4" />
+      <path d="M34 13 L42 4 L50 13" />
+    </svg>
+  );
+}
+
 /** The steps from which «لن أمشي اليوم» (the slot's skip) gives way to STOP: the person is set up to walk. */
 const NO_SKIP: ReadonlySet<string> = new Set([
   "pad_on",
@@ -833,6 +869,7 @@ function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
         gt(lang, both ? "intro.both" : ctl.mode === "walking_pad" ? "intro.pad" : "intro.overground", {
           n: localizeDigits(lang, String(CAPTURE_RULES.sidePasses)),
         }),
+        ...(!both && ctl.mode === "overground" && hasFront(ctl) ? [gt(lang, "intro.part2")] : []),
         gt(lang, "intro.minutes"),
       ];
       return card(
@@ -897,6 +934,7 @@ function StepScreen({ lang, ctl, now, clock, stage }: GaitScreenProps) {
           <Title>{gt(lang, "path.title")}</Title>
           <Body lang={lang} text={setupLine("clear_path", lang)} />
           <Body lang={lang} text={gt(lang, "path.length")} muted />
+          {hasFront(ctl) && <Body lang={lang} text={gt(lang, "path.front")} muted />}
           <Note lang={lang} icon="refresh" text={setupLine("turn_slowly", lang)} />
         </>,
         ready(gt(lang, "path.ready")),
@@ -1196,28 +1234,43 @@ function PlaceScreen({
   const near = ctl.viewsOf(rec)[0]?.nearSide ?? "right";
   const moved =
     rec === "pad_side_b" || (rec === "pad_front" && ctl.plannedSteps.some((x) => x.rec === "pad_side_a"));
+  const front = rec === "overground_front";
   const titleKey =
     rec === "overground_side"
       ? "place.sideTitle"
-      : rec === "pad_front"
-        ? "place.padFrontTitle"
-        : moved
-          ? "place.padSideMoveTitle"
-          : "place.padSideTitle";
+      : front
+        ? "place.frontTitle"
+        : rec === "pad_front"
+          ? "place.padFrontTitle"
+          : moved
+            ? "place.padSideMoveTitle"
+            : "place.padSideTitle";
   const title = gt(lang, titleKey, { side: sideWord(near, lang) });
   const lines =
     rec === "overground_side"
       ? [gt(lang, "place.side1"), gt(lang, "place.side2"), gt(lang, "place.side3")]
-      : rec === "pad_front"
-        ? [gt(lang, "place.padFront1"), gt(lang, "place.padFront2")]
-        : [gt(lang, "place.padSide1"), gt(lang, "place.padSide2")];
+      : front
+        ? frontLines(lang)
+        : rec === "pad_front"
+          ? [gt(lang, "place.padFront1"), gt(lang, "place.padFront2")]
+          : [gt(lang, "place.padSide1"), gt(lang, "place.padSide2")];
   const level = ctl.hint !== "level";
+  // D-038 item 4: the overground walk in two parts, each placement screen says which.
+  const part = rec === "overground_side" && hasFront(ctl) ? 1 : front ? 2 : null;
   return (
     <div className="gx-flow gx-split is-place" data-step="place" data-rec={rec}>
       <Glass className="fx-card fx-figure gx-figure">
         {/* D-034 item 5: the phone's setup says nothing has started, and Ready stays on screen. */}
         <div className="fx-figure-head">
           <Kicker>{gt(lang, "kicker")}</Kicker>
+          {part !== null && (
+            <span className="fx-pill is-violet gx-part" data-part={part}>
+              {gt(lang, "place.partOf", {
+                n: localizeDigits(lang, String(part)),
+                total: localizeDigits(lang, "2"),
+              })}
+            </span>
+          )}
           <span className="fx-pill is-waiting" data-state="not-started">
             {tV7(lang, "rom.setup.notStarted")}
           </span>
@@ -1229,6 +1282,13 @@ function PlaceScreen({
             <figcaption className="gx-art-caption is-across" data-caption={rec}>
               <AcrossArrow />
               <span>{gt(lang, "place.sideCaption")}</span>
+            </figcaption>
+          )}
+          {/* D-038 item 4: part 2 goes toward the phone and back, twice. */}
+          {front && (
+            <figcaption className="gx-art-caption is-toward" data-caption={rec}>
+              <TowardArrow />
+              <span>{gt(lang, "place.frontCaption")}</span>
             </figcaption>
           )}
         </figure>
@@ -1255,7 +1315,8 @@ function PlaceScreen({
         sticky
         items={[
           {
-            label: gt(lang, "place.ready"),
+            // Part 2: the phone is already in place (D-038 item 4); the person is.
+            label: gt(lang, front ? "place.frontReady" : "place.ready"),
             name: "ready",
             icon: "check",
             onClick: () => ctl.confirm(performance.now()),
@@ -1280,8 +1341,10 @@ function WalkScreen({
   const rec = ctl.current.rec!;
   const live = ctl.live();
   const pad = rec.startsWith("pad");
-  const title = pad ? gt(lang, "walk.padTitle") : gt(lang, "walk.sideTitle");
-  const sub = pad ? gt(lang, "walk.padBody") : gt(lang, "walk.sideBody");
+  // D-038 item 4: part 2, toward the phone and back, «toward and back N of 2».
+  const front = rec === "overground_front";
+  const title = gt(lang, pad ? "walk.padTitle" : front ? "walk.frontTitle" : "walk.sideTitle");
+  const sub = gt(lang, pad ? "walk.padBody" : front ? "walk.frontBody" : "walk.sideBody");
   const phase = live?.phase ?? "walking";
   const paused = ctl.pausedBy !== null;
   const left = live && pad ? Math.max(0, live.plannedSeconds - live.seconds) : 0;
@@ -1339,9 +1402,9 @@ function WalkScreen({
             ) : (
               <Counter
                 value={localizeDigits(lang, String(passNow))}
-                label={gt(lang, "walk.pass")}
+                label={gt(lang, front ? "walk.lap" : "walk.pass")}
                 of={gt(lang, "walk.of", { n: localizeDigits(lang, String(live.target)) })}
-                total={gt(lang, "walk.passOf", {
+                total={gt(lang, front ? "walk.lapOf" : "walk.passOf", {
                   n: localizeDigits(lang, String(passNow)),
                   total: localizeDigits(lang, String(live.target)),
                 })}

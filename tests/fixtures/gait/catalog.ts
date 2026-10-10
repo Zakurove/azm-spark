@@ -363,6 +363,21 @@ export const GAIT_CATALOG: readonly GaitCatalogEntry[] = [
       "At home (D-035 item 2): four walks toward a phone standing against a wall, each turning a step before it and walking back, nobody leaving the picture.",
   },
   {
+    name: "home-toward-back",
+    spec: {
+      view: "front",
+      passes: 2,
+      seed: 910,
+      home: { farM: 5, nearM: 2 },
+      passShiftM: 0.3,
+      camera: { lateral: 0, height: 0.95, landscape: true },
+      noise: 0.002,
+      jitterMs: 8,
+    },
+    notes:
+      "At home, part 2 of the walk (D-038 item 4): the phone left sideways at hip height where it stood for the side passes; twice toward it from 5 m, turning 2 m before it (the feet near the picture's bottom), and back.",
+  },
+  {
     name: "pad-side-right-weaker-right",
     spec: {
       view: "pad_side",

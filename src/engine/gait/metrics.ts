@@ -66,6 +66,20 @@ export const TIMING_METRICS: readonly GaitMetricId[] = [
   "sr_stance",
 ];
 
+/**
+ * The frontal plane metrics the MVP's reading of the toward and away walk keeps (D-038 item 4): the
+ * hips, the trunk and the swing ankle's path, read cycle by cycle against the standing calibration as
+ * the data's reading reads them, at 25 fps or more (20 to 24 fps stays timing only).
+ */
+export const FRONTAL_METRICS: readonly GaitMetricId[] = [
+  "pelvic_drop",
+  "trunk_lean_peak",
+  "trunk_sway_range",
+  "swing_lateral_path",
+  "hip_hike",
+  "step_width_ratio",
+];
+
 export interface MetricInput {
   p: Prepared;
   view: GaitView;
@@ -89,6 +103,11 @@ export interface MetricInput {
    * view at home often hides (D-035 item 2).
    */
   cadenceFromStrides?: boolean;
+  /**
+   * The MVP's reading of a front or back view (D-038 item 4): besides the timing, the frontal plane
+   * metrics (FRONTAL_METRICS) at the full frame rate.
+   */
+  frontal?: boolean;
 }
 
 type Sided = Record<LimbSide, number[]>;
@@ -224,9 +243,10 @@ export function viewMetrics(m: MetricInput): Partial<Record<GaitMetricId, GaitMe
   const out: Partial<Record<GaitMetricId, GaitMetricValue>> = {};
   if (m.fps < GAIT_ENGINE.recordAgainBelowFps || !clean.length) return out;
   const timingOnly = m.timingOnly === true || m.fps < GAIT_ENGINE.fullFps;
+  const frontal = m.frontal === true && m.fps >= GAIT_ENGINE.fullFps;
   const put = (id: GaitMetricId, v: GaitMetricValue | null) => {
     if (!v || !metricInView(id, view)) return;
-    if (timingOnly && !TIMING_METRICS.includes(id)) return;
+    if (timingOnly && !TIMING_METRICS.includes(id) && !(frontal && FRONTAL_METRICS.includes(id))) return;
     if (id === "double_support_pct" && m.fps < DOUBLE_SUPPORT_MIN_FPS) return;
     out[id] = v;
   };

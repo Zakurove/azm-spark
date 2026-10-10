@@ -160,6 +160,8 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
       fps,
       timingOnly,
       cadenceFromStrides: timingOnly,
+      // D-038 item 4: the toward and away walk's MVP reading keeps its frontal plane metrics.
+      frontal: timingOnly && kind === "front",
     });
     const quality = viewQuality({
       p,
@@ -168,6 +170,7 @@ function readView(input: GaitViewInput, timing: boolean): GaitViewResult | null 
       noViewPasses:
         (view === "front" || view === "back") && p.series.bouts.length > 0 && !motion.passes.length,
       timing: timingOnly,
+      gate: steady.frontGate,
     });
     return { motion, events, cycles, metrics, quality };
   };

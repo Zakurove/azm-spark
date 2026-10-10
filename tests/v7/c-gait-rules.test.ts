@@ -99,9 +99,11 @@ describe("views and gates", () => {
     expect(on(out, "stiff_knee", "none")?.status).toBe("not_seen");
   });
 
-  it("never reads a pattern from a view read for timing only below its gate (D-035 item 2, GAIT_MVP)", () => {
-    // The MVP's timing only reading of a home walk: its clean cycles keep turn steps, so however many
-    // there are, the side view's patterns are not assessed, even with a ratio past the likely threshold.
+  it("reads only the timing pattern from a side view read for timing only below its gate, possible and provisional (D-038 item 4)", () => {
+    // The MVP's timing only reading of a home walk (D-035 item 2): its clean cycles keep turn steps, so
+    // the side view's kinematic patterns are not assessed however many there are. Shorter stance is
+    // timing (single support): it reads the timing reading's ratio on 2 clean cycles a side, possible
+    // at low confidence at most, with the provisional label, even past the likely threshold.
     const l = num(likely("shorter_stance"), "sr_single_support_gte");
     const timing = view({
       view: "side",
@@ -112,8 +114,17 @@ describe("views and gates", () => {
     });
     timing.quality.timingOnly = true;
     const out = patterns({ views: [timing] });
-    expect(on(out, "shorter_stance", "right")).toBeUndefined();
-    expect(on(out, "shorter_stance", "none")).toMatchObject({
+    expect(on(out, "shorter_stance", "right")).toMatchObject({
+      label: "short_stance",
+      status: "possible",
+      confidence: "low",
+      flags: ["mvp_reading"],
+    });
+    for (const id of ["stiff_knee", "crouch", "recurvatum", "steppage", "reduced_extension"] as const)
+      expect(on(out, id, "none"), id).toMatchObject({ status: "not_assessed", notAssessed: "gate_failed" });
+    // Under 2 clean cycles a side, the timing reading gives no pattern.
+    const thin = { ...timing, quality: { ...timing.quality, cleanCycles: { left: 4, right: 1 } } };
+    expect(on(patterns({ views: [thin] }), "shorter_stance", "none")).toMatchObject({
       status: "not_assessed",
       notAssessed: "gate_failed",
     });
@@ -1262,7 +1273,13 @@ describe("confidence (confidenceModel)", () => {
     )!;
     expect(r).toMatchObject({ status: "possible", confidence: null });
     expect(gaitPatternShown(r)).toBe(false);
-    expect(r.lines).toEqual({ pattern: { ar: "", en: "" }, reasons: null, targets: [], confidence: null });
+    expect(r.lines).toEqual({
+      pattern: { ar: "", en: "" },
+      name: { ar: "", en: "" },
+      reasons: null,
+      targets: [],
+      confidence: null,
+    });
   });
 
   it("caps every rule at possible with a light touch on the handrail", () => {

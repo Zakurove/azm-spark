@@ -1,7 +1,7 @@
 /**
- * D-035 item 2 and D-036 item 6 in the capture (src/features/gait/controller.ts): the walk at home is
- * one walk, the side view (across the picture and back, about 3 m from the phone); the front view is
- * never walked. Passes are counted as walks across the picture (sidePasses.ts), so the phone can stand
+ * D-035 item 2, D-036 item 6 and D-038 item 4 in the capture (src/features/gait/controller.ts): the
+ * walk at home is one walk in two parts, the side view (across the picture and back, about 3 m from
+ * the phone) and right after it the walk toward the phone and back (c-gait-front-walk). Passes are counted as walks across the picture (sidePasses.ts), so the phone can stand
  * on a shelf and nobody needs to leave the picture. The recording ends after its fixed 4 passes and
  * gives what it holds (GAIT_MVP: timing only below the full gate); one that gives nothing asks a calm,
  * specific line once and is kept as a diagnostic when the person goes on, so a walk never ends with
@@ -112,8 +112,8 @@ const wallWalk = (seed: number, passes = 4): WalkSpec => ({
   jitterMs: 8,
 });
 
-describe("the walk at home: one walk, the side view (D-036 item 6)", () => {
-  it("records the side view only, though the plan lists the front and back views", () => {
+describe("the walk at home: one walk in two parts, the side view first (D-038 item 4)", () => {
+  it("records the side view, then the walk toward the phone and back, with no offer between them", () => {
     const run = controller();
     expect(run.ctl.plannedSteps.map((s) => (s.rec ? `${s.id}:${s.rec}` : s.id))).toEqual([
       "intro",
@@ -122,18 +122,21 @@ describe("the walk at home: one walk, the side view (D-036 item 6)", () => {
       "place:overground_side",
       "stand:overground_side",
       "walk:overground_side",
+      "place:overground_front",
+      "stand:overground_front",
+      "walk:overground_front",
       "saving",
       "done",
     ]);
     expect(Object.keys(STEP_KIND)).not.toContain("front_offer");
   });
 
-  it("finishes after the side walk, with the side view alone in the body", () => {
+  it("goes on to part 2 after the side walk; part 2 left out keeps the side view alone in the body", () => {
     const run = controller();
     tapTo(run, "place");
     run.ctl.confirm(run.t);
     record(run, walk(sideAtHome(5)));
-    expect(run.ctl.current.id).toBe("saving");
+    expect(run.ctl.current).toEqual({ id: "place", rec: "overground_front" });
     const body = run.ctl.body()!;
     expect(body.analysis.views.map((v) => v.view)).toEqual(["side"]);
     expect(checkGaitBody(body as never, HOME).ok).toBe(true);

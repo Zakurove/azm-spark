@@ -530,6 +530,23 @@ figure.gx-art {
   background: var(--fx-gold-tint);
   color: var(--fx-gold-ink);
 }
+/* D-038 item 4: the recognised name leads, the plain line follows; the MVP's reading is provisional. */
+.gx-pattern-name {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.7;
+  font-weight: 800;
+  color: var(--fx-purple-ink);
+}
+.gx-pattern-line.is-plain {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--fx-muted);
+}
+.gx-provisional {
+  background: var(--fx-gold-tint);
+  color: var(--fx-gold-ink);
+}
 .gx-done {
   justify-items: start;
 }
@@ -654,4 +671,36 @@ figure.gx-art {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: #3b2f57;
+}
+
+/* ——— D-038 item 4: part 2, toward the phone and back ——— */
+.gx-side-path {
+  stroke: #cdbdea;
+  stroke-width: 1.4;
+  stroke-dasharray: 3 6;
+}
+.gx-art-caption.is-toward {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.gx-toward {
+  display: block;
+  width: 56px;
+  height: auto;
+  fill: none;
+  stroke: #6c56a5;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gx-part {
+  font-weight: 800;
+}
+/* The turn cue reads at a glance from 2 m: larger and gold, never a warning. */
+.fx-caption.gx-hint[data-hint="turn"] {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #4a3600;
+  background: rgba(248, 203, 68, 0.92);
 }

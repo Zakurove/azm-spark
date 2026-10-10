@@ -95,6 +95,81 @@ function Walker({ x, y, label }: { x: number; y: number; label?: string }) {
   );
 }
 
+/**
+ * Part 2 of the overground walk (D-038 item 4), seen from above: the phone left sideways where it
+ * stood for part 1 (whose path crosses its view about 3 m away), the start 4 to 5 m in front of it, the
+ * turn about 2 m before it, and the walk toward it and back. About 36 units a metre.
+ */
+function TowardPath({ lang, label }: { lang: Lang; label: string }) {
+  const y = (m: number) => 236 - 36 * m;
+  // The drawing is laid out left to right; an Arabic label with digits («4 إلى 5 أمتار») keeps its own
+  // right to left order inside an isolate, so «4» stays first in reading order.
+  const w = (key: string) => (lang === "ar" ? `\u2067${t(lang, key)}\u2069` : t(lang, key));
+  return (
+    <svg
+      className="gx-placement is-overground_front"
+      viewBox="0 0 320 262"
+      role="img"
+      aria-label={label}
+      direction="ltr"
+      lang={lang}
+    >
+      <defs>
+        <marker
+          id="gx-head-front"
+          viewBox="0 0 10 10"
+          refX="6"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto"
+        >
+          <path d="M0 0 L10 5 L0 10 Z" className="gx-arrow-head" />
+        </marker>
+      </defs>
+      {/* Part 1's path, across the phone's view about 3 m away. */}
+      <line x1={36} y1={y(3)} x2={284} y2={y(3)} className="gx-side-path" />
+      <text x={284} y={y(3) - 8} className="gx-label is-muted is-end">
+        {w("sidePath")}
+      </text>
+      <Phone
+        x={160}
+        y={y(0)}
+        landscape
+        to={[160, 26]}
+        label={t(lang, "phone")}
+        labelAt={{ x: 182, y: y(0) + 5, anchor: "start" }}
+      />
+      <rect x={138} y={y(5)} width={44} height={y(2) - y(5)} rx={10} className="gx-path" />
+      <line x1={130} y1={y(4.5)} x2={190} y2={y(4.5)} className="gx-mark" />
+      <line x1={130} y1={y(2)} x2={190} y2={y(2)} className="gx-mark is-stop" />
+      <text x={122} y={y(4.5) - 1} className="gx-label is-end">
+        {w("start")}
+      </text>
+      <text x={122} y={y(4.5) + 14} className="gx-label is-span is-end">
+        {w("startFar")}
+      </text>
+      <text x={122} y={y(2) - 1} className="gx-label is-end">
+        {w("turn")}
+      </text>
+      <text x={122} y={y(2) + 14} className="gx-label is-span is-end">
+        {w("turnNear")}
+      </text>
+      <path
+        d={`M152 ${y(4.5) + 12} L152 ${y(2) - 10}`}
+        className="gx-arrow"
+        markerEnd="url(#gx-head-front)"
+      />
+      <path
+        d={`M168 ${y(2) - 10} L168 ${y(4.5) + 12}`}
+        className="gx-arrow is-back"
+        markerEnd="url(#gx-head-front)"
+      />
+      <Walker x={160} y={y(4.5)} />
+    </svg>
+  );
+}
+
 /** One placement drawing, with a summary for screen readers. */
 export function Placement({
   kind,
@@ -109,12 +184,14 @@ export function Placement({
   /** The drawing's name for screen readers (the step's title). */
   label: string;
 }) {
+  // D-038 item 4: part 2's own drawing (the illustration of a walk toward a phone beside the path
+  // shows another setup: a phone standing upright off the path).
+  if (kind === "overground_front") return <TowardPath lang={lang} label={label} />;
   if (kind !== "stance") {
     const names = {
       pad_side: "v7_walk_pad_side",
       pad_front: "v7_walk_pad_front",
       overground_side: "v7_walk_side_path",
-      overground_front: "v7_walk_front_path",
     };
     return (
       <Illustration

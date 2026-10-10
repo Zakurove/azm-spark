@@ -3,6 +3,7 @@
   "intro": {
     "title": "Let’s measure how you walk",
     "overground": "You will walk across the picture and back {n} times, side on to the phone.",
+    "part2": "Then, with the phone where it is, you will walk toward it and back, twice.",
     "pad": "You will walk on the walking pad at a speed that feels comfortable, with the phone at your side and then in front of you.",
     "both": "You will walk on the floor or on the walking pad, at a speed that feels comfortable.",
     "minutes": "This takes a few minutes.",
@@ -34,15 +35,24 @@
   "path": {
     "title": "Get your walking path ready",
     "length": "About 3 metres of clear floor is enough.",
+    "front": "For the second part, keep the floor clear in front of the phone out to about 5 metres.",
     "ready": "The path is ready"
   },
   "place": {
     "ready": "The phone is ready",
+    "partOf": "Part {n} of {total}",
     "sideTitle": "Place the phone to see you from the side",
     "side1": "Stand the phone sideways on a shelf or against a wall, at about hip height.",
     "side2": "Your path runs across the picture, about 3 metres from the phone.",
     "side3": "Walk across and back with your side to the phone. Do not walk toward it.",
     "sideCaption": "Across the picture and back, side on to the phone",
+    "frontTitle": "Now walk toward the phone and back, twice",
+    "front1": "Leave the phone where it is.",
+    "front2": "Stand facing the phone, about 4 to 5 metres away.",
+    "front3": "Walk toward it at your usual pace. Turn when you are about 2 metres away, before your feet leave the picture.",
+    "front4": "Walk back to where you started, then do it once more.",
+    "frontCaption": "Toward the phone and back, twice",
+    "frontReady": "I am ready",
     "padSideTitle": "Place the phone on your {side} side",
     "padSideMoveTitle": "Move the phone to your {side} side",
     "padSide1": "Set the phone sideways on a stand, at about hip height.",
@@ -88,6 +98,7 @@
   },
   "stand": {
     "sideTitle": "Stand at one end of your path, side on to the phone",
+    "frontTitle": "Stand facing the phone, about 4 to 5 metres away",
     "padTitle": "Stand still on the stopped pad",
     "body": "Stay still for 3 seconds.",
     "seen": "We can see you well",
@@ -97,9 +108,15 @@
     "sideTitle": "Walk across the picture and back",
     "sideBody": "Turn at each end. Each walk across counts.",
     "sideSay": "Walk across the picture and back, side on to the phone, at your usual pace.",
+    "frontTitle": "Walk toward the phone and back",
+    "frontBody": "Turn about 2 metres before the phone.",
+    "frontSay": "Now walk toward the phone and back, twice, at your usual pace. Turn when you are about 2 metres from it.",
     "padTitle": "Walk at your comfortable speed",
     "pass": "Pass",
     "passOf": "Pass {n} of {total}",
+    "lap": "Toward and back",
+    "lapOf": "Toward and back {n} of {total}",
+    "lapDone": "That is {n} of {total}. Once more: toward the phone and back.",
     "of": "of {n}",
     "steps": "steps",
     "seconds": "seconds",
@@ -126,7 +143,9 @@
       "light": "Turn on more light, and keep the phone still.",
       "whole_body": "Move the phone back a little, so your feet show the whole time.",
       "more_steps": "Walk a little further each way, across the whole picture.",
-      "one_person": "Only you in the picture, please. Your helper stays behind you."
+      "one_person": "Only you in the picture, please. Your helper stays behind you.",
+      "front_start": "Start about 4 to 5 metres from the phone and walk straight toward it.",
+      "front_turn": "Turn a little earlier, about 2 metres before the phone, so your feet stay in the picture."
     }
   },
   "stance": {
@@ -148,7 +167,8 @@
     "light": "More light helps us see your steps",
     "level": "Straighten the phone so it is level",
     "across": "Walk across the picture, not toward the phone",
-    "further": "Walk a little further each way, across the picture"
+    "further": "Walk a little further each way, across the picture",
+    "turn": "Turn around now and walk back"
   },
   "save": {
     "saving": "Saving your walk",
@@ -174,7 +194,11 @@
     "replay": "One step cycle of your walk",
     "unclear": "We could not see your steps clearly enough this time.",
     "timing": "Timing of your steps",
-    "stepTime": "{side} step, seconds"
+    "stepTime": "{side} step, seconds",
+    "provisional": "Provisional",
+    "notCheckedFront": "This time we could not see your walk from the front clearly enough, so we did not check how your hips and upper body move.",
+    "notCheckedSide": "This time we could not see your walk from the side clearly enough, so we did not check how your knees move or how long you stand on each leg.",
+    "timingSide": "From the side we saw the timing of your steps clearly, but we could not measure how your knees move this time."
   },
   "side": {
     "right": "right",
@@ -183,6 +207,10 @@
   "diagram": {
     "phone": "Phone",
     "start": "Start",
+    "turn": "Turn",
+    "startFar": "4 to 5 metres",
+    "turnNear": "about 2 metres",
+    "sidePath": "Part 1 path",
     "stop": "Stop",
     "path": "3 metres",
     "offset": "0.5 metre",

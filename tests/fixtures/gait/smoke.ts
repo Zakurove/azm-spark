@@ -209,3 +209,22 @@ export function narrowerPicture(frames: readonly GaitFrame[], x0: number, x1: nu
     }),
   }));
 }
+
+/**
+ * Frames seen through a shorter picture (D-038 item 4): the part of the picture from y0 to y1 (shares
+ * of its height) becomes the whole picture, as a phone laid sideways sees the same walk with its short
+ * side upright: G1's rendered walk toward a portrait phone (70 degrees high, the lens 1 m up) cut to
+ * 50 degrees high (y 1/6 to 5/6), whose feet then leave its bottom about 2 m away. A landmark outside
+ * it is under the visibility floor, as the model gives a point it cannot see.
+ */
+export function shorterPicture(frames: readonly GaitFrame[], y0: number, y1: number): GaitFrame[] {
+  const h = y1 - y0;
+  return frames.map((f) => ({
+    ...f,
+    aspect: f.aspect / h,
+    lm: f.lm.map((q) => {
+      const y = (q.y - y0) / h;
+      return { ...q, y, visibility: y < 0 || y > 1 ? Math.min(q.visibility, 0.1) : q.visibility };
+    }),
+  }));
+}

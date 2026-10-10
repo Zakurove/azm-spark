@@ -173,7 +173,8 @@ function events(lang: Lang, block: CoachBlock): string[] {
     ],
     gait: [
       ...SAY_LINES,
-      "say kind=step: the walk's setup or instruction, for example the phone standing sideways about 3 metres from the path, and walking across the picture and back with their side to the phone, never toward it.",
+      "say kind=step: the walk's setup or instruction. The walk has two parts. Part 1: the phone standing sideways about 3 metres from the path, walking across the picture and back with their side to the phone, never toward it. Part 2, right after it with the phone left where it is: walking toward the phone and back, twice, starting 4 to 5 metres away and turning about 2 metres before it, before their feet leave the picture.",
+      "say key=hint_turn_1 or hint_turn_2 (part 2, each lap): they are close to the phone: tell them at once, in a few words, to turn around and walk back.",
       context,
       "pass_done: the walk in one view is done; no reply needed, at most a few words of encouragement.",
       "safety_stop on the walking pad: first tell the person to hold the support while their helper stops the pad.",

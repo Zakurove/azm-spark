@@ -71,9 +71,11 @@ export interface WalkSpec {
   noise?: number;
   /**
    * The phone: its distance, lens height and sideways offset (m); `portrait` holds a side view's
-   * phone upright (720x1280: the picture about 2.8 m wide at 3 m, so a pass across it is about 5 steps).
+   * phone upright (720x1280: the picture about 2.8 m wide at 3 m, so a pass across it is about 5 steps);
+   * `landscape` lays a front or back view's phone sideways (1280x720), as the phone left where it stood
+   * for the side walk sees the walk toward it and back (D-038 item 4).
    */
-  camera?: { distance?: number; height?: number; lateral?: number; portrait?: boolean };
+  camera?: { distance?: number; height?: number; lateral?: number; portrait?: boolean; landscape?: boolean };
   /** Leg labels exchanged in these ranges of walk time (seconds). */
   swaps?: { from: number; to: number }[];
   /** Away passes labelled as if facing the phone (every left and right label exchanged). */
@@ -582,7 +584,7 @@ export interface Camera {
 
 export function cameraOf(spec: Pick<WalkSpec, "view" | "camera" | "rollDeg">): Camera {
   const c = spec.camera ?? {};
-  const side = (spec.view === "side" || spec.view === "pad_side") && !c.portrait;
+  const side = ((spec.view === "side" || spec.view === "pad_side") && !c.portrait) || c.landscape === true;
   const w = side ? 1280 : 720;
   const h = side ? 720 : 1280;
   const f = Math.min(w, h) / 2 / Math.tan(25 * D2R);

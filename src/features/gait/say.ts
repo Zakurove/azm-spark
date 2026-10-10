@@ -1,9 +1,11 @@
 /**
  * What the Live coach says out loud during the walk (D-037 item 1: Nasser stands about 3 m from the
- * phone and cannot read it): each step's setup and instruction in the screen's own copy (the phone
- * sideways at hip height about 3 metres from the path, walking across the picture and back with the
- * side to the phone, never toward it), the pass count now and then, and the hints the screen shows.
- * The coach says them in its own words (bridge rule 9). Pure, no DOM.
+ * phone and cannot read it): each step's setup and instruction in the screen's own copy (part 1: the
+ * phone sideways at hip height about 3 metres from the path, walking across the picture and back with
+ * the side to the phone; part 2, D-038 item 4: the phone left where it is, walking toward it and back,
+ * twice, from 4 to 5 metres away, turning about 2 metres before it), the pass count now and then,
+ * «once more» after the first lap, each lap's «turn», and the hints the screen shows. The coach says
+ * them in its own words (bridge rule 9). Pure, no DOM.
  */
 import { capture as captureData } from "../../movements/gait/gait-v7.json";
 import type { GaitData } from "../../movements/gait/types";
@@ -40,7 +42,7 @@ function facingOf(ctl: GaitController, step: GaitStep): CoachFacing | null {
   if (!rec || !(step.id === "place" || step.id === "stand" || step.id === "walk" || step.id === "pad_on"))
     return null;
   if (rec === "overground_side") return "side";
-  if (rec === "pad_front") return "phone";
+  if (rec === "overground_front" || rec === "pad_front") return "phone";
   return ctl.viewsOf(rec)[0]?.nearSide === "left" ? "left_side" : "right_side";
 }
 
@@ -50,11 +52,14 @@ function stepLines(ctl: GaitController, step: GaitStep, lang: Lang): string[] {
   switch (step.id) {
     case "intro": {
       const both = ctl.plan.modes.length > 1;
-      return [
-        gt(lang, both ? "intro.both" : ctl.mode === "walking_pad" ? "intro.pad" : "intro.overground", {
+      const line = gt(
+        lang,
+        both ? "intro.both" : ctl.mode === "walking_pad" ? "intro.pad" : "intro.overground",
+        {
           n: String(SIDE_PASSES),
-        }),
-      ];
+        },
+      );
+      return ctl.mode === "overground" && hasFront(ctl) ? [line, gt(lang, "intro.part2")] : [line];
     }
     case "clear_path":
       return [setupLine("clear_path", lang), gt(lang, "path.length")];
@@ -69,6 +74,14 @@ function stepLines(ctl: GaitController, step: GaitStep, lang: Lang): string[] {
     case "place":
       if (rec === "overground_side")
         return [gt(lang, "place.side1"), gt(lang, "place.side2"), gt(lang, "place.side3")];
+      if (rec === "overground_front")
+        return [
+          gt(lang, "place.frontTitle"),
+          gt(lang, "place.front1"),
+          gt(lang, "place.front2"),
+          gt(lang, "place.front3"),
+          gt(lang, "place.front4"),
+        ];
       if (rec === "pad_front")
         return [gt(lang, "place.padFrontTitle"), gt(lang, "place.padFront1"), gt(lang, "place.padFront2")];
       return [
@@ -81,7 +94,14 @@ function stepLines(ctl: GaitController, step: GaitStep, lang: Lang): string[] {
       return [gt(lang, "pad.onTitle"), gt(lang, "pad.on1")];
     case "stand":
       return [
-        gt(lang, rec === "overground_side" ? "stand.sideTitle" : "stand.padTitle"),
+        gt(
+          lang,
+          rec === "overground_side"
+            ? "stand.sideTitle"
+            : rec === "overground_front"
+              ? "stand.frontTitle"
+              : "stand.padTitle",
+        ),
         gt(lang, "stand.body"),
       ];
     case "pad_start":
@@ -91,7 +111,9 @@ function stepLines(ctl: GaitController, step: GaitStep, lang: Lang): string[] {
     case "walk":
       return rec === "overground_side"
         ? [gt(lang, "walk.sideSay"), gt(lang, "walk.sideBody")]
-        : [gt(lang, "walk.padTitle"), gt(lang, "walk.padBody")];
+        : rec === "overground_front"
+          ? [gt(lang, "walk.frontSay"), gt(lang, "walk.frontBody")]
+          : [gt(lang, "walk.padTitle"), gt(lang, "walk.padBody")];
     case "walk_again":
       return [gt(lang, "again.title"), gt(lang, "again.body")];
     case "retry":
@@ -116,6 +138,11 @@ function stepLines(ctl: GaitController, step: GaitStep, lang: Lang): string[] {
   }
 }
 
+/** The walk has its second part, toward the phone and back (the plan's front and back views). */
+function hasFront(ctl: GaitController): boolean {
+  return ctl.plannedSteps.some((s) => s.rec === "overground_front");
+}
+
 /**
  * The passes the coach counts out loud (sparingly): from the second up to the one before the last,
  * never the first (the walk has just begun) nor the last (the walk ends a moment later).
@@ -135,13 +162,32 @@ export function passSay(n: number, target: number, lang: Lang): CoachSay {
   };
 }
 
-/** A hint the screen shows («Walk across the picture, not toward the phone»), kind correction. */
-export function hintSay(hint: GaitHint, lang: Lang): CoachSay {
+/**
+ * After a lap toward the phone and back that is not the last (D-038 item 4): «That is 1 of 2. Once
+ * more, toward the phone and back», kind progress (said only if the coach is free at once).
+ */
+export function lapSay(n: number, target: number, lang: Lang): CoachSay {
+  return {
+    p: 2,
+    type: "say",
+    kind: "progress",
+    key: `lap_${n}`,
+    face: "phone",
+    lines: [gt(lang, "walk.lapDone", { n: String(n), total: String(target) })],
+  };
+}
+
+/**
+ * A hint the screen shows («Walk across the picture, not toward the phone»), kind correction. The
+ * walk toward the phone's «turn» (D-038 item 4) is keyed by its lap, so the coach says it at each lap
+ * (the laps come closer than its no repeat time).
+ */
+export function hintSay(hint: GaitHint, lang: Lang, lap?: number): CoachSay {
   return {
     p: 2,
     type: "say",
     kind: "correction",
-    key: `hint_${hint}`,
+    key: hint === "turn" && lap !== undefined ? `hint_turn_${lap}` : `hint_${hint}`,
     ...(hint === "across" ? { face: "side" as const } : {}),
     lines: [gt(lang, `hint.${hint}`)],
   };

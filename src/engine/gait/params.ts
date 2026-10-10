@@ -32,11 +32,13 @@ const GATES = qualityGates as unknown as GaitData["qualityGates"];
  * faces the phone, and the timing only reading of a recording below its gate (GAIT_MVP). Version 4
  * (D-037 item 3): the side view's timing reading led by the near leg (each event in its phase of the
  * stride, the far leg's contacts in step with the near leg's, the stride band), and the timing result
- * on 2 clean cycles a side or 5 in all.
+ * on 2 clean cycles a side or 5 in all. Version 5 (D-038 item 4): the toward and away walk's MVP
+ * reading, its turn margins and steps those of the timing reading, its analysed window 1.5 to 5 m and
+ * its cycle gate the hips, knees and ankles, keeps the frontal plane metrics at 25 fps or more.
  */
 // Kept here so the engine chunk never imports src/movements/gait/index.ts (D-023 gap 16);
 // tests/v7/c-params.test.ts holds it equal to GAIT_ENGINE_VERSION of that file.
-export const ENGINE_VERSION = "gait_engine_4";
+export const ENGINE_VERSION = "gait_engine_5";
 
 function step(name: string): GaitData["preprocessing"][number] {
   const s = PREPROCESSING.find((p) => p.step === name);
@@ -122,7 +124,8 @@ export const GAIT_ENGINE = {
  * cycles a side gives after the added passes: «then timing only or record again», and research gait.md
  * section 6: «If the gate fails, re-record, or report timing only»; timing is the strongest signal from
  * one camera (gait.md section 0 item 1). A view that fails its gate is therefore read again for timing
- * only, with these engineering numbers (no clinical threshold; the patterns keep the full gate):
+ * only, with these engineering numbers (no clinical threshold; the patterns keep the full gate, but for
+ * the timing and frontal ones of D-038 item 4, below):
  *   - timingCyclesPerSide, or timingCyclesTotal with timingCyclesMinSide: the clean cycles across the
  *     passes of the view group that make a timing only result (verdict.ts timingEnough): 2 a side, or 5
  *     in all with 1 on each side. D-037 item 3 (Nasser's fourth test: 4 passes, 21 steps, 3 and 2 clean
@@ -151,6 +154,27 @@ export const GAIT_ENGINE = {
  *   - departSpeedMps: front and back views read walking toward or away from the body's size changing
  *     in the picture (the camera model of passes.ts); under this speed in depth the person stands or
  *     turns (a slow walk is 0.4 m/s and more, the gait fixtures' slowest).
+ * D-038 item 4 (the walk toward the phone and back, twice, with the phone left sideways at hip height
+ * where it stood for the side walk). Nasser's v7.2 rows read the front view with 0 clean cycles and
+ * 22.7% gaps and the back view with 0: in a landscape picture (50 degrees high) the feet leave its
+ * bottom about 2 m from a lens at hip height, so the foot points (heels, foot index) fail the cycle gate
+ * near the turn, and between there and the data's 4 m the 1 s turn margins and two steps dropped at each
+ * turn left nothing; the group then failed its 6 a side and the timing reading kept no frontal metric,
+ * so Trendelenburg, the Duchenne lean and waddling were never read. The MVP's reading of front and back
+ * views (STEADY_TIMING) therefore uses:
+ *   - frontGateLandmarks: the cycle gate and the gap share on the hips, knees and ankles, the points
+ *     the frontal events (the ankles, Stenum) and metrics (the hips, the trunk, the ankle's path) read;
+ *     the heels and foot index leave the picture first, and the step width alone reads the heels (a
+ *     cycle without them gives none);
+ *   - frontWindowM: 1.5 to 5 m from the phone (the data's 4 m is the pose model card's general bound,
+ *     BlazeCard; with the near end at about 2 m in a landscape picture, 4 m leaves about three steps a
+ *     pass). The real model's toward walk (G1's rendered wall walk, its picture cut to 50 degrees high)
+ *     reads the hips within 4 degrees of level to its far end, against the 10 degree sign;
+ *   - patternCyclesPerSide: the MVP's reading gives the timing and frontal patterns (gait-rules.ts
+ *     groupOf: shorter stance, Trendelenburg, the Duchenne lean, waddling) on 2 clean cycles a side
+ *     over the view group (the firing rule's 60% of a side's cycles is then all of them), possible at
+ *     low confidence at most, with the provisional label. An MVP interim, as the rest of GAIT_MVP: the
+ *     clinical source keeps «the gate is never lowered» for the full reading.
  */
 export const GAIT_MVP = {
   timingCyclesPerSide: 2,
@@ -166,20 +190,33 @@ export const GAIT_MVP = {
   dropSteps: { first: 1, last: 1 },
   cleanShareMin: 0.5,
   departSpeedMps: 0.15,
+  frontGateLandmarks: [23, 24, 25, 26, 27, 28] as readonly number[],
+  frontWindowM: [1.5, 5] as [number, number],
+  patternCyclesPerSide: 2,
 } as const;
 
-/** The steady state rules a reading of a view uses: the data's (the full gate), or the MVP's timing only ones. */
+/**
+ * The steady state rules a reading of a view uses: the data's (the full gate), or the MVP's timing only
+ * ones; for front and back views also the analysed window (metres from the phone) and the landmarks of
+ * the cycle gate and the gap share.
+ */
 export interface SteadyRules {
   turnMarginSec: number;
   dropSteps: { first: number; last: number };
+  frontWindowM: readonly [number, number];
+  frontGate: readonly number[];
 }
 export const STEADY_FULL: SteadyRules = {
   turnMarginSec: GAIT_ENGINE.turnMarginSec,
   dropSteps: GAIT_ENGINE.dropSteps,
+  frontWindowM: GAIT_ENGINE.frontWindowM,
+  frontGate: GAIT_ENGINE.gateLandmarks,
 };
 export const STEADY_TIMING: SteadyRules = {
   turnMarginSec: GAIT_MVP.turnMarginSec,
   dropSteps: GAIT_MVP.dropSteps,
+  frontWindowM: GAIT_MVP.frontWindowM,
+  frontGate: GAIT_MVP.frontGateLandmarks,
 };
 
 /**

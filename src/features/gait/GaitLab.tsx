@@ -1,8 +1,9 @@
 /**
  * The gait lab (D-035 item 4): /?gaitlab=side, VITE_V7 builds only, signed in or not, never saving.
  * It runs the walk's capture alone (the GaitController of the focus check, with the real camera and
- * the real model) so Nasser and the tech lead share one reference. Since D-036 item 6 the walk is one
- * side walk, so /?gaitlab=front (and any other value) opens the same side walk.
+ * the real model) so Nasser and the tech lead share one reference. /?gaitlab=side (and any value but
+ * front) runs part 1, the side walk; /?gaitlab=front part 2, the walk toward the phone and back, twice
+ * (D-038 item 4), with its «turn» cue and the frontal patterns it gives.
  *   - live: the skeleton over the picture, the steps and passes counted (one walk across the picture
  *     each, of the fixed target), the clean cycles a side, the share of frames with the legs seen, the
  *     frame rate, the contacts found and the gate (full: 6 a side; timing only: 2 a side, or 5 in all
@@ -33,8 +34,8 @@ import { gt } from "./copy";
 import "../focus/focus.css";
 import "./gait.css";
 
-/** The lab's walk: the side view only (D-036 item 6). */
-export type GaitLabView = "side";
+/** The lab's walk: part 1, the side passes, or part 2, toward the phone and back (D-038 item 4). */
+export type GaitLabView = "side" | "front";
 
 /** The lab's state on window (the real model smoke reads it). */
 export interface GaitLabState {
@@ -82,6 +83,7 @@ export interface GaitLabResult {
 const L = {
   title: { ar: "مختبر المشي", en: "Walk lab" },
   side: { ar: "المنظر الجانبي", en: "Side view" },
+  front: { ar: "نحو الهاتف وإيابًا", en: "Toward the phone and back" },
   never: { ar: "صفحة اختبار لا تحفظ شيئًا.", en: "A test page that saves nothing." },
   start: { ar: "ابدأ", en: "Start" },
   finish: { ar: "أنهِ الآن", en: "Finish now" },
@@ -178,7 +180,7 @@ const LAB_INTAKE = (heightCm: number | null): Intake => ({
   ...(heightCm ? { heightCm } : {}),
 });
 
-const LAB_PLAN: GaitPlan = {
+const LAB_PLAN = (view: GaitLabView): GaitPlan => ({
   offered: true,
   modes: ["overground"],
   defaultMode: "overground",
@@ -186,8 +188,8 @@ const LAB_PLAN: GaitPlan = {
   helperRequired: false,
   antalgicOnly: false,
   staticStance: false,
-  views: { overground: ["side"], walking_pad: [] },
-};
+  views: { overground: view === "front" ? ["front", "back"] : ["side"], walking_pad: [] },
+});
 
 function resultOf(
   ctl: GaitController,
@@ -200,7 +202,8 @@ function resultOf(
   const views: GaitViewResult[] = body?.analysis.views ?? [];
   const v = walkVerdict(views);
   let patterns: string[] = [];
-  if (body && v.level === "full")
+  // D-038 item 4: the MVP's readings give the timing and frontal patterns too.
+  if (body && v.level !== "none")
     try {
       patterns = evaluateGait({
         analysis: body.analysis as GaitAnalysis,
@@ -237,9 +240,9 @@ function resultOf(
   };
 }
 
-export default function GaitLab(_props: { view: string }) {
+export default function GaitLab(props: { view: string }) {
   const qs = useMemo(() => new URLSearchParams(location.search), []);
-  const view: GaitLabView = "side";
+  const view: GaitLabView = props.view === "front" ? "front" : "side";
   const lang: Lang = qs.get("lang") === "en" ? "en" : "ar";
   const auto = qs.get("auto") === "1";
   const heightCm = Number(qs.get("height")) || null;
@@ -262,7 +265,7 @@ export default function GaitLab(_props: { view: string }) {
   const ctl = useMemo(
     () =>
       new GaitController({
-        plan: LAB_PLAN,
+        plan: LAB_PLAN(view),
         painBefore: null,
         intake: { walking: { status: "without_aid" }, ...(heightCm ? { heightCm } : {}), regions: [] },
         poseModel: () => focus.model,
@@ -381,7 +384,9 @@ export default function GaitLab(_props: { view: string }) {
     setRun((n) => n + 1);
   };
 
-  const d = ctl.diagnostics().find((x) => x.rec === "overground_side");
+  const d = ctl
+    .diagnostics()
+    .find((x) => x.rec === (view === "front" ? "overground_front" : "overground_side"));
   const lv = ctl.live();
   const verdict = live ? walkVerdict(live.views) : null;
   const events: GaitEvent[] = (live?.views ?? [])
@@ -468,8 +473,19 @@ export default function GaitLab(_props: { view: string }) {
                   .join("  ") || "none"}
               </span>
             </p>
-            {step.id === "place" && <Body lang={lang} text={gt(lang, "place.side3")} />}
-            {step.id === "walk" && <Body lang={lang} text={gt(lang, "walk.sideSay")} />}
+            {step.id === "place" && (
+              <Body lang={lang} text={gt(lang, view === "front" ? "place.front3" : "place.side3")} />
+            )}
+            {step.id === "walk" && (
+              <Body
+                lang={lang}
+                text={
+                  ctl.hint === "turn"
+                    ? gt(lang, "hint.turn")
+                    : gt(lang, view === "front" ? "walk.frontSay" : "walk.sideSay")
+                }
+              />
+            )}
             {step.id === "retry" && (
               <Body lang={lang} text={gt(lang, `retry.reason.${ctl.retryReason() ?? "more_steps"}`)} />
             )}

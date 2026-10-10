@@ -249,7 +249,7 @@ export function passesOf(
         });
     });
     for (let k = a; k < b; k++) if (Math.abs(vx[k]) > depth[k]) markAround(excluded, k, margin, a, b);
-    const [near, far] = GAIT_ENGINE.frontWindowM;
+    const [near, far] = steady.frontWindowM;
     for (let k = a; k < b; k++) {
       const size = trunkLengthAt(s, k);
       const m = size > 0 ? estimateDistanceM(size, p.aspect) : Number.NaN;

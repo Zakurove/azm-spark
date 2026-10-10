@@ -92,11 +92,24 @@ export function videoAspect(v: Pick<HTMLVideoElement, "videoWidth" | "videoHeigh
   return v.videoWidth > 0 && v.videoHeight > 0 ? v.videoWidth / v.videoHeight : undefined;
 }
 
+/**
+ * How many people the model looks for on a camera screen that follows one locked person (D-037 item 4:
+ * the booth, many people in the picture): the range measurement, the walk and the camera workouts.
+ * With 1 the model returns only the person most prominent to it, so someone nearer the phone takes
+ * the screen's person's one pose; with 3 the screen's lock (engine/subject.ts) sees everyone and keeps
+ * its person. The cost on a phone: with 2 or more the model's person detector runs on every frame
+ * while fewer people than that are found (with 1 only when the person is lost), and each person found
+ * adds one landmark run; the walk ran at about 49 fps with Full and 2 on Nasser's iPhone (D-037), and
+ * a third person costs only when a third person is in the picture. The v1 movement check keeps its 2
+ * (spec 4.0, CHECK_DATA.engine.pose.numPoses).
+ */
+export const LOCK_NUM_POSES = 3;
+
 export interface CameraPoseOptions {
   /**
-   * How many people the model looks for. Workouts and the trial keep the default of 1. The
-   * movement check passes 2 (CHECK_DATA.engine.pose.numPoses, spec 4.0) and picks its subject
-   * from `Frame.poses` with SubjectLock.
+   * How many people the model looks for (default 1). The movement check passes 2
+   * (CHECK_DATA.engine.pose.numPoses, spec 4.0); the range measurement, the walk and the camera
+   * workouts LOCK_NUM_POSES; each picks its person from `Frame.poses` with SubjectLock.
    */
   numPoses?: number;
   /**

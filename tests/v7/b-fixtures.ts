@@ -251,13 +251,16 @@ export interface RunOptions {
   env?: FeedEnv;
   item?: Partial<RomProtocolItem>;
   runner?: Partial<RomRunnerOptions>;
+  /** The camera's frames from the fixture's (another person added, D-037 item 4). */
+  frames?: (frames: Frame[]) => Frame[];
 }
 
 /** The runner over a fixture, answering each maximum question as a person at the buttons would. */
 export function runRom(spec: GenSpec, o: RunOptions = {}): RomRun {
   const r = spec.rom!;
   const fx = generate(spec);
-  const frames = o.mirrored ? mirrorFrames(fixtureFrames(fx)) : fixtureFrames(fx);
+  const own = o.mirrored ? mirrorFrames(fixtureFrames(fx)) : fixtureFrames(fx);
+  const frames = o.frames ? o.frames(own) : own;
   const runner = new RomRunner({
     item: item(r.movement, r.side, { position: r.position, ...o.item }),
     def: movementDef(r.movement),

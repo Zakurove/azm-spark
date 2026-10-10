@@ -706,6 +706,12 @@ export interface SetupFrame {
   t: number;
   poses: Landmark[][];
   aspect?: number;
+  /**
+   * The screen's locked person (subject.ts subjectOf: the index in `poses`, -1 not seen), so the check
+   * reads only that person and never another one in the picture (D-037 item 4); undefined: the person
+   * nearest the centre, before any lock.
+   */
+  subject?: number;
 }
 
 /** Phone tilt from level upright, in degrees: roll around the camera axis and pitch of that axis. */
@@ -795,8 +801,8 @@ export function setupCheck(frames: SetupFrame[], cfg: SetupConfig, opts: SetupOp
   for (const f of frames) {
     const a = effectiveAspect(f.aspect);
     aspects.push(a);
-    const i = nearestCentre(f.poses, a);
-    if (i < 0) {
+    const i = f.subject !== undefined ? f.subject : nearestCentre(f.poses, a);
+    if (i < 0 || !isPerson(f.poses[i])) {
       bump("no_person");
       continue;
     }

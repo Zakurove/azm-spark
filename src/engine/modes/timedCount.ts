@@ -72,7 +72,7 @@ import {
   type QualityReport,
   type SetupFrame,
 } from "../quality";
-import { posesOf, SubjectLock } from "../subject";
+import { posesOf, SubjectLock, subjectOf } from "../subject";
 import type { Frame, Landmark } from "../types";
 import {
   CalibrationRounds,
@@ -812,7 +812,14 @@ abstract class TimedCountBase implements TestRunner {
   private setupFrame(frame: Frame): void {
     const R = TIMED_RULES;
     const t = frame.t;
-    this.setupFrames.push({ t, poses: posesOf(frame), aspect: frame.aspect });
+    // The screen's locked person once its lock is taken (D-037 item 4), else the one nearest the centre.
+    const subject = subjectOf(frame);
+    this.setupFrames.push({
+      t,
+      poses: posesOf(frame),
+      aspect: frame.aspect,
+      ...(subject !== undefined ? { subject } : {}),
+    });
     if (t - this.setupFrames[0].t < R.setupWindowSec * 1000) return;
     const res = setupCheck(this.setupFrames, this.setupConfig());
     this.setupFrames = [];

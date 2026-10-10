@@ -119,7 +119,9 @@ describe("the real model on the seated home videos, replayed (D-034 item 1)", ()
       return { share: lock.pausedShare, reasons };
     };
     const v1 = paused(new SubjectLock());
-    expect(v1.share).toBeGreaterThan(0.5);
+    // Over half the run before D-037 item 4; since then the lock is released after 2 s unseen and
+    // taken again on the person in the picture, so the hip anchor pauses in 2 s runs.
+    expect(v1.share).toBeGreaterThan(0.15);
     expect(v1.reasons.jump).toBeGreaterThan(0);
     const body = paused(new SubjectLock(SUBJECT_RULES, { anchor: "body" }));
     // Only the frames where the model found nobody.

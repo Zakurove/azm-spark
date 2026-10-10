@@ -17,8 +17,11 @@ import { describe, expect, it } from "vitest";
 import { analyseGaitGroup, isTimingReading } from "../../src/engine/gait/analyse";
 import { walkVerdict } from "../../src/engine/gait/verdict";
 import type { GaitFrame, GaitViewInput } from "../../src/engine/gait/types";
+import { CAPTURE_LIMITS, GaitController } from "../../src/features/gait/controller";
+import type { GaitPlan } from "../../src/medical/gait-eligibility";
 import { setupOf, walk, withRealFarLeg, type WalkSpec } from "../fixtures/gait/gen-gait";
 import { loadHomeSmoke, narrowerPicture } from "../fixtures/gait/smoke";
+import { person } from "../fixtures/people";
 
 const within = (v: number | null | undefined, truth: number, share: number) =>
   v !== null && v !== undefined && Math.abs(v / truth - 1) <= share;
@@ -90,6 +93,74 @@ describe("the real model's walk seen through a phone's narrower picture (about 5
       expect(v.cleanCycles.right).toBeGreaterThanOrEqual(2);
       expect(within(v.cadence, s.truth.cadence, 0.05)).toBe(true);
     });
+
+  it("ends the walk through the capture with that result, never «try once more», a bystander in the picture", () => {
+    // The synthetic phone side walk through the capture itself (the standing calibration, the passes
+    // counted, the end after the fixed 4), with another person standing still in the picture the whole
+    // time (D-037 item 4): the walker alone is recorded and measured.
+    const spec = phoneSide(2);
+    const w = walk(spec);
+    const walker = withRealFarLeg(w.frames);
+    // Standing 2 m behind the path (smaller in the picture): the walker passes in front of them.
+    const bystander = person({ x: 0.62, y: 0.47, height: 0.15 }, 720 / 1280);
+    const plan: GaitPlan = {
+      offered: true,
+      modes: ["overground"],
+      defaultMode: "overground",
+      padAllowed: false,
+      helperRequired: false,
+      antalgicOnly: false,
+      staticStance: false,
+      views: { overground: ["side"], walking_pad: [] },
+    };
+    const ctl = new GaitController({
+      plan,
+      painBefore: null,
+      intake: { walking: { status: "without_aid" }, heightCm: 170, regions: [] },
+      poseModel: () => "full",
+      log: () => undefined,
+    });
+    let t = w.standing[0].t - 100;
+    ctl.start(t);
+    for (let i = 0; i < 8 && ctl.current.id !== "place"; i++)
+      if (ctl.current.id === "gear") ctl.setGear({ shoes: true, brace: null }, t);
+      else ctl.confirm(t);
+    ctl.confirm(t);
+    expect(ctl.current.id).toBe("stand");
+    // The walker alone at the standing calibration; the bystander comes once the walker walks in the
+    // picture, and stays.
+    const frames = [...w.standing, ...walker];
+    const inPicture = (f: GaitFrame) => f.lm.some((q) => q.visibility > 0.5);
+    const comes = w.standing.length + walker.findIndex(inPicture) + 30;
+    const seenSteps: string[] = [];
+    frames.forEach((f, k) => {
+      if (ctl.current.id !== "stand" && ctl.current.id !== "walk") return;
+      const here = inPicture(f) ? [f.lm] : [];
+      const poses = k < comes ? here : k % 2 ? [...here, bystander] : [bystander, ...here];
+      ctl.feed({ t: f.t, lm: poses[0] ?? f.lm, poses, aspect: f.aspect }, { rollDeg: null });
+      ctl.tick(f.t);
+      t = f.t;
+    });
+    for (let i = 0; i < 3 && ctl.current.id === "walk"; i++) {
+      t += CAPTURE_LIMITS.afterLastPassMs + 100;
+      ctl.tick(t);
+      seenSteps.push(ctl.current.id);
+    }
+    expect(ctl.current.id).toBe("saving");
+    expect(seenSteps).not.toContain("retry");
+    const d = ctl.diagnostics()[0];
+    expect(d.passes).toBe(4);
+    expect(d.tries).toBe(1);
+    expect(d.level).not.toBe("none");
+    expect(Math.min(d.cleanCycles.left, d.cleanCycles.right)).toBeGreaterThanOrEqual(3);
+    expect(within(d.cadence, w.truth.cadence, 0.05)).toBe(true);
+    // Never the bystander's landmarks in the recording.
+    const hipX = (bystander[23].x + bystander[24].x) / 2;
+    for (const f of ctl.recordedFrames()[0].frames) {
+      const x = (f.lm[23].x + f.lm[24].x) / 2;
+      if (f.lm[23].visibility > 0.5) expect(Math.abs(x - hipX)).toBeGreaterThan(1e-6);
+    }
+  });
 });
 
 describe("the v7.2 row: a timing reading of 6 and 8 clean cycles named too_few_cycles", () => {

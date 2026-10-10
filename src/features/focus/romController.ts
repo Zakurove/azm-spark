@@ -51,6 +51,7 @@ import { FeedbackGate, type GateMessage } from "../../engine/feedbackGate";
 import { setupCheck, type SetupFrame, type SetupIssue, type Tilt } from "../../engine/quality";
 import { romSetupConfig } from "../../engine/rom/quality";
 import { RomRunner } from "../../engine/rom/runner";
+import { SUBJECT_RULES, SubjectLock, subjectOf } from "../../engine/subject";
 import type {
   AnswerResult,
   AnswerSource,
@@ -290,6 +291,13 @@ export class RomController implements CoachHost {
   /** The runner's rest between attempts: when it ends (the screen's ring). */
   private restUntil: { until: number; total: number } | null = null;
   private lastT = 0;
+  /**
+   * The person measured, one for the whole range part (D-037 item 4: the booth, many people in the
+   * picture): every movement's runner follows them with this lock, and it follows them on every
+   * camera frame between the movements, so a movement's calibration keeps them while they are there
+   * and another person in the picture is never measured, drawn or cued.
+   */
+  private readonly lock = new SubjectLock(SUBJECT_RULES, { anchor: "body", ignoreBehind: true });
 
   constructor(opts: RomControllerOptions) {
     this.opts = opts;
@@ -553,13 +561,18 @@ export class RomController implements CoachHost {
    */
   feed(frame: Frame, env: RomFeedEnv = {}): void {
     const s = this.stepNow;
-    if (s.kind !== "measure" || !this.runner || this.stopListNow) return;
+    if (s.kind !== "measure" || !this.runner || this.stopListNow) {
+      // Between the movements the person is followed all the same (D-037 item 4).
+      if (this.lock.locked) this.lock.pickFrame(frame);
+      return;
+    }
     this.lastT = frame.t;
     const phase = this.runner.phase;
+    const rollDeg = env.rollDeg ?? env.tilt?.rollDeg ?? null;
+    // The runner first: its lock marks the frame's person, whom the setup check reads (D-037 item 4).
+    const events = this.runner.feed(frame, { rollDeg });
     if (phase === "calibrating") this.watchSetup(s.item, frame, env.tilt ?? null);
     else if (this.setupIssueNow !== null) this.setupIssueNow = null;
-    const rollDeg = env.rollDeg ?? env.tilt?.rollDeg ?? null;
-    const events = this.runner.feed(frame, { rollDeg });
     this.take(s.item, events, frame.t, true);
   }
 
@@ -1099,6 +1112,7 @@ export class RomController implements CoachHost {
       painBefore: this.painBefore(item),
       askCauseBelow,
       poseModel: this.opts.poseModel?.() ?? "full",
+      subject: this.lock,
       ...(leanBest !== undefined ? { sideLeanBest: leanBest } : {}),
       ...(this.opts.restSec !== undefined ? { restSec: this.opts.restSec } : {}),
     });
@@ -1149,7 +1163,13 @@ export class RomController implements CoachHost {
    * engine.phoneLevelToleranceDeg).
    */
   private watchSetup(item: RomProtocolItem, frame: Frame, tilt: Tilt | null): void {
-    this.setupFrames.push({ t: frame.t, poses: frame.poses ?? [frame.lm], aspect: frame.aspect });
+    const subject = subjectOf(frame);
+    this.setupFrames.push({
+      t: frame.t,
+      poses: frame.poses ?? [frame.lm],
+      aspect: frame.aspect,
+      ...(subject !== undefined ? { subject } : {}),
+    });
     while (this.setupFrames.length > 1 && frame.t - this.setupFrames[0].t > SETUP_WINDOW_MS)
       this.setupFrames.shift();
     const res = setupCheck(this.setupFrames, romSetupConfig(movementDef(item.movementId), item.side), {

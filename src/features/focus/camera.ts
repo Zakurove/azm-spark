@@ -28,8 +28,7 @@
  */
 import { createContext, useContext, useRef } from "react";
 import { capture } from "../../movements/gait/gait-v7.json";
-import { CHECK_DATA } from "../../movements/assessments";
-import { CameraPoseSource, preloadPoseAssets, type PoseSource } from "../../app/poseSource";
+import { CameraPoseSource, LOCK_NUM_POSES, preloadPoseAssets, type PoseSource } from "../../app/poseSource";
 import { CameraSession, type PoseSourceFactory } from "../assessment/camera/session";
 
 export type PoseModel = "lite" | "full";
@@ -109,8 +108,9 @@ export type FocusSourceFactory = (
 
 export interface FocusCameraOptions {
   /**
-   * Builds each pose source. Default: the camera with the check's two poses (SubjectLock, as in the
-   * v1 check) and the chosen model, or on a VITE_E2E=1 build ?e2eFixture=<name>.
+   * Builds each pose source. Default: the camera looking for LOCK_NUM_POSES people (each screen's
+   * SubjectLock keeps its one person, D-037 item 4) with the chosen model, or on a VITE_E2E=1 build
+   * ?e2eFixture=<name>.
    */
   createSource?: FocusSourceFactory;
   /** Where the outcome is kept; default localStorage, null keeps nothing. */
@@ -160,7 +160,7 @@ async function defaultSource(
       return new FixturePoseSource(name);
     }
   }
-  return new CameraPoseSource(video, { numPoses: CHECK_DATA.engine.pose.numPoses, model, stream });
+  return new CameraPoseSource(video, { numPoses: LOCK_NUM_POSES, model, stream });
 }
 
 /** The camera of one focus check (C-10). */

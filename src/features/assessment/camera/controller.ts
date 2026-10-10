@@ -47,7 +47,7 @@ import {
   type SetupResult,
   type Tilt,
 } from "../../../engine/quality";
-import { nearestCentre, posesOf, SubjectLock } from "../../../engine/subject";
+import { nearestCentre, posesOf, SubjectLock, subjectOf } from "../../../engine/subject";
 import type { Frame, Landmark } from "../../../engine/types";
 import { testDef } from "../../../movements/assessments";
 import type { CheckCueId, CheckPosition, Side, TestDef, TestId } from "../../../movements/types";
@@ -468,7 +468,7 @@ export class CameraController {
     }
 
     this.checkInFrame(t, lm, f.aspect, env);
-    if (s.kind === "cam.setup") this.setupFrame(t, poses, f.aspect, env);
+    if (s.kind === "cam.setup") this.setupFrame(t, poses, f.aspect, env, subjectOf(f));
     if (s.kind === "cam.retry") this.retryTimer(t, env);
     if (this.practiceFix) this.practiceFixTimer(t, env);
     if (this.shouldFeed(env, phoneMoved)) this.feed(f, env, t);
@@ -1236,9 +1236,16 @@ export class CameraController {
 
   /* -------------------------------------------------------------- setup check */
 
-  private setupFrame(t: number, poses: Landmark[][], aspect: number | undefined, env: CamEnv): void {
+  private setupFrame(
+    t: number,
+    poses: Landmark[][],
+    aspect: number | undefined,
+    env: CamEnv,
+    subject?: number,
+  ): void {
     const win = this.timing.setupWindowSec * 1000;
-    this.setupFrames.push({ t, poses, aspect });
+    // The locked person once the lock is taken (D-037 item 4); before it, the one nearest the centre.
+    this.setupFrames.push({ t, poses, aspect, ...(subject !== undefined ? { subject } : {}) });
     while (this.setupFrames.length > 1 && this.setupFrames[0].t < t - win) this.setupFrames.shift();
     if (t - this.setupEvalAt < 150) return;
     this.setupEvalAt = t;
@@ -1419,8 +1426,8 @@ function hipsHiddenShare(frames: readonly SetupFrame[]): number {
   if (!frames.length) return 0;
   let hidden = 0;
   for (const f of frames) {
-    const k = nearestCentre(f.poses, f.aspect);
-    if (k < 0) continue;
+    const k = f.subject ?? nearestCentre(f.poses, f.aspect);
+    if (k < 0 || !f.poses[k]) continue;
     const p = f.poses[k];
     if ((p[23]?.visibility ?? 0) < 0.5 || (p[24]?.visibility ?? 0) < 0.5) hidden++;
   }

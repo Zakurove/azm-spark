@@ -249,9 +249,9 @@ describe("the gait card", () => {
     expect(html).toContain(GAIT_DATA.copy.quality.pad_compare.en);
   });
 
-  it("gives the walk's key numbers in the page's digits", () => {
+  it("gives the walk's key numbers in Western digits in both languages (D-036 item 3)", () => {
     expect(keyNumbers(stored(), "en").map((n) => n.value)).toEqual(["104", "1.12", "65"]);
-    expect(keyNumbers(stored(), "ar").map((n) => n.value)).toEqual(["١٠٤", "١٫١٢", "٦٥"]);
+    expect(keyNumbers(stored(), "ar").map((n) => n.value)).toEqual(["104", "1.12", "65"]);
     expect(keyNumbers(stored({ metrics: {} }), "en")).toEqual([]);
   });
 

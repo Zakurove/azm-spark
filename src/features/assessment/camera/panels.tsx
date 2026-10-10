@@ -63,7 +63,7 @@ function PhaseLine({ word, lang, paused }: { word: PhaseWord | null; lang: Lang;
   return <p className="s34-phase">{t(lang, PHASE_KEY[word])}</p>;
 }
 
-/** Labels drawn apart by a short rule (a middle dot reads as the Arabic zero ٠). */
+/** Labels drawn apart by a short rule (in Arabic a middle dot reads as a zero). */
 export function Parts({ lang, parts }: { lang: Lang; parts: string[] }) {
   return (
     <span className="s34-parts">

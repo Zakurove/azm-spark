@@ -7,7 +7,7 @@ export const labels = (l: Lang) =>
         name: "الاسم",
         email: "البريد الإلكتروني",
         password: "كلمة المرور",
-        passwordHint: "١٠ أحرف على الأقل",
+        passwordHint: "10 أحرف على الأقل",
         authTitle: "خطتك تبدأ\nمن حالتك الطبية.",
         authBody: "نتعرّف على حالتك وقدرتك على الحركة، ثم نبني برنامجك ونرشدك خلاله.",
         authFoot: "يحفظ حسابك برنامجك ونتائجك.",
@@ -396,18 +396,18 @@ export function errorText(code: string, l: Lang) {
   const m: Record<string, [string, string]> = {
     CREDENTIALS: ["البريد أو كلمة المرور غير صحيحة.", "Email or password is incorrect."],
     CREDENTIAL_FORMAT: [
-      "تحقّق من البريد وكلمة المرور (١٠ أحرف على الأقل).",
+      "تحقّق من البريد وكلمة المرور (10 أحرف على الأقل).",
       "Check your email and password (at least 10 characters).",
     ],
     ADULT_REQUIRED: [
-      "حسابات عزم لمن عمرهم ١٨ سنة أو أكثر. أكّد عمرك لإنشاء الحساب.",
+      "حسابات عزم لمن عمرهم 18 سنة أو أكثر. أكّد عمرك لإنشاء الحساب.",
       "Azm accounts are for people aged 18 or older. Confirm your age to create the account.",
     ],
     ACCOUNT_EXISTS: [
       "يوجد حساب بهذا البريد. سجّل الدخول.",
       "An account already uses this email. Please sign in.",
     ],
-    RATE_LIMIT: ["محاولات كثيرة. حاول مجددًا بعد ١٥ دقيقة.", "Too many attempts. Try again in 15 minutes."],
+    RATE_LIMIT: ["محاولات كثيرة. حاول مجددًا بعد 15 دقيقة.", "Too many attempts. Try again in 15 minutes."],
     INTAKE_INVALID: ["أكمل الإجابات المطلوبة وتحقّق منها.", "Complete and check the required answers."],
     PLAN_CHANGED: [
       "تغيّر ملفك الصحي. عد إلى البرنامج المحدّث.",

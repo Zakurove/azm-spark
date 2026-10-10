@@ -708,7 +708,8 @@ describe("Arabic and English", () => {
         if (!LONGER.has(t)) expect(t.split(/\s+/).length, `${c.id} ${lang} ${t}`).toBeLessThanOrEqual(3);
         expect(t, `${c.id} ${lang}`).not.toMatch(/[.,،!:;«»"]/);
       }
-      expect(c.short.ar, c.id).not.toMatch(/[0-9]/);
+      // Western digits in Arabic too (D-036 item 3): never an Arabic Indic digit.
+      expect(c.short.ar, c.id).not.toMatch(/[٠-٩٫]/);
     }
     expect(cueShort("check_stop_now", "ar")).toBe("توقف واسترح");
   });

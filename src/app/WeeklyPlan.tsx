@@ -3,7 +3,7 @@ import { Plan } from "../medical/plan";
 import { libraryById, servesResult, stepsOf, summaryText, WeeklyItem, WeeklyPlan } from "../medical/weekly";
 import { V7_UI } from "./v7flag";
 import { EXERCISES } from "../exercises/defs";
-import { Lang, fmtDate, fmtNum } from "./i18n";
+import { Lang, fmtDate, fmtNum, westernDigits } from "./i18n";
 import { api } from "./api";
 import Icon from "./Icon";
 import ExerciseArt from "./ExerciseArt";
@@ -77,7 +77,8 @@ function Item({ item, lang, findings }: { item: WeeklyItem; lang: Lang; findings
     ex = libraryById(item.id);
   if (!ex) return null;
   const n = (v: number) => fmtNum(v, lang);
-  const digits = (s: string) => (lang === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s);
+  // Library text in Western digits in Arabic too (D-036 item 3), whatever digits it was written in.
+  const digits = (s: string) => (lang === "ar" ? westernDigits(s) : s);
   const timer = cardKind(item) === "timer";
   const dose = doseText(item, lang);
   const why = item.why?.[lang];

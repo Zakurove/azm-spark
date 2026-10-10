@@ -643,9 +643,9 @@ describe("the session order and the dose (exercise-targets 2.1, 2.2, 5.8 steps 7
     const t = [req({ id: "stretch:quadriceps", reasons: reason("tight") })];
     const item = itemFor(select(intake({ age: 40 }), t), "stretch:quadriceps")!;
     expect(withHold).toContain(item.exerciseId);
-    expect(item.dose.hold).toEqual({ ar: "٣٠ ثانية", en: "30 seconds" });
+    expect(item.dose.hold).toEqual({ ar: "30 ثانية", en: "30 seconds" });
     expect(itemFor(select(intake({ age: 66 }), t), "stretch:quadriceps")!.dose.hold).toEqual({
-      ar: "٦٠ ثانية",
+      ar: "60 ثانية",
       en: "60 seconds",
     });
     const pain = itemFor(

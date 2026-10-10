@@ -19,8 +19,8 @@ import { MEASURE, openGuest, openSignedIn, type Lang } from "./safety-fixtures";
 
 const COPY = { ar, en } as const;
 const LANGS: Lang[] = ["ar", "en"];
-const toArabic = (s: string) => s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
-const shown = (lang: Lang, s: string) => (lang === "ar" ? toArabic(s) : s);
+/** A text as the page shows it: as written, Western digits in both languages (D-036 item 3). */
+const shown = (_lang: Lang, s: string) => s;
 const sentences = (s: string) => s.split(/(?<=[.!?؟])\s+/u);
 
 // The chime plays without a tap in these runs.
@@ -192,7 +192,7 @@ for (const lang of LANGS) {
       const call = page.locator(".check-footer a.check-call").first();
       await expect(call).toHaveAttribute("href", "tel:997");
       expect((await call.boundingBox())!.height).toBeGreaterThanOrEqual(64);
-      await expect(call).toHaveAttribute("aria-label", lang === "ar" ? "اتصل بالرقم ٩ ٩ ٧" : "Call 9 9 7");
+      await expect(call).toHaveAttribute("aria-label", lang === "ar" ? "اتصل بالرقم 9 9 7" : "Call 9 9 7");
       await expectTargets(page);
       // C17: every sentence is on the card and highlighted in turn as it is read (the voice when it may
       // speak, else the reading time); no caption strip repeats it above the card.
@@ -213,7 +213,7 @@ for (const lang of LANGS) {
       await expect(page.locator(".safety-sentences p[aria-current='true']")).toHaveCount(1);
     });
 
-    test("S37: the AD steps are numbered in the reader's digits (Q30)", async ({ page }) => {
+    test("S37: the AD steps are numbered in Western digits in both languages (D-036)", async ({ page }) => {
       await openGuest(page, lang, {
         state: { kind: "safety", safety: "ad", screen: "scr_ad", alsoShow: [], faintAnswered: false },
         sciT6: true,
@@ -221,7 +221,7 @@ for (const lang of LANGS) {
       const step = page.locator('[data-screen="S37"] .safety-steps li').first();
       await expect(step).toBeVisible();
       const marker = await step.evaluate((el) => getComputedStyle(el).listStyleType);
-      expect(marker).toBe(lang === "ar" ? "arabic-indic" : "decimal");
+      expect(marker).toBe("decimal");
     });
 
     test("S38 asks the faint question after its speech and 20 s; No keeps S38, Yes opens S36 (O42)", async ({
@@ -367,7 +367,8 @@ for (const lang of LANGS) {
           ? "أُجِّل قياس اليوم حرصًا على سلامتك."
           : "Today’s check has been postponed for your safety.",
       );
-      if (lang === "ar") expect(await s36.locator(".safety-paused").innerText()).not.toMatch(/[0-9]/);
+      // Western digits in Arabic too (D-036 item 3), never Arabic Indic ones.
+      if (lang === "ar") expect(await s36.locator(".safety-paused").innerText()).not.toMatch(/[٠-٩]/);
       await expect(page.getByRole("button", { name: a.common.backToToday })).toBeVisible();
     });
 

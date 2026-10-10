@@ -133,11 +133,10 @@ for (const lang of ["en", "ar"] as const)
     await expect(card.locator('[data-metric="cadence"]')).toBeVisible();
     await expect(card.locator('[data-metric="step_time_right"]')).toBeVisible();
     await expect(card.locator('[data-metric="step_time_left"]')).toBeVisible();
-    const cadence = Number(
-      ((await card.locator('[data-metric="cadence"] b').textContent()) ?? "").replace(/[٠-٩]/g, (d) =>
-        String("٠١٢٣٤٥٦٧٨٩".indexOf(d)),
-      ),
-    );
+    // Western digits in both languages (D-036 item 3).
+    const shownCadence = (await card.locator('[data-metric="cadence"] b').textContent()) ?? "";
+    expect(shownCadence).not.toMatch(/[٠-٩]/);
+    const cadence = Number(shownCadence);
     expect(Math.abs(cadence / 108 - 1)).toBeLessThan(0.05);
     await expect(card).toContainText(
       lang === "en" ? "We saw the timing of your steps clearly" : "رأينا توقيت خطواتك بوضوح",

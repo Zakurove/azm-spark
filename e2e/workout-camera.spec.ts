@@ -57,7 +57,7 @@ test("Nasser's case: resting arms are never the range, and the limited reps coun
   await page.locator(".modal-actions .cta").click();
   await expect(page.locator("#sum-title")).toBeVisible();
   await expect(page.locator(".sum-grid")).toContainText(s.rangeMeasure);
-  await expect(page.locator(".sum-grid > div").first().locator("b")).toHaveText("٦");
+  await expect(page.locator(".sum-grid > div").first().locator("b")).toHaveText("6");
   expect(errors).toEqual([]);
 });
 

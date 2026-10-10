@@ -297,8 +297,8 @@ function ShellButton({ spec, kind }: { spec: ButtonSpec; kind: "primary" | "seco
 }
 
 /**
- * A tel: call control, 64 px, 997 red fill or 937 purple outline. The label shows the number in the
- * page's digits (٩٩٧ in Arabic, Q30); only the href stays ASCII. The accessible name reads the
+ * A tel: call control, 64 px, 997 red fill or 937 purple outline. The label and the href show the
+ * number in Western digits in both languages (997, D-036 item 3). The accessible name reads the
  * digits one by one (Q22).
  */
 export function CallLink({ number, label }: CallLinkProps) {
@@ -308,19 +308,12 @@ export function CallLink({ number, label }: CallLinkProps) {
     <a
       className={`check-call is-${number}`}
       href={`tel:${number}`}
-      aria-label={t(lang, "assessment.common.callAria", {
-        digits: lang === "ar" ? toArabicDigits(digits) : digits,
-      })}
+      aria-label={t(lang, "assessment.common.callAria", { digits })}
     >
       <CheckIcon name="phone-call" />
       <span>{bidiText(lang, label)}</span>
     </a>
   );
-}
-
-/** Arabic Indic digits for a digit string (the spaced call number in Arabic, Q22 and Q30). */
-export function toArabicDigits(s: string): string {
-  return s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 }
 
 /** The shell's h1 for a screen: plain h1, focused by the shell on every screen change. */

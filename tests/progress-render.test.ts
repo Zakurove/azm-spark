@@ -10,8 +10,8 @@
  *     alternative, the band sentence only with a verdict, the no verdict lines without a verdict;
  *   - S53 sessions: "n of every 10", never a percentage;
  *   - S54: the banner read with the h1, the Example tag on every card;
- *   - wording: no forbidden progress stem, no dash, no percentage, and Arabic Indic digits only in
- *     Arabic text (UX spec 0.2, Q30).
+ *   - wording: no forbidden progress stem, no dash, no percentage, and Western digits in Arabic text
+ *     too, never Arabic Indic ones (D-036 item 3, replacing council Q30).
  */
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -68,7 +68,7 @@ function expectCleanCopy(lang: Lang, markup: string) {
   expect(plain).not.toMatch(/[‐-―−]/);
   expect(plain).not.toMatch(/\p{L}-\p{L}/u);
   expect(plain).not.toContain("%");
-  if (lang === "ar") expect(plain).not.toMatch(/[0-9]/);
+  if (lang === "ar") expect(plain).not.toMatch(/[٠-٩٫]/);
 }
 
 const countTag = (markup: string, re: RegExp) => (markup.match(re) ?? []).length;
@@ -341,7 +341,7 @@ describe("S50 to S52 results", () => {
       expect(m).toContain(t(lang, "assessment.results.seeOverTime"));
       expect(m).not.toContain("rs-keep");
       // The value is read with its unit ("121 degrees"), and the arm curl of 2 in its dual form.
-      expect(m).toContain(lang === "ar" ? "١٢١ درجة" : "121 degrees");
+      expect(m).toContain(lang === "ar" ? "121 درجة" : "121 degrees");
       expect(m).toContain(lang === "ar" ? "مرتين" : "2 bends");
       // C41: the sentence that restates a value is its accessible name, never a visible line.
       expect(m).toMatch(/class="rs-value" role="img" aria-label="[^"]+"/);
@@ -520,7 +520,7 @@ describe("sessions (S53)", () => {
   for (const lang of LANGS) {
     it(`gives reps within range as n of every 10, never a percentage (${lang})`, () => {
       const m = html(lang, createElement(SessionsBlock, { data }));
-      expect(text(m)).toContain(lang === "ar" ? "٨ من كل ١٠" : "8 of every 10");
+      expect(text(m)).toContain(lang === "ar" ? "8 من كل 10" : "8 of every 10");
       expect(m).toContain("<dl");
       expect(countTag(m, /pg-square is-done/g)).toBe(data.weeks.reduce((n, w) => n + w.done, 0));
       expectCleanCopy(lang, m);

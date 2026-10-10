@@ -64,12 +64,12 @@ describe("a capped seated side bend on the findings page", () => {
 
   it("shows «أكثر من» and the degrees of the capped value", () => {
     const capped = entry({ flags: ["censored"] });
-    expect(strip(row("ar", capped).value!)).toBe("أكثر من ٣٠°");
+    expect(strip(row("ar", capped).value!)).toBe("أكثر من 30°");
     expect(strip(row("en", capped).value!)).toBe("more than 30°");
   });
 
   it("an uncapped value shows its degrees alone", () => {
     expect(row("en", entry({})).value).toBe("30°");
-    expect(row("ar", entry({})).value).toBe("٣٠°");
+    expect(row("ar", entry({})).value).toBe("30°");
   });
 });

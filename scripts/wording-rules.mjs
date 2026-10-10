@@ -37,7 +37,8 @@ export const HAS_LETTER = new RegExp(`[${LETTER}]`);
 export const URL_LIKE = /^(https?:|mailto:|data:|blob:)/i;
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PATH = /^\.{0,2}\/[^\s]*$/;
-export const LOCALE = /^[a-z]{2,3}(-[A-Z][A-Za-z]{1,3})?$/;
+// A locale tag, with a Unicode extension too ("ar-SA-u-nu-latn": Western digits in Arabic, D-036).
+export const LOCALE = /^[a-z]{2,3}(-[A-Z][A-Za-z]{1,3})?(-u(-[a-z0-9]{2,8})+)?$/;
 export const LOWER_ID = /^[a-z0-9_.:#/]+(?:[-_.][a-z0-9_.:#/]+)*$/;
 
 /** True when a value taken from a copy data source could be read by a person. */

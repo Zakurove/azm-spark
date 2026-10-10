@@ -145,9 +145,9 @@ describe("then and now example card", () => {
     const ar = text(part(render("ar"), "ld-card-then"));
     expect(ar.startsWith("مثال")).toBe(true);
     expect(ar).toContain("رفع الذراع جانبًا، اليمنى");
-    expect(ar).toContain("البداية ١٠٠ درجة");
-    expect(ar).toContain("الآن ١١٧ درجة");
-    expect(ar).toContain("التغير ١٧ درجة");
+    expect(ar).toContain("البداية 100 درجة");
+    expect(ar).toContain("الآن 117 درجة");
+    expect(ar).toContain("التغير 17 درجة");
     expect(ar).toContain("أعلى من نقطة بدايتك");
   });
 
@@ -337,8 +337,9 @@ describe("page wide rules", () => {
     expect(render("en")).toMatch(/<button class="language" lang="ar">العربية<\/button>/);
   });
 
-  it("shows Arabic digits in Arabic and ASCII digits in English", () => {
-    expect(text(render("ar"))).not.toMatch(/[0-9]/);
+  it("shows Western digits in both languages, never Arabic Indic ones (D-036 item 3)", () => {
+    expect(text(render("ar"))).not.toMatch(/[٠-٩٫]/);
+    expect(text(part(render("ar"), "ld-card-then"))).toMatch(/100/);
     expect(text(part(render("en"), "ld-card-then"))).toMatch(/100/);
   });
 });

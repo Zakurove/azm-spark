@@ -1,6 +1,6 @@
 /**
  * Formatting rules of the results and My results screens (UX spec 0.2, S50 to S54), pure:
- *   dayLabel          a date in Gregorian with Arabic month names (Q30), in Asia/Riyadh
+ *   dayLabel          a date in Gregorian with Arabic month names (Q30; digits D-036), in Asia/Riyadh
  *   valueParts        a number and its unit word, as the big result value shows them
  *   resultSentence    data:tests.<id>.resultSentence with its tokens (side, load, variant, seconds)
  *   sideLabel         the side of a result row in the S27 words («ذراعك اليمنى», «الميل إلى يمينك»)
@@ -20,8 +20,8 @@ export const TIME_ZONE = "Asia/Riyadh";
 export const TIMED_SECONDS = 30;
 
 /**
- * A date as the check shows it (Q30): Gregorian in both languages, Arabic month names and Arabic Indic
- * digits in Arabic, in Asia/Riyadh. The weekday is shown by default («الأحد، ٢٥ أكتوبر»); the example
+ * A date as the check shows it: Gregorian in both languages (Q30), Arabic month names and Western digits
+ * in Arabic (D-036 item 3), in Asia/Riyadh. The weekday is shown by default («الأحد، 25 أكتوبر»); the example
  * page adds the year so its fixed dates never look like live data (S54).
  */
 export function dayLabel(lang: Lang, at: number, opts: { weekday?: boolean; year?: boolean } = {}): string {
@@ -39,17 +39,17 @@ export function resultUnitOf(testId: TestId): UnitFormId {
   return testDef(testId).resultUnit;
 }
 
-/** Counts are compared without the unit word (O8: «زيادة ٣ عن البداية»). */
+/** Counts are compared without the unit word (O8: «زيادة 3 عن البداية»). */
 export function isCountUnit(unit: UnitFormId): boolean {
   return unit === "bends" || unit === "stands";
 }
 
 export interface ValueParts {
-  /** The number in the page's digits, never negative. */
+  /** The number in Western digits (D-036), never negative. */
   number: string;
   /** The unit word shown beside the big number. */
   unit: string;
-  /** The number and its unit read together («١٢٠ درجة», «درجتين», "120 degrees"). */
+  /** The number and its unit read together («120 درجة», «درجتين», "120 degrees"). */
   phrase: string;
 }
 
@@ -57,10 +57,10 @@ export interface ValueParts {
  * A result value for the big number display (S51): the number at 56 px and the unit word beside it.
  * The Arabic one and two forms stand for the number and the word together («درجتين»), so a number
  * shown on its own beside its unit takes the unit's counted form instead: the visible pair reads as a
- * label («٢ درجة»), and the phrase is what a screen reader hears.
+ * label («2 درجة»), and the phrase is what a screen reader hears.
  */
 // SPEC-GAP: big-number-dual. The spec shows the number at 56 px with the unit word beside it; Arabic
-// never writes ١ or ٢ before the noun, so the visible label uses the counted form and the accessible
+// never writes 1 or 2 before the noun, so the visible label uses the counted form and the accessible
 // text is the full phrase from countPhrase («درجتين»).
 export function valueParts(lang: Lang, unit: UnitFormId, n: number): ValueParts {
   const value = Math.round(Math.abs(n));
@@ -149,12 +149,12 @@ export function resultSentence(
   return interpolate(lang, template, vars);
 }
 
-/** {time} of a clock form of a lock end: «٧:٥٠ صباحًا», "7:50 am". */
+/** {time} of a clock form of a lock end: «7:50 صباحًا», "7:50 am". */
 function clockText(lang: Lang, time: NonNullable<LockWhen["time"]>): string {
   const suffix = CHECK_DATA.pausedWhenTokens.timeSuffix[time.suffix][lang];
   const minute = String(Math.max(0, Math.min(59, Math.round(time.minute)))).padStart(2, "0");
   // A clock time reads hour then minutes from the left in both languages: in Arabic the time is an
-  // isolated left to right run (LRI ... PDI), so the colon never flips it («٧:٥٠» not «٥٠:٧»).
+  // isolated left to right run (LRI ... PDI), so the colon never flips it («7:50» not «50:7»).
   const clock = interpolate(lang, `{hour}:${minute}`, { hour: time.hour });
   return `${lang === "ar" ? `\u2066${clock}\u2069` : clock} ${suffix}`;
 }

@@ -78,7 +78,7 @@ export function knownCues(ids: readonly string[]): CheckCueId[] {
 
 /**
  * Answer labels for the shared answer rows, which show their label as plain text: the digits of an
- * Arabic label in Arabic Indic digits (Q30), as t() and bidiText show every other number.
+ * Arabic label in Western digits (D-036 item 3), as t() and bidiText show every other number.
  */
 export function localLabels<T extends { label: string }>(lang: Lang, options: readonly T[]): T[] {
   return options.map((o) => ({ ...o, label: localizeDigits(lang, o.label) }));
@@ -677,14 +677,14 @@ export function firstAreaWithoutScore(value: Record<string, number | null>): str
 
 /* ================================================================ locks and {when} (S33, S35) */
 
-/** A clock time in the page's language: «٣:١٥ مساءً» · "3:15 pm". */
+/** A clock time in the page's language: «3:15 مساءً» · "3:15 pm". */
 export function clockText(lang: Lang, time: ClockTime): string {
   const mm = String(time.minute).padStart(2, "0");
   const suffix = CHECK_DATA.pausedWhenTokens.timeSuffix[time.suffix][lang];
   return `${time.hour}:${mm} ${suffix}`;
 }
 
-/** {when} of scr_paused_today (Q33 (4)) as text, digits localized by the caller's t() or bidiText. */
+/** {when} of scr_paused_today (Q33 (4)) as text, digits made Western by the caller's t() or bidiText. */
 export function whenText(lang: Lang, when: LockWhen): string {
   const line = pausedWhenText(when.token, lang);
   return when.time ? fillTokens(line, { time: clockText(lang, when.time) }) : line;

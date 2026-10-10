@@ -169,11 +169,11 @@ describe("the findings page", () => {
     expect(render({ kind: "ready", data: answer(gait), intake: FAHD })).toContain('data-slot="gait"');
   });
 
-  it("reads right to left in Arabic, with Arabic digits", () => {
+  it("reads right to left in Arabic, with Western digits (D-036 item 3)", () => {
     const html = render({ kind: "ready", data: answer(), intake: FAHD }, "ar");
     expect(html).toContain('dir="rtl"');
     expect(html).toContain(tV7("ar", "rom.findings.title"));
-    expect(html).toContain("٩٥°");
+    expect(html).toContain("95°");
     expect(html).toContain("الركبة اليمنى");
   });
 

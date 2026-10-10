@@ -61,7 +61,7 @@ export function supportLine(
   return null;
 }
 
-/** A number in the page's digits, to `places` decimals. */
+/** A number to `places` decimals, in Western digits in both languages (D-036 item 3). */
 export function num(lang: Lang, v: number, places = 0): string {
   const f = 10 ** places;
   const s = (Math.round(v * f) / f).toFixed(places);

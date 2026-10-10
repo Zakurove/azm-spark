@@ -11,8 +11,8 @@ vi.mock("virtual:voice-packs", () => ({
   default: {
     default: "openai-ash",
     packs: [
-      { id: "openai-ash", name: { ar: "الصوت ١", en: "Voice 1" }, provider: "OpenAI" },
-      { id: "gemini-achird", name: { ar: "الصوت ٢", en: "Voice 2" }, provider: "Google Gemini" },
+      { id: "openai-ash", name: { ar: "الصوت 1", en: "Voice 1" }, provider: "OpenAI" },
+      { id: "gemini-achird", name: { ar: "الصوت 2", en: "Voice 2" }, provider: "Google Gemini" },
     ],
   },
 }));
@@ -188,8 +188,8 @@ describe("the voice choice in the coach settings", () => {
       const html = field(render(lang, defaults));
       expect(html).toContain(lang === "ar" ? "اختر الصوت" : "Choose a voice");
       expect(html.match(/<button/g)).toHaveLength(2);
-      expect(html).toMatch(new RegExp(`aria-pressed="true"[^>]*>${lang === "ar" ? "الصوت ١" : "Voice 1"}<`));
-      expect(html).toMatch(new RegExp(`aria-pressed="false"[^>]*>${lang === "ar" ? "الصوت ٢" : "Voice 2"}<`));
+      expect(html).toMatch(new RegExp(`aria-pressed="true"[^>]*>${lang === "ar" ? "الصوت 1" : "Voice 1"}<`));
+      expect(html).toMatch(new RegExp(`aria-pressed="false"[^>]*>${lang === "ar" ? "الصوت 2" : "Voice 2"}<`));
       expect(html).not.toMatch(/Ash|Achird/);
     }
     const chosen = field(render("en", { ...defaults, voicePack: "gemini-achird" }));
@@ -215,7 +215,7 @@ describe("the voice choice in the coach settings", () => {
     vi.doMock("virtual:voice-packs", () => ({
       default: {
         default: "openai-ash",
-        packs: [{ id: "openai-ash", name: { ar: "الصوت ١", en: "Voice 1" }, provider: "OpenAI" }],
+        packs: [{ id: "openai-ash", name: { ar: "الصوت 1", en: "Voice 1" }, provider: "OpenAI" }],
       },
     }));
     const { default: Single } = await import("../src/app/CoachSettings");

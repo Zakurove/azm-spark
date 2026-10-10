@@ -335,8 +335,7 @@ export default function Workout({
           {(stage === "warmup" || stage === "rest" || stage === "cooldown") && (
             <div className="interval-clock" role="timer" aria-label={title}>
               <bdi>
-                {fmtNum(Math.floor(remaining / 60), lang)}:
-                {fmtNum(remaining % 60, lang).padStart(2, lang === "ar" ? "٠" : "0")}
+                {fmtNum(Math.floor(remaining / 60), lang)}:{fmtNum(remaining % 60, lang).padStart(2, "0")}
               </bdi>
               <span>{stage === "rest" ? c.rest : c.minutes}</span>
             </div>

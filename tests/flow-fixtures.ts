@@ -87,14 +87,13 @@ export function textOf(html: string): string {
 export function copyProblems(html: string): string[] {
   const text = textOf(html);
   const out: string[] = [];
-  // Arabic pages show Arabic Indic digits (Q30), except inside a Latin run such as T6.
-  if (/ lang="ar"/.test(html.slice(0, 200))) {
-    const ascii = text.match(/(?<![A-Za-z0-9.:/=])\d+(?![A-Za-z])/);
-    if (ascii)
-      out.push(
-        `ASCII digits in Arabic: ${text.slice(Math.max(0, (ascii.index ?? 0) - 30), (ascii.index ?? 0) + 30)}`,
-      );
-  }
+  // Every page shows Western digits 0 to 9, Arabic pages too (D-036 item 3, replacing council Q30):
+  // never an Arabic Indic or Persian digit, nor the Arabic decimal mark.
+  const eastern = text.match(/[\u0660-\u0669\u06f0-\u06f9\u066b]/);
+  if (eastern)
+    out.push(
+      `Arabic Indic digits: ${text.slice(Math.max(0, (eastern.index ?? 0) - 30), (eastern.index ?? 0) + 30)}`,
+    );
   if (/[–—−]/.test(text)) out.push("en dash, em dash or minus sign");
   if (/\p{L}-\p{L}/u.test(text)) out.push("hyphen between letters");
   if (/\{\w+\}/.test(text)) out.push(`unfilled token in: ${text.match(/.{0,30}\{\w+\}.{0,30}/)?.[0]}`);

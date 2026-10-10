@@ -33,7 +33,7 @@ describe("the pain question before a coached workout (CT-2)", () => {
       expect(text).toContain(coachCopy(lang, "workout.painTitle"));
       expect(text).toContain(coachCopy(lang, "workout.painSkip"));
       expect(html).toContain('role="dialog"');
-      if (lang === "ar") expect(text).toContain("١٠");
+      if (lang === "ar") expect(text).toContain("10");
     }
   });
 

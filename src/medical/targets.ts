@@ -1262,13 +1262,14 @@ function doseOf(
   return dose;
 }
 
-const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
-const arDigits = (n: number) => String(n).replace(/\d/g, (d) => ARABIC_DIGITS[Number(d)]);
-/** Seconds counted in Arabic: «ثانية واحدة», «ثانيتين», «٣ ثوانٍ» to 10, then «١١ ثانية». */
+/**
+ * Seconds counted in Arabic, in Western digits (D-036 item 3): «ثانية واحدة», «ثانيتين», «3 ثوانٍ» to
+ * 10, then «11 ثانية».
+ */
 function arSeconds(n: number): string {
   if (n === 1) return "ثانية واحدة";
   if (n === 2) return "ثانيتين";
-  return n <= 10 ? `${arDigits(n)} ثوانٍ` : `${arDigits(n)} ثانية`;
+  return n <= 10 ? `${n} ثوانٍ` : `${n} ثانية`;
 }
 
 /**

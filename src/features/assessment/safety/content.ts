@@ -65,7 +65,7 @@ export function activeLock(d: FlowData, now: number): { until: number } | null {
 
 /**
  * {when} of scr_paused_today (Q33 (4)): every lock a safety screen sets is a next day lock; its line
- * is chosen by pausedWhen with the time in Asia/Riyadh, digits per Q30.
+ * is chosen by pausedWhen with the time in Asia/Riyadh, in Western digits (D-036 item 3).
  */
 export function whenText(until: number, now: number, lang: Lang): string {
   const w = pausedWhen({ kind: "next_day", until }, now, "start");

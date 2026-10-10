@@ -53,7 +53,7 @@ export interface RowView {
   name: string;
   /** The direction of a bend to the side («نحو اليمين»), or null. */
   direction: string | null;
-  /** The value as shown («٩٥°»), or null when not measured. */
+  /** The value as shown («95°»), or null when not measured. */
   value: string | null;
   /** The words under a lack's value («عن الاستقامة»). */
   caption: string | null;
@@ -97,7 +97,7 @@ export interface WalkView {
 }
 
 export interface FindingsView {
-  /** The day of the check («الأحد، ٤ أكتوبر ٢٠٢٦»). */
+  /** The day of the check («الأحد، 4 أكتوبر 2026»). */
   date: string;
   groups: GroupView[];
   others: string[];
@@ -142,7 +142,7 @@ export function toneLabel(tone: Tone, lang: Lang): string {
 const degrees = (lang: Lang, n: number) => interpolate(lang, `${Math.round(n)}°`);
 /**
  * Degrees inside an Arabic sentence: one left to right isolate, so the sign stays after its number
- * («١٣٢°», as the dial writes it) instead of moving to the number's other side.
+ * («132°», as the dial writes it) instead of moving to the number's other side.
  */
 const isolatedDegrees = (lang: Lang, n: number) =>
   lang === "ar" ? `\u2066${degrees(lang, n)}\u2069` : degrees(lang, n);
@@ -418,7 +418,7 @@ const WALK: readonly { metric: GaitMetricId; label: "speed" | "step" | "cadence"
   { metric: "cadence", label: "cadence" },
 ];
 function walkValue(metric: GaitMetricId, v: number, lang: Lang): string {
-  // Numbers, not strings: the copy writes them in the page's digits («٠٫٩٥»).
+  // Numbers, not strings: the copy writes them with fmtNum, in Western digits («0.95», D-036).
   if (metric === "speed_mps")
     return tV7(lang, "rom.findings.walk.speedValue", { n: Math.round(v * 100) / 100 });
   if (metric === "step_length_m") return tV7(lang, "rom.findings.walk.stepValue", { n: Math.round(v * 100) });

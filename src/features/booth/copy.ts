@@ -140,8 +140,8 @@ const ar = {
   safetyYes: "نعم",
   stopTitle: "لنتوقف هنا",
   stopBody: "لن نبدأ الحركة الآن. أخبر أحد أعضاء فريق عزم بجانبك.",
-  stopCall: "إذا كان الألم أو الدوخة شديدين، اتصل بالإسعاف على الرقم ٩٩٧.",
-  stopCallButton: "اتصل بـ ٩٩٧",
+  stopCall: "إذا كان الألم أو الدوخة شديدين، اتصل بالإسعاف على الرقم 997.",
+  stopCallButton: "اتصل بـ 997",
   startAgain: "ابدأ من جديد",
 
   // the end of the set
@@ -160,9 +160,9 @@ const ar = {
   tryAgain: "أعد المحاولة",
   toProgram: "البرنامج",
   exampleTag: "مثال",
-  exampleTitle: "الفحص نفسه بعد ٤ أسابيع",
+  exampleTitle: "الفحص نفسه بعد 4 أسابيع",
   exampleStart: "البداية",
-  exampleNow: "بعد ٤ أسابيع",
+  exampleNow: "بعد 4 أسابيع",
   exampleChange: "التغيّر",
   exampleNote: "يقارنك عزم بنقطة بدايتك أنت فقط.",
 

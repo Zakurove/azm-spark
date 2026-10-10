@@ -2,23 +2,25 @@
  * Copy as React nodes with bidirectional isolation (UX spec 0.2, 5.1).
  *
  *   tx(lang, key, vars)     t() as nodes
- *   bidiText(lang, text)    any copy or check data text as nodes (Arabic digits applied first)
+ *   bidiText(lang, text)    any copy or check data text as nodes (digits made Western first, D-036)
  *
  * In Arabic text every Latin run (Safari, Chrome, Samsung Internet, QR, T6) is wrapped in
  * <bdi lang="en">, so it never flips inside right to left text and an Arabic screen reader voice
  * reads it with English phonetics, and every number is wrapped in <bdi>, so a number next to Latin
- * text or punctuation keeps its place. A clock time (h:mm) is one left to right run, so «٣:١٥» never
- * shows as «١٥:٣» (Q30). English text needs none of this and is returned as it is.
+ * text or punctuation keeps its place. A clock time (h:mm) is one left to right run, so «3:15» never
+ * shows as «15:3». English text needs none of this and is returned as it is.
  */
 import type { ReactNode } from "react";
 import { localizeDigits, t, type I18nKey, type Lang, type Vars } from "./index";
 
 /**
  * A clock time (h:mm or hh:mm), a Latin run (letters, then letters, digits, spaces or dots, ending on
- * a letter or digit), or a number in Arabic Indic or ASCII digits with ٫ or . as the decimal mark.
+ * a letter or digit), or a number with . or ٫ as the decimal mark and "," between groups of three
+ * («1,234.5», as fmtNum writes it), so a grouped number stays one run. The page writes Western digits
+ * (D-036); Arabic Indic digits are still recognised for text that reaches here without localizeDigits.
  */
 const RUNS =
-  /([0-9\u0660-\u0669]{1,2}:[0-9\u0660-\u0669]{2}(?![0-9\u0660-\u0669]))|([A-Za-z][A-Za-z0-9 .]*[A-Za-z0-9]|[A-Za-z])|([0-9\u0660-\u0669]+(?:[.\u066B][0-9\u0660-\u0669]+)?)/g;
+  /([0-9\u0660-\u0669]{1,2}:[0-9\u0660-\u0669]{2}(?![0-9\u0660-\u0669]))|([A-Za-z][A-Za-z0-9 .]*[A-Za-z0-9]|[A-Za-z])|([0-9\u0660-\u0669]+(?:,[0-9]{3}(?![0-9]))*(?:[.\u066B][0-9\u0660-\u0669]+)?)/g;
 
 /** The segments of a text: plain strings and the runs to isolate. */
 export type BidiSegment = string | { latin: string } | { number: string } | { time: string };
@@ -37,7 +39,7 @@ export function bidiSegments(lang: Lang, text: string): BidiSegment[] {
   return out;
 }
 
-/** A copy or data text as nodes, with Arabic digits and isolated Latin runs and numbers. */
+/** A copy or data text as nodes, with Western digits (D-036) and isolated Latin runs and numbers. */
 export function bidiText(lang: Lang, text: string): ReactNode {
   const segments = bidiSegments(lang, localizeDigits(lang, text));
   if (segments.length === 1 && typeof segments[0] === "string") return segments[0];

@@ -1,7 +1,7 @@
 /**
  * Copy for the v7 screens (product v7 contract 1.2 and 8.8): src/i18n/{ar,en}/<namespace>.json for
  * the six v7 namespaces, read with tV7(lang, "<namespace>.<key>", vars) exactly like t() of
- * src/i18n/index.ts (the same interpolation, Arabic digits and plural forms).
+ * src/i18n/index.ts (the same interpolation, Western digits and plural forms).
  *
  * Imported only by v7 chunks and never by src/i18n/index.ts, so no v7 string reaches the landing's
  * first script. Each namespace starts as {} and is filled by its owner: intake7 (stream A), rom (B),

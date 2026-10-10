@@ -134,7 +134,7 @@ it("shows one plain line, and the Read my report press is the consent (booth v2,
     // The one plain line, and nothing about a company outside the Kingdom or how long it keeps data.
     expect(c.reportNotice).toBe(LINE[lang]);
     expect(plain).toContain(LINE[lang]);
-    expect(plain).not.toMatch(/خارج المملكة|outside Saudi|30 days|٣٠ يومًا|OpenAI/);
+    expect(plain).not.toMatch(/خارج المملكة|outside Saudi|30 days|30 يومًا|٣٠ يومًا|OpenAI/);
     expect(c).not.toHaveProperty("reportConsentBody");
     expect(c).not.toHaveProperty("reportConsentCheck");
     // No tick box and no extra paragraph: the Read my report press is the consent, and it is open.

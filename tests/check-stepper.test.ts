@@ -52,8 +52,8 @@ describe("CountStepper", () => {
       expect(html).toContain('inputMode="numeric"');
       expect(html).toContain('aria-invalid="true"');
       expect(html).toContain('role="alert"');
-      // The range line in the page's digits.
-      expect(html).toContain(lang === "ar" ? "٦٠" : "60");
+      // The range line in Western digits in both languages (D-036 item 3).
+      expect(html).toContain(lang === "ar" ? "<bdi>60</bdi>" : "60");
       expect(render(lang, false)).not.toContain('role="alert"');
     });
   }

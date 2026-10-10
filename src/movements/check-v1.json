@@ -33,7 +33,7 @@
       "ar": "أؤكد أن عمري 18 سنة أو أكثر.",
       "en": "I confirm that I am 18 or older.",
       "when": "at account creation and before the movement check, including the guest booth flow",
-      "status": "reviewed by the Arabic seat (7.2-6): the confirm row of S05a, shown first, digits by the Q30 formatter (١٨); the other row «عمري أقل من ١٨ سنة» · I am under 18 ends the booth check with no camera test (Q2 (5), Q32 (6))."
+      "status": "reviewed by the Arabic seat (7.2-6): the confirm row of S05a, shown first, digits by the fmtNum formatter, Western in Arabic (18, D-036 item 3); the other row «عمري أقل من 18 سنة» · I am under 18 ends the booth check with no camera test (Q2 (5), Q32 (6))."
     },
     "researchOptIn": {
       "ar": "أوافق على أن يستخدم عزم نتائج قياسي، دون اسمي أو بيانات التواصل معي، لتحسين دقة القياس.",
@@ -3174,7 +3174,7 @@
     ],
     "bigNumberMinPx": 64,
     "bigNumberRule": "The number is also shown as text at least 64 px tall, so it can be read from 2 to 3 m or from the floor and dialled from another phone when this device cannot call (laptops, tablets).",
-    "numbers": "997 for emergencies and 937 for non urgent advice only. 911 appears on no user screen until region wide ambulance dispatch through 911 is confirmed; the 911 region list is re-verified before the booth. tel: links never dial by themselves. Digits follow Q30 (٩٩٧ and ٩٣٧ in Arabic text, tel:997 and tel:937 in the href); the voice reads the number digit by digit."
+    "numbers": "997 for emergencies and 937 for non urgent advice only. 911 appears on no user screen until region wide ambulance dispatch through 911 is confirmed; the 911 region list is re-verified before the booth. tel: links never dial by themselves. Digits follow D-036 item 3 (997 and 937 in Western digits in Arabic text too, tel:997 and tel:937 in the href); the voice reads the number digit by digit."
   },
   "pausedWhenTokens": {
     "min60_start": {
@@ -4366,7 +4366,7 @@
       "attemptCounter": {
         "ar": "{n} من 3",
         "en": "{n} of 3",
-        "rule": "A large attempt counter readable from 2 m, for example ٢ من ٣ · 2 of 3 (P3)."
+        "rule": "A large attempt counter readable from 2 m, for example 2 من 3 · 2 of 3 (P3)."
       },
       "armMode": "light_touch: hands rest on thighs or armrests; the hand on the leaning side slides as a light touch; a weaker arm stays supported on the lap",
       "metric": {
@@ -5285,7 +5285,7 @@
         }
       }
     },
-    "digits": "Decided (Q30): Arabic Indic digits in every Arabic display string. Arabic copy in this file is authored with ASCII digits for review; at render time every ASCII digit in an Arabic display string, and every {value}, {band}, {seconds}, {kg}, {n}, {time} or {date} token, goes through the same formatter as fmtNum (Arabic Indic digits, decimal separator ٫, for example ٢٫٥ كغ). The emergency and advice numbers inside Arabic text show as ٩٩٧ and ٩٣٧; only the tel: href stays ASCII (tel:997, tel:937). Latin codes such as T6 keep their form, and every Latin code or inserted number is wrapped in a bidi isolate (bdi, or U+2068 and U+2069) so it never flips inside RTL text. Every Arabic date uses calendar gregory with Arabic month names (١١ أكتوبر ٢٠٢٦), including History.tsx. Bottle sizes are shown and spoken in words (bottleSizes). Speech input to the Arabic voice (arTts) never contains digits; numbers are spelled out.",
+    "digits": "Decided (D-036 item 3, Nasser, replacing council Q30's Arabic Indic digits): Western digits 0 to 9 in every Arabic display string, with . as the decimal mark. Arabic copy in this file is authored with ASCII digits; at render time every {value}, {band}, {seconds}, {kg}, {n}, {time} or {date} token goes through the same formatter as fmtNum (Western digits, decimal mark ., for example 2.5 كغ), and any Arabic Indic digit in an Arabic display string is shown as its Western digit. The emergency and advice numbers show as 997 and 937 in both languages, in the text and in the tel: href (tel:997, tel:937). Latin codes such as T6 keep their form, and every Latin code or inserted number is wrapped in a bidi isolate (bdi, or U+2068 and U+2069) so it never flips inside RTL text. Every Arabic date uses calendar gregory (Q30) with Arabic month names and Western digits (11 أكتوبر 2026), including History.tsx. Bottle sizes are shown and spoken in words (bottleSizes). Speech input to the Arabic voice (arTts) never contains digits; numbers are spelled out.",
     "lowerExtra": {
       "ar": "قد تنخفض النتيجة لأسباب يومية كثيرة، مثل التعب أو الألم أو وقت اليوم أو طريقة التجهيز. يمكنك إعادة القياس بعد بضعة أيام.",
       "en": "Many everyday things can lower a result, such as tiredness, pain, the time of day or the setup. You can check again in a few days."
@@ -6111,7 +6111,7 @@
       }
     }
   ],
-  "cueShortRule": "Every cue carries short {ar, en} (O24-1): the caption short form, set at 56 px beside its icon above the full sentence at 34 px, readable from 2 m, never truncated (the video shrinks instead). At most 3 words, an imperative or a noun, no punctuation except a question mark, Arabic Indic digits in Arabic (٩٩٧). A safety short form keeps its action verb and never drops a negation. Exceptions decided by the panel: «ضع يدك في المربع» (4 words, O34-1), «لا يقف أحد أمامك» (4 words, R-12 of the release QA, 2026-10-02: «لا أحد أمامك» read as a statement under «شخص آخر في المنتصف»; the Arabic seat confirms) and the English twins Answer from where you are, Lower your arm slowly and Did you pass out? (O24-1), and Do not get up (R3C-15). Short forms are display only: never spoken, no arTts, and they never replace the full sentence, which stays in the caption. A short form never turns a condition or a qualifier of its full cue into an absolute order, and keeps the cue’s mood, so permission stays permission: «لا تنهض لتجيب» · Do not get up (the English form proposed by council R3C-15 so it carries the safety meaning; the Arabic seat confirms), «ينزلق؟ ضعه جانبًا» · Slipping? Put down, «يمكنك الاستعانة بيديك» · Hands may help (Arabic seat, review fixes of 2026-09-28).",
+  "cueShortRule": "Every cue carries short {ar, en} (O24-1): the caption short form, set at 56 px beside its icon above the full sentence at 34 px, readable from 2 m, never truncated (the video shrinks instead). At most 3 words, an imperative or a noun, no punctuation except a question mark, Western digits in Arabic too (997, D-036 item 3). A safety short form keeps its action verb and never drops a negation. Exceptions decided by the panel: «ضع يدك في المربع» (4 words, O34-1), «لا يقف أحد أمامك» (4 words, R-12 of the release QA, 2026-10-02: «لا أحد أمامك» read as a statement under «شخص آخر في المنتصف»; the Arabic seat confirms) and the English twins Answer from where you are, Lower your arm slowly and Did you pass out? (O24-1), and Do not get up (R3C-15). Short forms are display only: never spoken, no arTts, and they never replace the full sentence, which stays in the caption. A short form never turns a condition or a qualifier of its full cue into an absolute order, and keeps the cue’s mood, so permission stays permission: «لا تنهض لتجيب» · Do not get up (the English form proposed by council R3C-15 so it carries the safety meaning; the Arabic seat confirms), «ينزلق؟ ضعه جانبًا» · Slipping? Put down, «يمكنك الاستعانة بيديك» · Hands may help (Arabic seat, review fixes of 2026-09-28).",
   "cuesRetired": [
     {
       "id": "check_time_stop",

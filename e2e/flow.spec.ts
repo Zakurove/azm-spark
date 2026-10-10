@@ -33,10 +33,11 @@ const url = (path: string, lang: Lang) =>
   lang === "en" ? `${path}${path.includes("?") ? "&" : "?"}lang=en` : path;
 const fill = (text: string, vars: Record<string, string | number>) =>
   text.replace(/\{(\w+)\}/g, (w, k: string) => (k in vars ? String(vars[k]) : w));
-const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
-/** A copy line as the page shows it: Arabic Indic digits in Arabic (Q30). */
-const shown = (lang: Lang, text: string) =>
-  lang === "ar" ? text.replace(/(?<![A-Za-z])\d(?![A-Za-z])/g, (d) => AR_DIGITS[Number(d)]) : text;
+/**
+ * A copy line as the page shows it: as written, Western digits in both languages (D-036 item 3,
+ * replacing council Q30's Arabic Indic digits).
+ */
+const shown = (_lang: Lang, text: string) => text;
 
 interface Item {
   id: string;
@@ -748,7 +749,7 @@ for (const lang of LANGS) {
       await expect(screen(page, "S30")).toBeVisible();
       await answer(page, labelOf("dumbbell")).click();
       await page.getByRole("button", { name: t.load.increase }).click();
-      await expect(page.locator(".flow-kg-input")).toHaveValue(shown(lang, lang === "ar" ? "1٫5" : "1.5"));
+      await expect(page.locator(".flow-kg-input")).toHaveValue("1.5");
       await next(page).click();
 
       // S31 home: one line and the button (C08), no video line (D-017); Back returns to the load.

@@ -1,8 +1,8 @@
 /**
- * The words and numbers of the results pages (UX spec 0.2, S50 to S54, Q30, O8, Q33 (4)): Arabic
- * plural forms, Arabic Indic digits, changes said in words (never a sign or a dash), counts without a
- * unit in the change line, the Q1 band sentence, the result sentence tokens, the lock time, dates in
- * Gregorian with Arabic month names, and the S27 group of a skip reason.
+ * The words and numbers of the results pages (UX spec 0.2, S50 to S54, Q30, D-036, O8, Q33 (4)):
+ * Arabic plural forms, Western digits in Arabic too, changes said in words (never a sign or a dash),
+ * counts without a unit in the change line, the Q1 band sentence, the result sentence tokens, the lock
+ * time, dates in Gregorian with Arabic month names, and the S27 group of a skip reason.
  */
 import { describe, expect, it } from "vitest";
 import { CHECK_DATA } from "../src/movements/assessments";
@@ -20,23 +20,24 @@ import {
   whenText,
 } from "../src/features/progress/format";
 
-const LATIN_DIGIT = /[0-9]/;
+/** Arabic text shows Western digits 0 to 9 (D-036 item 3), never Arabic Indic ones. */
+const ARABIC_INDIC_DIGIT = /[٠-٩٫]/;
 
 describe("values with units in words (S51)", () => {
   it("uses the Arabic plural forms by the number", () => {
-    expect(valueParts("ar", "deg", 120)).toEqual({ number: "١٢٠", unit: "درجة", phrase: "١٢٠ درجة" });
+    expect(valueParts("ar", "deg", 120)).toEqual({ number: "120", unit: "درجة", phrase: "120 درجة" });
     expect(valueParts("ar", "deg", 104).unit).toBe("درجات");
-    expect(valueParts("ar", "deg", 7)).toEqual({ number: "٧", unit: "درجات", phrase: "٧ درجات" });
-    expect(valueParts("ar", "bends", 11).phrase).toBe("١١ مرة");
+    expect(valueParts("ar", "deg", 7)).toEqual({ number: "7", unit: "درجات", phrase: "7 درجات" });
+    expect(valueParts("ar", "bends", 11).phrase).toBe("11 مرة");
     expect(valueParts("en", "deg", 1)).toEqual({ number: "1", unit: "degree", phrase: "1 degree" });
     expect(valueParts("en", "stands", 12).phrase).toBe("12 stands");
   });
 
-  it("reads one and two as the number and the word together, never «٢ مرتين» (0.1)", () => {
+  it("reads one and two as the number and the word together, never «2 مرتين» (0.1)", () => {
     expect(valueParts("ar", "bends", 2).phrase).toBe("مرتين");
     expect(valueParts("ar", "deg", 1).phrase).toBe("درجة واحدة");
     // The visible pair beside the big number reads as a label: the digit with the counted noun.
-    expect(valueParts("ar", "bends", 2)).toMatchObject({ number: "٢", unit: "مرة" });
+    expect(valueParts("ar", "bends", 2)).toMatchObject({ number: "2", unit: "مرة" });
   });
 
   it("never shows a negative value", () => {
@@ -44,7 +45,7 @@ describe("values with units in words (S51)", () => {
   });
 
   it("shows a censored side lean value as more than its value", () => {
-    expect(moreThan("ar", 15)).toBe(`${CHECK_DATA.progress.noVerdict.censored.ar.replace("{value}", "١٥")}`);
+    expect(moreThan("ar", 15)).toBe(`${CHECK_DATA.progress.noVerdict.censored.ar.replace("{value}", "15")}`);
     expect(moreThan("en", 15)).toContain("15");
   });
 
@@ -68,9 +69,9 @@ describe("the band sentence and the result sentence", () => {
       detail: { loadObject: "bottle", loadL: 0.5 },
     });
     expect(curl).toContain("اليسرى");
-    expect(curl).toContain("١٤ مرة");
-    expect(curl).toContain("٣٠ ثانية");
-    expect(curl).not.toMatch(LATIN_DIGIT);
+    expect(curl).toContain("14 مرة");
+    expect(curl).toContain("30 ثانية");
+    expect(curl).not.toMatch(ARABIC_INDIC_DIGIT);
     expect(
       resultSentence("en", "arm_curl_30s", "right", 12, { detail: { loadObject: "dumbbell", loadKg: 2.5 } }),
     ).toBe("With your right arm and a 2.5 kg weight, you did 12 full bends in 30 seconds.");
@@ -92,11 +93,11 @@ describe("the band sentence and the result sentence", () => {
 
 describe("dates, sides and the lock time", () => {
   const OCT_25 = Date.UTC(2026, 9, 25, 9);
-  it("writes Gregorian dates with Arabic month names and Arabic Indic digits (Q30)", () => {
-    expect(dayLabel("ar", OCT_25)).toBe("الأحد، ٢٥ أكتوبر");
+  it("writes Gregorian dates with Arabic month names (Q30) and Western digits (D-036)", () => {
+    expect(dayLabel("ar", OCT_25)).toBe("الأحد، 25 أكتوبر");
     expect(dayLabel("en", OCT_25)).toBe("Sunday 25 October");
     expect(dayLabel("en", OCT_25, { weekday: false, year: true })).toBe("25 October 2026");
-    expect(nextDueText("ar", OCT_25)).toContain("الأحد، ٢٥ أكتوبر");
+    expect(nextDueText("ar", OCT_25)).toContain("الأحد، 25 أكتوبر");
   });
 
   it("uses the Riyadh day, not the device's (S01)", () => {
@@ -112,7 +113,7 @@ describe("dates, sides and the lock time", () => {
 
   it("keeps the clock time of a lock in reading order and uses the pausedWhen line (Q33 (4))", () => {
     const ar = whenText("ar", { token: "nextDay_clock", time: { hour: 7, minute: 5, suffix: "am" } })!;
-    expect(ar).toContain("⁦٧:٠٥⁩");
+    expect(ar).toContain("⁦7:05⁩");
     expect(ar).toContain(CHECK_DATA.pausedWhenTokens.timeSuffix.am.ar);
     const en = whenText("en", { token: "nextDay_clock", time: { hour: 7, minute: 50, suffix: "am" } })!;
     expect(en).toContain("7:50");

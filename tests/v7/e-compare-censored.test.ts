@@ -131,7 +131,7 @@ describe("the findings page shows a no verdict change as its values (E3-4)", () 
     expect(en.direction).toBe("none");
     expect(en.text).toBe("");
     expect(strip(en.values)).toBe("At your starting point more than 30°, in this check 40°");
-    expect(strip(rowOf("ar").change!.values)).toBe("عند نقطة بدايتك أكثر من ٣٠°، وفي هذا القياس ٤٠°");
+    expect(strip(rowOf("ar").change!.values)).toBe("عند نقطة بدايتك أكثر من 30°، وفي هذا القياس 40°");
   });
 
   it("the re-test rule never reads it as better", () => {

@@ -8,7 +8,7 @@
  *                      "Choose an answer to continue." under the question and moves focus to the first
  *                      answer row.
  * The group is labelled by the question (aria-labelledby); each row is a button with aria-pressed.
- * Labels go through bidiText, so data labels with ASCII digits show the page's digits (Q30).
+ * Labels go through bidiText, so data labels show Western digits in both languages (D-036 item 3).
  */
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { t } from "../../../i18n";

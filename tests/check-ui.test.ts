@@ -24,6 +24,14 @@ describe("bidirectional isolation of copy (UX spec 0.2)", () => {
       "، اضغط",
     ]);
     expect(bidiSegments("ar", "المستوى T6 أو أعلى")).toEqual(["المستوى ", { latin: "T6" }, " أو أعلى"]);
+    expect(bidiSegments("ar", "نحو 16 إلى 21 دقيقة")).toEqual([
+      "نحو ",
+      { number: "16" },
+      " إلى ",
+      { number: "21" },
+      " دقيقة",
+    ]);
+    // Arabic Indic digits that reach it without localizeDigits are still recognised as numbers.
     expect(bidiSegments("ar", "نحو ١٦ إلى ٢١ دقيقة")).toEqual([
       "نحو ",
       { number: "١٦" },
@@ -31,19 +39,24 @@ describe("bidirectional isolation of copy (UX spec 0.2)", () => {
       { number: "٢١" },
       " دقيقة",
     ]);
+    // A grouped number with its decimal mark, as fmtNum writes it, is one run (D-036).
+    expect(bidiSegments("ar", "نحو 1,234.5 متر")).toEqual(["نحو ", { number: "1,234.5" }, " متر"]);
     expect(bidiSegments("en", "In Safari, open 3 menus")).toEqual(["In Safari, open 3 menus"]);
   });
 
-  it("keeps a clock time as one left to right run, so hours never swap with minutes (Q30)", () => {
+  it("keeps a clock time as one left to right run, so hours never swap with minutes", () => {
+    expect(bidiSegments("ar", "بعد الساعة 3:15 مساءً")).toEqual(["بعد الساعة ", { time: "3:15" }, " مساءً"]);
     expect(bidiSegments("ar", "بعد الساعة ٣:١٥ مساءً")).toEqual(["بعد الساعة ", { time: "٣:١٥" }, " مساءً"]);
-    expect(bidiSegments("ar", "حتى 12:05 أو ٢ ساعة")).toEqual([
+    expect(bidiSegments("ar", "حتى 12:05 أو 2 ساعة")).toEqual([
       "حتى ",
       { time: "12:05" },
       " أو ",
-      { number: "٢" },
+      { number: "2" },
       " ساعة",
     ]);
-    expect(html(bidiText("ar", "بعد الساعة 3:15"))).toContain('<bdi dir="ltr">٣:١٥</bdi>');
+    expect(html(bidiText("ar", "بعد الساعة 3:15"))).toContain('<bdi dir="ltr">3:15</bdi>');
+    // A time written before D-036 in Arabic Indic digits is shown in Western digits.
+    expect(html(bidiText("ar", "بعد الساعة ٣:١٥"))).toContain('<bdi dir="ltr">3:15</bdi>');
     // Not a time: three digits before the colon stay numbers.
     expect(bidiSegments("ar", "123:45")).toEqual([{ number: "123" }, ":", { number: "45" }]);
   });
@@ -57,10 +70,11 @@ describe("bidirectional isolation of copy (UX spec 0.2)", () => {
     expect(html(tx("en", "assessment.camera.denied.ios"))).not.toContain("<bdi");
   });
 
-  it("shows 997 and 937 in Arabic Indic digits in Arabic text (Q30)", () => {
-    expect(t("ar", "assessment.common.call937")).toContain("٩٣٧");
-    expect(t("ar", "assessment.common.call937")).not.toMatch(/937/);
-    expect(html(bidiText("ar", "اتصل بالرقم 997"))).toBe("<p>اتصل بالرقم <bdi>٩٩٧</bdi></p>");
+  it("shows 997 and 937 in Western digits in Arabic text too (D-036 item 3)", () => {
+    expect(t("ar", "assessment.common.call937")).toContain("937");
+    expect(t("ar", "assessment.common.call937")).not.toMatch(/[٠-٩]/);
+    expect(html(bidiText("ar", "اتصل بالرقم 997"))).toBe("<p>اتصل بالرقم <bdi>997</bdi></p>");
+    expect(html(bidiText("ar", "اتصل بالرقم ٩٩٧"))).toBe("<p>اتصل بالرقم <bdi>997</bdi></p>");
     expect(html(bidiText("en", "Call 997"))).toBe("<p>Call 997</p>");
   });
 });

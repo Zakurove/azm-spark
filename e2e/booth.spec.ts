@@ -46,8 +46,11 @@ function watchConsole(page: Page): string[] {
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
-/** Digits as a person types them on this page (Arabic Indic in Arabic, 0.2). */
-const digits = (lang: Lang, n: number | string) =>
+/**
+ * Digits as a person may type them on this page: Arabic Indic in Arabic, read as numbers (0.2). The
+ * page itself shows Western digits in both languages (D-036 item 3).
+ */
+const typed = (lang: Lang, n: number | string) =>
   lang === "ar" ? String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : String(n);
 
 async function boothPass(page: Page) {
@@ -79,7 +82,7 @@ for (const lang of LANGS) {
       await expect(code).toBeFocused();
 
       // The real server: today is not a booth day (O17), so no code turns booth mode on.
-      await code.fill(digits(lang, "482913"));
+      await code.fill(typed(lang, "482913"));
       const verify = page.waitForRequest("**/api/booth/verify");
       await turnOn.click();
       expect((await verify).postDataJSON()).toEqual({ code: "482913" });
@@ -199,12 +202,8 @@ for (const lang of LANGS) {
       await expect(page.locator('[data-setting="planeFallback"]')).toHaveAttribute("aria-checked", "false");
       await expect(page.locator('[data-setting="readout"]')).toHaveAttribute("aria-checked", "false");
       // The approved ratios of F-1, from the check data.
-      await expect(page.locator('[data-setting="planeFallback"]')).toContainText(
-        lang === "ar" ? "٠٫٧٥" : "0.75",
-      );
-      await expect(page.locator('[data-setting="planeFallback"]')).toContainText(
-        lang === "ar" ? "٠٫٨٥" : "0.85",
-      );
+      await expect(page.locator('[data-setting="planeFallback"]')).toContainText("0.75");
+      await expect(page.locator('[data-setting="planeFallback"]')).toContainText("0.85");
 
       // The arm raise off: its switch says so, for staff only.
       await raise.click();
@@ -362,19 +361,17 @@ for (const lang of LANGS) {
       const dialog = page.getByRole("dialog", { name: c.booth.staffCount });
       const input = dialog.getByLabel(c.booth.staffCount);
       await expect(input).toBeFocused();
-      await expect(input).toHaveValue(digits(lang, 12));
-      await input.fill(digits(lang, 99));
+      await expect(input).toHaveValue("12");
+      await input.fill(typed(lang, 99));
       await dialog.getByRole("button", { name: c.common.continue }).click();
-      await expect(dialog.getByRole("alert")).toHaveText(
-        fill(c.count.range, { min: digits(lang, 0), max: digits(lang, 60) }),
-      );
-      // The S48 stepper: one fewer and one more, in the page's digits.
-      await input.fill(digits(lang, 13));
+      await expect(dialog.getByRole("alert")).toHaveText(fill(c.count.range, { min: 0, max: 60 }));
+      // The S48 stepper: one fewer and one more, shown back in Western digits (D-036 item 3).
+      await input.fill(typed(lang, 13));
       await dialog.getByRole("button", { name: c.count.increase }).click();
-      await expect(input).toHaveValue(digits(lang, 14));
+      await expect(input).toHaveValue("14");
       await dialog.getByRole("button", { name: c.count.decrease }).click();
-      await expect(input).toHaveValue(digits(lang, 13));
-      await input.fill(digits(lang, 14));
+      await expect(input).toHaveValue("13");
+      await input.fill(typed(lang, 14));
       await dialog.getByRole("button", { name: c.common.continue }).click();
       await expect(dialog).toHaveCount(0);
       await expect(page.locator("[data-saved]")).toHaveAttribute("data-saved", "14");
@@ -391,7 +388,7 @@ for (const lang of LANGS) {
       await expect(tips).toHaveCount(7);
       await expect(tips.first()).toHaveAttribute("data-tip", "light");
       await expect(tips.last()).toHaveAttribute("data-tip", "wheelchair");
-      await expect(page.locator('[data-tip="distance"]')).toContainText(digits(lang, 2));
+      await expect(page.locator('[data-tip="distance"]')).toContainText("2");
       await page.locator(".check-footer").getByRole("button", { name: c.tips.back }).click();
       await expect(page.locator("[data-back]")).toHaveAttribute("data-back", "1");
       await page.goto(url("/?booth=1&e2eBooth=tips-wheelchair", lang));

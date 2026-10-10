@@ -59,7 +59,7 @@ export function SentenceStack({
   );
 }
 
-/** A text with clock times kept whole: bidiText isolates a time as one left to right run (Q30). */
+/** A text with clock times kept whole: bidiText isolates a time as one left to right run. */
 export function TextWithTimes({ text }: { text: string }) {
   const { lang } = useCheckUi();
   return <>{bidiText(lang, text)}</>;

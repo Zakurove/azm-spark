@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { stepsOf, type WeeklyItem } from "../medical/weekly";
 import { libraryById } from "../medical/pool";
 import { cardKind, type CardSlot } from "../medical/session";
-import { fmtNum, Lang, T } from "./i18n";
+import { fmtNum, Lang, T, westernDigits } from "./i18n";
 import { copy } from "./product";
 import { guidedCopy } from "./guided-copy";
 import { labels } from "./platform-copy";
@@ -62,7 +62,8 @@ export default function GuidedCard({
   const g = guidedCopy(lang),
     c = copy(lang);
   const n = (v: number) => fmtNum(v, lang);
-  const digits = (s: string) => (lang === "ar" ? s.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]) : s);
+  // Library text in Western digits in Arabic too (D-036 item 3), whatever digits it was written in.
+  const digits = (s: string) => (lang === "ar" ? westernDigits(s) : s);
   const ex = libraryById(item.id);
   const kind = cardKind(item);
   const sets = Math.max(1, item.sets);
@@ -178,7 +179,7 @@ export default function GuidedCard({
     n(count)
   ) : clock ? (
     <bdi>
-      {n(Math.floor(left / 60))}:{n(left % 60).padStart(2, lang === "ar" ? "٠" : "0")}
+      {n(Math.floor(left / 60))}:{n(left % 60).padStart(2, "0")}
     </bdi>
   ) : (
     n(left)

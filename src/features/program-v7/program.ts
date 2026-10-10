@@ -15,7 +15,7 @@ export interface ProgramItemView {
   id: string;
   name: string;
   category: string;
-  /** «١٠ تكرارات», «مرتان × ٣٠ ثانية», «١٠ دقائق». */
+  /** «10 تكرارات», «مرتان × 30 ثانية», «10 دقائق». */
   dose: string;
   /** The weekdays it is on, in the week's order («الأحد»). */
   days: string[];

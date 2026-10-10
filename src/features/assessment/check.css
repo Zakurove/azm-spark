@@ -722,7 +722,8 @@ html:has(.azm-check.check-page) {
   display: grid;
   gap: var(--s3);
 }
-/* Steps to follow (S32 permission steps): one step per line, 20 px, numbered in the page's digits. */
+/* Steps to follow (S32 permission steps): one step per line, 20 px, numbered in Western digits in both
+   languages (D-036 item 3). */
 .azm-check .check-steps {
   display: grid;
   gap: var(--s2);
@@ -732,7 +733,7 @@ html:has(.azm-check.check-page) {
   line-height: 1.6;
 }
 .azm-check:lang(ar) .check-steps {
-  list-style-type: arabic-indic;
+  list-style-type: decimal;
 }
 /* A bulleted list in a card (the pc_urgent signs): the bullets stay inside the card. */
 .azm-check .check-card.check-list {

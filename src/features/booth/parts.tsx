@@ -35,7 +35,7 @@ export function StepHead({
   );
 }
 
-/** «الخطوة ٢ · محرك عزم الطبي» */
+/** «الخطوة 2 · محرك عزم الطبي» */
 export function stepKicker(lang: Lang, dot: number) {
   const k = boothCopy(lang);
   return (
@@ -126,5 +126,5 @@ export function Dots({ lang, dot }: { lang: Lang; dot: number }) {
   );
 }
 
-/** A number in the page's digits. */
+/** A number for the page, in Western digits in both languages (D-036 item 3). */
 export const n = (lang: Lang, v: number) => formatNumber(lang, v);

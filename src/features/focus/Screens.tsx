@@ -73,7 +73,10 @@ export function LoadErrorScreen({
   );
 }
 
-/** When the next check opens: the weekday, the date and the time in Riyadh (Gregorian, Q30). */
+/**
+ * When the next check opens: the weekday, the date and the time in Riyadh (Gregorian, Q30; Western
+ * digits, D-036).
+ */
 export function opensAt(at: number, lang: Lang): string {
   return fmtDate(at, lang, {
     weekday: "long",

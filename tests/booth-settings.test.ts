@@ -252,7 +252,7 @@ describe("the staff readout panel", () => {
       }),
     );
 
-  it("shows every reading in both languages, engine ids left to right, Arabic digits in Arabic", () => {
+  it("shows every reading in both languages, engine ids left to right, Western digits in Arabic", () => {
     const en = html("en");
     for (const x of ["Upper arm ratio", "0.81", "0.85", "Fails now", "0.1 of 0.3", "24", "Last lift"])
       expect(en).toContain(x);
@@ -262,8 +262,9 @@ describe("the staff readout panel", () => {
     expect(en).toContain("Setup checks");
     expect(en).toContain('<bdi dir="ltr">too_close, no_tilt</bdi>');
     const ar = html("ar");
-    for (const x of ["نسبة العضد", "٠٫٨١", "٠٫٨٥", "غير مقبول الآن", "٠٫١ من ٠٫٣", "٢٤"])
+    for (const x of ["نسبة العضد", "0.81", "0.85", "غير مقبول الآن", "0.1 من 0.3", "24"])
       expect(ar).toContain(x);
+    expect(ar).not.toMatch(/[٠-٩٫]/);
     expect(ar).toContain('data-plane="fail"');
     expect(html("en", { live: null, last: null, setup: [] } as never)).toContain("Not started yet");
   });

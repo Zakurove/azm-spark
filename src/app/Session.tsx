@@ -12,7 +12,7 @@ import { fmtNum, Lang, pct as fmtPct, T } from "./i18n";
 import voiceScript from "./voice-script.json";
 import { drawOverlay } from "./overlay";
 import { CameraPoseSource, CameraStatus, LOCK_NUM_POSES, PoseSource, TracePoseSource } from "./poseSource";
-import { CROWD_LOCK, lockedFrame, SUBJECT_RULES, SubjectLock } from "../engine/subject";
+import { lockedFrame, SUBJECT_RULES, SubjectLock } from "../engine/subject";
 import type { TraceOpts } from "../engine/traces";
 import { camCopy } from "./camera-copy";
 import { sessionCopy } from "./session-copy";
@@ -294,7 +294,7 @@ export default function SessionScreen(props: {
   const pipe = useRef({
     flow: null as WorkoutFlow | null,
     /** The person the set is for, one per set (D-037 item 4: the booth, many people in the picture). */
-    lock: new SubjectLock(SUBJECT_RULES, CROWD_LOCK),
+    lock: new SubjectLock(SUBJECT_RULES, { ignoreBehind: true }),
     over: false,
     startedAt: 0,
     flash: new Set<number>(),
@@ -360,8 +360,6 @@ export default function SessionScreen(props: {
       if (P.over || !P.flow) return;
       // Only the locked person is measured, drawn and cued (D-037 item 4).
       const v: FlowView = P.flow.step(lockedFrame(P.lock, raw));
-      // D-038 item 2: from the first calibration rep the set (or the demo) is one test: never anyone else.
-      if (v.stage === "calibrating" || v.stage === "training") P.lock.hold(true);
       const now = performance.now();
 
       // The caption: a new cue about a joint makes that joint glow for 2 s.
@@ -475,9 +473,7 @@ export default function SessionScreen(props: {
     let cancelled = false;
     const P = pipe.current;
     P.flow = new WorkoutFlow(def, profile, variantDef.requiredLandmarks, def.targetReps);
-    P.lock = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
-    // Someone in front pauses the set only over the landmarks it reads (D-038 item 2).
-    P.lock.setNeeds(variantDef.requiredLandmarks);
+    P.lock = new SubjectLock(SUBJECT_RULES, { ignoreBehind: true });
     P.over = false;
     P.startedAt = 0;
     P.ui = INITIAL_UI;
@@ -497,8 +493,8 @@ export default function SessionScreen(props: {
               ? new EmptyPoseSource()
               : new TracePoseSource(exerciseId, E2E_TRACES[e2eTrace] ?? {});
         } else {
-          // Several people and their looks, so another one never takes the set's person (D-038 item 2).
-          const cam = new CameraPoseSource(videoRef.current!, { numPoses: LOCK_NUM_POSES, looks: true });
+          // Two people, so another one never takes the set's person's pose (D-037 item 4).
+          const cam = new CameraPoseSource(videoRef.current!, { numPoses: LOCK_NUM_POSES });
           cam.onStatus = setCamStatus;
           src = cam;
         }

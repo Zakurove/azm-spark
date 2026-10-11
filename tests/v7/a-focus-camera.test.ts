@@ -23,14 +23,13 @@ import {
   MODEL_MEMORY_DAYS,
   MODEL_MEMORY_KEY,
   PROBE_FLOOR_FPS,
-  PROBE_POSES,
   PROBE_MS,
   rememberedModel,
   type FocusCamera,
   type FocusCameraOptions,
   type PoseModel,
 } from "../../src/features/focus/camera";
-import { LOCK_NUM_POSES, WALK_NUM_POSES, type PoseSource } from "../../src/app/poseSource";
+import { LOCK_NUM_POSES, type PoseSource } from "../../src/app/poseSource";
 import { GAIT_DATA } from "../../src/movements/gait";
 import { ROM_DATA } from "../../src/movements/rom";
 import type { Frame } from "../../src/engine/types";
@@ -47,8 +46,6 @@ class FakeSource implements PoseSource {
     readonly model: PoseModel,
     private stream: () => Promise<MediaStream>,
     readonly kind: "camera" | "trace" = "camera",
-    /** The people the model looks for (PROBE_POSES, D-038 item 2). */
-    readonly numPoses = LOCK_NUM_POSES,
   ) {}
   async start(onFrame: (f: Frame) => void): Promise<void> {
     if (this.kind === "camera") this.camera = await this.stream();
@@ -99,8 +96,8 @@ function camera(opts: Partial<FocusCameraOptions> & { kind?: "camera" | "trace" 
   const cam = focusCameraSession({
     storage,
     now: () => NOW,
-    createSource: (_video, stream, model, numPoses) => {
-      const s = new FakeSource(model, stream, opts.kind, numPoses);
+    createSource: (_video, stream, model) => {
+      const s = new FakeSource(model, stream, opts.kind);
       sources.push(s);
       return s;
     },
@@ -210,19 +207,16 @@ describe("focusCameraSession", () => {
     await settle();
     sources[0].play(20);
     expect(await probe).toEqual({ model: "full", fps: 20, switched: false });
-    // The walk looks for its 2 people (D-038 item 2): the source is built again at its probe.
     probe = cam.probe("gait");
-    await running(2);
-    expect(sources[1]).toMatchObject({ model: "full", numPoses: WALK_NUM_POSES });
-    sources[1].play(20, PROBE_MS + 100, 5000);
+    await settle();
+    sources[0].play(20, PROBE_MS + 100, 5000);
     expect(await probe).toEqual({ model: "lite", fps: 20, switched: true });
-    expect(sources[2]).toMatchObject({ model: "lite", numPoses: WALK_NUM_POSES });
     expect(memory(storage)).toEqual({ rom: { model: "full", at: NOW }, gait: { model: "lite", at: NOW } });
-    // The lying block after gait (C-13): Full again, with the range's 3 people, built at the block's start.
+    // The lying block after gait (C-13): Full again, built at the block's start.
     probe = cam.probe("rom");
-    await running(4);
-    expect(sources[3]).toMatchObject({ model: "full", numPoses: LOCK_NUM_POSES });
-    sources[3].play(20, PROBE_MS + 100, 9000);
+    await running(3);
+    expect(sources[2].model).toBe("full");
+    sources[2].play(20, PROBE_MS + 100, 9000);
     expect(await probe).toEqual({ model: "full", fps: 20, switched: false });
     expect(getUserMedia).toHaveBeenCalledOnce();
   });
@@ -231,8 +225,8 @@ describe("focusCameraSession", () => {
     const { cam, sources, running } = camera();
     await running(1);
     const probe = cam.probe("gait");
-    await running(2);
-    sources[1].playSome(30, (k) => k % 4 !== 3);
+    await settle();
+    sources[0].playSome(30, (k) => k % 4 !== 3);
     const out = await probe;
     expect(out).toMatchObject({ model: "lite", switched: true });
     expect(out.fps!).toBeGreaterThan(22);
@@ -322,7 +316,7 @@ describe("focusCameraSession", () => {
 });
 
 describe("the default pose source", () => {
-  it("is the camera with the range's three poses and the chosen model, on the session's camera at the gait frame rate", async () => {
+  it("is the camera with two poses and the chosen model, on the session's camera at the gait frame rate", async () => {
     let loop: FrameRequestCallback | undefined;
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -355,12 +349,9 @@ describe("the default pose source", () => {
       numPoses: number;
     };
     expect(options.baseOptions.modelAssetPath).toBe("/models/pose_landmarker_full.task");
-    // D-038 item 2: the range's three people (the walk's two at its probe), so others never take
-    // every place.
+    // D-037 item 4: two people, so another person never takes the locked person's pose.
     expect(options.numPoses).toBe(LOCK_NUM_POSES);
-    expect(LOCK_NUM_POSES).toBe(3);
-    expect(WALK_NUM_POSES).toBe(2);
-    expect(PROBE_POSES).toEqual({ rom: 3, gait: 2 });
+    expect(LOCK_NUM_POSES).toBe(2);
     expect(getUserMedia).toHaveBeenCalledOnce();
     expect(getUserMedia.mock.calls[0][0].video.frameRate).toEqual({
       ideal: GAIT_DATA.capture.common.cameraFps,

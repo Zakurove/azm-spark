@@ -203,8 +203,6 @@ export function romSetupConfig(
     distanceRule: "trackable",
     viewBlocks: false,
     ignoreBehind: true,
-    // D-038 item 2: someone in front is in the way only over the movement's own landmarks.
-    cover: true,
   };
 }
 

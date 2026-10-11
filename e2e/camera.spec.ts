@@ -140,7 +140,10 @@ test("setup check with nobody in the picture: one line and the offers at the pho
 test("a second person in the middle keeps the test from starting (English)", async ({ browser }) => {
   const page = await newPage(browser, "9x16");
   await openCamera(page, "en", "shoulder_abduction", "e2eFixture=crowd-9x16&e2eCamFast=1");
-  await expect(page.locator(".s34-band")).toContainText("Someone else in the middle", { timeout: 15_000 });
+  await expect(page.locator(".s34-band")).toContainText(
+    "One moment, we'll go on when we can see you clearly",
+    { timeout: 15_000 },
+  );
   // C29: one line on screen; the full sentence is said and is the caption's name.
   await expect(page.locator(".s34-caption")).toHaveAttribute(
     "aria-label",

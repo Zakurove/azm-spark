@@ -420,7 +420,7 @@
     "holdStill": "All set. Stay still.",
     "issue": {
       "no_person": "We cannot see you yet",
-      "second_person": "Someone else in the middle",
+      "second_person": "One moment, we'll go on when we can see you clearly",
       "tilt": "The phone is tilted",
       "too_close": "Too close",
       "too_far": "Too far",
@@ -479,7 +479,7 @@
   },
   "retry": {
     "fix": {
-      "paused": "Someone else was in the picture",
+      "paused": "We could not see you clearly",
       "touched": "Someone touched you during the try",
       "out_of_frame": "Part of you left the picture",
       "wrong_view": "The angle changed",

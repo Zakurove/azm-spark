@@ -187,13 +187,7 @@ export function hintSay(hint: GaitHint, lang: Lang, lap?: number): CoachSay {
     p: 2,
     type: "say",
     kind: "correction",
-    // D-038 item 5: the coach never hears of another person; someone close reads «unclear».
-    key:
-      hint === "turn" && lap !== undefined
-        ? `hint_turn_${lap}`
-        : hint === "second_person"
-          ? "hint_unclear"
-          : `hint_${hint}`,
+    key: hint === "turn" && lap !== undefined ? `hint_turn_${lap}` : `hint_${hint}`,
     ...(hint === "across" ? { face: "side" as const } : {}),
     lines: [gt(lang, `hint.${hint}`)],
   };

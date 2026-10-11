@@ -1,5 +1,7 @@
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { sanitizePose } from "../engine/body";
+import { lookOf, type Look } from "../engine/look";
+import { subjectOf } from "../engine/subject";
 import { Frame, Landmark } from "../engine/types";
 import { TRACES, TraceOpts } from "../engine/traces";
 
@@ -93,29 +95,39 @@ export function videoAspect(v: Pick<HTMLVideoElement, "videoWidth" | "videoHeigh
 }
 
 /**
- * How many people the model looks for on a camera screen that follows one locked person (D-037 item 4:
- * the booth, many people in the picture): the range measurement, the walk and the camera workouts.
- * With 1 the model keeps only the person most prominent to it, so when it loses the screen's person
- * for a moment (a turn, someone passing) it can come back on another one; with 2 it returns both, and
- * the screen's lock (engine/subject.ts) keeps its person. The model runs its person detector only
- * while it follows fewer people than this, and one landmark run for each person it follows. Measured
- * per frame with the real model (Chromium, Apple M4 GPU, D-037; a phone takes about 1.45 times as
- * long: the walk ran at about 49 fps with Full and 2 on Nasser's iPhone):
- *   Full: 1 pose 8.5 ms; 2 poses 14 ms alone, 15.4 ms with two people, 16 ms with three;
- *         3 poses 14 ms alone, 22 ms with two people, 23.7 ms with three;
- *   Lite: 1 pose 7.4 ms; 2 poses 13.7 to 13.9 ms; 3 poses 13.9 ms alone, 20.6 ms with two people.
- * 3 keeps the detector running whenever two people are in the picture (about 31 fps on the phone
- * with Full, near the walk's 25 fps floor), so 2 it is: about 45 fps with two or three people, and a
- * third person is not followed while two are. The v1 movement check has the same 2 (spec 4.0,
- * CHECK_DATA.engine.pose.numPoses).
+ * How many people the model looks for on a camera screen that follows one locked person (D-037 item 4,
+ * D-038 item 2: the booth, many people in the picture). With 1 the model keeps only the person most
+ * prominent to it, so when it loses the screen's person for a moment (a turn, someone passing) it can
+ * come back on another one; with more it returns them all, and the screen's lock (engine/subject.ts)
+ * keeps its person. The model runs its person detector only while it follows fewer people than this,
+ * and one landmark run for each person it follows; a person who comes into the picture while every
+ * place is taken is not found until a place frees (REDETECT).
+ * Measured per frame with the real model (D-038 item 2: Chromium 153, Apple M4 GPU with Metal, synthetic
+ * people, the machine loaded; medians, ms), by the number of people in the picture:
+ *   Full, 2 poses: 16.8 alone, 18.6 with two, 18.1 to 18.6 with three to five;
+ *   Full, 3 poses: 16.5 alone, 25.7 with two, 26.6 to 27.0 with three to five;
+ *   Lite, 2 poses: 15.4 to 17.4; Lite, 3 poses: 16.4 alone, 24.7 to 25.7 with two to five;
+ *   so each person followed costs about 9 ms (Lite 8) and the detector about 7 ms, whatever the crowd.
+ * Nasser's iPhone ran the walk at about 49 fps with Full and 2 (D-037): about 1.2 times the M4 here, so
+ * in a crowd about 45 fps with 2 and about 31 fps with 3.
+ *   - LOCK_NUM_POSES 3: the range measurement (its floor 15 fps, PROBE_FLOOR_FPS) and the camera
+ *     workouts and demos: a third person is followed too, so two others in the picture never take
+ *     every place.
+ *   - WALK_NUM_POSES 2: the walk's floor is 25 fps (the gait data's full reading); 3 would leave about
+ *     31 fps in a crowd, too close to it with a phone warm from the range part, so the walk keeps 2 and
+ *     relies on REDETECT when two others take both places while the walker is out of the picture
+ *     (measured: the walker found again within about 1 s of coming back).
+ * The v1 movement check keeps its 2 (spec 4.0, CHECK_DATA.engine.pose.numPoses).
  */
-export const LOCK_NUM_POSES = 2;
+export const LOCK_NUM_POSES = 3;
+/** The walk's (see LOCK_NUM_POSES): 2, for its 25 fps floor. */
+export const WALK_NUM_POSES = 2;
 
 export interface CameraPoseOptions {
   /**
    * How many people the model looks for (default 1). The movement check passes 2
-   * (CHECK_DATA.engine.pose.numPoses, spec 4.0); the range measurement, the walk and the camera
-   * workouts LOCK_NUM_POSES; each picks its person from `Frame.poses` with SubjectLock.
+   * (CHECK_DATA.engine.pose.numPoses, spec 4.0); the range measurement and the camera workouts
+   * LOCK_NUM_POSES, the walk WALK_NUM_POSES; each picks its person from `Frame.poses` with SubjectLock.
    */
   numPoses?: number;
   /**
@@ -131,7 +143,35 @@ export interface CameraPoseOptions {
    * and closes it on stop().
    */
   stream?: () => Promise<MediaStream>;
+  /**
+   * D-038 item 2 (the crowd-proof lock): every LOOK_SAMPLE.everyMs the source reads each pose's look
+   * (engine/look.ts) from a small copy of the picture into `Frame.looks`, and when the screen's lock
+   * misses its person while the model follows as many people as it looks for, it makes the model
+   * look for people again (REDETECT). Default false (the v1 check).
+   */
+  looks?: boolean;
 }
+
+/**
+ * D-038 item 2: the looks are read from the picture drawn this wide (its height keeps the picture's
+ * shape), every everyMs of the frames' clock: a few times a second, so the lock always has a recent
+ * look and the phone pays a small copy of the picture, not one each frame (measured on the M4: about
+ * 2.3 ms to draw and read a 128 by 72 copy, so under 1 percent of the frame time at 4 a second).
+ */
+export const LOOK_SAMPLE = { everyMs: 250, width: 96 } as const;
+
+/**
+ * D-038 item 2: the model runs its person detector only while it follows fewer people than numPoses,
+ * so in a crowd the people it follows can take every place and the screen's person, back in the
+ * picture, is not found until one of them leaves (measured with the real model: never, in 11 s). When
+ * the screen's lock has missed its person for afterMs while every place is taken, one empty picture
+ * goes to the model (it loses everyone it follows) and the next camera frame is searched whole, at
+ * most every everyMs. Measured: the person coming back is found within about 1 s; the empty picture
+ * costs about one landmark run per person followed (17 to 27 ms on the M4), once a second, and only
+ * while the screen's person is missing. Rebuilding the model's graph instead (setOptions) costs 200 to
+ * 300 ms for the next frame.
+ */
+export const REDETECT = { afterMs: 600, everyMs: 1000, size: 64 } as const;
 
 type RawLandmark = { x: number; y: number; z: number; visibility?: number };
 /** The model's landmarks; a point that is not a finite number is marked unseen (sanitizePose). */
@@ -151,6 +191,10 @@ export class CameraPoseSource implements PoseSource {
   private stream: MediaStream | null = null;
   private running = false;
   private cancelled = false;
+  private readonly looks: boolean;
+  /** The small copy of the picture the looks are read from, and the empty picture (D-038 item 2). */
+  private lookCanvas: HTMLCanvasElement | null = null;
+  private blank: HTMLCanvasElement | null = null;
 
   constructor(video: HTMLVideoElement, opts: CameraPoseOptions = {}) {
     this.video = video;
@@ -158,6 +202,41 @@ export class CameraPoseSource implements PoseSource {
     this.numPoses = Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
     this.model = opts.model ?? defaultModel();
     this.borrowed = opts.stream ?? null;
+    this.looks = opts.looks ?? false;
+  }
+
+  /** Each pose's look from the picture now (D-038 item 2), or undefined when it cannot be read. */
+  private readLooks(v: HTMLVideoElement, poses: Landmark[][]): (Look | null)[] | undefined {
+    try {
+      const w = LOOK_SAMPLE.width;
+      const h = Math.max(1, Math.round((w * v.videoHeight) / v.videoWidth));
+      const c = (this.lookCanvas ??= document.createElement("canvas"));
+      if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+      }
+      const ctx = c.getContext("2d");
+      if (!ctx) return undefined;
+      ctx.drawImage(v, 0, 0, w, h);
+      const data = ctx.getImageData(0, 0, w, h).data;
+      return poses.map((p) => lookOf(data, w, h, p));
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The empty picture that makes the model drop everyone it follows (REDETECT). */
+  private blankPicture(): HTMLCanvasElement {
+    if (this.blank) return this.blank;
+    const c = document.createElement("canvas");
+    c.width = REDETECT.size;
+    c.height = REDETECT.size;
+    const ctx = c.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, c.width, c.height);
+    }
+    return (this.blank = c);
   }
 
   async start(onFrame: (f: Frame) => void): Promise<void> {
@@ -210,6 +289,12 @@ export class CameraPoseSource implements PoseSource {
     this.running = true;
 
     let lastVideoTime = -1;
+    let lastT = -Infinity;
+    let lookAt = -Infinity;
+    // D-038 item 2: since when every place of the model is taken and the screen's person is not among them.
+    let missSince: number | null = null;
+    let redetectAt = -Infinity;
+    let redetect = false;
     const loop = () => {
       if (!this.running) return;
       const v = this.video;
@@ -218,24 +303,48 @@ export class CameraPoseSource implements PoseSource {
         const t = performance.now();
         // Read on every frame: the size changes when a phone rotates.
         const aspect = videoAspect(v);
+        let frame: Frame;
         try {
+          if (redetect && t - 1 > lastT) {
+            redetect = false;
+            this.landmarker!.detectForVideo(this.blankPicture(), t - 1);
+          }
           const res = this.landmarker!.detectForVideo(v, t);
           // Every pose the model returned, never more than asked for; lm stays the first one.
           const poses = (res.landmarks ?? []).slice(0, this.numPoses).map(toLandmarks);
           if (poses[0]) {
             const world = res.worldLandmarks?.[0];
-            onFrame({
+            const looks =
+              this.looks && t - lookAt >= LOOK_SAMPLE.everyMs ? this.readLooks(v, poses) : undefined;
+            if (looks) lookAt = t;
+            frame = {
               t,
               lm: poses[0],
               world: world ? toLandmarks(world) : undefined,
               aspect,
               poses,
-            });
+              ...(looks ? { looks } : {}),
+            };
           } else {
-            onFrame({ ...emptyFrame(t, aspect), poses: [] });
+            frame = { ...emptyFrame(t, aspect), poses: [] };
           }
+          lastT = t;
+          onFrame(frame);
         } catch {
-          onFrame({ ...emptyFrame(t, aspect), poses: [] });
+          frame = { ...emptyFrame(t, aspect), poses: [] };
+          lastT = t;
+          onFrame(frame);
+        }
+        if (this.looks) {
+          // The screen's lock read the frame (subject.ts subjectOf) and missed its person, every place taken.
+          const full = (frame.poses?.length ?? 0) >= this.numPoses && this.numPoses > 1;
+          if (full && subjectOf(frame) === -1) {
+            missSince ??= t;
+            if (t - missSince >= REDETECT.afterMs && t - redetectAt >= REDETECT.everyMs) {
+              redetect = true;
+              redetectAt = t;
+            }
+          } else missSince = null;
         }
       }
       this.raf = requestAnimationFrame(loop);

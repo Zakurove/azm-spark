@@ -179,16 +179,13 @@ export function correctionSay(id: string, lang: Lang): CoachSay {
   };
 }
 
-/**
- * A setup issue the start pose's caption shows (too close, the phone tilted ...). D-038 item 5: the
- * coach never hears of another person; someone else in the picture reads «unclear».
- */
+/** A setup issue the start pose's caption shows (too close, someone else in the picture ...). */
 export function setupIssueSay(issue: SetupIssue, lang: Lang): CoachSay {
   return {
     p: 2,
     type: "say",
     kind: "correction",
-    key: issue === "second_person" ? "setup_unclear" : `setup_${issue}`,
+    key: `setup_${issue}`,
     lines: [t(lang, `assessment.setup.issue.${issue}` as never)],
   };
 }

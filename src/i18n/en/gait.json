@@ -161,7 +161,7 @@
   },
   "hint": {
     "no_person": "We cannot see you in the picture",
-    "second_person": "One moment, we'll go on when we can see you clearly",
+    "unclear": "One moment, we’ll go on when we can see you clearly",
     "feet": "We need to see both feet",
     "legs": "Move the phone a little so your whole leg shows",
     "light": "More light helps us see your steps",

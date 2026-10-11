@@ -5,14 +5,17 @@
  * The shared lock (src/engine/subject.ts SubjectLock) on synthetic two person sequences, the model's
  * pose order shuffled every frame:
  *   - B enters and stands closer or more central: the lock stays on A;
- *   - A leaves for longer than the release time: the lock moves to B;
+ *   - A leaves for longer than the release time: the v1 lock moves to B (2 s); D-038 item 2: the
+ *     crowd lock between steps after 20 s with B standing ready, and never during a test (held);
  *   - A leaves briefly: the lock stays (A again when back, never B meanwhile);
  *   - the walk: A leaves at each pass's end and comes back while B stands still: the lock stays on A;
- * and the lock is taken on the person the step is for, and marks its person for the drawing.
+ * and the lock is taken on the person the step is for, and marks its person for the drawing. The
+ * crowds of D-038 item 2: tests/crowd-lock.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import {
   acquireIndex,
+  CROWD_LOCK,
   posesOf,
   SubjectLock,
   SUBJECT_RULES,
@@ -119,7 +122,7 @@ describe("one person locked: B never takes A's place while A is there", () => {
 });
 
 describe("A leaves", () => {
-  it("for longer than the release time: the lock moves to B", () => {
+  it("for longer than the release time: the v1 lock moves to B", () => {
     const leaveAt = 2000;
     const { frames, aIndex, bIndex } = scene(7000, (t) => ({
       a: t < leaveAt ? A : null,
@@ -139,6 +142,27 @@ describe("A leaves", () => {
       }
     });
     expect(lock.generation).toBe(2);
+  });
+
+  it("D-038 item 2, the crowd lock: during a test never B; between steps B only after 20 s, standing ready", () => {
+    const leaveAt = 2000;
+    const { frames, bIndex } = scene(30000, (t) => ({
+      a: t < leaveAt ? A : null,
+      b: { x: 0.75, height: 0.55 },
+    }));
+    const held = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    held.hold(true);
+    const heldPicks = run(held, frames);
+    expect(heldPicks.filter((_, i) => frames[i].t >= leaveAt).every((p) => p.lm === null)).toBe(true);
+    expect(held.generation).toBe(1);
+    const between = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    const picks = run(between, frames);
+    frames.forEach((f, i) => {
+      const gone = f.t - leaveAt;
+      if (gone >= 0 && gone < SUBJECT_RULES.switchAfterMs - DT) expect(picks[i].lm).toBeNull();
+      if (gone > SUBJECT_RULES.switchAfterMs + DT) expect(picks[i].index).toBe(bIndex[i]);
+    });
+    expect(between.generation).toBe(2);
   });
 
   it("briefly (under the release time): the lock stays, and A is followed again when back", () => {
@@ -204,7 +228,9 @@ describe("the walk: the walker leaves the picture at each pass's end", () => {
   for (const bAt of [0.5, 0.8])
     it(`keeps A when A comes back from the side it left by, while B stands at ${bAt}`, () => {
       const { frames, aIndex } = walkScene(bAt);
-      const lock = new SubjectLock(SUBJECT_RULES, { mode: "walk" });
+      // The walk's lock (features/gait/controller.ts): the crowd lock, held through the walk.
+      const lock = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, mode: "walk" });
+      lock.hold(true);
       // The lock is taken at the standing calibration, A standing in the middle of the picture.
       const stand = frameOf(-1000, [person({ x: 0.1, height: 0.55, side: true }, ASPECT)], ASPECT);
       expect(lock.lock(posesOf(stand), ASPECT, stand.t)).toBe(true);
@@ -221,7 +247,7 @@ describe("the walk: the walker leaves the picture at each pass's end", () => {
       expect(lock.generation).toBe(1);
     });
 
-  it("a range or workout lock (2 s) would move to B at the first turn; the walk's waits", () => {
+  it("the v1 lock (2 s) would move to B at the first turn; the walk's waits", () => {
     const { frames, bIndex } = walkScene(0.5);
     const stay = new SubjectLock();
     const stand = frameOf(-1000, [person({ x: 0.1, height: 0.55, side: true }, ASPECT)], ASPECT);

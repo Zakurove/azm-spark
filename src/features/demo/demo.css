@@ -232,3 +232,12 @@
     transform: none;
   }
 }
+
+.dm-video {
+  display: inline-block;
+  margin-top: 12px;
+  font-weight: 700;
+  color: var(--violet, #6c56a5);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

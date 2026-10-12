@@ -3,7 +3,7 @@
 **An AI fitness coach that adapts to your medical condition.**
 Smart Personalized Assessment of Range & Kinematics.
 
-Live build: **https://azm-spark.gymwise.ai** · Demo video: **https://azm-spark.gymwise.ai/demo**
+Live build: **https://azm-spark.gymwise.ai** · Booth demo (no sign up): **https://azm-spark.gymwise.ai/demo** · Demo video: **https://azm-spark.gymwise.ai/demo/video.html**
 
 AZM SPARK helps adults with a disability or a medical condition keep the benefits of sport after rehabilitation ends. The person shares a medical report or answers a short health history, receives a weekly plan built around their condition, then props up their phone and trains. The camera counts every repetition, corrects movement against that person's own calibrated range, and coaches by voice in Arabic or English.
 

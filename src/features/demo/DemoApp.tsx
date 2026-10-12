@@ -309,6 +309,10 @@ export function DemoHome({
               ]}
             />
             <p className="dm-new-hint">{c.newVisitorHint}</p>
+            {/* The hackathon submission's demo video, which lived at /demo before the booth demo. */}
+            <a className="dm-video" href="/demo/video.html" data-demo-video>
+              {c.watchVideo}
+            </a>
           </div>
         </div>
       </Page>

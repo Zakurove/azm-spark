@@ -50,10 +50,10 @@ test("every stage passes on the fake coach, with the browser's real microphone, 
   expect(report.ok).toBe(true);
   expect(report.diagnostics.after_mic.worklet).toMatch(/^(blob|data)$/);
   expect(report.diagnostics.after_mic.mic.readyState).toBe("live");
-  // WebKit: the tap leaves the session as it was (D-036 item 1: the check has no phone voice to
-  // unlock, so nothing sets playback), and the coach sets play-and-record before the microphone.
+  // WebKit: the tap sets playback (D-039 item 4: the iOS silent switch must not mute the coach, as
+  // CuePlayer.unlock did until D-038), and the coach sets play-and-record before the microphone, which
+  // then runs (the D-035 item 3 fix).
   if (report.diagnostics.before_mic.audioSession !== null) {
-    expect(report.diagnostics.before_mic.audioSession).not.toBe("playback");
     expect(report.diagnostics.after_mic.audioSession).toBe("play-and-record");
   }
 });

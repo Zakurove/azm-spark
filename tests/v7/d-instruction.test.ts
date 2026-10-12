@@ -33,8 +33,8 @@ function inputFor(block: CoachBlock, lang: "ar" | "en"): InstructionInput {
 }
 
 describe("buildInstruction", () => {
-  it("is version coach_si_5 (D-038: no maximum question; the coach counts and cues every exercise)", () => {
-    expect(COACH_SI_VERSION).toBe("coach_si_5");
+  it("is version coach_si_6 (D-039: the coach talks much less, never of the phone's angle or light)", () => {
+    expect(COACH_SI_VERSION).toBe("coach_si_6");
   });
 
   it("records a pain number at once and asks where at most once, afterwards (D-030 D5-9)", () => {
@@ -123,7 +123,7 @@ describe("buildInstruction", () => {
       expect(en).toContain('"your medical condition"');
       for (const si of [ar, en]) {
         expect(si).toContain(
-          `${block === "session" ? "one or two" : "one to three"} short sentences per turn, always under 100 words`,
+          "Speak in one short sentence per turn, two at most, always under 25 words. Talk less rather than more.",
         );
         expect(si).toContain("Never diagnose, treat, prescribe or give medical advice.");
         // D-038 item 3: an exercise's counts are the coach's (from the app's count lines).
@@ -192,7 +192,7 @@ describe("buildInstruction", () => {
       for (const lang of LANGS) {
         const si = buildInstruction(inputFor(block, lang));
         expect(si, `${block} ${lang}`).toContain(
-          "say: after its bracket, the app's own words for the screen now. Say them at once, without waiting to be asked, in your own words and in one to three short sentences",
+          "say: after its bracket, the app's own words for the screen now. Say only the essence at once, without waiting to be asked, in one short sentence of your own (under 15 words)",
         );
         expect(si).toContain("face=phone: they face the phone.");
         expect(si).toContain(
@@ -208,16 +208,14 @@ describe("buildInstruction", () => {
         expect(si).toContain("cannot read the screen");
       }
     const rom = buildInstruction(inputFor("rom", "en"));
-    expect(rom).toContain(
-      "say key=setup: the position, where the phone goes and how far away, which way to face it, and the start pose.",
-    );
-    expect(rom).toContain("say key=move: the measurement starts");
+    // D-039 item 2: the setup in one sentence, the position and which way to face, never the phone.
+    expect(rom).toContain("say key=setup: in one sentence, the position and which way to face the phone");
+    expect(rom).toContain("say key=move: in one sentence, the movement");
+    expect(rom).toContain("Never mention the phone's angle, tilt, level, light or steadiness");
     const gait = buildInstruction(inputFor("gait", "en"));
-    expect(gait).toContain(
-      "walking across the picture and back with their side to the phone, never toward it",
-    );
+    expect(gait).toContain("Part 1: walk across the picture and back, side on to the phone.");
     // D-038 item 4: part 2, toward the phone and back, twice, with its turn said at once.
-    expect(gait).toContain("walking toward the phone and back, twice, starting 4 to 5 metres away");
+    expect(gait).toContain("Part 2: walk toward the phone and back, twice.");
     expect(gait).toContain("say key=hint_turn_1 or hint_turn_2 (part 2, each lap)");
     // D-038 item 3: a workout (or a demo exercise) is the coach's alone: its steps, cues and counts.
     const session = buildInstruction(inputFor("session", "en"));

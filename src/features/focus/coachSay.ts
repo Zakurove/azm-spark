@@ -168,6 +168,39 @@ export function restSay(item: RomProtocolItem, lang: Lang): CoachSay {
   };
 }
 
+/**
+ * D-039 item 2 (Nasser at the booth: «the voice agent is talking too much … don't let it give things
+ * like the phone is tilted»): the coach says the corrections about the person's own body (which way
+ * to face, which arm, the elbow by the side, back to the middle, back into the picture). The phone's
+ * angle, level and steadiness, the light, the distance and the sleeves stay on the screen only.
+ */
+const SCREEN_ONLY_CORRECTIONS: ReadonlySet<string> = new Set([
+  "check_phone_still",
+  "check_phone_level",
+  "check_phone_angle_left",
+  "check_phone_angle_right",
+  "check_light",
+  "check_move_back",
+  "check_move_closer",
+  "check_sleeves",
+  "check_one_person",
+  "check_clear_view",
+]);
+const SCREEN_ONLY_SETUP: ReadonlySet<string> = new Set([
+  "tilt",
+  "too_close",
+  "too_far",
+  "framing",
+  "arm_room",
+  "light",
+  "second_person",
+]);
+
+/** True when the coach says this correction (a caption id or a setup issue); the rest stay on screen. */
+export function correctionSpoken(id: string): boolean {
+  return !SCREEN_ONLY_CORRECTIONS.has(id) && !SCREEN_ONLY_SETUP.has(id);
+}
+
 /** A correction the camera's caption shows (a runner line: the view, the still phone, the arm, the middle). */
 export function correctionSay(id: string, lang: Lang): CoachSay {
   return {

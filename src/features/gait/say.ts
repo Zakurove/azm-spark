@@ -147,8 +147,14 @@ function hasFront(ctl: GaitController): boolean {
  * The passes the coach counts out loud (sparingly): from the second up to the one before the last,
  * never the first (the walk has just begun) nor the last (the walk ends a moment later).
  */
-export function passSaid(n: number, target: number): boolean {
-  return n >= 2 && n < target;
+export function passSaid(_n: number, _target: number): boolean {
+  // D-039 item 2: the coach talks less; the count stays on the screen.
+  return false;
+}
+
+/** D-039 item 2: the walk's hints the coach says (the person can act on them); the rest stay on screen. */
+export function hintSaid(hint: GaitHint): boolean {
+  return hint === "across" || hint === "turn" || hint === "no_person" || hint === "unclear";
 }
 
 /** The pass count («Pass 2 of 4»), kind progress: said only if the coach is free at once. */

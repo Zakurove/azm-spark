@@ -96,6 +96,7 @@ import {
   againSay,
   blockSay,
   correctionSay,
+  correctionSpoken,
   doneSay,
   holdSay,
   moveSay,
@@ -1304,7 +1305,8 @@ export class RomController implements CoachHost {
     // ... and says it once it has lasted a moment (D-037 item 1: the caption is too far to read).
     if (issue && !this.setupIssueSaid && frame.t - this.setupIssueSince >= SETUP_SAY_AFTER_MS) {
       this.setupIssueSaid = true;
-      this.say(issue === "unclear" ? this.unclearSay() : setupIssueSay(issue, this.opts.lang), frame.t);
+      if (issue === "unclear" || correctionSpoken(issue))
+        this.say(issue === "unclear" ? this.unclearSay() : setupIssueSay(issue, this.opts.lang), frame.t);
     }
   }
 
@@ -1401,7 +1403,8 @@ export class RomController implements CoachHost {
       if (shown !== (this.captionNow?.id ?? null)) {
         changed = true;
         // D-037 item 1 (reversing D-036 item 8's «only if asked»): the coach says the new caption.
-        if (shown) this.say(correctionSay(shown, this.opts.lang), t);
+        // D-039 item 2: only the corrections the person can act on are said; the rest stay on screen.
+        if (shown && correctionSpoken(shown)) this.say(correctionSay(shown, this.opts.lang), t);
       }
       this.captionNow = out.shown;
     }

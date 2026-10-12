@@ -18,6 +18,7 @@
  * labs do (?e2ePerson=1, ?e2eGait=1).
  */
 import { lazy, useEffect, useState } from "react";
+import { APP_VERSION } from "../../app/version";
 import type { Lang } from "../../app/i18n";
 import { api, type AccountState } from "../../app/api";
 import { isDemoEmail } from "../../app/demoAccount";
@@ -313,6 +314,9 @@ export function DemoHome({
             <a className="dm-video" href="/demo/video.html" data-demo-video>
               {c.watchVideo}
             </a>
+            <p className="dm-version" data-app-version>
+              {APP_VERSION}
+            </p>
           </div>
         </div>
       </Page>

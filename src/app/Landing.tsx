@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { APP_VERSION } from "./version";
 import { privacyHref } from "./privacyHref";
 import { Lang, fmtNum, pct } from "./i18n";
 import { formatNumber, t, unitWord, type I18nKey } from "../i18n";
@@ -282,6 +283,9 @@ export default function Landing({
             {t(lang, "privacy.link")}
           </a>
           <span className="ld-brandline">{t(lang, "landing.footer.brandline")}</span>
+          <span className="ld-version" data-app-version dir="ltr">
+            {APP_VERSION}
+          </span>
         </div>
       </footer>
     </div>

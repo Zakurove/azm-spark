@@ -241,3 +241,10 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.dm-version {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-muted, #8a8597);
+  direction: ltr;
+}

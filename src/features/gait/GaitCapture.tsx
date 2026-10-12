@@ -25,6 +25,8 @@ import { localizeDigits } from "../../i18n";
 import { bidiText } from "../../i18n/rich";
 import { tV7 } from "../../i18n/v7";
 import type { GaitStoredView } from "../../medical/gait-types";
+import type { GaitPlan } from "../../medical/gait-eligibility";
+import { hasV7Fields, type Intake } from "../../medical/plan";
 import CheckIcon from "../assessment/shared/CheckIcon";
 import { CountdownRing } from "../assessment/safety/parts";
 import { CameraSession, useCameraSession } from "../assessment/camera/session";
@@ -204,10 +206,12 @@ export default function GaitCapture(props: GaitStepProps) {
   );
   useSyncExternalStore(subscribe, () => version.current);
 
-  // The walk's setup reads the intake (the aid, the height, a prosthesis side).
+  // The walk's setup reads the intake (the aid, the height, a prosthesis side); the demo's result too.
+  const intakeRef = useRef<Intake | null>(null);
   useEffect(() => {
     let live = true;
     void readIntake().then((intake) => {
+      intakeRef.current = intake;
       if (live) ctl.setIntake(intake);
     });
     return () => {
@@ -318,7 +322,7 @@ export default function GaitCapture(props: GaitStepProps) {
   // The partial walk is kept when the walk stops (gait-rules stops: the completed clean cycles count).
   const posted = useRef(false);
   const postPartial = () => {
-    if (posted.current || !ctl.anythingRecorded) return;
+    if (props.demo || posted.current || !ctl.anythingRecorded) return;
     const body = ctl.body();
     // The gait route needs the pad's speed, asked after the walk (contract gap C4-6).
     if (!body || (body.setup.mode === "walking_pad" && body.setup.padSpeedKmh === null)) return;
@@ -377,6 +381,15 @@ export default function GaitCapture(props: GaitStepProps) {
       return;
     }
     let live = true;
+    // The booth demo posts nothing: the result is read on the phone.
+    if (props.demo) {
+      void demoStored(body, intakeRef.current, plan).then((stored) => {
+        if (live) ctl.saved(stored, clock());
+      });
+      return () => {
+        live = false;
+      };
+    }
     posted.current = true;
     void saveGait(checkId, body).then((r) => {
       if (!live) return;
@@ -442,6 +455,33 @@ function storedFrom(body: ReturnType<GaitController["body"]> & object): GaitStor
     rulesVersion: "",
     created: Date.now(),
   };
+}
+
+/**
+ * The booth demo's result (/demo, nothing posted): the stored shape of the walk, with the patterns the
+ * gait rules find on the phone for the person's intake (the rules load only here), not provisional.
+ */
+async function demoStored(
+  body: ReturnType<GaitController["body"]> & object,
+  intake: Intake | null,
+  plan: GaitPlan,
+): Promise<GaitStoredView> {
+  const base = { ...storedFrom(body), provisional: false };
+  if (!intake || !hasV7Fields(intake)) return base;
+  try {
+    const { evaluateGait } = await import("../../medical/gait-rules");
+    const ev = evaluateGait({
+      analysis: body.analysis,
+      intake,
+      romProfile: null,
+      today: { painByRegion: {} },
+      plan,
+      setup: body.setup,
+    });
+    return { ...base, patterns: ev.patterns, findings: ev.findings, rulesVersion: ev.rulesVersion };
+  } catch {
+    return base;
+  }
 }
 
 /**

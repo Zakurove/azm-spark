@@ -58,6 +58,7 @@ import {
   labRef,
 } from "./lab";
 import { TokenError, agentConfig, coachSetup, mintToken } from "./token";
+import { isDemoRequest } from "../demo/scope";
 import type { TokenResponse } from "./types";
 import { parseLabRequest, parseStopRequest, parseTokenRequest, parseUsageReport } from "./validate";
 
@@ -67,6 +68,11 @@ const HOUR_MS = 60 * 60 * 1000;
 const WINDOW_MS = 15 * 60 * 1000;
 /** 5.1: token requests per person, per device (hashed) and per address in an hour. */
 export const TOKEN_LIMITS = { user: 20, device: 20, ip: 60 } as const;
+/**
+ * D-039 item 1: the booth's one phone runs every visitor's demo (a fresh demo person each, so the per
+ * person cap stays), so a demo request's phone and network caps are wider.
+ */
+export const DEMO_TOKEN_LIMITS = { user: 20, device: 120, ip: 240 } as const;
 /** 4: usage reports per person in 15 minutes. */
 export const USAGE_PER_WINDOW = 60;
 /** The default pause before the person's turn ends (S0, live-spike.md 11). */
@@ -258,10 +264,11 @@ export const agentRoutes: Route[] = [
       };
 
       const device = sha256(req.deviceId);
+      const caps = isDemoRequest() ? DEMO_TOKEN_LIMITS : TOKEN_LIMITS;
       if (
-        limited(`agent-token:${u.id}`, TOKEN_LIMITS.user, HOUR_MS) ||
-        limited(`agent-device:${device}`, TOKEN_LIMITS.device, HOUR_MS) ||
-        limited(`agent-ip:${rc.ip}`, TOKEN_LIMITS.ip, HOUR_MS)
+        limited(`agent-token:${u.id}`, caps.user, HOUR_MS) ||
+        limited(`agent-device:${device}`, caps.device, HOUR_MS) ||
+        limited(`agent-ip:${rc.ip}`, caps.ip, HOUR_MS)
       )
         return json(429, { error: "RATE_LIMIT" });
 
@@ -339,10 +346,11 @@ export const agentRoutes: Route[] = [
       const req = parsed.value;
       if (!activeConsent(db, u.id, "live_coach")) return json(403, { error: "CONSENT_REQUIRED" });
       const device = sha256(req.deviceId);
+      const caps = isDemoRequest() ? DEMO_TOKEN_LIMITS : TOKEN_LIMITS;
       if (
-        limited(`agent-token:${u.id}`, TOKEN_LIMITS.user, HOUR_MS) ||
-        limited(`agent-device:${device}`, TOKEN_LIMITS.device, HOUR_MS) ||
-        limited(`agent-ip:${rc.ip}`, TOKEN_LIMITS.ip, HOUR_MS)
+        limited(`agent-token:${u.id}`, caps.user, HOUR_MS) ||
+        limited(`agent-device:${device}`, caps.device, HOUR_MS) ||
+        limited(`agent-ip:${rc.ip}`, caps.ip, HOUR_MS)
       )
         return json(429, { error: "RATE_LIMIT" });
       const ask: ReservationAsk = {

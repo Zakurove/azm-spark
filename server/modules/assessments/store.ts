@@ -12,6 +12,7 @@ import type { ProtocolItem, StoredSetup } from "../../../src/medical/assessment"
 import { riyadhDate } from "../../../src/medical/precheck";
 import { groupBySeries, type StoredResult } from "../../../src/medical/progress-rules";
 import type { Attempt, Device, DetailValue, PoseModel } from "./validate";
+import { isDemoRequest } from "../demo/scope";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -594,6 +595,8 @@ export function countSafetyEvent(
   setting: Setting,
   now: number,
 ) {
+  // The booth demo's people (/demo) are never counted.
+  if (isDemoRequest()) return;
   db.prepare(
     "INSERT INTO safety_events(day,reason,test_id,setting,count) VALUES(?,?,?,?,1) ON CONFLICT(day,reason,test_id,setting) DO UPDATE SET count=count+1",
   ).run(riyadhDate(now), reason, testId, setting);
@@ -628,6 +631,8 @@ export function countProduct(
   now: number,
   n = 1,
 ) {
+  // The booth demo's people (/demo) are never counted.
+  if (isDemoRequest()) return;
   db.prepare(
     "INSERT INTO product_counts(day,metric,key,setting,count) VALUES(?,?,?,?,?) ON CONFLICT(day,metric,key,setting) DO UPDATE SET count=count+excluded.count",
   ).run(riyadhDate(now), metric, key, setting, n);

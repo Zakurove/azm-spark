@@ -60,3 +60,25 @@
     margin-inline: auto;
   }
 }
+
+/* The booth demo's button (/demo) beside the landing's main action: a clear purple pill. */
+.ld-cta-demo.ghost {
+  min-height: 56px;
+  padding: 14px 26px;
+  border: 1.5px solid #8065ad;
+  border-radius: 999px;
+  background: #f6f2fc;
+  color: #4f3c7c;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 14px 30px -20px rgba(79, 60, 124, 0.7);
+}
+.ld-cta-demo.ghost:hover {
+  background: #efe8fa;
+}
+@media (max-width: 640px) {
+  .ld-cta-demo.ghost {
+    width: 100%;
+  }
+}

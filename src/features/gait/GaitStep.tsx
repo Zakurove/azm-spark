@@ -51,6 +51,12 @@ export interface GaitStepProps {
   coachOn?: boolean;
   /** What of B's slot shows now (D-030 C4-7): its title card and its skip (walkChrome). */
   onChrome?(chrome: { hero: boolean; skip: boolean }): void;
+  /**
+   * The booth demo (/demo): the walk runs with no focus check (checkId is unused). Nothing is posted;
+   * the result card reads the walk on the phone with the gait rules and the person's intake. Pass no
+   * coachOn: the coach's token needs an open check.
+   */
+  demo?: boolean;
 }
 
 const GaitCapture = lazy(() => import("./GaitCapture"));

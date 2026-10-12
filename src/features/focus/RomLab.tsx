@@ -9,6 +9,10 @@
  * measured because …») and a compact JSON block to screenshot, so Nasser and the tech lead share one
  * reference. /?romlab=1 lists the movements as links.
  *
+ * The booth demo (/demo, src/features/demo) runs the same LabRun in its `demo` mode: the measuring
+ * screens alone, with no diagnostics or JSON, a close that returns to the demo home, and the verdict
+ * with «try again» and «another movement».
+ *
  * Nothing is posted: the controller's saves are dropped here, and no check is started. Video never
  * leaves the phone. Nothing is spoken: the check uses no phone speech (D-036 item 1), and the page runs
  * no Live coach; the screens carry every line, as the check does without the coach.
@@ -66,6 +70,11 @@ const COPY = {
     camera: "الكاميرا",
     noSave: "صفحة اختبار: لا يُحفظ شيء.",
     noAngle: "لا قراءة",
+    demoNoSave: "عرض تجريبي: لا يُحفظ شيء.",
+    demoKicker: "مدى الحركة",
+    another: "حركة أخرى",
+    demoAgain: "أعد القياس",
+    close: "عودة إلى العرض التجريبي",
   },
   en: {
     title: "Range test page",
@@ -90,6 +99,11 @@ const COPY = {
     camera: "Camera",
     noSave: "A test page: nothing is saved.",
     noAngle: "no reading",
+    demoNoSave: "A demo: nothing is saved.",
+    demoKicker: "Range of motion",
+    another: "Another movement",
+    demoAgain: "Measure again",
+    close: "Back to the demo",
   },
 } as const;
 
@@ -132,7 +146,7 @@ const isMovement = (id: string | null): id is RomMovementId =>
   id !== null && (ROM_MOVEMENT_IDS as readonly string[]).includes(id);
 
 /** The sides a movement is tried on here: a limb's left and right, a side bend's directions, else none. */
-function sidesOf(id: RomMovementId): RomSide[] {
+export function sidesOf(id: RomMovementId): RomSide[] {
   const def = movementDef(id);
   return !def.axial || def.bothDirections ? ["right", "left"] : ["none"];
 }
@@ -279,7 +293,23 @@ function eventLine(e: RomEvent): { kind: string; text: string } | null {
   }
 }
 
-function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolItem }) {
+/**
+ * The booth demo's ways out (/demo): with them the page shows the measuring screens alone (no
+ * diagnostics, no JSON block), its X closes, and the verdict offers the same movement again or
+ * another one.
+ */
+export interface LabDemo {
+  onClose(): void;
+  onAgain(): void;
+  onAnother(): void;
+}
+
+export function LabRun({
+  lang,
+  onLanguage,
+  item,
+  demo,
+}: RomLabProps & { item: RomProtocolItem; demo?: LabDemo }) {
   const c = COPY[lang];
   const def = movementDef(item.movementId);
   // The check's camera; on a VITE_E2E=1 build &e2ePerson=1 is FocusApp's simulated person instead.
@@ -401,17 +431,19 @@ function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolIte
     screen = (
       <div className="fx-split">
         <Glass className="fx-card">
-          <Kicker>{c.title}</Kicker>
+          <Kicker>{demo ? c.demoKicker : c.title}</Kicker>
           <Title>{movementName(item.movementId, lang)}</Title>
           <span className="fx-pill is-violet">
-            {sideRegion(item, lang)}, {positionName(item.position, lang)}
+            {sideRegion(item, lang)}
+            {lang === "ar" ? "، " : ", "}
+            {positionName(item.position, lang)}
           </span>
           <ol className="fx-steps">
             {instructionLines(item.movementId, item.side, item.position, lang).map((l, i) => (
               <li key={i}>{l}</li>
             ))}
           </ol>
-          <p className="rl-note">{c.noSave}</p>
+          <p className="rl-note">{demo ? c.demoNoSave : c.noSave}</p>
         </Glass>
         <Actions
           sticky
@@ -451,7 +483,7 @@ function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolIte
         saved={null}
         intake={null}
         last
-        onNext={() => setFinished(true)}
+        onNext={demo ? demo.onAnother : () => setFinished(true)}
         onAgain={() => ctl.tryAgain(clock())}
       />
     );
@@ -467,98 +499,119 @@ function LabRun({ lang, onLanguage, item }: RomLabProps & { item: RomProtocolIte
     <CheckRoot ui={{ lang }} page={false} className="fx">
       <Page
         lang={lang}
-        top={<TopBar lang={lang} onLanguage={onLanguage} />}
+        top={
+          <TopBar
+            lang={lang}
+            onLanguage={onLanguage}
+            onLeave={demo?.onClose ?? null}
+            leaveLabel={demo ? c.close : undefined}
+          />
+        }
         screen={`romlab_${step.kind}${ctl.phase ? `_${ctl.phase}` : ""}`}
         step={`romlab:${item.movementId}:${step.kind === "measure" ? "measure" : step.kind}`}
         wide={step.kind === "measure"}
       >
         <div className="rl-page" data-romlab={item.movementId} data-verdict={verdict?.kind ?? ""}>
           {screen}
-          {verdict && step.kind !== "measure" && (
+          {verdict && step.kind !== "measure" && !(demo && step.kind === "result" && !finished) && (
             <Glass className={`fx-card rl-verdict is-${verdict.kind}`}>
               <p className="rl-verdict-line" role="status">
                 {verdict.text}
               </p>
               <Actions
-                items={[
-                  {
-                    label: c.list,
-                    onClick: () => location.assign(`/?romlab=1${lang === "en" ? "&lang=en" : ""}`),
-                    kind: "quiet",
-                    name: "list",
-                  },
-                  { label: c.again, onClick: () => location.reload(), name: "again_lab", icon: "refresh" },
-                ]}
+                items={
+                  demo
+                    ? [
+                        { label: c.another, onClick: demo.onAnother, kind: "secondary", name: "another" },
+                        { label: c.demoAgain, onClick: demo.onAgain, name: "again_lab", icon: "refresh" },
+                      ]
+                    : [
+                        {
+                          label: c.list,
+                          onClick: () => location.assign(`/?romlab=1${lang === "en" ? "&lang=en" : ""}`),
+                          kind: "quiet",
+                          name: "list",
+                        },
+                        {
+                          label: c.again,
+                          onClick: () => location.reload(),
+                          name: "again_lab",
+                          icon: "refresh",
+                        },
+                      ]
+                }
               />
             </Glass>
           )}
-          <Glass className="fx-card rl-diag">
-            <div className="rl-diag-head">
-              <Kicker>{c.diag}</Kicker>
-              {started && !ended && (
-                <button type="button" className="fx-chip" onClick={stopNow} data-action="lab_stop">
-                  {c.stop}
-                </button>
-              )}
-            </div>
-            <dl className="rl-grid">
-              <dt>{c.angle}</dt>
-              <dd data-diag="angle" dir="ltr">
-                {ctl.live === null ? c.noAngle : `${ctl.live}°`}
-              </dd>
-              <dt>{c.phase}</dt>
-              <dd data-diag="phase" dir="ltr">
-                {ctl.phase ?? step.kind}
-                {ctl.phase === "attempt" || ctl.phase === "practice" ? ` ${ctl.attempt.index}` : ""}
-              </dd>
-              <dt>{c.hold}</dt>
-              <dd data-diag="hold">
-                <span className="rl-bar">
-                  <i style={{ width: `${Math.round(ctl.holdProgress * 100)}%` }} />
-                </span>
-              </dd>
-              <dt>{c.fps}</dt>
-              <dd data-diag="fps" dir="ltr">
-                {fps}
-              </dd>
-              <dt>{c.model}</dt>
-              <dd dir="ltr">
-                {camera.model}, {cam.status}
-              </dd>
-              <dt>{c.seen}</dt>
-              <dd data-diag="seen" dir="ltr" className="rl-seen">
-                {gate.map((i) => {
-                  const ok = !!lm && (lm[i]?.visibility ?? 0) >= vis;
-                  return (
-                    <span key={i} className={ok ? "is-seen" : "is-hidden"}>
-                      {LANDMARK_NAMES[i] ?? `#${i}`} {ok ? "seen" : "hidden"}
-                    </span>
-                  );
-                })}
-              </dd>
-            </dl>
-            <Kicker>{c.attempts}</Kicker>
-            <ul className="rl-log" dir="ltr" data-diag="attempts">
-              {log.current.attempts.map((a, i) => (
-                <li key={i}>
-                  {a.index === 0 ? "practice" : `attempt ${a.index}`}: {a.outcome}
-                  {a.value === null ? "" : ` ${a.value}°`}
-                  {a.answer ? ` (${a.answer})` : ""}
-                  {a.reasons.length ? ` [${a.reasons.join(", ")}]` : ""}
-                  {a.flags.length ? ` {${a.flags.join(", ")}}` : ""}
-                </li>
-              ))}
-            </ul>
-            <Kicker>{c.events}</Kicker>
-            <ol className="rl-log" dir="ltr" data-diag="events">
-              {log.current.events.slice(-40).map((e, i) => (
-                <li key={i} className={`is-${e.kind}`}>
-                  {(e.t / 1000).toFixed(1)} s {e.text}
-                </li>
-              ))}
-            </ol>
-          </Glass>
-          {(verdict || started) && (
+          {!demo && (
+            <Glass className="fx-card rl-diag">
+              <div className="rl-diag-head">
+                <Kicker>{c.diag}</Kicker>
+                {started && !ended && (
+                  <button type="button" className="fx-chip" onClick={stopNow} data-action="lab_stop">
+                    {c.stop}
+                  </button>
+                )}
+              </div>
+              <dl className="rl-grid">
+                <dt>{c.angle}</dt>
+                <dd data-diag="angle" dir="ltr">
+                  {ctl.live === null ? c.noAngle : `${ctl.live}°`}
+                </dd>
+                <dt>{c.phase}</dt>
+                <dd data-diag="phase" dir="ltr">
+                  {ctl.phase ?? step.kind}
+                  {ctl.phase === "attempt" || ctl.phase === "practice" ? ` ${ctl.attempt.index}` : ""}
+                </dd>
+                <dt>{c.hold}</dt>
+                <dd data-diag="hold">
+                  <span className="rl-bar">
+                    <i style={{ width: `${Math.round(ctl.holdProgress * 100)}%` }} />
+                  </span>
+                </dd>
+                <dt>{c.fps}</dt>
+                <dd data-diag="fps" dir="ltr">
+                  {fps}
+                </dd>
+                <dt>{c.model}</dt>
+                <dd dir="ltr">
+                  {camera.model}, {cam.status}
+                </dd>
+                <dt>{c.seen}</dt>
+                <dd data-diag="seen" dir="ltr" className="rl-seen">
+                  {gate.map((i) => {
+                    const ok = !!lm && (lm[i]?.visibility ?? 0) >= vis;
+                    return (
+                      <span key={i} className={ok ? "is-seen" : "is-hidden"}>
+                        {LANDMARK_NAMES[i] ?? `#${i}`} {ok ? "seen" : "hidden"}
+                      </span>
+                    );
+                  })}
+                </dd>
+              </dl>
+              <Kicker>{c.attempts}</Kicker>
+              <ul className="rl-log" dir="ltr" data-diag="attempts">
+                {log.current.attempts.map((a, i) => (
+                  <li key={i}>
+                    {a.index === 0 ? "practice" : `attempt ${a.index}`}: {a.outcome}
+                    {a.value === null ? "" : ` ${a.value}°`}
+                    {a.answer ? ` (${a.answer})` : ""}
+                    {a.reasons.length ? ` [${a.reasons.join(", ")}]` : ""}
+                    {a.flags.length ? ` {${a.flags.join(", ")}}` : ""}
+                  </li>
+                ))}
+              </ul>
+              <Kicker>{c.events}</Kicker>
+              <ol className="rl-log" dir="ltr" data-diag="events">
+                {log.current.events.slice(-40).map((e, i) => (
+                  <li key={i} className={`is-${e.kind}`}>
+                    {(e.t / 1000).toFixed(1)} s {e.text}
+                  </li>
+                ))}
+              </ol>
+            </Glass>
+          )}
+          {!demo && (verdict || started) && (
             <Glass className="fx-card rl-json">
               <Kicker>{c.json}</Kicker>
               <pre dir="ltr" data-diag="json">

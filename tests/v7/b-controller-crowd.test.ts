@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { itemKey, LOST_PAUSE_MS, RomController } from "../../src/features/focus/romController";
 import { buildRomProtocol } from "../../src/medical/rom-protocol";
 import type { Landmark } from "../../src/engine/types";
+import { REACQUIRE_MS } from "../../src/engine/subject";
 import { entry, intake, today } from "./a-fixtures";
 import { bridges, runBlock, saves } from "./b-shell-driver";
 import { MOVEMENT_CASES } from "./b-person";
@@ -35,7 +36,9 @@ describe("the range block in a crowd (D-038 item 2)", () => {
     });
     ctl.startBlock("lying", 0);
     let awayFrom = Infinity;
-    const away = (t: number) => t >= awayFrom && t < awayFrom + 6000;
+    // Away for less than REACQUIRE_MS (D-039 item 3: longer, the main person in the picture is taken).
+    const AWAY_MS = REACQUIRE_MS - 600;
+    const away = (t: number) => t >= awayFrom && t < awayFrom + AWAY_MS;
     const seen: { t: number; kind: string; phase: string | null; lost: boolean; held: boolean }[] = [];
     const lock = (ctl as unknown as { lock: { held: boolean; generation: number } }).lock;
     const run = runBlock(
@@ -57,7 +60,7 @@ describe("the range block in a crowd (D-038 item 2)", () => {
     const during = seen.filter((s) => away(s.t) && s.t >= awayFrom + LOST_PAUSE_MS + 100);
     expect(during.length).toBeGreaterThan(50);
     expect(during.every((s) => s.phase === "paused" && s.lost)).toBe(true);
-    expect(seen.filter((s) => !away(s.t) && s.t > awayFrom + 6000 + 500).every((s) => !s.lost)).toBe(true);
+    expect(seen.filter((s) => !away(s.t) && s.t > awayFrom + AWAY_MS + 500).every((s) => !s.lost)).toBe(true);
     // The coach says it once, calmly.
     const said = bridges(run.events).filter(
       (e) => e.type === "say" && (e as { key?: string }).key === "subject_lost",

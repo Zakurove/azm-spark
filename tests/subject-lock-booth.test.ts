@@ -21,6 +21,8 @@ import {
   SUBJECT_RULES,
   subjectOf,
   type SubjectPick,
+  LONE_ANY_MS,
+  REACQUIRE_MS,
 } from "../src/engine/subject";
 import { setupCheck, type SetupConfig } from "../src/engine/quality";
 import type { Frame, Landmark } from "../src/engine/types";
@@ -150,12 +152,13 @@ describe("A leaves", () => {
       a: t < leaveAt ? A : null,
       b: { x: 0.75, height: 0.55 },
     }));
-    const held = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    // D-039 item 3: the strict crowd lock (never stuck is off).
+    const held = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, reacquire: false });
     held.hold(true);
     const heldPicks = run(held, frames);
     expect(heldPicks.filter((_, i) => frames[i].t >= leaveAt).every((p) => p.lm === null)).toBe(true);
     expect(held.generation).toBe(1);
-    const between = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    const between = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, reacquire: false });
     const picks = run(between, frames);
     frames.forEach((f, i) => {
       const gone = f.t - leaveAt;
@@ -163,6 +166,50 @@ describe("A leaves", () => {
       if (gone > SUBJECT_RULES.switchAfterMs + DT) expect(picks[i].index).toBe(bIndex[i]);
     });
     expect(between.generation).toBe(2);
+  });
+
+  it("D-039 item 3, never stuck: A comes back alone elsewhere and nearer: taken after LONE_ANY_MS, even held", () => {
+    const leaveAt = 2000;
+    const backAt = 3000;
+    const { frames, aIndex } = scene(8000, (t) => ({
+      a: t < leaveAt ? A : t >= backAt ? { x: 0.8, height: 0.9 } : null,
+      b: null,
+    }));
+    const lock = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    lock.hold(true);
+    const picks = run(lock, frames);
+    frames.forEach((f, i) => {
+      if (f.t >= leaveAt && f.t < backAt) expect(picks[i].lm).toBeNull();
+      if (f.t > backAt + LONE_ANY_MS + DT) expect(picks[i].index).toBe(aIndex[i]);
+    });
+    expect(lock.generation).toBe(2);
+  });
+
+  it("D-039 item 3, never stuck: A gone among others: nobody for REACQUIRE_MS, then the main person, even held", () => {
+    const leaveAt = 2000;
+    const { frames, bIndex } = scene(10000, (t) => ({
+      a: t < leaveAt ? A : null,
+      b: { x: 0.75, height: 0.55 },
+    }));
+    const lock = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    lock.hold(true);
+    const picks = run(lock, frames);
+    frames.forEach((f, i) => {
+      const gone = f.t - leaveAt;
+      // B alone after A left: the lone rule takes B after LONE_ANY_MS; never before.
+      if (gone >= 0 && gone < LONE_ANY_MS - DT) expect(picks[i].lm).toBeNull();
+      if (gone > REACQUIRE_MS + DT) expect(picks[i].index).toBe(bIndex[i]);
+    });
+    expect(lock.generation).toBe(2);
+  });
+
+  it("D-039 item 3: while A is seen, B is never taken (with or without never stuck)", () => {
+    const { frames, aIndex } = scene(8000, () => ({ a: A, b: { x: 0.75, height: 0.7 } }));
+    const lock = new SubjectLock(SUBJECT_RULES, CROWD_LOCK);
+    lock.hold(true);
+    const picks = run(lock, frames);
+    frames.forEach((_, i) => expect(picks[i].index).toBe(aIndex[i]));
+    expect(lock.generation).toBe(1);
   });
 
   it("briefly (under the release time): the lock stays, and A is followed again when back", () => {

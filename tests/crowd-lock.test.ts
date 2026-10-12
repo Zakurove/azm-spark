@@ -30,13 +30,16 @@ import type { Landmark } from "../src/engine/types";
 import { across, CLOTHES, crowdFrames, pacing, type Crowd, type Member } from "./fixtures/crowd";
 import { person } from "./fixtures/people";
 
+/** D-039 item 3: these tests pin the strict crowd lock (never stuck is off: reacquire false). */
+const STRICT: SubjectLockOptions = { ...CROWD_LOCK, reacquire: false };
+
 const PORTRAIT = 9 / 16;
 const LANDSCAPE = 16 / 9;
 
 /** Runs a lock over a crowd, locked on the first frame and held from `holdAt` (ms). */
 function run(
   crowd: Crowd,
-  opts: SubjectLockOptions = CROWD_LOCK,
+  opts: SubjectLockOptions = STRICT,
   holdAt: number | null = 0,
   needs: readonly number[] | null = null,
 ): { lock: SubjectLock; picks: SubjectPick[]; names: (string | null)[] } {
@@ -130,7 +133,7 @@ describe("people in front don't pause unless they cover what the step needs", ()
   const crowd = crowdFrames(7000, [A, ...BEHIND, D2, BESIDE], { aspect: PORTRAIT, seed: 11 });
 
   it("someone in front over the side the movement does not use: no pause at all", () => {
-    const { picks, names } = run(crowd, CROWD_LOCK, 0, RIGHT_ARM);
+    const { picks, names } = run(crowd, STRICT, 0, RIGHT_ARM);
     expect(picks.every((p) => !p.paused && p.lm !== null)).toBe(true);
     names.forEach((n) => expect(n).toBe("A"));
   });
@@ -138,7 +141,7 @@ describe("people in front don't pause unless they cover what the step needs", ()
   it("the v1 box rule (D-037) would have paused it, and the crowd lock with every key point too", () => {
     const box = run(crowd, { ignoreBehind: true }, null);
     expect(box.picks.some((p) => p.paused && p.reason === "overlap")).toBe(true);
-    const all = run(crowd, CROWD_LOCK, 0, null);
+    const all = run(crowd, STRICT, 0, null);
     expect(all.picks.some((p) => p.paused && p.reason === "overlap")).toBe(true);
     all.names.forEach((n) => n === null || expect(n).toBe("A"));
   });
@@ -223,7 +226,7 @@ describe("between steps (not held): a new person only after 20 s, and only one s
       seed: 4,
       dt: 50,
     });
-    const { lock, names } = run(crowd, CROWD_LOCK, null);
+    const { lock, names } = run(crowd, STRICT, null);
     crowd.frames.forEach((f, k) => {
       const lastSeen = 2000 - 50;
       if (f.t >= 2000 && f.t < lastSeen + SUBJECT_RULES.switchAfterMs) expect(names[k]).toBeNull();
@@ -238,7 +241,7 @@ describe("between steps (not held): a new person only after 20 s, and only one s
       seed: 4,
       dt: 50,
     });
-    const { lock, names } = run(crowd, CROWD_LOCK, null);
+    const { lock, names } = run(crowd, STRICT, null);
     expect(names.slice(crowd.frames.findIndex((f) => f.t >= 2100)).every((n) => n === null)).toBe(true);
     expect(lock.generation).toBe(1);
   });

@@ -212,6 +212,12 @@ export interface SubjectLockOptions {
    * over a point the step needs; where the subject stays, one who comes back is near their place.
    */
   crowd?: boolean;
+  /**
+   * D-039 item 3: never stuck (default true with `crowd`): alone LONE_ANY_MS unseen, the one person is
+   * taken; among others REACQUIRE_MS unseen, the main person. False for the walk, whose walker leaves
+   * the picture at every pass and between its parts.
+   */
+  reacquire?: boolean;
 }
 
 /** D-038 item 2: the lock of the v7 camera screens (range, walk), the workouts and the demos. */
@@ -529,6 +535,11 @@ export function acquireIndex(
   return k < 0 ? -1 : pool[k].i;
 }
 
+/** D-039 item 3: alone in the picture this long unseen, the one person is the subject wherever they are. */
+export const LONE_ANY_MS = 1000;
+/** D-039 item 3: unseen this long among others, the main person in the picture is taken (never stuck). */
+export const REACQUIRE_MS = 4000;
+
 export class SubjectLock {
   private state: LockState | null = null;
   private frames = 0;
@@ -556,6 +567,7 @@ export class SubjectLock {
   private readonly releaseOverride: number | null;
   private readonly ignoreBehind: boolean;
   private readonly crowd: boolean;
+  private readonly reacquire: boolean;
 
   constructor(
     private readonly rules: typeof SUBJECT_RULES = SUBJECT_RULES,
@@ -566,6 +578,7 @@ export class SubjectLock {
     this.releaseOverride = opts.releaseMs ?? null;
     this.ignoreBehind = opts.ignoreBehind ?? false;
     this.crowd = opts.crowd ?? false;
+    this.reacquire = opts.reacquire ?? this.crowd;
   }
 
   get locked(): boolean {
@@ -861,12 +874,21 @@ export class SubjectLock {
     // never the walk, whose walker leaves the picture at every pass): one person about the subject's
     // size near their place is the subject at once, the same person (no new start pose). Anyone else
     // alone keeps the crowd rules (between steps only, after switchAfterMs, standing ready).
-    if (!subject && this.crowd && this.mode === "stay" && people.length === 1) {
+    // D-039 item 3 (Nasser at the booth: «when it loses me it stops trying and can't detect me
+    // again»): alone in the picture for LONE_ANY_MS unseen, the one person is taken wherever they are and
+    // whatever their size (the range, workouts and demos: "stay"; the walk, whose walker leaves the
+    // picture at every pass, keeps its own rules); a different place or size is a new start pose.
+    const unseenMs = this.clock - s.seenT;
+    if (!subject && this.crowd && people.length === 1) {
       const lone = people[0];
       const size = trunkOf(lone.px).size;
       const sameSize = size > 0 && s.size > 0 && size / s.size < 1.5 && s.size / size < 1.5;
       const near = Math.abs(xShareOf(lone.raw) - s.xShare) < 0.25;
-      if (sameSize && near && this.follow(lone, a, true)) {
+      const same = this.mode === "stay" && sameSize && near;
+      if (
+        (same || (this.reacquire && this.mode === "stay" && unseenMs >= LONE_ANY_MS)) &&
+        this.follow(lone, a, same)
+      ) {
         subject = lone;
         if (lone.look) this.state!.look = lone.look;
         this.others = [];
@@ -957,6 +979,18 @@ export class SubjectLock {
           }
         }
       }
+    }
+    // D-039 item 3: never stuck. The person unseen REACQUIRE_MS with others in the picture (the model
+    // lost them among people, or they came back where no rule expected them): the main person in the
+    // picture is taken (a new start pose), even during a test. While the person is seen, nobody else is
+    // ever taken.
+    if (!subject && this.reacquire && this.mode === "stay" && people.length > 0 && unseenMs >= REACQUIRE_MS) {
+      const k = acquireIndex(
+        people.map((p) => p.raw),
+        a,
+        this.rules,
+      );
+      if (k >= 0 && this.follow(people[k], a, false)) subject = people[k];
     }
     // The people seen with the subject are the others (never taken for the subject).
     if (subject) this.remember(people.filter((p) => p !== subject));

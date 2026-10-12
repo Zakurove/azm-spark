@@ -20,8 +20,19 @@ export function coachAudioContext(): AudioContext {
   return shared;
 }
 
-/** Inside a tap: creates or resumes the coach's AudioContext. Never throws. */
+/**
+ * Inside a tap: creates or resumes the coach's AudioContext. Never throws. D-039 item 4: also sets the
+ * audio session to "playback" (unless the microphone's play-and-record is on), which CuePlayer.unlock
+ * did beside it until the voice clips were removed (D-038 item 3): without it the iOS silent switch
+ * mutes the coach's voice.
+ */
 export function unlockCoachAudio(): void {
+  try {
+    const nav = navigator as AudioSessionNavigator;
+    if (nav.audioSession && nav.audioSession.type !== "play-and-record") nav.audioSession.type = "playback";
+  } catch {
+    /* not supported */
+  }
   try {
     const c = coachAudioContext();
     const state = c.state as string;

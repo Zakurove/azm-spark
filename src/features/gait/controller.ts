@@ -293,7 +293,8 @@ const WALK_NEEDS: readonly number[] = [23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
 
 /** The walk's one lock (D-037 item 4, the crowd-proof lock of D-038 item 2). */
 function walkLock(): SubjectLock {
-  const lock = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, mode: "stay" });
+  // D-039 item 3: the walk keeps its own return rules (the walker leaves the picture at every pass).
+  const lock = new SubjectLock(SUBJECT_RULES, { ...CROWD_LOCK, mode: "stay", reacquire: false });
   lock.setNeeds(WALK_NEEDS);
   return lock;
 }

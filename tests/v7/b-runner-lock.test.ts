@@ -8,7 +8,7 @@
  * them against the first one's. Clearly synthetic.
  */
 import { describe, expect, it } from "vitest";
-import { CROWD_LOCK, SUBJECT_RULES, SubjectLock, subjectOf } from "../../src/engine/subject";
+import { CROWD_LOCK, LONE_ANY_MS, SUBJECT_RULES, SubjectLock, subjectOf } from "../../src/engine/subject";
 import type { Frame } from "../../src/engine/types";
 import { person } from "../fixtures/people";
 import { romSpec } from "../fixtures/rom/build";
@@ -56,7 +56,7 @@ describe("another person on the range measurement's camera (D-037 item 4)", () =
       expect(run.runner.lock.generation).toBe(1);
     });
 
-  it("D-038 item 2: A leaves mid try while B stands there: B is never measured, no start pose on B", () => {
+  it("D-039 item 3: A leaves mid try while B stands there alone: nothing measured at first, then B is taken with a new start pose (never stuck)", () => {
     const b = person({ x: 0.14, height: 0.7 }, 9 / 16);
     let leftAt = Infinity;
     const run = runRom(spec, {
@@ -72,11 +72,13 @@ describe("another person on the range measurement's camera (D-037 item 4)", () =
       },
     });
     const phases = run.events.flatMap((e) => (e.kind === "phase" ? [{ phase: e.phase, t: e.t }] : []));
-    expect(phases.some((p) => p.phase === "calibrating" && p.t > leftAt)).toBe(false);
-    expect(run.holds.every((h) => h.t < leftAt)).toBe(true);
-    expect(run.events.some((e) => e.kind === "live" && e.t > leftAt + 100)).toBe(false);
-    for (const f of run.frames) if (f.t > leftAt && subjectOf(f) !== undefined) expect(subjectOf(f)).toBe(-1);
-    expect(run.runner.lock.generation).toBe(1);
+    // Nothing of B in the first moment after A left ...
+    expect(
+      run.events.some((e) => e.kind === "live" && e.t > leftAt + 100 && e.t < leftAt + LONE_ANY_MS - 100),
+    ).toBe(false);
+    // ... then B alone is the person, from a new start pose.
+    expect(phases.some((p) => p.phase === "calibrating" && p.t > leftAt)).toBe(true);
+    expect(run.runner.lock.generation).toBe(2);
   });
 
   it("the v1 lock (not held, 2 s): A leaves for longer while B stands there: the start pose is taken again, on B", () => {

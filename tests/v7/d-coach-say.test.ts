@@ -500,13 +500,13 @@ describe("the walk hands the coach its words (GaitController)", () => {
     }
     for (let i = 0; i < 3 && ctl.current.id === "walk"; i++)
       ctl.tick((t += CAPTURE_LIMITS.afterLastPassMs + 100));
-    // The count: pass 2 and pass 3 of 4, never the first nor the last.
+    // D-039 item 2: the coach talks less; the count stays on the screen.
     const counts = says(events).filter((e) => e.kind === "progress");
-    expect(counts.map((e) => e.lines[0])).toEqual(["Pass 2 of 4", "Pass 3 of 4"]);
-    expect([1, 2, 3, 4].map((n) => passSaid(n, 4))).toEqual([false, true, true, false]);
+    expect(counts).toEqual([]);
+    expect([1, 2, 3, 4].map((n) => passSaid(n, 4))).toEqual([false, false, false, false]);
   });
 
-  it("a hint the screen shows is said as a correction; nothing without the screen's language", () => {
+  it("the phone's level stays on the screen (D-039 item 2); nothing without the screen's language", () => {
     const { ctl, events } = gait();
     let t = 1000;
     ctl.start(t);
@@ -516,11 +516,8 @@ describe("the walk hands the coach its words (GaitController)", () => {
       t += 100;
     }
     ctl.feed({ t, lm: [], poses: [], aspect: 1 }, { rollDeg: 20, tilt: { rollDeg: 20 } });
-    expect(says(events).at(-1)).toMatchObject({
-      kind: "correction",
-      key: "hint_level",
-      lines: [gt("en", "hint.level")],
-    });
+    expect(ctl.hint).toBe("level");
+    expect(says(events).filter((e) => e.kind === "correction")).toEqual([]);
     const none = gait(null);
     none.ctl.start(1000);
     expect(says(none.events)).toEqual([]);

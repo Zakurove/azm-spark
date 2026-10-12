@@ -24,6 +24,10 @@ import { StopButton } from "../features/assessment/safety/parts";
 import "../features/assessment/safety/safety.css";
 import "./session.css";
 
+/** D-039 item 2: setup cues the coach never says (the phone, the light, the distance, other people). */
+const SCREEN_ONLY =
+  /phone|tilt|level|light|still|camera|angle|closer|move_back|too_close|too_far|one_person|second_person|sleeve/;
+
 /**
  * The camera screen (booth v2, contract A7): the trial, the workouts and the booth.
  *
@@ -168,7 +172,9 @@ export function flowCoachSays(
     if (STAGE_LINES.has(m.id)) continue;
     const text =
       (m.voice ? LINE_TEXT[m.voice]?.[lang] : undefined) ?? s.messages[m.id] ?? LINE_TEXT[m.id]?.[lang] ?? "";
-    if (text) out.push({ p: 2, type: "say", kind: "correction", key: m.id, lines: [text], t });
+    // D-039 item 2: the phone's angle, level, steadiness, the light and the distance stay on the screen.
+    if (text && !SCREEN_ONLY.test(m.id))
+      out.push({ p: 2, type: "say", kind: "correction", key: m.id, lines: [text], t });
   }
   for (const ev of view.events)
     if (ev.kind === "rep" && ev.cls !== "partial")

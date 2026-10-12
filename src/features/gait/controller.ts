@@ -85,7 +85,7 @@ import type {
 import type { Lang } from "../../app/i18n";
 import { EMERGENCY_REASONS, pauseRefusal, resumeRefusal, type PausedBy } from "../coach-agent/hostRules";
 import { pressNextStep, ScreenActions } from "../../coach/actions";
-import { gaitStepSay, hintSay, lapSay, passSaid, passSay } from "./say";
+import { gaitStepSay, hintSaid, hintSay, lapSay, passSaid, passSay } from "./say";
 
 const CAPTURE = captureData as unknown as GaitData["capture"];
 const PAD_SAFETY = (eligibilityData as unknown as GaitData["eligibility"]).padSafety;
@@ -1108,7 +1108,7 @@ export class GaitController implements CoachHost {
       // D-037 item 1: the coach says the hint, calmly (never the same one within a few seconds); the
       // turn of each lap is its own line (D-038 item 4: the laps come closer than that).
       const lap = h === "turn" ? (this.recording?.passes ?? 0) + 1 : undefined;
-      if (this.lang) this.sayLine(hintSay(h, this.lang, lap), this.lastT);
+      if (this.lang && hintSaid(h)) this.sayLine(hintSay(h, this.lang, lap), this.lastT);
     }
     this.changed();
   }

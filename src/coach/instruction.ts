@@ -34,6 +34,8 @@ import type { CoachBlock, CoachSegment } from "./types";
 /**
  * Stored with every coach session (agent_sessions.instruction_version). coach_si_2 (D-030 D5-9): a
  * pain number is marked at once, and the place is asked at most once, after the app answered.
+ * coach_si_6 (D-039 item 2): the coach talks much less: one short sentence for each say line, the setup
+ * only as where to be and which way to face, never the phone's angle, light or steadiness.
  * coach_si_3 (D-036): the coach presses Ready, Start, Next, Continue or Try again with next_step and
  * its intent when the person says so; the app no longer speaks any line itself (no asked_locally, the
  * corrections are on the screen). coach_si_4 (D-037 items 1 and 2): the coach says the app's say lines out
@@ -46,7 +48,7 @@ import type { CoachBlock, CoachSegment } from "./types";
  * counts the reps, says the form cues and the set's steps out loud and encourages; and the coach never
  * mentions another person in the picture (a pause for a person it cannot see has two lines only).
  */
-export const COACH_SI_VERSION = "coach_si_5";
+export const COACH_SI_VERSION = "coach_si_6";
 
 /* ------------------------------------------------------ the instruction */
 
@@ -90,7 +92,9 @@ function rules(lang: Lang, block: CoachBlock): string[] {
   const says = block !== "session";
   const about = quote(lang, lang === "ar" ? "حوالي 120 درجة" : "about 120 degrees");
   return [
-    `Speak in ${says ? "one to three" : "one or two"} short sentences per turn, always under 100 words.`,
+    // D-039 item 2: the person found the explanations too long at the booth.
+    "Speak in one short sentence per turn, two at most, always under 25 words. Talk less rather than more.",
+    "Never mention the phone's angle, tilt, level, light or steadiness, the camera, or the distance to the phone; the screen shows those.",
     "Coach exercise and movement only. Never diagnose, treat, prescribe or give medical advice.",
     `When you speak of the person's condition, always say ${quote(lang, lang === "ar" ? "حالتك الطبية" : "your medical condition")}.`,
     "Invite movement only within a range that is comfortable and free of pain.",
@@ -152,7 +156,7 @@ function thisPart(input: InstructionInput): string[] {
  * person stands far from the phone and cannot read it).
  */
 const SAY_LINES = [
-  "say: after its bracket, the app's own words for the screen now. Say them at once, without waiting to be asked, in your own words and in one to three short sentences: never read them word for word, never add a step of your own, never say a number of degrees.",
+  "say: after its bracket, the app's own words for the screen now. Say only the essence at once, without waiting to be asked, in one short sentence of your own (under 15 words): never read them word for word, never list every step, never add a step of your own, never say a number of degrees.",
   "say kind=step: the step on the screen. kind=correction: one correction the screen shows; say it once, calmly. kind=progress: a short line of the moment (the walk's count, a hold in hand), in a few words.",
   "say face: which way the person faces the phone; always say it with a setup. face=phone: they face the phone. face=right_side or face=left_side: they turn that side of their body toward the phone. face=side: they turn either side toward the phone.",
 ];
@@ -165,9 +169,9 @@ function events(lang: Lang, block: CoachBlock): string[] {
   const perBlock: Record<CoachBlock, string[]> = {
     rom: [
       ...SAY_LINES,
-      "say key=block_seated, block_standing or block_lying: where the person is for this part (seated, standing holding a support, or lying down) and that the phone stands steady where it sees them.",
-      "say key=setup: the position, where the phone goes and how far away, which way to face it, and the start pose. Keep the movement itself for the measurement.",
-      "say key=move: the measurement starts: hold the start position still for a moment, then the movement, slowly, as far as is comfortable without pain, and hold still at the end; a practice try when it says so. key=again: once more, the same way. key=rest: rest a moment.",
+      "say key=block_seated, block_standing or block_lying: in a few words, where the person is for this part (seated, standing holding a support, or lying down).",
+      "say key=setup: in one sentence, the position and which way to face the phone (for example: sit, and turn your right side to the phone). Nothing about where the phone goes or how far. Keep the movement itself for the measurement.",
+      "say key=move: in one sentence, the movement, slowly, as far as is comfortable, and hold at the end. key=again: once more, in a few words. key=rest: rest, in a few words.",
       "The app records each measurement on its own at the person's furthest steady hold: never ask whether it is as far as they can go, and never ask them to confirm it.",
       "say key=hold: the person holds the end of the movement; say only a few calm words such as hold there, never a number. key=done: the value is recorded; say only a few words such as done, and that they can rest.",
       `When the person says during a measurement that they can go further or asks you to wait, call keep_reaching and say only ${q(lang, "keep_going")} ${quote(lang, TAKE_TIME[lang])} The app waits a few more seconds and records their furthest hold. After any pain, never invite more movement: the app decides what follows.`,
@@ -178,7 +182,7 @@ function events(lang: Lang, block: CoachBlock): string[] {
     ],
     gait: [
       ...SAY_LINES,
-      "say kind=step: the walk's setup or instruction. The walk has two parts. Part 1: the phone standing sideways about 3 metres from the path, walking across the picture and back with their side to the phone, never toward it. Part 2, right after it with the phone left where it is: walking toward the phone and back, twice, starting 4 to 5 metres away and turning about 2 metres before it, before their feet leave the picture.",
+      "say kind=step: the walk's instruction in one short sentence. Part 1: walk across the picture and back, side on to the phone. Part 2: walk toward the phone and back, twice. Nothing about where the phone stands.",
       "say key=hint_turn_1 or hint_turn_2 (part 2, each lap): they are close to the phone: tell them at once, in a few words, to turn around and walk back.",
       context,
       "pass_done: the walk in one view is done; no reply needed, at most a few words of encouragement.",

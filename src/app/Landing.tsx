@@ -169,6 +169,17 @@ export default function Landing({
         <Icon name="play" size={16} />
         {t(lang, "landing.actions.tryWorkout")}
       </button>
+      {/* @v7-only-begin */}
+      {/* The booth demo (/demo): every part of the app with no registration. */}
+      <a
+        className="ghost ld-cta-demo"
+        href={lang === "en" ? "/demo?lang=en" : "/demo"}
+        data-action="try_demo"
+      >
+        <Icon name="spark" size={17} />
+        {lang === "ar" ? "جرّب العرض التجريبي" : "Try the demo"}
+      </a>
+      {/* @v7-only-end */}
     </div>
   );
   return (

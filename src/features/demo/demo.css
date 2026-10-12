@@ -1,0 +1,218 @@
+/* ——— The booth demo (/demo) ———
+   The focus check's family (focus.css): the warm light stage, glass cards, Cairo, gold for the one
+   action, purple for the person's marks. Phone first at 390 px: one column of large cards, every tap
+   target 56 px and more. Reduced motion turns the press animation off. */
+
+.dm-home {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.azm-check.fx .dm-hero {
+  gap: 8px;
+  padding-block: 18px;
+}
+.dm-hero .fx-title {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+.dm-persona {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.65;
+}
+.dm-avatar {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--fx-purple-deep);
+}
+
+/* ——— the four parts ——— */
+.dm-parts,
+.dm-moves {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.azm-check.fx .dm-part,
+.azm-check.fx .dm-move {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  border: 0;
+  border-radius: 26px;
+  background: var(--fx-glass);
+  box-shadow: var(--fx-ring), var(--fx-shadow);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    transform 0.18s var(--fx-ease),
+    box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.azm-check.fx .dm-part:active,
+.azm-check.fx .dm-move:active {
+  transform: scale(0.985);
+  box-shadow: var(--fx-ring), var(--fx-shadow-lift);
+}
+.dm-part-pic {
+  display: block;
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(28, 32, 41, 0.05),
+    0 10px 22px -18px rgba(46, 34, 82, 0.5);
+}
+.dm-part-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
+}
+.dm-part-text,
+.dm-move-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.dm-part-text b,
+.dm-move-text b {
+  color: var(--fx-ink);
+  font-size: 1.18rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.dm-part-text > span,
+.dm-move-text > span {
+  color: var(--fx-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+.dm-part-go {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  color: var(--fx-gold-ink);
+}
+
+/* ——— new visitor ——— */
+.dm-new {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+}
+.dm-new .fx-actions {
+  margin: 0;
+}
+.azm-check.fx .dm-new .fx-button {
+  width: 100%;
+  min-height: 56px;
+}
+.dm-new-hint {
+  margin: 0;
+  color: var(--fx-soft);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+/* ——— the range picker ——— */
+.dm-sides {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.azm-check.fx .dm-side {
+  flex: 1;
+  min-height: 52px;
+  font-weight: 700;
+}
+.azm-check.fx .dm-side.is-on {
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-ink);
+  box-shadow:
+    0 0 0 2px var(--fx-purple),
+    0 8px 20px -14px rgba(46, 34, 82, 0.4);
+}
+.dm-group {
+  margin: 8px 4px 0;
+  color: var(--fx-muted);
+  font-size: 1rem;
+  font-weight: 800;
+}
+.azm-check.fx .dm-move {
+  grid-template-columns: 84px minmax(0, 1fr) 24px;
+  min-height: 104px;
+}
+.dm-move .movement-picture {
+  width: 84px;
+  height: 84px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+/* ——— the journey's health form, in the portal's own form styles ——— */
+.dm-journey .portal-topbar.dm-journey-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  justify-content: space-between;
+  gap: 12px;
+  height: auto;
+  min-height: 64px;
+  padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+}
+.dm-journey-kicker {
+  color: #63528d;
+  font-weight: 800;
+}
+.dm-journey .portal-topbar .icon-button {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(28, 32, 41, 0.08);
+}
+
+@media (min-width: 720px) {
+  .dm-parts {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .azm-check.fx .dm-part,
+  .azm-check.fx .dm-move {
+    transition: none;
+  }
+  .azm-check.fx .dm-part:active,
+  .azm-check.fx .dm-move:active {
+    transform: none;
+  }
+}

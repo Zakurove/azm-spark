@@ -18,6 +18,9 @@ import { v7Enabled } from "./modules/focus/routes";
 import { pruneAgentSessions } from "./modules/focus/store";
 import { afterIntakeSaved } from "./modules/program/hooks";
 import { isAwaiting, markAwaiting } from "./modules/program/awaiting";
+import { isDemoEmail } from "./modules/demo/store";
+import { inRequestScope, markDemoRequest } from "./modules/demo/scope";
+import { sessionCookie } from "./http/session";
 const scrypt = promisify(derive);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -127,7 +130,11 @@ export function createApi(
     }
     return { intake, plan: { ...plan, version: p.version } };
   };
-  async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void) {
+  /** Each request in its own scope: a demo person's is marked once the session is read (demo/scope.ts). */
+  function handle(req: IncomingMessage, res: ServerResponse, next?: () => void) {
+    return inRequestScope(() => handleRequest(req, res, next));
+  }
+  async function handleRequest(req: IncomingMessage, res: ServerResponse, next?: () => void) {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
     const route = url.pathname;
     if (!route.startsWith("/api/")) return next?.();
@@ -161,6 +168,8 @@ export function createApi(
           "SELECT users.* FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.token=? AND sessions.expires>?",
         )
         .get(token, Date.now()) as any;
+      // The booth demo's people (/demo) never reach the anonymous daily counts.
+      markDemoRequest(!!u && isDemoEmail(u.email));
       const ip = clientAddress(req.headers["x-forwarded-for"], req.socket.remoteAddress);
       if (mutation) {
         if (!req.headers["content-type"]?.startsWith("application/json"))
@@ -208,11 +217,7 @@ export function createApi(
         if (!res.headersSent) json(500, { error: "SERVER" });
         return;
       }
-      const cookie = (value: string, age: number) =>
-        res.setHeader(
-          "Set-Cookie",
-          `azm_session=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
-        );
+      const cookie = (value: string, age: number) => res.setHeader("Set-Cookie", sessionCookie(value, age));
       if (route === "/api/auth/register" || route === "/api/auth/login") {
         if (req.method !== "POST") return json(405, { error: "METHOD" });
         const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -223,7 +228,9 @@ export function createApi(
           email.length > 254 ||
           typeof password !== "string" ||
           password.length < 10 ||
-          password.length > 128
+          password.length > 128 ||
+          // The booth demo's reserved domain (demo/store.ts): never a real account.
+          isDemoEmail(email)
         )
           return json(400, { error: "CREDENTIAL_FORMAT" });
         let account: any;

@@ -228,6 +228,21 @@ function CoachLabPage() {
     </LazyPage>
   ) : null;
 }
+/**
+ * The booth demo (Nasser at KSCDR): /demo opens with no registration (VITE_V7=1 builds only, the env
+ * test written inline). It signs in a fresh demo person and shows the demo home: the full journey,
+ * range of motion, the walk and the exercises (src/features/demo). &lang=en for English.
+ */
+const DemoApp = import.meta.env.VITE_V7 === "1" ? lazy(() => import("../features/demo/DemoApp")) : null;
+const demoEntry = import.meta.env.VITE_V7 === "1" && /^\/demo\/?$/.test(location.pathname);
+function DemoEntry() {
+  const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar");
+  return DemoApp ? (
+    <LazyPage lang={lang}>
+      <DemoApp lang={lang} onLanguage={() => setLang((l) => (l === "ar" ? "en" : "ar"))} />
+    </LazyPage>
+  ) : null;
+}
 /** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
 export default function App() {
   return PerfOverlay && perfEntry ? (
@@ -237,6 +252,8 @@ export default function App() {
         <PerfOverlay />
       </Suspense>
     </>
+  ) : DemoApp && demoEntry ? (
+    <DemoEntry />
   ) : ProgramBuild && programBuildEntry ? (
     <ProgramBuildPreview />
   ) : CoachLab && coachLabEntry ? (

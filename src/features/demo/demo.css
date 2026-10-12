@@ -170,12 +170,28 @@
   grid-template-columns: 84px minmax(0, 1fr) 24px;
   min-height: 104px;
 }
-.dm-move .movement-picture {
+.dm-move .movement-picture,
+.dm-move-badge {
   width: 84px;
   height: 84px;
   overflow: hidden;
   border-radius: 18px;
   background: #ffffff;
+}
+.dm-move .v7-illustration,
+.dm-move .v7-illustration img {
+  width: 100%;
+  height: 100%;
+}
+.dm-move .v7-illustration img {
+  object-fit: cover;
+  object-position: 50% 50%;
+}
+.dm-move-badge {
+  display: grid;
+  place-items: center;
+  background: var(--fx-purple-tint);
+  color: var(--fx-purple-deep);
 }
 
 /* ——— the journey's health form, in the portal's own form styles ——— */

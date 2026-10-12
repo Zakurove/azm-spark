@@ -76,7 +76,14 @@ export default function DemoRange({ lang, onLanguage, onClose }: DemoRangeProps)
     return (
       <li key={id}>
         <button type="button" className="dm-move" data-movement={id} onClick={() => setRun({ id, n: 0 })}>
-          <MovementPicture movementId={id} side={s === "none" ? undefined : s} lang={lang} size={84} />
+          {/* The artwork shows the movement's first position: another position at the booth gets a badge. */}
+          {boothPosition(id) === movementDef(id).positions[0].id ? (
+            <MovementPicture movementId={id} side={s === "none" ? undefined : s} lang={lang} size={84} />
+          ) : (
+            <span className="dm-move-badge" aria-hidden="true">
+              <CheckIcon name="camera" size={34} />
+            </span>
+          )}
           <span className="dm-move-text">
             <b>{movementName(id, lang)}</b>
             <span>{positionName(boothPosition(id), lang)}</span>

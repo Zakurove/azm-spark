@@ -11,10 +11,13 @@ import { focusRoutes, v7Gate } from "./focus/routes";
 import { healthRoutes } from "./health/routes";
 import { programRoutes } from "./program/routes";
 import { progressRoutes } from "./progress/routes";
+import { waitlistRoutes } from "./waitlist/routes";
 
 /** The module routes of v1, unchanged by v7. */
 export const v1ModuleRoutes: readonly Route[] = [
   ...healthRoutes,
+  // D-040: the launch waiting list, open whatever the flags.
+  ...waitlistRoutes,
   ...accountRoutes,
   ...boothRoutes,
   ...consentRoutes,

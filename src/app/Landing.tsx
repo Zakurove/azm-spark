@@ -5,6 +5,7 @@ import { Lang, fmtNum, pct } from "./i18n";
 import { formatNumber, t, unitWord, type I18nKey } from "../i18n";
 import Brand from "./Brand";
 import Icon from "./Icon";
+import Waitlist, { StoreBadges } from "./Waitlist";
 // @v7-only-begin
 import { lazy, Suspense } from "react";
 const LandingV7 = import.meta.env.VITE_V7 === "1" ? lazy(() => import("./LandingV7")) : null;
@@ -139,12 +140,19 @@ function CompareMock({ lang }: { lang: Lang }) {
   );
 }
 
+/** D-040: the closing line while the apps are coming soon. */
+const CLOSE_SOON = {
+  ar: "التطبيق قريبًا على iPhone و Android. انضم إلى قائمة الانتظار لتكون من أوائل من يجرّبه.",
+  en: "The app is coming soon to iPhone and Android. Join the waiting list to be among the first to try it.",
+};
+
 export default function Landing({
   lang,
   onLanguage,
   onEnter,
   onDemo,
   tryCheck,
+  comingSoon = false,
 }: {
   lang: Lang;
   onLanguage: () => void;
@@ -152,6 +160,8 @@ export default function Landing({
   onDemo: () => void;
   /** The movement check can start (booth mode or open home checks): its action shows (C36). */
   tryCheck: boolean;
+  /** D-040: coming soon to iPhone and Android: the waiting list instead of every way in. */
+  comingSoon?: boolean;
 }) {
   const [rep, setRep] = useState(3);
   useEffect(() => {
@@ -160,7 +170,12 @@ export default function Landing({
     const id = setInterval(() => setRep((r) => (r % 8) + 1), 1150);
     return () => clearInterval(id);
   }, []);
-  const actions = (
+  const actions = comingSoon ? (
+    <>
+      <StoreBadges lang={lang} />
+      <Waitlist lang={lang} />
+    </>
+  ) : (
     <div className="ld-ctas">
       <button className="cta ld-cta-start" onClick={() => onEnter(true)}>
         {t(lang, "landing.actions.startFree")}
@@ -192,9 +207,11 @@ export default function Landing({
             <button className="language" lang={lang === "ar" ? "en" : "ar"} onClick={onLanguage}>
               {t(lang, "landing.header.language")}
             </button>
-            <button className="ghost ld-login" onClick={() => onEnter(false)}>
-              {t(lang, "landing.header.login")}
-            </button>
+            {!comingSoon && (
+              <button className="ghost ld-login" onClick={() => onEnter(false)}>
+                {t(lang, "landing.header.login")}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -253,7 +270,7 @@ export default function Landing({
           </ol>
           <CompareMock lang={lang} />
           {/* While home checks are closed /?check=1 is the booth only screen (S05b): no action here. */}
-          {tryCheck && (
+          {tryCheck && !comingSoon && (
             <div className="ld-how-action">
               <a className="ghost ld-cta-check" href={checkHref(lang)}>
                 <Icon name="camera" size={18} />
@@ -273,8 +290,22 @@ export default function Landing({
 
         <section className="ld-close">
           <h2>{t(lang, "landing.close.title")}</h2>
-          <p>{t(lang, "landing.close.body")}</p>
-          {actions}
+          {comingSoon ? (
+            <>
+              <p>{lang === "ar" ? CLOSE_SOON.ar : CLOSE_SOON.en}</p>
+              <div className="ld-ctas">
+                <a className="cta ld-cta-start" href="#waitlist" data-action="join_waitlist">
+                  {lang === "ar" ? "انضم إلى قائمة الانتظار" : "Join the waiting list"}
+                  <Icon name="arrow" size={16} />
+                </a>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{t(lang, "landing.close.body")}</p>
+              {actions}
+            </>
+          )}
         </section>
       </main>
       <footer className="ld-footer">

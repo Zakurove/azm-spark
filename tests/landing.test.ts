@@ -343,3 +343,37 @@ describe("page wide rules", () => {
     expect(text(part(render("en"), "ld-card-then"))).toMatch(/100/);
   });
 });
+
+describe("coming soon (D-040)", () => {
+  const soon = (lang: Lang) =>
+    renderToStaticMarkup(
+      createElement(Landing, {
+        lang,
+        onLanguage: noop,
+        onEnter: noop,
+        onDemo: noop,
+        tryCheck: true,
+        comingSoon: true,
+      }),
+    );
+  for (const lang of LANGS)
+    it(`offers the waiting list and the two stores, and no way in (${lang})`, () => {
+      const html = soon(lang);
+      expect(html).toContain('id="waitlist"');
+      expect(html).toContain("App Store");
+      expect(html).toContain("Google Play");
+      expect(html).toContain('href="#waitlist"');
+      // No sign in, no sign up, no workout to try, no booth demo, no movement check.
+      expect(html).not.toContain("ld-login");
+      expect(html).not.toContain(t(lang, "landing.actions.startFree"));
+      expect(html).not.toContain(t(lang, "landing.actions.tryWorkout"));
+      expect(html).not.toContain("/demo");
+      expect(html).not.toContain("ld-cta-check");
+      const text = decode(html.replace(/<[^>]+>/g, " "));
+      expect(wordingProblems(text)).toEqual([]);
+    });
+  it("keeps the open landing as it was without the flag", () => {
+    expect(render("ar")).toContain("ld-login");
+    expect(render("ar")).not.toContain('id="waitlist"');
+  });
+});

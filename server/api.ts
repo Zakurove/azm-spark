@@ -22,6 +22,9 @@ import { isDemoEmail } from "./modules/demo/store";
 import { inRequestScope, markDemoRequest } from "./modules/demo/scope";
 import { sessionCookie } from "./http/session";
 const scrypt = promisify(derive);
+/** D-040: the site is a coming soon landing; only these APIs answer. */
+export const comingSoon = () => process.env.AZM_COMING_SOON === "1";
+const COMING_SOON_OPEN: ReadonlySet<string> = new Set(["/api/health", "/api/waitlist"]);
 const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /**
@@ -144,6 +147,10 @@ export function createApi(
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(value));
     };
+    // D-040: coming soon (AZM_COMING_SOON=1). Nobody registers, signs in, tries the demo or reaches
+    // the coach until the apps are ready: every API answers COMING_SOON but the health check and the
+    // waiting list, signed in or not. Nothing stored is changed.
+    if (comingSoon() && !COMING_SOON_OPEN.has(route)) return json(403, { error: "COMING_SOON" });
     const mutation = !["GET", "HEAD"].includes(req.method ?? "GET");
     if (mutation) {
       const allowed = (process.env.AZM_ORIGIN ?? `http://${req.headers.host}`)

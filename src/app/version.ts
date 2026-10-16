@@ -3,4 +3,4 @@
  * which version it runs (Nasser at the booth could not tell whether a release had reached his phone).
  * Bumped with every production release, with its git tag.
  */
-export const APP_VERSION = "v7.6.2";
+export const APP_VERSION = "v7.7";

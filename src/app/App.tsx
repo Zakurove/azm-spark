@@ -8,6 +8,7 @@ import { EXERCISES } from "../exercises/defs";
 import { SavedSession, Setup } from "./product";
 import Brand from "./Brand";
 import Landing from "./Landing";
+import { COMING_SOON } from "./comingSoon";
 import type { WeeklyPlan } from "../medical/weekly";
 import { planRest, sessionDay, sessionSize } from "../medical/session";
 import type { WorkoutRun } from "./Workout";
@@ -244,7 +245,47 @@ function DemoEntry() {
   ) : null;
 }
 /** The app, with G's performance overlay over every page when /?perf=1 opens a VITE_E2E build. */
+/**
+ * D-040: coming soon to iPhone and Android. Every address is the landing with the waiting list (the
+ * privacy page stays open); no sign up, sign in, demo, test page or workout. The server refuses them
+ * too (AZM_COMING_SOON=1).
+ */
+function ComingSoonPage() {
+  const [lang, setLang] = useState<Lang>(qs.get("lang") === "en" ? "en" : "ar");
+  const toggle = () => setLang((l) => (l === "ar" ? "en" : "ar"));
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  }, [lang]);
+  useEffect(() => {
+    // An old link (/demo, a test page, a sign in) lands on the home address.
+    if (!privacyEntry && (location.pathname !== "/" || location.search.replace(/[?&]lang=en/, "")))
+      history.replaceState({}, "", lang === "en" ? "/?lang=en" : "/");
+  }, []);
+  if (privacyEntry)
+    return (
+      <LazyPage lang={lang}>
+        <Privacy
+          lang={lang}
+          onLanguage={toggle}
+          onBack={() => (history.length > 1 ? history.back() : openUrl("/", lang, true))}
+        />
+      </LazyPage>
+    );
+  return (
+    <Landing
+      lang={lang}
+      onLanguage={toggle}
+      onEnter={() => undefined}
+      onDemo={() => undefined}
+      tryCheck={false}
+      comingSoon
+    />
+  );
+}
+
 export default function App() {
+  if (COMING_SOON) return <ComingSoonPage />;
   return PerfOverlay && perfEntry ? (
     <>
       <Pages />

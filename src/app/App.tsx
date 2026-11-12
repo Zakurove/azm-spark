@@ -9,6 +9,8 @@ import { SavedSession, Setup } from "./product";
 import Brand from "./Brand";
 import Landing from "./Landing";
 import { COMING_SOON } from "./comingSoon";
+import { COMPANY_PAGE } from "./companyFlag";
+import CompanyPage from "./CompanyPage";
 import type { WeeklyPlan } from "../medical/weekly";
 import { planRest, sessionDay, sessionSize } from "../medical/session";
 import type { WorkoutRun } from "./Workout";
@@ -285,6 +287,7 @@ function ComingSoonPage() {
 }
 
 export default function App() {
+  if (COMPANY_PAGE) return <CompanyPage />;
   if (COMING_SOON) return <ComingSoonPage />;
   return PerfOverlay && perfEntry ? (
     <>

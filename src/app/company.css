@@ -1,0 +1,214 @@
+/* D-041: Azm Spark Establishment, light, gold action, violet accent, Cairo. */
+.co-shell {
+  position: relative;
+  overflow-x: clip;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fdf7e4 0%, #fbfaf8 38%, #fbfaf8 100%);
+  color: #1c2029;
+  font-family: Cairo, system-ui, sans-serif;
+}
+.co-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 22px 64px;
+}
+.co-year {
+  margin: 0 auto;
+  width: fit-content;
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: #f1edf9;
+  color: #4b3a86;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.co-hero {
+  position: relative;
+  padding: 64px 8px 56px;
+  text-align: center;
+}
+.co-glow {
+  position: absolute;
+  z-index: 0;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.co-glow-gold {
+  background: #f8cb44;
+  top: -120px;
+  inset-inline-start: -80px;
+}
+.co-glow-violet {
+  background: #b9a8e6;
+  bottom: -160px;
+  inset-inline-end: -100px;
+}
+.co-hero > :not(.co-glow) {
+  position: relative;
+  z-index: 1;
+}
+.co-hero h1 {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.co-name-ar {
+  font-size: clamp(38px, 8vw, 64px);
+  line-height: 1.3;
+  font-weight: 800;
+}
+.co-name-en {
+  font-size: clamp(22px, 4.4vw, 34px);
+  font-weight: 700;
+  color: #4b3a86;
+  letter-spacing: -0.5px;
+}
+.co-lead {
+  margin: 26px auto 0;
+  max-width: 640px;
+  font-size: clamp(18px, 3.6vw, 22px);
+  line-height: 1.8;
+  color: #3a3f49;
+}
+.co-lead-en {
+  margin: 4px auto 0;
+  max-width: 640px;
+  font-size: 16px;
+  color: #5c616b;
+}
+.co-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 56px;
+  margin-top: 32px;
+  padding: 14px 30px;
+  border-radius: 16px;
+  background: #f8cb44;
+  color: #1c2029;
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 16px 34px -14px #f8cb44cc;
+}
+.co-cta:hover {
+  background: #f3c12c;
+}
+.co-cta:focus-visible {
+  outline: 3px solid #6c56a5;
+  outline-offset: 3px;
+}
+.co-services,
+.co-contact {
+  margin-top: 24px;
+  text-align: center;
+}
+.co-services h2,
+.co-contact h2 {
+  margin: 0 0 22px;
+  font-size: 28px;
+}
+.co-services h2 span,
+.co-contact h2 span {
+  display: block;
+  font-size: 16px;
+  color: #6b7079;
+  font-weight: 700;
+}
+.co-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  text-align: start;
+}
+.co-card {
+  padding: 26px;
+  border: 1px solid #ece8f6;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 18px 40px -28px #6c56a566;
+}
+.co-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #f1edf9;
+  color: #4b3a86;
+}
+.co-card h3 {
+  margin: 16px 0 6px;
+  font-size: 20px;
+}
+.co-card p {
+  margin: 0;
+  color: #50555f;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.co-card-en {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0edf5;
+  text-align: left;
+}
+.co-card-en h3 {
+  margin-top: 0;
+  font-size: 16px;
+}
+.co-card-en p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.co-contact {
+  margin-top: 56px;
+  padding: 36px 22px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid #ece8f6;
+}
+.co-contact p {
+  margin: 0;
+  color: #50555f;
+  font-size: 16px;
+  line-height: 1.8;
+}
+.co-contact .co-cta {
+  margin-top: 22px;
+}
+.co-footer {
+  border-top: 1px solid #eeebe4;
+  background: #fff;
+  padding: 22px;
+  text-align: center;
+  color: #50555f;
+  font-size: 14px;
+}
+.co-footer p {
+  margin: 2px 0;
+}
+.co-copy {
+  margin-top: 8px !important;
+  color: #8a8f98;
+  font-size: 13px;
+}
+@media (max-width: 560px) {
+  .co-hero {
+    padding: 44px 4px 40px;
+  }
+  .co-cta {
+    width: 100%;
+  }
+}

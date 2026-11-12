@@ -65,7 +65,7 @@ describe("the smoke page and the performance overlay (G)", () => {
     expect(app).toMatch(/const perfEntry = !!PerfOverlay && qs\.get\("perf"\) === "1";/);
     // D-040: the coming soon page comes first, before any lazy entry.
     expect(app).toMatch(
-      /export default function App\(\) \{\n\s+if \(COMING_SOON\) return <ComingSoonPage \/>;\n\s+return PerfOverlay && perfEntry \?/,
+      /export default function App\(\) \{\n\s+if \(COMPANY_PAGE\) return <CompanyPage \/>;\n\s+if \(COMING_SOON\) return <ComingSoonPage \/>;\n\s+return PerfOverlay && perfEntry \?/,
     );
     // Nothing else imports them: a VITE_E2E branch of App.tsx is the only way in.
     for (const file of filesUnder(join(ROOT, "src"))) {
